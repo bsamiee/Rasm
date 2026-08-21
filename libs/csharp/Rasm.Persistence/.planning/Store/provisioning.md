@@ -1,31 +1,30 @@
 # [PERSISTENCE_STORE_PROVISIONING]
 
-Rasm.Persistence provisions the PostgreSQL 18 server tier as ONE VERIFICATION-FIRST read fold and the embedded SQLite floor as ONE idempotent open ritual, the two engines the closed `StoreProfile` axis selects by deployment and never a third: a Rasm process NEVER executes runtime `ALTER SYSTEM`, NEVER spawns or bundles PostgreSQL, and NEVER mutates the cluster — provisioning is a typed `ProvisionVerdict` over what the operator-provisioned cluster already carries, and a gap is a typed signal the operator resolves at the four provisioning rungs (migration artifact, idempotent seed, operator runbook, environment), the fold reading all four and EMITTING repair artifacts (reconciliation grants, `shared_preload_libraries` diffs) as typed verification outputs it never executes. Each server extension is a `ServerExtension` `[SmartEnum<string>]` row carrying its `CreateSql`, its `Admission` gate (preload library, base type, or access method the install requires), the analytical `lane` it serves, and the `RestartClass` its preload gap repairs under — so a new extension is one row and a gap names its repair's disruption class; each verified cluster knob is a `ClusterSetting` row, and the absence policy is not a `Switch` arm but `FailureRank` behavior — a `[SmartEnum]` whose `Absorb` delegate threads the floor-miss receipt, `Required` refusing the profile, `Degradable` folding the lane out so absence surfaces at admission instead of first query, `Observational` recording evidence. Verification is ONE `NpgsqlBatch` round trip over `pg_available_extensions`/`pg_extension`/`pg_settings`/`pg_replication_slots`/`pg_index`, folding the required roster, the held analytical lanes, the emitted repair set, and a stamped `VerificationEpoch` into one verdict the process dispatches on and never re-probes, so admission cost is data-volume-independent and environment drift is an observable epoch event on the fact stream. Beneath the server tier the embedded SQLite floor is the same fold discipline for a single-process store — the open ritual folds pragma rows by RESIDENCY (file-persistent provisioning rows versus per-connection rows), registers connection-scoped capabilities (the `Store/observability#SQLITE_STATUS_HARVEST` statement-registry arm, `uuid7`/`xxh128` UDFs, the `instant_iso` collation, a domain aggregate) before the first statement, hardens through the `SqliteConnection.Handle` raw `sqlite3_db_config` defensive set, gates first-opener migration under one IMMEDIATE transaction, and arms extended result codes — and the `EngineOps` capsule owns the raw-handle operations the managed ADO surface omits (the `sqlite3_wal_checkpoint_v2` checkpoint receipt, the `sqlite3_snapshot_*` consistent read pin, the paged `sqlite3_backup_*` session, the `SqliteBlob` zeroblob lane, the integrity ladder), every throwing crossing converting to a closed `EmbeddedFault` and disposing the connection on every failure path. Every loose provisioning integer is a typed case — `ServerFault` carries the WHOLE re-banded 838x decade (`FaultBand.Server`, the absence/readiness/admission receipts included) and the foreign-store/epoch-ahead refusals are `EmbeddedFault.Refused` in-band 771x, so a bare `Error.New` is the deleted form here; the `StoreProfile` rows carry the wire and EF provider bindings — the `NpgsqlDataSourceBuilder.UseNetTopologySuite` ADO codec row (raw Npgsql lanes read/write geometry: the `cypher` pgrouting results, the verification probes over PostGIS, any `QueueSqlCommand` spatial write; `geographyAsDefault`/precision/ordinates are profile POLICY values, never call-site literals — the EF plugin does not place the codec on raw connections) and the `Ef` bind row (`Server` → `UseNpgsql`, `Embedded` → `UseSqlite` over the connection the open ritual already dialed) feeding the ONE `Element/identity#ELEMENT_IDENTITY` DbContext, so provider variance stays row data on the closed axis and a hand ADO mapping beside the generated rail is the deleted form; the `Npgsql.OpenTelemetry` observability row (`TracerProviderBuilder.AddNpgsql()` + `MeterProviderBuilder.AddNpgsqlInstrumentation()`) subscribes at the AppHost composition root; the `pg_jsonschema` validation lane degrades to the in-process `Json.Schema.JsonSchema.Evaluate(JsonElement, EvaluationOptions?)` fence when the server extension folds out, one schema serving both residences. This page also hosts the `[V13]` `#STORE_AXIS_MAP` — the 11-axis store perimeter whose provider rows are deployment/policy DATA. Wall clock, correlation, and tenant ride the injected `Element/graph#STORE_RAIL` `ProjectionContext` frame, the kernel `CorrelationId`/`TenantContext` pair riding it as S0 vocabulary; `ReceiptSinkPort` arrives settled from AppHost; `FaultBand` from `Element/graph#FAULT_TABLES`; `NpgsqlDataSource`/`IDocumentSession`/`IDocumentStore` from the substrate; the analytical lanes that consume the verified extensions arrive from `Query/columnar`/`Query/cypher`/`Query/topology`; the `h3-pg` cell convention the `h3_postgis` bridge serves matches the managed `pocketken.H3` (`Element/identity#ELEMENT_IDENTITY`).
+Rasm.Persistence provisions the PostgreSQL 18 server tier as ONE VERIFICATION-FIRST read fold and the embedded SQLite floor as ONE idempotent open ritual, the two engines the closed `StoreProfile` axis selects by deployment and never a third: a Rasm process NEVER executes runtime `ALTER SYSTEM`, NEVER spawns or bundles PostgreSQL, and NEVER mutates the cluster — provisioning is a typed `ProvisionVerdict` over what the operator-provisioned cluster already carries, and a gap is a typed signal the operator resolves at the four provisioning rungs (migration artifact, idempotent seed, operator runbook, environment), the fold reading all four and EMITTING repair artifacts (reconciliation grants, `shared_preload_libraries` diffs) as typed verification outputs it never executes. Each server extension is a `ServerExtension` `[SmartEnum<string>]` row carrying its `CreateSql`, its `Admission` gate (preload library, base type, or access method the install requires), the analytical `lane` it serves, and the `RestartClass` its preload gap repairs under — so a new extension is one row and a gap names its repair's disruption class; each verified cluster knob is a `ClusterSetting` row, and the absence policy is not a `Switch` arm but `FailureRank` behavior — a `[SmartEnum]` whose `Absorb` delegate threads the floor-miss receipt, `Required` refusing the profile, `Degradable` folding the lane out so absence surfaces at admission instead of first query, `Observational` recording evidence. Verification is ONE `NpgsqlBatch` round trip over `pg_available_extensions`/`pg_extension`/`pg_settings`/`pg_replication_slots`/`pg_index`, folding the required roster, the held analytical lanes, the emitted repair set, and a stamped `VerificationEpoch` into one verdict the process dispatches on and never re-probes, so admission cost is data-volume-independent and environment drift is an observable epoch event on the fact stream. Beneath the server tier the embedded SQLite floor is the same fold discipline for a single-process store — the open ritual folds pragma rows by RESIDENCY (file-persistent provisioning rows versus per-connection rows), registers connection-scoped capabilities (the `Store/observability#SQLITE_STATUS_HARVEST` statement-registry arm, `uuid7`/`xxh128` UDFs, the `instant_iso` collation, a domain aggregate) before the first statement, hardens through the raw `sqlite3_db_config` defensive set, gates first-opener migration under one IMMEDIATE transaction, and arms extended result codes — and `HandleBridge` is the ONE capsule every `sqlite3_*` crossing in this package rides, owning handle resolution, exception capture, status discrimination, and connection disposal so `EngineOps` states only the operations the managed ADO surface omits (the `sqlite3_wal_checkpoint_v2` checkpoint receipt, the `sqlite3_snapshot_*` consistent read pin, the paged `sqlite3_backup_*` session, the `SqliteBlob` zeroblob lane, the integrity ladder) and a second reach for `SqliteConnection.Handle` anywhere in the folder re-opens the disposal path that capsule closes. Every loose provisioning integer is a typed case — `ServerFault` carries the WHOLE re-banded 838x decade over its `[FaultCase]` roster (`FaultBand.Server`, the absence/readiness/admission receipts included) and the foreign-store/epoch-ahead refusals are `EmbeddedFault.Refused` in-band 771x, so a bare `Error.New` is the deleted form here; the `StoreProfile` rows carry the engine capability column and the EF provider binding while ONE `SourceWire` policy row carries every data-source value — the `NpgsqlDataSourceBuilder.UseNetTopologySuite` ADO codec (raw Npgsql lanes read/write geometry: the `cypher` pgrouting results, the verification probes over PostGIS, any `QueueSqlCommand` spatial write), the NodaTime codec, and the tracing posture as a `CapabilitySet<TraceEmission>` — all profile POLICY values, never call-site literals, because the EF plugin places no codec on a raw connection; beside it the `Ef` bind row (`Server` → `UseNpgsql`, `Embedded` → `UseSqlite` over the connection the open ritual already dialed) feeding the ONE `Element/identity#ELEMENT_IDENTITY` DbContext, so provider variance stays row data on the closed axis and a hand ADO mapping beside the generated rail is the deleted form; the `Npgsql.OpenTelemetry` observability row (`TracerProviderBuilder.AddNpgsql()` + `MeterProviderBuilder.AddNpgsqlInstrumentation()`) subscribes at the AppHost composition root; the `pg_jsonschema` validation lane degrades to the in-process `Json.Schema.JsonSchema.Evaluate(JsonElement, EvaluationOptions?)` fence when the server extension folds out, one schema serving both residences. This page also hosts the `[V13]` `#STORE_AXIS_MAP` — the 11-axis store perimeter whose provider rows are deployment/policy DATA. Wall clock, correlation, and tenant ride the injected `Element/graph#STORE_RAIL` `ProjectionContext` frame, the kernel `CorrelationId`/`TenantContext` pair riding it as S0 vocabulary; `ReceiptSinkPort` arrives settled from AppHost; `FaultBand` from `Element/graph#FAULT_TABLES`; `NpgsqlDataSource`/`IDocumentSession`/`IDocumentStore` from the substrate; the analytical lanes that consume the verified extensions arrive from `Query/columnar`/`Query/cypher`/`Query/topology`; the `h3-pg` cell convention the `h3_postgis` bridge serves matches the managed `pocketken.H3` (`Element/identity#ELEMENT_IDENTITY`).
 
 ## [01]-[INDEX]
 
-- [02]-[SERVER_EXTENSIONS]: `ServerExtension`'s extension × admission-gate × lane roster, the `FailureRank` absence behavior, the one-batch verification fold over the catalog reads (extension version floors included), the four provisioning rungs, the emitted repair set, the `MaintenanceJob` in-database work roster, the `RollingWindow` Marten partition roster, the wire/EF provider-binding rows, the `pg_jsonschema` in-process fallback fence, and the stamped verification epoch.
+- [02]-[SERVER_EXTENSIONS]: `StoreCapability`'s two-plane store-capability vocabulary with the legal-corner law closing the engine sweep, `ServerExtension`'s extension × admission-gate × lane roster over the kernel capability floor, the `FailureRank` absence behavior, the one-batch verification fold over the catalog reads (extension version floors included), the four provisioning rungs, the emitted repair set, the `MaintenanceJob` in-database work roster, the `RollingWindow` Marten partition roster, the `SourceWire` data-source policy row, the EF provider-binding row, the `pg_jsonschema` in-process fallback fence, and the stamped verification epoch.
 - [03]-[EMBEDDED_FLOOR]: `EmbeddedRitual`'s residency-split pragma ladder, the connection-scoped capability registration, the defensive `sqlite3_db_config` hardening, the first-opener IMMEDIATE migration gate, and the closed-engine law.
-- [04]-[ENGINE_OPERATIONS]: `HandleBridge`'s native-handle capsule, the `sqlite3_wal_checkpoint_v2` checkpoint receipt, the `sqlite3_snapshot_*` consistent read pin, the paged `sqlite3_backup_*` session, the `SqliteBlob` zeroblob lane, the integrity ladder, the `KvFloor` embedded-KV capsule over the `KvSpace` keyspace roster of axis [07], the `SpoolAccrual` merge frame, the `KvVault` value seal, the `RocksStatus` message taxonomy, and the closed `EmbeddedFault` rail over `RetryShape`.
+- [04]-[ENGINE_OPERATIONS]: `HandleBridge`'s native-handle capsule owning every `sqlite3_*` crossing this package makes, the `sqlite3_wal_checkpoint_v2` checkpoint receipt, the `sqlite3_snapshot_*` consistent read pin, the paged `sqlite3_backup_*` session, the `SqliteBlob` zeroblob lane, the integrity ladder, the `KvFloor` embedded-KV capsule over the `KvSpace` keyspace roster of axis [07], the `SpoolAccrual` merge frame, the `KvVault` value seal, exact RocksDB exception custody, and the closed `EmbeddedFault` rail over `RetryShape`.
 - [05]-[STORE_AXIS_MAP]: store perimeter across eleven axes — every provider row deployment/policy DATA on one axis surface, each scale-out row carrying its proven ceiling.
 
 ## [02]-[SERVER_EXTENSIONS]
 
-- Owner: `Lane` the `[SmartEnum<string>]` analytical-lane vocabulary, the ONE owner of every lane token the estate spells — `StoreProfile.Lanes` declares which rows an engine realizes and `ServerExtension.Lane` declares which row an extension serves, both drawn from it, so a bare string on either side is the deleted form and one vocabulary cannot fork into two spellings; `StoreProfile` the `[SmartEnum<string>]` engine-selection axis the deployment dials (`server` the PostgreSQL 18 tier, `embedded` the SQLite floor) carrying the `Verify`/`Open` provisioning rail each engine runs, the `Lanes` set its engine can realize at all, its `Admits` gate over both a `Lane` member and an untyped token it resolves through the vocabulary first, and the `Degrade` clause naming what the row gives up — the closed two-engine sweep, never a third; `ServerExtension` the `[SmartEnum<string>]` extension axis, each row carrying its `CreateSql`, its `Admission` install gate, the `Lane` it serves, and the `RestartClass` its preload gap repairs under; `ExtensionAdmission` the closed install-gate `[Union]` (a preload library, a base type the extension extends, a real queryable access method it registers, or a prerequisite-free standalone function/type extension); `RestartClass` the `[SmartEnum<string>]` repair-disruption vocabulary (`session`/`reload`/`restart`); `FailureRank` the `[SmartEnum]` whose `Absorb` delegate IS the absence policy; `ClusterSetting` the verified-knob vocabulary; `ProvisionVerdict` the verification verdict carrying the held set, the receipts, the emitted repair artifacts, and the stamped `VerificationEpoch`; `MaintenanceJob` the in-database work roster riding the gated `Register` admission; `RollingWindow` the `[SmartEnum<string>]` Marten-document partition roster carrying each rostered family's `(Period, Ahead, Aged)` window with the one shared `ManagedRangePartitions` its `Declare` hands out; `ReconcileAxis` the closed deployment-axis vocabulary every `ReconcileRow` keys on beside its `RestartClass` sibling; `ServerFault` the closed catalog-read fault `[Union]` over `Expected`; `ClusterProvision` the static surface running the one-batch verification fold and the gated admission — never an `ALTER SYSTEM`.
-- Cases: `ServerExtension` is the AUTHORITATIVE provisioning roster — it SUPERSETS the consumer-facing `README.md` `[SERVER_EXTENSIONS]` card subset with the base-type and toolkit rows a dependency chain requires (`postgis` the standalone base the raster/sfcgal/pgrouting rows gate on, `pgvector` the `vector` base `pgvectorscale` gates on, `pg_duckdb` the in-PG DuckDB bridge, `timescaledb_toolkit` over the `timescaledb` base) so the `BaseType` gate resolves against a row the same fold can admit, never against an externally-assumed prerequisite; each gate is the `.api`-verified install precondition, NOT a loose label: `timescaledb` (preload, the hypertable/continuous-aggregate/columnstore analytics, `Query/columnar`), `timescaledb_toolkit` (the hyperfunction/time-weighted-aggregate layer over the `timescaledb` base type), `pg_duckdb` (preload, the in-PG DuckDB analytical bridge distinct from the in-process `DuckDB.NET` lane, `Query/columnar`), `apache-age` (standalone — the OPTIONAL openCypher graph functions + `agtype`, no preload; Cypher connections issue per-session `LOAD 'age'`, demoted beneath QuikGraph, `Query/cypher#GRAPH_SESSION`), `pg_cron` (preload, the in-database maintenance scheduler), `postgis` (standalone — operator classes over the BUILT-IN `gist` AM, registers no custom access method, the base the raster/3D/routing rows extend), `postgis_raster`/`postgis_sfcgal` (PostGIS raster + exact 3D geometry over the `postgis` base type), `pgvector` (the `hnsw` access-method ANN tier) / `pgvectorscale` (the `diskann` AM gated on the `vector` base type), `pg_search` (PRELOAD-gated — the ParadeDB Tantivy `bm25` engine rides `shared_preload_libraries` and hard-errors on `CREATE EXTENSION` without it), `h3-pg` (standalone — the in-PG H3 cell index over built-in AMs and the `h3_postgis` bridge over the `h3` base type, matching `pocketken.H3`), `pgrouting` (the network routing over the `postgis` base type, `Query/cypher#GRAPH_QUERY`), `pg_partman` (PRELOAD-gated — its `pg_partman_bgw` background worker rides `shared_preload_libraries`), `pg_squeeze` (preload, lock-light table-bloat reclamation), `pg_jsonschema` (standalone — `CREATE EXTENSION`-registered JSON Schema CHECK functions, no preload), `pgaudit` (preload, session/object audit logging), `pg_net` (PRELOAD-gated — its `libcurl` background worker is statically `RegisterBackgroundWorker`'d in `_PG_init` and hard-errors without `shared_preload_libraries`), `pg_graphql` (standalone — pgrx SQL functions + DDL event triggers, no worker, no preload); `ExtensionAdmission` is `Preload(library)` | `BaseType(extension)` | `AccessMethod(method)` (a real queryable index AM the row registers, e.g. `hnsw`) | `Standalone(reason)` (prerequisite-free function/type/operator-class extension that registers NO gating AM); `FailureRank` is `Required`/`Degradable`/`Observational`; `ProvisionVerdict` is `Provisioned | MissingExtension | MissingPreload | SettingDrift | Faulted`; `ServerFault` is the WHOLE re-banded 838x decade — the catalog-read faults (`Unmapped | Unreachable | CatalogDenied`), the absence receipts the `FailureRank.Absorb` delegates thread (`RequiredAbsent | LaneFolded | Evidence`), the readiness evidence (`SlotLag | InvalidIndex`), and the admission refusals (`Ungated | AdmitRefused`) — ten typed cases deriving `FaultBand.Server + n`, so every loose provisioning integer is a registry-derived case and a bare `Error.New(83xx)` is the deleted form.
+- Owner: `Lane` the `[SmartEnum<string>]` analytical-lane vocabulary, the ONE owner of every lane token the estate spells — `StoreProfile.Lanes` declares which rows an engine realizes and `ServerExtension.Lane` declares which row an extension serves, both drawn from it, so a bare string on either side is the deleted form and one vocabulary cannot fork into two spellings; `StoreCapability` the store-plane capability vocabulary over the kernel `ICapability` floor, carrying the object-plane and engine-plane membership constants a subject's honest degrade complements within, and `CapabilityLaw` the legal-corner law closing the two-engine sweep; `StoreProfile` the `[SmartEnum<string>]` engine-selection axis the deployment dials (`server` the PostgreSQL 18 tier, `embedded` the SQLite floor) carrying the `Verify`/`Open` provisioning rail each engine runs, the `Lanes` set its engine can realize at all, its `Admits` gate over both a `Lane` member and an untyped token it resolves through the vocabulary first, its `Capabilities` column and the `Degrade` clause naming what the row gives up, and the `ReconcileAxis` its manifest rows key on — the closed two-engine sweep, never a third; `ServerExtension` the `[SmartEnum<string>]` extension axis realizing that same capability floor, each row carrying its `CreateSql`, its `Admission` install gate, the `Lane` it serves, the `FailureRank` its absence absorbs through, the `RestartClass` its preload gap repairs under, and the dependency `Rank` its gate derives; `ExtensionAdmission` the closed install-gate `[Union]` (a preload library, a base-type ROW the extension extends, a real queryable access method it registers, or a prerequisite-free standalone function/type extension); `RestartClass` the `[SmartEnum<string>]` repair-disruption vocabulary (`session`/`reload`/`restart`); `FailureRank` the `[SmartEnum]` whose `Absorb` delegate IS the absence policy; `ClusterSetting` the verified-knob vocabulary carrying its own comparison policy as a delegate column; `ProvisionVerdict` the verification verdict carrying the held set, the receipts, the emitted repair artifacts, and the stamped `VerificationEpoch`; `ClusterReading` the one catalog reading its fold takes; `TraceEmission`/`SourceWire` the data-source emission vocabulary and the one policy row binding spatial codec, temporal codec, and tracing posture on the same builder; `MaintenanceJob` the in-database work roster riding the gated `Register` admission; `RollingWindow` the `[SmartEnum<string>]` Marten-document partition roster carrying each rostered family's `(Period, Ahead, Aged)` window with the one shared `ManagedRangePartitions` its `Declare` hands out; `ReconcileAxis` the closed deployment-axis vocabulary every `ReconcileRow` and every profile row keys on beside its `RestartClass` sibling; `[FaultCase]` the case-grain fault roster realizing the kernel `[FaultCase]` floor over the `Server` row; `ServerFault` the closed catalog-read fault `[Union]` over `Fault` with the ONE `Lift` its every throwing crossing takes; `ClusterProvision` the static surface running the one-batch verification fold and the gated admission — never an `ALTER SYSTEM`.
+- Cases: `ServerExtension` is the AUTHORITATIVE provisioning roster — it SUPERSETS the consumer-facing `README.md` `[SERVER_EXTENSIONS]` card subset with the base-type and toolkit rows a dependency chain requires (`postgis` the standalone base the raster/sfcgal/pgrouting rows gate on, `pgvector` the `vector` base `pgvectorscale` gates on, `pg_duckdb` the in-PG DuckDB bridge, `timescaledb_toolkit` over the `timescaledb` base) so the `BaseType` gate resolves against a row the same fold can admit, never against an externally-assumed prerequisite; each gate is the `.api`-verified install precondition, NOT a loose label: `timescaledb` (preload, the hypertable/continuous-aggregate/columnstore analytics, `Query/columnar`), `timescaledb_toolkit` (the hyperfunction/time-weighted-aggregate layer over the `timescaledb` base type), `pg_duckdb` (preload, the in-PG DuckDB analytical bridge distinct from the in-process `DuckDB.NET` lane, `Query/columnar`), `apache-age` (standalone — the OPTIONAL openCypher graph functions + `agtype`, no preload; Cypher connections issue per-session `LOAD 'age'`, demoted beneath QuikGraph, `Query/cypher#GRAPH_SESSION`), `pg_cron` (preload, the in-database maintenance scheduler), `postgis` (standalone — operator classes over the BUILT-IN `gist` AM, registers no custom access method, the base the raster/3D/routing rows extend), `postgis_raster`/`postgis_sfcgal` (PostGIS raster + exact 3D geometry over the `postgis` base type), `pgvector` (the `hnsw` access-method ANN tier) / `pgvectorscale` (the `diskann` AM gated on the `vector` base type), `pg_search` (PRELOAD-gated — the ParadeDB Tantivy `bm25` engine rides `shared_preload_libraries` and hard-errors on `CREATE EXTENSION` without it), `h3-pg` (standalone — the in-PG H3 cell index over built-in AMs and the `h3_postgis` bridge over the `h3` base type, matching `pocketken.H3`), `pgrouting` (the network routing over the `postgis` base type, `Query/cypher#GRAPH_QUERY`), `pg_partman` (PRELOAD-gated — its `pg_partman_bgw` background worker rides `shared_preload_libraries`), `pg_squeeze` (preload, lock-light table-bloat reclamation), `pg_jsonschema` (standalone — `CREATE EXTENSION`-registered JSON Schema CHECK functions, no preload), `pgaudit` (preload, session/object audit logging), `pg_net` (PRELOAD-gated — its `libcurl` background worker is statically `RegisterBackgroundWorker`'d in `_PG_init` and hard-errors without `shared_preload_libraries`), `pg_graphql` (standalone — pgrx SQL functions + DDL event triggers, no worker, no preload); `ExtensionAdmission` is `Preload(library)` | `BaseType(row)` | `AccessMethod(method)` (a real queryable index AM the row registers, e.g. `hnsw`) | `Standalone(reason)` (prerequisite-free function/type/operator-class extension that registers NO gating AM); `FailureRank` is `Required`/`Degradable`/`Observational`; `StoreCapability` is nine object-plane rows the `Store/blobstore#OBJECT_STORE` provider axis holds and four engine-plane rows this axis holds (`SingleProcess | TableRewrite | StrategyRedrive | BulkCopy`), the two planes disjoint and each publishing its own membership constant; `ProvisionVerdict` is `Provisioned | MissingExtension | MissingPreload | SettingDrift | Faulted`; `ServerFault` carries provisioning refusals as one compact direct union on `FaultBand.Server`.
 - Law: `Manifest` folds server expectations and embedded ritual rows into one reconcile-only `ReconcileManifest`.
 - Entry: `Verify` folds one catalog batch into a typed verdict; `Register` and `Admit` consume its exact snapshot beside the `StoreProfile` whose realizability they gate on, each reading the LANE off the row it is admitting rather than a call-site token, so the `geo`, `maintenance`, and `audit` lanes gate at the extension and job doors exactly as the analytical lanes gate at their own owning entries; and `BackendObservation.Of` projects a `Provisioned` verdict into the `Store/schema#PROJECTION` observation runtime admission joins against the expected generation, taking the realized artifact set beside the adapter's own observation instant and its two recovery stamps — a probed verdict is the ONE capability evidence the backend contract admits, so a desired roster or an availability read never reaches it, and the recovery halves arrive from the owners that measured them rather than from this fold.
 - Auto: verification is ONE six-command batch — `current_setting('shared_preload_libraries')`, `pg_extension` (created), `pg_available_extensions` (installed-on-disk-but-uncreated), the `pg_settings` rows for every `ClusterSetting`, the `pg_replication_slots` `pg_wal_lsn_diff` max-lag scalar, and the `pg_index WHERE NOT indisvalid` count — folded so a preload-gated extension whose library is absent from `shared_preload_libraries` is `MissingPreload` and EMITS a `shared_preload_libraries` repair diff carrying the `RestartClass.Max` worst-disruption rank across the gap set (so the operator reads ONE bounce cost, never a per-row minimum) the operator applies and restarts (never a runtime `ALTER SYSTEM`), an extension PRESENT in `pg_available_extensions` and uncreated with a satisfied gate admits through `CREATE EXTENSION IF NOT EXISTS` in the one session (one absent from the available set has no admissible repair and threads its `FailureRank.Absorb` instead), a `pg_settings` row whose live value fails its `Satisfied` check folds `SettingDrift` carrying the row's `RestartClass`, and a held analytical lane absent below its `FailureRank` threads its `Absorb` receipt — `Required` refusing the profile, `Degradable` folding the lane out so the gap surfaces at admission, `Observational` recording evidence; a lagging replication slot and any invalid index fold in as `Observational` readiness receipts on the held verdict (server-disk liability and an interrupted concurrent build, visible on the fact stream, never profile-refusing) — the slot scalar `max(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn))::bigint` measures the byte lag of ANY operator-configured replication slot the cluster carries (a physical streaming replica or a third-party logical consumer) read through `NpgsqlDataReader.GetInt64` since `pg_wal_lsn_diff(...)::bigint` is a PG `bigint`, the `restart_lsn` column being the WAL-retention floor every slot kind exposes so the gauge is provider-physical and never assumes a slot identity; it is NOT the durability op-log lane's lag, because the op-log changefeed is a Marten async SUBSCRIPTION reading the committed event table (`Version/ledger#CHANGEFEED`, `H11`), NOT a logical-decoding slot consumer, so the lane carries no `pg_replication_slots` row and `confirmed_flush_lsn` (a logical-slot-only column) is deliberately NOT the surface here — the `wal_level=logical` `ClusterSetting` exists for the recovery `LogicalReplicationConnection.IdentifySystem` RPO probe (`Version/recovery#RECOVERY_ROUTES`) and operator logical consumers, not for an op-log slot; the fold carries zero rank arms (a new rank is one `FailureRank` row), the `h3-pg` cell id matches the managed `pocketken.H3` so the same cell indexes at ingest and in SQL, and a periodic re-`Verify` stamps a fresh `VerificationEpoch` so cluster drift becomes an observable event the AppHost health probe reads (`ARCHITECTURE#SEAMS` `[HEALTH_PROBE]`).
 - Receipt: a verification rides `store.provision.verify` carrying the verdict, the held lane set, the emitted repair count, and the stamped epoch; an admission rides `store.provision.admit` carrying the extension; a type reload rides `store.provision.reload`.
 - Packages: Npgsql (`NpgsqlDataSource.CreateBatch`, `NpgsqlBatchCommand`, `NpgsqlBatch.ExecuteReaderAsync`, `NpgsqlDataReader.NextResultAsync`/`GetInt64`/`GetString`, `NpgsqlParameter<string[]>`, `ReloadTypesAsync`, `PostgresException.SqlState`/`PostgresErrorCodes.InsufficientPrivilege`, `NpgsqlException.IsTransient`, `NpgsqlDataSourceBuilder`), Npgsql.NetTopologySuite (`NpgsqlDataSourceBuilder.UseNetTopologySuite(handleOrdinates, geographyAsDefault)` — the ADO spatial codec row), Npgsql.NodaTime (`NpgsqlNodaTimeExtensions.UseNodaTime<TMapper>(TMapper) where TMapper : INpgsqlTypeMapper` — the ADO temporal codec row the same builder binds, `NpgsqlDataSourceBuilder` implementing `INpgsqlTypeMapper`), Npgsql.OpenTelemetry (`TracerProviderBuilder.AddNpgsql()` / `MeterProviderBuilder.AddNpgsqlInstrumentation()` — the observability row subscribed at the AppHost composition root), JsonSchema.Net (`Json.Schema.JsonSchema.FromText`/`Evaluate(JsonElement, EvaluationOptions?)` — the in-process validation fence), NetTopologySuite (`Ordinates`), Microsoft.EntityFrameworkCore (+ `.Sqlite` `UseSqlite` and the Npgsql EF `UseNpgsql` — the `StoreProfile.Ef` bind row over the `Element/identity` DbContext), Marten (`IDocumentSession.QueueSqlCommand`/`SaveChangesAsync`; `StoreOptions.Schema.For<T>().PartitionOn` + `ByRollingRange`/`PartitionPeriod`/`ManagedRangePartitions` — the `RollingWindow` declaration), Rasm.Persistence.Element (`FaultBand`), NodaTime, LanguageExt.Core (`Seq`/`Fin`/`@catch`), Thinktecture.Runtime.Extensions, BCL inbox.
-- Growth: a new server extension is one `ServerExtension` row carrying its SQL, install gate, lane, and restart class; a new install-gate shape is one `ExtensionAdmission` case; a new absence policy is one `FailureRank` row landing every floor-miss branch with zero `Switch` edits; a new verified setting is one `ClusterSetting` row; a new analytical lane is one `Lane` row every roster and gate then composes, never a token minted at a call site; a lane a profile cannot realize is one absent `Lanes` member and one clause on that row's `Degrade`, never a caller-side engine test; a new version floor is one `floors` entry (deployment data, never a fence literal); a new in-database maintenance job is one `MaintenanceJob` row riding the gated `Register` admission; a new partition-retired document family is one `RollingWindow` row with the `Declare` call at that family's own mapping; a new deployment axis is one `ReconcileAxis` row every manifest fold then keys on; zero new surface — a runtime `ALTER SYSTEM`, a Rasm-spawned PostgreSQL, a per-extension managed package, a `Switch` re-enumerating the absence policy at the fold, a per-extension probe round trip, or a second relational engine row is the deleted form because provisioning is verification-first SQL, the absence policy IS the rank-row delegate, the verification is one batch, and the engine sweep is closed.
+- Growth: a new server extension is one `ServerExtension` row carrying its SQL, install gate, lane, absence rank, and restart class, seated after every row its gate names; a new install-gate shape is one `ExtensionAdmission` case; a new absence policy is one `FailureRank` row landing every floor-miss branch with zero `Switch` edits; a new engine capability is one `StoreCapability` row plus its membership on the profile rows holding it and one term on the plane constant, with the legal corners moving at `CapabilityLaw` alone; a new verification gap is one named `Option<ProvisionVerdict>` probe and one term in the ordered alternative; a new setting comparison mode is one named policy value and the rows electing it; a new verified setting is one `ClusterSetting` row; a new analytical lane is one `Lane` row every roster and gate then composes, never a token minted at a call site; a lane a profile cannot realize is one absent `Lanes` member and one clause on that row's `Degrade`, never a caller-side engine test; a new version floor is one `floors` entry (deployment data, never a fence literal); a new in-database maintenance job is one `MaintenanceJob` row riding the gated `Register` admission; a new partition-retired document family is one `RollingWindow` row with the `Declare` call at that family's own mapping; a new deployment axis is one `ReconcileAxis` row every manifest fold then keys on; zero new surface — a runtime `ALTER SYSTEM`, a Rasm-spawned PostgreSQL, a per-extension managed package, a `Switch` re-enumerating the absence policy at the fold, a per-extension probe round trip, or a second relational engine row is the deleted form because provisioning is verification-first SQL, the absence policy IS the rank-row delegate, the verification is one batch, and the engine sweep is closed.
 - Boundary: a Rasm process NEVER spawns or bundles PostgreSQL and NEVER executes runtime `ALTER SYSTEM` — provisioning is verification-only over the operator-provisioned cluster (`#SERVER_EXTENSIONS`), so a `MissingPreload`/`SettingDrift`/`MissingExtension` verdict is a typed signal carrying the EMITTED repair artifact (a `shared_preload_libraries` diff, a `CREATE EXTENSION` reconciliation, a settings diff) the operator resolves at one of the four provisioning rungs, never a self-mutation; the server extensions carry no managed assembly and admit through raw `CREATE EXTENSION IF NOT EXISTS` gated by the row's `ExtensionAdmission` (a preload library, a base type, a real queryable access method, or a prerequisite-free standalone function/type extension) — the `.api`-verified gate per row, so a preload-gated extension mislabeled no-prerequisite cannot leak a hard-erroring `CREATE EXTENSION` past the gate; the `pg_duckdb` extension is the in-PG DuckDB bridge distinct from the in-process `DuckDB.NET` analytical lane (`Query/columnar`), the two meeting at the columnar SQL surface; `apache-age` is the OPTIONAL self-hosted openCypher graph (`Query/cypher#GRAPH_SESSION`) demoted beneath the in-process QuikGraph (`H5`), so its admission is gated and the lane is disabled by default and never assumed co-resident with Marten; spatial→PG GiST (`postgis_raster`/`postgis_sfcgal`) and ANN→`pgvector`/`pgvectorscale` are the transactional index owners while DuckDB `spatial`/`vss` are the columnar aggregators (`L2`), never duplicated; a catalog read denied by privilege folds `ServerFault.CatalogDenied` (`PostgresErrorCodes.InsufficientPrivilege`) and a transport failure folds through `NpgsqlException.IsTransient` so a retry re-drives only the transient class; `ReloadTypesAsync` completes the deploy by re-resolving wire types, the rejected form being a process that resolves a freshly-admitted enum/composite as unknown until restart; lane absence is stated at ADMISSION on BOTH engines — the server tier folds an absent extension through its `FailureRank` and the embedded tier refuses at `StoreProfile.Admits`, so an embedded deployment discovers the columnar, geo, cypher, vector, search, maintenance, audit, and egress lanes are unrealizable at profile selection rather than at the first query, and a lane surrendered without a `Degrade` clause is the deleted form; every rostered lane reaches a gating consumer — the analytical and egress lanes at their own owning entries, and `geo`, `maintenance`, and `audit` at `Admit` and `Register`, which read the lane off the `ServerExtension`/`MaintenanceJob` row they are admitting, so a lane joining the roster gates without a new call site and a lane no row names is unreachable by construction; ONE table has ONE partition manager — `pg_partman` owns the server-partitioned relations its `MaintenanceJob.PartitionParent` row names (`public.op_log`, rolled by the `pg_partman_bgw` worker its `PartitionCycle` row schedules) and `ManagedRangePartitions` owns the Marten document tables the `RollingWindow` rows name (rolled by the `store.Advanced` verbs the single-writer boot pass runs), so a table appearing on both rosters is the deleted form and a `cron.schedule` rotation job aimed at a Marten document table is the deleted form because those verbs are the only rotation surface a document table has.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 using Microsoft.EntityFrameworkCore.Metadata;     // IModel — the compiled model each profile row mounts
 using Rasm.Persistence.Element;                   // FaultBand, IdentityShapeRow, CompiledModels (identity#ELEMENT_IDENTITY)
-using Expected = Rasm.Domain.Expected;            // the federation fault-band base — NOT LanguageExt.Common.Expected
 
 // --- [TYPES] ----------------------------------------------------------------------------
 
@@ -51,6 +50,59 @@ public sealed partial class Lane {
     public static readonly Lane Cache = new("cache");
 }
 
+// Closed deployment-axis vocabulary the reconcile manifest keys on and every `StoreProfile` row names, mirroring
+// the `RestartClass` shape its sibling column already reads: one owner, every construction drawing from it, so a
+// bare literal cannot fork one axis into two spellings a deploy plane then diffs as two axes.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ReconcileAxis {
+    public static readonly ReconcileAxis RelationalSor = new("relational-sor");
+    public static readonly ReconcileAxis Maintenance = new("maintenance");
+    public static readonly ReconcileAxis EmbeddedRelational = new("embedded-relational");
+}
+
+// Store-plane capability vocabulary — the ONE roster both store planes read. Rows never cross planes, so each
+// plane publishes its own membership CONSTANT and a subject's honest degrade is the complement within THAT plane:
+// a complement over `Items` would tell an object provider it lacks a single-process engine. `Store/blobstore`'s
+// `ObjectStore` rows hold the object-plane rows; `StoreProfile` holds the engine-plane ones. The kernel's default
+// `ICapability.Rank` orders `Wire` off declaration order, so a receipt, a manifest row, and a capability digest
+// render one held set byte-identically and no row states an ordinal its position already spells.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class StoreCapability : ICapability<StoreCapability> {
+    public static readonly StoreCapability Multipart = new("multipart");
+    public static readonly StoreCapability Resume = new("resume");
+    public static readonly StoreCapability BatchErase = new("batch-erase");
+    public static readonly StoreCapability Tiering = new("tiering");
+    public static readonly StoreCapability Thaw = new("thaw");
+    public static readonly StoreCapability PerObjectWorm = new("per-object-worm");
+    public static readonly StoreCapability Presign = new("presign");
+    public static readonly StoreCapability ReadChecksum = new("read-checksum");
+    public static readonly StoreCapability ConditionalWrite = new("conditional-write");
+    // Engine plane. `SingleProcess` is the one-writer floor whose absence IS the server tier; `TableRewrite` the
+    // engine that rewrites a whole table to alter a column; `StrategyRedrive` whether the execution strategy
+    // re-drives, so the `Element/identity#STORE_OPERATION_BRACKET` bracket demands `verifySucceeded` on a
+    // non-idempotent tail; `BulkCopy` the native write-mass lane, absent rather than a not-supported throw.
+    public static readonly StoreCapability SingleProcess = new("single-process");
+    public static readonly StoreCapability TableRewrite = new("table-rewrite");
+    public static readonly StoreCapability StrategyRedrive = new("strategy-redrive");
+    public static readonly StoreCapability BulkCopy = new("bulk-copy");
+
+    public static readonly CapabilitySet<StoreCapability> ObjectPlane = CapabilitySet<StoreCapability>.Of(
+        Multipart, Resume, BatchErase, Tiering, Thaw, PerObjectWorm, Presign, ReadChecksum, ConditionalWrite);
+    public static readonly CapabilitySet<StoreCapability> EnginePlane = CapabilitySet<StoreCapability>.Of(
+        SingleProcess, TableRewrite, StrategyRedrive, BulkCopy);
+
+    // The closed two-engine sweep stated as a LEGAL-CORNER law, which is exactly what the three adjacent bool
+    // columns this set replaces could not carry: a bool product admits eight corners and this axis has two. It is
+    // the buy-back the kernel names for the per-capability compile-time exhaustiveness a membership set gives up.
+    public static readonly CapabilityLaw<StoreCapability> EngineLaw = new(Seq(
+        CapabilitySet<StoreCapability>.Of(StrategyRedrive, BulkCopy),
+        CapabilitySet<StoreCapability>.Of(SingleProcess, TableRewrite)));
+}
+
 // closed engine-selection axis the deployment dials — the ONE place the two relational engines are named, so a
 // `cls.Key == "blob"`-style string compare or a third engine is the deleted form (`#EMBEDDED_FLOOR` keeps the sweep
 // closed). `Server` is the operator-provisioned PostgreSQL 18 tier whose provisioning is `ClusterProvision.Verify`
@@ -63,20 +115,22 @@ public sealed partial class Lane {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class StoreProfile {
-    public static readonly StoreProfile Server = new("server", relational: "postgresql-18", isEmbedded: false,
+    public static readonly StoreProfile Server = new("server", relational: "postgresql-18", ReconcileAxis.RelationalSor,
         lanes: [Lane.Columnar, Lane.Geo, Lane.Cypher, Lane.Vector, Lane.Search, Lane.Maintenance, Lane.Audit, Lane.Validation, Lane.Egress, Lane.Cache],
         degrade: "none at the relational tier — every analytical lane the extension roster serves is reachable, and a lane whose extension is absent folds through its own `FailureRank`",
-        model: static () => CompiledModels.Server, rebuildsAlters: false, retriesInStrategy: true, nativeBulk: Some("binary-copy"),
+        model: static () => CompiledModels.Server,
+        capabilities: CapabilitySet<StoreCapability>.Of(StoreCapability.StrategyRedrive, StoreCapability.BulkCopy),
         ef: static (builder, connection) => builder.UseNpgsql(connection, static npgsql => npgsql
             .MigrationsAssembly(IdentityShapeRow.Server.Migrations)).UseModel(CompiledModels.Server));
-    public static readonly StoreProfile Embedded = new("embedded", relational: "sqlite", isEmbedded: true,
+    public static readonly StoreProfile Embedded = new("embedded", relational: "sqlite", ReconcileAxis.EmbeddedRelational,
         lanes: [Lane.Validation],
         degrade: "single-writer, single-process, no server extension: the columnar, geo, cypher, vector, search, maintenance, audit, egress, and cache lanes have no embedded realization — Marten backs both cache residences, so a single-process store realizes neither — and a profile-level `Admits` refusal states each absence at ADMISSION where the server tier's `FailureRank.Degradable` would have folded the lane out, JSON Schema validation surviving only because it degrades to the in-process fence",
-        model: static () => CompiledModels.Embedded, rebuildsAlters: true, retriesInStrategy: false, nativeBulk: None,
+        model: static () => CompiledModels.Embedded,
+        capabilities: CapabilitySet<StoreCapability>.Of(StoreCapability.SingleProcess, StoreCapability.TableRewrite),
         ef: static (builder, connection) => builder.UseSqlite(connection, static sqlite => sqlite
             .MigrationsAssembly(IdentityShapeRow.Embedded.Migrations)).UseModel(CompiledModels.Embedded));
     public string Relational { get; }
-    public bool IsEmbedded { get; }
+    public ReconcileAxis Axis { get; }
     // `Lanes` names what this engine can realize AT ALL, drawn from the `Lane` vocabulary rather than loose text,
     // beside the honest clause stating what the row gives up. The absence machinery was server-only — `FailureRank`,
     // `HeldLanes`, and `LaneFolded` all key on a `ServerExtension` — so an embedded deployment admitted every
@@ -91,23 +145,27 @@ public sealed partial class StoreProfile {
     // never match, which is what a consumer holding a wire token or its own declared constant binds today.
     public bool Admits(Lane lane) => Lanes.Contains(lane);
     public bool Admits(string lane) => Lane.TryGet(lane, out Lane row) && Lanes.Contains(row);
-    private StoreProfile(string key, string relational, bool isEmbedded, Lane[] lanes, string degrade,
-        Func<IModel> model, bool rebuildsAlters, bool retriesInStrategy, Option<string> nativeBulk,
+    private StoreProfile(string key, string relational, ReconcileAxis axis, Lane[] lanes, string degrade,
+        Func<IModel> model, CapabilitySet<StoreCapability> capabilities,
         Func<DbContextOptionsBuilder, DbConnection, DbContextOptionsBuilder> ef) : this(key) =>
-        (Relational, IsEmbedded, Lanes, Degrade, Model, RebuildsAlters, RetriesInStrategy, NativeBulk, Ef) =
-            (relational, isEmbedded, lanes.ToFrozenSet(), degrade, model, rebuildsAlters, retriesInStrategy, nativeBulk, ef);
+        (Relational, Axis, Lanes, Degrade, Model, Capabilities, Ef) =
+            (relational, axis, lanes.ToFrozenSet(), degrade, model, capabilities, ef);
 
     // MODEL identity is this row, never the process: `Ef` mounts `Model()` through `UseModel`, which bypasses the
     // framework model cache whole, so the cache keying on context type plus design-time flag can never hand one
     // engine's mapping to the other. `Element/identity#ELEMENT_IDENTITY` owns the emission and the shape columns.
     public Func<IModel> Model { get; }
-    // Engine facts the `Element/identity#STORE_OPERATION_BRACKET` rail reads as data: `RebuildsAlters` names the
-    // engine that rewrites a table to alter a column, `RetriesInStrategy` whether the row's execution strategy
-    // re-drives (so the bracket demands `verifySucceeded` on a non-idempotent tail), `NativeBulk` the write-mass
-    // lane the engine spells — an absent lane is an absent slot, never a runtime not-supported throw.
-    public bool RebuildsAlters { get; }
-    public bool RetriesInStrategy { get; }
-    public Option<string> NativeBulk { get; }
+    // Engine facts the `Element/identity#STORE_OPERATION_BRACKET` rail reads as data, held as ONE capability column
+    // off the `StoreCapability` engine plane. NAMED LOSS: the `nativeBulk` lane's provider SPELLING ("binary-copy")
+    // — membership is the whole fact its one reader takes, since the bulk policy matches on presence and never on
+    // the text. `Element/identity#STORE_OPERATION_BRACKET` reads both engine rows off this column — the copy
+    // lane on `BulkCopy`, the verify obligation on `StrategyRedrive`.
+    public CapabilitySet<StoreCapability> Capabilities { get; }
+
+    // Composition-time corner proof over the whole axis, the reader that makes `EngineLaw` load-bearing rather
+    // than declared: a row minting a corner outside the two-engine sweep refuses here, before any engine opens.
+    public static Fin<Unit> Lawful =>
+        toSeq(Items).TraverseM(static row => StoreCapability.EngineLaw.Admit(row.Capabilities)).As().Map(static _ => unit);
 
     // EF provider-bind row ([05] EF-Sqlite admission): provider variance as row DATA on the closed axis — ONE
     // identity DbContext maps both engines through the generated rail, each arm binding its own migrations
@@ -115,33 +173,39 @@ public sealed partial class StoreProfile {
     public Func<DbContextOptionsBuilder, DbConnection, DbContextOptionsBuilder> Ef { get; }
 }
 
-// ADO spatial-codec policy row ([05] Npgsql.NetTopologySuite admission): geographyAsDefault / SRID /
-// precision / ordinates are PROFILE policy values, never call-site literals — the EF plugin does not place
-// codec on raw connections, so the data source composes it once for every raw Npgsql lane (the cypher
-// pgrouting results, the verification probes over PostGIS, any QueueSqlCommand spatial write).
-public sealed record SpatialWire(bool GeographyAsDefault, int Srid, Ordinates HandleOrdinates) {
-    public static readonly SpatialWire Canonical = new(GeographyAsDefault: false, Srid: 4326, Ordinates.XYZ);
+// Which optional spans the tracing posture emits — three adjacent bools answering one question, so the held set
+// is the column and `Wire` renders the posture into the reconcile manifest as declared text.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class TraceEmission : ICapability<TraceEmission> {
+    public static readonly TraceEmission CopySpans = new("copy-spans");
+    public static readonly TraceEmission FirstResponse = new("first-response");
+    public static readonly TraceEmission PhysicalOpen = new("physical-open");
 }
 
-// Profile-level tracing posture ([05] Npgsql admission), the SpatialWire peer on the same builder: the catalog
-// rules the NpgsqlTracingOptionsBuilder filters profile policy, never per-call-site, so the predicate values ride
-// this row — the binary-COPY spans the columnar importer emits per bulk load and the observability harvest's own
-// polling statements drop at the source, and the verification batch names one span instead of six. Every other
-// subscribed provider already carries a filter posture; the branch's highest-frequency lane no longer traces bare.
-public sealed record TraceWire(
+// ONE data-source policy row ([05] Npgsql, Npgsql.NetTopologySuite, Npgsql.NodaTime admissions): the spatial codec
+// values and the tracing posture were two records with one construction site, one `Canonical` seed, and one
+// consumer — `ClusterProvision.Source`, which binds them on the SAME `NpgsqlDataSourceBuilder` — so they are one
+// policy value. NAMED LOSS: a deployment overriding the trace filter now restates the spatial values beside it;
+// WITNESS: `Source` takes both together and no caller ever varied one alone. `GeographyAsDefault` stays the one
+// `bool` this row earns and says so: it is a single independent axis with no legal-corner law, which is precisely
+// the shape the kernel capability law leaves as a bool. Filters key on the `pg_stat` view names the
+// `Store/observability#PG_STAT_HARVEST` statements read FROM — real statement text, never a minted marker a second
+// page would have to remember to stamp. The `Srid` column DELETES: `Source` never read it while
+// `Element/identity#ELEMENT_IDENTITY` declares `geometry(Polygon,4326)` at the DDL and `Ingest/geospatial`'s
+// `CrsPolicy` owns the admitted payload SRID set, so one value stood at three owners and only two had readers.
+public sealed record SourceWire(
+    bool GeographyAsDefault,
+    Ordinates HandleOrdinates,
     Func<NpgsqlCommand, bool> CommandFilter,
     Func<NpgsqlBatch, bool> BatchFilter,
-    bool CopySpans,
-    bool FirstResponseEvent,
-    bool PhysicalOpenSpans) {
-    // Harvest filtering keys on the pg_stat view names the [PG_STAT_HARVEST] statements read FROM — real
-    // statement text, never a minted comment marker a second page would have to remember to stamp.
-    public static readonly TraceWire Canonical = new(
+    CapabilitySet<TraceEmission> Emits) {
+    public static readonly SourceWire Canonical = new(
+        GeographyAsDefault: false, HandleOrdinates: Ordinates.XYZ,
         CommandFilter: static command => !command.CommandText.Contains("pg_stat_", StringComparison.Ordinal),
         BatchFilter: static _ => true,
-        CopySpans: false,
-        FirstResponseEvent: false,
-        PhysicalOpenSpans: true);
+        Emits: CapabilitySet<TraceEmission>.Of(TraceEmission.PhysicalOpen));
 }
 
 [SmartEnum<string>]
@@ -172,8 +236,7 @@ public sealed partial class FailureRank {
     // absence policy IS behavior-carrying row data (`#SERVER_EXTENSIONS`): the floor-miss branch threads
     // receipt through one `Absorb` delegate, so `Required` refuses the profile and stays minimal, `Degradable`
     // folds the lane out so absence surfaces at admission not first query, `Observational` records evidence — a new
-    // rank lands as one row, the fold carrying zero rank arms. Every receipt is a TYPED `ServerFault` case
-    // deriving off the 8380 registry row — the loose `Error.New(8371/8372/8373)` integers are the deleted form.
+    // rank lands as one row, the fold carrying zero rank arms. Every receipt is a typed `ServerFault` leaf.
     public static readonly FailureRank Required = new(
         "required",
         static (_, key) => Fin.Fail<Seq<Error>>(new ServerFault.RequiredAbsent(key)));
@@ -209,41 +272,58 @@ public abstract partial record ExtensionAdmission {
     // `BaseType`) — a preload-gap or base-type-gap `CREATE EXTENSION` that the catalog says is a GUARANTEED runtime error
     // never runs, and a row mislabeling a preload-gated extension as no-prerequisite (the deleted form the `.api`-verified
     // roster forecloses) cannot leak a hard-erroring `CREATE EXTENSION pg_net` past the gate.
+    // `Library` stays TEXT because a preload name is the cluster's own `shared_preload_libraries` token and no
+    // roster row owns it (`pg_partman` preloads `pg_partman_bgw`). `Extension` is a ROW, closing the gap the
+    // page's own law already claimed: the base type resolves against a row the same fold can admit rather than
+    // against an externally-assumed prerequisite a string spelling could name and no roster carry.
     public sealed record Preload(string Library) : ExtensionAdmission;
-    public sealed record BaseType(string Extension) : ExtensionAdmission;
+    public sealed record BaseType(ServerExtension Extension) : ExtensionAdmission;
     public sealed record AccessMethod(string Method) : ExtensionAdmission;
     public sealed record Standalone(string Reason) : ExtensionAdmission;
 
-    public bool Admissible(IReadOnlySet<string> preloaded, IReadOnlySet<string> created) => this switch {
+    public bool Admissible(IReadOnlySet<string> preloaded, CapabilitySet<ServerExtension> created) => this switch {
         Preload p    => preloaded.Contains(p.Library),
-        BaseType b   => created.Contains(b.Extension),
+        BaseType b   => created.Admits(b.Extension),
         AccessMethod => true,
         Standalone   => true,
         _            => false,
     };
     public Option<string> PreloadLibrary => this is Preload p ? Some(p.Library) : None;
+    // Dependency DEPTH, so a repair set orders base types ahead of the rows extending them and the rank-ordered
+    // capability `Wire` renders one contract set identically at every end. A standalone, preload, or
+    // access-method row is depth 0 by construction, because none names a row it must follow.
+    public int Depth => this is BaseType b ? b.Extension.Rank + 1 : 0;
 }
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class ServerExtension {
+// This roster IS the store's server-capability vocabulary, so it realizes the kernel capability floor and every
+// held set crosses as `CapabilitySet<ServerExtension>` rather than a bag of untyped keys. The `(FailureRank,
+// RestartClass)` pair a capability gap needs to answer "refuse, fold, or record" and "what does the repair cost"
+// rides these ROWS — the kernel floor needs no rank pair of its own, because the vocabulary that pairs them is
+// the one whose rows carry them. DECLARATION ORDER is load-bearing: a `BaseType` row names the row it extends, so
+// every base precedes its dependants and a re-sort breaks static construction.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ServerExtension : ICapability<ServerExtension> {
     public static readonly ServerExtension Timescaledb = new("timescaledb", new ExtensionAdmission.Preload("timescaledb"), Lane.Columnar, FailureRank.Degradable, RestartClass.Restart);
-    public static readonly ServerExtension TimescaledbToolkit = new("timescaledb_toolkit", new ExtensionAdmission.BaseType("timescaledb"), Lane.Columnar, FailureRank.Observational, RestartClass.Reload);
+    public static readonly ServerExtension TimescaledbToolkit = new("timescaledb_toolkit", new ExtensionAdmission.BaseType(Timescaledb), Lane.Columnar, FailureRank.Observational, RestartClass.Reload);
     public static readonly ServerExtension PgDuckdb = new("pg_duckdb", new ExtensionAdmission.Preload("pg_duckdb"), Lane.Columnar, FailureRank.Degradable, RestartClass.Restart);
     public static readonly ServerExtension Postgis = new("postgis", new ExtensionAdmission.Standalone("operator classes over the built-in gist AM; registers no custom access method"), Lane.Geo, FailureRank.Degradable, RestartClass.Reload);
     public static readonly ServerExtension ApacheAge = new("age", new ExtensionAdmission.Standalone("openCypher graph functions + the agtype type over built-in storage; registers no custom AM, CREATE EXTENSION needs no preload, Cypher connections issue per-session LOAD 'age'"), Lane.Cypher, FailureRank.Observational, RestartClass.Reload);
     public static readonly ServerExtension PgCron = new("pg_cron", new ExtensionAdmission.Preload("pg_cron"), Lane.Maintenance, FailureRank.Observational, RestartClass.Restart);
     public static readonly ServerExtension PgSqueeze = new("pg_squeeze", new ExtensionAdmission.Preload("pg_squeeze"), Lane.Maintenance, FailureRank.Observational, RestartClass.Restart);
     public static readonly ServerExtension Pgaudit = new("pgaudit", new ExtensionAdmission.Preload("pgaudit"), Lane.Audit, FailureRank.Observational, RestartClass.Restart);
-    public static readonly ServerExtension PostgisRaster = new("postgis_raster", new ExtensionAdmission.BaseType("postgis"), Lane.Geo, FailureRank.Degradable, RestartClass.Reload);
-    public static readonly ServerExtension PostgisSfcgal = new("postgis_sfcgal", new ExtensionAdmission.BaseType("postgis"), Lane.Geo, FailureRank.Degradable, RestartClass.Reload);
+    public static readonly ServerExtension PostgisRaster = new("postgis_raster", new ExtensionAdmission.BaseType(Postgis), Lane.Geo, FailureRank.Degradable, RestartClass.Reload);
+    public static readonly ServerExtension PostgisSfcgal = new("postgis_sfcgal", new ExtensionAdmission.BaseType(Postgis), Lane.Geo, FailureRank.Degradable, RestartClass.Reload);
     public static readonly ServerExtension Pgvector = new("vector", new ExtensionAdmission.AccessMethod("hnsw"), Lane.Vector, FailureRank.Degradable, RestartClass.Reload);
-    public static readonly ServerExtension Pgvectorscale = new("vectorscale", new ExtensionAdmission.BaseType("vector"), Lane.Vector, FailureRank.Degradable, RestartClass.Reload);
+    public static readonly ServerExtension Pgvectorscale = new("vectorscale", new ExtensionAdmission.BaseType(Pgvector), Lane.Vector, FailureRank.Degradable, RestartClass.Reload);
     public static readonly ServerExtension PgSearch = new("pg_search", new ExtensionAdmission.Preload("pg_search"), Lane.Search, FailureRank.Degradable, RestartClass.Restart);
     public static readonly ServerExtension H3Pg = new("h3", new ExtensionAdmission.Standalone("operator classes over the built-in btree/hash/brin/spgist AMs; registers no custom access method"), Lane.Geo, FailureRank.Degradable, RestartClass.Reload);
-    public static readonly ServerExtension H3Postgis = new("h3_postgis", new ExtensionAdmission.BaseType("h3"), Lane.Geo, FailureRank.Degradable, RestartClass.Reload);
-    public static readonly ServerExtension Pgrouting = new("pgrouting", new ExtensionAdmission.BaseType("postgis"), Lane.Cypher, FailureRank.Observational, RestartClass.Reload);
+    public static readonly ServerExtension H3Postgis = new("h3_postgis", new ExtensionAdmission.BaseType(H3Pg), Lane.Geo, FailureRank.Degradable, RestartClass.Reload);
+    public static readonly ServerExtension Pgrouting = new("pgrouting", new ExtensionAdmission.BaseType(Postgis), Lane.Cypher, FailureRank.Observational, RestartClass.Reload);
     public static readonly ServerExtension PgPartman = new("pg_partman", new ExtensionAdmission.Preload("pg_partman_bgw"), Lane.Maintenance, FailureRank.Observational, RestartClass.Restart);
     public static readonly ServerExtension PgJsonschema = new("pg_jsonschema", new ExtensionAdmission.Standalone("CREATE EXTENSION-registered json_matches_schema/jsonb_matches_schema CHECK functions; no preload, no custom AM"), Lane.Validation, FailureRank.Observational, RestartClass.Reload);
     public static readonly ServerExtension PgNet = new("pg_net", new ExtensionAdmission.Preload("pg_net"), Lane.Egress, FailureRank.Observational, RestartClass.Restart);
@@ -251,10 +331,15 @@ public sealed partial class ServerExtension {
 
     public ExtensionAdmission Admission { get; }
     public Lane Lane { get; }
-    public FailureRank Rank { get; }
+    public FailureRank Absence { get; }
     public RestartClass Restart { get; }
-    private ServerExtension(string key, ExtensionAdmission admission, Lane lane, FailureRank rank, RestartClass restart) : this(key) =>
-        (Admission, Lane, Rank, Restart) = (admission, lane, rank, restart);
+    private ServerExtension(string key, ExtensionAdmission admission, Lane lane, FailureRank absence, RestartClass restart) : this(key) =>
+        (Admission, Lane, Absence, Restart) = (admission, lane, absence, restart);
+
+    // DERIVED from the gate the row already carries, never a hand column: a repair sequence ordered on it installs
+    // a base ahead of every row extending it, and the capability `Wire` renders in that same order at both contract
+    // ends. The one primary correspondence is `Admission`; this rank is its executable consequence.
+    public int Rank => Admission.Depth;
 
     // CASCADE pulls the base-type/access-method dependency the row's `Admission` names; the install is idempotent so a
     // re-admit of a created extension is a no-op and the DDL commits with the schema migration in the one session.
@@ -265,24 +350,31 @@ public sealed partial class ServerExtension {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ClusterSetting {
-    public static readonly ClusterSetting WalLevel = new("wal_level", expected: "logical", atLeast: false, RestartClass.Restart);
-    public static readonly ClusterSetting MaxWorkerProcesses = new("max_worker_processes", expected: "8", atLeast: true, RestartClass.Restart);
-    public static readonly ClusterSetting MaxParallelWorkers = new("max_parallel_workers", expected: "8", atLeast: true, RestartClass.Reload);
-    public static readonly ClusterSetting MaxParallelWorkersPerGather = new("max_parallel_workers_per_gather", expected: "4", atLeast: true, RestartClass.Reload);
-    public static readonly ClusterSetting MaxReplicationSlots = new("max_replication_slots", expected: "8", atLeast: true, RestartClass.Restart);
-    public static readonly ClusterSetting MaxWalSenders = new("max_wal_senders", expected: "8", atLeast: true, RestartClass.Restart);
+    public static readonly ClusterSetting WalLevel = new("wal_level", expected: "logical", RestartClass.Restart, Exact);
+    public static readonly ClusterSetting MaxWorkerProcesses = new("max_worker_processes", expected: "8", RestartClass.Restart, Floor);
+    public static readonly ClusterSetting MaxParallelWorkers = new("max_parallel_workers", expected: "8", RestartClass.Reload, Floor);
+    public static readonly ClusterSetting MaxParallelWorkersPerGather = new("max_parallel_workers_per_gather", expected: "4", RestartClass.Reload, Floor);
+    public static readonly ClusterSetting MaxReplicationSlots = new("max_replication_slots", expected: "8", RestartClass.Restart, Floor);
+    public static readonly ClusterSetting MaxWalSenders = new("max_wal_senders", expected: "8", RestartClass.Restart, Floor);
 
     public string Expected { get; }
-    public bool AtLeast { get; }
     public RestartClass Restart { get; }
-    private ClusterSetting(string key, string expected, bool atLeast, RestartClass restart) : this(key) => (Expected, AtLeast, Restart) = (expected, atLeast, restart);
+    private ClusterSetting(string key, string expected, RestartClass restart, Func<string, string, bool> holds) : this(key) =>
+        (Expected, Restart, Holds) = (expected, restart, holds);
 
-    // `Satisfied` admits a min-threshold knob at or above its floor and an exact-match knob (`wal_level`) by equality.
-    public bool Satisfied(string actual) => AtLeast
-        ? long.TryParse(actual, NumberStyles.Integer, CultureInfo.InvariantCulture, out long held)
-            && long.TryParse(Expected, NumberStyles.Integer, CultureInfo.InvariantCulture, out long expected)
-            && held >= expected
-        : string.Equals(actual, Expected, StringComparison.OrdinalIgnoreCase);
+    // The comparison MODE is row data on the same `[UseDelegateFromConstructor]` idiom `FailureRank.Absorb`
+    // already carries, so a third mode (a set membership, a version floor) is one named policy and one row rather
+    // than a third branch inside a body every row crosses.
+    [UseDelegateFromConstructor]
+    public partial bool Holds(string actual, string expected);
+    public bool Satisfied(string actual) => Holds(actual, Expected);
+
+    static readonly Func<string, string, bool> Floor = static (actual, expected) =>
+        long.TryParse(actual, NumberStyles.Integer, CultureInfo.InvariantCulture, out long held)
+        && long.TryParse(expected, NumberStyles.Integer, CultureInfo.InvariantCulture, out long want)
+        && held >= want;
+    static readonly Func<string, string, bool> Exact = static (actual, expected) =>
+        string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------
@@ -378,22 +470,29 @@ public sealed partial class RollingWindow {
     }
 }
 
-// Closed deployment-axis vocabulary the reconcile manifest keys on, mirroring the `RestartClass` shape its sibling
-// column already reads: one owner, every construction drawing from it, so a bare literal cannot fork one axis into
-// two spellings a deploy plane then diffs as two axes. `Manifest` folds seven row families and three of these rows
-// answer all of them, which is exactly why the vocabulary closes rather than growing per family.
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class ReconcileAxis {
-    public static readonly ReconcileAxis RelationalSor = new("relational-sor");
-    public static readonly ReconcileAxis Maintenance = new("maintenance");
-    public static readonly ReconcileAxis EmbeddedRelational = new("embedded-relational");
-}
-
 public sealed record ExtensionFloor(string Minimum, Func<string, string, bool> Satisfied);
 
-public sealed record ClusterDemand(Seq<ServerExtension> Required, HashMap<string, ExtensionFloor> Floors, VerificationEpoch Epoch);
+public sealed record ClusterDemand(CapabilitySet<ServerExtension> Required, HashMap<string, ExtensionFloor> Floors, VerificationEpoch Epoch) {
+    // DEPENDENCY-ordered demand: every repair sequence, every manifest row family, and the survivor fold walk this
+    // one order, so a base installs ahead of the rows extending it and two runs over one demand emit
+    // byte-identical documents a deploy plane can diff.
+    public Seq<ServerExtension> Ordered =>
+        toSeq(Required.Held.OrderBy(static row => row.Rank).ThenBy(static row => row.Key, StringComparer.Ordinal));
+}
+
+// The six result sets the verification batch drains, folded as ONE reading: the verdict fold takes a value whose
+// members name themselves rather than an eight-parameter positional tail, and `Created` projects the raw catalog
+// keys onto the rostered vocabulary exactly once so no arm re-derives it.
+public readonly record struct ClusterReading(
+    FrozenSet<string> Preloaded,
+    HashMap<string, string> Versions,
+    FrozenSet<string> Available,
+    HashMap<string, string> Settings,
+    long SlotLag,
+    long InvalidIndexes) {
+    public CapabilitySet<ServerExtension> Created => CapabilitySet<ServerExtension>.Of(
+        toSeq(ServerExtension.Items).Filter(row => Versions.ContainsKey(row.Key)).ToArray());
+}
 
 // desired-state manifest — everything verification already asserts, egressed as ONE typed wire record the
 // deploy plane converges on: the extension roster with its gates and restart classes, the verified server
@@ -409,15 +508,8 @@ public sealed record ReconcileRow(string Axis, string Key, string Declared, stri
 public sealed record ReconcileManifest(Seq<ReconcileRow> Rows, VerificationEpoch Epoch);
 
 public sealed record JsonValidationContract(string Text, Json.Schema.JsonSchema Parsed) {
-    public static Fin<JsonValidationContract> Parse(string text) {
-        try {
-            return Fin<JsonValidationContract>.Succ(
-                new JsonValidationContract(text, Json.Schema.JsonSchema.FromText(text)));
-        } catch (Json.Schema.JsonSchemaException failure) {
-            return Fin<JsonValidationContract>.Fail(
-                new ServerFault.AdmitRefused($"<schema:{failure.Message}>"));
-        }
-    }
+    public static Fin<JsonValidationContract> Parse(string text) =>
+        ClusterProvision.Lifted(() => new JsonValidationContract(text, Json.Schema.JsonSchema.FromText(text)));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -430,59 +522,69 @@ public abstract partial record ProvisionVerdict {
     // two recovery stamps its `RecoveryWindow` derives from, and those enter `Of` as caller arguments because a
     // verification batch witnesses no durability frontier and no restore span.
     public sealed record Provisioned(
-        Seq<ServerExtension> Present,
+        CapabilitySet<ServerExtension> Held,
+        CapabilitySet<ServerExtension> Created,
         FrozenSet<string> Preloaded,
-        FrozenSet<string> Created,
-        FrozenSet<Lane> HeldLanes,
         Seq<Error> Receipts,
-        VerificationEpoch Epoch) : ProvisionVerdict;
+        VerificationEpoch Epoch) : ProvisionVerdict {
+        // DERIVED, never a stored column: the held lane set is exactly the lanes the held rows serve, so a fourth
+        // column carrying it would be a hand-kept mirror of this projection. `Preloaded` stays raw text because a
+        // `shared_preload_libraries` token is the cluster's own vocabulary and no roster row owns it.
+        public FrozenSet<Lane> HeldLanes => Held.Held.Select(static row => row.Lane).ToFrozenSet();
+    }
     public sealed record MissingExtension(Seq<ServerExtension> Absent, Seq<RepairArtifact> Repairs, VerificationEpoch Epoch) : ProvisionVerdict;
     public sealed record MissingPreload(Seq<ServerExtension> Unloaded, RepairArtifact PreloadDiff, VerificationEpoch Epoch) : ProvisionVerdict;
-    public sealed record SettingDrift(string Setting, string Expected, string Actual, RestartClass Restart, VerificationEpoch Epoch) : ProvisionVerdict;
-    public sealed record Faulted(ServerFault Fault, VerificationEpoch Epoch) : ProvisionVerdict;
+    public sealed record SettingDrift(
+        string Setting, string Expected, Option<string> Actual, RestartClass Restart, VerificationEpoch Epoch) : ProvisionVerdict;
+    public sealed record Faulted(Error Fault, VerificationEpoch Epoch) : ProvisionVerdict;
 
     // Only a fully verified profile opens; every repair verdict refuses until its cluster or database change lands.
     public bool Admits => this is Provisioned;
 }
 
 // --- [ERRORS] ---------------------------------------------------------------------------
-// re-banded server-tier fault band (838x — `FaultBand.Server`, off the 835x Columnar collision): a [Union] over
-// KERNEL `Rasm.Domain.Expected` (parameterless protected ctor; `Category` virtual; `Code`/`Message` inherited from
-// `Error`), the SAME federation base the seam `ElementFault` (2500) and `BimFault` (2600) realize — NOT
-// `LanguageExt.Common.Expected`. No `[GenerateUnionOps]`. The decade absorbs EVERY formerly-loose provisioning
-// integer as a typed case — the `FailureRank` receipts, the readiness evidence, the admission refusals — deriving
-// `Code => FaultBand.Server + n` through the registry pointer so a duplicate decade integer fails at type init.
-// `IsTransient` stays an abstract per-case bit (only `Unreachable` retries).
-[Union]
-public abstract partial record ServerFault : Expected, IValidationError<ServerFault> {
-    private ServerFault() : base() { }
-    public abstract bool IsTransient { get; }
-    public sealed record Unmapped(string SqlState, string Detail) : ServerFault { public override bool IsTransient => false; }
-    public sealed record Unreachable(string Detail) : ServerFault { public override bool IsTransient => true; }
-    public sealed record CatalogDenied(string Relation) : ServerFault { public override bool IsTransient => false; }
-    public sealed record RequiredAbsent(string Extension) : ServerFault { public override bool IsTransient => false; }
-    public sealed record LaneFolded(string Extension) : ServerFault { public override bool IsTransient => false; }
-    public sealed record Evidence(string Extension, string Detail) : ServerFault { public override bool IsTransient => false; }
-    public sealed record SlotLag(long Bytes) : ServerFault { public override bool IsTransient => false; }
-    public sealed record InvalidIndex(long Count) : ServerFault { public override bool IsTransient => false; }
-    public sealed record Ungated(string Extension) : ServerFault { public override bool IsTransient => false; }
-    public sealed record AdmitRefused(string Detail) : ServerFault { public override bool IsTransient => false; }
+// `ServerFault` derives directly from the kernel `Fault` floor and spells no manual band or code read.
+// No `[GenerateUnionOps]`. The decade absorbs every formerly loose
+// provisioning integer as a typed case — the `FailureRank` receipts, the readiness evidence, the admission
+// refusals. Retriability is the KERNEL `Retriability` a case overrides, so nine of ten cases state nothing and
+// are Terminal by construction — the band-local `bool IsTransient` those ten declared is the deleted form, one
+// axis short of a throttled posture and blind to the re-offer ROUTE `RetryShape` carries beside it.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ServerFault : Fault {
+    private static readonly FaultBand FamilyBand = FaultBand.Server;
+    private ServerFault() { }
+    [FaultCase(0)]
+    public sealed partial record Unmapped(string SqlState, Error Cause) : ServerFault(), ICausedFault;
+    // The ONE re-drivable case: a cluster the transport could not reach re-drives the same read unchanged, which
+    // is why a wait recovers it and every other case here names a gap no re-offer closes.
+    [FaultCase(1)]
+    public sealed partial record Unreachable(Error Cause) : ServerFault(), ICausedFault {
+        public override Retriability Retriability => Retriability.Transient;
+    }
+    [FaultCase(2)]
+    public sealed partial record CatalogDenied(string Relation, Error Cause) : ServerFault(), ICausedFault;
+    [FaultCase(3)]
+    public sealed partial record RequiredAbsent(string Extension) : ServerFault();
+    [FaultCase(4)]
+    public sealed partial record LaneFolded(string Extension) : ServerFault();
+    [FaultCase(5)]
+    public sealed partial record Evidence(string Extension, string Detail) : ServerFault();
+    [FaultCase(6)]
+    public sealed partial record SlotLag(long Bytes) : ServerFault();
+    [FaultCase(7)]
+    public sealed partial record InvalidIndex(long Count) : ServerFault();
+    [FaultCase(8)]
+    public sealed partial record Ungated(string Extension) : ServerFault();
+    [FaultCase(9)]
+    public sealed partial record AdmitRefused(Error Cause) : ServerFault(), ICausedFault;
 
-    public override int Code => FaultBand.Server + Switch(
-        unmapped:       static _ => 0,
-        unreachable:    static _ => 1,
-        catalogDenied:  static _ => 2,
-        requiredAbsent: static _ => 3,
-        laneFolded:     static _ => 4,
-        evidence:       static _ => 5,
-        slotLag:        static _ => 6,
-        invalidIndex:   static _ => 7,
-        ungated:        static _ => 8,
-        admitRefused:   static _ => 9);
+    // Re-offer ROUTE beside the posture, the second axis `Store/redrive#FAULT_BAND` fixes: a verification fold is
+    // one read, so its one re-drivable case re-enters at the same call and nothing here rescopes or restarts.
+    public virtual RetryShape Route => Retriability is Retriability.TerminalCase ? RetryShape.Terminal : RetryShape.Waited;
 
     public override string Message => Switch(
-        unmapped:       static c => $"<sqlstate:{c.SqlState}>:{c.Detail}",
-        unreachable:    static c => $"cluster unreachable: {c.Detail}",
+        unmapped:       static c => $"<sqlstate:{c.SqlState}>:{c.Cause.Message}",
+        unreachable:    static c => $"cluster unreachable: {c.Cause.Message}",
         catalogDenied:  static c => $"catalog read denied: {c.Relation}",
         requiredAbsent: static c => $"<required-absent:{c.Extension}>",
         laneFolded:     static c => $"<lane-folded:{c.Extension}>",
@@ -490,21 +592,23 @@ public abstract partial record ServerFault : Expected, IValidationError<ServerFa
         slotLag:        static c => $"<slot-lag:{c.Bytes}>",
         invalidIndex:   static c => $"<invalid-indexes:{c.Count}>",
         ungated:        static c => $"<provision-ungated:{c.Extension}>",
-        admitRefused:   static c => $"<provision-admit:{c.Detail}>");
+        admitRefused:   static c => $"<provision-admit:{c.Cause.Message}>");
 
-    public override string Category => Switch(
-        unmapped:       static _ => "Unmapped",
-        unreachable:    static _ => "Unreachable",
-        catalogDenied:  static _ => "CatalogDenied",
-        requiredAbsent: static _ => "Absence",
-        laneFolded:     static _ => "Absence",
-        evidence:       static _ => "Readiness",
-        slotLag:        static _ => "Readiness",
-        invalidIndex:   static _ => "Readiness",
-        ungated:        static _ => "Admission",
-        admitRefused:   static _ => "Admission");
-
-    public static ServerFault Create(string message) => new Unmapped("none", message);
+    // ONE server-tier lift, the `EmbeddedFault.Lift` peer: every throwing crossing on this page — the catalog
+    // batch, the queued DDL, the schema parse and the schema evaluation — enters here, so no leg re-spells a
+    // provider taxonomy and no interior body ever sees an exception. A privilege refusal and a transport failure
+    // read the provider's OWN classification rather than a hand SQLSTATE roster, and the two JsonSchema.Net
+    // families fold to the admission refusal because a schema that will not parse or resolve refuses a validation
+    // lane rather than naming a cluster fault.
+    public static Error Lift(Error error) => error.Exception.Case switch {
+        PostgresException { SqlState: PostgresErrorCodes.InsufficientPrivilege } denied =>
+            new CatalogDenied(denied.TableName ?? "pg_catalog", error),
+        NpgsqlException { IsTransient: true } => new Unreachable(error),
+        PostgresException postgres => new Unmapped(postgres.SqlState, error),
+        Json.Schema.JsonSchemaException or Json.Schema.RefResolutionException =>
+            new AdmitRefused(error),
+        _ => error,
+    };
 }
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
@@ -516,9 +620,13 @@ public static class ClusterProvision {
         StoreSlot.Create("store.embedded.snapshot"), StoreSlot.Create("store.embedded.backup"), StoreSlot.Create("store.embedded.blob"));
 
     // desired-state projection folds verified server expectations with the encrypted embedded provider and
-    // ritual rows; each deployment axis has one manifest declaration.
+    // ritual rows; each deployment axis has one manifest declaration. The PROFILE family leads because the engine
+    // a deployment dials decides what every row beneath it means, and it carries both of that row's declared
+    // facts — the engine product identity and its rank-ordered capability wire — so the whole engine plane a
+    // deploy plane converges on is stated rather than implied by the rows that follow.
     public static ReconcileManifest Manifest(ClusterDemand demand, EmbeddedRitual ritual) => new(
-        demand.Required.Map(static row => new ReconcileRow(ReconcileAxis.RelationalSor.Key, row.Key, row.CreateSql, row.Restart.Key))
+        toSeq(StoreProfile.Items).Map(static row => new ReconcileRow(row.Axis.Key, row.Key, $"{row.Relational}|{row.Capabilities.Wire}", RestartClass.Restart.Key))
+        + demand.Ordered.Map(static row => new ReconcileRow(ReconcileAxis.RelationalSor.Key, row.Key, row.CreateSql, row.Restart.Key))
         + toSeq(ClusterSetting.Items).Map(static row => new ReconcileRow(ReconcileAxis.RelationalSor.Key, row.Key, row.Expected, row.Restart.Key))
         + toSeq(MaintenanceJob.Items).Map(static row => new ReconcileRow(ReconcileAxis.Maintenance.Key, row.Key, row.RegisterSql, row.Owner.Restart.Key))
         + toSeq(RollingWindow.Items).Map(static row => new ReconcileRow(ReconcileAxis.Maintenance.Key, row.Key, $"{row.Period}:+{row.Ahead}/-{row.Aged}", RestartClass.Session.Key))
@@ -531,8 +639,8 @@ public static class ClusterProvision {
     // literal in this fence); a created extension whose `pg_extension.extversion` trails its floor threads an
     // `Evidence` receipt, so a stale binary is visible at admission rather than at the first missing function.
     public static IO<ProvisionVerdict> Verify(NpgsqlDataSource source, ClusterDemand demand) =>
-        IO.liftAsync(async () => {
-            await using NpgsqlConnection connection = await source.OpenConnectionAsync().ConfigureAwait(false);
+        IO.liftAsync(async () => await Op.Of().Catch(async token => {
+            await using NpgsqlConnection connection = await source.OpenConnectionAsync(token).ConfigureAwait(false);
             await using NpgsqlBatch batch = connection.CreateBatch();
             batch.BatchCommands.Add(new NpgsqlBatchCommand("SELECT current_setting('shared_preload_libraries')"));
             batch.BatchCommands.Add(new NpgsqlBatchCommand("SELECT extname, extversion FROM pg_extension"));
@@ -542,72 +650,89 @@ public static class ClusterProvision {
             });
             batch.BatchCommands.Add(new NpgsqlBatchCommand("SELECT coalesce(max(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)), 0)::bigint FROM pg_replication_slots WHERE restart_lsn IS NOT NULL"));
             batch.BatchCommands.Add(new NpgsqlBatchCommand("SELECT count(*)::bigint FROM pg_index WHERE NOT indisvalid"));
-            await using NpgsqlDataReader reader = await batch.ExecuteReaderAsync().ConfigureAwait(false);
-            FrozenSet<string> preloaded = (await reader.ReadAsync().ConfigureAwait(false) ? reader.GetString(0) : "")
+            await using NpgsqlDataReader reader = await batch.ExecuteReaderAsync(token).ConfigureAwait(false);
+            if (!await reader.ReadAsync(token).ConfigureAwait(false)) {
+                throw new InvalidDataException("<provision-result-missing:shared_preload_libraries>");
+            }
+            FrozenSet<string> preloaded = reader.GetString(0)
                 .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToFrozenSet(StringComparer.Ordinal);
-            IReadOnlyDictionary<string, string> versions = await DrainPairs(reader).ConfigureAwait(false);
-            FrozenSet<string> created = versions.Keys.ToFrozenSet(StringComparer.Ordinal);
-            FrozenSet<string> available = await Drain(reader, static r => r.GetString(0)).ConfigureAwait(false);
-            IReadOnlyDictionary<string, string> settings = await DrainPairs(reader).ConfigureAwait(false);
-            long slotLag = await Scalar(reader).ConfigureAwait(false);
-            long invalidIndexes = await Scalar(reader).ConfigureAwait(false);
-            return Fold(demand, preloaded, created, versions, available, settings, slotLag, invalidIndexes);
-        }) | @catch<IO, ProvisionVerdict>(static _ => true, e => IO.pure(Folded(e, demand.Epoch)));
+            if (await reader.ReadAsync(token).ConfigureAwait(false)) {
+                throw new InvalidDataException("<provision-result-duplicate:shared_preload_libraries>");
+            }
+            return Fold(demand, new ClusterReading(
+                Preloaded: preloaded,
+                Versions: toHashMap(await Next(reader, static row => (row.GetString(0), row.GetString(1))).ConfigureAwait(false)),
+                Available: (await Next(reader, static row => row.GetString(0)).ConfigureAwait(false)).ToFrozenSet(StringComparer.Ordinal),
+                Settings: toHashMap(await Next(reader, static row => (row.GetString(0), row.GetString(1))).ConfigureAwait(false)),
+                SlotLag: await NextScalar(reader, static row => row.GetInt64(0), "slot-lag").ConfigureAwait(false),
+                InvalidIndexes: await NextScalar(reader, static row => row.GetInt64(0), "invalid-indexes").ConfigureAwait(false)));
+        }).ConfigureAwait(false)).Bind(IO.liftFin)
+        | @catch<IO, ProvisionVerdict>(static _ => true,
+            error => IO.pure((ProvisionVerdict)new ProvisionVerdict.Faulted(ServerFault.Lift(error), demand.Epoch)));
 
-    // fold is total over the verdict family: preload gaps EMIT a `shared_preload_libraries` diff and refuse, an
-    // installable-but-uncreated set (present in `pg_available_extensions`, gate satisfied) is the operator's
-    // `CREATE EXTENSION` reconciliation, a drifted setting carries its `RestartClass`, and the survivors fold their held
-    // analytical lanes and the `FailureRank` receipts and the readiness evidence (slot lag, invalid indexes) — never a
-    // per-extension `Switch`, the absence policy living on the rank row.
-    static ProvisionVerdict Fold(ClusterDemand demand, FrozenSet<string> preloaded, FrozenSet<string> created, IReadOnlyDictionary<string, string> versions, FrozenSet<string> available, IReadOnlyDictionary<string, string> settings, long slotLag, long invalidIndexes) {
-        Seq<ServerExtension> missingPreload = demand.Required.Filter(e => e.Admission is ExtensionAdmission.Preload p && !preloaded.Contains(p.Library));
-        if (!missingPreload.IsEmpty) {
-            Seq<string> libraries = missingPreload.Choose(e => e.Admission.PreloadLibrary).Distinct();
-            RepairArtifact diff = new("shared_preload_libraries", $"shared_preload_libraries = '{string.Join(',', preloaded.Concat(libraries))}'", RestartClass.Max(missingPreload.Map(static e => e.Restart)));
-            return new ProvisionVerdict.MissingPreload(missingPreload, diff, demand.Epoch);
-        }
-        // `missing` holds the installable-but-uncreated rows — present in `pg_available_extensions` with a satisfied
-        // gate — which the operator reconciles by `CREATE EXTENSION`; a row whose library is unavailable on disk
-        // stays out, routing to the survivor fold's `FailureRank.Absorb` because no `CREATE EXTENSION` repair fixes
-        // a missing binary.
-        Seq<ServerExtension> missing = demand.Required.Filter(e => !created.Contains(e.Key) && available.Contains(e.Key) && e.Admission.Admissible(preloaded, created));
-        if (!missing.IsEmpty) {
-            return new ProvisionVerdict.MissingExtension(missing, missing.Map(e => new RepairArtifact("create_extension", e.CreateSql, e.Restart)), demand.Epoch);
-        }
-        Option<ClusterSetting> drift = toSeq(ClusterSetting.Items).Find(s => !s.Satisfied(settings.GetValueOrDefault(s.Key, "")));
-        if (drift.IsSome) {
-            ClusterSetting setting = drift.ValueUnsafe()!;
-            return new ProvisionVerdict.SettingDrift(setting.Key, setting.Expected, settings.GetValueOrDefault(setting.Key, ""), setting.Restart, demand.Epoch);
-        }
-        // survivor fold iterates the FULL required set: a created extension is `Held`, an uncreated row whose binary is
-        // absent from `pg_available_extensions` (or whose gate is unmet) threads its `FailureRank.Absorb` — a `Required`
-        // rank absorbing to `Fail` aborts the verdict to a `MissingExtension` (no admissible repair exists), a
-        // `Degradable`/`Observational` rank records the receipt and the held lanes still compose. Readiness evidence — a
-        // lagging replication slot (server-disk liability) and any invalid index (an interrupted concurrent build) — folds
-        // in as `Observational` receipts on the held verdict, never refusing the profile but visible on the fact stream.
-        Seq<Error> readiness = (slotLag > 0 ? Seq<Error>(new ServerFault.SlotLag(slotLag)) : Seq<Error>())
-            + (invalidIndexes > 0 ? Seq<Error>(new ServerFault.InvalidIndex(invalidIndexes)) : Seq<Error>())
-            + demand.Floors.ToSeq().Choose(floor => versions.TryGetValue(floor.Key, out string? held) && !floor.Value.Satisfied(held, floor.Value.Minimum)
-                ? Some((Error)new ServerFault.Evidence(floor.Key, $"version:{held}<{floor.Value.Minimum}"))
-                : None);
-        (Seq<ServerExtension> Held, Seq<Error> Receipts, Seq<ServerExtension> Absent) fold = demand.Required.Fold(
-            (Held: Seq<ServerExtension>(), Receipts: readiness, Absent: Seq<ServerExtension>()),
-            (acc, e) => created.Contains(e.Key)
-                ? (acc.Held.Add(e), acc.Receipts, acc.Absent)
-                : e.Rank.Absorb(acc.Receipts, e.Key).Match(
-                    Succ: r => (acc.Held, r, acc.Absent),
-                    Fail: r => (acc.Held, acc.Receipts.Add(r), acc.Absent.Add(e))));
+    // The verdict ladder is an ORDERED ALTERNATIVE over three gap probes, not three guarded returns: each gap is a
+    // named `Option` producer and the first that answers wins, so the order is one expression a reader takes in at
+    // once and a fourth gap is one term. Every probe is a filter over the reading already in hand, so choosing
+    // eagerly costs nothing and no probe can observe another's side effect. Absent every gap, the survivor fold
+    // holds — never a per-extension `Switch`, the absence policy living on the extension row's own rank.
+    static ProvisionVerdict Fold(ClusterDemand demand, ClusterReading read) =>
+        (PreloadGap(demand, read) | ExtensionGap(demand, read) | SettingGap(demand, read))
+            .IfNone(() => Survivors(demand, read));
+
+    // A preload gap EMITS its `shared_preload_libraries` diff carrying the WORST restart class across the gap set,
+    // so the operator reads ONE bounce cost for the whole reconciliation and never a per-row minimum.
+    static Option<ProvisionVerdict> PreloadGap(ClusterDemand demand, ClusterReading read) =>
+        demand.Ordered.Filter(row => row.Admission is ExtensionAdmission.Preload preload
+            && !read.Preloaded.Contains(preload.Library)) is { IsEmpty: false } unloaded
+            ? Some<ProvisionVerdict>(new ProvisionVerdict.MissingPreload(unloaded, new RepairArtifact(
+                "shared_preload_libraries",
+                $"shared_preload_libraries = '{string.Join(',', read.Preloaded.Concat(unloaded.Choose(static row => row.Admission.PreloadLibrary).Distinct()))}'",
+                RestartClass.Max(unloaded.Map(static row => row.Restart))), demand.Epoch))
+            : None;
+
+    // The installable-but-uncreated rows — present in `pg_available_extensions` with a satisfied gate — are the
+    // operator's `CREATE EXTENSION` reconciliation, emitted in dependency order so a base installs first. A row
+    // whose binary is absent from disk stays out: no `CREATE EXTENSION` repairs a missing library, so it routes to
+    // the survivor fold's own absence policy instead of an artifact that cannot apply.
+    static Option<ProvisionVerdict> ExtensionGap(ClusterDemand demand, ClusterReading read) =>
+        demand.Ordered.Filter(row => !read.Created.Admits(row) && read.Available.Contains(row.Key)
+            && row.Admission.Admissible(read.Preloaded, read.Created)) is { IsEmpty: false } missing
+            ? Some<ProvisionVerdict>(new ProvisionVerdict.MissingExtension(missing,
+                missing.Map(static row => new RepairArtifact("create_extension", row.CreateSql, row.Restart)), demand.Epoch))
+            : None;
+
+    static Option<ProvisionVerdict> SettingGap(ClusterDemand demand, ClusterReading read) =>
+        toSeq(ClusterSetting.Items)
+            .Find(row => read.Settings.Find(row.Key).Match(
+                Some: actual => !row.Satisfied(actual),
+                None: static () => true))
+            .Map(row => (ProvisionVerdict)new ProvisionVerdict.SettingDrift(
+                row.Key, row.Expected, read.Settings.Find(row.Key), row.Restart, demand.Epoch));
+
+    // Survivor fold walks the FULL required set: a created extension joins `Held`, an uncreated row whose binary is
+    // absent (or whose gate is unmet) threads its `FailureRank.Absorb` — a `Required` rank absorbing to `Fail`
+    // aborts to `MissingExtension` because no admissible repair exists, a `Degradable`/`Observational` rank records
+    // the receipt and the held lanes still compose. Readiness evidence — a lagging replication slot (server-disk
+    // liability) and any invalid index (an interrupted concurrent build) — folds in as `Observational` receipts on
+    // the held verdict, never refusing the profile but visible on the fact stream.
+    static ProvisionVerdict Survivors(ClusterDemand demand, ClusterReading read) {
+        Seq<Error> readiness =
+            (read.SlotLag > 0 ? Seq<Error>(new ServerFault.SlotLag(read.SlotLag)) : Seq<Error>())
+            + (read.InvalidIndexes > 0 ? Seq<Error>(new ServerFault.InvalidIndex(read.InvalidIndexes)) : Seq<Error>())
+            + demand.Floors.ToSeq().Choose(floor => read.Versions.Find(floor.Key)
+                .Filter(held => !floor.Value.Satisfied(held, floor.Value.Minimum))
+                .Map(held => (Error)new ServerFault.Evidence(floor.Key, $"version:{held}<{floor.Value.Minimum}")));
+        (CapabilitySet<ServerExtension> Held, Seq<Error> Receipts, Seq<ServerExtension> Absent) fold = demand.Ordered.Fold(
+            (Held: CapabilitySet<ServerExtension>.None, Receipts: readiness, Absent: Seq<ServerExtension>()),
+            (acc, row) => read.Created.Admits(row)
+                ? (acc.Held.With(row), acc.Receipts, acc.Absent)
+                : row.Absence.Absorb(acc.Receipts, row.Key).Match(
+                    Succ: receipts => (acc.Held, receipts, acc.Absent),
+                    Fail: receipt => (acc.Held, acc.Receipts.Add(receipt), acc.Absent.Add(row))));
         return fold.Absent.IsEmpty
-            ? new ProvisionVerdict.Provisioned(fold.Held, preloaded, created, fold.Held.Map(static e => e.Lane).ToFrozenSet(), fold.Receipts, demand.Epoch)
+            ? new ProvisionVerdict.Provisioned(fold.Held, read.Created, read.Preloaded, fold.Receipts, demand.Epoch)
             : new ProvisionVerdict.MissingExtension(fold.Absent, Seq<RepairArtifact>(), demand.Epoch);
     }
-
-    static ProvisionVerdict Folded(Error error, VerificationEpoch epoch) =>
-        new ProvisionVerdict.Faulted(error is PostgresException { SqlState: PostgresErrorCodes.InsufficientPrivilege } denied
-            ? new ServerFault.CatalogDenied(denied.TableName ?? "pg_catalog")
-            : error is NpgsqlException { IsTransient: true } transient
-                ? new ServerFault.Unreachable(transient.Message)
-                : new ServerFault.Unmapped(error is PostgresException pg ? pg.SqlState : "none", error.Message), epoch);
 
     // Admission RE-GATES at the entry, never trusts the caller pre-filtered, and it gates TWICE on row data: the
     // profile must realize the row's OWN `Lane` and the live cluster must satisfy its `ExtensionAdmission`. Lane
@@ -621,18 +746,19 @@ public static class ClusterProvision {
     // eleventh case in a decade the band has fully spent. The `preloaded`/`created` sets are the ones the caller's
     // `Verify` fold already read (no second catalog probe), so the gate costs nothing beyond a set membership test.
     public static IO<Fin<Unit>> Admit(StoreProfile profile, IDocumentSession session, ServerExtension extension, ProvisionVerdict.Provisioned cluster) =>
-        !profile.Admits(extension.Lane) || !extension.Admission.Admissible(cluster.Preloaded, cluster.Created)
-            ? IO.pure(Fin<Unit>.Fail(new ServerFault.Ungated(extension.Key)))
-            : (IO.liftAsync(async () => {
-                session.QueueSqlCommand(extension.CreateSql);
-                await session.SaveChangesAsync().ConfigureAwait(false);
-                return Fin<Unit>.Succ(unit);
-            }) | @catch<IO, Fin<Unit>>(static _ => true, e => IO.pure(Fin<Unit>.Fail(new ServerFault.AdmitRefused(e.Message))))).As();
+        Queued(session, extension.CreateSql,
+            profile.Admits(extension.Lane) && extension.Admission.Admissible(cluster.Preloaded, cluster.Created)
+                ? None
+                : Some(new ServerFault.Ungated(extension.Key)));
 
     // Deployment completes when live processes re-resolve the wire types a freshly-admitted enum/composite/extension
     // introduced — `ReloadTypesAsync` on the owning source — not when the DDL commits (`#SERVER_EXTENSIONS` deploy law).
     public static IO<Unit> Reload(NpgsqlDataSource source) =>
-        IO.liftAsync(async () => { await source.ReloadTypesAsync().ConfigureAwait(false); return unit; });
+        IO.liftAsync(async () => (await Op.Of().Catch(async _ => {
+            await source.ReloadTypesAsync().ConfigureAwait(false);
+            return Fin<Unit>.Succ(unit);
+        }).ConfigureAwait(false)).MapFail(ServerFault.Lift))
+        .Bind(IO.liftFin);
 
     // Maintenance registration rides the SAME gated-admission discipline as `Admit`, on the same two row columns —
     // profile realizability for the OWNING extension's lane, and that extension already created (a folded-out lane
@@ -641,16 +767,26 @@ public static class ClusterProvision {
     // only extension-owned registration rows (`cron.job`, `partman.part_config`, squeeze registration), never a
     // cluster setting, so the never-`ALTER SYSTEM` law holds.
     public static IO<Fin<Unit>> Register(StoreProfile profile, IDocumentSession session, MaintenanceJob job, ProvisionVerdict.Provisioned cluster) =>
-        !profile.Admits(job.Owner.Lane) || !cluster.Created.Contains(job.Owner.Key)
-            ? IO.pure(Fin<Unit>.Fail(new ServerFault.Ungated(job.Owner.Key)))
-            : (IO.liftAsync(async () => {
-                session.QueueSqlCommand(job.RegisterSql);
-                await session.SaveChangesAsync().ConfigureAwait(false);
+        Queued(session, job.RegisterSql,
+            profile.Admits(job.Owner.Lane) && cluster.Created.Admits(job.Owner)
+                ? None
+                : Some(new ServerFault.Ungated(job.Owner.Key)));
+
+    // ONE gated-DDL leg both admissions ride: the two bodies differed only in their gate and their statement, and
+    // a gate is a value. The refusal crosses as an `Option<ServerFault>` rather than a bool, so the leg carries the
+    // typed case its caller already minted instead of re-deriving which key was ungated, and a third gated
+    // registration is one call rather than a third copy of this body.
+    static IO<Fin<Unit>> Queued(IDocumentSession session, string sql, Option<ServerFault> refusal) =>
+        refusal.Match(
+            Some: fault => IO.pure(Fin<Unit>.Fail(fault)),
+            None: () => IO.liftAsync(async () => (await Op.Of().Catch(async token => {
+                session.QueueSqlCommand(sql);
+                await session.SaveChangesAsync(token).ConfigureAwait(false);
                 return Fin<Unit>.Succ(unit);
-            }) | @catch<IO, Fin<Unit>>(static _ => true, e => IO.pure(Fin<Unit>.Fail(new ServerFault.AdmitRefused(e.Message))))).As();
+            }).ConfigureAwait(false)).MapFail(ServerFault.Lift)));
 
     // Server row's data-source build ([05] Npgsql.NetTopologySuite, Npgsql.NodaTime): the ADO codecs compose ONCE
-    // on the owning NpgsqlDataSourceBuilder — the spatial one from the `SpatialWire` policy row — so every raw lane
+    // on the owning NpgsqlDataSourceBuilder — every value off the one `SourceWire` policy row — so every raw lane
     // (cypher pgrouting decode, verification probes, QueueSqlCommand spatial writes) reads/writes NTS geometry. The
     // TEMPORAL codec binds on the same builder for the same reason its spatial sibling does: a raw lane without it
     // degrades to the platform date the mapped lane never produces, so a `QueueSqlCommand` instant write, a binary
@@ -659,16 +795,16 @@ public static class ClusterProvision {
     // make. `Name` (`string?`, get/set) assigns the logical-database identity here — the Persistence half of the PORT-peer
     // telemetry split: `db.client.connection.pool.name` keys stable pool dimensions on the `Npgsql` meter the
     // AppHost root subscribes, and an unnamed source collapses every pool into one anonymous series.
-    public static NpgsqlDataSource Source(string dsn, string name, SpatialWire wire, TraceWire trace) {
+    public static NpgsqlDataSource Source(string dsn, string name, SourceWire wire) {
         NpgsqlDataSourceBuilder builder = new(dsn) { Name = name };
         builder.UseNetTopologySuite(handleOrdinates: wire.HandleOrdinates, geographyAsDefault: wire.GeographyAsDefault);
         builder.UseNodaTime();
         builder.ConfigureTracing(tracing => tracing
-            .ConfigureCommandFilter(trace.CommandFilter)
-            .ConfigureBatchFilter(trace.BatchFilter)
-            .ConfigureCopyOperationFilter(copy => trace.CopySpans)
-            .EnableFirstResponseEvent(trace.FirstResponseEvent)
-            .EnablePhysicalOpenTracing(trace.PhysicalOpenSpans));
+            .ConfigureCommandFilter(wire.CommandFilter)
+            .ConfigureBatchFilter(wire.BatchFilter)
+            .ConfigureCopyOperationFilter(_ => wire.Emits.Admits(TraceEmission.CopySpans))
+            .EnableFirstResponseEvent(wire.Emits.Admits(TraceEmission.FirstResponse))
+            .EnablePhysicalOpenTracing(wire.Emits.Admits(TraceEmission.PhysicalOpen)));
         return builder.Build();
     }
 
@@ -681,75 +817,76 @@ public static class ClusterProvision {
         FrozenSet<Lane> heldLanes,
         JsonValidationContract schema,
         JsonElement instance,
-        Func<string, JsonElement, bool> serverCheck) {
-        try {
-            return Fin<bool>.Succ(heldLanes.Contains(ServerExtension.PgJsonschema.Lane)
-                ? serverCheck(schema.Text, instance)
-                : schema.Parsed.Evaluate(instance, new EvaluationOptions { OutputFormat = OutputFormat.Flag }).IsValid);
-        } catch (Json.Schema.RefResolutionException failure) {
-            return Fin<bool>.Fail(new ServerFault.AdmitRefused($"<schema-ref:{failure.Message}>"));
-        }
+        Func<string, JsonElement, bool> serverCheck) =>
+        Lifted(() => heldLanes.Contains(ServerExtension.PgJsonschema.Lane)
+            ? serverCheck(schema.Text, instance)
+            : schema.Parsed.Evaluate(instance, new EvaluationOptions { OutputFormat = OutputFormat.Flag }).IsValid);
+
+    // ONE synchronous capture on the server tier, the `HandleBridge.Lifted` peer at the embedded one:
+    // `ServerFault.Lift` owns documented discrimination; an unknown package family retains the captured `Error`.
+    internal static Fin<T> Lifted<T>(Func<T> crossing) =>
+        Op.Of().Catch(() => Fin.Succ(crossing())).MapFail(static error => ServerFault.Lift(error));
+
+    // ONE result-set drain over the batch's remaining five sets: advance, project each row through the caller's
+    // own reader, and hand back the sequence — the three shapes the fold needs (a set, a pair map, a scalar) are
+    // projections at the call site rather than three near-identical loops. Aggregate SQL already returns its
+    // structural zero, so a missing or duplicate scalar row is a broken batch contract and remains an exact captured
+    // `InvalidDataException`; it never becomes healthy zero evidence.
+    // Exemption: the ADO read loop is the platform-forced statement seam; the sequence is frozen on return.
+    static async Task<Seq<T>> Next<T>(NpgsqlDataReader reader, Func<NpgsqlDataReader, T> read) {
+        await reader.NextResultAsync().ConfigureAwait(false);
+        Seq<T> rows = default;
+        while (await reader.ReadAsync().ConfigureAwait(false)) { rows = rows.Add(read(reader)); }
+        return rows;
     }
 
-    static async Task<FrozenSet<string>> Drain(NpgsqlDataReader reader, Func<NpgsqlDataReader, string> read) {
-        HashSet<string> rows = new(StringComparer.Ordinal);
-        await reader.NextResultAsync().ConfigureAwait(false);
-        while (await reader.ReadAsync().ConfigureAwait(false)) { rows.Add(read(reader)); }   // Exemption: ADO read loop fills a seam-local set frozen once on return
-        return rows.ToFrozenSet(StringComparer.Ordinal);
-    }
-
-    // one two-column pair drain — extension name/version and setting name/value share it.
-    static async Task<IReadOnlyDictionary<string, string>> DrainPairs(NpgsqlDataReader reader) {
-        Dictionary<string, string> pairs = new(StringComparer.Ordinal);
-        await reader.NextResultAsync().ConfigureAwait(false);
-        while (await reader.ReadAsync().ConfigureAwait(false)) { pairs[reader.GetString(0)] = reader.GetString(1); }   // Exemption: ADO read loop fills a seam-local map frozen once on return
-        return pairs;
-    }
-
-    // slot-lag and invalid-index readings are single-row scalar aggregates: advance to the result set and read the
-    // one `bigint`/`int` cell, defaulting to 0 on an empty set so a cluster with no slots/no invalid indexes reads clean.
-    static async Task<long> Scalar(NpgsqlDataReader reader) {
-        await reader.NextResultAsync().ConfigureAwait(false);
-        return await reader.ReadAsync().ConfigureAwait(false) ? reader.GetInt64(0) : 0L;
+    static async Task<T> NextScalar<T>(NpgsqlDataReader reader, Func<NpgsqlDataReader, T> read, string name) {
+        Seq<T> rows = await Next(reader, read).ConfigureAwait(false);
+        return rows.Count == 1
+            ? rows.Head
+            : throw new InvalidDataException($"<provision-result-{(rows.IsEmpty ? "missing" : "duplicate")}:{name}>");
     }
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                           | [BIND]                                               |
-| :-----: | :------------------ | :------------------------------------------------ | :--------------------------------------------------- |
-|  [01]   | provisioning stance | verification-first                                | never `ALTER SYSTEM`; never spawns PG                |
-|  [02]   | verification cost   | one six-command `CreateBatch` round trip          | data-volume-independent; no ext probe                |
-|  [03]   | absence policy      | `FailureRank.Absorb` delegate                     | required/degradable/observational tiers              |
-|  [04]   | install gate        | `ExtensionAdmission` (preload/type/AM/standalone) | `.api`-verified; CASCADE pulls dependency            |
-|  [05]   | preload gap         | `MissingPreload` + emitted diff                   | resolves at cluster config; restart class            |
-|  [06]   | setting drift       | `pg_settings` vs `ClusterSetting`                 | folds `SettingDrift` + `RestartClass`                |
-|  [07]   | repair posture      | EMIT artifacts, never execute                     | grants + settings diffs are typed outputs            |
-|  [08]   | drift visibility    | stamped `VerificationEpoch`                       | re-verify advance = health-probe event               |
-|  [09]   | deploy completion   | `ReloadTypesAsync`                                | types re-resolve before deploy is done               |
-|  [10]   | h3 parity           | `h3-pg`/`h3_postgis` match `pocketken.H3`         | one cell id at ingest and in SQL                     |
-|  [11]   | spatial wire        | `SpatialWire` policy row on `Source`              | ADO codec composed once; literals deleted            |
-|  [12]   | EF provider bind    | `StoreProfile.Ef` row data                        | one identity DbContext, two providers                |
-|  [13]   | observability       | `AddNpgsql`/`AddNpgsqlInstrumentation`            | AppHost composition root, not in-fence               |
-|  [14]   | schema validation   | `SchemaCheck` dual residence                      | `json_matches_schema` or `Evaluate` fallback         |
-|  [15]   | fault typing        | 838x `ServerFault` whole decade                   | registry-derived absence/readiness/admission         |
-|  [16]   | version floors      | `floors` deployment data vs `extversion`          | below-floor threads an `Evidence` receipt            |
-|  [17]   | maintenance roster  | `MaintenanceJob` rows via gated `Register`        | cron/partman/squeeze registration; no loop           |
-|  [18]   | desired-state wire  | `Manifest(demand, ritual)` typed projection       | drift diffs two documents; no second expectation set |
-|  [19]   | rolling windows     | `RollingWindow` rows via `Declare`                | one shared manager; one table, one partition manager |
-|  [20]   | temporal wire       | `UseNodaTime()` on `Source`                       | raw lanes read the branch instant, never a date      |
-|  [21]   | lane gate           | `Admits(row.Lane)` at `Admit`/`Register`          | geo/maintenance/audit gate off row data              |
-|  [22]   | lane vocabulary     | `Lane` `[SmartEnum<string>]` owns the tokens      | roster and gate compose members; bare text deleted   |
+| [INDEX] | [POLICY]            | [VALUE]                                            | [BIND]                                               |
+| :-----: | :------------------ | :------------------------------------------------- | :--------------------------------------------------- |
+|  [01]   | provisioning stance | verification-first                                 | never `ALTER SYSTEM`; never spawns PG                |
+|  [02]   | verification cost   | one six-command `CreateBatch` round trip           | data-volume-independent; no ext probe                |
+|  [03]   | absence policy      | `FailureRank.Absorb` delegate                      | required/degradable/observational tiers              |
+|  [04]   | install gate        | `ExtensionAdmission` (preload/type/AM/standalone)  | `.api`-verified; CASCADE pulls dependency            |
+|  [05]   | preload gap         | `MissingPreload` + emitted diff                    | resolves at cluster config; restart class            |
+|  [06]   | setting drift       | `pg_settings` vs `ClusterSetting`                  | folds `SettingDrift` + `RestartClass`                |
+|  [07]   | repair posture      | EMIT artifacts, never execute                      | grants + settings diffs are typed outputs            |
+|  [08]   | drift visibility    | stamped `VerificationEpoch`                        | re-verify advance = health-probe event               |
+|  [09]   | deploy completion   | `ReloadTypesAsync`                                 | types re-resolve before deploy is done               |
+|  [10]   | h3 parity           | `h3-pg`/`h3_postgis` match `pocketken.H3`          | one cell id at ingest and in SQL                     |
+|  [11]   | data-source policy  | `SourceWire` row on `Source`                       | codec + tracing compose once; literals deleted       |
+|  [12]   | EF provider bind    | `StoreProfile.Ef` row data                         | one identity DbContext, two providers                |
+|  [13]   | observability       | `AddNpgsql`/`AddNpgsqlInstrumentation`             | AppHost composition root, not in-fence               |
+|  [14]   | schema validation   | `SchemaCheck` dual residence                       | `json_matches_schema` or `Evaluate` fallback         |
+|  [15]   | fault typing        | 838x `ServerFault` whole decade                    | generated absence/readiness/admission                |
+|  [16]   | version floors      | `floors` deployment data vs `extversion`           | below-floor threads an `Evidence` receipt            |
+|  [17]   | maintenance roster  | `MaintenanceJob` rows via gated `Register`         | cron/partman/squeeze registration; no loop           |
+|  [18]   | desired-state wire  | `Manifest(demand, ritual)` typed projection        | drift diffs two documents; no second expectation set |
+|  [19]   | rolling windows     | `RollingWindow` rows via `Declare`                 | one shared manager; one table, one partition manager |
+|  [20]   | temporal wire       | `UseNodaTime()` on `Source`                        | raw lanes read the branch instant, never a date      |
+|  [21]   | lane gate           | `Admits(row.Lane)` at `Admit`/`Register`           | geo/maintenance/audit gate off row data              |
+|  [22]   | lane vocabulary     | `Lane` `[SmartEnum<string>]` owns the tokens       | roster and gate compose members; bare text deleted   |
+|  [23]   | engine capability   | `StoreProfile.Capabilities` over `StoreCapability` | three bool columns collapsed; corners law-gated      |
+|  [24]   | verdict ladder      | ordered `Option` alternative over three gaps       | one expression; a fourth gap is one term             |
+|  [25]   | server lift         | `ServerFault.Lift` on every throwing crossing      | one funnel; provider classification, not a roster    |
 
 ## [03]-[EMBEDDED_FLOOR]
 
 - Owner: `EmbeddedRitual` the idempotent open-ritual record carrying the file-persistent provisioning rows, the per-connection pragma rows, the defensive `DbConfig` set, and the connection-scoped `Capability` registrations (each a named `Action<SqliteConnection>` grant); `EmbeddedStore` the static surface owning the dialed connection, the KMS-custodied key application, the residency-split fold, the first-opener IMMEDIATE migration gate, the rekey rotation, and the closed-engine law — the bound provider is the `SQLitePCLRaw.bundle_e_sqlite3mc` cipher bundle (`Batteries_V2.Init()` binds `SQLite3Provider_e_sqlite3mc`; one provider per process), so the embedded floor is ENCRYPTED at rest wherever a data key is supplied and the plain open is the same ritual with the key slot `None`.
 - Cases: the ritual's `ConnectionRows` are the per-connection pragmas (`synchronous=NORMAL`, `journal_size_limit`, `temp_store=MEMORY`, `cache_size`) the fold re-applies on every open; the `Capabilities` are the schema-resident registrations (`uuid7`/`xxh128` scalar UDFs and the `instant_iso` collation the identity policy and chronological ordering need, a domain aggregate) that register before the first statement or the file is unreadable; the `DbConfig` set is the defensive-mode + double-quoted-literal-rejection posture applied through the raw `Handle`; the file-persistent `application_id`/`user_version` are provisioning identity the migration gate writes, never per-connection.
-- Entry: `public static SqliteConnection Dialed(string path)` opens a non-pooled embedded connection with the canonical connection-string posture (`ForeignKeys`, `ReadWriteCreate`); `public static Fin<Seq<RitualFact>> Open(SqliteConnection store, EmbeddedRitual ritual, Option<ReadOnlyMemory<byte>> dek, Action<SqliteConnection, SqliteTransaction, long> migrate)` folds the declared ritual end-to-end idempotently — the supplied data key applies FIRST through `raw.sqlite3_key(handle, dek.Span)` before any statement touches a data page (the `Element/identity#KMS_CUSTODY` `EnvelopeKeyring.Unwrap` recovers it and the caller zeroizes through `CryptographicOperations.ZeroMemory` after the keyed open, so no passphrase persists past the crossing); `public static Fin<Unit> Rekey(SqliteConnection store, ReadOnlyMemory<byte> next)` rotates the store key in place through `raw.sqlite3_rekey(handle, next.Span)` after a fresh custody mint — an empty `next` strips the cipher for a plaintext export — identity check, per-connection pragma rows, defensive `sqlite3_db_config` hardening, extended-result-code arming, capability registration, the IMMEDIATE migration gate, the epoch read — every throwing provider call staying INSIDE the `Fin` boundary so a provider fault converts to `EmbeddedFault` and disposes the connection on every failure path rather than escaping with a leaked live handle; `migrate` is the first-opener step run under the one IMMEDIATE transaction when the held epoch trails the compiled epoch.
+- Entry: `public static SqliteConnection Dialed(string path)` opens a non-pooled embedded connection with the canonical connection-string posture (`ForeignKeys`, `ReadWriteCreate`); `public static Fin<Seq<RitualFact>> Open(SqliteConnection store, EmbeddedRitual ritual, Option<ReadOnlyMemory<byte>> dek, Action<SqliteConnection, SqliteTransaction, long> migrate)` folds the declared ritual end-to-end idempotently — the supplied data key applies FIRST through `raw.sqlite3_key(handle, dek.Span)` before any statement touches a data page (the `Element/identity#KMS_CUSTODY` `EnvelopeKeyring.Unwrap` recovers it and the caller zeroizes through `CryptographicOperations.ZeroMemory` after the keyed open, so no passphrase persists past the crossing); `public static Fin<Unit> Rekey(SqliteConnection store, ReadOnlyMemory<byte> next)` rotates the store key in place through `raw.sqlite3_rekey(handle, next.Span)` after a fresh custody mint — an empty `next` strips the cipher for a plaintext export — identity check, per-connection pragma rows, defensive `sqlite3_db_config` hardening, extended-result-code arming, capability registration, the IMMEDIATE migration gate, the epoch read — the whole ritual riding the `#ENGINE_OPERATIONS` `HandleBridge.Opened` crossing, which owns handle resolution, the one capture converting a provider fault to `EmbeddedFault`, and disposal on every failure path, so no arm here tests a handle, converts a throw, or disposes and none escapes with a leaked live handle; `migrate` is the first-opener step run under the one IMMEDIATE transaction when the held epoch trails the compiled epoch.
 - Auto: every connection in every process folds the SAME declared sequence so bootstrap, crash-recovery reopen, and steady-state open are one fold with no first-process special case — the identity check rejects a foreign `application_id`, the per-connection pragma rows apply (`synchronous=NORMAL` the WAL throughput row whose loss boundary is the last commits and never corruption), the defensive `sqlite3_db_config(Handle, SQLITE_DBCONFIG_DEFENSIVE, 1)` and `DQS_DDL=0`/`DQS_DML=0` harden against direct b-tree writes and double-quoted string literals (so a double-quoted literal is a prepare-time syntax error, identifiers quoting with `"` and strings with `'`), `sqlite3_extended_result_codes(Handle, 1)` upgrades the running taxonomy where receipts must discriminate (`BUSY_SNAPSHOT` from plain `BUSY`), the capabilities register connection-instance-scoped (never persisted — `isDeterministic: true` admits the UDF into expression indexes and generated columns), the first-opener migration runs the `migrate` step under one IMMEDIATE transaction (losers blocked on the lock observe the bumped `user_version` on acquisition and no-op, a register ahead of the compiled epoch a typed rejection so correctness needs no leader election), and `PRAGMA data_version` is the polling-free cross-process change probe `EngineOps` reads; any write transaction begins IMMEDIATE so a deferred read attempting its first write never burns the busy budget on a stale-snapshot retry, and the provider already retries `BUSY`/`LOCKED` at managed quanta so a nonzero `busy_timeout` is the deleted form.
 - Receipt: an open rides `store.embedded.open` carrying the ritual fact count, the keyed bit, and the epoch; a rotation rides `store.embedded.rekey` carrying the wrapping-key version advance, never key material.
 - Packages: Microsoft.Data.Sqlite (`SqliteConnection.Handle`/`CreateFunction`/`CreateAggregate`/`CreateCollation`/`BeginTransaction(IsolationLevel, deferred)`), SQLitePCLRaw.bundle_e_sqlite3mc (`Batteries_V2.Init()` binding `SQLite3Provider_e_sqlite3mc`; the keying delta `raw.sqlite3_key(sqlite3, ReadOnlySpan<byte>)`/`raw.sqlite3_key_v2(sqlite3, utf8z, ReadOnlySpan<byte>)`/`raw.sqlite3_rekey(sqlite3, ReadOnlySpan<byte>)`/`raw.sqlite3_rekey_v2(sqlite3, utf8z, ReadOnlySpan<byte>)`; the carried-over raw surface `raw.sqlite3_db_config(sqlite3, int, int, out int)`/`raw.sqlite3_extended_result_codes`/`raw.SQLITE_DBCONFIG_DEFENSIVE`=1010/`raw.SQLITE_DBCONFIG_DQS_DDL`=1014/`raw.SQLITE_DBCONFIG_DQS_DML`=1013 — backup, snapshot, WAL, db_config, and serialize calls carry over the `mc` provider unchanged), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a new pragma is one `ConnectionRows` row; a new capability is one `Capabilities` registration; a new defensive posture is one `DbConfig` row; zero new surface — a second embedded relational engine (libSQL, LiteDB, RavenDB.Embedded, `Realm`, hctree, embedded-pg, EF InMemory), a per-process bootstrap branch, a nonzero `busy_timeout`, a persisted capability, or a `locking_mode=EXCLUSIVE`/shared-cache posture is the deleted form because the engine sweep is closed, the ritual is the one open path, and the provider already retries `BUSY`/`LOCKED`.
-- Boundary: the embedded SQLite floor is the single-process embedded store beneath the server tier — the one engine sweep is CLOSED (PostgreSQL + embedded SQLite only; libSQL, LiteDB, RavenDB.Embedded, `Realm`, hctree, embedded-pg, EF InMemory all rejected) so a new engine row is the named defect; `StoreProfile` and the `Store/schema#CONTRACT` `BackendProvider` axis are DISJOINT vocabularies and neither rejects the other's rows — a profile row names an engine THIS package opens and provisions in process, a provider row names an engine identity a schema GENERATION is minted for anywhere in the estate, so PGlite is not a rejected engine but a category the profile axis cannot spell: it publishes no .NET provider and this package never opens one, while it IS PostgreSQL at the contract grain (its wire error carries the pg `code` and `constraint` verbatim), so a generation minted for postgres serves a peer-hosted PGlite unchanged; and the embedded floor and the PostgreSQL server tier are two engines on the one `StoreProfile` axis (`#SERVER_EXTENSIONS` `StoreProfile`), the profile selecting one by deployment, never a third; pragma rows carry RESIDENCY — file-persistent rows (`journal_mode`, `application_id`, `user_version`) are provisioning identity the migration gate writes and the ritual folds ONLY per-connection rows; capability registration is connection-instance-scoped and never persisted — schema-resident functions, aggregates, and collations register before the first statement or the file is unreadable, and `isDeterministic: true` is the capability grant admitting a function into expression indexes and generated columns; every embedded connection is non-pooled because a physical handle's cipher identity is fixed by its first key bind and path-only pooling can return a handle keyed under different material; the WAL `-wal`/`-shm` sidecar set is the unit of copy/replace/delete (a main file separated from its sidecars is silent page-level corruption); STRICT tables are the typed admission gate and `RETURNING` supersedes write-then-read identity round trips; the defensive `sqlite3_db_config` set and double-quoted-literal rejection are connection POLICY applied through the `Handle` raw bridge (`api-sqlite#IMPLEMENTATION_LAW`), not connection-string knobs; extension loading stays FULLY disabled — the `Canonical` ritual arms neither the SQL `load_extension()` function nor the C-API loader (`SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION` is absent from the `DbConfig` set), so the bundled floor admits no runtime extension and a `DbConfig` row arming the loader is the deliberate opt-in a deployment that needs one adds, never the default; encryption-at-rest is the BOUND provider's law — the `SQLitePCLRaw.bundle_e_sqlite3mc` cipher bundle supersedes the plain `e_sqlite3` bundle where the encrypted floor mounts (one provider binds per process, so the selection is this provisioning row, never a per-connection knob), key material is the KMS-unwrapped DEK crossing as `ReadOnlySpan<byte>` through `raw.sqlite3_key` and zeroized after the bind, a `Password=` connection-string value exists only for the ephemeral open of an inspected foreign store and never enters durable configuration, and classification ceilings thereby extend to the offline lane — a stolen laptop or synced file leaks nothing; the ritual is the one open path so a per-process bootstrap branch is the deleted form.
+- Boundary: the embedded SQLite floor is the single-process embedded store beneath the server tier — the one engine sweep is CLOSED (PostgreSQL + embedded SQLite only; libSQL, LiteDB, RavenDB.Embedded, `Realm`, hctree, embedded-pg, EF InMemory all rejected) so a new engine row is the named defect; `StoreProfile` and the `Store/schema#CONTRACT` `BackendProvider` axis are DISJOINT vocabularies and neither rejects the other's rows — a profile row names an engine THIS package opens and provisions in process, a provider row names an engine identity a schema GENERATION is minted for anywhere in the estate, so PGlite is not a rejected engine but a category the profile axis cannot spell: it publishes no .NET provider and this package never opens one, while it IS PostgreSQL at the contract grain (its wire error carries the pg `code` and `constraint` verbatim), so a generation minted for postgres serves a peer-hosted PGlite unchanged; and the embedded floor and the PostgreSQL server tier are two engines on the one `StoreProfile` axis (`#SERVER_EXTENSIONS` `StoreProfile`), the profile selecting one by deployment, never a third; pragma rows carry RESIDENCY — file-persistent rows (`journal_mode`, `application_id`, `user_version`) are provisioning identity the migration gate writes and the ritual folds ONLY per-connection rows; capability registration is connection-instance-scoped and never persisted — schema-resident functions, aggregates, and collations register before the first statement or the file is unreadable, and `isDeterministic: true` is the capability grant admitting a function into expression indexes and generated columns; every embedded connection is non-pooled because a physical handle's cipher identity is fixed by its first key bind and path-only pooling can return a handle keyed under different material; the WAL `-wal`/`-shm` sidecar set is the unit of copy/replace/delete (a main file separated from its sidecars is silent page-level corruption); STRICT tables are the typed admission gate and `RETURNING` supersedes write-then-read identity round trips; the defensive `sqlite3_db_config` set and double-quoted-literal rejection are connection POLICY applied through the `#ENGINE_OPERATIONS` `HandleBridge` (`api-sqlite#IMPLEMENTATION_LAW`), not connection-string knobs; extension loading stays FULLY disabled — the `Canonical` ritual arms neither the SQL `load_extension()` function nor the C-API loader (`SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION` is absent from the `DbConfig` set), so the bundled floor admits no runtime extension and a `DbConfig` row arming the loader is the deliberate opt-in a deployment that needs one adds, never the default; encryption-at-rest is the BOUND provider's law — the `SQLitePCLRaw.bundle_e_sqlite3mc` cipher bundle supersedes the plain `e_sqlite3` bundle where the encrypted floor mounts (one provider binds per process, so the selection is this provisioning row, never a per-connection knob), key material is the KMS-unwrapped DEK crossing as `ReadOnlySpan<byte>` through `raw.sqlite3_key` and zeroized after the bind, a `Password=` connection-string value exists only for the ephemeral open of an inspected foreign store and never enters durable configuration, and classification ceilings thereby extend to the offline lane — a stolen laptop or synced file leaks nothing; the ritual is the one open path so a per-process bootstrap branch is the deleted form.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -763,14 +900,17 @@ using static LanguageExt.Prelude;
 
 // --- [MODELS] ---------------------------------------------------------------------------
 
-public readonly record struct RitualFact(string Row, long Applied);
+// `Applied` is an OPTION because the ritual's three row families answer it differently: a pragma row and a
+// `db_config` row each return a real count the provider measured, while a capability GRANT returns nothing at all —
+// a registration has no applied figure, and stamping `1` there published a measurement no crossing took.
+public readonly record struct RitualFact(string Row, Option<long> Applied);
 
 public sealed record EmbeddedRitual(
     long Identity,
     long CompiledEpoch,
     Seq<(string Row, string Sql)> ConnectionRows,
     Seq<(string Row, int Op, int Value)> DbConfig,
-    Seq<(string Row, Action<SqliteConnection> Grant)> Capabilities) {
+    Seq<(string Row, Func<SqliteConnection, Fin<Unit>> Grant)> Capabilities) {
 
     // canonical ritual: the per-connection WAL/throughput pragmas, the defensive `sqlite3_db_config` posture
     // (DEFENSIVE on, double-quoted DDL/DML off), and the schema-resident identity/chronology capabilities — every row
@@ -788,18 +928,18 @@ public sealed record EmbeddedRitual(
             // first statement: the managed wrapper maps a statement's native pointer only while armed, so
             // `Store/observability#SQLITE_STATUS_HARVEST`'s walk throws both on an unarmed connection and on
             // any handle prepared ahead of the grant, and both orderings together make each unreachable.
-            ("<stmt-registry>", static store => ignore(SqliteStatHarvest.Arm(store))),
-            ("<uuid7>", static store => store.CreateFunction("uuid7", static () => Guid.CreateVersion7().ToString("N"), isDeterministic: false)),
+            ("<stmt-registry>", SqliteStatHarvest.Arm),
+            ("<uuid7>", static store => { store.CreateFunction("uuid7", static () => Guid.CreateVersion7().ToString("N"), isDeterministic: false); return Fin.Succ(unit); }),
             // Full-width content key as a 16-byte big-endian BLOB — the same encoding CloudRunKey.Content writes —
             // so the UDF's output joins a stored ContentAddress column byte-for-byte; the codec law rules a 64-bit
             // truncation the deleted form that collides distinct contents.
-            ("<xxh128>", static store => store.CreateFunction("xxh128", static (byte[] bytes) => {
+            ("<xxh128>", static store => { store.CreateFunction("xxh128", static (byte[] bytes) => {
                 byte[] key = new byte[16];
                 System.Buffers.Binary.BinaryPrimitives.WriteUInt128BigEndian(key, System.IO.Hashing.XxHash128.HashToUInt128(bytes));
                 return key;
-            }, isDeterministic: true)),
-            ("<instant-iso>", static store => store.CreateCollation("instant_iso", static (left, right) => string.CompareOrdinal(left, right))),
-            ("<span-fold>", static store => store.CreateAggregate("span_fold", 0L, static (long held, long next) => long.Max(held, next), isDeterministic: true))]);
+            }, isDeterministic: true); return Fin.Succ(unit); }),
+            ("<instant-iso>", static store => { store.CreateCollation("instant_iso", static (left, right) => string.CompareOrdinal(left, right)); return Fin.Succ(unit); }),
+            ("<span-fold>", static store => { store.CreateAggregate("span_fold", 0L, static (long held, long next) => long.Max(held, next), isDeterministic: true); return Fin.Succ(unit); })]);
 }
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
@@ -811,69 +951,58 @@ public static class EmbeddedStore {
         DataSource = path, Mode = SqliteOpenMode.ReadWriteCreate, Pooling = false, ForeignKeys = true,
     }.ConnectionString);
 
-    public static Fin<Seq<RitualFact>> Open(SqliteConnection store, EmbeddedRitual ritual, Option<ReadOnlyMemory<byte>> dek, Action<SqliteConnection, SqliteTransaction, long> migrate) {
-        ArgumentNullException.ThrowIfNull(store);
-        ArgumentNullException.ThrowIfNull(ritual);
-        ArgumentNullException.ThrowIfNull(migrate);
-        try {
-            store.Open();
-            sqlite3 handle = store.Handle ?? throw new InvalidOperationException("<no-handle>");
+    // The whole ritual rides `HandleBridge.Opened` — one physical open, one handle resolution, one capture, and
+    // disposal on every failure path owned by the capsule. Nothing here tests a handle for null, converts an
+    // exception, or disposes: those three are the bridge's, which is what makes this body the declared sequence
+    // rather than a ladder of guards around it. Refusal arms are TYPED — a foreign `application_id` and an
+    // epoch-ahead register both rail `EmbeddedFault.Refused` (in-band 771x).
+    public static Fin<Seq<RitualFact>> Open(SqliteConnection store, EmbeddedRitual ritual, Option<ReadOnlyMemory<byte>> dek, Action<SqliteConnection, SqliteTransaction, long> migrate) =>
+        HandleBridge.Opened(store, handle => {
             // Key application is the FIRST crossing after the physical open — before any statement touches a
             // data page. The DEK arrives from EnvelopeKeyring.Unwrap; the caller zeroizes it after this returns.
-            _ = dek.Map(key => raw.sqlite3_key(handle, key.Span) is raw.SQLITE_OK
-                ? 1L
-                : throw new InvalidOperationException("<key-refused>"));
+            Fin<Unit> keyed = dek.Match(
+                Some: key => HandleBridge.Status(raw.sqlite3_key(handle, key.Span), "<key-refused>"),
+                None: static () => Fin.Succ(unit));
+            if (keyed.IsFail) { return keyed.Map(static _ => Seq<RitualFact>()); }
             // Capability registration is the crossing that immediately follows the key bind, because every row
             // in that roster is a BEFORE-FIRST-STATEMENT grant: the statement-registry arm maps a statement's
             // native pointer only while armed, and a schema-resident function, aggregate, or collation absent
             // when a statement naming it prepares makes the file unreadable. Applying the roster after the
             // identity probe and the pragma rows leaves every one of those grants late by exactly the
-            // statements this method itself runs.
-            Seq<RitualFact> facts = ritual.Capabilities.Map(row => (fun(() => row.Grant(store))(), new RitualFact(row.Row, 1L)).Item2);
-            long identity = Scalar(store, "PRAGMA application_id");
-            if (identity != ritual.Identity && identity != 0L) { return Refused(store, $"<foreign-store:{identity:x8}>"); }
-            facts += ritual.ConnectionRows.Map(row => new RitualFact(row.Row, Execute(store, row.Sql)));
-            _ = raw.sqlite3_extended_result_codes(handle, 1);
-            facts += ritual.DbConfig.Map(row => new RitualFact(row.Row, raw.sqlite3_db_config(handle, row.Op, row.Value, out int applied) == raw.SQLITE_OK ? applied : -1L));
-            using SqliteTransaction gate = store.BeginTransaction(IsolationLevel.Serializable, deferred: false);
-            long held = Scalar(store, "PRAGMA user_version", gate);
-            if (held > ritual.CompiledEpoch) { return Refused(store, $"<epoch-ahead:{held}>"); }
-            if (held < ritual.CompiledEpoch) {
-                migrate(store, gate, held);
-                _ = Execute(store, $"PRAGMA application_id={ritual.Identity}", gate);
-                _ = Execute(store, $"PRAGMA user_version={ritual.CompiledEpoch}", gate);
-            }
-            gate.Commit();
-            return Fin.Succ(facts.Add(new RitualFact("<epoch>", long.Max(held, ritual.CompiledEpoch))));
-        }
-        catch (Exception ex) {
-            store.Dispose();
-            return Fin.Fail<Seq<RitualFact>>(EmbeddedFault.Lift(ex));
-        }
-    }
+            // statements this method itself runs. A grant returns no count, so its fact states absence.
+            return ritual.Capabilities.TraverseM(row =>
+                row.Grant(store).Map(_ => new RitualFact(row.Row, None))).As().Bind(facts => {
+                long identity = Scalar(store, "PRAGMA application_id");
+                if (identity != ritual.Identity && identity != 0L) {
+                    return Fin.Fail<Seq<RitualFact>>(new EmbeddedFault.Refused($"<foreign-store:{identity:x8}>"));
+                }
+                facts += ritual.ConnectionRows.Map(row => new RitualFact(row.Row, Some(Execute(store, row.Sql))));
+                _ = raw.sqlite3_extended_result_codes(handle, 1);
+                facts += ritual.DbConfig.Map(row => new RitualFact(row.Row,
+                    raw.sqlite3_db_config(handle, row.Op, row.Value, out int applied) == raw.SQLITE_OK ? Some((long)applied) : None));
+                using SqliteTransaction gate = store.BeginTransaction(IsolationLevel.Serializable, deferred: false);
+                long held = Scalar(store, "PRAGMA user_version", gate);
+                if (held > ritual.CompiledEpoch) {
+                    return Fin.Fail<Seq<RitualFact>>(new EmbeddedFault.Refused($"<epoch-ahead:{held}>"));
+                }
+                if (held < ritual.CompiledEpoch) {
+                    migrate(store, gate, held);
+                    _ = Execute(store, $"PRAGMA application_id={ritual.Identity}", gate);
+                    _ = Execute(store, $"PRAGMA user_version={ritual.CompiledEpoch}", gate);
+                }
+                gate.Commit();
+                return Fin.Succ(facts.Add(new RitualFact("<epoch>", Some(long.Max(held, ritual.CompiledEpoch)))));
+            });
+        });
 
     // Key rotation without an app-layer re-encrypt: one raw call on the open keyed connection after a fresh
     // KMS mint (`Custody.Wrap` -> new DEK), the wrapped DEK persisting beside the store; an EMPTY `next`
     // strips the cipher for a plaintext export. The plaintext never persists — the caller zeroizes both keys.
-    // Native crossing rides the Try capture so a provider throw converts to `EmbeddedFault` inside the `Fin`
-    // boundary, and a non-OK status discriminates through `FromStatus` — a BUSY rekey stays the transient retry
-    // class instead of flattening into `Refused`.
-    public static Fin<Unit> Rekey(SqliteConnection store, ReadOnlyMemory<byte> next) {
-        ArgumentNullException.ThrowIfNull(store);
-        return store.Handle is { } handle
-            ? Try.lift(() => raw.sqlite3_rekey(handle, next.Span) is var status && status is raw.SQLITE_OK
-                    ? Fin.Succ(unit)
-                    : Fin.Fail<Unit>(EmbeddedFault.FromStatus(status, "<rekey-refused>")))
-                .Run()
-                .MapFail(static error => (Error)EmbeddedFault.Lift(error.ToException()))
-                .Bind(static result => result)
-            : Fin.Fail<Unit>(new EmbeddedFault.Refused("<no-handle>"));
-    }
-
-    // refusal arms are TYPED — a foreign `application_id` and an epoch-ahead register both rail
-    // `EmbeddedFault.Refused` (7714, in-band 771x); the loose `Error.New(7701/7702)` integers are the deleted form.
-    static Fin<Seq<RitualFact>> Refused(SqliteConnection store, string detail) =>
-        (fun(store.Dispose)(), Fin.Fail<Seq<RitualFact>>(new EmbeddedFault.Refused(detail))).Item2;
+    // The bridge crossing carries handle resolution, the capture, and the status discrimination together, so a
+    // BUSY rekey stays the transient retry class instead of flattening into `Refused`.
+    public static Fin<Unit> Rekey(SqliteConnection store, ReadOnlyMemory<byte> next) =>
+        HandleBridge.Crossed(store, handle =>
+            HandleBridge.Status(raw.sqlite3_rekey(handle, next.Span), "<rekey-refused>"));
 
     // `gate` threads the live IMMEDIATE transaction — Microsoft.Data.Sqlite REFUSES a command whose connection
     // holds an active transaction the command does not name, so an unassigned `Transaction` inside the gate throws.
@@ -898,15 +1027,15 @@ public static class EmbeddedStore {
 
 ## [04]-[ENGINE_OPERATIONS]
 
-- Owner: `HandleBridge` projects `SqliteConnection.Handle` into typed `Fin` results; `CheckpointMode`, `SnapshotFloor`, `BackupPolicy`, `BlobBinding`, `EmbeddedFact`, and `EmbeddedFault` carry the native operation policy, lifetime, validation, target, receipt, and closed fault family, and `RetryShape` is the ONE re-drive vocabulary every embedded fault publishes, its four routes dispatched TOTALLY through `EmbeddedFault.Reoffer` over the caller's own re-entry arrows. `EngineOps` owns checkpoint, consistent snapshot, validated paged backup, preallocated blob IO, and integrity. `KvSpace` is the `[SmartEnum<string>]` keyspace axis BOTH KV engines realize — one row IS a RocksDB column family and an LMDB named database — carrying its `KvOrder` key order, its `Option<MergeOperator>` accrual, its fixed dup width, its `KvDurability` sync posture, its `KvSeal` at-rest posture, and its LSM compaction style; `SpoolAccrual` owns the framed merge operator, `KvVault` the AEAD value seal, `RocksStatus`/`RocksSubcode` the message taxonomy a codeless `RocksDbException` forces, `KvMount` the closed open request; `KvEngine` and `KvFloor` realize the pending-op spool and the local content-address index through one polymorphic space-keyed surface, and remote object residence remains exact-object provider evidence that never consults this local index.
-- Cases: `CheckpointMode` is `Passive`/`Full`/`Restart`/`Truncate` (the `raw.SQLITE_CHECKPOINT_*` modes — `Truncate` the scheduled WAL-bound reset); `RetryShape` is `Terminal`/`Waited`/`Restarted`/`Rescoped`, so a fault names WHICH re-drive recovers it and `IsTransient` narrows to `Waited` alone; `Reoffer` is the total dispatch over those four, taking the caller's same-effect, re-read, and narrowed arrows so the two routes a bool discards reach their own re-entry point; `EmbeddedFault` is `Busy` (`SQLITE_BUSY`/`SQLITE_LOCKED`, its shape DERIVED from the full extended status the case already keeps rather than a second column), `Corrupt` (`SQLITE_CORRUPT`/`SQLITE_NOTADB`, terminal — routes to `Version/recovery`), `Io` (`SQLITE_IOERR`/`SQLITE_FULL`), `Refused` (a foreign store / epoch-ahead / pin regression), and `Kv` (the engine-named KV verdict carrying its shape as a column, because no engine status re-derives it); the integrity ladder orders boot `quick_check`, cycle `integrity_check` and `foreign_key_check`, a deeper-tier failure routing to restore, never retry; `KvSpace` is `Spool` (the pending `OpLogEntry`/`CrdtOp` rows a disconnected peer buffers), `Cursor` (both `SyncSession` watermarks — the pull resume point and the push-ack frontier), `ChunkIndex` (chunk key → owning `ContentAddress` dup set, the one row earning `DuplicatesSort|DuplicatesFixed`), and `Meta` (engine epoch and peer identity); `KvWrite` is `Put | Append | Unlink | Drop` — the dupsorted index answers two distinct retirements (one owner leaving a content address, the address leaving whole) so a single remove case can spell only the second, and `Append` is the accrual intent both engines own natively.
+- Owner: `HandleBridge` is the ONE raw-handle capsule the whole package crosses on — `Of` resolving `SqliteConnection.Handle` into a typed refusal, `Lifted` the one embedded capture, `Crossed` the two together, `Opened` the keyed-open crossing owning disposal on every failure path, and `Status`/`Explain` the native-status rail — so handle resolution, exception capture, status discrimination, and disposal each carry exactly one spelling and a second reach for that property anywhere re-opens the disposal path this capsule closes; `CheckpointMode`, `SnapshotFloor`, `BackupPolicy`, `BlobBinding`, `EmbeddedFact`, and `EmbeddedFault` carry the native operation policy, lifetime, validation, target, receipt, and closed fault family, and `RetryShape` is the ONE re-drive vocabulary every embedded fault publishes, its four routes dispatched TOTALLY through `EmbeddedFault.Reoffer` over the caller's own re-entry arrows. `EngineOps` owns checkpoint, consistent snapshot, validated paged backup, preallocated blob IO, and integrity. `KvSpace` is the `[SmartEnum<string>]` keyspace axis BOTH KV engines realize — one row IS a RocksDB column family and an LMDB named database — carrying its `KvOrder` key order, its `Option<MergeOperator>` accrual, its fixed dup width, its `KvDurability` sync posture, its `KvSeal` at-rest posture, and its LSM compaction style; `SpoolAccrual` owns the framed merge operator, `KvVault` the AEAD value seal, and `KvMount` the closed open request. `KvEngine` and `KvFloor` realize the pending-op spool and the local content-address index through one polymorphic space-keyed surface; RocksDB raises only an untyped `RocksDbException`, which stays the exact exceptional `Error`, and remote object residence remains exact-object provider evidence that never consults this local index.
+- Cases: `CheckpointMode` is `Passive`/`Full`/`Restart`/`Truncate` (the `raw.SQLITE_CHECKPOINT_*` modes — `Truncate` the scheduled WAL-bound reset); `RetryShape` is `Terminal`/`Waited`/`Restarted`/`Rescoped` — the ROUTE axis naming WHERE a recovery re-enters — beside the kernel `Retriability` this band overrides to answer WHETHER a bare re-offer is admitted, which the route DERIVES: `Waited` alone reads transient, so a wait-retry executor never spins against a blocker only its own caller can release; `Reoffer` is the total dispatch over those four, taking the caller's same-effect, re-read, and narrowed arrows so the two routes a bool discarded reach their own re-entry point; `EmbeddedFault` is `Busy` (`SQLITE_BUSY`/`SQLITE_LOCKED`, its shape DERIVED from the full extended status the case already keeps rather than a second column), `Corrupt` (`SQLITE_CORRUPT`/`SQLITE_NOTADB`, terminal — routes to `Version/recovery`), `Io` (`SQLITE_IOERR`/`SQLITE_FULL`), `Refused` (a foreign store / epoch-ahead / pin regression), and `Kv` (the engine-named KV verdict carrying its shape as a column, because no engine status re-derives it); the integrity ladder orders boot `quick_check`, cycle `integrity_check` and `foreign_key_check`, a deeper-tier failure routing to restore, never retry; `KvSpace` is `Spool` (the pending `OpLogEntry`/`CrdtOp` rows a disconnected peer buffers), `Cursor` (both `SyncSession` watermarks — the pull resume point and the push-ack frontier), `ChunkIndex` (chunk key → owning `ContentAddress` dup set, the one row earning `DuplicatesSort|DuplicatesFixed`), and `Meta` (engine epoch and peer identity); `KvWrite` is `Put | Append | Unlink | Drop` — the dupsorted index answers two distinct retirements (one owner leaving a content address, the address leaving whole) so a single remove case can spell only the second, and `Append` is the accrual intent both engines own natively.
 - Law: key order is proved by OMISSION — every `KvSpace` row declares `KvOrder.Bytewise` and NEITHER `DatabaseConfiguration.CompareWith` NOR `FindDuplicatesWith` is ever called, because LMDB's built-in comparator and RocksDB's default comparator are both byte-lexicographic and only an uncalled override leaves them in force; calling either is the deleted form, and `Scan` gates on the row's `PrefixSound` column so a future order lands a typed refusal instead of a silently truncated walk. LMDB's sync flags are ENVIRONMENT-scoped while RocksDB's `WriteOptions.SetSync` is per-write, so a per-space LMDB posture is inexpressible: the environment opens under the STRICTEST posture across the rostered spaces and each row's own column carries its LSM realization and its contribution to that floor.
 - Entry: `Checkpoint(SqliteConnection, SnapshotFloor, CheckpointMode, ProjectionContext)` resets only the owning store's promoted pin on `Truncate`; `WithSnapshot<T>(SqliteConnection, SnapshotFloor, Func<SqliteConnection,T>)` promotes a comparable snapshot into that same disposable lifetime owner. `Backup(SqliteConnection, string, BackupPolicy, ProjectionContext)` binds the policy's `Dek` to the destination BEFORE `sqlite3_backup_init`, pages until completion, returns `Busy` without spinning, then requires destination `PRAGMA quick_check` and the policy's source/destination `ContentAddress` equality. `WriteBlob(SqliteConnection, BlobBinding, long, ReadOnlyMemory<byte>)` executes the binding's parameterized `zeroblob(@length)` row preallocation before opening `SqliteBlob`; `DataVersion` reads the cross-process change register. `KvFloor.Open(KvMount, ReadOnlyMemory<byte>)` folds the WHOLE `KvSpace` roster into the opened handle set and binds the vault, so every later space lookup is total; `Put`/`Get`/`Batch`/`Scan`/`Refs` each take the `KvSpace` whose row supplies their handle and posture, while `Since` and `Snap` take none because the WAL and the on-disk clone are store-wide facts spanning every space.
-- Auto: each `SnapshotFloor` scopes native comparison and disposal to one store instead of comparing process-global handles from unrelated databases. Backup policy owns page quantum and semantic identity; `SQLITE_BUSY`/`SQLITE_LOCKED` returns to the schedule rather than hot-spinning inside the native loop. Blob target identifiers arrive only through a composition-time `BlobBinding`, while row id and length remain parameters. LMDB checks every `MDBResultCode`, maps only `NotFound` to `None`, admits a write only after `Commit` succeeds, and folds a RAISED `LightningException.StatusCode` through the same verdict table a returned code takes so one engine carries one taxonomy; the status discriminator masks the primary byte because the ritual arms extended result codes; RocksDB keeps span-first IO and atomic `WriteBatch`. `RocksDbException` publishes no code and no enum — its message IS RocksDB `Status::ToString()` — so the lsm arm folds that message ONCE by longest primary-prefix match, takes the subcode's shape over the status's where a subcode matches (a `max_num_locks` ceiling under a timeout is an operator act, not a wait), and mints a MEASURED `RetryShape`. Accrual is row data: an `Append` on a merge-carrying row is one `WriteBatch.Merge` the engine resolves at read and compaction, and the same intent on the mmap arm is a dup put into that key's set, so a disconnected peer never pays a read-modify-write; the value seal likewise reads its row, so one `Put` path serves a sealed and a clear space.
+- Auto: each `SnapshotFloor` scopes native comparison and disposal to one store instead of comparing process-global handles from unrelated databases. Backup policy owns page quantum and semantic identity; `SQLITE_BUSY`/`SQLITE_LOCKED` returns to the schedule rather than hot-spinning inside the native loop. Blob target identifiers arrive only through a composition-time `BlobBinding`, while row id and length remain parameters. LMDB checks every `MDBResultCode`, maps only `NotFound` to `None`, admits a write only after `Commit` succeeds, and folds a RAISED `LightningException.StatusCode` through `EmbeddedFault.OfLmdb`, the same verdict fold a returned code takes, so one engine carries one taxonomy and a `MapFull` cannot read terminal when raised and recoverable when returned; the status discriminator masks the primary byte because the ritual arms extended result codes; RocksDB keeps span-first IO and atomic `WriteBatch`, while its exception remains exact because the managed surface publishes no stable typed recovery discriminant. Accrual is row data: an `Append` on a merge-carrying row is one `WriteBatch.Merge` the engine resolves at read and compaction, and the same intent on the mmap arm is a dup put into that key's set, so a disconnected peer never pays a read-modify-write; the value seal likewise reads its row, so one `Put` path serves a sealed and a clear space.
 - Receipt: a checkpoint rides `store.embedded.checkpoint` carrying the mode and frame counts; a snapshot read rides `store.embedded.snapshot`; a backup rides `store.embedded.backup` carrying the page progress; a blob write rides `store.embedded.blob` carrying the byte count.
 - Packages: Microsoft.Data.Sqlite (`SqliteConnection.Handle`, `SqliteBlob(connection, table, column, rowid, readOnly)`, `BackupDatabase`, `SqliteException.SqliteErrorCode`/`SqliteExtendedErrorCode`), SQLitePCLRaw.bundle_e_sqlite3mc (`raw.sqlite3_wal_checkpoint_v2`, `raw.sqlite3_snapshot_get`/`_open`/`_cmp`/`_recover`/`_free`, `raw.sqlite3_backup_init`/`_step`/`_remaining`/`_pagecount`/`_finish`, `raw.sqlite3_extended_errcode`, `raw.sqlite3_errstr`, the `SQLITE_CHECKPOINT_*`/`SQLITE_BUSY`/`SQLITE_BUSY_RECOVERY`/`SQLITE_BUSY_SNAPSHOT`/`SQLITE_LOCKED`/`SQLITE_CORRUPT`/`SQLITE_DONE` constants), rocksdb (`RocksDb.Open(DbOptions, path, ColumnFamilies)`, `GetColumnFamily`, `ColumnFamilies.Add`/`DefaultName`, `ColumnFamilyOptions.SetCompactionStyle`/`SetMergeOperator`, `MergeOperators.Create` with `PartialMergeFunc`/`FullMergeFunc`/`OperandsEnumerator`, `WriteOptions.SetSync`, the `ColumnFamilyHandle`-taking `Get`/`Put`/`Merge`/`NewIterator` and `WriteBatch.Put`/`Merge`/`Delete`, `RocksDb.Write(WriteBatch, WriteOptions)`, `CreateSnapshot`, `ReadOptions.SetSnapshot`, `GetUpdatesSince`, `TransactionLogIterator.GetBatch`, `WriteBatch.ToBytes`, `Checkpoint.Save`, `RocksDbException`), LightningDB (`LightningEnvironment` + `EnvironmentConfiguration.MapSize`/`MaxDatabases`, `Open(EnvironmentOpenFlags, UnixAccessMode)`, `BeginTransaction`, `LightningTransaction.OpenDatabase(name, DatabaseConfiguration, closeOnDispose)`/`Get`/`Put`/`Delete(db, key)`/`Delete(db, key, value)` — the dup-value overload — `/Commit`, `LightningCursor.GetBoth`/`GetMultiple`/`NextMultiple`/`AllValuesFor`/`SetRange`, `LightningException.StatusCode`, `MDBResultCode`, `DatabaseOpenFlags`, `EnvironmentOpenFlags`), System.Security.Cryptography (`AesGcm(key, tagSizeInBytes)`/`Encrypt`/`Decrypt`/`NonceByteSizes`/`TagByteSizes`, `AuthenticationTagMismatchException`, `RandomNumberGenerator.Fill`), LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, BCL inbox.
-- Growth: a new checkpoint mode is one `CheckpointMode` row; a new boundary cause is one `EmbeddedFault` case; a new KV write intent is one `KvWrite` case; a new integrity tier is one ladder row; a new keyspace is one `KvSpace` row landing its compaction style, accrual, dup width, order, durability, and seal together, so nothing about it is decided at a call site; a new re-drive route is one `RetryShape` row every fault family reads and one arm on the `Reoffer` dispatch; a new rocksdb status or subcode is one `RocksStatus`/`RocksSubcode` row; zero new surface — the whole-file `BackupDatabase` where the paged session adds progress facts, a whole-payload `byte[]` blob materialization, a second hashing path beside the registered `xxh128` UDF, a bare `Error.New(ex)` flattening the status int, a snapshot regression unguarded by `sqlite3_snapshot_cmp`, a per-engine KV service class, a composite-key prefix standing in for a keyspace the engine partitions natively, a `bool Transient` beside the re-drive shape, a separator-joined operand concatenation, a caller-side operand re-fold, a declared key comparer, or a plaintext spool value is the deleted form.
-- Boundary: `SqliteConnection.Handle` (`SQLitePCL.sqlite3`) is the one seam joining the managed ADO surface to raw operations, and the bound `e_sqlite3mc` provider keeps raw calls and ADO statements on the same native connection; every native crossing rides inside `HandleBridge` so the cause stays a closed `EmbeddedFault` case; the WAL sidecar set is the unit of backup, snapshot pins and truncating checkpoints remain adversaries, integrity failures route to `Version/recovery`, and blob IO streams through `SqliteBlob` without whole-payload materialization; the backup destination is a SECOND physical store the paged session fills page-for-page, so it binds the same cipher key as its source and an unkeyed destination under the bound `e_sqlite3mc` floor is the plaintext egress the offline-lane classification ceiling forbids; the KV floor holds that same ceiling by a different mechanism because neither engine ships a cipher — the seal rides the VALUE bytes under the SAME KMS-unwrapped DEK custody the SQLite floor uses, and the `Degrade` it leaves in the clear is exact: every KEY byte (a key is a content digest already, and sealing it destroys the byte-lexicographic order every prefix stop and `SetRange` walk reads), the `ChunkIndex` dup values (an LMDB dup value IS a key in the dup sub-B+tree, so `GetBoth` seeks it, `Unlink` deletes by its exact bytes, and `DuplicatesSort` orders on it), the LMDB page metadata, and the RocksDB SST block boundaries and per-value LENGTHS the frame width leaks; `Get` REFUSES on an accruing row and names `Refs`, because the engine already resolved the operand chain on its own read and handing back that resolved frame pushes the framing onto every caller; the re-drive owner for every embedded fault is the CALLER's in-process effect rail (`docs/stacks/csharp/domain/resilience.md` `[04]-[LAYER_SPLIT]` row `[03]`), so `Reoffer` routes and executes here and a pipeline wrapped around embedded store work is the deleted form, replaying from the wrong boundary; and a `RocksDbException` message no `RocksStatus` prefix matches is an UNCLASSIFIED verdict carrying the raw message and refusing every re-drive — the shape is a MEASURED column read off the status vocabulary, so an unmatched message took no measurement and a fabricated `Waited` spins against a fault whose recovery nobody knows.
+- Growth: a new checkpoint mode is one `CheckpointMode` row; a new boundary cause is one `EmbeddedFault` case; a new KV write intent is one `KvWrite` case; a new integrity tier is one ladder row; a new keyspace is one `KvSpace` row landing its compaction style, accrual, dup width, order, durability, and seal together, so nothing about it is decided at a call site; a new re-drive route is one `RetryShape` row every fault family reads and one arm on the `Reoffer` dispatch; a future RocksDB typed status enters the existing provider fold only after the managed API exposes it; zero new surface — the whole-file `BackupDatabase` where the paged session adds progress facts, a whole-payload `byte[]` blob materialization, a second hashing path beside the registered `xxh128` UDF, an exception flattening the engine status, a snapshot regression unguarded by `sqlite3_snapshot_cmp`, a per-engine KV service class, a composite-key prefix standing in for a keyspace the engine partitions natively, a `bool Transient` beside the re-drive shape, a separator-joined operand concatenation, a caller-side operand re-fold, a declared key comparer, or a plaintext spool value is the deleted form.
+- Boundary: `SqliteConnection.Handle` (`SQLitePCL.sqlite3`) is the one seam joining the managed ADO surface to raw operations, and the bound `e_sqlite3mc` provider keeps raw calls and ADO statements on the same native connection; every native crossing rides inside `HandleBridge` so the cause stays a closed `EmbeddedFault` case; the WAL sidecar set is the unit of backup, snapshot pins and truncating checkpoints remain adversaries, integrity failures route to `Version/recovery`, and blob IO streams through `SqliteBlob` without whole-payload materialization; the backup destination is a SECOND physical store the paged session fills page-for-page, so it binds the same cipher key as its source and an unkeyed destination under the bound `e_sqlite3mc` floor is the plaintext egress the offline-lane classification ceiling forbids; the KV floor holds that same ceiling by a different mechanism because neither engine ships a cipher — the seal rides the VALUE bytes under the SAME KMS-unwrapped DEK custody the SQLite floor uses, and the `Degrade` it leaves in the clear is exact: every KEY byte (a key is a content digest already, and sealing it destroys the byte-lexicographic order every prefix stop and `SetRange` walk reads), the `ChunkIndex` dup values (an LMDB dup value IS a key in the dup sub-B+tree, so `GetBoth` seeks it, `Unlink` deletes by its exact bytes, and `DuplicatesSort` orders on it), the LMDB page metadata, and the RocksDB SST block boundaries and per-value LENGTHS the frame width leaks; `Get` REFUSES on an accruing row and names `Refs`, because the engine already resolved the operand chain on its own read and handing back that resolved frame pushes the framing onto every caller; the re-drive owner for every embedded fault is the CALLER's in-process effect rail (`docs/stacks/csharp/domain/resilience.md` `[04]-[LAYER_SPLIT]` row `[03]`), so `Reoffer` routes and executes here and a pipeline wrapped around embedded store work is the deleted form, replaying from the wrong boundary; `RocksDbException` carries no stable typed status, so its captured exceptional `Error` crosses unchanged and its message never drives recovery.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -923,7 +1052,6 @@ using NodaTime;
 using Rasm.Persistence.Element;                   // FaultBand — the one band registry (graph#FAULT_TABLES)
 using RocksDbSharp;
 using SQLitePCL;
-using Expected = Rasm.Domain.Expected;            // the federation fault-band base — the alias wins over LanguageExt.Common.Expected for the bare name
 using static LanguageExt.Prelude;
 
 // --- [TYPES] ----------------------------------------------------------------------------
@@ -961,13 +1089,17 @@ public sealed partial class KvOrder {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class KvDurability {
-    public static readonly KvDurability Buffered = new("buffered", sync: false, EnvironmentOpenFlags.NoSync | EnvironmentOpenFlags.NoMetaSync, rank: 0);
-    public static readonly KvDurability Synced = new("synced", sync: true, EnvironmentOpenFlags.None, rank: 1);
+    public static readonly KvDurability Buffered = new("buffered", EnvironmentOpenFlags.NoSync | EnvironmentOpenFlags.NoMetaSync, rank: 0);
+    public static readonly KvDurability Synced = new("synced", EnvironmentOpenFlags.None, rank: 1);
     public EnvironmentOpenFlags Relaxed { get; }
     public int Rank { get; }
     public WriteOptions Writes { get; }
-    private KvDurability(string key, bool sync, EnvironmentOpenFlags relaxed, int rank) : this(key) =>
-        (Relaxed, Rank, Writes) = (relaxed, rank, new WriteOptions().SetSync(sync));
+    // `Rank` IS the strictness order and rank zero IS the no-durability floor, so the LSM sync bit DERIVES from
+    // the ladder rather than riding a second column a row could set against its own rank — one authority, and a
+    // third posture lands its bit by ranking alone. The derivation reads the ctor argument rather than a sibling
+    // row's property, because a static field initializer cannot observe a row declared beside it.
+    private KvDurability(string key, EnvironmentOpenFlags relaxed, int rank) : this(key) =>
+        (Relaxed, Rank, Writes) = (relaxed, rank, new WriteOptions().SetSync(rank > 0));
 }
 
 // At-rest posture per space. `Sealed` rides the value through `KvVault`; `Ordered` cannot, because that value is
@@ -1198,11 +1330,12 @@ public sealed class KvVault : IDisposable {
         if (!space.Seal.Seals) { return Fin.Succ(frame); }
         if (frame.Length < NonceWidth + TagWidth) { return Fin.Fail<ReadOnlyMemory<byte>>(new EmbeddedFault.Kv("seal", "<frame-short>", space.Key, RetryShape.Terminal)); }
         byte[] value = new byte[frame.Length - NonceWidth - TagWidth];
-        try {
+        return Op.Of().Catch(() => {
             cipher.Decrypt(frame.Span[..NonceWidth], frame.Span[(NonceWidth + TagWidth)..], frame.Span.Slice(NonceWidth, TagWidth), value, Aad(space, key));
             return Fin.Succ((ReadOnlyMemory<byte>)value);
-        }
-        catch (AuthenticationTagMismatchException) { return Fin.Fail<ReadOnlyMemory<byte>>(new EmbeddedFault.Kv("seal", "<tag-mismatch>", space.Key, RetryShape.Terminal)); }
+        }, error => error.Exception.Case is AuthenticationTagMismatchException
+            ? Some(new EmbeddedFault.ProviderKv("seal", "<tag-mismatch>", space.Key, RetryShape.Terminal, error))
+            : None);
     }
 
     // Length-framed pair, never a separator join: two distinct bindings would otherwise authenticate the same
@@ -1234,141 +1367,75 @@ public sealed partial class RetryShape {
     public static readonly RetryShape Rescoped = new("rescoped");
 }
 
-// `RocksDbException` carries the errptr string and NOTHING else — no code, no enum, no property past `Exception` —
-// so its `Message` IS RocksDB `Status::ToString()` and the primary-code PREFIX is the only discriminator the managed
-// surface exposes. Each key is that prefix VERBATIM, trailing colon and space included, because the fold is a prefix
-// match on the raw message. Every literal here matched the INSTALLED native library exactly; a RocksDB bump
-// re-proves this roster against that library and never against memory, since a prefix the build stopped emitting
-// silently demotes its whole family to unclassified.
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class RocksStatus {
-    public static readonly RocksStatus NotFound = new("NotFound: ", RetryShape.Terminal);
-    public static readonly RocksStatus Corruption = new("Corruption: ", RetryShape.Terminal);
-    public static readonly RocksStatus NotImplemented = new("Not implemented: ", RetryShape.Terminal);
-    public static readonly RocksStatus InvalidArgument = new("Invalid argument: ", RetryShape.Terminal);
-    public static readonly RocksStatus IoError = new("IO error: ", RetryShape.Terminal);
-    // Two `read_tier`-restricted verdicts: neither frees by waiting, and both complete under an UNRESTRICTED
-    // re-read, so they publish that route while still reading non-transient to a wait-retry executor.
-    public static readonly RocksStatus MergeInProgress = new("Merge in progress: ", RetryShape.Rescoped);
-    public static readonly RocksStatus Incomplete = new("Result incomplete: ", RetryShape.Rescoped);
-    public static readonly RocksStatus ShutdownInProgress = new("Shutdown in progress: ", RetryShape.Terminal);
-    public static readonly RocksStatus TimedOut = new("Operation timed out: ", RetryShape.Waited);
-    public static readonly RocksStatus Aborted = new("Operation aborted: ", RetryShape.Terminal);
-    public static readonly RocksStatus Busy = new("Resource busy: ", RetryShape.Waited);
-    public static readonly RocksStatus Expired = new("Operation expired: ", RetryShape.Terminal);
-    public static readonly RocksStatus TryAgain = new("Operation failed. Try again.: ", RetryShape.Waited);
-    public static readonly RocksStatus FamilyDropped = new("Column family dropped: ", RetryShape.Terminal);
-
-    public RetryShape Retry { get; }
-    private RocksStatus(string key, RetryShape retry) : this(key) => Retry = retry;
-
-    // Longest prefix wins, so a roster growth nesting one prefix inside another cannot silently re-point a message
-    // an existing row already answered. The SUBCODE wins over the status where both match, because it is the more
-    // specific measurement — a `max_num_locks` ceiling under `Operation timed out: ` is an operator act, not a wait.
-    public static (Option<RocksStatus> Status, Option<RocksSubcode> Subcode) Parse(string message) => (
-        toSeq(Items).Fold(Option<RocksStatus>.None, (longest, next) =>
-            message.StartsWith(next.Key, StringComparison.Ordinal) && next.Key.Length > longest.Map(static held => held.Key.Length).IfNone(0)
-                ? Some(next)
-                : longest),
-        toSeq(RocksSubcode.Items).Find(row => message.Contains(row.Key, StringComparison.Ordinal)));
-}
-
-// Subcode literals `Status::ToString()` appends after the primary prefix, each proved present in the installed
-// library. Two literals RocksDB's own subcode table names — `Overwritten` and `Merge operands` — matched NOTHING in
-// that build as standalone strings, so the roster records what this engine can emit rather than what a header lists.
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class RocksSubcode {
-    public static readonly RocksSubcode MutexTimeout = new("Timeout Acquiring Mutex", RetryShape.Waited);
-    public static readonly RocksSubcode LockTimeout = new("Timeout waiting to lock key", RetryShape.Waited);
-    public static readonly RocksSubcode Deadlock = new("Deadlock", RetryShape.Waited);
-    public static readonly RocksSubcode CompactionPaused = new("Manual compaction paused", RetryShape.Waited);
-    public static readonly RocksSubcode LockLimit = new("Failed to acquire lock due to max_num_locks limit", RetryShape.Terminal);
-    public static readonly RocksSubcode NoSpace = new("No space left on device", RetryShape.Terminal);
-    public static readonly RocksSubcode SpaceLimit = new("Space limit reached", RetryShape.Terminal);
-    public static readonly RocksSubcode MemoryLimit = new("Memory limit reached", RetryShape.Terminal);
-    public static readonly RocksSubcode StaleFile = new("Stale file handle", RetryShape.Terminal);
-    public static readonly RocksSubcode NoSuchFile = new("No such file or directory", RetryShape.Terminal);
-    public static readonly RocksSubcode TxnNotPrepared = new("Txn not prepared", RetryShape.Terminal);
-    public static readonly RocksSubcode IoFenced = new("IO fenced off", RetryShape.Terminal);
-    public static readonly RocksSubcode MergeFailed = new("Merge operator failed", RetryShape.Terminal);
-
-    public RetryShape Retry { get; }
-    private RocksSubcode(string key, RetryShape retry) : this(key) => Retry = retry;
-}
-
-// closed embedded-boundary fault band (771x): a [Union] over the KERNEL `Rasm.Domain.Expected` (parameterless
-// protected ctor; `Category` virtual; `Code`/`Message` inherited from `Error`), the SAME federation base the seam
-// `Rasm.Element/Projection/fault#FAULT_BAND` `ElementFault` (2500) and the `Rasm.Bim/Model/faults#FAULT_BAND` `BimFault`
-// (2600) realize — NOT `LanguageExt.Common.Expected`, whose `(string,int,Option)` `base(detail, code, None)` ctor (no
-// `Category` to override) is the deleted form. No `[GenerateUnionOps]` — the kernel union-ops generator is strictly
-// opt-in, so the band carries no per-case `SelfOp` and the `[Union]`-generated `Switch`/`Map` is untouched; band membership
-// derives `Code => FaultBand.Embedded + n` through the registry pointer (a bare 771x literal beside the registry row is
-// decoupled form the sibling bands reject) and `Category` is the telemetry
-// label, so the case lifts BARE onto `Fin<T>` with no `.ToError()` hop. The retry gate is a `RetryShape` table read,
-// never a per-case bit — `Busy` DERIVES its shape from the full extended status it already keeps and only `Kv`
-// carries one as a column, because no engine status re-derives an LMDB code or a parsed RocksDB message.
-[Union]
-public abstract partial record EmbeddedFault : Expected, IValidationError<EmbeddedFault> {
-    private EmbeddedFault() : base() { }
-    public sealed record Busy(int Status) : EmbeddedFault;
-    public sealed record Corrupt(int Status, string Detail) : EmbeddedFault;
-    public sealed record Io(int Status, string Detail) : EmbeddedFault;
-    public sealed record Refused(string Detail) : EmbeddedFault;
-    public sealed record Kv(string Engine, string Status, string Detail, RetryShape Shape) : EmbeddedFault;
-
-    public override int Code => FaultBand.Embedded + Switch(
-        busy:    static _ => 1,
-        corrupt: static _ => 2,
-        io:      static _ => 3,
-        refused: static _ => 4,
-        kv:      static _ => 5);
+// Closed embedded-boundary fault union.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record EmbeddedFault : Fault {
+    private static readonly FaultBand FamilyBand = FaultBand.Embedded;
+    private EmbeddedFault() { }
+    // `SQLITE_BUSY_SNAPSHOT` names the caller's OWN read transaction as the blocker, so it RESTARTS where
+    // `SQLITE_BUSY`, `SQLITE_BUSY_RECOVERY`, `SQLITE_BUSY_TIMEOUT`, and `SQLITE_LOCKED` all wait — which is why
+    // one snapshot subcode earns an arm and `SQLitePCLRaw` publishing no `BUSY_TIMEOUT` constant costs nothing.
+    [FaultCase(0)]
+    public sealed partial record Busy(int Status) : EmbeddedFault() {
+        public override RetryShape Route => BusyRoute(Status);
+    }
+    [FaultCase(1)]
+    public sealed partial record Corrupt(int Status, string Detail) : EmbeddedFault();
+    [FaultCase(2)]
+    public sealed partial record Io(int Status, string Detail) : EmbeddedFault();
+    [FaultCase(3)]
+    public sealed partial record Refused(string Detail) : EmbeddedFault();
+    [FaultCase(4)]
+    public sealed partial record Kv(string Engine, string Status, string Detail, RetryShape Shape) : EmbeddedFault() {
+        public override RetryShape Route => Shape;
+    }
+    [FaultCase(5)]
+    public sealed partial record ProviderBusy(int Status, Error Cause) : EmbeddedFault(), ICausedFault {
+        public override RetryShape Route => BusyRoute(Status);
+    }
+    [FaultCase(6)] public sealed partial record ProviderCorrupt(int Status, string Detail, Error Cause) : EmbeddedFault(), ICausedFault;
+    [FaultCase(7)] public sealed partial record ProviderIo(int Status, string Detail, Error Cause) : EmbeddedFault(), ICausedFault;
+    [FaultCase(8)] public sealed partial record ProviderRefused(string Detail, Error Cause) : EmbeddedFault(), ICausedFault;
+    [FaultCase(9)]
+    public sealed partial record ProviderKv(string Engine, string Status, string Detail, RetryShape Shape, Error Cause) : EmbeddedFault(), ICausedFault {
+        public override RetryShape Route => Shape;
+    }
 
     public override string Message => Switch(
-        busy:    static c => $"<busy:{c.Status}>",
-        corrupt: static c => $"<corrupt:{c.Status}>:{c.Detail}",
-        io:      static c => $"<io:{c.Status}>:{c.Detail}",
-        refused: static c => $"<refused:{c.Detail}>",
-        kv:      static c => $"<kv:{c.Engine}:{c.Status}>:{c.Detail}");
+        busy:            static c => $"<busy:{c.Status}>",
+        corrupt:         static c => $"<corrupt:{c.Status}>:{c.Detail}",
+        io:              static c => $"<io:{c.Status}>:{c.Detail}",
+        refused:         static c => $"<refused:{c.Detail}>",
+        kv:              static c => $"<kv:{c.Engine}:{c.Status}>:{c.Detail}",
+        providerBusy:    static c => $"<busy:{c.Status}>:{c.Cause.Message}",
+        providerCorrupt: static c => $"<corrupt:{c.Status}>:{c.Detail}:{c.Cause.Message}",
+        providerIo:      static c => $"<io:{c.Status}>:{c.Detail}:{c.Cause.Message}",
+        providerRefused: static c => $"<refused:{c.Detail}>:{c.Cause.Message}",
+        providerKv:      static c => $"<kv:{c.Engine}:{c.Status}>:{c.Detail}:{c.Cause.Message}");
 
-    public override string Category => Switch(
-        busy:    static _ => "Busy",
-        corrupt: static _ => "Corrupt",
-        io:      static _ => "Io",
-        refused: static _ => "Refused",
-        kv:      static _ => "Kv");
+    // Every returned-status and cause-bearing provider case names WHERE it re-enters rather than merely that it might.
+    public virtual RetryShape Route => RetryShape.Terminal;
+    static RetryShape BusyRoute(int status) => status == raw.SQLITE_BUSY_SNAPSHOT ? RetryShape.Restarted : RetryShape.Waited;
 
-    public static EmbeddedFault Create(string message) => new Refused(message);
-
-    // Retry SHAPE by table: `SQLITE_BUSY_SNAPSHOT` names the caller's OWN read transaction as the blocker, so it
-    // restarts where `SQLITE_BUSY`, `SQLITE_BUSY_RECOVERY`, `SQLITE_BUSY_TIMEOUT`, and `SQLITE_LOCKED` all wait —
-    // which is why one snapshot subcode earns an arm and `SQLitePCLRaw` publishing no `BUSY_TIMEOUT` constant
-    // costs nothing.
-    public RetryShape Retry => Switch(
-        busy:    static c => c.Status == raw.SQLITE_BUSY_SNAPSHOT ? RetryShape.Restarted : RetryShape.Waited,
-        corrupt: static _ => RetryShape.Terminal,
-        io:      static _ => RetryShape.Terminal,
-        refused: static _ => RetryShape.Terminal,
-        kv:      static c => c.Shape);
-
-    // Transient means a WAIT re-drives the SAME call and succeeds. `Restarted` and `Rescoped` recover too, neither
-    // that way, so both read false here and publish their route on `Retry` instead — a wait-retry executor that
-    // read them as transient would spin against a blocker only its own caller can release.
-    public bool IsTransient => Retry == RetryShape.Waited;
+    // Transient means a WAIT re-drives the SAME call and succeeds, so the kernel discriminant DERIVES from the
+    // route rather than standing beside it as a bit: `Restarted` and `Rescoped` recover too, neither that way, so
+    // both read Terminal to a bare re-offer and publish their route instead — a wait-retry executor reading them
+    // as transient would spin against a blocker only its own caller can release. The band-local `bool IsTransient`
+    // this override replaces spanned both axes and dropped two of the four routes.
+    public override Retriability Retriability =>
+        Route == RetryShape.Waited ? Retriability.Transient : Retriability.Terminal;
 
     // Route-dispatched caller re-offer, TOTAL over `RetryShape` through the generated `Switch`: a new route breaks the
-    // build rather than falling into a default arm, which is precisely what an executor keying on `IsTransient` does
-    // today, silently dropping two of four routes. Arms are the CALLER's re-entry arrows, and they differ by
+    // build rather than falling into a default arm, which is precisely what an executor keying on the retriability
+    // posture alone does — it reaches two of the four routes and silently drops the other two. Arms are the CALLER's
+    // re-entry arrows, and they differ by
     // construction: `Restarted` means its snapshot is stale, so re-offer re-enters at the READ and a same-effect retry
     // spins against a snapshot that can never advance; `Rescoped` means its request was too wide, so re-offer narrows
     // before re-entering. Backoff rides `same` as its caller's own `Schedule`, since a wait span is caller policy and
     // not a column of this vocabulary. Arrows thread as STATE, so no arm closes over anything. Embedded work is
     // `docs/stacks/csharp/domain/resilience.md` `[04]-[LAYER_SPLIT]` row `[03]` — one typed fault on an in-process
     // effect rail — so this IS the whole executor and no pipeline appears around an embedded store op.
-    public IO<T> Reoffer<T>(Func<IO<T>> same, Func<IO<T>> reread, Func<IO<T>> narrowed) => Retry.Switch(
+    public IO<T> Reoffer<T>(Func<IO<T>> same, Func<IO<T>> reread, Func<IO<T>> narrowed) => Route.Switch(
         state: (Fault: this, Same: same, Reread: reread, Narrowed: narrowed),
         terminal:  static (re, _) => IO.fail<T>(re.Fault),
         waited:    static (re, _) => re.Same(),
@@ -1383,7 +1450,30 @@ public abstract partial record EmbeddedFault : Expected, IValidationError<Embedd
     // it, and the ADO leg passes `SqliteExtendedErrorCode`, NOT `SqliteErrorCode`, because that managed primary
     // discards the very byte `Retry` reads — reading it there let a `BUSY_SNAPSHOT` take the wait route the raw
     // legs already refused, so one exception surfaced two verdicts depending on which leg caught it.
-    public static EmbeddedFault Lift(Exception ex) => ex is SqliteException sql ? FromStatus(sql.SqliteExtendedErrorCode, sql.Message) : new Refused(ex.Message);
+    // ONE lift for the typed SQLite and LMDB refusals. RocksDB exposes no stable typed status, so its captured
+    // exceptional `Error` remains exact; message text is presentation and never a recovery discriminator.
+    public static Error Lift(Error error) => error.Exception.Match(
+        Some: ex => ex switch {
+            SqliteException sql => WithCause(FromStatus(sql.SqliteExtendedErrorCode, sql.Message), error),
+            LightningException native => WithCause(
+                OfLmdb((MDBResultCode)native.StatusCode)
+                    .IfNone(() => new Kv("lmdb", native.StatusCode.ToString(CultureInfo.InvariantCulture), native.Message, RetryShape.Terminal)),
+                error),
+            RocksDbException => error,
+            _ => error,
+        },
+        None: () => error);
+
+    // Returned provider statuses have cause-less semantic leaves; a raised status selects the matching direct
+    // cause-bearing leaf so numeric identity never collapses behind a nested classifier wrapper.
+    static Error WithCause(EmbeddedFault classified, Error cause) => classified switch {
+        Busy c    => new ProviderBusy(c.Status, cause),
+        Corrupt c => new ProviderCorrupt(c.Status, c.Detail, cause),
+        Io c      => new ProviderIo(c.Status, c.Detail, cause),
+        Refused c => new ProviderRefused(c.Detail, cause),
+        Kv c      => new ProviderKv(c.Engine, c.Status, c.Detail, c.Shape, cause),
+        _         => cause,
+    };
     public static EmbeddedFault FromStatus(int status, string detail) => (status & 0xFF) switch {
         raw.SQLITE_BUSY or raw.SQLITE_LOCKED => new Busy(status),
         raw.SQLITE_CORRUPT or raw.SQLITE_NOTADB => new Corrupt(status, detail),
@@ -1391,138 +1481,194 @@ public abstract partial record EmbeddedFault : Expected, IValidationError<Embedd
         _ => new Refused(detail),
     };
 
-    // RocksDB's managed exception publishes no code, so its message folds ONCE through the status vocabulary and the
-    // verdict is a MEASURED column. A message no prefix matches spells UNCLASSIFIED and refuses every re-drive: with
-    // no status matched there is no measurement, and a fabricated `Waited` would spin against a fault whose recovery
-    // nobody knows — the raw message rides `Detail` so the roster gap surfaces on the fact stream instead of hiding
-    // inside a default.
-    public static EmbeddedFault OfRocks(string message) {
-        (Option<RocksStatus> Status, Option<RocksSubcode> Subcode) read = RocksStatus.Parse(message);
-        return read.Status.Match(
-            Some: status => (EmbeddedFault)new Kv("rocksdb", status.Key, message, read.Subcode.Map(static row => row.Retry).IfNone(status.Retry)),
-            None: () => new Kv("rocksdb", "<unclassified>", message, RetryShape.Terminal));
-    }
+    // Typed LMDB verdict fold, seated HERE beside `FromStatus` because it is the same question for a second
+    // provider exposing a stable typed code. It splits the ceiling family by RECOVERY ROUTE rather than
+    // by one transient bit: a `MapResized` re-drives once this process picks up the size a peer grew, a
+    // `MapFull`/`DbsFull`/`TxnFull`/`CursorFull`/`PageFull` succeeds only under WIDER provisioning (a bigger map,
+    // a bigger roster, a smaller transaction — a provisioning decision, never a write-time realloc), and a
+    // `ReadersFull`/`TLSFull` frees when a live reader finishes or `CheckStaleReaders` reclaims its slot. The
+    // corruption family routes terminal to recovery, and every other code carries its own name instead of one
+    // flattened string. `None` is SUCCESS, so a raised code and a returned one cross the same fold and a
+    // `MapFull` never reads terminal on one path and recoverable on the other.
+    public static Option<EmbeddedFault> OfLmdb(MDBResultCode status) => status switch {
+        MDBResultCode.Success => None,
+        MDBResultCode.MapResized => Some<EmbeddedFault>(new Kv("lmdb", status.ToString(), "<remapped>", RetryShape.Waited)),
+        MDBResultCode.ReadersFull or MDBResultCode.TLSFull => Some<EmbeddedFault>(new Kv("lmdb", status.ToString(), "<slots>", RetryShape.Waited)),
+        MDBResultCode.MapFull or MDBResultCode.DbsFull or MDBResultCode.TxnFull or MDBResultCode.CursorFull or MDBResultCode.PageFull =>
+            Some<EmbeddedFault>(new Kv("lmdb", status.ToString(), "<ceiling>", RetryShape.Rescoped)),
+        MDBResultCode.Corrupted or MDBResultCode.Panic or MDBResultCode.PageNotFound or MDBResultCode.VersionMismatch
+            or MDBResultCode.Invalid or MDBResultCode.InvalidData =>
+            Some<EmbeddedFault>(new Corrupt((int)status, $"<lmdb:{status}>")),
+        _ => Some<EmbeddedFault>(new Kv("lmdb", status.ToString(), "<write>", RetryShape.Terminal)),
+    };
 }
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
+// THE one raw-handle capsule (`docs/stacks/csharp/boundaries#CAPSULE_OWNER`): every `sqlite3_*` crossing in this
+// package enters through it, so handle resolution, exception capture, status discrimination, and connection
+// disposal each have exactly ONE spelling. A second reach for `SqliteConnection.Handle` anywhere — a harvest, an
+// engine op, an open ritual — re-opens the disposal path this capsule closes, which is why the
+// `Store/observability#SQLITE_STATUS_HARVEST` statement walk composes `Crossed` rather than dialing the property.
+public static class HandleBridge {
+    // A managed connection with no native handle is a typed REFUSAL, never a null dereference and never a throw
+    // past the rail: the property reads null before the physical open and after disposal, both states a caller
+    // can act on.
+    public static Fin<sqlite3> Of(SqliteConnection store) =>
+        store.Handle is { } handle ? Fin.Succ(handle) : Fin.Fail<sqlite3>(new EmbeddedFault.Refused("<no-handle>"));
+
+    // ONE capture for the whole embedded floor, the `ClusterProvision.Lifted` peer at the server tier: a provider
+    // throw becomes a banded `EmbeddedFault` INSIDE the `Fin` boundary, so no interior body sees an exception and
+    // no leg re-spells the SQLite taxonomy. `Lift` reads the EXTENDED status, never the managed primary.
+    public static Fin<T> Lifted<T>(Func<T> crossing) =>
+        Op.Of().Catch(() => Fin.Succ(crossing())).MapFail(static error => EmbeddedFault.Lift(error));
+
+    // Handle resolution and the capture as ONE crossing — the shape every raw entry on this page takes.
+    public static Fin<T> Crossed<T>(SqliteConnection store, Func<sqlite3, Fin<T>> crossing) =>
+        Of(store).Bind(handle => Lifted(() => crossing(handle)).Bind(static held => held));
+
+    // The KEYED-OPEN crossing: physically open, resolve, run inside the capture, and DISPOSE on every failure
+    // path. Disposal is the capsule's, so no ritual arm re-states it and no refusal escapes holding a live native
+    // handle — the defect a second handle path re-opens the moment it exists.
+    public static Fin<T> Opened<T>(SqliteConnection store, Func<sqlite3, Fin<T>> body) =>
+        Lifted(fun(store.Open))
+            .Bind(_ => Crossed(store, body))
+            .Match(Succ: Fin<T>.Succ, Fail: fault => Disposed<T>(store, fault));
+
+    static Fin<T> Disposed<T>(SqliteConnection store, Error fault) =>
+        (fun(store.Dispose)(), Fin<T>.Fail(fault)).Item2;
+
+    // Native status as a RAIL: an `OK` yields the caller's own value and every other code lifts through the one
+    // status taxonomy, so no crossing hand-tests `!= SQLITE_OK` and no raw integer reaches a receipt untyped.
+    public static Fin<T> Status<T>(int status, string detail, Func<T> value) =>
+        status == raw.SQLITE_OK ? Fin.Succ(value()) : Fin.Fail<T>(EmbeddedFault.FromStatus(status, detail));
+    public static Fin<Unit> Status(int status, string detail) => Status(status, detail, static () => unit);
+
+    // The provider's own message for a status int, so a receipt carries SQLite's wording rather than this page's.
+    public static string Explain(int status) => raw.sqlite3_errstr(status).utf8_to_string();
+}
+
 public static class EngineOps {
-    // native crossing mints a CLOSED `EmbeddedFault`, never throws into the interior
-    // (`docs/stacks/csharp/boundaries#CAPSULE_OWNER`): an `OK` checkpoint receipts the frame counts, a
-    // `SQLITE_BUSY` receipts a retry the schedule re-drives (an overlapping reader blocked the truncate —
-    // steady-state, not a fault), and every other status lifts through `EmbeddedFault.FromStatus` (a
-    // `SQLITE_CORRUPT` routes to recovery) — a bare `throw` of a provider `SqliteException` escaping
-    // unconverted is the deleted form the sibling ops already reject.
+    // Every native crossing rides `HandleBridge`, so a CLOSED `EmbeddedFault` is the only thing that reaches the
+    // interior: an `OK` checkpoint receipts the frame counts, a `SQLITE_BUSY` receipts a retry the schedule
+    // re-drives (an overlapping reader blocked the truncate — steady-state, not a fault), and every other status
+    // lifts through the bridge's status rail (a `SQLITE_CORRUPT` routes to recovery).
     // observation instant rides the injected `Element/graph#STORE_RAIL` ProjectionContext frame ([A.1]) —
     // a `ClockPolicy` parameter on any signature here is the named strata inversion.
-    public static Fin<EmbeddedFact> Checkpoint(SqliteConnection store, SnapshotFloor floor, CheckpointMode mode, ProjectionContext frame) {
-        try {
-            int status = raw.sqlite3_wal_checkpoint_v2(Handle(store), "main", mode.Key, out int logFrames, out int checkpointed);
+    public static Fin<EmbeddedFact> Checkpoint(SqliteConnection store, SnapshotFloor floor, CheckpointMode mode, ProjectionContext frame) =>
+        HandleBridge.Crossed(store, handle => {
+            int status = raw.sqlite3_wal_checkpoint_v2(handle, "main", mode.Key, out int logFrames, out int checkpointed);
             if (status == raw.SQLITE_OK && mode == CheckpointMode.Truncate) { floor.Dispose(); }
-            return status is raw.SQLITE_OK or raw.SQLITE_BUSY
-                ? Fin.Succ(new EmbeddedFact(status == raw.SQLITE_BUSY ? "checkpoint-busy" : "checkpoint", logFrames, checkpointed, frame.Now()))
-                : Fin.Fail<EmbeddedFact>(EmbeddedFault.FromStatus(status, raw.sqlite3_errstr(status).utf8_to_string()));
-        }
-        catch (Exception ex) { return Fin.Fail<EmbeddedFact>(EmbeddedFault.Lift(ex)); }
-    }
+            // A BUSY checkpoint is a RECEIPT, not a refusal — the truncate found a live reader and the schedule
+            // re-offers — so the two admitted statuses share the success arm and only the fact kind separates them.
+            return status == raw.SQLITE_BUSY
+                ? Fin.Succ(new EmbeddedFact("checkpoint-busy", logFrames, checkpointed, frame.Now()))
+                : HandleBridge.Status(status, HandleBridge.Explain(status),
+                    () => new EmbeddedFact("checkpoint", logFrames, checkpointed, frame.Now()));
+        });
 
-    public static Fin<T> WithSnapshot<T>(SqliteConnection store, SnapshotFloor floor, Func<SqliteConnection, T> read) {
-        if (store.Handle is not { } handle) { return Fin.Fail<T>(new EmbeddedFault.Refused("<no-handle>")); }
-        int got;
-        sqlite3_snapshot snapshot;
-        using (SqliteTransaction pin = store.BeginTransaction(IsolationLevel.Serializable, deferred: true)) {
-            got = raw.sqlite3_snapshot_get(handle, "main", out snapshot);
-            if (got != raw.SQLITE_OK) {
-                int recovered = raw.sqlite3_snapshot_recover(handle, "main");
-                got = recovered == raw.SQLITE_OK ? raw.sqlite3_snapshot_get(handle, "main", out snapshot) : recovered;
-            }
-            if (got != raw.SQLITE_OK) {
-                return Fin.Fail<T>(EmbeddedFault.FromStatus(got, "<snapshot-unavailable>"));
-            }
-        }
-        bool promoted = false;
-        using SqliteTransaction view = store.BeginTransaction(IsolationLevel.Serializable, deferred: true);
-        try {
-            if (raw.sqlite3_snapshot_open(handle, "main", snapshot) is int opened && opened != raw.SQLITE_OK) {
-                return Fin.Fail<T>(EmbeddedFault.FromStatus(opened, "<snapshot-open>"));
-            }
-            lock (floor.Gate) {
-                if (floor.Held is { } held && raw.sqlite3_snapshot_cmp(snapshot, held) < 0) {
-                    return Fin.Fail<T>(new EmbeddedFault.Refused("<snapshot-regression>"));
+    public static Fin<T> WithSnapshot<T>(SqliteConnection store, SnapshotFloor floor, Func<SqliteConnection, T> read) =>
+        HandleBridge.Crossed(store, handle => {
+            int got;
+            sqlite3_snapshot snapshot;
+            using (SqliteTransaction pin = store.BeginTransaction(IsolationLevel.Serializable, deferred: true)) {
+                got = raw.sqlite3_snapshot_get(handle, "main", out snapshot);
+                if (got != raw.SQLITE_OK) {
+                    int recovered = raw.sqlite3_snapshot_recover(handle, "main");
+                    got = recovered == raw.SQLITE_OK ? raw.sqlite3_snapshot_get(handle, "main", out snapshot) : recovered;
                 }
-                if (floor.Held is { } prior) { raw.sqlite3_snapshot_free(prior); }
-                (floor.Held, promoted) = (snapshot, true);
+                // The status rail is the ONE refusal spelling; a non-OK code never reaches the map arm, so the
+                // projection carries the typed fault out at the read's own type without a second construction.
+                if (got != raw.SQLITE_OK) { return HandleBridge.Status(got, "<snapshot-unavailable>").Map(static _ => default(T)!); }
             }
-            return Fin.Succ(read(store));
-        }
-        catch (Exception ex) { return Fin.Fail<T>(EmbeddedFault.Lift(ex)); }
-        finally { if (!promoted) { raw.sqlite3_snapshot_free(snapshot); } }
-    }
+            bool promoted = false;
+            using SqliteTransaction view = store.BeginTransaction(IsolationLevel.Serializable, deferred: true);
+            try {
+                Fin<Unit> opened = HandleBridge.Status(raw.sqlite3_snapshot_open(handle, "main", snapshot), "<snapshot-open>");
+                if (opened.IsFail) { return opened.Map(static _ => default(T)!); }
+                lock (floor.Gate) {
+                    if (floor.Held is { } held && raw.sqlite3_snapshot_cmp(snapshot, held) < 0) {
+                        return Fin.Fail<T>(new EmbeddedFault.Refused("<snapshot-regression>"));
+                    }
+                    if (floor.Held is { } prior) { raw.sqlite3_snapshot_free(prior); }
+                    (floor.Held, promoted) = (snapshot, true);
+                }
+                return Fin.Succ(read(store));
+            }
+            // Exemption: `finally` is the pin's own release, not a fault path — an unpromoted snapshot handle is
+            // freed whichever way the block leaves, and the capture that converts a throw is the bridge's.
+            finally { if (!promoted) { raw.sqlite3_snapshot_free(snapshot); } }
+        });
 
+    // The destination is a SECOND physical store, so it takes the SAME keyed-open crossing the source ritual
+    // takes: `Opened` resolves its handle, captures its throws, and disposes it on every refusal, which is what
+    // lets this body read as the paged session it is rather than as a ladder of guards around one.
     public static IO<Fin<EmbeddedFact>> Backup(SqliteConnection source, string destinationPath, BackupPolicy policy, ProjectionContext frame) =>
-        IO.lift(() => {
-            Fin<ContentAddress> expected = policy.Identity(source);
-            if (expected.IsFail) { return Fin.Fail<EmbeddedFact>(expected.Error); }
-            using SqliteConnection destination = EmbeddedStore.Dialed(destinationPath);
-            try { destination.Open(); }
-            catch (Exception exception) { return Fin.Fail<EmbeddedFact>(EmbeddedFault.Lift(exception)); }
+        IO.lift(() =>
+            from expected in policy.Identity(source)
+            from sourceHandle in HandleBridge.Of(source)
+            from fact in Paged(EmbeddedStore.Dialed(destinationPath), sourceHandle, expected, policy, frame)
+            select fact);
+
+    static Fin<EmbeddedFact> Paged(SqliteConnection destination, sqlite3 source, ContentAddress expected, BackupPolicy policy, ProjectionContext frame) =>
+        HandleBridge.Opened(destination, handle =>
             // Key binding is the FIRST crossing on the destination, exactly as the open ritual orders it on the
             // source: `sqlite3_backup_init` begins writing data pages immediately, so a key applied after it
             // encrypts nothing already written.
-            Fin<Unit> keyed = policy.Dek.Match(
-                Some: key => raw.sqlite3_key(Handle(destination), key.Span) is int status && status == raw.SQLITE_OK
-                    ? Fin.Succ(unit)
-                    : Fin.Fail<Unit>(EmbeddedFault.FromStatus(status, "<backup-key-refused>")),
-                None: () => Fin.Succ(unit));
-            if (keyed.IsFail) { return Fin.Fail<EmbeddedFact>(keyed.Error); }
-            sqlite3_backup backup = raw.sqlite3_backup_init(Handle(destination), "main", Handle(source), "main");
-            try {
-                int step;
-                do { step = raw.sqlite3_backup_step(backup, policy.PageStep); }
-                while (step == raw.SQLITE_OK);
-                if (step != raw.SQLITE_DONE) { return Fin.Fail<EmbeddedFact>(EmbeddedFault.FromStatus(step, raw.sqlite3_errstr(step).utf8_to_string())); }
-                Fin<Unit> integrity = QuickCheck(destination);
-                Fin<ContentAddress> observed = policy.Identity(destination);
-                return integrity.IsFail
-                    ? Fin.Fail<EmbeddedFact>(integrity.Error)
-                    : observed.IsFail
-                        ? Fin.Fail<EmbeddedFact>(observed.Error)
-                        : observed.ValueUnsafe() != expected.ValueUnsafe()
-                            ? Fin.Fail<EmbeddedFact>(new EmbeddedFault.Corrupt(raw.SQLITE_CORRUPT, "<backup-identity>"))
-                            : Fin.Succ(new EmbeddedFact("backup", raw.sqlite3_backup_pagecount(backup), raw.sqlite3_backup_remaining(backup), frame.Now()));
-            }
-            finally { _ = raw.sqlite3_backup_finish(backup); }
-        });
+            from _keyed in policy.Dek.Match(
+                Some: key => HandleBridge.Status(raw.sqlite3_key(handle, key.Span), "<backup-key-refused>"),
+                None: static () => Fin.Succ(unit))
+            from fact in Stepped(handle, source, expected, destination, policy, frame)
+            select fact);
 
-    public static IO<long> WriteBlob(SqliteConnection store, BlobBinding binding, long rowid, ReadOnlyMemory<byte> payload) =>
-        IO.lift(() => {
+    static Fin<EmbeddedFact> Stepped(sqlite3 destination, sqlite3 source, ContentAddress expected, SqliteConnection sink, BackupPolicy policy, ProjectionContext frame) {
+        sqlite3_backup backup = raw.sqlite3_backup_init(destination, "main", source, "main");
+        try {
+            int step;
+            do { step = raw.sqlite3_backup_step(backup, policy.PageStep); }
+            while (step == raw.SQLITE_OK);
+            return step != raw.SQLITE_DONE
+                ? HandleBridge.Status(step, HandleBridge.Explain(step)).Map(static _ => default(EmbeddedFact))
+                : from _integrity in QuickCheck(sink)
+                  from observed in policy.Identity(sink)
+                  from proved in observed == expected
+                      ? Fin.Succ(new EmbeddedFact("backup", raw.sqlite3_backup_pagecount(backup), raw.sqlite3_backup_remaining(backup), frame.Now()))
+                      : Fin.Fail<EmbeddedFact>(new EmbeddedFault.Corrupt(raw.SQLITE_CORRUPT, "<backup-identity>"))
+                  select proved;
+        }
+        // Exemption: `finally` releases the native session handle, not a fault path — the capture belongs to the
+        // `Opened` crossing this runs inside.
+        finally { _ = raw.sqlite3_backup_finish(backup); }
+    }
+
+    // A preallocation that matched no row is a typed REFUSAL, not a throw: the caller handed a rowid the table
+    // does not carry, which is a domain answer the `Fin` rail already exists to state.
+    public static IO<Fin<long>> WriteBlob(SqliteConnection store, BlobBinding binding, long rowid, ReadOnlyMemory<byte> payload) =>
+        IO.lift(() => HandleBridge.Lifted(() => {
             using SqliteCommand command = store.CreateCommand();
             command.CommandText = binding.PreallocateSql;
             command.Parameters.Add(new SqliteParameter("rowid", SqliteType.Integer) { Value = rowid });
             command.Parameters.Add(new SqliteParameter("length", SqliteType.Integer) { Value = payload.Length });
-            if (command.ExecuteNonQuery() != 1) { throw new InvalidOperationException("<blob-row-absent>"); }
+            if (command.ExecuteNonQuery() != 1) { return Fin.Fail<long>(new EmbeddedFault.Refused($"<blob-row-absent:{rowid}>")); }
             using SqliteBlob blob = new(store, binding.Table, binding.Column, rowid, readOnly: false);
             blob.Write(payload.Span);
-            return (long)payload.Length;
-        });
+            return Fin.Succ((long)payload.Length);
+        }).Bind(static held => held));
 
-    public static Fin<long> DataVersion(SqliteConnection store) {
-        try { using SqliteCommand command = store.CreateCommand(); command.CommandText = "PRAGMA data_version"; return Fin.Succ(Convert.ToInt64(command.ExecuteScalar(), CultureInfo.InvariantCulture)); }
-        catch (Exception ex) { return Fin.Fail<long>(EmbeddedFault.Lift(ex)); }
-    }
+    public static Fin<long> DataVersion(SqliteConnection store) =>
+        HandleBridge.Lifted(() => Scalar(store, "PRAGMA data_version")).Map(static value => Convert.ToInt64(value, CultureInfo.InvariantCulture));
 
-    static Fin<Unit> QuickCheck(SqliteConnection store) {
-        try {
-            using SqliteCommand command = store.CreateCommand();
-            command.CommandText = "PRAGMA quick_check";
-            return string.Equals(Convert.ToString(command.ExecuteScalar(), CultureInfo.InvariantCulture), "ok", StringComparison.Ordinal)
+    static Fin<Unit> QuickCheck(SqliteConnection store) =>
+        HandleBridge.Lifted(() => Scalar(store, "PRAGMA quick_check"))
+            .Bind(static held => string.Equals(Convert.ToString(held, CultureInfo.InvariantCulture), "ok", StringComparison.Ordinal)
                 ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(new EmbeddedFault.Corrupt(raw.SQLITE_CORRUPT, "<quick-check>"));
-        }
-        catch (Exception exception) { return Fin.Fail<Unit>(EmbeddedFault.Lift(exception)); }
-    }
+                : Fin.Fail<Unit>(new EmbeddedFault.Corrupt(raw.SQLITE_CORRUPT, "<quick-check>")));
 
-    static sqlite3 Handle(SqliteConnection store) => store.Handle ?? throw new InvalidOperationException("<no-handle>");
+    static object? Scalar(SqliteConnection store, string sql) {
+        using SqliteCommand command = store.CreateCommand();
+        command.CommandText = sql;
+        return command.ExecuteScalar();
+    }
 }
 
 // operational embedded-KV floor — axis [07]'s rocksdb-lsm and lmdb rows made real: `Lsm` is the write-optimized
@@ -1564,13 +1710,13 @@ public static class KvFloor {
     // handle closed with that transaction leaves every later verb dialling a dead keyspace.
     public static Fin<KvEngine> Open(KvMount mount, ReadOnlyMemory<byte> dek) => mount.Switch(
         state: dek,
-        lsm: static (key, m) => Guarded("rocksdb", () => {
+        lsm: static (key, m) => Guarded(() => {
             ColumnFamilies families = new();
             toSeq(KvSpace.Items).Iter(row => families.Add(row.Key, row.Family));
             RocksDb store = RocksDb.Open(new DbOptions().SetCreateIfMissing(true).SetCreateMissingColumnFamilies(true), m.Path, families);
             return (KvEngine)new KvEngine.Lsm(store, toSeq(KvSpace.Items).ToFrozenDictionary(static row => row, row => store.GetColumnFamily(row.Key)), new KvVault(key.Span));
         }),
-        mmap: static (key, m) => Guarded("lmdb", () => {
+        mmap: static (key, m) => Guarded(() => {
             LightningEnvironment store = new(m.Path, new EnvironmentConfiguration { MapSize = m.MapSize, MaxDatabases = KvSpace.Items.Count });
             store.Open(KvSpace.SyncFloor);
             using LightningTransaction opening = store.BeginTransaction();
@@ -1580,11 +1726,11 @@ public static class KvFloor {
 
     public static Fin<Unit> Put(KvEngine engine, KvSpace space, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value) => engine.Switch(
         state: (Space: space, Key: key, Value: value),
-        lsm: static (s, l) => Guarded("rocksdb", () => {
+        lsm: static (s, l) => Guarded(() => {
             l.Store.Put(s.Key.Span, l.Keys.Wrap(s.Space, s.Key.Span, s.Value).Span, Cf(l, s.Space), s.Space.Durability.Writes);
             return unit;
         }),
-        mmap: static (s, m) => Guarded("lmdb", () => {
+        mmap: static (s, m) => Guarded(() => {
             using LightningTransaction transaction = m.Store.BeginTransaction();
             MDBResultCode write = transaction.Put(Db(m, s.Space), s.Key.Span, m.Keys.Wrap(s.Space, s.Key.Span, s.Value).Span);
             return write == MDBResultCode.Success ? transaction.Commit() : write;
@@ -1597,9 +1743,9 @@ public static class KvFloor {
             ? Fin.Fail<Option<ReadOnlyMemory<byte>>>(new EmbeddedFault.Kv("kv", "<accrued-point-read>", space.Key, RetryShape.Terminal))
             : engine.Switch(
                 state: (Space: space, Key: key),
-                lsm: static (s, l) => Guarded("rocksdb", () => Optional(l.Store.Get(s.Key.Span, Cf(l, s.Space))))
+                lsm: static (s, l) => Guarded(() => Optional(l.Store.Get(s.Key.Span, Cf(l, s.Space))))
                     .Bind(held => Opened(l.Keys, s.Space, s.Key, held)),
-                mmap: static (s, m) => Guarded("lmdb", () => {
+                mmap: static (s, m) => Guarded(() => {
                     using LightningTransaction transaction = m.Store.BeginTransaction(TransactionBeginFlags.ReadOnly);
                     (MDBResultCode code, _, MDBValue value) = transaction.Get(Db(m, s.Space), s.Key.Span);
                     return code switch {
@@ -1629,7 +1775,7 @@ public static class KvFloor {
                 ? Fin.Fail<Unit>(new EmbeddedFault.Kv("kv", "<unlink-sealed>", space.Key, RetryShape.Terminal))
                 : engine.Switch(
                     state: (Space: space, Rows: writes),
-                    lsm: static (s, l) => Guarded("rocksdb", () => {
+                    lsm: static (s, l) => Guarded(() => {
                         using WriteBatch batch = new();
                         ColumnFamilyHandle family = Cf(l, s.Space);
                         s.Rows.Iter(row => row.Write.Switch(
@@ -1641,7 +1787,7 @@ public static class KvFloor {
                         l.Store.Write(batch, s.Space.Durability.Writes);
                         return unit;
                     }),
-                    mmap: static (s, m) => Guarded("lmdb", () => {
+                    mmap: static (s, m) => Guarded(() => {
                         using LightningTransaction transaction = m.Store.BeginTransaction();
                         LightningDatabase db = Db(m, s.Space);
                         Seq<MDBResultCode> statuses = s.Rows.Map(row => row.Write.Switch(
@@ -1667,7 +1813,7 @@ public static class KvFloor {
             ? Fin.Fail<Seq<(ReadOnlyMemory<byte> Key, ReadOnlyMemory<byte> Value)>>(new EmbeddedFault.Kv("kv", "<prefix-unordered>", space.Key, RetryShape.Terminal))
             : engine.Switch(
                 state: (Space: space, Bound: prefix),
-                lsm: static (s, l) => Guarded("rocksdb", () => {
+                lsm: static (s, l) => Guarded(() => {
                     using Snapshot pinned = l.Store.CreateSnapshot();
                     using Iterator cursor = l.Store.NewIterator(Cf(l, s.Space), new ReadOptions().SetSnapshot(pinned));
                     Seq<(ReadOnlyMemory<byte> Key, ReadOnlyMemory<byte> Value)> rows = default;
@@ -1676,7 +1822,7 @@ public static class KvFloor {
                     }
                     return rows;
                 }).Bind(rows => Opened(l.Keys, s.Space, rows)),
-                mmap: static (s, m) => Guarded("lmdb", () => {
+                mmap: static (s, m) => Guarded(() => {
                     using LightningTransaction transaction = m.Store.BeginTransaction(TransactionBeginFlags.ReadOnly);
                     using LightningCursor cursor = transaction.CreateCursor(Db(m, s.Space));
                     Seq<(ReadOnlyMemory<byte> Key, ReadOnlyMemory<byte> Value)> rows = default;
@@ -1702,12 +1848,12 @@ public static class KvFloor {
             : engine.Switch(
                 state: (Space: space, Key: key),
                 lsm: static (s, l) => s.Space.Layout.Operator.IsSome
-                    ? Guarded("rocksdb", () => Optional(l.Store.Get(s.Key.Span, Cf(l, s.Space))))
+                    ? Guarded(() => Optional(l.Store.Get(s.Key.Span, Cf(l, s.Space))))
                         .Bind(held => held.Match(
                             Some: frame => SpoolAccrual.Members(frame).Bind(members => Opened(l.Keys, s.Space, s.Key, members)),
                             None: () => Fin.Succ(Seq<ReadOnlyMemory<byte>>())))
                     : Scan(new KvEngine.Lsm(l.Store, l.Spaces, l.Keys), s.Space, s.Key).Map(static rows => rows.Map(static row => row.Value)),
-                mmap: static (s, m) => Guarded("lmdb", () => {
+                mmap: static (s, m) => Guarded(() => {
                     using LightningTransaction transaction = m.Store.BeginTransaction(TransactionBeginFlags.ReadOnly);
                     using LightningCursor cursor = transaction.CreateCursor(Db(m, s.Space));
                     return s.Space.Layout.Width.Match(
@@ -1722,7 +1868,7 @@ public static class KvFloor {
     // arm refuses typed rather than fabricating one.
     public static Fin<Seq<(ulong Sequence, ReadOnlyMemory<byte> Batch)>> Since(KvEngine engine, ulong sequence) => engine.Switch(
         state: sequence,
-        lsm: static (cursor, l) => Guarded("rocksdb", () => {
+        lsm: static (cursor, l) => Guarded(() => {
             using TransactionLogIterator feed = l.Store.GetUpdatesSince(cursor);
             Seq<(ulong Sequence, ReadOnlyMemory<byte> Batch)> updates = default;
             for (; feed.Valid(); feed.Next()) {
@@ -1738,8 +1884,8 @@ public static class KvFloor {
     // engine over the WHOLE store, the same economics the SQLite floor's paged backup session earns its fence for.
     public static Fin<Unit> Snap(KvEngine engine, string directory) => engine.Switch(
         state: directory,
-        lsm: static (target, l) => Guarded("rocksdb", () => { using Checkpoint clone = l.Store.Checkpoint(); clone.Save(target); return unit; }),
-        mmap: static (target, m) => Guarded("lmdb", () => m.Store.CopyTo(target, compact: true)).Bind(Mdb));
+        lsm: static (target, l) => Guarded(() => { using Checkpoint clone = l.Store.Checkpoint(); clone.Save(target); return unit; }),
+        mmap: static (target, m) => Guarded(() => m.Store.CopyTo(target, compact: true)).Bind(Mdb));
 
     // Space lookup is TOTAL: `Open` folded the whole roster into both maps, so an `Option` guard here would be an
     // arm no caller can reach and the indexer is the honest read.
@@ -1779,68 +1925,42 @@ public static class KvFloor {
         return members;
     }
 
-    // Typed LMDB verdict fold — the ceiling family splits by RECOVERY ROUTE rather than one transient bit: a
-    // `MapResized` re-drives once this process picks up the size a peer grew, a `MapFull`/`DbsFull`/`TxnFull`/
-    // `CursorFull`/`PageFull` succeeds only under WIDER provisioning (a bigger map, a bigger roster, a smaller
-    // transaction — a provisioning decision, never a write-time realloc), and a `ReadersFull`/`TLSFull` frees when a
-    // live reader finishes or `CheckStaleReaders` reclaims its slot. The corruption family routes terminal to
-    // recovery, and every other code carries its own name instead of one flattened string.
-    static Fin<Unit> Mdb(MDBResultCode status) => status switch {
-        MDBResultCode.Success => Fin.Succ(unit),
-        MDBResultCode.MapResized => Fin.Fail<Unit>(new EmbeddedFault.Kv("lmdb", status.ToString(), "<remapped>", RetryShape.Waited)),
-        MDBResultCode.ReadersFull or MDBResultCode.TLSFull => Fin.Fail<Unit>(new EmbeddedFault.Kv("lmdb", status.ToString(), "<slots>", RetryShape.Waited)),
-        MDBResultCode.MapFull or MDBResultCode.DbsFull or MDBResultCode.TxnFull or MDBResultCode.CursorFull or MDBResultCode.PageFull =>
-            Fin.Fail<Unit>(new EmbeddedFault.Kv("lmdb", status.ToString(), "<ceiling>", RetryShape.Rescoped)),
-        MDBResultCode.Corrupted or MDBResultCode.Panic or MDBResultCode.PageNotFound or MDBResultCode.VersionMismatch
-            or MDBResultCode.Invalid or MDBResultCode.InvalidData =>
-            Fin.Fail<Unit>(new EmbeddedFault.Corrupt((int)status, $"<lmdb:{status}>")),
-        _ => Fin.Fail<Unit>(new EmbeddedFault.Kv("lmdb", status.ToString(), "<write>", RetryShape.Terminal)),
-    };
+    // Returned-code arm of the ONE LMDB fold `EmbeddedFault.OfLmdb` owns: a raised `LightningException` re-enters
+    // that same fold through `EmbeddedFault.Lift`, so a `MapFull` cannot read terminal when raised and recoverable
+    // when returned — the fork that stamping the CLR type name into the status slot once produced.
+    static Fin<Unit> Mdb(MDBResultCode status) =>
+        EmbeddedFault.OfLmdb(status).Match(Some: Fin.Fail<Unit>, None: static () => Fin.Succ(unit));
 
-    // `LightningException` re-enters the SAME verdict fold a returned code takes, because its `StatusCode` is an
-    // `MDBResultCode` integer — its ceiling family keeps that route and its corruption family stays terminal when a
-    // driver raises the code instead of returning it. Stamping the CLR type name into the status slot forked one
-    // engine's taxonomy in two: a `MapFull` raised read terminal while the identical code returned read recoverable.
-    // `RocksDbException` cannot re-enter that fold — it publishes no code, no enum, and no property past `Exception`
-    // — so its message, which IS `Status::ToString()`, folds through `EmbeddedFault.OfRocks`. The two folds stay two
-    // because one reads a returned enum and the other parses a string, and a shared shape would carry a dead column
-    // at each engine; what they DO share is the output, one `EmbeddedFault.Kv` under one `RetryShape`, which is the
-    // collapse a retry executor actually reads.
-    static Fin<T> Guarded<T>(string engine, Func<T> call) {
-        try { return Fin.Succ(call()); }
-        catch (LightningException native) {
-            return Fin.Fail<T>(Mdb((MDBResultCode)native.StatusCode).Match(
-                Succ: _ => (Error)new EmbeddedFault.Kv(engine, native.StatusCode.ToString(CultureInfo.InvariantCulture), native.Message, RetryShape.Terminal),
-                Fail: banded => banded));
-        }
-        catch (RocksDbException native) { return Fin.Fail<T>(EmbeddedFault.OfRocks(native.Message)); }
-        catch (Exception exception) { return Fin.Fail<T>(new EmbeddedFault.Kv(engine, exception.GetType().Name, exception.Message, RetryShape.Terminal)); }
-    }
+    // The KV plane's one capture. Documented engine exceptions fold through `EmbeddedFault.Lift`; an unknown
+    // exception retains its captured `Error` unchanged.
+    static Fin<T> Guarded<T>(Func<T> call) =>
+        Op.Of().Catch(() => Fin.Succ(call())).MapFail(EmbeddedFault.Lift);
 }
 ```
 
-| [INDEX] | [POLICY]             | [VALUE]                                | [BINDING]                                                         |
-| :-----: | :------------------- | :------------------------------------- | :---------------------------------------------------------------- |
-|  [01]   | handle bridge        | `SqliteConnection.Handle` raw seam     | the one join to `sqlite3_*` the managed API omits                 |
-|  [02]   | checkpoint receipt   | `sqlite3_wal_checkpoint_v2` out-params | typed frame counts; `SQLITE_BUSY` retries the schedule            |
-|  [03]   | consistent read      | `sqlite3_snapshot_*` pin bracket       | `_cmp` floor guard; `_free` only a held handle                    |
-|  [04]   | backup               | paged `sqlite3_backup_*` session       | subsumes whole-file `BackupDatabase`; `quick_check` proof         |
-|  [05]   | large payload        | `SqliteBlob` over `zeroblob(N)`        | streamed; whole-`byte[]` materialization deleted                  |
-|  [06]   | fault discrimination | `EmbeddedFault` over the status int    | `Busy` waits or restarts; `Corrupt` routes to recovery            |
-|  [07]   | embedded KV          | `KvFloor` over `KvEngine` (LSM/mmap)   | offline op spool + chunk index; one polymorphic surface           |
-|  [08]   | KV drain and sweep   | `Scan`/`Refs` snapshot-pinned walks    | prefix scan + dupsorted reverse refs; point-Get-only form deleted |
-|  [09]   | KV resume and clone  | `Since` WAL cursor, `Snap` clone/copy  | reconnect replay from a sequence; hard-link or compacting copy    |
-|  [10]   | KV write intent      | `KvWrite` Put/Append/Unlink/Drop       | dup-scoped retirement; a whole-key drop never empties a dup set   |
-|  [11]   | KV fault taxonomy    | raised and returned codes share `Mdb`  | `LightningException.StatusCode` folds where a return code folds   |
-|  [12]   | keyed backup         | `BackupPolicy.Dek` before `backup_init`| destination binds its source's cipher; no plaintext egress        |
-|  [13]   | KV keyspace axis     | `KvSpace` row = CF and named DB        | one roster, two engines; prefix never a keyspace                  |
-|  [14]   | KV key order         | `KvOrder.Bytewise`, no comparer        | proof by omission; `Scan` gates on `PrefixSound`                  |
-|  [15]   | KV accrual           | `KvLayout` `Single`/`Accrued`/`Fanned` | drives flags, family options, `Append`, `Refs`                    |
-|  [16]   | KV merge frame       | `SpoolAccrual` count + length prefixes | one `Merge` per append; separator join deleted                    |
-|  [17]   | KV durability        | `KvDurability` per row                 | LSM per write; LMDB env takes the strictest                       |
-|  [18]   | KV at rest           | `KvVault` AEAD over values             | keys and dup values clear; `Degrade` names both                   |
-|  [19]   | KV retry route       | `RetryShape` on every fault            | `IsTransient` is `Waited` alone                                   |
-|  [20]   | rocksdb verdict      | `RocksStatus` prefix + subcode fold    | message is the only carrier; unmatched refuses                    |
+| [INDEX] | [POLICY]             | [VALUE]                                    | [BINDING]                                                          |
+| :-----: | :------------------- | :----------------------------------------- | :----------------------------------------------------------------- |
+|  [01]   | handle bridge        | `HandleBridge` over the raw seam           | ONE resolve/capture/status/dispose path; a second reach deleted    |
+|  [02]   | checkpoint receipt   | `sqlite3_wal_checkpoint_v2` out-params     | typed frame counts; `SQLITE_BUSY` retries the schedule             |
+|  [03]   | consistent read      | `sqlite3_snapshot_*` pin bracket           | `_cmp` floor guard; `_free` only a held handle                     |
+|  [04]   | backup               | paged `sqlite3_backup_*` session           | subsumes whole-file `BackupDatabase`; `quick_check` proof          |
+|  [05]   | large payload        | `SqliteBlob` over `zeroblob(N)`            | streamed; whole-`byte[]` materialization deleted                   |
+|  [06]   | fault discrimination | `EmbeddedFault` over the status int        | `Busy` waits or restarts; `Corrupt` routes to recovery             |
+|  [07]   | embedded KV          | `KvFloor` over `KvEngine` (LSM/mmap)       | offline op spool + chunk index; one polymorphic surface            |
+|  [08]   | KV drain and sweep   | `Scan`/`Refs` snapshot-pinned walks        | prefix scan + dupsorted reverse refs; point-Get-only form deleted  |
+|  [09]   | KV resume and clone  | `Since` WAL cursor, `Snap` clone/copy      | reconnect replay from a sequence; hard-link or compacting copy     |
+|  [10]   | KV write intent      | `KvWrite` Put/Append/Unlink/Drop           | dup-scoped retirement; a whole-key drop never empties a dup set    |
+|  [11]   | KV fault taxonomy    | raised and returned codes share `Mdb`      | `LightningException.StatusCode` folds where a return code folds    |
+|  [12]   | keyed backup         | `BackupPolicy.Dek` before `backup_init`    | destination binds its source's cipher; no plaintext egress         |
+|  [13]   | KV keyspace axis     | `KvSpace` row = CF and named DB            | one roster, two engines; prefix never a keyspace                   |
+|  [14]   | KV key order         | `KvOrder.Bytewise`, no comparer            | proof by omission; `Scan` gates on `PrefixSound`                   |
+|  [15]   | KV accrual           | `KvLayout` `Single`/`Accrued`/`Fanned`     | drives flags, family options, `Append`, `Refs`                     |
+|  [16]   | KV merge frame       | `SpoolAccrual` count + length prefixes     | one `Merge` per append; separator join deleted                     |
+|  [17]   | KV durability        | `KvDurability` per row                     | LSM per write; LMDB env takes the strictest                        |
+|  [18]   | KV at rest           | `KvVault` AEAD over values                 | keys and dup values clear; `Degrade` names both                    |
+|  [19]   | retry axes           | kernel `Retriability` DERIVED from `Route` | route names where; posture names whether; `Waited` alone transient |
+|  [20]   | rocksdb failure      | exact exceptional `Error`                  | no stable typed status; message never drives recovery              |
+|  [21]   | embedded lift        | typed SQLite and LMDB status folds         | raised and returned codes land one verdict                         |
 
 ## [05]-[STORE_AXIS_MAP]
 
@@ -1872,7 +1992,7 @@ Per axis, the owning page(s), the provider seed rows (deployment/policy DATA), a
 - [08]-[EMBEDDED_RELATIONAL]: `Element/identity` + `Store/provisioning`; npgsql-ef · sqlite-ef; one generated mapping, two providers; a hand ADO mapping beside the rail is deleted (ARCH).
 - [09]-[WIDE_COLUMN_CONTENT_INDEX]: `Query/cache`; marten-pg (default) · scylla-widecolumn; LWT `AppliedInfo` claim-gate + shard-routed point reads at federation scale.
 - [10]-[CACHE_BACKPLANE]: `Query/cache`; none (single-node default) · redis-pubsub; cross-process L1 invalidation the `IDistributedCache` contract cannot express.
-- [11]-[SPATIAL_STORE_PLANE]: `Element/identity` · `Store/provisioning` · `Element/codec` · `Ingest/geospatial`; postgis-column (EF-NTS) · ado-codec (`SpatialWire`) · geojson-stj · geopackage · wkb/wkt · h3-cell (pocketken); the provisioned postgis/pgrouting/h3-pg tier gains its wire, column, codec, and file-ingress counterparts, closed end-to-end.
+- [11]-[SPATIAL_STORE_PLANE]: `Element/identity` · `Store/provisioning` · `Element/codec` · `Ingest/geospatial`; postgis-column (EF-NTS) · ado-codec (`SourceWire`) · geojson-stj · geopackage · wkb/wkt · h3-cell (pocketken); the provisioned postgis/pgrouting/h3-pg tier gains its wire, column, codec, and file-ingress counterparts, closed end-to-end.
 
 ## [06]-[RESEARCH]
 

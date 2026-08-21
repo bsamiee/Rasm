@@ -39,12 +39,13 @@ from expression import Error, Ok, Result, case, tag, tagged_union
 from expression.collections import Block
 from msgspec import Struct, UnsetType
 
-from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, rostered
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.graphic.color.derive import BlendMode, PorterDuff
@@ -71,6 +72,17 @@ lazy from PIL import Image, ImageOps, ImageSequence, UnidentifiedImageError, fea
 lazy from rasm.artifacts.exchange.detect import Detect, DetectEngine, DetectIdentity, Source
 lazy from rasm.artifacts.graphic.raster.measure import MEASURE_TRANSFORMS
 lazy from rasm.artifacts.graphic.raster.process import TRANSFORMS
+
+# this page's whole raise roster. The admission refusal is caller data and TERMINAL — an op whose policy the funnel
+# refuses refuses identically forever — while the produced fold is TRANSIENT, a provider or worker defect a re-issue
+# may clear. The op tag stays request data the `RasterFault` case already separates, never a subject the fence forks.
+RASTER_ADMIT: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.IO, point="admit", arm="config", defect="op-refused", retriability=TERMINAL
+)
+RASTER_PRODUCE: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.IO, point="produce", arm="boundary", defect="raster-refused", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([RASTER_ADMIT, RASTER_PRODUCE]))
 
 type RasterOpTag = Literal[
     "thumbnail",
@@ -477,7 +489,7 @@ class Raster(Struct, frozen=True):
         settled: RuntimeRail[ArtifactReceipt]
         match op.admitted(policy):  # Result is a constructor-function rail: patterns match the tagged shape, never Ok/Error class heads
             case Result(tag="error", error=fault):
-                return Error(BoundaryFault(boundary=(f"raster.{op.tag}", f"{fault.tag}:{fault}")))
+                return Error(BoundaryFault(domain=(RASTER_ADMIT.subject, fault)))
             case Result(tag="ok", ok=valid):
                 match valid:
                     case RasterOp(tag="detect", detect=(payload,)):
@@ -487,7 +499,7 @@ class Raster(Struct, frozen=True):
                         produced = await lane.offload(Kernel.of(_worker_raster, KernelTrait.HOSTILE), valid, policy)
                         settled = produced.bind(
                             lambda res: res.map(lambda fact: _previewed(valid, policy, fact)).map_error(
-                                lambda fault: BoundaryFault(boundary=(f"raster.{valid.tag}", f"{fault.tag}:{fault}"))
+                                lambda fault: BoundaryFault(domain=(RASTER_PRODUCE.subject, fault))
                             )
                         )
             case _ as unreachable:

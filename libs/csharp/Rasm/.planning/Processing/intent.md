@@ -12,7 +12,10 @@ Every case admits through exactly one factory that internalizes `Domain/validati
 ## [02]-[CONSTRUCTION]
 
 - Owner: `VectorIntent` `[Union]` with a private root constructor and no implicit conversions; a case constructor is `internal` where its payload must arrive pre-admitted, positional-public only where every payload is a raw value or an admitted-by-construction carrier the dispatch admits through its owner.
-- Entry: exactly one factory per case. Raw scalars admit through `Op.AcceptValidated`, geometry through the `Admit` vocabulary, and a payload carrying an owner re-admits through that owner; an admitted-by-construction payload gates only its presence. Optional policies enter as `Option<T> = default` resolved against the owner's canonical row, never a `bool` knob or sibling overload.
+- Entry: exactly one factory per case — the case roster and the factory roster are the same length, and the round trip is the growth check no generated `Switch` proves. Raw scalars admit through `Op.AcceptValidated`, geometry through the `Admit` vocabulary, and a payload carrying an owner re-admits through that owner; an admitted-by-construction payload gates only its presence.
+- Law: the whole union is one `[BoundaryAdapter]` owner, so every factory and the egress carry the `Op? key = null` + `OrDefault()` spelling; every OTHER optional is `Option<T> = default` resolved against the owner's canonical row, never a `bool` knob, a nullable tail, or a sibling overload.
+- Law: host capture and kernel authorship are TWO cases per capability, never one shadowing the other — `FlattenHostCase`/`RemeshHostCase` route the RhinoCommon echo, `ParameterizeCase`/`RewriteCase`/`SimplifyCase` route the variational, first-principles, and quadric owners, so the generated `Switch` makes the choice a compile-time decision at every call site and no caller silently receives the lane it did not ask for.
+- Law: `AxesCase` carries a `Dimension Rank`, not a planarity flag — the cardinal set a rank admits is `SignedAxis.Cardinal(rank)`'s own filter over the axis ordinal, so a caller states the dimension it works in and a lattice that already publishes its rank forwards it unchanged. `SpatialRank` (3) is the default.
 - Growth: a new kernel capability is one case, one factory, and one dispatch arm, so the generated `Switch` breaks every dispatch site at compile time; a new modality of an existing capability is a policy row or case field on the owning page, reaching this rail with zero new surface.
 - Boundary: `VectorIntent`'s factory surface is the only construction path, so no un-admitted intent exists; a factory carries a solver decision as the payload's own vocabulary, never interpreting it. View composition homes at `Rasm.Drawing`'s `ViewConvention` catalog, never a geometry-rail case.
 
@@ -41,11 +44,12 @@ namespace Rasm.Processing;
 
 // --- [TYPES] ----------------------------------------------------------------------------------
 [Union]
+[BoundaryAdapter]
 public abstract partial record VectorIntent {
     public sealed record AxisCase(SignedAxis Value, Option<Plane> Basis) : VectorIntent;
     public sealed record DirectionCase(Vector3d Value) : VectorIntent;
-    public sealed record AxesCase(Option<Seq<Vector3d>> Values, bool Planar) : VectorIntent;
-    public sealed record AngularCase(Vector3d A, Vector3d B, AnglePivot Pivot) : VectorIntent;
+    public sealed record AxesCase(Option<Seq<Vector3d>> Values, Dimension Rank) : VectorIntent;
+    public sealed record AngularCase(Vector3d A, Vector3d B, Option<AnglePivot> Pivot) : VectorIntent;
     public sealed record SupportCase : VectorIntent { internal SupportCase(SupportSpace space, Point3d query, SupportProjection projection) { Space = space; Query = query; Projection = projection; } public SupportSpace Space { get; } public Point3d Query { get; } public SupportProjection Projection { get; } }
     public sealed record ExtractionCase : VectorIntent { internal ExtractionCase(Extraction value) => Value = value; public Extraction Value { get; } }
     public sealed record RayCase(Point3d Origin, Direction RayDirection, RayPolicy Policy) : VectorIntent;
@@ -65,12 +69,17 @@ public abstract partial record VectorIntent {
     public sealed record MirrorCase(Vector3d Value, Plane Across) : VectorIntent;
     public sealed record SurfaceCase : VectorIntent { internal SurfaceCase(SurfaceSpace source, Point2d uv, SurfaceProjection mode) { Source = source; Uv = uv; Mode = mode; } public SurfaceSpace Source { get; } public Point2d Uv { get; } public SurfaceProjection Mode { get; } }
     public sealed record PoseCase(Plane From, Plane To, UnitInterval Parameter, MotionInterpolation Mode) : VectorIntent;
-    public sealed record FlattenCase : VectorIntent { internal FlattenCase(MeshSpace space) => Space = space; public MeshSpace Space { get; } }
+    // Host capture and kernel author are TWO capabilities, never one shadowing the other: the host lane echoes Rhino's
+    // LSCM/remesh parameters, the kernel lane folds the variational and quadric owners, and the case names which ran.
+    public sealed record FlattenHostCase : VectorIntent { internal FlattenHostCase(MeshSpace space) => Space = space; public MeshSpace Space { get; } }
+    public sealed record ParameterizeCase : VectorIntent { internal ParameterizeCase(ParamOp request) => Request = request; public ParamOp Request { get; } }
     public sealed record HullCase : VectorIntent { internal HullCase(VectorCloud source, CloudHullKind kind, CloudHullPolicy policy) { Source = source; Kind = kind; Policy = policy; } public VectorCloud Source { get; } public CloudHullKind Kind { get; } public CloudHullPolicy Policy { get; } }
     public sealed record VoronoiCase : VectorIntent { internal VoronoiCase(VectorCloud.ClusterCase source, CloudHullPolicy policy) { Source = source; Policy = policy; } public VectorCloud.ClusterCase Source { get; } public CloudHullPolicy Policy { get; } }
     public sealed record SampleCase : VectorIntent { internal SampleCase(ExtractionDomain domain, SampleKind kind) { Domain = domain; Kind = kind; } public ExtractionDomain Domain { get; } public SampleKind Kind { get; } }
     public sealed record AlignCase : VectorIntent { internal AlignCase(VectorCloud source, VectorCloud target, AlignKind kind, AlignmentPolicy policy) { Source = source; Target = target; Kind = kind; Policy = policy; } public VectorCloud Source { get; } public VectorCloud Target { get; } public AlignKind Kind { get; } public AlignmentPolicy Policy { get; } }
-    public sealed record RemeshCase : VectorIntent { internal RemeshCase(MeshSpace space, RemeshKind kind) { Space = space; Kind = kind; } public MeshSpace Space { get; } public RemeshKind Kind { get; } }
+    public sealed record RemeshHostCase : VectorIntent { internal RemeshHostCase(MeshSpace space, RemeshKind kind) { Space = space; Kind = kind; } public MeshSpace Space { get; } public RemeshKind Kind { get; } }
+    public sealed record RewriteCase : VectorIntent { internal RewriteCase(RemeshOp request) => Request = request; public RemeshOp Request { get; } }
+    public sealed record SimplifyCase : VectorIntent { internal SimplifyCase(SimplifyOp request) => Request = request; public SimplifyOp Request { get; } }
     public sealed record TransportCase : VectorIntent { internal TransportCase(VectorCloud source, VectorCloud target, CloudTransportPolicy policy) { Source = source; Target = target; Policy = policy; } public VectorCloud Source { get; } public VectorCloud Target { get; } public CloudTransportPolicy Policy { get; } }
     public sealed record TopologyCase : VectorIntent { internal TopologyCase(MeshSpace space) => Space = space; public MeshSpace Space { get; } }
     public sealed record FeaturesCase : VectorIntent { internal FeaturesCase(MeshSpace space, MeshFeaturePolicy policy) { Space = space; Policy = policy; } public MeshSpace Space { get; } public MeshFeaturePolicy Policy { get; } }
@@ -79,16 +88,22 @@ public abstract partial record VectorIntent {
     public sealed record SegmentationCase : VectorIntent { internal SegmentationCase(MeshSpace space, MeshSegmentation kind) { Space = space; Kind = kind; } public MeshSpace Space { get; } public MeshSegmentation Kind { get; } }
     private VectorIntent() { }
 
+    // Ambient cardinal rank runs three signed axes unless a caller states the dimension its lattice publishes.
+    private static readonly Dimension SpatialRank = Dimension.Create(value: 3);
+
     // --- [CONSTRUCTION]
-    public static Fin<VectorIntent> Axis(SignedAxis axis, Plane? frame = null, Op? key = null) {
+    public static Fin<VectorIntent> Axis(SignedAxis axis, Option<Plane> frame = default, Op? key = null) {
         Op op = key.OrDefault();
         return from active in Admit.NotNull(value: axis, key: op)
-               from basis in frame is null ? Fin.Succ(Option<Plane>.None) : Admit.Plane(basis: frame.Value, key: op).Map(static plane => Some(plane))
+               from basis in frame.Match(
+                   Some: plane => Admit.Plane(basis: plane, key: op).Map(static admitted => Some(admitted)),
+                   None: () => Fin.Succ(Option<Plane>.None))
                select (VectorIntent)new AxisCase(Value: active, Basis: basis);
     }
     public static VectorIntent Direction(Vector3d value) => new DirectionCase(Value: value);
-    public static VectorIntent Axes(Option<Seq<Vector3d>> values = default, bool planar = false) => new AxesCase(Values: values, Planar: planar);
-    public static VectorIntent Angular(Vector3d a, Vector3d b, AnglePivot? pivot = null) => new AngularCase(A: a, B: b, Pivot: pivot ?? AnglePivot.World);
+    public static VectorIntent Axes(Option<Seq<Vector3d>> values = default, Option<Dimension> rank = default) =>
+        new AxesCase(Values: values, Rank: rank.IfNone(SpatialRank));
+    public static VectorIntent Angular(Vector3d a, Vector3d b, Option<AnglePivot> pivot = default) => new AngularCase(A: a, B: b, Pivot: pivot);
     public static Fin<VectorIntent> Support(SupportSpace space, Point3d sample, SupportProjection projection, Op? key = null) {
         Op op = key.OrDefault();
         return from validSpace in Admit.NotNull(value: space, key: op)
@@ -98,8 +113,8 @@ public abstract partial record VectorIntent {
     }
     public static Fin<VectorIntent> Extract(Extraction request, Op? key = null) =>
         Admit.NotNull(value: request, key: key.OrDefault()).Map(static value => (VectorIntent)new ExtractionCase(value: value));
-    public static VectorIntent Ray(Point3d origin, Direction direction, RayPolicy? policy = null) =>
-        new RayCase(Origin: origin, RayDirection: direction, Policy: policy ?? RayPolicy.Forward);
+    public static VectorIntent Ray(Point3d origin, Direction direction, Option<RayPolicy> policy = default) =>
+        new RayCase(Origin: origin, RayDirection: direction, Policy: policy.IfNone(RayPolicy.Forward));
     public static VectorIntent Frame(Point3d origin, Vector3d normal, Option<Vector3d> xHint = default) =>
         new FrameCase(Origin: origin, Normal: normal, XHint: xHint);
     public static Fin<VectorIntent> Curve(Curve source, double parameter, CurveProjection mode, Op? key = null) {
@@ -113,15 +128,15 @@ public abstract partial record VectorIntent {
         Op op = key.OrDefault();
         return from validCloud in Admit.NotNull(value: cloud, key: op)
                from validMetric in Admit.NotNull(value: metric, key: op)
-               from validPolicy in CloudMetricPolicy.AdmitOrDefault(policy: policy, key: op)
-               from _ in guard(validMetric.AdmitsCase(cloud: validCloud), op.Unsupported(geometryType: validCloud.GetType(), outputType: validMetric.Output))
+               from validPolicy in CloudMetricPolicy.AdmitOrDefault(policy: policy, context: validCloud.Tolerance, key: op)
+               from _ in guard(validMetric.AdmitsCase(cloud: validCloud), op.Unsupported(inputType: validCloud.GetType(), outputType: validMetric.Output))
                select (VectorIntent)new CloudCase(value: validCloud, metric: validMetric, policy: validPolicy);
     }
     public static Fin<VectorIntent> Winding(VectorCloud cloud, Point3d query, Op? key = null) {
         Op op = key.OrDefault();
         return Admit.NotNull(value: cloud, key: op).Bind(valid => valid is VectorCloud.RingCase ring
             ? op.AcceptValue(value: query).Map(point => (VectorIntent)new WindingCase(value: ring, query: point))
-            : Fin.Fail<VectorIntent>(op.Unsupported(geometryType: valid.GetType(), outputType: typeof(int))));
+            : Fin.Fail<VectorIntent>(op.Unsupported(inputType: valid.GetType(), outputType: typeof(int))));
     }
     public static Fin<VectorIntent> Cone(VectorCone cone, ConeProjection mode, Op? key = null) {
         Op op = key.OrDefault();
@@ -131,15 +146,15 @@ public abstract partial record VectorIntent {
     }
     public static VectorIntent Components(Point3d anchor, Vector3d value, Plane frame) => new ComponentsCase(Anchor: anchor, Value: value, Basis: frame);
     public static VectorIntent Relation(Vector3d a, Vector3d b) => new RelationCase(A: a, B: b);
-    public static Fin<VectorIntent> Bounce(Direction incident, SupportSpace surface, Point3d sample, BouncePolicy? policy = null, Op? key = null) {
+    public static Fin<VectorIntent> Bounce(Direction incident, SupportSpace surface, Point3d sample, Option<BouncePolicy> policy = default, Op? key = null) {
         Op op = key.OrDefault();
         return from _ in guard(incident.IsValid, op.InvalidInput())
                from target in Admit.NotNull(value: surface, key: op)
-               from bounce in Admit.NotNull(value: policy ?? BouncePolicy.Reflect, key: op)
+               from bounce in Admit.NotNull(value: policy.IfNone(BouncePolicy.Reflect), key: op)
                from point in op.AcceptValue(value: sample)
                select (VectorIntent)new BounceCase(Incident: incident, Target: target, Query: point, Policy: bounce);
     }
-    public static Fin<VectorIntent> Streamline(VectorField field, Point3d seed, double initialStep, Termination termination, FieldIntegrator? integrator = null, Op? key = null) {
+    public static Fin<VectorIntent> Streamline(VectorField field, Point3d seed, double initialStep, Termination termination, Option<FieldIntegrator> integrator = default, Op? key = null) {
         Op op = key.OrDefault();
         return from validField in Admit.NotNull(value: field, key: op)
                from validStop in Termination.Admit(value: termination, key: op)
@@ -148,9 +163,9 @@ public abstract partial record VectorIntent {
                from validIntegrator in FieldIntegrator.AdmitOrFixed(value: integrator, key: op)
                select (VectorIntent)new StreamlineCase(source: validField, seed: validSeed, initialStep: h, integrator: validIntegrator, termination: validStop);
     }
-    // The topology twin of Streamline over the same field and stepper: FlowPartition and TopologyPolicy arrive
+    // Topology twin of Streamline rides the same field and stepper: FlowPartition and TopologyPolicy arrive
     // admitted from their own Of, so this factory gates their presence and admits the raw step and integrator alone.
-    public static Fin<VectorIntent> Atlas(VectorField field, FlowPartition partition, double initialStep, TopologyPolicy policy, FieldIntegrator? integrator = null, Op? key = null) {
+    public static Fin<VectorIntent> Atlas(VectorField field, FlowPartition partition, double initialStep, TopologyPolicy policy, Option<FieldIntegrator> integrator = default, Op? key = null) {
         Op op = key.OrDefault();
         return from validField in Admit.NotNull(value: field, key: op)
                from validPartition in Admit.NotNull(value: partition, key: op)
@@ -184,15 +199,23 @@ public abstract partial record VectorIntent {
                from unit in op.AcceptValidated<UnitInterval>(candidate: t)
                select (VectorIntent)new PoseCase(From: source, To: target, Parameter: unit, Mode: activeMode);
     }
-    public static Fin<VectorIntent> Flatten(MeshSpace space, Op? key = null) =>
-        Admit.NotNull(value: space.Native, key: key.OrDefault()).Map(_ => (VectorIntent)new FlattenCase(space: space));
+    public static Fin<VectorIntent> FlattenHost(MeshSpace space, Op? key = null) =>
+        Admit.NotNull(value: space.Native, key: key.OrDefault()).Map(_ => (VectorIntent)new FlattenHostCase(space: space));
+    // ParamOp/RemeshOp/SimplifyOp each admit their chart, policy, and payload at their own owner, so these three gate
+    // presence alone — an admitted-by-construction request re-validated here would answer the same question twice.
+    public static Fin<VectorIntent> Parameterize(ParamOp request, Op? key = null) =>
+        Admit.NotNull(value: request, key: key.OrDefault()).Map(static admitted => (VectorIntent)new ParameterizeCase(request: admitted));
+    public static Fin<VectorIntent> Rewrite(RemeshOp request, Op? key = null) =>
+        Admit.NotNull(value: request, key: key.OrDefault()).Map(static admitted => (VectorIntent)new RewriteCase(request: admitted));
+    public static Fin<VectorIntent> Decimate(SimplifyOp request, Op? key = null) =>
+        Admit.NotNull(value: request, key: key.OrDefault()).Map(static admitted => (VectorIntent)new SimplifyCase(request: admitted));
     public static Fin<VectorIntent> Hull(VectorCloud source, Option<CloudHullKind> kind = default, Option<CloudHullPolicy> policy = default, Op? key = null) {
         Op op = key.OrDefault();
         return from validSource in Admit.NotNull(value: source, key: op)
                from validKind in Admit.NotNull(value: kind.IfNone(CloudHullKind.Convex3D), key: op)
                from cluster in validSource is VectorCloud.ClusterCase c
                    ? Fin.Succ(c)
-                   : Fin.Fail<VectorCloud.ClusterCase>(op.Unsupported(geometryType: validSource.GetType(), outputType: typeof(CloudHullResult)))
+                   : Fin.Fail<VectorCloud.ClusterCase>(op.Unsupported(inputType: validSource.GetType(), outputType: typeof(CloudHullResult)))
                from validPolicy in CloudHullPolicy.AdmitOrDefault(policy: policy, context: cluster.Tolerance, key: op)
                select (VectorIntent)new HullCase(source: cluster, kind: validKind, policy: validPolicy);
     }
@@ -201,7 +224,7 @@ public abstract partial record VectorIntent {
         return from validSource in Admit.NotNull(value: source, key: op)
                from cluster in validSource is VectorCloud.ClusterCase c
                    ? Fin.Succ(c)
-                   : Fin.Fail<VectorCloud.ClusterCase>(op.Unsupported(geometryType: validSource.GetType(), outputType: typeof(CloudVoronoiResult)))
+                   : Fin.Fail<VectorCloud.ClusterCase>(op.Unsupported(inputType: validSource.GetType(), outputType: typeof(CloudVoronoiResult)))
                from validPolicy in CloudHullPolicy.AdmitOrDefault(policy: policy, context: cluster.Tolerance, key: op)
                select (VectorIntent)new VoronoiCase(source: cluster, policy: validPolicy);
     }
@@ -211,19 +234,19 @@ public abstract partial record VectorIntent {
                from validKind in SampleKind.Admit(value: kind, key: op)
                select (VectorIntent)new SampleCase(domain: validDomain, kind: validKind);
     }
-    public static Fin<VectorIntent> Align(VectorCloud source, VectorCloud target, AlignKind kind, AlignmentPolicy? policy = null, Op? key = null) {
+    public static Fin<VectorIntent> Align(VectorCloud source, VectorCloud target, AlignKind kind, Option<AlignmentPolicy> policy = default, Op? key = null) {
         Op op = key.OrDefault();
         return from validSource in Admit.NotNull(value: source, key: op)
                from validTarget in Admit.NotNull(value: target, key: op)
                from validKind in Admit.NotNull(value: kind, key: op)
-               from validPolicy in (policy ?? AlignmentPolicy.Default).Admit(key: op)
+               from validPolicy in policy.IfNone(AlignmentPolicy.Default).Admit(key: op)
                select (VectorIntent)new AlignCase(source: validSource, target: validTarget, kind: validKind, policy: validPolicy);
     }
-    public static Fin<VectorIntent> Remesh(MeshSpace space, RemeshKind kind, Op? key = null) {
+    public static Fin<VectorIntent> RemeshHost(MeshSpace space, RemeshKind kind, Op? key = null) {
         Op op = key.OrDefault();
         return from _ in Admit.NotNull(value: space.Native, key: op)
                from activeKind in Admit.NotNull(value: kind, key: op)
-               select (VectorIntent)new RemeshCase(space: space, kind: activeKind);
+               select (VectorIntent)new RemeshHostCase(space: space, kind: activeKind);
     }
     // CloudTransportPolicy admits at its own .Of; this rail rejects only the default-struct sentinel.
     public static Fin<VectorIntent> Transport(VectorCloud source, VectorCloud target, CloudTransportPolicy policy, Op? key = null) {
@@ -242,15 +265,15 @@ public abstract partial record VectorIntent {
     }
     public static Fin<VectorIntent> Descriptor(MeshSpace space, MeshDescriptor kind, int pairs, Op? key = null) {
         Op op = key.OrDefault();
+        // MeshDescriptor admits at its own factory, so the intent carries an already-proved descriptor.
         return from _ in Admit.NotNull(value: space.Native, key: op)
-               from active in Admit.NotNull(value: kind, key: op)
                from count in op.AcceptValidated<Dimension>(candidate: pairs)
-               select (VectorIntent)new DescriptorCase(space: space, kind: active, pairs: count);
+               select (VectorIntent)new DescriptorCase(space: space, kind: kind, pairs: count);
     }
-    public static Fin<VectorIntent> DiscreteCalculus(MeshSpace space, MeshLaplacian? kind = null, Op? key = null) {
+    public static Fin<VectorIntent> DiscreteCalculus(MeshSpace space, Option<MeshLaplacian> kind = default, Op? key = null) {
         Op op = key.OrDefault();
         return from _ in Admit.NotNull(value: space.Native, key: op)
-               from active in Admit.NotNull(value: kind ?? MeshLaplacian.IntrinsicDelaunay, key: op)
+               from active in Admit.NotNull(value: kind.IfNone(MeshLaplacian.IntrinsicDelaunay), key: op)
                select (VectorIntent)new DiscreteCalculusCase(space: space, kind: active);
     }
     public static Fin<VectorIntent> Segmentation(MeshSpace space, MeshSegmentation kind, Op? key = null) {
@@ -277,7 +300,7 @@ public abstract partial record VectorIntent {
             from output in direction.Project<TOut>(key: state.Key)
             select output,
         axesCase: static (state, intent) =>
-            from axes in intent.Values.IfNone(SignedAxis.Cardinal(planar: intent.Planar).Map(static axis => axis.World))
+            from axes in intent.Values.IfNone(SignedAxis.Cardinal(rank: intent.Rank).Map(static axis => axis.World))
                 .TraverseM(axis => Numerics.Direction.Of(value: axis, context: state.Context, key: state.Key).Map(static direction => direction.Value))
                 .As()
             from _ in guard(!axes.IsEmpty, state.Key.InvalidInput())
@@ -346,13 +369,17 @@ public abstract partial record VectorIntent {
             select output,
         surfaceCase: static (state, intent) => intent.Source.Sample<TOut>(projection: intent.Mode, u: intent.Uv.X, v: intent.Uv.Y, key: state.Key),
         poseCase: static (state, intent) =>
-            from pose in intent.Mode.Interpolate(a: intent.From, b: intent.To, t: intent.Parameter, key: state.Key)
+            from pose in intent.Mode.Interpolate(a: intent.From, b: intent.To, t: intent.Parameter, context: state.Context, key: state.Key)
             from output in Admit.Plane(basis: pose, key: state.Key)
                 .Bind(plane => AtomProjection.Self<Plane, TOut>(value: plane, key: state.Key, owner: typeof(PoseCase)))
             select output,
-        flattenCase: static (state, intent) =>
+        flattenHostCase: static (state, intent) =>
             from result in SegmentKernel.ParameterizeFlattenDetailed(space: intent.Space, key: state.Key)
             from output in result.Project<TOut>(key: state.Key)
+            select output,
+        parameterizeCase: static (state, intent) =>
+            from atlas in Flatten.Apply(op: intent.Request, key: state.Key)
+            from output in atlas.Project<TOut>(key: state.Key)
             select output,
         hullCase: static (state, intent) =>
             from result in CloudKernel.ComputeHullDetailed(source: intent.Source, kind: intent.Kind, policy: intent.Policy, key: state.Key)
@@ -367,8 +394,16 @@ public abstract partial record VectorIntent {
             from receipt in intent.Kind.AlignDetailed(source: intent.Source, target: intent.Target, policy: intent.Policy, key: state.Key)
             from output in receipt.Project<TOut>(key: state.Key)
             select output,
-        remeshCase: static (state, intent) =>
+        remeshHostCase: static (state, intent) =>
             from result in SegmentKernel.ApplyRemeshDetailed(kind: intent.Kind, space: intent.Space, key: state.Key)
+            from output in result.Project<TOut>(key: state.Key)
+            select output,
+        rewriteCase: static (state, intent) =>
+            from result in Remeshing.Apply(op: intent.Request, key: state.Key)
+            from output in result.Project<TOut>(key: state.Key)
+            select output,
+        simplifyCase: static (state, intent) =>
+            from result in Simplify.Apply(op: intent.Request, key: state.Key)
             from output in result.Project<TOut>(key: state.Key)
             select output,
         transportCase: static (state, intent) =>

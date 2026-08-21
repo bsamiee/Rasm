@@ -306,8 +306,10 @@ const _band = (
 ## [04]-[PORT]
 
 [PORT]:
-- Owner: the port satisfaction — `Embedding.embedder(row)` builds the Layer that satisfies the data wave's `Embedder` Tag at app composition: `fingerprint` publishes `Search.Embedding.fingerprint` (the brand the vector table's primary key carries, so a model migration is a new fingerprint and old vectors stay queryable under theirs), `embed` scrubs and routes each singular port request through `Effect.request` over the resolver band, and every provider fault folds into the port's own family through the total `_folded` tag table — decode skew to `shape`, transport and unknown failures to `provider`, a `429`/`413` provider rejection to `budget` off the carried response status — so retrieval's lane-exclusion fold reads one vocabulary and no tag falls through an untyped default.
-- Law: a refusal lands on the port's own verdict cell, never the transport one — `_blamed` grades each guardrail reason into the port's vocabulary and the reason itself rides `detail`, so a moderation verdict stops reading as a wire failure the retry rail would re-drive, while the four-way blame survives for the operator.
+- Owner: the port satisfaction — `Embedding.embedder(row)` builds the Layer that satisfies the data wave's `Embedder` Tag at app composition: `fingerprint` publishes `Search.Embedding.fingerprint` (the brand the vector table's primary key carries, so a model migration is a new fingerprint and old vectors stay queryable under theirs), `embed` scrubs and routes each singular port request through `Effect.request` over the resolver band, and every provider fault folds into the port's own family through the total `_folded` tag table — decode skew to `malformed`, transport and unknown failures to `provider`, a `429`/`413` provider rejection to `budget` off the carried response status — so retrieval's lane-exclusion fold reads one vocabulary and no tag falls through an untyped default.
+- Law: the fault union decides ONE column and the mint sits beneath it — the port word, the coordinate, and the provider's sentence are declared once, so a new engine tag lands as one band row rather than a sixth transcribed constructor.
+- Law: every refusal names the coordinate the port answered about — the embedder's fingerprint plumbs from the row it was built on, the reranker's is the query it scored — because the family's own subject admits no arm that names neither.
+- Law: a refusal lands on the port's own verdict cell, never the transport one — `_blamed` grades each guardrail reason into the port's vocabulary and the gate's rendered refusal rides `detail`, so a moderation verdict stops reading as a wire failure the retry rail would re-drive, while the four-way blame survives for the operator.
 - Law: batching identity is the resolver value on BOTH postures — one `_band` resolver mints inside the Layer scope for the plain and the durable overload alike (`Batch.windowed` alone, or `Batch.windowed` under `Batch.durable`), identity stable, windows grouping across the whole scope; a resolver minted per call, or a plain path that bypasses the window by dialing the provider directly, defeats the coalescing the law exists to guarantee.
 - Law: the two Tags are the whole seam — this page imports the port types and nothing else data-owned; retrieval results flow back as app-passed values through the model page's `Tokens.weave`, never through an import edge.
 - Growth: a scope-selected second model is a second `embedder(row)` Layer against the same Tag at the root; a cross-encoder reranker is a `Reranker` implementation swap.
@@ -316,21 +318,30 @@ const _band = (
 ```typescript signature
 const _fingerprint = <R>(row: Embedding.Row<R>): Search.Fingerprint => Search.fingerprint(row.embedding)
 
-const _folded = (fault: AiError.AiError): EmbedFault =>
-  Match.value(fault).pipe(
-    Match.tag("HttpRequestError", (held) => new EmbedFault({ reason: "provider", detail: held.message })),
-    Match.tag("HttpResponseError", (held) =>
-      new EmbedFault({
-        reason: held.response.status === 429 || held.response.status === 413 ? "budget" : "provider",
-        detail: held.message,
-      })),
-    Match.tags({
-      MalformedInput: (held) => new EmbedFault({ reason: "shape", detail: held.message }),
-      MalformedOutput: (held) => new EmbedFault({ reason: "shape", detail: held.message }),
-    }),
-    Match.tag("UnknownError", (held) => new EmbedFault({ reason: "provider", detail: held.message })),
-    Match.exhaustive,
-  )
+// The engine's fault union decides ONE column — which band of the port's family this arm lands in — and the mint
+// happens once beneath it, so the fingerprint, the port word, and the provider's own sentence stop being transcribed
+// per arm. `Match.exhaustive` stays because the union is foreign: a tag `@effect/ai` adds breaks here, not silently
+// downstream. `MalformedInput` and `MalformedOutput` land on `malformed` rather than `shape` — the port's `shape` row
+// is a vector-versus-corpus disagreement carrying a measured length, which a decode fault never holds.
+const _folded = (print: Search.Fingerprint) => (fault: AiError.AiError): EmbedFault =>
+  new EmbedFault({
+    case: {
+      reason: Match.value(fault).pipe(
+        Match.tag("HttpResponseError", (held) =>
+          held.response.status === 429 || held.response.status === 413 ? "budget" as const : "provider" as const),
+        Match.tags({
+          HttpRequestError: () => "provider" as const,
+          MalformedInput: () => "malformed" as const,
+          MalformedOutput: () => "malformed" as const,
+          UnknownError: () => "provider" as const,
+        }),
+        Match.exhaustive,
+      ),
+      port: "embed",
+      subject: print,
+      detail: fault.message,
+    },
+  })
 
 function _embedder<R>(row: Embedding.Row<R>): Layer.Layer<Embedder, never, R>
 function _embedder<R>(
@@ -343,7 +354,7 @@ function _embedder<R>(row: Embedding.Row<R>, durable?: Embedding.Durable) {
     Effect.gen(function* () {
       const engine = yield* EmbeddingModel.EmbeddingModel
       const print = _fingerprint(row)
-      const provider = (bodies: ReadonlyArray<string>) => Effect.mapError(engine.embedMany(bodies), _folded)
+      const provider = (bodies: ReadonlyArray<string>) => Effect.mapError(engine.embedMany(bodies), _folded(print))
       const band = yield* _band(
         provider,
         durable === undefined ? Batch.defaults : durable.engine,
@@ -355,7 +366,18 @@ function _embedder<R>(row: Embedding.Row<R>, durable?: Embedding.Durable) {
           Effect.request(new _Embedded({ fingerprint: print, body: Cut.scrub(body) }), band).pipe(
             Effect.filterOrFail(
               (vector) => vector.length === row.embedding.dims,
-              () => new EmbedFault({ reason: "shape", detail: `dims!=${row.embedding.dims}` }),
+              // the refusal crosses as the four coordinates the disagreement IS; at the port both identities are this
+              // row's own, which is exactly what the reader needs to see when a provider answers under it at a width
+              // the row never declared
+              (vector) => new EmbedFault({
+                case: {
+                  reason: "shape",
+                  expected: print,
+                  dims: row.embedding.dims,
+                  fingerprint: print,
+                  length: vector.length,
+                },
+              }),
             ),
           ),
       }
@@ -365,17 +387,18 @@ function _embedder<R>(row: Embedding.Row<R>, durable?: Embedding.Durable) {
 
 const _Order = Schema.Struct({ order: Schema.NonEmptyArray(Schema.String) })
 
-// The three moderation bands now land on the port's OWN verdict cell instead of borrowing the transport one, and the
+// The three moderation bands land on the port's OWN verdict cell instead of borrowing the transport one, and the
 // split is retryability before it is vocabulary: `provider` grades retryable, so a swept answer routed there was
-// re-driven against a screen guaranteed to answer identically. A caller's tool-choice misconfiguration stays
-// `shape` — it is a malformed request, not a verdict — and a paused turn stays transport, because it IS transport.
+// re-driven against a screen guaranteed to answer identically. A caller's tool-choice misconfiguration lands on
+// `malformed` — it is an unparseable request, not a verdict, and it carries no vector for `shape` to measure — and a
+// paused turn stays transport, because it IS transport.
 const _blamed = {
-  policy: "shape",
+  policy: "malformed",
   screened: "refused",
   swept: "refused",
   provider: "refused",
   stalled: "provider",
-} as const satisfies Record<Guardrail.Reason, EmbedFault["reason"]>
+} as const satisfies Record<Guardrail.Reason, EmbedFault.Reason>
 
 const _permuted = (presented: ReadonlyArray<string>, answered: ReadonlyArray<string>): ReadonlyArray<string> => {
   const known = HashSet.fromIterable(presented)
@@ -400,9 +423,14 @@ const _reranker = (policy: Guardrail.Policy): Layer.Layer<Reranker, never, Langu
           },
         }).pipe(
           Effect.map((response) => _permuted(Array.map(hits, (hit) => hit.cell), response.value.order)),
-          // The refusal's own reason rides `detail`, so the four-way blame survives the fold that grades it into three
-          // bands — the band decides what the retry rail may do and the detail says which party to send the operator to.
-          Effect.mapError((fault) => new EmbedFault({ reason: _blamed[fault.reason], detail: fault.reason })),
+          // The gate's OWN rendered refusal rides `detail`, so the four-way blame and its subject both survive the fold
+          // that grades it into three bands — the band decides what the retry rail may do and the detail says which
+          // party to send the operator to. This port holds no embedding identity, so the query it scored is the
+          // coordinate the refusal names.
+          Effect.mapError((fault) =>
+            new EmbedFault({
+              case: { reason: _blamed[fault.case.reason], port: "rerank", subject: query, detail: fault.message },
+            })),
           Effect.provide(context),
         ),
     })),

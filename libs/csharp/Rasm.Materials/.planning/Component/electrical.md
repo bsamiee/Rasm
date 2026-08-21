@@ -1,35 +1,39 @@
 # [MATERIALS_ELECTRICAL]
 
-THE ELECTRICAL SEED PAGE owns the `ComponentFamily.Electrical` fold (`ComponentClass.Minor`, `DetailLane.Product`): the buildable conductor PRODUCT rows — AWG/kcmil and metric sizes, metal, insulation class, and the NEC 310.16 / IEC 60364-5-52 ampacity cells as component RATING rows — and the containment vocabularies the conduit and cable-tray trades stand on. The conductor rosters store only the columns the standards print independently (circular-mil area, metric cross-section) and derive every geometric sibling; the two ampacity estates transcribe cell-for-cell with the one cross-source conflict landing ABSENT and every single-posted cell refused. The conduit trade-size ladder and the NEMA tray-class vocabulary carry NO dimension or load cell — no pack proves the NEC Chapter 9 Table 4 ladder or the NEMA VE 1 working loads — so neither containment family mints a component until its columns prove. Electrical SIZING — load calculation, ambient and grouping derating, voltage drop, protection coordination, conduit fill — is `Rasm.Compute`'s; this page owns the buildable product rows alone, and ampacity is lawful here exactly because it is a COMPONENT rating: the substance catalogue admits conductor constants alone and no current rating ever seeds a roster row (`Properties/properties#MATERIAL_PROPERTY_CATALOGUE`).
+THE ELECTRICAL SEED PAGE owns the `ComponentFamily.Electrical` row facts (`ComponentClass.Minor`, `DetailLane.Product`): the buildable conductor PRODUCT rows — AWG/kcmil and metric sizes, alloy, insulation class, and the NEC 310.16 / IEC 60364-5-52 ampacity cells as component RATING rows — and the containment vocabularies the conduit and cable-tray trades stand on. The conductor rosters store only the columns the standards print independently (circular-mil area, metric cross-section) and derive every geometric sibling; the two ampacity estates transcribe cell-for-cell with the one cross-source conflict landing ABSENT and every single-posted cell refused. The conduit trade-size ladder and the NEMA tray-class vocabulary carry NO dimension or load cell — no pack proves the NEC Chapter 9 Table 4 ladder or the NEMA VE 1 working loads — so neither containment family mints a component until its columns prove. Electrical SIZING — load calculation, ambient and grouping derating, voltage drop, protection coordination, conduit fill — is `Rasm.Compute`'s; this page owns the buildable product rows alone, and ampacity is lawful here exactly because it is a COMPONENT rating: the substance catalogue admits conductor constants alone and no current rating ever seeds a roster row (`Properties/properties#MATERIAL_PROPERTY_CATALOGUE`).
 
-The page composes settled law without re-derivation: `SectionProfile.Circle.Of` is the railed geometry admission over the area-true solid-equivalent diameter and `Component.Of` the one construction rail (`component#COMPONENT_OWNER`); the product bag builds through `ComponentDetail.ProductRows` over the `Rasm.Element/Properties/property#DETAIL_SCHEMA` rows `ConductorSize`/`InsulationClass`/`AmpacityBasis`, with `TradeSize`/`TrayLoadClass` reserved for the containment mints; `Attestation` and the `SegmentRows` trade mints compose from `pipework#PIPE_SYSTEMS` and `pipework#PIPEWORK_SEED`; `ThreadRow.InchToMm` is the one inch basis (`fastener#FASTENER_FAMILY`); the IFC stamps are `IfcCableSegment`/`CONDUCTORSEGMENT` for conductors, `IfcCableCarrierSegment`/`CONDUITSEGMENT` for conduit, and `IfcCableCarrierSegment`/`CABLELADDERSEGMENT`+`CABLETRAYSEGMENT` for the tray kinds, all Gate-0 valid at Ifc2X3; substances bind `copper.c12200`/`aluminium.1350`/`steel.galvanized`/`pipe.pvc` and appearances `metal.copper`/`metal.aluminum`/`metal.steel`/`plastic.pvc` at `Properties/properties#MATERIAL_PROPERTY_CATALOGUE`.
+`ConductorAlloy` is this page's engineering-substance axis and the `Appearance/surface#CONDUCTOR_IOR` `ConductorMetal` its OPTICAL peer: two S0-peer sub-domains that share zero columns and zero consumers, so the name survives at the optical owner and the join between them is PROVEN rather than asserted — `ElectricalSeed.RosterCensus` folds a type-init parity census over the `AppearanceId` join at every catalogue build, so an alloy row whose library id no `ConductorMetal` key resolves refuses the build instead of shading through the dielectric fallback. The page composes settled law without re-derivation: `SectionProfile.Circle.Of` is the railed geometry admission over the area-true solid-equivalent diameter and `component#COMPONENT_SEED` the ONE generator fold; the product bag builds through `ComponentDetail.ProductRows` over the `Rasm.Element/Properties/property#DETAIL_SCHEMA` rows `ConductorSize`/`InsulationClass`/`AmpacityBasis` (containment trade-size and tray-load rows re-land at the seam the moment their NEC/NEMA columns prove); `Attestation` and the `SegmentRows` trade mints compose from `pipework#PIPE_SYSTEMS` and `pipework#PIPEWORK_SEED`; the ampere dimension is the seam roster's own `Dimension.CurrentDim`; `ThreadRow.InchToMm` is the one inch basis (`fastener#FASTENER_FAMILY`); the IFC stamps are `IfcCableSegment`/`CONDUCTORSEGMENT` for conductors, `IfcCableCarrierSegment`/`CONDUITSEGMENT` for conduit, and `IfcCableCarrierSegment`/`CABLELADDERSEGMENT`+`CABLETRAYSEGMENT` for the tray kinds, all Gate-0 valid at Ifc2X3; substances bind `copper.c12200`/`aluminium.1350`/`steel.galvanized`/`pipe.pvc` and appearances `metal.copper`/`metal.aluminum`/`metal.steel`/`plastic.pvc`.
 
 ## [01]-[INDEX]
 
-- [02]-[CONDUCTOR_TABLES]: the `ConductorMetal`, `InsulationClass`, and `IecMethod` axes; the `Awg` and `Metric` published size rosters with their derivation algebra; the `Table310` NEC and `TableB52` IEC ampacity estates.
+- [02]-[CONDUCTOR_TABLES]: the `ConductorAlloy` axis with its appearance-join census, `InsulationClass`, `IecMethod`, and `ConductorLoading`; the `Awg` and `Metric` published size rosters with their derivation algebra; the `Table310` NEC estate and the ONE `TableB52` `AmpacityRow` estate.
 - [03]-[CONTAINMENT]: the `ConduitSystem` and `TrayKind` policy rows, the trade-size and NEMA class vocabularies — typed-absent admission domains that mint nothing until their dimension packs prove.
-- [04]-[ELECTRICAL_SEED]: the `AmpacityBasis` installation-basis axis, the `WireSystem` stocked selections, the `ElectricalDetail` product bag, the `ElectricalSeed.Rows` generation fold, and the typed sizing refusal.
+- [04]-[ELECTRICAL_SEED]: the `AmpacityBasis` installation-basis axis with its stocking delegate, the `WireSystem` stocked selections, the `WireRow` seed currency, and `ElectricalSeed` — the flattened roster, the two-census coherence, the product bag, and the typed sizing refusal.
 
 ## [02]-[CONDUCTOR_TABLES]
 
-- Owner: `ConductorMetal` the one metal axis — the NEC cell-triple read, the IEC roster read, and both `MaterialId` slots per metal; `InsulationClass` the NEC temperature-column pick and the IEC PVC-table admission; `IecMethod` the Table B.52.1 reference-method axis with its three-loaded and two-loaded column reads; `Awg`/`Metric` the published size rosters; `Table310`/`TableB52` the transcribed ampacity estates.
-- Cases: 18 AWG/kcmil rows (14 AWG–500 kcmil, cmil the ONE stored column) and 16 metric rows (1.5–300 mm²); NEC copper 18×3 and aluminium 17×3 cells (no 14 AWG aluminium row — `Option` absence, never a zero); IEC B.52.4 copper 16×7 and aluminium 15×7 with the four 2.5–10 mm² D2 cells typed-absent and no aluminium 1.5 mm² row; B.52.2 two-loaded copper 15×5.
+- Owner: `ConductorAlloy` the one engineering-metal axis — the NEC cell-triple read, both `MaterialId` slots, the `AppearanceMetal` join, and the parity census over it; `InsulationClass` the NEC temperature-column pick and the IEC PVC-table admission; `IecMethod` the Table B.52.1 reference-method identity; `ConductorLoading` the loaded-conductor axis the IEC tables are cut by; `Awg`/`Metric` the published size rosters; `Table310`/`TableB52` the transcribed ampacity estates.
+- Cases: 18 AWG/kcmil rows (14 AWG–500 kcmil, cmil the ONE stored column) and 16 metric rows (1.5–300 mm²); NEC copper 18×3 and aluminium 17×3 cells (no 14 AWG aluminium row — `Option` absence, never a zero); IEC B.52.4 three-loaded copper 16 and aluminium 15 rows with the four 2.5–10 mm² D2 cells typed-absent, and B.52.2 two-loaded copper 15 rows — all three estates ONE `AmpacityRow` roster keyed by (alloy, loading, size), each row carrying the FULL seven-method cell map so an unpublished method is a stated absence rather than a missing key.
 - Law: stored columns are only what the standards print independently — the AWG solid diameter and mm² area derive from the circular-mil definition's own algebra (d = √cmil mil, 1 cmil = π/4 mil²) and the metric diameter from the cross-section — so a transcription slip in a derivable cell is unrepresentable and the derivation reproduces every published mm² and diameter cell exactly.
 - Law: the B.52.2 240 mm² method-A1 cell lands ABSENT — the two sources print 320 and 321 and a conflicted cell never crosses the seam wearing either value; the single-posted 300 mm² two-loaded row is not transcribed at all, joining when a second posting proves.
 - Law: the NEC 8 AWG aluminium 60 °C cell stands at 35 A — two independent sources agree and the 30 A third posting is the recorded outlier, so the cell is `Corroborated`, not conflicted.
 - Law: ampacity is a COMPONENT rating, never a substance column — a cell keys on insulation temperature rating, installation method, and conductor grouping, none of which a substance carries; the catalogue's `Electrical` case admits resistivity and permittivity alone and this page owns every current cell.
-- Packages: Rasm.Domain (`Op`/`Context`), Rasm.Element (the seam bag currencies), Rasm.Materials.Component parent owner (`Component`/`ComponentRow`/`ComponentFamily`/`SectionProfile`/`IfcBinding`/`Coring`/`ComponentStandard`/`ComponentAuthority`/`ComponentFault`/`ComponentDetail`/`Provenance`, the sibling `Attestation`/`SegmentRows`, the `ThreadRow.InchToMm` inch basis), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + `[UseDelegateFromConstructor]`), LanguageExt.Core, BCL (`ImmutableArray`). NO conductor-table producer exists among admitted packages, so the rosters and ampacity estates are PUBLISHED here under SEED_ROW_LAW with per-column provenance.
-- Growth: a new insulation temperature class is one `InsulationClass` row; a new reference method one `IecMethod` row; the XLPE-90 IEC tables one roster pair beside `TableB52` read by the same method delegates; a size beyond 500 kcmil or 300 mm² one roster row; a second conductor metal (copper-clad aluminium as its own product) one `ConductorMetal` row.
+- Law: `ConductorAlloy.AppearanceId` is a JOIN, not a label — every row's `metal.<name>` id must resolve a `Appearance/surface#CONDUCTOR_IOR` `ConductorMetal` key, which the deferred parity census proves at catalogue build. The optical roster spells the metal `aluminum` and this page's engineering row spells the alloy `aluminium` after its EN designation; the two spellings are lawful because they name different axes, and the census is what keeps the JOIN VALUE on the optical roster's spelling instead of drifting to the alloy's.
+- Packages: Rasm.Domain (`Op`/`Context`), Rasm.Element (`MaterialId`, `EvidenceGrade`, `Dimension.CurrentDim`, the seam bag currencies), Rasm.Materials.Appearance (`ConductorMetal.Resolve` — the ONE optical-roster read the parity census composes), the parent `component#COMPONENT_OWNER`/`#COMPONENT_DETAIL`/`#COMPONENT_SEED` owners, the sibling `Attestation`/`SegmentRows`, the `ThreadRow.InchToMm` inch basis, Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + `[UseDelegateFromConstructor]`), LanguageExt.Core, BCL (`ImmutableArray`, `FrozenDictionary`). NO conductor-table producer exists among admitted packages, so the rosters and ampacity estates are PUBLISHED here under SEED_ROW_LAW with per-column provenance.
+- Growth: a new insulation temperature class is one `InsulationClass` row; a new reference method one `IecMethod` row and one cell per `AmpacityRow`; the XLPE-90 IEC tables are `AmpacityRow` rows at a new loading or a new basis, read by the same filter; a size beyond 500 kcmil or 300 mm² one roster row; a second conductor alloy (copper-clad aluminium as its own product) one `ConductorAlloy` row whose appearance join the census then proves.
 - Boundary: the ambient and ground-temperature correction ladders and the conductor-count grouping factors are `Rasm.Compute` derating inputs — captured two-sourced in evidence, they land on the sizing route and never stamp a component row, because a corrected ampacity is a DESIGN verdict over an occurrence, not a product fact.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using System.Collections.Frozen;        // FrozenDictionary — the AmpacityRow method-cell map
 using System.Collections.Immutable;
 using System.Globalization;             // the invariant designation-tag format
 using LanguageExt;
+using LanguageExt.Common;               // Error — the Validation fault carrier the censuses accumulate
 using Rasm.Domain;                      // Op, Context
-using Rasm.Element.Composition;         // MaterialId, DetailSchema, PropertyBag, PropertyName, PropertyValue
-using Rasm.Element.Properties;          // MeasureValue, PropertyCategory
+using Rasm.Element.Composition;         // MaterialId, PropertyBag
+using Rasm.Element.Properties;          // EvidenceGrade, DetailSchema, PropertyCategory, PropertyName, PropertyValue, Dimension
+using Rasm.Materials.Appearance;        // ConductorMetal — the optical roster the AppearanceId join resolves against
 using Thinktecture;
 using Dimension = Rasm.Element.Properties.Dimension;   // the SI-dimension axis the detail-bag mints ride
 using static LanguageExt.Prelude;
@@ -37,29 +41,48 @@ using static LanguageExt.Prelude;
 namespace Rasm.Materials.Component;
 
 // --- [TYPES] -------------------------------------------------------------------------------
-// The conductor-metal axis: the NEC cell-triple read (aluminium answers None at 14 AWG — the table prints no row),
-// the IEC roster read (deferred behind a delegate so the axis never races the table statics), and both MaterialId
-// slots. aluminium.1350 is the AA-1350 conductor grade — the property-catalogue row lands with this page per
-// SUBSTANCE-ID CLOSURE; copper.c12200 is the one catalogue copper carrying the conductor resistivity column.
+// The conductor-ALLOY axis: the NEC cell-triple read (aluminium answers None at 14 AWG — the table prints no row)
+// and both MaterialId slots. aluminium.1350 is the AA-1350 conductor grade; copper.c12200 is the one catalogue
+// copper carrying the conductor resistivity column. The name is ConductorAlloy rather than ConductorMetal because
+// the optical roster at Appearance/surface#CONDUCTOR_IOR holds that name for the (eta, k) rows a renderer reads —
+// two S0 peers, zero shared columns, zero shared consumers, and one JOIN between them that this axis PROVES.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class ConductorMetal {
-    public static readonly ConductorMetal Copper    = new("copper",    substanceId: "copper.c12200",  appearanceId: "metal.copper",   nec: static row => Some((row.Cu60, row.Cu75, row.Cu90)), iec: static () => toSeq(TableB52.Cu));
-    public static readonly ConductorMetal Aluminium = new("aluminium", substanceId: "aluminium.1350", appearanceId: "metal.aluminum", nec: static row => row.Al,                               iec: static () => toSeq(TableB52.Al));
+public sealed partial class ConductorAlloy {
+    public static readonly ConductorAlloy Copper    = new("copper",    substanceId: "copper.c12200",  appearanceId: "metal.copper",   nec: static row => Some((row.Cu60, row.Cu75, row.Cu90)));
+    public static readonly ConductorAlloy Aluminium = new("aluminium", substanceId: "aluminium.1350", appearanceId: "metal.aluminum", nec: static row => row.Al);
 
     [UseDelegateFromConstructor] public partial Option<(double C60, double C75, double C90)> NecCells(NecRow row);
-    [UseDelegateFromConstructor] public partial Seq<IecRow> IecRows();
     public string SubstanceId { get; }
     public string AppearanceId { get; }
     public MaterialId Substance => MaterialId.Of(SubstanceId);
     public MaterialId Appearance => MaterialId.Of(AppearanceId);
+
+    // The optical join: the library id splits into the family and name ConductorMetal.Resolve takes, so the row that
+    // shades this alloy is REACHED rather than named in prose. A miss is what the census convicts.
+    public Option<ConductorMetal> AppearanceMetal =>
+        AppearanceId.Split('.') is [string family, string name] ? ConductorMetal.Resolve(family, name) : None;
+
+    // THE PARITY CENSUS the Materials RULINGS [02] cross-catalogue rule demands: a type-init fold over this roster
+    // asserting every AppearanceId resolves an optical row, ACCUMULATING so a two-row drift names both. Deferred
+    // through Lazy so the fold runs at first read rather than racing the generated Items initializer — a broken join
+    // then lands as a typed catalogue refusal, never a TypeInitializationException no composition root can attribute.
+    // Without it the fork is silent: an unresolved id shades through the base-color-as-F0 dielectric fallback, which
+    // renders a plausible surface for a conductor that has no measured spectrum at all.
+    public static readonly Lazy<Validation<Error, Unit>> AppearanceParity = new(static () =>
+        toSeq(Items)
+            .Map(static alloy => guard(alloy.AppearanceMetal.IsSome,
+                new KernelFault.InvalidValue(nameof(alloy.AppearanceMetal), "a resolved conductor appearance", Some(Join))).ToValidation())
+            .Sequence().As().Map(static _ => unit));
+
+    static readonly Op Join = Op.Of(name: "conductor-appearance-parity");
 }
 
 // The insulation axis: the NEC pick delegate names which temperature column a class reads (TW 60 °C, THW 75 °C,
 // THHN/XHHW 90 °C — the rating is the class designation's own letter algebra), and Pvc answers the IEC lane — the
 // B.52 tables published here are PVC-insulation 70 °C tables, so only the PVC row admits them and an XLPE class
-// gains its own admission bit when its tables land. Pvc70 reads no NEC column; a NEC-basis system over it mints
-// nothing rather than a fabricated cell.
+// gains its own admission bit when its tables land. Pvc70 reads no NEC column; a NEC-basis system over it stocks
+// nothing, which the roster census convicts by name.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class InsulationClass {
@@ -73,22 +96,30 @@ public sealed partial class InsulationClass {
     public bool Pvc { get; }
 }
 
-// The Table B.52.1 reference-method axis. Three reads the B.52.4 three-loaded row, Two the B.52.2 two-loaded row —
-// the pick delegates keep every column choice a row read, and the methods the two-loaded table does not publish
-// (buried D1/D2) answer None instead of borrowing a three-loaded cell.
+// The Table B.52.1 reference-method axis — IDENTITY alone. The fourteen column-pick delegates this row set used to
+// carry are gone: every AmpacityRow now keys its cells BY method over the full roster, so a method the row's table
+// does not publish is a stated Option absence in the map rather than a per-method lambda spelling None, and a new
+// method is one row here plus one cell per published row instead of one delegate per row.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class IecMethod {
-    public static readonly IecMethod A1 = new("a1", three: static row => Some(row.A1), two: static row => row.A1);
-    public static readonly IecMethod A2 = new("a2", three: static row => Some(row.A2), two: static row => Some(row.A2));
-    public static readonly IecMethod B1 = new("b1", three: static row => Some(row.B1), two: static row => Some(row.B1));
-    public static readonly IecMethod B2 = new("b2", three: static row => Some(row.B2), two: static row => Some(row.B2));
-    public static readonly IecMethod C  = new("c",  three: static row => Some(row.C),  two: static row => Some(row.C));
-    public static readonly IecMethod D1 = new("d1", three: static row => Some(row.D1), two: static row => None);
-    public static readonly IecMethod D2 = new("d2", three: static row => row.D2,       two: static row => None);
+    public static readonly IecMethod A1 = new("a1");
+    public static readonly IecMethod A2 = new("a2");
+    public static readonly IecMethod B1 = new("b1");
+    public static readonly IecMethod B2 = new("b2");
+    public static readonly IecMethod C  = new("c");
+    public static readonly IecMethod D1 = new("d1");
+    public static readonly IecMethod D2 = new("d2");
+}
 
-    [UseDelegateFromConstructor] public partial Option<double> Three(IecRow row);
-    [UseDelegateFromConstructor] public partial Option<double> Two(TwoRow row);
+// The loaded-conductor axis the IEC estates are cut by — B.52.4 tabulates three loaded conductors, B.52.2 two, and
+// the cells differ throughout. It is the second key of the one ampacity roster, so the three tables that were three
+// arrays are one; the designation "two-loaded"/"three-loaded" IS the standard's own table caption.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ConductorLoading {
+    public static readonly ConductorLoading Two   = new("two-loaded");
+    public static readonly ConductorLoading Three = new("three-loaded");
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
@@ -114,13 +145,12 @@ public readonly record struct MetricRow(double Mm2) {
 // aluminium 14 AWG row, and three parallel Options would let a row be half-absent.
 public readonly record struct NecRow(AwgRow Size, double Cu60, double Cu75, double Cu90, Option<(double C60, double C75, double C90)> Al);
 
-// IEC B.52.4 row (PVC, three loaded, 30 °C air / 20 °C ground): the seven reference-method cells, D2 optional
-// because the aluminium table prints no D2 cell below 16 mm².
-public readonly record struct IecRow(MetricRow Size, double A1, double A2, double B1, double B2, double C, double D1, Option<double> D2);
-
-// IEC B.52.2 row (PVC, two loaded, copper, methods A1–C): A1 optional because the 240 mm² cell is the one
-// cross-source CONFLICT (320 vs 321) and lands absent.
-public readonly record struct TwoRow(MetricRow Size, Option<double> A1, double A2, double B1, double B2, double C);
+// The ONE IEC ampacity row across every published estate: alloy and loading are the table KEYS the three former
+// arrays encoded in their names, size the row, and Cells the FULL seven-method map — every IecMethod present, the
+// Option stating whether that table publishes the cell. The map is total by construction, so an unpublished method
+// and a mistyped key are different facts and only the first is representable.
+public readonly record struct AmpacityRow(
+    ConductorAlloy Alloy, ConductorLoading Loading, MetricRow Size, FrozenDictionary<IecMethod, Option<double>> Cells);
 
 // --- [TABLES] ------------------------------------------------------------------------------
 // The AWG/kcmil ladder, cmil verbatim (three agreeing sources). NAMED statics (the fastener Threads form) so the
@@ -193,62 +223,78 @@ public static class Table310 {
         new(Awg.K500, 320.0, 380.0, 430.0, Some((260.0, 310.0, 350.0)))];
 }
 
-// IEC 60364-5-52 Tables B.52.4 (PVC, three loaded) and B.52.2 (PVC, two loaded, copper) — amperes, both two-sourced
-// cell-for-cell. The aluminium table starts at 2.5 mm² and prints no D2 cell below 16 mm² (typed-absent, never a
-// borrowed copper value). Two carries the 240 mm² method-A1 cell ABSENT under the 320-vs-321 cross-source conflict,
-// and its single-posted 300 mm² row is not transcribed.
+// IEC 60364-5-52 Tables B.52.4 (PVC, three loaded) and B.52.2 (PVC, two loaded, copper) as ONE roster — amperes,
+// both two-sourced cell-for-cell. The aluminium three-loaded table starts at 2.5 mm² and prints no D2 cell below
+// 16 mm² (typed-absent, never a borrowed copper value); the two-loaded table publishes no buried D1/D2 column at
+// all, so those cells are absent on every two-loaded row; its 240 mm² method-A1 cell is ABSENT under the 320-vs-321
+// cross-source conflict, and its single-posted 300 mm² row is not transcribed. The two mints keep each table's own
+// printed column order, so the transcription reads cell-for-cell against the source it came from.
 public static class TableB52 {
-    public static readonly ImmutableArray<IecRow> Cu = [
-        new(Metric.M1p5,  13.5,  13.0,  15.5,  15.0,  17.5,  18.0, Some( 19.0)),
-        new(Metric.M2p5,  18.0,  17.5,  21.0,  20.0,  24.0,  24.0, Some( 24.0)),
-        new(Metric.M4,    24.0,  23.0,  28.0,  27.0,  32.0,  30.0, Some( 33.0)),
-        new(Metric.M6,    31.0,  29.0,  36.0,  34.0,  41.0,  38.0, Some( 41.0)),
-        new(Metric.M10,   42.0,  39.0,  50.0,  46.0,  57.0,  50.0, Some( 54.0)),
-        new(Metric.M16,   56.0,  52.0,  68.0,  62.0,  76.0,  64.0, Some( 70.0)),
-        new(Metric.M25,   73.0,  68.0,  89.0,  80.0,  96.0,  82.0, Some( 92.0)),
-        new(Metric.M35,   89.0,  83.0, 110.0,  99.0, 119.0,  98.0, Some(110.0)),
-        new(Metric.M50,  108.0,  99.0, 134.0, 118.0, 144.0, 116.0, Some(130.0)),
-        new(Metric.M70,  136.0, 125.0, 171.0, 149.0, 184.0, 143.0, Some(162.0)),
-        new(Metric.M95,  164.0, 150.0, 207.0, 179.0, 223.0, 169.0, Some(193.0)),
-        new(Metric.M120, 188.0, 172.0, 239.0, 206.0, 259.0, 192.0, Some(220.0)),
-        new(Metric.M150, 216.0, 196.0, 262.0, 225.0, 299.0, 217.0, Some(246.0)),
-        new(Metric.M185, 245.0, 223.0, 296.0, 255.0, 341.0, 243.0, Some(278.0)),
-        new(Metric.M240, 286.0, 261.0, 346.0, 297.0, 403.0, 280.0, Some(320.0)),
-        new(Metric.M300, 328.0, 298.0, 394.0, 339.0, 464.0, 316.0, Some(359.0))];
+    public static readonly ImmutableArray<AmpacityRow> Rows = [
+        Three(ConductorAlloy.Copper, Metric.M1p5,  13.5,  13.0,  15.5,  15.0,  17.5,  18.0, Some( 19.0)),
+        Three(ConductorAlloy.Copper, Metric.M2p5,  18.0,  17.5,  21.0,  20.0,  24.0,  24.0, Some( 24.0)),
+        Three(ConductorAlloy.Copper, Metric.M4,    24.0,  23.0,  28.0,  27.0,  32.0,  30.0, Some( 33.0)),
+        Three(ConductorAlloy.Copper, Metric.M6,    31.0,  29.0,  36.0,  34.0,  41.0,  38.0, Some( 41.0)),
+        Three(ConductorAlloy.Copper, Metric.M10,   42.0,  39.0,  50.0,  46.0,  57.0,  50.0, Some( 54.0)),
+        Three(ConductorAlloy.Copper, Metric.M16,   56.0,  52.0,  68.0,  62.0,  76.0,  64.0, Some( 70.0)),
+        Three(ConductorAlloy.Copper, Metric.M25,   73.0,  68.0,  89.0,  80.0,  96.0,  82.0, Some( 92.0)),
+        Three(ConductorAlloy.Copper, Metric.M35,   89.0,  83.0, 110.0,  99.0, 119.0,  98.0, Some(110.0)),
+        Three(ConductorAlloy.Copper, Metric.M50,  108.0,  99.0, 134.0, 118.0, 144.0, 116.0, Some(130.0)),
+        Three(ConductorAlloy.Copper, Metric.M70,  136.0, 125.0, 171.0, 149.0, 184.0, 143.0, Some(162.0)),
+        Three(ConductorAlloy.Copper, Metric.M95,  164.0, 150.0, 207.0, 179.0, 223.0, 169.0, Some(193.0)),
+        Three(ConductorAlloy.Copper, Metric.M120, 188.0, 172.0, 239.0, 206.0, 259.0, 192.0, Some(220.0)),
+        Three(ConductorAlloy.Copper, Metric.M150, 216.0, 196.0, 262.0, 225.0, 299.0, 217.0, Some(246.0)),
+        Three(ConductorAlloy.Copper, Metric.M185, 245.0, 223.0, 296.0, 255.0, 341.0, 243.0, Some(278.0)),
+        Three(ConductorAlloy.Copper, Metric.M240, 286.0, 261.0, 346.0, 297.0, 403.0, 280.0, Some(320.0)),
+        Three(ConductorAlloy.Copper, Metric.M300, 328.0, 298.0, 394.0, 339.0, 464.0, 316.0, Some(359.0)),
 
-    public static readonly ImmutableArray<IecRow> Al = [
-        new(Metric.M2p5,  14.0,  13.5,  16.5,  15.5,  18.5,  18.5, None),
-        new(Metric.M4,    18.5,  17.5,  22.0,  21.0,  25.0,  24.0, None),
-        new(Metric.M6,    24.0,  23.0,  28.0,  27.0,  32.0,  30.0, None),
-        new(Metric.M10,   32.0,  31.0,  39.0,  36.0,  44.0,  39.0, None),
-        new(Metric.M16,   43.0,  41.0,  53.0,  48.0,  59.0,  50.0, Some( 53.0)),
-        new(Metric.M25,   57.0,  53.0,  70.0,  62.0,  73.0,  64.0, Some( 69.0)),
-        new(Metric.M35,   70.0,  65.0,  86.0,  77.0,  90.0,  77.0, Some( 83.0)),
-        new(Metric.M50,   84.0,  78.0, 104.0,  92.0, 110.0,  91.0, Some( 99.0)),
-        new(Metric.M70,  107.0,  98.0, 133.0, 116.0, 140.0, 112.0, Some(122.0)),
-        new(Metric.M95,  129.0, 118.0, 161.0, 139.0, 170.0, 132.0, Some(148.0)),
-        new(Metric.M120, 149.0, 135.0, 186.0, 160.0, 197.0, 150.0, Some(169.0)),
-        new(Metric.M150, 170.0, 155.0, 204.0, 176.0, 227.0, 169.0, Some(189.0)),
-        new(Metric.M185, 194.0, 176.0, 230.0, 199.0, 259.0, 190.0, Some(214.0)),
-        new(Metric.M240, 227.0, 207.0, 269.0, 232.0, 305.0, 218.0, Some(250.0)),
-        new(Metric.M300, 261.0, 237.0, 306.0, 265.0, 351.0, 247.0, Some(282.0))];
+        Three(ConductorAlloy.Aluminium, Metric.M2p5,  14.0,  13.5,  16.5,  15.5,  18.5,  18.5, None),
+        Three(ConductorAlloy.Aluminium, Metric.M4,    18.5,  17.5,  22.0,  21.0,  25.0,  24.0, None),
+        Three(ConductorAlloy.Aluminium, Metric.M6,    24.0,  23.0,  28.0,  27.0,  32.0,  30.0, None),
+        Three(ConductorAlloy.Aluminium, Metric.M10,   32.0,  31.0,  39.0,  36.0,  44.0,  39.0, None),
+        Three(ConductorAlloy.Aluminium, Metric.M16,   43.0,  41.0,  53.0,  48.0,  59.0,  50.0, Some( 53.0)),
+        Three(ConductorAlloy.Aluminium, Metric.M25,   57.0,  53.0,  70.0,  62.0,  73.0,  64.0, Some( 69.0)),
+        Three(ConductorAlloy.Aluminium, Metric.M35,   70.0,  65.0,  86.0,  77.0,  90.0,  77.0, Some( 83.0)),
+        Three(ConductorAlloy.Aluminium, Metric.M50,   84.0,  78.0, 104.0,  92.0, 110.0,  91.0, Some( 99.0)),
+        Three(ConductorAlloy.Aluminium, Metric.M70,  107.0,  98.0, 133.0, 116.0, 140.0, 112.0, Some(122.0)),
+        Three(ConductorAlloy.Aluminium, Metric.M95,  129.0, 118.0, 161.0, 139.0, 170.0, 132.0, Some(148.0)),
+        Three(ConductorAlloy.Aluminium, Metric.M120, 149.0, 135.0, 186.0, 160.0, 197.0, 150.0, Some(169.0)),
+        Three(ConductorAlloy.Aluminium, Metric.M150, 170.0, 155.0, 204.0, 176.0, 227.0, 169.0, Some(189.0)),
+        Three(ConductorAlloy.Aluminium, Metric.M185, 194.0, 176.0, 230.0, 199.0, 259.0, 190.0, Some(214.0)),
+        Three(ConductorAlloy.Aluminium, Metric.M240, 227.0, 207.0, 269.0, 232.0, 305.0, 218.0, Some(250.0)),
+        Three(ConductorAlloy.Aluminium, Metric.M300, 261.0, 237.0, 306.0, 265.0, 351.0, 247.0, Some(282.0)),
 
-    public static readonly ImmutableArray<TwoRow> Two = [
-        new(Metric.M1p5, Some( 14.5),  14.0,  17.5,  16.5,  19.5),
-        new(Metric.M2p5, Some( 19.5),  18.5,  24.0,  23.0,  27.0),
-        new(Metric.M4,   Some( 26.0),  25.0,  32.0,  30.0,  36.0),
-        new(Metric.M6,   Some( 34.0),  32.0,  41.0,  38.0,  46.0),
-        new(Metric.M10,  Some( 46.0),  43.0,  57.0,  52.0,  63.0),
-        new(Metric.M16,  Some( 61.0),  57.0,  76.0,  69.0,  85.0),
-        new(Metric.M25,  Some( 80.0),  75.0, 101.0,  90.0, 112.0),
-        new(Metric.M35,  Some( 99.0),  92.0, 125.0, 111.0, 138.0),
-        new(Metric.M50,  Some(119.0), 110.0, 151.0, 133.0, 168.0),
-        new(Metric.M70,  Some(151.0), 139.0, 192.0, 168.0, 213.0),
-        new(Metric.M95,  Some(182.0), 167.0, 232.0, 201.0, 258.0),
-        new(Metric.M120, Some(210.0), 192.0, 269.0, 232.0, 299.0),
-        new(Metric.M150, Some(240.0), 219.0, 300.0, 258.0, 344.0),
-        new(Metric.M185, Some(273.0), 248.0, 341.0, 294.0, 392.0),
-        new(Metric.M240, None,        291.0, 400.0, 344.0, 461.0)];
+        Two(Metric.M1p5, Some( 14.5),  14.0,  17.5,  16.5,  19.5),
+        Two(Metric.M2p5, Some( 19.5),  18.5,  24.0,  23.0,  27.0),
+        Two(Metric.M4,   Some( 26.0),  25.0,  32.0,  30.0,  36.0),
+        Two(Metric.M6,   Some( 34.0),  32.0,  41.0,  38.0,  46.0),
+        Two(Metric.M10,  Some( 46.0),  43.0,  57.0,  52.0,  63.0),
+        Two(Metric.M16,  Some( 61.0),  57.0,  76.0,  69.0,  85.0),
+        Two(Metric.M25,  Some( 80.0),  75.0, 101.0,  90.0, 112.0),
+        Two(Metric.M35,  Some( 99.0),  92.0, 125.0, 111.0, 138.0),
+        Two(Metric.M50,  Some(119.0), 110.0, 151.0, 133.0, 168.0),
+        Two(Metric.M70,  Some(151.0), 139.0, 192.0, 168.0, 213.0),
+        Two(Metric.M95,  Some(182.0), 167.0, 232.0, 201.0, 258.0),
+        Two(Metric.M120, Some(210.0), 192.0, 269.0, 232.0, 299.0),
+        Two(Metric.M150, Some(240.0), 219.0, 300.0, 258.0, 344.0),
+        Two(Metric.M185, Some(273.0), 248.0, 341.0, 294.0, 392.0),
+        Two(Metric.M240, None,        291.0, 400.0, 344.0, 461.0)];
+
+    // B.52.4 prints seven method columns; B.52.2 prints five and publishes no buried column at all. Each mint keeps
+    // its table's own argument order and states the columns its table does not carry as absence, so the map is total
+    // over IecMethod.Items for every row.
+    static AmpacityRow Three(ConductorAlloy alloy, MetricRow size, double a1, double a2, double b1, double b2, double c, double d1, Option<double> d2) =>
+        new(alloy, ConductorLoading.Three, size, Cells(Some(a1), Some(a2), Some(b1), Some(b2), Some(c), Some(d1), d2));
+
+    static AmpacityRow Two(MetricRow size, Option<double> a1, double a2, double b1, double b2, double c) =>
+        new(ConductorAlloy.Copper, ConductorLoading.Two, size, Cells(a1, Some(a2), Some(b1), Some(b2), Some(c), None, None));
+
+    static FrozenDictionary<IecMethod, Option<double>> Cells(
+        Option<double> a1, Option<double> a2, Option<double> b1, Option<double> b2, Option<double> c, Option<double> d1, Option<double> d2) =>
+        new Dictionary<IecMethod, Option<double>> {
+            [IecMethod.A1] = a1, [IecMethod.A2] = a2, [IecMethod.B1] = b1, [IecMethod.B2] = b2,
+            [IecMethod.C] = c, [IecMethod.D1] = d1, [IecMethod.D2] = d2,
+        }.ToFrozenDictionary();
 }
 ```
 
@@ -256,9 +302,9 @@ public static class TableB52 {
 
 - Owner: `ConduitSystem` the raceway policy axis — substance and appearance bindings and the `CONDUITSEGMENT` stamp, standing ready per system; `TrayKind` the cable-tray form axis carrying its own Gate-0 predefined token per kind; `TrayClass` the NEMA VE 1 span-load vocabulary row; `Containment` the trade-size ladder and the generated class roster.
 - Cases: five conduit systems {emt · imc · rmc · pvc-40 · pvc-80} over the ten-rung trade-size ladder ½–4 in; three tray kinds {ladder · trough · channel}; twelve NEMA classes as the {8 · 12 · 16 · 20 ft} × {A · B · C} cross.
-- Law: every dimension and load column is typed-absent — no pack proves the NEC Chapter 9 Table 4 OD/ID ladder, the per-system size spans above 4 in, or the NEMA VE 1 working-load cells — so no `CircleHollow` exists to admit, neither containment family mints a component, and the `TradeSize`/`TrayLoadClass` stamps stay reserved until the columns prove; a vocabulary minting a guessed dimension certifies an unbuilt product.
+- Law: every dimension and load column is typed-absent — no pack proves the NEC Chapter 9 Table 4 OD/ID ladder, the per-system size spans above 4 in, or the NEMA VE 1 working-load cells — so no `CircleHollow` exists to admit, neither containment family mints a component, and no containment trade-size or tray-load seam row exists until the columns prove; a vocabulary minting a guessed dimension certifies an unbuilt product.
 - Law: the tray-class key IS the NEMA designation's own span-and-load algebra (`12b` = 12 ft support span, load class B) — identity, never a measured cell; the working load joins as the `Option` column flip when its table proves.
-- Growth: the conduit dimension pack landing is one column pair per system row and one mint fold beside the conductor folds; a proven tray section is one width-and-rail roster read by the same kinds; liquid-tight and ENT systems are one `ConduitSystem` row each.
+- Growth: the conduit dimension pack landing is one column pair per system row and one `SeedLaw` beside the conductor law; a proven tray section is one width-and-rail roster read by the same kinds; liquid-tight and ENT systems are one `ConduitSystem` row each.
 - Boundary: conduit FILL (NEC Chapter 9 Table 1 percentages against conductor build-out areas) is a `Rasm.Compute` design verdict over an occurrence's conductor set — never a product row here.
 
 ```csharp signature
@@ -312,133 +358,145 @@ public static class Containment {
 
 ## [04]-[ELECTRICAL_SEED]
 
-- Owner: `AmpacityBasis` the installation-basis axis every stamped rating names; `WireSystem` the stocked conductor selections; `ElectricalDetail` the product-bag constructor; `ElectricalSeed` the generation fold and the capacity refusal.
-- Cases: six stocked systems — three NEC lanes {cu-thhn · cu-xhhw · al-xhhw} folding `Table310` through the metal and insulation delegates, two three-loaded IEC lanes {cu-pvc · al-pvc} folding `TableB52` through the basis method, and the two-loaded copper lane {cu-pvc-two} folding the B.52.2 estate — 99 conductors from 34 roster rows (18+18+17 NEC, 16+15 three-loaded, 15 two-loaded), each rating RESOLVED from its table by metal, size, and column pick, never asserted per stocked row; a size whose cell the basis does not publish mints nothing rather than a fabricated ampere.
-- Law: a bag stamps ONE rating under ONE named basis — the `AmpacityBasis` token beside the ampere row is what keeps an NEC raceway cell from reading as an IEC reference-method cell; the full method axis stays a table read for any consumer needing another basis, and a second stocked basis is one `AmpacityBasis` row and one `WireSystem` row — the two-loaded B.52.2 lane landed exactly this way, with the LOADING riding the fold each system wires in `Rows`.
+- Owner: `AmpacityBasis` the installation-basis axis every stamped rating names, carrying the STOCKING delegate that resolves its own estate; `WireSystem` the stocked conductor selections; `WireRow` the seed currency; `ElectricalSeed` the flattened roster, the seed law, and the capacity refusal.
+- Cases: six stocked systems — three NEC lanes {cu-thhn · cu-xhhw · al-xhhw} folding `Table310` through the alloy and insulation delegates, two three-loaded IEC lanes {cu-pvc · al-pvc} and the two-loaded copper lane {cu-pvc-two} filtering `TableB52` by (alloy, loading) and reading the basis's own method cell — 99 conductors from 49 published roster rows, each rating RESOLVED from its table, never asserted per stocked row; a size whose cell the basis does not publish mints nothing rather than a fabricated ampere.
+- Entry: `ComponentSeed.Rows(context, ElectricalSeed.Roster, ElectricalSeed.Law)` — the roster is `WireSystem.Items` flattened through each system's own basis delegate, so the `Rows` fold that hand-wired six systems and the three per-fold guards are gone.
+- Law: a bag stamps ONE rating under ONE named basis — the `AmpacityBasis` token beside the ampere row is what keeps an NEC raceway cell from reading as an IEC reference-method cell; the full method axis stays a table read for any consumer needing another basis, and a second stocked basis is ONE `AmpacityBasis` row plus one `WireSystem` row.
 - Law: the TW and THW rows close the NEC column set as resolution arms — no TW/THW system is stocked, and stocking the legacy 60/75 °C lanes is one `WireSystem` row each with zero type edits.
-- Law: the ampere dimension mints page-locally — the seam's `Dimension` roster names no current dimension yet, and the mint is the `Rasm.Element/Properties/quantity#DIMENSION` consumer-mint arm; the `CurrentDim` static homes on the seam roster (with its `A` symbol row) the moment a second consumer proves.
-- Entry: `ElectricalSeed.Rows(context)` the `ComponentFamily.Electrical` row fold; `ElectricalSeed.Capacity` the typed refusal — a conductor's governing verdict is circuit-side (load, derating, voltage drop, protection), owned by `Rasm.Compute`, and the refusal names that route.
+- Law: a declared `WireSystem` that stocks NOTHING is a defect, not an empty product line — the roster census names it. It subsumes the three hand guards the folds carried (a basis with no method, an IEC lane over a non-PVC class, a two-loaded lane over aluminium) because each of those conditions produced exactly zero rungs, and it also convicts the class they missed: a system whose estate simply publishes no row for its alloy.
 - Output: the projector derives the takeoff rows from the solved `Circle` section through `QuantityRow.VolumePerLength`/`SurfaceAreaPerLength`/`LinearDensity` (`component#QUANTITY_ROW`) — the area-true solid-equivalent section is what makes the copper and aluminium tonnage honest; no takeoff cell is stamped here.
-- Boundary: every stamped bag rides `Attestation.Corroborated` because every cell that mints is two-sourced — the conflicted and single-posted cells are typed-absent in the tables and can never reach a bag, so the flag states transcription truth rather than table-wide optimism, per the `pipework#PIPEWORK_SEED` weakest-contributor law.
+- Boundary: every stamped bag rides `Attestation.Corroborated` because every cell that mints is two-sourced — the conflicted and single-posted cells are typed-absent in the tables and can never reach a bag, so the flag states transcription truth rather than table-wide optimism, per the `pipework#PIPEWORK_SEED` weakest-contributor law. `ElectricalSeed.Capacity` is the typed refusal — a conductor's governing verdict is circuit-side (load, derating, voltage drop, protection), owned by `Rasm.Compute`.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
 // The installation basis a stamped rating names: the regional standard receipt (the NEC lane cites NFPA 70, the IEC
-// lane IEC 60364-5-52 via its CENELEC HD adoption) and the reference-method read for the IEC lanes. A NEC basis
-// carries no method — its table keys on the insulation temperature column instead — and the two-vs-three LOADING
-// distinction between the two IEC rows rides the fold each system wires in Rows, the same way the pipework rosters
-// select their folds.
+// lanes IEC 60364-5-52 via its CENELEC HD adoption), the evidence grade of the estate it reads, and the STOCKING
+// delegate that resolves that estate for a given system. The delegate is what deleted the separate Method column and
+// the three folds that read it: the method, the loading, and the table are ONE fact — which estate this basis IS —
+// so they are stated once, on the row, and never re-derived by a fold that had to be kept in step with it.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AmpacityBasis {
-    public static readonly AmpacityBasis Nec310 = new("nec-310-16",  standard: new ComponentStandard("us", StandardJointThicknessMm: 0.0, Authority: ComponentAuthority.Nfpa), method: None);
-    public static readonly AmpacityBasis IecC   = new("iec-b52-4-c", standard: new ComponentStandard("eu", StandardJointThicknessMm: 0.0, Authority: ComponentAuthority.Iec),  method: Some(IecMethod.C));
-    public static readonly AmpacityBasis IecC2  = new("iec-b52-2-c", standard: new ComponentStandard("eu", StandardJointThicknessMm: 0.0, Authority: ComponentAuthority.Iec),  method: Some(IecMethod.C));
+    public static readonly AmpacityBasis Nec310 = new("nec-310-16",  standard: Us,  source: EvidenceGrade.Catalogue, ratings: NecRatings);
+    public static readonly AmpacityBasis IecC   = new("iec-b52-4-c", standard: Eu,  source: EvidenceGrade.Catalogue, ratings: static system => IecRatings(system, ConductorLoading.Three, IecMethod.C));
+    public static readonly AmpacityBasis IecC2  = new("iec-b52-2-c", standard: Eu,  source: EvidenceGrade.Catalogue, ratings: static system => IecRatings(system, ConductorLoading.Two, IecMethod.C));
 
+    [UseDelegateFromConstructor] public partial Seq<WireRow> Ratings(WireSystem system);
     public ComponentStandard Standard { get; }
-    public Option<IecMethod> Method { get; }
+    public EvidenceGrade Source { get; }
+
+    static readonly ComponentStandard Us =
+        new(ComponentAuthority.Nfpa.Region, StandardJointThicknessMm: 0.0, ComponentAuthority.Nfpa);
+    static readonly ComponentStandard Eu =
+        new(ComponentAuthority.Iec.Region, StandardJointThicknessMm: 0.0, ComponentAuthority.Iec);
+
+    // --- [ESTATES]
+    // One resolver per published estate. NEC keys on the alloy's cell triple and the insulation's temperature
+    // column; IEC filters the one ampacity roster by (alloy, loading) and reads the basis's own method cell. A row
+    // whose cell the estate does not publish contributes nothing — the roster census is what makes that silence
+    // loud where it means a stocked system resolved to no product at all.
+    static Seq<WireRow> NecRatings(WireSystem system) =>
+        toSeq(Table310.Rows).Bind(row => system.Alloy.NecCells(row)
+            .Bind(cells => system.Insulation.Nec(cells.C60, cells.C75, cells.C90))
+            .Map(amps => new WireRow(system, row.Size.Key, row.Size.Tag, row.Size.DiameterMm, amps))
+            .ToSeq());
+
+    static Seq<WireRow> IecRatings(WireSystem system, ConductorLoading loading, IecMethod method) =>
+        toSeq(TableB52.Rows)
+            .Filter(row => row.Alloy == system.Alloy && row.Loading == loading && system.Insulation.Pvc)
+            .Bind(row => row.Cells[method]
+                .Map(amps => new WireRow(system, row.Size.Key, row.Size.Tag, row.Size.DiameterMm, amps))
+                .ToSeq());
 }
 
-// The stocked conductor systems: metal, insulation, and basis — three columns the folds resolve everything else
-// from. Rated is the rating column's attestation (both ampacity estates are two-sourced, so every stocked row
+// The stocked conductor systems: alloy, insulation, and basis — three columns the basis delegate resolves everything
+// else from. Rated is the rating column's attestation (both ampacity estates are two-sourced, so every stocked row
 // carries Corroborated; a future single-posted table stocks flagged, never dressed).
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WireSystem {
-    public static readonly WireSystem CuThhn = new("cu-thhn",    metal: ConductorMetal.Copper,    insulation: InsulationClass.Thhn,  basis: AmpacityBasis.Nec310, rated: Attestation.Corroborated);
-    public static readonly WireSystem CuXhhw = new("cu-xhhw",    metal: ConductorMetal.Copper,    insulation: InsulationClass.Xhhw,  basis: AmpacityBasis.Nec310, rated: Attestation.Corroborated);
-    public static readonly WireSystem AlXhhw = new("al-xhhw",    metal: ConductorMetal.Aluminium, insulation: InsulationClass.Xhhw,  basis: AmpacityBasis.Nec310, rated: Attestation.Corroborated);
-    public static readonly WireSystem CuPvc  = new("cu-pvc",     metal: ConductorMetal.Copper,    insulation: InsulationClass.Pvc70, basis: AmpacityBasis.IecC,   rated: Attestation.Corroborated);
-    public static readonly WireSystem AlPvc  = new("al-pvc",     metal: ConductorMetal.Aluminium, insulation: InsulationClass.Pvc70, basis: AmpacityBasis.IecC,   rated: Attestation.Corroborated);
-    public static readonly WireSystem CuPvc2 = new("cu-pvc-two", metal: ConductorMetal.Copper,    insulation: InsulationClass.Pvc70, basis: AmpacityBasis.IecC2,  rated: Attestation.Corroborated);
+    public static readonly WireSystem CuThhn = new("cu-thhn",    alloy: ConductorAlloy.Copper,    insulation: InsulationClass.Thhn,  basis: AmpacityBasis.Nec310, rated: Attestation.Corroborated);
+    public static readonly WireSystem CuXhhw = new("cu-xhhw",    alloy: ConductorAlloy.Copper,    insulation: InsulationClass.Xhhw,  basis: AmpacityBasis.Nec310, rated: Attestation.Corroborated);
+    public static readonly WireSystem AlXhhw = new("al-xhhw",    alloy: ConductorAlloy.Aluminium, insulation: InsulationClass.Xhhw,  basis: AmpacityBasis.Nec310, rated: Attestation.Corroborated);
+    public static readonly WireSystem CuPvc  = new("cu-pvc",     alloy: ConductorAlloy.Copper,    insulation: InsulationClass.Pvc70, basis: AmpacityBasis.IecC,   rated: Attestation.Corroborated);
+    public static readonly WireSystem AlPvc  = new("al-pvc",     alloy: ConductorAlloy.Aluminium, insulation: InsulationClass.Pvc70, basis: AmpacityBasis.IecC,   rated: Attestation.Corroborated);
+    public static readonly WireSystem CuPvc2 = new("cu-pvc-two", alloy: ConductorAlloy.Copper,    insulation: InsulationClass.Pvc70, basis: AmpacityBasis.IecC2,  rated: Attestation.Corroborated);
 
-    public ConductorMetal Metal { get; }
+    public ConductorAlloy Alloy { get; }
     public InsulationClass Insulation { get; }
     public AmpacityBasis Basis { get; }
     public Attestation Rated { get; }
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
-// The DetailLane.Product bag: size, insulation, and basis tokens, provenance and attestation, and the ONE measured
-// ampacity under the page-local ampere dimension — the rating row the mandate's law makes a COMPONENT fact.
-public static class ElectricalDetail {
-    static readonly Dimension CurrentDim = Dimension.Create(0, 0, 0, 1, 0, 0, 0);   // ampere — the consumer-mint arm; homes on the seam roster when a second consumer proves
-    static readonly PropertyName Ampacity = PropertyCategory.Materials.Row("Ampacity");
-
-    public static Fin<PropertyBag> Of(WireSystem system, string size, double amps, Op key) =>
-        from rating in ComponentDetail.Measured(Ampacity, CurrentDim, amps)
-        select ComponentDetail.ProductRows([
-            ComponentDetail.Token(DetailSchema.ConductorSize, size),
-            ComponentDetail.Token(DetailSchema.InsulationClass, system.Insulation.Key),
-            ComponentDetail.Token(DetailSchema.AmpacityBasis, system.Basis.Key),
-            ComponentDetail.Sourced(Provenance.Published),
-            SegmentRows.Attested(system.Rated),
-            rating,
-        ]);
+// --- [MODELS] ------------------------------------------------------------------------------
+// The seed row: the stocked system and the rung its basis resolved. Designation tags derive from the size identity
+// ("1/0" -> 1-0, 1.5 mm² -> 0015), so the tag can never name a size the row does not carry and the single-dot
+// ComponentId grammar holds at every rung.
+public readonly record struct WireRow(WireSystem System, string Size, string Tag, double DiameterMm, double Amps) {
+    public string Designation => $"electrical.{System.Key}-{Tag}";
 }
 
-// The ComponentFamily.Electrical generator: one Mint rail, three table folds, the system→table wiring in ONE Rows
-// expression. Designation tags derive from the size identity ("1/0" -> 1-0, 1.5 mm² -> 0015) so the tag can never
-// name a size the row does not carry, and the single-dot ComponentId grammar holds at every rung.
+// --- [TABLES] ------------------------------------------------------------------------------
+// The ComponentFamily.Electrical roster and policy: every stocked system's own estate flattened once.
 public static class ElectricalSeed {
     static readonly IfcBinding Conductor = IfcBinding.Of("IfcCableSegment", "CONDUCTORSEGMENT");
+    static readonly PropertyName Ampacity = PropertyCategory.Materials.Row("Ampacity");
+    static readonly Op Proof = Op.Of(name: "electrical-roster-census");
 
-    public static Fin<Seq<ComponentRow>> Rows(Context context) =>
-        Seq(Nec(WireSystem.CuThhn, context),
-            Nec(WireSystem.CuXhhw, context),
-            Nec(WireSystem.AlXhhw, context),
-            Iec(WireSystem.CuPvc, context),
-            Iec(WireSystem.AlPvc, context),
-            Two(WireSystem.CuPvc2, context))
-        .Traverse(static fold => fold).As()
-        .Map(static folds => folds.Bind(static rows => rows));
+    public static readonly Seq<WireRow> Roster =
+        toSeq(WireSystem.Items).Bind(static system => system.Basis.Ratings(system));
+
+    // The two type-init censuses the coherence lifts on every row: the alloy appearance-join parity and the stocking
+    // proof that every declared system reached the roster. Deferred through Lazy so neither races a generated Items
+    // initializer, folded once so the whole build reads one accumulated verdict rather than two.
+    public static readonly Lazy<Validation<Error, Unit>> RosterCensus = new(static () =>
+        (ConductorAlloy.AppearanceParity.Value,
+         toSeq(WireSystem.Items)
+             .Map(static system => guard(Roster.Exists(row => row.System == system),
+                 new KernelFault.InvalidValue(nameof(WireSystem), "at least one stocked conductor", Some(Proof))).ToValidation())
+             .Sequence().As().Map(static _ => unit))
+        .Apply(static (_, _) => unit).As());
+
+    public static readonly SeedLaw<WireRow> Law = SeedLaw<WireRow>.Of(
+        family: ComponentFamily.Electrical,
+        designation: static r => r.Designation,
+        coherence: Coherence,
+        profile: static (r, key) => SectionProfile.Circle.Of(r.DiameterMm, key),
+        substance: static r => r.System.Alloy.Substance,
+        source: static r => r.System.Basis.Source,
+        standard: static r => r.System.Basis.Standard,
+        detail: Some<Func<WireRow, SectionProfile, Op, Fin<PropertyBag>>>(Detail),
+        appearance: static r => r.System.Alloy.Appearance,
+        ifc: static _ => Conductor);
+
+    // The row census, ACCUMULATING — the two roster-wide proofs beside the two per-row ones, so a broken appearance
+    // join, an empty system, a non-finite ampere, and a degenerate diameter all report in one verdict.
+    static Validation<Error, Unit> Coherence(WireRow r, Op key) =>
+        (RosterCensus.Value,
+         guard(double.IsFinite(r.Amps) && r.Amps > 0.0,
+             new KernelFault.OutOfRange(nameof(r.Amps), r.Amps, "finite and positive", Some(key))).ToValidation(),
+         guard(double.IsFinite(r.DiameterMm) && r.DiameterMm > 0.0,
+             new KernelFault.OutOfRange(nameof(r.DiameterMm), r.DiameterMm, "finite and positive", Some(key))).ToValidation())
+            .Apply(static (_, _, _) => unit).As();
+
+    // The DetailLane.Product bag: size, insulation, and basis tokens, evidence and attestation, and the ONE measured
+    // ampacity under the seam roster's own ampere dimension — the rating row the mandate's law makes a COMPONENT fact.
+    static Fin<PropertyBag> Detail(WireRow r, SectionProfile profile, Op key) =>
+        from rating in ComponentDetail.Measured(Ampacity, Dimension.CurrentDim, r.Amps)
+        select ComponentDetail.ProductRows([
+            ComponentDetail.Token(DetailSchema.ConductorSize, r.Size),
+            ComponentDetail.Token(DetailSchema.InsulationClass, r.System.Insulation.Key),
+            ComponentDetail.Token(DetailSchema.AmpacityBasis, r.System.Basis.Key),
+            ComponentDetail.Sourced(r.System.Basis.Source),
+            SegmentRows.Attested(r.System.Rated),
+            rating,
+        ]);
 
     // The ComponentFamily.Electrical CAPACITY producer: an explicit typed refusal — a conductor's governing verdict
     // is circuit-side (connected load, derating, voltage drop, protective-device coordination), owned by the
     // Rasm.Compute electrical route, and a section integral prices none of it.
     public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
-        ComponentFault.Capacity(key, $"<electrical-sizing-rides-compute-circuit:{component.Designation.Value}>");
-
-    static Fin<Seq<ComponentRow>> Nec(WireSystem system, Context context) =>
-        toSeq(Table310.Rows)
-            .Bind(row => system.Metal.NecCells(row)
-                .Bind(cells => system.Insulation.Nec(cells.C60, cells.C75, cells.C90))
-                .Map(amps => (row.Size, Amps: amps)).ToSeq())
-            .Traverse(sized => Mint(system, sized.Size.Key, sized.Size.Tag, sized.Size.DiameterMm, sized.Amps, context)).As();
-
-    static Fin<Seq<ComponentRow>> Iec(WireSystem system, Context context) =>
-        from method in system.Basis.Method
-            .ToFin(ComponentFault.Family(context.Key, $"<iec-fold-requires-method-basis:{system.Key}>"))
-        from admitted in guard(system.Insulation.Pvc,
-            ComponentFault.Family(context.Key, $"<iec-tables-are-pvc-70:{system.Insulation.Key}>"))
-        from rows in system.Metal.IecRows()
-            .Bind(row => method.Three(row).Map(amps => (row.Size, Amps: amps)).ToSeq())
-            .Traverse(sized => Mint(system, sized.Size.Key, sized.Size.Tag, sized.Size.DiameterMm, sized.Amps, context)).As()
-        select rows;
-
-    // The two-loaded B.52.2 fold: copper-only by the table's own scope, and the 240 mm² method-A1 absence means an
-    // A1-basis stocking would mint 14 rows rather than a fabricated cell — the conflict stays unstampable.
-    static Fin<Seq<ComponentRow>> Two(WireSystem system, Context context) =>
-        from method in system.Basis.Method
-            .ToFin(ComponentFault.Family(context.Key, $"<iec-fold-requires-method-basis:{system.Key}>"))
-        from admitted in guard(system.Insulation.Pvc,
-            ComponentFault.Family(context.Key, $"<iec-tables-are-pvc-70:{system.Insulation.Key}>"))
-        from copper in guard(system.Metal == ConductorMetal.Copper,
-            ComponentFault.Family(context.Key, $"<b52-2-publishes-copper-only:{system.Key}>"))
-        from rows in toSeq(TableB52.Two)
-            .Bind(row => method.Two(row).Map(amps => (row.Size, Amps: amps)).ToSeq())
-            .Traverse(sized => Mint(system, sized.Size.Key, sized.Size.Tag, sized.Size.DiameterMm, sized.Amps, context)).As()
-        select rows;
-
-    static Fin<ComponentRow> Mint(WireSystem system, string size, string tag, double diameterMm, double amps, Context context) =>
-        from profile in SectionProfile.Circle.Of(diameterMm, context.Key)
-        from detail in ElectricalDetail.Of(system, size, amps, context.Key)
-        from item in Component.Of(
-            ComponentFamily.Electrical, $"electrical.{system.Key}-{tag}",
-            profile, Conductor, Coring.None, system.Basis.Standard,
-            substanceId: system.Metal.Substance, appearanceId: system.Metal.Appearance,
-            detail: Some(detail), context.Key)
-        select new ComponentRow(item, Provenance.Published);
+        new ComponentFault.CapacityUnavailable(key, component.Designation);
 }
 ```
 

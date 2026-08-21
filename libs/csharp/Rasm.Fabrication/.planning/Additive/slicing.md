@@ -1,13 +1,13 @@
 # [RASM_FABRICATION_SLICING]
 
-Additive slicing consumes kernel `SliceStack` truth once, reads the layer forest and per-layer figures the kernel already froze, derives planar deposition from parameterized modality seeds, and projects arc-bearing bead paths through caller-owned egress. `SliceRegion` is the shared region atom every `SliceStack` consumer in the folder reads, `AdditivePolicy` is the `owner#RUN_FOLD` dispatch, and `Slice.Layers` is the sole planar-or-implicit fold.
+Additive slicing consumes kernel `SliceStack` truth once, reads the layer forest and per-layer figures the kernel already froze, derives planar deposition from parameterized modality seeds, and projects arc-bearing bead paths through caller-owned egress. `SliceRegion` is the shared region atom every `SliceStack` consumer in the folder reads, `AdditivePolicy` is the `owner#POLICY` dispatch, and `Slice.Layers` is the sole planar-or-implicit fold.
 
-The wall ladder is this page's defining law: a slice boundary is the part SURFACE, so wall `k`'s centreline sits at `−(k + ½)·w` inward and the boundary is never itself a deposition path. Region topology arrives from `Meshing/slice` `SliceStack.Parent`/`Depth` and per-layer area, perimeter, and centroid from `AreaAt`/`PerimeterAt`/`CentroidAt`, so no containment fold, point-in-polygon, or measure re-run lives here. Booleans, offsets, open clipping, and cells route `Geometry2D/algebra` `PolygonAlgebra.Apply`; arc-exact measure, closest point, and arc-length sampling route `owner#GEOMETRY_ATOMS` `Loop.Apply`; every preimage composes `owner#RUN_DISPATCH` `FabricationCanon` over `Loop.CanonicalBytes`.
+The wall ladder is this page's defining law: a slice boundary is the part SURFACE, so wall `k`'s centreline sits at `−(k + ½)·w` inward and the boundary is never itself a deposition path. Region topology arrives from `Meshing/slice` `SliceStack.Parent`/`Depth` and per-layer area, perimeter, and centroid from `AreaAt`/`PerimeterAt`/`CentroidAt`, so no containment fold, point-in-polygon, or measure re-run lives here. Booleans, offsets, open clipping, and cells route `Geometry2D/algebra` `PolygonAlgebra.Apply`; arc-exact measure, closest point, and arc-length sampling route `atoms#GEOMETRY` `Loop.Apply`; every preimage composes `owner#RUN_DISPATCH` `FabricationCanon` over `Loop.CanonicalBytes`.
 
 ## [01]-[INDEX]
 
-- [02]-[SLICE_REGION]: `SliceRegion`, its kernel-forest admission, the derived-topology admission, the set algebra, and `LayerMetric`.
-- [03]-[BEAD_LAWS]: `BeadSection`, `BeadGeometry`, `ShellBeadLaw`, `ShellOverlap`, `SeamPlacement`, `ShellPolicy`, `DepositionFeature`, `FeedPolicy`, `DensityPolicy`.
+- [02]-[SLICE_REGION]: `SliceRegion`, its kernel-forest admission, the derived-topology admission, the set algebra, and the per-layer measurement family — `LayerMeasure`, `RecoaterLikelihood`, `LayerMetric`.
+- [03]-[BEAD_LAWS]: `BeadSection`, `BeadGeometry`, `ShellBeadLaw`, `ShellOverlap`, `OpenSheetLaw`, `SeamPlacement`, `ShellPolicy`, `DepositionFeature`, `FeedPolicy`, `DensityPolicy`.
 - [04]-[INFILL_PATTERN]: `LineFamily`, `LineSeed`, `CellSiteKind`, `CellSites`, `CellPattern`, `InfillPatternKind`, `InfillPattern`, and the pattern preimage.
 - [05]-[DEPOSITION_POLICY]: `DepositionSeed`, `DepositionOverride`, `InfillPolicy`, `InfillLayer`, `ShellRun`, `AdditivePolicy`.
 - [06]-[LAYER_FOLD]: `Slice.Solve`, `Slice.Layers`, the region table, the wall ladder, skin resolution, and the infill lanes.
@@ -16,14 +16,17 @@ The wall ladder is this page's defining law: a slice boundary is the part SURFAC
 
 ## [02]-[SLICE_REGION]
 
-- Owner: `SliceRegion` owns the topology-preserving planar region atom and its set algebra; `LayerMetric` owns the per-layer figures read off the frozen kernel channels.
+- Owner: `SliceRegion` owns the topology-preserving planar region atom and its set algebra; `LayerMetric` owns EVERY per-layer measurement axis the folder reads, `LayerMeasure` names the axes a modality can be missing, and `RecoaterLikelihood` owns the composed blade-strike index and the terms it was formed from.
 - Law: layer topology is the KERNEL's. `SliceStack.Parent` already carries the immediate-parent forest `ComputeTransitiveReduction` settled over exact parity signs, so `Depth(contour)` parity partitions outers from holes in one read — a slice-side containment fold re-decides a verdict the kernel proved exactly and can disagree with the forest that produced it. The admission validator gates STRUCTURE alone; the producing fold owns nesting, so no per-pair containment test runs inside a generated validator once per layer.
 - Law: per-layer area, perimeter, and centroid are `AreaAt`/`PerimeterAt`/`CentroidAt` over the frozen channels. `PhysicalArea` survives for a DERIVED region — a Boolean or offset result standing behind no kernel layer — where no channel answers.
-- Entry: `SliceRegion.Of(SliceStack, layer)` reads the kernel forest; `SliceRegion.Of(Seq<Loop>)` admits a loop set through the `PolygonOp.Topology` receipt; `Admit` is the one construction below both.
+- Law: a measurement axis a modality never makes rides `Option` and answers ABSENCE, never zero. A process building no support has no unsupported mass to read, and a zero there depresses every index it feeds below every ceiling — the finding a preflight exists to raise becomes the one it cannot raise. A measured zero is `Some(Area.Zero)` and states at its site why the reading is genuinely zero.
+- Law: the measurement family seats HERE rather than at its consumer. `Verify/audit` is its only reader today, but every column is a fact about one slice layer and nothing about a defect, a risk family, or a threshold — so the axes sit at the plane that measures them and the arrow stays one-way, `Verify` reading `Additive` exactly as the audit's stack, region, and support reads already do.
+- Entry: `SliceRegion.Of(SliceStack, layer)` reads the kernel forest; `SliceRegion.Of(Seq<Loop>)` admits a loop set through the `PolygonOp.Topology` receipt; `Admit` is the one construction below both. `LayerMetric.Of(stack, layer)` is the geometry read every consumer starts from and `with` seats the process axes a measuring consumer adds.
 - Auto: `Split` is the ONE open-clip receipt read and `Rays`/`Runs` are its two typed projections — a clipped run is one CONTINUOUS deposition path admitted as an open `Loop`, while an exposure consumer reads independent segments, so flattening happens at the reader that wants it rather than at the receipt.
-- Receipt: `LayerMetric` carries filled area, perimeter, and centroid per layer; `SliceRegion` carries outer and hole rings.
-- Packages: `Rasm.Meshing` (`SliceStack`, `Chain`, `Slicing.Apply`, `SliceOp`, `SlicePolicy`, `LayerPlan`); `Geometry2D/algebra` (`PolygonAlgebra.Apply`, `PolygonOp.Topology`/`Boolean`/`Offset`/`ClipOpen`/`Measure`, `PolygonTrace.Regions`/`SplitRuns`/`Measured`, `TopologyReceipt`, `RegionNode`, `PolygonMeasure`, `OffsetField.Uniform`); `owner#GEOMETRY_ATOMS` (`Loop`, `ProfileOp`, `ProfileResult`, `Edge3`); `UnitsNet`; LanguageExt; Thinktecture.
-- Boundary: `Slice` is the one additive slice-stack consumer and an in-page section sweep, triangle crossing kernel, or endpoint chain walker is the deleted form; variable layer height is `LayerPlan`'s and a Fabrication height loop is the sealed-boundary violation; a slice-local Clipper call site or a bare hole-blind `Seq<Loop>` region is the named duplication defect; `Bound` folds `Loop.Bound` because an arc span bulges outside its chord hull.
+- Auto: `RecoaterLikelihood.Of` selects its own arm from the absent set and answers `None` where every term is absent, so a roster with nothing measured carries no index rather than a zero every ceiling clears.
+- Receipt: `LayerMetric` carries filled area, perimeter, centroid, and the optional unsupported, mass, exposure, heat, growth, and blade-strike axes per layer; `SliceRegion` carries outer and hole rings.
+- Packages: `Rasm.Meshing` (`SliceStack`, `Chain`, `Slicing.Apply`, `SliceOp`, `SlicePolicy`, `LayerPlan`); `Geometry2D/algebra` (`PolygonAlgebra.Apply`, `PolygonOp.Topology`/`Boolean`/`Offset`/`ClipOpen`/`Measure`, `PolygonTrace.Regioned`/`Runs`/`Measure`/`Diagram`, `RegionTopology`, `RegionNode`, `PolygonMeasure`, `OffsetField.Uniform`); `atoms#GEOMETRY` (`Loop`, `ProfileOp`, `ProfileResult`, `Edge3`); `UnitsNet`; LanguageExt; Thinktecture.
+- Boundary: `Slice` is the one additive slice-stack consumer and an in-page section sweep, triangle crossing kernel, or endpoint chain walker is the deleted form; variable layer height is `LayerPlan`'s and a Fabrication height loop is the sealed-boundary violation; a slice-local Clipper call site or a bare hole-blind `Seq<Loop>` region is the named duplication defect; `Bound` folds `Loop.Bound` because an arc span bulges outside its chord hull. A second per-layer measurement record anywhere in the folder is the deleted duplicate.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------------------------------------------------------------
@@ -47,19 +50,92 @@ using AdditiveResult = Rasm.Fabrication.Process.FabricationResult.AdditiveResult
 
 namespace Rasm.Fabrication.Additive;
 
+// --- [TYPES] ----------------------------------------------------------------------------------------------------------------------------------------
+// Each row names one per-layer axis a composed index can be MISSING. A modality building no support never measures
+// unsupported mass, and the composed likelihood names which terms it was formed from rather than reading an absent
+// term as a zero that silently depresses it below every threshold.
+[SmartEnum<string>]
+public sealed partial class LayerMeasure {
+    public static readonly LayerMeasure UnsupportedMass = new("unsupported-mass");
+    public static readonly LayerMeasure AreaJump = new("area-jump");
+    public static readonly LayerMeasure RecoatExposure = new("recoat-exposure");
+}
+
 // --- [MODELS] ---------------------------------------------------------------------------------------------------------------------------------------
-// Per-layer figures are the kernel's own channel projections. A Clipper measure over the admitted rings re-runs a
-// fold the frozen channels already answer and can disagree with the forest that produced them; the signed shoelace
-// over outer-CCW / hole-CW contours needs no parity walk, so the magnitude is the filled area.
-public readonly record struct LayerMetric(Area Filled, Length Perimeter, Point3d Centroid) {
+// Absence travels WITH the index. A gate reading only the value cannot separate a quiet layer from one whose
+// evidence a modality never produces, which is exactly how a recoater trend gate dies on a support-free process.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record RecoaterLikelihood {
+    private RecoaterLikelihood(Ratio value) => Value = value;
+
+    public Ratio Value { get; }
+
+    public sealed record Measured : RecoaterLikelihood {
+        internal Measured(Ratio value) : base(value) { }
+    }
+
+    public sealed record Partial : RecoaterLikelihood {
+        internal Partial(Ratio value, Set<LayerMeasure> absent) : base(value) => Absent = absent;
+
+        public Set<LayerMeasure> Absent { get; }
+    }
+
+    public Set<LayerMeasure> Missing => Switch(
+        measured: static _ => Set<LayerMeasure>(),
+        partial: static row => row.Absent);
+
+    // Present terms compose their clearance-weighted MEAN. A sum would make the index depend on how many terms the
+    // modality happens to exhibit, so a two-term process could never reach a ceiling a three-term process sets.
+    // A term roster with NOTHING present carries no index at all: a zero there is a fabricated reading every ceiling
+    // clears, which is the absence-as-zero defect this whole family exists to delete.
+    public static Option<RecoaterLikelihood> Of(
+        Seq<(LayerMeasure Measure, Option<Ratio> Term)> terms, Ratio clearanceFactor) {
+        Seq<Ratio> present = terms.Choose(static row => row.Term);
+        Set<LayerMeasure> absent = terms.Filter(static row => row.Term.IsNone).Map(static row => row.Measure).ToSet();
+        return present.IsEmpty
+            ? None
+            : Ratio.FromDecimalFractions(Math.Clamp(
+                present.Sum(static term => term.DecimalFractions) / present.Count * clearanceFactor.DecimalFractions,
+                0.0,
+                1.0)) switch {
+                var value => Some(absent.IsEmpty
+                    ? (RecoaterLikelihood)new Measured(value)
+                    : new Partial(value, absent)),
+            };
+    }
+}
+
+// This row is the FOLDER's one per-layer measurement. Geometry projects off the kernel's own channels — a Clipper measure
+// over the admitted rings re-runs a fold the frozen channels already answer and can disagree with the forest that
+// produced them, and the signed shoelace over outer-CCW / hole-CW contours needs no parity walk, so the magnitude is
+// the filled area. Every remaining axis is a measurement a modality may not make, so its absence is a column state
+// and never a zero. Each carries the quantity its axis measures; `HeatIndex` alone stays bare because an accumulated
+// energy-per-area-per-time integrand normalized by a ventilation share is dimensionless by construction and naming
+// it a `Ratio` would claim a fraction it is not bounded to.
+public sealed record LayerMetric(
+    int Layer,
+    Area Filled,
+    Length Perimeter,
+    Point3d Centroid,
+    Option<Area> UnsupportedArea = default,
+    Option<Point3d> UnsupportedAt = default,
+    Option<Mass> UnsupportedMass = default,
+    Option<Mass> UnsupportedMassTrend = default,
+    Option<Length> GasExposure = default,
+    Option<Length> RecoatExposure = default,
+    Option<Point3d> RecoaterAt = default,
+    Option<double> HeatIndex = default,
+    Option<Ratio> AreaJumpRatio = default,
+    Option<RecoaterLikelihood> Recoater = default) {
+    // Consumers measuring on the stack's own plane start here; each seats its process axes with `with`.
     public static LayerMetric Of(SliceStack stack, int layer) => new(
+        layer,
         Area.FromSquareMillimeters(Math.Abs(stack.AreaAt(layer))),
         Length.FromMillimeters(stack.PerimeterAt(layer)),
         stack.CentroidAt(layer));
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class SliceRegion {
     // A declared constant, not a boundary value: the empty region carries no caller scalar, so it refuses at type
     // init rather than at an admission a caller could reach.
@@ -75,13 +151,13 @@ public sealed partial class SliceRegion {
     // per-pair containment test here re-decides a settled verdict once per layer inside a generated validator.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Seq<Loop> outers,
         ref Seq<Loop> holes) {
         if ((outers.IsEmpty && !holes.IsEmpty)
             || !outers.ForAll(static loop => loop.Closed)
             || !holes.ForAll(static loop => loop.Closed))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice-region:structure");
+            validationError = new ValidationError("slice-region:structure");
     }
 
     public static Fin<SliceRegion> Admit(Seq<Loop> outers, Seq<Loop> holes) =>
@@ -106,9 +182,9 @@ public sealed partial class SliceRegion {
     public static Fin<SliceRegion> Of(Seq<Loop> loops) => loops.IsEmpty
         ? Fin.Succ(Empty)
         : PolygonAlgebra.Apply(new PolygonOp.Topology(loops, PolygonFill.NonZero))
-            .Bind(static trace => trace is PolygonTrace.Regions regions
-                ? Parted(regions.Result)
-                : Fin.Fail<SliceRegion>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice-region:topology-receipt")));
+            .Bind(static trace => trace
+                .Regioned(new KernelFault.InvalidValue("slicing", "slice-region:topology-receipt"))
+                .Bind(Parted));
 
     public Fin<SliceRegion> Difference(SliceRegion other) =>
         IsEmpty || other.IsEmpty
@@ -144,9 +220,9 @@ public sealed partial class SliceRegion {
     public Fin<Area> PhysicalArea() => IsEmpty
         ? Fin.Succ(Area.Zero)
         : PolygonAlgebra.Apply(new PolygonOp.Measure(Loops, PolygonFill.NonZero))
-            .Bind(static trace => trace is PolygonTrace.Measured measured
-                ? Fin.Succ(Area.FromSquareMillimeters(measured.Result.FilledArea))
-                : Fin.Fail<Area>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice-region:measure-receipt")));
+            .Bind(static trace => trace
+                .Measure(new KernelFault.InvalidValue("slicing", "slice-region:measure-receipt"))
+                .Map(static measured => Area.FromSquareMillimeters(measured.FilledArea)));
 
     // The ONE occupancy rule every folder consumer reads: the NonZero winding sum over the admitted rings.
     public bool Covers(Point3d point) =>
@@ -167,17 +243,16 @@ public sealed partial class SliceRegion {
         IsEmpty
             ? Fin.Succ(Seq<Seq<Edge3>>())
             : PolygonAlgebra.Apply(new PolygonOp.ClipOpen(Seq(rays), Loops, PolygonFill.NonZero))
-                .Bind(static trace => trace is PolygonTrace.SplitRuns split
-                    ? Fin.Succ(split.Inside)
-                    : Fin.Fail<Seq<Seq<Edge3>>>(
-                        new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice-region:open-clip-receipt")));
+                .Bind(static trace => trace
+                    .Runs(new KernelFault.InvalidValue("slicing", "slice-region:open-clip-receipt"))
+                    .Map(static split => split.Inside));
 
     private static Fin<SliceRegion> Regions(PolygonOp operation) =>
-        PolygonAlgebra.Apply(operation).Bind(static trace => trace is PolygonTrace.Regions regions
-            ? Parted(regions.Result)
-            : Fin.Fail<SliceRegion>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice-region:region-receipt")));
+        PolygonAlgebra.Apply(operation).Bind(static trace => trace
+            .Regioned(new KernelFault.InvalidValue("slicing", "slice-region:region-receipt"))
+            .Bind(Parted));
 
-    private static Fin<SliceRegion> Parted(TopologyReceipt receipt) => Admit(
+    private static Fin<SliceRegion> Parted(RegionTopology receipt) => Admit(
         receipt.Nodes.Filter(static node => !node.IsHole).Map(static node => node.Boundary),
         receipt.Nodes.Filter(static node => node.IsHole).Map(static node => node.Boundary));
 
@@ -194,7 +269,8 @@ public sealed partial class SliceRegion {
 
 ## [03]-[BEAD_LAWS]
 
-- Owner: `BeadGeometry` owns the bead cross-section flow law; `ShellPolicy` owns wall count, solid depth, bead law, overlap resolution, and seam placement; `DepositionFeature` owns the deposition lane vocabulary and each lane's own feed factor; `FeedPolicy` owns the nominal feed and the minimum-layer-time cooling law; `DensityPolicy` owns spacing from density.
+- Owner: `BeadGeometry` owns the bead cross-section flow law; `ShellPolicy` owns wall count, solid depth, bead law, overlap resolution, seam placement, and the open-sheet law; `DepositionFeature` owns the deposition lane vocabulary and each lane's own feed factor; `FeedPolicy` owns the nominal feed and the minimum-layer-time cooling law; `DensityPolicy` owns spacing from density.
+- Law: an open contour is a SHELL question. Rejecting the stack and tracing a single wall are the two things a wall program can do with a boundary that never closes, so `OpenSheetLaw` rides `ShellPolicy` beside the wall count it governs — named loss: the law stops being readable off `InfillPolicy.Planar` without the shell hop; witness: both readers already hold the whole planar policy, and the seed column threads through `ShellPolicy.Admit` as its only producer.
 - Cases: `ShellOverlap` carries its coverage floor as a base column, so `Keep` is the row whose floor is one — nothing can be covered more than fully — and `Votes` derives rather than restating the row as a boolean. `SeamPlacement` closes nearest, rear, aligned, anchored, sharpest, and scattered placement.
 - Law: a feature's feed is `Default × factor` and the factor rides the feature's OWN row, so the axis is total by construction and a new lane arrives with its rate. A modality that genuinely differs supplies a sparse override; a per-modality table restating every lane strands whichever lane it forgets at the nominal rate silently.
 - Law: outer walls run at half nominal for surface finish and bridges below that for melt control over air; skin runs high because it lays over settled material; gap fill runs low because its geometry is short and irregular; travel runs above nominal because it deposits nothing. `Travel` and `SingleWall` deposit no volume and `Travel` sequencing belongs to the egress consumer, which prices its moves through `FeedPolicy.For`.
@@ -243,10 +319,12 @@ public abstract partial record ShellOverlap(Ratio CoveredFloor) {
     private static Ratio Full => Ratio.FromDecimalFractions(1.0);
 }
 
+// Open contours obey a LAW rather than a policy of their own: an open sheet either refuses the stack or prints as a single
+// wall, and both answers are shell behaviour, so the row rides `ShellPolicy` beside the wall count it governs.
 [SmartEnum]
-public sealed partial class OpenSheetPolicy {
-    public static readonly OpenSheetPolicy Reject = new();
-    public static readonly OpenSheetPolicy TraceOnly = new();
+public sealed partial class OpenSheetLaw {
+    public static readonly OpenSheetLaw Reject = new();
+    public static readonly OpenSheetLaw TraceOnly = new();
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -285,7 +363,6 @@ public sealed partial class DepositionFeature {
 
 // --- [MODELS] ---------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class BeadGeometry {
     public Length ExtrusionWidth { get; }
     public Length LayerHeight { get; }
@@ -297,7 +374,7 @@ public sealed partial class BeadGeometry {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Length extrusionWidth,
         ref Length layerHeight,
         ref Ratio thinWallBeadFloor,
@@ -306,7 +383,7 @@ public sealed partial class BeadGeometry {
             && layerHeight.Millimeters > 0.0
             && layerHeight.Millimeters <= extrusionWidth.Millimeters
             && thinWallBeadFloor.DecimalFractions is > 0.0 and <= 1.0))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Additive, "bead-geometry");
+            validationError = new ValidationError("bead-geometry");
     }
 
     public static Fin<BeadGeometry> Admit(Length extrusionWidth, Length layerHeight, Ratio thinWallBeadFloor, BeadSection section) =>
@@ -317,7 +394,6 @@ public sealed partial class BeadGeometry {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ShellPolicy {
     public int Count { get; }
     public int TopSolidLayers { get; }
@@ -325,16 +401,18 @@ public sealed partial class ShellPolicy {
     public ShellBeadLaw BeadLaw { get; }
     public ShellOverlap Overlap { get; }
     public SeamPlacement Seam { get; }
+    public OpenSheetLaw OpenSheets { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref int count,
         ref int topSolidLayers,
         ref int bottomSolidLayers,
         ref ShellBeadLaw beadLaw,
         ref ShellOverlap overlap,
-        ref SeamPlacement seam) {
+        ref SeamPlacement seam,
+        ref OpenSheetLaw openSheets) {
         if (!(count > 0
             && topSolidLayers >= 0
             && bottomSolidLayers >= 0
@@ -347,16 +425,17 @@ public sealed partial class ShellPolicy {
                 anchored: static law => law.At.IsValid,
                 sharpest: static law => law.MinimumTurn.Radians is > 0.0 and < Math.PI,
                 scattered: static law => law.Stride.Millimeters > 0.0)))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Additive, "shell-policy");
+            validationError = new ValidationError("shell-policy");
     }
 
     public static Fin<ShellPolicy> Admit(
-        int count, int topSolidLayers, int bottomSolidLayers, ShellBeadLaw beadLaw, ShellOverlap overlap, SeamPlacement seam) =>
-        Validate(count, topSolidLayers, bottomSolidLayers, beadLaw, overlap, seam, out ShellPolicy policy).Admitted(policy);
+        int count, int topSolidLayers, int bottomSolidLayers, ShellBeadLaw beadLaw, ShellOverlap overlap,
+        SeamPlacement seam, OpenSheetLaw openSheets) =>
+        Validate(count, topSolidLayers, bottomSolidLayers, beadLaw, overlap, seam, openSheets, out ShellPolicy policy)
+            .Admitted(policy);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class FeedPolicy {
     public Speed Default { get; }
     public HashMap<DepositionFeature, Ratio> Overrides { get; }
@@ -365,7 +444,7 @@ public sealed partial class FeedPolicy {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Speed @default,
         ref HashMap<DepositionFeature, Ratio> overrides,
         ref Duration minimumLayerTime,
@@ -374,7 +453,7 @@ public sealed partial class FeedPolicy {
             && overrides.ForAll(static pair => pair.Value.DecimalFractions > 0.0)
             && minimumLayerTime.Seconds >= 0.0
             && minimumCoolingFactor.DecimalFractions is > 0.0 and <= 1.0))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Additive, "feed-policy");
+            validationError = new ValidationError("feed-policy");
     }
 
     public static Fin<FeedPolicy> Admit(
@@ -397,7 +476,6 @@ public sealed partial class FeedPolicy {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class DensityPolicy {
     public Ratio Model { get; }
     public Ratio SupportSparse { get; }
@@ -407,7 +485,7 @@ public sealed partial class DensityPolicy {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Ratio model,
         ref Ratio supportSparse,
         ref Ratio supportInterface,
@@ -419,7 +497,7 @@ public sealed partial class DensityPolicy {
             && supportSparse > minimum
             && supportInterface > minimum
             && field.ForAll(static sampler => sampler is not null)))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Additive, "density-policy");
+            validationError = new ValidationError("density-policy");
     }
 
     public static Fin<DensityPolicy> Admit(
@@ -442,7 +520,7 @@ public sealed partial class DensityPolicy {
 - Owner: `CellPattern` is the FOLDER's site-cloud owner — `Additive/support` composes it for the tip field, so the lane-keyed placement body and its preimage exist once.
 - Law: the candidate draw composes the kernel `Deterministic.Unit` directly — stateless and lane-keyed on the candidate ordinal and axis — so candidate `i` is a pure function of `(seed, i)` and the admitted box, provably rather than by convention. A draw-law vocabulary sits at `Toolpath` today, which is S4 and upward of this plane; it belongs at the `Process` atoms floor, where four Fabrication consumers across S2 and S4 read one row and the kernel already owns the numerical substrate beneath it. Until it lands there, the inline placement is a composition of the ONE kernel owner and never a page-local draw-law fork.
 - Entry: `CellPattern.Seeds(BoundingBox)` resolves a drawn or explicit cloud.
-- Packages: `Rasm.Domain` (`Deterministic.Unit`); `Geometry2D/algebra` (`SitePolicy`, `PolygonOp.Cells`, `CellReceipt`, `SiteEdge`); `owner#RUN_DISPATCH` (`FabricationCanon.Discriminant`/`Rows`, `ContentKey.CanonicalBytes`); `UnitsNet`; Thinktecture; LanguageExt.
+- Packages: `Rasm.Domain` (`Deterministic.Unit`); `Geometry2D/algebra` (`SitePolicy`, `PolygonOp.Cells`, `CellDiagram`, `SiteEdge`); `owner#RUN_DISPATCH` (`FabricationCanon.Discriminant`/`Rows`, `ContentKey.CanonicalBytes`); `UnitsNet`; Thinktecture; LanguageExt.
 - Boundary: `Cells` mints no diagram — a page-local tessellator, relaxation loop, or draw stream is the deleted form.
 
 ```csharp signature
@@ -457,7 +535,6 @@ public sealed partial class InfillPatternKind {
 
 // --- [MODELS] ---------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class LineFamily {
     public Arr<Angle> Bearings { get; }
     public Angle LayerAdvance { get; }
@@ -470,7 +547,7 @@ public sealed partial class LineFamily {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Arr<Angle> bearings,
         ref Angle layerAdvance,
         ref int phasePeriod,
@@ -483,7 +560,7 @@ public sealed partial class LineFamily {
             || phasePeriod < 1
             || spanMultiplier < 1
             || phaseAdvance.DecimalFractions is < 0.0 or >= 1.0)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Additive, "line-family");
+            validationError = new ValidationError("line-family");
     }
 
     public static Fin<LineFamily> Admit(
@@ -539,20 +616,19 @@ public abstract partial record CellSites(CellSiteKind SiteKind) {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CellPattern {
     public CellSites Sites { get; }
     public SitePolicy Policy { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref CellSites sites,
         ref SitePolicy policy) {
         if (!sites.Switch(
             random: static source => source.Count > 0,
             @explicit: static source => !source.Points.IsEmpty && source.Points.ForAll(static point => point.IsValid)))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Additive, "cell-pattern");
+            validationError = new ValidationError("cell-pattern");
     }
 
     public static Fin<CellPattern> Admit(CellSites sites, SitePolicy policy) =>
@@ -600,14 +676,14 @@ public abstract partial record InfillPattern(InfillPatternKind PatternKind) {
 
 ## [05]-[DEPOSITION_POLICY]
 
-- Owner: `DepositionSeed` owns every per-modality policy column; `DepositionOverride` owns the three axes whose cases carry caller-owned payload; `InfillPolicy` owns the admitted planar or implicit plan; `AdditivePolicy` owns the `owner#RUN_FOLD` dispatch; `ShellRun` owns one wall with its ladder ordinal and grounding verdict; `InfillLayer` owns plane-local evidence.
-- Law: a modality is one ROW, never a factory. Every axis the entry once fixed is a column here, so `InfillPolicy.Of` selects nothing and each declared `InfillPattern`, `ShellBeadLaw`, `SeamPlacement`, and `OpenSheetPolicy` case reaches a producer.
+- Owner: `DepositionSeed` owns every per-modality policy column; `DepositionOverride` owns the three axes whose cases carry caller-owned payload; `InfillPolicy` owns the admitted planar or implicit plan; `AdditivePolicy` owns the `owner#POLICY` dispatch; `ShellRun` owns one wall with its ladder ordinal and grounding verdict; `InfillLayer` owns plane-local evidence.
+- Law: a modality is one ROW, never a factory. Every axis the entry once fixed is a column here, so `InfillPolicy.Of` selects nothing and each declared `InfillPattern`, `ShellBeadLaw`, `SeamPlacement`, and `OpenSheetLaw` case reaches a producer.
 - Law: arc tolerance is a FRACTION of the admitted bead, never an absolute chord. One millimetre figure is invisible on a forty-millimetre cementitious bead and ruinous on a four-tenths filament bead, so the offset policy derives from the width the caller admitted rather than sitting as a shared constant.
 - Law: a wall's feature derives from its ladder ordinal and its grounding verdict — a bridging wall is a bridge whatever its ordinal, otherwise ordinal zero is the outer wall and the rest are inner. Three parallel shell collections restating one stream is the deleted form.
 - Cases: `ShellRun` carries `Wall`, `Path`, and `Bridging`; `DepositionOverride` carries pattern, bead law, and seam, each unsupplied slot deriving from the seed's own column.
 - Entry: `InfillPolicy.Of(DepositionSeed, …, Option<DepositionOverride>)` admits caller scalars through each owner's own `Validate`, so no boundary value reaches a throwing `Create`; `InfillPolicy.Admitted` gates the couplings no single owner proves.
 - Auto: `AdditivePolicy.Admit` is the one gate over every case's caller-owned egress delegate, so no downstream site re-checks it.
-- Packages: `owner#RUN_FOLD` (`FabricationPolicy.Additive`, `FabricationInput`, `FabricationResult.AdditiveResult`); `Process/faults` (`FabricationFault`, `Admission`); `Additive/support` (`SupportPlan`, `SupportPolicy`); `Additive/scanpath` (`ScanPolicy`); `Additive/production` (`BuildPolicy`, `BuildJob`, `BuildOutcome`); `Additive/implicit` (`ImplicitOp`); `Rasm.Element` (`AdmissionSlots`); `Rasm.Meshing` (`LayerPlan`, `SlicePolicy`).
+- Packages: `Process/owner` (`FabricationPolicy.Additive`, `FabricationInput`, `FabricationResult.AdditiveResult`); `Process/faults` (`FabricationFault`, `Admission`); `Additive/support` (`SupportPlan`, `SupportPolicy`); `Additive/scanpath` (`ScanPolicy`); `Additive/production` (`AdditiveBuild`, `BuildJob`, `BuildOutcome`); `Additive/implicit` (`ImplicitOp`); `Rasm.Element` (`AdmissionSlots`); `Rasm.Meshing` (`LayerPlan`, `SlicePolicy`).
 - Boundary: a shell or cell failure flattened to empty geometry is the erased-rail defect; travel sequencing between deposition rows belongs to the egress consumer; result payloads carry owner atoms and content keys only.
 
 ```csharp signature
@@ -634,7 +710,7 @@ public sealed partial class DepositionSeed {
         pattern: new InfillPattern.Lines(LineSeed.Alternating.Family),
         overlap: new ShellOverlap.GapFill(Ratio.FromPercent(50.0), Length.FromMillimeters(0.05)),
         beadLaw: new ShellBeadLaw.Constant(), seam: new SeamPlacement.Rear(),
-        openSheets: OpenSheetPolicy.Reject, coolingFloor: Ratio.FromPercent(20.0),
+        openSheets: OpenSheetLaw.Reject, coolingFloor: Ratio.FromPercent(20.0),
         arcToleranceFraction: Ratio.FromPercent(2.5), groundingAllowance: Ratio.FromPercent(50.0),
         feedOverrides: HashMap<DepositionFeature, Ratio>());
     // Pellet: screw-fed melt rate is not cooling-limited, so no minimum layer time and no cooling scaling.
@@ -645,7 +721,7 @@ public sealed partial class DepositionSeed {
         pattern: new InfillPattern.Lines(LineSeed.Aligned.Family),
         overlap: new ShellOverlap.Drop(Ratio.FromPercent(50.0)),
         beadLaw: new ShellBeadLaw.Constant(), seam: new SeamPlacement.Nearest(),
-        openSheets: OpenSheetPolicy.Reject, coolingFloor: Ratio.FromPercent(100.0),
+        openSheets: OpenSheetLaw.Reject, coolingFloor: Ratio.FromPercent(100.0),
         arcToleranceFraction: Ratio.FromPercent(2.5), groundingAllowance: Ratio.FromPercent(50.0),
         feedOverrides: HashMap<DepositionFeature, Ratio>());
     // A DED bead restarts at a fresh station every layer — a stacked seam welds one cold column through the wall —
@@ -657,7 +733,7 @@ public sealed partial class DepositionSeed {
         pattern: new InfillPattern.Lines(LineSeed.Alternating.Family),
         overlap: new ShellOverlap.Keep(), beadLaw: new ShellBeadLaw.Constant(),
         seam: new SeamPlacement.Scattered(Length.FromMillimeters(12.0)),
-        openSheets: OpenSheetPolicy.Reject, coolingFloor: Ratio.FromPercent(100.0),
+        openSheets: OpenSheetLaw.Reject, coolingFloor: Ratio.FromPercent(100.0),
         arcToleranceFraction: Ratio.FromPercent(5.0), groundingAllowance: Ratio.FromPercent(100.0),
         feedOverrides: HashMap((DepositionFeature.BridgeShell, Ratio.FromPercent(70.0))));
     // Printed concrete lays contour-parallel beads, prints open single-wall runs so the sheet gate traces rather
@@ -669,7 +745,7 @@ public sealed partial class DepositionSeed {
         minimumLayerTime: Duration.FromSeconds(30.0),
         pattern: new InfillPattern.Concentric(), overlap: new ShellOverlap.Keep(),
         beadLaw: new ShellBeadLaw.Constant(), seam: new SeamPlacement.Aligned(Angle.Zero),
-        openSheets: OpenSheetPolicy.TraceOnly, coolingFloor: Ratio.FromPercent(50.0),
+        openSheets: OpenSheetLaw.TraceOnly, coolingFloor: Ratio.FromPercent(50.0),
         arcToleranceFraction: Ratio.FromPercent(1.0), groundingAllowance: Ratio.FromPercent(25.0),
         feedOverrides: HashMap((DepositionFeature.OuterShell, Ratio.FromPercent(80.0))));
 
@@ -684,7 +760,7 @@ public sealed partial class DepositionSeed {
     public ShellOverlap Overlap { get; }
     public ShellBeadLaw BeadLaw { get; }
     public SeamPlacement Seam { get; }
-    public OpenSheetPolicy OpenSheets { get; }
+    public OpenSheetLaw OpenSheets { get; }
     public Ratio CoolingFloor { get; }
     public Ratio ArcToleranceFraction { get; }
 
@@ -714,7 +790,6 @@ public abstract partial record InfillPolicy {
         Angle InfillAngle,
         FeedPolicy Feeds,
         DensityPolicy Density,
-        OpenSheetPolicy OpenSheets,
         OffsetPolicy Offset,
         Ratio GroundingAllowance,
         Func<Seq<DepositionPath>, int, Fin<AdditiveResult>> Egress,
@@ -733,17 +808,19 @@ public abstract partial record InfillPolicy {
         Func<Seq<DepositionPath>, int, Fin<AdditiveResult>> egress,
         Option<DepositionOverride> overrides = default) =>
         from _egress in AdmissionSlots
-            .Gate(egress is not null, Refusal("infill-egress")).As().ToFin()
+            .Gate(egress is not null, FabConcern.Additive, "slice:infill-egress", FabricationFault.Inadmissible)
+            .As().ToFin()
         from bead in BeadGeometry.Admit(extrusionWidth, layerHeight, seed.BeadFloor, seed.Section)
         from shells in ShellPolicy.Admit(
             seed.Shells, seed.Top, seed.Bottom,
             overrides.Bind(static row => row.BeadLaw).IfNone(seed.BeadLaw),
             seed.Overlap,
-            overrides.Bind(static row => row.Seam).IfNone(seed.Seam))
+            overrides.Bind(static row => row.Seam).IfNone(seed.Seam),
+            seed.OpenSheets)
         from feeds in FeedPolicy.Admit(feed, seed.FeedOverrides, seed.MinimumLayerTime, seed.CoolingFloor)
         let policy = new Planar(
             overrides.Bind(static row => row.Pattern).IfNone(seed.Pattern),
-            bead, shells, seed.InfillAngle, feeds, density, seed.OpenSheets,
+            bead, shells, seed.InfillAngle, feeds, density,
             Offsetting(seed, bead), seed.GroundingAllowance, egress)
         from _admitted in Admitted(policy)
         select policy;
@@ -752,11 +829,15 @@ public abstract partial record InfillPolicy {
     // left is what crosses two owners.
     internal static Fin<Unit> Admitted(InfillPolicy policy) => policy.Switch(
         planar: static row => (
-            Gate(double.IsFinite(row.InfillAngle.Radians), "infill-angle"),
-            Gate(row.Pattern is not InfillPattern.Generated generated || generated.Key.Digest != UInt128.Zero, "generated-content-key"),
-            Gate(row.Density.Spacing(row.Density.Minimum, row.Bead.ExtrusionWidth) >= row.Bead.ExtrusionWidth, "density-bead-floor"),
-            Gate(row.Feeds.MinimumCoolingFactor.DecimalFractions * row.Feeds.Default.MetersPerSecond > 0.0, "cooling-feed-floor"),
-            Gate(row.GroundingAllowance.DecimalFractions is >= 0.0 and <= 1.0, "grounding-allowance"))
+            AdmissionSlots.Gate(double.IsFinite(row.InfillAngle.Radians), FabConcern.Additive, "slice:infill-angle", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(row.Pattern is not InfillPattern.Generated generated || generated.Key.Digest != UInt128.Zero,
+                FabConcern.Additive, "slice:generated-content-key", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(row.Density.Spacing(row.Density.Minimum, row.Bead.ExtrusionWidth) >= row.Bead.ExtrusionWidth,
+                FabConcern.Additive, "slice:density-bead-floor", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(row.Feeds.MinimumCoolingFactor.DecimalFractions * row.Feeds.Default.MetersPerSecond > 0.0,
+                FabConcern.Additive, "slice:cooling-feed-floor", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(row.GroundingAllowance.DecimalFractions is >= 0.0 and <= 1.0,
+                FabConcern.Additive, "slice:grounding-allowance", FabricationFault.Inadmissible))
             .Apply(static (_, _, _, _, _) => unit).As().ToFin(),
         @implicit: static _ => Fin.Succ(unit));
 
@@ -771,11 +852,6 @@ public abstract partial record InfillPolicy {
     // A miter reaching past twice the offset distance degrades to its bevel chord — the kernel's own clamp law.
     private const double MiterLimit = 2.0;
 
-    private static K<Validation<Error>, Unit> Gate(bool holds, string locus) =>
-        AdmissionSlots.Gate(holds, Refusal(locus));
-
-    private static Error Refusal(string locus) =>
-        new FabricationFault.PolicyInadmissible(FabConcern.Additive, $"slice:{locus}");
 }
 
 public sealed record InfillLayer(
@@ -801,7 +877,7 @@ public abstract partial record AdditivePolicy {
         LayerPlan Plan, SlicePolicy Slice, ScanPolicy Policy,
         ProcessBudget.Powder Budget, Option<SupportPolicy> Support) : AdditivePolicy;
     public sealed record Build(
-        BuildPolicy Policy,
+        AdditiveBuild Policy,
         BuildJob Job,
         Func<BuildOutcome, Fin<FabricationResult>> Egress) : AdditivePolicy;
 
@@ -811,7 +887,7 @@ public abstract partial record AdditivePolicy {
         scan: static _ => Fin.Succ(unit),
         build: static row => row.Egress is not null
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:build-egress")));
+            : Fin.Fail<Unit>(new KernelFault.InvalidValue("slicing", "slice:build-egress")));
 }
 ```
 
@@ -853,28 +929,28 @@ public static partial class Slice {
         InfillPolicy policy,
         Option<IProgress<double>> progress = default) =>
         stack.LayerCount == 0
-            ? Fin.Fail<AdditiveResult>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:empty-stack"))
+            ? Fin.Fail<AdditiveResult>(new KernelFault.InvalidValue("slicing", "slice:empty-stack"))
             : from _admitted in InfillPolicy.Admitted(policy)
               from result in policy.Switch(
                   state: (Stack: stack, Progress: progress),
                   planar: static (state, plan) =>
-                      from _gate in Gate(state.Stack, plan.OpenSheets)
+                      from _gate in Gate(state.Stack, plan.Shells.OpenSheets)
                       from settled in Planar(state.Stack, plan, state.Progress)
                       select settled,
                   @implicit: static (state, plan) =>
-                      from _gate in Gate(state.Stack, OpenSheetPolicy.Reject)
+                      from _gate in Gate(state.Stack, OpenSheetLaw.Reject)
                       from settled in Voxel(plan.Op, state.Progress)
                       select settled)
               select result;
 
-    internal static Fin<Unit> Gate(SliceStack stack, OpenSheetPolicy open) =>
+    internal static Fin<Unit> Gate(SliceStack stack, OpenSheetLaw open) =>
         toSeq(Enumerable.Range(0, stack.LayerCount))
             .Map(layer => (Layer: layer, Open: stack.LayerAt(layer).Filter(static chain => !chain.Closed).Count))
             .Filter(static row => row.Open > 0)
             .Head
             .Match(
                 None: () => Fin.Succ(unit),
-                Some: row => open == OpenSheetPolicy.Reject
+                Some: row => open == OpenSheetLaw.Reject
                     ? Fin.Fail<Unit>(new FabricationFault.NonManifoldSlice(row.Layer, row.Open))
                     : Fin.Succ(unit));
 
@@ -893,14 +969,14 @@ public static partial class Slice {
         from paths in Paths(layers, policy, tolerance)
         from _deposited in paths.Exists(static row => row.Material > Volume.Zero)
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:no-deposition"))
+            : Fin.Fail<Unit>(new KernelFault.InvalidValue("slicing", "slice:no-deposition"))
         from result in Capture(() => policy.Egress(paths, layers.Count), "slice:egress")
         select result;
 
     // The implicit lane hands its sink to the provider's own trailing parameter; it deposits no planar move, so
     // the empty move row is the measured truth of a voxel egress rather than a forged one.
     private static Fin<AdditiveResult> Voxel(ImplicitOp op, Option<IProgress<double>> progress) =>
-        Implicit.Cli(op, progress)
+        Sdf.Cli(op, progress)
             .Map(static cli => new AdditiveResult(Seq<Move>(), cli.Layers, Seq(cli.Key).Concat(cli.Masks)));
 
     private static Fin<InfillLayer> Layer(
@@ -909,7 +985,7 @@ public static partial class Slice {
         int layer,
         InfillPolicy.Planar policy,
         Context tolerance) =>
-        from traces in policy.OpenSheets == OpenSheetPolicy.TraceOnly
+        from traces in policy.Shells.OpenSheets == OpenSheetLaw.TraceOnly
             ? OpenTraces(stack, layer, tolerance)
             : Fin.Succ(Seq<Loop>())
         let metric = LayerMetric.Of(stack, layer)
@@ -974,10 +1050,9 @@ public static partial class Slice {
                             .ToArr())
                         .ToArr()),
                     JoinType.Round, EndType.Closed, state.Policy.Offset))
-                .Bind(static trace => trace is PolygonTrace.Regions regions
-                    ? Fin.Succ(regions.Result.Nodes.Map(static node => node.Boundary))
-                    : Fin.Fail<Seq<Loop>>(
-                        new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:variable-offset-receipt"))));
+                .Bind(static trace => trace
+                    .Regioned(new KernelFault.InvalidValue("slicing", "slice:variable-offset-receipt"))
+                    .Map(static topology => topology.Nodes.Map(static node => node.Boundary))));
 
     private static Length Ladder(int wall, Length width) =>
         Length.FromMillimeters((wall + 0.5) * width.Millimeters);
@@ -1146,13 +1221,12 @@ public static partial class Slice {
     // list repeats every interior wall twice and re-emits the outline the shell already lays down.
     private static Fin<Seq<Edge3>> Cells(SliceRegion region, Length elevation, CellPattern policy) =>
         from boundary in region.Loops.Head
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:cell-boundary"))
+            .ToFin(new KernelFault.InvalidValue("slicing", "slice:cell-boundary"))
         from trace in PolygonAlgebra.Apply(
             new PolygonOp.Cells(policy.Seeds(boundary.Bound()), boundary, policy.Policy),
             Op.Of(name: nameof(Cells)))
-        from diagram in trace is PolygonTrace.Celled celled
-            ? Fin.Succ(celled.Result)
-            : Fin.Fail<CellReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:cell-trace"))
+        from diagram in trace.Diagram(
+            new KernelFault.InvalidValue("slicing", "slice:cell-trace"))
         select toSeq(diagram.Adjacency).Map(edge => new Edge3(
             new Point3d(edge.Start.X, edge.Start.Y, elevation.Millimeters),
             new Point3d(edge.End.X, edge.End.Y, elevation.Millimeters)));
@@ -1243,7 +1317,7 @@ public static partial class Slice {
     private static Fin<SliceStack> Sliced(FabricationInput input, LayerPlan plan, SlicePolicy slice) =>
         input.Model.Match(
             None: () => Fin.Fail<SliceStack>(
-                new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:model-missing")),
+                new KernelFault.InvalidValue("slicing", "slice:model-missing")),
             Some: model => Slicing.Apply(new SliceOp(model, Plane.WorldXY, plan, slice)));
 
     // An open chain carries no duplicate terminal, so every point admits.
@@ -1259,13 +1333,8 @@ public static partial class Slice {
     private static Unit Reached(Option<IProgress<double>> progress, int settled, int planned) =>
         progress.Iter(sink => sink.Report(planned <= 0 ? 1.0 : (double)settled / planned));
 
-    // The locus stays the bounded token every consumer keys on; the trapped foreign text rides beside it as its
-    // own accumulated error, so no unbounded prose enters the key space and no cause is lost.
     private static Fin<T> Capture<T>(Func<Fin<T>> callback, string locus) =>
-        Try.lift<Fin<T>>(callback)
-            .Run()
-            .MapFail(error => (Error)new FabricationFault.PolicyInadmissible(FabConcern.Additive, locus) + error)
-            .Bind(static result => result);
+        Op.Of(name: locus).Catch(callback);
 
     private static Point3d Centre(BoundingBox bound) => (bound.Min + bound.Max) * 0.5;
 }
@@ -1284,7 +1353,7 @@ internal sealed record RingWalk(Seq<Loop> Rings, Length At, SliceRegion From, bo
 - Law: a loop whose sharpest corner never reaches the demanded turn has NO sharp seam to place; absence is the answer and the rear extremal is the declared fallback. A negative-infinity rank silently returning vertex zero places every such seam at whichever vertex the offset happened to emit first.
 - Entry: `Sources` is the one row-source table; a new deposition lane is one row and every arm stays untouched.
 - Auto: seam resolution runs in arc space through `ProfileOp.Closest` and `ProfileOp.Sample`, which integrate the true span where a vertex scan reads only chord endpoints; the turn a `Sharpest` seam ranks is the vertex chord angle, which is what a corner means to a bead laid through it.
-- Packages: `owner#GEOMETRY_ATOMS` (`Loop.Apply`, `ProfileOp.Measure`/`Closest`/`Sample`, `ProfileResult`, `Loop.RotateStart`); `UnitsNet`; LanguageExt.
+- Packages: `atoms#GEOMETRY` (`Loop.Apply`, `ProfileOp.Measure`/`Closest`/`Sample`, `ProfileResult`, `Loop.RotateStart`); `UnitsNet`; LanguageExt.
 - Boundary: travel sequencing between deposition rows belongs to the egress consumer, which prices its moves through `FeedPolicy.For(DepositionFeature.Travel)`.
 
 ```csharp signature
@@ -1362,7 +1431,7 @@ public static partial class Slice {
             .Bind(static result => result is ProfileResult.Measure measure
                 ? Fin.Succ(measure.Path)
                 : Fin.Fail<Length>(
-                    new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:path-measure-receipt")))
+                    new KernelFault.InvalidValue("slicing", "slice:path-measure-receipt")))
             .Map(extent => new DepositionPath(
                 path,
                 feature,
@@ -1408,19 +1477,19 @@ public static partial class Slice {
                 ? Fin.Succ((closest.Value.SegStartIndex,
                     new Point3d(closest.Value.SegPoint.X, closest.Value.SegPoint.Y, path.Plane)))
                 : Fin.Fail<(int Segment, Point3d Point)>(
-                    new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:seam-closest-receipt")));
+                    new KernelFault.InvalidValue("slicing", "slice:seam-closest-receipt")));
 
     private static Fin<(int Segment, Point3d Point)> Scattered(Loop path, int layer, Length stride) =>
         from measured in path.Apply(new ProfileOp.Measure())
         from extent in measured is ProfileResult.Measure measure
             ? Fin.Succ(measure.Path)
-            : Fin.Fail<Length>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:seam-measure-receipt"))
+            : Fin.Fail<Length>(new KernelFault.InvalidValue("slicing", "slice:seam-measure-receipt"))
         from sampled in path.Apply(new ProfileOp.Sample(Length.FromMillimeters(
             extent.Millimeters <= 0.0 ? 0.0 : (stride.Millimeters * layer) % extent.Millimeters)))
         from start in sampled is ProfileResult.Sampled row
             ? Fin.Succ((row.Segment, row.Point))
             : Fin.Fail<(int Segment, Point3d Point)>(
-                new FabricationFault.PolicyInadmissible(FabConcern.Additive, "slice:seam-sample-receipt"))
+                new KernelFault.InvalidValue("slicing", "slice:seam-sample-receipt"))
         select start;
 
     private static int Rear(Loop path) => Extremal(path, static point => point.Y);
@@ -1462,7 +1531,7 @@ config:
 flowchart LR
     accTitle: Additive slicing dispatch and fill
     accDescr: Additive policy dispatches slicing, scan, or production while planar slicing reads the kernel forest, walks the wall ladder, resolves skin and support, and projects deposition paths.
-    Demand["owner#RUN_FOLD Additive case"] --> Solve["Slice.Solve — Layers · Scan · Build"]
+    Demand["owner#POLICY Additive case"] --> Solve["Slice.Solve — Layers · Scan · Build"]
     Solve --> Kernel["Meshing/slice Slicing.Apply"]
     Kernel --> Stack["SliceStack — LayerPlan heights · Parent forest · typed open rows"]
     Stack --> Gate["open-row gate → NonManifoldSlice"]
@@ -1483,7 +1552,7 @@ flowchart LR
     Fill --> Egress["Sources table → seam · cooling → DepositionPath"]
     Egress --> Deposited["deposition gate — zero volume refuses"]
     Deposited --> Result["AdditiveResult moves · layers · content keys"]
-    Solve --> ImplicitRoute["Implicit.Cli(op, progress) — mode-routed egress"]
+    Solve --> ImplicitRoute["Sdf.Cli(op, progress) — mode-routed egress"]
     Solve --> ScanLane["Scan.Plan — Powder budget carried typed"]
     Solve --> Build["Production.Plan → BuildOutcome egress"]
     ImplicitRoute --> Result

@@ -263,28 +263,42 @@ const Primitive: Primitive.Shape = {
 - Law: consumers compose the port, never the Web API — the palette copy-command (`view/overlay#PALETTE`) and the probe copy-evidence affordance (`viewer/probe`) reach the clipboard only through this Tag; a `navigator.clipboard` read in a row is the named defect.
 - Law: this port owns its own permission custody because the platform's grant axis cannot carry it — `PermissionName` closes without a clipboard member, so no generic permissions port can answer for this capability and the verdict has to travel with the capability itself; `granted` is therefore a stream rather than a read, since a mount-time verdict renders a revoked capability as available for the rest of the session.
 - Boundary: this port owns the PASTE BUFFER and nothing else — the file system and the share sheet are `view/export`'s `Egress` capability, so a save, a download, and a share are that port's rows while a copy and a paste are these; the two are one concern only from the user's side, and folding either into the other puts a permission-gated system dialog behind a synchronous clipboard call.
-- Growth: a blob/image lane is one member row on THIS service shape — never a second clipboard port; a new refusal condition is one family row with its core kind.
+- Law: a refusal names the VERB it refused — the user agent stops a copy and a paste on different grounds, and a caller re-offering has to know which half it lost, so the verb is the row's own declared subject rather than context the catch site reconstructs from where it stood.
+- Growth: a blob/image lane is one member row on THIS service shape — never a second clipboard port; a new refusal condition is one family row carrying its core class, leg, subject, and renderer.
 
 ```typescript signature
 import { Fault } from "@rasm/ts/core"
 import { Context, Schema, type Effect, type Stream } from "effect"
 
+// the port's two verbs ARE the refusal subject, so the literal is declared once and both rows render off it
+const _Verb = Schema.Literal("copy", "paste")
+
 const _family = Fault.Class.family(
   ["denied", "unavailable"] as const,
   {
-    denied: { class: "denied" },
-    unavailable: { class: "unavailable" },
+    denied: Fault.Class.row({
+      class: "denied",
+      leg: "clipboard",
+      detail: Schema.Struct({ verb: _Verb }),
+      render: ({ verb }) => `user agent denied the clipboard ${verb}`,
+    }),
+    unavailable: Fault.Class.row({
+      class: "unavailable",
+      leg: "clipboard",
+      detail: Schema.Struct({ verb: _Verb }),
+      render: ({ verb }) => `clipboard ${verb} is unreachable in this context`,
+    }),
   },
 )
 
 class ClipboardFault extends Schema.TaggedError<ClipboardFault>()("ClipboardFault", {
-  reason: _family.schema,
+  case: _family.payload,
 }) {
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
   }
   override get message(): string {
-    return `<clipboard:${this.reason}>`
+    return _family.render(this.case)
   }
 }
 

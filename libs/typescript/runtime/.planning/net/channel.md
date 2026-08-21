@@ -28,7 +28,6 @@ import {
     type Channel,
     type Chunk,
     Context,
-    Data,
     Duration,
     Effect,
     Either,
@@ -102,22 +101,38 @@ const Duplex = { framed: _framed } as const;
 - Packages: `@effect/experimental`, `@effect/platform`, `effect`, `./client.ts`, and `@rasm/ts/core` (`Fault.Budget`).
 
 ```typescript signature
+// Only a GRADED response carries a status, so that column rides the `media` row alone: an `Option<number>` on the
+// shared carrier let a transport refusal declare a slot it could never fill, and every reader paid an arm for a case
+// that never arrived. The cursor rides both, because a reattach position is what either refusal resumes from.
 const _feedFamily = Fault.Class.family(['transport', 'media'] as const, {
-    transport: { class: 'unavailable' },
-    media: { class: 'unavailable' },
+    transport: Fault.Class.row({
+        class: 'unavailable',
+        leg: 'feed',
+        detail: Schema.Struct({ origin: Schema.String, cursor: Schema.OptionFromSelf(Schema.String) }),
+        render: ({ origin, cursor }) =>
+            `${origin} feed dial failed at ${Option.getOrElse(cursor, () => '<stream-head>')}`,
+    }),
+    media: Fault.Class.row({
+        class: 'unavailable',
+        leg: 'feed',
+        detail: Schema.Struct({
+            origin: Schema.String,
+            status: Schema.Int,
+            cursor: Schema.OptionFromSelf(Schema.String),
+        }),
+        render: ({ origin, status, cursor }) =>
+            `${origin} answered ${status} without text/event-stream at ${Option.getOrElse(cursor, () => '<stream-head>')}`,
+    }),
 });
 
-class FeedFault extends Data.TaggedError('FeedFault')<{
-    readonly origin: string;
-    readonly reason: (typeof _feedFamily.reasons)[number];
-    readonly status: Option.Option<number>;
-    readonly cursor: Option.Option<string>;
-}> {
+class FeedFault extends Schema.TaggedError<FeedFault>()('FeedFault', {
+    case: _feedFamily.payload,
+}) {
     get class(): Fault.Class.Kind {
-        return _feedFamily.classOf(this.reason);
+        return _feedFamily.classOf(this.case.reason);
     }
     override get message(): string {
-        return `<feed:${this.reason}> ${this.origin}`;
+        return _feedFamily.render(this.case);
     }
 }
 
@@ -172,11 +187,15 @@ const _pulled = (
                 ? Effect.succeed(
                       response.stream.pipe(Stream.decodeText(), Stream.pipeThroughChannel(Sse.makeChannel({ bufferSize: session.buffer }))),
                   )
-                : Effect.fail(new FeedFault({ origin: session.origin.href, reason: 'media', status: Option.some(response.status), cursor })),
+                : Effect.fail(
+                      new FeedFault({ case: { reason: 'media', origin: session.origin.href, status: response.status, cursor } }),
+                  ),
         ),
     ).pipe(
         Stream.mapError((fault) =>
-            fault instanceof FeedFault ? fault : new FeedFault({ origin: session.origin.href, reason: 'transport', status: Option.none(), cursor }),
+            fault instanceof FeedFault
+                ? fault
+                : new FeedFault({ case: { reason: 'transport', origin: session.origin.href, cursor } }),
         ),
     );
 
@@ -197,10 +216,10 @@ const _session = (session: Feed.Session): Stream.Stream<Sse.Event, FeedFault, Ht
 
 [MQTT_SEAM]:
 - Owner: `Mqtt` — the MQTT v5 channel. `Mqtt.Broker` carries origin, default delivery grade, default retain posture, and keepalive; `Mqtt.live(broker)` brackets one publisher client, while `open(topics)` brackets its own subscription client and listener. `consume(topics, handler)` is the admitted handling ingress, handing each frame beside its extracted `mqtt` carrier. No client or emitter crosses an app boundary.
-- Law: causal context crosses this seam as DATA, holding the page lead's telemetry-blind law on this cluster too — `consume` extracts the `mqtt` dialect through core `Carrier` and hands the context beside the frame, so the consuming seam continues through `otel/emit#CONTINUATION`'s one transformer at its own stratum; a publisher reads its live context at its own seam and hands it into `publish`, which injects it through the exact `mqtt` dialect before the binding band lands — this floor module composes no telemetry import.
+- Law: causal context crosses this seam as DATA, holding the page lead's telemetry-blind law on this cluster too — `consume` extracts the `mqtt` dialect through core `Carrier` and hands the whole `Carrier.Extraction` beside the frame, its parse-drop census included, so the consuming seam continues through `otel/emit#CONTINUATION`'s one transformer at its own stratum; a publisher reads its live context at its own seam and hands it into `publish`, which injects it through the exact `mqtt` dialect before the binding band lands — this floor module composes no telemetry import.
 - Law: MQTT v5 User Properties carry the `Carrier` frame on publish and consume, and the BINDING owns that namespace whole for an envelope publish — MQTT alone spreads attribute names unprefixed, so the creation-time trace the roster extensions carry and the hop trace the carrier writes collide on three keys, and the binding writing last is what keeps the sealed attribute rather than the hop overwriting it.
 - Law: message-envelope bodies select `MQTT.binary` and `Mqtt.event` reads the FRAME before decoding — `Format.event.framed` recovers format and arity in one prefix comparison, `MQTTMessageFactory` mints the frame the binding reads, and one entry answers both arities because the media type already decided which arrived.
-- Law: the Avro event format decodes on this lane alone — `Avro` mints the ONE `Type` from the frozen `io.cloudevents.AvroCloudEvent` schema, byte-pinned to `tests/contracts/cloudevents.avsc`, and `Avro.event` is the fill-seam admission the core avro row's empty arm declares, so this seam and the HTTP intake read one codec and no second `Type` mints anywhere.
+- Law: the Avro event format decodes on this lane alone — `Avro` mints the ONE `Type` from the frozen `io.cloudevents.AvroCloudEvent` schema, byte-pinned to `tests/contracts/cloudevents.avsc`, and `Avro.event` is the `Lane`-seat admission the core avro row's empty arm declares, so this seam and the HTTP intake read one codec and no second `Type` mints anywhere.
 - Law: `open` preserves the ordered raw-frame lane.
 - Law: a subscription is a POLICY ROW, never a filter under one broker grade — `Mqtt.Topic` carries the per-subscription v5 axes the protocol decides (grade, no-local, retain-as-published, retain-handling) and `_mqttSubscription` folds every selector modality into one `ISubscriptionMap`; a bare filter still admits and takes the broker row's grade, so `local` is expressible per topic and one client publishing and consuming one filter no longer re-reads its own posts.
 - Law: a post is a POLICY ROW on the same law — v5 decides grade, retain, message expiry, and the response/correlation pair PER PUBLISH PACKET, so `Mqtt.Post` carries them and `_mqttPublish` folds the row against the broker defaults into one `IClientPublishOptions`; a bare topic string still admits, and `dup` stays foreclosed because the client raises it on its own redelivery and a caller setting it forges a replay marker.
@@ -210,28 +229,50 @@ const _session = (session: Feed.Session): Stream.Stream<Sse.Event, FeedFault, Ht
 - Law: subscription admission is evidence — every `subscribeAsync` grant is inspected, any `qos: 128` refusal fails the typed `grant` rail before a message stream escapes, and the refusal NAMES the filters the broker rejected rather than reporting that some filter failed.
 - Law: terminal events carry unequal evidence and `_MQTT_TERMINALS` keeps it — only `error` holds a cause and only `disconnect` holds a v5 reason code, so one nullary handler across all four discards the sole diagnosis the seam receives; `offline` names a client still retrying beneath an ended stream, never a dead transport. Failed subscription or grant admission ends the minted client before the fault escapes; successful acquisition transfers that client to the stream scope. Message and lifecycle listeners share the stream scope; `close`, `error`, `disconnect`, and `offline` terminate the stream once, and release ends the client before detaching the complete listener row.
 - Law: Raw frames keep opaque bytes; message-envelope callers cross only through the MQTT binding projection, and a raw publish keeps the hop carrier whole because no binding claims its User Properties.
-- Packages: `mqtt`, `cloudevents`, `avsc` (`Type`, `schema` — the host-bound engine behind the fill seam), `effect`, `node:buffer`, and `@rasm/ts/core` (`Carrier`, `Fault`, `Format`).
+- Packages: `mqtt`, `cloudevents`, `avsc` (`Type`, `schema` — the host-bound engine riding the `Lane` seat), `effect`, `node:buffer`, and `@rasm/ts/core` (`Carrier`, `Fault`, `Format`).
 
 ```typescript signature
+// `reason` bands the fault and the row's own subject proves it: four bands cover fourteen mint sites, so without the
+// operand that decided one, a refused grant, a server disconnect, and a binding rejection all read as one string.
+// `grant` is the row that earns a shaped subject — the refused FILTERS themselves, in an array the render joins —
+// because that is the fact a caller repairs from, and a joined string forced every reader to re-split it.
+const _MqttOrigin = Schema.Struct({ origin: Schema.String, detail: Schema.String });
+
 const _mqttFamily = Fault.Class.family(['dial', 'grant', 'event', 'publish'] as const, {
-    dial: { class: 'unavailable' },
-    grant: { class: 'malformed' },
-    event: { class: 'malformed' },
-    publish: { class: 'unavailable' },
+    dial: Fault.Class.row({
+        class: 'unavailable',
+        leg: 'mqtt',
+        detail: Schema.Struct({ origin: Schema.String, cause: Schema.String }),
+        render: ({ origin, cause }) => `${origin} mqtt transport failed: ${cause}`,
+    }),
+    grant: Fault.Class.row({
+        class: 'malformed',
+        leg: 'mqtt',
+        detail: Schema.Struct({ origin: Schema.String, filters: Schema.NonEmptyArray(Schema.String) }),
+        render: ({ origin, filters }) => `${origin} broker refused filters ${Array.join(filters, '|')}`,
+    }),
+    event: Fault.Class.row({
+        class: 'malformed',
+        leg: 'mqtt',
+        detail: _MqttOrigin,
+        render: ({ origin, detail }) => `${origin} refused the event frame: ${detail}`,
+    }),
+    publish: Fault.Class.row({
+        class: 'unavailable',
+        leg: 'mqtt',
+        detail: _MqttOrigin,
+        render: ({ origin, detail }) => `${origin} refused the publish: ${detail}`,
+    }),
 });
 
-class MqttFault extends Data.TaggedError('MqttFault')<{
-    readonly origin: string;
-    readonly reason: (typeof _mqttFamily.reasons)[number];
-    // `reason` bands the fault and `detail` proves it: four bands cover fourteen mint sites, so without the operand
-    // that decided one, a refused grant, a server disconnect, and a binding rejection all read as one string.
-    readonly detail: string;
-}> {
+class MqttFault extends Schema.TaggedError<MqttFault>()('MqttFault', {
+    case: _mqttFamily.payload,
+}) {
     get class(): Fault.Class.Kind {
-        return _mqttFamily.classOf(this.reason);
+        return _mqttFamily.classOf(this.case.reason);
     }
     override get message(): string {
-        return `<mqtt:${this.reason}> ${this.origin}: ${this.detail}`;
+        return _mqttFamily.render(this.case);
     }
 }
 
@@ -354,11 +395,13 @@ const _mqttBody = (message: MQTTMessage, origin: string): Effect.Effect<Uint8Arr
             : Effect.flatMap(
                   Effect.try({
                       try: () => JSON.stringify(message.body),
-                      catch: (cause) => new MqttFault({ origin, reason: 'publish', detail: `<unserializable-body:${String(cause)}>` }),
+                      catch: (cause) =>
+                          new MqttFault({ case: { reason: 'publish', origin, detail: `<unserializable-body:${String(cause)}>` } }),
                   }),
                   (json) =>
                       Option.match(Option.fromNullable(json), {
-                          onNone: () => Effect.fail(new MqttFault({ origin, reason: 'publish', detail: '<body-stringify-undefined>' })),
+                          onNone: () =>
+                              Effect.fail(new MqttFault({ case: { reason: 'publish', origin, detail: '<body-stringify-undefined>' } })),
                           onSome: (held) => Effect.succeed(_mqttUtf8.write.encode(held)),
                       }),
               );
@@ -479,16 +522,21 @@ const _AvroEnvelope: Schema.Schema<CloudEventV1<unknown>, typeof _AvroTree.Encod
 
 const Avro = {
     engine: _avroEngine,
-    // Core law holds the avro row's arm empty, so this admission is statically present; a `None` here means the row
-    // gained a core engine and this lane's fill became the second mint the seam refuses.
-    event: Option.getOrThrow(Format.event.fill('avro', _avroEngine, _AvroEnvelope)),
+    // The demand is the codec pair alone — this lane decodes one envelope at a time and MQTT publishes no batch arm —
+    // and the engine enters on a `Lane` seat because core law holds the avro row's arm empty. A refusal here means
+    // the row gained a core engine and this lane's mint became the second codec the seam denies, so it throws the
+    // named refusal rather than degrading to a decoder that never learned the media type.
+    event: Either.getOrThrowWith(
+        Format.event.admitted('avro', Format.event.demand(), _AvroEnvelope, Format.event.seat.Lane({ engine: _avroEngine })),
+        (missing) => missing,
+    ),
 } as const;
 
-// `cloudevents` decodes JSON alone, so the avro framing routes through the fill-seam admission rather than a
+// `cloudevents` decodes JSON alone, so the avro framing routes through the lane-seat admission rather than a
 // decoder that refuses a media type it never learned.
 const _avroDecoded = (frame: Mqtt.Frame, origin: string): Effect.Effect<Array.NonEmptyReadonlyArray<CloudEventV1<unknown>>, MqttFault> =>
     Effect.mapBoth(Schema.decodeUnknown(Avro.event)(frame.body), {
-        onFailure: (issue) => new MqttFault({ origin, reason: 'event', detail: `<avro-rejected:${issue.message}>` }),
+        onFailure: (issue) => new MqttFault({ case: { reason: 'event', origin, detail: `<avro-rejected:${issue.message}>` } }),
         onSuccess: (envelope) => Array.of(envelope),
     });
 
@@ -520,14 +568,14 @@ const _mqttDecoded = (
     Effect.flatMap(
         Effect.try({
             try: () => decode(message),
-            catch: (cause) => new MqttFault({ origin, reason: 'event', detail: `<toevent-rejected:${String(cause)}>` }),
+            catch: (cause) => new MqttFault({ case: { reason: 'event', origin, detail: `<toevent-rejected:${String(cause)}>` } }),
         }),
         (decoded) =>
             pipe(
                 globalThis.Array.isArray(decoded) ? decoded : [decoded],
                 Option.liftPredicate(Array.isNonEmptyReadonlyArray),
                 Option.match({
-                    onNone: () => Effect.fail(new MqttFault({ origin, reason: 'event', detail: '<empty-event-frame>' })),
+                    onNone: () => Effect.fail(new MqttFault({ case: { reason: 'event', origin, detail: '<empty-event-frame>' } })),
                     onSome: Effect.succeed,
                 }),
             ),
@@ -539,7 +587,7 @@ const _mqttDecoded = (
 // therefore refuses BY FORMAT, naming the codec no binding here decodes, rather than by an arity the frame proved.
 const _mqttEvent = (frame: Mqtt.Frame, origin: string): Effect.Effect<Array.NonEmptyReadonlyArray<CloudEventV1<unknown>>, MqttFault> =>
     Option.match(_mqttFraming(frame), {
-        onNone: () => Effect.fail(new MqttFault({ origin, reason: 'event', detail: '<not-a-cloudevent-message>' })),
+        onNone: () => Effect.fail(new MqttFault({ case: { reason: 'event', origin, detail: '<not-a-cloudevent-message>' } })),
         onSome: (framed) =>
             Option.match(Option.filter(framed, (framing) => framing.batch), {
                 onNone: () =>
@@ -558,7 +606,7 @@ const _mqttEvent = (frame: Mqtt.Frame, origin: string): Effect.Effect<Array.NonE
                               HTTP.toEvent<unknown>,
                           )
                         : Effect.fail(
-                              new MqttFault({ origin, reason: 'event', detail: `<no-batch-decoder:${framing.format}>` }),
+                              new MqttFault({ case: { reason: 'event', origin, detail: `<no-batch-decoder:${framing.format}>` } }),
                           ),
             }),
     });
@@ -566,7 +614,7 @@ const _mqttEvent = (frame: Mqtt.Frame, origin: string): Effect.Effect<Array.NonE
 const _mqttConnect = (broker: Mqtt.Broker): Effect.Effect<MqttClient, MqttFault> =>
     Effect.tryPromise({
         try: () => connectAsync(broker.origin.href, { protocolVersion: 5, keepalive: broker.keepalive }),
-        catch: (cause) => new MqttFault({ origin: broker.origin.href, reason: 'dial', detail: String(cause) }),
+        catch: (cause) => new MqttFault({ case: { reason: 'dial', origin: broker.origin.href, cause: String(cause) } }),
     });
 
 // Terminal rows carry what each event actually knows: only `error` holds a cause and only `disconnect` holds a v5
@@ -627,16 +675,19 @@ const _mqttOpen = (broker: Mqtt.Broker, topics: Mqtt.Selector): Stream.Stream<Mq
                 return yield* Effect.gen(function* () {
                     const grants = yield* Effect.tryPromise({
                         try: () => client.subscribeAsync(_mqttSubscription(broker, topics)),
-                        catch: (cause) => new MqttFault({ origin: broker.origin.href, reason: 'dial', detail: String(cause) }),
+                        catch: (cause) =>
+                            new MqttFault({ case: { reason: 'dial', origin: broker.origin.href, cause: String(cause) } }),
                     });
                     // Refused filters name THEMSELVES: a bare boolean leaves a caller re-subscribing every filter to
                     // find which one the broker's ACL rejected, and a partial grant is the common shape, never the rare one.
+                    // The match is what PROVES the roster non-empty, so the refusal's own array column cannot carry a
+                    // vacuous grant and no length test guards a shape the type already closes.
                     const refused = grants.filter((grant) => grant.qos === 128).map((grant) => grant.topic);
-                    if (refused.length > 0) {
-                        return yield* Effect.fail(
-                            new MqttFault({ origin: broker.origin.href, reason: 'grant', detail: `<refused:${refused.join('|')}>` }),
-                        );
-                    }
+                    yield* Array.match(refused, {
+                        onEmpty: () => Effect.void,
+                        onNonEmpty: (filters) =>
+                            Effect.fail(new MqttFault({ case: { reason: 'grant', origin: broker.origin.href, filters } })),
+                    });
                     let terminated = false;
                     const message = (topic: string, body: Uint8Array, packet: IPublishPacket) => {
                         if (terminated) return;
@@ -651,7 +702,9 @@ const _mqttOpen = (broker: Mqtt.Broker, topics: Mqtt.Selector): Stream.Stream<Mq
                         if (terminated) return;
                         terminated = true;
                         void emit.fail(
-                            new MqttFault({ origin: broker.origin.href, reason: 'dial', detail: _MQTT_TERMINALS[event].detail(evidence) }),
+                            new MqttFault({
+                                case: { reason: 'dial', origin: broker.origin.href, cause: _MQTT_TERMINALS[event].detail(evidence) },
+                            }),
                         );
                     };
                     const terminals = Record.map(_MQTT_TERMINALS, (_row, event) => terminate(event as Mqtt.Terminal));
@@ -663,7 +716,8 @@ const _mqttOpen = (broker: Mqtt.Broker, topics: Mqtt.Selector): Stream.Stream<Mq
                         Effect.orDie(
                             Effect.tryPromise({
                                 try: () => client.endAsync(),
-                                catch: (cause) => new MqttFault({ origin: broker.origin.href, reason: 'dial', detail: String(cause) }),
+                                catch: (cause) =>
+                                    new MqttFault({ case: { reason: 'dial', origin: broker.origin.href, cause: String(cause) } }),
                             }),
                         ),
                     ),
@@ -682,7 +736,8 @@ const _mqttOpen = (broker: Mqtt.Broker, topics: Mqtt.Selector): Stream.Stream<Mq
                                 }
                             }
                         },
-                        catch: (cause) => new MqttFault({ origin: broker.origin.href, reason: 'dial', detail: String(cause) }),
+                        catch: (cause) =>
+                            new MqttFault({ case: { reason: 'dial', origin: broker.origin.href, cause: String(cause) } }),
                     }),
                 ),
         ),
@@ -693,7 +748,7 @@ class Mqtt extends Context.Tag('runtime/Mqtt')<
     {
         readonly consume: (
             topics: Mqtt.Selector,
-            handler: (frame: Mqtt.Frame, carrier: Carrier.Context) => Effect.Effect<void, MqttFault>,
+            handler: (frame: Mqtt.Frame, carrier: Carrier.Extraction) => Effect.Effect<void, MqttFault>,
         ) => Effect.Effect<void, MqttFault>;
         readonly event: (frame: Mqtt.Frame) => Effect.Effect<Array.NonEmptyReadonlyArray<CloudEventV1<unknown>>, MqttFault>;
         readonly open: (topics: Mqtt.Selector) => Stream.Stream<Mqtt.Frame, MqttFault>;
@@ -719,14 +774,16 @@ class Mqtt extends Context.Tag('runtime/Mqtt')<
                     Effect.orDie(
                         Effect.tryPromise({
                             try: () => client.endAsync(),
-                            catch: (cause) => new MqttFault({ origin: broker.origin.href, reason: 'dial', detail: String(cause) }),
+                            catch: (cause) =>
+                                new MqttFault({ case: { reason: 'dial', origin: broker.origin.href, cause: String(cause) } }),
                         }),
                     )),
                 (publisher) => ({
                     consume: (topics, handler) =>
                         Stream.runForEach(_mqttOpen(broker, topics), (frame) =>
-                            // extraction is the core dialect read this floor may perform; the handler's own stratum
-                            // continues the hop through the one ingress transformer
+                            // extraction is the core dialect read this floor may perform, and it crosses WHOLE: the
+                            // handler's own stratum continues the hop through the one ingress transformer, which is
+                            // what publishes the parse-drop census this floor measures but never reads
                             handler(frame, Carrier.extract('mqtt', frame.band)),
                         ),
                     event: (frame) => _mqttEvent(frame, broker.origin.href),
@@ -738,7 +795,13 @@ class Mqtt extends Context.Tag('runtime/Mqtt')<
                                       Effect.try({
                                           try: () => MQTT.binary(body),
                                           catch: (cause) =>
-                                              new MqttFault({ origin: broker.origin.href, reason: 'publish', detail: `<binary-binding-rejected:${String(cause)}>` }),
+                                              new MqttFault({
+                                                  case: {
+                                                      reason: 'publish',
+                                                      origin: broker.origin.href,
+                                                      detail: `<binary-binding-rejected:${String(cause)}>`,
+                                                  },
+                                              }),
                                       }),
                                       (message) => ({
                                           message,
@@ -776,7 +839,9 @@ class Mqtt extends Context.Tag('runtime/Mqtt')<
                                         Effect.tryPromise({
                                             try: () => publisher.publishAsync(topic, Buffer.from(payload), options),
                                             catch: (cause) =>
-                                                new MqttFault({ origin: broker.origin.href, reason: 'publish', detail: String(cause) }),
+                                                new MqttFault({
+                                                    case: { reason: 'publish', origin: broker.origin.href, detail: String(cause) },
+                                                }),
                                         }),
                                 ).pipe(Effect.asVoid),
                         ),

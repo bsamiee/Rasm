@@ -2,7 +2,7 @@
 
 `DesignProblem` is the gradient-driven inverse-design apex built on the autodifferentiable solver chain and closed by no other owner: a `Field` objective over the `solvers/mesh#MESH_FIELD` assembled system, a parametric-`Mesh` objective, and a material-distribution `Density` objective, each driven to a stationary point through `optimistix.minimise`/`least_squares` over the Equinox-partitioned JAX floor. Every Optimistix entry carries the default `optimistix.ImplicitAdjoint`, so the gradient `solvers/sensitivity#SENSITIVITY` pulls back is the implicit-function-theorem gradient of the converged solution, never the iteration trace. This owner composes the solver, sensitivity, and assembly owners; it never re-owns a solve, never runs a training loop, and never stands a parallel optimizer surface beside the converged solve.
 
-`OutcomeReceipt` is the one optimization-outcome owner this page and `optimization/program#PROGRAM` share — the `design` convergence verdict and the `program` feasibility verdict are two cases of one union, both carrying the `SolveStatus` vocabulary `solvers/receipt#RECEIPT` owns — while `ConvexReceipt` stays distinct because the KKT certificate has no field here. A numpy central-difference floor reports the gradient-norm residual behind the `_backend` import guard, so a run without the jaxlib package never returns `Error(Import)`; the converged design graduates on the existing `solver` axis through `OutcomeReceipt.graduates`, the shared projection clearing each case's numeric facts against its `_OUTCOME_CEILING` row.
+`OutcomeReceipt` is the one optimization-outcome owner this page and `optimization/program#PROGRAM` share — the `design` convergence verdict and the `program` feasibility verdict are two cases of one union, both carrying the `SolveStatus` vocabulary `solvers/receipt#RECEIPT` owns — while `ConvexReceipt` stays distinct because the KKT certificate has no field here. A numpy central-difference floor reports the gradient-norm residual behind an import guard scoped to the `DesignEngine.gated()` dereference ALONE, so a run without the jaxlib package never returns `Error(Import)` while an `ImportError` out of the gated solve itself stays the defect it is; the converged design graduates on the existing `solver` axis through `OutcomeReceipt.graduates`, the shared projection clearing each case's numeric facts against its `_OUTCOME_CEILING` row.
 
 ## [01]-[INDEX]
 
@@ -14,9 +14,9 @@
 - Cases: `Objective` owns TWO shape-keyed projections of one `fn` because the solver and the receipt consume different reductions — `target` feeds `least_squares` the raw residual VECTOR (a pre-reduced `½‖r‖²` scalar collapses the LM Jacobian to a degenerate 1-element solve) while `cost` folds the `(reduced, reported)` receipt pair as the value-and-grad aux, never a re-traced second pass; `Descent.admits` gates an engine override — `Levenberg` requires the `RESIDUAL` route, the scalar minimisers require `SCALAR` — as a typed `Error(BoundaryFault)` on the rail before the wrong solve entry; the `FirstOrder` chain leads `optax.zero_nans()` before `clip_by_global_norm` because a NaN gradient from a diverged inner solve is not boundable by a clip.
 - Law: the `program` case carries a stability band and a certificate size the retained-solver backend alone fills and the facade leaves absent — the settled per-case optional-slot precedent, where the `xla` case alone carries its `TraceEvidence` band — so a backend's extra evidence lands as slots on the one shared receipt rather than a second receipt beside it. Absence is the honest state and the ledger drops it: an unmeasured slot never floats, so the hub's key-coverage gate refuses a crossing whose ceiling names a quantity that backend never measured. The `program` objective and violation follow the same rule on a refusal, while a `design` solve's non-finite objective is a MEASURED non-finite value and still rails at the hub's finiteness admission — a measurement that came out non-finite and a measurement nobody took are two states, and only the second spells absence.
 - Entry: the solve runs `throw=False` so a non-`successful` `Solution.result` reaches the receipt as its mapped `SolveStatus` rather than raising; `_design_key` folds each leaf's ordinal and shape with the iterate-determining `descent`/`restarts`/`seed` policy, so structurally distinct PyTrees or a re-solve under a different engine never collide on the boundary-erasing flatten; the x64-gated descent declares the HOSTILE trait because `DesignEngine.gated()` mutates process-global x64 state, with the module-level `_solve_kernel` crossing by reference, a closure shipping by value at the crossing owner.
-- Receipt: `_OUTCOME_SLOTS` owns the case payloads so `.facts` is one total strict zip — a slot row that drifts from its payload raises rather than truncating evidence, and never a reflective `getattr(self, self.tag)` whose `object` residual makes the `assert_never` tail a lie; the verdict folds through the receipt-owned shared `status_of`/`verdict` folds, never a page-local `RESULTS` inversion. `graduates` is the one solver-axis crossing on the shared owner — the case's MEASURED numeric facts project as the ledger, `_OUTCOME_CEILING` supplies the governed default bar a caller's tighter row overrides, and the `_OUTCOME_SCOPE` row names the owner off the case tag rather than reconstructing a scope value the vocabulary owns.
+- Receipt: both cases settle on the ONE `runtime/observability/receipts#RECEIPT` spine — key, provenance, warning band, and stamp are its columns, and the retired `converged` bool collapses onto the band, which names WHICH `SolveStatus` held rather than erasing eight members into one cell. `_OUTCOME_SLOTS` owns the case payloads so `.facts` is one total strict zip — a slot row that drifts from its payload raises rather than truncating evidence, and never a reflective `getattr(self, self.tag)` whose `object` residual makes the `assert_never` tail a lie; the verdict folds through the receipt-owned shared `status_of`/`verdict` folds, never a page-local `RESULTS` inversion. `graduates` is the one solver-axis crossing on the shared owner — the case's MEASURED numeric facts project as the ledger, `_OUTCOME_CEILING` supplies the governed default bar a caller's tighter row overrides, and the `_OUTCOME_SCOPE` row names the owner off the case tag rather than reconstructing a scope value the vocabulary owns.
 - Packages: `RESULTS.promote` is deliberately unused — it widens a member across `Enumeration` classes and raises on a same-class member, so the multi-start reduction is the `jnp.max` code fold; the numpy floor runs over real arrays only, never a JAX PyTree, and its one-hot perturbation never materializes a dense `np.eye(x0.size)` basis a realistic SIMP density field cannot afford; the quadrature weak-form assembly enters transitively through `solvers/mesh`, never as a direct dependency here.
-- Growth: a new provenance is one `DesignProblem` case and one `_DEFAULT_DESCENT` row; a new objective shape is one `Shape` member with its `_objective`/`target`/`cost`/`_floor_cost` arms, all `assert_never`-closed; a new descent engine is one `Descent` case mapping to its constructor in `Descent.solver`; a new feasibility constraint is one `Feasible` member and one `_feasible` row; a new gated module is one `DesignEngine` field and one `gated()` import line; a new evidence field is one `_OUTCOME_SLOTS` slot with its case-tuple position and no `contribute` edit, a backend-specific one landing optional so every other backend leaves it absent; a new outcome case is one `_OUTCOME_SLOTS`, `_OUTCOME_CEILING`, and `_OUTCOME_SCOPE` row; a tighter graduation bar is one `_OUTCOME_CEILING` row; a multi-start ensemble is the seeded `filter_vmap` restart axis already on `solve`.
+- Growth: a new provenance is one `DesignProblem` case and one `_DEFAULT_DESCENT` row; a new objective shape is one `Shape` member with its `_objective`/`target`/`cost`/`_floor_cost` arms, all `assert_never`-closed; a new descent engine is one `Descent` case mapping to its constructor in `Descent.solver`; a new feasibility constraint is one `Feasible` member and one `_feasible` row; a new gated module is one `DesignEngine` field and one `gated()` import line; a new evidence field is one `_OUTCOME_SLOTS` slot with its case-tuple position and no `contribute` edit; the answering engine is the `Provider` column the shared receipt owner seats, never a page-local vocabulary, a backend-specific one landing optional so every other backend leaves it absent; a new outcome case is one `_OUTCOME_SLOTS`, `_OUTCOME_CEILING`, and `_OUTCOME_SCOPE` row; a tighter graduation bar is one `_OUTCOME_CEILING` row; a multi-start ensemble is the seeded `filter_vmap` restart axis already on `solve`.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -24,20 +24,20 @@ import functools
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import TYPE_CHECKING, Literal, Self, assert_never
+from typing import TYPE_CHECKING, Final, Literal, Self, assert_never
 
 import numpy as np
-from expression import Error, case, tag, tagged_union
-from expression.collections import Map
+from expression import Error, Some, case, tag, tagged_union
+from expression.collections import Block, Map
 from msgspec import Struct
 
-from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, evidence_run
-from rasm.compute.solvers.receipt import SolveStatus, graduate, status_of, verdict
+from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, GraduationReceipt, evidence_run
+from rasm.compute.solvers.receipt import Provider, SolveStatus, graduate, status_of, verdict
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary
+from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, boundary, rostered
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
-from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
+from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
 
 if TYPE_CHECKING:  # annotation carriers only; every runtime bind rides the `DesignEngine` carrier behind its x64 config seam
     import jax
@@ -78,7 +78,7 @@ _MAX_STEPS: int = 256
 # evidence slots are filled by the retained-solver backend alone and left absent by the facade, exactly as the `xla`
 # case alone carries its `TraceEvidence` band — a per-case optional slot, never a second receipt beside this one.
 _OUTCOME_SLOTS: Map[str, tuple[str, ...]] = Map.of_seq([
-    ("design", ("problem", "objective", "residual", "iterations", "status", "key")),
+    ("design", ("problem", "objective", "residual", "iterations", "provider", "status", "key")),
     ("program", ("program", "objective", "status", "violation", "fragility", "witness", "key")),
 ])
 
@@ -129,12 +129,17 @@ class Objective(Struct, frozen=True):
 @tagged_union(frozen=True)
 class OutcomeReceipt:
     tag: Literal["design", "program"] = tag()
-    design: tuple[str, float, float, int, SolveStatus, ContentKey] = case()
+    design: tuple[str, float, float, int, Provider, SolveStatus, ContentKey] = case()
     program: tuple[str, float | None, SolveStatus, float | None, float | None, int | None, ContentKey] = case()
 
     @classmethod
-    def Design(cls, problem: str, objective: float, residual: float, iterations: int, status: SolveStatus, content_key: ContentKey) -> Self:
-        return cls(design=(problem, objective, residual, iterations, status, content_key))
+    def Design(
+        cls, problem: str, objective: float, residual: float, iterations: int, provider: Provider, status: SolveStatus, content_key: ContentKey
+    ) -> Self:
+        # `provider` carries NO default, on the `solvers/receipt#RECEIPT` law: the numpy central-difference floor
+        # publishes `iterations=0` and a `status_of` grade off one probe, which a converged implicit-adjoint solve
+        # can also produce, so without the column a caller reads a one-shot finite-difference estimate as a solve.
+        return cls(design=(problem, objective, residual, iterations, provider, status, content_key))
 
     @classmethod
     def Program(
@@ -187,10 +192,22 @@ class OutcomeReceipt:
                 assert_never(unreachable)
 
     def contribute(self) -> Iterable[Receipt]:
-        # owner spelling resolves through the `_OUTCOME_SCOPE` row off the case tag, so the shared union never mints a
-        # third spelling and never reconstructs a scope value the vocabulary already owns.
-        facts: dict[str, object] = {"converged": self.converged, **self.facts}
-        return (Receipt.of(_OUTCOME_SCOPE[self.tag].value, ("emitted", self.tag, facts)),)
+        # ONE settled-receipt spine, shared by both cases: owner spelling resolves through the `_OUTCOME_SCOPE` row off
+        # the case tag, so the shared union never mints a third spelling and never reconstructs a scope value the
+        # vocabulary already owns. The retired `converged` BOOL collapses onto the warning band, which names WHICH
+        # verdict held instead of erasing eight `SolveStatus` members into one true/false cell; a cleared solve
+        # publishes an empty band. `consumed` is EMPTY and honest — the design key derives from the problem's own
+        # params, not from an upstream keyed operand, so naming one would forge a lineage this owner never walked.
+        band = Block.empty() if self.converged else Block.singleton(f"unconverged:{self.status.value}")
+        return (
+            Receipt.of(
+                _OUTCOME_SCOPE[self.tag].value,
+                ("emitted", self.tag, dict(self.facts)),
+                key=Some(self.content_key),
+                provenance=Some(Provenance(consumed=Block.empty(), produced=self.content_key)),
+                band=band,
+            ),
+        )
 
     def graduates(self, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[GraduationReceipt]":
         # ONE solver-axis crossing for both cases: measured numeric facts project as the ledger — an absent slot is
@@ -340,16 +357,33 @@ async def solve(
     return await evidence_run(EvidenceScope.DESIGN, f"design.{problem.tag}", dispatch, facts=facts, composition=composition)
 
 
+# this page's raise-side roster under the hub `ComputeLeg` seat: one lift-FENCE row carrying no slots, and one
+# refusal row whose three coordinates are its declared `slots`, so the arity proves at the raise. The retired
+# `f"design.{problem.tag}"` subject forked both laws across every provenance; the problem tag rides the refusal's own
+# slot and the weave's span facts, where a trace already filters on it.
+DESIGN_SOLVE: Final[FaultRow[ComputeLeg]] = FaultRow(
+    leg=ComputeLeg.DESIGN, point="solve", arm="boundary", defect="solve-refused", retriability=TERMINAL
+)
+DESIGN_SHAPE: Final[FaultRow[ComputeLeg]] = FaultRow(
+    leg=ComputeLeg.DESIGN, point="descent", arm="config", defect="shape-mismatch", retriability=TERMINAL,
+    slots=("descent", "problem", "shape"),
+)
+RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([DESIGN_SOLVE, DESIGN_SHAPE]))
+
+
 def _solve_kernel(problem: "DesignProblem", chosen: "Descent", restarts: int, seed: int) -> "RuntimeRail[OutcomeReceipt]":
+    # `catch` stays IMPORT-FREE by construction: naming `equinox.EquinoxRuntimeError` here would reify the gated jax
+    # tree at every call and defeat the numpy floor an absent jaxlib depends on, so the equinox and jax runtime
+    # families admit through their `RuntimeError` base while the floor's own numpy surface names its types exactly.
     return boundary(
-        f"design.{problem.tag}",
+        DESIGN_SOLVE,
         lambda: _backend(problem, chosen, restarts, seed) if chosen.admits(problem.carried.shape) else _mismatch(problem, chosen),
+        catch=(np.linalg.LinAlgError, ValueError, TypeError, RuntimeError),
     ).bind(lambda r: r)
 
 
 def _mismatch(problem: "DesignProblem", descent: "Descent") -> "RuntimeRail[OutcomeReceipt]":
-    detail = f"{descent.tag} does not admit {problem.tag} objective shape {problem.carried.shape}"
-    return Error(BoundaryFault(boundary=(f"design.{problem.tag}", detail)))
+    return Error(DESIGN_SHAPE.raised(descent.tag, problem.tag, str(problem.carried.shape)))
 
 
 def _backend(problem: "DesignProblem", descent: "Descent", restarts: int, seed: int) -> "RuntimeRail[OutcomeReceipt]":
@@ -360,17 +394,22 @@ def _backend(problem: "DesignProblem", descent: "Descent", restarts: int, seed: 
 
 
 def _backend_outcome(tag: str, objective: "Objective", descent: "Descent", restarts: int, seed: int) -> "Callable[[ContentKey], OutcomeReceipt]":
+    # the `try` scopes the IMPORT SEAM ALONE — `DesignEngine.gated()` IS the jaxlib dereference. A whole-fold funnel
+    # here re-routes an `ImportError` raised anywhere inside the gated solve (an optax sub-import, an equinox lazy
+    # member, a jax backend plugin load) onto the numpy central-difference floor and publishes a `Design` receipt
+    # whose caller cannot tell a converged implicit-adjoint solve from a one-shot finite-difference probe.
     try:
-        return _optimistix(tag, objective, descent, restarts, seed)
+        engine = DesignEngine.gated()
     except ImportError:
         return _floor(tag, objective)
+    return _optimistix(engine, tag, objective, descent, restarts, seed)
 
 
-def _optimistix(tag: str, objective: "Objective", descent: "Descent", restarts: int, seed: int) -> "Callable[[ContentKey], OutcomeReceipt]":
-    # ONE x64 config seam for the whole gated route: every jax dereference below is reached through `engine`, so none can
-    # precede the `jax_enable_x64` promotion `gated()` runs. A missing jaxlib raises its `ImportError` here, under the
-    # `_backend_outcome` guard that routes to the numpy floor.
-    engine = DesignEngine.gated()
+def _optimistix(
+    engine: "DesignEngine", tag: str, objective: "Objective", descent: "Descent", restarts: int, seed: int
+) -> "Callable[[ContentKey], OutcomeReceipt]":
+    # ONE x64 config seam for the whole gated route: every jax dereference below is reached through `engine`, so none
+    # can precede the `jax_enable_x64` promotion `gated()` ran at the seam above.
     eqx, jnp, optx = engine.eqx, engine.jnp, engine.optx
     design, static = eqx.partition(objective.params, eqx.is_inexact_array)
     op = _objective(engine)[objective.shape]
@@ -408,7 +447,7 @@ def _optimistix(tag: str, objective: "Objective", descent: "Descent", restarts: 
     (_, reported), gradient = eqx.filter_value_and_grad(functools.partial(objective.cost, engine), has_aux=True)(converged)
     objective_value, residual = float(reported), float(optx.max_norm(gradient))
     status = status_of(verdict(jnp, optx.RESULTS, solution.result), residual, _TOL)
-    return lambda key: OutcomeReceipt.Design(tag, objective_value, residual, steps, status, key)
+    return lambda key: OutcomeReceipt.Design(tag, objective_value, residual, steps, Provider.GATED, status, key)
 
 
 def _floor(tag: str, objective: "Objective") -> "Callable[[ContentKey], OutcomeReceipt]":
@@ -418,7 +457,7 @@ def _floor(tag: str, objective: "Objective") -> "Callable[[ContentKey], OutcomeR
     cost, reported = _floor_cost(objective, unravel)
     residual = _central_difference_norm(cost, x0)
     status = status_of(None, residual, _TOL)  # the no-adjudicator floor: `status_of` grades NONFINITE/SUCCESS/STAGNATION
-    return lambda key: OutcomeReceipt.Design(tag, reported(x0), residual, 0, status, key)
+    return lambda key: OutcomeReceipt.Design(tag, reported(x0), residual, 0, Provider.FLOOR, status, key)
 
 
 def _floor_cost(

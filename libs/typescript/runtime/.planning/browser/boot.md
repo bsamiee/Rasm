@@ -24,7 +24,7 @@
 ```typescript signature
 import { BrowserRuntime, BrowserStream, Clipboard, Geolocation, Permissions } from "@effect/platform-browser"
 import { Fault, Identity } from "@rasm/ts/core"
-import { Array, Context, Data, Effect, Layer, ManagedRuntime, Option, Record, Schema, Stream, Subscribable, SubscriptionRef } from "effect"
+import { Array, Context, Effect, Layer, ManagedRuntime, Option, Record, Schema, Stream, Subscribable, SubscriptionRef } from "effect"
 import type { Client } from "../net/client.ts"
 
 const _LANES = ["live", "batch", "feed"] as const satisfies ReadonlyArray<Client.Lane>
@@ -107,7 +107,7 @@ class Boot extends Context.Tag("runtime/browser/AppSpec")<Boot, AppSpec>() {
 - Receipt: `wake` answers `boolean` — registration accepted or capability absent — so boot stamps the wake posture without a probe, while a refused registration rides the rail because an agent that just refused is re-drivable and an absent capability never is.
 - Growth: a new ambient signal (battery, memory pressure, page freeze) is one cell and one owned fold on this service — never a sibling owner, never a consumer-side listener.
 - Boundary: `otel/vital` owns RUM measurement; this cluster owns only the runtime-state cells its flush edges read; what drains on a redial is `shell#REPLAY_DRAIN`'s law.
-- Packages: `effect` (`Data`, `Effect`, `Option`, `Record`, `Stream`, `Subscribable`, `SubscriptionRef`); `@effect/platform-browser` (`BrowserStream.fromEventListenerWindow`, `BrowserStream.fromEventListenerDocument`); `@rasm/ts/core` (`Fault.Class`).
+- Packages: `effect` (`Effect`, `Option`, `Record`, `Schema`, `Stream`, `Subscribable`, `SubscriptionRef`); `@effect/platform-browser` (`BrowserStream.fromEventListenerWindow`, `BrowserStream.fromEventListenerDocument`); `@rasm/ts/core` (`Fault.Class`).
 
 ```typescript signature
 const _GRADES = { "4g": "swift", "3g": "steady", "2g": "strained", "slow-2g": "strained" } as const
@@ -115,8 +115,20 @@ const _GRADES = { "4g": "swift", "3g": "steady", "2g": "strained", "slow-2g": "s
 // Only what the agent DECIDED reaches the rail: a surface it never ships stays a value the cell carries, a descriptor
 // it cannot parse blames the caller, and a registration or query it turns down is re-drivable once conditions move.
 const _connectFamily = Fault.Class.family(["unparsed", "refused"] as const, {
-  unparsed: { class: "absent" },
-  refused: { class: "denied" },
+  unparsed: Fault.Class.row({
+    class: "absent",
+    leg: "signal",
+    detail: Schema.Struct({ name: Schema.String }),
+    render: ({ name }) => `the agent parses no permission descriptor named ${name}`,
+  }),
+  // The refused surfaces are a CLOSED pair — the permission query and the background-sync registration — so the
+  // column is a literal a reader can exhaust rather than a free string every new probe silently widens.
+  refused: Fault.Class.row({
+    class: "denied",
+    leg: "signal",
+    detail: Schema.Struct({ surface: Schema.Literal("permissions.query", "sync.register"), cause: Schema.String }),
+    render: ({ surface, cause }) => `the agent refused ${surface}: ${cause}`,
+  }),
 })
 
 declare namespace Connect {
@@ -124,20 +136,14 @@ declare namespace Connect {
   type Profile = { readonly grade: Grade; readonly frugal: boolean }
 }
 
-declare namespace ConnectFault {
-  type Reason = (typeof _connectFamily.reasons)[number]
-}
-
-class ConnectFault extends Data.TaggedError("ConnectFault")<{
-  readonly reason: ConnectFault.Reason
-  readonly surface: string
-  readonly detail: string
-}> {
+class ConnectFault extends Schema.TaggedError<ConnectFault>()("ConnectFault", {
+  case: _connectFamily.payload,
+}) {
   get class(): Fault.Class.Kind {
-    return _connectFamily.classOf(this.reason)
+    return _connectFamily.classOf(this.case.reason)
   }
   override get message(): string {
-    return `<connect:${this.reason}> ${this.surface} ${this.detail}`
+    return _connectFamily.render(this.case)
   }
 }
 
@@ -178,9 +184,9 @@ const _granted = (name: PermissionName): Stream.Stream<PermissionState, ConnectF
           try: () => permissions.query({ name }),
           catch: (defect) =>
             new ConnectFault({
-              reason: defect instanceof globalThis.TypeError ? "unparsed" : "refused",
-              surface: "permissions.query",
-              detail: String(defect),
+              case: defect instanceof globalThis.TypeError
+                ? { reason: "unparsed", name }
+                : { reason: "refused", surface: "permissions.query", cause: String(defect) },
             }),
         }).pipe(
           Effect.map((status) =>
@@ -230,7 +236,8 @@ class Connect extends Effect.Service<Connect>()("runtime/browser/Connect", {
               await (registration as _SyncHost).sync.register(tag) // BOUNDARY ADAPTER: SyncManager is absent from the DOM lib; the refinement is pinned above
               return true
             },
-            catch: (defect) => new ConnectFault({ reason: "refused", surface: "sync.register", detail: String(defect) }),
+            catch: (defect) =>
+              new ConnectFault({ case: { reason: "refused", surface: "sync.register", cause: String(defect) } }),
           }),
       })
     const online: Subscribable.Subscribable<boolean> = _online

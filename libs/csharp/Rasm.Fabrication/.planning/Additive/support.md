@@ -37,6 +37,7 @@ using Rasm.Domain;
 using Rasm.Element.Projection;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
+using Rasm.Fabrication.Verify;
 using Rasm.Meshing;
 using Rasm.Spatial;
 using Rhino.Geometry;
@@ -105,7 +106,7 @@ public abstract partial record SupportProgram {
     // The generated arm is a chartered EXTENSION point, not an injected hole in a chartered algorithm: the caller
     // owns a whole support program this page has no algorithm for, and its identity enters the preimage so a
     // generated plan is content-addressable exactly as a built-in one is.
-    public sealed record Generated(ContentKey Identity, Func<SupportContext, Fin<SupportProjection>> Project) : SupportProgram;
+    public sealed record Generated(ContentKey Identity, Func<SupportContext, Fin<SupportDraft>> Project) : SupportProgram;
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
@@ -220,11 +221,10 @@ public sealed record RemovalPolicy(
     Volume MaximumFragment,
     Angle MaximumUndercut);
 
-public sealed record DrainPolicy(
-    Area MinimumEscapeArea,
-    Length MaximumEscapeDistance,
-    Area MaximumTrappedArea,
-    Ratio ChannelFraction);
+// NAMED LOSS: the escape-distance ceiling and the share of it a channel actually grows stop being separately
+// statable. WITNESS: the one body reading either reads their PRODUCT, and neither appeared in any gate except its
+// own sign check — two knobs whose only combination the fold re-derived collapse to the reach itself.
+public sealed record DrainPolicy(Area MinimumEscapeArea, Length ChannelReach, Area MaximumTrappedArea);
 
 // One tolerance per DIMENSION: a tree contact set completes a demand when its area, its reaction, and its
 // conducted power each land inside their own bound.
@@ -253,59 +253,71 @@ public static partial class Support {
     public static Fin<SupportPlan> Grow(SliceStack stack, SupportPolicy policy) =>
         from _policy in AdmitPolicy(policy)
         from audit in Audit.Preflight(stack, policy.Audit)
-        from _clean in Gate(audit.Clean, $"support:audit:{audit.Defects.Count}").As().ToFin()
+        from _clean in AdmissionSlots.Gate(audit.Evidence.Clean,
+            FabConcern.Additive, $"support:audit:{audit.Evidence.Defects.Count}", FabricationFault.Inadmissible).As().ToFin()
         from demand in Demand(stack, policy)
         let context = new SupportContext(stack, demand, policy)
         from projected in Project(context)
         from projection in Complete(context, projected)
         from admitted in AdmitProjection(context, projection)
         from topology in SupportTopology.Admit(admitted.SupportNodes)
-        from evidence in SupportGraph.Measure(topology)
-        let bytes = SupportCodec.Write(policy, admitted)
-        from receipt in Receipt(audit, admitted, evidence, policy, bytes.Length)
-        select new SupportPlan(admitted.PlanarRows, admitted.SupportNodes, topology, ContentKey.Of(EgressKind.Plan, bytes), receipt);
+        from graph in SupportGraph.Measure(topology)
+        from bytes in SupportCodec.Write(policy, admitted, Op.Of(name: nameof(Grow)))
+        from evidence in Measured(admitted, graph, policy, bytes.Length)
+        select new SupportPlan(
+            admitted.PlanarRows,
+            admitted.SupportNodes,
+            topology,
+            new Receipt<SupportEvidence> {
+                Evidence = evidence,
+                Concern = FabConcern.Additive,
+                Key = ContentKey.Of(EgressKind.Plan, bytes.Span),
+                // Ancestry carries the preflight this growth stood on, never a nested column: one key states it and the
+                // consumer that wants the findings addresses them.
+                Consumed = Seq(audit.Key),
+                Stamped = policy.Audit.EvaluatedAt,
+            });
 
     private static Fin<Unit> AdmitPolicy(SupportPolicy policy) => AdmissionSlots.Accumulate(Seq(
-        Gate(policy.Factors.Total, "support:factor-coverage"),
-        Gate(policy.Overhang > Angle.Zero && policy.Overhang < Angle.FromDegrees(90), "support:overhang-policy"),
-        Gate(policy.Contact.Gap >= Length.Zero && policy.Contact.ToothWidth > Length.Zero
+        AdmissionSlots.Gate(policy.Factors.Total, FabConcern.Additive, "support:factor-coverage", FabricationFault.Inadmissible),
+        AdmissionSlots.Gate(policy.Overhang > Angle.Zero && policy.Overhang < Angle.FromDegrees(90),
+            FabConcern.Additive, "support:overhang-policy", FabricationFault.Inadmissible),
+        AdmissionSlots.Gate(policy.Contact.Gap >= Length.Zero && policy.Contact.ToothWidth > Length.Zero
             && policy.Contact.ToothPitch >= policy.Contact.ToothWidth && policy.Contact.Penetration >= Length.Zero
             && policy.Contact.RoofLayers > 0 && policy.Contact.BreakupFraction >= Ratio.Zero
-            && policy.Contact.BreakupFraction <= Ratio.FromPercent(100), "support:contact-policy"),
-        Gate(policy.Growth.TipPitch > Length.Zero && policy.Growth.TipRadius > Length.Zero
+            && policy.Contact.BreakupFraction <= Ratio.FromPercent(100),
+                FabConcern.Additive, "support:contact-policy", FabricationFault.Inadmissible),
+        AdmissionSlots.Gate(policy.Growth.TipPitch > Length.Zero && policy.Growth.TipRadius > Length.Zero
             && policy.Growth.RootRadius >= policy.Growth.TipRadius && policy.Growth.RadiusGain >= Length.Zero
             && policy.Growth.MergeDistance > Length.Zero && policy.Growth.LateralStep >= Length.Zero
             && policy.Growth.BranchPhase > Angle.Zero && policy.Growth.MaximumBranchAngle > Angle.Zero
             && policy.Growth.Relaxations >= 0 && policy.Growth.RelaxationStrength >= Ratio.Zero
             && policy.Growth.RelaxationStrength <= Ratio.FromPercent(100) && policy.Growth.MaximumTips > 0
-            && policy.Growth.MaximumNodes >= policy.Growth.MaximumTips, "support:growth-policy"),
-        Gate(policy.Structural.AllowableStress > Pressure.Zero && policy.Structural.SafetyFactor > Ratio.Zero
+            && policy.Growth.MaximumNodes >= policy.Growth.MaximumTips, FabConcern.Additive, "support:growth-policy", FabricationFault.Inadmissible),
+        AdmissionSlots.Gate(policy.Structural.AllowableStress > Pressure.Zero && policy.Structural.SafetyFactor > Ratio.Zero
             && policy.Structural.LoadShare > Ratio.Zero && policy.Structural.MaterialDensity > Density.Zero
             && policy.Structural.Gravity > Acceleration.Zero && policy.Structural.MaximumBridge > Length.Zero,
-            "support:structural-policy"),
-        Gate(policy.Thermal.SurfaceHeat >= Power.Zero && policy.Thermal.Conductance >= Ratio.Zero
+                FabConcern.Additive, "support:structural-policy", FabricationFault.Inadmissible),
+        AdmissionSlots.Gate(policy.Thermal.SurfaceHeat >= Power.Zero && policy.Thermal.Conductance >= Ratio.Zero
             && policy.Thermal.Conductance <= Ratio.FromPercent(100) && policy.Thermal.ConductionDistance > Length.Zero
-            && policy.Thermal.InterfaceLayers > 0, "support:thermal-policy"),
-        Gate(policy.Removal.AccessClearance >= Length.Zero && policy.Removal.ToolReach > Length.Zero
+            && policy.Thermal.InterfaceLayers > 0, FabConcern.Additive, "support:thermal-policy", FabricationFault.Inadmissible),
+        AdmissionSlots.Gate(policy.Removal.AccessClearance >= Length.Zero && policy.Removal.ToolReach > Length.Zero
             && policy.Removal.MaximumFragment > Volume.Zero && policy.Removal.MaximumUndercut >= Angle.Zero
-            && policy.Removal.MaximumUndercut < Angle.FromDegrees(90), "support:removal-policy"),
-        Gate(policy.Drain.MinimumEscapeArea > Area.Zero && policy.Drain.MaximumEscapeDistance > Length.Zero
-            && policy.Drain.MaximumTrappedArea >= Area.Zero && policy.Drain.ChannelFraction > Ratio.Zero
-            && policy.Drain.ChannelFraction <= Ratio.FromPercent(100), "support:drain-policy"),
-        Gate(policy.Completion.AreaTolerance > Area.Zero && policy.Completion.LoadTolerance > Force.Zero
-            && policy.Completion.HeatTolerance > Power.Zero, "support:completion-policy"),
-        Gate(policy.Program.Switch(
+            && policy.Removal.MaximumUndercut < Angle.FromDegrees(90), FabConcern.Additive, "support:removal-policy", FabricationFault.Inadmissible),
+        AdmissionSlots.Gate(policy.Drain.MinimumEscapeArea > Area.Zero && policy.Drain.ChannelReach > Length.Zero
+            && policy.Drain.MaximumTrappedArea >= Area.Zero, FabConcern.Additive, "support:drain-policy", FabricationFault.Inadmissible),
+        AdmissionSlots.Gate(policy.Completion.AreaTolerance > Area.Zero && policy.Completion.LoadTolerance > Force.Zero
+            && policy.Completion.HeatTolerance > Power.Zero, FabConcern.Additive, "support:completion-policy", FabricationFault.Inadmissible),
+        AdmissionSlots.Gate(policy.Program.Switch(
             planar: static _ => true,
             tree: _ => policy.Family.Branching,
             hybrid: hybrid => policy.Family.Branching
                 && hybrid.PlanarShare > Ratio.Zero
                 && hybrid.PlanarShare <= Ratio.FromPercent(100),
-            generated: static _ => true), "support:program-policy")))
+            generated: static _ => true), FabConcern.Additive, "support:program-policy", FabricationFault.Inadmissible)))
         .As()
         .ToFin();
 
-    internal static K<Validation<Error>, Unit> Gate(bool valid, string locus) =>
-        AdmissionSlots.Gate(valid, new FabricationFault.PolicyInadmissible(FabConcern.Additive, locus));
 }
 ```
 
@@ -343,7 +355,8 @@ public static partial class Support {
             from islands in overhang.Outers.Traverse(outer => SliceRegion.Of(
                 Seq(outer).Concat(overhang.Holes.Filter(hole => outer.Covers(hole.At(0)))))).As()
             let filled = stack.AreaAt(layer)
-            from _filled in Gate(islands.IsEmpty || filled > 0.0, $"support:layer-area:{layer}").As().ToFin()
+            from _filled in AdmissionSlots.Gate(islands.IsEmpty || filled > 0.0,
+                FabConcern.Additive, $"support:layer-area:{layer}", FabricationFault.Inadmissible).As().ToFin()
             from rows in islands.Traverse(island =>
                 from area in island.PhysicalArea()
                 let chord = Chord(island)
@@ -389,12 +402,12 @@ public static partial class Support {
 
 ## [05]-[PROJECTION]
 
-- Owner: `SupportProjection` owns the modality-independent result; `SupportCoverage` owns one demand's settled discharge; `SupportLayer` owns one planar row.
+- Owner: `SupportDraft` owns the modality-independent result — named off the kernel `SupportProjection` this page's own `Rasm.Spatial` import already binds to the closest-hit modality vocabulary; `SupportCoverage` owns one demand's settled discharge; `SupportLayer` owns one planar row.
 - Law: `Hybrid` scales planar density by its `PlanarShare` and grows the full tree beside it; a branching modality refuses outright when the selected family does not branch.
 - Law: a `BaseAdhesion` family seats its rows at the plate layer under the whole model footprint rather than under an overhang, so the planar fold reads the family column instead of testing the key against a roster.
 - Law: `Complete` derives one `SupportCoverage` row per demand and `AdmitProjection` accumulates every structural invariant — coverage cardinality, coverage uniqueness, tree completion within the three dimensioned tolerances, absent extra contacts, exact bridge correspondence, layer bounds, physical signs, and the node cap — so a refused projection names every violated invariant rather than the first.
-- Entry: every `SupportProgram` case returns the same `SupportProjection`, so no consumer learns which modality produced it.
-- Auto: generated callback faults enter the shared `Try.lift` rail before projection admission; an admitted generated projection is indistinguishable from a built-in one downstream.
+- Entry: every `SupportProgram` case returns the same `SupportDraft`, so no consumer learns which modality produced it.
+- Auto: generated callback faults enter `Op.Catch` before projection admission; an admitted generated projection is indistinguishable from a built-in one downstream.
 - Boundary: coverage indexes demand by ordinal, so an out-of-range or duplicate ordinal refuses at admission and no read below carries an absence arm.
 
 ```csharp signature
@@ -432,7 +445,11 @@ public sealed record SupportCoverage(
     Force TreeLoad,
     Power TreeHeat);
 
-public sealed record SupportProjection(
+// Every `SupportProgram` case answers with this modality-independent DRAFT: the planar rows, the tree nodes, the
+// bridge spans, and the coverage that discharges each demand, before identity, topology, and the settled receipt.
+// Named `Draft` rather than `Projection` because the kernel `Rasm.Spatial` owner this page imports already holds
+// `SupportProjection` for its closest-hit modality vocabulary — one name, one meaning, package-wide.
+public sealed record SupportDraft(
     Seq<SupportLayer> PlanarRows,
     Seq<SupportNode> SupportNodes,
     Seq<BridgeSpan> Bridges,
@@ -442,20 +459,17 @@ public sealed record SupportContext(SliceStack Stack, Seq<SupportDemand> Demand,
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static partial class Support {
-    private static Fin<SupportProjection> Project(SupportContext context) => context.Policy.Program.Switch(
+    private static Fin<SupportDraft> Project(SupportContext context) => context.Policy.Program.Switch(
         state: context,
-        planar: static (state, _) => Planar(state).Map(rows => new SupportProjection(
+        planar: static (state, _) => Planar(state).Map(rows => new SupportDraft(
             rows, Seq<SupportNode>(), Bridges(state.Demand), Seq<SupportCoverage>())),
-        tree: static (state, _) => Tree(state).Map(nodes => new SupportProjection(
+        tree: static (state, _) => Tree(state).Map(nodes => new SupportDraft(
             Seq<SupportLayer>(), nodes, Bridges(state.Demand), Seq<SupportCoverage>())),
         hybrid: static (state, hybrid) =>
             from rows in Planar(state, Some(hybrid.PlanarShare))
             from nodes in Tree(state)
-            select new SupportProjection(rows, nodes, Bridges(state.Demand), Seq<SupportCoverage>()),
-        generated: static (state, generated) => Try.lift(() => generated.Project(state))
-            .Run()
-            .MapFail(static error => new FabricationFault.PolicyInadmissible(FabConcern.Additive, "support:generated").ToError() + error)
-            .Bind(static projection => projection));
+            select new SupportDraft(rows, nodes, Bridges(state.Demand), Seq<SupportCoverage>()),
+        generated: static (state, generated) => Op.Of(name: "support:generated").Catch(() => generated.Project(state)));
 
     // A base-adhesion family seats under the whole model footprint at the plate layer; every other family seats
     // under falling demand. The column decides, so a new adhesion family needs no arm here.
@@ -516,7 +530,7 @@ public static partial class Support {
                 from channel in SliceRegion.Of(Seq(loop))
                 from area in channel.PhysicalArea()
                 from admitted in area >= policy.MinimumEscapeArea
-                    ? channel.Grow(policy.MaximumEscapeDistance * policy.ChannelFraction.DecimalFractions, offset).Map(Some)
+                    ? channel.Grow(policy.ChannelReach, offset).Map(Some)
                     : Fin.Succ(Option<SliceRegion>.None)
                 select admitted).As().Map(static rows => rows.Somes());
 
@@ -525,7 +539,7 @@ public static partial class Support {
             .Traverse(loop => SliceRegion.Of(Seq(loop)).Bind(static hole => hole.PhysicalArea())).As()
             .Map(static areas => areas.Fold(Area.Zero, static (sum, area) => sum + area));
 
-    private static Fin<SupportProjection> Complete(SupportContext context, SupportProjection projection) =>
+    private static Fin<SupportDraft> Complete(SupportContext context, SupportDraft projection) =>
         context.Demand.Map((demand, index) =>
             projection.PlanarRows
                 .Find(row => row.Layer == demand.Layer - 1)
@@ -544,7 +558,7 @@ public static partial class Support {
                 }))
             .Traverse(static row => row).As().Map(coverage => projection with { Coverage = coverage });
 
-    private static Fin<SupportProjection> AdmitProjection(SupportContext context, SupportProjection projection) {
+    private static Fin<SupportDraft> AdmitProjection(SupportContext context, SupportDraft projection) {
         Set<int> covered = toSet(projection.Coverage.Bind(static row => row.TreeContacts));
         Seq<int> ordinals = projection.Coverage.Map(static row => row.Demand);
         bool indexed = ordinals.Count == context.Demand.Count
@@ -556,38 +570,42 @@ public static partial class Support {
                 .Map(static row => row.Demand)
             : Seq<int>();
         return AdmissionSlots.Accumulate(Seq(
-            Gate(indexed, "support:coverage-index"),
-            Gate(undischarged.IsEmpty, $"support:coverage-undischarged:{string.Join(',', undischarged)}"),
-            Gate(projection.SupportNodes
+            AdmissionSlots.Gate(indexed, FabConcern.Additive, "support:coverage-index", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(undischarged.IsEmpty,
+                FabConcern.Additive, $"support:coverage-undischarged:{string.Join(',', undischarged)}", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(projection.SupportNodes
                 .Filter(node => context.Demand.Exists(demand =>
                     node.At.Z.Equals(demand.Elevation.Millimeters) && demand.Region.Covers(node.At)))
-                .ForAll(node => covered.Contains(node.Id)), "support:contact-unclaimed"),
-            Gate(!indexed || projection.PlanarRows
+                .ForAll(node => covered.Contains(node.Id)), FabConcern.Additive, "support:contact-unclaimed", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(!indexed || projection.PlanarRows
                 .Filter(static row => !row.Contact.IsEmpty)
                 .ForAll(row => projection.Coverage.Exists(coverage =>
-                    coverage.Planar && context.Demand[coverage.Demand].Layer == row.Layer + 1)), "support:planar-unclaimed"),
-            Gate(Ordered(projection.Bridges).SequenceEqual(Ordered(Bridges(context.Demand))), "support:bridge-correspondence"),
-            Gate(projection.PlanarRows.Map(static row => row.Layer).Distinct().Count == projection.PlanarRows.Count,
-                "support:planar-duplicate-layer"),
-            Gate(projection.PlanarRows.ForAll(row => row.Layer >= 0
+                    coverage.Planar && context.Demand[coverage.Demand].Layer == row.Layer + 1)),
+                        FabConcern.Additive, "support:planar-unclaimed", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(Ordered(projection.Bridges).SequenceEqual(Ordered(Bridges(context.Demand))),
+                FabConcern.Additive, "support:bridge-correspondence", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(projection.PlanarRows.Map(static row => row.Layer).Distinct().Count == projection.PlanarRows.Count,
+                FabConcern.Additive, "support:planar-duplicate-layer", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(projection.PlanarRows.ForAll(row => row.Layer >= 0
                 && row.Layer < context.Stack.LayerCount
                 && row.Elevation == Length.FromMillimeters(context.Stack.Elevations[row.Layer])
                 && row.Height > Length.Zero
                 && row.Density > Ratio.Zero && row.Density <= Ratio.FromPercent(100)
                 && row.ContactDuty > Ratio.Zero && row.ContactDuty <= Ratio.FromPercent(100)
-                && row.TrappedArea >= Area.Zero), "support:planar-bounds"),
-            Gate(projection.SupportNodes.Count <= context.Policy.Growth.MaximumNodes, "support:node-cap"),
-            Gate(projection.SupportNodes.ForAll(static node => node.Id >= 0
+                && row.TrappedArea >= Area.Zero), FabConcern.Additive, "support:planar-bounds", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(projection.SupportNodes.Count <= context.Policy.Growth.MaximumNodes,
+                FabConcern.Additive, "support:node-cap", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(projection.SupportNodes.ForAll(static node => node.Id >= 0
                 && node.At.IsValid
                 && node.PhysicalRadius > Length.Zero
                 && node.TributaryArea >= Area.Zero
                 && node.Load >= Force.Zero
-                && node.Heat >= Power.Zero), "support:node-bounds"),
-            Gate(projection.Bridges.ForAll(bridge => bridge.Layer > 0
+                && node.Heat >= Power.Zero), FabConcern.Additive, "support:node-bounds", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(projection.Bridges.ForAll(bridge => bridge.Layer > 0
                 && bridge.Layer < context.Stack.LayerCount
                 && bridge.From.IsValid && bridge.To.IsValid
                 && bridge.Length > Length.Zero
-                && bridge.Load >= Force.Zero), "support:bridge-bounds")))
+                && bridge.Load >= Force.Zero), FabConcern.Additive, "support:bridge-bounds", FabricationFault.Inadmissible)))
             .As()
             .ToFin()
             .Map(_ => projection);
@@ -639,13 +657,15 @@ internal sealed record TreeSeed(
 public static partial class Support {
     private static Fin<Seq<SupportNode>> Tree(SupportContext context) =>
         from tips in SupportSites.Tips(context.Demand, context.Policy.Growth)
-        from _tips in Gate(tips.Count <= context.Policy.Growth.MaximumTips, $"support:tip-cap:{tips.Count}").As().ToFin()
+        from _tips in AdmissionSlots.Gate(tips.Count <= context.Policy.Growth.MaximumTips,
+            FabConcern.Additive, $"support:tip-cap:{tips.Count}", FabricationFault.Inadmissible).As().ToFin()
         from slices in toSeq(Range(0, context.Stack.LayerCount))
             .Traverse(layer => SliceRegion.Of(context.Stack, layer)).As()
         from descended in tips.Map((tip, ordinal) => SupportSites.Descend(tip, ordinal, slices, context))
             .Traverse(static row => row).As()
         from seeds in SupportSites.Merge(descended.Bind(static row => row), context.Policy.Growth.MergeDistance)
-        from _nodes in Gate(seeds.Count <= context.Policy.Growth.MaximumNodes, $"support:node-cap:{seeds.Count}").As().ToFin()
+        from _nodes in AdmissionSlots.Gate(seeds.Count <= context.Policy.Growth.MaximumNodes,
+            FabConcern.Additive, $"support:node-cap:{seeds.Count}", FabricationFault.Inadmissible).As().ToFin()
         from nodes in SupportSites.Connect(seeds, context.Policy)
         select nodes;
 }
@@ -653,14 +673,9 @@ public static partial class Support {
 internal static class SupportSites {
     // The ONE spatial composition in this folder. Every neighbour question — merge candidates, parent candidates,
     // nearest parent — enters here as points and leaves as ordinals into the same sequence.
-    // `BuildPolicy` is qualified because `Additive/production` mints one of its own in THIS namespace, which wins
-    // simple-name lookup over the kernel type every using-directive here imports.
     internal static Fin<SpatialIndex> Index(Seq<Point3d> sites) =>
         Spatial.Apply(
-            new SpatialOp.Build(
-                SpatialKind.Bvh,
-                [.. sites.Map(static at => new BoundingBox(at, at))],
-                Rasm.Spatial.BuildPolicy.Canonical),
+            new SpatialOp.Build(SpatialKind.Bvh, [.. sites.Map(static at => new BoundingBox(at, at))], BuildPolicy.Canonical),
             Op.Of(name: nameof(Index)))
             .Bind(static answer => Answer<SpatialAnswer.Index>(answer, "support:site-index").Map(static built => built.Value));
 
@@ -668,7 +683,7 @@ internal static class SupportSites {
         where TQuery : SpatialAnswer =>
         answer is TQuery typed
             ? Fin.Succ(typed)
-            : Fin.Fail<TQuery>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, locus));
+            : Fin.Fail<TQuery>(new KernelFault.InvalidValue("support", locus));
 
     private static Fin<TResult> Probe<TResult>(SpatialIndex index, SpatialQuery query, string locus)
         where TResult : QueryResult =>
@@ -676,7 +691,7 @@ internal static class SupportSites {
             .Bind(answer => Answer<SpatialAnswer.Result>(answer, locus))
             .Bind(found => found.Value is TResult typed
                 ? Fin.Succ(typed)
-                : Fin.Fail<TResult>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, locus)));
+                : Fin.Fail<TResult>(new KernelFault.InvalidValue("support", locus)));
 
     public static Fin<Seq<TreeSeed>> Tips(Seq<SupportDemand> demand, GrowthPolicy policy) =>
         demand.Traverse(row => row.Region.IsEmpty
@@ -713,9 +728,8 @@ internal static class SupportSites {
         from trace in PolygonAlgebra.Apply(
             new PolygonOp.Cells(pattern.Seeds(row.Region.Bound()), boundary, pattern.Policy),
             Op.Of(name: nameof(Sites)))
-        from diagram in trace is PolygonTrace.Celled celled
-            ? Fin.Succ(celled.Result)
-            : Fin.Fail<CellReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, $"support:cell-trace:{row.Layer}"))
+        from diagram in trace.Diagram(
+            new KernelFault.InvalidValue("support", $"support:cell-trace:{row.Layer}"))
         select diagram.Cells.ToSeq()
             .Map(static cell => cell.Centroid)
             .Filter(centroid => row.Region.Covers(new Point3d(centroid.X, centroid.Y, row.Elevation.Millimeters)));
@@ -740,7 +754,8 @@ internal static class SupportSites {
             return from state in depth == 0
                        ? Fin.Succ(AvoidanceState.Clear)
                        : Avoidance(model, new Point3d(tip.At.X, tip.At.Y, z), context.Policy)
-                   from _path in Support.Gate(state.CanDescend, $"support:blocked:{layer}").As().ToFin()
+                   from _path in AdmissionSlots.Gate(state.CanDescend,
+                       FabConcern.Additive, $"support:blocked:{layer}", FabricationFault.Inadmissible).As().ToFin()
                    let factors = context.Policy.Factors.Avoidance[state]
                    let drop = tip.At.Z - z
                    let lateral = Math.Min(
@@ -748,7 +763,8 @@ internal static class SupportSites {
                        drop * factors.DescentScale.DecimalFractions * Math.Tan(context.Policy.Growth.MaximumBranchAngle.Radians))
                    let escape = Escape(context.Stack, layer, tip.At, ordinal, context.Policy.Growth)
                    let at = new Point3d(tip.At.X + (lateral * escape.X), tip.At.Y + (lateral * escape.Y), z)
-                   from _clear in Support.Gate(depth == 0 || !model.Covers(at), $"support:detour-collision:{layer}").As().ToFin()
+                   from _clear in AdmissionSlots.Gate(depth == 0 || !model.Covers(at),
+                       FabConcern.Additive, $"support:detour-collision:{layer}", FabricationFault.Inadmissible).As().ToFin()
                    let role = (layer == 0, depth == 0, state == AvoidanceState.Bridge, depth > tip.Layer / 2) switch {
                        (true, _, _, _) => TreeRole.Root,
                        (_, true, _, _) => TreeRole.Contact,
@@ -811,15 +827,15 @@ internal static class SupportSites {
           from labels in Components(rows.Count, close)
           select Fused(rows, labels);
 
-    private static Fin<Map<int, int>> Components(int count, Seq<(int Left, int Right)> pairs) => Try.lift(() => {
+    private static Fin<Map<int, int>> Components(int count, Seq<(int Left, int Right)> pairs) =>
+        Op.Of(name: "support:merge-components").Catch(() => {
         UndirectedGraph<int, SEquatableEdge<int>> graph = new();
         graph.AddVertexRange(Range(0, count));
         graph.AddEdgeRange(pairs.Map(static pair => new SEquatableEdge<int>(pair.Left, pair.Right)));
         Dictionary<int, int> labels = [];
         _ = graph.ConnectedComponents(labels);
-        return toMap(toSeq(labels).Map(static row => (row.Key, row.Value)));
-    }).Run().MapFail(static error =>
-        new FabricationFault.PolicyInadmissible(FabConcern.Additive, "support:merge-components").ToError() + error);
+        return Fin.Succ(toMap(toSeq(labels).Map(static row => (row.Key, row.Value))));
+    });
 
     private static Seq<TreeSeed> Fused(Seq<TreeSeed> rows, Map<int, int> labels) => toSeq(
         toSeq(rows.Map((seed, ordinal) => (Seed: seed, Ordinal: ordinal)).GroupBy(slot => labels[slot.Ordinal]))
@@ -883,9 +899,9 @@ internal static class SupportSites {
         Seq<(TreeSeed Seed, int Id)> lower = indexed.Filter(slot => slot.Seed.Layer == layer - 1);
         double margin = policy.Growth.MergeDistance.Millimeters;
         return AdmissionSlots.Accumulate(Seq(
-            Support.Gate(!lower.IsEmpty, $"support:orphan-layer:{layer}"),
-            Support.Gate(lower.Map(static slot => (slot.Seed.At.X, slot.Seed.At.Y)).Distinct().Count == lower.Count,
-                $"support:duplicate-parent-sites:{layer}")))
+            AdmissionSlots.Gate(!lower.IsEmpty, FabConcern.Additive, $"support:orphan-layer:{layer}", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(lower.Map(static slot => (slot.Seed.At.X, slot.Seed.At.Y)).Distinct().Count == lower.Count,
+                FabConcern.Additive, $"support:duplicate-parent-sites:{layer}", FabricationFault.Inadmissible)))
             .As()
             .ToFin()
             .Bind(_ => Index(lower.Map(static slot => slot.Seed.At))
@@ -907,7 +923,7 @@ internal static class SupportSites {
                     .Bind(nearest => nearest.Ordered.Head.Match(
                         Some: slot => Fin.Succ((child.Id, Seq(lower[slot].Id))),
                         None: () => Fin.Fail<(int, Seq<int>)>(
-                            new FabricationFault.PolicyInadmissible(FabConcern.Additive, "support:parent-absent"))))
+                            new KernelFault.InvalidValue("support", "support:parent-absent"))))
                 : Fin.Succ((child.Id, hits.Ids.Map(slot => lower[slot].Id))));
     }
 
@@ -979,7 +995,8 @@ public sealed class SupportTopology {
     public static Fin<SupportTopology> Admit(Seq<SupportNode> nodes) =>
         from _identity in Identity(nodes)
         from graph in Built(nodes)
-        from _acyclic in Support.Gate(graph.IsDirectedAcyclicGraph(), "support:graph-cycle").As().ToFin()
+        from _acyclic in AdmissionSlots.Gate(graph.IsDirectedAcyclicGraph(),
+            FabConcern.Additive, "support:graph-cycle", FabricationFault.Inadmissible).As().ToFin()
         from sites in nodes.IsEmpty
             ? Fin.Succ(Option<SpatialIndex>.None)
             : SupportSites.Index(nodes.Map(static node => node.At)).Map(Some)
@@ -988,23 +1005,24 @@ public sealed class SupportTopology {
     private static Fin<Unit> Identity(Seq<SupportNode> nodes) {
         Set<int> ids = toSet(nodes.Map(static node => node.Id));
         return AdmissionSlots.Accumulate(Seq(
-            Support.Gate(ids.Count == nodes.Count, "support:graph-duplicate-identity"),
-            Support.Gate(nodes.Map(static node => node.Id).OrderBy(static id => id).SequenceEqual(Range(0, nodes.Count)),
-                "support:graph-noncontiguous-identity"),
-            Support.Gate(nodes.ForAll(node => node.Parents.ForAll(ids.Contains)), "support:graph-unresolved-parent"),
-            Support.Gate(nodes.ForAll(static node => node.Parents.Distinct().Count == node.Parents.Count),
-                "support:graph-repeated-parent")))
+            AdmissionSlots.Gate(ids.Count == nodes.Count, FabConcern.Additive, "support:graph-duplicate-identity", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(nodes.Map(static node => node.Id).OrderBy(static id => id).SequenceEqual(Range(0, nodes.Count)),
+                FabConcern.Additive, "support:graph-noncontiguous-identity", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(nodes.ForAll(node => node.Parents.ForAll(ids.Contains)),
+                FabConcern.Additive, "support:graph-unresolved-parent", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(nodes.ForAll(static node => node.Parents.Distinct().Count == node.Parents.Count),
+                FabConcern.Additive, "support:graph-repeated-parent", FabricationFault.Inadmissible)))
             .As()
             .ToFin();
     }
 
-    private static Fin<BidirectionalGraph<int, SEquatableEdge<int>>> Built(Seq<SupportNode> nodes) => Try.lift(() => {
+    private static Fin<BidirectionalGraph<int, SEquatableEdge<int>>> Built(Seq<SupportNode> nodes) =>
+        Op.Of(name: "support:graph-build").Catch(() => {
         BidirectionalGraph<int, SEquatableEdge<int>> graph = new();
         graph.AddVertexRange(nodes.Map(static node => node.Id));
         graph.AddEdgeRange(nodes.Bind(node => node.Parents.Map(parent => new SEquatableEdge<int>(parent, node.Id))));
-        return graph;
-    }).Run().MapFail(static error =>
-        new FabricationFault.PolicyInadmissible(FabConcern.Additive, "support:graph-build").ToError() + error);
+        return Fin.Succ(graph);
+    });
 }
 
 public sealed record GraphEvidence(
@@ -1026,25 +1044,28 @@ public static class SupportGraph {
         ? Fin.Succ(new GraphEvidence(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, Length.Zero))
         : from facts in Algorithms(topology)
           from _shape in AdmissionSlots.Accumulate(Seq(
-              Support.Gate(!facts.Roots.IsEmpty && !facts.Sinks.IsEmpty, "support:graph-terminals"),
-              Support.Gate(facts.Order.Count == topology.ById.Count, "support:graph-order"),
-              Support.Gate(facts.Reduction.EdgeCount == topology.Graph.EdgeCount, "support:graph-redundant-parent")))
+              AdmissionSlots.Gate(!facts.Roots.IsEmpty && !facts.Sinks.IsEmpty,
+                  FabConcern.Additive, "support:graph-terminals", FabricationFault.Inadmissible),
+              AdmissionSlots.Gate(facts.Order.Count == topology.ById.Count,
+                  FabConcern.Additive, "support:graph-order", FabricationFault.Inadmissible),
+              AdmissionSlots.Gate(facts.Reduction.EdgeCount == topology.Graph.EdgeCount,
+                  FabConcern.Additive, "support:graph-redundant-parent", FabricationFault.Inadmissible)))
               .As()
               .ToFin()
           select Projected(topology, facts);
 
     // `ComputeTransitiveReduction` takes no edge factory; only the closure mints edges it did not already hold.
-    private static Fin<GraphFacts> Algorithms(SupportTopology topology) => Try.lift(() => {
+    private static Fin<GraphFacts> Algorithms(SupportTopology topology) =>
+        Op.Of(name: "support:graph-algorithm").Catch(() => {
         Dictionary<int, int> components = [];
-        return new GraphFacts(
+        return Fin.Succ(new GraphFacts(
             toSeq(topology.Graph.Roots()),
             toSeq(topology.Graph.Sinks()),
             toSeq(topology.Graph.SourceFirstTopologicalSort()),
             topology.Graph.WeaklyConnectedComponents(components),
             topology.Graph.ComputeTransitiveClosure(static (source, target) => new SEquatableEdge<int>(source, target)),
-            topology.Graph.ComputeTransitiveReduction());
-    }).Run().MapFail(static error =>
-        new FabricationFault.PolicyInadmissible(FabConcern.Additive, "support:graph-algorithm").ToError() + error);
+            topology.Graph.ComputeTransitiveReduction()));
+    });
 
     private static GraphEvidence Projected(SupportTopology topology, GraphFacts facts) {
         Set<int> sinks = toSet(facts.Sinks);
@@ -1108,17 +1129,18 @@ public static class SupportGraph {
 
 ## [08]-[IDENTITY]
 
-- Owner: `SupportCodec.Write` is the sole canonical octet projection over the admitted projection; `SupportReceipt` carries the settled evidence; `SupportPlan` carries the wire.
+- Owner: `SupportCodec.Write` is the sole canonical octet projection over the admitted draft; `SupportEvidence` carries what the growth MEASURED; `Receipt<SupportEvidence>` carries plane, key, consumed ancestry, and stamp; `SupportPlan` carries the wire.
 - Law: `Loop.CanonicalBytes` is the ONE loop preimage in the package — rotation-canonical and tolerance-quantized at its S0 owner — so this page declares no rotation rule and no cyclic station comparison. Sibling loops still need a deterministic ORDER, and `Loop.CanonicalOrder` — the S0 owner's own rank over that same normal form — supplies it; neither the rotation nor the comparison is restated here.
 - Law: every scalar rides `FabricationCanon` over the `Rasm.Element` `CanonicalWriter` — `Coords`, `Maybe`, `Rows`, and `Discriminant` — so a generated owner enters as its own length-framed key rather than an ordinal a row reorder silently re-keys, and `Rows` frames its count so the layout stays self-delimiting.
 - Law: offset, program, family, contact, growth, structural, thermal, removal, drainage, completion, and every realized geometry value enter the payload under canonical row, node, bridge, and loop order.
-- Output: `ContentKey.Of(EgressKind.Plan, bytes)` mints once over the written bytes and `SupportReceipt.PreimageLength` records that payload's measured extent at construction.
-- Boundary: the receipt never re-enters the payload it seals, and the plan's identity is its key — `SupportTopology` carries reference identity, so plan equality is the key's, never a graph comparison.
+- Output: `ContentKey.Of(EgressKind.Plan, bytes)` mints once over the written bytes and rides the carrier's `Key`; `SupportEvidence.PreimageLength` records that payload's measured extent at construction. `Consumed` carries the preflight this growth stood on, and `AuditPolicy.EvaluatedAt` stamps it — the branch's one evaluation instant per build, and the only one this entry reaches.
+- Boundary: the receipt never re-enters the payload it seals, and the plan's identity is its receipt's key — `SupportTopology` carries reference identity, so plan equality is the key's, never a graph comparison. A second key column on the plan beside the carrier's own is the deleted duplicate.
 
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-public sealed record SupportReceipt(
-    AuditReceipt Audit,
+// What the growth MEASURED. Plane, key, consumed ancestry, and stamp ride `Receipt<SupportEvidence>`, so the
+// preflight this growth stood on is one `Consumed` key rather than a nested receipt column.
+public sealed record SupportEvidence(
     GraphEvidence Graph,
     Seq<BridgeSpan> Bridges,
     Area ContactArea,
@@ -1134,14 +1156,12 @@ public sealed record SupportPlan(
     Seq<SupportLayer> PlanarRows,
     Seq<SupportNode> SupportNodes,
     SupportTopology Topology,
-    ContentKey Key,
-    SupportReceipt Receipt);
+    Receipt<SupportEvidence> Receipt);
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static partial class Support {
-    private static Fin<SupportReceipt> Receipt(
-        AuditReceipt audit,
-        SupportProjection projection,
+    private static Fin<SupportEvidence> Measured(
+        SupportDraft projection,
         GraphEvidence graph,
         SupportPolicy policy,
         int preimageLength) =>
@@ -1153,8 +1173,8 @@ public static partial class Support {
             .As()).As().ToFin()
         let contact = areas.Map(static row => row.Contact).Fold(Area.Zero, static (sum, area) => sum + area)
         let trapped = projection.PlanarRows.Map(static row => row.TrappedArea).Fold(Area.Zero, static (sum, area) => sum + area)
-        from _trapped in Gate(trapped <= policy.Drain.MaximumTrappedArea,
-            $"support:trapped-area:{trapped.SquareMillimeters}").As().ToFin()
+        from _trapped in AdmissionSlots.Gate(trapped <= policy.Drain.MaximumTrappedArea,
+            FabConcern.Additive, $"support:trapped-area:{trapped.SquareMillimeters}", FabricationFault.Inadmissible).As().ToFin()
         let planarMaterial = projection.PlanarRows.Zip(areas).Map(static pair => Volume.FromCubicMillimeters(
                 pair.First.Height.Millimeters * (
                     (pair.First.Density.DecimalFractions * pair.Second.Sparse.SquareMillimeters)
@@ -1174,8 +1194,7 @@ public static partial class Support {
         let material = planarMaterial + treeMaterial
         let fragmentPenalty = Math.Clamp(material.CubicMillimeters / policy.Removal.MaximumFragment.CubicMillimeters, 0.0, 1.0)
         let undercutPenalty = Math.Clamp(policy.Removal.MaximumUndercut.Degrees / 90.0, 0.0, 1.0)
-        select new SupportReceipt(
-            audit,
+        select new SupportEvidence(
             graph,
             projection.Bridges,
             contact,
@@ -1201,10 +1220,13 @@ public static partial class Support {
 public static class SupportCodec {
     // The writer opens on a zero grid because every column below projects its own unit explicitly; loop vertices
     // quantize on the loop's OWN tolerance inside `Loop.CanonicalBytes`, which is where that grid belongs.
-    public static byte[] Write(SupportPolicy policy, SupportProjection projection) =>
-        Bridges(Nodes(Layers(Factors(Policy(new CanonicalWriter(0.0), policy), policy.Factors), projection), projection), projection)
-            .ToBytes()
-            .ToArray();
+    // `Retaining` is the mint that HOLDS a buffer — the writer publishes no constructor — and `ToBytes` answers on
+    // the rail, so this lane carries the close's own refusal rather than discarding it into an empty payload.
+    public static Fin<ReadOnlyMemory<byte>> Write(SupportPolicy policy, SupportDraft projection, Op key) =>
+        Bridges(
+            Nodes(Layers(Factors(Policy(CanonicalWriter.Retaining(0.0), policy), policy.Factors), projection), projection),
+            projection)
+            .ToBytes(key);
 
     private static CanonicalWriter Program(CanonicalWriter writer, SupportProgram program) => program.Switch(
         state: writer,
@@ -1242,8 +1264,8 @@ public static class SupportCodec {
         .Discriminant(policy.Removal.Class).Double(policy.Removal.AccessClearance.Millimeters)
         .Double(policy.Removal.ToolReach.Millimeters).Double(policy.Removal.MaximumFragment.CubicMillimeters)
         .Double(policy.Removal.MaximumUndercut.Radians)
-        .Double(policy.Drain.MinimumEscapeArea.SquareMillimeters).Double(policy.Drain.MaximumEscapeDistance.Millimeters)
-        .Double(policy.Drain.MaximumTrappedArea.SquareMillimeters).Double(policy.Drain.ChannelFraction.DecimalFractions)
+        .Double(policy.Drain.MinimumEscapeArea.SquareMillimeters).Double(policy.Drain.ChannelReach.Millimeters)
+        .Double(policy.Drain.MaximumTrappedArea.SquareMillimeters)
         .Double(policy.Completion.AreaTolerance.SquareMillimeters).Double(policy.Completion.LoadTolerance.Newtons)
         .Double(policy.Completion.HeatTolerance.Watts);
 
@@ -1266,7 +1288,7 @@ public static class SupportCodec {
             .Double(factors.Removal[removal].ContactScale.DecimalFractions)
             .Double(factors.Removal[removal].AccessScale.DecimalFractions));
 
-    private static CanonicalWriter Layers(CanonicalWriter writer, SupportProjection projection) => writer
+    private static CanonicalWriter Layers(CanonicalWriter writer, SupportDraft projection) => writer
         .Rows(toSeq(projection.PlanarRows.OrderBy(static row => row.Layer)), static (sink, row) => Region(
             Region(Region(sink.Ordinal(row.Layer).Double(row.Elevation.Millimeters).Double(row.Height.Millimeters),
                 row.Sparse), row.Interface), row.Contact)
@@ -1275,7 +1297,7 @@ public static class SupportCodec {
             .Double(row.TrappedArea.SquareMillimeters)
             .Rows(Sorted(row.EscapeChannels.Bind(static channel => channel.Loops)), static (target, loop) => loop.CanonicalBytes(target)));
 
-    private static CanonicalWriter Nodes(CanonicalWriter writer, SupportProjection projection) => writer
+    private static CanonicalWriter Nodes(CanonicalWriter writer, SupportDraft projection) => writer
         .Rows(toSeq(projection.SupportNodes.OrderBy(static node => node.Id)), static (sink, node) => sink
             .Ordinal(node.Id)
             .Rows(toSeq(node.Parents.Order()), static (target, parent) => target.Ordinal(parent))
@@ -1287,7 +1309,7 @@ public static class SupportCodec {
             .Double(node.Load.Newtons)
             .Double(node.Heat.Watts));
 
-    private static CanonicalWriter Bridges(CanonicalWriter writer, SupportProjection projection) => writer
+    private static CanonicalWriter Bridges(CanonicalWriter writer, SupportDraft projection) => writer
         .Rows(toSeq(projection.Bridges
             .OrderBy(static bridge => bridge.Layer)
             .ThenBy(static bridge => bridge.From.X).ThenBy(static bridge => bridge.From.Y)
@@ -1331,7 +1353,7 @@ flowchart LR
     Planar --> Codec["SupportCodec over FabricationCanon + Loop.CanonicalBytes"]
     Evidence --> Codec
     Codec --> Key["ContentKey.Of Plan"]
-    Key --> Plan["SupportPlan + SupportReceipt"]
+    Key --> Plan["SupportPlan + Receipt&lt;SupportEvidence&gt;"]
 ```
 
 ## [09]-[RESEARCH]

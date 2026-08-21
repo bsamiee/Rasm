@@ -45,7 +45,7 @@ declare namespace Session {
 
 const _DIGEST = "<rewrite-the-conversation-above-as-a-memory-block-keeping-decisions-commitments-and-open-threads>"
 
-const _backed = (fault: { readonly _tag: string }): AgentFault => new AgentFault({ reason: "session", detail: fault._tag })
+const _backed = (fault: { readonly _tag: string }): AgentFault => new AgentFault({ case: { reason: "session", detail: fault._tag } })
 
 // Retryability must SURVIVE the fold. Every provider failure landing on one reason hands the class lattice a single
 // verdict for a throttle, a revoked key, and a malformed answer, so whatever retries above this fold either replays a
@@ -56,16 +56,18 @@ const _bands = {
   denied: "refused",
   unavailable: "session",
   expired: "session",
-} as const satisfies Partial<Record<Fault.Class.Kind, AgentFault["reason"]>>
+} as const satisfies Partial<Record<Fault.Class.Kind, Agent.Reason>>
 
 const _folded = (fault: GuardrailFault | AiError.AiError): AgentFault =>
   Match.value(fault).pipe(
-    Match.tag("GuardrailFault", (refused) => new AgentFault({ reason: "refused", detail: refused.reason })),
+    Match.tag("GuardrailFault", (refused) => new AgentFault({ case: { reason: "refused", detail: refused.message } })),
     // an unbanded grade is terminal by construction: replaying identical octets against the same peer settles nothing
     Match.orElse((held) =>
       new AgentFault({
-        reason: Record.get(_bands, Ladder.grade(held)).pipe(Option.getOrElse(() => "provider" as const)),
-        detail: held._tag,
+        case: {
+          reason: Record.get(_bands, Ladder.grade(held)).pipe(Option.getOrElse(() => "provider" as const)),
+          detail: held._tag,
+        },
       })),
   )
 
@@ -112,29 +114,61 @@ const _PHASES = ["idle", "thinking", "awaiting", "compacting"] as const
 const _Phase = Schema.Literal(..._PHASES) // the one anchor spread: the receipt literal, the machine's node guard, and the phase refinement all read it
 const _isPhase = Schema.is(_Phase)
 
+// Every reason names one operand — the bound, verdict, or peer tag its own band carries — because the provider fold
+// re-keys a graded failure onto whichever reason shares its retryability and a subject that varied by arm could not
+// be filled from one dynamic band. What the rows do NOT share is the sentence, so each renders its own.
+const _LEG = "turn"
+const _Subject = Schema.Struct({ detail: Schema.String })
+
 const _reasons = Fault.Class.family(["budget", "refused", "tool", "session", "provider"] as const, {
-  budget: { class: "exhausted" },
-  refused: { class: "denied" },
+  budget: Fault.Class.row({
+    class: "exhausted",
+    leg: _LEG,
+    detail: _Subject,
+    render: ({ detail }) => `the turn reached a declared ceiling — ${detail}`,
+  }),
+  refused: Fault.Class.row({
+    class: "denied",
+    leg: _LEG,
+    detail: _Subject,
+    render: ({ detail }) => `the gate refused this turn — ${detail}`,
+  }),
   // a disposition that contradicts held evidence is caller-malformed and quarantinable: re-driving the identical verdict set can never settle
-  tool: { class: "invalid" },
-  session: { class: "unavailable" },
+  tool: Fault.Class.row({
+    class: "invalid",
+    leg: _LEG,
+    detail: _Subject,
+    render: ({ detail }) => `held-call evidence was refused — ${detail}`,
+  }),
+  session: Fault.Class.row({
+    class: "unavailable",
+    leg: _LEG,
+    detail: _Subject,
+    render: ({ detail }) => `the session substrate would not answer — ${detail}`,
+  }),
   // a peer answering wrongly is not a session outage: `session` is retryable and would replay a call that cannot settle
-  provider: { class: "malformed" },
+  provider: Fault.Class.row({
+    class: "malformed",
+    leg: _LEG,
+    detail: _Subject,
+    render: ({ detail }) => `the peer answered a turn this fold cannot settle — ${detail}`,
+  }),
 })
 
 class AgentFault extends Schema.TaggedError<AgentFault>()("AgentFault", {
-  reason: _reasons.schema,
-  detail: Schema.String,
+  case: _reasons.payload,
 }) {
   get class(): Fault.Class.Kind {
-    return _reasons.classOf(this.reason)
+    return _reasons.classOf(this.case.reason)
   }
   override get message(): string {
-    return `<agent:${this.reason}> ${this.detail}`
+    return _reasons.render(this.case)
   }
 }
 
 declare namespace Agent {
+  type Issue = typeof _reasons.payload.Type
+  type Reason = (typeof _reasons.kinds)[number]
   type Json = null | boolean | number | string | ReadonlyArray<Json> | { readonly [key: string]: Json }
   type Session = Effect.Effect.Success<ReturnType<typeof _open>>
   type Drive<Tools extends Record<string, Tool.Any>> = {
@@ -187,7 +221,7 @@ class Act extends Schema.TaggedRequest<Act>()("Act", {
 
 const _asTool = Tool.fromTaggedRequest(Act)
 
-const _spent = (fault: Transition.Spent): AgentFault => new AgentFault({ reason: "budget", detail: fault._tag })
+const _spent = (fault: Transition.Spent): AgentFault => new AgentFault({ case: { reason: "budget", detail: fault._tag } })
 
 const _landed = (entered: ReadonlyArray<string>): Turn["phase"] =>
   Option.getOrElse(Array.findFirst(entered, _isPhase), () => "idle" as const) // the machine's own entered node, narrowed by the anchor's derived guard
@@ -211,7 +245,7 @@ const _kept = <Tools extends Record<string, Tool.Any>>(
       Array.filterMap(response.toolCalls, (call) =>
         Array.contains(roster, call.name) ? Option.some({ id: call.id, tool: call.name, params: call.params }) : Option.none()),
     ),
-    (fault) => new AgentFault({ reason: "tool", detail: fault._tag }),
+    (fault) => new AgentFault({ case: { reason: "tool", detail: fault._tag } }),
   )
 
 const _stepped = <Tools extends Record<string, Tool.Any>>(drive: Agent.Drive<Tools>, chat: Chat.Persisted, roster: ReadonlyArray<string>) =>
@@ -279,7 +313,7 @@ const _act = <Tools extends Record<string, Tool.Any>>(act: Act, drive: Agent.Dri
     )
     return yield* Either.match(cursor, {
       // a Right surviving the gate means the ceiling stopped the loop while it was still advancing: spent, never silently truncated
-      onRight: (spentOut) => Effect.fail(new AgentFault({ reason: "budget", detail: `steps:${spentOut.left}` })),
+      onRight: (spentOut) => Effect.fail(new AgentFault({ case: { reason: "budget", detail: `${spentOut.left} steps still advancing at the ceiling` } })),
       onLeft: (settled) =>
         Effect.map(
           Effect.mapError(drive.actor.feed(settled.held.length > 0 ? "hold" : "settle"), _spent),
@@ -395,7 +429,7 @@ const _release = <R>(spec: Agent.ReleaseSpec<R>): Effect.Effect<Agent.Release, A
         Effect.zipRight(Effect.mapError(spec.actor.feed("release"), _spent)), // the machine's fuel rail folds at its own seam; the settle channel is already typed
         Effect.as(receipt),
       )
-    : Effect.fail(new AgentFault({ reason: "tool", detail: "disposition incomplete or differs from held evidence" }))
+    : Effect.fail(new AgentFault({ case: { reason: "tool", detail: "the disposition is incomplete or differs from held evidence" } }))
 }
 
 const _pending = (turn: Turn) => turn.held.length > 0

@@ -133,7 +133,7 @@ public static class CurveAlgebra {
         outline: request =>
             from trace in ArcAlgebra.Densify(new ArcProjection.Lower(request.Profile, request.ChordError))
             from receipt in trace.Lowering(
-                new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "curve-admit:outline"))
+                new KernelFault.InvalidValue("curves", "curve-admit:outline"))
             let closure = SampleClosure.From(request.Profile.Closed)
             from fitted in Fit(
                 closure.Samples(receipt.Result.Vertices, request.Profile.Tolerance),
@@ -146,7 +146,7 @@ public static class CurveAlgebra {
             from trace in ArcAlgebra.Densify(new ArcProjection.Recover(
                 request.Profile, request.FitError, request.ProbeFloor))
             from receipt in trace.Recovery(
-                new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "curve-admit:chords"))
+                new KernelFault.InvalidValue("curves", "curve-admit:chords"))
             let closure = SampleClosure.From(request.Profile.Closed)
             from fitted in Fit(
                 closure.Samples(receipt.Result.Vertices, request.Profile.Tolerance),
@@ -163,11 +163,11 @@ public static class CurveAlgebra {
         Op? key,
         CurveAdmissionReceipt receipt) =>
         points.Count < policy.Degree + 1
-            ? Fin.Fail<CurveTrace>(new GeometryFault.DegenerateInput(Kind.Curve, None, "curve-admit:samples").ToError())
+            ? Fin.Fail<CurveTrace>(new GeometryFault.DegenerateInput(Kind.Curve, None, "curve-admit:samples"))
             : Nurbs.Of(new NurbsWire.CurveThrough(points, policy), key)
                 .Bind(static form => Narrowed<NurbsForm, NurbsForm.Curve>(form, "curve-admit:form"))
                 .Bind(curve => closure.IsClosed && !curve.IsClosed
-                    ? Fin.Fail<NurbsForm.Curve>(new GeometryFault.DegenerateInput(Kind.Curve, None, "curve-admit:closure").ToError())
+                    ? Fin.Fail<NurbsForm.Curve>(new GeometryFault.DegenerateInput(Kind.Curve, None, "curve-admit:closure"))
                     : Fin.Succ(curve))
                 .Map<CurveTrace>(curve => new CurveTrace.Fitted(curve, receipt));
 
@@ -183,7 +183,7 @@ public static class CurveAlgebra {
                 lowering.Error,
                 lowering.ProbeFloor))
             from receipt in trace.Recovery(
-                new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "curve-lower:recover"))
+                new KernelFault.InvalidValue("curves", "curve-lower:recover"))
             select (CurveTrace)new CurveTrace.Lowered(
                 receipt.Result,
                 new CurveLoweringReceipt.Recovered(
@@ -221,7 +221,7 @@ public static class CurveAlgebra {
             });
         return double.IsFinite(deviation)
             ? Fin.Succ(deviation)
-            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, None, "curve-lower:deviation").ToError());
+            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, None, "curve-lower:deviation"));
     }
 
     // ONE narrowing gate over every kernel union this page reads. Narrowing asks a single question — is the
@@ -232,7 +232,7 @@ public static class CurveAlgebra {
         where TCase : class, TResult =>
         result is TCase typed
             ? Fin.Succ(typed)
-            : Fin.Fail<TCase>(new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, locus));
+            : Fin.Fail<TCase>(new KernelFault.InvalidValue("curves", locus));
 }
 ```
 

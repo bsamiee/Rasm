@@ -16,22 +16,27 @@ Import gating is tri-state: `xarray` and the `flox` lowering that rides it defer
 
 - Owner: `FieldDataset` — one frozen CF owner whose `FieldEngine` is recovered from the source shape (the `.nc`/`.h5`/`.zarr` suffix), config as a domain value carrying its `open`/`write` behaviour, never a parallel `open_netcdf`/`open_hdf`/`open_zarr` reader family and never an `engine=` flag set. One `open`/`read`/`write` entrypoint owns all modalities by input shape.
 - Packages: `netcdf4` is the first consumer of the admitted-but-unconsumed dist — its `createVariable` compression/quantization knobs thread as the `to_netcdf` `encoding` map, and its `__has_quantization_support__`/`__has_blosc_support__`/`__has_zstandard_support__` build-capability flags gate the non-`zlib` rows; `h5py` backs the `h5netcdf` engine, its native virtual-dataset surface owned by the absorbed `gridded/virtual#VIRTUAL` owner.
-- Growth: a new CF engine (`pydap`/`scipy`) is one `FieldEngine` member carrying its `open`/`write` delegate; a new CF metadata facet is one field on `FieldDataset`; a new compression/quantization knob is one field on `FieldEncoding`; zero new surface.
-- Boundary: no compute-package numeric trio (labelled-array compute is `compute`), no production field session, no durable product store — `data` emits a portable content-addressed CF field cube and its selection plan, never a runtime compute graph.
+- Growth: a new CF engine (`pydap`/`scipy`) is one `FieldEngine` member carrying its `open`/`write` delegate; a new CF metadata facet is one field on `FieldDataset`; a new compression/quantization knob is one field on `FieldEncoding`; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.FIELD` in this module's one `RAISES` table, which every section on this page anchors on; zero new surface.
+- Boundary: no compute-package numeric trio (labelled-array compute is `compute`), no production field session, no durable product store — `data` emits a portable content-addressed CF field cube and its selection plan, never a runtime compute graph. Rejected forms: a literal subject string at a lift site; a bare `Exception` catch where the engine set is nameable; a `""` units fill fusing an undeclared unit with a declared dimensionless one.
 
 ```python signature
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 
 from beartype import beartype
+from expression.collections import Block
+from h5netcdf import CompatibilityError
 from msgspec import Struct
 from msgspec.structs import asdict
+from netCDF4 import NetCDF4MissingFeatureException
 from opentelemetry import trace
+from zarr.errors import BaseZarrError
 
 lazy import xarray as xr
 
+from rasm.data.tabular.interop import DataLeg
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, boundary, rostered, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary, scoped
 from rasm.runtime.roots import ResourceRef
 
 if TYPE_CHECKING:
@@ -48,6 +53,78 @@ type QuantizeMode = Literal["BitGroom", "BitRound", "GranularBitRound"]
 # the netcdf4-only encoding keys the h5netcdf backend rejects: lossy quantization rides the netCDF-C surface alone, so
 # `for_vars(quantize=False)` strips them and the shared compression band threads to both backends.
 _QUANTIZE_KEYS: "Final[frozenset[str]]" = frozenset({"least_significant_digit", "significant_digits", "quantize_mode"})
+
+# the CF-plane raise surface across all three engines: `h5netcdf`'s strict-netCDF-4 refusal and netCDF-C's
+# absent-feature refusal both root at bare `Exception`, so each is named, and `BaseZarrError` is the v3 metadata,
+# node, and codec root. xarray's own `AlignmentError`/`MergeError`/`CoordinateValidationError` are `ValueError`
+# refinements the builtin ancestor admits, so the set never names the deferred `xarray` proxy and never reifies it at
+# module scope. The HDF5 leg answers `OSError` for a library or driver fault, `KeyError` for an absent name, and
+# `TypeError`/`ValueError` for a dtype or encoding mismatch, exactly as the h5py catalogue documents.
+_CF_RAISES: Final[Catch] = (CompatibilityError, NetCDF4MissingFeatureException, BaseZarrError, KeyError, TypeError, ValueError, OSError)
+
+# this module's whole raise roster, seated once for all five sections: every fenced leg and every explicit refusal on
+# this page resolves ONE anchor here, so no call site spells a subject and `FaultRow.seated` proves the leg against a
+# real module at import. `container.*` points name the raw-container plane and `corpus.*` the replicate-chunked
+# ensemble container — both live in THIS module, so one leg carries all three planes and a section mints no roster of
+# its own. The I/O legs declare TRANSIENT, a store or driver fault a re-issue may clear; the in-memory selection and
+# Arrow lowerings declare TERMINAL, since a re-run of a pure transform over the same cube refuses identically; and
+# every container-contract refusal declares TERMINAL because a truncated mint, a big-endian element, and a residence
+# outside the producer's closed pair all survive any number of re-reads.
+FIELD_OPEN: Final[FaultRow[DataLeg]] = FaultRow(leg=DataLeg.FIELD, point="open", arm="boundary", defect="cf-open", retriability=TRANSIENT)
+FIELD_READ: Final[FaultRow[DataLeg]] = FaultRow(leg=DataLeg.FIELD, point="read", arm="boundary", defect="cf-read", retriability=TRANSIENT)
+FIELD_WRITE: Final[FaultRow[DataLeg]] = FaultRow(leg=DataLeg.FIELD, point="write", arm="boundary", defect="cf-write", retriability=TRANSIENT)
+FIELD_SELECT: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.FIELD, point="select", arm="boundary", defect="selection-refused", retriability=TERMINAL
+)
+FIELD_ARROW: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.FIELD, point="arrow", arm="boundary", defect="arrow-lowering", retriability=TERMINAL
+)
+CONTAINER_OPEN: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.FIELD, point="container.open", arm="boundary", defect="container-open", retriability=TRANSIENT
+)
+CONTAINER_SLAB: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.FIELD, point="container.slab", arm="boundary", defect="slab-read", retriability=TRANSIENT
+)
+CONTAINER_LIFT: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.FIELD, point="container.labelled", arm="boundary", defect="phony-lift", retriability=TRANSIENT
+)
+# one PARAMETERIZED row for both halves of the same law — the producer's mint is incomplete — because an absent
+# dataset path and an absent attribute row are the same refusal reading a different coordinate, and the slot carries
+# which one the container omitted.
+CONTAINER_TRUNCATED: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.FIELD, point="container.mint", arm="boundary", defect="mint-truncated", retriability=TERMINAL, slots=("absent",)
+)
+CONTAINER_ENDIAN: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.FIELD, point="container.element", arm="boundary", defect="element-big-endian", retriability=TERMINAL, slots=("dtype",)
+)
+CONTAINER_RESIDENCE: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.FIELD, point="container.residence", arm="boundary", defect="residence-unknown", retriability=TERMINAL, slots=("residence",)
+)
+CORPUS_CREATE: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.FIELD, point="corpus.create", arm="boundary", defect="corpus-create", retriability=TRANSIENT
+)
+CORPUS_OPEN: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.FIELD, point="corpus.open", arm="boundary", defect="corpus-open", retriability=TRANSIENT
+)
+CORPUS_SLAB: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.FIELD, point="corpus.replicate", arm="boundary", defect="replicate-read", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[DataLeg]]] = rostered(Block.of_seq([
+    FIELD_OPEN,
+    FIELD_READ,
+    FIELD_WRITE,
+    FIELD_SELECT,
+    FIELD_ARROW,
+    CONTAINER_OPEN,
+    CONTAINER_SLAB,
+    CONTAINER_LIFT,
+    CONTAINER_TRUNCATED,
+    CONTAINER_ENDIAN,
+    CONTAINER_RESIDENCE,
+    CORPUS_CREATE,
+    CORPUS_OPEN,
+    CORPUS_SLAB,
+]))
 
 
 class FieldEncoding(Struct, frozen=True):
@@ -116,20 +193,23 @@ class FieldDataset(Struct, frozen=True):
     def open(cls, ref: ResourceRef) -> "RuntimeRail[FieldDataset]":
         # CF cube I/O carries a span per leg — trace parity with the gridded plane; the fence inside marks a failed leg's span.
         with _TRACER.start_as_current_span("field.open", attributes={"rasm.field.engine": FieldEngine.from_ref(ref).value}):
-            return boundary("field.open", lambda: _open(ref, FieldEngine.from_ref(ref)))
+            return boundary(FIELD_OPEN, lambda: _open(ref, FieldEngine.from_ref(ref)), catch=_CF_RAISES)
 
     def read(self) -> "RuntimeRail[xr.Dataset]":
         with _TRACER.start_as_current_span("field.read", attributes={"rasm.field.engine": self.engine.value}):
-            return boundary("field.read", self.engine.open(str(self.ref.path)))
+            return boundary(FIELD_READ, self.engine.open(str(self.ref.path)), catch=_CF_RAISES)
 
     def write(self, dataset: "xr.Dataset", target: ResourceRef, encoding: FieldEncoding = FieldEncoding()) -> "RuntimeRail[FieldReceipt]":
         with _TRACER.start_as_current_span("field.write", attributes={"rasm.field.engine": self.engine.value}):
-            return boundary("field.write", lambda: _write(self, dataset, target, encoding)).bind(lambda railed: railed)
+            return boundary(FIELD_WRITE, lambda: _write(self, dataset, target, encoding), catch=_CF_RAISES).bind(lambda railed: railed)
 
 
 def _open(ref: ResourceRef, engine: FieldEngine) -> FieldDataset:
     dataset = engine.open(str(ref.path))()
-    units = {name: str(var.attrs.get("units", "")) for name, var in dataset.variables.items()}
+    # CF `units` is an OPTIONAL variable attribute, so the map carries the DECLARED ones alone and an absent unit is
+    # an absent key a consumer lifts through `Posture.of_optional` — a `""` fill fused "unitless by declaration" with
+    # "the producer stated nothing", the exact fusion `data/RULINGS.md` forecloses.
+    units = {name: str(var.attrs["units"]) for name, var in dataset.variables.items() if "units" in var.attrs}
     return FieldDataset(ref=ref, engine=engine, dims=tuple(dataset.dims), coords=tuple(dataset.coords), units=units)
 ```
 
@@ -155,7 +235,7 @@ lazy from flox import groupby_scan
 lazy from flox.xarray import xarray_reduce
 lazy from xarray.groupers import TimeResampler
 
-from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.faults import Catch, RuntimeRail, boundary
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -205,6 +285,13 @@ type GrouperKind = Literal["group", "bins", "resample"]
 type ReductionFunc = "Reduction | Aggregation"
 type ScanRail = "ScanFunc | Scan"
 type ReindexPolicy = "ReindexStrategy | bool | None"
+
+# the grouped-reduction raise surface: flox and the bare-`xarray` grouper both refuse through builtins — an absent
+# dimension or group key `KeyError`, a malformed bin edge or frequency `ValueError`, a mismatched dtype `TypeError`,
+# an out-of-range axis `IndexError`, an unsupported knob combination `NotImplementedError` — and `policy.base`
+# mapping `mode` onto `reduce` reaches the flox-absent band as an `AttributeError` off the grouper, which is exactly
+# the explicit refusal the mapping exists to raise.
+_SELECT_RAISES: Final[Catch] = (AttributeError, IndexError, KeyError, NotImplementedError, TypeError, ValueError)
 
 _HAS_FLOX = find_spec("flox") is not None
 # derived by comprehension over each closed literal: the bare-`xarray` grouper exposes `mean(skipna=)`/`cumsum`, never a
@@ -310,7 +397,9 @@ class FieldSelection:
 
 
 def apply(selection: FieldSelection, dataset: "xr.Dataset") -> "RuntimeRail[xr.Dataset]":
-    return boundary(f"field.select.{selection.tag}", lambda: _select(selection, dataset))
+    # ONE anchor for the whole axis: the `FieldSelection` case is the caller's own value and rides no fault
+    # coordinate, so the seven per-tag subjects the f-string minted collapse onto the roster row this leg declares.
+    return boundary(FIELD_SELECT, lambda: _select(selection, dataset), catch=_SELECT_RAISES)
 
 
 def _select(selection: FieldSelection, dataset: "xr.Dataset") -> "xr.Dataset":
@@ -384,7 +473,7 @@ from msgspec import Struct
 lazy import pyarrow as pa
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary, scoped
+from rasm.runtime.faults import FAULT_CONF, Catch, RuntimeRail, boundary, scoped
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.roots import ResourceRef
@@ -399,6 +488,14 @@ if TYPE_CHECKING:
 type EgressTag = Literal["virtual", "arrow", "ensemble", "tree", "cube"]
 
 
+def _arrow_raises() -> Catch:
+    # reified at the call rather than named at module scope: this leg is the one that reifies the deferred `pyarrow`
+    # proxy anyway, so the set costs nothing until an egress runs. `ArrowInvalid`/`ArrowTypeError`/`ArrowKeyError`/
+    # `ArrowIndexError`/`ArrowMemoryError` are builtin refinements, so `ArrowException` is named for the leaves that
+    # root there ALONE — a capacity or serialization refusal no builtin ancestor admits.
+    return (pa.ArrowException, IndexError, KeyError, MemoryError, TypeError, ValueError, OSError)
+
+
 class FieldReceipt(Struct, frozen=True):
     engine: "FieldEngine | EgressTag"
     dims: tuple[str, ...]
@@ -408,7 +505,7 @@ class FieldReceipt(Struct, frozen=True):
 
     @beartype(conf=FAULT_CONF)
     def to_arrow(self, dataset: "xr.Dataset") -> "RuntimeRail[tuple[pa.Table, FieldReceipt]]":
-        return boundary("field.to_arrow", lambda: _to_arrow(dataset)).bind(lambda lowered: _arrow_receipt(*lowered))
+        return boundary(FIELD_ARROW, lambda: _to_arrow(dataset), catch=_arrow_raises()).bind(lambda lowered: _arrow_receipt(*lowered))
 
     def contribute(self) -> Iterable[Receipt]:
         # `domain`/`kind`/`key` are the lifted evidence contract the `tabular/lakehouse#LAKEHOUSE` residence reads —
@@ -475,17 +572,24 @@ from typing import Final, Literal
 import h5py
 import numpy as np
 from beartype import beartype
-from expression import Result
+from expression import Error
 from msgspec import Struct
 
 lazy import xarray as xr
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
+from rasm.runtime.faults import FAULT_CONF, Catch, RuntimeRail, boundary
 from rasm.runtime.roots import ResourceRef
 
 
 type Residence = Literal["exact", "quantized"]
+
+# the raw-container raise surface: `h5py` answers `OSError` for a library or driver fault, `KeyError` for an absent
+# name, and `TypeError`/`ValueError` for a dtype or selection mismatch, so one set fences every h5py leg on the page.
+_H5_RAISES: Final[Catch] = (KeyError, TypeError, ValueError, OSError)
+# the labelled lift adds `h5netcdf`'s strict-netCDF-4 refusal, the one raise reaching the phony-dims path that roots
+# at bare `Exception` and that no builtin ancestor in the set above admits.
+_LIFT_RAISES: Final[Catch] = (CompatibilityError, *_H5_RAISES)
 
 _FIELD_PATH: Final[str] = "field"
 # wire attribute spellings -> canonical field names, mapped ONCE at this edge; the roster is the producer's
@@ -527,15 +631,17 @@ class FieldContainer(Struct, frozen=True):
     @classmethod
     @beartype(conf=FAULT_CONF)
     def open(cls, ref: ResourceRef) -> "RuntimeRail[FieldContainer]":
-        return boundary("container.open", lambda: _open(ref))
+        return boundary(CONTAINER_OPEN, lambda: _open_container(ref), catch=_H5_RAISES).bind(lambda railed: railed)
 
     def window(self, stations: slice) -> "RuntimeRail[np.ndarray]":
         # station-outermost chunks at extent 1 make every station slab chunk-aligned; the h5py slice is the
         # exact counterpart of the producer's station-slab `HyperslabSelection`, so both ends resolve one address.
-        return boundary("container.window", lambda: _slab(self.ref, stations))
+        # `window` and `read` are ONE leg over two ranges — the slice is the caller's own value, not a fault
+        # coordinate — so both anchor the same roster row and neither mints a subject of its own.
+        return boundary(CONTAINER_SLAB, lambda: _slab(self.ref, stations), catch=_H5_RAISES)
 
     def read(self) -> "RuntimeRail[np.ndarray]":
-        return boundary("container.read", lambda: _slab(self.ref, slice(None)))
+        return boundary(CONTAINER_SLAB, lambda: _slab(self.ref, slice(None)), catch=_H5_RAISES)
 
     def labelled(self) -> "RuntimeRail[xr.Dataset]":
         # phony-dims lift for labelled consumers: the container carries NO dimension scales by the corpus pick,
@@ -544,41 +650,44 @@ class FieldContainer(Struct, frozen=True):
         def lift() -> "xr.Dataset":
             return xr.open_dataset(str(self.ref.path), engine="h5netcdf", phony_dims="sort")
 
-        return boundary("container.labelled", lift)
+        return boundary(CONTAINER_LIFT, lift, catch=_LIFT_RAISES)
 
 
-def _open(ref: ResourceRef) -> FieldContainer:
+def _open_container(ref: ResourceRef) -> "RuntimeRail[FieldContainer]":
+    # rail-returning under its own fence, which the entry self-flattens: the identity rail threads THROUGH rather
+    # than round-tripping a typed fault out through a `RuntimeError` the classifier then re-reads as a message, and
+    # every producer-contract refusal answers a roster row whose closed defect token replaces the free-form prose
+    # the raises carried. The h5py raises inside the `with` stay raises — they are the provider's, not this owner's.
     source = ref.path.read_bytes()
     with h5py.File(str(ref.path), "r") as file:
         if _FIELD_PATH not in file:
-            raise KeyError(f"container roster: no /{_FIELD_PATH} dataset")
+            return Error(CONTAINER_TRUNCATED.raised(f"/{_FIELD_PATH}"))
         dataset = file[_FIELD_PATH]
         if dataset.dtype.byteorder == ">":
-            raise TypeError(f"container endianness: {dataset.dtype.str} is big-endian")
+            return Error(CONTAINER_ENDIAN.raised(dataset.dtype.str))
         absent = tuple(wire for wire, _ in _META if wire not in dataset.attrs)
         if absent:
-            raise KeyError(f"container attributes: {absent}")
+            return Error(CONTAINER_TRUNCATED.raised(",".join(absent)))
         raw = {field: dataset.attrs[wire] for wire, field in _META}
         shape, chunks = tuple(dataset.shape), tuple(dataset.chunks or dataset.shape)
-    # key is matched off the rail inside the already-fenced body, so a hash `Error` re-raises onto the fence
-    # rather than masking the identity behind a fabricated key.
-    match ContentIdentity.of("field.container", source):
-        case Result(tag="ok", ok=key):
-            pass
-        case Result(tag="error", error=fault):
-            raise RuntimeError(fault)
     residence = str(raw["residence"])
     if residence not in ("exact", "quantized"):  # closed pair by producer law — `predicted` refuses HDF5 egress at its own fence
-        raise ValueError(f"container residence: {residence}")
-    meta = ContainerMeta(
-        format_key=str(raw["format_key"]),
-        residence=residence,
-        bits=int(raw["bits"]),
-        bound=float(raw["bound"]),
-        max_residual=float(raw["max_residual"]),
-        content_key=key,
+        return Error(CONTAINER_RESIDENCE.raised(residence))
+    return ContentIdentity.of("field.container", source).map(
+        lambda key: FieldContainer(
+            ref=ref,
+            meta=ContainerMeta(
+                format_key=str(raw["format_key"]),
+                residence=residence,
+                bits=int(raw["bits"]),
+                bound=float(raw["bound"]),
+                max_residual=float(raw["max_residual"]),
+                content_key=key,
+            ),
+            shape=shape,
+            chunks=chunks,
+        )
     )
-    return FieldContainer(ref=ref, meta=meta, shape=shape, chunks=chunks)
 
 
 def _slab(ref: ResourceRef, stations: slice) -> np.ndarray:
@@ -618,12 +727,12 @@ class EnsembleCorpus(Struct, frozen=True):
     def create(
         cls, ref: ResourceRef, meta: EnsembleMeta, design: np.ndarray, responses: Mapping[str, np.ndarray]
     ) -> "RuntimeRail[tuple[EnsembleCorpus, FieldReceipt]]":
-        return boundary("ensemble.create", lambda: _create(ref, meta, design, responses)).bind(lambda railed: railed)
+        return boundary(CORPUS_CREATE, lambda: _create(ref, meta, design, responses), catch=_H5_RAISES).bind(lambda railed: railed)
 
     @classmethod
     @beartype(conf=FAULT_CONF)
     def open(cls, ref: ResourceRef) -> "RuntimeRail[EnsembleCorpus]":
-        return boundary("ensemble.open", lambda: _open_ensemble(ref))
+        return boundary(CORPUS_OPEN, lambda: _open_ensemble(ref), catch=_H5_RAISES)
 
     def replicate(self, ordinal: int) -> "RuntimeRail[dict[str, np.ndarray]]":
         # replicate-per-chunk layout makes the ordinal slab one chunk per response — resume and UQ folds
@@ -632,7 +741,7 @@ class EnsembleCorpus(Struct, frozen=True):
             with h5py.File(str(self.ref.path), "r") as file:
                 return {name: file[f"responses/{name}"][ordinal] for name in self.responses}
 
-        return boundary("ensemble.replicate", slab)
+        return boundary(CORPUS_SLAB, slab, catch=_H5_RAISES)
 
 
 def _create(

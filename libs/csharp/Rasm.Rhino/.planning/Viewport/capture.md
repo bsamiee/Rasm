@@ -1,111 +1,175 @@
 # [RASM_RHINO_CAPTURE]
 
-Capture rendering has one `CaptureRequest` union and one `Captures.Run` entry. Settings, transparent raster, depth, and frame-sequence cases retain modality-specific payloads while converging on one `CaptureArtifact` family. `CaptureFeature` is shared seed data projected into `ViewCaptureSettings`, `ViewCapture`, and `ZBufferCapture`; native settings, bitmaps, buffers, and animation properties stay inside owned brackets.
+Capture ownership (`Rasm.Rhino.Viewport`) prepares native `ViewCaptureSettings` batches, drives the transparent-raster, depth, and frame-sequence host facades, and converges every product on one `CaptureArtifact` family. The page is sink-FREE: preparation, measurement, and the artifact vocabulary live here, while raster, vector, and printer DELIVERY are cases of `Exchange/publish`'s `Landing` — an S4 owner this S3 page never names and never reaches upward for.
+
+`ViewportFault` seats here as the sub-domain's refusal family, coded on the kernel `FaultBand.HostViewport` row; every generated owner across `Viewport/*` stamps `[ValidationError]`. Measurement stays receipt evidence on successful artifacts, while failures preserve their exact cause without a measured-fault wrapper.
+
+Drawing STANDARDS are the kernel's whole: margins come from `SheetFrame`, model scale from `DrawingScale`, plotted magnitudes from `LineGroup`/`Terminator`/`TextHeight`, output resolution from `PlotResolution`, and the sun study's north bearing from `NorthPosture` over the model's own declination — this page authors no standards figure of its own.
 
 ## [01]-[INDEX]
 
-- [02]-[SPEC_AXES]: Admitted capture extents, origins, subjects, area and scale cases, layout, and settings decoration.
-- [03]-[DELIVERY_ROWS]: Settings-driven egress, the transparent and depth facade specifications, and capture artifacts.
-- [04]-[FRAME_SEQUENCE]: Document-custodied animation-capture spec — sequence kinds, sun windows, output rows, and the frame receipt.
-- [05]-[RUN_RAIL]: Sink-free plans, cardinality-admitted delivery requests, internal prepared leases, and the UI-scoped execution fold.
+- [02]-[FAULT]: `ViewportFault` — the sub-domain's one refusal family on the kernel band registry, and the folder law that seats it.
+- [03]-[SPEC_AXES]: admitted extents, origins, resolution, subject, area, scale, media layout, and the `CaptureFeature` capability table with its per-surface rosters.
+- [04]-[ARTIFACT_ROWS]: the transparent and depth request specifications, the depth projection/payload pair, and the one `CaptureArtifact` family with its coverage carriage.
+- [05]-[FRAME_SEQUENCE]: document-custodied animation capture — sequence kinds, the `SunWindow` calendar family, output rows, the generated host transcription, and the frame receipt.
+- [06]-[RUN_RAIL]: sink-free plans, the modality union with its own demand and identity, the nested preparation bracket, and the one measured execution fold.
 
-## [02]-[SPEC_AXES]
+## [02]-[FAULT]
 
-- Owner: `Size2i`, `Offset2i`, and `CaptureDpi` are generated values for positive integer extents, nonnegative integer origins, and finite positive DPI; each `Of` bridges generator rejection onto `Fin`. `CaptureAnchor` and `CaptureColor` `[SmartEnum<int>]` rows carry the complete host anchor and output-color projections. `CaptureSubject` `[Union]` closes view and page bases plus a preview that wraps either admitted base; every target is scalar, and the page case requires `ViewportTarget.PageCase`. `CaptureArea` and `CaptureScale` `[Union]` close their variant families; window geometry admits at the factory, and model scale enters the kernel `PositiveMagnitude` gate once.
-- Owner: generated `CaptureCrop`, `CaptureMargins`, `CaptureOffset`, `CaptureBanner`, and `PrintFidelity` values plus factory-only `MediaLayout` cases own admitted settings payloads. `CaptureFeature` rows carry nullable settings, transparent, and depth projection columns; each decor admits from a column and applies through the ONE column-selected fold, so a new host surface is one column and one accessor. `CaptureDecor` combines color and text payloads with an admitted frozen feature set. Crop admission performs checked bounds arithmetic, and every physical magnitude is finite and nonnegative in a known unit.
-- Law: `MediaLayout` and `CaptureDecor` contain only members represented by `ViewCaptureSettings`. `DrawGridAxes`, `ScaleScreenItems`, and transparency belong exclusively to `TransparentCaptureSpec`; no settings-driven request silently ignores them.
-- Law: a unit regime crosses this page as the kernel `ModelUnit` — `CaptureMargins` and `CaptureOffset` hold it whole and lower `.System` at the host member, which takes a `UnitSystem`; a raw host enum on a public capture surface re-opens an admission the kernel already gated, and `UnitSystem.CustomUnits` refuses at admission because a custom scale lives only on `LengthUnit` and no margin or offset member accepts one.
-- Law: native `System.Drawing.Size` and `Rectangle` values mint only through the owners' own projections — `Size2i.Native` and `Offset2i.Window(Size2i)` — and integer position never rides the extent type. Preview preparation configures its view/page basis in full, calls `CreatePreviewSettings` once, validates the derived settings, and retires the basis before egress.
+- Owner: `ViewportFault` is the direct host-boundary family on `FaultBand.HostViewport`; generated-value refusals cross the kernel validation bridge.
+- Cases: `HostRefused` is the semantic viewport refusal; `KernelFault` owns generated admission and foreign host failures retain their original `Error`.
+- Law: one fault family per kernel band row. `DraftFault` never codes viewport failures, and generated owners stamp only `[ValidationError]`.
+- Law: the generated fault-case identity supplies the numeric code, while this root's total `Message` switch supplies presentation.
+- Law: measurement decorates a successful artifact; failure preserves the original cause without minting a viewport wrapper.
+- Law: no category or string identity is stored or wired; telemetry projects the numeric identity only for domain faults.
+- Receipt: none — the fault IS the evidence; the band registry proof and the `OwnerOf` reverse read are the kernel's.
+- Packages: `Domain/rails` for `FaultBand` and the rail; Thinktecture.Runtime.Extensions for generated unions and values; `Modeling/solids` for `BenchEvidence`.
+- Growth: a new refusal class is one case, one offset row, and one message row inside the band's span; the band's own span guard throws at type init when the span is spent.
+- Boundary: `ViewportFault` is the Viewport family alone — Exchange, Render, Plugin, and Persistence each mint their own on their own band row, and the kernel `UiFault` stays the one UI refusal family.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Domain;
+using Rasm.Rhino.Modeling;
+using Thinktecture;
+
+namespace Rasm.Rhino.Viewport;
+
+// --- [ERRORS] -------------------------------------------------------------------------------
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ViewportFault : Fault {
+    private static readonly FaultBand FamilyBand = FaultBand.HostViewport;
+    private ViewportFault() { }
+
+    [FaultCase(0)] public sealed partial record HostRefused(Op Key, string Member, string Detail) : ViewportFault;
+
+    public sealed override string Message => Switch(
+        hostRefused: static fault => $"Viewport host member '{fault.Member}' refused '{fault.Key}': {fault.Detail}");
+}
+```
+
+## [03]-[SPEC_AXES]
+
+- Owner: `Size2i`, `Offset2i`, and `CaptureDpi` are the generated pixel-extent, pixel-origin, and resolution values; `CaptureAnchor` and `CaptureColor` mirror their host enums keyed on the host ordinal itself; `TargetReach` carries the two address regimes a capture admits; `CaptureSubject`, `CaptureArea`, `CaptureScale`, and `MediaLayout` close the request axes; `CaptureFeature` is the host toggle vocabulary as a kernel capability, `CaptureSurface` the three projection surfaces that read it, and `CaptureDecor` the settings-side decoration.
+- Entry: `Size2i.Of` / `Offset2i.Of` / `CaptureDpi.Of` admit through the generated `Validate`; `CaptureDpi.Of(PlotResolution)` is the output-class arity, so no capture request spells a DPI literal. `CaptureSubject.View`/`Page`/`Preview` admit a scalar address through `TargetReach`; `MediaLayout.Viewport`/`Crop`/`Margins`/`Maximize` admit the media frame, and `Margins` takes either an authored `SheetMargin` or the `SheetSize` whose standard publishes one.
+- Auto: a `CaptureSurface` row's ROSTER derives by filtering the feature table on that surface's own column, and its DEFAULT derives from a declared seed — so a new host toggle joins every surface it names by declaring that surface's column, and no per-surface roster is hand-kept beside the table it mirrors. The three `FrozenSet`-wrapping value objects the prior page carried, each with its own `All(column is not null)` roster guard, have no successor: `CaptureSurface.Depth.Roster` IS the former `Everything`, `CapabilitySet<CaptureFeature>.None` the former `Surfaces`, and the remaining named preset is the surface's own `Default`.
+- Law: drawing figures are the kernel's. `MediaLayout.Margins(SheetSize, …)` reads `SheetFrame.For(size.Standard).Margin(size, key)` — the standard's own binding-and-edge quad, ISO 5457's 20 mm binding against 10 mm elsewhere included; `CaptureScale.ToValue` takes a reduced `DrawingScale` pair and lowers its `Ratio` at the one host member; `PrintFidelity.For(size, …)` derives the default print width from `LineGroup.For(size)`'s narrow rung, the arrowhead from `Terminator.Size(group.Wide)`, and the text-dot point size from `TextHeight.For(size)`. Five free doubles, four free margin doubles, and a free scale double all delete for rungs a standard publishes.
+- Law: a unit regime crosses this page as the kernel `ModelUnit` and lowers `.System` only at the host member that takes a `UnitSystem`; `UnitSystem.CustomUnits` refuses at admission because a custom scale lives on `LengthUnit`, which no margin or offset member accepts.
+- Law: a host `bool` never leaves its row. `OffsetOrigin`, `AspectPolicy`, and `PrintWidthPolicy` each carry a delegate column performing their own host write, so the two-row vocabulary IS the lowering and no consumer reads the flag; each names one INDEPENDENT host parameter with no legal-corner law between them, which is why they stay three rows rather than folding into a capability set.
+- Law: absence at construction is unrepresentable, not guarded per use. `Size2i` and `CaptureDpi` refuse the default struct outright, `Offset2i` names its legal default `Origin` because a zero pixel origin is a real address, and the eleven `IsValid` re-probes the prior page carried against `default(T)` ghosts have no successor.
+- Law: native `System.Drawing.Size` and `Rectangle` values mint only through the owners' own projections — `Size2i.Native` and `Offset2i.Window(Size2i)` — and an integer position never rides the extent type.
+
+```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Rasm.Domain;
+using Rasm.Drawing;
+using Rasm.Interaction;
 using Rasm.Numerics;
+using Rasm.Parametric;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.HostUi;
 using Rasm.Rhino.Modeling;
 using System.Collections.Frozen;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using Thinktecture;
+using UnitsNet.Units;
 
 namespace Rasm.Rhino.Viewport;
 
 // --- [TYPES] --------------------------------------------------------------------------------
 [ComplexValueObject]
+[ValidationError]
 [StructLayout(LayoutKind.Auto)]
-public readonly partial struct Size2i {
+public readonly partial struct Size2i : IDisallowDefaultValue {
     public int Width { get; }
     public int Height { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int width, ref int height) {
-        validationError = Valid(width: width, height: height)
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int width, ref int height) =>
+        validationError = ValidityClaim.All(width > 0, height > 0, (long)width * height <= int.MaxValue)
             ? validationError
-            : new ValidationError(message: "capture extent is invalid");
-    }
+            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(Size2i), "positive pixel extents whose area fits an int" }));
 
     public static Fin<Size2i> Of(int width, int height, Op? key = null) =>
-        key.OrDefault().Catch(() => Fin.Succ(Create(width: width, height: height)));
+        key.OrDefault().AcceptValidated<Size2i>(fault: Validate(width, height, out Size2i admitted), admitted: admitted);
 
-    internal bool IsValid => Valid(width: Width, height: Height);
     internal System.Drawing.Size Native => new(Width, Height);
-
-    private static bool Valid(int width, int height) =>
-        width > 0 && height > 0 && (long)width * height <= int.MaxValue;
 }
 
-[ComplexValueObject]
+[ComplexValueObject(AllowDefaultStructs = true, DefaultInstancePropertyName = "Origin")]
+[ValidationError]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct Offset2i {
     public int X { get; }
     public int Y { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int x, ref int y) {
-        validationError = x >= 0 && y >= 0
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int x, ref int y) =>
+        validationError = ValidityClaim.All(x >= 0, y >= 0)
             ? validationError
-            : new ValidationError(message: "capture origin is invalid");
-    }
+            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(Offset2i), "nonnegative pixel coordinates" }));
 
     public static Fin<Offset2i> Of(int x, int y, Op? key = null) =>
-        key.OrDefault().Catch(() => Fin.Succ(Create(x: x, y: y)));
+        key.OrDefault().AcceptValidated<Offset2i>(fault: Validate(x, y, out Offset2i admitted), admitted: admitted);
 
     internal System.Drawing.Rectangle Window(Size2i extent) => new(X, Y, extent.Width, extent.Height);
 }
 
 [ValueObject<double>]
-public readonly partial struct CaptureDpi {
+[ValidationError]
+public readonly partial struct CaptureDpi : IDisallowDefaultValue {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
-        validationError = double.IsFinite(value) && value > 0.0
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
+        validationError = ValidityClaim.All(ValidityClaim.Finite(value), value > 0.0)
             ? validationError
-            : new ValidationError(message: "capture DPI is invalid");
-    }
+            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(CaptureDpi), value, "a finite positive resolution" }));
 
     public static Fin<CaptureDpi> Of(double value, Op? key = null) =>
         key.OrDefault().AcceptValidated<CaptureDpi>(candidate: value);
 
-    internal bool IsValid => Value > 0.0;
+    public static Fin<CaptureDpi> Of(PlotResolution resolution, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.Need(value: resolution).Bind(row => Of(value: row.Dpi.Value, key: op));
+    }
 }
 
 [SmartEnum<int>]
 public sealed partial class CaptureAnchor {
-    public static readonly CaptureAnchor LowerLeft = new(key: 0, native: ViewCaptureSettings.AnchorLocation.LowerLeft);
-    public static readonly CaptureAnchor LowerRight = new(key: 1, native: ViewCaptureSettings.AnchorLocation.LowerRight);
-    public static readonly CaptureAnchor UpperLeft = new(key: 2, native: ViewCaptureSettings.AnchorLocation.UpperLeft);
-    public static readonly CaptureAnchor UpperRight = new(key: 3, native: ViewCaptureSettings.AnchorLocation.UpperRight);
-    public static readonly CaptureAnchor Center = new(key: 4, native: ViewCaptureSettings.AnchorLocation.Center);
+    public static readonly CaptureAnchor LowerLeft = new(key: (int)ViewCaptureSettings.AnchorLocation.LowerLeft);
+    public static readonly CaptureAnchor LowerRight = new(key: (int)ViewCaptureSettings.AnchorLocation.LowerRight);
+    public static readonly CaptureAnchor UpperLeft = new(key: (int)ViewCaptureSettings.AnchorLocation.UpperLeft);
+    public static readonly CaptureAnchor UpperRight = new(key: (int)ViewCaptureSettings.AnchorLocation.UpperRight);
+    public static readonly CaptureAnchor Center = new(key: (int)ViewCaptureSettings.AnchorLocation.Center);
 
-    internal ViewCaptureSettings.AnchorLocation Native { get; }
+    internal ViewCaptureSettings.AnchorLocation Native => (ViewCaptureSettings.AnchorLocation)Key;
 }
 
 [SmartEnum<int>]
 public sealed partial class CaptureColor {
-    public static readonly CaptureColor Display = new(key: 0, native: ViewCaptureSettings.ColorMode.DisplayColor);
-    public static readonly CaptureColor Print = new(key: 1, native: ViewCaptureSettings.ColorMode.PrintColor);
-    public static readonly CaptureColor Monochrome = new(key: 2, native: ViewCaptureSettings.ColorMode.BlackAndWhite);
+    public static readonly CaptureColor Display = new(key: (int)ViewCaptureSettings.ColorMode.DisplayColor);
+    public static readonly CaptureColor Print = new(key: (int)ViewCaptureSettings.ColorMode.PrintColor);
+    public static readonly CaptureColor Monochrome = new(key: (int)ViewCaptureSettings.ColorMode.BlackAndWhite);
 
-    internal ViewCaptureSettings.ColorMode Native { get; }
+    internal ViewCaptureSettings.ColorMode Native => (ViewCaptureSettings.ColorMode)Key;
+}
+
+// The transparent row refuses a DETAIL because `ViewCapture.CaptureToBitmap` takes a `RhinoView` and a detail is a
+// viewport inside one — the one exclusion the two regimes do not share.
+[SmartEnum<int>]
+internal sealed partial class TargetReach {
+    internal static readonly TargetReach Row = new(
+        key: 0, admits: static target => target is not ViewportTarget.EveryCase);
+    internal static readonly TargetReach View = new(
+        key: 1, admits: static target => target is not ViewportTarget.EveryCase and not ViewportTarget.DetailCase);
+
+    [UseDelegateFromConstructor]
+    internal partial bool Admits(ViewportTarget target);
+
+    internal Fin<ViewportTarget> Admit(ViewportTarget target, Op key) =>
+        from held in key.Need(value: target)
+        from _reach in guard(Admits(target: held), key.InvalidInput()).ToFin()
+        select held;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -118,26 +182,21 @@ public abstract partial record CaptureSubject {
 
     public static Fin<CaptureSubject> View(ViewportTarget target, Size2i pixels, CaptureDpi dpi, Op? key = null) {
         Op op = key.OrDefault();
-        return from valid in op.Need(value: target)
-               from _target in guard(valid is not ViewportTarget.EveryCase, op.InvalidInput())
-               from _extent in guard(pixels.IsValid, op.InvalidInput())
-               from _dpi in guard(dpi.IsValid, op.InvalidInput())
-               select (CaptureSubject)new ViewCase(Target: valid, Pixels: pixels, Dpi: dpi);
+        return TargetReach.Row.Admit(target: target, key: op)
+            .Map(valid => (CaptureSubject)new ViewCase(Target: valid, Pixels: pixels, Dpi: dpi));
     }
 
     public static Fin<CaptureSubject> Page(ViewportTarget target, CaptureDpi dpi, Op? key = null) {
         Op op = key.OrDefault();
         return from valid in op.Need(value: target)
-               from _page in guard(valid is ViewportTarget.PageCase, op.InvalidInput())
-               from _dpi in guard(dpi.IsValid, op.InvalidInput())
+               from _page in guard(valid is ViewportTarget.PageCase, op.InvalidInput()).ToFin()
                select (CaptureSubject)new PageCase(Target: valid, Dpi: dpi);
     }
 
     public static Fin<CaptureSubject> Preview(CaptureSubject source, Size2i pixels, Op? key = null) {
         Op op = key.OrDefault();
         return from valid in op.Need(value: source)
-               from _source in guard(valid is ViewCase or PageCase, op.InvalidInput())
-               from _extent in guard(pixels.IsValid, op.InvalidInput())
+               from _source in guard(valid is ViewCase or PageCase, op.InvalidInput()).ToFin()
                select (CaptureSubject)new PreviewCase(Source: valid, Pixels: pixels);
     }
 
@@ -145,6 +204,20 @@ public abstract partial record CaptureSubject {
         viewCase: static view => view.Target,
         pageCase: static page => page.Target,
         previewCase: static preview => preview.Source.Address);
+
+    // Recursive on the preview arm: the basis mints, the preview derives from it, and the basis releases the moment
+    // the derivation returns, so no completed basis outlives the settings it produced.
+    internal Fin<Lease<ViewCaptureSettings>> Realize(ViewportRef row, Op key) => Switch(
+        (Row: row, Op: key),
+        viewCase: static (ctx, view) => Lease<ViewCaptureSettings>.Acquire(
+            mint: () => new ViewCaptureSettings(ctx.Row.View, view.Pixels.Native, (double)view.Dpi), key: ctx.Op),
+        pageCase: static (ctx, page) => ctx.Op.Need(ctx.Row.View as RhinoPageView).Bind(view =>
+            Lease<ViewCaptureSettings>.Acquire(mint: () => new ViewCaptureSettings(view, (double)page.Dpi), key: ctx.Op)),
+        previewCase: static (ctx, preview) => preview.Source.Realize(row: ctx.Row, key: ctx.Op)
+            .Bind(basis => basis.Use(
+                body: held => Lease<ViewCaptureSettings>.Acquire(
+                    mint: () => held.CreatePreviewSettings(preview.Pixels.Native), key: ctx.Op),
+                key: ctx.Op)));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -160,11 +233,11 @@ public abstract partial record CaptureArea {
     public static CaptureArea Extents { get; } = new ExtentsCase();
 
     public static Fin<CaptureArea> ScreenWindow(Point2d a, Point2d b, Op? key = null) =>
-        guard(a.IsValid && b.IsValid && a != b, key.OrDefault().InvalidInput()).ToFin()
+        guard(ValidityClaim.All(a.IsValid, b.IsValid, a != b), key.OrDefault().InvalidInput()).ToFin()
             .Map(_ => (CaptureArea)new ScreenWindowCase(A: a, B: b));
 
     public static Fin<CaptureArea> WorldWindow(Point3d a, Point3d b, Op? key = null) =>
-        guard(a.IsValid && b.IsValid && a != b, key.OrDefault().InvalidInput()).ToFin()
+        guard(ValidityClaim.All(a.IsValid, b.IsValid, a != b), key.OrDefault().InvalidInput()).ToFin()
             .Map(_ => (CaptureArea)new WorldWindowCase(A: a, B: b));
 
     internal Fin<Unit> Apply(ViewCaptureSettings settings, Op key) => Switch(
@@ -186,24 +259,62 @@ public abstract partial record CaptureScale {
     private CaptureScale() { }
 
     internal sealed record NativeCase : CaptureScale;
-    internal sealed record ToValueCase(PositiveMagnitude Scale) : CaptureScale;
+    internal sealed record ToValueCase(DrawingScale Scale) : CaptureScale;
     internal sealed record ToFitCase : CaptureScale;
 
     public static CaptureScale Native { get; } = new NativeCase();
     public static CaptureScale ToFit { get; } = new ToFitCase();
-    public static Fin<CaptureScale> ToValue(PositiveMagnitude scale, Op? key = null) =>
-        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: scale.Value)
-            .Map(static admitted => (CaptureScale)new ToValueCase(Scale: admitted));
+
+    public static Fin<CaptureScale> ToValue(DrawingScale scale, Op? key = null) =>
+        key.OrDefault().Need(value: scale).Map(static admitted => (CaptureScale)new ToValueCase(Scale: admitted));
 
     internal Fin<Unit> Apply(ViewCaptureSettings settings, Op key) => Switch(
         (Settings: settings, Op: key),
         nativeCase: static (_, _) => Fin.Succ(value: unit),
-        toValueCase: static (ctx, value) => ctx.Op.Catch(() => ctx.Settings.SetModelScaleToValue(scale: value.Scale.Value)),
+        toValueCase: static (ctx, value) => ctx.Op.Catch(() => ctx.Settings.SetModelScaleToValue(scale: value.Scale.Ratio)),
         toFitCase: static (ctx, _) => ctx.Op.Catch(() => ctx.Settings.SetModelScaleToFit(promptOnChange: false)));
+}
+
+// --- [POLICIES] -----------------------------------------------------------------------------
+[SmartEnum<int>]
+public sealed partial class OffsetOrigin {
+    public static readonly OffsetOrigin Margin = new(key: 0, seat: static (settings, offset) =>
+        Op.Side(() => settings.SetOffset(lengthUnits: offset.Units.System, fromMargin: true, x: offset.X, y: offset.Y)));
+    public static readonly OffsetOrigin Media = new(key: 1, seat: static (settings, offset) =>
+        Op.Side(() => settings.SetOffset(lengthUnits: offset.Units.System, fromMargin: false, x: offset.X, y: offset.Y)));
+
+    [UseDelegateFromConstructor]
+    internal partial Unit Seat(ViewCaptureSettings settings, CaptureOffset offset);
+}
+
+[SmartEnum<int>]
+public sealed partial class AspectPolicy {
+    public static readonly AspectPolicy MatchViewport = new(key: 0,
+        apply: static (settings, key) => key.Catch(() => settings.MatchViewportAspectRatio()
+            ? Fin.Succ(value: unit)
+            : Fin.Fail<Unit>(new ViewportFault.HostRefused(
+                Key: key, Member: nameof(ViewCaptureSettings.MatchViewportAspectRatio), Detail: "answered false"))));
+    public static readonly AspectPolicy PreserveMedia = new(key: 1,
+        apply: static (_, _) => Fin.Succ(value: unit));
+
+    [UseDelegateFromConstructor]
+    internal partial Fin<Unit> Apply(ViewCaptureSettings settings, Op key);
+}
+
+// CTB/STB participation: the host decides whether plotted widths come from the objects' print widths or from the
+// screen, and no drawing standard publishes that switch — it stays a host row.
+[SmartEnum<int>]
+public sealed partial class PrintWidthPolicy {
+    public static readonly PrintWidthPolicy Model = new(key: 0, seat: static settings => Op.Side(() => settings.UsePrintWidths = true));
+    public static readonly PrintWidthPolicy Screen = new(key: 1, seat: static settings => Op.Side(() => settings.UsePrintWidths = false));
+
+    [UseDelegateFromConstructor]
+    internal partial Unit Seat(ViewCaptureSettings settings);
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
 [ComplexValueObject]
+[ValidationError]
 public sealed partial class CaptureCrop {
     public Size2i Media { get; }
     public Offset2i Origin { get; }
@@ -214,54 +325,21 @@ public sealed partial class CaptureCrop {
         ref ValidationError? validationError,
         ref Size2i media,
         ref Offset2i origin,
-        ref Size2i extent) {
-        validationError = media.IsValid && extent.IsValid
-            && (long)origin.X + extent.Width <= media.Width
-            && (long)origin.Y + extent.Height <= media.Height
-                ? validationError
-                : new ValidationError(message: "capture crop is invalid");
-    }
+        ref Size2i extent) =>
+        validationError = ValidityClaim.All(
+            (long)origin.X + extent.Width <= media.Width,
+            (long)origin.Y + extent.Height <= media.Height)
+            ? validationError
+            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(CaptureCrop), "a crop window inside the media extent" }));
 
     public static Fin<CaptureCrop> Of(Size2i media, Offset2i origin, Size2i extent, Op? key = null) =>
-        key.OrDefault().Catch(() => Fin.Succ(Create(media: media, origin: origin, extent: extent)));
+        key.OrDefault().AcceptValidated<CaptureCrop>(fault: Validate(media, origin, extent, out CaptureCrop? admitted), admitted: admitted);
 }
 
 // The regime arrives already admitted and lowers to `UnitSystem` only at the host member; a custom scale lives on
 // `LengthUnit`, which that member cannot take, so `CustomUnits` refuses here rather than at the native call.
 [ComplexValueObject]
-public sealed partial class CaptureMargins {
-    public ModelUnit Units { get; }
-    public double Left { get; }
-    public double Top { get; }
-    public double Right { get; }
-    public double Bottom { get; }
-
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
-        ref ModelUnit units,
-        ref double left,
-        ref double top,
-        ref double right,
-        ref double bottom) {
-        validationError = units is { System: not UnitSystem.CustomUnits }
-            && new[] { left, top, right, bottom }.All(static value => double.IsFinite(value) && value >= 0.0)
-                ? validationError
-                : new ValidationError(message: "capture margins are invalid");
-    }
-
-    public static Fin<CaptureMargins> Of(ModelUnit units, double left, double top, double right, double bottom, Op? key = null) =>
-        key.OrDefault().Catch(() => Fin.Succ(Create(units: units, left: left, top: top, right: right, bottom: bottom)));
-}
-
-[SmartEnum<int>]
-public sealed partial class OffsetOrigin {
-    public static readonly OffsetOrigin Margin = new(key: 0, fromMargin: true);
-    public static readonly OffsetOrigin Media = new(key: 1, fromMargin: false);
-    internal bool FromMargin { get; }
-}
-
-[ComplexValueObject]
+[ValidationError]
 public sealed partial class CaptureOffset {
     public ModelUnit Units { get; }
     public OffsetOrigin Origin { get; }
@@ -274,18 +352,20 @@ public sealed partial class CaptureOffset {
         ref ModelUnit units,
         ref OffsetOrigin origin,
         ref double x,
-        ref double y) {
-        validationError = units is { System: not UnitSystem.CustomUnits }
-            && origin is not null && double.IsFinite(x) && x >= 0.0 && double.IsFinite(y) && y >= 0.0
-                ? validationError
-                : new ValidationError(message: "capture offset is invalid");
-    }
+        ref double y) =>
+        validationError = ValidityClaim.All(
+            units is { System: not UnitSystem.CustomUnits },
+            ValidityClaim.Finite([x, y]), x >= 0.0, y >= 0.0)
+            ? validationError
+            : new ValidationError(string.Join(" | ", new object?[] {
+                Op.Of(), nameof(CaptureOffset), "a non-custom unit regime and finite nonnegative offsets" }));
 
     public static Fin<CaptureOffset> Of(ModelUnit units, OffsetOrigin origin, double x, double y, Op? key = null) =>
-        key.OrDefault().Catch(() => Fin.Succ(Create(units: units, origin: origin, x: x, y: y)));
+        key.OrDefault().AcceptValidated<CaptureOffset>(fault: Validate(units, origin, x, y, out CaptureOffset? admitted), admitted: admitted);
 }
 
 [ComplexValueObject]
+[ValidationError]
 public sealed partial class CaptureBanner {
     public string Header { get; }
     public string Footer { get; }
@@ -299,72 +379,53 @@ public sealed partial class CaptureBanner {
         footer = footer?.Trim() ?? string.Empty;
         validationError = header.Length > 0 || footer.Length > 0
             ? validationError
-            : new ValidationError(message: "capture banner is empty");
+            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(CaptureBanner) }));
     }
 
     public static Fin<CaptureBanner> Of(string header, string footer, Op? key = null) =>
-        key.OrDefault().Catch(() => Fin.Succ(Create(header: header, footer: footer)));
+        key.OrDefault().AcceptValidated<CaptureBanner>(fault: Validate(header, footer, out CaptureBanner? admitted), admitted: admitted);
 }
 
-[SmartEnum<int>]
-public sealed partial class PrintWidthPolicy {
-    public static readonly PrintWidthPolicy Model = new(key: 0, usePrintWidths: true);
-    public static readonly PrintWidthPolicy Screen = new(key: 1, usePrintWidths: false);
-    internal bool UsePrintWidths { get; }
-}
-
+// The wire-thickness scale is the ONE column no standard publishes — a pure display multiplier — so it stays an
+// admitted magnitude beside five rungs that are all read off the sheet extent.
 [ComplexValueObject]
 public sealed partial class PrintFidelity {
     public PrintWidthPolicy Widths { get; }
-    public double WireThicknessScale { get; }
-    public double PointSizeMillimeters { get; }
-    public double ArrowheadSizeMillimeters { get; }
-    public double TextDotPointSize { get; }
-    public double DefaultPrintWidthMillimeters { get; }
+    public LineGroup Group { get; }
+    public Terminator Arrowhead { get; }
+    public TextHeight Dot { get; }
+    public LineWidth Point { get; }
+    public PositiveMagnitude WireScale { get; }
 
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
-        ref PrintWidthPolicy widths,
-        ref double wireThicknessScale,
-        ref double pointSizeMillimeters,
-        ref double arrowheadSizeMillimeters,
-        ref double textDotPointSize,
-        ref double defaultPrintWidthMillimeters) {
-        validationError = widths is not null
-            && new[] {
-                wireThicknessScale,
-                pointSizeMillimeters,
-                arrowheadSizeMillimeters,
-                textDotPointSize,
-                defaultPrintWidthMillimeters,
-            }.All(static value => double.IsFinite(value) && value >= 0.0)
-                ? validationError
-                : new ValidationError(message: "print fidelity is invalid");
+    public static Fin<PrintFidelity> For(
+        SheetSize size,
+        PrintWidthPolicy widths,
+        Option<Terminator> arrowhead = default,
+        Option<PositiveMagnitude> wireScale = default,
+        Op? key = null) {
+        Op op = key.OrDefault();
+        return from admittedWidths in op.Need(value: widths)
+               from group in LineGroup.For(size: size, key: op)
+               from dot in TextHeight.For(size: size, key: op)
+               from scale in wireScale.Match(Some: Fin.Succ, None: () => op.AcceptValidated<PositiveMagnitude>(candidate: 1.0))
+               select Create(
+                   widths: admittedWidths,
+                   group: group,
+                   arrowhead: arrowhead.IfNone(Terminator.ClosedArrow),
+                   dot: dot,
+                   point: group.Wide,
+                   wireScale: scale);
     }
 
-    public static Fin<PrintFidelity> Of(
-        PrintWidthPolicy widths,
-        double wireThicknessScale,
-        double pointSizeMillimeters,
-        double arrowheadSizeMillimeters,
-        double textDotPointSize,
-        double defaultPrintWidthMillimeters,
-        Op? key = null) =>
-        key.OrDefault().Catch(() => Fin.Succ(Create(
-            widths: widths,
-            wireThicknessScale: wireThicknessScale,
-            pointSizeMillimeters: pointSizeMillimeters,
-            arrowheadSizeMillimeters: arrowheadSizeMillimeters,
-            textDotPointSize: textDotPointSize,
-            defaultPrintWidthMillimeters: defaultPrintWidthMillimeters)));
-}
-
-[SmartEnum<int>]
-public sealed partial class AspectPolicy {
-    public static readonly AspectPolicy MatchViewport = new(key: 0, shouldMatch: true);
-    public static readonly AspectPolicy PreserveMedia = new(key: 1, shouldMatch: false);
-    internal bool ShouldMatch { get; }
+    internal Unit Seat(ViewCaptureSettings settings) {
+        _ = Widths.Seat(settings: settings);
+        settings.WireThicknessScale = (double)WireScale;
+        settings.PointSizeMillimeters = Point.Width.Millimeters;
+        settings.ArrowheadSizeMillimeters = Arrowhead.Size(width: Group.Wide).Millimeters;
+        settings.TextDotPointSize = Dot.Height.As(LengthUnit.DtpPoint);
+        settings.DefaultPrintWidthMillimeters = Group.Narrow.Width.Millimeters;
+        return unit;
+    }
 }
 
 [ComplexValueObject]
@@ -378,23 +439,11 @@ public sealed partial class MediaPlacement {
     public Option<CaptureAnchor> Anchor { get; }
     public AspectPolicy Aspect { get; }
 
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
-        ref Option<CaptureOffset> offset,
-        ref Option<CaptureAnchor> anchor,
-        ref AspectPolicy aspect) {
-        validationError = aspect is not null
-            && offset.ForAll(static row => row is not null)
-            && anchor.ForAll(static row => row is not null)
-                ? validationError
-                : new ValidationError(message: "media placement is invalid");
-    }
-
     internal Fin<Unit> Apply(ViewCaptureSettings settings, Op key) => key.Catch(() => {
-        _ = Offset.Iter(offset => settings.SetOffset(lengthUnits: offset.Units.System, fromMargin: offset.Origin.FromMargin, x: offset.X, y: offset.Y));
-        _ = Anchor.Iter(anchor => settings.OffsetAnchor = anchor.Native);
-        return Aspect.ShouldMatch ? key.Confirm(success: settings.MatchViewportAspectRatio()) : Fin.Succ(unit);
+        MediaPlacement self = this;
+        _ = self.Offset.Iter(offset => offset.Origin.Seat(settings: settings, offset: offset));
+        _ = self.Anchor.Iter(anchor => settings.OffsetAnchor = anchor.Native);
+        return self.Aspect.Apply(settings: settings, key: key);
     });
 }
 
@@ -403,7 +452,7 @@ public abstract partial record MediaLayout {
     private MediaLayout() { }
     internal sealed record ViewportCase(MediaPlacement Placement) : MediaLayout;
     internal sealed record CropCase(CaptureCrop Crop, MediaPlacement Placement) : MediaLayout;
-    internal sealed record MarginsCase(CaptureMargins Margins, MediaPlacement Placement) : MediaLayout;
+    internal sealed record MarginsCase(SheetMargin Margins, ModelUnit Units, MediaPlacement Placement) : MediaLayout;
     internal sealed record MaximizeCase(MediaPlacement Placement) : MediaLayout;
 
     public static MediaLayout Default { get; } = new ViewportCase(Placement: MediaPlacement.Default);
@@ -419,11 +468,22 @@ public abstract partial record MediaLayout {
                select (MediaLayout)new CropCase(Crop: admittedCrop, Placement: admittedPlacement);
     }
 
-    public static Fin<MediaLayout> Margins(CaptureMargins margins, Option<MediaPlacement> placement = default, Op? key = null) {
+    // Two admissions, one case, discriminated by input SHAPE: an authored quad, or the sheet whose own standard
+    // publishes one.
+    public static Fin<MediaLayout> Margins(SheetMargin margins, ModelUnit units, Option<MediaPlacement> placement = default, Op? key = null) {
         Op op = key.OrDefault();
         return from admittedMargins in op.Need(value: margins)
+               from admittedUnits in op.Need(value: units)
                from admittedPlacement in Placed(placement: placement, op: op)
-               select (MediaLayout)new MarginsCase(Margins: admittedMargins, Placement: admittedPlacement);
+               select (MediaLayout)new MarginsCase(Margins: admittedMargins, Units: admittedUnits, Placement: admittedPlacement);
+    }
+
+    public static Fin<MediaLayout> Margins(SheetSize size, ModelUnit units, Option<MediaPlacement> placement = default, Op? key = null) {
+        Op op = key.OrDefault();
+        return from admittedSize in op.Need(value: size)
+               from frame in SheetFrame.For(standard: admittedSize.Standard).Margin(size: admittedSize, key: op)
+               from layout in Margins(margins: frame, units: units, placement: placement, key: op)
+               select layout;
     }
 
     public static Fin<MediaLayout> Maximize(Option<MediaPlacement> placement = default, Op? key = null) =>
@@ -438,12 +498,16 @@ public abstract partial record MediaLayout {
             return layout.Placement.Apply(settings: ctx.Settings, key: ctx.Op);
         }),
         marginsCase: static (ctx, layout) =>
-            from _ in ctx.Op.Confirm(success: ctx.Settings.SetMargins(
-                lengthUnits: layout.Margins.Units.System,
-                left: layout.Margins.Left,
-                top: layout.Margins.Top,
-                right: layout.Margins.Right,
-                bottom: layout.Margins.Bottom))
+            from inset in layout.Margins.In(unit: layout.Units, key: ctx.Op)
+            from _seated in ctx.Op.Catch(() => ctx.Settings.SetMargins(
+                    lengthUnits: layout.Units.System,
+                    left: inset.Left,
+                    top: inset.Top,
+                    right: inset.Right,
+                    bottom: inset.Bottom)
+                ? Fin.Succ(value: unit)
+                : Fin.Fail<Unit>(new ViewportFault.HostRefused(
+                    Key: ctx.Op, Member: nameof(ViewCaptureSettings.SetMargins), Detail: "answered false")))
             from placed in layout.Placement.Apply(settings: ctx.Settings, key: ctx.Op)
             select placed,
         maximizeCase: static (ctx, layout) => ctx.Op.Catch(() => {
@@ -455,392 +519,190 @@ public abstract partial record MediaLayout {
         op.Need(value: placement.IfNone(MediaPlacement.Default));
 }
 
-[SmartEnum<int>]
-public sealed partial class CaptureFeature {
-    public static readonly CaptureFeature Grid = Row(
-        key: 0,
+// --- [CAPABILITY] ---------------------------------------------------------------------------
+// The host toggle roster as a kernel CAPABILITY vocabulary: three projection surfaces read the same rows, and a
+// row participates on a surface exactly when it declares that surface's column. Provenance is the host member
+// roster — `ViewCaptureSettings.Draw*`, `ViewCapture.Draw*`, `ZBufferCapture.Show*`.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class CaptureFeature : ICapability<CaptureFeature> {
+    public static readonly CaptureFeature Grid = Row(key: "grid",
         settings: static (target, on) => target.DrawGrid = on,
         transparent: static (target, on) => target.DrawGrid = on);
-    public static readonly CaptureFeature Axes = Row(
-        key: 1,
+    public static readonly CaptureFeature Axes = Row(key: "axes",
         settings: static (target, on) => target.DrawAxis = on,
         transparent: static (target, on) => target.DrawAxes = on);
-    public static readonly CaptureFeature Raster = Row(
-        key: 2,
+    public static readonly CaptureFeature Raster = Row(key: "raster",
         settings: static (target, on) => target.RasterMode = on);
-    public static readonly CaptureFeature Background = Row(
-        key: 3,
+    public static readonly CaptureFeature Background = Row(key: "background",
         settings: static (target, on) => target.DrawBackground = on);
-    public static readonly CaptureFeature BackgroundBitmap = Row(
-        key: 4,
+    public static readonly CaptureFeature BackgroundBitmap = Row(key: "background-bitmap",
         settings: static (target, on) => target.DrawBackgroundBitmap = on);
-    public static readonly CaptureFeature Wallpaper = Row(
-        key: 5,
+    public static readonly CaptureFeature Wallpaper = Row(key: "wallpaper",
         settings: static (target, on) => target.DrawWallpaper = on);
-    public static readonly CaptureFeature LockedObjects = Row(
-        key: 6,
+    public static readonly CaptureFeature LockedObjects = Row(key: "locked",
         settings: static (target, on) => target.DrawLockedObjects = on);
-    public static readonly CaptureFeature SelectedOnly = Row(
-        key: 7,
+    public static readonly CaptureFeature SelectedOnly = Row(key: "selected-only",
         settings: static (target, on) => target.DrawSelectedObjectsOnly = on);
-    public static readonly CaptureFeature ClippingPlanes = Row(
-        key: 8,
+    public static readonly CaptureFeature ClippingPlanes = Row(key: "clipping",
         settings: static (target, on) => target.DrawClippingPlanes = on);
-    public static readonly CaptureFeature Lights = Row(
-        key: 9,
+    public static readonly CaptureFeature Lights = Row(key: "lights",
         settings: static (target, on) => target.DrawLights = on,
         depth: static (target, on) => target.ShowLights(on: on));
-    public static readonly CaptureFeature MarginLines = Row(
-        key: 10,
+    public static readonly CaptureFeature MarginLines = Row(key: "margins",
         settings: static (target, on) => target.DrawMargins = on);
-    public static readonly CaptureFeature GridAxes = Row(
-        key: 11,
+    public static readonly CaptureFeature GridAxes = Row(key: "grid-axes",
         transparent: static (target, on) => target.DrawGridAxes = on);
-    public static readonly CaptureFeature ScaleScreenItems = Row(
-        key: 12,
+    public static readonly CaptureFeature ScaleScreenItems = Row(key: "scale-screen-items",
         transparent: static (target, on) => target.ScaleScreenItems = on);
-    public static readonly CaptureFeature Isocurves = Row(
-        key: 13,
+    public static readonly CaptureFeature Isocurves = Row(key: "isocurves",
         depth: static (target, on) => target.ShowIsocurves(on: on));
-    public static readonly CaptureFeature MeshWires = Row(
-        key: 14,
+    public static readonly CaptureFeature MeshWires = Row(key: "mesh-wires",
         depth: static (target, on) => target.ShowMeshWires(on: on));
-    public static readonly CaptureFeature Curves = Row(
-        key: 15,
+    public static readonly CaptureFeature Curves = Row(key: "curves",
         depth: static (target, on) => target.ShowCurves(on: on));
-    public static readonly CaptureFeature Points = Row(
-        key: 16,
+    public static readonly CaptureFeature Points = Row(key: "points",
         depth: static (target, on) => target.ShowPoints(on: on));
-    public static readonly CaptureFeature Text = Row(
-        key: 17,
+    public static readonly CaptureFeature Text = Row(key: "text",
         depth: static (target, on) => target.ShowText(on: on));
-    public static readonly CaptureFeature Annotations = Row(
-        key: 18,
+    public static readonly CaptureFeature Annotations = Row(key: "annotations",
         depth: static (target, on) => target.ShowAnnotations(on: on));
 
-    internal Action<ViewCaptureSettings, bool>? Settings { get; }
-    internal Action<ViewCapture, bool>? Transparent { get; }
-    internal Action<ZBufferCapture, bool>? Depth { get; }
+    internal Option<Action<ViewCaptureSettings, bool>> Settings { get; }
+    internal Option<Action<ViewCapture, bool>> Transparent { get; }
+    internal Option<Action<ZBufferCapture, bool>> Depth { get; }
 
-    // ONE fold over the roster serves every projection surface: the caller names the column, each row's own selector
-    // decides whether it participates, and an absent column is a row this surface does not project. A per-surface loop
-    // is the collapsed form — three bodies differing only in which column they read, and a fourth host surface would
-    // mint a fourth.
+    // ONE fold serves every projection surface: an absent column is a row this surface does not project, so a
+    // fourth host facade is a fourth column and not a fourth loop.
     internal static Unit Apply<TTarget>(
         TTarget target,
-        Func<CaptureFeature, Action<TTarget, bool>?> column,
-        FrozenSet<CaptureFeature> selected) =>
-        toSeq(Items).Iter(feature => column(feature)?.Invoke(target, selected.Contains(feature)));
+        Func<CaptureFeature, Option<Action<TTarget, bool>>> column,
+        CapabilitySet<CaptureFeature> held) =>
+        toSeq(Items).Iter(feature => column(feature).Iter(write => write(target, held.Admits(capability: feature))));
 
     private static CaptureFeature Row(
-        int key,
+        string key,
         Action<ViewCaptureSettings, bool>? settings = null,
         Action<ViewCapture, bool>? transparent = null,
         Action<ZBufferCapture, bool>? depth = null) =>
-        new(key: key, settings: settings, transparent: transparent, depth: depth);
+        new(key: key, settings: Optional(settings), transparent: Optional(transparent), depth: Optional(depth));
+}
+
+[SmartEnum<int>]
+public sealed partial class CaptureSurface {
+    public static readonly CaptureSurface Settings = new(
+        key: 0,
+        holds: static feature => feature.Settings.IsSome,
+        seed: static () => Seq(CaptureFeature.Background, CaptureFeature.LockedObjects, CaptureFeature.ClippingPlanes, CaptureFeature.Lights));
+    public static readonly CaptureSurface Transparent = new(
+        key: 1,
+        holds: static feature => feature.Transparent.IsSome,
+        seed: static () => Seq(CaptureFeature.ScaleScreenItems));
+    public static readonly CaptureSurface Depth = new(
+        key: 2,
+        holds: static feature => feature.Depth.IsSome,
+        seed: static () => Seq(CaptureFeature.Isocurves, CaptureFeature.MeshWires, CaptureFeature.Curves, CaptureFeature.Points));
+
+    [UseDelegateFromConstructor]
+    internal partial bool Holds(CaptureFeature feature);
+
+    [UseDelegateFromConstructor]
+    internal partial Seq<CaptureFeature> Seed();
+
+    // Accessor-backed: the generator fills both rosters from its own static constructor, so an eager field would
+    // freeze an EMPTY table.
+    public CapabilitySet<CaptureFeature> Roster => Rosters.Value[this].Roster;
+    public CapabilitySet<CaptureFeature> Default => Rosters.Value[this].Default;
+
+    private static readonly Lazy<FrozenDictionary<CaptureSurface, (CapabilitySet<CaptureFeature> Roster, CapabilitySet<CaptureFeature> Default)>> Rosters =
+        new(static () => Items.ToFrozenDictionary(
+            static row => row,
+            static row => (
+                Roster: CapabilitySet<CaptureFeature>.Of(toSeq(CaptureFeature.Items).Filter(row.Holds).ToArray()),
+                Default: CapabilitySet<CaptureFeature>.Of(row.Seed().ToArray()))));
+
+    // The consumer-seam requirement as a VALUE: a held set naming a row this surface does not project refuses at
+    // the request's own mint, so the projection fold can never silently skip a toggle a caller asked for. The
+    // refusal rides the capability owner's `Require` door, so it names the UNPROJECTED rows, not the whole request.
+    internal Fin<CapabilitySet<CaptureFeature>> Admit(Option<CapabilitySet<CaptureFeature>> held, Op key) {
+        CapabilitySet<CaptureFeature> requested = held.IfNone(Default);
+        return Roster
+            .Require(demanded: requested, refuse: missing => new KernelFault.InvalidValue(nameof(CaptureSurface), string.Join(" | ", new object?[] { key, $"capture features this surface projects; unprojected <{missing.Wire}>" })))
+            .Map(_ => requested);
+    }
 }
 
 [ComplexValueObject]
 public sealed partial class CaptureDecor {
-    public static CaptureDecor Default { get; } = Create(
-        features: new[] {
-            CaptureFeature.Background,
-            CaptureFeature.LockedObjects,
-            CaptureFeature.ClippingPlanes,
-            CaptureFeature.Lights,
-        }.ToFrozenSet(),
+    public static CaptureDecor Plain { get; } = Create(
+        features: CaptureSurface.Settings.Default,
         outputColor: CaptureColor.Display,
         banner: None,
         fidelity: None);
 
-    public FrozenSet<CaptureFeature> Features { get; }
+    public CapabilitySet<CaptureFeature> Features { get; }
     public CaptureColor OutputColor { get; }
     public Option<CaptureBanner> Banner { get; }
     public Option<PrintFidelity> Fidelity { get; }
 
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
-        ref FrozenSet<CaptureFeature> features,
-        ref CaptureColor outputColor,
-        ref Option<CaptureBanner> banner,
-        ref Option<PrintFidelity> fidelity) {
-        validationError = features is not null && features.All(static feature => feature.Settings is not null)
-            && outputColor is not null
-            && banner.ForAll(static row => row is not null)
-            && fidelity.ForAll(static row => row is not null)
-                ? validationError
-                : new ValidationError(message: "capture decoration is invalid");
+    public static Fin<CaptureDecor> Of(
+        Option<CapabilitySet<CaptureFeature>> features = default,
+        Option<CaptureColor> outputColor = default,
+        Option<CaptureBanner> banner = default,
+        Option<PrintFidelity> fidelity = default,
+        Op? key = null) {
+        Op op = key.OrDefault();
+        return CaptureSurface.Settings.Admit(held: features, key: op).Map(held => Create(
+            features: held,
+            outputColor: outputColor.IfNone(CaptureColor.Display),
+            banner: banner,
+            fidelity: fidelity));
     }
 
     internal Fin<Unit> Apply(ViewCaptureSettings settings, Op key) => key.Catch(() => {
         CaptureDecor self = this;
         settings.OutputColor = self.OutputColor.Native;
-        _ = CaptureFeature.Apply(target: settings, column: static row => row.Settings, selected: self.Features);
+        _ = CaptureFeature.Apply(target: settings, column: static row => row.Settings, held: self.Features);
         _ = self.Banner.Iter(banner => {
             settings.HeaderText = banner.Header;
             settings.FooterText = banner.Footer;
         });
-        _ = self.Fidelity.Iter(row => {
-            settings.UsePrintWidths = row.Widths.UsePrintWidths;
-            settings.WireThicknessScale = row.WireThicknessScale;
-            settings.PointSizeMillimeters = row.PointSizeMillimeters;
-            settings.ArrowheadSizeMillimeters = row.ArrowheadSizeMillimeters;
-            settings.TextDotPointSize = row.TextDotPointSize;
-            settings.DefaultPrintWidthMillimeters = row.DefaultPrintWidthMillimeters;
-        });
+        _ = self.Fidelity.Iter(row => row.Seat(settings: settings));
         return Fin.Succ(value: unit);
     });
 }
 ```
 
-## [03]-[DELIVERY_ROWS]
+- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[ValueObject]`, `[ComplexValueObject]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `IDisallowDefaultValue`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `guard`); UnitsNet (`Length.As(LengthUnit)`, `LengthUnit.DtpPoint`, `Length.Millimeters`); `Rasm/Drawing/sheet` (`SheetSize`, `SheetMargin`, `SheetFrame`, `DrawingScale`, `LineGroup`, `LineWidth`, `Terminator`, `TextHeight`, `PlotResolution`); `Rasm/Domain/validation` (`ICapability`, `CapabilitySet`, `Require`); `Rasm/Domain/rails` (`Op`, `Lease<T>`, `ValidityClaim`, `FaultBand`); `Rasm.Rhino/.api/api-rhinocommon-display.md` (`ViewCaptureSettings`, `ViewCapture`, `ZBufferCapture`); `Rasm.Rhino/.api/api-rhinocommon-document.md` (`AnimationProperties`).
+- Growth: a new host toggle is one `CaptureFeature` row declaring the surfaces it writes; a new projection surface is one `CaptureSurface` row and one `Apply` column argument; a new media frame is one `MediaLayout` case.
 
-- Owner: `CaptureSink` owns bitmap, SVG, and printer delivery over one prepared settings batch. `CaptureArtifact` closes raster, vector, printed, depth, and sequence receipts; raster and grayscale payloads cross as owned leases, while all other cases are detached values.
-- Owner: `TransparentCaptureSpec` projects supported `CaptureFeature` rows plus `RealtimeRenderPasses` into `ViewCapture`; `DepthChannels` projects the same vocabulary into every `ZBufferCapture.Show*` toggle; `DepthProjection` selects statistics, bounded pixel samples with world recovery, or leased grayscale output.
-- Law: depth configuration precedes projection — `SetDisplayMode` and every `Show*` write invalidate the native grayscale cache, so the depth rail applies mode and channels once, then projects. `MinZ`/`MaxZ`/`ZValueAt` return `float` host precision carried unwidened; `WorldPointAt` is the per-pixel screen-to-world unprojection `DepthProbe`'s single-distance camera read cannot answer; `GrayscaleDib` returns the capture-cached bitmap, which survives capsule disposal, so the grayscale row is its ONE caller and transfers it into the artifact lease exactly once — a sampling arm reaching it for pixel bounds pays a full grayscale render and leaks the cached bitmap, so sample bounds read the bound viewport's own `Size` instead.
-- Law: vector egress is exactly the formats the host writes — `ViewCaptureWriter` is not a sixth delivery row, on the catalogued unreachability (`api-rhinocommon-runtime.md` `[ENTRYPOINT_SCOPE]: skin, vector capture, and risky-call guard`): its one drive entry is `Draw(nint constPtrPrintInfo, RhinoDoc)`, `ViewCaptureSettings.ConstPointer()` is `internal`, and no public `ViewCapture` member accepts a writer, so a subclass compiles and can never be handed a frame. The refusal is host-shaped, not permanent — a bundle publishing a public frame source turns the primitive sinks into a delivery row, and the catalog row is where that change surfaces. `CaptureArtifact.VectorCase` carrying the host's own `XmlDocument` is the primitive stream this page publishes.
-- Boundary: `CaptureRequest` owns modality selection, while each case exposes only its supported payload. `CaptureSink` remains settings-only, so transparent, depth, and sequence requests cannot acquire printer or SVG delivery accidentally.
-- Boundary: `CaptureArtifact.Summary` is the neutral run projection the shell's completion-notice row consumes; the artifact family itself never reaches a notification surface. Projection is the whole obligation — this page never calls `Notices.Announce`, because every announce operand beyond the outcome (the localized label, the observer that receives the reply, the timeline that stamps it) belongs to the caller, and a scripted or bridge-run capture must reach no notification surface at all. `Announce` takes `Option<RunOutcome>` precisely so the consumer's own call is one line over this projection.
+## [04]-[ARTIFACT_ROWS]
+
+- Owner: `TransparentCaptureSpec` and `DepthCaptureSpec` are the two facade requests this page drives; `DepthProjection` is the depth REQUEST vocabulary and `DepthPayload` the RESULT it produces, one shape per side of the same three questions; `DepthField` joins the payload to the buffer census; `CaptureArtifact` is the one result family, and `RunOutcome` its neutral shell projection.
+- Entry: `TransparentCaptureSpec.Of` and `DepthCaptureSpec.Of` admit their address through `TargetReach` and their feature set through `CaptureSurface`; `CaptureArtifact.Raster(mint, extent, coverage, key)` takes custody of a host raster at the moment it is minted.
+- Law: the depth PROJECTION and the depth PAYLOAD are two vocabularies over three questions, not one declared twice — `DepthProjection.SamplesCase` carries the pixels a caller asked about and `DepthPayload.SamplesCase` the samples the buffer answered. Each site names which side it is on: one family carries a request column absent from every result beside a result column absent from every request, so the two vocabularies stay two.
+- Law: depth configuration precedes projection — `SetDisplayMode` and every `Show*` write invalidate the native grayscale cache, so the depth rail applies mode and channels once, then projects. `MinZ`/`MaxZ`/`ZValueAt` return `float` host precision carried unwidened; `WorldPointAt` is the per-pixel screen-to-world unprojection a single-distance camera read cannot answer; `GrayscaleDib` returns the capture-cached bitmap, which SURVIVES capsule disposal, so the grayscale row is its ONE caller and hands it straight into a lease — a sampling arm reaching it for pixel bounds pays a full grayscale render and leaks that bitmap, so sample bounds read the bound viewport's own `Size` instead.
+- Law: a raster leaves under kernel custody with its coverage carriage DECLARED. `RasterCase` carries `Lease<System.Drawing.Bitmap>` and the `AlphaLayout` its request implies — `Straight` where the transparent facade was asked for an alpha background, `Opaque` where the settings rail draws none, because transparency exists only on the instance facade — so a consumer reads pixels through `PixelLease`'s GDI arities against a carriage it was handed rather than one it guessed. The `owned = null` try/finally the prior page spelled at two sites has no successor: the extent is the REQUEST's own, so nothing between acquisition and construction can fail.
+- Law: vector egress is exactly the formats the host writes — `ViewCaptureWriter` is not a delivery row, on the catalogued unreachability (`api-rhinocommon-runtime.md` `[ENTRYPOINT_SCOPE]`): its one drive entry is `Draw(nint constPtrPrintInfo, RhinoDoc)`, `ViewCaptureSettings.ConstPointer()` is `internal`, and no public `ViewCapture` member accepts a writer, so a subclass compiles and never receives a frame. The refusal is host-shaped, not permanent, and the catalog row is where a bundle publishing a public frame source surfaces.
+- Boundary: DELIVERY is not here. `Exchange/publish` owns the `Landing` union whose raster, vector, and printer arms consume `Captures.Stage`'s prepared batch and mint the matching `CaptureArtifact` cases; this page publishes the sink-free preparation and the artifact vocabulary, so Viewport (S3) never names Exchange (S4) and the forbidden upward edge cannot exist.
+- Boundary: `CaptureArtifact.Summary` is the neutral run projection the shell's completion-notice row consumes; the artifact family itself never reaches a notification surface, because every announce operand beyond the outcome — the localized label, the observer that receives the reply, the timeline that stamps it — belongs to the caller, and a scripted or bridge-run capture must reach no notification surface at all.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 public readonly record struct DepthSample(Offset2i Pixel, float Z, Point3d World);
 
+public readonly record struct DepthRange(float MinZ, float MaxZ);
+
+// The RESULT side: what the buffer answered.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DepthPayload {
     private DepthPayload() { }
-
-    public sealed record StatsCase : DepthPayload {
-        internal StatsCase() { }
-    }
-
-    public sealed record SamplesCase : DepthPayload {
-        internal SamplesCase(Seq<DepthSample> rows) => Rows = rows;
-        public Seq<DepthSample> Rows { get; }
-    }
-
-    public sealed record GrayscaleCase : DepthPayload {
-        internal GrayscaleCase(Lease<System.Drawing.Bitmap> pixels) => Pixels = pixels;
-        public Lease<System.Drawing.Bitmap> Pixels { get; }
-    }
+    public sealed record StatsCase : DepthPayload;
+    public sealed record SamplesCase(Seq<DepthSample> Rows) : DepthPayload;
+    public sealed record GrayscaleCase(Lease<System.Drawing.Bitmap> Pixels) : DepthPayload;
 }
 
-public readonly record struct DepthRange(float MinZ, float MaxZ);
-
-public sealed record DepthField {
-    internal DepthField(int hits, Option<DepthRange> range, DepthPayload payload) => (Hits, Range, Payload) = (hits, range, payload);
-
-    public int Hits { get; }
-    public Option<DepthRange> Range { get; }
-    public DepthPayload Payload { get; }
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record CaptureArtifact : IDetachedDocumentResult {
-    private CaptureArtifact() { }
-
-    public Option<BenchEvidence> Bench { get; init; }
-
-    public sealed record RasterCase : CaptureArtifact {
-        internal RasterCase(Lease<System.Drawing.Bitmap> pixels, Size2i extent) => (Pixels, Extent) = (pixels, extent);
-        public Lease<System.Drawing.Bitmap> Pixels { get; }
-        public Size2i Extent { get; }
-    }
-
-    public sealed record VectorCase : CaptureArtifact {
-        internal VectorCase(System.Xml.XmlDocument svg) => Svg = svg;
-        public System.Xml.XmlDocument Svg { get; }
-    }
-
-    public sealed record PrintedCase : CaptureArtifact {
-        internal PrintedCase(int pages) => Pages = pages;
-        public int Pages { get; }
-    }
-
-    public sealed record DepthCase : CaptureArtifact {
-        internal DepthCase(DepthField field) => Field = field;
-        public DepthField Field { get; }
-    }
-
-    public sealed record SequenceCase : CaptureArtifact {
-        internal SequenceCase(SequenceReceipt receipt) => Receipt = receipt;
-        public SequenceReceipt Receipt { get; }
-    }
-
-    // `HostUi` reads this neutral carrier for its completion-notice row, so no capture type crosses that seam.
-    public RunOutcome Summary(HostText label) => Switch(
-        state: label,
-        rasterCase: static (text, row) => (RunOutcome)new RunOutcome.Completed(Label: text, Scale: Scale(nameof(RasterCase.Extent), $"{row.Extent.Width}x{row.Extent.Height}")),
-        vectorCase: static (text, _) => new RunOutcome.Completed(Label: text, Scale: FrozenDictionary<string, string>.Empty),
-        printedCase: static (text, row) => new RunOutcome.Completed(Label: text, Scale: Scale(nameof(PrintedCase.Pages), row.Pages.ToString(CultureInfo.InvariantCulture))),
-        depthCase: static (text, row) => new RunOutcome.Completed(Label: text, Scale: Scale(nameof(DepthField.Hits), row.Field.Hits.ToString(CultureInfo.InvariantCulture))),
-        sequenceCase: static (text, row) => new RunOutcome.Completed(Label: text, Scale: Scale(nameof(SequenceReceipt), row.Receipt.HtmlFileName)));
-
-    private static FrozenDictionary<string, string> Scale(string field, string value) =>
-        new Dictionary<string, string>(StringComparer.Ordinal) { [field] = value }.ToFrozenDictionary(StringComparer.Ordinal);
-
-    internal static Fin<CaptureArtifact> Raster(System.Drawing.Bitmap bitmap, Op key) => key.Catch(() => {
-        System.Drawing.Bitmap? owned = bitmap;
-        try {
-            return Size2i.Of(width: bitmap.Width, height: bitmap.Height, key: key).Match(
-                Succ: extent => {
-                    CaptureArtifact artifact = new RasterCase(
-                        pixels: new Lease<System.Drawing.Bitmap>.Owned(Value: bitmap),
-                        extent: extent);
-                    owned = null;
-                    return Fin.Succ(value: artifact);
-                },
-                Fail: Fin.Fail<CaptureArtifact>);
-        } finally {
-            owned?.Dispose();
-        }
-    });
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record CaptureSink {
-    private CaptureSink() { }
-
-    internal sealed record BitmapCase : CaptureSink;
-    internal sealed record SvgCase : CaptureSink;
-    internal sealed record PrinterCase(string PrinterName, Dimension Copies) : CaptureSink;
-
-    public static CaptureSink Bitmap { get; } = new BitmapCase();
-    public static CaptureSink Svg { get; } = new SvgCase();
-
-    public static Fin<CaptureSink> Printer(string printerName, Dimension copies, Op? key = null) {
-        Op op = key.OrDefault();
-        return from name in op.AcceptText(value: printerName)
-               from _ in guard(copies.Value >= 1, op.InvalidInput())
-               select (CaptureSink)new PrinterCase(PrinterName: name, Copies: copies);
-    }
-
-    internal bool AcceptsMany => Switch(
-        bitmapCase: static _ => false,
-        svgCase: static _ => false,
-        printerCase: static _ => true);
-
-    internal Fin<CaptureArtifact> Render(PreparedCapture prepared, Op op) => prepared.Use(
-        body: settings => Switch(
-            (Settings: settings, Op: op),
-            bitmapCase: static (ctx, _) => Rasterized(settings: ctx.Settings, op: ctx.Op),
-            svgCase: static (ctx, _) => Vectorized(settings: ctx.Settings, op: ctx.Op),
-            printerCase: static (ctx, sink) => Printed(
-                settings: ctx.Settings,
-                printerName: sink.PrinterName,
-                copies: sink.Copies,
-                op: ctx.Op)),
-        key: op);
-
-    private static Fin<ViewCaptureSettings> One(Seq<ViewCaptureSettings> settings, Op op) =>
-        from _ in guard(settings.Count == 1, op.InvalidInput())
-        from row in settings.Head.ToFin(Fail: op.MissingContext())
-        select row;
-
-    private static Fin<CaptureArtifact> Rasterized(Seq<ViewCaptureSettings> settings, Op op) =>
-        from row in One(settings: settings, op: op)
-        from bitmap in op.Catch(() => Optional(ViewCapture.CaptureToBitmap(settings: row)).ToFin(Fail: op.InvalidResult()))
-        from artifact in CaptureArtifact.Raster(bitmap: bitmap, key: op)
-        select artifact;
-
-    private static Fin<CaptureArtifact> Vectorized(Seq<ViewCaptureSettings> settings, Op op) =>
-        from row in One(settings: settings, op: op)
-        from artifact in op.Catch(() => Optional(ViewCapture.CaptureToSvg(settings: row)).ToFin(Fail: op.InvalidResult())
-            .Map(static svg => (CaptureArtifact)new CaptureArtifact.VectorCase(svg: svg)))
-        select artifact;
-
-    private static Fin<CaptureArtifact> Printed(Seq<ViewCaptureSettings> settings, string printerName, Dimension copies, Op op) =>
-        from _ in op.Catch(() => op.Confirm(success: ViewCapture.SendToPrinter(
-            printerName: printerName,
-            settings: settings.ToArray(),
-            copies: copies.Value)))
-        select (CaptureArtifact)new CaptureArtifact.PrintedCase(pages: settings.Count);
-}
-
-[ComplexValueObject]
-public sealed partial class TransparentDecor {
-    public static TransparentDecor Plain { get; } = Create(
-        features: new[] { CaptureFeature.ScaleScreenItems }.ToFrozenSet());
-
-    public FrozenSet<CaptureFeature> Features { get; }
-
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
-        ref FrozenSet<CaptureFeature> features) {
-        validationError = features is not null && features.All(static feature => feature.Transparent is not null)
-            ? validationError
-            : new ValidationError(message: "transparent capture decoration is invalid");
-    }
-
-    internal Unit Apply(ViewCapture capture) =>
-        CaptureFeature.Apply(target: capture, column: static row => row.Transparent, selected: Features);
-}
-
-public sealed record TransparentCaptureSpec {
-    private TransparentCaptureSpec(ViewportTarget target, Size2i extent, TransparentDecor decor, Option<Dimension> realtimePasses) =>
-        (Target, Extent, Decor, RealtimePasses) = (target, extent, decor, realtimePasses);
-
-    public ViewportTarget Target { get; }
-    public Size2i Extent { get; }
-    public TransparentDecor Decor { get; }
-    public Option<Dimension> RealtimePasses { get; }
-
-    public static Fin<TransparentCaptureSpec> Of(
-        ViewportTarget target,
-        Size2i extent,
-        Option<TransparentDecor> decor = default,
-        Option<Dimension> realtimePasses = default,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return from validTarget in op.Need(value: target)
-               from _target in guard(
-                   validTarget is not ViewportTarget.EveryCase and not ViewportTarget.DetailCase,
-                   op.InvalidInput())
-               from _extent in guard(extent.IsValid, op.InvalidInput())
-               from _passes in guard(realtimePasses.ForAll(static passes => passes.Value >= 1), op.InvalidInput())
-               select new TransparentCaptureSpec(
-                   target: validTarget,
-                   extent: extent,
-                   decor: decor.IfNone(TransparentDecor.Plain),
-                   realtimePasses: realtimePasses);
-    }
-}
-
-[ComplexValueObject]
-public sealed partial class DepthChannels {
-    public static DepthChannels Surfaces { get; } = Create(
-        features: Array.Empty<CaptureFeature>().ToFrozenSet());
-    public static DepthChannels Geometry { get; } = Create(
-        features: new[] {
-            CaptureFeature.Isocurves,
-            CaptureFeature.MeshWires,
-            CaptureFeature.Curves,
-            CaptureFeature.Points,
-        }.ToFrozenSet());
-    public static DepthChannels Everything { get; } = Create(
-        features: Geometry.Features.Concat(new[] {
-            CaptureFeature.Text,
-            CaptureFeature.Annotations,
-            CaptureFeature.Lights,
-        }).ToFrozenSet());
-
-    public FrozenSet<CaptureFeature> Features { get; }
-
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
-        ref FrozenSet<CaptureFeature> features) {
-        validationError = features is not null && features.All(static feature => feature.Depth is not null)
-            ? validationError
-            : new ValidationError(message: "depth channels are invalid");
-    }
-
-    internal Unit Apply(ZBufferCapture capture) =>
-        CaptureFeature.Apply(target: capture, column: static row => row.Depth, selected: Features);
-}
-
+// The REQUEST side: what the caller asked the buffer for.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DepthProjection {
     private DepthProjection() { }
@@ -856,10 +718,7 @@ public abstract partial record DepthProjection {
         guard(pixels.Length > 0, key.OrDefault().InvalidInput()).ToFin()
             .Map(_ => (DepthProjection)new SamplesCase(Pixels: toSeq(pixels.ToArray()).Strict()));
 
-    // Extent enters from the bound viewport the run already resolved: `GrayscaleDib` renders and caches a full
-    // viewport bitmap that SURVIVES capsule disposal, so calling it to recover two integers leaks one GDI+ bitmap per
-    // samples capture and pays a whole grayscale render for a bounds probe. `Offset2i` already refuses a negative
-    // component, so half of a two-sided guard is dead and only the upper bound stays live.
+    // `Offset2i` refuses a negative component at construction, so only the upper bound stays live here.
     internal Fin<DepthPayload> Project(ZBufferCapture capture, Size2i extent, Op key) => Switch(
         (Capture: capture, Extent: extent, Op: key),
         statsCase: static (_, _) => Fin.Succ(value: (DepthPayload)new DepthPayload.StatsCase()),
@@ -871,59 +730,138 @@ public abstract partial record DepthProjection {
                     Z: ctx.Capture.ZValueAt(x: pixel.X, y: pixel.Y),
                     World: ctx.Capture.WorldPointAt(x: pixel.X, y: pixel.Y))))))
             .As()
-            .Map(static rows => (DepthPayload)new DepthPayload.SamplesCase(rows: rows.Strict())),
-        grayscaleCase: static (ctx, _) => ctx.Op.Catch(() =>
-            Optional(ctx.Capture.GrayscaleDib()).ToFin(Fail: ctx.Op.InvalidResult())
-                .Map(static bitmap => (DepthPayload)new DepthPayload.GrayscaleCase(
-                    pixels: new Lease<System.Drawing.Bitmap>.Owned(Value: bitmap)))));
+            .Map(static rows => (DepthPayload)new DepthPayload.SamplesCase(Rows: rows.Strict())),
+        grayscaleCase: static (ctx, _) => ctx.Op
+            .Catch(() => Optional(ctx.Capture.GrayscaleDib()).ToFin(Fail: new ViewportFault.HostRefused(
+                Key: ctx.Op, Member: nameof(ZBufferCapture.GrayscaleDib), Detail: "returned no bitmap")))
+            .Bind(bitmap => Lease<System.Drawing.Bitmap>.Acquire(mint: () => bitmap, key: ctx.Op))
+            .Map(static pixels => (DepthPayload)new DepthPayload.GrayscaleCase(Pixels: pixels)));
 }
 
-public sealed record DepthCaptureSpec {
-    private DepthCaptureSpec(ViewportTarget target, Option<Guid> mode, DepthChannels channels, DepthProjection projection) =>
-        (Target, Mode, Channels, Projection) = (target, mode, channels, projection);
+// --- [MODELS] -------------------------------------------------------------------------------
+public sealed record DepthField(int Hits, Option<DepthRange> Range, DepthPayload Payload);
 
-    public ViewportTarget Target { get; }
-    public Option<Guid> Mode { get; }
-    public DepthChannels Channels { get; }
-    public DepthProjection Projection { get; }
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record CaptureArtifact : IDetachedDocumentResult {
+    private CaptureArtifact() { }
+
+    public Option<BenchEvidence> Bench { get; init; }
+
+    public sealed record RasterCase(Lease<System.Drawing.Bitmap> Pixels, Size2i Extent, AlphaLayout Coverage) : CaptureArtifact;
+    public sealed record VectorCase(System.Xml.XmlDocument Svg) : CaptureArtifact;
+    public sealed record PrintedCase(Dimension Pages) : CaptureArtifact;
+    public sealed record DepthCase(DepthField Field) : CaptureArtifact;
+    public sealed record SequenceCase(SequenceReceipt Receipt) : CaptureArtifact;
+
+    // Custody opens AT the mint and the extent is the request's own, so nothing between acquisition and
+    // construction can refuse and strand a host raster.
+    internal static Fin<CaptureArtifact> Raster(Func<System.Drawing.Bitmap> mint, Size2i extent, AlphaLayout coverage, Op key) =>
+        Lease<System.Drawing.Bitmap>.Acquire(mint: mint, key: key)
+            .Map(pixels => (CaptureArtifact)new RasterCase(Pixels: pixels, Extent: extent, Coverage: coverage));
+
+    public RunOutcome Summary(HostText label) => Switch(
+        state: label,
+        rasterCase: static (text, row) => (RunOutcome)new RunOutcome.Completed(Label: text, Scale: Scale(nameof(RasterCase.Extent), $"{row.Extent.Width}x{row.Extent.Height}")),
+        vectorCase: static (text, _) => new RunOutcome.Completed(Label: text, Scale: FrozenDictionary<string, string>.Empty),
+        printedCase: static (text, row) => new RunOutcome.Completed(Label: text, Scale: Scale(nameof(PrintedCase.Pages), row.Pages.Value.ToString(CultureInfo.InvariantCulture))),
+        depthCase: static (text, row) => new RunOutcome.Completed(Label: text, Scale: Scale(nameof(DepthField.Hits), row.Field.Hits.ToString(CultureInfo.InvariantCulture))),
+        sequenceCase: static (text, row) => new RunOutcome.Completed(Label: text, Scale: Scale(nameof(SequenceReceipt), row.Receipt.Echo.HtmlFileName)));
+
+    private static FrozenDictionary<string, string> Scale(string field, string value) =>
+        new Dictionary<string, string>(StringComparer.Ordinal) { [field] = value }.ToFrozenDictionary(StringComparer.Ordinal);
+}
+
+public sealed record TransparentCaptureSpec(
+    ViewportTarget Target,
+    Size2i Extent,
+    CapabilitySet<CaptureFeature> Features,
+    Option<Dimension> RealtimePasses) {
+
+    public static Fin<TransparentCaptureSpec> Of(
+        ViewportTarget target,
+        Size2i extent,
+        Option<CapabilitySet<CaptureFeature>> features = default,
+        Option<Dimension> realtimePasses = default,
+        Op? key = null) {
+        Op op = key.OrDefault();
+        return from address in TargetReach.View.Admit(target: target, key: op)
+               from held in CaptureSurface.Transparent.Admit(held: features, key: op)
+               from _passes in guard(realtimePasses.ForAll(static passes => passes.Value >= 1), op.InvalidInput()).ToFin()
+               select new TransparentCaptureSpec(
+                   Target: address,
+                   Extent: extent,
+                   Features: held,
+                   RealtimePasses: realtimePasses);
+    }
+
+    // `ViewCapture` publishes no disposal member, so the facade is a configured VALUE the capture call consumes —
+    // the raster it answers is the only thing custody applies to.
+    internal ViewCapture Facade() {
+        ViewCapture facade = new() { Width = Extent.Width, Height = Extent.Height, TransparentBackground = true };
+        _ = CaptureFeature.Apply(target: facade, column: static row => row.Transparent, held: Features);
+        _ = RealtimePasses.Iter(passes => facade.RealtimeRenderPasses = passes.Value);
+        return facade;
+    }
+}
+
+public sealed record DepthCaptureSpec(
+    ViewportTarget Target,
+    Option<ResourceId> Mode,
+    CapabilitySet<CaptureFeature> Channels,
+    DepthProjection Projection) {
 
     public static Fin<DepthCaptureSpec> Of(
         ViewportTarget target,
         Option<Guid> mode = default,
-        Option<DepthChannels> channels = default,
+        Option<CapabilitySet<CaptureFeature>> channels = default,
         Option<DepthProjection> projection = default,
         Op? key = null) {
         Op op = key.OrDefault();
-        return from valid in op.Need(value: target)
-               from _target in guard(valid is not ViewportTarget.EveryCase, op.InvalidInput())
-               from _mode in guard(mode.ForAll(static id => id != Guid.Empty), op.InvalidInput())
+        return from address in TargetReach.Row.Admit(target: target, key: op)
+               from held in CaptureSurface.Depth.Admit(held: channels, key: op)
                select new DepthCaptureSpec(
-                   target: valid,
-                   mode: mode,
-                   channels: channels.IfNone(DepthChannels.Geometry),
-                   projection: projection.IfNone(DepthProjection.Stats));
+                   Target: address,
+                   Mode: mode.Bind(ResourceId.Maybe),
+                   Channels: held,
+                   Projection: projection.IfNone(DepthProjection.Stats));
     }
 }
 ```
 
-## [04]-[FRAME_SEQUENCE]
+- Packages: `Rasm/Domain/rails` (`Lease<T>`, `Op`); `Rasm/Interaction/paint` (`AlphaLayout`, `PixelLease` GDI arities); `Rasm/Numerics` (`Dimension`); `Rasm.Rhino/HostUi/shell` (`RunOutcome`, `HostText`); `Rasm.Rhino/Modeling/solids` (`BenchEvidence`); BCL `System.Xml` (`XmlDocument`), `System.Drawing` (`Bitmap`).
+- Growth: a new artifact modality is one `CaptureArtifact` case with every `Summary` arm loudly broken; a new depth question is one `DepthProjection` case and one `DepthPayload` case landing together.
 
-- Owner: `SequenceKind` `[Union]` — factory-only motion cases: turntable, dual-track path, single-track flythrough, one-day sun study, and seasonal sun study, each carrying exactly the evidence its host write consumes. `SequenceTrack` `[Union]` — a motion track as a path-curve id or an admitted point row set, written through the internal `TrackSlot` setter columns so camera and target slots share one dispatch. `SunPlace`, `SunDay`, and `SunSpan` — admitted sun geometry and calendar windows inside the host ranges: latitude `[-90, 90]`, longitude `[-180, 180]`, years `1800..2199`, ordered time-of-day and date windows, positive frame spacing.
-- Owner: `SequenceOutput` owns `FolderName`, `FileExtension`, `AnimationName`, and optional `HtmlFileName`; `SequenceFidelity` joins `CaptureMethod`, `RenderFull`, and `RenderPreview`; `FrameSequenceSpec` owns kind, frame count, viewport, display mode, output, and fidelity. `SequenceReceipt` returns both `HtmlFileName` and `HtmlFullPath` with image and date evidence.
+## [05]-[FRAME_SEQUENCE]
+
+- Owner: `SequenceKind` closes the four motion cases — turntable, dual-track path, single-track flythrough, and a sun study over one `SunWindow`; `SequenceTrack` carries a track as a path-curve id or an admitted point row set, written through the `TrackSlot` setter columns so camera and target share one dispatch; `SunPlace` composes the kernel `SolarSite` with the bearing a `NorthPosture` row answers; `SunWindow` closes the two calendar windows; `SequenceOutput`, `SequenceFidelity`, and `FrameSequenceSpec` carry the output and fidelity axes; `SequenceReceipt` is the host read-back; `SequenceMap` is the generated host transcription.
 - Entry: `CaptureRequest.Sequence(SequenceOp, Op?)` enters `Captures.Run`, so sequence custody and sequence evidence share the capture dispatch and return `CaptureArtifact.SequenceCase`.
+- Auto: the name-mirrored halves of the host write are GENERATED. `SequenceMap` transcribes `SequenceOutput`, `SequenceFidelity`, and the twelve-column read-back through Mapperly under `RequiredMappingStrategy.Source`, so a new column with no host slot is a build break rather than a silently dropped field. What stays hand-written is what no name correspondence expresses: the `TrackSlot` slot dispatch, and the calendar DECOMPOSITION of one `LocalDate`/`LocalTime` pair into twelve host integer members.
+- Law: geodetic site and compass bearing are the kernel's. `SunPlace` carries `SolarSite` — latitude, longitude, NodaTime `Offset` timezone, and elevation, all admitted at their published bands — beside the `NorthPosture` row and the model's own declination, so the bearing DERIVES rather than riding a free `northAngle` double. NAMED GAIN: timezone and elevation become required, which is what exposed that the host animation solves sun angles carrying no zone at all.
+- Law: the sun window carries NodaTime shapes because `AnimationProperties`'s Start/End slots are a zone-free WALL CLOCK — `LocalDate`, `LocalTime`, `Duration`, and `Period` are the carriers that spelling names, and a `DateTimeOffset` here attaches an offset the host does not store. NAMED LOSS: `SequenceKind.DaySun` and `Season` stop being separately nameable cases; bought back because the WINDOW case is the name, both arms write the same Start/End slots, and the window's own `CaptureType` column answers which host study runs.
 - Law: `RhinoDoc.AnimationProperties` GET mints a detached native copy and SET commits it — in-place mutation without the set-back is inert. Adopt is one copy-edit-commit inside the shared undo bracket: the fresh copy preserves every member the spec leaves unstated, the spec writes land, the property set commits, and the receipt re-reads committed state.
-- Law: the spec configures and the host animation tools record — `Images`, `Dates`, and `CurrentFrame` are host-written receipts read back as evidence, never spec inputs. A sun-study case writes place and window together; day studies space frames by `MinutesBetweenFrames`, seasonal studies by `DaysBetweenFrames`, and the unused spacing member is never written.
-- Law: `SequenceOutput` admits extension, animation name, and HTML name as canonical filename components; separators, special dot components, platform-invalid characters, and trailing dots or spaces never reach native output metadata.
+- Law: the spec configures and the host animation tools record — `Images`, `Dates`, and `CurrentFrame` are host-written receipts read back as evidence, never spec inputs. A day study spaces frames by `MinutesBetweenFrames` and a seasonal study by `DaysBetweenFrames`; each window writes only its own spacing member.
+- Law: `SequenceOutput` admits extension, animation name, and HTML name as canonical filename components through an ACCUMULATING `Validation`, so a caller with three broken components learns all three; separators, special dot components, platform-invalid characters, and trailing dots or spaces never reach native output metadata.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using NodaTime;
+using Rasm.Domain;
+using Rasm.Drawing;
+using Rasm.Numerics;
+using Rasm.Rhino.Document;
+using Riok.Mapperly.Abstractions;
+using Thinktecture;
+
+namespace Rasm.Rhino.Viewport;
+
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<int>]
 internal sealed partial class TrackSlot {
-    public static readonly TrackSlot Camera = new(
+    internal static readonly TrackSlot Camera = new(
         key: 0,
         curve: static (native, id) => { native.CameraPathId = id; return unit; },
         points: static (native, points) => { native.CameraPoints = points; return unit; });
-    public static readonly TrackSlot Target = new(
+    internal static readonly TrackSlot Target = new(
         key: 1,
         curve: static (native, id) => { native.TargetPathId = id; return unit; },
         points: static (native, points) => { native.TargetPoints = points; return unit; });
@@ -939,12 +877,13 @@ internal sealed partial class TrackSlot {
 public abstract partial record SequenceTrack {
     private SequenceTrack() { }
 
-    internal sealed record CurveCase(Guid PathId) : SequenceTrack;
+    internal sealed record CurveCase(ResourceId PathId) : SequenceTrack;
     internal sealed record PointsCase(Seq<Point3d> Rows) : SequenceTrack;
 
-    public static Fin<SequenceTrack> Curve(Guid pathId, Op? key = null) =>
-        guard(pathId != Guid.Empty, key.OrDefault().InvalidInput()).ToFin()
-            .Map(_ => (SequenceTrack)new CurveCase(PathId: pathId));
+    public static Fin<SequenceTrack> Curve(Guid pathId, Op? key = null) {
+        Op op = key.OrDefault();
+        return ResourceId.Admit(value: pathId, key: op).Map(static id => (SequenceTrack)new CurveCase(PathId: id));
+    }
 
     public static Fin<SequenceTrack> Points(ReadOnlySpan<Point3d> points, Op? key = null) {
         Seq<Point3d> rows = toSeq(points.ToArray()).Strict();
@@ -952,116 +891,108 @@ public abstract partial record SequenceTrack {
             .Map(_ => (SequenceTrack)new PointsCase(Rows: rows));
     }
 
-    internal Unit Write(AnimationProperties native, TrackSlot slot) => Switch(
+    internal Unit Seat(AnimationProperties native, TrackSlot slot) => Switch(
         (Native: native, Slot: slot),
-        curveCase: static (ctx, track) => ctx.Slot.Curve(native: ctx.Native, id: track.PathId),
+        curveCase: static (ctx, track) => ctx.Slot.Curve(native: ctx.Native, id: track.PathId.Value),
         pointsCase: static (ctx, track) => ctx.Slot.Points(native: ctx.Native, points: track.Rows.ToArray()));
 }
 
+// Keyed on the host ordinal itself, so `Op.Row` resolves a read-back with no hand switch and no parallel
+// `Native` column to drift from the key.
 [SmartEnum<int>]
 public sealed partial class SequenceMode {
-    public static readonly SequenceMode Path = new(key: 0);
-    public static readonly SequenceMode Turntable = new(key: 1);
-    public static readonly SequenceMode Flythrough = new(key: 2);
-    public static readonly SequenceMode DaySun = new(key: 3);
-    public static readonly SequenceMode Season = new(key: 4);
-    public static readonly SequenceMode Unset = new(key: 5);
+    public static readonly SequenceMode Path = new(key: (int)AnimationProperties.CaptureTypes.Path);
+    public static readonly SequenceMode Turntable = new(key: (int)AnimationProperties.CaptureTypes.Turntable);
+    public static readonly SequenceMode Flythrough = new(key: (int)AnimationProperties.CaptureTypes.Flythrough);
+    public static readonly SequenceMode DaySun = new(key: (int)AnimationProperties.CaptureTypes.DaySunStudy);
+    public static readonly SequenceMode Season = new(key: (int)AnimationProperties.CaptureTypes.SeasonalSunStudy);
+    public static readonly SequenceMode Unset = new(key: (int)AnimationProperties.CaptureTypes.None);
 
-    internal static Fin<SequenceMode> Of(AnimationProperties.CaptureTypes value, Op key) => value switch {
-        AnimationProperties.CaptureTypes.Path => Fin.Succ(value: Path),
-        AnimationProperties.CaptureTypes.Turntable => Fin.Succ(value: Turntable),
-        AnimationProperties.CaptureTypes.Flythrough => Fin.Succ(value: Flythrough),
-        AnimationProperties.CaptureTypes.DaySunStudy => Fin.Succ(value: DaySun),
-        AnimationProperties.CaptureTypes.SeasonalSunStudy => Fin.Succ(value: Season),
-        AnimationProperties.CaptureTypes.None => Fin.Succ(value: Unset),
-        var unknown => Fin.Fail<SequenceMode>(error: key.InvalidResult(detail: unknown.ToString())),
-    };
+    internal AnimationProperties.CaptureTypes Native => (AnimationProperties.CaptureTypes)Key;
 }
 
+// The four legal corners of the host's method-plus-render-flag product; `(true, true)` is unrepresentable because
+// no row spells it, which is the `ReplaceFlags` clause satisfied by row enumeration rather than a corner law.
 [SmartEnum<int>]
 public sealed partial class SequenceFidelity {
-    public static readonly SequenceFidelity Draft = new(key: 0, method: "preview", renderFull: false, renderPreview: false);
-    public static readonly SequenceFidelity Recorded = new(key: 1, method: "full", renderFull: false, renderPreview: false);
-    public static readonly SequenceFidelity RenderedPreview = new(key: 2, method: "full", renderFull: false, renderPreview: true);
-    public static readonly SequenceFidelity Rendered = new(key: 3, method: "full", renderFull: true, renderPreview: false);
+    public static readonly SequenceFidelity Draft = new(key: 0, captureMethod: Preview, renderFull: false, renderPreview: false);
+    public static readonly SequenceFidelity Recorded = new(key: 1, captureMethod: Full, renderFull: false, renderPreview: false);
+    public static readonly SequenceFidelity RenderedPreview = new(key: 2, captureMethod: Full, renderFull: false, renderPreview: true);
+    public static readonly SequenceFidelity Rendered = new(key: 3, captureMethod: Full, renderFull: true, renderPreview: false);
 
-    internal string Method { get; }
+    // The host wire tokens `AnimationProperties.CaptureMethod` reads back.
+    internal const string Preview = "preview";
+    internal const string Full = "full";
+
+    internal string CaptureMethod { get; }
     internal bool RenderFull { get; }
     internal bool RenderPreview { get; }
-
-    internal Unit Write(AnimationProperties native) {
-        native.CaptureMethod = Method;
-        native.RenderFull = RenderFull;
-        native.RenderPreview = RenderPreview;
-        return unit;
-    }
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public sealed record SunPlace {
-    private SunPlace(double latitude, double longitude, double northAngle) =>
-        (Latitude, Longitude, NorthAngle) = (latitude, longitude, northAngle);
-
-    public double Latitude { get; }
-    public double Longitude { get; }
-    public double NorthAngle { get; }
-
-    public static Fin<SunPlace> Of(double latitude, double longitude, double northAngle = 0.0, Op? key = null) =>
-        guard(
-            latitude is >= -90.0 and <= 90.0 && longitude is >= -180.0 and <= 180.0 && double.IsFinite(northAngle),
-            key.OrDefault().InvalidInput()).ToFin()
-            .Map(_ => new SunPlace(latitude: latitude, longitude: longitude, northAngle: northAngle));
-
-    internal Unit Write(AnimationProperties native) {
-        native.Latitude = Latitude;
-        native.Longitude = Longitude;
-        native.NorthAngle = NorthAngle;
-        return unit;
+// The declination is `GeoReference.RotationRadians`, handed in by the caller that holds the model — `Rasm.Element`
+// is above this boundary's reference set, so the model's own figure crosses as a value.
+public sealed record SunPlace(SolarSite Site, NorthPosture Posture, VectorAngle Declination) {
+    public static Fin<SunPlace> Of(SolarSite site, NorthPosture posture, Option<VectorAngle> declination = default, Op? key = null) {
+        Op op = key.OrDefault();
+        return from admittedSite in op.Need(value: site)
+               from admittedPosture in op.Need(value: posture)
+               from bearing in declination.Match(Some: Fin.Succ, None: () => op.AcceptValidated<VectorAngle>(candidate: 0.0))
+               select new SunPlace(Site: admittedSite, Posture: admittedPosture, Declination: bearing);
     }
+
+    // The host slot bears north counter-clockwise off `+X` in DEGREES (Rhino `Sun.North`'s own convention), so the
+    // radian bearing the posture row answers projects once, here.
+    public VectorAngle North => Posture.Rotation(declination: Declination);
 }
 
-public sealed record SunDay {
-    private SunDay(DateOnly date, TimeOnly from, TimeOnly until, int minutesBetween) =>
-        (Date, From, Until, MinutesBetween) = (date, from, until, minutesBetween);
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SunWindow {
+    private SunWindow() { }
 
-    public DateOnly Date { get; }
-    public TimeOnly From { get; }
-    public TimeOnly Until { get; }
-    public int MinutesBetween { get; }
+    internal sealed record DayCase(LocalDate Date, LocalTime From, LocalTime Until, Duration Step) : SunWindow;
+    internal sealed record SeasonCase(LocalDate From, LocalDate Until, Period Step) : SunWindow;
 
-    public static Fin<SunDay> Of(DateOnly date, TimeOnly from, TimeOnly until, int minutesBetween, Op? key = null) =>
-        guard(date.Year is >= 1800 and <= 2199 && from < until && minutesBetween >= 1, key.OrDefault().InvalidInput()).ToFin()
-            .Map(_ => new SunDay(date: date, from: from, until: until, minutesBetween: minutesBetween));
+    // The host stores years 1800..2199 in its own integer slots, so the window admits that band once.
+    internal const int FirstYear = 1800;
+    internal const int LastYear = 2199;
 
-    internal Unit Write(AnimationProperties native) {
-        (native.StartYear, native.StartMonth, native.StartDay) = (Date.Year, Date.Month, Date.Day);
-        (native.EndYear, native.EndMonth, native.EndDay) = (Date.Year, Date.Month, Date.Day);
-        (native.StartHour, native.StartMinutes, native.StartSeconds) = (From.Hour, From.Minute, From.Second);
-        (native.EndHour, native.EndMinutes, native.EndSeconds) = (Until.Hour, Until.Minute, Until.Second);
-        native.MinutesBetweenFrames = MinutesBetween;
-        return unit;
+    public static Fin<SunWindow> Day(LocalDate date, LocalTime from, LocalTime until, Duration step, Op? key = null) {
+        Op op = key.OrDefault();
+        return guard(Admits(date) && from < until && step > Duration.Zero, op.InvalidInput()).ToFin()
+            .Map(_ => (SunWindow)new DayCase(Date: date, From: from, Until: until, Step: step));
     }
-}
 
-public sealed record SunSpan {
-    private SunSpan(DateOnly from, DateOnly until, int daysBetween) => (From, Until, DaysBetween) = (from, until, daysBetween);
-
-    public DateOnly From { get; }
-    public DateOnly Until { get; }
-    public int DaysBetween { get; }
-
-    public static Fin<SunSpan> Of(DateOnly from, DateOnly until, int daysBetween, Op? key = null) =>
-        guard(
-            from.Year is >= 1800 and <= 2199 && until.Year is >= 1800 and <= 2199 && from < until && daysBetween >= 1,
-            key.OrDefault().InvalidInput()).ToFin()
-            .Map(_ => new SunSpan(from: from, until: until, daysBetween: daysBetween));
-
-    internal Unit Write(AnimationProperties native) {
-        (native.StartYear, native.StartMonth, native.StartDay) = (From.Year, From.Month, From.Day);
-        (native.EndYear, native.EndMonth, native.EndDay) = (Until.Year, Until.Month, Until.Day);
-        native.DaysBetweenFrames = DaysBetween;
-        return unit;
+    public static Fin<SunWindow> Season(LocalDate from, LocalDate until, Period step, Op? key = null) {
+        Op op = key.OrDefault();
+        return guard(Admits(from) && Admits(until) && from < until && step.Days >= 1, op.InvalidInput()).ToFin()
+            .Map(_ => (SunWindow)new SeasonCase(From: from, Until: until, Step: step));
     }
+
+    internal SequenceMode Mode => Switch(
+        dayCase: static _ => SequenceMode.DaySun,
+        seasonCase: static _ => SequenceMode.Season);
+
+    // The calendar DECOMPOSITION no name correspondence expresses: one date-and-time pair fills twelve host
+    // integer slots.
+    internal Unit Seat(AnimationProperties native) => Switch(
+        native,
+        dayCase: static (host, window) => {
+            (host.StartYear, host.StartMonth, host.StartDay) = (window.Date.Year, window.Date.Month, window.Date.Day);
+            (host.EndYear, host.EndMonth, host.EndDay) = (window.Date.Year, window.Date.Month, window.Date.Day);
+            (host.StartHour, host.StartMinutes, host.StartSeconds) = (window.From.Hour, window.From.Minute, window.From.Second);
+            (host.EndHour, host.EndMinutes, host.EndSeconds) = (window.Until.Hour, window.Until.Minute, window.Until.Second);
+            host.MinutesBetweenFrames = (int)window.Step.TotalMinutes;
+            return unit;
+        },
+        seasonCase: static (host, window) => {
+            (host.StartYear, host.StartMonth, host.StartDay) = (window.From.Year, window.From.Month, window.From.Day);
+            (host.EndYear, host.EndMonth, host.EndDay) = (window.Until.Year, window.Until.Month, window.Until.Day);
+            host.DaysBetweenFrames = window.Step.Days;
+            return unit;
+        });
+
+    private static bool Admits(LocalDate date) => date.Year is >= FirstYear and <= LastYear;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1071,8 +1002,7 @@ public abstract partial record SequenceKind {
     internal sealed record TurntableCase : SequenceKind;
     internal sealed record PathCase(SequenceTrack Camera, SequenceTrack Focus) : SequenceKind;
     internal sealed record FlythroughCase(SequenceTrack Track) : SequenceKind;
-    internal sealed record DaySunCase(SunPlace Place, SunDay Day) : SequenceKind;
-    internal sealed record SeasonCase(SunPlace Place, SunSpan Span) : SequenceKind;
+    internal sealed record SunCase(SunPlace Place, SunWindow Window) : SequenceKind;
 
     public static SequenceKind Turntable { get; } = new TurntableCase();
 
@@ -1087,56 +1017,37 @@ public abstract partial record SequenceKind {
         key.OrDefault().Need(value: track)
             .Map(static admitted => (SequenceKind)new FlythroughCase(Track: admitted));
 
-    public static Fin<SequenceKind> DaySun(SunPlace place, SunDay day, Op? key = null) {
+    public static Fin<SequenceKind> Sun(SunPlace place, SunWindow window, Op? key = null) {
         Op op = key.OrDefault();
         return from site in op.Need(value: place)
-               from window in op.Need(value: day)
-               select (SequenceKind)new DaySunCase(Place: site, Day: window);
+               from span in op.Need(value: window)
+               select (SequenceKind)new SunCase(Place: site, Window: span);
     }
 
-    public static Fin<SequenceKind> Season(SunPlace place, SunSpan span, Op? key = null) {
-        Op op = key.OrDefault();
-        return from site in op.Need(value: place)
-               from window in op.Need(value: span)
-               select (SequenceKind)new SeasonCase(Place: site, Span: window);
-    }
+    internal SequenceMode Mode => Switch(
+        turntableCase: static _ => SequenceMode.Turntable,
+        pathCase: static _ => SequenceMode.Path,
+        flythroughCase: static _ => SequenceMode.Flythrough,
+        sunCase: static kind => kind.Window.Mode);
 
-    internal Unit Write(AnimationProperties native) => Switch(
-        native,
-        turntableCase: static (n, _) => {
-            n.CaptureType = AnimationProperties.CaptureTypes.Turntable;
-            return unit;
-        },
-        pathCase: static (n, kind) => {
-            n.CaptureType = AnimationProperties.CaptureTypes.Path;
-            _ = kind.Camera.Write(native: n, slot: TrackSlot.Camera);
-            return kind.Focus.Write(native: n, slot: TrackSlot.Target);
-        },
-        flythroughCase: static (n, kind) => {
-            n.CaptureType = AnimationProperties.CaptureTypes.Flythrough;
-            return kind.Track.Write(native: n, slot: TrackSlot.Camera);
-        },
-        daySunCase: static (n, kind) => {
-            n.CaptureType = AnimationProperties.CaptureTypes.DaySunStudy;
-            _ = kind.Place.Write(native: n);
-            return kind.Day.Write(native: n);
-        },
-        seasonCase: static (n, kind) => {
-            n.CaptureType = AnimationProperties.CaptureTypes.SeasonalSunStudy;
-            _ = kind.Place.Write(native: n);
-            return kind.Span.Write(native: n);
-        });
+    internal Unit Seat(AnimationProperties native) {
+        native.CaptureType = Mode.Native;
+        return Switch(
+            native,
+            turntableCase: static (_, _) => unit,
+            pathCase: static (host, kind) => {
+                _ = kind.Camera.Seat(native: host, slot: TrackSlot.Camera);
+                return kind.Focus.Seat(native: host, slot: TrackSlot.Target);
+            },
+            flythroughCase: static (host, kind) => kind.Track.Seat(native: host, slot: TrackSlot.Camera),
+            sunCase: static (host, kind) => {
+                _ = SequenceMap.Apply(place: kind.Place, host: host);
+                return kind.Window.Seat(native: host);
+            });
+    }
 }
 
-public sealed record SequenceOutput {
-    private SequenceOutput(DocumentPath folder, string extension, string name, Option<string> htmlFileName) =>
-        (Folder, Extension, Name, HtmlFileName) = (folder, extension, name, htmlFileName);
-
-    public DocumentPath Folder { get; }
-    public string Extension { get; }
-    public string Name { get; }
-    public Option<string> HtmlFileName { get; }
-
+public sealed record SequenceOutput(DocumentPath Folder, string Extension, string Name, Option<string> HtmlFileName) {
     public static Fin<SequenceOutput> Of(
         DocumentPath folder,
         string extension,
@@ -1146,54 +1057,41 @@ public sealed record SequenceOutput {
         Op op = key.OrDefault();
         return from admittedFolder in op.Need(value: folder)
                from ext in op.AcceptText(value: extension)
-               let normalizedExtension = ext.Trim().TrimStart('.')
-               from admittedExtension in Component(value: normalizedExtension, op: op)
-               from label in Component(value: name, op: op)
-               from html in htmlFileName.Traverse(value => Component(value: value, op: op)).As()
+               from parts in (
+                       Component(value: ext.Trim().TrimStart('.'), op: op).ToValidation(),
+                       Component(value: name, op: op).ToValidation(),
+                       htmlFileName.Traverse(value => Component(value: value, op: op)).As().ToValidation())
+                   .Apply(static (admittedExtension, label, html) => (Extension: admittedExtension, Name: label, Html: html))
+                   .As()
+                   .ToFin()
                select new SequenceOutput(
-                   folder: admittedFolder,
-                   extension: admittedExtension,
-                   name: label,
-                   htmlFileName: html);
+                   Folder: admittedFolder,
+                   Extension: parts.Extension,
+                   Name: parts.Name,
+                   HtmlFileName: parts.Html);
     }
 
     private static Fin<string> Component(string value, Op op) =>
         from admitted in op.AcceptText(value: value)
         let component = admitted.Trim()
-        from _ in guard(
-            component is not "." and not ".."
-            && component.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) < 0
-            && component.IndexOfAny(['/', '\\']) < 0
-            && !component.EndsWith('.')
-            && !component.EndsWith(' '),
-            op.InvalidInput())
+        from _clauses in (
+                guard(component is not "." and not "..", op.InvalidInput(axis: "dot component")).ToFin().ToValidation(),
+                guard(component.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) < 0, op.InvalidInput(axis: "invalid character")).ToFin().ToValidation(),
+                guard(component.IndexOfAny(['/', '\\']) < 0, op.InvalidInput(axis: "separator")).ToFin().ToValidation(),
+                guard(!component.EndsWith('.') && !component.EndsWith(' '), op.InvalidInput(axis: "trailing dot or space")).ToFin().ToValidation())
+            .Apply(static (_, _, _, _) => unit)
+            .As()
+            .ToFin()
         select component;
-
-    internal Unit Write(AnimationProperties native) {
-        native.FolderName = Folder.Value;
-        native.FileExtension = Extension;
-        native.AnimationName = Name;
-        _ = HtmlFileName.Iter(value => native.HtmlFileName = value);
-        return unit;
-    }
 }
 
-public sealed record FrameSequenceSpec {
-    private FrameSequenceSpec(
-        SequenceKind kind,
-        Dimension frames,
-        ViewportTarget target,
-        Option<Guid> mode,
-        Option<SequenceOutput> output,
-        Option<SequenceFidelity> fidelity) =>
-        (Kind, Frames, Target, Mode, Output, Fidelity) = (kind, frames, target, mode, output, fidelity);
-
-    public SequenceKind Kind { get; }
-    public Dimension Frames { get; }
-    public ViewportTarget Target { get; }
-    public Option<Guid> Mode { get; }
-    public Option<SequenceOutput> Output { get; }
-    public Option<SequenceFidelity> Fidelity { get; }
+public sealed record FrameSequenceSpec(
+    SequenceKind Kind,
+    Dimension Frames,
+    ViewportTarget Target,
+    Option<ResourceId> Mode,
+    Option<SequenceOutput> Output,
+    Option<SequenceFidelity> Fidelity) {
 
     public static Fin<FrameSequenceSpec> Of(
         SequenceKind kind,
@@ -1205,44 +1103,48 @@ public sealed record FrameSequenceSpec {
         Op? key = null) {
         Op op = key.OrDefault();
         return from motion in op.Need(value: kind)
-               from _frames in guard(frames.Value >= 1, op.InvalidInput())
-               from address in op.Need(value: target)
-               from _target in guard(address is not ViewportTarget.EveryCase, op.InvalidInput())
-               from _mode in guard(mode.ForAll(static id => id != Guid.Empty), op.InvalidInput())
+               from _frames in guard(frames.Value >= 1, op.InvalidInput()).ToFin()
+               from address in TargetReach.Row.Admit(target: target, key: op)
                select new FrameSequenceSpec(
-                   kind: motion,
-                   frames: frames,
-                   target: address,
-                   mode: mode,
-                   output: output,
-                   fidelity: fidelity);
+                   Kind: motion,
+                   Frames: frames,
+                   Target: address,
+                   Mode: mode.Bind(ResourceId.Maybe),
+                   Output: output,
+                   Fidelity: fidelity);
     }
 
-    internal Unit Write(AnimationProperties native, RhinoViewport viewport) {
-        _ = Kind.Write(native: native);
+    internal Unit Seat(AnimationProperties native, RhinoViewport viewport) {
+        _ = Kind.Seat(native: native);
         native.FrameCount = Frames.Value;
         native.ViewportName = viewport.Name;
-        _ = Mode.Iter(id => native.DisplayMode = id);
-        _ = Output.Iter(rows => rows.Write(native: native));
-        _ = Fidelity.Iter(row => row.Write(native: native));
-        return unit;
+        _ = Mode.Iter(id => native.DisplayMode = id.Value);
+        _ = Output.Iter(rows => SequenceMap.Apply(output: rows, host: native));
+        return Fidelity.Iter(row => SequenceMap.Apply(fidelity: row, host: native));
     }
 }
 
-public sealed record SequenceReceipt(
-    SequenceMode Mode,
+// The host's own read-back, mapped column-for-column. The admitted mode and the undo serial are RAIL facts the
+// host never wrote, so they ride BESIDE the echo rather than inside a record the generated map would have to
+// fabricate them for.
+public sealed record SequenceEcho(
     int Frames,
     int CurrentFrame,
     string ViewportName,
-    Option<Guid> DisplayMode,
+    Option<ResourceId> DisplayMode,
     string Folder,
     string Extension,
     string Name,
     string HtmlFileName,
     string HtmlPath,
     Seq<string> Images,
-    Seq<string> Dates,
-    // An inspect never opens a bracket, so absence is structural: `0u` is a live host serial's neighbour, not a spelling for "none".
+    Seq<string> Dates);
+
+public sealed record SequenceReceipt(
+    SequenceMode Mode,
+    SequenceEcho Echo,
+    // An inspect never opens a bracket, so absence is structural: `0u` is a live host serial's neighbour, not a
+    // spelling for "none".
     Option<uint> UndoRecord = default) : IDetachedDocumentResult {
 
     internal SequenceReceipt Stamp(uint undoRecord) => this with { UndoRecord = Some(undoRecord) };
@@ -1260,65 +1162,124 @@ public abstract partial record SequenceOp {
     public static Fin<SequenceOp> Adopt(FrameSequenceSpec spec, Op? key = null) =>
         key.OrDefault().Need(value: spec)
             .Map(static admitted => (SequenceOp)new AdoptCase(Spec: admitted));
+
+    internal Seq<SessionNeed> Needs => Switch(
+        inspectCase: static _ => Seq(SessionNeed.Read),
+        adoptCase: static _ => SessionNeed.Mutation(custody: UndoCustody.Recorded, redraw: RedrawPolicy.None));
+
+    internal long Scale => Switch(
+        inspectCase: static _ => 1L,
+        adoptCase: static adopt => adopt.Spec.Frames.Value);
+}
+
+// --- [OPERATIONS] ---------------------------------------------------------------------------
+// Source-side completeness makes a new column with no host slot a build break; target completeness stays off
+// because the sibling seats fill the host's remaining members.
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
+internal static partial class SequenceMap {
+    [MapProperty(nameof(SequenceOutput.Folder), nameof(AnimationProperties.FolderName))]
+    [MapProperty(nameof(SequenceOutput.Extension), nameof(AnimationProperties.FileExtension))]
+    [MapProperty(nameof(SequenceOutput.Name), nameof(AnimationProperties.AnimationName))]
+    public static partial void Apply(SequenceOutput output, [MappingTarget] AnimationProperties host);
+
+    public static partial void Apply(SequenceFidelity fidelity, [MappingTarget] AnimationProperties host);
+
+    [MapProperty([nameof(SunPlace.Site), nameof(SolarSite.LatitudeDeg)], [nameof(AnimationProperties.Latitude)])]
+    [MapProperty([nameof(SunPlace.Site), nameof(SolarSite.LongitudeDeg)], [nameof(AnimationProperties.Longitude)])]
+    [MapProperty(nameof(SunPlace.North), nameof(AnimationProperties.NorthAngle))]
+    public static partial void Apply(SunPlace place, [MappingTarget] AnimationProperties host);
+
+    [MapProperty(nameof(AnimationProperties.FrameCount), nameof(SequenceEcho.Frames))]
+    [MapProperty(nameof(AnimationProperties.FolderName), nameof(SequenceEcho.Folder))]
+    [MapProperty(nameof(AnimationProperties.FileExtension), nameof(SequenceEcho.Extension))]
+    [MapProperty(nameof(AnimationProperties.AnimationName), nameof(SequenceEcho.Name))]
+    [MapProperty(nameof(AnimationProperties.HtmlFullPath), nameof(SequenceEcho.HtmlPath))]
+    public static partial SequenceEcho Read(AnimationProperties host);
+
+    [UserMapping]
+    private static string Path(DocumentPath folder) => folder.Value;
+
+    [UserMapping]
+    private static double Bearing(VectorAngle north) => double.RadiansToDegrees((double)north);
+
+    // The host answers `Guid.Empty` for an unset display mode, which is the spine owner's own absence spelling.
+    [UserMapping]
+    private static Option<ResourceId> Addressed(Guid value) => ResourceId.Maybe(value);
+
+    [UserMapping]
+    private static Seq<string> Rows(string[] values) => toSeq(values).Strict();
 }
 ```
 
-## [05]-[RUN_RAIL]
+- Packages: NodaTime (`LocalDate`, `LocalTime`, `Duration`, `Period`); Riok.Mapperly (`[Mapper]`, `[MapProperty]`, `[MappingTarget]`, `[UserMapping]`, `RequiredMappingStrategy.Source`); Thinktecture.Runtime.Extensions; LanguageExt.Core (`Validation`, `.Apply`, `Traverse`); `Rasm/Numerics/calculus` (`SolarSite`); `Rasm/Drawing/sheet` (`NorthPosture`); `Rasm/Domain/rails` (`Op`); `Rasm.Rhino/.api/api-rhinocommon-document.md` (`AnimationProperties`).
+- Growth: a new motion study is one `SequenceKind` case and one `SequenceMode` row on the host ordinal; a new calendar window is one `SunWindow` case; a new output column is one member with its `[MapProperty]` row.
 
-- Owner: `CapturePlan` is the sink-free preparation value. `CaptureRequest` closes settings, transparent, depth, and sequence modalities behind their factories; `SettingsCase` alone pairs a non-empty plan sequence with a settings-driven sink and sink-derived cardinality admission. `PreparedCapture` is the internal prepared-program bracket; its settings sequence carries arity, its `Use` gate refuses with `InvalidContext` after release, and reverse release retires every native setting once the sole consumer settles.
-- Entry: `Captures.Run(DocumentSession, CaptureRequest, Op?) : Fin<CaptureArtifact>` is the sole public execution rail. `CaptureRequest.Settings`, `Transparent`, `Depth`, and `Sequence` admit each modality; internal `Stage` shares settings acquisition with PDF composition without exposing `ViewCaptureSettings`, and admits its session on the same rail `Run` does rather than handing an unproved reference to the host work.
+## [06]-[RUN_RAIL]
+
+- Owner: `CapturePlan` is the sink-free preparation value the whole estate shares; `CaptureRequest` closes the three modalities this page executes and answers its OWN session demand and bench identity; `PrepareGate` and `PreparedCapture` are the prepared-program window; `Captures` is the one run rail.
+- Entry: `Captures.Run(DocumentSession, MonotonicTimeline, CaptureRequest, Op?) : Fin<CaptureArtifact>` is the sole public execution rail; `CaptureRequest.Transparent`/`Depth`/`Sequence` admit each modality; internal `Captures.Stage(session, plans, consume, key)` shares settings acquisition with the Exchange landing without exposing `ViewCaptureSettings`.
+- Auto: the crossing DERIVES from the request — `Needs` answers the session demand, `Identity` the bench operation and input scale — so `Run` is one marshal, one measurement, and one three-armed dispatch, where the prior page carried four near-identical `*Run` helpers differing only in those two columns.
+- Law: preparation is a NEST, not a fold with hand compensation. Each plan's native settings enter under `Lease<ViewCaptureSettings>` and the next plan prepares INSIDE that lease's `Use`, so a refusal partway through unwinds the frames already entered, each releasing its own row through the kernel's ruled aggregation — a cleanup fault ALWAYS appends to the primary and never rides a discard. Reverse release order and partial-batch compensation are consequences of the nesting, so neither a `Rev()` nor a merge fold survives on this page.
+- Law: the prepared window is a CLOSED state, not a boolean. `PrepareGate` steps `Live → Released` through `Cell.Step` when the nest unwinds, so a `Use` after release reads a typed `InvalidContext` and a second release is a declined step rather than a repeated teardown.
+- Law: preparation applies viewport → area → layout → scale → decoration exactly once, then derives a preview from that completed basis when requested. Viewport binding precedes window projection, aspect matching, and fit scaling, and the bound viewport is the resolved row's own — a page address resolves to `RhinoPageView.MainViewport` and a detail address to `DetailViewObject.Viewport` at the target resolution, so no capture-side re-addressing exists. A settings handle never appears on a public signature.
 - Law: bench identity spells the REQUEST factory (`nameof(CaptureRequest.<verb>)`), never the private staging helper that happens to share the verb's name — an unqualified `nameof` binds the helper and re-keys every recorded row the moment that helper is renamed.
-- Law: every capture entry crosses `HostThread.Run` with a `HostWork<T>.Session`; settings, transparent, and depth cases carry `SessionNeed.Redraw`, sequence adopt carries `SessionNeed.Mutate` plus `SessionNeed.Undo` around one sealed `UndoBracket`, and sequence inspect carries `SessionNeed.Read` only. Target resolution, host work, delivery, and disposal remain inside that command-thread scope.
-- Law: run-rail frame timing is the Modeling bench band — every `Captures.Run` case crosses `HostThread.Run`, brackets its in-host body in `BenchBand.Measured`, and stamps the `BenchEvidence` (operation identity from the request case, input scale from the case's own cardinality — plan count, pixel area, sample count, or frame count — duration, allocation, host fingerprint) onto `CaptureArtifact.Bench`, so allocation belongs to the executing host thread and bridge-run harvest sessions produce corpus-comparable rows with no second measurement path. BOTH arms carry it: a refusal combines `CaptureBench` with its cause, because a run that spent its whole cost and then failed is the row a corpus most needs and the one a success-only stamp drops.
-- Law: batch preparation is one iterative `Fold`. A failed acquisition reverse-releases every previously prepared setting, and the completed bracket reverse-releases its sequence once the sole consumer settles.
-- Law: release ACCUMULATES and never preempts — every row is attempted, its refusals combine into one fault, and that fault joins the body's own outcome through the compensation merge this folder spells at every bracket. Rethrowing the first disposal exception discarded the artifact a completed body had already produced and every refusal behind the first, turning a cleanup defect into a lost run.
-- Law: preparation applies viewport → area → layout → scale → decoration exactly once, then derives a preview from that completed basis when requested. Viewport binding precedes window projection, aspect matching, and fit scaling, and the bound viewport is the resolved row's own — a page address resolves to `RhinoPageView.MainViewport` and a detail address to `DetailViewObject.Viewport` at the target resolution, so no capture-side re-addressing exists. A settings handle never appears on a public signature, and the prepared bracket refuses every use after release.
+- Law: run-rail timing stamps `CaptureArtifact.Bench` on success; failure keeps the original cause, and no second measurement fault exists.
+- Boundary: every entry crosses the kernel dispatch on the immediate lane and proves its own `SessionNeed` set inside the same window — `UiThread.Run(new UiDispatch<T>.Blocking(() => session.Demand(…)), DispatchLane.Immediate, key)` — so the crossing asserts the thread and the demand serializes the host call, and neither authority is re-derived at a call site. Target resolution, host work, and release stay inside that scope.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Rasm.Domain;
+using Rasm.Interaction;
+using Rasm.Numerics;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Modeling;
+using Thinktecture;
+
+namespace Rasm.Rhino.Viewport;
+
+// --- [TYPES] --------------------------------------------------------------------------------
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+internal abstract partial record PrepareGate {
+    private PrepareGate() { }
+    internal sealed record Live : PrepareGate;
+    internal sealed record Released : PrepareGate;
+}
+
 // --- [MODELS] -------------------------------------------------------------------------------
-public sealed record CapturePlan {
-    private CapturePlan(CaptureSubject subject, CaptureArea area, CaptureScale scale, MediaLayout layout, CaptureDecor decor) =>
-        (Subject, Area, Scale, Layout, Decor) = (subject, area, scale, layout, decor);
-
-    public CaptureSubject Subject { get; }
-    public CaptureArea Area { get; }
-    public CaptureScale Scale { get; }
-    public MediaLayout Layout { get; }
-    public CaptureDecor Decor { get; }
-
+public sealed record CapturePlan(CaptureSubject Subject, CaptureArea Area, CaptureScale Scale, MediaLayout Layout, CaptureDecor Decor) {
     public static Fin<CapturePlan> Of(
         CaptureSubject subject,
         Option<CaptureArea> area = default,
         Option<CaptureScale> scale = default,
         Option<MediaLayout> layout = default,
         Option<CaptureDecor> decor = default,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Need(value: subject).Map(origin => new CapturePlan(
-            subject: origin,
-            area: area.IfNone(CaptureArea.FullView),
-            scale: scale.IfNone(CaptureScale.Native),
-            layout: layout.IfNone(MediaLayout.Default),
-            decor: decor.IfNone(CaptureDecor.Default)));
-    }
+        Op? key = null) =>
+        key.OrDefault().Need(value: subject).Map(origin => new CapturePlan(
+            Subject: origin,
+            Area: area.IfNone(CaptureArea.FullView),
+            Scale: scale.IfNone(CaptureScale.Native),
+            Layout: layout.IfNone(MediaLayout.Default),
+            Decor: decor.IfNone(CaptureDecor.Plain)));
+
+    internal Fin<Unit> Seat(ViewportRef row, ViewCaptureSettings settings, Op key) =>
+        from _bind in key.Catch(() => settings.SetViewport(viewport: row.Viewport))
+        from _area in Area.Apply(settings: settings, key: key)
+        from _layout in Layout.Apply(settings: settings, key: key)
+        from _scale in Scale.Apply(settings: settings, key: key)
+        from _decor in Decor.Apply(settings: settings, key: key)
+        from _valid in key.Catch(() => settings.IsValid
+            ? Fin.Succ(value: unit)
+            : Fin.Fail<Unit>(new ViewportFault.HostRefused(
+                Key: key, Member: nameof(ViewCaptureSettings.IsValid), Detail: "settings are invalid")))
+        select unit;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CaptureRequest {
     private CaptureRequest() { }
-    internal sealed record SettingsCase(Seq<CapturePlan> Plans, CaptureSink Sink) : CaptureRequest;
     internal sealed record TransparentCase(TransparentCaptureSpec Spec) : CaptureRequest;
     internal sealed record DepthCase(DepthCaptureSpec Spec) : CaptureRequest;
     internal sealed record SequenceCase(SequenceOp Operation) : CaptureRequest;
-
-    public static Fin<CaptureRequest> Settings(CaptureSink sink, ReadOnlySpan<CapturePlan> plans, Op? key = null) {
-        Op op = key.OrDefault();
-        Seq<CapturePlan> rows = toSeq(plans.ToArray()).Strict();
-        return from admittedSink in op.Need(value: sink)
-               from _rows in guard(!rows.IsEmpty && rows.ForAll(static plan => plan is not null), op.InvalidInput())
-               from _arity in guard(admittedSink.AcceptsMany || rows.Count == 1, op.InvalidInput())
-               select (CaptureRequest)new SettingsCase(Plans: rows, Sink: admittedSink);
-    }
 
     public static Fin<CaptureRequest> Transparent(TransparentCaptureSpec spec, Op? key = null) =>
         key.OrDefault().Need(value: spec).Map(static admitted => (CaptureRequest)new TransparentCase(Spec: admitted));
@@ -1328,180 +1289,92 @@ public abstract partial record CaptureRequest {
 
     public static Fin<CaptureRequest> Sequence(SequenceOp operation, Op? key = null) =>
         key.OrDefault().Need(value: operation).Map(static admitted => (CaptureRequest)new SequenceCase(Operation: admitted));
-}
 
-// --- [ERRORS] -------------------------------------------------------------------------------
-// A refused capture is still a MEASURED capture — the band brackets the whole in-host body, so its duration and
-// allocation describe the failing run exactly as they describe a completed one, and the expensive half of every corpus
-// is the half that failed. No artifact exists to stamp, so the evidence rides the refusal beside the cause.
-public sealed record CaptureBench(BenchEvidence Evidence) : Expected {
-    public override string Message => string.Create(
-        provider: CultureInfo.InvariantCulture,
-        $"Capture '{Evidence.Operation}' failed after {Evidence.Duration.TotalMilliseconds:F3} ms over scale {Evidence.InputScale}.");
-    public override string Category => "Bench";
+    internal Seq<SessionNeed> Needs => Switch(
+        transparentCase: static _ => Seq(SessionNeed.Redraw),
+        depthCase: static _ => Seq(SessionNeed.Redraw),
+        sequenceCase: static row => row.Operation.Needs);
+
+    // A bare `nameof(Depth)` inside the rail class binds whichever private helper shares the verb's name, so the
+    // identity spells the REQUEST factory and a helper rename cannot re-key a bench corpus.
+    internal (string Operation, long Scale) Identity => Switch(
+        transparentCase: static row => (nameof(Transparent), (long)row.Spec.Extent.Width * row.Spec.Extent.Height),
+        depthCase: static row => (nameof(Depth), row.Spec.Projection is DepthProjection.SamplesCase samples ? samples.Pixels.Count : 1L),
+        sequenceCase: static row => (nameof(Sequence), row.Operation.Scale));
 }
 
 // --- [RESOURCES] ----------------------------------------------------------------------------
-// Preparation is a BRACKET, never a disposable value: release accumulates every refused native dispose beside the
-// body's own outcome, so one wedged setting neither stops the rows behind it nor preempts the artifact the run already
-// produced. A rethrow discarded both — the completed body's value and every refusal after the first.
-internal sealed class PreparedCapture {
-    private readonly Seq<ViewCaptureSettings> settings;
-    private bool released;
+// Custody of each native setting belongs to the lease that acquired it, never to this value.
+internal sealed class PreparedCapture : IDisposable {
+    private readonly Seq<ViewCaptureSettings> rows;
+    private readonly Atom<PrepareGate> gate = Atom<PrepareGate>(new PrepareGate.Live());
+    private readonly Op key;
 
-    private PreparedCapture(Seq<ViewCaptureSettings> settings) => this.settings = settings;
+    private PreparedCapture(Seq<ViewCaptureSettings> rows, Op key) => (this.rows, this.key) = (rows, key);
 
-    internal static Fin<TOut> Bracket<TOut>(Seq<ViewCaptureSettings> settings, Func<PreparedCapture, Fin<TOut>> body, Op key) {
-        PreparedCapture prepared = new(settings: settings);
-        Fin<TOut> primary = key.Catch(() => body(prepared));
-        prepared.released = true;
-        return Merge(primary: primary, cleanup: Release(rows: settings, key: key));
-    }
+    internal static Fin<TOut> Bracket<TOut>(Seq<ViewCaptureSettings> rows, Func<PreparedCapture, Fin<TOut>> body, Op key) =>
+        Lease<PreparedCapture>.Acquire(mint: () => new PreparedCapture(rows: rows, key: key), key: key)
+            .Bind(window => window.Use(body: body, key: key));
 
     internal Fin<TOut> Use<TOut>(Func<Seq<ViewCaptureSettings>, Fin<TOut>> body, Op key) =>
-        from consumer in key.Need(body)
-        from _live in guard(!released, key.InvalidContext())
-        from output in key.Catch(() => consumer(settings))
+        from consumer in key.Need(value: body)
+        from _live in guard(gate.Value is PrepareGate.Live, key.InvalidContext()).ToFin()
+        from output in key.Catch(() => consumer(rows))
         select output;
 
-    // Reverse release, every row attempted: the validation rail accumulates each refusal into one fault, so a wedged
-    // native setting reports beside the rows released after it rather than hiding them behind the first throw.
-    internal static Fin<Unit> Release(Seq<ViewCaptureSettings> rows, Op key) =>
-        rows.Rev()
-            .Traverse(row => key.Catch(() => {
-                row.Dispose();
-                return Fin.Succ(value: unit);
-            }).ToValidation())
-            .As()
-            .ToFin()
-            .Map(static _ => unit);
-
-    internal static Fin<TOut> Merge<TOut>(Fin<TOut> primary, Fin<Unit> cleanup) => cleanup.Match(
-        Succ: _ => primary,
-        Fail: release => primary.Match(
-            Succ: _ => Fin.Fail<TOut>(error: release),
-            Fail: failure => Fin.Fail<TOut>(error: failure + release)));
+    public void Dispose() => _ = Cell.Step(
+        gate,
+        static held => held is PrepareGate.Live ? Some<PrepareGate>(new PrepareGate.Released()) : None,
+        key.InvalidContext());
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Captures {
-    public static Fin<CaptureArtifact> Run(DocumentSession session, CaptureRequest request, Op? key = null) {
+    public static Fin<CaptureArtifact> Run(
+        DocumentSession session, MonotonicTimeline timeline, CaptureRequest request, Op? key = null) {
         Op op = key.OrDefault();
         return from owner in Optional(session).ToFin(Fail: op.MissingContext())
+               from clock in op.Need(timeline)
                from admitted in op.Need(value: request)
-               // Every operation identity spells its REQUEST factory: a bare `nameof(Settings)` inside this class binds
-               // whichever private helper shares the verb's name, so renaming a helper silently re-keys every bench row
-               // against a corpus the page promises stays comparable.
-               let identity = admitted.Switch(
-                   settingsCase: static row => (Operation: nameof(CaptureRequest.Settings), Scale: (long)row.Plans.Count),
-                   transparentCase: static row => (Operation: nameof(CaptureRequest.Transparent), Scale: (long)row.Spec.Extent.Width * row.Spec.Extent.Height),
-                   depthCase: static row => (Operation: nameof(CaptureRequest.Depth), Scale: row.Spec.Projection is DepthProjection.SamplesCase samples ? samples.Pixels.Count : 1L),
-                   sequenceCase: static row => (Operation: nameof(CaptureRequest.Sequence), Scale: row.Operation is SequenceOp.AdoptCase adopt ? adopt.Spec.Frames.Value : 1L))
-               from artifact in admitted.Switch(
-                   (Session: owner, Identity: identity, Op: op),
-                   settingsCase: static (ctx, row) => SettingsRun(
-                       session: ctx.Session, plans: row.Plans, sink: row.Sink,
-                       operation: ctx.Identity.Operation, inputScale: ctx.Identity.Scale, key: ctx.Op),
-                   transparentCase: static (ctx, row) => TransparentRun(
-                       session: ctx.Session, spec: row.Spec,
-                       operation: ctx.Identity.Operation, inputScale: ctx.Identity.Scale, key: ctx.Op),
-                   depthCase: static (ctx, row) => DepthRun(
-                       session: ctx.Session, spec: row.Spec,
-                       operation: ctx.Identity.Operation, inputScale: ctx.Identity.Scale, key: ctx.Op),
-                   sequenceCase: static (ctx, row) => SequenceRun(
-                       session: ctx.Session, request: row.Operation,
-                       operation: ctx.Identity.Operation, inputScale: ctx.Identity.Scale, key: ctx.Op))
+               from artifact in Crossed(
+                   session: owner,
+                   timeline: clock,
+                   needs: admitted.Needs,
+                   identity: admitted.Identity,
+                   body: document => admitted.Switch(
+                       (Document: document, Op: op),
+                       transparentCase: static (ctx, row) => Transparent(document: ctx.Document, spec: row.Spec, key: ctx.Op),
+                       depthCase: static (ctx, row) => Depth(document: ctx.Document, spec: row.Spec, key: ctx.Op),
+                       sequenceCase: static (ctx, row) => Sequenced(document: ctx.Document, request: row.Operation, key: ctx.Op)),
+                   key: op)
                select artifact;
     }
 
-    private static Fin<CaptureArtifact> SettingsRun(
-        DocumentSession session, Seq<CapturePlan> plans, CaptureSink sink,
-        string operation, long inputScale, Op key) =>
-        HostThread.Run(
-            work: new HostWork<CaptureArtifact>.Session(
-                Document: session,
-                Needs: [SessionNeed.Redraw],
-                Body: document => Measured(
-                    operation: operation,
-                    inputScale: inputScale,
-                    run: () => Prepared(
-                        document: document,
-                        plans: plans,
-                        body: prepared => sink.Render(prepared: prepared, op: key),
-                        key: key))),
-            key: key);
+    private static Fin<CaptureArtifact> Crossed(
+        DocumentSession session,
+        MonotonicTimeline timeline,
+        Seq<SessionNeed> needs,
+        (string Operation, long Scale) identity,
+        Func<RhinoDoc, Fin<CaptureArtifact>> body,
+        Op key) =>
+        UiThread.Run(
+            new UiDispatch<CaptureArtifact>.Blocking(() => session.Demand(
+                use: document => Measured(timeline: timeline, identity: identity, run: () => body(document), key: key),
+                key: key,
+                needs: needs.ToArray())),
+            DispatchLane.Immediate,
+            key);
 
-    private static Fin<CaptureArtifact> TransparentRun(
-        DocumentSession session, TransparentCaptureSpec spec,
-        string operation, long inputScale, Op key) =>
-        HostThread.Run(
-            work: new HostWork<CaptureArtifact>.Session(
-                Document: session,
-                Needs: [SessionNeed.Redraw],
-                Body: document => Measured(
-                    operation: operation,
-                    inputScale: inputScale,
-                    run: () => from row in spec.Target.ResolveOne(document: document, key: key)
-                               from captured in Transparent(row: row, spec: spec, key: key)
-                               select captured)),
-            key: key);
-
-    private static Fin<CaptureArtifact> DepthRun(
-        DocumentSession session, DepthCaptureSpec spec,
-        string operation, long inputScale, Op key) =>
-        HostThread.Run(
-            work: new HostWork<CaptureArtifact>.Session(
-                Document: session,
-                Needs: [SessionNeed.Redraw],
-                Body: document => Measured(
-                    operation: operation,
-                    inputScale: inputScale,
-                    run: () => from viewport in spec.Target.ResolveViewport(document: document, key: key)
-                               from field in Depth(viewport: viewport, spec: spec, key: key)
-                               select (CaptureArtifact)new CaptureArtifact.DepthCase(field: field))),
-            key: key);
-
-    private static Fin<CaptureArtifact> SequenceRun(
-        DocumentSession session, SequenceOp request,
-        string operation, long inputScale, Op key) =>
-        request.Switch(
-            (Session: session, Operation: operation, Scale: inputScale, Op: key),
-            inspectCase: static (ctx, _) => HostThread.Run(
-                work: new HostWork<CaptureArtifact>.Session(
-                    Document: ctx.Session,
-                    Needs: [SessionNeed.Read],
-                    Body: document => Measured(
-                        operation: ctx.Operation,
-                        inputScale: ctx.Scale,
-                        run: () => Sequenced(document: document, key: ctx.Op)
-                            .Map(static receipt => (CaptureArtifact)new CaptureArtifact.SequenceCase(receipt: receipt)))),
-                key: ctx.Op),
-            adoptCase: static (ctx, adopt) => HostThread.Run(
-                work: new HostWork<CaptureArtifact>.Session(
-                    Document: ctx.Session,
-                    Needs: [SessionNeed.Mutate, SessionNeed.Undo],
-                    Body: document => Measured(
-                        operation: ctx.Operation,
-                        inputScale: ctx.Scale,
-                        run: () => Adopted(document: document, spec: adopt.Spec, key: ctx.Op)
-                            .Map(static receipt => (CaptureArtifact)new CaptureArtifact.SequenceCase(receipt: receipt)))),
-                key: ctx.Op));
-
-    // Both arms carry the measurement: a completed run stamps its artifact, a refused one combines `CaptureBench` with
-    // the cause, so the harvest corpus reads failed rows beside completed ones instead of losing every expensive
-    // refusal — a timeout, an out-of-memory raster, a wedged print spool are precisely the rows worth comparing.
     private static Fin<CaptureArtifact> Measured(
-        string operation,
-        long inputScale,
-        Func<Fin<CaptureArtifact>> run) {
-        (Fin<CaptureArtifact> outcome, BenchEvidence evidence) = BenchBand.Measured(
-            operation: operation,
-            inputScale: inputScale,
-            run: run);
-        return outcome
-            .Map(artifact => artifact with { Bench = Some(evidence) })
-            .MapFail(cause => new CaptureBench(Evidence: evidence) + cause);
-    }
+        MonotonicTimeline timeline,
+        (string Operation, long Scale) identity,
+        Func<Fin<CaptureArtifact>> run,
+        Op key) => BenchBand.Measured(
+            timeline: timeline,
+            operation: identity.Operation,
+            inputScale: identity.Scale,
+            run: run)
+        .Bind(measured => measured.Outcome.Map(artifact => artifact with { Bench = Some(measured.Evidence) }));
 
     internal static Fin<TOut> Stage<TOut>(
         DocumentSession session,
@@ -1512,149 +1385,113 @@ public static class Captures {
         Seq<CapturePlan> requested = toSeq(plans.ToArray()).Strict();
         return from owner in Optional(session).ToFin(Fail: op.MissingContext())
                from body in op.Need(value: consume)
-               from _rows in guard(!requested.IsEmpty && requested.ForAll(static plan => plan is not null), op.InvalidInput())
-               from output in HostThread.Run(
-                   work: new HostWork<TOut>.Session(
-                       Document: owner,
-                       Needs: [SessionNeed.Redraw],
-                       Body: document => Prepared(document: document, plans: requested, body: body, key: op)),
-                   key: op)
+               from _rows in guard(!requested.IsEmpty, op.InvalidInput()).ToFin()
+               from output in UiThread.Run(
+                   new UiDispatch<TOut>.Blocking(() => owner.Demand(
+                       use: document => Prepared(document: document, plans: requested, body: body, key: op),
+                       key: op,
+                       needs: [SessionNeed.Redraw])),
+                   DispatchLane.Immediate,
+                   op)
                select output;
     }
 
+    // Reversing the roster before the fold is what puts the FIRST plan in the OUTERMOST lease frame, which is why
+    // the settings reach the body in request order and release in reverse.
     private static Fin<TOut> Prepared<TOut>(RhinoDoc document, Seq<CapturePlan> plans, Func<PreparedCapture, Fin<TOut>> body, Op key) =>
-        plans.Fold(
-                Fin.Succ(value: Seq<ViewCaptureSettings>()),
-                (state, plan) => state.Bind(held => PrepareOne(document: document, plan: plan, key: key).Match(
-                    Succ: prepared => Fin.Succ(value: held.Add(prepared)),
-                    Fail: error => PreparedCapture.Merge(
-                        primary: Fin.Fail<Seq<ViewCaptureSettings>>(error: error),
-                        cleanup: PreparedCapture.Release(rows: held, key: key)))))
-            .Bind(rows => PreparedCapture.Bracket(settings: rows, body: body, key: key));
+        plans.Rev().Fold(
+            (Func<Seq<ViewCaptureSettings>, Fin<TOut>>)(held => PreparedCapture.Bracket(rows: held, body: body, key: key)),
+            (inner, plan) => held => PrepareOne(document: document, plan: plan, key: key)
+                .Bind(lease => lease.Use(body: native => inner(held.Add(native)), key: key)))(Seq<ViewCaptureSettings>());
 
-    private static Fin<ViewCaptureSettings> PrepareOne(RhinoDoc document, CapturePlan plan, Op key) =>
-        from admitted in key.Need(plan)
+    private static Fin<Lease<ViewCaptureSettings>> PrepareOne(RhinoDoc document, CapturePlan plan, Op key) =>
+        from admitted in key.Need(value: plan)
         from row in admitted.Subject.Address.ResolveOne(document: document, key: key)
-        from basis in Settings(row: row, subject: admitted.Subject, key: key)
-        from configured in Apply(row: row, settings: basis, plan: admitted, key: key).Match(
-            Succ: _ => Fin.Succ(value: basis),
-            Fail: error => {
-                basis.Dispose();
-                return Fin.Fail<ViewCaptureSettings>(error: error);
-            })
-        from settings in Previewed(settings: configured, subject: admitted.Subject, key: key)
+        from settings in admitted.Subject.Realize(row: row, key: key)
+        from _seated in admitted.Seat(row: row, settings: settings.Resource, key: key)
         select settings;
 
-    private static Fin<Unit> Apply(ViewportRef row, ViewCaptureSettings settings, CapturePlan plan, Op key) =>
-        from _bind in key.Catch(() => settings.SetViewport(viewport: row.Viewport))
-        from _area in plan.Area.Apply(settings: settings, key: key)
-        from _layout in plan.Layout.Apply(settings: settings, key: key)
-        from _scale in plan.Scale.Apply(settings: settings, key: key)
-        from _decor in plan.Decor.Apply(settings: settings, key: key)
-        from _valid in guard(settings.IsValid, key.InvalidResult())
-        select unit;
+    // The ONE arm that asks for an alpha background, so its coverage carriage is `Straight` by construction.
+    private static Fin<CaptureArtifact> Transparent(RhinoDoc document, TransparentCaptureSpec spec, Op key) =>
+        from row in spec.Target.ResolveOne(document: document, key: key)
+        from facade in key.Catch(() => Fin.Succ(value: spec.Facade()))
+        from artifact in CaptureArtifact.Raster(
+            mint: () => facade.CaptureToBitmap(sourceView: row.View),
+            extent: spec.Extent,
+            coverage: AlphaLayout.Straight,
+            key: key)
+        select artifact;
 
-    private static Fin<DepthField> Depth(RhinoViewport viewport, DepthCaptureSpec spec, Op key) =>
+    private static Fin<CaptureArtifact> Depth(RhinoDoc document, DepthCaptureSpec spec, Op key) =>
+        from viewport in spec.Target.ResolveViewport(document: document, key: key)
         from extent in key.Catch(() => Fin.Succ(value: viewport.Size))
             .Bind(size => Size2i.Of(width: size.Width, height: size.Height, key: key))
-        from field in Depth(viewport: viewport, extent: extent, spec: spec, key: key)
-        select field;
+        from capture in Lease<ZBufferCapture>.Acquire(mint: () => new ZBufferCapture(viewport: viewport), key: key)
+        from field in capture.Use(
+            body: held => key.Catch(() => Fin.Succ(value: Configured(capture: held, spec: spec)))
+                .Bind(_ => spec.Projection.Project(capture: held, extent: extent, key: key))
+                .Bind(payload => key.Catch(() => Fin.Succ(value: Field(capture: held, payload: payload)))),
+            key: key)
+        select (CaptureArtifact)new CaptureArtifact.DepthCase(Field: field);
 
-    private static Fin<DepthField> Depth(RhinoViewport viewport, Size2i extent, DepthCaptureSpec spec, Op key) => key.Catch(() => {
-        using ZBufferCapture capture = new(viewport: viewport);
-        _ = spec.Mode.Iter(id => capture.SetDisplayMode(modeId: id));
-        _ = spec.Channels.Apply(capture: capture);
-        return from payload in spec.Projection.Project(capture: capture, extent: extent, key: key)
-               from field in key.Catch(() => {
-                   int hits = capture.HitCount();
-                   float min = capture.MinZ();
-                   float max = capture.MaxZ();
-                   Option<DepthRange> range = hits > 0 && float.IsFinite(min) && float.IsFinite(max) && min <= max
-                       ? Some(new DepthRange(MinZ: min, MaxZ: max))
-                       : None;
-                   return Fin.Succ(value: new DepthField(hits: hits, range: range, payload: payload));
-               })
-               select field;
-    });
+    private static Unit Configured(ZBufferCapture capture, DepthCaptureSpec spec) {
+        _ = spec.Mode.Iter(id => capture.SetDisplayMode(modeId: id.Value));
+        return CaptureFeature.Apply(target: capture, column: static row => row.Depth, held: spec.Channels);
+    }
 
-    private static Fin<SequenceReceipt> Adopted(RhinoDoc document, FrameSequenceSpec spec, Op key) =>
-        DocumentCommit.Sealed(
-                document: document,
+    private static DepthField Field(ZBufferCapture capture, DepthPayload payload) {
+        int hits = capture.HitCount();
+        float min = capture.MinZ();
+        float max = capture.MaxZ();
+        return new DepthField(
+            Hits: hits,
+            Range: ValidityClaim.All(hits > 0, float.IsFinite(min), float.IsFinite(max), min <= max)
+                ? Some(new DepthRange(MinZ: min, MaxZ: max))
+                : None,
+            Payload: payload);
+    }
+
+    private static Fin<CaptureArtifact> Sequenced(RhinoDoc document, SequenceOp request, Op key) =>
+        request.Switch(
+            (Document: document, Op: key),
+            inspectCase: static (ctx, _) => Read(document: ctx.Document, key: ctx.Op)
+                .Map(static receipt => (CaptureArtifact)new CaptureArtifact.SequenceCase(Receipt: receipt)),
+            adoptCase: static (ctx, adopt) => DocumentCommit.Sealed(
+                document: ctx.Document,
                 name: nameof(CaptureRequest.Sequence),
                 recordsUndo: true,
                 redraw: RedrawPolicy.None,
                 run: () =>
-                    from viewport in spec.Target.ResolveViewport(document: document, key: key)
-                    from _commit in key.Catch(() => {
-                        using AnimationProperties native = document.AnimationProperties;
-                        _ = spec.Write(native: native, viewport: viewport);
-                        document.AnimationProperties = native;
-                        return Fin.Succ(value: unit);
-                    })
-                    from receipt in Sequenced(document: document, key: key)
+                    from viewport in adopt.Spec.Target.ResolveViewport(document: ctx.Document, key: ctx.Op)
+                    from native in Lease<AnimationProperties>.Acquire(mint: () => ctx.Document.AnimationProperties, key: ctx.Op)
+                    from _commit in native.Use(
+                        body: held => ctx.Op.Catch(() => {
+                            _ = adopt.Spec.Seat(native: held, viewport: viewport);
+                            ctx.Document.AnimationProperties = held;
+                            return Fin.Succ(value: unit);
+                        }),
+                        key: ctx.Op)
+                    from receipt in Read(document: ctx.Document, key: ctx.Op)
                     select receipt,
                 stamp: static (receipt, serial) => receipt.Stamp(undoRecord: serial),
-                op: key);
+                project: static receipt => Fin.Succ((CaptureArtifact)new CaptureArtifact.SequenceCase(Receipt: receipt)),
+                op: ctx.Op));
 
-    private static Fin<SequenceReceipt> Sequenced(RhinoDoc document, Op key) => key.Catch(() => {
-        using AnimationProperties native = document.AnimationProperties;
-        return from mode in SequenceMode.Of(value: native.CaptureType, key: key)
-               select new SequenceReceipt(
-                   Mode: mode,
-                   Frames: native.FrameCount,
-                   CurrentFrame: native.CurrentFrame,
-                   ViewportName: native.ViewportName,
-                   DisplayMode: Optional(native.DisplayMode).Filter(static id => id != Guid.Empty),
-                   Folder: native.FolderName,
-                   Extension: native.FileExtension,
-                   Name: native.AnimationName,
-                   HtmlFileName: native.HtmlFileName,
-                   HtmlPath: native.HtmlFullPath,
-                   Images: toSeq(native.Images).Strict(),
-                   Dates: toSeq(native.Dates).Strict());
-    });
-
-    private static Fin<ViewCaptureSettings> Settings(ViewportRef row, CaptureSubject subject, Op key) => subject.Switch(
-        (Row: row, Op: key),
-        viewCase: static (ctx, view) => ctx.Op.Catch(() => Fin.Succ(
-            value: new ViewCaptureSettings(ctx.Row.View, view.Pixels.Native, view.Dpi.Value))),
-        pageCase: static (ctx, page) => ctx.Op.Need(ctx.Row.View as RhinoPageView)
-            .Bind(view => ctx.Op.Catch(() => Fin.Succ(value: new ViewCaptureSettings(view, page.Dpi.Value)))),
-        previewCase: static (ctx, preview) => Settings(row: ctx.Row, subject: preview.Source, key: ctx.Op));
-
-    private static Fin<ViewCaptureSettings> Previewed(ViewCaptureSettings settings, CaptureSubject subject, Op key) => subject.Switch(
-        (Settings: settings, Op: key),
-        viewCase: static (ctx, _) => Fin.Succ(value: ctx.Settings),
-        pageCase: static (ctx, _) => Fin.Succ(value: ctx.Settings),
-        previewCase: static (ctx, preview) => ctx.Op.Catch(() => {
-            using ViewCaptureSettings basis = ctx.Settings;
-            ViewCaptureSettings? derived = basis.CreatePreviewSettings(preview.Pixels.Native);
-            try {
-                if (derived is null || !derived.IsValid) return Fin.Fail<ViewCaptureSettings>(error: ctx.Op.InvalidResult());
-                ViewCaptureSettings admitted = derived;
-                derived = null;
-                return Fin.Succ(value: admitted);
-            } finally {
-                derived?.Dispose();
-            }
-        }));
-
-    private static Fin<CaptureArtifact> Transparent(ViewportRef row, TransparentCaptureSpec spec, Op key) => key.Catch(() => {
-        ViewCapture facade = new() {
-            Width = spec.Extent.Width,
-            Height = spec.Extent.Height,
-            TransparentBackground = true,
-        };
-        _ = spec.Decor.Apply(facade);
-        _ = spec.RealtimePasses.Iter(passes => facade.RealtimeRenderPasses = passes.Value);
-        return from bitmap in Optional(facade.CaptureToBitmap(sourceView: row.View)).ToFin(Fail: key.InvalidResult())
-               from artifact in CaptureArtifact.Raster(bitmap: bitmap, key: key)
-               select artifact;
-    });
+    private static Fin<SequenceReceipt> Read(RhinoDoc document, Op key) =>
+        Lease<AnimationProperties>.Acquire(mint: () => document.AnimationProperties, key: key)
+            .Bind(native => native.Use(
+                body: held => from mode in key.Row<AnimationProperties.CaptureTypes, SequenceMode>(
+                                  candidate: held.CaptureType, ordinal: static value => (int)value)
+                              from echo in key.Catch(() => Fin.Succ(value: SequenceMap.Read(host: held)))
+                              select new SequenceReceipt(Mode: mode, Echo: echo),
+                key: key));
 }
 ```
 
-Question: How does each admitted `Run` request reach one `CaptureArtifact` while native settings remain bracketed?
+- Packages: `Rasm/Interaction/dispatch` (`UiThread.Run`, `UiDispatch<T>.Blocking`, `DispatchLane.Immediate`); `Rasm/Domain/rails` (`Lease<T>`, `Cell.Step`, `Transition<T>`, `Op`); `Rasm/Parametric/projections` (`MonotonicTimeline`); `Rasm.Rhino/Document/session` (`DocumentSession.Demand`, `SessionNeed`, `UndoCustody`); `Rasm.Rhino/Document/commit` (`DocumentCommit.Sealed`, `RedrawPolicy`); `Rasm.Rhino/Document/tables` (`ViewportTarget`, `ViewportRef`); `Rasm.Rhino/Modeling/solids` (`BenchBand.Measured`, `BenchEvidence`); LanguageExt.Core (`Atom`, `Fold`, `guard`).
+- Growth: a new capture modality is one `CaptureRequest` case answering its own `Needs` and `Identity`, and one `Run` arm — the marshal, the demand window, and the measurement are untouched.
+
+Question: how does each admitted `Run` request reach one `CaptureArtifact` while every native handle stays leased?
 
 ```mermaid
 ---
@@ -1666,25 +1503,21 @@ config:
 ---
 flowchart LR
     accTitle: Capture request dispatch
-    accDescr: One capture entry dispatches settings, transparent, depth, and sequence requests, keeps native resources bracketed, and rejoins every arm at one artifact.
-    Run([Captures.Run]) --> Shape{Request shape?}
-    Shape -->|"settings"| Prepare[Prepare owned batch]
-    Shape -->|"transparent"| Transparent[Capture transparent bitmap]
-    Prepare -->|"dispatches"| Sink{Sink case?}
-    Sink -->|"bitmap"| Raster[Capture bitmap]
-    Sink -->|"SVG"| Vector[Capture SVG]
-    Sink -->|"printer"| Print[Send page batch]
-    Raster -->|"returns"| Artifact[/CaptureArtifact/]
-    Vector -->|"returns"| Artifact
-    Print -->|"returns"| Artifact
-    Transparent -->|"returns"| Artifact
-    Shape -->|"depth"| Depth[Project z-buffer field]
+    accDescr: One capture entry crosses the kernel dispatch under the request's own session demand, brackets the measured body, dispatches the transparent, depth, and sequence arms, and rejoins at one artifact, while the sink-free stage entry hands a prepared settings batch to the Exchange landing that owns delivery.
+    Run([Captures.Run]) -->|"UiDispatch Blocking · DispatchLane.Immediate"| Demand[session.Demand — request.Needs]
+    Demand -->|"BenchBand.Measured"| Shape{Request case?}
+    Shape -->|"transparent"| Alpha[ViewCapture facade — AlphaLayout.Straight]
+    Shape -->|"depth"| Depth[ZBufferCapture — configure then project]
+    Shape -->|"sequence"| Seq[Inspect or sealed adopt]
+    Alpha -->|"returns"| Artifact[/CaptureArtifact/]
     Depth -->|"returns"| Artifact
-    Shape -->|"sequence"| Sequence[Inspect or adopt animation properties]
-    Sequence -->|"returns"| Artifact
+    Seq -->|"returns"| Artifact
+    Stage([Captures.Stage]) -->|"nested Lease Use per plan"| Prepared[PreparedCapture window]
+    Prepared -->|"Seq ViewCaptureSettings"| Landing["Exchange/publish Landing — raster · vector · printer"]
+    Landing -->|"mints"| Artifact
 ```
 
-## [06]-[RESEARCH]
+## [07]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

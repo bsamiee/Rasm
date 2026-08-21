@@ -2,7 +2,7 @@
 
 `MachineKinematics` owns non-robot machine motion from admitted `Machine`, physical-axis limits, a parameterized kinematic chain, TCP intent, and dynamics policy through one continuity-preserving `MachineTool.Solve` fold. `MachineChain` closes Cartesian, serial, parallel-delta, and coordinated-external mechanisms without enumerating machine rosters; each machine topology is seed data over tool-side and part-side joints and geometry.
 
-`MotionDynamics` is the shared admitted motion law consumed by machine and robot-cell projection. Every feed, junction, look-ahead, linear/rotary limit, S-curve root, numerical inverse budget, chord tolerance, and orientation tolerance enters through generated policy values; no solver constant or validity Boolean survives beside the owner, and a numerical convergence budget never doubles as a geometric tolerance.
+`MotionDynamics` is the shared admitted motion law consumed by machine and robot-cell projection. Feed, junction, look-ahead, linear and rotary limits, and the controller's own corner, chord, and orientation zones enter through generated policy values, because a controller declares them as capability. Every tolerance the SOLVE gates on reads `Context.For(lane)` instead, so a numerical convergence budget never doubles as a geometric tolerance and no validity Boolean survives beside its owner.
 
 ## [01]-[INDEX]
 
@@ -10,15 +10,19 @@
 
 ## [02]-[MACHINE_KINEMATICS]
 
-- Owner: `MotionDynamics` admits feed and timing policy; process-family `AxisLimit` owns typed physical travel and maximum speed; `AxisMotion` layers home, resolution, acceleration, jerk, backlash, and periodicity over that canonical axis and projects all three travel bounds through one `Bounds` read; `JointMount` routes every prismatic and revolute transform to the tool or part chain; `MachineJoint` closes joint transforms; `MachineChain` closes mechanism families; `ToolAxisDemand` closes fixed, intent, cone, and indexed orientation and owns their resolution through `AxisAt`; `TrajectoryStation` carries normalized schedule position; `InversePolicy` admits numerical, weighting, and geometric-tolerance policy; `MachineKinematics` joins runtime equipment to its physical model; `MachineSolution` retains frozen motion with station evidence; `MachineTool` owns the one solve fold.
+- Owner: `MotionDynamics` admits feed and timing policy; process-family `AxisLimit` owns typed physical travel and maximum speed; `AxisMotion` layers home, resolution, acceleration, jerk, backlash, and periodicity over that canonical axis and projects all three travel bounds through one `Bounds` read; `JointMount` routes every prismatic and revolute transform to the tool or part chain; `MachineJoint` closes joint transforms; `MachineChain` closes mechanism families; `ToolAxisDemand` closes fixed, intent, cone, and indexed orientation and owns their resolution through `AxisAt`; `TrajectoryStation` carries normalized schedule position; `InversePolicy` admits search budgets, ranking weights, and the conditioning ceiling; `MachineKinematics` joins runtime equipment to its physical model and carries the one admitting `Context`; `MachineSolution` retains frozen motion with station evidence; `MachineTool` owns the one solve fold.
 - Cases: `MachineChain.Cartesian` derives direct axis coordinates, `Serial` solves an ordered physical chain of at most six independent joints, `Delta` solves three towers from rod and carriage geometry, and `Coordinated` composes scheduled auxiliary joints with the primary chain. `ToolAxisDemand.Fixed`, `Intent`, `Cone`, and `Indexed` cover free-axis, projected-frame, bounded-direction, and discrete orientation spaces; `AxisAt` is the one resolution every consumer of the demand reads, so robot-cell target generation and machine inverse share one orientation law.
-- Law: ONE forward chain answers every reader — the inverse residual, each Jacobian column, the initial pose, the auxiliary re-pose, and the Cartesian subspace proof alike. A hand-summed direction fold proving that subspace was a second forward kinematics answering from its own arithmetic, so a joint-transform change could pass it and fail every other reader on the page.
-- Law: a block's feed is bound by the TIGHTER of its entry and exit boundaries, because it must start at one and finish at the other. Taking their maximum discarded whichever boundary actually constrained the block. An absent entry is a start from rest, so it arrives as `Option` and imposes no cap rather than as a zero the fold has to sniff.
+- Law: ONE forward chain answers every reader — the inverse residual, each Jacobian column, the initial pose, the auxiliary re-pose, and the Cartesian subspace proof alike. A hand-summed direction fold proving that subspace was a second forward kinematics answering from its own arithmetic, so a joint-transform change passes it and fails every other reader on the page.
+- Law: every gate this page compares a MEASURE against reads `Context.For(lane)`: `Distance` closes the Cartesian subspace and the delta basis, `Area` gates the squared rod span, `Orientation` fixes the Cartesian basis angle, `Joint` bounds the fitted six-component residual, and `Convergence` bounds the S-curve root. One `InversePolicy.RootTolerance` column previously certified all five, so a value admitted as a millimetre distance also passed as a squared millimetre and as a dimensionless residual norm — the copy a lane owner deletes.
+- Law: a block's feed is bound by the TIGHTER of its entry and exit boundaries, because it must start at one and finish at the other. Taking their maximum discarded whichever boundary constrained the block. An absent entry is a start from rest, so it arrives as `Option` and imposes no cap rather than as a zero the fold has to sniff.
+- Law: validity is `IValidityEvidence` over `ValidityClaim.All`, so `MachineJoint`, `MachineChain`, and `ToolAxisDemand` declare WHICH claims hold and the kernel owns how each one is decided; a hand `&&` ladder beside those rows re-spells finiteness, direction, and cardinality the claim vocabulary already closes. Surviving `&&` are null short-circuits, because `ValidityClaim.All` evaluates its whole span and a guarded dereference cannot ride inside it.
+- Law: ONE context reaches the solve. `ToolAxisDemand.Intent` and `Cone` carry the bundle their kernel projections were authored against, so admission proves `ToolAxisDemand.Projection` equal to `MachineKinematics.Context` and refuses otherwise — two bundles let the cone containment test and the orientation gate answer at different tolerances while both claim to be the machine's.
+- Law: `AxisPeriodicity` owns the turn. Its rows carry the PERIOD and cyclicity is that period's presence, so the winding unwrap, the per-axis candidate width, and the budget proof read one number and a consumer never pairs a Boolean with a hand-spelled `2π`. Widths reach the budget from those same rows rather than from a uniform one assumed of every axis, so a chain mixing bounded and continuous axes is bounded by what it generates.
 - Entry: `MachineTool.Solve(MachineKinematics, Seq<Move>)` is the only non-robot motion entrypoint. It accumulates move admission, folds stations in order, chooses feasible branches by continuity and axis margin, applies TCP/RTCP, and returns `MachineSolution` with its `FabricationResult.Motion` projection.
-- Auto: `Machine.Axes`, `Machine.Topology.OrientationDof`, and `MachineKinematics.Chain.Limits` agree before inverse work. Cartesian rows prove an orthogonal basis against `InversePolicy.AxisOrthogonality` and reject targets outside their translational subspace. Serial rows fit the six-component task residual under `LevenbergMarquardtMinimizer` with per-joint travel bounds and scales, its Jacobian supplied EXACT from one forward-mode dual walk per column rather than differenced, and each converged fit proves its residual against `RootTolerance`. Each station derives candidates from `MachineChain`, unwraps continuous axes against the previous solution, rejects travel and workspace violations, minimizes weighted joint delta and margin cost, then breaks ties through the shipped `OrdArr<double>` total order over the joint vector. Backlash enters axis timing only on reversal, so `MachineState.PreviousSense` carries each axis's last resolution-exceeding motion.
+- Auto: `Machine.Axes`, `Machine.Topology.OrientationDof`, and `MachineKinematics.Chain.Limits` agree before inverse work. Cartesian rows prove a perpendicular basis against the `Orientation` lane and reject targets outside their translational subspace. Serial rows fit the six-component task residual under `LevenbergMarquardtMinimizer` with per-joint travel bounds and scales, its Jacobian supplied EXACT from one forward-mode dual walk per column rather than differenced; MathNet's SVD gates rank and condition on that same matrix, and each nonsingular fit proves its residual against the `Joint` lane. Each station derives candidates from `MachineChain`, unwraps continuous axes through `AxisPeriodicity.Windings`, rejects travel and workspace violations, minimizes weighted joint delta and margin cost, then breaks ties through the shipped `OrdArr<double>` total order over the joint vector. Backlash enters axis timing only on reversal, so `MachineState.PreviousSense` carries each axis's last resolution-exceeding motion.
 - Receipt: `MachineSolution.Motion` preserves the frozen `Moves`, `Joints`, `Duration`, and `CellCode` wire. `MachineSolution.Stations` retains TCP pose, tool axis, axis margin, linear/rotary distance, entry/exit feed, and duration for fleet ranking and simulation without widening the frozen projection.
-- Packages: `MathNet.Numerics` owns `LevenbergMarquardtMinimizer.FindMinimum`, the analytic-derivative `ObjectiveFunction.NonlinearModel` overload, `CreateVector`, `CreateMatrix`, `Brent.TryFindRoot`, and `Distance.Manhattan`; `UnitsNet` owns angular-rate boundary conversion; `Thinktecture.Runtime.Extensions` owns closed cases and generated admission; `LanguageExt.Core` owns `Fin`, `Validation`, immutable collections, traversal, the `OrdArr<double>` joint-vector order, and the trajectory fold; RhinoCommon owns frames and transforms; `Rasm` owns `VectorIntent`, `VectorCone`, and the `Dual<T>` forward-mode scalar the chain differentiates through.
-- Growth: a machine configuration is one `MachineChain` case payload or one additional joint row; a physical axis extends process-family `AxisLimit` through one `AxisMotion`; a new orientation modality is one `ToolAxisDemand` case carrying its `AxisAt` arm; a numerical, weighting, or tolerance behavior is one `InversePolicy` column. Machine products never become solver branches.
+- Packages: `MathNet.Numerics` owns `LevenbergMarquardtMinimizer.FindMinimum`, the analytic-derivative `ObjectiveFunction.NonlinearModel` overload, `Svd.Rank`/`ConditionNumber`, `CreateVector`, `CreateMatrix`, `Brent.TryFindRoot`, and `Distance.Manhattan`; `UnitsNet` owns angular-rate boundary conversion; `Thinktecture.Runtime.Extensions` owns closed cases and generated admission; `LanguageExt.Core` owns `Fin`, `Validation`, immutable collections, traversal, the `OrdArr<double>` joint-vector order, and the trajectory fold; RhinoCommon owns frames and transforms; `Rasm.Domain` owns `Context`, `ToleranceLane`, `IValidityEvidence`, and `ValidityClaim`; `Rasm` owns `VectorIntent`, `VectorCone`, and the `Dual<T>` forward-mode scalar the chain differentiates through.
+- Growth: a machine configuration is one `MachineChain` case payload or one additional joint row; a physical axis extends process-family `AxisLimit` through one `AxisMotion`; a new orientation modality is one `ToolAxisDemand` case carrying its `AxisAt` arm; a search budget or ranking weight is one `InversePolicy` column, and a new gate is one `ToleranceLane` read. Machine products never become solver branches.
 - Boundary: `MachineTool` rejects `KinematicClass.ArticulatedArm`, which remains `RobotProgram` property. `Toolpath/guard.md` owns swept collision, `Posting/program.md` owns controller AST lowering, and `Process/faults.md` owns fault payloads. `AxisSchedule.At` and every statement body beneath `MachineTool` are measured numeric or RhinoCommon mutation kernels; statements do not escape those seams. Provider exceptions terminate at the MathNet seam as typed `Fin` failures, and a non-converged fit fails on its own residual rather than returning the minimizer's last point. Serial fits keep the MathNet functor because joint travel is a HARD constraint on them — the kernel `Lm.Minimize` ladder carries no bound, scale, or fixed-parameter column, so re-seating the residual on `DualModel` trades the bounded solve for one free to leave the mechanism's own limits and degrades a reachable station to `machine-tool:unreachable`; the kernel contribution taken here is the `Dual<T>` scalar, and one forward chain in that scalar is the page's only forward kinematics, the differenced Jacobian and a second double-only chain both being the deleted forms.
 
 ```csharp signature
@@ -61,16 +65,27 @@ public sealed partial class TcpMode {
     public bool Compensate { get; }
 }
 
+// Rows carry the PERIOD and cyclicity is its presence, so the unwrap, the candidate width, and every consumer's
+// wrap arithmetic read one number rather than pairing a Boolean with a hand-spelled turn.
 [SmartEnum<string>]
 public sealed partial class AxisPeriodicity {
-    public static readonly AxisPeriodicity Bounded = new("bounded", cyclic: false);
-    public static readonly AxisPeriodicity Continuous = new("continuous", cyclic: true);
+    public static readonly AxisPeriodicity Bounded = new("bounded", period: Option<double>.None);
+    public static readonly AxisPeriodicity Continuous = new("continuous", period: Some(Math.Tau));
 
-    public bool Cyclic { get; }
+    public Option<double> Period { get; }
+
+    public bool Cyclic => Period.IsSome;
+
+    // How many candidates this axis contributes at a given span: the budget multiplies these and the unwrap
+    // generates exactly that many, so the proof and the generation cannot disagree.
+    internal int Width(int span) => Period.Match(Some: static _ => (2 * span) + 1, None: static () => 1);
+
+    internal Seq<double> Windings(double value, int span) => Period.Match(
+        Some: period => Range(-span, Width(span)).ToSeq().Map(turn => value + (turn * period)),
+        None: () => Seq(value));
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class MotionDynamics {
     public double RapidFeed { get; }
     public double LinearFeed { get; }
@@ -97,7 +112,7 @@ public sealed partial class MotionDynamics {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref double rapidFeed,
         ref double linearFeed,
         ref double arcFeed,
@@ -114,7 +129,7 @@ public sealed partial class MotionDynamics {
         double[] positive = [rapidFeed, linearFeed, arcFeed, rotaryFeed, acceleration, jerk, rotaryAcceleration, rotaryJerk,
             cornerTolerance, chordTolerance, orientationToleranceRad, junctionDeviation];
         if (positive.Exists(static value => !double.IsFinite(value) || value <= 0.0) || lookaheadBlocks < 1)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "motion-dynamics");
+            validationError = new ValidationError("motion-dynamics");
     }
 
     public double FeedFor(Move move) => move.Switch(
@@ -128,7 +143,6 @@ public sealed partial class MotionDynamics {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class AxisMotion {
     public AxisLimit Physical { get; }
     public double Home { get; }
@@ -151,7 +165,7 @@ public sealed partial class AxisMotion {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref AxisLimit physical,
         ref double home,
         ref double resolution,
@@ -165,7 +179,7 @@ public sealed partial class AxisMotion {
         if (!finite || bounds.Max <= bounds.Min || bounds.MaxSpeed <= 0.0 || home < bounds.Min || home > bounds.Max
             || resolution <= 0.0 || maximumAcceleration <= 0.0 || maximumJerk <= 0.0 || backlash < 0.0
             || (periodicity.Cyclic && !physical.Axis.Rotary))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "axis-motion");
+            validationError = new ValidationError("axis-motion");
     }
 
     internal bool Contains(double value) => value >= Min && value <= Max;
@@ -173,7 +187,6 @@ public sealed partial class AxisMotion {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class RevoluteGeometry {
     public Vector3d Direction { get; }
     public Point3d Pivot { get; }
@@ -181,35 +194,34 @@ public sealed partial class RevoluteGeometry {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Vector3d direction,
         ref Point3d pivot,
         ref JointMount mount) {
         if (!direction.IsValid || direction.IsTiny() || !pivot.IsValid || mount is null)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "revolute-geometry");
+            validationError = new ValidationError("revolute-geometry");
         else direction.Unitize();
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class PrismaticGeometry {
     public Vector3d Direction { get; }
     public JointMount Mount { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Vector3d direction,
         ref JointMount mount) {
         if (!direction.IsValid || direction.IsTiny() || mount is null)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "prismatic-geometry");
+            validationError = new ValidationError("prismatic-geometry");
         else direction.Unitize();
     }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record MachineJoint {
+public abstract partial record MachineJoint : IValidityEvidence {
     private MachineJoint() { }
 
     public sealed record Prismatic(AxisMotion Limit, PrismaticGeometry Geometry) : MachineJoint;
@@ -219,41 +231,41 @@ public abstract partial record MachineJoint {
         prismatic: static row => row.Limit,
         revolute: static row => row.Limit);
 
-    internal bool IsValid => Switch(
+    // Each arm claims a KIND agreement — a prismatic seat cannot hold a rotary axis, a revolute seat cannot hold a
+    // linear one — so payload guards short-circuit and the claim vocabulary carries nothing here.
+    public bool IsValid => Switch(
         prismatic: static row => row.Limit is not null && row.Geometry is not null && !row.Limit.Axis.Rotary,
         revolute: static row => row.Limit is not null && row.Geometry is not null && row.Limit.Axis.Rotary);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class TrajectoryStation {
     public int Index { get; }
     public int Count { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref int index,
         ref int count) {
         if (count <= 0 || index < 0 || index >= count)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "trajectory-station");
+            validationError = new ValidationError("trajectory-station");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class AxisSchedule {
     public MachineJoint Joint { get; }
     public Arr<double> Stations { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref MachineJoint joint,
         ref Arr<double> stations) {
         if (joint is null || !joint.IsValid || stations.IsEmpty
             || stations.Exists(value => !double.IsFinite(value) || !joint.Motion.Contains(value)))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "axis-schedule");
+            validationError = new ValidationError("axis-schedule");
     }
 
     internal double At(TrajectoryStation station) {
@@ -267,7 +279,6 @@ public sealed partial class AxisSchedule {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class DeltaGeometry {
     public Arr<Point3d> Towers { get; }
     public double RodLength { get; }
@@ -275,18 +286,18 @@ public sealed partial class DeltaGeometry {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Arr<Point3d> towers,
         ref double rodLength,
         ref Arr<Point3d> effectorJoints) {
         if (towers.Count != 3 || effectorJoints.Count != 3 || towers.Exists(static point => !point.IsValid)
             || effectorJoints.Exists(static point => !point.IsValid) || !double.IsFinite(rodLength) || rodLength <= 0.0)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "delta-geometry");
+            validationError = new ValidationError("delta-geometry");
     }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record MachineChain {
+public abstract partial record MachineChain : IValidityEvidence {
     private MachineChain() { }
 
     public sealed record Cartesian(Arr<MachineJoint.Prismatic> Joints) : MachineChain;
@@ -300,19 +311,25 @@ public abstract partial record MachineChain {
         delta: static row => row.Carriages,
         coordinated: static row => row.Primary.Limits.AddRange(row.Auxiliaries.Map(static schedule => schedule.Joint.Motion)));
 
-    internal bool IsValid => Switch(
-        cartesian: static row => row.Joints.Count is >= 1 and <= 3
-            && row.Joints.ForAll(static joint => joint is not null && joint.IsValid),
-        serial: static row => !row.Joints.IsEmpty && row.Joints.Count <= 6
-            && row.Joints.ForAll(static joint => joint is not null && joint.IsValid),
-        delta: static row => row.Geometry is not null && row.Carriages.Count == 3
-            && row.Carriages.ForAll(static limit => limit is not null && !limit.Axis.Rotary),
-        coordinated: static row => row.Primary is not null && row.Primary.IsValid && !row.Auxiliaries.IsEmpty
-            && row.Auxiliaries.ForAll(static schedule => schedule is not null));
+    // Every cardinality this family bounds is a `ValidityClaim` row, so the mechanism declares WHICH claims hold
+    // and lets the kernel decide each one; surviving `&&` are null short-circuits `ValidityClaim.All`, which
+    // evaluates its whole span, cannot carry.
+    public bool IsValid => Switch(
+        cartesian: static row => row.Joints.ForAll(static joint => joint is not null && joint.IsValid)
+            && ValidityClaim.All(ValidityClaim.CountAtLeast(row.Joints.Count, 1), row.Joints.Count <= 3),
+        serial: static row => row.Joints.ForAll(static joint => joint is not null && joint.IsValid)
+            && ValidityClaim.All(ValidityClaim.CountAtLeast(row.Joints.Count, 1), row.Joints.Count <= 6),
+        delta: static row => row.Geometry is not null && ValidityClaim.All(
+            ValidityClaim.CountExactly(row.Carriages.Count, 3),
+            row.Carriages.ForAll(static limit => limit is not null && !limit.Axis.Rotary)),
+        coordinated: static row => row.Primary is not null && ValidityClaim.All(
+            row.Primary.IsValid,
+            ValidityClaim.CountAtLeast(row.Auxiliaries.Count, 1),
+            row.Auxiliaries.ForAll(static schedule => schedule is not null)));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ToolAxisDemand {
+public abstract partial record ToolAxisDemand : IValidityEvidence {
     private ToolAxisDemand() { }
 
     public sealed record Fixed(Vector3d Direction) : ToolAxisDemand;
@@ -320,11 +337,27 @@ public abstract partial record ToolAxisDemand {
     public sealed record Cone(VectorCone Domain, Vector3d Preferred, Context Context, Op Key) : ToolAxisDemand;
     public sealed record Indexed(Arr<Vector3d> Directions) : ToolAxisDemand;
 
-    internal bool IsValid => Switch(
-        fixedCase: static row => row.Direction.IsValid && !row.Direction.IsTiny(),
-        intent: static row => !row.Rows.IsEmpty && row.Context is not null,
-        cone: static row => row.Domain.Axis.IsValid && row.Preferred.IsValid && !row.Preferred.IsTiny() && row.Context is not null,
-        indexed: static row => !row.Directions.IsEmpty && row.Directions.ForAll(static direction => direction.IsValid && !direction.IsTiny()));
+    // Finiteness reads the kernel host-coordinate arm, cardinality the count rows, and a nested `Direction` answers
+    // through its OWN fold; the sub-tolerance screen stays a bare claim because `ValidityClaim.Direction` refuses
+    // only an exactly zero vector and this demand refuses a tiny one.
+    public bool IsValid => Switch(
+        fixedCase: static row => ValidityClaim.All(ValidityClaim.Finite(row.Direction), !row.Direction.IsTiny()),
+        intent: static row => row.Context is not null && ValidityClaim.CountAtLeast(row.Rows.Count, 1),
+        cone: static row => row.Context is not null && ValidityClaim.All(
+            row.Domain.Axis.IsValid,
+            ValidityClaim.Finite(row.Preferred),
+            !row.Preferred.IsTiny()),
+        indexed: static row => ValidityClaim.All(
+            ValidityClaim.CountAtLeast(row.Directions.Count, 1),
+            row.Directions.ForAll(static direction => ValidityClaim.Finite(direction) && !direction.IsTiny())));
+
+    // Projected cases were AUTHORED against this context, and `MachineKinematics` admission proves it equal to the
+    // one gate context, so a cone containment test and the orientation gate can never answer at two tolerances.
+    internal Option<Context> Projection => Switch(
+        fixedCase: static _ => Option<Context>.None,
+        intent: static row => Some(row.Context),
+        cone: static row => Some(row.Context),
+        indexed: static _ => Option<Context>.None);
 
     internal Fin<Vector3d> AxisAt(int index, Plane toolFrame, int coneSamples) => Switch(
         state: (Index: index, Frame: toolFrame, Samples: coneSamples),
@@ -333,7 +366,7 @@ public abstract partial record ToolAxisDemand {
             ? row.Rows[Math.Min(state.Index, row.Rows.Count - 1)]
                 .Project<Plane>(row.Context, row.Key)
                 .Map(static frame => frame.ZAxis)
-            : Fin.Fail<Vector3d>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:intent-census")),
+            : Fin.Fail<Vector3d>(new KernelFault.InvalidValue("machine", "machine-tool:intent-census")),
         cone: static (state, row) =>
             from contains in row.Domain.Contains(row.Preferred, row.Context, row.Key)
             from axis in contains
@@ -345,25 +378,28 @@ public abstract partial record ToolAxisDemand {
                             return best.Filter(held => held.Angle <= angle).IsSome ? best : Some((angle, direction.Value));
                         })
                         .Map(static best => best.Value)
-                        .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:empty-cone")))
+                        .ToFin(new KernelFault.InvalidValue("machine", "machine-tool:empty-cone")))
             select axis,
         indexed: static (state, row) => state.Index >= 0 && state.Index < row.Directions.Count
             ? Fin.Succ(row.Directions[state.Index])
-            : Fin.Fail<Vector3d>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:indexed-census")))
+            : Fin.Fail<Vector3d>(new KernelFault.InvalidValue("machine", "machine-tool:indexed-census")))
         .Bind(AdmitAxis);
 
     private static Fin<Vector3d> AdmitAxis(Vector3d axis) {
         Vector3d admitted = axis;
         return admitted.IsValid && admitted.Unitize()
             ? Fin.Succ(admitted)
-            : Fin.Fail<Vector3d>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:axis-demand"));
+            : Fin.Fail<Vector3d>(new KernelFault.InvalidValue("machine", "machine-tool:axis-demand"));
     }
 }
 
+// SEARCH BUDGETS, RANKING WEIGHTS, AND THE DIMENSIONLESS CONDITION CEILING. The deleted `RootTolerance` certified
+// five gates of three different
+// dimensions — a millimetre distance, a squared millimetre, and a dimensionless residual norm — and the deleted
+// `AxisOrthogonality` certified a sixth; each of those now names its own `ToleranceLane`, so a value can no longer
+// pass a gate whose dimension it was never admitted for.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class InversePolicy {
-    public double RootTolerance { get; }
     public int RootIterations { get; }
     public int WindingSpan { get; }
     public int ConeSamples { get; }
@@ -371,24 +407,23 @@ public sealed partial class InversePolicy {
     public double ContinuityWeight { get; }
     public double MarginWeight { get; }
     public double OrientationWeight { get; }
-    public double AxisOrthogonality { get; }
+    public double MaximumConditionNumber { get; }
 
     public static InversePolicy Canonical { get; } = Create(
-        rootTolerance: 1e-9, rootIterations: 100, windingSpan: 2, coneSamples: 24, maximumCandidates: 4_096,
-        continuityWeight: 1.0, marginWeight: 0.15, orientationWeight: 10.0, axisOrthogonality: 1e-6);
+        rootIterations: 100, windingSpan: 2, coneSamples: 24, maximumCandidates: 4_096,
+        continuityWeight: 1.0, marginWeight: 0.15, orientationWeight: 10.0, maximumConditionNumber: 1e10);
 
-    internal int WindingWidth => 2 * WindingSpan + 1;
-
-    internal bool AdmitsWindings(int cyclicAxes) => cyclicAxes >= 0 && Range(0, cyclicAxes)
-        .Fold(Some(1), (count, _) => count.Bind(total => total <= MaximumCandidates / WindingWidth
-            ? Some(total * WindingWidth)
+    // Widths arrive from the periodicity rows themselves, so a chain mixing bounded and continuous axes is bounded
+    // by what it generates rather than by a uniform width assumed of every axis.
+    internal bool AdmitsWindings(Seq<int> widths) => widths
+        .Fold(Some(1), (count, width) => count.Bind(total => width >= 1 && total <= MaximumCandidates / width
+            ? Some(total * width)
             : Option<int>.None))
         .IsSome;
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
-        ref double rootTolerance,
+        ref ValidationError? validationError,
         ref int rootIterations,
         ref int windingSpan,
         ref int coneSamples,
@@ -396,23 +431,25 @@ public sealed partial class InversePolicy {
         ref double continuityWeight,
         ref double marginWeight,
         ref double orientationWeight,
-        ref double axisOrthogonality) {
-        if (!double.IsFinite(rootTolerance) || rootTolerance <= 0.0 || rootIterations < 1
+        ref double maximumConditionNumber) {
+        if (rootIterations < 1
             || maximumCandidates < 1 || windingSpan < 0 || windingSpan > (maximumCandidates - 1) / 2
             || coneSamples < 3 || coneSamples > maximumCandidates
             || !double.IsFinite(continuityWeight) || continuityWeight <= 0.0
             || !double.IsFinite(marginWeight) || marginWeight < 0.0
             || !double.IsFinite(orientationWeight) || orientationWeight <= 0.0
-            || !double.IsFinite(axisOrthogonality) || axisOrthogonality is <= 0.0 or >= 1.0)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "inverse-policy");
+            || !double.IsFinite(maximumConditionNumber) || maximumConditionNumber <= 1.0)
+            validationError = new ValidationError("inverse-policy");
     }
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class MachineKinematics {
     public Machine Machine { get; }
+    // THE gate context. Every `Context.For(lane)` read beneath `MachineTool` answers from this bundle, so a project
+    // that publishes a lane moves every gate on this page at once.
+    public Context Context { get; }
     public Plane MachineFrame { get; }
     public Plane ToolFrame { get; }
     public MachineChain Chain { get; }
@@ -425,8 +462,9 @@ public sealed partial class MachineKinematics {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Machine machine,
+        ref Context context,
         ref Plane machineFrame,
         ref Plane toolFrame,
         ref MachineChain chain,
@@ -441,15 +479,25 @@ public sealed partial class MachineKinematics {
         Set<MachineAxis> modeled = toSet(limits.Map(static limit => limit.Axis));
         bool axisAgreement = machine is not null && limits.Count == modeled.Count
             && machine.Axes.IsSubsetOf(modeled) && modeled.IsSubsetOf(machine.Axes);
-        bool cartesianBasis = !chainValid || chain is not MachineChain.Cartesian cartesian || inverse is not null
+        // Perpendicularity is an ANGLE, so it is proved against the `Orientation` lane rather than against a dot
+        // product compared to a dimensionless column: the deleted `AxisOrthogonality` admitted |cos θ| as though it
+        // were the deviation itself, and no consumer could publish that gate.
+        bool cartesianBasis = !chainValid || chain is not MachineChain.Cartesian cartesian || context is not null
             && toSeq(cartesian.Joints).Map((joint, index) => cartesian.Joints.Skip(index + 1)
-                .ForAll(other => Math.Abs(joint.Geometry.Direction * other.Geometry.Direction) <= inverse.AxisOrthogonality))
+                .ForAll(other => Math.Abs((Math.PI * 0.5)
+                    - Vector3d.VectorAngle(joint.Geometry.Direction, other.Geometry.Direction))
+                    <= context.For(ToleranceLane.Orientation).Value))
                 .ForAll(identity);
         bool orientationAgreement = machine is not null && chain is not null && machine.Topology != KinematicClass.ArticulatedArm
             && (machine.Topology.OrientationDof == 0 || limits.Count(static limit => limit.Axis.Rotary) >= machine.Topology.OrientationDof);
-        if (!chainValid || !axisAgreement || !cartesianBasis || !orientationAgreement || !machineFrame.IsValid || !toolFrame.IsValid || orientation is null || !orientation.IsValid || tcp is null
+        // Admission requires the demand's own projection context to BE the gate context: two bundles on one solve
+        // let the cone containment test and the orientation gate answer at different tolerances.
+        bool contextAgreement = context is not null && orientation is not null
+            && orientation.Projection.ForAll(row => row == context);
+        if (!chainValid || !axisAgreement || !cartesianBasis || !orientationAgreement || !contextAgreement
+            || !machineFrame.IsValid || !toolFrame.IsValid || orientation is null || !orientation.IsValid || tcp is null
             || dynamics is null || inverse is null || !workspace.IsValid || keepouts.Exists(static box => !box.IsValid))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-kinematics");
+            validationError = new ValidationError("machine-kinematics");
     }
 }
 
@@ -499,10 +547,11 @@ public static class MachineTool {
         select new MachineSolution(motion, state.Stations);
 
     private static Fin<(MachineKinematics Kinematics, Seq<Move> Moves)> Admit(MachineKinematics kinematics, Seq<Move> moves) =>
-        from admittedKinematics in Optional(kinematics).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:kinematics"))
+        from admittedKinematics in Optional(kinematics)
+            .ToFin(FabricationFault.Inadmissible(FabConcern.Kinematics, "machine-tool:kinematics"))
         from admittedMoves in moves.Traverse(static move => Move.Admit(move).ToValidation()).As().ToFin()
         from _ in admittedMoves.IsEmpty
-            ? Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:moves"))
+            ? Fin.Fail<Unit>(FabricationFault.Inadmissible(FabConcern.Kinematics, "machine-tool:moves"))
             : Fin.Succ(unit)
         select (Kinematics: admittedKinematics, Moves: admittedMoves);
 
@@ -549,38 +598,42 @@ public static class MachineTool {
         MachineChain.Delta chain,
         Arr<double> values) {
         if (values.Count != 3)
-            return Fin.Fail<MachinePose>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:delta-home-rank"));
+            return Fin.Fail<MachinePose>(FabricationFault.Inadmissible(FabConcern.Kinematics, "machine-tool:delta-home-rank"));
+        // Basis lengths and carriage clearance are DISTANCES; a rod-span residual is a SQUARED distance, so it
+        // reads the `Area` lane and no single scalar certifies both dimensions.
+        double distance = kinematics.Context.For(ToleranceLane.Distance).Value;
+        double span = kinematics.Context.For(ToleranceLane.Area).Value;
         Seq<Point3d> centers = toSeq(chain.Geometry.Towers).Map((tower, index) => new Point3d(
             tower.X - chain.Geometry.EffectorJoints[index].X,
             tower.Y - chain.Geometry.EffectorJoints[index].Y,
             values[index] - chain.Geometry.EffectorJoints[index].Z));
         Vector3d ex = centers[1] - centers[0];
         double d = ex.Length;
-        if (d <= kinematics.Inverse.RootTolerance || !ex.Unitize())
-            return Fin.Fail<MachinePose>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:delta-home-basis"));
+        if (d <= distance || !ex.Unitize())
+            return Fin.Fail<MachinePose>(FabricationFault.Inadmissible(FabConcern.Kinematics, "machine-tool:delta-home-basis"));
         Vector3d third = centers[2] - centers[0];
         double i = ex * third;
         Vector3d transverse = third - (i * ex);
         double j = transverse.Length;
-        if (j <= kinematics.Inverse.RootTolerance || !transverse.Unitize())
-            return Fin.Fail<MachinePose>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:delta-home-basis"));
+        if (j <= distance || !transverse.Unitize())
+            return Fin.Fail<MachinePose>(FabricationFault.Inadmissible(FabConcern.Kinematics, "machine-tool:delta-home-basis"));
         double x = d * 0.5;
         double y = (i * i + j * j - (2.0 * i * x)) / (2.0 * j);
         double zSquared = chain.Geometry.RodLength * chain.Geometry.RodLength - x * x - y * y;
-        if (zSquared < -kinematics.Inverse.RootTolerance)
-            return Fin.Fail<MachinePose>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:delta-home-unreachable"));
+        if (zSquared < -span)
+            return Fin.Fail<MachinePose>(FabricationFault.Inadmissible(FabConcern.Kinematics, "machine-tool:delta-home-unreachable"));
         Vector3d normal = Vector3d.CrossProduct(ex, transverse);
         if (!normal.Unitize())
-            return Fin.Fail<MachinePose>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:delta-home-basis"));
+            return Fin.Fail<MachinePose>(FabricationFault.Inadmissible(FabConcern.Kinematics, "machine-tool:delta-home-basis"));
         Point3d basis = centers[0] + (x * ex) + (y * transverse);
         double z = Math.Sqrt(Math.Max(0.0, zSquared));
         return Seq(basis + (z * normal), basis - (z * normal))
             .Filter(candidate => toSeq(chain.Geometry.EffectorJoints).Map((joint, index) =>
-                values[index] - (candidate.Z + joint.Z) >= -kinematics.Inverse.RootTolerance).ForAll(identity))
+                values[index] - (candidate.Z + joint.Z) >= -distance).ForAll(identity))
             .Fold(Option<Point3d>.None, static (best, candidate) =>
                 best.Filter(held => held.Z <= candidate.Z).IsSome ? best : Some(candidate))
             .Map(point => new MachinePose(point, kinematics.ToolFrame.ZAxis))
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:delta-home-branch"));
+            .ToFin(FabricationFault.Inadmissible(FabConcern.Kinematics, "machine-tool:delta-home-branch"));
     }
 
     private static MachinePose ApplyAuxiliaries(
@@ -607,8 +660,8 @@ public static class MachineTool {
             .Fold(0.0, static (peak, row) => Math.Max(peak, row.Delta))
         let entry = state.Stations.Last.Map(static block => block.ExitFeed)
         let exit = LookaheadCap(kinematics.Dynamics, Target(move), pose.Axis, future.Take(kinematics.Dynamics.LookaheadBlocks))
-        from pathDuration in Duration(kinematics.Dynamics, kinematics.Inverse, move, linearDistance, rotaryDistance, entry, exit)
-        from axisDuration in AxisDuration(kinematics.Chain.Limits, state.PreviousJoints, selected.Joints, state.PreviousSense, kinematics.Inverse)
+        from pathDuration in Duration(kinematics, move, linearDistance, rotaryDistance, entry, exit)
+        from axisDuration in AxisDuration(kinematics, state.PreviousJoints, selected.Joints, state.PreviousSense)
         let duration = Math.Max(pathDuration, axisDuration)
         let receipt = new MachineStation(
             move,
@@ -688,16 +741,17 @@ public static class MachineTool {
         Vector3d local = pose.Tcp - kinematics.MachineFrame.Origin;
         Arr<double> values = joints.Map(joint => joint.Geometry.Mount.CoordinateSign * (local * joint.Geometry.Direction));
         MachinePose realized = Forward(kinematics, joints.Map(static joint => (MachineJoint)joint), values);
-        return realized.Tcp.DistanceTo(pose.Tcp) <= kinematics.Inverse.RootTolerance
+        return realized.Tcp.DistanceTo(pose.Tcp) <= kinematics.Context.For(ToleranceLane.Distance).Value
             ? CandidateRows(kinematics, joints.Map(static joint => joint.Limit), pose, values)
-            : Fin.Fail<Seq<MachineCandidate>>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:cartesian-subspace"));
+            : Fin.Fail<Seq<MachineCandidate>>(FabricationFault.Inadmissible(FabConcern.Kinematics, "machine-tool:cartesian-subspace"));
     }
 
     private static Fin<Seq<MachineCandidate>> Serial(MachineKinematics kinematics, MachinePose pose, Arr<MachineJoint> joints, Arr<double> previous) {
         Arr<AxisMotion> limits = joints.Map(static joint => joint.Motion);
         Arr<double> seed = previous.Count == joints.Count ? previous : limits.Map(static limit => limit.Home);
         Vector<double> zero = CreateVector.Dense<double>(TaskRank);
-        return Try.lift(() => new LevenbergMarquardtMinimizer(maximumIterations: kinematics.Inverse.RootIterations)
+        return Op.Of(name: "machine-tool:inverse").Catch(() => Fin.Succ(
+            new LevenbergMarquardtMinimizer(maximumIterations: kinematics.Inverse.RootIterations)
                 .FindMinimum(
                     ObjectiveFunction.NonlinearModel(
                         (parameters, _) => Residual(kinematics, joints, parameters, pose),
@@ -709,12 +763,23 @@ public static class MachineTool {
                     upperBound: limits.Map(static limit => limit.Max).ToArray(),
                     scales: limits.Map(static limit => limit.Max - limit.Min).ToArray(),
                     isFixed: null)
-                .MinimizingPoint)
-            .Run()
-            .MapFail(static error => new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, $"machine-tool:inverse:{error.Message}"))
-            .Bind(fitted => Residual(kinematics, joints, fitted, pose).L2Norm() <= kinematics.Inverse.RootTolerance
-                ? CandidateRows(kinematics, limits, pose, fitted.ToArray().ToArr())
-                : Fin.Fail<Seq<MachineCandidate>>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:inverse-residual")));
+                .MinimizingPoint))
+            .Bind(fitted => Op.Of(name: "machine-tool:conditioning").Catch(() => {
+                Matrix<double> jacobian = Jacobian(kinematics, joints, fitted, pose);
+                Matrix<double> scaled = CreateMatrix.Dense<double>(TaskRank, joints.Count,
+                    (row, column) => jacobian[row, column] * (limits[column].Max - limits[column].Min));
+                var factor = scaled.Svd(computeVectors: false);
+                int requiredRank = Math.Min(TaskRank, joints.Count);
+                if (factor.Rank < requiredRank
+                    || !double.IsFinite(factor.ConditionNumber)
+                    || factor.ConditionNumber > kinematics.Inverse.MaximumConditionNumber)
+                    return Fin.Fail<Seq<MachineCandidate>>(new FabricationFault.AxisSingularity(
+                        factor.Rank, requiredRank, factor.ConditionNumber, kinematics.Inverse.MaximumConditionNumber));
+                return Residual(kinematics, joints, fitted, pose).L2Norm() <= kinematics.Context.For(ToleranceLane.Joint).Value
+                    ? CandidateRows(kinematics, limits, pose, fitted.ToArray().ToArr())
+                    : Fin.Fail<Seq<MachineCandidate>>(
+                        FabricationFault.Inadmissible(FabConcern.Kinematics, "machine-tool:inverse-residual"));
+            }));
     }
 
     private const int TaskRank = 6;
@@ -726,7 +791,7 @@ public static class MachineTool {
     // --- [FORWARD_CHAIN]
     // One forward chain carries the kernel `Dual<T>` forward-mode scalar and answers both channels in one walk: the
     // value channel is the residual and the derivative channel is that column's exact partial. `Dual<double>`
-    // instantiates it at the width this residual is judged on — a millimetre task error against `RootTolerance`,
+    // instantiates it at the width this residual is judged on — a millimetre task error against the `Joint` lane,
     // never the 106-bit objective the kernel functor contracts — so a wider scalar buys no digit the gate reads
     // and pays software arithmetic inside the per-station solve. Rhino `Plane`/`Transform` cannot carry a dual, so the
     // frame algebra is stated here in generic arithmetic ONCE and the double forward pose reads its value channel;
@@ -853,9 +918,10 @@ public static class MachineTool {
     // Exact 6xN task Jacobian, one chain walk per seeded column, replacing the differenced Jacobian the
     // derivative-free `NonlinearModel` overload assembled: differencing costs the base point PLUS one walk per
     // column and answers only to its own step size, where a seeded walk answers to the geometry. That last part
-    // is the correctness half — `RootTolerance` re-proves the fitted residual at 1e-9, a band into which a
-    // differenced column cannot steer the final steps, so an exact column retires a converged-but-refused
-    // `machine-tool:inverse-residual` outcome rather than only sharpening a solve that already passed. Bound and
+    // is the correctness half — the `Joint` lane re-proves the fitted residual after the minimizer returns, and a
+    // differenced column's floor is its own step size rather than the band, so an exact column retires a
+    // converged-but-refused `machine-tool:inverse-residual` outcome rather than only sharpening a solve that
+    // already passed; publishing the lane tightens the gate without touching this walk. Bound and
     // scale vectors stay on the MathNet minimizer, which is why the residual keeps its own functor: the kernel
     // `Lm.Minimize` ladder carries neither, and joint travel is a hard constraint on this fit.
     // Column walk is the named statement seam: `Matrix<double>` is the shape the derivative delegate
@@ -896,7 +962,7 @@ public static class MachineTool {
         double radialSquared = Math.Pow(chain.Geometry.RodLength, 2.0)
             - Math.Pow(joint.X - tower.X, 2.0) - Math.Pow(joint.Y - tower.Y, 2.0);
         return radialSquared < 0.0
-            ? Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:delta-unreachable"))
+            ? Fin.Fail<double>(FabricationFault.Inadmissible(FabConcern.Kinematics, "machine-tool:delta-unreachable"))
             : Fin.Succ(joint.Z + Math.Sqrt(radialSquared));
     }
 
@@ -906,15 +972,13 @@ public static class MachineTool {
         MachinePose pose,
         Arr<double> raw) {
         if (raw.Count != limits.Count)
-            return Fin.Fail<Seq<MachineCandidate>>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:inverse-rank"));
+            return Fin.Fail<Seq<MachineCandidate>>(FabricationFault.Inadmissible(FabConcern.Kinematics, "machine-tool:inverse-rank"));
         if (raw.Exists(static value => !double.IsFinite(value)))
-            return Fin.Fail<Seq<MachineCandidate>>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:inverse-unreachable"));
-        int cyclicAxes = limits.Count(static limit => limit.Periodicity.Cyclic);
-        if (!kinematics.Inverse.AdmitsWindings(cyclicAxes))
-            return Fin.Fail<Seq<MachineCandidate>>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:winding-budget"));
-        Seq<Arr<double>> windings = toSeq(limits).Map((limit, index) => limit.Periodicity.Cyclic
-                ? Range(-kinematics.Inverse.WindingSpan, kinematics.Inverse.WindingWidth).ToSeq().Map(turn => raw[index] + turn * 2.0 * Math.PI)
-                : Seq(raw[index]))
+            return Fin.Fail<Seq<MachineCandidate>>(FabricationFault.Inadmissible(FabConcern.Kinematics, "machine-tool:inverse-unreachable"));
+        int span = kinematics.Inverse.WindingSpan;
+        if (!kinematics.Inverse.AdmitsWindings(toSeq(limits).Map(limit => limit.Periodicity.Width(span))))
+            return Fin.Fail<Seq<MachineCandidate>>(FabricationFault.Inadmissible(FabConcern.Kinematics, "machine-tool:winding-budget"));
+        Seq<Arr<double>> windings = toSeq(limits).Map((limit, index) => limit.Periodicity.Windings(raw[index], span))
             .Traverse(static row => row)
             .As()
             .Map(static row => row.ToArr());
@@ -942,7 +1006,7 @@ public static class MachineTool {
                         None: () => Some((Candidate: candidate, Score: score)));
                 })
             .Map(static row => row.Candidate)
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, $"machine-tool:unreachable:{station}"));
+            .ToFin(FabricationFault.Inadmissible(FabConcern.Kinematics, $"machine-tool:unreachable:{station}"));
     }
 
     // The block must start at its entry feed AND finish at its exit feed, so the BINDING boundary is the TIGHTER of
@@ -950,37 +1014,40 @@ public static class MachineTool {
     // decelerating into a tight corner timed as though it had kept the looser feed. An ABSENT entry is a start from
     // rest — no cap at all — which is why it arrives as `Option` rather than as a zero the fold has to sniff.
     private static Fin<double> Duration(
-        MotionDynamics dynamics,
-        InversePolicy inverse,
+        MachineKinematics kinematics,
         Move move,
         double linearDistance,
         double rotaryDistance,
         Option<double> entryFeed,
         double exitFeed) {
+        MotionDynamics dynamics = kinematics.Dynamics;
+        Tolerance convergence = kinematics.Context.For(ToleranceLane.Convergence);
+        int iterations = kinematics.Inverse.RootIterations;
         double commandedFeed = dynamics.FeedFor(move);
         double boundary = entryFeed.Map(entry => Math.Min(entry, exitFeed)).IfNone(exitFeed);
         double pathFeed = (boundary > 0.0 ? Math.Min(commandedFeed, boundary) : commandedFeed) / 60.0;
-        return from linear in SCurve(linearDistance, pathFeed, dynamics.Acceleration, dynamics.Jerk, inverse)
+        return from linear in SCurve(linearDistance, pathFeed, dynamics.Acceleration, dynamics.Jerk, convergence, iterations)
                from rotary in SCurve(rotaryDistance,
                    new RotationalSpeed(dynamics.RotaryFeed, RotationalSpeedUnit.DegreePerMinute).RadiansPerSecond,
                    dynamics.RotaryAcceleration,
                    dynamics.RotaryJerk,
-                   inverse)
+                   convergence,
+                   iterations)
                select Math.Max(linear, rotary);
     }
 
     private static Fin<double> AxisDuration(
-        Arr<AxisMotion> limits,
+        MachineKinematics kinematics,
         Arr<double> from,
         Arr<double> to,
-        Arr<double> sense,
-        InversePolicy inverse) =>
-        toSeq(limits).Map((limit, index) => SCurve(
+        Arr<double> sense) =>
+        toSeq(kinematics.Chain.Limits).Map((limit, index) => SCurve(
                 AxisTravel(limit, from[index], to[index], sense[index]),
                 limit.MaximumVelocity,
                 limit.MaximumAcceleration,
                 limit.MaximumJerk,
-                inverse))
+                kinematics.Context.For(ToleranceLane.Convergence),
+                kinematics.Inverse.RootIterations))
             .Traverse(static duration => duration.ToValidation())
             .As()
             .ToFin()
@@ -1031,10 +1098,18 @@ public static class MachineTool {
         return counterclockwise == cross >= 0.0 ? minor : 2.0 * Math.PI - minor;
     }
 
-    private static Fin<double> SCurve(double distance, double velocity, double acceleration, double jerk, InversePolicy inverse) {
+    // Peak velocity resolves by numerical ROOT, so its accuracy is the `Convergence` lane and its budget the
+    // policy's iteration count — two facts a root find takes, never one column standing for both.
+    private static Fin<double> SCurve(
+        double distance,
+        double velocity,
+        double acceleration,
+        double jerk,
+        Tolerance convergence,
+        int iterations) {
         if (distance <= double.Epsilon) return Fin.Succ(0.0);
         if (!double.IsFinite(velocity) || velocity <= 0.0)
-            return Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:nonpositive-velocity"));
+            return Fin.Fail<double>(FabricationFault.Inadmissible(FabConcern.Kinematics, "machine-tool:nonpositive-velocity"));
         double rampDistance = AccelDistance(velocity, acceleration, jerk);
         if (distance >= rampDistance)
             return Fin.Succ(2.0 * AccelTime(velocity, acceleration, jerk) + (distance - rampDistance) / velocity);
@@ -1042,11 +1117,11 @@ public static class MachineTool {
                 peak => AccelDistance(peak, acceleration, jerk) - distance,
                 0.0,
                 velocity,
-                inverse.RootTolerance,
-                inverse.RootIterations,
+                convergence.Value,
+                iterations,
                 out double peak)
             ? Fin.Succ(2.0 * AccelTime(peak, acceleration, jerk))
-            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-tool:s-curve-root"));
+            : Fin.Fail<double>(FabricationFault.Inadmissible(FabConcern.Kinematics, "machine-tool:s-curve-root"));
     }
 
     private static double AccelTime(double velocity, double acceleration, double jerk) =>

@@ -12,14 +12,14 @@ Composition arrives settled. Every admitted magnitude is a seam `Rasm.Element/Pr
 
 ## [02]-[RESULTS_ADMISSION]
 
-- Owner: `EnergyResults` the one admission entry; `EnergyResult` the admitted result row — the `EnergyArtifact.ArtifactKey` content-key address the run consumed, the `ResultScope` it addresses, its `ResultQuantity`, its typed `MeasureValue`, and the producing run's `Instant`; `ResultScope` the closed `[Union]` target vocabulary (`Building`/`Zone`/`Space`); `ResultQuantity` the two-axis magnitude point over `ResultFuel` × `ResultEndUse` beside the `ResultMeasure` roster carrying the seam `QuantityType`, the `Dimension`, and the UCUM token; `ResultTargets` the three-index scope resolver folded once per admission. Receipt SHAPE stays Compute-owned — its `[ENERGY_RESULTS_WIRE]` counterpart mints the record off the `SqlFile` read — and `EnergyResult` is THIS owner's admission record over that column set, so a Compute-side column addition lands here as one axis row and nothing else.
+- Owner: `EnergyResults` the one admission entry; `EnergyResult` the admitted result row — the `EnergyArtifact.ArtifactKey` content-key address the run consumed, the `ResultScope` it addresses, its `ResultQuantity`, its typed `MeasureValue`, and the producing run's `Instant`; `ResultScope` the closed `[Union]` target vocabulary (`Building`/`Zone`/`Space`); `ResultQuantity` the two-axis magnitude point over `ResultFuel` × `ResultEndUse` beside the `ResultMeasure` roster carrying the seam `QuantityType`, the `Dimension`, and the `UnitProvenance` its mint stamps through; `ResultTargets` the three-index scope resolver folded once per admission. Receipt SHAPE stays Compute-owned — its `[ENERGY_RESULTS_WIRE]` counterpart mints the record off the `SqlFile` read — and `EnergyResult` is THIS owner's admission record over that column set, so a Compute-side column addition lands here as one axis row and nothing else.
 - Cases: `ResultScope` arms are the three granularities a simulation answers at and no other — `Building` the whole-model total, `Zone(string ZoneName)` the thermal-zone row keyed by its authored name, `Space(string GlobalId)` the per-space row keyed by the IFC identity the model already carries — so the case IS the resolution modality and a `(string TargetKind, string Target)` pair is the deleted stringly form. `ResultFuel` and `ResultEndUse` are the two axes a published magnitude is a POINT on and `ResultMeasure` the physics owner (annual energy, peak demand, area-normalized intensity, duration tally), so a new fuel or a new end-use is one row on its own axis and never a product of rows.
-- Entry: `EnergyResults.Admit(Seq<EnergyResult> results, ElementGraph graph, Op key)` → `Fin<GraphDelta>` folds a whole run onto the graph, and `EnergyResult.Of(artifactKey, scope, quantity, si, at)` → `Fin<EnergyResult>` is the row's own admission gate, minting the magnitude through `ResultQuantity.Admit` so no caller carries a raw `double` past this boundary. `Admit` returns the delta alone; the caller applies it through the seam `ElementGraph.Apply`, exactly as a projector's contribution merges. Scope resolution against a subject the graph does not hold lifts `BimFault.DanglingReference` under the `Model/faults#DETAIL_ROSTER` `Detail.EnergyResultTargetMiss` row and aborts the whole admission — a half-landed result set reports a building total against zone rows that never arrived.
-- Auto: `ResultTargets.Of` folds the three scope indexes ONCE per admission — the rank-0 `SpatialClass.Project` context root, the `ExternalId`-keyed occurrence index the `Space` arm resolves against, and the `ZoneProjection.All` name-keyed grouping index — because a run publishes a row per `(scope, quantity)` pair and a per-row graph scan is O(results × nodes); the zone index takes the last row on a name collision, grouping names being an authoring-side vocabulary this owner reads rather than governs. Rows GROUP by `(target, artifact key)`, so one scope under one run carries ONE bag rather than a bag per quantity, and the group's instant is the run's. `ResultQuantity.Admit` mints through `MeasureValue.OfSi(QuantityType, Dimension, double)` — the QTO-identity overload, never the dimension-anonymous `OfSi(Dimension, double)` whose stamp answers `None` to every downstream `As(QuantityType)` read and fails the type-equality gate a `Sum` against a stored quantity needs; the seam's own finite gate and registry dimension check rail a malformed magnitude before it reaches the canonical bytes. Bag identity is the kernel content hash over the bag's own canonical bytes (the id EXCLUDED from `ToCanonicalBytes`, so the empty-probe id is overwritten), so re-admitting an identical run dedups to the same node instead of accreting a second bag beside the first.
+- Entry: `EnergyResults.Admit(Seq<EnergyResult> results, ElementGraph graph, Op key)` → `Fin<GraphDelta>` folds a whole run onto the graph, and `EnergyResult.Of(artifactKey, scope, quantity, si, at, key)` → `Fin<EnergyResult>` is the row's own admission gate, minting the magnitude through `ResultQuantity.Admit` so no caller carries a raw `double` past this boundary. `Admit` returns the delta alone; the caller applies it through the seam `ElementGraph.Apply`, exactly as a projector's contribution merges. Scope resolution against a subject the graph does not hold lifts `BimFault.Refused` with `BimReason.DanglingReference` under the `Model/faults#FAULT_BAND` `BimReason.DanglingReference` and aborts the whole admission — a half-landed result set reports a building total against zone rows that never arrived.
+- Auto: `ResultTargets.Of` folds the three scope indexes ONCE per admission — the rank-0 `SpatialClass.Project` context root, the `ExternalId`-keyed occurrence index the `Space` arm resolves against, and the `ZoneProjection.All` name-keyed grouping index — because a run publishes a row per `(scope, quantity)` pair and a per-row graph scan is O(results × nodes); the zone index takes the last row on a name collision, grouping names being an authoring-side vocabulary this owner reads rather than governs. Rows GROUP by `(target, artifact key)`, so one scope under one run carries ONE bag rather than a bag per quantity, and the group's instant is the run's. `ResultQuantity.Admit` mints through `MeasureValue.OfSi(QuantityType, Dimension, double, Option<UnitProvenance>, Op?)` — the QTO-identity mint carrying the row's own provenance, never the dimension-anonymous `OfSi(Dimension, double)` whose stamp answers `None` to every downstream `As(QuantityType)` read and fails the type-equality gate a `Sum` against a stored quantity needs; the seam's own finite gate and registry dimension check rail a malformed magnitude before it reaches the canonical bytes. Bag identity is the kernel content hash over the bag's own canonical bytes (the id EXCLUDED from `ToCanonicalBytes`, so the empty-probe id is overwritten), so re-admitting an identical run dedups to the same node instead of accreting a second bag beside the first.
 - Receipt: `GraphDelta` is this owner's whole contribution, and once applied the results are ORDINARY graph content — the AppUi report, an IDS facet over a result threshold, and the `Semantics/properties#TEMPLATE_AUDIT` graph fold all read them through the same `PropertiesOf`/`Bake` reads every authored property answers, with no results-side accessor. Because the bag is an ordinary seam `PropertySet`, the standing `Projection/egress#IFC_EGRESS` `ReauthorProperties` re-emits it as an `IfcPropertySet` with ZERO new egress code, each typed `PropertyValue.Measure` raising its own `IfcValue` — results round-trip into IFC and survive re-export. `EnergyArtifact` and `SimulatedAt` provenance rows ride the bag itself, so a reader answers WHICH lowered model and WHICH run produced a magnitude without a side ledger.
-- Packages: Rasm (the kernel `Op` operation key and the content-hash mint the `NodeId` seeds from), Rasm.Element (the seam `ElementGraph`/`GraphDelta`/`Node`/`NodeId`/`Relationship`/`PropertyBag`/`PropertyValue`/`PropertyName`/`MeasureValue`/`QuantityType`/`Dimension`/`TemporalValue`), LanguageExt.Core (`Fin`/`Seq`/`Option`/`Map`/`HashMap`), NodaTime (`Instant`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`).
-- Growth: a new published magnitude is one row on whichever AXIS it widens — a fuel on `ResultFuel`, a service on `ResultEndUse`, a physical reading on `ResultMeasure` — and admission, bag key, Pset re-emission, and report read all resolve the composed point with zero further edits; a new granularity is one `ResultScope` case with one `ResultTargets` index column and one `Resolve` arm the generated total `Switch` breaks on at compile; a new provenance column is one row on the authored bag; a Compute-side receipt column measuring something new is one axis row, never a second admission entry. Never a per-quantity result type, never an `AdmitZoneResults`/`AdmitSpaceResults` operation family, and never a per-scope bag name.
-- Boundary: `SqlFile` decode stays `Rasm.Compute`'s under the standing simulation ruling — this owner consumes the typed receipt, and touching SQLite, a run directory, or an EnergyPlus output file here is the named strata violation, exactly as `Rasm.Compute` project references in either direction are; `rasm.bim` mints NO simulation context (`SimulationParameter`, run periods, conditioning policy, weather), which is `Energy/exchange#ENERGY_EXCHANGE`'s frozen boundary and Compute's to author. Second results stores beside the graph — a `ResultTable`, a per-run keyed side index, a `BimZone.Results` column — are the deleted form: the graph IS the store, so a result is queryable, diffable, versionable, and re-exportable by every owner that already reads a property bag, and a parallel store answers none of that. Producer-authored derived evidence does NOT route through the `Semantics/properties#PROPERTY_TEMPLATES` template authority: that owner is the buildingSMART oracle over AUTHORED model properties and its `TemplateAudit` fold reads resolved templates, so routing a computed result through it demands a template no catalogue declares and an applicable-class scope no analysis has — `Pset_Reconstruction` and `Pset_SiteContext` are the landed precedent, and a `PropertyKey.Resolve` hop here is the deleted form. Bag stamps are `PropertySource.Derived` and `InheritanceMode.OccurrenceWins` because a result belongs to the occurrence it was computed for and no type bag overrides it; a `PropertySource.Import` stamp — the site-context ingress form — ranks computed evidence beneath an authored value it must supersede. Scope targets resolve through the settled views — the `Model/spatial#SPATIAL_STRUCTURE` rank-0 row and the `Model/zones#ZONE_GRAPH` overlay — and a private entity-name set or a second grouping vocabulary here is the deleted form; the zone target is the grouping node the overlay already publishes, so per-zone results ride it with no zones-side edit. Unresolvable targets lift `BimFault.DanglingReference` BARE, and a `.ToError()` lowering hop OR a hand-built `Error.New(2600, …)` bypassing the typed case is the named defect; a silently dropped row is doubly the deleted form, because a report cannot distinguish a zone with no cooling load from a zone whose cooling row never landed.
+- Packages: Rasm (the kernel `Op` operation key and the content-hash mint the `NodeId` seeds from), Rasm.Element (the seam `ElementGraph`/`GraphDelta`/`Node`/`NodeId`/`Relationship`/`PropertyBag`/`PropertyValue`/`PropertyName`/`MeasureValue`/`QuantityType`/`Dimension`/`UnitProvenance`/`TemporalValue`), LanguageExt.Core (`Fin`/`Seq`/`Option`/`Map`/`HashMap`), NodaTime (`Instant`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`).
+- Growth: a new published magnitude is one row on whichever AXIS it widens — a fuel on `ResultFuel`, a service on `ResultEndUse`, a physical reading on `ResultMeasure` — and admission, bag key, Pset re-emission, and report read all resolve the composed point with zero further edits; a new granularity is one `ResultScope` case with one `ResultTargets` index column and one `Resolve` arm the generated total `Switch` breaks on at compile; a new bag-provenance column is one row on the authored bag and a new unit posture one `UnitProvenance` case on a measure row; a Compute-side receipt column measuring something new is one axis row, never a second admission entry. Never a per-quantity result type, never an `AdmitZoneResults`/`AdmitSpaceResults` operation family, and never a per-scope bag name.
+- Boundary: `SqlFile` decode stays `Rasm.Compute`'s under the standing simulation ruling — this owner consumes the typed receipt, and touching SQLite, a run directory, or an EnergyPlus output file here is the named strata violation, exactly as `Rasm.Compute` project references in either direction are; `rasm.bim` mints NO simulation context (`SimulationParameter`, run periods, conditioning policy, weather), which is `Energy/exchange#ENERGY_EXCHANGE`'s frozen boundary and Compute's to author. Second results stores beside the graph — a `ResultTable`, a per-run keyed side index, a `BimZone.Results` column — are the deleted form: the graph IS the store, so a result is queryable, diffable, versionable, and re-exportable by every owner that already reads a property bag, and a parallel store answers none of that. Producer-authored derived evidence does NOT route through the `Semantics/properties#PROPERTY_TEMPLATES` template authority: that owner is the buildingSMART oracle over AUTHORED model properties and its `TemplateAudit` fold reads resolved templates, so routing a computed result through it demands a template no catalogue declares and an applicable-class scope no analysis has — `Pset_Reconstruction` and `Pset_SiteContext` are the landed precedent, and a `PropertyKey.Resolve` hop here is the deleted form. Bag stamps are `EvidenceGrade.Derived` and `InheritanceMode.OccurrenceWins` because a result belongs to the occurrence it was computed for and no type bag overrides it; a `EvidenceGrade.Import` stamp — the site-context ingress form — ranks computed evidence beneath an authored value it must supersede. Scope targets resolve through the settled views — the `Model/spatial#SPATIAL_STRUCTURE` rank-0 row and the `Model/zones#ZONE_GRAPH` overlay — and a private entity-name set or a second grouping vocabulary here is the deleted form; the zone target is the grouping node the overlay already publishes, so per-zone results ride it with no zones-side edit. Unresolvable targets lift `BimFault.Refused` with `BimReason.DanglingReference` BARE, and a `.ToError()` lowering hop OR a hand-built `Error.New(2600, …)` bypassing the typed case is the named defect; a silently dropped row is doubly the deleted form, because a report cannot distinguish a zone with no cooling load from a zone whose cooling row never landed.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -36,8 +36,7 @@ using static LanguageExt.Prelude;
 namespace Rasm.Bim;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-// Zone keys on the authored grouping NAME carried into the run; Space keys on the IFC GlobalId, the one
-// identity that survives the lowering.
+// Zone keys on the authored grouping NAME carried into the run; Space keys on the IFC GlobalId, the one identity that survives the lowering.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ResultScope {
     private ResultScope() { }
@@ -49,14 +48,10 @@ public abstract partial record ResultScope {
     public static readonly ResultScope Whole = new Building();
 }
 
-// A published magnitude is a POINT on two vocabulary axes, never a literal name. The retired roster spelled the
-// product — AnnualHeating, AnnualCooling, PeakHeating, PeakCooling — so every new fuel multiplied the roster by
-// the end-uses it ignored and every new end-use multiplied it by the fuels, and the roster could express only the
-// combinations someone had already typed. A run publishing district-cooling fans had no row and no way to grow
-// one that did not also mint three rows nobody asked for.
-//
 // Fuel is the ENERGY SOURCE a simulation meters, so a whole-building total and a per-fuel breakdown are the same
-// kind of fact at two grains and `Total` is an ordinary member rather than a special case.
+// kind of fact at two grains and `Total` is an ordinary member rather than a special case. The retired roster
+// spelled the PRODUCT (AnnualHeating, AnnualCooling, PeakHeating…), so it could express only the combinations
+// someone had already typed and a run publishing district-cooling fans had no row to reach.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -84,15 +79,16 @@ public sealed partial class ResultEndUse {
     public static readonly ResultEndUse WaterSystems = new("WaterSystems");
 }
 
-// The measure is WHAT is being read, and it alone carries physics: the seam QuantityType a magnitude mints under,
-// the Dimension it signs, and the UCUM token a report renders it in. UCUM is REPORTING units against an interior
-// that is SI base by seam law, so every token already IS its SI symbol except on the duration row, which declares
-// `h` against a stored second because tallies are read in hours.
+// Provenance is HOW each row's canonical unit resolves and the case IS the seam admission posture, so the mint
+// CONSUMES the column instead of declaring a token beside it. A registry-named type takes Derive — the seam refuses
+// a labeled mint on one, because a per-row token can never fork a registry quantity's unit — and EnergyUseIntensity
+// takes Label because it mints through the OPEN Create over a dimension the kernel roster carries no symbol for.
+// The retired `string Ucum` column was REPORTING units no admission read: it stamped `h` on a row whose own Admit
+// stores SI seconds, so the declared token contradicted the CanonicalUnit the same mint resolved and nothing
+// reconciled the two. An hours readout is `value.In(DurationUnit.Hour)` at the report edge, a live conversion.
 // Anchors declare BEFORE the rows: static initializers run in textual order, so a row reading an anchor declared
-// below it signs against a null dimension. Energy and Power are UnitsNet registry names, so OfSi gates each row's
-// Dimension against the registry vector and stamps the registry canonical unit; EnergyUseIntensity is the consumer
-// mint through the OPEN Create — UnitsNet's Irradiation shares the signature under a radiometric name that
-// false-reads as solar incidence on every QTO consumer.
+// below it signs against a null dimension. EnergyUseIntensity mints through the OPEN Create — UnitsNet Irradiation
+// shares the signature under a radiometric name that false-reads as solar incidence on every QTO consumer.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -104,20 +100,20 @@ public sealed partial class ResultMeasure {
     static readonly QuantityType PowerType = QuantityType.Create("Power");
     static readonly QuantityType IntensityType = QuantityType.Create("EnergyUseIntensity");
 
-    public static readonly ResultMeasure Annual = new("Annual", EnergyType, EnergyDim, "J");
-    public static readonly ResultMeasure Peak = new("Peak", PowerType, PowerDim, "W");
-    public static readonly ResultMeasure Intensity = new("Intensity", IntensityType, IntensityDim, "J/m2");
-    public static readonly ResultMeasure UnmetHours = new("UnmetHours", QuantityType.Duration, Dimension.DurationDim, "h");
-    public static readonly ResultMeasure ComfortHours = new("ComfortHours", QuantityType.Duration, Dimension.DurationDim, "h");
+    public static readonly ResultMeasure Annual = new("Annual", EnergyType, EnergyDim, UnitProvenance.Derive);
+    public static readonly ResultMeasure Peak = new("Peak", PowerType, PowerDim, UnitProvenance.Derive);
+    public static readonly ResultMeasure Intensity = new("Intensity", IntensityType, IntensityDim, UnitProvenance.Label("J/m2"));
+    public static readonly ResultMeasure UnmetHours = new("UnmetHours", QuantityType.Duration, Dimension.DurationDim, UnitProvenance.Derive);
+    public static readonly ResultMeasure ComfortHours = new("ComfortHours", QuantityType.Duration, Dimension.DurationDim, UnitProvenance.Derive);
 
     public QuantityType Type { get; }
     public Dimension Dimension { get; }
-    public string Ucum { get; }
+    public UnitProvenance Provenance { get; }
 
-    private ResultMeasure(string key, QuantityType type, Dimension dimension, string ucum) : this(key) =>
-        (Type, Dimension, Ucum) = (type, dimension, ucum);
+    private ResultMeasure(string key, QuantityType type, Dimension dimension, UnitProvenance provenance) : this(key) =>
+        (Type, Dimension, Provenance) = (type, dimension, provenance);
 
-    public Fin<MeasureValue> Admit(double si) => MeasureValue.OfSi(Type, Dimension, si);
+    public Fin<MeasureValue> Admit(double si, Op key) => MeasureValue.OfSi(Type, Dimension, si, Some(Provenance), key);
 }
 
 // The quantity IS the point: a measure read on one fuel for one end-use. Property naming folds the three tokens in
@@ -132,7 +128,7 @@ public readonly record struct ResultQuantity(ResultMeasure Measure, ResultFuel F
     public string Key =>
         $"{Measure.Key}{(Fuel == ResultFuel.Total ? "" : Fuel.Key)}{(Use == ResultEndUse.Whole ? "" : Use.Key)}";
 
-    public Fin<MeasureValue> Admit(double si) => Measure.Admit(si);
+    public Fin<MeasureValue> Admit(double si, Op key) => Measure.Admit(si, key);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -142,8 +138,8 @@ public readonly record struct ResultQuantity(ResultMeasure Measure, ResultFuel F
 public sealed record EnergyResult(
     ArtifactKey Artifact, ResultScope Scope, ResultQuantity Quantity, MeasureValue Value, Instant At) {
 
-    public static Fin<EnergyResult> Of(ArtifactKey artifact, ResultScope scope, ResultQuantity quantity, double si, Instant at) =>
-        quantity.Admit(si).Map(value => new EnergyResult(artifact, scope, quantity, value, at));
+    public static Fin<EnergyResult> Of(ArtifactKey artifact, ResultScope scope, ResultQuantity quantity, double si, Instant at, Op key) =>
+        quantity.Admit(si, key).Map(value => new EnergyResult(artifact, scope, quantity, value, at));
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -153,15 +149,13 @@ internal readonly record struct ResultTargets(
     // Context root is the ONE rank-0 SpatialClass row, read through its own key so no entity-name literal lands here.
     public static ResultTargets Of(ElementGraph graph) =>
         new(graph.ObjectNodes
-                .Find(static o => o.Classification.System == "ifc" && o.Classification.Code == SpatialClass.Project.Key)
+                .Find(static o => StringComparer.OrdinalIgnoreCase.Equals(o.Classification.System, IfcClass.System) && o.Classification.Code == SpatialClass.Project.Key)
                 .Map(static o => o.Id),
             // The space index is SPATIAL rows only: every occurrence carries an ExternalId, so an unfiltered fold
-            // seated a wall, a door, and a duct under the same key space a Space scope resolves against — and a
-            // result addressed to a non-space subject then LANDED, attributing a zone load to whatever element
-            // happened to share the identity. Filtering on the spatial row makes that address a DanglingReference,
-            // which is the honest answer.
+            // seats a wall, a door, and a duct in the key space a Space scope resolves against, and a result
+            // addressed to a non-space subject then LANDS on whatever element shared the identity.
             graph.ObjectNodes
-                .Filter(static o => o.Classification.System == "ifc" && o.Classification.Code == SpatialClass.Space.Key)
+                .Filter(static o => StringComparer.OrdinalIgnoreCase.Equals(o.Classification.System, IfcClass.System) && o.Classification.Code == SpatialClass.Space.Key)
                 .Fold(Map<string, NodeId>(), static (index, o) =>
                     o.ExternalId.Match(Some: id => index.AddOrUpdate(id, o.Id), None: () => index)),
             ZoneProjection.All(graph).Fold(Map<string, NodeId>(), static (index, zone) =>
@@ -172,24 +166,18 @@ internal readonly record struct ResultTargets(
         zone: z => Zones.Find(z.ZoneName).ToFin(Miss(key, "zone", z.ZoneName)),
         space: s => Spaces.Find(s.GlobalId).ToFin(Miss(key, "space", s.GlobalId)));
 
-    // ONE raising site composes the folder's ONE detail roster — Model/faults#DETAIL_ROSTER — so a second
-    // `energy-*` declaration never forks a prefix an operator greps and a consumer routes on; the scope modality
-    // rides the row as a SUBJECT rather than forking three near-identical tokens.
+    // One raising site carries the scope modality as typed evidence instead of forking three refusal cases.
     static BimFault Miss(Op key, string modality, string subject) =>
-        Detail.EnergyResultTargetMiss.At(key, modality, subject);
+        new BimFault.Refused(key, BimScope.Energy, BimReason.DanglingReference, string.Join(':', new object?[] { "energy-result-target-miss", modality, subject }));
 }
 
 public static class EnergyResults {
     public const string SetName = "Pset_EnergyResults";
 
-    // Grouping rides a HashMap because tuple keys need equality alone; the ordered Map demands a comparer the
-    // seam NodeId does not publish.
-    // A run publishes ONE magnitude per (target, quantity), so a second row for a pair the fold already holds is a
-    // malformed receipt and it FAULTS. The retired AddOrUpdate collapsed it last-wins, which is the worst answer
-    // available: two contradicting cooling loads for one zone landed as one number with no evidence a second ever
-    // arrived, and the bag it produced was internally consistent. The group's instant is the RUN's — the first row
-    // seats it and every later row for that run reads against it — so the stamp is a property of the simulation
-    // rather than of whichever row the enumeration happened to reach last.
+    // Grouping rides a HashMap because tuple keys need equality alone; the ordered Map demands a comparer the seam
+    // NodeId does not publish. A run publishes ONE magnitude per (target, quantity), so a duplicate FAULTS: the
+    // retired AddOrUpdate collapsed it last-wins, landing two contradicting cooling loads for one zone as one
+    // number in a bag that was internally consistent. The group instant is the RUN first row, not the last read.
     public static Fin<GraphDelta> Admit(Seq<EnergyResult> results, ElementGraph graph, Op key) {
         ResultTargets targets = ResultTargets.Of(graph);
         return results
@@ -198,10 +186,10 @@ public static class EnergyResults {
                     grouped.Find((target, result.Artifact)) is { IsSome: true, Case: (Instant at, Map<string, EnergyResult> rows) }
                         ? rows.ContainsKey(result.Quantity.Key)
                             ? Fin.Fail<HashMap<(NodeId, ArtifactKey), (Instant, Map<string, EnergyResult>)>>(
-                                Detail.EnergyResultDuplicate.At(key, result.Artifact.Value, result.Quantity.Key))
+                                new BimFault.Refused(key, BimScope.Energy, BimReason.Rejected, string.Join(':', new object?[] { "energy-result-duplicate", result.Artifact.Value, result.Quantity.Key })))
                             : Fin.Succ(grouped.AddOrUpdate((target, result.Artifact), (at, rows.Add(result.Quantity.Key, result))))
                         : Fin.Succ(grouped.AddOrUpdate((target, result.Artifact),
-                            (result.At, Map((result.Quantity.Key, result)))))))
+                            (result.At, Map((result.Quantity.Key, result))))))))
             .Map(grouped => toSeq(grouped).Fold(GraphDelta.Empty, (delta, group) => {
                 Node.PropertySet bag = Author(
                     group.Key.Run, group.Value.At, toSeq(group.Value.Rows.Values), graph.Header.Tolerance);
@@ -227,9 +215,9 @@ public static class EnergyResults {
                     (SimulatedAt, new PropertyValue.Temporal(new TemporalValue.Stamp(at)))),
                 static (values, row) => values.AddOrUpdate(
                     PropertyCategory.Seam.Row(row.Quantity.Key), new PropertyValue.Measure(row.Value))),
-            InheritanceMode.OccurrenceWins, PropertySource.Derived);
-        Node.PropertySet probe = new(NodeId.Content([]), bag);
-        return probe with { Id = NodeId.Content(probe.ToCanonicalBytes(tolerance).Span) };
+            InheritanceMode.OccurrenceWins, EvidenceGrade.Derived);
+        Node.PropertySet probe = new(NodeId.Of(new NodeSeed.Placement()), bag);
+        return probe with { Id = NodeId.Of(new NodeSeed.Content(probe, tolerance)) };
     }
 }
 ```

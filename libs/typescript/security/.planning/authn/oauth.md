@@ -132,32 +132,77 @@ type ProviderRow = {
   readonly admission: Config.Config<Effect.Effect<Admission, OAuthFault, Crypto>>
 }
 
+// Seven legs partition the ceremony and each reason renders its OWN subject. The two rows whose refusals form a
+// CLOSED set say so: the callback gate asks four questions of the echoed state, and the lifecycle members each
+// name the one endpoint or grant the provider row never published. A free `detail` string spelled both as prose,
+// so "unknown state" and "ceremony expired" — a forged callback and a slow user — read alike to every consumer.
+const _states = ["absent", "unknown", "provider", "expired"] as const
+const _lifecycles = ["refresh-grant", "revocation-endpoint", "end-session-endpoint"] as const
+
 const _family = Fault.Class.family(
   ["provider", "transport", "shape", "state", "consent", "idToken", "lifecycle"] as const,
   {
-    provider: { class: "invalid" },
-    transport: { class: "unavailable" },
-    shape: { class: "invalid" },
-    state: { class: "denied" },
-    consent: { class: "denied" },
-    idToken: { class: "denied" },
-    lifecycle: { class: "invalid" },
+    provider: Fault.Class.row({
+      class: "invalid",
+      leg: "discovery",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `provider configuration refused: ${cause}`,
+    }),
+    transport: Fault.Class.row({
+      class: "unavailable",
+      leg: "transport",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `provider leg did not complete: ${cause}`,
+    }),
+    shape: Fault.Class.row({
+      class: "invalid",
+      leg: "admission",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `provider response did not admit: ${cause}`,
+    }),
+    state: Fault.Class.row({
+      class: "denied",
+      leg: "ceremony",
+      detail: Schema.Struct({ refusal: Schema.Literal(..._states) }),
+      render: ({ refusal }) => `callback state refused: ${refusal}`,
+    }),
+    consent: Fault.Class.row({
+      class: "denied",
+      leg: "consent",
+      detail: Schema.Struct({ code: Schema.String }),
+      render: ({ code }) => `end-user consent refused: ${code}`,
+    }),
+    idToken: Fault.Class.row({
+      class: "denied",
+      leg: "identity",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `id_token refused: ${cause}`,
+    }),
+    lifecycle: Fault.Class.row({
+      class: "invalid",
+      leg: "lifecycle",
+      detail: Schema.Struct({ missing: Schema.Literal(..._lifecycles) }),
+      render: ({ missing }) => `provider publishes no ${missing}`,
+    }),
   },
 )
 
 declare namespace OAuthFault {
-  type Reason = (typeof _family.reasons)[number]
+  type Case = typeof _family.payload.Type
+  type Reason = (typeof _family.kinds)[number]
 }
 
 class OAuthFault extends Schema.TaggedError<OAuthFault>()("OAuthFault", {
-  reason: _family.schema,
-  detail: Schema.String,
+  case: _family.payload,
 }) {
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _family.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<oauth:${this.reason}> ${this.detail}`
+    return _family.render(this.case)
   }
 }
 
@@ -174,7 +219,7 @@ const _admitted = <A>(
 
 const _published = (value: string | undefined, name: string): Effect.Effect<string, OAuthFault> =>
   Option.match(Option.fromNullable(value), {
-    onNone: () => Effect.fail(new OAuthFault({ reason: "provider", detail: `issuer publishes no ${name}` })),
+    onNone: () => Effect.fail(new OAuthFault({ case: { reason: "provider", cause: `issuer publishes no ${name}` } })),
     onSome: Effect.succeed,
   })
 
@@ -183,7 +228,7 @@ const _published = (value: string | undefined, name: string): Effect.Effect<stri
 // multi-tenant one owns per-tenant verification. Either way the template dies at bind, not at first sign-in.
 const _literal = (issuer: string): Effect.Effect<string, OAuthFault> =>
   issuer.includes("{")
-    ? Effect.fail(new OAuthFault({ reason: "provider", detail: `templated issuer ${issuer}` }))
+    ? Effect.fail(new OAuthFault({ case: { reason: "provider", cause: `templated issuer ${issuer}` } }))
     : Effect.succeed(issuer)
 
 // Intersecting the issuer's advertisement with what this folder can verify yields the signing roster, so an
@@ -203,7 +248,7 @@ const _oidcOf = (
         }))
       return Array.isNonEmptyReadonlyArray(algorithms)
         ? Effect.succeedSome({ issuer, jwksUri, algorithms })
-        : Effect.fail(new OAuthFault({ reason: "provider", detail: "no shared id_token signing algorithm" }))
+        : Effect.fail(new OAuthFault({ case: { reason: "provider", cause: "no shared id_token signing algorithm" } }))
     },
   })
 
@@ -232,13 +277,13 @@ const _carriage = (
         onSome: (advertised) =>
           Array.contains(advertised, alg)
             ? Effect.succeed(Carriage.Signed({ key }))
-            : Effect.fail(new OAuthFault({ reason: "provider", detail: `issuer advertises no ${alg} request-object signing` })),
+            : Effect.fail(new OAuthFault({ case: { reason: "provider", cause: `issuer advertises no ${alg} request-object signing` } })),
       }),
     onNone: () =>
       Predicate.isNotUndefined(metadata.pushed_authorization_request_endpoint)
         ? Effect.succeed(Carriage.Pushed())
         : metadata.require_pushed_authorization_requests === true
-          ? Effect.fail(new OAuthFault({ reason: "provider", detail: "issuer requires PAR yet publishes no endpoint" }))
+          ? Effect.fail(new OAuthFault({ case: { reason: "provider", cause: "issuer requires PAR yet publishes no endpoint" } }))
           : Effect.succeed(Carriage.Plain()),
   })
 
@@ -303,11 +348,11 @@ const _heldKey = (
         }),
         alg,
       ),
-      (fault) => new OAuthFault({ reason: "provider", detail: fault.detail }),
+      (fault) => new OAuthFault({ case: { reason: "provider", cause: fault.message } }),
     )
     return yield* handle._tag === "Signing"
       ? Effect.succeed(handle.key)
-      : Effect.fail(new OAuthFault({ reason: "provider", detail: "held key admitted verify-only" }))
+      : Effect.fail(new OAuthFault({ case: { reason: "provider", cause: "held key admitted verify-only" } }))
   })
 
 const _rows = {
@@ -455,7 +500,7 @@ class OAuthStateStore extends Context.Tag("security/authn/OAuthStateStore")<OAut
 ```typescript signature
 const _decoded = (response: TokenEndpointResponse): Effect.Effect<Grant, OAuthFault> =>
   Schema.decodeUnknown(Grant)(response).pipe(
-    Effect.mapError((issue) => new OAuthFault({ reason: "shape", detail: issue.message })),
+    Effect.mapError((issue) => new OAuthFault({ case: { reason: "shape", cause: issue.message } })),
   )
 
 // Space-delimited by RFC 6749, and the row's requested set answers only where the issuer stated nothing: a provider
@@ -486,12 +531,12 @@ const _severed = (cause: unknown): boolean =>
   cause instanceof DOMException || (cause instanceof TypeError && !Predicate.hasProperty(cause, "code"))
 
 const _faultOf: (cause: unknown) => OAuthFault = Match.type<unknown>().pipe(
-  Match.when(Match.instanceOf(AuthorizationResponseError), (error) => new OAuthFault({ reason: "consent", detail: error.error })),
-  Match.when(Match.instanceOf(ResponseBodyError), (error) => new OAuthFault({ reason: "provider", detail: error.error })),
-  Match.when(Match.instanceOf(WWWAuthenticateChallengeError), (error) => new OAuthFault({ reason: "provider", detail: _challenged(error) })),
-  Match.when(Match.instanceOf(ClientError), (error) => new OAuthFault({ reason: "shape", detail: Option.getOrElse(Option.fromNullable(error.code), () => error.message) })),
-  Match.when(_severed, (error) => new OAuthFault({ reason: "transport", detail: String(error) })),
-  Match.orElse((error) => new OAuthFault({ reason: "shape", detail: String(error) })),
+  Match.when(Match.instanceOf(AuthorizationResponseError), (error) => new OAuthFault({ case: { reason: "consent", code: error.error } })),
+  Match.when(Match.instanceOf(ResponseBodyError), (error) => new OAuthFault({ case: { reason: "provider", cause: error.error } })),
+  Match.when(Match.instanceOf(WWWAuthenticateChallengeError), (error) => new OAuthFault({ case: { reason: "provider", cause: _challenged(error) } })),
+  Match.when(Match.instanceOf(ClientError), (error) => new OAuthFault({ case: { reason: "shape", cause: Option.getOrElse(Option.fromNullable(error.code), () => error.message) } })),
+  Match.when(_severed, (error) => new OAuthFault({ case: { reason: "transport", cause: String(error) } })),
+  Match.orElse((error) => new OAuthFault({ case: { reason: "shape", cause: String(error) } })),
 )
 
 class OAuth extends Effect.Service<OAuth>()("security/authn/OAuth", {
@@ -536,7 +581,7 @@ class OAuth extends Effect.Service<OAuth>()("security/authn/OAuth", {
       Effect.flatMap(_leg(run), _decoded)
     const _binding = yield* Effect.cachedFunction((kind: Provider.Kind) =>
       Option.match(Option.fromNullable(binds.get(kind)), {
-        onNone: () => Effect.fail(new OAuthFault({ reason: "provider", detail: `${kind} not enabled` })),
+        onNone: () => Effect.fail(new OAuthFault({ case: { reason: "provider", cause: `${kind} not enabled` } })),
         onSome: (bind) => bind,
       }))
     const _row = (kind: Provider.Kind): ProviderRow => _rows[kind]
@@ -578,17 +623,17 @@ class OAuth extends Effect.Service<OAuth>()("security/authn/OAuth", {
     const callback = (kind: Provider.Kind, response: URL, resolveSubject: (grant: Grant) => Effect.Effect<string, OAuthFault>): Effect.Effect<TokenPair, OAuthFault | SessionFault> =>
       Effect.gen(function* () {
         const presented = yield* Option.match(Option.fromNullable(response.searchParams.get("state")), {
-          onNone: () => Effect.fail(new OAuthFault({ reason: "state", detail: "no state on the response" })),
+          onNone: () => Effect.fail(new OAuthFault({ case: { reason: "state", refusal: "absent" } })),
           onSome: Effect.succeed,
         })
         const departed = yield* Effect.flatMap(states.consume(presented), Option.match({
-          onNone: () => Effect.fail(new OAuthFault({ reason: "state", detail: "unknown state" })),
+          onNone: () => Effect.fail(new OAuthFault({ case: { reason: "state", refusal: "unknown" } })),
           onSome: Effect.succeed,
         }))
         const now = yield* DateTime.now
         yield* Effect.succeed(departed).pipe(
-          Effect.filterOrFail((held) => held.kind === kind, () => new OAuthFault({ reason: "state", detail: "provider mismatch" })),
-          Effect.filterOrFail((held) => DateTime.lessThanOrEqualTo(now, held.expiresAt), () => new OAuthFault({ reason: "state", detail: "ceremony expired" })),
+          Effect.filterOrFail((held) => held.kind === kind, () => new OAuthFault({ case: { reason: "state", refusal: "provider" } })),
+          Effect.filterOrFail((held) => DateTime.lessThanOrEqualTo(now, held.expiresAt), () => new OAuthFault({ case: { reason: "state", refusal: "expired" } })),
         )
         const bound = yield* _binding(kind)
         const grant = yield* _granted(() =>
@@ -600,10 +645,10 @@ class OAuth extends Effect.Service<OAuth>()("security/authn/OAuth", {
         const sub = yield* Option.match(bound.oidc, {
           onSome: (oidc) =>
             Option.match(grant.idToken, {
-              onNone: () => Effect.fail(new OAuthFault({ reason: "idToken", detail: "id_token absent" })),
+              onNone: () => Effect.fail(new OAuthFault({ case: { reason: "idToken", cause: "response carried none" } })),
               onSome: (raw) =>
                 jwt.verify(Redacted.make(raw), { issuer: oidc.issuer, audience: bound.clientId, jwksUri: oidc.jwksUri, algorithms: oidc.algorithms }).pipe(
-                  Effect.mapError((fault) => new OAuthFault({ reason: "idToken", detail: fault.detail })),
+                  Effect.mapError((fault) => new OAuthFault({ case: { reason: "idToken", cause: fault.message } })),
                   Effect.map((payload) => String(payload.sub)),
                 ),
             }),
@@ -612,7 +657,7 @@ class OAuth extends Effect.Service<OAuth>()("security/authn/OAuth", {
         const ref = new CredentialRef({ kind: "oauth", key: `${kind}:${sub}` })
         return yield* token.establish(ref, _scopes(grant, _row(kind).scopes), { tenant: Option.none(), verified: true })
       }).pipe(
-        Effect.tapErrorTag("OAuthFault", (fault) => (fault.reason === "state" ? Reject.mark("state") : Effect.void)),
+        Effect.tapErrorTag("OAuthFault", (fault) => (fault.case.reason === "state" ? Reject.mark("state") : Effect.void)),
         Reject.measured("state"),
         Effect.withSpan("security.oauth.callback", { attributes: { kind } }),
       )
@@ -673,13 +718,13 @@ const _lifecycle = (
   // `Option` with one refusal arm, where two negated predicates spell the same answer twice.
   refresh: (grant: Grant): Effect.Effect<Renewal, OAuthFault> =>
     Option.match(bound.hasRefresh ? grant.refreshToken : Option.none<string>(), {
-      onNone: () => Effect.fail(new OAuthFault({ reason: "lifecycle", detail: "no refresh grant" })),
+      onNone: () => Effect.fail(new OAuthFault({ case: { reason: "lifecycle", missing: "refresh-grant" } })),
       onSome: (held) => Effect.flatMap(granted(() => bound.ceremony.refresh(held, scopes)), (fresh) => _renewed(fresh, scopes)),
     }),
   revoke: (grant: Grant): Effect.Effect<void, OAuthFault> =>
     bound.hasRevoke
       ? leg(() => bound.ceremony.revoke(grant.accessToken))
-      : Effect.fail(new OAuthFault({ reason: "lifecycle", detail: "no revoke endpoint" })),
+      : Effect.fail(new OAuthFault({ case: { reason: "lifecycle", missing: "revocation-endpoint" } })),
   // RP-initiated logout ends the ISSUER's session front-channel where `revoke` retires this app's grant at the
   // token endpoint — two teardown legs, and an SSO sign-out running only revocation leaves the IdP session alive
   // to silently re-authenticate the next redirect. The URL builds locally off the discovered endpoint, so the
@@ -695,7 +740,7 @@ const _lifecycle = (
             }),
           catch: _faultOf,
         })
-      : Effect.fail(new OAuthFault({ reason: "lifecycle", detail: "no end_session_endpoint" })),
+      : Effect.fail(new OAuthFault({ case: { reason: "lifecycle", missing: "end-session-endpoint" } })),
 })
 
 // --- [EXPORTS] --------------------------------------------------------------------------

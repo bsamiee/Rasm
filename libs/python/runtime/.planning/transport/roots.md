@@ -39,13 +39,15 @@ Every acquisition rides one `Transfer` aspect fusing the `reliability/resilience
   - `Sign` is valid only on the signing-capable backends, so a sign on a `local`/`memory`/`http` store refuses at the `_REFUSAL` matrix ahead of the provider rather than riding out as its `NotSupportedError`; `expires_in` is a `timedelta`, never an `int`.
   - `reader`/`writer`/`sign` `read`s carry the obstore handle or URL batch on the outcome `payload` slot and emit a `None` `Source`, so no tag escapes the `_ROUTE` fold and no control-plane op claims operation bytes it never moved.
 - Law: the reach matrix DERIVES off the row family's own capability columns rather than transcribing cells — a backend whose `signs` column is false lands its `sign` refusal automatically, so a seventh backend row arrives already gated and an unreachable cell answers its typed reason ahead of every provider call. Cells absent from the matrix stay reachable and ride their `_ROUTE` row; a cell no capability column answers lands as one explicit row beside the derivation.
-- Law: retry is a per-row mutation-class disposition — reads, `put`, `delete`, `sign`, and the lazy `open_reader`/`open_writer` handle mints replay safely under `OBJECT_STORE` (a conditional-write collision stays the terminal `boundary` fault), while `copy` (a provider-side multi-step rewrite chain) and `rename` (copy-then-delete) cross the bare `boundary`/`async_boundary` fence unretried. Every `obstore.exceptions` leaf lands on the `boundary` catch-all (none is a `CLASSIFY` row), so recovery keys on `fault.recoverable({"boundary"})` and a conditional write-once or copy-once collision surfaces as a terminal `boundary` fault read off the lifted message, never a retry-suppressing per-arm catch.
+- Law: retry is a per-row mutation-class disposition — reads, `put`, `delete`, `sign`, and the lazy `open_reader`/`open_writer` handle mints replay safely under `OBJECT_STORE` (a conditional-write collision stays the terminal `boundary` fault), while `copy` (a provider-side multi-step rewrite chain) and `rename` (copy-then-delete) cross the bare `boundary`/`async_boundary` fence unretried. Every `obstore.exceptions` leaf lands on the `boundary` catch-all (none is a `CLASSIFY` row), so recovery keys on `fault.recoverable({"boundary"})` and a conditional write-once or copy-once collision surfaces as a terminal `boundary` fault read off the lifted message, never a retry-suppressing per-arm catch. `_STORE_RAISES` is that surface NAMED — the `BaseError` root beside the two classes the row fold's own raw index and attribute reach can raise — so the required `catch` narrows to what this plane actually throws and an unlisted class propagates as the defect it is.
 - Entry: `run` and `run_async` open one `kind=SpanKind.CLIENT` span off the faults-owned `scoped` stamp, read one `_admitted` prologue, and return `RuntimeRail[StoreOutcome]` — reach answers a cell this backend cannot serve BEFORE the caller's gate fires and before any provider call, then the gate fires its own pre-flight points and may SETTLE the call outright. `run_async` reads the prologue through a `match` closed by `assert_never` rather than a `bind`, so both entrypoints stay total over the carrier. `_apply` returns the outcome directly, so the fenced rail is single and no leg self-flattens a doubled carrier.
 - Auto: `gate` is the caller's whole pre-flight policy as ONE pre-constructed value — a `StoreAdmission` answering DISPATCH or SETTLED, so a governance veto and a by-reference no-op both ride the composing tier's own semantics with no transport knob and no second prologue, and a consumer owning neither passes nothing. It rides the CALL rather than the lane because its closure carries per-call evidence (the caller's prior receipt) a lane field frozen at construction cannot hold, and it survives the knob test by carrying exactly what the op cannot reconstruct. SETTLED outcomes report zero quantity, carry the caller's own `meta`, and keep the operation bytes on their `source` slot, so the receipt the composing tier folds keys identically to the write it stands in for.
 - Receipt: this owner mints none — `StoreOutcome` is payload-agnostic transport evidence (what moved, what the provider reported, the operation bytes a keyer digests, the handle a streaming caller holds), and content identity, quantity vocabulary, mutation veto, and reuse verdict are the composing tier's. That split is exactly where the tier boundary falls: transport here, receipt semantics at `data/tabular/egress#EGRESS`.
 - Packages: `obstore` is the sole store provider; `SignCapableStore`/`HTTP_METHOD` are stub-only typing references (`obstore._sign.pyi` `TypeAlias`), so `Method` inlines the nine members rather than a runtime import, while the module-level `obstore.parse_scheme` IS bound — it answers the closed six-member backend classification off a store URL, which `from_url`'s own dispatch settles internally and never exposes — and `GetResult.stream`'s `BytesStream` is a typing-only chunk-iterator growth value the same `Get` row carries. `obstore.exceptions`' leaf taxonomy (`BaseError` root and the eleven leaves) and the `config`/`client_options`/`retry_config` `TypedDict` shapes are `libs/python/.api/obstore.md` catalog facts.
+- Law: every windowed acquisition states its PEER — `on=Some(...)` naming the residence root, the HTTP destination identity, or the SSH channel identity — because `OBJECT_STORE`, `HTTP`, and `SSH` all carry a `CIRCUIT` row and an unstated peer refuses at the envelope. The grain is the DEPENDENCY and never the object: one arc per residence trips on a residence that is out, where a per-path arc counts one failure each and never reaches a trip at all.
+- Law: every refusal resolves ONE `reliability/faults#FAULT` `RAISES` anchor under `RuntimeLeg.ROOTS` and derives its subject from that leg. The three confinement refusals — HTTP origin, SFTP root, filesystem child — collapse onto ONE `ROOTS_TRAVERSAL` row taking the root key beside the escaping relative, since all three refuse ONE law; `ROOTS_UNSUPPORTED` carries the matrix cell's own reason as a NAMED coordinate under the caller-repairable `config` arm, a capability bound a re-issue never clears.
 - Growth: a new store operation is one `StoreOp` case and one `_ROUTE` row carrying dispatch, argument planning, result projection, path, and retry class; a new precondition one `PutMode` on `Put` or one `overwrite` value on `Copy`/`Rename`; a newly unreachable cell one capability column on `StoreBackend` the matrix derives from, or one explicit `_REFUSAL` row where no column answers it; a new conditional-get axis one `GetOptions` key on `Get`; a new get-response evidence field one more `GetResult` member on the `Get` `read`'s `payload` tuple; a new streaming or signing surface one `StoreOp` case whose `read` carries its non-byte value on the `payload` slot and emits a `None` `Source`, never a parallel handle table.
-- Boundary: object-store operation dispatch and its reach matrix only. Composes — never re-mints — the `reliability/resilience#RESILIENCE` `guarded`/`guarded_sync` envelopes and the `reliability/faults#FAULT` `BoundaryFault` those lift; mints no content key, quantity unit, hook point, or durable receipt. Rejected: a capability bound answered by a provider exception where a matrix row states it as data; a hand-opened `boundary` and span around a `guard`/`guard_sync` caller (the doubled-span/doubled-lift form `guarded`/`guarded_sync` fuse once); a sync leg dropping a retried row's `OBJECT_STORE` outer envelope to lean on the Rust-core `RetryConfig` where the async leg carries it; a narrowed `catch=obstore.exceptions.BaseError` letting a row-projection `KeyError`/`AttributeError` escape rather than convert at the `CLASSIFY` `Exception` seam; a per-operation `from_url` re-mint; a parallel `S3Lane`/`AsyncObjectStoreLane` family.
+- Boundary: object-store operation dispatch and its reach matrix only. Composes — never re-mints — the `reliability/resilience#RESILIENCE` `guarded`/`guarded_sync` envelopes and the `reliability/faults#FAULT` `BoundaryFault` those lift; mints no content key, quantity unit, hook point, or durable receipt. Rejected: a capability bound answered by a provider exception where a matrix row states it as data; a hand-opened `boundary` and span around a `guard`/`guard_sync` caller (the doubled-span/doubled-lift form `guarded`/`guarded_sync` fuse once); a sync leg dropping a retried row's `OBJECT_STORE` outer envelope to lean on the Rust-core `RetryConfig` where the async leg carries it; a `catch=Exception` funnel, or a narrowing to `obstore.exceptions.BaseError` alone that lets a row-projection `KeyError`/`AttributeError` escape rather than convert; a per-operation `from_url` re-mint; a parallel `S3Lane`/`AsyncObjectStoreLane` family.
 
 ```python signature
 import hashlib
@@ -58,7 +60,7 @@ from functools import cache
 from typing import TYPE_CHECKING, Any, Final, Literal, Never, Self, assert_never
 from urllib.parse import urlsplit
 
-from expression import Error, Nothing, Ok, Option, Result, case, tag, tagged_union
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 from pydantic import SecretStr
@@ -71,12 +73,28 @@ from anyio import CapacityLimiter
 from hishel import AsyncSqliteStorage, BaseFilter, CacheOptions, CachePolicy, FilterPolicy, Request, SpecificationPolicy
 from hishel.httpx import AsyncCacheTransport
 from obstore import Bytes
+from obstore.exceptions import BaseError
 from obstore.store import ObjectStore, from_url
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind
 from upath import UPath
 
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, async_boundary, boundary, scoped
+from rasm.runtime.faults import (
+    ROOTS_FETCH,
+    ROOTS_HTTP,
+    ROOTS_SCAN,
+    ROOTS_SSH,
+    ROOTS_STORE,
+    ROOTS_TRAVERSAL,
+    ROOTS_UNSUPPORTED,
+    Catch,
+    FaultRow,
+    RuntimeLeg,
+    RuntimeRail,
+    async_boundary,
+    boundary,
+    scoped,
+)
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.resilience import RetryClass, guarded, guarded_sync
 
@@ -357,8 +375,16 @@ _CACHE_STAMP: Final[str] = "hishel_created_at"
 
 
 class TransferPlan(Struct, frozen=True):
-    subject: str
+    # `at` is the rostered fence row this acquisition leg raises and retries through, so the span name, the retry
+    # keying, and the fault subject all derive from ONE declaration; the free `subject` string it replaces reached
+    # `guarded` as a raise coordinate no roster declared and spelled the span name a second time beside it.
+    at: FaultRow[RuntimeLeg]
     retry_class: RetryClass
+    # the DEPENDENCY this acquisition reaches, at the grain the `CIRCUIT`/`RATES` rows are written at: a residence
+    # root, an HTTP destination identity, an SSH channel identity — never the per-object path. `at` names WHICH CALL
+    # raised and this names WHICH PEER it reached, and the failure window keys on the second alone, so one origin's
+    # arc spans every leg dialing it and one leg's arc never fuses two origins.
+    origin: str
     whole: WholeFetch
     stream: StreamOpen
 
@@ -412,11 +438,11 @@ class HttpEndpoint(Struct, frozen=True):
 
     @property
     def key(self) -> str:
-        # destination grouping, cache class, and egress hop as ONE non-secret identity. `_grouped` is what makes the
+        # destination grouping, cache class, and egress hop as ONE non-secret identity. `origin` is what makes the
         # userinfo guard total: destination and proxy read the same projection, so the leak cannot hold on one and
         # lapse on the other. The posture joins so two declarations over one host pool distinctly instead of
         # colliding onto whichever landed first.
-        return f"{_grouped(self.url)}:{self.posture}:{self.egress}"
+        return f"{origin(self.url)}:{self.posture}:{self.egress}"
 
     @property
     def egress(self) -> str:
@@ -424,7 +450,7 @@ class HttpEndpoint(Struct, frozen=True):
         # rather than passed per request: two callers proxying one hop under different credentials must be two
         # transports, or the second rides the first's identity. The secret joins as the truncated one-way digest
         # `RemoteEndpoint.key` uses — a stable non-secret fingerprint — and direct egress names itself.
-        hop = Option.of_optional(self.proxy).map(_grouped).default_value("direct")
+        hop = Option.of_optional(self.proxy).map(origin).default_value("direct")
         secret = self.proxy_auth.map(lambda held: hashlib.sha256(held.get_secret_value().encode()).hexdigest()[:16]).default_value("-")
         return f"{hop}:{secret}"
 
@@ -455,7 +481,7 @@ class HttpEndpoint(Struct, frozen=True):
             if not relative
             else Ok(str(target))
             if inside
-            else Error(BoundaryFault(resource=(self.key, f"traversal:{relative}")))
+            else Error(ROOTS_TRAVERSAL.raised(self.key, relative))
         )
 
 
@@ -486,7 +512,7 @@ class RemoteEndpoint(Struct, frozen=True):
         # a refusal costs no dial — never a dialed-then-denied read.
         normalized = posixpath.normpath(relative)
         escaped = relative.startswith("/") or normalized == ".." or normalized.startswith("../")
-        return Error(BoundaryFault(resource=(self.key, f"traversal:{relative}"))) if escaped else Ok(posixpath.join(self.root, normalized))
+        return Error(ROOTS_TRAVERSAL.raised(self.key, relative)) if escaped else Ok(posixpath.join(self.root, normalized))
 
     async def dialed(self) -> asyncssh.SSHClientConnection:
         # one asyncssh dial serves the whole branch; every consumer registers the returned connection on its own lifetime owner.
@@ -614,9 +640,13 @@ class _StoreRow(Struct, frozen=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _grouped(url: str) -> str:
+def origin(url: str) -> str:
     # `scheme://host:port` off `hostname`/`port`, NEVER the raw `netloc`: netloc carries `user:password@` userinfo,
-    # which keys a pool by secret rather than by destination. Every url a key axis reads crosses THIS fold.
+    # which keys a pool by secret rather than by destination. Every url a key axis reads crosses THIS fold — the
+    # pool grouping and egress hop below, and every `reliability/resilience#RESILIENCE` `guarded(on=)` peer, whose
+    # `Dependency.instance` is written at exactly this grain. It is PUBLIC for that reason: a consumer keying an arc
+    # on a raw href splits one origin's window across every object it reads, so no arc reaches its trip; and a
+    # consumer keying one on a DSN publishes the password onto the `rasm.peer` span attribute. One fold forecloses both.
     parsed = urlsplit(url)
     return f"{parsed.scheme}://{parsed.hostname}:{parsed.port}" if parsed.port else f"{parsed.scheme}://{parsed.hostname}"
 
@@ -658,13 +688,13 @@ class Transfer:
         # whatever the consumer happens to hold — a fold, an index build, or nothing. The span therefore rides the
         # thunks as a value and attaches only on the WHOLE leg, whose frame runs straight through so the instrumented
         # origin call parents beneath it; `_Fenced` ends it for the STREAM leg at exhaustion or `aclose`.
-        span = _TRACER.start_span(f"transport.{plan.subject}", kind=SpanKind.CLIENT)
+        span = _TRACER.start_span(f"transport.{plan.at.point}", kind=SpanKind.CLIENT)
         match delivery:
             case Delivery.STREAM:
                 return Ok(_Fenced(plan.stream(span), span))
             case Delivery.WHOLE:
                 with trace.use_span(span, end_on_exit=True):
-                    return await guarded(plan.retry_class, lambda: plan.whole(span), subject=plan.subject)
+                    return await guarded(plan.retry_class, lambda: plan.whole(span), at=plan.at, on=Some(plan.origin))
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -704,8 +734,9 @@ def _scanned(ref: ResourceRef) -> TransferPlan:
     # that will actually borrow the limiter and a process reading only object stores publishes no always-zero level.
     _banded()
     return TransferPlan(
-        ref.owner,
+        ROOTS_SCAN,
         RetryClass.SCAN,
+        ref.root,
         lambda _span: anyio.to_thread.run_sync(ref.path.read_bytes, abandon_on_cancel=True, limiter=SCAN_BAND),
         lambda _span: _file_chunks(ref),
     )
@@ -874,6 +905,12 @@ _REFUSAL: Final[Map[tuple[Backend, str], StoreRefusal]] = Map.of_seq(
     ((row.backend, "sign"), StoreRefusal.SIGN_UNSUPPORTED) for row in STORE_BACKENDS if not row.signs
 )
 
+# the store plane's whole raise surface, NAMED rather than funnelled: `BaseError` roots every `obstore.exceptions`
+# leaf, and the two projection classes are the ones the row fold itself can raise — `_ROUTE[op.tag]` is a raw index
+# and `row.plan`/`row.sync` reach provider members by attribute. A bare `Exception` here is the banned funnel, while
+# `BaseError` ALONE lets a row-projection defect escape the rail as a raise no consumer of this surface can carry.
+_STORE_RAISES: Final[Catch] = (BaseError, KeyError, AttributeError)
+
 
 def store_path(op: StoreOp, target: str) -> str:
     # ONE path projection over the op axis: the outcome reads it and a gate building a pre-flight mutation fact
@@ -912,7 +949,7 @@ class ResourceRoot(Struct, frozen=True):
         return (
             Ok(ResourceRef(self.scheme, self.root, relative, self.owner, self.credentials))
             if resolved.is_relative_to(base.resolve())
-            else Error(BoundaryFault(resource=(self.owner, f"traversal:{relative}")))
+            else Error(ROOTS_TRAVERSAL.raised(self.owner, relative))
         )
 
     async def read(
@@ -952,8 +989,9 @@ class ResourceRoot(Struct, frozen=True):
             _scanned(ref)
             if store is None
             else TransferPlan(
-                ref.owner,
+                ROOTS_FETCH,
                 RetryClass.OBJECT_STORE,
+                ref.root,
                 lambda _span: _obj_body(store, ref.relative, options),
                 lambda _span: _obj_chunks(store, ref.relative, options),
             )
@@ -985,7 +1023,8 @@ class ObjectStoreLane(Struct, frozen=True):
         # capability bound as data: a cell this backend cannot serve answers its own reason ahead of every provider
         # call, so a `sign` against a local, memory, or http store never reaches the provider's `NotSupportedError`
         # and surfaces as an untyped boundary fault a caller cannot tell from a transport failure.
-        return _REFUSAL.try_find((self.backend, op.tag)).map(lambda refusal: Error(BoundaryFault(boundary=(f"store.{op.tag}", refusal)))).default_value(Ok(op))
+        refused = _REFUSAL.try_find((self.backend, op.tag))
+        return refused.map(lambda refusal: Error(ROOTS_UNSUPPORTED.raised(op.tag, refusal.value))).default_value(Ok(op))
 
     def run(self, op: StoreOp, path: str = "", *, gate: StoreGate = _ADMIT) -> RuntimeRail[StoreOutcome]:
         target = path or self.ref.relative
@@ -1017,9 +1056,9 @@ class ObjectStoreLane(Struct, frozen=True):
             case StoreAdmission(tag="dispatch", dispatch=op):
                 retry = _ROUTE[op.tag].retry
                 return (
-                    guarded_sync(retry, self._apply, op, target, subject=f"store.{op.tag}")
+                    guarded_sync(retry, self._apply, op, target, at=ROOTS_STORE, on=Some(self.ref.root))
                     if retry is not None
-                    else boundary(f"store.{op.tag}", lambda: self._apply(op, target))
+                    else boundary(ROOTS_STORE, lambda: self._apply(op, target), catch=_STORE_RAISES)
                 )
             case unreachable:
                 assert_never(unreachable)
@@ -1031,9 +1070,9 @@ class ObjectStoreLane(Struct, frozen=True):
             case StoreAdmission(tag="dispatch", dispatch=op):
                 retry = _ROUTE[op.tag].retry
                 return (
-                    await guarded(retry, self._apply_async, op, target, subject=f"store.{op.tag}")
+                    await guarded(retry, self._apply_async, op, target, at=ROOTS_STORE, on=Some(self.ref.root))
                     if retry is not None
-                    else await async_boundary(f"store.{op.tag}", lambda: self._apply_async(op, target))
+                    else await async_boundary(ROOTS_STORE, lambda: self._apply_async(op, target), catch=_STORE_RAISES)
                 )
             case unreachable:
                 assert_never(unreachable)
@@ -1073,8 +1112,9 @@ class TransportResource:
                 # receive only a url resolved under the endpoint's own root.
                 planned = endpoint.confined(relative).map(
                     lambda url: TransferPlan(
-                        "http",
+                        ROOTS_HTTP,
                         retry_class,
+                        endpoint.key,
                         lambda span: _http_body(client, url, auth, carry, span),
                         lambda span: _http_chunks(client, url, auth, carry, span),
                     )
@@ -1083,7 +1123,11 @@ class TransportResource:
                 # `confined` gates before any dial: the SFTP legs receive only the root-joined validated path.
                 planned = endpoint.confined(relative).map(
                     lambda confined: TransferPlan(
-                        "ssh", retry_class, lambda _span: _sftp_read(endpoint, confined), lambda _span: _sftp_chunks(endpoint, confined)
+                        ROOTS_SSH,
+                        retry_class,
+                        endpoint.key,
+                        lambda _span: _sftp_read(endpoint, confined),
+                        lambda _span: _sftp_chunks(endpoint, confined),
                     )
                 )
             case _ as unreachable:

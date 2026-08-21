@@ -57,23 +57,49 @@ declare namespace Grant {
   type Status<Name extends PermissionName> = Omit<PermissionStatus, "name"> & { readonly name: Name }
 }
 
+// Two legs partition the fix: the platform's permission verdict and the fix attempt itself. Each row states an
+// EMPTY subject because the platform's own position error carries a code and nothing else a reader can act on, so
+// the reason IS the whole fact and a free string here would only restate it.
 const _positionFamily = Fault.Class.family(
   ["denied", "unavailable", "timeout"] as const,
   {
-    denied: { class: "denied" },
-    unavailable: { class: "unavailable" },
-    timeout: { class: "expired" },
+    denied: Fault.Class.row({
+      class: "denied",
+      leg: "grant",
+      detail: Schema.Struct({}),
+      render: () => "location access denied",
+    }),
+    unavailable: Fault.Class.row({
+      class: "unavailable",
+      leg: "fix",
+      detail: Schema.Struct({}),
+      render: () => "no position fix is available",
+    }),
+    timeout: Fault.Class.row({
+      class: "expired",
+      leg: "fix",
+      detail: Schema.Struct({}),
+      render: () => "position fix did not arrive inside its window",
+    }),
   },
 )
 
+declare namespace PositionFault {
+  type Case = typeof _positionFamily.payload.Type
+  type Reason = (typeof _positionFamily.kinds)[number]
+}
+
 class PositionFault extends Schema.TaggedError<PositionFault>()("PositionFault", {
-  reason: _positionFamily.schema,
+  case: _positionFamily.payload,
 }) {
   get class(): Fault.Class.Kind {
-    return _positionFamily.classOf(this.reason)
+    return _positionFamily.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _positionFamily.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<position:${this.reason}>`
+    return _positionFamily.render(this.case)
   }
 }
 
@@ -426,27 +452,63 @@ import { tableFromIPC, type RecordBatch, type Table } from "apache-arrow"
 import { Array, Cache, Data, type Duration, Effect, Match, pipe, type Schedule, Schema } from "effect"
 import type { FeatureCollection } from "geojson"
 
+// Four legs partition the plane and each reason renders its OWN subject: a decode refusal names its cause, a
+// projection refusal names the SRID the row table holds no entry for, a style refusal names WHICH slot kind the
+// live style lacks beside the coordinate that named it, and a transport refusal names its cause. One free
+// `detail` string spelled all four as bracketed prose a reader had to parse back into a coordinate.
+const _slots = ["layer", "source", "sprite"] as const
+
 const _geoFamily = Fault.Class.family(
   ["frame-refused", "crs-unresolved", "style-unbound", "tile-unreachable"] as const,
   {
-    "frame-refused": { class: "malformed" }, // arrived and would not decode: caller-blamed, quarantined, never re-driven
-    "crs-unresolved": { class: "absent" },
+    // arrived and would not decode: caller-blamed, quarantined, never re-driven
+    "frame-refused": Fault.Class.row({
+      class: "malformed",
+      leg: "decode",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `frame would not decode: ${cause}`,
+    }),
+    "crs-unresolved": Fault.Class.row({
+      class: "absent",
+      leg: "projection",
+      detail: Schema.Struct({ srid: Schema.Int }),
+      render: ({ srid }) => `srid ${srid} resolves to no registered crs row`,
+    }),
     // a source, layer, or glyph the live style never declared: the write names a coordinate the style has no slot
     // for, so a retry against the same style answers identically and the refusal is the operator's evidence
-    "style-unbound": { class: "absent" },
-    "tile-unreachable": { class: "unavailable" }, // never arrived: system-blamed and retryable, so the lookup's Schedule re-drives it off the class column
+    "style-unbound": Fault.Class.row({
+      class: "absent",
+      leg: "style",
+      detail: Schema.Struct({ slot: Schema.Literal(..._slots), id: Schema.String, cause: Schema.String }),
+      render: ({ cause, id, slot }) => `style ${slot} ${id}: ${cause}`,
+    }),
+    // never arrived: system-blamed and retryable, so the lookup's Schedule re-drives it off the class column
+    "tile-unreachable": Fault.Class.row({
+      class: "unavailable",
+      leg: "transport",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `payload never arrived: ${cause}`,
+    }),
   },
 )
 
+declare namespace GeoFault {
+  type Case = typeof _geoFamily.payload.Type
+  type Reason = (typeof _geoFamily.kinds)[number]
+  type Slot = (typeof _slots)[number]
+}
+
 class GeoFault extends Schema.TaggedError<GeoFault>()("GeoFault", {
-  reason: _geoFamily.schema,
-  detail: Schema.String,
+  case: _geoFamily.payload,
 }) {
   get class(): Fault.Class.Kind {
-    return _geoFamily.classOf(this.reason)
+    return _geoFamily.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _geoFamily.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<geo:${this.reason}> ${this.detail}`
+    return _geoFamily.render(this.case)
   }
 }
 
@@ -455,7 +517,7 @@ type _EarcutPool = Awaited<ReturnType<typeof initEarcutPool>>
 const _decoded = (frame: Uint8Array): Effect.Effect<Table, GeoFault> =>
   Effect.try({
     try: () => tableFromIPC(frame),
-    catch: (defect) => new GeoFault({ reason: "frame-refused", detail: String(defect) }),
+    catch: (defect) => new GeoFault({ case: { reason: "frame-refused", cause: String(defect) } }),
   })
 
 const _POINT = { radius: 4, units: "pixels" } as const
@@ -493,7 +555,7 @@ const _tileCache = (
     lookup: (tile: Wire.GeoFeature.Tile) =>
       Effect.tryPromise({
         try: (signal) => fetched(tile, signal),
-        catch: (defect) => new GeoFault({ reason: "tile-unreachable", detail: String(defect) }), // the fetch leg is transport truth: retryable and system-blamed, so the schedule re-drives it
+        catch: (defect) => new GeoFault({ case: { reason: "tile-unreachable", cause: String(defect) } }), // the fetch leg is transport truth: retryable and system-blamed, so the schedule re-drives it
       }).pipe(Effect.retry(policy.retry)),
   })
 
@@ -624,8 +686,8 @@ type _ArrowEgress = Awaited<ReturnType<typeof LASArrowLoader.parse>>
 // the loaders.gl fetch failure is transport (retryable, system-blamed), every other defect is payload (quarantined)
 const _scanFault: (defect: unknown) => GeoFault = pipe(
   Match.type<unknown>(),
-  Match.when(Match.instanceOf(FetchError), (fault) => new GeoFault({ reason: "tile-unreachable", detail: fault.message })),
-  Match.orElse((defect) => new GeoFault({ reason: "frame-refused", detail: String(defect) })),
+  Match.when(Match.instanceOf(FetchError), (fault) => new GeoFault({ case: { reason: "tile-unreachable", cause: fault.message } })),
+  Match.orElse((defect) => new GeoFault({ case: { reason: "frame-refused", cause: String(defect) } })),
 )
 
 const _scanned = (href: string): Effect.Effect<Table, GeoFault> =>
@@ -834,7 +896,7 @@ const _measured = (geojson: Feature | FeatureCollection): { readonly area: numbe
 // re-projecting inside a layer accessor would re-run this crossing per feature per draw
 const _admitted = <T extends AllGeoJSON>(geojson: T, srid: number): Effect.Effect<T, GeoFault> =>
   Option.match(Wire.GeoFeature.Crs.of(srid), {
-    onNone: () => Effect.fail(new GeoFault({ reason: "crs-unresolved", detail: `<srid:${srid}>` })),
+    onNone: () => Effect.fail(new GeoFault({ case: { reason: "crs-unresolved", srid } })),
     onSome: (crs) => Effect.succeed(crs.kind === "projected" ? toWgs84(geojson) : geojson),
   })
 
@@ -931,7 +993,7 @@ declare namespace Style {
 // so the coordinate is proven here or the family carries the refusal — nothing downstream can observe the silence
 const _bound = (surface: Geo.Surface, layerId: string): Effect.Effect<void, GeoFault> =>
   surface.map.getLayer(layerId) === undefined
-    ? Effect.fail(new GeoFault({ reason: "style-unbound", detail: `<layer:${layerId}>` }))
+    ? Effect.fail(new GeoFault({ case: { reason: "style-unbound", slot: "layer", id: layerId, cause: "the live style declares no such layer" } }))
     : Effect.void
 
 const _style: Style.Shape = {
@@ -952,11 +1014,11 @@ const _style: Style.Shape = {
     // the undeclared source is the one refusal this sink can raise: `getSource` answers undefined and there is no
     // promise to await, so the miss lifts here rather than resolving into a write the style silently dropped
     Option.match(Option.fromNullable(surface.map.getSource<GeoJSONSource>(sourceId)), {
-      onNone: () => Effect.fail(new GeoFault({ reason: "style-unbound", detail: `<source:${sourceId}>` })),
+      onNone: () => Effect.fail(new GeoFault({ case: { reason: "style-unbound", slot: "source", id: sourceId, cause: "the live style declares no such source" } })),
       onSome: (source) =>
         Effect.tryPromise({
           try: () => source.setData(payload),
-          catch: (defect) => new GeoFault({ reason: "frame-refused", detail: String(defect) }),
+          catch: (defect) => new GeoFault({ case: { reason: "frame-refused", cause: String(defect) } }),
         }),
     }),
 }
@@ -1040,7 +1102,7 @@ const _glyph = (surface: Geo.Surface, row: Glyph.Row): Effect.Effect<void, GeoFa
             Effect.tryPromise({
               try: () => surface.map.loadImage(href),
               // an unfetchable glyph is transport truth, so the class column lets a schedule re-drive it
-              catch: (defect) => new GeoFault({ reason: "tile-unreachable", detail: String(defect) }),
+              catch: (defect) => new GeoFault({ case: { reason: "tile-unreachable", cause: String(defect) } }),
             }),
             (response) =>
               Effect.sync(() =>
@@ -1054,7 +1116,7 @@ const _glyph = (surface: Geo.Surface, row: Glyph.Row): Effect.Effect<void, GeoFa
           if (Array.some(surface.map.getSprite(), (sheet) => sheet.id === id)) return
           surface.map.addSprite(id, href)
         },
-        catch: (defect) => new GeoFault({ reason: "style-unbound", detail: `<sprite:${id}> ${String(defect)}` }),
+        catch: (defect) => new GeoFault({ case: { reason: "style-unbound", slot: "sprite", id, cause: String(defect) } }),
       }),
     // one call registers it: the host routes a GPU-backed image straight through its own update rail
     Drawn: (drawn) =>

@@ -2,7 +2,7 @@
 
 `Geodesics` owns the on-mesh distance-and-tangent-transport suite over `MeshSpace`: every solver runs against the shared `LaplacianCache`, so repeated sampling of one distance, curvature, wavefront, or transport field pays a single solve. `fields` `ScalarField`/`VectorField` case names delegate their bodies here as frozen contract, and every linear system rides the `matrix` owners this page never re-derives.
 
-Every linear solve rides the `matrix` owners — `CholeskySparse` factors and `SparseMatrix.SingularSolve` under the pinned min-zero gauge — while the heat scaffold composes the `dec` source-delta, gradient, and divergence operators as settled. Memoization rides `LaplacianCache`'s type-keyed `Memoized` entry over the frozen `IntrinsicMesh` snapshot and the scalar-heat and connection Cholesky factors; `FrameBundle` and `MeshProbe` are the one tangent-frame and closest-face owners shared with the sibling shape page.
+Every linear solve rides the `matrix` owners — `CholeskySparse.SolveDetailed` factors and `SparseMatrix.SingularSolveDetailed` under the pinned min-zero gauge, each `SolveReceipt` READ rather than projected away — while the heat scaffold composes the `dec` source-delta, gradient, and divergence operators as settled. Memoization rides `LaplacianCache`'s type-keyed `Memoized` entry over the frozen `IntrinsicMesh` snapshot and the scalar-heat and connection Cholesky factors; `FrameBundle` and `MeshProbe` are the one tangent-frame and closest-face owners shared with the sibling shape page.
 
 ## [01]-[INDEX]
 
@@ -12,11 +12,12 @@ Every linear solve rides the `matrix` owners — `CholeskySparse` factors and `S
 
 ## [02]-[HEAT_DISTANCE]
 
-- Owner: `GeodesicKey`/`McfKey` cache probes (value identity = memo identity: ordered-distinct sources, time-step + iteration count); `FrameBundle` the page-owned per-mesh vertex tangent frames (weak-keyed by mesh reference identity — the ONE tangent encode/decode owner this page and the sibling shape page share); `MeshProbe` the shared closest-face sampling substrate (`ClosestFace`, scalar/vector/complex barycentric interpolation, the scale-derived search distance `max(tolerance, mean edge)`); the `GeodesicKernel` heat-distance arms.
+- Owner: `GeodesicKey`/`McfKey` cache probes (value identity = memo identity: ordered-distinct sources, time-step + iteration count); `FrameBundleKey` the frame memo probe seating the per-vertex tangent frames on the snapshot cache — the ONE tangent encode/decode owner this page and the sibling shape page share, refusing typed at a vertex whose normal never seated; `MeshProbe` the shared closest-face sampling substrate (`ClosestFace`, scalar/vector/complex barycentric interpolation, the scale-derived search distance `max(tolerance, mean edge)`); the `GeodesicKernel` heat-distance arms.
 - Entry: `GeodesicKernel.HeatGeodesicAt(space, sources, sample, key)` → `Fin<double>`; `GeodesicKernel.GeodesicTangentAt(space, sources, sample, key)` → `Fin<Vector3d>`; `GeodesicKernel.MeanCurvatureMagnitudeAt(space, timeStep, iterations, sample, key)` → `Fin<double>` — all reached through the frozen `ScalarField.Geodesic`/`MeanCurvatureFlow` and `VectorField.GeodesicTangent` case delegations and `VectorIntent`; sources are deduplicated and ordered before probing the cache so permuted source sets hit one memo.
 - Auto: heat pipeline guards the intrinsic snapshot un-flipped (heat distance on a flipped IDT is `Unsupported`, never silently extrinsic), selects the `MeshLaplacian.IntrinsicDelaunay` Laplacian, seats the Crane time `t = h²` off the cached mean edge length, solves `(M+tL)u = δ` through the cached scalar-heat Cholesky, normalizes the per-face gradient field, scatters the cotan vertex divergence, and closes with the pinned singular Poisson solve (`GaugePolicy.Pinned(sources, mass, GaugeShift.MinZero)`) shifted so the minimum is zero at the sources — distances are nonnegative by construction. MCF factors `(M + tL)` ONCE and backward-Euler iterates the three coordinate axes as mass-weighted solves (`TraverseM` over axes), returning per-vertex displacement magnitudes. Geodesic-tangent sampling reads the per-face gradient of the cached distance field at the closest face, rejecting degenerate faces.
 - Receipt: the distance/displacement fields are cached `Arr<double>` per-vertex carriers; failure evidence routes the `Op` rail (`InvalidInput` for empty/out-of-range sources or non-positive time, `InvalidResult` for degenerate scale, `Unsupported` for flipped intrinsic snapshots).
-- Boundary: the `dec` scaffold (`BuildSourceDelta`/`ComputeTriangleGradients`/`ComputeVertexDivergence`) composes as settled; `MeshProbe` is the one closest-face interpolation owner the sibling shape page composes; the heat time is scale-derived (`h²`), since transport spread is vector heat's semantic and distance carries none.
+- Law: every sparse solve READS its `SolveReceipt` through the one `Solved` gate — `IsValid` folds the stop's usability — so an unusable factorization refuses typed instead of caching a divergent field as a distance.
+- Boundary: the `dec` scaffold (`SourceDelta`/`FaceGradients`/`Divergence`) composes as settled; `MeshProbe` is the one closest-face interpolation owner the sibling shape page composes; the heat time is scale-derived (`h²`), since transport spread is vector heat's semantic and distance carries none.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -24,7 +25,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using System.Runtime.CompilerServices;
+using System.Numerics.Tensors;
 using System.Runtime.InteropServices;
 using LanguageExt;
 using Rasm.Domain;
@@ -43,12 +44,19 @@ using Dimension = Rasm.Numerics.Dimension;
 namespace Rasm.Processing;
 
 // --- [MODELS] -------------------------------------------------------------------------------
-// Per-mesh vertex tangent frames: angle-consistent (X, Y, N) triads under the weak-identity law the LaplacianCache rides (ConditionalWeakTable keyed by Mesh
-// reference); vector heat, cross fields, and stripe decoding all encode/decode tangent complexes through this one bundle.
-internal sealed record FrameBundle(Vector3d[] X, Vector3d[] Y, Vector3d[] N) {
-    private static readonly ConditionalWeakTable<Mesh, FrameBundle> Table = new();
-    internal static FrameBundle For(Mesh mesh) => Table.GetValue(key: mesh, createValueCallback: static m => Compute(mesh: m));
-    internal Complex Tangent(Vector3d direction, int vertex) => new(real: direction * X[vertex], imaginary: direction * Y[vertex]);
+// Frame identity IS snapshot identity, so the bundle rides the cache's one type-keyed memo beside every other
+// per-snapshot derivation; a weak-keyed table beside it keys one derivation under a second invalidation regime.
+[StructLayout(LayoutKind.Auto)] internal readonly record struct FrameBundleKey();
+
+internal sealed record FrameBundle(Vector3d[] X, Vector3d[] Y, Vector3d[] N, bool[] Seated, int DegenerateVertexCount) {
+    internal static Fin<FrameBundle> Of(MeshSpace space, Op key) =>
+        space.Cache.Memoized(probe: new FrameBundleKey(), compute: () => Fin.Succ(Compute(mesh: space.Native)));
+    // An unseated vertex carries NO tangent basis: the encode answers None rather than a world-Z frame whose every
+    // downstream direction is silently wrong with no evidence anywhere.
+    internal Option<Complex> Tangent(Vector3d direction, int vertex) =>
+        vertex >= 0 && vertex < Seated.Length && Seated[vertex]
+            ? Some(new Complex(real: direction * X[vertex], imaginary: direction * Y[vertex]))
+            : Option<Complex>.None;
     private static FrameBundle Compute(Mesh mesh) {
         int n = mesh.Vertices.Count;
         using Mesh active = mesh.DuplicateMesh();
@@ -56,15 +64,16 @@ internal sealed record FrameBundle(Vector3d[] X, Vector3d[] Y, Vector3d[] N) {
         _ = active.FaceNormals.ComputeFaceNormals();
         _ = active.Normals.ComputeNormals();
         Vector3d[] normals = new Vector3d[n]; Vector3d[] xAxes = new Vector3d[n]; Vector3d[] yAxes = new Vector3d[n];
+        bool[] seated = new bool[n]; int degenerate = 0;
         for (int v = 0; v < n; v++) {
             Vector3d normal = v < active.Normals.Count ? (Vector3d)active.Normals[index: v] : Vector3d.ZAxis;
-            if (!normal.IsValid || normal.IsTiny() || !normal.Unitize()) normal = Vector3d.ZAxis;
-            normals[v] = normal;
-            Vector3d tx = VectorFrame.SeedPerpendicular(axis: normal);
-            _ = tx.Unitize();
-            xAxes[v] = tx; yAxes[v] = Vector3d.CrossProduct(a: normal, b: tx);
+            Vector3d tx = normal.IsValid && !normal.IsTiny() && normal.Unitize() ? VectorFrame.SeedPerpendicular(axis: normal) : Vector3d.Zero;
+            seated[v] = tx.IsValid && !tx.IsTiny() && tx.Unitize();
+            // The unseated slot still carries a basis so index reads stay total; Seated is what every encode gates on.
+            if (!seated[v]) { degenerate++; normal = Vector3d.ZAxis; tx = Vector3d.XAxis; }
+            normals[v] = normal; xAxes[v] = tx; yAxes[v] = Vector3d.CrossProduct(a: normal, b: tx);
         }
-        return new FrameBundle(X: xAxes, Y: yAxes, N: normals);
+        return new FrameBundle(X: xAxes, Y: yAxes, N: normals, Seated: seated, DegenerateVertexCount: degenerate);
     }
 }
 
@@ -72,8 +81,6 @@ internal sealed record FrameBundle(Vector3d[] X, Vector3d[] Y, Vector3d[] N) {
 internal readonly record struct GeodesicKey(Seq<int> Sources);
 [StructLayout(LayoutKind.Auto)] internal readonly record struct McfKey(double TimeStep, int Iterations);
 
-// One closest-face barycentric sampling substrate: every per-vertex solver field (scalar, vector, complex tangent
-// encoding) leaves through these projections; the search distance is scale-derived.
 internal static class MeshProbe {
     internal static double SearchDistance(MeshSpace space) =>
         Math.Max(val1: space.Tolerance.Absolute.Value, val2: space.Cache.MeanEdgeLength);
@@ -88,11 +95,10 @@ internal static class MeshProbe {
     internal static Fin<Vector3d> VectorOn(MeshSpace space, Point3d sample, Arr<Vector3d> perVertex, Op key) =>
         ClosestFace(space: space, sample: sample, key: key, project: (_, face, weights, _) => key.AcceptValue(value: BarycentricVector(face: face, weights: weights, at: vertex => perVertex[index: vertex])));
     // Complex tangent fields decode per-vertex through the frame bundle before blending.
-    internal static Fin<Vector3d> ComplexBlend(MeshSpace space, Point3d sample, Complex[] perVertex, Op key, Func<Complex, Vector3d, Vector3d, Vector3d> decode) {
-        FrameBundle frames = FrameBundle.For(space.Native);
-        return ClosestFace(space: space, sample: sample, key: key, project: (_, face, weights, _) => key.AcceptValue(value:
-            BarycentricVector(face: face, weights: weights, at: vertex => decode(perVertex[vertex], frames.X[vertex], frames.Y[vertex]))));
-    }
+    internal static Fin<Vector3d> ComplexBlend(MeshSpace space, Point3d sample, Complex[] perVertex, Op key, Func<Complex, Vector3d, Vector3d, Vector3d> decode) =>
+        FrameBundle.Of(space: space, key: key).Bind(frames =>
+            ClosestFace(space: space, sample: sample, key: key, project: (_, face, weights, _) => key.AcceptValue(value:
+                BarycentricVector(face: face, weights: weights, at: vertex => decode(perVertex[vertex], frames.X[vertex], frames.Y[vertex])))));
     internal static double FaceValue(MeshFace face, double[] weights, Arr<double> perVertex) {
         double value = (weights[0] * perVertex[index: face.A]) + (weights[1] * perVertex[index: face.B]) + (weights[2] * perVertex[index: face.C]);
         return face.IsQuad ? value + (weights[3] * perVertex[index: face.D]) : value;
@@ -102,6 +108,11 @@ internal static class MeshProbe {
 }
 
 internal static partial class GeodesicKernel {
+    // The sparse rail's receipt is READ, never projected away: SolveReceipt.IsValid folds the stop's usability, so an
+    // unusable factorization refuses here instead of scattering a divergent field into a cached distance column.
+    internal static Fin<Arr<double>> Solved(Fin<SolveReceipt> solve, Op key) =>
+        solve.Bind(receipt => receipt.IsValid ? Fin.Succ(receipt.Solution) : Fin.Fail<Arr<double>>(key.InvalidResult()));
+
     // --- [HEAT_METHOD]
     internal static Fin<double> HeatGeodesicAt(MeshSpace space, Seq<int> sources, Point3d sample, Op key) =>
         from distances in EnsureGeodesicDistances(space: space, sources: sources, key: key)
@@ -109,7 +120,7 @@ internal static partial class GeodesicKernel {
         select value;
     internal static Fin<Vector3d> GeodesicTangentAt(MeshSpace space, Seq<int> sources, Point3d sample, Op key) =>
         from distances in EnsureGeodesicDistances(space: space, sources: sources, key: key)
-        from tangent in Fin.Succ(DecAssembly.ComputeTriangleGradients(mesh: space.Native, u: distances))
+        from tangent in Fin.Succ(DecAssembly.FaceGradients(mesh: space.Native, u: distances))
         from value in MeshProbe.ClosestFace(space: space, sample: sample, key: key, project: (mesh, face, _, faceIndex) => {
             if (!face.IsTriangle) return Fin.Fail<Vector3d>(error: key.InvalidResult());
             double twoArea = Vector3d.CrossProduct(a: mesh.Vertices[index: face.B] - mesh.Vertices[index: face.A], b: mesh.Vertices[index: face.C] - mesh.Vertices[index: face.A]).Length;
@@ -123,7 +134,7 @@ internal static partial class GeodesicKernel {
             ? Fin.Fail<Arr<double>>(key.InvalidInput())
             : space.Cache.Memoized(probe: new GeodesicKey(Sources: ordered),
                 compute: () => from imesh in space.Cache.IntrinsicMeshSnapshot(key: key)
-                               from _ in guard(!imesh.HasFlips, key.Unsupported(geometryType: typeof(IntrinsicMesh), outputType: typeof(Arr<double>)))
+                               from _ in guard(!imesh.HasFlips, key.Unsupported(inputType: typeof(IntrinsicMesh), outputType: typeof(Arr<double>)))
                                from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
                                from distances in ComputeHeatGeodesic(space: space, laplacian: laplacian, sources: ordered, key: key)
                                select distances);
@@ -135,12 +146,12 @@ internal static partial class GeodesicKernel {
         if (h <= EpsilonPolicy.ZeroTolerance) return Fin.Fail<Arr<double>>(key.InvalidResult());
         double t = h * h;
         return from heatFactor in space.Cache.ScalarHeatCholesky(time: t, key: key)
-               from delta in Fin.Succ(DecAssembly.BuildSourceDelta(n: n, sources: sources, mass: laplacian.MassLumped))
-               from u in heatFactor.Solve(rhs: delta, key: key)
-               from gradient in Fin.Succ(DecAssembly.ComputeTriangleGradients(mesh: space.Native, u: u))
-               from divergence in Fin.Succ(DecAssembly.ComputeVertexDivergence(mesh: space.Native, gradients: gradient))
+               from delta in Fin.Succ(DecAssembly.SourceDelta(n: n, sources: sources, mass: laplacian.MassLumped))
+               from u in Solved(heatFactor.SolveDetailed(rhs: delta, key: key), key: key)
+               from gradient in Fin.Succ(DecAssembly.FaceGradients(mesh: space.Native, u: u))
+               from divergence in Fin.Succ(DecAssembly.Divergence(mesh: space.Native, gradients: gradient))
                // GaugeShift.MinZero owns the nonnegativity shift inside the singular solve.
-               from phi in laplacian.Stiffness.SingularSolve(rhs: divergence, gauge: GaugePolicy.Pinned(indices: sources, mass: Some(laplacian.MassLumped), shift: GaugeShift.MinZero), context: space.Tolerance, key: key)
+               from phi in Solved(laplacian.Stiffness.SingularSolveDetailed(rhs: divergence, gauge: GaugePolicy.Pinned(indices: sources, mass: Some(laplacian.MassLumped), shift: GaugeShift.MinZero), context: space.Tolerance, key: key), key: key)
                select phi;
     }
 
@@ -160,17 +171,18 @@ internal static partial class GeodesicKernel {
                                        from factor in CholeskySparse.Of(symmetric: system, key: key)
                                        from final in IterateMcf(space: space, mass: laplacian.MassLumped, system: factor, iterations: iterations, key: key)
                                        select ComputeDisplacements(original: space.Native, smoothed: final)));
-    // Backward-Euler axes: one SPD factor, per-round mass-weighted RHS solves over x/y/z via TraverseM.
     private static Fin<double[][]> IterateMcf(MeshSpace space, Arr<double> mass, CholeskySparse system, int iterations, Op key) {
         int n = space.Native.Vertices.Count;
         double[][] coordinates = [new double[n], new double[n], new double[n]];
         for (int i = 0; i < n; i++) { Point3d v = space.Native.Vertices[index: i]; coordinates[0][i] = v.X; coordinates[1][i] = v.Y; coordinates[2][i] = v.Z; }
+        // One contiguous mass plane materializes ONCE for the vectorized leg; Arr publishes no span of its own.
+        double[] weights = [.. mass.AsIterable()];
         return toSeq(Enumerable.Range(start: 0, count: iterations)).Fold(
             Fin.Succ(coordinates),
             (state, _) => state.Bind(current => {
                 double[][] rhs = [new double[n], new double[n], new double[n]];
-                for (int i = 0; i < n; i++) { double m = mass[index: i]; rhs[0][i] = m * current[0][i]; rhs[1][i] = m * current[1][i]; rhs[2][i] = m * current[2][i]; }
-                return toSeq(rhs).TraverseM(axis => system.Solve(rhs: new Arr<double>(axis), key: key).Map(solution => solution.AsIterable().ToArray())).As().Map(axes => axes.AsIterable().ToArray());
+                for (int axis = 0; axis < rhs.Length; axis++) TensorPrimitives.Multiply<double>(weights, current[axis], rhs[axis]);
+                return toSeq(rhs).TraverseM(axis => Solved(system.SolveDetailed(rhs: new Arr<double>(axis), key: key), key: key).Map(solution => solution.AsIterable().ToArray())).As().Map(axes => axes.AsIterable().ToArray());
             }));
     }
     private static Arr<double> ComputeDisplacements(Mesh original, double[][] smoothed) {
@@ -187,11 +199,12 @@ internal static partial class GeodesicKernel {
 
 ## [03]-[EXACT_GEODESICS]
 
-- Owner: `GeodesicStopKind` (LengthReached/BoundaryHit/IterationCap) terminal vocabulary; `GeodesicTracePolicy` (trace-length factor, step cap, vertex-snap band) and `WindowPropagationPolicy` (windows-per-edge budget, backtrace hop cap, saddle cone-angle threshold, cut-locus reporting) with `Default` presets; `GeodesicWindow` the pure-scalar MMP window (`[b0,b1]` covered sub-interval, endpoint pseudosource distances, accumulated `sigma`, pseudosource id); `WindowField` the converged wavefront carrier with clamp/pseudosource/cut-locus census; `WindowFieldKey` the (source, policy) memo probe — one converged wavefront per source per mesh snapshot; `GeodesicWalkMode` (Straightest/EdgeOverlay) and `ExpTrace`/`BvpTrace` tracer state; the `GeodesicKernel` propagation and walk arms.
-- Cases: stop kinds (3); walk modes (2); tracer entries — IVP exp seat · BVP log replay · overlay edge-trace — three seats over ONE `WalkChart` loop.
-- Entry: `GeodesicKernel.PropagateWindows(imesh, source, policy)` → `WindowPropagation` (the converged field + MMP-exact vertex distances; the log-map consumer memoizes it per `WindowFieldKey` so repeated sampling of one source pays one wavefront); `GeodesicKernel.TraceStraightestGeodesic(imesh, mesh, frames, source, startFace, worldDir, traceLength, policy)` → `ExpTrace`; `GeodesicKernel.BacktraceGeodesicToSource(imesh, mesh, frames, field, targetDistance, source, targetFace, targetWeights, policy)` → `Option<BvpTrace>` — internal arms surfaced through the [04] log/exp map results; the `mesh` common-subdivision overlay seats the same `WalkChart` in `EdgeOverlay` mode, so ONE unfold kernel serves distance, log, exp, and overlay.
-- Auto: wavefront propagation seeds every source-incident face's opposite edge (pseudosource projected to `(sx, sy≤0)` from endpoint distances), advances a `PriorityQueue` min-frontier keyed on `sigma + min(d0,d1)`, unfolds each popped window across its edge (apex laid flat by the law of cosines), updates the apex distance only inside the window's angular shadow (`WithinShadow` — the SAME predicate the BVP backtrace later uses for owning-window selection, so forward and backward provably agree), casts children onto the two far edges with the occlusion clamp `sy = −sqrt(max(0, d0²−sx²))` counted into the receipt (the classic MMP saddle-overestimation fix), re-emits saddle pseudosources at interior vertices whose cone angle strictly exceeds the threshold, bounds the pop budget by `4·maxPerEdge·edgeCount`, closes stranded vertices with ONE Jacobi (snapshot-relaxed, order-independent) edge sweep — vertices still unreached keep `+∞`, the honest unreachable encoding that fails downstream interpolation rather than reading as on-source — and reports a cut-locus census on request. Window admission drops children wholly dominated by a cheaper covering window and evicts the farthest window at the per-edge budget. Tracing lays the start face flat (`va` at origin, `vb` on +x), shoots the seat-angle ray, exits faces by segment-ray intersection, unfolds the neighbor sharing the crossed edge's 2D placement (mirror-side sign load-bearing), snaps grazing exits inside `VertexSnap·edgeLength` into vertex passes continued by the half-cone bisector split (`theta_l = theta_r = theta/2`, the fan chained geometrically via `FaceAcrossEdge` — enumeration order is never rotation order), and terminates on length/boundary/vertex/cap. BVP backtrace recovers boundary conditions from the converged field — owning window at the target (the EXACT pseudosource-chart distance `σ + |(bary,0)−(sx,sy)|`, never an endpoint interpolation), saddle chain walked monotone toward the source with the confirmed first leg replayed through strip development (a chain pseudosource is a seeded saddle by construction, so no cone re-derivation) — then inverse-seats the source-outgoing chart angle to world and replays through `WalkChart`, so `TracedLength` is an INDEPENDENT chart-geometry distance witnessed against the field distance, never the input echoed back; a bent geodesic returns the confirmed first leg's direction scaled by the target's field-exact distance (`|log| = d(p,q)`).
-- Boundary: saddle threshold is a cone-angle gate seated at `2π` (`PositiveMagnitude`, unbounded above — a hyperbolic cone point carries total angle above `2π`) compared strictly `>`, so flat and convex vertices never seed pseudosources. Unfold, cast, walk, and strip loops are the named statement-kernel exemption — pure-scalar hot loops over the intrinsic geometry detached at the `IntrinsicMesh` freeze boundary, admitted through `Fin` at every entry. Unconfirmed bent paths keep the honest `IterationCap` terminal with the MMP-exact distance recorded. Budgets and snap bands are policy rows. Boundary exits report `BoundaryHit`; a barrier stop reads the `GeodesicTracePolicy.Barrier` feature-edge set at the walk's exit test and terminates `BarrierHit` with the consumed arc recorded — barrier semantics are edge-crossing alone, so a vertex-snap continuation never tunnels custody the edge set does not spell.
+- Owner: `GeodesicStopKind` (LengthReached/BoundaryHit/IterationCap/BarrierHit/StopVertex/DegenerateChart/AtSource) terminal vocabulary — `StopVertex` ABSORBS the tracer's stop-arrival flag, so a walk's terminal and its confirmation are one row rather than a row plus a bool the BVP had to read in pairs; `GeodesicTracePolicy` (trace-length factor, step cap, vertex-snap band) and `WindowPropagationPolicy` (windows-per-edge budget, backtrace hop cap, saddle cone-angle threshold, cut-locus reporting) with `Default` presets; `GeodesicWindow` the pure-scalar MMP window (`[b0,b1]` covered sub-interval, endpoint pseudosource distances, accumulated `sigma`, pseudosource id); `WindowField` the converged wavefront carrier over a CSR edge partition, with clamp/pseudosource/cut-locus/drop and pop-budget census; `WindowFieldKey` the (source, policy) memo probe — one converged wavefront per source per mesh snapshot; `GeodesicWalkMode` (Straightest/EdgeOverlay) and `ExpTrace`/`BvpTrace` tracer state; the `GeodesicKernel` propagation and walk arms.
+- Cases: stop kinds (5); walk modes (2); tracer entries — IVP exp seat · BVP log replay · overlay edge-trace — three seats over ONE `WalkChart` loop.
+- Exemption: the MMP frontier is a BCL `PriorityQueue` with its refused operator named in-fence — an event stream of minted, clipped, and evicted windows is not a relaxation over a static container, and QuikGraph carries no event queue. `GeodesicWalkMode`'s two columns stay INDEPENDENT bools: crossing capture and snap suppression answer different questions and no legal-corner law binds them, so a third seat may take either corner.
+- Entry: `GeodesicKernel.PropagateWindows(imesh, source, policy, coneAngle, key)` → `Fin<WindowPropagation>` (the converged field + MMP-exact vertex distances; the log-map consumer memoizes it per `WindowFieldKey` so repeated sampling of one source pays one wavefront); `GeodesicKernel.TraceStraightestGeodesic(imesh, mesh, frames, source, startFace, worldDir, traceLength, coneAngles, policy)` → `ExpTrace`; `GeodesicKernel.BacktraceGeodesicToSource(imesh, mesh, frames, field, targetDistance, source, targetFace, targetWeights, coneAngles, policy)` → `Option<BvpTrace>` — internal arms surfaced through the [04] log/exp map results; the `mesh` common-subdivision overlay seats the same `WalkChart` in `EdgeOverlay` mode, so ONE unfold kernel serves distance, log, exp, and overlay.
+- Auto: wavefront propagation seeds every source-incident face's opposite edge (pseudosource projected to `(sx, sy≤0)` from endpoint distances), advances a `PriorityQueue` min-frontier keyed on `sigma + min(d0,d1)`, unfolds each popped window across its edge (apex laid flat by the law of cosines), updates the apex distance only inside the window's angular shadow (`WithinShadow` — the SAME predicate the BVP backtrace later uses for owning-window selection, so forward and backward provably agree), casts children onto the two far edges with the occlusion clamp `sy = −sqrt(max(0, d0²−sx²))` counted into the receipt (the classic MMP saddle-overestimation fix), re-emits saddle pseudosources at interior vertices whose cone angle strictly exceeds the threshold, bounds the pop budget by `4·maxPerEdge·edgeCount` and REFUSES TYPED on a live frontier at the bound — a truncated wavefront reads as converged and publishes distances MMP never proved — closes stranded vertices with ONE Jacobi (snapshot-relaxed, order-independent) edge sweep — vertices still unreached keep `+∞`, the honest unreachable encoding that fails downstream interpolation rather than reading as on-source — and reports a cut-locus census on request. Window admission drops children wholly dominated by a cheaper covering window and evicts the farthest window at the per-edge budget. Tracing lays the start face flat (`va` at origin, `vb` on +x), shoots the seat-angle ray, exits faces by segment-ray intersection, unfolds the neighbor sharing the crossed edge's 2D placement (mirror-side sign load-bearing), snaps grazing exits inside `VertexSnap·edgeLength` into vertex passes continued by the half-cone bisector split (`theta_l = theta_r = theta/2`, the fan chained geometrically via `FaceAcrossEdge` — enumeration order is never rotation order), and terminates on length/boundary/vertex/cap. BVP backtrace recovers boundary conditions from the converged field — owning window at the target (the EXACT pseudosource-chart distance `σ + |(bary,0)−(sx,sy)|`, never an endpoint interpolation), saddle chain walked monotone toward the source with the confirmed first leg replayed through strip development (a chain pseudosource is a seeded saddle by construction, so no cone re-derivation) — then inverse-seats the source-outgoing chart angle to world and replays through `WalkChart`, so `TracedLength` is an INDEPENDENT chart-geometry distance witnessed against the field distance, never the input echoed back; a bent geodesic returns the confirmed first leg's direction scaled by the target's field-exact distance (`|log| = d(p,q)`).
+- Boundary: saddle threshold is a cone-angle gate seated at `2π` (`PositiveMagnitude`, unbounded above — a hyperbolic cone point carries total angle above `2π`) compared strictly `>`, so flat and convex vertices never seed pseudosources. Unfold, cast, walk, and strip loops are the named statement-kernel exemption — pure-scalar hot loops over the intrinsic geometry detached at the `IntrinsicMesh` freeze boundary, admitted through `Fin` at every entry. Unconfirmed bent paths keep the honest `IterationCap` terminal with the MMP-exact distance recorded and NO direction — the log direction is optional, so an unconfirmed arm publishes absence rather than a zero vector consumers scale. Chart-geometry refusals — a ray exiting no edge, a pinched fan, a cone below the floor — report `DegenerateChart`, so a caller never retries them under a larger step budget. Budgets and snap bands are policy rows. Boundary exits report `BoundaryHit`; a barrier stop reads the `GeodesicTracePolicy.Barrier` feature-edge set at the walk's exit test and terminates `BarrierHit` with the consumed arc recorded — barrier semantics are edge-crossing alone, so a vertex-snap continuation never tunnels custody the edge set does not spell.
 
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -224,22 +237,40 @@ public readonly record struct WindowPropagationPolicy(Dimension MaxWindowsPerEdg
 
 // Surazhsky MMP window over an intrinsic half-edge: [B0,B1] covered sub-interval, (D0,D1) pseudosource distances to its endpoints, Sigma the accumulated
 // pseudosource distance; the pseudosource chart re-derives from (B0,B1,D0,D1) wherever needed.
-[StructLayout(LayoutKind.Auto)] internal readonly record struct GeodesicWindow(int Edge, double B0, double B1, double D0, double D1, double Sigma, int Pseudosource);
+[StructLayout(LayoutKind.Auto)] internal readonly record struct GeodesicWindow(double B0, double B1, double D0, double D1, double Sigma, int Pseudosource);
 
+// CSR over the propagation's OWN per-edge partition: `EdgeOffsets[e]..EdgeOffsets[e+1]` is edge `e`'s slice, so a
+// consumer reads one edge's windows instead of re-scanning the whole wavefront under an `Edge != e` filter.
 [StructLayout(LayoutKind.Auto)]
-internal readonly record struct WindowField(int SourceVertex, Arr<GeodesicWindow> Windows, int OcclusionClampCount, int PseudosourceCount, int CutLocusCount) {
-    internal static WindowField Empty(int source) => new(SourceVertex: source, Windows: [], OcclusionClampCount: 0, PseudosourceCount: 0, CutLocusCount: 0);
+internal readonly record struct WindowField(
+    int SourceVertex, Seq<GeodesicWindow> Windows, Arr<int> EdgeOffsets,
+    int OcclusionClampCount, int PseudosourceCount, int CutLocusCount, int DroppedWindowCount, int PopCount, int PopBudget) {
+    internal static WindowField Empty(int source) => new(
+        SourceVertex: source, Windows: [], EdgeOffsets: [0],
+        OcclusionClampCount: 0, PseudosourceCount: 0, CutLocusCount: 0, DroppedWindowCount: 0, PopCount: 0, PopBudget: 0);
+    internal int EdgeCount => Math.Max(val1: 0, val2: EdgeOffsets.Count - 1);
+    internal int PopBudgetRemaining => Math.Max(val1: 0, val2: PopBudget - PopCount);
+    internal ReadOnlySpan<GeodesicWindow> At(int edge) =>
+        edge >= 0 && edge + 1 < EdgeOffsets.Count
+            ? Windows.AsSpan()[EdgeOffsets[index: edge]..EdgeOffsets[index: edge + 1]]
+            : [];
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 internal static partial class GeodesicKernel {
     internal readonly record struct WindowPropagation(WindowField Field, double[] VertexDistance);
-    // (source, policy) memo probe: one converged wavefront per source per mesh snapshot rides the cache's Memoized entry.
     [StructLayout(LayoutKind.Auto)] internal readonly record struct WindowFieldKey(int Source, WindowPropagationPolicy Policy);
+    [StructLayout(LayoutKind.Auto)] internal readonly record struct ConeAngleKey();
+    [StructLayout(LayoutKind.Auto)] internal readonly record struct IntrinsicFaceIndexKey();
     [StructLayout(LayoutKind.Auto)] private readonly record struct PendingWindow(int Edge, int FromFace, double B0, double B1, double Sx, double Sy, double Sigma, int Pseudosource);
+    // One census threads the cast: clamp, seed, and drop counts share the same fold and the same receipt row family,
+    // so a cast reporting one of them and discarding another cannot happen.
+    [StructLayout(LayoutKind.Auto)] private record struct WindowCensus(int Clamps, int Pseudosources, int Drops);
 
     // --- [WINDOW_PROPAGATION]
-    internal static WindowPropagation PropagateWindows(IntrinsicMesh imesh, int source, WindowPropagationPolicy policy) {
+    // Budget exhaustion is a TYPED refusal: an MMP wavefront truncated mid-frontier publishes distances that are not
+    // exact, so a spent pop budget with a live frontier fails the rail rather than returning a converged-looking field.
+    internal static Fin<WindowPropagation> PropagateWindows(IntrinsicMesh imesh, int source, WindowPropagationPolicy policy, double[] coneAngle, Op key) {
         int edgeCount = imesh.EdgeCount; int vertexCount = imesh.VertexCount;
         double[] vertexDistance = new double[vertexCount];
         System.Array.Fill(array: vertexDistance, value: double.PositiveInfinity);
@@ -248,14 +279,16 @@ internal static partial class GeodesicKernel {
         double saddleThreshold = policy.SaddleAngleThreshold.Value;
         List<GeodesicWindow>[] perEdge = new List<GeodesicWindow>[Math.Max(val1: edgeCount, val2: 0)];
         for (int e = 0; e < perEdge.Length; e++) perEdge[e] = [];
+        // K3 exemption: an MMP wavefront is an EVENT stream keyed on sigma + min(d0,d1) with windows minted, clipped,
+        // and evicted mid-run — QuikGraph carries no event queue and its BFS/Dijkstra frontiers relax a STATIC
+        // container, so the BCL priority queue is the composed operator and the refusal is named here.
         PriorityQueue<PendingWindow, double> frontier = new();
-        int occlusionClamps = 0; int pseudosourceCount = 0;
+        WindowCensus census = new(Clamps: 0, Pseudosources: 0, Drops: 0);
         // Seed: the source casts exactly like a saddle at sigma = 0 — one vertex-cast owner serves seed and saddle.
-        _ = CastVertexWindows(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, imesh: imesh, vertex: source, sigma: 0.0, vertexDistance: vertexDistance);
-        // Cone angles precomputed in one face sweep — the per-pop saddle test reads the array, never rescans faces.
-        double[] coneAngle = ConeAnglesOf(imesh: imesh);
+        _ = CastVertexWindows(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, imesh: imesh, vertex: source, sigma: 0.0, vertexDistance: vertexDistance, census: ref census);
         int popBudget = Math.Max(val1: 1, val2: maxPerEdge) * Math.Max(val1: edgeCount, val2: 1) * 4;
-        for (int pops = 0; frontier.Count > 0 && pops < popBudget; pops++) {
+        int pops = 0;
+        for (; frontier.Count > 0 && pops < popBudget; pops++) {
             PendingWindow win = frontier.Dequeue();
             IntrinsicEdge baseEdge = imesh.EdgeAt(index: win.Edge);
             int across = imesh.FaceAcrossEdge(faceIdx: win.FromFace, i: baseEdge.Lo, j: baseEdge.Hi);
@@ -271,12 +304,13 @@ internal static partial class GeodesicKernel {
                 vertexDistance[apex] = Math.Min(val1: vertexDistance[apex], val2: apexDistanceDirect);
             int eLoApex = imesh.IndexOfEdge(lo: Math.Min(val1: baseEdge.Lo, val2: apex), hi: Math.Max(val1: baseEdge.Lo, val2: apex));
             int eHiApex = imesh.IndexOfEdge(lo: Math.Min(val1: baseEdge.Hi, val2: apex), hi: Math.Max(val1: baseEdge.Hi, val2: apex));
-            CastChild(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, imesh: imesh, fromFace: across, win: win, edgeIndex: eLoApex, near: baseEdge.Lo, nearX: 0.0, nearY: 0.0, farX: apexX, farY: apexY, clamps: ref occlusionClamps);
-            CastChild(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, imesh: imesh, fromFace: across, win: win, edgeIndex: eHiApex, near: baseEdge.Hi, nearX: baseLength, nearY: 0.0, farX: apexX, farY: apexY, clamps: ref occlusionClamps);
+            CastChild(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, imesh: imesh, fromFace: across, win: win, edgeIndex: eLoApex, near: baseEdge.Lo, nearX: 0.0, nearY: 0.0, farX: apexX, farY: apexY, census: ref census);
+            CastChild(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, imesh: imesh, fromFace: across, win: win, edgeIndex: eHiApex, near: baseEdge.Hi, nearX: baseLength, nearY: 0.0, farX: apexX, farY: apexY, census: ref census);
             if (double.IsFinite(x: vertexDistance[apex]) && imesh.IsInteriorVertex(vertex: apex) && coneAngle[apex] > saddleThreshold
-                && CastVertexWindows(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, imesh: imesh, vertex: apex, sigma: vertexDistance[apex], vertexDistance: vertexDistance) > 0)
-                pseudosourceCount++;
+                && CastVertexWindows(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, imesh: imesh, vertex: apex, sigma: vertexDistance[apex], vertexDistance: vertexDistance, census: ref census) > 0)
+                census.Pseudosources++;
         }
+        if (frontier.Count > 0) return Fin.Fail<WindowPropagation>(key.InvalidResult(detail: $"window-propagation:pop-budget:{popBudget}"));
         // Stranded-vertex cleanup: one Jacobi edge sweep against a snapshot (order-independent; MMP-exact distances never raised, multi-hop strands out of the
         // wavefront's claim). Vertices still unreached keep +Infinity — a disconnected-island sample then fails the rail downstream instead of reading zero.
         double[] vertexSnapshot = [.. vertexDistance];
@@ -287,34 +321,41 @@ internal static partial class GeodesicKernel {
             vertexDistance[edge.Hi] = Math.Min(val1: vertexDistance[edge.Hi], val2: vertexSnapshot[edge.Lo] + edge.Length);
         }
         int cutLocus = policy.ReportCutLocus ? CountCutLocus(imesh: imesh, perEdge: perEdge) : 0;
-        Seq<GeodesicWindow> windows = toSeq(Enumerable.Range(start: 0, count: perEdge.Length).SelectMany(e => perEdge[e]));
-        return new WindowPropagation(Field: new WindowField(SourceVertex: source, Windows: new Arr<GeodesicWindow>([.. windows]), OcclusionClampCount: occlusionClamps, PseudosourceCount: pseudosourceCount, CutLocusCount: cutLocus), VertexDistance: vertexDistance);
+        int[] offsets = new int[perEdge.Length + 1];
+        for (int e = 0; e < perEdge.Length; e++) offsets[e + 1] = offsets[e] + perEdge[e].Count;
+        return Fin.Succ(new WindowPropagation(
+            Field: new WindowField(
+                SourceVertex: source, Windows: toSeq(Enumerable.Range(start: 0, count: perEdge.Length).SelectMany(e => perEdge[e])), EdgeOffsets: new Arr<int>(offsets),
+                OcclusionClampCount: census.Clamps, PseudosourceCount: census.Pseudosources, CutLocusCount: cutLocus,
+                DroppedWindowCount: census.Drops, PopCount: pops, PopBudget: popBudget),
+            VertexDistance: vertexDistance));
     }
-    // sy forced non-positive (source behind the edge); the sqrt clamp IS the MMP occlusion fix behind saddles.
-    private static (double Sx, double Sy) ProjectPseudosource(double b0, double b1, double d0, double d1) {
+    // sy forced non-positive (source behind the edge); the sqrt clamp IS the MMP occlusion fix behind saddles, and the
+    // verdict rides OUT with the projection — a caller re-deriving `d0² − sx² < 0` reads a second spelling that agrees
+    // only where b0 is zero.
+    private static (double Sx, double Sy, bool Clamped) ProjectPseudosource(double b0, double b1, double d0, double d1) {
         double span = b1 - b0;
         double sx = span > EpsilonPolicy.ZeroTolerance ? b0 + (((d0 * d0) - (d1 * d1) + (span * span)) / (2.0 * span)) : b0;
-        return (sx, -Math.Sqrt(d: Math.Max(val1: 0.0, val2: (d0 * d0) - ((sx - b0) * (sx - b0)))));
+        double shadow = (d0 * d0) - ((sx - b0) * (sx - b0));
+        return (sx, -Math.Sqrt(d: Math.Max(val1: 0.0, val2: shadow)), shadow < 0.0);
     }
     private static bool WithinShadow(double sx, double sy, double b0, double b1, double px, double py) {
         double cross0 = ((b0 - sx) * (py - sy)) - ((px - sx) * (0.0 - sy));
         double cross1 = ((b1 - sx) * (py - sy)) - ((px - sx) * (0.0 - sy));
         return (cross0 <= EpsilonPolicy.SqrtEpsilon && cross1 >= -EpsilonPolicy.SqrtEpsilon) || (cross0 >= -EpsilonPolicy.SqrtEpsilon && cross1 <= EpsilonPolicy.SqrtEpsilon);
     }
-    private static void CastChild(PriorityQueue<PendingWindow, double> frontier, List<GeodesicWindow>[] perEdge, int maxPerEdge, IntrinsicMesh imesh, int fromFace, PendingWindow win, int edgeIndex, int near, double nearX, double nearY, double farX, double farY, ref int clamps) {
+    private static void CastChild(PriorityQueue<PendingWindow, double> frontier, List<GeodesicWindow>[] perEdge, int maxPerEdge, IntrinsicMesh imesh, int fromFace, PendingWindow win, int edgeIndex, int near, double nearX, double nearY, double farX, double farY, ref WindowCensus census) {
         if (edgeIndex < 0 || edgeIndex >= perEdge.Length) return;
         IntrinsicEdge edge = imesh.EdgeAt(index: edgeIndex);
         if (!(edge.Length > EpsilonPolicy.ZeroTolerance)) return;
         double dNear = win.Sigma + Math.Sqrt(d: ((nearX - win.Sx) * (nearX - win.Sx)) + ((nearY - win.Sy) * (nearY - win.Sy)));
         double dFar = win.Sigma + Math.Sqrt(d: ((farX - win.Sx) * (farX - win.Sx)) + ((farY - win.Sy) * (farY - win.Sy)));
         (double d0, double d1) = edge.Lo == near ? (dNear, dFar) : (dFar, dNear);
-        (double sx, double sy) = ProjectPseudosource(b0: 0.0, b1: edge.Length, d0: d0, d1: d1);
-        if ((d0 * d0) - (sx * sx) < 0.0) clamps++;
-        EnqueueWindow(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, edgeIndex: edgeIndex, fromFace: fromFace, b0: 0.0, b1: edge.Length, sx: sx, sy: sy, sigma: win.Sigma, pseudosource: win.Pseudosource, dropped: out _);
+        (double sx, double sy, bool clamped) = ProjectPseudosource(b0: 0.0, b1: edge.Length, d0: d0, d1: d1);
+        if (clamped) census.Clamps++;
+        if (!EnqueueWindow(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, edgeIndex: edgeIndex, fromFace: fromFace, b0: 0.0, b1: edge.Length, sx: sx, sy: sy, sigma: win.Sigma, pseudosource: win.Pseudosource)) census.Drops++;
     }
-    // One vertex-cast owner: the source seed (sigma = 0) and every saddle pseudosource re-emission are the
-    // same fold over the vertex's incident faces.
-    private static int CastVertexWindows(PriorityQueue<PendingWindow, double> frontier, List<GeodesicWindow>[] perEdge, int maxPerEdge, IntrinsicMesh imesh, int vertex, double sigma, double[] vertexDistance) {
+    private static int CastVertexWindows(PriorityQueue<PendingWindow, double> frontier, List<GeodesicWindow>[] perEdge, int maxPerEdge, IntrinsicMesh imesh, int vertex, double sigma, double[] vertexDistance, ref WindowCensus census) {
         int seeded = 0;
         foreach (int f in imesh.LiveFaceIndices()) {
             (int a, int b, int c) = imesh.Triangles[index: f]!.Value;
@@ -325,35 +366,37 @@ internal static partial class GeodesicKernel {
             IntrinsicEdge edge = imesh.EdgeAt(index: edgeIndex);
             if (!(edge.Length > EpsilonPolicy.ZeroTolerance)) continue;
             double dLo = sigma + imesh.EdgeLengthOf(i: vertex, j: edge.Lo); double dHi = sigma + imesh.EdgeLengthOf(i: vertex, j: edge.Hi);
-            (double sx, double sy) = ProjectPseudosource(b0: 0.0, b1: edge.Length, d0: dLo, d1: dHi);
+            (double sx, double sy, bool clamped) = ProjectPseudosource(b0: 0.0, b1: edge.Length, d0: dLo, d1: dHi);
+            if (clamped) census.Clamps++;
             vertexDistance[edge.Lo] = Math.Min(val1: vertexDistance[edge.Lo], val2: dLo);
             vertexDistance[edge.Hi] = Math.Min(val1: vertexDistance[edge.Hi], val2: dHi);
-            EnqueueWindow(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, edgeIndex: edgeIndex, fromFace: f, b0: 0.0, b1: edge.Length, sx: sx, sy: sy, sigma: sigma, pseudosource: vertex, dropped: out bool dropped);
-            if (!dropped) seeded++;
+            if (EnqueueWindow(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, edgeIndex: edgeIndex, fromFace: f, b0: 0.0, b1: edge.Length, sx: sx, sy: sy, sigma: sigma, pseudosource: vertex)) seeded++;
+            else census.Drops++;
         }
         return seeded;
     }
-    private static void EnqueueWindow(PriorityQueue<PendingWindow, double> frontier, List<GeodesicWindow>[] perEdge, int maxPerEdge, int edgeIndex, int fromFace, double b0, double b1, double sx, double sy, double sigma, int pseudosource, out bool dropped) {
-        dropped = true;
-        if (edgeIndex < 0 || edgeIndex >= perEdge.Length || !(b1 > b0) || !double.IsFinite(x: sigma)) return;
+    // The admission VERDICT is the return: a caller counting drops at one site and discarding it at another is the
+    // discarded discriminant this shape exists to close.
+    private static bool EnqueueWindow(PriorityQueue<PendingWindow, double> frontier, List<GeodesicWindow>[] perEdge, int maxPerEdge, int edgeIndex, int fromFace, double b0, double b1, double sx, double sy, double sigma, int pseudosource) {
+        if (edgeIndex < 0 || edgeIndex >= perEdge.Length || !(b1 > b0) || !double.IsFinite(x: sigma)) return false;
         double d0 = Math.Sqrt(d: ((b0 - sx) * (b0 - sx)) + (sy * sy));
         double d1 = Math.Sqrt(d: ((b1 - sx) * (b1 - sx)) + (sy * sy));
-        if (!double.IsFinite(x: d0) || !double.IsFinite(x: d1)) return;
+        if (!double.IsFinite(x: d0) || !double.IsFinite(x: d1)) return false;
         List<GeodesicWindow> windows = perEdge[edgeIndex];
         // Drop a child wholly dominated by an existing window; evict the farthest at the per-edge budget.
         foreach (GeodesicWindow existing in windows)
             if (existing.B0 <= b0 + EpsilonPolicy.SqrtEpsilon && existing.B1 >= b1 - EpsilonPolicy.SqrtEpsilon
                 && existing.Sigma + existing.D0 <= sigma + d0 + EpsilonPolicy.SqrtEpsilon && existing.Sigma + existing.D1 <= sigma + d1 + EpsilonPolicy.SqrtEpsilon)
-                return;
+                return false;
         if (windows.Count >= maxPerEdge) {
             int farthest = -1; double worst = sigma + Math.Min(val1: d0, val2: d1);
             for (int i = 0; i < windows.Count; i++) { double near = windows[index: i].Sigma + Math.Min(val1: windows[index: i].D0, val2: windows[index: i].D1); if (near > worst) { worst = near; farthest = i; } }
-            if (farthest < 0) return;
+            if (farthest < 0) return false;
             windows.RemoveAt(index: farthest);
         }
-        windows.Add(item: new GeodesicWindow(Edge: edgeIndex, B0: b0, B1: b1, D0: d0, D1: d1, Sigma: sigma, Pseudosource: pseudosource));
+        windows.Add(item: new GeodesicWindow(B0: b0, B1: b1, D0: d0, D1: d1, Sigma: sigma, Pseudosource: pseudosource));
         frontier.Enqueue(element: new PendingWindow(Edge: edgeIndex, FromFace: fromFace, B0: b0, B1: b1, Sx: sx, Sy: sy, Sigma: sigma, Pseudosource: pseudosource), priority: sigma + Math.Min(val1: d0, val2: d1));
-        dropped = false;
+        return true;
     }
     // ConeAngles is THE one cone-angle owner: all three corners of every live face accumulated in a single sweep.
     internal static double[] ConeAnglesOf(IntrinsicMesh imesh) {
@@ -372,43 +415,28 @@ internal static partial class GeodesicKernel {
         double cos = denom > EpsilonPolicy.ZeroTolerance ? ((left * left) + (right * right) - (opposite * opposite)) / denom : 1.0;
         return Math.Acos(d: Math.Min(val1: 1.0, val2: Math.Max(val1: -1.0, val2: cos)));
     }
-    // Single-vertex probe of the same corner-angle owner ConeAnglesOf sweeps; the vertex-pass walk needs one cone, not the array.
-    private static double ConeAngleAt(IntrinsicMesh imesh, int vertex) {
-        double total = 0.0;
-        foreach (int f in imesh.LiveFaceIndices()) {
-            (int a, int b, int c) = imesh.Triangles[index: f]!.Value;
-            if (a != vertex && b != vertex && c != vertex) continue;
-            (int prev, int next) = a == vertex ? (c, b) : b == vertex ? (a, c) : (b, a);
-            total += CornerAngle(opposite: imesh.EdgeLengthOf(i: prev, j: next), left: imesh.EdgeLengthOf(i: vertex, j: prev), right: imesh.EdgeLengthOf(i: vertex, j: next));
-        }
-        return total;
-    }
-    // Cut locus: an edge covered by windows of distinct pseudosources whose distances disagree beyond a length band.
-    private static int CountCutLocus(IntrinsicMesh imesh, List<GeodesicWindow>[] perEdge) {
-        int count = 0;
-        for (int e = 0; e < perEdge.Length; e++) {
-            List<GeodesicWindow> windows = perEdge[e];
-            if (windows.Count < 2) continue;
-            double band = EpsilonPolicy.SqrtEpsilon * Math.Max(val1: 1.0, val2: imesh.EdgeAt(index: e).Length);
-            bool crossing = false;
-            for (int i = 0; i < windows.Count && !crossing; i++)
-                for (int j = i + 1; j < windows.Count && !crossing; j++)
-                    if (windows[index: i].Pseudosource != windows[index: j].Pseudosource
-                        && Math.Abs(value: windows[index: i].Sigma + windows[index: i].D0 - (windows[index: j].Sigma + windows[index: j].D0)) > band)
-                        crossing = true;
-            if (crossing) count++;
-        }
-        return count;
-    }
+    // Cut locus: an edge covered by DISTINCT pseudosources whose reaches disagree beyond a length band. Reach is the
+    // minimum over BOTH endpoints — a D0-only compare misses two windows agreeing at B0 and diverging at B1 — and the
+    // scan groups by pseudosource, so the pass is linear in the edge's windows rather than quadratic in their pairs.
+    private static int CountCutLocus(IntrinsicMesh imesh, List<GeodesicWindow>[] perEdge) =>
+        Enumerable.Range(start: 0, count: perEdge.Length).Count(e => perEdge[e].Count >= 2 && Disagrees(
+            windows: perEdge[e], band: EpsilonPolicy.SqrtEpsilon * Math.Max(val1: 1.0, val2: imesh.EdgeAt(index: e).Length)));
+    private static bool Disagrees(List<GeodesicWindow> windows, double band) =>
+        windows.GroupBy(static window => window.Pseudosource)
+            .Select(static group => group.Min(static window => Math.Min(val1: window.Sigma + window.D0, val2: window.Sigma + window.D1)))
+            .ToArray() switch {
+                { Length: >= 2 } reaches => reaches.Max() - reaches.Min() > band,
+                _ => false,
+            };
 
     // --- [WALK_CHART] — the one face-unfolding walk owner; three seats, one loop
     internal readonly record struct GeodesicWalkMode(bool RecordCrossings, bool SuppressVertexSnap) {
         internal static readonly GeodesicWalkMode Straightest = new(RecordCrossings: false, SuppressVertexSnap: false);
         internal static readonly GeodesicWalkMode EdgeOverlay = new(RecordCrossings: true, SuppressVertexSnap: true);
     }
-    internal readonly record struct ExpTrace(Vector3d SeatedWorldDir, double TracedLength, List<int> PathFaces, List<int> CrossedEdges, int EdgeCrossingCount, int VertexPassCount, GeodesicStopKind Stop, List<(int CutEdge, double U)> Crossings, double EndX, double EndY, int ArrivalFace, bool ReachedStopVertex);
+    internal readonly record struct ExpTrace(Vector3d SeatedWorldDir, double TracedLength, Arr<int> PathFaces, Arr<int> CrossedEdges, int EdgeCrossingCount, int VertexPassCount, GeodesicStopKind Stop, Arr<(int CutEdge, double U)> Crossings, double EndX, double EndY, int ArrivalFace);
     // IVP seat: signed angle from the world chord (source -> first neighbor) to worldDir about the source normal.
-    internal static ExpTrace TraceStraightestGeodesic(IntrinsicMesh imesh, Mesh mesh, FrameBundle frames, int source, int startFace, Vector3d worldDir, double traceLength, GeodesicTracePolicy policy) {
+    internal static ExpTrace TraceStraightestGeodesic(IntrinsicMesh imesh, Mesh mesh, FrameBundle frames, int source, int startFace, Vector3d worldDir, double traceLength, double[] coneAngles, GeodesicTracePolicy policy) {
         (int a0, int b0, int c0) = imesh.Triangles[index: startFace]!.Value;
         (int va, int vb, int vc) = source == a0 ? (a0, b0, c0) : source == b0 ? (b0, c0, a0) : (c0, a0, b0);
         Vector3d worldEdge = (Vector3d)(mesh.Vertices[index: vb] - mesh.Vertices[index: va]);
@@ -416,14 +444,14 @@ internal static partial class GeodesicKernel {
         double seatAngle = worldEdge.IsValid && worldEdge.Length > EpsilonPolicy.ZeroTolerance && worldEdge.Unitize()
             ? Math.Atan2(y: Vector3d.CrossProduct(a: worldEdge, b: worldDir) * frames.N[va], x: worldEdge * worldDir)
             : 0.0;
-        return WalkChart(imesh: imesh, startFace: startFace, va: va, vb: vb, vc: vc, seatAngle: seatAngle, seatedWorldDir: worldDir, traceLength: traceLength, mode: GeodesicWalkMode.Straightest, stopAtVertex: -1, policy: policy);
+        return WalkChart(imesh: imesh, startFace: startFace, va: va, vb: vb, vc: vc, seatAngle: seatAngle, seatedWorldDir: worldDir, traceLength: traceLength, coneAngles: coneAngles, mode: GeodesicWalkMode.Straightest, stopAtVertex: -1, policy: policy);
     }
     // Shared unfold walk: lay the start face flat (va origin, vb on +x), shoot the seat-angle ray, unfold face-to-face
     // on intrinsic lengths. EdgeOverlay records (CutEdge,U) crossings with U measured from the cut edge's own Lo
     // endpoint — never the face-local exit vertex — so the overlay consumer's ascending-U slot fill never reverses
     // one edge's crossing order while every count still agrees;
     // StopAtVertex terminates with the arc actually consumed (the BVP independent witness). Named statement kernel.
-    internal static ExpTrace WalkChart(IntrinsicMesh imesh, int startFace, int va, int vb, int vc, double seatAngle, Vector3d seatedWorldDir, double traceLength, GeodesicWalkMode mode, int stopAtVertex, GeodesicTracePolicy policy) {
+    internal static ExpTrace WalkChart(IntrinsicMesh imesh, int startFace, int va, int vb, int vc, double seatAngle, Vector3d seatedWorldDir, double traceLength, double[] coneAngles, GeodesicWalkMode mode, int stopAtVertex, GeodesicTracePolicy policy) {
         List<int> pathFaces = []; List<int> crossedEdges = []; List<(int CutEdge, double U)> crossings = [];
         double snapFraction = mode.SuppressVertexSnap ? 0.0 : policy.VertexSnap.Value;
         double[] px = new double[3]; double[] py = new double[3];
@@ -433,11 +461,11 @@ internal static partial class GeodesicKernel {
         double dx = Math.Cos(d: seatAngle), dy = Math.Sin(a: seatAngle);
         int face = startFace; double traversed = 0.0; GeodesicStopKind stop = GeodesicStopKind.IterationCap;
         int edgeCrossings = 0; int vertexPasses = 0;
-        double endX = qx; double endY = qy; int arrivalFace = startFace; bool reachedStop = false;
+        double endX = qx; double endY = qy; int arrivalFace = startFace;
         for (int step = 0; step < policy.MaxSteps.Value; step++) {
             pathFaces.Add(item: face);
             (int exitLocal, double exitT, double tHit) = RayExitOfFace(px: px, py: py, qx: qx, qy: qy, dx: dx, dy: dy);
-            if (exitLocal < 0) { stop = GeodesicStopKind.IterationCap; break; }
+            if (exitLocal < 0) { stop = GeodesicStopKind.DegenerateChart; break; }
             int ea = vid[exitLocal]; int eb = vid[(exitLocal + 1) % 3];
             double remaining = traceLength - traversed;
             double exitEdgeLength = imesh.EdgeLengthOf(i: ea, j: eb);
@@ -445,7 +473,7 @@ internal static partial class GeodesicKernel {
             double vertexFraction = policy.VertexSnap.Value;
             if (stopAtVertex >= 0 && exitEdgeLength > EpsilonPolicy.ZeroTolerance && tHit <= remaining + EpsilonPolicy.SqrtEpsilon
                 && ((ea == stopAtVertex && exitT <= vertexFraction) || (eb == stopAtVertex && exitT >= 1.0 - vertexFraction))) {
-                traversed += tHit; endX = qx + (tHit * dx); endY = qy + (tHit * dy); arrivalFace = face; reachedStop = true; stop = GeodesicStopKind.LengthReached; break;
+                traversed += tHit; endX = qx + (tHit * dx); endY = qy + (tHit * dy); arrivalFace = face; stop = GeodesicStopKind.StopVertex; break;
             }
             if (tHit >= remaining) { traversed = traceLength; endX = qx + (remaining * dx); endY = qy + (remaining * dy); arrivalFace = face; stop = GeodesicStopKind.LengthReached; break; }
             traversed += tHit;
@@ -454,12 +482,18 @@ internal static partial class GeodesicKernel {
             bool nearStart = exitT <= snapFraction; bool nearEnd = exitT >= 1.0 - snapFraction;
             if ((nearStart || nearEnd) && exitEdgeLength > EpsilonPolicy.ZeroTolerance) {
                 int hitVertex = nearStart ? ea : eb;
-                (int nextFace, int nva, int nvb, int nvc, double startAngle) = ContinueThroughVertex(imesh: imesh, face: face, hitVertex: hitVertex, fromVertex: nearStart ? eb : ea);
-                if (nextFace < 0) { stop = GeodesicStopKind.BoundaryHit; break; }
-                vertexPasses++;
-                face = nextFace; vid = [nva, nvb, nvc];
-                LayoutFace(imesh: imesh, va: nva, vb: nvb, vc: nvc, px: px, py: py);
-                qx = px[0]; qy = py[0]; dx = Math.Cos(d: startAngle); dy = Math.Sin(a: startAngle);
+                // Left IS the refused terminal: a pinched fan and a boundary fan are different stops, and the shared
+                // negative face slot let a caller read a degenerate cone as a boundary exit.
+                bool advanced = ContinueThroughVertex(imesh: imesh, coneAngles: coneAngles, face: face, hitVertex: hitVertex, fromVertex: nearStart ? eb : ea).Match(
+                    Right: landing => {
+                        face = landing.Face; vid = [landing.Va, landing.Vb, landing.Vc];
+                        LayoutFace(imesh: imesh, va: landing.Va, vb: landing.Vb, vc: landing.Vc, px: px, py: py);
+                        qx = px[0]; qy = py[0]; dx = Math.Cos(d: landing.StartAngle); dy = Math.Sin(a: landing.StartAngle);
+                        vertexPasses++;
+                        return true;
+                    },
+                    Left: refused => { stop = refused; return false; });
+                if (!advanced) break;
                 continue;
             }
             int edgeIndex = imesh.IndexOfEdge(lo: ea, hi: eb);
@@ -483,7 +517,9 @@ internal static partial class GeodesicKernel {
         // Step-budget exhaustion after a trailing transition leaves the arrival face unrecorded; appending it keeps the
         // segment law total on every stop kind, so an honest IterationCap trace still carries valid evidence.
         if (pathFaces.Count == 0 || pathFaces[^1] != face) pathFaces.Add(item: face);
-        return new ExpTrace(SeatedWorldDir: seatedWorldDir, TracedLength: traversed, PathFaces: pathFaces, CrossedEdges: crossedEdges, EdgeCrossingCount: edgeCrossings, VertexPassCount: vertexPasses, Stop: stop, Crossings: crossings, EndX: endX, EndY: endY, ArrivalFace: arrivalFace, ReachedStopVertex: reachedStop);
+        // The mutable builders freeze HERE, once: the result record crosses to four consumers and a mutable list on it
+        // is a second authority every one of them re-copied.
+        return new ExpTrace(SeatedWorldDir: seatedWorldDir, TracedLength: traversed, PathFaces: [.. pathFaces], CrossedEdges: [.. crossedEdges], EdgeCrossingCount: edgeCrossings, VertexPassCount: vertexPasses, Stop: stop, Crossings: [.. crossings], EndX: endX, EndY: endY, ArrivalFace: arrivalFace);
     }
     internal static void LayoutFace(IntrinsicMesh imesh, int va, int vb, int vc, double[] px, double[] py) {
         double lab = imesh.EdgeLengthOf(i: va, j: vb); double lac = imesh.EdgeLengthOf(i: va, j: vc); double lbc = imesh.EdgeLengthOf(i: vb, j: vc);
@@ -528,9 +564,9 @@ internal static partial class GeodesicKernel {
     // FaceAcrossEdge from the incoming edge — enumeration order is never rotation order, so a list-order walk lands the
     // bisector in the wrong face. Seat angle is measured from the landing face's own entry edge, so
     // LayoutFace(va=hitVertex, vb=entry, vc=exit) keeps chirality by construction.
-    private static (int NextFace, int Va, int Vb, int Vc, double StartAngle) ContinueThroughVertex(IntrinsicMesh imesh, int face, int hitVertex, int fromVertex) {
-        double half = ConeAngleAt(imesh: imesh, vertex: hitVertex) * 0.5;
-        if (!(half > EpsilonPolicy.ZeroTolerance)) return (-1, hitVertex, hitVertex, hitVertex, 0.0);
+    private static Either<GeodesicStopKind, (int Face, int Va, int Vb, int Vc, double StartAngle)> ContinueThroughVertex(IntrinsicMesh imesh, double[] coneAngles, int face, int hitVertex, int fromVertex) {
+        double half = (hitVertex >= 0 && hitVertex < coneAngles.Length ? coneAngles[hitVertex] : 0.0) * 0.5;
+        if (!(half > EpsilonPolicy.ZeroTolerance)) return GeodesicStopKind.DegenerateChart;
         int cur = face; int enter = fromVertex; double accum = 0.0;
         // Closed fans land within one loop (corner sum = 2*half); the cap bounds a pinched non-manifold cycle whose
         // component spans less than half the cone — that fan has no straightest continuation and exits honestly.
@@ -540,75 +576,76 @@ internal static partial class GeodesicKernel {
             int exit = enter == p ? q : p;
             double corner = CornerAngle(opposite: imesh.EdgeLengthOf(i: enter, j: exit), left: imesh.EdgeLengthOf(i: hitVertex, j: enter), right: imesh.EdgeLengthOf(i: hitVertex, j: exit));
             if (accum + corner >= half - EpsilonPolicy.SqrtEpsilon)
-                return (cur, hitVertex, enter, exit, Math.Max(val1: 0.0, val2: half - accum));
+                return (Face: cur, Va: hitVertex, Vb: enter, Vc: exit, StartAngle: Math.Max(val1: 0.0, val2: half - accum));
             accum += corner;
             int across = imesh.FaceAcrossEdge(faceIdx: cur, i: hitVertex, j: exit);
-            if (across < 0) return (-1, hitVertex, hitVertex, hitVertex, 0.0);
+            if (across < 0) return GeodesicStopKind.BoundaryHit;
             cur = across; enter = exit;
         }
-        return (-1, hitVertex, hitVertex, hitVertex, 0.0);
+        return GeodesicStopKind.DegenerateChart;
     }
 
     // --- [BACKTRACE_BVP] — target -> source over the converged field; TracedLength is the independent witness
-    internal readonly record struct BvpTrace(Vector3d WorldLogDir, double TracedLength, double FieldDistance, List<int> PathFaces, List<int> CrossedEdges, int EdgeCrossingCount, int VertexPassCount, GeodesicStopKind Stop);
-    internal static Option<BvpTrace> BacktraceGeodesicToSource(IntrinsicMesh imesh, Mesh mesh, FrameBundle frames, WindowField field, double targetDistance, int source, int targetFace, double[] targetWeights, WindowPropagationPolicy policy) {
+    internal readonly record struct BvpTrace(Option<Vector3d> WorldLogDir, double TracedLength, double FieldDistance, Arr<int> PathFaces, Arr<int> CrossedEdges, int EdgeCrossingCount, int VertexPassCount, GeodesicStopKind Stop);
+    internal static Option<BvpTrace> BacktraceGeodesicToSource(IntrinsicMesh imesh, Mesh mesh, FrameBundle frames, WindowField field, double targetDistance, int source, int targetFace, double[] targetWeights, double[] coneAngles, WindowPropagationPolicy policy) {
         if (source < 0 || targetFace < 0 || targetWeights.Length < 3) return None;
         (int a, int b, int c) = imesh.Triangles[index: targetFace]!.Value;
         int[] faceVerts = [a, b, c];
-        Option<(int Pseudosource, double FieldDistance)> entry = OwningWindowAt(imesh: imesh, field: field, faceVerts: faceVerts, weights: targetWeights);
-        if (entry.IsNone) return None;
-        (int owningPseudosource, double fieldDistance) = entry.IfNone((Pseudosource: source, FieldDistance: targetDistance));
-        if (!double.IsFinite(x: fieldDistance) || fieldDistance < 0.0) return None;
         int maxHops = Math.Max(val1: 1, val2: policy.BacktraceMaxHops.Value);
-        if (owningPseudosource != source) {
-            // Saddle chain: walk pseudosources monotone to the source; replay only the confirmed first leg via strip development + the shared walk.
-            int pivot = owningPseudosource; int firstSaddle = -1;
-            GeodesicStopKind chainStop = GeodesicStopKind.IterationCap;
-            for (int hop = 0; hop < maxHops; hop++) {
-                if (pivot == source) { chainStop = GeodesicStopKind.LengthReached; break; }
-                if (pivot < 0 || pivot >= imesh.VertexCount) return None;
-                double pivotReach = SaddleReach(imesh: imesh, field: field, saddle: pivot);
-                Option<int> step = PseudosourceTowardSource(imesh: imesh, field: field, saddle: pivot, source: source);
-                if (step.IsNone) return None;
-                int next = step.IfNone(source);
-                if (next == source) { firstSaddle = pivot; chainStop = GeodesicStopKind.LengthReached; break; }
-                if (SaddleReach(imesh: imesh, field: field, saddle: next) >= pivotReach - EpsilonPolicy.SqrtEpsilon) break;
-                pivot = next;
-            }
-            // firstSaddle is a seeded pseudosource by construction — interior and supra-threshold under the same policy
-            // cone gate the propagation applied; re-deriving cone angles here re-pays an O(F) sweep per sample and
-            // drifts the forward/backward threshold. The strip witness + replay below are the correctness gates.
-            if (chainStop == GeodesicStopKind.LengthReached && firstSaddle >= 0
-                && StripAngleToVertex(imesh: imesh, field: field, source: source, target: firstSaddle, maxHops: maxHops) is { IsSome: true, Case: ValueTuple<double, double, int> leg }
-                && SeatSourceOutgoing(imesh: imesh, mesh: mesh, frames: frames, source: source, seatFace: leg.Item3, chartAngle: leg.Item1) is { IsSome: true, Case: ValueTuple<int, int, int, int, double, Vector3d> legSeat }
-                && legSeat.Item1 >= 0 && legSeat.Item6.IsValid) {
-                ExpTrace legWalk = WalkChart(imesh: imesh, startFace: legSeat.Item1, va: legSeat.Item2, vb: legSeat.Item3, vc: legSeat.Item4, seatAngle: legSeat.Item5, seatedWorldDir: legSeat.Item6, traceLength: leg.Item2, mode: GeodesicWalkMode.Straightest, stopAtVertex: firstSaddle, policy: GeodesicTracePolicy.Default);
-                // Log-map convention |log_p(q)| = d(p,q): direction is the confirmed first leg's initial tangent,
-                // magnitude is the target's field-exact distance; TracedLength/FieldDistance stay the leg's witness
-                // pair (chart development vs converged saddle reach) that gated the confirmation.
-                if (legWalk.Stop == GeodesicStopKind.LengthReached && legWalk.ReachedStopVertex)
-                    return new BvpTrace(WorldLogDir: fieldDistance * legWalk.SeatedWorldDir, TracedLength: leg.Item2, FieldDistance: SaddleReach(imesh: imesh, field: field, saddle: firstSaddle),
-                        PathFaces: legWalk.PathFaces, CrossedEdges: legWalk.CrossedEdges, EdgeCrossingCount: legWalk.EdgeCrossingCount, VertexPassCount: legWalk.VertexPassCount, Stop: GeodesicStopKind.LengthReached);
-            }
-            // Unconfirmed bend: honest IterationCap terminal, MMP-exact distance in FieldDistance, no fabricated
-            // direction, TracedLength 0.0 because nothing was traced.
-            return new BvpTrace(WorldLogDir: Vector3d.Zero, TracedLength: 0.0, FieldDistance: fieldDistance, PathFaces: [], CrossedEdges: [], EdgeCrossingCount: 0, VertexPassCount: 0, Stop: GeodesicStopKind.IterationCap);
+        // ONE chain from the owning window: the pseudosource selects the leg, and every element binds by NAME, so no
+        // guard pairs with an unreachable IfNone default the next line then re-guards as a sentinel.
+        return from entry in OwningWindowAt(imesh: imesh, field: field, faceVerts: faceVerts, weights: targetWeights)
+               where double.IsFinite(x: entry.FieldDistance) && entry.FieldDistance >= 0.0
+               from trace in entry.Pseudosource == source
+                   ? DirectLeg(imesh: imesh, mesh: mesh, frames: frames, field: field, source: source, targetFace: targetFace, targetWeights: targetWeights, coneAngles: coneAngles, fieldDistance: entry.FieldDistance, maxHops: maxHops)
+                   : SaddleLeg(imesh: imesh, mesh: mesh, frames: frames, field: field, source: source, owningPseudosource: entry.Pseudosource, coneAngles: coneAngles, fieldDistance: entry.FieldDistance, maxHops: maxHops)
+               select trace;
+    }
+    // Direct leg: aim at the barycentric target POINT in the source-rooted chart; the chart radius is the independent
+    // witness distance; inverse-seat to world and replay for path evidence.
+    private static Option<BvpTrace> DirectLeg(IntrinsicMesh imesh, Mesh mesh, FrameBundle frames, WindowField field, int source, int targetFace, double[] targetWeights, double[] coneAngles, double fieldDistance, int maxHops) =>
+        from target in ChartAngleToTargetPoint(imesh: imesh, source: source, targetFace: targetFace, weights: targetWeights).Match(
+            Some: direct => Some((Angle: direct.Angle, ChartDistance: direct.ChartDistance, RootFace: targetFace)),
+            None: () => StripAngleToTargetPoint(imesh: imesh, field: field, source: source, targetFace: targetFace, targetWeights: targetWeights, maxHops: maxHops))
+        where target.RootFace >= 0 && target.ChartDistance > EpsilonPolicy.ZeroTolerance
+        from seat in SeatSourceOutgoing(imesh: imesh, mesh: mesh, frames: frames, source: source, seatFace: target.RootFace, chartAngle: target.Angle)
+        let forward = WalkChart(imesh: imesh, startFace: seat.StartFace, va: seat.Va, vb: seat.Vb, vc: seat.Vc, seatAngle: seat.ChartAngle, seatedWorldDir: seat.WorldDir, traceLength: target.ChartDistance, coneAngles: coneAngles, mode: GeodesicWalkMode.Straightest, stopAtVertex: -1, policy: GeodesicTracePolicy.Default)
+        select new BvpTrace(WorldLogDir: Some(target.ChartDistance * forward.SeatedWorldDir), TracedLength: target.ChartDistance, FieldDistance: fieldDistance,
+            PathFaces: forward.PathFaces, CrossedEdges: forward.CrossedEdges, EdgeCrossingCount: forward.EdgeCrossingCount, VertexPassCount: forward.VertexPassCount, Stop: forward.Stop);
+    // Saddle chain: walk pseudosources monotone to the source; replay only the confirmed first leg via strip
+    // development + the shared walk. firstSaddle is a seeded pseudosource by construction — interior and
+    // supra-threshold under the same policy cone gate the propagation applied — so the strip witness and the replay
+    // are the correctness gates and no cone angle is re-derived here.
+    private static Option<BvpTrace> SaddleLeg(IntrinsicMesh imesh, Mesh mesh, FrameBundle frames, WindowField field, int source, int owningPseudosource, double[] coneAngles, double fieldDistance, int maxHops) {
+        int pivot = owningPseudosource; int firstSaddle = -1;
+        GeodesicStopKind chainStop = GeodesicStopKind.IterationCap;
+        for (int hop = 0; hop < maxHops; hop++) {
+            if (pivot == source) { chainStop = GeodesicStopKind.LengthReached; break; }
+            if (pivot < 0 || pivot >= imesh.VertexCount) return None;
+            double pivotReach = SaddleReach(imesh: imesh, field: field, saddle: pivot);
+            if (PseudosourceTowardSource(imesh: imesh, field: field, saddle: pivot, source: source).Case is not int next) return None;
+            if (next == source) { firstSaddle = pivot; chainStop = GeodesicStopKind.LengthReached; break; }
+            if (SaddleReach(imesh: imesh, field: field, saddle: next) >= pivotReach - EpsilonPolicy.SqrtEpsilon) break;
+            pivot = next;
         }
-        // Direct leg: aim at the barycentric target POINT in the source-rooted chart; the chart radius is the
-        // independent witness distance; inverse-seat to world and replay for path evidence.
-        Option<(double Angle, double ChartDistance, int RootFace)> target =
-            ChartAngleToTargetPoint(imesh: imesh, source: source, targetFace: targetFace, weights: targetWeights) is { IsSome: true, Case: ValueTuple<double, double> direct }
-                ? Some((Angle: direct.Item1, ChartDistance: direct.Item2, RootFace: targetFace))
-                : StripAngleToTargetPoint(imesh: imesh, field: field, source: source, targetFace: targetFace, targetWeights: targetWeights, maxHops: maxHops);
-        if (target.IsNone) return None;
-        (double directAngle, double chartDistance, int rootFace) = target.IfNone((Angle: 0.0, ChartDistance: 0.0, RootFace: -1));
-        if (rootFace < 0 || !(chartDistance > EpsilonPolicy.ZeroTolerance)) return None;
-        Option<(int StartFace, int Va, int Vb, int Vc, double ChartAngle, Vector3d WorldDir)> seat = SeatSourceOutgoing(imesh: imesh, mesh: mesh, frames: frames, source: source, seatFace: rootFace, chartAngle: directAngle);
-        if (seat.IsNone) return None;
-        (int startFace, int va, int vb, int vc, double chartAngle, Vector3d worldDir) = seat.IfNone((StartFace: -1, Va: -1, Vb: -1, Vc: -1, ChartAngle: 0.0, WorldDir: Vector3d.Zero));
-        if (startFace < 0 || !worldDir.IsValid) return None;
-        ExpTrace forward = WalkChart(imesh: imesh, startFace: startFace, va: va, vb: vb, vc: vc, seatAngle: chartAngle, seatedWorldDir: worldDir, traceLength: chartDistance, mode: GeodesicWalkMode.Straightest, stopAtVertex: -1, policy: GeodesicTracePolicy.Default);
-        return new BvpTrace(WorldLogDir: chartDistance * forward.SeatedWorldDir, TracedLength: chartDistance, FieldDistance: fieldDistance, PathFaces: forward.PathFaces, CrossedEdges: forward.CrossedEdges, EdgeCrossingCount: forward.EdgeCrossingCount, VertexPassCount: forward.VertexPassCount, Stop: forward.Stop);
+        Option<BvpTrace> confirmed = !chainStop.Equals(GeodesicStopKind.LengthReached) || firstSaddle < 0
+            ? Option<BvpTrace>.None
+            : from leg in StripAngleToVertex(imesh: imesh, field: field, source: source, target: firstSaddle, maxHops: maxHops)
+              from seat in SeatSourceOutgoing(imesh: imesh, mesh: mesh, frames: frames, source: source, seatFace: leg.RootFace, chartAngle: leg.Angle)
+              let legWalk = WalkChart(imesh: imesh, startFace: seat.StartFace, va: seat.Va, vb: seat.Vb, vc: seat.Vc, seatAngle: seat.ChartAngle, seatedWorldDir: seat.WorldDir, traceLength: leg.ChartDistance, coneAngles: coneAngles, mode: GeodesicWalkMode.Straightest, stopAtVertex: firstSaddle, policy: GeodesicTracePolicy.Default)
+              where legWalk.Stop.Equals(GeodesicStopKind.StopVertex)
+              // Log-map convention |log_p(q)| = d(p,q): direction is the confirmed first leg's initial tangent,
+              // magnitude is the target's field-exact distance; TracedLength/FieldDistance stay the leg's witness
+              // pair (chart development vs converged saddle reach) that gated the confirmation.
+              select new BvpTrace(WorldLogDir: Some(fieldDistance * legWalk.SeatedWorldDir), TracedLength: leg.ChartDistance,
+                  FieldDistance: SaddleReach(imesh: imesh, field: field, saddle: firstSaddle),
+                  PathFaces: legWalk.PathFaces, CrossedEdges: legWalk.CrossedEdges, EdgeCrossingCount: legWalk.EdgeCrossingCount, VertexPassCount: legWalk.VertexPassCount, Stop: GeodesicStopKind.LengthReached);
+        // Unconfirmed bend: the MMP-exact distance stands and the direction slot is EMPTY — a zero vector in a
+        // required slot is a fabricated direction two consumers multiply and publish.
+        return confirmed.IsSome
+            ? confirmed
+            : Some(new BvpTrace(WorldLogDir: Option<Vector3d>.None, TracedLength: 0.0, FieldDistance: fieldDistance,
+                PathFaces: [], CrossedEdges: [], EdgeCrossingCount: 0, VertexPassCount: 0, Stop: GeodesicStopKind.IterationCap));
     }
     // Owning-window selection by the SAME WithinShadow predicate the forward wavefront used — a covered target
     // is never mis-owned by the backward pass; returns the pseudosource and the field-exact witness distance.
@@ -624,9 +661,8 @@ internal static partial class GeodesicKernel {
             double denom = wi + wj;
             double frac = denom > EpsilonPolicy.ZeroTolerance ? (edge.Lo == vi ? wj : wi) / denom : 0.5;
             double bary = Math.Min(val1: 1.0, val2: Math.Max(val1: 0.0, val2: frac)) * edge.Length;
-            foreach (GeodesicWindow window in field.Windows) {
-                if (window.Edge != edgeIndex) continue;
-                (double sx, double sy) = ProjectPseudosource(b0: window.B0, b1: window.B1, d0: window.D0, d1: window.D1);
+            foreach (GeodesicWindow window in field.At(edge: edgeIndex)) {
+                (double sx, double sy, _) = ProjectPseudosource(b0: window.B0, b1: window.B1, d0: window.D0, d1: window.D1);
                 if (!WithinShadow(sx: sx, sy: sy, b0: window.B0, b1: window.B1, px: bary, py: 0.0)) continue;
                 // EXACT window distance sigma + |(bary,0) - (sx,sy)| — the same pseudosource chart the forward cast
                 // propagated; a linear endpoint interpolation overestimates interior points and slackens the witness band.
@@ -636,24 +672,31 @@ internal static partial class GeodesicKernel {
         }
         return owner;
     }
+    // Both saddle reads walk the EDGE partition and enter only the saddle's own incident edges — the wavefront-wide
+    // scan they replaced re-read every window on the mesh to answer a one-vertex question.
     private static double SaddleReach(IntrinsicMesh imesh, WindowField field, int saddle) {
         double best = double.PositiveInfinity;
-        foreach (GeodesicWindow window in field.Windows) {
-            IntrinsicEdge edge = imesh.EdgeAt(index: window.Edge);
-            double reach = edge.Lo == saddle ? window.Sigma + window.D0 : edge.Hi == saddle ? window.Sigma + window.D1 : double.PositiveInfinity;
-            if (reach < best) best = reach;
+        for (int e = 0; e < field.EdgeCount; e++) {
+            IntrinsicEdge edge = imesh.EdgeAt(index: e);
+            if (edge.Lo != saddle && edge.Hi != saddle) continue;
+            foreach (GeodesicWindow window in field.At(edge: e)) {
+                double reach = edge.Lo == saddle ? window.Sigma + window.D0 : window.Sigma + window.D1;
+                if (reach < best) best = reach;
+            }
         }
         return best;
     }
     private static Option<int> PseudosourceTowardSource(IntrinsicMesh imesh, WindowField field, int saddle, int source) {
         double best = double.PositiveInfinity;
         Option<int> next = None;
-        foreach (GeodesicWindow window in field.Windows) {
-            if (window.Pseudosource == saddle) continue;
-            IntrinsicEdge edge = imesh.EdgeAt(index: window.Edge);
+        for (int e = 0; e < field.EdgeCount; e++) {
+            IntrinsicEdge edge = imesh.EdgeAt(index: e);
             if (edge.Lo != saddle && edge.Hi != saddle) continue;
-            double reach = window.Sigma + Math.Min(val1: window.D0, val2: window.D1);
-            if (reach < best) { best = reach; next = window.Pseudosource; }
+            foreach (GeodesicWindow window in field.At(edge: e)) {
+                if (window.Pseudosource == saddle) continue;
+                double reach = window.Sigma + Math.Min(val1: window.D0, val2: window.D1);
+                if (reach < best) { best = reach; next = window.Pseudosource; }
+            }
         }
         return next.IsSome ? next : (saddle == source ? Some(source) : None);
     }
@@ -673,7 +716,7 @@ internal static partial class GeodesicKernel {
     }
     // Inverse seat: the chart angle re-enters world through the SAME reference-edge/normal basis the IVP seat inverts.
     private static Option<(int StartFace, int Va, int Vb, int Vc, double ChartAngle, Vector3d WorldDir)> SeatSourceOutgoing(IntrinsicMesh imesh, Mesh mesh, FrameBundle frames, int source, int seatFace, double chartAngle) {
-        if (seatFace < 0) return None;
+        if (seatFace < 0 || source < 0 || source >= frames.Seated.Length || !frames.Seated[source]) return None;
         (int a0, int b0, int c0) = imesh.Triangles[index: seatFace]!.Value;
         (int va, int vb, int vc) = source == a0 ? (a0, b0, c0) : source == b0 ? (b0, c0, a0) : (c0, a0, b0);
         Vector3d worldEdge = (Vector3d)(mesh.Vertices[index: vb] - mesh.Vertices[index: va]);
@@ -729,9 +772,8 @@ internal static partial class GeodesicKernel {
             int edgeIndex = imesh.IndexOfEdge(lo: Math.Min(val1: vi, val2: vj), hi: Math.Max(val1: vi, val2: vj));
             if (edgeIndex < 0) continue;
             IntrinsicEdge edge = imesh.EdgeAt(index: edgeIndex);
-            foreach (GeodesicWindow window in field.Windows) {
-                if (window.Edge != edgeIndex) continue;
-                (double sx, double sy) = ProjectPseudosource(b0: window.B0, b1: window.B1, d0: window.D0, d1: window.D1);
+            foreach (GeodesicWindow window in field.At(edge: edgeIndex)) {
+                (double sx, double sy, _) = ProjectPseudosource(b0: window.B0, b1: window.B1, d0: window.D0, d1: window.D1);
                 double reach = window.Sigma + Math.Min(val1: window.D0, val2: window.D1);
                 if (reach >= best) continue;
                 double ax = px[e]; double ay = py[e]; double bx = px[(e + 1) % 3]; double by = py[(e + 1) % 3];
@@ -785,8 +827,8 @@ internal static partial class GeodesicKernel {
 - Owner: `VectorHeatKey` cache probe (time + ordered source tangents); `TangentLogMapAlgorithm` `[SmartEnum<int>]` (VectorHeatApproximate/ExactStraightestExp/ExactWindowPropagation); `TangentLogMapReceipt`/`TangentLogMapResult` the log-map evidence on the rails fold with the path law as the declared gate; the `GeodesicKernel` transport arms.
 - Entry: `GeodesicKernel.VectorHeatAt(space, sources, time, sample, key)` → `Fin<Vector3d>` (Sharp-Soliman-Crane parallel transport of tangent data — the frozen `VectorField.VectorHeat` case delegates here); `GeodesicKernel.TangentLogMapAt(space, source, sample, time, algorithm, trace, windows, key)` → `Fin<TangentLogMapResult>` — ONE log-map surface routing three algorithms through the generated `Switch` (a new `TangentLogMapAlgorithm` row is a hard compile gate), Func-form so the allocating exact arms stay unevaluated until dispatch; `GeodesicKernel.ExactExpMapAt(space, source, sample, policy, key)` → `Fin<TangentLogMapResult>` (the IVP seat of the one tracer).
 - Auto: vector-heat transport orders sources deterministically (vertex, then direction components — permuted source sets hit one memo), encodes each source tangent into the vertex frame as a mass-weighted complex (the scalar heat-method source convention), solves the connection system at symmetry 1 through the cached connection Cholesky and the magnitude/indicator scalars through the cached scalar-heat Cholesky, and recovers `unit(direction) · (magnitude/indicator)` per vertex — transported direction from the connection, transported magnitude from the ratio; sampling decodes per-vertex complexes through the frame bundle and blends barycentrically. Approximate log map scales the transported source tangent by the heat geodesic distance and records the magnitude residual; the exact exp map seats the world chord tangent and walks the straightest geodesic with the closing residual `|requested − traced|/requested`; the exact log map interpolates MMP-exact vertex distances barycentrically (an unreached island interpolates `+∞` and fails the rail), backtraces the BVP, and accepts a direction ONLY when the backtrace reached the source with a finite ray AND the independent chart distance matches the field distance inside the scale-relative band (`PathRelativeResidual ≤ SqrtEpsilon`) — a confirmed saddle chain returns the first leg's initial direction scaled by the target's field distance (`|log| = d(p,q)`), while an unconfirmed bend, a wrong owning-window pick, or a degenerate ray disagrees the two witnesses and fails the projection rather than fabricating a direction.
-- Receipt: `TangentLogMapReceipt` — algorithm, source vertex, finite-log census, optional magnitude residual and heat time, the path evidence (`PathFaces`/`CrossedEdges`/`TracedLength`/`PathRelativeResidual`/segment-crossing-pass counts/stop kind), and the wavefront census (window/clamp/pseudosource/cut-locus counts). Validity is the rails `ValidityClaim.All` fold — mechanical rows conjoined with the declared gate: path arrays match their counts and `SegmentCount = EdgeCrossingCount + VertexPassCount + 1` whenever a stop kind is present and segments exist.
-- Boundary: the near-source case returns the zero tangent with a valid receipt (log of the base point is zero); the two exact arms reject rather than degrade — `ExactWindowPropagation` with an unconfirmed direction fails the projection while still carrying the MMP-exact distance in its receipt, and a consumer wanting best-effort direction selects `VectorHeatApproximate` by row.
+- Receipt: `TangentLogMapReceipt` — algorithm, source vertex, optional magnitude residual and heat time, the degenerate-frame census, the path evidence (`PathFaces`/`CrossedEdges`/`TracedLength`/`PathRelativeResidual`/segment-crossing-pass counts/stop kind), and the wavefront census (window/clamp/pseudosource/cut-locus/drop counts and the pop budget left). Postures derivable from `Algorithm` carry no column of their own. Validity is the rails `ValidityClaim.All` fold — mechanical rows conjoined with the declared gate: path arrays match their counts and `SegmentCount = EdgeCrossingCount + VertexPassCount + 1` whenever a stop kind is present and segments exist.
+- Boundary: the near-source case returns the zero tangent under the `AtSource` terminal (log of the base point is zero, and nothing was traced); the two exact arms reject rather than degrade — `ExactWindowPropagation` with an unconfirmed direction fails the projection while still carrying the MMP-exact distance in its receipt, and a consumer wanting best-effort direction selects `VectorHeatApproximate` by row.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -803,25 +845,36 @@ public sealed partial class GeodesicStopKind {
     public static readonly GeodesicStopKind BoundaryHit = new(key: 1);
     public static readonly GeodesicStopKind IterationCap = new(key: 2);
     public static readonly GeodesicStopKind BarrierHit = new(key: 3);
+    // Arrival AT the requested stop vertex — the BVP's confirmation terminal, distinct from running the length out.
+    public static readonly GeodesicStopKind StopVertex = new(key: 4);
+    // Chart geometry refused the step — no exit edge, a pinched fan, a cone below the floor. A caller reading
+    // IterationCap for these retries under a larger step budget and never converges.
+    public static readonly GeodesicStopKind DegenerateChart = new(key: 5);
+    // The query point IS the base point: nothing was traced, so no length or arrival terminal describes it.
+    public static readonly GeodesicStopKind AtSource = new(key: 6);
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+// Every column is a MEASURED read: the vector-heat posture and the flipped-intrinsic stance both derive in full from
+// Algorithm, and a single-sample census carrying a constant target count and a boolean wearing an int measured nothing.
 public readonly record struct TangentLogMapReceipt(
-    TangentLogMapAlgorithm Algorithm, int SourceVertex, int TargetCount, bool VectorHeatBacked, bool RejectsFlippedIntrinsic,
-    int FiniteLogCount, Option<double> MaxMagnitudeResidual, Option<double> HeatTime, Arr<int> PathFaces, Arr<int> CrossedEdges,
+    TangentLogMapAlgorithm Algorithm, int SourceVertex,
+    Option<double> MaxMagnitudeResidual, Option<double> HeatTime, Arr<int> PathFaces, Arr<int> CrossedEdges,
     double TracedLength, double PathRelativeResidual, int SegmentCount, int EdgeCrossingCount, int VertexPassCount,
-    Option<GeodesicStopKind> StopKind = default, int WindowCount = 0, int OcclusionClampCount = 0, int PseudosourceCount = 0, int CutLocusCount = 0) : IValidityEvidence {
+    int DegenerateVertexCount = 0, Option<GeodesicStopKind> StopKind = default, int WindowCount = 0, int OcclusionClampCount = 0,
+    int PseudosourceCount = 0, int CutLocusCount = 0, int DroppedWindowCount = 0, Option<int> PopBudgetRemaining = default) : IValidityEvidence {
     // Rails ValidityClaim.All fold: mechanical rows plus the declared gate — path arrays match counts, indices nonnegative, the segment law holds.
     public bool IsValid => ValidityClaim.All(
-        ValidityClaim.Of(Algorithm is not null && SourceVertex >= 0 && TargetCount >= 0 && FiniteLogCount >= 0 && WindowCount >= 0 && OcclusionClampCount >= 0 && PseudosourceCount >= 0 && CutLocusCount >= 0),
+        Algorithm is not null && SourceVertex >= 0 && DegenerateVertexCount >= 0 && WindowCount >= 0 && OcclusionClampCount >= 0 && PseudosourceCount >= 0 && CutLocusCount >= 0 && DroppedWindowCount >= 0,
         ValidityClaim.Nonnegative(value: TracedLength),
         ValidityClaim.Nonnegative(value: PathRelativeResidual),
-        ValidityClaim.Of(MaxMagnitudeResidual.Map(static residual => double.IsFinite(residual) && residual >= 0.0).IfNone(noneValue: true) && HeatTime.Map(static time => double.IsFinite(time) && time > 0.0).IfNone(noneValue: true)),
+        MaxMagnitudeResidual.Map(static residual => double.IsFinite(residual) && residual >= 0.0).IfNone(noneValue: true) && HeatTime.Map(static time => double.IsFinite(time) && time > 0.0).IfNone(noneValue: true),
+        PopBudgetRemaining.Map(static remaining => remaining >= 0).IfNone(noneValue: true),
         ValidityClaim.CountExactly(count: PathFaces.Count, expected: SegmentCount),
         ValidityClaim.CountExactly(count: CrossedEdges.Count, expected: EdgeCrossingCount),
-        ValidityClaim.Of(PathFaces.ForAll(static face => face >= 0) && CrossedEdges.ForAll(static edge => edge >= 0)),
-        ValidityClaim.Of(!StopKind.IsSome || SegmentCount == 0 || SegmentCount == EdgeCrossingCount + VertexPassCount + 1));
+        PathFaces.ForAll(static face => face >= 0) && CrossedEdges.ForAll(static edge => edge >= 0),
+        !StopKind.IsSome || SegmentCount == 0 || SegmentCount == EdgeCrossingCount + VertexPassCount + 1);
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TangentLogMapResult(Vector3d Tangent, TangentLogMapReceipt Receipt);
@@ -847,14 +900,14 @@ internal static partial class GeodesicKernel {
     }
     private static Fin<Complex[]> ComputeVectorHeat(MeshSpace space, Seq<(int Vertex, Vector3d Direction)> sources, double time, Op key) {
         int n = space.Native.Vertices.Count;
-        FrameBundle frames = FrameBundle.For(space.Native);
-        return from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
+        return from frames in FrameBundle.Of(space: space, key: key)
+               from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
                from connectionFactor in space.Cache.ConnectionCholesky(symmetry: 1, time: time, edgeAdjustment: Option<Arr<double>>.None, key: key)
                from scalarFactor in space.Cache.ScalarHeatCholesky(time: time, key: key)
                let rhs = EncodeVectorHeatSources(n: n, sources: sources, frames: frames, mass: laplacian.MassLumped)
-               from direction in connectionFactor.Solve(rhs: rhs.StackedDirection, key: key)
-               from magnitude in scalarFactor.Solve(rhs: rhs.Magnitude, key: key)
-               from indicator in scalarFactor.Solve(rhs: rhs.Indicator, key: key)
+               from direction in Solved(connectionFactor.SolveDetailed(rhs: rhs.StackedDirection, key: key), key: key)
+               from magnitude in Solved(scalarFactor.SolveDetailed(rhs: rhs.Magnitude, key: key), key: key)
+               from indicator in Solved(scalarFactor.SolveDetailed(rhs: rhs.Indicator, key: key), key: key)
                select RecoverVectorHeat(n: n, direction: direction, magnitude: magnitude, indicator: indicator);
     }
     private sealed record VectorHeatRhs(Arr<double> StackedDirection, Arr<double> Magnitude, Arr<double> Indicator);
@@ -864,8 +917,9 @@ internal static partial class GeodesicKernel {
         for (int s = 0; s < sources.Count; s++) {
             (int v, Vector3d direction) = sources[index: s];
             if (v < 0 || v >= n) continue;
+            if (frames.Tangent(direction: direction, vertex: v).Case is not Complex seated) continue;
             double mv = mass[index: v];
-            Complex tangent = mv * frames.Tangent(direction: direction, vertex: v);
+            Complex tangent = mv * seated;
             stacked[v] += tangent.Real; stacked[v + n] += tangent.Imaginary;
             magnitude[v] += mv * direction.Length;
             indicator[v] += mv;
@@ -892,17 +946,22 @@ internal static partial class GeodesicKernel {
             exactStraightestExp: static s => ExactExpMapAt(space: s.Space, source: s.Source, sample: s.Sample, policy: s.Trace, key: s.Key),
             exactWindowPropagation: static s => ExactLogMapAt(space: s.Space, source: s.Source, sample: s.Sample, policy: s.Windows, key: s.Key));
 
+    // One chord seat serves the approximate and exact-exp arms: the world chord projected into the source's tangent
+    // plane, its length kept BESIDE the unit direction so no caller re-measures what the projection already knew.
+    private static (Vector3d Direction, double Chord) SeatChord(FrameBundle frames, Point3d from, Point3d to, int vertex) {
+        Vector3d raw = to - from;
+        raw -= raw * frames.N[vertex] * frames.N[vertex];
+        double chord = raw.Length;
+        return (raw.Unitize() ? raw : frames.X[vertex], chord);
+    }
     private static Fin<TangentLogMapResult> VectorHeatLogMapAt(MeshSpace space, int source, Point3d sample, double time, Op key) {
         int n = space.Native.Vertices.Count;
         if (source < 0 || source >= n || !double.IsFinite(x: time) || time <= 0.0) return Fin.Fail<TangentLogMapResult>(key.InvalidInput());
-        FrameBundle frames = FrameBundle.For(space.Native);
-        Point3d sourcePoint = space.Native.Vertices[index: source];
-        Vector3d sourceDirection = sample - sourcePoint;
-        sourceDirection -= sourceDirection * frames.N[source] * frames.N[source];
-        if (!sourceDirection.Unitize()) sourceDirection = frames.X[source];
-        return from distances in EnsureGeodesicDistances(space: space, sources: Seq(source), key: key)
+        return from frames in FrameBundle.Of(space: space, key: key)
+               let seat = SeatChord(frames: frames, from: space.Native.Vertices[index: source], to: sample, vertex: source)
+               from distances in EnsureGeodesicDistances(space: space, sources: Seq(source), key: key)
                from distance in MeshProbe.ScalarOn(space: space, sample: sample, perVertex: distances, key: key)
-               from transported in VectorHeatAt(space: space, sources: Seq((Vertex: source, Direction: sourceDirection)), time: time, sample: sample, key: key)
+               from transported in VectorHeatAt(space: space, sources: Seq((Vertex: source, Direction: seat.Direction)), time: time, sample: sample, key: key)
                // Real magnitude residual: vector-heat transported magnitude vs the heat distance, read BEFORE the unit
                // rescale (the returned tangent has |t| = distance by construction, so a post-scale residual is 0).
                let residual = Math.Abs(value: transported.Length - distance)
@@ -910,9 +969,11 @@ internal static partial class GeodesicKernel {
                    ? key.AcceptValue(value: Vector3d.Zero)
                    : TransportedLog(transported: transported, scale: distance, key: key)
                select new TangentLogMapResult(Tangent: tangent, Receipt: new TangentLogMapReceipt(
-                   Algorithm: TangentLogMapAlgorithm.VectorHeatApproximate, SourceVertex: source, TargetCount: 1, VectorHeatBacked: true, RejectsFlippedIntrinsic: true,
-                   FiniteLogCount: tangent.IsValid && double.IsFinite(x: tangent.Length) ? 1 : 0, MaxMagnitudeResidual: Some(residual), HeatTime: Some(time),
-                   PathFaces: [], CrossedEdges: [], TracedLength: distance, PathRelativeResidual: 0.0, SegmentCount: 0, EdgeCrossingCount: 0, VertexPassCount: 0));
+                   Algorithm: TangentLogMapAlgorithm.VectorHeatApproximate, SourceVertex: source,
+                   MaxMagnitudeResidual: Some(residual), HeatTime: Some(time),
+                   PathFaces: [], CrossedEdges: [], TracedLength: distance, PathRelativeResidual: 0.0, SegmentCount: 0, EdgeCrossingCount: 0, VertexPassCount: 0,
+                   DegenerateVertexCount: frames.DegenerateVertexCount,
+                   StopKind: distance <= space.Tolerance.Absolute.Value ? Some(GeodesicStopKind.AtSource) : Option<GeodesicStopKind>.None));
     }
     private static Fin<Vector3d> TransportedLog(Vector3d transported, double scale, Op key) {
         Vector3d unit = transported;
@@ -921,86 +982,100 @@ internal static partial class GeodesicKernel {
 
     internal static Fin<TangentLogMapResult> ExactExpMapAt(MeshSpace space, int source, Point3d sample, GeodesicTracePolicy policy, Op key) {
         int n = space.Native.Vertices.Count;
-        if (source < 0 || source >= n) return Fin.Fail<TangentLogMapResult>(key.InvalidInput());
-        FrameBundle frames = FrameBundle.For(space.Native);
-        Point3d sourcePoint = space.Native.Vertices[index: source];
-        Vector3d worldDir = sample - sourcePoint;
-        worldDir -= worldDir * frames.N[source] * frames.N[source];
-        double chord = worldDir.Length;
-        if (!worldDir.Unitize()) worldDir = frames.X[source];
-        return chord <= space.Tolerance.Absolute.Value
-            ? key.AcceptValue(value: Vector3d.Zero).Map(zero => new TangentLogMapResult(Tangent: zero, Receipt: ZeroTraceReceipt(algorithm: TangentLogMapAlgorithm.ExactStraightestExp, source: source)))
-            : space.Cache.EnsureFrozenIntrinsic(kind: MeshLaplacian.IntrinsicDelaunay, key: key).Bind(imesh => {
-                int startFace = FirstLiveFaceAt(imesh: imesh, vertex: source);
-                if (startFace < 0) return Fin.Fail<TangentLogMapResult>(key.InvalidResult());
-                double traceLength = chord > EpsilonPolicy.ZeroTolerance ? chord : Math.Max(val1: space.Cache.MeanEdgeLength, val2: space.Tolerance.Absolute.Value) * policy.TraceLengthFactor.Value;
-                ExpTrace result = TraceStraightestGeodesic(imesh: imesh, mesh: space.Native, frames: frames, source: source, startFace: startFace, worldDir: worldDir, traceLength: traceLength, policy: policy);
-                Vector3d tangent = result.SeatedWorldDir * result.TracedLength;
-                if (!tangent.IsValid || !double.IsFinite(x: tangent.Length)) return Fin.Fail<TangentLogMapResult>(key.InvalidResult());
-                // Closing residual: the relative shortfall against the requested length; zero on LengthReached.
-                double residual = traceLength > EpsilonPolicy.SqrtEpsilon ? Math.Abs(value: traceLength - result.TracedLength) / traceLength : 0.0;
-                TangentLogMapReceipt receipt = new(
-                    Algorithm: TangentLogMapAlgorithm.ExactStraightestExp, SourceVertex: source, TargetCount: 1, VectorHeatBacked: false, RejectsFlippedIntrinsic: false,
-                    FiniteLogCount: 1, MaxMagnitudeResidual: Option<double>.None, HeatTime: Option<double>.None,
-                    PathFaces: new Arr<int>([.. result.PathFaces]), CrossedEdges: new Arr<int>([.. result.CrossedEdges]),
-                    TracedLength: result.TracedLength, PathRelativeResidual: residual, SegmentCount: result.PathFaces.Count,
-                    EdgeCrossingCount: result.EdgeCrossingCount, VertexPassCount: result.VertexPassCount, StopKind: Some(result.Stop));
-                return receipt.IsValid
-                    ? key.AcceptValue(value: tangent).Map(value => new TangentLogMapResult(Tangent: value, Receipt: receipt))
-                    : Fin.Fail<TangentLogMapResult>(key.InvalidResult());
-            });
+        return source < 0 || source >= n
+            ? Fin.Fail<TangentLogMapResult>(key.InvalidInput())
+            : from frames in FrameBundle.Of(space: space, key: key)
+              let seat = SeatChord(frames: frames, from: space.Native.Vertices[index: source], to: sample, vertex: source)
+              from result in seat.Chord <= space.Tolerance.Absolute.Value
+                  ? key.AcceptValue(value: Vector3d.Zero).Map(zero => new TangentLogMapResult(Tangent: zero, Receipt: ZeroTraceReceipt(algorithm: TangentLogMapAlgorithm.ExactStraightestExp, source: source, degenerateVertices: frames.DegenerateVertexCount)))
+                  : from imesh in space.Cache.EnsureFrozenIntrinsic(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
+                    from coneAngles in ConeAngles(space: space, imesh: imesh, key: key)
+                    from startFace in FirstLiveFaceAt(imesh: imesh, vertex: source) switch { int face when face >= 0 => Fin.Succ(face), _ => Fin.Fail<int>(key.InvalidResult()) }
+                    let traceLength = seat.Chord > EpsilonPolicy.ZeroTolerance ? seat.Chord : Math.Max(val1: space.Cache.MeanEdgeLength, val2: space.Tolerance.Absolute.Value) * policy.TraceLengthFactor.Value
+                    let walk = TraceStraightestGeodesic(imesh: imesh, mesh: space.Native, frames: frames, source: source, startFace: startFace, worldDir: seat.Direction, traceLength: traceLength, coneAngles: coneAngles, policy: policy)
+                    // Closing residual: the relative shortfall against the requested length; zero on LengthReached.
+                    let receipt = new TangentLogMapReceipt(
+                        Algorithm: TangentLogMapAlgorithm.ExactStraightestExp, SourceVertex: source,
+                        MaxMagnitudeResidual: Option<double>.None, HeatTime: Option<double>.None,
+                        PathFaces: walk.PathFaces, CrossedEdges: walk.CrossedEdges,
+                        TracedLength: walk.TracedLength,
+                        PathRelativeResidual: traceLength > EpsilonPolicy.SqrtEpsilon ? Math.Abs(value: traceLength - walk.TracedLength) / traceLength : 0.0,
+                        SegmentCount: walk.PathFaces.Count, EdgeCrossingCount: walk.EdgeCrossingCount, VertexPassCount: walk.VertexPassCount,
+                        DegenerateVertexCount: frames.DegenerateVertexCount, StopKind: Some(walk.Stop))
+                    from tangent in receipt.IsValid ? key.AcceptValue(value: walk.SeatedWorldDir * walk.TracedLength) : Fin.Fail<Vector3d>(key.InvalidResult())
+                    select new TangentLogMapResult(Tangent: tangent, Receipt: receipt)
+              select result;
     }
 
-    // Exact log: MMP vertex distances interpolated at the closest face; direction recovered ONLY when the BVP replay
-    // reaches the source and the independent chart distance agrees with the field distance in the relative band.
     private static Fin<TangentLogMapResult> ExactLogMapAt(MeshSpace space, int source, Point3d sample, WindowPropagationPolicy policy, Op key) {
         int n = space.Native.Vertices.Count;
         return source < 0 || source >= n
             ? Fin.Fail<TangentLogMapResult>(key.InvalidInput())
-            : space.Cache.EnsureFrozenIntrinsic(kind: MeshLaplacian.IntrinsicDelaunay, key: key).Bind(imesh =>
-                // Propagation is deterministic over the frozen snapshot, so every log-map sample of one source reads the
-                // same memoized wavefront.
-                space.Cache.Memoized(probe: new WindowFieldKey(Source: source, Policy: policy),
-                    compute: () => Fin.Succ(PropagateWindows(imesh: imesh, source: source, policy: policy))).Bind(wave => {
-                double[] vertexDistance = wave.VertexDistance;
-                return MeshProbe.ClosestFace(space: space, sample: sample, key: key, project: (_, face, weights, _) => {
-                    if (!face.IsTriangle) return Fin.Fail<TangentLogMapResult>(key.InvalidResult());
-                    double distance = (weights[0] * SafeVertexDistance(vertexDistance, face.A)) + (weights[1] * SafeVertexDistance(vertexDistance, face.B)) + (weights[2] * SafeVertexDistance(vertexDistance, face.C));
-                    if (!double.IsFinite(x: distance) || distance < 0.0) return Fin.Fail<TangentLogMapResult>(key.InvalidResult());
-                    bool nearSource = distance <= space.Tolerance.Absolute.Value;
-                    int intrinsicFace = IntrinsicFaceOfVertices(imesh: imesh, a: face.A, b: face.B, c: face.C);
-                    BvpTrace trace = BacktraceGeodesicToSource(imesh: imesh, mesh: space.Native, frames: FrameBundle.For(space.Native), field: wave.Field, targetDistance: distance, source: source, targetFace: intrinsicFace, targetWeights: weights, policy: policy)
-                        .IfNone(() => new BvpTrace(WorldLogDir: Vector3d.Zero, TracedLength: 0.0, FieldDistance: distance, PathFaces: [], CrossedEdges: [], EdgeCrossingCount: 0, VertexPassCount: 0, Stop: GeodesicStopKind.IterationCap));
-                    double witnessDistance = trace.FieldDistance;
-                    double pathResidual = nearSource || witnessDistance <= EpsilonPolicy.SqrtEpsilon ? 0.0 : Math.Abs(value: trace.TracedLength - witnessDistance) / Math.Max(val1: witnessDistance, val2: EpsilonPolicy.SqrtEpsilon);
-                    bool directionRecovered = trace.Stop == GeodesicStopKind.LengthReached && trace.WorldLogDir.IsValid && trace.WorldLogDir.Length > EpsilonPolicy.ZeroTolerance && pathResidual <= EpsilonPolicy.SqrtEpsilon;
-                    TangentLogMapReceipt receipt = new(
-                        Algorithm: TangentLogMapAlgorithm.ExactWindowPropagation, SourceVertex: source, TargetCount: 1, VectorHeatBacked: false, RejectsFlippedIntrinsic: false,
-                        FiniteLogCount: wave.Field.Windows.Count > 0 && double.IsFinite(x: distance) ? 1 : 0, MaxMagnitudeResidual: Option<double>.None, HeatTime: Option<double>.None,
-                        PathFaces: new Arr<int>([.. trace.PathFaces]), CrossedEdges: new Arr<int>([.. trace.CrossedEdges]),
-                        TracedLength: trace.TracedLength, PathRelativeResidual: pathResidual, SegmentCount: trace.PathFaces.Count,
-                        EdgeCrossingCount: trace.EdgeCrossingCount, VertexPassCount: trace.VertexPassCount, StopKind: Some(trace.Stop),
-                        WindowCount: wave.Field.Windows.Count, OcclusionClampCount: wave.Field.OcclusionClampCount, PseudosourceCount: wave.Field.PseudosourceCount, CutLocusCount: wave.Field.CutLocusCount);
-                    return nearSource
-                        ? key.AcceptValue(value: Vector3d.Zero).Map(zero => new TangentLogMapResult(Tangent: zero, Receipt: receipt))
-                        : receipt.IsValid && directionRecovered
-                            ? key.AcceptValue(value: trace.WorldLogDir).Map(value => new TangentLogMapResult(Tangent: value, Receipt: receipt))
-                            : Fin.Fail<TangentLogMapResult>(key.InvalidResult());
-                });
-            }));
+            : from imesh in space.Cache.EnsureFrozenIntrinsic(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
+              from frames in FrameBundle.Of(space: space, key: key)
+              from coneAngles in ConeAngles(space: space, imesh: imesh, key: key)
+              from faceIndex in IntrinsicFaceIndex(space: space, imesh: imesh, key: key)
+              // Propagation is deterministic over the frozen snapshot, so every log-map sample of one source reads the
+              // same memoized wavefront — and a spent pop budget refuses here rather than publishing a truncated field.
+              from wave in space.Cache.Memoized(probe: new WindowFieldKey(Source: source, Policy: policy),
+                  compute: () => PropagateWindows(imesh: imesh, source: source, policy: policy, coneAngle: coneAngles, key: key))
+              from result in MeshProbe.ClosestFace(space: space, sample: sample, key: key, project: (_, face, weights, _) => {
+                  if (!face.IsTriangle) return Fin.Fail<TangentLogMapResult>(key.InvalidResult());
+                  double distance = (weights[0] * SafeVertexDistance(wave.VertexDistance, face.A)) + (weights[1] * SafeVertexDistance(wave.VertexDistance, face.B)) + (weights[2] * SafeVertexDistance(wave.VertexDistance, face.C));
+                  if (!double.IsFinite(x: distance) || distance < 0.0) return Fin.Fail<TangentLogMapResult>(key.InvalidResult());
+                  bool nearSource = distance <= space.Tolerance.Absolute.Value;
+                  int intrinsicFace = IntrinsicFaceOfVertices(index: faceIndex, imesh: imesh, a: face.A, b: face.B, c: face.C);
+                  // Backtrace ABSENCE stays absence: a zero-filled record asserting IterationCap names a budget that
+                  // never ran, so the arm that took no measurement refuses instead of publishing one.
+                  return BacktraceGeodesicToSource(imesh: imesh, mesh: space.Native, frames: frames, field: wave.Field, targetDistance: distance, source: source, targetFace: intrinsicFace, targetWeights: weights, coneAngles: coneAngles, policy: policy).Match(
+                      Some: trace => {
+                          double witnessDistance = trace.FieldDistance;
+                          double pathResidual = nearSource || witnessDistance <= EpsilonPolicy.SqrtEpsilon ? 0.0 : Math.Abs(value: trace.TracedLength - witnessDistance) / Math.Max(val1: witnessDistance, val2: EpsilonPolicy.SqrtEpsilon);
+                          Option<Vector3d> recovered = trace.WorldLogDir.Filter(direction => trace.Stop.Equals(GeodesicStopKind.LengthReached) && direction.IsValid && direction.Length > EpsilonPolicy.ZeroTolerance && pathResidual <= EpsilonPolicy.SqrtEpsilon);
+                          TangentLogMapReceipt receipt = new(
+                              Algorithm: TangentLogMapAlgorithm.ExactWindowPropagation, SourceVertex: source,
+                              MaxMagnitudeResidual: Option<double>.None, HeatTime: Option<double>.None,
+                              PathFaces: trace.PathFaces, CrossedEdges: trace.CrossedEdges,
+                              TracedLength: trace.TracedLength, PathRelativeResidual: pathResidual, SegmentCount: trace.PathFaces.Count,
+                              EdgeCrossingCount: trace.EdgeCrossingCount, VertexPassCount: trace.VertexPassCount,
+                              DegenerateVertexCount: frames.DegenerateVertexCount,
+                              StopKind: Some(nearSource ? GeodesicStopKind.AtSource : trace.Stop),
+                              WindowCount: wave.Field.Windows.Count, OcclusionClampCount: wave.Field.OcclusionClampCount,
+                              PseudosourceCount: wave.Field.PseudosourceCount, CutLocusCount: wave.Field.CutLocusCount,
+                              DroppedWindowCount: wave.Field.DroppedWindowCount, PopBudgetRemaining: Some(wave.Field.PopBudgetRemaining));
+                          return nearSource
+                              ? key.AcceptValue(value: Vector3d.Zero).Map(zero => new TangentLogMapResult(Tangent: zero, Receipt: receipt))
+                              : receipt.IsValid && recovered.Case is Vector3d direction
+                                  ? key.AcceptValue(value: direction).Map(value => new TangentLogMapResult(Tangent: value, Receipt: receipt))
+                                  : Fin.Fail<TangentLogMapResult>(key.InvalidResult());
+                      },
+                      None: () => Fin.Fail<TangentLogMapResult>(key.InvalidResult()));
+              })
+              select result;
     }
-    // Post-flip host triangles need not survive as intrinsic faces; fall back to a source-incident live face and let the residual witness gate the result.
-    private static int IntrinsicFaceOfVertices(IntrinsicMesh imesh, int a, int b, int c) {
-        foreach (int f in imesh.LiveFaceIndices()) {
-            (int x, int y, int z) = imesh.Triangles[index: f]!.Value;
-            if ((x == a || x == b || x == c) && (y == a || y == b || y == c) && (z == a || z == b || z == c)) return f;
-        }
-        return FirstLiveFaceAt(imesh: imesh, vertex: a);
+    // Cone angles ride the snapshot's own memo: the walk's per-vertex pass reads the array the one face sweep filled,
+    // where a per-pass probe re-paid an O(F) sweep inside the step loop.
+    private static Fin<double[]> ConeAngles(MeshSpace space, IntrinsicMesh imesh, Op key) =>
+        space.Cache.Memoized(probe: new ConeAngleKey(), compute: () => Fin.Succ(ConeAnglesOf(imesh: imesh)));
+    // Host triangle -> intrinsic face, keyed on the SORTED vertex triple and built once at the snapshot; a post-flip
+    // host triangle need not survive as an intrinsic face, so the miss falls back to a source-incident live face and
+    // the residual witness gates the result.
+    private static Fin<HashMap<(int A, int B, int C), int>> IntrinsicFaceIndex(MeshSpace space, IntrinsicMesh imesh, Op key) =>
+        space.Cache.Memoized(probe: new IntrinsicFaceIndexKey(), compute: () => Fin.Succ(toHashMap(
+            imesh.LiveFaceIndices()
+                .Select(f => (Key: SortedTriple(face: imesh.Triangles[index: f]!.Value), Face: f))
+                .DistinctBy(static row => row.Key))));
+    private static (int A, int B, int C) SortedTriple((int A, int B, int C) face) {
+        int lo = Math.Min(val1: face.A, val2: Math.Min(val1: face.B, val2: face.C));
+        int hi = Math.Max(val1: face.A, val2: Math.Max(val1: face.B, val2: face.C));
+        return (lo, face.A + face.B + face.C - lo - hi, hi);
     }
-    // +Infinity = unreachable: the interpolated distance goes non-finite, the validity check downstream rejects it,
-    // and an island sample fails honestly instead of reading as on-source.
+    private static int IntrinsicFaceOfVertices(HashMap<(int A, int B, int C), int> index, IntrinsicMesh imesh, int a, int b, int c) =>
+        index.Find(key: SortedTriple(face: (a, b, c))).IfNone(() => FirstLiveFaceAt(imesh: imesh, vertex: a));
+    // +Infinity IS the unreached encoding the propagation fills, so the bounds test is the whole guard: no writer
+    // stores NaN, and a NaN conjunct beside it tested an encoding this page never produces.
     private static double SafeVertexDistance(double[] vertexDistance, int vertex) =>
-        vertex >= 0 && vertex < vertexDistance.Length && !double.IsNaN(d: vertexDistance[vertex]) ? vertexDistance[vertex] : double.PositiveInfinity;
+        vertex >= 0 && vertex < vertexDistance.Length ? vertexDistance[vertex] : double.PositiveInfinity;
     // First live face at a vertex through the frozen first-incident-edge table; either edge face is live by construction.
     private static int FirstLiveFaceAt(IntrinsicMesh imesh, int vertex) {
         int edge = imesh.FirstIncidentEdge(vertexIdx: vertex);
@@ -1008,10 +1083,12 @@ internal static partial class GeodesicKernel {
         IntrinsicEdge incident = imesh.EdgeAt(index: edge);
         return incident.Face0 >= 0 ? incident.Face0 : incident.Face1;
     }
-    private static TangentLogMapReceipt ZeroTraceReceipt(TangentLogMapAlgorithm algorithm, int source) => new(
-        Algorithm: algorithm, SourceVertex: source, TargetCount: 1, VectorHeatBacked: false, RejectsFlippedIntrinsic: false,
-        FiniteLogCount: 1, MaxMagnitudeResidual: Option<double>.None, HeatTime: Option<double>.None, PathFaces: [], CrossedEdges: [],
-        TracedLength: 0.0, PathRelativeResidual: 0.0, SegmentCount: 0, EdgeCrossingCount: 0, VertexPassCount: 0, StopKind: Some(GeodesicStopKind.LengthReached));
+    // The base point's own log is zero and NOTHING was traced, so the terminal is AtSource — a LengthReached stamp
+    // reads to every consumer as a completed trace.
+    private static TangentLogMapReceipt ZeroTraceReceipt(TangentLogMapAlgorithm algorithm, int source, int degenerateVertices) => new(
+        Algorithm: algorithm, SourceVertex: source, MaxMagnitudeResidual: Option<double>.None, HeatTime: Option<double>.None,
+        PathFaces: [], CrossedEdges: [], TracedLength: 0.0, PathRelativeResidual: 0.0, SegmentCount: 0, EdgeCrossingCount: 0, VertexPassCount: 0,
+        DegenerateVertexCount: degenerateVertices, StopKind: Some(GeodesicStopKind.AtSource));
 }
 ```
 

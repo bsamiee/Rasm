@@ -1,6 +1,6 @@
 # [PERSISTENCE_QUERY_RETRIEVAL]
 
-Rasm.Persistence owns the coupled ANN retrieval subsystem behind the `Query/lane#READ_ROUTING` `Retrieval` lane. One `Retrieval.Run(StoreProfile, RetrievalOp)` entry admits the vector lane and dispatches `Fuse`, `Train`, and `AdcScan`; every rejection rides `RetrievalFault`. `VectorRoute` couples residence to the settings that residence admits; `VectorFine` preserves recoverable `Float32` and `Int8Scalar` forms; `Bm25Predicate` owns lexical lowering; `FusionRank` applies one reciprocal-rank policy; `ElementSet.Receipt` and the operation content key jointly identify read-through reuse.
+Rasm.Persistence owns the coupled ANN retrieval subsystem behind the `Query/lane#READ_ROUTING` `Retrieval` lane. One `Retrieval.Run(StoreProfile, RetrievalOp)` entry admits the vector lane and dispatches `Fuse`, `Train`, and `AdcScan`; every rejection rides `RetrievalFault`. `VectorRoute` couples residence to the settings that residence admits; `VectorFine` preserves recoverable `Float32` and `Int8Scalar` forms; `Bm25Predicate` owns lexical lowering; `FusionRank` applies one reciprocal-rank policy; `KeySelection.Receipt` and the operation content key jointly identify read-through reuse.
 
 ## [01]-[INDEX]
 
@@ -12,9 +12,9 @@ Rasm.Persistence owns the coupled ANN retrieval subsystem behind the `Query/lane
 
 ## [02]-[SEARCH_PROVISIONING_PROBE]
 
-- Owner: `EmbeddingArity` is the CLR-to-store vector arity axis; `VectorMetric` is the closed distance axis; `VectorRoute` is the closed residence union whose cases carry only their legal query-time settings; `SearchRoute` lowers a route to transaction-scoped settings.
+- Owner: `EmbeddingArity` is the CLR-to-store vector arity axis, realizing the kernel `ICapability` floor so a metric's admitted arities are one `CapabilitySet` carrying its own `Missing` evidence; `VectorMetric` is the closed distance axis; `VectorRoute` is the closed residence union whose cases carry only their legal query-time settings; `SearchRoute` lowers a route to transaction-scoped settings.
 - Cases: `VectorRoute` is `ExactScan | Hnsw | IvfFlat | DiskAnn | PqAdc | QdrantScaleout`; each indexed case carries only its own settings. `EmbeddingArity` is `Dense | Half | Sparse | Bit`; `VectorMetric` is `L2 | InnerProduct | Cosine | L1 | Hamming | Jaccard`.
-- Entry: `SetLocal(VectorRoute)` derives only the settings admitted by the active route case, railing `RetrievalFault.Mismatched` on a `strict_order` request against the `IvfFlat` row (`ivfflat.iterative_scan` admits `off|relaxed_order` only) rather than silently demoting it; `VectorMetric.Order` admits the metric/arity pair before building the EF-translated distance expression with the arity-owned probe type; `ScaleoutRoute.Query` executes the external route.
+- Entry: `SetLocal(VectorRoute)` derives only the settings admitted by the active route case, railing `RetrievalFault.Mismatched` on a `strict_order` request against the `IvfFlat` row (`ivfflat.iterative_scan` admits `off|relaxed_order` only) rather than silently demoting it; `VectorMetric.Order` admits the metric/arity pair through the ONE `CapabilitySet.Require` refusal door — whose refuse arm receives the missing set, so the fault names the arity that failed rather than restating the pair — before building the EF-translated distance expression with the arity-owned probe type; `ScaleoutRoute.Query` executes the external route.
 - Auto: absent setting values emit no `SET LOCAL` row; the active `VectorRoute` case selects the only legal GUC vocabulary, and index construction remains owned by provisioning.
 - Receipt: a routed vector scan rides `store.vector.route` carrying the `VectorRoute` case and bound GUC set.
 - Packages: Pgvector.EntityFrameworkCore (`VectorDbFunctionsExtensions` six distance members), Pgvector (`Vector`), Qdrant.Client (`QdrantClient.QueryAsync`/`PrefetchQuery`/`Fusion`/`Formula`/`QuantizationConfig`/`ShardKey` — the scale-out row's provider surface), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`System.Linq.Expressions`).
@@ -34,13 +34,13 @@ using NodaTime;
 using Pgvector.EntityFrameworkCore;
 using Qdrant.Client;
 using Qdrant.Client.Grpc;
+using Rasm.Domain;                                // FaultBand, [FaultCase]/Fault, ICapability/CapabilitySet, Ranked/ExtremumDirection
 using Rasm.Element.Graph;
-using Rasm.Element.Projection;
+using Rasm.Element.Projection;                    // AdmissionSlots — the ONE accumulating admission fold, deferred-mint arity
 using Rasm.Element.Properties;
 using Thinktecture;
-using Rasm.Persistence.Element;                   // FaultBand — the one band registry (graph#FAULT_TABLES)
-using Rasm.Persistence.Store;                     // StoreProfile — the lane-realizability axis both entries admit against
-using Expected = Rasm.Domain.Expected;            // the federation fault-band base — NOT LanguageExt.Common.Expected
+using Rasm.Persistence.Element;
+using Rasm.Persistence.Store;                     // StoreProfile + Lane — the lane vocabulary and realizability axis both entries admit against
 using static LanguageExt.Prelude;
 
 namespace Rasm.Persistence.Query;
@@ -50,7 +50,7 @@ namespace Rasm.Persistence.Query;
 // Bit arity represents the binary-quantized expression used by coarse Hamming search.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class EmbeddingArity {
+public sealed partial class EmbeddingArity : ICapability<EmbeddingArity> {
     public static readonly EmbeddingArity Dense = new("dense", "vector", DenseProbe);
     public static readonly EmbeddingArity Half = new("half", "halfvec", HalfProbe);
     public static readonly EmbeddingArity Sparse = new("sparse", "sparsevec", SparseProbe);
@@ -83,23 +83,28 @@ public sealed partial class VectorMetric {
     public static readonly VectorMetric Jaccard = Binary("jaccard", "<%>", nameof(VectorDbFunctionsExtensions.JaccardDistance));
     public string Op { get; }
     public string Fn { get; }
-    private Seq<EmbeddingArity> Arities { get; }
-    private VectorMetric(string key, string op, string fn, Seq<EmbeddingArity> arities) : this(key) =>
+    // Admitted arities form a CAPABILITY SET, not a membership sequence: the kernel column carries the
+    // frozen-set containment AND the `Missing` evidence complement, so a refusal names WHICH arity the metric
+    // lacks instead of re-deriving the diff from a scan whose answer was a bare bool.
+    private CapabilitySet<EmbeddingArity> Arities { get; }
+    private VectorMetric(string key, string op, string fn, CapabilitySet<EmbeddingArity> arities) : this(key) =>
         (Op, Fn, Arities) = (op, fn, arities);
 
     // `Order` builds the provider-translated server expression from admitted metric, arity, column, and probe.
-    // Arity-specific constants prevent dense probes from crossing into half, sparse, or bit columns.
+    // `Require` is the ONE refusal door — the refuse arm receives the missing set, so an evidence-free refusal
+    // is unspellable — and arity-specific constants prevent dense probes from crossing into half, sparse, or
+    // bit columns.
     public Fin<Expression> Order(Expression column, EmbeddingArity arity, float[] probe) =>
-        Arities.Exists(candidate => candidate == arity)
-            ? Fin.Succ<Expression>(Expression.Call(typeof(VectorDbFunctionsExtensions), Fn, Type.EmptyTypes, column,
-                Expression.Constant(arity.Probe(probe))))
-            : Fin.Fail<Expression>(new RetrievalFault.Mismatched("metric-arity", Key, arity.Key));
+        Arities.Require(CapabilitySet<EmbeddingArity>.Of(arity),
+                missing => new RetrievalFault.Mismatched("metric-arity", Key, missing.Wire))
+            .Map(_ => (Expression)Expression.Call(typeof(VectorDbFunctionsExtensions), Fn, Type.EmptyTypes, column,
+                Expression.Constant(arity.Probe(probe))));
 
     private static VectorMetric Numeric(string key, string op, string fn) =>
-        new(key, op, fn, [EmbeddingArity.Dense, EmbeddingArity.Half, EmbeddingArity.Sparse]);
+        new(key, op, fn, CapabilitySet<EmbeddingArity>.Of(EmbeddingArity.Dense, EmbeddingArity.Half, EmbeddingArity.Sparse));
 
     private static VectorMetric Binary(string key, string op, string fn) =>
-        new(key, op, fn, [EmbeddingArity.Bit]);
+        new(key, op, fn, CapabilitySet<EmbeddingArity>.Of(EmbeddingArity.Bit));
 }
 
 // `ScanOrder` closes disabled, relaxed, and strict iterative-scan policy.
@@ -162,14 +167,12 @@ public static class ScaleoutRoute {
     // Payload content keys resolve the same `VectorRow` residence regardless of ranking backend.
     public static IO<Fin<Seq<(UInt128 ContentKey, float Score)>>> Query(
         QdrantClient client, Identifier collection, ReadOnlyMemory<float> probe, Seq<PrefetchQuery> prefetch, ulong tenant, RetrievalLimit top) =>
-        IO.liftAsync(async () => {
+        IO.liftAsync(async () => await Op.Of().Catch(async _ => {
             IReadOnlyList<ScoredPoint> hits = await client.QueryAsync(
                 (string)collection, query: probe.ToArray(), prefetch: [.. prefetch], limit: (ulong)top.Value, shardKeySelector: tenant).ConfigureAwait(false);
-            return Try.lift(() => toSeq(hits).Map(static hit =>
-                    (UInt128.Parse(hit.Payload["content-key"].StringValue, NumberStyles.HexNumber, CultureInfo.InvariantCulture), hit.Score)))
-                .Run()
-                .MapFail(static error => (Error)new RetrievalFault.Rejected(error.Message));
-        }) | @catch<IO, Fin<Seq<(UInt128, float)>>>(static error => error.IsExceptional, static error => IO.pure(Fin<Seq<(UInt128, float)>>.Fail(new RetrievalFault.Rejected(error.Message))));
+            return Fin.Succ(toSeq(hits).Map(static hit =>
+                (UInt128.Parse(hit.Payload["content-key"].StringValue, NumberStyles.HexNumber, CultureInfo.InvariantCulture), hit.Score)));
+        }).ConfigureAwait(false));
 }
 ```
 
@@ -183,9 +186,10 @@ public static class ScaleoutRoute {
 
 ## [03]-[LEXICAL_ALGEBRA]
 
-- Owner: `Bm25Predicate` the closed `[Union]` projecting the `pg_search` v2 `pdb` surface — one case per `pdb.*` builder, per bare match operator, and per stacking cast modifier — whose `Sql(column)` switch emits the exact server SQL; `SearchProjection` the static score/snippet/aggregate projection surface; `LexicalRank` the `[SmartEnum<string>]` two-row rank axis carrying the BM25 arm and the native `ts_rank` fallback arm.
-- Cases: builders `Parse | Match | RangeTerm | PhrasePrefix | MoreLikeThis | Regex | All` (right of `@@@`), bare operators `AnyToken`(`|||`) `| AllToken`(`&&&`) `| ExactTerm`(`===`) `| Phrase`(`###`) `| Proximity`(`##`/`##>` — the `Ordered` field selects the operator token), cast modifiers `Fuzzy | Boost | Const | Slop` composing over ANY inner predicate and stacking in cast order; `LexicalRank` is `Bm25` (`pdb.score(<key_field>)` over a `bm25` index) and `TsRank` (`ts_rank` over the generated tsvector — the degrade arm a profile without `pg_search` preloaded selects).
+- Owner: `MatchOption` the lexical-modifier capability vocabulary over the kernel `ICapability` floor, held as ONE `CapabilitySet<MatchOption>` column by every case that takes builder modifiers; `Bm25Predicate` the closed `[Union]` projecting the `pg_search` v2 `pdb` surface — one case per `pdb.*` builder, per bare match operator, and per stacking cast modifier — whose `Sql(column)` switch emits the exact server SQL; `SearchProjection` the static score/snippet/aggregate projection surface; `LexicalRank` the `[SmartEnum<string>]` two-row rank axis carrying the BM25 arm and the native `ts_rank` fallback arm.
+- Cases: builders `Parse | Match | RangeTerm | PhrasePrefix | MoreLikeThis | Regex | All` (right of `@@@`), bare operators `AnyToken`(`|||`) `| AllToken`(`&&&`) `| ExactTerm`(`===`) `| Phrase`(`###`) `| Proximity`(`##`/`##>` — the held `MatchOption.Ordered` row selects the operator token), cast modifiers `Fuzzy | Boost | Const | Slop` composing over ANY inner predicate and stacking in cast order; `LexicalRank` is `Bm25` (`pdb.score(<key_field>)` over a `bm25` index) and `TsRank` (`ts_rank` over the generated tsvector — the degrade arm a profile without `pg_search` preloaded selects).
 - Entry: `public string Sql(Identifier column)` on `Bm25Predicate` switches the union to the exact match expression (`col @@@ pdb.parse(…)`, `col ||| '…'`, `col @@@ ('a' ##> 2 ##> 'b')`, `<inner>::pdb.fuzzy(…)`) — the column an admitted `#COLUMNAR_LANE` trust-gate `Identifier` and every string payload crossing the ONE `Lit` quote-doubling seam; `SearchProjection.Score(keyColumn)`/`Snippet`/`Snippets`/`SnippetPositions`/`Agg` emit the `[05]` projection functions anchored on the index `key_field`; `LexicalRank.Rank(keyColumn, terms)` emits the row's rank projection so the fusion CTE composes either arm through one call.
+- Law: `Rank` DERIVES from `Score` on both rows — verified on the fence: the BM25 arm scores through `pdb.score(<key_field>)` and orders by that same call, the degrade arm through its own `ts_rank` expression and likewise, so no arm can order by an expression it did not project and the two can never disagree.
 - Auto: the cast modifiers STACK in cast order (`'<term>'::pdb.fuzzy(2)::pdb.boost(2)` applies typo tolerance then a score multiplier) because each cast case wraps its `Inner` and appends its own cast — composition is structural, never string concatenation at the call site; analyzed matching has two spellings the union keeps distinct — the per-field `pdb.match` builder carrying its own fuzzy `distance`/`prefix` (the `Match` case) and the bare `|||`/`&&&` column operators (the `AnyToken`/`AllToken` cases); the BM25 branch matches `corpus @@@ pdb.parse($terms)` and orders by `pdb.score(<key_field>)` — the index's declared `key_field` anchor, the content key the fusion re-queries the row store by, so the fusion projects IDENTITIES rather than re-materializing candidate payloads; every projection rides `FromSql`/`SqlQuery` raw SQL because `bm25` carries no EF translator.
 - Receipt: a lexical rank rides the `#FUSION_AND_REUSE` `store.fusion.rank` branch lineage — the `RetrievalBranch.Lexical` row names which arm ranked (its `Index` reads `bm25` or the tsvector GIN), so the degrade is visible in the fused result's lineage.
 - Packages: `pg_search` (server-side — the `pdb` schema, `@@@`/`|||`/`&&&`/`===`/`###`/`##`/`##>` operators, `bm25` access method; AGPL confined to the PG server tier, never linked into managed code), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
@@ -194,13 +198,31 @@ public static class ScaleoutRoute {
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
+// `MatchOption` is the lexical-modifier vocabulary the pg_search builders take, held as ONE
+// `CapabilitySet<MatchOption>` column per case rather than a bool product spread across four case
+// signatures. NAMED LOSS: compile-time exhaustiveness on an individual modifier — narrowing a case's held
+// set is now a value edit no consumer breaks on. WITNESS: the seven bool columns it replaces admitted
+// corners the builder rejects (`prefix` beside `conjunction_mode` on a `parse`, transposition on a
+// non-fuzzy), which no signature stated and no caller could read off the type; the set carries the
+// modifiers a case HOLDS and its lowering reads only the rows that case emits. `Rank` is the kernel's
+// derived declaration-order member, never a column here.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class MatchOption : ICapability<MatchOption> {
+    public static readonly MatchOption Lenient = new("lenient");
+    public static readonly MatchOption Conjunction = new("conjunction");
+    public static readonly MatchOption Prefix = new("prefix");
+    public static readonly MatchOption Ordered = new("ordered");
+    public static readonly MatchOption Transposition = new("transposition");
+}
+
 // `Bm25Predicate` closes pg_search builders, operators, and casts over admitted columns.
 // Every text payload crosses one literal quote-doubling seam.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Bm25Predicate {
     private Bm25Predicate() { }
-    public sealed record Parse(string Query, bool Lenient, bool Conjunction) : Bm25Predicate;
-    public sealed record Match(string Query, Option<int> Distance, bool Prefix, bool Conjunction) : Bm25Predicate;
+    public sealed record Parse(string Query, CapabilitySet<MatchOption> Options) : Bm25Predicate;
+    public sealed record Match(string Query, Option<int> Distance, CapabilitySet<MatchOption> Options) : Bm25Predicate;
     public sealed record RangeTerm(string Value, string Relation, string RangeType) : Bm25Predicate;
     public sealed record PhrasePrefix(Seq<string> Terms, Option<int> MaxExpansions) : Bm25Predicate;
     public sealed record MoreLikeThis(string DocId, Seq<string> Fields, Option<int> MaxQueryTerms) : Bm25Predicate;
@@ -210,8 +232,8 @@ public abstract partial record Bm25Predicate {
     public sealed record AllToken(string Terms) : Bm25Predicate;
     public sealed record ExactTerm(string Term) : Bm25Predicate;
     public sealed record Phrase(string Terms) : Bm25Predicate;
-    public sealed record Proximity(string Left, int Within, string Right, bool Ordered) : Bm25Predicate;
-    public sealed record Fuzzy(Bm25Predicate Inner, int Distance, bool Prefix, bool TranspositionCostOne) : Bm25Predicate;
+    public sealed record Proximity(string Left, int Within, string Right, CapabilitySet<MatchOption> Options) : Bm25Predicate;
+    public sealed record Fuzzy(Bm25Predicate Inner, int Distance, CapabilitySet<MatchOption> Options) : Bm25Predicate;
     public sealed record Boost(Bm25Predicate Inner, double Factor) : Bm25Predicate;
     public sealed record Const(Bm25Predicate Inner, double Score) : Bm25Predicate;
     public sealed record Slop(Bm25Predicate Inner, int Distance) : Bm25Predicate;
@@ -219,8 +241,8 @@ public abstract partial record Bm25Predicate {
     // One lowering composes builders, bare operators, proximity, and stacked casts structurally.
     // Admitted columns and quote-doubled literals prevent caller text from becoming SQL structure.
     public string Sql(Identifier column) => Switch(
-        parse:        p => $"{column} @@@ pdb.parse('{Lit(p.Query)}', lenient => {Bool(p.Lenient)}, conjunction_mode => {Bool(p.Conjunction)})",
-        match:        m => $"{column} @@@ pdb.match('{Lit(m.Query)}'{m.Distance.Map(static d => $", distance => {d}").IfNone(string.Empty)}, prefix => {Bool(m.Prefix)}, conjunction_mode => {Bool(m.Conjunction)})",
+        parse:        p => $"{column} @@@ pdb.parse('{Lit(p.Query)}', lenient => {Bool(p.Options, MatchOption.Lenient)}, conjunction_mode => {Bool(p.Options, MatchOption.Conjunction)})",
+        match:        m => $"{column} @@@ pdb.match('{Lit(m.Query)}'{m.Distance.Map(static d => $", distance => {d}").IfNone(string.Empty)}, prefix => {Bool(m.Options, MatchOption.Prefix)}, conjunction_mode => {Bool(m.Options, MatchOption.Conjunction)})",
         rangeTerm:    r => $"{column} @@@ pdb.range_term('{Lit(r.Value)}', relation => '{Lit(r.Relation)}', range_type => '{Lit(r.RangeType)}')",
         phrasePrefix: p => $"{column} @@@ pdb.phrase_prefix(ARRAY[{string.Join(", ", p.Terms.Map(static t => $"'{Lit(t)}'"))}]{p.MaxExpansions.Map(static n => $", max_expansions => {n}").IfNone(string.Empty)})",
         moreLikeThis: m => $"{column} @@@ pdb.more_like_this('{Lit(m.DocId)}', fields => ARRAY[{string.Join(", ", m.Fields.Map(static f => $"'{Lit(f)}'"))}]{m.MaxQueryTerms.Map(static n => $", max_query_terms => {n}").IfNone(string.Empty)})",
@@ -230,13 +252,17 @@ public abstract partial record Bm25Predicate {
         allToken:     a => $"{column} &&& '{Lit(a.Terms)}'",
         exactTerm:    e => $"{column} === '{Lit(e.Term)}'",
         phrase:       p => $"{column} ### '{Lit(p.Terms)}'",
-        proximity:    p => $"{column} @@@ ('{Lit(p.Left)}' {(p.Ordered ? "##>" : "##")} {p.Within} {(p.Ordered ? "##>" : "##")} '{Lit(p.Right)}')",
-        fuzzy:        f => $"{f.Inner.Sql(column)}::pdb.fuzzy({f.Distance}, {Bool(f.Prefix)}, {Bool(f.TranspositionCostOne)})",
+        proximity:    p => $"{column} @@@ ('{Lit(p.Left)}' {Near(p.Options)} {p.Within} {Near(p.Options)} '{Lit(p.Right)}')",
+        fuzzy:        f => $"{f.Inner.Sql(column)}::pdb.fuzzy({f.Distance}, {Bool(f.Options, MatchOption.Prefix)}, {Bool(f.Options, MatchOption.Transposition)})",
         boost:        b => $"{b.Inner.Sql(column)}::pdb.boost({b.Factor.ToString(CultureInfo.InvariantCulture)})",
         @const:       c => $"{c.Inner.Sql(column)}::pdb.const({c.Score.ToString(CultureInfo.InvariantCulture)})",
         slop:         s => $"{s.Inner.Sql(column)}::pdb.slop({s.Distance})");
 
-    static string Bool(bool value) => value ? "true" : "false";
+    // ONE membership read per emitted kwarg: the case's held set answers each builder argument the provider
+    // names, so the option vocabulary and the emitted SQL cannot drift apart per case.
+    static string Bool(CapabilitySet<MatchOption> options, MatchOption option) => options.Admits(option) ? "true" : "false";
+
+    static string Near(CapabilitySet<MatchOption> options) => options.Admits(MatchOption.Ordered) ? "##>" : "##";
 
     // `Lit` doubles single quotes where the provider's builder syntax cannot bind parameters.
     internal static string Lit(string value) => value.Replace("'", "''", StringComparison.Ordinal);
@@ -260,7 +286,7 @@ public static class SearchProjection {
 public sealed partial class LexicalRank {
     public static readonly LexicalRank Bm25 = new("bm25",
         static (key, _) => $"pdb.score({key})",
-        static (column, terms) => new Bm25Predicate.Parse(terms, Lenient: true, Conjunction: false).Sql(column));
+        static (column, terms) => new Bm25Predicate.Parse(terms, CapabilitySet<MatchOption>.Of(MatchOption.Lenient)).Sql(column));
     public static readonly LexicalRank TsRank = new("ts_rank",
         static (_, terms) => $"ts_rank(lexemes, websearch_to_tsquery('english', '{Bm25Predicate.Lit(terms)}'))",
         static (_, terms) => $"lexemes @@ websearch_to_tsquery('english', '{Bm25Predicate.Lit(terms)}')");
@@ -286,79 +312,66 @@ public sealed partial class LexicalRank {
 
 ## [04]-[VECTOR_CODEBOOK]
 
-- Owner: `ProductCodebook` the product-quantization codebook value-object the `Model/embedding#EMBEDDING` Compute lane encodes against (subspace count, the flat `[subspace][code][dim]` centroid grid, code width, and a content `Id`); `VectorRow` the content-keyed fine-form-plus-codes residence the rerank and the ADC scan read; `RetrievalFault` the closed `Expected`-band (8410) the codebook admission rejections rail; `VectorCodebook` the static surface owning the per-subspace k-means TRAINING and the amortized asymmetric-distance corpus scan; `VectorIndex` the composition-supplied port carrier owning the codebook supply, the coarse-survivor fine-form resolve, and the PQ-coded corpus read — the ANN index residence read by reference, never embedded.
+- Owner: `ProductCodebook` the product-quantization codebook value-object the `Model/embedding#EMBEDDING` Compute lane encodes against (subspace count, the flat `[subspace][code][dim]` centroid grid, code width, and a content `Id`); `VectorRow` the content-keyed fine-form-plus-codes residence the rerank and the ADC scan read; `RetrievalFault` the closed `Fault` family (8410) the codebook admission rejections rail; `VectorCodebook` the static surface owning the per-subspace k-means TRAINING and the amortized asymmetric-distance corpus scan; `VectorIndex` the composition-supplied port carrier owning the codebook supply, the coarse-survivor fine-form resolve, and the PQ-coded corpus read — the ANN index residence read by reference, never embedded.
 - Cases: `VectorFine` is `Float32 | Int8Scalar`; the quantized case carries `Scale` and `ZeroPoint`, so decode reconstructs magnitude. `RetrievalFault.Mismatched` rejects incoherent ADC layouts, and `RetrievalLimit` admits a positive result bound.
 - Entry: `Train` fits and content-keys the codebook; `AdcScan(..., RetrievalLimit)` admits query, codebook, row layout, and result bound before table access; `VectorIndex` supplies codebooks, fine forms, and coded rows through injected ports.
-- Auto: `Train` rejects an empty/ragged corpus, a dimension not divisible by `subspaces`, and a corpus smaller than `codesPerSubspace` (which leaves trailing centroid slots untrained at zero) to the typed `RetrievalFault` rail, slices each corpus vector's subspace window, seeds the centroid grid from the first `codesPerSubspace` sub-vectors (deterministic first-k seeding, reproducible across retrains), and iterates assignment (nearest centroid by `TensorPrimitives.Distance`) and mean recompute (`TensorPrimitives.Add` accumulate, `TensorPrimitives.Divide` by the cluster count) — the SAME `TensorPrimitives.Distance` the Compute `EncodeProduct` assigns with, so train-time and encode-time partitions agree bit-for-bit — then snapshots centroid storage and mints the content `Id` over little-endian layout and finite centroid scalars through seed-zero `XxHash128`, collapsing signed zero so equal codebooks key identically across RIDs; `AdcScan` builds the `Subspaces × CodesPerSubspace` table by `TensorPrimitives.Distance` of each query sub-vector against every centroid ONCE, then folds each coded row to the sum of its per-subspace table lookups and keeps the nearest `top` through a bounded `PriorityQueue` heap keyed on ascending distance (never a full sort, never a per-row centroid-distance recompute — the table amortizes it); `Probe` projects the float32 fine bytes onto the `Pgvector.Vector` ANN column the HNSW/diskann index residence is built over.
+- Auto: `Train` rejects an empty/ragged corpus, a dimension not divisible by `subspaces`, and a corpus smaller than `codesPerSubspace` (which leaves trailing centroid slots untrained at zero) to the typed `RetrievalFault` rail, slices each corpus vector's subspace window, seeds the centroid grid from the first `codesPerSubspace` sub-vectors (deterministic first-k seeding, reproducible across retrains), and iterates assignment (nearest centroid by `TensorPrimitives.Distance`) and mean recompute (`TensorPrimitives.Add` accumulate, `TensorPrimitives.Divide` by the cluster count) — the SAME `TensorPrimitives.Distance` the Compute `EncodeProduct` assigns with, so train-time and encode-time partitions agree bit-for-bit — then snapshots centroid storage and mints the content `Id` over little-endian layout and finite centroid scalars through seed-zero `XxHash128`, collapsing signed zero so equal codebooks key identically across RIDs; `AdcScan` builds the `Subspaces × CodesPerSubspace` table by `TensorPrimitives.Distance` of each query sub-vector against every centroid ONCE, then folds each coded row to the sum of its per-subspace table lookups and keeps the nearest `top` through the kernel `Ranked` bounded-selection cell under `ExtremumDirection.Minimum` (O(n log k) — never a full sort, never a negated priority, never a per-row centroid-distance recompute — the table amortizes it); `Probe` projects the float32 fine bytes onto the `Pgvector.Vector` ANN column the HNSW/diskann index residence is built over.
 - Receipt: a codebook train rides `store.vector.train` carrying the subspace and code counts and the content `Id`; an ADC scan rides `store.vector.adc` carrying the corpus cardinality and the top; a fine-form resolve rides `store.vector.resolve` carrying the survivor count; the candidate recall/latency is the upstream Compute embedding owner's measured concern, never re-emitted here.
-- Packages: System.Numerics.Tensors (`TensorPrimitives.Distance`/`Add`/`Divide`), System.IO.Hashing (`XxHash128` streaming `Append`/`GetCurrentHashAsUInt128`, seed zero — the kernel growth-row streaming member for a preimage that outgrows a one-shot span), Pgvector (`Vector`), Rasm.Persistence (`Query/lane#ELEMENT_SET_ALGEBRA` `SetKey`), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
+- Packages: System.Numerics.Tensors (`TensorPrimitives.Distance`/`Add`/`Divide`), System.IO.Hashing (`XxHash128` streaming `Append`/`GetCurrentHashAsUInt128`, seed zero — the kernel growth-row streaming member for a preimage that outgrows a one-shot span), Pgvector (`Vector`), Rasm (`Domain/stats#ORDER_STATISTICS` `Ranked` bounded top-K cell + `ExtremumDirection`), Rasm.Persistence (`Query/lane#ELEMENT_SET_ALGEBRA` `SetKey`), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a retrained codebook mints a new `Id`; a fine encoding is one `VectorFine` case; a richer ANN residence is one `VectorRoute` case.
 - Boundary: `ProductCodebook` is the ONE PQ vocabulary the seam shares — Compute imports it by its `Rasm.Persistence (project)` reference and does nearest-centroid encode and centroid-reconstruction decode over it but NEVER fits it, so defining it in Compute forces a `Persistence → Compute` cycle (the dependency runs `Compute → Persistence` only) and a Compute-side k-means is the named drift defect; training uses the SAME `TensorPrimitives.Distance` Compute assigns with so the partition a centroid grid induces at train time and at encode time is identical, and the codebook is supplied content-keyed so a re-train mints a fresh `Id` that re-keys every dependent `product-quantized` artifact (the `Model/embedding#EMBEDDING` content key folds the codebook `Id`); the two-stage retrieval is honest — the `binary-hamming` coarse gate (Compute) returns content keys, `Resolve` reads the survivors' `int8-scalar`/`float32` fine forms by content key, and the Compute `Rank` reranks over those fine forms, so the magnitude a 1-bit encoding discards is recovered from the stored fine residence and never faked from the ±1 decode; the amortized ADC scan is Persistence's because this lane owns the index traversal and the `#FUSION_AND_REUSE` recency-bounded reuse while the BOUNDED rerank over the resolved survivors is Compute's, so the query→centroid table is built once and reused across the whole corpus and a per-candidate centroid-distance recompute is the deleted form; the vector branch (the ADC or in-PG HNSW ranked rows mapped through `VectorRow.Subject` to model-qualified `SetKey`s) feeds `#FUSION_AND_REUSE` `FusionRank.Fuse` as one ranked branch, and the `Probe` `vector(N)` column is the same pgvector store type the `Element/identity#ELEMENT_IDENTITY` `Embedding` per-model locator rides (the corpus-grain retrieval index here, the per-model bounding-envelope locator there — two grains, never one duplicated index); the residence holds the typed `VectorFine` form and the optional `SetKey` only, no `EmbeddingVector`/`VectorEncoding`/`VectorScore` Compute type, so the strata dependency stays one-directional exactly as the `#FUSION_AND_REUSE` and `Query/cache#MODEL_RESULT_INDEX` owners keep it.
 
 ```csharp signature
-// --- [ERRORS] -----------------------------------------------------------------------------
-// `RetrievalFault` closes `FaultBand.Retrieval` over `Rasm.Domain.Expected`.
-// Cases lift directly onto `Fin<T>` without bare error integers.
-[Union]
-public abstract partial record RetrievalFault : Expected, IValidationError<RetrievalFault> {
-    private RetrievalFault() : base() { }
-    public sealed record EmptyCorpus : RetrievalFault;
-    public sealed record Layout(int Dimension, int Subspaces, int Codes) : RetrievalFault;
-    public sealed record Ragged(int Expected, int Found) : RetrievalFault;
-    public sealed record Undersized(int Corpus, int Codes) : RetrievalFault;
-    public sealed record Rejected(string Detail) : RetrievalFault;
-    public sealed record Mismatched(string Axis, string Expected, string Found) : RetrievalFault;
+// --- [ERRORS] ---------------------------------------------------------------------------
+// Direct generated union; arm probe: `error.IsType<RetrievalFault.Mismatched>()`.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record RetrievalFault : Fault {
+    private static readonly FaultBand FamilyBand = FaultBand.Retrieval;
+    private RetrievalFault() { }
 
-    public override int Code => FaultBand.Retrieval + Switch(
-        emptyCorpus: static _ => 0,
-        layout:      static _ => 1,
-        ragged:      static _ => 2,
-        undersized:  static _ => 3,
-        rejected:    static _ => 4,
-        mismatched:  static _ => 5);
+    [FaultCase(0)]
+    public sealed partial record EmptyCorpus : RetrievalFault();
+    [FaultCase(1)]
+    public sealed partial record Layout(int Dimension, int Subspaces, int Codes) : RetrievalFault();
+    [FaultCase(2)]
+    public sealed partial record Ragged(int Expected, int Found) : RetrievalFault();
+    [FaultCase(3)]
+    public sealed partial record Undersized(int Corpus, int Codes) : RetrievalFault();
+    [FaultCase(4)]
+    public sealed partial record Rejected(string Detail) : RetrievalFault();
+    [FaultCase(5)]
+    public sealed partial record Mismatched(string Axis, string Expected, string Found) : RetrievalFault();
 
     public override string Message => Switch(
         emptyCorpus: static _ => "<codebook-empty-corpus>",
-        layout:      static c => $"<codebook-layout:{c.Dimension}/{c.Subspaces}@{c.Codes}>",
-        ragged:      static c => $"<codebook-ragged:{c.Expected}!={c.Found}>",
-        undersized:  static c => $"<codebook-undersized:{c.Corpus}<{c.Codes}>",
+        layout:      static c => string.Create(CultureInfo.InvariantCulture, $"<codebook-layout:{c.Dimension}/{c.Subspaces}@{c.Codes}>"),
+        ragged:      static c => string.Create(CultureInfo.InvariantCulture, $"<codebook-ragged:{c.Expected}!={c.Found}>"),
+        undersized:  static c => string.Create(CultureInfo.InvariantCulture, $"<codebook-undersized:{c.Corpus}<{c.Codes}>"),
         rejected:    static c => $"<retrieval-rejected:{c.Detail}>",
         mismatched:  static c => $"<retrieval-mismatch:{c.Axis}:{c.Expected}!={c.Found}>");
-
-    public override string Category => Switch(
-        emptyCorpus: static _ => "EmptyCorpus",
-        layout:      static _ => "Layout",
-        ragged:      static _ => "Ragged",
-        undersized:  static _ => "Undersized",
-        rejected:    static _ => "Rejected",
-        mismatched:  static _ => "Mismatched");
-
-    // String-bearing generator text preserves the rendered message — a structured case
-    // minted with zeroed fields would erase the one piece of evidence the generator hands over.
-    public static RetrievalFault Create(string message) => new Rejected(message);
 }
 
 [ValueObject<int>]
-[ValidationError<RetrievalFault>]
+[ValidationError]
 public readonly partial struct RetrievalLimit {
-    static partial void ValidateFactoryArguments(ref RetrievalFault? validationError, ref int value) {
-        if (value <= 0) { validationError = new RetrievalFault.Rejected($"<retrieval-limit:{value}>"); }
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
+        if (value <= 0) { validationError = new ValidationError(string.Join(" | ", new object?[] { $"<retrieval-limit:{value}>" })); }
     }
 }
 
 [ValueObject<int>]
-[ValidationError<RetrievalFault>]
+[ValidationError]
 public readonly partial struct TrainingPasses {
-    static partial void ValidateFactoryArguments(ref RetrievalFault? validationError, ref int value) {
-        if (value <= 0) { validationError = new RetrievalFault.Rejected($"<training-passes:{value}>"); }
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
+        if (value <= 0) { validationError = new ValidationError(string.Join(" | ", new object?[] { $"<training-passes:{value}>" })); }
     }
 }
 
 [ValueObject<float>]
-[ValidationError<RetrievalFault>]
+[ValidationError]
 public readonly partial struct QuantizationScale {
-    static partial void ValidateFactoryArguments(ref RetrievalFault? validationError, ref float value) {
-        if (!float.IsFinite(value) || value <= 0) { validationError = new RetrievalFault.Rejected($"<quantization-scale:{value}>"); }
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) {
+        if (!float.IsFinite(value) || value <= 0) { validationError = new ValidationError(string.Join(" | ", new object?[] { $"<quantization-scale:{value}>" })); }
     }
 }
 
@@ -394,21 +407,25 @@ public sealed record ProductCodebook {
         return hash.GetCurrentHashAsUInt128();
     }
 
-    public static Fin<ProductCodebook> Of(int subspaces, int subspaceDim, int codesPerSubspace, ReadOnlyMemory<float> centroids) {
-        long expected = (long)subspaces * subspaceDim * codesPerSubspace;
-        if (subspaces <= 0 || subspaceDim <= 0 || codesPerSubspace is <= 0 or > 256) {
-            return Fin.Fail<ProductCodebook>(new RetrievalFault.Layout(0, subspaces, codesPerSubspace));
-        }
-        if (expected != centroids.Length) {
-            return Fin.Fail<ProductCodebook>(new RetrievalFault.Mismatched("centroids-length", expected.ToString(CultureInfo.InvariantCulture), centroids.Length.ToString(CultureInfo.InvariantCulture)));
-        }
-        if (!TensorPrimitives.IsFiniteAll(centroids.Span)) {
-            return Fin.Fail<ProductCodebook>(new RetrievalFault.Rejected("<codebook-centroids-nonfinite>"));
-        }
-        float[] owned = centroids.ToArray();
-        return Fin.Succ(new ProductCodebook(subspaces, subspaceDim, codesPerSubspace, owned,
-            KeyOf(subspaces, subspaceDim, codesPerSubspace, owned)));
-    }
+    // Three INDEPENDENT admissions accumulate through the seam's deferred-mint slot arity, so each case minter
+    // runs on the failing arm alone and a malformed codebook reports every offending axis at once, where the
+    // ladder it replaces surfaced the first alone — a caller fixing a layout only then learned its centroid
+    // run was ragged too.
+    public static Fin<ProductCodebook> Of(int subspaces, int subspaceDim, int codesPerSubspace, ReadOnlyMemory<float> centroids) =>
+        AdmissionSlots.Accumulate(Seq(
+            AdmissionSlots.Gate(subspaces > 0 && subspaceDim > 0 && codesPerSubspace is > 0 and <= 256,
+                subspaces, codesPerSubspace, static (parts, codes) => new RetrievalFault.Layout(0, parts, codes)),
+            AdmissionSlots.Gate((long)subspaces * subspaceDim * codesPerSubspace == centroids.Length,
+                (long)subspaces * subspaceDim * codesPerSubspace, centroids.Length,
+                static (expected, found) => new RetrievalFault.Mismatched("centroids-length",
+                    expected.ToString(CultureInfo.InvariantCulture),
+                    found.ToString(CultureInfo.InvariantCulture))),
+            AdmissionSlots.Gate(TensorPrimitives.IsFiniteAll(centroids.Span),
+                unit, "<codebook-centroids-nonfinite>", static (_, detail) => new RetrievalFault.Rejected(detail))))
+        .Map(_ => centroids.ToArray())
+        .Map(owned => new ProductCodebook(subspaces, subspaceDim, codesPerSubspace, owned,
+            KeyOf(subspaces, subspaceDim, codesPerSubspace, owned)))
+        .ToFin();
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -440,24 +457,39 @@ public readonly record struct VectorRow(
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class VectorCodebook {
-    public static Fin<ProductCodebook> Train(Seq<ReadOnlyMemory<float>> corpus, int subspaces, int codesPerSubspace, TrainingPasses passes) {
-        if (corpus.IsEmpty) { return Fin.Fail<ProductCodebook>(new RetrievalFault.EmptyCorpus()); }
-        int dimension = corpus[0].Length;
-        if (subspaces <= 0 || dimension % subspaces != 0 || codesPerSubspace is <= 0 or > 256) {
-            return Fin.Fail<ProductCodebook>(new RetrievalFault.Layout(dimension, subspaces, codesPerSubspace));
-        }
-        if (corpus.Exists(vector => vector.Length != dimension)) {
-            return Fin.Fail<ProductCodebook>(new RetrievalFault.Ragged(dimension, corpus.Filter(v => v.Length != dimension).Head.Map(static v => v.Length).IfNone(0)));
-        }
-        if (corpus.Exists(static vector => !TensorPrimitives.IsFiniteAll(vector.Span))) {
-            return Fin.Fail<ProductCodebook>(new RetrievalFault.Rejected("<codebook-corpus-nonfinite>"));
-        }
-        // Every centroid slot requires a corpus seed; undersized corpora rail before training.
-        if (corpus.Count < codesPerSubspace) { return Fin.Fail<ProductCodebook>(new RetrievalFault.Undersized(corpus.Count, codesPerSubspace)); }
-        int subDim = dimension / subspaces;
+    // Emptiness gates FIRST because every later admission reads the first vector's width — its refusal mints on
+    // the None arm alone; the four that follow are independent and ACCUMULATE, so a corpus that is both ragged
+    // and undersized reports both rather than costing one whole re-submission per defect. Every centroid slot
+    // requires a corpus seed, which is what the undersized row states. The ragged gate hands the corpus itself
+    // as the deferred detail, so the offending-width scan runs only when the gate fails.
+    public static Fin<ProductCodebook> Train(Seq<ReadOnlyMemory<float>> corpus, int subspaces, int codesPerSubspace, TrainingPasses passes) =>
+        corpus.Head.Match(
+            Some: first => Fitted(corpus, first.Length, subspaces, codesPerSubspace, passes),
+            None: static () => Fin.Fail<ProductCodebook>(new RetrievalFault.EmptyCorpus()));
+
+    static Fin<ProductCodebook> Fitted(Seq<ReadOnlyMemory<float>> corpus, int dimension, int subspaces, int codesPerSubspace, TrainingPasses passes) =>
+        AdmissionSlots.Accumulate(Seq(
+            AdmissionSlots.Gate(subspaces > 0 && dimension % subspaces == 0 && codesPerSubspace is > 0 and <= 256,
+                dimension, (Subspaces: subspaces, Codes: codesPerSubspace),
+                static (int width, (int Subspaces, int Codes) shape) => new RetrievalFault.Layout(width, shape.Subspaces, shape.Codes)),
+            SameWidth(corpus, dimension),
+            AdmissionSlots.Gate(corpus.ForAll(static vector => TensorPrimitives.IsFiniteAll(vector.Span)),
+                unit, "<codebook-corpus-nonfinite>", static (_, detail) => new RetrievalFault.Rejected(detail)),
+            AdmissionSlots.Gate(corpus.Count >= codesPerSubspace, corpus.Count, codesPerSubspace, RetrievalFault.Undersized)))
+        .ToFin()
+        .Bind(_ => Fitted(corpus, dimension / subspaces, subspaces, codesPerSubspace, passes.Value));
+
+    static Validation<Error, Unit> SameWidth(Seq<ReadOnlyMemory<float>> corpus, int expected) =>
+        corpus.Find(vector => vector.Length != expected).Match(
+            Some: vector => Fail<Error, Unit>(new RetrievalFault.Ragged(expected, vector.Length)),
+            None: static () => Success<Error, Unit>(unit));
+
+    // Per-subspace fitting is a SPAN KERNEL and stays a loop: each pass writes into its own slice of one flat
+    // centroid slab, which no `TensorPrimitives` primitive and no enumerable fold can address.
+    static Fin<ProductCodebook> Fitted(Seq<ReadOnlyMemory<float>> corpus, int subDim, int subspaces, int codesPerSubspace, int passes) {
         float[] centroids = new float[subspaces * codesPerSubspace * subDim];
         for (int subspace = 0; subspace < subspaces; subspace++) {
-            Lloyd(corpus, subspace, subDim, codesPerSubspace, passes.Value, centroids.AsSpan(subspace * codesPerSubspace * subDim, codesPerSubspace * subDim));
+            Lloyd(corpus, subspace, subDim, codesPerSubspace, passes, centroids.AsSpan(subspace * codesPerSubspace * subDim, codesPerSubspace * subDim));
         }
         return ProductCodebook.Of(subspaces, subDim, codesPerSubspace, centroids);
     }
@@ -472,14 +504,8 @@ public static class VectorCodebook {
             return Fin.Fail<Seq<(UInt128 ContentKey, float Distance)>>(new RetrievalFault.Rejected("<adc-query-nonfinite>"));
         }
         if (coded.IsEmpty) { return Fin.Succ(Seq<(UInt128 ContentKey, float Distance)>()); }
-        foreach (VectorRow row in coded) {
-            if (row.CodebookId != codebook.Id) {
-                return Fin.Fail<Seq<(UInt128 ContentKey, float Distance)>>(new RetrievalFault.Mismatched("codebook-id", codebook.Id.ToString("x32", CultureInfo.InvariantCulture), row.CodebookId.ToString("x32", CultureInfo.InvariantCulture)));
-            }
-            if (row.Codes.Length != codebook.Subspaces) {
-                return Fin.Fail<Seq<(UInt128 ContentKey, float Distance)>>(new RetrievalFault.Mismatched("codes-length", codebook.Subspaces.ToString(CultureInfo.InvariantCulture), row.Codes.Length.ToString(CultureInfo.InvariantCulture)));
-            }
-        }
+        Fin<Unit> coherent = Coherent(codebook, coded);
+        if (coherent.IsFail) { return coherent.Map(static _ => Seq<(UInt128 ContentKey, float Distance)>()); }
         float[] table = new float[codebook.Subspaces * codebook.CodesPerSubspace];
         for (int subspace = 0; subspace < codebook.Subspaces; subspace++) {
             ReadOnlySpan<float> part = query.Span.Slice(subspace * codebook.SubspaceDim, codebook.SubspaceDim);
@@ -487,23 +513,44 @@ public static class VectorCodebook {
                 table[subspace * codebook.CodesPerSubspace + code] = TensorPrimitives.Distance(part, codebook.Centroid(subspace, code));
             }
         }
-        PriorityQueue<(UInt128 ContentKey, float Distance), float> heap = new(top.Value);
+        // This hot scan is PURE accumulation: every row admission — codebook identity, code arity, and code
+        // range — settled at `Coherent` before the table was built, so this loop carries no rail exit and no
+        // `Fin` construction path through the corpus. The range test used to sit inside the innermost fold,
+        // costing a compare per subspace per row to answer a question the row's own shape already fixed. The
+        // bounded selection is the kernel `Ranked` cell under `ExtremumDirection.Minimum` — the negated
+        // `-distance` priority it replaces is the ordering trap the owner names (negation is not an ordering
+        // over a NaN-bearing float) — and `Drain` answers ascending distance whole.
+        Ranked<(UInt128 ContentKey, float Distance), float> nearest = new(top.Value, ExtremumDirection.Minimum);
         foreach (VectorRow row in coded) {
             ReadOnlySpan<byte> codes = row.Codes.Span;
             float distance = 0f;
             for (int subspace = 0; subspace < codes.Length; subspace++) {
-                if (codes[subspace] >= codebook.CodesPerSubspace) {
-                    return Fin.Fail<Seq<(UInt128 ContentKey, float Distance)>>(new RetrievalFault.Mismatched("code-range", codebook.CodesPerSubspace.ToString(CultureInfo.InvariantCulture), codes[subspace].ToString(CultureInfo.InvariantCulture)));
-                }
                 distance += table[subspace * codebook.CodesPerSubspace + codes[subspace]];
             }
-            if (heap.Count < top.Value) { heap.Enqueue((row.ContentKey, distance), -distance); }
-            else if (heap.TryPeek(out _, out float worst) && -distance > worst) { heap.EnqueueDequeue((row.ContentKey, distance), -distance); }
+            nearest.Offer((row.ContentKey, distance), distance);
         }
-        int kept = heap.Count;
-        (UInt128 ContentKey, float Distance)[] ordered = new (UInt128 ContentKey, float Distance)[kept];
-        for (int slot = kept - 1; slot >= 0; slot--) { ordered[slot] = heap.Dequeue(); }
-        return Fin.Succ(toSeq(ordered));
+        return Fin.Succ(nearest.Drain());
+    }
+
+    // ONE coherence gate over the coded corpus: identity, code arity, and code RANGE all decide per row and all
+    // decide before the table is built, so the scan below is total over admitted rows. The range test rode the
+    // innermost fold before, which put a rail exit inside the hot loop and re-asked per subspace what the row's
+    // own shape settles once. The fold short-circuits on the rail, so a malformed corpus costs one pass.
+    static Fin<Unit> Coherent(ProductCodebook codebook, Seq<VectorRow> coded) =>
+        coded.Fold(Fin.Succ(unit), (held, row) => held.Bind(_ =>
+            row.CodebookId != codebook.Id
+                ? Fin.Fail<Unit>(new RetrievalFault.Mismatched("codebook-id", codebook.Id.ToString("x32", CultureInfo.InvariantCulture), row.CodebookId.ToString("x32", CultureInfo.InvariantCulture)))
+            : row.Codes.Length != codebook.Subspaces
+                ? Fin.Fail<Unit>(new RetrievalFault.Mismatched("codes-length", codebook.Subspaces.ToString(CultureInfo.InvariantCulture), row.Codes.Length.ToString(CultureInfo.InvariantCulture)))
+            : Ranged(codebook, row.Codes.Span)));
+
+    static Fin<Unit> Ranged(ProductCodebook codebook, ReadOnlySpan<byte> codes) {
+        foreach (byte code in codes) {
+            if (code >= codebook.CodesPerSubspace) {
+                return Fin.Fail<Unit>(new RetrievalFault.Mismatched("code-range", codebook.CodesPerSubspace.ToString(CultureInfo.InvariantCulture), code.ToString(CultureInfo.InvariantCulture)));
+            }
+        }
+        return Fin.Succ(unit);
     }
 
     // Lloyd iteration uses `TensorPrimitives` for distance and centroid arithmetic.
@@ -548,19 +595,19 @@ public sealed record VectorIndex(
 |  [03]   | codebook supply     | content-keyed by `Id`, read by reference | a re-train re-keys every `product-quantized` artifact     |
 |  [04]   | coarse→fine rerank  | `Resolve` reads `int8`/`float32` fine    | magnitude recovered from the residence, never faked       |
 |  [05]   | ADC amortization    | one query→centroid table per scan        | reused across the corpus; never a per-row recompute       |
-|  [06]   | admission rail      | `RetrievalFault` 841x                    | the pre-split bare `Error.New(8360..8363)` is dead        |
+|  [06]   | admission rail      | `RetrievalFault` 841x                    | generated direct-union identity                           |
 |  [07]   | strata one-way      | `VectorFine` + `SetKey` only             | no Compute type crosses down                              |
 
 ## [05]-[FUSION_AND_REUSE]
 
-- Owner: `RetrievalBranch` the `[SmartEnum<string>]` typed branch axis carrying each branch's index identity; `FusionHit` carries each element's fused rank and typed contributions; `FusionRank` owns the n-ary reciprocal-rank fold with the `RrfConstant` policy; `ResultCache` keys the read-through `HybridCache` tier on both `ElementSet.Receipt` and the operation content key; `RetrievalOp` is the request `[Union]`, and `Retrieval` is the polymorphic dispatcher.
+- Owner: `RetrievalBranch` the `[SmartEnum<string>]` typed branch axis carrying each branch's index identity; `FusionHit` carries each element's fused rank and typed contributions; `FusionRank` owns the n-ary reciprocal-rank fold with the `RrfConstant` policy; `ResultCache` keys the read-through `HybridCache` tier on both `KeySelection.Receipt` and the operation content key; `RetrievalOp` is the request `[Union]`, and `Retrieval` is the polymorphic dispatcher.
 - Cases: `RetrievalOp` is `Fuse | Train | AdcScan`; `RetrievalResult` is `Fused | Trained | Scanned`; `RetrievalBranch` is `Vector | Spatial | Lexical`, each carrying its index identity.
 - Entry: `Run` admits the vector lane against the `StoreProfile`, then dispatches the closed op family; `FusionRank.Fuse` applies the single `RrfConstant` policy and preserves typed lineage; `ResultCache.Cached` read-through-caches the derived retrieval under the subject receipt.
 - Auto: fusion applies `Score(e) = Σ_b 1 / (RrfConstant + rank_b(e))` and preserves typed lineage. `VectorRoute` selects vector residence, and spatial and lexical branches retain their index identities.
 - Receipt: a fusion rides `store.fusion.rank` carrying the branch count and the fused cardinality; a cache hit rides `store.cache.hit`, a miss `store.cache.produce`; the routed vector branch's backend rides the `#SEARCH_PROVISIONING_PROBE` `store.vector.route` fact.
 - Packages: Microsoft.Extensions.Caching.Hybrid (`HybridCache.GetOrCreateAsync`/`HybridCacheEntryOptions`/`RemoveByTagAsync`), Rasm.Persistence (`Store/provisioning#SERVER_EXTENSIONS` `StoreProfile.Admits` — the lane-realizability axis), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
 - Growth: a new retrieval branch is one `RetrievalBranch` row carrying its index name and one ranked list into the same `Fuse` fold; a new retrieval modality is one `RetrievalOp` case whose arm breaks `Run` loudly at compile time; zero new surface — a per-branch-pair fusion, a bespoke score blend, a positional `branch-{b}` string lineage, a free-string cache tag, or a sibling `FuseMany`/`TrainAndScan` entrypoint is the deleted form because the RRF is one n-ary fold over the typed branch axis and the op union owns modality.
-- Boundary: `Run` is the vector lane's ONE admission owner — an engine whose `StoreProfile` cannot realize the ANN residence refuses there with the axis named, so `Fuse`, `Train`, and `AdcScan` execute on a proven lane and no arm carries a second realizability test; the lexical residence is a SEPARATE roster row admitting at `#DOCUMENT_CORPUS`, so this page holds two lane gates because it serves two lanes, never one gate standing for both. This owner is the search-lane binding the pgvector/pg_search/pgvectorscale/qdrant `.api` catalogs compose against — a catalogue's `VectorMetric`/`EmbeddingArity`/`Bm25Predicate`/RRF reference resolves here, never a parallel saved-search owner; the fusion is the one n-ary RRF fold over the typed `RetrievalBranch` axis so a hit's lineage names the index that ranked it — a bespoke per-pair blend or a positional string branch label is the deleted form; the cache is the AppHost `HybridCache` port keyed on the content-addressed `ElementSet.Receipt` (minted by `Query/lane#ELEMENT_SET_ALGEBRA`, a lane-owned identity this page never re-derives) with a receipt-derived tag, so a free-string tag rejects at admission because it is uninvalidatable by construction, and this SELECTION-RESULT cache is a DIFFERENT owner from `Query/cache`'s compute-result reuse index (`ArtifactIndexRow`/`ModelResultIndex`) — the fusion result seam feeds cache's index rows, never merges with them; spatial→PG GiST and ANN→pgvector are the index owners (DuckDB spatial/vss being the columnar aggregator only, not the transactional index), so the fusion branches read the federated row's GiST/HNSW/tsvector columns and never duplicate the index, the vector branch resolving through the `#VECTOR_CODEBOOK` `VectorRow.Subject`-mapped ranked rows.
+- Boundary: `Run` is the vector lane's ONE admission owner — an engine whose `StoreProfile` cannot realize the ANN residence refuses there with the axis named, so `Fuse`, `Train`, and `AdcScan` execute on a proven lane and no arm carries a second realizability test; the lexical residence is a SEPARATE roster row admitting at `#DOCUMENT_CORPUS`, so this page holds two lane gates because it serves two lanes, never one gate standing for both. This owner is the search-lane binding the pgvector/pg_search/pgvectorscale/qdrant `.api` catalogs compose against — a catalogue's `VectorMetric`/`EmbeddingArity`/`Bm25Predicate`/RRF reference resolves here, never a parallel saved-search owner; the fusion is the one n-ary RRF fold over the typed `RetrievalBranch` axis so a hit's lineage names the index that ranked it — a bespoke per-pair blend or a positional string branch label is the deleted form; the cache is the AppHost `HybridCache` port keyed on the content-addressed `KeySelection.Receipt` (minted by `Query/lane#ELEMENT_SET_ALGEBRA`, a lane-owned identity this page never re-derives and one the wrapper's private mint makes total) with a receipt-derived tag, so a free-string tag rejects at admission because it is uninvalidatable by construction, and this SELECTION-RESULT cache is a DIFFERENT owner from `Query/cache`'s compute-result reuse index (`ArtifactIndexRow`/`ModelResultIndex`) — the fusion result seam feeds cache's index rows, never merges with them; spatial→PG GiST and ANN→pgvector are the index owners (DuckDB spatial/vss being the columnar aggregator only, not the transactional index), so the fusion branches read the federated row's GiST/HNSW/tsvector columns and never duplicate the index, the vector branch resolving through the `#VECTOR_CODEBOOK` `VectorRow.Subject`-mapped ranked rows.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -618,31 +665,31 @@ public static class FusionRank {
 public static class ResultCache {
     // Read-through reuse keys derived retrieval by subject receipt, operation key, and cache policy.
     // Receipt-derived tags support invalidation, and state-threaded factories preserve single-flight production.
-    public static IO<T> Cached<TState, T>(ElementSet subject, UInt128 operationKey, RetrievalCachePolicy policy, TState state,
+    public static IO<T> Cached<TState, T>(KeySelection subject, UInt128 operationKey, RetrievalCachePolicy policy, TState state,
         Func<TState, CancellationToken, ValueTask<T>> produce, HybridCache cache) {
         string subjectKey = subject.Receipt.ToString("x32", CultureInfo.InvariantCulture);
         string operation = operationKey.ToString("x32", CultureInfo.InvariantCulture);
-        return IO.liftAsync(() => cache.GetOrCreateAsync(
+        return IO.liftAsync(async () => await Op.Of().Catch(async token => Fin<T>.Succ(await cache.GetOrCreateAsync(
             $"{policy.Namespace}:{subjectKey}:{operation}",
             state,
             produce,
             new HybridCacheEntryOptions { Expiration = policy.TimeToLive.ToTimeSpan() },
-            tags: [$"elementset:{subjectKey}"]).AsTask());
+            tags: [$"elementset:{subjectKey}"],
+            cancellationToken: token).ConfigureAwait(false))).ConfigureAwait(false)).Bind(IO.liftFin);
     }
 }
 
 // --- [COMPOSITION] --------------------------------------------------------------------------
 public static class Retrieval {
-    // `VectorLane` is the token `StoreProfile.Lanes` spells for the ANN residence this entry serves.
-    public const string VectorLane = "vector";
-
     // ONE entry per MODAL_ARITY: the op case is the discriminant, the generated Switch total — train and scan
     // rail the RetrievalFault band at their layout admissions, fuse is total over admitted values. The lane
     // admits ONCE here, so an engine that cannot realize the vector residence refuses at the entry rather than at
-    // its first ANN probe, and no op arm carries a second realizability test.
+    // its first ANN probe, and no op arm carries a second realizability test. The lane is the TYPED
+    // `Store/provisioning#SERVER_EXTENSIONS` `Lane.Vector` row, never a page-local string constant beside the
+    // vocabulary that owns every lane token the estate spells.
     public static Fin<RetrievalResult> Run(StoreProfile store, RetrievalOp op) =>
-        !store.Admits(VectorLane)
-        ? Fin.Fail<RetrievalResult>(new RetrievalFault.Mismatched("store-lane", VectorLane, store.Key))
+        !store.Admits(Lane.Vector)
+        ? Fin.Fail<RetrievalResult>(new RetrievalFault.Mismatched("store-lane", Lane.Vector.Key, store.Key))
         : op.Switch(
             fuse:    static f => Fin.Succ<RetrievalResult>(new RetrievalResult.Fused(FusionRank.Fuse(f.Branches))),
             train:   static t => VectorCodebook.Train(t.Corpus, t.Subspaces, t.CodesPerSubspace, t.Passes)
@@ -656,11 +703,11 @@ public static class Retrieval {
 | :-----: | :----------------- | :--------------------------------------- | :---------------------------------------------------------------- |
 |  [01]   | entry              | `Run(StoreProfile, RetrievalOp)`         | fuse/train/scan are cases; no sibling entrypoint family           |
 |  [02]   | fusion             | n-ary RRF over `RetrievalBranch`         | typed branch lineage; `RrfConstant = 60` named once               |
-|  [03]   | cache key          | content-addressed `ElementSet.Receipt`   | cached under the SUBJECT receipt, not its own — the circular form |
+|  [03]   | cache key          | content-addressed `KeySelection.Receipt` | cached under the SUBJECT receipt, not its own — the circular form |
 |  [04]   | cache invalidation | receipt-derived tag → `RemoveByTagAsync` | a changefeed op-log change to a contributing node cuts it         |
 |  [05]   | cache identity     | selection-result reuse                   | distinct from `Query/cache`'s compute-result index                |
 |  [06]   | index ownership    | GiST spatial, pgvector ANN, BM25 lexical | DuckDB is the columnar aggregator, never the index                |
-|  [07]   | lane admission     | `Admits(VectorLane)` inside `Run`        | refused once, axis named; `search` gates at #DOCUMENT_CORPUS      |
+|  [07]   | lane admission     | `Admits(Lane.Vector)` inside `Run`       | typed row, refused once; `Lane.Search` gates at #DOCUMENT_CORPUS  |
 
 ## [06]-[DOCUMENT_CORPUS]
 
@@ -668,6 +715,8 @@ public static class Retrieval {
 - Cases: `CorpusKind` is `Cell | Prose | Issue | Node | Evidence`, each row carrying its coverage columns — the subject, member, and body semantics its documents fill; `DocumentPredicate` is `Match | Phrase | PhrasePrefix | Regex`, one row per grammar the consumer's own vocabulary closes.
 - Entry: `public static Fin<string> Statement(StoreProfile store, DocumentQuery query, LexicalRank rank)` admits the search lane and then the wire ONCE — non-blank terms, a non-empty scope of admitted `CorpusKind` keys, a bounded limit — then lowers the predicate token, the scope filter, the subject narrowing, and the rank arm's own score and order fragments into one statement; `public static Fin<DocumentHit> Shape(...)` folds one projected row into the answer wire.
 - Auto: this corpus is a `RetrievalBranch.Lexical` residence, so a document search is a first-class branch a `#FUSION_AND_REUSE` `Fuse` can take beside the vector and spatial branches without a second ranked-list shape. Each predicate token selects its `Bm25Predicate` case and the whole-word column selects the exact-term operator inside the `Match` row alone — a phrase already bounds its tokens, a prefix contradicts a boundary by construction, and a pattern carries its own. Case sensitivity is NOT an index property: the `bm25` analyzer case-folds at build, so the lane narrows case-insensitively and gates the matched set with a positional containment test before ranking. Snippet, positions, and score all project through `#LEXICAL_ALGEBRA` — `SearchProjection.Snippet`, `SearchProjection.SnippetPositions`, and the rank row's own `Score` — so the degrade arm answers the same column set at reduced lexical power.
+- Law: query modifiers cross as ONE `CapabilitySet<SearchOption>` column, not a bool pair. NAMED LOSS: two named `bool` positions a caller sets by name at the constructor. WITNESS: `csharp:Rasm.AppUi/Document/search#INDEX_WIRE` composes `DocumentQuery` DIRECTLY rather than re-spelling it, so one declaration moves both ends together — a third modifier lands as one row instead of a third positional bool the decoder must know the order of, and the set's rank-ordered `Wire` projection is the crossing form. AppUi construction sites move in that plane's own pass.
+- Law: each lane gate names the TYPED `Store/provisioning#SERVER_EXTENSIONS` `Lane` row — `Lane.Vector` at `Retrieval.Run` and `Lane.Search` here. That pair of page-local `const string` values spelled tokens the `Lane` vocabulary already owns, which is the deleted form on that owner's own law: a token minted at a call site cannot be checked against the roster that declares it.
 - Receipt: a document search rides the `#FUSION_AND_REUSE` `store.fusion.rank` branch lineage under `RetrievalBranch.Lexical`, so the arm that ranked it is visible without a second fact.
 - Packages: `pg_search` (server-side — the `pdb` schema, the `bm25` access method), Rasm.Persistence (`Store/provisioning#SERVER_EXTENSIONS` `StoreProfile.Admits` — the lane-realizability axis), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new document source is one `CorpusKind` row carrying its coverage columns, and the consumer's source roster gains the matching key; a new grammar is one `DocumentPredicate` row lowering to an existing `Bm25Predicate` case; zero new surface and no second corpus relation.
@@ -691,7 +740,7 @@ public sealed partial class CorpusKind {
     public string Subject { get; }
     public string Member { get; }
     public string Body { get; }
-    public bool Keyed => Member.Length > 0;
+    public bool Keyed => Member.Length > 0;   // a derived presence read, not a stored column
     private CorpusKind(string key, string subject, string member, string body) : this(key) => (Subject, Member, Body) = (subject, member, body);
 }
 
@@ -702,9 +751,9 @@ public sealed partial class CorpusKind {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DocumentPredicate {
     public static readonly DocumentPredicate Match = new("match",
-        static (terms, whole) => whole
+        static (terms, options) => options.Admits(SearchOption.WholeWords)
             ? (Bm25Predicate)new Bm25Predicate.ExactTerm(terms)
-            : new Bm25Predicate.Match(terms, Distance: None, Prefix: false, Conjunction: true));
+            : new Bm25Predicate.Match(terms, Distance: None, CapabilitySet<MatchOption>.Of(MatchOption.Conjunction)));
     public static readonly DocumentPredicate Phrase = new("phrase",
         static (terms, _) => new Bm25Predicate.Phrase(terms));
     public static readonly DocumentPredicate PhrasePrefix = new("phrase-prefix",
@@ -713,7 +762,7 @@ public sealed partial class DocumentPredicate {
     public static readonly DocumentPredicate Regex = new("regex",
         static (terms, _) => new Bm25Predicate.Regex(terms));
 
-    [UseDelegateFromConstructor] public partial Bm25Predicate Lower(string terms, bool wholeWords);
+    [UseDelegateFromConstructor] public partial Bm25Predicate Lower(string terms, CapabilitySet<SearchOption> options);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -725,14 +774,23 @@ public readonly record struct CorpusRow(
 
 // `DocumentQuery`/`DocumentHit` carry the query and answer wire. `csharp:Rasm.AppUi/Document/search#INDEX_WIRE`
 // composes THESE declarations directly — one declaration serves both ends, so the shape cannot fork.
+// `SearchOption` is the query-modifier vocabulary the wire carries as ONE `CapabilitySet<SearchOption>`
+// column rather than a bool pair, so a third modifier is one row at both ends and the set's rank-ordered
+// `Wire` projection crosses without a positional bool product a decoder must know the order of.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class SearchOption : ICapability<SearchOption> {
+    public static readonly SearchOption CaseSensitive = new("case-sensitive");
+    public static readonly SearchOption WholeWords = new("whole-words");
+}
+
 public sealed record DocumentQuery(
     string Terms,
     string Predicate,
     Seq<string> Sources,
     Option<string> Subject,
     int Limit,
-    bool CaseSensitive,
-    bool WholeWords);
+    CapabilitySet<SearchOption> Options);
 
 // Spans cross as offset and LENGTH because the consumer's span type carries an inclusive end, so a raw end
 // field leaves the two sides disagreeing by one character on every hit.
@@ -758,9 +816,8 @@ public static class DocumentCorpus {
     public static readonly Identifier KeyField = Identifier.Create("content_key");
     public static readonly Identifier BodyColumn = Identifier.Create("body");
 
-    // `SearchLane` is the token `StoreProfile.Lanes` spells for the lexical residence this corpus lives in — a
-    // DIFFERENT lane from the ANN residence `Retrieval.Run` admits, so this page serves two roster rows.
-    public const string SearchLane = "search";
+    // Lexical residence lives on the TYPED `Lane.Search` row — a DIFFERENT lane from the ANN residence
+    // `Retrieval.Run` admits, so this page serves two roster rows and neither spells its token as free text.
 
     // ONE lowering per query: the lane admits FIRST — an engine that cannot realize the lexical residence has no
     // `bm25` index and no `lexemes` column, so the degrade arm is unreachable too and the refusal belongs here
@@ -768,14 +825,13 @@ public static class DocumentCorpus {
     // optional subject narrowing, the case-sensitivity gate the analyzer cannot carry, and the rank row's own
     // score and order fragments — so the BM25 arm and the tsvector degrade arm compose the same statement shape.
     public static Fin<string> Statement(StoreProfile store, DocumentQuery query, LexicalRank rank) =>
-        !store.Admits(SearchLane)
-        ? Fin.Fail<string>(new RetrievalFault.Mismatched("store-lane", SearchLane, store.Key))
+        !store.Admits(Lane.Search)
+        ? Fin.Fail<string>(new RetrievalFault.Mismatched("store-lane", Lane.Search.Key, store.Key))
         : (from admitted in Admit(query)
            from predicate in (DocumentPredicate.TryGet(admitted.Predicate, out DocumentPredicate? row)
-                   ? Optional(row)
-                   : Option<DocumentPredicate>.None)
-               .ToFin(new RetrievalFault.Mismatched(
-                   "document-predicate", string.Join("|", DocumentPredicate.Items.Select(static p => p.Key)), admitted.Predicate))
+                   ? Fin.Succ(row)
+                   : Fin.Fail<DocumentPredicate>(new RetrievalFault.Mismatched(
+                       "document-predicate", string.Join("|", DocumentPredicate.Items.Select(static p => p.Key)), admitted.Predicate)))
            select Composed(admitted, predicate, rank));
 
     // `Shape` takes positions the index answers for a WHOLE document, so the wire's span pair is the first
@@ -784,9 +840,9 @@ public static class DocumentCorpus {
     public static Fin<DocumentHit> Shape(
         CorpusKind kind, string subject, Option<string> member, string title, string snippet,
         Seq<(int Start, int Length)> positions, double score) =>
-        positions.Head
-            .ToFin(new RetrievalFault.Mismatched("snippet-positions", "at least one match position", "none"))
-            .Map(first => new DocumentHit(kind.Key, subject, member, title, first.Start, first.Length, snippet, score));
+        positions.Head.Match(
+            Some: first => Fin.Succ(new DocumentHit(kind.Key, subject, member, title, first.Start, first.Length, snippet, score)),
+            None: static () => Fin.Fail<DocumentHit>(new RetrievalFault.Mismatched("snippet-positions", "at least one match position", "none")));
 
     // Case sensitivity is NOT an index property — the analyzer case-folds at build — so the lane narrows
     // case-insensitively through the index and gates the matched set with a positional containment test.
@@ -797,10 +853,10 @@ public static class DocumentCorpus {
                 {SearchProjection.SnippetPositions(BodyColumn)} AS "Positions",
                 {rank.Score(KeyField, query.Terms)} AS "Score"
          FROM {Relation}
-         WHERE {predicate.Lower(query.Terms, query.WholeWords).Sql(BodyColumn)}
+         WHERE {predicate.Lower(query.Terms, query.Options).Sql(BodyColumn)}
            AND kind = ANY(ARRAY[{string.Join(", ", query.Sources.Map(static source => $"'{Bm25Predicate.Lit(source)}'"))}])
          {query.Subject.Map(static subject => $"  AND subject = '{Bm25Predicate.Lit(subject)}'").IfNone(string.Empty)}
-         {(query.CaseSensitive ? $"  AND position('{Bm25Predicate.Lit(query.Terms)}' in {BodyColumn}) > 0" : string.Empty)}
+         {(query.Options.Admits(SearchOption.CaseSensitive) ? $"  AND position('{Bm25Predicate.Lit(query.Terms)}' in {BodyColumn}) > 0" : string.Empty)}
          ORDER BY {rank.Rank(KeyField, query.Terms)}
          LIMIT {query.Limit}
          """;
@@ -832,7 +888,7 @@ public static class DocumentCorpus {
 |  [07]   | wire projection  | identities, snippet, positions, score  | the matched body never re-crosses; residence stays unforked        |
 |  [08]   | rank arm         | receipt lineage, not a wire column     | a copy on the wire is a column the consumer never reads            |
 |  [09]   | limit ceiling    | `LimitCeiling` here; consumer reads it | neither end accepts what the other refuses                         |
-|  [10]   | lane admission   | `Admits(SearchLane)` in `Statement`    | the degrade arm needs the lane too; refused once, axis named       |
+|  [10]   | lane admission   | `Admits(Lane.Search)` in `Statement`   | the degrade arm needs the lane too; refused once, axis named       |
 
 ## [07]-[RESEARCH]
 

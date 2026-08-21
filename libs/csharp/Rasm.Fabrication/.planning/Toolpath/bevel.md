@@ -2,7 +2,7 @@
 
 `Bevel.Condition` admits a station-varying preparation field, process evidence, head kinematics, compensation calibration, height-control policy, and pass schedule before it emits guarded tool-axis blocks. `BevelPass` preserves geometry, process, height-control, and inspection evidence as one specialized section.
 
-`Bevel.Condition`, `BevelPass`, `ThcDirective`, and `ThcSpan` remain the bevel seam names. `BevelPolicy` is the admitted, edge-independent half of a bevel job, so one calibration conditions many edges. `Beveled.SpecializedDirective` projects tool axis, pivot, angle, compensation, feed, and derived duration into the admitted `Bevel`-kind `SpecializedToolpathEnvelope` under ONE program-wide block ordinal, while `Beveled.InspectionDirective` carries measured conformance on its own `Inspection`-kind one. `ProcessBudget.Thermal` and `ProcessBudget.Abrasive` own cut physics, `ArcOffset` owns kerf topology, and typed `MTConnect` measurements bind head geometry without string codes.
+`Bevel.Condition`, `BevelPass`, `ThcDirective`, and `ThcSpan` remain the bevel seam names. `BevelPolicy` is the admitted, edge-independent half of a bevel job, so one calibration conditions many edges. `Beveled.SpecializedDirective` projects tool axis, pivot, angle, compensation, feed, and derived duration into the admitted `Bevel`-kind `SpecializedToolpathEnvelope` under ONE program-wide block ordinal, while `Beveled.InspectionDirective` carries measured conformance on its own `Inspection`-kind one. `ProcessBudget.Thermal` and `ProcessBudget.Abrasive` own cut physics and kerf width alike, `ArcOffset` owns kerf topology, and head geometry binds to the canonical `ToolMetric` rows `Tooling/magazine` already decoded — this page reaches no provider type.
 
 ## [01]-[INDEX]
 
@@ -17,10 +17,11 @@
 - Owner: generated `PrepStandard` values supply section-law data for square, top, underside, opposed, land, radius, flare, and scarf forms; `TopShare` and `BottomShare` partition the body into disjoint flank bands, `MemberScale` states how much of the joint's included angle this member cuts, and `BottomAngleScale` carries the asymmetric double-prep flank a single admitted angle cannot express.
 - Owner: `PrepSection` closes generated and custom profiles and projects `SideSign` and `Mirrored`; `PrepLaw` admits one coherent side across every station and owns `KerfSideMm`, so kerf compensation follows the prepared side instead of a fixed positive offset.
 - Owner: `HeadKinematics` owns the ORIENTATION SOLVE itself — each case answers the tool axis its own machine can reach and refuses the tilt it cannot, so a fixed head refuses a demanded bevel, a single rotary refuses a cross tilt, and the five-axis and robot cases carry both rotations. An injected orientation function was a hole in a chartered algorithm through which any answer could arrive unproven.
-- Owner: `HeadPolicy` couples kinematics and pivot beside the typed `ToolCuttingEdgeAngleMeasurement` tilt limit, the `ProcessFeedRate` operating envelope, and corner-radius/chamfer measurements; no hand-declared scalar restates a catalogued tool measurement.
-- Owner: `CompensationPolicy` couples calibrated geometry, axis, lag, kerf, and wear terms; `BevelPolicy` binds preparation, schedule, budget, head, compensation, height control, and chord error into one admitted law whose `BevelProcess` answers which live run budget it serves, so a lane routing into conditioning proves correspondence instead of re-admitting the policy.
+- Owner: `HeadPolicy` couples kinematics and pivot to the MOUNTED assembly: tilt limit, corner radius, and chamfer width are read off `ToolAssembly.Snapshot` by their `ToolMeasure` rows and the operating envelope is the package's own `ProcessRange`, so a bevel head states no dimension the catalogue has not already decoded and each absent measurement refuses on its own lane. `Feedable` folds the two OPTIONAL bounds, so a controller that published no ceiling caps nothing.
+- Owner: `CompensationPolicy` couples calibrated geometry, axis, lag, and wear terms as the quantities they are; kerf width is NOT among them, because `BevelProcess` carries it as a base column filled off the budget both cases already hold. `BevelPolicy` binds preparation, schedule, budget, head, compensation, height control, and chord error into one admitted law whose `BevelProcess` answers which live run budget it serves, so a lane routing into conditioning proves correspondence instead of re-admitting the policy.
+- Law: `BevelProcess` fills speed, kerf width, and budget evidence as BASE COLUMNS at construction — three two-arm folds each read one column and returned it, while the kerf arm reached past the abrasive budget's own `KerfWidth` into a compensation column restating it. Cross tilt stays a fold: the thermal case genuinely holds none.
 - Owner: each `PassRow` couples its sensing modality; `ThcPolicy` couples anti-dive, corner hold, response, and activation evidence.
-- Packages: `Process/owner#RUN_DISPATCH` `QuantityArrow` is the ONE dimension-text entry, admitting a whole batch in one traversal so a four-dimension section crosses the boundary once; `TensorPrimitives.IsFiniteAll` admits numeric batches; `Thinktecture` closes construction.
+- Packages: `Process/owner#RUN_DISPATCH` `QuantityArrow` is the ONE dimension-text entry, admitting a whole batch in one traversal so a four-dimension section crosses the boundary once; `Tooling/magazine` supplies `ToolAssembly`, `ToolMeasure`, and the canonical metric read; `Process/physics#EQUIPMENT` supplies `ProcessRange`; `UnitsNet` types every calibrated magnitude; `TensorPrimitives.IsFiniteAll` admits numeric batches; `Thinktecture` closes construction.
 - Boundary: `BevelDemand` crosses the nullable boundary exactly once, and every interior function consumes `BevelJob`.
 
 ## [03]-[CONDITIONING]
@@ -37,13 +38,13 @@
 
 ## [04]-[EGRESS]
 
-`BevelPass` is inverse-sufficient: every `BevelBlock` carries its PROGRAM ordinal, source span, bulge, station, path distance, preparation offset, tool axis, pivot, angle, angle rate, feed, and compensation; its own `ThcSpan` rows cover the same block range, and `BevelReceipt.Passes` remains the single pass owner for every projection.
+`BevelPass` is inverse-sufficient: every `BevelBlock` carries its PROGRAM ordinal, source span, bulge, station, path distance, preparation offset, tool axis, pivot, angle, angle rate, feed, and compensation; its own `ThcSpan` rows cover the same block range, and `BevelEvidence.Passes` remains the single pass owner for every projection.
 
 - Law: the block ordinal is the program-wide index into the emitted move stream, the same convention `MoveTrail` fixes for turning — a pass-local ordinal beside a program-wide `AfterMove` on the directive meant two bases for one question, and a consumer joining them read the wrong block.
 - Law: a `SpecializedToolpathEnvelope` carries ONE toolpath kind, proved once at receipt construction through the S0 factory. Blocks ride the `Bevel`-kind carrier and conformance rows the `Inspection`-kind one at zero cut duration, so no consumer re-walks either payload and `ToolpathRowMap` owns both transcriptions.
 - Law: posting and simulation retain axis, pivot, inspection, process, and duration evidence, and estimation consumes that simulation receipt.
 - Output: `Beveled.Moves` and `Beveled.Directives` are the program egress `Toolpath/motion`'s edge-preparation lane folds into one cut element, and `Beveled.PostingSource` carries the typed envelope into canonical posting; the caller arrow retains other result projections.
-- Receipt: `BevelReceipt` preserves standard/custom law, extrema, conditioned length, head measurements, pass evidence, and guard count.
+- Receipt: `BevelEvidence` preserves standard/custom law, extrema, conditioned length, catalogued head dimensions, pass evidence, and guard count. It is evidence and not a receipt: `Process/owner#RECEIPT` `Receipt<TEvidence>` demands a content key, a plane, and a settling stamp, and conditioning mints no artifact and reads no clock.
 - Growth: a standard groove is one `PrepStandard` seed value; a novel section is one `PrepSection.Custom` payload; a new machine posture is one `HeadKinematics` case answering its own orientation solve; a new sensor is one `HeightSource` case, and `ThcDirective.Regulating` carries it without a mirrored directive arm.
 - Boundary: `ThcSpan` rows neither overlap nor gap, and every non-`Off` terminal closes inside the admitted schedule.
 
@@ -55,21 +56,20 @@ using CavalierContours.Polyline;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
-using MTConnect.Assets.CuttingTools;
-using MTConnect.Assets.CuttingTools.Measurements;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
+using Rasm.Fabrication.Tooling;
 using Rasm.Numerics;
 using Rhino.Geometry;
 using Riok.Mapperly.Abstractions;
 using Thinktecture;
+using UnitsNet;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Toolpath;
 
 // --- [VOCABULARY] ---------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class PrepStandard {
     public static readonly PrepStandard I = Create(0.0, 0.0, 0.0, 0.0, 1.0);
     public static readonly PrepStandard V = Create(1.0, 0.0, 0.0, 0.5, 1.0);
@@ -90,7 +90,7 @@ public sealed partial class PrepStandard {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref double topShare,
         ref double bottomShare,
         ref double radiusBlend,
@@ -100,7 +100,7 @@ public sealed partial class PrepStandard {
             || topShare is < 0.0 or > 1.0 || bottomShare is < 0.0 or > 1.0 || radiusBlend is < 0.0 or > 1.0
             || memberScale is < 0.0 or > 1.0 || bottomAngleScale is < 0.0 or > 2.0
             || topShare + bottomShare > 1.0)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:standard");
+            validationError = new ValidationError("bevel:standard");
     }
 
     // Top and bottom flanks occupy disjoint bands of the body and carry independent angles, so an asymmetric double prep is expressible.
@@ -134,7 +134,6 @@ public sealed partial class PrepSide {
 }
 
 [ValueObject<double>]
-[ValidationError<FabricationFault>]
 public sealed partial class CompensationMode {
     public static readonly CompensationMode Geometry = Create(1.0);
     public static readonly CompensationMode Head = Create(0.0);
@@ -143,10 +142,10 @@ public sealed partial class CompensationMode {
     public double GeometryShare => Value;
     public double AxisShare => 1.0 - Value;
 
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref double value) =>
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = double.IsFinite(value) && value is >= 0.0 and <= 1.0
             ? null
-            : new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:compensation-mode");
+            : new ValidationError("bevel:compensation-mode");
 }
 
 // The orientation solve rides the CASE that can answer it: the nominal tool axis tilts by the preparation angle
@@ -182,18 +181,18 @@ public abstract partial record HeadKinematics {
             && axis.Rotate(angleDeg * Math.PI / 180.0, tangent)
             && axis.Rotate(crossTiltDeg * Math.PI / 180.0, normal)
                 ? Unitized(axis, locus)
-                : Fin.Fail<Vector3d>(new GeometryFault.DegenerateInput(Kind.Curve, None, locus).ToError());
+                : Fin.Fail<Vector3d>(new GeometryFault.DegenerateInput(Kind.Curve, None, locus));
     }
 
     private static Fin<Vector3d> Unitized(Vector3d candidate, string locus) {
         Vector3d axis = candidate;
         return axis.Unitize()
             ? Fin.Succ(axis)
-            : Fin.Fail<Vector3d>(new GeometryFault.DegenerateInput(Kind.Curve, None, locus).ToError());
+            : Fin.Fail<Vector3d>(new GeometryFault.DegenerateInput(Kind.Curve, None, locus));
     }
 
     private static Fin<Vector3d> Unsupported(string posture, double demand) =>
-        Fin.Fail<Vector3d>(new FabricationFault.BevelUnsupported(new FaultSubject.Bevel(posture), demand).ToError());
+        Fin.Fail<Vector3d>(new FabricationFault.BevelUnsupported(new FaultSubject.Bevel(posture), demand));
 }
 
 [Union]
@@ -210,34 +209,27 @@ public abstract partial record HeightSource {
         disabled: static _ => false);
 
     public bool Valid => Switch(
-        arcVoltage: static row => Witness.Positive(row.TargetVolts),
+        arcVoltage: static row => ValidityClaim.Positive(row.TargetVolts),
         capacitive: static row => double.IsFinite(row.HeightMm) && row.HeightMm >= 0.0,
         plateRide: static row => double.IsFinite(row.HeightMm) && row.HeightMm >= 0.0,
         disabled: static _ => true);
 }
 
+// Cut speed, kerf width, and budget evidence ride BASE COLUMNS each case fills off its own budget at construction:
+// three two-arm folds each read one column and answered the same shape, and the kerf fold reached PAST the abrasive
+// budget's own `KerfWidth` into a compensation column that restated it — one kerf declared at two owners, movable at
+// one. Cross tilt survives as a fold because the two cases genuinely disagree: a thermal head holds no cross tilt.
 [Union]
-public abstract partial record BevelProcess {
-    public sealed record Thermal(ProcessBudget.Thermal Budget) : BevelProcess;
-    public sealed record Abrasive(ProcessBudget.Abrasive Budget) : BevelProcess;
+public abstract partial record BevelProcess(double SpeedMmPerMin, double KerfWidthMm, BudgetEvidence Evidence) {
+    public sealed record Thermal(ProcessBudget.Thermal Budget)
+        : BevelProcess(Budget.CutSpeed, Budget.KerfWidth, Budget.Evidence);
+    public sealed record Abrasive(ProcessBudget.Abrasive Budget)
+        : BevelProcess(Budget.TraverseSpeed, Budget.KerfWidth, Budget.Evidence);
 
-    public double Speed() => Switch(
-        thermal: static row => row.Budget.CutSpeed,
-        abrasive: static row => row.Budget.TraverseSpeed);
-
-    public double KerfWidth(CompensationPolicy compensation) => Switch(
+    public Angle CrossTilt(CompensationPolicy compensation) => Switch(
         state: compensation,
-        thermal: static (_, row) => row.Budget.KerfWidth,
-        abrasive: static (policy, _) => policy.NominalKerfMm);
-
-    public double CrossTilt(CompensationPolicy compensation) => Switch(
-        state: compensation,
-        thermal: static (_, _) => 0.0,
-        abrasive: static (policy, _) => policy.CrossTiltDeg);
-
-    public BudgetEvidence Evidence() => Switch(
-        thermal: static row => row.Budget.Evidence,
-        abrasive: static row => row.Budget.Evidence);
+        thermal: static (_, _) => Angle.Zero,
+        abrasive: static (policy, _) => policy.CrossTilt);
 
     public bool Accepts(HeightSource source) => Switch(
         state: source,
@@ -270,7 +262,7 @@ public abstract partial record BevelProcess {
         Fin.Fail<BevelProcess>(new FabricationFault.BevelUnsupported(
             Subject(law),
             law.Stations.Fold(0.0, static (peak, row) =>
-                Math.Max(peak, Math.Abs(row.Section.OffsetAt(0.0) - row.Section.OffsetAt(1.0))))).ToError());
+                Math.Max(peak, Math.Abs(row.Section.OffsetAt(0.0) - row.Section.OffsetAt(1.0))))));
 
     internal static FaultSubject.Bevel Subject(PrepLaw law) =>
         new(FormattableString.Invariant($"{law.ThicknessMm:R}:{law.Stations.Count}"));
@@ -286,7 +278,6 @@ public abstract partial record ThcDirective {
 
 // --- [ADMISSION] ----------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class PrepDimensions {
     public double ThicknessMm { get; }
     public double RootFaceMm { get; }
@@ -309,7 +300,7 @@ public sealed partial class PrepDimensions {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref double thicknessMm,
         ref double rootFaceMm,
         ref double rootOpeningMm,
@@ -318,7 +309,7 @@ public sealed partial class PrepDimensions {
         if (!TensorPrimitives.IsFiniteAll<double>([thicknessMm, rootFaceMm, rootOpeningMm, radiusMm, angleDeg])
             || thicknessMm <= 0.0 || rootFaceMm < 0.0 || rootFaceMm > thicknessMm || rootOpeningMm < 0.0
             || radiusMm < 0.0 || angleDeg < 0.0 || angleDeg >= 90.0)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:dimensions");
+            validationError = new ValidationError("bevel:dimensions");
     }
 }
 
@@ -353,7 +344,7 @@ public abstract partial record PrepSection {
     public bool Valid() => Switch(
         standard: static _ => true,
         custom: static row => row.Knots.Count >= 2
-            && row.Knots.ForAll(static knot => Witness.Finite(knot.Through, knot.OffsetMm))
+            && row.Knots.ForAll(static knot => ValidityClaim.Finite([knot.Through, knot.OffsetMm]))
             && (row.Knots.ForAll(static knot => knot.OffsetMm >= 0.0)
                 || row.Knots.ForAll(static knot => knot.OffsetMm <= 0.0))
             && row.Knots[0].Through == 0.0 && row.Knots[^1].Through == 1.0
@@ -364,7 +355,6 @@ public abstract partial record PrepSection {
 public readonly record struct PrepStation(double Station, PrepSection Section);
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class PrepLaw {
     public Arr<PrepStation> Stations { get; }
     public double ThicknessMm { get; }
@@ -388,7 +378,7 @@ public sealed partial class PrepLaw {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Arr<PrepStation> stations,
         ref double thicknessMm) {
         double admittedThickness = thicknessMm;
@@ -400,13 +390,12 @@ public sealed partial class PrepLaw {
             && stations.ForAll(row => row.Section.SideSign == stations[0].Section.SideSign)
             && stations[0].Station == 0.0 && stations[^1].Station == 1.0
             && toSeq(stations).Zip(toSeq(stations).Skip(1)).ForAll(static pair => pair.First.Station < pair.Second.Station);
-        if (!valid || !Witness.Positive(thicknessMm))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:prep-law");
+        if (!valid || !ValidityClaim.Positive(thicknessMm).Holds)
+            validationError = new ValidationError("bevel:prep-law");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class PassRow {
     public int Pass { get; }
     public double DepthShare { get; }
@@ -424,7 +413,7 @@ public sealed partial class PassRow {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref int pass,
         ref double depthShare,
         ref double feedScale,
@@ -433,104 +422,112 @@ public sealed partial class PassRow {
         if (pass < 1 || !TensorPrimitives.IsFiniteAll<double>([depthShare, feedScale, pierceDelaySeconds])
             || depthShare <= 0.0 || depthShare > 1.0 || feedScale <= 0.0 || pierceDelaySeconds < 0.0
             || !height.Valid)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:pass");
+            validationError = new ValidationError("bevel:pass");
     }
 }
 
+// The head's geometry is CATALOGUED, not re-declared: `Tooling/magazine#TOOL_ASSET` is the package's only provider
+// decode, and every measurement it resolved into canonical millimetres and degrees is read back off the mounted
+// assembly by its `ToolMeasure` row. Provider measurement types on this page were the decode happening a second time
+// under the vocabulary floor, and each one carried a raw unit string the assembly had already admitted away.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class HeadPolicy {
     public HeadKinematics Kinematics { get; }
-    public double PivotLengthMm { get; }
-    public ToolCuttingEdgeAngleMeasurement TiltLimit { get; }
-    public ProcessFeedRate Feed { get; }
-    public CornerRadiusMeasurement CornerRadius { get; }
-    public ChamferWidthMeasurement ChamferWidth { get; }
+    public Length PivotLength { get; }
+    public Angle MaxTilt { get; }
+    public ProcessRange Feed { get; }
+    public Length CornerRadius { get; }
+    public Length ChamferWidth { get; }
 
-    public double MaxTiltDeg => TiltLimit.Value;
-    public double MinFeedMmPerMin => Feed.Minimum;
-    public double MaxFeedMmPerMin => Feed.Maximum;
+    // A controller that published no bound leaves the demand alone: `Process/physics#EQUIPMENT` states an absent
+    // ceiling as `None` and never a sentinel maximum a clamp would read as a measurement, so an unpublished floor
+    // cannot lift a feed the physics chose and an unpublished ceiling cannot cap it.
+    public double Feedable(double demandMmPerMin) => Math.Min(
+        Feed.Maximum.IfNone(demandMmPerMin),
+        Math.Max(Feed.Minimum.IfNone(demandMmPerMin), demandMmPerMin));
 
-    public static Fin<HeadPolicy> Admit(
-        HeadKinematics kinematics,
-        string pivotLength,
-        ToolCuttingEdgeAngleMeasurement tiltLimit,
-        ProcessFeedRate feed,
-        CornerRadiusMeasurement cornerRadius,
-        ChamferWidthMeasurement chamferWidth) =>
+    public static Fin<HeadPolicy> Admit(HeadKinematics kinematics, ToolAssembly assembly, string pivotLength) =>
         from pivot in Bevel.Length.Admit(pivotLength)
-        from admitted in Validate(kinematics, pivot, tiltLimit, feed, cornerRadius, chamferWidth, out HeadPolicy head)
-            .Admitted(head)
+        from tilt in Measured(assembly, ToolMeasure.CuttingEdgeAngle)
+        from corner in Measured(assembly, ToolMeasure.CornerRadius)
+        from chamfer in Measured(assembly, ToolMeasure.ChamferWidth)
+        from admitted in Validate(kinematics, Length.FromMillimeters(pivot), Angle.FromDegrees(tilt),
+            assembly.Feed, Length.FromMillimeters(corner), Length.FromMillimeters(chamfer),
+            out HeadPolicy head).Admitted(head)
         select admitted;
+
+    // A measurement the catalogue never carried refuses on the LANE that wanted it, so a shop reads which dimension
+    // its asset is missing rather than one undifferentiated head refusal.
+    private static Fin<double> Measured(ToolAssembly assembly, ToolMeasure kind) =>
+        assembly.Snapshot.Metric(kind).ToFin(
+            new KernelFault.InvalidValue("bevel", $"bevel:head:{kind.Key}"));
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref HeadKinematics kinematics,
-        ref double pivotLengthMm,
-        ref ToolCuttingEdgeAngleMeasurement tiltLimit,
-        ref ProcessFeedRate feed,
-        ref CornerRadiusMeasurement cornerRadius,
-        ref ChamferWidthMeasurement chamferWidth) {
+        ref Length pivotLength,
+        ref Angle maxTilt,
+        ref ProcessRange feed,
+        ref Length cornerRadius,
+        ref Length chamferWidth) {
         bool axis = kinematics.Switch(
             @fixed: static row => row.Axis.IsValid && row.Axis.Length > 0.0,
             rotary: static row => row.PivotAxis.IsValid && row.PivotAxis.Length > 0.0 && double.IsFinite(row.RotaryZeroDeg),
             fiveAxis: static row => row.PrimaryAxis.IsValid && row.SecondaryAxis.IsValid
                 && row.PrimaryAxis.Length > 0.0 && row.SecondaryAxis.Length > 0.0,
             robot: static row => row.ToolAxis.IsValid && row.ToolAxis.Length > 0.0 && Witness.Keyed(row.FrameKey));
+        // Bound ordering and finiteness crossed `ProcessRange` admission at the catalogue, so this gate proves only
+        // what a bevel HEAD demands of a catalogued dimension and never re-asks the range its own owner settled.
         if (!axis
-            || !TensorPrimitives.IsFiniteAll<double>([pivotLengthMm, tiltLimit.Value, feed.Minimum, feed.Maximum,
-                cornerRadius.Value, chamferWidth.Value])
-            || pivotLengthMm < 0.0 || tiltLimit.Value < 0.0 || tiltLimit.Value >= 90.0
-            || feed.Minimum <= 0.0 || feed.Maximum < feed.Minimum
-            || cornerRadius.Value < 0.0 || chamferWidth.Value < 0.0)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:head");
+            || !TensorPrimitives.IsFiniteAll<double>([pivotLength.Millimeters, maxTilt.Degrees,
+                cornerRadius.Millimeters, chamferWidth.Millimeters])
+            || pivotLength.Millimeters < 0.0 || maxTilt.Degrees < 0.0 || maxTilt.Degrees >= 90.0
+            || cornerRadius.Millimeters < 0.0 || chamferWidth.Millimeters < 0.0)
+            validationError = new ValidationError("bevel:head");
     }
 }
 
+// The CALIBRATION beside the cut physics: what the head adds on top of the budget the process already states. Its
+// kerf column is gone — the process budget owns kerf width on both cases — so what remains is the shop's own
+// correction terms, each carried as the quantity it IS. `Lag` alone stays a named scalar: degrees per metre-per-minute
+// is a rate between two dimensions no unit carrier spells, and the name states it in full.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CompensationPolicy {
     public CompensationMode Mode { get; }
-    public double NominalKerfMm { get; }
-    public double KerfGain { get; }
+    public Ratio KerfGain { get; }
     public double LagDegPerMeterPerMinute { get; }
-    public double WearMm { get; }
-    public double AngleBiasDeg { get; }
-    public double CrossTiltDeg { get; }
+    public Length Wear { get; }
+    public Angle AngleBias { get; }
+    public Angle CrossTilt { get; }
 
     public static Fin<CompensationPolicy> Admit(
         CompensationMode mode,
-        string nominalKerf,
-        double kerfGain,
+        Ratio kerfGain,
         double lagDegPerMeterPerMinute,
-        double wearMm,
-        double angleBiasDeg,
-        double crossTiltDeg) =>
-        from kerf in Bevel.Length.Admit(nominalKerf)
-        from admitted in Validate(mode, kerf, kerfGain, lagDegPerMeterPerMinute, wearMm,
-            angleBiasDeg, crossTiltDeg, out CompensationPolicy policy).Admitted(policy)
-        select admitted;
+        Length wear,
+        Angle angleBias,
+        Angle crossTilt) =>
+        Validate(mode, kerfGain, lagDegPerMeterPerMinute, wear, angleBias, crossTilt,
+            out CompensationPolicy policy).Admitted(policy);
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref CompensationMode mode,
-        ref double nominalKerfMm,
-        ref double kerfGain,
+        ref Ratio kerfGain,
         ref double lagDegPerMeterPerMinute,
-        ref double wearMm,
-        ref double angleBiasDeg,
-        ref double crossTiltDeg) {
-        if (!TensorPrimitives.IsFiniteAll<double>(
-                [nominalKerfMm, kerfGain, lagDegPerMeterPerMinute, wearMm, angleBiasDeg, crossTiltDeg])
-            || nominalKerfMm <= 0.0 || kerfGain < 0.0 || lagDegPerMeterPerMinute < 0.0 || wearMm < 0.0)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:compensation");
+        ref Length wear,
+        ref Angle angleBias,
+        ref Angle crossTilt) {
+        if (!TensorPrimitives.IsFiniteAll<double>([kerfGain.DecimalFractions, lagDegPerMeterPerMinute,
+                wear.Millimeters, angleBias.Degrees, crossTilt.Degrees])
+            || kerfGain.DecimalFractions < 0.0 || lagDegPerMeterPerMinute < 0.0 || wear.Millimeters < 0.0)
+            validationError = new ValidationError("bevel:compensation");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ThcPolicy {
     public double AntiDiveFeedRatio { get; }
     public double AngleRateHoldDegPerStation { get; }
@@ -541,20 +538,19 @@ public sealed partial class ThcPolicy {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref double antiDiveFeedRatio,
         ref double angleRateHoldDegPerStation,
         ref int responseBlocks) {
         if (!TensorPrimitives.IsFiniteAll<double>([antiDiveFeedRatio, angleRateHoldDegPerStation])
             || antiDiveFeedRatio <= 0.0 || antiDiveFeedRatio > 1.0 || angleRateHoldDegPerStation < 0.0 || responseBlocks < 1)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:thc-policy");
+            validationError = new ValidationError("bevel:thc-policy");
     }
 }
 
 // The admitted conditioning law, independent of the edge it prepares: one calibration conditions many edges, and
 // the schedule's own coherence with the process budget is proved here rather than at every job.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class BevelPolicy {
     public PrepLaw Preparation { get; }
     public Arr<PassRow> Passes { get; }
@@ -579,7 +575,7 @@ public sealed partial class BevelPolicy {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref PrepLaw preparation,
         ref Arr<PassRow> passes,
         ref BevelProcess budget,
@@ -593,8 +589,8 @@ public sealed partial class BevelPolicy {
             && passes[^1].DepthShare == 1.0
             && toSeq(passes).Zip(toSeq(passes).Skip(1)).ForAll(static pair => pair.First.DepthShare <= pair.Second.DepthShare)
             && passes.ForAll(pass => process.Accepts(pass.Height));
-        if (!schedule || !Witness.Positive(chordErrorMm))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:policy");
+        if (!schedule || !ValidityClaim.Positive(chordErrorMm).Holds)
+            validationError = new ValidationError("bevel:policy");
     }
 }
 
@@ -606,7 +602,6 @@ public sealed record BevelDemand(
     Func<Seq<BevelBlock>, Fin<Unit>> Guard);
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class BevelJob {
     public BevelPolicy Policy { get; }
     public Loop Edge { get; }
@@ -615,7 +610,7 @@ public sealed partial class BevelJob {
     public Func<Seq<BevelBlock>, Fin<Unit>> Guard { get; }
 
     public static Fin<BevelJob> Admit(BevelDemand? candidate) =>
-        from raw in Optional(candidate).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:demand"))
+        from raw in Optional(candidate).ToFin(new KernelFault.InvalidValue("bevel", "bevel:demand"))
         from admitted in Validate(raw.Policy, raw.Edge, raw.Observations, raw.Lower, raw.Guard, out BevelJob job)
             .Admitted(job)
         select admitted;
@@ -623,14 +618,14 @@ public sealed partial class BevelJob {
     // Only what the EDGE and the caller add is proved here; every conditioning column crossed `BevelPolicy.Admit`.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref BevelPolicy policy,
         ref Loop edge,
         ref Arr<BevelObservation> observations,
         ref Func<BevelPoint, Fin<Move>> lower,
         ref Func<Seq<BevelBlock>, Fin<Unit>> guard) {
         if (edge.Count < 2 || observations.Exists(static row => !row.IsValid) || lower is null || guard is null)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:job");
+            validationError = new ValidationError("bevel:job");
     }
 }
 
@@ -678,7 +673,6 @@ public sealed record BevelBlock(
     double CompensationMm);
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ThcSpan {
     public int FromInclusive { get; }
     public int ToExclusive { get; }
@@ -694,7 +688,7 @@ public sealed partial class ThcSpan {
         ThcPolicy policy,
         double nominalFeed) =>
         from _ in blocks.IsEmpty
-            ? Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:thc-coverage"))
+            ? Fin.Fail<Unit>(new KernelFault.InvalidValue("bevel", "bevel:thc-coverage"))
             : Fin.Succ(unit)
         let directives = Directives(blocks, source, policy, nominalFeed)
         let starts = Seq(0) + toSeq(Range(1, Math.Max(directives.Count - 1, 0)))
@@ -707,17 +701,17 @@ public sealed partial class ThcSpan {
             .Traverse(row => Admit(row.From, row.To, row.Directive).ToValidation()).As().ToFin()
         from covered in Covers(spans, blocks.Count)
             ? Fin.Succ(spans)
-            : Fin.Fail<Seq<ThcSpan>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:thc-coverage"))
+            : Fin.Fail<Seq<ThcSpan>>(new KernelFault.InvalidValue("bevel", "bevel:thc-coverage"))
         select covered;
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref int fromInclusive,
         ref int toExclusive,
         ref ThcDirective directive) {
         if (fromInclusive < 0 || toExclusive <= fromInclusive)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:thc-span");
+            validationError = new ValidationError("bevel:thc-span");
     }
 
     // Armed counter resets on every suspension, so control re-arms after a hold on the response delay observed at pass start.
@@ -767,29 +761,36 @@ public sealed record BevelObservation(
         && AngleToleranceDeg >= 0.0 && OffsetToleranceMm >= 0.0;
 }
 
+// The verdict DERIVES: the observation carries both tolerance bands and the row carries both deviations, so a stored
+// bool was the same comparison frozen beside its own inputs, free to disagree with them under any `with` rewrite.
 public sealed record BevelInspection(
     BevelObservation Observation,
     double NominalAngleDeg,
     double NominalOffsetMm,
     double AngleDeviationDeg,
-    double OffsetDeviationMm,
-    bool Conforming);
+    double OffsetDeviationMm) {
+    public bool Conforming => Math.Abs(AngleDeviationDeg) <= Observation.AngleToleranceDeg
+        && Math.Abs(OffsetDeviationMm) <= Observation.OffsetToleranceMm;
+}
 
-public sealed record BevelReceipt(
+// EVIDENCE, not a receipt: `Process/owner#RECEIPT` `Receipt<TEvidence>` requires a content key, a plane, and a
+// settling stamp, and conditioning mints no artifact and reads no clock — the suffix claimed a spine this value
+// never joined, so the caller's own arrow is what settles anything settleable here.
+public sealed record BevelEvidence(
     Seq<BevelPass> Passes,
     PrepLaw Preparation,
     double MinOffsetMm,
     double MaxOffsetMm,
-    CornerRadiusMeasurement CornerRadius,
-    ChamferWidthMeasurement ChamferWidth,
+    Length CornerRadius,
+    Length ChamferWidth,
     Seq<BevelInspection> Inspection,
     int GuardedBlocks);
 
 public sealed record Beveled(
-    BevelReceipt Receipt,
+    BevelEvidence Evidence,
     SpecializedToolpathEnvelope Specialized,
     Option<SpecializedToolpathEnvelope> Inspection) {
-    public Seq<BevelPass> Passes => Receipt.Passes;
+    public Seq<BevelPass> Passes => Evidence.Passes;
 
     // Ordinals accumulate across passes, so the pass order IS the program's move order and a routed consumer reads
     // the emitted stream here rather than re-deriving the convention over `BevelPass`.
@@ -833,10 +834,10 @@ public static class Bevel {
         new(PhysicsQuantity.Length, FabConcern.Toolpath, "bevel:length");
 
     public static Fin<TOut> Condition<TOut>(BevelDemand? demand, Func<Beveled, TOut> project) =>
-        from _ in Optional(project).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:projection"))
+        from _ in Optional(project).ToFin(new KernelFault.InvalidValue("bevel", "bevel:projection"))
         from job in BevelJob.Admit(demand)
         from edge in ArcOffset.Single(
-            job.Edge, job.Policy.Preparation.KerfSideMm(job.Policy.Budget.KerfWidth(job.Policy.Compensation)), "bevel:kerf")
+            job.Edge, job.Policy.Preparation.KerfSideMm(job.Policy.Budget.KerfWidthMm), "bevel:kerf")
         // Ordinals accumulate ACROSS passes, so the block index and the directive's `AfterMove` speak one convention.
         from passes in job.Policy.Passes.AsIterable().ToSeq().FoldM<Fin, (Seq<BevelPass> Rows, int Ordinal)>(
             (Seq<BevelPass>(), 0),
@@ -845,7 +846,7 @@ public static class Bevel {
         let receipts = passes.Rows
         from extrema in Extrema(receipts.Bind(static pass => pass.Blocks.Map(static block => block.PreparationOffsetMm)))
         from inspection in Inspect(receipts, job.Observations)
-        let receipt = new BevelReceipt(
+        let evidence = new BevelEvidence(
             receipts,
             job.Policy.Preparation,
             extrema.Min,
@@ -870,7 +871,7 @@ public static class Bevel {
                     inspection.Map(static row => (SpecializedToolpathRow)ToolpathRowMap.ToRow(row)),
                     0.0)
                 .Map(static row => Some(row))
-        from projected in Invoke(() => Fin.Succ(project(new Beveled(receipt, envelope, inspected))), "bevel:projection")
+        from projected in Invoke(() => Fin.Succ(project(new Beveled(evidence, envelope, inspected))), "bevel:projection")
         select projected;
 
     // A conditioned edge always emitted blocks, so the extremum seeds on the first measurement rather than on an
@@ -880,28 +881,21 @@ public static class Bevel {
             .Map(seed => values.Fold(
                 (Min: seed, Max: seed),
                 static (row, value) => (Math.Min(row.Min, value), Math.Max(row.Max, value))))
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bevel:offset-extrema"));
+            .ToFin(new KernelFault.InvalidValue("bevel", "bevel:offset-extrema"));
 
     private static Fin<Seq<BevelInspection>> Inspect(Seq<BevelPass> passes, Arr<BevelObservation> observations) =>
         toSeq(observations).Traverse(observation =>
             from pass in passes.Find(row => row.Pass == observation.Pass)
-                .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, observation.Pass, "bevel:inspection-pass").ToError())
+                .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, observation.Pass, "bevel:inspection-pass"))
             from _ in observation.ToBlockExclusive <= pass.Blocks.Count
                 ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, observation.ToBlockExclusive, "bevel:inspection-range").ToError())
+                : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, observation.ToBlockExclusive, "bevel:inspection-range"))
             let span = pass.Blocks.Skip(observation.FromBlock).Take(observation.ToBlockExclusive - observation.FromBlock)
             let angle = span.Average(static row => row.AngleDeg)
             let offset = span.Average(static row => row.PreparationOffsetMm)
             let angleDeviation = observation.MeasuredAngleDeg - angle
             let offsetDeviation = observation.MeasuredOffsetMm - offset
-            select new BevelInspection(
-                observation,
-                angle,
-                offset,
-                angleDeviation,
-                offsetDeviation,
-                Math.Abs(angleDeviation) <= observation.AngleToleranceDeg
-                    && Math.Abs(offsetDeviation) <= observation.OffsetToleranceMm)).As();
+            select new BevelInspection(observation, angle, offset, angleDeviation, offsetDeviation)).As();
 
     private static Fin<BevelPass> Pass(BevelJob job, Loop edge, PassRow pass, int ordinal) =>
         from blocks in Blocks(job, edge, pass, ordinal)
@@ -910,8 +904,7 @@ public static class Bevel {
             blocks,
             pass.Height,
             job.Policy.Thc,
-            Math.Clamp(job.Policy.Budget.Speed() * pass.FeedScale,
-                job.Policy.Head.MinFeedMmPerMin, job.Policy.Head.MaxFeedMmPerMin))
+            job.Policy.Head.Feedable(job.Policy.Budget.SpeedMmPerMin * pass.FeedScale))
         let length = blocks.Zip(blocks.Skip(1))
             .Sum(static pair => pair.Second.PathDistanceMm - pair.First.PathDistanceMm)
         select new BevelPass(
@@ -922,7 +915,7 @@ public static class Bevel {
             length,
             blocks.Fold(0.0, static (peak, row) =>
                 Math.Max(peak, Math.Sqrt(row.AngleDeg * row.AngleDeg + row.CrossTiltDeg * row.CrossTiltDeg))),
-            job.Policy.Budget.Evidence());
+            job.Policy.Budget.Evidence);
 
     // Geometric sagitta stations alone smooth a preparation knot away, so every knot interval contributes its own
     // offset-error subdivision; stations then deduplicate at the admitted chord error rather than on exact float
@@ -1000,35 +993,32 @@ public static class Bevel {
         Vector3d tangent = new(nativeTangent.X, nativeTangent.Y, 0.0);
         Vector3d normal = new(-nativeTangent.Y, nativeTangent.X, 0.0);
         if (!tangent.Unitize() || !normal.Unitize())
-            return Fin.Fail<BevelFrame>(new GeometryFault.DegenerateInput(Kind.Curve, sample.Span, "bevel:tangent").ToError());
+            return Fin.Fail<BevelFrame>(new GeometryFault.DegenerateInput(Kind.Curve, sample.Span, "bevel:tangent"));
         double offset = job.Policy.Preparation.OffsetAt(station, pass.DepthShare);
-        double speed = job.Policy.Budget.Speed();
-        double linearCompensation = job.Policy.Budget.KerfWidth(job.Policy.Compensation) * job.Policy.Compensation.KerfGain
-            + job.Policy.Compensation.WearMm;
-        double lever = Math.Max(job.Policy.Head.PivotLengthMm, job.Policy.Preparation.ThicknessMm);
-        double correction = (job.Policy.Compensation.AngleBiasDeg
+        double speed = job.Policy.Budget.SpeedMmPerMin;
+        double linearCompensation = job.Policy.Budget.KerfWidthMm * job.Policy.Compensation.KerfGain.DecimalFractions
+            + job.Policy.Compensation.Wear.Millimeters;
+        double lever = Math.Max(job.Policy.Head.PivotLength.Millimeters, job.Policy.Preparation.ThicknessMm);
+        double correction = (job.Policy.Compensation.AngleBias.Degrees
             + job.Policy.Compensation.LagDegPerMeterPerMinute * speed / 1000.0
             + Math.Atan2(linearCompensation, lever) * 180.0 / Math.PI) * job.Policy.Compensation.Mode.AxisShare;
         double throughDelta = Math.Min(0.5, job.Policy.ChordErrorMm / job.Policy.Preparation.ThicknessMm);
         double stationDelta = Math.Min(0.5, job.Policy.ChordErrorMm / length);
-        double angle = Angle(job.Policy.Preparation, station, pass.DepthShare, throughDelta) + correction;
-        double crossTilt = job.Policy.Budget.CrossTilt(job.Policy.Compensation);
-        if (Math.Sqrt(angle * angle + crossTilt * crossTilt) > job.Policy.Head.MaxTiltDeg
-            || Math.Abs(offset) > job.Policy.Head.ChamferWidth.Value)
+        double angle = Tilt(job.Policy.Preparation, station, pass.DepthShare, throughDelta) + correction;
+        double crossTilt = job.Policy.Budget.CrossTilt(job.Policy.Compensation).Degrees;
+        if (Math.Sqrt(angle * angle + crossTilt * crossTilt) > job.Policy.Head.MaxTilt.Degrees
+            || Math.Abs(offset) > job.Policy.Head.ChamferWidth.Millimeters)
             return Fin.Fail<BevelFrame>(new FabricationFault.BevelUnsupported(
-                BevelProcess.Subject(job.Policy.Preparation), angle).ToError());
+                BevelProcess.Subject(job.Policy.Preparation), angle));
         double compensation = linearCompensation
-            + job.Policy.Head.CornerRadius.Value * (1.0 - Math.Cos(angle * Math.PI / 180.0));
+            + job.Policy.Head.CornerRadius.Millimeters * (1.0 - Math.Cos(angle * Math.PI / 180.0));
         Point3d point = sample.Point + normal * (offset + compensation * job.Policy.Compensation.Mode.GeometryShare);
-        double rate = AngleRate(job.Policy.Preparation, station, pass.DepthShare, throughDelta, stationDelta);
-        double feed = Math.Clamp(
-            speed / (1.0 + Math.Abs(rate)) * pass.FeedScale,
-            job.Policy.Head.MinFeedMmPerMin,
-            job.Policy.Head.MaxFeedMmPerMin);
+        double rate = TiltRate(job.Policy.Preparation, station, pass.DepthShare, throughDelta, stationDelta);
+        double feed = job.Policy.Head.Feedable(speed / (1.0 + Math.Abs(rate)) * pass.FeedScale);
         return job.Policy.Head.Kinematics.Orient(tangent, normal, angle, crossTilt).Map(axis => new BevelFrame(
             point,
             axis,
-            point - axis * job.Policy.Head.PivotLengthMm,
+            point - axis * job.Policy.Head.PivotLength.Millimeters,
             offset,
             angle,
             rate,
@@ -1040,21 +1030,19 @@ public static class Bevel {
     // A caller callback that throws names its own cause in the refusal: flattening it to the slot alone discarded
     // the only evidence distinguishing a bad lowering from a bad guard from a bad projection.
     private static Fin<T> Invoke<T>(Func<Fin<T>> callback, string slot) =>
-        Try.lift(callback).Run()
-            .MapFail(error => new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"{slot}:{error.Message}"))
-            .Bind(static result => result);
+        Op.Of(name: slot).Catch(callback);
 
-    private static double Angle(PrepLaw law, double station, double through, double delta) {
+    private static double Tilt(PrepLaw law, double station, double through, double delta) {
         double from = Math.Max(0.0, through - delta);
         double to = Math.Min(1.0, through + delta);
         return Math.Atan2(law.OffsetAt(station, to) - law.OffsetAt(station, from), (to - from) * law.ThicknessMm)
             * 180.0 / Math.PI;
     }
 
-    private static double AngleRate(PrepLaw law, double station, double through, double throughDelta, double stationDelta) {
+    private static double TiltRate(PrepLaw law, double station, double through, double throughDelta, double stationDelta) {
         double from = Math.Max(0.0, station - stationDelta);
         double to = Math.Min(1.0, station + stationDelta);
-        return Math.Abs(Angle(law, to, through, throughDelta) - Angle(law, from, through, throughDelta)) / (to - from);
+        return Math.Abs(Tilt(law, to, through, throughDelta) - Tilt(law, from, through, throughDelta)) / (to - from);
     }
 
     private static Polyline<double> Native(Loop loop) =>
@@ -1067,7 +1055,7 @@ public static class Bevel {
         path.FindPointAtPathLength(length) switch {
             (true, int span, Vector2<double> point, _) => Fin.Succ((
                 new Point3d(point.X, point.Y, source.Plane), span, source.BulgeAt(span), point)),
-            _ => Fin.Fail<(Point3d, int, double, Vector2<double>)>(new GeometryFault.DegenerateInput(Kind.Curve, None, "bevel:station").ToError()),
+            _ => Fin.Fail<(Point3d, int, double, Vector2<double>)>(new GeometryFault.DegenerateInput(Kind.Curve, None, "bevel:station")),
         };
 
     private static Fin<Seq<double>> Stations(Loop edge, double chordError) =>
@@ -1078,7 +1066,7 @@ public static class Bevel {
                 double chord = from.DistanceTo(to);
                 double bulge = Math.Abs(edge.BulgeAt(index));
                 if (chord <= edge.Tolerance.Absolute.Value)
-                    return Fin.Fail<(double, Seq<double>)>(new GeometryFault.DegenerateInput(Kind.Curve, index, "bevel:edge-span").ToError());
+                    return Fin.Fail<(double, Seq<double>)>(new GeometryFault.DegenerateInput(Kind.Curve, index, "bevel:edge-span"));
                 (double Length, int Divisions) span = Sagitta(chord, bulge, chordError);
                 return Fin.Succ((
                     state.Length + span.Length,

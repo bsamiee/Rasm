@@ -1,26 +1,42 @@
 # [APPUI_ACCESSIBILITY]
 
-Rasm.AppUi accessibility is columns on existing catalogs plus one gate fold: automation identity and live-region announcements source from `ScreenCatalogRow` columns, keyboard reachability rides the attached `KeyboardNavigation` surface, and the WCAG contrast gate is the suite's single luminance implementation asserting receipts over theme-token candidate pairs. The page owns the announcement row family, the focus law, the contrast floor axis, and the per-row compliance audit the headless lanes execute, composing the screen catalog, theme tokens, dialog sessions, motion degrade state, and the Avalonia.Headless substrate as settled vocabulary.
+Rasm.AppUi accessibility is columns on existing catalogs plus one gate fold: automation identity and live-region announcements source from `ScreenCatalogRow` columns, keyboard reachability rides the attached `KeyboardNavigation` surface, and the perceptual gate is the suite's single luminance and distinguishability implementation asserting one receipt family over theme-token candidate pairs. The page owns the announcement row family, the focus law, the assertion axis, and the per-row compliance audit the headless lanes execute, composing the screen catalog, theme tokens, dialog sessions, motion degrade state, and the Avalonia.Headless substrate as settled vocabulary.
+
+Kernel vocabulary arrives whole and is never re-spelled: `PerceptualColor` with `Blend`/`Contrast`/`Simulate`/`Difference`, the `ContrastFloor` clause roster and `DeltaMetric` difference axis, `Scalar`/`PositiveMagnitude`/`UnitInterval`/`SignedUnit`, `Evidence<T>`, `CapabilitySet`/`CapabilityLaw`, `Ranked.Top`, `RedrivePolicy`/`Redrive`, `FaultCell`, and the `FaultBand`/`[FaultCase]`/`Fault` floor.
 
 ## [01]-[INDEX]
 
-- [02]-[AUTOMATION_PEERS]: Catalog-sourced automation identity; live-region announcement rows.
-- [03]-[KEYBOARD_NAV]: Tab-order, trap, and refocus law over attached navigation.
-- [04]-[CONTRAST_GATE]: The suite's single WCAG luminance gate and floor rows.
+- [02]-[AUTOMATION_PEERS]: Catalog-sourced automation identity; live-region announcement rows; the admitted scene topology.
+- [03]-[KEYBOARD_NAV]: Tab-order, region mode, and access-key law over attached navigation.
+- [04]-[CONTRAST_GATE]: The suite's one perceptual assertion — WCAG luminance and CVD distinguishability on one receipt.
 - [05]-[COMPLIANCE_PROOF]: Per-catalog-row audit law executed by the headless lanes.
 
 ## [02]-[AUTOMATION_PEERS]
 
-- Owner: `AnnouncementRow` live-region record carrying its locale-owned `AnnouncementPhrase`, its host voice sink, and its optional cue sink; `AnnouncementHost` the closed stock-or-synthesized host discriminant; `SynthesizedRegion` the one peer-producing host for Skia-drawn regions; `SceneAccessTree` the keyed 3D-scene accessibility topology; `SpatialCue` the spatial-audio cue; `AccessOps` identity fold over catalog columns; `AccessFault` the typed fault family on the `AppUiFaultBand.Accessibility` registry row (6090).
-- Cases: toast, progress, validation over stock peers; chart-tile, preview, custom-visual, scene-element over Skia-drawn visuals carrying the `AnnouncementHost.Synthesized` case — the seven announcement rows.
-- Entry: `public StyledElement Identify(ScreenCatalogRow row)` — the one automation-identity admission per surface root; `public (StyledElement Region, IDisposable Live) Materialize(IScheduler scheduler)` — the row host case mints either its admitted stock element or the one synthesized peer host and schedules each distinct text onto the UI scheduler, writing the element's identity pair and voicing the text through the row's host sink in one pass; `SceneAccessTree.Admit` accumulates duplicate identity, missing-parent, and cycle faults before freezing the keyed topology; `public Fin<IO<Unit>> Focus(SceneAccessNode node, StyledElement peer, (double X, double Y, double Z) listener, (double X, double Y, double Z) right)` is the scene-element leg — one focus transition projecting the node's name and role onto its peer and emitting the validated `SpatialCue` to the row's bound sink.
-- Auto: the mount transaction applies `Identify` at every surface root; `Materialize` joins the returned subscription to the activation scope; the `AutomationName` column is the single name source for every derived dockable, palette entry, and proof lane; the `AnnouncementHost` case makes peer synthesis a closed admission decision, so a stock row cannot call a synthesized-only mint and a synthesized row cannot omit its peer host.
-- Packages: Avalonia, System.Reactive, QuikGraph, LanguageExt.Core, BCL inbox
-- Law: an announcement row states no posture and no literal text of its own — both read off the locale-owned `AnnouncementPhrase`, so the announcement plane carries zero authored strings.
-- Growth: one announcement row per live source; one `AnnouncementHost` case only for a genuinely distinct peer-admission regime; one scene-element kind per 3D node role; zero new surface.
-- Boundary: stock Avalonia peers own every retained control — a per-control peer class is the deleted pattern; `AnnouncementHost.Synthesized` materializes through the one `SynthesizedRegion` host, a hit-test-transparent `Control` whose `OnCreateAutomationPeer` override returns a `ControlAutomationPeer`, mounted as the Skia visual's sibling by the row's `Materialize` fold; `SceneAccessTree` stores one admitted keyed node set with parent identities instead of recursive child payloads, and QuikGraph `IsDirectedAcyclicGraph` discharges topology closure before lookup, hierarchy projection, nearest focus, or direction-ranked focus can run; `Focus` is the only reader of both — it projects the focused node's name and role onto the synthesized peer through `FocusGeometry` and hands the validated `SpatialCue` to the announcement row's `Cue` column, so a row whose surface carries no audio plane holds `None` and voices name and role alone while a cue that fails its listener basis returns the typed fault before either output runs; the announced TEXT and its urgency are one locale fact, not two: `AnnouncementPhrase.Say` resolves the spoken string through the same label walk the visible caption takes and `AnnouncementPhrase.Setting` projects the platform live setting off that phrase's own speech posture, so a reader hears the localized phrasing a sighted user reads and a posture authored beside the phrase could never disagree with the urgency the phrase declares; identity and delivery are two planes and the row carries both: the attached pair (`.api/api-avalonia.md` `[AUTOMATION_TYPES]`/`[AUTOMATION_OPERATIONS]`) states identity and posture — `AutomationProperties.SetLiveSetting(element, AutomationLiveSetting.Polite | Assertive)` declares the posture, `AutomationProperties.SetName(element, text)` carries the current text for the audit lane and for any root the platform automation backend walks itself, `Off` is the row that declares silence rather than an absent setting, and the `Assertive` row is earned by a fact that must interrupt the reader mid-utterance — while DELIVERY leaves through the row's `Voice` column alone, because an embedded root projects nothing into the host's accessibility tree: the platform's native view gates its whole accessibility surface — peer children, hit-test, and the live-region announcement post — on the owning window being the platform's own window class, so under a foreign host window the mounted view reads as a non-element with an unknown role and zero accessibility children however the managed tree is annotated and whatever posture the peer carries, and an announcement design resting on the attached writes announces nothing; `Voice` is the composition-bound host announcement delegate — the host's own accessibility surface posts the notification against the view the reader actually walks, on ONE host element (window or application, never both, because both deliver and a double post doubles the utterance), the macOS spelling being `NSAccessibility.PostNotification(element, NSAccessibilityElement.AnnouncementRequestedNotification, userInfo)` with `NSAccessibilityNotificationUserInfoKeys.AnnouncementKey` carrying the text and `PriorityKey` the `NSAccessibilityPriorityLevel` the posture maps to — and the delivery contract is machine-verifiable end to end: a post from the host process crosses the accessibility wire to an external observer with text and priority intact while no screen reader runs, because an accessibility client's attachment is itself what activates the target, so the sink's custody proves without any assistive service and the only irreducibly human remainder is the spoken interpretation — intelligibility, whether the `Assertive` posture interrupts where `Polite` queues at the reader, and the rotor walk — which no automated run reaches and no design here waits on; the two writes plus the one voice are the whole contract, a focus steal or a synthetic peer event is the deleted form, and a second announcement channel beside `Voice` is unrepresentable because every row carries exactly one; the 3D scene accessibility contract is SPIKE-gated on the viewport scene surface over the scene-node tree the viewport and host emit; per-call automation-name literals are deleted by the catalog column.
+- Owner: `AutomationIdentity` the one identity triple every attached write goes through; `AnnouncementSlot` the closed live-source vocabulary; `AnnouncementRow` the live-region record carrying its locale-owned `AnnouncementPhrase`, its host voice sink, its re-drive policy, and its optional cue sink; `AnnouncementHost` the closed stock-or-synthesized host discriminant; `SynthesizedRegion` the one peer-producing host for Skia-drawn regions; `SceneAccessTree` the admitted 3D-scene topology carrying its own QuikGraph container as proof; `SpatialCue` the spatial-audio cue; `AccessOps` the identity, announcement, and focus fold; `AccessFault` the direct generated `[Union]` with one `[FaultCase]` leaf per accessibility failure.
+- Cases: toast, progress, validation over stock peers; chart-tile, preview, custom-visual, scene-element over Skia-drawn visuals carrying the `AnnouncementHost.Synthesized` case — the seven `AnnouncementSlot` rows.
+- Entry: `public StyledElement Stamp(AutomationIdentity identity)` — the ONE attached identity write on the page, so a screen root, a live region, and a focused scene node state identity through one member; `public AutomationIdentity Of(ScreenCatalogRow row)` and `Of(SceneAccessNode node)` — the two admitted identity sources; `public (StyledElement Region, IDisposable Live) Materialize(IScheduler scheduler, FaultCell faults)` — the row host case mints either its admitted stock element or the one synthesized peer host and schedules each distinct text onto the UI scheduler; `SceneAccessTree.Admit` accumulates duplicate identity, missing-parent, and cycle refusals through the `Validation` applicative and retains the proved container; `public Fin<IO<Unit>> Focus(SceneAccessNode node, StyledElement peer, Vector3 listener, Vector3 right)` is the scene-element leg — one focus transition whose returned effect renames the peer and then emits the validated `SpatialCue` to the row's bound sink.
+- Auto: the mount transaction applies `Stamp(AutomationIdentity.Of(row))` at every surface root; `Materialize` joins the returned subscription to the activation scope; `ScreenCatalogRow.Key` is the single automation identity source and `Title` the single announced name, so no surface spells either; the `AnnouncementHost` case makes peer synthesis a closed admission decision, so a stock row cannot call a synthesized-only mint and a synthesized row cannot omit its peer host.
+- Packages: Avalonia, System.Reactive, QuikGraph, Rasm (project — `Op`/`AcceptValidated`, `PositiveMagnitude`/`UnitInterval`/`SignedUnit`, `Ranked`/`ExtremumDirection`, `RedrivePolicy`/`Redrive`/`Retriability`, `FaultCell`/`HookId`, `FaultBand`/`[FaultCase]`/`Fault`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`System.Numerics.Vector3`)
+- Law: an announcement row states no posture and no literal text of its own — both read off the locale-owned `AnnouncementPhrase`, so the announcement plane carries zero authored strings; its key is an `AnnouncementSlot` row, so it carries no authored identity either.
+- Growth: one `AnnouncementSlot` row per live source; one `AnnouncementHost` case only for a genuinely distinct peer-admission regime; one scene-element kind per 3D node role; zero new surface.
+- Boundary: stock Avalonia peers own every retained control — a per-control peer class is the deleted pattern; `AnnouncementHost.Synthesized` materializes through the one `SynthesizedRegion` host, a hit-test-transparent `Control` whose `OnCreateAutomationPeer` override returns a `ControlAutomationPeer`, mounted as the Skia visual's sibling by the row's `Materialize` fold. Scene space is `System.Numerics.Vector3` and never a host geometry struct or a bare ordinate tuple: the shell plane must resolve a scene node with no Rhino host loaded, which is the same carrier split `Render/animation#TRACK_INTERP` states for pose interpolation, and a `(double, double, double)` past a signature is the erased-type form the kernel scalar owners exist to close. `SceneAccessTree` retains the `BidirectionalGraph` its admission proved acyclic beside the frozen node map and the one canonically ordered `Seq`, so hierarchy, roots, and children are CONTAINER reads rather than six per-call re-sorts of the whole node set, and `Nearest`/`Step` select through kernel `Ranked.Top` with the canonical position as the tiebreak component — an ordinal `int` rather than a `string`, because `Comparer<string>.Default` is culture-sensitive and a culture-varying focus order is a non-deterministic proof. Degeneracy is a TYPED admission and never an epsilon compare: a direction, a listener offset, and a right axis each admit as `PositiveMagnitude` whose band floor is `EpsilonPolicy.ZeroTolerance`, so the 1e-300 vector that passed a `double.Epsilon` guard and then divided is unrepresentable, and no denominator carries an additive guard because both factors are positive by construction. `Focus` returns ONE effect: the peer rename is sequenced INSIDE the returned `IO` ahead of the cue emission, so the two outputs run in the stated order — the prior form evaluated the rename eagerly at projection time and discarded it through a tuple slot while the cue ran only on `Run`, which is the ordering the doc line claimed and the code refuted. The announced TEXT and its urgency are one locale fact: `AnnouncementPhrase.Say` resolves the spoken string through the same label walk the visible caption takes and `SpeechPosture` projects the platform live setting off that phrase's own posture, so `SpeechPosture.Silent` is the row that declares silence and subscribes to nothing rather than an absent setting. Identity and delivery are two planes and the row carries both: the attached pair (`.api/api-avalonia.md` `[AUTOMATION_TYPES]`/`[AUTOMATION_OPERATIONS]`) states identity and posture, while DELIVERY leaves through the row's `Voice` column alone, because an embedded root projects nothing into the host's accessibility tree — the platform's native view gates peer children, hit-test, and the live-region post on the owning window being the platform's own window class, so under a foreign host window the mounted view reads as a non-element with zero accessibility children however the managed tree is annotated, and an announcement design resting on the attached writes announces nothing. `Voice` is the composition-bound host announcement delegate posting against the view the reader actually walks, on ONE host element (window or application, never both, because both deliver and a double post doubles the utterance), the macOS spelling being `NSAccessibility.PostNotification(element, NSAccessibilityElement.AnnouncementRequestedNotification, userInfo)` with `NSAccessibilityNotificationUserInfoKeys.AnnouncementKey` carrying the text and `PriorityKey` the `NSAccessibilityPriorityLevel` the posture maps to; that wire's refusal is ORDINARY, so it rides the row's own `RedrivePolicy` through kernel `Redrive` and lands as `AccessFault.VoiceRefused` declaring `Retriability.Transient` — a swallowed `Try` was an utterance lost with no count, and an escaping throw terminates the Rx subscription and silences the surface for its whole lifetime. The delivery contract is machine-verifiable end to end: a post crosses the accessibility wire to an external observer with text and priority intact while no screen reader runs, because an accessibility client's attachment is itself what activates the target, so the sink's custody proves without any assistive service and the only human remainder is the spoken interpretation — intelligibility, reader interruption behaviour, and the rotor walk — which no automated run reaches and no design here waits on. A focus steal, a synthetic peer event, and a second announcement channel beside `Voice` are all unrepresentable; the 3D scene contract is SPIKE-gated on the viewport scene surface over the node tree the viewport and host emit.
 
 ```csharp signature
+// --- [TYPES] ----------------------------------------------------------------------------
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class AnnouncementSlot {
+    public static readonly AnnouncementSlot Toast = new("toast");
+    public static readonly AnnouncementSlot Progress = new("progress");
+    public static readonly AnnouncementSlot Validation = new("validation");
+    public static readonly AnnouncementSlot ChartTile = new("chart-tile");
+    public static readonly AnnouncementSlot Preview = new("preview");
+    public static readonly AnnouncementSlot CustomVisual = new("custom-visual");
+    public static readonly AnnouncementSlot SceneElement = new("scene-element");
+}
+
 [Union]
 public abstract partial record AnnouncementHost {
     private AnnouncementHost() { }
@@ -29,428 +45,590 @@ public abstract partial record AnnouncementHost {
     public sealed record Synthesized : AnnouncementHost;
 }
 
-// Voice is the REQUIRED host announcement sink — the embedded tree's automation peers reach no reader, so a
-// row without one is a row that cannot announce and is therefore not a row. Cue is the optional composition-
-// bound audio sink the scene-element row binds and every other row leaves None, so a spatial cue has exactly
-// one admitted destination and no row fabricates one. The live setting is the platform's own three-member
-// vocabulary reached through the phrase's `Setting` projection — `Off` names the row that never announces, so
-// a row carrying no posture at all is unrepresentable and a fourth posture is a platform change, not a column.
+// --- [CONSTANTS] ------------------------------------------------------------------------
+
+public static class AccessAnchors {
+    public static readonly Op Admitting = Op.Of(name: "appui.accessibility.admit");
+    public static readonly Op Cueing = Op.Of(name: "appui.accessibility.cue");
+    public static readonly HookId VoicePoint = HookId.Create("rasm.appui.accessibility.voice");
+}
+
+// --- [MODELS] ---------------------------------------------------------------------------
+
+// The one identity triple: `Help` is `Option` because a screen root publishes no description column and a
+// fabricated one would be announced text no author wrote.
+public readonly record struct AutomationIdentity(string Id, string Name, Option<string> Help) {
+    // `ScreenCatalogRow.Key` is the catalog's ONE identity cell and `Title` its one localized name, so this
+    // projection introduces no second spelling and no per-call literal.
+    public static AutomationIdentity Of(ScreenCatalogRow row) => new(row.Key, row.Title, None);
+
+    public static AutomationIdentity Of(SceneAccessNode node) => new(node.ElementId, node.Name, Some(node.Role));
+
+    public static AutomationIdentity Of(AnnouncementSlot slot, string text) => new(slot.Key, text, None);
+}
+
 public sealed record AnnouncementRow(
-    string Key,
-    // Posture and text BOTH source from the locale-owned phrase: `AnnouncementPhrase.Setting` projects the
-    // platform live-setting off its own speech posture and `Say` resolves the spoken string through the one
-    // label walk, so a screen reader hears the localized phrasing a sighted user reads and an urgency
-    // authored here could never disagree with the urgency the phrase itself declares.
+    AnnouncementSlot Slot,
     AnnouncementPhrase Phrase,
     IObservable<string> Texts,
     AnnouncementHost Host,
+    // Voice is the REQUIRED host announcement sink — the embedded tree's automation peers reach no reader, so a
+    // row without one cannot announce and is therefore not a row. Redrive is the row's own re-drive curve for the
+    // ordinary wire refusal. Cue is the optional composition-bound audio sink the scene-element row binds and
+    // every other row leaves None, so a spatial cue has exactly one admitted destination.
     Func<AutomationLiveSetting, string, IO<Unit>> Voice,
+    RedrivePolicy Redrive,
     Option<Func<SpatialCue, IO<Unit>>> Cue);
 
 public sealed record SceneAccessNode(
     string ElementId,
     string Name,
     string Role,
-    (double X, double Y, double Z) Center,
+    Vector3 Center,
     Option<string> ParentId,
     int Rank);
 
-public sealed record SceneAccessTree(FrozenDictionary<string, SceneAccessNode> Nodes) {
-    public static Validation<Error, SceneAccessTree> Admit(Seq<SceneAccessNode> nodes) =>
-        Failures(nodes) switch {
-            { IsEmpty: true } => (Validation<Error, SceneAccessTree>)new SceneAccessTree(
-                nodes.ToFrozenDictionary(static node => node.ElementId, static node => node, StringComparer.Ordinal)),
-            Seq<Error> failures => (Validation<Error, SceneAccessTree>)Error.Many([.. failures]),
-        };
+public readonly record struct SpatialCue(string ElementId, SignedUnit Pan, PositiveMagnitude Distance, UnitInterval Gain) {
+    // Every scalar is admitted, so the former `non-finite-position` arm and both `double.Epsilon` guards are one
+    // refusal: a listener-coincident node has no bearing and a zero-length right axis no basis, and `Band.Positive`
+    // opens at `EpsilonPolicy.ZeroTolerance` rather than at the denormal floor a division would still overflow on.
+    public static Fin<SpatialCue> For(SceneAccessNode node, Vector3 listener, Vector3 right) =>
+        from axis in Admit(right.Length(), "zero-right-axis")
+        let delta = node.Center - listener
+        from distance in Admit(delta.Length(), "listener-coincident")
+        // The quotient is a cosine by construction; the clamp canonicalizes float rounding past the unit
+        // endpoints, so the signed-unit admission mints rather than gates.
+        from pan in AccessAnchors.Cueing.AcceptValidated<SignedUnit>(
+            candidate: Math.Clamp(Vector3.Dot(delta, right) / (distance.Value * axis.Value), -1d, 1d))
+        from gain in AccessAnchors.Cueing.AcceptValidated<UnitInterval>(candidate: 1d / (1d + distance.Value))
+        select new SpatialCue(node.ElementId, pan, distance, gain);
 
-    public Seq<SceneAccessNode> Flatten() =>
-        toSeq(Nodes.Values.OrderBy(static node => node.ElementId, StringComparer.Ordinal));
+    static Fin<PositiveMagnitude> Admit(float measure, string reason) =>
+        AccessAnchors.Cueing.AcceptValidated<PositiveMagnitude>(candidate: measure)
+            .MapFail(_ => (Error)new AccessFault.GeometryRejected(reason));
+}
 
-    public Option<SceneAccessNode> Nearest((double X, double Y, double Z) from) =>
-        toSeq(Flatten().OrderBy(node => Distance(node.Center, from)).ThenBy(static node => node.ElementId, StringComparer.Ordinal)).Head;
+// Container as proof: the graph the admission proved acyclic is RETAINED beside the keyed map, so roots and
+// children are container reads and no later member re-derives the edge set the check already built. `Ordered`
+// is the one canonical `(Rank, ElementId)` sequence every reader filters, so no read sorts.
+public sealed record SceneAccessTree(
+    FrozenDictionary<string, SceneAccessNode> Nodes,
+    BidirectionalGraph<string, Edge<string>> Hierarchy,
+    FrozenSet<string> RootIds,
+    Seq<SceneAccessNode> Ordered) {
+    public static Validation<Error, SceneAccessTree> Admit(Seq<SceneAccessNode> nodes) {
+        Seq<Edge<string>> edges = nodes.Choose(node => node.ParentId.Map(parent => new Edge<string>(parent, node.ElementId)));
+        // Three INDEPENDENT defects, so the applicative accumulates all of them; the prior hand `Seq<Error>`
+        // concatenation re-lifted through a switch what `Validation`'s own semigroup already does.
+        return (Unique(nodes), Parented(nodes, edges), Closed(nodes, edges))
+            .Apply(static (ordered, _, hierarchy) => new SceneAccessTree(
+                ordered.ToFrozenDictionary(static node => node.ElementId, static node => node, StringComparer.Ordinal),
+                hierarchy,
+                // `Roots` is overloaded on `IVertexListGraph` (DFS forest roots) and `IBidirectionalGraph`
+                // (zero-indegree), both of which this container implements — the receiver names which law runs.
+                ((IBidirectionalGraph<string, Edge<string>>)hierarchy).Roots().ToFrozenSet(StringComparer.Ordinal),
+                ordered))
+            .As();
+    }
 
-    public Fin<Option<SceneAccessNode>> Step((double X, double Y, double Z) from, (double X, double Y, double Z) direction) =>
-        Length(direction) switch {
-            <= double.Epsilon => Fin.Fail<Option<SceneAccessNode>>(new AccessFault.GeometryRejected("zero-direction")),
-            double magnitude => Fin.Succ(toSeq(Flatten()
-                    .Map(node => (Node: node, Delta: Delta(node.Center, from)))
-                    .Map(candidate => (candidate.Node, Distance: Length(candidate.Delta), Alignment: Dot(candidate.Delta, direction) / (Length(candidate.Delta) * magnitude + double.Epsilon)))
-                    .Filter(candidate => candidate.Alignment > 0d)
-                    .OrderByDescending(static candidate => candidate.Alignment)
-                    .ThenBy(static candidate => candidate.Distance)
-                    .ThenBy(static candidate => candidate.Node.ElementId, StringComparer.Ordinal))
-                .Map(static candidate => candidate.Node)
-                .Head),
-        };
+    public Option<SceneAccessNode> Resolve(string elementId) =>
+        Nodes.TryGetValue(elementId, out SceneAccessNode? node) ? Some(node) : None;
 
-    public Seq<SceneAccessNode> Roots =>
-        toSeq(Flatten()
-            .Filter(static node => node.ParentId.IsNone)
-            .OrderBy(static node => node.Rank)
-            .ThenBy(static node => node.ElementId, StringComparer.Ordinal));
+    public Seq<SceneAccessNode> Roots => Ordered.Filter(node => RootIds.Contains(node.ElementId));
 
+    // Hierarchy comes off the CONTAINER and order off `Ordered`, so neither is re-derived: the out-edge set
+    // answers membership in O(children) and the canonical sequence answers rank without a sort.
     public Seq<SceneAccessNode> ChildrenOf(string parentId) =>
-        toSeq(Flatten()
-            .Filter(node => node.ParentId.Exists(parent => string.Equals(parent, parentId, StringComparison.Ordinal)))
-            .OrderBy(static node => node.Rank)
-            .ThenBy(static node => node.ElementId, StringComparer.Ordinal));
+        Hierarchy.TryGetOutEdges(parentId, out IEnumerable<Edge<string>>? edges)
+            ? Children(toSeq(edges))
+            : Seq<SceneAccessNode>();
 
-    private static (double X, double Y, double Z) Delta((double X, double Y, double Z) a, (double X, double Y, double Z) b) => (a.X - b.X, a.Y - b.Y, a.Z - b.Z);
-    private static double Dot((double X, double Y, double Z) a, (double X, double Y, double Z) b) => (a.X * b.X) + (a.Y * b.Y) + (a.Z * b.Z);
-    private static double Length((double X, double Y, double Z) vector) => Math.Sqrt(Dot(vector, vector));
-    private static double Distance((double X, double Y, double Z) a, (double X, double Y, double Z) b) => Length(Delta(a, b));
-
-    private static Seq<Error> Failures(Seq<SceneAccessNode> nodes) =>
-        toSeq(nodes.Map(static node => node.ElementId)
-            .CountBy(identity, StringComparer.Ordinal)
-            .Where(static row => row.Value > 1)
-            .Select(static row => (Error)new AccessFault.GeometryRejected($"duplicate-node:{row.Key}")))
-        + nodes
-            .Choose(node => node.ParentId.Map(parent => (Node: node.ElementId, Parent: parent)))
-            .Filter(edge => !nodes.Exists(node => string.Equals(node.ElementId, edge.Parent, StringComparison.Ordinal)))
-            .Map(static edge => (Error)new AccessFault.GeometryRejected($"missing-parent:{edge.Node}:{edge.Parent}"))
-        + (nodes
-            .Choose(node => node.ParentId.Map(parent => new Edge<string>(parent, node.ElementId)))
-            .AsEnumerable()
-            .IsDirectedAcyclicGraph()
-                ? Seq<Error>()
-                : Seq<Error>(new AccessFault.GeometryRejected("cyclic-scene-tree")));
-}
-
-public readonly record struct SpatialCue(string ElementId, double Pan, double Distance, double Gain) {
-    public static Fin<SpatialCue> For(SceneAccessNode node, (double X, double Y, double Z) listener, (double X, double Y, double Z) right) =>
-        (Delta: (node.Center.X - listener.X, node.Center.Y - listener.Y, node.Center.Z - listener.Z),
-         RightLength: Math.Sqrt((right.X * right.X) + (right.Y * right.Y) + (right.Z * right.Z))) switch {
-            { RightLength: <= double.Epsilon } => Fin.Fail<SpatialCue>(new AccessFault.GeometryRejected("zero-right-axis")),
-            var basis => Math.Sqrt((basis.Delta.Item1 * basis.Delta.Item1) + (basis.Delta.Item2 * basis.Delta.Item2) + (basis.Delta.Item3 * basis.Delta.Item3)) switch {
-                var distance when double.IsFinite(distance) => Fin.Succ(new SpatialCue(
-                    node.ElementId,
-                    Math.Clamp(((basis.Delta.Item1 * right.X) + (basis.Delta.Item2 * right.Y) + (basis.Delta.Item3 * right.Z)) / (distance * basis.RightLength + double.Epsilon), -1d, 1d),
-                    distance,
-                    1d / (1d + distance))),
-                _ => Fin.Fail<SpatialCue>(new AccessFault.GeometryRejected("non-finite-position")),
-            },
+    Seq<SceneAccessNode> Children(Seq<Edge<string>> edges) =>
+        edges.Map(static edge => edge.Target).ToFrozenSet(StringComparer.Ordinal) switch {
+            FrozenSet<string> targets => Ordered.Filter(node => targets.Contains(node.ElementId)),
         };
+
+    public Option<SceneAccessNode> Nearest(Vector3 from) =>
+        Ranked.Top(Positioned(),
+            keep: 1,
+            key: cell => ((double)Vector3.Distance(cell.Node.Center, from), cell.Index),
+            ExtremumDirection.Minimum)
+            .Map(static cell => cell.Node)
+            .Head;
+
+    // Direction-ranked focus: the bearing admits as a magnitude, every candidate's own offset admits the same
+    // way, and a candidate coincident with the origin drops rather than dividing. `1 - cosine` reverses the
+    // alignment order on a bounded non-negative key, because float negation folds `NaN` where complement is total.
+    public Fin<Option<SceneAccessNode>> Step(Vector3 from, Vector3 direction) =>
+        AccessAnchors.Admitting.AcceptValidated<PositiveMagnitude>(candidate: direction.Length())
+            .MapFail(static _ => (Error)new AccessFault.GeometryRejected("zero-direction"))
+            .Map(bearing => Ranked.Top(
+                    Positioned().Choose(cell => Alignment(cell.Node.Center - from, direction, bearing)
+                        .Filter(static cosine => cosine > 0d)
+                        .Map(cosine => (cell.Node, cell.Index, Cosine: cosine, Reach: (double)Vector3.Distance(cell.Node.Center, from)))),
+                    keep: 1,
+                    key: static candidate => (1d - candidate.Cosine, candidate.Reach, candidate.Index),
+                    ExtremumDirection.Minimum)
+                .Map(static candidate => candidate.Node)
+                .Head);
+
+    // The canonical position is the tiebreak component: an `int` ordinal off `Ordered` is total and culture-free,
+    // where a `string` component would rank through the culture-sensitive default comparer.
+    Seq<(SceneAccessNode Node, int Index)> Positioned() =>
+        Ordered.Map(static (node, index) => (Node: node, Index: index));
+
+    static Option<double> Alignment(Vector3 delta, Vector3 direction, PositiveMagnitude bearing) =>
+        AccessAnchors.Admitting.AcceptValidated<PositiveMagnitude>(candidate: delta.Length()).ToOption()
+            .Map(span => Vector3.Dot(delta, direction) / (span.Value * bearing.Value));
+
+    // The canonical order is `(Rank, ElementId)` and it is computed ONCE, at admission, on the value every
+    // reader filters — the six per-call `OrderBy` re-sorts this replaces each re-derived it from scratch.
+    static Validation<Error, Seq<SceneAccessNode>> Unique(Seq<SceneAccessNode> nodes) =>
+        Lift(toSeq(nodes.Map(static node => node.ElementId)
+                .CountBy(identity, StringComparer.Ordinal)
+                .Where(static row => row.Value > 1)
+                .Select(static row => (Error)new AccessFault.GeometryRejected($"duplicate-node:{row.Key}"))),
+            () => nodes.OrderBy(static node => node.Rank)
+                .ThenBy(static node => node.ElementId, StringComparer.Ordinal)
+                .ToSeq());
+
+    static Validation<Error, Unit> Parented(Seq<SceneAccessNode> nodes, Seq<Edge<string>> edges) =>
+        Lift(edges.Filter(edge => !nodes.Exists(node => string.Equals(node.ElementId, edge.Source, StringComparison.Ordinal)))
+                .Map(static edge => (Error)new AccessFault.GeometryRejected($"missing-parent:{edge.Target}:{edge.Source}")),
+            static () => unit);
+
+    static Validation<Error, T> Lift<T>(Seq<Error> defects, Func<T> admitted) =>
+        defects.IsEmpty ? Success<Error, T>(admitted()) : Fail<Error, T>(defects);
+
+    // `AddVertexRange` seats the isolated nodes the edge fold never touches, so `Roots` reads zero-indegree over
+    // the WHOLE node set rather than over the subgraph the parent links happen to span.
+    static Validation<Error, BidirectionalGraph<string, Edge<string>>> Closed(Seq<SceneAccessNode> nodes, Seq<Edge<string>> edges) {
+        BidirectionalGraph<string, Edge<string>> hierarchy =
+            edges.AsEnumerable().ToBidirectionalGraph<string, Edge<string>>(allowParallelEdges: false);
+        ignore(hierarchy.AddVertexRange(nodes.Map(static node => node.ElementId)));
+        return hierarchy.IsDirectedAcyclicGraph()
+            ? Success<Error, BidirectionalGraph<string, Edge<string>>>(hierarchy)
+            : Fail<Error, BidirectionalGraph<string, Edge<string>>>(new AccessFault.GeometryRejected("cyclic-scene-tree"));
+    }
 }
 
-[Union]
-public abstract partial record AccessFault : Expected, IValidationError<AccessFault> {
-    private AccessFault(string detail, int code) : base(detail, code, None) { }
+// --- [ERRORS] ---------------------------------------------------------------------------
 
-    public static AccessFault Create(string message) => new GeometryRejected(message);
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record AccessFault : Fault {
+    private static readonly FaultBand FamilyBand = FaultBand.Accessibility;
+    private AccessFault(string detail) { Detail = detail; }
 
-    public sealed record GeometryRejected : AccessFault { public GeometryRejected(string detail) : base(detail, AppUiFaultBand.Accessibility.Code(0)) { } }
-    public sealed record PaintUnresolved : AccessFault { public PaintUnresolved(string key) : base(key, AppUiFaultBand.Accessibility.Code(1)) { } }
+    public string Detail { get; }
+    public override string Message => Detail;
+
+    [FaultCase(0)]
+    public sealed partial record GeometryRejected(string Detail) : AccessFault(Detail);
+    [FaultCase(1)]
+    public sealed partial record PaintUnresolved(string Detail) : AccessFault(Detail);
+    // The host accessibility wire refuses ordinarily, so this arm publishes the transience `Redrive.Run` reads —
+    // the one AppUi accessibility answer the kernel's terminal default would get wrong.
+    [FaultCase(2)]
+    public sealed partial record VoiceRefused(string Detail) : AccessFault(Detail) {
+        public override Retriability Retriability => Retriability.Transient;
+    }
+    [FaultCase(3)]
+    public sealed partial record FloorMissed(string Detail) : AccessFault(Detail);
 }
 
-// The one peer-producing host for Skia-drawn regions: hit-test-transparent, so it never intercepts
-// the visual it voices, and its peer is a stock ControlAutomationPeer — never a per-visual peer class.
+// --- [SERVICES] -------------------------------------------------------------------------
+
+// Hit-test-transparent, so it never intercepts the visual it voices, and its peer is a stock
+// ControlAutomationPeer — never a per-visual peer class.
 public sealed class SynthesizedRegion : Control {
     public SynthesizedRegion() => IsHitTestVisible = false;
 
     protected override AutomationPeer OnCreateAutomationPeer() => new ControlAutomationPeer(this);
 }
 
+// --- [OPERATIONS] -----------------------------------------------------------------------
+
 public static class AccessOps {
     extension(AnnouncementRow row) {
-        public (StyledElement Region, IDisposable Live) Materialize(IScheduler scheduler) =>
+        public (StyledElement Region, IDisposable Live) Materialize(IScheduler scheduler, FaultCell faults) =>
             row.Host.Switch(
-                state: (Row: row, Scheduler: scheduler),
-                stock: static (state, host) => (host.Element, host.Element.Announce(state.Row, state.Scheduler)),
-                synthesized: static (state, _) => new SynthesizedRegion() switch {
-                    SynthesizedRegion region => (region, region.Announce(state.Row, state.Scheduler)),
-                });
+                state: (Row: row, Scheduler: scheduler, Faults: faults),
+                stock: static (state, host) => (host.Element, host.Element.Announce(state.Row, state.Scheduler, state.Faults)),
+                synthesized: static (state, _) => Mint(state.Row, state.Scheduler, state.Faults));
 
-        // The scene-element leg: one focus transition, two admitted outputs. The cue validates FIRST, so a
-        // degenerate listener basis returns its typed fault before the peer is renamed, and a row with no
-        // bound sink voices name and role alone rather than needing a second focus path.
-        public Fin<IO<Unit>> Focus(
-            SceneAccessNode node, StyledElement peer,
-            (double X, double Y, double Z) listener, (double X, double Y, double Z) right) =>
-            SpatialCue.For(node, listener, right)
-                .Map(cue => (peer.FocusGeometry(node), row.Cue.Match(Some: sink => sink(cue), None: static () => IO.pure(unit))).Item2);
+        // The cue validates FIRST, so a degenerate listener basis returns its typed fault before any effect is
+        // built; the rename then rides the SAME effect ahead of the cue, so both outputs run on `Run` and in order.
+        public Fin<IO<Unit>> Focus(SceneAccessNode node, StyledElement peer, Vector3 listener, Vector3 right) =>
+            SpatialCue.For(node, listener, right).Map(cue =>
+                from _ in IO.lift(() => peer.Stamp(AutomationIdentity.Of(node)))
+                from voiced in row.Cue.Match(Some: sink => sink(cue), None: static () => IO.pure(unit))
+                select voiced);
     }
 
     extension(StyledElement element) {
-        public StyledElement Identify(ScreenCatalogRow row) {
-            AutomationProperties.SetAutomationId(element, row.Id);
-            AutomationProperties.SetName(element, row.AutomationName);
-            AutomationProperties.SetHelpText(element, row.Title);
+        // The ONE attached identity write: id, name, and the optional description in one pass, so the three
+        // former sibling writers cannot drift on which properties a surface stamps.
+        public StyledElement Stamp(AutomationIdentity identity) {
+            AutomationProperties.SetAutomationId(element, identity.Id);
+            AutomationProperties.SetName(element, identity.Name);
+            identity.Help.Iter(help => AutomationProperties.SetHelpText(element, help));
             return element;
         }
 
-        // The live region writes identity and posture onto the element — `SetLiveSetting` states what the
-        // backend would poll (`Off` silent, `Polite` queued behind the reader's current utterance,
-        // `Assertive` interrupting) and `SetName` carries the current text the audit lane reads — and hands
-        // the SAME text to the host voice, which is the leg the reader actually hears on an embedded root
-        // whose peers project nowhere. An `Off` row subscribes to nothing, so silence costs no stream, and
-        // the distinct gate keeps a re-emitted identical text from re-announcing a fact already spoken.
-        // The voice runs behind `Try` because `IO.Run` returns a bare value and THROWS: the host post crosses
-        // an accessibility wire whose refusal is ordinary, and an escaping throw here terminates the Rx
-        // subscription, which silences the live region for the surface's whole lifetime over one lost
-        // utterance — the announcement plane degrades per utterance or it is not a plane.
-        public IDisposable Announce(AnnouncementRow row, IScheduler scheduler) {
-            AutomationProperties.SetAutomationId(element, row.Key);
+        // `SetLiveSetting` states what the backend polls and `SetName` carries the current text for the audit
+        // lane; the SAME text goes to the host voice, which is the leg the reader hears on an embedded root whose
+        // peers project nowhere. A silent row subscribes to nothing, so silence costs no stream, and the distinct
+        // gate keeps a re-emitted identical text from re-announcing a fact already spoken.
+        public IDisposable Announce(AnnouncementRow row, IScheduler scheduler, FaultCell faults) {
             AutomationProperties.SetLiveSetting(element, row.Phrase.Setting);
-            return row.Phrase.Setting == AutomationLiveSetting.Off
+            return row.Phrase.Posture == SpeechPosture.Silent
                 ? Disposable.Empty
                 : row.Texts
                     .DistinctUntilChanged(StringComparer.Ordinal)
                     .ObserveOn(scheduler)
-                    .Subscribe(text => {
-                        AutomationProperties.SetName(element, text);
-                        ignore(Try.lift(() => row.Voice(row.Phrase.Setting, text).Run()).Run());
-                    });
+                    .Subscribe(text => ignore(element.Stamp(AutomationIdentity.Of(row.Slot, text))
+                        .Voiced(row, text, faults)));
         }
 
-        public StyledElement FocusGeometry(SceneAccessNode node) {
-            AutomationProperties.SetAutomationId(element, node.ElementId);
-            AutomationProperties.SetName(element, node.Name);
-            AutomationProperties.SetHelpText(element, node.Role);
+        // An exhausted re-drive PARKS on the fault cell rather than vanishing: the announcement plane degrades per
+        // utterance, and a lost utterance that nothing counts is a plane no audit can grade.
+        StyledElement Voiced(AnnouncementRow row, string text, FaultCell faults) {
+            ignore(AccessOps.Cueing.Catch(() =>
+                    Fin.Succ(Redrive.Run(row.Redrive, row.Voice(row.Phrase.Setting, text)).Run()))
+                .IfFail(error => ignore(faults.Park(AccessAnchors.VoicePoint, error))));
             return element;
         }
     }
-}
-```
 
-| [INDEX] | [ROW]         | [POSTURE]   | [TEXT_SOURCE]                                            | [HOST]      |
-| :-----: | :------------ | :---------- | :------------------------------------------------------- | :---------- |
-|  [01]   | toast         | `Polite`    | notification text at presentation                        | stock       |
-|  [02]   | progress      | `Polite`    | phase-transition text from progress streams              | stock       |
-|  [03]   | validation    | `Assertive` | `AdmissionState` fail text                               | stock       |
-|  [04]   | chart-tile    | `Polite`    | series summary at render from the spec fold              | synthesized |
-|  [05]   | preview       | `Polite`    | offscreen-preview caption at capture                     | synthesized |
-|  [06]   | custom-visual | `Polite`    | custom-visual summary at render from the kind fold       | synthesized |
-|  [07]   | scene-element | `Polite`    | scene-node name and role at focus, cue to the bound sink | synthesized |
-
-## [03]-[KEYBOARD_NAV]
-
-- Owner: `FocusOps` keyboard fold over the attached navigation surface.
-- Cases: navigation-mode rows — screen root, dialog overlay, grid body, embedded panel root.
-- Entry: `public InputElement TabOrder(params ReadOnlySpan<(IInputElement Stop, int Rank)> stops)` — rank assignment per region in one fold; `public InputElement Mode(KeyboardNavigationMode mode)` — the region admission the mode table's every row lands through, so a trap, a contained body, and a local root differ by one platform value; `public InputElement AccessKeys(CommandDeck deck, Func<string, Option<StyledElement>> targetOf)` — the access-key fold over the deck's gesture column, stamping each row's platform chord onto the automation access-key slot of the target its key resolves.
-- Auto: tab ranks derive from layout order at mount; dialog sessions apply the `Cycle` row through `Mode` on open and return focus to the captured opener through `InputElement.Focus`, the trap-and-return machinery itself being `Shell/dialogs#SESSION_ALGEBRA` `DialogSurface.Opener`/`Restore` off the `TopLevel()`->`FocusManager` seam and keyed on the crossing's own end by `Awaits`; access keys derive as one fold over the command table's gesture column through `AutomationProperties.SetAccessKey`.
-- Packages: Avalonia, LanguageExt.Core, BCL inbox
-- Growth: one navigation-mode row per region kind; zero new surface.
-- Boundary: tab order, region mode, and the access-key stamp are the three attached writes this fold owns (`.api/api-avalonia.md` `[AUTOMATION_OPERATIONS]`), and `KeyboardNavigationMode` is the platform's own six-row vocabulary the region table selects from — a package-local navigation enum beside it is the deleted twin; focus visuals resolve from theme tokens at the focus pseudo-classes — local focus styling is the deleted pattern; arrow navigation inside grids and flattened trees rides the grid's own key surface, never a parallel handler; a second key table beside the command table is the rejected form, and the access-key fold reads the same `Option<KeyGesture>` column through the deck's own `Chord` transform, so the text a screen reader announces and the chord the binding fires are one value and a row with no gesture or no resolved target stamps nothing.
-
-```csharp signature
-public static class FocusOps {
-    extension(InputElement region) {
-        public InputElement TabOrder(params ReadOnlySpan<(IInputElement Stop, int Rank)> stops) {
-            toSeq(stops.ToArray()).Iter(static stop => KeyboardNavigation.SetTabIndex(stop.Stop, stop.Rank));
-            return region;
-        }
-
-        public InputElement Mode(KeyboardNavigationMode mode) {
-            KeyboardNavigation.SetTabNavigation(region, mode);
-            return region;
-        }
-
-        // One fold over the command table's gesture column: each row carrying both a gesture and a target
-        // this region resolves stamps its PLATFORM chord — the deck's own Chord transform, never the
-        // authored one — onto the automation access-key slot, so no surface spells an accelerator literal
-        // and the announced key text cannot drift from the binding that fires it.
-        public InputElement AccessKeys(CommandDeck deck, Func<string, Option<StyledElement>> targetOf) {
-            toSeq(deck.Rows.Values)
-                .Choose(row => row.Gesture
-                    .Map(deck.Chord)
-                    .Bind(chord => targetOf(row.Key).Map(target => (Target: target, Chord: chord))))
-                .Iter(static bound => AutomationProperties.SetAccessKey(bound.Target, bound.Chord.ToString()));
-            return region;
-        }
+    static (StyledElement Region, IDisposable Live) Mint(AnnouncementRow row, IScheduler scheduler, FaultCell faults) {
+        SynthesizedRegion region = new();
+        return (region, region.Announce(row, scheduler, faults));
     }
 }
 ```
 
-| [INDEX] | [REGION]                     | [MODE]      |
-| :-----: | :--------------------------- | :---------- |
-|  [01]   | screen root                  | `Continue`  |
-|  [02]   | dialog session overlay root  | `Cycle`     |
-|  [03]   | grid and flattened-tree body | `Contained` |
-|  [04]   | embedded panel root          | `Local`     |
+| [INDEX] | [SLOT]         | [TEXT_SOURCE]                                            |
+| :-----: | :------------- | :------------------------------------------------------- |
+|  [01]   | `Toast`        | notification text at presentation                        |
+|  [02]   | `Progress`     | phase-transition text from progress streams              |
+|  [03]   | `Validation`   | `AdmissionState` fail text                               |
+|  [04]   | `ChartTile`    | series summary at render from the spec fold              |
+|  [05]   | `Preview`      | offscreen-preview caption at capture                     |
+|  [06]   | `CustomVisual` | custom-visual summary at render from the kind fold       |
+|  [07]   | `SceneElement` | scene-node name and role at focus, cue to the bound sink |
+
+## [03]-[KEYBOARD_NAV]
+
+- Owner: `NavRegion` the region vocabulary carrying its own `KeyboardNavigationMode` column; `AccessKeyReceipt` the access-key coverage receipt; `FocusOps` the keyboard fold over the attached navigation surface.
+- Cases: `NavRegion` = screen root | dialog overlay | grid body | embedded panel root — the four region rows.
+- Entry: `public InputElement TabOrder(Seq<IInputElement> stops)` — rank assignment per region in one fold, the rank being the stop's own position; `public InputElement Mode(NavRegion row)` — the region admission every mode lands through, so a trap, a contained body, and a local root differ by one ROW rather than by one of the platform's six raw values; `public AccessKeyReceipt AccessKeys(NavRegion row, CommandDeck deck, HashMap<string, StyledElement> targets)` — the access-key fold over the deck's gesture column, stamping each row's platform chord onto the automation access-key slot of the target its key resolves and naming every gesture-bearing row this region could not seat.
+- Auto: tab ranks derive from layout order at mount, which IS the sequence order the fold reads; dialog sessions apply `NavRegion.DialogOverlay` through `Mode` on open and return focus to the captured opener through `InputElement.Focus`, the trap-and-return machinery itself being `Shell/dialogs#SESSION_ALGEBRA` `DialogSurface.Opener`/`Restore` off the `TopLevel()`->`FocusManager` seam and keyed on the crossing's own end by `Awaits`; access keys derive as one fold over the command table's gesture column through `AutomationProperties.SetAccessKey`.
+- Receipt: `AccessKeyReceipt` per region — the intent keys stamped beside the gesture-bearing keys this region held no target for, so an unstamped accelerator is a named row rather than a silent drop.
+- Packages: Avalonia, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox
+- Growth: one `NavRegion` row per region kind; zero new surface.
+- Boundary: tab order, region mode, and the access-key stamp are the three attached writes this fold owns (`.api/api-avalonia.md` `[AUTOMATION_OPERATIONS]`), and the region-to-mode correspondence IS the `NavRegion` roster rather than a prose table beside a raw platform parameter — `KeyboardNavigationMode` carries six values and only four name a region this shell mounts, so the roster is what makes `Once` and `None` unspellable at a call site; a package-local navigation enum BESIDE the platform one stays the deleted twin, because the row carries the platform value rather than mirroring it. The rank column deletes by the KNOB test: `TabIndex` is read for ORDER alone and a sequence position reconstructs every ordering a caller could author, so the pair-shaped stop list and its `params ReadOnlySpan` materialization both go. `AccessKeys` takes RESOLVED targets rather than a resolver delegate, because the delegate reconstructed nothing the caller did not already hold and its laziness is exactly what made an unresolved row invisible; the receipt makes coverage total. Focus visuals resolve from theme tokens at the focus pseudo-classes — local focus styling is the deleted pattern; arrow navigation inside grids and flattened trees rides the grid's own key surface, never a parallel handler; a second key table beside the command table is the rejected form, and the access-key fold reads the same `Option<KeyGesture>` column through the deck's own `Chord` transform, so the text a screen reader announces and the chord the binding fires are one value.
+
+```csharp signature
+// --- [TYPES] ----------------------------------------------------------------------------
+
+// The region table IS the type: each row carries the platform mode it admits, so the correspondence has one
+// authority and a region whose mode a maintainer retunes moves at one row.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class NavRegion {
+    public static readonly NavRegion ScreenRoot = new("screen-root", KeyboardNavigationMode.Continue);
+    public static readonly NavRegion DialogOverlay = new("dialog-overlay", KeyboardNavigationMode.Cycle);
+    public static readonly NavRegion GridBody = new("grid-body", KeyboardNavigationMode.Contained);
+    public static readonly NavRegion PanelRoot = new("panel-root", KeyboardNavigationMode.Local);
+
+    public KeyboardNavigationMode Navigation { get; }
+}
+
+// --- [MODELS] ---------------------------------------------------------------------------
+
+public readonly record struct AccessKeyReceipt(NavRegion Region, Seq<string> Stamped, Seq<string> Unresolved);
+
+// --- [OPERATIONS] -----------------------------------------------------------------------
+
+public static class FocusOps {
+    extension(InputElement region) {
+        public InputElement TabOrder(Seq<IInputElement> stops) {
+            stops.Map(static (stop, rank) => (Stop: stop, Rank: rank))
+                .Iter(static ranked => KeyboardNavigation.SetTabIndex(ranked.Stop, ranked.Rank));
+            return region;
+        }
+
+        public InputElement Mode(NavRegion row) {
+            KeyboardNavigation.SetTabNavigation(region, row.Navigation);
+            return region;
+        }
+
+        // One fold over the command table's gesture column: each row carrying both a gesture and a target this
+        // region holds stamps its PLATFORM chord — the deck's own Chord transform, never the authored one — so no
+        // surface spells an accelerator literal and the announced key text cannot drift from the binding that
+        // fires it. A gesture-bearing row this region cannot seat leaves on the receipt rather than through a
+        // silent `Choose` drop.
+        public AccessKeyReceipt AccessKeys(NavRegion row, CommandDeck deck, HashMap<string, StyledElement> targets) =>
+            toSeq(deck.Rows.Values)
+                .Choose(intent => intent.Gesture.Map(gesture => (intent.Key, Chord: deck.Composition.Chord(gesture))))
+                .Fold(new AccessKeyReceipt(row, Seq<string>(), Seq<string>()), (receipt, bound) =>
+                    targets.Find(bound.Key).Match(
+                        Some: target => {
+                            AutomationProperties.SetAccessKey(target, bound.Chord.ToString());
+                            return receipt with { Stamped = receipt.Stamped.Add(bound.Key) };
+                        },
+                        None: () => receipt with { Unresolved = receipt.Unresolved.Add(bound.Key) }));
+    }
+}
+```
 
 ## [04]-[CONTRAST_GATE]
 
-- Owner: `ContrastFloor` `[SmartEnum<string>]` the admitted floor vocabulary; `ContrastGate` static surface carrying BOTH perceptual assertions over the kernel colour owner — the WCAG luminance ratio and the CVD distinguishability distance; `ContrastReceipt` and `CvdReceipt` receipt records.
-- Cases: `ContrastFloor` = BodyText 4.5 | LargeText 3.0 | NonText 3.0 | HighContrast 7.0 — the four floor rows; no fifth threshold source exists.
-- Entry: `public static Fin<ContrastReceipt> Measure(TokenKey foregroundKey, TokenKey backgroundKey, ThemeVariantRow variant, Color foreground, Color background, Color canvas, ContrastFloor floor)` — one alpha-composited ratio assertion per candidate pair; the floor arrives as a theme vocabulary value, so every receipt names the declared floor and this owner carries no compositing policy of its own; `public static Fin<CvdReceipt> Distinct(TokenKey leftKey, TokenKey rightKey, ThemeVariantRow variant, Color left, Color right, Cvd deficiency, UnitInterval severity, PositiveMagnitude floor, DeltaMetric? metric = null)` — one distinguishability assertion per safety-load-bearing pair: both colours admit into `PerceptualColor`, pass through `Simulate(deficiency, severity)`, and the simulated pair measures `Difference(other, metric)` against an admitted floor, the metric arriving beside the floor exactly as the contrast class does and landing on the receipt so a distance names the scale that produced it.
-- Auto: token resolve and every variant swap emit candidate pairs through `Measure`, each pair carrying its `ContrastFloor` row from the frozen token vocabulary; the high-contrast variant gates every pair at `ContrastFloor.HighContrast`; status-paint and colormap-stop pairs sweep `Distinct` across the composition-supplied `Cvd` deficiency grid; receipts join the evidence stream.
-- Receipt: `ContrastReceipt` per candidate pair, keyed pair key plus variant, carrying the floor row key and its value so the compliance sweep distinguishes a violated declared floor from a malformed or absent policy selection; `CvdReceipt` per (pair × deficiency), carrying the simulated ΔE and its floor.
-- Packages: Rasm (project — `PerceptualColor` with `Blend`/`Contrast`/`Simulate`/`Difference`, the `DeltaMetric` difference-axis rows, `UnitInterval`, `PositiveMagnitude`), Wacton.Unicolour (the `Cvd` and `BlendMode` selector rows the kernel signatures name — no construction crosses here, and the raw `DeltaE` enum stays behind `DeltaMetric`), Avalonia, Thinktecture.Runtime.Extensions, BCL inbox
-- Growth: one `ContrastFloor` row per pair class; one `Cvd` deficiency per sweep cell and one ΔE floor value per pair class, both composition-supplied; a stricter difference scale is one `DeltaMetric` row at the composition, and an appearance metric carries its own viewing condition into the receipt with no column added here; zero new surface.
-- Boundary: a candidate pair is TWO `TokenKey` values end to end — the `ThemeRail` rosters carry them, both gate entries take them, and each receipt holds the pair rather than a composed label, so the pair key a violation report reads is derived from the same mint the resolve emitted and a caller cannot address a candidate by a string it assembled; the one WCAG implementation suite-wide rides the kernel `PerceptualColor` owner — `Ratio` composites foreground and background over the candidate canvas through `PerceptualColor.Blend(PerceptualColor, BlendMode)` before one `Contrast(other)` call, so translucent token pairs cannot pass against an imaginary opaque colour; the flatten is that member's own default alpha compositing, so the gate carries no mode argument and a parameter threaded solely to name it is deleted; a hand-folded luminance pair, the Avalonia `ColorHelper.GetRelativeLuminance` call, and a package-local `Wacton.Unicolour` construction are deleted; the WCAG ratio is DECLARED condition-free and that is a convention this gate states rather than a gap it carries — the ratio is sRGB relative luminance under the standard observer and reference white the specification itself fixes, so `Contrast` takes no `CamConfiguration` at the kernel and a viewing condition threaded onto a `ContrastReceipt` would name a measurement the ratio never reads; the two rows that DO depend on the viewer's adaptation are the appearance interpolation and difference rows, and those carry their condition in their own payload, so the receipt naming a `DeltaMetric` carries the condition wherever one exists and states its absence wherever one does not; the CVD lens rides `Simulate(Cvd, UnitInterval)` plus `Difference(other, metric)`, never a hand-rolled deficiency matrix; severity and the difference floor admit through the kernel's `UnitInterval` and `PositiveMagnitude` owners, so no package-local scalar twin survives; both receipts carry the `ThemeVariantRow` the sweep resolved rather than its key text, so an audit row and the `Diagnostics/proof#HEADLESS_DERIVATION` `ProofSpec` beside it name one variant vocabulary and no consumer re-resolves a row from a string.
+- Owner: `AssertionFloor` the closed assertion axis carrying its own policy payload; `AssertionPair` the admitted candidate pair; `PerceptualAssertion` the ONE receipt both perceptual assertions land on; `ContrastGate` the static surface carrying both assertions over the kernel colour owner.
+- Cases: `AssertionFloor` = `Wcag(ContrastFloor)` | `Cvd(Cvd, DeltaMetric, PositiveMagnitude)` — the luminance-ratio axis and the distinguishability-distance axis; no third assertion source exists.
+- Entry: `public static Fin<Scalar> Ratio(Color foreground, Color background, Color canvas)` — the suite's single WCAG luminance implementation; `public static Fin<PerceptualAssertion> Assert(AssertionPair pair, ThemeVariantRow variant, AssertionFloor floor)` — the ONE assertion entrypoint, discriminating on the floor case through its generated total `Switch`, so a new perceptual axis is one union case and every caller compiles unchanged or breaks loudly.
+- Auto: token resolve and every variant swap emit candidate pairs through `Assert`, each pair carrying its `AssertionFloor` from `Theme/emission#STYLES_RAIL` `ThemeRail.ContrastCandidates`; the high-contrast variant lifts every floor to `ContrastFloor.AaaText` at the projection rather than at this gate; status-paint and colormap-stop pairs sweep the `Cvd` arm across the deficiency grid the candidate roster carries; assertions join the compliance audit.
+- Receipt: `PerceptualAssertion` per candidate pair, keyed by the two `TokenKey` values plus the resolved variant, carrying the floor case whole and the measurement as `Evidence<Scalar>` — `Measured` a probe ran and cleared, `Refused` a probe ran and missed carrying the clause it missed, `Absent` no probe ran, so the compliance sweep distinguishes a violated declared floor from a policy nothing selected.
+- Packages: Rasm (project — `PerceptualColor` with `Blend`/`Contrast`/`Simulate`/`Difference`, `ContrastFloor` with its `Ratio`/`Clause` columns, the `DeltaMetric` difference-axis rows, `Scalar`, `UnitInterval`, `PositiveMagnitude`, `Evidence<T>`, `Op`), Wacton.Unicolour (the `Cvd` selector rows the kernel signatures name — no construction crosses here, and the raw `DeltaE` enum stays behind `DeltaMetric`), Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core
+- Growth: a new perceptual axis is one `AssertionFloor` case with its own policy payload and its own arm; a stricter difference scale is one `DeltaMetric` row on the case; an appearance metric carries its own viewing condition into that row with no column added here; zero new surface.
+- Boundary: the floor vocabulary is the KERNEL `ContrastFloor` roster (`Rasm/Interaction/paint#[05]-[THEME]`) — each row names the WCAG success criterion it transcribes and carries the `PositiveMagnitude` the kernel tonal solve takes, so the derived text rung `Theme/tokens#PAINT_LADDER` solved for and the floor this gate audits it against are ONE published vocabulary; a package-local four-row roster over bare `double`s lost the clause column and the typed ratio, and the kernel's own law states the loss it deletes — a contrast floor no clause states is a number no review can settle. A candidate pair is TWO `TokenKey` values end to end and the receipt holds the pair rather than a composed label, so a violation report addresses the same mint the resolve emitted; the slash-joined `PairKey` this page previously published on both receipts was the exact composed string this Boundary forbids, and it is deleted rather than documented. The one WCAG implementation suite-wide rides the kernel `PerceptualColor` owner: the ratio composites over the candidate canvas through `Blend` before one `Contrast(other)` call, so translucent token pairs cannot pass against an imaginary opaque colour, and the flatten is that member's own default alpha compositing, so the gate carries no mode argument. A hand-folded relative-luminance pair is the deleted form because the kernel publishes the read — `PerceptualColor.Contrast(other)` is the ratio and `PerceptualColor.Colorimetry.RelativeLuminance` the component beneath it — and the Avalonia `ColorHelper.GetRelativeLuminance` call and a package-local `Wacton.Unicolour` construction are deleted with it. The CVD arm composites over the SAME canvas before simulating, because two translucent status inks measured against an imaginary opaque backdrop is the identical defect the WCAG blend exists to prevent; it then rides `Simulate(Cvd, UnitInterval)` plus `Difference(other, metric)`, never a hand-rolled deficiency matrix, and simulates at FULL severity because the candidate roster carries the lens alone — a severity column reading 1.0 on every row was a knob the value already reconstructed (`Theme/emission#STYLES_RAIL`). The metric is a REQUIRED column on the `Cvd` case rather than a nullable parameter with a call-site coalesce: a bare ΔE is unattributable, CIEDE2000 and CAM16 disagree by a factor on the same pair, and the kernel's own `Difference` already defaults, so a local `?? DeltaMetric.Ciede2000` restated a default one stratum below and hid the policy the receipt exists to name. The WCAG ratio is DECLARED condition-free and that is the specification's convention rather than a gap: relative luminance is fixed against a standard observer and reference white, so the kernel `Contrast` member takes no `CamConfiguration` and a viewing condition threaded onto a receipt would name a measurement the ratio never reads — the axis that DOES depend on adaptation is the appearance one the `DeltaMetric` row carries, so the receipt states the condition wherever one exists and states its absence wherever one does not. The measure is `Scalar` and not `PositiveMagnitude`, because a ΔE of exactly zero is the most-failing pair a distinguishability sweep can find and a positive-band refusal would report it as an admission defect rather than as the floor miss it is. The receipt carries the `ThemeVariantRow` the sweep resolved rather than its key text, so an audit row and the `Diagnostics/proof#HEADLESS_DERIVATION` `ProofSpec` beside it name one variant vocabulary; a second receipt record for the second axis was the sibling shape this one collapse deletes, since both regimes key on the same pair, resolve from the same producer, and land on the same consumer.
 
 ```csharp signature
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class ContrastFloor {
-    public static readonly ContrastFloor BodyText = new("body-text", floor: 4.5);
-    public static readonly ContrastFloor LargeText = new("large-text", floor: 3.0);
-    public static readonly ContrastFloor NonText = new("non-text", floor: 3.0);
-    public static readonly ContrastFloor HighContrast = new("high-contrast", floor: 7.0);
+// --- [TYPES] ----------------------------------------------------------------------------
 
-    public double Floor { get; }
+// The assertion axis as a closed union: each case carries the whole policy its arm reads, so a WCAG assertion
+// cannot be spelled with a difference metric and a CVD assertion cannot be spelled without one.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record AssertionFloor {
+    private AssertionFloor() { }
+
+    public sealed record Wcag(ContrastFloor Floor) : AssertionFloor;
+    public sealed record Cvd(Cvd Lens, DeltaMetric Metric, PositiveMagnitude Floor) : AssertionFloor;
+
+    // The clause a refusal cites: the kernel row publishes its own success criterion, and the difference axis
+    // names the scale its floor is stated in, so a missed floor never reports a bare number.
+    public string Clause => Switch(
+        wcag: static row => row.Floor.Clause,
+        cvd: static row => $"{row.Lens}/{row.Metric}");
+
+    public PositiveMagnitude Floor => Switch(
+        wcag: static row => row.Floor.Ratio,
+        cvd: static row => row.Floor);
 }
 
-// The distinguishability floor is a positive perceptual distance, so it admits through the kernel's own
-// positive-magnitude owner rather than a package-local twin; severity is the kernel `UnitInterval` the
-// `Simulate` signature already demands, and the former local `CvdSeverity` value object was that owner
-// re-declared one stratum up.
-// The pair travels as its two GENERATED keys, never as a composed label: the label a report reads derives
-// from the same mint the resolve emitted, so a receipt naming a rung the generation never produced is
-// unspellable and no reader re-splits a slash-joined string to recover the pair it was measured on.
-public readonly record struct ContrastReceipt(
-    TokenKey Foreground, TokenKey Background, ThemeVariantRow Variant, double Ratio, ContrastFloor Floor, bool Pass) {
-    public string PairKey => $"{Foreground.Value}/{Background.Value}";
+// --- [CONSTANTS] ------------------------------------------------------------------------
+
+public static class GateAnchors {
+    public static readonly Op Asserting = Op.Of(name: "appui.accessibility.assert");
+    // The candidate roster carries the lens alone, so the gate previews the deficiency WHOLE — a partial severity
+    // grades a viewer nobody declared.
+    public static readonly UnitInterval FullDeficiency = UnitInterval.Create(value: 1d);
 }
 
-// The metric rides the receipt because a bare ΔE is unattributable — CIEDE2000 and CAM16 disagree by a factor
-// on the same pair — and because the kernel row carries the viewing condition on its appearance case, so an
-// appearance-metric receipt states the surround it was measured under and an opponent-metric one states that
-// no condition applies. A separate condition column would be that same fact re-declared, dead on every
-// opponent row and forgeable on an appearance one.
-public readonly record struct CvdReceipt(
-    TokenKey Left, TokenKey Right, ThemeVariantRow Variant, Cvd Deficiency, DeltaMetric Metric, double Difference,
-    PositiveMagnitude Floor, bool Distinct) {
-    public string PairKey => $"{Left.Value}/{Right.Value}";
-}
+// --- [MODELS] ---------------------------------------------------------------------------
+
+public readonly record struct AssertionPair(TokenKey Left, TokenKey Right, Color First, Color Second, Color Canvas);
+
+// ONE receipt for both perceptual assertions: the pair identity, the variant, and the measurement are the same
+// regime on both axes, and the axis itself is a VALUE on the row. `Evidence<Scalar>` carries the whole verdict —
+// a bare `bool Pass` could not tell a measured miss from a probe that never ran, which is why two call sites
+// hand-guarded an empty stream and a third reported a roster defect as a failed measurement.
+public readonly record struct PerceptualAssertion(
+    TokenKey Left, TokenKey Right, ThemeVariantRow Variant, AssertionFloor Floor, Evidence<Scalar> Measure);
+
+// --- [OPERATIONS] -----------------------------------------------------------------------
 
 public static class ContrastGate {
-    // Both perceptual assertions ride the kernel `PerceptualColor` — one colour-science owner suite-wide,
-    // one stratum down. The WCAG ratio composites the pair over the candidate canvas through `Blend` before one
-    // `Contrast` call, so a translucent token pair cannot pass against an imaginary opaque colour; the flatten IS
-    // alpha compositing, which is `Blend`'s own default mode, so no theme value threads through here — a gamut
-    // argument carried only to select that one mode was the deleted knob. A hand-folded luminance pair, the
-    // Avalonia `ColorHelper.GetRelativeLuminance` call, and a direct `Wacton.Unicolour` construction at this edge
-    // are the deleted forms. Admission is fallible at the host edge and total thereafter.
-    // The ratio takes NO viewing condition and that is the specification's own convention, not this gate's
-    // omission: WCAG relative luminance is defined against a fixed observer and reference white, so the kernel
-    // `Contrast` member is condition-free by law and a surround threaded in here would state an adaptation the
-    // formula never reads — a dark-surround overlay and a bright-office light theme genuinely produce the same
-    // WCAG number, and the axis that DOES separate them is the appearance one the difference metric carries.
-    public static Fin<double> Ratio(Color foreground, Color background, Color canvas) =>
+    // The suite's single WCAG luminance implementation: composite the pair over the candidate canvas through
+    // `Blend`, then one `Contrast` call. Admission is fallible at the host edge and total thereafter.
+    public static Fin<Scalar> Ratio(Color foreground, Color background, Color canvas) =>
         from ink in Admit(foreground)
         from over in Admit(background)
         from under in Admit(canvas)
         let backdrop = over.Blend(under)
-        select ink.Blend(backdrop).Contrast(backdrop);
+        from measure in GateAnchors.Asserting.AcceptValidated<Scalar>(candidate: ink.Blend(backdrop).Contrast(backdrop))
+        select measure;
 
-    public static Fin<ContrastReceipt> Measure(
-        TokenKey foregroundKey, TokenKey backgroundKey, ThemeVariantRow variant,
-        Color foreground, Color background, Color canvas, ContrastFloor floor) =>
-        Ratio(foreground, background, canvas).Map(ratio =>
-            new ContrastReceipt(foregroundKey, backgroundKey, variant, ratio, floor, ratio >= floor.Floor));
+    // One entrypoint, one receipt, discriminating on the floor case. The former `Measure`/`Distinct` pair were
+    // name-suffix siblings over identical leading arguments whose only divergence was the policy value.
+    public static Fin<PerceptualAssertion> Assert(AssertionPair pair, ThemeVariantRow variant, AssertionFloor floor) =>
+        from measure in floor.Switch(
+            state: pair,
+            wcag: static (candidate, _) => Ratio(candidate.First, candidate.Second, candidate.Canvas),
+            cvd: static (candidate, row) => Distance(candidate, row))
+        select new PerceptualAssertion(pair.Left, pair.Right, variant, floor,
+            measure.Value >= floor.Floor.Value
+                ? new Evidence<Scalar>.Measured(measure)
+                : new Evidence<Scalar>.Refused(new AccessFault.FloorMissed(
+                    $"{pair.Left.Value}|{pair.Right.Value}|{floor.Clause}|{measure.Value}")));
 
-    // The second perceptual axis: the pair simulates under the deficiency, then measures perceptual distance
-    // under the composition's own scale — distinguishability the luminance ratio cannot assert, same owner, same
-    // receipt rail. The scale is a `DeltaMetric` row rather than a raw package enum, so an opponent metric is
-    // condition-free by construction while an appearance one is unspellable without the surround it measures
-    // under; the resolved row stamps the receipt, so no reader re-pairs a distance with an asserted scale.
-    public static Fin<CvdReceipt> Distinct(
-        TokenKey leftKey, TokenKey rightKey, ThemeVariantRow variant, Color left, Color right,
-        Cvd deficiency, UnitInterval severity, PositiveMagnitude floor, DeltaMetric? metric = null) =>
-        from a in Admit(left)
-        from b in Admit(right)
-        let scale = metric ?? DeltaMetric.Ciede2000
-        let difference = a.Simulate(deficiency, severity).Difference(b.Simulate(deficiency, severity), scale)
-        select new CvdReceipt(leftKey, rightKey, variant, deficiency, scale, difference, floor, difference >= floor.Value);
+    static Fin<Scalar> Distance(AssertionPair pair, AssertionFloor.Cvd row) =>
+        from left in Admit(pair.First)
+        from right in Admit(pair.Second)
+        from under in Admit(pair.Canvas)
+        let seen = left.Blend(under).Simulate(row.Lens, GateAnchors.FullDeficiency)
+        let other = right.Blend(under).Simulate(row.Lens, GateAnchors.FullDeficiency)
+        from measure in GateAnchors.Asserting.AcceptValidated<Scalar>(candidate: seen.Difference(other, Some(row.Metric)))
+        select measure;
 
-    private static Fin<PerceptualColor> Admit(Color color) =>
+    static Fin<PerceptualColor> Admit(Color color) =>
         PerceptualColor.OfRgb(red: color.R, green: color.G, blue: color.B, alpha: color.A / 255d);
 }
 ```
 
-| [INDEX] | [ROW]          | [VALUE] | [BINDS]                                     |
-| :-----: | :------------- | :-----: | :------------------------------------------ |
-|  [01]   | `BodyText`     |   4.5   | text pairs at body sizes                    |
-|  [02]   | `LargeText`    |   3.0   | display and headline pairs                  |
-|  [03]   | `NonText`      |   3.0   | focus visuals, icon tints, chart strokes    |
-|  [04]   | `HighContrast` |   7.0   | every pair on the high-contrast variant row |
-
 ## [05]-[COMPLIANCE_PROOF]
 
-- Owner: `AccessCheck` closed structural-check vocabulary, `AccessCheckReceipt` keyed result, `AccessAudit` audit row record, and `AccessProof` sweep fold.
-- Cases: focus walk, peer presence, name coverage, reduced-motion conformance, contrast sweep, CVD distinguishability sweep — the six audit checks.
-- Entry: `public static Seq<AccessAudit> Sweep(ScreenCatalog catalog, Seq<(ThemeVariantRow Variant, DensityRow Density)> grid, Func<ScreenCatalogRow, ThemeVariantRow, DensityRow, AccessAudit> probe)` — every headless catalog row crossed with every variant-density cell; audit keys materialize from the row keys; `public static Validation<Error, Seq<ContrastReceipt>> Contrast(ThemeVariantRow variant, Func<TokenKey, Option<Color>> paint, Color canvas)` and `public static Validation<Error, Seq<CvdReceipt>> Distinguish(ThemeVariantRow variant, Func<TokenKey, Option<Color>> paint, PositiveMagnitude floor, DeltaMetric? metric = null)` — the two candidate folds a `probe` composes, each reading its whole roster from the theme rail and each carrying the grid cell's own variant row rather than its key text; `paint` resolves a GENERATED key off the resolved theme, so the sweep cannot address a bucket by a string it composed.
-- Auto: `KeyPressQwerty` traversal proves the focus walk; name coverage asserts the applied `AutomationName` column; peer presence reads the actual automation-peer boundary — a `Synthesized` row proves through its mounted `SynthesizedRegion`, never the declaration flag; reduced-motion conformance reads the one motion degrade switch; the contrast sweep folds `Measure` over `ThemeRail.ContrastCandidates` and the distinguishability sweep folds `Distinct` over `ThemeRail.CvdCandidates`, each candidate carrying the floor, lens, and severity the gate applies; the evidence derivation engine executes every audit, deleting hand-written per-screen accessibility smoke specs.
-- Receipt: `AccessAudit` rows keyed screen id, variant, and density into the evidence stream; `Checks` is keyed by the closed `AccessCheck` vocabulary and `Pass` requires one passing receipt for every admitted check — the `Contrast` and `CvdDistinct` rows derive from their evidence streams with an EMPTY stream failing closed, so a missing probe receipt and missing required evidence both fail structurally, and an unresolvable candidate paint accumulates `AccessFault.PaintUnresolved` rather than publishing a ratio no probe measured.
-- Packages: Avalonia.Headless, Avalonia.Headless.XUnit, Avalonia, Rasm (project — `PositiveMagnitude`), LanguageExt.Core
-- Growth: one audit row per new variant or density cell; a new candidate pair is one `ThemeRail` roster row; zero new surface.
-- Boundary: the cluster declares the audit law only — spec execution and capture lanes stay with the evidence engine; the theme rail owns the candidate rosters and this sweep is their one reader, so a pair roster restated here would be the mirrored-roster rejected form and a pair class re-resolved from a string is deleted by the typed floor the row already carries; the `Diagnostics/proof#HEADLESS_DERIVATION` `ProofCheck.ContrastAudit` row sweeps this gate's derivation, so the proof derivation and the compliance sweep consume one contrast law; `UseHeadlessDrawing` disabled selects the Skia backend on every capture lane; `HeadlessLane` filters to `ProofLane.Headless` rows, so host-bound screens exit the sweep structurally.
+- Owner: `AssertionSlice` the closed evidence-selector vocabulary each check row carries; `AccessCheck` the structural-check vocabulary realizing kernel `ICapability<AccessCheck>`; `CvdPolicy` the composition-supplied distinguishability policy; `AccessAudit` the audit row; `AccessProof` the sweep fold.
+- Cases: focus walk, peer presence, name coverage, reduced-motion conformance, contrast sweep, CVD distinguishability sweep — the six `AccessCheck` rows, four probe-backed and two assertion-backed.
+- Entry: `public static IO<Seq<AccessAudit>> Sweep(ScreenCatalog catalog, Seq<ResolvedTheme> grid, CvdPolicy policy, Func<ScreenCatalogRow, AccessCheck, ResolvedTheme, IO<bool>> probe)` — every headless catalog row crossed with every resolved cell, the sweep OWNING the audit assembly and handing the caller one structural check at a time; `public static Validation<Error, Seq<PerceptualAssertion>> Assertions(ResolvedTheme resolved, CvdPolicy policy)` — the one candidate fold over both rosters, accumulating every roster defect and every floor miss.
+- Auto: `KeyPressQwerty` traversal proves the focus walk; name coverage asserts the applied `AutomationName` write; peer presence reads the actual automation-peer boundary — a `Synthesized` row proves through its mounted `SynthesizedRegion`, never the declaration flag; reduced-motion conformance reads the one motion degrade switch; the contrast and distinguishability rows derive from the assertion slice `AssertionSlice` selects, so neither is a probe the caller supplies; `Diagnostics/proof#HEADLESS_DERIVATION` binds this sweep as the `ProofCheck.ContrastAudit` and `ProofCheck.FocusWalk` derivation, which is the consumer that executes it and deletes hand-written per-screen accessibility smoke specs.
+- Receipt: `AccessAudit` rows keyed screen id and resolved cell; `Held` folds the probe set and the assertion slices into one `CapabilitySet<AccessCheck>` and `Admit` refuses through `CapabilityLaw<AccessCheck>` against the whole roster, so a missing probe receipt, a missing required assertion, and an EMPTY assertion slice all fail structurally; `Defects` carries the roster refusals apart from the assertions, so an unresolvable candidate paint accumulates `AccessFault.PaintUnresolved` under its own column rather than being forged into a verdict no probe took.
+- Packages: Avalonia.Headless, Avalonia.Headless.XUnit, Avalonia, Rasm (project — `CapabilitySet`/`CapabilityLaw`/`ICapability`, `Evidence<T>`, `Dimension`, `PositiveMagnitude`, `DeltaMetric`), Thinktecture.Runtime.Extensions, LanguageExt.Core
+- Growth: a new audit row is one `ResolvedTheme` in the grid; a new candidate pair is one `ThemeRail` roster row; a seventh check is one `AccessCheck` row carrying its `AssertionSlice`, and no fold here edits.
+- Boundary: the cluster declares the audit law only — spec execution and capture lanes stay with the evidence engine. The audit's evidence CROSSING is owed: `Diagnostics/evidence.md` carries no accessibility case and this page mints no projection, so `AccessAudit` reaches the proof engine as a derivation and NOT the receipt union, and any claim that these rows seal onto the evidence stream is false until that case lands. The grid cell is `ResolvedTheme` and not a `(variant, density)` tuple beside a paint resolver and a canvas colour, because the resolved theme reconstructs all four — the variant, the density, every `TokenKey` paint, and the surface the pair composites over — so three parameters deleted by the KNOB test rather than by preference. The probe delegate narrows to ONE structural check per row and cell: a delegate returning the whole audit handed the audit law back to its caller, which is the owner holding no law at all. The check verdict is a `CapabilitySet<AccessCheck>` over a named vocabulary and never a `HashMap` whose value re-stores its own key beside one bit — the kernel names that shape the deleted form (`Rasm/Interaction/control#[02]`) — and the per-row derivation rides `AssertionSlice`'s own delegate column, so the two hardcoded `check ==` comparisons that made a seventh row compile and silently read `false` have no site. The theme rail owns the candidate rosters and this sweep composes them whole, so a pair roster restated here would be the mirrored-roster rejected form; `Theme/emission#STYLES_RAIL` derives both rosters from the generated ladder, so a new paint role reaches this sweep with no roster edit. `UseHeadlessDrawing` disabled selects the Skia backend on every capture lane; `ScreenCatalog.HeadlessLane` filters to `ProofLane.Headless` rows, so host-bound screens exit the sweep structurally.
 
 ```csharp signature
+// --- [TYPES] ----------------------------------------------------------------------------
+
+// Each row states HOW its check is held. `None` selects nothing and answers `Absent`, which routes the row to the
+// probe set; an assertion-backed row folds its own slice and an EMPTY slice answers `Absent` too, so missing
+// required evidence can never pass by vacuous quantification.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class AccessCheck {
-    public static readonly AccessCheck FocusWalk = new("focus-walk");
-    public static readonly AccessCheck PeerPresence = new("peer-presence");
-    public static readonly AccessCheck NameCoverage = new("name-coverage");
-    public static readonly AccessCheck ReducedMotion = new("reduced-motion");
-    public static readonly AccessCheck Contrast = new("contrast");
-    public static readonly AccessCheck CvdDistinct = new("cvd-distinct");
+public sealed partial class AssertionSlice {
+    public static readonly AssertionSlice None = new("none", static _ => new Evidence<Dimension>.Absent());
+    public static readonly AssertionSlice Wcag = new("wcag", static rows => Cleared(rows, static floor => floor is AssertionFloor.Wcag));
+    public static readonly AssertionSlice Cvd = new("cvd", static rows => Cleared(rows, static floor => floor is AssertionFloor.Cvd));
+
+    [UseDelegateFromConstructor]
+    public partial Evidence<Dimension> Fold(Seq<PerceptualAssertion> assertions);
+
+    static Evidence<Dimension> Cleared(Seq<PerceptualAssertion> assertions, Func<AssertionFloor, bool> selects) =>
+        assertions.Filter(row => selects(row.Floor)) switch {
+            { IsEmpty: true } => new Evidence<Dimension>.Absent(),
+            Seq<PerceptualAssertion> slice => slice.Find(static row => row.Measure is not Evidence<Scalar>.Measured).Match(
+                Some: static missed => (Evidence<Dimension>)new Evidence<Dimension>.Refused(
+                    missed.Measure is Evidence<Scalar>.Refused refused ? refused.Cause : new AccessFault.FloorMissed(missed.Floor.Clause)),
+                None: () => new Evidence<Dimension>.Measured(Dimension.Create(value: slice.Count))),
+        };
 }
 
-public readonly record struct AccessCheckReceipt(AccessCheck Check, bool Pass);
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class AccessCheck : ICapability<AccessCheck> {
+    public static readonly AccessCheck FocusWalk = new("focus-walk", AssertionSlice.None);
+    public static readonly AccessCheck PeerPresence = new("peer-presence", AssertionSlice.None);
+    public static readonly AccessCheck NameCoverage = new("name-coverage", AssertionSlice.None);
+    public static readonly AccessCheck ReducedMotion = new("reduced-motion", AssertionSlice.None);
+    public static readonly AccessCheck Contrast = new("contrast", AssertionSlice.Wcag);
+    public static readonly AccessCheck CvdDistinct = new("cvd-distinct", AssertionSlice.Cvd);
 
+    public AssertionSlice Slice { get; }
+}
+
+// --- [MODELS] ---------------------------------------------------------------------------
+
+// The difference scale and its floor are ONE policy — a floor value means nothing apart from the metric it is
+// stated in — so a composition retuning either states both, and neither has a call-site default.
+public sealed record CvdPolicy(DeltaMetric Metric, PositiveMagnitude Floor);
+
+// `Defects` is the ROSTER-defect column, distinct from a floor miss: a candidate naming a paint the resolve never
+// produced measured nothing, so it can neither pass nor fail an assertion and forging one would publish a verdict
+// no probe took. A non-empty column empties the assertion stream by construction, which fails both derived rows
+// closed through `Absent`.
 public sealed record AccessAudit(
     string ScreenId,
     ThemeVariantRow Variant,
     DensityRow Density,
-    HashMap<AccessCheck, AccessCheckReceipt> Checks,
-    Seq<ContrastReceipt> Contrast,
-    Seq<CvdReceipt> Distinguish) {
-    // The two evidence-backed checks derive from their receipt streams — an EMPTY stream fails closed,
-    // so missing required contrast or CVD evidence can never pass by vacuous quantification.
-    public AccessCheckReceipt ContrastCheck => new(AccessCheck.Contrast, !Contrast.IsEmpty && Contrast.ForAll(static receipt => receipt.Pass));
+    CapabilitySet<AccessCheck> Probed,
+    Seq<PerceptualAssertion> Assertions,
+    Seq<Error> Defects) {
+    static readonly CapabilityLaw<AccessCheck> Whole = new(Seq(CapabilitySet<AccessCheck>.All));
 
-    public AccessCheckReceipt DistinctCheck => new(AccessCheck.CvdDistinct, !Distinguish.IsEmpty && Distinguish.ForAll(static receipt => receipt.Distinct));
+    // One total fold over the evidence carrier: `Measured` holds, `Refused` refuses, and `Absent` defers to the
+    // probe set. No row is named here, so the seventh check lands with its slice and this body is untouched.
+    public CapabilitySet<AccessCheck> Held =>
+        CapabilitySet<AccessCheck>.Of([.. toSeq(AccessCheck.Items).Filter(check =>
+            check.Slice.Fold(Assertions) switch {
+                Evidence<Dimension>.Measured => true,
+                Evidence<Dimension>.Refused => false,
+                _ => Probed.Admits(check),
+            })]);
 
-    public bool Pass =>
-        toSeq(AccessCheck.Items)
-            .Map(check =>
-                check == AccessCheck.Contrast ? ContrastCheck
-                : check == AccessCheck.CvdDistinct ? DistinctCheck
-                : Checks.Find(check).IfNone(new AccessCheckReceipt(check, false)))
-            .ForAll(static receipt => receipt.Pass);
+    public Fin<AccessAudit> Admit() => Whole.Admit(Held).Map(_ => this);
 }
 
+// --- [OPERATIONS] -----------------------------------------------------------------------
+
 public static class AccessProof {
-    public static Seq<AccessAudit> Sweep(
+    public static IO<Seq<AccessAudit>> Sweep(
         ScreenCatalog catalog,
-        Seq<(ThemeVariantRow Variant, DensityRow Density)> grid,
-        Func<ScreenCatalogRow, ThemeVariantRow, DensityRow, AccessAudit> probe) =>
-        catalog.HeadlessLane.Bind(row => grid.Map(cell => probe(row, cell.Variant, cell.Density)));
-
-    // The theme rosters ARE this sweep's pair source: each contrast candidate carries its own ContrastFloor
-    // and each CVD candidate its own lens and severity, so the gate resolves no pair class a second time and
-    // holds no roster of its own. Accumulating carriers, because a variant's pairs are independent and the
-    // audit needs every violation, not the first.
-    public static Validation<Error, Seq<ContrastReceipt>> Contrast(ThemeVariantRow variant, Func<TokenKey, Option<Color>> paint, Color canvas) =>
-        ThemeRail.ContrastCandidates
-            .Traverse(pair => Pair(paint, pair.Foreground, pair.Background)
-                .Bind(both => ContrastGate.Measure(pair.Foreground, pair.Background, variant, both.Ink, both.Over, canvas, pair.Class).ToValidation()))
+        Seq<ResolvedTheme> grid,
+        CvdPolicy policy,
+        Func<ScreenCatalogRow, AccessCheck, ResolvedTheme, IO<bool>> probe) =>
+        catalog.HeadlessLane
+            .Bind(row => grid.Map(resolved => (Row: row, Resolved: resolved)))
+            .Traverse(cell => Audit(cell.Row, cell.Resolved, policy, probe))
             .As();
 
-    // The difference scale travels beside the floor because the two are one policy — a floor value means
-    // nothing apart from the metric it is stated in — so a composition retuning either states both.
-    public static Validation<Error, Seq<CvdReceipt>> Distinguish(
-        ThemeVariantRow variant, Func<TokenKey, Option<Color>> paint, PositiveMagnitude floor, DeltaMetric? metric = null) =>
-        ThemeRail.CvdCandidates
-            .Traverse(pair => Pair(paint, pair.A, pair.B)
-                .Bind(both => ContrastGate.Distinct(pair.A, pair.B, variant, both.Ink, both.Over, pair.Lens, pair.Severity, floor, metric).ToValidation()))
+    // The audit ASSEMBLES here: the structural probes fold into the capability set, the two assertion rosters
+    // fold into one stream, and a roster defect rides the same accumulating carrier as a floor miss.
+    static IO<AccessAudit> Audit(
+        ScreenCatalogRow row,
+        ResolvedTheme resolved,
+        CvdPolicy policy,
+        Func<ScreenCatalogRow, AccessCheck, ResolvedTheme, IO<bool>> probe) =>
+        toSeq(AccessCheck.Items)
+            .Filter(static check => check.Slice == AssertionSlice.None)
+            .Traverse(check => probe(row, check, resolved).Map(held => (Check: check, Held: held)))
+            .As()
+            .Map(probed => Assertions(resolved, policy).Match(
+                Succ: rows => Seat(row, resolved, probed, rows, Seq<Error>()),
+                Fail: errors => Seat(row, resolved, probed, Seq<PerceptualAssertion>(), errors.ToSeq())));
+
+    static AccessAudit Seat(
+        ScreenCatalogRow row,
+        ResolvedTheme resolved,
+        Seq<(AccessCheck Check, bool Held)> probed,
+        Seq<PerceptualAssertion> assertions,
+        Seq<Error> defects) =>
+        new(row.Key, resolved.Variant, resolved.Density,
+            CapabilitySet<AccessCheck>.Of([.. probed.Filter(static cell => cell.Held).Map(static cell => cell.Check)]),
+            assertions, defects);
+
+    // Both rosters fold through ONE sweep: the pair shape and the assertion shape are identical once the floor is
+    // a value, so the two byte-for-byte traversals this page carried collapse to one.
+    public static Validation<Error, Seq<PerceptualAssertion>> Assertions(ResolvedTheme resolved, CvdPolicy policy) =>
+        (Candidates(resolved, ThemeRail.ContrastCandidates.Map(static pair =>
+            (pair.Foreground, pair.Background, (AssertionFloor)new AssertionFloor.Wcag(pair.Class)))),
+         Candidates(resolved, ThemeRail.CvdCandidates.Map(pair =>
+            (pair.A, pair.B, (AssertionFloor)new AssertionFloor.Cvd(pair.Lens, policy.Metric, policy.Floor)))))
+        .Apply(static (wcag, cvd) => wcag + cvd)
+        .As();
+
+    static Validation<Error, Seq<PerceptualAssertion>> Candidates(
+        ResolvedTheme resolved, Seq<(TokenKey Left, TokenKey Right, AssertionFloor Floor)> roster) =>
+        roster.Traverse(candidate => Pair(resolved, candidate.Left, candidate.Right)
+            .Bind(pair => ContrastGate.Assert(pair, resolved.Variant, candidate.Floor).ToValidation()))
             .As();
 
-    // A candidate naming a paint the resolve never produced is a ROSTER defect, not a failed measurement —
-    // it accumulates its own fault rather than publishing a zero ratio no probe ever took.
-    private static Validation<Error, (Color Ink, Color Over)> Pair(Func<TokenKey, Option<Color>> paint, TokenKey first, TokenKey second) =>
-        (Admitted(paint, first), Admitted(paint, second)).Apply(static (ink, over) => (Ink: ink, Over: over)).As();
+    // A candidate naming a paint the resolve never produced is a ROSTER defect, not a failed measurement — it
+    // accumulates its own fault rather than publishing a distance no probe ever took. The canvas is the resolved
+    // surface rung, so no caller threads a colour the theme already answers.
+    static Validation<Error, AssertionPair> Pair(ResolvedTheme resolved, TokenKey left, TokenKey right) =>
+        (Paint(resolved, left), Paint(resolved, right), Ground(resolved))
+            .Apply((first, second, canvas) => new AssertionPair(left, right, first, second, canvas))
+            .As();
 
-    private static Validation<Error, Color> Admitted(Func<TokenKey, Option<Color>> paint, TokenKey key) =>
-        paint(key).Match(
+    static Validation<Error, Color> Paint(ResolvedTheme resolved, TokenKey key) =>
+        resolved.Paints.TryGetValue(key, out Color value)
+            ? Success<Error, Color>(value)
+            : Fail<Error, Color>(new AccessFault.PaintUnresolved(key.Value));
+
+    static Validation<Error, Color> Ground(ResolvedTheme resolved) =>
+        resolved.Paint(PaintRole.Surface).Match(
             Some: static color => Success<Error, Color>(color),
-            None: () => (Validation<Error, Color>)new AccessFault.PaintUnresolved(key.Value));
+            None: static () => Fail<Error, Color>(new AccessFault.PaintUnresolved(PaintRole.Surface.Key)));
 }
 ```
 
@@ -463,12 +641,15 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Accessibility proof and contrast audit fold
-    accDescr: The screen catalog producing an access proof and the contrast gate producing a contrast receipt, both folding into one accessibility audit.
+    accTitle: Accessibility proof and perceptual assertion fold
+    accDescr: The screen catalog and the resolved theme grid crossing into the access proof sweep, the theme rail candidate rosters folding through the contrast gate into perceptual assertions, and both meeting in one access audit whose capability set is admitted against the whole check roster.
     ScreenCatalog --> AccessProof
+    ResolvedTheme --> AccessProof
+    ThemeRail --> ContrastGate
+    ContrastGate --> PerceptualAssertion
+    PerceptualAssertion --> AccessAudit
     AccessProof --> AccessAudit
-    ContrastGate --> ContrastReceipt
-    ContrastReceipt --> AccessAudit
+    AccessAudit --> CapabilityLaw
 ```
 
 ## [06]-[RESEARCH]

@@ -15,8 +15,9 @@ External-signature ingress and the folder's admission and throttle planes: one c
 [VERIFY_FAULT]:
 - Law: a crypto-primitive fault is re-spelled at this seam — a `SignFault` from a malformed presented signature folds to `malformed` (caller-caused), never escapes as a `defect`; a genuine key or algorithm defect on Rasm's side stays a fold-internal `defect`.
 - Law: verification is result-typed — a valid signature lands the `Verified` receipt, a failed one a typed fault; there is no boolean-plus-throw and a `false` compare is `mismatch`, never a thrown value.
-- Growth: a new failure mode is one family row carrying its core kind.
-- Packages: `effect` (`Schema`); `@rasm/ts/core` (`Fault.Class`); `crypt/sign` (`SignFault`).
+- Growth: a new failure mode is one family row carrying its core kind, its leg, the subject a raise must supply, and that subject's renderer.
+- Law: legs partition the fold — header, freshness, key, compare, throttle — so a refusal names which stage of one verify refused before its subject is read.
+- Packages: `effect` (`Schema`, `Duration`); `@rasm/ts/core` (`Fault.Class`); `crypt/sign` (`SignFault`).
 
 ```typescript
 import { RateLimiter } from "@effect/experimental"
@@ -26,32 +27,73 @@ import { Convention, Fault } from "@rasm/ts/core"
 import { Array, Config, Context, Data, DateTime, Duration, Effect, Either, Layer, Metric, Number, Option, Predicate, Record, Redacted, Schema, pipe } from "effect"
 import { Crypto, Probe, SignFault } from "./sign.ts"
 
+// Five legs partition the fold and each reason renders its OWN subject, because the operator questions differ per
+// leg: a header refusal names the header the dialect never sent, a compare refusal names how many candidates were
+// tried and failed, a freshness refusal names the stamp against the tolerance it missed, and a key refusal names
+// the `kid` whose registry entry no verifier could be built from. One free `detail` string answered all five with
+// prose an operator had to re-parse, and the mismatch arm in particular said nothing about candidate rotation.
 const _family = Fault.Class.family(["missing", "malformed", "mismatch", "stale", "unknownKey", "throttled"] as const, {
-  missing: { class: "malformed" },
-  malformed: { class: "malformed" },
-  mismatch: { class: "denied" },
-  stale: { class: "expired" },
-  unknownKey: { class: "denied" },
-  throttled: { class: "exhausted" },
+  missing: Fault.Class.row({
+    class: "malformed",
+    leg: "header",
+    detail: Schema.Struct({ dialect: Schema.String, header: Schema.String }),
+    render: ({ dialect, header }) => `${dialect} presented no ${header} header`,
+  }),
+  malformed: Fault.Class.row({
+    class: "malformed",
+    leg: "header",
+    detail: Schema.Struct({ dialect: Schema.String, cause: Schema.String }),
+    render: ({ cause, dialect }) => `${dialect} signature material is unreadable: ${cause}`,
+  }),
+  mismatch: Fault.Class.row({
+    class: "denied",
+    leg: "compare",
+    detail: Schema.Struct({ dialect: Schema.String, candidates: Schema.Int }),
+    render: ({ candidates, dialect }) => `${dialect} offered ${candidates} candidate signatures and none verified`,
+  }),
+  stale: Fault.Class.row({
+    class: "expired",
+    leg: "freshness",
+    detail: Schema.Struct({ epoch: Schema.Int, tolerance: Schema.DurationFromSelf }),
+    render: ({ epoch, tolerance }) => `stamp ${epoch} falls outside the ${Duration.toMillis(tolerance)}ms tolerance`,
+  }),
+  unknownKey: Fault.Class.row({
+    class: "denied",
+    leg: "key",
+    detail: Schema.Struct({ kid: Schema.String, cause: Schema.String }),
+    render: ({ cause, kid }) => `key ${kid} yields no usable verifier: ${cause}`,
+  }),
+  throttled: Fault.Class.row({
+    class: "exhausted",
+    leg: "throttle",
+    detail: Schema.Struct({ scope: Schema.String, cause: Schema.String }),
+    render: ({ cause, scope }) => `verify budget spent on ${scope}: ${cause}`,
+  }),
 })
 
 declare namespace VerifyFault {
-  type Reason = (typeof _family.reasons)[number]
+  type Case = typeof _family.payload.Type
+  type Reason = (typeof _family.kinds)[number]
 }
 
 class VerifyFault extends Schema.TaggedError<VerifyFault>()("VerifyFault", {
-  reason: _family.schema,
-  detail: Schema.String,
+  case: _family.payload,
 }) {
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _family.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<verify:${this.reason}> ${this.detail}`
+    return _family.render(this.case)
   }
 }
 
-const _respell = (fault: SignFault): VerifyFault => new VerifyFault({ reason: "malformed", detail: fault.detail })
+// The re-spell keeps the dialect the primitive fault never carried, so a partner's unreadable material lands on the
+// same subject every other header refusal on that dialect lands on.
+const _respell = (dialect: Verify.Dialect) => (fault: SignFault): VerifyFault =>
+  new VerifyFault({ case: { reason: "malformed", dialect, cause: fault.message } })
 ```
 
 ## [03]-[DIALECT_TABLE]
@@ -278,7 +320,7 @@ const _fresh = (stamp: Option.Option<number>, tolerance: Duration.Duration): Eff
       Effect.flatMap(DateTime.now, (now) =>
         Duration.lessThanOrEqualTo(Duration.millis(Math.abs(DateTime.toEpochMillis(now) - epoch * 1000)), tolerance)
           ? Effect.void
-          : Effect.fail(new VerifyFault({ reason: "stale", detail: String(epoch) }))),
+          : Effect.fail(new VerifyFault({ case: { reason: "stale", epoch, tolerance } }))),
   })
 
 // Which key family each asymmetric scheme demands, so a registry entry holding an RSA key under a `kid` an ECDSA
@@ -308,9 +350,9 @@ const _asym = (row: (typeof _dialects)[Verify.Dialect]): Option.Option<_Asym> =>
 // partner and a genuine forgery, leaving the dialect's reject ratio no facet to separate them.
 type _Verifier = (sig: Uint8Array, message: Uint8Array) => Promise<boolean>
 
-const _imported = (asym: _Asym, key: PublicKey): Effect.Effect<_Verifier, VerifyFault> =>
+const _imported = (asym: _Asym, key: PublicKey, kid: string): Effect.Effect<_Verifier, VerifyFault> =>
   _FAMILY[asym.scheme] !== key._tag
-    ? Effect.fail(new VerifyFault({ reason: "unknownKey", detail: `<key-family:${key._tag}> ${asym.scheme}` }))
+    ? Effect.fail(new VerifyFault({ case: { reason: "unknownKey", kid, cause: `${key._tag} key offered to a ${asym.scheme} route` } }))
     : Effect.tryPromise({
         try: () =>
           PublicKey.$match(key, {
@@ -326,7 +368,7 @@ const _imported = (asym: _Asym, key: PublicKey): Effect.Effect<_Verifier, Verify
                 crypto.subtle.verify(asym.scheme === "rsa-pss" ? { name, saltLength: asym.saltLen } : { name }, held, sig, message)
             },
           }),
-        catch: (cause) => new VerifyFault({ reason: "unknownKey", detail: `<key-decode> ${String(cause)}` }),
+        catch: (cause) => new VerifyFault({ case: { reason: "unknownKey", kid, cause: String(cause) } }),
       })
 
 class Verify extends Effect.Service<Verify>()("security/crypt/Verify", {
@@ -344,11 +386,11 @@ class Verify extends Effect.Service<Verify>()("security/crypt/Verify", {
       Effect.gen(function* () {
         const row = _dialects[dialect]
         const raw = yield* Option.match(header, {
-          onNone: () => Effect.fail(new VerifyFault({ reason: "missing", detail: row.header })),
+          onNone: () => Effect.fail(new VerifyFault({ case: { reason: "missing", dialect, header: row.header } })),
           onSome: Effect.succeed,
         })
         const parsed = yield* Option.match(row.parse(raw), {
-          onNone: () => Effect.fail(new VerifyFault({ reason: "malformed", detail: dialect })),
+          onNone: () => Effect.fail(new VerifyFault({ case: { reason: "malformed", dialect, cause: `unparsable ${row.header} value` } })),
           onSome: Effect.succeed,
         })
         yield* _fresh(parsed.stamp, tolerance)
@@ -357,29 +399,32 @@ class Verify extends Effect.Service<Verify>()("security/crypt/Verify", {
         // intermediate array of the whole request per verify — at the `verify` row's 60-per-minute budget that is
         // a memory amplifier any caller who can post reaches, and the octets must stay untouched regardless.
         const prefix = row.prefix(parsed.stamp)
-        const matched = yield* curb.guard("verify", `${dialect}:${keyId}`, (detail) => new VerifyFault({ reason: "throttled", detail }))(
+        const matched = yield* curb.guard("verify", `${dialect}:${keyId}`, (cause) => new VerifyFault({ case: { reason: "throttled", scope: `${dialect}:${keyId}`, cause } }))(
           row.scheme === "hmac"
             ? Effect.flatMap(
-                Option.match(mac, { onNone: () => Effect.fail(new VerifyFault({ reason: "malformed", detail: "hmac key absent" })), onSome: Effect.succeed }),
+                Option.match(mac, {
+                  onNone: () => Effect.fail(new VerifyFault({ case: { reason: "malformed", dialect, cause: "no hmac key bound for this dialect" } })),
+                  onSome: Effect.succeed,
+                }),
                 (key) => Effect.map(
-                  Effect.forEach(parsed.marks, (mark) => cipher.matches(Probe.Mac({ key, prefix, body: octets, signature: mark })).pipe(Effect.mapError(_respell))),
+                  Effect.forEach(parsed.marks, (mark) => cipher.matches(Probe.Mac({ key, prefix, body: octets, signature: mark })).pipe(Effect.mapError(_respell(dialect)))),
                   (results) => Array.contains(results, true),
                 ),
               )
             : Effect.gen(function* () {
                 const asym = yield* Option.match(_asym(row), {
-                  onNone: () => Effect.fail(new VerifyFault({ reason: "malformed", detail: dialect })),
+                  onNone: () => Effect.fail(new VerifyFault({ case: { reason: "malformed", dialect, cause: "row carries no asymmetric grammar" } })),
                   onSome: Effect.succeed,
                 })
                 const key = yield* Effect.flatMap(keys.byKid(keyId), Option.match({
-                  onNone: () => Effect.fail(new VerifyFault({ reason: "unknownKey", detail: keyId })),
+                  onNone: () => Effect.fail(new VerifyFault({ case: { reason: "unknownKey", kid: keyId, cause: "no registry entry" } })),
                   onSome: Effect.succeed,
                 }))
                 // Key import lands once and loudly: its refusal is an operator's to fix, so it logs at error and
                 // carries its own reason facet, while each candidate's signature decode stays inside the loop where
                 // a structurally garbage mark verifies false and the set answers `mismatch`. The signed prefix is
                 // empty on every asymmetric row, so the held octets are the verified message with no joined copy.
-                const check = yield* Effect.matchEffect(_imported(asym, key), {
+                const check = yield* Effect.matchEffect(_imported(asym, key, keyId), {
                   onFailure: (fault) => Effect.zipRight(Effect.logError("verify key import refused", fault), Effect.fail(fault)),
                   onSuccess: Effect.succeed,
                 })
@@ -389,9 +434,9 @@ class Verify extends Effect.Service<Verify>()("security/crypt/Verify", {
         )
         return matched
           ? new Verified({ dialect, kid: parsed.kid, length: octets.byteLength })
-          : yield* Effect.fail(new VerifyFault({ reason: "mismatch", detail: dialect }))
+          : yield* Effect.fail(new VerifyFault({ case: { reason: "mismatch", dialect, candidates: parsed.marks.length } }))
       }).pipe(
-        Effect.tapError((fault) => Reject.mark("verify", { dialect, reason: fault.reason })),
+        Effect.tapError((fault) => Reject.mark("verify", { dialect, reason: fault.case.reason })),
         Reject.measured("verify", { dialect }), // the same kind carries the refusal and its denominator, so the ratio is a same-key join
         Effect.withSpan("security.verify", { attributes: { dialect } }),
       )

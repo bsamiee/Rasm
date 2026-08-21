@@ -13,7 +13,7 @@ One in-memory classical-statistics owner producing hypothesis-test and distribut
 - Owner: `TestIntent` — `Goodness` is the strictly narrower Anderson-Darling reference set because `scipy.stats.anderson` rejects any distribution outside its published set, so a reference the route raises on is unspellable on the AD intent — two bounded vocabularies for two admissible domains, never one over-wide enum; `Decision` owns both reject regimes as a policy value carrying its own `reject` algebra, so `criterion` is one typed yardstick per route, never a field overload where a p-value column smuggles `alpha` for the critical-value route.
 - Cases: the three `(statistic, pvalue)` routes share the one `_significance` body keyed by `_SIGNIFICANCE_CALLS` because their bodies differed only in the bound entrypoint and one keyword; `anderson` and `fit` read divergent result shapes and keep dedicated readers — only truly-identical bodies collapse to the table.
 - Law: the report `ContentKey` resolves ahead of the route and IS the replay seed a drawing route takes, so one derivation over the sample bytes serves both the report identity and the reference draw. A second entropy source over those same bytes is the deleted form on both axes — it can fork from the identity it mirrors, and its own cost is quadratic in the sample where the bounded digest is flat.
-- Packages: the scipy result carriers are typed through local `TYPE_CHECKING` `Protocol`s because the catalogue documents the `.statistic`/`.pvalue` shape rather than a public result-type name, and the gated package never imports at runtime; entrypoints stay boundary-scoped per the manifest import policy.
+- Packages: the scipy result carriers are typed through local `TYPE_CHECKING` `Protocol`s because the catalogue documents the `.statistic`/`.pvalue` shape rather than a public result-type name, and the gated package never imports at runtime; entrypoints stay boundary-scoped per the manifest import policy. This page opens NO fence of its own — the hub `evidence_run` weave is its one fault seam, so a `scipy.stats` raise and the gated `ImportError` both classify there and a rail already in hand returns rather than re-raising into it.
 - Growth: a new `(statistic, pvalue)` test is one `Tag` literal, one `TestIntent` case, one `_SIGNIFICANCE_CALLS` row, and one `_STAT_ROUTES` row; a divergent-shape test adds one dedicated reader instead; a new fittable distribution is one `Distribution` row; a new Anderson-Darling reference is one `Goodness` row only when `scipy.stats.anderson` documents it; a new reject regime is one `Decision` row carrying its own `reject` rule.
 
 ```python signature
@@ -24,14 +24,14 @@ from typing import TYPE_CHECKING, Final, Literal, Protocol, assert_never
 
 import numpy as np
 from beartype import beartype
-from expression import Error, Nothing, Ok, Option, Result, Some, case, default_arg, tag, tagged_union
-from expression.collections import Map
+from expression import Error, Nothing, Ok, Option, Some, case, tag, tagged_union
+from expression.collections import Block, Map
 from msgspec import Struct
 
 from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
-from rasm.runtime.identity import CANONICAL_POLICY, ContentIdentity, ContentKey
+from rasm.runtime.identity import CANONICAL_POLICY, ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail
-from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
+from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
 
 # cold scientific dependency: the `lazy` bind defers the whole `scipy.stats` distribution tree to the first
 # route body that fires. No module-scope cell reifies the proxy at import: `_SIGNIFICANCE_CALLS` rows carry
@@ -129,6 +129,10 @@ class StatReport(Struct, frozen=True):
         return StatReport(test, decision, reading.statistic, reading.criterion, verdict, reading.parameters, reading.moments, key)
 
     def contribute(self) -> Iterable[Receipt]:
+        # ONE settled-receipt spine. The band names the REJECT verdict rather than leaving a reader to compare a
+        # `verdict` string against a vocabulary it does not hold — this page graduates nothing by charter, so the
+        # band is its only outward finding channel — and absent `moments` OMIT their key where `default_arg(..., ())`
+        # published an empty tuple a consumer could not tell from a fitted pair of zero moments.
         facts: dict[str, object] = {
             "test": self.test,
             "decision": self.decision.value,
@@ -136,9 +140,16 @@ class StatReport(Struct, frozen=True):
             "criterion": self.criterion,
             "verdict": self.verdict.value,
             "parameters": self.parameters,
-            "moments": default_arg(self.moments, ()),
-        }
-        return (Receipt.of(EvidenceScope.STATISTICS.value, ("emitted", self.test, facts)),)
+        } | self.moments.map(lambda pair: {"moments": pair}).default_value({})
+        return (
+            Receipt.of(
+                EvidenceScope.STATISTICS.value,
+                ("emitted", self.test, facts),
+                key=Some(self.content_key),
+                provenance=Some(Provenance(consumed=Block.empty(), produced=self.content_key)),
+                band=Block.of_seq(("rejected",) if self.verdict is Verdict.REJECT else ()),
+            ),
+        )
 
     @property
     def span_facts(self) -> dict[str, str | int | float]:
@@ -183,7 +194,7 @@ class TestIntent:
 
     @property
     def samples(self) -> tuple[np.ndarray, ...]:
-        # identity is `identity_buffer`'s concern, never a second projection here.
+        # identity is `identity_source`'s concern, never a second projection here.
         match self:
             case TestIntent(tag="two_sample_ks", two_sample_ks=(a, b)) | TestIntent(tag="mannwhitneyu", mannwhitneyu=(a, b, _)):
                 return (np.asarray(a, dtype=float), np.asarray(b, dtype=float))
@@ -192,9 +203,11 @@ class TestIntent:
             case _ as unreachable:
                 assert_never(unreachable)
 
-    def identity_buffer(self, alpha: float, fit_sample: int) -> bytes:
+    def identity_source(self, alpha: float, fit_sample: int) -> IdentitySource:
         # sample bytes plus every discriminant the graded verdict reads, so two intents that can grade differently never share a
-        # `ContentKey`; length-prefixed parts keep the buffer unambiguous under arbitrary sample bytes.
+        # `ContentKey`. These are N SEMANTIC FIELDS and hand `IdentitySource(parts=...)`, so the `[PREIMAGE_FRAMING]`
+        # count-and-length framing runs at its ONE owner: the retired tail re-spelled that owner's `_framed` fold
+        # verbatim, and a width or byte-order change there would have forked this page's key namespace silently.
         tail: tuple[bytes, ...]
         match self:
             case TestIntent(tag="anderson", anderson=(_, dist)):
@@ -205,8 +218,10 @@ class TestIntent:
                 tail = (dist.value.encode(), fit_sample.to_bytes(8, "big"))
             case _:
                 tail = ()
-        parts = (self.tag.encode(), *(np.ascontiguousarray(s).tobytes() for s in self.samples), np.float64(alpha).tobytes(), *tail)
-        return b"".join(len(part).to_bytes(8, "big") + part for part in parts)
+        # the sample roster states its own cardinality, so a one-sample and a two-sample intent whose concatenated
+        # bytes coincide under different splits still key apart.
+        samples = tuple(np.ascontiguousarray(s).tobytes() for s in self.samples)
+        return IdentitySource(parts=(self.tag.encode(), str(len(samples)).encode(), *samples, np.float64(alpha).tobytes(), *tail))
 
 
 class StatRoute(Struct, frozen=True):
@@ -226,23 +241,25 @@ def test(intent: TestIntent, *, alpha: float = 0.05, fit_sample: int = 4096, com
 
 
 @beartype(conf=FAULT_CONF)
-def _stat_report(intent: TestIntent, alpha: float, fit_sample: int) -> StatReport:
+def _stat_report(intent: TestIntent, alpha: float, fit_sample: int) -> "RuntimeRail[StatReport]":
     # `alpha` threads into `run` (the AD criterion selects its critical value at the configured level) AND into `graded` (every
     # `Decision.reject` grades against the same level); the `_stat_key` rail is matched HERE inside the already-fenced body so a
     # digest `Error` re-raises onto the boundary rather than flattening a double rail. The key resolves BEFORE the route runs,
     # so the one identity the report carries is also the one seed a drawing route replays from — never two derivations over the
     # same bytes that a later change to either can silently fork.
     route = _STAT_ROUTES[intent.tag]
-    match _stat_key(intent, alpha, fit_sample):
-        case Result(tag="ok", ok=key):
-            return StatReport.graded(intent.tag, route.decision, route.run(intent, alpha, fit_sample, key), alpha, key)
-        case Result(tag="error", error=fault):
-            raise RuntimeError(fault)  # the `boundary` `_convert` re-folds it; `BoundaryFault` is no exception
+    # the digest rail THREADS rather than re-raising: the retired `raise RuntimeError(fault)` smuggled an already-typed
+    # `BoundaryFault` back out through an untyped exception, and the weave fence's catch-all keeps `str(cause)` — so a
+    # digest refusal reached its consumer as a message string with its subject, leg, and case erased. A rail in hand
+    # is returned, never re-raised to be re-classified by a fence that knows less than the value already did.
+    return _stat_key(intent, alpha, fit_sample).map(
+        lambda key: StatReport.graded(intent.tag, route.decision, route.run(intent, alpha, fit_sample, key), alpha, key)
+    )
 
 
 def _stat_key(intent: TestIntent, alpha: float, fit_sample: int) -> "RuntimeRail[ContentKey]":
     # `CANONICAL_POLICY` default keys the canonical path — an explicit `IdentityPolicy()` allocation keys identically and is ceremony.
-    return ContentIdentity.of(f"stat.{intent.tag}", intent.identity_buffer(alpha, fit_sample))
+    return ContentIdentity.of(f"stat.{intent.tag}", intent.identity_source(alpha, fit_sample))
 
 
 def _significance(intent: TestIntent, _alpha: float, _sample: int, _key: ContentKey) -> Reading:

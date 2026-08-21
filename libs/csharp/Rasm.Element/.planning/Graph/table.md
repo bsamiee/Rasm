@@ -1,23 +1,23 @@
 # [ELEMENT_TABLE]
 
-One `Tabulate` fold flattens a frozen `ElementGraph` into nine typed row families — the columnar egress every QTO, cost, coverage, commissioning, and dashboard consumer reads without re-folding the graph. `TableRow` closes the family as a `[Union]` whose case IS the dataset, `TableFamily` carries each dataset's column declaration beside its key, temporal spine, and rollup measure, and every row carries the snapshot `ContentAddress` so an analytic answer pins the exact model version it was computed over. Reading a row family is SQL; re-deriving one from the graph is the deleted form.
+One `Tabulate` fold flattens a frozen `ElementGraph` into ten typed row families — the columnar egress every QTO, cost, coverage, commissioning, and dashboard consumer reads without re-folding the graph. `TableRow` closes the family as a `[Union]` whose case IS the dataset, `TableFamily` carries each dataset's column declaration beside its key, temporal spine, and rollup measure, and every row carries the snapshot `ContentAddress` so an analytic answer pins the exact model version it was computed over. Reading a row family is SQL; re-deriving one from the graph is the deleted form.
 
 `Rasm.Persistence` owns the columnar plane whole — writers, residence, provisioning, serving transport — so this page hands typed rows and a wire schema across the `[WIRE]: AnalyticsSchema` seam and names no storage type, dialect token, Arrow field, or landing verb. `TableType` mirrors the custodian's neutral token roster, `PropertyValue` carries every cell, and `Bake` supplies each element row so type→occurrence inheritance applies once. Every family declares its temporal CATEGORY — `element.assessments` stamps the instant its work ran, and every snapshot family is landing-timed.
 
 ## [01]-[INDEX]
 
-- [02]-[ROW_FAMILIES]: `TableRow` closes the nine-case dataset family beside its `Cells` projection, its `Family` token, and the `TableSnapshot` product carrying the graph address.
-- [03]-[DATASET_ROSTER]: `TableType` and `TableColumn` declare the neutral token roster, `TableFamily` rosters each dataset with its spine, `Admission`, and `Conforms`, and `TableBatch` crosses the seam.
+- [02]-[ROW_FAMILIES]: `TableRow` closes the ten-case dataset family beside its `Cells` projection, its `Family` token, and the `TableSnapshot` product carrying the graph address.
+- [03]-[DATASET_ROSTER]: `TableType` and `TableColumn` declare the neutral token roster, `TableDeclaration` is the producer-neutral dataset self-description carrying `Wire`/`Admission`/`Conforms`, `TableFamily` rosters the element-owned datasets as wrapped declarations, and `TableBatch` — keyed on the declaration — crosses the seam for element and foreign producers alike.
 - [04]-[TABULATE_FOLD]: `GraphTable.Tabulate` folds a frozen snapshot under its root scope through the per-family row projections it composes.
 
 ## [02]-[ROW_FAMILIES]
 
-- Owner: `TableRow` — the closed `[Union]` whose nine cases ARE the nine datasets, each carrying its flat column payload and the snapshot address, and each owning the ordered `Cells` projection its dataset's column declaration reads; `TableSnapshot` — the fold product pairing the graph `ContentAddress` with every emitted row.
-- Cases: `Classification` (one co-applied standard reference — the system, code, and edition triple keying it, beside the source, edition date, and title annotations; the PRIMARY entity-class triple stays denormalized on the object row because it keys that grain, so this family carries the secondary refs the object row cannot hold) · `Object` (one baked element — identity, kind, external id, the primary classification triple, predefined token, name, tag, type binding, container, containment depth, appearance key, part count) · `Property` (one bag entry — set, name, value kind, rendered text, the measure magnitude and quantity type where the entry is measured, source rank, inheritance mode) · `Quantity` (one quantity entry — set, name, quantity type, SI magnitude, canonical unit, the seven `Dimension` exponents, the optional uncertainty band) · `Material` (one material binding — material key, composition and usage tokens, the inheritance flag, layer count and buildup depth, the profile reference and baked section area) · `Edge` (one relationship — the edge content address, neutral kind, sub-kind, endpoints, realizing intermediary, nest ordinal, passthrough wire name, member count, containment predicate) · `Assessment` (one computed receipt — discipline, route, input key, outcome with its three behavior columns, provenance, the typed diagnostic, the result blob, the dependency and result counts) · `Observation` (one measured series — sensor deployment, observed aspect, quantity triple, sampling algebra, cadence, window bounds, chunk and sample counts, the graded census shares, the four summary magnitudes, the instrument audit) · `Coverage` (one raster band — raster key, coverage kind, CRS identity, the twelve index-to-world affine coefficients and the three-axis census, band index with its role, sample type, units, decode scale pair, pyramid depth, timeline depth, uncompressed byte length).
+- Owner: `TableRow` — the closed `[Union]` whose ten cases ARE the ten datasets, each carrying its flat column payload and the snapshot address, and each owning the ordered `Cells` projection its dataset's column declaration reads; `TableSnapshot` — the fold product pairing the graph `ContentAddress` with every emitted row.
+- Cases: `Classification` (one co-applied standard reference — the system, code, and edition triple keying it, beside the source, edition date, and title annotations; the PRIMARY entity-class triple stays denormalized on the object row because it keys that grain, so this family carries the secondary refs the object row cannot hold) · `Object` (one baked element — identity, kind, external id, the primary classification triple, predefined token, name, tag, type binding, container, containment depth, appearance key, part count) · `Property` (one bag entry — set, name, value kind, rendered text, the measure magnitude and quantity type where the entry is measured, source rank, inheritance mode) · `Quantity` (one quantity entry — set, name, quantity type, SI magnitude, canonical unit, the seven `Dimension` exponents, the optional uncertainty band) · `Material` (one material binding — material key, composition and usage tokens, the inheritance flag, layer count and buildup depth, the profile reference and baked section area) · `Section` (one baked profile-set section — the whole S-E1 algebra: profile key, LTB route token, the nineteen SI design columns, mono-symmetry, centroid, and the optional forming-shape witness — where the material row carries only the takeoff area) · `Edge` (one relationship — the edge content address, neutral kind, sub-kind, endpoints, realizing intermediary, nest ordinal, passthrough wire name, member count, containment predicate) · `Assessment` (one computed receipt — discipline, route, input key, outcome with its three behavior columns, provenance, the typed diagnostic, the result blob, the dependency and result counts) · `Observation` (one measured series — sensor deployment, observed aspect, quantity triple, sampling algebra, cadence, window bounds, chunk and sample counts, the graded census shares, the four summary magnitudes, the instrument audit) · `Coverage` (one raster band — raster key, coverage kind, CRS identity, the twelve index-to-world affine coefficients and the three-axis census, band index with its role, sample type, units, decode scale pair, pyramid depth, timeline depth, uncompressed byte length).
 - Entry: `row.Family` projects the dataset token through the generated `Map` over precomputed rows; `row.Cells` projects the ordered `Option<PropertyValue>` sequence the family's column declaration binds positionally, an absent cell reading `None` so a nullable column carries real absence rather than a sentinel; `TableSnapshot.Batches(key)` admits the whole row set through `TableFamily.Admit` and then groups every row under its family in roster order, the one value crossing the seam.
 - Auto: declaration order of a case's payload IS the column order its `Cells` arm emits and the order `TableFamily` declares, so a column edit and its field edit are one edit at one site; the event-time payload closes on its own instant, so `element.assessments` trails on the column its `Spine` names; the private lifts (`Text`/`Real`/`Whole`/`Big`/`Flag`/`Moment`/`Day`) are the only cell constructors, so every cell's `PropertyValue` case is fixed at the projection rather than chosen per column; a content key — the snapshot address, an edge address, an assessment input key, a result blob, an appearance key, a raster key — crosses as `Text` through `ContentAddress.ToValue`, the canonical X32 spelling `Projection/address#CONTENT_ADDRESS` already owns as the cross-runtime wire form.
 - Output: `TableSnapshot.Rows` is the flat typed read a consumer folds directly; `TableSnapshot.Batches(key)` is the admitted, erased per-family cell projection the columnar custodian lands.
-- Packages: Thinktecture.Runtime.Extensions (`[Union]` with the generated total `Switch`/`Map`), LanguageExt.Core (`Seq`/`Option`/`Map`), NodaTime (`Instant` the assessment and window stamps, `LocalDate` the calibration stamp), BCL inbox (`BigInteger` the whole-number cell payload).
+- Packages: Thinktecture.Runtime.Extensions (`[Union]` with the generated total `Switch`/`Map`), LanguageExt.Core (`Seq`/`Option`/`Map`), NodaTime (`Instant` the assessment and window stamps, `LocalDate` the calibration stamp), `Rasm` (the kernel `Op` the admission gates thread), `Projection/address#CONTENT_ADDRESS` (`ContentAddress.ToValue` the content-key cell spelling), BCL inbox (`BigInteger` the whole-number cell payload).
 - Growth: a new dataset is one `TableRow` case declaring its temporal category, with its `Cells` arm, its `TableFamily` row, and its projection in `[04]`; a new column is one payload field with its cell in the same arm and its `TableColumn` in the same row; never a sibling row type beside the union and never a dataset whose columns live apart from its payload.
 - Boundary: `TableRow.Object` shadows the simple name `Object` inside the union body exactly as `Node.Object` does at its own owner, and `TableRow.Classification` shadows the seam classification type the same way, so every construction spells the nested case and the generated arms read `@object:` and `classification:`; the row is a DERIVED projection carrying zero authority — the graph and its receipt stream own truth, a dropped dataset rebuilds by re-tabulating, and writing a table row back into the graph is the deleted inversion; `Cells` carries no storage type, so a physical width, a nullability dialect, and a partition expression stay the custodian's; heavy payloads never enter a row — geometry, result artifacts, and raster coverages ride their content keys, which cross as text.
 
@@ -26,7 +26,11 @@ One `Tabulate` fold flattens a frozen `ElementGraph` into nine typed row familie
 using System.Collections.Frozen;
 using System.Numerics;
 using LanguageExt;
+using LanguageExt.Common;
 using NodaTime;
+using Rasm.Domain;
+using QuikGraph;
+using QuikGraph.Algorithms;
 using Rasm.Element.Assessment;
 using Rasm.Element.Composition;
 using Rasm.Element.Geospatial;
@@ -35,7 +39,7 @@ using Rasm.Element.Properties;
 using Rasm.Element.Relations;
 using Thinktecture;
 using static LanguageExt.Prelude;
-using static Rasm.Element.Projection.AdmissionSlots;
+using static Rasm.Domain.AdmissionSlots;
 
 namespace Rasm.Element.Graph;
 
@@ -85,6 +89,21 @@ public abstract partial record TableRow {
         int LayerCount, Option<double> TotalThicknessSi,
         Option<string> ProfileStandard, Option<string> ProfileDesignation, Option<double> SectionAreaSi) : TableRow;
 
+    // One row per BAKED SECTION — the full S-E1 algebra a structural QTO or design screen reads off SQL, where
+    // element.materials carries only the takeoff area. LtbRoute rides as the owner's own derived route token so a
+    // §6.3.2 screen filters simplified-vs-general without re-deriving symmetry from the shear-centre columns.
+    public sealed record Section(
+        string Snapshot, string Element, string MaterialKey,
+        string ProfileStandard, string ProfileDesignation, string LtbRoute,
+        double AreaSi, double IyySi, double IzzSi, double JSi, double IwSi,
+        double WelySi, double WelzSi, double WplySi, double WplzSi,
+        double AvYSi, double AvZSi, double RadiusMajorSi, double RadiusMinorSi,
+        double DepthSi, double WidthSi, double HeatedPerimeterSi, double AxisDistanceSi,
+        double ShearCentreYSi, double ShearCentreZSi, double MonosymmetryFactor,
+        double CentroidX, double CentroidY, double CentroidZ,
+        Option<int> FormVertexCount, Option<int> FormCurvedEdges,
+        Option<double> FormRadialRatio, Option<double> FormPerimeterSi) : TableRow;
+
     public sealed record Edge(
         string Snapshot, string EdgeAddress, string Kind, Option<string> SubKind,
         string Relating, string Related, Option<string> Realizing, Option<int> Ordinal,
@@ -124,7 +143,7 @@ public abstract partial record TableRow {
         // ordinal the kernel owns rather than a spelling this page would have to mint beside it.
         int BandIndex, string BandName, int SampleType, string Role, string Units,
         double Offset, double Scale, Option<double> NoData,
-        int OverviewCount, int SliceCount, long ByteLength) : TableRow;
+        int OverviewCount, long ByteLength) : TableRow;
 
     // Map projects the dataset token off precomputed roster rows, so no throwaway lambda allocates per row on
     // a fold that runs once per graph node.
@@ -134,13 +153,14 @@ public abstract partial record TableRow {
         property: TableFamily.Properties,
         quantity: TableFamily.Quantities,
         material: TableFamily.Materials,
+        section: TableFamily.Sections,
         edge: TableFamily.Edges,
         assessment: TableFamily.Assessments,
         observation: TableFamily.Observations,
         coverage: TableFamily.Coverages);
 
     // Arm order IS column order, so the family's column declaration binds each cell POSITIONALLY and
-    // TableFamily.Conforms proves the pairing before any row crosses. Absence reads None — never a sentinel, never
+    // TableDeclaration.Conforms proves the pairing before any row crosses. Absence reads None — never a sentinel, never
     // an empty string standing in, because a nullable column and an empty text are distinct facts.
     public Seq<Option<PropertyValue>> Cells => Switch(
         @object: static r => Seq(
@@ -164,6 +184,17 @@ public abstract partial record TableRow {
             Text(r.Snapshot), Text(r.Element), Text(r.MaterialKey), Text(r.Composition), Text(r.Usage),
             Flag(r.Inherited), Whole(r.LayerCount), Real(r.TotalThicknessSi),
             Text(r.ProfileStandard), Text(r.ProfileDesignation), Real(r.SectionAreaSi)),
+        section: static r => Seq(
+            Text(r.Snapshot), Text(r.Element), Text(r.MaterialKey),
+            Text(r.ProfileStandard), Text(r.ProfileDesignation), Text(r.LtbRoute),
+            Real(r.AreaSi), Real(r.IyySi), Real(r.IzzSi), Real(r.JSi), Real(r.IwSi),
+            Real(r.WelySi), Real(r.WelzSi), Real(r.WplySi), Real(r.WplzSi),
+            Real(r.AvYSi), Real(r.AvZSi), Real(r.RadiusMajorSi), Real(r.RadiusMinorSi),
+            Real(r.DepthSi), Real(r.WidthSi), Real(r.HeatedPerimeterSi), Real(r.AxisDistanceSi),
+            Real(r.ShearCentreYSi), Real(r.ShearCentreZSi), Real(r.MonosymmetryFactor),
+            Real(r.CentroidX), Real(r.CentroidY), Real(r.CentroidZ),
+            Whole(r.FormVertexCount), Whole(r.FormCurvedEdges),
+            Real(r.FormRadialRatio), Real(r.FormPerimeterSi)),
         edge: static r => Seq(
             Text(r.Snapshot), Text(r.EdgeAddress), Text(r.Kind), Text(r.SubKind),
             Text(r.Relating), Text(r.Related), Text(r.Realizing), Whole(r.Ordinal),
@@ -192,18 +223,18 @@ public abstract partial record TableRow {
             Whole(r.Columns), Whole(r.Rows), Whole(r.Layers),
             Whole(r.BandIndex), Text(r.BandName), Whole(r.SampleType), Text(r.Role), Text(r.Units),
             Real(r.Offset), Real(r.Scale), Real(r.NoData),
-            Whole(r.OverviewCount), Whole(r.SliceCount), Big(r.ByteLength)));
+            Whole(r.OverviewCount), Whole(r.ByteLength)));
 
     // These lifts are the ONLY cell constructors a Cells arm reaches, so a column's PropertyValue case fixes at the
     // projection and can never disagree with the TableType its TableColumn declares. Each takes the Option shape
     // uniformly and a required column's value binds through the `implicit operator Option<A>(A?)` conversion, so one
     // member serves both a nullable and a required column — and a null reference lands None rather than Some(null).
-    // Big and Whole both land Integer: a byte length outruns int while a band index never does, so widening rides
-    // this lift rather than promoting every count column to long.
+    // ONE whole-number lift over the binary-integer floor — int, long, and any future width land the same Integer
+    // cell through BigInteger.CreateChecked, so widening a count column never mints a sibling lift.
     static Option<PropertyValue> Text(Option<string> value) => value.Map(static v => (PropertyValue)new PropertyValue.Text(v));
     static Option<PropertyValue> Real(Option<double> value) => value.Map(static v => (PropertyValue)new PropertyValue.Number(v));
-    static Option<PropertyValue> Whole(Option<int> value) => value.Map(static v => (PropertyValue)new PropertyValue.Integer(new BigInteger(v)));
-    static Option<PropertyValue> Big(Option<long> value) => value.Map(static v => (PropertyValue)new PropertyValue.Integer(new BigInteger(v)));
+    static Option<PropertyValue> Whole<T>(Option<T> value) where T : IBinaryInteger<T> =>
+        value.Map(static v => (PropertyValue)new PropertyValue.Integer(BigInteger.CreateChecked(v)));
     static Option<PropertyValue> Flag(Option<bool> value) => value.Map(static v => (PropertyValue)new PropertyValue.Boolean(v));
     static Option<PropertyValue> Moment(Option<Instant> value) => value.Map(static v => (PropertyValue)new PropertyValue.Temporal(new TemporalValue.Stamp(v)));
     static Option<PropertyValue> Day(Option<LocalDate> value) => value.Map(static v => (PropertyValue)new PropertyValue.Temporal(new TemporalValue.Date(v)));
@@ -230,19 +261,19 @@ public sealed record TableSnapshot(ContentAddress Address, Seq<TableRow> Rows) {
                 cells => cells.Add(row.Cells),
                 Seq<Seq<Option<PropertyValue>>>().Add(row.Cells)));
         return toSeq(TableFamily.Items).Map(family =>
-            new TableBatch(family, filed.Find(family).IfNone(Seq<Seq<Option<PropertyValue>>>())));
+            new TableBatch(family.Declaration, filed.Find(family).IfNone(Seq<Seq<Option<PropertyValue>>>())));
     }
 }
 ```
 
 ## [03]-[DATASET_ROSTER]
 
-- Owner: `TableType` — the producer's neutral physical-token roster carrying its `Admits` predicate over `PropertyValue`; `TableColumn` — one named, typed, nullability-carrying column; `TableSpine` — the closed temporal-category family binding each category to the clock column it implies; `TableFamily` — the `[SmartEnum<string>]` dataset roster whose key IS the dotted `element.<source>` dataset name, each row carrying its ordered `Columns`, its `KeyColumns` identity, its `TableSpine` category, and the optional `Measure` a rollup folds; `TableBatch` — one family's erased cell rows, the value crossing the seam.
-- Entry: `family.Admission` projects the whole argument set the columnar custodian's admission gate takes, `Wire` its column-triple half; `family.Conforms(cells, key)` proves one row's arity and cell types against the declaration; `TableFamily.Admit(rows, key)` folds that proof over every row and accumulates every offending column in one failure.
+- Owner: `TableType` — the producer's neutral physical-token roster carrying its `Admits` predicate over `PropertyValue`; `TableColumn` — one named, typed, nullability-carrying column; `TableSpine` — the closed temporal-category family binding each category to the clock column it implies; `TableDeclaration` — the producer-neutral dataset self-description (dotted name, `KeyColumns` identity, `TableSpine` category, optional `Measure`, ordered `Columns`) carrying `Wire`/`Admission`/`Conforms`, the ONE shape the seam crossing keys on (E-M17 — a foreign `materials.*` producer instantiates it directly); `TableFamily` — the `[SmartEnum<string>]` roster of the ELEMENT-owned datasets, each row wrapping its declaration; `TableBatch` — one declaration's erased cell rows, the value crossing the seam.
+- Entry: `declaration.Admission` projects the whole argument set the columnar custodian's admission gate takes, `Wire` its column-triple half; `declaration.Conforms(cells, key)` proves one row's arity and cell types against the declaration; `TableFamily.Admit(rows, key)` folds that proof over every element row; a foreign producer mints `new TableDeclaration(...)` over the same `TableType`/`TableColumn`/`TableSpine` vocabulary and crosses `TableBatch(declaration, rows)` — no roster edit, no seam sibling.
 - Auto: `TableType.Admits` is the per-token predicate over the seam's own `PropertyValue` cases, so the producer proves its declaration and its projection agree BEFORE anything crosses — a proof the custodian cannot run, because the custodian never sees a `PropertyValue`; `Conforms` accumulates through `Validation<Error, Unit>` so a malformed dataset reports every bad column at once, while the custodian's own arity gate re-proves the row against admitted identifiers on its side of the seam; `TableSpine` fuses the family's temporal CATEGORY with the clock column that category implies, so `Event` carries the column the row itself stamps and `Landing` carries none and hands the axis to the custodian — a family declaring a category its columns contradict is unrepresentable here rather than refused downstream, and the category follows the dataset's own semantics under the branch analytics ruling.
 - Output: `Wire` is the schema handoff and `TableBatch` the row handoff; the pair is the whole producer surface, and nothing else about this page crosses.
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` with the generated `Items` roster and key lookup), LanguageExt.Core (`Seq`/`Option`/`Validation`/`Error` + the applicative `Traverse` accumulation), `Projection/fault#FAULT_BAND` (`ElementFault.ValueRejected`).
-- Growth: a new physical token is one `TableType` row answering its `Admits` predicate; a new dataset is one `TableFamily` row beside its `TableRow` case, its category one `TableSpine` case whose payload names the clock that category owns; a new column is one `TableColumn` beside its payload field; a dialect spelling, an Arrow field, a plan literal, and a landing verb all grow at the columnar custodian and never here.
+- Growth: a new physical token is one `TableType` row answering its `Admits` predicate; a new ELEMENT dataset is one `TableFamily` row beside its `TableRow` case, its category one `TableSpine` case whose payload names the clock that category owns; a new column is one `TableColumn` beside its payload field; a FOREIGN dataset is one `TableDeclaration` mint at its producer — never a `TableFamily` row, never an unsealed roster, never a batch sibling; a dialect spelling, an Arrow field, a plan literal, and a landing verb all grow at the columnar custodian and never here.
 - Boundary: `TableSpine` and `TableType` cross as TEXT because this package references the kernel alone and the custodian's own category and column-type rosters are unreachable from here, so the seam's whole vocabulary is producer-written text the gate admits — typing a producer against the custodian's rows demands a reference the strata forbid and the store already holds in the other direction.
 - Boundary: `TableType` carries the token and its cell predicate ALONE — the three SQL dialects, the record-batch field, the binary-COPY wire type, and the Substrait literal are the custodian's row columns, so this roster is the producer half the gate mirrors rather than a second physical vocabulary, and a token this roster mints that the custodian's roster lacks fails at that gate, which is the compiler this seam does not have.
 - Boundary: `TableSpine` clocks by evidence, not convenience — `element.assessments` is the one EVENT-TIME family and partitions on `at`, the instant its assessment ran, so a rollup never reports arrival time as work time, while every snapshot family is landing-timed because re-tabulating one frozen graph reproduces its facts unchanged and a tabulation instant there re-dates immutable evidence to whenever it was last projected.
@@ -262,6 +293,9 @@ public sealed partial class TableType {
     public static readonly TableType Bool      = new("bool",         static value => value is PropertyValue.Boolean);
     public static readonly TableType Date      = new("date32",       static value => value is PropertyValue.Temporal { Value: TemporalValue.Date });
     public static readonly TableType Timestamp = new("timestamp-ns", static value => value is PropertyValue.Temporal { Value: TemporalValue.Stamp });
+    // Fixed-width X32 content-key column (E-M1): a dialect renders it as a 32-hex CHAR column while the cell still
+    // crosses as Text through ContentAddress.ToValue — the one token the Materials analytics projection adds.
+    public static readonly TableType KeyHex    = new("fixed-hex128", static value => value is PropertyValue.Text);
 
     public Func<PropertyValue, bool> Admits { get; }
 }
@@ -270,8 +304,8 @@ public sealed partial class TableType {
 // keeps a downstream NOT NULL honest, since the custodian receives a positional cell and cannot recover intent.
 public readonly record struct TableColumn(string Name, TableType Type, bool Nullable) {
     public Validation<Error, Unit> Conforms(Option<PropertyValue> cell, Op key) => cell.Match(
-        None: () => Gate(Nullable, key, $"<table-cell-absent:{Name}>"),
-        Some: value => Gate(Type.Admits(value), key, $"<table-cell-type:{Name}:{Type.Key}>"));
+        None: () => Gate(Nullable, key, $"<table-cell-absent:{Name}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+        Some: value => Gate(Type.Admits(value), key, $"<table-cell-type:{Name}:{Type.Key}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)));
 }
 
 // Temporal CATEGORY and the column it implies are ONE value, so a family cannot declare a category its columns
@@ -295,13 +329,52 @@ public abstract partial record TableSpine {
         landing: static _ => Option<string>.None);
 }
 
+// The DECLARATION carrier (E-M17): everything a dataset states about itself — dotted name, key identity,
+// temporal spine, optional measure, ordered columns — extracted from the closed roster below so a FOREIGN
+// producer (`materials.*`, any package publishing datasets over this seam vocabulary) instantiates the SAME
+// carrier the `element.*` rows wrap. `Wire`/`Admission`/`Conforms` ride HERE and `TableBatch` keys on the
+// declaration, so the family/batch crossing is producer-neutral while `element.*` stays a closed roster.
+// KeyColumns names the identity every row is unique under — Snapshot leads every family, so a lake holding
+// many versions of one model prunes on the version key before any predicate applies.
+public sealed record TableDeclaration(
+    string Dataset, Seq<string> KeyColumns, TableSpine Spine, Option<string> Measure, Seq<TableColumn> Columns) {
+
+    // Neutral triples are the schema handoff the columnar custodian's gate turns into admitted identifiers.
+    // Producers state name, token, and nullability; every physical decision past that is the custodian's.
+    public Seq<(string Name, string Type, bool Nullable)> Wire =>
+        Columns.Map(static column => (column.Name, column.Type.Key, column.Nullable));
+
+    // Admission carries the custodian gate's whole argument set, so the composing root splats one value and cannot
+    // pair a dataset's columns with another's key, spine, or measure. Category and clock travel together because the
+    // custodian refuses a dataset its columns contradict, and both cross as text: this package references the kernel
+    // alone, so the custodian's own category type is unreachable here exactly as its column-type roster is, and
+    // `TableSpine` mirrors that vocabulary the same way `TableType` mirrors the physical tokens.
+    public (string Dataset, Seq<(string Name, string Type, bool Nullable)> Columns,
+        Seq<string> Key, string Spine, Option<string> Time, Option<string> Measure) Admission =>
+        (Dataset, Wire, KeyColumns, Spine.Key, Spine.Time, Measure);
+
+    // One row's declaration-versus-projection proof, accumulating so a malformed dataset reports every offending
+    // column in one failure rather than the first. Arity is checked ahead of the pairwise walk because a short or
+    // long cell sequence has no meaningful per-column verdict to report.
+    public Validation<Error, Unit> Conforms(Seq<Option<PropertyValue>> cells, Op key) =>
+        cells.Count != Columns.Count
+            ? new ElementFault.ValueRejected(key, $"<table-arity:{Dataset}:{cells.Count}/{Columns.Count}>")
+            : Columns.Zip(cells, static (column, cell) => (Column: column, Cell: cell))
+                .Traverse(pair => pair.Column.Conforms(pair.Cell, key))
+                .As()
+                .Map(static _ => unit);
+}
+
 // KEY is the dotted `element.<source>` dataset name the custodian keeps as its wire value, so the producer
-// segment declares once by construction and two producers cannot collide on one physical table.
-// KeyColumns names the identity every row is unique under — Snapshot leads every family, so a lake holding many
-// versions of one model prunes on the version key before any predicate applies.
+// segment declares once by construction and two producers cannot collide on one physical table. Each row WRAPS
+// its `TableDeclaration` — the chaining ctor packs the five row arguments, so a dataset row reads as its
+// declaration and the roster stays the closed `element.*` census alone.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TableFamily {
+    private TableFamily(string key, Seq<string> keyColumns, TableSpine spine, Option<string> measure, Seq<TableColumn> columns)
+        : this(key, declaration: new TableDeclaration(key, keyColumns, spine, measure, columns)) { }
+
     public static readonly TableFamily Objects = new("element.objects",
         Seq("snapshot", "element"), spine: new TableSpine.Landing(), Option<string>.None, Seq(
             new TableColumn("snapshot", TableType.Utf8, Nullable: false),
@@ -381,6 +454,44 @@ public sealed partial class TableFamily {
             new TableColumn("profile_designation", TableType.Utf8, Nullable: true),
             new TableColumn("section_area_si", TableType.Float64, Nullable: true)));
 
+    // The FULL baked-section dataset — element.materials stays the takeoff row; this family carries the whole
+    // S-E1 algebra one row per baked ProfileSet section. Measure is area: the one column that genuinely sums.
+    public static readonly TableFamily Sections = new("element.sections",
+        Seq("snapshot", "element", "material"), spine: new TableSpine.Landing(), Some("area_si"), Seq(
+            new TableColumn("snapshot", TableType.Utf8, Nullable: false),
+            new TableColumn("element", TableType.Utf8, Nullable: false),
+            new TableColumn("material", TableType.Utf8, Nullable: false),
+            new TableColumn("profile_standard", TableType.Utf8, Nullable: false),
+            new TableColumn("profile_designation", TableType.Utf8, Nullable: false),
+            new TableColumn("ltb_route", TableType.Utf8, Nullable: false),
+            new TableColumn("area_si", TableType.Float64, Nullable: false),
+            new TableColumn("iyy_si", TableType.Float64, Nullable: false),
+            new TableColumn("izz_si", TableType.Float64, Nullable: false),
+            new TableColumn("j_si", TableType.Float64, Nullable: false),
+            new TableColumn("iw_si", TableType.Float64, Nullable: false),
+            new TableColumn("wely_si", TableType.Float64, Nullable: false),
+            new TableColumn("welz_si", TableType.Float64, Nullable: false),
+            new TableColumn("wply_si", TableType.Float64, Nullable: false),
+            new TableColumn("wplz_si", TableType.Float64, Nullable: false),
+            new TableColumn("av_y_si", TableType.Float64, Nullable: false),
+            new TableColumn("av_z_si", TableType.Float64, Nullable: false),
+            new TableColumn("radius_major_si", TableType.Float64, Nullable: false),
+            new TableColumn("radius_minor_si", TableType.Float64, Nullable: false),
+            new TableColumn("depth_si", TableType.Float64, Nullable: false),
+            new TableColumn("width_si", TableType.Float64, Nullable: false),
+            new TableColumn("heated_perimeter_si", TableType.Float64, Nullable: false),
+            new TableColumn("axis_distance_si", TableType.Float64, Nullable: false),
+            new TableColumn("shear_centre_y_si", TableType.Float64, Nullable: false),
+            new TableColumn("shear_centre_z_si", TableType.Float64, Nullable: false),
+            new TableColumn("monosymmetry_factor", TableType.Float64, Nullable: false),
+            new TableColumn("centroid_x", TableType.Float64, Nullable: false),
+            new TableColumn("centroid_y", TableType.Float64, Nullable: false),
+            new TableColumn("centroid_z", TableType.Float64, Nullable: false),
+            new TableColumn("form_vertex_count", TableType.Int64, Nullable: true),
+            new TableColumn("form_curved_edges", TableType.Int64, Nullable: true),
+            new TableColumn("form_radial_ratio", TableType.Float64, Nullable: true),
+            new TableColumn("form_perimeter_si", TableType.Float64, Nullable: true)));
+
     public static readonly TableFamily Edges = new("element.edges",
         Seq("snapshot", "edge"), spine: new TableSpine.Landing(), Option<string>.None, Seq(
             new TableColumn("snapshot", TableType.Utf8, Nullable: false),
@@ -444,9 +555,9 @@ public sealed partial class TableFamily {
             new TableColumn("maximum_si", TableType.Float64, Nullable: true),
             new TableColumn("mean_si", TableType.Float64, Nullable: true),
             new TableColumn("total_si", TableType.Float64, Nullable: true),
-            new TableColumn("manufacturer", TableType.Utf8, Nullable: false),
-            new TableColumn("model", TableType.Utf8, Nullable: false),
-            new TableColumn("serial", TableType.Utf8, Nullable: false),
+            new TableColumn("manufacturer", TableType.Utf8, Nullable: true),
+            new TableColumn("model", TableType.Utf8, Nullable: true),
+            new TableColumn("serial", TableType.Utf8, Nullable: true),
             new TableColumn("calibrated_at", TableType.Date, Nullable: true)));
 
     // BAND is the grain: a coverage answers "which elements carry an irradiance field" only when the band role and
@@ -487,49 +598,21 @@ public sealed partial class TableFamily {
             new TableColumn("scale", TableType.Float64, Nullable: false),
             new TableColumn("no_data", TableType.Float64, Nullable: true),
             new TableColumn("overview_count", TableType.Int64, Nullable: false),
-            new TableColumn("slice_count", TableType.Int64, Nullable: false),
             new TableColumn("byte_length", TableType.Int64, Nullable: false)));
 
-    public Seq<string> KeyColumns { get; }
-    public TableSpine Spine { get; }
-    public Option<string> Measure { get; }
-    public Seq<TableColumn> Columns { get; }
-
-    // Neutral triples are the schema handoff the columnar custodian's gate turns into admitted identifiers.
-    // Producers state name, token, and nullability; every physical decision past that is the custodian's.
-    public Seq<(string Name, string Type, bool Nullable)> Wire =>
-        Columns.Map(static column => (column.Name, column.Type.Key, column.Nullable));
-
-    // Admission carries the custodian gate's whole argument set, so the composing root splats one value and cannot
-    // pair a family's columns with another's key, spine, or measure. Category and clock travel together because the
-    // custodian refuses a dataset its columns contradict, and both cross as text: this package references the kernel
-    // alone, so the custodian's own category type is unreachable here exactly as its column-type roster is, and
-    // `TableSpine` mirrors that vocabulary the same way `TableType` mirrors the physical tokens.
-    public (string Dataset, Seq<(string Name, string Type, bool Nullable)> Columns,
-        Seq<string> Key, string Spine, Option<string> Time, Option<string> Measure) Admission =>
-        (Key, Wire, KeyColumns, Spine.Key, Spine.Time, Measure);
-
-    // One row's declaration-versus-projection proof, accumulating so a malformed dataset reports every offending
-    // column in one failure rather than the first. Arity is checked ahead of the pairwise walk because a short or
-    // long cell sequence has no meaningful per-column verdict to report.
-    public Validation<Error, Unit> Conforms(Seq<Option<PropertyValue>> cells, Op key) =>
-        cells.Count != Columns.Count
-            ? ElementFault.ValueRejected(key, $"<table-arity:{Key}:{cells.Count}/{Columns.Count}>")
-            : Columns.Zip(cells, static (column, cell) => (Column: column, Cell: cell))
-                .Traverse(pair => pair.Column.Conforms(pair.Cell, key))
-                .As()
-                .Map(static _ => unit);
+    public TableDeclaration Declaration { get; }
 
     // Producer-side gating runs once over a whole snapshot before the batches cross, so a declaration drift is a
     // typed refusal at this owner rather than a partial landing the custodian discards at row n.
     public static Validation<Error, Unit> Admit(Seq<TableRow> rows, Op key) =>
-        rows.Traverse(row => row.Family.Conforms(row.Cells, key)).As().Map(static _ => unit);
+        rows.Traverse(row => row.Family.Declaration.Conforms(row.Cells, key)).As().Map(static _ => unit);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-// One family's erased rows — the crossing value. Cells stay positional against the family's own Columns, which is
+// One dataset's erased rows — the crossing value, keyed on the DECLARATION so a foreign producer's batch and an
+// element.* batch are one type at the seam. Cells stay positional against the declaration's own Columns, which is
 // exactly the contract Conforms proves, so the custodian binds by ordinal with no name matching on its side.
-public readonly record struct TableBatch(TableFamily Family, Seq<Seq<Option<PropertyValue>>> Rows);
+public readonly record struct TableBatch(TableDeclaration Declaration, Seq<Seq<Option<PropertyValue>>> Rows);
 ```
 
 ## [04]-[TABULATE_FOLD]
@@ -538,7 +621,7 @@ public readonly record struct TableBatch(TableFamily Family, Seq<Seq<Option<Prop
 - Entry: `GraphTable.Tabulate(graph, key, roots)` folds the whole snapshot by default and a named root set when supplied, railing `ElementFault.NodeAbsent` on a root the graph does not declare and lifting every `Bake` failure — an absent root, a cyclic `Compose` ancestry — unchanged onto its own rail.
 - Auto: the fold reaches no clock at all — every snapshot family is landing-timed, so nothing here stamps an instant and `element.assessments` carries the one the assessment payload already holds; element, classification, property, quantity, material, assessment, observation, and coverage rows all project from the `Bake`-derived `Element`, so the named type→occurrence inheritance is applied exactly once and a table row can never disagree with what a consumer reads off the same baked element; edge rows project from `graph.Edges` directly because an edge carries no inheritance and needs no bake; the snapshot address mints once through `ContentAddress.OfGraph` and stamps every row, so one fold pays one graph hash; a scoped fold narrows edges to those whose `Members` touch the selected set, so a partial re-tabulation after a delta emits exactly the rows its roots own.
 - Output: a `TableSnapshot` whose `Rows` a consumer folds typed and whose admitted `Batches(key)` the columnar custodian lands.
-- Packages: LanguageExt.Core (`Fin`/`Seq`/`Option` + `TraverseM`/`Choose`/`Bind`/`Fold`/`Exists`), `Projection/address#CONTENT_ADDRESS` (`ContentAddress.OfGraph`/`Of`/`ToValue`), `Projection/fault#FAULT_BAND` (`ElementFault.NodeAbsent`), `Assessment/observation#SERIES_STATISTICS` (`Completeness`/`Observed`/`Consumable` + `Expected`), `Geospatial/coverage#COVERAGE_NODE` (`ByteLength`/`Grid`/`Bands`), NodaTime (`Duration.TotalSeconds`).
+- Packages: LanguageExt.Core (`Fin`/`Seq`/`Option` + `TraverseM`/`Choose`/`Bind`/`Fold`/`Exists`), QuikGraph (`BidirectionalGraph`/`TryFunc` + `AlgorithmExtensions.TreeBreadthFirstSearch` over the graph's own `View(EdgeFilter.Spatial, EdgeOrientation.Ascending)` — the object row's two spatial columns, never a view this page builds), `Projection/address#CONTENT_ADDRESS` (`ContentAddress.OfGraph`/`Of`/`ToValue`), `Projection/fault#FAULT_BAND` (`ElementFault.NodeAbsent`), `Assessment/observation#SERIES_STATISTICS` (`Completeness`/`Observed`/`Consumable` + `Expected`), `Geospatial/coverage#COVERAGE_NODE` (`ByteLength`/`Grid`/`Bands`), NodaTime (`Duration.TotalSeconds`).
 - Growth: a new dataset is one projection member returning its `TableRow` case; a new column on an existing dataset is one argument in the projection that already builds its case; a scoped variant is a root set, never a second entrypoint.
 - Boundary: `Tabulate` is PURE over an already-frozen snapshot — it opens no store, resolves no geometry through `GeometrySource`, and reaches no ambient registry, so a caller supplies the graph and receives rows; heavy payloads stay behind their content keys, so a representation hash, a result blob, and a raster key cross as text and the artifact itself never enters a row; the edge row keys on the edge's own content address, so two structurally identical edges address as the one edge they are — the positional array index keying them apart is the deleted form, because array order is a snapshot artifact no consumer may join on; a family's row count is the graph's, never capped — the columnar residences carry no cardinality ceiling and a truncating fold silently under-reports a takeoff.
 
@@ -564,7 +647,7 @@ public static class GraphTable {
             Some: ids => toSeq(ids.ToFrozenSet())
                 .TraverseM(id => graph.Find<Node.Object>(id).Match(
                     Some: Fin.Succ,
-                    None: () => Fin.Fail<Node.Object>(ElementFault.NodeAbsent(key, $"<tabulate-root-absent:{id.Value}>")))).As());
+                    None: () => Fin.Fail<Node.Object>(new ElementFault.NodeAbsent(key, $"<tabulate-root-absent:{id.Value}>")))).As());
 
     static TableSnapshot Project(ElementGraph graph, Seq<Element> elements, bool scoped) {
         ContentAddress address = ContentAddress.OfGraph(graph);
@@ -582,19 +665,36 @@ public static class GraphTable {
         + element.Properties.Bind(bag => Properties(bag, element, snapshot))
         + element.Quantities.Bind(bag => Quantities(bag, element, snapshot))
         + Materials(element, snapshot)
+        + Sections(element, snapshot)
         + element.Assessments.Map(payload => Assessment(payload, element, snapshot))
         + element.Observations.Map(series => Observation(series, element, snapshot))
         + element.Coverages.Bind(grid => Coverages(grid, element, snapshot));
 
-    static TableRow Object(ElementGraph graph, Element element, string snapshot) => new TableRow.Object(
-        snapshot, element.Id.Value, element.Kind.Key, element.ExternalId,
-        element.Classification.System, element.Classification.Code, element.Classification.Edition,
-        element.PredefinedType.Token, element.Name, element.Tag,
-        element.TypeId.Map(static id => id.Value),
-        graph.ContainerOf(element.Id).Map(static id => id.Value),
-        graph.ContainmentPath(element.Id).Count,
-        element.Appearance.Map(static summary => ContentAddress.Of(summary.AppearanceKey).ToValue()),
-        element.Parts.Count);
+    static TableRow Object(ElementGraph graph, Element element, string snapshot) {
+        (Option<NodeId> container, int depth) = Ancestry(graph, element.Id);
+        return new TableRow.Object(
+            snapshot, element.Id.Value, element.Kind.Key, element.ExternalId,
+            element.Classification.System, element.Classification.Code, element.Classification.Edition,
+            element.PredefinedType.Token, element.Name, element.Tag,
+            element.TypeId.Map(static id => id.Value),
+            container.Map(static id => id.Value), depth,
+            element.Appearance.Map(static summary => ContentAddress.Of(summary.AppearanceKey).ToValue()),
+            element.Parts.Count);
+    }
+
+    // Both spatial columns read the graph's OWN ascending Spatial view and nothing else: rooted Contain-then-Aggregate
+    // precedence is Bim SpatialStructure.Ancestry's alone (element#GROUP_READS), so this row REPORTS what the view
+    // states — the nearest ascending neighbour as the container and the longest climb as the depth — and arbitrates no
+    // multi-parent fan. One breadth-first climb per element serves both columns off the memoized view.
+    static (Option<NodeId> Container, int Depth) Ancestry(ElementGraph graph, NodeId member) {
+        BidirectionalGraph<NodeId, TypedEdge> ascending = graph.View(EdgeFilter.Spatial, EdgeOrientation.Ascending);
+        TryFunc<NodeId, IEnumerable<TypedEdge>> climb = ascending.TreeBreadthFirstSearch(member);
+        return (toSeq(ascending.OutEdges(member)).Head.Map(static leg => leg.Target),
+            toSeq(ascending.Vertices).Fold(0, (deepest, vertex) =>
+                vertex != member && climb(vertex, out IEnumerable<TypedEdge>? legs)
+                    ? Math.Max(deepest, Enumerable.Count(legs))
+                    : deepest));
+    }
 
     // Classifications files the baked element's secondary references, already unioned with the inherited type's set by
     // Bake and deduped there, so this projection needs no second merge. The primary triple is not re-emitted here: it keys the
@@ -650,11 +750,28 @@ public static class GraphTable {
                 : Option<double>.None));
     }
 
+    // One row per baked ProfileSet section — the S-E1 columns whole, so the analytics plane is never takeoff-only.
+    static Seq<TableRow> Sections(Element element, string snapshot) =>
+        element.Materials.Bind(baked => baked.Material.Composition is MaterialComposition.ProfileSet
+            { Section: { IsSome: true, Case: SectionProperties section }, Profile: var profile }
+            ? Seq<TableRow>(new TableRow.Section(
+                snapshot, element.Id.Value, baked.Material.MaterialKey.Value,
+                profile.Standard, profile.Designation, section.Ltb.Key,
+                section.Area.Si, section.Iyy.Si, section.Izz.Si, section.J.Si, section.Iw.Si,
+                section.Wely.Si, section.Welz.Si, section.Wply.Si, section.Wplz.Si,
+                section.AvY.Si, section.AvZ.Si, section.RadiusOfGyrationMajor.Si, section.RadiusOfGyrationMinor.Si,
+                section.Depth.Si, section.Width.Si, section.HeatedPerimeter.Si, section.AxisDistance.Si,
+                section.ShearCentreY.Si, section.ShearCentreZ.Si, section.MonosymmetryFactor,
+                section.Centroid.X, section.Centroid.Y, section.Centroid.Z,
+                section.Form.Map(static f => f.VertexCount), section.Form.Map(static f => f.CurvedEdges),
+                section.Form.Map(static f => f.RadialRatio), section.Form.Map(static f => f.Perimeter.Si)))
+            : Seq<TableRow>());
+
     static string Composition(MaterialComposition composition) => composition.Map(
         single: "single", layerSet: "layer-set", profileSet: "profile-set", constituentSet: "constituent-set");
 
     static string Usage(MaterialUsage usage) => usage.Map(
-        none: "none", layerSet: "layer-set", profileSet: "profile-set");
+        unbound: "unbound", layerSet: "layer-set", profileSet: "profile-set");
 
     // ONE dispatch over the edge collects every per-case column, so the six-arm walk runs once rather than four
     // parallel Switches restating the same case list — the repeated-arm collapse the graph's own `Ends` accessor makes.
@@ -673,9 +790,9 @@ public static class GraphTable {
                 associate: static _ => (Option<string>.None, Option<string>.None, Option<int>.None, Option<string>.None),
                 connect:   static e => (Some(e.SubKind.Key), e.Realizing.Map(static node => node.Value), Option<int>.None, Option<string>.None),
                 @void:     static e => (Some(e.SubKind.Key), Option<string>.None, Option<int>.None, Option<string>.None),
-                generic:   static e => (Option<string>.None, Option<string>.None, Option<int>.None, Some(e.WireName)));
+                generic:   static e => (Option<string>.None, Option<string>.None, Option<int>.None, Some(e.WireName.Value)));
         return new TableRow.Edge(
-            snapshot, ContentAddress.Of(edge.ToCanonicalBytes(tolerance).Span).ToValue(), edge.Kind.Key, subKind,
+            snapshot, ContentAddress.Of(edge, tolerance).ToValue(), edge.Kind.Key, subKind,
             edge.Relating.Value, edge.Related.Value, realizing, ordinal, wireName,
             edge.Members.Count, edge.IsContainment);
     }
@@ -685,13 +802,16 @@ public static class GraphTable {
     static TableRow Assessment(AssessmentPayload payload, Element element, string snapshot) => new TableRow.Assessment(
         snapshot, element.Id.Value, payload.Discipline.Key, payload.Route.Value,
         ContentAddress.Of(payload.InputKey).ToValue(),
-        payload.Outcome.Key, payload.Outcome.Usable, payload.Outcome.Terminal, payload.Outcome.Dispatchable,
+        payload.Outcome.Key,
+        payload.Outcome.Capabilities.Admits(OutcomeCapability.Consumable),
+        payload.Outcome.Capabilities.Admits(OutcomeCapability.Settled),
+        payload.Outcome.Capabilities.Admits(OutcomeCapability.Dispatchable),
         payload.Provenance.Elapsed.TotalSeconds,
         payload.Provenance.Author, payload.Provenance.Tool, payload.Provenance.Version,
         payload.Diagnostic.Map(static d => d.Phase.Key), payload.Diagnostic.Map(static d => d.Kind.Key),
         payload.Diagnostic.Map(static d => d.Message), payload.Diagnostic.Bind(static d => d.Code),
         payload.Diagnostic.Map(static d => d.Kind.Transient),
-        payload.ResultBlob.Map(static blob => ContentAddress.Of(blob).ToValue()),
+        payload.ResultBlob.Map(static blob => blob.ToValue()),
         payload.DependsOn.Count, payload.Results.Count, payload.Provenance.At);
 
     // Descriptor and derived summary flatten together, so a commissioning board screens completeness and reads the
@@ -710,8 +830,12 @@ public static class GraphTable {
             series.Statistics.Maximum.Map(static measure => measure.Si),
             series.Statistics.Mean.Map(static measure => measure.Si),
             series.Statistics.Total.Map(static measure => measure.Si),
-            series.Provenance.Manufacturer, series.Provenance.Model, series.Provenance.Serial,
-            series.Provenance.CalibratedAt);
+            // Instrument audit is OPTIONAL on the series (the blank-string sentinel died at the owner), so the four
+            // columns carry real absence.
+            series.Provenance.Map(static audit => audit.Manufacturer),
+            series.Provenance.Map(static audit => audit.Model),
+            series.Provenance.Map(static audit => audit.Serial),
+            series.Provenance.Bind(static audit => audit.CalibratedAt));
 
     // One row per BAND: the placement, the CRS identity, and the pyramid/timeline depths denormalize onto every band so
     // a spatial or role predicate needs no join. ByteLength reads the BASE level, the footprint a storage rollup means.
@@ -721,13 +845,15 @@ public static class GraphTable {
     // no derived Vector3 reaches a cell; the coefficients are the neutral doubles the kernel publishes.
     static Seq<TableRow> Coverages(CoverageGrid grid, Element element, string snapshot) =>
         grid.Bands.Map(band => (TableRow)new TableRow.Coverage(
-            snapshot, element.Id.Value, ContentAddress.Of(grid.RasterKey).ToValue(), grid.Kind.Key,
+            snapshot, element.Id.Value, ContentAddress.Of(grid.RasterKey.Value).ToValue(), grid.Kind.Key,
             grid.Crs.Resolution.Key, grid.Crs.Epsg, grid.Crs.GeodeticDatum,
             toSeq<double>([.. grid.Grid.Affine]),
             grid.Grid.Columns.Value, grid.Grid.Rows.Value, grid.Grid.Layers.Value,
             band.Index, band.Name, band.SampleType.Key, band.Role.Key, band.Units,
             band.Offset, band.Scale, band.NoData,
-            grid.Overviews.Count, grid.Slices.Count, grid.ByteLength()));
+            // Overviews are the run past the base (the head IS the base); ByteLength sizes the base level, the
+            // footprint a storage rollup means.
+            grid.Levels.Count - 1, grid.ByteLength(grid.Base)));
 }
 ```
 

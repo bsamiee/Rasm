@@ -1,70 +1,65 @@
 # [COMPUTE_PROVIDERS]
 
-`ExecutionProvider` rows select ONNX Runtime registration through host-gated device discovery and deterministic affinity over one frozen runtime snapshot. `ModelPrecision` owns execution posture, `WarmForm` owns which warm-start mechanism a row reaches, and compiled-context compatibility admits an EP-context warm start only on `EP_SUPPORTED_OPTIMAL`.
+`ExecutionProvider` rows select ONNX Runtime registration through host-gated device discovery and deterministic affinity over one frozen runtime snapshot. `ModelPrecision` owns execution posture as one `CapabilitySet<NumericTrait>` corner, `WarmForm` owns which warm-start mechanism a row reaches, and compiled-context compatibility answers a four-case `WarmVerdict` an EP-context warm start admits on `EP_SUPPORTED_OPTIMAL` alone.
 
-`ExecutionProvider`, `ModelPrecision`, and `WarmForm` own discovery, registration, compatibility, resolution, warm-start form, and result identity. ONNX Runtime supplies provider members, `ModelFingerprint` keys behavior, and NodaTime owns negative-cache duration.
+`ExecutionProvider`, `ModelPrecision`, and `WarmForm` own discovery, registration, compatibility, resolution, warm-start form, and result identity. ONNX Runtime supplies provider members, the kernel `CapabilitySet`/`CapabilityLaw` pair carries numeric posture and its legal corners, `RosterFingerprint` keys behavior, and NodaTime owns negative-cache duration.
 
 ## [01]-[INDEX]
 
-- [02]-[EP_AXIS]: execution-provider rows over one frozen runtime snapshot and autoEP `OrtEpDevice` discovery, one polymorphic register threading the selected device ordinal, a typed two-step compatibility probe, precision-folded quantization knobs, and the three-row warm-start form axis every row selects one of.
+- [02]-[EP_AXIS]: execution-provider rows over one frozen runtime snapshot carrying the autoEP `OrtEpDevice` census beside its per-device veto rows, one polymorphic register threading the selected device ordinal on a `Fin` rail, a typed two-step compatibility probe answering the four-case `WarmVerdict`, one numeric-posture capability set under its corner law, and the three-row warm-start form axis every row selects one of.
 
 ## [02]-[EP_AXIS]
 
-- Owner: `ExecutionProvider` `[SmartEnum<string>]` rows (provider name, wire spelling, host gate, precision-keyed EP options, artifact-site location options, session keys, device-ordinal option key, device policy, hardware affinity, warm form, register delegate); `ModelPrecision` `[SmartEnum<string>]` rows (wire spelling, low-precision accumulation, BF16 fast math, `session.qdq_matmulnbits_accuracy_level`, negative TTL); `WarmForm` `[SmartEnum<string>]` rows (artifact suffix, runtime-keyed identity, presence probe); `ProviderSnapshot` the once-materialized loaded-provider and published-device census; `ArtifactSite` the directory-and-warm-path pair a row's location options read; the `Devices`/`AutoSelect`/`Veto`/`OptionsFor`/`Register`/`Compatible`/`WarmStartAdmissible`/`BindWarm`/`Resolve`/`FromWire`/`ResultKey` fold over `OrtEpDevice`.
-- Cases: `ExecutionProvider` rows `Cpu`, `Cuda`, `DirectMl`, `TensorRt`, `CoreMl`, `WebGpu`, `OpenVino`, `MiGraphX`, `Nnapi`, `Dnnl`; `ModelPrecision` rows `Full`, `Fp16`, `Bf16`, `Int8`, `Int4`; `WarmForm` rows `EpContext`, `OptimizedGraph`, `EngineCache`.
+- Owner: `ExecutionProvider` `[SmartEnum<string>]` rows (provider name, wire spelling, host gate, precision-keyed EP options, artifact-site location options, session keys, device-ordinal option key, device policy, hardware affinity, warm form, register delegate); `NumericTrait` the kernel-`ICapability` numeric vocabulary and `NumericPosture` its four legal corners beside the one `CapabilityLaw` built from them; `ModelPrecision` `[SmartEnum<string>]` rows (wire spelling, one posture corner, negative TTL, the posture-derived MatMulNBits key table); `WarmForm` `[SmartEnum<string>]` rows (artifact suffix, runtime-keyed identity, presence probe); `WarmVerdict` the four-case warm-start answer every consumer dispatches on; `WebGpuOption` and `OpenVinoDevice` the two admitted EP option vocabularies; `ProviderSnapshot` the once-materialized loaded-provider census, published-device census, per-provider `VetoRow` census, and the one device fingerprint every warm and result identity folds; `ArtifactSite` the directory-and-warm-path pair a row's location options read; the `Devices`/`AutoSelect`/`Vetoes`/`OptionsFor`/`Register`/`Compatible`/`Warmth`/`BindWarm`/`Resolve`/`FromWire`/`ResultKey` fold over `OrtEpDevice`.
+- Cases: `ExecutionProvider` rows `Cpu`, `Cuda`, `DirectMl`, `TensorRt`, `CoreMl`, `WebGpu`, `OpenVino`, `MiGraphX`, `Nnapi`, `Dnnl`; `ModelPrecision` rows `Full`, `Fp16`, `Bf16`, `Int8`, `Int4`; `NumericTrait` rows `narrow-accumulation`, `bfloat16-fast-math`, `quantized-graph` over the four `NumericPosture` corners `Native`, `Narrowed`, `FastMath`, `Quantized`; `WarmForm` rows `EpContext`, `OptimizedGraph`, `EngineCache`; `WarmVerdict` cases `Absent`, `Admissible`, `Recompile`, `NotApplicable`.
 - Law: `Cpu` is the GUARANTEED FLOOR and every other row a POLICY THAT MAY REFUSE. `CPUExecutionProvider` ships with every runtime under a host gate that never closes, so `Resolve` degrades a key naming no row — or a row whose native provider the host never loaded — onto the floor rather than faulting a caller holding no alternative. `IsFloor` derives that identity instead of a column, so exactly one row answers it and no construction forks the answer.
 - Law: each row carries its OWN wire spelling. `WireKey` is a row column and `FromWire` the one projection. Rows spelling `None` never cross, which keeps a posture demanding settled pre-quantized bytes unreachable from a wire carrying only an execution preference.
 - Law: an unresolvable PROVIDER degrades and an unresolvable PRECISION refuses. `ExecutionProvider.FromWire` answers `Floor` for a spelling this roster cannot honour and the consuming record reports what ran; `ModelPrecision.FromWire` answers `None`, so the consumer refuses and the `CoreMl` row's `ModelFormat` pin carries the precision statement instead.
+- Law: numeric posture is a CAPABILITY SET under a corner law, never adjacent bools. Three independent booleans left eight products representable where four name a posture a runtime executes, so the traits ride `CapabilitySet<NumericTrait>` and `NumericPosture.Law` legislates the four corners: a row claiming `Bfloat16FastMath` or `QuantizedGraph` while denying `NarrowAccumulation` claims a mechanism and refuses its own consequence, and the two accelerated mechanisms together name a graph that runs its MatMulNBits kernels through the MLAS arm64 bf16 GEMM path no runtime routes it down. NAMED LOSS: per-flag compile-time exhaustiveness — a reader now asks `Posture.Admits(row)` rather than reading a named column — bought back by the corner roster, which makes every illegal product unreachable rather than merely untested, and by `Rostered`, the one gate `Register` threads so a hand-built set refuses before any native append. WITNESS: `CpuSessionKeys`'s `mlas.enable_gemm_fastmath_arm64_bfloat16` write and `CoreMlOptions`'s `AllowLowPrecisionAccumulationOnGPU` write each read one trait off the set the row declared.
+- Law: the MatMulNBits accuracy floor rides the QUANTIZED CORNER, never a per-row column. Both quantized rows carried the same literal `4` — fp32 accumulation over the dequantized block — so an `Option<int>` column beside the trait was a hand-kept mirror of the trait itself, and `QuantizedGraph` was a column no surface read. `QdqKeys` now derives from the corner and computes ONCE at construction. NAMED LOSS: a per-row accuracy floor; a row needing another floor lands its own `NumericTrait` row and its own corner, never a fourth column. WITNESS: `Int8` and `Int4` produce byte-identical `QdqKeys` today, which is what a per-row column was spelling twice.
 - Law: EVERY row carries a warm-start form and the floor row is not exempt. `WarmForm.EpContext` is the compiled-partition mechanism — a blob reloaded through the `ep.context_*` keys whose admissibility its own embedded compat info answers; `WarmForm.OptimizedGraph` is the managed mechanism `Cpu` and `Dnnl` take, where ORT writes the post-optimization graph through `OptimizedModelFilePath` and a later cold open loads THAT graph at `ORT_DISABLE_ALL`; `WarmForm.EngineCache` is `TensorRt`'s, whose warm start is the EP's OWN engine cache — `trt_engine_cache_enable` plus `trt_engine_cache_path` arm it at registration and the EP writes and reads that directory itself, so the artifact is a directory rather than a file and its presence probe reads one. Without the managed row the guaranteed floor — the row every degrade lands on and every parity probe runs — re-pays `ORT_ENABLE_ALL` from source on every cold open forever, and `Compatible` answers `EP_NOT_APPLICABLE` for it by construction, so no compat verdict opens that door. `Suffix`, `RuntimeKeyed`, and `Present` keep all three forms inside the ONE artifact-key derivation: the compat-info-bearing blob needs no runtime column, the managed graph and the engine cache carry none and take one, so an artifact another runtime wrote misses its key rather than loading.
 - Law: a row is admitted by EXECUTION, never by inventory. `ROCMExecutionProvider` carries no row here — the EP left the runtime's source tree, and its managed surface (both append overloads, the options capsule, the one-call shorthand) survives only as ABI-stable stubs whose native entry points unconditionally answer that the provider is not enabled in this build. A row over them would publish an accelerated route that executes nothing while `Available` answered false forever, which is precisely the inventory-versus-execution defect this folder already settled; AMD hardware reaches this roster through `MiGraphX`, the migration the runtime itself names.
 - Law: the generic string append is a CLOSED native roster, and it decides each row's registration family. `AppendExecutionProvider(name, options)` marshals the name straight to native, where a fixed table admits a short or canonical spelling per EP and refuses everything else with `ORT_INVALID_ARGUMENT` — `CoreMLExecutionProvider`, `WebGPU`, `OpenVINO`, `DML`, `MIGraphX`, and `CPU` are on it; `CUDAExecutionProvider` and `TensorrtExecutionProvider` are NOT. Rows therefore split three ways and the split is measured, not stylistic: option-bag rows take the string append, `Cuda` and `TensorRt` take their `OrtCUDAProviderOptions`/`OrtTensorRTProviderOptions` `UpdateOptions` capsule and the typed append (their only dictionary path), and `Cpu`, `Nnapi`, and `Dnnl` take the typed scalar member their EP publishes. Spelling a name the table refuses fails at the append rather than at the run, so a row is admitted to the string family by its NAME being on that table and by nothing else.
-- Law: accelerated rows answer to the floor by MEASUREMENT, and the residual band is an OBSERVATION. Every non-floor row produces a result whose residual against a floor-provider run over the same input is measured at the run and reported outward, because a provider drawing its speed from lower internal precision degrades silently and by construction raises nothing. The band a model family reaches is therefore the `Model/inference#STAGE_EXECUTION` canary's own record at that family's first execution on this host — carried on the parity artifact beside the verdict it gated — never a constant this axis asserts: a spec-side tolerance grades every family against whichever one happened to be measured when it was written. This axis declares the obligation; the consumer owning admission performs the comparison and owns the tolerance.
-- Auto: `ProviderSnapshot` freezes the loaded-provider set and the published `OrtEpDevice` census ONCE behind a lazy accessor, and `Available`/`Devices`/`Resolve`/`FromWire` read that frozen census — `Available` still short-circuits on `HostGate` first. `FromWire` scans the row roster rather than caching a frozen inverse, because a static table folded from `Items` beside the row fields reads an empty roster whenever its initializer wins the ordering race — and a ten-row ordinal scan disappears beside the session lease it precedes. `AutoSelect` ranks the snapshot's devices by row-owned `HardwareAffinity`, then CPU last, then provider/vendor/device identity for deterministic ties. One selected-device snapshot passes through `Register`, `Compatible`, and `WarmStartAdmissible`. `Register` folds session keys and precision `QdqKeys`, composes row-owned EP and `ArtifactSite` location option tables, writes the SELECTED device's ordinal under the row's own `OrdinalKey`, then uses direct autoEP registration when the snapshot is non-empty or the row's verified fallback registration otherwise — measured at the pin: `CoreMl` publishes NO `OrtEpDevice`, so its snapshot is empty BY CONSTRUCTION and the fallback arm is its only reachable path, while `WebGpu` is the macOS row that publishes a GPU device and takes the autoEP arm; `EpOptions` is EMPTY on every published device, so no row inherits discovery defaults and the row-owned option table is the sole source. Location options are row-owned and disjoint: `CoreMl` alone contributes `ModelCacheDirectory` and `TensorRt` alone `trt_engine_cache_path`. `Compatible` runs the two-step probe over the same snapshot against the compiled artifact's embedded compat info. `WarmStartAdmissible` proves the artifact present through the FORM's own probe — a file for the blob and managed rows, a directory for the engine cache — then dispatches on that form: the EP-context arm requires exactly `EP_SUPPORTED_OPTIMAL` read from the artifact — `EP_UNSUPPORTED`, `EP_SUPPORTED_PREFER_RECOMPILATION`, and `EP_NOT_APPLICABLE` compile fresh — while the managed and engine-cache arms admit on presence, their runtime and behavior columns having keyed the artifact name. `BindWarm` writes each form's own session state under one call: the `ep.context_*` triple for the blob rows, `OptimizedModelFilePath` for the managed rows on a MISS alone (an admissible graph is the open's own load source), and NOTHING for the engine cache, whose arming already rode the EP option bag. `Veto` folds incompatibility reason, notes, and code per hardware device. `Resolve` reads the row roster by key, proves the native provider loaded through `Available`, and answers `Floor` otherwise. `ResultKey` stamps provider, runtime, precision, and the shared behavior-option fingerprint.
-- Packages: Microsoft.ML.OnnxRuntime, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: a built-in accelerator is one `ExecutionProvider` row minted through `Accelerator` with its provider name, OS gate, `HardwareAffinity`, EP-option and device-ordinal columns, and register delegate, its EP-context warm form implied by the factory; a row whose EP compiles no context partition declares through the constructor instead and states its own `WarmForm` — including an accelerator whose native provider this platform's runtime may not carry, because `Available` and `Resolve` already answer absence and no caller-facing surface moves. That row reaches every wire the moment it declares a `WireKey`; before it declares one, `FromWire` degrades the spelling it answers to onto the floor exactly as it degrades an unloaded provider. An OUT-OF-TREE accelerator is one row on this same roster and nothing else: its library registers once at composition through `OrtEnv.RegisterExecutionProviderLibrary`, its devices then publish into the snapshot like any built-in EP's, and its register delegate takes the autoEP device arm — the string-append name table is closed native vocabulary no out-of-tree name enters, and a row minted at RUNTIME never joins `Items`, so `TryGet`, `Resolve`, and `FromWire` could never answer it and every wire and receipt naming it read the floor instead. Its library bytes still reach identity: `Model/sessions#SESSION_CAPSULE` `DeviceFingerprint` folds the device's own `EpMetadata` and `EpOptions` into the resident and warm-artifact keys, so a library version change re-keys both. Each quantization posture is one `ModelPrecision` row folded into the same registration and fingerprint rails; a custom device-rank strategy is one `SetEpSelectionPolicyDelegate` arm on `AutoSelect`; a fourth warm-start mechanism is one `WarmForm` row with its suffix, runtime-keying column, presence probe, and the arms `WarmStartAdmissible` and `BindWarm` then demand — the artifact key, the blob lane, and the retention row all follow it with no edit.
-- Boundary: each row owns one provider-specific fallback registration and one autoEP device registration path selected by a caller-held device snapshot, so one lease appends one provider. `CoreMl` and `WebGpu` use the generic `AppendExecutionProvider(name, options)` spelling for one measured reason: neither carries a dedicated managed method nor an exported C append entry (the pinned dylib exports exactly `_CPU` and `_CoreML` beside `OrtGetApiBase`, and no `_WebGPU`), so the string append is their only path — `CoreMl` because its row owns `ModelFormat`, compute units, specialization, cache directory, and precision beyond the flags overload, `WebGpu` because the EP has no other spelling at all; the `CoreMl` flags overload never runs beside its row. `OpenVino`, `DirectMl`, and `MiGraphX` take that same spelling because it is their ONLY managed dictionary path — none publishes an options capsule, and each typed member takes a bare scalar that cannot carry an option bag at all. The DEVICE ORDINAL rides that bag as the row's own `OrdinalKey` rather than a registration literal: `AutoSelect` ranks by affinity, so binding device zero would run the graph on whichever adapter the driver enumerated first while every receipt named the device the rank chose; the ordinal is the device's index within THIS row's frozen census, which is why the census must be frozen — a re-enumeration hands back fresh instances a selected device can never be located in again. `WireKey` stays out of `OptionsFor` and out of `ResultKey`: it names the row for a boundary record and reaches nothing the built session does, so a rename changing no execution re-keys no cached result. Location options affect native artifact placement but stay out of result identity, while EP/session/precision options enter `OptionsFor`. `HostGate` expresses row-specific OS capability while the frozen loaded-provider set proves the native provider. `Warm` stays out of `OptionsFor` and out of `ResultKey`: it selects which artifact a cold open reads, never what the built graph computes, so a form change re-keys the warm artifact through `Suffix` and leaves every cached result standing. Rows reference `WarmForm` fields across a type boundary, so the roster-race the `FromWire` scan guards against — a same-class static folded from `Items` beside the row initializers — cannot arise here. `Full` leaves `mlas.enable_gemm_fastmath_arm64_bfloat16` disabled; `Bf16` alone sets it. Precision also reaches CoreML low-precision accumulation and MatMulNBits accuracy, and every behavior option participates in `ModelFingerprint.Of`. Compatibility consumes `OrtCompiledModelCompatibility` directly and admits EP-context reuse only for an existing `EP_SUPPORTED_OPTIMAL` artifact.
+- Law: accelerated rows answer to the floor by MEASUREMENT, and the residual band is an OBSERVATION. Every non-floor row produces a result whose residual against a floor-provider run over the same input is measured at the run and reported outward, because a provider drawing its speed from lower internal precision degrades silently and by construction raises nothing. The band a model family reaches is therefore the `Model/stage#PARITY` canary's own record at that family's first execution on this host — carried on the parity artifact beside the verdict it gated — never a constant this axis asserts: a spec-side tolerance grades every family against whichever one happened to be measured when it was written. This axis declares the obligation; the consumer owning admission performs the comparison and owns the tolerance.
+- Law: every native leg answers on the `Fin` rail and NONE classifies. `Register` and `Compatible` both cross a boundary that raises — a refused option key, a refused provider name, an unreadable compat artifact — so each returns `Fin` carrying the raw error, and `Model/sessions#SESSION_CAPSULE` `ModelSessions.Faulted` alone turns it into a typed `ComputeFault`. A `void` register and an `Option` compat probe made absence and failure one answer at the boundary that knows the difference, and a second classifier here would report one cancellation as two faults.
+- Law: a row this host cannot claim refuses BY NAME with the veto that closed it. `ProviderSnapshot` folds the per-provider `VetoRow` census — hardware device, `OrtDeviceEpIncompatibilityReason` bitmask, notes, error code — into the SAME freeze as the device census, because `GetHardwareDevices` is exactly as immutable as `GetEpDevices` and a property re-reading it per call contradicted this axis's own freeze law. `Register` reads it: a row publishing no device while every hardware device vetoes it refuses `SubstrateUnavailable` naming the driver, device, or dependency, rather than failing at the native append with a message naming nothing.
+- Law: the SELECTED DEVICE is part of result identity. `AutoSelect` ranks by affinity, so two adapters on one host run different silicon under one provider key — and a provider drawing speed from lower internal precision produces a different residual per adapter. `ResultKey` therefore folds the chosen device's fingerprint, the same `ProviderSnapshot.Fingerprint` derivation `Model/sessions#SESSION_CAPSULE` folds into `ContextKey` and the allocator lease, so a dual-GPU host cannot publish one `ModelResultKey` or one `ParityKey` for two devices. Device identity seats HERE beside the census that mints it, never at the session capsule that consumes it.
+- Auto: `ProviderSnapshot` freezes the loaded-provider set, the published `OrtEpDevice` census, and the per-provider veto census ONCE behind a lazy accessor, and `Available`/`Devices`/`Vetoes`/`Resolve`/`FromWire` read that frozen census — `Available` still short-circuits on `HostGate` first. `FromWire` scans the row roster rather than caching a frozen inverse, because a static table folded from `Items` beside the row fields reads an empty roster whenever its initializer wins the ordering race — and a ten-row ordinal scan disappears beside the session lease it precedes. `AutoSelect` ranks the snapshot's devices by row-owned `HardwareAffinity`, then CPU last, then provider/vendor/device identity for deterministic ties. One selected-device snapshot passes through `Register`, `Compatible`, and `Warmth`. `Register` folds session keys and precision `QdqKeys`, composes row-owned EP and `ArtifactSite` location option tables, writes the SELECTED device's ordinal under the row's own `OrdinalKey`, then uses direct autoEP registration when the snapshot is non-empty or the row's verified fallback registration otherwise — measured at the pin: `CoreMl` publishes NO `OrtEpDevice`, so its snapshot is empty BY CONSTRUCTION and the fallback arm is its only reachable path, while `WebGpu` is the macOS row that publishes a GPU device and takes the autoEP arm; `EpOptions` is EMPTY on every published device, so no row inherits discovery defaults and the row-owned option table is the sole source. Location options are row-owned and disjoint: `CoreMl` alone contributes `ModelCacheDirectory` and `TensorRt` alone `trt_engine_cache_path`. `Compatible` runs the two-step probe over the same snapshot against the compiled artifact's embedded compat info. `Warmth` proves the artifact present through the FORM's own probe — a file for the blob and managed rows, a directory for the engine cache — then dispatches on that form onto a `WarmVerdict` case: the EP-context arm answers `Admissible` on `EP_SUPPORTED_OPTIMAL` alone, `Recompile` carrying the verdict for `EP_UNSUPPORTED` and `EP_SUPPORTED_PREFER_RECOMPILATION`, and `NotApplicable` where the row published no device to ask; the managed and engine-cache arms answer `Admissible` on presence, their runtime and behavior columns having keyed the artifact name. `BindWarm` takes that verdict and writes each form's own session state under one call: the `ep.context_*` triple for the blob rows, `OptimizedModelFilePath` for the managed rows on a MISS alone (an admissible graph is the open's own load source), and NOTHING for the engine cache, whose arming already rode the EP option bag. `Resolve` reads the row roster by key, proves the native provider loaded through `Available`, and answers `Floor` otherwise. `ResultKey` stamps provider, runtime, precision, the shared behavior-option fingerprint, and the selected device's fingerprint.
+- Packages: Microsoft.ML.OnnxRuntime, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, `Domain.ICapability`/`CapabilitySet`/`CapabilityLaw`), BCL inbox
+- Growth: a built-in accelerator is one `ExecutionProvider` row minted through `Accelerator` with its provider name, OS gate, `HardwareAffinity`, EP-option and device-ordinal columns, and register delegate, its EP-context warm form implied by the factory; a row whose EP compiles no context partition declares through the constructor instead and states its own `WarmForm` — including an accelerator whose native provider this platform's runtime may not carry, because `Available` and `Resolve` already answer absence and no caller-facing surface moves. That row reaches every wire the moment it declares a `WireKey`; before it declares one, `FromWire` degrades the spelling it answers to onto the floor exactly as it degrades an unloaded provider. An OUT-OF-TREE accelerator is one row on this same roster and nothing else: its library registers once at composition through `OrtEnv.RegisterExecutionProviderLibrary`, its devices then publish into the snapshot like any built-in EP's, and its register delegate takes the autoEP device arm — the string-append name table is closed native vocabulary no out-of-tree name enters, and a row minted at RUNTIME never joins `Items`, so `TryGet`, `Resolve`, and `FromWire` could never answer it and every wire and receipt naming it read the floor instead. Its library bytes still reach identity: `Model/sessions#SESSION_CAPSULE` `DeviceFingerprint` folds the device's own `EpMetadata` and `EpOptions` into the resident and warm-artifact keys, so a library version change re-keys both. Each quantization posture is one `ModelPrecision` row naming a `NumericPosture` corner, folded into the same registration and fingerprint rails; a new numeric mechanism is one `NumericTrait` row plus the corners it legally joins, and every row that cannot hold it keeps refusing at `NumericPosture.Law` with no reader edited; a custom device-rank strategy is one `SetEpSelectionPolicyDelegate` arm on `AutoSelect`; a pinned WebGPU or OpenVINO option is one `WebGpuOption`/`OpenVinoDevice` row the same admitted fold already reads; a fourth warm-start mechanism is one `WarmForm` row with its suffix, runtime-keying column, presence probe, and the arms `Warmth` and `BindWarm` then demand — the artifact key, the blob lane, and the retention row all follow it with no edit; a fifth warm ANSWER is one `WarmVerdict` case whose consumers break at compile time rather than reading a bit that erased it.
+- Boundary: each row owns one provider-specific fallback registration and one autoEP device registration path selected by a caller-held device snapshot, so one lease appends one provider. `CoreMl` and `WebGpu` use the generic `AppendExecutionProvider(name, options)` spelling for one measured reason: neither carries a dedicated managed method nor an exported C append entry (the pinned dylib exports exactly `_CPU` and `_CoreML` beside `OrtGetApiBase`, and no `_WebGPU`), so the string append is their only path — `CoreMl` because its row owns `ModelFormat`, compute units, specialization, cache directory, and precision beyond the flags overload, `WebGpu` because the EP has no other spelling at all; the `CoreMl` flags overload never runs beside its row. `OpenVino`, `DirectMl`, and `MiGraphX` take that same spelling because it is their ONLY managed dictionary path — none publishes an options capsule, and each typed member takes a bare scalar that cannot carry an option bag at all. The DEVICE ORDINAL rides that bag as the row's own `OrdinalKey` rather than a registration literal: `AutoSelect` ranks by affinity, so binding device zero would run the graph on whichever adapter the driver enumerated first while every receipt named the device the rank chose; the ordinal is the device's index within THIS row's frozen census, which is why the census must be frozen — a re-enumeration hands back fresh instances a selected device can never be located in again. `WireKey` stays out of `OptionsFor` and out of `ResultKey`: it names the row for a boundary record and reaches nothing the built session does, so a rename changing no execution re-keys no cached result. Location options affect native artifact placement but stay out of result identity, while EP/session/precision options enter `OptionsFor`. `HostGate` expresses row-specific OS capability while the frozen loaded-provider set proves the native provider. `Warm` stays out of `OptionsFor` and out of `ResultKey`: it selects which artifact a cold open reads, never what the built graph computes, so a form change re-keys the warm artifact through `Suffix` and leaves every cached result standing. Rows reference `WarmForm` fields across a type boundary, so the roster-race the `FromWire` scan guards against — a same-class static folded from `Items` beside the row initializers — cannot arise here. `Full` holds `NumericPosture.Native` and leaves `mlas.enable_gemm_fastmath_arm64_bfloat16` disabled; `Bf16` alone holds `NumericTrait.Bfloat16FastMath` and sets it. The posture also reaches CoreML low-precision accumulation and the MatMulNBits accuracy floor, and every behavior option participates in `RosterFingerprint.Of`. Compatibility consumes `OrtCompiledModelCompatibility` directly and admits EP-context reuse only for an existing `EP_SUPPORTED_OPTIMAL` artifact. `OrtEpDevice`, `OrtHardwareDevice`, and the `OrtDeviceEpIncompatibilityReason` bitmask are catalogued at `.api/api-onnxruntime.md` and read from there — a member table restated on this page is a second owner for a fact the catalogue already holds.
 
 ```csharp signature
+// --- [TYPES] ---------------------------------------------------------------------------
 
+// The numeric vocabulary three adjacent booleans used to spell. `Rank` is the kernel's DERIVED declaration
+// index — this order carries no domain fact, so no ordinal column rides here.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class ModelPrecision {
-    // Precision rows carry EXECUTION POSTURE, never a graph transform: Int8/Int4 demand settled pre-quantized
-    // model bytes (the quantized graph is its own checksum identity) and select the MatMulNBits accuracy floor
-    // with the accumulation posture; `QuantizedGraph` is the admission evidence session `Options` gates on.
-    // Each row's wire spelling is its own column, and rows demanding settled quantized bytes carry NONE — nothing a
-    // caller states as a preference selects a posture that is a property of the model file it did not supply.
-    public static readonly ModelPrecision Full = new("full", wireKey: "fp32", lowPrecisionAccumulation: false, bfloat16FastMath: false, accuracyLevel: Option<int>.None, quantizedGraph: false, negativeTtl: Duration.FromMinutes(15));
-    public static readonly ModelPrecision Fp16 = new("fp16", wireKey: "fp16", lowPrecisionAccumulation: true, bfloat16FastMath: false, accuracyLevel: Option<int>.None, quantizedGraph: false, negativeTtl: Duration.FromMinutes(10));
-    public static readonly ModelPrecision Bf16 = new("bf16", wireKey: Option<string>.None, lowPrecisionAccumulation: true, bfloat16FastMath: true, accuracyLevel: Option<int>.None, quantizedGraph: false, negativeTtl: Duration.FromMinutes(10));
-    public static readonly ModelPrecision Int8 = new("int8", wireKey: Option<string>.None, lowPrecisionAccumulation: true, bfloat16FastMath: false, accuracyLevel: 4, quantizedGraph: true, negativeTtl: Duration.FromMinutes(5));
-    public static readonly ModelPrecision Int4 = new("int4", wireKey: Option<string>.None, lowPrecisionAccumulation: true, bfloat16FastMath: false, accuracyLevel: 4, quantizedGraph: true, negativeTtl: Duration.FromMinutes(2));
+public sealed partial class NumericTrait : ICapability<NumericTrait> {
+    public static readonly NumericTrait NarrowAccumulation = new("narrow-accumulation");
+    public static readonly NumericTrait Bfloat16FastMath = new("bfloat16-fast-math");
+    public static readonly NumericTrait QuantizedGraph = new("quantized-graph");
+}
 
-    private ModelPrecision(
-        string key, Option<string> wireKey, bool lowPrecisionAccumulation, bool bfloat16FastMath,
-        Option<int> accuracyLevel, bool quantizedGraph, Duration negativeTtl) : this(key) =>
-        (WireKey, LowPrecisionAccumulation, Bfloat16FastMath, AccuracyLevel, QuantizedGraph, NegativeTtl) =
-        (wireKey, lowPrecisionAccumulation, bfloat16FastMath, accuracyLevel, quantizedGraph, negativeTtl);
+// FOUR legal corners of the eight a boolean product left representable, and the one law built from them. A
+// corner named here is legislated whether or not a row holds it today; a product absent from the roster is
+// unreachable rather than untested, which is the guarantee three independent bool columns could not give.
+public static class NumericPosture {
+    static CapabilitySet<NumericTrait> Of(params ReadOnlySpan<NumericTrait> held) => CapabilitySet<NumericTrait>.Of(held);
 
-    public Option<string> WireKey { get; }
-    public bool LowPrecisionAccumulation { get; }
-    public bool Bfloat16FastMath { get; }
-    public Option<int> AccuracyLevel { get; }
-    public bool QuantizedGraph { get; }
-    public Duration NegativeTtl { get; }
+    public static readonly CapabilitySet<NumericTrait> Native = CapabilitySet<NumericTrait>.None;
+    public static readonly CapabilitySet<NumericTrait> Narrowed = Of(NumericTrait.NarrowAccumulation);
+    public static readonly CapabilitySet<NumericTrait> FastMath = Of(NumericTrait.NarrowAccumulation, NumericTrait.Bfloat16FastMath);
+    public static readonly CapabilitySet<NumericTrait> Quantized = Of(NumericTrait.NarrowAccumulation, NumericTrait.QuantizedGraph);
 
-    // NONE refuses at the consumer. A precision the roster cannot honour has no report column on any result, so
-    // substituting a default here would run one posture while the receipt names another.
-    public static Option<ModelPrecision> FromWire(string wire) =>
-        toSeq(Items).Find(row => row.WireKey.Case is string key && StringComparer.Ordinal.Equals(key, wire));
+    public static readonly CapabilityLaw<NumericTrait> Law = new(Seq(Native, Narrowed, FastMath, Quantized));
 
-    public FrozenDictionary<string, string> QdqKeys =>
-        AccuracyLevel.Match(
-            Some: static level => new Dictionary<string, string>(StringComparer.Ordinal) {
-                ["session.qdq_matmulnbits_accuracy_level"] = level.ToString(CultureInfo.InvariantCulture),
-            }.ToFrozenDictionary(StringComparer.Ordinal),
-            None: static () => FrozenDictionary<string, string>.Empty);
+    // MatMulNBits accuracy floor: level 4 is fp32 accumulation over the dequantized block, the only floor a
+    // settled pre-quantized graph on this roster runs at. It rides the QUANTIZED corner because both quantized
+    // rows spelled the same literal, and a per-row column mirroring a trait drifts from the trait it mirrors.
+    public const int MatMulNBitsFloor = 4;
 }
 
 // THREE warm-start forms exist and every provider row takes exactly one. The EP-context blob is the compiled-
@@ -88,10 +83,9 @@ public sealed partial class WarmForm {
     // retention row rather than a cache and a filename scheme per mechanism.
     public string Suffix { get; }
 
-    // EP-context blobs answer their own admissibility through the compat info compiled into them; the managed
-    // optimized graph embeds none and a TensorRT plan is valid only for the runtime that built it, so the RUNTIME
-    // VERSION enters both their keys and an artifact another ORT wrote MISSES rather than loading under a runtime
-    // that never produced it.
+    // The managed optimized graph embeds no compat info and a TensorRT plan is valid only for the runtime that
+    // built it, so the RUNTIME VERSION enters both their keys and an artifact another ORT wrote MISSES rather
+    // than loading under a runtime that never produced it.
     public bool RuntimeKeyed { get; }
 
     // Presence is FORM-SHAPED: a blob and a managed graph are files, an engine cache is a directory the EP fills
@@ -100,20 +94,194 @@ public sealed partial class WarmForm {
     public partial bool Present(string path);
 }
 
-// Provider availability and the published EP-device census are properties of the LOADED RUNTIME, and the runtime
-// boots once. Re-reading `GetAvailableProviders` and `GetEpDevices` on every `Available`, `Devices`, `Resolve`, and
-// `FromWire` pays a native call per row per lease for a set that cannot change after `OrtEnv` creation — and hands
-// back FRESH `OrtEpDevice` instances each time, so a device `AutoSelect` ranked could never be located again by
-// identity, which is exactly what the ordinal projection needs.
-public sealed record ProviderSnapshot(FrozenSet<string> Loaded, FrozenDictionary<string, Seq<OrtEpDevice>> Published) {
-    public static ProviderSnapshot Of(OrtEnv env) => new(
-        env.GetAvailableProviders().ToFrozenSet(StringComparer.Ordinal),
-        toSeq(env.GetEpDevices())
-            .GroupBy(static device => device.EpName, StringComparer.Ordinal)
-            .ToFrozenDictionary(static group => group.Key, static group => toSeq(group), StringComparer.Ordinal));
+// The four states a `bool` collapsed. `Absent` is a first open, `Recompile` carries the verdict that refused a
+// blob the fleet already paid for, and `NotApplicable` is a row with no device to ask — three distinct causes a
+// consumer had to re-derive from the provider's warm form once the bit erased them.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record WarmVerdict(string Path) {
+    public sealed record Absent(string Path) : WarmVerdict(Path);
+
+    public sealed record Admissible(string Path, Option<OrtCompiledModelCompatibility> Compat) : WarmVerdict(Path);
+
+    public sealed record Recompile(string Path, OrtCompiledModelCompatibility Compat) : WarmVerdict(Path);
+
+    public sealed record NotApplicable(string Path) : WarmVerdict(Path);
+
+    // The ONE narrowing to the binary an ORT session key can carry: a blob binds or the open compiles fresh. It
+    // lives here so the two `BindWarm` arms read one derivation instead of each re-asking which miss it holds.
+    public bool Bound => Switch(
+        absent: static _ => false,
+        admissible: static _ => true,
+        recompile: static _ => false,
+        notApplicable: static _ => false);
+}
+
+// WebGPU's option vocabulary as ROWS. Values are case-sensitive and EXACT — `disabled`/`bucket`/`1`, never
+// `Disabled`/`Bucket`/`true` — and a comment stating that type-checks nothing. The native-handle keys
+// (`webgpuInstance`, `webgpuDevice`, `dawnProcTable`, `enablePIXCapture`) and `dawnBackendType` are absent BY
+// CONSTRUCTION rather than barred by a predicate: a `dawnBackendType` naming an unavailable backend aborts the
+// PROCESS from a native callback frame the CLR never unwinds, so the key is unspellable through this door.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class WebGpuOption {
+    static FrozenSet<string> Values(params ReadOnlySpan<string> admitted) => admitted.ToArray().ToFrozenSet(StringComparer.Ordinal);
+    static readonly FrozenSet<string> Toggle = Values("0", "1");
+    static readonly FrozenSet<string> CacheMode = Values("disabled", "lazyRelease", "simple", "bucket");
+
+    public static readonly WebGpuOption PowerPreference = new("powerPreference", Values("high-performance", "low-power"));
+    public static readonly WebGpuOption PreferredLayout = new("preferredLayout", Values("NCHW", "NHWC"));
+    public static readonly WebGpuOption ValidationMode = new("validationMode", Values("disabled", "wgpuOnly", "basic", "full"));
+    public static readonly WebGpuOption StorageBufferCacheMode = new("storageBufferCacheMode", CacheMode);
+    public static readonly WebGpuOption UniformBufferCacheMode = new("uniformBufferCacheMode", CacheMode);
+    public static readonly WebGpuOption QueryResolveBufferCacheMode = new("queryResolveBufferCacheMode", CacheMode);
+    public static readonly WebGpuOption DefaultBufferCacheMode = new("defaultBufferCacheMode", CacheMode);
+    public static readonly WebGpuOption EnableGraphCapture = new("enableGraphCapture", Toggle);
+    // A CAPABILITY toggle, never a precision posture — int64 support widens the op set the EP claims and moves
+    // no accumulation width, so it never reaches `NumericTrait`.
+    public static readonly WebGpuOption EnableInt64 = new("enableInt64", Toggle);
+    public static readonly WebGpuOption PreserveDevice = new("preserveDevice", Toggle);
+    public static readonly WebGpuOption MaxStorageBufferBindingSize = new("maxStorageBufferBindingSize", FrozenSet<string>.Empty);
+
+    // An EMPTY admitted set means the value is a magnitude the EP parses, not a vocabulary this roster closes.
+    public FrozenSet<string> Admitted { get; }
+
+    public Fin<KeyValuePair<string, string>> Pin(string value) =>
+        Admitted.Count is 0 || Admitted.Contains(value)
+            ? Fin.Succ(new KeyValuePair<string, string>(Key, value))
+            : Fin.Fail<KeyValuePair<string, string>>(new ComputeFault.Violation(ComputeArea.Model, new ComputeViolation.Contract(ComputeContract.Rostered, new ContractEvidence.Keys(Key, value))));
+
+    // The row's own EP-option table folds through here, so a pinned key is admitted before it reaches native and
+    // an unrostered key has no spelling at all. The pin roster is EMPTY today — ORT's own defaults govern until a
+    // measured policy earns a row — and the fold is what makes adding one a single tuple.
+    public static Fin<FrozenDictionary<string, string>> Pins(Seq<(WebGpuOption Option, string Value)> pins) =>
+        pins.Traverse(static pin => pin.Option.Pin(pin.Value).ToValidation()).As().ToFin()
+            .Map(static admitted => admitted.ToFrozenDictionary(static row => row.Key, static row => row.Value, StringComparer.Ordinal));
+}
+
+// OpenVINO's `device_type` vocabulary. Bare `CPU`/`GPU`/`NPU` name silicon this roster cannot know is present;
+// the mode prefixes take a comma-separated priority list the plugin ranks. `Auto` is the row's posture because it
+// returns without a device list and lets the plugin rank the hardware it actually found. The legacy fused
+// spellings (`GPU_FP16` and its train) and the deprecated `precision`/`num_of_threads`/`cache_dir` knobs are the
+// deleted forms — `load_config` replaced them and this row spells none of them.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class OpenVinoDevice {
+    public static readonly OpenVinoDevice Auto = new("AUTO");
+    public static readonly OpenVinoDevice Cpu = new("CPU");
+    public static readonly OpenVinoDevice Gpu = new("GPU");
+    public static readonly OpenVinoDevice Npu = new("NPU");
+    public static readonly OpenVinoDevice Hetero = new("HETERO");
+    public static readonly OpenVinoDevice Multi = new("MULTI");
+}
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ModelPrecision {
+    // Precision rows carry EXECUTION POSTURE, never a graph transform: Int8/Int4 demand settled pre-quantized
+    // model bytes (the quantized graph is its own checksum identity) and select the MatMulNBits accuracy floor
+    // with the accumulation posture. Each row's wire spelling is its own column, and rows demanding settled
+    // quantized bytes carry NONE — nothing a caller states as a preference selects a posture that is a property
+    // of the model file it did not supply.
+    public static readonly ModelPrecision Full = new("full", wireKey: "fp32", posture: NumericPosture.Native, negativeTtl: Duration.FromMinutes(15));
+    public static readonly ModelPrecision Fp16 = new("fp16", wireKey: "fp16", posture: NumericPosture.Narrowed, negativeTtl: Duration.FromMinutes(10));
+    public static readonly ModelPrecision Bf16 = new("bf16", wireKey: Option<string>.None, posture: NumericPosture.FastMath, negativeTtl: Duration.FromMinutes(10));
+    public static readonly ModelPrecision Int8 = new("int8", wireKey: Option<string>.None, posture: NumericPosture.Quantized, negativeTtl: Duration.FromMinutes(5));
+    public static readonly ModelPrecision Int4 = new("int4", wireKey: Option<string>.None, posture: NumericPosture.Quantized, negativeTtl: Duration.FromMinutes(2));
+
+    private ModelPrecision(string key, Option<string> wireKey, CapabilitySet<NumericTrait> posture, Duration negativeTtl) : this(key) =>
+        (WireKey, Posture, NegativeTtl, QdqKeys) = (wireKey, posture, negativeTtl, Qdq(posture));
+
+    public Option<string> WireKey { get; }
+    public CapabilitySet<NumericTrait> Posture { get; }
+
+    // The negative-CACHE horizon `Model/run#RESULT_CACHE` reads, keyed by precision because a narrower run
+    // fails faster and its refusals go stale sooner — the one column on this row that is a cache policy rather
+    // than a numeric one, and it stays here because the cache would otherwise join it back by the same key.
+    public Duration NegativeTtl { get; }
+
+    // Computed ONCE at construction: the roster is static and the projection is a row constant, so the property
+    // that rebuilt a `Dictionary` and froze it on every read priced a constant at registration cadence.
+    public FrozenDictionary<string, string> QdqKeys { get; }
+
+    // Corner legality proves over the WHOLE roster at first read and threads into `Register`, so a row spelling a
+    // hand-built set outside `NumericPosture` refuses at the one native gate that consumes precision instead of
+    // arming a posture no runtime honours. Accessor-backed: an eager field would freeze an EMPTY `Items`.
+    public static Fin<Unit> Rostered => Legal.Value;
+
+    static readonly Lazy<Fin<Unit>> Legal = new(
+        static () => toSeq(Items)
+            .Traverse(static row => NumericPosture.Law.Admit(row.Posture).ToValidation())
+            .As().ToFin().Map(static _ => unit),
+        LazyThreadSafetyMode.ExecutionAndPublication);
+
+    public static Option<ModelPrecision> FromWire(string wire) =>
+        toSeq(Items).Find(row => row.WireKey.Case is string key && StringComparer.Ordinal.Equals(key, wire));
+
+    static FrozenDictionary<string, string> Qdq(CapabilitySet<NumericTrait> posture) =>
+        posture.Admits(NumericTrait.QuantizedGraph)
+            ? new Dictionary<string, string>(StringComparer.Ordinal) {
+                ["session.qdq_matmulnbits_accuracy_level"] = NumericPosture.MatMulNBitsFloor.ToString(CultureInfo.InvariantCulture),
+            }.ToFrozenDictionary(StringComparer.Ordinal)
+            : FrozenDictionary<string, string>.Empty;
+}
+
+// One hardware device an EP cannot claim, and why. A 4-tuple named the columns positionally at every read; the
+// row names them once and the reason bitmask keeps its type instead of decaying into fault text.
+public readonly record struct VetoRow(OrtHardwareDeviceType Device, OrtDeviceEpIncompatibilityReason Reason, string Notes, int Code);
+
+// Provider availability, the published EP-device census, and the per-provider incompatibility census are all
+// properties of the LOADED RUNTIME, and the runtime boots once. Re-reading `GetAvailableProviders`,
+// `GetEpDevices`, or `GetHardwareDevices` on every `Available`, `Devices`, `Vetoes`, `Resolve`, and `FromWire`
+// pays a native call per row per lease for sets that cannot change after `OrtEnv` creation — and hands back
+// FRESH `OrtEpDevice` instances each time, so a device `AutoSelect` ranked could never be located again by
+// identity, which is exactly what the ordinal projection needs. The provider roster arrives as a PARAMETER so
+// this carrier stays roster-agnostic and no static here races the row fields it would otherwise read.
+public sealed record ProviderSnapshot(
+    FrozenSet<string> Loaded,
+    FrozenDictionary<string, Seq<OrtEpDevice>> Published,
+    FrozenDictionary<string, Seq<VetoRow>> Vetoed) {
+    public static ProviderSnapshot Of(OrtEnv env, Seq<string> providers) {
+        Seq<OrtHardwareDevice> hardware = toSeq(env.GetHardwareDevices());
+        return new(
+            env.GetAvailableProviders().ToFrozenSet(StringComparer.Ordinal),
+            toSeq(env.GetEpDevices())
+                .GroupBy(static device => device.EpName, StringComparer.Ordinal)
+                .ToFrozenDictionary(static group => group.Key, static group => toSeq(group), StringComparer.Ordinal),
+            providers.ToFrozenDictionary(
+                static provider => provider,
+                provider => hardware.Map(device => {
+                    using OrtDeviceEpIncompatibilityDetails details = env.GetHardwareDeviceEpIncompatibilityDetails(provider, device);
+                    return new VetoRow(device.Type, details.ReasonsBitmask, details.Notes, details.ErrorCode);
+                }).Filter(static row => row.Reason != OrtDeviceEpIncompatibilityReason.None),
+                StringComparer.Ordinal));
+    }
 
     public Seq<OrtEpDevice> For(string providerName) =>
         Published.TryGetValue(providerName, out Seq<OrtEpDevice> devices) ? devices : Seq<OrtEpDevice>();
+
+    public Seq<VetoRow> VetoesFor(string providerName) =>
+        Vetoed.TryGetValue(providerName, out Seq<VetoRow> rows) ? rows : Seq<VetoRow>();
+
+    // Device identity seats with the census that mints it: the EP, hardware, and self-description tables fold to
+    // one `ulong` that keys the warm artifact, the shared allocator arena, and result identity alike. A second
+    // derivation at the session capsule would let one adapter answer two identities.
+    public static ulong Fingerprint(OrtEpDevice device) => RosterFingerprint.Of(
+        new KeyValuePair<string, string>[] {
+            new("ep", device.EpName),
+            new("ep-vendor", device.EpVendor),
+            new("hardware-vendor-id", device.HardwareDevice.VendorId.ToString(CultureInfo.InvariantCulture)),
+            new("hardware-vendor", device.HardwareDevice.Vendor),
+            new("hardware-device", device.HardwareDevice.DeviceId.ToString(CultureInfo.InvariantCulture)),
+            new("hardware-type", ((int)device.HardwareDevice.Type).ToString(CultureInfo.InvariantCulture)),
+        }
+        .Concat(device.EpMetadata.Entries.Select(static row => new KeyValuePair<string, string>($"ep-meta:{row.Key}", row.Value)))
+        .Concat(device.EpOptions.Entries.Select(static row => new KeyValuePair<string, string>($"ep-option:{row.Key}", row.Value)))
+        .Concat(device.HardwareDevice.Metadata.Entries.Select(static row => new KeyValuePair<string, string>($"hardware-meta:{row.Key}", row.Value))));
 }
 
 // Where a row's native artifacts live: the shared artifact DIRECTORY any row may write beneath, and the
@@ -122,6 +290,8 @@ public sealed record ProviderSnapshot(FrozenSet<string> Loaded, FrozenDictionary
 // the other's, so one value carries both facts instead of two parameters every row must ignore one of.
 public readonly record struct ArtifactSite(string Directory, string WarmPath);
 
+// --- [SERVICES] ------------------------------------------------------------------------
+
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -129,8 +299,9 @@ public sealed partial class ExecutionProvider {
     // ONE census per process, materialized at the accessor rather than an eager static: the read edge is the first
     // provider question any lease asks, which is necessarily after `Model/sessions#SESSION_CAPSULE` `Boot` created
     // the environment, while an eager initializer would race the row fields it sits beside.
-    static readonly Lazy<ProviderSnapshot> Frozen =
-        new(static () => ProviderSnapshot.Of(OrtEnv.Instance()), LazyThreadSafetyMode.ExecutionAndPublication);
+    static readonly Lazy<ProviderSnapshot> Frozen = new(
+        static () => ProviderSnapshot.Of(OrtEnv.Instance(), toSeq(Items).Map(static row => row.ProviderName)),
+        LazyThreadSafetyMode.ExecutionAndPublication);
 
     public static ProviderSnapshot Snapshot => Frozen.Value;
 
@@ -152,30 +323,29 @@ public sealed partial class ExecutionProvider {
 
     static FrozenDictionary<string, string> CpuSessionKeys(ModelPrecision precision) =>
         new Dictionary<string, string>(StringComparer.Ordinal) {
-            ["mlas.enable_gemm_fastmath_arm64_bfloat16"] = precision.Bfloat16FastMath ? "1" : "0",
+            ["mlas.enable_gemm_fastmath_arm64_bfloat16"] = precision.Posture.Admits(NumericTrait.Bfloat16FastMath) ? "1" : "0",
         }.ToFrozenDictionary(StringComparer.Ordinal);
 
     static FrozenDictionary<string, string> CoreMlOptions(ModelPrecision precision) =>
         new Dictionary<string, string>(CoreMlRows, StringComparer.Ordinal) {
-            ["AllowLowPrecisionAccumulationOnGPU"] = precision.LowPrecisionAccumulation ? "1" : "0",
+            ["AllowLowPrecisionAccumulationOnGPU"] = precision.Posture.Admits(NumericTrait.NarrowAccumulation) ? "1" : "0",
         }.ToFrozenDictionary(StringComparer.Ordinal);
 
-    // The engine cache is armed on the OPTION BAG, and only the enable flag reaches result identity: the plan a
-    // TensorRT engine encodes is the same graph at the same precision whichever directory holds it, so the path is
-    // a location column and the flag is a behavior one.
+    // Only the ENABLE flag reaches result identity: the plan a TensorRT engine encodes is the same graph at the
+    // same precision whichever directory holds it.
     static readonly FrozenDictionary<string, string> TensorRtRows = new Dictionary<string, string>(StringComparer.Ordinal) {
         ["trt_engine_cache_enable"] = "1",
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
-    // OpenVINO's device selection is `device_type`, whose vocabulary is bare `CPU`/`GPU`/`NPU` or a mode prefix
-    // (`AUTO`, `HETERO`, `MULTI`) over a comma-separated priority list; the parser refuses anything else outright.
-    // Bare `AUTO` is the row's posture because it returns without a device list and lets the plugin rank the
-    // hardware it actually found, where a pinned device names silicon this roster cannot know is present. The
-    // legacy fused spellings (`GPU_FP16` and its train) are gone, and the old `precision`/`num_of_threads`/
-    // `cache_dir` knobs are deprecated in favour of `load_config` — none of which this row spells.
     static readonly FrozenDictionary<string, string> OpenVinoRows = new Dictionary<string, string>(StringComparer.Ordinal) {
-        ["device_type"] = "AUTO",
+        ["device_type"] = OpenVinoDevice.Auto.Key,
     }.ToFrozenDictionary(StringComparer.Ordinal);
+
+    // EMPTY pin roster: ORT's own WebGPU defaults govern until a measured policy earns a row, and the fold is
+    // what makes earning one a single tuple against a vocabulary the parser already closed.
+    static readonly Lazy<FrozenDictionary<string, string>> WebGpuRows = new(
+        static () => WebGpuOption.Pins(Seq<(WebGpuOption, string)>()).IfFail(static _ => FrozenDictionary<string, string>.Empty),
+        LazyThreadSafetyMode.ExecutionAndPublication);
 
     public static readonly ExecutionProvider Cpu = new(
         "cpu", providerName: "CPUExecutionProvider", wireKey: "cpu", hostGate: static () => true,
@@ -193,15 +363,14 @@ public sealed partial class ExecutionProvider {
         epOptions: static _ => FrozenDictionary<string, string>.Empty, ordinalKey: "device_id",
         register: static (options, rows) => {
             using OrtCUDAProviderOptions cuda = new();
-            cuda.UpdateOptions(new Dictionary<string, string>(rows, StringComparer.Ordinal));
+            cuda.UpdateOptions(rows);
             options.AppendExecutionProvider_CUDA(cuda);
         });
 
     public static readonly ExecutionProvider DirectMl = Accelerator(
         "directml", "DmlExecutionProvider", OrtHardwareDeviceType.GPU, OperatingSystem.IsWindows,
         epOptions: static _ => FrozenDictionary<string, string>.Empty, ordinalKey: "device_id",
-        register: static (options, rows) => options.AppendExecutionProvider(
-            "DML", new Dictionary<string, string>(rows, StringComparer.Ordinal)));
+        register: static (options, rows) => options.AppendExecutionProvider("DML", rows));
 
     public static readonly ExecutionProvider TensorRt = new(
         "tensorrt", providerName: "TensorrtExecutionProvider", wireKey: Option<string>.None, hostGate: static () => true,
@@ -214,47 +383,34 @@ public sealed partial class ExecutionProvider {
         warm: WarmForm.EngineCache,
         registerRow: static (options, rows) => {
             using OrtTensorRTProviderOptions tensorRt = new();
-            tensorRt.UpdateOptions(new Dictionary<string, string>(rows, StringComparer.Ordinal));
+            tensorRt.UpdateOptions(rows);
             options.AppendExecutionProvider_Tensorrt(tensorRt);
         });
 
-    public static readonly ExecutionProvider CoreMl = new(
-        "coreml", providerName: "CoreMLExecutionProvider", wireKey: "coreMl",
-        hostGate: static () => OperatingSystem.IsMacOSVersionAtLeast(12),
+    public static readonly ExecutionProvider CoreMl = Accelerator(
+        "coreml", "CoreMLExecutionProvider", OrtHardwareDeviceType.NPU,
+        static () => OperatingSystem.IsMacOSVersionAtLeast(12),
         epOptions: CoreMlOptions,
-        locationOptions: static site => new Dictionary<string, string>(StringComparer.Ordinal) { ["ModelCacheDirectory"] = site.Directory }.ToFrozenDictionary(StringComparer.Ordinal),
-        sessionKeys: static _ => FrozenDictionary<string, string>.Empty, ordinalKey: Option<string>.None,
-        devicePolicy: Some(ExecutionProviderDevicePolicy.PREFER_NPU), hardwareAffinity: OrtHardwareDeviceType.NPU,
-        warm: WarmForm.EpContext,
-        registerRow: static (options, rows) => options.AppendExecutionProvider(
-            "CoreMLExecutionProvider", new Dictionary<string, string>(rows, StringComparer.Ordinal)));
+        register: static (options, rows) => options.AppendExecutionProvider("CoreMLExecutionProvider", rows),
+        wireKey: "coreMl",
+        devicePolicy: ExecutionProviderDevicePolicy.PREFER_NPU,
+        locationOptions: static site => new Dictionary<string, string>(StringComparer.Ordinal) { ["ModelCacheDirectory"] = site.Directory }.ToFrozenDictionary(StringComparer.Ordinal));
 
     // WebGPU is macOS-arm64-EXCLUSIVE at the pin: only the osx-arm64 dylib carries the Dawn/Metal EP body and
     // its ep.webgpuexecutionprovider.* option keys — every other RID holds the name literal with zero payload,
-    // so HostGate closes there and Available answers false before GetAvailableProviders is consulted. On this
-    // host GetAvailableProviders answers CoreML, WebGpu, CPU; the row publishes a GPU OrtEpDevice (vendor Apple,
-    // EpOptions empty) and takes the autoEP arm, the generic string append its fallback. The row exposes NO
-    // dawnBackendType and no native-handle knob (webgpuInstance/webgpuDevice/dawnProcTable/enablePIXCapture):
-    // a dawnBackendType naming an unavailable backend aborts the PROCESS from a native callback frame the CLR
-    // never unwinds, so the key is structurally unspellable here. Admitted vocabulary (bare keys on the string
-    // append; values case-sensitive and exact — `disabled`/`bucket`/`1`, never `Disabled`/`Bucket`/`true`):
-    // powerPreference (high-performance | low-power), preferredLayout (NCHW | NHWC), validationMode
-    // (disabled | wgpuOnly | basic | full), storageBufferCacheMode/uniformBufferCacheMode/
-    // queryResolveBufferCacheMode/defaultBufferCacheMode (disabled | lazyRelease | simple | bucket),
-    // enableGraphCapture (0|1), enableInt64 (0|1 — a capability toggle, never a precision posture),
-    // preserveDevice (0|1), maxStorageBufferBindingSize (bytes). ModelPrecision reaches WebGPU through NO
-    // EP-specific knob — the row contributes only the shared session/precision rails, and the default option
-    // table stays EMPTY so ORT's own defaults govern until a measured policy pins a key.
-    public static readonly ExecutionProvider WebGpu = new(
-        "webgpu", providerName: "WebGpuExecutionProvider", wireKey: "webGpu",
-        hostGate: static () => OperatingSystem.IsMacOS(),
-        epOptions: static _ => FrozenDictionary<string, string>.Empty,
-        locationOptions: static _ => FrozenDictionary<string, string>.Empty,
-        sessionKeys: static _ => FrozenDictionary<string, string>.Empty, ordinalKey: Option<string>.None,
-        devicePolicy: Some(ExecutionProviderDevicePolicy.PREFER_GPU), hardwareAffinity: OrtHardwareDeviceType.GPU,
-        warm: WarmForm.EpContext,
-        registerRow: static (options, rows) => options.AppendExecutionProvider(
-            "WebGPU", new Dictionary<string, string>(rows, StringComparer.Ordinal)));
+    // so `HostGate` closes there and `Available` answers false before `GetAvailableProviders` is consulted. On
+    // this host `GetAvailableProviders` answers CoreML, WebGpu, CPU; the row publishes a GPU `OrtEpDevice`
+    // (vendor Apple, `EpOptions` empty) and takes the autoEP arm, the generic string append its fallback. The
+    // admitted option vocabulary and the process-aborting keys it excludes are `WebGpuOption` rows, so a pin
+    // type-checks rather than matching prose by eye. `ModelPrecision` reaches this EP through NO provider knob —
+    // the row contributes only the shared session and precision rails.
+    public static readonly ExecutionProvider WebGpu = Accelerator(
+        "webgpu", "WebGpuExecutionProvider", OrtHardwareDeviceType.GPU,
+        static () => OperatingSystem.IsMacOS(),
+        epOptions: static _ => WebGpuRows.Value,
+        register: static (options, rows) => options.AppendExecutionProvider("WebGPU", rows),
+        wireKey: "webGpu",
+        devicePolicy: ExecutionProviderDevicePolicy.PREFER_GPU);
 
     // `AppendExecutionProvider_OpenVINO(string)` takes a bare device string and nothing else — no options overload
     // and no managed provider-options capsule exists for this EP — so the generic string append IS the only path
@@ -262,14 +418,12 @@ public sealed partial class ExecutionProvider {
     public static readonly ExecutionProvider OpenVino = Accelerator(
         "openvino", "OpenVINOExecutionProvider", OrtHardwareDeviceType.NPU, static () => true,
         epOptions: static _ => OpenVinoRows,
-        register: static (options, rows) => options.AppendExecutionProvider(
-            "OpenVINO", new Dictionary<string, string>(rows, StringComparer.Ordinal)));
+        register: static (options, rows) => options.AppendExecutionProvider("OpenVINO", rows));
 
     public static readonly ExecutionProvider MiGraphX = Accelerator(
         "migraphx", "MIGraphXExecutionProvider", OrtHardwareDeviceType.GPU, OperatingSystem.IsLinux,
         epOptions: static _ => FrozenDictionary<string, string>.Empty, ordinalKey: "device_id",
-        register: static (options, rows) => options.AppendExecutionProvider(
-            "MIGraphX", new Dictionary<string, string>(rows, StringComparer.Ordinal)));
+        register: static (options, rows) => options.AppendExecutionProvider("MIGraphX", rows));
 
     // NNAPI carries no option bag at all — its knob set is the `NnapiFlags` enum its typed member takes — so the row
     // declares no ordinal key and the bag it receives stays empty by construction.
@@ -290,6 +444,9 @@ public sealed partial class ExecutionProvider {
         warm: WarmForm.OptimizedGraph,
         registerRow: static (options, _) => options.AppendExecutionProvider_Dnnl(1));
 
+    // `RegisterRow` takes the CONCRETE dictionary the ONNX API demands, so the option bag materializes exactly
+    // once in `Register` and no delegate re-copies an `IReadOnlyDictionary` into the shape native already
+    // required — seven allocations per registration that existed only to satisfy a parameter type.
     private ExecutionProvider(
         string key, string providerName, Option<string> wireKey, Func<bool> hostGate,
         Func<ModelPrecision, FrozenDictionary<string, string>> epOptions,
@@ -297,9 +454,20 @@ public sealed partial class ExecutionProvider {
         Func<ModelPrecision, FrozenDictionary<string, string>> sessionKeys,
         Option<string> ordinalKey,
         Option<ExecutionProviderDevicePolicy> devicePolicy, OrtHardwareDeviceType hardwareAffinity, WarmForm warm,
-        Action<SessionOptions, IReadOnlyDictionary<string, string>> registerRow) : this(key) =>
+        Action<SessionOptions, Dictionary<string, string>> registerRow) : this(key) {
         (ProviderName, WireKey, HostGate, EpOptions, LocationOptions, SessionKeys, OrdinalKey, DevicePolicy, HardwareAffinity, Warm, RegisterRow) =
-        (providerName, wireKey, hostGate, epOptions, locationOptions, sessionKeys, ordinalKey, devicePolicy, hardwareAffinity, warm, registerRow);
+            (providerName, wireKey, hostGate, epOptions, locationOptions, sessionKeys, ordinalKey, devicePolicy, hardwareAffinity, warm, registerRow);
+        // Ranked ONCE per row: the census is frozen, so the order is a constant and re-sorting it inside a
+        // property priced a total order at lease cadence.
+        ranked = new(() => toSeq(Devices
+            .OrderByDescending(device => Rank(device.HardwareDevice.Type, HardwareAffinity))
+            .ThenBy(static device => device.EpName, StringComparer.Ordinal)
+            .ThenBy(static device => device.EpVendor, StringComparer.Ordinal)
+            .ThenBy(static device => device.HardwareDevice.VendorId)
+            .ThenBy(static device => device.HardwareDevice.DeviceId)), LazyThreadSafetyMode.ExecutionAndPublication);
+    }
+
+    readonly Lazy<Seq<OrtEpDevice>> ranked;
 
     public string ProviderName { get; }
     public Option<string> WireKey { get; }
@@ -315,25 +483,21 @@ public sealed partial class ExecutionProvider {
     public Option<ExecutionProviderDevicePolicy> DevicePolicy { get; }
     public OrtHardwareDeviceType HardwareAffinity { get; }
     public WarmForm Warm { get; }
-    public Action<SessionOptions, IReadOnlyDictionary<string, string>> RegisterRow { get; }
+    public Action<SessionOptions, Dictionary<string, string>> RegisterRow { get; }
 
     public bool Available => HostGate() && Snapshot.Loaded.Contains(ProviderName);
 
-    // Floor identity is DERIVED, never a column: exactly one row can answer true and no construction can fork it.
     public bool IsFloor => ReferenceEquals(this, Cpu);
 
     public static ExecutionProvider Floor => Cpu;
 
-    // Degradation happens HERE and nowhere else: a caller states a preference, this answer decides, and the run
-    // reports it back as evidence — so an unshipped or host-refused provider never becomes a caller-facing fault.
     public static ExecutionProvider Resolve(string key) =>
         TryGet(key, out ExecutionProvider? row) && row.Available ? row : Floor;
 
-    // Wire values name a PREFERENCE and this answer names what runs. Spellings no row claims and rows whose native
-    // provider never loaded reach the floor by one route, because from this end they are one fact: a provider this
-    // host cannot offer. Consuming records report the answer, so the substitution is never silent. Resolution scans
-    // rather than folding a cached inverse — static tables built from `Items` beside the row initializers race them
-    // and can freeze an empty roster.
+    // Spellings no row claims and rows whose native provider never loaded reach the floor by ONE route, because
+    // from this end they are one fact: a provider this host cannot offer. Resolution scans rather than folding a
+    // cached inverse — a static table built from `Items` beside the row initializers races them and can freeze an
+    // empty roster.
     public static ExecutionProvider FromWire(string wire) =>
         toSeq(Items)
             .Find(row => row.WireKey.Case is string key && StringComparer.Ordinal.Equals(key, wire))
@@ -344,40 +508,52 @@ public sealed partial class ExecutionProvider {
 
     public Seq<OrtEpDevice> Devices => Snapshot.For(ProviderName);
 
-    public Seq<OrtEpDevice> AutoSelect =>
-        toSeq(Devices.OrderByDescending(device =>
-            device.HardwareDevice.Type == HardwareAffinity ? 2
-            : device.HardwareDevice.Type == OrtHardwareDeviceType.CPU ? 0
-            : 1)
-        .ThenBy(static device => device.EpName, StringComparer.Ordinal)
-        .ThenBy(static device => device.EpVendor, StringComparer.Ordinal)
-        .ThenBy(static device => device.HardwareDevice.VendorId)
-        .ThenBy(static device => device.HardwareDevice.DeviceId));
+    public Seq<OrtEpDevice> AutoSelect => ranked.Value;
 
-    public Seq<(OrtHardwareDeviceType Device, OrtDeviceEpIncompatibilityReason Reason, string Notes, int Code)> Veto =>
-        toSeq(OrtEnv.Instance().GetHardwareDevices()).Map(device => {
-            using OrtDeviceEpIncompatibilityDetails details = OrtEnv.Instance().GetHardwareDeviceEpIncompatibilityDetails(ProviderName, device);
-            return (Device: device.Type, Reason: details.ReasonsBitmask, Notes: details.Notes, Code: details.ErrorCode);
-        }).Filter(static row => row.Reason != OrtDeviceEpIncompatibilityReason.None);
+    public Seq<VetoRow> Vetoes => Snapshot.VetoesFor(ProviderName);
+
+    // Device rank is a POLICY ROW over the (affinity match, CPU) pair: the row's own affinity first, any other
+    // accelerator next, CPU last, and a fourth rank is one more arm rather than a deeper conditional.
+    static int Rank(OrtHardwareDeviceType device, OrtHardwareDeviceType affinity) =>
+        (Affinity: device == affinity, Cpu: device == OrtHardwareDeviceType.CPU) switch {
+            (true, _) => 2,
+            (_, true) => 0,
+            _ => 1,
+        };
 
     public FrozenDictionary<string, string> OptionsFor(ModelPrecision precision) =>
         EpOptions(precision).Concat(SessionKeys(precision)).Concat(precision.QdqKeys)
             .ToFrozenDictionary(static row => row.Key, static row => row.Value, StringComparer.Ordinal);
 
-    public void Register(SessionOptions options, ArtifactSite artifacts, ModelPrecision precision, Seq<OrtEpDevice> devices) {
-        toSeq(SessionKeys(precision).Concat(precision.QdqKeys)).Iter(entry => options.AddSessionConfigEntry(entry.Key, entry.Value));
-        Dictionary<string, string> registerOptions = new(EpOptions(precision), StringComparer.Ordinal);
-        toSeq(LocationOptions(artifacts)).Iter(entry => registerOptions[entry.Key] = entry.Value);
-        // The RANKED device's ordinal is one more option row: `AutoSelect` ordered by hardware affinity, so a
-        // registration binding a literal zero runs the graph on whichever adapter the driver enumerated first while
-        // every receipt names the device the rank chose — the two disagree silently on any multi-GPU host.
-        OrdinalKey.Iter(key => Ordinal(devices).Iter(ordinal =>
-            registerOptions[key] = ordinal.ToString(CultureInfo.InvariantCulture)));
-        if (devices.IsEmpty) { RegisterRow(options, registerOptions); }
-        else {
-            options.AppendExecutionProvider(OrtEnv.Instance(), devices.ToList(), registerOptions);
-        }
-    }
+    // The option bag folds IMMUTABLY and materializes once at the native seam. `HashMap.AddOrUpdate` is
+    // last-wins, which is the collision policy this leg has always had — and it is deliberately NOT
+    // `OptionsFor`'s, whose `ToFrozenDictionary` refuses a duplicate outright, because a location option
+    // overwriting an EP option changes where an artifact lands while a duplicate inside RESULT IDENTITY would
+    // silently pick one of two behaviours to key on.
+    public Fin<SessionOptions> Register(SessionOptions options, ArtifactSite artifacts, ModelPrecision precision, Seq<OrtEpDevice> devices) =>
+        ModelPrecision.Rostered
+            .Bind(_ => guard(
+                Vetoes.IsEmpty || !Devices.IsEmpty,
+                (Error)new ComputeFault.SubstrateUnavailable(
+                    $"<ep-vetoed:{Key}:{string.Join(';', Vetoes.Map(static row => $"{row.Device}={row.Reason}:{row.Code}"))}>")).ToFin())
+            .Bind(_ => Op.Of(name: "model.provider-register").Catch(() => {
+                toSeq(SessionKeys(precision).Concat(precision.QdqKeys)).Iter(entry => options.AddSessionConfigEntry(entry.Key, entry.Value));
+                Dictionary<string, string> registerOptions = Registered(precision, artifacts, devices);
+                if (devices.IsEmpty) { RegisterRow(options, registerOptions); }
+                else { options.AppendExecutionProvider(OrtEnv.Instance(), devices.ToList(), registerOptions); }
+                return Fin.Succ(options);
+            }));
+
+    // The RANKED device's ordinal is one more option row: `AutoSelect` ordered by hardware affinity, so a
+    // registration binding a literal zero runs the graph on whichever adapter the driver enumerated first while
+    // every receipt names the device the rank chose — the two disagree silently on any multi-GPU host.
+    Dictionary<string, string> Registered(ModelPrecision precision, ArtifactSite artifacts, Seq<OrtEpDevice> devices) =>
+        toHashMap(EpOptions(precision))
+            .AddOrUpdateRange(LocationOptions(artifacts))
+            .AddOrUpdateRange(OrdinalKey.Bind(key => Ordinal(devices)
+                .Map(ordinal => (key, ordinal.ToString(CultureInfo.InvariantCulture))))
+                .ToSeq())
+            .ToDictionary(static row => row.Key, static row => row.Value, StringComparer.Ordinal);
 
     // The ordinal an EP option row spells is the device's INDEX within this row's own census — `GetEpDevices`
     // enumerates per EP — never the hardware vendor or device id, which name silicon rather than an EP device slot.
@@ -389,25 +565,33 @@ public sealed partial class ExecutionProvider {
             .Find(row => ReferenceEquals(row.Device, chosen))
             .Map(static row => row.Index));
 
-    // Compat info is embedded at compile time: the probe reads the COMPILED EP-context artifact, never the uncompiled source model.
-    public Option<OrtCompiledModelCompatibility> Compatible(string compiledModelPath, Seq<OrtEpDevice> devices) =>
+    // Compat info is embedded at compile time: the probe reads the COMPILED EP-context artifact, never the
+    // uncompiled source model. Both native legs raise — one reads a file, the other calls into the EP — so the
+    // answer rides `Fin` and `None` keeps its ONE meaning: this row published no device to ask.
+    public Fin<Option<OrtCompiledModelCompatibility>> Compatible(string compiledModelPath, Seq<OrtEpDevice> devices) =>
         devices.IsEmpty
-            ? None
-            : Some(OrtEnv.Instance().GetModelCompatibilityForEpDevices(
-                devices.ToList(), OrtEnv.Instance().GetCompatibilityInfoFromModel(compiledModelPath, ProviderName)));
+            ? Fin.Succ(Option<OrtCompiledModelCompatibility>.None)
+            : Op.Of(name: "model.provider-compatibility").Catch(() => Fin.Succ(Some(OrtEnv.Instance().GetModelCompatibilityForEpDevices(
+                devices.ToList(), OrtEnv.Instance().GetCompatibilityInfoFromModel(compiledModelPath, ProviderName)))));
 
-    // Admissibility dispatches on the row's own warm FORM, and PRESENCE is that form's own probe — a blob and a
+    // The verdict dispatches on the row's own warm FORM, and PRESENCE is that form's own probe — a blob and a
     // managed graph are files, an engine cache is a directory the EP fills itself. An EP-context blob answers
-    // through the two-step compat probe embedded in it; the managed graph and the engine cache embed no compat info
-    // at all, and their runtime version and every construction-behavior column already key the artifact name, so
-    // PRESENCE is admissibility there and a stale artifact is a key MISS rather than a verdict.
-    public bool WarmStartAdmissible(string warmPath, Seq<OrtEpDevice> devices) =>
-        Warm.Present(warmPath)
-        && Warm.Switch(
-            state: (Row: this, Path: warmPath, Devices: devices),
-            epContext: static probe => probe.Row.Compatible(probe.Path, probe.Devices).Case is OrtCompiledModelCompatibility.EP_SUPPORTED_OPTIMAL,
-            optimizedGraph: static _ => true,
-            engineCache: static _ => true);
+    // through the two-step compat probe embedded in it, and the verdict CARRIES what that probe read; the managed
+    // graph and the engine cache embed no compat info at all, and their runtime version and every
+    // construction-behavior column already key the artifact name, so presence is admissibility there and a stale
+    // artifact is a key MISS rather than a verdict.
+    public Fin<WarmVerdict> Warmth(string warmPath, Seq<OrtEpDevice> devices) =>
+        !Warm.Present(warmPath)
+            ? Fin.Succ<WarmVerdict>(new WarmVerdict.Absent(warmPath))
+            : Warm.Switch(
+                state: (Row: this, Path: warmPath, Devices: devices),
+                epContext: static probe => probe.Row.Compatible(probe.Path, probe.Devices).Map(compat => compat.Match(
+                    Some: held => held == OrtCompiledModelCompatibility.EP_SUPPORTED_OPTIMAL
+                        ? (WarmVerdict)new WarmVerdict.Admissible(probe.Path, Some(held))
+                        : new WarmVerdict.Recompile(probe.Path, held),
+                    None: () => (WarmVerdict)new WarmVerdict.NotApplicable(probe.Path))),
+                optimizedGraph: static probe => Fin.Succ<WarmVerdict>(new WarmVerdict.Admissible(probe.Path, None)),
+                engineCache: static probe => Fin.Succ<WarmVerdict>(new WarmVerdict.Admissible(probe.Path, None)));
 
     // ONE warm bind per open: EP-context rows write the `ep.context_*` triple and managed rows point
     // `OptimizedModelFilePath` at the same artifact key, so the session fold carries no per-provider branch and a row
@@ -416,85 +600,60 @@ public sealed partial class ExecutionProvider {
     // whole optimization write for a file byte-identical to the one on disk. The engine cache writes NOTHING here:
     // `trt_engine_cache_enable` and `trt_engine_cache_path` are EP provider options the registration already folded,
     // so a session key beside them would be a second arming of one mechanism, and the one ORT never reads.
-    public void BindWarm(SessionOptions options, string warmPath, bool admissible) =>
+    public void BindWarm(SessionOptions options, WarmVerdict verdict) =>
         Warm.Switch(
-            state: (Options: options, Path: warmPath, Admissible: admissible),
+            state: (Options: options, Verdict: verdict),
             epContext: static site => {
-                site.Options.AddSessionConfigEntry("ep.context_enable", site.Admissible ? "1" : "0");
-                site.Options.AddSessionConfigEntry("ep.context_file_path", site.Path);
+                site.Options.AddSessionConfigEntry("ep.context_enable", site.Verdict.Bound ? "1" : "0");
+                site.Options.AddSessionConfigEntry("ep.context_file_path", site.Verdict.Path);
                 site.Options.AddSessionConfigEntry("ep.share_ep_contexts", "1");
             },
             optimizedGraph: static site => {
-                if (!site.Admissible) { site.Options.OptimizedModelFilePath = site.Path; }
+                if (!site.Verdict.Bound) { site.Options.OptimizedModelFilePath = site.Verdict.Path; }
             },
             engineCache: static _ => { });
 
-    public string ResultKey(string ortVersion, ModelPrecision precision) =>
-        $"{Key}:{ortVersion}:{precision.Key}:{ModelFingerprint.Of(OptionsFor(precision)):x16}";
+    // The SELECTED device joins result identity: `AutoSelect` ranks by affinity, so one provider key spans two
+    // adapters on a dual-GPU host and the residual a provider produces is a property of the silicon that ran it.
+    public string ResultKey(string ortVersion, ModelPrecision precision, Option<OrtEpDevice> device) =>
+        $"{Key}:{ortVersion}:{precision.Key}:{RosterFingerprint.Of(OptionsFor(precision)):x16}"
+        + device.Match(Some: static held => $":{ProviderSnapshot.Fingerprint(held):x16}", None: static () => string.Empty);
 
     // Built-in accelerators carry NO wire spelling until a boundary record names one: rows exist so `Available`
     // answers for the host, and a spelling nobody sends puts an unreachable key on every wire reading this roster.
-    // `wireKey` defaults to `None`, so admitting a row to a wire is one argument. Every row this factory mints is
-    // EP-context capable by definition — a row whose EP warms through another mechanism declares through the
-    // constructor beside `Cpu`, `TensorRt`, and `Dnnl`, which is what keeps the warm form a stated column rather
-    // than an assumed default. The register delegate takes the OPTION BAG because that bag now carries the ranked
-    // device ordinal, so a delegate ignoring it would discard the selection the rank just made.
+    // Every optional column defaults to the shape an accelerator without it holds, so admitting a row to a wire, a
+    // selection policy, or an artifact directory is ONE argument — the two rows that once declared through the
+    // constructor for a device policy alone now mint here. Every row this factory mints is EP-context capable by
+    // definition: a row whose EP warms through another mechanism declares through the constructor beside `Cpu`,
+    // `TensorRt`, and `Dnnl`, which is what keeps the warm form a stated column rather than an assumed default.
+    // The register delegate takes the OPTION BAG because that bag carries the ranked device ordinal, so a delegate
+    // ignoring it would discard the selection the rank just made.
     static ExecutionProvider Accelerator(
         string key,
         string providerName,
         OrtHardwareDeviceType affinity,
         Func<bool> hostGate,
         Func<ModelPrecision, FrozenDictionary<string, string>> epOptions,
-        Action<SessionOptions, IReadOnlyDictionary<string, string>> register,
+        Action<SessionOptions, Dictionary<string, string>> register,
         Option<string> ordinalKey = default,
-        Option<string> wireKey = default) =>
+        Option<string> wireKey = default,
+        Option<ExecutionProviderDevicePolicy> devicePolicy = default,
+        Option<Func<ArtifactSite, FrozenDictionary<string, string>>> locationOptions = default) =>
         new(
             key,
             providerName,
             wireKey,
             hostGate,
             epOptions,
-            static _ => FrozenDictionary<string, string>.Empty,
+            locationOptions.IfNone(static _ => FrozenDictionary<string, string>.Empty),
             static _ => FrozenDictionary<string, string>.Empty,
             ordinalKey,
-            Option<ExecutionProviderDevicePolicy>.None,
+            devicePolicy,
             affinity,
             WarmForm.EpContext,
             register);
 }
 ```
-
-`OrtEpDevice`, enumerated through `OrtEnv.GetEpDevices()` as an `IReadOnlyList<OrtEpDevice>`, carries the columns the `Devices`/`AutoSelect` fold reads:
-
-| [INDEX] | [MEMBER]                                                | [CARRIES]                                                          |
-| :-----: | :------------------------------------------------------ | :----------------------------------------------------------------- |
-|  [01]   | `EpName`                                                | provider name keyed against the `ExecutionProvider` row            |
-|  [02]   | `EpVendor`                                              | EP vendor string                                                   |
-|  [03]   | `HardwareDevice`                                        | `OrtHardwareDevice`                                                |
-|  [04]   | `EpMetadata`                                            | `OrtKeyValuePairs` EP self-description                             |
-|  [05]   | `EpOptions`                                             | `OrtKeyValuePairs` default EP option set                           |
-|  [06]   | `GetMemoryInfo(OrtDeviceMemoryType)`                    | `OrtMemoryInfo` for the device allocation at the named memory type |
-|  [07]   | `CreateSyncStream(IReadOnlyDictionary<string, string>)` | `OrtSyncStream` tying a device-stream lifetime to the device       |
-
-`OrtHardwareDevice`, reached through `HardwareDevice`, carries the device identity columns:
-
-| [INDEX] | [COLUMN]   | [CARRIES]                                        |
-| :-----: | :--------- | :----------------------------------------------- |
-|  [01]   | `Type`     | `OrtHardwareDeviceType` — `CPU`, `GPU`, or `NPU` |
-|  [02]   | `VendorId` | `uint` vendor id                                 |
-|  [03]   | `DeviceId` | `uint` device id                                 |
-|  [04]   | `Vendor`   | vendor string                                    |
-|  [05]   | `Metadata` | `OrtKeyValuePairs` device self-description       |
-
-`Veto` binds the `OrtDeviceEpIncompatibilityReason` `[Flags]` enum (`UInt32`) that `OrtDeviceEpIncompatibilityDetails.ReasonsBitmask` carries when an EP cannot claim a hardware device:
-
-| [INDEX] | [REASON]             | [VALUE]    |
-| :-----: | :------------------- | :--------- |
-|  [01]   | `None`               | 0          |
-|  [02]   | `DriverIncompatible` | 1          |
-|  [03]   | `DeviceIncompatible` | 2          |
-|  [04]   | `MissingDependency`  | 4          |
-|  [05]   | `Unknown`            | 0x80000000 |
 
 ## [03]-[RESEARCH]
 

@@ -26,7 +26,7 @@ import io
 from collections.abc import Mapping, Sequence
 from enum import StrEnum
 from functools import partial
-from typing import Annotated, Literal, assert_never, overload
+from typing import Annotated, Final, Literal, assert_never, overload
 
 import numpy as np
 from beartype import beartype
@@ -40,6 +40,7 @@ from rasm.geometry.graduation import (
     EvidenceFrame,
     EvidenceScope,
     GeometryHandoff,
+    GeometryLeg,
     GeometrySubject,
     charter_record,
     evidence_key,
@@ -49,8 +50,8 @@ from rasm.geometry.mesh.cad import GlbArtifact
 from rasm.geometry.mesh.quality import closure_fold
 from rasm.geometry.mesh.spatial import MeshSpatial, SpatialQuery, SpatialResult
 from rasm.geometry.scan.ingestion import Cloud
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
-from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, Catch, FaultRow, RuntimeRail, boundary, rostered
+from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -90,10 +91,36 @@ class DeviationFault(Exception):
     # raised into the admission fence so an open reference or a misaligned deformation field converts through the
     # BoundaryFault taxonomy BEFORE any query runs — one refusal for the whole element set, never one per element
     # against a reference already proved bad or a field already proved misshapen.
+    # This family carries NO `__str__` render, and the absence is the point: BOTH raise sites sit inside a fence whose
+    # declared `catch` names this class, so every token reaches `BoundaryFault.of`, matches the `Tagged()` arm ahead of
+    # every `CLASSIFY` row, and crosses WHOLE on the `domain` case — a consumer matches the CASE and the coordinate
+    # rides the `evidence` half of `facts()`. The sibling bands carry a render because a token raised inside a HOSTILE
+    # kernel has a PICKLE SEAM to cross and a kwarg-only `@tagged_union` crosses none; this page's two raises are
+    # parent-side, and its own RANSAC kernel raises no case here, so a render would be a projection nothing reads.
+    # LOSS: a case added later at a site no fence encloses would reach a log edge as the bare type name, since
+    # `Exception.__str__` renders EMPTY for this shape — such a site mints the render back with it.
     tag: Literal["open_reference", "misaligned_field"] = tag()
     open_reference: str = case()  # the wire key of the reference GLB the closure fold read open
     misaligned_field: tuple[tuple[str, int, int], ...] = case()  # every casualty as (element GlobalId, cloud points, field size)
 
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this module's whole raise roster: the two admission fences anchor one row each, so neither spells a subject and
+# the `rostered` door seats every row on the branch census, proving `geometry.scan.deviation` against a real module at import. Both TERMINAL — an open
+# reference and a misaligned field are properties of the admitted inputs and refuse identically on every re-issue.
+DEV_ELEMENTS: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.DEVIATION, point="element", arm="boundary", defect="field-misaligned", retriability=TERMINAL
+)
+DEV_REFERENCE: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.DEVIATION, point="reference", arm="boundary", defect="reference-refused", retriability=TERMINAL
+)
+RAISES: Final[Block[FaultRow[GeometryLeg]]] = rostered(Block.of_seq([DEV_ELEMENTS, DEV_REFERENCE]))
+
+# the reference leg's raise surface beside this owner's own token: `trimesh`'s GLB reader answers `ValueError` on a
+# bad header and `IndexError` on a truncated buffer, both proved against the installed distribution, and a
+# non-float vertex buffer answers `TypeError`. The element leg reaches THIS owner's token alone — it walks tuples.
+_GLB_RAISES: Final[Catch] = (DeviationFault, IndexError, TypeError, ValueError)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -308,8 +335,13 @@ class DeviationResult(Struct, frozen=True):
         # by the deformation bytes where a field rode in — which stage, and which policy bars. `graduates` and
         # `frame` both key off this one preimage, so a re-scan of one element, a re-tessellated reference, an
         # added field, or a moved tolerance each key apart while two identical runs key together.
+        # `parts` is the identity owner's declared modality for these TWO semantic fields, and the cloud key lowers
+        # through `ContentKey.memory` to reach it: a bare `(key, bytes)` tuple mixes the key and buffer regimes and
+        # no arm of the payload family admits it. Framed, the always-present empty field spells an absent
+        # deformation unambiguously, where an undelimited join let a field's leading bytes impersonate one.
         scanned = ContentIdentity.key(
-            "scan-element", (element.cloud.digest, b"" if element.deformation is None else element.deformation.tobytes())
+            "scan-element",
+            IdentitySource(parts=(element.cloud.digest.memory, b"" if element.deformation is None else element.deformation.tobytes())),
         )
         spec = f"{stage.value}|{element.element}|{reference_key.hex}|{scanned.hex}|".encode() + policy.spec
         return DeviationResult(stage, element.element, reference_key, spec, band, segments, triangle_ids, deformation, compliant)
@@ -410,7 +442,7 @@ def _aligned(elements: Block[Element]) -> "RuntimeRail[Block[Element]]":
             raise DeviationFault(misaligned_field=casualties)
         return elements
 
-    return boundary("scan.deviation.element", prove)
+    return boundary(DEV_ELEMENTS, prove, catch=DeviationFault)
 
 
 def _admitted(reference: GlbArtifact, lane: LanePolicy, composition: ScopeKey) -> "RuntimeRail[MeshSpatial]":
@@ -423,7 +455,7 @@ def _admitted(reference: GlbArtifact, lane: LanePolicy, composition: ScopeKey) -
             raise DeviationFault(open_reference=reference.wire_key.hex)
         return MeshSpatial(mesh, lane, composition=composition)
 
-    return boundary("scan.deviation.reference", build)
+    return boundary(DEV_REFERENCE, build, catch=_GLB_RAISES)
 
 
 def _segment(cloud: "o3d.geometry.PointCloud", policy: DeviationPolicy) -> tuple[Segment, ...]:

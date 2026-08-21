@@ -20,6 +20,7 @@ Receipt emission, redaction, and the `ScopeKey` axis arrive settled from `observ
 - Auto: retention is constitution for one stream and policy for the other — a `MeterFact` is `REGULATORY` because it is billing truth, an `AuditFact` names the class its own policy demands — so the groom horizon reads one column and no consumer re-derives a stream's class.
 - Auto: tenancy resolves at the WRITER — `record` fills a `None` slot from the one `TENANT_BAGGAGE` entry the `observability/metrics#METRIC` attribute fold already keys on, so ambient tenancy reaches the durable row through one reader rather than five producers each spelling the same lookup, and a fact arriving WITH tenancy keeps it verbatim, since a producer recording on behalf of one tenant from inside another's context is exactly what a re-read overwrites. Absence past that fold is genuine: the wire omits it under `omit_defaults` and the domain reads absence as single-tenant, so an unattributed fact records absence and never forges a tenancy nobody held. The metric tenant BUDGET never crosses over with the key — it bounds a series value axis, and this plane carries no cardinality ceiling to bound.
 - Auto: `AuditFact.subjects` IS the portability index, carried on the fact and projected onto its row, so the export scan and the erasure key on ONE composite and the spine law holds by construction rather than through a companion table a ledger writes inside the same landing. Facts naming no subject index nothing and stay invisible to every subject read.
+- Law: hook ids close on this folder's own `JournalGate` roster and every refusal resolves ONE `reliability/faults#FAULT` `RAISES` anchor under `RuntimeLeg.JOURNAL`, so no bare string constructs a point row or spells a fence coordinate. `JOURNAL_UNBOUND` is ONE parameterized row over both unbound seams, the verb its NAMED slot, since a bind read and a close read refuse the same law.
 - Growth: a new evidence kind is one `Change` case with its arm in every consuming fold; a new actor class is one `Actor` member in both branch spellings; a new metered resource is one `Resource` member with its `RESOURCES` row and its rate row; a new fact stream is one more tagged record carrying the family's projections, which the row fold, the gate, the drain, and the groom inherit unedited; a new retention class is one `Retain` member with its `WINDOWS` row; a new derived series is one `Series` member the census admits; a new diff grammar is one `Pointer` pattern edit; a newly classified field is one `FACT_REDACTION` row. A `Resource` member also widens what `Rating` completeness means at the next settlement — `rated` refuses by name on a resource its caller-supplied rating omits — so the rate row lands with the member or the first window carrying it settles nothing.
 - Boundary: this family carries the retention KEY and never the window — `WINDOWS` prices the class and the ledger executes the reclaim, so no page outside this owner spells a duration. Quantities stay integral by constraint, which is what keeps the exact-decimal crossing in `[04]` free of any float: a fractional need is a smaller unit row, never a decimal quantity.
 
@@ -38,7 +39,7 @@ from typing import Annotated, ClassVar, Final, Literal, Protocol, Self, get_args
 
 import anyio
 import anyio.to_thread
-from anyio import TASK_STATUS_IGNORED, CapacityLimiter
+from anyio import TASK_STATUS_IGNORED, BrokenResourceError, CapacityLimiter, ClosedResourceError
 from anyio.abc import TaskStatus
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
@@ -53,8 +54,35 @@ from opentelemetry import context as otel_context
 
 from rasm.runtime.admission import SecretBoundary, SecretShape
 from rasm.runtime.clock import CausalFrame, Hlc, Tenant
-from rasm.runtime.faults import SCOPES, BoundaryFault, Disposition, RuntimeRail, Scope, async_boundary, boundary, traversed
-from rasm.runtime.hooks import HookPoint, Hooks, Modality
+from rasm.runtime.faults import (
+    JOURNAL_APPEND,
+    JOURNAL_CENSUS,
+    JOURNAL_CHARGE,
+    JOURNAL_CRYPTO,
+    JOURNAL_CUSTODY,
+    JOURNAL_DERIVED,
+    JOURNAL_HEX,
+    JOURNAL_INSTANT,
+    JOURNAL_KEK,
+    JOURNAL_OFFER,
+    JOURNAL_PERIOD,
+    JOURNAL_PORT,
+    JOURNAL_RATE,
+    JOURNAL_RETIRED,
+    JOURNAL_UNBOUND,
+    JOURNAL_UNDRAINED,
+    SCOPES,
+    Catch,
+    Disposition,
+    FaultRow,
+    RuntimeLeg,
+    RuntimeRail,
+    Scope,
+    async_boundary,
+    boundary,
+    traversed,
+)
+from rasm.runtime.hooks import HookId, HookPoint, Hooks, Modality
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.metrics import MEASURES, TENANT_BAGGAGE, Metrics
 from rasm.runtime.receipts import DEFAULT_SCOPE, OPEN, REDACTED, Receipt, Redaction, ScopeKey, Signals
@@ -180,8 +208,11 @@ SCALE: Final[Decimal] = Decimal("0.0001")
 # hook points this owner registers at composition: the append point admits or refuses a fact BEFORE it occupies
 # intake capacity, and the erase point fans the tombstone after key destruction lands, so a compliance observer
 # subscribes to the fact instead of instrumenting this fold.
-APPEND_POINT: Final[str] = "rasm.runtime.journal.append"
-ERASE_POINT: Final[str] = "rasm.runtime.journal.erase"
+class JournalGate(StrEnum):
+    # this folder's OWN hook-id roster: the mechanism owns the `HookId` SHAPE and every package owns its members, so
+    # a fire seam names a member and no bare string can construct a row or reach `Hooks.fire`.
+    APPEND = "rasm.runtime.journal.append"
+    ERASE = "rasm.runtime.journal.erase"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -221,7 +252,7 @@ class AuditFact(Struct, tag=AUDIT_STREAM, frozen=True, omit_defaults=True):
     # family. Declaring them here is what keeps every consuming fold total — a third stream lands as one more
     # record with its own slots and edits no fold.
     stream: ClassVar[Stream] = AUDIT_STREAM
-    gate: ClassVar[str | None] = APPEND_POINT
+    gate: ClassVar[HookId | None] = JournalGate.APPEND
     resource: ClassVar[Resource | None] = None
     quantity: ClassVar[Quantity] = 0
 
@@ -252,7 +283,7 @@ class MeterFact(Struct, tag=METER_STREAM, frozen=True, omit_defaults=True):
     # rather than a policy surface a subscriber starves, and billing truth is regulatory by constitution. Both
     # answers ride the type, so the drain reads one shape across the family and neither is a caller's to weaken.
     stream: ClassVar[Stream] = METER_STREAM
-    gate: ClassVar[str | None] = None
+    gate: ClassVar[HookId | None] = None
     retention: ClassVar[Retain] = Retain.REGULATORY
     subjects: ClassVar[tuple[Subject, ...]] = ()
 
@@ -409,7 +440,7 @@ class Custody(Struct, frozen=True):
             resolved = await boundary.resolve(service, shape=SecretShape.TOKEN)
             return resolved.bind(
                 lambda held: held.map(lambda secret: _kek(secret.get_secret_value())).default_with(
-                    lambda: Error(BoundaryFault(config=("journal.custody", f"no key material bound for {service!r}")))
+                    lambda: Error(JOURNAL_CUSTODY.raised(service))
                 )
             )
 
@@ -441,7 +472,7 @@ class Period(Struct, frozen=True, gc=False):
         return at(since).map2(at(until), lambda lower, upper: (lower, upper)).bind(
             lambda bounds: Ok(cls(stream=stream, since=bounds[0], until=bounds[1], tenant=tenant))
             if bounds[0].packed <= bounds[1].packed
-            else Error(BoundaryFault(config=("journal.period", "window lower bound sorts above its upper")))
+            else Error(JOURNAL_PERIOD.raised())
         )
 
 
@@ -495,8 +526,8 @@ WINDOWS: Final[Map[Retain, Option[timedelta]]] = Map.of_seq([
 # points this owner registers at composition, as rows rather than a hand-repeated pair of calls: the append gate is
 # typed by the record that names it through `gate`, and the erase point observes a tombstone. A new point is one row.
 POINTS: Final[Block[HookPoint[Struct]]] = Block.of_seq([
-    HookPoint(id=APPEND_POINT, payload=AuditFact, modality=Modality.VETO),
-    HookPoint(id=ERASE_POINT, payload=Tombstone, modality=Modality.OBSERVE),
+    HookPoint(id=JournalGate.APPEND, payload=AuditFact, modality=Modality(veto=None)),
+    HookPoint(id=JournalGate.ERASE, payload=Tombstone, modality=Modality(observe=None)),
 ])
 
 # derived-line field policy, classified by KEY NAME at every depth: diff values mask, party and subject identifiers
@@ -527,7 +558,7 @@ def at(moment: datetime) -> RuntimeRail[Hlc]:
     return (
         Ok(Hlc(physical_ticks=(moment - EPOCH) // MICRO * TICKS_PER_MICRO, logical=0))
         if moment.utcoffset() is not None
-        else Error(BoundaryFault(config=("journal.instant", "naive datetime carries no offset")))
+        else Error(JOURNAL_INSTANT.raised())
     )
 
 
@@ -550,30 +581,28 @@ def _kek(text: str) -> RuntimeRail[bytes]:
     # plane never declared, and the refusal names the coordinate instead of surfacing as a length raise mid-batch.
     # The fence catches `ValueError` alone and touches no `cryptography` name, so a composition that seals nothing
     # never reifies the native tier to read a key it will not use.
-    return boundary("journal.kek", lambda: bytes.fromhex(text), catch=ValueError).bind(
-        lambda kek: Ok(kek)
-        if len(kek) * 8 == KEK_BITS
-        else Error(BoundaryFault(config=("journal.custody", f"kek width {len(kek) * 8} != {KEK_BITS}")))
+    return boundary(JOURNAL_HEX, lambda: bytes.fromhex(text), catch=ValueError).bind(
+        lambda kek: Ok(kek) if len(kek) * 8 == KEK_BITS else Error(JOURNAL_KEK.raised(str(len(kek) * 8), str(KEK_BITS)))
     )
 
 
-def _crypto[T](subject: str, run: Callable[[], T]) -> RuntimeRail[T]:
+def _crypto[T](axis: str, run: Callable[[], T]) -> RuntimeRail[T]:
     # ONE native crossing every AEAD call composes: the outer fence reifies the lazy `cryptography` proxy under the
     # default surface, so an absent or unbuildable build classifies `import_` on the rail at whichever entry touches
     # it first — seal, wrap, unwrap, or open alike — and the narrow tuple applies only once the primitive is in
     # hand. Naming the tuple as a module `Final` instead dereferences the proxy at import and reifies the native
     # tier in every composition that seals nothing; naming it per call site leaves the open-only path unfenced,
     # since the catch argument evaluates before its own fence exists.
-    return boundary(subject, lambda: (InvalidTag, UnsupportedAlgorithm, ValueError, OverflowError)).bind(
-        lambda catch: boundary(subject, run, catch=catch)
+    return boundary(JOURNAL_CRYPTO, lambda: (InvalidTag, UnsupportedAlgorithm, ValueError, OverflowError), catch=ImportError).bind(
+        lambda catch: boundary(JOURNAL_CRYPTO, run, catch=catch).map_error(lambda fault: JOURNAL_CRYPTO.raised(axis, fault.detail))
     )
 
 
-async def _offloaded[T](subject: str, run: Callable[[], T]) -> RuntimeRail[T]:
+async def _offloaded[T](axis: str, run: Callable[[], T]) -> RuntimeRail[T]:
     # envelope AEAD leaves the loop: an unbounded payload seals on a worker thread bounded by `AEAD_SLOTS`, so a
     # multi-megabyte crossing costs a slot rather than stalling the drain sharing this scheduler. The inner sync
     # fence classifies every crypto raise, the outer fence the offload itself, and one `bind` flattens the pair.
-    lifted = await async_boundary(subject, lambda: anyio.to_thread.run_sync(lambda: _crypto(subject, run), limiter=AEAD_SLOTS))
+    lifted = await async_boundary(JOURNAL_CRYPTO, lambda: anyio.to_thread.run_sync(lambda: _crypto(axis, run), limiter=AEAD_SLOTS), catch=OSError)
     return lifted.bind(lambda railed: railed)
 
 
@@ -584,7 +613,7 @@ def _censused() -> RuntimeRail[Block[Series]]:
     # why no unit is spelled on this page.
     rows = Block.of_seq(Series)
     unmet = rows.filter(lambda row: MEASURES.try_find((OWNER, row.value)).is_none())
-    return Ok(rows) if unmet.is_empty() else Error(BoundaryFault(config=("journal.census", f"measures unrostered: {', '.join(unmet)}")))
+    return Ok(rows) if unmet.is_empty() else Error(JOURNAL_CENSUS.raised(", ".join(unmet)))
 ```
 
 ## [03]-[LEDGER]
@@ -602,6 +631,7 @@ def _censused() -> RuntimeRail[Block[Series]]:
 - Auto: shutdown closes the intake and awaits the drain, never cancels it — `anyio` delivers every buffered fact after the last send end closes, so the partial window flushes, `drained` returns its tally, and nothing in flight sheds. Roots that must nevertheless bound the wait wrap the await in their own `CancelScope` and read `pending` after it trips: a tripped scope returns no value, so the drain's terminal deposits BOTH the batch it was retrying and the checkpoint-free sweep of whatever still sat in the buffer, and every fact either landed or is named. Deadline parameters here instead re-thread the cancellation a scope already owns and cap the steady-state retry the never-shed law forbids capping.
 - Receipt: `install` deposits its receipt on the `observability/hooks#HOOKS` install record, so a support bundle answers which durable plane a composition wrote to, under which vocabulary, and as which service, without this owner minting a second custody surface for the bundle to read.
 - Law: `_pending` ACCUMULATES and settles by key — `_owed` appends and `_settled` removes exactly the keys a landing covered, so a scope re-installed after `closed` still owes what its prior drain never landed. Replacing the slot hands the next session's first batch that debt to overwrite, and a blanket clear erases it on the first success, both shedding evidence on the one plane whose whole thesis is that nothing sheds.
+- Law: three fences hold a catch-all and each states why — a derived write runs a caller's render, record, and sink, an append calls a caller-supplied `Ledger` implementer, and both must never fault the plane owning the truth; every other fence names its provider set.
 - Growth: a new durable coordinate is one `FactRow` column reaching the ledger and the row projection; a new read shape is one `Scan` case with its ledger arm; a new drain posture is one flow or backoff constant; a new ledger family is one implementer of the port with zero edits here.
 - Boundary: a `Ledger` implementer's own landing path records NOTHING — `landed` reaches durability through whatever commit surface that implementer composes, so a producer leg seated on that surface re-enters `record` for every batch it lands and the stream feeds itself without bound. The implementer's composed owners therefore discriminate the ledger's OWN relations from a caller's and record only the caller's, and the durable plane's emptiness cannot do it for them: a journal commit is indistinguishable from a caller's commit by residence alone, so the discriminant is the relation identity the ledger's tables declare at open.
 - Boundary: this owner opens no connection, mints no statement, and names no engine — the ledger executes every landing, scan, tally, and reclaim through its own mechanism, so retention, compaction, and rollup ride machinery a ledger already carries and no worker or scheduler surface enters this branch for telemetry. Append gating admits or refuses and never transforms: the veto fold's returned payload is discarded by law, because a subscriber rewriting evidence makes the plane it observes a second author.
@@ -630,17 +660,17 @@ def _rowed(fact: Fact, service: str) -> FactRow:
     )
 
 
-def _fenced(subject: str, run: Callable[[], object], scope: ScopeKey) -> None:
+def _fenced(at: FaultRow[RuntimeLeg], run: Callable[[], object], scope: ScopeKey) -> None:
     # every derived write in this owner crosses HERE, fenced so it can never fault the plane that owns the truth: a
     # render, record, or sink fault lands as its own rejected receipt, because a dashboard gap never justifies
     # stalling an append.
-    boundary(subject, run).swap().map(lambda fault: Signals.emit(Receipt.of(OWNER, fault), OPEN, scope=scope))
+    boundary(at, run, catch=Exception).swap().map(lambda fault: Signals.emit(Receipt.of(OWNER, fault), OPEN, scope=scope))
 
 
 def _series(measures: Mapping[str, float], kind: str, scope: ScopeKey) -> None:
     # `Series` members ARE their measure names, so the census-proved vocabulary reaches the recorder unchanged and
     # no call site on this page carries a bare metric literal.
-    _fenced("journal.series", lambda: Metrics.record(measures, domain=OWNER, kind=kind, scope=scope), scope)
+    _fenced(JOURNAL_DERIVED, lambda: Metrics.record(measures, domain=OWNER, kind=kind, scope=scope), scope)
 
 
 def _projected(fact: Fact, scope: ScopeKey) -> None:
@@ -649,7 +679,7 @@ def _projected(fact: Fact, scope: ScopeKey) -> None:
     # field one level down unreachable and publishes it verbatim.
     _series(fact.measures, fact.kind, scope)
     _fenced(
-        "journal.line",
+        JOURNAL_DERIVED,
         lambda: Signals.emit(Receipt.of(OWNER, ("emitted", fact.kind, to_builtins(fact, str_keys=True))), FACT_REDACTION, scope=scope),
         scope,
     )
@@ -708,7 +738,7 @@ def _proven(ledger: object) -> RuntimeRail["Ledger"]:
     # from a dead ledger — refusal here names the member instead, and a member added to `Ledger` refuses every
     # stale implementer with no edit here.
     unmet = Block.of_seq(sorted(member for member in get_protocol_members(Ledger) if not iscoroutinefunction(getattr(ledger, member, None))))
-    return Ok(ledger) if unmet.is_empty() else Error(BoundaryFault(config=("journal.ledger", f"port members unmet: {', '.join(unmet)}")))
+    return Ok(ledger) if unmet.is_empty() else Error(JOURNAL_PORT.raised(", ".join(unmet)))
 
 
 def _partitions(landing: Landing, rows: Block[FactRow]) -> bool:
@@ -877,7 +907,7 @@ class Journal:
 
     @classmethod
     def bound(cls, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[Bound]:
-        return cls._bound.try_find(scope).to_result_with(lambda: BoundaryFault(config=("journal.ledger", "ledger unbound")))
+        return cls._bound.try_find(scope).to_result_with(lambda: JOURNAL_UNBOUND.raised("bound"))
 
     @classmethod
     async def record(
@@ -913,7 +943,7 @@ class Journal:
                     case refused:
                         return Error(refused.error)
             case _ if scope in cls._retired:
-                return Error(BoundaryFault(config=("journal.record", "journal custody retired")))
+                return Error(JOURNAL_RETIRED.raised())
             case _:
                 return Ok(0)
 
@@ -937,7 +967,7 @@ class Journal:
                 await send.send(fact)
             return len(facts)
 
-        return await async_boundary("journal.offer", suspended)
+        return await async_boundary(JOURNAL_OFFER, suspended, catch=(BrokenResourceError, ClosedResourceError))
 
     @classmethod
     async def drained(
@@ -974,7 +1004,7 @@ class Journal:
                             cls._owed(scope, _swept(receive, held.service))
                 return Ok(settled)
             case _:
-                return Error(BoundaryFault(config=("journal.drain", "ledger unbound or drain already owned")))
+                return Error(JOURNAL_UNDRAINED.raised())
 
     @classmethod
     def closed(cls, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[None]:
@@ -995,7 +1025,7 @@ class Journal:
             cls._bound, cls._receipts = cls._bound.remove(scope), cls._receipts.remove(scope)
             cls._retired = cls._retired | {scope}
         taken.bind(lambda receive: service.map(lambda name: cls._stranded(scope, receive, name)))
-        return held.to_result_with(lambda: BoundaryFault(config=("journal.close", "ledger unbound"))).map(lambda send: send.close())
+        return held.to_result_with(lambda: JOURNAL_UNBOUND.raised("close")).map(lambda send: send.close())
 
     @classmethod
     def _stranded(cls, scope: ScopeKey, receive: MemoryObjectReceiveStream[Fact], service: str) -> None:
@@ -1045,7 +1075,7 @@ class Journal:
         # `timeout=None` pair the never-shed law requires, and it retries raised transients where this port
         # returns railed verdicts the loop must read.
         while True:  # Exemption: unbounded retry is the never-shed law — a dead ledger suspends, never sheds
-            match await async_boundary("journal.append", lambda: held.ledger.landed(rows)):
+            match await async_boundary(JOURNAL_APPEND, lambda: held.ledger.landed(rows), catch=Exception):
                 # a landing accounts for every offered row or it is not a landing: a short write retries, and the
                 # retry is safe precisely because the content key dedups whatever already landed.
                 case Result(tag="ok", ok=Result(tag="ok", ok=landing)) if _partitions(landing, rows):
@@ -1169,9 +1199,9 @@ def _priced(key: Priced, aggregate: Aggregate, rating: Rating) -> RuntimeRail[tu
     # exception, never a value — so the whole charge expression runs INSIDE the rating fence. Computed under
     # `map` instead it escapes the carrier entirely and takes the settlement traversal down with it, which is
     # exactly the refusal the traps were armed to make visible rather than silent.
-    return rating.try_find(key.resource).to_result_with(lambda: BoundaryFault(config=("journal.rate", key.resource.value))).bind(
+    return rating.try_find(key.resource).to_result_with(lambda: JOURNAL_RATE.raised(key.resource.value)).bind(
         lambda rate: boundary(
-            "journal.rate",
+            JOURNAL_CHARGE,
             lambda: (key, Charge(amount=MONEY.quantize(MONEY.multiply(Decimal(aggregate.total), rate.per), SCALE), currency=rate.currency)),
             catch=DecimalException,
         )
@@ -1292,7 +1322,7 @@ async def erased(key: SubjectKey, *, scope: ScopeKey = DEFAULT_SCOPE) -> Runtime
         stone = Tombstone(subject=key.subject, tenant=key.tenant, destroyed=Journal.stamped())
         match await held.ledger.destroyed(stone):
             case Result(tag="ok", ok=Option(tag="some", some=persisted)):
-                await Hooks.fire_async(ERASE_POINT, persisted, scope=scope)
+                await Hooks.fire_async(JournalGate.ERASE, persisted, scope=scope)
                 _series({Series.ERASED: 1.0}, Motion.ERASE, scope)
                 return (await Journal.record(_erasure(persisted), scope=scope)).map(lambda _landed: Some(persisted))
             case settled:

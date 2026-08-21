@@ -413,14 +413,12 @@ export { PgliteRuntime }
 - Law: browser seed bytes transfer when their backing is an `ArrayBuffer`; `SharedArrayBuffer` cannot enter a transfer list and rides shared memory unchanged. Wasm client export transport owns its response crossing, so this page never invents an unsupported return-transfer API.
 - Law: seed-then-verify — after `import`, the lane's ensure relations probe exactly like server startup, so a truncated or foreign blob fails closed at seed time, never at first query.
 - Law: `loadExtension` is the degradation table's `loadExtension` verdict realized — its typed client failure aborts the admission effect, and the composition runs that effect before constructing the capability Layer whose registry probe grants the module.
-- Law: `SqliteFault` closes through `Fault.Class.family`; absent byte-capable profiles classify `absent` without local policy columns, and `operation` derives from the `Sqlite.Io` tag roster so a case with no fault spelling is unrepresentable.
+- Law: `SqliteFault` closes through `Fault.Class.family`; absent byte-capable profiles classify `absent` without local policy columns, the reason declares its own subject and renders its own sentence, and `operation` derives from the `Sqlite.Io` tag roster so a case with no fault spelling is unrepresentable.
 - Law: EVERY arm resolves its client through `Effect.serviceOption`, so profile absence is a typed `SqliteFault` and the entry's requirement channel stays empty — an arm naming a driver Tag directly puts that Tag in the requirement of the whole entry, which strands every bun, browser, and edge composition at the call site whichever case it passes.
 
 ```typescript signature
 import { Data, Option, Schema } from "effect"
 import { Fault } from "@rasm/ts/core"
-
-const _family = Fault.Class.family(["profile"] as const, { profile: { class: "absent" } })
 
 type SqliteIo = Data.TaggedEnum<{
   Snapshot: {}
@@ -439,15 +437,29 @@ const _OPERATIONS = ["Snapshot", "Backup", "Extend", "Seed", "Dump"] as const sa
 
 type _Operations<T extends (typeof _OPERATIONS)[number] = SqliteIo["_tag"]> = T
 
+// The one reason names an ABSENT byte-capable profile and its subject is the operation that wanted one, so the row
+// renders the refusal and no message template rides the class; the operation literal reads the same roster the case
+// completeness guard binds, so a `Sqlite.Io` case with no spelling is unrepresentable on the fault too.
+const _family = Fault.Class.family(["profile"] as const, {
+  profile: Fault.Class.row({
+    class: "absent",
+    leg: "io",
+    detail: Schema.Struct({ operation: Schema.Literal(..._OPERATIONS) }),
+    render: ({ operation }) => `${operation} reached no byte-capable profile in this composition`,
+  }),
+})
+
 class SqliteFault extends Schema.TaggedError<SqliteFault>()("SqliteFault", {
-  reason: _family.schema,
-  operation: Schema.Literal(..._OPERATIONS),
+  case: _family.payload,
 }) {
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _family.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<sqlite:${this.reason}> ${this.operation}`
+    return _family.render(this.case)
   }
 }
 
@@ -462,28 +474,28 @@ type _WasmClient = Pick<WasmSqlite.SqliteClient.SqliteClient, "export" | "import
 // and a bun, browser, or edge composition constructs the call whichever case it passes. An arm reaching a driver
 // Tag through the context instead seats that Tag in the requirement of the WHOLE entry.
 const _resolved = <A>(
-  operation: SqliteFault["operation"],
+  operation: SqliteFault["case"]["operation"],
   candidates: ReadonlyArray<Effect.Effect<Option.Option<A>>>,
 ): Effect.Effect<A, SqliteFault> =>
   Effect.flatMap(
     Effect.reduce(candidates, Option.none<A>(), (held, next) =>
       Option.isSome(held) ? Effect.succeed(held) : next),
     Option.match({
-      onNone: () => Effect.fail(new SqliteFault({ reason: "profile", operation })),
+      onNone: () => Effect.fail(new SqliteFault({ case: { reason: "profile", operation } })),
       onSome: Effect.succeed,
     }),
   )
 
-const _server = (operation: SqliteFault["operation"]): Effect.Effect<_ServerClient, SqliteFault> =>
+const _server = (operation: SqliteFault["case"]["operation"]): Effect.Effect<_ServerClient, SqliteFault> =>
   _resolved(operation, [
     Effect.serviceOption(NodeSqlite.SqliteClient.SqliteClient),
     Effect.serviceOption(BunSqlite.SqliteClient.SqliteClient),
   ])
 
-const _backup = (operation: SqliteFault["operation"]): Effect.Effect<_BackupClient, SqliteFault> =>
+const _backup = (operation: SqliteFault["case"]["operation"]): Effect.Effect<_BackupClient, SqliteFault> =>
   _resolved(operation, [Effect.serviceOption(NodeSqlite.SqliteClient.SqliteClient)])
 
-const _wasm = (operation: SqliteFault["operation"]): Effect.Effect<_WasmClient, SqliteFault> =>
+const _wasm = (operation: SqliteFault["case"]["operation"]): Effect.Effect<_WasmClient, SqliteFault> =>
   _resolved(operation, [Effect.serviceOption(WasmSqlite.SqliteClient.SqliteClient)])
 
 const _bytes = (io: SqliteIo) =>

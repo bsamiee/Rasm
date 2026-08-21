@@ -10,17 +10,17 @@ Every selecting phase admits its query through `IfcSelector` (`ifc/selector#SELE
 
 ## [02]-[LIFECYCLE]
 
-- Owner: `IfcLifecycle` — `@staticmethod` boundary capsule mirroring `IfcAnalysis`, dispatching the phases through one rail-returning `_dispatch` fold over per-phase helpers (`_takeoff`/`_cost`/`_schedule`/`_patch`/`_diff`/`_export`/`_import`), never fat in-arm bodies. `LifecyclePhase`, `ScheduleFormat`, `CostReport`, `TableFormat`, `RuleSet`, and `DiffChange` are closed `StrEnum` discriminants parsed through the one generic `_token[E: StrEnum]` rail — each phase, `ifc4d` parser, `ifc5Dspreadsheet` writer family, `ifccsv` writer-and-reader key, `qto.rules` base-quantity set, and `ifcdiff` change class is a rail-validated row, never a raw string fed to `StrEnum(token)`/`rules[str]` that escapes a `ValueError`/`KeyError`. `CostReport` and `TableFormat` spell three tokens alike and stay disjoint on their providers' writer tables: only `ifccsv` publishes the in-memory `pd` row and only `ifc5d` the `ifc5Dspreadsheet` subclasses, so one merged vocabulary would mint a writer neither owner holds. `LifecycleRow` is the `@tagged_union` result row carrying one typed case per phase — the exchange pair sharing the one `exchange` case, its direction recoverable from the receipt's own phase — never a stringly `dict[str, str]` the toolchain must re-parse.
+- Owner: `IfcLifecycle` — `@staticmethod` boundary capsule mirroring `IfcAnalysis`, dispatching the phases through one rail-returning `_dispatch` fold over per-phase helpers (`_takeoff`/`_cost`/`_schedule`/`_patch`/`_diff`/`_export`/`_import`), never fat in-arm bodies. `LifecyclePhase`, `ScheduleFormat`, `CostReport`, `TableFormat`, and `RuleSet` are closed `StrEnum` discriminants parsed through the one generic `_token[E: StrEnum]` rail — each phase, `ifc4d` parser, `ifc5Dspreadsheet` writer family, `ifccsv` writer-and-reader key, and `qto.rules` base-quantity set is a rail-validated row, never a raw string fed to `StrEnum(token)`/`rules[str]` that escapes a `ValueError`/`KeyError`. `DiffAxis` is the same law over `ifcdiff.RELATIONSHIP_TYPE`: its member VALUE is the foreign axis name, its `marker` column derives, and the `relationships` argument derives too, so the axis roster, the marker vocabulary, and the change classification are ONE declaration where three divergent transcriptions stood — `DiffPresence` staying separate because presence and change axis answer different questions. `DropLaw` closes the exchange pair's loss vocabulary the same way. `CostReport` and `TableFormat` spell three tokens alike and stay disjoint on their providers' writer tables: only `ifccsv` publishes the in-memory `pd` row and only `ifc5d` the `ifc5Dspreadsheet` subclasses, so one merged vocabulary would mint a writer neither owner holds. `LifecycleRow` is the `@tagged_union` result row carrying one typed case per phase — the exchange pair sharing the one `exchange` case, its direction recoverable from the receipt's own phase — never a stringly `dict[str, str]` the toolchain must re-parse.
 - Cases: `QUANTITY` (rule-driven take-off over `ifc5d.qto`), `COST` (`ifcopenshell.api.cost` rollup over each `IfcCostItem`), `SCHEDULE` (`ifc4d` `<Format>2Ifc` parser populating `IfcWorkSchedule`/`IfcTask`/`IfcRelSequence`), `PATCH` (`ifcpatch.execute` named recipe over the `recipes` namespace), `DIFF` (`ifcdiff` revision comparison over `deepdiff`), `EXPORT` (`ifccsv` selector-scoped column resolve for estimator review), `IMPORT` (`ifccsv` re-application of an edited table's attribute and Pset cells) — matched by `match`/`assert_never`, each dispatching to the ecosystem sibling that owns it. The exchange pair stays two rows rather than one direction-flagged phase because the two arms diverge on all four discriminants a collapse would have to erase: admission shape, mutation posture, transaction fence, and residual source.
 - Entry: `IfcLifecycle.run` takes SPF source bytes, a `LifecyclePhase`, a `spec` whose meaning is phase-fixed — validated selector for `QUANTITY`, cost-schedule GlobalId and report token for `COST`, `<format>:<path>` for `SCHEDULE`, `<recipe>:<json-args>` for `PATCH`, revision path for `DIFF`, `<selector>#<format>:<columns>` for `EXPORT`, table path for `IMPORT` — the lane, and the `composition` custody key, returning `RuntimeRail[tuple[bytes, LifecycleReceipt]]` through the `evidence_run` weave over the `HOSTILE` kernel crossing: mutating phases ride home as the successor model's SPF bytes (`PATCH` serializes the file `ifcpatch.execute` minted, never the pre-patch input), the `READONLY` roster — `DIFF` and `EXPORT`, the two phases that read the model and write nothing into it — rides `b""`, and a kernel-side `_dispatch` fault crosses home as the typed `BoundaryFault` on the kernel's own rail — the caller flattens the nested rail once, so tag, subject, and fields survive the seam whole. The SPF source digest mints PARENT-side through the one content-addressing owner and threads in as the receipt's identity prefix, so the evidence key names the exact model the phase ran against rather than the caller's spec text alone. `_dispatch` partitions the `spec` once on the `PHASE_DELIMITER` table keyed by every phase including `DIFF`'s empty-delimiter row (whole `spec` as revision path, no `partition("")` fault), never a `.get` default that silently drops a phase. `QUANTITY` binds the `#<rule-set>` token AND the validated selector monadically, so both fault before `quantify` runs, and `EXPORT` binds the writer token, the column vocabulary, and the selector the same way, so a typo'd format and an empty column list each name themselves before a single cell resolves. `IMPORT` admits its reader off the table's own suffix against the `SUFFIXED` roster, because `Import` derives that reader itself and returns silently on a suffix it does not know — an unadmitted table would otherwise settle as a clean zero-row run — and keys its run identity on the table's CONTENT digest beside the format, the path riding the receipt's `subjects` as display metadata alone, so two edits of one table at one path key distinct evidence exactly as the SPF digest names the exact model. Each arm derives its own `subjects` from the phase's true subject set; `DIFF`'s `population` field separately carries the full compared element count the drift fraction divides against.
-- Auto: `QUANTITY`'s `ifc5d.qto.quantify`/`edit_qtos` answers the whole base-quantity schedule keyed by the `qto.rules` table and writes it back as `IfcElementQuantity`; the `RuleSet` vocabulary over those keys is this owner's and the sibling analysis space-program grade composes it rather than transcribing a second copy. `COST`, `PATCH`, and `DIFF` each carry the phase's product as a typed token on the receipt subject — the `CostReport` writer key, the patch product type, the diff change class — so the durable write stays the data boundary's. `_cost` keeps only values whose `AppliedValue` actually resolves and counts the rest on `unpriced`: an unpriced `IfcCostValue` is missing a price, not priced at zero, and an `or 0.0` fold erases a genuine zero-cost item and an unpriced one onto one indistinguishable row. `EXPORT` drives `export` with `format=None`/`output=None`, so the resolve half alone populates the stateful object's grid and resolved header row and no writer opens a handle — the `TableFormat` token on the subject is what the data boundary re-keys its writer on, the same deferral `COST` makes — and it hands `export` a FRESH list, the member inserting the `include_global_id` key column into the caller's own roster. Wildcard columns expand at this owner because `export` expands none itself: `get_wildcard_attributes` reads the object's `ifc_file`, which `export` binds only on entry, so the model binds first and a `<pset>.*` column reaches the grid as the real property roster that pset carries. `IMPORT` reads its census off the provider's OWN per-row dispatch rather than a second read of the table, `Import` publishing no telemetry and printing its misses to stdout; one `process_row` override classifies each row against a model-guid roster — a membership test where the provider's own miss path is a bare `except` around a raising lookup — and delegates the write untouched, so rows applied, rows skipped, and cells written are exact rather than inferred. No phase carries an `if/else` value ladder or mints a per-phase class: one fold arm and one helper per row, the owning package bound directly.
+- Auto: `QUANTITY`'s `ifc5d.qto.quantify`/`edit_qtos` answers the whole base-quantity schedule keyed by the `qto.rules` table and writes it back as `IfcElementQuantity`; the `RuleSet` vocabulary over those keys is this owner's and the sibling analysis space-program grade composes it rather than transcribing a second copy. `COST`, `PATCH`, and `DIFF` each carry the phase's product as a typed token on the receipt subject — the `CostReport` writer key, the patch product type, the diff change class — so the durable write stays the data boundary's. `_cost` keeps only values whose `AppliedValue` actually resolves and counts the rest on `unpriced`: an unpriced `IfcCostValue` is missing a price, not priced at zero, and an `or 0.0` fold erases a genuine zero-cost item and an unpriced one onto one indistinguishable row. `EXPORT` drives `export` with `format=None`/`output=None`, so the resolve half alone populates the stateful object's grid and resolved header row and no writer opens a handle — the `TableFormat` token on the subject is what the data boundary re-keys its writer on, the same deferral `COST` makes — and it hands `export` a FRESH list, the member inserting the `include_global_id` key column into the caller's own roster. Wildcard columns expand at this owner because `export` expands none itself: `get_wildcard_attributes` reads the object's `ifc_file`, which `export` binds only on entry, so the model binds first and a `<pset>.*` column reaches the grid as the real property roster that pset carries. `IMPORT` reads its census off the provider's OWN per-row dispatch rather than a second read of the table, `Import` publishing no telemetry and printing its misses to stdout; one `process_row` override classifies each row against a model-guid roster — a membership test where the provider's own miss path is a bare `except` around a raising lookup — and delegates the write untouched, so rows applied, rows skipped, and cells written are exact rather than inferred. That override threads ONE slot holding a frozen `FidelityLog` through the pair's monoid, so the provider-driven loop accumulates without a list mutating beside the return. No phase carries an `if/else` value ladder or mints a per-phase class: one fold arm and one helper per row, the owning package bound directly.
 - Law: durable evidence lands on the `python:runtime/observability/journal#LEDGER` plane at the async `run` parent beside the receipt emit — one `REGULATORY` `AuditFact` per run beside a `STORAGE` `MeterFact` over the successor bytes the phase wrote, so read-only `DIFF` records its audit line alone. The seat is the parent by two laws at once: recording suspends, and the HOSTILE kernel's whole observability reach is the pickled tap queue, so a worker binds no plane and runs no loop to reach one. The facts mint off the SETTLED receipt, so a refused phase names no run that produced nothing, and the record rail binds into the verdict rather than riding beside it.
-- Law: the crossing carries its declared cost — `_lifecycle_kernel` takes the lane conduit's pickled `tap` as its trailing offload arg and beats `GeometryPulse.LIFECYCLE` once per phase entry with `total=1`, because each phase is ONE opaque provider call with no per-element hook and a fabricated denominator would state an extent the provider never publishes; delivery is the lane's lossy law and the worker reaches only the queue proxy. `bench` rides the graduation `bench_seam` fold over the whole `run` crossing — offload, worker rebuild, provider phase, serialization, weave — keyed `rasm.geometry.ifc.costing.<phase>`, so a latency row compares like-for-like across the five phases one dispatch serves, with `bench_terminal` the process-terminal wrap.
+- Law: the crossing carries its declared cost — `_lifecycle_kernel` takes the lane conduit's pickled `tap` as its trailing offload arg and beats `GeometryPulse.LIFECYCLE` once per phase entry on the runtime `StageMark` payload under this page's own closed `IfcLifecycleStage` roster, with `total=Some(1)`, because each phase is ONE opaque provider call with no per-element hook and a fabricated denominator would state an extent the provider never publishes; delivery is the lane's lossy law and the worker reaches only the queue proxy. `bench` rides the graduation `bench_seam` fold over the whole `run` crossing — offload, worker rebuild, provider phase, serialization, weave — keyed `rasm.geometry.ifc.costing.<phase>`, so a latency row compares like-for-like across the five phases one dispatch serves, with `bench_terminal` the process-terminal wrap.
 - Law: `IMPORT` drives `IfcCsv().Import` INSIDE `ifcopenshell`'s own `begin_transaction`/`undo`/`end_transaction` fence — the single transaction law `ifc/authoring#AUTHORING` legislates over the folder's exactly two mutating arms. `IfcCsv().Import` re-applies cell after cell holding no rollback of its own, so a table faulting midway persists half an estimator's edit; `boundary` converts a provider raise into the typed rail INSIDE the fence, one `is_error()` test unwinds a raise and a typed refusal alike before the close, only a clean `Ok` commits, and the undo and close each cross their own `boundary` trap so the fence reaches its terminal state on every exit with no raise escaping it — a torn rollback or a refusing close accumulates onto the primary fault through the runtime's `BoundaryFault.combine` monoid, the combined rail propagating only after the close, so no secondary fault replaces the cause and no cause shadows the tear. Durable records seat past the fence at the async `run` parent under that same law, never between the two calls.
-- Law: the pair's substitution vocabulary is one agreement rather than two spellings — `NULL_CELL`/`EMPTY_CELL` bind at both members and `bool_true`/`bool_false`/`concat` ride the provider's own matching defaults on `export` and `Import` alike, never re-spelled here, because a token spelled at one end alone reads a null back as its own literal string and the package CLI's divergent `--null`/`--empty` defaults are exactly that failure shipped. `BLIND_KEYS` names the one WRITE asymmetry the pair cannot close — `process_row` drops any column whose key carries `count` or `material`, so such a column exports cleanly and never writes back — while the census pair reads ONE carried-cell predicate over it: a cell counts only where its column clears `BLIND_KEYS` and its value is neither substitution spelling, on the export grid and the import table alike, so the shared dropped-over-carried residual divides one derivation on both sides and neither a blind column's exported values nor a null-clear write publishes as carried data.
-- Receipt: receipts carry the census, frames carry the rows — `contribute` emits row and subject counts, the compared population where a phase has one, the carried-cell total where the rows hold one, and the residual ledger, because a whole-model take-off is three fact keys per quantity per element and a flattened row stream turns the runtime receipt into a hundred-thousand-key dict per run. Phase-specific `evidence` keys the subject-relative empty fraction for `QUANTITY`/`SCHEDULE` (a phase producing no rows for a non-empty subject set is a degenerate run keyed `1.0`), the bare no-row fraction plus the `unpriced` count for `COST` (whose `subjects` is the schedule guid and report token, not a produced population), the bare no-row fraction for `PATCH`, the changed-over-`population` drift fraction for `DIFF` (never changed-over-changed, which clears every ceiling), and one shared dropped-over-carried empty fraction for `EXPORT`/`IMPORT` (a table row carrying zero cells is the dropped row on both sides — an all-substituted export row no estimator can price, a GlobalId the model does not hold — so one arm serves the pair and neither the drop count nor the cell total rides a receipt field mirroring the roster it derives from), so a model breaching the caller's ceiling fails the carrier's `admitted` verdict rather than crossing clean. `graduates()` returns `GeometryHandoff.of(BIM_LIFECYCLE, …)` against the per-key ceiling and `frame()` re-projects the typed `LifecycleRow` facts as one phase-homogeneous `EvidenceFrame`, both deriving their own `ContentKey` from the receipt's `spec` through the spine's `evidence_key`, so no caller mints a key for evidence it did not produce.
-- Packages: `ifc5d` (`qto.rules`/`quantify`/`edit_qtos` take-off surface only — the `ifc5Dspreadsheet` writer family is the data boundary's), `ifcopenshell` (`api.cost` rollup and in-process model access; selector filtering is the validated gate, never a direct `util.selector.filter_elements` call here), `ifc4d` (`<Format>2Ifc` named parsers), `ifcpatch` (`execute` over the `recipes` namespace; the durable `write` is the data boundary's), `ifcdiff` (`IfcDiff`/`change_register`/`added_elements`/`deleted_elements`; the `export` JSON is the data boundary's), `ifccsv` (`IfcCsv().export` run for its resolve half, `get_wildcard_attributes` for the column expansion, `IfcCsv().Import` for the re-application and `process_row` for the census seam; the `export_*`/`import_*` writer-reader family and the durable spreadsheet are the data boundary's), and `geometry`/`expression`/`beartype`/`runtime` (`ContentIdentity` the one content-addressing owner, `LanePolicy`/`pulsed` the conduit, `Bench` the measurement tier, `Journal` with the `AuditFact`/`MeterFact` vocabulary the run's durable evidence records through) per the fence imports; `IfcSelector` is the only `filter_elements` caller.
-- Growth: a new quantity rule set is one `RuleSet` row over the upstream `qto.rules` key; a new cost format one `CostReport` row the data boundary binds to its `ifc5Dspreadsheet` writer subclass; a new schedule format one `ScheduleFormat` row binding its `<Format>2Ifc` parser; a new model transformation one `recipe` name in the `ifcpatch.execute` directive; a new diff classification one `DiffChange` row and one `of_register` arm; a new exchange format one `TableFormat` row the data boundary binds to its `export_*` writer, plus one `SUFFIXED` member where that format names a file suffix; a new exported column one selector-path string in the caller's own `spec`, zero page edits; a new mid-phase fact is one `pulsed` call inside the phase helper that can see it, zero conduit edits; a newly audited run column is one `_evidence` `Change` row, the verb and the meter deriving off the phase and the successor already in hand — zero new surface, no parallel per-phase class family.
+- Law: the pair's substitution vocabulary is one agreement rather than two spellings — `NULL_CELL`/`EMPTY_CELL` bind at both members and `bool_true`/`bool_false`/`concat` ride the provider's own matching defaults on `export` and `Import` alike, never re-spelled here, because a token spelled at one end alone reads a null back as its own literal string and the package CLI's divergent `--null`/`--empty` defaults are exactly that failure shipped. `BLIND_KEYS` names the one WRITE asymmetry the pair cannot close — `process_row` drops any column whose key carries `count` or `material`, so such a column exports cleanly and never writes back — and it is the first of five `DropLaw` rows the pair's ONE `_dropped` classifier NAMES per cell, beside the two substitution spellings, the GlobalId the model does not hold, and the table row the provider's per-index write truncates. Both legs read that one classifier, on the export grid and the import table alike, so each side's loss carries its law, its subject, and its column rather than an integer three structurally different losses were indistinguishable inside.
+- Receipt: receipts carry the census, frames carry the rows — `contribute` emits row and subject counts, the compared population where a phase has one, the carried-cell total where the rows hold one, and the residual ledger, because a whole-model take-off is three fact keys per quantity per element and a flattened row stream turns the runtime receipt into a hundred-thousand-key dict per run. Phase-specific `evidence` keys the subject-relative empty fraction for `QUANTITY`/`SCHEDULE` (a phase producing no rows for a non-empty subject set is a degenerate run keyed `1.0`), the bare no-row fraction plus the `unpriced` count for `COST` (whose `subjects` is the schedule guid and report token, not a produced population), the bare no-row fraction for `PATCH`, the changed-over-`population` drift fraction for `DIFF` (never changed-over-changed, which clears every ceiling), and ONE FRACTION PER `DropLaw` for `EXPORT`/`IMPORT` over the cells the exchange actually touched, so a caller ceiling gates the specific loss it can act on rather than the merged fraction that graded a badly-mapped column set and a model missing half its subjects alike. That ledger rides the receipt as the `FidelityLog` the phase's own fold RETURNED — its census derived off the occurrence stream, so a count and its evidence cannot disagree — and the occurrences themselves cross as the `fidelity_frame()` family beside the row frame, keeping the receipt a census. A model breaching the caller's ceiling fails the carrier's `admitted` verdict rather than crossing clean. `graduates()` returns `GeometryHandoff.of(BIM_LIFECYCLE, …)` against the per-key ceiling and `frame()` re-projects the typed `LifecycleRow` facts as one phase-homogeneous `EvidenceFrame`, both deriving their own `ContentKey` from the receipt's `spec` through the spine's `evidence_key`, so no caller mints a key for evidence it did not produce.
+- Packages: `ifc5d` (`qto.rules`/`quantify`/`edit_qtos` take-off surface only — the `ifc5Dspreadsheet` writer family is the data boundary's), `ifcopenshell` (`api.cost` rollup and in-process model access; selector filtering is the validated gate, never a direct `util.selector.filter_elements` call here), `ifc4d` (`<Format>2Ifc` named parsers), `ifcpatch` (`execute` over the `recipes` namespace; the durable `write` is the data boundary's), `ifcdiff` (`IfcDiff`/`change_register`/`added_elements`/`deleted_elements`, its `RELATIONSHIP_TYPE` axis the `DiffAxis` roster keys on; the `export` JSON is the data boundary's), `ifccsv` (`IfcCsv().export` run for its resolve half, `get_wildcard_attributes` for the column expansion, `IfcCsv().Import` for the re-application and `process_row` for the census seam; the `export_*`/`import_*` writer-reader family and the durable spreadsheet are the data boundary's), and `geometry`/`expression`/`beartype`/`runtime` (`ContentIdentity` the one content-addressing owner, `LanePolicy`/`pulsed` the conduit, `Bench` the measurement tier, `Journal` with the `AuditFact`/`MeterFact` vocabulary the run's durable evidence records through) per the fence imports; `IfcSelector` is the only `filter_elements` caller.
+- Growth: a new quantity rule set is one `RuleSet` row over the upstream `qto.rules` key; a new cost format one `CostReport` row the data boundary binds to its `ifc5Dspreadsheet` writer subclass; a new schedule format one `ScheduleFormat` row binding its `<Format>2Ifc` parser; a new model transformation one `recipe` name in the `ifcpatch.execute` directive; a new diff axis one `DiffAxis` row whose marker and `relationships` entry both derive from it; a new exchange drop law one `DropLaw` row and one `_law` arm reaching the census, the ledger, and the fidelity frame together; a new exchange format one `TableFormat` row the data boundary binds to its `export_*` writer, plus one `SUFFIXED` member where that format names a file suffix; a new exported column one selector-path string in the caller's own `spec`, zero page edits; a new mid-phase fact is one `pulsed` call inside the phase helper that can see it, zero conduit edits; a newly audited run column is one `_evidence` `Change` row, the verb and the meter deriving off the phase and the successor already in hand — zero new surface, no parallel per-phase class family.
 - Boundary: no re-derivation of the C# `IfcSemanticModel` spatial hierarchy; no ledger, custody, or retention window minted here, the plane arriving bound at the composition root and this owner declaring a `Retain` class alone; no durable store — cost spreadsheet, exchange table, `ifcpatch.write` serialization, and diff `export` JSON all defer to `python:data/spatial` as the token or product carried on the receipt, the exchange arm binding the writer key without holding a file handle across the seam; no Rhino/GH mutation. No hand-rolled `csv` fold over `util.element.get_psets` where `export` owns column resolution, and no bespoke `by_guid`-keyed property-set mutation where `process_row` routes every cell through `util.selector.set_element_value`. Ecosystem siblings bind one module-scope `lazy import`/`lazy from` each, the proxy reifying worker-side on the first phase that reaches it — the manifest roster bans the EAGER module-level form alone, and a function-local import earns nothing the module binding has not already deferred; the parser and writer rosters those siblings populate stay inside their phase bodies, a module-scope cell over a deferred band being the reification the deferral exists to prevent. The `spec` selector crosses the `IfcSelector.filter` validated gate, never a raw `util.selector.filter_elements` passthrough.
 
 ```python signature
@@ -33,7 +33,7 @@ from tempfile import TemporaryDirectory
 from typing import Final, Literal, assert_never
 
 from beartype import beartype
-from expression import Error, Ok, Result, case, tag, tagged_union
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec.json import decode
@@ -57,16 +57,30 @@ from rasm.geometry.graduation import (
     EvidenceFrame,
     EvidenceScope,
     GeometryHandoff,
+    GeometryLeg,
     GeometryPulse,
     GeometrySubject,
-    PulseBeat,
     bench_seam,
     bench_subject,
     evidence_key,
     evidence_run,
 )
-from rasm.geometry.ifc.selector import IfcSelector
-from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail, boundary
+from rasm.geometry.ifc.selector import IfcFault, IfcRoster, IfcSelector
+from rasm.runtime.faults import (
+    FAULT_CONF,
+    PACKAGE,
+    TERMINAL,
+    TRANSIENT,
+    BoundaryFault,
+    Catch,
+    Disposition,
+    FaultRow,
+    RuntimeRail,
+    boundary,
+    rostered,
+    traversed,
+)
+from rasm.runtime.hooks import StageMark
 from rasm.runtime.identity import ContentIdentity
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, MeterFact, Party, Resource, Retain
 from rasm.runtime.lanes import LanePolicy, PulseFact, pulsed
@@ -75,6 +89,15 @@ from rasm.runtime.receipts import DEFAULT_SCOPE, OPEN, Receipt, ScopeKey, receip
 from rasm.runtime.workers import Kernel, KernelTrait
 
 # --- [TYPES] ---------------------------------------------------------------------------
+
+
+class IfcLifecycleStage(StrEnum):
+    # this producer's own CLOSED mark position; `StageMark.stage` is ERASED at the point and closed HERE, so the
+    # registry proves one payload type per registered point and the union of every lane's positions never becomes a
+    # cross-lane phase ladder. The PHASE rides the crossing itself — one kernel invocation serves exactly one phase,
+    # and the receipt and the span both name it — so interpolating it into the position would fork this roster on a
+    # vocabulary `LifecyclePhase` already closes. A phase that ever grows an internal hook adds one member here.
+    PHASE = "phase"  # one beat as a phase's single opaque provider call opens
 
 
 class LifecyclePhase(StrEnum):
@@ -113,29 +136,64 @@ class RuleSet(StrEnum):
     IFC4X3 = "IFC4X3QtoBaseQuantities"
 
 
-class DiffChange(StrEnum):
+class DiffPresence(StrEnum):
+    # `IfcDiff` publishes THREE disjoint surfaces, so presence is three states and never a flag beside a change class:
+    # an element only in `new`, one only in `old`, and the survivor whose `change_register` row names what moved.
+    # Presence and axis stay separate columns because they answer different questions — whether the element exists at
+    # all, and what about it changed — and one merged vocabulary made the second unanswerable for the first two.
     ADDED = "added"
     DELETED = "deleted"
+    SURVIVING = "surviving"
+
+
+class DiffAxis(StrEnum):
+    # `ifcdiff.RELATIONSHIP_TYPE` whole, member VALUE the axis name the ctor's `relationships` argument consumes, so
+    # this roster IS the correspondence: the argument derives from it, the marker vocabulary derives from it, and the
+    # three divergent transcriptions it replaces — a hand-copied axis tuple, a change-class enum sharing no spelling
+    # with it, and seven marker literals inside a match — collapse onto one declaration a renamed upstream member
+    # breaks at a parse rather than at an argument `ifcdiff` accepts and silently ignores.
     GEOMETRY = "geometry"
-    ATTRIBUTE = "attribute"
-    PSET = "pset"
-    RELATIONSHIP = "relationship"
+    ATTRIBUTES = "attributes"
+    TYPE = "type"
+    PROPERTY = "property"
+    CONTAINER = "container"
+    AGGREGATE = "aggregate"
+    CLASSIFICATION = "classification"
+
+    @property
+    def marker(self) -> str:
+        # the `change_register` key THIS axis's leg writes. Six suffix their own name; `property` alone pluralizes and
+        # carries the pset `DeepDiff` payload where the others carry a `True` flag, so the one divergence is spelled at
+        # its own row and the other six derive — the roster stays the single authority a second table would fork.
+        return "properties_changed" if self is DiffAxis.PROPERTY else f"{self.value}_changed"
 
     @staticmethod
-    def of_register(markers: object) -> "DiffChange":
-        # `change_register[guid]` marker dict carries one or more `*_changed` flags at once, so the arm
-        # order IS the change-priority collapse to one row. `attributes_changed` is matched by intent, so the
-        # `_` fallback is the closed-enum floor absorbing an unrecognized future marker as ATTRIBUTE. Element
-        # presence rides the disjoint `added_elements`/`deleted_elements` sets `_diff` classifies directly.
-        match markers:
-            case {"geometry_changed": True}:
-                return DiffChange.GEOMETRY
-            case {"properties_changed": object()}:
-                return DiffChange.PSET
-            case {"type_changed": True} | {"container_changed": True} | {"aggregate_changed": True} | {"classification_changed": True}:
-                return DiffChange.RELATIONSHIP
-            case {"attributes_changed": True} | _:
-                return DiffChange.ATTRIBUTE
+    def of_markers(markers: "dict[str, object]") -> "RuntimeRail[frozenset[DiffAxis]]":
+        # a SET, never a winner: `change_register[guid]` carries every leg that moved, so an element changed on both
+        # geometry and psets reports both, where the priority ladder this replaces returned ONE class and the frame's
+        # change column could never show the second. A key outside the roster refuses BY NAME rather than absorbing as
+        # an attribute change — an unrecognised upstream marker graded as a known one is the deleted form.
+        seat = Map.of_seq((axis.marker, axis) for axis in DiffAxis)
+        unknown = Block.of_seq(sorted(key for key in markers if key not in seat))
+        return (
+            Ok(frozenset(seat[key] for key, moved in markers.items() if moved))
+            if unknown.is_empty()
+            else Error(_domain(IfcFault(unrostered=(DiffAxis.__name__, ",".join(unknown)))))
+        )
+
+
+class DropLaw(StrEnum):
+    # ONE row per structurally distinct way the exchange pair loses a cell, so an unnamed loss is unrepresentable and
+    # the single merged `empty` fraction it replaces can no longer hide a column that will never write back behind a
+    # null a caller cleared on purpose. Every row is an asymmetry the provider itself declares: `process_row` never
+    # writes a `count`/`material` column, the two substitution spellings clear a value rather than carry one, `Import`
+    # prints its `by_guid` miss and publishes no count a caller reads back, and its per-index write truncates on a
+    # table row narrower than the resolved header roster.
+    BLIND_COLUMN = "blind-column"
+    SUBSTITUTED_NULL = "substituted-null"
+    SUBSTITUTED_EMPTY = "substituted-empty"
+    ABSENT_SUBJECT = "absent-subject"
+    SHORT_ROW = "short-row"
 
 
 @tagged_union(frozen=True)
@@ -145,10 +203,12 @@ class LifecycleRow:
     cost: tuple[str, str, float] = case()
     task: tuple[str, str] = case()
     patch: tuple[str, str] = case()
-    diff: tuple[str, DiffChange] = case()
-    # ONE case for both exchange directions: the grain is a table row, the payload the cells it carried, and the
-    # direction is the receipt's own `phase` — a second case would restate a discriminant already on the carrier.
-    exchange: tuple[str, int] = case()
+    diff: tuple[str, DiffPresence, frozenset[DiffAxis]] = case()
+    # ONE case for both exchange directions: the grain is a table row, the payload the cells it carried and the cells
+    # it lost, and the direction is the receipt's own `phase` — a second case would restate a discriminant already on
+    # the carrier. The dropped count rides beside the carried one so the row is self-describing at the frame grain,
+    # while WHICH law dropped each cell rides the fidelity ledger's own frame family rather than widening this row.
+    exchange: tuple[str, int, int] = case()
 
     @staticmethod
     def of_quantity(element: str, qto: str, name: str, value: float) -> "LifecycleRow":
@@ -167,14 +227,15 @@ class LifecycleRow:
         return LifecycleRow(patch=(recipe, product))
 
     @staticmethod
-    def of_diff(element: str, change: DiffChange | dict[str, object]) -> "LifecycleRow":
-        # A bare `DiffChange` is the already-classified presence row (the added/deleted GUID sets);
-        # a `change_register` marker dict folds through `of_register` — one constructor, both sources.
-        return LifecycleRow(diff=(element, change if isinstance(change, DiffChange) else DiffChange.of_register(change)))
+    def of_diff(element: str, presence: DiffPresence, axes: frozenset[DiffAxis] = frozenset()) -> "LifecycleRow":
+        # ONE constructor over the three disjoint surfaces: the added/deleted sets carry presence and no axis, the
+        # survivor carries `SURVIVING` and the axis set `of_markers` elected, and both keep one homogeneous fact
+        # roster so the DIFF frame stays one table rather than two column sets racing the port's width check.
+        return LifecycleRow(diff=(element, presence, axes))
 
     @staticmethod
-    def of_exchange(element: str, cells: int) -> "LifecycleRow":
-        return LifecycleRow(exchange=(element, cells))
+    def of_exchange(element: str, carried: int, dropped: int) -> "LifecycleRow":
+        return LifecycleRow(exchange=(element, carried, dropped))
 
     @property
     def facts(self) -> dict[str, object]:
@@ -188,10 +249,10 @@ class LifecycleRow:
                 return {"task": guid, "name": name}
             case LifecycleRow(tag="patch", patch=(recipe, product)):
                 return {"recipe": recipe, "product": product}
-            case LifecycleRow(tag="diff", diff=(element, change)):
-                return {"element": element, "change": change.value}
-            case LifecycleRow(tag="exchange", exchange=(element, cells)):
-                return {"element": element, "cells": cells}
+            case LifecycleRow(tag="diff", diff=(element, presence, axes)):
+                return {"element": element, "presence": presence.value, "axes": ",".join(sorted(axis.value for axis in axes))}
+            case LifecycleRow(tag="exchange", exchange=(element, carried, dropped)):
+                return {"element": element, "cells": carried, "dropped": dropped}
             case unreachable:
                 assert_never(unreachable)
 
@@ -200,10 +261,6 @@ class LifecycleRow:
 
 # Lifecycle output crosses on BIM_LIFECYCLE; an unlisted subject fails at the boundary under `ty`.
 LIFECYCLE_SUBJECT: Final[GeometrySubject] = GeometrySubject.BIM_LIFECYCLE
-
-# this owner's one name, serving the receipt label and the durable audit actor alike, so a rename cannot leave a
-# receipt stream and an evidence-plane actor column under two spellings.
-OWNER: Final[str] = "rasm.geometry.ifc.costing"
 
 # One delimiter row is the partition vocabulary key per phase, never a parse-per-phase ladder and never
 # a `.get` default that drops a phase; `DIFF`'s empty-delimiter row passes the whole spec as the revision path.
@@ -232,11 +289,39 @@ BLIND_KEYS: Final[frozenset[str]] = frozenset({"count", "material"})
 # `TableFormat` rows that name a file suffix; `PD` is the in-memory-frame row and reaches no path.
 SUFFIXED: Final[frozenset[TableFormat]] = frozenset({TableFormat.CSV, TableFormat.ODS, TableFormat.XLSX})
 
-# Full ifcdiff relationship axis the audit scopes over, not the ctor's `["geometry"]` default;
-# its `"geometry"` leg drives the costly tessellation, the rest fold markers off the model.
-DIFF_AXIS: Final[tuple[str, ...]] = ("geometry", "attributes", "type", "property", "container", "aggregate", "classification")
+# this owner's one name, DERIVED off the leg roster member every raise on this page seats under, so the receipt
+# stream, the durable audit actor, and the fault subject cannot drift apart under three transcribed spellings.
+OWNER: Final[str] = f"{PACKAGE}.{GeometryLeg.COSTING.value}"
 
 # --- [MODELS] --------------------------------------------------------------------------
+
+
+class DropFact(Struct, frozen=True, gc=False):
+    # one dropped cell with the anchors an estimator acts on: the row's GlobalId is what they open, the resolved
+    # column key is what they fix, and `value` is the substituted spelling where the law carries one. `ABSENT_SUBJECT`
+    # is a ROW-grain law, so its column is structurally empty and says so HERE rather than at a reader inferring it.
+    law: DropLaw
+    subject: str
+    column: str = ""
+    value: str = ""
+
+
+class FidelityLog(Struct, frozen=True, gc=False):
+    # the exchange pair's loss as a VALUE the fold RETURNS, never a list mutating beside it: the empty log is the
+    # identity and `combined` the associative monoid — the same law-shape the runtime's own `BoundaryFault.combine`
+    # holds — so the provider-driven import loop threads ONE frozen cell where a closure-captured list published a
+    # half-run census to anything holding the closure. `census` DERIVES off `drops`, so a count and the evidence
+    # behind it cannot disagree, and no receipt field mirrors a roster it could fall out of step with.
+    drops: "Block[DropFact]" = Block.empty()
+    carried: int = 0
+
+    @staticmethod
+    def combined(left: "FidelityLog", right: "FidelityLog") -> "FidelityLog":
+        return FidelityLog(drops=left.drops.append(right.drops), carried=left.carried + right.carried)
+
+    @property
+    def census(self) -> "Map[DropLaw, int]":
+        return self.drops.fold(lambda seat, fact: seat.add(fact.law, seat.try_find(fact.law).default_value(0) + 1), Map.empty())
 
 
 class LifecycleReceipt(Struct, frozen=True, gc=False):
@@ -252,13 +337,9 @@ class LifecycleReceipt(Struct, frozen=True, gc=False):
     # COST values carrying no resolvable AppliedValue: an unpriced item, never a zero-cost one, so it rides its own
     # key against its own ceiling rather than a `0.0` row diluting the schedule rollup.
     unpriced: int = 0
-
-    @property
-    def _carried(self) -> tuple[int, ...]:
-        # The exchange pair's ONE derivation — cells per table row — read off the row roster itself, so neither the
-        # drop count nor the cell total rides a receipt field mirroring what the rows already hold. Empty for every
-        # other phase, which is what keeps the census term below phase-free.
-        return tuple(row.exchange[1] for row in self.rows if row.tag == "exchange")
+    # The exchange pair's loss ledger, carried as the VALUE its own fold returned. Empty for every other phase, which
+    # is what keeps the census term below phase-free.
+    fidelity: FidelityLog = FidelityLog()
 
     def evidence(self) -> dict[str, float]:
         # Residual ledger is phase-specific, never a row/subject count that clears against any ceiling.
@@ -276,18 +357,35 @@ class LifecycleReceipt(Struct, frozen=True, gc=False):
             case LifecyclePhase.DIFF:
                 return {"drift": len(self.subjects) / max(self.population, 1)}
             case LifecyclePhase.EXPORT | LifecyclePhase.IMPORT:
-                # One arm serves the pair: a table row carrying zero cells is the dropped row on BOTH sides — an
-                # all-substituted export row no estimator can price, a GlobalId the model does not hold — so the
-                # residual divides drops by the table rows the exchange actually saw, never by a `subjects` roster
-                # that is the resolved column contract on one side and the table path on the other.
-                carried = self._carried
-                return {"empty": sum(1 for cells in carried if not cells) / max(len(carried), 1)}
+                # One arm serves the pair and keys ONE fraction PER LAW over the cells the exchange actually touched,
+                # so a caller ceiling gates the specific loss it can act on: a column that can never write back, a
+                # substituted null, a substituted empty, a GlobalId the model does not hold, and a table row the
+                # provider's per-index write truncates. The merged `empty` fraction this replaces graded all five
+                # alike, so a badly-mapped column set and a model missing half its subjects breached one ceiling for
+                # opposite reasons and neither could be tightened without refusing the other.
+                census = self.fidelity.census
+                touched = max(self.fidelity.carried + sum(count for _, count in census.items()), 1)
+                return {f"drop.{law.value}": census.try_find(law).default_value(0) / touched for law in DropLaw}
             case unreachable:
                 assert_never(unreachable)
 
     def graduates(self, ceiling: dict[str, float]) -> GeometryHandoff:
         # local carrier residual-over-ceiling `admitted` verdict gates; `wire()` is the compute crossing.
         return GeometryHandoff.of(LIFECYCLE_SUBJECT, evidence_key(LIFECYCLE_SUBJECT, self.spec), self.evidence(), ceiling)
+
+    def fidelity_frame(self) -> "RuntimeRail[EvidenceFrame]":
+        # the exchange pair's per-occurrence loss as its OWN columnar family, keyed off this run's `spec`: the receipt
+        # keeps the CENSUS alone, so a whole-model export's hundred-thousand dropped cells ride the frame that already
+        # carries row-grain evidence rather than the receipt dict this page's own hazard names. A phase that dropped
+        # nothing frames zero rows, exactly as `frame()` does for a phase that produced none.
+        drops = self.fidelity.drops
+        table: dict[str, list[object]] = {
+            "law": [fact.law.value for fact in drops],
+            "subject": [fact.subject for fact in drops],
+            "column": [fact.column for fact in drops],
+            "value": [fact.value for fact in drops],
+        }
+        return EvidenceFrame.of(LIFECYCLE_SUBJECT, evidence_key(LIFECYCLE_SUBJECT, f"{self.spec}#fidelity"), table)
 
     def frame(self) -> "RuntimeRail[EvidenceFrame]":
         # phase rows are homogeneous, so the first row's fact keys ARE the column set; the rollup crosses the
@@ -311,7 +409,8 @@ class LifecycleReceipt(Struct, frozen=True, gc=False):
                 self.phase.value,
                 {"rows": len(self.rows), "subjects": len(self.subjects)}
                 | ({"population": float(self.population)} if self.population else {})
-                | ({"cells": float(sum(carried))} if (carried := self._carried) else {})
+                | ({"cells": float(self.fidelity.carried)} if self.fidelity.carried else {})
+                | {f"dropped.{law.value}": float(count) for law, count in self.fidelity.census.items()}
                 | self.evidence(),
             ),
         )
@@ -322,6 +421,41 @@ class LifecycleReceipt(Struct, frozen=True, gc=False):
         # explicit harvest point: the kernel's cleared value is a (bytes, receipt) tuple the weave's own harvest
         # passes through plain, so the receipt slot threads this aspect on the Ok path — the reconstruction convention.
         return receipt
+
+
+# --- [ERRORS] --------------------------------------------------------------------------
+
+# Every domain refusal this module mints is an `IfcFault` CASE, so these rows spend ONE coordinate per raise POINT and
+# no fence spells a subject string. `TABLE_READ` alone declares TRANSIENT — a store or driver fault on the table path
+# a re-issue may clear; every other row is TERMINAL, because the vocabulary parses, the re-application, the rollback,
+# and the close all refuse identically on a re-run and the import is non-idempotent by this page's own charter, so a
+# re-offer there re-applies an estimator's edit rather than clearing anything. `rostered` pushes the roster into the
+# fault owner's ONE census at import, so `FaultRow.seated` proves the leg against a real module and a `domain`
+# crossing answers this module's posture rather than a seat `retriability` and `facts` never reach.
+PHASE_REFUSED: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.COSTING, point="phase", arm="boundary", defect="phase-refused", retriability=TERMINAL
+)
+TABLE_READ: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.COSTING, point="import.table", arm="resource", defect="table-read", retriability=TRANSIENT
+)
+IMPORT_APPLY: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.COSTING, point="import.apply", arm="boundary", defect="cells-refused", retriability=TERMINAL
+)
+IMPORT_UNDO: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.COSTING, point="import.undo", arm="boundary", defect="rollback-torn", retriability=TERMINAL
+)
+IMPORT_CLOSE: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.COSTING, point="import.close", arm="boundary", defect="close-refused", retriability=TERMINAL
+)
+RAISES: Final[Block[FaultRow[GeometryLeg]]] = rostered(Block.of_seq([PHASE_REFUSED, TABLE_READ, IMPORT_APPLY, IMPORT_UNDO, IMPORT_CLOSE]))
+
+
+def _domain(fault: IfcFault) -> BoundaryFault:
+    # ONE door for every domain refusal this module mints, and the ONE site binding the raise row. The band's typed
+    # token rides the runtime's own `domain` case WHOLE — `BoundaryFault.of` admits a `Tagged` token ahead of every
+    # `CLASSIFY` row — so case and coordinate cross the funnel as structured evidence and the rendered collapse the
+    # wire edge reads stays `IfcFault.__str__`, spelled once at the family owner and never here.
+    return BoundaryFault.of(PHASE_REFUSED, fault)
 
 
 # --- [OPERATIONS] ----------------------------------------------------------------------
@@ -349,10 +483,11 @@ def _evidence(successor: bytes, receipt: LifecycleReceipt) -> "Block[Fact]":
 
 
 def _token[E: StrEnum](vocabulary: type[E], raw: str) -> "RuntimeRail[E]":
-    # One generic closed-vocabulary parse for the report, format, AND rule-set tokens: an unknown token
-    # is a typed `wire` fault, never a raw `StrEnum(raw)`/`rules[str]` escape. The `raw in vocabulary`
-    # value-membership test is the public 3.12+ EnumType contract, no private map.
-    return Ok(vocabulary(raw)) if raw in vocabulary else Error(BoundaryFault(wire=(f"lifecycle.{vocabulary.__name__}.{raw}", 0)))
+    # One generic closed-vocabulary parse for the report, format, AND rule-set tokens: an unknown token names the
+    # ROSTER that refuses it and the token it does not carry, never a raw `StrEnum(raw)`/`rules[str]` escape and never
+    # the fabricated `wire` code zero this replaces — no protocol issued one, and the case is the discriminant a
+    # consumer gates on. The `raw in vocabulary` value-membership test is the public 3.12+ EnumType contract.
+    return Ok(vocabulary(raw)) if raw in vocabulary else Error(_domain(IfcFault(unrostered=(vocabulary.__name__, raw))))
 
 
 def _columns(raw: str) -> "RuntimeRail[tuple[str, ...]]":
@@ -361,28 +496,52 @@ def _columns(raw: str) -> "RuntimeRail[tuple[str, ...]]":
     # whitespace-only member drops rather than resolving to null — and the trimmed roster is the canonical column
     # contract the EXPORT spec keys evidence on, so `a, b` and `a,b` name one export.
     columns = tuple(stripped for name in raw.split(",") if (stripped := name.strip()))
-    return Ok(columns) if columns else Error(BoundaryFault(wire=("lifecycle.export.columns", 0)))
+    return Ok(columns) if columns else Error(_domain(IfcFault(empty_roster=("lifecycle.export", IfcRoster.EXPORT_COLUMN))))
 
 
 def _reader(table: str) -> "RuntimeRail[TableFormat]":
     # The suffix is the whole admission surface, `Import` reading nothing else off the path to pick its reader.
+    # a `PD` table is rostered and UNSERVED on this side: `TableFormat` carries the in-memory frame the export writer
+    # keys on, and no path suffix names it, so the asymmetry rides its own case rather than a subject string
+    # concatenating the direction onto the member it refuses.
     return _token(TableFormat, Path(table).suffix.removeprefix(".").lower()).bind(
-        lambda fmt: Ok(fmt) if fmt in SUFFIXED else Error(BoundaryFault(wire=(f"lifecycle.import.{fmt.value}", 0)))
+        lambda fmt: Ok(fmt) if fmt in SUFFIXED else Error(_domain(IfcFault(unserved=("lifecycle.import", fmt.value))))
     )
 
 
-def _cells(values: "Iterable[object]", keys: "Iterable[str]") -> int:
-    # ONE carried-cell predicate serves the exchange pair: a cell counts only where its column key clears
-    # `BLIND_KEYS` AND its value is neither substitution spelling — the export census reads it over
-    # `(results row, headers)`, the import census over `(table row, attributes-or-headers)` — so the shared
-    # dropped-over-carried residual divides one derivation on both sides. Index zero skips the key column by
-    # POSITION, never by name, and the zip truncates to the row's own width because the provider's per-index write
-    # does exactly that on a short table row — a census stricter than the write it counts refuses a table the
-    # provider applies.
-    return sum(
-        1
-        for index, (value, key) in enumerate(zip(values, keys))
-        if index and value not in (NULL_CELL, EMPTY_CELL) and not any(blind in str(key).lower() for blind in BLIND_KEYS)
+def _law(key: str, value: object) -> "Option[DropLaw]":
+    # ONE per-cell classifier, three named laws off the closed `DropLaw` vocabulary and `Nothing` for a cell that
+    # carried: a column key the provider's write drops outright, and the two substitution spellings that clear a value
+    # rather than carry one. Blindness is tested FIRST because a blind column's null is lost to the column, not to the
+    # substitution — an order the counting predicate this replaces could not express, having one answer for all three.
+    return (
+        Some(DropLaw.BLIND_COLUMN)
+        if any(blind in key.lower() for blind in BLIND_KEYS)
+        else Some(DropLaw.SUBSTITUTED_NULL)
+        if value == NULL_CELL
+        else Some(DropLaw.SUBSTITUTED_EMPTY)
+        if value == EMPTY_CELL
+        else Nothing
+    )
+
+
+def _dropped(subject: str, values: "Iterable[object]", keys: "Iterable[str]") -> FidelityLog:
+    # ONE row-grain census serves the exchange pair — the export leg reads it over `(results row, headers)`, the import
+    # leg over `(table row, attributes-or-headers)` — so one derivation NAMES the loss on both sides where the integer
+    # it replaces made three distinct laws indistinguishable inside one count. Index zero skips the key column by
+    # POSITION, never by name. `zip` truncates to the row's own width because the provider's per-index write does
+    # exactly that, and each truncated column lands as its OWN `SHORT_ROW` fact rather than vanishing with the writes
+    # it silently skipped — a census stricter than the write it counts would refuse a table the provider applies.
+    row, header = tuple(values), tuple(keys)
+    graded = Block.of_seq((str(key), value) for index, (value, key) in enumerate(zip(row, header)) if index).map(
+        lambda cell: (cell[0], cell[1], _law(cell[0], cell[1]))
+    )
+    truncated = Block.of_seq(DropFact(law=DropLaw.SHORT_ROW, subject=subject, column=str(key)) for key in header[len(row) :])
+    return FidelityLog(
+        drops=truncated.append(
+            graded.choose(lambda cell: cell[2].map(lambda law: DropFact(law=law, subject=subject, column=cell[0], value=str(cell[1]))))
+        ),
+        carried=sum(1 for _, _, law in graded if law.is_none()),
     )
 
 
@@ -476,7 +635,7 @@ class IfcLifecycle:
             case LifecyclePhase.PATCH:
                 return Ok(IfcLifecycle._patch(model, head, tail, f"{base}|{head}#{tail}"))
             case LifecyclePhase.DIFF:
-                return Ok((IfcLifecycle._diff(model, head, f"{base}|{head}"), model))
+                return IfcLifecycle._diff(model, head, f"{base}|{head}").map(lambda receipt: (receipt, model))
             case LifecyclePhase.EXPORT:
                 # Writer token, column vocabulary, AND validated selector all bind before `export` resolves a single
                 # cell, so a typo'd format and an empty column list each name themselves at the fence; `head` is the
@@ -510,7 +669,7 @@ class IfcLifecycle:
                 # as display metadata alone. One `boundary` read crosses the same fence the provider's own read
                 # does, so a missing table names itself typed here rather than settling as a clean zero-row run.
                 return _reader(head).bind(
-                    lambda fmt: boundary(f"lifecycle.import:{head}", Path(head).read_bytes).bind(
+                    lambda fmt: boundary(TABLE_READ, Path(head).read_bytes, catch=(OSError,)).bind(
                         lambda octets: IfcLifecycle._import(
                             model, head, fmt, f"{base}|{ContentIdentity.key('ifc.table', octets).project('wire')}#{fmt.value}"
                         ).map(lambda receipt: (receipt, model))
@@ -599,23 +758,38 @@ class IfcLifecycle:
         return LifecycleReceipt(LifecyclePhase.PATCH, spec, (recipe, product), rows), successor
 
     @staticmethod
-    def _diff(model: "ifcopenshell.file", revision_path: str, spec: str) -> LifecycleReceipt:
+    def _diff(model: "ifcopenshell.file", revision_path: str, spec: str) -> "RuntimeRail[LifecycleReceipt]":
         # `change_register` carries only the surviving-element marker map; the disjoint
         # `added_elements`/`deleted_elements` sets carry the presence rows the register never holds
-        # — three result surfaces folded into one typed diff row stream.
+        # — three result surfaces folded into one typed diff row stream. `relationships` DERIVES off the axis roster,
+        # so the argument and the marker vocabulary a survivor's row folds through are one declaration; its `geometry`
+        # leg drives the costly tessellation and the rest fold markers off the model. Each survivor's marker fold
+        # returns a RAIL, so one unrecognised upstream marker names itself here rather than grading as a known axis.
         revision = ifcopenshell.open(revision_path)
-        differ = ifcdiff.IfcDiff(model, revision, relationships=list(DIFF_AXIS))
+        differ = ifcdiff.IfcDiff(model, revision, relationships=[axis.value for axis in DiffAxis])
         differ.diff()
-        rows = (
-            *(LifecycleRow.of_diff(guid, markers) for guid, markers in differ.change_register.items()),
-            *(LifecycleRow.of_diff(guid, DiffChange.ADDED) for guid in differ.added_elements),
-            *(LifecycleRow.of_diff(guid, DiffChange.DELETED) for guid in differ.deleted_elements),
-        )
         subjects = (*differ.change_register, *differ.added_elements, *differ.deleted_elements)
         # `model` is the OLD revision, already holding survivors and deleted, so the union adds only the
         # new-only `added_elements`: the drift denominator is `len(old IfcRoot) + len(added)`.
         population = len(model.by_type("IfcRoot")) + len(differ.added_elements)
-        return LifecycleReceipt(LifecyclePhase.DIFF, spec, subjects, rows, population=population)
+        return traversed(
+            Block.of_seq(differ.change_register.items()).map(
+                lambda entry: DiffAxis.of_markers(entry[1]).map(lambda axes: LifecycleRow.of_diff(entry[0], DiffPresence.SURVIVING, axes))
+            ),
+            by=Disposition.ACCUMULATE,
+        ).map(
+            lambda changed: LifecycleReceipt(
+                LifecyclePhase.DIFF,
+                spec,
+                subjects,
+                (
+                    *changed,
+                    *(LifecycleRow.of_diff(guid, DiffPresence.ADDED) for guid in differ.added_elements),
+                    *(LifecycleRow.of_diff(guid, DiffPresence.DELETED) for guid in differ.deleted_elements),
+                ),
+                population=population,
+            )
+        )
 
     @staticmethod
     def _export(
@@ -645,22 +819,40 @@ class IfcLifecycle:
             empty=EMPTY_CELL,
             sort=[{"name": "GlobalId", "order": "ASC"}],
         )
-        # Row grain is the exported TABLE row counted through the pair's one `_cells` predicate — the key column by
-        # position, blind columns and substituted cells outside it; `headers` is the RESOLVED contract a wildcard
-        # expanded into, and the same roster keys the census so a `Count`/`Material` column that can never write
-        # back inflates no export's carried count against its own re-import.
-        rows = tuple(LifecycleRow.of_exchange(str(cells[0]), _cells(cells, exporter.headers)) for cells in exporter.results)
-        return LifecycleReceipt(LifecyclePhase.EXPORT, spec, (fmt.value, *exporter.headers), rows)
+        # ONE fold returns the row block AND the run's fidelity ledger, so the census and the occurrences it derives
+        # from are one value the call site receives — a log accumulating beside the return is the deleted form. Row
+        # grain is the exported TABLE row named through the pair's one `_dropped` classifier; `headers` is the
+        # RESOLVED contract a wildcard expanded into, and the same roster keys the census, so a `Count`/`Material`
+        # column that can never write back names itself as a blind drop instead of quietly inflating a carried count
+        # against its own re-import.
+        def step(state: "tuple[Block[LifecycleRow], FidelityLog]", cells: "tuple[object, ...]") -> "tuple[Block[LifecycleRow], FidelityLog]":
+            held, log = state
+            subject = str(cells[0])
+            fidelity = _dropped(subject, cells, exporter.headers)
+            return (
+                held.append(Block.singleton(LifecycleRow.of_exchange(subject, fidelity.carried, len(fidelity.drops)))),
+                FidelityLog.combined(log, fidelity),
+            )
+
+        rows, fidelity = Block.of_seq(exporter.results).fold(step, (Block.empty(), FidelityLog()))
+        return LifecycleReceipt(LifecyclePhase.EXPORT, spec, (fmt.value, *exporter.headers), tuple(rows), fidelity=fidelity)
 
     @staticmethod
     def _import(model: "ifcopenshell.file", table: str, fmt: TableFormat, spec: str) -> "RuntimeRail[LifecycleReceipt]":
-        # Census rows count CARRIED cells through the pair's one `_cells` predicate, never raw writes: `process_row`
-        # calls `set_element_value` unconditionally for every non-key column whose key clears `BLIND_KEYS` —
-        # deriving that key as `attributes[i] or headers[i]`, `attributes` arriving as a `None` roster of header
-        # width when the caller supplies none, as here — and a `NULL_CELL`/`EMPTY_CELL` cell is one of those writes,
-        # a substitution clearing a value rather than carrying one, so it counts on neither side of the exchange.
+        # Census rows NAME each dropped cell through the pair's one `_dropped` classifier, never raw writes:
+        # `process_row` calls `set_element_value` unconditionally for every non-key column whose key clears
+        # `BLIND_KEYS` — deriving that key as `attributes[i] or headers[i]`, `attributes` arriving as a `None` roster
+        # of header width when the caller supplies none, as here — and a `NULL_CELL`/`EMPTY_CELL` cell is one of those
+        # writes, a substitution clearing a value rather than carrying one. A GlobalId the model does not hold is its
+        # OWN law: the provider prints that miss to stdout and publishes no count, so a whole-row absence and an
+        # all-substituted row stop reading as one indistinguishable zero.
+        #
+        # The provider drives this loop, so the accumulator is the named platform-forced statement seam — and it is
+        # ONE slot holding a FROZEN pair, each call replacing it through the `FidelityLog` monoid rather than
+        # appending into a growing list. The cell collapses to the returned value on the line past `Import`, so
+        # nothing holding the closure can read a half-run census and no value survives beside the return.
         roster = frozenset(root.GlobalId for root in model.by_type("IfcRoot"))
-        carried: list[LifecycleRow] = []
+        held: list[tuple[Block[LifecycleRow], FidelityLog]] = [(Block.empty(), FidelityLog())]
 
         class _Census(ifccsv.IfcCsv):
             def process_row(
@@ -676,11 +868,17 @@ class IfcLifecycle:
                 concat: str,
             ) -> None:
                 guid = str(row[0])
+                rows, log = held[0]
                 if guid not in roster:
-                    carried.append(LifecycleRow.of_exchange(guid, 0))
+                    absent = FidelityLog(drops=Block.singleton(DropFact(law=DropLaw.ABSENT_SUBJECT, subject=guid)))
+                    held[0] = (rows.append(Block.singleton(LifecycleRow.of_exchange(guid, 0, 1))), FidelityLog.combined(log, absent))
                     return
                 keys = tuple(str(attribute or header) for attribute, header in zip(attributes, headers, strict=True))
-                carried.append(LifecycleRow.of_exchange(guid, _cells(row, keys)))
+                fidelity = _dropped(guid, row, keys)
+                held[0] = (
+                    rows.append(Block.singleton(LifecycleRow.of_exchange(guid, fidelity.carried, len(fidelity.drops)))),
+                    FidelityLog.combined(log, fidelity),
+                )
                 super().process_row(ifc_file, row, headers, attributes, null, empty, bool_true, bool_false, concat)
 
         # fence settlement lands ON THE RAIL: `boundary` converts the provider's raise inside the fence, and the undo and
@@ -691,13 +889,21 @@ class IfcLifecycle:
         # after the transaction has reached its terminal state, each member structurally addressable with the
         # primary cause first, and a clean import whose close refused is itself the fault — no path leaves the
         # transaction stack open under a settled-looking model, and no secondary fault shadows the cause.
+        # Both raise sets bind at CALL time: naming `ifcopenshell.Error` in a module-scope tuple would dereference the
+        # lazy proxy at import, the reification the deferral exists to prevent. The reader leg reaches the workbook and
+        # frame decoders beneath `Import` plus `set_element_value`'s own attribute and coercion refusals; the
+        # transaction verbs reach the native stack alone, which surfaces as the package's own `Error` or a pybind11
+        # `RuntimeError`. Neither set admits a bare `Exception`, so an unexpected raise propagates as the defect it is.
+        reading: Catch = (ifcopenshell.Error, KeyError, IndexError, TypeError, ValueError, OSError)
+        staging: Catch = (ifcopenshell.Error, RuntimeError)
         model.begin_transaction()
-        applied = boundary(f"lifecycle.import:{table}", lambda: _Census().Import(model, table, null=NULL_CELL, empty=EMPTY_CELL))
-        unwound = boundary(f"lifecycle.import.undo:{table}", model.undo) if applied.is_error() else Ok(None)
-        closed = boundary(f"lifecycle.import.close:{table}", model.end_transaction)
+        applied = boundary(IMPORT_APPLY, lambda: _Census().Import(model, table, null=NULL_CELL, empty=EMPTY_CELL), catch=reading)
+        unwound = boundary(IMPORT_UNDO, model.undo, catch=staging) if applied.is_error() else Ok(None)
+        closed = boundary(IMPORT_CLOSE, model.end_transaction, catch=staging)
         faults = Block.of_seq((applied, unwound, closed)).choose(lambda rail: rail.swap().to_option())
+        rows, fidelity = held[0]
         return (
-            Ok(LifecycleReceipt(LifecyclePhase.IMPORT, spec, (fmt.value, table), tuple(carried)))
+            Ok(LifecycleReceipt(LifecyclePhase.IMPORT, spec, (fmt.value, table), tuple(rows), fidelity=fidelity))
             if faults.is_empty()
             else Error(faults.reduce(BoundaryFault.combine))
         )
@@ -728,7 +934,7 @@ def _lifecycle_kernel(
     # reach stays this pickled queue proxy — `Hooks.fire` runs parent-side in the lane drain, delivery lossy by lane law.
     # The kernel ships by REFERENCE, so the worker imports this module itself and its `lazy import ifcopenshell` defers
     # identically there — a function-local import would buy the worker nothing the module binding does not already give.
-    pulsed(tap, GeometryPulse.LIFECYCLE, PulseBeat(stage=phase.value, done=0, total=1))
+    pulsed(tap, GeometryPulse.LIFECYCLE, StageMark(stage=IfcLifecycleStage.PHASE.value, done=0, total=Some(1)))
     model = ifcopenshell.file.from_string(source.decode())
     return IfcLifecycle._dispatch(model, phase, spec, source_key).map(lambda pair: (_serialized(pair[1], phase), pair[0]))
 ```

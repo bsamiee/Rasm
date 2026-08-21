@@ -11,10 +11,10 @@ The Arrow bridge is the Arrow C Data Interface: `ak.to_arrow_table` materializes
 ## [02]-[RAGGED]
 
 - Owner: `RaggedArray` — one frozen owner carrying the live `ak.Array`, its field names, its type descriptor, and the recovered backend. The backend is the `awkward` `"cpu"`/`"cuda"`/`"jax"` axis recovered through `ak.backend` and moved through `ak.to_backend`, never a parallel ragged-list class per backend; field access is named, never positional-only.
-- Cases: the `drop` arm's `int | None` payload threads the catalogued `ak.drop_none(axis=None)` all-levels modality through the same `axis=` call-head, so the `_AXIS_OP` collapse drops no capability to a per-list-only axis. One `FoldPolicy` carries the full knob union and `apply` reads exactly one `_FOLD` closure row owning its member's call-head, so the dispatch never rebuilds a dict, never branches on member family, and never drops a knob to an axis-only call.
+- Cases: `RaggedSource.raises` and `RaggedSink.raises` are DERIVED columns pairing each arm's `FaultRow` with its provider catch set, so the one store-reading arm of each union declares the posture a re-issue may clear while the in-memory arms declare terminal, and neither entrypoint grows a per-tag branch. The `drop` arm's `int | None` payload threads the catalogued `ak.drop_none(axis=None)` all-levels modality through the same `axis=` call-head, so the `_AXIS_OP` collapse drops no capability to a per-list-only axis. One `FoldPolicy` carries the full knob union and `apply` reads exactly one `_FOLD` closure row owning its member's call-head, so the dispatch never rebuilds a dict, never branches on member family, and never drops a knob to an axis-only call.
 - Entry: one `admit`/`transform`/`to_backend`/`to_arrow`/`c_stream`/`to_layout`/`metadata`/`egress` family owns every modality by input shape, never a per-operation method family; `metadata` reads the parquet descriptor without materializing a single column.
-- Receipt: `validity` is structural evidence the irregular layout admits no broken offset or option mismatch — the irregular counterpart of the dense store's residual witness, never a generic reported value; `sink` names WHICH egress produced the keyed bytes, the bounded three-member dimension the metered row keys on where `type_repr` would fork one series per distinct ragged type; `parameters` and the facts map stay plain `dict[str, object]`, never `Map`-coerced.
-- Growth: a new transform is one `RaggedOp` case; a new single-axis structure op is one `_AXIS_OP` row plus one case; a new reducer, paired statistic, or order kind is one `_FOLD` row plus one literal; a new fold knob is one `FoldPolicy` field plus one read in its closure builder; a new ingest is one `RaggedSource` case (`from_rdataframe` the ROOT columnar ingest); a new egress is one `RaggedSink` case (`dataframe` over `ak.to_dataframe`); a new backend is one `ak.to_backend` move.
+- Receipt: `validity` is structural evidence the irregular layout admits no broken offset or option mismatch — the irregular counterpart of the dense store's residual witness, never a generic reported value — and it rides `Option[str]` because the provider spells soundness as the EMPTY string, so the wire edge omits the key instead of filling a series with a minted word; `sink` names WHICH egress produced the keyed bytes, the bounded three-member dimension the metered row keys on where `type_repr` would fork one series per distinct ragged type; `parameters` and the facts map stay plain `dict[str, object]`, never `Map`-coerced.
+- Growth: a new transform is one `RaggedOp` case; a new single-axis structure op is one `_AXIS_OP` row plus one case; a new reducer, paired statistic, or order kind is one `_FOLD` row plus one literal; a new fold knob is one `FoldPolicy` field plus one read in its closure builder; a new ingest is one `RaggedSource` case (`from_rdataframe` the ROOT columnar ingest); a new egress is one `RaggedSink` case (`dataframe` over `ak.to_dataframe`); a new backend is one `ak.to_backend` move; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.RAGGED` in this module's one `RAISES` table.
 - Boundary: no compute-package numeric trio, no production tensor session, no durable product store — `data` emits a portable content-addressed irregular array bridged to the Arrow carrier, not a runtime compute graph; the carrier constructs only through `ArrowCStream.of`, never an inline capsule-plus-schema re-mint.
 
 ```python signature
@@ -22,14 +22,16 @@ from typing import TYPE_CHECKING, Final, Literal, assert_never
 
 import awkward as ak
 from beartype import beartype
-from expression import case, tag, tagged_union
-from expression.collections import Map
+from expression import Nothing, Option, Some, case, tag, tagged_union
+from expression.collections import Block, Map
 from msgspec import Struct
 from opentelemetry import trace
 
-from rasm.data.tabular.interop import ArrowCStream, arrow_bytes
+lazy import pyarrow as pa
+
+from rasm.data.tabular.interop import ArrowCStream, DataLeg, arrow_bytes
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, boundary, rostered, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary, scoped
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.roots import ResourceRef
@@ -50,6 +52,78 @@ type Order = Literal["sort", "argsort"]
 type Fold = Reduction | Paired | Order
 type FoldArm = Callable[[FoldPolicy, ak.Array], ak.Array]
 type Buffers = tuple[ak.forms.Form, int, dict[str, bytes]]
+
+# the in-memory awkward raise surface: `ak.errors` publishes exactly two classes and both are builtin refinements —
+# `AxisError` under `ValueError`/`IndexError`, `FieldNotFoundError` under `IndexError` — so the ancestors admit the
+# whole tree and the set names neither. `NotImplementedError` covers a layout the kernel does not lower, `ImportError`
+# an optional backend (`cuda`/`jax`) the move reaches, and `AttributeError`/`RuntimeError` the behaviour-map and
+# backend-dispatch refusals the C++ layer raises through.
+_RAGGED_RAISES: Final[Catch] = (
+    ImportError,
+    AttributeError,
+    IndexError,
+    KeyError,
+    NotImplementedError,
+    RuntimeError,
+    TypeError,
+    ValueError,
+)
+
+
+def _parquet_raises() -> Catch:
+    # reified at the call because the parquet arms are the ONE legs reifying the deferred `pyarrow` proxy anyway,
+    # so the carrier stays pyarrow-free at import exactly as the page's Arrow bridge law states. `ArrowException` is
+    # NAMED because `ArrowIOError`, `ArrowCapacityError`, `ArrowSerializationError`, and `ArrowCancelled` root at bare
+    # `Exception` and reach no builtin ancestor — a store or driver fault on a parquet leg escapes the rail without it.
+    return (pa.ArrowException, *_RAGGED_RAISES, OSError)
+
+
+# this module's whole raise roster, seated once: every fenced leg on this page resolves ONE anchor here, so no call
+# site spells a subject and `FaultRow.seated` proves the leg against a real module at import. Posture splits on what a
+# re-offer can clear, never on the entrypoint: the in-memory folds declare TERMINAL because a re-run of `ak.from_iter`,
+# a transform, or an IPC serialization over the same layout refuses identically, while the parquet legs declare
+# TRANSIENT for the store or driver fault a re-issue may clear. `RaggedSource.raises`/`RaggedSink.raises` carry the
+# split as a DERIVED column, so one shared posture never certifies half a union wrong.
+RAGGED_ADMIT: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.RAGGED, point="admit", arm="boundary", defect="admit-refused", retriability=TERMINAL
+)
+RAGGED_INGEST: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.RAGGED, point="ingest", arm="boundary", defect="source-read", retriability=TRANSIENT
+)
+RAGGED_TRANSFORM: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.RAGGED, point="transform", arm="boundary", defect="transform-refused", retriability=TERMINAL
+)
+RAGGED_BACKEND: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.RAGGED, point="backend", arm="boundary", defect="backend-move", retriability=TERMINAL
+)
+# ONE row for both Arrow legs: `to_arrow` and `c_stream` lift the SAME `_arrow` fold, and the capsule export the
+# second adds refuses for the same reason the table build does — a layout no Arrow type spells.
+RAGGED_ARROW: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.RAGGED, point="arrow", arm="boundary", defect="arrow-lowering", retriability=TERMINAL
+)
+RAGGED_LAYOUT: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.RAGGED, point="layout", arm="boundary", defect="buffer-lowering", retriability=TERMINAL
+)
+RAGGED_EGRESS: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.RAGGED, point="egress", arm="boundary", defect="egress-refused", retriability=TERMINAL
+)
+RAGGED_SINK: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.RAGGED, point="sink", arm="boundary", defect="sink-write", retriability=TRANSIENT
+)
+RAGGED_METADATA: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.RAGGED, point="metadata", arm="boundary", defect="metadata-read", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[DataLeg]]] = rostered(Block.of_seq([
+    RAGGED_ADMIT,
+    RAGGED_INGEST,
+    RAGGED_TRANSFORM,
+    RAGGED_BACKEND,
+    RAGGED_ARROW,
+    RAGGED_LAYOUT,
+    RAGGED_EGRESS,
+    RAGGED_SINK,
+    RAGGED_METADATA,
+]))
 
 # one row per RaggedOp arm whose call-head is `member(array, axis=)`, dispatched by one guarded `_apply` arm reading `_AXIS_OP[op.tag]`;
 # the guard captures `tag=kind`, never `tag=tag` — a `tag`-capturing pattern shadows the `expression.tag` import.
@@ -142,6 +216,13 @@ class RaggedSource:
     buffers: Buffers = case()
     builder: ak.ArrayBuilder = case()
 
+    @property
+    def raises(self) -> "tuple[FaultRow[DataLeg], Catch]":
+        # the `parquet` arm is the ONE admission reading a store, so it answers the transient row over the pyarrow-wide
+        # set while every in-memory arm answers the terminal row over the awkward set alone — a re-offer of
+        # `ak.from_iter` over the same values refuses identically, and one shared posture certifies half this union wrong.
+        return (RAGGED_INGEST, _parquet_raises()) if self.tag == "parquet" else (RAGGED_ADMIT, _RAGGED_RAISES)
+
 
 @tagged_union(frozen=True)
 class RaggedOp:
@@ -210,6 +291,12 @@ class RaggedSink:
     parquet: ResourceRef = case()
     json: bool = case()
 
+    @property
+    def raises(self) -> "tuple[FaultRow[DataLeg], Catch]":
+        # the egress split mirrors the admission one: only the `parquet` arm crosses a store, so only it declares a
+        # posture a re-issue may clear, and only it carries the pyarrow root a bare-`Exception` IO fault needs.
+        return (RAGGED_SINK, _parquet_raises()) if self.tag == "parquet" else (RAGGED_EGRESS, _RAGGED_RAISES)
+
 
 class RaggedReceipt(Struct, frozen=True):
     rows: int
@@ -220,7 +307,10 @@ class RaggedReceipt(Struct, frozen=True):
     # the sink that produced the keyed bytes: without it a receipt names the bytes it digested but not the encoding
     # they carry, and the metered row has no bounded dimension to key on.
     sink: str
-    validity: str
+    # `ak.validity_error(exception=False)` answers the EMPTY string for a sound layout, so `Nothing` IS soundness and
+    # `Some` carries the defect text whole. The deleted `or "valid"` minted a literal at the read site, which made a
+    # sound layout and a provider answering nothing report one word, and left the wire edge no way to omit the key.
+    validity: Option[str]
     parameters: dict[str, object]
     content_key: ContentKey
 
@@ -244,8 +334,10 @@ class RaggedReceipt(Struct, frozen=True):
                     "fields": self.fields,
                     "ndim": self.ndim,
                     "nbytes": self.nbytes,
-                    "validity": self.validity,
-                },
+                }
+                # the posture collapses HERE and nowhere earlier, in the runtime `facts` idiom: a sound layout omits
+                # the key rather than filling a series with a word no query prunes on.
+                | self.validity.map(lambda report: {"validity": report}).default_value({}),
             ),
         )
 
@@ -261,33 +353,37 @@ class RaggedArray(Struct, frozen=True):
     def admit(source: RaggedSource) -> "RuntimeRail[RaggedArray]":
         # admission and egress are the two I/O legs — spanned for trace parity with the gridded plane; the fence
         # inside marks the span ERROR + record_exception on a failed leg.
+        # the source's own row and catch set: the arm decides its posture and its provider reach, so the entrypoint
+        # carries no per-tag arm and the tag survives on the span dimension rather than inside a minted subject.
+        at, catch = source.raises
         with _TRACER.start_as_current_span(f"ragged.admit.{source.tag}", attributes={"rasm.ragged.source": source.tag}):
-            return boundary(f"ragged.admit.{source.tag}", lambda: _admit(_ingest(source)))
+            return boundary(at, lambda: _admit(_ingest(source)), catch=catch)
 
     def transform(self, op: RaggedOp) -> "RuntimeRail[RaggedArray]":
-        return boundary(f"ragged.transform.{op.tag}", lambda: _admit(_apply(self.array, op)))
+        return boundary(RAGGED_TRANSFORM, lambda: _admit(_apply(self.array, op)), catch=_RAGGED_RAISES)
 
     def to_backend(self, backend: Backend) -> "RuntimeRail[RaggedArray]":
-        return boundary(f"ragged.to_backend.{backend}", lambda: _admit(ak.to_backend(self.array, backend)))
+        return boundary(RAGGED_BACKEND, lambda: _admit(ak.to_backend(self.array, backend)), catch=_RAGGED_RAISES)
 
     def to_arrow(self) -> "RuntimeRail[object]":
-        return boundary("ragged.to_arrow", lambda: _arrow(self.array))
+        return boundary(RAGGED_ARROW, lambda: _arrow(self.array), catch=_parquet_raises())
 
     def c_stream(self) -> "RuntimeRail[ArrowCStream]":
-        return boundary("ragged.c_stream", lambda: _c_stream(self.array))
+        return boundary(RAGGED_ARROW, lambda: _c_stream(self.array), catch=_parquet_raises())
 
     def to_layout(self) -> "RuntimeRail[Buffers]":
-        return boundary("ragged.to_layout", lambda: _to_buffers(self.array))
+        return boundary(RAGGED_LAYOUT, lambda: _to_buffers(self.array), catch=_RAGGED_RAISES)
 
     def egress(self, sink: RaggedSink) -> "RuntimeRail[RaggedReceipt]":
+        at, catch = sink.raises
         with _TRACER.start_as_current_span(f"ragged.egress.{sink.tag}", attributes={"rasm.ragged.rows": len(self.array)}):
-            return boundary(f"ragged.egress.{sink.tag}", lambda: _serialize(self.array, sink)).bind(
+            return boundary(at, lambda: _serialize(self.array, sink), catch=catch).bind(
                 lambda payload: ContentIdentity.of(f"ragged.{sink.tag}", payload).map(lambda key: _receipt(self, sink.tag, key))
             )
 
     @staticmethod
     def metadata(ref: ResourceRef) -> "RuntimeRail[dict[str, object]]":
-        return boundary("ragged.metadata", lambda: dict(ak.metadata_from_parquet(str(ref.path))))
+        return boundary(RAGGED_METADATA, lambda: dict(ak.metadata_from_parquet(str(ref.path))), catch=_parquet_raises())
 
 
 def _ingest(source: RaggedSource) -> ak.Array:
@@ -393,6 +489,9 @@ def _serialize(array: ak.Array, sink: RaggedSink) -> bytes:
 
 
 def _receipt(ragged: RaggedArray, sink: str, key: ContentKey) -> RaggedReceipt:
+    # the ONE site that reads the provider's empty-string-for-sound convention, projected onto the carrier there and
+    # never re-derived downstream, per `docs/stacks/python/boundaries.md` `[SENTINEL_SITE]`.
+    report = ak.validity_error(ragged.array, exception=False)
     return RaggedReceipt(
         rows=len(ragged.array),
         fields=ragged.fields,
@@ -400,7 +499,7 @@ def _receipt(ragged: RaggedArray, sink: str, key: ContentKey) -> RaggedReceipt:
         nbytes=ragged.array.nbytes,
         type_repr=ragged.type_repr,
         sink=sink,
-        validity=ak.validity_error(ragged.array, exception=False) or "valid",
+        validity=Some(report) if report else Nothing,
         parameters=dict(ak.parameters(ragged.array)),
         content_key=key,
     )

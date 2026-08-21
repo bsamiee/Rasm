@@ -420,13 +420,16 @@ const _enumChanges = (pinned: DescEnum, live: DescEnum): ReadonlyArray<ContractD
           }],
   })
 
-const _documentRows = (pin: ContractPin) =>
+// ONE canonical-document gate, published so a consumer decoding a capability pin composes it rather than re-spelling
+// the predicate against its own copy. Per-row unit order is already the ROW schema's own filter, so the conjunct that
+// restated it here proved nothing a decode of `Schema.Array(_DescriptorRow)` had not already proved — and gave one law
+// two declarations to drift apart under. What survives is exactly the DOCUMENT-level half: the pin's own descriptor
+// count and the roster ordering no single row can witness.
+const _canonical = (pin: ContractPin) =>
   Schema.Array(_DescriptorRow).pipe(
     Schema.filter(
       (rows) =>
-        rows.length === pin.descriptors
-        && _strictlyOrdered(Array.map(rows, (row) => row.descriptor))
-        && Array.every(rows, (row) => _strictlyOrdered(row.units))
+        rows.length === pin.descriptors && _strictlyOrdered(Array.map(rows, (row) => row.descriptor))
         || "<noncanonical-descriptor-pin>",
       { identifier: "CanonicalDescriptorPin" },
     ),
@@ -438,7 +441,7 @@ const _decodePin = (octets: Uint8Array): Effect.Effect<ContractPin, ParseResult.
 const _decodeDocument = (
   pin: ContractPin,
 ): Effect.Effect<ReadonlyArray<typeof _DescriptorRow.Type>, ParseResult.ParseError> =>
-  Schema.decodeUnknown(Format.json.schema(_documentRows(pin)))(new TextEncoder().encode(pin.document))
+  Schema.decodeUnknown(Format.json.schema(_canonical(pin)))(new TextEncoder().encode(pin.document))
 
 const _descriptorValues: ReadonlyArray<
   readonly [(typeof _descriptorFields)[number], (row: typeof _DescriptorRow.Type) => string]
@@ -621,6 +624,7 @@ const _diffed = (
 - Law: the protobuf census follows `Format.proto.names`; the capability pin and the service pin append one custom-source row each.
 - Law: the service census walks the pinned `DescService` roster against the shipped registry, so message and RPC surfaces grade together.
 - Law: unresolved proto descriptors emit `FamilyMissing`; capability evidence comes only from its canonical JSON document.
+- Law: `Contract.Descriptor.canonical(pin)` is the ONE document gate; per-row unit order proves at `Descriptor.Row` and no consumer restates either.
 - Law: every read on this service reaches the declared `ContractFault | ParseResult.ParseError` channel; no decode path dies past it.
 - Law: the generated suite and pinned capability document are baselines; both shipped reads map failures into `Contract.Fault`.
 - Law: `Format.proto.frame(FileDescriptorSetSchema)` and `Format.json.schema(Contract.Pin)` decode their own ingress.
@@ -701,6 +705,7 @@ class DescriptorGate extends Effect.Service<DescriptorGate>()("@rasm/ts/core/Des
   accessors: true,
 }) {
   static readonly Row: typeof _DescriptorRow = _DescriptorRow
+  static readonly canonical: typeof _canonical = _canonical
   static readonly reloading = (
     source: DescriptorGate.Source,
     refresh: ContractRefresh,

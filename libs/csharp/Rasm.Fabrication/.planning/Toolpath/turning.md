@@ -4,7 +4,7 @@
 
 `LatheOp` closes revolved-operation grammars instead of naming controller cycles. `SweepKind`, `PlungeKind`, and the S0 `AxialKind` generate roughing, finishing, boring, grooving, undercutting, drilling, reaming, counterboring, and countersinking from policy data; `Part`, `Tap`, `Thread`, `Knurl`, and `Handoff` retain distinct payload arity.
 
-`CutSide` is the one owner of the internal-versus-external distinction: radial sign, stock reference, finish-allowance direction, approach and retract polarity, and `RemovalEnvelope` orientation all read that row, so EVERY radial operation carries its side as a column and no body hardcodes an outer radius. The row seats here because its behaviour reaches `TurnStock` and `Loop`, which are Toolpath owners; `Process/owner#MOTION_ATOMS` names the type on `SpecializedToolpathRow.TurningThread` under the same law its own `FabricationPolicy` cases already hold — S0 names an upper-plane type for payload carriage and reaches no upper-plane behaviour.
+`CutSide` is the one owner of the internal-versus-external distinction: radial sign, stock reference, finish-allowance direction, approach and retract polarity, and `RemovalEnvelope` orientation all read that row, so EVERY radial operation carries its side as a column and no body hardcodes an outer radius. The row seats here because its behaviour reaches `TurnStock` and `Loop`, which are Toolpath owners; `Process/atoms#MOTION` names the type on `SpecializedToolpathRow.TurningThread` under the same law its own `FabricationPolicy` cases already hold — S0 names an upper-plane type for payload carriage and reaches no upper-plane behaviour.
 
 The closed vocabularies a specialized row carries — `ThreadForm`, `ThreadHand`, `AxialKind`, `KnurlPattern`, `HandoffKind` — are S0 rows this page CONSUMES; `ThreadProfile` carries the flank, truncation, and depth geometry keyed by the S0 form, so one vocabulary spans the atom and the generator.
 
@@ -26,7 +26,8 @@ The closed vocabularies a specialized row carries — `ThreadForm`, `ThreadHand`
 ## [03]-[DEMAND]
 
 - Owner: `TurnStock` admits solid, tubular, and near-net blanks with axial bounds, inner/outer radii, and optional profile evidence.
-- Owner: `TurnPolicy` owns approach, retract, overlap, chord, biarc, peck, thread, and spindle-radius values; no operation body carries a local machining constant.
+- Owner: `TurnPolicy` owns approach, retract, overlap, peck, and thread clearances as UnitsNet quantities and the rapid traverse as a `Speed`; no operation body carries a local machining constant and no column spells a unit into a name. Chord and biarc gates are NOT policy columns — the admitted profile carries its own `Context`, so `ToleranceLane.Chord` and `ToleranceLane.Arc` answer them and a project override moves both at once.
+- Owner: `SpindleMode` carries the radius FLOOR its own solve needs as a base column each case fills, so a constant-surface mode cannot exist without the floor that keeps its rpm finite at the axis and no body threads one policy column through every rpm site.
 - Entry: `TurnDemand.Admit` and `TurnRequest.Admit` accumulate profile, stock, insert, process, spindle, step, operation, synchronization, and numeric defects onto ONE `Validation` rail and land it as `Fin` — the accumulated refusal keeps its arity, so an eleven-defect request reports eleven rows rather than one flattened message.
 - Boundary: `TurnDemand` accepts canonical `Loop`, `CutterForm`, `CuttingData`, and `ProcessBudget.Turning` owners. `CuttingData.FeedBasis` must be `FeedBasis.PerRevolution`.
 
@@ -45,7 +46,7 @@ The closed vocabularies a specialized row carries — `ThreadForm`, `ThreadHand`
 - Law: `CutIntent` admits UnitsNet quantities, so the load boundary converts machining-canonical millimetre, rpm, and feed scalars through `Length.FromMillimeters`, `RotationalSpeed.FromRevolutionsPerMinute`, and `Speed.FromMillimetersPerMinutes` exactly once; radial depth and diameter derive engagement on the admitted intent.
 - Entry: `Turning.Generate(TurnRequest)` is the only raw operation.
 - Receipt: `TurnPass` carries moves, directives, load, its `RemovalEnvelope`, and its own measured seconds, so the `SpecializedToolpathEnvelope` the motion lane admits states a real duration; `TurnProgram` carries ordered passes, barriers, residual radial bounds, and physics evidence.
-- Packages: `Thinktecture.Runtime.Extensions` owns generated closed families; `LanguageExt.Core` owns accumulated admission and traversal; `System.Numerics.Tensors` owns batch finiteness; `Geometry2D/algebra.md` owns the material-region clip and `Geometry2D/arcs.md` the residual biarc recovery; `ToolAssembly.Snapshot` supplies provider-detached insert width and lead angle through `ToolMeasure`; `UnitsNet` admits the `CutIntent` load boundary.
+- Packages: `Thinktecture.Runtime.Extensions` owns generated closed families; `LanguageExt.Core` owns accumulated admission and traversal; `System.Numerics.Tensors` owns batch finiteness; `Geometry2D/algebra.md` owns the material-region clip and `Geometry2D/arcs.md` the residual biarc recovery; `ToolAssembly.Snapshot` supplies provider-detached insert width and lead angle through `ToolMeasure`; `UnitsNet` types every admitted policy magnitude and the `CutIntent` load boundary; `Rasm.Domain` `ToleranceLane` supplies the chord and arc gates off the profile's own `Context`; `Rasm.Solving` `FitPolicy.Of` admits the spline fit against that same context under this page's `Op`.
 - Boundary: `Turning` owns process geometry and semantic directives; posting admits no typed `TurnProgram` counterpart and reads the lowered `MotionDirective` stream alone.
 
 ```csharp signature
@@ -60,6 +61,7 @@ using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
 using Rasm.Fabrication.Tooling;
 using Rasm.Parametric;
+using Rasm.Solving;
 using Rhino.Geometry;
 using Thinktecture;
 using UnitsNet;
@@ -159,7 +161,6 @@ public sealed partial class InfeedMethod {
 // The geometry behind the S0 `ThreadForm` row. Named seeds are DATA over one owner, so a shop form outside the
 // standard roster admits through the same gate the seeds cross and never mints a second form vocabulary.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ThreadProfile {
     public ThreadForm Form { get; }
     public double LoadFlankDeg { get; }
@@ -183,7 +184,7 @@ public sealed partial class ThreadProfile {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref ThreadForm form,
         ref double loadFlankDeg,
         ref double clearanceFlankDeg,
@@ -199,7 +200,7 @@ public sealed partial class ThreadProfile {
             && crestTruncationPitch >= 0.0 && rootTruncationPitch >= 0.0
             && crestRadiusPitch >= 0.0 && rootRadiusPitch >= 0.0
             && depthFactor is > 0.0 and < 1.0))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "thread-profile");
+            validationError = new ValidationError("thread-profile");
     }
 
     public static Fin<ThreadProfile> Admit(
@@ -215,8 +216,7 @@ public sealed partial class ThreadProfile {
             crestRadiusPitch, rootRadiusPitch, depthFactor, out ThreadProfile profile).Admitted(profile);
 
     public static Fin<ThreadProfile> Of(ThreadForm form) =>
-        Seeds.Find(form).ToFin(new FabricationFault.PolicyInadmissible(
-            FabConcern.Toolpath, $"thread-profile:unseeded:{form.Key}"));
+        Seeds.Find(form).ToFin(new KernelFault.InvalidValue("turning", $"thread-profile:unseeded:{form.Key}"));
 
     private static ThreadProfile Seed(
         ThreadForm form,
@@ -281,25 +281,25 @@ public sealed partial class TurretChannel {
 }
 
 // --- [DEMAND] -------------------------------------------------------------------------------------------------------------------------------------
+// The radius FLOOR that keeps a constant-surface solve finite at the rotation axis rides the MODE whose solve needs
+// it, filled as a base column at construction. As a policy knob it was one value threaded through every rpm site as
+// a parameter no caller could vary, and a mode could be constructed without the floor its own arithmetic divides by.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SpindleMode {
-    private SpindleMode() { }
+public abstract partial record SpindleMode(Length MinimumRadius) {
+    public sealed record ConstantSurface(Length MinimumRadius, RotationalSpeed Ceiling) : SpindleMode(MinimumRadius);
+    public sealed record ConstantRpm(Length MinimumRadius, RotationalSpeed Held) : SpindleMode(MinimumRadius);
 
-    public sealed record ConstantSurface(double MaximumRpm) : SpindleMode;
-    public sealed record ConstantRpm(double Rpm) : SpindleMode;
-
-    public double RpmAt(double radiusMm, double minimumRadiusMm, double surfaceMetersPerMinute) => Switch(
-        state: (Radius: radiusMm, Minimum: minimumRadiusMm, Surface: surfaceMetersPerMinute),
+    public double RpmAt(double radiusMm, double surfaceMetersPerMinute) => Switch(
+        state: (Radius: radiusMm, Minimum: MinimumRadius.Millimeters, Surface: surfaceMetersPerMinute),
         // The forward cutting-speed relation is `Process/physics#BUDGET_FOLD` `SurfaceSpeed.Rpm` over the CUTTING
         // diameter; the lathe supplies twice its own radius and clamps to the case's ceiling.
         constantSurface: static (state, mode) => double.Min(
-            mode.MaximumRpm,
+            mode.Ceiling.RevolutionsPerMinute,
             SurfaceSpeed.Rpm(state.Surface, 2.0 * double.Max(state.Radius, state.Minimum))),
-        constantRpm: static (_, mode) => mode.Rpm);
+        constantRpm: static (_, mode) => mode.Held.RevolutionsPerMinute);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class TurnStock {
     public StockKind Kind { get; }
     public double OuterRadius { get; }
@@ -310,7 +310,7 @@ public sealed partial class TurnStock {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref StockKind kind,
         ref double outerRadius,
         ref double innerRadius,
@@ -322,7 +322,7 @@ public sealed partial class TurnStock {
             && (kind != StockKind.Solid || innerRadius == 0.0)
             && (kind != StockKind.Tube || innerRadius > 0.0)
             && (!kind.RequiresEnvelope || envelope.IsSome)))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "turn-stock");
+            validationError = new ValidationError("turn-stock");
     }
 
     public static Fin<TurnStock> Admit(
@@ -337,7 +337,6 @@ public sealed partial class TurnStock {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class TurnInsert {
     public CutterForm Form { get; }
     public double Width { get; }
@@ -347,7 +346,7 @@ public sealed partial class TurnInsert {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref CutterForm form,
         ref double width,
         ref double clearanceAngleDeg,
@@ -355,7 +354,7 @@ public sealed partial class TurnInsert {
         ref TipOrientation orientation) {
         if (!(TensorPrimitives.IsFiniteAll<double>([width, clearanceAngleDeg, leadAngleDeg])
             && width > 0.0 && clearanceAngleDeg is > 0.0 and < 90.0 && leadAngleDeg is > -90.0 and < 90.0))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "turn-insert");
+            validationError = new ValidationError("turn-insert");
     }
 
     public static Fin<TurnInsert> Admit(
@@ -364,81 +363,75 @@ public sealed partial class TurnInsert {
         TipOrientation orientation,
         double clearanceAngleDeg) =>
         from width in assembly.Snapshot.Metric(ToolMeasure.InsertWidth)
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "turn-insert:width"))
+            .ToFin(new KernelFault.InvalidValue("turning", "turn-insert:width"))
         from lead in assembly.Snapshot.Metric(ToolMeasure.LeadAngle)
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "turn-insert:lead-angle"))
+            .ToFin(new KernelFault.InvalidValue("turning", "turn-insert:lead-angle"))
         from insert in Validate(form, width, clearanceAngleDeg, lead, orientation, out TurnInsert admitted)
             .Admitted(admitted)
         select insert;
 }
 
+// Every magnitude the lathe holds is a DIMENSIONED quantity, so no column spells its unit into a name and a caller
+// handing a bore clearance in inches cannot reach the arithmetic. The chord and biarc gates are absent by law: the
+// admitted profile carries the `Context` those lanes derive from, and a policy column beside it was the same figure
+// declared twice, movable at one owner and frozen at the other.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class TurnPolicy {
-    public double Approach { get; }
-    public double Retract { get; }
-    public double WidthOverlap { get; }
-    public double ChordTolerance { get; }
-    public double BiarcTolerance { get; }
+    public Length Approach { get; }
+    public Length Retract { get; }
+    public Ratio WidthOverlap { get; }
     public int BiarcProbeFloor { get; }
-    public double MinimumPeck { get; }
-    public double ThreadRunIn { get; }
-    public double ThreadRunout { get; }
-    public double ThreadPullout { get; }
+    public Length MinimumPeck { get; }
+    public Length ThreadRunIn { get; }
+    public Length ThreadRunout { get; }
+    public Length ThreadPullout { get; }
     public int SpringPasses { get; }
-    public double MinimumSpindleRadius { get; }
 
     // The traverse rate the lathe rapids at, so a pass prices its own non-cutting legs instead of leaving the
     // specialized envelope to state a duration only the cutting spans produced.
-    public double RapidMmPerMin { get; }
+    public Speed Rapid { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
-        ref double approach,
-        ref double retract,
-        ref double widthOverlap,
-        ref double chordTolerance,
-        ref double biarcTolerance,
+        ref ValidationError? validationError,
+        ref Length approach,
+        ref Length retract,
+        ref Ratio widthOverlap,
         ref int biarcProbeFloor,
-        ref double minimumPeck,
-        ref double threadRunIn,
-        ref double threadRunout,
-        ref double threadPullout,
+        ref Length minimumPeck,
+        ref Length threadRunIn,
+        ref Length threadRunout,
+        ref Length threadPullout,
         ref int springPasses,
-        ref double minimumSpindleRadius,
-        ref double rapidMmPerMin) {
+        ref Speed rapid) {
+        double overlap = widthOverlap.DecimalFractions;
         if (!(TensorPrimitives.IsFiniteAll<double>([
-                approach, retract, widthOverlap, chordTolerance, biarcTolerance, minimumPeck,
-                threadRunIn, threadRunout, threadPullout, minimumSpindleRadius, rapidMmPerMin])
-            && approach > 0.0 && retract > 0.0 && widthOverlap is > 0.0 and < 1.0
-            && chordTolerance > 0.0 && biarcTolerance > 0.0 && biarcProbeFloor >= 3
-            && minimumPeck > 0.0 && threadRunIn >= 0.0 && threadRunout >= 0.0 && threadPullout > 0.0
-            && springPasses >= 0 && minimumSpindleRadius > 0.0 && rapidMmPerMin > 0.0))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "turn-policy");
+                approach.Millimeters, retract.Millimeters, overlap, minimumPeck.Millimeters,
+                threadRunIn.Millimeters, threadRunout.Millimeters, threadPullout.Millimeters,
+                rapid.MillimetersPerMinutes])
+            && approach.Millimeters > 0.0 && retract.Millimeters > 0.0 && overlap is > 0.0 and < 1.0
+            && biarcProbeFloor >= 3 && minimumPeck.Millimeters > 0.0
+            && threadRunIn.Millimeters >= 0.0 && threadRunout.Millimeters >= 0.0 && threadPullout.Millimeters > 0.0
+            && springPasses >= 0 && rapid.MillimetersPerMinutes > 0.0))
+            validationError = new ValidationError("turn-policy");
     }
 
     public static Fin<TurnPolicy> Admit(
-        double approach,
-        double retract,
-        double widthOverlap,
-        double chordTolerance,
-        double biarcTolerance,
+        Length approach,
+        Length retract,
+        Ratio widthOverlap,
         int biarcProbeFloor,
-        double minimumPeck,
-        double threadRunIn,
-        double threadRunout,
-        double threadPullout,
+        Length minimumPeck,
+        Length threadRunIn,
+        Length threadRunout,
+        Length threadPullout,
         int springPasses,
-        double minimumSpindleRadius,
-        double rapidMmPerMin) =>
-        Validate(approach, retract, widthOverlap, chordTolerance, biarcTolerance, biarcProbeFloor, minimumPeck,
-            threadRunIn, threadRunout, threadPullout, springPasses, minimumSpindleRadius, rapidMmPerMin,
-            out TurnPolicy policy).Admitted(policy);
+        Speed rapid) =>
+        Validate(approach, retract, widthOverlap, biarcProbeFloor, minimumPeck, threadRunIn, threadRunout,
+            threadPullout, springPasses, rapid, out TurnPolicy policy).Admitted(policy);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ThreadSpec {
     public ThreadProfile Profile { get; }
     public ThreadHand Hand { get; }
@@ -464,7 +457,7 @@ public sealed partial class ThreadSpec {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref ThreadProfile profile,
         ref ThreadHand hand,
         ref CutSide side,
@@ -486,7 +479,7 @@ public sealed partial class ThreadSpec {
             && profile.DepthFactor * pitch < majorDiameter / 2.0
             && finalPass < profile.DepthFactor * pitch
             && firstPassMinimum <= (profile.DepthFactor * pitch) - finalPass))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "thread-spec");
+            validationError = new ValidationError("thread-spec");
     }
 
     public static Fin<ThreadSpec> Admit(
@@ -541,13 +534,12 @@ public abstract partial record LatheOp {
 }
 
 [ValueObject<string>]
-[ValidationError<FabricationFault>]
 public readonly partial struct ChannelToken {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "channel-token");
+            validationError = new ValidationError("channel-token");
     }
 }
 
@@ -559,7 +551,6 @@ public sealed record TurnStep(
     Option<ChannelToken> Signal);
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class TurnDemand {
     public Loop Profile { get; }
     public TurnStock Stock { get; }
@@ -585,7 +576,6 @@ public sealed partial class TurnDemand {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class TurnRequest {
     public TurnDemand Demand { get; }
     public Seq<TurnStep> Steps { get; }
@@ -686,23 +676,25 @@ public static class Turning {
             (profile.Count >= 2, "profile-span"),
             (stock.Envelope.ForAll(static loop => !loop.Closed && loop.Count >= 2), "stock-envelope"),
             (cutting.FeedBasis == FeedBasis.PerRevolution, "feed-basis"),
-            (Witness.Positive(budget.SurfaceSpeed), "surface-speed"),
-            (Witness.Positive(budget.FeedPerRevolution), "feed"),
-            (Witness.Positive(budget.DepthOfCut), "depth"),
+            (ValidityClaim.Positive(budget.SurfaceSpeed), "surface-speed"),
+            (ValidityClaim.Positive(budget.FeedPerRevolution), "feed"),
+            (ValidityClaim.Positive(budget.DepthOfCut), "depth"),
             (budget.NoseRadius >= 0.0, "nose-radius-positive"),
-            (Math.Abs(budget.NoseRadius - insert.Form.CornerRadius) <= profile.Tolerance.Absolute.Value, "nose-radius-match")])
+            (Math.Abs(budget.NoseRadius - insert.Form.CornerRadius) <= profile.Tolerance.Absolute.Value, "nose-radius-match"),
+            // The floor is a BASE column, so one slot proves it for every mode rather than each arm restating it.
+            (ValidityClaim.Positive(spindle.MinimumRadius.Millimeters), "spindle-minimum-radius")])
         + spindle.Switch(
-            constantSurface: static mode => Slots(-1, [(Witness.Positive(mode.MaximumRpm), "spindle-css")]),
-            constantRpm: static mode => Slots(-1, [(Witness.Positive(mode.Rpm), "spindle-rpm")]));
+            constantSurface: static mode => Slots(-1, [(ValidityClaim.Positive(mode.Ceiling.RevolutionsPerMinute), "spindle-css")]),
+            constantRpm: static mode => Slots(-1, [(ValidityClaim.Positive(mode.Held.RevolutionsPerMinute), "spindle-rpm")]));
 
     internal static Seq<K<Validation<Error>, Unit>> RequestSlots(TurnDemand demand, Seq<TurnStep> steps) {
         Seq<(ChannelToken Token, int Step)> signals = steps
             .Map((step, index) => step.Signal.Map(token => (token, index)))
             .Choose(static signal => signal);
-        Seq<K<Validation<Error>, Unit>> waits = steps.Bind((step, index) => step.WaitFor.Map(token => Slot(
-            signals.Exists(signal => signal.Token == token && signal.Step < index),
-            index,
-            "wait-before-signal")));
+        Seq<K<Validation<Error>, Unit>> waits = steps.Bind((step, index) => step.WaitFor.Map(token =>
+            AdmissionSlots.Gate(
+                signals.Exists(signal => signal.Token == token && signal.Step < index),
+                index, "wait-before-signal", Refusal)));
         return Slots(-1, [
                 (!steps.IsEmpty, "steps"),
                 (signals.Map(static signal => signal.Token).Distinct().Count == signals.Count, "signal-duplicate")])
@@ -778,11 +770,14 @@ public static class Turning {
                     <= state.Demand.Stock.AxialMaximum, "handoff-end")]));
 
     private static Seq<K<Validation<Error>, Unit>> Slots(int step, ReadOnlySpan<(bool Ok, string Axis)> facts) =>
-        toSeq(facts.ToArray()).Map(fact => Slot(fact.Ok, step, fact.Axis));
+        toSeq(facts.ToArray()).Map(fact => AdmissionSlots.Gate(fact.Ok, step, fact.Axis, Refusal));
 
-    private static K<Validation<Error>, Unit> Slot(bool holds, int step, string axis) =>
-        AdmissionSlots.Gate(holds, new FabricationFault.PolicyInadmissible(
-            FabConcern.Toolpath, step < 0 ? $"turning:{axis}" : $"turning:step-{step}:{axis}"));
+    // Every turning gate binds this minter as a method group: the step ordinal and the axis token ride the gate's
+    // two identity slots, a negative ordinal names a demand-level axis, and the locus composes on the failing arm
+    // alone.
+    private static FabricationFault Refusal(int step, string axis) =>
+        FabricationFault.Inadmissible(
+            FabConcern.Toolpath, step < 0 ? $"turning:{axis}" : $"turning:step-{step}:{axis}");
 
     private static Fin<Loop> Compensate(TurnDemand demand) {
         Seq<Error> gouges = Range(0, demand.Profile.Count - 1)
@@ -841,12 +836,12 @@ public static class Turning {
                from moves in Range(1, passes).ToSeq().Traverse(pass => {
                    double radius = side.Advance(demand.Stock, target, pass, sweep.Depth);
                    return Crossings(region, radius, demand).Bind(spans => spans.Traverse(span => Cam.Trail(
-                       Move.Rapid.Of(new Point3d(span.Start, side.Clear(radius, demand.Policy.Retract), 0.0)),
+                       Move.Rapid.Of(new Point3d(span.Start, side.Clear(radius, demand.Policy.Retract.Millimeters), 0.0)),
                        Move.Linear.Of(new Point3d(span.Start, radius, 0.0), Feed(demand, radius)),
                        Move.Linear.Of(new Point3d(span.End + sweep.AxialAllowance, radius, 0.0), Feed(demand, radius)),
                        Move.Rapid.Of(new Point3d(
                            span.End + sweep.AxialAllowance,
-                           side.Clear(radius, demand.Policy.Retract),
+                           side.Clear(radius, demand.Policy.Retract.Millimeters),
                            0.0)))).Map(static rows => rows.Bind(identity)));
                }).As()
                select moves.Bind(identity);
@@ -859,9 +854,9 @@ public static class Turning {
                from moves in Range(1, passes).ToSeq().Traverse(pass => {
                    double axial = double.Max(target, demand.Stock.AxialMaximum - (pass * sweep.Depth));
                    return RadiusAt(region, axial, demand, side).Bind(radius => Cam.Trail(
-                       Move.Rapid.Of(new Point3d(axial, side.Clear(side.StockRadius(demand.Stock), demand.Policy.Approach), 0.0)),
+                       Move.Rapid.Of(new Point3d(axial, side.Clear(side.StockRadius(demand.Stock), demand.Policy.Approach.Millimeters), 0.0)),
                        Move.Linear.Of(new Point3d(axial, radius, 0.0), Feed(demand, side.StockRadius(demand.Stock))),
-                       Move.Rapid.Of(new Point3d(axial + demand.Policy.Retract, radius, 0.0))));
+                       Move.Rapid.Of(new Point3d(axial + demand.Policy.Retract.Millimeters, radius, 0.0))));
                }).As()
                select moves.Bind(identity);
     }
@@ -869,8 +864,8 @@ public static class Turning {
     internal static Fin<Seq<Move>> Pattern(Loop profile, TurnDemand demand, SweepDemand sweep, CutSide side) {
         Loop source = demand.Stock.Envelope.IfNone(profile);
         Point3d park = new(
-            demand.Stock.AxialMaximum + demand.Policy.Approach,
-            side.Clear(side.StockRadius(demand.Stock), demand.Policy.Approach),
+            demand.Stock.AxialMaximum + demand.Policy.Approach.Millimeters,
+            side.Clear(side.StockRadius(demand.Stock), demand.Policy.Approach.Millimeters),
             0.0);
         return Cam.Bounded(
                 double.Max(sweep.RadialAllowance, sweep.AxialAllowance), sweep.Depth, Cam.PassCap, "turning:pattern-passes")
@@ -881,7 +876,7 @@ public static class Turning {
                        from body in Native(source, demand, shifted, side)
                        from exit in Move.Rapid.Of(new Point3d(
                            source.Vertices.Max(static point => point.X) + shifted.AxialAllowance,
-                           side.Clear(side.StockRadius(demand.Stock), demand.Policy.Retract),
+                           side.Clear(side.StockRadius(demand.Stock), demand.Policy.Retract.Millimeters),
                            0.0))
                        select entry.Cons(body).Add(exit);
             }).As().Map(static rows => rows.Bind(identity)));
@@ -890,7 +885,7 @@ public static class Turning {
     internal static Fin<Seq<Move>> Native(Loop profile, TurnDemand demand, SweepDemand sweep, CutSide side) =>
         from entry in Move.Rapid.Of(new Point3d(
             profile.At(0).X + sweep.AxialAllowance,
-            side.Clear(profile.At(0).Y + sweep.RadialAllowance, demand.Policy.Approach),
+            side.Clear(profile.At(0).Y + sweep.RadialAllowance, demand.Policy.Approach.Millimeters),
             0.0))
         from spans in Range(0, profile.Spans).ToSeq().Map(index => {
             Point3d target = profile.At(index + 1);
@@ -916,21 +911,26 @@ public static class Turning {
             biarc: static state => Biarc(state.Profile, state.Demand, state.Sweep, state.Kind.Side));
     }
 
+    // The fit law is the KERNEL's, minted against the profile's own context under this page's `Op`: consensus floor,
+    // confidence, inlier scale, normal band, and the refine ladder all derive from the tolerance the loop already
+    // carries, so a lathe finish and a probe fit answer to one calibration and neither holds a frozen preset.
     private static Fin<Seq<Move>> Spline(Loop profile, TurnDemand demand, SweepDemand sweep, CutSide side) =>
+        from fit in FitPolicy.Of(context: profile.Tolerance, key: Key)
+        let chord = profile.Tolerance.For(ToleranceLane.Chord).Value
         from fitted in CurveAlgebra.Apply(new CurveOp.Admit(
-            new CurveSource.Outline(profile, demand.Policy.ChordTolerance, FitPolicy.Canonical),
-            null))
-        from curve in fitted is CurveTrace.Fitted fit
-            ? Fin.Succ(fit.Curve)
-            : Fin.Fail<NurbsForm.Curve>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "turning:spline-fit"))
+            new CurveSource.Outline(profile, chord, fit),
+            Key))
+        from curve in fitted is CurveTrace.Fitted admitted
+            ? Fin.Succ(admitted.Curve)
+            : Fin.Fail<NurbsForm.Curve>(new KernelFault.InvalidValue("turning", "turning:spline-fit"))
         from lowered in CurveAlgebra.Apply(new CurveOp.Lower(
             curve,
-            new CurveLowering.Chords(new DivideRule.ByChord(demand.Policy.ChordTolerance)),
+            new CurveLowering.Chords(new DivideRule.ByChord(chord)),
             profile.Tolerance,
-            null))
+            Key))
         from loop in lowered is CurveTrace.Lowered result
             ? Fin.Succ(result.Loop)
-            : Fin.Fail<Loop>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "turning:spline-lower"))
+            : Fin.Fail<Loop>(new KernelFault.InvalidValue("turning", "turning:spline-lower"))
         from moves in Native(loop, demand, sweep, side)
         select moves;
 
@@ -941,10 +941,10 @@ public static class Turning {
     // bulge one every other lathe row already carries.
     private static Fin<Seq<Move>> Biarc(Loop profile, TurnDemand demand, SweepDemand sweep, CutSide side) =>
         from trace in ArcAlgebra.Densify(new ArcProjection.Recover(
-            profile, demand.Policy.BiarcTolerance, demand.Policy.BiarcProbeFloor))
-        from recovered in trace is ArcTrace.Recovered result
-            ? Fin.Succ(result.Receipt.Result)
-            : Fin.Fail<Loop>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "turning:biarc-recover"))
+            profile, profile.Tolerance.For(ToleranceLane.Arc).Value, demand.Policy.BiarcProbeFloor))
+        from recovered in trace
+            .Recovery(new KernelFault.InvalidValue("turning", "turning:biarc-recover"))
+            .Map(static evidence => evidence.Result)
         from moves in Native(recovered, demand, sweep, side)
         select moves;
 
@@ -964,19 +964,19 @@ public static class Turning {
 
     private static Fin<TurnPass> Plunge(int index, TurnDemand demand, TurnStep step, LatheOp.Plunge op) {
         double rim = op.Side.StockRadius(demand.Stock);
-        double increment = demand.Insert.Width * (1.0 - demand.Policy.WidthOverlap);
+        double increment = demand.Insert.Width * (1.0 - demand.Policy.WidthOverlap.DecimalFractions);
         return from bands in Cam.Bounded(
                    double.Max(op.Width - demand.Insert.Width, 0.0) + increment, increment, Cam.PassCap, "turning:plunge-bands")
                from pecks in Cam.Bounded(1.0, op.PeckFraction, Cam.PassCap, "turning:plunge-pecks")
                from trail in Range(0, bands).ToSeq().FoldM<Fin, MoveTrail>(MoveTrail.Empty, (walked, band) => {
                    double axial = op.AxialPosition
                        + double.Min(band * increment, double.Max(op.Width - demand.Insert.Width, 0.0));
-                   return from approach in Move.Rapid.Of(new Point3d(axial, op.Side.Clear(rim, demand.Policy.Approach), 0.0))
+                   return from approach in Move.Rapid.Of(new Point3d(axial, op.Side.Clear(rim, demand.Policy.Approach.Millimeters), 0.0))
                           from cuts in Range(1, pecks).ToSeq().Traverse(peck => {
                               double radius = rim - ((rim - op.TargetRadius) * peck / pecks);
                               return Cam.Trail(
                                   Move.Linear.Of(new Point3d(axial, radius, 0.0), Feed(demand, radius)),
-                                  Move.Rapid.Of(new Point3d(axial, op.Side.Clear(radius, demand.Policy.Retract), 0.0)));
+                                  Move.Rapid.Of(new Point3d(axial, op.Side.Clear(radius, demand.Policy.Retract.Millimeters), 0.0)));
                           }).As().Map(static rows => rows.Bind(identity))
                           // The dwell holds at the band's final cut depth, so the mark names that cut and not the
                           // retract emitted after it.
@@ -995,12 +995,12 @@ public static class Turning {
         double rim = op.Side.StockRadius(demand.Stock);
         double core = op.Side == CutSide.External ? demand.Stock.InnerRadius : demand.Stock.OuterRadius;
         return from pecks in Cam.Bounded(1.0, op.PeckFraction, Cam.PassCap, "turning:part-pecks")
-               from approach in Move.Rapid.Of(new Point3d(op.AxialPosition, op.Side.Clear(rim, demand.Policy.Approach), 0.0))
+               from approach in Move.Rapid.Of(new Point3d(op.AxialPosition, op.Side.Clear(rim, demand.Policy.Approach.Millimeters), 0.0))
                from cuts in Range(1, pecks).ToSeq().Traverse(peck => {
                    double radius = rim - ((rim - core) * peck / pecks);
                    return Cam.Trail(
                        Move.Linear.Of(new Point3d(op.AxialPosition, radius, 0.0), Feed(demand, radius)),
-                       Move.Rapid.Of(new Point3d(op.AxialPosition, op.Side.Clear(radius, demand.Policy.Retract), 0.0)));
+                       Move.Rapid.Of(new Point3d(op.AxialPosition, op.Side.Clear(radius, demand.Policy.Retract.Millimeters), 0.0)));
                }).As().Map(static rows => rows.Bind(identity))
                from pass in Loaded(index, demand, step, approach.Cons(cuts), Seq<LatheDirective>(),
                    new RemovalEnvelope(
@@ -1012,8 +1012,8 @@ public static class Turning {
     // construction and the row carries no side column to contradict.
     private static Fin<TurnPass> Axial(int index, TurnDemand demand, TurnStep step, LatheOp.Axial op) {
         double face = demand.Stock.AxialMaximum;
-        double start = face + demand.Policy.Approach;
-        return from depths in Depths(op.Kind, op.Depth, double.Max(op.PeckDepth, demand.Policy.MinimumPeck))
+        double start = face + demand.Policy.Approach.Millimeters;
+        return from depths in Depths(op.Kind, op.Depth, double.Max(op.PeckDepth, demand.Policy.MinimumPeck.Millimeters))
                from approach in Move.Rapid.Of(new Point3d(start, 0.0, 0.0))
                from cuts in depths.Traverse(depth => Cam.Trail(
                    Move.Linear.Of(new Point3d(face - depth, 0.0, 0.0), Feed(demand, op.Diameter / 2.0)),
@@ -1048,16 +1048,16 @@ public static class Turning {
 
     private static Fin<TurnPass> Tap(int index, TurnDemand demand, TurnStep step, LatheOp.Tap op) {
         double face = demand.Stock.AxialMaximum;
-        double start = face + demand.Policy.Approach;
+        double start = face + demand.Policy.Approach.Millimeters;
         double radius = op.Diameter / 2.0;
-        double rpm = demand.Spindle.RpmAt(radius, demand.Policy.MinimumSpindleRadius, Surface(demand));
+        double rpm = demand.Spindle.RpmAt(radius, Surface(demand));
         return from moves in Cam.Trail(
                    Move.Rapid.Of(new Point3d(start, 0.0, 0.0)),
                    Move.Linear.Of(new Point3d(face - op.Depth, 0.0, 0.0), op.Pitch * rpm),
                    Move.Linear.Of(new Point3d(start, 0.0, 0.0), op.Pitch * rpm))
                let trail = MoveTrail.Empty.Then(moves)
                from pass in Loaded(index, demand, step, trail.Moves, Seq<LatheDirective>(
-                       new LatheDirective.Spindle(new SpindleMode.ConstantRpm(rpm), Hand(op.Hand), Surface(demand), rpm),
+                       new LatheDirective.Spindle(Held(demand, rpm), Hand(op.Hand), Surface(demand), rpm),
                        new LatheDirective.TapShape(1, trail.Cursor, op.Diameter, op.Depth, op.Pitch, op.Form, op.Hand),
                        new LatheDirective.Synchronize(1, trail.Cursor, rpm, op.Pitch, op.Hand, 0, 0, ThreadCutRole.Finish)),
                    new RemovalEnvelope(
@@ -1073,7 +1073,7 @@ public static class Turning {
                 + Range(1, demand.Policy.SpringPasses).ToSeq()
                     .Map(pass => (start, spec.RoughPasses + 1 + pass, ThreadCutRole.Spring, spec.Depth, 0.0)));
         double majorRadius = spec.MajorDiameter / 2.0;
-        double rpm = demand.Spindle.RpmAt(majorRadius, demand.Policy.MinimumSpindleRadius, Surface(demand));
+        double rpm = demand.Spindle.RpmAt(majorRadius, Surface(demand));
         double axialDirection = Math.Sign(spec.AxialEnd - spec.AxialStart);
         return from walked in cuts.FoldM<Fin, (MoveTrail Trail, Seq<LatheDirective> Sync)>(
                    (MoveTrail.Empty, Seq<LatheDirective>()),
@@ -1083,13 +1083,13 @@ public static class Turning {
                            : majorRadius - cut.Depth;
                        double indexedStart = spec.AxialStart + (axialDirection * cut.Start * spec.Pitch) + cut.Shift;
                        double indexedEnd = spec.AxialEnd + (axialDirection * cut.Start * spec.Pitch) + cut.Shift;
-                       double entry = indexedStart - (axialDirection * demand.Policy.ThreadRunIn);
-                       double exit = indexedEnd + (axialDirection * demand.Policy.ThreadRunout);
+                       double entry = indexedStart - (axialDirection * demand.Policy.ThreadRunIn.Millimeters);
+                       double exit = indexedEnd + (axialDirection * demand.Policy.ThreadRunout.Millimeters);
                        return Cam.Trail(
-                           Move.Rapid.Of(new Point3d(entry, spec.Side.Clear(radius, demand.Policy.ThreadPullout), 0.0)),
+                           Move.Rapid.Of(new Point3d(entry, spec.Side.Clear(radius, demand.Policy.ThreadPullout.Millimeters), 0.0)),
                            Move.Linear.Of(new Point3d(entry, radius, 0.0), Feed(demand, radius)),
                            Move.Linear.Of(new Point3d(exit, radius, 0.0), spec.Lead * rpm),
-                           Move.Rapid.Of(new Point3d(exit, spec.Side.Clear(radius, demand.Policy.ThreadPullout), 0.0)))
+                           Move.Rapid.Of(new Point3d(exit, spec.Side.Clear(radius, demand.Policy.ThreadPullout.Millimeters), 0.0)))
                        .Map(moves => {
                            MoveTrail advanced = state.Trail.Then(moves);
                            return (advanced, state.Sync.Add(new LatheDirective.Synchronize(
@@ -1098,7 +1098,7 @@ public static class Turning {
                        });
                    }).As()
                from pass in Loaded(index, demand, step, walked.Trail.Moves, Seq<LatheDirective>(
-                       new LatheDirective.Spindle(new SpindleMode.ConstantRpm(rpm), Hand(spec.Hand), Surface(demand), rpm),
+                       new LatheDirective.Spindle(Held(demand, rpm), Hand(spec.Hand), Surface(demand), rpm),
                        new LatheDirective.ThreadGeometry(
                            spec.Form, spec.Profile.LoadFlankDeg, spec.Profile.ClearanceFlankDeg,
                            spec.CrestFlat, spec.RootFlat, spec.CrestRadius, spec.RootRadius, spec.Side))
@@ -1115,10 +1115,10 @@ public static class Turning {
 
     private static Fin<TurnPass> Knurl(int index, TurnDemand demand, TurnStep step, LatheOp.Knurl op) =>
         from moves in Cam.Trail(
-            Move.Rapid.Of(new Point3d(op.AxialStart, op.Side.Clear(op.Radius, demand.Policy.Approach), 0.0)),
+            Move.Rapid.Of(new Point3d(op.AxialStart, op.Side.Clear(op.Radius, demand.Policy.Approach.Millimeters), 0.0)),
             Move.Linear.Of(new Point3d(op.AxialStart, op.Radius, 0.0), Feed(demand, op.Radius) * op.FeedScale),
             Move.Linear.Of(new Point3d(op.AxialEnd, op.Radius, 0.0), Feed(demand, op.Radius) * op.FeedScale),
-            Move.Rapid.Of(new Point3d(op.AxialEnd, op.Side.Clear(op.Radius, demand.Policy.Retract), 0.0)))
+            Move.Rapid.Of(new Point3d(op.AxialEnd, op.Side.Clear(op.Radius, demand.Policy.Retract.Millimeters), 0.0)))
         from pass in Loaded(index, demand, step, moves,
             Seq<LatheDirective>(new LatheDirective.Knurl(1, 2, op.Pattern, op.Pressure)),
             new RemovalEnvelope(
@@ -1140,9 +1140,9 @@ public static class Turning {
             op.Kind, step.Spindle, step.Spindle.Opposite, op.GripPlane, op.GripLength, op.PullDistance));
         return Parts(op.Kind)
             ? from moves in Cam.Trail(
-                  Move.Rapid.Of(new Point3d(op.GripPlane, op.Side.Clear(rim, demand.Policy.Approach), 0.0)),
+                  Move.Rapid.Of(new Point3d(op.GripPlane, op.Side.Clear(rim, demand.Policy.Approach.Millimeters), 0.0)),
                   Move.Linear.Of(new Point3d(op.GripPlane, core, 0.0), Feed(demand, core)),
-                  Move.Rapid.Of(new Point3d(op.GripPlane, op.Side.Clear(rim, demand.Policy.Retract), 0.0)))
+                  Move.Rapid.Of(new Point3d(op.GripPlane, op.Side.Clear(rim, demand.Policy.Retract.Millimeters), 0.0)))
               from pass in Loaded(index, demand, step, moves, directives, new RemovalEnvelope(
                   op.GripPlane, op.GripPlane + demand.Insert.Width, rim, core, op.Side, RemovesMaterial: true))
               select pass
@@ -1175,8 +1175,8 @@ public static class Turning {
             rapid: static (_, _) => Option<(double Radius, double Feed)>.None,
             linear: static (minimum, row) => Some((double.Max(minimum, Math.Abs(row.Target.Y)), row.Feed)),
             circular: static (minimum, row) => Some((double.Max(minimum, Math.Abs(row.Target.Y)), row.Feed))));
-        double radius = spans.Map(static span => span.Radius).Fold(demand.Policy.MinimumSpindleRadius, double.Max);
-        double resolvedRpm = demand.Spindle.RpmAt(radius, demand.Policy.MinimumSpindleRadius, Surface(demand));
+        double radius = spans.Map(static span => span.Radius).Fold(demand.Spindle.MinimumRadius.Millimeters, double.Max);
+        double resolvedRpm = demand.Spindle.RpmAt(radius, Surface(demand));
         double radialDepth = double.Max(
             demand.Profile.Tolerance.Absolute.Value,
             double.Min(Math.Abs(projectedRemoval.RadiusBefore - projectedRemoval.RadiusAfter), demand.Budget.DepthOfCut));
@@ -1198,7 +1198,7 @@ public static class Turning {
             None: () => removal.RemovesMaterial
                 ? from _ in guard(
                       !spans.IsEmpty,
-                      (Error)new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "turning:cutting-span")).ToFin()
+                      (Error)new KernelFault.InvalidValue("turning", "turning:cutting-span")).ToFin()
                   from loads in spans.Map(span =>
                           from intent in Intent(demand, span, chipWidth, axialDepth, radialDepth)
                           from load in demand.Cutting.Evaluate(intent)
@@ -1219,7 +1219,7 @@ public static class Turning {
         .Fold(
             (Cursor: Point3d.Origin, Seconds: 0.0),
             (state, move) => (move.Target, state.Seconds + move.Switch(
-                state: (state.Cursor, Rapid: demand.Policy.RapidMmPerMin),
+                state: (state.Cursor, Rapid: demand.Policy.Rapid.MillimetersPerMinutes),
                 rapid: static (walk, row) => 60.0 * walk.Cursor.DistanceTo(row.Target) / walk.Rapid,
                 linear: static (walk, row) => 60.0 * walk.Cursor.DistanceTo(row.Target) / row.Feed,
                 circular: static (walk, row) => 60.0 * row.Radius * Math.Abs(row.SweepRadians) / row.Feed)))
@@ -1236,10 +1236,10 @@ public static class Turning {
             Length.FromMillimeters(chipWidth),
             Length.FromMillimeters(axialDepth),
             Length.FromMillimeters(radialDepth),
-            Length.FromMillimeters(double.Max(span.Radius * 2.0, demand.Policy.MinimumSpindleRadius * 2.0)),
+            Length.FromMillimeters(double.Max(span.Radius * 2.0, demand.Spindle.MinimumRadius.Millimeters * 2.0)),
             teeth: SingleEdge,
             RotationalSpeed.FromRevolutionsPerMinute(
-                demand.Spindle.RpmAt(span.Radius, demand.Policy.MinimumSpindleRadius, Surface(demand))),
+                demand.Spindle.RpmAt(span.Radius, Surface(demand))),
             Speed.FromMillimetersPerMinutes(span.Feed),
             out CutIntent intent).Admitted(intent);
 
@@ -1304,15 +1304,15 @@ public static class Turning {
 
     private static Fin<Seq<(double Start, double End)>> Crossings(Loop material, double radius, TurnDemand demand) =>
         Runs(material, new Edge3(
-                new Point3d(demand.Stock.AxialMinimum - demand.Policy.Approach, radius, 0.0),
-                new Point3d(demand.Stock.AxialMaximum + demand.Policy.Approach, radius, 0.0)))
+                new Point3d(demand.Stock.AxialMinimum - demand.Policy.Approach.Millimeters, radius, 0.0),
+                new Point3d(demand.Stock.AxialMaximum + demand.Policy.Approach.Millimeters, radius, 0.0)))
             .Map(static runs => runs.Map(static run => (
                 double.Min(run.A.X, run.B.X),
                 double.Max(run.A.X, run.B.X))));
 
     private static Fin<double> RadiusAt(Loop material, double axial, TurnDemand demand, CutSide side) =>
         Runs(material, new Edge3(
-                new Point3d(axial, side.Clear(side.StockRadius(demand.Stock), demand.Policy.Approach), 0.0),
+                new Point3d(axial, side.Clear(side.StockRadius(demand.Stock), demand.Policy.Approach.Millimeters), 0.0),
                 new Point3d(axial, side.RadialSign > 0 ? demand.Stock.InnerRadius : demand.Stock.OuterRadius, 0.0)))
             .Map(runs => runs
                 .Bind(static run => Seq(run.A.Y, run.B.Y))
@@ -1320,19 +1320,28 @@ public static class Turning {
 
     private static Fin<Seq<Edge3>> Runs(Loop material, Edge3 drive) =>
         PolygonAlgebra.Apply(new PolygonOp.ClipOpen(Seq(Seq(drive)), Seq(material), PolygonFill.NonZero))
-            .Bind(static trace => trace is PolygonTrace.SplitRuns split
-                ? Fin.Succ(split.Inside.Bind(identity))
-                : Fin.Fail<Seq<Edge3>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "turning:material-clip")));
+            .Bind(static trace => trace
+                .Runs(new KernelFault.InvalidValue("turning", "turning:material-clip"))
+                .Map(static split => split.Inside.Bind(identity)));
 
     private static double Feed(TurnDemand demand, double radius) =>
         double.Min(demand.Cutting.Feed, demand.Budget.FeedPerRevolution)
-        * demand.Spindle.RpmAt(Math.Abs(radius), demand.Policy.MinimumSpindleRadius, Surface(demand));
+        * demand.Spindle.RpmAt(Math.Abs(radius), Surface(demand));
 
     private static double Surface(TurnDemand demand) => double.Min(demand.Cutting.SurfaceSpeed, demand.Budget.SurfaceSpeed);
 
     // A right-hand thread cuts with the spindle turning clockwise seen from the tailstock; the hand IS the rotation.
     private static RotationSense Hand(ThreadHand hand) =>
         hand == ThreadHand.Right ? RotationSense.Clockwise : RotationSense.Counterclockwise;
+
+    // A tap and a thread lock the spindle to a solved rpm, and the mode they publish inherits the demand's own
+    // radius floor rather than minting a second one the directive would then contradict.
+    private static SpindleMode Held(TurnDemand demand, double rpm) => new SpindleMode.ConstantRpm(
+        demand.Spindle.MinimumRadius, RotationalSpeed.FromRevolutionsPerMinute(rpm));
+
+    // The page's one operation key: the kernel fit law, the curve admission, and the chord lowering all raise
+    // against it, so a refusal names the lathe rather than an anonymous solve.
+    private static readonly Op Key = Op.Of(name: nameof(Turning));
 
     private const int SingleEdge = 1;
 }

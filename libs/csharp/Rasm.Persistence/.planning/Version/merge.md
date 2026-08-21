@@ -1,6 +1,6 @@
 # [PERSISTENCE_VERSION_MERGE]
 
-`StructuralMerge` aligns re-ingested roots and classifies topology and content in one base-relative merge. `EntityEdit` emits base-addressed tombstones or closed RFC 6902 documents over exact `NodeWire` ProtoJSON, while insertions stay on the `EditOp.Insert` and `GraphDelta` mutation rail. `GraphNode` drives detection alone, and conflicts project stored `(Hlc, actor)` evidence into `ConflictReceipt`.
+`StructuralMerge` aligns re-ingested roots and classifies topology and content in one base-relative merge. `EntityEdit` emits base-addressed tombstones or closed RFC 6902 documents over exact `NodeWire` ProtoJSON, while insertions stay on the `EditOp.Insert` and `GraphDelta` mutation rail. `GraphNode` drives detection alone, and conflicts project available `(Hlc, actor)` evidence into `ConflictReceipt` without manufacturing missing authorship.
 
 ## [01]-[INDEX]
 
@@ -26,7 +26,7 @@
 - Auto: Objects recurse; arrays, scalars, and changed roots replace whole; missing members add or remove.
 - Auto: Changed prototype members replace their containing object, so emitted pointers remain safe.
 - Auto: `Patch` collapses an over-ceiling member diff to one root replacement carrying exact successor ProtoJSON.
-- Receipt: a structural diff rides `store.diff.structural` carrying the edit-op count by kind; a three-way merge rides `store.merge.threeway` carrying the conflict count folded into `MergeOutcome.Counts`, and each `MergeConflict` projects to `ConflictReceipt` with the held/incoming `(Hlc, actor)` from the changefeed; each projected `ConflictReceipt` fires the `rasm.persistence.merge.conflict` observe point (`Store/observability#HOOK_RAIL`) at the composition root.
+- Receipt: a structural diff rides `store.diff.structural` carrying the edit-op count by kind; a three-way merge rides `store.merge.threeway` carrying the conflict count folded into `MergeOutcome.Counts`, and each `MergeConflict` projects the held/incoming changefeed evidence it actually has to `ConflictReceipt`; each projected receipt fires the `rasm.persistence.merge.conflict` observe point (`Store/observability#HOOK_RAIL`) at the composition root.
 - Packages: Rasm.Element owns graphs, node addressing, `NodeWire`, and its ProtoJSON projection.
 - Packages: JsonPatch owns the RFC 6902 document; System.Text.Json owns exact wire values and outer edit JSON.
 - Packages: System.IO.Hashing owns local Merkle accumulation; LanguageExt owns immutable carriers and `Fin`.
@@ -119,18 +119,18 @@ public abstract partial record EditOp {
     public string Axis => this.Map(match: static _ => "", insert: static _ => "insert", delete: static _ => "delete", update: static _ => "content", move: static _ => "parent", reorder: static _ => "ordinal", retype: static _ => "role");
 }
 
-// DISTINCT-BY-DESIGN (E-P6 allowlist): CRDT node-merge conflict cells (`NodeId`+`Hlc`+actor) — zero shared columns
+// DISTINCT-BY-DESIGN (E-P6 allowlist): CRDT node-merge conflict cells (`NodeId` + optional causal sides) — zero shared columns
 // with Bim `Review/versioning`'s reviewer sign-off MergeConflict; the MergeOutcome pair rides the same verdict.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.Default)]
 public abstract partial record MergeConflict {
     private MergeConflict() { }
-    public sealed record ParallelEdit(NodeId Key, Hlc OurCell, string OurActor, Hlc TheirCell, string TheirActor) : MergeConflict;
-    public sealed record DeleteUpdate(NodeId Key, bool DeletedByOurs, Hlc OurCell, string OurActor, Hlc TheirCell, string TheirActor) : MergeConflict;
-    public sealed record MoveMove(NodeId Key, Option<NodeId> OurParent, Option<NodeId> TheirParent, Hlc OurCell, string OurActor, Hlc TheirCell, string TheirActor) : MergeConflict;
-    public sealed record ReorderReorder(NodeId Key, int OurOrdinal, int TheirOrdinal, Hlc OurCell, string OurActor, Hlc TheirCell, string TheirActor) : MergeConflict;
-    public sealed record TypeChange(NodeId Key, NodeRole OurRole, NodeRole TheirRole, Hlc OurCell, string OurActor, Hlc TheirCell, string TheirActor) : MergeConflict;
-    public sealed record TopologyBreak(NodeId Key, UInt128 OurGeometry, UInt128 TheirGeometry, Hlc OurCell, string OurActor, Hlc TheirCell, string TheirActor) : MergeConflict;
-    public sealed record ContainmentCycle(NodeId Key, NodeId Ancestor, bool ByOurs, Hlc OurCell, string OurActor) : MergeConflict;
+    public sealed record ParallelEdit(NodeId Key, Option<ConflictSide> Ours, Option<ConflictSide> Theirs) : MergeConflict;
+    public sealed record DeleteUpdate(NodeId Key, bool DeletedByOurs, Option<ConflictSide> Ours, Option<ConflictSide> Theirs) : MergeConflict;
+    public sealed record MoveMove(NodeId Key, Option<NodeId> OurParent, Option<NodeId> TheirParent, Option<ConflictSide> Ours, Option<ConflictSide> Theirs) : MergeConflict;
+    public sealed record ReorderReorder(NodeId Key, int OurOrdinal, int TheirOrdinal, Option<ConflictSide> Ours, Option<ConflictSide> Theirs) : MergeConflict;
+    public sealed record TypeChange(NodeId Key, NodeRole OurRole, NodeRole TheirRole, Option<ConflictSide> Ours, Option<ConflictSide> Theirs) : MergeConflict;
+    public sealed record TopologyBreak(NodeId Key, UInt128 OurGeometry, UInt128 TheirGeometry, Option<ConflictSide> Ours, Option<ConflictSide> Theirs) : MergeConflict;
+    public sealed record ContainmentCycle(NodeId Key, NodeId Ancestor, bool ByOurs, Option<ConflictSide> Side) : MergeConflict;
 
     public NodeId Subject => this.Map(parallelEdit: p => p.Key, deleteUpdate: d => d.Key, moveMove: m => m.Key, reorderReorder: r => r.Key, typeChange: t => t.Key, topologyBreak: b => b.Key, containmentCycle: y => y.Key);
     public string KindName => this.Map(parallelEdit: static _ => "parallelEdit", deleteUpdate: static _ => "deleteUpdate", moveMove: static _ => "moveMove", reorderReorder: static _ => "reorderReorder", typeChange: static _ => "typeChange", topologyBreak: static _ => "topologyBreak", containmentCycle: static _ => "containmentCycle");
@@ -149,19 +149,19 @@ public abstract partial record MergeConflict {
         typeChange: static _ => Some("role"), topologyBreak: static _ => Some("content"),
         containmentCycle: static _ => Option<string>.None);
 
-    // `Evidence` carries the two-sided (Hlc, actor) stamp — derived through the generated Map so the seven
-    // near-identical Receipt arms collapse to ONE Project expression; the single-author ContainmentCycle (the cycle
-    // is detected on one side) reuses its own cell/actor for both held and incoming, the only case where the two
-    // stamps coincide. A TheirCell/TheirActor pair is load-bearing on the six two-sided cases and absent on the
-    // cycle case, so the union owns the projection, not seven copy-pasted Receipt calls.
-    public (Hlc Held, string HeldActor, Hlc Incoming, string IncomingActor) Evidence => this.Map(
-        parallelEdit: static c => (c.OurCell, c.OurActor, c.TheirCell, c.TheirActor),
-        deleteUpdate: static c => (c.OurCell, c.OurActor, c.TheirCell, c.TheirActor),
-        moveMove: static c => (c.OurCell, c.OurActor, c.TheirCell, c.TheirActor),
-        reorderReorder: static c => (c.OurCell, c.OurActor, c.TheirCell, c.TheirActor),
-        typeChange: static c => (c.OurCell, c.OurActor, c.TheirCell, c.TheirActor),
-        topologyBreak: static c => (c.OurCell, c.OurActor, c.TheirCell, c.TheirActor),
-        containmentCycle: static c => (c.OurCell, c.OurActor, c.OurCell, c.OurActor));
+    // `Evidence` carries each available causal side — derived through the generated Map so the seven
+    // near-identical Receipt arms collapse to ONE Project expression. Two-sided cases retain both optional stamps;
+    // a single-author ContainmentCycle has no invented held competitor and carries its author as Incoming. The
+    // union owns the projection, not seven copy-pasted Receipt calls. Missing op-log evidence
+    // remains None; it never becomes an Hlc.Zero/empty-actor pseudo-author.
+    public (Option<ConflictSide> Held, Option<ConflictSide> Incoming) Evidence => this.Map(
+        parallelEdit: static c => (c.Ours, c.Theirs),
+        deleteUpdate: static c => (c.Ours, c.Theirs),
+        moveMove: static c => (c.Ours, c.Theirs),
+        reorderReorder: static c => (c.Ours, c.Theirs),
+        typeChange: static c => (c.Ours, c.Theirs),
+        topologyBreak: static c => (c.Ours, c.Theirs),
+        containmentCycle: static c => (Option<ConflictSide>.None, c.Side));
 }
 
 // Both egress arms carry authoritative held-node OCC. Members carries a closed RFC 6902 document whose paths target
@@ -202,9 +202,7 @@ public abstract record JsonPatchOperationWire {
     public sealed record Test(string Path, JsonElement Value) : JsonPatchOperationWire;
 
     public static Fin<JsonPatchOperationWire> Of(Operation operation, Op key) =>
-        key.Catch(() => Project(operation, key)).MapFail(error => error.IsExceptional
-            ? (Error)ElementFault.ValueRejected(key, $"<entity-edit-operation-value:{operation.op}>")
-            : error);
+        key.Catch(() => Project(operation, key));
 
     static Fin<JsonPatchOperationWire> Project(Operation operation, Op key) => operation.OperationType switch {
         OperationType.Add => Pointer(operation.path, key)
@@ -426,9 +424,9 @@ public static class StructuralMerge {
     // ONE projection over the derived Family + Evidence accessors — the seven near-identical Receipt arms are the
     // DERIVED_LOGIC collapse: the lane is `conflict.Family`, the two-sided stamps `conflict.Evidence`, so a new
     // conflict class adds one union case (and its Family/Evidence arm) without a new Project arm.
-    public static ConflictReceipt Project(MergeConflict conflict, ModelId model, Guid correlation, Instant at) {
-        (Hlc held, string heldActor, Hlc incoming, string incomingActor) = conflict.Evidence;
-        return Receipt(conflict.Subject, model, conflict.Family, held, heldActor, incoming, incomingActor, correlation, at);
+    public static ConflictReceipt Project(MergeConflict conflict, ModelId model, CorrelationId correlation, Instant at) {
+        (Option<ConflictSide> held, Option<ConflictSide> incoming) = conflict.Evidence;
+        return Receipt(conflict.Subject, model, conflict.Family, held, incoming, correlation, at);
     }
 
     // Re-ingest correlation [H6]+[V8b]: the seam mints a FRESH neutral rooted NodeId on every Project, so a
@@ -558,32 +556,33 @@ public static class StructuralMerge {
         + (prior.Matches(node) ? Seq<EditOp>() : Seq<EditOp>(new EditOp.Update(node.Key, prior.PropertyHash, node.PropertyHash, prior.GeometryHash, node.GeometryHash)));
 
     static Seq<MergeConflict> Conflicts(NodeId key, HashMap<string, EditOp> ours, HashMap<string, EditOp> theirs, Option<OpLogEntry> o, Option<OpLogEntry> t) {
-        (Hlc oc, string oa) = Stamp(o);
-        (Hlc tc, string ta) = Stamp(t);
+        Option<ConflictSide> ourSide = Stamp(o);
+        Option<ConflictSide> theirSide = Stamp(t);
         return ours.ContainsKey("delete") && theirs.Keys.Exists(static a => a != "delete")
-            ? Seq<MergeConflict>(new MergeConflict.DeleteUpdate(key, DeletedByOurs: true, oc, oa, tc, ta))
+            ? Seq<MergeConflict>(new MergeConflict.DeleteUpdate(key, DeletedByOurs: true, ourSide, theirSide))
             : theirs.ContainsKey("delete") && ours.Keys.Exists(static a => a != "delete")
-                ? Seq<MergeConflict>(new MergeConflict.DeleteUpdate(key, DeletedByOurs: false, oc, oa, tc, ta))
-                : toSeq(ours.Keys.Filter(theirs.ContainsKey).Choose(axis => Diverge(key, ours[axis], theirs[axis], oc, oa, tc, ta)));
+                ? Seq<MergeConflict>(new MergeConflict.DeleteUpdate(key, DeletedByOurs: false, ourSide, theirSide))
+                : toSeq(ours.Keys.Filter(theirs.ContainsKey).Choose(axis => Diverge(key, ours[axis], theirs[axis], ourSide, theirSide)));
     }
 
-    static Option<MergeConflict> Diverge(NodeId key, EditOp ours, EditOp theirs, Hlc oc, string oa, Hlc tc, string ta) => (ours, theirs) switch {
-        (EditOp.Retype r1, EditOp.Retype r2) when r1.ToRole.Key != r2.ToRole.Key => new MergeConflict.TypeChange(key, r1.ToRole, r2.ToRole, oc, oa, tc, ta),
-        (EditOp.Move m1, EditOp.Move m2) when m1.ToParent != m2.ToParent => new MergeConflict.MoveMove(key, m1.ToParent, m2.ToParent, oc, oa, tc, ta),
-        (EditOp.Reorder r1, EditOp.Reorder r2) when r1.ToOrdinal != r2.ToOrdinal => new MergeConflict.ReorderReorder(key, r1.ToOrdinal, r2.ToOrdinal, oc, oa, tc, ta),
-        (EditOp.Update u1, EditOp.Update u2) when u1.ToGeometry != u2.ToGeometry => new MergeConflict.TopologyBreak(key, u1.ToGeometry, u2.ToGeometry, oc, oa, tc, ta),
-        (EditOp.Update u1, EditOp.Update u2) when u1.ToProperty != u2.ToProperty => new MergeConflict.ParallelEdit(key, oc, oa, tc, ta),
+    static Option<MergeConflict> Diverge(NodeId key, EditOp ours, EditOp theirs, Option<ConflictSide> ourSide, Option<ConflictSide> theirSide) => (ours, theirs) switch {
+        (EditOp.Retype r1, EditOp.Retype r2) when r1.ToRole.Key != r2.ToRole.Key => new MergeConflict.TypeChange(key, r1.ToRole, r2.ToRole, ourSide, theirSide),
+        (EditOp.Move m1, EditOp.Move m2) when m1.ToParent != m2.ToParent => new MergeConflict.MoveMove(key, m1.ToParent, m2.ToParent, ourSide, theirSide),
+        (EditOp.Reorder r1, EditOp.Reorder r2) when r1.ToOrdinal != r2.ToOrdinal => new MergeConflict.ReorderReorder(key, r1.ToOrdinal, r2.ToOrdinal, ourSide, theirSide),
+        (EditOp.Update u1, EditOp.Update u2) when u1.ToGeometry != u2.ToGeometry => new MergeConflict.TopologyBreak(key, u1.ToGeometry, u2.ToGeometry, ourSide, theirSide),
+        (EditOp.Update u1, EditOp.Update u2) when u1.ToProperty != u2.ToProperty => new MergeConflict.ParallelEdit(key, ourSide, theirSide),
         _ => Option<MergeConflict>.None,
     };
 
     static Seq<MergeConflict> Cycles(HashMap<NodeId, HashMap<string, EditOp>> edits, HashMap<NodeId, GraphNode> byKey, bool ByOurs, Func<NodeId, Option<OpLogEntry>> stamp) =>
         toSeq(edits.Keys.Choose(key => ParentOf(key, edits, byKey).Filter(parent => IsDescendant(parent, key, byKey, HashSet<NodeId>()))
-            .Map(parent => { (Hlc cell, string actor) = Stamp(stamp(key)); return (MergeConflict)new MergeConflict.ContainmentCycle(key, parent, ByOurs, cell, actor); })));
+            .Map(parent => (MergeConflict)new MergeConflict.ContainmentCycle(key, parent, ByOurs, Stamp(stamp(key))))));
 
-    static ConflictReceipt Receipt(NodeId key, ModelId model, ColumnFamily family, Hlc held, string heldActor, Hlc incoming, string incomingActor, Guid correlation, Instant at) =>
-        new(model, key.Value, family, held, heldActor, incoming, incomingActor, correlation, at);
+    static ConflictReceipt Receipt(NodeId key, ModelId model, ColumnFamily family, Option<ConflictSide> held, Option<ConflictSide> incoming, CorrelationId correlation, Instant at) =>
+        new(model, key.Value, family, held, incoming, correlation, at);
 
-    static (Hlc Cell, string Actor) Stamp(Option<OpLogEntry> entry) => entry.Match(Some: e => (new Hlc(e.Physical, e.Logical), e.Actor), None: () => (Hlc.Zero, ""));
+    static Option<ConflictSide> Stamp(Option<OpLogEntry> entry) =>
+        entry.Map(static e => new ConflictSide(new Hlc(e.Physical, e.Logical), e.Actor));
 
     static HashMap<NodeId, HashMap<string, EditOp>> ByKeyAxis(Seq<EditOp> script) =>
         toHashMap(toSeq(script.Filter(static op => op is not EditOp.Match).GroupBy(static op => op.Target)).Map(static group => (group.Key, toHashMap(toSeq(group.GroupBy(static op => op.Axis)).Map(static axis => (axis.Key, axis.Last()))))));

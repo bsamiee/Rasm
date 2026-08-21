@@ -294,13 +294,13 @@ const _kafkaNamed = <A>(
     topic: string,
 ): Effect.Effect<A, FanoutFault> =>
     Option.match(Option.fromNullable(rows[topic]), {
-        onNone: () => Effect.fail(new FanoutFault({ reason: 'horizon', topic, detail: '<no-contract-row>' })),
+        onNone: () => Effect.fail(new FanoutFault({ case: { reason: 'horizon', topic, detail: '<no-contract-row>' } })),
         onSome: Effect.succeed,
     });
 
 const _named = (topics: Fanout.Topics, topic: string): Effect.Effect<Fanout.Topic, FanoutFault> =>
     Option.match(Option.fromNullable(topics[topic]), {
-        onNone: () => Effect.fail(new FanoutFault({ reason: 'horizon', topic, detail: '<undeclared-topic>' })),
+        onNone: () => Effect.fail(new FanoutFault({ case: { reason: 'horizon', topic, detail: '<undeclared-topic>' } })),
         onSome: Effect.succeed,
     });
 ```
@@ -325,28 +325,50 @@ const _named = (topics: Fanout.Topics, topic: string): Effect.Effect<Fanout.Topi
 - Law: the port is engine-blind — no member names NATS, and swapping any row for another edits the root merge and nothing else; the engine roster law is the services doctrine's, instantiated here.
 - Boundary: the `@effect/experimental` EventLog overlay is a PROJECTION of the journal onto a local-first client, never a second carriage lane beside this port — its entries persist onto the journal's own `SqlClient` at `data:journal/append#RELAY_ROWS` and reach a peer through the sync protocol, so an announcement crosses here and a replicated edit re-enters through `Journal.causal`; carrying one fact down both lanes forks the record of truth this port was built never to become.
 - Entry: engines land through one `Fanout` layer; Kafka receives its generated contract projection.
-- Packages: `effect` (`Context`, `Data`, `Predicate`, `Stream`).
+- Packages: `effect` (`Context`, `Data`, `Predicate`, `Schema`, `Stream`); `@rasm/ts/core` (`Fault.Class`).
 
 ```typescript signature
+// Every refusal on this port names the TOPIC it was raised against and what actually failed — a caught cause
+// stringified, or an angle-bracketed marker naming the structural refusal no cause accompanies — so the four rows
+// share one subject and differ in what they SAY about it: a band alone left a dead engine and an undeclared topic
+// reading identically at the call site.
+const _FanoutSubject = Schema.Struct({ topic: Schema.String, detail: Schema.String });
+
 const _family = Fault.Class.family(['dial', 'horizon', 'publish', 'poison'] as const, {
-    dial: { class: 'unavailable' },
-    horizon: { class: 'absent' },
-    publish: { class: 'unavailable' },
-    poison: { class: 'malformed' },
+    dial: Fault.Class.row({
+        class: 'unavailable',
+        leg: 'fanout',
+        detail: _FanoutSubject,
+        render: ({ topic, detail }) => `${topic} engine transport failed: ${detail}`,
+    }),
+    horizon: Fault.Class.row({
+        class: 'absent',
+        leg: 'fanout',
+        detail: _FanoutSubject,
+        render: ({ topic, detail }) => `${topic} names nothing this port holds: ${detail}`,
+    }),
+    publish: Fault.Class.row({
+        class: 'unavailable',
+        leg: 'fanout',
+        detail: _FanoutSubject,
+        render: ({ topic, detail }) => `${topic} refused the offer: ${detail}`,
+    }),
+    poison: Fault.Class.row({
+        class: 'malformed',
+        leg: 'fanout',
+        detail: _FanoutSubject,
+        render: ({ topic, detail }) => `${topic} carried a frame no codec admits: ${detail}`,
+    }),
 });
 
-class FanoutFault extends Data.TaggedError('FanoutFault')<{
-    readonly reason: (typeof _family.reasons)[number];
-    readonly topic: string;
-    // `reason` bands the fault, `detail` carries what actually failed: a caught cause stringified, or an
-    // angle-bracketed marker naming the structural refusal no cause accompanies.
-    readonly detail: string;
-}> {
+class FanoutFault extends Schema.TaggedError<FanoutFault>()('FanoutFault', {
+    case: _family.payload,
+}) {
     get class(): Fault.Class.Kind {
-        return _family.classOf(this.reason);
+        return _family.classOf(this.case.reason);
     }
     override get message(): string {
-        return `<fanout:${this.reason}> ${this.topic}: ${this.detail}`;
+        return _family.render(this.case);
     }
 }
 
@@ -435,7 +457,7 @@ const _ENGINES = {
 // One generator mints every capability refusal from the row it read, so a marker cannot drift from the cell deciding
 // it and an engine growing a capability flips one cell while its refusal disappears with no binding edited.
 const _absent = (engine: Fanout.Engine, member: Fanout.Member, topic: string, operand = ''): FanoutFault =>
-    new FanoutFault({ reason: 'horizon', topic, detail: `<${engine}-no-${member}${operand}>` });
+    new FanoutFault({ case: { reason: 'horizon', topic, detail: `<${engine}-no-${member}${operand}>` } });
 
 // One gate over the row's admitted anchor set replaces the `Window`-only ternary each engine hand-spelled: an engine
 // widening its anchors edits one cell and every member follows it.
@@ -550,7 +572,7 @@ const _minted = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Effect.Effe
         const seqs = yield* Ref.make(HashMap.empty<string, number>());
         const held = (topic: string): Effect.Effect<PubSub.PubSub<Fanout.Replayed>, FanoutFault> =>
             Option.match(Option.fromNullable(cells[topic]), {
-                onNone: () => Effect.fail(new FanoutFault({ reason: 'horizon', topic, detail: '<undeclared-topic>' })),
+                onNone: () => Effect.fail(new FanoutFault({ case: { reason: 'horizon', topic, detail: '<undeclared-topic>' } })),
                 onSome: Effect.succeed,
             });
         const offer: _Port['publish'] = (topic, event) =>
@@ -577,7 +599,7 @@ const _minted = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Effect.Effe
                                               duplicate: false,
                                           }),
                                       )
-                                    : Effect.fail(new FanoutFault({ reason: 'publish', topic, detail: '<pubsub-offer-rejected>' })),
+                                    : Effect.fail(new FanoutFault({ case: { reason: 'publish', topic, detail: '<pubsub-offer-rejected>' } })),
                         ),
                 ),
             );
@@ -621,7 +643,7 @@ const _minted = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Effect.Effe
                         Stream.runFoldEffect(body, { size: 0, chunks: Chunk.empty<Uint8Array>() }, (acc, part) =>
                             // `policy.shelf` is typed evidence: an over-bound stash refuses instead of exhausting memory
                             acc.size + part.byteLength > policy.shelf
-                                ? Effect.fail(new FanoutFault({ reason: 'publish', topic, detail: `<shelf-ceiling:${policy.shelf}>` }))
+                                ? Effect.fail(new FanoutFault({ case: { reason: 'publish', topic, detail: `<shelf-ceiling:${policy.shelf}>` } }))
                                 : Effect.succeed({ size: acc.size + part.byteLength, chunks: Chunk.append(acc.chunks, part) }),
                         ),
                         (folded) =>
@@ -646,7 +668,7 @@ const _minted = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Effect.Effe
                                 }),
                                 Option.match({
                                     onNone: () =>
-                                        Effect.fail(new FanoutFault({ reason: 'publish', topic, detail: `<shelf-ceiling:${policy.shelf}>` })),
+                                        Effect.fail(new FanoutFault({ case: { reason: 'publish', topic, detail: `<shelf-ceiling:${policy.shelf}>` } })),
                                     onSome: Effect.succeed,
                                 }),
                             ),
@@ -670,7 +692,7 @@ const _minted = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Effect.Effe
                         }),
                         Option.match({
                             onNone: () =>
-                                Effect.fail(new FanoutFault({ reason: 'horizon', topic, detail: `<no-shelved-blob:${target.key}>` })),
+                                Effect.fail(new FanoutFault({ case: { reason: 'horizon', topic, detail: `<no-shelved-blob:${target.key}>` } })),
                             onSome: Effect.succeed,
                         }),
                     ),
@@ -680,7 +702,7 @@ const _minted = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Effect.Effe
                     Effect.map(Ref.get(shelf), (kept) => {
                         const key = _blobKey([topic, name]);
                         return Option.match(HashMap.get(kept.bodies, Option.getOrElse(HashMap.get(kept.aliases, key), () => key)), {
-                            onNone: () => Stream.fail(new FanoutFault({ reason: 'horizon', topic, detail: `<no-shelved-blob:${name}>` })),
+                            onNone: () => Stream.fail(new FanoutFault({ case: { reason: 'horizon', topic, detail: `<no-shelved-blob:${name}>` } })),
                             onSome: (body) => Stream.fromChunk(body.chunks),
                         });
                     }),
@@ -716,18 +738,18 @@ const _tabLower = (topic: string, event: Fanout.Announced): Effect.Effect<string
     Effect.flatMap(
         Effect.try({
             try: () => HTTP.structured(event),
-            catch: (cause) => new FanoutFault({ reason: 'publish', topic, detail: String(cause) }),
+            catch: (cause) => new FanoutFault({ case: { reason: 'publish', topic, detail: String(cause) } }),
         }),
         (message) =>
             typeof message.body === 'string'
                 ? Effect.succeed(message.body)
-                : Effect.fail(new FanoutFault({ reason: 'publish', topic, detail: '<structured-body-not-text>' })),
+                : Effect.fail(new FanoutFault({ case: { reason: 'publish', topic, detail: '<structured-body-not-text>' } })),
     );
 
 const _tabRaise = (
     topic: string,
     post: unknown,
-): Effect.Effect<{ readonly event: Fanout.Announced; readonly carrier: Carrier.Context }, FanoutFault | ParseResult.ParseError> =>
+): Effect.Effect<{ readonly event: Fanout.Announced; readonly carrier: Carrier.Extraction }, FanoutFault | ParseResult.ParseError> =>
     Effect.flatMap(Schema.decodeUnknown(_TAB_POST)(post), (framed) =>
         Effect.flatMap(
             Effect.try({
@@ -736,11 +758,11 @@ const _tabRaise = (
                         headers: { [CONSTANTS.HEADER_CONTENT_TYPE]: CONSTANTS.MIME_CE_JSON },
                         body: framed.structured,
                     }),
-                catch: (cause) => new FanoutFault({ reason: 'publish', topic, detail: String(cause) }),
+                catch: (cause) => new FanoutFault({ case: { reason: 'publish', topic, detail: String(cause) } }),
             }),
             (decoded) =>
                 Option.match(globalThis.Array.isArray(decoded) ? Array.head(decoded) : Option.some(decoded), {
-                    onNone: () => Effect.fail(new FanoutFault({ reason: 'publish', topic, detail: '<empty-tab-post>' })),
+                    onNone: () => Effect.fail(new FanoutFault({ case: { reason: 'publish', topic, detail: '<empty-tab-post>' } })),
                     onSome: (event) => Effect.succeed({ event, carrier: Carrier.extract('fanout', framed.band) }),
                 }),
         ));
@@ -756,7 +778,7 @@ const _tab = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Layer.Layer<Fa
                         // BOUNDARY ADAPTER: the constructor is absent outside a browser context, so the mint refuses by fault rather than dying
                         Effect.try({
                             try: () => new BroadcastChannel(row.subject),
-                            catch: (cause) => new FanoutFault({ reason: 'dial', topic: row.subject, detail: String(cause) }),
+                            catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic: row.subject, detail: String(cause) } }),
                         }),
                         (channel) => Effect.sync(() => channel.close()),
                     ),
@@ -809,7 +831,7 @@ const _tab = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Layer.Layer<Fa
                                             structured: framed,
                                             band: Carrier.inject('fanout', context, {}),
                                         }),
-                                    catch: (cause) => new FanoutFault({ reason: 'publish', topic, detail: String(cause) }),
+                                    catch: (cause) => new FanoutFault({ case: { reason: 'publish', topic, detail: String(cause) } }),
                                 }),
                         )),
             };
@@ -928,7 +950,7 @@ const _natsLower = (
     Effect.flatMap(
         Effect.try({
             try: () => HTTP.binary(event),
-            catch: (cause) => new FanoutFault({ reason: 'publish', topic, detail: `<binary-binding-rejected:${String(cause)}>` }),
+            catch: (cause) => new FanoutFault({ case: { reason: 'publish', topic, detail: `<binary-binding-rejected:${String(cause)}>` } }),
         }),
         (message) =>
             Effect.map(_natsBody(topic, message.body), (body) => ({
@@ -946,17 +968,17 @@ const _natsBody = (topic: string, body: unknown): Effect.Effect<Uint8Array, Fano
           ? Effect.succeed(_natsUtf8.write.encode(body))
           : body instanceof Uint8Array
             ? Effect.succeed(new Uint8Array(body))
-            : Effect.fail(new FanoutFault({ reason: 'publish', topic, detail: '<binding-body-not-bytes>' }));
+            : Effect.fail(new FanoutFault({ case: { reason: 'publish', topic, detail: '<binding-body-not-bytes>' } }));
 
 const _natsRaise = (topic: string, msg: JsMsg): Effect.Effect<Fanout.Announced, FanoutFault> =>
     Effect.flatMap(
         Effect.try({
             try: () => HTTP.toEvent<unknown>({ headers: _unband(msg.headers), body: Buffer.from(msg.data) }),
-            catch: (cause) => new FanoutFault({ reason: 'poison', topic, detail: `<toevent-rejected:${String(cause)}>` }),
+            catch: (cause) => new FanoutFault({ case: { reason: 'poison', topic, detail: `<toevent-rejected:${String(cause)}>` } }),
         }),
         (decoded) =>
             Option.match(globalThis.Array.isArray(decoded) ? Array.head(decoded) : Option.some(decoded), {
-                onNone: () => Effect.fail(new FanoutFault({ reason: 'poison', topic, detail: '<empty-message-frame>' })),
+                onNone: () => Effect.fail(new FanoutFault({ case: { reason: 'poison', topic, detail: '<empty-message-frame>' } })),
                 onSome: Effect.succeed,
             }),
     );
@@ -977,14 +999,14 @@ const _within = (topic: string, anchor: Fanout.Anchor, info: StreamInfo): Effect
               Window: () => Effect.void,
               Sequence: ({ seq }) =>
                   seq < info.state.first_seq
-                      ? Effect.fail(new FanoutFault({ reason: 'horizon', topic, detail: `<before-first-seq:${info.state.first_seq}>` }))
+                      ? Effect.fail(new FanoutFault({ case: { reason: 'horizon', topic, detail: `<before-first-seq:${info.state.first_seq}>` } }))
                       : Effect.void,
               Instant: ({ at }) =>
                   Option.match(DateTime.make(info.state.first_ts), {
-                      onNone: () => Effect.fail(new FanoutFault({ reason: 'dial', topic, detail: `<unreadable-first-ts:${info.state.first_ts}>` })),
+                      onNone: () => Effect.fail(new FanoutFault({ case: { reason: 'dial', topic, detail: `<unreadable-first-ts:${info.state.first_ts}>` } })),
                       onSome: (first) =>
                           DateTime.lessThan(at, first)
-                              ? Effect.fail(new FanoutFault({ reason: 'horizon', topic, detail: `<before-first-ts:${info.state.first_ts}>` }))
+                              ? Effect.fail(new FanoutFault({ case: { reason: 'horizon', topic, detail: `<before-first-ts:${info.state.first_ts}>` } }))
                               : Effect.void,
                   }),
           });
@@ -1010,7 +1032,7 @@ class Broker extends Context.Tag('runtime/Broker')<Broker, NatsConnection>() {
                 const refreshed = Effect.tap(
                     Effect.mapError(
                         Machine.at('fanout:dial', audience),
-                        (lapse) => new FanoutFault({ reason: 'dial', topic: '*', detail: `<credential-${lapse.reason}:${audience}>` }),
+                        (lapse) => new FanoutFault({ case: { reason: 'dial', topic: '*', detail: `<credential-${lapse.reason}:${audience}>` } }),
                     ),
                     (principal) => Effect.sync(() => MutableRef.set(held, principal)),
                 );
@@ -1024,7 +1046,7 @@ class Broker extends Context.Tag('runtime/Broker')<Broker, NatsConnection>() {
                                 authenticator: _authenticated(held),
                                 maxReconnectAttempts: _NATS.attempts,
                             }),
-                        catch: (cause) => new FanoutFault({ reason: 'dial', topic: '*', detail: String(cause) }),
+                        catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic: '*', detail: String(cause) } }),
                     }),
                     (live) => Effect.orDie(Effect.tryPromise(() => live.drain())),
                 );
@@ -1068,7 +1090,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
             const js = jetstream(nc);
             const jsm = yield* Effect.tryPromise({
                 try: () => jetstreamManager(nc),
-                catch: (cause) => new FanoutFault({ reason: 'dial', topic: '*', detail: String(cause) }),
+                catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic: '*', detail: String(cause) } }),
             });
             yield* Effect.forEach(
                 Record.toEntries(topics),
@@ -1087,7 +1109,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                                 onFailure: (cause) =>
                                     cause instanceof JetStreamApiError && cause.code === JetStreamApiCodes.StreamNotFound
                                         ? Effect.succeed(Option.none())
-                                        : Effect.fail(new FanoutFault({ reason: 'dial', topic: name, detail: String(cause) })),
+                                        : Effect.fail(new FanoutFault({ case: { reason: 'dial', topic: name, detail: String(cause) } })),
                                 onSuccess: (info) => Effect.succeed(Option.some(info)),
                             }),
                         );
@@ -1095,12 +1117,12 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                             onNone: () =>
                                 Effect.tryPromise({
                                     try: () => jsm.streams.add({ name, ...config }),
-                                    catch: (cause) => new FanoutFault({ reason: 'dial', topic: name, detail: String(cause) }),
+                                    catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic: name, detail: String(cause) } }),
                                 }),
                             onSome: () =>
                                 Effect.tryPromise({
                                     try: () => jsm.streams.update(name, config),
-                                    catch: (cause) => new FanoutFault({ reason: 'dial', topic: name, detail: String(cause) }),
+                                    catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic: name, detail: String(cause) } }),
                                 }),
                         });
                     }),
@@ -1108,7 +1130,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
             );
             const store: ObjectStore = yield* Effect.tryPromise({
                 try: () => new Objm(nc).create(_BLOB.store),
-                catch: (cause) => new FanoutFault({ reason: 'dial', topic: _BLOB.store, detail: String(cause) }),
+                catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic: _BLOB.store, detail: String(cause) } }),
             });
 
             const named = (topic: string): Effect.Effect<Fanout.Topic, FanoutFault> => _named(topics, topic);
@@ -1124,11 +1146,11 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                         const messages = yield* Effect.acquireRelease(
                             Effect.tryPromise({
                                 try: () => pull(consumer),
-                                catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                                catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } }),
                             }),
                             (live) => Effect.orDie(Effect.tryPromise(() => live.close())),
                         );
-                        return Stream.fromAsyncIterable(messages, (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) })).pipe(
+                        return Stream.fromAsyncIterable(messages, (cause) => new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } })).pipe(
                             Stream.mapEffect((msg: JsMsg) =>
                                 Effect.map(_natsRaise(topic, msg), (event) => [event, msg] as const)),
                         );
@@ -1146,7 +1168,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                         named(topic),
                         Effect.tryPromise({
                             try: () => js.consumers.get(topic, _start(anchor)),
-                            catch: (cause) => new FanoutFault({ reason: 'horizon', topic, detail: String(cause) }),
+                            catch: (cause) => new FanoutFault({ case: { reason: 'horizon', topic, detail: String(cause) } }),
                         }),
                     ),
                     Option.match(bound, {
@@ -1176,7 +1198,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                         Effect.flatMap(
                             Effect.tryPromise({
                                 try: () => jsm.streams.info(topic),
-                                catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                                catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } }),
                             }),
                             (info) =>
                                 Stream.map(
@@ -1198,7 +1220,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                             onFailure: (cause) =>
                                 cause instanceof JetStreamApiError && cause.code === JetStreamApiCodes.ConsumerNotFound
                                     ? Effect.succeed(Option.none())
-                                    : Effect.fail(new FanoutFault({ reason: 'dial', topic, detail: String(cause) })),
+                                    : Effect.fail(new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } })),
                             onSuccess: (info) => Effect.succeed(Option.some(info)),
                         }),
                     );
@@ -1214,7 +1236,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                                         max_ack_pending: row.pending, // the row's in-flight ceiling: unset, the server default decides a bound no descriptor cell could name
                                         ..._start(anchor),
                                     }),
-                                catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                                catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } }),
                             }),
                         onSome: () =>
                             Effect.tryPromise({
@@ -1224,12 +1246,12 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                                         max_deliver: row.attempts,
                                         max_ack_pending: row.pending,
                                     }),
-                                catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                                catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } }),
                             }),
                     });
                     return yield* Effect.tryPromise({
                         try: () => js.consumers.get(topic, durable),
-                        catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                        catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } }),
                     });
                 });
 
@@ -1239,13 +1261,13 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                         Stream.mapEffect(
                             Stream.fromAsyncIterable(
                                 jsm.consumers.list(topic), // the Lister IS the async iterable: one page pull per turn, never a materialized roster
-                                (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                                (cause) => new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } }),
                             ),
                             (info) =>
                                 Effect.map(
                                     Option.match(DateTime.make(info.created), {
                                         onNone: () =>
-                                            Effect.fail(new FanoutFault({ reason: 'dial', topic, detail: `<unreadable-created:${info.created}>` })),
+                                            Effect.fail(new FanoutFault({ case: { reason: 'dial', topic, detail: `<unreadable-created:${info.created}>` } })),
                                         onSome: Effect.succeed,
                                     }),
                                     (created) =>
@@ -1271,7 +1293,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                                           (row) =>
                                               Effect.tryPromise({
                                                   try: () => jsm.consumers.delete(topic, row.name),
-                                                  catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                                                  catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } }),
                                               }),
                                           { concurrency: 'inherit', discard: true },
                                       ),
@@ -1287,7 +1309,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                         Effect.flatMap(
                             Effect.tryPromise({
                                 try: () => jsm.streams.info(topic),
-                                catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                                catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } }),
                             }),
                             (info) =>
                                 Effect.as(
@@ -1327,11 +1349,11 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                                         headers: _hdrs({ ...Carrier.inject('nats', context, {}), ...lowered.band }),
                                         ..._expected(post.expect),
                                     }),
-                                catch: (cause) => new FanoutFault({ reason: 'publish', topic, detail: String(cause) }),
+                                catch: (cause) => new FanoutFault({ case: { reason: 'publish', topic, detail: String(cause) } }),
                             }),
                         ).pipe(
                             Effect.mapError((fault) =>
-                                fault._tag === 'Lapse' ? new FanoutFault({ reason: 'publish', topic, detail: '<breaker-open>' }) : fault,
+                                fault._tag === 'Lapse' ? new FanoutFault({ case: { reason: 'publish', topic, detail: '<breaker-open>' } }) : fault,
                             ),
                             Effect.map(
                                 (ack) =>
@@ -1349,8 +1371,8 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
             return {
                 publish: published,
                 pulse: Stream.filterMap(
-                    Stream.fromAsyncIterable(nc.status(), (cause) => new FanoutFault({ reason: 'dial', topic: '*', detail: String(cause) })),
-                    (status) => Option.map(_NATS_PULSE(status), (detail) => new FanoutFault({ reason: 'dial', topic: '*', detail })),
+                    Stream.fromAsyncIterable(nc.status(), (cause) => new FanoutFault({ case: { reason: 'dial', topic: '*', detail: String(cause) } })),
+                    (status) => Option.map(_NATS_PULSE(status), (detail) => new FanoutFault({ case: { reason: 'dial', topic: '*', detail } })),
                 ).pipe(Stream.catchAll(Stream.succeed)), // the iterator's own failure IS a transport fact, so it rides the stream rather than ending it
                 atomic: (topic, _consumer, events) =>
                     // Atomicity IS the dedup window: each announcement's `(source, id)` msgID makes a replayed batch a run of duplicate acks,
@@ -1370,7 +1392,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                                     Effect.repeat(
                                         Effect.try({
                                             try: () => msg.working(),
-                                            catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: `<heartbeat-refused:${String(cause)}>` }),
+                                            catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic, detail: `<heartbeat-refused:${String(cause)}>` } }),
                                         }),
                                         Schedule.spaced(Duration.times(row.wait, 0.5)),
                                     ),
@@ -1381,7 +1403,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                                         Effect.ignoreLogged(
                                             Effect.try({
                                                 try: () => (fault.reason === 'poison' ? msg.term(fault.reason) : msg.nak()),
-                                                catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                                                catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } }),
                                             }),
                                         ),
                                     onSuccess: () =>
@@ -1389,16 +1411,16 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                                             ? Effect.flatMap(
                                                   Effect.tryPromise({
                                                       try: () => msg.ackAck(),
-                                                      catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                                                      catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } }),
                                                   }),
                                                   (confirmed) =>
                                                       confirmed
                                                           ? Effect.void
-                                                          : Effect.fail(new FanoutFault({ reason: 'dial', topic, detail: '<ack-unconfirmed>' })),
+                                                          : Effect.fail(new FanoutFault({ case: { reason: 'dial', topic, detail: '<ack-unconfirmed>' } })),
                                               )
                                             : Effect.try({
                                                   try: () => msg.ack(),
-                                                  catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                                                  catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } }),
                                               }),
                                 },
                             ),
@@ -1415,7 +1437,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                                         { name: _blobKey([topic, name]), options: { max_chunk_size: setting.fanout.chunk } },
                                         Stream.toReadableStream(body),
                                     ),
-                                catch: (cause) => new FanoutFault({ reason: 'publish', topic, detail: String(cause) }),
+                                catch: (cause) => new FanoutFault({ case: { reason: 'publish', topic, detail: String(cause) } }),
                             }),
                             (info) => new _Stowed({ key: info.name, size: info.size, digest: Option.some(info.digest) }),
                         ),
@@ -1426,16 +1448,16 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                         Effect.flatMap(
                             Effect.tryPromise({
                                 try: () => store.info(target.key),
-                                catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                                catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } }),
                             }),
                             (info) =>
                                 info === null
-                                    ? Effect.fail(new FanoutFault({ reason: 'horizon', topic, detail: `<no-stored-object:${target.key}>` }))
+                                    ? Effect.fail(new FanoutFault({ case: { reason: 'horizon', topic, detail: `<no-stored-object:${target.key}>` } }))
                                     : Effect.map(
                                           Effect.tryPromise({
                                               // Links carry no chunks: the second name resolves to the same stored entries, digest included
                                               try: () => store.link(_blobKey([topic, name]), info),
-                                              catch: (cause) => new FanoutFault({ reason: 'publish', topic, detail: String(cause) }),
+                                              catch: (cause) => new FanoutFault({ case: { reason: 'publish', topic, detail: String(cause) } }),
                                           }),
                                           (linked) => new _Stowed({ key: linked.name, size: info.size, digest: Option.some(info.digest) }),
                                       ),
@@ -1446,14 +1468,14 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                         Effect.map(
                             Effect.tryPromise({
                                 try: () => store.get(_blobKey([topic, name])),
-                                catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                                catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } }),
                             }),
                             (result) =>
                                 result === null
-                                    ? Stream.fail(new FanoutFault({ reason: 'horizon', topic, detail: `<no-stored-object:${name}>` }))
+                                    ? Stream.fail(new FanoutFault({ case: { reason: 'horizon', topic, detail: `<no-stored-object:${name}>` } }))
                                     : Stream.fromReadableStream({
                                           evaluate: () => result.data,
-                                          onError: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                                          onError: (cause) => new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } }),
                                       }).pipe(
                                           Stream.concat(
                                               Stream.drain(
@@ -1461,12 +1483,12 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                                                       Effect.flatMap(
                                                           Effect.tryPromise({
                                                               try: () => result.error,
-                                                              catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                                                              catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } }),
                                                           }),
                                                           (fault) =>
                                                               fault === null
                                                                   ? Effect.void
-                                                                  : Effect.fail(new FanoutFault({ reason: 'dial', topic, detail: String(fault) })),
+                                                                  : Effect.fail(new FanoutFault({ case: { reason: 'dial', topic, detail: String(fault) } })),
                                                       ),
                                                   ),
                                               ),
@@ -1517,19 +1539,21 @@ const _kafka = (
         Effect.gen(function* () {
             const setting = yield* Setting;
             const registryOrigin = yield* Option.match(setting.fanout.registry, {
-                onNone: () => Effect.fail(new FanoutFault({ reason: 'dial', topic: '*', detail: '<no-schema-registry-origin>' })),
+                onNone: () => Effect.fail(new FanoutFault({ case: { reason: 'dial', topic: '*', detail: '<no-schema-registry-origin>' } })),
                 onSome: Effect.succeed,
             });
             const topicKeys = Object.keys(topics).sort();
             const contractKeys = Object.keys(contracts).sort();
             yield* setting.fanout.brokers.length === 0
-                ? Effect.fail(new FanoutFault({ reason: 'dial', topic: '*', detail: '<empty-broker-roster>' }))
+                ? Effect.fail(new FanoutFault({ case: { reason: 'dial', topic: '*', detail: '<empty-broker-roster>' } }))
                 : topicKeys.length !== contractKeys.length || topicKeys.some((topic, index) => topic !== contractKeys[index])
                 ? Effect.fail(
                       new FanoutFault({
-                          reason: 'dial',
-                          topic: '*',
-                          detail: `<topic-contract-roster-drift:${topicKeys.join('|')}!=${contractKeys.join('|')}>`,
+                          case: {
+                              reason: 'dial',
+                              topic: '*',
+                              detail: `<topic-contract-roster-drift:${topicKeys.join('|')}!=${contractKeys.join('|')}>`,
+                          },
                       }),
                   )
                 : Effect.void;
@@ -1540,14 +1564,14 @@ const _kafka = (
                 (live) => PubSub.shutdown(live),
             );
             const logger = _kafkaLogger((detail) => {
-                Queue.unsafeOffer(beat, new FanoutFault({ reason: 'dial', topic: '*', detail }));
+                Queue.unsafeOffer(beat, new FanoutFault({ case: { reason: 'dial', topic: '*', detail } }));
             });
             // The sorted roster IS the cluster identity; declaration order is not, and keying on the raw array would
             // mint a second audience for the same brokers listed differently.
             const audience = [...setting.fanout.brokers].sort().join(',');
             const _principal = Effect.mapError(
                 Machine.at('fanout:kafka', audience),
-                (lapse) => new FanoutFault({ reason: 'dial', topic: '*', detail: `<credential-${lapse.reason}:${audience}>` }),
+                (lapse) => new FanoutFault({ case: { reason: 'dial', topic: '*', detail: `<credential-${lapse.reason}:${audience}>` } }),
             );
             // One boot read decides whether the mechanism is armed at all: a `mechanism` set with no token to carry
             // refuses every handshake, where an absent `sasl` dials exactly as an unauthenticated estate does today.
@@ -1567,7 +1591,7 @@ const _kafka = (
                                         // `setOAuthBearerTokenFailure` and emit on `error` — so the refusal lands on `pulse`
                                         onNone: () =>
                                             Effect.fail(
-                                                new FanoutFault({ reason: 'dial', topic: '*', detail: `<credential-withdrawn:${audience}>` }),
+                                                new FanoutFault({ case: { reason: 'dial', topic: '*', detail: `<credential-withdrawn:${audience}>` } }),
                                             ),
                                         onSome: (principal: MachinePrincipal) =>
                                             Effect.succeed({
@@ -1593,7 +1617,7 @@ const _kafka = (
                         await minted.connect();
                         return minted;
                     },
-                    catch: (cause) => new FanoutFault({ reason: 'dial', topic: '*', detail: String(cause) }),
+                    catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic: '*', detail: String(cause) } }),
                 }),
                 (live) => Effect.orDie(Effect.tryPromise(() => live.disconnect())),
             );
@@ -1604,14 +1628,14 @@ const _kafka = (
                         await minted.connect();
                         return minted;
                     },
-                    catch: (cause) => new FanoutFault({ reason: 'dial', topic: '*', detail: String(cause) }),
+                    catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic: '*', detail: String(cause) } }),
                 }),
                 (live) => Effect.orDie(Effect.tryPromise(() => live.disconnect())),
             );
             const registry = yield* Effect.acquireRelease(
                 Effect.try({
                     try: () => new SchemaRegistryClient({ baseURLs: [registryOrigin.href] }),
-                    catch: (cause) => new FanoutFault({ reason: 'dial', topic: '*', detail: String(cause) }),
+                    catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic: '*', detail: String(cause) } }),
                 }),
                 (live) => Effect.sync(() => live.close()),
             );
@@ -1628,16 +1652,18 @@ const _kafka = (
                                     onNone: () =>
                                         Effect.fail(
                                             new FanoutFault({
-                                                reason: 'dial',
-                                                topic,
-                                                detail: `<providers-axis-unbound:backend-generation-for-${artifact}>`,
+                                                case: {
+                                                    reason: 'dial',
+                                                    topic,
+                                                    detail: `<providers-axis-unbound:backend-generation-for-${artifact}>`,
+                                                },
                                             }),
                                         ),
                                     onSome: (proved) =>
                                         HashSet.has(proved.artifacts, artifact) && HashSet.has(proved.observed.artifacts, artifact)
                                             ? Effect.void
                                             : Effect.fail(
-                                                  new FanoutFault({ reason: 'dial', topic, detail: `<artifact-unobserved:${artifact}>` }),
+                                                  new FanoutFault({ case: { reason: 'dial', topic, detail: `<artifact-unobserved:${artifact}>` } }),
                                               ),
                                 }),
                         });
@@ -1649,12 +1675,12 @@ const _kafka = (
                                 registry.getId(contract.subject, contract.schema, true),
                                 registry.getBySubjectAndId(contract.subject, contract.id),
                             ]),
-                            catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                            catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } }),
                         });
                         const rules = yield* Effect.acquireRelease(
                             Effect.try({
                                 try: contract.rules,
-                                catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                                catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } }),
                             }),
                             (live) => Effect.sync(() => live.clear()),
                         );
@@ -1681,7 +1707,7 @@ const _kafka = (
                         ).flatMap(([axis, holds]) => (holds ? [] : [axis]));
                         yield* drift.length === 0
                             ? Effect.void
-                            : Effect.fail(new FanoutFault({ reason: 'dial', topic, detail: `<contract-drift:${drift.join(',')}>` }));
+                            : Effect.fail(new FanoutFault({ case: { reason: 'dial', topic, detail: `<contract-drift:${drift.join(',')}>` } }));
                         const codec = yield* Effect.acquireRelease(
                             Effect.try({
                                 try: (): _KafkaCodec => {
@@ -1709,9 +1735,11 @@ const _kafka = (
                                                     onNone: () =>
                                                         Effect.fail(
                                                             new FanoutFault({
-                                                                reason: 'publish',
-                                                                topic: logical,
-                                                                detail: '<announcement-carries-no-dataschema>',
+                                                                case: {
+                                                                    reason: 'publish',
+                                                                    topic: logical,
+                                                                    detail: '<announcement-carries-no-dataschema>',
+                                                                },
                                                             }),
                                                         ),
                                                     onSome: (declared) =>
@@ -1719,16 +1747,18 @@ const _kafka = (
                                                             ? Effect.void
                                                             : Effect.fail(
                                                                   new FanoutFault({
-                                                                      reason: 'publish',
-                                                                      topic: logical,
-                                                                      detail: `<dataschema-drift:${declared}!=${_kafkaCoordinate(contract)}>`,
+                                                                      case: {
+                                                                          reason: 'publish',
+                                                                          topic: logical,
+                                                                          detail: `<dataschema-drift:${declared}!=${_kafkaCoordinate(contract)}>`,
+                                                                      },
                                                                   }),
                                                               ),
                                                 });
                                                 const framed = yield* Effect.tryPromise({
                                                     try: () => serializer.serialize(wireTopic, event.data),
                                                     catch: (cause) =>
-                                                        new FanoutFault({ reason: 'publish', topic: logical, detail: String(cause) }),
+                                                        new FanoutFault({ case: { reason: 'publish', topic: logical, detail: String(cause) } }),
                                                 });
                                                 // `cloneWith` is the envelope owner's OWN re-attribution and re-runs the whole
                                                 // admission, so the framed body and its opaque media enter through the same gate the
@@ -1739,12 +1769,12 @@ const _kafka = (
                                                             ? event.cloneWith({ data: framed, datacontenttype: CONSTANTS.MIME_OCTET_STREAM })
                                                             : event,
                                                     catch: (cause) =>
-                                                        new FanoutFault({ reason: 'publish', topic: logical, detail: String(cause) }),
+                                                        new FanoutFault({ case: { reason: 'publish', topic: logical, detail: String(cause) } }),
                                                 });
                                                 const message = yield* Effect.try({
                                                     try: () => Kafka.binary<unknown>(sealed),
                                                     catch: (cause) =>
-                                                        new FanoutFault({ reason: 'publish', topic: logical, detail: String(cause) }),
+                                                        new FanoutFault({ case: { reason: 'publish', topic: logical, detail: String(cause) } }),
                                                 });
                                                 return {
                                                     key: typeof message.key === 'string' ? message.key : _key(event),
@@ -1761,33 +1791,35 @@ const _kafka = (
                                                         return frame.id;
                                                     },
                                                     catch: (cause) =>
-                                                        new FanoutFault({ reason: 'poison', topic: logical, detail: String(cause) }),
+                                                        new FanoutFault({ case: { reason: 'poison', topic: logical, detail: String(cause) } }),
                                                 });
                                                 yield* schemaId === contract.id
                                                     ? Effect.void
                                                     : Effect.fail(
                                                           new FanoutFault({
-                                                              reason: 'poison',
-                                                              topic: logical,
-                                                              detail: `<schema-id-drift:${schemaId}!=${contract.id}>`,
+                                                              case: {
+                                                                  reason: 'poison',
+                                                                  topic: logical,
+                                                                  detail: `<schema-id-drift:${schemaId}!=${contract.id}>`,
+                                                              },
                                                           }),
                                                       );
                                                 const data = yield* Effect.tryPromise({
                                                     try: () => deserializer.deserialize(wireTopic, payload, headers),
                                                     catch: (cause) =>
-                                                        new FanoutFault({ reason: 'poison', topic: logical, detail: String(cause) }),
+                                                        new FanoutFault({ case: { reason: 'poison', topic: logical, detail: String(cause) } }),
                                                 });
                                                 const envelope = yield* Effect.try({
                                                     try: () => Kafka.toEvent<unknown>({ key, value: payload, headers }),
                                                     catch: (cause) =>
-                                                        new FanoutFault({ reason: 'poison', topic: logical, detail: String(cause) }),
+                                                        new FanoutFault({ case: { reason: 'poison', topic: logical, detail: String(cause) } }),
                                                 });
                                                 const one = yield* Option.match(
                                                     globalThis.Array.isArray(envelope) ? Array.head(envelope) : Option.some(envelope),
                                                     {
                                                         onNone: () =>
                                                             Effect.fail(
-                                                                new FanoutFault({ reason: 'poison', topic: logical, detail: '<empty-record-frame>' }),
+                                                                new FanoutFault({ case: { reason: 'poison', topic: logical, detail: '<empty-record-frame>' } }),
                                                             ),
                                                         onSome: Effect.succeed,
                                                     },
@@ -1798,15 +1830,17 @@ const _kafka = (
                                                     ? Effect.void
                                                     : Effect.fail(
                                                           new FanoutFault({
-                                                              reason: 'poison',
-                                                              topic: logical,
-                                                              detail: `<record-key-drift:${key.toString('utf8')}>`,
+                                                              case: {
+                                                                  reason: 'poison',
+                                                                  topic: logical,
+                                                                  detail: `<record-key-drift:${key.toString('utf8')}>`,
+                                                              },
                                                           }),
                                                       );
                                                 return yield* Effect.try({
                                                     try: () => (one instanceof CloudEvent ? one.cloneWith({ data }) : one),
                                                     catch: (cause) =>
-                                                        new FanoutFault({ reason: 'poison', topic: logical, detail: String(cause) }),
+                                                        new FanoutFault({ case: { reason: 'poison', topic: logical, detail: String(cause) } }),
                                                 });
                                             }),
                                         close: () => {
@@ -1815,7 +1849,7 @@ const _kafka = (
                                         },
                                     };
                                 },
-                                catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                                catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } }),
                             }),
                             (live) => Effect.sync(() => live.close()),
                         );
@@ -1826,7 +1860,7 @@ const _kafka = (
             const codecs: Readonly<Record<string, _KafkaCodec>> = Record.fromEntries(admitted);
             yield* Effect.tryPromise({
                 try: () => admin.createTopics({ topics: Record.values(topics).map((row) => ({ topic: row.subject })) }),
-                catch: (cause) => new FanoutFault({ reason: 'dial', topic: '*', detail: String(cause) }),
+                catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic: '*', detail: String(cause) } }),
             });
 
             const named = (topic: string): Effect.Effect<Fanout.Topic, FanoutFault> => _named(topics, topic);
@@ -1844,7 +1878,7 @@ const _kafka = (
                 // delivery reports fill `baseOffset` and NEVER `offset`, though the compat type declares both optional:
                 // reading `offset` answers undefined for every landed record and turns each success into a phantom refusal
                 landed?.baseOffset === undefined
-                    ? Effect.fail(new FanoutFault({ reason: 'publish', topic, detail: '<no-broker-ack-metadata>' }))
+                    ? Effect.fail(new FanoutFault({ case: { reason: 'publish', topic, detail: '<no-broker-ack-metadata>' } }))
                     : Effect.succeed(
                           new _Receipt({
                               topic,
@@ -1864,7 +1898,7 @@ const _kafka = (
                     onFailure: (cause) => {
                         throw Option.getOrElse(
                             Cause.failureOption(cause),
-                            () => new FanoutFault({ reason: 'dial', topic, detail: '<defect-or-interrupt>' }),
+                            () => new FanoutFault({ case: { reason: 'dial', topic, detail: '<defect-or-interrupt>' } }),
                         );
                     },
                     onSuccess: (value) => value,
@@ -1891,7 +1925,7 @@ const _kafka = (
                                         await writer.connect();
                                         return { consumer: minted, producer: writer };
                                     },
-                                    catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                                    catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } }),
                                 }),
                                 ({ consumer, producer }) =>
                                     Ref.update(lanes, (held) => HashMap.set(held, group, { consumer, producer, position: Option.none() })),
@@ -1966,11 +2000,11 @@ const _kafka = (
                                                     Effect.fail(
                                                         cause instanceof FanoutFault
                                                             ? cause
-                                                            : new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                                                            : new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } }),
                                                     ),
                                                 ));
                                     } catch (cause) {
-                                        resume(Effect.fail(new FanoutFault({ reason: 'dial', topic, detail: String(cause) })));
+                                        resume(Effect.fail(new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } })));
                                     }
                                 }),
                             ({ consumer, producer }) =>
@@ -2006,7 +2040,7 @@ const _kafka = (
                                                 ),
                                             }],
                                         }),
-                                        catch: (cause) => new FanoutFault({ reason: 'publish', topic, detail: String(cause) }),
+                                        catch: (cause) => new FanoutFault({ case: { reason: 'publish', topic, detail: String(cause) } }),
                                     }),
                             ).pipe(Effect.flatMap((metadata) => receipted(topic, row.subject, _key(event), metadata[0]))),
                     ),
@@ -2022,11 +2056,11 @@ const _kafka = (
                             Option.match(HashMap.get(live, `${topic}:${consumer}`), {
                                 // atomic is meaningless outside a live read-process-write lane: the offset half has no source without one
                                 onNone: () =>
-                                    Effect.fail(new FanoutFault({ reason: 'horizon', topic, detail: `<no-live-consume-lane:${consumer}>` })),
+                                    Effect.fail(new FanoutFault({ case: { reason: 'horizon', topic, detail: `<no-live-consume-lane:${consumer}>` } })),
                                 onSome: (lane) =>
                                     Option.match(lane.position, {
                                         onNone: () =>
-                                            Effect.fail(new FanoutFault({ reason: 'horizon', topic, detail: `<lane-holds-no-offset:${consumer}>` })),
+                                            Effect.fail(new FanoutFault({ case: { reason: 'horizon', topic, detail: `<lane-holds-no-offset:${consumer}>` } })),
                                         onSome: (position) =>
                                             Effect.flatMap(
                                                 Effect.forEach(events, (event) => codec.lower(topic, event), { concurrency: 'inherit' }),
@@ -2035,7 +2069,7 @@ const _kafka = (
                                                         Effect.tryPromise({
                                                             try: () => lane.producer.transaction(),
                                                             catch: (cause) =>
-                                                                new FanoutFault({ reason: 'publish', topic, detail: String(cause) }),
+                                                                new FanoutFault({ case: { reason: 'publish', topic, detail: String(cause) } }),
                                                         }),
                                                         (txn) =>
                                                             Effect.tryPromise({
@@ -2067,7 +2101,7 @@ const _kafka = (
                                                                     return landed;
                                                                 },
                                                                 catch: (cause) =>
-                                                                    new FanoutFault({ reason: 'publish', topic, detail: String(cause) }),
+                                                                    new FanoutFault({ case: { reason: 'publish', topic, detail: String(cause) } }),
                                                             }),
                                                         (txn, exit) =>
                                                             Exit.isSuccess(exit)

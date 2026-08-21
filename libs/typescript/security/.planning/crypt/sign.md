@@ -42,29 +42,113 @@ import {
 } from "effect"
 import { SecurityFact, Witness } from "../access/audit.ts"
 
+// The cost roster is a tuple so the KDF refusal names a pinned row, and the guard pair below closes it against the
+// `CryptoCost` table in both directions — a row without its tuple entry, or the converse, fails at the declaration.
+const _costs = ["login", "kek"] as const
+
+// Six legs partition this page and each reason renders its OWN subject, because the operator questions differ per
+// leg: a KDF refusal names the cost row that broke, a MAC refusal names whether the sign or the compare threw, an
+// entropy refusal names which mint drew, an envelope refusal names the AES step, and a lease refusal names the
+// fingerprint whose window had closed. One free `detail` string answered them all with prose, and the window arm in
+// particular carried a bare fingerprint no reader could tell from a cause. The KDF bulkhead earns no reason: it
+// BLOCKS on permits and hands back every waiter, so an exhaustion row here would be a verdict nothing can reach.
 const _family = Fault.Class.family(
   [
-    "digest", "mac", "rng", "seal", "open", "wrap", "throttled",
+    "digest", "mac", "rng", "seal", "open", "wrap",
     "material", "unsupported", "window",
     "expired", "claim", "signature", "algorithm", "jwks", "malformed",
   ] as const,
   {
-    digest: { class: "defect" },
-    mac: { class: "defect" },
-    rng: { class: "defect" },
-    seal: { class: "defect" },
-    open: { class: "breached" },
-    wrap: { class: "breached" },
-    throttled: { class: "exhausted" },
-    material: { class: "malformed" },
-    unsupported: { class: "invalid" },
-    window: { class: "expired" },
-    expired: { class: "expired" },
-    claim: { class: "denied" },
-    signature: { class: "denied" },
-    algorithm: { class: "denied" },
-    jwks: { class: "unavailable" },
-    malformed: { class: "malformed" },
+    digest: Fault.Class.row({
+      class: "defect",
+      leg: "kdf",
+      detail: Schema.Struct({ row: Schema.Literal(..._costs), cause: Schema.String }),
+      render: ({ cause, row }) => `argon2 ${row} row refused: ${cause}`,
+    }),
+    mac: Fault.Class.row({
+      class: "defect",
+      leg: "mac",
+      detail: Schema.Struct({ op: Schema.Literal("sign", "compare"), cause: Schema.String }),
+      render: ({ cause, op }) => `hmac ${op} refused: ${cause}`,
+    }),
+    rng: Fault.Class.row({
+      class: "defect",
+      leg: "entropy",
+      detail: Schema.Struct({ mint: Schema.Literal("token", "uuid"), cause: Schema.String }),
+      render: ({ cause, mint }) => `${mint} mint drew no entropy: ${cause}`,
+    }),
+    seal: Fault.Class.row({
+      class: "defect",
+      leg: "envelope",
+      detail: Schema.Struct({ op: Schema.Literal("mint", "encrypt"), cause: Schema.String }),
+      render: ({ cause, op }) => `data-key ${op} refused: ${cause}`,
+    }),
+    open: Fault.Class.row({
+      class: "breached",
+      leg: "envelope",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `sealed envelope did not open: ${cause}`,
+    }),
+    wrap: Fault.Class.row({
+      class: "breached",
+      leg: "envelope",
+      detail: Schema.Struct({ op: Schema.Literal("import", "wrap", "unwrap"), cause: Schema.String }),
+      render: ({ cause, op }) => `kek ${op} refused: ${cause}`,
+    }),
+    material: Fault.Class.row({
+      class: "malformed",
+      leg: "material",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `key material refused: ${cause}`,
+    }),
+    unsupported: Fault.Class.row({
+      class: "invalid",
+      leg: "capability",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `this estate signs nothing that shape: ${cause}`,
+    }),
+    window: Fault.Class.row({
+      class: "expired",
+      leg: "material",
+      detail: Schema.Struct({ fingerprint: Schema.String }),
+      render: ({ fingerprint }) => `credential ${fingerprint} is outside its stated lease window`,
+    }),
+    expired: Fault.Class.row({
+      class: "expired",
+      leg: "token",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `token is past its expiry: ${cause}`,
+    }),
+    claim: Fault.Class.row({
+      class: "denied",
+      leg: "token",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `token claims refused: ${cause}`,
+    }),
+    signature: Fault.Class.row({
+      class: "denied",
+      leg: "token",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `token signature did not verify: ${cause}`,
+    }),
+    algorithm: Fault.Class.row({
+      class: "denied",
+      leg: "token",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `token algorithm is outside the pinned set: ${cause}`,
+    }),
+    jwks: Fault.Class.row({
+      class: "unavailable",
+      leg: "jwks",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `jwks endpoint answered nothing usable: ${cause}`,
+    }),
+    malformed: Fault.Class.row({
+      class: "malformed",
+      leg: "token",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `token is unreadable: ${cause}`,
+    }),
   },
 )
 
@@ -78,7 +162,8 @@ const KeyAlg = {
 } as const
 
 declare namespace SignFault {
-  type Reason = (typeof _family.reasons)[number]
+  type Case = typeof _family.payload.Type
+  type Reason = (typeof _family.kinds)[number]
 }
 
 declare namespace KeyAlg {
@@ -89,14 +174,16 @@ declare namespace KeyAlg {
 }
 
 class SignFault extends Schema.TaggedError<SignFault>()("SignFault", {
-  reason: _family.schema,
-  detail: Schema.String,
+  case: _family.payload,
 }) {
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _family.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<sign:${this.reason}> ${this.detail}`
+    return _family.render(this.case)
   }
 }
 ```
@@ -143,7 +230,7 @@ const _Source: Data.TaggedEnum.Constructor<_Source> = Data.taggedEnum<_Source>()
 
 const _quarantined = Convention.mount(Convention.metric.securityJwksQuarantined)
 
-const _material = (cause: unknown): SignFault => new SignFault({ reason: "material", detail: String(cause) })
+const _material = (cause: unknown): SignFault => new SignFault({ case: { reason: "material", cause: String(cause) } })
 
 const _Jwk = Schema.parseJson(Schema.Struct({ kty: Schema.String }, { key: Schema.String, value: Schema.Unknown }))
 const _jwkBody = Schema.decodeUnknown(_Jwk)
@@ -174,7 +261,7 @@ const _handleOf = (key: CryptoKey, kid: string, alg: KeyAlg.Kind): KeyHandle =>
 
 const _armored = (block: string, alg: KeyAlg.Kind, kid: string): Effect.Effect<KeyHandle, SignFault> =>
   Option.match(Option.flatMap(_labelOf(block), (label) => _PEM[label]), {
-    onNone: () => Effect.fail(new SignFault({ reason: "unsupported", detail: "<unimportable-armor>" })),
+    onNone: () => Effect.fail(new SignFault({ case: { reason: "unsupported", cause: "armor label admits no importer" } })),
     onSome: (admit) =>
       Effect.map(Effect.tryPromise({ try: () => admit(block, alg), catch: _material }), (key) => _handleOf(key, kid, alg)),
   })
@@ -183,7 +270,7 @@ const _fromJwk = (jwk: JWK, alg: KeyAlg.Kind, kid: string): Effect.Effect<KeyHan
   Effect.tryPromise({ try: () => importJWK(jwk, alg), catch: _material }).pipe(
     Effect.filterOrFail(
       (held): held is CryptoKey => !(held instanceof Uint8Array),
-      () => new SignFault({ reason: "unsupported", detail: "symmetric jwk material" }),
+      () => new SignFault({ case: { reason: "unsupported", cause: "jwk resolved symmetric material" } }),
     ),
     Effect.map((key) => _handleOf(key, kid, alg)),
   )
@@ -195,7 +282,7 @@ const _admit = (source: Material.Source, alg: KeyAlg.Kind): Effect.Effect<KeyHan
     // broken-mint leak is refused at the wire — no private label ever reaches this arm to re-check
     Attested: ({ credential }) =>
       Option.match(Option.flatMap(Option.fromNullable(credential.chain.match(_BLOCK)), Array.head), {
-        onNone: () => Effect.fail(new SignFault({ reason: "material", detail: "<unarmored-chain>" })),
+        onNone: () => Effect.fail(new SignFault({ case: { reason: "material", cause: "attested chain carries no armored block" } })),
         onSome: (leaf) => _armored(leaf, alg, credential.fingerprint),
       }),
     // the lease window gates the host arm alone, because it is the only source that carries one
@@ -206,7 +293,7 @@ const _admit = (source: Material.Source, alg: KeyAlg.Kind): Effect.Effect<KeyHan
           Effect.filterOrFail(
             DateTime.now,
             (now) => DateTime.between(now, { minimum: notBefore, maximum: notAfter }),
-            () => new SignFault({ reason: "window", detail: fingerprint }),
+            () => new SignFault({ case: { reason: "window", fingerprint } }),
           ),
           () => Redacted.value(bundle),
         ),
@@ -220,7 +307,7 @@ const _admit = (source: Material.Source, alg: KeyAlg.Kind): Effect.Effect<KeyHan
       Effect.gen(function* () {
         const kid = yield* Option.match(Option.fromNullable(jwk.kid), { onSome: Effect.succeed, onNone: () => Material.thumbprint(jwk) })
         const scheme = yield* _scheme(jwk.alg ?? alg).pipe(
-          Effect.mapError(() => new SignFault({ reason: "unsupported", detail: String(jwk.alg) })))
+          Effect.mapError(() => new SignFault({ case: { reason: "unsupported", cause: `jwk alg ${String(jwk.alg)}` } })))
         return yield* _fromJwk(jwk, scheme, kid)
       }),
   })
@@ -260,23 +347,23 @@ const Material = {
     Effect.gen(function* () {
       const active = yield* _admit(signing, alg).pipe(Effect.filterOrFail(
         (handle): handle is Extract<KeyHandle, { readonly _tag: "Signing" }> => handle._tag === "Signing",
-        () => new SignFault({ reason: "material", detail: "signing source resolved public" }),
+        () => new SignFault({ case: { reason: "material", cause: "signing source resolved public" } }),
       ))
       // each published entry admits as its own source: no synthetic carrier, no fabricated window, no role
       // literal outside the credential vocabulary standing in to reach one import
       const [excluded, verify] = yield* Effect.partition(published.keys, (jwk) =>
         _admit(_Source.Published({ jwk }), alg).pipe(Effect.filterOrFail(
           (handle): handle is Extract<KeyHandle, { readonly _tag: "Verify" }> => handle._tag === "Verify",
-          () => new SignFault({ reason: "material", detail: "jwks entry resolved private" }),
+          () => new SignFault({ case: { reason: "material", cause: "jwks entry resolved private" } }),
         )))
       yield* Effect.forEach(excluded, (fault) =>
         Effect.zipRight(
           Effect.zipRight(Metric.increment(_quarantined), Effect.logWarning("jwks entry quarantined", fault)),
-          Witness.publish(SecurityFact.Admission({ kid: Option.none(), detail: fault.detail })),
+          Witness.publish(SecurityFact.Admission({ kid: Option.none(), detail: fault.message })),
         ), { discard: true })
       return yield* Array.isNonEmptyReadonlyArray(verify)
         ? Effect.succeed<Ring>({ active, verify })
-        : Effect.fail(new SignFault({ reason: "material", detail: "empty verify set" }))
+        : Effect.fail(new SignFault({ case: { reason: "material", cause: "every jwks entry quarantined" } }))
     }),
 } as const
 ```
@@ -332,9 +419,11 @@ const CryptoCost = {
 } as const
 
 declare namespace CryptoCost {
+  type Kind = (typeof _costs)[number]
   type Probe = "digest" | "derive"
   type Row = { readonly targetMs: number; readonly probe: Probe; readonly options: Omit<Options, "secret" | "salt"> }
-  type _Rows<T extends Record<string, Row> = typeof CryptoCost> = T
+  type _Rows<T extends Record<Kind, Row> = typeof CryptoCost> = T
+  type _Kinds<K extends Kind = keyof typeof CryptoCost> = K
 }
 
 const _HASHES = { sha1, sha256, sha512 } as const
@@ -425,21 +514,21 @@ class Crypto extends Effect.Service<Crypto>()("security/crypt/Crypto", {
     const digest = (row: keyof typeof CryptoCost, plaintext: Redacted.Redacted<string>): Effect.Effect<Redacted.Redacted<string>, SignFault> =>
       _kdf(row, Effect.tryPromise({
         try: (signal) => hash(Redacted.value(plaintext), { ...CryptoCost[row].options, secret }, signal),
-        catch: (cause) => new SignFault({ reason: "digest", detail: String(cause) }),
+        catch: (cause) => new SignFault({ case: { reason: "digest", row, cause: String(cause) } }),
       }).pipe(Effect.map(Redacted.make)))
     const verify_ = (row: keyof typeof CryptoCost, stored: Redacted.Redacted<string>, plaintext: Redacted.Redacted<string>): Effect.Effect<CredentialVerdict, SignFault> =>
       _kdf(row, Effect.tryPromise({
         try: (signal) => verify(Redacted.value(stored), Redacted.value(plaintext), { secret }, signal),
-        catch: (cause) => new SignFault({ reason: "digest", detail: String(cause) }),
+        catch: (cause) => new SignFault({ case: { reason: "digest", row, cause: String(cause) } }),
       }).pipe(Effect.map((matched) =>
         matched ? _CredentialVerdict.Matched({ stale: _stale(Redacted.value(stored), CryptoCost[row].options) }) : _CredentialVerdict.Rejected())))
     const derive = (row: keyof typeof CryptoCost, seed: Redacted.Redacted<string>, salt: Uint8Array): Effect.Effect<Redacted.Redacted<Uint8Array>, SignFault> =>
       _kdf(row, Effect.tryPromise({
         try: (signal) => hashRaw(Redacted.value(seed), { ...CryptoCost[row].options, secret, salt }, signal),
-        catch: (cause) => new SignFault({ reason: "digest", detail: String(cause) }),
+        catch: (cause) => new SignFault({ case: { reason: "digest", row, cause: String(cause) } }),
       }).pipe(Effect.map((buf) => Redacted.make(new Uint8Array(buf)))))
     const sign_ = (key: Redacted.Redacted<Uint8Array>, body: Uint8Array): Effect.Effect<string, SignFault> =>
-      Effect.try({ try: () => encodeHexLowerCase(hmac(sha256, Redacted.value(key), body)), catch: (cause) => new SignFault({ reason: "mac", detail: String(cause) }) })
+      Effect.try({ try: () => encodeHexLowerCase(hmac(sha256, Redacted.value(key), body)), catch: (cause) => new SignFault({ case: { reason: "mac", op: "sign", cause: String(cause) } }) })
     const matches = (probe: Probe): Effect.Effect<boolean, SignFault> =>
       Effect.try({
         try: () =>
@@ -448,7 +537,7 @@ class Crypto extends Effect.Service<Crypto>()("security/crypt/Crypto", {
             Digest: ({ opaque, stored }) => _sameBytes(sha256(_bytes(Redacted.value(opaque))), decodeHex(stored)),
             Text: ({ held, presented }) => _sameBytes(_bytes(Redacted.value(held)), _bytes(presented)),
           }),
-        catch: (cause) => new SignFault({ reason: "mac", detail: String(cause) }),
+        catch: (cause) => new SignFault({ case: { reason: "mac", op: "compare", cause: String(cause) } }),
       })
     // One mint, two wire forms off the input shape: an alphabet string keeps caller-shaped dialects, a bare byte
     // count renders base64url-noPadding — the URL-safe wire for tokens riding paths and fragments.
@@ -464,7 +553,7 @@ class Crypto extends Effect.Service<Crypto>()("security/crypt/Crypto", {
           }
           return Redacted.make(_sample(reader, form, length))
         },
-        catch: (cause) => new SignFault({ reason: "rng", detail: String(cause) }),
+        catch: (cause) => new SignFault({ case: { reason: "rng", mint: "token", cause: String(cause) } }),
       })
     }
     const uuid = (): Effect.Effect<string, SignFault> =>
@@ -478,7 +567,7 @@ class Crypto extends Effect.Service<Crypto>()("security/crypt/Crypto", {
           const hex = encodeHexLowerCase(bytes)
           return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
         },
-        catch: (cause) => new SignFault({ reason: "rng", detail: String(cause) }),
+        catch: (cause) => new SignFault({ case: { reason: "rng", mint: "uuid", cause: String(cause) } }),
       })
     const fingerprint = (opaque: Redacted.Redacted<string>): string =>
       encodeHexLowerCase(sha256(_bytes(Redacted.value(opaque))))
@@ -531,38 +620,38 @@ class Shredder extends Effect.Service<Shredder>()("security/crypt/Shredder", {
     const raw = yield* cipher.derive("kek", passphrase, _bytes(salt))
     const kek = yield* Effect.tryPromise({
       try: () => crypto.subtle.importKey("raw", Redacted.value(raw), { name: "AES-KW" }, false, ["wrapKey", "unwrapKey"]),
-      catch: (cause) => new SignFault({ reason: "wrap", detail: String(cause) }),
+      catch: (cause) => new SignFault({ case: { reason: "wrap", op: "import", cause: String(cause) } }),
     })
     const mint = (): Effect.Effect<Redacted.Redacted<CryptoKey>, SignFault> =>
       Effect.tryPromise({
         try: () => crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]),
-        catch: (cause) => new SignFault({ reason: "seal", detail: String(cause) }),
+        catch: (cause) => new SignFault({ case: { reason: "seal", op: "mint", cause: String(cause) } }),
       }).pipe(Effect.map(Redacted.make))
     const wrap = (dataKey: Redacted.Redacted<CryptoKey>): Effect.Effect<WrappedKey, SignFault> =>
       Effect.tryPromise({
         try: () => crypto.subtle.wrapKey("raw", Redacted.value(dataKey), kek, "AES-KW"),
-        catch: (cause) => new SignFault({ reason: "wrap", detail: String(cause) }),
+        catch: (cause) => new SignFault({ case: { reason: "wrap", op: "wrap", cause: String(cause) } }),
       }).pipe(Effect.map((buf) => new WrappedKey({ wrapped: new Uint8Array(buf) })))
     const unwrap = (key: WrappedKey): Effect.Effect<Redacted.Redacted<CryptoKey>, SignFault> =>
       Effect.tryPromise({
         try: () => crypto.subtle.unwrapKey("raw", key.wrapped, kek, "AES-KW", { name: "AES-GCM" }, false, ["encrypt", "decrypt"]),
-        catch: (cause) => new SignFault({ reason: "wrap", detail: String(cause) }),
+        catch: (cause) => new SignFault({ case: { reason: "wrap", op: "unwrap", cause: String(cause) } }),
       }).pipe(Effect.map(Redacted.make))
     const seal = (dataKey: Redacted.Redacted<CryptoKey>, plaintext: Uint8Array): Effect.Effect<SealedEnvelope, SignFault> =>
       Effect.gen(function* () {
         const iv = cipher.plugin.randomBytes(12)
         const ciphertext = yield* Effect.tryPromise({
           try: () => crypto.subtle.encrypt({ name: "AES-GCM", iv }, Redacted.value(dataKey), plaintext),
-          catch: (cause) => new SignFault({ reason: "seal", detail: String(cause) }),
+          catch: (cause) => new SignFault({ case: { reason: "seal", op: "encrypt", cause: String(cause) } }),
         })
         return new SealedEnvelope({ iv, ciphertext: new Uint8Array(ciphertext) })
       })
     const open = (dataKey: Redacted.Redacted<CryptoKey>, envelope: SealedEnvelope): Effect.Effect<Uint8Array, SignFault> =>
       Effect.tryPromise({
         try: () => crypto.subtle.decrypt({ name: "AES-GCM", iv: envelope.iv }, Redacted.value(dataKey), envelope.ciphertext),
-        catch: (cause) => new SignFault({ reason: "open", detail: String(cause) }),
+        catch: (cause) => new SignFault({ case: { reason: "open", cause: String(cause) } }),
       }).pipe(
-        Effect.tapError((fault) => Effect.zipRight(Metric.increment(_openReject), Witness.publish(SecurityFact.ShredOpen({ detail: fault.detail })))),
+        Effect.tapError((fault) => Effect.zipRight(Metric.increment(_openReject), Witness.publish(SecurityFact.ShredOpen({ detail: fault.message })))),
         Effect.map((buf) => new Uint8Array(buf)),
       )
     return { mint, wrap, unwrap, seal, open } as const
@@ -813,7 +902,7 @@ class Jwt extends Effect.Service<Jwt>()("security/crypt/Jwt", {
               onNone: () => Effect.void,
               onSome: (set) =>
                 Schema.decodeUnknown(JwksSnapshot)({ keys: set.keys, observedAt: DateTime.formatIso(observedAt) }).pipe(
-                  Effect.mapError((cause) => new SignFault({ reason: "jwks", detail: String(cause) })),
+                  Effect.mapError((cause) => new SignFault({ case: { reason: "jwks", cause: String(cause) } })),
                   Effect.flatMap((snapshot) => ledger.save(jwksUri, snapshot)),
                 ),
             }))
@@ -823,7 +912,7 @@ class Jwt extends Effect.Service<Jwt>()("security/crypt/Jwt", {
             // state and an interrupted teardown stays distinguishable from a permanently failing rotation.
             Effect.unless(
               Effect.zipRight(
-                Effect.tryPromise({ try: () => resolver.reload(), catch: (cause) => new SignFault({ reason: "jwks", detail: String(cause) }) }),
+                Effect.tryPromise({ try: () => resolver.reload(), catch: (cause) => new SignFault({ case: { reason: "jwks", cause: String(cause) } }) }),
                 persist,
               ),
               () => resolver.fresh || resolver.coolingDown || resolver.reloading,
@@ -838,7 +927,7 @@ class Jwt extends Effect.Service<Jwt>()("security/crypt/Jwt", {
         }))
       const _decoded = (payload: JWTPayload): Effect.Effect<AccessClaims, SignFault> =>
         Schema.decodeUnknown(AccessClaims)(payload).pipe(
-          Effect.mapError((cause) => new SignFault({ reason: "claim", detail: String(cause) })))
+          Effect.mapError((cause) => new SignFault({ case: { reason: "claim", cause: String(cause) } })))
       const _claims = (claims: AccessClaims) => ({
         sid: claims.sid, scope: claims.scope,
         ...(Option.isSome(claims.tid) && { tid: claims.tid.value }),
@@ -855,7 +944,7 @@ class Jwt extends Effect.Service<Jwt>()("security/crypt/Jwt", {
               algorithms, issuer: keyset.issuer, audience: keyset.audience,
               clockTolerance: tolerance, requiredClaims: [..._requiredClaims],
             }),
-            catch: (cause) => new SignFault({ reason: _reasonOf(cause), detail: String(cause) }),
+            catch: (cause) => new SignFault({ case: { reason: _reasonOf(cause), cause: String(cause) } }),
           })).pipe(
           Effect.flatMap((result) => _decoded(result.payload)),
           Effect.withSpan("security.jwt.verify"),
@@ -867,9 +956,9 @@ class Jwt extends Effect.Service<Jwt>()("security/crypt/Jwt", {
               algorithms: [...issuer.algorithms], issuer: issuer.issuer, audience: issuer.audience,
               clockTolerance: tolerance, requiredClaims: [..._requiredClaims],
             }),
-            catch: (cause) => new SignFault({ reason: _reasonOf(cause), detail: String(cause) }),
+            catch: (cause) => new SignFault({ case: { reason: _reasonOf(cause), cause: String(cause) } }),
           }).pipe(
-            Effect.timeoutFail({ duration: deadline, onTimeout: () => new SignFault({ reason: "jwks", detail: issuer.jwksUri }) }),
+            Effect.timeoutFail({ duration: deadline, onTimeout: () => new SignFault({ case: { reason: "jwks", cause: `${issuer.jwksUri} did not answer inside the deadline` } }) }),
             Effect.retry(Fault.Budget.schedule("pulse")), // the branch compile, gate included: jitter, attempt bound, reset, and elapsed ceiling arrive as one value
             Metric.trackDuration(_jwksMs),
             Effect.tap(() => persist),
@@ -890,11 +979,11 @@ class Jwt extends Effect.Service<Jwt>()("security/crypt/Jwt", {
                 .setIssuedAt().setIssuer(keyset.issuer).setAudience(keyset.audience).setSubject(claims.sub)
                 .setExpirationTime(_seconds(ttl))
                 .sign(Redacted.value(keyset.ring.active.key)),
-            catch: (cause) => new SignFault({ reason: _reasonOf(cause), detail: String(cause) }),
+            catch: (cause) => new SignFault({ case: { reason: _reasonOf(cause), cause: String(cause) } }),
           })).pipe(Effect.map(Redacted.make), Effect.withSpan("security.jwt.mint"))
       const _sealed = Effect.flatMap(Ref.get(cell), ({ keyset }) =>
         Effect.map(
-          Effect.mapError(keyset.seal, () => new SignFault({ reason: "unsupported", detail: "no seal handle" })),
+          Effect.mapError(keyset.seal, () => new SignFault({ case: { reason: "unsupported", cause: "keyset carries no seal handle" } })),
           (key) => ({ key, keyset }) as const,
         ))
       const seal = (claims: AccessClaims, ttl: Duration.DurationInput): Effect.Effect<Redacted.Redacted<string>, SignFault> =>
@@ -906,7 +995,7 @@ class Jwt extends Effect.Service<Jwt>()("security/crypt/Jwt", {
                 .setIssuedAt().setIssuer(keyset.issuer).setAudience(keyset.audience).setSubject(claims.sub)
                 .setExpirationTime(_seconds(ttl))
                 .encrypt(Redacted.value(key)),
-            catch: (cause) => new SignFault({ reason: _reasonOf(cause), detail: String(cause) }),
+            catch: (cause) => new SignFault({ case: { reason: _reasonOf(cause), cause: String(cause) } }),
           })).pipe(Effect.map(Redacted.make))
       const unseal = (token: Redacted.Redacted<string>): Effect.Effect<AccessClaims, SignFault> =>
         Effect.flatMap(_sealed, ({ key, keyset }) =>
@@ -915,7 +1004,7 @@ class Jwt extends Effect.Service<Jwt>()("security/crypt/Jwt", {
               issuer: keyset.issuer, audience: keyset.audience,
               clockTolerance: tolerance, requiredClaims: [..._requiredClaims],
             }),
-            catch: (cause) => new SignFault({ reason: _reasonOf(cause), detail: String(cause) }),
+            catch: (cause) => new SignFault({ case: { reason: _reasonOf(cause), cause: String(cause) } }),
           })).pipe(Effect.flatMap((result) => _decoded(result.payload)))
       return { mint, verify, seal, unseal } as const
     }),
@@ -958,10 +1047,10 @@ const _sampled = <A, R>(probe: Effect.Effect<A, SignFault, R>, trials: number): 
         return yield* Effect.tryPromise({
           try: () =>
             measure(async () => { do_not_optimize(await Runtime.runPromise(runtime)(Effect.exit(probe))) }, { min_samples: trials, max_samples: trials }),
-          catch: (cause) => new SignFault({ reason: "unsupported", detail: `<calibration-sampler> ${String(cause)}` }),
+          catch: (cause) => new SignFault({ case: { reason: "unsupported", cause: `calibration sampler: ${String(cause)}` } }),
         })
       })
-    : Effect.fail(new SignFault({ reason: "unsupported", detail: `invalid calibration trials: ${trials}` }))
+    : Effect.fail(new SignFault({ case: { reason: "unsupported", cause: `calibration trials ${trials} is not a positive count` } }))
 
 const _claimed = (suite: string, host: Board.Claim["host"], stats: Calibration.Stats): Effect.Effect<Board.Claim> =>
   Effect.map(DateTime.now, (minted) =>
@@ -973,7 +1062,7 @@ const _claimed = (suite: string, host: Board.Claim["host"], stats: Calibration.S
 const _admitted = (identity: Identity.App, claim: Board.Claim): Effect.Effect<Board.Claim, SignFault> =>
   Board.Claim.matches(claim, identity)
     ? Effect.succeed(claim)
-    : Effect.fail(new SignFault({ reason: "unsupported", detail: `claim host ${claim.host.print} != ${identity.host}` }))
+    : Effect.fail(new SignFault({ case: { reason: "unsupported", cause: `claim host ${claim.host.print} is not ${identity.host}` } }))
 
 // Row to production member: `digest` seals a credential under a PHC-embedded salt, `derive` mints raw KEK bytes
 // under a caller-pinned one. Calibration mints a fresh 16-byte salt for the derive arm — argon2 cost tracks salt
@@ -999,7 +1088,7 @@ const Calibration = {
           const stats = yield* _sampled(_PROBES[CryptoCost[row].probe](cipher, row, probe), trials)
           const claim = yield* Effect.flatMap(_claimed(`security-kdf-${row}`, host, stats), (receipt) => _admitted(identity, receipt))
           const p99 = yield* Option.match(Board.Bench.measured(Array.headNonEmpty(claim.metrics), "p99"), {
-            onNone: () => Effect.fail(new SignFault({ reason: "unsupported", detail: `<unmeasured-p99:${row}>` })),
+            onNone: () => Effect.fail(new SignFault({ case: { reason: "unsupported", cause: `${row} row measured no p99` } })),
             onSome: Effect.succeed,
           })
           return { admitted: p99 / _NS_PER_MS <= CryptoCost[row].targetMs, claim, row, target: CryptoCost[row].targetMs }

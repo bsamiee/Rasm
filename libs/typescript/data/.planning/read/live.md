@@ -13,7 +13,7 @@ Every modality reaches the invalidation bus directly, so a binding over a non-re
 ## [02]-[KEY_COORDINATES]
 
 - Owner: `Live.Keys` — the one admitted coordinate shape both sides of read-your-writes speak — with band, name, and cell evidence embedded as field refinements, `Live.scope` as the one band mint, and `Live.band`/`Live.cells`/`Live.merged` as its closed admission family.
-- Packages: `effect` (`Schema`, `Record`, `Array`).
+- Packages: `effect` (`Schema`, `Record`, `Array`); `@rasm/ts/core` (`Shape.Record`).
 - Entry: a composition binds `Live.scope(discriminant)` once from the scope key it already holds and every lane declaration mints its band through that binding; a `Journal.Slot`'s `keys` member returns the resulting shape (the publish transaction stamps it once per commit — `journal/append.md`'s slot law); every reader below subscribes the same shape; the foreign edge in `[4]` invalidates it directly.
 - Law: coordinates are scope-qualified at mint, because the bus is not — one `Reactivity` root serves every scope in the process and keys handlers on the coordinate value alone, so two scopes minting one band spelling share its wake; `Live.scope` is that qualification's one producer, folding the composition's discriminant with the lane's declared name into the band the slot carries, so cross-scope wake is unrepresentable rather than merely unlikely. Over-invalidation WITHIN a scope stays the honest degradation and costs re-runs; across scopes it leaks one tenant's write cadence to another's readers as timing evidence, which no re-run repairs.
 - Law: the bus stays ONE root and never becomes per-scope — `lane/tenant.md`'s shared spine adopts a single pool constructed ABOVE the per-scope lookup, so a bus composed inside that lookup still serves every row- and schema-isolated scope from one instance and separates the dedicated-database case alone, granting isolation exactly where the pool already grants it and withholding it everywhere the pool does not; the discriminant therefore rides the coordinate VALUE, which no composition topology undoes.
@@ -28,6 +28,7 @@ Every modality reaches the invalidation bus directly, so a binding over a non-re
 
 ```typescript signature
 import { Array, Record, Schema } from "effect"
+import { Shape } from "@rasm/ts/core"
 
 // Both coordinate halves share one lexical class: a slot declares its lane under it, a composition projects its
 // scope key into it, and the separator below therefore cannot appear inside either segment.
@@ -43,7 +44,7 @@ const _Band = Schema.NonEmptyString.pipe(
 const _Cell = Schema.NonEmptyString.pipe(Schema.brand("LiveCell"))
 
 class _Keys extends Schema.Class<_Keys>("Live.Keys")({
-  coordinates: Schema.Record({ key: _Band, value: Schema.Array(_Cell) }),
+  coordinates: Shape.Record(_Band, Schema.Array(_Cell)),
 }) {
   static readonly Band = _Band
   static readonly Cell = _Cell

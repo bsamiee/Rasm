@@ -2,7 +2,7 @@
 
 One array-native computational-geometry owner rules: `SpatialQuery` discriminates Qhull tessellation, KD-tree proximity, the pairwise/condensed distance matrix, the rotation-and-alignment algebra, and the alpha-shape boundary fold over a point set, and `resolve` folds every case to a `SpatialEvidence` outcome the `SpatialReceipt` carries whole. This owner emits point-set evidence as compute-native receipts and never re-owns the geometry-branch `trimesh` mesh surface; the graduation direction is closed one-way — geometry's reconstruction plane mints `reconstructed-mesh`, the alpha-shape `Boundary` stays a compute-native receipt product, and an outward crossing requires a named consumer and a compute-owned axis case, never the geometry case.
 
-Each point set admits through `numerics/array#PAYLOAD` for the finite gate and the operand `ContentKey`; the receipt keys the RESULT through the query-owned `identity_buffer` fold, so two different queries over one point set never share a key; the resolved receipt is the `ReceiptContributor` the weave harvest and the study spine consume. `scipy.spatial` is not Array-API-aware, so the point set is the numpy `np.ndarray` the Qhull/KD-tree/BLAS backends bind under the `RELEASING` trait, isolation and band deriving at the runtime `Kernel` crossing; the KD-tree scan team binds to `LanePolicy.capacity` threaded through the kernel, never the unbounded `workers=-1` team that oversubscribes an already-offloaded kernel against the band.
+Each point set admits through `numerics/array#PAYLOAD` for the finite gate and the operand `ContentKey`; the receipt keys the RESULT through the query-owned `identity_parts` fold handed to `IdentitySource(parts=...)`, so the count-and-length framing runs at the identity owner and two different queries over one point set never share a key; the resolved receipt is the `ReceiptContributor` the weave harvest and the study spine consume. `scipy.spatial` is not Array-API-aware, so the point set is the numpy `np.ndarray` the Qhull/KD-tree/BLAS backends bind under the `RELEASING` trait, isolation and band deriving at the runtime `Kernel` crossing; the KD-tree scan team binds to `LanePolicy.capacity` threaded through the kernel, never the unbounded `workers=-1` team that oversubscribes an already-offloaded kernel against the band.
 
 ## [01]-[INDEX]
 
@@ -12,8 +12,9 @@ Each point set admits through `numerics/array#PAYLOAD` for the finite gate and t
 
 - Owner: `SpatialQuery` — one owner discriminated by the geometric question, never a `Neighbours`/`Hull`/`Triangulate` method family. `Align` is a paired correspondence fit — `source` and `target` carry the same row count, `procrustes` raising `ValueError` on a mismatch, the fault converting on the `boundary` fence. `AlphaShape` folds its boundary locally because no `scipy.spatial` alpha-shape primitive exists; `_circumradius` stays private to that kernel, never a module-level sibling of the dispatch.
 - Output: `SpatialEvidence` parameterizes the result per case, and the `Complex` `cardinality` is the primitive count its `kind` string discriminates — hull facets, Delaunay simplices, Voronoi ridges, halfspace vertices, distance pairs — so a distance summary never wears a `simplices` label and four outcome vocabularies never smuggle through two overloaded columns. Adding a query writes only its geometry body returning a `SpatialEvidence`; `assert_never` closes the dispatch.
+- Faults: one `SPATIAL_RESOLVE` fence row spans every query — the tag is a span fact, never nine subject spellings — and its `catch` admits `QhullError` through its `RuntimeError` base, since naming the attribute would reify the lazy proxy and defeat the floor. `_proximity` scopes its `try` to the import dereference ALONE, so a raise out of a live KD-tree query is the defect the fence converts rather than a silent demotion to floor evidence.
 - Packages: `scipy.spatial`, `numpy`, `expression`, and `msgspec` per the fence imports; `scipy.spatial` and `optimize.linprog` bind once each as module-scope `lazy` names that defer both trees to the first kernel body, so `resolve` stays a pure tag-dispatch and `linprog` costs nothing until the halfspace Chebyshev-centre interior point asks for it.
-- Growth: a new spatial query is one `SpatialQuery` case with one `resolve` arm and one `identity_buffer` arm; a new evidence shape is one `SpatialEvidence` case with its `facts()` arm — the receipt carries the evidence whole and needs no edit; a new distance metric is one `Metric` row; a new tessellation backend is one `Tessellation` row; a new degrading route is one `NEIGHBOUR_FLOOR` row.
+- Growth: a new spatial query is one `SpatialQuery` case with one `resolve` arm and one `identity_parts` arm; a new evidence shape is one `SpatialEvidence` case with its `facts()` arm — the receipt carries the evidence whole and needs no edit; a new distance metric is one `Metric` row; a new tessellation backend is one `Tessellation` row; a new degrading route is one `NEIGHBOUR_FLOOR` row.
 
 ```python signature
 from collections.abc import Callable, Iterable
@@ -22,21 +23,21 @@ from itertools import combinations
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 
 import numpy as np
-from expression import case, tag, tagged_union
-from expression.collections import Map
+from expression import Nothing, Option, Some, case, tag, tagged_union
+from expression.collections import Block, Map
 from msgspec import Struct
 
-from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
+from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, evidence_run
 from rasm.compute.numerics.array import ArrayPayload, ArraySource, FiniteGate
-from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.faults import RuntimeRail, boundary
-from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
+from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, boundary, rostered
+from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
 # cold scientific dependencies: the `lazy` binds defer both scipy trees to the first route body. `_proximity` keeps its
-# `try`/`except ImportError` because the proxy reifies AT the `sp.cKDTree` dereference inside the try, so an absent
-# scipy still falls to `NEIGHBOUR_FLOOR` exactly as it did under the function-local form.
+# `try`/`except ImportError` around the `sp.cKDTree` dereference ALONE, so an absent scipy falls to `NEIGHBOUR_FLOOR`
+# while a raise out of the query it guards stays the defect it is.
 lazy import scipy.spatial as sp
 lazy from scipy.optimize import linprog
 
@@ -71,13 +72,15 @@ class Tessellation(StrEnum):  # the Voronoi backend selector; the value is the s
 @tagged_union(frozen=True)
 class SpatialEvidence:
     tag: Literal["proximity", "complex_", "boundary", "alignment"] = tag()
-    proximity: tuple[int, float, float] = case()
+    # a kNN read has no radius and a radius read has no mean: both are ABSENT on the arm that never measured them,
+    # and the retired `0.0` defaults published a coincident-point mean and a zero-radius ball as measured values.
+    proximity: tuple[int, Option[float], Option[float]] = case()  # (count, mean_distance, radius)
     complex_: tuple[str, int, float] = case()
     boundary: tuple[int, float] = case()
     alignment: tuple[float, float] = case()
 
     @staticmethod
-    def Proximity(count: int, mean_distance: float, radius: float = 0.0) -> "SpatialEvidence":
+    def Proximity(count: int, mean_distance: Option[float] = Nothing, radius: Option[float] = Nothing) -> "SpatialEvidence":
         return SpatialEvidence(proximity=(count, mean_distance, radius))
 
     @staticmethod
@@ -96,7 +99,12 @@ class SpatialEvidence:
         # native scalars only — a `str()`/`f""` coerce erases comparability at the receipt layer; rendering is the export layer's.
         match self:
             case SpatialEvidence(tag="proximity", proximity=(count, mean_distance, radius)):
-                return {"count": count, "mean_distance": mean_distance, "radius": radius}
+                # each unmeasured column OMITS its key rather than reporting a zero every aggregation folds as a reading.
+                return {
+                    "count": count,
+                    **mean_distance.map(lambda mean: {"mean_distance": mean}).default_value({}),
+                    **radius.map(lambda r: {"radius": r}).default_value({}),
+                }
             case SpatialEvidence(tag="complex_", complex_=(kind, cardinality, measure)):
                 return {"kind": kind, "cardinality": cardinality, "measure": measure}
             case SpatialEvidence(tag="boundary", boundary=(facets, total_radius)):
@@ -108,18 +116,33 @@ class SpatialEvidence:
 
 
 class SpatialReceipt(Struct, frozen=True):
+    # `lineage` carries the admitted point-set key beside the result key as ONE value, because the spine reads exactly
+    # that pair: a receipt naming what it produced without naming what it consumed strands every downstream walk at
+    # one hop, and two loose key slots are what lets one drift past the other.
     query: str
     points: int
-    content_key: ContentKey
+    lineage: Provenance
     evidence: SpatialEvidence
 
     @staticmethod
-    def of(tag: Tag, points: int, key: ContentKey, evidence: SpatialEvidence) -> "SpatialReceipt":
-        return SpatialReceipt(tag, points, key, evidence)
+    def of(tag: Tag, points: int, lineage: Provenance, evidence: SpatialEvidence) -> "SpatialReceipt":
+        return SpatialReceipt(tag, points, lineage, evidence)
+
+    @property
+    def content_key(self) -> ContentKey:
+        return self.lineage.produced
 
     def contribute(self) -> Iterable[Receipt]:
-        facts = {"query": self.query, "points": self.points, "content_key": self.content_key.project("hex"), **self.evidence.facts()}
-        yield Receipt.of(EvidenceScope.SPATIAL.value, ("emitted", self.query, facts))
+        # ONE settled-receipt spine: the result key IS the spine's `key` column and its `produced` provenance, so no
+        # payload slot re-spells the hex render the spine carries, and the admitted point set is the `consumed`
+        # roster. The evidence union stays on the payload — the spine owns its six columns and nothing else.
+        facts = {"query": self.query, "points": self.points, **self.evidence.facts()}
+        yield Receipt.of(
+            EvidenceScope.SPATIAL.value,
+            ("emitted", self.query, facts),
+            key=Some(self.lineage.produced),
+            provenance=Some(self.lineage),
+        )
 
 
 @tagged_union(frozen=True)
@@ -196,8 +219,11 @@ class SpatialQuery:
             case _ as unreachable:
                 assert_never(unreachable)
 
-    def identity_buffer(self, operand_key: ContentKey) -> bytes:
-        # enum rows serialize by value, numeric rows as canonical float64 bytes; length-prefixed parts keep the buffer unambiguous.
+    def identity_parts(self, operand_key: ContentKey) -> tuple[bytes, ...]:
+        # N SEMANTIC fields, handed to the identity owner AS fields: enum rows serialize by value and numeric rows as
+        # canonical float64 bytes, and the count-and-length framing that makes the preimage injective rides
+        # `IdentitySource(parts=...)` at its one owner. The retired form spelled a local `len(part).to_bytes(8, "big")`
+        # prefix here — a width chosen at a call site forks the key namespace with no surface able to report it.
         row: tuple[object, ...]
         match self:
             case SpatialQuery(tag="neighbours", neighbours=(_, _, k)):
@@ -214,12 +240,11 @@ class SpatialQuery:
                 row = ()
             case _ as unreachable:
                 assert_never(unreachable)
-        parts = (
+        return (
             self.tag.encode(),
             operand_key.project("hex").encode(),
             *(cell.encode() if isinstance(cell, str) else np.float64(cell).tobytes() for cell in row),
         )
-        return b"".join(len(part).to_bytes(8, "big") + part for part in parts)
 
     @property
     def cardinality(self) -> int:
@@ -252,14 +277,15 @@ class SpatialQuery:
                 kth = min(k, int(pts.shape[0]))
                 return _proximity(
                     "neighbours", pts, qs, float(kth), lambda tree: _knn_distances(np.asarray(tree.query(qs, k=kth, workers=workers)[0], dtype=float))
-                )
+                )  # a kNN read measures a mean and no radius, so the radius column stays ABSENT
             case SpatialQuery(tag="radius", radius=(pts, qs, r)):
                 return _proximity(
                     "radius",
                     pts,
                     qs,
                     r,
-                    lambda tree: SpatialEvidence.Proximity(int(sum(len(hit) for hit in tree.query_ball_point(qs, r=r, workers=workers))), 0.0, r),
+                    # a radius read COUNTS hits and measures no mean, so the mean column stays ABSENT rather than zero.
+                    lambda tree: SpatialEvidence.Proximity(int(sum(len(hit) for hit in tree.query_ball_point(qs, r=r, workers=workers))), radius=Some(r)),
                 )
             case SpatialQuery(tag="pairs", pairs=(pts, r)):
                 return _pairs(pts, r)
@@ -281,6 +307,15 @@ class SpatialQuery:
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
+# this page's raise-side roster under the hub `ComputeLeg` seat. ONE row spans every query and declares NO slots,
+# because nothing raises through it — it names a lift FENCE whose detail the classifier supplies. The retired
+# `f"spatial.{query.tag}"` subject forked one refusal law into nine coordinates no shared census read could seat; the
+# query discriminant rides the weave's own span facts, where a trace already filters on it.
+SPATIAL_RESOLVE: Final[FaultRow[ComputeLeg]] = FaultRow(
+    leg=ComputeLeg.SPATIAL, point="resolve", arm="boundary", defect="kernel-refused", retriability=TERMINAL
+)
+RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([SPATIAL_RESOLVE]))
+
 # Data-driven numpy proximity floor: the ImportError arm reads its row and folds the same Proximity evidence the cKDTree path
 # produces, so the floor is table membership rather than per-route try/except blocks. A tag absent from this table has no floor —
 # Qhull, the BLAS distance kernel, and the rotation SVD are the gated capability itself.
@@ -295,11 +330,15 @@ NEIGHBOUR_FLOOR: Final[Map[Tag, NeighbourReduction]] = Map.of_seq([
 
 def _proximity(tag: Tag, pts: np.ndarray, qs: np.ndarray, scale: float, reduce: "KdReduction") -> SpatialEvidence:
     # one symmetric fold for both KD-tree proximity routes: run the scipy reduction, or fall to this tag's floor row when the
-    # package is absent — both terminate in `Proximity`, so the body carries no per-tag ternary.
+    # package is absent — both terminate in `Proximity`, so the body carries no per-tag ternary. The `try` scopes the
+    # IMPORT SEAM ALONE — the lazy proxy reifies at this one dereference — because a whole-fold funnel re-routes an
+    # `ImportError` raised anywhere inside a scipy KD-tree query onto the numpy floor and publishes floor evidence a
+    # caller cannot tell from a tree scan; a raise out of the query itself is the defect the fence converts.
     try:
-        return reduce(sp.cKDTree(pts))
+        tree = sp.cKDTree(pts)
     except ImportError:
         return NEIGHBOUR_FLOOR[tag](pts, qs, scale)
+    return reduce(tree)
 
 
 def _pairwise_sq(pts: np.ndarray, qs: np.ndarray) -> np.ndarray:
@@ -310,9 +349,11 @@ def _pairwise_sq(pts: np.ndarray, qs: np.ndarray) -> np.ndarray:
 
 
 def _knn_distances(distances: np.ndarray) -> SpatialEvidence:
-    # One Proximity mean both the cKDTree `query` distances and the floor's sorted block fold, so the two paths terminate
-    # identically; an empty query set folds to a zero mean — truthful vacuous evidence, never a nan riding `np.mean` over nothing.
-    return SpatialEvidence.Proximity(int(distances.size), float(np.mean(distances)) if distances.size else 0.0)
+    # One Proximity mean both the cKDTree `query` distances and the floor's sorted block fold, so the two paths
+    # terminate identically; an EMPTY query set has no mean and says so. The retired `else 0.0` was not vacuous
+    # evidence — a zero mean distance is the reading that every point coincides, which is exactly the claim an
+    # unmeasured fold must not make, and every aggregation downstream folded the fabricated cell as data.
+    return SpatialEvidence.Proximity(int(distances.size), Some(float(np.mean(distances))) if distances.size else Nothing)
 
 
 def _floor_knn(pts: np.ndarray, qs: np.ndarray, k: int) -> SpatialEvidence:
@@ -323,11 +364,11 @@ def _floor_knn(pts: np.ndarray, qs: np.ndarray, k: int) -> SpatialEvidence:
 
 
 def _floor_radius(pts: np.ndarray, qs: np.ndarray, r: float) -> SpatialEvidence:
-    return SpatialEvidence.Proximity(int(np.count_nonzero(_pairwise_sq(pts, qs) <= r * r)), 0.0, r)
+    return SpatialEvidence.Proximity(int(np.count_nonzero(_pairwise_sq(pts, qs) <= r * r)), radius=Some(r))
 
 
 def _pairs(pts: np.ndarray, r: float) -> SpatialEvidence:
-    return SpatialEvidence.Proximity(len(sp.cKDTree(pts).query_pairs(r)), 0.0, r)
+    return SpatialEvidence.Proximity(len(sp.cKDTree(pts).query_pairs(r)), radius=Some(r))
 
 
 def _hull(pts: np.ndarray) -> SpatialEvidence:
@@ -370,6 +411,11 @@ def _interior_point(halfspaces: np.ndarray) -> np.ndarray:
     a, b = halfspaces[:, :-1], halfspaces[:, -1]
     norms = np.linalg.norm(a, axis=1, keepdims=True)
     result = linprog(np.concatenate([np.zeros(a.shape[1]), [-1.0]]), A_ub=np.hstack([a, norms]), b_ub=-b, bounds=(None, None))
+    # an INFEASIBLE stack carries `x=None`, and the retired unconditional `result.x[:-1]` read it as a subscript —
+    # a bare `TypeError` from inside the kernel rather than the refusal the caller can act on. The raise lands at the
+    # fence exactly as the `neighbours` admission does, so an empty intersection reports itself as one.
+    if not result.success:
+        raise ValueError(f"halfspace stack admits no strictly feasible interior point: {result.message}")
     return np.asarray(result.x[:-1], dtype=float)
 
 
@@ -401,10 +447,22 @@ def _circumradius(simplex: np.ndarray) -> float:
 def _spatial_kernel(query: SpatialQuery, workers: int) -> "RuntimeRail[SpatialReceipt]":
     # module-level so REFERENCE shipping resolves it by import — a closure pays an eager cloudpickle round-trip
     # no thread arm needs; SYNCHRONOUS by contract, an async def hands the worker a bare coroutine object.
+    # `catch` names the scipy.spatial raise surface this body reaches, probed against the installed band: every
+    # degenerate Qhull tessellation raises `QhullError`, a `RuntimeError` subclass rather than a `ValueError` one, so
+    # `RuntimeError` is what admits it WITHOUT naming `sp.QhullError` — evaluating that attribute in the tuple would
+    # reify the lazy proxy at every call and defeat the `NEIGHBOUR_FLOOR` an absent scipy depends on. Ragged operands,
+    # refused metrics, correspondence mismatches, the two admission raises, and `np.linalg.LinAlgError` — the narrower
+    # subclass, leading so the classifier reads the precise type — cover the rest.
     return ArrayPayload.admit(ArraySource.Live(query.points), (), FiniteGate.REJECT).bind(
-        lambda payload: ContentIdentity.of(f"spatial.{query.tag}", query.identity_buffer(payload.content_key)).bind(
+        lambda payload: ContentIdentity.of(f"spatial.{query.tag}", IdentitySource(parts=query.identity_parts(payload.content_key))).bind(
             lambda result_key: boundary(
-                f"spatial.{query.tag}", lambda: SpatialReceipt.of(query.tag, query.cardinality, result_key, query.resolve(workers))
+                SPATIAL_RESOLVE,
+                lambda: SpatialReceipt.of(
+                    query.tag, query.cardinality,
+                    Provenance(consumed=Block.singleton(payload.content_key), produced=result_key),
+                    query.resolve(workers),
+                ),
+                catch=(np.linalg.LinAlgError, ValueError, RuntimeError),
             )
         )
     )

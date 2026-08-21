@@ -10,13 +10,15 @@
 
 ## [02]-[ROBOT_CELL]
 
-- Owner: `CellSource` closes library and embedded XML ingress; `RobotCell` admits source, base frame, and default TCP; `CellGoal` closes Cartesian and joint targets; generated `CellWaypoint` admits every per-occurrence target property; `CellTargetPlan` closes generated and explicit target series and derives both through one waypoint fold; `CellPolicy` admits compilation, dynamics, and inverse policy; `CellPlacementAxis` and `CellSampling` generate the search lattice; `CellTimebase` and `CellClock` generate the animation lattice off that same sampler; `CellPlacementMetric` and `CellPlacementPolicy` own scoring, `CellPlacementPolicy.Burden` the one normalized weighted fold; `CellProgramRequest` and `CellProgramReceipt` collapse solve, placement, and animation modalities under one entry; `CellStation` and `CellMotion` retain per-waypoint provider evidence through frozen projection, `CellPosedStation` and `CellAnimation` retain the between-waypoint pose census; `CellLibrary` and `CellDrive` own their effectful boundaries.
+- Owner: `CellSource` closes library and embedded XML ingress; `RobotCell` admits source, base frame, and default TCP; `CellGoal` closes Cartesian and joint targets; generated `CellWaypoint` admits every per-occurrence target property; `CellTargetPlan` closes generated and explicit target series and derives both through one waypoint fold; `CellProgramName` admits the provider's own identifier grammar; `CellPolicy` admits compilation, dynamics, and inverse policy; `CellPlacementAxis` and `CellSampling` generate the search lattice; `CellTimebase` and `CellClock` generate the animation lattice off that same sampler; `CellPlacementMetric` and `CellPlacementPolicy` own scoring, `CellPlacementPolicy.Burden` the one normalized weighted fold; `CellProgramRequest` and `CellProgramReceipt` collapse solve, placement, and animation modalities under one entry; `CellStation` and `CellMotion` retain per-waypoint provider evidence through frozen projection, `CellPosedStation` and `CellAnimation` retain the between-waypoint pose census; `CellLibrary` and `CellDrive` own their effectful boundaries.
 - Cases: `CellTargetPlan.Generated` derives one waypoint per admitted `Move` from a `CellInterpolation` row, a combinable `CellPosture` set, and a `ToolAxisDemand` resolved per waypoint index. `CellTargetPlan.Explicit` admits one `CellWaypoint` per move, and each waypoint selects `CellGoal.Cartesian` or `CellGoal.Joint` while carrying optional `Frame`, `Tool`, `Speed`, `Zone`, and `Command` values with coordinated external axes. Both cases converge on one waypoint series, so target projection, cardinality proof, and per-index fault detail are stated once. `CellTimebase.Normalized` and `CellTimebase.Elapsed` carry the provider's own `isNormalized` argument beside the span each derives from the planned duration, so the sample horizon is read, never asserted, and a bare boolean never selects between two sampling bodies.
-- Entry: `RobotProgram.Run(RobotCell, Seq<Move>, CellProgramRequest)` dispatches `CellProgramRequest.Motion`, `CellProgramRequest.Placement`, and `CellProgramRequest.Animation` over one cell and move admission. `CellLibrary.Run` closes refresh, download, and removal through one bracketed `IO<CellLibraryReceipt>`, while `CellDrive.Run(RobotSystem)` closes upload, play, and pause through one `IO<CellDriveReceipt>` over the system's own `Remote` channel.
-- Auto: aggregate admission accumulates independent `Move.Admit` failures, validates exact waypoint cardinality, enforces joint-vector and external-axis finiteness, and validates program partition indices before any provider constructor runs. One `Plan` fold loads, resolves, and compiles for every modality that needs a program, so the motion and animation lanes share one compilation and the placement lane keeps its own lattice load because it rebases `RobotSystem.BasePlane` per candidate rather than compiling per candidate. `Program` owns look-ahead timing and manufacturer emission; the animation lane gates on `Program.HasSimulation` before reading `CurrentSimulationPose`, which throws where the planner produced no simulation. Unclassified `KinematicSolution.Errors` remain provider diagnostics and never fabricate a `JointFault` witness, and an absent controller channel fails typed rather than dereferencing a null remote.
-- Receipt: `CellProgramReceipt.Motion` carries the frozen `FabricationResult.Motion` move, joint, duration, and cell-code wire beside the `CellMotion` evidence that produced it, so per-station flange poses, realized configurations per `MechanicalGroup`, segment durations, and warnings reach the consumer instead of dying at the projection. `CellProgramReceipt.Placement` retains the selected cell with every ranked candidate and its keyed metrics, ranked by the same normalized lower-is-better burden `Score` polarity `MachineMatch` carries. `CellProgramReceipt.Animation` retains `Program.Duration` as the cycle and one `CellPosedStation` per sampled instant carrying the provider's clock reading, the per-group flange planes, the elapsed and travel measured against the prior posed station, the posed-mesh occupancy box, and that station's solver diagnostics. `CellLibraryReceipt` and `CellDriveReceipt` retain boundary facts without widening the motion wire; the upload arm preserves the posting-owned artifact key beside the exact `Robots.Program` handed to the controller, so `Posting/dialect` binds post-to-machine custody by digest equality with no second identity mint.
-- Packages: `Robots` owns cell loading, Cartesian and joint targets, `RobotSystem.Kinematics`, `RobotSystem.BasePlane`, `PlaneToNumbers`/`NumbersToPlane`, `IndustrialSystem.MechanicalGroups` with its per-link `Joint.Range`/`MaxSpeed` travel, program planning, posts, remotes, and online libraries; `Rhino3dm` stays behind `extern alias R3`; `MathNet.Numerics` owns lattice spacing and placement excursion; NodaTime owns `Duration`; RhinoCommon owns frames, intervals, and transforms; UnitsNet owns feed and angular-rate conversion at the provider boundary; `Thinktecture.Runtime.Extensions` owns generated admission and dispatch; `LanguageExt.Core` owns traversal, typed faults, immutable rows, `IO`, and bracketed lifetime; `Process/owner.md`, `Process/faults.md`, and `Kinematics/machine.md` supply frozen atoms.
+- Entry: `RobotProgram.Run(RobotCell, Seq<Move>, CellProgramRequest)` dispatches `CellProgramRequest.Motion`, `CellProgramRequest.Placement`, and `CellProgramRequest.Animation` over one cell and move admission. `CellLibrary.Run` closes refresh, download, and removal through one bracketed `IO<CellCatalog>`, while `CellDrive.Run(RobotSystem)` closes upload, play, and pause through one `IO<CellDelivery>` over the system's own `Remote` channel.
+- Auto: aggregate admission accumulates independent `Move.Admit` failures, validates exact waypoint cardinality, enforces joint-vector and external-axis finiteness, and validates program partition indices before any provider constructor runs. One `Plan` fold loads, resolves, and compiles for every modality that needs a program, so the motion and animation lanes share one compilation and the placement lane keeps its own lattice load because it rebases `RobotSystem.BasePlane` per candidate rather than compiling per candidate. `Program` owns look-ahead timing and manufacturer emission; the animation lane gates on `Program.HasSimulation` before reading `CurrentSimulationPose`, which throws where the planner produced no simulation. `KinematicSolution.Errors` remain opaque provider diagnostics inside `JointDiagnostic.Provider`; their source channel selects the typed arm and their text is never parsed or reminted as identity. An absent controller channel fails typed rather than dereferencing a null remote.
+- Receipt: `CellProgramReceipt.Motion` carries the frozen `FabricationResult.Motion` move, joint, duration, and cell-code wire beside the `CellMotion` evidence that produced it, so per-station flange poses, realized configurations per `MechanicalGroup`, segment durations, and warnings reach the consumer instead of dying at the projection. `CellProgramReceipt.Placement` retains the selected cell with every ranked candidate, its keyed metrics, and the opaque provider diagnostics that explain an infeasible candidate, ranked by the same normalized lower-is-better burden `Score` polarity `MachineMatch` carries. `CellProgramReceipt.Animation` retains `Program.Duration` as the cycle and one `CellPosedStation` per sampled instant carrying the provider's clock reading, the per-group flange planes, the elapsed and travel measured against the prior posed station, the posed-mesh occupancy box, and that station's solver diagnostics. `CellCatalog` and `CellDelivery` retain boundary facts without widening the motion wire; the upload arm preserves the posting-owned artifact key beside the exact `Robots.Program` handed to the controller, so `Posting/dialect` binds post-to-machine custody by digest equality with no second identity mint.
+- Packages: `Robots` owns cell loading, Cartesian and joint targets, `RobotSystem.Kinematics`, `RobotSystem.BasePlane`, `PlaneToNumbers`/`NumbersToPlane`, `IndustrialSystem.MechanicalGroups` with its per-link `Joint.Range`/`MaxSpeed` travel, program planning, posts, remotes, and online libraries; `Rhino3dm` stays behind `extern alias R3`; `MathNet.Numerics` owns lattice spacing and placement excursion; NodaTime owns `Duration`; RhinoCommon owns frames, intervals, and transforms; UnitsNet owns feed and angular-rate conversion at the provider boundary; `Thinktecture.Runtime.Extensions` owns generated admission and dispatch; `LanguageExt.Core` owns traversal, typed faults, immutable rows, `IO`, and bracketed lifetime; `Rasm.Domain` owns `IValidityEvidence` and `ValidityClaim`; `Process/owner.md`, `Process/faults.md`, and `Kinematics/machine.md` supply frozen atoms.
 - Law: the alias crossing is HAND-WRITTEN by construction. The mapping generator emits fully-qualified names only and carries no extern-alias machinery, so it cannot address a type behind `extern alias R3` at all — `RobotBoundary.ToR3`/`FromR3` are the deleted form of nothing, and a generated mapper there is unreachable rather than merely unidiomatic.
+- Law: only `CellProgramReceipt` is a receipt here. `Receipt<TEvidence>` makes key, concern, and stamp REQUIRED (`Process/owner`), so the two boundary answers keep page nouns — `CellCatalog` and `CellDelivery` — and each states the discriminant the suffix was standing in for: `CellCatalog` carries the producing `CellLibrary` case itself, so a name roster says whether a refresh, a download, or a removal reached the store and which `LibraryItem` it acted on, and `CellDelivery` carries `CellDriveKind` beside an `Option<ContentKey>` that is optional by DOMAIN, because `Play` and `Pause` move no artifact.
+- Law: the compiled program's name is an admitted value, not a string. `Program.IsValidIdentifier` is the PROVIDER's grammar, so `CellProgramName` runs it once at its own boundary and the compile call reads a proved value; the policy validator re-gating the same rule over a raw column, with a `nameof` literal seeding it unadmitted, was the deleted form.
 - Law: the vendor correspondence is a ROW SET carrying the provider ordinals each row answers for, so admission is a containment read that refuses an ordinal a provider release adds. A discard arm folding every unknown vendor onto `Unspecified` registered a real arm under a filter token.
 - Growth: a robot motion posture is one `CellInterpolation` row, a target modality is one `CellGoal` case, a target-series policy is one `CellTargetPlan` case, an orientation modality is one `ToolAxisDemand` case on the machine owner, a base-search dimension is one `CellPlacementAxis` row, a placement objective is one `CellPlacementMetric` row with its `CellPlacementPolicy` weight and normalization reference, a sampling clock is one `CellTimebase` row, a solve modality is one `CellProgramRequest` case with its `CellProgramReceipt` twin, a controller verb is one `CellDrive` case, an online-library verb is one `CellLibrary` case, and a supported vendor is one `CellVendor` row carrying its provider ordinal. Multi-mechanism programs remain one aligned target stream per `MechanicalGroup`, and external-axis values stay on each waypoint.
 - Boundary: `RobotProgram` owns robot-cell kinematics, provider compilation, and the animated pose census `Verify/simulate.md` consumes, so no sibling page imports `Robots`; `MachineTool` owns non-robot topology and motion dynamics; swept cutter and holder collision stay on `Toolpath/guard.md`; CNC AST lowering stays on `Posting/program.md`. `CellWaypoint.Project`, `RobotProgram.PlaceCell`, `RobotProgram.Rebase`, and `RobotProgram.Pose` are provider-boundary statement exemptions because provider target construction, RhinoCommon plane mutation, the `ref`-returning `BasePlane` assignment, and the animate-then-read simulation cursor are imperative seams. Provider strings never select a typed fault, provider geometry never crosses the alias boundary — posed meshes leave as one kernel occupancy box and a mesh count — and no verb family grows beside `RobotProgram.Run`. `RobotBoundary.Ingress` is the one provider-to-atoms projection: `MechanicalGroup`, `Joint`, and `Manufacturers` stay inside it — the last of them behind the `CellVendor` row set — and `MachineIngress.Robot` rows leave, so the vendor correspondence and the joint-travel units are settled once, here.
@@ -137,6 +139,22 @@ public sealed partial class CellPlacementMetric {
             .Map(static pair => Distance.Manhattan(pair.Item1, pair.Item2));
 }
 
+// Providers decide what a program identifier is, so `Program.IsValidIdentifier` runs once at this value's own
+// boundary and every downstream reader holds a proved name. A bare `string` on the policy re-gated the same rule
+// at admission while the compile call handed the provider whatever survived, and a `nameof` default seeded that
+// column with an unadmitted literal.
+[ValueObject<string>]
+public sealed partial class CellProgramName {
+    public static CellProgramName Canonical { get; } = Create(nameof(RobotProgram));
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+        value = value?.Trim() ?? string.Empty;
+        if (!Program.IsValidIdentifier(value, out _))
+            validationError = new ValidationError("robot-cell:program-name");
+    }
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CellSource {
     private CellSource() { }
@@ -154,18 +172,21 @@ public abstract partial record CellGoal {
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record CellTargetPlan {
+public abstract partial record CellTargetPlan : IValidityEvidence {
     private CellTargetPlan() { }
 
     public sealed record Generated(CellInterpolation Feed, Set<CellPosture> Posture, ToolAxisDemand Orientation) : CellTargetPlan;
     public sealed record Explicit(Seq<CellWaypoint> Rows) : CellTargetPlan;
 
-    internal bool IsValid => Switch(
-        generated: static row => row.Feed is not null
-            && row.Orientation is not null
-            && row.Orientation.IsValid
-            && row.Posture.ForAll(static posture => posture is not null),
-        explicit: static row => !row.Rows.IsEmpty && row.Rows.ForAll(static waypoint => waypoint is not null));
+    // Generated defers its orientation claim to the machine owner's own fold, explicit states a cardinality claim,
+    // and surviving `&&` are null short-circuits `ValidityClaim.All` cannot carry.
+    public bool IsValid => Switch(
+        generated: static row => row.Feed is not null && row.Orientation is not null && ValidityClaim.All(
+            row.Orientation.IsValid,
+            row.Posture.ForAll(static posture => posture is not null)),
+        explicit: static row => ValidityClaim.All(
+            ValidityClaim.CountAtLeast(row.Rows.Count, 1),
+            row.Rows.ForAll(static waypoint => waypoint is not null)));
 
     internal Fin<Seq<Target>> Resolve(RobotCell cell, Seq<Move> moves, MotionDynamics dynamics, InversePolicy inverse) =>
         Rows(cell, moves, inverse).Bind(rows => rows
@@ -182,11 +203,10 @@ public abstract partial record CellTargetPlan {
             .ToFin(),
         explicit: static (state, plan) => plan.Rows.Count == state.Moves.Count
             ? Fin.Succ(plan.Rows)
-            : Fin.Fail<Seq<CellWaypoint>>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:target-census")));
+            : Fin.Fail<Seq<CellWaypoint>>(new KernelFault.InvalidValue("cell", "robot-cell:target-census")));
 
     private static Fin<Target> Capture(CellWaypoint waypoint, RobotCell cell, Move move, MotionDynamics dynamics) =>
-        Try.lift(() => waypoint.Project(cell, move, dynamics)).Run()
-            .MapFail(static error => new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, $"robot-cell:target:{error.Message}"));
+        Op.Of(name: "robot-cell:target").Catch(() => Fin.Succ(waypoint.Project(cell, move, dynamics)));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -203,40 +223,49 @@ public abstract partial record CellProgramReceipt {
     private CellProgramReceipt() { }
 
     public sealed record Motion(FabricationResult.Motion Result, CellMotion Evidence) : CellProgramReceipt;
-    public sealed record Placement(CellPlacementReceipt Result) : CellProgramReceipt;
+    public sealed record Placement(CellPlacement Result) : CellProgramReceipt;
     public sealed record Animation(CellAnimation Result) : CellProgramReceipt;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CellLibrary {
     private CellLibrary() { }
+    private static readonly Op Boundary = Op.Of();
 
     public sealed record Refresh : CellLibrary;
     public sealed record Download(LibraryItem Item) : CellLibrary;
     public sealed record Remove(LibraryItem Item) : CellLibrary;
 
-    public IO<CellLibraryReceipt> Run() =>
-        IO.lift(static () => new OnlineLibrary()).Bracket(
+    // Each arm differs ONLY in the effect it runs, and hands back the same read of the same store, so projection
+    // is stated once while the verb rides the answer. Three identical constructions left a caller holding a name
+    // roster that could not say whether a refresh, a download, or a removal produced it.
+    public IO<CellCatalog> Run() =>
+        IO.lift(() => Boundary.Catch(() => Fin.Succ(new OnlineLibrary()))).Bracket(
             Use: library => Switch(
                 state: library,
-                refresh: static (source, _) => IO.liftAsync(async () => {
-                    await source.UpdateLibraryAsync().ConfigureAwait(false);
-                    return new CellLibraryReceipt(toSeq(source.Libraries.Keys));
-                }),
-                download: static (source, action) => IO.liftAsync(async () => {
-                    await source.DownloadLibraryAsync(action.Item).ConfigureAwait(false);
-                    return new CellLibraryReceipt(toSeq(source.Libraries.Keys));
-                }),
-                remove: static (source, action) => IO.lift(() => {
-                    source.RemoveDownloadedLibrary(action.Item);
-                    return new CellLibraryReceipt(toSeq(source.Libraries.Keys));
+                refresh: static (source, verb) => IO.liftVAsync<Fin<CellCatalog>>(() =>
+                    Boundary.Catch(async _ => {
+                        await source.UpdateLibraryAsync().ConfigureAwait(false);
+                        return Fin.Succ(Catalog(source, verb));
+                    })).Bind(static result => IO.lift(result)),
+                download: static (source, verb) => IO.liftVAsync<Fin<CellCatalog>>(() =>
+                    Boundary.Catch(async _ => {
+                        await source.DownloadLibraryAsync(verb.Item).ConfigureAwait(false);
+                        return Fin.Succ(Catalog(source, verb));
+                    })).Bind(static result => IO.lift(result)),
+                remove: static (source, verb) => IO.lift(() => Boundary.Catch(() => {
+                    source.RemoveDownloadedLibrary(verb.Item);
+                    return Fin.Succ(Catalog(source, verb));
                 })),
-            Fin: static library => IO.lift(library.Dispose));
+            Fin: static library => IO.lift(() => Boundary.Catch(library.Dispose)));
+
+    private static CellCatalog Catalog(OnlineLibrary source, CellLibrary verb) => new(verb, toSeq(source.Libraries.Keys));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CellDrive {
     private CellDrive() { }
+    private static readonly Op Boundary = Op.Of();
 
     public sealed record Upload(
         Program Program,
@@ -246,46 +275,43 @@ public abstract partial record CellDrive {
     public sealed record Pause : CellDrive;
 
     // Delivery custody preserves the posting-owned artifact key at the controller channel.
-    public IO<CellDriveReceipt> Run(RobotSystem system) =>
-        IO.lift(() => Optional(system).Bind(static host => Optional(host.Remote)))
+    public IO<CellDelivery> Run(RobotSystem system) =>
+        IO.lift(() => Boundary.Catch(() => Fin.Succ(Optional(system).Bind(static host => Optional(host.Remote)))))
             .Bind(channel => channel.Match(
                 Some: remote => Switch(
                     state: remote,
                     upload: static (drive, action) => action.Program is not null
                         && action.Artifact is { Kind: var kind } && kind == EgressKind.CutProgram
                         && action.Canonicalize is not null
-                            ? IO.lift(() => action.Canonicalize(action.Program))
+                            ? IO.lift(() => Boundary.Catch(() => Fin.Succ(action.Canonicalize(action.Program))))
                                 .Bind(bytes => ContentKey.Of(EgressKind.CutProgram, bytes.Span) is var transferred
                                     && transferred.Digest == action.Artifact.Digest
-                                        ? IO.lift(() => {
+                                        ? IO.lift(() => Boundary.Catch(() => {
                                             drive.Upload(action.Program);
-                                            return new CellDriveReceipt(
+                                            return Fin.Succ(new CellDelivery(
                                                 CellDriveKind.Uploaded,
                                                 toSeq(drive.Log),
                                                 Some(transferred),
-                                                Optional(drive.IP));
-                                        })
-                                        : IO.fail<CellDriveReceipt>(
-                                            new FabricationFault.PolicyInadmissible(
-                                                FabConcern.Kinematics,
-                                                "robot-cell:upload-digest")))
-                            : IO.fail<CellDriveReceipt>(
-                                new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:upload-artifact")),
-                    play: static (drive, _) => IO.lift(() => {
+                                                Optional(drive.IP)));
+                                        }))
+                                        : IO.fail<CellDelivery>(
+                                            new KernelFault.InvalidValue("cell", "robot-cell:upload-digest")))
+                            : IO.fail<CellDelivery>(
+                                new KernelFault.InvalidValue("cell", "robot-cell:upload-artifact")),
+                    play: static (drive, _) => IO.lift(() => Boundary.Catch(() => {
                         drive.Play();
-                        return new CellDriveReceipt(CellDriveKind.Playing, toSeq(drive.Log), None, Optional(drive.IP));
-                    }),
-                    pause: static (drive, _) => IO.lift(() => {
-                        drive.Pause();
-                        return new CellDriveReceipt(CellDriveKind.Paused, toSeq(drive.Log), None, Optional(drive.IP));
+                        return Fin.Succ(new CellDelivery(CellDriveKind.Playing, toSeq(drive.Log), None, Optional(drive.IP)));
                     })),
-                None: () => IO.fail<CellDriveReceipt>(
-                    new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:remote-absent"))));
+                    pause: static (drive, _) => IO.lift(() => Boundary.Catch(() => {
+                        drive.Pause();
+                        return Fin.Succ(new CellDelivery(CellDriveKind.Paused, toSeq(drive.Log), None, Optional(drive.IP)));
+                    }))),
+                None: () => IO.fail<CellDelivery>(
+                    new KernelFault.InvalidValue("cell", "robot-cell:remote-absent"))));
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class RobotCell {
     public CellSource Source { get; }
     public Plane BaseFrame { get; }
@@ -293,7 +319,7 @@ public sealed partial class RobotCell {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref CellSource source,
         ref Plane baseFrame,
         ref Plane toolFrame) {
@@ -301,7 +327,7 @@ public sealed partial class RobotCell {
             library: static row => row.Meshes is not null && !string.IsNullOrWhiteSpace(row.Name),
             embedded: static row => !string.IsNullOrWhiteSpace(row.Xml));
         if (!sourceValid || !baseFrame.IsValid || !toolFrame.IsValid)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:source");
+            validationError = new ValidationError("robot-cell:source");
     }
 
     internal Fin<RobotSystem> Load(Option<IPostProcessor> post) => Source.Switch(
@@ -310,11 +336,10 @@ public sealed partial class RobotCell {
         embedded: static (state, row) => Capture(() => FileIO.ParseRobotSystem(row.Xml, state.Base, state.Post)));
 
     private static Fin<RobotSystem> Capture(Func<RobotSystem> load) =>
-        Try.lift(load).Run().MapFail(static error => new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, $"robot-cell:load:{error.Message}"));
+        Op.Of(name: "robot-cell:load").Catch(() => Fin.Succ(load()));
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CellWaypoint {
     public CellGoal Goal { get; }
     public Option<Frame> Frame { get; }
@@ -344,7 +369,7 @@ public sealed partial class CellWaypoint {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref CellGoal goal,
         ref Option<Frame> frame,
         ref Option<Tool> tool,
@@ -365,7 +390,7 @@ public sealed partial class CellWaypoint {
             && command.ForAll(static value => value is not null);
         if (!goalValid || !optionPayloads || external.Exists(static value => !double.IsFinite(value))
             || externalCustom.Exists(string.IsNullOrWhiteSpace))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:waypoint");
+            validationError = new ValidationError("robot-cell:waypoint");
     }
 
     internal Target Project(RobotCell cell, Move move, MotionDynamics dynamics) {
@@ -403,12 +428,11 @@ public sealed partial class CellWaypoint {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CellPolicy {
     public MotionDynamics Dynamics { get; }
     public InversePolicy Inverse { get; }
     public CellTargetPlan Targets { get; }
-    public string ProgramName { get; }
+    public CellProgramName ProgramName { get; }
     public Option<Group> Init { get; }
     public Arr<int> MultiFileIndices { get; }
     public Option<IPostProcessor> Post { get; }
@@ -420,34 +444,32 @@ public sealed partial class CellPolicy {
             CellInterpolation.Linear,
             Set<CellPosture>(),
             new ToolAxisDemand.Fixed(-Vector3d.ZAxis)),
-        programName: nameof(RobotProgram),
+        programName: CellProgramName.Canonical,
         init: None,
         multiFileIndices: [],
         post: None);
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref MotionDynamics dynamics,
         ref InversePolicy inverse,
         ref CellTargetPlan targets,
-        ref string programName,
+        ref CellProgramName programName,
         ref Option<Group> init,
         ref Arr<int> multiFileIndices,
         ref Option<IPostProcessor> post) {
-        programName = programName?.Trim() ?? string.Empty;
         bool partitions = multiFileIndices.IsEmpty || multiFileIndices[0] == 0
             && multiFileIndices.ForAll(static index => index >= 0)
             && toSeq(multiFileIndices).Zip(toSeq(multiFileIndices).Skip(1)).ForAll(static pair => pair.Item1 < pair.Item2);
         bool optionPayloads = init.ForAll(static group => group is not null) && post.ForAll(static processor => processor is not null);
         if (dynamics is null || inverse is null || targets is null || !targets.IsValid
-            || !Program.IsValidIdentifier(programName, out _) || !partitions || !optionPayloads)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:policy");
+            || programName is null || !partitions || !optionPayloads)
+            validationError = new ValidationError("robot-cell:policy");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CellSampling {
     public Rhino.Geometry.Interval Domain { get; }
     public int Count { get; }
@@ -458,16 +480,15 @@ public sealed partial class CellSampling {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Rhino.Geometry.Interval domain,
         ref int count) {
         if (!domain.IsValid || count <= 0)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:sampling");
+            validationError = new ValidationError("robot-cell:sampling");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CellClock {
     public CellTimebase Timebase { get; }
     public int Stations { get; }
@@ -479,21 +500,19 @@ public sealed partial class CellClock {
         && CellSampling.Validate(Timebase.Span(durationSeconds), Stations, out CellSampling? lattice) is null
         && lattice is not null
             ? Fin.Succ(lattice.Values)
-            : Fin.Fail<Seq<double>>(new FabricationFault.PolicyInadmissible(
-                FabConcern.Kinematics, $"robot-cell:clock:{Timebase.Key}:{durationSeconds}"));
+            : Fin.Fail<Seq<double>>(new KernelFault.InvalidValue("cell", $"robot-cell:clock:{Timebase.Key}:{durationSeconds}"));
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref CellTimebase timebase,
         ref int stations) {
         if (timebase is null || stations <= 0)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:clock");
+            validationError = new ValidationError("robot-cell:clock");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CellPlacementPolicy {
     public HashMap<CellPlacementAxis, CellSampling> Space { get; }
     public Option<Arr<double>> SeedJoints { get; }
@@ -512,7 +531,7 @@ public sealed partial class CellPlacementPolicy {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref HashMap<CellPlacementAxis, CellSampling> space,
         ref Option<Arr<double>> seedJoints,
         ref HashMap<CellPlacementMetric, double> weights,
@@ -533,13 +552,20 @@ public sealed partial class CellPlacementPolicy {
             .IsSome;
         if (!axes || !metrics || !scaled || !seed || !bounded
             || CellPlacementMetric.Items.Sum(metric => weights.Find(metric).IfNone(0.0)) <= 0.0)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:placement");
+            validationError = new ValidationError("robot-cell:placement");
     }
 }
 
-public sealed record CellLibraryReceipt(Seq<string> Names);
+// Neither of these is a settled receipt — `Receipt<TEvidence>` makes key, concern, and stamp REQUIRED (`Process/owner`
+// law) — so both keep a page noun and state their own discriminant instead of borrowing the suffix.
+// Producing VERB rides as the union value itself, so this roster names which case reached the store while a download
+// or a removal carries the `LibraryItem` it acted on; a parallel verb roster beside the cases would be a mirror.
+public sealed record CellCatalog(CellLibrary Verb, Seq<string> Names);
 
-public sealed record CellDriveReceipt(CellDriveKind Kind, Seq<string> Log, Option<ContentKey> Uploaded, Option<string> Controller);
+// Keys ride `Option<ContentKey>` by DOMAIN, not by omission: `Play` and `Pause` move no artifact, so only the upload
+// arm carries a transferred digest. That optionality is exactly what disqualifies this row as a settled receipt, and
+// `CellDriveKind` is the discriminant a consumer reads to know which arm answered.
+public sealed record CellDelivery(CellDriveKind Kind, Seq<string> Log, Option<ContentKey> Uploaded, Option<string> Controller);
 
 public sealed record CellStation(
     int Index,
@@ -599,40 +625,41 @@ public sealed record CellPlacementCandidate(
     RobotCell Cell,
     Plane NormalizedBaseFrame,
     Seq<Arr<double>> Joints,
+    Seq<string> Diagnostics,
     HashMap<CellPlacementMetric, double> Metrics,
     double Score);
 
-public sealed record CellPlacementReceipt(CellPlacementCandidate Selected, Seq<CellPlacementCandidate> Ranked);
+public sealed record CellPlacement(CellPlacementCandidate Selected, Seq<CellPlacementCandidate> Ranked);
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class RobotProgram {
     public static Fin<CellProgramReceipt> Run(RobotCell cell, Seq<Move> moves, CellProgramRequest request) =>
         from admitted in Admit(cell, moves)
-        from job in Optional(request).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:request"))
+        from job in Optional(request).ToFin(new KernelFault.InvalidValue("cell", "robot-cell:request"))
         from receipt in job.Switch(
             state: admitted,
             motion: static (state, row) => Optional(row.Policy)
-                .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:motion-policy"))
+                .ToFin(new KernelFault.InvalidValue("cell", "robot-cell:motion-policy"))
                 .Bind(policy => Solve(state, policy)),
             placement: static (state, row) => (
-                    Optional(row.Policy).ToValidation((Error)new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:motion-policy")),
-                    Optional(row.Search).ToValidation((Error)new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:placement-policy")))
+                    Optional(row.Policy).ToValidation((Error)new KernelFault.InvalidValue("cell", "robot-cell:motion-policy")),
+                    Optional(row.Search).ToValidation((Error)new KernelFault.InvalidValue("cell", "robot-cell:placement-policy")))
                 .Apply(static (policy, search) => (Policy: policy, Search: search))
                 .ToFin()
                 .Bind(admittedPolicy => Place(state, admittedPolicy.Policy, admittedPolicy.Search)),
             animation: static (state, row) => (
-                    Optional(row.Policy).ToValidation((Error)new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:motion-policy")),
-                    Optional(row.Clock).ToValidation((Error)new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:animation-clock")))
+                    Optional(row.Policy).ToValidation((Error)new KernelFault.InvalidValue("cell", "robot-cell:motion-policy")),
+                    Optional(row.Clock).ToValidation((Error)new KernelFault.InvalidValue("cell", "robot-cell:animation-clock")))
                 .Apply(static (policy, clock) => (Policy: policy, Clock: clock))
                 .ToFin()
                 .Bind(admittedPolicy => Animate(state, admittedPolicy.Policy, admittedPolicy.Clock)))
         select receipt;
 
     private static Fin<(RobotCell Cell, Seq<Move> Moves)> Admit(RobotCell cell, Seq<Move> moves) =>
-        from admittedCell in Optional(cell).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:cell"))
+        from admittedCell in Optional(cell).ToFin(new KernelFault.InvalidValue("cell", "robot-cell:cell"))
         from admittedMoves in moves.Traverse(static move => Move.Admit(move).ToValidation()).As().ToFin()
         from _ in admittedMoves.IsEmpty
-            ? Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:moves"))
+            ? Fin.Fail<Unit>(new KernelFault.InvalidValue("cell", "robot-cell:moves"))
             : Fin.Succ(unit)
         select (Cell: admittedCell, Moves: admittedMoves);
 
@@ -659,7 +686,7 @@ public static class RobotProgram {
         from planned in Plan(admitted, policy)
         from _ in planned.Program.HasSimulation
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:animation-unavailable"))
+            : Fin.Fail<Unit>(new KernelFault.InvalidValue("cell", "robot-cell:animation-unavailable"))
         from instants in clock.Sample(planned.Program.Duration)
         from folded in instants
             .Map((instant, station) => (Instant: instant, Station: station))
@@ -690,7 +717,7 @@ public static class RobotProgram {
         int station,
         double instant,
         Option<CellPosedStation> prior) =>
-        Try.lift(() => {
+        Op.Of(name: "robot-cell:animate").Catch(() => {
                 program.Animate(instant, clock.Timebase.Native);
                 SimulationPose pose = program.CurrentSimulationPose;
                 Seq<Plane> poses = Range(0, pose.Kinematics.Count).ToSeq()
@@ -699,7 +726,7 @@ public static class RobotProgram {
                     .Map(_ => targets[Math.Clamp(pose.TargetIndex, 0, targets.Count - 1)]).ToSeq();
                 R3::Rhino.Geometry.Mesh[] posed = RhinoMeshPoser.Pose(system, pose.Kinematics, tools.ToArray());
                 Duration at = Duration.FromSeconds(pose.CurrentTime);
-                return new CellPosedStation(
+                return Fin.Succ(new CellPosedStation(
                     Station: station,
                     TargetIndex: pose.TargetIndex,
                     At: at,
@@ -709,11 +736,8 @@ public static class RobotProgram {
                                select head.Origin.DistanceTo(previous.Origin)).IfNone(0.0),
                     Occupied: RobotBoundary.Occupied(toSeq(posed)),
                     PosedMeshes: posed.Length,
-                    Errors: toSeq(pose.Kinematics).Bind(static solution => toSeq(solution.Errors)));
-            })
-            .Run()
-            .MapFail(error => new GeometryFault.DegenerateInput(
-                Kind.Curve, station, $"robot-cell:animate:{error.Message}").ToError());
+                    Errors: toSeq(pose.Kinematics).Bind(static solution => toSeq(solution.Errors))));
+            });
 
     private static Fin<CellProgramReceipt> Place(
         (RobotCell Cell, Seq<Move> Moves) admitted,
@@ -724,21 +748,19 @@ public static class RobotProgram {
         from candidates in cells.TraverseM(candidate => Evaluate(system, candidate, admitted.Moves, policy, placement)).As()
         let ranked = toSeq(candidates.OrderBy(static candidate => candidate.Score))
         from selected in SelectPlacement(ranked)
-        select new CellProgramReceipt.Placement(new CellPlacementReceipt(selected, ranked));
+        select new CellProgramReceipt.Placement(new CellPlacement(selected, ranked));
 
     private static Fin<Program> Compile(RobotSystem system, Seq<Target> targets, CellPolicy policy) =>
         from _ in policy.MultiFileIndices.ForAll(index => index < targets.Count)
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:partition-range"))
-        from program in Try.lift(() => new Program(
-                name: policy.ProgramName,
+            : Fin.Fail<Unit>(new KernelFault.InvalidValue("cell", "robot-cell:partition-range"))
+        from program in Op.Of(name: "robot-cell:program").Catch(() => Fin.Succ(new Program(
+                name: policy.ProgramName.Value,
                 robotSystem: system,
                 toolpaths: targets.Map(static target => (IToolpath)target).ToArray(),
                 initCommands: policy.Init.ValueUnsafe(),
                 multiFileIndices: policy.MultiFileIndices.IsEmpty ? null : policy.MultiFileIndices.ToArray(),
-                stepSize: policy.Dynamics.ChordTolerance))
-            .Run()
-            .MapFail(static error => new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, $"robot-cell:program:{error.Message}"))
+                stepSize: policy.Dynamics.ChordTolerance)))
         select program;
 
     private static Fin<Seq<RobotCell>> Samples(RobotCell cell, CellPlacementPolicy policy) =>
@@ -747,7 +769,7 @@ public static class RobotProgram {
             (generated, axis) =>
                 from rows in generated
                 from sampling in policy.Space.Find(axis)
-                    .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, $"robot-cell:placement-axis:{axis.Key}"))
+                    .ToFin(new KernelFault.InvalidValue("cell", $"robot-cell:placement-axis:{axis.Key}"))
                 select rows.Bind(row => sampling.Values.Map(value => row.Add(axis, value))).ToSeq())
         from cells in poses.TraverseM(pose => PlaceCell(cell, pose)).As()
         select cells;
@@ -755,16 +777,14 @@ public static class RobotProgram {
     private static Fin<RobotCell> PlaceCell(RobotCell cell, HashMap<CellPlacementAxis, double> pose) =>
         from transforms in toSeq(CellPlacementAxis.Items.OrderBy(static axis => axis.Order))
             .TraverseM(axis => pose.Find(axis)
-                .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, $"robot-cell:placement-axis:{axis.Key}"))
+                .ToFin(new KernelFault.InvalidValue("cell", $"robot-cell:placement-axis:{axis.Key}"))
                 .Map(value => axis.Project(cell.BaseFrame, value)))
             .As()
-        from placed in Try.lift(() => {
+        from placed in Op.Of(name: "robot-cell:placement-pose").Catch(() => {
                 Plane frame = cell.BaseFrame;
                 frame.Transform(transforms.Fold(Transform.Identity, static (combined, transform) => combined * transform));
-                return RobotCell.Create(cell.Source, frame, cell.ToolFrame);
+                return Fin.Succ(RobotCell.Create(cell.Source, frame, cell.ToolFrame));
             })
-            .Run()
-            .MapFail(static error => new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, $"robot-cell:placement-pose:{error.Message}"))
         select placed;
 
     private static Fin<CellPlacementCandidate> Evaluate(
@@ -775,33 +795,29 @@ public static class RobotProgram {
         CellPlacementPolicy placement) =>
         from targets in policy.Targets.Resolve(candidate, moves, policy.Dynamics, policy.Inverse)
         from normalized in Rebase(system, candidate.BaseFrame)
-        from solutions in Try.lift(() => system.Kinematics(
+        from solutions in Op.Of(name: "robot-cell:placement").Catch(() => Fin.Succ(system.Kinematics(
                 targets.ToArray(),
-                placement.SeedJoints.Map(static seed => (IReadOnlyList<double[]?>)new double[]?[] { seed.ToArray() }).ValueUnsafe()))
-            .Run()
+                placement.SeedJoints.Map(static seed => (IReadOnlyList<double[]?>)new double[]?[] { seed.ToArray() }).ValueUnsafe())))
             .Map(static rows => toSeq(rows))
-            .MapFail(static error => new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, $"robot-cell:placement:{error.Message}"))
         let joints = solutions.Map(static solution => solution.Joints.ToArr())
         let metrics = toSeq(CellPlacementMetric.Items).Fold(
             HashMap<CellPlacementMetric, double>.Empty,
             (measured, metric) => measured.Add(metric, metric.Measure(solutions)))
-        select new CellPlacementCandidate(candidate, normalized, joints, metrics, placement.Burden(solutions));
+        let diagnostics = solutions.Bind(static solution => toSeq(solution.Errors)).Distinct().Strict()
+        select new CellPlacementCandidate(candidate, normalized, joints, diagnostics, metrics, placement.Burden(solutions));
 
     private static Fin<Plane> Rebase(RobotSystem system, Plane frame) =>
-        Try.lift(() => {
+        Op.Of(name: "robot-cell:placement-frame").Catch(() => {
                 system.BasePlane = RobotBoundary.ToR3(frame);
-                return RobotBoundary.FromR3(system.NumbersToPlane(system.PlaneToNumbers(system.BasePlane)));
-            })
-            .Run()
-            .MapFail(static error => new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, $"robot-cell:placement-frame:{error.Message}"));
+                return Fin.Succ(RobotBoundary.FromR3(system.NumbersToPlane(system.PlaneToNumbers(system.BasePlane))));
+            });
 
     private static Fin<CellPlacementCandidate> SelectPlacement(Seq<CellPlacementCandidate> ranked) =>
-        from first in ranked.Head.ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:placement-empty"))
+        from first in ranked.Head.ToFin(new KernelFault.InvalidValue("cell", "robot-cell:placement-empty"))
         from selected in ranked
             .Filter(static candidate => candidate.Metrics.Find(CellPlacementMetric.Feasibility).Exists(static value => value == 0.0))
             .Head
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics,
-                $"robot-cell:placement-infeasible:{first.Metrics.Find(CellPlacementMetric.Feasibility).IfNone(0.0)}"))
+            .ToFin(FabricationFault.Joint(new JointDiagnostic.Provider(first.Diagnostics), None))
         select selected;
 
     private static Fin<CellMotion> Project(Seq<Move> moves, Program program) {
@@ -830,10 +846,9 @@ public static class RobotProgram {
             .Bind(static target => toSeq(target.ProgramTargets).Map(row => (Target: target.Index, Solution: row.Kinematics)))
             .Find(static row => row.Solution.Errors.Count > 0)
             .Match(
-                Some: row => new FabricationFault.PolicyInadmissible(FabConcern.Kinematics,
-                    $"robot-cell:kinematics:{row.Target}:{string.Join('|', row.Solution.Errors)}"),
-                None: () => new FabricationFault.PolicyInadmissible(FabConcern.Kinematics,
-                    $"robot-cell:program:{programErrors.Head.IfNone("unknown")}")));
+                Some: row => FabricationFault.Joint(
+                    new JointDiagnostic.Provider(toSeq(row.Solution.Errors)), Some(row.Target)),
+                None: () => FabricationFault.Joint(new JointDiagnostic.Provider(programErrors), None)));
 }
 
 internal static class RobotBoundary {
@@ -897,7 +912,7 @@ internal static class RobotBoundary {
             .As()
             .ToFin()
         : Fin.Fail<Seq<MachineIngress.Robot>>(
-            new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:mechanical-groups"));
+            new KernelFault.InvalidValue("cell", "robot-cell:mechanical-groups"));
 
     // `MechanicalGroup.Joints` flattens the arm and every external mechanism while `Joint.Index` is per-mechanism —
     // an arm's J1 and a track's first axis both read 0 — so the arm chain seats the leading block and every external
@@ -980,7 +995,7 @@ public sealed partial class CellVendor {
     internal static Fin<RobotManufacturer> Of(Manufacturers manufacturer) =>
         toSeq(Items).Find(row => row.Native.Contains(manufacturer))
             .Map(static row => row.Row)
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:manufacturer"));
+            .ToFin(new KernelFault.InvalidValue("cell", "robot-cell:manufacturer"));
 }
 ```
 
@@ -1006,8 +1021,8 @@ flowchart LR
     Program --> Sample
     Sample --> Census["Posed-station census"]
     Program -.-> Fault["Typed kinematic fault"]
-    Library["Online library"] --> Catalog["Library receipt"]
-    Drive["Controller drive"] --> DriveFact["Drive receipt"]
+    Library["Online library"] --> Catalog["Verb-keyed catalog"]
+    Drive["Controller drive"] --> DriveFact["Controller delivery"]
 ```
 
 ## [03]-[RESEARCH]

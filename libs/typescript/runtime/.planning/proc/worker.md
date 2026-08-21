@@ -16,6 +16,8 @@ Off-thread compute is one closed protocol and one pool — no wrapper, the platf
 - Law: `Transferable.ImageData` stays unrostered HERE and only here — the row crosses a DOM type this pool's node and bun members never construct, so `browser/fetch#WIRE_PROTOCOL`'s `Imprint` request owns the pixel crossing whole, taking the plane and answering encoded octets off an `OffscreenCanvas` no node or bun member holds; a row minted on this seam would be unspellable on the platform it ships to, so the omission is a decided split, never a gap in the `Transferable` roster this page otherwise carries whole.
 - Law: request statics carry the call surface — each class owns its call static composing the pool Tag (`Render.rendered`, `Drop.announced`), so a consumer imports the request and reaches the whole seam; the stated union on the static is the marshal truth: domain fault, wire decode, worker transport.
 - Law: `Render` is the CPU-bound document offload row — an encoded render plan crosses zero-copy, the produced bytes cross back zero-copy, and `work/report#SPEC_FOLD` dials `Render.rendered` above its off-thread ceiling; the plan codec is the report owner's, so this row carries octets and a `kind` discriminant, never a document shape.
+- Law: `Render.kinds` is the off-thread roster and the strata seam is one-directional across it — `work/report#SPEC_FOLD`'s modality table elects which production row crosses by projecting its own case onto this literal, so the subset relation is proven at that table and this S1 page never imports the S2 owner whose spelling it shares; the two rosters spell the shared members identically, so a modality and the request it dials read as one word.
+- Law: a refusal names its own request — the fault's subject closes against the protocol's tag roster and carries the handler's diagnostic, so a caller re-keying a worker failure reads which crossing broke instead of a bare tag; `class` and `message` derive from the reason row, and neither is constructor data on either side of the seam.
 - Law: `Drop` is the memo-epoch invalidation fan — the host broadcasts the rotated epoch and every member drops the worker-held memos it stamped under an older one, so a config or ruleset flip propagates to every thread without a per-member registry; the roster carries only rows with a named branch consumer, and the streaming modality (`execute` over a `Stream`-answering handler) is documented law whose first row lands with its consumer, never a placeholder class.
 - Growth: a new off-thread capability is one request class plus one union row plus one handler row — every consumer stays untouched, the missing handler breaks loudly.
 - Packages: `@effect/platform` (`Transferable`, `Worker`), `effect` (`Schema`, `Effect`), `@rasm/ts/core` (`Fault.Class`).
@@ -25,23 +27,46 @@ import { Transferable, Worker, type WorkerError, WorkerRunner } from '@effect/pl
 import { Context, Effect, Layer, type ParseResult, Schema } from 'effect';
 import { Fault } from '@rasm/ts/core';
 
-// `class` DERIVES from `reason` through one core family mint, so the two can never disagree. As constructor data it
-// was forgeable across the thread seam — a handler could fail `starved` while stamping `invalid`, and the caller's
-// budget gate would honour the stamp; `reason` alone crosses the wire and the getter reconstructs the class on the
-// far side, so the seam carries less and proves more.
+// The off-thread roster is this protocol's own — the caller's production modality decides WHICH kind crosses, this
+// page decides which kinds exist at all, and the two meet at `work/report`'s modality table rather than through an
+// import this stratum cannot make.
+const _KINDS = ['pdf', 'zip'] as const;
+const _Kind = Schema.Literal(..._KINDS);
+
+// The refusal's subject names WHICH request refused, closed against the protocol's own tag roster rather than left as
+// a free string: a word here the union below never declares fails at this line instead of raising a fault no reader
+// can route back to a handler.
+const _REQUESTS = ['Drop', 'Render'] as const satisfies ReadonlyArray<Bench.Protocol['_tag']>;
+const _Crossing = Schema.Struct({ request: Schema.Literal(..._REQUESTS), detail: Schema.String });
+
+// `class` and `message` both DERIVE from `reason` through one core family mint, so neither can disagree with it. As
+// constructor data `class` was forgeable across the thread seam — a handler could fail `starved` while stamping
+// `invalid`, and the caller's budget gate would honour the stamp; the whole `case` crosses as one declared union and
+// the far side reconstructs class, leg, and rendering off the row, so the seam carries one field and proves three.
+// The engine's own diagnostic rides that subject, which is what a caller re-keying a worker failure had to discard.
 const _bench = Fault.Class.family(['refused', 'starved'] as const, {
-    refused: { class: 'invalid' }, // the handler rejected the payload: caller-blamed and terminal
-    starved: { class: 'exhausted' }, // the member ran out of headroom: system-blamed and retryable
+    refused: Fault.Class.row({
+        class: 'invalid', // the handler rejected the payload: caller-blamed and terminal
+        leg: 'runner',
+        detail: _Crossing,
+        render: ({ detail, request }) => `the ${request} handler refused its payload — ${detail}`,
+    }),
+    starved: Fault.Class.row({
+        class: 'exhausted', // the member ran out of headroom: system-blamed and retryable
+        leg: 'pool',
+        detail: _Crossing,
+        render: ({ detail, request }) => `the ${request} member ran out of headroom — ${detail}`,
+    }),
 });
 
 class BenchFault extends Schema.TaggedError<BenchFault>()('BenchFault', {
-    reason: _bench.schema,
+    case: _bench.payload,
 }) {
     get class(): Fault.Class.Kind {
-        return _bench.classOf(this.reason);
+        return _bench.classOf(this.case.reason);
     }
     override get message(): string {
-        return `<${this.reason}> off-thread request`;
+        return _bench.render(this.case);
     }
 }
 
@@ -55,12 +80,13 @@ class Drop extends Schema.TaggedRequest<Drop>()('Drop', {
 }
 
 class Render extends Schema.TaggedRequest<Render>()('Render', {
-    payload: { kind: Schema.Literal('pdf', 'bundle'), plan: Transferable.Uint8Array },
+    payload: { kind: _Kind, plan: Transferable.Uint8Array },
     success: Transferable.Uint8Array,
     failure: BenchFault,
 }) {
+    static readonly kinds: typeof _KINDS = _KINDS;
     static readonly rendered = (
-        kind: 'pdf' | 'bundle',
+        kind: Bench.Kind,
         plan: Uint8Array,
     ): Effect.Effect<Uint8Array, BenchFault | ParseResult.ParseError | WorkerError.WorkerError, Bench> =>
         Effect.flatMap(Bench, (pool) => pool.executeEffect(new Render({ kind, plan })));
@@ -81,6 +107,7 @@ const _Protocol = Schema.Union(Drop, Render);
 
 ```typescript signature
 declare namespace Bench {
+    type Kind = (typeof _KINDS)[number];
     type Protocol = Drop | Render;
     type Handlers = WorkerRunner.SerializedRunner.Handlers<Protocol>;
     type Policy = Worker.SerializedWorkerPool.Options<Protocol>;

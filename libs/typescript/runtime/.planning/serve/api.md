@@ -75,38 +75,76 @@ const Surface: {
 ## [03]-[GATE_FAULT]
 
 [GATE_FAULT]:
-- Law: the family is sized by refusal route, never by cause — `unauthorized` (credential absent or unverifiable) classifies `expired`, `forbidden` (verified but insufficient) classifies `denied`, `shed` (the door cannot admit right now — the in-flight cap refused, or a credential store the lift needed answered as unreachable infrastructure) classifies `unavailable`, `rate` (window exhausted) classifies `exhausted`, `conflict` (idempotency key replayed against a different payload, a diverged replay, or a released origin) classifies `conflicted` — a finer cause is `detail` text, never a sixth reason minted for one surface, because the route a refusal takes outward is the whole partition.
+- Law: the family is sized by refusal route, never by cause — `unauthorized` (credential absent or unverifiable) classifies `expired`, `forbidden` (verified but insufficient) classifies `denied`, `shed` (the door cannot admit right now — the in-flight cap refused, or a credential store the lift needed answered as unreachable infrastructure) classifies `unavailable`, `rate` (window exhausted) classifies `exhausted`, `conflict` (idempotency key replayed against a different payload, a diverged replay, or a released origin) classifies `conflicted` — a finer cause is a COLUMN on the route's own row, never a sixth reason minted for one surface, because the route a refusal takes outward is the whole partition.
+- Law: each row declares the subject its own route can fill and renders it — the scheme no credential arrived on, the entitlement an admitted credential lacks, which pressure source shed, which window is spent — so the refusal fan tags on a reason a consumer routes and the sentence derives from the row rather than being assembled at each mint.
 - Law: the refusal code falls out of the class alone — every reason's core row already carries the response code `problem#STATUS_RECORD` governs (401, 403, 503, 429, 409 in row order), so no serve-local `status` column and no `policy` probe exist to disagree with the branch's one class-to-status record.
-- Law: `retryAfter` is an `Option<Duration>` stamped by the pressure rows from their own measured window — the grace hint the `problem` ladder prefers over the class default — so a 429/503 always carries the truthful window, never a guessed constant.
+- Law: the stated window rides `after` — the core owner's VALUE-altitude word, so `Fault.Class.statedOf` reads it back at the problem door and `Fault.Budget.schedule` takes it as its third argument; the pressure rows stamp it from their own measured window, the ladder prefers it over the class default, and a 429/503 always carries the truthful figure rather than a guessed constant. The wire's `retry_after` and the response header's `retry-after` are the other two altitudes of one window, and none renames another.
 - Law: every refusal emits before it fails — `_refuse` is the one fail seam, incrementing `Convention.metric.admitRefused` tagged by the reason the fault already carries, so the refusal fan needs zero call-site wiring and a new reason joins the series the moment its row lands; `Gate.refuse` publishes that same seam to the serving route module, so a refusal minted at the seam counts itself through the one fold rather than a second `Effect.fail`.
 - Packages: `effect` (`Schema`, `Option`, `Duration`, `Metric`); `@rasm/ts/core` (`Fault.Class`, `Convention`).
 
 ```typescript signature
-// One row per reason: the core kind alone. Retryability, blame, and the response code are the core row
+// Every refusal here is raised on one surface — the admission plane — so the family carries one leg and partitions
+// on its route alone.
+const _LEG = "admission"
+
+// One row per reason: the core kind alone decides policy. Retryability, blame, and the response code are the core row
 // table's and problem#STATUS_RECORD's — `unauthorized` classifies `expired` (401, a credential the door
-// will not accept) where `forbidden` classifies `denied` (403, a credential it accepted and refused).
+// will not accept) where `forbidden` classifies `denied` (403, a credential it accepted and refused). What each row
+// owns is its own SUBJECT: the scheme a credential never arrived on, the entitlement an admitted one lacks, which of
+// the two pressure sources shed, and which window is spent — coordinates a fold reads, not a sentence.
 const _gate = Fault.Class.family(["unauthorized", "forbidden", "shed", "rate", "conflict"] as const, {
-  unauthorized: { class: "expired" },
-  forbidden: { class: "denied" },
-  shed: { class: "unavailable" },
-  rate: { class: "exhausted" },
-  conflict: { class: "conflicted" },
+  unauthorized: Fault.Class.row({
+    class: "expired",
+    leg: _LEG,
+    detail: Schema.Struct({ via: Schema.NonEmptyString }),
+    render: ({ via }) => `no credential this door accepts arrived on ${via}`,
+  }),
+  forbidden: Fault.Class.row({
+    class: "denied",
+    leg: _LEG,
+    detail: Schema.Struct({ scope: Schema.NonEmptyString }),
+    render: ({ scope }) => `the admitted credential carries no ${scope} entitlement`,
+  }),
+  shed: Fault.Class.row({
+    class: "unavailable",
+    leg: _LEG,
+    // the two shed sources are structurally different pressure — a saturated door and an unreachable dependency the
+    // lift needed — and only the first has a grace this page can measure
+    detail: Schema.Struct({ source: Schema.Literal("cap", "store") }),
+    render: ({ source }) =>
+      source === "cap" ? "the in-flight cap admits nothing right now" : "a credential store this lift needed answered nothing",
+  }),
+  rate: Fault.Class.row({
+    class: "exhausted",
+    leg: _LEG,
+    detail: Schema.Struct({ window: Schema.NonEmptyString }),
+    render: ({ window }) => `the ${window} window is spent`,
+  }),
+  conflict: Fault.Class.row({
+    class: "conflicted",
+    leg: _LEG,
+    detail: Schema.Struct({ detail: Schema.String }),
+    render: ({ detail }) => `an idempotency key was replayed against a different offer — ${detail}`,
+  }),
 })
 
 declare namespace GateFault {
-  type Reason = (typeof _gate.reasons)[number]
+  type Issue = typeof _gate.payload.Type
+  type Reason = (typeof _gate.kinds)[number]
 }
 
 class GateFault extends Schema.TaggedError<GateFault>()("GateFault", {
-  reason: _gate.schema,
-  detail: Schema.String,
-  retryAfter: Schema.optionalWith(Schema.DurationFromSelf, { as: "Option" }),
+  case: _gate.payload,
+  // the VALUE altitude's stated window, under the core owner's own word: `Fault.Class.statedOf` reads it back at the
+  // problem door and `Fault.Budget.schedule` takes it as its third argument, so a second spelling here would fork one
+  // window across three altitudes that already have three words for it
+  after: Fault.Class.After,
 }) {
   get class(): Fault.Class.Kind {
-    return _gate.classOf(this.reason)
+    return _gate.classOf(this.case.reason)
   }
   override get message(): string {
-    return `<gate:${this.reason}> ${this.detail}`
+    return _gate.render(this.case)
   }
 }
 
@@ -115,7 +153,7 @@ const _refused = Convention.mount(Convention.metric.admitRefused)
 // the closed reason partition IS the axis fan, so the one fail seam carries the whole refusal series
 const _refuse = (fault: GateFault): Effect.Effect<never, GateFault> =>
   Effect.zipRight(
-    Metric.increment(Metric.tagged(_refused, Convention.rasm.admitReason, fault.reason)),
+    Metric.increment(Metric.tagged(_refused, Convention.rasm.admitReason, fault.case.reason)),
     Effect.fail(fault),
   )
 ```
@@ -125,7 +163,7 @@ const _refuse = (fault: GateFault): Effect.Effect<never, GateFault> =>
 [CURRENT_ROWS]:
 - Owner: `Current` — the ambient request rows as `Context.Reference` classes: `Current.Stamp` carries `Option` of the per-request mark (`id`, `at`, locale), `Current.Locale` carries the negotiated `Shape.Refined.Locale` with the fleet default answering when no request provided one, and `Current.Admitted` carries `Option` of the one credential lift the serving seam performed — three rows, each readable from any rail at zero requirement pressure, overridden per request by scoped provision at the route seam.
 - Law: locale negotiation is one fold — `Current.negotiate(header, fallback)` splits the `Accept-Language` list, ranks by `q` weight descending, and takes the first tag the core `Shape.Refined.Locale` schema admits — a malformed tag or an empty header lands on the fallback and negotiation can never fail; the negotiated value is BCP-47-canonical by the core brand's own filter.
-- Law: trace continuation is composed, never re-derived — `Current.traced(effect, headers)` normalizes the request record once through core `Carrier.extract("http", ...)` and delegates the resulting context to `otel/emit#CONTINUATION`'s one ingress transformer, so extract-and-continue at the HTTP door is the same transformer every other ingress composes (baggage annotations arrive pre-scrubbed by that owner) and a second `traceparent` decode cannot exist here.
+- Law: trace continuation is composed, never re-derived — `Current.traced(effect, headers)` normalizes the request record once through core `Carrier.extract("http", ...)` and hands the resulting `Carrier.Extraction` WHOLE to `otel/emit#CONTINUATION`'s one ingress transformer, so the parse census rides beside the context and no destructuring here drops a count no second reader keeps; extract-and-continue at the HTTP door is the same transformer every other ingress composes (baggage annotations arrive pre-scrubbed by that owner) and a second `traceparent` decode cannot exist here.
 - Law: the stamp mints at the door — `Current.provide(effect, mark, fallback)` provides the mark and the locale projected from it in one scoped provision, so a handler, a log annotation, and the problem fold read one coherent request identity; the `problem` page reads `Current.Stamp` for the `instance` member and the `requestId` extension.
 - Law: `Current.Admitted` is the credential lift's one seat — the seam resolves a presented credential exactly once per request and provides the result here, so `Authn`'s scheme arms PROJECT that lift instead of re-verifying: a protected endpoint pays one signature check and at most one KDF descent no matter how many schemes the contract declares.
 - Growth: a new ambient axis is one `Context.Reference` row plus its projection inside `provide`.
@@ -219,7 +257,7 @@ const Current: {
 - Law: `_lifted` binds its error parameter to the classed shape, so its two-way partition is total by construction — every port fault it folds mints through `Fault.Class.family` and carries the `class` getter `Fault.Class.of` probes, and the probe reads `property in self`, so a prototype accessor answers. Any port contract failing with a bare `Error` refuses to compile at this fold rather than grading `defect`, whose `system` blame answers `shed` 503 where the presented credential earns 401.
 - Law: the admission plane measures itself off its own partitions — `admitPassed` counts each lift tagged by the `via` scheme so the refusal series has a denominator, `admitRefused` fans on the `GateFault` reason at the one `_refuse` seam, and `idempotencyOutcome` fans on the bracket's own three-way fold; every instrument mounts from its `Convention` row, so this page carries no bucket ladder and no constructor pick.
 - Law: `RpcAuthn` is the same admission on the RPC arm — `RpcMiddleware.Tag` with `failure: GateFault`, `provides: Principal`, `requiredForClient: true`, and `wrap: true`, so one definition governs both ends: the wrap reads the frame headers, composes the same `Authn.admit` lift, provides the same `Principal` into `next`, and binds `TenantScope` around it exactly as the HTTP seam does. `requiredForClient` is what makes `Emit.caller` refuse to derive a credential-less client, and `RpcMiddleware.layerClient` is the client arm the app root supplies; a `Contribution.rpc` group scoping this Tag through `.middleware` cannot ship unauthenticated by omission.
-- Law: pressure rows bound two distinct axes — `Gate.shed` brackets a section under an in-flight cap whose refusal is immediate (`withPermitsIfAvailable` settling `Option.none` under saturation folds to `shed` with the declared grace: the queue-depth 503 lever), `Gate.window` prices calls against a scoped in-process `RateLimiter.make` row (the 429 lever) whose grace deadline bounds the TOKEN WAIT alone — the admitted work never races its own timeout, because the deadline gates the acquisition probe and the work sequences after it — conflating concurrency and throughput is the named selection error; both stamp `retryAfter` from their own measured window, and policy is one `Gate.Pressure` value row, never threaded knobs.
+- Law: pressure rows bound two distinct axes — `Gate.shed` brackets a section under an in-flight cap whose refusal is immediate (`withPermitsIfAvailable` settling `Option.none` under saturation folds to `shed` with the declared grace: the queue-depth 503 lever), `Gate.window` prices calls against a scoped in-process `RateLimiter.make` row (the 429 lever) whose grace deadline bounds the TOKEN WAIT alone — the admitted work never races its own timeout, because the deadline gates the acquisition probe and the work sequences after it — conflating concurrency and throughput is the named selection error; both stamp `after` from their own measured window, and policy is one `Gate.Pressure` value row, never threaded knobs.
 - Law: the distributed quota row is port-shaped by Layer — `Gate.fenced` yields the experimental accessor `Fleet.makeWithRateLimiter` (an `Effect` reading the `RateLimiter.RateLimiter` Tag the app root satisfies with `layerStoreMemory` on one node or a store-backed Layer on a fleet) and applies its transformer; both experimental faults share the one `"RateLimiterError"` tag discriminated by `reason` — the `"Exceeded"` arm re-spells as `rate` carrying the fault's own measured `retryAfter`, and the `"StoreError"` arm dies as a defect because a broken quota backend is never a caller 429.
 - Law: `Gate.fenced` takes one `Gate.Spend` record speaking the branch's four-column quota grammar — `window`, `limit`, `key`, `cost` — with `cost` forwarded to the limiter's `tokens` slot and `algorithm` the row's own; `Gate.Pressure` keeps serving `shed` and `window`, whose in-flight and grace cells `fenced` never reads, and the store namespaces nothing, so the caller's `key` carries every scope join.
 - Law: `Idempotency` is one polymorphic bracket, never a claim ceremony — `run(key, digest, outcome, execute)` owns the whole fresh/replay fold, so a handler composes one call and never orchestrates claim, settle, or park: the first execution per key runs `execute` and settles the cell with its value; a same-digest duplicate parks on the cell and replays the settled value re-proven through `Schema.validate(outcome)` (the fast lane carries the same schema evidence the fleet tier's `Schema.TaggedRequest` carries), a diverged replay refusing as `conflict`; any non-success exit settles every parked duplicate with a typed `conflict` refusal and conditionally releases only its own cell — no duplicate can hang on an interrupted or defective origin, an expired origin cannot delete a newer claimant's cell, the origin's own exit propagates unchanged, and the next claimant executes fresh; a replayed key whose payload digest differs refuses as `conflict` before any wait. `Idempotency.memory(retention)` is the single-node Layer sweeping expired cells inside the same atomic claim; the key admits through the `Gate.IdempotencyKey` brand at the header seam, and a GET carrying the header is ignored, never refused.
@@ -283,10 +321,10 @@ const _lifted = <A, E extends { readonly class: Fault.Class.Kind }>(
 ): Effect.Effect<Option.Option<A>, GateFault, Jwt | ApiKey | Claim> =>
   Effect.matchEffect(self, {
     onFailure: (fault) =>
-      Fault.Class.at(Fault.Class.of(fault)).blame === "caller"
+      Fault.Class.blameOf(fault) === "caller"
         ? Effect.succeedNone
         // no hint: the class default is the truthful window, and the problem ladder already prefers a measured one
-        : _refuse(new GateFault({ reason: "shed", detail: "credential store unreachable", retryAfter: Option.none() })),
+        : _refuse(new GateFault({ case: { reason: "shed", source: "store" }, after: Option.none() })),
     onSuccess: Effect.succeedSome,
   })
 
@@ -363,7 +401,7 @@ const _admit = (
 const _projected = (via: _Principal["via"]): Effect.Effect<_Principal, GateFault> =>
   Effect.flatMap(_Admitted, (held) =>
     Option.match(Option.filter(held, (admitted) => admitted.principal.via === via), {
-      onNone: () => _refuse(new GateFault({ reason: "unauthorized", detail: via, retryAfter: Option.none() })),
+      onNone: () => _refuse(new GateFault({ case: { reason: "unauthorized", via }, after: Option.none() })),
       onSome: (admitted) => Effect.succeed(admitted.principal),
     }))
 
@@ -400,7 +438,7 @@ class RpcAuthn extends RpcMiddleware.Tag<RpcAuthn>()("runtime/serve/RpcAuthn", {
       Effect.map(Effect.context<Jwt | ApiKey | Claim>(), (held) => ({ headers, next }) =>
         _admit(identity, headers).pipe(
           Effect.flatMap(Option.match({
-            onNone: () => _refuse(new GateFault({ reason: "unauthorized", detail: "rpc", retryAfter: Option.none() })),
+            onNone: () => _refuse(new GateFault({ case: { reason: "unauthorized", via: "rpc" }, after: Option.none() })),
             // one binding site on this arm too: the frame's downstream runs under the same tenancy the
             // HTTP seam binds, so a procedure and an endpoint pin identical session coordinates
             onSome: (admitted) =>
@@ -427,7 +465,7 @@ const _IdempotencyKey = Schema.NonEmptyString.pipe(
 
 type _Cell = { readonly digest: string; readonly slot: Deferred.Deferred<unknown, GateFault>; readonly at: DateTime.Utc }
 
-const _conflict = (detail: string): GateFault => new GateFault({ reason: "conflict", detail, retryAfter: Option.none() })
+const _conflict = (detail: string): GateFault => new GateFault({ case: { reason: "conflict", detail }, after: Option.none() })
 
 const _outcomes = Convention.mount(Convention.metric.idempotencyOutcome)
 
@@ -541,7 +579,7 @@ const Gate = {
       <A, E, R>(self: Effect.Effect<A, E, R>) =>
         permits.withPermitsIfAvailable(1)(self).pipe(
           Effect.flatMap(Option.match({
-            onNone: () => _refuse(new GateFault({ reason: "shed", detail: "in-flight cap", retryAfter: Option.some(pressure.grace) })),
+            onNone: () => _refuse(new GateFault({ case: { reason: "shed", source: "cap" }, after: Option.some(pressure.grace) })),
             onSome: Effect.succeed,
           })),
         )),
@@ -558,7 +596,7 @@ const Gate = {
             // the deadline bounds the token wait alone: the admitted work sequences after it and never races its own timeout
             Effect.timeoutFail({
               duration: pressure.grace,
-              onTimeout: () => new GateFault({ reason: "rate", detail: "window", retryAfter: Option.some(pressure.grace) }),
+              onTimeout: () => new GateFault({ case: { reason: "rate", window: "in-process" }, after: Option.some(pressure.grace) }),
             }),
             Effect.catchTag("GateFault", _refuse),
             Effect.zipRight(self),
@@ -579,7 +617,7 @@ const Gate = {
         // both experimental faults share the "RateLimiterError" tag; reason discriminates the arms
         Effect.catchTag("RateLimiterError", (fault) =>
           fault.reason === "Exceeded"
-            ? _refuse(new GateFault({ reason: "rate", detail: spend.key, retryAfter: Option.some(fault.retryAfter) }))
+            ? _refuse(new GateFault({ case: { reason: "rate", window: spend.key }, after: Option.some(fault.retryAfter) }))
             : Effect.die(fault)),
       )),
 } as const

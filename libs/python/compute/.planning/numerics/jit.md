@@ -1,6 +1,6 @@
 # [PY_COMPUTE_JIT]
 
-One polymorphic JIT owner collapses the numba LLVM loop-kernel compiler and the jax XLA array-transform compiler onto one backend-discriminated route table: `JitBackend` discriminates the compile route, `_JIT_ROUTES` carries each route's compile-and-capture closure as data, and `JitEvidence` parameterizes the captured output the way `JitBackend` parameterizes the input. `numerics/array#PAYLOAD` owns the separate concern of jax as an `array_namespace` backend, and `none` floors every run, so absent gated packages return `Host` evidence rather than `Error(Import)`.
+One polymorphic JIT owner collapses the numba LLVM loop-kernel compiler and the jax XLA array-transform compiler onto one backend-discriminated route table: `JitBackend` discriminates the compile route, `_JIT_ROUTES` carries each route's compile-and-capture closure AND its own provider raise set as data, and `JitEvidence` parameterizes the captured output the way `JitBackend` parameterizes the input. `numerics/array#PAYLOAD` owns the separate concern of jax as an `array_namespace` backend, and `none` floors every run, so absent gated packages return `Host` evidence rather than `Error(Import)`.
 
 This owner mints the `LoweredSpec` vocabulary of the symbolic-to-jit-to-consumer lowering chain: `analysis/symbolic#DERIVATION` emits it off its `_lower` fold, and `experiments/study#STUDY` and `solvers/quadrature#QUADRATURE` compile through `JitBackend.compile` — DAG-lawful because a symbolic-derived spec crosses as a value and no consumer imports symbolic. Its `Cfunc` row compiles the C-ABI callback the quadax/scipy `LowLevelCallable` consumers bind.
 
@@ -10,12 +10,12 @@ This owner mints the `LoweredSpec` vocabulary of the symbolic-to-jit-to-consumer
 
 ## [02]-[JIT]
 
-- Owner: `JitBackend` — each case carries its route's option payload, and the bare `_capture_*` function IS the `_JIT_ROUTES` row, so `compile` indexes one row rather than fanning the shared decorate/warm-probe/read-IR pattern across match arms; the gated `numba`/`jax` names bind once as module-scope `lazy` imports whose proxies reify in the capture body that fires, so the table stays an eager import-free module constant and `_capture_jax` — the one jax door — owns this page's x64 config seam.
+- Owner: `JitBackend` — each case carries its route's option payload, and the `_capture_*` function beside its narrowed `catch` set IS the `_JIT_ROUTES` row, so `compile` indexes one row rather than fanning the shared decorate/warm-probe/read-IR pattern across match arms; the gated `numba`/`jax` names bind once as module-scope `lazy` imports whose proxies reify in the capture body that fires, so the table stays an eager import-free module constant and `_capture_jax` — the one jax door — owns this page's x64 config seam.
 - Cases: `Specimen` is the one typed warm-probe carrier every route consumes — numba forces one dispatcher specialization against it, jax traces one `make_jaxpr` over it, and the empty `Specimen()` is the unarmed probe a route ignores — so no route reads a positional `probe[0]` off an erased varargs tuple.
 - Output: `JitEvidence` gives each route its own case with a total `facts()` projection of native scalars, so an LLVM specialization never smuggles jax fields and the receipt spreads only the matched case's slots; `diagnostics_lines` is the realized parallel-region evidence, distinct from the requested `parallel` flag. `EngineProfile` is the engine-neutral compile-extent band BOTH compiled cases carry, `JitEvidence.profile` the one outward read every mount takes rather than destructuring a case payload by offset, and `solvers/receipt#RECEIPT` mounts it as the optional `profile` slot the `solvers/quadrature#QUADRATURE` lowering bridge fills — specialization count beside the engine-IR, target-code, typed-source, and diagnostics extents, each column answered from what the engine already measured, so a slow compile or solve explains itself from the receipt with no profiler attach. `llvm` fills it off the held dispatcher's `inspect_llvm`/`inspect_asm`/`inspect_types`/`parallel_diagnostics` reports, `xla` fills the identical columns off the staging ladder — `Lowered.as_text` StableHLO, `Compiled.as_text` optimized HLO, the captured jaxpr, and the `cost_analysis` entry tally — so one profile shape spans both engines and a comparison reads one receipt. `TraceEvidence` rides the `xla` case alone as its caller-armed device-timeline band.
 - Receipt: `compile` runs under the hub weave as `evidence_run(EvidenceScope.JIT, f"compile.{self.tag}", rail, facts=...)` — LLVM/XLA lowering is the canonical measured surface, the span carries the backend, kernel, and armed discriminants, and the weave harvest emits the `Jitted` receipts on the clean exit, so `contribute()` needs no page-local emit call.
 - Packages: the numba dispatcher, the jax trace handle, the `Wrapped`/`Lowered`/`Compiled` staging rungs, and the four-tier profile reader are typed through `TYPE_CHECKING` `Protocol`s so every capture reads a named member rather than a phantom off `object`; `Specimen` and `Jitted` stay GC-tracked because each holds a container field — `gc=False` is reserved for container-free leaves like the two profile bands.
-- Growth: a new compiler is one `JitBackend` case, one `_JIT_ROUTES` row, and its `JitEvidence` case — the `Cfunc` row is exactly that path realized; a new option is one column absorbed by the existing decorator call; a new lowering producer emits `LoweredSpec` values and adds zero surface here; a new compile statistic is one `EngineProfile` column every compiled route answers from its own engine, reaching the solve receipt's mount with zero receipt edits, while a statistic only one engine can measure lands on that case's own band — `TraceEvidence` being that path realized, since a host-compiled kernel has no device timeline to answer a device column with anything but a zero.
+- Growth: a new compiler is one `JitBackend` case, one `_JIT_ROUTES` row carrying its capture and its own raise set, and its `JitEvidence` case — the `Cfunc` row is exactly that path realized; a new option is one column absorbed by the existing decorator call; a new lowering producer emits `LoweredSpec` values and adds zero surface here; a new compile statistic is one `EngineProfile` column every compiled route answers from its own engine, reaching the solve receipt's mount with zero receipt edits, while a statistic only one engine can measure lands on that case's own band — `TraceEvidence` being that path realized, since a host-compiled kernel has no device timeline to answer a device column with anything but a zero.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -26,15 +26,15 @@ from threading import Lock
 from typing import TYPE_CHECKING, Final, Literal, Protocol, assert_never
 
 from beartype.door import is_bearable
-from expression import Error, case, tag, tagged_union
-from expression.collections import Map
+from expression import Error, Some, case, tag, tagged_union
+from expression.collections import Block, Map
 from msgspec import Struct, structs
 from upath import UPath
 
-from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
-from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary
-from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
+from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, evidence_run
+from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
+from rasm.runtime.faults import TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, boundary, rostered
+from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
 
 # cold compiler dependencies deferred to the capture body that fires, so an absent package floors to `Host` evidence rather
 # than costing every import. The module-scope `lazy` bind is lawful here where the six solver pages need a carrier: this page
@@ -217,8 +217,16 @@ class Jitted(Struct, frozen=True):  # GC-tracked: carries the `fn` callable and 
     evidence: JitEvidence
 
     def contribute(self) -> Iterable[Receipt]:
-        facts = {"backend": self.backend.tag, "content_key": self.content_key.project("hex"), **self.evidence.facts()}
-        yield Receipt.of(EvidenceScope.JIT.value, ("emitted", self.backend.tag, facts))
+        # ONE settled-receipt spine: the compile key is the produced coordinate, so `content_key` stops riding the
+        # payload as a hand-rendered hex string beside a spine column that already carries it. The band is EMPTY —
+        # a compile that raised never reaches this fold — and the provenance consumes nothing, a compile deriving
+        # from a kernel and an option row rather than from prior keys.
+        yield Receipt.of(
+            EvidenceScope.JIT.value,
+            ("emitted", self.backend.tag, {"backend": self.backend.tag, **self.evidence.facts()}),
+            key=Some(self.content_key),
+            provenance=Some(Provenance(consumed=Block.empty(), produced=self.content_key)),
+        )
 
 
 @tagged_union(frozen=True)
@@ -256,19 +264,26 @@ class JitBackend:
         # re-catch it; the railed key threads `.bind` so a canonical-encode fault rides the one rail, and the whole compile runs
         # under the `compute.jit` span with the weave harvest emitting the `Jitted` receipts on the clean exit.
         if not is_bearable(kernel, Kernel):
-            return Error(BoundaryFault(boundary=(f"jit.{self.tag}", "kernel-not-callable")))
+            return Error(KERNEL.raised(self.tag))
 
         def rail() -> "RuntimeRail[Jitted]":
-            return ContentIdentity.of(f"jit.{self.tag}", self.identity_buffer(kernel, specimen)).bind(
-                lambda key: boundary(f"jit.{self.tag}", lambda: self._compiled(kernel, specimen, key))
+            # the fence catches its OWN route's raise set — a numba typing failure and a jax trace failure are
+            # different provider surfaces, so the row that runs the capture is the row that names what it may raise.
+            route = _JIT_ROUTES[self.tag]
+            return ContentIdentity.of(f"jit.{self.tag}", self.identity_source(kernel, specimen)).bind(
+                lambda key: boundary(COMPILE, lambda: self._compiled(kernel, specimen, key), catch=route.catch)
             )
 
         facts = {"backend": self.tag, "kernel": getattr(kernel, "__qualname__", repr(kernel)), "armed": specimen.is_armed}
         return evidence_run(EvidenceScope.JIT, f"compile.{self.tag}", rail, facts=facts, composition=composition)
 
-    def identity_buffer(self, kernel: Kernel, specimen: "Specimen") -> bytes:
-        # closure source is not byte-stable across runs — tag + qualname + probe signature + option row is the stable buffer, so one
-        # kernel compiled under two option payloads never shares a `ContentKey`.
+    def identity_source(self, kernel: Kernel, specimen: "Specimen") -> IdentitySource:
+        # closure source is not byte-stable across runs — tag, qualname, probe signature, and option row are the stable
+        # fields, so one kernel compiled under two option payloads never shares a `ContentKey`. Those fields are N
+        # SEMANTIC parts and ride the modality that means it: the retired form joined them into one
+        # `f"{tag}|{qualname}|{probe}|{cells}"` buffer, which is not injective — a `|` inside a qualname or inside a
+        # probe's dtype spelling moves the boundary and two distinct compiles key identically. `[PREIMAGE_FRAMING]`
+        # runs at `runtime/evidence/identity#IDENTITY`, so no producer spells a width or a separator of its own.
         row: tuple[object, ...]
         match self:
             case JitBackend(tag="njit", njit=options):
@@ -285,9 +300,17 @@ class JitBackend:
                 row = ()
             case _ as unreachable:
                 assert_never(unreachable)
-        probe = "|".join(f"{type(a).__name__}:{getattr(a, 'shape', ())}:{getattr(a, 'dtype', '')}" for a in specimen.args)
-        cells = "|".join(str(cell) for cell in row)
-        return f"{self.tag}|{getattr(kernel, '__qualname__', repr(kernel))}|{probe}|{cells}".encode()
+        # each variable-length GROUP states its own cardinality as a field, because framing makes every field's extent
+        # unambiguous and leaves the group boundary between them free: two probes and one option cell would otherwise
+        # frame identically to one probe and two cells.
+        probes = tuple(f"{type(a).__name__}:{getattr(a, 'shape', ())}:{getattr(a, 'dtype', '')}".encode() for a in specimen.args)
+        return IdentitySource(parts=(
+            self.tag.encode(),
+            getattr(kernel, "__qualname__", repr(kernel)).encode(),
+            str(len(probes)).encode(),
+            *probes,
+            *(str(cell).encode() for cell in row),
+        ))
 
     def _compiled(self, kernel: Kernel, specimen: "Specimen", key: ContentKey) -> "Jitted":
         fn, evidence = _JIT_ROUTES[self.tag](kernel, specimen, self)
@@ -446,15 +469,43 @@ def _printed_lines(emit: Callable[[], object]) -> int:
 
 # --- [TABLES] ------------------------------------------------------------------------------
 
-# each `_capture_*` already holds the full `Capture` arity, so the row is the bare function reference — no wrapper struct and no
-# forwarding lambda; the table anchors after the captures because the module-level `Map` resolves them at load.
-_JIT_ROUTES: Final[Map[Tag, Capture]] = Map.of_seq([
-    ("njit", _capture_njit),
-    ("vectorize", _capture_vectorize),
-    ("cfunc", _capture_cfunc),
-    ("jax_jit", _capture_jax),
-    ("none", _capture_host),
+# the compile fence's raise surface is PER ROUTE, so it rides the route row beside the capture rather than fusing into one
+# tuple wide enough for every engine: a numba typing failure and a jax trace failure are different provider surfaces, and a
+# fence naming their union lets an XLA raise classify under a row the numba arm declared. `none` catches NOTHING — the host
+# floor runs no compiler, so any raise out of it is a defect rather than a compile fault.
+class JitRoute(Struct, frozen=True, gc=False):
+    capture: Capture
+    catch: Catch
+
+
+# each `_capture_*` already holds the full `Capture` arity, so the row carries the bare function reference beside its own
+# raise set — no forwarding lambda; the table anchors after the captures because the module-level `Map` resolves them at load.
+# numba's family is rostered whole at `libs/python/compute/.api/numba.md:24-26` — `NumbaError` roots every compile and type
+# error, with `TypingError` and `UnsupportedError` beneath it — so the three numba rows narrow onto that one root.
+# ABSENT: `libs/python/compute/.api/jax.md` rosters no exception family, and jax is not installed in this venv to probe, so
+# the jax row narrows onto the two stdlib classes the catalogue's own notes name for a transform (`jax.md:176`: Python
+# `max`/`sum`/`float()` raise inside a transform) and the catalogue owes an exception section before it narrows further.
+_JIT_ROUTES: Final[Map[Tag, JitRoute]] = Map.of_seq([
+    ("njit", JitRoute(_capture_njit, numba.NumbaError)),
+    ("vectorize", JitRoute(_capture_vectorize, numba.NumbaError)),
+    ("cfunc", JitRoute(_capture_cfunc, numba.NumbaError)),
+    ("jax_jit", JitRoute(_capture_jax, (TypeError, ValueError))),
+    ("none", JitRoute(_capture_host, ())),
 ])
+
+# this page's raise-side roster under the hub `ComputeLeg` contract: the backend tag rides a NAMED slot rather than the
+# subject, so the retired `f"jit.{self.tag}"` spelling stops forking one refusal law into five coordinates. A compile
+# fault is TRANSIENT — a re-issue against a warmed cache or a freed device clears it — while a non-callable kernel is a
+# construction refusal the same inputs deterministically repeat.
+KERNEL: Final[FaultRow[ComputeLeg]] = FaultRow(
+    leg=ComputeLeg.JIT, point="kernel", arm="config", defect="kernel-not-callable", retriability=TERMINAL, slots=("backend",)
+)
+# fence-only row: the detail is the classified engine exception the `CLASSIFY` table names, and the backend rides the
+# weave span facts, so this row declares NO slots — a slot nothing zips is a coordinate no reader ever receives.
+COMPILE: Final[FaultRow[ComputeLeg]] = FaultRow(
+    leg=ComputeLeg.JIT, point="compile", arm="boundary", defect="compile", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([KERNEL, COMPILE]))
 
 
 # --- [EXPORTS] -----------------------------------------------------------------------------

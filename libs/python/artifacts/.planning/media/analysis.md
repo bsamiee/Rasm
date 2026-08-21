@@ -25,23 +25,25 @@ from heapq import nlargest
 from itertools import groupby, islice
 from math import isfinite
 from operator import itemgetter
-from typing import TYPE_CHECKING, Literal, assert_never, get_args
+from typing import TYPE_CHECKING, Final, Literal, assert_never, get_args
 
 import msgspec
 import numpy as np
 from builtins import frozendict
 from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
+from expression.collections import Block
 from msgspec import Struct
 from numpy.lib.stride_tricks import sliding_window_view
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, async_boundary
+from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, async_boundary, rostered
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
-from rasm.artifacts.media.container import CANON, MediaFault, _lapsed
+from rasm.artifacts.media.container import CANON, MEDIA_RESIDUE, MediaFault, _lapsed
 
 lazy import av
 lazy import av.error
@@ -108,6 +110,16 @@ class AudioMetric(StrEnum):
     FLATNESS = "spectral_flatness"
     DYNAMIC_RANGE_DB = "dynamic_range_db"
 
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's ONE raise anchor: the fold is a single fence over the whole op union, so the op tag is request data the
+# `MediaFault` case already discriminates rather than a coordinate the subject re-spells per op. TRANSIENT — a
+# worker death and a codec refusal are defects a re-issue may clear.
+ANALYSIS_FOLD: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.ANALYSIS, point="fold", arm="boundary", defect="analysis-fold", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([ANALYSIS_FOLD]))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -205,10 +217,12 @@ class Analysis(Struct, frozen=True):
         return ContentIdentity.key(f"media.analysis-{self.op.tag}", CANON.encode(self.op))
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # member MediaFault folds into the boundary fault (Work[ArtifactReceipt] forbids an inner Result).
-        railed = await async_boundary(f"media.analysis.{self.op.tag}", self._folded)
+        # the member `MediaFault` crosses WHOLE on `BoundaryFault.domain` (`Work[ArtifactReceipt]` forbids an inner
+        # Result), so its case and kwargs stay matchable; the retired `f"{tag}:{fault}"` collapse handed every case
+        # to one string and left a consumer nothing to gate on.
+        railed = await async_boundary(ANALYSIS_FOLD, self._folded, catch=MEDIA_RESIDUE)
         return railed.bind(
-            lambda res: res.map_error(lambda fault: BoundaryFault(boundary=(f"media.analysis.{self.op.tag}", f"{fault.tag}:{fault}")))
+            lambda res: res.map_error(lambda fault: BoundaryFault(domain=(ANALYSIS_FOLD.subject, fault)))
         )
 
     async def _folded(self, /) -> Result[ArtifactReceipt, MediaFault]:

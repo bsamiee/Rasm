@@ -15,22 +15,27 @@ Egress is the shared field family: a cube's geometry coordinate WKB-encodes thro
 - Law: `frame` is the ONE bridge onto the claims plane — the long-form `GeoDataFrame` keyed by zone geometry — so a cube variable reaches vector claims as a column join at the claims plane, and no zone-id correspondence table exists anywhere: the geometry IS the key on both ends.
 - Entry: `ZoneCube.of(cube, coord, claim)` lifts the named coordinate through `set_geom_indexes` under the claim CRS; `apply(op)` answers the operation family; `write(target)` WKB-encodes the geometry coordinate through `encode_wkb`, lands one Zarr store, and mints the shared `FieldReceipt` keyed off the store's `zarr.json` root-metadata bytes.
 - Receipt: one `FieldReceipt` per egress under `engine="cube"`, riding the family's `domain="field"` projection — zero new receipt surface.
-- Packages: `xvec` (`set_geom_indexes`, `query(coord, geometry, predicate=, distance=)`, `extract_points`, `to_geodataframe(geometry=, long=True)`, `encode_wkb` — the `.xvec` accessor surface), `shapely` (the geometry operands), `xarray` (the cube substrate), `msgspec` (the frozen owner), runtime (`RuntimeRail`/`boundary`/`ContentIdentity`/`scoped`), `spatial/geospatial#GEO` (`VectorGeoClaim`, the composed CRS law), `gridded/field#EGRESS` (`FieldReceipt`).
+- Packages: `xvec` (`set_geom_indexes`, `query(coord, geometry, predicate=, distance=)`, `extract_points`, `to_geodataframe(geometry=, long=True)`, `encode_wkb` — the `.xvec` accessor surface), `shapely` (the geometry operands), `xarray` (the cube substrate), `msgspec` (the frozen owner), runtime (`RuntimeRail`/`boundary`/`Catch`/`FaultRow`/`ContentIdentity`/`scoped`), `spatial/geospatial#GEO` (`VectorGeoClaim`, the composed CRS law), `gridded/field#EGRESS` (`FieldReceipt`).
 - Growth: a new spatial verb is one `CubeOp` case plus one arm over the accessor member that spells it (`zonal_stats` lands this way when a raster-backed consumer names it); a new predicate is the accessor's own `predicate=` vocabulary, no arm edit; a new receipt fact is one entry on the family's fact dict; zero new surface.
 - Boundary: no raster coverage (the `rioxarray` bridge is `spatial/geospatial#COVERAGE`'s), no CF engine axis (cube leaves arrive as datasets the field owner opened), no second labelled-array store, no DGG cell algebra (`spatial/grid#GRID` owns cells); the accessor's plotting surface is out of scope — artifacts owns rendering.
 
 ```python signature
 from typing import TYPE_CHECKING, Any, Final, Literal, assert_never
 
-from expression import case, tag, tagged_union
+from expression import Option, case, tag, tagged_union
+from expression.collections import Block
 from msgspec import Struct
 from opentelemetry import trace
+from pyproj.exceptions import ProjError
+from shapely.errors import ShapelyError
+from zarr.errors import BaseZarrError
 
 lazy import geopandas as gpd
 
 from rasm.data.gridded.field import FieldReceipt
 from rasm.data.spatial.geospatial import VectorGeoClaim
-from rasm.runtime.faults import RuntimeRail, boundary, scoped
+from rasm.data.tabular.interop import DataLeg
+from rasm.runtime.faults import TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, boundary, rostered, scoped
 from rasm.runtime.identity import ContentIdentity
 from rasm.runtime.roots import ResourceRef
 
@@ -41,12 +46,45 @@ _TRACER: Final = scoped(trace.get_tracer, "rasm.data.spatial.cube")
 
 type Predicate = Literal["intersects", "within", "contains", "overlaps", "crosses", "touches", "covers", "covered_by", "dwithin"]
 
+# the accessor plane's raise set. `xvec` declares no exception type of its own (`.api/xvec.md` `[ERROR_ABSENCE]`):
+# it answers `ValueError` for a coordinate carrying no geometry index and `ImportError` for an unmet optional
+# provider. `ShapelyError` and `ProjError` are named because neither refines a builtin — the first roots at
+# `Exception`, the second at `RuntimeError` — so `ValueError` alone would miss both. Every `xarray` fault the cube
+# arms reach DOES refine `ValueError` (`MergeError`, `AlignmentError`, `CoordinateValidationError` alike), so that
+# one row carries them and this page adds no eager `xarray` import the sibling field owner binds `lazy`.
+_XVEC_RAISES: Final[Catch] = (ShapelyError, ProjError, KeyError, TypeError, ValueError, ImportError)
+
+# the Zarr egress leg: `BaseZarrError` roots the metadata, node, codec, and containment tree and itself refines
+# `ValueError` (`.api/zarr.md`), so it leads; the root-metadata read after the write is an ordinary filesystem hop
+# and answers `OSError`. The selection family sits OUTSIDE that root under `IndexError` and no write leg reaches it.
+_ZARR_RAISES: Final[Catch] = (BaseZarrError, ShapelyError, KeyError, TypeError, ValueError, OSError)
+
+# this module's whole raise roster under its one `DataLeg` member: the lift and the operation family are pure
+# in-memory transforms over an admitted cube, so a re-run over the same operand refuses identically and both declare
+# TERMINAL; the egress leg writes a store and declares TRANSIENT, a driver or filesystem fault a re-issue may clear.
+# Every row here is a FENCE ANCHOR alone — no site calls `raised` — so none declares `slots`: a converted provider
+# raise fills its own detail from the cause, and the op the fence was running rides the span's `rasm.geo.op`
+# attribute the enclosing `_TRACER` already stamps rather than a coordinate the row would have to name.
+CUBE_LIFT: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.CUBE, point="lift", arm="boundary", defect="geometry-index", retriability=TERMINAL
+)
+CUBE_APPLY: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.CUBE, point="apply", arm="boundary", defect="cube-op", retriability=TERMINAL
+)
+CUBE_WRITE: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.CUBE, point="write", arm="boundary", defect="cube-write", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[DataLeg]]] = rostered(Block.of_seq([CUBE_LIFT, CUBE_APPLY, CUBE_WRITE]))
+
 
 @tagged_union(frozen=True)
 class CubeOp:
     tag: Literal["query", "extract", "frame"] = tag()
-    # (predicate geometry, predicate name, dwithin distance | None) — the operand crosses the claim prelude first.
-    query: tuple[Any, Predicate, float | None] = case()
+    # (predicate geometry, predicate name, dwithin distance) — the operand crosses the claim prelude first, and the
+    # distance rides `Option` because only the `dwithin` predicate carries one: a bare `None` in the slot spelled
+    # "no distance" and "a distance the caller has not resolved yet" as one value, and the provider kwarg is the
+    # ONE place that absence lowers back to `None`.
+    query: tuple[Any, Predicate, Option[float]] = case()
     # (points, x coord name, y coord name) — nearest-cell lift for sensor locations on gridded variables.
     extract: tuple[tuple[Any, ...], str, str] = case()
     frame: None = case()
@@ -62,17 +100,21 @@ class ZoneCube(Struct, frozen=True):
         # lift indexes the named coordinate under the CLAIM's CRS — the one CRS authority every operand
         # then meets through the same prelude; geometry arrives as the coordinate's own shapely values.
         return boundary(
-            "cube.of", lambda: cls(cube=cube.xvec.set_geom_indexes(coord, crs=claim.crs), coord=coord, claim=claim)
+            CUBE_LIFT, lambda: cls(cube=cube.xvec.set_geom_indexes(coord, crs=claim.crs), coord=coord, claim=claim), catch=_XVEC_RAISES
         )
 
     def apply(self, op: CubeOp) -> "RuntimeRail[Any]":
         with _TRACER.start_as_current_span(f"cube.{op.tag}", attributes={"rasm.geo.crs": self.claim.crs, "rasm.geo.op": op.tag}):
-            return boundary(f"cube.{op.tag}", lambda: self._apply(op))
+            return boundary(CUBE_APPLY, lambda: self._apply(op), catch=_XVEC_RAISES)
 
     def _apply(self, op: CubeOp) -> Any:
         match op:
             case CubeOp(tag="query", query=(geometry, predicate, distance)):
-                return self.cube.xvec.query(self.coord, self._aligned(geometry), predicate=predicate, distance=distance)
+                # the ONE lowering of the carried absence back onto the provider's own `distance=None` default,
+                # seated at the single call the kwarg reaches per `boundaries.md` `[SENTINEL_SITE]`.
+                return self.cube.xvec.query(
+                    self.coord, self._aligned(geometry), predicate=predicate, distance=distance.default_value(None)
+                )
             case CubeOp(tag="extract", extract=(points, x_coord, y_coord)):
                 aligned = tuple(self._aligned(point) for point in points)
                 return self.cube.xvec.extract_points(list(aligned), x_coord, y_coord)
@@ -105,7 +147,7 @@ class ZoneCube(Struct, frozen=True):
             )
 
         with _TRACER.start_as_current_span("cube.write", attributes={"rasm.geo.op": "cube.write"}):
-            return boundary("cube.write", emit).bind(lambda rail: rail)
+            return boundary(CUBE_WRITE, emit, catch=_ZARR_RAISES).bind(lambda rail: rail)
 ```
 
 ## [03]-[RESEARCH]

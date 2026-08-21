@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [02]-[CAPABILITY_VOCABULARY]: the index roster and its estimation methods beside the generated SPC chart, rule, and control-constant rows.
+- [02]-[CAPABILITY_VOCABULARY]: the index roster and its estimation methods beside the generated SPC chart, rule, attribute-chart, control-evidence, and control-constant rows.
 - [03]-[DISTRIBUTION_FIT]: the fitted family union, its support-gated moment seeds, and the policy every numeric the fitting lane spends rides.
 - [04]-[STUDY_ADMISSION]: study identity, measurement-system evidence, control policy, the attribute cohort, and the chain-bound stackup contributors.
 - [05]-[ASSESSMENT]: `Capability.Assess` over either study case, control-limit and violation derivation, the correlated stackup, and the ledger projections.
@@ -14,11 +14,11 @@
 
 ## [02]-[CAPABILITY_VOCABULARY]
 
-- Owner: `CapabilityMetric` owns the index roster and the standard error each index carries; `CapabilityMethod` owns moment and percentile estimation over one `CapabilitySpread`; `CapabilitySide` owns the one sided-index algebra both methods enter; `SpcChart`, `SpcRule`, `SpcRuleClass`, and `ControlConstant` own generated control policy.
+- Owner: `CapabilityMetric` owns the index roster, the spread adjustment each definition applies, and the standard error each index carries; `CapabilityMethod` owns moment and percentile estimation over one `CapabilitySpread`; `CapabilitySide` owns the one sided-index algebra both methods enter; `ControlEvidence` owns the three findings a controlled process holds; `SpcChart`, `SpcRule`, `SpcRuleClass`, `AttributeChart`, and `ControlConstant` own generated control policy.
 - Law: `CapabilityMethod` closes moment and ISO 22514-4 percentile estimation, so the fitted distribution decides the non-normal index instead of decorating the report; the demand itself is the fourth operand, so neither method takes a page constant nor a bare double whose axis is unstated.
 - Law: `SpcChart.Admits` grades each rule class per chart, so every chart signals on its own control band while the zone and pattern ladders stay on symmetric equal-variance charts.
 - Auto: calibrated `ControlConstant` rows carry the range mean and spread the subgroup limits derive from, and a subgroup past the calibrated roster hands spread to the s-chart rather than extrapolating a d2 that was never published.
-- Growth: a capability index is one `CapabilityMetric` row; a control rule is one `SpcRule` row carrying its `SpcRuleClass`.
+- Growth: a capability index is one `CapabilityMetric` row carrying its own scale, side, and spread adjustment; a control rule is one `SpcRule` row carrying its `SpcRuleClass`; an attribute chart is one `AttributeChart` row carrying when it is derivable, how a sample plots on it, and how the cohort interval scales onto it; a control finding is one `ControlEvidence` row.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -27,12 +27,14 @@ using CommunityToolkit.HighPerformance.Helpers;
 using Foundation.CSharp.Analyzers.Contracts;
 using LanguageExt;
 using LanguageExt.Common;
+using LanguageExt.Traits;
 using MathNet.Numerics;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.RootFinding;
 using NodaTime;
 using Rasm.Analysis;
 using Rasm.Domain;
+using Rasm.Element.Projection;           // AdmissionSlots — the one accumulating slot algebra every gate lifts through
 using System.Numerics.Tensors;
 using UnitsNet;
 using Rasm.Fabrication.Joining;
@@ -43,21 +45,23 @@ using static LanguageExt.Prelude;
 namespace Rasm.Fabrication.Spec;
 
 // --- [VOCABULARY] ---------------------------------------------------------------------------------------------------------------------------------
+// The row reads the moment column it names. A boolean beside a ternary answered one question in two places, and
+// a third scale — a between-subgroup component, a pooled estimate — could not be a row there at all.
 [SmartEnum<string>]
 public sealed partial class CapabilityScale {
-    public static readonly CapabilityScale Short = new("short", shortTerm: true);
-    public static readonly CapabilityScale Long = new("long", shortTerm: false);
+    public static readonly CapabilityScale Short = new("short", static moment => moment.WithinSigma);
+    public static readonly CapabilityScale Long = new("long", static moment => moment.OverallSigma);
 
-    public bool ShortTerm { get; }
+    [UseDelegateFromConstructor]
+    private partial double Component(CapabilityMoment moment);
 
-    public double Sigma(CapabilityMoment moment) =>
-        double.Max(ShortTerm ? moment.WithinSigma : moment.OverallSigma, double.Epsilon);
+    public double Sigma(CapabilityMoment moment) => double.Max(Component(moment), double.Epsilon);
 }
 
 [SmartEnum<string>]
 public sealed partial class CapabilityMethod {
     public static readonly CapabilityMethod Moment = new("moment", static (scale, moment, _, tolerance) =>
-        Some(Symmetric(moment.Mean, tolerance.SpreadSigmaSpan * scale.Sigma(moment))));
+        Some(Symmetric(moment.Mean, tolerance.SpreadSpan.Of(scale.Sigma(moment)))));
     public static readonly CapabilityMethod Percentile = new("percentile", static (_, _, fitted, tolerance) =>
         from row in fitted
         from spread in Capability.QuantileSpread(row.Parameters, tolerance)
@@ -87,17 +91,23 @@ public sealed partial class CapabilitySide {
                 select (upper - lower) / (state.spread.Lower + state.spread.Upper));
 }
 
+// Each row carries the SPREAD ADJUSTMENT its index definition applies — identity for every published index but
+// Taguchi's, which inflates by the off-target term. A boolean naming that one row put the correction's formula at
+// the fold instead of at its owner, so a second adjusted index could not be a row and the fold branched per read.
 [SmartEnum<string>]
 public sealed partial class CapabilityMetric {
-    public static readonly CapabilityMetric Cp = Moment("cp", CapabilityScale.Short, CapabilitySide.Bilateral, targetPenalty: false);
-    public static readonly CapabilityMetric Cpk = Moment("cpk", CapabilityScale.Short, side: null, targetPenalty: false);
-    public static readonly CapabilityMetric Cpu = Moment("cpu", CapabilityScale.Short, CapabilitySide.Upper, targetPenalty: false);
-    public static readonly CapabilityMetric Cpl = Moment("cpl", CapabilityScale.Short, CapabilitySide.Lower, targetPenalty: false);
-    public static readonly CapabilityMetric Pp = Moment("pp", CapabilityScale.Long, CapabilitySide.Bilateral, targetPenalty: false);
-    public static readonly CapabilityMetric Ppk = Moment("ppk", CapabilityScale.Long, side: null, targetPenalty: false);
-    public static readonly CapabilityMetric Ppu = Moment("ppu", CapabilityScale.Long, CapabilitySide.Upper, targetPenalty: false);
-    public static readonly CapabilityMetric Ppl = Moment("ppl", CapabilityScale.Long, CapabilitySide.Lower, targetPenalty: false);
-    public static readonly CapabilityMetric Cpm = Moment("cpm", CapabilityScale.Long, CapabilitySide.Bilateral, targetPenalty: true);
+    public static readonly CapabilityMetric Cp = Moment("cp", CapabilityScale.Short, CapabilitySide.Bilateral);
+    public static readonly CapabilityMetric Cpk = Moment("cpk", CapabilityScale.Short, side: null);
+    public static readonly CapabilityMetric Cpu = Moment("cpu", CapabilityScale.Short, CapabilitySide.Upper);
+    public static readonly CapabilityMetric Cpl = Moment("cpl", CapabilityScale.Short, CapabilitySide.Lower);
+    public static readonly CapabilityMetric Pp = Moment("pp", CapabilityScale.Long, CapabilitySide.Bilateral);
+    public static readonly CapabilityMetric Ppk = Moment("ppk", CapabilityScale.Long, side: null);
+    public static readonly CapabilityMetric Ppu = Moment("ppu", CapabilityScale.Long, CapabilitySide.Upper);
+    public static readonly CapabilityMetric Ppl = Moment("ppl", CapabilityScale.Long, CapabilitySide.Lower);
+    // ISO 22514-2 Cpm: the spread widens by the root of one plus the squared standardized off-target displacement,
+    // so an on-target process reads its bilateral index and a displaced one is charged for the displacement.
+    public static readonly CapabilityMetric Cpm = new("cpm", CapabilityMethod.Moment, CapabilityScale.Long,
+        Some(CapabilitySide.Bilateral), Taguchi);
     public static readonly CapabilityMetric PpQuantile = Quantile("pp-q", CapabilitySide.Bilateral);
     public static readonly CapabilityMetric PpkQuantile = Quantile("ppk-q", side: null);
     public static readonly CapabilityMetric PpuQuantile = Quantile("ppu-q", CapabilitySide.Upper);
@@ -106,21 +116,28 @@ public sealed partial class CapabilityMetric {
     public CapabilityMethod Method { get; }
     public CapabilityScale Scale { get; }
     public Option<CapabilitySide> Side { get; }
-    public bool TargetPenalty { get; }
+
+    [UseDelegateFromConstructor]
+    public partial CapabilitySpread Adjust(CapabilitySpread spread, CapabilityMoment moment, CapabilityTolerance tolerance);
 
     // ISO 22514-4: the percentile method estimates spread from fitted quantiles, so a non-normal fit gates its own rows.
     public Option<double> Of(CapabilityMoment moment, Option<CapabilityDistribution> fitted, CapabilityTolerance tolerance) =>
         from spread in Method.Of(Scale, moment, fitted, tolerance)
-        let inflated = TargetPenalty
-            ? tolerance.TargetMm
-                .Map(target => Math.Sqrt(1.0 + Math.Pow((moment.Mean - target) / Scale.Sigma(moment), 2.0)))
-                .Map(correction => spread with { Lower = spread.Lower * correction, Upper = spread.Upper * correction })
-                .IfNone(spread)
-            : spread
+        let adjusted = Adjust(spread, moment, tolerance)
         from index in Side.Match(
-            Some: side => side.Index(inflated, tolerance),
-            None: () => Closest(inflated, tolerance))
+            Some: side => side.Index(adjusted, tolerance),
+            None: () => Closest(adjusted, tolerance))
         select index;
+
+    // A declared target is what the correction reads, so a row demanding one and a study declaring none reports the
+    // uncorrected spread rather than a figure derived from a target nobody stated.
+    private static CapabilitySpread Taguchi(CapabilitySpread spread, CapabilityMoment moment, CapabilityTolerance tolerance) =>
+        tolerance.TargetMm
+            .Map(target => Math.Sqrt(1.0 + Math.Pow((moment.Mean - target) / CapabilityScale.Long.Sigma(moment), 2.0)))
+            .Map(correction => spread with { Lower = spread.Lower * correction, Upper = spread.Upper * correction })
+            .IfNone(spread);
+
+    private static CapabilitySpread Unadjusted(CapabilitySpread spread, CapabilityMoment _, CapabilityTolerance __) => spread;
 
     // Bissell: a one-sided index carries the mean-estimation term the bilateral index does not.
     public double StandardError(double value, double sampleSize) =>
@@ -129,17 +146,29 @@ public sealed partial class CapabilityMetric {
             : Math.Sqrt((1.0 / (9.0 * double.Max(sampleSize, 1.0)))
                 + (value * value / (2.0 * double.Max(sampleSize - 1.0, 1.0))));
 
-    private static CapabilityMetric Moment(string key, CapabilityScale scale, CapabilitySide? side, bool targetPenalty) =>
-        new(key, CapabilityMethod.Moment, scale, Optional(side), targetPenalty);
+    private static CapabilityMetric Moment(string key, CapabilityScale scale, CapabilitySide? side) =>
+        new(key, CapabilityMethod.Moment, scale, Optional(side), Unadjusted);
 
     private static CapabilityMetric Quantile(string key, CapabilitySide? side) =>
-        new(key, CapabilityMethod.Percentile, CapabilityScale.Long, Optional(side), targetPenalty: false);
+        new(key, CapabilityMethod.Percentile, CapabilityScale.Long, Optional(side), Unadjusted);
 
     private static Option<double> Closest(CapabilitySpread spread, CapabilityTolerance tolerance) {
         Option<double> lower = CapabilitySide.Lower.Index(spread, tolerance);
         Option<double> upper = CapabilitySide.Upper.Index(spread, tolerance);
         return (from low in lower from high in upper select double.Min(low, high)) | lower | upper;
     }
+}
+
+// A controlled process holds THREE independent facts, each bounded by its own `ControlPolicy` column: no rule fired
+// on any chart, no autocorrelation lag exceeded its bound, and the drift slope stayed inside its own. One boolean
+// conjunction answered all three, so a gate refusing an uncontrolled process could never name WHICH evidence was
+// absent and a ledger row published a verdict no consumer could reopen. `Controlled` survives as the derived read
+// of the whole set, so every consumer of that projection compiles unchanged while the refusal gains its evidence.
+[SmartEnum<string>]
+public sealed partial class ControlEvidence : ICapability<ControlEvidence> {
+    public static readonly ControlEvidence Stable = new("stable");
+    public static readonly ControlEvidence Independent = new("independent");
+    public static readonly ControlEvidence Stationary = new("stationary");
 }
 
 [SmartEnum<string>]
@@ -167,6 +196,11 @@ public sealed partial class SpcChart {
     public Set<SpcRuleClass> Rules { get; }
 
     public bool Admits(SpcRule rule) => Rules.Contains(rule.Class);
+
+    // A count charts a non-negative quantity, so its lower limit floors at zero where a variables chart's runs
+    // negative — the row states its own floor rather than every limit site re-reading the attribute flag.
+    public double LowerLimit(double center, double band) =>
+        Attribute ? double.Max(0.0, center - band) : center - band;
 
     // Every chart signals on its own limits; only a symmetric, equal-variance chart admits the zone and pattern ladder.
     private static SpcChart Bounded(string key, bool attribute) => new(key, attribute, Set(SpcRuleClass.Limit));
@@ -247,7 +281,7 @@ public sealed partial class ControlConstant {
 
 ## [03]-[DISTRIBUTION_FIT]
 
-- Owner: `DistributionParameters` closes the fitted continuous families and owns the free-parameter count the criterion charges each for; `DistributionFamily` seeds them by support; `DistributionPolicy` owns every numeric the fitting lane spends.
+- Owner: `DistributionParameters` closes the fitted continuous families and owns the free-parameter count the criterion charges each for; `DistributionFamily` seeds them by support; `SearchBracket` owns the one positive ordered interval every bracketed search runs over; `DistributionPolicy` owns every numeric the fitting lane spends and the ONE root-find that spends them.
 - Law: distribution selection is PENALIZED. A nested richer family always tracks a sample at least as closely, so Akaike's criterion over the fitted log-likelihood charges each family for its free parameters and the reported supremum stays the evidence a reader compares on; the count is a property of the FAMILY, so selection never reflects over a record's positional arity.
 - Law: moment matching is a ROW per family, so a candidate space grows by one declaration and never by editing a seeding body, and a family whose support the sample violates seeds nothing rather than fitting an impossible fit.
 - Auto: `Generate.LinearSpacedMap` generates the Student candidate fan and one bracketed `Brent.TryFindRoot` serves every quantile and shape MathNet exposes no closed inverse for.
@@ -256,43 +290,91 @@ public sealed partial class ControlConstant {
 
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-// The fitting policy owns EVERY numeric the fitting lane spends: the candidate fan, the Student freedom band, the
-// shape bracket and accuracy every root-find runs at, the quantile bracket in standard deviations, and the draw
-// seed the fit and spread share. A page-level constant here is a policy value hiding from its own owner.
+// A COUNT of process standard deviations — the one axis five bare doubles across two policies and one demand were
+// each spending under a name that spelled it: a control band's half-width, a CUSUM slack and its decision interval,
+// a quantile bracket's reach, and the index span a moment method spreads to. Every one of them was separately
+// admitted, separately guarded, and could be handed a millimetre or a probability by a caller reading the name
+// rather than the axis. The carrier states the axis once, so the member names drop the suffix that was standing in
+// for a type, and `Of` is the one place a span becomes a magnitude. A zero span is admissible because a CUSUM with
+// no slack is a real configuration; an owner needing a strictly positive span demands it at its own admission.
+[ValueObject<double>]
+public readonly partial struct SigmaSpan {
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
+        validationError = ValidityClaim.Nonnegative(value) ? null : Capability.Validation("sigma-span");
+
+    public double Of(double sigma) => ToValue() * sigma;
+}
+
+// A positive ordered interval, admitted ONCE. The fitting policy carried two of them as four bare doubles under two
+// hand-repeated ordering clauses — the Student freedom band and the shape bracket — and every root-find then spread
+// the same pair back across two positional arguments. One owner states the invariant, and the interval it names is
+// what a search runs over rather than a pair a call site re-assembles.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
+public sealed partial class SearchBracket {
+    public double Lower { get; }
+    public double Upper { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError,
+        ref double lower, ref double upper) =>
+        validationError = ValidityClaim.All(
+            ValidityClaim.Positive(lower), ValidityClaim.Ordered(lower, upper), lower < upper)
+            ? null
+            : Capability.Validation("search-bracket");
+
+    public double Span => Upper - Lower;
+}
+
+// The fitting policy owns EVERY numeric the fitting lane spends: the candidate fan, the Student freedom band, the
+// shape bracket and the budget every root-find runs at, the quantile bracket the axis carrier now names, and the
+// draw seed the fit and spread share. A page-level constant here is a policy value hiding from its own owner.
+[ComplexValueObject]
 public sealed partial class DistributionPolicy {
     public int CandidateCount { get; }
-    public double StudentFreedomMinimum { get; }
-    public double StudentFreedomMaximum { get; }
-    public double ShapeLowerBound { get; }
-    public double ShapeUpperBound { get; }
+    public SearchBracket StudentFreedom { get; }
+    public SearchBracket Shape { get; }
+
+    // The residual magnitude Brent converges to — a difference of two cumulative probabilities on the quantile
+    // path and of two gamma ratios on the shape path, so it is dimensionless by construction and carries no axis.
     public double RootAccuracy { get; }
     public int RootIterations { get; }
-    public double BracketSigma { get; }
+    public SigmaSpan Bracket { get; }
     public int FitSeed { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref int candidateCount,
-        ref double studentFreedomMinimum,
-        ref double studentFreedomMaximum,
-        ref double shapeLowerBound,
-        ref double shapeUpperBound,
+        ref SearchBracket studentFreedom,
+        ref SearchBracket shape,
         ref double rootAccuracy,
         ref int rootIterations,
-        ref double bracketSigma,
+        ref SigmaSpan bracket,
         ref int fitSeed) =>
-        validationError = candidateCount >= 2 && studentFreedomMinimum > 2.0 && studentFreedomMaximum > studentFreedomMinimum
-            && shapeLowerBound > 0.0 && shapeUpperBound > shapeLowerBound
-            && rootAccuracy > 0.0 && rootIterations >= 1 && bracketSigma > 0.0
+        // The Student band's own floor is the family's: a t below two degrees of freedom has no finite variance,
+        // so a moment-matched scale off it is a number the fit cannot mean.
+        validationError = ValidityClaim.All(
+            ValidityClaim.CountAtLeast(candidateCount, 2),
+            studentFreedom is not null && studentFreedom.Lower > 2.0,
+            shape is not null,
+            ValidityClaim.Positive(rootAccuracy),
+            ValidityClaim.CountAtLeast(rootIterations, 1),
+            ValidityClaim.Positive(bracket.ToValue()))
             ? null
-            : Capability.Inadmissible("distribution-policy");
+            : Capability.Validation("distribution-policy");
+
+    // The ONE bracketed root-find on the page. Two call sites spread bracket, accuracy, and iteration budget across
+    // five positional arguments and each re-spelled the `out`-parameter-to-`Option` lift; the budget is this policy's
+    // own fact, so the bracket is the only thing a caller still names.
+    public Option<double> Root(Func<double, double> residual, SearchBracket over) =>
+        Brent.TryFindRoot(residual, over.Lower, over.Upper, RootAccuracy, RootIterations, out double root)
+            ? Some(root)
+            : None;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record DistributionParameters {
+public abstract partial record DistributionParameters : IValidityEvidence {
     private DistributionParameters() { }
 
     // The free-parameter count Akaike's criterion charges each family for. It is a property of the FAMILY, so the
@@ -336,27 +418,36 @@ public abstract partial record DistributionParameters {
     public sealed record BetaScaled(double A, double B, double Lower, double Upper) : DistributionParameters;
     public sealed record Logistic(double Mean, double Scale) : DistributionParameters;
 
-    public bool Valid => Switch(
-        normal: static value => double.IsFinite(value.Mean) && double.IsFinite(value.Sigma) && value.Sigma > 0.0,
-        logNormal: static value => double.IsFinite(value.Mu) && double.IsFinite(value.Sigma) && value.Sigma > 0.0,
-        gamma: static value => Positive(value.Shape) && Positive(value.Rate),
-        student: static value => double.IsFinite(value.Location) && Positive(value.Scale) && double.IsFinite(value.Freedom) && value.Freedom > 2.0,
-        weibull: static value => Positive(value.Shape) && Positive(value.Scale),
-        beta: static value => Positive(value.A) && Positive(value.B),
-        chiSquared: static value => Positive(value.Freedom),
-        exponential: static value => Positive(value.Rate),
-        uniform: static value => double.IsFinite(value.Lower) && double.IsFinite(value.Upper) && value.Upper > value.Lower,
-        cauchy: static value => double.IsFinite(value.Location) && Positive(value.Scale),
-        laplace: static value => double.IsFinite(value.Location) && Positive(value.Scale),
-        rayleigh: static value => Positive(value.Scale),
-        fisher: static value => Positive(value.D1) && double.IsFinite(value.D2) && value.D2 > 4.0,
-        triangular: static value => double.IsFinite(value.Lower) && double.IsFinite(value.Upper) && double.IsFinite(value.Mode) && value.Upper > value.Lower
-            && value.Mode >= value.Lower && value.Mode <= value.Upper,
-        pareto: static value => Positive(value.Scale) && double.IsFinite(value.Shape) && value.Shape > 1.0,
-        inverseGamma: static value => double.IsFinite(value.Shape) && value.Shape > 2.0 && Positive(value.Scale),
-        betaScaled: static value => Positive(value.A) && Positive(value.B) && double.IsFinite(value.Lower)
-            && double.IsFinite(value.Upper) && value.Upper > value.Lower,
-        logistic: static value => double.IsFinite(value.Mean) && Positive(value.Scale));
+    // Each arm states the support ITS family requires, through the kernel claim rows: the page-local `Positive`
+    // helper that stood here was `ValidityClaim.Positive` under a second name, and a family whose free parameter
+    // has a hard floor — a Student below two degrees of freedom, a Fisher below four, a Pareto below one — names
+    // that floor as an ordering rather than as a bare comparison a reader has to recognize as a support test.
+    public bool IsValid => Switch(
+        normal: static value => ValidityClaim.All(ValidityClaim.Finite(value.Mean), ValidityClaim.Positive(value.Sigma)),
+        logNormal: static value => ValidityClaim.All(ValidityClaim.Finite(value.Mu), ValidityClaim.Positive(value.Sigma)),
+        gamma: static value => ValidityClaim.All(ValidityClaim.Positive(value.Shape), ValidityClaim.Positive(value.Rate)),
+        student: static value => ValidityClaim.All(ValidityClaim.Finite(value.Location),
+            ValidityClaim.Positive(value.Scale), ValidityClaim.Ordered(2.0, value.Freedom), value.Freedom > 2.0),
+        weibull: static value => ValidityClaim.All(ValidityClaim.Positive(value.Shape), ValidityClaim.Positive(value.Scale)),
+        beta: static value => ValidityClaim.All(ValidityClaim.Positive(value.A), ValidityClaim.Positive(value.B)),
+        chiSquared: static value => ValidityClaim.Positive(value.Freedom),
+        exponential: static value => ValidityClaim.Positive(value.Rate),
+        uniform: static value => ValidityClaim.All(ValidityClaim.Ordered(value.Lower, value.Upper), value.Upper > value.Lower),
+        cauchy: static value => ValidityClaim.All(ValidityClaim.Finite(value.Location), ValidityClaim.Positive(value.Scale)),
+        laplace: static value => ValidityClaim.All(ValidityClaim.Finite(value.Location), ValidityClaim.Positive(value.Scale)),
+        rayleigh: static value => ValidityClaim.Positive(value.Scale),
+        fisher: static value => ValidityClaim.All(ValidityClaim.Positive(value.D1),
+            ValidityClaim.Ordered(4.0, value.D2), value.D2 > 4.0),
+        triangular: static value => ValidityClaim.All(ValidityClaim.Ordered(value.Lower, value.Upper),
+            value.Upper > value.Lower, ValidityClaim.Ordered(value.Lower, value.Mode),
+            ValidityClaim.Ordered(value.Mode, value.Upper)),
+        pareto: static value => ValidityClaim.All(ValidityClaim.Positive(value.Scale),
+            ValidityClaim.Ordered(1.0, value.Shape), value.Shape > 1.0),
+        inverseGamma: static value => ValidityClaim.All(ValidityClaim.Ordered(2.0, value.Shape),
+            value.Shape > 2.0, ValidityClaim.Positive(value.Scale)),
+        betaScaled: static value => ValidityClaim.All(ValidityClaim.Positive(value.A), ValidityClaim.Positive(value.B),
+            ValidityClaim.Ordered(value.Lower, value.Upper), value.Upper > value.Lower),
+        logistic: static value => ValidityClaim.All(ValidityClaim.Finite(value.Mean), ValidityClaim.Positive(value.Scale)));
 
     public bool FiniteMoments => this switch {
         Cauchy => false,
@@ -384,8 +475,6 @@ public abstract partial record DistributionParameters {
         inverseGamma: static (rng, value) => new MathNet.Numerics.Distributions.InverseGamma(value.Shape, value.Scale, rng),
         betaScaled: static (rng, value) => new MathNet.Numerics.Distributions.BetaScaled(value.A, value.B, value.Lower, value.Upper, rng),
         logistic: static (rng, value) => new MathNet.Numerics.Distributions.Logistic(value.Mean, value.Scale, rng));
-
-    private static bool Positive(double value) => double.IsFinite(value) && value > 0.0;
 }
 
 [SmartEnum<string>]
@@ -419,7 +508,7 @@ public sealed partial class DistributionFamily {
             moment.Mean - (Math.Sqrt(6.0) * sigma), moment.Mean + (Math.Sqrt(6.0) * sigma), moment.Mean));
     public static readonly DistributionFamily Student = new("student", DistributionSupport.Real,
         static (moment, sigma, policy) => toSeq(Generate.LinearSpacedMap(
-            policy.CandidateCount, policy.StudentFreedomMinimum, policy.StudentFreedomMaximum,
+            policy.CandidateCount, policy.StudentFreedom.Lower, policy.StudentFreedom.Upper,
             freedom => (DistributionParameters)new DistributionParameters.Student(
                 moment.Mean, sigma * Math.Sqrt((freedom - 2.0) / freedom), freedom))));
     public static readonly DistributionFamily LogNormal = One("log-normal", DistributionSupport.Positive,
@@ -441,7 +530,7 @@ public sealed partial class DistributionFamily {
     public static readonly DistributionFamily ChiSquared = One("chi-squared", DistributionSupport.Positive,
         static (moment, _, _) => new DistributionParameters.ChiSquared(double.Max(moment.Mean, double.Epsilon)));
     public static readonly DistributionFamily Fisher = One("fisher", DistributionSupport.Positive,
-        static (_, _, policy) => new DistributionParameters.Fisher(5.0, double.Max(5.0, policy.StudentFreedomMaximum)));
+        static (_, _, policy) => new DistributionParameters.Fisher(5.0, double.Max(5.0, policy.StudentFreedom.Upper)));
     public static readonly DistributionFamily Weibull = new("weibull", DistributionSupport.Positive,
         static (moment, sigma, policy) => WeibullShape(sigma / moment.Mean, policy)
             .Map(shape => (DistributionParameters)new DistributionParameters.Weibull(
@@ -461,7 +550,7 @@ public sealed partial class DistributionFamily {
     public Func<CapabilityMoment, double, DistributionPolicy, Seq<DistributionParameters>> Seed { get; }
 
     public Seq<DistributionParameters> Candidates(CapabilityMoment moment, double sigma, DistributionPolicy policy) =>
-        Support.Admits(moment) ? Seed(moment, sigma, policy).Filter(static row => row.Valid) : Seq<DistributionParameters>();
+        Support.Admits(moment) ? Seed(moment, sigma, policy).Filter(static row => row.IsValid) : Seq<DistributionParameters>();
 
     private static DistributionFamily One(string key, DistributionSupport support,
         Func<CapabilityMoment, double, DistributionPolicy, DistributionParameters> seed) =>
@@ -474,16 +563,10 @@ public sealed partial class DistributionFamily {
         new DistributionParameters.LogNormal(Math.Log(mean) - (logSigma * logSigma / 2.0), logSigma);
 
     private static Option<double> WeibullShape(double coefficient, DistributionPolicy policy) =>
-        Brent.TryFindRoot(
+        policy.Root(
             shape => (SpecialFunctions.Gamma(1.0 + (2.0 / shape)) / Math.Pow(SpecialFunctions.Gamma(1.0 + (1.0 / shape)), 2.0))
                 - 1.0 - (coefficient * coefficient),
-            policy.ShapeLowerBound,
-            policy.ShapeUpperBound,
-            policy.RootAccuracy,
-            policy.RootIterations,
-            out double shape)
-                ? Some(shape)
-                : None;
+            policy.Shape);
 
     private static Option<(double A, double B)> Shape(double lower, double upper, double mean, double sigma) {
         double width = upper - lower;
@@ -502,13 +585,14 @@ public sealed partial class DistributionFamily {
 - Owner: `CapabilityStudy` closes variable and attribute evidence; `CapabilityTolerance` carries the characteristic demand, control policy, measurement study, optional procedure, and optional stackup; `MeasurementEvidence` carries variable gage and attribute agreement studies; `StackContributor` and `StackupPolicy` carry the stochastic half of a declared tolerance chain.
 - Law: the attribute cohort folds ONCE per study and threads through limits and rows as a NAMED record, so no column is addressed by tuple position and no second pass re-derives sums already in hand.
 - Law: the contributor roster is a BIJECTION onto the chain's terms, and a contributor carries only what the term cannot — the systematic offset, the shared-factor loadings, and an optional measured fit overriding the term's declared family.
+- Law: every policy and study numeric carries its AXIS. `SigmaSpan` is the count of process standard deviations five columns were each spelling with a name suffix — a control band, a CUSUM slack and decision interval, a quantile bracket, and the index span a moment method spreads to; a gage variation is a `Length`, a proportion is a `Ratio`, and a bare double survives only where the quantity is genuinely dimensionless, stated at its own member.
+- Law: admission composes the kernel claim vocabulary. `ValidityClaim.All` over `Positive`, `Nonnegative`, `UnitInterval`, `Ordered`, and `CountAtLeast` is what each generated hook spells, so a bound is never re-derived and a folder-local scalar predicate has no site here.
 - Boundary: `CapabilityIdentity` carries the `DiameterBand` its study measured, so `Gate` and `Achievable` resolve through one identity and no row authorizes a size it never observed.
 - Growth: a study modality is one `CapabilityStudy` case folded by `Assess`.
 
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CapabilityIdentity {
     public ProcessKind Process { get; }
     public UInt128 Characteristic { get; }
@@ -521,7 +605,7 @@ public sealed partial class CapabilityIdentity {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref ProcessKind process,
         ref UInt128 characteristic,
         ref DiameterBand feature,
@@ -530,78 +614,105 @@ public sealed partial class CapabilityIdentity {
         ref UInt128 tool,
         ref ToolEvidence toolState,
         ref UInt128 setup) =>
-        validationError = process is not null && characteristic != 0 && feature is not null
-            && machine != 0 && material != 0 && tool != 0 && toolState is not null && setup != 0
+        validationError = ValidityClaim.All(
+            process is not null, characteristic != 0, feature is not null,
+            machine != 0, material != 0, tool != 0, toolState is not null, setup != 0)
             ? null
-            : Capability.Inadmissible("identity");
+            : Capability.Validation("identity");
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
+// Six of these columns are gage VARIATIONS in the characteristic's own unit and one is a proportion of total
+// variation; all seven stood as bare doubles under an `Mm` suffix that told a caller what the type would not, so a
+// micrometre reading, a percentage, and a millimetre reading were one shape. `GrrFraction` is a `Ratio` because the
+// study's own demand is one, and the hundred that scaled it was a presentation choice inside a comparison.
 public sealed partial class VariableMeasurementStudy {
-    public double RepeatabilityMm { get; }
-    public double ReproducibilityMm { get; }
-    public double PartVariationMm { get; }
-    public double BiasMm { get; }
-    public double LinearityMm { get; }
-    public double StabilityMm { get; }
-    public double MaximumPercentGrr { get; }
+    public Length Repeatability { get; }
+    public Length Reproducibility { get; }
+    public Length PartVariation { get; }
+    public Length Bias { get; }
+    public Length Linearity { get; }
+    public Length Stability { get; }
+    public Ratio MaximumGrr { get; }
     public int MinimumDistinctCategories { get; }
 
-    public double GrrMm => Math.Sqrt((RepeatabilityMm * RepeatabilityMm) + (ReproducibilityMm * ReproducibilityMm));
-    public double PercentGrr => 100.0 * GrrMm / Math.Sqrt((GrrMm * GrrMm) + (PartVariationMm * PartVariationMm));
-    public int DistinctCategories => (int)Math.Floor(1.41 * PartVariationMm / double.Max(GrrMm, double.Epsilon));
-    public bool Suitable => PercentGrr <= MaximumPercentGrr && DistinctCategories >= MinimumDistinctCategories;
+    public Length Grr => Length.FromMillimeters(Math.Sqrt(
+        (Repeatability.Millimeters * Repeatability.Millimeters)
+        + (Reproducibility.Millimeters * Reproducibility.Millimeters)));
+
+    // The AIAG %GRR against total variation, carried as the fraction it is: the study's demand is a fraction, so
+    // one comparison reads one axis and a demand stated in percent converts at its own boundary.
+    public Ratio GrrFraction => Ratio.FromDecimalFractions(Grr.Millimeters / Math.Sqrt(
+        (Grr.Millimeters * Grr.Millimeters) + (PartVariation.Millimeters * PartVariation.Millimeters)));
+
+    public int DistinctCategories =>
+        (int)Math.Floor(1.41 * PartVariation.Millimeters / double.Max(Grr.Millimeters, double.Epsilon));
+
+    public bool Suitable => GrrFraction <= MaximumGrr && DistinctCategories >= MinimumDistinctCategories;
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
-        ref double repeatabilityMm,
-        ref double reproducibilityMm,
-        ref double partVariationMm,
-        ref double biasMm,
-        ref double linearityMm,
-        ref double stabilityMm,
-        ref double maximumPercentGrr,
+        ref ValidationError? validationError,
+        ref Length repeatability,
+        ref Length reproducibility,
+        ref Length partVariation,
+        ref Length bias,
+        ref Length linearity,
+        ref Length stability,
+        ref Ratio maximumGrr,
         ref int minimumDistinctCategories) =>
-        validationError = Seq(repeatabilityMm, reproducibilityMm, partVariationMm, biasMm, linearityMm, stabilityMm, maximumPercentGrr)
-                .ForAll(static value => double.IsFinite(value) && value >= 0.0)
-            && partVariationMm > 0.0 && maximumPercentGrr > 0.0 && minimumDistinctCategories >= 1
+        validationError = ValidityClaim.All(
+            Seq(repeatability, reproducibility, bias, linearity, stability)
+                .ForAll(static value => ValidityClaim.Nonnegative(value.Millimeters)),
+            // Part variation divides the ratio and floors the category count, so a zero here is not a small study
+            // but an unmeasurable one.
+            ValidityClaim.Positive(partVariation.Millimeters),
+            ValidityClaim.UnitInterval(maximumGrr.DecimalFractions),
+            ValidityClaim.Positive(maximumGrr.DecimalFractions),
+            ValidityClaim.CountAtLeast(minimumDistinctCategories, 1))
                 ? null
-                : Capability.Inadmissible("variable-msa");
+                : Capability.Validation("variable-msa");
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
+// Every column is a proportion, so every column is a `Ratio`. Kappa is the one whose band runs to minus one —
+// perfect disagreement is a real reading and clamping it to the unit interval would report a systematically
+// inverted appraiser as merely unhelpful — so it and its demand carry the chance-corrected band explicitly.
 public sealed partial class AttributeAgreementStudy {
-    public double AppraiserAgreement { get; }
-    public double StandardAgreement { get; }
-    public double Kappa { get; }
-    public double FalseAcceptRate { get; }
-    public double MissRate { get; }
-    public double MinimumAgreement { get; }
-    public double MinimumKappa { get; }
-    public double MaximumFalseDecisionRate { get; }
+    public Ratio AppraiserAgreement { get; }
+    public Ratio StandardAgreement { get; }
+    public Ratio Kappa { get; }
+    public Ratio FalseAcceptRate { get; }
+    public Ratio MissRate { get; }
+    public Ratio MinimumAgreement { get; }
+    public Ratio MinimumKappa { get; }
+    public Ratio MaximumFalseDecisionRate { get; }
 
     public bool Suitable => AppraiserAgreement >= MinimumAgreement && StandardAgreement >= MinimumAgreement
-        && Kappa >= MinimumKappa && double.Max(FalseAcceptRate, MissRate) <= MaximumFalseDecisionRate;
+        && Kappa >= MinimumKappa
+        && Ratio.FromDecimalFractions(double.Max(FalseAcceptRate.DecimalFractions, MissRate.DecimalFractions))
+            <= MaximumFalseDecisionRate;
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
-        ref double appraiserAgreement,
-        ref double standardAgreement,
-        ref double kappa,
-        ref double falseAcceptRate,
-        ref double missRate,
-        ref double minimumAgreement,
-        ref double minimumKappa,
-        ref double maximumFalseDecisionRate) =>
-        validationError = Seq(appraiserAgreement, standardAgreement, falseAcceptRate, missRate, minimumAgreement, maximumFalseDecisionRate)
-                .ForAll(static value => double.IsFinite(value) && value is >= 0.0 and <= 1.0)
-            && double.IsFinite(kappa) && double.IsFinite(minimumKappa) && kappa is >= -1.0 and <= 1.0 && minimumKappa is >= -1.0 and <= 1.0
+        ref ValidationError? validationError,
+        ref Ratio appraiserAgreement,
+        ref Ratio standardAgreement,
+        ref Ratio kappa,
+        ref Ratio falseAcceptRate,
+        ref Ratio missRate,
+        ref Ratio minimumAgreement,
+        ref Ratio minimumKappa,
+        ref Ratio maximumFalseDecisionRate) =>
+        validationError = ValidityClaim.All(
+            Seq(appraiserAgreement, standardAgreement, falseAcceptRate, missRate, minimumAgreement,
+                    maximumFalseDecisionRate)
+                .ForAll(static value => ValidityClaim.UnitInterval(value.DecimalFractions)),
+            Seq(kappa, minimumKappa).ForAll(static value =>
+                ValidityClaim.Ordered(-1.0, value.DecimalFractions)
+                && ValidityClaim.Ordered(value.DecimalFractions, 1.0)))
                 ? null
-                : Capability.Inadmissible("attribute-msa");
+                : Capability.Validation("attribute-msa");
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -616,41 +727,55 @@ public abstract partial record MeasurementEvidence {
         attribute: static evidence => evidence.Study.Suitable);
 }
 
+// Every bound here now carries its own axis. Three columns were counts of process sigma, two were probabilities
+// spelled as bare doubles, and one was a length spelled as a bare double — six numerics a caller could transpose
+// with no diagnostic, under names that were doing the carrier's job with a suffix.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ControlPolicy {
     public int SubgroupSize { get; }
     public int MinimumObservations { get; }
-    public double SigmaWidth { get; }
-    public double EwmaWeight { get; }
-    public double CusumSlackSigma { get; }
-    public double CusumDecisionSigma { get; }
-    public int MaximumAutocorrelationLag { get; }
-    public double MaximumAbsoluteAutocorrelation { get; }
-    public double MaximumAbsoluteDriftPerSample { get; }
+
+    // The control band's half-width, and the CUSUM slack and decision interval, all read in process sigmas.
+    public SigmaSpan Band { get; }
+    public SigmaSpan CusumSlack { get; }
+    public SigmaSpan CusumDecision { get; }
+    public Ratio EwmaWeight { get; }
+    public int MaximumLag { get; }
+
+    // Bounds on the ABSOLUTE reading: a correlation at any admitted lag, and the per-sample drift slope the
+    // stationarity finding measures — so a negative slope of equal magnitude fails the same bound a positive does.
+    public Ratio MaximumAutocorrelation { get; }
+    public Length MaximumDrift { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref int subgroupSize,
         ref int minimumObservations,
-        ref double sigmaWidth,
-        ref double ewmaWeight,
-        ref double cusumSlackSigma,
-        ref double cusumDecisionSigma,
-        ref int maximumAutocorrelationLag,
-        ref double maximumAbsoluteAutocorrelation,
-        ref double maximumAbsoluteDriftPerSample) =>
-        validationError = subgroupSize >= 1 && minimumObservations >= int.Max(2, subgroupSize) && sigmaWidth > 0.0 && ewmaWeight is > 0.0 and <= 1.0
-            && cusumSlackSigma >= 0.0 && cusumDecisionSigma > 0.0 && maximumAutocorrelationLag >= 1
-            && maximumAbsoluteAutocorrelation is >= 0.0 and <= 1.0
-            && double.IsFinite(maximumAbsoluteDriftPerSample) && maximumAbsoluteDriftPerSample >= 0.0
+        ref SigmaSpan band,
+        ref SigmaSpan cusumSlack,
+        ref SigmaSpan cusumDecision,
+        ref Ratio ewmaWeight,
+        ref int maximumLag,
+        ref Ratio maximumAutocorrelation,
+        ref Length maximumDrift) =>
+        // A subgroup study needs at least two subgroups' worth of observations, and an individuals study at least
+        // two points, so the floor is the subgroup size against a hard two rather than either alone.
+        validationError = ValidityClaim.All(
+            ValidityClaim.CountAtLeast(subgroupSize, 1),
+            ValidityClaim.CountAtLeast(minimumObservations, int.Max(2, subgroupSize)),
+            ValidityClaim.Positive(band.ToValue()),
+            ValidityClaim.Positive(cusumDecision.ToValue()),
+            ValidityClaim.UnitInterval(ewmaWeight.DecimalFractions),
+            ValidityClaim.Positive(ewmaWeight.DecimalFractions),
+            ValidityClaim.CountAtLeast(maximumLag, 1),
+            ValidityClaim.UnitInterval(maximumAutocorrelation.DecimalFractions),
+            ValidityClaim.Nonnegative(maximumDrift.Millimeters))
                 ? null
-                : Capability.Inadmissible("control-policy");
+                : Capability.Validation("control-policy");
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class AttributeSample {
     public int Inspected { get; }
     public int Nonconforming { get; }
@@ -660,16 +785,22 @@ public sealed partial class AttributeSample {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref int inspected,
         ref int nonconforming,
         ref int defects,
         ref int opportunities,
         ref Instant at) =>
-        validationError = inspected > 0 && nonconforming is >= 0 && nonconforming <= inspected
-            && defects >= 0 && defects <= opportunities && opportunities >= inspected && at != default
+        validationError = ValidityClaim.All(
+            ValidityClaim.CountAtLeast(inspected, 1),
+            ValidityClaim.CountAtLeast(nonconforming, 0),
+            ValidityClaim.CountAtLeast(inspected, nonconforming),
+            ValidityClaim.CountAtLeast(defects, 0),
+            ValidityClaim.CountAtLeast(opportunities, defects),
+            ValidityClaim.CountAtLeast(opportunities, inspected),
+            at != default)
             ? null
-            : Capability.Inadmissible("attribute-sample");
+            : Capability.Validation("attribute-sample");
 }
 
 // The attribute cohort every attribute limit and every attribute row reads: the four sums, the three rates they
@@ -700,6 +831,60 @@ public sealed record AttributeCohort(
         samples.Map(static sample => sample.Opportunities).Distinct().Count == 1);
 }
 
+// The interval bounds one cohort earns ONCE per study: the Clopper-Pearson proportion pair over the nonconforming
+// count and the exact Poisson pair over the defect count, each read by the two charts that share its basis.
+public readonly record struct AttributeBounds(double ProportionLower, double ProportionUpper,
+    double CountLower, double CountUpper);
+
+// One row per attribute chart, carrying WHEN it is derivable, how a sample plots on it, and how the cohort's own
+// interval scales onto it. The limit fold and the capability fold were two hand-written four-arm literal blocks
+// over the same four charts, each re-testing the cohort's fixed-column bools and each free to disagree with the
+// other about a chart's centre; both are now one fold over this roster and a fifth attribute chart is one row.
+[SmartEnum<string>]
+public sealed partial class AttributeChart {
+    public static readonly AttributeChart Proportion = new("p", SpcChart.P, static _ => true,
+        static (sample, cohort) => (
+            (double)sample.Nonconforming / sample.Inspected, cohort.P,
+            Math.Sqrt(cohort.P * (1.0 - cohort.P) / sample.Inspected)),
+        static (cohort, bounds, tail) => (cohort.P, bounds.ProportionLower, bounds.ProportionUpper, tail));
+    // A count of nonconforming UNITS is comparable across samples only where every sample inspected the same
+    // number, so the row states that demand rather than a consuming fold re-reading the cohort's own column.
+    public static readonly AttributeChart Count = new("np", SpcChart.Np, static cohort => cohort.FixedInspected,
+        static (sample, cohort) => (
+            sample.Nonconforming, cohort.P * sample.Inspected,
+            Math.Sqrt(sample.Inspected * cohort.P * (1.0 - cohort.P))),
+        static (cohort, bounds, tail) => (
+            cohort.P * cohort.MeanInspected,
+            bounds.ProportionLower * cohort.MeanInspected,
+            bounds.ProportionUpper * cohort.MeanInspected,
+            tail * cohort.MeanInspected));
+    public static readonly AttributeChart Defects = new("c", SpcChart.C, static cohort => cohort.FixedOpportunities,
+        static (sample, cohort) => (sample.Defects, cohort.C, Math.Sqrt(cohort.C)),
+        static (cohort, bounds, tail) => (
+            cohort.U * cohort.MeanOpportunities,
+            bounds.CountLower / cohort.Samples,
+            bounds.CountUpper / cohort.Samples,
+            tail * cohort.MeanOpportunities));
+    public static readonly AttributeChart DefectRate = new("u", SpcChart.U, static _ => true,
+        static (sample, cohort) => (
+            (double)sample.Defects / sample.Opportunities, cohort.U,
+            Math.Sqrt(cohort.U / sample.Opportunities)),
+        static (cohort, bounds, tail) => (
+            cohort.U, bounds.CountLower / cohort.Opportunities, bounds.CountUpper / cohort.Opportunities, tail));
+
+    public SpcChart Chart { get; }
+
+    [UseDelegateFromConstructor]
+    public partial bool Derivable(AttributeCohort cohort);
+    [UseDelegateFromConstructor]
+    public partial (double Value, double Center, double Sigma) Plot(AttributeSample sample, AttributeCohort cohort);
+    [UseDelegateFromConstructor]
+    public partial (double Estimate, double Lower, double Upper, double Demanded) Band(
+        AttributeCohort cohort, AttributeBounds bounds, double tail);
+
+    public static Seq<AttributeChart> For(AttributeCohort cohort) => toSeq(Items).Filter(row => row.Derivable(cohort));
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CapabilityStudy {
     private CapabilityStudy() { }
@@ -713,7 +898,6 @@ public abstract partial record CapabilityStudy {
 // the contributor names its term, adds the systematic offset and the shared-factor loadings, and optionally
 // overrides the term's declared family with a MEASURED fit.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class StackContributor {
     public string Term { get; }
     public double BiasMm { get; }
@@ -724,23 +908,26 @@ public sealed partial class StackContributor {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref string term,
         ref double biasMm,
         ref Arr<double> factorLoadings,
         ref Option<DistributionParameters> fitted) {
         term = term?.Trim() ?? string.Empty;
-        validationError = term.Length > 0 && double.IsFinite(biasMm)
-            && fitted.ForAll(static row => row.Valid && row.FiniteMoments)
-            && factorLoadings.ForAll(static value => double.IsFinite(value))
-            && factorLoadings.Fold(0.0, static (sum, value) => sum + (value * value)) <= 1.0
+        // The loadings are direction cosines onto the shared factors, so their squared sum is the share of the
+        // term's variance the common factors explain and cannot exceed the whole of it.
+        validationError = ValidityClaim.All(
+            Witness.Keyed(term),
+            ValidityClaim.Finite(biasMm),
+            fitted.ForAll(static row => row.IsValid && row.FiniteMoments),
+            factorLoadings.ForAll(static value => ValidityClaim.Finite(value)),
+            ValidityClaim.UnitInterval(factorLoadings.Fold(0.0, static (sum, value) => sum + (value * value))))
                 ? null
-                : Capability.Inadmissible("stack-contributor");
+                : Capability.Validation("stack-contributor");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class StackupPolicy {
     public ToleranceChain Chain { get; }
     public Seq<StackContributor> Contributors { get; }
@@ -750,7 +937,7 @@ public sealed partial class StackupPolicy {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref ToleranceChain chain,
         ref Seq<StackContributor> contributors,
         ref int trials,
@@ -759,15 +946,19 @@ public sealed partial class StackupPolicy {
         // The contributor roster is a BIJECTION onto the chain's terms. An extra contributor models a term nobody
         // declared and a missing one drops a term the analytic bound still counts, so the two readings the receipt
         // publishes would describe different stacks under one seed.
-        validationError = chain is not null && !contributors.IsEmpty && trials >= 2
-            && tailProbability.DecimalFractions is > 0.0 and < 0.5
-            && trials * tailProbability.DecimalFractions >= 1.0
-            && contributors.Map(static row => row.Term).Distinct().Count == contributors.Count
-            && toSet(contributors.Map(static row => row.Term))
-                == toSet(toSeq(chain.Terms).Map(static row => row.Key))
-            && contributors.Map(static row => row.FactorLoadings.Count).Distinct().Count <= 1
+        validationError = ValidityClaim.All(
+            chain is not null,
+            ValidityClaim.CountAtLeast(contributors.Count, 1),
+            ValidityClaim.CountAtLeast(trials, 2),
+            tailProbability.DecimalFractions is > 0.0 and < 0.5,
+            // A tail the trial count cannot resolve to one draw is a percentile read off nothing.
+            ValidityClaim.Ordered(1.0, trials * tailProbability.DecimalFractions),
+            ValidityClaim.CountExactly(contributors.Map(static row => row.Term).Distinct().Count, contributors.Count),
+            toSet(contributors.Map(static row => row.Term))
+                == toSet(toSeq(chain.Terms).Map(static row => row.Key)),
+            contributors.Map(static row => row.FactorLoadings.Count).Distinct().Count <= 1)
                 ? null
-                : Capability.Inadmissible("stack-policy");
+                : Capability.Validation("stack-policy");
 
     // The chain term each contributor models, in the contributor's own order — resolved once at the fold rather
     // than searched per trial. The admitted bijection is what makes this positionally aligned with `Contributors`,
@@ -777,7 +968,6 @@ public sealed partial class StackupPolicy {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CapabilityTolerance {
     public CapabilityIdentity Identity { get; }
     public ItGrade Grade { get; }
@@ -788,7 +978,7 @@ public sealed partial class CapabilityTolerance {
     public Ratio Confidence { get; }
 
     // The index convention this study reports on: the half-span, in process sigmas, the moment method spreads to.
-    public double SpreadSigmaSpan { get; }
+    public SigmaSpan SpreadSpan { get; }
     public DistributionPolicy Distribution { get; }
     public ControlPolicy Control { get; }
     public MeasurementEvidence Measurement { get; }
@@ -805,7 +995,7 @@ public sealed partial class CapabilityTolerance {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref CapabilityIdentity identity,
         ref ItGrade grade,
         ref Option<Length> lowerSpec,
@@ -813,7 +1003,7 @@ public sealed partial class CapabilityTolerance {
         ref Option<Length> target,
         ref Ratio tailProbability,
         ref Ratio confidence,
-        ref double spreadSigmaSpan,
+        ref SigmaSpan spreadSpan,
         ref DistributionPolicy distribution,
         ref ControlPolicy control,
         ref MeasurementEvidence measurement,
@@ -825,14 +1015,21 @@ public sealed partial class CapabilityTolerance {
             && target.ForAll(static value => double.IsFinite(value.Millimeters));
         bool ordered = lowerSpec.Bind(lower => upperSpec.Map(upper => lower < upper)).IfNone(true);
         bool centered = target.ForAll(value => lowerSpec.ForAll(lower => lower <= value) && upperSpec.ForAll(upper => value <= upper));
-        validationError = identity is not null && grade.Number >= 1 && identity.Feature == grade.Diameter
-            && (lowerSpec.IsSome || upperSpec.IsSome) && finite && ordered && centered
-            && double.IsFinite(spreadSigmaSpan) && spreadSigmaSpan > 0.0
-            && tailProbability.DecimalFractions is > 0.0 and < 0.5 && confidence.DecimalFractions is > 0.0 and < 1.0
-            && distribution is not null && control is not null && measurement is not null && procedure.ForAll(static value => value is not null)
-            && stackup.ForAll(static value => value is not null) && at != default
+        validationError = ValidityClaim.All(
+            identity is not null,
+            ValidityClaim.CountAtLeast(grade.Number, 1),
+            identity.Feature == grade.Diameter,
+            lowerSpec.IsSome || upperSpec.IsSome,
+            finite, ordered, centered,
+            ValidityClaim.Positive(spreadSpan.ToValue()),
+            tailProbability.DecimalFractions is > 0.0 and < 0.5,
+            confidence.DecimalFractions is > 0.0 and < 1.0,
+            distribution is not null, control is not null, measurement is not null,
+            procedure.ForAll(static value => value is not null),
+            stackup.ForAll(static value => value is not null),
+            at != default)
                 ? null
-                : Capability.Inadmissible("tolerance");
+                : Capability.Validation("tolerance");
     }
 }
 ```
@@ -841,14 +1038,16 @@ public sealed partial class CapabilityTolerance {
 
 - Owner: `Capability` owns admission, the two study folds, control-limit derivation, violation merging, the correlated stackup, and the ledger projections; `CapabilityReport` conserves every derived decision.
 - Law: every gate refusal carries its OWN discriminant. The kernel `InvalidInput`/`InvalidResult` mints take no detail slot, so eight gates lowering onto them are eight refusals a caller cannot tell apart; each answers on the fabrication band under a declared locus, and `Inadmissible` is the one mint both a generated hook and a fold gate read.
-- Law: `StackupReceipt.Pass` is a VERDICT, not a fault. A stack exceeding its bound is exactly the answer the study was run to obtain and its contribution ranking is the evidence naming the term worth tightening, so the receipt returns and the consuming gate decides what the exceedance means.
+- Law: `StackupVerdict` is a VERDICT, not a fault, and it is a CASE rather than a flag. A stack exceeding its bound is exactly the answer the study was run to obtain and its contribution ranking is the evidence naming the term worth tightening, so the assessment returns and the consuming gate decides what the exceedance means — with the margin or the overrun on the case, since a boolean made every consumer re-derive the number it acts on.
+- Law: a settled study reports its control state as EVIDENCE, not as a word. Rule stability, serial independence, and stationarity are three independently bounded findings with three different remedies, so they ride a `CapabilitySet<ControlEvidence>` whose whole-set read keeps the `Controlled` projection every consumer already spelled, while the gate's refusal names the rows the process missed. The same posture binds the attestation pair: both demands compose the typed `Require` twin, where `Some` IS the refusal carrying its own missing set, so a bare-label refusal has no site here.
+- Law: moments, order statistics, and the sample deviation are the KERNEL's — `Stat<Scalar>` over the value-trait carrier and `Distribution<Scalar>` for exact percentiles over a bounded materialized sample — and every normalizer is named at its call site. The simulation's tail reads through that owner rather than sorting its own trial buffer, which is what let a covariance fold correlate a SORTED response against factor draws still in trial order.
 - Law: contribution shares are CORRELATED shares. The simulation loads every contributor on the same shared factors, so a term's share is its covariance with the assembled response over the response variance — an independence fraction under a correlated model hands a shared factor's spread to whichever term carries the largest loading.
 - Law: one out-of-control EPISODE is one violation. A run longer than a rule's window breaches at every offset inside it, so overlapping and adjacent breach windows merge into the maximal span they cover and the excursion is the worst standardized point in that span.
 - Law: `Achievable` returns the qualifying row's band beside the evidence that earned it — grade, index, and effective sample size — so a consumer grading confidence reads the support behind the projection rather than assigning a constant trust to the word history.
 - Entry: `Capability.Assess`, `Capability.Gate`, and `Capability.Achievable` parameterize assessment, ledger selection, and tolerance projection without ambient state; `Assess` takes the trailing `FabricationTap?` the run spine hands it, so the fact fires where the receipt settles and every estimation fold stays tap-free.
-- Auto: `Validation` accumulates independent request and gate faults under distinct errors; `Stat.Of` owns variable moments; `Distance.Pearson` derives the autocorrelation spectrum; `Fit.Line` derives drift; `SpecialFunctions.GammaLn` and `Gamma` own distribution functions; `Traverse`, `Choose`, and `Fold` own collection flow.
-- Receipt: `CapabilityReport` carries moment and percentile indices or attribute rates, per-metric confidence intervals, pointwise control limits, merged rule windows, the fitted distribution, effective sample size, measurement and procedure evidence, the optional stackup with both analytic readings and its covariance shares, control state, and the admitted `CapabilityVerdict`. `FabricationFact.Capability.Of` projects the index rows and violation count onto `rasm.fabrication.capability.index` and `rasm.fabrication.capability.violations` through `Process/telemetry#FACT_PROJECTION` as kind `capability`.
-- Packages: MathNet.Numerics owns fitted distributions, roots, regression, correlation, and batch sampling; `System.Numerics.Tensors` owns numeric reductions; CommunityToolkit.HighPerformance owns pooled and partitioned trial execution; UnitsNet owns specification lengths, achievable tolerance, and probability ratios; `ToolEvidence` carries MTConnect operating state decoded at `Tooling/magazine`; Thinktecture and LanguageExt own generated values and the accumulated rail.
+- Auto: `Validation` accumulates independent request and gate faults under distinct errors; `Stat<Scalar>` owns variable moments and `Distribution<Scalar>` the simulation tail; `Distance.Pearson` derives the autocorrelation spectrum; `Fit.Line` derives drift; `SpecialFunctions.GammaLn` and `Gamma` own distribution functions; `Traverse`, `Choose`, and `Fold` own collection flow.
+- Receipt: `CapabilityReport` carries moment and percentile indices or attribute rates, per-metric confidence intervals, pointwise control limits, merged rule windows, the fitted distribution, effective sample size, measurement and procedure evidence, the optional stackup assessment with both analytic evaluations and its covariance shares, the control-evidence set, and the admitted `CapabilityVerdict`. `FabricationFact.Capability.Of` projects the index rows and violation count onto `rasm.fabrication.capability.index` and `rasm.fabrication.capability.violations` through `Process/telemetry#FACT_PROJECTION` as kind `capability`.
+- Packages: MathNet.Numerics owns fitted distributions, roots, regression, correlation, and batch sampling; `Rasm.Domain` owns `Stat<TCarrier>`, `Distribution<TCarrier>`, `MomentNormalizer`, `QuantileRule`, the `Tolerance` band carrier, and the `CapabilitySet`/`ICapability` axis; `Rasm.Element` owns the `AdmissionSlots` gate and accumulate fold; `System.Numerics.Tensors` owns numeric reductions; CommunityToolkit.HighPerformance owns pooled and partitioned trial execution; UnitsNet owns specification lengths, achievable tolerance, and probability ratios; `ToolEvidence` carries MTConnect operating state decoded at `Tooling/magazine`; Thinktecture and LanguageExt own generated values and the accumulated rail.
 - Boundary: `CapabilityReport` never enters `FabricationResult`, and only `CapabilityVerdict` crosses the plan seam.
 
 ```csharp signature
@@ -869,11 +1068,18 @@ public sealed record CapabilitySpread(double Center, double Lower, double Upper)
 // evidence a reader compares families on.
 public sealed record CapabilityDistribution(DistributionParameters Parameters, double FitError, double Akaike);
 
-public sealed record CapabilityRow(CapabilityMetric Metric, double Value, double Demanded, bool Pass);
+// Conformance is the row's own read of its two published columns, never a third column beside them: a stored
+// verdict is a hand-kept mirror of a comparison the reader can run, and the attribute count chart proved the risk
+// by publishing a pass derived from a normalization its own bounds did not print.
+public sealed record CapabilityRow(CapabilityMetric Metric, double Value, double Demanded) {
+    public bool Pass => Value >= Demanded;
+}
 
 public sealed record CapabilityInterval(CapabilityMetric Metric, double Lower, double Upper, double Confidence);
 
-public sealed record AttributeCapabilityRow(SpcChart Chart, double Estimate, double Lower, double Upper, double Demanded, bool Pass);
+public sealed record AttributeCapabilityRow(SpcChart Chart, double Estimate, double Lower, double Upper, double Demanded) {
+    public bool Pass => Upper <= Demanded;
+}
 
 public sealed record SpcLimitRow(SpcChart Chart, int Index, Instant At, double Value, double Center, double Sigma, double Lower, double Upper);
 
@@ -885,7 +1091,7 @@ public sealed record AutocorrelationRow(int Lag, double Correlation);
 
 public sealed record CapabilityDependence(Seq<AutocorrelationRow> Lags, double EffectiveSampleSize);
 
-// Keyed by the chain TERM, so the simulated share and the analytic share on `ChainReceipt.Contributions` rank the
+// Keyed by the chain TERM, so the simulated share and the analytic share on `ChainEvidence.Contributions` rank the
 // same names and a documentation-plane row reads either without a second key space.
 public sealed record StackContribution(string Term, double Share, double SigmaMm, double TighteningFactor);
 
@@ -893,22 +1099,41 @@ public sealed record StackContribution(string Term, double Share, double SigmaMm
 // it, and the effective sample size the projection rests on.
 public sealed record AchievableTolerance(Length Width, ItGrade Grade, double Cpk, double EffectiveSampleSize);
 
+// The bound verdict as a CASE, carrying the number a consumer acts on. A boolean said only that the stack cleared
+// and made a caller re-derive the margin or the overrun from columns it had to correlate itself; an exceeded stack
+// names its overrun beside the term whose share dominates it, which is the evidence the fault band's own ruling
+// says refusing this study would have destroyed.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record StackupVerdict {
+    private StackupVerdict() { }
+
+    public sealed record Within(double MarginMm) : StackupVerdict;
+    public sealed record Exceeded(double OverrunMm, Option<StackContribution> Dominant) : StackupVerdict;
+
+    public bool Pass => this is Within;
+
+    // ONE construction law, so the simulation and any re-reading consumer cannot disagree on where the bound sits.
+    public static StackupVerdict Of(double tailMm, double boundMm, Option<StackContribution> dominant) =>
+        tailMm <= boundMm ? new Within(boundMm - tailMm) : new Exceeded(tailMm - boundMm, dominant);
+}
+
 // BOTH readings of one stack: `Analytic` is the chain's own closed-form combination under its declared method and
 // `Arithmetic` the worst-case bound over the same terms, beside the correlated simulation's moments, tail, and
-// covariance shares. A consumer comparing the statistical answer against the arithmetic one reads one receipt
-// rather than re-evaluating a fold of its own.
-public sealed record StackupReceipt(
-    ChainReceipt Analytic,
-    ChainReceipt Arithmetic,
+// covariance shares. A consumer comparing the statistical answer against the arithmetic one reads one settled
+// study rather than re-evaluating a fold of its own. It carries no content key, band, or stamp of its own — the
+// key and the stamp are the analytic evaluation's, which is why this is an assessment and not a receipt.
+public sealed record StackupAssessment(
+    Receipt<ChainEvidence> Analytic,
+    Receipt<ChainEvidence> Arithmetic,
     double MeanMm,
     double SigmaMm,
     double TailMm,
     int RandomSeed,
     int FactorCount,
     Seq<StackContribution> Contributions,
-    bool Pass) {
-    public ContentKey Source => Analytic.Source;
-    public double BoundMm => Analytic.BoundMm;
+    StackupVerdict Verdict) {
+    public ContentKey Source => Analytic.Key;
+    public double BoundMm => Analytic.Evidence.BoundMm;
 
     public Option<StackContribution> Dominant => Contributions.Fold(Option<StackContribution>.None,
         static (best, row) => best.Filter(held => held.Share >= row.Share).IfNone(row));
@@ -927,10 +1152,14 @@ public sealed record CapabilityReport(
     DriftRow Drift,
     MeasurementEvidence Measurement,
     Option<ProcedureReceipt> Procedure,
-    Option<StackupReceipt> Stackup,
-    bool Controlled,
+    Option<StackupAssessment> Stackup,
+    CapabilitySet<ControlEvidence> Control,
     CapabilityVerdict Verdict,
-    Instant At);
+    Instant At) {
+    // The whole-set read every prior consumer of the boolean column already spelled, kept so a preimage frame and
+    // a ledger projection compile unchanged while the refusal below gains the rows the boolean could not name.
+    public bool Controlled => Control.AdmitsAll(CapabilitySet<ControlEvidence>.All);
+}
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Capability {
@@ -948,17 +1177,14 @@ public static class Capability {
     // slot, so eight gates lowering onto them are eight refusals a caller cannot tell apart; each row here answers
     // on the fabrication band under a declared locus, which is the same `detail:` discipline the record-refusal
     // rail already spells and is what makes a failed study actionable rather than merely failed.
-    // ONE refusal mint for the page. `Inadmissible` is what a `[ValidationError<FabricationFault>]` owner's hook
-    // seats in its slot, and `Refusal` is the same value read as the rail's `Error` — the band derives `Expected`,
-    // so a generated admission and a fold gate answer under one taxonomy and one locus spelling.
+    // One refusal mint for the page; generated admission uses the default validation bridge separately.
+    internal static ValidationError Validation(string locus) => new($"capability:{locus}");
+
     internal static FabricationFault Inadmissible(string locus) =>
-        new FabricationFault.PolicyInadmissible(FabConcern.Spec, $"capability:{locus}");
+        FabricationFault.Inadmissible(FabConcern.Spec, $"capability:{locus}");
 
     internal static Error Refusal(string locus) => Inadmissible(locus);
 
-    private static readonly Error UncontrolledProcess = Refusal("uncontrolled-process");
-    private static readonly Error UnqualifiedProcedure = Refusal("unqualified-procedure");
-    private static readonly Error UnsuitableMeasurement = Refusal("unsuitable-measurement");
     private static readonly Error MissingHistory = Refusal("missing-history");
     private static readonly Error StudyMismatch = Refusal("study-identity-mismatch");
     private static readonly Error UnderpoweredStudy = Refusal("underpowered-study");
@@ -985,23 +1211,40 @@ public static class Capability {
         CapabilityHistory.Of(identity, grade, at, history)
             .ToFin(MissingHistory)
             .Bind(row => CapabilityVerdict
-                .Admit(row.Cpk, row.DemandedCpk, grade.Number, row.ProcedureQualified, row.MeasurementSystemSuitable)
-                .Bind(verdict => (Check(row.Controlled, UncontrolledProcess),
-                        Check(row.ProcedureQualified, UnqualifiedProcedure),
-                        Check(row.MeasurementSystemSuitable, UnsuitableMeasurement),
-                        Check(verdict.Pass && row.Cpk >= row.DemandedCpk,
-                            new FabricationFault.CapabilityShortfall(identity.Process, row.Cpk, row.DemandedCpk).ToError()))
-                    .Apply((_, _, _, _) => verdict)
+                .Admit(row.Cpk, row.DemandedCpk, row.Attested)
+                // The shortfall fault names a SHORTFALL, so it reads the index half alone. `CapabilityVerdict.Pass`
+                // is the TOTAL demand — index and attestation together — and gating on it here made an attested-short
+                // process and an unattested-capable process mint the same `CapabilityShortfall(cpk, demanded)`, a
+                // fault whose own two numbers refute it. The attestation and control halves already refuse through
+                // `Demanded`, each carrying the rows it missed, so this gate keeps the one question it can answer.
+                .Bind(verdict => (Demanded(row),
+                        Check(row.Cpk >= row.DemandedCpk,
+                            new FabricationFault.CapabilityShortfall(identity.Process, row.Cpk, row.DemandedCpk)))
+                    .Apply((_, _) => verdict)
                     .As()
                     .ToFin()));
+
+    // Both capability demands ride the TYPED `Require` twin, where `Some` IS the refusal and the fault it mints
+    // already carries the rows the holder missed. Three bare-label gates stood here — one per capability plus a
+    // whole-set control bool — and none could tell a caller WHICH evidence was absent; the refusals now name their
+    // own missing rows, and an empty run of them accumulates to the pass without a fault minted on the way.
+    private static K<Validation<Error>, Unit> Demanded(CapabilityHistory row) =>
+        AdmissionSlots.Accumulate(Seq(
+                row.Control.AdmitsAll(CapabilitySet<ControlEvidence>.All)
+                    ? Option<Error>.None
+                    : Some<Error>(Inadmissible($"uncontrolled-process:{row.Control.Missing(CapabilitySet<ControlEvidence>.All).Wire}")),
+                row.Attested.AdmitsAll(CapabilitySet<CapabilityAttestation>.All)
+                    ? Option<Error>.None
+                    : Some<Error>(Inadmissible($"unattested-process:{row.Attested.Missing(CapabilitySet<CapabilityAttestation>.All).Wire}")))
+            .Somes()
+            .Map(static refusal => AdmissionSlots.Gate(holds: false, refusal)));
 
     // CapabilityHistory selection returns the qualifying row's measured band BESIDE the evidence behind it, so a
     // consumer grading its own confidence reads the effective sample size that earned the projection rather than
     // assigning a constant trust to the word history.
     public static Option<AchievableTolerance> Achievable(
         CapabilityIdentity identity, Instant at, Seq<CapabilityHistory> history) =>
-        history.Filter(row => row.Identity == identity && row.ValidFrom <= at && at < row.ValidUntil && row.Controlled
-                && row.ProcedureQualified && row.MeasurementSystemSuitable && row.Cpk >= row.DemandedCpk)
+        history.Filter(row => row.Identity == identity && row.Covers(at) && row.Qualifies)
             .Fold(Option<CapabilityHistory>.None, static (best, row) =>
                 best.Filter(held => held.Grade.Number <= row.Grade.Number).IfNone(row))
             .Map(static row => new AchievableTolerance(
@@ -1014,23 +1257,25 @@ public static class Capability {
         from series in Series(samples, tolerance.Control.SubgroupSize)
         from moment in Moment(series, tolerance)
         let fitted = FitDistribution(series.ResidualMm, moment, tolerance.Distribution)
-        from stackup in tolerance.Stackup.Traverse(Stackup).As()
+        from stackup in tolerance.Stackup.Traverse(policy => Stackup(policy, tolerance.At)).As()
         let rows = Rows(moment, Some(fitted), tolerance)
-        let dependence = Dependence(series.ResidualMm, tolerance.Control.MaximumAutocorrelationLag)
+        let dependence = Dependence(series.ResidualMm, tolerance.Control.MaximumLag)
         let limits = VariableLimits(series, moment, tolerance)
         let violations = Violations(limits)
         let drift = Drift(series.ResidualMm)
-        let controlled = violations.IsEmpty
-            && dependence.Lags.ForAll(row => Math.Abs(row.Correlation) <= tolerance.Control.MaximumAbsoluteAutocorrelation)
-            && Math.Abs(drift.Slope) <= tolerance.Control.MaximumAbsoluteDriftPerSample
+        // Three INDEPENDENT bounds, three rows: a run that signalled and a run that drifted are different findings
+        // with different remedies, and one conjunction reported them under one word.
+        let control = Held(
+            (ControlEvidence.Stable, violations.IsEmpty),
+            (ControlEvidence.Independent, dependence.Lags.ForAll(row =>
+                Math.Abs(row.Correlation) <= tolerance.Control.MaximumAutocorrelation.DecimalFractions)),
+            (ControlEvidence.Stationary, Math.Abs(drift.Slope) <= tolerance.Control.MaximumDrift.Millimeters))
         let procedureQualified = ProcedureQualified(tolerance.Identity.Process, tolerance.Procedure)
         let cpk = rows.Find(static row => row.Metric == CapabilityMetric.Cpk).Map(static row => row.Value).IfNone(0.0)
         from verdict in CapabilityVerdict.Admit(
             cpk,
             tolerance.DemandedCpk,
-            tolerance.Grade.Number,
-            procedureQualified,
-            tolerance.Measurement.Suitable)
+            Attested(procedureQualified, tolerance.Measurement.Suitable))
         select new CapabilityReport(
             tolerance.Identity,
             tolerance.Grade,
@@ -1045,7 +1290,7 @@ public static class Capability {
             tolerance.Measurement,
             tolerance.Procedure,
             stackup,
-            controlled,
+            control,
             verdict,
             tolerance.At);
 
@@ -1064,9 +1309,7 @@ public static class Capability {
         from verdict in CapabilityVerdict.Admit(
             double.Max(0.0, equivalentCpk),
             tolerance.DemandedCpk,
-            tolerance.Grade.Number,
-            procedureQualified,
-            tolerance.Measurement.Suitable)
+            Attested(procedureQualified, tolerance.Measurement.Suitable))
         select new CapabilityReport(
             tolerance.Identity,
             tolerance.Grade,
@@ -1081,7 +1324,13 @@ public static class Capability {
             tolerance.Measurement,
             tolerance.Procedure,
             None,
-            violations.IsEmpty,
+            // An attribute study measures no serial dependence and fits no drift line, so the two rows it cannot
+            // observe are HELD rather than absent: absence here would report an attribute cohort as uncontrolled
+            // for want of evidence its own modality never produces.
+            Held(
+                (ControlEvidence.Stable, violations.IsEmpty),
+                (ControlEvidence.Independent, true),
+                (ControlEvidence.Stationary, true)),
             verdict,
             tolerance.At);
 
@@ -1096,31 +1345,35 @@ public static class Capability {
         select new CapabilitySeries(
             residual,
             groups,
-            groups.Map(static group => group.Fold(0.0, static (sum, value) => sum + value) / group.Count).ToArr(),
+            groups.Map(Mean).ToArr(),
             subgroupSize == 1
                 ? walk.Skip(1).Zip(walk, static (next, prior) => Math.Abs(next - prior)).ToArr()
                 : groups.Map(static group => group.Max(double.NegativeInfinity) - group.Min(double.PositiveInfinity)).ToArr(),
             groups.Map(SampleSigma).ToArr());
 
+    // The kernel moment owner over the kernel scalar carrier. `Stat<Scalar>` is the spelling a bare-measure reader
+    // takes — `double` cannot stand on the value-trait axis the fold constrains on — and its band context carries
+    // an ADMITTED `Tolerance`, so the spec half-band crosses the seam through the kernel carrier on its own lane
+    // rather than as a bare magnitude the context had no band to gate. A mean displaced past its nearer limit
+    // yields no half-band at all and the receipt stays context-free: an out-of-spec process is what a capability
+    // study exists to report, so it must not refuse, and a negative magnitude stamped as a band is what did.
     private static Fin<CapabilityMoment> Moment(CapabilitySeries series, CapabilityTolerance tolerance) =>
-        from stat in Stat.Of(series.ResidualMm.ToSeq(), Op.Of(name: "capability:residual"))
-        let stamped = stat with {
-            Context = StatContext.Tolerance(
-                SpecHalfBand(tolerance, stat.Mean),
-                stat.Minimum,
-                stat.Maximum),
-        }
-        from accepted in CapabilityOp.AcceptValue(value: stamped)
+        from stat in Stat<Scalar>.Of(
+            series.ResidualMm.ToSeq().Map(static value => (Scalar)value), CapabilityOp)
+        let banded = Tolerance.Of(ToleranceLane.Deviation, SpecHalfBand(tolerance, stat.Mean), CapabilityOp)
+            .Match(Succ: static band => StatContext.Band(band), Fail: static _ => StatContext.None)
+        from accepted in CapabilityOp.AcceptValue(value: stat with { Context = banded })
         select new CapabilityMoment(
             accepted.Mean,
+            // The within-subgroup component is the range or sigma bar over its own calibrated constant; the
+            // overall component is the receipt's own unbiased deviation, stated at its normalizer because a
+            // capability index that inherited the biased estimate had no site at which a reader would notice.
             tolerance.Control.SubgroupSize == 1
-                ? (series.Ranges.Fold(0.0, static (sum, value) => sum + value) / series.Ranges.Count)
-                    / ControlConstant.Get(2).RangeMean
-                : (series.Sigmas.Fold(0.0, static (sum, value) => sum + value) / series.Sigmas.Count)
-                    / C4(tolerance.Control.SubgroupSize),
-            Math.Sqrt(accepted.Variance),
-            accepted.Minimum,
-            accepted.Maximum);
+                ? Mean(series.Ranges) / ControlConstant.Get(2).RangeMean
+                : Mean(series.Sigmas) / C4(tolerance.Control.SubgroupSize),
+            accepted.Deviation(MomentNormalizer.Sample),
+            accepted.Minimum.To(),
+            accepted.Maximum.To());
 
     // Selection is PENALIZED, never raw goodness-of-fit: a Student-t always tracks a sample at least as closely as
     // the normal it nests, so a bare supremum elects the richer family every time and its heavier tail then biases
@@ -1161,19 +1414,20 @@ public static class Capability {
         ordered.Map((value, index) => Math.Abs(fitted.CumulativeDistribution(value) - ((index + 0.5) / ordered.Count))).Max(0.0);
 
     // No MathNet interface exposes a generic inverse CDF, so one bracketed root-find serves every admitted family.
+    // The bracket is the distribution's own support clipped to the policy's sigma reach, admitted through the same
+    // owner the shape search runs over — a support that cannot bracket refuses at the interval rather than at Brent.
     internal static Option<double> Quantile(
         IContinuousDistribution distribution, double probability, DistributionPolicy policy) =>
         double.Max(distribution.StdDev, double.Epsilon) is var spread
-            && double.Max(distribution.Minimum, distribution.Mean - (policy.BracketSigma * spread)) is var lower
-            && double.Min(distribution.Maximum, distribution.Mean + (policy.BracketSigma * spread)) is var upper
-            && double.IsFinite(lower) && double.IsFinite(upper) && upper > lower
-            && Brent.TryFindRoot(value => distribution.CumulativeDistribution(value) - probability,
-                lower, upper, policy.RootAccuracy, policy.RootIterations, out double root)
-                    ? Some(root)
-                    : None;
+            && SearchBracket.Validate(
+                double.Max(distribution.Minimum, distribution.Mean - policy.Bracket.Of(spread)),
+                double.Min(distribution.Maximum, distribution.Mean + policy.Bracket.Of(spread)),
+                out SearchBracket? support) is null
+                ? policy.Root(value => distribution.CumulativeDistribution(value) - probability, support!)
+                : None;
 
     internal static Option<CapabilitySpread> QuantileSpread(DistributionParameters parameters, CapabilityTolerance tolerance) =>
-        parameters.Valid && parameters.FiniteMoments
+        parameters.IsValid && parameters.FiniteMoments
             ? Spread(
                 parameters.Create(Deterministic.Source(seed: tolerance.Distribution.FitSeed)),
                 tolerance.TailProbabilityValue,
@@ -1189,7 +1443,7 @@ public static class Capability {
 
     private static Seq<CapabilityRow> Rows(CapabilityMoment moment, Option<CapabilityDistribution> fitted, CapabilityTolerance tolerance) =>
         toSeq(CapabilityMetric.Items).Choose(metric => metric.Of(moment, fitted, tolerance)
-            .Map(value => new CapabilityRow(metric, value, tolerance.DemandedCpk, value >= tolerance.DemandedCpk)));
+            .Map(value => new CapabilityRow(metric, value, tolerance.DemandedCpk)));
 
     private static Seq<CapabilityInterval> Intervals(Seq<CapabilityRow> rows, CapabilityDependence dependence, double confidence) =>
         from row in rows
@@ -1207,10 +1461,12 @@ public static class Capability {
 
     private static Seq<SpcLimitRow> VariableLimits(CapabilitySeries series, CapabilityMoment moment, CapabilityTolerance tolerance) {
         int subgroupSize = tolerance.Control.SubgroupSize;
-        double width = tolerance.Control.SigmaWidth;
+        double width = tolerance.Control.Band.ToValue();
+        double weight = tolerance.Control.EwmaWeight.DecimalFractions;
+        double slack = tolerance.Control.CusumSlack.ToValue();
         double meanSigma = moment.WithinSigma / Math.Sqrt(subgroupSize);
         ControlConstant rangeConstant = ControlConstant.Nearest(subgroupSize);
-        double rangeCenter = series.Ranges.Fold(0.0, static (sum, value) => sum + value) / series.Ranges.Count;
+        double rangeCenter = Mean(series.Ranges);
         double rangeSigma = SampleSigma(series.Ranges);
         double rangeLower = double.Max(0.0,
             rangeCenter * (rangeConstant.RangeMean - (width * rangeConstant.RangeSigma)) / rangeConstant.RangeMean);
@@ -1232,15 +1488,15 @@ public static class Capability {
         (double _, Arr<double> ewma) = series.ResidualMm.Fold(
             (moment.Mean, Arr<double>.Empty),
             (state, value) => {
-                double next = (tolerance.Control.EwmaWeight * value) + ((1.0 - tolerance.Control.EwmaWeight) * state.Item1);
+                double next = (weight * value) + ((1.0 - weight) * state.Item1);
                 return (next, state.Item2.Add(next));
             });
         (double positive, double negative, Arr<double> cusum) = series.ResidualMm.Fold(
             (0.0, 0.0, Arr<double>.Empty),
             (state, value) => {
                 double standardized = (value - moment.Mean) / double.Max(moment.WithinSigma, double.Epsilon);
-                double nextPositive = double.Max(0.0, state.Item1 + standardized - tolerance.Control.CusumSlackSigma);
-                double nextNegative = double.Min(0.0, state.Item2 + standardized + tolerance.Control.CusumSlackSigma);
+                double nextPositive = double.Max(0.0, state.Item1 + standardized - slack);
+                double nextNegative = double.Min(0.0, state.Item2 + standardized + slack);
                 double signed = nextPositive >= -nextNegative ? nextPositive : nextNegative;
                 return (nextPositive, nextNegative, state.Item3.Add(signed));
             });
@@ -1252,55 +1508,41 @@ public static class Capability {
                 value,
                 moment.Mean,
                 moment.WithinSigma * Math.Sqrt(
-                    tolerance.Control.EwmaWeight / (2.0 - tolerance.Control.EwmaWeight)
-                    * (1.0 - Math.Pow(1.0 - tolerance.Control.EwmaWeight, 2.0 * (index + 1)))),
+                    weight / (2.0 - weight)
+                    * (1.0 - Math.Pow(1.0 - weight, 2.0 * (index + 1)))),
                 width)).ToSeq()
-            + Points(SpcChart.Cusum, cusum, 0.0, tolerance.Control.CusumDecisionSigma, tolerance.At, width: 1.0);
+            + Points(SpcChart.Cusum, cusum, 0.0, tolerance.Control.CusumDecision.ToValue(), tolerance.At, width: 1.0);
     }
 
+    // Every sample plots on every chart the cohort supports, so the fan is the roster crossed with the samples and
+    // no chart's centre or spread is spelled at the fold that reads it.
     private static Seq<SpcLimitRow> AttributeLimits(
-        Seq<AttributeSample> samples, AttributeCohort cohort, CapabilityTolerance tolerance) {
-        double width = tolerance.Control.SigmaWidth;
-        return samples.Map((sample, index) => Seq(
-                Some(Point(SpcChart.P, index, sample.At, (double)sample.Nonconforming / sample.Inspected, cohort.P,
-                    Math.Sqrt(cohort.P * (1.0 - cohort.P) / sample.Inspected), width)),
-                cohort.FixedInspected
-                    ? Some(Point(SpcChart.Np, index, sample.At, sample.Nonconforming, cohort.P * sample.Inspected,
-                        Math.Sqrt(sample.Inspected * cohort.P * (1.0 - cohort.P)), width))
-                    : None,
-                cohort.FixedOpportunities
-                    ? Some(Point(SpcChart.C, index, sample.At, sample.Defects, cohort.C, Math.Sqrt(cohort.C), width))
-                    : None,
-                Some(Point(SpcChart.U, index, sample.At, (double)sample.Defects / sample.Opportunities, cohort.U,
-                    Math.Sqrt(cohort.U / sample.Opportunities), width))))
-            .Bind(identity);
-    }
+        Seq<AttributeSample> samples, AttributeCohort cohort, CapabilityTolerance tolerance) =>
+        from row in AttributeChart.For(cohort)
+        from indexed in samples.Map(static (sample, index) => (Sample: sample, Index: index))
+        let plot = row.Plot(indexed.Sample, cohort)
+        select Point(row.Chart, indexed.Index, indexed.Sample.At, plot.Value, plot.Center, plot.Sigma,
+            tolerance.Control.Band.ToValue());
 
+    // The interval is the COHORT's, earned once: a Clopper-Pearson pair over the nonconforming count and an exact
+    // Poisson pair over the defect count, each scaled onto the charts that share its basis by the chart's own row.
+    // Conformance is the row's own read of its published bound against its published demand, so the verdict cannot
+    // compare a figure the row never printed — which is what a stored pass column let the count chart do.
     private static Fin<Seq<AttributeCapabilityRow>> AttributeRows(AttributeCohort cohort, CapabilityTolerance tolerance) {
         double alpha = 1.0 - tolerance.ConfidenceValue;
-        double meanInspected = cohort.MeanInspected;
-        double meanOpportunities = cohort.MeanOpportunities;
-        return from pLower in BetaQuantile(cohort.Nonconforming + 0.5, cohort.Inspected - cohort.Nonconforming + 0.5,
-                   alpha / 2.0, tolerance.Distribution)
-               from pUpper in BetaQuantile(cohort.Nonconforming + 0.5, cohort.Inspected - cohort.Nonconforming + 0.5,
-                   1.0 - (alpha / 2.0), tolerance.Distribution)
-               from countLower in Finite(cohort.Defects == 0 ? 0.0 : MathNet.Numerics.Distributions.Gamma.InvCDF(cohort.Defects, 1.0, alpha / 2.0))
-               from countUpper in Finite(MathNet.Numerics.Distributions.Gamma.InvCDF(cohort.Defects + 1.0, 1.0, 1.0 - (alpha / 2.0)))
-               select Seq(
-                       Some(new AttributeCapabilityRow(SpcChart.P, cohort.P, pLower, pUpper, tolerance.TailProbabilityValue,
-                           pUpper <= tolerance.TailProbabilityValue)),
-                       cohort.FixedInspected
-                           ? Some(new AttributeCapabilityRow(SpcChart.Np, cohort.P * meanInspected, pLower * meanInspected, pUpper * meanInspected,
-                               tolerance.TailProbabilityValue * meanInspected, pUpper <= tolerance.TailProbabilityValue))
-                           : None,
-                       cohort.FixedOpportunities
-                           ? Some(new AttributeCapabilityRow(SpcChart.C, cohort.U * meanOpportunities,
-                               countLower / cohort.Samples, countUpper / cohort.Samples,
-                               tolerance.TailProbabilityValue * meanOpportunities, countUpper / cohort.Opportunities <= tolerance.TailProbabilityValue))
-                           : None,
-                       Some(new AttributeCapabilityRow(SpcChart.U, cohort.U, countLower / cohort.Opportunities, countUpper / cohort.Opportunities,
-                           tolerance.TailProbabilityValue, countUpper / cohort.Opportunities <= tolerance.TailProbabilityValue)))
-                   .Bind(identity);
+        double shape = cohort.Nonconforming + 0.5;
+        double complement = cohort.Inspected - cohort.Nonconforming + 0.5;
+        return from proportionLower in BetaQuantile(shape, complement, alpha / 2.0, tolerance.Distribution)
+               from proportionUpper in BetaQuantile(shape, complement, 1.0 - (alpha / 2.0), tolerance.Distribution)
+               from countLower in Finite(cohort.Defects == 0 ? 0.0
+                   : MathNet.Numerics.Distributions.Gamma.InvCDF(cohort.Defects, 1.0, alpha / 2.0))
+               from countUpper in Finite(MathNet.Numerics.Distributions.Gamma.InvCDF(
+                   cohort.Defects + 1.0, 1.0, 1.0 - (alpha / 2.0)))
+               let bounds = new AttributeBounds(proportionLower, proportionUpper, countLower, countUpper)
+               select AttributeChart.For(cohort).Map(row =>
+                   row.Band(cohort, bounds, tolerance.TailProbabilityValue) switch {
+                       var band => new AttributeCapabilityRow(row.Chart, band.Estimate, band.Lower, band.Upper, band.Demanded),
+                   });
     }
 
     // One EXCURSION, one violation. A run longer than a rule's window breaches at every offset inside it, so
@@ -1340,7 +1582,7 @@ public static class Capability {
     private static double Zoned(SpcLimitRow row) => (row.Value - row.Center) / double.Max(row.Sigma, double.Epsilon);
 
     private static Seq<SpcLimitRow> SigmaLimits(Arr<double> sigmas, double c4, double width, Instant at) =>
-        SigmaBand(sigmas, sigmas.Fold(0.0, static (sum, value) => sum + value) / sigmas.Count,
+        SigmaBand(sigmas, Mean(sigmas),
             width * Math.Sqrt(1.0 - (c4 * c4)) / c4, at);
 
     private static Seq<SpcLimitRow> SigmaBand(Arr<double> sigmas, double center, double band, Instant at) =>
@@ -1354,8 +1596,8 @@ public static class Capability {
             double.Max(0.0, center * (1.0 - band)),
             center * (1.0 + band))).ToSeq();
 
-    private static Fin<StackupReceipt> Stackup(StackupPolicy policy) {
-        // `StackupReceipt.RandomSeed` is published as replay evidence, and only the branch's one splitmix64 owner
+    private static Fin<StackupAssessment> Stackup(StackupPolicy policy, Instant stamped) {
+        // `StackupAssessment.RandomSeed` is published as replay evidence, and only the branch's one splitmix64 owner
         // makes that evidence hold across runtimes — a `System.Random` mint forks the draw the receipt claims, and
         // MathNet reaches the bulk-fill virtuals the owner overrides whole rather than the base compat stream. The
         // seed keys one LANE per row rather than one shared stream, so the evidence is per-row reproducible.
@@ -1387,36 +1629,46 @@ public static class Capability {
         StackupAction action = new(policy, spread, independent, shared, destination.Array!, destination.Offset);
         ParallelHelper.For<StackupAction>(0, policy.Trials, in action);
         Span<double> trials = owner.Span[..policy.Trials];
-        double mean = TensorPrimitives.Average(trials);
-        double sigma = TensorPrimitives.StdDev(trials);
-        trials.Sort();
         double probability = policy.TailProbability.DecimalFractions;
-        double tail = double.Max(Math.Abs(trials[(int)Math.Floor((policy.Trials - 1) * probability)]),
-            Math.Abs(trials[(int)Math.Ceiling((policy.Trials - 1) * (1.0 - probability))]));
-        // The simulation is CORRELATED — every contributor loads the same shared factors — so the share a term
-        // owns is its covariance with the assembled response, not its independent variance fraction. An
-        // independence share under a correlated model attributes a shared factor's spread to whichever term
-        // happens to carry the largest loading and understates every term that moves with it.
-        double[] covariance = Covariances(policy, spread, independent, shared, trials, mean);
-        double variance = double.Max(TensorPrimitives.Sum<double>(covariance), double.Epsilon);
-        // The analytic readings are the CHAIN's own, evaluated over the same terms: the declared method beside the
-        // arithmetic bound. A worst-case fold re-spelled here would be a second algebra over one term roster.
-        ChainReceipt analytic = policy.Chain.Evaluate();
-        StackupReceipt receipt = new(
-            analytic,
-            policy.Chain.Evaluate(StackMethod.WorstCase),
-            mean,
-            sigma,
-            tail,
-            policy.RandomSeed,
-            factors,
-            Contributions(policy, spread, covariance, variance, tail),
-            tail <= analytic.BoundMm);
-        // Pass is a VERDICT, not a fault. A stack that exceeds its bound is exactly the answer the study was run
-        // to obtain, and its contribution ranking is the evidence naming the term worth tightening — refusing the
-        // receipt destroys that evidence and forces every consumer to re-run the simulation to see it. The
-        // consuming gate decides what an exceeded bound means for ITS decision.
-        return Fin.Succ(receipt);
+        // The kernel exact-order-statistic owner answers the moments and BOTH tail percentiles from one admitted
+        // sample under a DECLARED quantile convention. The hand fold that stood here averaged, took a population
+        // deviation, sorted the buffer IN PLACE, and then indexed one percentile by floor and the other by ceiling
+        // — two conventions on one reading — and the covariance fold that followed correlated the response in its
+        // SORTED order against factor draws still in trial order, so every published share was a correlation
+        // between two unrelated permutations. Reading through the owner keeps the response buffer intact.
+        return from spreadStat in Distribution<Scalar>.Of(
+                   toSeq(trials.ToArray().Map(static value => (Scalar)value)),
+                   Seq(probability, 1.0 - probability), CapabilityOp, Some(QuantileRule.Interpolated))
+               let mean = spreadStat.Summary.Mean
+               let tail = spreadStat.Percentiles.Fold(0.0,
+                   static (worst, row) => double.Max(worst, Math.Abs(row.Value.To())))
+               // The simulation is CORRELATED — every contributor loads the same shared factors — so the share a
+               // term owns is its covariance with the assembled response, not its independent variance fraction.
+               // An independence share under a correlated model attributes a shared factor's spread to whichever
+               // term happens to carry the largest loading and understates every term that moves with it.
+               let covariance = Covariances(policy, spread, independent, shared, trials, mean)
+               let variance = double.Max(TensorPrimitives.Sum<double>(covariance), double.Epsilon)
+               let contributions = Contributions(policy, spread, covariance, variance, tail)
+               // The analytic readings are the CHAIN's own, evaluated over the same terms and stamped where this
+               // study settles: the declared method beside the arithmetic bound. A worst-case fold re-spelled here
+               // would be a second algebra over one term roster.
+               let analytic = policy.Chain.Evaluate(stamped)
+               // The bound answer is a VERDICT, not a fault. A stack that exceeds its bound is exactly what the
+               // study was run to obtain, and its contribution ranking is the evidence naming the term worth
+               // tightening — refusing here destroys that evidence and forces every consumer to re-simulate to see
+               // it. The consuming gate decides what an exceeded bound means for ITS decision.
+               select new StackupAssessment(
+                   analytic,
+                   policy.Chain.Evaluate(StackMethod.WorstCase, stamped),
+                   mean,
+                   spreadStat.Summary.Deviation(MomentNormalizer.Sample),
+                   tail,
+                   policy.RandomSeed,
+                   factors,
+                   contributions,
+                   StackupVerdict.Of(tail, analytic.Evidence.BoundMm,
+                       contributions.Fold(Option<StackContribution>.None,
+                           static (best, row) => best.Filter(held => held.Share >= row.Share).IfNone(row))));
     }
 
     // Each term's share is its own COVARIANCE with the assembled response over the response variance, so a set of
@@ -1468,6 +1720,19 @@ public static class Capability {
             }).Fold(0.0, static (sum, value) => sum + value);
     }
 
+    // ONE boundary where measured booleans become a capability set, generic in the vocabulary so the attestation
+    // pair and the control triad share it and no owner above this line sees a loose boolean again. A row enters on
+    // its own evidence, so a third attestation or a fourth control fact is one roster row plus one reading.
+    private static CapabilitySet<TCapability> Held<TCapability>(
+        params ReadOnlySpan<(TCapability Row, bool Observed)> evidence)
+        where TCapability : notnull, ICapability<TCapability> =>
+        evidence.ToArray().AsIterable()
+            .Filter(static row => row.Observed)
+            .Fold(CapabilitySet<TCapability>.None, static (held, row) => held.With(row.Row));
+
+    private static CapabilitySet<CapabilityAttestation> Attested(bool procedure, bool measurement) =>
+        Held((CapabilityAttestation.Procedure, procedure), (CapabilityAttestation.Measurement, measurement));
+
     // ProcedureReceipt.Qualified is the owner's own compliance verdict over every row; a joined process without one is unqualified.
     private static bool ProcedureQualified(ProcessKind process, Option<ProcedureReceipt> procedure) =>
         procedure.Match(
@@ -1478,7 +1743,7 @@ public static class Capability {
         toSeq(values).Map((value, index) => Point(chart, index, at, value, center, sigma, width));
 
     private static SpcLimitRow Point(SpcChart chart, int index, Instant at, double value, double center, double sigma, double width) =>
-        new(chart, index, at, value, center, sigma, chart.Attribute ? double.Max(0.0, center - (width * sigma)) : center - (width * sigma), center + (width * sigma));
+        new(chart, index, at, value, center, sigma, chart.LowerLimit(center, width * sigma), center + (width * sigma));
 
     private static Fin<Unit> Admit(CapabilityStudy study, CapabilityTolerance tolerance) =>
         (Check(study.Switch(
@@ -1505,12 +1770,16 @@ public static class Capability {
             .IfNone(tolerance.LowerSpecMm.Map(lower => mean - lower)
                 .IfNone(tolerance.UpperSpecMm.Map(upper => upper - mean).IfNone(0.0)));
 
-    private static double SampleSigma(Arr<double> values) {
-        if (values.Count < 2)
-            return 0.0;
-        double mean = values.Fold(0.0, static (sum, value) => sum + value) / values.Count;
-        return Math.Sqrt(values.Fold(0.0, (sum, value) => sum + Math.Pow(value - mean, 2.0)) / (values.Count - 1));
-    }
+    // The kernel span leg over a contiguous plane: one vectorized centred two-pass, the unbiased normalizer named
+    // at the site. The hand loop it replaces re-derived the mean, squared through `Math.Pow`, and answered a
+    // fabricated `0.0` at one observation — a spread no sample measured, which the receipt's own finiteness screen
+    // now reports as absence instead.
+    private static double SampleSigma(Arr<double> values) =>
+        Stat<Scalar>.Of(values.AsSpan(), CapabilityOp)
+            .Map(static stat => stat.Deviation(MomentNormalizer.Sample))
+            .Match(Succ: static deviation => double.IsFinite(deviation) ? deviation : 0.0, Fail: static _ => 0.0);
+
+    private static double Mean(Arr<double> values) => TensorPrimitives.Average<double>(values.AsSpan());
 
     private static double C4(int subgroupSize) =>
         Math.Exp(SpecialFunctions.GammaLn(subgroupSize / 2.0) - SpecialFunctions.GammaLn((subgroupSize - 1.0) / 2.0))
@@ -1541,38 +1810,58 @@ public static class Capability {
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CapabilityHistory {
     public CapabilityIdentity Identity { get; }
     public ItGrade Grade { get; }
     public double Cpk { get; }
     public double DemandedCpk { get; }
-    public bool Controlled { get; }
-    public bool ProcedureQualified { get; }
-    public bool MeasurementSystemSuitable { get; }
+
+    // Ledger rows carry BOTH capability sets whole, so a gate reading history and a gate reading a fresh verdict
+    // answer through one algebra, a refusal names the rows the row actually missed, and a third attestation or a
+    // fourth control fact reaches the ledger with no column here. `Controlled` stays as the whole-set read every
+    // prior consumer of the boolean column already spelled.
+    public CapabilitySet<ControlEvidence> Control { get; }
+    public CapabilitySet<CapabilityAttestation> Attested { get; }
+    public bool Controlled => Control.AdmitsAll(CapabilitySet<ControlEvidence>.All);
     public double EffectiveSampleSize { get; }
     public Instant ValidFrom { get; }
     public Instant ValidUntil { get; }
 
+    // The validity window is a HALF-OPEN interval and the qualification is the WHOLE demand — control, attestation,
+    // and index together. Each stood re-spelled at the projection site, where a fourth control fact or a third
+    // attestation would have been added to the ledger and silently missed by the filter; the row answers both, so
+    // `Achievable` states which rows it wants rather than re-deriving what makes one authoritative.
+    public bool Covers(Instant at) => ValidFrom <= at && at < ValidUntil;
+
+    public bool Qualifies => Controlled
+        && Attested.AdmitsAll(CapabilitySet<CapabilityAttestation>.All)
+        && Cpk >= DemandedCpk;
+
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref CapabilityIdentity identity,
         ref ItGrade grade,
         ref double cpk,
         ref double demandedCpk,
-        ref bool controlled,
-        ref bool procedureQualified,
-        ref bool measurementSystemSuitable,
+        ref CapabilitySet<ControlEvidence> control,
+        ref CapabilitySet<CapabilityAttestation> attested,
         ref double effectiveSampleSize,
         ref Instant validFrom,
         ref Instant validUntil) =>
-        validationError = identity is not null && grade is not null && grade.Number >= 1
-            && identity.Feature == grade.Diameter && double.IsFinite(cpk)
-            && double.IsFinite(demandedCpk) && demandedCpk > 0.0 && double.IsFinite(effectiveSampleSize) && effectiveSampleSize >= 2.0
-            && validFrom != default && validUntil > validFrom
+        validationError = ValidityClaim.All(
+            identity is not null, grade is not null,
+            ValidityClaim.CountAtLeast(grade.Number, 1),
+            identity.Feature == grade.Diameter,
+            ValidityClaim.Finite(cpk),
+            ValidityClaim.Positive(demandedCpk),
+            ValidityClaim.Ordered(2.0, effectiveSampleSize),
+            validFrom != default,
+            // The window compares as INSTANTS, never through a tick projection: NodaTime's tick count exceeds the
+            // exactly-representable double range, so a scalar claim row would order two nearby instants by rounding.
+            validUntil > validFrom)
                 ? null
-                : Capability.Inadmissible("history");
+                : Capability.Validation("history");
 
     public static Fin<CapabilityHistory> From(CapabilityReport report, Instant validUntil) =>
         Validate(
@@ -1580,9 +1869,8 @@ public sealed partial class CapabilityHistory {
             report.Grade,
             report.Rows.Find(static row => row.Metric == CapabilityMetric.Cpk).Map(static row => row.Value).IfNone(report.Verdict.Cpk),
             report.Verdict.DemandedCpk,
-            report.Controlled,
-            report.Verdict.ProcedureQualified,
-            report.Verdict.MeasurementSystemSuitable,
+            report.Control,
+            report.Verdict.Attested,
             report.Dependence.EffectiveSampleSize,
             report.At,
             validUntil,
@@ -1595,7 +1883,7 @@ public sealed partial class CapabilityHistory {
         Instant at,
         Seq<CapabilityHistory> history) =>
         history.Filter(row => row.Identity == identity && row.Grade.Name == grade.Name
-                && row.Grade.Diameter == grade.Diameter && row.ValidFrom <= at && at < row.ValidUntil)
+                && row.Grade.Diameter == grade.Diameter && row.Covers(at))
             .Fold(Option<CapabilityHistory>.None, static (best, row) =>
                 best.Filter(held => held.ValidFrom >= row.ValidFrom).IfNone(row));
 }

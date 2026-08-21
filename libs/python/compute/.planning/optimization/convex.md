@@ -2,7 +2,7 @@
 
 Dual-certificate proof of global optimality the first-order design loop and the discrete math program structurally cannot furnish — the convex analogue of the certified-enclosure ladder in `numerics/interval#ENCLOSURE`. `ConvexProgram` discriminates the cone family a disciplined-convex model lands in, compiled to standard conic form and solved through the selected `Backend` row — Clarabel interior-point the default, SCS the first-order operator-splitting arm, HiGHS the LP/QP simplex arm — each returning the primal optimum and the per-constraint dual multipliers cvxpy normalizes, so backend choice never weakens the proof; the full KKT triple is the proof object, so `certified` gates the complementary-slackness gap AND both feasibility residuals within `_TOL`, never the gap alone. Like `optimization/program#PROGRAM`, the convex solve IS `cvxpy` over the conic backend, so a run without the package returns `Error(Import)` rather than an uncertified estimate.
 
-`ConvexReceipt` stays a distinct typed receipt and never folds into the `OutcomeReceipt` the `design`/`program` siblings share — the KKT certificate is the proof object the first-order convergence and feasibility verdicts carry no field for. Its coherence with `solvers/receipt#RECEIPT` is the status vocabulary alone: the cvxpy status constants fold into the one `SolveStatus` enum through the `_CONVEX_STATUS` boundary table. Certified optimum graduates on the dedicated `convex_program` `HandoffAxis` case at `graduation/handoff#GRADUATION`, a distinct admission from the `solver` axis the design/program verdicts cross on.
+`ConvexReceipt` stays a distinct typed receipt and never folds into the `OutcomeReceipt` the `design`/`program` siblings share — the KKT certificate is the proof object the first-order convergence and feasibility verdicts carry no field for. Its coherence with `solvers/receipt#RECEIPT` is the status vocabulary alone: the cvxpy status constants fold into the one `SolveStatus` enum through the `_CONVEX_STATUS` boundary table. The receipt settles on the ONE runtime spine, its `certified` verdict riding the warning band that names WHICH bar failed rather than a bool that erases it. Certified optimum graduates on the dedicated `convex_program` `HandoffAxis` case at `graduation/handoff#GRADUATION`, a distinct admission from the `solver` axis the design/program verdicts cross on.
 
 ## [01]-[INDEX]
 
@@ -23,17 +23,17 @@ from operator import attrgetter
 from typing import Final, Literal, Self, assert_never
 
 import numpy as np
-from expression import case, tag, tagged_union
+from expression import Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec.structs import astuple
 
-from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, HandoffAxis, evidence_run
+from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, GraduationReceipt, HandoffAxis, evidence_run
 from rasm.compute.solvers.receipt import SolveStatus
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import RuntimeRail, boundary, traversed
+from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, boundary, rostered, traversed
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
+from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
 # cold modelling dependency: the `lazy` bind defers the cvxpy tree to the first sweep. `_BACKEND` rows carry a
@@ -118,15 +118,31 @@ class ConvexReceipt(Struct, frozen=True, gc=False):
         return self.status is SolveStatus.SUCCESS and max(astuple(self.evidence)) <= _TOL
 
     def contribute(self) -> Iterable[Receipt]:
+        # ONE settled-receipt spine: the certificate key IS the spine's `key` column and its `produced` provenance, so
+        # the retired `key` payload slot no longer re-spells the hex render the spine carries. The retired `certified`
+        # BOOL collapses onto the warning band, which names WHICH bar failed — a refusing status, a breached KKT
+        # residual, or both — where one true/false cell erased the distinction the `_TOL` comparison had just made.
+        # `consumed` is EMPTY and honest: the convex key derives from the program's own fields and bind row, not from
+        # an upstream keyed operand, so naming one would forge a lineage this owner never walked.
+        band = Block.of_seq((
+            *((f"status:{self.status.value}",) if self.status is not SolveStatus.SUCCESS else ()),
+            *(f"kkt:{name}={value}" for name, value in self.evidence.facts().items() if isinstance(value, float) and value > _TOL),
+        ))
         facts: dict[str, object] = {
             "program": self.program,
             "objective": self.objective,
             "status": self.status,
-            "certified": self.certified,
-            "key": self.content_key.hex,
             **self.evidence.facts(),
         }
-        return (Receipt.of(EvidenceScope.CONVEX.value, ("emitted", self.program, facts)),)
+        return (
+            Receipt.of(
+                EvidenceScope.CONVEX.value,
+                ("emitted", self.program, facts),
+                key=Some(self.content_key),
+                provenance=Some(Provenance(consumed=Block.empty(), produced=self.content_key)),
+                band=band,
+            ),
+        )
 
 
 @tagged_union(frozen=True)
@@ -378,6 +394,17 @@ def _assemble(program: ConvexProgram, cp: object) -> tuple[object, list[object],
     return row.objective(x, fields, cp), [*polyhedral, *cone, *row.extra(x, fields, cp)], fields, parameters
 
 
+# this page's raise-side roster under the hub `ComputeLeg` seat: ONE lift-FENCE row over the cvxpy solve seam,
+# declaring no slots because nothing raises through it — the classifier supplies the detail and the program tag rides
+# the weave's own span facts. The retired form had NO fence at all here: `boundary` was imported and never called, so
+# every cvxpy refusal escaped `_solve_bind`, `_sweep`, and the kernel to land on the weave's outermost catch-all,
+# where one program's solver refusal reads identically to a kernel crash.
+CONVEX_SOLVE: Final[FaultRow[ComputeLeg]] = FaultRow(
+    leg=ComputeLeg.CONVEX, point="solve", arm="boundary", defect="solver-refused", retriability=TERMINAL
+)
+RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([CONVEX_SOLVE]))
+
+
 def _solve_bind(
     program: ConvexProgram,
     problem: object,
@@ -392,8 +419,15 @@ def _solve_bind(
     for name, leaf in parameters.items():
         leaf.value = np.asarray(bind.try_find(name).default_value(leaf.value), dtype=float)
     # SCIPY canon pin: the floor's source-built CPP canon extension aborts the process on canonicalization.
-    problem.solve(solver=_BACKEND[program.policy.backend].solver(cp), warm_start=True, canon_backend=cp.SCIPY_CANON_BACKEND)
-    return _convex_key(program, fields, bind).map(lambda key: _certificate(program, problem, constraints, key, cp))
+    # The fence scopes the SOLVE SEAM alone — the certificate read below has its own failure vocabulary and the key
+    # derivation is already railed. Every cvxpy error subclasses `Exception` DIRECTLY, never `ValueError`, so each
+    # family is named: naming them costs nothing here because `cp` arrives already dereferenced and no floor on this
+    # page depends on an absent cvxpy — `_sweep` gates on `cp.installed_solvers()` before reaching this body.
+    return boundary(
+        CONVEX_SOLVE,
+        lambda: problem.solve(solver=_BACKEND[program.policy.backend].solver(cp), warm_start=True, canon_backend=cp.SCIPY_CANON_BACKEND),
+        catch=(cp.error.SolverError, cp.error.DCPError, cp.error.DPPError, cp.error.ParameterError, ValueError, TypeError),
+    ).bind(lambda _solved: _convex_key(program, fields, bind).map(lambda key: _certificate(program, problem, constraints, key, cp)))
 
 
 def _leaf(name: str, value: np.ndarray, binds: ParamBind, cp: object, parameters: dict[str, object]) -> object:

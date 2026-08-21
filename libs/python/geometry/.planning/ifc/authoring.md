@@ -15,10 +15,10 @@ Each script is an immutable left-fold over a frozen `AuthorCarry` short-circuiti
 - Entry: `apply` takes an `ifcopenshell.file` and an `AuthorOp` tuple, returning `RuntimeRail[AuthorReceipt]` through the `evidence_run` weave — a provider exception converts to a `BoundaryFault` once at the weave's fence, an unresolved slot and every admission divergence arrive already typed on the rail, and both fault sources meet on one carrier. A relating verb consumes prior slots through its `bind` map, so a build-a-wall-in-a-storey script is one ordered op list, never manual id-chaining.
 - Law: durable mutation evidence lands on the `python:runtime/observability/journal#LEDGER` plane as one `REGULATORY` `AuditFact` per mutation, and `apply_async` is its ONE seat — the awaitable twin this wholly-synchronous owner mints over the band hop, since recording suspends and the live pybind11 handle admits no async fold of its own. By law the seat is PAST the transaction fence, never inside it: a suspending record between `begin_transaction` and `end_transaction` lets an unrelieved intake hold a half-applied model open, and the facts mint off the settled receipt so a rolled-back script records nothing rather than a trail of mutations no model kept. Each verb is the usecase's own dotted spelling and the subjects are `MutationFact.guid` alone — a non-minting verb indexes nothing rather than forging a subject — and no meter rides this leg, the crossing's cpu being the graduation weave's one charge. Record refusal from an armed plane folds onto the settled receipt's `unrecorded` slot as committed evidence, never onto the verdict: the fence closed before the record ran and the script is non-idempotent, so an `Error` there inverts a kept mutation into a failure whose one repair re-applies it — the discriminant separating this seat from the lifecycle sibling's verdict-bound record, whose refused run loses only recomputable work.
 - Law: authoring runs on the caller floor by charter — the live `ifcopenshell.file` is the engine's in-process resource, a pybind11 handle no pickle seam carries, and a transactional mutation script is not idempotent: it earns no lane crossing, and any future kernel wrapping a mutating script declares `idempotent=False` so a worker-death retry never re-applies a half-committed mutation the rollback fence cannot see.
-- Auto: `apply` threads the graduation weave, so the span opens under the caller's composition and nests beneath it, `_priced` brackets the transaction's real cost on the settle, the refusal, AND the unwind, and the weave's conditional harvest emits `AuthorReceipt.contribute` on the cleared `Ok` — the transaction depth, the minted GUIDs, the `edited` census, and the provenance flag reach the receipt stream by the same path every sibling's evidence does. Inside it `@transactional` closes the batch on a clean `Ok`, runs `undo()` before `end_transaction()` on a typed `Error` rail OR a raised op so a half-applied script never persists, and projects transaction depth onto the receipt via `replace`, never the `len(facts)` op count; `@stamped` sets the provenance flag from whether the script carried an owner-history op. `to_kwargs` is the admission gate the derived roster makes possible: an argument the usecase never declares, a required one left unsupplied, a scalar entity parameter bound to anything but one slot, and an unresolved slot each name themselves BEFORE the transaction commits, where an unproven kwargs bag surfaces every one of them as a provider `TypeError` several ops into a committed batch. Per-op kernel stacks four `ifcopenshell` reads into one `MutationFact` — the usecase mutation, `guid.compress` on the minted GlobalId, the `get_psets` key count, the `traverse` subtree count — and `REMOVE` reads `get_inverse` BEFORE the delete, off the usecase's OWN first entity keyword, because the usecase severs the entity and the inverse-reference count is unreadable after.
-- Receipt: `AuthorReceipt` implements `contribute` structurally (against the `@runtime_checkable` protocol, never subclassing it) and carries the same `MutationFact` block as the typed return, so evidence is structured field-by-field, not a free-form log. `edited` and `depth` are distinct evidence — `depth` is the transaction nesting the `@transactional` aspect projects, `edited` counts the mutations that minted NO addressable entity, read off the actual outcome rather than the declared capability, since a relating usecase returning `None` mints nothing and a capability-declared count misses exactly that case. `unrecorded` carries an armed plane's audit-record refusal as committed evidence — the mutation persisted, so the refusal never inverts the verdict — and the harvest omits the key when the trail landed.
-- Packages: `ifcopenshell` (the `api.<module>.<action>` usecase callables and the listener shim that carries their unwrapped `__signature__`, the `begin_transaction`/`undo`/`end_transaction` stack, the `guid.compress` codec, and the `get_psets`/`get_inverse`/`traverse` read graph the mutation footprint joins against), geometry graduation (`evidence_run`/`EvidenceScope` the weave), runtime (`RuntimeRail`/`BoundaryFault`, `railed` the bound `effect.result` builder, `Receipt`/`ReceiptContributor`, `ScopeKey`/`DEFAULT_SCOPE` the custody key, `Journal` with the `AuditFact`/`Party`/`Actor`/`Retain`/`Change` vocabulary the durable trail records through), `expression` (the `Result` rails, `Map` for the slot vocabulary and the payload bindings, `Block` for the fact stream and the divergence roster, `Option` for the derived-shape probe), `msgspec` (`Struct`, `structs.replace`), stdlib `enum` (`Flag` for `Capability`, `StrEnum` for `AuthorVerb`), stdlib `inspect`/`typing` (the signature and annotation readers the contract derives from), stdlib `functools`/`importlib` (the memoized resolution).
-- Growth: a new authoring capability is one `AuthorVerb` row — its keyword contract, arity, requiredness, and mint capability all derive at first use, its audit verb arriving with it; a new capability dimension is one `Capability` member the `in row.cap` tests pick up without a new column; a new footprint-read verb is one `_FOOTPRINT` member, the one axis no signature publishes; a newly audited footprint column is one `_changed` arm. Zero new dispatcher, no per-usecase method, no payload case.
+- Auto: `apply` threads the graduation weave, so the span opens under the caller's composition and nests beneath it, `_priced` brackets the transaction's real cost on the settle, the refusal, AND the unwind, and the weave's conditional harvest emits `AuthorReceipt.contribute` on the cleared `Ok` — the transaction depth, the minted GUIDs, the `edited` census, and the provenance flag reach the receipt stream by the same path every sibling's evidence does. Inside it `@transactional` closes the batch on a clean `Ok`, runs `undo()` before `end_transaction()` on a typed `Error` rail OR a raised op so a half-applied script never persists, and projects transaction depth onto the receipt via `replace`, never the `len(facts)` op count; `@stamped` sets the provenance flag from whether the script carried an owner-history op. `to_kwargs` is the admission gate the derived roster makes possible: an argument the usecase never declares, a required one left unsupplied, a scalar entity parameter bound to anything but one slot, and an unresolved slot each name themselves BEFORE the transaction commits, where an unproven kwargs bag surfaces every one of them as a provider `TypeError` several ops into a committed batch. Per-op kernel stacks four `ifcopenshell` reads into one `MutationFact` — the usecase mutation, `guid.compress` on the minted GlobalId, the `get_psets` key count, and the depth-bounded `traverse` sweep whose per-hop differences ARE the shell census — and `REMOVE` reads `get_inverse` BEFORE the delete, off the usecase's OWN first entity keyword, because the usecase severs the entity and its referencing step ids are unreadable after. The sweep asks the walk for the `max_levels` bound the provider already publishes and ends when a level admits nothing new, so a footprint carries the hop distribution it computed rather than the cardinality that projects from it; a caller's declared `Depth` spends there and answers a typed exhaustion, never a truncated census.
+- Receipt: `AuthorReceipt` implements `contribute` structurally (against the `@runtime_checkable` protocol, never subclassing it) and carries the same `MutationFact` block as the typed return, so evidence is structured field-by-field, not a free-form log. `edited` and `depth` are distinct evidence — `depth` is the transaction nesting the `@transactional` aspect projects, `edited` counts the mutations that minted NO addressable entity, read off the actual outcome rather than the declared capability, since a relating usecase returning `None` mints nothing and a capability-declared count misses exactly that case. Both merged footprints STATE their law at the fold rather than summing blind: the subtree census is a nearest-seed minimum over the single-source walks, so a dependent two ops share counts once at its shorter hop, and the pset count is a per-product maximum, because a pset footprint is a reading of one product's roster and two readings are not two populations. `unrecorded` carries an armed plane's audit-record refusal as committed evidence — the mutation persisted, so the refusal never inverts the verdict — and the harvest omits the key when the trail landed.
+- Packages: `ifcopenshell` (the `api.<module>.<action>` usecase callables and the listener shim that carries their unwrapped `__signature__`, the `begin_transaction`/`undo`/`end_transaction` stack, the `guid.compress` codec, and the `get_psets`/`get_inverse`/`traverse` read graph the mutation footprint joins against), geometry graduation (`evidence_run`/`EvidenceScope` the weave), runtime (`RuntimeRail`/`BoundaryFault`, `railed` the bound `effect.result` builder, `FaultRow`/`RAISES` the two raise coordinates this page spends, `Depth` the shared walk bound every footprint sweep spends and whose exhaustion names the walking row, `Receipt`/`ReceiptContributor`, `ScopeKey`/`DEFAULT_SCOPE` the custody key, `Journal` with the `AuditFact`/`Party`/`Actor`/`Retain`/`Change` vocabulary the durable trail records through), `ifc/selector#SELECTOR` (the band-wide `IfcFault` family and the `ArgumentFlaw` vocabulary its divergence case carries — this page's one intra-band edge, one-way and cycle-free), `expression` (the `Result` rails, `Map` for the slot vocabulary, the payload bindings, and the hop-keyed reachability merge, `Block` for the fact stream and the divergence roster, `Option` for the derived-shape probe and the arity count only one divergence law measures), `msgspec` (`Struct`, `structs.replace`), stdlib `enum` (`Flag` for `Capability`, `StrEnum` for `AuthorVerb`), stdlib `inspect`/`typing` (the signature and annotation readers the contract derives from), stdlib `functools`/`importlib` (the memoized resolution).
+- Growth: a new authoring capability is one `AuthorVerb` row — its keyword contract, arity, requiredness, and mint capability all derive at first use, its audit verb arriving with it; a new capability dimension is one `Capability` member the `in row.cap` tests pick up without a new column; a new footprint-read verb is one `_FOOTPRINT` member, the one axis no signature publishes; a newly audited footprint column is one `_changed` arm; a new admission divergence law is one `ArgumentFlaw` member at `ifc/selector#SELECTOR` and one `divergences` arm. Zero new dispatcher, no per-usecase method, no payload case.
 - Boundary: `ifcopenshell` owns entity construction, usecase dispatch, the transaction stack, the GUID codec, the inverse/traverse graph, AND the argument contract — no hand-rolled STEP writer, no local UUID/GlobalId fold, no transcribed keyword spelling, no `guid.expand` on the write side (the minted GlobalId is already compressed; `expand` is the read-side codec). `api.extract_docs` is NOT that contract's reader: it introspects a `Usecase.__init__` only a handful of legacy api modules still define and reads `object.__init__` on the rest, so the signature over the wrapped callable is the one live source. No durable store and no Rhino/GH mutation, and no ledger, custody, or retention window minted here — the evidence plane arrives bound at the composition root and `apply_async` records a `Retain` class alone. No Blender-coupled usecase enters the vocabulary. Relating verbs consume in-script slots and never re-query the model by string GUID when the minting op is in the same script. `IfcAuthor` is the folder's verb-scripted mutation surface, not its only mutating one: the lifecycle exchange re-import arm (`ifc/costing#LIFECYCLE`, the `ifccsv` table write-back) is its ONE sibling, and it mutates under THIS page's transaction-fence law — the batch opens at `begin_transaction`, a typed `Error` rail or a raised provider call runs `undo()` before `end_transaction()`, and a half-applied import never persists. Any third mutating arm the folder mints lands under that same fence rather than a second rollback dialect, because a rollback posture per surface is a posture no operator can reason about across a run.
 
 ```python signature
@@ -38,8 +38,9 @@ lazy import ifcopenshell
 lazy from ifcopenshell.guid import compress
 lazy from ifcopenshell.util.element import get_psets
 
-from rasm.geometry.graduation import EvidenceScope, evidence_run
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, railed
+from rasm.geometry.graduation import EvidenceScope, GeometryLeg, evidence_run
+from rasm.geometry.ifc.selector import ArgumentFlaw, IfcFault
+from rasm.runtime.faults import PACKAGE, TERMINAL, BoundaryFault, Depth, FaultRow, RuntimeRail, railed, rostered
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Change, Cleared, Fact, Journal, Party, Retain
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 
@@ -90,9 +91,9 @@ class Capability(Flag):
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
-# this owner's one name, serving the receipt label and the audit actor identity alike, so a rename cannot strand a
-# receipt stream under one spelling and a durable actor column under another.
-OWNER: Final[str] = "rasm.geometry.ifc.authoring"
+# this owner's one name, DERIVED off the leg roster member every raise on this page seats under, so the receipt
+# stream, the durable audit actor, and the fault subject cannot drift apart under three transcribed spellings.
+OWNER: Final[str] = f"{PACKAGE}.{GeometryLeg.AUTHORING.value}"
 
 # annotation origins that mark a COLLECTION parameter, so a `list[entity_instance]` keyword consumes several slots
 # while a scalar one consumes exactly one — arity read off the parameter's declared type, never a payload flag.
@@ -127,20 +128,27 @@ class AuthorPayload(Struct, frozen=True, gc=False):
     bind: "Map[str, tuple[str, ...]]" = Map.empty()
     values: "Map[str, object]" = Map.empty()
 
-    def divergences(self, row: IfcApiVerb) -> "Block[str]":
+    def divergences(self, row: IfcApiVerb) -> "Block[tuple[ArgumentFlaw, str, Option[int]]]":
         # one admission fold naming EVERY divergence at once, before the transaction commits: an argument the usecase
         # never declares, a literal bound where an entity parameter is wanted, a required argument left unsupplied,
         # and a scalar entity parameter bound to anything but one slot. An unproven kwargs bag surfaces each of these
-        # as a provider `TypeError` several ops into a committed batch, which no rollback fence can diagnose.
+        # as a provider `TypeError` several ops into a committed batch, which no rollback fence can diagnose. Each
+        # cell is the band's own `ArgumentFlaw` member beside the keyword it names and the count only the arity law
+        # measures, so a consumer matches the defect instead of splitting the rendered `flaw:keyword=count` grammar
+        # this replaces — and a count `Nothing` on the other three laws states an absence rather than forging a zero.
         declared = Map.of_seq((argument.keyword, argument) for argument in row.arguments)
         bound = dict(self.bind.items())
         supplied = frozenset(bound) | frozenset(name for name, _ in self.values.items())
         return Block.of_seq([
-            *(f"unknown:{name}" for name in sorted(supplied) if declared.try_find(name).is_none()),
-            *(f"not-entity:{name}" for name in sorted(bound) if declared.try_find(name).map(lambda a: not a.entity).default_value(False)),
-            *(f"unsupplied:{a.keyword}" for a in row.arguments if a.required and a.keyword not in supplied),
+            *((ArgumentFlaw.UNKNOWN, name, Nothing) for name in sorted(supplied) if declared.try_find(name).is_none()),
             *(
-                f"arity:{a.keyword}={len(bound[a.keyword])}"
+                (ArgumentFlaw.NOT_ENTITY, name, Nothing)
+                for name in sorted(bound)
+                if declared.try_find(name).map(lambda a: not a.entity).default_value(False)
+            ),
+            *((ArgumentFlaw.UNSUPPLIED, a.keyword, Nothing) for a in row.arguments if a.required and a.keyword not in supplied),
+            *(
+                (ArgumentFlaw.ARITY, a.keyword, Some(len(bound[a.keyword])))
                 for a in row.arguments
                 if a.entity and not a.collection and a.keyword in bound and len(bound[a.keyword]) != 1
             ),
@@ -173,8 +181,22 @@ class AuthorOp(Struct, frozen=True):
 class MutationFact(Struct, frozen=True):
     verb: AuthorVerb
     guid: str  # compressed GlobalId of the minted product, "" for non-minting verbs
+    step: int  # the touched product's own step id, 0 for a usecase returning no entity — the pset merge key
     psets: int  # get_psets key count on the touched product
-    subtree: int  # traverse dependent-entity count the mutation reached
+    # per-hop SHELL census: index `i` carries the dependents FIRST reached at hop `i+1`, so the walk publishes the
+    # depth it already computed instead of the cardinality that projects from it. `REMOVE` reads one hop by nature —
+    # the inverse fan-out, unreadable after the sever — so its census is a one-shell tuple and the column stays
+    # homogeneous. The single integer this replaces made a 42-dependent star and a 42-hop chain the same value on a
+    # `REGULATORY` record a project reads back years later, flattening every ripple analysis over it to one hop.
+    subtree: tuple[int, ...]
+
+    @property
+    def reach(self) -> int:
+        return sum(self.subtree)
+
+    @property
+    def depth(self) -> int:
+        return len(self.subtree)
 
 
 class AuthorCarry(Struct, frozen=True):
@@ -182,6 +204,11 @@ class AuthorCarry(Struct, frozen=True):
     # `bind` map, so the change-history pair is ordinary slot flow rather than a decorator side-channel.
     slots: "Map[str, object]" = Map.of_seq(())
     facts: "Block[MutationFact]" = Block.empty()
+    # dependent step id -> the SHORTEST hop any op in this script reached it at. This is where the script's merge law
+    # is STATED: a nearest-seed min over single-source walks, so a dependent two ops share — an `IfcOwnerHistory`, an
+    # `IfcUnitAssignment`, a shared `IfcMaterial` — counts ONCE, at its nearer seed. The plain sum across facts it
+    # replaces reported a footprint larger than the model holds and stated no law a reader could check it against.
+    reached: "Map[int, int]" = Map.empty()
     edited: int = 0  # running count of mutations that minted no addressable entity
 
 
@@ -192,7 +219,16 @@ class AuthorReceipt(Struct, frozen=True):
     model: str
     facts: "Block[MutationFact]"
     guids: tuple[str, ...]
+    # the script's whole reachability, keyed dependent step id -> shortest hop, from which BOTH the merged shell
+    # census and the merged footprint derive; the per-op facts keep their own single-source census beside it.
+    reached: "Map[int, int]"
     edited: int  # non-minting mutations against existing entities
+
+    @property
+    def shells(self) -> tuple[int, ...]:
+        # the merged census as one positional tuple, dense from hop 1, so an audit column reads it with no key parse.
+        hops = tuple(hop for _, hop in self.reached.items())
+        return tuple(sum(1 for hop in hops if hop == level) for level in range(1, max(hops, default=0) + 1))
     depth: int = 0  # transaction nesting the @transactional aspect projects via replace
     stamped: bool = False  # set by the @stamped provenance aspect: did the script open an owner history
     # an armed plane's audit-record refusal, carried as COMMITTED evidence: the transaction fence closed before the
@@ -211,8 +247,13 @@ class AuthorReceipt(Struct, frozen=True):
                     "model": self.model,
                     "verbs": ",".join(f.verb for f in self.facts),
                     "guids": ",".join(self.guids),
-                    "psets": sum(f.psets for f in self.facts),
-                    "subtree": sum(f.subtree for f in self.facts),
+                    # both footprints state their merge law rather than summing blind: `psets` takes the LARGER
+                    # reading per touched product, because a pset count is a reading of one product's roster and two
+                    # readings of one product are not two populations; `subtree` is the nearest-seed shell census the
+                    # `reached` map already merged, so a shared dependent counts once and `reach` is its projection.
+                    "psets": sum(count for _, count in self.facts.fold(_footprint, Map.empty()).items()),
+                    "subtree": ",".join(str(count) for count in self.shells),
+                    "reach": sum(self.shells),
                     "edited": self.edited,
                     "depth": self.depth,
                     "stamped": self.stamped,
@@ -220,6 +261,30 @@ class AuthorReceipt(Struct, frozen=True):
                 | ({} if self.unrecorded is None else {"unrecorded": self.unrecorded.tag}),
             ),
         )
+
+
+# --- [ERRORS] --------------------------------------------------------------------------
+
+# Every domain refusal this module mints is an `IfcFault` CASE, so these rows spend ONE coordinate per raise POINT and
+# no fence spells a subject string. Both are TERMINAL: a malformed op refuses identically on every re-run, and the
+# script is non-idempotent by this page's own charter, so a re-offer re-applies mutations the model already kept.
+# `MUTATION_WALK` is the walk coordinate `Depth.exhausted` names, so a bound spent mid-footprint reports which walk
+# spent it rather than a bare number. `rostered` pushes both into the fault owner's ONE census at import, proving the
+# leg against a real module and making each row's posture reachable from `BoundaryFault.retriability`.
+MUTATION_REFUSED: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.AUTHORING, point="mutation", arm="boundary", defect="op-refused", retriability=TERMINAL
+)
+MUTATION_WALK: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.AUTHORING, point="mutation.footprint", arm="boundary", defect="walk-spent", retriability=TERMINAL
+)
+RAISES: Final[Block[FaultRow[GeometryLeg]]] = rostered(Block.of_seq([MUTATION_REFUSED, MUTATION_WALK]))
+
+
+def _domain(fault: IfcFault) -> BoundaryFault:
+    # ONE door for every domain refusal this module mints, and the ONE site binding the raise row. The band's typed
+    # token rides the runtime's own `domain` case WHOLE — `BoundaryFault.of` admits a `Tagged` token ahead of every
+    # `CLASSIFY` row — so case and coordinate cross the funnel as structured evidence rather than a rendered cause.
+    return BoundaryFault.of(MUTATION_REFUSED, fault)
 
 
 # --- [OPERATIONS] ----------------------------------------------------------------------
@@ -278,21 +343,56 @@ def _project(model: "ifcopenshell.file") -> str:
     return compress(projects[0].GlobalId) if projects and projects[0].GlobalId else ""
 
 
+def _footprint(seat: "Map[int, int]", fact: MutationFact) -> "Map[int, int]":
+    # per-product MAXIMUM, never a sum: a pset count is a READING of one product's roster, so two ops touching one
+    # product report the larger reading where a sum double-counts keys neither op added. A usecase that returned no
+    # entity carries no step id and contributes nothing rather than colliding every such op onto one phantom key.
+    return seat.add(fact.step, max(fact.psets, seat.try_find(fact.step).default_value(0))) if fact.step else seat
+
+
+def _reached(model: "ifcopenshell.file", product: "ifcopenshell.entity_instance", reach: Depth) -> "RuntimeRail[Map[int, int]]":
+    # each dependent keyed to the hop it was FIRST reached at, which is the one value the shell census, the bare
+    # footprint, and the script-wide nearest-seed merge all derive from. `max_levels` is the provider's own bound, so
+    # one call per ascending level and the difference between levels IS that level's shell; the sweep ends when a
+    # level admits nothing new, which is convergence and not a guess. A caller declaring a BOUNDED reach spends it
+    # here and takes a TYPED exhaustion, never a census truncated into a clean-looking answer.
+    def swept(seat: "Map[int, int]", level: int, budget: Depth) -> "RuntimeRail[Map[int, int]]":
+        widened = Block.of_seq(model.traverse(product, max_levels=level)).fold(
+            lambda held, node: held if node.id() in held else held.add(node.id(), level), seat
+        )
+        if len(widened) == len(seat):
+            return Ok(seat)
+        return budget.stepped().to_result(budget.exhausted(MUTATION_WALK)).bind(lambda left: swept(widened, level + 1, left))
+
+    # the product itself is hop zero and seeds the seat, so it never counts as its own dependent.
+    return swept(Map.of_seq([(product.id(), 0)]), 1, reach)
+
+
+def _shells(reached: "Map[int, int]") -> tuple[int, ...]:
+    # hop -> count, dense from hop 1, discarding the hop-zero seed: one projection serves the per-op fact and the
+    # script-wide receipt alike, so the two censuses cannot be counted under two rules.
+    hops = tuple(hop for _, hop in reached.items() if hop)
+    return tuple(sum(1 for hop in hops if hop == level) for level in range(1, max(hops, default=0) + 1))
+
+
 def _slotted(slots: "Map[str, object]", slot: str) -> "RuntimeRail[object]":
-    return Ok(slots[slot]) if slot in slots else Error(BoundaryFault(resource=("ifc.authoring.slot", slot)))
+    return Ok(slots[slot]) if slot in slots else Error(_domain(IfcFault(unresolved_slots=("ifc.authoring.slot", (slot,)))))
 
 
 def _changed(fact: MutationFact) -> tuple[Change, ...]:
     # the mutation's own footprint as a TYPED diff rather than a rendered sentence: a minting verb ASSIGNS the
     # compressed GlobalId it produced, `REMOVE` CLEARS the dependent subtree it severed — the one count unreadable
     # after the usecase runs, which is why `_step` reads it first — and a pset footprint rides only where the verb's
-    # `READS` capability actually took one. A zero row asserting a count nobody measured is the shape this omits.
+    # `READS` capability actually took one. A zero row asserting a count nobody measured is the shape this omits. The
+    # subtree change carries the whole SHELL census, so the durable record a project reads back years later still
+    # separates a wide-shallow mutation from a deep-narrow one instead of flattening every ripple to one hop.
+    spelled = ",".join(str(count) for count in fact.subtree)
     return (
         *((Assigned(path="/guid", next=fact.guid),) if fact.guid else ()),
         *(
-            (Cleared(path="/subtree", prior=str(fact.subtree)),)
+            (Cleared(path="/subtree", prior=spelled),)
             if fact.verb is AuthorVerb.REMOVE
-            else (Assigned(path="/subtree", next=str(fact.subtree)),)
+            else (Assigned(path="/subtree", next=spelled),)
         ),
         *((Assigned(path="/psets", next=str(fact.psets)),) if fact.psets else ()),
     )
@@ -321,9 +421,11 @@ def _evidence(receipt: AuthorReceipt) -> "Block[Fact]":
     )
 
 
-def _proven(row: IfcApiVerb, divergences: "Block[str]") -> "RuntimeRail[tuple[()]]":
-    # one refusal names EVERY divergence, so an operator repairs a whole malformed op rather than one keyword per run.
-    return Ok(()) if divergences.is_empty() else Error(BoundaryFault(boundary=(row.usecase, ";".join(divergences))))
+def _proven(row: IfcApiVerb, divergences: "Block[tuple[ArgumentFlaw, str, Option[int]]]") -> "RuntimeRail[tuple[()]]":
+    # one refusal names EVERY divergence, so an operator repairs a whole malformed op rather than one keyword per run,
+    # and the census crosses as the typed roster the fold built rather than a semicolon-joined string a consumer splits
+    # twice to recover what the admission already knew.
+    return Ok(()) if divergences.is_empty() else Error(_domain(IfcFault(divergent_arguments=(row.usecase, tuple(divergences)))))
 
 
 type _Run = Callable[["IfcAuthor", "ifcopenshell.file", tuple[AuthorOp, ...]], "RuntimeRail[AuthorReceipt]"]
@@ -361,9 +463,13 @@ def _stamped(run: _Run) -> _Run:
 
 
 class IfcAuthor:
-    def __init__(self, composition: ScopeKey = DEFAULT_SCOPE) -> None:
-        # the custody key is the owner's ONLY state — no handle, no accumulator; the fold carries the rest.
+    def __init__(self, composition: ScopeKey = DEFAULT_SCOPE, reach: Depth = Depth(fixpoint=None)) -> None:
+        # the custody key and the footprint bound are the owner's ONLY state — no handle, no accumulator; the fold
+        # carries the rest. `reach` defaults to the honest convergent case, since an element dependency chain
+        # terminates on its own; a caller over a pathological model declares a BOUNDED reach and takes the typed
+        # exhaustion rather than a footprint silently truncated into a clean answer.
         self._composition = composition
+        self._reach = reach
 
     def apply(self, model: "ifcopenshell.file", script: tuple[AuthorOp, ...]) -> "RuntimeRail[AuthorReceipt]":
         # the folder's verb-scripted MUTATING surface rides the folder's own weave, not a bare fence: the span opens under the
@@ -402,32 +508,62 @@ class IfcAuthor:
             lambda acc, op: acc.bind(lambda carry: self._step(model, carry, op)), script, Ok(AuthorCarry())
         )
         return folded.map(
-            lambda carry: AuthorReceipt(model.schema, _project(model), carry.facts, tuple(f.guid for f in carry.facts if f.guid), carry.edited)
+            lambda carry: AuthorReceipt(
+                model.schema,
+                _project(model),
+                carry.facts,
+                tuple(f.guid for f in carry.facts if f.guid),
+                carry.reached,
+                carry.edited,
+            )
         )
 
     def _step(self, model: "ifcopenshell.file", carry: AuthorCarry, op: AuthorOp) -> "RuntimeRail[AuthorCarry]":
         row = _row(op.verb)
 
-        def fire(kwargs: dict[str, object]) -> AuthorCarry:
+        def fire(kwargs: dict[str, object]) -> "RuntimeRail[AuthorCarry]":
             # REMOVE severs the entity, so the inverse fan-out is read from the input product BEFORE the delete — off
-            # the usecase's OWN first entity keyword, never a hardcoded `product` that drifts with the signature.
-            severed = len(model.get_inverse(kwargs[row.arguments[0].keyword])) if op.verb is AuthorVerb.REMOVE else 0
+            # the usecase's OWN first entity keyword, never a hardcoded `product` that drifts with the signature. It
+            # is a genuine ONE-HOP measure, so the referencing STEP IDS ride home rather than their count alone: the
+            # script-wide nearest-seed merge needs the identities, and a bare integer could not join them.
+            severed = (
+                Block.of_seq(model.get_inverse(kwargs[row.arguments[0].keyword])).map(lambda node: node.id())
+                if op.verb is AuthorVerb.REMOVE
+                else Block.empty()
+            )
             return self._record(model, carry, op, row, _usecase(row.usecase)(model, **kwargs), severed)
 
-        return op.payload.to_kwargs(row, carry.slots).map(fire)
+        return op.payload.to_kwargs(row, carry.slots).bind(fire)
 
-    @staticmethod
-    def _record(model: "ifcopenshell.file", carry: AuthorCarry, op: AuthorOp, row: IfcApiVerb, product: "object", severed: int) -> AuthorCarry:
+    def _record(
+        self, model: "ifcopenshell.file", carry: AuthorCarry, op: AuthorOp, row: IfcApiVerb, product: "object", severed: "Block[int]"
+    ) -> "RuntimeRail[AuthorCarry]":
         is_entity = isinstance(product, ifcopenshell.entity_instance)
         guid = compress(product.GlobalId) if Capability.MINTS in row.cap and is_entity and product.GlobalId else ""
         psets = len(get_psets(product)) if Capability.READS in row.cap and is_entity else 0
-        subtree = severed if op.verb is AuthorVerb.REMOVE else (len(model.traverse(product)) if is_entity else 0)
-        return AuthorCarry(
-            slots=carry.slots.add(op.slot, product) if op.slot and is_entity else carry.slots,
-            facts=carry.facts.append(Block.singleton(MutationFact(op.verb, guid, psets, subtree))),
-            # `edited` counts what the call DID, not what its capability declared: a relating usecase returning `None`
-            # mints nothing addressable, and a declared-capability count misses exactly that case.
-            edited=carry.edited + (0 if guid else 1),
+        walked = (
+            Ok(Map.of_seq((step, 1) for step in severed))
+            if op.verb is AuthorVerb.REMOVE
+            else _reached(model, product, self._reach)
+            if is_entity
+            else Ok(Map.empty())
+        )
+        return walked.map(
+            lambda reached: AuthorCarry(
+                slots=carry.slots.add(op.slot, product) if op.slot and is_entity else carry.slots,
+                facts=carry.facts.append(
+                    Block.singleton(MutationFact(op.verb, guid, product.id() if is_entity else 0, psets, _shells(reached)))
+                ),
+                # the script-wide merge is a nearest-seed MIN, stated here and derived nowhere else: a dependent two
+                # ops both reach counts once, at the shorter hop, where the per-fact sum it replaces charged it twice.
+                reached=Block.of_seq(reached.items()).fold(
+                    lambda held, entry: held.add(entry[0], min(entry[1], held.try_find(entry[0]).default_value(entry[1]))),
+                    carry.reached,
+                ),
+                # `edited` counts what the call DID, not what its capability declared: a relating usecase returning
+                # `None` mints nothing addressable, and a declared-capability count misses exactly that case.
+                edited=carry.edited + (0 if guid else 1),
+            )
         )
 ```
 

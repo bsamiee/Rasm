@@ -15,7 +15,7 @@ Truth records stay exempt by law: the journal never takes a repository, and this
 - [04]-[RESOLVER_ROWS]: `SqlResolver` batch rows — ordered, grouped, findById, void, the cache verbs.
 - [05]-[TABLE_BINDING]: `Query.Relation` and `Query.table` — identity, timing, and the case-projected verb set on one owner.
 - [06]-[FOREIGN_RELATIONAL_READS]: `Query.table` ingress case — admitted foreign Tags, structural read-only, T-SQL parameters and procedures, dialect forks.
-- [07]-[ORGANIZATION_ROWS]: model organization on the read side — entity relation, containment and view edge relations, resolver rows.
+- [07]-[ORGANIZATION_ROWS]: model organization on the read side — entity relation, edge relations, the bounded containment walk and its distance column.
 
 ## [02]-[MODEL_FAMILY]
 
@@ -455,19 +455,27 @@ const _mysqlIngress = MysqlClient.layerConfig({
 
 ## [07]-[ORGANIZATION_ROWS]
 
-- Owner: model organization as read-side relations — `Organization.Entity` the addressed entity row carrying label, sibling ordinal, resolved visibility and locking, and its container address; `organization_member` and `organization_view` the two one-to-many edge relations reached through grouped resolvers. `Organization.rows` binds the entity relation through `Query.table` and settles both edge resolvers beside it.
-- Packages: `@effect/sql` (`Model.Class`, `Model.FieldOption`, `Model.BooleanFromNumber`, `Model.DateTimeInsert`, `SqlResolver.grouped`, `SqlSchema.findAll`); `effect` (`Schema`, `Duration`); `lane/capability.md` (`Capability.Ensure`).
-- Entry: `Organization.rows(window)` inside the owning service build; callers reach entities through the bound repository and the four grouped resolvers, so a subtree walk collapses into one statement window per level.
+- Owner: model organization as read-side relations — `Organization.Entity` the addressed entity row carrying label, sibling ordinal, resolved visibility and locking, and its container address; `organization_member` and `organization_view` the two one-to-many edge relations reached through grouped resolvers; and `Organization.Walk`, the containment adjacency's ONE reach owner, answering the distance its own recursive term computed. `Organization.rows` binds the entity relation through `Query.table` and settles the walk and both edge resolvers beside it.
+- Packages: `@effect/sql` (`Model.Class`, `Model.FieldOption`, `Model.BooleanFromNumber`, `Model.DateTimeInsert`, `SqlResolver.grouped`, `SqlSchema.findAll`, `sql.in`, `sql.or`); `effect` (`Array`, `Effect`, `Option`, `Order`, `Schema`, `Struct`, `Duration`); `@rasm/ts/core` (`Shape.Bound` — the walk budget and its exhaustion evidence; `Fault.Class.spent` — the estate's one bound-exhaustion family); `lane/capability.md` (`Capability.Ensure`).
+- Entry: `Organization.rows(window)` inside the owning service build; `binding.reads.reach(walk)` answers a whole bounded subtree in one statement and `binding.resolvers.children` answers one level with the per-fiber window a resolver collapses, both off the same walk statement.
 - Law: `address` is the ENTITY key and `member` a FEDERATION key the producing authority issued, so the two never share a column. Nesting rides `container` on the entity row because an entity has exactly one container, while membership and view overrides are the genuine one-to-many axes and earn their own relations.
+- Law: a reach answers the DISTANCE it computed and membership DERIVES from it — every reach row is the entity row plus `seed` and `hops`, the level the engine counted on its own recursive term, so a consumer wanting the bare set maps one column away while a membership-only answer would force every consumer to re-walk a level per question; the level read and the whole-subtree read compose ONE statement builder under two call geometries, never two SQL forms.
+- Law: direction is the EDGE ORIENTATION as a row, never a second walk — `_EDGES` names the join column each arm reads, so descending a container and climbing it are one recursive term with two column reads and a third adjacency on this relation would be a row rather than a statement.
+- Law: the bound IS the recursive term's termination predicate, never a client-side cut — `Shape.Bound` carries it as a value and the walk takes the `finite` arm ALONE, because this tree arrives decoded from a foreign producer and a cycle in `container` is drift no admission here forecloses; that is the same election `Shape.Ingress.depth` makes, and the predicate admits one level PAST the ceiling as the overrun probe that separates a converged answer from a truncated one.
+- Law: exhaustion REFUSES and never truncates — `Shape.Bound.spent` grades the deepest level the statement produced against the request's own ceiling, and `Fault.Class.spent` carries the verdict because bound exhaustion is one family estate-wide; the ceiling is a property of the REQUEST rather than of one seed, so the refusal names the ceiling beside the depth the frontier reached and mints no local spent reason to fork that taxonomy.
+- Law: the seed set IS the merge — one multi-source walk carries `seed` on every row and collapses `min(hops)` per `(seed, address)` inside the statement, so a nearest-seed answer is a fold over a column the consumer already holds and a per-seed answer re-partitions on `seed`; N single-source walks would pay N statements for the same distances and leave the merge unstated.
+- Law: `roots` is the SEED PRODUCER and not a reach — it answers where a source's tree starts so a whole-source walk has addresses to seed, while `children` is the reach at one hop; the two stopped being parallel membership reads the moment distance became the primary column.
 - Law: content-key columns carry the lowercase hex face this branch already reads, so a join against any peer's address lowers and never uppercases; the producer's 16 big-endian bytes lower exactly once, at the core landing this page consumes.
 - Law: sibling rank is the producer's DENSE `ordinal`, so `ORDER BY ordinal` reproduces the source order without a second comparison, and no client re-breaks a tie the producer already resolved.
 - Law: the edge relations take NO repository — they carry no independent identity and mutate only through the organization lane's whole-source replacement, which is exactly the posture the journal relations hold.
 - Boundary: rows arrive decoded from the wire and this page derives nothing — no address minted, no ordinal recomputed, no container inferred from a label chain, and no host handle anywhere in the schema.
-- Growth: one appended wire field is one column here and one row in the lane's projection; a new containment relation is one `kind` value beside one resolver row.
+- Boundary: the adjacency is RELATIONAL, so the walk stays in the engine — `computation.md`'s `Graph.dfs`/`Graph.dijkstra` family owns an in-memory adjacency value, and reaching for it here would pull a whole edge set across the wire to answer a question one recursive term already answers in place.
+- Growth: one appended wire field is one column here and one row in the lane's projection; a new containment relation is one `kind` value beside one resolver row; a new reach question is a bound and a direction at the call, never a second walk.
 
 ```typescript signature
-import { Duration, Schema } from "effect"
+import { Array, Duration, Effect, Option, Order, Schema, Struct } from "effect"
 import { Model, SqlClient, SqlResolver, SqlSchema } from "@effect/sql"
+import { Fault, Shape } from "@rasm/ts/core"
 import type { Capability } from "../lane/capability.ts"
 import { Query } from "./query.ts"
 
@@ -492,25 +500,118 @@ class _Entity extends Model.Class<_Entity>("Organization.Entity")({
   folded_at: Model.DateTimeInsert,
 }) {}
 
-// Contained children re-anchor on the class's own resolved `.fields` (`Model.fields` yields variant Field objects
-// `Schema.Struct` refuses) with `container` re-typed non-optional, because the statement's own predicate proves
-// presence: reading the model's `Option` here forces a group key to unwrap a value the WHERE clause already
-// guaranteed, and unwrapping by throw is the exception path this engine deletes.
-const _Child = Schema.Struct({ ..._Entity.fields, container: _Address })
+// Direction is the edge ORIENTATION as a row pair, so one recursive term serves both arms by reading its join columns
+// here: `down` matches a candidate's container against the frontier and yields the candidate, `up` matches its address
+// and yields its container. The guard below proves both names against the model, so a renamed column breaks at this
+// declaration rather than at a statement the engine compiles and answers empty.
+const _EDGES = {
+  down: { parent: "container", child: "address" },
+  up: { parent: "address", child: "container" },
+} as const
+
+const _Direction = Schema.Literal(...Struct.keys(_EDGES))
+
+// A reach row IS the entity row plus the two columns the WALK computed. `container` keeps the model's own `Option`
+// because an `up` arm reaches roots, and the group key moved to `seed` — proved non-optional by the statement's own
+// seed column — so the container re-typing a level read once needed to key a group is gone with the artifact.
+const _Reached = Schema.Struct({
+  ..._Entity.fields,
+  seed: _Address,
+  hops: Schema.Int.pipe(Schema.nonNegative()),
+})
+
+// A reach with no seed is a caller defect, not an empty answer, so the request proves arity; `Shape.Bound`'s FINITE arm
+// alone is spellable because this tree is foreign-produced and a container cycle is drift no admission here forecloses
+// — the same election `Shape.Ingress.depth` makes against hostile depth.
+const _Walk = Schema.Struct({
+  seeds: Schema.NonEmptyArray(_Address),
+  bound: Shape.Bound.finite("hops"),
+  direction: _Direction,
+})
+
+declare namespace Organization {
+  type Address = typeof _Address.Type
+  type Direction = typeof _Direction.Type
+  type Edge = { readonly parent: Query.Column<typeof _Entity>; readonly child: Query.Column<typeof _Entity> }
+  type Reached = typeof _Reached.Type
+  type Walk = typeof _Walk.Type
+  // The direction rows stay literal and their column names prove HERE against the model, so a renamed field breaks at
+  // this declaration rather than at a statement the engine compiles happily and answers empty.
+  type _Edges<T extends Readonly<Record<Direction, Edge>> = typeof _EDGES> = T
+}
+
+// The level read's own bound, stated as a value rather than as a literal buried in a statement.
+const _ONE_HOP = Shape.Bound.bounded("hops", 1)
+
+// Bound exhaustion is ONE family estate-wide: `Shape.Bound`'s units ARE its reasons and its subject closes at the
+// ceiling and the depth reached, so this page mints no spent row of its own to fork that taxonomy.
+const _WalkFault = Fault.Class.spent.census("Organization.WalkFault")
+
+// ONE walk statement answers every reach on this relation. The seed frontier is the whole request's address set carried
+// as `seed`, `hops` counts levels IN THE ENGINE (`r.hops + 1`), and the bound IS the recursive term's own termination
+// predicate — so nothing re-walks a level on the client and no consumer counts one. The predicate admits one level PAST
+// the ceiling on purpose: a row at `ceiling + 1` proves the frontier was still live there, which is the whole
+// difference between a converged subtree and a truncated prefix reported as whole. `min(hops)` collapses a DAG's second
+// path to the nearest distance inside the statement, and `UNION` dedups the frontier rather than re-emitting it.
+// `WITH RECURSIVE` carries on both engines this ledger runs, so no dialect arm forks here.
+const _walked = (sql: SqlClient.SqlClient) => (walk: Organization.Walk) => {
+  const edge = _EDGES[walk.direction]
+  return sql`WITH RECURSIVE reach(seed, address, hops) AS (
+      SELECT address, address, 0 FROM ${sql(_ENTITY)} WHERE ${sql.in("address", walk.seeds)}
+      UNION
+      SELECT r.seed, e.${sql(edge.child)}, r.hops + 1
+        FROM reach r JOIN ${sql(_ENTITY)} e ON e.${sql(edge.parent)} = r.address
+       WHERE r.hops <= ${walk.bound.ceiling} AND e.${sql(edge.child)} IS NOT NULL
+    )
+    SELECT e.*, n.seed, n.hops
+      FROM (SELECT seed, address, min(hops) AS hops FROM reach GROUP BY seed, address) n
+      JOIN ${sql(_ENTITY)} e ON e.address = n.address
+     WHERE n.hops > 0
+     ORDER BY n.seed, n.hops, e.ordinal`
+}
+
+// Exhaustion refuses; it never truncates. `Shape.Bound.spent` is the one gate every bounded walk spends — `none` is the
+// converged answer and a spent budget hands its whole evidence row to the refusal — and the probe level the statement
+// admitted is what makes that verdict decidable at all.
+const _reached = (sql: SqlClient.SqlClient) => {
+  const rows = SqlSchema.findAll({ Request: _Walk, Result: _Reached, execute: _walked(sql) })
+  return (walk: Organization.Walk) =>
+    Effect.flatMap(rows(walk), (reached) =>
+      Option.match(
+        Shape.Bound.spent(
+          walk.bound,
+          Array.match(reached, {
+            onEmpty: () => 0,
+            onNonEmpty: (held) => Array.max(Array.map(held, (row) => row.hops), Order.number),
+          }),
+        ),
+        {
+          onNone: () => Effect.succeed(reached),
+          onSome: ({ unit, ...evidence }) => Effect.fail(new _WalkFault({ issues: [{ reason: unit, ...evidence }] })),
+        },
+      ))
+}
 
 // Edge relations carry no independent identity, so they take resolvers and no repository: an organization read
 // replaces a source's whole edge set, never one row. `member` and `view` stay unbranded strings because the
 // producing authority issues them — branding either here claims a grammar no peer promised.
 const _resolverRows = (sql: SqlClient.SqlClient) => ({
-  // one grouped row answers a whole level, so a depth-first walk pays one statement window per level, never per parent
+  // The level read is the WALK at one hop, not a second statement: it keeps its own row because a grouped resolver
+  // collapses N fibers' containers into one window, which a caller-gathered seed set cannot do — and it answers `hops`
+  // like every other reach, so a consumer that later wants a whole subtree widens the bound instead of looping levels.
   children: SqlResolver.grouped("OrganizationChildren", {
     Request: _Address,
     RequestGroupKey: (address) => address,
-    Result: _Child,
-    ResultGroupKey: (row) => row.container,
+    Result: _Reached,
+    ResultGroupKey: (row) => row.seed,
     execute: (containers) =>
-      sql`SELECT * FROM ${sql(_ENTITY)} WHERE ${sql.in("container", containers)} ORDER BY container, ordinal`,
+      Array.match(containers, {
+        onEmpty: () => Effect.succeed<ReadonlyArray<Organization.Reached>>([]),
+        onNonEmpty: (seeds) => _walked(sql)({ seeds, bound: _ONE_HOP, direction: "down" }),
+      }),
   }),
+  // Roots are the SEED PRODUCER, not a reach: a whole-source walk needs addresses to seed and this answers where a
+  // source's tree starts, which is why it carries no distance column and keys on `source` rather than on a frontier.
   roots: SqlResolver.grouped("OrganizationRoots", {
     Request: _Address,
     RequestGroupKey: (source) => source,
@@ -545,6 +646,7 @@ const _reads = (sql: SqlClient.SqlClient) => ({
     Result: Schema.Struct({ address: _Address }),
     execute: (source) => sql`SELECT address FROM ${sql(_ENTITY)} WHERE source = ${source}`,
   }),
+  reach: _reached(sql), // the whole-subtree road: seeds in hand, one statement, distance on every row
 })
 
 const _ddl: Capability.Ensure = {
@@ -578,7 +680,7 @@ const _rows = (window: Duration.Duration) =>
     resolvers: _resolverRows,
   })
 
-const Organization = { Entity: _Entity, Address: _Address, rows: _rows } as const
+const Organization = { Entity: _Entity, Address: _Address, Walk: _Walk, WalkFault: _WalkFault, rows: _rows } as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 

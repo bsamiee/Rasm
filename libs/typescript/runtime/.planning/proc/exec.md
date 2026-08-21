@@ -184,7 +184,7 @@ const _halted = (): Promise<void> => _host.dispose();
 [COMMAND_SPEC]:
 - Owner: `Proc` — spec-driven subprocess execution over one Schema authority. `Proc.Spec` is a `Schema.Class`: `command`, defaulted `args`, the closed `capture` modality vocabulary (`"receipt" | "text" | "lines" | "stream"`, defaulted `"receipt"` at the declaration so absence is unspellable in the interior), `Option`-admitted `env`, `cwd`, and `feed` (the closed stdin family folded through `Command.feed`/`Command.stdin`), defaulted `shell` (`Command.runInShell`), defaulted `stderr` (the capture posture folded through `Command.stderr`), defaulted `pipes` (pipeline stages folded through `Command.pipeTo`), `Option`-admitted `budget` and `demand` (the expected exit code); `Proc.run` is the one entry, its return following the spec's own `capture` discriminant — `"receipt"` yields the `Proc.Receipt` class (exit code and elapsed), `"text"` captured stdout, `"lines"` the `Command.lines` split, `"stream"` the live byte stream; `Proc.open` is the interactive modality — a scoped acquisition of the executor's live `Process` handle for a long-lived child a caller feeds and reads (the compute-host case), released by scope close as interruption; a `runText`/`runStream`/`spawn` sibling family is the deleted spelling.
 - Law: the class is the admission seam and the constructor — raw spec material (an ops verb's arguments, a config-declared job) decodes once through `Schema.decodeUnknown(Proc.Spec)`, trusted interior construction rides `new Proc.Spec({ command })` running the same filters, and the executor consumes only admitted values: capture is a total literal read, absence is `Option`, and no execution arm re-validates or branches on `undefined`; `Proc.Receipt` is the same authority on the result side, so an ops surface encodes receipts through the derived wire twin with zero hand serialization.
-- Law: the diagnostic is captured, never discarded — `_settled` takes the live `Process` handle instead of `Command.exitCode` and drains `child.stderr` CONCURRENTLY with the exit wait, because a child that fills its stderr pipe while the parent waits on exit deadlocks. `spec.stderr` is the two-arm posture over that: `capture` folds the drained text into `ExecFault.detail`, and `inherit` hands the stream to the parent's own stderr through `Command.stderr("inherit")` — the arm a long-lived child with unbounded diagnostic output takes so no buffer grows behind the wait.
+- Law: the diagnostic is captured, never discarded — `_settled` takes the live `Process` handle instead of `Command.exitCode` and drains `child.stderr` CONCURRENTLY with the exit wait, because a child that fills its stderr pipe while the parent waits on exit deadlocks. `spec.stderr` is the two-arm posture over that: `capture` folds the drained text into the exit row's own diagnostic column, and `inherit` hands the stream to the parent's own stderr through `Command.stderr("inherit")` — the arm a long-lived child with unbounded diagnostic output takes so no buffer grows behind the wait.
 - Law: `feed` is the platform's whole stdin vocabulary as a closed tagged family, never a text field — `Text` keeps the UTF-8 encode `Command.feed` owns, `Inherit` hands the child the parent's own stdin, and `Bytes` folds a live `Stream` through `Command.stdin` so a piped archive or a generated payload feeds a child the text arm cannot express; the stream arm declares `FromSelf` against the carrier's own `Stream.StreamTypeId`, so a process-bound value is admitted by nominal identity and never pretends to serialize.
 - Law: teardown is interruption — the budget interrupt, a parent scope closing, and a race loss all release the child through the executor's own bracket; a hand `kill`, a PID ledger, and a signal listener beside the rail are rejected, and escalation policy (grace then hard) is the budget value itself.
 - Law: `demand` rides the receipt modality only — text, lines, and stream captures are byte lanes whose consumer owns interpretation; `budget` rides the settled modalities only — receipt, text, and lines captures are bounded whole, while the live stream and the open handle outlive any spec deadline by nature. Receipt elapsed time derives from `Clock.currentTimeNanos`, so wall-clock adjustment cannot produce a negative or inflated process duration.
@@ -196,27 +196,45 @@ import { Command, type CommandExecutor, type PlatformError } from '@effect/platf
 import { Array, Clock, Duration, Effect, Match, Option, Predicate, Schema, type Scope, Stream, pipe } from 'effect';
 import { Fault } from '@rasm/ts/core';
 
-// One core family mint owns the reason roster and its class column, so `class` is a projection of `reason` rather
-// than a second field an instance can contradict, and the branch taxonomy stays unforked: no local rank, retry, or
-// status row stands beside it — `Fault.Class` already carries all three off the kind.
+const _LEG = 'command';
+
+// One core family mint owns the reason roster, its class column, and each reason's OWN subject, so `class` is a
+// projection of `reason` rather than a second field an instance can contradict, and no arm carries a column its own
+// refusal cannot fill: a budget expiry reached no exit and cancelled the stderr drain with the fiber, so its row
+// declares neither code nor diagnostic and states the bound it broke instead, while the demand arm declares both
+// because a refused exit always holds them. The branch taxonomy stays unforked — no local rank, retry, or status row
+// stands beside it, `Fault.Class` already carrying all three off the kind.
 const _exec = Fault.Class.family(['budget', 'exit'] as const, {
-    budget: { class: 'expired' }, // system-blamed and retryable: the core budget gate re-drives it
-    exit: { class: 'invalid' }, // caller-blamed and terminal: a refused demand is not a transient
+    budget: Fault.Class.row({
+        class: 'expired', // system-blamed and retryable: the core budget gate re-drives it
+        leg: _LEG,
+        detail: Schema.Struct({ command: Schema.NonEmptyString, budget: Schema.Duration }),
+        render: ({ budget, command }) => `${command} outlived its ${Duration.toMillis(budget)}ms budget`,
+    }),
+    exit: Fault.Class.row({
+        class: 'invalid', // caller-blamed and terminal: a refused demand is not a transient
+        leg: _LEG,
+        detail: Schema.Struct({
+            command: Schema.NonEmptyString,
+            code: Schema.Int,
+            demanded: Schema.Int,
+            // the child's own diagnostic, drained whole beside the exit wait; the inherit arm left no pipe to read
+            // and lands the empty string, which the renderer omits rather than spelling as an absent message
+            detail: Schema.String,
+        }),
+        render: ({ code, command, demanded, detail }) =>
+            `${command} exited ${code} against a demanded ${demanded}${detail === '' ? '' : ` — ${detail}`}`,
+    }),
 });
 
 class ExecFault extends Schema.TaggedError<ExecFault>()('ExecFault', {
-    reason: _exec.schema,
-    command: Schema.NonEmptyString,
-    code: Schema.optionalWith(Schema.Int, { as: 'Option' }),
-    // the child's own diagnostic, captured whole on the settled modalities; absent on a budget expiry, whose child
-    // never reached an exit and whose stderr drain the interrupt cancelled
-    detail: Schema.optionalWith(Schema.String, { as: 'Option' }),
+    case: _exec.payload,
 }) {
     get class(): Fault.Class.Kind {
-        return _exec.classOf(this.reason);
+        return _exec.classOf(this.case.reason);
     }
     override get message(): string {
-        return `<${this.reason}> ${this.command}`;
+        return _exec.render(this.case);
     }
 }
 
@@ -293,9 +311,9 @@ const _budgeted =
             onSome: (budget) =>
                 Effect.timeoutFail(self, {
                     duration: budget,
-                    // a budget expiry reaches no exit and cancels the stderr drain with the fiber, so neither evidence
-                    // field can be filled — absence here is the honest reading, never a zero code or an empty string
-                    onTimeout: () => new ExecFault({ reason: 'budget', command: spec.command, code: Option.none(), detail: Option.none() }),
+                    // a budget expiry reaches no exit and cancels the stderr drain with the fiber, so the row this
+                    // arm raises declares neither column and carries the broken bound in their place
+                    onTimeout: () => new ExecFault({ case: { reason: 'budget', command: spec.command, budget } }),
                 }),
         });
 
@@ -318,12 +336,7 @@ const _settled = (spec: Spec): Effect.Effect<Receipt, Proc.Faults, CommandExecut
             const closed = yield* Clock.currentTimeNanos;
             const refused = Option.filter(spec.demand, (demanded) => code !== demanded);
             return Option.isSome(refused)
-                ? yield* new ExecFault({
-                      reason: 'exit',
-                      command: spec.command,
-                      code: Option.some(code),
-                      detail: detail === '' ? Option.none() : Option.some(detail),
-                  })
+                ? yield* new ExecFault({ case: { reason: 'exit', command: spec.command, code, demanded: refused.value, detail } })
                 : new Receipt({ command: spec.command, code, elapsed: Duration.nanos(closed - opened) });
         }),
     ).pipe(_budgeted(spec));

@@ -6,7 +6,7 @@ Composed facts: `Presence.State`'s `caret` axis (ProseMirror `anchor`/`head` pos
 
 ## [01]-[INDEX]
 
-- [02]-[ANCHOR_PLANE]: `Anchor` registers the coordinate spaces — posture vocabulary, rail sweep, density clustering; `Anchor`.
+- [02]-[ANCHOR_PLANE]: `Anchor` registers the coordinate spaces — posture vocabulary, durable re-entry, rail sweep, density clustering; `Anchor`.
 - [03]-[ROSTER_FACES]: avatar stack and status tones over the core roster reads; `Face`.
 - [04]-[CURSOR_PLANE]: `Face` supplies cursors into the overlay cohort under the glide and departure laws; `Face`.
 - [05]-[THREAD_PLANE]: `Face.Thread` records comments — clamps, read marker, composer modes; `Face`.
@@ -14,12 +14,13 @@ Composed facts: `Presence.State`'s `caret` axis (ProseMirror `anchor`/`head` pos
 ## [02]-[ANCHOR_PLANE]
 
 [ANCHOR_PLANE]:
-- Owner: `Anchor` — the coordinate-space registry: `Anchor.space(row)` is the one lane constructor, closing a space's locator type inside a monomorphic `Anchor.Lane` (decode/encode through the row's own locator `Schema`, `locate` to an `Option` of viewport geometry, `track` folding the row's `carry` arm over its `epoch` stream), `Anchor.spaces(lanes)` the admission gate refusing duplicate kinds with evidence, `Anchor.postures` the closed render vocabulary, `Anchor.swept` the margin-rail collision fold, and `Anchor.clustered` the density fold that collapses a crowded viewport into `+n` chips.
+- Owner: `Anchor` — the coordinate-space registry: `Anchor.space(row)` is the one lane constructor, closing a space's locator type inside a monomorphic `Anchor.Lane` (decode/encode through the row's own locator `Schema`, `locate` to an `Option` of viewport geometry, `track` folding the row's `carry` arm over its `epoch` stream), `Anchor.spaces(lanes)` the admission gate refusing duplicate surfaces with evidence, `Anchor.admit(lanes, anchored)` the durable re-entry that turns a persisted `{ space, locator }` back into a held locator or a named refusal, `Anchor.postures` the closed render vocabulary, `Anchor.swept` the margin-rail collision fold, and `Anchor.clustered` the density fold that collapses a crowded viewport into `+n` chips.
 - Packages: `effect` (`Array`, `Data`, `Either`, `Option`, `Order`, `Record`, `Schema`, `Stream`); `@rasm/ts/core` (`Fault.Class` behind the fault family); `system/act` (`Motion.useFollow` — the rendered transform rides motion values, never per-frame React state); `system/token` (the `z` ladder's `cursor` rank is the layer's one stacking coordinate).
 - Entry: `Anchor.space` per surface, exported from the OWNING page as a value; the composition root hands the assembled record to this plane at boot — the same admission pattern `Overlay.commands` runs, so a malformed registry refuses at composition, never mid-render.
 - Law: spaces arrive as VALUES, never imports — content, canvas, media, and the viewer each export their row from their own page and no `view/` sibling imports another; the registry is the meeting point and the composition root is the assembler, which is exactly how `Hook.Rows` and the port Tags already cross this folder.
 - Law: the registry keys on SURFACE, never kind — `kind` names the codec FAMILY a row's locators speak while `surface` names the mounted instance (`Presence.Point.surface` is the join), so two images, two canvases, or two editors on one screen register two lanes sharing one family and a kind-keyed record collapses them onto whichever mounted last; durable anchors persist the surface name beside the locator, and a surface the app never re-registers parks its anchors.
 - Law: a locator is opaque past its lane — `Anchor.Held` brands the decoded locator so a consumer can hold, persist (through `encode`), and re-resolve one without ever reading its interior; a durable anchor is `{ space, locator }` DATA whose locator re-enters through the lane's own codec, so a thread record persists anchors with no per-space arm anywhere downstream.
+- Law: a durable anchor re-enters through `Anchor.admit` alone — the registry answers the lane by surface and that lane's own codec answers the locator, so a record naming an unregistered surface and a record whose payload the codec refuses arrive as two named refusals instead of one indistinguishable absence; the parked pin below is a resolved locator with no geometry and never travels this channel.
 - Law: `resolve` answers `Option`, and `Option.none` is the PARKED posture — a collapsed branch, an unmounted surface, a position past the document's current extent all park their items rather than painting a stale pixel; parking is a render verdict, never a fault, and the item re-resolves on the space's next epoch emission.
 - Law: `carry` is the mutation-mapping arm and its burden seats at the owner — content's space carries ephemeral carets through ProseMirror step maps because raw positions go stale on every transaction; canvas, media, and the viewer key by stable identity (node id, fraction, `GlobalId`) and declare no arm; a space whose locators go stale under mutation and declares no `carry` ships the drift this column exists to close.
 - Law: the epoch is the space's OWN invalidation source — a ProseMirror transaction stream, the camera atom's change stream, a resize observation — and the overlay re-resolves exactly the lanes whose epoch fired; a global rAF re-resolve of every anchor spends the frame budget the per-space epoch exists to protect.
@@ -61,6 +62,8 @@ declare namespace Anchor {
     readonly locator: Anchor.Held
     readonly posture: Anchor.Posture
   }
+  // the persisted half of an anchor: the surface it was taken on beside the locator its lane's codec re-admits
+  type Anchored = { readonly space: string; readonly locator: unknown }
   type Card = { readonly key: string; readonly top: number; readonly height: number }
   type Cluster =
     | { readonly _tag: "Lone"; readonly key: string; readonly rect: Anchor.Rect }
@@ -69,6 +72,7 @@ declare namespace Anchor {
     readonly postures: typeof _postures
     readonly space: typeof _space
     readonly spaces: typeof _spaces
+    readonly admit: typeof _admit
     readonly swept: typeof _swept
     readonly clustered: typeof _clustered
   }>
@@ -76,22 +80,37 @@ declare namespace Anchor {
 
 const _postures = ["pin", "float", "rail"] as const
 
+// two legs partition the refusal: `registry` refuses the assembled lane set at composition, `anchor` refuses one
+// durable record re-entering afterwards — and each reason renders the subject its own half actually holds
 const _family = Fault.Class.family(["space-absent", "space-doubled", "locator-refused"] as const, {
-  "space-absent": { class: "absent" },
-  "space-doubled": { class: "conflicted" },
-  "locator-refused": { class: "malformed" },
+  "space-absent": Fault.Class.row({
+    class: "absent",
+    leg: "anchor",
+    detail: Schema.Struct({ space: Schema.String }),
+    render: ({ space }) => `surface ${space} holds no registered lane`,
+  }),
+  "space-doubled": Fault.Class.row({
+    class: "conflicted",
+    leg: "registry",
+    detail: Schema.Struct({ space: Schema.String, lanes: Schema.Int.pipe(Schema.greaterThan(1)) }),
+    render: ({ space, lanes }) => `surface ${space} registers ${lanes} lanes`,
+  }),
+  "locator-refused": Fault.Class.row({
+    class: "malformed",
+    leg: "anchor",
+    detail: Schema.Struct({ space: Schema.String, kind: Schema.String }),
+    render: ({ space, kind }) => `${kind} codec on surface ${space} refused a persisted locator`,
+  }),
 })
 
 class AnchorFault extends Schema.TaggedError<AnchorFault>()("AnchorFault", {
-  reason: _family.schema,
-  space: Schema.String,
+  case: _family.payload,
 }) {
-  static readonly roster: typeof _family.reasons = _family.reasons
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
   }
   override get message(): string {
-    return `<anchor:${this.reason}:${this.space}>`
+    return _family.render(this.case)
   }
 }
 
@@ -125,9 +144,27 @@ const _spaces = (
     ),
     {
       onNone: () => Either.right(Record.fromEntries(Array.map(lanes, (lane) => [lane.surface, lane] as const))),
-      onSome: ([surface]) => Either.left(new AnchorFault({ reason: "space-doubled", space: surface })),
+      onSome: ([surface, held]) =>
+        Either.left(new AnchorFault({ case: { reason: "space-doubled", space: surface, lanes: held.length } })),
     },
   )
+
+// the durable anchor's ONE re-entry: a persisted `{ space, locator }` becomes a held locator or a refusal naming
+// which half failed — the registry holding no lane for that surface, or the lane's own codec refusing the payload.
+// A locator that decodes and resolves to nothing is the PARKED posture `locate` already answers; a locator that
+// cannot decode at all is damage in the record, so the two never arrive on one channel
+const _admit = (
+  lanes: Record.ReadonlyRecord<string, Anchor.Lane>,
+  anchored: Anchor.Anchored,
+): Either.Either<Anchor.Held, AnchorFault> =>
+  Option.match(Record.get(lanes, anchored.space), {
+    onNone: () => Either.left(new AnchorFault({ case: { reason: "space-absent", space: anchored.space } })),
+    onSome: (lane) =>
+      Either.fromOption(
+        lane.decode(anchored.locator),
+        () => new AnchorFault({ case: { reason: "locator-refused", space: anchored.space, kind: lane.kind } }),
+      ),
+  })
 
 const _byTop: Order.Order<Anchor.Card> = Order.mapInput(Order.number, (card: Anchor.Card) => card.top)
 
@@ -176,6 +213,7 @@ const Anchor: Anchor.Shape = {
   postures: _postures,
   space: _space,
   spaces: _spaces,
+  admit: _admit,
   swept: _swept,
   clustered: _clustered,
 }

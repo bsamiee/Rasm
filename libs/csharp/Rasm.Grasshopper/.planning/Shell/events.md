@@ -1,32 +1,29 @@
 # [RASM_GRASSHOPPER_SHELL_EVENTS]
 
-`UiEvents` is the Grasshopper boundary's one UI event algebra: `UiSource` owns GH2 and Eto source rows, `UiFact` carries typed payload evidence, `EventAnchor` discriminates providers, and `UiSubscription` rides the kernel `Lease<T>` rail. Each row pairs attachment with inverse detachment. Every attachment rides an `Op`-keyed `Fin` through `Eto/runtime.md` dispatch, and a refused batch row rolls back every attached sibling before surfacing the fault.
+Boundary's UI event estate is the kernel input estate instantiated: `GhFact` is the folder's closed fact band riding the kernel `IUiFact` floor with a `Kernel(UiFact)` wrapping case, the GH2 source rows are one `IUiSource<GhFact>` roster over two generic wire folds, and subscription, ordering, bounded evidence, and completion are all `Rasm/Interaction/input.md`'s — `UiEvents.Observe`, `UiEvent<GhFact>` with its drain-minted `Ordinal`, `EvidenceDrain<GhFact>`, and `UiSubscription<GhFact>`. Every Eto fact case, anchor case, and source row this page once declared is DELETED onto the kernel band; what stays is the Grasshopper2 host truth the kernel cannot name.
 
-Source rows cover GH2 canvas, document, object-list, solution, and undo signals; Eto control, window, application, and keyboard signals; and the `UiClock` beat. Exact catalogued members live on the source table, never a parallel family owner.
-
-Eight canvas paint fences are `Canvas/paint.md`'s executor and never appear as rows here; `FlexControl.PopulateContextMenu` is `Canvas/interaction.md`'s policy callback, not an observation stream; window-closing veto policy is `Eto/windows.md`'s spec; AppKit local-monitor streams enter this algebra as rows whose attachment is the `Platform/native.md` gated adapter — the platform owner carries the `NSEventMask` vocabulary, the monitor lifetime, and the macOS gate, and this page carries only the row seam.
+Drain's single compare-and-swap mints the stamp and the ordinal together (kernel law), so the sink-serialized total order `Shell/journal.md`'s replay depends on survives as `UiEvent<GhFact>.Ordinal` — no local ordinal cell, saturation guard, or `EventSink` exists here.
 
 ## [01]-[INDEX]
 
-- [02]-[FACTS]: `CanvasSignal`/`DocumentSignal`/`GraphSignal`/`SolutionSignal`/`UndoSignal`/`LifecycleStage` + `UiFact` + `UiEvent` — the signal vocabularies, the one payload union, and the published message envelope.
-- [03]-[SOURCES]: `EventAnchor` + `UiSource` — the anchor union and the source-row vocabulary with its attach/detach column and per-anchor row-factory folds.
-- [04]-[SUBSCRIPTION]: `UiSubscription` + `UiEvents` — transactional multi-row attachment behind one `Observe` gate returning `Fin<Lease<UiSubscription>>`.
-- [05]-[DRAIN]: `DrainPolicy` + `EvidenceDrain` — the bounded off-thread evidence channel with drop accounting and the publish-callback bridge.
+- [02]-[FACTS]: `CanvasSignal`/`DocumentSignal`/`GraphSignal`/`SolutionSignal`/`UndoSignal` + `GhFact` — the GH2 signal vocabularies and the folder fact band.
+- [03]-[SOURCES]: `GhSource` — the GH2 source roster over the two wire folds, each row pairing attach with its exact inverse.
+- [04]-[BRIDGES]: `HookBridge` — the two `CancelEventArgs` veto bridges writing a hook-rail refusal back into the host.
 
 ## [02]-[FACTS]
 
-- Owner: `UiFact` `[Union]` — the one payload family every source row publishes into. Cases carry typed evidence, never provider argument objects: pointer, key, text, drag, focus, bounds, density, window state, lifecycle, modifiers, canvas, document, graph, solution, undo, clock, notification, and failure facts. Signal vocabularies are keyless behavior-free `[SmartEnum<int>]` rows over the catalogued host families.
-- Owner: `UiEvent` readonly record struct — the published message envelope carries the raising `UiSource`, `UiFact`, and sink-local `Stamp` publication ordinal; it implements `IValidityEvidence` through the claim fold and validates nested `ClockBeat` evidence when the fact is `BeatCase`. Consumers receive `UiEvent` values only — a host `EventArgs` object never crosses the algebra. `Stamp` proves serialized event order, carries no elapsed-time meaning, and never competes with `MonotonicTimeline`.
-- Law: facts are evidence, never live resources — a `DocumentCase` carries the `DocumentToken` `Guid` (`Shell/session.md`'s per-instance identity mint, because GH2 `Document` carries no cheap host id), never the `Document`; a `GraphCase` carries `IDocumentObject.InstanceId`; a `SolutionCase` carries the host `SolutionId` value identity; a consumer needing the live object re-enters through `GhSession.Run`, so a stale fact can never hand out a disposed host reference.
-- Law: sparse projection is the contract by decision — a fact carries what its source row verifiably reads, and a consumer needing more evidence extends the CASE with a field, never mints a sibling snapshot record.
-- Boundary: `Fault.Cancelled` and the twelve-case kernel fault band own failure semantics; `FaultCase` transports the `Error` as evidence and adjudicates nothing.
-- Packages: Eto (`Keys`, `MouseButtons`, `DragEffects`, `WindowState`, `PointF`, `RectangleF`), `Rasm.Domain` (`ValidityClaim`, `IValidityEvidence`), `Eto/runtime.md` (`ClockBeat`), `Rasm.Parametric` (`MonotonicBeat`).
-- Growth: a new host signal is one row on its signal vocabulary and, where the payload is new, one `UiFact` case; consumers' total `Switch` breaks loudly.
+- Owner: `GhFact` `[Union]` realizing the kernel `IUiFact` floor — five GH2 payload cases beside the `Kernel(UiFact)` wrapping case every Eto raise rides, so one drain, one subscription, and one total order carry both bands. Signal vocabularies are keyless behavior-free `[SmartEnum<int>]` rows over the catalogued host families.
+- Law: facts are evidence, never live resources — a `DocumentCase` carries the host-published `Document.Identity` Guid, a `GraphCase` carries `IDocumentObject.InstanceId`, a `SolutionCase` the host `SolutionId` value identity; a consumer needing the live object re-enters through `GhSession.Run`, so a stale fact can never hand out a disposed host reference.
+- Law: `Kind` is the one wire token the floor demands, projected through the generated total `Switch`; the wrapping case delegates to the kernel fact's own `Kind`, so a journal keying on kind reads one vocabulary across both bands.
+- Law: the former Eto cases — pointer, key, text, drag, focus, bounds, density, window state, lifecycle, modifiers, beat, notice, fault — are the kernel `UiFact` band and enter ONLY as `Kernel` wraps; `LifecycleStage` is the kernel roster (its ordinals differ from the deleted local set — no wire carried them, so the re-key is free), and the beat is the kernel `PulseBeat` on `UiFact.BeatCase`.
+- Boundary: sparse projection is the contract by decision — a fact carries what its source row verifiably reads, and a consumer needing more evidence extends the CASE with a field, never mints a sibling snapshot record.
+- Packages: Grasshopper2 (`SolutionId`), Eto.Drawing (`PointF`, prelude-bare per the csproj global using), `Rasm.Interaction` (`IUiFact`, `UiFact`, `LifecycleStage`, `PulseBeat`), `Rasm.Domain`.
+- Growth: a new GH2 host signal is one row on its signal vocabulary and, where the payload is new, one `GhFact` case breaking every total dispatch loudly; a new Eto fact is the kernel's one case and costs this page nothing.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Domain;
-using Rasm.Grasshopper.Eto;
+using Rasm.Interaction;
 
 namespace Rasm.Grasshopper.Shell;
 
@@ -83,571 +80,211 @@ public sealed partial class UndoSignal {
     public static readonly UndoSignal NodeMoved = new(key: 6);
 }
 
-// The roster spans THREE host event families — Control.Load/Shown, Window.Closing/Closed,
-// Application.Initialized/Terminating — and Eto publishes no enum over them, so the key is declaration ordinal like
-// every sibling vocabulary here. A gap advertises a host ordinal that does not exist; a key mirroring a real host
-// enum spells `(int)HostEnum.Value` instead, never a hand-numbered literal (shapes.md [VOCABULARY_DECLARATION]).
-[SmartEnum<int>]
-public sealed partial class LifecycleStage {
-    public static readonly LifecycleStage Load = new(key: 0);
-    public static readonly LifecycleStage Shown = new(key: 1);
-    public static readonly LifecycleStage Closing = new(key: 2);
-    public static readonly LifecycleStage Closed = new(key: 3);
-    public static readonly LifecycleStage Initialized = new(key: 4);
-    public static readonly LifecycleStage Terminating = new(key: 5);
-}
-
+// Folder band over the kernel floor: five GH2 cases plus the wrap, so one drain and one ordinal serve both
+// bands and a journal keys one `Kind` vocabulary.
 [Union]
-public abstract partial record UiFact {
-    private UiFact() { }
-    public sealed record PointerCase(PointF Location, MouseButtons Buttons, Keys Modifiers, SizeF Delta, float Pressure) : UiFact;
-    public sealed record KeyCase(Keys Key, Keys Modifiers, bool Pressed) : UiFact;
-    public sealed record TextCase(string Text) : UiFact;
-    public sealed record DragCase(PointF Location, DragEffects Effects) : UiFact;
-    public sealed record FocusCase(bool Gained) : UiFact;
-    public sealed record BoundsCase(RectangleF Bounds) : UiFact;
-    public sealed record DensityCase(float LogicalPixelSize) : UiFact;
-    public sealed record StateCase(WindowState State) : UiFact;
-    public sealed record LifeCase(LifecycleStage Stage) : UiFact;
-    public sealed record ModifierCase(Keys Modifiers) : UiFact;
-    public sealed record CanvasCase(CanvasSignal Signal, Option<PointF> Location) : UiFact;
-    public sealed record DocumentCase(DocumentSignal Signal, Option<Guid> DocumentId) : UiFact;
-    public sealed record GraphCase(GraphSignal Signal, Option<Guid> SubjectId) : UiFact;
-    public sealed record SolutionCase(SolutionSignal Signal, Option<SolutionId> Id, Option<Error> Failure) : UiFact;
-    public sealed record UndoCase(UndoSignal Signal) : UiFact;
-    public sealed record BeatCase(ClockBeat Beat) : UiFact;
-    public sealed record NoticeCase(Option<string> Id, Option<string> UserData) : UiFact;
-    public sealed record FaultCase(Error Failure) : UiFact;
-}
+public abstract partial record GhFact : IUiFact {
+    private GhFact() { }
+    public sealed record CanvasCase(CanvasSignal Signal, Option<PointF> Location) : GhFact;
+    public sealed record DocumentCase(DocumentSignal Signal, Option<Guid> DocumentId) : GhFact;
+    public sealed record GraphCase(GraphSignal Signal, Option<Guid> SubjectId) : GhFact;
+    public sealed record SolutionCase(SolutionSignal Signal, Option<SolutionId> Id, Option<Error> Failure) : GhFact;
+    public sealed record UndoCase(UndoSignal Signal) : GhFact;
+    public sealed record Kernel(UiFact Fact) : GhFact;
 
-// --- [MODELS] -------------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct UiEvent(UiSource Source, UiFact Fact, long Stamp) : IValidityEvidence {
-    public bool IsValid => ValidityClaim.All(
-        ValidityClaim.Of(holds: Source is not null),
-        ValidityClaim.Of(holds: Fact is not null),
-        ValidityClaim.Of(holds: Stamp >= 0L),
-        ValidityClaim.Of(holds: Fact is not UiFact.BeatCase beat || beat.Beat.IsValid));
-    internal static UiEvent Of(UiSource source, UiFact fact, long stamp) => new(Source: source, Fact: fact, Stamp: stamp);
+    public string Kind => Switch(
+        canvasCase:   static _ => "canvas",
+        documentCase: static _ => "document",
+        graphCase:    static _ => "graph",
+        solutionCase: static _ => "solution",
+        undoCase:     static _ => "undo",
+        kernel:       static fact => fact.Fact.Kind);
 }
 ```
 
 ## [03]-[SOURCES]
 
-- Owner: `EventAnchor` `[Union]` — what a row attaches to: `CanvasCase(Canvas)`, `DocumentCase(Document)`, `SolutionCase(SolutionServer)`, `HistoryCase(History)`, `ControlCase(Control)`, `WindowCase(Window)`, `AmbientCase` (the `Application`/`Keyboard` statics), `ClockCase(UiClock)`. A row demanding one anchor kind refuses every other with `Fault.InvalidInput` — anchor agreement is admission, not documentation.
-- Owner: `UiSource` `[SmartEnum<string>]` — the source-row vocabulary, string-keyed for wire/diagnostic identity, over ONE `[UseDelegateFromConstructor]` `Attach(EventAnchor, Action<Func<UiFact>>, Op)` column returning `Fin<IDisposable>` whose disposable IS the inverse detachment. The emit action arrives ALREADY BOUND to the attaching row — the `[04]` gate holds the row and binds it through `EventSink.For`, so no attach body resolves its own identity by key; a row-keyed `Get` lookup inside a wire throws on a mis-key, which converts a build break into a host-callback throw caught by `Op.Catch`. Rows are constructed by per-anchor factory folds so no row hand-rolls its subscription mechanics: `CanvasRow`/`DocumentRow`/`SolutionRow`/`HistoryRow` wire the GH2 families, `ControlRow`/`WindowRow` wire the Eto families, `AmbientRow` wires application and keyboard statics, and the clock row bridges the `UiClock` beat. Rows whose family differs only in which host event the wire touches collapse through shared-args sub-folds — `Pointer`/`Keystroke`/`DragRow`/`Stage` on the Eto side, `Subject` (the six `ObjectEventArgs` object-list rows), `Pulse` (the four `SolutionEventArgs` lifecycle rows), and `Ledger`/`LedgerNode` (the `UndoEventArgs`/`UndoNodeEventArgs` triplets) on the GH2 side — the event choice is row data, never a sibling body.
-- Entry: rows are data — the only executable surface is the internal `Attach` column the `[04]` gate drains; no per-row public subscribe method exists.
-- Law: every host-event attach body registers a stored handler and returns a `Detachment` capturing the exact `-=` inverse; the clock row returns `UiClock.Tap`'s token handle directly. A subscription without its inverse is unconstructible.
-- Law: `EventSink` contains the entire deferred callback — host-argument projection, fact construction, message envelope construction, and consumer publication cross one `Op.Catch`, and the exact failure persists on `UiSubscription.LastFault` without escaping into the raising host while emitting once through the generated `UiEventsLog.PublicationFault` partial under the `GhLog.For` category logger, so a retained fault is observable without polling the cell. Publication never re-enters the host; consumer mutation re-enters through `GhSession`, so event storms cannot recurse into the surface that raised them.
-- Law: the sink serializes the ORDINAL and nothing else — one `SwapMaybe` mints each `Stamp` and refuses at saturation, while projection, message envelope construction, and the arbitrary `publish` callback run outside it, so a blocking or re-entrant consumer stalls only itself and never every host stream crossing the boundary. `Stamp` is therefore the total order consumers read; a burnt ordinal is a publication the sink refused and recorded on `LastFault`, never a silent reorder.
-- Law: `ClockBeats` attaches through `UiClock.Tap` and returns that token-addressed observer handle as its sole detachment. Observation never starts or stops the shared clock; the clock lease owner controls lifecycle, multiple subscriptions coexist independently, and `BeatCase` carries the exact `ClockBeat`/`MonotonicBeat` emitted by the runtime without sampling another clock.
-- Law: every wire spells its host delegate exactly — `Canvas.DocumentChanged`/`DocumentModified` are bare `EventHandler`; the flex-seam four carry typed args (`ProjectionChangedEventArgs`, `WindowSelectionEventArgs`, `MouseDwellEventArgs` with `ControlPoint`/`ContentPoint`, `ControlDrawEventArgs`); the document three carry `DocumentModifiedEventArgs`/`DocumentStateEventArgs`/`BeforeAfterEventArgs<Document, IDocumentParent>`; the object-list ten carry `AfterAddObjectEventArgs`/`AfterRemoveObjectEventArgs`/`ObjectEventArgs`/`ObjectNameEventArgs`/`ObjectGuidEventArgs`; the solution six carry `SolutionIdEventArgs`/`SolutionEventArgs`/`SolutionExceptionEventArgs`; the undo seven carry `UndoEventArgs`/`UndoNodeEventArgs`/`UndoNodeMovedEventArgs`. A wire assuming a wrong delegate family fails at compile, which is the property the exact spellings buy.
-- Boundary: native-monitor streams (`AppKit` local event monitors, `NSWorkspace` accessibility observation) are `Platform/native.md`'s — the platform owner adapts its gated monitors onto this algebra from above, publishing projected facts under the same containment contract the rows carry (`Op.Catch`, exact inverse, fault retention); `UiSource` itself carries no native row because the floor never imports upward, and this page owns no `#if` and no AppKit spelling.
-- Packages: Grasshopper2 (the canvas/document/object-list/solution/history event families and their args types), Eto (the control/window/application/keyboard event families), `Rasm.Domain` (`Op`, `Fault`), `Eto/runtime.md` (`UiClock`, `ClockBeat`, `EtoDispatch`), `Shell/session.md` (`DocumentToken`).
-- Growth: a new host stream is one row through an existing fold; a new anchor kind is one `EventAnchor` case with one fold — the column and the gate never change.
+- Owner: `GhSource` — one `IUiSource<GhFact>` row per GH2 host stream, every row a one-line seat over TWO generic folds: `Row<THost, TArgs>` names the host family and its typed args, `Wired<THost, TArgs>` carries the add-and-remove pair as one value so a subscription a row cannot undo is unspellable. Former seven per-anchor factories and eight per-args sub-folds are these two.
+- Law: a GH2 SUBJECT rides its ROW — the kernel `EventAnchor` union is Eto-shaped and closed, so a row over a `Document`, `SolutionServer`, or `History` closes over the subject at its mint (`GhSource.Of(document)` answers that subject's row set) and admits `EventAnchor.Ambient` alone, the spelling that states no Eto surface is touched; the six canvas rows demand `OnControl` whose control IS the GH2 `Canvas` and refuse any other typed. Anchor agreement stays admission, never documentation.
+- Law: every wire spells its host delegate exactly — the flex-seam four carry typed args (`ProjectionChangedEventArgs`, `WindowSelectionEventArgs`, `MouseDwellEventArgs` with `ContentPoint`, `ControlDrawEventArgs`); the document three carry `DocumentModifiedEventArgs`/`DocumentStateEventArgs`/`BeforeAfterEventArgs<Document, IDocumentParent>`; the object-list ten carry the `ObjectEventArgs` family; the solution six carry `SolutionIdEventArgs`/`SolutionEventArgs`/`SolutionExceptionEventArgs`; the undo seven carry `UndoEventArgs`/`UndoNodeEventArgs`/`UndoNodeMovedEventArgs`. Wire assuming a wrong delegate family fails at compile.
+- Law: the emit thunk publishes into the kernel drain through `UiEvents.Observe` — projection runs inside the drain's own admission, a refused projection counts on `Refused`, a dropped event on `Shed`, and the ordinal mints under the drain's one compare-and-swap. No row touches an ordinal, a fault cell, or a log; the loss accounting is the kernel's.
+- Law: subscription is `UiEvents.Observe(anchor, drain, Atomicity.AllOrNothing, key, rows)` — the folder's ruled posture: a refused row detaches every seated sibling and refuses whole, because the journal reading the drain is replayable only over a complete row set. Diagnostic consumer wanting partial attach names `Atomicity.Partial` at its own call site; both are kernel rows, not folder forks.
+- Boundary: native-monitor streams stay `Platform/native.md`'s — the platform owner projects its gated monitors into the same drain from above; the eight canvas paint fences are `Canvas/paint.md`'s executor and never rows here.
+- Packages: Grasshopper2 (the canvas/document/object-list/solution/history event families and args types), `Rasm.Interaction` (`IUiSource`, `EventAnchor`, `UiEvents`, `EvidenceDrain`, `Atomicity`), `Rasm.Domain` (`Op`, `Fault`).
+- Growth: a new host stream is one row through an existing fold; a new args family is one `Wired` instantiation — the roster's two folds and the kernel gate never change.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Microsoft.Extensions.Logging;
 using Rasm.Domain;
-using Rasm.Grasshopper.Eto;
+using Rasm.Interaction;
 
 namespace Rasm.Grasshopper.Shell;
 
 // --- [TYPES] --------------------------------------------------------------------------------
-[Union]
-public abstract partial record EventAnchor {
-    private EventAnchor() { }
-    public sealed record CanvasCase(Canvas Surface) : EventAnchor;
-    public sealed record DocumentCase(Document Graph) : EventAnchor;
-    public sealed record SolutionCase(SolutionServer Server) : EventAnchor;
-    public sealed record HistoryCase(History Ledger) : EventAnchor;
-    public sealed record ControlCase(Control Surface) : EventAnchor;
-    public sealed record WindowCase(Window Surface) : EventAnchor;
-    public sealed record AmbientCase : EventAnchor;
-    public sealed record ClockCase(UiClock Clock) : EventAnchor;
-}
+// Add and remove travel as ONE value (the kernel `EventTable` idiom over GH2 hosts), so no row states a
+// subscription it cannot undo and the two folds below are the only place `+=` is spelled.
+internal readonly record struct Wired<THost, TArgs>(
+    Action<THost, EventHandler<TArgs>> Add, Action<THost, EventHandler<TArgs>> Drop) where TArgs : EventArgs;
 
 // --- [SERVICES] -----------------------------------------------------------------------------
-internal sealed class Detachment(Action release) : IDisposable {
-    private int released;
-    public void Dispose() => Op.SideWhen(condition: Interlocked.Exchange(location1: ref released, value: 1) == 0, action: release);
-}
+// GH2 source roster: canvas rows are STATIC (the canvas arrives as the kernel `OnControl` anchor); document,
+// solution, and history rows close over their subject at `Of`, because the kernel anchor union cannot carry a GH2
+// host object and a folder-local observe twin is the forbidden form.
+public sealed record GhSource(string Key, Func<EventAnchor, Action<Func<Fin<GhFact>>>, Op, Fin<IDisposable>> Bind) : IUiSource<GhFact> {
+    // --- [CANVAS] — six rows over the one control-anchored fold; MouseDwell is the one location-bearing row.
+    public static readonly GhSource CanvasDocumentChanged = Canvas(key: "canvas.document-changed",
+        wired: new Wired<Canvas, EventArgs>(Add: static (c, h) => c.DocumentChanged += h, Drop: static (c, h) => c.DocumentChanged -= h),
+        project: static (_, _) => new GhFact.CanvasCase(Signal: CanvasSignal.DocumentChanged, Location: None));
+    public static readonly GhSource CanvasDocumentModified = Canvas(key: "canvas.document-modified",
+        wired: new Wired<Canvas, EventArgs>(Add: static (c, h) => c.DocumentModified += h, Drop: static (c, h) => c.DocumentModified -= h),
+        project: static (_, _) => new GhFact.CanvasCase(Signal: CanvasSignal.DocumentModified, Location: None));
+    public static readonly GhSource CanvasProjectionChanged = Canvas(key: "canvas.projection-changed",
+        wired: new Wired<Canvas, ProjectionChangedEventArgs>(Add: static (c, h) => c.ProjectionChanged += h, Drop: static (c, h) => c.ProjectionChanged -= h),
+        project: static (_, _) => new GhFact.CanvasCase(Signal: CanvasSignal.ProjectionChanged, Location: None));
+    public static readonly GhSource CanvasWindowSelection = Canvas(key: "canvas.window-selection",
+        wired: new Wired<Canvas, WindowSelectionEventArgs>(Add: static (c, h) => c.WindowSelection += h, Drop: static (c, h) => c.WindowSelection -= h),
+        project: static (_, _) => new GhFact.CanvasCase(Signal: CanvasSignal.WindowSelection, Location: None));
+    public static readonly GhSource CanvasMouseDwell = Canvas(key: "canvas.mouse-dwell",
+        wired: new Wired<Canvas, MouseDwellEventArgs>(Add: static (c, h) => c.MouseDwell += h, Drop: static (c, h) => c.MouseDwell -= h),
+        project: static (_, args) => new GhFact.CanvasCase(Signal: CanvasSignal.MouseDwell, Location: Some(args.ContentPoint)));
+    public static readonly GhSource CanvasDraw = Canvas(key: "canvas.draw",
+        wired: new Wired<Canvas, ControlDrawEventArgs>(Add: static (c, h) => c.Draw += h, Drop: static (c, h) => c.Draw -= h),
+        project: static (_, _) => new GhFact.CanvasCase(Signal: CanvasSignal.Draw, Location: None));
 
-internal static partial class UiEventsLog {
-    [LoggerMessage(EventId = 4702, Level = LogLevel.Error, Message = "UI event publication faulted on {Source}: {Detail}")]
-    internal static partial void PublicationFault(ILogger logger, string source, [UserContent] string detail);
+    // Subject-closed row sets: one mint per live host object, the row keys stable across mints.
+    public static Seq<GhSource> Of(Document graph) =>
+        Seq(Subject(graph, key: "document.modified", new Wired<Document, DocumentModifiedEventArgs>(Add: static (d, h) => d.ModifiedChanged += h, Drop: static (d, h) => d.ModifiedChanged -= h),
+                project: static (d, _) => new GhFact.DocumentCase(Signal: DocumentSignal.Modified, DocumentId: Some(d.Identity))),
+            Subject(graph, key: "document.state", new Wired<Document, DocumentStateEventArgs>(Add: static (d, h) => d.StateChanged += h, Drop: static (d, h) => d.StateChanged -= h),
+                project: static (d, _) => new GhFact.DocumentCase(Signal: DocumentSignal.State, DocumentId: Some(d.Identity))),
+            Subject(graph, key: "document.parent", new Wired<Document, BeforeAfterEventArgs<Document, IDocumentParent>>(Add: static (d, h) => d.ParentChanged += h, Drop: static (d, h) => d.ParentChanged -= h),
+                project: static (d, _) => new GhFact.DocumentCase(Signal: DocumentSignal.Parent, DocumentId: Some(d.Identity))),
+            Subject(graph, key: "graph.object-added", new Wired<Document, AfterAddObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectAdded += h, Drop: static (d, h) => d.Objects.ObjectAdded -= h),
+                project: static (_, args) => new GhFact.GraphCase(Signal: GraphSignal.ObjectAdded, SubjectId: Some(args.Object.InstanceId))),
+            Subject(graph, key: "graph.object-removed", new Wired<Document, AfterRemoveObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectRemoved += h, Drop: static (d, h) => d.Objects.ObjectRemoved -= h),
+                project: static (_, args) => new GhFact.GraphCase(Signal: GraphSignal.ObjectRemoved, SubjectId: Some(args.Object.InstanceId))),
+            Listed(graph, key: "graph.selection", signal: GraphSignal.SelectionChanged, new Wired<Document, ObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectSelectionChanged += h, Drop: static (d, h) => d.Objects.ObjectSelectionChanged -= h)),
+            Listed(graph, key: "graph.expired", signal: GraphSignal.Expired, new Wired<Document, ObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectExpired += h, Drop: static (d, h) => d.Objects.ObjectExpired -= h)),
+            Listed(graph, key: "graph.enabled", signal: GraphSignal.EnabledChanged, new Wired<Document, ObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectEnabledChanged += h, Drop: static (d, h) => d.Objects.ObjectEnabledChanged -= h)),
+            Listed(graph, key: "graph.relevance", signal: GraphSignal.RelevanceChanged, new Wired<Document, ObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectRelevanceChanged += h, Drop: static (d, h) => d.Objects.ObjectRelevanceChanged -= h)),
+            Listed(graph, key: "graph.layout", signal: GraphSignal.LayoutChanged, new Wired<Document, ObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectLayoutChanged += h, Drop: static (d, h) => d.Objects.ObjectLayoutChanged -= h)),
+            Listed(graph, key: "graph.display", signal: GraphSignal.DisplayChanged, new Wired<Document, ObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectDisplayChanged += h, Drop: static (d, h) => d.Objects.ObjectDisplayChanged -= h)),
+            Subject(graph, key: "graph.name-changed", new Wired<Document, ObjectNameEventArgs>(Add: static (d, h) => d.Objects.ObjectNameChanged += h, Drop: static (d, h) => d.Objects.ObjectNameChanged -= h),
+                project: static (_, args) => new GhFact.GraphCase(Signal: GraphSignal.NameChanged, SubjectId: Some(args.Owner.InstanceId))),
+            Subject(graph, key: "graph.instance-id", new Wired<Document, ObjectGuidEventArgs>(Add: static (d, h) => d.Objects.ObjectInstanceIdChanged += h, Drop: static (d, h) => d.Objects.ObjectInstanceIdChanged -= h),
+                project: static (_, args) => new GhFact.GraphCase(Signal: GraphSignal.InstanceIdChanged, SubjectId: Some(args.NewId))));
 
-    [LoggerMessage(EventId = 4712, Level = LogLevel.Error, Message = "UI subscription teardown faulted: {Detail}")]
-    internal static partial void TeardownFault(ILogger logger, [UserContent] string detail);
-}
+    public static Seq<GhSource> Of(SolutionServer server) =>
+        Seq(Subject(server, key: "solution.about-to-start", new Wired<SolutionServer, SolutionIdEventArgs>(Add: static (s, h) => s.SolutionAboutToStart += h, Drop: static (s, h) => s.SolutionAboutToStart -= h),
+                project: static (_, args) => new GhFact.SolutionCase(Signal: SolutionSignal.AboutToStart, Id: Some(args.Id), Failure: None)),
+            Pulsed(server, key: "solution.started", signal: SolutionSignal.Started, new Wired<SolutionServer, SolutionEventArgs>(Add: static (s, h) => s.SolutionStarted += h, Drop: static (s, h) => s.SolutionStarted -= h)),
+            Pulsed(server, key: "solution.stopped", signal: SolutionSignal.Stopped, new Wired<SolutionServer, SolutionEventArgs>(Add: static (s, h) => s.SolutionStopped += h, Drop: static (s, h) => s.SolutionStopped -= h)),
+            Pulsed(server, key: "solution.cancelled", signal: SolutionSignal.Cancelled, new Wired<SolutionServer, SolutionEventArgs>(Add: static (s, h) => s.SolutionCancelled += h, Drop: static (s, h) => s.SolutionCancelled -= h)),
+            Pulsed(server, key: "solution.completed", signal: SolutionSignal.Completed, new Wired<SolutionServer, SolutionEventArgs>(Add: static (s, h) => s.SolutionCompleted += h, Drop: static (s, h) => s.SolutionCompleted -= h)),
+            Subject(server, key: "solution.faulted", new Wired<SolutionServer, SolutionExceptionEventArgs>(Add: static (s, h) => s.SolutionFaulted += h, Drop: static (s, h) => s.SolutionFaulted -= h),
+                project: static (_, args) => new GhFact.SolutionCase(
+                    Signal: SolutionSignal.Faulted,
+                    Id: Some(args.SolutionId),
+                    Failure: Some(Error.New(args.Exception.Message, args.Exception)))));
 
-internal sealed class EventSink(Action<UiEvent> publish, Atom<Option<Error>> lastFault, Op operation) {
-    // The ordinal cell is the ONLY serialized state: one CAS mints the stamp and refuses at saturation, so host-fact
-    // projection, envelope construction, and the arbitrary consumer callback all run outside any mutual exclusion. A
-    // lock spanning `publish` serializes every host event in the boundary behind one consumer, and a consumer that
-    // blocks or re-enters stalls the whole surface — the reason the sibling `EvidenceDrain` forbids inline
-    // continuations. Seeded below zero so the committed post-swap value IS the issued ordinal.
-    private readonly Atom<long> stamps = Atom(-1L);
+    public static Seq<GhSource> Of(History ledger) =>
+        Seq(Sealed(ledger, key: "history.undone", signal: UndoSignal.Undone, new Wired<History, UndoEventArgs>(Add: static (l, h) => l.Undone += h, Drop: static (l, h) => l.Undone -= h)),
+            Sealed(ledger, key: "history.redone", signal: UndoSignal.Redone, new Wired<History, UndoEventArgs>(Add: static (l, h) => l.Redone += h, Drop: static (l, h) => l.Redone -= h)),
+            Sealed(ledger, key: "history.modified", signal: UndoSignal.Modified, new Wired<History, UndoEventArgs>(Add: static (l, h) => l.Modified += h, Drop: static (l, h) => l.Modified -= h)),
+            Sealed(ledger, key: "history.node-added", signal: UndoSignal.NodeAdded, new Wired<History, UndoNodeEventArgs>(Add: static (l, h) => l.NodeAdded += h, Drop: static (l, h) => l.NodeAdded -= h)),
+            Sealed(ledger, key: "history.node-removed", signal: UndoSignal.NodeRemoved, new Wired<History, UndoNodeEventArgs>(Add: static (l, h) => l.NodeRemoved += h, Drop: static (l, h) => l.NodeRemoved -= h)),
+            Sealed(ledger, key: "history.node-merged", signal: UndoSignal.NodeMerged, new Wired<History, UndoNodeEventArgs>(Add: static (l, h) => l.NodeMerged += h, Drop: static (l, h) => l.NodeMerged -= h)),
+            Sealed(ledger, key: "history.node-moved", signal: UndoSignal.NodeMoved, new Wired<History, UndoNodeMovedEventArgs>(Add: static (l, h) => l.NodeMoved += h, Drop: static (l, h) => l.NodeMoved -= h)));
 
-    internal Action<Func<UiFact>> For(UiSource source) => project => Emit(source: source, project: project);
+    string IUiSource<GhFact>.Key => Key;
+    public Fin<IDisposable> Attach(EventAnchor anchor, Action<Func<Fin<GhFact>>> emit, Op key) => Bind(anchor, emit, key);
 
-    private void Emit(UiSource source, Func<UiFact> project) {
-        Fin<Unit> outcome =
-            from stamp in stamps
-                .SwapMaybe(static held => held == long.MaxValue ? Option<long>.None : Some(held + 1L))
-                .ToFin(operation.InvalidResult(detail: nameof(UiEvent.Stamp)))
-            from fact in operation.Catch(body: () => Fin.Succ(project()))
-            from envelope in operation.AcceptValue(value: UiEvent.Of(source: source, fact: fact, stamp: stamp))
-            from published in operation.Catch(body: () => Fin.Succ(Op.Side(action: () => publish(obj: envelope))))
-            select published;
-        outcome.IfFail(error => {
-            ignore(lastFault.Swap(_ => Some(error)));
-            UiEventsLog.PublicationFault(logger: GhLog.For(category: nameof(UiEvents)), source: source.Key, detail: error.Message);
+    // ONE control-anchored wire: the canvas is the kernel `OnControl` anchor and the row refuses any other, or a
+    // control of any other type, typed — anchor agreement is admission.
+    private static GhSource Canvas<TArgs>(string key, Wired<Canvas, TArgs> wired, Func<Canvas, TArgs, GhFact> project)
+        where TArgs : EventArgs =>
+        new(Key: key, Bind: (anchor, emit, op) => anchor switch {
+            EventAnchor.OnControl { Value: Canvas surface } => op.Catch(() => Fin.Succ(Hook(surface, wired, project, emit))),
+            _ => Fin.Fail<IDisposable>(op.InvalidInput()),
         });
+
+    // ONE subject-closed wire: the GH2 host object rides the row and `Ambient` is the admitted anchor spelling.
+    private static GhSource Subject<THost, TArgs>(THost host, string key, Wired<THost, TArgs> wired, Func<THost, TArgs, GhFact> project)
+        where TArgs : EventArgs =>
+        new(Key: key, Bind: (anchor, emit, op) => anchor switch {
+            EventAnchor.Ambient => op.Catch(() => Fin.Succ(Hook(host, wired, project, emit))),
+            _ => Fin.Fail<IDisposable>(op.InvalidInput()),
+        });
+
+    // Three shared-args projections: object-list, solution-pulse, and undo rows differ only in row data.
+    private static GhSource Listed(Document graph, string key, GraphSignal signal, Wired<Document, ObjectEventArgs> wired) =>
+        Subject(graph, key, wired, project: (_, args) => new GhFact.GraphCase(Signal: signal, SubjectId: Some(args.Object.InstanceId)));
+    private static GhSource Pulsed(SolutionServer server, string key, SolutionSignal signal, Wired<SolutionServer, SolutionEventArgs> wired) =>
+        Subject(server, key, wired, project: (_, args) => new GhFact.SolutionCase(Signal: signal, Id: Some(args.SolutionId), Failure: None));
+    private static GhSource Sealed<TArgs>(History ledger, string key, UndoSignal signal, Wired<History, TArgs> wired) where TArgs : EventArgs =>
+        Subject(ledger, key, wired, project: (_, _) => new GhFact.UndoCase(Signal: signal));
+
+    // One `+=` site: the handler emits a THUNK the kernel drain admits, and the detacher is the exact `-=`.
+    private static IDisposable Hook<THost, TArgs>(
+        THost host, Wired<THost, TArgs> wired, Func<THost, TArgs, GhFact> project, Action<Func<Fin<GhFact>>> emit)
+        where TArgs : EventArgs {
+        EventHandler<TArgs> handler = (_, args) => emit(() => Fin.Succ(project(host, args)));
+        wired.Add(host, handler);
+        return new HookDetacher(Detach: () => wired.Drop(host, handler));
     }
-}
-
-[SmartEnum<string>]
-public sealed partial class UiSource {
-    // GH2 canvas family — DocumentChanged/DocumentModified are Canvas-declared; the flex four are inherited FlexControl events.
-    public static readonly UiSource CanvasDocumentChanged = CanvasRow(key: "canvas.document-changed",
-        wire: static (surface, emit) => { EventHandler h = (_, _) => emit(() => new UiFact.CanvasCase(Signal: CanvasSignal.DocumentChanged, Location: Option<PointF>.None)); surface.DocumentChanged += h; return new Detachment(release: () => surface.DocumentChanged -= h); });
-    public static readonly UiSource CanvasDocumentModified = CanvasRow(key: "canvas.document-modified",
-        wire: static (surface, emit) => { EventHandler h = (_, _) => emit(() => new UiFact.CanvasCase(Signal: CanvasSignal.DocumentModified, Location: Option<PointF>.None)); surface.DocumentModified += h; return new Detachment(release: () => surface.DocumentModified -= h); });
-    public static readonly UiSource CanvasProjectionChanged = CanvasRow(key: "canvas.projection-changed",
-        wire: static (surface, emit) => { EventHandler<ProjectionChangedEventArgs> h = (_, _) => emit(() => new UiFact.CanvasCase(Signal: CanvasSignal.ProjectionChanged, Location: Option<PointF>.None)); surface.ProjectionChanged += h; return new Detachment(release: () => surface.ProjectionChanged -= h); });
-    public static readonly UiSource CanvasWindowSelection = CanvasRow(key: "canvas.window-selection",
-        wire: static (surface, emit) => { EventHandler<WindowSelectionEventArgs> h = (_, _) => emit(() => new UiFact.CanvasCase(Signal: CanvasSignal.WindowSelection, Location: Option<PointF>.None)); surface.WindowSelection += h; return new Detachment(release: () => surface.WindowSelection -= h); });
-    public static readonly UiSource CanvasMouseDwell = CanvasRow(key: "canvas.mouse-dwell",
-        wire: static (surface, emit) => { EventHandler<MouseDwellEventArgs> h = (_, args) => emit(() => new UiFact.CanvasCase(Signal: CanvasSignal.MouseDwell, Location: Some(args.ContentPoint))); surface.MouseDwell += h; return new Detachment(release: () => surface.MouseDwell -= h); });
-    public static readonly UiSource CanvasDraw = CanvasRow(key: "canvas.draw",
-        wire: static (surface, emit) => { EventHandler<ControlDrawEventArgs> h = (_, _) => emit(() => new UiFact.CanvasCase(Signal: CanvasSignal.Draw, Location: Option<PointF>.None)); surface.Draw += h; return new Detachment(release: () => surface.Draw -= h); });
-
-    // GH2 document family — typed args; document identity is the session DocumentToken mint.
-    public static readonly UiSource DocumentModified = DocumentRow(key: "document.modified",
-        wire: static (graph, emit) => { EventHandler<DocumentModifiedEventArgs> h = (_, args) => emit(() => new UiFact.DocumentCase(Signal: DocumentSignal.Modified, DocumentId: Some(DocumentToken.Of(graph: args.Document)))); graph.ModifiedChanged += h; return new Detachment(release: () => graph.ModifiedChanged -= h); });
-    public static readonly UiSource DocumentState = DocumentRow(key: "document.state",
-        wire: static (graph, emit) => { EventHandler<DocumentStateEventArgs> h = (_, args) => emit(() => new UiFact.DocumentCase(Signal: DocumentSignal.State, DocumentId: Some(DocumentToken.Of(graph: args.Document)))); graph.StateChanged += h; return new Detachment(release: () => graph.StateChanged -= h); });
-    public static readonly UiSource DocumentParent = DocumentRow(key: "document.parent",
-        wire: static (graph, emit) => { EventHandler<BeforeAfterEventArgs<Document, IDocumentParent>> h = (_, args) => emit(() => new UiFact.DocumentCase(Signal: DocumentSignal.Parent, DocumentId: Some(DocumentToken.Of(graph: args.Owner)))); graph.ParentChanged += h; return new Detachment(release: () => graph.ParentChanged -= h); });
-
-    // GH2 object-list family — the full ObjectList event set; shared-args rows ride the Subject fold.
-    public static readonly UiSource GraphObjectAdded = DocumentRow(key: "graph.object-added",
-        wire: static (graph, emit) => { EventHandler<AfterAddObjectEventArgs> h = (_, args) => emit(() => new UiFact.GraphCase(Signal: GraphSignal.ObjectAdded, SubjectId: Some(args.Object.InstanceId))); graph.Objects.ObjectAdded += h; return new Detachment(release: () => graph.Objects.ObjectAdded -= h); });
-    public static readonly UiSource GraphObjectRemoved = DocumentRow(key: "graph.object-removed",
-        wire: static (graph, emit) => { EventHandler<AfterRemoveObjectEventArgs> h = (_, args) => emit(() => new UiFact.GraphCase(Signal: GraphSignal.ObjectRemoved, SubjectId: Some(args.Object.InstanceId))); graph.Objects.ObjectRemoved += h; return new Detachment(release: () => graph.Objects.ObjectRemoved -= h); });
-    public static readonly UiSource GraphSelection = Subject(key: "graph.selection", signal: GraphSignal.SelectionChanged, pick: static g => (add: h => g.Objects.ObjectSelectionChanged += h, remove: h => g.Objects.ObjectSelectionChanged -= h));
-    public static readonly UiSource GraphExpired = Subject(key: "graph.expired", signal: GraphSignal.Expired, pick: static g => (add: h => g.Objects.ObjectExpired += h, remove: h => g.Objects.ObjectExpired -= h));
-    public static readonly UiSource GraphEnabled = Subject(key: "graph.enabled", signal: GraphSignal.EnabledChanged, pick: static g => (add: h => g.Objects.ObjectEnabledChanged += h, remove: h => g.Objects.ObjectEnabledChanged -= h));
-    public static readonly UiSource GraphRelevance = Subject(key: "graph.relevance", signal: GraphSignal.RelevanceChanged, pick: static g => (add: h => g.Objects.ObjectRelevanceChanged += h, remove: h => g.Objects.ObjectRelevanceChanged -= h));
-    public static readonly UiSource GraphLayout = Subject(key: "graph.layout", signal: GraphSignal.LayoutChanged, pick: static g => (add: h => g.Objects.ObjectLayoutChanged += h, remove: h => g.Objects.ObjectLayoutChanged -= h));
-    public static readonly UiSource GraphDisplay = Subject(key: "graph.display", signal: GraphSignal.DisplayChanged, pick: static g => (add: h => g.Objects.ObjectDisplayChanged += h, remove: h => g.Objects.ObjectDisplayChanged -= h));
-    public static readonly UiSource GraphNameChanged = DocumentRow(key: "graph.name-changed",
-        wire: static (graph, emit) => { EventHandler<ObjectNameEventArgs> h = (_, args) => emit(() => new UiFact.GraphCase(Signal: GraphSignal.NameChanged, SubjectId: Some(args.Owner.InstanceId))); graph.Objects.ObjectNameChanged += h; return new Detachment(release: () => graph.Objects.ObjectNameChanged -= h); });
-    public static readonly UiSource GraphInstanceId = DocumentRow(key: "graph.instance-id",
-        wire: static (graph, emit) => { EventHandler<ObjectGuidEventArgs> h = (_, args) => emit(() => new UiFact.GraphCase(Signal: GraphSignal.InstanceIdChanged, SubjectId: Some(args.NewId))); graph.Objects.ObjectInstanceIdChanged += h; return new Detachment(release: () => graph.Objects.ObjectInstanceIdChanged -= h); });
-
-    // GH2 solution lifecycle family — the SolutionEventArgs four ride the Pulse fold; the id-only opener and the faulted closer wire individually.
-    public static readonly UiSource SolutionAboutToStart = SolutionRow(key: "solution.about-to-start",
-        wire: static (server, emit) => { EventHandler<SolutionIdEventArgs> h = (_, args) => emit(() => new UiFact.SolutionCase(Signal: SolutionSignal.AboutToStart, Id: Some(args.Id), Failure: Option<Error>.None)); server.SolutionAboutToStart += h; return new Detachment(release: () => server.SolutionAboutToStart -= h); });
-    public static readonly UiSource SolutionStarted = Pulse(key: "solution.started", signal: SolutionSignal.Started, pick: static s => (add: h => s.SolutionStarted += h, remove: h => s.SolutionStarted -= h));
-    public static readonly UiSource SolutionStopped = Pulse(key: "solution.stopped", signal: SolutionSignal.Stopped, pick: static s => (add: h => s.SolutionStopped += h, remove: h => s.SolutionStopped -= h));
-    public static readonly UiSource SolutionCancelled = Pulse(key: "solution.cancelled", signal: SolutionSignal.Cancelled, pick: static s => (add: h => s.SolutionCancelled += h, remove: h => s.SolutionCancelled -= h));
-    public static readonly UiSource SolutionCompleted = Pulse(key: "solution.completed", signal: SolutionSignal.Completed, pick: static s => (add: h => s.SolutionCompleted += h, remove: h => s.SolutionCompleted -= h));
-    public static readonly UiSource SolutionFaulted = SolutionRow(key: "solution.faulted",
-        wire: static (server, emit) => { EventHandler<SolutionExceptionEventArgs> h = (_, args) => emit(() => new UiFact.SolutionCase(Signal: SolutionSignal.Faulted, Id: Some(args.SolutionId), Failure: Some(Error.New(args.Exception)))); server.SolutionFaulted += h; return new Detachment(release: () => server.SolutionFaulted -= h); });
-
-    // GH2 undo family — the full History event set; shared-args triplets ride the Ledger/LedgerNode folds.
-    public static readonly UiSource HistoryUndone = Ledger(key: "history.undone", signal: UndoSignal.Undone, pick: static l => (add: h => l.Undone += h, remove: h => l.Undone -= h));
-    public static readonly UiSource HistoryRedone = Ledger(key: "history.redone", signal: UndoSignal.Redone, pick: static l => (add: h => l.Redone += h, remove: h => l.Redone -= h));
-    public static readonly UiSource HistoryModified = Ledger(key: "history.modified", signal: UndoSignal.Modified, pick: static l => (add: h => l.Modified += h, remove: h => l.Modified -= h));
-    public static readonly UiSource HistoryNodeAdded = LedgerNode(key: "history.node-added", signal: UndoSignal.NodeAdded, pick: static l => (add: h => l.NodeAdded += h, remove: h => l.NodeAdded -= h));
-    public static readonly UiSource HistoryNodeRemoved = LedgerNode(key: "history.node-removed", signal: UndoSignal.NodeRemoved, pick: static l => (add: h => l.NodeRemoved += h, remove: h => l.NodeRemoved -= h));
-    public static readonly UiSource HistoryNodeMerged = LedgerNode(key: "history.node-merged", signal: UndoSignal.NodeMerged, pick: static l => (add: h => l.NodeMerged += h, remove: h => l.NodeMerged -= h));
-    public static readonly UiSource HistoryNodeMoved = HistoryRow(key: "history.node-moved",
-        wire: static (ledger, emit) => { EventHandler<UndoNodeMovedEventArgs> h = (_, _) => emit(() => new UiFact.UndoCase(Signal: UndoSignal.NodeMoved)); ledger.NodeMoved += h; return new Detachment(release: () => ledger.NodeMoved -= h); });
-
-    // Eto control input family — pointer/key/text sub-folds; the event choice is row data.
-    public static readonly UiSource ControlMouseDown = Pointer(key: "control.mouse-down", pick: static c => (add: h => c.MouseDown += h, remove: h => c.MouseDown -= h));
-    public static readonly UiSource ControlMouseUp = Pointer(key: "control.mouse-up", pick: static c => (add: h => c.MouseUp += h, remove: h => c.MouseUp -= h));
-    public static readonly UiSource ControlMouseMove = Pointer(key: "control.mouse-move", pick: static c => (add: h => c.MouseMove += h, remove: h => c.MouseMove -= h));
-    public static readonly UiSource ControlMouseEnter = Pointer(key: "control.mouse-enter", pick: static c => (add: h => c.MouseEnter += h, remove: h => c.MouseEnter -= h));
-    public static readonly UiSource ControlMouseLeave = Pointer(key: "control.mouse-leave", pick: static c => (add: h => c.MouseLeave += h, remove: h => c.MouseLeave -= h));
-    public static readonly UiSource ControlMouseDoubleClick = Pointer(key: "control.mouse-double-click", pick: static c => (add: h => c.MouseDoubleClick += h, remove: h => c.MouseDoubleClick -= h));
-    public static readonly UiSource ControlMouseWheel = Pointer(key: "control.mouse-wheel", pick: static c => (add: h => c.MouseWheel += h, remove: h => c.MouseWheel -= h));
-    public static readonly UiSource ControlKeyDown = Keystroke(key: "control.key-down", pressed: true, pick: static c => (add: h => c.KeyDown += h, remove: h => c.KeyDown -= h));
-    public static readonly UiSource ControlKeyUp = Keystroke(key: "control.key-up", pressed: false, pick: static c => (add: h => c.KeyUp += h, remove: h => c.KeyUp -= h));
-    public static readonly UiSource ControlTextInput = ControlRow(key: "control.text-input",
-        wire: static (surface, emit) => { EventHandler<TextInputEventArgs> h = (_, args) => emit(() => new UiFact.TextCase(Text: args.Text)); surface.TextInput += h; return new Detachment(release: () => surface.TextInput -= h); });
-    public static readonly UiSource ControlDragEnter = DragRow(key: "control.drag-enter", pick: static c => (add: h => c.DragEnter += h, remove: h => c.DragEnter -= h));
-    public static readonly UiSource ControlDragOver = DragRow(key: "control.drag-over", pick: static c => (add: h => c.DragOver += h, remove: h => c.DragOver -= h));
-    public static readonly UiSource ControlDragLeave = DragRow(key: "control.drag-leave", pick: static c => (add: h => c.DragLeave += h, remove: h => c.DragLeave -= h));
-    public static readonly UiSource ControlDragDrop = DragRow(key: "control.drag-drop", pick: static c => (add: h => c.DragDrop += h, remove: h => c.DragDrop -= h));
-    public static readonly UiSource ControlDragEnd = DragRow(key: "control.drag-end", pick: static c => (add: h => c.DragEnd += h, remove: h => c.DragEnd -= h));
-    public static readonly UiSource ControlGotFocus = ControlRow(key: "control.got-focus",
-        wire: static (surface, emit) => { EventHandler<EventArgs> h = (_, _) => emit(() => new UiFact.FocusCase(Gained: true)); surface.GotFocus += h; return new Detachment(release: () => surface.GotFocus -= h); });
-    public static readonly UiSource ControlLostFocus = ControlRow(key: "control.lost-focus",
-        wire: static (surface, emit) => { EventHandler<EventArgs> h = (_, _) => emit(() => new UiFact.FocusCase(Gained: false)); surface.LostFocus += h; return new Detachment(release: () => surface.LostFocus -= h); });
-    public static readonly UiSource ControlSizeChanged = ControlRow(key: "control.size-changed",
-        wire: static (surface, emit) => { EventHandler<EventArgs> h = (_, _) => emit(() => new UiFact.BoundsCase(Bounds: surface.Bounds)); surface.SizeChanged += h; return new Detachment(release: () => surface.SizeChanged -= h); });
-    public static readonly UiSource ControlShown = Stage(key: "control.shown", stage: LifecycleStage.Shown, pick: static c => (add: h => c.Shown += h, remove: h => c.Shown -= h));
-    public static readonly UiSource ControlLoad = Stage(key: "control.load", stage: LifecycleStage.Load, pick: static c => (add: h => c.Load += h, remove: h => c.Load -= h));
-
-    // Eto window family.
-    public static readonly UiSource WindowClosing = WindowRow(key: "window.closing",
-        wire: static (surface, emit) => { EventHandler<CancelEventArgs> h = (_, _) => emit(() => new UiFact.LifeCase(Stage: LifecycleStage.Closing)); surface.Closing += h; return new Detachment(release: () => surface.Closing -= h); });
-    public static readonly UiSource WindowClosed = WindowRow(key: "window.closed",
-        wire: static (surface, emit) => { EventHandler<EventArgs> h = (_, _) => emit(() => new UiFact.LifeCase(Stage: LifecycleStage.Closed)); surface.Closed += h; return new Detachment(release: () => surface.Closed -= h); });
-    public static readonly UiSource WindowStateChanged = WindowRow(key: "window.state-changed",
-        wire: static (surface, emit) => { EventHandler<EventArgs> h = (_, _) => emit(() => new UiFact.StateCase(State: surface.WindowState)); surface.WindowStateChanged += h; return new Detachment(release: () => surface.WindowStateChanged -= h); });
-    public static readonly UiSource WindowDensityChanged = WindowRow(key: "window.density-changed",
-        wire: static (surface, emit) => { EventHandler<EventArgs> h = (_, _) => emit(() => new UiFact.DensityCase(LogicalPixelSize: surface.LogicalPixelSize)); surface.LogicalPixelSizeChanged += h; return new Detachment(release: () => surface.LogicalPixelSizeChanged -= h); });
-
-    // Ambient application / keyboard family.
-    public static readonly UiSource AppInitialized = AmbientRow(key: "app.initialized",
-        wire: static (application, emit) => { EventHandler<EventArgs> h = (_, _) => emit(() => new UiFact.LifeCase(Stage: LifecycleStage.Initialized)); application.Initialized += h; return new Detachment(release: () => application.Initialized -= h); });
-    public static readonly UiSource AppTerminating = AmbientRow(key: "app.terminating",
-        wire: static (application, emit) => { EventHandler<CancelEventArgs> h = (_, _) => emit(() => new UiFact.LifeCase(Stage: LifecycleStage.Terminating)); application.Terminating += h; return new Detachment(release: () => application.Terminating -= h); });
-    public static readonly UiSource AppUnhandledFault = AmbientRow(key: "app.unhandled-fault",
-        // The one row whose whole job is transporting an unhandled fault names the non-exception payload's type
-        // instead of substituting a fresh empty exception for it — a fabricated stand-in destroys the only
-        // evidence the row exists to carry.
-        wire: static (application, emit) => { EventHandler<UnhandledExceptionEventArgs> h = (_, args) => emit(() => new UiFact.FaultCase(Failure: args.ExceptionObject switch { Exception raised => Error.New(raised), var other => Error.New($"non-exception-fault:{other?.GetType().FullName ?? "null"}") })); application.UnhandledException += h; return new Detachment(release: () => application.UnhandledException -= h); });
-    public static readonly UiSource AppNotificationActivated = AmbientRow(key: "app.notification-activated",
-        wire: static (application, emit) => { EventHandler<NotificationEventArgs> h = (_, args) => emit(() => new UiFact.NoticeCase(Id: Optional(args.ID), UserData: Optional(args.UserData))); application.NotificationActivated += h; return new Detachment(release: () => application.NotificationActivated -= h); });
-    public static readonly UiSource KeyboardModifiers = AmbientRow(key: "keyboard.modifiers",
-        wire: static (_, emit) => { EventHandler<EventArgs> h = (_, _) => emit(() => new UiFact.ModifierCase(Modifiers: Keyboard.Modifiers)); Keyboard.ModifiersChanged += h; return new Detachment(release: () => Keyboard.ModifiersChanged -= h); });
-
-    // UiClock beat bridge — the emit action arrives already bound to this row, exactly as every fold row's does.
-    public static readonly UiSource ClockBeats = new(key: "clock.beats", attach: static (anchor, emit, key) => anchor switch {
-        EventAnchor.ClockCase clock => clock.Clock.Tap(
-            observer: beat => emit(obj: () => new UiFact.BeatCase(Beat: beat)), key: key),
-        _ => Fin.Fail<IDisposable>(key.InvalidInput()),
-    });
-
-    // The gate binds the emit action from the row it already holds, so no attach body re-looks-up its own identity:
-    // a `Get(key)` on a `[SmartEnum]` THROWS on a mis-key, which would funnel a host-callback wire into `Op.Catch`
-    // instead of breaking the build, and sixty-two rows each paying that lookup is sixty-two chances to mis-key.
-    [UseDelegateFromConstructor] internal partial Fin<IDisposable> Attach(EventAnchor anchor, Action<Func<UiFact>> emit, Op key);
-
-    private static UiSource CanvasRow(string key, Func<Canvas, Action<Func<UiFact>>, IDisposable> wire) =>
-        new(key: key, attach: (anchor, emit, op) => anchor switch {
-            EventAnchor.CanvasCase c => op.Catch(body: () => Fin.Succ(wire(arg1: c.Surface, arg2: emit))),
-            _ => Fin.Fail<IDisposable>(op.InvalidInput()),
-        });
-    private static UiSource DocumentRow(string key, Func<Document, Action<Func<UiFact>>, IDisposable> wire) =>
-        new(key: key, attach: (anchor, emit, op) => anchor switch {
-            EventAnchor.DocumentCase c => op.Catch(body: () => Fin.Succ(wire(arg1: c.Graph, arg2: emit))),
-            _ => Fin.Fail<IDisposable>(op.InvalidInput()),
-        });
-    private static UiSource SolutionRow(string key, Func<SolutionServer, Action<Func<UiFact>>, IDisposable> wire) =>
-        new(key: key, attach: (anchor, emit, op) => anchor switch {
-            EventAnchor.SolutionCase c => op.Catch(body: () => Fin.Succ(wire(arg1: c.Server, arg2: emit))),
-            _ => Fin.Fail<IDisposable>(op.InvalidInput()),
-        });
-    private static UiSource HistoryRow(string key, Func<History, Action<Func<UiFact>>, IDisposable> wire) =>
-        new(key: key, attach: (anchor, emit, op) => anchor switch {
-            EventAnchor.HistoryCase c => op.Catch(body: () => Fin.Succ(wire(arg1: c.Ledger, arg2: emit))),
-            _ => Fin.Fail<IDisposable>(op.InvalidInput()),
-        });
-    private static UiSource Subject(string key, GraphSignal signal, Func<Document, (Action<EventHandler<ObjectEventArgs>> add, Action<EventHandler<ObjectEventArgs>> remove)> pick) =>
-        DocumentRow(key: key, wire: (graph, emit) => {
-            (Action<EventHandler<ObjectEventArgs>> add, Action<EventHandler<ObjectEventArgs>> remove) = pick(arg: graph);
-            EventHandler<ObjectEventArgs> h = (_, args) => emit(() => new UiFact.GraphCase(Signal: signal, SubjectId: Some(args.Object.InstanceId)));
-            add(obj: h);
-            return new Detachment(release: () => remove(obj: h));
-        });
-    private static UiSource Pulse(string key, SolutionSignal signal, Func<SolutionServer, (Action<EventHandler<SolutionEventArgs>> add, Action<EventHandler<SolutionEventArgs>> remove)> pick) =>
-        SolutionRow(key: key, wire: (server, emit) => {
-            (Action<EventHandler<SolutionEventArgs>> add, Action<EventHandler<SolutionEventArgs>> remove) = pick(arg: server);
-            EventHandler<SolutionEventArgs> h = (_, args) => emit(() => new UiFact.SolutionCase(Signal: signal, Id: Some(args.SolutionId), Failure: Option<Error>.None));
-            add(obj: h);
-            return new Detachment(release: () => remove(obj: h));
-        });
-    private static UiSource Ledger(string key, UndoSignal signal, Func<History, (Action<EventHandler<UndoEventArgs>> add, Action<EventHandler<UndoEventArgs>> remove)> pick) =>
-        HistoryRow(key: key, wire: (ledger, emit) => {
-            (Action<EventHandler<UndoEventArgs>> add, Action<EventHandler<UndoEventArgs>> remove) = pick(arg: ledger);
-            EventHandler<UndoEventArgs> h = (_, _) => emit(() => new UiFact.UndoCase(Signal: signal));
-            add(obj: h);
-            return new Detachment(release: () => remove(obj: h));
-        });
-    private static UiSource LedgerNode(string key, UndoSignal signal, Func<History, (Action<EventHandler<UndoNodeEventArgs>> add, Action<EventHandler<UndoNodeEventArgs>> remove)> pick) =>
-        HistoryRow(key: key, wire: (ledger, emit) => {
-            (Action<EventHandler<UndoNodeEventArgs>> add, Action<EventHandler<UndoNodeEventArgs>> remove) = pick(arg: ledger);
-            EventHandler<UndoNodeEventArgs> h = (_, _) => emit(() => new UiFact.UndoCase(Signal: signal));
-            add(obj: h);
-            return new Detachment(release: () => remove(obj: h));
-        });
-    private static UiSource ControlRow(string key, Func<Control, Action<Func<UiFact>>, IDisposable> wire) =>
-        new(key: key, attach: (anchor, emit, op) => anchor switch {
-            EventAnchor.ControlCase c => op.Catch(body: () => Fin.Succ(wire(arg1: c.Surface, arg2: emit))),
-            EventAnchor.WindowCase w => op.Catch(body: () => Fin.Succ(wire(arg1: w.Surface, arg2: emit))),
-            _ => Fin.Fail<IDisposable>(op.InvalidInput()),
-        });
-    private static UiSource WindowRow(string key, Func<Window, Action<Func<UiFact>>, IDisposable> wire) =>
-        new(key: key, attach: (anchor, emit, op) => anchor switch {
-            EventAnchor.WindowCase c => op.Catch(body: () => Fin.Succ(wire(arg1: c.Surface, arg2: emit))),
-            _ => Fin.Fail<IDisposable>(op.InvalidInput()),
-        });
-    private static UiSource AmbientRow(string key, Func<Application, Action<Func<UiFact>>, IDisposable> wire) =>
-        new(key: key, attach: (anchor, emit, op) => anchor switch {
-            EventAnchor.AmbientCase => Optional(Application.Instance).ToFin(op.MissingContext())
-                .Bind(application => op.Catch(body: () => Fin.Succ(wire(arg1: application, arg2: emit)))),
-            _ => Fin.Fail<IDisposable>(op.InvalidInput()),
-        });
-    private static UiSource Pointer(string key, Func<Control, (Action<EventHandler<MouseEventArgs>> add, Action<EventHandler<MouseEventArgs>> remove)> pick) =>
-        ControlRow(key: key, wire: (surface, emit) => {
-            (Action<EventHandler<MouseEventArgs>> add, Action<EventHandler<MouseEventArgs>> remove) = pick(arg: surface);
-            EventHandler<MouseEventArgs> h = (_, args) => emit(() => new UiFact.PointerCase(Location: args.Location, Buttons: args.Buttons, Modifiers: args.Modifiers, Delta: args.Delta, Pressure: args.Pressure));
-            add(obj: h);
-            return new Detachment(release: () => remove(obj: h));
-        });
-    private static UiSource Keystroke(string key, bool pressed, Func<Control, (Action<EventHandler<KeyEventArgs>> add, Action<EventHandler<KeyEventArgs>> remove)> pick) =>
-        ControlRow(key: key, wire: (surface, emit) => {
-            (Action<EventHandler<KeyEventArgs>> add, Action<EventHandler<KeyEventArgs>> remove) = pick(arg: surface);
-            EventHandler<KeyEventArgs> h = (_, args) => emit(() => new UiFact.KeyCase(Key: args.Key, Modifiers: args.Modifiers, Pressed: pressed));
-            add(obj: h);
-            return new Detachment(release: () => remove(obj: h));
-        });
-    private static UiSource DragRow(string key, Func<Control, (Action<EventHandler<DragEventArgs>> add, Action<EventHandler<DragEventArgs>> remove)> pick) =>
-        ControlRow(key: key, wire: (surface, emit) => {
-            (Action<EventHandler<DragEventArgs>> add, Action<EventHandler<DragEventArgs>> remove) = pick(arg: surface);
-            EventHandler<DragEventArgs> h = (_, args) => emit(() => new UiFact.DragCase(Location: args.Location, Effects: args.Effects));
-            add(obj: h);
-            return new Detachment(release: () => remove(obj: h));
-        });
-    private static UiSource Stage(string key, LifecycleStage stage, Func<Control, (Action<EventHandler<EventArgs>> add, Action<EventHandler<EventArgs>> remove)> pick) =>
-        ControlRow(key: key, wire: (surface, emit) => {
-            (Action<EventHandler<EventArgs>> add, Action<EventHandler<EventArgs>> remove) = pick(arg: surface);
-            EventHandler<EventArgs> h = (_, _) => emit(() => new UiFact.LifeCase(Stage: stage));
-            add(obj: h);
-            return new Detachment(release: () => remove(obj: h));
-        });
 }
 ```
 
-## [04]-[SUBSCRIPTION]
+## [04]-[BRIDGES]
 
-- Owner: `UiSubscription` sealed class — the one lifecycle carrier over one atomically drained set of per-row detachments and one shared last-fault cell. It is `IDisposable` so ownership rides `Lease<UiSubscription>` — the kernel resource rail IS the subscription lifecycle, and no local `Subscription` algebra, refcount, or per-family teardown owner exists beside it. Disposal is idempotent and UI-affine; it runs every inverse in reverse acquisition order, clears callback ownership after the attempt, preserves the first teardown fault, and records deferred publication faults through the same `LastFault` evidence.
-- Entry: `UiEvents.Observe(EventAnchor anchor, Action<UiEvent> publish, Op? key = null, params ReadOnlySpan<UiSource> rows)` → `Fin<Lease<UiSubscription>>` — the single gate; one row and forty rows are the same call, arity absorbed by the span.
-- Law: attachment is transactional and marshalled — the whole row set attaches inside ONE `EtoDispatch.Run` window, and a refused row attempts every already-attached inverse in reverse order before the primary fault returns, so a consumer never holds an intentionally half-attached set. An empty row set is `Fault.InvalidInput`, not an empty subscription.
-- Law: the returned lease is `Owned` — the consumer's disposal window bounds every handler's lifetime; a consumer wanting host-outlived observation has no spelling here, which is the design: unbounded subscriptions are the leak class this bound forecloses.
-- Boundary: consumers fan facts outward (channels, `Atom` cells, command streams) beyond this page; the algebra ends at the `publish` callback.
-- Packages: `Rasm.Domain` (`Op`, `Lease<T>`), `Eto/runtime.md` (`EtoDispatch`), LanguageExt.Core (`Seq`, `Fin`).
-- Growth: zero — new capability lands as rows and facts; this gate is closed.
+- Owner: `HookBridge` — the two veto bridges the hook census names as this page's fire sites: `Window.Closing` and `Application.Terminating` carry `CancelEventArgs` the kernel fact projection cannot write back, so each bridge attaches the raw handler, fires its own point — `rail.Fire(at: GrasshopperPoint.WindowClose, fact: new HookSignal.IntentCase(Operation: key, DocumentId: None), key: key)` at the closing bridge, `ShellTerminate` at the terminating one — and writes `args.Cancel = true` on the `Fail` leg — the one host readback in the estate, stated rather than hidden in a source row.
+- Law: the bridge takes the rail as a REQUIRED parameter (minted at `Platform/composition.md`); a mount with no rail has no veto to consult and does not exist.
+- Law: the bridge is not an event row — the same host events also ride the kernel `UiSource.Closing`/`Terminating` rows as facts; the bridge exists only for the verdict write-back, so observation and governance stay two seams with two shapes.
+- Packages: Eto.Forms (`Window`, `Application`, `CancelEventArgs`), `Rasm.Domain` (`HookRail`, `Op`, `Lease<T>`).
+- Growth: a third `CancelEventArgs` surface is one mount arm; the write-back law never widens.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Microsoft.Extensions.Logging;
+using System.ComponentModel;
 using Rasm.Domain;
-using Rasm.Grasshopper.Eto;
 
 namespace Rasm.Grasshopper.Shell;
-
-// --- [SERVICES] -----------------------------------------------------------------------------
-public sealed class UiSubscription : IDisposable {
-    private readonly Atom<Seq<IDisposable>> detachments;
-    private readonly Atom<Option<Error>> lastFault;
-    private int releaseState;
-
-    internal UiSubscription(Seq<IDisposable> detachments, Atom<Option<Error>> lastFault) {
-        this.detachments = Atom(detachments);
-        this.lastFault = lastFault;
-    }
-
-    public int Count => detachments.Value.Count;
-    public Option<Error> LastFault => lastFault.Value;
-
-    public void Dispose() => ignore(Release(key: Op.Of(name: nameof(Dispose))));
-
-    internal static Fin<Unit> Detach(Seq<IDisposable> rows, Op key) => rows.Rev().Fold(
-        initialState: Fin.Succ(unit),
-        f: (first, row) => {
-            Fin<Unit> next = key.Catch(body: () => Fin.Succ(Op.Side(action: row.Dispose)));
-            return first.IsFail ? first : next;
-        });
-
-    private Fin<Unit> Release(Op key) {
-        if (Interlocked.CompareExchange(location1: ref releaseState, value: 1, comparand: 0) != 0)
-            return Fin.Succ(unit);
-        bool entered = false;
-        Fin<Unit> outcome = EtoDispatch.Run(body: () => {
-            entered = true;
-            Seq<IDisposable> live = detachments.Value;
-            Fin<Unit> detached = Detach(rows: live, key: key);
-            ignore(detachments.Swap(_ => Seq<IDisposable>()));
-            return detached;
-        }, key: key);
-        return outcome.Match(
-            Succ: _ => { Volatile.Write(location: ref releaseState, value: 2); return Fin.Succ(unit); },
-            Fail: error => {
-                ignore(lastFault.Swap(_ => Some(error)));
-                UiEventsLog.TeardownFault(logger: GhLog.For(category: nameof(UiEvents)), detail: error.Message);
-                Volatile.Write(location: ref releaseState, value: entered ? 2 : 0);
-                return Fin.Fail<Unit>(error: error);
-            });
-    }
-}
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [BoundaryAdapter]
-public static class UiEvents {
-    public static Fin<Lease<UiSubscription>> Observe(EventAnchor anchor, Action<UiEvent> publish, Op? key = null, params ReadOnlySpan<UiSource> rows) {
-        Op op = key.OrDefault();
-        Seq<UiSource> requested = toSeq(rows.ToArray());
-        return from valid in op.Need(publish)
-               from target in op.Need(anchor)
-               from nonEmpty in guard(!requested.IsEmpty, op.InvalidInput()).ToFin()
-               let lastFault = Atom(Option<Error>.None)
-               let sink = new EventSink(publish: valid, lastFault: lastFault, operation: op)
-               from lease in EtoDispatch.Run(body: () => requested.Fold(
-                       initialState: Fin.Succ(Seq<IDisposable>()),
-                       f: (acc, row) => acc.Bind(attached => op.Catch(body: () => row.Attach(
-                           anchor: target, emit: sink.For(source: row), key: op)).BindFail(error => {
-                               UiSubscription.Detach(rows: attached, key: op).IfFail(cleanup => ignore(lastFault.Swap(_ => Some(cleanup))));
-                               return Fin.Fail<IDisposable>(error: error);
-                           }).Map(live => attached.Add(live))))
-                   .Map(attached => (Lease<UiSubscription>)new Lease<UiSubscription>.Owned(Value: new UiSubscription(
-                       detachments: attached, lastFault: lastFault))), key: op)
-               select lease;
-    }
+public static class HookBridge {
+    // Fires the veto point and writes the refusal back into the host's own cancellation surface — the one place
+    // a rail verdict re-enters an EventArgs, because the host reads `Cancel` after the handler returns.
+    public static Fin<Lease<IDisposable>> Closing(
+        Window window, HookRail<GrasshopperPoint, HookSignal, HookScope> rail, Op? key = null);
+
+    public static Fin<Lease<IDisposable>> Terminating(
+        HookRail<GrasshopperPoint, HookSignal, HookScope> rail, Op? key = null);
+
+    // Fire site for hook rows `window.close` / `shell.terminate` — one raise per bridge handler; the verdict is
+    // CONSULTED, never discarded: a Fail leg writes the host's own cancellation before the handler returns.
+    private static void Consult(
+        HookRail<GrasshopperPoint, HookSignal, HookScope> rail, GrasshopperPoint at, CancelEventArgs args, Op key) =>
+        rail.Fire(at: at, fact: new HookSignal.IntentCase(Operation: key, DocumentId: None), key: key)
+            .IfFail(_ => { args.Cancel = true; });
 }
 ```
 
-## [05]-[DRAIN]
+## [05]-[DENSITY_BAR]
 
-- Owner: `DrainPolicy` sealed record — capacity and full-mode as one policy value; `Default` bounds the buffer and sheds the oldest element, and admission refuses `BoundedChannelFullMode.Wait` because the publish bridge lives on host callback paths that never park.
-- Owner: `EvidenceDrain` sealed `IDisposable` — one bounded `Channel<UiEvent>` minted through `Channel.CreateBounded<UiEvent>(BoundedChannelOptions, Action<UiEvent>? itemDropped)` under `SingleReader = true`, `SingleWriter = false`, and `AllowSynchronousContinuations = false`, so a UI or host callback never runs a consumer continuation inline. Its drop observer is the loss-evidence seam: every evicted element counts on `Shed`, keys its `UiSource`, and forwards to the optional shed callback the composition wires into `GhEvidence.DropCase` — `TryWrite` reports admission, never delivery, so loss evidence rides `itemDropped` alone.
-- Entry: `EvidenceDrain.Open(Option<DrainPolicy> policy = default, Option<Action<UiEvent>> onShed = default, Op? key = null)` → `Fin<EvidenceDrain>`; `Publish(UiEvent fact)` — the non-blocking bridge handed to `Observe` as its publish callback; `Reader` — the observation half a single consumer drains; `Complete(Op? key = null)` — idempotent writer completion.
-- Law: the bridge is one `TryWrite` and returns — a `false` admission (completed channel) counts as shed with the same accounting, and no publish path awaits, locks past the write, or retains the event; `Shell/journal.md` `SessionJournal.Mount` is the one structural reader the `SingleReader` promise names.
-- Packages: System.Threading.Channels (`Channel.CreateBounded`, `BoundedChannelOptions`, `BoundedChannelFullMode`, `ChannelReader<T>`, `ChannelWriter<T>`), LanguageExt.Core, `Rasm.Domain` (`Op`).
-- Growth: a new consumer is another drain instance over the same rows — the channel, its policy record, and the bridge never widen.
+| [INDEX] | [CONCERN]           | [OWNER]                        | [RAIL]                                       | [CASES] |
+| :-----: | :------------------ | :----------------------------- | :------------------------------------------- | :-----: |
+|  [01]   | signal vocabularies | `CanvasSignal`…`UndoSignal`    | five keyed smart-enum row sets               |   32    |
+|  [02]   | fact band           | `GhFact : IUiFact`             | closed union + the kernel wrap case          |    6    |
+|  [03]   | source roster       | `GhSource : IUiSource<GhFact>` | 32 one-line rows over two generic wire folds |   32    |
+|  [04]   | veto bridges        | `HookBridge`                   | rail verdict → `CancelEventArgs` write-back  |    2    |
 
-```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using System.Threading.Channels;
-using Rasm.Domain;
+Subscription, atomicity, ordinal, bounded drain, shed/refused accounting, and completion are the kernel input estate's (`UiEvents`, `UiSubscription<GhFact>`, `EvidenceDrain<GhFact>`, `DrainPolicy`); the 29 Eto source rows, 13 Eto fact cases, 4 Eto anchors, `EventSink`, `Detachment`, the local ordinal CAS, and both `[LoggerMessage]` partials deleted onto it.
 
-namespace Rasm.Grasshopper.Shell;
-
-// --- [CONSTANTS] ----------------------------------------------------------------------------
-public sealed record DrainPolicy(int Capacity, BoundedChannelFullMode FullMode) {
-    public static readonly DrainPolicy Default = new(Capacity: 1024, FullMode: BoundedChannelFullMode.DropOldest);
-}
-
-// --- [SERVICES] -----------------------------------------------------------------------------
-public sealed class EvidenceDrain : IDisposable {
-    private readonly Channel<UiEvent> channel;
-    private readonly Option<Action<UiEvent>> onShed;
-    private readonly Atom<long> shedCount = Atom(0L);
-    private int releaseState;
-
-    private EvidenceDrain(Channel<UiEvent> channel, Option<Action<UiEvent>> onShed) {
-        this.channel = channel;
-        this.onShed = onShed;
-    }
-
-    public ChannelReader<UiEvent> Reader => channel.Reader;
-    public long Shed => shedCount.Value;
-
-    public static Fin<EvidenceDrain> Open(
-        Option<DrainPolicy> policy = default, Option<Action<UiEvent>> onShed = default, Op? key = null) {
-        Op op = key.OrDefault();
-        DrainPolicy bound = policy.IfNone(DrainPolicy.Default);
-        return from admitted in guard(
-                   bound.Capacity > 0 && bound.FullMode != BoundedChannelFullMode.Wait,
-                   op.InvalidInput()).ToFin()
-               from drain in op.Catch(body: () => {
-                   EvidenceDrain? minted = null;
-                   Channel<UiEvent> bounded = Channel.CreateBounded<UiEvent>(
-                       options: new BoundedChannelOptions(capacity: bound.Capacity) {
-                           SingleReader = true,
-                           SingleWriter = false,
-                           AllowSynchronousContinuations = false,
-                           FullMode = bound.FullMode,
-                       },
-                       // `minted` assigns after CreateBounded returns; the callback cannot fire earlier because
-                       // no write precedes the assignment, so the null-conditional covers construction alone.
-                       itemDropped: dropped => minted?.Account(fact: dropped, key: op));
-                   minted = new EvidenceDrain(channel: bounded, onShed: onShed);
-                   return Fin.Succ(minted);
-               })
-               select drain;
-    }
-
-    public Unit Publish(UiEvent fact) {
-        Op.SideWhen(
-            condition: !channel.Writer.TryWrite(item: fact),
-            action: () => Account(fact: fact, key: Op.Of(name: nameof(EvidenceDrain))));
-        return unit;
-    }
-
-    public Fin<Unit> Complete(Op? key = null) =>
-        key.OrDefault().Catch(body: () => Fin.Succ(Op.Side(action: () => ignore(channel.Writer.TryComplete()))));
-
-    public void Dispose() => Op.SideWhen(
-        condition: Interlocked.Exchange(location1: ref releaseState, value: 1) == 0,
-        action: () => ignore(channel.Writer.TryComplete()));
-
-    private void Account(UiEvent fact, Op key) {
-        ignore(shedCount.Swap(static count => count + 1L));
-        onShed.Iter(observer => ignore(key.Catch(body: () => Fin.Succ(Op.Side(action: () => observer(obj: fact))))));
-    }
-}
-```
-
-```mermaid
----
-title: Grasshopper boundary event flow
-config:
-  layout: elk
-  htmlLabels: true
-  markdownAutoWrap: false
-  deterministicIds: true
-  elk:
-    nodePlacementStrategy: NETWORK_SIMPLEX
-    considerModelOrder: NODES_AND_EDGES
-  flowchart:
-    curve: linear
-    defaultRenderer: elk
-    padding: 25
----
-flowchart TB
-  accTitle: Grasshopper boundary event flow
-  accDescr: Transactional source rows attach to GH2, Eto, native, and UiClock providers; callbacks cross one contained sink and return typed events to consumers.
-  Request["Observation request"] -->|"anchor · rows · callback"| Gate["UiEvents.Observe"]
-  Gate -->|"one UI marshal"| Rows["UiSource attach column"]
-  Rows -->|"exact handler inverses"| GH2["Grasshopper2 events"]
-  Rows -->|"exact handler inverses"| EtoHost["Eto events"]
-  Rows -->|"token-addressed Tap"| Clock["UiClock"]
-  Clock -->|"ClockBeat · MonotonicBeat"| Sink["EventSink · Op.Catch"]
-  GH2 -->|"project callback"| Sink
-  EtoHost -->|"project callback"| Sink
-  Native["Gated native monitors"] -.->|"projected facts from above"| Sink
-  Sink -->|"publishes UiEvent · records LastFault"| Subscription["Lease&lt;UiSubscription&gt;"]
-  Subscription -->|"typed publication"| Consumer["Boundary consumer"]
-  Rows -->|"stores reverse-order inverses"| Subscription
-```
-
-## [06]-[DENSITY_BAR]
-
-| [INDEX] | [CONCERN]           | [OWNER]                         | [SHAPE_RAIL]                                | [CASES] |
-| :-----: | :------------------ | :------------------------------ | :------------------------------------------ | :-----: |
-|  [01]   | signal vocabularies | `CanvasSignal`…`LifecycleStage` | six keyed smart-enum row sets               |   38    |
-|  [02]   | payload evidence    | `UiFact` + `UiEvent`            | closed union → validated event              |   18    |
-|  [03]   | attachment anchors  | `EventAnchor`                   | closed union → attach admission             |    8    |
-|  [04]   | source rows         | `UiSource`                      | smart-enum rows → `Fin<IDisposable>`        |   62    |
-|  [05]   | subscription        | `UiSubscription` + `UiEvents`   | kernel lease → `Fin<Lease<UiSubscription>>` |    1    |
-|  [06]   | bounded drain       | `EvidenceDrain` + `DrainPolicy` | drop-mode channel → accounted loss evidence |    1    |
-
-`Op`, `Fault`, `Lease<T>`, `ValidityClaim`, `EtoDispatch`, `UiClock`, `GhLog`, and `DocumentToken` are composed upstream owners. A new host stream lands as one row through an existing fold with zero consumer impact.
-
-## [07]-[RESEARCH]
+## [06]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

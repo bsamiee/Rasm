@@ -1,18 +1,18 @@
 # [RASM_FABRICATION_IMPLICIT]
 
-Implicit additive geometry admits one compatible operation set containing periodic fields, lattices, content-addressed voxel wires, or VDB sources; binds one operation-scoped PicoGK runtime; calibrates physical distance; consumes every native handle inside the lease; and projects only durable receipts. `FieldExpression` generates the periodic space and differentiates itself, `SpectralExpression` generates the frequency-domain space the same way, `FieldDefinition.Generated` carries per-occurrence programs without mutating `FieldKind.Items`, and `Implicit.Voxelize` scopes every native handle to one callback.
+Implicit additive geometry admits one compatible operation set containing periodic fields, lattices, content-addressed voxel wires, or VDB sources; binds one operation-scoped PicoGK runtime; calibrates physical distance; consumes every native handle inside the lease; and projects only durable receipts. `FieldExpression` generates the periodic space and differentiates itself, `SpectralExpression` generates the frequency-domain space the same way, `FieldDefinition.Generated` carries per-occurrence programs without mutating `FieldKind.Items`, and `Sdf.Voxelize` scopes every native handle to one callback.
 
 Wire posture is host-local: `Voxels`, `Lattice`, `Mesh`, `ScalarField`, `VectorField`, `OpenVdbFile`, and `Library.GlobalInstance` never cross a result boundary. Every provider selector this page admits is an OWNED `[SmartEnum<string>]` row carrying its PicoGK enum as a column, so `FabricationCanon.Discriminant` writes the row's own key into a preimage and a provider reordering its enum members re-keys nothing. Support geometry composes the ONE `SupportTopology` `support#SUPPORT_TOPOLOGY` publishes on `SupportPlan`; this page reconstructs no edge set. Refusals ride `FabricationFault` through `Admission.Admitted`, and every native failure carries the provider's own cause forward because the provider owns that taxonomy.
 
 ## [01]-[INDEX]
 
-- [02]-[FIELD_PROGRAM]: `FieldKey`, `FieldSample`, `FieldExpression`, `FieldKind`, `FieldDefinition`, `TpmsForm`, `ImplicitCell`, `CalibrationPolicy`, `CalibrationStats`, `FieldThreshold`.
+- [02]-[FIELD_PROGRAM]: `FieldKey`, `VoxelSample`, `FieldExpression`, `FieldKind`, `FieldDefinition`, `TpmsForm`, `ImplicitCell`, `CalibrationPolicy`, `CalibrationStats`, `FieldThreshold`.
 - [03]-[SPECTRAL_ALGEBRA]: `SpectralShape`, `SpectralMetric`, `SpectralExpression`, `SpectralSymbol`.
 - [04]-[MORPHOLOGY]: `VoxelMorphologyStep`, `VoxelBoolean`, the one `Apply` rail, `SpectralMorphology`, `FilteredField`.
 - [05]-[PROVIDER_VOCABULARY]: `SliceRender`, `SliceAxis`, `MaskSampling`, `CliFormat`, `ContourWinding`, `RasterFrame`.
 - [06]-[OPERATION_SET]: `VdbSource`, `CliMode`, `ImplicitPolicy`, `VoxelWire`, `VoxelOperationKind`, `ImplicitOp`.
-- [07]-[VOXEL_LEASE]: `VoxelRuntime`, `VoxelMetrics`, `VoxelScope`, `Rasterized`, `Implicit.Voxelize` and its build fold.
-- [08]-[LAYER_EGRESS]: `CliImport`, `CliStack`, `Implicit.Cli` and the three egress lanes.
+- [07]-[VOXEL_LEASE]: `VoxelRuntime`, `VoxelMetrics`, `VoxelScope`, `Rasterized`, `Sdf.Voxelize` and its build fold.
+- [08]-[LAYER_EGRESS]: `CliImport`, `CliStack`, `Sdf.Cli` and the three egress lanes.
 - [09]-[CANONICAL_BYTES]: `ImplicitCanonical`.
 
 ## [02]-[FIELD_PROGRAM]
@@ -22,7 +22,7 @@ Wire posture is host-local: `Voxels`, `Lattice`, `Mesh`, `ScalarField`, `VectorF
 - Law: `FieldExpression.At` returns level and gradient from ONE structural fold, so no sampling stencil, step size, or truncation error enters the distance law. Density grades wall thickness, axis grades orientation, and scale grades the period itself — three independent drivers a conformal lattice varies, so folding scale into density collapses two of them.
 - Exemption: `FieldCalibration.Of` and `SampleAction.Invoke` are numeric kernels — pooled parallel partition fills over `ParallelHelper`, tensor reductions, and in-place sorts have no expression form.
 - Entry: `FieldDefinition.Admit` is the one construction for both arms; `FieldCalibration.Of` is the one quantile pass.
-- Auto: every generated owner refuses through `[ValidationError<FabricationFault>]`, so one `Admission.Admitted` read closes each admission and no hand ternary restates the `Validate` contract. `Resolution` derives the sample cube from the policy's own quantile-error target rather than a spelled grid.
+- Auto: every generated owner refuses through `[ValidationError]`, so one `Admission.Admitted` read closes each admission and no hand ternary restates the `Validate` contract. `Resolution` derives the sample cube from the policy's own quantile-error target rather than a spelled grid.
 - Packages: `System.Numerics.Tensors` (finite checks, extrema, moments, energy, subtraction, absolute transforms), `CommunityToolkit.HighPerformance` (`MemoryOwner<T>`, `SpanOwner<T>`, `Span2D<T>`, `ParallelHelper.For` over `struct IAction`), `UnitsNet`, LanguageExt.Core, Thinktecture.Runtime.Extensions.
 - Growth: a topology is `FieldExpression` data, a common topology one `FieldKind` seed row, a per-occurrence topology one `FieldDefinition.Generated`, and a spatial driver one `ImplicitCell` field column.
 - Boundary: raw level equations never claim signed-distance semantics — the distance law divides the residual by the world gradient norm floored at the policy's own gradient floor, so a level set whose gradient vanishes reports a bounded distance rather than an infinity.
@@ -57,19 +57,22 @@ namespace Rasm.Fabrication.Additive;
 
 // --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
-[ValidationError<FabricationFault>]
 public readonly partial struct FieldKey {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Additive, "field-key");
+            validationError = new ValidationError("field-key");
     }
 
     public static Fin<FieldKey> Admit(string value) => Admission.OfValue<FieldKey, string>(value);
 }
 
-public readonly record struct FieldSample(float Level, Vector3 Gradient);
+// This sample rides the VOXEL lane: single-precision level and gradient, the precision regime PicoGK's own field
+// grids carry. The kernel `Rasm.Spatial` `FieldSample` this page does not import is the double-precision sample of
+// a continuous field with its own provenance and species evidence — same word, two precision regimes, so the name
+// states which lane a value came out of rather than leaving a caller to infer it from context.
+public readonly record struct VoxelSample(float Level, Vector3 Gradient);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FieldExpression {
@@ -83,43 +86,43 @@ public abstract partial record FieldExpression {
     public sealed record Maximum(Arr<FieldExpression> Terms) : FieldExpression;
     public sealed record Absolute(FieldExpression Term) : FieldExpression;
 
-    public FieldSample At(Vector3 phase) => Switch(
+    public VoxelSample At(Vector3 phase) => Switch(
         state: phase,
-        constant: static (_, expression) => new FieldSample(expression.Value, Vector3.Zero),
+        constant: static (_, expression) => new VoxelSample(expression.Value, Vector3.Zero),
         // The switch operand binds tighter than `+`, so the phase-shifted dot product parenthesizes as ONE angle:
         // without the parens the governing expression is `Phase` alone and every field goes position-independent.
         wave: static (value, expression) =>
             (Vector3.Dot(expression.Frequency, value) + expression.Phase) switch {
-                var angle => new FieldSample(
+                var angle => new VoxelSample(
                     expression.Amplitude * MathF.Cos(angle),
                     -expression.Amplitude * MathF.Sin(angle) * expression.Frequency),
             },
         sum: static (value, expression) => expression.Terms.Fold(
-            new FieldSample(0.0f, Vector3.Zero),
+            new VoxelSample(0.0f, Vector3.Zero),
             (total, term) => term.At(value) switch {
-                var sample => new FieldSample(total.Level + sample.Level, total.Gradient + sample.Gradient),
+                var sample => new VoxelSample(total.Level + sample.Level, total.Gradient + sample.Gradient),
             }),
         product: static (value, expression) => expression.Factors.Fold(
-            new FieldSample(1.0f, Vector3.Zero),
+            new VoxelSample(1.0f, Vector3.Zero),
             (total, term) => term.At(value) switch {
-                var sample => new FieldSample(
+                var sample => new VoxelSample(
                     total.Level * sample.Level,
                     (total.Gradient * sample.Level) + (sample.Gradient * total.Level)),
             }),
         // The extremum seeds are the identity of the fold, not an absence carrier: an admitted case holds at least
         // one term, so the seed is replaced on the first step and never reaches a caller.
         minimum: static (value, expression) => expression.Terms.Fold(
-            new FieldSample(float.PositiveInfinity, Vector3.Zero),
+            new VoxelSample(float.PositiveInfinity, Vector3.Zero),
             (held, term) => term.At(value) switch {
                 var sample => sample.Level < held.Level ? sample : held,
             }),
         maximum: static (value, expression) => expression.Terms.Fold(
-            new FieldSample(float.NegativeInfinity, Vector3.Zero),
+            new VoxelSample(float.NegativeInfinity, Vector3.Zero),
             (held, term) => term.At(value) switch {
                 var sample => sample.Level > held.Level ? sample : held,
             }),
         absolute: static (value, expression) => expression.Term.At(value) switch {
-            var sample => new FieldSample(
+            var sample => new VoxelSample(
                 MathF.Abs(sample.Level),
                 sample.Level < 0.0f ? -sample.Gradient : sample.Gradient),
         });
@@ -139,7 +142,6 @@ public abstract partial record FieldExpression {
 }
 
 [SmartEnum<string>]
-[ValidationError<FabricationFault>]
 public sealed partial class FieldKind {
     // The Lidinoid's own level offset — the constant term its published level-set equation carries, not a tuning knob.
     private const float LidinoidOffset = 0.15f;
@@ -213,8 +215,9 @@ public abstract partial record FieldDefinition {
     // A generated program may not shadow a seed row: two definitions answering one key mint one content identity
     // for two different level sets.
     public static Fin<FieldDefinition> Admit(FieldKey key, FieldExpression program) =>
-        (AdmissionSlots.Gate(program.Valid, Refusal("generated-program")),
-         AdmissionSlots.Gate(!FieldKind.TryGet(key.Value, out _), Refusal("generated-shadows-seed")))
+        (AdmissionSlots.Gate(program.Valid, FabConcern.Additive, "implicit-field:generated-program", FabricationFault.Inadmissible),
+         AdmissionSlots.Gate(!FieldKind.TryGet(key.Value, out _),
+             FabConcern.Additive, "implicit-field:generated-shadows-seed", FabricationFault.Inadmissible))
             .Apply(static (_, _) => unit)
             .As()
             .ToFin()
@@ -224,13 +227,11 @@ public abstract partial record FieldDefinition {
         known: static definition => FieldKey.Create(definition.Kind.Key),
         generated: static definition => definition.Key);
 
-    public FieldSample At(Vector3 phase) => Switch(
+    public VoxelSample At(Vector3 phase) => Switch(
         state: phase,
         known: static (value, definition) => definition.Kind.Program.At(value),
         generated: static (value, definition) => definition.Program.At(value));
 
-    private static Error Refusal(string locus) =>
-        new FabricationFault.PolicyInadmissible(FabConcern.Additive, $"implicit-field:{locus}");
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -261,7 +262,6 @@ public abstract partial record TpmsForm {
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CalibrationPolicy {
     // A quantile over a cube needs at least two samples per axis to separate one bin from another, so the floor is
     // the smallest admissible cube rather than a chosen count.
@@ -278,7 +278,7 @@ public sealed partial class CalibrationPolicy {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref int minimumSamples,
         ref int maximumSamples,
         ref Ratio quantileError,
@@ -289,8 +289,8 @@ public sealed partial class CalibrationPolicy {
             || quantileError.DecimalFractions is <= 0.0 or >= 1.0
             || densityFloor.DecimalFractions <= 0.0
             || densityFloor.DecimalFractions >= DensityCeiling
-            || !Witness.Positive(gradientFloorPerMillimeter))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Additive, "calibration-policy");
+            || !ValidityClaim.Positive(gradientFloorPerMillimeter).Holds)
+            validationError = new ValidationError("calibration-policy");
     }
 
     public static Fin<CalibrationPolicy> Admit(
@@ -304,7 +304,6 @@ public sealed partial class CalibrationPolicy {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ImplicitCell {
     public Length PeriodX { get; }
     public Length PeriodY { get; }
@@ -325,7 +324,7 @@ public sealed partial class ImplicitCell {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Length periodX,
         ref Length periodY,
         ref Length periodZ,
@@ -336,14 +335,14 @@ public sealed partial class ImplicitCell {
         ref Option<Func<Fin<ScalarField>>> densityField,
         ref Option<Func<Fin<VectorField>>> axisField,
         ref Option<Func<Fin<ScalarField>>> scaleField) {
-        if (!(Arr(periodX, periodY, periodZ).ForAll(static period => Witness.Positive(period.Millimeters))
+        if (!(Arr(periodX, periodY, periodZ).ForAll(static period => ValidityClaim.Positive(period.Millimeters))
             && frameTolerance.DecimalFractions is > 0.0 and < 1.0
             && minimumScale.DecimalFractions is > 0.0 and <= 1.0
             // The frame tolerance IS the singularity floor: a world-to-cell map whose determinant falls under it
             // has collapsed an axis, and the period metric it feeds stops being a metric.
             && Math.Abs(worldToCell.GetDeterminant()) > frameTolerance.DecimalFractions
             && relativeDensity.DecimalFractions is > 0.0 and < 1.0))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Additive, "implicit-cell");
+            validationError = new ValidationError("implicit-cell");
     }
 
     public static Fin<ImplicitCell> Admit(
@@ -412,7 +411,6 @@ public readonly record struct FieldThreshold(float Iso, Length HalfWidth, Calibr
 public readonly record struct SpectralShape(double Anisotropy, double Wavelength);
 
 [SmartEnum<string>]
-[ValidationError<FabricationFault>]
 public sealed partial class SpectralMetric {
     // Per-axis scaled norm — the anisotropic standard deviations are the wavelength stretched along X by the ratio.
     public static readonly SpectralMetric Anisotropic = new("anisotropic", static (frequency, shape) =>
@@ -466,7 +464,6 @@ public abstract partial record SpectralExpression {
 }
 
 [SmartEnum<string>]
-[ValidationError<FabricationFault>]
 public sealed partial class SpectralSymbol {
     // The Fourier-pair exponent of a unit-variance Gaussian: a spatial Gaussian of width s transforms to
     // exp(-2*pi^2*(f*s)^2), so every Gaussian row over a length-scaled metric carries this one coefficient.
@@ -497,7 +494,7 @@ public sealed partial class SpectralSymbol {
 - Exemption: `Apply`'s provider bodies, `SpectralMorphology.Rasterize`, and `FilteredField.fSignedDistance` are statement capsules — a native handle mutates or is replaced in place, and the reconstruction is a per-query lattice fold with no expression form.
 - Entry: `VoxelMorphologyStep.Apply(Voxels, ImplicitPolicy)` is the one rail, so the morphology fold never learns which capsule class a step belongs to.
 - Auto: the provider bracket releases the held handle on the failure arm, so a mid-chain native throw never strands a lease; the reconstruction interpolates TRILINEARLY over the eight surrounding cell centres, so the filtered field is continuous and the smoothness the spectral law spends a transform pair to obtain survives its return.
-- Packages: `PicoGK` (`Voxels` morphology entry points, `IImplicit`), `Rasm.Numerics` (`CellLattice` the ONE addressing owner both sides of the boundary read, `SpectralArena`, `SpectralReceipt`, `SpectralSense`, `SpectralScaling`, `SignedAxis`, `PositiveMagnitude`), LanguageExt.Core.
+- Packages: `PicoGK` (`Voxels` morphology entry points, `IImplicit`), `Rasm.Numerics` (`CellLattice` the ONE addressing owner both sides of the boundary read, `SpectralArena`, `SpectralReceipt`, `SpectralSense`, `SpectralScaling`, `SignedAxis`, `PositiveMagnitude`), kernel `Rasm.Domain` (`Custody.Rollback` — the failure-arm release under every provider bracket), LanguageExt.Core.
 - Growth: a native transform is one `VoxelMorphologyStep` case; a frequency-domain transform is one `SpectralSymbol` row under the single `Spectral` case.
 - Boundary: a native failure carries the provider's own cause forward on the composed error, because the provider owns that taxonomy and the fabrication case names only the operation and its budget.
 
@@ -522,17 +519,17 @@ public abstract partial record VoxelMorphologyStep {
         offset: static value => double.IsFinite(value.Distance.Millimeters),
         shell: static value => double.IsFinite(value.Distance.Millimeters) && value.Distance.Millimeters != 0.0,
         overOffset: static value => double.IsFinite(value.First.Millimeters) && double.IsFinite(value.FinalSurface.Millimeters),
-        smoothen: static value => Witness.Positive(value.Distance.Millimeters),
-        fillet: static value => Witness.Positive(value.Radius.Millimeters),
+        smoothen: static value => ValidityClaim.Positive(value.Distance.Millimeters),
+        fillet: static value => ValidityClaim.Positive(value.Radius.Millimeters),
         doubleOffset: static value => double.IsFinite(value.First.Millimeters) && double.IsFinite(value.Second.Millimeters),
         tripleOffset: static value => double.IsFinite(value.Distance.Millimeters),
         trim: static value => value.Bounds.IsValid,
         projectZ: static value => double.IsFinite(value.Start.Millimeters)
             && double.IsFinite(value.End.Millimeters)
             && value.Start.Millimeters < value.End.Millimeters,
-        spectral: static value => value.Symbol.Program.Valid
-            && Witness.Positive(value.Anisotropy.DecimalFractions)
-            && Witness.Positive(value.Wavelength.Millimeters));
+        spectral: static value => ValidityClaim.All(
+            value.Symbol.Program.Valid, ValidityClaim.Positive(value.Anisotropy.DecimalFractions),
+            ValidityClaim.Positive(value.Wavelength.Millimeters)));
 
     public Fin<Voxels> Apply(Voxels voxels, ImplicitPolicy policy) => Switch(
         state: (Held: voxels, Policy: policy),
@@ -560,10 +557,10 @@ public abstract partial record VoxelMorphologyStep {
         }),
         spectral: static (state, step) => SpectralMorphology.Filter(state.Held, step, state.Policy));
 
-    // One `Try` per statement capsule, the held handle released on the failure arm. A row's own body decides
+    // One capture per statement capsule, the held handle released on the failure arm. A row's own body decides
     // whether it mutates the handle in place or replaces it, and the bracket is indifferent to which.
     private static Fin<Voxels> Provider(Voxels held, Func<Voxels, Voxels> body) =>
-        Try.lift(() => body(held)).Run().As().ToFin().Rollback(held);
+        Op.Of(name: "implicit:morphology").Catch(() => Fin.Succ(body(held))).Rollback(held);
 }
 
 [SmartEnum]
@@ -591,14 +588,13 @@ file static class SpectralMorphology {
         return from cell in key.AcceptValidated<PositiveMagnitude>(candidate: policy.Budget.VoxelSizeMm)
                from lattice in CellLattice.Of(
                    bounds: policy.Budget.Bounds, cell: cell, ceiling: policy.Budget.VoxelCap, key: key)
-               from sampled in Try.lift(() => new SpectralArena.Interleaved(
+               from sampled in key.Catch(() => Fin.Succ<SpectralArena>(new SpectralArena.Interleaved(
                        [.. Enumerable.Range(0, (int)lattice.CellCount)
                            .Select(index => lattice.Coordinate(index))
                            .Select(at => lattice.Center(at.Column, at.Row, at.Layer))
                            .Select(point => new Complex(
                                held.fSignedDistance(new Vector3((float)point.X, (float)point.Y, (float)point.Z)), 0.0))],
-                       lattice))
-                   .Run().As().ToFin()
+                       lattice)))
                from forward in sampled.Transform(SpectralSense.Forward, SpectralScaling.Symmetric, key)
                from axes in Seq(SignedAxis.X, SignedAxis.Y, SignedAxis.Z).TraverseM(axis => forward.Axis(axis, key)).As()
                let symbol = Enumerable.Range(0, (int)forward.Cells)
@@ -616,11 +612,11 @@ file static class SpectralMorphology {
     // that left is the grain that comes back and no second addressing owner appears. The source handle releases
     // only once the replacement exists, and it releases on the success arm alone — the rollback owns the failure.
     private static Fin<Voxels> Rasterize(Voxels held, SpectralReceipt filtered, CellLattice lattice, ImplicitPolicy policy) =>
-        Try.lift(() => {
+        Op.Of(name: "implicit:spectral-raster").Catch(() => {
             Voxels result = new(new FilteredField(held, filtered, lattice), FieldMath.Bounds(policy.Budget.Bounds));
             held.Dispose();
-            return result;
-        }).Run().As().ToFin().Rollback(held);
+            return Fin.Succ(result);
+        }).Rollback(held);
 }
 
 // The reconstructed field. A query inside the lattice interpolates TRILINEARLY across the eight surrounding cell
@@ -679,7 +675,6 @@ file sealed class FilteredField(Voxels source, SpectralReceipt filtered, CellLat
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
 [SmartEnum<string>]
-[ValidationError<FabricationFault>]
 public sealed partial class SliceRender {
     public static readonly SliceRender SignedDistance = new("signed-distance", Voxels.ESliceMode.SignedDistance);
     public static readonly SliceRender BlackWhite = new("black-white", Voxels.ESliceMode.BlackWhite);
@@ -689,7 +684,6 @@ public sealed partial class SliceRender {
 }
 
 [SmartEnum<string>]
-[ValidationError<FabricationFault>]
 public sealed partial class SliceAxis {
     public static readonly SliceAxis X = new("x", Voxels.ESliceAxis.X);
     public static readonly SliceAxis Y = new("y", Voxels.ESliceAxis.Y);
@@ -699,7 +693,6 @@ public sealed partial class SliceAxis {
 }
 
 [SmartEnum<string>]
-[ValidationError<FabricationFault>]
 public sealed partial class CliFormat {
     public static readonly CliFormat EmptyFirstLayer = new("empty-first-layer", CliIo.EFormat.UseEmptyFirstLayer);
     public static readonly CliFormat FirstLayerWithContent = new("first-layer-with-content", CliIo.EFormat.FirstLayerWithContent);
@@ -708,7 +701,6 @@ public sealed partial class CliFormat {
 }
 
 [SmartEnum<string>]
-[ValidationError<FabricationFault>]
 public sealed partial class ContourWinding {
     public static readonly ContourWinding Unknown = new("unknown", PolyContour.EWinding.UNKNOWN);
     public static readonly ContourWinding Clockwise = new("clockwise", PolyContour.EWinding.CLOCKWISE);
@@ -730,7 +722,6 @@ public delegate void SliceFetch(
     Voxels field, int index, Length elevation, ref ImageGrayScale image, SliceRender render, SliceAxis axis);
 
 [SmartEnum<string>]
-[ValidationError<FabricationFault>]
 public sealed partial class MaskSampling {
     // The voxel-grid lane exposes on the provider's own slice census at the voxel pitch; the interpolated lane
     // exposes on the policy's layer height and reads between grid planes. Each row owns BOTH halves of its lane.
@@ -740,7 +731,7 @@ public sealed partial class MaskSampling {
         fetch: static (Voxels field, int index, Length _, ref ImageGrayScale image, SliceRender render, SliceAxis axis) =>
             field.GetVoxelSlice(index, ref image, render.Native, axis.Native));
     public static readonly MaskSampling Interpolated = new("interpolated",
-        elevations: static (policy, _) => Implicit.Elevations(policy.Budget.Bounds, policy.LayerHeight),
+        elevations: static (policy, _) => Sdf.Elevations(policy.Budget.Bounds, policy.LayerHeight),
         fetch: static (Voxels field, int _, Length at, ref ImageGrayScale image, SliceRender render, SliceAxis _axis) =>
             field.GetInterpolatedVoxelSlice((float)at.Millimeters, ref image, render.Native));
 
@@ -775,7 +766,6 @@ public readonly record struct RasterFrame(float VoxelSizeMm, Point3d Origin, int
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
 [SmartEnum<string>]
-[ValidationError<FabricationFault>]
 public sealed partial class VoxelOperationKind {
     public static readonly VoxelOperationKind Field = new("field");
     public static readonly VoxelOperationKind LatticeSupport = new("lattice-support");
@@ -798,13 +788,12 @@ public abstract partial record CliMode {
 
     public bool Valid => Switch(
         grayscale: static _ => true,
-        cliVector: static mode => Witness.Positive(mode.UnitsInMillimeters),
+        cliVector: static mode => ValidityClaim.Positive(mode.UnitsInMillimeters),
         vdbCli: static mode => mode.Target.Directory is { Exists: true });
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class VdbSource {
     public ContentKey Key { get; }
     public FileInfo Path { get; }
@@ -813,13 +802,13 @@ public sealed partial class VdbSource {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref ContentKey key,
         ref FileInfo path,
         ref FieldKey field,
         ref HashMap<string, string> requiredMetadata) {
         if (requiredMetadata.IsEmpty || !requiredMetadata.ForAll(static pair => Witness.Keyed(pair.Key)))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Additive, "vdb-source");
+            validationError = new ValidationError("vdb-source");
     }
 
     public static Fin<VdbSource> Admit(
@@ -828,7 +817,6 @@ public sealed partial class VdbSource {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ImplicitPolicy {
     public VoxelBudget Budget { get; }
     public Length LayerHeight { get; }
@@ -844,14 +832,14 @@ public sealed partial class ImplicitPolicy {
     // only what the policy itself owns and no downstream gate re-tests the budget.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref VoxelBudget budget,
         ref Length layerHeight,
         ref CalibrationPolicy calibration,
         ref Func<Voxels, Fin<ContentKey>> commit,
         ref Option<CliMode> cli) {
-        if (!Witness.Positive(layerHeight.Millimeters) || !cli.ForAll(static mode => mode.Valid))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Additive, "implicit-policy");
+        if (!ValidityClaim.Positive(layerHeight.Millimeters).Holds || !cli.ForAll(static mode => mode.Valid))
+            validationError = new ValidationError("implicit-policy");
     }
 
     public static Fin<ImplicitPolicy> Admit(
@@ -924,13 +912,13 @@ public abstract partial record ImplicitOp(
 
 ## [07]-[VOXEL_LEASE]
 
-- Owner: `VoxelRuntime` owns PicoGK ambient lifetime; `VoxelScope` owns metrics, mesh, ray, and VDB projection inside one lease; `Implicit.Voxelize` owns the materializing rail and the build fold under it.
+- Owner: `VoxelRuntime` owns PicoGK ambient lifetime; `VoxelScope` owns metrics, mesh, ray, and VDB projection inside one lease; `Sdf.Voxelize` owns the materializing rail and the build fold under it.
 - Law: `VoxelRuntime.Use` serializes one `Library.GlobalInstance` per compatible operation set, so sequential sets may select distinct voxel sizes. A returned native handle is invalid egress; every handle allocated in the fold is consumed inside the callback and released on both arms.
-- Exemption: `VoxelRuntime.Use`, `Consume`, `Combine`, `LatticeVoxels`, `Subtract`, `Measure`, and `Sealed` are lifetime and provider statement capsules — a lease, an ordered release, and a native aggregate have no expression form.
-- Entry: `Implicit.Voxelize<T>(Seq<ImplicitOp>, Func<Arr<VoxelScope>, Fin<T>>)` is the single materializing rail for one or many compatible fields.
+- Exemption: `VoxelRuntime.Use`, `Combine`, `LatticeVoxels`, `Subtract`, `Measure`, and `Sealed` are lifetime and provider statement capsules — each guards its own native acquire or aggregate, which has no expression form. `Consume` holds no exemption: its rasters arrive already acquired and never transfer custody, so the both-arms release rides kernel `Custody.Bracket`.
+- Entry: `Sdf.Voxelize<T>(Seq<ImplicitOp>, Func<Arr<VoxelScope>, Fin<T>>)` is the single materializing rail for one or many compatible fields.
 - Auto: admission accumulates every operation fault before native allocation. `Raster` intersects the field operation's own `Envelope` occupancy through `voxIntersectImplicit` rather than rasterizing the whole budget box, because a full-bounds construction allocates the entire budget before discarding almost all of it. `Occupied` rejects an empty rasterization before it posts an empty program. Lattice scaffolds read the ONE `SupportTopology` `support#SUPPORT_TOPOLOGY` publishes, so the support edge set is never reconstructed and a missing parent is impossible by the owner's own admission.
 - Receipt: `VoxelMetrics` carries physical volume, queried bounds, native memory, committed field identity, and the `CalibrationStats` the quantile pass measured.
-- Packages: `PicoGK` (implicit rasterization and intersection, lattice beams and nodes, metrics, ray-cast, mesh extraction, VDB read and write with field metadata), QuikGraph (`SEquatableEdge` endpoints off the published topology), LanguageExt.Core.
+- Packages: `PicoGK` (implicit rasterization and intersection, lattice beams and nodes, metrics, ray-cast, mesh extraction, VDB read and write with field metadata), QuikGraph (`SEquatableEdge` endpoints off the published topology), kernel `Rasm.Domain` (`Custody.Rollback` the failure-arm release every acquire-chain fold composes, `Custody.Bracket` the both-arms release under `Consume` — disposer faults appended onto the primary), LanguageExt.Core.
 - Growth: a materializing consumer is one `Voxelize` callback.
 - Boundary: `PeriodicImplicit.fSignedDistance` copies the provider's by-reference callback value before use; VDB source identity travels with its field name and required metadata; the document container is what NAMES a field, so the direct single-field write cannot serve an egress whose import lane resolves by name.
 
@@ -958,7 +946,7 @@ public sealed class VoxelScope {
 
     public Fin<Option<Point3d>> Raycast(Point3d origin, Vector3d direction) =>
         !origin.IsValid || !direction.IsValid || direction.IsZero
-            ? Fin.Fail<Option<Point3d>>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "implicit-ray:invalid").ToError())
+            ? Fin.Fail<Option<Point3d>>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "implicit-ray:invalid"))
             : Fin.Succ(Native.bRayCastToSurface(
                 FieldMath.Vector(origin),
                 new Vector3((float)direction.X, (float)direction.Y, (float)direction.Z),
@@ -970,18 +958,15 @@ public sealed class VoxelScope {
     // re-imported field carries the identity its required-metadata gate compares.
     public Fin<ContentKey> Vdb(FileInfo target, FieldKey field, HashMap<string, string> provenance) =>
         target.Directory is not { Exists: true }
-            ? Fin.Fail<ContentKey>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "implicit-vdb:export-target"))
-            : Try.lift(() => {
+            ? Fin.Fail<ContentKey>(new KernelFault.InvalidValue("implicit", "implicit-vdb:export-target"))
+            : Op.Of(name: "implicit-vdb:export").Catch(() => {
                     using OpenVdbFile file = new();
                     _ = file.nAdd(Native, field.Value);
                     using FieldMetadata metadata = Native.oMetaData();
                     provenance.Iter(pair => metadata.SetValue(pair.Key, pair.Value));
                     file.SaveToFile(target.FullName);
-                    return Metrics.Field;
-                })
-                .Run().As().ToFin()
-                .MapFail(static error =>
-                    new GeometryFault.DegenerateInput(Kind.Mesh, None, "implicit-vdb:export").ToError() + error);
+                    return Fin.Succ(Metrics.Field);
+                });
 }
 
 // --- [RUNTIME] ------------------------------------------------------------------------------------------------------------------------------------
@@ -991,65 +976,54 @@ file static class VoxelRuntime {
     public static Fin<T> Use<T>(Seq<ImplicitOp> operations, Func<Fin<T>> run) {
         ImplicitOp operation = operations[0];
         lock (Gate) {
-            return Try.lift<Fin<T>>(() => {
+            return Op.Of(name: "implicit:runtime").Catch(() => {
                     using Library.GlobalInstance runtime = new((float)operation.Policy.Budget.VoxelSizeMm);
                     return run();
-                })
-                .Run().As().ToFin()
-                .MapFail(error => Native(operation, error))
-                .Bind(static result => result);
+                }, cause => Provider(operation, cause));
         }
     }
 
-    // The native cause travels WITH the fabrication case: the case names the operation and its budget, and the
-    // provider owns the taxonomy of why its own call failed.
-    internal static Error Native(ImplicitOp operation, Error cause) =>
-        (Error)new FabricationFault.VoxelFault(operation.Subject, operation.Policy.Budget) + cause;
-}
-
-file static class VoxelRail {
-    extension<T>(Fin<T> step) {
-        public Fin<T> Rollback(params ReadOnlySpan<IDisposable?> held) {
-            Seq<IDisposable?> captured = toSeq(held.ToArray());
-            return step.MapFail(error => {
-                _ = captured.Iter(static lease => lease?.Dispose());
-                return error;
-            });
-        }
-    }
+    // Only PicoGK's documented native failures enter the fabrication taxonomy; every other captured error remains exact.
+    internal static Option<FabricationFault.VoxelFault> Provider(ImplicitOp operation, Error cause) =>
+        cause.Exception.Bind(raised => raised is PicoGKAllocException or PicoGKLibraryMismatchException
+            ? Some(new FabricationFault.VoxelFault(operation.Subject, operation.Policy.Budget, cause))
+            : None);
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
-public static partial class Implicit {
+// This owner holds the signed-distance surface. `Sdf` names it because the kernel `Rasm.Numerics` `Implicit` this page's own using
+// directive binds is the EXACT-carriage point family — coordinates derived on demand from defining points — while
+// everything here evaluates a signed distance over a voxel field. One bare name, one carriage regime, package-wide.
+public static partial class Sdf {
     public static Fin<T> Voxelize<T>(Seq<ImplicitOp> operations, Func<Arr<VoxelScope>, Fin<T>> consume) =>
         operations.IsEmpty
-            ? Fin.Fail<T>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "implicit:empty-operation-set"))
+            ? Fin.Fail<T>(new KernelFault.InvalidValue("implicit", "implicit:empty-operation-set"))
             : from _ in operations.Traverse(operation => Admit(operation).ToValidation()).As().ToFin()
-              from __ in Gate(Compatible(operations), "implicit:incompatible-operation-set").ToFin()
+              from __ in AdmissionSlots.Gate(Compatible(operations),
+                  FabConcern.Additive, "implicit:incompatible-operation-set", FabricationFault.Inadmissible).ToFin()
               from result in VoxelRuntime.Use(operations, () =>
                   from rasters in Build(operations)
                   from consumed in Consume(operations, rasters, consume)
                   select consumed)
               select result;
 
+    // Rasters never transfer custody past the consuming callback, so the both-arms release is kernel
+    // `Custody.Bracket`'s span — disposal runs LIFO on success and failure alike and a disposer fault
+    // aggregates into the primary instead of escaping the rail.
     private static Fin<T> Consume<T>(
         Seq<ImplicitOp> operations,
         Seq<Rasterized> rasters,
-        Func<Arr<VoxelScope>, Fin<T>> consume) {
-        try {
-            return from scopes in operations.Zip(rasters)
-                       .Traverse(row =>
-                           from _ in Occupied(row.Second.Voxels, row.First)
-                           from field in row.First.Commit(row.Second.Voxels)
-                           select new VoxelScope(row.Second.Voxels, Measure(row.Second, field)))
-                       .As()
-                   from result in consume(scopes.ToArr())
-                   select result;
-        }
-        finally {
-            rasters.Iter(static raster => raster.Voxels.Dispose());
-        }
-    }
+        Func<Arr<VoxelScope>, Fin<T>> consume) =>
+        Custody.Bracket(
+            () => from scopes in operations.Zip(rasters)
+                      .Traverse(row =>
+                          from _ in Occupied(row.Second.Voxels, row.First)
+                          from field in row.First.Commit(row.Second.Voxels)
+                          select new VoxelScope(row.Second.Voxels, Measure(row.Second, field)))
+                      .As()
+                  from result in consume(scopes.ToArr())
+                  select result,
+            [.. rasters.Map(static row => (IDisposable?)row.Voxels)]);
 
     // Empty fields rasterize without fault and post an empty program; the gate turns that into evidence.
     private static Fin<Unit> Occupied(Voxels voxels, ImplicitOp operation) =>
@@ -1080,11 +1054,11 @@ public static partial class Implicit {
             select new Rasterized(morphed, inputs.Map(static held => held.Calibration).Somes().Head));
 
     private static Fin<Voxels> Combine(Seq<Voxels> inputs, VoxelBoolean operation) =>
-        Try.lift(() => {
+        Op.Of(name: "implicit-composite").Catch(() => {
                 Voxels result = inputs[0].voxDuplicate();
                 try {
                     _ = operation.Apply(result, inputs.Skip(1));
-                    return result;
+                    return Fin.Succ(result);
                 }
                 catch {
                     result.Dispose();
@@ -1093,10 +1067,7 @@ public static partial class Implicit {
                 finally {
                     inputs.Iter(static input => input.Dispose());
                 }
-            })
-            .Run().As().ToFin()
-            .MapFail(static error =>
-                new GeometryFault.DegenerateInput(Kind.Mesh, None, "implicit-composite").ToError() + error);
+            });
 
     private static Fin<Rasterized> Field(ImplicitOp.Field operation) =>
         from density in Acquire(operation.Cell.DensityField)
@@ -1117,8 +1088,8 @@ public static partial class Implicit {
         from calibration in FieldCalibration
             .Of(operation.Definition, operation.Cell, operation.Policy.Calibration)
             .Rollback(envelope)
-        from intersected in Try
-            .lift(() => envelope.voxIntersectImplicit(new PeriodicImplicit(
+        from intersected in Op.Of(name: "implicit:intersect").Catch(() => Fin.Succ(
+            envelope.voxIntersectImplicit(new PeriodicImplicit(
                 operation.Definition,
                 operation.Form,
                 operation.Cell,
@@ -1126,8 +1097,7 @@ public static partial class Implicit {
                 density,
                 scale,
                 axis,
-                calibration)))
-            .Run().As().ToFin()
+                calibration))), cause => VoxelRuntime.Provider(operation, cause))
             .Rollback(envelope, calibration)
         from morphed in Morph(intersected, operation.Morphology, operation.Policy)
             .Rollback(envelope, calibration)
@@ -1174,7 +1144,7 @@ public static partial class Implicit {
                 from child in topology.Node(edge.Target).ToFin(Refusal("implicit-lattice:absent-node"))
                 select (Parent: parent, Child: child))
             .As()
-        from voxels in Try.lift(() => {
+        from voxels in Op.Of(name: "implicit-lattice").Catch(() => {
                 using PicoGK.Lattice lattice = new();
                 // `Nodes` is the owner's id-ordered census, so the scaffold builds in one deterministic order and
                 // its content key does not depend on dictionary enumeration. `Radius` is the owner's own
@@ -1186,11 +1156,8 @@ public static partial class Implicit {
                     FieldMath.Vector(beam.Child.At),
                     (float)beam.Child.Radius,
                     bRoundCap: true));
-                return new Voxels(lattice);
+                return Fin.Succ(new Voxels(lattice));
             })
-            .Run().As().ToFin()
-            .MapFail(static error =>
-                new GeometryFault.DegenerateInput(Kind.Mesh, None, "implicit-lattice").ToError() + error)
         select voxels;
 
     private static Fin<Voxels> Subtract(Voxels scaffold, VoxelWire wire) =>
@@ -1206,20 +1173,18 @@ public static partial class Implicit {
 
     private static Fin<Voxels> Vdb(VdbSource source, double voxelSizeMm) =>
         from _ in VdbMetadata(source, voxelSizeMm)
-        from voxels in Try.lift(() => {
+        from voxels in Op.Of(name: "implicit-vdb").Catch(() => {
                 using OpenVdbFile file = new(source.Path.FullName);
                 using Voxels field = file.voxGet(source.Field.Value);
-                return field.voxDuplicate();
+                return Fin.Succ(field.voxDuplicate());
             })
-            .Run().As().ToFin()
-            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, None, "implicit-vdb").ToError() + error)
         select voxels;
 
     private static Fin<Unit> VdbMetadata(VdbSource source, double voxelSizeMm) =>
-        VdbIdentity(source).Bind(_ => Try.lift<Fin<Unit>>(() => {
+        VdbIdentity(source).Bind(_ => Op.Of(name: "implicit-vdb:metadata").Catch(() => {
                 using OpenVdbFile file = new(source.Path.FullName);
                 if (!file.bIsPicoGKCompatible() || !file.fPicoGKVoxelSizeMM().Equals((float)voxelSizeMm))
-                    return Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "implicit-vdb:voxel-size"));
+                    return Fin.Fail<Unit>(new KernelFault.InvalidValue("implicit", "implicit-vdb:voxel-size"));
 
                 using Voxels field = file.voxGet(source.Field.Value);
                 using FieldMetadata metadata = field.oMetaData();
@@ -1227,24 +1192,21 @@ public static partial class Implicit {
                     metadata.bGetValueAt(pair.Key, out string actual)
                     && string.Equals(actual, pair.Value, StringComparison.Ordinal))
                         ? Fin.Succ(unit)
-                        : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "implicit-vdb:metadata"));
-            })
-            .Run().As().ToFin()
-            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, None, "implicit-vdb").ToError() + error)
-            .Bind(static result => result));
+                        : Fin.Fail<Unit>(new KernelFault.InvalidValue("implicit", "implicit-vdb:metadata"));
+            }));
 
     private static Fin<Unit> VdbIdentity(VdbSource source) =>
-        Try.lift(() => {
+        Op.Of(name: "implicit-vdb:identity").Catch(() => {
                 using FileStream payload = source.Path.OpenRead();
                 long canonicalLength = sizeof(int) + Encoding.UTF8.GetByteCount(source.Field.Value) + payload.Length;
                 if (canonicalLength > int.MaxValue)
-                    return false;
+                    return Fin.Succ(false);
 
                 // Kernel `ContentHash` owns the accumulator AND its explicit seed zero, so a digest minted here
                 // lands inside the one federation key space rather than beside it under an implicit default seed.
                 byte[] kind = Encoding.UTF8.GetBytes(source.Key.Kind.Key);
                 byte[] field = Encoding.UTF8.GetBytes(source.Field.Value);
-                return ContentHash.Of(
+                return Fin.Succ(ContentHash.Of(
                     state: (Kind: kind, Field: field, Length: (int)canonicalLength, Payload: payload),
                     chunks: static (state, hash) => {
                         Span<byte> width = stackalloc byte[sizeof(int)];
@@ -1257,14 +1219,11 @@ public static partial class Implicit {
                         hash.Append(width);
                         hash.Append(state.Field);
                         hash.Append(state.Payload);
-                    }) == source.Key.Digest;
+                    }) == source.Key.Digest);
             })
-            .Run().As().ToFin()
-            .MapFail(static error =>
-                new GeometryFault.DegenerateInput(Kind.Mesh, None, "implicit-vdb:identity").ToError() + error)
             .Bind(matches => matches
                 ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "implicit-vdb:identity")));
+                : Fin.Fail<Unit>(new KernelFault.InvalidValue("implicit", "implicit-vdb:identity")));
 
     // Every step owns its own bracket — the provider rows release the held handle on a native throw and the
     // spectral row releases it on the kernel rail — so the fold is a plain `Fin` chain with no second try layer.
@@ -1272,12 +1231,9 @@ public static partial class Implicit {
         steps.Fold(Fin.Succ(voxels), (rail, step) => rail.Bind(held => step.Apply(held, policy)));
 
     private static Fin<Option<T>> Acquire<T>(Option<Func<Fin<T>>> source) where T : class, IDisposable =>
-        Try.lift<Fin<Option<T>>>(() => source.Match(
+        Op.Of(name: "implicit-driver").Catch(() => source.Match(
                 None: static () => Fin.Succ(Option<T>.None),
-                Some: static factory => factory().Map(Some)))
-            .Run().As().ToFin()
-            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, None, "implicit-driver").ToError() + error)
-            .Bind(static result => result);
+                Some: static factory => factory().Map(Some)));
 
     private static VoxelMetrics Measure(Rasterized raster, ContentKey field) {
         raster.Voxels.CalculateProperties(out float cubicMillimeters, out BBox3 properties);
@@ -1296,15 +1252,18 @@ public static partial class Implicit {
     // this union with no admission of its own.
     private static Fin<Unit> Admit(ImplicitOp operation) =>
         AdmissionSlots.Accumulate(Seq(
-                Gate(operation.Morphology.ForAll(static step => step.Valid), "implicit:morphology"),
+                AdmissionSlots.Gate(operation.Morphology.ForAll(static step => step.Valid),
+                    FabConcern.Additive, "implicit:morphology", FabricationFault.Inadmissible),
                 operation.Switch(
-                    field: static row => Gate(row.Form.Valid, "implicit:field-form"),
-                    latticeSupport: static row => Gate(
-                        !row.Support.Topology.Graph.IsVerticesEmpty, "implicit:lattice-support"),
+                    field: static row => AdmissionSlots.Gate(row.Form.Valid,
+                        FabConcern.Additive, "implicit:field-form", FabricationFault.Inadmissible),
+                    latticeSupport: static row => AdmissionSlots.Gate(
+                        !row.Support.Topology.Graph.IsVerticesEmpty, FabConcern.Additive, "implicit:lattice-support", FabricationFault.Inadmissible),
                     source: static _ => Nothing,
-                    vdb: static row => Gate(row.Origin.Path.Exists, "implicit:vdb-path"),
+                    vdb: static row => AdmissionSlots.Gate(row.Origin.Path.Exists,
+                        FabConcern.Additive, "implicit:vdb-path", FabricationFault.Inadmissible),
                     composite: static row => AdmissionSlots.Accumulate(
-                        Seq(Gate(!row.Inputs.IsEmpty, "implicit:composite-inputs"))
+                        Seq(AdmissionSlots.Gate(!row.Inputs.IsEmpty, FabConcern.Additive, "implicit:composite-inputs", FabricationFault.Inadmissible))
                         + row.Inputs.Map(static input =>
                             (K<Validation<Error>, Unit>)Admit(input).ToValidation())))))
             .As()
@@ -1316,10 +1275,8 @@ public static partial class Implicit {
     private static K<Validation<Error>, Unit> Nothing =>
         AdmissionSlots.Accumulate(Seq<K<Validation<Error>, Unit>>());
 
-    private static K<Validation<Error>, Unit> Gate(bool valid, string locus) =>
-        AdmissionSlots.Gate(valid, Refusal(locus));
 
-    private static Error Refusal(string locus) => new FabricationFault.PolicyInadmissible(FabConcern.Additive, locus);
+    private static Error Refusal(string locus) => FabricationFault.Inadmissible(FabConcern.Additive, locus);
 
     private static bool Compatible(Seq<ImplicitOp> operations) =>
         operations.Bind(static operation => operation.Expanded)
@@ -1334,7 +1291,7 @@ public static partial class Implicit {
             .Map(index => Length.FromMillimeters(bounds.Min.Z + ((index + 0.5) * layerHeight.Millimeters)));
 
     private static Fin<T> Fail<T>(ImplicitOp operation) =>
-        Fin.Fail<T>(new FabricationFault.VoxelFault(operation.Subject, operation.Policy.Budget));
+        Fin.Fail<T>(FabricationFault.Inadmissible(FabConcern.Additive, "implicit:operation"));
 }
 
 // --- [FIELD] --------------------------------------------------------------------------------------------------------------------------------------
@@ -1451,7 +1408,7 @@ file sealed class FieldCalibration : IDisposable {
             Span<float> distanceSpan = distances.Span;
             if (!TensorPrimitives.IsFiniteAll(levelSpan) || !TensorPrimitives.IsFiniteAll(distanceSpan))
                 return Fin.Fail<FieldCalibration>(
-                    new GeometryFault.DegenerateInput(Kind.Mesh, None, "implicit-calibration:non-finite").ToError());
+                    new GeometryFault.DegenerateInput(Kind.Mesh, None, "implicit-calibration:non-finite"));
 
             float average = TensorPrimitives.Average(distanceSpan);
             using SpanOwner<float> baseline = SpanOwner<float>.Allocate(count);
@@ -1530,7 +1487,7 @@ file sealed class FieldCalibration : IDisposable {
                 (x + 0.5f) * MathF.Tau / resolution,
                 (y + 0.5f) * MathF.Tau / resolution,
                 (z + 0.5f) * MathF.Tau / resolution);
-            FieldSample sample = definition.At(phase);
+            VoxelSample sample = definition.At(phase);
             float gradient = MathF.Max(
                 cell.WorldGradient(sample.Gradient, None, Ratio.FromDecimalFractions(1.0)).Length(),
                 gradientFloorPerMillimeter);
@@ -1543,10 +1500,10 @@ file sealed class FieldCalibration : IDisposable {
 
 ## [08]-[LAYER_EGRESS]
 
-- Owner: `Implicit.Cli` owns the single layer-stack rail and the three egress lanes under it; `CliStack` owns the settled layer receipt; `CliImport` owns the reader receipt a round trip produces.
+- Owner: `Sdf.Cli` owns the single layer-stack rail and the three egress lanes under it; `CliStack` owns the settled layer receipt; `CliImport` owns the reader receipt a round trip produces.
 - Law: the sink enters as the runtime's own `Option<IProgress<double>>` carrier, absent by default so a headless caller spells nothing, and reaches the provider's trailing parameter directly on all three egress entry points — a page-local reporter, a percentage tally, or a polling thread beside the native call is the deleted form. Vectorize and write are two reported phases of ONE egress and take the SAME sink, so a caller never sees the file phase stall silently.
 - Exemption: `Vector`, `Grayscale`, and `Direct` are provider statement capsules — the grayscale loop in particular owns its statement form because PicoGK writes every slice into one mutable `ref ImageGrayScale` buffer.
-- Entry: `Implicit.Cli(ImplicitOp, Option<IProgress<double>>)` is the one layer-stack rail; `slicing#DEPOSITION` threads its implicit arm into this signature.
+- Entry: `Sdf.Cli(ImplicitOp, Option<IProgress<double>>)` is the one layer-stack rail; `slicing#DEPOSITION` threads its implicit arm into this signature.
 - Auto: the mask loop reads its elevation law and its slice fetch off ONE admitted `MaskSampling` row, so the lane branches nowhere; header date, unit scale, and reader warnings ride `CliImport`, because discarding them loses the only evidence that a round-tripped program degraded.
 - Receipt: `CliStack` carries layers, canonical `.cli` identity, mask identities, committed field identities, optional `VoxelMetrics`, and the optional reader receipt.
 - Packages: `PicoGK` (`oVectorize`, `CliIo`, `Vdb2Cli`, grayscale slice reads), LanguageExt.Core.
@@ -1566,7 +1523,7 @@ public sealed record CliStack(
     Option<CliImport> Import);
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
-public static partial class Implicit {
+public static partial class Sdf {
     // The lane READS presence: a policy that requested no layer egress cannot answer this rail, so the absent
     // mode refuses here rather than being defaulted into an encoding the caller never asked for.
     public static Fin<CliStack> Cli(ImplicitOp operation, Option<IProgress<double>> progress = default) =>
@@ -1582,7 +1539,7 @@ public static partial class Implicit {
 
     private static Fin<CliStack> Vector(
         VoxelScope scope, ImplicitOp operation, CliMode.CliVector mode, Option<IProgress<double>> progress) =>
-        Try.lift(() => {
+        Op.Of(name: "implicit-cli:vector").Catch(() => {
                 IProgress<double>? sink = progress.ValueUnsafe();
                 PolySliceStack slices = scope.Native.oVectorize(
                     (float)operation.Policy.LayerHeight.Millimeters,
@@ -1595,39 +1552,36 @@ public static partial class Implicit {
                     strDate: null,
                     mode.UnitsInMillimeters,
                     sink));
-                ContentKey key = ContentKey.Of(
-                    EgressKind.Cli,
-                    ImplicitCanonical.Cli(slices, Seq(scope.Metrics.Field), operation.Policy, Some(mode)));
-                return new CliStack(
-                    slices.nCount(), key, Seq<ContentKey>(), Seq(scope.Metrics.Field), Some(scope.Metrics), None);
-            })
-            .Run().As().ToFin()
-            .MapFail(error => VoxelRuntime.Native(operation, error));
+                return ImplicitCanonical
+                    .Cli(slices, Seq(scope.Metrics.Field), operation.Policy, Some(mode), Op.Of(name: nameof(Vector)))
+                    .Map(key => new CliStack(
+                        slices.nCount(), key, Seq<ContentKey>(), Seq(scope.Metrics.Field), Some(scope.Metrics), None));
+            }, cause => VoxelRuntime.Provider(operation, cause));
 
     private static Fin<CliStack> Grayscale(VoxelScope scope, ImplicitOp operation, CliMode.Grayscale mode) =>
-        Try.lift(() => {
+        Op.Of(name: "implicit-cli:grayscale").Catch(() => {
                 ImageGrayScale image = scope.Native.imgAllocateSlice(out int voxelSlices, mode.Axis.Native);
                 Seq<Length> elevations = mode.Sampling.Elevations(operation.Policy, voxelSlices);
-                Seq<ContentKey> masks = Seq<ContentKey>();
+                // PicoGK REUSES the native buffer per index, so each mask's preimage is taken before the next fetch
+                // overwrites it; the rail accumulates inside the sweep rather than after it.
+                Fin<Seq<ContentKey>> masks = Fin.Succ(Seq<ContentKey>());
                 for (int index = 0; index < elevations.Count; index++) {
                     mode.Sampling.Fetch(scope.Native, index, elevations[index], ref image, mode.Render, mode.Axis);
-                    masks = masks.Add(ContentKey.Of(
-                        EgressKind.Cli,
-                        ImplicitCanonical.Image(
-                            index,
-                            elevations[index],
-                            image,
-                            RasterFrame.Of(scope.Native, index),
-                            scope.Metrics.Field,
-                            operation.Policy)));
+                    Fin<ContentKey> mask = ImplicitCanonical.Image(
+                        index,
+                        elevations[index],
+                        image,
+                        RasterFrame.Of(scope.Native, index),
+                        scope.Metrics.Field,
+                        operation.Policy,
+                        Op.Of(name: nameof(Grayscale)));
+                    masks = masks.Bind(held => mask.Map(held.Add));
                 }
-                ContentKey key = ContentKey.Of(
-                    EgressKind.Cli,
-                    ImplicitCanonical.MaskIndex(masks, scope.Metrics.Field, operation.Policy, mode));
-                return new CliStack(masks.Count, key, masks, Seq(scope.Metrics.Field), Some(scope.Metrics), None);
-            })
-            .Run().As().ToFin()
-            .MapFail(error => VoxelRuntime.Native(operation, error));
+                return masks.Bind(settled => ImplicitCanonical
+                    .MaskIndex(settled, scope.Metrics.Field, operation.Policy, mode, Op.Of(name: nameof(Grayscale)))
+                    .Map(key => new CliStack(
+                        settled.Count, key, settled, Seq(scope.Metrics.Field), Some(scope.Metrics), None)));
+            }, cause => VoxelRuntime.Provider(operation, cause));
 
     // The direct lane converts a VDB file straight to a layer program, so it admits only a morphology-free VDB
     // operation: a step the conversion never sees would leave the emitted program describing a different solid.
@@ -1636,7 +1590,7 @@ public static partial class Implicit {
             ? Fail<CliStack>(operation)
             : VoxelRuntime.Use(Seq(operation), () =>
                 from _ in VdbMetadata(vdb.Origin, vdb.Policy.Budget.VoxelSizeMm)
-                from stack in Try.lift(() => {
+                from stack in Op.Of(name: "implicit-cli:direct").Catch(() => {
                         Vdb2Cli.Convert(
                             vdb.Origin.Path.FullName,
                             (float)vdb.Policy.LayerHeight.Millimeters,
@@ -1644,31 +1598,30 @@ public static partial class Implicit {
                             vdb.Origin.Field.Value,
                             progress.ValueUnsafe());
                         CliIo.Result imported = CliIo.oSlicesFromCliFile(mode.Target.FullName);
-                        ContentKey key = ContentKey.Of(
-                            EgressKind.Cli,
-                            ImplicitCanonical.Cli(
-                                imported.oSlices, Seq(vdb.Origin.Key), vdb.Policy, Option<CliMode.CliVector>.None));
-                        return new CliStack(
-                            imported.oSlices.nCount(),
-                            key,
-                            Seq<ContentKey>(),
-                            Seq(vdb.Origin.Key),
-                            None,
-                            Some(new CliImport(
-                                (int)imported.nLayers,
-                                FieldMath.Box(imported.oBBoxFile),
-                                imported.strHeaderDate,
-                                Witness.Keyed(imported.strWarnings) ? Seq(imported.strWarnings) : Seq<string>())));
-                    })
-                    .Run().As().ToFin()
-                    .MapFail(error => VoxelRuntime.Native(operation, error))
+                        return ImplicitCanonical
+                            .Cli(imported.oSlices, Seq(vdb.Origin.Key), vdb.Policy, Option<CliMode.CliVector>.None,
+                                Op.Of(name: nameof(Direct)))
+                            .Map(key => new CliStack(
+                                imported.oSlices.nCount(),
+                                key,
+                                Seq<ContentKey>(),
+                                Seq(vdb.Origin.Key),
+                                None,
+                                Some(new CliImport(
+                                    (int)imported.nLayers,
+                                    FieldMath.Box(imported.oBBoxFile),
+                                    imported.strHeaderDate,
+                                    Witness.Keyed(imported.strWarnings)
+                                        ? Seq(imported.strWarnings)
+                                        : Seq<string>()))));
+                    }, cause => VoxelRuntime.Provider(operation, cause))
                 select stack);
 }
 ```
 
 ## [09]-[CANONICAL_BYTES]
 
-- Owner: `ImplicitCanonical` owns every layer-stack, mask, and mask-index preimage this page mints.
+- Owner: `ImplicitCanonical` owns every layer-stack, mask, and mask-index KEY this page mints; each rides the `FabricationCanon` keyed close whole, so no lane opens a writer, spells a mint, or discards the close's own refusal.
 - Law: a preimage carries NO provider enum ordinal — every closed selector writes through `FabricationCanon.Discriminant`, which frames the owned row's own key, so a provider renumbering its enum re-keys nothing. The writer binds to the operation's own voxel size, so the declared quantization grid is a policy axis rather than a spelled constant.
 - Auto: `FabricationCanon.Rows` writes the count before its rows, so every collection layout is self-delimiting and no length-free concatenation can forge equality; `ContourWinding.Of` computes the winding from the contour's own vertices rather than reading a value the last detection happened to leave behind.
 - Receipt: a mask preimage carries its `RasterFrame` — pitch, origin, and census — because a grayscale payload is addressable only with the grid beside it, so the same raster at two voxel sizes cannot mint one key.
@@ -1678,52 +1631,56 @@ public static partial class Implicit {
 
 ```csharp signature
 public static class ImplicitCanonical {
-    public static byte[] Cli(
+    // Every lane here wants the KEY alone, so each rides the facade's own keyed close: `Retaining` is the mint that
+    // holds a buffer, `ToBytes` answers on the rail, and `ContentKey.Of` frames the egress family ahead of the
+    // payload — one call carries all three, and no lane opens a writer or discards a refusal of its own.
+    public static Fin<ContentKey> Cli(
         PolySliceStack slices,
         Seq<ContentKey> fields,
         ImplicitPolicy policy,
-        Option<CliMode.CliVector> mode) {
-        CanonicalWriter writer = new(policy.Budget.VoxelSizeMm);
-        writer.Double(policy.LayerHeight.Millimeters)
+        Option<CliMode.CliVector> mode,
+        Op key) =>
+        FabricationCanon.Keyed(EgressKind.Cli, policy.Budget.VoxelSizeMm, writer => writer
+            .Double(policy.LayerHeight.Millimeters)
             .Maybe(mode, static (row, value) => row
                 .Discriminant(value.Format)
                 .Double(value.UnitsInMillimeters)
                 .Bool(value.AbsoluteOrigin))
-            .Rows(fields, static (row, key) => key.CanonicalBytes(row))
-            .Rows(toSeq(Enumerable.Range(0, slices.nCount())), (row, layer) => Layer(row, slices.oSliceAt(layer)));
-        return writer.ToBytes().ToArray();
-    }
+            .Rows(fields, static (row, field) => field.CanonicalBytes(row))
+            .Rows(toSeq(Enumerable.Range(0, slices.nCount())), (row, layer) => Layer(row, slices.oSliceAt(layer))),
+            key);
 
-    public static byte[] Image(
+    public static Fin<ContentKey> Image(
         int layer,
         Length elevation,
         ImageGrayScale image,
         RasterFrame frame,
         ContentKey field,
-        ImplicitPolicy policy) {
-        CanonicalWriter writer = new(policy.Budget.VoxelSizeMm);
-        writer.Ordinal(layer).Double(elevation.Millimeters)
-            .Double(frame.VoxelSizeMm).Coords(frame.Origin)
-            .Ordinal(frame.Columns).Ordinal(frame.Rows).Ordinal(frame.Layers)
-            .Ordinal(image.nWidth).Ordinal(image.nHeight);
-        field.CanonicalBytes(writer)
-            .Rows(toSeq(image.m_afValues), static (row, value) => row.Double(value));
-        return writer.ToBytes().ToArray();
-    }
+        ImplicitPolicy policy,
+        Op key) =>
+        FabricationCanon.Keyed(EgressKind.Cli, policy.Budget.VoxelSizeMm, writer => field
+            .CanonicalBytes(writer
+                .Ordinal(layer).Double(elevation.Millimeters)
+                .Double(frame.VoxelSizeMm).Coords(frame.Origin)
+                .Ordinal(frame.Columns).Ordinal(frame.Rows).Ordinal(frame.Layers)
+                .Ordinal(image.nWidth).Ordinal(image.nHeight))
+            .Rows(toSeq(image.m_afValues), static (row, value) => row.Double(value)),
+            key);
 
-    public static byte[] MaskIndex(
+    public static Fin<ContentKey> MaskIndex(
         Seq<ContentKey> masks,
         ContentKey field,
         ImplicitPolicy policy,
-        CliMode.Grayscale mode) {
-        CanonicalWriter writer = new(policy.Budget.VoxelSizeMm);
-        writer.Double(policy.LayerHeight.Millimeters)
-            .Discriminant(mode.Render)
-            .Discriminant(mode.Axis)
-            .Discriminant(mode.Sampling);
-        field.CanonicalBytes(writer).Rows(masks, static (row, key) => key.CanonicalBytes(row));
-        return writer.ToBytes().ToArray();
-    }
+        CliMode.Grayscale mode,
+        Op key) =>
+        FabricationCanon.Keyed(EgressKind.Cli, policy.Budget.VoxelSizeMm, writer => field
+            .CanonicalBytes(writer
+                .Double(policy.LayerHeight.Millimeters)
+                .Discriminant(mode.Render)
+                .Discriminant(mode.Axis)
+                .Discriminant(mode.Sampling))
+            .Rows(masks, static (row, mask) => mask.CanonicalBytes(row)),
+            key);
 
     private static CanonicalWriter Layer(CanonicalWriter writer, PolySlice slice) =>
         writer.Double(slice.fZPos())

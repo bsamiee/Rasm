@@ -1,222 +1,390 @@
 # [APPUI_REVIEW_TOUR]
 
-The presentation rail is the client-facing design-review deliverable, and it is a PROJECTION: `ReviewTour` is an ordered `TourStop` sequence each binding one saved `Render/pipeline#VIEWPOINT_CODEC` `Viewpoint`, a per-stop dwell `Duration` and a per-transition `Theme/motion#MOTION_AXIS` token; `TourProjection` lowers the tour onto ONE `Render/animation.md` camera `Track` timeline so playback, scrubbing, pose interpolation, and offline rendering all ride the animation engine — the former tour-local `Bracket`/`Walk` sampler and `WalkthroughTour.Render` clones are DELETED; `NarrationTrack` shapes a stop's caption through the `Theme/typography#ROLE_AXIS` role vocabulary; `TourSource` is the one closed family discriminating a `SavedSequence` of viewpoint keys from a `TopicTour` that folds a `Collab/issues.md`-consumed `Rasm.Bim` BCF topic set into stops at the package edge. Presenter-follow is a COMPLETE two-sided arm on `Collab/sync.md`'s `Presence` viewport channel: the presenter's playhead publishes onto its own peer-keyed slot as a structured TTL-expiring ephemeral value once the `Collab/session.md` register grants it `SessionCapability.Present`, and a follower applies the remote bytes, resolves the admitted presenter through the same register, decodes the playhead, samples the SAME projected timeline, and drives its viewport through the viewpoint-apply boundary — a publisher-only follow surface and an ungated shared playhead slot are the two deleted forms. `PresenterStrip` and `AudienceChrome` are the two faces of that arm — a bounded step transport whose elapsed indicator is the step's own offset into the tour, and an audience readout naming the presenter off the SAME register-backed resolution the follow arm obeys — while `StepAnnotations` binds each step to the settled redline tool surface. A tour mints no second camera-snapshot shape, no tour-local stopwatch, no sampler, no renderer, no raster path, no follow channel beside the presence owner, no second markup model, and no second BCF schema — every concern is a projection over a settled owner.
+The presentation rail is the client-facing design-review deliverable, and it is a PROJECTION: `ReviewTour` is a non-empty ordered `TourStop` sequence each binding one saved `Render/viewpoint#VIEWPOINT_CODEC` `Viewpoint`, a per-stop dwell `Duration` and a per-transition `Theme/motion#MOTION_AXIS` token; `TourProjection` lowers the tour onto ONE `Render/animation.md` camera `Track` timeline so playback, scrubbing, pose interpolation, and offline rendering all ride the animation engine — the former tour-local `Bracket`/`Walk` sampler and `WalkthroughTour.Render` clones are DELETED; `NarrationTrack` shapes a stop's caption through the `Theme/typography#ROLE_AXIS` role vocabulary and `CaptionSurface` draws it through the one shaping rail; `TourSource` is the one closed family discriminating a `SavedSequence` of viewpoint keys from a `TopicTour` that folds a `Collab/issues.md`-consumed `Rasm.Bim` BCF topic set into stops at the package edge. Presenter-follow is a COMPLETE two-sided arm on `Collab/presence#PRESENCE`'s viewport channel: the presenter's playhead publishes onto its own peer-keyed slot as a structured TTL-expiring ephemeral value once the `Collab/session#MEMBERSHIP` register grants it `SessionCapability.Present`, its cadence a `Schedule` rather than a caller's tick loop, and a follower drains the landed ephemeral lane, applies each remote frame, resolves the admitted presenter through the same register, decodes the playhead, samples the SAME projected timeline, and drives its viewport through the viewpoint-apply boundary — a publisher-only follow surface, an ungated shared playhead slot, and a second follow channel beside the presence owner are the three deleted forms. `PresenterStrip` and `AudienceChrome` are the two faces of that arm and seat as ONE `Shell/screens#SCREEN_CATALOG` `ScreenProgram`, while `StepAnnotations` binds each step to the settled redline tool surface. A tour mints no second camera-snapshot shape, no tour-local stopwatch, no sampler, no renderer, no raster path, no transport channel, no second markup model, and no second BCF schema — every concern is a projection over a settled owner.
 
 ## [01]-[INDEX]
 
-- [02]-[TOUR_MODEL]: `ReviewTour` ordered stop sequence; `TourStop` viewpoint + dwell + transition.
-- [03]-[TOUR_PROJECTION]: The tour-to-timeline lowering; narration index; the two-sided presenter-follow arm.
-- [04]-[NARRATION]: Per-stop caption projected onto the typography role vocabulary; shaped runs.
+- [02]-[TOUR_MODEL]: `ReviewTour` non-empty seat table; `TourStop` viewpoint + dwell + transition; the one index admission.
+- [03]-[TOUR_PROJECTION]: The tour-to-timeline lowering; the seat lookup at a playhead; the two-sided presenter-follow arm with its schedule-paced publish and bounded-lane drain.
+- [04]-[NARRATION]: Per-stop caption projected onto the typography role vocabulary; the shaping capsule; the walkthrough caption overlay.
 - [05]-[TOUR_SOURCE]: `TourSource` closed family; saved-sequence and BCF-topic-set projections.
-- [06]-[PRESENTER_CHROME]: The bounded presenter transport with its step peek and derived elapsed; the audience follow chrome; per-step annotation binding.
+- [06]-[PRESENTER_CHROME]: The bounded presenter transport and its seated screen; the audience follow chrome over the sync-posture family; per-step annotation binding.
 
 ## [02]-[TOUR_MODEL]
 
-- Owner: `TourStop` `[ComplexValueObject]` the structural-identity stop binding a saved `Viewpoint` with its dwell `Duration`, transition `MotionToken`, and narration; `ReviewTour` the ordered non-empty `Seq<TourStop>` record keyed by `TourKey` `[ValueObject<string>]`; `TourFault` the construction fault rail on the `AppUiFaultBand.Tour` registry row (6520).
+- Owner: `TourFault` the direct generated `[Union]` with one `[FaultCase]` leaf per tour failure; `TourOps` the operation keys the admissions demand under; `TourStop` `[ComplexValueObject]` the structural-identity stop binding a saved `Viewpoint` with its dwell `Duration`, transition `MotionToken`, and narration; `TourKey` `[ValueObject<string>]` the admitted tour identity; `StopSeat` the ordinal-and-offset row every reader of the stop sequence takes; `ReviewTour` the non-empty ordered tour and its ONE index admission.
 - Cases: a stop binds exactly one `Viewpoint` receipt, one dwell duration, one transition token, and one `Option<NarrationTrack>` (None IS the silent stop) — there is no stop-kind axis because every stop is the same shape; the tour-source variation lives on `TOUR_SOURCE`, never on the stop.
-- Entry: `public static Fin<ReviewTour> Of(string Key, Seq<TourStop> Stops)` — rejects an empty tour at construction so every constructed `ReviewTour` carries at least one stop and the timeline projection is total without an empty-tour guard; the stops keep caller order because tour order is presentation order, never re-sorted.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
-- Growth: a new stop concern is one `TourStop` member; a new transition is one `Theme/motion#MOTION_AXIS` token consumed here; a new fault is one `detail` ordinal on the 6520 row; zero new surface.
-- Boundary: `TourStop` is structural-identity so two stops with the same viewpoint, dwell, transition, and narration are equal — the identity rides the bound owners, never a stop-local guid; the dwell and transition trace to the motion vocabulary so a tour never carries a raw duration or easing-curve literal, exactly as the animation keyframe traces its easing to a `MotionToken` row; the bound `Viewpoint` is the one portable view-state the viewport mints so a tour stop holds no second camera shape and applying a stop drives the viewport camera and section through the viewpoint codec; `ReviewTour.Of` rejects an empty tour into `Fin` so the non-empty invariant holds at construction; the total tour duration is the dwell-plus-transition fold over the stops so a tour duration is derived, never a stored field that can drift from the stops.
+- Entry: `public static Fin<ReviewTour> Of(string key, Seq<TourStop> stops)` — the accumulating admission, a blank key and an empty stop set naming themselves in ONE refusal; `public Fin<StopSeat> Seat(int index)` — the one index admission both the direct jump and the offset read cross; `public int Bounded(int candidate)` — the transport's own hold-at-the-ends projection; `public StopSeat SeatAt(Duration t)` — the seat a playhead position sits in.
+- Packages: Rasm (project — `FaultBand`, `[FaultCase]`, `Fault`, `Op`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
+- Growth: a new stop concern is one `TourStop` member; a new transition is one `Theme/motion#MOTION_AXIS` token consumed here; a new fault is one `[FaultCase]` ordinal plus its `TourFault` case; zero new surface.
+- Boundary:
+  - `TourStop` is structural-identity, so two stops with the same viewpoint, dwell, transition, and narration are equal and the identity rides the bound owners rather than a stop-local guid. Dwell and transition trace to the motion vocabulary, so a tour never carries a raw duration or easing-curve literal — exactly as an animation keyframe traces its easing to a `MotionToken` row.
+  - The bound `Viewpoint` is the one portable view-state the viewport mints, so a tour stop holds no second camera shape and applying a stop drives the viewport camera and section through the viewpoint codec.
+  - Non-emptiness is the SHAPE: `ReviewTour` carries a LEAD stop beside its rest, exactly as `Render/animation#TRACK_MODEL` `Keyframes<T>` does, so the timeline seed reads a total head, `SeatAt` is total, and the empty-tour guard the projection used to re-take at the edge has no spelling left. The `Of` rail's own admission mints that shape and refuses the empty seq by name.
+  - ONE index space, TWO named disciplines: `Seat(index)` is the `Fin` rail because an ABSOLUTE index arrives from a step list, a deep link, or a restored checkpoint and can name a stop the tour no longer carries, while `Bounded(candidate)` answers an `int` because a RELATIVE step's bound is the transport's own hold-at-the-ends law. The clamp is a projection rather than a rail, so no caller reaches a refusal a clamped input can never produce.
+  - The seat table is minted ONCE at construction, so the total duration, the step list, the elapsed indicator, and the narration index are four reads of one fold rather than four prefix re-folds.
 
 ```csharp signature
+
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+public static class TourOps {
+    public static readonly Op Key = Op.Of(name: "appui.tour.key");
+    public static readonly Op Stop = Op.Of(name: "appui.tour.stop");
+    public static readonly Op Frame = Op.Of(name: "appui.tour.frame");
+}
+
 // --- [ERRORS] --------------------------------------------------------------------------
-[Union]
-public abstract partial record TourFault : Expected, IValidationError<TourFault> {
-    private TourFault(string detail, int code) : base(detail, code, None) { }
+// Each payload-shaped case renders its own detail, so an out-of-range refusal carries the tour, index, and bound.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record TourFault : Fault {
+    private static readonly FaultBand FamilyBand = FaultBand.Tour;
+    private TourFault(string detail) { Detail = detail; }
 
-    public static TourFault Create(string message) => new Text(message);
+    public string Detail { get; }
 
-    public sealed record Text : TourFault { public Text(string detail) : base(detail, AppUiFaultBand.Tour.Code(0)) { } }
-    public sealed record Empty : TourFault { public Empty(string detail) : base(detail, AppUiFaultBand.Tour.Code(1)) { } }
-    public sealed record StopOutOfRange : TourFault { public StopOutOfRange(string detail) : base(detail, AppUiFaultBand.Tour.Code(2)) { } }
+    public override string Message => Detail;
+
+    [FaultCase(0)]
+    public sealed partial record Empty(string Key) : TourFault($"presentation/empty-tour: {Key}");
+    [FaultCase(1)]
+    public sealed partial record StopOutOfRange(string Key, int Index, int Count) : TourFault($"presentation/stop-out-of-range: {Key}[{Index}/{Count}]");
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<TourFault>]
+[ValidationError]
 public sealed partial class TourStop {
+    public const string UntitledKey = "tour.step.untitled";
+
     public Viewpoint View { get; }
     public Duration Dwell { get; }
     public MotionToken Transition { get; }
     public Option<NarrationTrack> Narration { get; } // None IS the silent stop — the only silence encoding
 
-    static partial void ValidateFactoryArguments(ref TourFault? validationError, ref Viewpoint view, ref Duration dwell, ref MotionToken transition, ref Option<NarrationTrack> narration) =>
-        validationError = dwell < Duration.Zero
-            ? new TourFault.Text($"presentation/negative-dwell:{dwell}")
-            : dwell + transition.Duration <= Duration.Zero
-                ? new TourFault.Text("presentation/zero-span-stop")
-                : validationError;
-
-    // The rail bridge over the generated factory: saved-sequence rows are caller data, so a bad dwell
-    // folds typed instead of throwing through the generated Create inside a traversal.
-    public static Fin<TourStop> Admit(Viewpoint view, Duration dwell, MotionToken transition, Option<NarrationTrack> narration) =>
-        Validate(view, dwell, transition, narration, out TourStop? stop) is { } fault
-            ? Fin.Fail<TourStop>(fault)
-            : Fin.Succ(stop!);
-
     public Duration Span => Transition.Duration + Dwell;
+
+    // The step list's caption is the narration's OWN title, so a tour's spoken captions and its step list are
+    // one text; a separate step-name column would let the list and the slide disagree about what a step is
+    // called, and an untitled stop falls back to its own locale key rather than to a blank row.
+    public string TitleKey => Narration.Map(static track => track.Title).IfNone(UntitledKey);
+
+    // Two INDEPENDENT column defects, so both report: a negative dwell and a zero-span stop are different
+    // authoring mistakes and a first-defect ladder costs the author one round trip apiece. `Validation<Error,
+    // Unit>` is the accumulating carrier because `Error` is the monoid the tuple `Apply` folds through; the combined message renders every failed requirement.
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError, ref Viewpoint view, ref Duration dwell, ref MotionToken transition,
+        ref Option<NarrationTrack> narration) =>
+        validationError =
+            (Col(dwell >= Duration.Zero, $"a non-negative dwell (read {dwell})"),
+             Col(dwell + transition.Duration > Duration.Zero, "a stop spanning more than zero"))
+            .Apply(static (_, _) => unit)
+            .Match(
+                Succ: static _ => null,
+                Fail: static defects => new ValidationError(defects.Message));
+
+    private static Validation<Error, Unit> Col(bool holds, string requirement) =>
+        holds
+            ? Validation<Error, Unit>.Success(unit)
+            : Validation<Error, Unit>.Fail(new KernelFault.InvalidValue("tour stop", requirement, Some(TourOps.Stop)));
+
+    // The kernel type-erased lifter over the generated multi-arity `Validate` — `Rasm/Domain/validation.md`
+    // names this exact `[ComplexValueObject]` case as the row's reason for existing, so the hand
+    // fault-probe-then-`Succ` bridge and the null-forgiving `!` it needed both delete.
+    public static Fin<TourStop> Admit(
+        Viewpoint view, Duration dwell, MotionToken transition, Option<NarrationTrack> narration) =>
+        TourOps.Stop.AcceptValidated<TourStop>(
+            Validate(view, dwell, transition, narration, obj: out TourStop? stop), stop);
 }
 
+// The key's own requirement lives ON the key, so `ReviewTour.Of` grades a value object rather than
+// blank-checking a raw string beside a construction that would have accepted it.
 [ValueObject<string>]
-public readonly partial struct TourKey;
+[ValidationError]
+public readonly partial struct TourKey {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+        value = value.Trim();
+        if (value.Length == 0) { validationError = new ValidationError(string.Join(" | ", new object?[] { "presentation/blank-key" })); }
+    }
+}
+
+// The seat: a stop, its ordinal, and where it starts. Every reader of the stop sequence takes this row, so the
+// offset is a fold's own answer rather than a prefix each caller re-folds.
+public readonly record struct StopSeat(int Index, TourStop Stop, Duration Offset) {
+    public Duration End => Offset + Stop.Span;
+}
 
 public sealed record ReviewTour {
-    private ReviewTour(TourKey key, Seq<TourStop> stops) { Key = key; Stops = stops; }
+    private ReviewTour(TourKey key, TourStop lead, Seq<TourStop> rest) {
+        (Key, Lead, Rest) = (key, lead, rest);
+        (Seats, Opening, Trailing) = Seated(lead, rest);
+        Total = Trailing.End;
+    }
 
     public TourKey Key { get; }
-    public Seq<TourStop> Stops { get; }
 
-    public static Fin<ReviewTour> Of(string Key, Seq<TourStop> Stops) =>
-        string.IsNullOrWhiteSpace(Key)
-            ? Fin.Fail<ReviewTour>(new TourFault.Text("presentation/blank-key"))
-            : Stops.IsEmpty
-                ? Fin.Fail<ReviewTour>(new TourFault.Empty($"presentation/empty-tour:{Key}"))
-                : Fin.Succ(new ReviewTour(TourKey.Create(Key), Stops));
+    // The total head. Non-emptiness holds by SHAPE, so the timeline seed, the seat table, and `SeatAt`'s
+    // terminal answer all read a stop that exists rather than an indexed probe over a guarded seq.
+    public TourStop Lead { get; }
 
-    public Duration Total => Stops.Fold(Duration.Zero, static (sum, stop) => sum + stop.Span);
+    public Seq<TourStop> Rest { get; }
 
-    public Fin<TourStop> StopAt(int index) =>
-        index >= 0 && index < Stops.Count
-            ? Fin.Succ(Stops[index])
-            : Fin.Fail<TourStop>(new TourFault.StopOutOfRange($"presentation/stop-out-of-range:{Key.Value}[{index}/{Stops.Count}]"));
+    public Seq<StopSeat> Seats { get; }
 
-    public Duration OffsetOf(int index) =>
-        Stops.Take(Math.Clamp(index, 0, Stops.Count)).Fold(Duration.Zero, static (sum, stop) => sum + stop.Span);
+    // The two terminal seats ride as COLUMNS, so the transport's opening cursor and the narration's
+    // past-the-end answer are values the shape already proved rather than indexed probes at their call sites.
+    public StopSeat Opening { get; }
+
+    public StopSeat Trailing { get; }
+
+    public Duration Total { get; }
+
+    // Two INDEPENDENT admissions on one accumulating rail: a blank key and an empty stop set are different
+    // authoring defects, so both name themselves in one refusal. The stops keep caller order because tour order IS presentation order.
+    public static Fin<ReviewTour> Of(string key, Seq<TourStop> stops) =>
+        (TourOps.Key.AcceptValidated<TourKey>(candidate: key).ToValidation(),
+         stops.Head.ToValidation<Error, TourStop>(new TourFault.Empty(key)))
+        .Apply(static (admitted, lead) => (Key: admitted, Lead: lead))
+        .ToFin()
+        .Map(seed => new ReviewTour(seed.Key, seed.Lead, stops.Tail));
+
+    // The ABSOLUTE index discipline: a step list, a deep link, or a restored checkpoint can each name a stop
+    // the tour no longer carries, and clamping those would seat a presenter on a stop nobody chose.
+    public Fin<StopSeat> Seat(int index) =>
+        index >= 0 && index < Seats.Count
+            ? Fin.Succ(Seats[index])
+            : Fin.Fail<StopSeat>(new TourFault.StopOutOfRange(Key.Value, index, Seats.Count));
+
+    // The RELATIVE step's bound, and it answers an `int` rather than a rail: a presentation has a first and a
+    // last stop, so stepping past either end HOLDS, and a `Fin` here would advertise a refusal a bounded input can never produce.
+    public int Bounded(int candidate) => Math.Clamp(candidate, 0, Seats.Count - 1);
+
+    // The narration index is a LOOKUP over the seat table, never a fold with a halt: the running cursor a
+    // `Prelude.foldUntil` would accumulate is already a seat column, so the search is one `Find` and the
+    // `Found: -1` sentinel that threaded three equality tests has no spelling left. A playhead past the end
+    // reads the trailing seat, which the carrier's shape makes total.
+    public StopSeat SeatAt(Duration t) => Seats.Find(seat => t <= seat.End).IfNone(Trailing);
+
+    // ONE pass accrues every offset and carries the final seat out. The prior per-ordinal offset fold re-walked
+    // the prefix, so rendering a step list was quadratic in stop count for a table the tour already knows.
+    static (Seq<StopSeat> Seats, StopSeat Opening, StopSeat Trailing) Seated(TourStop lead, Seq<TourStop> rest) =>
+        new StopSeat(0, lead, Duration.Zero) switch {
+            var head => rest.Fold(
+                (Seats: Seq(head), Opening: head, Trailing: head),
+                static (state, stop) =>
+                    new StopSeat(state.Trailing.Index + 1, stop, state.Trailing.End) switch {
+                        var seat => (state.Seats.Add(seat), state.Opening, seat),
+                    }),
+        };
 }
 ```
 
 ## [03]-[TOUR_PROJECTION]
 
-- Owner: `TourProjection` — the ONE lowering from a `ReviewTour` onto a `Render/animation.md` `Timeline`; `TourFollow` — the two-sided presenter-follow arm over the projected timeline.
-- Entry: `public static Fin<Timeline> ToTimeline(ReviewTour tour, double fps, PlaybackMode mode)` — projects the stops onto one camera `Track`: each stop contributes a transition-end keyframe (its camera, eased by its transition token) and a dwell-end keyframe (the same camera, hold), so the animation `Timeline.SampleAt` reproduces dwell-hold plus eased fly-through through the ONE bracketing sampler and `TrackInterp.Pose` — a tour-local `Bracket`/`Walk` sampler, a `lerpCam` delegate, or a second pose-interpolation site is the DELETED form; the `PlaybackMode` is playhead policy, so a presentation runs `Once` while a kiosk loop runs `Loop` with zero tour-local replay logic; `public static Fin<TourFollow> Of(SessionPresence session, ReviewTour tour, double fps, PlaybackMode mode)` — binds the follow arm to the SAME projected timeline both presenter and follower sample, taking the `Collab/session#SESSION_PRESENCE` owner because the publish gate and the presenter resolution both read the durable register through it.
-- Auto: scrub, kinematic playback, and reduced-motion selection all ride the animation owners (`TransportState`, `Scrub.To`, `Scrub.Kinematic`, `ReducedMotion.Select` applied at projection so a reduced-motion tour snaps stops without the spring) — the paced playback driver takes a LIVE `Func<TransportState>` read of the ONE transport the composing surface holds and copies none of it, so a presenter's play, pause, speed change, or playhead drag reaches the very next tick and a tour holds no transport lineage of its own; the narration at a playhead position reads `StopIndexAt` — a pure offset-table index fold, index math, never interpolation; the offline tour render IS `animation.Walkthrough.Render` over the projected timeline with the moved `Document/export.md` `VisualDestination` and the per-frame narration drawn by the frame delegate through the `NARRATION` shaped rail — the former `WalkthroughTour.Render` clone is deleted, and a flythrough clip rides the walkthrough's capture `ClipEncoder` composition; the presenter's `Publish` proves `SessionCapability.Present` against the `Collab/session#MEMBERSHIP` register and writes the playhead as one STRUCTURED column-keyed value — `LoroVal.Of((CollabColumn.Tour, …), (CollabColumn.Frame, …))` — on its OWN peer-keyed slot of the dedicated presence viewport channel — TTL-expiring, broadcast by the presence owner's local-update sink — and a follower's `Follow` applies the remote bytes through `Presence.ApplyRemote`, resolves the admitted presenter through `SessionPresence.Seats`'s granted column, decodes that peer's playhead, gates on its own tour key so a foreign tour's playhead never drives this viewport, samples the projected timeline at the presenter's frame through the track-owned policy rows, and applies the sampled camera through the caller-bound viewpoint-apply boundary.
-- Receipt: the offline render seals through the animation walkthrough receipt; tour navigation and follower camera application seal the viewpoint-apply receipt the viewport already mints.
-- Packages: LoroCs (via `Collab/sync.md` owners), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
-- Growth: a new playback concern is an animation-owner row, never a tour-local engine; a new follow field is one key inside the structured playhead value; zero new surface.
-- Boundary: the tour is structurally ONE camera `Track` played through the animation engine — that identity is literal in the fence; presenter-follow rides `Collab/sync#PRESENCE`'s viewport channel — a follow channel beside the presence owner is the rejected form, and BOTH halves live here: publisher state and follower interpretation, so the advertised capability has an owned receive path and an opaque formatted playhead string is the deleted form (the value is a structured column-keyed map a follower reads back through the same `LoroVal.Field` owner that wrote it); the viewport channel carries its own gate AT THIS PRODUCER — `Collab/session#SESSION_PRESENCE` gates the awareness claim and governs no write here, so `Publish` reads the durable register for `SessionCapability.Present` and a peer without the grant occupies no slot, while presence stays display-only and never authorizes; the follower's camera lands through the viewpoint-apply boundary the viewport owns, never a tour-local camera write; the reduced-motion law applies once at projection (`ReducedMotion.Select` on each transition token), never a tour-local accessibility conditional.
+- Owner: `TourProjection` — the ONE lowering from a `ReviewTour` onto a `Render/animation.md` `Timeline`; `FrameIndex` `[ValueObject<long>]` — the playhead ordinal admitted once; `PresenterSeat` — the presenter and their published frame as one answer; `SyncTolerance` and `SyncPosture` — the caught-up window and the signed verdict it elects; `TourFollow` — the two-sided presenter-follow arm over the projected timeline.
+- Entry: `public static Fin<Timeline> ToTimeline(ReviewTour tour, double fps, PlaybackMode mode)` — projects the stops onto one camera `Track`; `public static Fin<TourFollow> Of(SessionPresence session, ReviewTour tour, double fps, PlaybackMode mode, SyncTolerance tolerance, HostSink sink)` — binds the follow arm to the SAME projected timeline both presenter and follower sample; `public Fin<Unit> Publish(FrameIndex frame)` — the gated single publish; `public IO<TransportState> Drive(Schedule cadence, Func<TransportState> transport)` — the schedule-paced publish loop over a LIVE transport read; `public IAsyncEnumerable<Fin<Unit>> Drain(CollabTransport transport, Func<ViewCamera, IO<Unit>> applyCamera, CancellationToken stopping)` — the follower's whole receive path; `public Fin<Option<PresenterSeat>> Presenter()` — the register-backed presenter election.
+- Auto: each stop contributes a transition-end keyframe (its camera, eased by its transition token) and a dwell-end keyframe (the same camera, hold), so `Timeline.SampleAt` reproduces dwell-hold plus eased fly-through through the ONE bracketing sampler and `TrackInterp.Pose` — a tour-local `Bracket`/`Walk` sampler, a `lerpCam` delegate, or an interpolation-policy PARAMETER is the DELETED form, because a track case names its own blend; the `PlaybackMode` is playhead policy, so a presentation runs `Once` while a kiosk loop runs `Loop` with zero tour-local replay logic; scrub, kinematic playback, and reduced-motion selection all ride the animation owners (`TransportState`, `Scrub.To`, `Scrub.Kinematic`, `ReducedMotion.Select` applied ONCE per stop at projection so a reduced-motion tour snaps stops without the spring); the offline tour render IS `animation.Walkthrough.Render` over the projected timeline with the moved `Document/export.md` `VisualDestination` and the per-frame caption drawn by `NARRATION`'s overlay — the former `WalkthroughTour.Render` clone is deleted, and a flythrough clip rides the walkthrough's own `ClipEncoder.Mux` streamed-frame composition.
+- Receipt: the offline render seals through the animation walkthrough receipt; tour navigation and follower camera application seal the viewpoint-apply receipt the viewport already mints; this page declares no instrument of its own, because every measurable fact it produces is already on a settled owner's receipt.
+- Packages: LoroCs (via `Collab/presence.md` owners), Rasm (project — `Op`, `FaultCell`, `HostSink`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox (`System.Threading.Channels` via `CollabTransport`)
+- Growth: a new playback concern is an animation-owner row, never a tour-local engine; a new follow field is one `CollabColumn` row inside the structured playhead value; a new sync verdict is one `SyncPosture` case; zero new surface.
+- Boundary:
+  - The tour is structurally ONE camera `Track` played through the animation engine, and that identity is literal in the fence. The playhead is MEMOIZED on the arm because it is a pure function of the timeline — rebuilding it per follow tick paid a construction for a value that cannot have changed.
+  - Presenter-follow rides `Collab/presence#PRESENCE`'s viewport channel and BOTH halves live here: publisher state and follower interpretation, so the advertised capability has an owned receive path. The value is a structured column-keyed map a follower reads back through the same `LoroVal.Field` owner that wrote it; an opaque formatted playhead string is the deleted form.
+  - The slot is PEER-QUALIFIED under its own key prefix, exactly as `Collab/presence#PRESENCE_CHROME`'s overlay slot is — the prefix, not the vocabulary, separates two writers on one channel, and one shared key made the channel last-write-wins across peers.
+  - The viewport channel carries its own gate AT THIS PRODUCER: `Collab/session#SESSION_PRESENCE` gates the awareness claim and governs no write here, so `Publish` reads the durable register for `SessionCapability.Present` and a peer without the grant occupies no slot. Presence stays display-only and never authorizes.
+  - The publish CADENCE is a `Schedule`, not a caller's tick loop. The capability read is per-frame by law — an evicted or demoted presenter stops driving followers at the next frame rather than at the next bind — so the driver repeats one publish on the declared curve over a LIVE read of the ONE transport the composing surface holds, and a refusal PARKS on the composition-minted fault cell rather than tearing the loop down, so a re-granted role resumes without a re-bind.
+  - The follower's arrival transport is the LANDED ephemeral lane, never a second channel: `Collab/presence#LIVE_WIRE` already binds `Channel.CreateBounded` under `TransportLane.Ephemeral`, whose `DropOldest` IS the shed law a stale playhead wants — a camera position the next frame supersedes is precisely the element that should be discarded under pressure. A drain that halted on one malformed peer update would freeze a viewer's viewport mid-review, so every frame's verdict leaves and the next frame still drives.
+  - An absent, expired, or foreign-tour playhead drives nothing and is not a fault; the follower's camera lands through the viewpoint-apply boundary the viewport owns, never a tour-local camera write.
+  - The presenter a follower obeys is a REGISTER answer, never a channel one, and the ELECTION is bounded top-one by peer through the kernel `Ranked` owner — so two admitted presenters resolve identically at every follower instead of racing on write order. NAMED LOSS: the prior full sort's lazy short-circuit after the first decode is gone; the candidate set is now the granted-and-publishing seats alone, which the roster's own present grants bound.
+  - The viewport sweep runs FIRST and on its own account: the seat join sweeps the AWARENESS channel, a different channel, so a presenter who closed their laptop keeps a playhead slot standing until the viewport store evicts it.
+  - The reduced-motion law applies once at projection, never a tour-local accessibility conditional; three reads of a process-wide switch inside one fold arm could observe a mid-projection flip and emit a keyframe whose eased duration and eased token disagree.
 
 ```csharp signature
-public static class TourProjection {
-    // The seed camera reads the indexed head, which `ReviewTour.Of`'s non-empty admission guarantees —
-    // `Seq.Head` answers `Option`. The degrade selects ONCE per stop: three reads of a process-wide switch
-    // inside one fold arm could observe a mid-projection flip and emit a keyframe whose eased duration and
-    // eased token disagree.
-    public static Fin<Timeline> ToTimeline(ReviewTour tour, double fps, PlaybackMode mode) =>
-        tour.Stops
-            .Fold((Cursor: Duration.Zero, Frames: Seq(new Keyframe<ViewCamera>(Duration.Zero, tour.Stops[0].View.Camera, MotionToken.Instant))), (state, stop) =>
-                ReducedMotion.Select(stop.Transition) switch {
-                    var eased => (
-                        Cursor: state.Cursor + stop.Span,
-                        Frames: (eased.Duration > Duration.Zero
-                                ? state.Frames.Add(new Keyframe<ViewCamera>(state.Cursor + eased.Duration, stop.View.Camera, eased))
-                                : state.Frames)
-                            .Add(new Keyframe<ViewCamera>(state.Cursor + stop.Span, stop.View.Camera, MotionToken.Instant))),
-                })
-            switch {
-                var projected => Track.OfCamera(tour.Key.Value, projected.Frames)
-                    .Bind(track => Timeline.Of(tour.Key.Value, Seq(track), fps, mode)), // the one timeline ingress owns the frame-rate admission
-            };
+// --- [TYPES] ---------------------------------------------------------------------------
+// The playhead ordinal, admitted ONCE. Publish, follow, present, and the audience readout all took a raw
+// `long` and one of them re-guarded the sign; the negative-playhead ternary deletes into this gate.
+[ValueObject<long>]
+[ValidationError]
+public readonly partial struct FrameIndex {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref long value) {
+        if (value < 0L) { validationError = new ValidationError(string.Join(" | ", new object?[] { $"presentation/negative-playhead:{value}" })); }
+    }
+}
 
-    // Pure offset-table index fold — narration lookup is index math, never interpolation.
-    public static int StopIndexAt(ReviewTour tour, Duration t) =>
-        tour.Stops.Fold((Index: 0, Cursor: Duration.Zero, Found: -1), (state, stop) =>
-            state.Found >= 0 ? state
-                : t <= state.Cursor + stop.Span
-                    ? (state.Index, state.Cursor, state.Index)
-                    : (state.Index + 1, state.Cursor + stop.Span, -1))
-        switch {
-            var walked => walked.Found >= 0 ? walked.Found : tour.Stops.Count - 1,
+// The sync verdict, carrying the SIGNED delta. `Option<bool>` let a refused probe and a never-run probe read
+// alike while admitting a fourth state nothing could mean; three cases carry the whole answer and a chrome
+// comparing magnitudes at its own site can no longer disagree with the camera the follower took.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SyncPosture {
+    private SyncPosture() { }
+
+    public sealed record CaughtUp : SyncPosture;
+    public sealed record Ahead(long Frames) : SyncPosture;
+    public sealed record Behind(long Frames) : SyncPosture;
+
+    public static SyncPosture Of(long local, long presenter, long tolerance) =>
+        (presenter - local) switch {
+            var delta when Math.Abs(delta) <= tolerance => new CaughtUp(),
+            var delta when delta > 0L => new Behind(delta),
+            var delta => new Ahead(-delta),
         };
 }
 
-// Presenter-follow, BOTH halves and the gate on the half that writes: Publish proves the actor's Present
-// capability against the DURABLE member register, then writes the structured playhead onto its own
-// peer-keyed slot of the presence viewport channel (TTL-expiring, never durable); Follow applies remote
-// presence bytes, resolves the admitted presenter through the register-backed seat join, decodes, gates on
-// the tour key, samples the SAME projected timeline, and drives the viewport-apply boundary.
-public sealed record TourFollow(SessionPresence Session, ReviewTour Tour, Timeline Line) {
-    // The slot is PEER-QUALIFIED: one shared key made the channel last-write-wins across peers, so any
-    // publisher drove every follower's camera and the presenter distinction lived nowhere in the data.
-    public static string PlayheadKey(ulong peer) => $"tour/playhead/{peer.ToString(CultureInfo.InvariantCulture)}";
+// --- [MODELS] --------------------------------------------------------------------------
+// Slack is WALL TIME and the timeline's own rate converts it, so a 24 fps review and a 60 fps kiosk carry the
+// same perceptual tolerance. A bare frame count made the looser rate more than twice as forgiving as the
+// tighter one for no stated reason, and a tighter bound would flicker "behind" on every transport hop.
+public readonly record struct SyncTolerance(Duration Slack) {
+    public static readonly SyncTolerance Default = new(Duration.FromMilliseconds(80d));
 
-    public static Fin<TourFollow> Of(SessionPresence session, ReviewTour tour, double fps, PlaybackMode mode) =>
-        TourProjection.ToTimeline(tour, fps, mode).Map(line => new TourFollow(session, tour, line));
+    public long FramesAt(Playhead head) => (long)Math.Round(head.Fps.Value * Slack.TotalSeconds);
+}
 
-    // The capability reads the register at every publish, so an evicted or demoted presenter stops driving
-    // followers at the next frame rather than at the next bind — a role captured once at Of would outlive
-    // the grant it copied. The refusal wears the SESSION band because it is an authorization refusal, while
-    // the frame guard stays a tour construction fault. The encoded ephemeral payload is the presence
-    // owner's own broadcast concern, so the publish verb states the write's outcome alone.
-    public Fin<Unit> Publish(long frame) =>
+// The presenter and the frame they published as ONE answer: the audience chrome names the presenter and the
+// follow arm obeys them, so the face a viewer reads can never name a peer whose camera their viewport did not take.
+public readonly record struct PresenterSeat(SessionSeat Seat, FrameIndex Frame);
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+public static class TourProjection {
+    public static Fin<Timeline> ToTimeline(ReviewTour tour, double fps, PlaybackMode mode) =>
+        Track.OfCamera(
+                tour.Key.Value,
+                new Keyframe<ViewCamera>(Duration.Zero, tour.Lead.View.Camera, MotionToken.Instant)
+                    .Cons(tour.Seats.Bind(Framed)))
+            .Bind(track => Timeline.Of(tour.Key.Value, Seq(track), fps, mode));
+
+    // One stop contributes one or two frames and the SEQ states which: a zero-duration transition — the
+    // reduced-motion snap — emits the hold alone, so the keyframe count is readable off the projection rather
+    // than off a conditional `Add` buried in an accumulator tuple. The degrade selects ONCE per stop.
+    static Seq<Keyframe<ViewCamera>> Framed(StopSeat seat) =>
+        ReducedMotion.Select(seat.Stop.Transition) switch {
+            var eased => (eased.Duration > Duration.Zero
+                    ? Seq(new Keyframe<ViewCamera>(seat.Offset + eased.Duration, seat.Stop.View.Camera, eased))
+                    : Seq<Keyframe<ViewCamera>>())
+                .Add(new Keyframe<ViewCamera>(seat.End, seat.Stop.View.Camera, MotionToken.Instant)),
+        };
+}
+
+// Presenter-follow, BOTH halves and the gate on the half that writes.
+public sealed record TourFollow(
+    SessionPresence Session,
+    ReviewTour Tour,
+    Timeline Line,
+    Playhead Head,
+    SyncTolerance Tolerance,
+    HostSink Sink) {
+    public const string PlayheadPrefix = "tour/playhead/";
+
+    public static string PlayheadKey(ulong peer) =>
+        $"{PlayheadPrefix}{peer.ToString(CultureInfo.InvariantCulture)}";
+
+    public static Fin<TourFollow> Of(
+        SessionPresence session, ReviewTour tour, double fps, PlaybackMode mode, SyncTolerance tolerance,
+        HostSink sink) =>
+        TourProjection.ToTimeline(tour, fps, mode)
+            .Map(line => new TourFollow(session, tour, line, line.Playhead(), tolerance, sink));
+
+    public SyncPosture Posture(FrameIndex local, FrameIndex presenter) =>
+        SyncPosture.Of(local.Value, presenter.Value, Tolerance.FramesAt(Head));
+
+    // Three refusals, three `guard` clauses, one expression. The role capture is deliberately NOT hoisted to
+    // `Of`: a role captured once would outlive the grant it copied. The refusal wears the SESSION band because
+    // it is an authorization refusal, while the frame guard is the value object's own.
+    public Fin<Unit> Publish(FrameIndex frame) =>
         from row in MemberRegister.Read(Session.Document, Session.Presence.Peer)
         from role in row.Role.ToFin(new SessionFault.Conflict(
             $"presentation/{Session.Presence.Peer}: admitted row carries no role"))
-        from _held in role.Holds(SessionCapability.Present)
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new SessionFault.Unauthorized(
+        from _held in guard(
+            role.Holds(SessionCapability.Present),
+            (Error)new SessionFault.Unauthorized(
                 $"presentation/{Session.Presence.Peer}:{role.Key} lacks {SessionCapability.Present.Key}"))
-        from _at in frame < 0
-            ? Fin.Fail<Unit>(new TourFault.StopOutOfRange($"presentation/negative-playhead:{frame}"))
-            : Fin.Succ(unit)
         from _written in Session.Presence.PublishViewport(PlayheadKey(Session.Presence.Peer), LoroVal.Of(
             (CollabColumn.Tour, LoroVal.Of(Tour.Key.Value)),
-            (CollabColumn.Frame, LoroVal.Of(frame))))
+            (CollabColumn.Frame, LoroVal.Of(frame.Value))))
         select unit;
 
+    // The paced publish. The tick READS the live transport and answers what it read, so the repeat predicate
+    // grades the state the publish actually rode — a presenter's pause reaches the very next tick and ends the driver there rather than one cadence later.
+    public IO<TransportState> Drive(Schedule cadence, Func<TransportState> transport) =>
+        IO.lift(() => Ticked(transport())).RepeatWhile(cadence, static state => state.Playing);
+
+    // A publish refusal PARKS: a demoted presenter stops driving followers, and a re-granted role resumes at
+    // the next tick without the composing surface re-binding a driver.
+    TransportState Ticked(TransportState state) {
+        ignore(TourOps.Frame.AcceptValidated<FrameIndex, long>(state.Head.Index)
+            .Bind(Publish)
+            .IfFail(error => Sink.Faults.Park(Sink.Point, error)));
+        return state;
+    }
+
+    // The follower's WHOLE receive path: one bounded ephemeral lane in, one camera apply out. Each frame's
+    // verdict leaves so a consumer can fold or park it, and a refused frame never stops the drain — a viewer
+    // whose viewport froze on one malformed peer update is the failure this shape forecloses.
+    public async IAsyncEnumerable<Fin<Unit>> Drain(
+        CollabTransport transport,
+        Func<ViewCamera, IO<Unit>> applyCamera,
+        [EnumeratorCancellation] CancellationToken stopping = default) {
+        await foreach (CollabFrame frame in transport.Drain(stopping).ConfigureAwait(false)) {
+            yield return await Follow(frame.Delta, applyCamera).RunAsync().ConfigureAwait(false);
+        }
+    }
+
     // The remote apply stays DEFERRED inside the effect and its rail is the transformer's carrier, so the
-    // decode, the sample, and the camera drive read as one query instead of a Match ladder over a nested
-    // generic. An absent, expired, or foreign-tour playhead drives nothing and is not a fault.
-    public IO<Fin<Unit>> Follow(ReadOnlyMemory<byte> update, TrackInterp interp, Func<ViewCamera, IO<Unit>> applyCamera) =>
-        (from presenter in new FinT<IO, Option<(SessionSeat Seat, long Frame)>>(
-             IO.lift<Fin<Option<(SessionSeat, long)>>>(() =>
+    // decode, the sample, and the camera drive read as one query instead of a `Match` ladder over a nested
+    // generic. The camera arrives already interpolated by the track case's own `TrackInterp.Pose` row, which
+    // is why no interpolation policy crosses this signature.
+    public IO<Fin<Unit>> Follow(ReadOnlyMemory<byte> update, Func<ViewCamera, IO<Unit>> applyCamera) =>
+        (from presenter in new FinT<IO, Option<PresenterSeat>>(
+             IO.lift<Fin<Option<PresenterSeat>>>(() =>
                  Session.Presence.ApplyRemote(PresenceKind.Viewport, update).Bind(_ => Presenter())))
          from applied in FinT.liftIO<IO, Unit>(presenter
-             .Bind(at => Line.SampleAt(Line.Playhead().TimeOf(at.Frame), interp).Camera)
+             .Bind(at => Line.SampleAt(Head.TimeOf(at.Frame.Value)).Camera)
              .Match(Some: applyCamera, None: static () => IO.pure(unit)))
          select applied).runFin.As();
 
-    // The presenter a follower obeys is a REGISTER answer, never a channel one: the seat join names the
-    // joined peers holding the Present grant, their own slots read in ascending peer order, and the first
-    // playhead naming THIS tour wins — so two admitted presenters resolve identically at every follower
-    // instead of racing on write order, and a peer with no grant occupies no slot a follower reads. The
-    // structured decode stays at the leaf through the one column-keyed owner, so the foreign-tour filter
-    // reads None rather than mis-driving the viewport.
-    //
-    // The SEAT rides out beside the frame because the audience chrome names the presenter and the follow arm
-    // obeys them: one resolution serves both, so the face a viewer reads and the camera their viewport takes
-    // can never name two different peers.
-    // The viewport sweep runs FIRST and on this read's own account: the seat join sweeps the AWARENESS
-    // channel, which is a different channel, so a presenter who closed their laptop keeps a playhead slot
-    // standing until the viewport store evicts it — and an audience readout naming that peer, or a follower
-    // still taking their last frame, is exactly the stale authority the ephemeral law forecloses.
-    public Fin<Option<(SessionSeat Seat, long Frame)>> Presenter() =>
+    // The election is BOUNDED TOP-ONE by peer over the granted seats that actually published a playhead naming
+    // this tour, so every follower resolves the same presenter without sorting a roster to take one row. The
+    // structured decode stays at the leaf through the one column-keyed owner, so a foreign tour reads None rather than mis-driving the viewport.
+    public Fin<Option<PresenterSeat>> Presenter() =>
         CollabDoc.Lift(() => { Session.Presence.Viewport.RemoveOutdated(); return unit; })
             .Bind(_ => Session.Seats())
-            .Map(seats => seats
-                .Filter(static seat => seat.Member.State == MembershipState.Joined
-                    && seat.Member.Role.Exists(static role => role.Holds(SessionCapability.Present)))
-                .OrderBy(static seat => seat.Peer)
-                .AsIterable()
-                .Choose(seat => Optional(Session.Presence.Viewport.Get(PlayheadKey(seat.Peer)))
-                    .Map(static leaf => new LoroVal(leaf))
-                    .Bind(held => held.Field(CollabColumn.Tour, static leaf => leaf.Text)
-                        .Filter(key => key == Tour.Key.Value)
-                        .Bind(_ => held.Field(CollabColumn.Frame, static leaf => leaf.Whole)))
-                    .Map(frame => (Seat: seat, Frame: frame)))
-                .ToSeq()
+            .Map(seats => Ranked.Top(
+                    seats.Filter(Presenting).AsIterable().Choose(Seated),
+                    keep: 1,
+                    static row => row.Seat.Peer,
+                    ExtremumDirection.Minimum)
                 .Head);
+
+    // The session admission predicate, spelled ONCE on this page. `Collab/session#SESSION_PRESENCE` owns the
+    // authority and a `SessionSeat.Presenting` column there retires this member outright.
+    static bool Presenting(SessionSeat seat) =>
+        seat.Member.State == MembershipState.Joined
+        && seat.Member.Role.Exists(static role => role.Holds(SessionCapability.Present));
+
+    Option<PresenterSeat> Seated(SessionSeat seat) =>
+        Optional(Session.Presence.Viewport.Get(PlayheadKey(seat.Peer)))
+            .Map(static leaf => new LoroVal(leaf))
+            .Bind(held => held.Field(CollabColumn.Tour, static leaf => leaf.Text)
+                .Filter(key => key == Tour.Key.Value)
+                .Bind(_ => held.Field(CollabColumn.Frame, static leaf => leaf.Whole)))
+            .Bind(static frame => TourOps.Frame.AcceptValidated<FrameIndex, long>(frame).ToOption())
+            .Map(frame => new PresenterSeat(seat, frame));
 }
 ```
 
 ## [04]-[NARRATION]
 
-- Owner: `NarrationTrack` the per-stop caption record carrying its title and body keyed to the typography role vocabulary; `NarrationShaper` the projection folding a track onto shaped role rows the visuals canvas draws.
-- Entry: `public Seq<NarrationRow> Resolve(FontChain chain)` — projects the track's title and body onto the resolved `TextStyleRow` for the `Title` and `Body` roles through the one `TextStyleRow.Resolve` fold, so a caption is one role-keyed row run, never a per-tour font choice.
-- Auto: a narration carries a title and an optional body, each a `TypographyRole` row reference, so the caption appearance traces to the one typographic law and a tour caption renders in the same role vocabulary the inspector and the document panel render; the shaped text rides the `Theme/typography#SHAPING_RAIL` `Fin`-railed `ShapingSurface.Shape`-then-`DrawLabel` HarfBuzz rail — the itemizer elects a covering face per segment, the role's own feature intents intersect what each face proved, the shaped text is a cache lease the caller never disposes, and a shaping or draw refusal folds its typed typography fault to the caller — so the caption glyphs shape before they raster in the offline walkthrough exactly as every Skia-rendered glyph shapes, never a tour-local glyph placement loop; the walkthrough pins `RenderPosture.Paged` so an offline frame's text metrics are device-linear rather than screen-hinted.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: a new caption channel is one `NarrationTrack` member keyed to its role; zero new surface.
-- Boundary: the narration is the typography role projection so a second text model inside `Collab/` is the deleted form — the title rides `TypographyRole.Title` and the body rides `TypographyRole.Body` so the caption resolves through `TextStyleRow.Resolve` exactly as every product text appearance does, and a hard-coded font size or weight on a tour caption is the named defect; the shaped run draws through `ShapingSurface.DrawLabel` so the offline render shapes the caption through HarfBuzz before raster and the per-stop caption survives in the walkthrough frame as shaped glyphs, never a managed per-glyph layout; silence is `Option<NarrationTrack>.None` on the stop owner — a sentinel string, an empty-title probe, or a `Silent` instance is the deleted form; the title is required by the one Fin-returning admission (`NarrationTrack.Of` rejects a blank title as a typed `TourFault`), and the body is `Option<string>` so a caption-only or full-narration stop is one shape.
+- Owner: `NarrationTrack` the per-stop caption record carrying its title and body keyed to the typography role vocabulary and its own role projection; `NarrationRow` the resolved role/style/text row; `CaptionSurface` the shaping capsule and the one draw; `TourCaptions` the walkthrough overlay arrow.
+- Entry: `public Seq<NarrationRow> Resolve(FontChain chain)` on `NarrationTrack` — projects the title and body onto the resolved `TextStyleRow` for the `Title` and `Body` roles through the one `TextStyleRow.Resolve` fold; `public Fin<Unit> Draw(NarrationTrack track, SKCanvas canvas, SKPaint paint, float x, double y)` on `CaptionSurface` — the shaped draw; `public static Func<Duration, SKCanvas, Fin<Unit>> Overlay(ReviewTour tour, CaptionSurface surface, SKPaint paint, float x, double y)` on `TourCaptions` — the per-frame caption the offline walkthrough draws.
+- Auto: a narration carries a title and an optional body, each a `TypographyRole` row reference, so a tour caption renders in the same role vocabulary the inspector and the document panel render; the shaped text rides the `Theme/typography#SHAPING_RAIL` `Fin`-railed `ShapingSurface.Shape`-then-`DrawLabel` HarfBuzz rail — the itemizer elects a covering face per segment, the role's own feature intents intersect what each face proved, the shaped text is a `BudgetedCache` lease the caller never disposes, and a shaping or draw refusal folds its typed typography fault to the caller — so the caption glyphs shape before they raster exactly as every Skia-rendered glyph shapes; the face request is the generated `TypographyMap.ToRequest` seam rather than a hand-built key, so a role's own resolved style decides the face and this page names no font capability of its own.
+- Packages: SkiaSharp, SkiaSharp.HarfBuzz, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
+- Growth: a new caption channel is one `NarrationTrack` member keyed to its role; a new surface class is one `CaptionSurface` mint naming its `RenderPosture`; zero new surface.
+- Boundary:
+  - The narration is the typography role projection, so a second text model inside `Collab/` is the deleted form — the title rides `TypographyRole.Title` and the body `TypographyRole.Body`, and a hard-coded font size or weight on a tour caption is the named defect.
+  - The whole shaping context is ONE capsule. Nine parameters threaded per call is ceremony pushed onto callers, and every one of them is a value the composing surface already holds for its own text; the capsule also PINS the posture, so the walkthrough's device-linear reading is a mint rather than an argument each caller must remember.
+  - The line cursor accumulates in the metric's OWN `double` and narrows to Skia's `float` once at the draw, so a long caption cannot accumulate the rounding a per-line narrowing introduced.
+  - Silence is `Option<NarrationTrack>.None` on the stop owner — a sentinel string, an empty-title probe, or a `Silent` instance is the deleted form; the title is required by the one `Fin`-returning admission and the body is `Option<string>` so a caption-only or full-narration stop is one shape.
+  - The offline caption is an OVERLAY on the canvas the walkthrough's frame delegate already holds, never an image this page produced: no raster path is this page's declared law, so the caption draws and the walkthrough's own encode leg owns every pixel that leaves.
 
 ```csharp signature
 // --- [MODELS] --------------------------------------------------------------------------
@@ -226,77 +394,126 @@ public sealed record NarrationTrack {
     public string Title { get; }
     public Option<string> Body { get; }
 
-    // The ONE admission: a blank title is a typed fault — silence is `Option<NarrationTrack>.None` at
-    // the stop owner, never a sentinel string or an empty-title probe.
+    // The ONE admission: a blank title is a typed fault — silence is `Option<NarrationTrack>.None` at the stop owner, never a sentinel string or an empty-title probe.
     public static Fin<NarrationTrack> Of(string title, Option<string> body) =>
-        string.IsNullOrWhiteSpace(title)
-            ? Fin.Fail<NarrationTrack>(new TourFault.Text("narration/blank-title"))
-            : Fin.Succ(new NarrationTrack(title, body));
+        TourOps.Stop.AcceptText(title).Map(admitted => new NarrationTrack(admitted, body));
+
+    public Seq<NarrationRow> Resolve(FontChain chain) =>
+        new NarrationRow(TypographyRole.Title, TextStyleRow.Resolve(TypographyRole.Title, chain), Title)
+            .Cons(Body
+                .Map(body => new NarrationRow(
+                    TypographyRole.Body, TextStyleRow.Resolve(TypographyRole.Body, chain), body))
+                .ToSeq());
 }
 
 public readonly record struct NarrationRow(TypographyRole Role, TextStyleRow Style, string Text);
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-public static class NarrationShaper {
-    extension(NarrationTrack track) {
-        public Seq<NarrationRow> Resolve(FontChain chain) =>
-            new NarrationRow(TypographyRole.Title, TextStyleRow.Resolve(TypographyRole.Title, chain), track.Title)
-                .Cons(track.Body.Map(body => new NarrationRow(TypographyRole.Body, TextStyleRow.Resolve(TypographyRole.Body, chain), body)).ToSeq());
+// --- [SERVICES] ------------------------------------------------------------------------
+// The whole shaping context as ONE value, its posture PINNED at the mint. The itemizer elects the face per
+// segment out of the cabinet, so a caption carrying a script the primary face misses shapes through the
+// covering face instead of drawing a notdef box; the shaped text is a cache LEASE the typography cache owns
+// and releases on eviction, so disposing it here is the deleted form.
+public sealed record CaptionSurface(
+    RunSpec Spec,
+    FaceCabinet Cabinet,
+    BudgetedCache<ShapeKey, ShapedText> Cache,
+    FontChain Chain,
+    PalettePosture Palette,
+    RenderPosture Posture) {
+    // The offline reading: an exported frame's text metrics are device-linear rather than screen-hinted.
+    public static CaptionSurface Paged(
+        RunSpec spec, FaceCabinet cabinet, BudgetedCache<ShapeKey, ShapedText> cache, FontChain chain,
+        PalettePosture palette) =>
+        new(spec, cabinet, cache, chain, palette, RenderPosture.Paged);
 
-        // Shape returns Fin<ShapedText> and DrawLabel Fin<Unit> on the typography rail; the itemizer elects the
-        // face per segment out of the cabinet, so a caption carrying a script the primary face misses shapes
-        // through the covering face instead of drawing a notdef box. The shaped text is a cache LEASE — the
-        // typography cache owns every blob and releases it on eviction, so disposing it here is the deleted form.
-        public Fin<Unit> Draw(
-            SKCanvas canvas, RunSpec spec, FaceCabinet cabinet, ShapedCache cache, SKPaint paint, FontChain chain,
-            PalettePosture palette, float x, float y) =>
-            track.Resolve(chain).Fold(Fin.Succ(y), (cursor, row) =>
-                cursor.Bind(at => ShapingSurface
-                    .Shape(row.Text, row.Style, spec, FaceRequest.Of(row.Style, chain, palette, Seq(spec.Language.Name)),
-                        cabinet, RenderPosture.Paged, cache)
-                    .Bind(shaped => ShapingSurface.DrawLabel(canvas, shaped, paint, x, at)
-                        .Map(_ => at + (float)row.Style.LineBox)))).Map(static _ => unit);
-    }
+    // The cursor rides the metric's own `double` and narrows ONCE at the Skia edge, so a long caption does not
+    // accumulate a per-line rounding the prior per-row cast introduced.
+    public Fin<Unit> Draw(NarrationTrack track, SKCanvas canvas, SKPaint paint, float x, double y) =>
+        track.Resolve(Chain)
+            .Fold(Fin.Succ(y), (cursor, row) => cursor.Bind(at => ShapingSurface
+                .Shape(
+                    row.Text, row.Style, Spec,
+                    TypographyMap.ToRequest(row.Style, Chain, Palette, Seq(Spec.Language.Name)),
+                    Cabinet, Posture, Cache)
+                .Bind(shaped => ShapingSurface.DrawLabel(canvas, shaped, paint, x, (float)at)
+                    .Map(_ => at + row.Style.LineBox))))
+            .Map(static _ => unit);
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+public static class TourCaptions {
+    // The per-frame caption the offline walkthrough draws: the seat at the sampled instant carries the stop,
+    // the stop carries its own silence encoding, and a silent stop draws nothing rather than a blank box. This
+    // arrow is what the tour contributes to a frame — the composing surface renders the viewport and this
+    // overlay draws onto the same canvas, so the tour owns no renderer and no raster path.
+    public static Func<Duration, SKCanvas, Fin<Unit>> Overlay(
+        ReviewTour tour, CaptionSurface surface, SKPaint paint, float x, double y) =>
+        (at, canvas) => tour.SeatAt(at).Stop.Narration.Match(
+            Some: track => surface.Draw(track, canvas, paint, x, y),
+            None: static () => Fin.Succ(unit));
 }
 ```
 
 ## [05]-[TOUR_SOURCE]
 
-- Owner: `TourSource` `[Union]` the one closed tour-origin family; `SavedSequence` the ordered saved-viewpoint-key projection; `TopicTour` the BCF-topic-set projection folding a `Rasm.Bim` topic set into stops at the package edge.
-- Cases: `TourSource` = `SavedSequence` | `TopicTour` — a saved sequence orders stored viewpoint keys with their per-stop dwell and transition, and a topic tour expands every viewpoint of every coordination topic through the viewpoint codec; one new tour origin is one `TourSource` case the generated total `Switch` breaks at every site.
-- Entry: `public Fin<ReviewTour> Build(Func<string, Fin<Viewpoint>> resolve, ClockPolicy clocks)` — the generated total switch projects each source onto the one `ReviewTour` keyed by the source's own `Key` field; the saved-sequence arm resolves each key to its stored viewpoint, the topic-tour arm folds each `BcfTopic` to a stop through `ViewpointCodec.FromBcf`, and every stop admits through the `TourStop.Admit` rail bridge so a bad saved dwell folds typed instead of throwing through the generated factory inside the traversal.
+- Owner: `TourSource` `[Union]` the one closed tour-origin family; `SequenceStop` the saved-sequence source row; `SavedSequence` the ordered saved-viewpoint-key projection; `TopicTour` the BCF-topic-set projection folding a `Rasm.Bim` topic set into stops at the package edge.
+- Cases: `TourSource` = `SavedSequence` | `TopicTour` — a saved sequence orders stored viewpoint keys with their per-stop dwell and transition, and a topic tour expands every viewpoint of every coordination topic through the viewpoint codec under its own declared dwell and transition; one new tour origin is one `TourSource` case the generated total `Switch` breaks at every site.
+- Entry: `public Fin<ReviewTour> Build(Func<string, Fin<Viewpoint>> resolve, Instant at)` — the generated total switch projects each source onto the one `ReviewTour` keyed by the source's own `Key` field; the saved-sequence arm resolves each key to its stored viewpoint, the topic-tour arm folds each `BcfTopic` viewpoint to a stop through `ViewpointCodec.FromBcf`, and every stop admits through the `TourStop.Admit` rail bridge so a bad saved dwell folds typed instead of throwing through the generated factory inside the traversal.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Bim (project)
 - Growth: a new tour origin is one `TourSource` case plus its one `Build` arm; a new BCF mapping rides the existing topic projection; zero new surface.
-- Boundary: `TourSource` is the one closed family so a parallel tour-builder per origin is the deleted form — a saved-sequence tour and a topic tour are two cases of one union with a generated total `Switch`, never two builder classes; the `TopicTour` composes the `Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfTopic`/`BcfViewpoint` contract consumed at the package edge exactly as `Collab/issues#ISSUE_MODEL` does — AppUi owns the `ReviewTour` projection while `Rasm.Bim` owns the openBIM topic exchange, the two meeting only at the topic contract, so a second BCF model or a direct `.bcfzip` reader here is the rejected form; each BCF viewpoint binds onto the AppUi `Viewpoint` through `ViewpointCodec.FromBcf` so a topic tour's saved view rides the one portable view-state receipt and a tour-local camera shape is the deleted form; a stop REQUIRES a viewpoint by construction, so a viewpoint-less topic contributes no stop — the filter is that stated law, and an all-viewpoint-less topic set fails `ReviewTour.Of` as the empty tour, never a silent success; the per-stop dwell and transition default to the motion tokens so a topic tour carries no raw timing literal — a topic's dwell is the `MotionToken.SpringGentle` timing and its transition the `MotionToken.Emphasized` ease unless the source row overrides them, every value tracing to the motion catalog; the saved-sequence arm resolves keys through the caller-supplied `resolve` delegate so the source mints no viewpoint store and reads the settled viewpoint persistence.
+- Boundary:
+  - `TourSource` is the one closed family, so a parallel tour-builder per origin is the deleted form — two origins are two cases of one union with a generated total `Switch`, never two builder classes.
+  - `TopicTour` composes the `Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfTopic`/`BcfViewpoint` contract at the package edge exactly as `Collab/issues#ISSUE_MODEL` does: AppUi owns the `ReviewTour` projection while `Rasm.Bim` owns the openBIM topic exchange, and a second BCF model or a direct `.bcfzip` reader here is the rejected form. Each BCF viewpoint binds onto the AppUi `Viewpoint` through `ViewpointCodec.FromBcf`, so a topic tour's saved view rides the one portable view-state receipt.
+  - The per-stop dwell and transition are the source ROW's own columns on BOTH arms, defaulting to motion tokens — the prior form claimed a topic row could override them while carrying no column to override with, so a topic tour's whole timing was two unconditional literals wearing a policy's name. Every value still traces to the motion catalog; a raw duration literal is unspellable.
+  - Each arm carries EXACTLY its own context: the saved arm takes the viewpoint resolver and the topic arm takes the capture instant, so neither state tuple carries a leg the other needs. `ViewpointCodec.FromBcf` reads an `Instant`, not a clock — an APP-stratum clock policy never crosses downward into this package.
+  - A stop REQUIRES a viewpoint by construction, so a viewpoint-less topic contributes no stop, and an all-viewpoint-less topic set fails `ReviewTour.Of` as the empty tour rather than succeeding silently.
+  - The saved-sequence arm resolves keys through the caller-supplied `resolve` delegate, so the source mints no viewpoint store and reads the settled viewpoint persistence.
 
 ```csharp signature
 // --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct SequenceStop(string ViewpointKey, Duration Dwell, MotionToken Transition, Option<NarrationTrack> Narration);
+public readonly record struct SequenceStop(
+    string ViewpointKey, Duration Dwell, MotionToken Transition, Option<NarrationTrack> Narration);
 
+// The topic arm's own timing row. The dwell and transition are COLUMNS on the case, not literals inside its
+// fold: a coordination set assembled for a walkthrough and one assembled for a kiosk loop want different
+// pacing, and the defaults keep the motion catalog the only place a timing value is authored.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TourSource {
     private TourSource() { }
-    public sealed record SavedSequence(string Key, Seq<SequenceStop> Stops) : TourSource;
-    public sealed record TopicTour(string Key, Seq<Rasm.Bim.Coordination.BcfTopic> Topics) : TourSource;
 
-    public Fin<ReviewTour> Build(Func<string, Fin<Viewpoint>> resolve, ClockPolicy clocks) =>
+    public sealed record SavedSequence(string Key, Seq<SequenceStop> Stops) : TourSource;
+    public sealed record TopicTour(
+        string Key,
+        Seq<Rasm.Bim.Coordination.BcfTopic> Topics,
+        Duration Dwell,
+        MotionToken Transition) : TourSource {
+        public static TopicTour Of(string key, Seq<Rasm.Bim.Coordination.BcfTopic> topics) =>
+            new(key, topics, MotionToken.SpringGentle.Duration, MotionToken.Emphasized);
+    }
+
+    // `TraverseM` aborts on the first bad row because a partial tour is a WRONG tour: a stop silently dropped
+    // from a coordination review is a topic nobody looked at.
+    public Fin<ReviewTour> Build(Func<string, Fin<Viewpoint>> resolve, Instant at) =>
         Switch(
-            state: (Resolve: resolve, Clocks: clocks),
+            state: (Resolve: resolve, At: at),
             savedSequence: static (ctx, sequence) =>
                 sequence.Stops
-                    .TraverseM(stop => ctx.Resolve(stop.ViewpointKey).Bind(view => TourStop.Admit(view, stop.Dwell, stop.Transition, stop.Narration)))
+                    .TraverseM(stop => ctx.Resolve(stop.ViewpointKey)
+                        .Bind(view => TourStop.Admit(view, stop.Dwell, stop.Transition, stop.Narration)))
                     .As()
                     .Bind(stops => ReviewTour.Of(sequence.Key, stops)),
             topicTour: static (ctx, topic) =>
                 topic.Topics
-                    .Bind(t => t.Viewpoints.Map(viewpoint => (Topic: t, Viewpoint: viewpoint)))
+                    .Bind(held => held.Viewpoints.Map(viewpoint => (Topic: held, Viewpoint: viewpoint)))
                     .TraverseM(row => NarrationTrack
-                        .Of(row.Topic.Title, row.Topic.Comments.Head.Map(static comment => comment.Text).Filter(static text => !string.IsNullOrEmpty(text)))
-                        .Bind(narration => TourStop.Admit(
-                            ViewpointCodec.FromBcf(row.Viewpoint.Guid, row.Viewpoint, ctx.Clocks),
-                            MotionToken.SpringGentle.Duration,
-                            MotionToken.Emphasized,
-                            Some(narration))))
+                        .Of(
+                            row.Topic.Title,
+                            row.Topic.Comments.Head
+                                .Map(static comment => comment.Text)
+                                .Filter(static text => !string.IsNullOrEmpty(text)))
+                        .Bind(narration => ViewpointCodec
+                            .FromBcf(row.Viewpoint.Guid, row.Viewpoint, ctx.At)
+                            .Bind(view => TourStop.Admit(view, topic.Dwell, topic.Transition, Some(narration)))))
                     .As()
                     .Bind(stops => ReviewTour.Of(topic.Key, stops)));
 }
@@ -312,122 +529,159 @@ config:
 ---
 flowchart LR
     accTitle: Review tour composition and presence follow
-    accDescr: Tour sources and BCF topics building one review tour of stops carrying viewpoint, motion token, and narration, the tour projecting onto the render timeline for walkthrough capture, and the follow lane proving its presenter capability against the durable member register before publishing a peer-keyed structured playhead remote presence samples back.
+    accDescr: Tour sources and BCF topics building one non-empty review tour whose seat table carries each stop's ordinal and offset, the tour projecting onto the render timeline for walkthrough capture with a caption overlay, and the follow arm proving its presenter capability against the durable member register before publishing a peer-keyed structured playhead on a schedule, which a follower drains off the bounded ephemeral lane and samples back.
     TourSource -->|Build| ReviewTour
-    BcfTopic -->|FromBcf| ReviewTour
-    ReviewTour --> TourStop
+    BcfTopic -->|"ViewpointCodec.FromBcf"| ReviewTour
+    ReviewTour --> StopSeat
+    StopSeat --> TourStop
     TourStop --> Viewpoint
     TourStop --> MotionToken
     TourStop --> NarrationTrack
-    NarrationTrack --> TypographyRole
+    NarrationTrack -->|Resolve| CaptionSurface
     ReviewTour -->|ToTimeline| Timeline["Render/animation Timeline"]
     Timeline -->|Walkthrough.Render| RenderReceipt
+    CaptionSurface -->|"TourCaptions.Overlay"| RenderReceipt
     MemberRegister["Collab/session MemberRegister"] -->|Present grant| TourFollow
-    TourFollow -->|Publish: peer-keyed structured playhead| Presence
-    Presence -->|ApplyRemote + SampleAt| TourFollow
+    TourFollow -->|"Drive: Schedule-paced publish"| Presence["Collab/presence viewport channel"]
+    Presence -->|"TransportLane.Ephemeral channel"| Drain["TourFollow.Drain"]
+    Drain -->|"ApplyRemote + Ranked.Top + SampleAt"| ViewCamera
+    TourFollow --> PresenterStrip
+    TourFollow --> AudienceChrome
+    PresenterStrip -->|Program| ScreenCatalog["Shell/screens ScreenCatalog"]
 ```
 
 ## [06]-[PRESENTER_CHROME]
 
-- Owner: `PresenterStep` the step-list peek row; `PresenterStrip` the presenter's transport over the settled projection; `AudienceState` and `AudienceChrome` the follower-side chrome; `StepAnnotations` the per-step markup binding.
-- Entry: `public Fin<PresenterStrip> Step(int delta)` and `public Fin<PresenterStrip> Seek(int index)` — the bounded transport and the direct jump; `public Seq<PresenterStep> Steps()` — the step-list peek; `public Fin<Unit> Present(long frame)` — the publish through the settled gated playhead; `public Fin<AudienceState> State(long localFrame)` on `AudienceChrome` — who presents, whether this viewer follows, and whether it is caught up; `public IO<Fin<IssueBoard>> Commit(IssueBoard board, string issueGuid, Seq<PenSample> samples, ulong author, ClockPolicy clocks, RedlinePlacement placement)` on `StepAnnotations` — the capture-through-landing verb seating the step's redline on the viewpoint the step binds, through the leg its tool row elects.
-- Auto: the chrome is PRESENTATION over settled machinery and adds no engine — the timeline, the capability gate, the peer-keyed playhead slot, and the camera apply are all landed, so this section owns only what a presenter and an audience SEE; step motion is BOUNDED rather than modular, because a presentation has a first and a last stop and wrapping from the end back to the beginning mid-review reads to an audience as a mistake, while a direct jump past the ends is a typed fault on the tour's own out-of-range row; the elapsed indicator is the step's own OFFSET into the tour rather than a wall stopwatch, so a presenter who steps back reads their position in the presentation instead of the time they have spent — which is what the tour's no-local-stopwatch law already required and what keeps the strip and the timeline from ever disagreeing; the step-list peek titles each step from its narration, so a tour's captions and its step list are one text and an untitled step falls back to its own locale key rather than to a blank row; the audience reads the SAME presenter resolution the follow arm obeys, so the face a viewer sees and the camera their viewport takes name one peer; caught-up is a FRAME TOLERANCE against the presenter's published playhead and it is ABSENT while no presenter holds a live slot, so a viewer who scrubbed away sees that they have, a viewer riding the presenter's own camera reads caught up without a second synchronization state, and the ordinary state before a review starts renders no synchronization chrome at all rather than a standing behind indicator; per-step annotations compose the `Collab/issues#REDLINE_TOOLS` surface bound to the stop's own viewpoint, so a presenter drawing on a step draws through the one tool family and the mark LANDS in the same verb that captured it — a capture that answered markup and seated none of it leaves the stroke unreachable by the archive writer, the next viewer, and the one revert vocabulary alike.
-- Packages: LoroCs (via `Collab/sync.md` owners), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Bim (project — the markup payloads the annotation binding lands)
-- Growth: a new transport verb is one `CommandIntent` row this strip raises by key; a new step-list column is one `PresenterStep` member; zero new surface, zero new engine.
-- Boundary: presentation ONLY — the strip mints no timeline, no sampler, no playhead policy, and no stopwatch, so a chrome-local clock, a chrome-local interpolation, and a chrome-local camera write are the three deleted forms; the presenter's playhead is the animation owner's `TransportState` frame, so the strip PUBLISHES a frame it was handed rather than deriving one from a duration it would have to convert, and a chrome-local frame-rate conversion is the rejected form; publishing still crosses the settled gate at its own producer — `TourFollow.Publish` proves `SessionCapability.Present` against the durable register on every frame, so a demoted presenter stops driving followers at the next frame and this chrome adds no second capability read; the audience chrome reads the presenter off the REGISTER-backed resolution, never off a channel scan, so a peer publishing a playhead without the grant occupies no slot the chrome can name; follow and unfollow are audience-side and ungated by the presence ruling, exactly as the ad-hoc follow lease is, so the toggle carries no capability read; the annotation binding constructs no markup model — `StrokeCapture` and `ViewpointMarkup` are the landed owners and a tour-local stroke shape is the deleted form.
+- Owner: `PresenterStrip` the presenter's transport over the settled projection and its seated screen program; `AudienceState` `[Union]` the follower's three legal readings; `AudienceChrome` the follower-side chrome; `StepAnnotations` the per-step markup binding.
+- Cases: `AudienceState` = `Idle` | `Observing(SessionSeat)` | `Watching(SessionSeat, SyncPosture)` — nobody presenting, a presenter this viewer does not follow, and a presenter this viewer follows with the sync verdict between them.
+- Entry: `public Fin<PresenterStrip> Step(int delta)` and `public Fin<PresenterStrip> Seek(int index)` — the bounded transport and the direct jump; `public Fin<Unit> Present(FrameIndex frame)` — the publish through the settled gated playhead; `public ControlIntent Body(VirtualWindowSpec window)` and `public static ScreenProgram Program(ScreenComposition composition)` — the seat; `public Fin<AudienceState> State(FrameIndex local)` and `public AudienceChrome Toggle()` on `AudienceChrome`; `public IO<Fin<TriageBoard>> Commit(TriageBoard board, Guid issueGuid, Seq<PenSample> samples, ulong author, IClock clock, RedlinePlacement placement)` on `StepAnnotations` — the capture-through-landing verb.
+- Auto: the chrome is PRESENTATION over settled machinery and adds no engine — the timeline, the capability gate, the peer-keyed playhead slot, the publish cadence, and the camera apply are all landed, so this section owns only what a presenter and an audience SEE; the step list IS the tour's own seat table, so the strip renders `Tour.Seats` and mints no peek row of its own; step motion is BOUNDED because a presentation has a first and a last stop and wrapping from the end back to the beginning mid-review reads to an audience as a control error, while a direct jump past the ends is a typed fault on the tour's own out-of-range row; the elapsed indicator is the current seat's own OFFSET into the tour rather than a wall stopwatch, so a presenter who steps back reads their position in the presentation and the strip and the timeline can never disagree; the audience reads the SAME presenter resolution the follow arm obeys; per-step annotations compose the `Collab/issues#REDLINE_TOOLS` surface bound to the stop's own viewpoint, so the mark LANDS in the same verb that captured it.
+- Packages: LoroCs (via `Collab/presence.md` owners), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Bim (project — the markup payloads the annotation binding lands)
+- Growth: a new transport verb is one `CommandRow` row this strip raises by key; a new step-list column is one `StopSeat` or `TourStop` member; a new audience reading is one `AudienceState` case breaking the chrome fold at compile time; zero new surface, zero new engine.
+- Boundary:
+  - Presentation ONLY — the strip mints no timeline, no sampler, no playhead policy, and no stopwatch, so a chrome-local clock, a chrome-local interpolation, and a chrome-local camera write are the three deleted forms. The tour reaches this chrome THROUGH the follow arm that already carries it; a second tour column beside `Follow.Tour` was two authorities for one value.
+  - The presenter's playhead is the animation owner's `TransportState` frame admitted as a `FrameIndex`, so the strip PUBLISHES a frame it was handed rather than deriving one from a duration it would have to convert.
+  - Publishing crosses the settled gate at its own producer on every frame, so a demoted presenter stops driving followers at the next frame and this chrome adds no second capability read. The audience chrome reads the presenter off the REGISTER-backed election, never a channel scan.
+  - Follow and unfollow are audience-side and ungated by the presence ruling, exactly as the ad-hoc follow lease is, so the toggle carries no capability read. The FOLLOWING flag is a measured user fact with both states legal and no sibling flag sharing its regime, and it is the ONE authority — the state union derives which case it mints rather than mirroring the bool into a column that could drift.
+  - Every key this chrome raises is a `Shell/commands#INTENT_TABLE` deck row by construction, because the deck's fold aborts on a key it does not carry and an unlifted roster is a dead screen.
+  - The annotation binding constructs no markup model — `StrokeCapture` and `ViewpointMarkup` are the landed owners, and the viewpoint the mark lands on is DERIVED from the seat's own stop, so a caller cannot seat a step's redline against a viewpoint the step never bound.
 
 ```csharp signature
 // --- [MODELS] --------------------------------------------------------------------------
-// The peek row: a step's ordinal, its caption, where it sits in the tour, how long it runs, and whether it
-// is the one showing — so the list and the strip read one projection of the same stop sequence.
-public readonly record struct PresenterStep(int Index, string TitleKey, Duration Offset, Duration Span, bool Active);
+// Three legal readings, and every representable value is one of them. The prior record carried an `Option`
+// between two bools — twelve representable states over four legal ones, with nothing at construction
+// forbidding a viewer who follows nobody while reading caught-up against a frame no peer published.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record AudienceState {
+    private AudienceState() { }
 
-// Who presents, whether this viewer follows them, and whether this viewer is where they are. The presenter
-// rides as a SEAT so the chrome renders the granted role and the handle beside the face, and a viewer never
-// sees a presenter the follow arm would not obey. Caught-up is OPTIONAL for the same reason the presenter is:
-// a viewer with nobody presenting is neither ahead nor behind, and a bare false would render the behind
-// chrome through the whole ordinary state before a review starts and after a presenter's slot expires.
-public readonly record struct AudienceState(Option<SessionSeat> Presenter, bool Following, Option<bool> CaughtUp);
+    public sealed record Idle : AudienceState;
+    public sealed record Observing(SessionSeat Presenter) : AudienceState;
+    public sealed record Watching(SessionSeat Presenter, SyncPosture Posture) : AudienceState;
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public sealed record PresenterStrip(ReviewTour Tour, TourFollow Follow, int Index) {
+// The cursor is an ADMITTED SEAT, never a raw ordinal: a strip carrying an `int` was one construction away
+// from a cursor no stop answers, and every read of it owed a bounds probe the seat already carries.
+public sealed record PresenterStrip(TourFollow Follow, StopSeat Cursor) {
+    public const string SessionKey = "tour.session";
     public const string PreviousIntent = "tour.previous";
     public const string NextIntent = "tour.next";
     public const string PeekIntent = "tour.steps";
-    public const string UntitledKey = "tour.step.untitled";
 
-    // BOUNDED, not modular: a presentation has a first and a last stop, so stepping past either end holds
-    // rather than wrapping — an audience reading the last slide and landing on the first would take it for a
-    // control error, which is exactly the reading the compare surface's own diff walk wants and this does not.
-    public Fin<PresenterStrip> Step(int delta) =>
-        Seek(Math.Clamp(Index + delta, 0, Tour.Stops.Count - 1));
+    public static PresenterStrip Of(TourFollow follow) => new(follow, follow.Tour.Opening);
 
-    // A direct jump is the OUT-OF-RANGE rail: a step list, a deep link, or a restored checkpoint can all name
-    // an index the tour no longer carries, and clamping those would seat a presenter on a stop nobody chose.
-    public Fin<PresenterStrip> Seek(int index) => Tour.StopAt(index).Map(_ => this with { Index = index });
+    public ReviewTour Tour => Follow.Tour;
 
-    // The caption is the narration's own title, so a tour's step list and its spoken captions are one text —
-    // a separate step-name column would let the list and the slide disagree about what a step is called.
-    public Seq<PresenterStep> Steps() =>
-        Tour.Stops.Map((stop, ordinal) => new PresenterStep(
-            ordinal,
-            stop.Narration.Map(static track => track.Title).IfNone(UntitledKey),
-            Tour.OffsetOf(ordinal),
-            stop.Span,
-            ordinal == Index));
-
-    // Position in the PRESENTATION, never wall time: a presenter who steps back reads where they are in the
-    // tour rather than how long they have been talking, so the indicator and the timeline agree by
-    // construction and the page keeps its no-local-stopwatch law.
-    public Duration Elapsed => Tour.OffsetOf(Index);
+    public Duration Elapsed => Cursor.Offset;
 
     public Duration Total => Tour.Total;
 
-    // The frame is the animation owner's own scrub position, handed in rather than derived: converting a
-    // duration to a frame here would re-spell the timeline's frame rate at a second site. The gate still runs
-    // at the settled producer, so a demoted presenter stops driving followers at the next frame.
-    public Fin<Unit> Present(long frame) => Follow.Publish(frame);
+    // BOUNDED, not modular: stepping past either end holds, because an audience reading the last slide and
+    // landing on the first would take it for a control error. The bound answers an `int`, so this path reaches
+    // no refusal and the two disciplines the tour declares stay one live each.
+    public Fin<PresenterStrip> Step(int delta) => Seek(Tour.Bounded(Cursor.Index + delta));
+
+    // The ABSOLUTE jump rides the out-of-range rail: a step list, a deep link, or a restored checkpoint can each name an index the tour no longer carries.
+    public Fin<PresenterStrip> Seek(int index) =>
+        Tour.Seat(index).Map(seat => this with { Cursor = seat });
+
+    // The frame is the animation owner's own scrub position, admitted once and handed in: converting a
+    // duration to a frame here would re-spell the timeline's frame rate at a second site.
+    public Fin<Unit> Present(FrameIndex frame) => Follow.Publish(frame);
+
+    // The seat's body: the transport toolbar over the tour's own seat table. The rows refuse overflow
+    // promotion — a presentation whose next verb moved into a popup well is a presentation nobody drives.
+    public ControlIntent Body(VirtualWindowSpec window) =>
+        new ControlIntent.Panel(
+            SessionKey,
+            Seq(Transport(), Steps(window)),
+            ConstraintProgram: SessionKey,
+            IntentBinding.Of(PaintRole.Surface));
+
+    ControlIntent Transport() =>
+        new ControlIntent.Toolbar(
+            $"{SessionKey}.transport",
+            Seq(PreviousIntent, NextIntent, PeekIntent)
+                .Map(static key => new ToolbarRow(Verb(key), OverflowMode.Never)),
+            Orientation.Horizontal,
+            IntentBinding.Of(PaintRole.Panel));
+
+    // The list renders the CURSOR by comparing ordinals at the seat, which is why the peek row carries no
+    // active column: a row holding the cursor goes stale the moment the cursor moves.
+    ControlIntent Steps(VirtualWindowSpec window) =>
+        new ControlIntent.Tree(
+            $"{SessionKey}.steps",
+            new ControlIntent.Label(
+                $"{SessionKey}.step", Cursor.Stop.TitleKey, TypographyRole.Body,
+                IntentBinding.Of(PaintRole.Text)),
+            PeekIntent,
+            window,
+            IntentBinding.Of(PaintRole.Panel));
+
+    static ControlIntent Verb(string key) =>
+        new ControlIntent.Button(
+            key, $"{key}.label",
+            IntentBinding.Of(PaintRole.Accent, ControlEmphasis.Quiet) with { Command = Some(key) });
+
+    // The seating. The catalog IS the route index, the dock roster, and the proof roster, so a presentation
+    // surface registered anywhere else is reachable by chord and unreachable by deep link. It seats
+    // INTERACTIVE because its body renders live presence state over the co-edit transport.
+    public static ScreenProgram Program(ScreenComposition composition) =>
+        ScreenProgram.Of(SessionKey, screen => composition.Tour(screen.Surface).Body(composition.Window));
 }
 
 public sealed record AudienceChrome(TourFollow Follow, bool Following) {
     public const string FollowIntent = "tour.follow";
     public const string UnfollowIntent = "tour.unfollow";
 
-    // Two frames of slack: a follower applying the presenter's camera lands within a frame of it under any
-    // ordinary transport, so a tighter bound would flicker "behind" on every hop and a looser one would call
-    // a viewer caught up while they read a different slide.
-    public const long CaughtUpFrames = 2L;
-
-    // One presenter resolution serves the chrome and the camera drive, so the face a viewer reads and the
-    // viewport they receive can never name two different peers. No presenter at all is not a fault: a tour
-    // with nobody presenting is the ordinary state before a review starts.
-    public Fin<AudienceState> State(long localFrame) =>
-        Follow.Presenter().Map(found => new AudienceState(
-            found.Map(static row => row.Seat),
-            Following,
-            found.Map(row => Math.Abs(row.Frame - localFrame) <= CaughtUpFrames)));
+    // One presenter resolution serves the chrome and the camera drive. No presenter at all is not a fault: a
+    // tour with nobody presenting is the ordinary state before a review starts, and it renders no
+    // synchronization chrome rather than a standing behind indicator.
+    public Fin<AudienceState> State(FrameIndex local) =>
+        Follow.Presenter().Map(found => found.Match(
+            Some: row => Following
+                ? (AudienceState)new AudienceState.Watching(row.Seat, Follow.Posture(local, row.Frame))
+                : new AudienceState.Observing(row.Seat),
+            None: static () => new AudienceState.Idle()));
 
     // Follow and unfollow are AUDIENCE-side and ungated, exactly as the ad-hoc follow lease is: obeying a
     // camera the presenter already published grants a viewer nothing the channel did not already carry.
     public AudienceChrome Toggle() => this with { Following = !Following };
 }
 
-// A step's annotations are the `Collab/issues#REDLINE_TOOLS` surface bound to the stop's own viewpoint, so a
-// presenter marking up a step draws through the one tool family, the stroke commits as the settled markup on
-// the viewpoint the stop already binds, and its undo rides the one revert vocabulary every other redline does.
-public sealed record StepAnnotations(TourStop Stop, string ViewpointGuid, RedlineToolState Tools) {
+// The step's redline binding. The viewpoint is DERIVED from the seat's own stop, so the record cannot admit a
+// stop-and-guid pair nobody proved belongs together — the prior form carried both and read only one.
+public sealed record StepAnnotations(StopSeat Seat, RedlineToolState Tools) {
     // ONE verb, capture through landing: capturing a stroke and never seating it leaves the mark nowhere the
-    // archive writer or the next viewer can reach, and a capture-only surface beside a commit-only one is two
-    // entry points for one act. The guid this record already carries is the viewpoint the mark lands on, so a
-    // caller cannot seat a step's redline against a viewpoint the step never bound. The verb rides the markup
-    // rail rather than a bare fold because the tool row elects the leg and a placed mark rasters and encodes
-    // to reach the exchange — a chrome-local raster path beside it would be a second capture owner.
-    public IO<Fin<IssueBoard>> Commit(
-        IssueBoard board, string issueGuid, Seq<PenSample> samples, ulong author, ClockPolicy clocks,
+    // archive writer or the next viewer can reach. The verb rides the markup rail rather than a bare fold
+    // because the tool row elects the leg and a placed mark rasters and encodes to reach the exchange.
+    public IO<Fin<TriageBoard>> Commit(
+        TriageBoard board, Guid issueGuid, Seq<PenSample> samples, ulong author, IClock clock,
         RedlinePlacement placement) =>
-        (from stroke in FinT.lift<IO, RedlineStroke>(StrokeCapture.Capture(Tools, samples, author, clocks))
-         from markup in new FinT<IO, Seq<ViewpointMarkup>>(StrokeCapture.ToMarkup(stroke, placement))
-         from seated in FinT.lift<IO, IssueBoard>(IssueMarkup.Apply(board, issueGuid, ViewpointGuid, markup))
+        (from stroke in FinT.lift<IO, RedlineStroke>(StrokeCapture.Capture(Tools, samples, author, clock))
+         from seated in new FinT<IO, TriageBoard>(
+             StrokeCapture.Commit(board, issueGuid, Seat.Stop.View.Key, stroke, placement))
          select seated).runFin.As();
 }
 ```

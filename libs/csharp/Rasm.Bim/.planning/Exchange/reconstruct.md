@@ -2,11 +2,11 @@
 
 `ReconstructionProjector : IElementProjection` lowers a kernel-segmented point cloud into a seam `Rasm.Element/Graph/delta#GRAPH_DELTA` `GraphDelta` of `Rasm.Element/Graph/element#ELEMENT_GRAPH` `Node.Object` occurrence nodes, each carrying a typed `Pset_Reconstruction` bag bound by a neutral `Rasm.Element/Relations/relation#EDGE_ALGEBRA` `Relationship.Assign` edge, with the `LasIngest` LAS/LAZ decode front.
 
-Reconstruction is a PRIMARY projector, scan-source twin of the `Projection/semantic#SEMANTIC_PROJECTOR` IFC projector: it MINTS neutral rooted element identity through `NodeId.Rooted()` and records a deterministic IFC `GlobalId` as its 1:1 `ExternalId`, hashed from the `ReconstructionKey` run identity so a re-run at identical fit parameters dedups against its prior pass through the `Review/diff#MODEL_DIFF` federation diff.
+Reconstruction is a PRIMARY projector, scan-source twin of the `Projection/semantic#SEMANTIC_PROJECTOR` IFC projector: it MINTS neutral rooted element identity through `NodeId.Of(new NodeSeed.Placement())` and records a deterministic IFC `GlobalId` as its 1:1 `ExternalId`, hashed from the `ReconstructionKey` run identity so a re-run at identical fit parameters dedups against its prior pass through the `Review/diff#MODEL_DIFF` federation diff.
 
 Reconstruction is BIM-semantics-only and CONSUME-BY-REFERENCE: `Themis.Las`/`Unofficial.laszip.netstandard` own the LAS/LAZ decode, the kernel owns registration and fit (`Rasm/Processing/register#REGISTRATION` cloud-ICP places the capture in the kernel frame, `Rasm/Processing/segment#SEGMENTATION` partitions it into `SegmentedCloud` rows bounded by the `csharp:ROBUST_ARRANGEMENT_SUBSTRATE` exact-arithmetic arrangement).
 
-Geometry content keys are the kernel `Rasm.Domain.ContentHash` seed-zero `XxHash128` the seam `Rasm.Element/Projection/address#CONTENT_ADDRESS` `ContentAddress` wraps over the `Rasm.Element/Projection/address#CANONICAL_WRITER` `CanonicalWriter` projection, never the upper-stratum `Rasm.Compute` interchange owner.
+Geometry content keys are the kernel `Rasm.Domain.ContentHash` seed-zero `XxHash128` the seam `Rasm.Element/Projection/address#CONTENT_ADDRESS` `ContentAddress` wraps over the kernel `Rasm/Domain/identity#CONTENT_KEY` `CanonicalWriter` projection, never the upper-stratum `Rasm.Compute` interchange owner.
 
 Fitted primitives are HOST-NEUTRAL — `Node.Object` references ALL geometry by `RepresentationContentHash` content key only (`Body`/`FootPrint`/`Axis`, EACH a kernel `XxHash128` over the `CanonicalWriter` projection of its `Vector3` coordinates), so a `Rasm.Compute` runner resolves the analytical axis/footprint one-hop, never an inline coordinate field on the seam node (no `Node.Object.BoundaryPolygon`/`Axis` member exists) and never a RhinoCommon `Brep`/`Mesh`.
 
@@ -19,12 +19,12 @@ Fitted primitives are HOST-NEUTRAL — `Node.Object` references ALL geometry by 
 
 - Owner: `ReconstructionProjector` the `IElementProjection` folding kernel-segmented clouds to a seam `GraphDelta`; `ReconstructionPrimitive` the ONE fit row carrying the columns every fit has — segment, kernel `GeometryHash`, inlier `FitConfidence`, `ReconstructionKey` — beside the closed `PrimitiveForm` union holding shape-specific payload alone, with `PrimitiveAnalytic` the single per-shape projection every consumer reads; `PrimitiveShape` the `[SmartEnum<string>]` discriminant the `ElementClassifier` table keys on; `CaptureLineage` the `[ValueObject<UInt128>]` source-bytes address and `ReconstructionKey` the `[ValueObject<UInt128>]` run identity, two disjoint key spaces with two names; `FitConfidence` the `[ValueObject<double>]` normalized inlier-ratio band; `SizeBand` the classifier's scale floor; `SegmentedCloud` the kernel-registered segment carrier; `ElementClassifier` the frozen shape-to-`IfcClass` projection.
 - Cases: `PrimitiveForm` arms `Plane`/`Sphere`/`Cylinder`/`Cone`/`Torus`/`Freeform` ARE the complete efficient-RANSAC shape-detection family with the residual freeform — a primitive family is one arm, one `PrimitiveShape` row, and one `ElementClassifier` entry, never a per-shape fold or a `FitPlane`/`FitCylinder` operation family, and the shared columns sit on the row above the union so no arm can answer one of them differently; `ElementClassifier` rows are the `(shape, IfcDomain, orientation)`→`(IfcClass, predefined, SizeBand)` table, a wall-vs-slab disambiguation one row refines by orientation and scale a row COLUMN rather than a fourth key axis, never an enumerated `switch` arm.
-- Entry: `ReconstructionProjector.Project(ProjectionContext ctx)` folds the constructible segments into one `GraphDelta`, seeding `GraphDelta.Empty.Reheader(ctx.Header)` from the app-supplied Header (the scan CRS WKT flows `LasCloud.CrsWkt`→app→`ctx.Header.Reference`, wiring is app-owned); a PRIMARY projector IGNORES `ctx.ElementIds` and PUBLISHES the rooted ids it mints for an aspect projector (`Rasm.Materials/Projection/component`) to attach `Associate` edges against; `Fin<T>` aborts on an unregistered segment (`Model/faults#FAULT_BAND` `BimFault.CapabilityMiss`) or a shape the classifier places at neither a table row nor its scale band (`BimFault.UnmappedClass`), each `Op`-keyed case lifted BARE onto the rail (the `Expected`-derived case IS the `Error`, no `.ToError()` hop), the seam `Rasm.Element/Projection/projection#PROJECTION_CONTRACT` `Assemble` funnel capturing a thrown fault into `ElementFault.ProjectorFaulted`.
-- Auto: `Project` reads each `SegmentedCloud` already fitted and registered by the kernel, so the fold NEVER re-fits geometry in-process; a `segment.Geometry.IsPending` handle is an unregistered capture faulted `BimFault.CapabilityMiss`. `ReconstructionContext.BiasOf` governs first — a non-`Constructible` class is EXCLUDED by the explicit `Project` filter before authoring, a `Pin` class short-circuits the table because its IFC landing is shape-independent — else `ElementClassifier.Classify` keys the frozen table on the EFFECTIVE `IfcDomain` (the bias domain when present, else the context discipline) and the `FitOrientation` the fit's own published datum selects, where a planar patch reads `OrientationOfNormal` (a vertical normal is a horizontal slab) and a swept solid reads `OrientationOfAxis` (a vertical axis is a vertical column), the two mappings inverse, and the resolved row's `SizeBand` then gates the fit's gauge so a 6 mm cylinder never lands `IfcClass.Column`; EVERY landing admits through the one `Model/elements#IFC_CLASS` `IfcClass.AdmitPredefined` per-token egress gate against `ctx.Header.Schema`. `Node.Object` mints a NEUTRAL rooted `NodeId` via `NodeId.Rooted()` and records the deterministic `ParserIfc.HashGlobalID` IFC `GlobalId` as its 1:1 `ExternalId`; ALL geometry rides the `RepresentationContentHash` keyed map (`Body`/`FootPrint`/`Axis`) so `Rasm.Compute` resolves the analytical axis/footprint one-hop, never a node coordinate field; the typed `Pset_Reconstruction` bag carries fit evidence as `PropertyValue` and binds to the occurrence through a `Relationship.Assign(AssignKind.PropertyDefinition)` edge the seam `Bake` folds.
+- Entry: `ReconstructionProjector.Project(ProjectionContext ctx)` folds the constructible segments into one `GraphDelta`, seeding `GraphDelta.Empty.Reheader(ctx.Header)` from the app-supplied Header (the scan CRS WKT flows `LasCloud.CrsWkt`→app→`ctx.Header.Reference`, wiring is app-owned); a PRIMARY projector IGNORES `ctx.ElementIds` and PUBLISHES the rooted ids it mints for an aspect projector (`Rasm.Materials/Projection/component`) to attach `Associate` edges against; `Fin<T>` aborts on an unregistered segment (`Model/faults#FAULT_BAND` `BimFault.Refused` with `BimReason.Capability`) or a shape the classifier places at neither a table row nor its scale band (`BimFault.Refused` with `BimReason.Unmapped`), each `Op`-keyed case lifted BARE onto the rail (the `Fault`-derived case IS the `Error`, no `.ToError()` hop), while the seam assembly capture preserves any unknown thrown error exactly.
+- Auto: `Project` reads each `SegmentedCloud` already fitted and registered by the kernel, so the fold NEVER re-fits geometry in-process; a `segment.Geometry.IsPending` handle is an unregistered capture faulted `BimFault.Refused` with `BimReason.Capability`. `ReconstructionContext.BiasOf` governs first — an `AsprsBias.Excluded` class is refused by the explicit `Project` filter before authoring, a `Pin` class short-circuits the table because its IFC landing is shape-independent — else `ElementClassifier.Classify` keys the frozen table on the EFFECTIVE `IfcDomain` (the bias domain when present, else the context discipline) and the `FitOrientation` the fit's own published datum selects, where a planar patch reads `OrientationOfNormal` (a vertical normal is a horizontal slab) and a swept solid reads `OrientationOfAxis` (a vertical axis is a vertical column), the two mappings inverse, and the resolved row's `SizeBand` then gates the fit's gauge so a 6 mm cylinder never lands `IfcClass.Column`; EVERY landing admits through the one `Model/elements#IFC_CLASS` `IfcClass.AdmitPredefined` per-token egress gate against `ctx.Header.Schema`. `Node.Object` mints a NEUTRAL rooted `NodeId` via `NodeId.Of(new NodeSeed.Placement())` and records the deterministic `ParserIfc.HashGlobalID` IFC `GlobalId` as its 1:1 `ExternalId`; ALL geometry rides the `RepresentationContentHash` keyed map (`Body`/`FootPrint`/`Axis`) so `Rasm.Compute` resolves the analytical axis/footprint one-hop, never a node coordinate field; the typed `Pset_Reconstruction` bag carries fit evidence as `PropertyValue` and binds to the occurrence through a `Relationship.Assign(AssignKind.PropertyDefinition)` edge the seam `Bake` folds.
 - Receipt: `GraphDelta` is the projector's whole contribution, the merge the seam `Assemble` folds with sibling deltas onto a `Genesis` seed; the `ReconstructionPrimitive` row and its `PrimitiveForm` payload are the typed fit evidence, the `Pset_Reconstruction` bag the per-element review record a `Persistence`/`Compute` `ByProperty` read selects below-floor elements on, and the deterministic `ExternalId` joins a re-reconstructed element to its prior pass and its as-designed counterpart across the federation diff — no generic `IFitResult` abstraction, the union arms stay typed per primitive family.
-- Packages: `Rasm.Element` (the seam `Node`/`NodeId`/`GraphDelta`/`Relationship`/`Classification`/`PredefinedType`/`PropertyBag`/`PropertyValue`/`MeasureValue`/`Dimension`/`RepresentationContentHash`/`AxisCurve`/`SchemaSpan`, the `Projection/address#CANONICAL_WRITER` `CanonicalWriter`, the `IElementProjection`/`ProjectionContext` contract, and the seam-owned host-neutral `Graph/element#NODE_MODEL` `Vector3` coordinate with its `Dot`/`Unit`/`UnitX`/`UnitZ` algebra the orientation classifier folds — the seam owns the analytical `Vector3` the way it owns `Dimension`, and no kernel `Vector3` exists), `Rasm` (the `GeometryHandle` registration handle and the `Domain.ContentHash` seed-zero `XxHash128`, consumed by reference; the kernel `Rasm.Numerics` coordinate is the RhinoCommon `Vector3d` this host-neutral projection never touches), GeometryGymIFC_Core (`ParserIfc.HashGlobalID` the deterministic GlobalId codec), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum]`/`[ValueObject]`), LanguageExt.Core (`Fin`/`Seq`/`Map`/`Option`).
-- Growth: a new fitted primitive is one `PrimitiveForm` arm carrying its analytic parameters, one `PrimitiveAnalytic` arm on the single per-shape dispatch, one `PrimitiveShape` row, and one `ElementClassifier` entry — the fold and classifier resolve it with no new operation; a new classification rule is one `ElementClassifier` row keyed on `(PrimitiveShape, IfcDomain, FitOrientation)` and a new scale floor one `SizeBand` value on the rows that carry it; a repeated identical fit shares ONE `GeometryHash` so the content-keyed blob store dedups the geometry with no parallel type-instance; a new confidence dimension is one `Pset_Reconstruction` row; a new discipline bias is one `BiasOf` arm with the `ElementClassifier` rows it resolves to (a bias arm with no matching rows steers a segment into an empty domain and faults `recon-shape-miss`), a shape-independent site class one `Pin` row, a non-constructible class one `Excluded` row — `AsprsBias` is the one growth surface for all three; never a per-shape `Node.Object` subtype or a second receipt model.
-- Boundary: reconstruction is the LAST fold to a seam `Node.Object`, never a geometry kernel — kernel cloud-ICP registration, plane/cylinder segmentation, and exact-arithmetic arrangement are consumed by reference, never re-minted here; both lineage keys compose the kernel `Rasm.Domain.ContentHash` seed-zero `XxHash128` through the seam `CanonicalWriter`, never the upper-stratum `Rasm.Compute` interchange owner (a `Rasm.Bim`→`Rasm.Compute` reference inverts the strata DAG) or a second hasher; ALL fitted geometry rides the `RepresentationContentHash` keyed map (`Body`/`FootPrint`/`Axis`), so the seam `Node.Object` carries no inline coordinate field, no RhinoCommon `Brep`/`Mesh`, and no stored `GeometryHandle` — host-neutral by construction; lineage is TWO axes with two names and two consumers — `CaptureLineage` addresses the source bytes and is what the `SourceCloud` row publishes and a re-fetch resolves, `ReconstructionKey` identifies one fit run under its own parameters and is what the `ReconstructionRun` row publishes and the deterministic `ExternalId` hashes from; one value type over both key spaces let the advertised re-fetch join cite a key carrying fit parameters in its preimage, which no store can answer; the rooted `NodeId` is the NEUTRAL kernel-minted id and the IFC `GlobalId` is the node's `ExternalId`, a deterministic mint giving re-run dedup without making the GUID the node identity; a reconstructed element is a `Node.Object` on the same generic `Classification`/`PredefinedType` axes an IFC-ingested element carries, so `Model/query` and `Review/validation` read it with no second selection surface; fit evidence rides the typed `Pset_Reconstruction` `PropertyValue` bag the seam property store owns; an unmapped shape faults `BimFault.UnmappedClass` and an unregistered segment `BimFault.CapabilityMiss`, so an unclassifiable scan never silently produces a half-built model, distinct from the KNOWN-non-constructible ASPRS classes the `BiasOf` policy excludes by explicit filter before authoring — a deliberate policy row, never a dropped fault; the classifier's honest reach ends at per-segment single-primitive evidence, and four adjudicated NEGATIVES hold instead of fabricated rows — a Controls instrument publishes no primitive signature (a sensor, actuator, or controller is a fitting-scale blob any small fixture matches, and no ASPRS class biases a segment into Controls, so a Controls-disciplined context resolves through the fallback lanes), a stair is a repeated-tread COMPOSITION no single fit expresses and the kernel publishes no repetition signature, a railing's discriminant is guard height above a walking surface no per-segment fit datum carries (absolute Z is published, the floor it stands off is not), and a door or window is a point-ABSENCE void whose hole topology the single-ring `BoundaryPolygon` does not carry — each lane re-opens only when the kernel mints the evidence it needs (a composed repetition signature, a floor-relative datum, a hole-bearing ring), never through a row whose key cannot honestly discriminate it.
+- Packages: `Rasm.Element` (the seam `Node`/`NodeId`/`GraphDelta`/`Relationship`/`Classification`/`PredefinedType`/`PropertyBag`/`PropertyValue`/`MeasureValue`/`Dimension`/`RepresentationContentHash`/`AxisCurve`/`SchemaSpan`, the `IElementProjection`/`ProjectionContext` contract, and the seam-owned host-neutral `Graph/element#NODE_MODEL` `Vector3` coordinate with its `Dot`/`Unit`/`UnitX`/`UnitZ` algebra the orientation classifier folds — the seam owns the analytical `Vector3` the way it owns `Dimension`, and no kernel `Vector3` exists), `Rasm` (the `GeometryHandle` registration handle, the `Domain.ContentHash` seed-zero `XxHash128`, and the `Rasm/Domain/identity#CONTENT_KEY` `CanonicalWriter`, consumed by reference; the kernel `Rasm.Numerics` coordinate is the RhinoCommon `Vector3d` this host-neutral projection never touches), GeometryGymIFC_Core (`ParserIfc.HashGlobalID` the deterministic GlobalId codec), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum]`/`[ValueObject]`), LanguageExt.Core (`Fin`/`Seq`/`Map`/`Option`).
+- Growth: a new fitted primitive is one `PrimitiveForm` arm carrying its analytic parameters, one `PrimitiveAnalytic` arm on the single per-shape dispatch, one `PrimitiveShape` row, and one `ElementClassifier` entry — the fold and classifier resolve it with no new operation; a new classification rule is one `ElementClassifier` row keyed on `(PrimitiveShape, IfcDomain, FitOrientation)` and a new scale floor one `SizeBand` value on the rows that carry it; a repeated identical fit shares ONE `GeometryHash` so the content-keyed blob store dedups the geometry with no parallel type-instance; a new confidence dimension is one `Pset_Reconstruction` row; a new discipline bias is one `BiasOf` arm with the `ElementClassifier` rows it resolves to (a bias arm with no matching rows steers a segment into an empty domain and faults `recon-shape-miss`), a shape-independent site class one `Pin` row, a non-constructible class one `AsprsBias.Excluded` row — `AsprsBias` is the one growth surface for all three; never a per-shape `Node.Object` subtype or a second receipt model.
+- Boundary: reconstruction is the LAST fold to a seam `Node.Object`, never a geometry kernel — kernel cloud-ICP registration, plane/cylinder segmentation, and exact-arithmetic arrangement are consumed by reference, never re-minted here; both lineage keys compose the kernel `Rasm.Domain.ContentHash` seed-zero `XxHash128` through the seam `CanonicalWriter`, never the upper-stratum `Rasm.Compute` interchange owner (a `Rasm.Bim`→`Rasm.Compute` reference inverts the strata DAG) or a second hasher; ALL fitted geometry rides the `RepresentationContentHash` keyed map (`Body`/`FootPrint`/`Axis`), so the seam `Node.Object` carries no inline coordinate field, no RhinoCommon `Brep`/`Mesh`, and no stored `GeometryHandle` — host-neutral by construction; lineage is TWO axes with two names and two consumers — `CaptureLineage` addresses the source bytes and is what the `SourceCloud` row publishes and a re-fetch resolves, `ReconstructionKey` identifies one fit run under its own parameters and is what the `ReconstructionRun` row publishes and the deterministic `ExternalId` hashes from; one value type over both key spaces let the advertised re-fetch join cite a key carrying fit parameters in its preimage, which no store can answer; the rooted `NodeId` is the NEUTRAL kernel-minted id and the IFC `GlobalId` is the node's `ExternalId`, a deterministic mint giving re-run dedup without making the GUID the node identity; a reconstructed element is a `Node.Object` on the same generic `Classification`/`PredefinedType` axes an IFC-ingested element carries, so `Model/query` and `Review/validation` read it with no second selection surface; fit evidence rides the typed `Pset_Reconstruction` `PropertyValue` bag the seam property store owns; an unmapped shape faults `BimFault.Refused` with `BimReason.Unmapped` and an unregistered segment `BimFault.Refused` with `BimReason.Capability`, so an unclassifiable scan never silently produces a half-built model, distinct from the KNOWN-non-constructible ASPRS classes the `BiasOf` policy excludes by explicit filter before authoring — a deliberate policy row, never a dropped fault; the classifier's honest reach ends at per-segment single-primitive evidence, and four adjudicated NEGATIVES hold instead of fabricated rows — a Controls instrument publishes no primitive signature (a sensor, actuator, or controller is a fitting-scale blob any small fixture matches, and no ASPRS class biases a segment into Controls, so a Controls-disciplined context resolves through the fallback lanes), a stair is a repeated-tread COMPOSITION no single fit expresses and the kernel publishes no repetition signature, a railing's discriminant is guard height above a walking surface no per-segment fit datum carries (absolute Z is published, the floor it stands off is not), and a door or window is a point-ABSENCE void whose hole topology the single-ring `BoundaryPolygon` does not carry — each lane re-opens only when the kernel mints the evidence it needs (a composed repetition signature, a floor-relative datum, a hole-bearing ring), never through a row whose key cannot honestly discriminate it.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -33,7 +33,7 @@ using GeometryGym.Ifc;
 using LanguageExt;
 using Rasm;
 using Rasm.Domain;
-using Rasm.Bim.Model;                       // BimFault + the Detail roster this front raises through
+using Rasm.Bim.Model;                       // BimFault and its compact scope/reason/boundary axes
 using Rasm.Element.Classification;
 using Rasm.Element.Graph;
 using Rasm.Element.Projection;
@@ -65,12 +65,20 @@ public sealed partial class PrimitiveShape {
 
 public enum FitOrientation : byte { Any = 0, Horizontal = 1, Vertical = 2, Inclined = 3 }
 
-// AsprsBias policy row: Constructible=false EXCLUDES the class from element minting (noise/overlap/water — an explicit
-// policy exclusion the Project fold filters BEFORE construction, never a silent drop of an UNMAPPED class, which
-// still faults recon-shape-miss); Domain biases the classifier lane; Pin short-circuits the (shape, domain,
-// orientation) table for classes whose IFC landing is shape-independent (a vegetation trunk/canopy/hedge is
-// IfcGeographicElement/VEGETATION whether it fitted a cylinder, a freeform, or a plane).
-public readonly record struct AsprsBias(bool Constructible, Option<IfcDomain> Domain, Option<(IfcClass Class, string Predefined)> Pin);
+// AsprsBias is the per-ASPRS-class policy CASE, not a flag beside two options: Excluded names the classes element
+// minting refuses outright (noise/overlap/water — an explicit policy exclusion the Project fold filters BEFORE
+// construction, never a silent drop of an UNMAPPED class, which still faults recon-shape-miss), and Constructed
+// carries the classifier-lane Domain bias beside the shape-independent Pin. A stored Constructible bool left
+// "excluded yet pinned" representable — a row the classifier would have short-circuited into a landing the
+// Project filter had already thrown away — and the union makes that corner unspellable. Pin short-circuits the
+// (shape, domain, orientation) table for classes whose IFC landing is shape-independent (a vegetation
+// trunk/canopy/hedge is IfcGeographicElement/VEGETATION whether it fitted a cylinder, a freeform, or a plane).
+[Union]
+public abstract partial record AsprsBias {
+    public sealed record Excluded : AsprsBias;
+
+    public sealed record Constructed(Option<IfcDomain> Domain, Option<(IfcClass Class, string Predefined)> Pin) : AsprsBias;
+}
 
 [ValueObject<double>]
 public sealed partial class FitConfidence {
@@ -86,7 +94,7 @@ public sealed partial class FitConfidence {
 [ValueObject<UInt128>]
 public sealed partial class CaptureLineage {
     public static CaptureLineage Of(ReadOnlyMemory<byte> bytes) =>
-        Create(ContentHash.Of(new CanonicalWriter(0.0).String("las-capture").Raw(bytes.Span).ToBytes().Span));
+        Create(ContentHash.Of(bytes, static (payload, writer) => writer.String("las-capture").Raw(payload.Span)));
 }
 
 // ReconstructionKey keys one FIT RUN — the segment bytes UNDER this run's fit parameters — so a re-run at
@@ -99,9 +107,9 @@ public sealed partial class CaptureLineage {
 [ValueObject<UInt128>]
 public sealed partial class ReconstructionKey {
     public static ReconstructionKey Of(SegmentedCloud segment, ReconstructionContext context) =>
-        Create(ContentHash.Of(new CanonicalWriter(context.Tolerance)
-            .String("recon-run").Raw(segment.CloudBytes.Span)
-            .Double(context.Deflection).Double(context.AngleTolerance).ToBytes().Span));
+        Create(ContentAddress.Of((segment, context), context.Distance.Value, static (s, writer) => writer
+            .String("recon-run").Raw(s.segment.CloudBytes.Span)
+            .Double(s.context.Chord.Value).Double(s.context.Angle.Value)).Value);
 }
 
 // SizeBand carries the classifier's SCALE axis as a COLUMN on each table row rather than a fourth key axis
@@ -126,11 +134,26 @@ public readonly record struct SizeBand(double MinimumGauge) {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
+// Every geometric budget rides a kernel Tolerance on its ELECTED lane, so each proves against that lane's own band
+// and names the regime it belongs to: Chord is the tessellation deflection, Distance the absolute linear compare,
+// Angle the angular one. VerticalCosineLimit is NOT a tolerance and takes no lane — it declares a 20-degree tilt
+// band this classifier reads as a direction cosine, and seating it on an angle lane would put a
+// numerical-agreement regime on a domain decision.
 public readonly record struct ReconstructionContext(
-    IfcDomain Discipline, double Deflection, double Tolerance, double AngleTolerance,
+    IfcDomain Discipline, Tolerance Chord, Tolerance Distance, Tolerance Angle,
     double ConfidenceFloor, double VerticalCosineLimit) {
-    public static readonly ReconstructionContext Building =
-        new(IfcDomain.Architecture, 1e-3, 1e-6, 1e-4, 0.6, 0.342);
+    // Accessor-backed under the type-init proof idiom: the guarded Tolerance mint returns Fin, so a static field
+    // initializer cannot carry it and a lazy first read proves every budget against its lane's band once.
+    public static ReconstructionContext Building => BuildingRows.Value;
+
+    static Tolerance Band(ToleranceLane lane, double value) =>
+        Tolerance.Of(lane, value, Op.Of(nameof(ReconstructionContext))).ThrowIfFail();
+
+    static readonly Lazy<ReconstructionContext> BuildingRows = new(static () => new(
+        IfcDomain.Architecture,
+        Band(ToleranceLane.Chord, 1e-3), Band(ToleranceLane.Distance, 1e-6), Band(ToleranceLane.Angle, 1e-4),
+        0.6, 0.342),
+        LazyThreadSafetyMode.ExecutionAndPublication);
 
     // VerticalCosineLimit is sin(band) — 0.342 pins a 20-degree tilt band; the parallel-side bound is the TRIG
     // complement cos(band) = sqrt(1 - limit^2) (0.940), never the arithmetic 1-limit (0.658), which slabs a
@@ -155,11 +178,11 @@ public readonly record struct ReconstructionContext(
             : FitOrientation.Inclined;
     }
 
-    static readonly AsprsBias Vegetation    = new(true, Option<IfcDomain>.None, Some((IfcClass.GeographicElement, "VEGETATION")));
-    static readonly AsprsBias Tower         = new(true, Option<IfcDomain>.None, Some((IfcClass.ElementAssembly, "MAST")));
-    static readonly AsprsBias WireConnector = new(true, Option<IfcDomain>.None, Some((IfcClass.CableFitting, "CONNECTOR")));
-    static readonly AsprsBias Excluded      = new(false, Option<IfcDomain>.None, None);
-    static readonly AsprsBias Unbiased      = new(true, Option<IfcDomain>.None, None);
+    static readonly AsprsBias Vegetation    = new AsprsBias.Constructed(Option<IfcDomain>.None, Some((IfcClass.GeographicElement, "VEGETATION")));
+    static readonly AsprsBias Tower         = new AsprsBias.Constructed(Option<IfcDomain>.None, Some((IfcClass.ElementAssembly, "MAST")));
+    static readonly AsprsBias WireConnector = new AsprsBias.Constructed(Option<IfcDomain>.None, Some((IfcClass.CableFitting, "CONNECTOR")));
+    static readonly AsprsBias Refused       = new AsprsBias.Excluded();
+    static readonly AsprsBias Unbiased      = new AsprsBias.Constructed(Option<IfcDomain>.None, None);
 
     // TOTAL ASPRS dominant-class policy over the LAS 1.4 standard classes: ground 2 -> Geotechnical, low/medium/
     // high vegetation 3/4/5 -> the GeographicElement/VEGETATION pin, building 6 -> Architecture, low noise 7 and high
@@ -172,13 +195,13 @@ public readonly record struct ReconstructionContext(
     // outdoor segment fits), so no bias arm steers a segment into an empty domain; the cylinder lanes ride the
     // domains owning a swept member.
     public static AsprsBias BiasOf(byte asprsClass) => asprsClass switch {
-        2                  => new AsprsBias(true, Some(IfcDomain.Geotechnical), None),
+        2                  => new AsprsBias.Constructed(Some(IfcDomain.Geotechnical), None),
         3 or 4 or 5        => Vegetation,
-        6                  => new AsprsBias(true, Some(IfcDomain.Architecture), None),
-        7 or 9 or 12 or 18 => Excluded,
-        11 or 17           => new AsprsBias(true, Some(IfcDomain.Infrastructure), None),
-        10                 => new AsprsBias(true, Some(IfcDomain.Infrastructure), Some((IfcClass.Rail, "RAIL"))),
-        13 or 14           => new AsprsBias(true, Some(IfcDomain.Electrical), None),
+        6                  => new AsprsBias.Constructed(Some(IfcDomain.Architecture), None),
+        7 or 9 or 12 or 18 => Refused,
+        11 or 17           => new AsprsBias.Constructed(Some(IfcDomain.Infrastructure), None),
+        10                 => new AsprsBias.Constructed(Some(IfcDomain.Infrastructure), Some((IfcClass.Rail, "RAIL"))),
+        13 or 14           => new AsprsBias.Constructed(Some(IfcDomain.Electrical), None),
         15                 => Tower,
         16                 => WireConnector,
         _                  => Unbiased,
@@ -271,26 +294,24 @@ public readonly record struct ReconstructionPrimitive(
               };
 
     // Keyed geometry map: the fitted-solid display geometry rides "Body" (the kernel GeometryHash), the analytical
-    // surface "FootPrint" and the analytical line "Axis" — EACH a kernel seed-zero ContentHash over the
-    // CanonicalWriter projection of its Vector3 coordinates (the ONE hasher the seam CanonicalWriter composes). An
-    // empty boundary / a None axis contributes no key, so a non-planar/non-swept form carries only "Body". The
-    // writer is a REFERENCE-semantics codec, so each preimage folds fluently from its own opening frame.
+    // surface "FootPrint" and the analytical line "Axis" — EACH a kernel seed-zero digest over the CanonicalWriter
+    // projection of its Vector3 coordinates, minted through the seam's ONE tolerance-bound entry so the model grid
+    // rides the key the kernel's own ZeroTolerance-pinned leg cannot carry. An empty boundary / a None axis
+    // contributes no key, so a non-planar/non-swept form carries only "Body".
     public RepresentationContentHash Keys(double tolerance) {
         PrimitiveAnalytic analytic = Analytic;
         RepresentationContentHash body = RepresentationContentHash.Empty.With("Body", GeometryHash);
         RepresentationContentHash surface = analytic.Boundary.IsEmpty
             ? body
-            : body.With("FootPrint", ContentHash.Of(analytic.Boundary
-                .Fold(new CanonicalWriter(tolerance).String("recon-footprint").Ordinal(analytic.Boundary.Count),
-                      static (w, p) => w.Double(p.X).Double(p.Y).Double(p.Z))
-                .ToBytes().Span));
+            : body.With("FootPrint", ContentAddress.Of(analytic.Boundary, tolerance, static (boundary, writer) => boundary
+                .Fold(writer.String("recon-footprint").Ordinal(boundary.Count),
+                      static (w, p) => w.Double(p.X).Double(p.Y).Double(p.Z))).Value);
         return analytic.Axis.Match(
-            Some: axis => surface.With("Axis", ContentHash.Of(new CanonicalWriter(tolerance)
+            Some: axis => surface.With("Axis", ContentAddress.Of(axis, tolerance, static (a, writer) => writer
                 .String("recon-axis")
-                .Double(axis.Start.X).Double(axis.Start.Y).Double(axis.Start.Z)
-                .Double(axis.End.X).Double(axis.End.Y).Double(axis.End.Z)
-                .Double(axis.Up.X).Double(axis.Up.Y).Double(axis.Up.Z)
-                .ToBytes().Span)),
+                .Double(a.Start.X).Double(a.Start.Y).Double(a.Start.Z)
+                .Double(a.End.X).Double(a.End.Y).Double(a.End.Z)
+                .Double(a.Up.X).Double(a.Up.Y).Double(a.Up.Z)).Value),
             None: () => surface);
     }
 }
@@ -369,27 +390,32 @@ public static class ElementClassifier {
     // does: dropping it silently would leave a half-model, and classifying it would mint a member out of debris.
     // EVERY surviving landing admits through the one 4-arg egress hop.
     public static Fin<(IfcClass Class, PredefinedType Predefined)> Classify(
-        ReconstructionPrimitive primitive, SegmentedCloud segment, ReconstructionContext context, ReleaseVersion schema, Op key) {
-        AsprsBias bias = ReconstructionContext.BiasOf(segment.DominantClass);
-        PrimitiveAnalytic analytic = primitive.Analytic;
-        return bias.Pin.Match(
-            Some: pin => Admit(pin.Class, pin.Predefined, schema, key),
-            None: () => {
-                IfcDomain domain = bias.Domain.IfNone(context.Discipline);
-                FitOrientation orientation = (analytic.Normal.Map(normal => context.OrientationOfNormal(normal))
-                        | analytic.Direction.Map(direction => context.OrientationOfAxis(direction)))
-                    .IfNone(FitOrientation.Any);
-                // Four rungs, most specific first: the discipline row at this orientation, the discipline row at
-                // any orientation, the fallback row at this orientation, the fallback row at any orientation.
-                return (Table.Find((analytic.Shape, Some(domain), orientation))
-                        | Table.Find((analytic.Shape, Some(domain), FitOrientation.Any))
-                        | Table.Find((analytic.Shape, Option<IfcDomain>.None, orientation))
-                        | Table.Find((analytic.Shape, Option<IfcDomain>.None, FitOrientation.Any)))
-                    .ToFin(Detail.ReconShapeMiss.At(key, analytic.Shape.Key, domain.ToString(), orientation.ToString()))
-                    .Bind(row => row.Band.Admits(analytic.Gauge)
-                        ? Admit(row.Class, row.Predefined, schema, key)
-                        : Fin.Fail<(IfcClass, PredefinedType)>(Detail.ReconBelowBand.At(key, analytic.Shape.Key, row.Class.Key, analytic.Gauge.IfNone(0.0).ToString(CultureInfo.InvariantCulture))));
-            });
+        ReconstructionPrimitive primitive, SegmentedCloud segment, ReconstructionContext context, ReleaseVersion schema, Op key) =>
+        ReconstructionContext.BiasOf(segment.DominantClass).Switch(
+            state: (primitive.Analytic, context, schema, key),
+            // Project filters an excluded class BEFORE authoring, so this arm states that law under the compiler
+            // rather than leaving the case to a default that would classify a noise segment as a real element.
+            excluded: static (s, _) => Fin.Fail<(IfcClass Class, PredefinedType Predefined)>(
+                new BimFault.Refused(s.key, BimScope.Reconstruct, BimReason.Capability, string.Join(':', new object?[] { "recon-unregistered", s.Analytic.Shape.Key, "asprs-excluded" }))),
+            constructed: static (s, row) => row.Pin.Match(
+                Some: pin => Admit(pin.Class, pin.Predefined, s.schema, s.key),
+                None: () => Tabled(s.Analytic, row.Domain.IfNone(s.context.Discipline), s.context, s.schema, s.key)));
+
+    // Four rungs, most specific first: the discipline row at this orientation, the discipline row at any
+    // orientation, the fallback row at this orientation, the fallback row at any orientation.
+    static Fin<(IfcClass Class, PredefinedType Predefined)> Tabled(
+        PrimitiveAnalytic analytic, IfcDomain domain, ReconstructionContext context, ReleaseVersion schema, Op key) {
+        FitOrientation orientation = (analytic.Normal.Map(normal => context.OrientationOfNormal(normal))
+                | analytic.Direction.Map(direction => context.OrientationOfAxis(direction)))
+            .IfNone(FitOrientation.Any);
+        return (Table.Find((analytic.Shape, Some(domain), orientation))
+                | Table.Find((analytic.Shape, Some(domain), FitOrientation.Any))
+                | Table.Find((analytic.Shape, Option<IfcDomain>.None, orientation))
+                | Table.Find((analytic.Shape, Option<IfcDomain>.None, FitOrientation.Any)))
+            .ToFin(new BimFault.Refused(key, BimScope.Reconstruct, BimReason.Unmapped, string.Join(':', new object?[] { "recon-shape-miss", analytic.Shape.Key, domain.ToString(), orientation.ToString() })))
+            .Bind(row => row.Band.Admits(analytic.Gauge)
+                ? Admit(row.Class, row.Predefined, schema, key)
+                : Fin.Fail<(IfcClass, PredefinedType)>(new BimFault.Refused(key, BimScope.Reconstruct, BimReason.Unmapped, string.Join(':', new object?[] { "recon-below-band", analytic.Shape.Key, row.Class.Key, analytic.Gauge.IfNone(0.0).ToString(CultureInfo.InvariantCulture) }))));
     }
 
     // One egress-gate hop — the frozen Model/elements#IFC_CLASS per-token span gate
@@ -403,29 +429,29 @@ public static class ElementClassifier {
 // holds only Node/Relationship/GraphDelta), and Project mints the neutral rooted identity while recording a deterministic
 // IFC GlobalId as the node ExternalId so a re-run dedups. The seam Assemble fold composes the GraphDelta.
 public sealed class ReconstructionProjector(Seq<SegmentedCloud> segments, ReconstructionContext context) : IElementProjection {
-    // Non-constructible ASPRS classes (noise 7/18, overlap 12, water 9) are EXCLUDED by the explicit BiasOf policy predicate
+    // AsprsBias.Excluded classes (noise 7/18, overlap 12, water 9) are refused by the explicit BiasOf policy case
     // BEFORE authoring — a known-noise segment mints no phantom element; an UNMAPPED shape still faults loud.
     public Fin<GraphDelta> Project(ProjectionContext ctx) =>
-        segments.Filter(static s => ReconstructionContext.BiasOf(s.DominantClass).Constructible)
+        segments.Filter(static s => ReconstructionContext.BiasOf(s.DominantClass) is AsprsBias.Constructed)
             .Fold(
                 Fin.Succ(GraphDelta.Empty.Reheader(ctx.Header)),
                 (acc, segment) => acc.Bind(delta => Author(segment, ctx).Map(delta.Merge)));
 
     Fin<GraphDelta> Author(SegmentedCloud segment, ProjectionContext ctx) =>
         segment.Geometry.IsPending
-            ? Fin.Fail<GraphDelta>(Detail.ReconUnregistered.At(ctx.Key, segment.SegmentId.ToString(CultureInfo.InvariantCulture)))
+            ? Fin.Fail<GraphDelta>(new BimFault.Refused(ctx.Key, BimScope.Reconstruct, BimReason.Capability, string.Join(':', new object?[] { "recon-unregistered", segment.SegmentId.ToString(CultureInfo.InvariantCulture) })))
             : Fin.Succ(ReconstructionPrimitive.Of(segment, context)).Bind(primitive =>
                 ElementClassifier.Classify(primitive, segment, context, ctx.Header.Schema, ctx.Key)
                     .Bind(row => Build(primitive, segment, row, ctx)));
 
     Fin<GraphDelta> Build(ReconstructionPrimitive primitive, SegmentedCloud segment, (IfcClass Class, PredefinedType Predefined) row, ProjectionContext ctx) =>
-        ReconstructionPset(primitive, segment, ctx.Header.Tolerance).Map(bag => {
-            NodeId objectId = NodeId.Rooted();
+        ReconstructionPset(primitive, segment, ctx.Header.Tolerance, ctx.Key).Map(bag => {
+            NodeId objectId = NodeId.Of(new NodeSeed.Placement());
             Node.Object element = new(
                 Id:              objectId,
                 Kind:            ObjectKind.Occurrence,
                 ExternalId:      Some(ParserIfc.HashGlobalID($"recon:{primitive.Key.Value:X32}")),
-                Classification:  Classification.Create("ifc", row.Class.Key, "", None, None, None),
+                Classification:  row.Class.EntityClass,
                 PredefinedType:  row.Predefined,
                 Name:            $"{row.Class.Key}-recon-{segment.SegmentId.ToString(CultureInfo.InvariantCulture)}",
                 Tag:             segment.SegmentId.ToString(CultureInfo.InvariantCulture),
@@ -437,7 +463,7 @@ public sealed class ReconstructionProjector(Seq<SegmentedCloud> segments, Recons
         });
 
     // Typed Pset_Reconstruction bag NODE: the fit evidence as PropertyValue/MeasureValue, never the retired stringly
-    // PropertyBinding; PropertySource.Derived because the rows are computed fit evidence (the seam ValueBag 4-column
+    // PropertyBinding; EvidenceGrade.Derived because the rows are computed fit evidence (the seam ValueBag 4-column
     // shape — SetName/Values/Inheritance/Source). AsprsClass records the modal class the BiasOf policy keyed on, the
     // classification provenance a review reads. Non-rooted id is the kernel content hash over the bag's canonical
     // bytes (the id is EXCLUDED from ToCanonicalBytes, so the empty-probe id is overwritten) so an identical bag dedups.
@@ -445,12 +471,12 @@ public sealed class ReconstructionProjector(Seq<SegmentedCloud> segments, Recons
     // through, ReconstructionRun the run key identifying this fit under this run's parameters — publishing the run
     // key as the source address advertised a join no store answers.
     // Five fit-evidence mints ride the seam OfSi finite gate first-fault — a NaN residual rails, never hashes.
-    Fin<Node.PropertySet> ReconstructionPset(ReconstructionPrimitive primitive, SegmentedCloud segment, double tolerance) =>
-        from confidence in MeasureValue.OfSi(Dimension.Dimensionless, primitive.Confidence.Value)
-        from residual in MeasureValue.OfSi(Dimension.Dimensionless, segment.Residual)
-        from inliers in MeasureValue.OfSi(Dimension.Dimensionless, segment.Inliers)
-        from total in MeasureValue.OfSi(Dimension.Dimensionless, segment.Total)
-        from asprs in MeasureValue.OfSi(Dimension.Dimensionless, segment.DominantClass)
+    Fin<Node.PropertySet> ReconstructionPset(ReconstructionPrimitive primitive, SegmentedCloud segment, double tolerance, Op key) =>
+        from confidence in MeasureValue.OfSi(Dimension.Dimensionless, primitive.Confidence.Value, key)
+        from residual in MeasureValue.OfSi(Dimension.Dimensionless, segment.Residual, key)
+        from inliers in MeasureValue.OfSi(Dimension.Dimensionless, segment.Inliers, key)
+        from total in MeasureValue.OfSi(Dimension.Dimensionless, segment.Total, key)
+        from asprs in MeasureValue.OfSi(Dimension.Dimensionless, segment.DominantClass, key)
         let bag = new PropertyBag(ReconstructionRows.Set, Map<PropertyName, PropertyValue>(
             (ReconstructionRows.FitConfidence,  new PropertyValue.Measure(confidence)),
             (ReconstructionRows.Residual,       new PropertyValue.Measure(residual)),
@@ -462,19 +488,19 @@ public sealed class ReconstructionProjector(Seq<SegmentedCloud> segments, Recons
             (ReconstructionRows.SourceSegment,  new PropertyValue.Text(segment.SegmentId.ToString(CultureInfo.InvariantCulture))),
             (ReconstructionRows.SourceCloud,    new PropertyValue.Text(segment.Capture.Value.ToString("X32", CultureInfo.InvariantCulture))),
             (ReconstructionRows.ReconstructionRun, new PropertyValue.Text(primitive.Key.Value.ToString("X32", CultureInfo.InvariantCulture)))),
-            InheritanceMode.OccurrenceWins, PropertySource.Derived)
-        let probe = new Node.PropertySet(NodeId.Content([]), bag)
-        select probe with { Id = NodeId.Content(probe.ToCanonicalBytes(tolerance).Span) };
+            InheritanceMode.OccurrenceWins, EvidenceGrade.Derived)
+        let probe = new Node.PropertySet(NodeId.Of(new NodeSeed.Placement()), bag)
+        select probe with { Id = NodeId.Of(new NodeSeed.Content(probe, tolerance)) };
 }
 ```
 
 ## [03]-[LAS_INGEST]
 
 - Owner: `LasCloud` the decoded point carrier — position set (each `Position` a `MathNet.Numerics.LinearAlgebra.Vector<double>` the kernel registration and Compute dense-LA substrate consume without a re-wrap), the per-point ASPRS `Classifications` the segmentation reduces to the `[02]-[RECONSTRUCTION]` `SegmentedCloud.DominantClass` hint, the unit-normalized `Colors` lane a colour-bearing point format carries, and the header receipt facts (`ClassHistogram`, `CountsByReturn`, extrema, integer-grid `Scale`/`Offset`, `PointFormat`, CRS WKT, `CaptureLineage`, count, `Instant`); `CloudLevel` one decimated detail band over that carrier — retained indices, measured point count, meshopt cull sphere, per-level content key; `LasCompression` the `[SmartEnum<string>]` discriminant; `LasIngest` the dual-engine decode fold decoding raw `.las`/`.laz` bytes into the `LasCloud` the kernel registration/segmentation consume AND drawing that carrier's progressive-detail pyramid — `Themis.Las` owns the uncompressed codec, `Unofficial.laszip.netstandard` the compressed codec, `Alimer.Bindings.MeshOptimizer` the point decimation and the sphere bound, the kernel owns the fit; this owner re-mints none.
-- Entry: `LasIngest.Decode(ReadOnlyMemory<byte> bytes, Instant at, Op key)` dispatches on `LasCompression.Sniff` (the offset-104 public-header byte whose high bit marks LASzip compression), routing the uncompressed leg through `ReadLas` and the compressed leg through `ReadLaz`; `LasIngest.Pyramid(LasCloud cloud, InterchangePolicy policy, Op key)` draws the detail bands over the `format#FORMAT_AXIS`-neighbouring `export#EXPORT_RAIL` `InterchangePolicy.LodRatios` schedule the mesh pyramid reads, weighting the draw by the `AttributeWeights` `base_color` row so a facade capture keeps its material boundaries; `Fin<T>` traps a malformed header, an unreadable archive, or a degenerate decimation into `Model/faults#FAULT_BAND` `BimFault.CodecReject` lifted BARE through the `Try.lift` funnel, and a capture whose point count exceeds the int-domain decimator into `BimFault.CapabilityMiss` before any narrowing, the `Op`-keyed case IS the `Error`, never a `.ToError()` hop.
+- Entry: `LasIngest.Decode(ReadOnlyMemory<byte> bytes, Instant at, Op key)` dispatches on `LasCompression.Sniff` (the offset-104 public-header byte whose high bit marks LASzip compression), routing the uncompressed leg through `ReadLas` and the compressed leg through `ReadLaz`; `LasIngest.Pyramid(LasCloud cloud, InterchangePolicy policy, Op key)` draws the detail bands over the `format#FORMAT_AXIS`-neighbouring `export#EXPORT_RAIL` `InterchangePolicy.LodRatios` schedule the mesh pyramid reads, weighting the draw by the `AttributeWeights` `base_color` row so a facade capture keeps its material boundaries; `Fin<T>` traps a malformed header, an unreadable archive, or a degenerate decimation into `Model/faults#FAULT_BAND` their original captured `Error` through `Op.Catch`, and a capture whose point count exceeds the int-domain decimator into `BimFault.Refused` with `BimReason.Capability` before any narrowing, the `Op`-keyed case IS the `Error`, never a `.ToError()` hop.
 - Auto: `Sniff` selects the engine from the compression marker WITHOUT a full open; `ReadLas` streams the `Themis.Las` `LasReader` over one temp path (byte admission is path-bound — the one shipped `AsyncStreamHandler` is path-constructed), and `ReadLaz` folds the `laszip` decoder over the in-memory stream gating each non-zero C-API status through `Check`; both mask the classification format-correctly (formats 0-5 strip the flag bits `& 0x1F`, formats 6-10 keep the full class byte), fill the `Colors` lane on the colour-bearing formats alone (2/3/5/7/8/10, the 16-bit channel unit-normalized; every other format keeps the typed EMPTY lane rather than a black cloud a colour-weighted draw reads as uniform), read the header receipt facts and the record-`2112` OGC WKT CRS, and assemble one `LasCloud` whose lineage is the kernel `XxHash128` over the raw bytes through the seam `CanonicalWriter` and whose `ClassHistogram` folds in one dense-array pass; `Pyramid` stages the float32 position lane ONCE (meshopt is a float kernel, the carrier a MathNet double the registration consumes) and folds each ratio through `Meshopt.SimplifyPoints`, keeping the RETAINED source indices rather than a copied point set and computing each band's `Meshopt.ComputeSphereBounds` cull sphere over the retained points alone, each level content-keyed off the cloud lineage so the tile pyramid addresses a capture's bands exactly as it addresses a mesh's; the per-point ASPRS classes feed the kernel segmentation reducing them to the per-segment modal `DominantClass`, and the CRS WKT feeds the app's `Header.Reference` `GeoReference` (`Semantics/georeference#GEO_PROJECTION` `ProjNET` leg) so a georeferenced capture lands in the canonical kernel frame.
 - Receipt: `LasCloud` is the decoded scan evidence — point/per-return counts, the `ClassHistogram` computed from the decoded class bytes (evidence the header cannot forge), header extrema and quantization, point-data-record format, colour-lane occupancy, and CRS WKT presence; the `CaptureLineage` over the source bytes joins the reconstructed model back to its capture — the `Pset_Reconstruction` `SourceCloud` row publishes THAT key, so the `Review/diff#MODEL_DIFF` federation diff and reality-capture playback re-fetch the exact LAS/LAZ through a join that closes, where the parameter-derived run key opens one nothing answers. `CloudLevel` is the per-band draw evidence — the MEASURED retained count (never the requested target, which the decimator may undershoot on a sparse capture), the cull sphere a client selects on, and the content key it streams by.
-- Packages: `Themis.Las` (the MIT pure-managed uncompressed ASPRS LAS reader over `MathNet.Numerics`), `Unofficial.laszip.netstandard` (the LGPL-2.1 separate-assembly pure-managed LASzip codec — `.laz` arithmetic decode, selective-channel decompression, the `.lax` spatial-index bbox query), `Alimer.Bindings.MeshOptimizer` (the colour-weighted point decimation and the sphere bound), `Rasm.Element` (the seam `Projection/address#CANONICAL_WRITER` `CanonicalWriter`), `Rasm` (the kernel `Domain.ContentHash`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime.
+- Packages: `Themis.Las` (the MIT pure-managed uncompressed ASPRS LAS reader over `MathNet.Numerics`), `Unofficial.laszip.netstandard` (the LGPL-2.1 separate-assembly pure-managed LASzip codec — `.laz` arithmetic decode, selective-channel decompression, the `.lax` spatial-index bbox query), `Alimer.Bindings.MeshOptimizer` (the colour-weighted point decimation and the sphere bound), `Rasm` (the kernel `Domain.ContentHash` and the `Rasm/Domain/identity#CONTENT_KEY` `CanonicalWriter`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime.
 - Growth: a new ASPRS point data record format is one `Themis.Las` `PointTypeMap` row (formats 0-10 share one reader, never a per-format reader family); a compression state is one `LasCompression` row dispatched by `Sniff`; a per-point facet (intensity, return index, GPS time, NIR) is one column the `LasPoint` facet set already carries, the `LasCloud.PointFormat` receipt column announcing which facets a capture holds without a re-decode; a new detail band is one ratio on the shared `InterchangePolicy.LodRatios` column and a new decimation weight one `AttributeWeights` row, both the same policy the mesh pyramid reads — never a cloud-local schedule; a tiled ingest enters through the `laszip` `.lax` `inside_rectangle` windowed path when an index exists; never a re-minted point-cloud decoder, never a hand-rolled point decimator, and never a second hashing scheme over the LAS/LAZ bytes.
 - Boundary: `Themis.Las` (`LasReader`/`LasPoint`/`ILasHeader`/`LasVariableLengthRecord`) owns the uncompressed stream and the `laszip` C-API codec the compressed stream, `LasPoint.Position`/`get_coordinates` lifting into the one `MathNet.Numerics.LinearAlgebra.Vector<double>` the kernel registration consumes with no re-wrap, never a hand-rolled LAS/LAZ reader; the LGPL-2.1 `Unofficial.laszip.netstandard` is referenced as a SEPARATE assembly, never ILMerged, so the in-Rhino plugin ALC firebreak holds; `LasIngest` decodes and DRAWS and never fits, registration and segmentation staying the kernel's by reference — `Meshopt.SimplifyPoints` owns the colour-weighted decimation and `Meshopt.ComputeSphereBounds` the cull sphere, so a hand-rolled voxel thin, an octree decimator, or a hand-computed bounding sphere beside them is the deleted form, and a level carrying no bound is a residency band with no selection criterion; the CRS WKT VLR feeds the app's `GeoReference` (`Semantics/georeference#GEO_PROJECTION` `ProjNET` leg), never a codec-local reprojection; the source-cloud content key composes the kernel `Rasm.Domain.ContentHash` seed-zero `XxHash128`, never a second hasher or the upper-stratum `Rasm.Compute` interchange owner; the decoded `LasPoint`/`laszip_point` types never leak past this fold — internal code holds the canonical `LasCloud`/`SegmentedCloud` per the boundary-mapping law.
 
@@ -560,13 +586,16 @@ public static class LasIngest {
     // which one served it. This is the FGB Packed-R-tree filter posture the vector ingest already holds, projected
     // onto the point cloud, and it closes the declared tiled-ingest growth row rather than opening a second entry.
     public static Fin<LasCloud> Decode(ReadOnlyMemory<byte> bytes, Instant at, Op key, Option<CloudWindow> window = default) =>
-        LasCompression.Sniff(bytes.Span) is var codec && codec == LasCompression.Compressed
+        Decoded(LasCompression.Sniff(bytes.Span), bytes, window, at, key);
+
+    static Fin<LasCloud> Decoded(LasCompression codec, ReadOnlyMemory<byte> bytes, Option<CloudWindow> window, Instant at, Op key) =>
+        codec == LasCompression.Compressed
             ? Trap(codec, key, () => ReadLaz(bytes, window, at))
-            : Trap(codec, key, () => ReadLas(bytes, window, at));
+            : Trap(codec, key, () => ReadLas(bytes, window, at, key)).Bind(static read => read);
 
     // Codec legs are SUBJECTS on the one roster row, so both engines grep under one fixed prefix.
-    static Fin<LasCloud> Trap(LasCompression codec, Op key, Func<LasCloud> read) =>
-        Try.lift(read).Run().MapFail(error => (Error)Detail.CodecDecode.At(key, codec.Key, error.Message));
+    static Fin<T> Trap<T>(LasCompression codec, Op key, Func<T> read) =>
+        key.Catch(read);
 
     // Pyramid draws the cloud's detail bands — point-set twin of the export#BIM_LOD mesh pyramid over the SAME
     // InterchangePolicy.LodRatios schedule, so a streaming budget tuned for meshes tunes captures with no second
@@ -577,9 +606,8 @@ public static class LasIngest {
     // that lie. Gating here proves the narrowing inside Levels rather than assuming it.
     public static Fin<Seq<CloudLevel>> Pyramid(LasCloud cloud, InterchangePolicy policy, Op key) =>
         cloud.PointCount > int.MaxValue
-            ? Fin.Fail<Seq<CloudLevel>>(Detail.CloudExtent.At(key, cloud.PointCount.ToString(CultureInfo.InvariantCulture)))
-            : Try.lift(() => Levels(cloud, policy, (int)cloud.PointCount)).Run()
-                .MapFail(error => (Error)Detail.CloudDecimate.At(key, error.Message));
+            ? Fin.Fail<Seq<CloudLevel>>(new BimFault.Refused(key, BimScope.Reconstruct, BimReason.Capability, string.Join(':', new object?[] { "cloud-extent", cloud.PointCount.ToString(CultureInfo.InvariantCulture) })))
+            : key.Catch(() => Levels(cloud, policy, (int)cloud.PointCount));
 
     // meshopt is a float32 kernel and the decoded carrier holds the MathNet double vector the kernel registration
     // consumes, so the flat lane stages ONCE here and every level reads it — a second float copy parked on LasCloud
@@ -620,15 +648,19 @@ public static class LasIngest {
         var drawn = new float[indices.Length * 3];
         for (int i = 0; i < indices.Length; i++) { staged.Positions.AsSpan((int)indices[i] * 3, 3).CopyTo(drawn.AsSpan(i * 3, 3)); }
         return new CloudLevel(level, ratio, indices.Length, indices, Meshopt.ComputeSphereBounds(drawn, stride),
-            ContentHash.Of(new CanonicalWriter(policy.Tolerance)
-                .String($"cloud-lod{level}").U128(cloud.Lineage.Value).Double(ratio)
-                .Raw(MemoryMarshal.AsBytes(indices.AsSpan())).ToBytes().Span));
+            ContentAddress.Of((level, cloud, ratio, indices), policy.Distance.Value, static (s, writer) => writer
+                .String($"cloud-lod{s.level}").U128(s.cloud.Lineage.Value).Double(s.ratio)
+                .Raw(MemoryMarshal.AsBytes(s.indices.AsSpan()))).Value);
     }
 
     // laszip C-API signals failure by a NON-ZERO int status (get_error carries the message), never an exception, so
-    // every status is gated here and a non-zero lifts the message into the Trap funnel that MapFails it to
-    // BimFault.CodecReject — a raw status code never branches domain logic and a malformed LAZ never reads garbage past a
-    // failed open/read. The Themis uncompressed leg needs no analog: its managed reader throws, which Try.lift catches.
+    // every status is gated here and a non-zero lifts through the Trap's Op.Catch while retaining the IOException;
+    // a raw status code never branches domain logic and a malformed LAZ never reads garbage past a failed open/read.
+    // The Themis uncompressed leg needs no analog: its managed reader throws into the same capture boundary.
+    // NAMED EXEMPTION: this is the ONE P/Invoke status-to-rail adapter on the page and it stays an adapter. Railing it
+    // would thread Fin through roughly a dozen sequential C-API calls inside a bracket-and-loop body whose release
+    // order the rail cannot express, and every one of those statuses is the LIBRARY's answer rather than a domain
+    // comparison — which is exactly what separates it from the truncation guard above, now railed.
     static void Check(laszip codec, int status) {
         if (status != 0) { throw new IOException(codec.get_error()); }
     }
@@ -637,12 +669,17 @@ public static class LasIngest {
     // per-point-allocating GetNextPoint() is the deleted form. LasPoint.Update MUTATES the one Position vector IN
     // PLACE (Position[0..2] scale+offset writes on the same instance), so each collected position detaches via
     // Clone() — one fresh MathNet vector per point; storing point.Position bare aliases every slot onto the last
-    // decoded point. The byte admission span-writes one temp path (no whole-buffer ToArray copy) because the
+    // decoded point. NAMED EXEMPTION for that per-point mint: the SEAM carrier is Vector<double> (the kernel
+    // registration and the Compute dense-LA substrate consume it unwrapped), so a TensorPrimitives span fold would
+    // have to re-wrap every triple back into a Vector<double> at the seam — the same N allocations plus a copy —
+    // and there is no arithmetic here to vectorize, only a detaching copy the reader's mutate-in-place contract
+    // forces. The exemption retires the day the seam carrier becomes a lane arena. The byte admission span-writes one temp path (no whole-buffer ToArray copy) because the
     // package's one shipped IStreamHandler (AsyncStreamHandler) is path-ctor'd; LasReader(IStreamHandler) is the
     // stream growth seam. The ILasHeader carries the receipt facts: extrema, scale/offset, counts by return, point
-    // format. A body shorter than the header count throws into the Trap funnel — a truncated capture never yields a
-    // null-holed point buffer.
-    static LasCloud ReadLas(ReadOnlyMemory<byte> bytes, Option<CloudWindow> window, Instant at) {
+    // format. Truncation is a DOMAIN guard, not a package raise: the archive body being shorter than the header
+    // count is this rail's own comparison, so it rails a named row carrying both counts instead of the
+    // string-encoded IOException the Trap funnel could only re-emit as an opaque message.
+    static Fin<LasCloud> ReadLas(ReadOnlyMemory<byte> bytes, Option<CloudWindow> window, Instant at, Op key) {
         string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.las");
         using (FileStream sink = File.Create(path)) { sink.Write(bytes.Span); }
         try {
@@ -674,15 +711,16 @@ public static class LasIngest {
                 }
                 read++;
             }
-            if (scanned < reader.PointCount) { throw new IOException($"las-truncated:{scanned}:{reader.PointCount}"); }
             Option<string> crs = reader.VLRs.AsIterable()
                 .Filter(static vlr => vlr.RecordID == LasVariableLengthRecord.ProjectionRecordID).Head
                 .Map(static vlr => Encoding.UTF8.GetString(vlr.Data).TrimEnd('\0'));
             ILasHeader h = reader.Header;
-            return Assemble(bytes, positions, classes, colors, crs, read, h.NumPointRecordsByReturn,
-                new Vector3(h.MinX, h.MinY, h.MinZ), new Vector3(h.MaxX, h.MaxY, h.MaxZ),
-                new Vector3(h.ScaleX, h.ScaleY, h.ScaleZ), new Vector3(h.OriginX, h.OriginY, h.OriginZ),
-                h.PointDataFormat, at);
+            return scanned < reader.PointCount
+                ? Fin.Fail<LasCloud>(new BimFault.Refused(key, BimScope.Reconstruct, BimReason.Rejected, string.Join(':', new object?[] { "cloud-truncated", scanned.ToString(CultureInfo.InvariantCulture), reader.PointCount.ToString(CultureInfo.InvariantCulture) })))
+                : Fin.Succ(Assemble(bytes, positions, classes, colors, crs, read, h.NumPointRecordsByReturn,
+                    new Vector3(h.MinX, h.MinY, h.MinZ), new Vector3(h.MaxX, h.MaxY, h.MaxZ),
+                    new Vector3(h.ScaleX, h.ScaleY, h.ScaleZ), new Vector3(h.OriginX, h.OriginY, h.OriginZ),
+                    h.PointDataFormat, at));
         } finally { File.Delete(path); }
     }
 

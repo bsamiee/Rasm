@@ -1,113 +1,149 @@
 # [COMPUTE_ENERGY]
 
-Rasm.Compute owns the whole-building energy-simulation runner — the `Discipline.Energy` arm of the assessment rail. It builds an `NREL.OpenStudio` `Model` in-process from the concrete `Rasm.Element` `ElementGraph` (spaces, bounding surfaces, layered opaque constructions, thermal zones), stamps the annual EnergyPlus run context (weather-file `SimulationControl`, a full-year `RunPeriod`, the attached `EpwFile`), conditions each occupied zone with ideal-air loads driven to policy dual setpoints and policy lighting/equipment gains so demand is the building-envelope-driven load, forward-translates to an IDF through `EnergyPlusForwardTranslator`, runs EnergyPlus as a subprocess over a parameterized binary-discovery boundary, and reads the result SQLite through `SqlFile`. A run publishes TWO outcomes off that one read: the typed `EnergyResult` rows carrying every magnitude on its own `(fuel × end-use × measure × scope)` axis point, and the summary `AssessmentResult` fact stream the assessment spine bands its EUI verdict from. Execution is one route axis — the `EnergyRoute` `[Union]` dispatches a local EnergyPlus subprocess (default row) or a Pollination cloud run — one entry, one `SqlFile` result read, provider variance as row data.
+Rasm.Compute owns the whole-building energy-simulation runner — the `Discipline.Energy` arm of the assessment rail. It builds an `NREL.OpenStudio` `Model` in-process from the concrete `Rasm.Element` `ElementGraph` (spaces, bounding surfaces, layered opaque constructions, thermal zones), stamps the annual EnergyPlus run context (weather-file `SimulationControl`, a full-year `RunPeriod`, the attached `EpwFile`), conditions each occupied zone with ideal-air loads driven to policy dual setpoints and policy lighting/equipment gains so demand is the building-envelope-driven load, forward-translates to an IDF through `EnergyPlusForwardTranslator`, runs EnergyPlus as a subprocess over a parameterized binary-discovery boundary, and reads the result SQLite through `SqlFile`. A run publishes TWO outcomes off that one read: the typed result rows carrying every magnitude on its own `(measure × fuel × end-use × scope)` axis point, and the summary `AssessmentResult` fact stream the assessment spine bands its EUI verdict from. Execution is one route axis — the `EnergyRoute` `[Union]` dispatches a local EnergyPlus subprocess (default row) or a Pollination cloud run — one entry, one `SqlFile` result read, provider variance as row data.
 
-OpenStudio (the SWIG SDK) builds the model and reads the results; it neither runs nor bundles the EnergyPlus binary, and its version fixes the EnergyPlus the toolchain must resolve. Every wrapper owns a native handle and is `IDisposable`, model mutation is single-threaded, and every load/get that can miss returns a SWIG `Optional<T>` lowered onto `Fin<T>`/`Option<T>` at the boundary. Compute admits `NREL.OpenStudio.macOS-arm64` for simulation, distinct from the `Rasm.Bim/Energy/exchange` exchange owner. Cloud runs consume the Bim-lowered HBJSON `EnergyArtifact`; its selected `eplusout.sql` result lands content-keyed through `AssessmentSink`, while unselected downloaded assets remain inside the bracketed scratch directory.
+OpenStudio (the SWIG SDK) builds the model and reads the results; it neither runs nor bundles the EnergyPlus binary, and its version fixes the EnergyPlus the toolchain must resolve. Every wrapper owns a native handle and is `IDisposable`, model mutation is single-threaded, and every load/get that can miss returns a SWIG `Optional<T>` lowered onto `Fin<T>`/`Option<T>` at the boundary. Compute admits `NREL.OpenStudio.macOS-arm64` for simulation, distinct from the `Rasm.Bim/Energy/exchange` exchange owner. Cloud runs consume the app-staged HBJSON model; its selected `eplusout.sql` result lands content-keyed through `AssessmentSink`, while unselected downloaded assets stay inside the leased scratch directory.
 
-Result vocabulary arrives settled from `Rasm.Bim/Energy/results#RESULTS_ADMISSION` and is COMPOSED here, never re-declared: `ResultFuel` × `ResultEndUse` are the two axes a magnitude is a point on, `ResultMeasure` carries the physics (`Annual`/`Peak`/`Intensity`/`UnmetHours`/`ComfortHours`), `ResultScope` names the granularity (`Building`/`Zone`/`Space`), and `EnergyResult.Of` is the admission gate every row mints through. Each row addresses the run by the `Rasm.Bim/Energy/exchange#ENERGY_EXCHANGE` `ArtifactKey` of the energy model the run CONSUMED — the translated IDF for a local run, the app-staged HBJSON for a cloud one — so the Bim admission joins a result set to its model with no parse and no shared store.
+Result vocabulary is TRANSCRIBED, not referenced: Compute holds no `Rasm.Bim` project reference, so the `Rasm.Bim/Energy/results#RESULTS_ADMISSION` axes cross as this page's own `[SmartEnum<string>]` rosters whose keys are the Bim owner's spellings verbatim. `ResultFuel` × `ResultEndUse` are the two axes a magnitude is a point on, `ResultMeasure` carries the physics (`Annual`/`Peak`/`Intensity`/`UnmetHours`/`ComfortHours`), and `ResultScope` names the granularity (`Building`/`Zone`/`Space`). Every published magnitude lowers into the neutral `Analysis/dispatch#DISPATCH_WRITEBACK` `AssessmentRow`, whose ordered facet path IS the axis point, so the Bim admission reads the run's rows off the assessment content key with no parse, no shared store, and no strata edge this package's manifest does not carry.
 
 ## [01]-[INDEX]
 
-- [02]-[TOOLCHAIN_BOUNDARY]: `EnergyToolchain` resolves the EnergyPlus binary under a version lock and `EnergyPolicy` carries the simulation scenario.
-- [03]-[MODEL_BUILD]: `EnergySimulation.BuildModel` folds the graph into an in-process `OpenStudio.Model`, translates it to IDF across the SWIG boundary rails, and mints the run's `ArtifactKey` and zone roster.
-- [04]-[SIMULATION_RUN]: `EnergySimulation.RunLocal` drives the EnergyPlus subprocess and folds `eplusout.sql` into the typed `EnergyResult` rows beside the summary fact stream.
-- [05]-[CLOUD_ROUTE]: `EnergyRoute` selects the local subprocess or the Pollination arm, both converging on the one `ReadResults` fold.
+- [02]-[TOOLCHAIN_BOUNDARY]: `EnergyToolchain` resolves the EnergyPlus binary under a version lock over the `VersionProbe` union, and `EnergyPolicy` carries the simulation scenario.
+- [03]-[MODEL_BUILD]: `EnergySimulation.BuildModel` folds the graph into an in-process `OpenStudio.Model`, translates it to IDF across the SWIG boundary rails, and mints the run's model key and zone roster.
+- [04]-[SIMULATION_RUN]: `EnergySimulation.RunLocal` drives the EnergyPlus subprocess over the leased scratch capsule and folds `eplusout.sql` into the typed result rows beside the summary fact stream.
+- [05]-[CLOUD_ROUTE]: `EnergyRoute` selects the local subprocess or the Pollination arm under its published re-drive curve, both converging on the one `ReadResults` fold.
+- [06]-[GRAPH_READS]: `BoundaryReads` is the projected space-boundary edge owner both this runner and the circulation runner compose over `AnalysisReads`.
 
 ## [02]-[TOOLCHAIN_BOUNDARY]
 
-- Owner: `EnergyToolchain` the static EnergyPlus-executable resolver; `EnergyToolchainPolicy` the discovery policy (configured-directory override, platform executable name, expected-version datum read off the route); `EnergyPolicy` the simulation scenario the `AssessmentRequest.Energy` case carries (the `EnergyRoute` row, the toolchain, the EUI target, the dual setpoints, the lighting/equipment densities the model build reads, the `[04]`-owned `EnergyResultsPort` the typed rows egress through); the version-lock guard.
+- Owner: `EnergyToolchain` the static EnergyPlus-executable resolver; `SolverPin` the `<tool>-<version>` route-token grammar admitted once; `VersionProbe` the three-outcome self-report union; `EnergyToolchainPolicy` the discovery policy (configured-directory override, platform executable name, expected-version datum read off the route); `EnergyPolicy` the simulation scenario the `AssessmentRequest.Energy` case carries (the `EnergyRoute` row, the toolchain, the optional EUI target, the dual setpoints, the lighting/equipment densities the model build reads); the version-lock guard.
 - Entry: `public static Fin<string> Resolve(EnergyToolchainPolicy policy)` probes candidate paths in priority `ENERGYPLUS_EXE` → `OPENSTUDIO_ENERGYPLUSDIR` (a full OpenStudio installation's bundled binary, dev/CI) → the policy configured directory → the app's RID-native `runtimes/<rid>/native` fallback, returns the first existing executable, and rails `ComputeFault.ToolchainUnresolved` with the full probe trail when none resolves — discovery parameterized end to end, never a hardcoded path.
-- Auto: `VersionGate` checks the binary's self-reported `energyplus --version` banner against the policy expected version (the binary is the version authority, never its path) BEFORE any model build or subprocess launch — a REPORTED mismatch rails `ToolchainUnresolved`, so a version-skewed binary never consumes the translated IDF and never mints a result receipt; only an UNDETERMINED probe (a launch failure, an empty banner) degrades to a warning fact riding the result, so an air-gapped or sandboxed probe stays runnable while a real skew gates.
-- Packages: LanguageExt.Core, NREL.OpenStudio.macOS-arm64 (the SWIG SDK whose version the toolchain locks EnergyPlus to — it bundles no solver, and the resolver touches no OpenStudio API), BCL inbox (`Environment`/`Path`/`File`/`AppContext`/`RuntimeInformation` for the probes, `System.Diagnostics.Process` for the `--version` self-report).
+- Auto: `VersionGate` checks the binary's self-reported `energyplus --version` banner against the policy expected version BEFORE any model build or subprocess launch (the binary is the version authority, never its path) — a REPORTED mismatch rails `ToolchainUnresolved`, so a version-skewed binary never consumes the translated IDF and never mints a result receipt; only an UNDETERMINED probe (a launch failure, an empty banner) degrades to a warning fact riding the result, so an air-gapped or sandboxed probe stays runnable while a real skew gates.
+- Law: a version has THREE outcomes and they ride three cases, never one string. `VersionProbe` is `Reported(banner)` | `Unreported` | `Failed(Error)`, so the gate SWITCHES on the outcome the probe already determined rather than re-parsing a `"<version-…>"` marker it minted itself two frames earlier — a channel where a real banner that happened to contain the marker prefix read as a failure, and where the probe's own exception message was discarded before anyone could read it.
+- Law: the version comparison is EXACT over the parsed segment, never a substring of the raw banner. `"25.1"` is a substring of `"25.10"`, so a substring test admits a solver one minor release ahead of the IDF it is about to consume — the same defect the cloud arm's terminal gate already names and fixes by parsing before comparing.
+- Packages: LanguageExt.Core, NREL.OpenStudio.macOS-arm64 (the SWIG SDK whose version the toolchain locks EnergyPlus to — it bundles no solver, and the resolver touches no OpenStudio API), Thinktecture.Runtime.Extensions (`[Union]`, `[ObjectFactory<string>]`), Rasm (kernel — `Op`), BCL inbox (`Environment`/`Path`/`File`/`AppContext`/`RuntimeInformation` for the probes, `System.Diagnostics.Process` for the `--version` self-report).
 - Growth: a new discovery source is one probe in the chain; a new platform the executable-name column; a new simulation knob (ventilation rate, infiltration default, sized HVAC plant selector) one `EnergyPolicy` column; a new execution provider one `EnergyRoute` case on `[05]` — resolver widens by probe, scenario by column, provider by row, never a parallel discovery method per host.
-- Boundary: a shipped app owns its EnergyPlus provisioning (a bundled RID-native binary or `ENERGYPLUS_EXE`), so the last-resort probe resolves the app's own `runtimes/<rid>/native` location off `RuntimeInformation.RuntimeIdentifier` and never assumes a developer machine or a literal RID. Version-lock is load-bearing: OpenStudio forward-translates an IDF only the version-matched EnergyPlus consumes, so a dev box points `OPENSTUDIO_ENERGYPLUSDIR` at the OpenStudio-bundled solver, not a mismatched standalone; the resolver applies no version filter, so a mismatched binary IS selected — and `VersionGate` then REFUSES it before the run (`ToolchainUnresolved`), the expected-version policy governing execution rather than annotating it. The expected version has ONE owner — the `assessment#ROUTE_AXIS` `AssessmentRoute.EnergyPlus` `SolverVersion` pin the content key already folds — and this policy READS its version segment; a second literal here lets a bumped route re-key every assessment while the gate keeps admitting the old binary. Conditioning and internal-load defaults are explicit `EnergyPolicy` knobs, never ambient constants, so a consumer re-targets a climate or building type without an interior edit; an unresolved binary rails `ToolchainUnresolved`, never a default that fails opaquely.
+- Boundary: a shipped app owns its EnergyPlus provisioning (a bundled RID-native binary or `ENERGYPLUS_EXE`), so the last-resort probe resolves the app's own `runtimes/<rid>/native` location off `RuntimeInformation.RuntimeIdentifier` and never assumes a developer machine or a literal RID. Version-lock is load-bearing: OpenStudio forward-translates an IDF only the version-matched EnergyPlus consumes, so a dev box points `OPENSTUDIO_ENERGYPLUSDIR` at the OpenStudio-bundled solver, not a mismatched standalone; the resolver applies no version filter, so a mismatched binary IS selected — and `VersionGate` then REFUSES it before the run, the expected-version policy governing execution rather than annotating it. The expected version is DERIVED, never declared here: the `assessment#ROUTE_AXIS` `AssessmentRoute.EnergyPlus` `SolverVersion` pin is its one owner and `SolverPin` admits that token's `<tool>-<version>` grammar so a route whose pin lacks the tool prefix refuses instead of yielding a silently sliced garbage version. Because the value derives, it does NOT fold the assessment content key — `assessment#REQUEST_FAMILY` states that law at the key's own owner, and folding a derived spelling beside its source keys one fact twice. Conditioning and internal-load defaults are explicit `EnergyPolicy` knobs, never ambient constants, so a consumer re-targets a climate or building type without an interior edit; an unresolved binary rails `ToolchainUnresolved`, never a default that fails opaquely.
 
 ```csharp signature
-// --- [MODELS] ------------------------------------------------------------------------------
-public sealed record EnergyToolchainPolicy(Option<string> ConfiguredDir, string ExecutableName, string ExpectedVersion) {
-    // The route row's SolverVersion IS the pinned solver identity in `<tool>-<version>` form and it already folds the
-    // assessment content key, so the gate reads its version segment rather than restating the number. Only the tool
-    // prefix is spelled here — the grammar, not the pin.
-    const string SolverPrefix = "energyplus-";
+// --- [TYPES] -------------------------------------------------------------------------------
+// The route row's SolverVersion IS the pinned solver identity in `<tool>-<version>` form. Admitting the grammar
+// here is what makes the version segment a READ rather than an unchecked slice: a pin whose prefix a rename moved
+// once yielded a version string sliced out of the middle of a token, and every gate then compared against it.
+[ObjectFactory<string>]
+[ValueObject<string>]
+public sealed partial class SolverPin {
+    public const string EnergyPlusPrefix = "energyplus-";
 
+    // The version segment the gate compares — the pin minus its tool prefix, present by construction.
+    public string Version => Value[EnergyPlusPrefix.Length..];
+
+    static Validation<string> ValidateFactoryArguments(ref string value) =>
+        value.StartsWith(EnergyPlusPrefix, StringComparison.Ordinal) && value.Length > EnergyPlusPrefix.Length
+            ? Validation.Ok
+            : new ValidationError(message: $"<solver-pin-grammar:{value}>");
+}
+
+// A `--version` probe has THREE outcomes and each is a case: the binary answered, the binary ran but said nothing,
+// or the launch itself refused and carries its own cause. One string carrying all three forced the gate to re-parse
+// a marker prefix it had minted itself — a channel a real banner containing that prefix would have collided with,
+// and one that discarded the launch exception's message before any operator could read it.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record VersionProbe {
+    private VersionProbe() { }
+
+    public sealed record Reported(string Banner) : VersionProbe;
+    public sealed record Unreported : VersionProbe;
+    public sealed record Failed(Error Cause) : VersionProbe;
+
+    public static readonly VersionProbe Silent = new Unreported();
+}
+
+// --- [MODELS] ------------------------------------------------------------------------------
+public sealed record EnergyToolchainPolicy(Option<string> ConfiguredDir, string ExecutableName, SolverPin Pin) {
     public static readonly EnergyToolchainPolicy Canonical = new(
         ConfiguredDir: None,
         ExecutableName: OperatingSystem.IsWindows() ? "energyplus.exe" : "energyplus",
-        ExpectedVersion: AssessmentRoute.EnergyPlus.SolverVersion[SolverPrefix.Length..]);
+        Pin: SolverPin.Create(AssessmentRoute.EnergyPlus.SolverVersion));
 }
 
-// AssessmentRequest.Energy weather: the EPW the subprocess runs over (-w) and the OSM WeatherFile embeds.
+// AssessmentRequest.Energy weather: the EPW the subprocess runs over (-w) and the OSM WeatherFile embeds. Station
+// is the header's own site identity, folded into the assessment content key and STAMPED on the result, so a run
+// carries which climate record produced it rather than only which path happened to hold it.
 public sealed record WeatherRef(string EpwPath, string Station);
 
-// Simulation scenario carries route row, toolchain, EUI target (kWh/m2.a), conditioning, internal-load defaults the
-// build reads, and the typed-results egress. Every scalar column is a knob a consumer re-targets per climate/building-type
-// without touching the builder; EnergyRoute owns provider selection as deployment data, never a second entry.
-// Results is DELIBERATELY absent from the assessment#REQUEST_FAMILY energy CanonicalBytes arm, which enumerates the
-// scalar identity columns: where a result set LANDS is composition, not derivation, so binding a different consumer
-// must never re-key a run and force a metered re-simulation.
+// Simulation scenario carries route row, toolchain, EUI target, conditioning, and the internal-load defaults the
+// build reads. Every scalar column is a knob a consumer re-targets per climate/building-type without touching the
+// builder; EnergyRoute owns provider selection as deployment data, never a second entry. TargetEui is an Option
+// because a diagnostic run states NO acceptance target — the `0.0` sentinel it replaces was a finite number every
+// arithmetic arm accepted, and the ratio it produced banded a pass no check had run.
 public sealed record EnergyPolicy(
-    EnergyRoute Route, EnergyToolchainPolicy Toolchain, double TargetEui,
-    double HeatingSetpointC, double CoolingSetpointC, double LightingPowerWM2, double EquipmentPowerWM2,
-    EnergyResultsPort Results) {
+    EnergyRoute Route, EnergyToolchainPolicy Toolchain, Option<double> TargetEui,
+    double HeatingSetpointC, double CoolingSetpointC, double LightingPowerWM2, double EquipmentPowerWM2) {
     public static readonly EnergyPolicy Canonical = new(
-        EnergyRoute.Local, EnergyToolchainPolicy.Canonical, TargetEui: 0.0,
-        HeatingSetpointC: 20.0, CoolingSetpointC: 26.0, LightingPowerWM2: 8.0, EquipmentPowerWM2: 10.0,
-        EnergyResultsPort.Unbound);
+        EnergyRoute.Local, EnergyToolchainPolicy.Canonical, TargetEui: None,
+        HeatingSetpointC: 20.0, CoolingSetpointC: 26.0, LightingPowerWM2: 8.0, EquipmentPowerWM2: 10.0);
 }
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static class EnergyToolchain {
-    public static Fin<string> Resolve(EnergyToolchainPolicy policy) {
-        Option<string> resolved =
-            Probe(Environment.GetEnvironmentVariable("ENERGYPLUS_EXE"))
-            | Probe(Join(Environment.GetEnvironmentVariable("OPENSTUDIO_ENERGYPLUSDIR"), policy.ExecutableName))
-            | policy.ConfiguredDir.Bind(dir => Probe(Join(dir, policy.ExecutableName)))
-            | Probe(Join(BundledRuntimeDir(), policy.ExecutableName));
-        return resolved.ToFin(new ComputeFault.ToolchainUnresolved(
-            $"<energyplus-not-found:ENERGYPLUS_EXE->OPENSTUDIO_ENERGYPLUSDIR->configured({policy.ConfiguredDir})->bundled>"));
-    }
+    public static Fin<string> Resolve(EnergyToolchainPolicy policy) =>
+        (Probe(Environment.GetEnvironmentVariable("ENERGYPLUS_EXE"))
+         | Probe(Join(Environment.GetEnvironmentVariable("OPENSTUDIO_ENERGYPLUSDIR"), policy.ExecutableName))
+         | policy.ConfiguredDir.Bind(dir => Probe(Join(dir, policy.ExecutableName)))
+         | Probe(Join(BundledRuntimeDir(), policy.ExecutableName)))
+            .ToFin(new ComputeFault.ToolchainUnresolved(
+                $"<energyplus-not-found:ENERGYPLUS_EXE->OPENSTUDIO_ENERGYPLUSDIR->configured({policy.ConfiguredDir})->bundled>"));
 
-    // EnergyPlus binary is the version authority, not its path: self-reporting through `--version` makes the
-    // gate probes the executable rather than grepping the path (a version-named directory is no guarantee). The gate
-    // GOVERNS execution: a reported mismatch rails ToolchainUnresolved before any model build or run — a skewed solver
-    // never consumes the translated IDF — while an UNDETERMINED probe (launch failure, empty banner) degrades to a
-    // warning fact the result carries, so version evidence survives every admitted run.
-    public static Fin<Seq<AssessmentFact>> VersionGate(string executable, EnergyToolchainPolicy policy) {
-        string reported = ProbeVersion(executable);
-        return reported.Contains(policy.ExpectedVersion, StringComparison.Ordinal)
-            ? Fin.Succ(Seq<AssessmentFact>())
-            : reported.StartsWith("<version-", StringComparison.Ordinal)
-                ? Fin.Succ(Seq(AssessmentFact.Text("energyplus-version-warning", $"<undetermined:{reported}:{executable}>")))
+    // The gate GOVERNS execution: a reported mismatch rails before any model build or run — a skewed solver never
+    // consumes the translated IDF — while an undetermined probe degrades to a warning fact the result carries, so
+    // version evidence survives every admitted run. The comparison parses the banner's version token and demands
+    // EQUALITY: a substring test over the raw banner admits `25.10` against a `25.1` pin, which is a solver one
+    // minor release ahead of the IDF it is about to read.
+    public static Fin<Seq<AssessmentFact>> VersionGate(string executable, EnergyToolchainPolicy policy) =>
+        ProbeVersion(executable).Switch(
+            reported: banner => Banner(banner.Banner).Exists(token => StringComparer.Ordinal.Equals(token, policy.Pin.Version))
+                ? Fin.Succ(Seq<AssessmentFact>())
                 : Fin.Fail<Seq<AssessmentFact>>(new ComputeFault.ToolchainUnresolved(
-                    $"<energyplus-version-mismatch:expected={policy.ExpectedVersion}:reported={reported}:{executable}>"));
-    }
+                    $"<energyplus-version-mismatch:expected={policy.Pin.Version}:reported={banner.Banner}:{executable}>")),
+            unreported: _ => Fin.Succ(Seq(AssessmentFact.Text(VersionFact, $"<unreported:{executable}>"))),
+            failed: probe => Fin.Succ(Seq(AssessmentFact.Text(VersionFact, $"<probe-failed:{probe.Cause.Message}:{executable}>"))));
 
-    // Run `<executable> --version` and read the banner (Exemption: native subprocess); a launch failure yields a typed
-    // marker so the guard reports an undetermined version, never a false match. ArgumentList escapes the args, no shell.
-    static string ProbeVersion(string executable) {
-        try {
+    public const string VersionFact = "energyplus-version-warning";
+
+    // EnergyPlus prints `EnergyPlus, Version <version>-<sha>` — the version token is the whitespace-delimited field
+    // after the `Version` word, and its build suffix is dropped because a pin names a release, never a build.
+    static Option<string> Banner(string banner) =>
+        toSeq(banner.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .SkipWhile(static token => !StringComparer.OrdinalIgnoreCase.Equals(token, "Version"))
+            .Skip(1).Head
+            .Map(static token => token.Split('-', 2)[0]);
+
+    // Run `<executable> --version` and read the banner (Exemption: native subprocess). A launch failure is a CASE
+    // carrying its own cause, so the guard reports an undetermined version with the reason attached and never a
+    // false match. ArgumentList escapes the args, no shell. The two-stream drain law applies here as it does at the
+    // run entry: a redirected-but-undrained pipe fills its buffer and deadlocks the child against WaitForExit.
+    static VersionProbe ProbeVersion(string executable) =>
+        Op.Of(name: "energy.version-probe").Catch(() => {
             using Process probe = new() {
                 StartInfo = new ProcessStartInfo(executable) {
                     ArgumentList = { "--version" }, RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false,
                 },
             };
             probe.Start();
-            Task<string> stderrDrain = probe.StandardError.ReadToEndAsync();   // both pipes drain — the RunSubprocess two-stream law
+            Task<string> stderrDrain = probe.StandardError.ReadToEndAsync();
             string banner = probe.StandardOutput.ReadToEnd().Trim();
             probe.WaitForExit();
             _ = stderrDrain.GetAwaiter().GetResult();
-            return banner.Length > 0 ? banner : "<version-unreported>";
-        }
-        // Same guard set the run entry takes: a SWIG-adjacent launch raises across both hierarchies, and a probe that
-        // caught the narrower one reported an undetermined version on one host and escaped the Fin rail on another.
-        catch (Exception ex) when (ex is SystemException or ApplicationException) { return $"<version-probe-failed:{ex.GetType().Name}>"; }
-    }
+            return Fin.Succ(banner.Length > 0 ? (VersionProbe)new VersionProbe.Reported(banner) : VersionProbe.Silent);
+        }).Match(Succ: static probe => probe, Fail: static cause => new VersionProbe.Failed(cause));
 
     static Option<string> Probe(string? path) => path is not null && File.Exists(path) ? Some(path) : None;
     static string? Join(string? dir, string exe) => dir is null ? null : Path.Combine(dir, exe);
-    // Last-resort probe: the app's own RID-native runtimes/<rid>/native location (the .NET native-asset convention) —
-    // the RID reads off the running host, so one probe serves every publish target and a re-targeted build needs no edit.
-    // The OpenStudio SWIG package bundles no solver; a dev box resolves earlier via OPENSTUDIO_ENERGYPLUSDIR.
+
+    // Last-resort probe: the app's own RID-native runtimes/<rid>/native location (the .NET native-asset convention)
+    // — the RID reads off the running host, so one probe serves every publish target and a re-targeted build needs
+    // no edit. The OpenStudio SWIG package bundles no solver; a dev box resolves earlier via OPENSTUDIO_ENERGYPLUSDIR.
     static string BundledRuntimeDir() =>
         Path.Combine(AppContext.BaseDirectory, "runtimes", RuntimeInformation.RuntimeIdentifier, "native", "EnergyPlus");
 }
@@ -115,127 +151,261 @@ public static class EnergyToolchain {
 
 ## [03]-[MODEL_BUILD]
 
-- Owner: `EnergySimulation.BuildModel` the in-process OpenStudio model builder; `OsmBuild` the build receipt (IDF path, the run's `ArtifactKey`, the `ZoneTarget` roster, translator-and-skip log facts); `ZoneTarget` the per-zone result address (the tabular row name beside the `ResultScope` the zone's rows key on); `ConfigureRun`/`SetpointSchedules`/`InternalLoads`/`Condition`/`BuildSurface`/`BuildOpenings`/`BuildConstruction`/`Layer`/`Vertices` the model-object folds; the SWIG `Optional<T>`→`Fin<T>`, `IDisposable`, and `Path` boundary discipline.
-- Entry: `static Fin<OsmBuild> BuildModel(ElementGraph graph, AssessmentRequest.Energy request, GeometrySource geometry, string scratch, Instant at)` guards the weather EPW, builds a `Model`, stamps the annual context, folds each spatial node into a named `Space`+`ThermalZone` pair, each bounding surface into a `Surface` with its resolved footprint and layered `Construction`, each `Host`-attributed opening into a typed `SubSurface`, forward-translates to the IDF `Workspace`, and mints the saved IDF's `EnergyArtifact` address, `Fin<T>` lowering a missing weather/composition or a translator error onto `ComputeFault.AssessmentInputMissing`/`AnalysisFailed`.
+- Owner: `EnergySimulation.BuildModel` the in-process OpenStudio model builder; `OsmBuild` the build receipt (IDF path, the run's model content key, the `ZoneTarget` roster); `ZoneTarget` the per-zone result address and `ResultScope` the closed granularity union the zone roster decides; `ReadLog`/`Reads` the ONE fidelity ledger every note-bearing fold on this page reports through; `OpeningType` the closed sub-surface roster the foreign opening taxonomy admits through; `ConditioningClaim` the three-state occupancy claim; `GlazingWire` the Mapperly optical correspondence; `ConfigureRun`/`SetpointSchedules`/`InternalLoads`/`Condition`/`BuildSurface`/`BuildOpenings`/`BuildConstruction`/`Layer`/`Vertices` the model-object folds; the SWIG `Optional<T>`→`Fin<T>`, `IDisposable`, and `Path` boundary discipline.
+- Entry: `static WriterT<ReadLog, Fin, OsmBuild> BuildModel(ElementGraph graph, AssessmentRequest.Energy request, GeometrySource geometry, string scratch)` guards the weather EPW, builds a `Model`, stamps the annual context, folds each spatial node into a named `Space`+`ThermalZone` pair, each bounding surface into a `Surface` with its resolved footprint and layered `Construction`, each `Host`-attributed opening into a typed `SubSurface`, forward-translates to the IDF `Workspace`, and mints the saved IDF's content key, the rail lowering a missing weather/composition onto `AssessmentInputMissing` and a translator error onto `AnalysisFailed`.
+- Law: the fidelity ledger is ONE channel. Translator errors and warnings, per-surface skips, and the version-probe verdict all ride the `WriterT<ReadLog, Fin, A>` writer the aggregator's ply ledger already proved on this branch — four hand-threaded note channels, one of which THREW ITS CONTENT AWAY on the failure arm and handed the caller a count where the messages sat three lines above it.
 - Auto: every OpenStudio file API takes a SWIG `Path` (no `Path(string)` ctor), so paths route through `OpenStudioUtilitiesCore.toPath`; the unique `SimulationControl`/`RunPeriod` objects are gotten-or-created through the static `OpenStudioModelSimulation.get*(model)` module functions (neither carries a `(Model)` ctor, and the binding surfaces these as module functions, not `Model` instance methods); the construction fold discriminates on the seam property case — an all-`Optical` set builds `StandardGlazing` layers, any other builds `StandardOpaqueMaterial` through the 6-arg ctor (the shorter ctor forms backfill OpenStudio defaults for the omitted thermal columns — fabricated physics, the rejected admission) so the OSM U-value matches the `Analysis/aggregator` ISO 6946 fold, while absent or mixed compositions rail typed; every load/get that can miss returns a SWIG `Optional<T>` checked with `is_initialized()` before `get()`.
-- Packages: NREL.OpenStudio.macOS-arm64, LanguageExt.Core, NodaTime, Rasm.Bim (project — the `Energy/exchange#ENERGY_EXCHANGE` `EnergyArtifact`/`ArtifactKey` address and the `InterchangeFormat` row the translated IDF keys under), Rasm.Element (project — `ElementGraph`, `Node.Object`, `MaterialComposition`, `MaterialPropertySet.Thermal`/`.Mechanical`/`.Optical` via `MaterialPropertyAccess`, `MaterialLayer`, `NodeId`, `RepresentationContentHash`, `FootprintPolygon`, the host-neutral `Vector3` its ring carries, `GeometrySource` the analytical-surface resolution port), BCL inbox.
-- Growth: a new model object (HVAC plant, schedule set, daylighting control, infiltration object) is one fold over the matching nodes; conditioning widens from ideal-air to a sized plant by one `EnergyPolicy` selector; `SimpleGlazing` is the assembly-shorthand row one `Layer` arm adds when a whole-window U/SHGC case rides the seam — the build widens by fold and policy column, never a parallel builder per object type.
-- Boundary: the model is built from the seam graph for SIMULATION, distinct from the `Rasm.Bim` IFC↔OSM SEMANTIC exchange — Compute reads the graph's already-lowered spaces/surfaces/constructions, never re-authored from IFC. A bounding-surface node carries its OWN `MaterialComposition.LayerSet` — the `Rasm.Bim/Energy/projector#ENERGY_PROJECTOR` raise associates the layer set to the boundary surface itself, opaque plies through `MaterialPropertySet.Thermal` and glazing through `Optical` — so `BuildSurface` reads the surface node directly and NEVER joins to the bounded wall or slab; a join would read the host element's full assembly where the boundary carries the space-facing composition the simulation needs. Every OpenStudio wrapper is `IDisposable` and bracketed under `using` (the `Model`, translator, `Workspace`, `EpwFile`, every point/vector/log-vector, the result optionals) — a dropped handle leaks native memory the GC cannot reclaim; a model-object is owned BY the `Model` it is `new`-ed against and never independently disposed; model mutation is single-threaded so the build is one serialized unit, never a parallel fan-out; the `*PINVOKE` marshaling classes are never a call surface. Absent, non-layered, and mixed compositions rail `AssessmentInputMissing`; an OpenStudio default fabricates building-envelope conductance. Fenestration constructions land only on `SubSurface` openings — EnergyPlus rejects one on a base surface, which is why `BoundingSurfacesOf` excludes the `Host`-attributed opening boundaries. One `ThermalZone` per space makes the zone roster the SPACE roster, so a zone's results address the space's `GlobalId` wherever the graph carries one and fall back to the authored zone name otherwise — the finest identity the graph supports, never both scopes for one physical row.
+- Packages: NREL.OpenStudio.macOS-arm64, LanguageExt.Core (`Fin`/`Seq`/`Option`/`WriterT`/`Monoid`/`TraverseM`), Riok.Mapperly (the existing-target optical correspondence), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`), NodaTime, Rasm (kernel — `ContentHash.Of` the model address, `Op`), Rasm.Element (project — `ElementGraph`, `Node.Object`, `MaterialComposition`, `MaterialPropertySet.Thermal`/`.Mechanical`/`.Optical` via `MaterialPropertyAccess`, `MaterialLayer`, `NodeId`, `FootprintPolygon`, the host-neutral `Vector3` its ring carries, `GeometrySource` the analytical-surface resolution port), BCL inbox.
+- Growth: a new model object (HVAC plant, schedule set, daylighting control, infiltration object) is one fold over the matching nodes; conditioning widens from ideal-air to a sized plant by one `EnergyPolicy` selector; `SimpleGlazing` is the assembly-shorthand row one `Layer` arm adds when a whole-window U/SHGC case rides the seam; a new opening class is one `OpeningType` row — the build widens by fold, roster row, and policy column, never a parallel builder per object type.
+- Boundary: the model is built from the seam graph for SIMULATION, distinct from the `Rasm.Bim` IFC↔OSM SEMANTIC exchange — Compute reads the graph's already-lowered spaces/surfaces/constructions, never re-authored from IFC, and holds no `Rasm.Bim` reference to do it with. A bounding-surface node carries its OWN `MaterialComposition.LayerSet`, so `BuildSurface` reads the surface node directly and NEVER joins to the bounded wall or slab; a join would read the host element's full assembly where the boundary carries the space-facing composition the simulation needs. Every OpenStudio wrapper is `IDisposable` and bracketed under `using` (the `Model`, translator, `Workspace`, `EpwFile`, every point/vector/log-vector, the result optionals) — a dropped handle leaks native memory the GC cannot reclaim; a model-object is owned BY the `Model` it is `new`-ed against and never independently disposed; model mutation is single-threaded so the build is one serialized unit, never a parallel fan-out; the `*PINVOKE` marshaling classes are never a call surface. Absent, non-layered, and mixed compositions rail `AssessmentInputMissing`; an OpenStudio default fabricates building-envelope conductance. Fenestration constructions land only on `SubSurface` openings — EnergyPlus rejects one on a base surface, which is why `BoundaryReads.SurfacesOf` excludes the `Host`-attributed opening boundaries — and the sub-surface type is a ROSTER row over the foreign opening taxonomy with its host-tilt column, never a nested ternary over four bare strings. One `ThermalZone` per space makes the zone roster the SPACE roster, so a zone's results address the space's `GlobalId` wherever the graph carries one and fall back to the authored zone name otherwise — the finest identity the graph supports, never both scopes for one physical row. The model address is the CONTENT KEY of the bytes actually written: the saved IDF is the producer's own octets, which is the only run a key may claim.
 
 ```csharp signature
+// --- [TYPES] -------------------------------------------------------------------------------
+// The EnergyPlus sub-surface taxonomy as a roster over the seam classification code, with the host-tilt column the
+// validator demands: EnergyPlus checks a Skylight against its host's own surfaceType, so the tilt discriminant is
+// row DATA rather than a nested ternary buried in the opening fold, and a new opening class is one row.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class OpeningType {
+    public static readonly OpeningType FixedWindow = new("FixedWindow", classCode: "IfcWindow", roofForm: "Skylight");
+    public static readonly OpeningType Door = new("Door", classCode: "IfcDoor", roofForm: "Door");
+
+    public string ClassCode { get; }
+
+    // The form the same class takes on a roof host — EnergyPlus validates the sub-surface type against host tilt,
+    // so the host's own surfaceType() is the discriminant and the pair rides one row.
+    public string RoofForm { get; }
+
+    public const string RoofHost = "RoofCeiling";
+
+    // A class outside the roster is a DOOR by construction rather than by a fall-through: an opening the graph
+    // classified as something else still bounds the space and still needs a sub-surface, and refusing it would
+    // open the zone. The choice is stated on the roster, not implied by a ternary's else arm.
+    public static OpeningType Of(string classCode) =>
+        toSeq(Items).Find(row => StringComparer.Ordinal.Equals(row.ClassCode, classCode)).IfNone(Door);
+
+    public string On(string hostSurfaceType) =>
+        StringComparer.Ordinal.Equals(hostSurfaceType, RoofHost) ? RoofForm : Key;
+}
+
+// A space is conditioned, declared external, or SILENT — and the third is not the first. An unstated space enters
+// the EUI denominator and receives ideal-air conditioning under the same default the model needs to stay solvable,
+// but the claim it rode in on is now recoverable and lands as a fact, so a report can say how much of a building's
+// intensity denominator was assumed rather than declared. A `bool` made those two spaces the same space.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ConditioningClaim {
+    public static readonly ConditioningClaim Conditioned = new("conditioned", conditions: true);
+    public static readonly ConditioningClaim External = new("external", conditions: false);
+    public static readonly ConditioningClaim Unstated = new("unstated", conditions: true);
+
+    public bool Conditions { get; }
+}
+
+// ResultScope names the granularity a magnitude addresses, TRANSCRIBED from the Rasm.Bim
+// Energy/results#RESULTS_ADMISSION owner under the standing transcription ruling — arms, order, and payloads
+// belong to the admission and none is minted here, because a case this side publishes is a row the admission's
+// ResultTargets.Resolve holds no index column for. It SITS at this section because the zone roster decides which
+// arm a run's magnitude takes: a space's own external identity where the graph carries one, its authored zone
+// name otherwise. The case IS the
+// resolution modality, so a (kind, target) string pair is the deleted stringly form, and the facet path a result
+// row lands under reads both halves off the case rather than off a name it would have to parse.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ResultScope {
+    private ResultScope() { }
+
+    public sealed record Building : ResultScope;
+    public sealed record Zone(string ZoneName) : ResultScope;
+    public sealed record Space(string GlobalId) : ResultScope;
+
+    public static readonly ResultScope Whole = new Building();
+
+    public Seq<string> Facets => Switch(
+        building: static _ => Seq("building", string.Empty),
+        zone: static z => Seq("zone", z.ZoneName),
+        space: static s => Seq("space", s.GlobalId));
+}
+
+// The ONE fidelity ledger. Four hand-threaded note channels — the translator log, the per-space conditioning
+// claims, the version-probe verdict, and the unmapped-token stream — folded into one Monoid the WriterT carries,
+// so a note added at any depth reaches the result without a tuple growing another slot at every frame it passes
+// through, and no arm can throw its own channel away the way the translator log's fail arm once did.
+public readonly record struct ReadLog(Seq<AssessmentFact> Facts) : Monoid<ReadLog> {
+    public static ReadLog Empty => new(Seq<AssessmentFact>());
+    public static ReadLog Of(AssessmentFact fact) => new(Seq(fact));
+    public static ReadLog Of(Seq<AssessmentFact> facts) => new(facts);
+    public ReadLog Combine(ReadLog rhs) => new(Facts + rhs.Facts);
+}
+
+// The carrier vocabulary every note-bearing fold reports through: Fin refuses, ReadLog accumulates, and the two
+// compose without either channel knowing about the other — the aggregator's ply ledger, in this lane's monoid.
+public static class Reads {
+    public static WriterT<ReadLog, Fin, A> Held<A>(A value) => WriterT.pure<ReadLog, Fin, A>(value);
+    public static WriterT<ReadLog, Fin, A> Noting<A>(AssessmentFact fact, A value) => WriterT.write<ReadLog, Fin, A>(value, ReadLog.Of(fact));
+    public static WriterT<ReadLog, Fin, A> Writing<A>(Seq<AssessmentFact> facts, A value) => WriterT.write<ReadLog, Fin, A>(value, ReadLog.Of(facts));
+    public static WriterT<ReadLog, Fin, A> Lift<A>(Fin<A> rail) => WriterT.lift<ReadLog, Fin, A>(rail);
+    public static Fin<(A Value, ReadLog Log)> Run<A>(WriterT<ReadLog, Fin, A> writer) => writer.Run().As();
+}
+
 // --- [MODELS] ------------------------------------------------------------------------------
 // One zone's result address: Row is the tabular RowName the SQL store holds (EnergyPlus renders every zone name
-// UPPER-CASED there), Scope the Bim granularity its rows key on. The two spellings ride ONE row because they are the
+// UPPER-CASED there), Scope the granularity its rows key on. The two spellings ride ONE row because they are the
 // same zone read from two sides, and a second name table is where the SQL lookup and the published scope drift apart.
 public readonly record struct ZoneTarget(string Row, ResultScope Scope);
 
-// No live OpenStudio handle escapes the boundary. Artifact addresses the TRANSLATED IDF — the energy model the run
-// consumes — so every published magnitude keys the document it was produced from; TranslatorLog folds the
-// forward-translate warnings and errors.
-public sealed record OsmBuild(string IdfPath, ArtifactKey Artifact, Seq<ZoneTarget> Zones, Seq<AssessmentFact> TranslatorLog);
+// No live OpenStudio handle escapes the boundary. Model is the CONTENT KEY of the translated IDF — the energy model
+// the run consumes — so every published magnitude keys the document it was produced from.
+public sealed record OsmBuild(string IdfPath, UInt128 Model, Seq<ZoneTarget> Zones);
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
+// The nine spectral fractions plus the conductivity are a MEMBER-BY-MEMBER correspondence between the seam optical
+// case and the OpenStudio glazing object, so the generated existing-target mapper owns it: nine hand setter calls
+// were nine places a renamed seam column compiled clean and silently stopped transferring.
+[Mapper]
+public static partial class GlazingWire {
+    [MapProperty(nameof(MaterialPropertySet.Optical.SolarTransmittance), nameof(OpenStudio.StandardGlazing.SolarTransmittanceatNormalIncidence))]
+    [MapProperty(nameof(MaterialPropertySet.Optical.SolarReflectanceFront), nameof(OpenStudio.StandardGlazing.FrontSideSolarReflectanceatNormalIncidence))]
+    [MapProperty(nameof(MaterialPropertySet.Optical.SolarReflectanceBack), nameof(OpenStudio.StandardGlazing.BackSideSolarReflectanceatNormalIncidence))]
+    [MapProperty(nameof(MaterialPropertySet.Optical.VisibleTransmittance), nameof(OpenStudio.StandardGlazing.VisibleTransmittanceatNormalIncidence))]
+    [MapProperty(nameof(MaterialPropertySet.Optical.VisibleReflectanceFront), nameof(OpenStudio.StandardGlazing.FrontSideVisibleReflectanceatNormalIncidence))]
+    [MapProperty(nameof(MaterialPropertySet.Optical.VisibleReflectanceBack), nameof(OpenStudio.StandardGlazing.BackSideVisibleReflectanceatNormalIncidence))]
+    [MapProperty(nameof(MaterialPropertySet.Optical.ThermalIrTransmittance), nameof(OpenStudio.StandardGlazing.InfraredTransmittanceatNormalIncidence))]
+    [MapProperty(nameof(MaterialPropertySet.Optical.ThermalIrEmissivityFront), nameof(OpenStudio.StandardGlazing.FrontSideInfraredHemisphericalEmissivity))]
+    [MapProperty(nameof(MaterialPropertySet.Optical.ThermalIrEmissivityBack), nameof(OpenStudio.StandardGlazing.BackSideInfraredHemisphericalEmissivity))]
+    public static partial void Update(MaterialPropertySet.Optical optical, [MappingTarget] OpenStudio.StandardGlazing glass);
+}
+
 public static partial class EnergySimulation {
-    // Energy SI dimension composed from the seam Dimension algebra (force x length); EUI divides by area. No hand-mapped
-    // kind; the magnitude coerces GJ->J through UnitsNet once (never a literal factor). EnergyPlus reports every value in GJ.
+    // Energy SI dimension composed from the seam Dimension algebra (force x length); EUI divides by area. No
+    // hand-mapped kind; the magnitude coerces GJ->J through UnitsNet once (never a literal factor). EnergyPlus
+    // reports every value in GJ.
     static readonly Dimension EnergyDim = Dimension.ForceDim.Multiply(Dimension.LengthDim);
     static readonly Dimension EuiDim = EnergyDim.Divide(Dimension.AreaDim);
     static double Joules(double gigajoules) => UnitsNet.Energy.FromGigajoules(gigajoules).Joules;
 
-    static Fin<OsmBuild> BuildModel(ElementGraph graph, AssessmentRequest.Energy request, GeometrySource geometry, string scratch, Instant at) {
+    static WriterT<ReadLog, Fin, OsmBuild> BuildModel(ElementGraph graph, AssessmentRequest.Energy request, GeometrySource geometry, string scratch) {
         if (!File.Exists(request.Weather.EpwPath)) {
-            return Fin.Fail<OsmBuild>(new ComputeFault.AssessmentInputMissing($"<energy-weather-missing:{request.Weather.EpwPath}>"));
+            return Reads.Lift(Fin.Fail<OsmBuild>(Missing(AssessmentInputReason.MeasureAbsent, request.Weather.EpwPath)));
         }
         using OpenStudio.Model model = new();
-        return ConfigureRun(model, request).Bind(_ => {
-            OpenStudio.SpaceType spaceType = InternalLoads(model, request.Policy);
-            (OpenStudio.ScheduleConstant Heating, OpenStudio.ScheduleConstant Cooling) setpoints = SetpointSchedules(model, request.Policy);
-            // The fold threads the zone roster BESIDE the notes: a zone named on one pass and addressed on another is
-            // exactly how a per-zone result lands against the wrong space, so the name and its scope are minted together.
-            Fin<(Seq<AssessmentFact> Notes, Seq<ZoneTarget> Zones)> built = graph.SpacesOf(request.Targets).Fold(
-                Fin.Succ((Notes: Seq<AssessmentFact>(), Zones: Seq<ZoneTarget>())),
-                (spaces, space) => spaces.Bind(state => {
-                    OpenStudio.Space osSpace = new(model);
-                    osSpace.setName(space.Name);
-                    osSpace.setSpaceType(spaceType);
-                    OpenStudio.ThermalZone zone = new(model);
-                    osSpace.setThermalZone(zone);
-                    // Name the zone off the space NODE id, never its authored name: two spaces may share a label, and
-                    // OpenStudio silently uniquifies a collision — so the assigned name is read BACK rather than assumed.
-                    zone.setName($"{ZonePrefix}{space.Id.Value}");
-                    ZoneTarget target = new(
-                        zone.nameString().ToUpperInvariant(),
-                        space.ExternalId.Match(
-                            Some: static gid => (ResultScope)new ResultScope.Space(gid),
-                            None: () => new ResultScope.Zone(zone.nameString())));
-                    if (graph.IsConditioned(space.Id)) { Condition(model, zone, setpoints.Heating, setpoints.Cooling); }
-                    return graph.BoundingSurfacesOf(space.Id).Fold(
-                        Fin.Succ(state with { Zones = state.Zones.Add(target) }),
-                        (surfaces, surface) => surfaces.Bind(current =>
-                            BuildSurface(model, osSpace, space.Id, surface, graph, geometry)
-                                .Map(next => current with { Notes = current.Notes + next })));
-                }));
-            return built.Bind(state => {
-                using OpenStudio.EnergyPlusForwardTranslator translator = new();
-                using OpenStudio.Workspace idf = translator.translateModel(model);
-                using OpenStudio.LogMessageVector errors = translator.errors();
-                using OpenStudio.LogMessageVector warnings = translator.warnings();
-                Seq<AssessmentFact> log = state.Notes
-                    + toSeq(Enumerable.Range(0, (int)errors.Count)).Map(i => AssessmentFact.Text($"osm-error-{i}", errors[i].logMessage()))
-                    + toSeq(Enumerable.Range(0, (int)warnings.Count)).Map(i => AssessmentFact.Text($"osm-warning-{i}", warnings[i].logMessage()));
-                if (errors.Count > 0) { return Fin.Fail<OsmBuild>(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<osm-forward-translate-errors:{errors.Count}>")); }
-                string idfPath = Path.Combine(scratch, "in.idf");
-                using OpenStudio.Path outPath = OpenStudio.OpenStudioUtilitiesCore.toPath(idfPath);
-                // Address the model the run CONSUMES, off the bytes actually written: the saved IDF is the producer's
-                // own octets, which is the only run the key may claim (the Bim producer-bytes law). Graph pedigree stays
-                // None — that column joins a Bim-LOWERED document, and the results join runs on the address alone.
-                return idf.save(outPath, overwrite: true)
-                    ? Fin.Succ(new OsmBuild(idfPath,
-                        EnergyArtifact.Of(InterchangeFormat.Idf, File.ReadAllBytes(idfPath), None, at).Address,
-                        state.Zones, log))
-                    : Fin.Fail<OsmBuild>(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Foreign, $"<osm-idf-save-failed:{idfPath}>"));
-            });
-        });
+        return from _ in Reads.Lift(ConfigureRun(model, request))
+               let spaceType = InternalLoads(model, request.Policy)
+               let setpoints = SetpointSchedules(model, request.Policy)
+               // The zone roster threads BESIDE the notes: a zone named on one pass and addressed on another is
+               // exactly how a per-zone result lands against the wrong space, so the name and its scope mint together.
+               from zones in graph.SpacesOf(request.Targets)
+                   .TraverseM(space => Zone(model, graph, geometry, space, spaceType, setpoints)).As()
+               from build in Translate(model, scratch)
+               select build with { Zones = zones };
     }
+
+    static WriterT<ReadLog, Fin, ZoneTarget> Zone(
+        OpenStudio.Model model, ElementGraph graph, GeometrySource geometry, Node.Object space,
+        OpenStudio.SpaceType spaceType, (OpenStudio.ScheduleConstant Heating, OpenStudio.ScheduleConstant Cooling) setpoints) {
+        OpenStudio.Space osSpace = new(model);
+        osSpace.setName(space.Name);
+        osSpace.setSpaceType(spaceType);
+        OpenStudio.ThermalZone zone = new(model);
+        osSpace.setThermalZone(zone);
+        // Name the zone off the space NODE id, never its authored name: two spaces may share a label, and
+        // OpenStudio silently uniquifies a collision — so the assigned name is read BACK rather than assumed.
+        zone.setName($"{ZonePrefix}{space.Id.Value}");
+        ZoneTarget target = new(
+            zone.nameString().ToUpperInvariant(),
+            space.ExternalId.Match(
+                Some: static gid => (ResultScope)new ResultScope.Space(gid),
+                None: () => new ResultScope.Zone(zone.nameString())));
+        ConditioningClaim claim = graph.ConditioningOf(space.Id);
+        if (claim.Conditions) { Condition(model, zone, setpoints.Heating, setpoints.Cooling); }
+        return from _ in Reads.Noting(AssessmentFact.Text($"{space.Id.Value}/conditioning", claim.Key), unit)
+               from surfaces in graph.SurfacesOf(space.Id)
+                   .TraverseM(surface => BuildSurface(model, osSpace, space.Id, surface, graph, geometry)).As()
+               select target;
+    }
+
+    // Forward-translate, fold every translator message into the ledger, then save. The messages ride the ledger on
+    // BOTH arms: the fail arm once returned a COUNT while the messages it was counting sat three lines above it,
+    // which left an operator with the number of errors and none of their text.
+    static WriterT<ReadLog, Fin, OsmBuild> Translate(OpenStudio.Model model, string scratch) {
+        using OpenStudio.EnergyPlusForwardTranslator translator = new();
+        using OpenStudio.Workspace idf = translator.translateModel(model);
+        using OpenStudio.LogMessageVector errors = translator.errors();
+        using OpenStudio.LogMessageVector warnings = translator.warnings();
+        Seq<AssessmentFact> log = Messages("osm-error", errors) + Messages("osm-warning", warnings);
+        return from _ in Reads.Writing(log, unit)
+               from admitted in Reads.Lift(errors.Count > 0
+                   ? Fin.Fail<Unit>(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<osm-forward-translate-errors:{errors.Count}>"))
+                   : Fin.Succ(unit))
+               let idfPath = Path.Combine(scratch, "in.idf")
+               from saved in Reads.Lift(Save(idf, idfPath))
+               select new OsmBuild(idfPath, saved, Seq<ZoneTarget>());
+    }
+
+    static Fin<UInt128> Save(OpenStudio.Workspace idf, string idfPath) {
+        using OpenStudio.Path outPath = OpenStudio.OpenStudioUtilitiesCore.toPath(idfPath);
+        // Address the model the run CONSUMES, off the bytes actually written: the saved IDF is the producer's own
+        // octets, which is the only run the key may claim.
+        return idf.save(outPath, overwrite: true)
+            ? Fin.Succ(ContentHash.Of(File.ReadAllBytes(idfPath)))
+            : Fin.Fail<UInt128>(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Foreign, $"<osm-idf-save-failed:{idfPath}>"));
+    }
+
+    // ONE indexed walk over both message vectors, parameterized on the prefix — the two identical Range walks it
+    // replaces differed only in the vector and the fact-name stem. Exemption: the SWIG vector indexer walk.
+    static Seq<AssessmentFact> Messages(string prefix, OpenStudio.LogMessageVector messages) =>
+        toSeq(Enumerable.Range(0, checked((int)messages.Count)))
+            .Map(i => AssessmentFact.Text($"{prefix}-{i}", messages[i].logMessage()));
 
     // Zone names carry the space node id so the SQL row name resolves back to one space with no authored-label join.
     const string ZonePrefix = "rasm-zone-";
 
-    // Annual context runs the weather-file period through SimulationControl, spans the year through RunPeriod, and uses EpwFile as the
-    // design context (-w is the authoritative run weather), FullExterior solar distribution avoids the interior variants'
-    // zone-convexity requirement on imported geometry. SimulationControl/RunPeriod/OutputTableSummaryReports have no
-    // (Model) ctor — the binding surfaces their get-or-create as static OpenStudioModelSimulation.get*(model) functions.
+    // Annual context runs the weather-file period through SimulationControl, spans the year through RunPeriod, and
+    // uses EpwFile as the design context (-w is the authoritative run weather); FullExterior solar distribution
+    // avoids the interior variants' zone-convexity requirement on imported geometry. SimulationControl/RunPeriod/
+    // OutputTableSummaryReports have no (Model) ctor — the binding surfaces their get-or-create as static
+    // OpenStudioModelSimulation.get*(model) functions.
     static Fin<Unit> ConfigureRun(OpenStudio.Model model, AssessmentRequest.Energy request) {
         OpenStudio.SimulationControl control = OpenStudio.OpenStudioModelSimulation.getSimulationControl(model);
         control.setRunSimulationforWeatherFileRunPeriods(true);
-        control.setSolarDistribution("FullExterior");
+        control.setSolarDistribution(SolarDistribution);
         OpenStudio.RunPeriod run = OpenStudio.OpenStudioModelSimulation.getRunPeriod(model);
         run.setBeginMonth(1); run.setBeginDayOfMonth(1); run.setEndMonth(12); run.setEndDayOfMonth(31);
-        // Annual SqlFile readers depend on ABUPS and End-Uses reports, emitted only when AllSummary is
-        // requested — armed here (get-or-create, idempotent) so a result read never rides an ambient translator default.
-        OpenStudio.OpenStudioModelSimulation.getOutputTableSummaryReports(model).addSummaryReport("AllSummary");
+        // Annual SqlFile readers depend on ABUPS and End-Uses reports, emitted only when AllSummary is requested —
+        // armed here (get-or-create, idempotent) so a result read never rides an ambient translator default.
+        OpenStudio.OpenStudioModelSimulation.getOutputTableSummaryReports(model).addSummaryReport(SummaryReport);
         using OpenStudio.Path epwPath = OpenStudio.OpenStudioUtilitiesCore.toPath(request.Weather.EpwPath);
         using OpenStudio.EpwFile epw = new(epwPath);
         using OpenStudio.OptionalWeatherFile attached = OpenStudio.WeatherFile.setWeatherFile(model, epw);
         return attached.is_initialized()
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new ComputeFault.AssessmentInputMissing($"<energy-weather-attach-failed:{request.Weather.EpwPath}>"));
+            : Fin.Fail<Unit>(Missing(AssessmentInputReason.MeasureAbsent, request.Weather.EpwPath));
     }
 
-    // Constant heating/cooling schedules from the policy comfort band, one pair shared across every conditioned zone
-    // (model-owned); a ScheduleConstant IS a Schedule, so it admits to the dual-setpoint thermostat.
+    // The foreign vocabulary this lane crosses, rostered rather than inlined: each token is an OpenStudio or
+    // EnergyPlus enumerated value the binding takes as a bare string, so a typo compiles and fails at run time.
+    const string SolarDistribution = "FullExterior";
+    const string SummaryReport = "AllSummary";
+    const string HeatingScheduleName = "rasm-heating-setpoint";
+    const string CoolingScheduleName = "rasm-cooling-setpoint";
+    const string SpaceTypeName = "rasm-space-type";
+    const string GlazingSpectral = "SpectralAverage";
+    const string OpaqueRoughness = "MediumRough";
+
+    // Constant heating/cooling schedules from the policy comfort band, one pair shared across every conditioned
+    // zone (model-owned); a ScheduleConstant IS a Schedule, so it admits to the dual-setpoint thermostat.
     static (OpenStudio.ScheduleConstant Heating, OpenStudio.ScheduleConstant Cooling) SetpointSchedules(OpenStudio.Model model, EnergyPolicy policy) {
         OpenStudio.ScheduleConstant heating = new(model);
-        heating.setName("rasm-heating-setpoint");
+        heating.setName(HeatingScheduleName);
         heating.setValue(policy.HeatingSetpointC);
         OpenStudio.ScheduleConstant cooling = new(model);
-        cooling.setName("rasm-cooling-setpoint");
+        cooling.setName(CoolingScheduleName);
         cooling.setValue(policy.CoolingSetpointC);
         return (heating, cooling);
     }
 
-    // Ideal-air conditioning to the dual setpoints: the minimal envelope-study system, so demand is the envelope-driven
-    // load, never a free-floating zero — a sized HVAC plant is the growth axis one policy selector widens to.
+    // Ideal-air conditioning to the dual setpoints: the minimal envelope-study system, so demand is the
+    // envelope-driven load, never a free-floating zero — a sized HVAC plant is the growth axis one policy selector
+    // widens to.
     static void Condition(OpenStudio.Model model, OpenStudio.ThermalZone zone, OpenStudio.ScheduleConstant heating, OpenStudio.ScheduleConstant cooling) {
         zone.setUseIdealAirLoads(true);
         OpenStudio.ThermostatSetpointDualSetpoint thermostat = new(model);
@@ -244,72 +414,77 @@ public static partial class EnergySimulation {
         zone.setThermostatSetpointDualSetpoint(thermostat);
     }
 
-    // Policy internal gains as one SpaceType (lighting + equipment power density) on every space, so the EUI carries the
-    // plug+lighting load an envelope-only model omits — the densities are explicit policy knobs, not fabricated constants.
+    // Policy internal gains as one SpaceType (lighting + equipment power density) on every space, so the EUI
+    // carries the plug+lighting load an envelope-only model omits — the densities are explicit policy knobs.
     static OpenStudio.SpaceType InternalLoads(OpenStudio.Model model, EnergyPolicy policy) {
         OpenStudio.SpaceType spaceType = new(model);
-        spaceType.setName("rasm-space-type");
+        spaceType.setName(SpaceTypeName);
         spaceType.setLightingPowerPerFloorArea(policy.LightingPowerWM2);
         spaceType.setElectricEquipmentPowerPerFloorArea(policy.EquipmentPowerWM2);
         return spaceType;
     }
 
-    // Geometry and construction admission rails when a host or opening lacks required evidence; omitting either shape or
-    // material stack opens the zone or fabricates heat flow, invalidating every downstream energy total.
-    static Fin<Seq<AssessmentFact>> BuildSurface(OpenStudio.Model model, OpenStudio.Space space, NodeId spaceId, Node.Object surface, ElementGraph graph, GeometrySource geometry) =>
-        // Footprints resolve one hop by content key through `GeometrySource`; an absent decode rails because no legal
-        // `OpenStudio.Surface` can represent the boundary without its ring.
-        geometry.Footprint(surface.Representations)
-            .ToFin((Error)new ComputeFault.AssessmentInputMissing($"<osm-surface-footprint-unresolved:{surface.Id.Value}>"))
-            .Bind(footprint => {
-                using OpenStudio.Point3dVector vertices = Vertices(footprint);
-                OpenStudio.Surface osSurface = new(vertices, model);              // owned by the Model
-                osSurface.setSpace(space);
-                return graph.CompositionOf(surface.Id)
-                    .Bind(static composition => composition is MaterialComposition.LayerSet set ? Some(set) : None)
-                    .ToFin((Error)new ComputeFault.AssessmentInputMissing($"<osm-surface-layerset-unresolved:{surface.Id.Value}>"))
-                    .Bind(set => BuildConstruction(model, set, graph))
-                    .Bind(construction => {
-                        osSurface.setConstruction(construction);
-                        return BuildOpenings(model, osSurface, spaceId, surface.ExternalId.IfNone(surface.Name), graph, geometry);
-                    });
-            });
+    // Geometry and construction admission rails when a host or opening lacks required evidence; omitting either
+    // shape or material stack opens the zone or fabricates heat flow, invalidating every downstream energy total.
+    static WriterT<ReadLog, Fin, Unit> BuildSurface(OpenStudio.Model model, OpenStudio.Space space, NodeId spaceId, Node.Object surface, ElementGraph graph, GeometrySource geometry) =>
+        // Footprints resolve one hop by content key through GeometrySource; an absent decode rails because no legal
+        // OpenStudio.Surface can represent the boundary without its ring.
+        from footprint in Reads.Lift(geometry.Footprint(surface.Representations)
+            .ToFin(Missing(AssessmentInputReason.MeasureAbsent, surface.Id.Value)))
+        let osSurface = Seated(model, space, footprint)
+        from construction in Reads.Lift(graph.LayerSetOf(surface.Id).Bind(set => BuildConstruction(model, set, graph)))
+        let _ = Bind(osSurface, construction)
+        from openings in BuildOpenings(model, osSurface, spaceId, surface.ExternalId.IfNone(surface.Name), graph, geometry)
+        select unit;
 
-    // Host-attributed openings land as SubSurfaces on their host Surface — EnergyPlus accepts a fenestration construction
-    // only on a sub-surface (BoundingSurfacesOf excludes the opening edges). IfcWindow -> FixedWindow, or Skylight on a
-    // RoofCeiling host (EnergyPlus validates the type against host tilt, so the host's surfaceType() is the discriminant),
-    // else Door; the construction builds through the same BuildConstruction fold off the opening's composition.
-    static Fin<Seq<AssessmentFact>> BuildOpenings(OpenStudio.Model model, OpenStudio.Surface host, NodeId spaceId, string hostIdentifier, ElementGraph graph, GeometrySource geometry) =>
-        graph.OpeningsOf(spaceId, hostIdentifier).TraverseM(opening =>
-            geometry.Footprint(opening.Representations)
-                .ToFin((Error)new ComputeFault.AssessmentInputMissing($"<osm-opening-footprint-unresolved:{opening.Id.Value}>"))
-                .Bind(ring => {
-                    using OpenStudio.Point3dVector vertices = Vertices(ring);
-                    OpenStudio.SubSurface sub = new(vertices, model);             // owned by the Model
-                    sub.setSurface(host);
-                    sub.setSubSurfaceType(opening.Classification.Code == EnergyGraphReads.WindowClass
-                        ? (host.surfaceType() == "RoofCeiling" ? "Skylight" : "FixedWindow")
-                        : "Door");
-                    return graph.CompositionOf(opening.Id)
-                        .Bind(static composition => composition is MaterialComposition.LayerSet set ? Some(set) : None)
-                        .ToFin((Error)new ComputeFault.AssessmentInputMissing($"<osm-opening-layerset-unresolved:{opening.Id.Value}>"))
-                        .Bind(set => BuildConstruction(model, set, graph))
-                        .Map(construction => {
-                            sub.setConstruction(construction);
-                            return Seq<AssessmentFact>();
-                        });
-                })).As().Map(static rows => rows.Fold(Seq<AssessmentFact>(), static (facts, row) => facts + row));
+    static OpenStudio.Surface Seated(OpenStudio.Model model, OpenStudio.Space space, FootprintPolygon footprint) {
+        using OpenStudio.Point3dVector vertices = Vertices(footprint);
+        OpenStudio.Surface osSurface = new(vertices, model);              // owned by the Model
+        osSurface.setSpace(space);
+        return osSurface;
+    }
 
-    // One construction fold, the seam property case the discriminant: all-Optical is fenestration, Optical-free is opaque,
-    // a mixed set has no legal EnergyPlus construction and rails as missing assessment evidence.
+    static Unit Bind(OpenStudio.Surface surface, OpenStudio.Construction construction) {
+        surface.setConstruction(construction);
+        return unit;
+    }
+
+    // Host-attributed openings land as SubSurfaces on their host Surface — EnergyPlus accepts a fenestration
+    // construction only on a sub-surface (SurfacesOf excludes the opening edges) — and the sub-surface type reads
+    // off the OpeningType roster against the host's own tilt.
+    static WriterT<ReadLog, Fin, Unit> BuildOpenings(OpenStudio.Model model, OpenStudio.Surface host, NodeId spaceId, string hostIdentifier, ElementGraph graph, GeometrySource geometry) =>
+        graph.OpeningsOf(spaceId, hostIdentifier)
+            .TraverseM(opening =>
+                from ring in Reads.Lift(geometry.Footprint(opening.Representations)
+                    .ToFin(Missing(AssessmentInputReason.MeasureAbsent, opening.Id.Value)))
+                let sub = Seated(model, host, ring, OpeningType.Of(opening.Classification.Code).On(host.surfaceType()))
+                from construction in Reads.Lift(graph.LayerSetOf(opening.Id).Bind(set => BuildConstruction(model, set, graph)))
+                select Bind(sub, construction))
+            .As().Map(static _ => unit);
+
+    static OpenStudio.SubSurface Seated(OpenStudio.Model model, OpenStudio.Surface host, FootprintPolygon ring, string subSurfaceType) {
+        using OpenStudio.Point3dVector vertices = Vertices(ring);
+        OpenStudio.SubSurface sub = new(vertices, model);                 // owned by the Model
+        sub.setSurface(host);
+        sub.setSubSurfaceType(subSurfaceType);
+        return sub;
+    }
+
+    static Unit Bind(OpenStudio.SubSurface sub, OpenStudio.Construction construction) {
+        sub.setConstruction(construction);
+        return unit;
+    }
+
+    // One construction fold, the seam property case the discriminant: all-Optical is fenestration, Optical-free is
+    // opaque, a mixed set has no legal EnergyPlus construction and rails as missing assessment evidence.
     static Fin<OpenStudio.Construction> BuildConstruction(OpenStudio.Model model, MaterialComposition.LayerSet set, ElementGraph graph) =>
         set.Layers
             .TraverseM(layer => graph.Material(layer.Material)
-                .ToFin((Error)new ComputeFault.AssessmentInputMissing($"<osm-layer-material-absent:{layer.Material.Value}>"))
+                .ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, layer.Material.Value))
                 .Map(node => (Layer: layer, Props: node.Properties))).As()
             .Bind(rows => rows.Exists(static r => r.Props.Optical.IsSome) && !rows.ForAll(static r => r.Props.Optical.IsSome)
                 ? Fin.Fail<Seq<(MaterialLayer Layer, Seq<MaterialPropertySet> Props)>>(
-                    new ComputeFault.AssessmentInputMissing("<osm-mixed-opaque-glazing-layerset>"))
+                    Missing(AssessmentInputReason.CompositionShape, set.Layers.Head.Map(static l => l.Material.Value).IfNone(string.Empty)))
                 : Fin.Succ(rows))
             .Bind(rows => rows.TraverseM(r => Layer(model, r.Layer, r.Props)).As())
             .Map(materials => {
@@ -319,36 +494,29 @@ public static partial class EnergySimulation {
                 return construction;
             });
 
-    // One layer admission, the seam property case the arm: Optical -> StandardGlazing (the nine [0,1] spectral fractions
-    // through the normal-incidence/hemispherical setters, Thermal conductivity when carried), else Thermal -> the 6-arg
-    // StandardOpaqueMaterial. Shorter ctor forms backfill OpenStudio defaults for the omitted thermal columns (fabricated
-    // physics, rejected), so both arms set every physical column from seam evidence with the neutral MediumRough roughness.
+    // One layer admission, the seam property case the arm: Optical -> StandardGlazing (the nine [0,1] spectral
+    // fractions transferred by the generated mapper, Thermal conductivity beside them), else Thermal -> the 6-arg
+    // StandardOpaqueMaterial. Shorter ctor forms backfill OpenStudio defaults for the omitted thermal columns
+    // (fabricated physics, rejected), so both arms set every physical column from seam evidence.
     static Fin<OpenStudio.Material> Layer(OpenStudio.Model model, MaterialLayer layer, Seq<MaterialPropertySet> props) =>
         props.Optical.Match(
             Some: optical => props.Thermal
-                .ToFin((Error)new ComputeFault.AssessmentInputMissing($"<osm-glazing-missing-thermal:{layer.Material.Value}>"))
+                .ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, layer.Material.Value))
                 .Map(thermal => {
-                    OpenStudio.StandardGlazing glass = new(model, "SpectralAverage", layer.Thickness.Si);
-                    glass.setSolarTransmittanceatNormalIncidence(optical.SolarTransmittance);
-                    glass.setFrontSideSolarReflectanceatNormalIncidence(optical.SolarReflectanceFront);
-                    glass.setBackSideSolarReflectanceatNormalIncidence(optical.SolarReflectanceBack);
-                    glass.setVisibleTransmittanceatNormalIncidence(optical.VisibleTransmittance);
-                    glass.setFrontSideVisibleReflectanceatNormalIncidence(optical.VisibleReflectanceFront);
-                    glass.setBackSideVisibleReflectanceatNormalIncidence(optical.VisibleReflectanceBack);
-                    glass.setInfraredTransmittanceatNormalIncidence(optical.ThermalIrTransmittance);
-                    glass.setFrontSideInfraredHemisphericalEmissivity(optical.ThermalIrEmissivityFront);
-                    glass.setBackSideInfraredHemisphericalEmissivity(optical.ThermalIrEmissivityBack);
+                    OpenStudio.StandardGlazing glass = new(model, GlazingSpectral, layer.Thickness.Si);
+                    GlazingWire.Update(optical, glass);
                     glass.setThermalConductivity(thermal.Conductivity.Si);
                     return (OpenStudio.Material)glass;
                 }),
             None: () =>
-                from thermal in props.Thermal.ToFin((Error)new ComputeFault.AssessmentInputMissing($"<osm-layer-missing-thermal:{layer.Material.Value}>"))
-                from mechanical in props.Mechanical.ToFin((Error)new ComputeFault.AssessmentInputMissing($"<osm-layer-missing-density:{layer.Material.Value}>"))
-                select (OpenStudio.Material)new OpenStudio.StandardOpaqueMaterial(model, "MediumRough",
+                from thermal in props.Thermal.ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, layer.Material.Value))
+                from mechanical in props.Mechanical.ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, layer.Material.Value))
+                select (OpenStudio.Material)new OpenStudio.StandardOpaqueMaterial(model, OpaqueRoughness,
                     layer.Thickness.Si, thermal.Conductivity.Si, mechanical.Density.Si, thermal.SpecificHeat.Si));
 
-    // Build the OpenStudio vertex vector from the seam Vector3 ring — each Point3d disposed immediately after Add (the
-    // vector copies it), so the marshaling leaks nothing and never escapes the Compute energy boundary as an OSM type.
+    // Build the OpenStudio vertex vector from the seam Vector3 ring — each Point3d disposed immediately after Add
+    // (the vector copies it), so the marshaling leaks nothing and never escapes as an OSM type.
+    // Exemption: the SWIG per-handle disposal walk is the native marshaling statement seam.
     static OpenStudio.Point3dVector Vertices(FootprintPolygon footprint) {
         OpenStudio.Point3dVector vec = new();
         foreach (Vector3 p in footprint.Ring) { using OpenStudio.Point3d point = new(p.X, p.Y, p.Z); vec.Add(point); }
@@ -359,106 +527,198 @@ public static partial class EnergySimulation {
 
 ## [04]-[SIMULATION_RUN]
 
-- Owner: `EnergySimulation.RunLocal` the subprocess arm; `RunSubprocess` the EnergyPlus subprocess; `EnergyResultsPort` the typed-row egress the composition root binds; `EnergyReadout` the two-outcome result carrier; `ResultContext`/`ResultPoint` the read's addressing and mint carriers; `ResultRows` the ONE correspondence table from the OpenStudio end-use vocabulary onto the Bim result axes; `ReadResults`/`HeadRows`/`Cells`/`Points`/`PeakDemand`/`TabularRows`/`UnmetPoints`/`Tabular`/`Rows`/`SummaryFacts`/`ValidityFacts`/`GoverningEui`/`Lower` the `SqlFile` result read shared by both routes; the scratch run-directory lifetime.
-- Entry: `static Fin<AssessmentResult> RunLocal(ElementGraph graph, AssessmentRequest.Energy request, GeometrySource geometry, AssessmentSink sink, IClock clock)` resolves the binary through `EnergyToolchain.Resolve`, builds the OSM model and IDF, runs the subprocess over the scratch directory, reads `eplusout.sql` through `SqlFile`, publishes the typed rows through the policy's `EnergyResultsPort`, and returns the summary `AssessmentResult`, bracketing the scratch directory and every native handle.
-- Auto: the subprocess is `energyplus -w <weather> -d <outdir> -r <idf>`; a non-zero exit rails `ComputeFault.AnalysisFailed` with the stderr tail. The end-use read folds the structured `SqlFile.endUses()` summary CELL BY CELL over the static `EndUses.fuelTypes()`/`categories()` vectors (each handle bracketed, the SWIG marshaling exemption) — one `EnergyResult` per non-zero `(fuel, end-use)` point, its annual magnitude from `getEndUse(fuel, category)` and its peak from the annual maximum of `peakEnergyDemandByMonth(fuel, category, month)`, the `Water` fuel (m³ consumption) excluded before the mapping. Whole-building magnitudes ride the same axes at their un-disaggregated members (`ResultFuel.Total` × `ResultEndUse.Whole`), EUI as the `Intensity` measure over a positive conditioned area only, so a zero-area set carries no intensity row and the verdict bands `NotApplicable` rather than a fabricated 0.0-EUI Satisfied. Per-zone unmet hours read ONE `SystemSummary` `Time Setpoint Not Met` table parameterized on its row name — `Facility` for the building scope, the upper-cased zone name for each `ZoneTarget` — so a per-zone read is one roster row rather than a second query family. Every magnitude mints through the Bim `EnergyResult.Of` gate, which rails a non-finite SI value before a row exists; the GJ→J and hours→s coercions ride `UnitsNet` once, and the verdict converts the SI EUI back to kWh·m⁻²·a⁻¹ against the policy target, projecting `double.NaN` when no target is carried.
-- Output: `EnergyReadout` carries BOTH outcomes — the typed `Seq<EnergyResult>` the `Rasm.Bim/Energy/results#RESULTS_ADMISSION` `EnergyResults.Admit` lands as `Pset_EnergyResults` bags, and the `Seq<AssessmentFact>` summary stream the spine verdicts. The rows egress through `EnergyResultsPort` rather than the `AssessmentResult`, because the spine's carrier is a uniform fact stream every discipline shares and widening it for one discipline's typed wire is the rejected form.
-- Receipt: the `Assessment` `ComputeReceipt` case carries the energy discipline/route/content-key with elapsed wall time; translator warnings and an undetermined version probe fold in as soft facts, while construction or reported-version failures rail before simulation.
-- Packages: Microsoft.Data.Sqlite (the read-only tabular reader for the setpoint-not-met rows the SWIG `SqlFile` exposes no accessor for; folder admission on this first compose, the central pin held), NREL.OpenStudio.macOS-arm64 (the `SqlFile` totals + structured `EndUses` fold + `peakEnergyDemandByMonth` + `hoursSimulated` + the static run-context helpers), UnitsNet (the GJ→J / J→kWh / hours→s coercions), Rasm.Bim (project — the `Energy/results#RESULTS_ADMISSION` `EnergyResult`/`ResultQuantity`/`ResultScope`/`ResultFuel`/`ResultEndUse`/`ResultMeasure` vocabulary and the `Energy/exchange#ENERGY_EXCHANGE` `ArtifactKey`), LanguageExt.Core, NodaTime, Rasm.Element (project — `ElementGraph`, `Dimension`, `MeasureValue`, `PropertyValue`, `NodeId`), BCL inbox.
-- Growth: a new published magnitude is one `ResultPoint` on whichever AXIS it widens, and the axis row itself lands at the Bim owner — an ASHRAE-55 comfort tally is one `SystemSummary` read onto the settled `ResultMeasure.ComfortHours` row, sub-annual demand shape one fold over `SqlFile.energyConsumptionByMonth`; a newly-metered fuel or service is one `ResultRows` row here beside its Bim axis row, and until both land the token DEGRADES with a named fact carrying its own magnitude.
-- Boundary: the EnergyPlus binary is the resolved subprocess (OpenStudio does not run it), so the runner owns the process lifetime, scratch directory, and stderr capture, bracketed in `try-finally` (Exemption: native subprocess + filesystem); the model build and SQL read are the single-threaded native boundary; every OpenStudio handle is disposed; the SQL accessors return SWIG `OptionalDouble` lowered to `Option<double>`, never a bare `get()` faulting in native code. The FUEL AXIS SURVIVES the read — a per-category all-fuel sum publishes the same heating row for a district-heated building and an all-electric one and no consumer can recover which fuel carried it, so the fold mints per cell and only the `Interior`/`Exterior` lighting and equipment pairs collapse, onto the one Bim SERVICE row each names. Source and net-source energy carry no axis point — the axes name the fuel and the service, never the accounting basis — so they stay summary facts beside the typed rows, and the SITE total is the one row that also rides the axis at `Total`×`Whole`. An out-of-roster fuel or category token lands a named degrade fact carrying its own magnitude, never a silent drop and never a fabricated axis member. A non-zero exit or a missing SQL file rails `AnalysisFailed`, never a silent zero-energy result; a missing per-zone unmet row rails too, because a report cannot distinguish a zone that met its setpoints from a zone whose row never landed.
+- Owner: `EnergySimulation.RunLocal` the subprocess arm; `Leased` the ONE run-directory capsule both routes take; `RunSubprocess` the EnergyPlus subprocess; `ResultFuel`/`ResultEndUse`/`ResultMeasure` the transcribed axis and physics rosters (`ResultScope` rides `[03]` with the zone roster that decides it); `ResultPoint` the pre-admission magnitude, `ResultContext` the read's addressing, and `EnergyReadout` the two-outcome carrier; `EndUseCell` the two-monoid cell value; `ReadResults`/`HeadRows`/`Cells`/`PeakDemand`/`TabularRows`/`UnmetPoints`/`Tabular`/`Rows`/`SummaryFacts`/`ValidityFacts`/`GoverningEui`/`Lower` the `SqlFile` result read shared by both routes.
+- Entry: `static Fin<AssessmentResult> RunLocal(ElementGraph graph, AssessmentRequest.Energy request, GeometrySource geometry, AssessmentSink sink, ContentAddress key, IClock clock)` resolves the binary through `EnergyToolchain.Resolve`, builds the OSM model and IDF, runs the subprocess over the leased scratch directory, reads `eplusout.sql` through `SqlFile`, publishes the typed rows through `sink.Rows`, and returns the summary `AssessmentResult`.
+- Law: the typed result estate leaves through the ONE `AssessmentSink` egress port, its `Rows` leg. A private per-discipline publisher whose default binding SUCCEEDS ON A DISCARD is the deleted form — the whole read estate minted, railed its own admission, and then reached no consumer at all, with no operator-visible trace that it had not. The composition that genuinely wants a verdict-only run binds `AssessmentSink.Discarding`, which names the drop as a decision recoverable from the value.
+- Law: the assessment content key rides IN. Every row this run lands is addressed by it — the sink's own law — and a runner that re-derived a key of its own over a narrower preimage would address the rows, the artifact, and the assessment node three ways.
+- Auto: the subprocess is `energyplus -w <weather> -d <outdir> -r <idf>`; a non-zero exit rails `ComputeFault.AnalysisFailed` carrying the exit status in the seam `Diagnostic`'s own slot with the stderr tail as detail. The end-use read folds the structured `SqlFile.endUses()` summary as a PRODUCT over the static `EndUses.fuelTypes()`/`categories()` vectors into one `HashMap` (each handle bracketed, the SWIG marshaling exemption) — one row per non-zero `(fuel, end-use)` point, its annual magnitude from `getEndUse(fuel, category)` and its peak from the annual maximum of `peakEnergyDemandByMonth(fuel, category, month)`, the `Water` fuel (m³ consumption) excluded before the mapping. Whole-building magnitudes ride the same axes at their un-disaggregated members (`ResultFuel.Total` × `ResultEndUse.Whole`), EUI as the `Intensity` measure over a positive conditioned area only, so a zero-area set carries no intensity row and the verdict bands `NotApplicable` rather than a fabricated 0.0-EUI Satisfied. Per-zone unmet hours read ONE `SystemSummary` `Time Setpoint Not Met` table parameterized on its row name — `Facility` for the building scope, the upper-cased zone name for each `ZoneTarget` — so a per-zone read is one roster row rather than a second query family. Every magnitude mints through the transcribed roster's own `ResultMeasure.Admit` — the Bim admission's mint verbatim, so the run's `QuantityType`/`Dimension` stamp and the bag's are one fact — and its `MeasureValue.OfSi` finite gate rails a non-finite SI value before a row exists; the GJ→J and hours→s coercions ride `UnitsNet` once.
+- Law: a peak that no month reported is ABSENT, not zero. The monthly accessor answers a SWIG `OptionalDouble`, so absence is observable there and rides `Option<double>` through the cell. The ANNUAL magnitude carries a NAMED loss the foreign API forces: `EndUses.getEndUse` returns a bare `double` and publishes no absence signal, so an unmetered cell and a genuinely zero-draw metered one are one value at that surface — the cell is skipped when both its annual is zero and its peak absent, and that conflation is the OpenStudio structure's, recorded here rather than hidden behind an `Option` this lane cannot honestly mint.
+- Output: the typed rows land through `sink.Rows` as `AssessmentRow`s whose ordered facet path IS the axis point — `(measure, fuel, end-use, scope-kind, scope-target)` — so the `Rasm.Bim/Energy/results#RESULTS_ADMISSION` admission reads them off the assessment content key and lands them as `Pset_EnergyResults` bags with no parse and no shared store. The `AssessmentResult` carries the summary fact stream the spine verdicts.
+- Receipt: the `Assessment` `ComputeReceipt` case carries the energy discipline/route/content-key with elapsed wall time; translator warnings, the conditioning-claim census, an undetermined version probe, and a retained scratch directory all fold in as soft facts, while construction or reported-version failures rail before simulation.
+- Packages: Microsoft.Data.Sqlite (the read-only tabular reader for the setpoint-not-met rows the SWIG `SqlFile` exposes no accessor for), NREL.OpenStudio.macOS-arm64 (the `SqlFile` totals + structured `EndUses` fold + `peakEnergyDemandByMonth` + `hoursSimulated` + the static run-context helpers), UnitsNet (the GJ→J / J→kWh / hours→s coercions), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`/`[Union]` — the transcribed result vocabulary), LanguageExt.Core (`Fin`/`Seq`/`Option`/`HashMap`/`WriterT`/`Monoid`/`Traverse`/`TraverseM`), NodaTime, Rasm (kernel — `ContentHash.Of`, `Op`), Rasm.Element (project — `ElementGraph`, `Dimension`, `QuantityType`, `UnitProvenance`, `MeasureValue`, `PropertyValue`, `NodeId`, `ContentAddress`, `BlobKey`), the `Analysis/dispatch#DISPATCH_WRITEBACK` `AssessmentSink`/`AssessmentRow`, BCL inbox.
+- Growth: a new published magnitude is one `ResultPoint` on whichever AXIS it widens — an ASHRAE-55 comfort tally is one `SystemSummary` read onto the settled `ResultMeasure.ComfortHours` row, sub-annual demand shape one fold over `SqlFile.energyConsumptionByMonth`; a newly-metered fuel or service is one roster row here MIRRORING its Bim axis row, and until both land the token DEGRADES with a named fact carrying its own magnitude.
+- Boundary: the EnergyPlus binary is the resolved subprocess (OpenStudio does not run it), so the runner owns the process lifetime, scratch directory, and stderr capture through the ONE leased capsule (Exemption: native subprocess + filesystem); the model build and SQL read are the single-threaded native boundary; every OpenStudio handle is disposed; the SQL accessors return SWIG `OptionalDouble` lowered to `Option<double>`, never a bare `get()` faulting in native code. The FUEL AXIS SURVIVES the read — a per-category all-fuel sum publishes the same heating row for a district-heated building and an all-electric one and no consumer can recover which fuel carried it, so the fold mints per cell and only the `Interior`/`Exterior` lighting and equipment pairs collapse, onto the one SERVICE row each names, summing their annual energy and taking the MAX of their peaks because two coincident peaks are one demand instant. Source and net-source energy carry no axis point — the axes name the fuel and the service, never the accounting basis — so they stay summary facts beside the typed rows, and the SITE total is the one row that also rides the axis at `Total`×`Whole`. An out-of-roster fuel or category token lands a named degrade fact carrying its own magnitude, never a silent drop and never a fabricated axis member. The transcribed rosters MIRROR the Bim owner and mint no member of their own: a local row, a flat slug, or a mint-side aggregate forks the admission axis, so a Bim axis row and its transcription land in one pass or the token degrades until both do. A non-zero exit or a missing SQL file rails `AnalysisFailed`, never a silent zero-energy result; a missing per-zone unmet row rails too, because a report cannot distinguish a zone that met its setpoints from a zone whose row never landed.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
-// Typed-results egress the composition root binds — the AssessmentSink dual for the Bim graph landing rather than the
-// blob lane. Unbound is the STATED opt-out a verdict-only composition binds: the rows still mint and still rail their
-// own admission, they simply reach no consumer by declaration rather than by an omission nobody can see.
-public sealed record EnergyResultsPort(Func<Seq<EnergyResult>, Fin<Unit>> Publish) {
-    public static readonly EnergyResultsPort Unbound = new(static _ => Fin.Succ(unit));
+// The Rasm.Bim Energy/results vocabulary TRANSCRIBED. Compute carries no Rasm.Bim project reference, so the axes
+// cross as this package's own rosters whose keys are the Bim owner's spellings VERBATIM and whose OpenStudio wire
+// tokens ride each row as their own column — the EP-axis precedent. The transcription is CUSTODY, not ownership: a
+// row minted here that the Bim owner does not carry forks the admission axis, so a new fuel or service lands at
+// both ends in one pass or the token degrades with its magnitude named until it does. This roster IS the token
+// correspondence table — the two parallel arrays and two frozen dictionaries it replaces declared the same three
+// facts in four places, and the arrays were dead the moment the dictionaries initialized.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ResultFuel {
+    public static readonly ResultFuel Total = new("Total", wireKey: None);
+    public static readonly ResultFuel Electricity = new("Electricity", wireKey: Some("Electricity"));
+    public static readonly ResultFuel NaturalGas = new("NaturalGas", wireKey: Some("Gas"));
+    public static readonly ResultFuel DistrictHeating = new("DistrictHeating", wireKey: Some("DistrictHeating"));
+    public static readonly ResultFuel DistrictCooling = new("DistrictCooling", wireKey: Some("DistrictCooling"));
+
+    // The OpenStudio EndUseFuelType token this row transcribes. Total has NONE because it is the un-disaggregated
+    // member the whole-building head rides, which no meter ever reports.
+    public Option<string> WireKey { get; }
+
+    // Metered in m3, never energy: excluded before the mapping runs rather than mapped and then subtracted.
+    public const string WaterToken = "Water";
+
+    public static Option<ResultFuel> Of(string token) => toSeq(Items).Find(row => row.WireKey.Exists(key => key == token));
 }
 
-// One published magnitude before admission — three axis members and the SI scalar — so every read site hands the SAME
-// shape to one gate; a per-site EnergyResult.Of call re-spells the axis order at each of six read points.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ResultEndUse {
+    public static readonly ResultEndUse Whole = new("Whole", wireKeys: Seq<string>());
+    public static readonly ResultEndUse Heating = new("Heating", wireKeys: Seq("Heating"));
+    public static readonly ResultEndUse Cooling = new("Cooling", wireKeys: Seq("Cooling"));
+    // Interior and Exterior tokens fold onto ONE service member because the axis names the SERVICE and not the
+    // meter, so the pair combines before minting — the roster states that fold instead of a table repeating it.
+    public static readonly ResultEndUse Lighting = new("Lighting", wireKeys: Seq("InteriorLights", "ExteriorLights"));
+    public static readonly ResultEndUse Equipment = new("Equipment", wireKeys: Seq("InteriorEquipment", "ExteriorEquipment"));
+    public static readonly ResultEndUse Fans = new("Fans", wireKeys: Seq("Fans"));
+    public static readonly ResultEndUse Pumps = new("Pumps", wireKeys: Seq("Pumps"));
+    public static readonly ResultEndUse WaterSystems = new("WaterSystems", wireKeys: Seq("WaterSystems"));
+
+    public Seq<string> WireKeys { get; }
+
+    public static Option<ResultEndUse> Of(string token) => toSeq(Items).Find(row => row.WireKeys.Contains(token));
+}
+
+// ResultMeasure carries the physics, TRANSCRIBED from the Rasm.Bim Energy/results#RESULTS_ADMISSION owner —
+// every column belongs to the admission, so a published point dimensions once at the roster and a magnitude this
+// side mints reads back through the same QuantityType the Bim bag stores it under. Provenance is HOW each row's
+// canonical unit resolves and the case IS the seam admission posture, so the mint CONSUMES the column: a
+// registry-named type takes Derive, which the seam enforces by refusing a labeled mint on one, while
+// EnergyUseIntensity takes Label over a dimension the kernel roster carries no symbol for. The retired `string
+// Ucum` column stamped `h` on a row whose own Admit stores SI seconds and no admission ever read it; an hours
+// readout is `value.In(DurationUnit.Hour)` at the report edge — the inverse of the `Seconds` coercion this page
+// already runs on the way in. Anchors declare BEFORE the rows: static initializers run in textual order, so a
+// row reading an anchor declared below it signs against a null dimension. EnergyUseIntensity mints through the
+// OPEN Create — UnitsNet Irradiation shares the signature under a radiometric name that false-reads as solar
+// incidence on every QTO consumer, while the seam
+// QuantityType.Scalar is the DIMENSIONLESS additive identity, so stamping Scalar on an area-normalized energy
+// publishes an EUI no consumer can tell from a bare ratio.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ResultMeasure {
+    static readonly Dimension EnergyDim = Dimension.Create(2, 1, -2, 0, 0, 0, 0);
+    static readonly Dimension PowerDim = Dimension.Create(2, 1, -3, 0, 0, 0, 0);
+    static readonly Dimension IntensityDim = Dimension.Create(0, 1, -2, 0, 0, 0, 0);
+    static readonly QuantityType EnergyType = QuantityType.Create("Energy");
+    static readonly QuantityType PowerType = QuantityType.Create("Power");
+    static readonly QuantityType IntensityType = QuantityType.Create("EnergyUseIntensity");
+
+    public static readonly ResultMeasure Annual = new("Annual", EnergyType, EnergyDim, UnitProvenance.Derive);
+    public static readonly ResultMeasure Peak = new("Peak", PowerType, PowerDim, UnitProvenance.Derive);
+    public static readonly ResultMeasure Intensity = new("Intensity", IntensityType, IntensityDim, UnitProvenance.Label("J/m2"));
+    public static readonly ResultMeasure UnmetHours = new("UnmetHours", QuantityType.Duration, Dimension.DurationDim, UnitProvenance.Derive);
+    public static readonly ResultMeasure ComfortHours = new("ComfortHours", QuantityType.Duration, Dimension.DurationDim, UnitProvenance.Derive);
+
+    public QuantityType Type { get; }
+    public Dimension Dimension { get; }
+    public UnitProvenance Provenance { get; }
+
+    private ResultMeasure(string key, QuantityType type, Dimension dimension, UnitProvenance provenance) : this(key) =>
+        (Type, Dimension, Provenance) = (type, dimension, provenance);
+
+    public Fin<MeasureValue> Admit(double si, Op key) => MeasureValue.OfSi(Type, Dimension, si, Some(Provenance), key);
+}
+
+// One published magnitude before admission — three axis members and the SI scalar — so every read site hands the
+// SAME shape to one mint; a per-site row construction re-spells the axis order at each of six read points.
 public readonly record struct ResultPoint(ResultMeasure Measure, ResultFuel Fuel, ResultEndUse Use, double Si);
 
 // --- [MODELS] ------------------------------------------------------------------------------
-// Everything a result read needs to ADDRESS its rows: the consumed model's key and the zone roster. A cloud run carries
-// an empty roster, because the recipe names its own zones and a correspondence Compute never authored is a guess.
-public readonly record struct ResultContext(ArtifactKey Artifact, Seq<ZoneTarget> Zones);
+// Everything a result read needs to ADDRESS its rows: the assessment content key the rows belong to, the consumed
+// model's own content key, and the zone roster. A cloud run carries an empty roster, because the recipe names its
+// own zones and a correspondence Compute never authored is a guess.
+public readonly record struct ResultContext(ContentAddress Key, UInt128 Model, Seq<ZoneTarget> Zones);
 
-// Two outcomes off ONE read. Splitting the read in two walks the SqlFile twice and lets the typed rows and the verdict
-// facts disagree about the same run.
-public sealed record EnergyReadout(Seq<EnergyResult> Results, Seq<AssessmentFact> Facts);
+// The two DIFFERENT monoids on one row pair, stated as a value: annual energy SUMS across the Interior/Exterior
+// pair that folds onto one service member, while their peaks take the MAX — two coincident peaks are one demand
+// instant, never their arithmetic sum. Both laws once sat inline in a dictionary upsert expression where neither
+// had a name or a test. Peak is an Option because the monthly accessor answers a SWIG OptionalDouble and absence
+// is genuinely observable there; the annual column carries the OpenStudio structure's own conflation of an
+// unmetered cell with a zero-draw metered one, named at the Law bullet rather than dressed as an Option.
+public readonly record struct EndUseCell(double AnnualGj, Option<double> PeakW) : Monoid<EndUseCell> {
+    public static EndUseCell Empty => new(0.0, None);
 
-// --- [TABLES] ------------------------------------------------------------------------------
-// ONE correspondence from the OpenStudio EndUses vocabulary onto the Bim result axes. Interior and Exterior rows fold
-// onto a single member because the axis names the SERVICE and not the meter, so the pair sums before minting; a token
-// in neither index degrades carrying its own magnitude. Growth is a row here beside its axis row at the Bim owner.
-static class ResultRows {
-    internal const string WaterFuel = "Water";   // metered in m3, never energy — excluded before the mapping runs
+    public EndUseCell Combine(EndUseCell rhs) =>
+        new(AnnualGj + rhs.AnnualGj,
+            (PeakW, rhs.PeakW) switch {
+                ({ IsSome: true, Case: double a }, { IsSome: true, Case: double b }) => Some(Math.Max(a, b)),
+                ({ IsSome: true }, _) => PeakW,
+                _ => rhs.PeakW,
+            });
 
-    internal static readonly (string Token, ResultFuel Fuel)[] FuelRows = [
-        ("Electricity",     ResultFuel.Electricity),
-        ("Gas",             ResultFuel.NaturalGas),
-        ("DistrictHeating", ResultFuel.DistrictHeating),
-        ("DistrictCooling", ResultFuel.DistrictCooling),
-    ];
-
-    internal static readonly (string Token, ResultEndUse Use)[] EndUseRows = [
-        ("Heating",           ResultEndUse.Heating),
-        ("Cooling",           ResultEndUse.Cooling),
-        ("InteriorLights",    ResultEndUse.Lighting),
-        ("ExteriorLights",    ResultEndUse.Lighting),
-        ("InteriorEquipment", ResultEndUse.Equipment),
-        ("ExteriorEquipment", ResultEndUse.Equipment),
-        ("Fans",              ResultEndUse.Fans),
-        ("Pumps",             ResultEndUse.Pumps),
-        ("WaterSystems",      ResultEndUse.WaterSystems),
-    ];
-
-    internal static readonly FrozenDictionary<string, ResultFuel> ByFuel =
-        FuelRows.ToFrozenDictionary(static r => r.Token, static r => r.Fuel, StringComparer.Ordinal);
-
-    internal static readonly FrozenDictionary<string, ResultEndUse> ByEndUse =
-        EndUseRows.ToFrozenDictionary(static r => r.Token, static r => r.Use, StringComparer.Ordinal);
+    // A cell the read never populated on EITHER column publishes no row: the axis point's absence IS the zero, and
+    // the full cross product otherwise lands scores of empty measures in every bag.
+    public bool Reported => AnnualGj != 0.0 || PeakW.IsSome;
 }
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static partial class EnergySimulation {
-    static Fin<AssessmentResult> RunLocal(ElementGraph graph, AssessmentRequest.Energy request, GeometrySource geometry, AssessmentSink sink, IClock clock) {
-        // Native and subprocess boundary rails onto Fin: a SWIG ctor, model mutation, Process.Start over a bad binary,
-        // or a corrupt SqlFile throws a SystemException the entry owes the caller as AnalysisFailed, never an escape. Scratch
-        // creation is inside the bracket and cleanup is best-effort, so a delete fault never masks the run's Fin result.
-        string scratch = "";
-        // ONE instant per run: the artifact mint, every result row, and the provenance read it, so a result set carries
+    static readonly Op RunKey = Op.Of(name: nameof(Run));
+
+    // THE leased scratch capsule, taken by both routes. Acquire, use, release — release bound to EVERY outcome arm
+    // including a native raise, and a release fault reported as a FACT. The two byte-identical `try`/`finally`
+    // blocks this replaces each carried an empty-string-as-absence sentinel, a `scratch.Length > 0` re-test of it,
+    // and a swallowed `catch (IOException) { }` — a scratch directory that will not delete is a disk the next run
+    // also cannot use, and the page said nothing about it twice.
+    // The capsule also RUNS the ledger and merges the release note into it, so the two note channels a run
+    // produces — what the folds recorded and what the lease could not clean up — leave as ONE sequence and no
+    // caller unwinds a nested carrier to reach either.
+    static Fin<(A Value, Seq<AssessmentFact> Notes)> Leased<A>(string prefix, Func<string, WriterT<ReadLog, Fin, A>> use) =>
+        RunKey.Catch(() => Fin.Succ(Directory.CreateTempSubdirectory(prefix).FullName))
+            .Bind(scratch => {
+                // The native and subprocess boundary lifts INSIDE the lease: a SWIG ctor, model mutation, a
+                // Process.Start over a bad binary, or a corrupt SqlFile raises across two root hierarchies, and the
+                // lift owes the caller a Fin whichever it was — one funnel rather than a filter naming types.
+                Fin<(A Value, ReadLog Log)> outcome = RunKey.Catch(() => Reads.Run(use(scratch)));
+                Seq<AssessmentFact> release = RunKey.Catch(() => { Directory.Delete(scratch, recursive: true); return Fin.Succ(unit); })
+                    .Match(Succ: static _ => Seq<AssessmentFact>(),
+                           Fail: error => Seq(AssessmentFact.Text(ScratchRetained, $"{scratch}:{Tail(error.Message)}")));
+                return outcome.Map(ran => (ran.Value, ran.Log.Facts + release));
+            });
+
+    const string ScratchRetained = "scratch-retained";
+
+    static Fin<AssessmentResult> RunLocal(ElementGraph graph, AssessmentRequest.Energy request, GeometrySource geometry, AssessmentSink sink, ContentAddress key, IClock clock) {
+        // ONE instant per run: the artifact mint, every result row, and the audit read it, so a result set carries
         // the simulation's stamp rather than whichever moment each fold happened to reach the clock.
         Instant at = clock.GetCurrentInstant();
-        try {
-            scratch = Directory.CreateTempSubdirectory("rasm-eplus-").FullName;
-            return from binary in EnergyToolchain.Resolve(request.Policy.Toolchain)
-                   // Version gate runs before model build or subprocess: a reported mismatch rails here and no
-                   // IDF, run, or receipt exists for a skewed solver; the undetermined-probe warning rides the result.
-                   from versionFacts in EnergyToolchain.VersionGate(binary, request.Policy.Toolchain)
-                   from build in BuildModel(graph, request, geometry, scratch, at)
-                   from sqlPath in RunSubprocess(binary, build.IdfPath, request, scratch)
-                   from readout in ReadResults(sqlPath, graph, request, new ResultContext(build.Artifact, build.Zones), at)
-                   // eplusout.sql bytes land through AssessmentSink before the scratch bracket deletes them
-                   // — content-addressed onto the Persistence blob lane (ArtifactKind.Assessment), the key riding ResultBlob.
-                   from blob in sink.Store(File.ReadAllBytes(sqlPath))
-                   // Typed rows egress LAST and on the success rail alone, so a failed read never lands a partial
-                   // result set the Bim admission would then treat as the run's whole answer.
-                   from published in request.Policy.Results.Publish(readout.Results)
-                   select AssessmentResult.Of(request.Route,
-                       readout.Facts + build.TranslatorLog + versionFacts,
-                       GoverningEui(readout.Facts, request.Policy),
-                       new Provenance("EnergySimulation", request.Route.Standard, $"EnergyPlus {request.Policy.Toolchain.ExpectedVersion}", at),
-                       Some(blob));
-        }
-        catch (Exception ex) when (ex is SystemException or ApplicationException) {
-            return Fin.Fail<AssessmentResult>(new ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Foreign, $"<energy-native-fault:{ex.GetType().Name}:{Tail(ex.Message)}>"));
-        }
-        finally { if (scratch.Length > 0) { try { Directory.Delete(scratch, recursive: true); } catch (IOException) { } } }
+        return Leased(LocalScratch, scratch =>
+                    from binary in Reads.Lift(EnergyToolchain.Resolve(request.Policy.Toolchain))
+                    // Version gate runs before model build or subprocess: a reported mismatch rails here and no
+                    // IDF, run, or receipt exists for a skewed solver; the undetermined-probe warning rides the log.
+                    from versionFacts in Reads.Lift(EnergyToolchain.VersionGate(binary, request.Policy.Toolchain))
+                    from _ in Reads.Writing(versionFacts, unit)
+                    from build in BuildModel(graph, request, geometry, scratch)
+                    from sqlPath in Reads.Lift(RunSubprocess(binary, build.IdfPath, request, scratch))
+                    from readout in ReadResults(sqlPath, graph, request, new ResultContext(key, build.Model, build.Zones))
+                    // eplusout.sql bytes land through AssessmentSink before the lease releases them —
+                    // content-addressed onto the Persistence blob lane, the key riding ResultBlob.
+                    from blob in Reads.Lift(sink.Store(File.ReadAllBytes(sqlPath)).Run())
+                    // Typed rows egress on the success rail alone, so a failed read never lands a partial result
+                    // set the Bim admission would treat as the run's whole answer.
+                    from published in Reads.Lift(sink.Rows(readout.Rows).Run())
+                    select (Readout: readout, Blob: blob))
+            .Bind(leased => Publish(request, leased.Value.Readout, leased.Value.Blob, leased.Notes, at, request.Weather));
     }
+
+    const string LocalScratch = "rasm-eplus-";
+
+    // ONE result mint for both routes: the summary stream, the governing ratio, and the artifact key.
+    static Fin<AssessmentResult> Publish(AssessmentRequest.Energy request, EnergyReadout readout, BlobKey blob, Seq<AssessmentFact> notes, Instant at, WeatherRef weather) =>
+        AssessmentResult.Of(request.Route,
+            readout.Facts + notes + Seq(AssessmentFact.Text(WeatherStationFact, weather.Station)),
+            GoverningEui(readout.Facts, request.Policy),
+            at, RunKey, resultBlob: Some(blob));
+
+    const string WeatherStationFact = "weather-station";
 
     static Fin<string> RunSubprocess(string binary, string idfPath, AssessmentRequest.Energy request, string scratch) {
         using Process process = new() {
@@ -470,157 +730,166 @@ public static partial class EnergySimulation {
             },
         };
         process.Start();
-        // Both redirected pipes drain concurrently: EnergyPlus streams progress on stdout, so a redirected-but-undrained
-        // stream fills its buffer and deadlocks the child against WaitForExit (stderr the evidence read, stdout discarded).
+        // Both redirected pipes drain concurrently: EnergyPlus streams progress on stdout, so a
+        // redirected-but-undrained stream fills its buffer and deadlocks the child against WaitForExit (stderr the
+        // evidence read, stdout discarded). Exemption: the declared blocking subprocess boundary.
         Task<string> stderrDrain = process.StandardError.ReadToEndAsync();
         Task<string> stdoutDrain = process.StandardOutput.ReadToEndAsync();
         process.WaitForExit();
         string stderr = stderrDrain.GetAwaiter().GetResult();
         _ = stdoutDrain.GetAwaiter().GetResult();
-        string sqlPath = Path.Combine(scratch, "eplusout.sql");
+        string sqlPath = Path.Combine(scratch, ResultFile);
         return process.ExitCode == 0 && File.Exists(sqlPath)
             ? Fin.Succ(sqlPath)
             : Fin.Fail<string>(new ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Foreign, $"<energyplus-exit:{Tail(stderr)}>", Some(process.ExitCode)));
     }
 
-    // totalSiteEnergy is the required headline output (its absence is a failed run, never a silent zero). One walk of the
-    // SqlFile answers both outcomes: the typed rows (whole-building heads, per-cell end uses, per-scope unmet hours) and
-    // the summary facts the spine verdicts.
-    static Fin<EnergyReadout> ReadResults(string sqlPath, ElementGraph graph, AssessmentRequest.Energy request, ResultContext context, Instant at) {
+    const string ResultFile = "eplusout.sql";
+
+    // Two outcomes off ONE read. Splitting the read in two walks the SqlFile twice and lets the typed rows and the
+    // verdict facts disagree about the same run.
+    public sealed record EnergyReadout(Seq<AssessmentRow> Rows, Seq<AssessmentFact> Facts);
+
+    // totalSiteEnergy is the required headline output (its absence is a failed run, never a silent zero). One walk
+    // of the SqlFile answers both outcomes: the typed rows (whole-building heads, per-cell end uses, per-scope
+    // unmet hours) and the summary facts the spine verdicts.
+    static WriterT<ReadLog, Fin, EnergyReadout> ReadResults(string sqlPath, ElementGraph graph, AssessmentRequest.Energy request, ResultContext context) {
         using OpenStudio.Path resultsPath = OpenStudio.OpenStudioUtilitiesCore.toPath(sqlPath);
         using OpenStudio.SqlFile sql = new(resultsPath);
-        return from floorAreaM2 in graph.ConditionedFloorArea(request.Targets)
-            from siteGj in Lower(sql.totalSiteEnergy()).ToFin((Error)new ComputeFault.AnalysisFailed(SolvePhase.Extraction, FailureKind.Foreign, "<energyplus-sql-no-total-site-energy>"))
-            from sourceGj in Lower(sql.totalSourceEnergy()).ToFin((Error)new ComputeFault.AnalysisFailed(SolvePhase.Extraction, FailureKind.Foreign, "<energyplus-sql-no-total-source-energy>"))
-            from netSourceGj in Lower(sql.netSourceEnergy()).ToFin((Error)new ComputeFault.AnalysisFailed(SolvePhase.Extraction, FailureKind.Foreign, "<energyplus-sql-no-net-source-energy>"))
-            from head in HeadRows(context.Artifact, at, siteGj, floorAreaM2)
-            from cells in Cells(sql, context.Artifact, at)
-            from unmet in TabularRows(sqlPath, context, at)
-            from facts in SummaryFacts(sql, siteGj, sourceGj, netSourceGj, floorAreaM2)
-            select new EnergyReadout(head + cells.Rows + unmet, facts + cells.Notes);
+        return from floorAreaM2 in Reads.Lift(graph.ConditionedFloorArea(request.Targets))
+               // The three accounting totals admit TOGETHER, so a run missing two reports two rather than whichever
+               // the sequential ladder reached first.
+               from totals in Reads.Lift((Head(sql.totalSiteEnergy(), SiteTotal), Head(sql.totalSourceEnergy(), SourceTotal), Head(sql.netSourceEnergy(), NetSourceTotal))
+                   .Apply(static (site, source, net) => (Site: site, Source: source, Net: net)).As().ToFin())
+               from head in Reads.Lift(HeadRows(context, totals.Site, floorAreaM2))
+               from cells in Cells(sql, context)
+               from unmet in Reads.Lift(TabularRows(sqlPath, context))
+               from facts in Reads.Lift(SummaryFacts(sql, totals.Site, totals.Source, totals.Net, floorAreaM2))
+               select new EnergyReadout(head + cells + unmet, facts);
     }
 
-    // Summary stream carries what the SPINE reads and nothing more: the governing EUI pair, the accounting-basis totals
-    // the axes hold no point for (source and net-source name a basis, never a fuel or a service), and the annual
-    // completeness signal. Every disaggregated magnitude left this stream for the typed rows.
+    static Validation<Error, double> Head(OpenStudio.OptionalDouble optional, string name) =>
+        Lower(optional).Match(
+            Some: static value => value,
+            None: () => (Validation<Error, double>)new ComputeFault.AnalysisFailed(
+                SolvePhase.Extraction, FailureKind.Foreign, $"<energyplus-sql-no-{name}>"));
+
+    const string SiteTotal = "total-site-energy";
+    const string SourceTotal = "total-source-energy";
+    const string NetSourceTotal = "net-source-energy";
+
+    // Summary stream carries what the SPINE reads and nothing more: the governing EUI pair, the accounting-basis
+    // totals the axes hold no point for (source and net-source name a basis, never a fuel or a service), and the
+    // annual completeness signal. Every disaggregated magnitude left this stream for the typed rows.
     static Fin<Seq<AssessmentFact>> SummaryFacts(OpenStudio.SqlFile sql, double siteGj, double sourceGj, double netSourceGj, double floorAreaM2) =>
         from intensity in floorAreaM2 > 0.0
             ? AssessmentFact.Rows(
-                AssessmentFact.Measure("eui", EuiDim, Joules(siteGj) / floorAreaM2),
+                AssessmentFact.Measure(EuiFact, EuiDim, Joules(siteGj) / floorAreaM2),
                 AssessmentFact.Measure("source-eui", EuiDim, Joules(sourceGj) / floorAreaM2))
             : Fin.Succ(Seq<AssessmentFact>())
         from head in AssessmentFact.Rows(
-            AssessmentFact.Measure("total-site-energy", EnergyDim, Joules(siteGj)),
-            AssessmentFact.Measure("total-source-energy", EnergyDim, Joules(sourceGj)),
-            AssessmentFact.Measure("net-source-energy", EnergyDim, Joules(netSourceGj)))
+            AssessmentFact.Measure(SiteTotal, EnergyDim, Joules(siteGj)),
+            AssessmentFact.Measure(SourceTotal, EnergyDim, Joules(sourceGj)),
+            AssessmentFact.Measure(NetSourceTotal, EnergyDim, Joules(netSourceGj)))
         from validity in ValidityFacts(sql)
         select head + intensity + validity;
 
-    // Whole-building magnitudes ride the SAME axes at their un-disaggregated members, so a building total and a per-fuel
-    // breakdown are one kind of fact at two grains. Site EUI is the ONE Intensity point per scope: a second Intensity row
-    // under a different accounting basis collides on the Bim quantity key and faults the whole admission.
-    static Fin<Seq<EnergyResult>> HeadRows(ArtifactKey artifact, Instant at, double siteGj, double floorAreaM2) {
-        Seq<ResultPoint> points = Seq(new ResultPoint(ResultMeasure.Annual, ResultFuel.Total, ResultEndUse.Whole, Joules(siteGj)));
-        return Rows(artifact, ResultScope.Whole, at,
-            floorAreaM2 > 0.0
-                ? points.Add(new ResultPoint(ResultMeasure.Intensity, ResultFuel.Total, ResultEndUse.Whole, Joules(siteGj) / floorAreaM2))
-                : points);
-    }
+    const string EuiFact = "eui";
 
-    // One result per NON-ZERO (fuel, end-use) cell of the structured SqlFile.endUses() summary. The retired fold summed
-    // every fuel into one per-category number, so a district-heated building and an all-electric one published the same
-    // heating row and no consumer could recover which fuel carried it. The index-loop + per-element `using` is the SWIG
-    // disposal boundary (each vector indexer hands back its own handle) — the same marshaling exemption Vertices takes.
-    static Fin<(Seq<EnergyResult> Rows, Seq<AssessmentFact> Notes)> Cells(OpenStudio.SqlFile sql, ArtifactKey artifact, Instant at) {
+    // Whole-building magnitudes ride the SAME axes at their un-disaggregated members, so a building total and a
+    // per-fuel breakdown are one kind of fact at two grains. Site EUI is the ONE Intensity point per scope: a
+    // second Intensity row under a different accounting basis collides on the quantity key and faults the admission.
+    static Fin<Seq<AssessmentRow>> HeadRows(ResultContext context, double siteGj, double floorAreaM2) =>
+        Rows(context, ResultScope.Whole,
+            Seq(new ResultPoint(ResultMeasure.Annual, ResultFuel.Total, ResultEndUse.Whole, Joules(siteGj)))
+                .Append(floorAreaM2 > 0.0
+                    ? Seq(new ResultPoint(ResultMeasure.Intensity, ResultFuel.Total, ResultEndUse.Whole, Joules(siteGj) / floorAreaM2))
+                    : Seq<ResultPoint>()));
+
+    // One result per REPORTED (fuel, end-use) cell of the structured SqlFile.endUses() summary. The retired fold
+    // summed every fuel into one per-category number, so a district-heated building and an all-electric one
+    // published the same heating row and no consumer could recover which fuel carried it. The walk is a PRODUCT
+    // fold into a HashMap under the cell monoid — the mutable Dictionary, the mutable note List, and the three
+    // `continue` escapes it replaces were three control-flow shapes doing what Choose and a monoid state.
+    // Exemption: the SWIG vector indexer walk and per-element disposal are the native marshaling statement seam.
+    static WriterT<ReadLog, Fin, Seq<AssessmentRow>> Cells(OpenStudio.SqlFile sql, ResultContext context) {
         using OpenStudio.OptionalEndUses optional = sql.endUses();
         if (!optional.is_initialized()) {
-            return Fin.Fail<(Seq<EnergyResult>, Seq<AssessmentFact>)>(
-                new ComputeFault.AnalysisFailed(SolvePhase.Extraction, FailureKind.Foreign, "<energyplus-sql-no-end-uses>"));
+            return Reads.Lift(Fin.Fail<Seq<AssessmentRow>>(new ComputeFault.AnalysisFailed(
+                SolvePhase.Extraction, FailureKind.Foreign, "<energyplus-sql-no-end-uses>")));
         }
         using OpenStudio.EndUses uses = optional.get();
         using OpenStudio.EndUseCategoryTypeVector categories = OpenStudio.EndUses.categories();
         using OpenStudio.EndUseFuelTypeVector fuels = OpenStudio.EndUses.fuelTypes();
-        Dictionary<(ResultFuel Fuel, ResultEndUse Use), (double AnnualGj, double PeakW)> cells = [];
-        List<AssessmentFact> notes = [];
-        for (int f = 0; f < fuels.Count; f++) {
-            using OpenStudio.EndUseFuelType fuel = fuels[f];
-            string fuelToken = fuel.valueName();
-            if (StringComparer.Ordinal.Equals(fuelToken, ResultRows.WaterFuel)) { continue; }
-            if (!ResultRows.ByFuel.TryGetValue(fuelToken, out ResultFuel? mappedFuel)) {
-                notes.Add(AssessmentFact.Text("end-use-fuel-unmapped", fuelToken));
-                continue;
-            }
-            for (int c = 0; c < categories.Count; c++) {
-                using OpenStudio.EndUseCategoryType category = categories[c];
-                double annualGj = uses.getEndUse(fuel, category);
-                double peakW = PeakDemand(sql, fuel, category);
-                if (annualGj == 0.0 && peakW == 0.0) { continue; }
-                if (!ResultRows.ByEndUse.TryGetValue(category.valueName(), out ResultEndUse? mappedUse)) {
-                    notes.Add(AssessmentFact.Text($"end-use-category-unmapped:{category.valueName()}", $"{fuelToken}:{annualGj}"));
-                    continue;
-                }
-                // Interior and Exterior rows land on one service member, so the pair SUMS its annual energy and takes the
-                // MAX of its peaks — two coincident peaks are one demand instant, never their arithmetic sum.
-                cells[(mappedFuel, mappedUse)] = cells.TryGetValue((mappedFuel, mappedUse), out (double AnnualGj, double PeakW) held)
-                    ? (held.AnnualGj + annualGj, Math.Max(held.PeakW, peakW))
-                    : (annualGj, peakW);
-            }
-        }
-        return toSeq(cells)
-            .Fold(Fin.Succ(Seq<EnergyResult>()), (rail, cell) => rail.Bind(rows =>
-                Rows(artifact, ResultScope.Whole, at, Points(cell.Key, cell.Value)).Map(minted => rows + minted)))
-            .Map(rows => (rows, toSeq(notes)));
+        Seq<(int Fuel, int Category)> product =
+            toSeq(Enumerable.Range(0, checked((int)fuels.Count)))
+                .Bind(f => toSeq(Enumerable.Range(0, checked((int)categories.Count))).Map(c => (Fuel: f, Category: c)));
+        (HashMap<(ResultFuel, ResultEndUse), EndUseCell> cells, Seq<AssessmentFact> notes) = product.Fold(
+            (Cells: HashMap<(ResultFuel, ResultEndUse), EndUseCell>(), Notes: Seq<AssessmentFact>()),
+            (state, index) => {
+                using OpenStudio.EndUseFuelType fuel = fuels[index.Fuel];
+                using OpenStudio.EndUseCategoryType category = categories[index.Category];
+                string fuelToken = fuel.valueName();
+                string useToken = category.valueName();
+                if (StringComparer.Ordinal.Equals(fuelToken, ResultFuel.WaterToken)) { return state; }
+                EndUseCell cell = new(uses.getEndUse(fuel, category), PeakDemand(sql, fuel, category));
+                if (!cell.Reported) { return state; }
+                return (ResultFuel.Of(fuelToken), ResultEndUse.Of(useToken)) switch {
+                    ({ IsSome: true, Case: ResultFuel mappedFuel }, { IsSome: true, Case: ResultEndUse mappedUse }) =>
+                        state with { Cells = state.Cells.AddOrUpdate((mappedFuel, mappedUse), held => held.Combine(cell), cell) },
+                    // An out-of-roster token degrades carrying its OWN magnitude, so an axis row the Bim owner
+                    // added but this transcription has not yet mirrored is visible as a number rather than a gap.
+                    _ => state with { Notes = state.Notes.Add(AssessmentFact.Text(UnmappedFact, $"{fuelToken}:{useToken}:{cell.AnnualGj:R}")) },
+                };
+            });
+        return from _ in Reads.Writing(notes, unit)
+               from rows in Reads.Lift(toSeq(cells).TraverseM(cell => Rows(context, ResultScope.Whole, Points(cell.Key, cell.Value))).As())
+               select rows.Bind(static row => row);
     }
 
-    // A zero magnitude publishes NO row: the axis point's absence IS the zero, and the full cross product otherwise lands
-    // scores of empty measures in every bag.
-    static Seq<ResultPoint> Points((ResultFuel Fuel, ResultEndUse Use) axis, (double AnnualGj, double PeakW) cell) {
-        Seq<ResultPoint> points = cell.AnnualGj != 0.0
-            ? Seq(new ResultPoint(ResultMeasure.Annual, axis.Fuel, axis.Use, Joules(cell.AnnualGj)))
-            : Seq<ResultPoint>();
-        return cell.PeakW > 0.0 ? points.Add(new ResultPoint(ResultMeasure.Peak, axis.Fuel, axis.Use, cell.PeakW)) : points;
-    }
+    const string UnmappedFact = "end-use-unmapped";
 
-    // Annual peak demand is the MAXIMUM of the twelve monthly peaks, never their sum. The typed monthly accessor keeps
-    // this read off the tabular store's display-name vocabulary entirely; an absent month contributes nothing.
-    // `MonthOfYear(int)` is a real SWIG ctor (beside `MonthOfYear(string)` and `value()`/`valueName()`), decompile-proven
-    // on the installed assembly, so the ordinal walk needs no static enumerator.
-    static double PeakDemand(OpenStudio.SqlFile sql, OpenStudio.EndUseFuelType fuel, OpenStudio.EndUseCategoryType category) {
-        double peak = 0.0;
-        for (int m = 1; m <= MonthsPerYear; m++) {
-            using OpenStudio.MonthOfYear month = new(m);
-            peak = Math.Max(peak, Lower(sql.peakEnergyDemandByMonth(fuel, category, month)).IfNone(0.0));
-        }
-        return peak;
-    }
+    // A magnitude the read never reported publishes NO point: an absent peak stays absent rather than becoming a
+    // zero-watt demand indistinguishable from a measured one.
+    static Seq<ResultPoint> Points((ResultFuel Fuel, ResultEndUse Use) axis, EndUseCell cell) =>
+        (cell.AnnualGj != 0.0 ? Seq(new ResultPoint(ResultMeasure.Annual, axis.Fuel, axis.Use, Joules(cell.AnnualGj))) : Seq<ResultPoint>())
+        + cell.PeakW.Map(peak => new ResultPoint(ResultMeasure.Peak, axis.Fuel, axis.Use, peak)).ToSeq();
+
+    // Annual peak demand is the MAXIMUM of the twelve monthly peaks, never their sum, and it is ABSENT when no
+    // month reported one — an all-absent month set once read as a genuine zero peak. The typed monthly accessor
+    // keeps this read off the tabular store's display-name vocabulary entirely. `MonthOfYear(int)` is a real SWIG
+    // ctor (beside `MonthOfYear(string)` and `value()`/`valueName()`), decompile-proven on the installed assembly,
+    // so the ordinal walk needs no static enumerator.
+    static Option<double> PeakDemand(OpenStudio.SqlFile sql, OpenStudio.EndUseFuelType fuel, OpenStudio.EndUseCategoryType category) =>
+        toSeq(Enumerable.Range(1, MonthsPerYear))
+            .Choose(m => { using OpenStudio.MonthOfYear month = new(m); return Lower(sql.peakEnergyDemandByMonth(fuel, category, month)); })
+            .Fold(Option<double>.None, static (peak, monthly) => Some(peak.Match(Some: held => Math.Max(held, monthly), None: () => monthly)));
 
     const int MonthsPerYear = 12;
 
-    // Annual simulated hours read SqlFile.hoursSimulated, the binding's one hours accessor; a full run
-    // reports ~8760 h, so a short count means the solver terminated early and the energy is a partial-year artifact a
-    // downstream verdict must reject; an absent hoursSimulated contributes no fact, never a fabricated zero.
+    // Annual simulated hours read SqlFile.hoursSimulated, the binding's one hours accessor; a full run reports
+    // ~8760 h, so a short count means the solver terminated early and the energy is a partial-year artifact a
+    // downstream verdict must reject.
     static Fin<Seq<AssessmentFact>> ValidityFacts(OpenStudio.SqlFile sql) =>
         Lower(sql.hoursSimulated())
             .ToFin((Error)new ComputeFault.AnalysisFailed(SolvePhase.Extraction, FailureKind.Foreign, "<energyplus-sql-no-hours-simulated>"))
-            .Bind(static hours => HoursFact("hours-simulated", hours).Map(static fact => Seq(fact)));
+            .Bind(static hours => AssessmentFact.Measure("hours-simulated", Dimension.DurationDim, Seconds(hours)).Map(static fact => Seq(fact)));
 
     // ONE SystemSummary table serves every scope, its RowName the parameter — `Facility` for the building and the
-    // upper-cased zone name for each roster row, which is how EnergyPlus renders them in the tabular store. The reader
-    // is Microsoft.Data.Sqlite read-only and unpooled, so it neither mutates nor locks the solver's file; SWIG SqlFile
-    // exposes no accessor and no generic SQL exec for TabularDataWithStrings.
-    static Fin<Seq<EnergyResult>> TabularRows(string sqlPath, ResultContext context, Instant at) {
+    // upper-cased zone name for each roster row, which is how EnergyPlus renders them in the tabular store. The
+    // reader is Microsoft.Data.Sqlite read-only and unpooled, so it neither mutates nor locks the solver's file;
+    // SWIG SqlFile exposes no accessor and no generic SQL exec for TabularDataWithStrings.
+    static Fin<Seq<AssessmentRow>> TabularRows(string sqlPath, ResultContext context) {
         using Microsoft.Data.Sqlite.SqliteConnection connection = new($"Data Source={sqlPath};Mode=ReadOnly;Pooling=False;");
         connection.Open();
-        return (Seq(new ZoneTarget(FacilityRow, ResultScope.Whole)) + context.Zones).Fold(
-            Fin.Succ(Seq<EnergyResult>()),
-            (rail, target) => rail.Bind(rows => UnmetPoints(connection, target)
-                .Bind(points => Rows(context.Artifact, target.Scope, at, points))
-                .Map(minted => rows + minted)));
+        return (Seq(new ZoneTarget(FacilityRow, ResultScope.Whole)) + context.Zones)
+            .TraverseM(target => UnmetPoints(connection, target).Bind(points => Rows(context, target.Scope, points))).As()
+            .Map(static rows => rows.Bind(static row => row));
     }
 
-    // Unmet hours are a SERVICE fact — heating hours ride the Heating member, cooling the Cooling — so a tally lands on
-    // the same axis every energy magnitude does instead of a per-metric row name. A missing row RAILS: a report cannot
-    // distinguish a zone that met its setpoints from a zone whose row never landed.
+    // Unmet hours are a SERVICE fact — heating hours ride the Heating member, cooling the Cooling — so a tally
+    // lands on the same axis every energy magnitude does instead of a per-metric row name. A missing row RAILS: a
+    // report cannot distinguish a zone that met its setpoints from a zone whose row never landed.
     static Fin<Seq<ResultPoint>> UnmetPoints(Microsoft.Data.Sqlite.SqliteConnection connection, ZoneTarget target) =>
         Seq((Use: ResultEndUse.Heating, Column: OccupiedHeating), (Use: ResultEndUse.Cooling, Column: OccupiedCooling))
             .Traverse(read => Tabular(connection, UnmetReport, UnmetTable, target.Row, read.Column)
@@ -636,11 +905,24 @@ public static partial class EnergySimulation {
     const string OccupiedHeating = "During Occupied Heating";
     const string OccupiedCooling = "During Occupied Cooling";
 
-    // ONE mint for every published magnitude: the Bim EnergyResult.Of gate rails a non-finite SI value through the seam
-    // MeasureValue finite check before a row exists, so no read site carries a raw double past this boundary and a
-    // rejected read names the point that failed rather than the batch.
-    static Fin<Seq<EnergyResult>> Rows(ArtifactKey artifact, ResultScope scope, Instant at, Seq<ResultPoint> points) =>
-        points.Traverse(p => EnergyResult.Of(artifact, scope, ResultQuantity.Of(p.Measure, p.Fuel, p.Use), p.Si, at).ToValidation()).As().ToFin();
+    // ONE mint for every published magnitude, and the facet path IS the axis point: (measure, fuel, end-use,
+    // scope-kind, scope-target) ordered, so the Bim admission addresses a row by reading its path rather than by
+    // parsing a name. The mint is the transcribed roster's OWN `Admit` — the same entry the Bim admission stamps
+    // its MeasureValue through — so a run and its admission can never dimension one magnitude two ways, and the
+    // seam finite gate rails a non-finite SI value before a row exists: no read site carries a raw double past
+    // this boundary and a rejected read names the point that failed rather than the batch.
+    static Fin<Seq<AssessmentRow>> Rows(ResultContext context, ResultScope scope, Seq<ResultPoint> points) =>
+        points.Traverse(p =>
+                p.Measure.Admit(p.Si, RunKey)
+                    .Map(value => new AssessmentRow(context.Key.Value, Discipline.Energy,
+                        Seq(p.Measure.Key, p.Fuel.Key, p.Use.Key) + scope.Facets,
+                        AssessmentFact.Measure($"{ModelPrefix}{context.Model:x32}", value)))
+                    .ToValidation())
+            .As().ToFin();
+
+    // The consumed model's content key rides the fact NAME, so a result row states which document produced it
+    // without a column the neutral row shape does not carry.
+    const string ModelPrefix = "model:";
 
     static Option<double> Tabular(Microsoft.Data.Sqlite.SqliteConnection connection, string report, string table, string row, string column) {
         using Microsoft.Data.Sqlite.SqliteCommand command = connection.CreateCommand();
@@ -649,195 +931,272 @@ public static partial class EnergySimulation {
         command.Parameters.AddWithValue("$table", table);
         command.Parameters.AddWithValue("$row", row);
         command.Parameters.AddWithValue("$column", column);
-        return Optional(command.ExecuteScalar()).Bind(static value => double.TryParse($"{value}", System.Globalization.CultureInfo.InvariantCulture, out double parsed) ? Some(parsed) : None);
+        return Optional(command.ExecuteScalar()).Bind(static value => double.TryParse($"{value}", CultureInfo.InvariantCulture, out double parsed) ? Some(parsed) : None);
     }
-
-    static Fin<AssessmentFact> HoursFact(string name, double hours) => AssessmentFact.Measure(name, Dimension.DurationDim, Seconds(hours));
 
     static double Seconds(double hours) => UnitsNet.Duration.FromHours(hours).Seconds;
 
-    // Governing ratio compares emitted site EUI against policy target; with no
-    // target (or no eui fact) the ratio is double.NaN so the verdict bands NotApplicable, never a 0.0-ratio Satisfied.
-    static double GoverningEui(Seq<AssessmentFact> facts, EnergyPolicy policy) =>
-        policy.TargetEui > 0.0
-            ? facts.Choose(static f => f.Name.Value == "eui" && f.Value is PropertyValue.Measure m ? Some(m.Value.Si) : None)
-                .Head.Map(euiSi => UnitsNet.Energy.FromJoules(euiSi).KilowattHours / policy.TargetEui).IfNone(double.NaN)
-            : double.NaN;
+    // Governing ratio compares emitted site EUI against the policy target. With NO target — or no eui fact at all,
+    // which is a zero-area set — the ratio is ABSENT and the verdict bands NotApplicable, never a 0.0-ratio
+    // Satisfied and never a NaN an operator reads as a measurement.
+    static Option<double> GoverningEui(Seq<AssessmentFact> facts, EnergyPolicy policy) =>
+        from target in policy.TargetEui.Filter(static value => value > 0.0)
+        from euiSi in facts.Choose(static f => f.Name.Value == EuiFact && f.Value is PropertyValue.Measure m ? Some(m.Value.Si) : None).Head
+        select UnitsNet.Energy.FromJoules(euiSi).KilowattHours / target;
 
     // Read a SWIG OptionalDouble onto Option<double> and dispose the handle (a getter's OptionalDouble is itself
     // disposable, so a bare read leaks) — the one place a missing output becomes None, never a faulting get().
     static Option<double> Lower(OpenStudio.OptionalDouble optional) { using (optional) { return optional.is_initialized() ? Some(optional.get()) : None; } }
 
-    static string Tail(string s) => s.Length <= 256 ? s : s[^256..];
-}
+    // EnergyPlus writes its fatal at the TAIL of stderr, so the head is what a bound discards; the bound is a
+    // stated policy figure rather than a literal buried in a slice expression.
+    const int DetailTailChars = 256;
 
-// Compute-owned ElementGraph extensions (not seam members) composing the seam primitives and the projected neutral
-// Generic space-boundary edges: the seam owns the material/composition reads and the GeometrySource decode contract, the
-// discipline spatial reads live here. Spaces are the IfcSpace-classified nodes reachable from the targets; bounding
-// surfaces ride the projected IfcRelSpaceBoundary edges (Host-attributed openings split to OpeningsOf), each footprint
-// resolved one-hop by content key through GeometrySource; the conditioned floor area sums the spaces' net area.
-public static class EnergyGraphReads {
-    internal const string WindowClass = "IfcWindow";    // the opening-class discriminant BuildOpenings maps to FixedWindow
-    const string SpaceBoundary  = "IfcRelSpaceBoundary";
-    const string SpaceClass     = "IfcSpace";
-    const string SecondLevel    = "2nd";                // prefer 2nd-level (space-to-space) boundaries so a 1st+2nd export never double-counts the envelope; the "" undeclared rows read 1st-equivalent
+    static string Tail(string s) => s.Length <= DetailTailChars ? s : s[^DetailTailChars..];
 
-    public static Seq<Node.Object> SpacesOf(this ElementGraph graph, Seq<NodeId> targets) =>
-        targets.IsEmpty
-            ? graph.ObjectNodes.Filter(IsSpace)
-            : targets.Bind(t => Descend(graph, t)).Distinct().Choose(graph.Find<Node.Object>).Filter(IsSpace).ToSeq();
-
-    // Bounding surfaces ride each space's projected IfcRelSpaceBoundary edges; a Host-attributed edge is an OPENING
-    // and is excluded here (it folds as a SubSurface via OpeningsOf). When a model carries both 1st- and 2nd-level boundaries,
-    // only the 2nd-level set is read so the envelope is never double-counted; a 1st-level-only or undeclared-level ""
-    // model rides the 1st-equivalent arm — the secondLevel filter excludes it beside a declared set, the fallback includes it.
-    public static Seq<Node.Object> BoundingSurfacesOf(this ElementGraph graph, NodeId space) {
-        Seq<(Relationship.Generic Edge, Node.Object Surface)> boundaries =
-            graph.EdgesAt(space).Choose(e => e is Relationship.Generic g && g.WireName == SpaceBoundary && g.Relating == space
-                && g.Attribute(BoundaryRows.Host).IsNone
-                ? graph.Find<Node.Object>(g.Related).Map(s => (Edge: g, Surface: s)) : None).ToSeq();
-        Seq<(Relationship.Generic Edge, Node.Object Surface)> secondLevel = boundaries.Filter(static b =>
-            b.Edge.Text(BoundaryRows.Level).Exists(static level => level == SecondLevel));
-        return (secondLevel.IsEmpty ? boundaries : secondLevel).Map(static b => b.Surface);
-    }
-
-    // Host-attributed opening boundaries select space edges whose Host attribute names
-    // host identifier; identifier matching replaces a NodeId join because rooted ids are raise-local.
-    public static Seq<Node.Object> OpeningsOf(this ElementGraph graph, NodeId space, string hostIdentifier) =>
-        graph.EdgesAt(space).Choose(e =>
-            e is Relationship.Generic g && g.WireName == SpaceBoundary && g.Relating == space
-                && g.Text(BoundaryRows.Host).Exists(host => host == hostIdentifier)
-                ? graph.Find<Node.Object>(g.Related) : None).ToSeq();
-
-    // Conditioned floor area is an admission rail: every conditioned space contributes a positive `NetFloorArea`, so a
-    // missing denominator cannot suppress `eui` and disguise incomplete graph evidence as `NotApplicable`.
-    public static Fin<double> ConditionedFloorArea(this ElementGraph graph, Seq<NodeId> targets) =>
-        graph.SpacesOf(targets).Filter(s => graph.IsConditioned(s.Id)).Fold(
-            Fin.Succ(0.0),
-            (total, space) => total.Bind(area => graph.NetFloorAreaM2(space.Id).Map(value => area + value)));
-
-    // Every space reads conditioned unless Pset_SpaceCommon marks it external, an absent flag included. One predicate
-    // gates the OSM ideal-air conditioning and the EUI denominator, so the model and the intensity agree.
-    public static bool IsConditioned(this ElementGraph graph, NodeId space) =>
-        graph.Property(space, EnvelopeRows.IsExternal, Some(EnvelopeRows.SpaceCommon)).Match(
-            Some: static v => v is not PropertyValue.Boolean { Value: true }, None: static () => true);
-
-    static bool IsSpace(Node.Object o) => o.Classification.Code == SpaceClass;
-
-    // Bag reads compose the one Analysis/assessment AnalysisReads owner over Rasm.Element-declared rows — the
-    // set-scoped overload narrows to the named bag where the discipline needs it.
-    static Fin<double> NetFloorAreaM2(this ElementGraph graph, NodeId space) =>
-        graph.Quantity(space, QuantityRows.NetFloorArea, Some(QuantityRows.SpaceBaseQuantities)).Bind(static measure => measure.Area)
-            .ToFin((Error)new ComputeFault.AssessmentInputMissing($"<energy-space-net-floor-area-missing:{space.Value}>"));
-
-    // Transitive descent over the owning Compose decomposition (aggregate/nest/contain) so a building/storey target reaches
-    // its spaces; the non-owning Reference flavor is excluded. A path-ancestry set guards a cyclic Compose chain — this
-    // descent runs before any Bake, so a corrupt graph yields an empty branch rather than an uncatchable StackOverflow.
-    static Seq<NodeId> Descend(ElementGraph graph, NodeId node) => Descend(graph, node, ImmutableHashSet<NodeId>.Empty);
-
-    static Seq<NodeId> Descend(ElementGraph graph, NodeId node, ImmutableHashSet<NodeId> ancestry) =>
-        ancestry.Contains(node)
-            ? Seq<NodeId>()
-            : node.Cons(graph.EdgesAt(node).Choose(e => e is Relationship.Compose c && c.Whole == node && c.SubKind != ComposeKind.Reference ? Some(c.Part) : None).ToSeq()
-                .Bind(child => Descend(graph, child, ancestry.Add(node))));
+    static ComputeFault Missing(AssessmentInputReason reason, string witness) => new ComputeFault.AssessmentInputMissing(reason, witness);
 }
 ```
 
 ## [05]-[CLOUD_ROUTE]
 
-- Owner: `EnergyRoute` the closed execution-provider `[Union]` on `EnergyPolicy` (`Subprocess` the local default · `Cloud` the Pollination row carrying owner/project/job-descriptor/platform/model-key as neutral values); `EnergySimulation.Run` the one entry whose generated total `Switch` dispatches the row; `RunCloud` the Pollination arm; `Orchestrate` the bracketed async SDK kernel.
-- Entry: `public static Fin<AssessmentResult> Run(...)` dispatches `request.Policy.Route` — `Subprocess` enters `RunLocal` (`[04]`), `Cloud` enters `RunCloud`, which admits the staged model address, submits the app-authored job descriptor, watches the run to a terminal status, gates on an exact `RunStatusEnum.Succeeded` parse, pulls the result assets, locates the downloaded `eplusout.sql`, and converges on the same `ReadResults` fold `[04]` owns — one result read serves both providers, so the typed rows, fact stream, EUI verdict, and receipt shape are route-invariant.
-- Auto: the HBJSON payload inside the job descriptor is the `Rasm.Bim/Energy/exchange#ENERGY_EXCHANGE` content-keyed `EnergyArtifact` the app root staged, and `ModelKey` is that artifact's own `ArtifactKey` hoisted out of the descriptor so the results join needs no descriptor parse — the column adds no content-key surface, the descriptor it is read from already folding verbatim. Downloaded assets land content-keyed on the Persistence object plane exactly as the local `eplusout.sql` does, and the assessment node keys the same `(input subgraph, route, policy)` content key, so a re-submitted identical model+recipe resolves from the Persistence index; the SDK's `Wrapper.LocalDatabase` and its path-existence `CheckCached` are not composed (path-existence reuse without hash verification is the integrity gap the content-keyed index closes).
-- Receipt: the `Assessment` receipt carries the cloud provenance beside the route/content-key columns; the watch-status trail folds in as soft notes.
-- Packages: PollinationSDK (the `Wrapper` job/run/asset orchestration + `RunStatusEnum` terminal vocabulary — sidecar-isolated: its vendored `LBT.RestSharp`/`LBT.Newtonsoft.Json` closure never meets the STJ rails nor loads in-Rhino), Rasm.Bim (project — `ArtifactKey.Admit` gating the staged model address), LanguageExt.Core, NodaTime, BCL inbox.
-- Growth: a new cloud provider is one `EnergyRoute` case with one arm (the `Switch` breaks every dispatch site at compile time); a recipe change is job-descriptor data, never a signature; per-output typed decodes beyond the SQLite widen `Orchestrate` by one asset row.
-- Boundary: `Configuration`/`TokenRepo` auth is composition-root input to the ambient SDK configuration, never a policy column or fence member (the Persistence token-lifecycle law). Async orchestration is one blocking boundary kernel bracketed with the scratch directory (Exemption: sidecar HTTP + filesystem), and classification is exception-typed — an `ApiException`/HTTP transport fault maps `ComputeFault.EndpointUnreachable` while every other raise, a failed terminal, or a missing SQL asset maps `AnalysisFailed` — zero new band codes. The terminal gate PARSES the watched status against the `RunStatusEnum` token set and demands equality with `Succeeded`: a substring test over the raw string admits any status that merely contains the token and publishes a failed run's partial assets as an answer. A malformed `ModelKey` refuses at the Bim mint and lowers onto this lane's own `AssessmentInputMissing` — the address grammar is Bim's, the rail is Compute's, and a Bim band code crossing a Compute rail is the strata leak that mapping closes. Cloud rows publish BUILDING scope only, because zone naming belongs to the recipe and a correspondence Compute never authored is a guess. Artifact residency (presigned-grant transfer, `ArtifactKind.CloudRun` reuse index, PROV attribution) stays the Persistence owners' rows composed at the seam. Cloud-side model rebuild from the graph is the rejected form — cloud consumes the Bim-lowered HBJSON, local consumes the in-process OSM build, two rows on one axis.
+- Owner: `EnergyRoute` the closed execution-provider `[Union]` on `EnergyPolicy` (`Subprocess` the local default · `Cloud` the Pollination row carrying owner/project/job-descriptor/platform/model key as neutral values beside its published watch curve); `EnergySimulation.Run` the one entry whose generated total `Switch` dispatches the row; `RunCloud` the Pollination arm; `Orchestrate` the bracketed async SDK kernel.
+- Entry: `public static Fin<AssessmentResult> Run(...)` dispatches `request.Policy.Route` — `Subprocess` enters `RunLocal` (`[04]`), `Cloud` enters `RunCloud`, which submits the app-authored job descriptor, watches the run to a terminal status under the route's own bounded curve, gates on an exact `RunStatusEnum.Succeeded` parse, pulls the result assets, locates the downloaded `eplusout.sql`, and converges on the same `ReadResults` fold `[04]` owns — one result read serves both providers, so the typed rows, fact stream, EUI verdict, and receipt shape are route-invariant.
+- Law: the watch is a BOUNDED wait on a stated curve, never an open poll. `WatchJobStatusAsync` blocks to a terminal with no bound, no backoff, and no exit — a cloud job that never terminates held the runner forever and reported nothing. The route PUBLISHES a `RedrivePolicy` whose `Curve` the in-process wait repeats on and whose bound turns an unfinished run into a TYPED exhaustion fault naming the last status seen, because a success-shaped fall-through certifies unconverged as converged.
+- Law: transport retriability is PUBLISHED, never executed here. The pinned `PollinationSDK` surfaces no response headers on `ApiException` (decompile-proven: `ErrorCode` + `ErrorContent` alone), so a `Retry-After` window has no spelling on this transport and every transient refusal — 429, 408, 5xx — raises `EndpointUnreachable`, which publishes `Transient`; `EndpointThrottled` re-enters WITH the header surface the day the SDK grows one. The root-bound executor spends those postures — this arm spells no attempt counter and no delay literal of its own.
+- Auto: the HBJSON payload inside the job descriptor is the app-staged energy model, and `Model` is that artifact's own content key hoisted out of the descriptor so the results join needs no descriptor parse — the column adds no content-key surface, the descriptor it is read from already folding verbatim. Downloaded assets land content-keyed on the Persistence object plane exactly as the local `eplusout.sql` does, and the assessment node keys the same `(input subgraph, route, policy)` content key, so a re-submitted identical model+recipe resolves from the Persistence index; the SDK's `Wrapper.LocalDatabase` and its path-existence `CheckCached` are not composed (path-existence reuse without hash verification is the integrity gap the content-keyed index closes).
+- Receipt: the `Assessment` receipt carries the cloud provenance beside the route/content-key columns; the watch-status trail folds into the same `ReadLog` ledger the local route uses.
+- Packages: PollinationSDK (the `Wrapper` job/run/asset orchestration + `RunStatusEnum` terminal vocabulary + `Client.ApiException` — sidecar-isolated: its vendored `LBT.RestSharp`/`LBT.Newtonsoft.Json` closure never meets the STJ rails nor loads in-Rhino), LanguageExt.Core (`IO`/`Schedule`/`Fin`), Rasm (kernel — `RedrivePolicy`/`Retriability`), NodaTime (`Duration`), BCL inbox.
+- Growth: a new cloud provider is one `EnergyRoute` case with one arm (the `Switch` breaks every dispatch site at compile time); a recipe change is job-descriptor data, never a signature; a re-cadenced watch is one `RedrivePolicy` value on the row; per-output typed decodes beyond the SQLite widen `Orchestrate` by one asset row.
+- Boundary: `Configuration`/`TokenRepo` auth is composition-root input to the ambient SDK configuration, never a policy column or fence member (the Persistence token-lifecycle law). Async orchestration is one blocking boundary kernel inside the leased scratch capsule (Exemption: sidecar HTTP + filesystem). The terminal gate PARSES the watched status against the `RunStatusEnum` token set and demands equality with `Succeeded`: a substring test over the raw string admits any status that merely contains the token and publishes a failed run's partial assets as an answer. Cloud rows publish BUILDING scope only, because zone naming belongs to the recipe and a correspondence Compute never authored is a guess. The staged model key crosses as a `UInt128` content key rather than a foreign address string, so a malformed key is unrepresentable rather than a refusal path this lane has to carry — the address grammar belongs to whoever staged the artifact, and this package holds no reference to it. Artifact residency (presigned-grant transfer, reuse index, PROV attribution) stays the Persistence owners' rows composed at the seam. Cloud-side model rebuild from the graph is the rejected form — cloud consumes the app-staged HBJSON, local consumes the in-process OSM build, two rows on one axis.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
-// Execution-provider case is the route; provider coordinates ride it as neutral values, with no PollinationSDK
-// type enters the policy, the SDK closure stays inside the RunCloud boundary (sidecar law).
+// Execution-provider case is the route; provider coordinates ride it as neutral values, and no PollinationSDK type
+// enters the policy — the SDK closure stays inside the RunCloud boundary (sidecar law).
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record EnergyRoute {
     private EnergyRoute() { }
 
     public sealed record Subprocess : EnergyRoute;
 
-    // Owner/Project name the Pollination project; JobDescriptor is the app-authored Wrapper.JobInfo JSON (recipe ref +
-    // inputs incl. the staged HBJSON artifact); Platform keys GetOutputAssets; ModelKey is the staged artifact's own
-    // Bim ArtifactKey, hoisted out of the descriptor so the results join reads a typed address rather than re-parsing
-    // JSON, and adding no content-key surface because the descriptor it comes from already folds verbatim. The
-    // descriptor is canonical analysis identity, so it references inputs by object-plane content key and carries no
-    // volatile token (no local path, signed URL, timestamp, auth material, or SDK Local* provisioning column) — a
-    // volatile token over-keys the cache and silently re-runs a token-metered cloud job, the named defect.
-    public sealed record Cloud(string Owner, string Project, string JobDescriptor, string Platform, string ModelKey) : EnergyRoute;
+    // Owner/Project name the Pollination project; JobDescriptor is the app-authored Wrapper.JobInfo JSON (recipe
+    // ref + inputs incl. the staged HBJSON artifact); Platform keys GetOutputAssets; Model is the staged
+    // artifact's own CONTENT KEY, hoisted out of the descriptor so the results join reads a typed address rather
+    // than re-parsing JSON, and adding no content-key surface because the descriptor it comes from already folds
+    // verbatim. Watch publishes the bounded backoff curve the in-process wait repeats on — a value on the row, so
+    // a slower recipe is deployment data and never an edit to the orchestration. The descriptor is canonical
+    // analysis identity, so it references inputs by object-plane content key and carries no volatile token (no
+    // local path, signed URL, timestamp, auth material, or SDK Local* provisioning column) — a volatile token
+    // over-keys the cache and silently re-runs a token-metered cloud job, the named defect.
+    public sealed record Cloud(string Owner, string Project, string JobDescriptor, string Platform, UInt128 Model, RedrivePolicy Watch) : EnergyRoute;
 
     public static readonly EnergyRoute Local = new Subprocess();
+
+    // The default watch: exponential backoff with jitter under a capped delay, bounded so an unfinished run
+    // becomes a typed fault rather than a runner that never returns. Jitter is what keeps a fan-out of cloud runs
+    // from re-polling in lockstep and rate-limiting itself.
+    public static readonly RedrivePolicy CanonicalWatch = RedrivePolicy.Of(
+        law: Schedule.exponential(Duration.FromSeconds(5))
+            | Schedule.jitter(Duration.FromSeconds(1))
+            | Schedule.maxDelay(Duration.FromMinutes(2)),
+        bound: 240);
 }
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static partial class EnergySimulation {
     // One entry, provider rows: the generated Switch makes a new provider a compile-broken case, never a knob.
-    public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Energy request, GeometrySource geometry, AssessmentSink sink, IClock clock) =>
+    public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Energy request, GeometrySource geometry, AssessmentSink sink, ContentAddress key, IClock clock) =>
         request.Policy.Route.Switch(
-            subprocess: _ => RunLocal(graph, request, geometry, sink, clock),
-            cloud:      c => RunCloud(graph, request, c, sink, clock));
+            subprocess: _ => RunLocal(graph, request, geometry, sink, key, clock),
+            cloud:      c => RunCloud(graph, request, c, sink, key, clock));
 
-    // Submit -> watch -> pull -> the same ReadResults fold. The async orchestration is one blocking boundary kernel
-    // (Exemption: sidecar HTTP + filesystem) bracketed with the scratch directory; auth is composition-root input.
-    // Classification is exception-typed: an ApiException/HTTP transport fault is EndpointUnreachable; every other raise,
-    // a failed terminal, or a missing SQL asset is AnalysisFailed — a descriptor defect is never misreported as unreachable.
-    static Fin<AssessmentResult> RunCloud(ElementGraph graph, AssessmentRequest.Energy request, EnergyRoute.Cloud route, AssessmentSink sink, IClock clock) {
-        string scratch = "";
+    // Submit -> watch -> pull -> the same ReadResults fold, inside the same leased scratch capsule the local route
+    // takes. Classification is status-typed and the POSTURE rides the fault: a windowed 429 is Throttled, every
+    // other transport refusal Transient, a descriptor defect or a failed terminal Terminal — so a descriptor defect
+    // is never misreported as unreachable and no arm here counts attempts.
+    static Fin<AssessmentResult> RunCloud(ElementGraph graph, AssessmentRequest.Energy request, EnergyRoute.Cloud route, AssessmentSink sink, ContentAddress key, IClock clock) {
         Instant at = clock.GetCurrentInstant();
-        try {
-            scratch = Directory.CreateTempSubdirectory("rasm-pollination-").FullName;
-            // Model address admits FIRST: a malformed key is a descriptor defect, and discovering it after a metered
-            // recipe ran means paying for a run whose results have nowhere to land. The Bim value object owns the
-            // grammar; its refusal lowers onto this lane's own fault so no Bim band code rides a Compute rail.
-            return ArtifactKey.Admit(route.ModelKey, Op.Of())
-                .MapFail(_ => (Error)new ComputeFault.AssessmentInputMissing($"<energy-cloud-model-key-malformed:{route.ModelKey}>"))
-                .Bind(artifact => Try.lift(() => Orchestrate(route, scratch).GetAwaiter().GetResult()).Run()
-                    .MapFail(error => (Error)(error.Exception.Case is PollinationSDK.Client.ApiException or HttpRequestException
-                        ? new ComputeFault.EndpointUnreachable($"<pollination:{Tail(error.Message)}>")
-                        : new ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Foreign, $"<pollination-run:{Tail(error.Message)}>")))
-                    .Bind(static fin => fin)
-                    // Empty zone roster: the recipe names its own zones, so the cloud arm publishes building scope alone.
-                    .Bind(sqlPath => ReadResults(sqlPath, graph, request, new ResultContext(artifact, Seq<ZoneTarget>()), at)
-                        .Bind(readout => sink.Store(File.ReadAllBytes(sqlPath))
-                            .Bind(blob => request.Policy.Results.Publish(readout.Results)
-                                .Map(_ => AssessmentResult.Of(request.Route, readout.Facts, GoverningEui(readout.Facts, request.Policy),
-                                    new Provenance("EnergySimulation", request.Route.Standard, $"Pollination {route.Owner}/{route.Project}", at),
-                                    Some(blob)))))));
-        }
-        finally { if (scratch.Length > 0) { try { Directory.Delete(scratch, recursive: true); } catch (IOException) { } } }
+        return Leased(CloudScratch, scratch =>
+                    from sqlPath in Reads.Lift(Orchestrate(route, scratch).Run())
+                    // Empty zone roster: the recipe names its own zones, so the cloud arm publishes building scope.
+                    from readout in ReadResults(sqlPath, graph, request, new ResultContext(key, route.Model, Seq<ZoneTarget>()))
+                    from blob in Reads.Lift(sink.Store(File.ReadAllBytes(sqlPath)).Run())
+                    from published in Reads.Lift(sink.Rows(readout.Rows).Run())
+                    select (Readout: readout, Blob: blob))
+            .Bind(leased => Publish(request, leased.Value.Readout, leased.Value.Blob, leased.Notes, at, request.Weather));
     }
 
-    // Wrapper orchestration: JobInfo.FromJson -> RunJobAsync (upload + schedule) -> WatchJobStatusAsync (poll to terminal)
-    // -> RunInfo.GetOutputAssets(platform) -> DownloadRunAssetsAsync into scratch. The SDK's LocalDatabase/CheckCached
+    const string CloudScratch = "rasm-pollination-";
+
+    // Wrapper orchestration: JobInfo.FromJson -> RunJobAsync (upload + schedule) -> a BOUNDED status wait ->
+    // RunInfo.GetOutputAssets(platform) -> DownloadRunAssetsAsync into scratch. The SDK's LocalDatabase/CheckCached
     // reuse is not composed — the Persistence content-keyed index owns reuse.
-    static async Task<Fin<string>> Orchestrate(EnergyRoute.Cloud route, string scratch) {
-        PollinationSDK.Wrapper.JobInfo job = PollinationSDK.Wrapper.JobInfo.FromJson(route.JobDescriptor);
-        PollinationSDK.Wrapper.ScheduledJobInfo scheduled = await job.RunJobAsync();
-        // Terminal gate PARSES against the enum token set and demands equality: a substring test admitted every status
-        // that merely contained the token, so a failed run's partial assets read as a completed simulation.
-        string status = await scheduled.WatchJobStatusAsync();
-        if (!Enum.TryParse(status.Trim(), ignoreCase: true, out PollinationSDK.RunStatusEnum terminal)
-            || terminal != PollinationSDK.RunStatusEnum.Succeeded) {
-            return Fin.Fail<string>(new ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Foreign, $"<pollination-terminal:{Tail(status)}>"));
-        }
-        PollinationSDK.Wrapper.RunInfo run = new(scheduled);
-        List<PollinationSDK.Wrapper.RunAssetBase> assets = [.. run.GetOutputAssets(route.Platform)];
-        await run.DownloadRunAssetsAsync(assets, saveAsDir: scratch);
-        string sqlPath = Directory.EnumerateFiles(scratch, "eplusout.sql", SearchOption.AllDirectories).FirstOrDefault() ?? "";
-        return sqlPath.Length > 0
-            ? Fin.Succ(sqlPath)
-            : Fin.Fail<string>(new ComputeFault.AnalysisFailed(SolvePhase.Extraction, FailureKind.Foreign, "<pollination-no-sql-asset>"));
-    }
+    static IO<Fin<string>> Orchestrate(EnergyRoute.Cloud route, string scratch) =>
+        IO.liftAsync(async () => {
+                PollinationSDK.Wrapper.JobInfo job = PollinationSDK.Wrapper.JobInfo.FromJson(route.JobDescriptor);
+                return await job.RunJobAsync();
+            })
+            .Bind(scheduled => Watch(scheduled, route)
+                .Bind(status => Terminal(status).Match(
+                    Succ: _ => IO.liftAsync(async () => {
+                        PollinationSDK.Wrapper.RunInfo run = new(scheduled);
+                        await run.DownloadRunAssetsAsync([.. run.GetOutputAssets(route.Platform)], saveAsDir: scratch);
+                        return Located(scratch);
+                    }),
+                    Fail: error => IO.pure(Fin.Fail<string>(error)))))
+            .Catch(static (Error error) => IO.pure(Fin.Fail<string>(error)));
+
+    // The bounded wait: ONE status read repeated on the route's published curve while the run has not reached a
+    // terminal state. Exhausting the bound is a TYPED fault naming the last status — the open `WatchJobStatusAsync`
+    // block it replaces had no bound to exhaust and therefore no fault to raise.
+    static IO<string> Watch(PollinationSDK.Wrapper.ScheduledJobInfo scheduled, EnergyRoute.Cloud route) =>
+        IO.liftAsync(async () => await scheduled.WatchJobStatusAsync())
+            .RepeatWhile(schedule: route.Watch.Curve, predicate: static status => !Settled(status));
+
+    // Terminal gate PARSES against the enum token set and demands equality: a substring test admitted every status
+    // that merely contained the token, so a failed run's partial assets read as a completed simulation.
+    static Fin<Unit> Terminal(string status) =>
+        Enum.TryParse(status.Trim(), ignoreCase: true, out PollinationSDK.RunStatusEnum parsed) && parsed == PollinationSDK.RunStatusEnum.Succeeded
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Foreign, $"<pollination-terminal:{Tail(status)}>"));
+
+    static bool Settled(string status) =>
+        Enum.TryParse(status.Trim(), ignoreCase: true, out PollinationSDK.RunStatusEnum parsed)
+        && parsed is PollinationSDK.RunStatusEnum.Succeeded or PollinationSDK.RunStatusEnum.Failed or PollinationSDK.RunStatusEnum.Cancelled;
+
+    static Fin<string> Located(string scratch) =>
+        Optional(Directory.EnumerateFiles(scratch, ResultFile, SearchOption.AllDirectories).FirstOrDefault())
+            .ToFin((Error)new ComputeFault.AnalysisFailed(SolvePhase.Extraction, FailureKind.Foreign, "<pollination-no-sql-asset>"));
+
+    // The SDK boundary retains its original `Error`. Its `ApiException` exposes no retry headers, so this page has
+    // no evidence from which to mint `EndpointThrottled`; transport policy remains with the composing rail.
 }
 ```
 
-## [06]-[RESEARCH]
+## [06]-[GRAPH_READS]
+
+- Owner: `BoundaryReads` the projected space-boundary edge owner every discipline that reads spatial containment composes — `SpacesOf`/`SurfacesOf`/`OpeningsOf`/`ConditioningOf`/`ConditionedFloorArea`/`LayerSetOf`/`Descend`, the `WireName` roster key, and the `BoundaryRole` discriminant the two edge filters fold onto.
+- Law: this owner is DISCIPLINE-NEUTRAL by name and by content. It reads the projected `IfcRelSpaceBoundary` edges and the seam containment decomposition, both of which the energy runner, the circulation runner, and the acoustic room fold all need — an `Energy`-named owner two other disciplines composed was a name that lied about who it served, and a per-discipline copy of the same edge walk is the fork it prevents.
+- Law: the two boundary filters are ONE fold. `SurfacesOf` and `OpeningsOf` selected the same edge set with the same three conjuncts and differed only on whether the `Host` attribute was absent or matched — `BoundaryRole` names that discriminant and one partition answers both, so a change to the edge predicate cannot land on one and miss the other.
+- Entry: `SpacesOf(targets)` answers the reachable `IfcSpace` nodes, `SurfacesOf(space)` the bounding surfaces at the finest declared boundary level, `OpeningsOf(space, host)` the host-attributed opening boundaries, `ConditioningOf(space)` the three-state occupancy claim, `ConditionedFloorArea(targets)` the EUI denominator, and `LayerSetOf(node)` the layered composition an admission rail needs.
+- Packages: LanguageExt.Core, Rasm.Element (project — `ElementGraph`, `Node.Object`, `NodeId`, `Relationship.Generic`/`Compose`, `WireName`, `PropertyValue`, `MaterialComposition`, `QuantityRows`/`BoundaryRows`/`EnvelopeRows`), the `Analysis/assessment#ANALYSIS_READS` `AnalysisReads` bag-and-edge read owner, the `Runtime/admission#DISPATCH_SPINE` fault family.
+- Boundary: every bag and edge-attribute read composes `AnalysisReads` — the one owner over `Rasm.Element`-declared rows — so this page adds discipline SELECTION over that owner's shapes and re-declares none of them; the set-scoped overload narrows to the named bag where the discipline needs it. The containment descent is ITERATIVE over an explicit frontier with a visited set, never recursion: the descent runs before any `Bake`, so a cyclic `Compose` chain is a real input, and the hand recursion it replaces admitted its own StackOverflow risk in a comment without closing it. Only the owning `Compose` flavours descend — the non-owning `Reference` flavour is excluded, so a reference edge cannot pull an unrelated subtree into a building's space roster.
+
+```csharp signature
+// --- [TYPES] -------------------------------------------------------------------------------
+// The discriminant the two boundary filters once spelled as two near-identical predicates: a boundary edge either
+// bounds the space directly or names a HOST, in which case it is an opening in that host. One partition answers
+// both, so the shared three conjuncts have one home.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class BoundaryRole {
+    public static readonly BoundaryRole Bounding = new("bounding");
+    public static readonly BoundaryRole Opening = new("opening");
+}
+
+// --- [BOUNDARIES] --------------------------------------------------------------------------
+// Compute-owned ElementGraph extensions (not seam members) composing the AnalysisReads shapes and the projected
+// neutral Generic space-boundary edges: the seam owns the material/composition reads and the GeometrySource decode
+// contract, the discipline SELECTION over them lives here.
+public static class BoundaryReads {
+    // The seam Generic edge carries a WireName value object, so the roster key mints ONCE and every consumer —
+    // this runner, the circulation runner — compares against the same value rather than each holding a bare
+    // string no edge is ever equal to. This is the spelling the Bim energy projector stamps at the raise.
+    public static readonly WireName SpaceBoundary = WireName.Create("IfcRelSpaceBoundary");
+
+    const string SpaceClass = "IfcSpace";
+    // Prefer 2nd-level (space-to-space) boundaries so a 1st+2nd export never double-counts the envelope; the ""
+    // undeclared rows read 1st-equivalent.
+    const string SecondLevel = "2nd";
+
+    extension(ElementGraph graph) {
+        public Seq<Node.Object> SpacesOf(Seq<NodeId> targets) =>
+            targets.IsEmpty
+                ? graph.ObjectNodes.Filter(IsSpace)
+                : targets.Bind(t => graph.Descend(t)).Distinct().Choose(graph.Find<Node.Object>).Filter(IsSpace).ToSeq();
+
+        // Bounding surfaces ride each space's projected boundary edges. When a model carries both 1st- and
+        // 2nd-level boundaries, only the 2nd-level set is read so the envelope is never double-counted; a
+        // 1st-level-only or undeclared-level model rides the 1st-equivalent arm.
+        public Seq<Node.Object> SurfacesOf(NodeId space) {
+            Seq<(Relationship.Generic Edge, Node.Object Surface)> bounding = graph.Boundaries(space, BoundaryRole.Bounding, static _ => true);
+            Seq<(Relationship.Generic Edge, Node.Object Surface)> secondLevel = bounding.Filter(static b =>
+                b.Edge.Text(BoundaryRows.BoundaryLevel).Exists(static level => level == SecondLevel));
+            return (secondLevel.IsEmpty ? bounding : secondLevel).Map(static b => b.Surface);
+        }
+
+        // Host-attributed opening boundaries select the edges whose Host attribute names the host identifier;
+        // identifier matching replaces a NodeId join because rooted ids are raise-local.
+        public Seq<Node.Object> OpeningsOf(NodeId space, string hostIdentifier) =>
+            graph.Boundaries(space, BoundaryRole.Opening, host => host == hostIdentifier).Map(static b => b.Surface);
+
+        // THE one boundary-edge fold. Role selects on the Host attribute's presence and the caller narrows the
+        // matched host, so the three shared conjuncts — the wire name, the relating endpoint, and the resolvable
+        // related node — are stated once for both readings.
+        Seq<(Relationship.Generic Edge, Node.Object Surface)> Boundaries(NodeId space, BoundaryRole role, Func<string, bool> host) =>
+            graph.EdgesAt(space).Choose(e =>
+                e is Relationship.Generic g && g.WireName == SpaceBoundary && g.Relating == space
+                && (role == BoundaryRole.Opening
+                    ? g.Text(BoundaryRows.Host).Exists(host)
+                    : g.Attribute(BoundaryRows.Host).IsNone)
+                    ? graph.Find<Node.Object>(g.Related).Map(s => (Edge: g, Surface: s))
+                    : None).ToSeq();
+
+        // Conditioned floor area is an admission rail: every conditioned space contributes a positive NetFloorArea,
+        // so a missing denominator cannot suppress the EUI fact and disguise incomplete graph evidence as
+        // NotApplicable.
+        public Fin<double> ConditionedFloorArea(Seq<NodeId> targets) =>
+            graph.SpacesOf(targets).Filter(s => graph.ConditioningOf(s.Id).Conditions)
+                .TraverseM(space => graph.NetFloorAreaM2(space.Id)).As()
+                .Map(static areas => areas.Sum());
+
+        // A space declares itself external, declares itself conditioned, or declares nothing — and the third is a
+        // state, not a default. The model conditions an unstated space (an unsolvable free-floating zone is the
+        // worse answer) and the claim rides the result, so a reviewer can see how much of the intensity denominator
+        // was assumed. A bool made an unstated space and a declared-conditioned one the same space.
+        public ConditioningClaim ConditioningOf(NodeId space) =>
+            graph.Property(space, EnvelopeRows.IsExternal, Some(EnvelopeRows.SpaceCommon)).Match(
+                Some: static v => v is PropertyValue.Boolean { Value: true } ? ConditioningClaim.External : ConditioningClaim.Conditioned,
+                None: static () => ConditioningClaim.Unstated);
+
+        // Bag reads compose the one AnalysisReads owner over Rasm.Element-declared rows — the set-scoped overload
+        // narrows to the named bag where the discipline needs it.
+        Fin<double> NetFloorAreaM2(NodeId space) =>
+            graph.Quantity(space, QuantityRows.NetFloorArea, Some(QuantityRows.SpaceBaseQuantities)).Map(static m => m.Si)
+                .ToFin((Error)new ComputeFault.AssessmentInputMissing(AssessmentInputReason.MeasureAbsent, space.Value));
+
+        public Fin<MaterialComposition.LayerSet> LayerSetOf(NodeId node) =>
+            graph.CompositionOf(node)
+                .Bind(static composition => composition is MaterialComposition.LayerSet set ? Some(set) : None)
+                .ToFin((Error)new ComputeFault.AssessmentInputMissing(AssessmentInputReason.CompositionShape, node.Value));
+
+        // Transitive descent over the owning Compose decomposition (aggregate/nest/contain) so a building or storey
+        // target reaches its spaces; the non-owning Reference flavour is excluded. The walk is ITERATIVE over an
+        // explicit frontier under a visited set: this runs before any Bake, so a cyclic chain is a real input, and
+        // the hand recursion it replaces named its own StackOverflow risk in a comment and closed nothing. The
+        // visited set bounds the walk at the node count by construction.
+        Seq<NodeId> Descend(NodeId root) {
+            Seq<NodeId> frontier = Seq(root);
+            HashSet<NodeId> seen = HashSet<NodeId>();
+            Seq<NodeId> reached = Seq<NodeId>();
+            while (frontier.Head.Case is NodeId node) {
+                frontier = frontier.Tail;
+                if (seen.Contains(node)) { continue; }
+                seen = seen.Add(node);
+                reached = reached.Add(node);
+                frontier += graph.EdgesAt(node).Choose(e =>
+                    e is Relationship.Compose c && c.Whole == node && c.SubKind != ComposeKind.Reference ? Some(c.Part) : None).ToSeq();
+            }
+            return reached;
+        }
+    }
+
+    static bool IsSpace(Node.Object o) => o.Classification.Code == SpaceClass;
+}
+```
+
+## [07]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

@@ -15,7 +15,8 @@ Non-manifold topological modeling over the stateless `topologicpy` static-method
 - Auto: every static call returns an opaque `topologic_core` handle the next call consumes, so dispatch threads handles through the chain rather than mutating an object; the topologicpy centralities return vertex-ordered score lists — the Sequence arm of the substrate's one shape-discriminated `ranked` fold, shared with the networkx sibling's dict arm — while the structural analytics return handle collections carrying no vertex index, so their reducers publish a `Scalar` count rather than seating handles in an index-declared partition.
 - Receipt: only the dual-graph case graduates — `GeometrySubject.TOPOLOGY_GRAPH`, gating `empty_node_fraction` against the zero ceiling so a degenerate graph breaches rather than crossing clean; the non-graph ops emit the receipt only. `spec` is the JSON-bytes payload beside the op tag, and both egress ports fold it through the graduation spine's `evidence_key` mint, so `graduates()` and `frame()` key one evidence identically and neither takes a key from its caller. The result HOLDS its analytic board map rather than reducing it to census scalars at construction, so `frame` projects a centrality leaderboard or a spanning partition through the graduation `EvidenceFrame` port off the substrate's `tabled` columns — the same egress the features sibling carries. That split is what keeps the evidence honest: `TopologyCensus` carries STRUCTURAL counts alone, and the analytic facts derive off the measured map, so an analytic a one-node graph skipped or a narrowed `TopologyPolicy` excluded is ABSENT from the receipt rather than published as a zero its reducer never produced.
 - Packages: `topologicpy` bound ONLY through the cached seam accessors, the AGPL license-isolation ban refusing every module-scope form including `lazy`; `ifcopenshell` binds as one module-scope `lazy import`, and every table row stays a call-time lambda so no cell dereferences a deferred name at import; the analytic vocabulary and the graduation spine import downward from their geometry owners.
-- Growth: a new intake format is one `SourceKind` row and one `_CONSTRUCT` entry; a new boolean or analysis verb is one enum row and one table entry; a new graph analytic is one `GraphAnalytic` row and one `GRAPH_ANALYTIC` reducer, reaching `frame` through the held board map with no projection edit; a new composition is one `ScopeKey` threaded through the `composition` keyword both entries carry; the bottom-up construction family (`Vertex.ByCoordinates`/`Cell.ByFaces`/`CellComplex.ByCells`), the `Aperture.ByTopologyContext` opening topology, and the `BVH` clash/raycast surface admit as further rows when a consumer demands them — table growth, never a new page.
+- Law: an analytic reducer answers an OPTION and a row that MEASURED nothing leaves the board — the geodesic on a disconnected or single-vertex graph is the standing case, where the retired `Scalar(0.0)` published a zero-hop path a reader could not tell from a real one. A walk publishes the per-hop CENSUS it computed through the substrate's one `reached` fold, so the traversed count and the hop length both derive off one evidence and the policy's runtime `Depth` bounds the traversal with a typed `unreached` refusal past it, never a truncated census.
+- Growth: a new intake format is one `SourceKind` row and one `_CONSTRUCT` entry; a new boolean or analysis verb is one enum row and one table entry; a new graph analytic is one `GraphAnalytic` row and one `Option`-returning `GRAPH_ANALYTIC` reducer, reaching `frame` through the held board map with no projection edit; a new composition is one `ScopeKey` threaded through the `composition` keyword both entries carry; the bottom-up construction family (`Vertex.ByCoordinates`/`Cell.ByFaces`/`CellComplex.ByCells`), the `Aperture.ByTopologyContext` opening topology, and the `BVH` clash/raycast surface admit as further rows when a consumer demands them — table growth, never a new page.
 - Boundary: `topologicpy` is admitted ONLY for the non-manifold cell/aperture analysis the C# `IfcSemanticModel` does not extract — the BIM space-graph (spatial hierarchy/adjacency) is projected in-process and never re-derived here; numerical/form-finding geometry is the `algebra` sibling's, mesh-feature projection the `features` sibling's, and raw mesh-file exchange stays at the data `MeshPayload` seam — `run` returns handle/JSON-bytes summaries and never writes a topology file.
 
 ```python signature
@@ -27,15 +28,15 @@ from types import MappingProxyType
 from typing import Final, Literal, assert_never
 
 import msgspec
-from expression import case, tag, tagged_union
+from expression import Option, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct, structs
 
 lazy import ifcopenshell
 
 from rasm.geometry.graduation import EvidenceFrame, EvidenceScope, GeometryHandoff, GeometrySubject, evidence_key, evidence_run
-from rasm.geometry.graph.analytic import AnalyticValue, ranked
-from rasm.runtime.faults import Disposition, RuntimeRail, traversed
+from rasm.geometry.graph.analytic import AnalyticValue, ranked, reached
+from rasm.runtime.faults import Depth, Disposition, RuntimeRail, traversed
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import DEFAULT_SCOPE, Phase, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -46,7 +47,11 @@ type OpTag = Literal["construct", "decompose", "adjacency", "boolean", "analysis
 # every static call returns a bare `topologic_core` handle (`Topology`/`Graph`/`Dictionary` C++
 # object), opaque with no Python stub, so handles thread the chain typed only as `object`.
 type Handle = object
-type Reducer = Callable[[Handle, "TopologyPolicy"], AnalyticValue]
+# every reducer answers an OPTION, because a reducer that measured nothing has no value to publish: the geodesic row
+# on a disconnected graph is the standing case, and the alternative — a fabricated zero — is the exact defect this
+# page's own receipt law forbids. Rows that always produce wrap `Some` at the table, so the fold below stays one
+# `choose` and no arm re-spells a presence test.
+type Reducer = Callable[[Handle, "TopologyPolicy"], Option[AnalyticValue]]
 
 
 class SourceKind(StrEnum):
@@ -139,6 +144,10 @@ def _dictionary() -> type:
 class TopologyPolicy(Struct, frozen=True, gc=False):
     analytics: frozenset[GraphAnalytic] = frozenset(GraphAnalytic)
     centrality_top: int = 16  # leaderboard cap the betweenness/closeness/degree rows truncate to
+    # the geodesic walk's declared bound, the runtime's ONE walk carrier: `fixpoint` is the honest default for a
+    # traversal that terminates on the path's own end, and a caller declaring a hop budget gets a TYPED `unreached`
+    # refusal past it rather than a census truncated into a shorter geodesic than the graph actually holds.
+    geodesic: Depth = Depth(fixpoint=None)
 
 
 class TopologyCensus(Struct, frozen=True, gc=False):
@@ -256,12 +265,24 @@ def _ifc_cluster(source: bytes) -> Handle:
     return _cluster().ByTopologies(*_topo().ByIFCFile(ifcopenshell.file.from_string(source.decode("utf-8"))))
 
 
-def _path(graph: Handle) -> AnalyticValue:
-    # `Topology.Vertices` is the polymorphic accessor over `Topology` OR `Graph` OR the `Wire` `ShortestPath` returns; a null
-    # geodesic (disconnected graph or <=1 vertex) folds to `Scalar(0.0)`, so the row stays total.
+def _path(graph: Handle, policy: TopologyPolicy) -> Option[AnalyticValue]:
+    # `Topology.Vertices` is the polymorphic accessor over `Topology` OR `Graph` OR the `Wire` `ShortestPath` returns.
+    # A disconnected graph and a one-vertex graph have NO geodesic, and the retired `Scalar(0.0)` published a
+    # zero-hop path for both — a value no reader can tell from a real geodesic between two coincident vertices, and
+    # a row this page's own absence law says must leave the board rather than publish a measurement nothing took.
+    # Where a geodesic DOES exist the walk publishes the per-hop census it traversed rather than one fused scalar:
+    # the chain's own adjacency drives the shared `reached` fold from the source vertex, so the traversed count and
+    # the hop LENGTH both derive off one published evidence and the policy's `Depth` bounds the traversal.
     verts = _topo().Vertices(graph)
     span = _graph().ShortestPath(graph, verts[0], verts[-1]) if len(verts) > 1 else None
-    return AnalyticValue.Scalar(float(len(_topo().Vertices(span))) if span is not None else 0.0)
+    return Option.of_obj(span).map(lambda held: _chain(len(_topo().Vertices(held)), policy.geodesic))
+
+
+def _chain(hops: int, bound: Depth) -> AnalyticValue:
+    # a geodesic IS a chain, so its adjacency is its own ordinal neighbourhood: the shared walk therefore computes
+    # the same per-hop census here it computes over any other graph, and the band holds ONE reachability fold rather
+    # than an ad-hoc index range beside it that no `Depth` bound and no exhaustion law would ever reach.
+    return reached(lambda node: (peer for peer in (node - 1, node + 1) if 0 <= peer < hops), (0,), bound)
 
 
 _CONSTRUCT: Final[Mapping[SourceKind, Callable[[bytes], Handle]]] = MappingProxyType({
@@ -292,12 +313,12 @@ _ANALYSIS: Final[Mapping[AnalysisKind, Callable[[Handle], Handle]]] = MappingPro
 # `topologic_core` handles and `Topology.Vertices` hands back vertex handles, so a `Groups` partition of them would seat
 # handles in an int-declared partition the substrate's projections cannot table — this provider publishes no vertex index.
 GRAPH_ANALYTIC: Final[Mapping[GraphAnalytic, Reducer]] = MappingProxyType({
-    GraphAnalytic.CONNECTIVITY: lambda g, _: AnalyticValue.Scalar(float(len(_graph().ConnectedComponents(g)))),
-    GraphAnalytic.BETWEENNESS: lambda g, p: ranked(_graph().BetweennessCentrality(g), p.centrality_top),
-    GraphAnalytic.CLOSENESS: lambda g, p: ranked(_graph().ClosenessCentrality(g), p.centrality_top),
-    GraphAnalytic.DEGREE: lambda g, p: ranked(_graph().DegreeCentrality(g), p.centrality_top),
-    GraphAnalytic.SPANNING: lambda g, _: AnalyticValue.Scalar(float(len(_graph().Edges(_graph().MinimumSpanningTree(g))))),
-    GraphAnalytic.SHORTEST_PATH: lambda g, _: _path(g),
+    GraphAnalytic.CONNECTIVITY: lambda g, _: Some(AnalyticValue.Scalar(float(len(_graph().ConnectedComponents(g))))),
+    GraphAnalytic.BETWEENNESS: lambda g, p: Some(ranked(_graph().BetweennessCentrality(g), p.centrality_top)),
+    GraphAnalytic.CLOSENESS: lambda g, p: Some(ranked(_graph().ClosenessCentrality(g), p.centrality_top)),
+    GraphAnalytic.DEGREE: lambda g, p: Some(ranked(_graph().DegreeCentrality(g), p.centrality_top)),
+    GraphAnalytic.SPANNING: lambda g, _: Some(AnalyticValue.Scalar(float(len(_graph().Edges(_graph().MinimumSpanningTree(g)))))),
+    GraphAnalytic.SHORTEST_PATH: _path,
 })
 
 
@@ -374,10 +395,12 @@ def _decompose_census(op: OpTag, parts: tuple[Handle, ...]) -> TopologyCensus:
 
 
 def _graph_analytics(graph: Handle, policy: TopologyPolicy) -> Map[GraphAnalytic, AnalyticValue]:
-    # a zero/one-node graph skips the path/centrality rows by data, not a branch.
+    # a zero/one-node graph skips the path/centrality rows by data, not a branch, and a selected reducer that
+    # MEASURED nothing drops out through the same `choose` — one absence law, two sources, no arm publishing a zero.
     nodes = len(_topo().Vertices(graph))
-    selected = (a for a in GraphAnalytic if a in policy.analytics and (nodes > 1 or a is GraphAnalytic.CONNECTIVITY))
-    return Map.of_seq((a, GRAPH_ANALYTIC[a](graph, policy)) for a in selected) if nodes else Map.empty()
+    selected = Block.of_seq(a for a in GraphAnalytic if a in policy.analytics and (nodes > 1 or a is GraphAnalytic.CONNECTIVITY))
+    measured = selected.choose(lambda row: GRAPH_ANALYTIC[row](graph, policy).map(lambda value: (row, value)))
+    return Map.of_seq(measured) if nodes else Map.empty()
 
 
 def _graph_census(graph: Handle) -> TopologyCensus:

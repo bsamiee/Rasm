@@ -14,7 +14,7 @@ Wire posture: HOST-LOCAL. These axes cross only the in-process `FabricationInput
 
 - [02]-[PROCESS_AXES]: the bounded vocabularies — cut dimensionality and strategy, modality class, physics, interaction, kinematics, holding, capacity kind, axis and fold, coolant delivery with its cut response, axis kind, machine axis, and the dialect grammar rows.
 - [03]-[MACHINE_MODEL]: `WcsRoster`, `DialectFeatures`, `CommandKeys`, `PostDialect`, `ProcessKind`, `RobotManufacturer`, `AxisTravel`, `AxisLimit`, `CapacityFact`, `MachineCapacity`, `MachineIngress`, `Machine`.
-- [04]-[FAMILY_GRAPH]: `FamilyNode`, `RoutePolicy`, `ProcessSelection`, `FamilyOp`, `FamilyResult`, `ProcessFamily`.
+- [04]-[FAMILY_GRAPH]: `FamilyNode`, `RouteBias`, `ProcessSelection`, `FamilyOp`, `FamilyResult`, `ProcessFamily`.
 
 ## [02]-[PROCESS_AXES]
 
@@ -51,6 +51,8 @@ public sealed partial class CutDimensionality {
     public static readonly CutDimensionality MultiAxis = new("multi-axis");
 }
 
+// Toolpath strategy names are this package's OWN vocabulary — CAM vendors publish no shared roster — so a
+// strategy is one row here carrying the dimensionality that decides which tool forms can answer it.
 [SmartEnum<string>]
 public sealed partial class CutStrategy {
     public static readonly CutStrategy BoundaryPass = new("boundary-pass", CutDimensionality.Planar);
@@ -211,6 +213,8 @@ public sealed partial class CapacityKind {
     public static readonly CapacityKind Robot = new("robot");
 }
 
+// Operating-envelope dimensions are this package's OWN vocabulary — machine spec sheets share no rostered set —
+// so a new envelope dimension is one row every consumer reaches through `MachineCapacity.Facts`.
 [SmartEnum<string>]
 public sealed partial class CapacityAxis {
     public static readonly CapacityAxis TravelX = new("travel-x");
@@ -300,9 +304,12 @@ public sealed partial class AxisKind {
     public static readonly AxisKind Auxiliary = new("auxiliary");
 }
 
-// `Order` is the posting block rank and it is TOTAL: every row holds a distinct ordinal, families are spaced so a
-// new axis lands between its neighbours without renumbering, and a gantry duplicate ranks immediately after the
-// axis it duplicates. Only `Address` is wire-bearing; `Order` is emission policy this page owns.
+// Addresses federate the ISO 841 coordinate-and-motion nomenclature BY VALUE — primary `X`/`Y`/`Z`, rotary
+// `A`/`B`/`C`, secondary `U`/`V`/`W`, tertiary `R` — beside the ISO 6983 spindle address `S`; the `J` joint and
+// `E` auxiliary rows are this package's own robot vocabulary. `Order` is the posting block rank and it is TOTAL:
+// every row holds a distinct ordinal, families are spaced so a new axis lands between its neighbours without
+// renumbering, and a gantry duplicate ranks immediately after the axis it duplicates. Only `Address` is
+// wire-bearing; `Order` is emission policy this page owns.
 [SmartEnum<string>]
 public sealed partial class MachineAxis {
     public static readonly MachineAxis X = new("x", AxisKind.Linear, address: 'X', order: 0);
@@ -435,7 +442,6 @@ public sealed partial class DialectFeature {
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class WcsRoster {
     public int Slots { get; }
     public int ExtendedBase { get; }
@@ -444,12 +450,12 @@ public sealed partial class WcsRoster {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref int slots,
         ref int extendedBase,
         ref int extended) {
         if (slots < 0 || extendedBase < 0 || extended < 0 || (extended != 0 && extendedBase <= 0))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Posting, "work-offset-range");
+            validationError = new ValidationError("work-offset-range");
     }
 
     public static Fin<WcsRoster> Admit(int slots, int extendedBase, int extended) =>
@@ -605,6 +611,10 @@ public sealed partial class PostDialect {
     public Option<string> CodeOverride(string commandKey) => CodeOverrides.Find(commandKey);
 }
 
+// Seven additive rows federate the ISO/ASTM 52900 process categories BY VALUE — binder jetting, directed energy
+// deposition, material extrusion, material jetting, powder-bed fusion, sheet lamination, and vat
+// photopolymerization — so a category rename lands as one key; every other row is this package's own routing
+// vocabulary, each carrying the five axes its consumers read and no physics table of its own.
 [SmartEnum<string>]
 public sealed partial class ProcessKind {
     public static readonly ProcessKind Mill = new("mill", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.CartesianGantry, CapacityKind.Removal);
@@ -674,14 +684,13 @@ public abstract partial record AxisTravel {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class AxisLimit {
     public MachineAxis Axis { get; }
     public AxisTravel Travel { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref MachineAxis axis,
         ref AxisTravel travel) {
         if (!travel.Switch(
@@ -690,7 +699,7 @@ public sealed partial class AxisLimit {
                 && value.MaximumSpeed > RotationalSpeed.Zero,
             linear: static (machineAxis, value) => !machineAxis.Rotary && value.Minimum < value.Maximum
                 && value.MaximumSpeed > Speed.Zero))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "axis-limit");
+            validationError = new ValidationError("axis-limit");
     }
 
     public static Fin<AxisLimit> Admit(MachineAxis axis, AxisTravel travel) =>
@@ -841,10 +850,8 @@ public abstract partial record MachineIngress {
         KinematicClass Topology,
         Set<CoolantDelivery> Coolant,
         Seq<MachineCapacity> Capacities) : MachineIngress;
-    // Robot ingress is provider-free by construction: `Kinematics/cell` owns the one `Rhino3dm` alias crossing the
-    // package admits, so it projects a `MechanicalGroup` into these rows — manufacturer, payload, reach, and one
-    // `(joint ordinal, travel)` pair per chain link — and the atoms floor never names a `Robots` type. The ordinal
-    // stays the axis correspondence's own key, so the `RobotAxes` roster below remains the single seating law.
+    // Joint ordinals stay the axis correspondence's own key, so the `RobotAxes` roster below remains the single
+    // seating law and no row spells an axis name a lookup could miss.
     public sealed record Robot(
         string Key,
         RobotManufacturer Manufacturer,
@@ -859,7 +866,6 @@ public abstract partial record MachineIngress {
 
 [ComplexValueObject]
 [ObjectFactory<string>]
-[ValidationError<FabricationFault>]
 public sealed partial class Machine {
     public string Key { get; }
     public Set<ProcessKind> Processes { get; }
@@ -893,7 +899,7 @@ public sealed partial class Machine {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref string key,
         ref Set<ProcessKind> processes,
         ref HoldingClass holding,
@@ -909,7 +915,7 @@ public sealed partial class Machine {
             && !capacities.IsEmpty
             && capacities.ForAll(CapacityValid)
             && processes.ForAll(process => capacities.Exists(capacity => capacity.Kind == process.Demands))))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Process, "machine");
+            validationError = new ValidationError("machine");
     }
 
     public static Fin<Machine> Admit(MachineIngress ingress) => ingress.Switch(
@@ -925,21 +931,23 @@ public sealed partial class Machine {
     // the mint already settled and would keep the resolution space frozen at the archetypes. This is the ONE
     // resolution path: a sibling key lookup that scans a caller-held machine sequence forks the space.
     [BoundaryAdapter]
-    public static FabricationFault? Validate(string? value, IFormatProvider? provider, out Machine? item) {
+    public static ValidationError? Validate(string? value, IFormatProvider? provider, out Machine? item) {
         item = Optional(value).Bind(key => Registry.Value.Find(key)).Match<Machine?>(static machine => machine, static () => null);
-        return item is null ? new FabricationFault.UnknownAxis(nameof(Machine), value ?? string.Empty) : null;
+        return item is null ? new ValidationError("machine:unknown") : null;
     }
 
-    public static Fin<Machine> Resolve(string key) => Admission.Of<Machine, string>(key);
+    public static Fin<Machine> Resolve(string key) => Optional(key)
+        .Bind(value => Registry.Value.Find(value))
+        .ToFin(new FabricationFault.UnknownAxis(nameof(Machine), key));
 
     public string ToValue() => Key;
 
     private static Fin<Machine> AdmitRobot(MachineIngress.Robot seed) =>
         seed.Joints.IsEmpty || seed.ProcessCapacities.IsEmpty
-            ? Fin.Fail<Machine>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine:robot"))
+            ? Fin.Fail<Machine>(new KernelFault.InvalidValue("family", "machine:robot"))
             : seed.Joints.ToSeq()
             .Traverse(joint => joint.Ordinal < 0 || joint.Ordinal >= RobotAxes.Count
-                ? Fin.Fail<AxisLimit>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine:robot-axis"))
+                ? Fin.Fail<AxisLimit>(new KernelFault.InvalidValue("family", "machine:robot-axis"))
                 : AxisLimit.Admit(RobotAxes[joint.Ordinal], joint.Travel))
             .As()
             .Bind(limits => AdmitSeed(new MachineIngress.Seed(
@@ -1086,7 +1094,7 @@ public sealed partial class Machine {
         .As()
         .Match(
             Succ: static rows => rows.Fold(HashMap<string, Machine>.Empty, static (index, machine) => index.AddOrUpdate(machine.Key, machine)),
-            Fail: static refusal => throw new InvalidOperationException(refusal.Message));
+            Fail: static refusal => throw refusal.ToException());
 
     public static Fin<Machine> Register(MachineIngress ingress) =>
         Admit(ingress).Map(static machine =>
@@ -1106,7 +1114,7 @@ public sealed partial class Machine {
 
 - Owner: `ProcessFamily` owns the relational graph over the bounded axes and the admitted machines; `FamilyOp` names the queries; `FamilyResult` carries their receipts.
 - Entry: `ProcessFamily.Admit` consumes a machine registry; `FamilyOp.Select` carries one admitted `ProcessSelection`; `ProcessFamily.Apply` consumes one `FamilyOp` modality.
-- Law: routing weights are FINITE. A process node is the route's own pivot and every path transits one, so pricing it at infinity makes every total weight infinite and the weighted lane degenerate — a hop costs what the policy says its node kind costs, and unreachability is the algorithm's own answer, never an arithmetic sentinel.
+- Law: routing weights are FINITE. A process node is the route's own pivot and every path transits one, so pricing it at infinity makes every total weight infinite and the weighted lane degenerate — a hop costs what `RouteBias` prices its node kind at, and unreachability is the algorithm's own answer, never an arithmetic sentinel.
 - Law: ONE undirected container serves both reachability and component labelling. Dijkstra takes the undirected graph directly, so a third container built by duplicating every edge in reverse is the deleted form.
 - Law: the matching solver's super-source and super-sink are SOLVER state on a solver-local vertex; widening the domain family with a synthetic case forces every consumer's switch to answer for a vertex no domain fact ever names. Matching edges carry REFERENCE identity through `Edge<T>` — a value edge collapses a forward edge onto its reverse and hands the solver twice the residual capacity it has.
 - Receipt: `FamilyResult` returns admitted selection, weighted or unreachable paths, ordering, component labels, allocation pairs, and unassigned demand slots without exposing mutable graph state.
@@ -1124,11 +1132,13 @@ public abstract partial record FamilyNode {
     public sealed record Dialect(PostDialect Value) : FamilyNode;
 }
 
+// Hop prices are this page's OWN roster — no standard rosters a shop's routing preference — so a preference is one
+// row here carrying the three node-kind weights the route fold reads.
 [SmartEnum<string>]
-public sealed partial class RoutePolicy {
-    public static readonly RoutePolicy Balanced = new("balanced", equipment: 1.0, strategy: 1.0, dialect: 1.0);
-    public static readonly RoutePolicy EquipmentFirst = new("equipment-first", equipment: 0.5, strategy: 1.0, dialect: 1.0);
-    public static readonly RoutePolicy ProgrammingFirst = new("programming-first", equipment: 1.0, strategy: 0.5, dialect: 0.5);
+public sealed partial class RouteBias {
+    public static readonly RouteBias Balanced = new("balanced", equipment: 1.0, strategy: 1.0, dialect: 1.0);
+    public static readonly RouteBias EquipmentFirst = new("equipment-first", equipment: 0.5, strategy: 1.0, dialect: 1.0);
+    public static readonly RouteBias ProgrammingFirst = new("programming-first", equipment: 1.0, strategy: 0.5, dialect: 0.5);
 
     public double Equipment { get; }
     public double Strategy { get; }
@@ -1139,13 +1149,12 @@ public sealed partial class RoutePolicy {
     public double Weight(FamilyNode relation) => relation.Switch(
         state: this,
         process: static (_, _) => 0.0,
-        equipment: static (policy, _) => policy.Equipment,
-        strategy: static (policy, _) => policy.Strategy,
-        dialect: static (policy, _) => policy.Dialect);
+        equipment: static (bias, _) => bias.Equipment,
+        strategy: static (bias, _) => bias.Strategy,
+        dialect: static (bias, _) => bias.Dialect);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ProcessSelection {
     public string Process { get; }
     public string Machine { get; }
@@ -1154,13 +1163,13 @@ public sealed partial class ProcessSelection {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref string process,
         ref string machine,
         ref string strategy,
         ref string dialect) {
         if (!(Witness.Keyed(process) && Witness.Keyed(machine) && Witness.Keyed(strategy) && Witness.Keyed(dialect)))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Process, "process-selection");
+            validationError = new ValidationError("process-selection");
     }
 
     public static Fin<ProcessSelection> Admit(string process, string machine, string strategy, string dialect) =>
@@ -1172,7 +1181,7 @@ public abstract partial record FamilyOp {
     private FamilyOp() { }
 
     public sealed record Select(ProcessSelection Value) : FamilyOp;
-    public sealed record Route(FamilyNode Source, FamilyNode Target, RoutePolicy Policy) : FamilyOp;
+    public sealed record Route(FamilyNode Source, FamilyNode Target, RouteBias Bias) : FamilyOp;
     public sealed record Order : FamilyOp;
     public sealed record Components : FamilyOp;
     public sealed record Allocate(Seq<ProcessKind> Demand) : FamilyOp;
@@ -1207,7 +1216,7 @@ public sealed class ProcessFamily {
 
     public static Fin<ProcessFamily> Admit(Seq<Machine> machines) =>
         machines.IsEmpty || machines.Map(static machine => machine.Key).Distinct().Count != machines.Count
-            ? Fin.Fail<ProcessFamily>(new FabricationFault.PolicyInadmissible(FabConcern.Process, "process-family:machines"))
+            ? Fin.Fail<ProcessFamily>(new KernelFault.InvalidValue("family", "process-family:machines"))
             : Fin.Succ(new ProcessFamily(machines, Build(machines)));
 
     public Fin<FamilyResult> Apply(FamilyOp operation) => operation.Switch(
@@ -1245,14 +1254,14 @@ public sealed class ProcessFamily {
             return Fin.Succ<FamilyResult>(new FamilyResult.WeightedRoute(Seq(route.Source), 0.0));
 
         TryFunc<FamilyNode, IEnumerable<SEdge<FamilyNode>>> find = _undirected.ShortestPathsDijkstra(
-            edge => route.Policy.Weight(edge.Target),
+            edge => route.Bias.Weight(edge.Target),
             route.Source);
         return !find(route.Target, out IEnumerable<SEdge<FamilyNode>>? path) || path is null
             ? Fin.Succ<FamilyResult>(new FamilyResult.UnreachableRoute(route.Source, route.Target))
             : toSeq(path)
                 .Fold(
                     (Nodes: Seq(route.Source), Total: 0.0),
-                    (state, edge) => (state.Nodes.Add(edge.Target), state.Total + route.Policy.Weight(edge.Target)))
+                    (state, edge) => (state.Nodes.Add(edge.Target), state.Total + route.Bias.Weight(edge.Target)))
                 .Apply(receipt => Fin.Succ<FamilyResult>(new FamilyResult.WeightedRoute(receipt.Nodes, receipt.Total)));
     }
 
@@ -1282,7 +1291,7 @@ public sealed class ProcessFamily {
 
     private Fin<FamilyResult> Allocate(Seq<ProcessKind> demand) {
         if (demand.IsEmpty)
-            return Fin.Fail<FamilyResult>(new FabricationFault.PolicyInadmissible(FabConcern.Process, "process-family:allocation"));
+            return Fin.Fail<FamilyResult>(new KernelFault.InvalidValue("family", "process-family:allocation"));
 
         // `Edge<T>` carries REFERENCE identity: a value edge makes the forward and reverse edges of one pair equal,
         // so the residual network hands the solver twice the capacity the graph actually has.
@@ -1363,7 +1372,7 @@ flowchart LR
     Dialect["PostDialect.Items"] --> Graph
     Machine --> Graph
     Graph -->|Select| Selection["Selection receipt"]
-    Graph -->|RoutePolicy · Dijkstra| Route["Weighted route receipt"]
+    Graph -->|RouteBias · Dijkstra| Route["Weighted route receipt"]
     Graph -->|TopologicalSort| Order["Order receipt"]
     Graph -->|ConnectedComponents| Components["Component labels"]
     Graph -->|MaximumBipartiteMatching| Allocation["Assigned pairs · unassigned slots"]

@@ -36,14 +36,16 @@ import msgspec
 import numpy as np
 from builtins import frozendict
 from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
+from expression.collections import Block
 from msgspec import Struct
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
-from rasm.runtime.faults import BoundaryFault, RuntimeRail
+from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, rostered
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.drawing.regime import LayerName
@@ -351,6 +353,16 @@ _SPATIAL_TEST: frozendict[SpatialTest, Callable[[object, "EntityQuery"], "Iterab
     SpatialTest.OVERLAP: lambda shape, entities: select.bbox_overlap(shape, entities),
 })
 
+
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's ONE raise anchor: the region fold is a single fence and the member `RegionFault` case already carries
+# which refusal ran. TRANSIENT — a region render refusal is a defect a re-issue may clear.
+DXF_REGION: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.DXF, point="region", arm="boundary", defect="region-refused", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([DXF_REGION]))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 # DXF spec lineweight domain in hundredths of mm plus the -1 ByLayer / -2 ByBlock / -3 default sentinels.
@@ -1774,7 +1786,7 @@ class Dxf(Struct, frozen=True):
                     composed.fixes,
                     composed.counts,
                 )
-            ).map_error(lambda fault: BoundaryFault(boundary=("dxf.region", fault.tag)))
+            ).map_error(lambda fault: BoundaryFault(domain=(DXF_REGION.subject, fault)))
         )
         # Delivered CAD exchange files are the production trail a downstream consumer re-opens, so this fold lands
         # `OPERATIONAL` durable evidence whose diff carries the whole declared ledger — dxfversion, units, the

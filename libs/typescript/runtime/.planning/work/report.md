@@ -1,10 +1,10 @@
 # [RUNTIME_REPORT]
 
-Document egress as one folded `Report.Spec` family: the format discriminant selects CSV, XLSX, or PDF while each column owns its value projection, and every render answers one single-subscription `Report.Artifact` with a chunked body and a receipt settled by that drain. Mutation-heavy Promise and synchronous engines remain inside one `Effect` boundary and one `ReportFault` family. Unbounded CSV and streaming-XLSX modes flow end to end; rich XLSX and PDF declare row ceilings before materializing the engine model, with oversized PDF routed to the render worker. `Report.gathered` is the only bytes-in-memory consumer fold and requires a ceiling. Pinned instants, fixed compression, and stable column order make equal renders byte-stable so the data object plane mints identical content identity at landing; runtime never mints that identity. The module is node-lane egress on `./server` as `runtime/src/work/report.ts`.
+Document egress as one folded `Report.Spec` family: the format discriminant selects CSV, XLSX, or PDF while each column owns its value projection, and every render answers one single-subscription `Report.Artifact` with a chunked body and a settled receipt that drain fills. One closed modality roster — CSV, XLSX, PDF, ZIP — anchors the spec discriminant, the fault's arm column, the archive plan's entry column, and the off-thread request kind, and one row table beside it owns per-modality placement and compression. Mutation-heavy Promise and synchronous engines remain inside one `Effect` boundary and one `ReportFault` family. Unbounded CSV and streaming-XLSX modes flow end to end; rich XLSX and PDF declare row ceilings before materializing the engine model, with oversized PDF routed to the render worker. `Report.gathered` is the only bytes-in-memory consumer fold and requires a ceiling. Pinned instants, fixed compression, and stable column order make equal renders byte-stable so the data object plane mints identical content identity at landing; runtime never mints that identity. The module is node-lane egress on `./server` as `runtime/src/work/report.ts`.
 
 ## [01]-[INDEX]
 
-- [02]-[SPEC_FOLD]: the report spec, the format policy row, the one render dispatch, byte identity; `Report`.
+- [02]-[SPEC_FOLD]: the modality roster and its row table, the report spec, the one render dispatch, the settled receipt, byte identity; `Report`.
 - [03]-[XLSX_ARM]: the streaming workbook writer, the name-capable amend-load reader, the full style/rule/validation vocabularies; `Report`.
 - [04]-[PDF_ARM]: measured paging, native tables, metadata/encryption, furniture registration; `Report`.
 - [05]-[CSV_ARM]: serializer with formula defense, the node streaming duplex, decoded ingress; `Report`.
@@ -18,10 +18,10 @@ Document egress as one folded `Report.Spec` family: the format discriminant sele
 - Law: materialization is a consumer fold under a stated ceiling — `Report.gathered(artifact, ceiling)` is the ONE bytes-in-memory form, faulting `ceiling`-reasoned (`exhausted` class) the moment the running total passes the bound, so an unbounded body structurally cannot buffer whole; a consumer calling it attests its bound (a mail attachment cap, a bundle entry cap) at the call.
 - Law: bytes are identity material minted where they land — reproducibility (pinned instants, fixed compression, stable column order) is a correctness requirement because the data wave's artifact-index put mints the content key over the landed bytes and dedupes equal renders; runtime never mints content identity, a defaulted creation date in any arm is the named defect, and a replay under an equal spec regenerates byte-identical output.
 - Law: a render is a durable step — the relay and the job families run `Report.render` inside `Step.run(name, "bulk", …)`, so deadline geometry, replay memoization, and evidence arrive from the flow mint and this page owns none of them.
-- Law: the off-thread threshold is wired, not aspirational — a `pdf` fold whose bounded projected cell set exceeds `Report.policy.offloadRows` routes through `proc/worker`'s `Render` request: the data-only plan (columns, furniture, projected cells) encodes to bytes, crosses zero-copy, and the produced bytes cross back; a protected document renders in-process regardless, because a sealed password never crosses the thread seam — the one exemption to worker routing, never to the row ceiling.
-- Receipt: `Report.Receipt` — `{ rows, bytes, format, span }` — settles through the sealed body's `Deferred` when the last chunk flows, the evidence the meter fact and the artifact index consume; a receipt read before the body drains simply waits.
+- Law: placement is a modality row, never a caller knob — the row states the threshold, the unit it measures, and the `proc/worker` request kind together, so an arm with no `offload` column cannot reach the pool and the two thresholds that stood as a module constant and a bundle field are one column. A `pdf` fold whose bounded projected cell set passes that threshold routes through the `Render` request: the data-only plan (columns, furniture, projected cells) encodes to bytes, crosses zero-copy, and the produced bytes cross back; a protected document renders in-process regardless, because a sealed password never crosses the thread seam — the one exemption to worker routing, never to the row ceiling.
+- Receipt: `Report.Rendered` — `entity#SETTLED_RECEIPT`'s spine carrying this producer's own `{ rows, bytes, format }` evidence — settles through the sealed body's `Deferred` when the last chunk flows, the evidence the meter fact and the artifact index consume; a receipt read before the body drains simply waits. The partition reads `empty` on a zero-row render and `whole` otherwise, provenance names the spec, and the content key stays absent because runtime mints no content identity.
 - Growth: a new format is one arm behind the same dispatch; a new visual concern is a spec field every arm interprets or ignores by declaration.
-- Packages: `effect` (`Effect`, `Stream`, `Match`, `Duration`, `Deferred`, `Ref`, `Clock`); `../proc/worker.ts` (`Bench`, `Render` — the off-thread ceiling).
+- Packages: `effect` (`Effect`, `Stream`, `Duration`, `Deferred`, `Ref`, `Clock`, `DateTime`); `../proc/worker.ts` (`Bench`, `Render` — the off-thread crossing); `./entity.ts` (`Settled` — the receipt spine).
 
 ```typescript signature
 // named-only tree: the package ships no default export, so the namespace import is the one admissible spelling
@@ -32,31 +32,105 @@ import Papa from "papaparse"
 import { Buffer } from "node:buffer"
 import path from "node:path"
 import { PassThrough, Transform } from "node:stream"
-import { Array, Chunk, Clock, Data, DateTime, Deferred, Duration, Effect, Match, Option, Redacted, Ref, Schema, Stream } from "effect"
+import { Array, Chunk, Clock, DateTime, Deferred, Duration, Effect, Match, Option, Redacted, Ref, Schema, Stream } from "effect"
 import { Fault } from "@rasm/ts/core"
 import { Bench, BenchFault, Drop, Render } from "../proc/worker.ts"
+import { Settled } from "./entity.ts"
+
+// ONE closed production-modality roster. Four spellings of this set stood apart before — the spec union's `format`
+// field, the fault's own `arm` literal, the worker request's `kind`, and the bundle plan's entry column — and each
+// one now reads this anchor, so a fifth modality lands as one tuple member and every table breaks at compile time.
+const _MODALITIES = ["csv", "xlsx", "pdf", "zip"] as const
+const _Format = Schema.Literal(..._MODALITIES)
+const _Measure = Schema.Literal("bytes", "rows")
+
+// The per-case policy that stood as loose constants and hand-written ternaries.
+//  `offload` is the WHOLE off-thread declaration as one option — the measured threshold, the unit it measures, and
+//  the `proc/worker` request kind that crossing carries — so the three arrive together or not at all and an arm
+//  cannot dial a pool the roster gave it no request kind for. It collapses the module-wide `offloadRows` constant
+//  and the caller-supplied bundle threshold onto one column, because placement is this owner's policy: the caller
+//  states a materialization ceiling on its own spec, never where the work runs.
+//  `compression` is the archive policy a member of this modality takes inside a bundle — already-compressed
+//  containers store, text deflates — read at both the streaming and the off-thread archive folds.
+const _MODALITY: { readonly [K in Report.Format]: Report.Modality } = {
+  csv: { compression: "DEFLATE", offload: Option.none() },
+  xlsx: { compression: "STORE", offload: Option.none() },
+  pdf: { compression: "STORE", offload: Option.some({ above: 50_000, kind: "pdf", unit: "rows" }) },
+  zip: { compression: "STORE", offload: Option.some({ above: 8_388_608, kind: "zip", unit: "bytes" }) },
+}
+
+// Every reason's subject names the ARM it refused on, closed against the modality roster, so a fault carries a
+// modality a fold reads back rather than a free word beside a free string. The two structural refusals declare their
+// own coordinates instead of rendering them into text: a breached bound carries the number and the unit it measured,
+// and an escaping archive entry carries the path and the anchor it left.
+const _Refused = Schema.Struct({ arm: _Format, detail: Schema.String })
 
 const _family = Fault.Class.family(["engine", "sink", "archive", "slip", "ceiling", "consumed"] as const, {
-  engine: { class: "defect" },
-  sink: { class: "unavailable" },
-  archive: { class: "defect" },
-  slip: { class: "malformed" },
-  ceiling: { class: "exhausted" },
-  consumed: { class: "conflicted" },
+  engine: Fault.Class.row({
+    class: "defect",
+    leg: "render",
+    detail: _Refused,
+    render: ({ arm, detail }) => `the ${arm} engine refused — ${detail}`,
+  }),
+  sink: Fault.Class.row({
+    class: "unavailable",
+    leg: "body",
+    detail: _Refused,
+    render: ({ arm, detail }) => `the ${arm} body stopped flowing — ${detail}`,
+  }),
+  archive: Fault.Class.row({
+    class: "defect",
+    leg: "archive",
+    detail: _Refused,
+    render: ({ arm, detail }) => `the ${arm} container refused — ${detail}`,
+  }),
+  slip: Fault.Class.row({
+    class: "malformed",
+    leg: "archive",
+    detail: Schema.Struct({ anchor: Schema.NonEmptyString, entry: Schema.NonEmptyString }),
+    render: ({ anchor, entry }) => `archive entry ${entry} resolves outside the extraction anchor ${anchor}`,
+  }),
+  ceiling: Fault.Class.row({
+    class: "exhausted",
+    leg: "ceiling",
+    detail: Schema.Struct({ arm: _Format, bound: Schema.Int, unit: _Measure }),
+    render: ({ arm, bound, unit }) => `the ${arm} arm was handed more than ${bound} ${unit}`,
+  }),
+  consumed: Fault.Class.row({
+    class: "conflicted",
+    leg: "body",
+    detail: Schema.Struct({ arm: _Format }),
+    render: ({ arm }) => `the ${arm} body is single-subscription and already drained`,
+  }),
 })
 
-class ReportFault extends Data.TaggedError("ReportFault")<{
-  readonly reason: (typeof _family.reasons)[number]
-  readonly arm: "csv" | "xlsx" | "pdf" | "zip"
-  readonly detail: string
-}> {
+class ReportFault extends Schema.TaggedError<ReportFault>()("ReportFault", {
+  case: _family.payload,
+}) {
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
   }
   override get message(): string {
-    return `<report:${this.reason}> ${this.arm}: ${this.detail}`
+    return _family.render(this.case)
   }
 }
+
+// The settled-work spine with this producer's own evidence column: rows and bytes are what a meter fact and an
+// artifact index read, and the stamp pair, the concern partition, the provenance join, and the warning band arrive
+// from `entity#SETTLED_RECEIPT` rather than being restated as a second receipt vocabulary no consumer could join.
+class Rendered extends Settled.extend<Rendered>("Report.Rendered")({
+  evidence: Schema.Struct({ bytes: Schema.Int, format: _Format, rows: Schema.Int }),
+}) {}
+
+// The placement read both offloadable arms take: the row's own threshold against the arm's own measure, answering the
+// request kind that crossing carries and nothing wherever the work stays on this thread.
+const _crossing = (arm: Report.Format, measured: number): Option.Option<Bench.Kind> =>
+  Option.map(Option.filter(_MODALITY[arm].offload, (row) => measured > row.above), (row) => row.kind)
+
+// The worker's own faults, the wire decode, and the pool transport all answer `message`, so one projection re-keys
+// every crossing refusal onto the arm that dialled it and no site spells the tag alone.
+const _sank = (arm: Report.Format) => (fault: { readonly message: string }): ReportFault =>
+  new ReportFault({ case: { reason: "sink", arm, detail: fault.message } })
 
 declare namespace Report {
   type Cell = string | number | boolean | DateTime.Utc | null
@@ -111,17 +185,20 @@ declare namespace Report {
   }
   type Csv<A> = Base<A> & { readonly format: "csv"; readonly csv: Papa.UnparseConfig }
   type Spec<A> = Xlsx<A> | Pdf<A> | Csv<A>
-  type Format = Spec<never>["format"]
-  type Receipt = {
-    readonly rows: number
-    readonly bytes: number
-    readonly format: Format
-    readonly span: Duration.Duration
+  type Format = (typeof _MODALITIES)[number]
+  type Measure = typeof _Measure.Type
+  type Modality = {
+    readonly compression: "DEFLATE" | "STORE"
+    readonly offload: Option.Option<{ readonly above: number; readonly kind: Bench.Kind; readonly unit: Measure }>
   }
+  // The row-fed subset: `zip` folds an already-gathered entry roster and takes no row stream, so the render dispatch
+  // is total over exactly the modalities a stream can drive and the archive keeps its own entry.
+  type Fed = Spec<never>["format"]
+  type Rendered = InstanceType<typeof Rendered>
   type Artifact<R> = {
     readonly format: Format
     readonly body: Stream.Stream<Uint8Array, ReportFault, R>
-    readonly receipt: Effect.Effect<Receipt, ReportFault>
+    readonly receipt: Effect.Effect<Rendered, ReportFault>
   }
   type Sheet = {
     readonly ordinal: number
@@ -130,12 +207,9 @@ declare namespace Report {
   }
   type Bundle = {
     readonly entries: ReadonlyArray<{ readonly name: string; readonly format: Format; readonly bytes: Uint8Array }>
-    readonly offloadAbove: number
     readonly progress: (metadata: JSZip.JSZipMetadata) => void
   }
 }
-
-const _policy = { offloadRows: 50_000 } as const
 
 const _PlanCell = Schema.Union(Schema.String, Schema.Number, Schema.Boolean, Schema.Null)
 const _PdfPlan = Schema.Struct({
@@ -148,15 +222,18 @@ const _PdfPlan = Schema.Struct({
   cells: Schema.Array(Schema.Array(_PlanCell)),
 })
 const _BundlePlan = Schema.Struct({
-  entries: Schema.Array(Schema.Struct({ name: Schema.String, format: Schema.Literal("csv", "xlsx", "pdf"), bytes: Schema.String })),
+  entries: Schema.Array(Schema.Struct({ name: Schema.String, format: _Format, bytes: Schema.String })),
 })
 
 type PdfPlan = Schema.Schema.Type<typeof _PdfPlan>
 type BundlePlan = Schema.Schema.Type<typeof _BundlePlan>
 
-const _decodedPlan = <A, I>(schema: Schema.Schema<A, I>, bytes: Uint8Array): Effect.Effect<A, BenchFault> =>
+// The worker-side plan decode: `class` is DERIVED at the mint, so this refusal states its reason and its evidence and
+// cannot stamp a class the reason contradicts; the parse diagnostic that was discarded whole rides the row's subject.
+const _decodedPlan = <A, I>(schema: Schema.Schema<A, I>, kind: Bench.Kind, bytes: Uint8Array): Effect.Effect<A, BenchFault> =>
   Schema.decodeUnknown(Schema.parseJson(schema))(new TextDecoder().decode(bytes)).pipe(
-    Effect.mapError(() => new BenchFault({ reason: "refused", class: "malformed" })),
+    Effect.mapError((issue) =>
+      new BenchFault({ case: { reason: "refused", request: "Render", detail: `${kind} plan — ${String(issue)}` } })),
   )
 
 const _project = <A>(spec: Report.Base<A>, row: A): ReadonlyArray<Report.Cell> =>
@@ -212,11 +289,12 @@ const _canonicalZipStream = (): Transform => {
 
 const _sealed = <R>(
   format: Report.Format,
+  name: string,
   counted: Ref.Ref<number>,
   body: Stream.Stream<Uint8Array, ReportFault, R>,
 ): Effect.Effect<Report.Artifact<R>> =>
   Effect.gen(function* () {
-    const settled = yield* Deferred.make<Report.Receipt, ReportFault>()
+    const settled = yield* Deferred.make<Report.Rendered, ReportFault>()
     const size = yield* Ref.make(0)
     const openedOnce = yield* Ref.make(false)
     const opened = yield* Clock.currentTimeMillis
@@ -226,26 +304,37 @@ const _sealed = <R>(
       body: Stream.unwrap(
         Effect.map(Ref.getAndSet(openedOnce, true), (replayed) =>
           replayed
-            ? Stream.fail(new ReportFault({ reason: "consumed", arm: format, detail: "<single-subscription>" }))
+            ? Stream.fail(new ReportFault({ case: { reason: "consumed", arm: format } }))
             : body.pipe(
               Stream.tap((chunk) => Ref.update(size, (held) => held + chunk.length)),
               Stream.tapError((fault) => Deferred.fail(settled, fault)),
               Stream.onDone(() =>
                 Effect.gen(function* () {
                   const closed = yield* Clock.currentTimeMillis
-                  yield* Deferred.succeed(settled, {
-                    rows: yield* Ref.get(counted),
-                    bytes: yield* Ref.get(size),
-                    format,
-                    span: Duration.millis(closed - opened),
-                  })
+                  const rows = yield* Ref.get(counted)
+                  yield* Deferred.succeed(
+                    settled,
+                    new Rendered({
+                      evidence: { bytes: yield* Ref.get(size), format, rows },
+                      // A render either wrote its whole declared column set or wrote nothing at all: this producer
+                      // separates no partial landing, so it states `whole` and forfeits the band rather than minting
+                      // a fourth word, and a zero-row render is the `empty` arm the spine already names.
+                      partition: rows === 0 ? "empty" : "whole",
+                      // Runtime mints no content identity, so the produced id is the spec's own name and the data
+                      // wave's artifact-index put is what mints a key over the landed bytes.
+                      provenance: { consumed: [], produced: name },
+                      warnings: [],
+                      at: yield* DateTime.now,
+                      span: Duration.millis(closed - opened),
+                    }),
+                  )
                 })),
               Stream.ensuring(
                 Effect.flatMap(Deferred.isDone(settled), (done) =>
                   done
                     ? Effect.void
                     : Effect.asVoid(Deferred.fail(settled, new ReportFault({
-                      reason: "sink", arm: format, detail: "<interrupted>",
+                      case: { reason: "sink", arm: format, detail: "the drain was interrupted before the last chunk" },
                     }))),
                 ),
               ),
@@ -254,22 +343,32 @@ const _sealed = <R>(
     }
   })
 
+// The render dispatch is the roster's own mapped record over the row-fed cases: a modality without an arm and an arm
+// without a modality are both compile errors at this declaration, where the `Match.when` ladder over a foreign
+// `format` field proved neither and spent an `exhaustive` check re-deriving what the union already stated. Each cell
+// is an arrow rather than a bare reference because the arms are declared in their own sections below this one, so
+// the table names them at CALL time and its declaration order stays the section order.
+const _arms: {
+  readonly [K in Report.Fed]: <A, R>(
+    spec: Extract<Report.Spec<A>, { readonly format: K }>,
+    rows: Stream.Stream<A, never, R>,
+  ) => Effect.Effect<Report.Artifact<R>, ReportFault, R | Bench>
+} = {
+  csv: (spec, rows) => _csv(spec, rows),
+  pdf: (spec, rows) => _pdf(spec, rows),
+  xlsx: (spec, rows) => _xlsx(spec, rows),
+}
+
 const _render = <A, R>(
   spec: Report.Spec<A>,
   rows: Stream.Stream<A, never, R>,
-): Effect.Effect<Report.Artifact<R>, ReportFault, R | Bench> =>
-  Match.value(spec).pipe(
-    Match.when({ format: "xlsx" }, (xlsx) => _xlsx(xlsx, rows)),
-    Match.when({ format: "pdf" }, (pdf) => _pdf(pdf, rows)),
-    Match.when({ format: "csv" }, (csv) => _csv(csv, rows)),
-    Match.exhaustive,
-  )
+): Effect.Effect<Report.Artifact<R>, ReportFault, R | Bench> => _arms[spec.format](spec as never, rows)
 
 const _gathered = <R>(artifact: Report.Artifact<R>, ceiling: number): Effect.Effect<Uint8Array, ReportFault, R> =>
   artifact.body.pipe(
     Stream.runFoldEffect({ held: Chunk.empty<Uint8Array>(), total: 0 }, (state, chunk) =>
       state.total + chunk.length > ceiling
-        ? Effect.fail(new ReportFault({ reason: "ceiling", arm: artifact.format, detail: String(ceiling) }))
+        ? Effect.fail(new ReportFault({ case: { reason: "ceiling", arm: artifact.format, bound: ceiling, unit: "bytes" } }))
         : Effect.succeed({ held: Chunk.append(state.held, chunk), total: state.total + chunk.length })),
     Effect.map((state) => _joined(Chunk.toReadonlyArray(state.held))),
   )
@@ -331,7 +430,7 @@ const _committed = <A, R>(spec: Report.Xlsx<A>, rows: Stream.Stream<A, never, R>
       onSome: (protect) =>
         Effect.tryPromise({
           try: () => sheet.protect(Redacted.value(protect.password), protect.options),
-          catch: (cause) => new ReportFault({ reason: "engine", arm: "xlsx", detail: String(cause) }),
+          catch: (cause) => new ReportFault({ case: { reason: "engine", arm: "xlsx", detail: String(cause) } }),
         }),
     })
     yield* Stream.runForEach(rows, (row) =>
@@ -342,7 +441,7 @@ const _committed = <A, R>(spec: Report.Xlsx<A>, rows: Stream.Stream<A, never, R>
     yield* Effect.sync(() => sheet.commit())
     yield* Effect.tryPromise({
       try: () => writer.commit(),
-      catch: (cause) => new ReportFault({ reason: "engine", arm: "xlsx", detail: String(cause) }),
+      catch: (cause) => new ReportFault({ case: { reason: "engine", arm: "xlsx", detail: String(cause) } }),
     })
   })
 
@@ -350,6 +449,7 @@ const _xlsxStream = <A, R>(spec: Report.Xlsx<A>, rows: Stream.Stream<A, never, R
   Effect.flatMap(Ref.make(0), (counted) =>
     _sealed(
       "xlsx",
+      spec.name,
       counted,
       Stream.asyncScoped<Uint8Array, ReportFault, R>((emit) =>
         Effect.gen(function* () {
@@ -361,7 +461,7 @@ const _xlsxStream = <A, R>(spec: Report.Xlsx<A>, rows: Stream.Stream<A, never, R
               canonical.on("data", (chunk: Uint8Array) => void emit.single(chunk))
               canonical.on("end", () => void emit.end())
               canonical.on("error", (cause) =>
-                void emit.fail(new ReportFault({ reason: "sink", arm: "xlsx", detail: String(cause) })))
+                void emit.fail(new ReportFault({ case: { reason: "sink", arm: "xlsx", detail: String(cause) } })))
               return { sink, canonical }
             }),
             ({ sink, canonical }) => Effect.sync(() => { sink.destroy(); canonical.destroy() }),
@@ -382,7 +482,7 @@ const _xlsxRich = <A, R>(
     const collected = yield* rows.pipe(Stream.take(mode.rowCeiling + 1), Stream.runCollect)
     const values = Chunk.toReadonlyArray(collected)
     if (values.length > mode.rowCeiling) {
-      return yield* Effect.fail(new ReportFault({ reason: "ceiling", arm: "xlsx", detail: String(mode.rowCeiling) }))
+      return yield* Effect.fail(new ReportFault({ case: { reason: "ceiling", arm: "xlsx", bound: mode.rowCeiling, unit: "rows" } }))
     }
     const cells = Array.map(values, (row) => Array.map(_project(spec, row), _excel))
     const bytes = yield* Effect.tryPromise({
@@ -423,10 +523,10 @@ const _xlsxRich = <A, R>(
         if (protection !== undefined) await sheet.protect(Redacted.value(protection.password), protection.options)
         return _canonicalZip(new Uint8Array(await book.xlsx.writeBuffer()))
       },
-      catch: (cause) => new ReportFault({ reason: "engine", arm: "xlsx", detail: String(cause) }),
+      catch: (cause) => new ReportFault({ case: { reason: "engine", arm: "xlsx", detail: String(cause) } }),
     })
     const counted = yield* Ref.make(values.length)
-    return yield* _sealed("xlsx", counted, Stream.make(bytes))
+    return yield* _sealed("xlsx", spec.name, counted, Stream.make(bytes))
   })
 
 const _xlsx = <A, R>(spec: Report.Xlsx<A>, rows: Stream.Stream<A, never, R>) =>
@@ -453,7 +553,8 @@ const _amended = (
         Stream.flatMap(
           Stream.map(
             Stream.zipWithIndex(
-              Stream.fromAsyncIterable(reader, (cause) => new ReportFault({ reason: "engine", arm: "xlsx", detail: String(cause) })),
+              Stream.fromAsyncIterable(reader, (cause) =>
+                new ReportFault({ case: { reason: "engine", arm: "xlsx", detail: String(cause) } })),
             ),
             // the coordinate mints once per sheet, never per row; the registry match replaced the constructor's
             // captured zip digits with the workbook's parsed `sheetId`, so a numeric `id` proves the declared name
@@ -469,7 +570,8 @@ const _amended = (
           ),
           ([held, sheet]) =>
             Stream.map(
-              Stream.fromAsyncIterable(held, (cause) => new ReportFault({ reason: "engine", arm: "xlsx", detail: String(cause) })),
+              Stream.fromAsyncIterable(held, (cause) =>
+                new ReportFault({ case: { reason: "engine", arm: "xlsx", detail: String(cause) } })),
               (row) => ({ sheet, row }),
             ),
         ),
@@ -483,7 +585,7 @@ const _amended = (
 - Owner: the bounded measured-paging PDF arm — `rowCeiling` is enforced by taking at most one row beyond the limit before projection or engine allocation, then one `new jsPDF({ unit: "pt", compress: true, encryption })` is built and emitted inside one synchronous fold. `setDocumentProperties` stamps title and creator from the spec, `setCreationDate(new Date(0))` pins the instant so equal rows produce identical bytes, the brand band lands once through `addImage` with an `alias` so a repeated logo embeds one object, and the column contract renders through the native `doc.table(x, y, data, headers, config)` structured-table primitive with `printHeaders`. `doc.outline.add` builds the section bookmark tree, and `output("arraybuffer")` is the single boundary crossing.
 - Law: encryption is a spec row — `userPassword`/`ownerPassword` from `Redacted`, `userPermissions` the bounded set — and the browser egress arms (`save`, `blob`, `html`) are unspellable in this node lane.
 - Law: repeated furniture registers once — a branded header band or signature block is a `jsPDF.API` plugin registration at module scope, invoked per page; re-drawing shared furniture imperatively per call site is the rejected form.
-- Law: rendering is CPU-bound pure JS — the arm's synchronous fold is `_drawn`, and `Report.policy.offloadRows` routes a large unprotected document through the `Render` worker request at the `SPEC_FOLD` dispatch, so the request path never blocks on a large draw.
+- Law: rendering is CPU-bound pure JS — the arm's synchronous fold is `_drawn`, and the `pdf` modality row routes a large unprotected document through the `Render` worker request, so the request path never blocks on a large draw.
 - Growth: a new document element (watermark, TOC) is a furniture field folded here; interactive AcroForm surfaces are a spec extension row, admitted when a consumer names them.
 - Packages: `jspdf` (`jsPDF`, `GState`, the table/outline/AcroForm/metadata surface).
 
@@ -537,7 +639,7 @@ const _drawn = <A>(
       })
       return new Uint8Array(doc.output("arraybuffer"))
     },
-    catch: (cause) => new ReportFault({ reason: "engine", arm: "pdf", detail: String(cause) }),
+    catch: (cause) => new ReportFault({ case: { reason: "engine", arm: "pdf", detail: String(cause) } }),
   })
 
 const _pdf = <A, R>(
@@ -548,15 +650,17 @@ const _pdf = <A, R>(
     const collected = yield* rows.pipe(Stream.take(spec.rowCeiling + 1), Stream.runCollect)
     const values = Chunk.toReadonlyArray(collected)
     if (values.length > spec.rowCeiling) {
-      return yield* Effect.fail(new ReportFault({ reason: "ceiling", arm: "pdf", detail: String(spec.rowCeiling) }))
+      return yield* Effect.fail(new ReportFault({ case: { reason: "ceiling", arm: "pdf", bound: spec.rowCeiling, unit: "rows" } }))
     }
     const cells = Array.map(values, (row) => _project(spec, row))
-    const bytes = yield* cells.length > _policy.offloadRows && Option.isNone(spec.protect)
-      ? Effect.mapError(Render.rendered("pdf", _planned(spec, cells)), (fault) =>
-          new ReportFault({ reason: "sink", arm: "pdf", detail: fault._tag }))
-      : _drawn(spec, cells)
+    // A sealed password never crosses the thread seam, so protection withdraws the crossing rather than lowering the
+    // threshold: the row still owns placement, and the exemption is stated where it is taken.
+    const bytes = yield* Option.match(Option.isNone(spec.protect) ? _crossing("pdf", cells.length) : Option.none(), {
+      onNone: () => _drawn(spec, cells),
+      onSome: (kind) => Effect.mapError(Render.rendered(kind, _planned(spec, cells)), _sank("pdf")),
+    })
     const counted = yield* Ref.make(cells.length)
-    return yield* _sealed("pdf", counted, Stream.make(bytes))
+    return yield* _sealed("pdf", spec.name, counted, Stream.make(bytes))
   })
 
 const _workerPdf = (plan: PdfPlan): Effect.Effect<Uint8Array, BenchFault> =>
@@ -586,7 +690,7 @@ const _workerPdf = (plan: PdfPlan): Effect.Effect<Uint8Array, BenchFault> =>
       })
       return new Uint8Array(doc.output("arraybuffer"))
     },
-    catch: () => new BenchFault({ reason: "starved", class: "defect" }),
+    catch: (cause) => new BenchFault({ case: { reason: "starved", request: "Render", detail: `pdf draw — ${String(cause)}` } }),
   })
 
 const _workerBundle = (plan: BundlePlan): Effect.Effect<Uint8Array, BenchFault> =>
@@ -595,20 +699,25 @@ const _workerBundle = (plan: BundlePlan): Effect.Effect<Uint8Array, BenchFault> 
       const zip = new JSZip()
       Array.forEach(plan.entries, (entry) =>
         zip.file(entry.name, Buffer.from(entry.bytes, "base64"), {
-          compression: entry.format === "csv" ? "DEFLATE" : "STORE",
+          compression: _MODALITY[entry.format].compression,
           compressionOptions: { level: 6 },
           date: new Date(0),
         }))
       return zip.generateAsync({ type: "uint8array", streamFiles: true })
     },
-    catch: () => new BenchFault({ reason: "starved", class: "defect" }),
+    catch: (cause) => new BenchFault({ case: { reason: "starved", request: "Render", detail: `zip deflate — ${String(cause)}` } }),
   })
+
+// The plan handlers are a mapped record over the worker's OWN request roster, so a kind landing without a handler is
+// a compile error here — the ternary's `else` silently answered the wrong plan codec for every kind but one.
+const _plans: { readonly [K in Bench.Kind]: (plan: Uint8Array) => Effect.Effect<Uint8Array, BenchFault> } = {
+  pdf: (plan) => Effect.flatMap(_decodedPlan(_PdfPlan, "pdf", plan), _workerPdf),
+  zip: (plan) => Effect.flatMap(_decodedPlan(_BundlePlan, "zip", plan), _workerBundle),
+}
 
 const _worker = {
   Drop: (_request: Drop) => Effect.void,
-  Render: (request: Render) => request.kind === "pdf"
-    ? Effect.flatMap(_decodedPlan(_PdfPlan, request.plan), _workerPdf)
-    : Effect.flatMap(_decodedPlan(_BundlePlan, request.plan), _workerBundle),
+  Render: (request: Render) => _plans[request.kind](request.plan),
 } as const
 ```
 
@@ -628,6 +737,7 @@ const _csv = <A, R>(spec: Report.Csv<A>, rows: Stream.Stream<A, never, R>): Effe
     const fields = Array.map(spec.columns, (column) => column.header)
     return _sealed(
       "csv",
+      spec.name,
       counted,
       Stream.concat(
         Stream.make(encoder.encode(`${Papa.unparse({ fields, data: [] }, { ...spec.csv, escapeFormulae: true, newline: "\n" })}\n`)),
@@ -660,9 +770,9 @@ const _joined = (chunks: ReadonlyArray<Uint8Array>): Uint8Array => {
 ## [06]-[BUNDLE]
 
 [BUNDLE]:
-- Owner: the archive container — `Report.bundle(spec)` folds named members into one `JSZip` tree with per-entry compression policy (`STORE` for already-compressed formats, `DEFLATE` level 6 for text) and fixed entry dates for byte stability. A member roster at or below `offloadAbove` uses `generateInternalStream({ type: "uint8array", streamFiles: true })` bridged through `Stream.async`, and `onUpdate` metadata folds into the supplied progress projection; a roster above the threshold encodes the same entries into the typed bundle plan and dials the `Render` worker. Each entry's bytes arrive through `Report.gathered` under the member's stated ceiling, so worker routing moves compression off the request thread without pretending the already-gathered entries are unbounded.
+- Owner: the archive container — `Report.bundle(spec)` folds named members into one `JSZip` tree, each entry taking the compression its own modality row states (`STORE` for already-compressed containers, `DEFLATE` level 6 for text) beside fixed entry dates for byte stability. A member roster at or below the `zip` row's byte threshold uses `generateInternalStream({ type: "uint8array", streamFiles: true })` bridged through `Stream.async`, and `onUpdate` metadata folds into the supplied progress projection; a roster above it encodes the same entries into the typed bundle plan and dials the `Render` worker. Each entry's bytes arrive through `Report.gathered` under the member's stated ceiling, so worker routing moves compression off the request thread without pretending the already-gathered entries are unbounded.
 - Law: inbound archives are untrusted — `loadAsync(data, { checkCRC32: true })` gates integrity, and every entry's `unsafeOriginalName` resolves under the extraction anchor before any byte lands; the fold admits only targets that keep the anchor as their path prefix, and an escaping resolution folds to the `slip`-reasoned fault.
-- Law: DEFLATE is CPU-bound pure JS — a bundle whose gathered entry bytes exceed `offloadAbove` runs through the same worker `Render` row (the `"bundle"` kind) the PDF arm dials; the threshold chooses execution placement and never masquerades as a materialization ceiling.
+- Law: DEFLATE is CPU-bound pure JS — a bundle whose gathered entry bytes pass the `zip` row's threshold runs through the same worker `Render` request the PDF arm dials, under the `zip` request kind its own row names; the threshold chooses execution placement and never masquerades as a materialization ceiling.
 - Growth: a container policy axis (per-tenant naming, manifest entry) is a fold parameter; a second archive format is a new arm at the spec dispatch, never a fork of this one.
 - Packages: `jszip` (`JSZip`, `generateInternalStream`, `generateAsync`, `loadAsync`, `JSZipMetadata`).
 
@@ -672,7 +782,7 @@ const _bundleStream = (spec: Report.Bundle) =>
     const zip = new JSZip()
     for (const entry of spec.entries) {
       zip.file(entry.name, entry.bytes, {
-        compression: entry.format === "csv" ? "DEFLATE" : "STORE",
+        compression: _MODALITY[entry.format].compression,
         compressionOptions: { level: 6 },
         date: new Date(0),
       })
@@ -683,7 +793,8 @@ const _bundleStream = (spec: Report.Bundle) =>
       emit.single(chunk)
     })
     helper.on("end", () => emit.end())
-    helper.on("error", (cause) => emit.fail(new ReportFault({ reason: "archive", arm: "zip", detail: String(cause) })))
+    helper.on("error", (cause) =>
+      emit.fail(new ReportFault({ case: { reason: "archive", arm: "zip", detail: String(cause) } })))
     helper.resume()
   })
 
@@ -696,17 +807,18 @@ const _bundlePlan = (spec: Report.Bundle): BundlePlan => ({
 })
 
 const _bundle = (spec: Report.Bundle): Stream.Stream<Uint8Array, ReportFault, Bench> =>
-  Array.reduce(spec.entries, 0, (total, entry) => total + entry.bytes.length) > spec.offloadAbove
-    ? Stream.fromEffect(
-      Effect.mapError(Render.rendered("bundle", new TextEncoder().encode(JSON.stringify(_bundlePlan(spec)))), (fault) =>
-        new ReportFault({ reason: "sink", arm: "zip", detail: fault._tag })),
-    )
-    : _bundleStream(spec)
+  Option.match(_crossing("zip", Array.reduce(spec.entries, 0, (total, entry) => total + entry.bytes.length)), {
+    onNone: () => _bundleStream(spec),
+    onSome: (kind) =>
+      Stream.fromEffect(
+        Effect.mapError(Render.rendered(kind, new TextEncoder().encode(JSON.stringify(_bundlePlan(spec)))), _sank("zip")),
+      ),
+  })
 
 const _unbundle = (bytes: Uint8Array, root: string) =>
   Effect.tryPromise({
     try: () => JSZip.loadAsync(bytes, { checkCRC32: true }),
-    catch: (cause) => new ReportFault({ reason: "archive", arm: "zip", detail: String(cause) }),
+    catch: (cause) => new ReportFault({ case: { reason: "archive", arm: "zip", detail: String(cause) } }),
   }).pipe(
     Effect.flatMap((zip) => {
       const anchor = path.resolve(root)
@@ -715,16 +827,15 @@ const _unbundle = (bytes: Uint8Array, root: string) =>
         return target === anchor || target.startsWith(`${anchor}${path.sep}`)
           ? Effect.tryPromise({
             try: () => entry.async("uint8array"),
-            catch: (cause) => new ReportFault({ reason: "archive", arm: "zip", detail: String(cause) }),
+            catch: (cause) => new ReportFault({ case: { reason: "archive", arm: "zip", detail: String(cause) } }),
           }).pipe(Effect.map((body) => ({ name: target, body })))
-          : Effect.fail(new ReportFault({ reason: "slip", arm: "zip", detail: entry.name }))
+          : Effect.fail(new ReportFault({ case: { reason: "slip", anchor, entry: entry.name } }))
       })
     }),
   )
 
 const Report = {
   amend: _amended,
-  policy: _policy,
   render: _render,
   gathered: _gathered,
   bundle: _bundle,

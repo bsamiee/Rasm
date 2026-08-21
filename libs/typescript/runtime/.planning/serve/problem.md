@@ -2,20 +2,21 @@
 
 `Problem` owns the outbound-fault law of the front door: every fault leaving the branch over HTTP renders ITSELF through the `HttpServerRespondable` symbol protocol, and this one RFC 9457 owner — body schema, governed class-to-status record, total fold from any refused value, `Cause` fold — is the value implementing it, so the central error-mapper middleware has no existence. Module `runtime/src/serve/problem.ts` ships on the `./server` exports subpath, and a new core fault class breaks the record loudly at compile time.
 
-Ladder order is evidence specificity and every rung structural: an existing `Problem` passes untouched, the adopted-verbatim `FaultDetail` tag projects through the upstream rows on its own `retryable`/`terminal` facts, a `ParseError` lands `malformed` and a `RouteNotFound` `absent`, and the residue classifies through `Fault.Class.of` into the governed record, free of any cross-branch import. Exposure derives from the core `blame` axis; the `extensions` band is CLOSED at the schema, so a key outside the vocabulary is unrepresentable in any `Problem` value. Inbound never touches this module.
+Ladder order is evidence specificity and every rung structural: an existing `Problem` passes untouched, the `Remote` tag the wire landing mints projects through the upstream rows on its `retryable`/`terminal` facts, a `ParseError` lands `malformed` and a `RouteNotFound` `absent`, and the residue classifies through `Fault.Class.of` into the governed record, free of any cross-branch import. A stated re-drive window survives every rung under its own altitude's word. Exposure derives from the core `blame` axis; the `extensions` band is CLOSED at the schema, so a key outside the vocabulary is unrepresentable in any `Problem` value. Inbound never touches this module.
 
 ## [01]-[INDEX]
 
 - [02]-[STATUS_RECORD]: the class-to-status governed record, type-slug derivation, grace resolution; interior.
 - [03]-[REDACTION_ROWS]: blame-derived exposure, the structural extension band, the redact fold; interior.
-- [04]-[UPSTREAM_ROWS]: the wire-fault projection over structural `retryable`/`terminal` facts; interior.
+- [04]-[UPSTREAM_ROWS]: the wire-fault projection over structural `retryable`/`terminal` facts and the peer's stated window; interior.
 - [05]-[RESPONDABLE_OWNER]: the RFC 9457 owner, the symbol implementation, the total fold, the seam net; `Problem`.
 
 ## [02]-[STATUS_RECORD]
 
 [STATUS_RECORD]:
 - Law: the problem `type` member derives — `_type(kind)` is `_TYPE_BASE` plus the class literal, so the type-URI vocabulary is the core key space and a hand-authored slug registry cannot exist; `about:blank` never appears because every fold lands on a class.
-- Law: grace resolution is a two-rung ladder — a runtime hint carried by the fault value (a quota verdict's measured window, a limiter's `retryAfter` evidence) wins, the row's `grace` default fills, absence stays absent — `_retryAfter(grace, hint)` folds the ladder to whole seconds once, so no consumer re-derives header arithmetic.
+- Law: grace resolution is a two-rung ladder — a runtime hint carried by the fault value wins, the row's `grace` default fills, absence stays absent — `_retryAfter(grace, hint)` folds the ladder to whole seconds once, so no consumer re-derives header arithmetic.
+- Law: one stated window, three altitudes, three words, and this door reads each under its own — the wire's `retry_after` decodes into the upstream fault's `retryAfter` recovery arm, a domain refusal carries `after` on the VALUE and `Fault.Class.statedOf` reads it back, and the response header is `retry-after`; a probe spelling one altitude's word at another altitude sees nothing and silently spends the row's default.
 - Growth: a new core class is one row (compile-forced); a new response axis is one `_Grade` field plus its column on ten rows.
 - Packages: `effect` (`Duration`, `Option`, `Record`, `Array`); `@rasm/ts/core` (`Fault.Class`).
 
@@ -58,6 +59,7 @@ const _retryAfter = (
 
 [REDACTION_ROWS]:
 - Law: the extension band is structural — `_Extensions` is the exact-optional record over `tag`, `reason`, and `requestId`, the `_EXPOSED` tuple anchors the key census, and the guard pair closes tuple and schema against each other in both directions; because the `Problem` class carries this schema as its `extensions` field, a key outside the vocabulary is unrepresentable in any `Problem` value — the allowlist cannot be bypassed at a construction site, and a new public member is one field row plus its tuple entry.
+- Law: the reason probe reads the fault's own subject seat — `case` on a single-issue raise, `dominant` on a census — so a family that closed its reason axis behind a declared subject still exposes the word a caller acts on; the free top-level field it replaced is the retired shape and probing it would blank the extension on every conformed fault.
 - Law: `_redact(kind, extensions)` owns the blame gate over the structural band — a non-exposing class empties `tag` and `reason` while `requestId` survives on every class, because correlation is the one occurrence datum a system-blamed problem must keep: the operator resolves the redacted body against telemetry through it.
 - Boundary: which values populate the extensions is `[05]`'s fold; log-side and OTLP-side scrubbing is `otel/emit#REDACTION`'s policy; this cluster fixes only what crosses the HTTP body outward.
 
@@ -70,7 +72,7 @@ const _Extensions = Schema.Struct({
   requestId: Schema.String,
 }).pipe(Schema.partialWith({ exact: true }))
 
-const _expose = (kind: Fault.Class.Kind): boolean => Fault.Class.at(kind).blame === "caller"
+const _expose = (kind: Fault.Class.Kind): boolean => Fault.Class.blameOf(kind) === "caller"
 
 const _redact = (kind: Fault.Class.Kind, extensions: Problem.Extensions): Problem.Extensions =>
   _expose(kind)
@@ -84,8 +86,10 @@ const _redact = (kind: Fault.Class.Kind, extensions: Problem.Extensions): Proble
 ## [04]-[UPSTREAM_ROWS]
 
 [UPSTREAM_ROWS]:
-- Owner: `_upstream` — the two-row projection for the wire-reconstructed fault: a `retryable` non-`terminal` upstream hop projects as 503 under the unavailable grace window, everything else refuses as 502 with no grace — the `terminal` fact vetoes re-drive even where the hop claims retryability, so a wrong-program upstream reads distinctly from a saturated one and never invites a retry.
-- Law: the probe is structural, never an import — `[05]`'s ladder recognizes the adopted-verbatim `FaultDetail` tag and reads its `retryable`/`terminal` projections as facts on the value, so the serve-to-interchange edge stays import-free while the wire altitude still exits through the one problem door.
+- Owner: `_upstream` — the two-row projection for the wire-reconstructed fault: a `retryable` non-`terminal` upstream hop projects as 503 under the peer's own stated window where its recovery arm carried one and the unavailable grace window otherwise, everything else refuses as 502 with no grace — the `terminal` fact vetoes re-drive even where the hop claims retryability, so a wrong-program upstream reads distinctly from a saturated one and never invites a retry.
+- Law: the probe is structural, never an import — `[05]`'s ladder recognizes the `Remote` tag `core/interchange/codec#LANDING_WIRE` mints and reads the `retryable` and `terminal` members that owner publishes as facts beside its decoded `recovery` arm, so the serve-to-interchange edge stays import-free while the wire altitude still exits through the one problem door.
+- Law: the arm is CONSUMED, not merely recognized — the peer's `retryAfter` delay projects into the response's own `retry-after` header, so a window an upstream measured survives the hop instead of being replaced by this row's default.
+- Law: the probed tag and the probed members are that owner's LANDED spelling, so a rung naming a shape no producer mints admits nothing and hands every upstream refusal to the residue arm, which grades this process's own defect over a peer's refusal and renders 500 where the pair below render 502 and 503.
 - Law: upstream rows are never class rows — an upstream refusal is not the caller's fault and not this process's invariant breach, so each row derives its own `type` over the one `_TYPE_BASE` anchor and always redacts detail: hop chains, sites, and elapsed spans are telemetry material, never response bodies.
 - Growth: a new upstream disposition is one row keyed by a new structural fact; the probe extends in `[05]`, the row lands here.
 
@@ -132,26 +136,47 @@ const _field = (fault: unknown, key: string): Option.Option<string> => {
   return Predicate.isString(held) ? Option.some(held) : Option.none()
 }
 
-const _isFaultDetail = (fault: unknown): fault is {
-  readonly _tag: "FaultDetail"
-  readonly retryable: boolean
-  readonly terminal: boolean
-} =>
-  Predicate.isTagged(fault, "FaultDetail") &&
-  Predicate.hasProperty(fault, "retryable") &&
-  Predicate.isBoolean(fault.retryable) &&
-  Predicate.hasProperty(fault, "terminal") &&
-  Predicate.isBoolean(fault.terminal)
+// Wire faults arrive tagged `Remote` — the tag `core/interchange/codec#LANDING_WIRE` actually mints — publishing both
+// re-drive facts as members beside the typed `recovery` arm that owner decodes. The probe is one structural schema
+// rather than a predicate chain, because the arm it must reach is a union and a hand chain over one would re-derive
+// what a schema states. Probing a shape no owner mints admits nothing, and an admitting-nothing rung is invisible:
+// every upstream refusal falls past it to the residue arm and renders as this process's own defect.
+const _Remote = Schema.Struct({
+  _tag: Schema.Literal("Remote"),
+  retryable: Schema.Boolean,
+  terminal: Schema.Boolean,
+  recovery: Schema.Union(
+    Schema.Struct({ kind: Schema.Literal("terminal") }),
+    Schema.Struct({ kind: Schema.Literal("transient") }),
+    Schema.Struct({ kind: Schema.Literal("retryAfter"), delay: Schema.DurationFromSelf }),
+  ),
+})
 
-const _graced = (fault: unknown): Option.Option<Duration.Duration> =>
-  Predicate.hasProperty(fault, "retryAfter") && Option.isOption(fault.retryAfter)
-    ? Option.filter(fault.retryAfter, Duration.isDuration)
-    : Option.none()
+const _isRemote: (fault: unknown) => fault is typeof _Remote.Type = Schema.is(_Remote)
+
+// `retryAfter` is the ONE recovery arm carrying a measured window, so an upstream hop's grace is the peer's own
+// number wherever it stated one and the row's default otherwise. The other two arms say only what a re-drive can
+// reach, which the two facts above already grade.
+const _hopGrace = (fault: typeof _Remote.Type): Option.Option<Duration.Duration> =>
+  fault.recovery.kind === "retryAfter" ? Option.some(fault.recovery.delay) : Option.none()
+
+// A branch fault carries its reason on its own SUBJECT — a single-issue raise publishes `case`, an accumulating
+// census publishes the `dominant` issue it elected — so the probe reads both seats. A free top-level `reason` field
+// is the retired shape and a fault spelling neither exposes no reason, exactly as one carrying no reason did.
+const _Reasoned = Schema.Union(
+  Schema.Struct({ case: Schema.Struct({ reason: Schema.String }) }),
+  Schema.Struct({ dominant: Schema.Struct({ reason: Schema.String }) }),
+)
+
+const _isReasoned: (fault: unknown) => fault is typeof _Reasoned.Type = Schema.is(_Reasoned)
+
+const _reason = (fault: unknown): Option.Option<string> =>
+  _isReasoned(fault) ? Option.some("case" in fault ? fault.case.reason : fault.dominant.reason) : Option.none()
 
 const _extensions = (kind: Fault.Class.Kind, fault: unknown): Problem.Extensions =>
   _redact(kind, {
     ...Option.match(_field(fault, "_tag"), { onNone: () => ({}), onSome: (tag) => ({ tag }) }),
-    ...Option.match(_field(fault, "reason"), { onNone: () => ({}), onSome: (reason) => ({ reason }) }),
+    ...Option.match(_reason(fault), { onNone: () => ({}), onSome: (reason) => ({ reason }) }),
   })
 
 const _classed = (fault: unknown): Problem => {
@@ -163,23 +188,24 @@ const _classed = (fault: unknown): Problem => {
     status: grade.status,
     detail: _expose(kind) ? _text(fault) : grade.title,
     instance: Option.none(),
-    retry: _retryAfter(grade.grace, _graced(fault)),
+    // the VALUE altitude's stated window under its own word: a quota verdict or gate refusal that measured one
+    // carries `after`, and the core owner reads it back rather than this door probing a spelling of its own
+    retry: _retryAfter(grade.grace, Fault.Class.statedOf(fault)),
     extensions: _extensions(kind, fault),
   })
 }
 
-const _projected = (fault: unknown): Problem => {
-  const grade = _hop({
-    retryable: Predicate.hasProperty(fault, "retryable") && fault.retryable === true,
-    terminal: Predicate.hasProperty(fault, "terminal") && fault.terminal === true,
-  })
+const _projected = (fault: typeof _Remote.Type): Problem => {
+  const grade = _hop(fault)
   return new Problem({
     type: grade.type,
     title: grade.title,
     status: grade.status,
     detail: grade.title,
     instance: Option.none(),
-    retry: _retryAfter(grade.grace, Option.none()),
+    // the peer's own measured window outranks the row's default, so a `429` or `503` the upstream timed reaches our
+    // caller as the number that upstream actually named
+    retry: _retryAfter(grade.grace, _hopGrace(fault)),
     extensions: {},
   })
 }
@@ -187,7 +213,7 @@ const _projected = (fault: unknown): Problem => {
 const _of = (fault: unknown): Problem =>
   fault instanceof Problem
     ? fault
-    : _isFaultDetail(fault)
+    : _isRemote(fault)
       ? _projected(fault)
       : Predicate.isTagged(fault, "ParseError")
         ? _classed({ class: "malformed", message: "request body refused" })

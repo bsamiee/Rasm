@@ -2,7 +2,7 @@
 
 `RemeshOp` owns predicate-gated mesh rewrite toward a target sampling: one `[Union]` folds isotropic edge-length equalization and cross-field quad extraction through a single `MeshEdit` arena under one exact projected-convexity flip gate.
 
-Rebuild work composes the `Meshing/edit` arena as the sole position and face carrier, the exact `Kernels.QuadDiagonal` gate, the `Spatial/index` BVH re-projecting every relaxed vertex onto the original surface, and the `segment` Knöppel owners `SegmentKernel.CrossFieldAt`/`StripeAt` over the admitting `VectorField.CrossField` factory.
+Rebuild work composes the `Meshing/edit` arena as the sole position and face carrier, the exact `Kernels.QuadDiagonal` gate, the `Spatial/index` BVH re-projecting every relaxed vertex onto the original surface, the `segment` Knöppel owners `SegmentKernel.CrossFieldAt`/`StripeAt` over the admitting `VectorField.CrossField` factory, and the `Domain/rails` `Cell.Converge` law bounding the pass budget. Every request scalar arrives as an admitted value object, so the entry gate reads shape alone.
 
 ## [01]-[INDEX]
 
@@ -10,13 +10,16 @@ Rebuild work composes the `Meshing/edit` arena as the sole position and face car
 
 ## [02]-[REMESHING]
 
-- Owner: `Remeshing` mints the one static rewrite surface over `RemeshOp` the request `[Union]`, `RemeshPolicy` the `IValidityEvidence` policy row every pass reads, `RemeshTrace` the receipt, `QuadProvenance` the quad substrate, and `RewriteResult` the carrier.
-- Cases: `RemeshOp` rows `Isotropic` the edge-length equalizer and `QuadField` the field-guided quad extraction; target length and the quad arm's n-RoSy `Symmetry` ride as per-request data, the pass budget and hysteresis band as policy.
-- Entry: `Apply(RemeshOp, Op?)` discriminates on the op case over the `Fin` rail; an inadmissible request routes `DegenerateInput` 2400 and a budget-exhausted rewrite `RemeshStalled` 2441 carrying the achieved deviation, so a caller reads converged, converged-early, and stalled structurally.
+- Owner: `Remeshing` mints the one static rewrite surface over `RemeshOp` the request `[Union]`, `RemeshPolicy` the `IValidityEvidence` policy row every pass reads, `RoSyOrder` the closed n-RoSy vocabulary, `PassVerdict` the pass fold's three terminal states, `PassState` its carried state, `RemeshTrace` the receipt, `QuadProvenance` the quad substrate, and `RewriteResult` the carrier.
+- Cases: `RemeshOp` rows `Isotropic` the edge-length equalizer and `QuadField` the field-guided quad extraction; target length and the quad arm's `RoSyOrder` ride as per-request data, the pass budget, hysteresis band, crease dihedral, and regular-valence pair as policy.
+- Entry: `Apply(RemeshOp, Op?)` discriminates on the op case over the `Fin` rail and reaches the kernel consumer rail as `VectorIntent.Rewrite`, whose `RewriteCase` arm projects through `RewriteResult.Project<TOut>`; an inadmissible request routes `DegenerateInput` and a budget-exhausted rewrite `RemeshStalled` carrying the achieved deviation as an `Option` — a run that measured nothing states absence rather than echoing the target back as though it had hit it.
 - Auto: `Apply` internalizes arena lifetime, the one original-surface BVH build, pass budgeting with its early convergence exit, feature and boundary pinning, and the quad arm's isotropic pre-conditioning, so a caller supplies the op and reads the receipt.
-- Receipt: `RemeshTrace` witnesses every rewrite; `QuadProvenance` rides `RewriteResult.Quads` on the quad arm alone.
-- Packages: `Rasm.Meshing`, `Rasm.Spatial`, `Rasm.Processing`, `Rasm.Numerics`, and `Rasm.Domain` are the composed kernel siblings over Rhino.Geometry at the seam; QuikGraph's `ConnectedComponents` labels the patch decomposition, CommunityToolkit.HighPerformance's `IAction` drives the double-buffered relax sweep, and Thinktecture.Runtime.Extensions with LanguageExt.Core generate the op dispatch and its `Fin` rail.
-- Growth: a new rewrite modality is one `RemeshOp` case over the same pass machinery; a new sizing law is one `RemeshPolicy.Sizing` producer — the hysteresis tests already read the per-position field; feature-vertex sliding is one relax-arm branch on the feature census; a new pass verb is one arm in the fold.
+- Law: the pass budget is `Cell.Converge` over one `Atom<PassState>`; the transition supplies the terminal state, and an unconverged budget lowers to `RemeshStalled`, never success-shaped fall-through. `PassState.Deviation` is `Option`, so "no pass measured" and "measured zero" stay distinguishable, and `Deviation` itself refuses an edgeless arena typed instead of publishing a fabricated mean the band would read as converged. The three terminal states are `PassVerdict` cases, so the terminal fold is one generated `Switch` with each arm carrying its own consequence.
+- Law: `TargetLength` is `PositiveMagnitude` and every policy scalar an admitted value object, so `Admit` gates shape (a faceless mesh, an inverted hysteresis band) and never re-tests a range its carrier already holds. Quad arms carry `RoSyOrder`, whose key IS the order, and forward it to the `VectorField.CrossField` owner that proves the n-RoSy set.
+- Exemption: the split/collapse/flip/relax passes and the quad-cell extraction are statement kernels over one single-writer arena; their `Dictionary`/`HashSet` tables are rebuilt per phase and dropped inside the fold, so none becomes a frozen table.
+- Receipt: `RemeshTrace` witnesses every rewrite, carrying the deviation as the branch's one `Stat<Scalar>` band so mean, maximum, count, and spread arrive off one derivation; `QuadProvenance` rides `RewriteResult.Quads` on the quad arm alone and answers a typed refusal on a triangle rewrite.
+- Packages: `Rasm.Meshing`, `Rasm.Spatial` (`SpatialIndex.ClosestOnTriangle` the one point-triangle refinement behind the BVH prune), `Rasm.Processing`, `Rasm.Numerics` (`AtomProjection`/`ProjectionRow` the rewrite egress), and `Rasm.Domain` (`Stat<Scalar>`/`Scalar` the deviation band; `Cell.Converge` the pass driver) are the composed kernel siblings over Rhino.Geometry at the seam; QuikGraph's `ConnectedComponents` labels the patch decomposition, CommunityToolkit.HighPerformance's `IAction` drives the double-buffered relax sweep, and Thinktecture.Runtime.Extensions with LanguageExt.Core generate the op dispatch and carry its `Fin`/`Atom` rails.
+- Growth: a new rewrite modality is one `RemeshOp` case over the same pass machinery; a new n-RoSy order is one `RoSyOrder` row; a new terminal state is one `PassVerdict` case breaking the terminal `Switch` loudly; a new sizing law is one `RemeshPolicy.Sizing` producer — the hysteresis tests already read the per-position field; feature-vertex sliding is one relax-arm branch on the feature census; a new pass verb is one arm in `Pass`.
 - Boundary: `RemeshOp` owns the author-kernel rewrite alone, and QuikGraph's adjacency graph never leaves the extraction.
 
 ```csharp signature
@@ -24,8 +27,10 @@ Rebuild work composes the `Meshing/edit` arena as the sole position and face car
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;
 using LanguageExt;
+using LanguageExt.Common;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using Rasm.Domain;
@@ -38,64 +43,117 @@ using static LanguageExt.Prelude;
 // CS0104 guard: LanguageExt.HashSet collides with the BCL name under the dual usings.
 using EdgeKeySet = System.Collections.Generic.HashSet<(int U, int V)>;
 using IndexSet = System.Collections.Generic.HashSet<int>;
+using Dimension = Rasm.Numerics.Dimension;
 
 namespace Rasm.Processing;
 
 // --- [CONSTANTS] ------------------------------------------------------------------------------
-// SplitRatio/CollapseRatio are the Botsch-Kobbelt hysteresis band: neither op mints an edge the other immediately reverses.
 // Sizing is the curvature-adaptive target-length field: a positive per-position ℓ the SAME hysteresis tests read at
 // each edge midpoint (`TensorField.Curvature` over the source is the canonical producer); None holds the constant ℓ.
 public sealed record RemeshPolicy(
-    int Iterations, double SplitRatio, double CollapseRatio, double FeatureAngle,
-    double ConvergenceBand, int ProjectCandidates, int ParallelFloor, Option<Func<Point3d, double>> Sizing) : IValidityEvidence {
-    public static readonly RemeshPolicy Canonical = new(
-        Iterations: 8, SplitRatio: 4.0 / 3.0, CollapseRatio: 4.0 / 5.0, FeatureAngle: 0.6981317007977318,
-        ConvergenceBand: 0.2, ProjectCandidates: 8, ParallelFloor: 4_096, Sizing: Option<Func<Point3d, double>>.None);
+    Dimension Iterations, PositiveMagnitude SplitRatio, UnitInterval CollapseRatio, VectorAngle CreaseDihedral,
+    UnitInterval ConvergenceBand, Dimension ProjectCandidates, Dimension ParallelFloor,
+    Dimension InteriorValence, Dimension BoundaryValence,
+    Option<Func<Point3d, double>> Sizing) : IValidityEvidence {
+    // Botsch-Kobbelt pins relaxation at a COARSER dihedral than the flatten/decimate cut threshold: an edge that must
+    // separate charts is a stricter test than one that must merely survive smoothing, so the remesh threshold states
+    // its own 40° clause instead of borrowing — or silently re-spelling — the 30° `ParamPolicy` owns.
+    const double CreaseDihedralRadians = 40.0 * Math.PI / 180.0;
 
-    public bool IsValid => ValidityClaim.All(
-        ValidityClaim.Positive(value: Iterations),
-        ValidityClaim.Positive(value: FeatureAngle),
-        ValidityClaim.Positive(value: ConvergenceBand),
-        ValidityClaim.Positive(value: ProjectCandidates),
-        ValidityClaim.Positive(value: ParallelFloor))
-        && SplitRatio > 1.0 && CollapseRatio is > 0.0 and < 1.0;
+    public static readonly RemeshPolicy Canonical = new(
+        Iterations: Dimension.Create(value: 8), SplitRatio: PositiveMagnitude.Create(value: 4.0 / 3.0),
+        CollapseRatio: UnitInterval.Create(value: 4.0 / 5.0), CreaseDihedral: VectorAngle.Create(value: CreaseDihedralRadians),
+        ConvergenceBand: UnitInterval.Create(value: 0.2), ProjectCandidates: Dimension.Create(value: 8),
+        ParallelFloor: Dimension.Create(value: 4_096),
+        // Regular valence is 6 interior and 4 on a rim — the one pair every flip decision reads, on the policy row a
+        // caller can move rather than buried in a local function nothing outside the sweep can reach.
+        InteriorValence: Dimension.Create(value: 6), BoundaryValence: Dimension.Create(value: 4),
+        Sizing: Option<Func<Point3d, double>>.None);
+
+    // Value objects hold each scalar's own band; this claim holds the ORDERING between the two hysteresis ratios,
+    // which is what keeps neither op minting an edge the other immediately reverses.
+    public bool IsValid => ValidityClaim.All(SplitRatio.Value > 1.0, CollapseRatio.Value < 1.0);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------------
+// n-RoSy order is a CLOSED set — line, cross, hex — and the key IS the order, so the field's own symmetry proof rides
+// a row instead of a raw int this page forwarded twice unwidened beside an admitted magnitude.
+[SmartEnum<int>]
+public sealed partial class RoSyOrder {
+    public static readonly RoSyOrder Line = new(key: 2);
+    public static readonly RoSyOrder Cross = new(key: 4);
+    public static readonly RoSyOrder Hex = new(key: 6);
+}
+
+// Three terminal states as one closed family. The bool-plus-Option pair left two illegal corners representable —
+// converged WITH a fault, and running with one — and `Settled` existed to paper over them.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record PassVerdict {
+    private PassVerdict() { }
+
+    public sealed record RunningCase : PassVerdict;
+    public sealed record ConvergedCase : PassVerdict;
+    public sealed record FaultedCase(Error Cause) : PassVerdict;
+}
+
+// Deviation is the branch's ONE moment receipt, so mean, maximum, count, and the normalized spread all arrive off one
+// derivation and a band reader and a spread reader cannot fork the statistic.
 public sealed record RemeshTrace(
-    double TargetLength, double AchievedMean, double AchievedMax, int Iterations,
+    double TargetLength, Stat<Scalar> Deviation, int Iterations,
     int Splits, int Collapses, int Flips, int FeatureEdges);
 
 // Panelize substrate wire: a decoder binds these channels without re-running the field solve.
 public sealed record QuadProvenance(Arr<int> Corners, Arr<int> PatchOf, Arr<double> U, Arr<double> V, Arr<int> SingularFaces);
 
-public sealed record RewriteResult(MeshSpace Mesh, RemeshTrace Trace, Option<QuadProvenance> Quads);
+public sealed record RewriteResult(MeshSpace Mesh, RemeshTrace Trace, Option<QuadProvenance> Quads) {
+    // THE egress VectorIntent.RewriteCase folds; the quad substrate is Option because only the QuadField arm mints it,
+    // so asking a triangle rewrite for its provenance is a typed refusal rather than an empty channel set.
+    internal Fin<TOut> Project<TOut>(Op key) {
+        RewriteResult self = this;
+        return AtomProjection.Rows<RewriteResult, TOut>(self: self, key: key,
+            ProjectionRow.Of<MeshSpace>(() => Fin.Succ(self.Mesh)),
+            ProjectionRow.Of<RemeshTrace>(() => Fin.Succ(self.Trace)),
+            ProjectionRow.Of<QuadProvenance>(() => self.Quads.ToFin(key.Unsupported(inputType: typeof(RewriteResult), outputType: typeof(QuadProvenance)))));
+    }
+}
 
 // --- [OPERATIONS] -------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RemeshOp {
     private RemeshOp() { }
 
-    public sealed record Isotropic(MeshSpace Mesh, double TargetLength, RemeshPolicy Policy) : RemeshOp;
-    public sealed record QuadField(MeshSpace Mesh, double TargetLength, int Symmetry, RemeshPolicy Policy) : RemeshOp;
+    public sealed record Isotropic(MeshSpace Mesh, PositiveMagnitude TargetLength, RemeshPolicy Policy) : RemeshOp;
+    public sealed record QuadField(MeshSpace Mesh, PositiveMagnitude TargetLength, RoSyOrder Symmetry, RemeshPolicy Policy) : RemeshOp;
 }
 
 public static class Remeshing {
+    [BoundaryAdapter]
     public static Fin<RewriteResult> Apply(RemeshOp op, Op? key = null) =>
         op.Switch(
-            isotropic: i => Admit(i.Mesh, i.TargetLength, i.Policy).Bind(_ => Equalize(i.Mesh, i.TargetLength, i.Policy, key)
-                .Map(pair => new RewriteResult(pair.Space, pair.Trace, None))),
-            quadField: q => Admit(q.Mesh, q.TargetLength, q.Policy).Bind(_ => Quadrangulate(q, key)));
+            state: key.OrDefault(),
+            isotropic: static (token, i) => Admit(i.Mesh, i.Policy).Bind(_ =>
+                Equalize(i.Mesh, i.TargetLength.Value, i.Policy, token).Map(static pair => new RewriteResult(pair.Space, pair.Trace, None))),
+            quadField: static (token, q) => Admit(q.Mesh, q.Policy).Bind(_ => Quadrangulate(q, token)));
 
-    static Fin<Unit> Admit(MeshSpace mesh, double target, RemeshPolicy policy) =>
-        mesh.Native.Faces.Count == 0 ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "empty mesh").ToError())
-        : !(target > 0.0) ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "non-positive target length").ToError())
-        : !policy.IsValid ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "invalid remesh policy").ToError())
+    // Shape alone: every scalar arrived admitted, so the only refusals left are an empty mesh and an inverted band.
+    static Fin<Unit> Admit(MeshSpace mesh, RemeshPolicy policy) =>
+        mesh.Native.Faces.Count == 0 ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "empty mesh"))
+        : !policy.IsValid ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "invalid remesh policy"))
         : Fin.Succ(unit);
 
     // --- [ISOTROPIC]
-    // Botsch-Kobbelt fold over ONE arena; statement bodies ride the arena-tier exemption.
-    static Fin<(MeshSpace Space, RemeshTrace Trace)> Equalize(MeshSpace source, double target, RemeshPolicy policy, Op? key) {
+    // Deviation is Option so "no pass measured" and "measured zero" stay distinct; the verdict is a closed family so
+    // Settled reads a case rather than folding a bool against an Option with two illegal corners between them.
+    sealed record PassState(
+        int Rounds, int Splits, int Collapses, int Flips, int Features,
+        Option<Stat<Scalar>> Deviation, PassVerdict Verdict) {
+        internal static readonly PassState Seed = new(0, 0, 0, 0, 0, None, new PassVerdict.RunningCase());
+
+        internal bool Settled => Verdict is not PassVerdict.RunningCase;
+    }
+
+    // Botsch-Kobbelt fold over ONE arena; statement bodies ride the arena-tier exemption and `Cell.Converge` owns the pass budget.
+    static Fin<(MeshSpace Space, RemeshTrace Trace)> Equalize(MeshSpace source, double target, RemeshPolicy policy, Op key) {
         using MeshEdit arena = MeshEdit.Of(source, ArenaPolicy.Canonical with { ParallelFloor = policy.ParallelFloor });
         return SourceIndex(source, key).Bind(frozen => {
             // One resolved field serves every hysteresis read; the constant lane is the None fold, so adaptive
@@ -104,55 +162,87 @@ public static class Remeshing {
             Func<Point3d, double> targetAt = policy.Sizing.Match(
                 Some: field => (Func<Point3d, double>)(at => field(at) is > 0.0 and var local && double.IsFinite(local) ? local : target),
                 None: () => _ => target);
-            (int splits, int collapses, int flips, int features) = (0, 0, 0, 0);
-            int round = 0;
-            for (; round < policy.Iterations; round++) {
-                Edges edges = Edges.Of(arena, policy.FeatureAngle);
-                features = edges.FeatureCount;
-                int did = Split(arena, edges, targetAt, policy.SplitRatio);
-                splits += did;
-                edges = Edges.Of(arena, policy.FeatureAngle);
-                int killed = Collapse(arena, edges, targetAt, policy.CollapseRatio, policy.SplitRatio);
-                collapses += killed;
-                edges = Edges.Of(arena, policy.FeatureAngle);
-                int turned = Flip(arena, edges);
-                flips += turned;
-                Relax(arena, Edges.Of(arena, policy.FeatureAngle), policy);
-                Fin<Unit> projected = Project(arena, frozen, policy, key);
-                if (projected.Case is LanguageExt.Common.Error fault) { return Fin.Fail<(MeshSpace, RemeshTrace)>(fault); }
-                if (did + killed + turned == 0 && Deviation(arena, targetAt).Mean <= policy.ConvergenceBand) { round++; break; }
+            Atom<PassState> cell = Atom(value: PassState.Seed);
+            Transition<PassState> driven = Cell.Converge(
+                cell: cell,
+                step: state => Some(state.Settled ? state : Pass(state)),
+                settled: static state => state.Settled,
+                budget: policy.Iterations,
+                declined: key.InvalidResult());
+            PassState terminal = driven.Current;
+            // ONE generated Switch over the verdict, each arm carrying its own consequence: a fault leaves as itself,
+            // a converged run emits off the band it already met, and an exhausted budget lets the measured band decide
+            // between an in-band emit and a typed stall.
+            return terminal.Verdict.Switch(
+                state: (State: terminal, Policy: policy, Target: target, Arena: arena, Key: key),
+                runningCase: static (s, _) => s.State.Deviation.Match(
+                    Some: measured => measured.Mean <= s.Policy.ConvergenceBand.Value
+                        ? Emit(s.Arena, s.Target, s.State, measured, s.Key)
+                        : Fin.Fail<(MeshSpace, RemeshTrace)>(new GeometryFault.RemeshStalled(PositiveMagnitude.Create(value: s.Target), Some(s.Target * (1.0 + measured.Mean)), s.State.Rounds)),
+                    // No pass measured at all: the achieved length is ABSENT, never the target echoed back as though a
+                    // run had hit it exactly.
+                    None: () => Fin.Fail<(MeshSpace, RemeshTrace)>(new GeometryFault.RemeshStalled(PositiveMagnitude.Create(value: s.Target), Option<double>.None, 0))),
+                convergedCase: static (s, _) => s.State.Deviation
+                    .ToFin(s.Key.InvalidResult())
+                    .Bind(measured => Emit(s.Arena, s.Target, s.State, measured, s.Key)),
+                faultedCase: static (s, faulted) => Fin.Fail<(MeshSpace, RemeshTrace)>(faulted.Cause));
+
+            PassState Pass(PassState state) {
+                double featureAngle = policy.CreaseDihedral.Value;
+                Edges edges = Edges.Of(arena, featureAngle);
+                int features = edges.FeatureCount;
+                int did = Split(arena, edges, targetAt, policy.SplitRatio.Value);
+                edges = Edges.Of(arena, featureAngle);
+                int killed = Collapse(arena, edges, targetAt, policy.CollapseRatio.Value, policy.SplitRatio.Value);
+                edges = Edges.Of(arena, featureAngle);
+                int turned = Flip(arena, edges, policy);
+                Relax(arena, Edges.Of(arena, featureAngle));
+                if (Project(arena, frozen, policy, key).Case is Error fault) {
+                    return state with { Verdict = new PassVerdict.FaultedCase(fault) };
+                }
+                return Deviation(arena, targetAt, key).Match(
+                    Succ: spread => state with {
+                        Rounds = state.Rounds + 1, Splits = state.Splits + did, Collapses = state.Collapses + killed,
+                        Flips = state.Flips + turned, Features = features, Deviation = Some(spread),
+                        Verdict = did + killed + turned == 0 && spread.Mean <= policy.ConvergenceBand.Value
+                            ? new PassVerdict.ConvergedCase()
+                            : state.Verdict,
+                    },
+                    Fail: fault => state with { Verdict = new PassVerdict.FaultedCase(fault) });
             }
-            (double mean, double max) = Deviation(arena, targetAt);
-            return mean > policy.ConvergenceBand
-                ? Fin.Fail<(MeshSpace, RemeshTrace)>(new GeometryFault.RemeshStalled(target, target * (1.0 + mean), round).ToError())
-                : arena.ToSpace(source.Tolerance, key)
-                    .Map(space => (space, new RemeshTrace(target, mean, max, round, splits, collapses, flips, features)));
         });
     }
 
+    static Fin<(MeshSpace Space, RemeshTrace Trace)> Emit(MeshEdit arena, double target, PassState state, Stat<Scalar> measured, Op key) =>
+        arena.ToSpace(key).Map(space => (space, new RemeshTrace(
+            target, measured, state.Rounds, state.Splits, state.Collapses, state.Flips, state.Features)));
+
     // Per-phase edge table rebuilt O(F), never per operation.
-    sealed record Edges(Dictionary<(int U, int V), (int F0, int F1)> Table, EdgeKeySet Feature, IndexSet Pinned, IndexSet Boundary) {
+    // A rim edge has NO second face — absence, never a -1 five later `< 0` reads decode back into one.
+    sealed record Edges(Dictionary<(int U, int V), (int F0, Option<int> F1)> Table, EdgeKeySet Feature, IndexSet Pinned, IndexSet Boundary) {
         public int FeatureCount => Feature.Count;
 
         public static Edges Of(MeshEdit arena, double featureAngle) {
-            Dictionary<(int, int), (int, int)> table = [];
+            Dictionary<(int, int), (int F0, Option<int> F1)> table = [];
             for (int f = 0; f < arena.FaceCount; f++) {
                 if (!arena.Alive(f)) { continue; }
                 (int a, int b, int c) = arena.Face(f);
                 foreach ((int u, int v) in (ReadOnlySpan<(int, int)>)[(a, b), (b, c), (c, a)]) {
                     (int cu, int cv) = (int.Min(u, v), int.Max(u, v));
-                    table[(cu, cv)] = table.TryGetValue((cu, cv), out (int F0, int F1) held) ? (held.F0, f) : (f, -1);
+                    table[(cu, cv)] = table.TryGetValue((cu, cv), out (int F0, Option<int> F1) held) ? (held.F0, Some(f)) : (f, Option<int>.None);
                 }
             }
             EdgeKeySet feature = [];
             IndexSet pinned = [];
             IndexSet boundary = [];
-            foreach (((int u, int v), (int f0, int f1)) in table) {
-                if (f1 < 0) {
+            foreach (((int u, int v), (int f0, Option<int> f1)) in table) {
+                if (f1.IsNone) {
                     boundary.Add(u);
                     boundary.Add(v);
                 }
-                bool crease = f1 < 0 || Vector3d.VectorAngle(Normal(arena, f0), Normal(arena, f1)) > featureAngle;
+                bool crease = f1.Match(
+                    Some: g => Vector3d.VectorAngle(Normal(arena, f0), Normal(arena, g)) > featureAngle,
+                    None: static () => true);
                 if (crease) {
                     feature.Add((u, v));
                     pinned.Add(u);
@@ -171,23 +261,25 @@ public static class Remeshing {
     // Winding-consistent split: the face's own u→v traversal orders the (u,m,w)/(m,v,w) pair, so freeze sees one orientation.
     static int Split(MeshEdit arena, Edges edges, Func<Point3d, double> targetAt, double splitRatio) {
         int did = 0;
-        foreach (((int u, int v), (int f0, int f1)) in edges.Table.ToArray()) {
+        foreach (((int u, int v), (int f0, Option<int> f1)) in edges.Table.ToArray()) {
             Point3d mid = 0.5 * (arena.Position(u) + arena.Position(v));
             if (arena.Position(u).DistanceTo(arena.Position(v)) <= targetAt(mid) * splitRatio) { continue; }
-            int m = arena.AddVertex(0.5 * (arena.Position(u) + arena.Position(v)));
-            foreach (int f in (ReadOnlySpan<int>)[f0, f1]) {
-                if (f < 0 || !arena.Alive(f)) { continue; }
-                (int a, int b, int c) = arena.Face(f);
-                bool holds = (a == u || b == u || c == u) && (a == v || b == v || c == v);
-                if (!holds) { continue; }  // stale row — an earlier split re-pointed this face
-                (int from, int to) = Follows(a, b, c, u, v) ? (u, v) : (v, u);
-                int w = a != u && a != v ? a : b != u && b != v ? b : c;
-                arena.SetFace(f, from, m, w);
-                arena.AddFace(m, to, w);
-            }
+            int m = arena.AddVertex(mid);
+            Retile(arena, f0, u, v, m);
+            f1.Iter(f => Retile(arena, f, u, v, m));
             did++;
         }
         return did;
+
+        static void Retile(MeshEdit arena, int f, int u, int v, int m) {
+            if (!arena.Alive(f)) { return; }
+            (int a, int b, int c) = arena.Face(f);
+            if (!Holds((a, b, c), u, v)) { return; }  // stale row — an earlier split re-pointed this face
+            (int from, int to) = Follows(a, b, c, u, v) ? (u, v) : (v, u);
+            int w = a != u && a != v ? a : b != u && b != v ? b : c;
+            arena.SetFace(f, from, m, w);
+            arena.AddFace(m, to, w);
+        }
     }
 
     static bool Follows(int a, int b, int c, int u, int v) =>
@@ -212,13 +304,13 @@ public static class Remeshing {
         }
         IndexSet dead = [];
         int did = 0;
-        foreach (((int cu, int cv), (_, int f1)) in edges.Table) {
+        foreach (((int cu, int cv), (_, Option<int> f1)) in edges.Table) {
             if (dead.Contains(cu) || dead.Contains(cv)) { continue; }
             (int u, int v) = edges.Pinned.Contains(cu) ? (cv, cu) : (cu, cv);  // collapse TOWARD the feature: the pinned end survives
             if (edges.Pinned.Contains(u)) { continue; }  // both ends pinned — a crease segment, held
             if (arena.Position(u).DistanceTo(arena.Position(v)) >= targetAt(0.5 * (arena.Position(u) + arena.Position(v))) * collapseRatio) { continue; }
             // link condition — the genus gate: a shared one-ring wider than the edge's opposite corners pinches the surface.
-            if (neighbors[u].Count(w => neighbors[v].Contains(w)) != (f1 < 0 ? 1 : 2)) { continue; }
+            if (neighbors[u].Count(w => neighbors[v].Contains(w)) != (f1.IsNone ? 1 : 2)) { continue; }
             bool minted = facesOf.TryGetValue(u, out List<int>? around) && around.Where(arena.Alive).Any(f => {
                 (int a, int b, int c) = arena.Face(f);
                 foreach (int w in (ReadOnlySpan<int>)[a, b, c]) {
@@ -251,23 +343,23 @@ public static class Remeshing {
     }
 
     // Flip admits ONLY on the exact strict-convexity gate; a float dihedral mis-classifies remeshing's skinny quads.
-    static int Flip(MeshEdit arena, Edges edges) {
+    static int Flip(MeshEdit arena, Edges edges, RemeshPolicy policy) {
         Dictionary<int, int> valence = [];
         foreach (((int u, int v), _) in edges.Table) {
             valence[u] = valence.GetValueOrDefault(u) + 1;
             valence[v] = valence.GetValueOrDefault(v) + 1;
         }
+        (int interior, int rim) = (policy.InteriorValence.Value, policy.BoundaryValence.Value);
         int did = 0;
-        foreach (((int a0, int b0), (int f0, int f1)) in edges.Table.ToArray()) {
-            if (f1 < 0 || edges.Feature.Contains((a0, b0)) || !arena.Alive(f0) || !arena.Alive(f1)) { continue; }
+        foreach (((int a0, int b0), (int f0, Option<int> f1Slot)) in edges.Table.ToArray()) {
+            if (f1Slot.Case is not int f1 || edges.Feature.Contains((a0, b0)) || !arena.Alive(f0) || !arena.Alive(f1)) { continue; }
             if (!Holds(arena.Face(f0), a0, b0) || !Holds(arena.Face(f1), a0, b0)) { continue; }  // stale row — an earlier flip re-cornered a face
             (int fa, int fb, int fc) = arena.Face(f0);
             // normalize so f0 traverses a→b: winding-consistent flip emission depends on it
             (int a, int b) = Follows(fa, fb, fc, a0, b0) ? (a0, b0) : (b0, a0);
-            int c = Opposite(arena, f0, a, b);
-            int d = Opposite(arena, f1, a, b);
-            if (c < 0 || d < 0 || c == d) { continue; }
-            int Deviate(int v, int delta) => Math.Abs(valence.GetValueOrDefault(v) + delta - (edges.Boundary.Contains(v) ? 4 : 6));
+            if (Opposite(arena, f0, a, b).Case is not int c) { continue; }
+            if (Opposite(arena, f1, a, b).Case is not int d || c == d) { continue; }
+            int Deviate(int v, int delta) => Math.Abs(valence.GetValueOrDefault(v) + delta - (edges.Boundary.Contains(v) ? rim : interior));
             int before = Deviate(a, 0) + Deviate(b, 0) + Deviate(c, 0) + Deviate(d, 0);
             int after = Deviate(a, -1) + Deviate(b, -1) + Deviate(c, +1) + Deviate(d, +1);
             if (after >= before) { continue; }
@@ -283,28 +375,33 @@ public static class Remeshing {
         return did;
     }
 
-    static int Opposite(MeshEdit arena, int f, int u, int v) {
+    // A face carrying no corner off (u, v) has none to oppose — absence, never a -1 the caller re-tests.
+    static Option<int> Opposite(MeshEdit arena, int f, int u, int v) {
         (int a, int b, int c) = arena.Face(f);
-        return a != u && a != v ? a : b != u && b != v ? b : c != u && c != v ? c : -1;
+        return a != u && a != v ? Some(a) : b != u && b != v ? Some(b) : c != u && c != v ? Some(c) : Option<int>.None;
     }
 
-    // Area-weighted centroid EQUALIZES sampling; the cotangent operator reproduces the current shape and nulls the equalization.
-    readonly struct RelaxAction(double[] gx, double[] gy, double[] gz, double[] weight, double[] nx, double[] ny, double[] nz, double[] px, double[] py, double[] pz, bool[] pinned) : IAction {
+    // Area-weighted centroid EQUALIZES sampling; the cotangent operator reproduces the current shape and nulls the
+    // equalization. Planes stay VECTOR-shaped and pooled: the eleven scalar lanes this action used to take were three
+    // Point3d/Vector3d triples hand-split into nine slots plus two, and eleven `new T[n]` per relax pass.
+    readonly struct RelaxAction(ReadOnlyMemory<Vector3d> accumulated, ReadOnlyMemory<double> weight, ReadOnlyMemory<Vector3d> normal, Memory<Point3d> position, ReadOnlyMemory<bool> pinned) : IAction {
         public void Invoke(int v) {
-            if (pinned[v] || weight[v] <= double.Epsilon) { return; }
-            Point3d g = new(gx[v] / weight[v], gy[v] / weight[v], gz[v] / weight[v]);
-            Vector3d n = new(nx[v], ny[v], nz[v]);
-            Point3d p = new(px[v], py[v], pz[v]);
+            if (pinned.Span[v] || weight.Span[v] <= EpsilonPolicy.ZeroTolerance) { return; }
+            Point3d g = Point3d.Origin + ((1.0 / weight.Span[v]) * accumulated.Span[v]);
+            Vector3d n = normal.Span[v];
             if (!n.Unitize()) { return; }
-            Point3d moved = g + (((p - g) * n) * n);  // g projected to p's tangent plane
-            (px[v], py[v], pz[v]) = (moved.X, moved.Y, moved.Z);
+            Point3d p = position.Span[v];
+            position.Span[v] = g + (((p - g) * n) * n);  // g projected to p's tangent plane
         }
     }
 
-    static void Relax(MeshEdit arena, Edges edges, RemeshPolicy policy) {
+    static void Relax(MeshEdit arena, Edges edges) {
         int n = arena.VertexCount;
-        (double[] gx, double[] gy, double[] gz, double[] weight) = (new double[n], new double[n], new double[n], new double[n]);
-        (double[] nx, double[] ny, double[] nz) = (new double[n], new double[n], new double[n]);
+        using MemoryOwner<Vector3d> accumulated = MemoryOwner<Vector3d>.Allocate(n, AllocationMode.Clear);
+        using MemoryOwner<double> weight = MemoryOwner<double>.Allocate(n, AllocationMode.Clear);
+        using MemoryOwner<Vector3d> normal = MemoryOwner<Vector3d>.Allocate(n, AllocationMode.Clear);
+        using MemoryOwner<Point3d> position = MemoryOwner<Point3d>.Allocate(n, AllocationMode.Clear);
+        using MemoryOwner<bool> pinned = MemoryOwner<bool>.Allocate(n, AllocationMode.Clear);
         for (int f = 0; f < arena.FaceCount; f++) {
             if (!arena.Alive(f)) { continue; }
             (int a, int b, int c) = arena.Face(f);
@@ -312,24 +409,25 @@ public static class Remeshing {
             double area = 0.5 * cross.Length;
             Point3d centroid = (arena.Position(a) + arena.Position(b) + arena.Position(c)) / 3.0;
             foreach (int v in (ReadOnlySpan<int>)[a, b, c]) {
-                (gx[v], gy[v], gz[v], weight[v]) = (gx[v] + (area * centroid.X), gy[v] + (area * centroid.Y), gz[v] + (area * centroid.Z), weight[v] + area);
-                (nx[v], ny[v], nz[v]) = (nx[v] + cross.X, ny[v] + cross.Y, nz[v] + cross.Z);
+                accumulated.Span[v] += area * (Vector3d)centroid;
+                weight.Span[v] += area;
+                normal.Span[v] += cross;
             }
         }
-        bool[] pinned = new bool[n];
-        foreach (int v in edges.Pinned) { pinned[v] = true; }
-        (double[] px, double[] py, double[] pz) = (new double[n], new double[n], new double[n]);
-        for (int v = 0; v < n; v++) { (px[v], py[v], pz[v]) = (arena.Position(v).X, arena.Position(v).Y, arena.Position(v).Z); }
-        arena.Parallel(n, new RelaxAction(gx, gy, gz, weight, nx, ny, nz, px, py, pz, pinned));
-        for (int v = 0; v < n; v++) { arena.SetPosition(v, new Point3d(px[v], py[v], pz[v])); }
+        foreach (int v in edges.Pinned) { pinned.Span[v] = true; }
+        for (int v = 0; v < n; v++) { position.Span[v] = arena.Position(v); }
+        arena.Parallel(n, new RelaxAction(accumulated.Memory, weight.Memory, normal.Memory, position.Memory, pinned.Memory));
+        for (int v = 0; v < n; v++) { arena.SetPosition(v, position.Span[v]); }
     }
 
     // --- [PROJECTION]
     // Projection target: the ORIGINAL surface frozen at pass-zero, immutable for the whole rewrite.
     sealed record Source(SpatialIndex Index, (Point3d A, Point3d B, Point3d C)[] Faces);
 
-    static Fin<Source> SourceIndex(MeshSpace source, Op? key) {
+    static Fin<Source> SourceIndex(MeshSpace source, Op key) {
         using MeshEdit soup = MeshEdit.Of(source);
+        // Boxes are the INDEX's own retained primitives and corners the frozen projection target, so both outlive the
+        // build and stay owned arrays; every buffer that dies with a pass is pooled instead.
         BoundingBox[] boxes = new BoundingBox[soup.FaceCount];
         (Point3d A, Point3d B, Point3d C)[] corners = new (Point3d A, Point3d B, Point3d C)[soup.FaceCount];
         for (int f = 0; f < soup.FaceCount; f++) {
@@ -340,33 +438,36 @@ public static class Remeshing {
         return Spatial.Apply(new SpatialOp.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical), key)
             .Bind(answer => answer is SpatialAnswer.Index built
                 ? Fin.Succ(new Source(built.Value, corners))
-                : Fin.Fail<Source>(new GeometryFault.KindMismatch(SpatialKind.Bvh, QueryKind.Nearest).ToError()));
+                : Fin.Fail<Source>(new GeometryFault.KindMismatch(SpatialKind.Bvh, QueryKind.Nearest)));
     }
 
-    static Fin<Unit> Project(MeshEdit arena, Source source, RemeshPolicy policy, Op? key) {
-        (Point3d A, Point3d B, Point3d C)[] faces = source.Faces;
-        SpatialIndex index = source.Index;
-        for (int v = 0; v < arena.VertexCount; v++) {
+    // Candidate folds carry their best distance as an Option, so the first candidate seeds the minimum instead of a
+    // forged infinity, and an empty candidate list leaves the vertex where it stands.
+    static Fin<Unit> Project(MeshEdit arena, Source source, RemeshPolicy policy, Op key) =>
+        Range(0, arena.VertexCount).Fold(Fin.Succ(unit), (acc, v) => acc.Bind(_ => {
             Point3d p = arena.Position(v);
-            Fin<Seq<int>> nearest = Spatial.Apply(new SpatialOp.Query(index, new SpatialQuery.Nearest(p, policy.ProjectCandidates)), key)
+            return Spatial.Apply(new SpatialOp.Query(source.Index, new SpatialQuery.Nearest(p, policy.ProjectCandidates.Value)), key)
                 .Bind(static answer => answer is SpatialAnswer.Result { Value: QueryResult.Nearest hits }
                     ? Fin.Succ(hits.Ordered)
-                    : Fin.Fail<Seq<int>>(new GeometryFault.KindMismatch(SpatialKind.Bvh, QueryKind.Nearest).ToError()));
-            if (nearest.Case is LanguageExt.Common.Error fault) { return Fin.Fail<Unit>(fault); }
-            Point3d best = p;
-            double bestD = double.PositiveInfinity;
-            foreach (int f in (Seq<int>)nearest.Case!) {
-                Point3d foot = ClosestOnTriangle(p, faces[f].A, faces[f].B, faces[f].C);
-                double d = p.DistanceTo(foot);
-                if (d < bestD) { (best, bestD) = (foot, d); }
-            }
-            arena.SetPosition(v, best);
-        }
-        return Fin.Succ(unit);
-    }
+                    : Fin.Fail<Seq<int>>(new GeometryFault.KindMismatch(SpatialKind.Bvh, QueryKind.Nearest)))
+                .Map(hits => {
+                    (Point3d at, Option<double> _) = hits.Fold(
+                        (At: p, Distance: Option<double>.None),
+                        (best, f) => {
+                            (Point3d foot, double d) = SpatialIndex.ClosestOnTriangle(p, source.Faces[f].A, source.Faces[f].B, source.Faces[f].C);
+                            return best.Distance.Map(held => d < held).IfNone(true) ? (foot, Some(d)) : best;
+                        });
+                    arena.SetPosition(v, at);
+                    return unit;
+                });
+        }));
 
-    static (double Mean, double Max) Deviation(MeshEdit arena, Func<Point3d, double> targetAt) {
-        (double sum, double max, int count) = (0.0, 0.0, 0);
+    // Deviations fold through the branch's ONE moment owner, so mean, maximum, count, and the normalized spread all
+    // arrive off one derivation rather than a page-local tuple that forks the statistic per consumer. An edgeless
+    // arena has NO deviation to summarize and Stat's own admission refuses it typed — never a fabricated mean of zero
+    // the convergence band would then read as converged.
+    static Fin<Stat<Scalar>> Deviation(MeshEdit arena, Func<Point3d, double> targetAt, Op key) {
+        Seq<Scalar> deviations = [];
         EdgeKeySet seen = [];
         for (int f = 0; f < arena.FaceCount; f++) {
             if (!arena.Alive(f)) { continue; }
@@ -374,51 +475,46 @@ public static class Remeshing {
             foreach ((int u, int v) in (ReadOnlySpan<(int, int)>)[(a, b), (b, c), (c, a)]) {
                 if (!seen.Add((int.Min(u, v), int.Max(u, v)))) { continue; }
                 double local = targetAt(0.5 * (arena.Position(u) + arena.Position(v)));
-                double dev = Math.Abs(arena.Position(u).DistanceTo(arena.Position(v)) - local) / local;
-                (sum, max, count) = (sum + dev, double.Max(max, dev), count + 1);
+                deviations = deviations.Add((Scalar)(Math.Abs(arena.Position(u).DistanceTo(arena.Position(v)) - local) / local));
             }
         }
-        return (count > 0 ? sum / count : 0.0, max);
+        return Stat<Scalar>.Of(values: deviations, key: key);
     }
 
     // --- [QUAD_FIELD]
     // Isotropic conditioning first — the field solve needs bounded aspect ratios; both stripe families ride one memoized field owner.
-    static Fin<RewriteResult> Quadrangulate(RemeshOp.QuadField op, Op? key) =>
-        Equalize(op.Mesh, op.TargetLength, op.Policy, key).Bind(pair => {
+    static Fin<RewriteResult> Quadrangulate(RemeshOp.QuadField op, Op key) =>
+        Equalize(op.Mesh, op.TargetLength.Value, op.Policy, key).Bind(pair => {
             MeshSpace space = pair.Space;
-            Op threaded = key.OrDefault();
-            double frequency = 1.0 / op.TargetLength;
+            double frequency = 1.0 / op.TargetLength.Value;
             (int a, int b, int c) = (space.Native.Faces[0].A, space.Native.Faces[0].B, space.Native.Faces[0].C);
             Point3d seed = space.Native.Vertices[a];  // the anchored ordinal IS a corner of the normal's face
             Vector3d normal = Vector3d.CrossProduct(
                 (Point3d)space.Native.Vertices[b] - space.Native.Vertices[a],
                 (Point3d)space.Native.Vertices[c] - space.Native.Vertices[a]);
-            return SegmentKernel.CrossFieldAt(space, op.Symmetry, None, None, seed, threaded)
-                .Bind(baseDir => Direction.Of(value: Vector3d.CrossProduct(normal, baseDir), context: space.Tolerance, key: threaded))
-                // Both fields ride the ADMITTING factory: symmetry ∈ {1,2,4,6}, anchor ordinal proven at construction.
+            return SegmentKernel.CrossFieldAt(space, op.Symmetry.Key, None, None, seed, key)
+                .Bind(baseDir => Direction.Of(value: Vector3d.CrossProduct(normal, baseDir), context: space.Tolerance, key: key))
+                // Both fields ride the ADMITTING factory: it proves the n-RoSy symmetry set and the anchor ordinal.
                 .Bind(turned =>
-                    from cross in VectorField.CrossField(space, op.Symmetry, None, None, threaded)
-                    from rotated in VectorField.CrossField(space, op.Symmetry, Some(Seq((a, turned))), None, threaded)
+                    from cross in VectorField.CrossField(space, op.Symmetry.Key, None, None, key)
+                    from rotated in VectorField.CrossField(space, op.Symmetry.Key, Some(Seq((a, turned))), None, key)
                     select (Cross: cross, Rotated: rotated))
                 .Bind(fields =>
-                    (SampleStripes(space, fields.Cross, frequency, threaded).ToValidation(),
-                     SampleStripes(space, fields.Rotated, frequency, threaded).ToValidation())
+                    (SampleStripes(space, fields.Cross, frequency, key).ToValidation(),
+                     SampleStripes(space, fields.Rotated, frequency, key).ToValidation())
                         .Apply(static (us, vs) => (Us: us, Vs: vs)).As().ToFin()
                         .Bind(uv => ExtractQuads(space, uv.Us, uv.Vs, pair.Trace, key)));
         });
 
-    static Fin<double[]> SampleStripes(MeshSpace space, VectorField field, double frequency, Op key) {
-        int n = space.Native.Vertices.Count;
-        double[] values = new double[n];
-        for (int v = 0; v < n; v++) {
-            Fin<double> at = SegmentKernel.StripeAt(space, field, frequency, space.Native.Vertices[v], key);
-            if (at.Case is LanguageExt.Common.Error fault) { return Fin.Fail<double[]>(fault); }
-            values[v] = (double)at.Case!;
-        }
-        return Fin.Succ(values);
-    }
+    static Fin<Arr<double>> SampleStripes(MeshSpace space, VectorField field, double frequency, Op key) =>
+        Range(0, space.Native.Vertices.Count)
+            .TraverseM(v => SegmentKernel.StripeAt(space, field, frequency, space.Native.Vertices[v], key)).As()
+            .Map(static values => toArr(values));
 
-    static Fin<RewriteResult> ExtractQuads(MeshSpace space, double[] u, double[] v, RemeshTrace trace, Op? key) {
+    // Corner ring of the integer cell: the four (du, dv) offsets a cell's quad interns, declared once.
+    static readonly (long Du, long Dv)[] Ring = [(0, 0), (1, 0), (1, 1), (0, 1)];
+
+    static Fin<RewriteResult> ExtractQuads(MeshSpace space, Arr<double> u, Arr<double> v, RemeshTrace trace, Op key) {
         using MeshEdit soup = MeshEdit.Of(space);
         IndexSet singular = [];
         Dictionary<(long Iu, long Iv), List<int>> cellFaces = [];
@@ -451,29 +547,29 @@ public static class Remeshing {
         adjacency.ConnectedComponents(faceComponent);
 
         // grid vertices intern per (iu, iv, patch), so a patch seam duplicates its corner by design
-        using MeshEdit emit = MeshEdit.Of(ReadOnlySpan<Point3d>.Empty, ReadOnlySpan<(int, int, int)>.Empty);
+        using MeshEdit emit = MeshEdit.Of(ReadOnlySpan<Point3d>.Empty, ReadOnlySpan<(int, int, int)>.Empty, space.Tolerance);
         Dictionary<(long, long, int), int> interned = [];
         (List<double> uOut, List<double> vOut) = ([], []);
         (List<int> corners, List<int> patchOf) = ([], []);
         foreach ((long iu, long iv) in cellFaces.Keys.OrderBy(static cell => cell)) {
-            Span<(long Du, long Dv)> ring = [(0, 0), (1, 0), (1, 1), (0, 1)];
-            Span<int> quad = stackalloc int[4];
-            int patch = -1;
-            bool complete = true;
+            // All four corners locate or the cell drops: the Option fold IS the completeness verdict.
+            Option<Seq<(Point3d At, int Face)>> ring = toSeq(Ring).Fold(
+                Some(Seq<(Point3d At, int Face)>()),
+                (acc, step) => acc.Bind(rows => Locate(soup, u, v, cellFaces, iu + step.Du, iv + step.Dv).Map(rows.Add)));
+            if (ring.Case is not Seq<(Point3d At, int Face)> located) { continue; }
+            int patch = faceComponent.GetValueOrDefault(located[0].Face);
+            int[] quad = new int[4];
             for (int k = 0; k < 4; k++) {
-                (long cu, long cv) = (iu + ring[k].Du, iv + ring[k].Dv);
-                if (Locate(soup, u, v, cellFaces, cu, cv) is not (Point3d at, int home)) { complete = false; break; }
-                if (patch < 0) { patch = faceComponent.GetValueOrDefault(home); }
+                (long cu, long cv) = (iu + Ring[k].Du, iv + Ring[k].Dv);
                 if (!interned.TryGetValue((cu, cv, patch), out int ordinal)) {
-                    ordinal = emit.AddVertex(at);
+                    ordinal = emit.AddVertex(located[k].At);
                     interned[(cu, cv, patch)] = ordinal;
                     uOut.Add(cu);
                     vOut.Add(cv);
                 }
                 quad[k] = ordinal;
             }
-            if (!complete) { continue; }
-            corners.AddRange([quad[0], quad[1], quad[2], quad[3]]);
+            corners.AddRange(quad);
             patchOf.Add(patch);
             if (Kernels.QuadDiagonal(emit.Position(quad[0]), emit.Position(quad[1]), emit.Position(quad[2]), emit.Position(quad[3]))) {
                 emit.AddFace(quad[0], quad[1], quad[2]);
@@ -484,54 +580,35 @@ public static class Remeshing {
                 emit.AddFace(quad[1], quad[2], quad[3]);
             }
         }
-        return emit.ToSpace(space.Tolerance, key).Map(mesh => new RewriteResult(
+        return emit.ToSpace(key).Map(mesh => new RewriteResult(
             mesh, trace, Some(new QuadProvenance(toArr(corners), toArr(patchOf), toArr(uOut), toArr(vOut), toArr(singular.Order())))));
     }
 
-    // Inverse-linear locate: the corner's four adjacent cell bins bound the candidate faces.
-    static (Point3d At, int Face)? Locate(MeshEdit soup, double[] u, double[] v, Dictionary<(long Iu, long Iv), List<int>> cells, long cu, long cv) {
+    // Inverse-linear locate: the corner's four adjacent cell bins bound the candidate faces; absence is Option, so a
+    // corner outside every bin drops its cell rather than handing back a null the caller re-tests.
+    static Option<(Point3d At, int Face)> Locate(MeshEdit soup, Arr<double> u, Arr<double> v, Dictionary<(long Iu, long Iv), List<int>> cells, long cu, long cv) {
         foreach ((long du, long dv) in (ReadOnlySpan<(long, long)>)[(0, 0), (-1, 0), (0, -1), (-1, -1)]) {
             if (!cells.TryGetValue((cu + du, cv + dv), out List<int>? members)) { continue; }
             foreach (int f in members) {
                 (int a, int b, int c) = soup.Face(f);
                 double det = ((u[b] - u[a]) * (v[c] - v[a])) - ((u[c] - u[a]) * (v[b] - v[a]));
-                if (Math.Abs(det) <= double.Epsilon) { continue; }
+                if (Math.Abs(det) <= EpsilonPolicy.ZeroTolerance) { continue; }
                 double wb = (((cu - u[a]) * (v[c] - v[a])) - ((cv - v[a]) * (u[c] - u[a]))) / det;
                 double wc = (((cv - v[a]) * (u[b] - u[a])) - ((cu - u[a]) * (v[b] - v[a]))) / det;
                 double wa = 1.0 - wb - wc;
                 if (wa is < 0.0 or > 1.0 || wb is < 0.0 or > 1.0 || wc is < 0.0 or > 1.0) { continue; }
                 (Point3d pa, Point3d pb, Point3d pc) = (soup.Position(a), soup.Position(b), soup.Position(c));
-                return (new Point3d(
+                return Some((new Point3d(
                     (wa * pa.X) + (wb * pb.X) + (wc * pc.X),
                     (wa * pa.Y) + (wb * pb.Y) + (wc * pc.Y),
-                    (wa * pa.Z) + (wb * pb.Z) + (wc * pc.Z)), f);
+                    (wa * pa.Z) + (wb * pb.Z) + (wc * pc.Z)), f));
             }
         }
-        return null;
+        return None;
     }
 
     static double Spread(double a, double b, double c) => Math.Max(a, Math.Max(b, c)) - Math.Min(a, Math.Min(b, c));
 
-    // Ericson-form point-triangle projection: the exact local refinement behind the BVH candidate prune.
-    static Point3d ClosestOnTriangle(Point3d p, Point3d a, Point3d b, Point3d c) {
-        Vector3d ab = b - a, ac = c - a, ap = p - a;
-        double d1 = ab * ap, d2 = ac * ap;
-        if (d1 <= 0.0 && d2 <= 0.0) { return a; }
-        Vector3d bp = p - b;
-        double d3 = ab * bp, d4 = ac * bp;
-        if (d3 >= 0.0 && d4 <= d3) { return b; }
-        double vc = (d1 * d4) - (d3 * d2);
-        if (vc <= 0.0 && d1 >= 0.0 && d3 <= 0.0) { return a + ((d1 / (d1 - d3)) * ab); }
-        Vector3d cp = p - c;
-        double d5 = ab * cp, d6 = ac * cp;
-        if (d6 >= 0.0 && d5 <= d6) { return c; }
-        double vb = (d5 * d2) - (d1 * d6);
-        if (vb <= 0.0 && d2 >= 0.0 && d6 <= 0.0) { return a + ((d2 / (d2 - d6)) * ac); }
-        double va = (d3 * d6) - (d5 * d4);
-        if (va <= 0.0 && (d4 - d3) >= 0.0 && (d5 - d6) >= 0.0) { return b + (((d4 - d3) / ((d4 - d3) + (d5 - d6))) * (c - b)); }
-        double denom = 1.0 / (va + vb + vc);
-        return a + ((vb * denom) * ab) + ((vc * denom) * ac);
-    }
 }
 ```
 
@@ -545,8 +622,9 @@ config:
 ---
 flowchart LR
     accTitle: Remesh dispatch
-    accDescr: Isotropic and quad-field rewrites folding the arena passes onto a typed trace with the stall fault.
+    accDescr: Isotropic and quad-field rewrites folding the schedule-bounded arena passes onto a typed trace with the stall fault.
     RemeshOp -->|Isotropic: split/collapse/flip/relax/project passes| MeshEdit
+    MeshEdit -->|Cell.Converge over Atom PassState| PassState
     MeshEdit -->|exact flip gate — two QuadDiagonal probes| Kernels
     MeshEdit -->|"Nearest(p, K) candidates → exact foot"| SpatialIndex
     RemeshOp -->|QuadField: CrossFieldAt + StripeAt| SegmentKernel
@@ -555,7 +633,7 @@ flowchart LR
     Extraction -->|QuadDiagonal exact triangulation| Kernels
     MeshEdit -->|ToSpace freeze| RewriteResult
     RewriteResult -->|QuadProvenance channels| Panelize["Parametric/panelize substrate"]
-    RemeshOp -.->|2400 admission / 2441 stall| GeometryFault
+    RemeshOp -.->|DegenerateInput / RemeshStalled| GeometryFault
 ```
 
 ## [03]-[DENSITY_BAR]
@@ -566,8 +644,9 @@ One owner per axis; each `[RAIL]` names the owner's one return rail.
 | :-----: | :------------- | :--------------- | :------------------------------------- | :-----: |
 |  [01]   | Remeshing      | `RemeshOp`       | `Remeshing.Apply → Fin<RewriteResult>` |    2    |
 |  [02]   | Rewrite policy | `RemeshPolicy`   | value (`IValidityEvidence`)            |    —    |
-|  [03]   | Evidence       | `RemeshTrace`    | carrier on the result                  |    —    |
-|  [04]   | Quad substrate | `QuadProvenance` | carrier (`Option` on the result)       |    —    |
+|  [03]   | Pass fold      | `PassState`      | interior (`Atom` under `Schedule`)     |    3    |
+|  [04]   | Evidence       | `RemeshTrace`    | carrier on the result                  |    —    |
+|  [05]   | Quad substrate | `QuadProvenance` | carrier (`Option` on the result)       |    —    |
 
 ## [04]-[RESEARCH]
 

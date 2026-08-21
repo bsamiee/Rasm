@@ -13,7 +13,9 @@
 
 - Law: serialized policy schemas enforce ratio, finite-bound, positive-span, distinct-partition, and compliance-window domains.
 - Law: SLI schemas admit metrics by statistical role; Ratio counters are distinct, Partition uses one counter, and level cases split gauges.
-- Law: exact metric tuples separate temporal histograms, temporal gauges, and non-temporal gauges at admission.
+- Law: each SLI case tag IS its admission-row key, so the case roster and the role roster are one vocabulary a two-way census closes.
+- Law: a role admits metrics off the instrument row's own kind and time-code columns, so a metric set derives from the deciding member and never a roster spelled beside it.
+- Law: filter keys derive from the mounted rows' declared fan, so an objective slices exactly the coordinates a series carries and a later instrument row stays filterable.
 - Law: summaries back no SLI; latency requires histogram buckets, while saturation and freshness compare gauge levels.
 - Law: Partition derives a good share from one tagged counter; Ratio is reserved for independent numerator and denominator counters.
 - Law: budget is `1 - target`, and an objective window cannot be shorter than its longest burn window.
@@ -23,48 +25,49 @@ import { Array, Duration, Number, Option, Order, Record, Schema } from "effect"
 import { Shape } from "../value/schema.ts"
 import { Convention } from "./convention.ts"
 
-const _metric = <K extends Convention.InstrumentKind>(kind: K): Schema.Schema<Convention.MetricName<K>> =>
+// Each SLI case keys its own admission row, so the case tag and the metric role are ONE vocabulary rather than two
+// spellings a guard has to reconcile. The two columns are already ON the instrument row — the exported kind a reader
+// sums or buckets, and whether the row's UCUM code is a time code — so a metric set derives from the deciding member
+// and every row landed after this table is nameable by construction.
+const _roleKinds = ["Freshness", "Latency", "Partition", "Ratio", "Saturation"] as const
+const _roleRows = {
+  Freshness: { kind: "gauge", temporal: true },
+  Latency: { kind: "histogram", temporal: true },
+  Partition: { kind: "counter", temporal: false },
+  Ratio: { kind: "counter", temporal: false },
+  Saturation: { kind: "gauge", temporal: false },
+} as const
+const _Role = Shape.vocabulary(_roleKinds, _roleRows)
+
+// The runtime refinement reads the row's own columns and the admitted TYPE derives from the same pair, so the literal
+// metric union survives without a roster: `Convention.DurationMetric` is the temporal carve, and the convention owner's
+// own two-way census proves it equal to the rows whose unit is a time code.
+const _admits = <R extends Reliability.Role>(role: R): Schema.Schema<Reliability.RoleMetric<R>, Convention.MetricName> =>
   Convention.Metric.schema.pipe(
     Schema.filter(
-      (name): name is Convention.MetricName<K> => Convention.Metric.at(name).kind === kind,
-      { identifier: `MetricName/${kind}` },
+      (name): name is Reliability.RoleMetric<R> =>
+        Convention.Metric.at(name).kind === _Role.at(role).kind
+        && Convention.temporal(Convention.Metric.at(name).unit) === _Role.at(role).temporal,
+      { identifier: `MetricName/${role}` },
     ),
   )
 
-const _CounterMetric = _metric("counter")
-const _HistogramMetric = _metric("histogram")
-const _latencyMetrics = [
-  Convention.metric.assetTranscodeDuration, Convention.metric.batchDuration, Convention.metric.gatewayDuration,
-  Convention.metric.httpServerDuration, Convention.metric.invokeDuration, Convention.metric.olapDeferred,
-  Convention.metric.olapWait, Convention.metric.profileDuration, Convention.metric.securityCeremony,
-  Convention.metric.securityJwksResolve, Convention.metric.securityKdf,
-] as const
-const _freshnessMetrics = [
-  Convention.metric.benchGc, Convention.metric.benchTime, Convention.metric.outboxAge, Convention.metric.vitalDuration,
-] as const
-const _saturationMetrics = [
-  Convention.metric.benchCounter, Convention.metric.benchHeap, Convention.metric.derivativeActive,
-  Convention.metric.derivativeQueued, Convention.metric.laneCheckpoint, Convention.metric.outboxDepth,
-  Convention.metric.outboxRedelivered, Convention.metric.queueDepth, Convention.metric.vitalScore, Convention.metric.vitalSize,
-] as const
-const _filterKeys = [
-  Convention.attr.errorType, Convention.attr.httpMethod, Convention.attr.httpRoute,
-  Convention.rasm.admitDisposition, Convention.rasm.admitReason, Convention.rasm.admitScheme,
-  Convention.rasm.assetEngine, Convention.rasm.assetOutcome, Convention.rasm.auditAction, Convention.rasm.auditActorKind,
-  Convention.rasm.benchBand, Convention.rasm.benchCounterKind, Convention.rasm.benchLabel, Convention.rasm.benchSuite,
-  Convention.rasm.benchVerdict, Convention.rasm.cacheName, Convention.rasm.exportFormat, Convention.rasm.exportSource,
-  Convention.rasm.factStream, Convention.rasm.formOutcome, Convention.rasm.gatewayOutcome, Convention.rasm.invokeOutcome,
-  Convention.rasm.laneName, Convention.rasm.meterResource, Convention.rasm.objectOutcome, Convention.rasm.olapEngine,
-  Convention.rasm.poolScheme, Convention.rasm.remoteAction, Convention.rasm.remoteEngine, Convention.rasm.remoteOp,
-  Convention.rasm.remoteScheme, Convention.rasm.remoteWatch, Convention.rasm.ring, Convention.rasm.securityDialect,
-  Convention.rasm.securityKind, Convention.rasm.securityReason, Convention.rasm.securitySurface, Convention.rasm.tenant,
-  Convention.rasm.vitalGrade, Convention.rasm.vitalKind, Convention.rasm.workChannel, Convention.wire.occurrence,
-] as const
+const _FreshnessMetric = _admits("Freshness")
+const _LatencyMetric = _admits("Latency")
+const _PartitionMetric = _admits("Partition")
+const _RatioMetric = _admits("Ratio")
+const _SaturationMetric = _admits("Saturation")
 
-const _LatencyMetric = Schema.Literal(..._latencyMetrics)
-const _FreshnessMetric = Schema.Literal(..._freshnessMetrics)
-const _SaturationMetric = Schema.Literal(..._saturationMetrics)
-const _Key = Schema.Literal(..._filterKeys)
+// Filterable keys ARE the mounted rows' own declared fan: `Convention.dimensions` folds every instrument's fan beside
+// the estate coordinates and the one exported word axis, so an objective can slice exactly what a series carries and
+// a row minted after this page stays filterable. The derived roster is an array, so admission rides the same
+// row-reading refinement the metric sets take rather than a literal union restated here.
+const _Key: Schema.Schema<Convention.Dimension, string> = Schema.String.pipe(
+  Schema.filter(
+    (key): key is Convention.Dimension => Array.some(Convention.dimensions, (dimension) => dimension === key),
+    { identifier: "ObjectiveFilterKey" },
+  ),
+)
 
 const _FilterOp = Shape.vocabulary(["equal", "unequal", "regex", "notRegex"] as const, {
   equal: {}, notRegex: {}, regex: {}, unequal: {},
@@ -86,13 +89,13 @@ const _FilterOwner = {
 
 const _Span = Schema.DurationFromMillis.pipe(Schema.filter((span) => Duration.toMillis(span) > 0, { identifier: "PositiveSpan" }))
 
-const _Ratio = Schema.TaggedStruct("Ratio", { good: _CounterMetric, total: _CounterMetric }).pipe(
+const _Ratio = Schema.TaggedStruct("Ratio", { good: _RatioMetric, total: _RatioMetric }).pipe(
   Schema.filter((sli) => sli.good !== sli.total || "<ratio-series-collision>", { identifier: "DistinctRatioSeries" }),
 )
 const _Partition = Schema.TaggedStruct("Partition", {
   by: _Key,
   good: Schema.NonEmptyArray(Schema.String),
-  metric: _CounterMetric,
+  metric: _PartitionMetric,
 }).pipe(
   Schema.filter((sli) => Array.dedupe(sli.good).length === sli.good.length || "<partition-value-collision>", { identifier: "DistinctPartitionValues" }),
 )
@@ -132,6 +135,7 @@ const _SliOwner: {
   readonly Latency: typeof _Latency.make
   readonly Partition: typeof _Partition.make
   readonly Ratio: typeof _Ratio.make
+  readonly Role: typeof _Role
   readonly Saturation: typeof _Saturation.make
   readonly Sample: typeof _Sample
   readonly breached: (sli: Extract<Reliability.Sli, { readonly _tag: "Saturation" }>, reading: number) => boolean
@@ -141,6 +145,7 @@ const _SliOwner: {
   Latency: _Latency.make,
   Partition: _Partition.make,
   Ratio: _Ratio.make,
+  Role: _Role,
   Saturation: _Saturation.make,
   Sample: _Sample,
   breached: _breached,
@@ -285,7 +290,17 @@ const _AlertOwner: {
 declare namespace Reliability {
   type Filter = typeof _Filter.Type
   type Objective = InstanceType<typeof _Objective>
+  type Role = (typeof _roleKinds)[number]
+  // the admitted set for one case, derived from the SAME two columns its runtime refinement reads: `DurationMetric`
+  // is the convention owner's own temporal carve, proved equal in both directions to the rows carrying a time code
+  type RoleMetric<R extends Role = Role> = (typeof _roleRows)[R]["temporal"] extends true
+    ? Extract<Convention.MetricName<(typeof _roleRows)[R]["kind"]>, Convention.DurationMetric>
+    : Exclude<Convention.MetricName<(typeof _roleRows)[R]["kind"]>, Convention.DurationMetric>
   type Sli = typeof _Sli.Type
+  type _Roles<
+    Missing extends never = Exclude<Sli["_tag"], Role>,
+    Excess extends never = Exclude<Role, Sli["_tag"]>,
+  > = [Missing, Excess] // the case tag IS the role key: a case with no admission row, or a row no case reads, refuses here
   namespace Slo {
     type Sample = typeof _Sample.Type
     type Rate = typeof _Rate.Type

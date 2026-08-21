@@ -31,10 +31,11 @@ from expression import Error, Nothing, Ok, Option, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct, structs
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.receipt import ArtifactKind, ArtifactReceipt, ConformanceVerdict
 from rasm.artifacts.document.lens import TableAudit
 from rasm.artifacts.document.tagged import ArchiveAudit, ArchiveCheck, PreflightAudit, PreflightCheck, StructureAudit, UaCheck
-from rasm.runtime.faults import BoundaryFault, RuntimeRail
+from rasm.runtime.faults import TERMINAL, BoundaryFault, FaultRow, RuntimeRail, rostered
 from rasm.runtime.identity import ContentKey
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -72,6 +73,20 @@ class GateFamily(StrEnum):  # the contributing verdict producers; this IS the `G
 # seats between ADVISORY and REFUSE: an axis nobody measured is a worse epistemic state than a measured miss and a
 # better one than a proved breach, and whether that state SHIPS is `KindPolicy.ships`, never this ordering.
 _SEVERITY: Final[frozendict[Grade, int]] = frozendict({Grade.PASS: 0, Grade.ADVISORY: 1, Grade.UNMEASURED: 2, Grade.REFUSE: 3})
+
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's whole raise roster, both rows TERMINAL: a source the grader cannot read and a family submitted twice
+# each refuse identically on every re-offer, and the repair is the caller's evidence set. The two stay separate
+# because the repairs differ — remove a duplicate versus supply a gradable source.
+GATE_REPEATED: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.GATE, point="evidence.census", arm="config", defect="repeated-family", retriability=TERMINAL, slots=("families",)
+)
+GATE_UNGRADABLE: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.GATE, point="evidence.source", arm="config", defect="ungradable-receipt", retriability=TERMINAL, slots=("kind",)
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([GATE_REPEATED, GATE_UNGRADABLE]))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -359,7 +374,7 @@ class QualityGate(Struct, frozen=True, gc=False):
         held = admitted.choose(lambda outcome: outcome.to_option())
         repeated = frozenset(family for family, count in Counter(evidence.tag for evidence in held).items() if count > 1)
         severed = admitted.choose(lambda outcome: outcome.swap().to_option()).append(
-            Block.singleton(BoundaryFault(config=("artifacts.gate.evidence", f"repeated:{','.join(sorted(repeated))}")))
+            Block.singleton(GATE_REPEATED.raised(",".join(sorted(repeated))))
             if repeated
             else Block.empty()
         )
@@ -421,7 +436,7 @@ def _admitted(source: GateSource, /) -> RuntimeRail[GateEvidence]:
         case ArtifactReceipt(tag="verdict", verdict=(_key, verdict)):
             return Ok(GateEvidence(conformance=verdict))
         case ArtifactReceipt(tag=kind):
-            return Error(BoundaryFault(config=("artifacts.gate.evidence", f"ungradable-receipt:{kind}")))
+            return Error(GATE_UNGRADABLE.raised(kind))
         case StructureAudit() as audit:
             return Ok(GateEvidence(structure=audit))
         case PreflightAudit() as audit:

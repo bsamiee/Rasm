@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_ATTRIBUTES]
 
-`ComponentChrome` is the component-attribute interaction policy. Verified host callbacks enter one `ChromeEvent` union, one response fold returns only decisions the shells can project, and every answer receives a bounded monotone trace ordinal. `ChromeCell` holds the whole spine — trace stream, ordinal, layout shape, dispatch, and the responder subscription — so each host shell carries one field plus the callbacks its own base actually declares. `ComponentAttributes` and `ResizableAttributes<T>` are siblings over `Attributes<T>`, not a chain, and `ResizableAttributes<T>` remains the sole resize, snapping, cursor, persistence, and undo owner.
+`ComponentChrome` is the component-attribute interaction policy. Verified host callbacks enter one `ChromeEvent` union, one response fold returns only decisions the shells can project, and every answer receives a bounded monotone trace ordinal. `ChromeCell` holds the whole spine — trace stream, ordinal, layout shape, dispatch, and the responder subscription — so each host shell carries one field and the callbacks its own base declares. `ComponentAttributes` and `ResizableAttributes<T>` are siblings over `Attributes<T>`, not a chain, and `ResizableAttributes<T>` remains the sole resize, snapping, cursor, persistence, and undo owner.
 
 ## [01]-[INDEX]
 
@@ -11,7 +11,7 @@
 ## [02]-[EVENT_ALGEBRA]
 
 - Owner: `ChromeEvent` is the closed interaction vocabulary — one case per verified host callback family, each carrying the host payload verbatim; `ChromeDecision` is the right-biased merge monoid, so composing two policies is `left | right` with the right's settled slots winning and redraw accumulating.
-- Cases: `Layout`, `Pivot`, `Paint`, `Menu`, `Pointer`, `Key`, `Text`, `Focus`, `Tooltip`, `Resize`, and `Cursor`; `PointerKind` and `KeyPhase` close the sub-discriminants, while `Resize` observes the live host `Size` after the setter's own invalidation and `Leave` carries no mouse payload. `Resize` reaches the resizable shell alone and `Cursor` the component shell alone, because the resizable base implements the cursor contract explicitly and the component base carries no size.
+- Cases: `Layout`, `Pivot`, `Paint`, `Menu`, `Pointer`, `Key`, `Text`, `Focus`, `Tooltip`, `Resize`, and `Cursor` — each projecting its typed `ChromeKind` row, so trace keys are vocabulary rows, never `GetType().Name` strings; `PointerKind` and `KeyPhase` close the sub-discriminants, while `Resize` observes the live host `Size` after the setter's own invalidation and `Leave` carries no mouse payload. `Resize` reaches the resizable shell alone and `Cursor` the component shell alone, because the resizable base implements the cursor contract explicitly and the component base carries no size.
 - Entry: a policy is one `Func<ChromeEvent, ChromeState, ChromeDecision>` — total by the union's generated dispatch, never a callback subclass per interaction.
 - Growth: a new host callback family is one union case; a new decision slot is one `ChromeDecision` member folded into `|`.
 - Law: chrome hit-testing rides the host's own region geometry — the cell stores the `Shape` its shell's last layout callback received, `ChromeState.Region` derives the current `Capsule` through `Capsule.CreateFromOuter(Shape, Bounds)` against live bounds rather than caching a paint-time capsule, and `Hits` folds `Bounds.Contains` as the coarse pre-filter with `SlabF.Contains` as the exact rounded-capsule answer. Every policy therefore decides on the real region and never on its bounding box; before the first layout the rectangle is the whole answer, which is exactly what the host itself knows.
@@ -41,6 +41,24 @@ public sealed partial class KeyPhase {
     public static readonly KeyPhase Up = new();
 }
 
+// Trace key as a ROW — a GetType().Name string key admits typos, renames silently fork the stream,
+// and LatestByKind cannot be proved total against the event family.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ChromeKind {
+    public static readonly ChromeKind Layout = new(key: "layout");
+    public static readonly ChromeKind Pivot = new(key: "pivot");
+    public static readonly ChromeKind Paint = new(key: "paint");
+    public static readonly ChromeKind Menu = new(key: "menu");
+    public static readonly ChromeKind Pointer = new(key: "pointer");
+    public static readonly ChromeKind Key = new(key: "key");
+    public static readonly ChromeKind Text = new(key: "text");
+    public static readonly ChromeKind Focus = new(key: "focus");
+    public static readonly ChromeKind Tooltip = new(key: "tooltip");
+    public static readonly ChromeKind Resize = new(key: "resize");
+    public static readonly ChromeKind Cursor = new(key: "cursor");
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ChromeEvent {
     private ChromeEvent() { }
@@ -60,6 +78,19 @@ public abstract partial record ChromeEvent {
     public sealed record Tooltip(Eto.Drawing.PointF At) : ChromeEvent;
     public sealed record Resize(Eto.Drawing.SizeF Size) : ChromeEvent;
     public sealed record Cursor(Eto.Drawing.PointF At) : ChromeEvent;
+
+    public ChromeKind Kind => Switch(
+        layout: static _ => ChromeKind.Layout,
+        pivot: static _ => ChromeKind.Pivot,
+        paint: static _ => ChromeKind.Paint,
+        menu: static _ => ChromeKind.Menu,
+        pointer: static _ => ChromeKind.Pointer,
+        key: static _ => ChromeKind.Key,
+        text: static _ => ChromeKind.Text,
+        focus: static _ => ChromeKind.Focus,
+        tooltip: static _ => ChromeKind.Tooltip,
+        resize: static _ => ChromeKind.Resize,
+        cursor: static _ => ChromeKind.Cursor);
 }
 
 // --- [MODELS] ----------------------------------------------------------------------------
@@ -91,15 +122,18 @@ public readonly record struct ChromeDecision(
 
 ## [03]-[CHROME_POLICY]
 
-- Owner: `ComponentChrome` is the immutable policy value — one response fold with optional size limits, shared across every component that declares it. `ChromeCell` is the per-instance spine: the trace stream, the ordinal, the last skin `Shape`, the one `Decide` fold, and the responder subscription, so a host shell owns one field and no dispatch machinery of its own.
+- Owner: `ComponentChrome` is the immutable policy value — one response fold with optional size limits, shared across every component that declares it. `ChromeCell` is the per-instance spine: the trace stream, the last skin `Shape`, the root fault cell, the one `Decide` fold, and the responder subscription, so a host shell owns one field and no dispatch machinery of its own.
 - Entry: `ChromeCell.Decide(ChromeEvent, IAttributes)` is the whole spine — respond, record, return; each shell hands its own `IAttributes` receiver so `Bounds` and `Pivot` read live and no shell caches placement.
-- Receipt: `ChromeTrace` stores a strictly increasing per-instance ordinal, event kind, and projected decision; the bounded stream drops its oldest row past `Window`, and `LatestByKind` derives from that one stream.
+- Receipt: the trace is a KERNEL `EvidenceDrain<ChromeTrace>` — bounded, shed-accounted, ordinal-minting, CHANNEL-shaped — so the hand ordinal atom, the bounded `Seq` with its `Tail` drop, the `Window` const, AND the stored `Receipts`/`LatestByKind` projections all delete: a drain is read, not kept, so the consumer that wants history or a latest-by-kind view runs its own fold over `Reader` (the kernel's own named loss for callback sinks). Tracing is OPT-IN by presence — `ComponentChrome.Trace` borrows the drain whose lease the AUTHORING composition already transferred to `PlatformRoot.Hold` (the island itself injects no timeline or owns no lease, honoring E-G15), `None` traces nothing at zero cost, and dropped rows under a live drain are COUNTED evidence (`Shed`), never silence. Every public entry takes `Op? key = null` (E-G30) resolving through the kernel `OrDefault`, so a trace row and a refusal both name the raising operation.
 - Law: the cell subscribes the host `Responses` hook events at construction and never subclasses the responder, because both host bases expose theirs as a private sealed nested class behind a get-only `Responder` — hooks are the host's own declared extension seam.
 - Growth: a new projection is one fold over the same stream; a new policy slot is one `ComponentChrome` member; a new host callback is one shell override calling `Decide`.
 - Boundary: the cell holds mutable per-instance state and lives on the host attribute instance; the policy value holds none and crosses instances freely.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+using Rasm.Domain;
+using Rasm.Interaction;
+
 namespace Rasm.Grasshopper.Components;
 
 // --- [MODELS] ----------------------------------------------------------------------------
@@ -112,62 +146,89 @@ public sealed record ComponentChrome {
     public Func<ChromeEvent, ChromeState, ChromeDecision> Respond { get; init; } = static (_, _) => ChromeDecision.Pass;
 
     public Option<ResizePolicy> Resize { get; init; } = default;
+
+    // OPT-IN tracing borrows the drain whose lease `PlatformRoot.Hold` owns; this instance can publish but
+    // cannot strand a per-attribute lease on a host type that exposes no disposal edge.
+    public Option<EvidenceDrain<ChromeTrace>> Trace { get; init; } = default;
 }
 
-public readonly record struct ChromeTrace(long Ordinal, string Kind, ChromeDecision Decision);
+public readonly record struct ChromeTrace(ChromeKind Kind, ChromeDecision Decision) : IUiFact;
+
+// Drain publishes under a SOURCE row; this cell is that one source.
+public sealed class ChromeSource : IUiSource<ChromeTrace> {
+    public static readonly ChromeSource Row = new();
+    public string Key => "component.chrome";
+}
 
 // --- [SERVICES] --------------------------------------------------------------------------
 
 public sealed class ChromeCell {
-    public const int Window = 256;
-
     private readonly ComponentChrome chrome;
+    private readonly FaultCell faults;
+    private readonly HookId faultPoint;
 
-    private readonly Atom<Seq<ChromeTrace>> receipts = Atom(Seq<ChromeTrace>());
-
-    private readonly Atom<long> ordinal = Atom(0L);
+    // Trace is the KERNEL drain, held leased where the policy supplied one: bounded, shed-accounted,
+    // ordinal-minting, channel-shaped — stored history and its projections are the consumer's own fold
+    // over Reader, never a cell member.
+    private readonly Option<EvidenceDrain<ChromeTrace>> trace;
 
     private readonly Atom<Option<Grasshopper2.UI.Skinning.Shape>> skinShape = Atom(Option<Grasshopper2.UI.Skinning.Shape>.None);
 
-    // Pointer, key, text, and focus reach the cell only through the host responder's hook events, which fire
-    // exactly where that responder's own logic would answer Ignored — the ZUI grip on the component base and
-    // the edge grab on the resizable base therefore keep priority over every chrome verdict.
-    internal ChromeCell(ComponentChrome chrome, Grasshopper2.Doc.IAttributes host, Grasshopper2.UI.Flex.Responses responder) {
-        this.chrome = chrome;
-        responder.MouseOverHook += args => ignore(Pointer(PointerKind.Over, Optional(args), host));
-        responder.MouseLeaveHook += () => ignore(Pointer(PointerKind.Leave, None, host));
-        responder.MouseDownHook += args => Pointer(PointerKind.Down, Optional(args), host);
-        responder.MouseDragHook += args => Pointer(PointerKind.Drag, Optional(args), host);
-        responder.MouseUpHook += args => Pointer(PointerKind.Up, Optional(args), host);
-        responder.MouseWheelHook += args => Pointer(PointerKind.Wheel, Optional(args), host);
-        responder.MouseSingleClickHook += args => Pointer(PointerKind.SingleClick, Optional(args), host);
-        responder.MouseDoubleClickHook += args => Pointer(PointerKind.DoubleClick, Optional(args), host);
-        responder.KeyDownHook += args => Verdict(new ChromeEvent.Key(KeyPhase.Down, args), host);
-        responder.KeyUpHook += args => Verdict(new ChromeEvent.Key(KeyPhase.Up, args), host);
-        responder.TextInputHook += args => Verdict(new ChromeEvent.Text(args), host);
-        responder.GotFocus += (_, _) => ignore(Decide(new ChromeEvent.Focus(Gained: true), host));
-        responder.LostFocus += (_, _) => ignore(Decide(new ChromeEvent.Focus(Gained: false), host));
+    // Attach roster is DATA: one row per host hook, folded once — thirteen imperative += statements were
+    // a roster spelled as a body. Pointer, key, text, and focus reach the cell only through the host
+    // responder's hook events, which fire exactly where that responder's own logic would answer Ignored — the
+    // ZUI grip on the component base and the edge grab on the resizable base keep priority over every verdict.
+    internal ChromeCell(
+        ComponentChrome chrome, Grasshopper2.Doc.IAttributes host,
+        Grasshopper2.UI.Flex.Responses responder, FaultCell faults, HookId faultPoint) {
+        (this.chrome, this.faults, this.faultPoint) = (chrome, faults, faultPoint);
+        trace = chrome.Trace;
+        Hooks(cell: this, host: host).Iter(row => row(responder));
     }
 
-    public Seq<ChromeTrace> Receipts => receipts.Value;
+    private static Seq<Action<Grasshopper2.UI.Flex.Responses>> Hooks(ChromeCell cell, Grasshopper2.Doc.IAttributes host) => Seq<Action<Grasshopper2.UI.Flex.Responses>>(
+        responder => responder.MouseOverHook += args => ignore(cell.Pointer(PointerKind.Over, Optional(args), host)),
+        responder => responder.MouseLeaveHook += () => ignore(cell.Pointer(PointerKind.Leave, None, host)),
+        responder => responder.MouseDownHook += args => cell.Pointer(PointerKind.Down, Optional(args), host),
+        responder => responder.MouseDragHook += args => cell.Pointer(PointerKind.Drag, Optional(args), host),
+        responder => responder.MouseUpHook += args => cell.Pointer(PointerKind.Up, Optional(args), host),
+        responder => responder.MouseWheelHook += args => cell.Pointer(PointerKind.Wheel, Optional(args), host),
+        responder => responder.MouseSingleClickHook += args => cell.Pointer(PointerKind.SingleClick, Optional(args), host),
+        responder => responder.MouseDoubleClickHook += args => cell.Pointer(PointerKind.DoubleClick, Optional(args), host),
+        responder => responder.KeyDownHook += args => cell.Verdict(new ChromeEvent.Key(KeyPhase.Down, args), host),
+        responder => responder.KeyUpHook += args => cell.Verdict(new ChromeEvent.Key(KeyPhase.Up, args), host),
+        responder => responder.TextInputHook += args => cell.Verdict(new ChromeEvent.Text(args), host),
+        responder => responder.GotFocus += (_, _) => ignore(cell.Decide(new ChromeEvent.Focus(Gained: true), host)),
+        responder => responder.LostFocus += (_, _) => ignore(cell.Decide(new ChromeEvent.Focus(Gained: false), host)));
 
-    public HashMap<string, ChromeTrace> LatestByKind =>
-        receipts.Value.Fold(HashMap<string, ChromeTrace>(), static (held, receipt) => held.AddOrUpdate(receipt.Kind, receipt));
+    // History IS the channel: a consumer that wants receipts or a latest-by-kind view folds Reader itself.
+    public Option<ChannelReader<UiEvent<ChromeTrace>>> Traced => trace.Map(static drain => drain.Reader);
 
-    public ChromeDecision Decide(ChromeEvent happening, Grasshopper2.Doc.IAttributes host) {
-        ChromeDecision decision = chrome.Respond(happening, new ChromeState(host.Bounds, host.Pivot, skinShape.Value));
-        long next = ordinal.Swap(static current => checked(current + 1L));
-        _ = receipts.Swap(held => (held.Count >= Window ? held.Tail : held).Add(new ChromeTrace(
-            Ordinal: next,
-            Kind: happening.GetType().Name,
-            Decision: decision)));
+    public ChromeDecision Decide(ChromeEvent happening, Grasshopper2.Doc.IAttributes host, Op? key = null) {
+        Op op = key.OrDefault();
+        ChromeDecision decision = op.Catch(() => Fin.Succ(chrome.Respond(
+                happening, new ChromeState(host.Bounds, host.Pivot, skinShape.Value))))
+            .Match(
+                Succ: identity,
+                Fail: cause => (Park(cause), ChromeDecision.Pass).Item2);
+        trace.Iter(drain => drain.Publish(
+            source: ChromeSource.Row,
+            fact: () => Fin.Succ(new ChromeTrace(Kind: happening.Kind, Decision: decision)),
+            key: op).IfFail(Park));
         return decision;
     }
 
-    internal ChromeDecision Laid(Grasshopper2.UI.Skinning.Shape shape, Grasshopper2.Doc.IAttributes host) {
-        ignore(skinShape.Swap(_ => Some(shape)));
-        return Decide(new ChromeEvent.Layout(shape), host);
+    internal ChromeDecision Laid(Grasshopper2.UI.Skinning.Shape shape, Grasshopper2.Doc.IAttributes host, Op? key = null) {
+        Op op = key.OrDefault();
+        Unit updated = Cell.Commit(skinShape, _ => Some(shape)).Switch(
+            committed: static _ => unit,
+            ceded: _ => Park(op.InvalidResult(nameof(Laid))),
+            refused: row => Park(row.Cause),
+            contended: _ => Park(op.InvalidResult(nameof(Laid))));
+        return Decide(new ChromeEvent.Layout(shape), host, op);
     }
+
+    private Unit Park(Error cause) => ignore(faults.Park(point: faultPoint, cause: cause));
 
     private Grasshopper2.UI.Flex.Response Pointer(
         PointerKind kind, Option<Grasshopper2.UI.Flex.ResponseMouseArgs> args, Grasshopper2.Doc.IAttributes host) =>
@@ -182,9 +243,9 @@ public sealed class ChromeCell {
 
 - Owner: `ChromeHost` and `ResizableChromeHost` are two shells over one `ChromeCell`. Each holds the cell, its own host-callback overrides, and nothing else — the two bases share no layout or decoration member, which is the whole reason two shells exist.
 - Entry: `ChromeHost` extends `ComponentAttributes` and hooks `LayoutBounds(Shape)` and `DrawForegroundDecorations(Context, Skin, Capsule, Shade)`, the component base's own layout and decoration seams. `ResizableChromeHost` extends `ResizableAttributes<Component>`, which derives `Attributes<Component>` directly and declares neither member, so it hooks `Layout(Shape)` and `protected Draw(Context, Skin, Capsule)` and reads its shade as `skin.Shades[Owner]` exactly as the base body does.
-- Law: a chrome verdict is plug-in behavior, never primary. Each hook fires only where the host responder's own logic would answer `Response.Ignored`, so a `Down` verdict is silent over a ZUI grip on the component base and over an engaged edge on the resizable base — which is the correct layering, because the host owns parameter insertion and resizing and chrome owns what is left. A policy needing primary ownership of a gesture belongs on a canvas responder (`Canvas/interaction.md`), which overrides rather than subscribes.
-- Auto: an unanswered decision falls back to `Response.Ignored`, the base tooltip verdict, or the default cursor. `ResizableAttributes<T>.Size`'s setter is the whole size commit — clamp, round, `CustomValues` persistence, bounds re-frame, then the empty `InvalidateLayout()` — so the resizable shell's `InvalidateLayout` override is the committed-size observation point, and `mounted` guards the call the base constructor makes before the shell's own fields exist.
-- Boundary: `ResizableAttributes<T>` implements `ICursorAwareAttributes.CursorAt` EXPLICITLY, so a subclass cannot override it and re-listing the interface would re-implement the map and silently delete the host's edge-resize cursors; the resizable shell therefore carries no cursor arm and `ChromeEvent.Cursor` reaches the component shell alone. The base also owns `ResizingFrame`, `SnappingConstraints.CreateFromDocument`, `SnappingSettings.Current`, `CanvasSnapToObjects` toggling, and the `ResizeAction` undo record; `EdgeSize` is its `public const int` `6`.
+- Law: a chrome verdict is plug-in behavior, never primary. Each hook fires only where the host responder's own logic answers `Response.Ignored`, so a `Down` verdict is silent over a ZUI grip on the component base and over an engaged edge on the resizable base — which is the correct layering, because the host owns parameter insertion and resizing and chrome owns what is left. Policy needing primary ownership of a gesture belongs on a canvas responder (`Canvas/interaction.md`), which overrides rather than subscribes.
+- Auto: an unanswered decision falls back to `Response.Ignored`, the base tooltip verdict, or the default cursor. `ResizableAttributes<T>.Size`'s setter is the whole size commit — clamp, round, `CustomValues` persistence, bounds re-frame, then the empty `InvalidateLayout()` — so the resizable shell's `InvalidateLayout` override is the committed-size observation point, and the typed `MountState` fence (E-G29 — `Raw` until the shell's own constructor completes, `Mounted` after) guards the call the base constructor makes before the shell's own fields exist; a bare `mounted` bool names neither the phase nor why the guard exists.
+- Boundary: `ResizableAttributes<T>` implements `ICursorAwareAttributes.CursorAt` EXPLICITLY, so a subclass cannot override it and re-listing the interface re-implements the map and silently deletes the host's edge-resize cursors; the resizable shell therefore carries no cursor arm and `ChromeEvent.Cursor` reaches the component shell alone. Base also owns `ResizingFrame`, `SnappingConstraints.CreateFromDocument`, `SnappingSettings.Current`, `CanvasSnapToObjects` toggling, and the `ResizeAction` undo record; `EdgeSize` is its `public const int` `6`.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
@@ -200,13 +261,15 @@ public sealed class ChromeHost :
     Grasshopper2.Doc.ICursorAwareAttributes {
     private readonly ChromeCell cell;
 
-    private ChromeHost(Component owner, ComponentChrome chrome) : base(owner) =>
-        cell = new ChromeCell(chrome, this, Responder);
+    private ChromeHost(Component owner, ComponentChrome chrome, FaultCell faults, HookId faultPoint) : base(owner) =>
+        cell = new ChromeCell(chrome, this, Responder, faults, faultPoint);
 
-    public static Grasshopper2.Doc.IAttributes Mount(Component owner, ComponentChrome chrome) =>
+    public static Grasshopper2.Doc.IAttributes Mount(
+        Component owner, ComponentChrome chrome, FaultCell faults, HookId faultPoint) =>
         chrome.Resize.Match(
-            Some: policy => (Grasshopper2.Doc.IAttributes)new ResizableChromeHost(owner, chrome, policy),
-            None: () => new ChromeHost(owner, chrome));
+            Some: policy => (Grasshopper2.Doc.IAttributes)new ResizableChromeHost(
+                owner, chrome, policy, faults, faultPoint),
+            None: () => new ChromeHost(owner, chrome, faults, faultPoint));
 
     public ChromeCell Chrome => cell;
 
@@ -236,6 +299,14 @@ public sealed class ChromeHost :
         cell.Decide(new ChromeEvent.Cursor(at), this).Pointer.IfNone(Eto.Forms.Cursors.Default);
 }
 
+// E-G29: the construction fence is a NAMED phase — Raw until the shell's own constructor completes,
+// Mounted after — because the base constructor calls virtual members before derived fields exist.
+[SmartEnum<int>]
+public sealed partial class MountState {
+    public static readonly MountState Raw = new(key: 0);
+    public static readonly MountState Mounted = new(key: 1);
+}
+
 public sealed class ResizableChromeHost :
     Grasshopper2.Doc.Attributes.ResizableAttributes<Component>,
     Grasshopper2.UI.IContextMenuAware {
@@ -243,22 +314,22 @@ public sealed class ResizableChromeHost :
 
     private Eto.Drawing.SizeF observedSize;
 
-    private bool mounted;
+    private MountState state = MountState.Raw;
 
-    // The base constructor assigns Size, whose setter calls the virtual InvalidateLayout before any field
-    // below is initialized; `mounted` is the construction fence that override reads.
-    internal ResizableChromeHost(Component owner, ComponentChrome chrome, ResizePolicy policy) :
+    internal ResizableChromeHost(
+        Component owner, ComponentChrome chrome, ResizePolicy policy,
+        FaultCell faults, HookId faultPoint) :
         base(owner, policy.Minimum, policy.Maximum) {
-        cell = new ChromeCell(chrome, this, Responder);
+        cell = new ChromeCell(chrome, this, Responder, faults, faultPoint);
         observedSize = Size;
-        mounted = true;
+        state = MountState.Mounted;
     }
 
     public ChromeCell Chrome => cell;
 
     public override void InvalidateLayout() {
         base.InvalidateLayout();
-        if (mounted && observedSize != Size) {
+        if (state == MountState.Mounted && observedSize != Size) {
             observedSize = Size;
             ignore(cell.Decide(new ChromeEvent.Resize(Size), this));
         }

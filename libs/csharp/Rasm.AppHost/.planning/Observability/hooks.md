@@ -1,117 +1,155 @@
 # [APPHOST_HOOK_RAIL]
 
-`HookRail` is the AppHost point vocabulary over the kernel signal capsule: each runtime extension point is one declared `HookPoint<TFact>` value — package-qualified id, one closed payload type, one modality row — fired by the owning domain code as an evidence event observability projects and never produces. `HookRail` owns naming, modality, and mount custody over delivery the spine already carries, so a second bus, scheduler, or retry owner stays foreclosed by the Runtime/ports#PORT_RECORDS cardinality invariant.
+`Rasm.AppHost` declares its extension-point roster and the closed fact family that crosses it, and nothing else. Eight points name the spine seams a rider may govern or watch — the receipt stream, the lifecycle commit, command admission, per-channel delivery, the degradation ladder, the benchmark profile, cluster coordination, and the companion transitions — each carrying its delivery capability and its trace plane as ROW DATA, so the guard a point advertises is the guard the mechanism runs. Fire order, veto folding, observe isolation, replay retention, bounded fault custody, scoped release, and the frozen census belong to `Rasm/Domain/hooks`, so this page holds no rail members, no census, and no fault family of its own.
 
-Settled composition: the kernel signal capsule supplies `HookId`, `HookModality`, `HookPoint<TFact>`, `IHookPoint`, `HookRegistry`, `IsolatedFault`, both `Fire` overloads, `Drain`, and the synchronous-fire law.
-
-Each fact type arrives from its minting owner — `PhaseReceipt` beside `Lifecycle` and `PhaseSubscription` at Runtime/lifecycle#PHASE_FAMILY, `CommandIntent` at Agent/runtime#DISPATCH_FRONT_DOOR, `DeliveryReceipt` at Wire/outbound#DELIVERY_FANOUT, `DegradationReading` at Observability/health#DEGRADATION_RAIL, `ReceiptSinkPort` beside `ReceiptEnvelope` at `Rasm/Domain/telemetry#CAUSAL_FRAME` under the seven-port cardinality Runtime/ports#PORT_RECORDS fixes. Hook ids share the instrumentation-scope discipline — package-qualified, registry-unique — so collision and shadowing die at composition.
+Settled composition: `HookId`, `TraceScope`, `HookModality`, `IHookRoster<TSelf>`, `HookPoint<TFact>`, and `IsolatedFault` arrive from Rasm/Domain/hooks#HOOK_POINT; `HookRail<TPoint,TFact,TOwner>`, `IHookFact<TPoint>`, `HookGate`, `HookTap`, `Ring<T>`, and `FaultCell` from Rasm/Domain/hooks#HOOK_RAIL; `HookMounts<TPoint,TOwner>` from Rasm/Domain/hooks#HOOK_MOUNT; `HookRegistry` from Rasm/Domain/hooks#HOOK_REGISTRY; `CapabilitySet<TCapability>` from Rasm/Domain/validation#CAPABILITY; `TelemetrySource`, `ReceiptEnvelope`, and `ReceiptSinkPort` from Rasm/Domain/frame#SOURCE and #RECEIPT_PORT. Each fact payload arrives from its minting owner — `PhaseReceipt` at Runtime/lifecycle#PHASE_FAMILY, `CommandIntent` at Agent/runtime#DISPATCH_FRONT_DOOR, `DeliveryReceipt` at Wire/outbound#DELIVERY_FANOUT, `DegradationReading` at Observability/health#DEGRADATION_RAIL, `CoordinationSignal` at Wire/coordination#ROLE_ELECTION, `CompanionSignal` at Wire/companion#PROCESS_MODALITY. The rail's owner key is `TelemetrySource`, so a contributing package releases exactly its own subscriptions; the composition mints the one `FaultCell` and the one `SpanBand` and hands both to `HookRail.Of` at Runtime/modules#MODULE_LEDGER.
 
 ## [01]-[INDEX]
 
-- [02]-[HOOK_RAIL]: AppHost point roster with its landed firing members, composed capsule instance, guarded receipt-sink lift, the replay and isolation reads, the banded refusal family, and the composition mount.
+- [02]-[HOOK_ROSTER]: the `AppHostPoint` roster with its modality and plane columns, the closed `AppHostFact` union carrying each point's seat, the paired receipt-and-rail egress producing pages compose, and the receipt-sink decoration that fires the receipt row.
 
-## [02]-[HOOK_RAIL]
+## [02]-[HOOK_ROSTER]
 
-- Owner: `HookRail` — the named point roster the spine fires, one shared `IsolatedFault` evidence cell per composition; `HookFault` the rail's own fault family deriving its codes through `FaultBand.Hook`; the kernel `HookRegistry.Mount` freezes the roster into the composition's audit table.
-- Cases: `HookRail` rows, each naming its modality and the member that fires it — `Receipt` (every `ReceiptEnvelope` the sink emits, observe, fired by `Tap`'s sink decoration), `Phase` (every `PhaseReceipt` commit, observe, fired by `Lifecycle.Transition` on the settled commit, the capsule holding this point as its one subscribe seam), `Command` (`CommandIntent` pre-dispatch, veto, fired by `Admitted` inside `CommandDispatch.Run` ahead of the command algebra), `Delivery` (per-channel `DeliveryReceipt`, observe, fired by `Settled` on `DeliveryFanout`'s evidence leg), `Degradation` (every committed `DegradationReading` — derived, forced, or cascaded — replay so a late panel reads the recent path, fired by `Degraded` off the cell's own swap return).
-- Law: a fire member is the ROW's own, never the producer's to spell — a declared point whose fire site lives in prose is vocabulary, not a plane, and a veto row in particular advertises an admission gate that admits everything, since the guard runs only where an emitter reaches `Fire`. `Tap` decorates a publication seam the spine already carries, so that row fires with the producing fold untouched, and the `Phase` row needs no member at all because the lifecycle capsule holds the point ITSELF and fires it on the settled commit — a decorator over that capsule's `Subscribe` would register the same point twice and double every phase record; `Admitted`, `Settled`, and `Degraded` are the members a producer composes at its own seam, and the rail — never the producer — owns which point, which modality, and which rail shape that call takes.
-- Entry: subscription reaches a point through its declared `HookRail` field — the capsule's own `Veto`/`Observe`/`Drain` are the subscriber entries, so a name-resolved lookup surface never exists; `HookRail.Tap(ReceiptSinkPort sink, HookRail rail)` decorates the sink's `Emit` delegate so every message envelope crosses the `Receipt` point before egress; the `Phase` row is handed to `Lifecycle` at construction and reaches subscribers through that capsule's own `Subscribe`, so this roster declares it and spells no fire member for it; `HookRail.Admitted`, `HookRail.Settled`, and `HookRail.Degraded` are the veto and observe fires their producers compose; `HookRail.Recent()` is the `Degradation` replay read a late panel drains; `HookRail.TapFaults` snapshots this roster's own parked subscriber faults; `HookRail.Points` is this roster's census and `HookRail.Mount(params ReadOnlySpan<IHookPoint> contributed)` returns `Fin<HookRegistry>`, folding it with every contributing package's own `Points` census into the one frozen registry the composition audits and railing a collision as `HookFault.RosterCollision`.
-- Auto: fire order, veto folding, bounded replay, and fork-shielded observe isolation are the capsule's — a throwing or failing OBSERVE tap parks as `IsolatedFault` on the rail's cell and the emitter's result is untouched, while a VETO refusal IS the emitter's verdict by the modality's own `CanVeto` column and reaches the caller on its rail.
-- Law: `TapFaults` reads the isolation evidence as a SNAPSHOT under the spelling every sibling rail carries, because `Atom.Swap` publishes the NEW value and a take-and-clear spelled through it hands back the empty it just installed; the cell is per-ROSTER, each contributing package minting its own inside its own `Live()`, so a composition freezes one audit table over N evidence cells and a fold across them waits on a `Faults` accessor `IHookPoint` does not carry.
-- Law: the fault cell's BOUND is the capsule's open coordinate — `Park` adds without pruning where its sibling `Retain` prunes to `depth`, so a persistently refusing tap grows the shared cell at receipt rate until that capsule bound lands; `HookFault.TapSaturated` is the case a drain raises against that growth, so the coordinate stays a NAMED refusal a reader can attribute to its point rather than memory pressure with no evidence of cause.
-- Law: refusals band through `FaultBand.Hook` like every sibling section's — the registry reserves those codes against this section by owner string, so a rail refusal reaching a caller untyped is the one shape that reservation exists to forbid, and the three cases cover the three refusals the rail can actually produce: a duplicate id at the frozen merge, a second composition-time freeze, and a saturating parked cell.
-- Law: `Recent()` exists because `Replay` retention with no drain is retention nothing reads — the `Degradation` row buffers precisely so a panel attaching after a transition reconstructs the recent path, and a modality whose held window has no reader is an `Observe` row wearing a heavier column.
-- Packages: LanguageExt.Core, Rasm, Thinktecture.Runtime.Extensions, BCL inbox.
-- Growth: a new hook point is one `HookRail` field, one `Live` seat, and one fire member carrying its modality's rail shape — the census follows the record's own deconstruction arity rather than a hand-listed twin; a new rail refusal is one `HookFault` case on the reserved band; a foreign package declares points on its own roster and hands that census to `Mount`, subscribing to these points through the capsule entries — AppHost points stay declared here.
-- Boundary: the runtime spine composes effects, so an effectful seam LIFTS the capsule's synchronous fire and a synchronous seam takes the `Fin` whole — `Admitted` hands its caller the veto rail because the caller's own transaction is what a refusal must stop, while `Settled` and `Degraded` ignore theirs, an observe point having no verdict to carry.
+- Owner: `AppHostPoint` — the `[SmartEnum<string>]` roster the kernel rail takes as its `TPoint` argument, each row carrying the modality set both admission gates read and the optional trace plane the rail brackets under; `AppHostFact` — the closed union every fire carries, realizing the kernel `IHookFact<AppHostPoint>` floor with each case projecting its own seat through `At`; `FactSink<TSignal>` — the paired receipt-and-rail egress a producing page composes for one transition family; `AppHostHooks` — the receipt-sink decoration that is the `Receipt` row's fire site.
+- Cases: `Receipt` observes every `ReceiptEnvelope` the sink emits; `Phase` observes every settled `PhaseReceipt`; `Command` vetoes a `CommandIntent` ahead of the command algebra; `Delivery` observes a per-channel `DeliveryReceipt`; `Degradation` replays committed `DegradationReading` values so a panel attaching after a transition reconstructs the recent path; `ProfileSample` observes a benchmark profile sample; `Coordination` and `Companion` each observe a whole transition FAMILY through that page's own closed signal union, because a roster row per receipt type would spread one page's discrimination across the seat vocabulary.
+- Entry: `AppHostPoint.Items` is the seat roster `HookRail.Of` mints from and the census `HookRegistry.Mount` freezes; `AppHostFact.At` is the seat every fire resolves through, so `rail.Fire(at: fact.At, fact: fact, key: key)` is the whole emission spelling and the guarded arity `rail.Fire(at: fact.At, fact: fact, key: key, body: …)` hands a veto seam its admitted fact; `AppHostHooks.Tap(sink, rail, key)` decorates `ReceiptSinkPort.Emit` so every stamped envelope crosses the `Receipt` row before egress; `FactSink<TSignal>.Fan` is the paired egress a producing page composes once — one receipt to the lake and one fire at the seat its own fact projects.
+- Law: the seat rides the FACT, never the call site — a `(point, fact)` pair spelled independently lets an emitter fire a delivery receipt at the command veto gate. `At` is that seat and the union realizes the kernel `IHookFact<AppHostPoint>` floor over it, so `Seats` is the one-line `at == At` and the rail REFUSES a foreign pair at entry rather than firing what it was handed. `At` projects a roster row rather than storing one, so no case carries a copy that `with` can diverge and no emitter renders an id.
+- Law: `Command` holds `Veto` ALONE and every other row holds a non-vetoing modality, so the kernel's two gates settle each subscription by the modality column: a tap on `Command` refuses, a gate on any other row refuses, and neither gate names a row by identity.
+- Law: `Degradation` holds `Replay` alone and that row both retains and observes — `HookModality.Replay` is non-vetoing, so the observe gate admits it and the retention depth is the modality's own column. A separate `Observe` row beside it would declare a second answer to a question the capability set already holds.
+- Law: the plane column is per ROW because a span per fire is priced per fire — `Command` and `Phase` are decision seams a bracket earns, while `Receipt` and `Delivery` run at envelope rate against a fan that already meters them and `Degradation` fires only on a committed level change. A row without a plane falls through the rail's bracket untraced whatever band the composition supplied.
+- Law: ids derive from the row key through one accessor-backed projection, so the roster key is the only authority and a rename moves the id with it; an eager index folds `Items` before the generator has filled it (branch RULINGS `[02]`).
+- Receipt: the rail mints none — a fire IS the evidence event and the emitter's own typed receipt carries the payload. Subscriber faults park on the composition's `FaultCell`, whose `Parked`, `Shed`, and `Lost` columns Observability/bundles#ARTIFACT_ROSTER drains into the support bundle.
+- Packages: Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
+- Growth: a new point is one `AppHostPoint` row plus one `AppHostFact` case with its `At` override — the union's generated `Switch` breaks every subscriber arm at compile time, the census follows `Items`, and the seating gate follows `At`, so neither takes a second edit. A foreign package declares its own roster and its own fact union and hands its census to the composition's one `HookRegistry.Mount`.
+- Boundary: NAMED LOSS — the per-point fact TYPE. Today a subscriber to a `HookPoint<CommandIntent>` field cannot receive a `DeliveryReceipt`; under one rail every point shares `AppHostFact` and subscribers discriminate on the case. What replaces the field's type is stronger at the emitter and weaker at the subscriber: `At` makes a mismatched `(point, fact)` pair unspellable, while a subscriber's arm now runs a total `Switch` the compiler completes. A veto returning a case the seam did not fire was the one residual hazard, and the kernel's own seating gate on the veto fold's PRODUCT now refuses it before the guarded body or any tap runs.
 - Boundary: the rail carries no queue, no scheduler, and no retry — ordered delivery is the HLC stamp the message envelope already carries and durability is the outbox leg, so a tap that must never lose an event is a durable outbox consumer selected by the delivery-honesty axis, never a hook subscriber.
-- Boundary: the frozen mount table is the audit surface — a fired id outside it is unreachable by construction because firing requires the declared point value, `Mount` is the composition's one freeze so a contributed census reaching a second `HookRegistry.Mount` forks that table, and a duplicate id across two rosters dies at the frozen merge rather than shadowing a point.
-- Boundary: the decoration order is settled against the `Rasm/Domain/telemetry#CAUSAL_FRAME` fence — `Send` swaps the HLC cell, constructs the stamped message envelope, THEN invokes `Emit(envelope)`, so a `with { Emit = ... }` decorator always observes the fully stamped value, and stacking decorators at one root preserves the one-mint law because record-`with` copies the same `Atom<(Instant, ulong)>` reference into every decorated instance — the mint cell is shared identity, never a per-decorator clone.
+- Boundary: decoration order is settled against Rasm/Domain/frame#RECEIPT_PORT — `Send` swaps the HLC cell, constructs the stamped envelope, THEN invokes `Emit`, so a `with { Emit = … }` decorator always observes the fully stamped value, and stacking decorators at one root preserves the one-mint law because record-`with` copies the same `Atom<(Instant, ulong)>` reference into every decorated instance.
 
 ```csharp signature
-public sealed record HookRail(
-    HookPoint<ReceiptEnvelope> Receipt,
-    HookPoint<PhaseReceipt> Phase,
-    HookPoint<CommandIntent> Command,
-    HookPoint<DeliveryReceipt> Delivery,
-    HookPoint<DegradationReading> Degradation,
-    Atom<Seq<IsolatedFault>> Faults) {
-    public static HookRail Live() {
-        var faults = Atom(Seq<IsolatedFault>());
-        return new(
-            new(HookId.Create("rasm.apphost.receipt.emitted"), HookModality.Observe, faults),
-            new(HookId.Create("rasm.apphost.lifecycle.phase"), HookModality.Observe, faults),
-            new(HookId.Create("rasm.apphost.command.admit"), HookModality.Veto, faults),
-            new(HookId.Create("rasm.apphost.delivery.settled"), HookModality.Observe, faults),
-            new(HookId.Create("rasm.apphost.health.degradation"), HookModality.Replay, faults),
-            faults);
-    }
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using System.Collections.Frozen;
+using System.Text.Json;
+using System.Threading;
+using Thinktecture;
 
-    // Census rides the record's own deconstruction, so a sixth point breaks the arity HERE rather than landing a
-    // fireable id outside the frozen audit table — a hand-listed twin drifts silently and firing never consults it.
-    public Seq<IHookPoint> Points =>
-        this switch {
-            var (receipt, phase, command, delivery, degradation, _) =>
-                Seq<IHookPoint>(receipt, phase, command, delivery, degradation),
-        };
+namespace Rasm.AppHost.Observability;
 
-    // `Emit` closes over the UNDECORATED port, so stacking taps composes instead of recursing, and the bind hands
-    // egress the ADMITTED envelope — whatever the point settled on — routing a refusal onto the emit rail rather
-    // than parking it beside an envelope already sent.
-    public static ReceiptSinkPort Tap(ReceiptSinkPort sink, HookRail rail) =>
-        sink with {
-            Emit = envelope => IO.lift(() => rail.Receipt.Fire(envelope)).Bind(sink.Emit),
-        };
+// --- [TYPES] --------------------------------------------------------------------------------
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class AppHostPoint : IHookRoster<AppHostPoint> {
+    private const string Head = "rasm.apphost.";
 
-    // Admission runs on the dispatch's own input, so a transforming gate governs the transaction itself and a
-    // refusal reaches the caller's rail instead of parking beside a command already run.
-    public Fin<CommandIntent> Admitted(CommandIntent intent) => Command.Fire(intent);
+    // One plane for the whole roster: `SpanBand` admits it off the contributor port's `Planes` column, so the
+    // rail brackets through the app's own band and this page mints no `ActivitySource` (branch RULINGS `[02]`).
+    public static readonly TraceScope HookPlane = TraceScope.Create(value: "rasm.apphost.hooks");
 
-    public Unit Settled(DeliveryReceipt receipt) => ignore(Delivery.Fire(receipt));
+    public static readonly AppHostPoint Receipt = new(
+        "receipt.emitted", CapabilitySet<HookModality>.Of(HookModality.Observe), None);
+    public static readonly AppHostPoint Phase = new(
+        "lifecycle.phase", CapabilitySet<HookModality>.Of(HookModality.Observe), Some(HookPlane));
+    public static readonly AppHostPoint Command = new(
+        "command.admit", CapabilitySet<HookModality>.Of(HookModality.Veto), Some(HookPlane));
+    public static readonly AppHostPoint Delivery = new(
+        "delivery.settled", CapabilitySet<HookModality>.Of(HookModality.Observe), None);
+    public static readonly AppHostPoint Degradation = new(
+        "health.degradation", CapabilitySet<HookModality>.Of(HookModality.Replay), None);
+    public static readonly AppHostPoint ProfileSample = new(
+        "benchmark.profile", CapabilitySet<HookModality>.Of(HookModality.Observe), None);
+    public static readonly AppHostPoint Coordination = new(
+        "cluster.coordination", CapabilitySet<HookModality>.Of(HookModality.Observe), None);
+    public static readonly AppHostPoint Companion = new(
+        "companion.transition", CapabilitySet<HookModality>.Of(HookModality.Observe), None);
 
-    public Unit Degraded(DegradationReading reading) => ignore(Degradation.Fire(reading));
+    public CapabilitySet<HookModality> Modalities { get; }
+    public Option<TraceScope> Plane { get; }
 
-    // This roster's own cell: every contributing package mints a separate one in its own `Live()`, so this read
-    // never answers for a peer's parked taps.
-    public Seq<IsolatedFault> TapFaults => Faults.Value;
+    public HookId Id => Ids.Value[this];
 
-    // Replay retains for exactly this read — a panel attaching after a transition drains the held window.
-    public Seq<DegradationReading> Recent() => Degradation.Drain();
-
-    // Every contributing package hands its own `Points` census in; the kernel's frozen merge kills a duplicate id
-    // across rosters, so this is the composition's one freeze and no contributor calls `HookRegistry.Mount` itself.
-    // The merge REFUSES by throw — a frozen map cannot carry two rows under one key — so the refusal converts at
-    // this boundary into the reserved band's own case: a composition-time roster collision is a typed fault the
-    // root folds onto its rail beside every other admission refusal, never a bare exception escaping the one
-    // surface that knows which rosters were merged.
-    public Fin<HookRegistry> Mount(params ReadOnlySpan<IHookPoint> contributed) =>
-        Try.lift(() => HookRegistry.Mount([.. Points, .. contributed])).Run()
-            .MapFail(error => (Error)new HookFault.RosterCollision(error.Message));
+    // `HookId.Create` is the trusted-text entry because the key is a closed roster's own segment and the head is a
+    // page const, so no caller text reaches the grammar guard.
+    private static readonly Lazy<FrozenDictionary<AppHostPoint, HookId>> Ids = new(
+        static () => Items.ToFrozenDictionary(static row => row, static row => HookId.Create(value: Head + row.Key)),
+        LazyThreadSafetyMode.ExecutionAndPublication);
 }
 
-// The reserved band's consumer: a hook-rail refusal is banded evidence like every sibling section's, so a
-// duplicate id at the frozen merge and a saturated fault cell each reach a caller as a typed code rather than
-// an untyped raise the registry's own `mirror: false` owner string promised would land here.
+// --- [MODELS] -------------------------------------------------------------------------------
 [Union]
-public abstract partial record HookFault : Expected, IValidationError<HookFault> {
-    private HookFault(string detail, int code) : base(detail, code, None) { }
+public abstract partial record AppHostFact : IHookFact<AppHostPoint> {
+    private AppHostFact() { }
 
-    public static HookFault Create(string message) => new Text(message);
+    // The seat is PROJECTED, never stored: a `(point, fact)` pair spelled at the call site lets an emitter fire a
+    // delivery receipt at the command veto gate.
+    public abstract AppHostPoint At { get; }
 
-    public sealed record Text : HookFault { public Text(string detail) : base(detail, FaultBand.Hook.Code(0)) { } }
+    // Seating derives off the column above rather than restating it: every case seats at exactly one row, so the
+    // rail's entry gate and its veto-product gate both read the union's own `At` and the two cannot drift.
+    public bool Seats(AppHostPoint at) => at == At;
 
-    // Two rosters claiming one id: the merge is the composition's one freeze, so the collision is fatal there
-    // and never a shadowed point that fires under whichever roster a page happened to cite.
-    public sealed record RosterCollision : HookFault { public RosterCollision(string detail) : base(detail, FaultBand.Hook.Code(1)) { } }
+    public sealed record Receipt(ReceiptEnvelope Envelope) : AppHostFact {
+        public override AppHostPoint At => AppHostPoint.Receipt;
+    }
 
-    // A second `Mount` on one composition: the frozen table is the audit surface, so a second freeze forks it
-    // and every id fired afterwards is unauditable against whichever table its caller resolved.
-    public sealed record MountForked : HookFault { public MountForked(string detail) : base(detail, FaultBand.Hook.Code(2)) { } }
+    public sealed record Phase(PhaseReceipt Commit) : AppHostFact {
+        public override AppHostPoint At => AppHostPoint.Phase;
+    }
 
-    // The parked-fault cell past its declared depth: `Park` adds without pruning, so a persistently refusing tap
-    // grows the shared cell at receipt rate — this case is what a drain reads to name the saturating point
-    // instead of discovering the growth as memory pressure with no evidence of which tap caused it.
-    public sealed record TapSaturated : HookFault { public TapSaturated(string point, int depth) : base($"{point}: {depth}", FaultBand.Hook.Code(3)) { } }
+    public sealed record Command(CommandIntent Intent) : AppHostFact {
+        public override AppHostPoint At => AppHostPoint.Command;
+    }
+
+    public sealed record Delivery(DeliveryReceipt Settled) : AppHostFact {
+        public override AppHostPoint At => AppHostPoint.Delivery;
+    }
+
+    public sealed record Degradation(DegradationReading Reading) : AppHostFact {
+        public override AppHostPoint At => AppHostPoint.Degradation;
+    }
+
+    public sealed record Profile(ProfileSample Sample) : AppHostFact {
+        public override AppHostPoint At => AppHostPoint.ProfileSample;
+    }
+
+    // Two pages each fold a whole transition FAMILY onto one point, so their own closed signal unions carry the
+    // discrimination a row per receipt type would have spread across the roster.
+    public sealed record Coordination(CoordinationSignal Settled) : AppHostFact {
+        public override AppHostPoint At => AppHostPoint.Coordination;
+    }
+
+    public sealed record Companion(CompanionSignal Settled) : AppHostFact {
+        public override AppHostPoint At => AppHostPoint.Companion;
+    }
+}
+
+// --- [COMPOSITION] --------------------------------------------------------------------------
+// One egress for a transition FAMILY: the durable receipt and the in-process rail point are two readers of one
+// fact, so a producer that reached only `ReceiptSinkPort` left every subscriber blind to the transition. The
+// seat is the union's own `At`, so a family's sink and its point cannot be paired wrongly at a call site.
+public sealed record FactSink<TSignal>(
+    ReceiptSinkPort Sink,
+    HookRail<AppHostPoint, AppHostFact, TelemetrySource> Rail,
+    Func<TSignal, AppHostFact> Fact,
+    Op Key) where TSignal : notnull {
+    public IO<T> Fan<T>(CorrelationId correlation, string kind, T receipt, TSignal signal) where T : notnull =>
+        IO.lift(() => Fact(signal))
+            .Bind(fact => Sink.Send(correlation, TenantContext.Current, TelemetrySource.AppHost, kind,
+                    JsonSerializer.SerializeToElement(receipt, SuiteContracts.Host))
+                .Bind(_ => IO.lift(() => Rail.Fire(at: fact.At, fact: fact, key: Key))))
+            .Map(_ => receipt);
+}
+
+public static class AppHostHooks {
+    // `Emit` closes over the UNDECORATED port, so stacking taps composes instead of recursing. The ORIGINAL
+    // envelope reaches egress because `Receipt` holds `Observe` alone: the kernel's veto gate refuses a
+    // non-vetoing row, so no subscriber can revise the value this bind forwards.
+    public static ReceiptSinkPort Tap(
+        ReceiptSinkPort sink, HookRail<AppHostPoint, AppHostFact, TelemetrySource> rail, Op key) =>
+        sink with {
+            Emit = envelope => IO.lift(() => rail.Fire(
+                    at: AppHostPoint.Receipt, fact: new AppHostFact.Receipt(Envelope: envelope), key: key))
+                .Bind(_ => sink.Emit(envelope)),
+        };
 }
 ```
 

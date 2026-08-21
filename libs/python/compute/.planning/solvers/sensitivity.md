@@ -27,14 +27,15 @@ from enum import StrEnum
 from typing import Literal, Self, assert_never, cast
 
 import numpy as np
-from expression import case, tag, tagged_union
-from expression.collections import Map
+from expression import Some, case, tag, tagged_union
+from expression.collections import Block, Map
 from msgspec import Struct
 
 from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
 from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
+from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait, Wire
 
 # cold finite-difference dependency: the `lazy` bind defers `findiff` to the floor body, which needs no jaxlib
@@ -180,12 +181,16 @@ class Differentiation:
     # One `async` entry composes the runtime crossing on the HOSTILE trait (the x64 mutation is process-global)
     # under the hub weave; isolation, band, and worker-death retry derive at the runtime Kernel crossing owner.
     async def differentiate(
-        self, lane: LanePolicy, fn: Callable, x: Pytree, target: DiffTarget = DiffTarget.ARRAY, policy: DiffPolicy = DiffPolicy(), *, composition: ScopeKey = DEFAULT_SCOPE
+        self, lane: LanePolicy, fn: Callable, x: Pytree, key: ContentKey, target: DiffTarget = DiffTarget.ARRAY,
+        policy: DiffPolicy = DiffPolicy(), *, composition: ScopeKey = DEFAULT_SCOPE,
     ) -> "RuntimeRail[DiffReceipt]":
+        # `key` names the DIFFERENTIATED function-and-point the caller already identified, so the receipt settles on
+        # the runtime spine carrying its own coordinate. This page graduates nothing by charter, which is exactly why
+        # the key must ride the receipt: no `graduate` call downstream would otherwise ever supply one.
         async def dispatch() -> RuntimeRail[DiffReceipt]:
             # SHARED_MEMORY lifts a bare-ndarray `x` across the process seam at zero payload bytes; a nested pytree passes
             # through the pickle wire unchanged, so the upgrade costs the structured case nothing.
-            return await lane.offload(Kernel.of(_dispatch, KernelTrait.HOSTILE, wire=Wire.SHARED_MEMORY), fn, x, self, target, policy)
+            return await lane.offload(Kernel.of(_dispatch, KernelTrait.HOSTILE, wire=Wire.SHARED_MEMORY), fn, x, self, target, policy, key)
 
         facts = {"mode": self.tag, "target": target.value, "aux": policy.has_aux}
         return await evidence_run(EvidenceScope.SENSITIVITY, f"diff.{self.tag}", dispatch, facts=facts, composition=composition)
@@ -231,6 +236,7 @@ class DiffEngine:
 
 # Typed AD receipt; `rows`/`cols` the matrix extent, `symmetry` the Hessian residual (`0.0` off Hessian).
 class DiffReceipt(Struct, frozen=True):
+    content_key: ContentKey
     mode: DiffModeTag
     target: DiffTarget
     shape: DiffProduct
@@ -267,7 +273,20 @@ class DiffReceipt(Struct, frozen=True):
             "status": self.status,
             "implicit_adjoint": self.implicit_adjoint,
         }
-        return (Receipt.of(EvidenceScope.SENSITIVITY.value, ("emitted", self.mode, facts)),)
+        # ONE settled-receipt spine: the key, the provenance pair, the warning band, and the stamp are the runtime
+        # owner's columns. The band IS the exactness roster — a finite-difference product is an APPROXIMATION and says
+        # so, where an exact AD product publishes an empty band — so a consumer reading the two apart needs no
+        # per-field comparison. Provenance names the produced key alone: this owner differentiates a caller's own
+        # function at a caller's own point and derives neither key itself.
+        return (
+            Receipt.of(
+                EvidenceScope.SENSITIVITY.value,
+                ("emitted", self.mode, facts),
+                key=Some(self.content_key),
+                provenance=Some(Provenance(consumed=Block.empty(), produced=self.content_key)),
+                band=Block.empty() if self.status.exact else Block.singleton(self.status.value),
+            ),
+        )
 
 
 # --- [TABLES] ------------------------------------------------------------------------------
@@ -310,16 +329,16 @@ _SPEC: Map[tuple[DiffTarget, DiffModeTag], DiffSpec] = Map.of_seq([
 # Module-level import-resolvable kernel so it crosses the process lane as spec data plus operands.
 # `_dispatch` resolves the `_SPEC` row first — an absent cell is the single UNSUPPORTED verdict — then a total
 # mode-tag `match` selects the rail, the finite-difference floor short-circuiting BEFORE any `gated()` carrier build.
-def _dispatch(fn: Callable, x: Pytree, mode: Differentiation, target: DiffTarget, policy: DiffPolicy) -> DiffReceipt:
+def _dispatch(fn: Callable, x: Pytree, mode: Differentiation, target: DiffTarget, policy: DiffPolicy, key: ContentKey) -> DiffReceipt:
     if (spec := _SPEC.try_find((target, mode.tag)).to_optional()) is None:
-        return _summary(np.asarray([]), mode.tag, target, status=DiffStatus.UNSUPPORTED, accuracy=0, implicit=False)
+        return _summary(key, np.asarray([]), mode.tag, target, status=DiffStatus.UNSUPPORTED, accuracy=0, implicit=False)
     match mode:
         case Differentiation(tag="finite_difference", finite_difference=(step, acc)):
-            return _finite_difference(fn, x, step, acc)
+            return _finite_difference(key, fn, x, step, acc)
         case Differentiation(tag="jvp", jvp=tangent) | Differentiation(tag="vjp", vjp=tangent) | Differentiation(tag="hvp", hvp=tangent):
-            return _directional(DiffEngine.gated(), spec, fn, (x, tangent), mode.tag, target, policy)
+            return _directional(key, DiffEngine.gated(), spec, fn, (x, tangent), mode.tag, target, policy)
         case Differentiation(tag="gradient" | "forward_jacobian" | "reverse_jacobian" | "hessian"):
-            return _transformed(DiffEngine.gated(), spec, fn, x, mode.tag, target, policy)
+            return _transformed(key, DiffEngine.gated(), spec, fn, x, mode.tag, target, policy)
         case _ as unreachable:
             assert_never(unreachable)
 
@@ -328,6 +347,7 @@ def _dispatch(fn: Callable, x: Pytree, mode: Differentiation, target: DiffTarget
 # product, and `_PRODUCT[mode]` resolves the extent and Hessian symmetry residual — the 2-D product as-is for a
 # JACOBIAN/HESSIAN, a `(1, n)` lift for a SCALAR/directional vector.
 def _summary(
+    key: ContentKey,
     product: np.ndarray,
     mode: DiffModeTag,
     target: DiffTarget,
@@ -347,6 +367,7 @@ def _summary(
     matrix = arr if arr.ndim >= 2 else flat.reshape(1, -1)
     symmetry = float(np.linalg.norm(matrix - matrix.T, np.inf)) if shape is DiffProduct.HESSIAN and matrix.shape[0] == matrix.shape[1] else 0.0
     return DiffReceipt(
+        content_key=key,
         mode=mode,
         target=target,
         shape=shape,
@@ -369,7 +390,7 @@ def _summary(
 # `keywords` projection, read the product back through flatten — the ARRAY branch keeps the 2-D extent so
 # `_summary` recovers `(rows, cols)`. `_split` peels the value/aux/product triple off the has_aux return shape.
 def _transformed(
-    engine: DiffEngine, spec: DiffSpec, fn: Callable, x: Pytree, mode: DiffModeTag, target: DiffTarget, policy: DiffPolicy
+    key: ContentKey, engine: DiffEngine, spec: DiffSpec, fn: Callable, x: Pytree, mode: DiffModeTag, target: DiffTarget, policy: DiffPolicy
 ) -> DiffReceipt:
     transform = cast(TransformPick, spec.apply)(engine)
     primal = engine.jax.numpy.asarray(x) if target is DiffTarget.ARRAY else x
@@ -378,6 +399,7 @@ def _transformed(
     # transforms `(product, aux)` else the bare product — `_split` peels the triple off `(mode, has_aux)`.
     value, product, aux = _split(out, mode, policy.has_aux)
     return _summary(
+        key,
         engine.flatten(product, target, policy.argnums),
         mode,
         target,
@@ -411,12 +433,13 @@ def _split(out: object, mode: DiffModeTag, has_aux: bool) -> tuple[float | None,
 # projected keywords, read back through flatten. The UNSUPPORTED short-circuit lives in `_dispatch`, so this
 # rail never receives an absent cell; the tangent stays a pytree for the PYTREE target.
 def _directional(
-    engine: DiffEngine, spec: DiffSpec, fn: Callable, primals: tuple[Pytree, Pytree], mode: DiffModeTag, target: DiffTarget, policy: DiffPolicy
+    key: ContentKey, engine: DiffEngine, spec: DiffSpec, fn: Callable, primals: tuple[Pytree, Pytree], mode: DiffModeTag,
+    target: DiffTarget, policy: DiffPolicy,
 ) -> DiffReceipt:
     value, product = cast(Applicator, spec.apply)(engine, fn, primals, policy.projected(spec.keywords))
     # `jax.jvp`/`vjp` carry no `argnums` keyword — a directional derivative is against the one `(primal, tangent)`
     # pair, so the product is single-block and the witness is `0` regardless of `policy.argnums`.
-    return _summary(engine.flatten(product, target), mode, target, status=DiffStatus.EXACT, accuracy=0, implicit=True, value=value)
+    return _summary(key, engine.flatten(product, target), mode, target, status=DiffStatus.EXACT, accuracy=0, implicit=True, value=value)
 
 
 # `jax.jvp` returns `(primal_out, tangent_out)`: the scalar primal rides the receipt value on a singleton
@@ -431,7 +454,7 @@ def _read_array_jvp(out_tangent: tuple[object, object]) -> tuple[float | None, o
 # `coefficients(deriv=1, acc=acc)` `center` stencil over the per-axis grid, honoring the requested accuracy
 # directly — never an `acc` capped to 2, never a fixed three-point stencil. The receipt records the realized
 # order off the `center` `accuracy` entry (an odd `acc` the central scheme rounds to even reaches it truthfully).
-def _finite_difference(fn: ArrayFn, x: object, step: float, acc: int) -> DiffReceipt:
+def _finite_difference(key: ContentKey, fn: ArrayFn, x: object, step: float, acc: int) -> DiffReceipt:
     point = np.asarray(x)
     center = coefficients(deriv=1, acc=acc)["center"]
     weights, offsets = np.asarray(center["coefficients"]), np.asarray(center["offsets"])
@@ -442,7 +465,8 @@ def _finite_difference(fn: ArrayFn, x: object, step: float, acc: int) -> DiffRec
     ]
     jac = np.stack(columns, axis=1)
     return _summary(
-        jac, "finite_difference", DiffTarget.ARRAY, status=DiffStatus.TRUNCATION_BOUNDED, accuracy=int(center["accuracy"]), implicit=False
+        key, jac, "finite_difference", DiffTarget.ARRAY, status=DiffStatus.TRUNCATION_BOUNDED, accuracy=int(center["accuracy"]),
+        implicit=False,
     )
 ```
 

@@ -12,7 +12,7 @@ Every source enters `LanePolicy.drain` as a SOURCE-keyed `Admit` whose `ContentK
 
 - Owner: `TessellationDaemon` — the boundary capsule draining SOURCE-keyed units through one `LanePolicy.drain`, so the lane's content cache owns the hit/miss short-circuit and the daemon holds no private warm pool or subprocess primitive; `_cache` is the lane's own session cache threaded as a value across drains, never a second replay mechanism beside it. The durable tier below it is an INJECTED `ObjectStoreLane` — the branch's one `obstore` operation surface, its `StoreOp` axis, reach matrix, and retry disposition already settled at `runtime/transport/roots#STORE` — so this page mints no store handle, route table, backend row, or `from_url`, exactly as `data/tabular/egress#EGRESS` composes that lane without owning it. `TessellationSource` discriminates AEC versus mechanical geometry by case, never a parallel `SourceFormat` enum drifting against a `fmt` field; the mesher knobs are `TessellationPolicy` fields folded into the cache seed — no runtime `IdentityPolicy` field carries a mesher knob.
 - Law: runtime `Kernel.of` mints `_tessellate_ifc`/`_tessellate_cad` as `Kernel.name`, and `traced_kernel` passes that name to `Profiles.phase`; the daemon adds no profile registry or in-kernel instrumentation beyond the pulse proxy write.
-- Law: both kernels take the lane conduit's pickled `tap` as a trailing offload arg and beat the graduation `GeometryPulse.TESSELLATION` point through `pulsed` — the IFC iterator every `PULSE_STRIDE` elements, the CAD arm once per opaque bridge hop — so a `Hooks` tap streams live tessellation progress under the lane's lossy drop law with the worker reaching only the queue proxy.
+- Law: both kernels take the lane conduit's pickled `tap` as a trailing offload arg and beat the graduation `GeometryPulse.TESSELLATION` point through `pulsed` — the IFC iterator every `PULSE_STRIDE` elements and stating NO extent, since the provider's own iterator publishes none and a fabricated denominator would let a reader compute a percentage against a number nothing measured; the CAD arm once per opaque bridge hop over an extent of one — so a `Hooks` tap streams live tessellation progress under the lane's lossy drop law with the worker reaching only the queue proxy.
 - Law: the durable tier is a content-addressed SPILL, never an authority — two write-once objects per unit under one `spill_path` derivation, the GLB octets keyed by the artifact's own wire key and a `SpillHeader` keyed by the policy-folded cache key resolving onto it, because `ArtifactSyncService` holds a wire key and asks for octets while a cold daemon holds a source and a policy and asks which artifact they produced. `create` is the put mode: an object already under a content-addressed key holds those same octets, so an overwrite buys a race with a fleet peer and nothing else; the header lands only past a cleared artifact write, so no reader resolves a pointer onto octets that are not there. The read-through runs AHEAD of the kernel and its every failure mode folds to absence — the cost of a store miss is a tessellation nobody skipped, where a rail there would be a tessellation nobody GOT because a store was briefly unreachable — and the refusal still lands as a `rejected` receipt so an outage reads as evidence rather than as a daemon that quietly stopped replaying. The re-mint over returned octets is the PROOF the store answered what the header names, so a corrupted object refuses by name instead of replaying under an identity it does not hash to. `SpillOutcome` rides the crossing's own receipt row, since a second receipt family would leave a reader joining two streams to answer one question, and `_phase` derives replay provenance across both reuse tiers at ONE site.
 - Entry: `tessellate` RETURNS the results — the flagship egress the `mesh/serve` servicer streams; receipts stay on `contribute`, and a partial failure rides the stream as a `rejected` row, never a silent drop and never a fluent `self` stranding the GLB in the cache. Its `budget` keyword is the caller's dialed deadline the served leg carries in: it rides each unit's `Kernel.deadline`, so the lane's own tighter-bound fold governs the offload and this page spells no second narrowing, an abandoned call railing `deadline` on its unit and landing a `rejected` receipt instead of paying out a tessellation nobody reads. The budget stays out of the cache seed — a deadline shifts no output byte, and folding it would key one tessellation per dialed bound.
 - Auto: `num_threads` binds from `LanePolicy.capacity` so the iterator's intra-kernel parallelism and the lane's slot allocator share one capacity, never a hardcoded literal.
@@ -31,15 +31,17 @@ from queue import Queue
 from tempfile import TemporaryDirectory
 from typing import Final, Literal, assert_never
 
-from expression import Error, Nothing, Ok, Option, Result, case, tag, tagged_union
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
+import msgspec
 from msgspec import Struct
 from msgspec import json as msgjson
 from msgspec.structs import replace
 
-from rasm.geometry.graduation import EVIDENCE_DOMAIN, GeometryPulse, PulseBeat
-from rasm.geometry.mesh.cad import CANONICAL_TESSELLATION, BridgeFormat, GlbArtifact, StepBridge, TessellationPolicy
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary
+from rasm.geometry.graduation import EVIDENCE_DOMAIN, GeometryLeg, GeometryPulse
+from rasm.geometry.mesh.cad import CANONICAL_TESSELLATION, BridgeFault, BridgeFormat, GlbArtifact, StepBridge, TessellationPolicy
+from rasm.runtime.faults import TERMINAL, BoundaryFault, Catch, FaultRow, RuntimeRail, boundary, rostered
+from rasm.runtime.hooks import StageMark
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, MeterFact, Party, Resource, Retain
 from rasm.runtime.lanes import Admit, LanePolicy, PulseFact, pulsed
@@ -69,6 +71,14 @@ class SpillKind(StrEnum):
     # the second path then pays a full re-tessellation the store already holds the answer to.
     ARTIFACT = "artifact"  # the GLB octets under the artifact's OWN seed-zero wire key
     SOURCE = "source"  # the header resolving a policy-folded cache key onto that artifact
+
+
+class TessellationStage(StrEnum):
+    # this producer's own CLOSED mark positions; `StageMark.stage` is erased at the point and closed HERE, so the
+    # registry proves one payload per point while the position roster stays a producer-side type fact and no
+    # cross-lane phase ladder forms out of the union of every lane's positions.
+    ITERATE = "iterate"  # the IFC element sweep, every `PULSE_STRIDE` elements
+    BRIDGE = "bridge"  # the CAD arm's one opaque provider hop
 
 
 class SpillOutcome(StrEnum):
@@ -154,6 +164,27 @@ class TessellationResult(Struct, frozen=True, gc=False):
         )
 
 
+# the decoder's whole raise surface: a header the store returned that is not this schema, and one that is not JSON at
+# all. Both are foreign material a truncated or fleet-peer-written object hands back, and neither widens past msgspec.
+_HEADER_RAISES: Final[Catch] = (msgspec.ValidationError, msgspec.DecodeError)
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this module's whole raise roster: the fenced header decode and the replay proof anchor one row each, so no call site
+# spells a subject and the `rostered` door seats every row on the branch census, proving `geometry.mesh.daemon` against a real module at import. Both
+# TERMINAL —
+# a header that is not this schema and an object whose octets do not hash to the key naming them both survive every
+# re-read. The OBJECT path the retired subject carried rides `DAEMON_REPLAY`'s own first slot, so the coordinate a
+# reader hunts stays on the fault while the subject names the law.
+DAEMON_SPILL: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.DAEMON, point="spill", arm="boundary", defect="header-undecodable", retriability=TERMINAL
+)
+DAEMON_REPLAY: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.DAEMON, point="replay", arm="resource", defect="wire-key-mismatch", retriability=TERMINAL,
+    slots=("object", "declared", "hashed"),
+)
+RAISES: Final[Block[FaultRow[GeometryLeg]]] = rostered(Block.of_seq([DAEMON_SPILL, DAEMON_REPLAY]))
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -173,7 +204,7 @@ def _proven(key: ContentKey, header: SpillHeader, glb: GlbArtifact) -> RuntimeRa
     return (
         Ok(TessellationResult(key, glb, header.element_count, header.triangle_count, header.semantic, spill=SpillOutcome.REPLAYED))
         if glb.wire_key.hex == header.wire_key
-        else Error(BoundaryFault(resource=(spill_path(SpillKind.SOURCE, key), f"wire-key:{header.wire_key}!={glb.wire_key.hex}")))
+        else Error(DAEMON_REPLAY.raised(spill_path(SpillKind.SOURCE, key), header.wire_key, glb.wire_key.hex))
     )
 
 
@@ -236,7 +267,7 @@ def _tessellate_ifc(source_bytes: bytes, mesher: TessellationPolicy, num_threads
                 elements += 1
                 triangles += len(shape.geometry.faces) // 3
                 if elements % PULSE_STRIDE == 0:  # lossy stride beat: the kernel's whole observability reach is this proxy write
-                    pulsed(tap, GeometryPulse.TESSELLATION, PulseBeat(stage="iterate", done=elements))
+                    pulsed(tap, GeometryPulse.TESSELLATION, StageMark(stage=TessellationStage.ITERATE.value, done=elements))
                 if not iterator.next():
                     break
         serializer.finalize()
@@ -247,15 +278,20 @@ def _tessellate_ifc(source_bytes: bytes, mesher: TessellationPolicy, num_threads
 # wire-keyed artifact, so this arm re-keys nothing; the tally is `(1, 0)` — one assembly root, per-element count
 # deferred to the bridge receipt.
 def _tessellate_cad(source_bytes: bytes, fmt: BridgeFormat, mesher: TessellationPolicy, _num_threads: int, tap: "Queue[PulseFact | None]") -> KernelYield:
-    # re-raising `RuntimeError(detail)` keeps the `step-bridge.<stage>` classification across the pickle seam under the
-    # fidelity latch rather than degrading to a bare `"RuntimeError"`; the lane's `async_boundary` lands it in the fault case.
-    pulsed(tap, GeometryPulse.TESSELLATION, PulseBeat(stage=f"bridge.{fmt.value}", done=0, total=1))  # one beat per opaque bridge hop
+    pulsed(tap, GeometryPulse.TESSELLATION, StageMark(stage=TessellationStage.BRIDGE.value, done=0, total=Some(1)))  # one hop, one beat
     match StepBridge.tessellate(source_bytes, fmt, mesher):
         case Result(tag="ok", ok=artifact):
             return artifact, SEMANTIC_EMPTY, 1, 0
+        case Result(tag="error", error=BoundaryFault(tag="domain", domain=(_, BridgeFault() as token))):
+            # the bridge's OWN typed case re-raises whole and `execution/workers#CROSSING` carries it: `shipped`
+            # lowers it onto `CrossedFault` worker-side and `_homing` re-mints it parent-side ahead of the fence, so
+            # the stage and the format arrive as the CASE a consumer matches. The retired `RuntimeError(str(token))`
+            # hand-rendered that coordinate into a message the parent then had to re-parse, and the `read_failed`
+            # payload it feared — a pybind11 status enum — is exactly what the seam's own encodability arm answers.
+            raise token
         case Result(tag="error", error=fault):
-            facts = fault.facts()
-            raise RuntimeError(str(facts.get("detail") or facts.get("subject") or fault.tag))
+            # a fault the bridge itself never minted — the filesystem its path-based legs cross — keeps its own detail.
+            raise RuntimeError(str(fault.facts().get("detail") or fault.subject))
 
 
 # kernel, cache-key seed FIELDS, and plain `*args` per case — the `cad` arm carries its `BridgeFormat` as its own
@@ -378,7 +414,7 @@ class TessellationDaemon:  # structural ReceiptContributor conformance — no su
         # object refuses by name instead of being served under a key it does not hash to. The decode runs fenced,
         # because a malformed header is foreign material and a raise here would escape the read-through whole.
         pointer = await lane.run_async(StoreOp.Get(spill_path(SpillKind.SOURCE, key)))
-        match pointer.bind(lambda outcome: boundary("mesh.daemon.spill", lambda: _SPILL_DECODER.decode(bytes(outcome.source)))):
+        match pointer.bind(lambda outcome: boundary(DAEMON_SPILL, lambda: _SPILL_DECODER.decode(bytes(outcome.source)), catch=_HEADER_RAISES)):
             case Result(tag="error") as refused:
                 return refused
             case Result(tag="ok", ok=header):

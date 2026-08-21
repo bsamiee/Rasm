@@ -13,13 +13,13 @@ Tenant attribution splits by source and the split is load-bearing. Live receipts
 ## [02]-[COST]
 
 - Owner: `CostFact` — the one harvested cost row carrying domain, kind, the rendered identity key, tenant, and the four quantity axes (`rows`/`bytes_moved`/`seconds`/`tasks`); `CostDomain` the closed domain vocabulary over the harvested planes; `CostUnit` the quantity-axis vocabulary the rate rows key on; `RatePolicy` the caller-supplied `(domain, unit) -> price` row set with its currency token, never constants; `CostLedger` the group-fold owner; `CostReceipt` the emitted evidence row. One fact shape spans every source — a per-plane fact type is the deleted form.
-- Owner: `_DOMAIN` resolves a durable row's plane off the metric-domain string its producer already records, and `_EVIDENCE_AXIS` names which recorded fact feeds each quantity — so reconstruction reads rows, never a per-plane decoder, and a live arm reading a field no row names prices its own history at zero. `CostFact.priced` is the ONE projection from a plane's axis roster onto the four quantity slots, its `read` the only difference between the row-wise durable arm and the columnar residence fold, and `_NUMBER` the one numeric admission grammar both apply — scalar through `_number`, vectorized through `_numeric`.
+- Owner: `_DOMAIN` DERIVES a durable row's plane off each `CostDomain` member's own value, `_RECORDED` carrying the single divergence the estate holds (the commit owner records `lake`) and `TENSOR` carving out because its facts arrive as a live wire mapping and never off the residence, and `_EVIDENCE_AXIS` names which recorded fact feeds each quantity — so reconstruction reads rows, never a per-plane decoder, and a live arm reading a field no row names prices its own history at zero. `CostFact.priced` is the ONE projection from a plane's axis roster onto the four quantity slots, its `read` the only difference between the row-wise durable arm and the columnar residence fold, and `_NUMBER` the one numeric admission grammar both apply — scalar through `_number`, vectorized through `_numeric`.
 - Entry: `CostFact.of` discriminates receipt, durable-evidence, wire-mapping, and already-harvested fact shapes under `assert_never`, so every source reaches one railed entry; only the host-crossing tensor mapping runs the complete `PlanReceipt` wire admission fold. `CostLedger.of` expands each source through `_expanded` and traverses the flat stream before `frame(policy)` folds it — `CostFact.combined` the associative quantity monoid, the `Map` slot fold key-sorted so identical fact sets yield one byte-stable frame — and `boundary` captures numeric conversion, Arrow materialization, and canonical `arrow_bytes` egress before the frame's own `ContentKey` enters the `CostReceipt`.
 - Auto: the lakehouse arm reads the receipt's own `residence` slot to price an evidence commit on `TELEMETRY` and a caller's table on `LAKEHOUSE` — the SAME split the durable row already records through its residence domain, so a window harvested live and one reconstructed from the residence land on one plane rather than two.
-- Auto: the materialize arm keys `kind="cdc"` and never the partition id — unbounded partition cardinality stays receipt-only, the standing metric-dimension law applied to the cost grain; the query arm reads `bytes_moved` and `seconds` off the optional `EngineProfile` band and harvests zero when unprofiled; a keyless fact groups at its coarse slot with `content_key=""` in the frame, never a dropped row.
-- Receipt: `CostReceipt.contribute` emits one emitted-phase `Receipt.of("cost-ledger", ("emitted", subject, facts))` row carrying slot count, tenant count, priced total, currency, and the frame `ContentKey`; it records no `Metrics.record` measure because every harvested quantity already projected at its source receipt's own `contribute` — a second recording does double-count the spine.
-- Packages: `pyarrow` (the priced frame constructor) with `pyarrow.compute` (`map_lookup`/`fill_null`/`match_substring_regex`/`if_else`/`cast` — the residence fold's whole vectorized half, and `Table.group_by`/`aggregate` for the slot sum), `msgspec` (`Struct` the frozen owners), `expression` (`Block`/`Map`/`Some` the slot fold beside `extra.result.traverse`, the substrate's own fail-fast threader every railed stream here rides), `opentelemetry-api` (`baggage.get_baggage` over the current context — the one tenant read), `beartype` (`@beartype(conf=FAULT_CONF)` on the public `RatePolicy.of`/`CostLedger.of` factories), `tabular/columnar#SCAN` (`QueryReceipt`), `tabular/interop#INTEROP` (`arrow_bytes`, the folder's one whole-table serialization the priced frame keys through), `tabular/lakehouse#LAKEHOUSE` (`LakeReceipt` beside the `ReceiptFact` durable row whose schema the residence owns), `tabular/materialize#MATERIALIZE` (`PartitionBundle`), `tabular/egress#EGRESS` (`EgressReceipt`), runtime (`RuntimeRail`/`FAULT_CONF`/`ContentIdentity`/`ContentKey`/`Receipt`/`TENANT_BAGGAGE`).
-- Growth: a new harvested receipt family is one `CostFact.of` arm; a new cost axis is one `CostFact` field, one `CostUnit` member, one `combined` term, and one `CostFact.priced` slot both readers inherit; a new priced plane is one `CostDomain` member with its `_DOMAIN` spelling, its `_EVIDENCE_AXIS` row, and its rate rows, the columnar fold picking it up with zero edits; a new query engine over the residence is zero edits, the frame shape being the whole contract; a new frame column derives inside `frame`; zero new surface.
+- Auto: the materialize arm keys `kind="cdc"` and never the partition id — unbounded partition cardinality stays receipt-only, the standing metric-dimension law applied to the cost grain; the query arm reads `bytes_moved` and `seconds` off the band's own `Posture` slots — a measure the engine WITHHELD prices as unmeasured and COUNTS on the slot's `unpriced` census, never as a proven zero — while a run whose `mode` is `OFF` harvests zero and counts nothing, because nobody asked; a keyless fact groups at its coarse slot with `content_key=""` in the frame, never a dropped row.
+- Receipt: `CostReceipt.contribute` emits one emitted-phase `Receipt.of("cost-ledger", ("emitted", subject, facts))` row carrying slot count, tenant count, priced total, the unpriceable-fact census, currency, and the frame `ContentKey`; it records no `Metrics.record` measure because every harvested quantity already projected at its source receipt's own `contribute` — a second recording does double-count the spine.
+- Packages: `pyarrow` (the priced frame constructor) with `pyarrow.compute` (`map_lookup`/`fill_null`/`match_substring_regex`/`if_else`/`cast` — the residence fold's whole vectorized half, and `Table.group_by`/`aggregate` for the slot sum), `msgspec` (`Struct` the frozen owners), `expression` (`Block`/`Map`/`Some` the slot fold beside `extra.result.traverse`, the substrate's own fail-fast threader every railed stream here rides), `opentelemetry-api` (`baggage.get_baggage` over the current context — the one tenant read), `beartype` (`@beartype(conf=FAULT_CONF)` on the public `RatePolicy.of`/`CostLedger.of` factories), `tabular/columnar#SCAN` (`QueryReceipt`), `tabular/interop#INTEROP` (`arrow_bytes` the folder's one whole-table serialization the priced frame keys through, `ColumnSpec`/`column_frame` the one declaration its schema and builder both derive off, and `DataLeg` this page anchors its `RAISES` table on), `tabular/lakehouse#LAKEHOUSE` (`LakeReceipt` beside the `ReceiptFact` durable row whose schema the residence owns), `tabular/materialize#MATERIALIZE` (`PartitionBundle`), `tabular/egress#EGRESS` (`EgressReceipt`), runtime (`RuntimeRail`/`FAULT_CONF`/`ContentIdentity`/`ContentKey`/`Receipt`/`TENANT_BAGGAGE`).
+- Growth: a new harvested receipt family is one `CostFact.of` arm; a new cost axis is one `CostFact` field, one `CostUnit` member, one `combined` term, one `_COST_COLUMNS` row its schema and builder both derive off, and one `CostFact.priced` slot both readers inherit; a new priced plane is one `CostDomain` member whose value IS its recorded spelling — a `_RECORDED` row only where the producer diverges — plus its `_EVIDENCE_AXIS` row and its rate rows; the columnar fold picking it up with zero edits; a new query engine over the residence is zero edits, the frame shape being the whole contract; a new frame column derives inside `frame`; zero new surface.
 - Boundary: a projection over receipts, never a second metering pipeline — no `Metrics.record`, no span, no durable store, no currency conversion, and no scan of its own: the residence frame arrives from the caller that ran it, so this owner never picks an engine or opens a lakehouse; rates arrive as policy rows, never module constants; the gridded `PlanReceipt` crosses as wire data (its `to_builtins` lowering), never an upward `rasm.data.gridded` import; a tenant field on any source receipt, a per-plane fact type, a partition-id cost dimension, and a hand-rolled hash over the priced frame where `arrow_bytes` with `ContentIdentity` own identity are the deleted forms.
 - Boundary: the priced frame is the TERMINAL egress and advertises no reader: `python:artifacts/visualization/table#TABLE` `TablePlan.of` admits it as the settled Arrow-capsule frame it is, so naming a renderer here claims a seam neither end carries.
 - Boundary: rates and totals ride `float` and no settlement reads this frame — observed spend is a dashboard reading, while the trapped exact-decimal arithmetic a settled charge demands homes at the runtime journal's rating fold and never at this projection.
@@ -28,25 +28,26 @@ Tenant attribution splits by source and the split is load-bearing. Live receipts
 from collections.abc import Callable, Iterable, Mapping
 from enum import StrEnum
 from math import isfinite
+from functools import reduce
 from re import fullmatch
 from typing import Any, Final, assert_never, cast
 
 import pyarrow as pa
 import pyarrow.compute as pc
 from beartype import beartype
-from expression import Error, Ok, Some
+from expression import Error, Ok, Option, Some
 from expression.collections import Block, Map
 from expression.extra.result import traverse
-from msgspec import Struct
+from msgspec import Struct, structs
 from opentelemetry import baggage
 from opentelemetry import context as otel_context
 
-from rasm.data.tabular.columnar import QueryReceipt
+from rasm.data.tabular.columnar import ProfileMode, QueryReceipt
 from rasm.data.tabular.egress import EgressReceipt
-from rasm.data.tabular.interop import arrow_bytes
+from rasm.data.tabular.interop import ColumnSpec, DataLeg, arrow_bytes, column_frame
 from rasm.data.tabular.lakehouse import LakeReceipt, ReceiptFact
 from rasm.data.tabular.materialize import PartitionBundle
-from rasm.runtime.faults import BoundaryFault, FAULT_CONF, RuntimeRail, boundary
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, Catch, FaultRow, Posture, RuntimeRail, boundary, rostered
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.metrics import TENANT_BAGGAGE
 from rasm.runtime.receipts import Receipt
@@ -55,8 +56,11 @@ from rasm.runtime.receipts import Receipt
 
 # Grouping slot is (content_key hex | "", tenant | "", domain, kind), content-key-first and coarse for keyless facts.
 type Slot = tuple[str, str, str, str]
-# same slot spelled as residence columns, so the columnar fold groups on the SAME grain the live fold groups on.
-_SLOT_COLUMNS: Final[tuple[str, ...]] = ("content_key", "tenant", "domain", "kind")
+# one priced ROW as `tabular/interop#INTEROP` `ColumnSpec` declarations. The slot columns lead so the residence fold
+# groups on the SAME grain the live fold groups on, and `_SLOT_COLUMNS` DERIVES off the leading four rather than
+# re-spelling them a third time beside the schema and the builder. Each spec lifts off the priced triple, so a fifth
+# quantity axis is ONE row rather than a schema field plus a builder key plus a slot name.
+
 # ONE numeric admission grammar, applied scalar by `_number` and vectorized by `_numeric`. Decimal and NON-NEGATIVE:
 # a residence stores every fact as its own string rendering, and the two spellings this grammar excludes are exactly
 # the ones the rate gate refuses one fold later — `float()` would admit `inf`/`nan` and a leading sign would admit a
@@ -80,18 +84,88 @@ _PLAN_COUNTS: Final[tuple[str, ...]] = (
     "peak_mem",
 )
 
-_COST_SCHEMA: Final[pa.Schema] = pa.schema([
-    pa.field("content_key", pa.string(), nullable=False),
-    pa.field("tenant", pa.string(), nullable=False),
-    pa.field("domain", pa.string(), nullable=False),
-    pa.field("kind", pa.string(), nullable=False),
-    pa.field("rows", pa.int64(), nullable=False),
-    pa.field("bytes", pa.int64(), nullable=False),
-    pa.field("seconds", pa.float64(), nullable=False),
-    pa.field("tasks", pa.int64(), nullable=False),
-    pa.field("cost", pa.float64(), nullable=False),
-    pa.field("currency", pa.string(), nullable=False),
+_COST_COLUMNS: Final[Block[ColumnSpec["PricedSlot", object]]] = Block.of_seq([
+    ColumnSpec(name="content_key", arrow=pa.string(), kind=str, lift=lambda row: row.slot[0]),
+    ColumnSpec(name="tenant", arrow=pa.string(), kind=str, lift=lambda row: row.slot[1]),
+    ColumnSpec(name="domain", arrow=pa.string(), kind=str, lift=lambda row: row.slot[2]),
+    ColumnSpec(name="kind", arrow=pa.string(), kind=str, lift=lambda row: row.slot[3]),
+    ColumnSpec(name="rows", arrow=pa.int64(), kind=int, lift=lambda row: row.fact.rows),
+    ColumnSpec(name="bytes", arrow=pa.int64(), kind=int, lift=lambda row: row.fact.bytes_moved),
+    ColumnSpec(name="seconds", arrow=pa.float64(), kind=float, lift=lambda row: row.fact.seconds),
+    ColumnSpec(name="tasks", arrow=pa.int64(), kind=int, lift=lambda row: row.fact.tasks),
+    # the UNPRICEABLE-rendering census travels with the window it belongs to: a producer defect read as a
+    # measurement prices a window at less than it cost, and a count nobody stores is a loss nobody can see.
+    ColumnSpec(name="unpriced", arrow=pa.int64(), kind=int, lift=lambda row: row.fact.unpriced),
+    ColumnSpec(name="cost", arrow=pa.float64(), kind=float, lift=lambda row: row.price),
+    ColumnSpec(name="currency", arrow=pa.string(), kind=str, lift=lambda row: row.currency),
 ])
+_SLOT_COLUMNS: Final[tuple[str, ...]] = tuple(spec.name for spec in _COST_COLUMNS.take(4))
+
+# the source shape every column lifts off, so the frame build reads a NAMED slot rather than a tuple offset: the
+# positional `(slot, fact, price)` triple this replaces was destructured five separate ways inside one comprehension
+# set, and the currency it did not carry was spread as a parallel list beside them.
+class PricedSlot(Struct, frozen=True):
+    slot: Slot
+    fact: "CostFact"
+    price: float
+    currency: str
+
+
+# --- [ERRORS] ---------------------------------------------------------------------------
+
+# the NAMED source a zero carries when a recorded rendering is not a priceable number, so the census counts on a
+# token rather than on a free string a second reader would have to match by hand.
+UNPRICEABLE: Final[str] = "unpriceable-rendering"
+
+
+def _cost_raises() -> Catch:
+    # the two fenced legs here are a tuple build and an Arrow materialization over already-admitted values, so the
+    # Arrow core rail is the whole reach. `pa.ArrowIOError` derives from `OSError` alone and never from
+    # `ArrowException` (`.api/pyarrow.md` `[CORE_ERRORS]`), which is why both are named.
+    return (pa.ArrowException, OSError)
+
+
+# this module's whole raise roster. Every row declares TERMINAL: a malformed rate table, an unpriced plane, an
+# invalid quantity, a non-finite total, and a malformed wire mapping are all defects in the input a re-issue of the
+# same window reproduces exactly. Near-identical rate defects collapse into ONE parameterized row taking subjects.
+COST_RATE_POLICY: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.COST, point="rate.policy", arm="config", defect="invalid-policy", retriability=TERMINAL
+)
+COST_QUANTITY: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.COST, point="rate.amount", arm="config", defect="invalid-quantity", retriability=TERMINAL, slots=("domain",)
+)
+COST_UNPRICED_UNIT: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.COST, point="rate.unit", arm="config", defect="unpriced-unit", retriability=TERMINAL, slots=("domain", "units")
+)
+COST_NONFINITE: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.COST, point="rate.total", arm="config", defect="non-finite", retriability=TERMINAL, slots=("scope", "extent")
+)
+COST_UNPRICED_DOMAIN: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.COST, point="evidence", arm="config", defect="unpriced-domain", retriability=TERMINAL, slots=("domain",)
+)
+COST_WIRE: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.COST, point="tensor", arm="wire", defect="invalid-plan-wire", retriability=TERMINAL
+)
+COST_QUANTITIES: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.COST, point="rate.quantity", arm="boundary", defect="quantity-read", retriability=TERMINAL
+)
+COST_FRAME: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.COST, point="frame", arm="boundary", defect="frame-build", retriability=TERMINAL
+)
+COST_RESIDENCE: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.COST, point="residence", arm="boundary", defect="residence-expand", retriability=TERMINAL
+)
+RAISES: Final[Block[FaultRow[DataLeg]]] = rostered(Block.of_seq([
+    COST_RATE_POLICY,
+    COST_QUANTITY,
+    COST_UNPRICED_UNIT,
+    COST_NONFINITE,
+    COST_UNPRICED_DOMAIN,
+    COST_WIRE,
+    COST_QUANTITIES,
+    COST_FRAME,
+    COST_RESIDENCE,
+]))
 
 
 class CostDomain(StrEnum):
@@ -114,17 +188,16 @@ class CostUnit(StrEnum):
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# `_DOMAIN` maps the metric-domain spelling each contributor hands `Metrics.record` onto the plane it prices — the
-# residence stores that exact string, so a durable row resolves its plane with no second discriminant. Domains this
-# table does not row are evidence the cost plane deliberately leaves unpriced, refused by name rather than folded into
-# a neighbouring plane at whatever rate that plane happens to carry.
-_DOMAIN: Final[Map[str, CostDomain]] = Map.of_seq([
-    ("query", CostDomain.QUERY),
-    ("lake", CostDomain.LAKEHOUSE),
-    ("egress", CostDomain.EGRESS),
-    ("materialize", CostDomain.MATERIALIZE),
-    ("telemetry", CostDomain.TELEMETRY),
-])
+# the metric-domain spelling each contributor hands `Metrics.record`, which the residence then stores verbatim. Key
+# identity holds for every member but ONE — the commit owner records `lake` where this plane is named `lakehouse` —
+# so the roster carries the DIVERGENCE alone and every other spelling derives off the member's own value: a five-row
+# mirror of a closed vocabulary re-types four spellings the vocabulary already holds and leaves a renamed member
+# resolving under two names with nothing raising. `TENSOR` carves out because its facts arrive as a live
+# `PlanReceipt` wire mapping and never off the residence, so a residence token for it would key rows nobody writes.
+_RECORDED: Final[Map[CostDomain, str]] = Map.of_seq([(CostDomain.LAKEHOUSE, "lake")])
+_DOMAIN: Final[Map[str, CostDomain]] = Map.of_seq(
+    (_RECORDED.try_find(member).default_value(member.value), member) for member in CostDomain if member is not CostDomain.TENSOR
+)
 
 # which recorded fact each plane's quantity axis reads out of a durable row. A row here names the SAME quantity the
 # live arm reads off its typed receipt, so a fact and its durable twin price identically; a live arm reading a field
@@ -164,6 +237,11 @@ class CostFact(Struct, frozen=True):
     bytes_moved: int = 0
     seconds: float = 0.0
     tasks: int = 0
+    # how many recorded facts this slot could not price. The page's own trade-off stands — a signed or non-finite
+    # rendering contributes zero rather than aborting a window thousands of rows wide — but a producer defect read as
+    # a measurement with NO evidence emitted anywhere is the half that was missing: a window now carries both its
+    # price and the count of facts behind it that never reached one.
+    unpriced: int = 0
 
     @classmethod
     def of(cls, receipt: CostInput) -> "RuntimeRail[CostFact]":
@@ -179,15 +257,20 @@ class CostFact(Struct, frozen=True):
                 # tenancy onto another tenant's history is the exact loss this residence exists to prevent.
                 return cls._evidence(evidence)
             case QueryReceipt() as query:
-                profile = query.profile
+                # every profiled quantity reads through the band's own `Posture`: a measure the engine WITHHELD is
+                # not a proven zero, so it prices as unmeasured AND counts on this slot's census rather than
+                # silently costing a window the engine really measured at nothing.
+                volume = query.profile.bind(lambda held: held.bytes_read.option().map2(lambda r, w: r + w, held.bytes_written.option()))
+                seconds = query.profile.bind(lambda held: held.latency_s.option())
                 return Ok(cls(
                     domain=CostDomain.QUERY,
                     kind=query.engine,
                     key=query.content_key.hex,
                     tenant=tenant,
                     rows=query.row_count,
-                    bytes_moved=(profile.bytes_read + profile.bytes_written) if profile is not None else 0,
-                    seconds=profile.latency_s if profile is not None else 0.0,
+                    bytes_moved=volume.default_value(0),
+                    seconds=seconds.default_value(0.0),
+                    unpriced=sum(1 for held in (volume, seconds) if held.is_none()) if query.mode is not ProfileMode.OFF else 0,
                 ))
             case LakeReceipt() as lake:
                 # a residence commit prices on the residence's OWN plane, so the evidence tail is budgetable apart
@@ -218,13 +301,17 @@ class CostFact(Struct, frozen=True):
                 assert_never(unreachable)
 
     @classmethod
-    def priced(cls, domain: CostDomain, kind: str, key: str, tenant: str, read: Callable[[str], float]) -> "CostFact":
+    def priced(cls, domain: CostDomain, kind: str, key: str, tenant: str, read: Callable[[str], "Posture[float]"]) -> "CostFact":
         # ONE projection from a plane's axis roster onto the four quantity slots, read by the row-wise durable arm and
         # by the columnar residence fold alike — `read` is their only difference, a map lookup on one side and an
         # already-summed column on the other, so a fifth unit cannot drift two spellings apart. Repeated units
-        # accumulate, which is how a commit's two file counters land as one task total.
+        # accumulate, which is how a commit's two file counters land as one task total. Each reading is a `Posture`
+        # because THREE states one `0.0` fused: the plane recorded no such fact (`absent` — normal, and not a defect),
+        # the plane recorded a value this grammar prices (`declared`), and the plane recorded a rendering no priced
+        # axis admits (`defaulted` under `UNPRICEABLE`), which contributes zero AND is counted.
         axes = _EVIDENCE_AXIS.get(domain) or ()
-        totals = {unit: sum(read(name) for candidate, name in axes if candidate is unit) for unit, _name in axes}
+        readings = tuple((unit, read(name)) for unit, name in axes)
+        totals = {unit: sum(held.option().default_value(0.0) for candidate, held in readings if candidate is unit) for unit, _name in axes}
         return cls(
             domain=domain,
             kind=kind,
@@ -234,6 +321,7 @@ class CostFact(Struct, frozen=True):
             bytes_moved=int(totals.get(CostUnit.BYTES, 0.0)),
             seconds=totals.get(CostUnit.SECONDS, 0.0),
             tasks=int(totals.get(CostUnit.TASKS, 0.0)),
+            unpriced=sum(1 for _unit, held in readings if held.source == Some(UNPRICEABLE)),
         )
 
     @classmethod
@@ -244,8 +332,8 @@ class CostFact(Struct, frozen=True):
         # a producer wrote, and a fact this plane does not price is not a malformed row.
         return (
             _DOMAIN.try_find(row.domain)
-            .map(lambda domain: Ok(cls.priced(domain, row.kind, row.content_key, row.tenant, lambda name: _number(row.facts.get(name)))))
-            .default_with(lambda: Error(BoundaryFault(boundary=("cost.evidence", f"unpriced domain {row.domain}"))))
+            .map(lambda domain: Ok(cls.priced(domain, row.kind, row.content_key, row.tenant, lambda name: _reading(row.facts, name))))
+            .default_with(lambda: Error(COST_UNPRICED_DOMAIN.raised(row.domain)))
         )
 
     @classmethod
@@ -262,7 +350,7 @@ class CostFact(Struct, frozen=True):
             or any(type(facts.get(name)) is not int or cast(int, facts[name]) < 0 for name in _PLAN_COUNTS)
         )
         return (
-            Error(BoundaryFault(boundary=("cost.tensor", "invalid PlanReceipt wire")))
+            Error(COST_WIRE.raised())
             if malformed
             else Ok(
                 cls(
@@ -288,6 +376,7 @@ class CostFact(Struct, frozen=True):
             bytes_moved=left.bytes_moved + right.bytes_moved,
             seconds=left.seconds + right.seconds,
             tasks=left.tasks + right.tasks,
+            unpriced=left.unpriced + right.unpriced,
         )
 
 
@@ -309,7 +398,7 @@ class RatePolicy(Struct, frozen=True):
             or any(not isfinite(price) or price < 0.0 for _domain, _unit, price in rows)
         )
         return (
-            Error(BoundaryFault(boundary=("cost.rate", "invalid currency or rate row")))
+            Error(COST_RATE_POLICY.raised())
             if invalid
             else Ok(cls(currency=currency, rates=Map.of_seq(((domain, unit), price) for domain, unit, price in rows)))
         )
@@ -322,21 +411,22 @@ class RatePolicy(Struct, frozen=True):
             # avoid. A `get` miss answers `None`, so the unpriced-unit gate above is what makes the `or 0.0` tail
             # reachable only on a zero quantity.
             if any(not isfinite(amount) or amount < 0.0 for _unit, amount in quantities):
-                return Error(BoundaryFault(boundary=("cost.rate", f"invalid quantity for {fact.domain}")))
+                return Error(COST_QUANTITY.raised(fact.domain.value))
             missing = tuple(unit for unit, amount in quantities if amount != 0.0 and not self.rates.contains_key((fact.domain, unit)))
             if missing:
-                return Error(BoundaryFault(boundary=("cost.rate", f"unpriced {fact.domain}: {','.join(unit.value for unit in missing)}")))
+                return Error(COST_UNPRICED_UNIT.raised(fact.domain.value, ",".join(unit.value for unit in missing)))
             total = sum((self.rates.get((fact.domain, unit)) or 0.0) * amount for unit, amount in quantities)
-            return Ok(total) if isfinite(total) else Error(BoundaryFault(boundary=("cost.rate", f"non-finite total for {fact.domain}")))
+            return Ok(total) if isfinite(total) else Error(COST_NONFINITE.raised(fact.domain.value, "1"))
 
         return boundary(
-            "cost.rate.quantity",
+            COST_QUANTITIES,
             lambda: (
                 (CostUnit.ROWS, float(fact.rows)),
                 (CostUnit.BYTES, float(fact.bytes_moved)),
                 (CostUnit.SECONDS, fact.seconds),
                 (CostUnit.TASKS, float(fact.tasks)),
             ),
+            catch=_cost_raises(),
         ).bind(priced)
 
 
@@ -344,6 +434,10 @@ class CostReceipt(Struct, frozen=True):
     slots: int
     tenants: int
     total: float
+    # how many recorded facts this window could not price, summed over its slots. The page's stated trade-off keeps
+    # the zero rather than aborting a window over one row, and this count is the evidence half that trade-off owed:
+    # a window carries BOTH its price and the number of facts behind it that never reached one.
+    unpriced: int
     currency: str
     content_key: ContentKey
 
@@ -365,6 +459,7 @@ class CostReceipt(Struct, frozen=True):
                         "slots": self.slots,
                         "tenants": self.tenants,
                         "total": self.total,
+                        "unpriced": self.unpriced,
                     },
                 ),
             ),
@@ -395,37 +490,32 @@ class CostLedger(Struct, frozen=True):
         # railed ContentIdentity over the canonical arrow_bytes keys the priced frame itself. The same substrate
         # threader `of` rides prices every slot, so an unpriced axis short-circuits the frame with no slot respread.
         return traverse(
-            lambda row: policy.price(row[1]).map(lambda price: (row[0], row[1], price)),
+            lambda row: policy.price(row[1]).map(lambda price: PricedSlot(slot=row[0], fact=row[1], price=price, currency=policy.currency)),
             Block.of_seq(self._grouped().to_seq()),
-        ).bind(lambda rows: self._frame(policy, tuple(rows)))
+        ).bind(lambda rows: self._frame(policy, Block.of_seq(rows)))
 
-    def _frame(
-        self, policy: RatePolicy, priced: tuple[tuple[Slot, CostFact, float], ...]
-    ) -> "RuntimeRail[tuple[pa.Table, CostReceipt]]":
+    def _frame(self, policy: RatePolicy, priced: "Block[PricedSlot]") -> "RuntimeRail[tuple[pa.Table, CostReceipt]]":
         def materialized() -> tuple[pa.Table, bytes]:
-            table = pa.table({
-                "content_key": [slot[0] for slot, _, _ in priced],
-                "tenant": [slot[1] for slot, _, _ in priced],
-                "domain": [slot[2] for slot, _, _ in priced],
-                "kind": [slot[3] for slot, _, _ in priced],
-                "rows": [fact.rows for _, fact, _ in priced],
-                "bytes": [fact.bytes_moved for _, fact, _ in priced],
-                "seconds": [fact.seconds for _, fact, _ in priced],
-                "tasks": [fact.tasks for _, fact, _ in priced],
-                "cost": [price for _, _, price in priced],
-                "currency": [policy.currency] * len(priced),
-            }, schema=_COST_SCHEMA)
+            # the frame DERIVES off `_COST_COLUMNS`: schema and builder are two projections of one declaration, so a
+            # fifth quantity axis is one row rather than a schema field plus a builder key that still compile apart.
+            table = column_frame(_COST_COLUMNS, priced)
             return table, arrow_bytes(table)
 
         # per-row prices are finite by the rate gate, yet their sum can still overflow to inf; the aggregate re-proves
         # finiteness on the same rail, so an invalid CostReceipt is unconstructible.
-        total = sum(price for _, _, price in priced)
+        total = sum(row.price for row in priced)
         if not isfinite(total):
-            return Error(BoundaryFault(boundary=("cost.frame", f"non-finite aggregate total over {len(priced)} slots")))
-        tenants = len({slot[1] for slot, _, _ in priced if slot[1]})
-        return boundary("cost.frame", materialized).bind(
+            return Error(COST_NONFINITE.raised("aggregate", str(len(priced))))
+        tenants = len({row.slot[1] for row in priced if row.slot[1]})
+        unpriced = sum(row.fact.unpriced for row in priced)
+        return boundary(COST_FRAME, materialized, catch=_cost_raises()).bind(
             lambda held: ContentIdentity.of("cost", held[1]).map(
-                lambda key: (held[0], CostReceipt(slots=len(priced), tenants=tenants, total=total, currency=policy.currency, content_key=key))
+                lambda key: (
+                    held[0],
+                    CostReceipt(
+                        slots=len(priced), tenants=tenants, total=total, unpriced=unpriced, currency=policy.currency, content_key=key
+                    ),
+                )
             )
         )
 
@@ -445,7 +535,7 @@ def _expanded(source: CostSource) -> "RuntimeRail[tuple[CostInput, ...]]":
     # caller never silently loses a row it named.
     match source:
         case pa.Table() as frame:
-            return boundary("cost.residence", lambda: _residence(frame))
+            return boundary(COST_RESIDENCE, lambda: _residence(frame), catch=_cost_raises())
         case _:
             return Ok((source,))
 
@@ -464,7 +554,12 @@ def _planed(rows: pa.Table, domain: CostDomain) -> tuple[CostFact, ...]:
     axes = _EVIDENCE_AXIS.get(domain) or ()
     if not rows.num_rows or not axes:
         return ()
-    quantities = {name: _numeric(pc.map_lookup(rows.column("facts"), query_key=name, occurrence="first")) for _unit, name in axes}
+    looked = {name: pc.map_lookup(rows.column("facts"), query_key=name, occurrence="first") for _unit, name in axes}
+    # the census rides as its OWN summed column: one boolean pass per axis marks a recorded rendering this grammar
+    # cannot price, so a whole plane's unpriceable count leaves in the same group-by that sums its quantities.
+    quantities = {name: _numeric(held) for name, held in looked.items()} | {
+        "unpriced": reduce(pc.add, (pc.cast(_unpriceable(held), pa.int64()) for held in looked.values()))
+    }
     grouped = pa.table({column: rows.column(column) for column in _SLOT_COLUMNS} | quantities).group_by(list(_SLOT_COLUMNS)).aggregate(
         [(name, "sum") for name in quantities]
     )
@@ -473,8 +568,14 @@ def _planed(rows: pa.Table, domain: CostDomain) -> tuple[CostFact, ...]:
 
 def _slot_fact(row: Mapping[str, Any], domain: CostDomain) -> CostFact:
     # one grouped slot read back through the SAME `CostFact.priced` projection the durable row-wise arm reads, its
-    # `read` closing over the summed column rather than the open map.
-    return CostFact.priced(domain, row["kind"], row["content_key"], row["tenant"], lambda name: float(row[f"{name}_sum"] or 0.0))
+    # `read` closing over the summed column rather than the open map. Every summed column is `declared`: `fill_null`
+    # ran upstream and the caller already refused an empty row set, so a null sum is unreachable here and the
+    # `or 0.0` tail this deletes guarded nothing. The unpriceable CENSUS arrives as its own summed column rather
+    # than through `read`, because the vectorized grammar counts the whole plane in one pass.
+    return structs.replace(
+        CostFact.priced(domain, row["kind"], row["content_key"], row["tenant"], lambda name: Posture(declared=float(row[f"{name}_sum"]))),
+        unpriced=int(row["unpriced_sum"]),
+    )
 
 
 def _numeric(held: Any) -> Any:
@@ -485,11 +586,26 @@ def _numeric(held: Any) -> Any:
     return pc.cast(pc.if_else(pc.match_substring_regex(filled, rf"^{_NUMBER}$"), filled, "0"), pa.float64())
 
 
-def _number(held: str | None) -> float:
-    # a recorded fact arrives as the residence's string rendering, so a value outside `_NUMBER` — a prose fact, a
-    # non-finite spelling, or a signed quantity no priced axis admits — contributes zero rather than aborting a window
-    # over thousands of rows for one row's fact.
-    return float(held) if held and fullmatch(_NUMBER, held) else 0.0
+def _unpriceable(held: Any) -> Any:
+    # the vectorized census twin of `_reading`'s `defaulted` arm: a recorded rendering outside `_NUMBER` marks true,
+    # while an ABSENT fact marks false — a plane recording no such fact is normal and never a producer defect.
+    return pc.and_(pc.is_valid(held), pc.invert(pc.match_substring_regex(pc.fill_null(held, "0"), rf"^{_NUMBER}$")))
+
+
+def _reading(facts: Mapping[str, Any], name: str) -> "Posture[float]":
+    # a recorded fact arrives as the residence's string rendering, and THREE states the bare `0.0` fused are three
+    # different facts: the plane recorded no such fact at all (`absent` — normal, priced as nothing and counted as
+    # nothing), the plane recorded a value this grammar prices (`declared`), and the plane recorded a rendering no
+    # priced axis admits — a prose fact, a non-finite spelling, or a signed quantity (`defaulted` under
+    # `UNPRICEABLE`). The third still contributes zero rather than aborting a window over thousands of rows for one
+    # row's fact, exactly as this page has always ruled, but it is now COUNTED where before it vanished.
+    match facts.get(name):
+        case None:
+            return Posture(absent=None)
+        case held if isinstance(held, str) and fullmatch(_NUMBER, held):
+            return Posture(declared=float(held))
+        case _:
+            return Posture(defaulted=(0.0, UNPRICEABLE))
 ```
 
 ## [03]-[RESEARCH]

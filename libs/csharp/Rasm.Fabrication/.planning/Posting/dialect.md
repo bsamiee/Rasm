@@ -76,7 +76,6 @@ public sealed partial class ChecksumRule {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class SequenceCounter {
     public int First { get; }
     public int Step { get; }
@@ -88,9 +87,9 @@ public sealed partial class SequenceCounter {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError, ref int first, ref int step, ref int modulus) {
+        ref ValidationError? validationError, ref int first, ref int step, ref int modulus) {
         if (first < 0 || step <= 0 || modulus < 0 || (modulus > 0 && first >= modulus))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Posting, "dialect:sequence-counter");
+            validationError = new ValidationError("dialect:sequence-counter");
     }
 
     public static Fin<SequenceCounter> Admit(int first, int step, int modulus) =>
@@ -114,7 +113,6 @@ public abstract partial record BlockLimit {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class EmitPolicy {
     public Encoding Codec { get; }
     public string NewLine { get; }
@@ -124,7 +122,7 @@ public sealed partial class EmitPolicy {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Encoding codec,
         ref string newLine,
         ref bool finalTerminator,
@@ -133,7 +131,7 @@ public sealed partial class EmitPolicy {
         // A record separator is what makes a physical record countable, so an empty one collapses the whole program
         // onto one line the block cap then measures as a single record.
         if (newLine.Length == 0)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Posting, "dialect:emit-policy:newline");
+            validationError = new ValidationError("dialect:emit-policy:newline");
     }
 
     public static Fin<EmitPolicy> Admit(
@@ -932,7 +930,7 @@ public sealed record ProgramDelivery(
         select delivery;
 
     private static FabricationFault Refusal(string slot) =>
-        new FabricationFault.PolicyInadmissible(FabConcern.Posting, $"dialect:delivery:{slot}");
+        FabricationFault.Inadmissible(FabConcern.Posting, $"dialect:delivery:{slot}");
 }
 ```
 

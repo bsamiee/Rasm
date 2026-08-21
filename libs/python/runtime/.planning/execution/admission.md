@@ -20,6 +20,7 @@ Caller-owned context and settings admission: one immutable `RuntimeContext` carr
 - Entry: `ConsumptionProfile.admit` is the one axis gate returning `RuntimeRail[ConsumptionProfile]`, and `seated` is its construction face — `PROFILE_ROW` folds every preset through it at import and `RuntimeContext.admit` folds a hand-supplied row through it at boot, so the gate has a producer on both paths rather than an obligation a composition root can skip. `Deadline.seconds` is the one `float` the `execution/lanes#LANE` `LanePolicy.deadline` reads — never a re-derived `total_seconds()` at the lane seam. `Correlation.seed` is the one inbound-context owner: it adopts the extracted W3C parent whole under the disjoint `TraceId`/`SpanId` domains its two mint sites size, and `attribute` folds the carried frame through `CausalFrame.attributes("packed")` rather than re-spelling the `(rasm.tenant, rasm.hlc)` columns, so the result is admissible to `Span.set_attributes` directly.
 - Auto: `ProfilePolicy.of` folds every behavior column out of axis values — `lifecycle` decides eager import, `lifecycle` beside the host descriptor's `scratch` column decides scratch writability, and the host descriptor's `lanes` and `recovery` columns override `TOPOLOGY_LANES` and `TOPOLOGY_RECOVERY` for capacity and durability — so no column keys on a preset name and a caller never re-derives a flag. `emit_otel` is a fold over the carried `FeatureGate` rather than a stored column, so the bound telemetry provider and the killswitch revoking it answer as one availability read.
 - Receipt: `ConsumptionProfile.canonical()` orders the six axis rows and `canonical_json()` renders them as the one UTF-8 `canonical-json` preimage the `consumption-profile` corpus contract freezes, so the three branches diff one string rather than three rosters; the render walks the ordered pairs because a serialized mapping seats property order in the collection rather than the roster the vector pins.
+- Law: every refusal on this page resolves ONE `reliability/faults#FAULT` `RAISES` anchor under `RuntimeLeg.ADMISSION` and derives its subject from that leg; the axis a profile refuses, the isolation grant it lacks, the issuer, the grade, and the claimed tenant all ride NAMED row slots, so recovery keys on the coordinate rather than parsing a reason sentence.
 - Growth: a new context field is one `RuntimeContext` column; a new host integration is one `HOST_ROWS` descriptor and a new bound port one `PROVIDER_ROWS` descriptor; a new feature is one `Feature` case supplied by a provider row; a new killswitch is one `Killswitch` case with one `KILLSWITCH_FEATURE` disabling edge — never a parallel boolean knob; a new sensitivity band is one `Classification` member reaching the projection unedited; a new durability preset is one `TOPOLOGY_RECOVERY` row or one `HostRow.recovery` value, never a second DR taxonomy; a new attribute dimension is one entry in the `attribute` projection; a new propagated wire format is one row at the telemetry install's composite, reaching `seed` with no edit here.
 - Boundary: no environment probing, host discovery, service-root construction, or global mutable context lives here — deployment shape arrives as one supplied row and this package infers none of it; axis values stay data, so a compile-time assumption, an ambient global, an environment flag, and a fold branching on which product hosts the package are the four deleted forms; `ConsumptionProfile.admit` refuses an unservable axis value onto the fault union's `config` case whose subject names the axis, so silent degradation and a narrowed public surface never happen and no sibling refusal type stands beside the one union every package returns through; in-host topology carrying no host descriptor refuses on the `host` axis because a consuming application supplies its own row; killswitches ride `RuntimeContext.killswitches` as caller-supplied operational state, never a profile column, so revoking a feature never re-cuts deployment shape; `RecoveryObjective` is DECLARED here and measured nowhere on this cluster — `[03]-[BACKEND_CONTRACT]` grades an observed window against the row a caller threads it, so a target and a reading never share a struct; `CausalFrame`/`Hlc`/`Tenant` stay the `evidence/clock#CLOCK` owner's records; propagator registration stays the `observability/telemetry#TELEMETRY` install's, this owner reading the global it publishes; each branch spells the roster in its own types, so a peer branch's descriptor rows are never mirrored here row-for-row.
 
@@ -48,7 +49,7 @@ from msgspec import Struct, ValidationError, field
 from opentelemetry import propagate, trace
 
 from rasm.runtime.clock import CausalFrame
-from rasm.runtime.faults import BoundaryFault, RuntimeRail
+from rasm.runtime.faults import PROFILE_GRANT, PROFILE_HOST, RuntimeRail
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -400,10 +401,10 @@ class ConsumptionProfile(Struct, frozen=True):
         # same inputs deterministically refuse — and the subject names the axis so recovery keys on the coordinate
         # rather than parsing a reason string.
         if row.topology is Topology.IN_HOST and row.host is Nothing:
-            return Error(BoundaryFault(config=(f"profile.{ProfileAxis.HOST}", "none:in-host topology carries no host descriptor row")))
+            return Error(PROFILE_HOST.raised(ProfileAxis.HOST.value))
         match ISOLATION_FEATURE[row.isolation]:
             case Option(tag="some", some=needed) if needed not in row.grants:
-                return Error(BoundaryFault(config=(f"profile.{ProfileAxis.ISOLATION}", f"{row.isolation}:{needed}")))
+                return Error(PROFILE_GRANT.raised(ProfileAxis.ISOLATION.value, row.isolation.value, needed.value))
             case _:
                 return Ok(row)
 
@@ -660,6 +661,7 @@ class RuntimeContext(Struct, frozen=True):
 - Law: `_FACTS` rows prove corpus, generation, key-set, derived-required, realization, and recovery invariants under `Disposition.ACCUMULATE`, so a refusal reports every failed invariant with its reason and the exact subjects that failed it.
 - Law: contract identity and data recency are two proofs on one verdict, never two generations — `generation-drift` proves the store carries the composed contract off the existing digest, and `recovery-window-exceeded` proves the data behind it is recent enough for the window the deployment declared. `RecoveryWindow` derives from the observation's own stamps so no provider hands in a lag it computed against a clock this owner never saw — a frontier stamped after the reading is skew and drops to unmeasured — and its two halves absorb absence oppositely: an unmeasured `rpo` REFUSES, because a restore admitted with no recency evidence grades a window nobody took, while an absent `rto` passes, a store that never restored owing no bounce time.
 - Packages: `msgspec`, `xxhash`, `expression`, the stdlib `graphlib` dependency sorter, and the shared runtime fault rail.
+- Law: the contract funnel keeps THREE rostered anchors and one fold — `BACKEND_MINT`, `BACKEND_MERGE`, and `BACKEND_CONTRACT` are the coordinates the free `subject` string used to thread, `_refused` raises through whichever the caller passed, and the per-claimant decode keeps its ORDINAL as a NAMED slot on `BACKEND_CLAIMANT` because a malformed claimant an operator must bisect for is exactly what a shared subject erases.
 - Growth: a contract field changes the one wire shape; a local provider adds one observation adapter; a new invariant is one `_FACTS` row; a new failure rank is one `FailureRank` member with one `absorbs` arm; a new disruption class is one `RestartClass` member seated at its rank; a new recovery axis is one `RecoveryWindow` column with its own absence law in `exceeding` and its matching `RecoveryObjective` column.
 - Boundary: a Python-only application composes, deploys, and admits its stores with no peer branch present; provider migration execution and journal identity stay outside this owner; recovery evidence stays OBSERVATION-side and never enters `SchemaContractWire`/`CapabilityWire`, so the canonical bytes, the generation digest, and every peer's decode of them are untouched by it.
 
@@ -677,7 +679,19 @@ from expression import Error, Nothing, Ok, Option, Some
 from expression.collections import Block, Map
 from msgspec import Meta, Struct
 
-from rasm.runtime.faults import BoundaryFault, Disposition, RuntimeRail, boundary, traversed
+from rasm.runtime.faults import (
+    BACKEND_CLAIMANT,
+    BACKEND_CONTRACT,
+    BACKEND_MERGE,
+    BACKEND_MINT,
+    BoundaryFault,
+    Disposition,
+    FaultRow,
+    RuntimeLeg,
+    RuntimeRail,
+    boundary,
+    traversed,
+)
 
 # `Ticks` and `RecoveryObjective` are the [02]-[CONTEXT] owners of this same `rasm.runtime.admission`
 # module — no cross-module import, the three fences are one module's three declaration regions.
@@ -872,10 +886,11 @@ class ContractFact(Struct, frozen=True):
 # --- [OPERATIONS] -------------------------------------------------------------------------
 
 
-def _refused(subject: str, reason: str, subjects: tuple[str, ...]) -> BoundaryFault:
+def _refused(at: FaultRow[RuntimeLeg], reason: str, subjects: tuple[str, ...]) -> BoundaryFault:
     # a refusal names the invariant AND the exact keys failing it, so the caller repairs the row it owns rather than
-    # re-deriving which of the table's invariants one opaque message meant.
-    return BoundaryFault(config=(subject, f"{reason}:{','.join(subjects)}"))
+    # re-deriving which of the table's invariants one opaque message meant. The funnel's own rostered row carries the
+    # coordinate the free `subject` string used to spell — mint, merge, and admit stay three rows and one fold.
+    return at.raised(reason, ",".join(subjects))
 
 
 def _cyclic(artifacts: tuple[ArtifactWire, ...], /) -> tuple[str, ...]:
@@ -945,6 +960,7 @@ class BackendGeneration(Struct, frozen=True):
     ) -> RuntimeRail[ContractFiles]:
         """Mint this branch's contribution from its own store artifacts."""
         return cls._funnelled(
+            BACKEND_MINT,
             contract,
             artifacts.map(lambda row: ArtifactWire(
                 key=row.key,
@@ -966,17 +982,19 @@ class BackendGeneration(Struct, frozen=True):
             # per-contribution decode under ACCUMULATE: a malformed claimant names ITSELF by ordinal and every other
             # malformed one reports beside it, where one thunk over the whole block surfaces a single anonymous
             # `DecodeError` an operator then bisects by hand across the contributing branches.
-            contributions.mapi(lambda index, one: boundary(
-                f"backend.merge[{index}]",
-                lambda: msgspec.json.decode(one.contract, type=SchemaContractWire),
-                catch=(msgspec.DecodeError, msgspec.ValidationError),
-            )),
+            contributions.mapi(
+                lambda index, one: boundary(
+                    BACKEND_CLAIMANT,
+                    lambda: msgspec.json.decode(one.contract, type=SchemaContractWire),
+                    catch=(msgspec.DecodeError, msgspec.ValidationError),
+                ).map_error(lambda fault: BACKEND_CLAIMANT.raised(str(index), fault.detail))
+            ),
             by=Disposition.ACCUMULATE,
         ).bind(lambda wires: cls._funnelled(
+            BACKEND_MERGE,
             contract,
             Block.of_seq(row for wire in wires for row in wire.artifacts),
             Block.of_seq(row for wire in wires for row in wire.capabilities),
-            "backend.merge",
         ))
 
     @classmethod
@@ -986,7 +1004,7 @@ class BackendGeneration(Struct, frozen=True):
         # shape, so passing it keeps this owner free of the context that resolves it and lets one contract set admit
         # under a service window on one host and a session window on another with no second entry.
         return boundary(
-            "backend.contract",
+            BACKEND_CONTRACT,
             lambda: ContractEvidence.of(files, observed, objective),
             catch=(ValueError, msgspec.DecodeError, msgspec.ValidationError),
         ).bind(cls._proved)
@@ -995,29 +1013,29 @@ class BackendGeneration(Struct, frozen=True):
     # and acyclic, and only a survivor of both reaches the canonical framing, so no mint path leaves it unproved.
     @classmethod
     def _funnelled(
-        cls, contract: str, artifacts: Block[ArtifactWire], capabilities: Block[CapabilityWire], subject: str, /
+        cls, at: FaultRow[RuntimeLeg], contract: str, artifacts: Block[ArtifactWire], capabilities: Block[CapabilityWire], /
     ) -> RuntimeRail[ContractFiles]:
         def framed(rows: tuple[ArtifactWire, ...]) -> RuntimeRail[ContractFiles]:
-            return cls._claimed(capabilities, subject, "capability").bind(
-                lambda held: cls._projected(SchemaContractWire(contract=contract, artifacts=rows, capabilities=held), subject)
+            return cls._claimed(capabilities, at, "capability").bind(
+                lambda held: cls._projected(SchemaContractWire(contract=contract, artifacts=rows, capabilities=held), at)
             )
 
-        return cls._claimed(artifacts, subject, "artifact").bind(lambda rows: cls._closed(rows, subject)).bind(framed)
+        return cls._claimed(artifacts, at, "artifact").bind(lambda rows: cls._closed(rows, at)).bind(framed)
 
     @staticmethod
-    def _claimed[R: (ArtifactWire, CapabilityWire)](rows: Block[R], subject: str, family: str, /) -> RuntimeRail[tuple[R, ...]]:
+    def _claimed[R: (ArtifactWire, CapabilityWire)](rows: Block[R], at: FaultRow[RuntimeLeg], family: str, /) -> RuntimeRail[tuple[R, ...]]:
         # one claim owner over both row families and both mint paths: identical rows dedupe, a key two claimants spell
         # differently REFUSES on the WHOLE row, and survivors leave in key-ordinal order — the entire wire order.
         claimed = {row.key: row for row in rows}
         collided = tuple(sorted({row.key for row in rows if claimed[row.key] != row}))
         return (
-            Error(_refused(subject, f"{family}-collision", collided))
+            Error(_refused(at, f"{family}-collision", collided))
             if collided
             else Ok(tuple(claimed[key] for key in sorted(claimed)))
         )
 
     @staticmethod
-    def _closed(artifacts: tuple[ArtifactWire, ...], subject: str, /) -> RuntimeRail[tuple[ArtifactWire, ...]]:
+    def _closed(artifacts: tuple[ArtifactWire, ...], at: FaultRow[RuntimeLeg], /) -> RuntimeRail[tuple[ArtifactWire, ...]]:
         # dependency keys are digest-bearing payload, so closure and acyclicity prove HERE and never at a sort a path
         # can skip. Dangling edges read FIRST — `graphlib` seats an unknown predecessor as a leaf and would let the
         # graph pass, and an operator repairs a real missing artifact rather than chasing a phantom cycle — then the
@@ -1028,15 +1046,15 @@ class BackendGeneration(Struct, frozen=True):
         dangling = tuple(sorted({f"{row.key}->{dep}" for row in artifacts for dep in row.depends_on if dep not in keys}))
         ring = () if dangling else _cyclic(artifacts)
         return (
-            Error(_refused(subject, "artifact-dependency-dangling", dangling))
+            Error(_refused(at, "artifact-dependency-dangling", dangling))
             if dangling
-            else Error(_refused(subject, "artifact-dependency-cyclic", ring))
+            else Error(_refused(at, "artifact-dependency-cyclic", ring))
             if ring
             else Ok(artifacts)
         )
 
     @staticmethod
-    def _projected(wire: SchemaContractWire, subject: str, /) -> RuntimeRail[ContractFiles]:
+    def _projected(wire: SchemaContractWire, at: FaultRow[RuntimeLeg], /) -> RuntimeRail[ContractFiles]:
         # deterministic bytes, the seed-zero generation over exactly those bytes, and the corpus stating what a peer
         # re-proves from its own inputs rather than by reading this branch's digest.
         def framed() -> ContractFiles:
@@ -1059,7 +1077,7 @@ class BackendGeneration(Struct, frozen=True):
                 conformance=msgspec.json.encode(corpus, order="deterministic"),
             )
 
-        return boundary(subject, framed, catch=msgspec.EncodeError)
+        return boundary(at, framed, catch=msgspec.EncodeError)
 
     @classmethod
     def _proved(cls, evidence: ContractEvidence, /) -> RuntimeRail[Self]:
@@ -1069,7 +1087,7 @@ class BackendGeneration(Struct, frozen=True):
             _FACTS.map(
                 lambda fact: Ok(fact.reason)
                 if fact.holds(evidence)
-                else Error(_refused("backend.contract", fact.reason, fact.subjects(evidence)))
+                else Error(_refused(BACKEND_CONTRACT, fact.reason, fact.subjects(evidence)))
             ),
             by=Disposition.ACCUMULATE,
         ).map(lambda _: cls(
@@ -1162,7 +1180,18 @@ from msgspec import Struct
 from pydantic import AnyUrl, DirectoryPath, Field, HttpUrl, SecretStr
 from pydantic_settings import BaseSettings, NestedSecretsSettingsSource, PydanticBaseSettingsSource, SettingsConfigDict
 
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary
+from rasm.runtime.faults import (
+    ADMISSION_HOSTS,
+    SECRET_NAME,
+    SECRET_READ,
+    TENANCY_GRADE,
+    TENANCY_ISSUER,
+    TENANCY_PRINCIPAL,
+    TENANCY_TENANT,
+    TENANCY_UNTENANTED,
+    RuntimeRail,
+    boundary,
+)
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.resilience import RetryClass, guarded
@@ -1292,7 +1321,7 @@ class SecretRequest(Struct, frozen=True, gc=False):
         return (
             Ok(request)
             if _SECRET_ALPHABET.fullmatch(request.name)
-            else Error(BoundaryFault(config=("secret.name", f"{request.name}:{_SECRET_ALPHABET.pattern}")))
+            else Error(SECRET_NAME.raised(request.name, _SECRET_ALPHABET.pattern))
         )
 
     def paired(self, raw: str, /) -> Option[BasicCredential]:
@@ -1514,10 +1543,24 @@ class SecretBoundary(Struct, frozen=True):
         # of the envelope, and a bare `boundary` failing on the first transient is unrepresentable.
         match self._read(row, request):
             case Option(tag="some", some=read):
-                return await guarded(RetryClass.SECRET, anyio.to_thread.run_sync, read, subject="secret", limiter=_PROBE_BAND)
+                return await guarded(
+                    RetryClass.SECRET, anyio.to_thread.run_sync, read, at=SECRET_READ, on=Some(self._peer(row)), limiter=_PROBE_BAND
+                )
             case _:
                 # CLOUD rungs naming no backend fold to a miss: no client constructed and no provider assumed.
                 return Ok(Nothing)
+
+    def _peer(self, row: TierRow, /) -> str:
+        # the DEPENDENCY each rung dials, which is the grain `RetryClass.SECRET`'s `RATES` row is written at: three
+        # cloud backends are three peers holding three quotas, so the CLOUD rung names the backend the deployment
+        # BOUND and every local rung names itself. Keying the class alone spends one bucket across a local keystore
+        # probe and a remote Vault dial, pacing the free read behind the metered one; keying the fence row instead
+        # fuses every backend a deployment might name onto whichever one it did.
+        match row.tier:
+            case SecretTier.CLOUD:
+                return self.settings.vault().map(lambda held: held.tag).default_value(row.tier.value)
+            case _:
+                return row.tier.value
 
     def _read(self, row: TierRow, request: SecretRequest, /) -> Option[Callable[[], Option[BasicCredential]]]:
         # each rung answers with the blocking read it owns, or `Nothing` where the deployment named nothing to read.
@@ -1552,7 +1595,7 @@ class SecretBoundary(Struct, frozen=True):
     def known_hosts(self) -> RuntimeRail[asyncssh.SSHKnownHosts]:
         # `known_hosts` reads a path resolved at ADMISSION, so this leg probes no home directory; `read_known_hosts` takes `str | Sequence[str]`,
         # which is the one render, and an absent file rails as the `OSError` this fence already converts.
-        return boundary("resource", lambda: asyncssh.read_known_hosts(str(self.settings.known_hosts)), catch=OSError)
+        return boundary(ADMISSION_HOSTS, lambda: asyncssh.read_known_hosts(str(self.settings.known_hosts)), catch=OSError)
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -1634,13 +1677,13 @@ class TenantAdoption(Struct, frozen=True, gc=False):
         # decides whether a tenant claim is spellable at all, and the row decides which values it may carry.
         match trust.issuer(claim.source):
             case Option(tag="none"):
-                return Error(BoundaryFault(config=("tenancy.source", f"unrostered issuer {claim.source!r}")))
+                return Error(TENANCY_ISSUER.raised(claim.source))
             case Option(some=row) if claim.grade.rank > row.ceiling.rank:
                 # ABOVE the ceiling REFUSES and never downgrades: silently lowering a restricted fact publishes it
                 # onto every binding the lower grade admits.
-                return Error(BoundaryFault(config=("tenancy.grade", f"{claim.grade} exceeds the {row.issuer!r} ceiling")))
+                return Error(TENANCY_GRADE.raised(claim.grade.value, row.issuer))
             case Option(some=row) if claim.principal.map(lambda held: held not in row.principals).default_value(False):
-                return Error(BoundaryFault(config=("tenancy.authcontext", f"{row.issuer!r} asserts no such principal")))
+                return Error(TENANCY_PRINCIPAL.raised(row.issuer))
             case Option(some=row):
                 return cls._partitioned(context.shape.tenancy, row, claim).map(lambda held: cls(admitted=held, row=row))
 
@@ -1650,13 +1693,13 @@ class TenantAdoption(Struct, frozen=True, gc=False):
         # refuses a claim outright rather than flattening it onto the root partition where it would read as local.
         match (axis, claim.tenant):
             case (Tenancy.NONE, Option(tag="some")):
-                return Error(BoundaryFault(config=("tenancy.tenancy", "an untenanted deployment admits no tenant claim")))
+                return Error(TENANCY_UNTENANTED.raised())
             case (Tenancy.NONE, _) | (_, Option(tag="none")):
                 return Ok(Nothing)
             case (_, Option(some=held)) if held in row.tenants:
                 return Ok(Some(Tenant(held)))
             case (_, Option(some=held)):
-                return Error(BoundaryFault(config=("tenancy.tenant", f"{row.issuer!r} claims no tenant {held!r}")))
+                return Error(TENANCY_TENANT.raised(row.issuer, held))
 ```
 
 ## [06]-[RESEARCH]

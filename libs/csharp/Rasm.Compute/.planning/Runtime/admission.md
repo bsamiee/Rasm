@@ -1,6 +1,6 @@
 # [COMPUTE_ADMISSION]
 
-Rasm.Compute admits every substrate-routed execution request through one `ComputeIntent` union under the spine-declared `Spec` policy record it adopts whole, routes it over one `Substrate` axis (cpu-tensor, device-wgpu, onnx, genai, remote-grpc) whose capability needs, browser exclusion, provider gates, cost ranks, payload caps, and load tie-breaks are row columns, and dispatches through generated total Switches — selection folds over row data, never an if-ladder, and every walk lands a `SelectionReceipt`. Each intent's eligible chain IS its degrade order (device->cpu->remote, onnx->remote, genai->remote), so a vetoed row degrades to the next without a parallel per-row fallback successor. This owner holds the intent vocabulary, the substrate axis, the `ComputeFault` family in the 2200 code band, and the dispatch spine.
+Rasm.Compute admits every substrate-routed execution request through one `ComputeIntent` union under the spine-declared `Spec` policy record it adopts whole, routes it over one `Substrate` axis (cpu-tensor, device-wgpu, onnx, genai, remote-grpc) whose capability needs, browser exclusion, provider gates, cost ranks, payload caps, and load tie-breaks are row columns, and dispatches through generated total Switches — selection folds over row data, never an if-ladder, and every walk lands a `SelectionReceipt`. Each intent's eligible chain IS its degrade order (device->cpu->remote, onnx->remote, genai->remote), so a vetoed row degrades to the next without a parallel per-row fallback successor. This owner holds the intent vocabulary, the substrate axis, the direct `ComputeFault` family on `FaultBand.Core`, and the dispatch spine.
 
 Discipline lanes own their own typed entry folds — `Solver/contract` `Solve`, `Stats/estimator` `Fit`, `Symbolic/expression` `Compile`, `Analysis/assessment` `Assess` — never re-entering this boundary; they rejoin the package only at the one `ComputeReceipt` union, the 2200-band `ComputeFault`, and the `Runtime/scheduling` `LaneRuntime`. Dispatch composes Thinktecture vocabularies, LanguageExt rails, NodaTime instants, and the settled AppHost vocabulary — `Spec`, `WorkLane`, `DeadlineClass`, and `SubscriptionPolicy` among them, each declared at the spine and reached through this package's legal upward reference; `ComputeIntent` never crosses the other way, so the platform compiles INTO this rail and never names the union it targets.
 
@@ -8,17 +8,17 @@ Discipline lanes own their own typed entry folds — `Solver/contract` `Solve`, 
 
 - [02]-[INTENT_FAMILY]: `ComputeIntent` closes the intent roster over the adopted `Spec` record and one boundary admission fold.
 - [03]-[SUBSTRATE_AXIS]: five substrate rows (incl. device-wgpu GPGPU); capability needs, browser exclusion, provider gates, ranks, caps, load as columns.
-- [04]-[DISPATCH_SPINE]: fault band 2200, ordered selection fold, total dispatch, selection receipt.
+- [04]-[DISPATCH_SPINE]: `ComputeFault` owns the direct `[FaultCase]` family over `FaultBand.Core`; `AssessmentInputReason` closes the analysis witness vocabulary; the ordered selection fold dispatches totally onto one selection receipt.
 
 ## [02]-[INTENT_FAMILY]
 
 - Owner: `ComputeIntent` `[Union]` cases; `AdmittedIntent` the evidence carrier whose private constructor makes `Admit` the only mint — the admission fold lives ON the carrier, so an unadmitted intent structurally cannot reach `Plan`, `Enqueue`, or `DispatchTable.Run`, which all take `AdmittedIntent`. `Spec` is NOT declared here: the request policy a capability descriptor answers at projection declares at `Rasm.AppHost` `Agent/capability#DESCRIPTOR_AXIS` and this fold adopts it WHOLE onto the carrier — one record, one seat, so the descriptor's declared posture and the value this admission gates on can never be two shapes that agree by convention.
 - Cases: TensorOp | ModelInfer | RemoteCall | UnitProject | SymbolicProject | SensorAdmit | Pipeline | Generate; the adopted `Spec` carries deadline row, lane row, allocation row, cache-policy row, payload caps, forced-substrate `Option`, progress-subscription `Option`, and one inseparable `(Allotted, Provenance)` override.
-- Entry: `public static Fin<AdmittedIntent> AdmittedIntent.Admit(ComputeIntent intent, Spec spec, CorrelationId correlation, CancelScope parent, IClock clock, TimeProvider time)` — `Fin<T>` aborts; admission runs exactly once at the boundary and interiors never re-validate; the byte and element caps are independent gates, so `Bounded` accumulates both violations through the `Validation` applicative pair before `ToFin` widens once — a first-fail cap gate that hides the second breach is the rejected form.
+- Entry: `public static Fin<AdmittedIntent> AdmittedIntent.Admit(ComputeIntent intent, Spec spec, CorrelationId correlation, CancelScope parent, ClockPolicy clocks)` — `Fin<T>` aborts; admission runs exactly once at the boundary and interiors never re-validate; the byte and element caps are independent gates, so `Bounded` accumulates both violations through the `Validation` applicative pair before `ToFin` widens once, and a shape's axes accumulate the same way so a rank-3 request with two bad axes names both — a first-fail gate that hides the second breach is the rejected form.
 - Auto: the intent digest derives from the operation symbol and payload bytes and feeds every selection receipt; the admitted `CancelScope` child binds the allotted deadline so expiry rides the linked token.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, System.IO.Hashing, Rasm.AppHost (project), BCL inbox
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, System.IO.Hashing, Rasm (project), Rasm.AppHost (project), BCL inbox
 - Growth: one intent case breaks every total Switch at compile time; a new shared policy value lands as one column on the spine's `Spec` and reaches every fold here untouched; zero new surface.
-- Boundary: arity discriminates on the case payload shape — one value, a buffered span handle, or a stream handle — so name suffixes and mode flags never arise; payload spans admit at the edge into `ReadOnlyMemory<byte>` handles owned by the declared allocation row; `Budget` couples every deadline override to non-empty provenance and admission rejects non-positive durations; a pipeline shares one `Spec`, digest, deadline, scope, and correlation while `Projected` re-measures each child for substrate payload gates without minting new boundary evidence; the adopted `Spec` crosses DOWNWARD only — this owner reads its columns and never widens them, so a Compute-only policy axis is a column on a Compute shape rather than a field on the platform's request record; the intent's model field is the XxHash128 checksum, its rich identity record a model-lane concern; `Generate` carries that checksum, the prompt, and the model-lane `GenerationPolicy` (search options, guidance constraint, prompt-assembly inputs) so token streaming admits through the one fold like every intent — a separate `GenerateRequest` path or a chat-client surface never arises; `IClock` and `TimeProvider` cross from the app composition as neutral clock primitives because the App-owned `ClockPolicy` record never crosses downward into this APP-PLATFORM owner.
+- Boundary: arity discriminates on the case payload shape — one value, a buffered span handle, or a stream handle — so name suffixes and mode flags never arise; payload spans admit at the edge into `ReadOnlyMemory<byte>` handles owned by the declared allocation row; `Budget` couples every deadline override to non-empty provenance and admission rejects non-positive durations; a pipeline shares one `Spec`, digest, deadline, scope, and correlation while `Projected` re-measures each child for substrate payload gates without minting new boundary evidence; the adopted `Spec` crosses DOWNWARD only — this owner reads its columns and never widens them, so a Compute-only policy axis is a column on a Compute shape rather than a field on the platform's request record; the intent's model field is the XxHash128 checksum, its rich identity record a model-lane concern; `Generate` carries that checksum, the prompt, and the model-lane `GenerationPolicy` (search options, guidance constraint, prompt-assembly inputs) so token streaming admits through the one fold like every intent — a separate `GenerateRequest` path or a chat-client surface never arises; the boundary takes the one `ClockPolicy` record its AppHost owner declares rather than a hand-picked `(IClock, TimeProvider)` pair, because `CancelScope.Derive` reads that record and the derived deadline source, the semantic instant, and the kernel `MonotonicTimeline` — minted once off the provider at the app root — are three legs of one temporal fact that must not disagree; a raw provider mark/elapsed pair below the root is the deleted form, an admission-latency reading brackets through `ClockPolicy.Gauged` on its own `DeadlineClass` lane, and the semantic instant stays NodaTime's alone.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -33,17 +33,11 @@ public abstract partial record ComputeIntent {
 
     public sealed record UnitProject(QuantityFamily Family, double Value, string Unit, string TargetUnit) : ComputeIntent;
 
-    // Symbolic quantity projection: a unit-bearing FORMULA (not a flat scalar) enters the same intent rail — the
-    // expression, its per-symbol dimension declarations, the numeric bindings, and the target unit — dispatched
-    // onto the Symbolic lane's dimension proof + compiled evaluation + unit projection chain.
     public sealed record SymbolicProject(SymbolicExpr Formula, Map<string, string> Dimensions, Map<string, double> Bindings, string TargetUnit) : ComputeIntent;
 
-    // Broker-decoded sensor sample: the twin's telemetry crossing enters the ONE admission gate exactly as a
-    // tensor op does, so its deadline budget, element cap, cancel scope, and correlation bind before the
-    // CaptureIngest channel holds it and a DropOldest shed lands as Backpressure evidence carrying the
-    // dropped sample's own correlation. `Runtime/transport#BROKER_INGEST` mints the case off the pump and
-    // `Solver/clash#CLASH_AND_TWIN` `TwinLoop.Ingest` is the bound lane dispatch — a raw reading pushed
-    // onto a channel beside `AdmittedIntent` forks the lane's admission law and strands that evidence.
+    // `Runtime/ingest#BROKER_INGEST` mints the case off the pump and `Solver/clash#CLASH_AND_TWIN`
+    // `TwinLoop.Ingest` is the bound lane dispatch — a raw reading pushed onto a channel beside `AdmittedIntent`
+    // forks the lane's admission law and strands the shed evidence the DropOldest lane owes its correlation.
     public sealed record SensorAdmit(SensorReading<TwinSignal> Reading) : ComputeIntent;
 
     public sealed record Pipeline(Seq<ComputeIntent> Stages) : ComputeIntent;
@@ -79,11 +73,6 @@ public sealed record AdmittedIntent {
 
     public Spec Spec { get; }
 
-    // The three posture columns the spine could only declare as KEYS, RESOLVED: the spine owns the dispatch
-    // posture and this package owns the allocation, cache, and substrate rosters, so the keys cross down and
-    // admission is the one seat that can refuse a key no roster issued. Resolving here and carrying the rows
-    // is what keeps every later reader — selection, allocation, the cache lane, the receipt projection — off
-    // a string it would have to re-resolve, each with its own idea of what an unknown key means.
     public AllocationClass Allocation { get; }
 
     public CachePolicy Cache { get; }
@@ -100,13 +89,14 @@ public sealed record AdmittedIntent {
 
     public CancelScope Scope { get; }
 
+    private static readonly Op Segment = Op.Of(nameof(AdmittedIntent));
+
     public static Fin<AdmittedIntent> Admit(
         ComputeIntent intent,
         Spec spec,
         CorrelationId correlation,
         CancelScope parent,
-        IClock clock,
-        TimeProvider time) =>
+        ClockPolicy clocks) =>
         from measured in Measured(intent)
         from bytes in Bounded(measured, spec)
         from allotted in Budgeted(spec)
@@ -123,9 +113,12 @@ public sealed record AdmittedIntent {
             forced,
             Derived(intent),
             bytes,
-            clock.GetCurrentInstant() + allotted,
+            clocks.Clock.GetCurrentInstant() + allotted,
             correlation,
-            parent.Derive(nameof(AdmittedIntent), time, Some(allotted)));
+            // Scope binds the deadline ROW — that abandonment ceiling is what the token expires on — while
+            // `DeadlineAt` carries the effective allotment `Budgeted` already clamped to it: one budget, two
+            // expressions, and no child re-arms past the parent ceiling that clamp forecloses.
+            parent.Derive(Segment, clocks, Some(spec.Deadline)));
 
     // ONE key-decode rail for every posture vocabulary the spine crosses as text: the generated owners each
     // publish the static-abstract `IObjectFactory<T, string, ValidationError>.Validate`, so a fourth posture
@@ -136,13 +129,16 @@ public sealed record AdmittedIntent {
         where T : IObjectFactory<T, string, ValidationError> =>
         T.Validate(key, provider: null, out T? row) is null && row is { } admitted
             ? Fin.Succ(admitted)
-            : Fin.Fail<T>(new ComputeFault.Text($"<spec-key-unrostered:{axis}:{key}>"));
+            : Fin.Fail<T>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Contract(ComputeContract.Rostered, new ContractEvidence.Keys(axis, key))));
 
+    // Overrides never widen the deadline row they ride under: allotments inherit through nested seams as the
+    // MINIMUM (`docs/stacks/csharp/domain/resilience.md` `[04]-[HOP_TOPOLOGY]`), so a longer budget clamps here
+    // rather than expiring after the cancel token this same admission derives.
     private static Fin<Duration> Budgeted(Spec spec) =>
         spec.Budget.Match(
-            Some: static budget => budget.Allotted <= Duration.Zero || string.IsNullOrWhiteSpace(budget.Provenance)
-                ? Fin.Fail<Duration>(new ComputeFault.Text($"<budget-invalid:{budget.Provenance}:{budget.Allotted}>"))
-                : Fin.Succ(budget.Allotted),
+            Some: budget => budget.Allotted <= Duration.Zero || string.IsNullOrWhiteSpace(budget.Provenance)
+                ? Fin.Fail<Duration>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.DurationValue(budget.Allotted))))
+                : Fin.Succ(budget.Allotted < spec.Deadline.Allotted ? budget.Allotted : spec.Deadline.Allotted),
             None: () => Fin.Succ(spec.Deadline.Allotted));
 
     // A projected stage inherits the RESOLVED rows rather than re-decoding the parent's keys: the parent's
@@ -175,25 +171,33 @@ public sealed record AdmittedIntent {
             // Broker decode consumed the body, so no byte figure survives to cap here; element count carries
             // sample width — operating-point dimensions beside one measurement — which is what an element cap
             // bounds when a mis-shaped publisher floods the capture lane.
-            sensorAdmit: static op => Fin.Succ((0L, (long)op.Envelope.Data.OperatingPoint.Length + 1L)),
+            sensorAdmit: static op => Fin.Succ((0L, (long)op.Reading.Data.OperatingPoint.Length + 1L)),
             pipeline: static line => line.Stages.IsEmpty
                 ? Fin.Fail<(long, long)>(new ComputeFault.PayloadOverBounds("<pipeline-empty>"))
                 : line.Stages.TraverseM(static child => Measured(child)).As().Bind(Summed));
 
+    // Axis legality and product overflow are two failures with two recoveries: every axis reports independently
+    // through the same applicative the caps ride, so a rank-3 shape with two bad axes names both, and `Op.Catch`
+    // narrows to the `checked` trap alone — the arithmetic guard it is the only rung for.
     private static Fin<(long Bytes, long Elements)> Shaped(int bytes, ImmutableArray<nint> shape) =>
-        Try.lift(() => (
+        toSeq(shape).Traverse(Axis).As().ToFin().Bind(axes => Counted(bytes, axes));
+
+    private static K<Validation<Error>, long> Axis(nint dimension) =>
+        dimension > 0
+            ? Fin.Succ((long)dimension).ToValidation()
+            : Fin.Fail<long>(new ComputeFault.PayloadOverBounds($"<shape-axis-non-positive:{dimension}>")).ToValidation();
+
+    private static Fin<(long Bytes, long Elements)> Counted(int bytes, Seq<long> axes) =>
+        Op.Of(name: "admission.shape-product").Catch(() => Fin.Succ((
             Bytes: (long)bytes,
-            Elements: shape.Aggregate(1L, static (product, dimension) =>
-                dimension > 0
-                    ? checked(product * (long)dimension)
-                    : throw new InvalidDataException($"non-positive:{dimension}")))).Run()
-            .MapFail(static error => new ComputeFault.PayloadOverBounds($"<shape-rejected:{error.Message}>"));
+            Elements: axes.Fold(1L, static (product, dimension) => checked(product * dimension)))))
+            .MapFail(static _ => new ComputeFault.PayloadOverBounds("<shape-overflow>"));
 
     private static Fin<(long Bytes, long Elements)> Summed(Seq<(long Bytes, long Elements)> measured) =>
-        Try.lift(() => measured.Fold(
+        Op.Of(name: "admission.pipeline-sum").Catch(() => Fin.Succ(measured.Fold(
             (Bytes: 0L, Elements: 0L),
-            static (sum, next) => (checked(sum.Bytes + next.Bytes), checked(sum.Elements + next.Elements)))).Run()
-            .MapFail(static error => new ComputeFault.PayloadOverBounds($"<pipeline-overflow:{error.Message}>"));
+            static (sum, next) => (checked(sum.Bytes + next.Bytes), checked(sum.Elements + next.Elements)))))
+            .MapFail(static _ => new ComputeFault.PayloadOverBounds("<pipeline-overflow>"));
 
     private static UInt128 Derived(ComputeIntent intent) =>
         intent.Switch(
@@ -211,10 +215,10 @@ public sealed record AdmittedIntent {
             // operating-point vector beside the measurement — so a broker replay carries the digest its first
             // delivery carried and the job graph's content-keyed cone re-scores nothing.
             sensorAdmit: static op => Seeded(
-                $"{op.Envelope.Data.SignalId}@{op.Envelope.Data.At}",
+                $"{op.Reading.Data.SignalId}@{op.Reading.Data.At}",
                 MemoryMarshal.AsBytes<double>([
-                    .. op.Envelope.Data.OperatingPoint.Select(CanonicalForm.Scalar),
-                    CanonicalForm.Scalar(op.Envelope.Data.Measured)])),
+                    .. op.Reading.Data.OperatingPoint.Select(CanonicalForm.Scalar),
+                    CanonicalForm.Scalar(op.Reading.Data.Measured)])),
             pipeline: static line => Combined(line.Stages.Map(Derived)));
 
     private static UInt128 Seeded(string operation, ReadOnlySpan<byte> payload) =>
@@ -242,12 +246,12 @@ public sealed record AdmittedIntent {
 - Owner: `Substrate` `[SmartEnum<string>]` rows under the `ComparerAccessors.StringOrdinal` accessor, each carrying the capability-need, browser-exclusion, provider-gate, rank, sheddable, and payload-cap columns its one derived `Veto` folds; `SelectionContext` resolved selection inputs; `BenchmarkRank` boot-frozen rank projection.
 - Cases: cpu-tensor, device-wgpu (GPGPU compute-shader dispatch over the shared `ONE_WGPU_DEVICE`, ordered before `cpu-tensor` in the tensor-op eligible chain), onnx (one EP-parameterized row — EP variance is model-lane row data, never substrate-row twins), genai (token-streaming over the model-lane GenAI session), remote-grpc.
 - Entry: `public Option<string> Veto(SelectionContext context)` — `Option<T>` carries the rejection reason, `None` admits; one derived body folds the browser-exclusion, capability-need, and provider-gate columns so the five rows share one veto and onnx/device/genai availability is the one `!Providers.Contains(Key)` shape, never five parallel delegates.
-- Auto: `EffectiveRank` reads the boot-frozen `BenchmarkRank` projection, falling through to the static cost rank on a host-fingerprint mismatch; `SelectionContext.Providers` arrives boot-frozen from the host probe — the ORT probe contributes `onnx` when the runtime reports an execution provider, the device boot `device-wgpu`, the GenAI dylib probe `genai`; warm-start affinity reorders the eligible chain so a cold companion routes to the node holding the matching EP-context blob, one column picking host-vs-companion-vs-farm exactly as it picks cpu-vs-onnx, never an `if (warm)` branch; `LoadRank` is the third tie-break key (rank -> warm-affinity -> load), reading per-node load from the AppHost `PeerRoster` health so the least-loaded of rank-equal-and-warm nodes wins; `Forecast` is the duration-forecast column the composition root binds to the one query owner, `Runtime/receipts#BENCHMARK_CLAIMS` `HostClaims.Forecast(index, claims, row, admitted.PayloadBytes)` — band by `BenchmarkClaim.BandOf`, substrate by row key, fingerprint and recency closed inside `ModelResultIndex.Claim` — so `DeadlineVeto` answers "can this finish inside its allotment" before dispatch and an unmeetable local row degrades down the same chain every other veto rides.
+- Auto: `EffectiveRank` reads the boot-frozen `BenchmarkRank` projection, falling through to the static cost rank on a host-fingerprint mismatch; `SelectionContext.Providers` arrives boot-frozen from the host probe — the ORT probe contributes `onnx` when the runtime reports an execution provider, the device boot `device-wgpu`, the GenAI dylib probe `genai`; warm-start affinity reorders the eligible chain so a cold companion routes to the node holding the matching EP-context blob, one column picking host-vs-companion-vs-farm exactly as it picks cpu-vs-onnx, never an `if (warm)` branch; `LoadRank` is the third tie-break key (rank -> warm-affinity -> load), reading per-node load from the AppHost `PeerRoster` health so the least-loaded of rank-equal-and-warm nodes wins; `Forecast` is the duration-forecast column the composition root binds to the one query owner, `Runtime/claims#CLAIM_ROW` `HostClaims.Forecast(index, claims, row, admitted.PayloadBytes)` — band by `BenchmarkClaim.BandOf`, substrate by row key, fingerprint and recency closed inside `ModelResultIndex.Claim` — so `DeadlineVeto` answers "can this finish inside its allotment" before dispatch and an unmeetable local row degrades down the same chain every other veto rides.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Microsoft.ML.OnnxRuntime, BCL inbox
 - Growth: one substrate row — key, capability need, browser exclusion, provider gate, rank, payload cap, sheddable flag — absorbs a new execution substrate; `device-wgpu` is exactly that one row (ordered before `cpu-tensor` in the tensor-op chain, sheddable, provider-gated on its `Providers` key), so the device thrust spawns no parallel device-state machine and no second `SelectionReceipt` — admission, dispatch, and receipt read device-ness from the same `OrtResidency.DeviceResident` discriminant the CPU path uses; warm-start affinity and `LoadRank` are columns the fold already reads, so farm load-and-offload needs no `FarmRouter`; zero new surface.
 - Boundary: wasm is a platform predicate column — `OperatingSystem.IsBrowser` excludes the onnx and device-wgpu rows while cpu-tensor and remote-grpc admit it, so a wasm substrate row never arises; the boot-frozen `Providers` set carries the available keys (`onnx` iff the ORT runtime reports an execution provider, `device-wgpu` iff the shared `ONE_WGPU_DEVICE` adapter resolves, `genai` iff the GenAI dylib loads), so those rows share the one `!Providers.Contains(Key)` gate and a differently-shaped set read never arises; each provider-gated row vetoes itself when its key is absent and a second health probe beside that gate is the named defect, so a device-unavailable tensor intent degrades to the CPU GEMM and a genai-unavailable token stream degrades remote — both through the same ordered `Chain` fold, the tensor chain ordering `device-wgpu` before `cpu-tensor` and the generate chain ordering `genai` before `remote-grpc` and never `cpu-tensor`, keeping the degrade total.
-- Boundary: `SubstrateSelection` consumes the one per-`WorkLane` `ShedVerdict` the AppHost `LaneGuard` mints from the atomic `DegradationReading` (the `Runtime/admission ← csharp:Rasm.AppHost` `ONE_DEGRADATION_SHED_VERDICT` seam) — resolved once by the governor for the admitted `Spec.Lane` and carried on `SelectionContext.Shed` exactly as `DegradationLevel` rides `SelectionContext.Level`, so the seam couples to the `ShedVerdict(WorkLane, DegradationLevel, bool Shed, CircuitState Breaker)` shape and the interior reads `Shed`/`Lane`/`Level`, never the `DegradationCell` it derives from (governor interior stays AppHost-side); `Sheddable` marks the local-compute rows (cpu-tensor, device-wgpu), and `SelectionContext.ShedVeto` folds the lane-shed-AND-sheddable veto into the same `Routed` composition the `Veto`/`VetoPayload` rejections ride, carrying lane and level into the hop reason (`shed:{Lane}:{Level}`) as receipt evidence, so a shed lane degrades a sheddable device op to `remote-grpc` or, when no row admits, reuses `SubstrateUnavailable` with the full hop trail — a device-only backpressure path, a whole-op short-circuit that discards the chain evidence, a bare-`bool` projection that drops the lane/level facts, and a Compute-side re-derivation of the shed all reject, the verdict minted once at the governor and consumed here as a column, never an `if (shed)` ladder.
-- Boundary: the same device descriptor gates the ONNX Runtime Mac execution-provider residency so a model-lane device tensor and a tensor-lane device kernel resolve one allocator on one physical device; substrate predicates read the retained `Capability` set so remote health rides the AppHost degradation fold — Rhino-absent folds to `DegradationLevel.LocalOnly` and the remote row vetoes through `Capability.RemoteCompute`; the remote payload cap composes `GrpcChannelPolicy.Canonical.MaxSendBytes`, never a re-declared literal; warm-start affinity reorders only within the rank-equal tier (a tie-breaker, never a rank override) and `LoadRank` breaks ties only beneath affinity.
+- Boundary: `SubstrateSelection` consumes the one per-`WorkLane` `Admission` the AppHost `LaneGuard` mints from the atomic `DegradationReading` (the `Runtime/admission ← csharp:Rasm.AppHost` `ONE_DEGRADATION_SHED_VERDICT` seam) — resolved once by the governor for the admitted `Spec.Lane` and carried on `SelectionContext.Shed` exactly as `DegradationLevel` rides `SelectionContext.Level`, so the seam couples to the `Admission` = `AdmittedCase(LaneReading)` | `ShedCase(LaneReading, ShedCause)` union and the interior switches on the case and reads `Reading.Lane`/`Reading.Level`, never the `DegradationCell` it derives from (governor interior stays AppHost-side); `Sheddable` marks the local-compute rows (cpu-tensor, device-wgpu), and `SelectionContext.ShedVeto` folds the lane-shed-AND-sheddable veto into the same `Routed` composition the `Veto`/`VetoPayload` rejections ride, carrying lane, level, and the refusal's own `ShedCause` into the hop reason (`shed:{Lane}:{Level}:{Cause}`) as receipt evidence, so a shed lane degrades a sheddable device op to `remote-grpc` or, when no row admits, reuses `SubstrateUnavailable` with the full hop trail — a device-only backpressure path, a whole-op short-circuit that discards the chain evidence, a bare-`bool` projection that drops the lane/level facts, and a Compute-side re-derivation of the shed all reject, the verdict minted once at the governor and consumed here as a column, never an `if (shed)` ladder.
+- Boundary: the same device descriptor gates the ONNX Runtime Mac execution-provider residency so a model-lane device tensor and a tensor-lane device kernel resolve one allocator on one physical device; substrate predicates read the retained `Faculty` set so remote health rides the AppHost degradation fold — Rhino-absent folds to `DegradationLevel.LocalOnly` and the remote row vetoes through `Faculty.RemoteCompute`; the remote payload cap composes `GrpcChannelPolicy.Canonical.MaxSendBytes`, never a re-declared literal; warm-start affinity reorders only within the rank-equal tier (a tie-breaker, never a rank override) and `LoadRank` breaks ties only beneath affinity.
 - Boundary: the spine's `Spec` crosses its allocation, cache, and substrate posture as smart-enum KEYS because those three rosters are this package's, so `AdmittedIntent.Admit` is the one seat that decodes them — `Substrate.Admit` lifts the generated `TryGet` onto `Fin<Substrate>` for the forced selector and the one `Keyed<T>` rail lifts the static-abstract `IObjectFactory<T, string, ValidationError>.Validate` for the other two — and the resolved rows ride the admitted intent, so a reader taking `Spec.Allocation`/`Spec.Cache`/`Spec.Forced` as a typed value is the deleted form that re-decodes a key admission already refused.
 
 ```csharp signature
@@ -258,7 +262,7 @@ public sealed record BenchmarkRank(string HostFingerprint, HashMap<string, int> 
 
 public sealed record SelectionContext(
     DegradationLevel Level,
-    ShedVerdict Shed,
+    Admission Shed,
     FrozenSet<string> Providers,
     string Fingerprint,
     Option<BenchmarkRank> Ranks,
@@ -274,7 +278,9 @@ public sealed record SelectionContext(
         Loads.TryGetValue(row.Key, out double load) && double.IsFinite(load) && load >= 0d ? load : double.PositiveInfinity;
 
     public Option<string> ShedVeto(Substrate row) =>
-        Shed.Shed && row.Sheddable ? Some($"shed:{Shed.Lane}:{Shed.Level.Key}") : None;
+        Shed is Admission.ShedCase refused && row.Sheddable
+            ? Some($"shed:{refused.Reading.Lane}:{refused.Reading.Level.Key}:{refused.Cause.Key}")
+            : None;
 
     public Option<string> DeadlineVeto(Substrate row, AdmittedIntent admitted) {
         Duration remaining = admitted.DeadlineAt - Clock.GetCurrentInstant();
@@ -289,15 +295,13 @@ public sealed record SelectionContext(
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Substrate {
-    public static readonly Substrate CpuTensor = new("cpu-tensor", needs: Capability.LocalCompute, browserExcluded: false, providerGated: false, rank: 0, payloadCapBytes: null, sheddable: true);
-    public static readonly Substrate DeviceWgpu = new("device-wgpu", needs: Capability.LocalCompute, browserExcluded: true, providerGated: true, rank: 0, payloadCapBytes: null, sheddable: true);
-    public static readonly Substrate Onnx = new("onnx", needs: Capability.LocalCompute, browserExcluded: true, providerGated: true, rank: 1, payloadCapBytes: null, sheddable: false);
-    public static readonly Substrate GenAi = new("genai", needs: Capability.LocalCompute, browserExcluded: true, providerGated: true, rank: 1, payloadCapBytes: null, sheddable: false);
-    public static readonly Substrate RemoteGrpc = new("remote-grpc", needs: Capability.RemoteCompute, browserExcluded: false, providerGated: false, rank: 2, payloadCapBytes: GrpcChannelPolicy.Canonical.MaxSendBytes, sheddable: false);
+    public static readonly Substrate CpuTensor = new("cpu-tensor", needs: Faculty.LocalCompute, browserExcluded: false, providerGated: false, rank: 0, payloadCap: None, sheddable: true);
+    public static readonly Substrate DeviceWgpu = new("device-wgpu", needs: Faculty.LocalCompute, browserExcluded: true, providerGated: true, rank: 0, payloadCap: None, sheddable: true);
+    public static readonly Substrate Onnx = new("onnx", needs: Faculty.LocalCompute, browserExcluded: true, providerGated: true, rank: 1, payloadCap: None, sheddable: false);
+    public static readonly Substrate GenAi = new("genai", needs: Faculty.LocalCompute, browserExcluded: true, providerGated: true, rank: 1, payloadCap: None, sheddable: false);
+    public static readonly Substrate RemoteGrpc = new("remote-grpc", needs: Faculty.RemoteCompute, browserExcluded: false, providerGated: false, rank: 2, payloadCap: Some((long)GrpcChannelPolicy.Canonical.MaxSendBytes), sheddable: false);
 
-    private readonly long? payloadCapBytes;
-
-    public Capability Needs { get; }
+    public Faculty Needs { get; }
 
     public bool BrowserExcluded { get; }
 
@@ -307,7 +311,9 @@ public sealed partial class Substrate {
 
     public bool Sheddable { get; }
 
-    public Option<long> PayloadCap => Optional(payloadCapBytes);
+    // Absence never has a null spelling, not even privately: the row DECLARES the uncapped case, so no reader
+    // downstream of the roster can meet a sentinel this axis never issued.
+    public Option<long> PayloadCap { get; }
 
     public static Fin<Substrate> Admit(string key) =>
         TryGet(key, out Substrate? row) && row is { } admitted
@@ -316,7 +322,7 @@ public sealed partial class Substrate {
 
     public Option<string> Veto(SelectionContext context) =>
         BrowserExcluded && OperatingSystem.IsBrowser() ? Some(nameof(OperatingSystem.IsBrowser))
-        : !context.Level.Permits(Needs) ? Some(Needs.Key)
+        : !context.Level.Retains.Admits(Needs) ? Some(Needs.Key)
         : ProviderGated && !context.Providers.Contains(Key) ? Some(Key)
         : None;
 
@@ -327,45 +333,232 @@ public sealed partial class Substrate {
 
 ## [04]-[DISPATCH_SPINE]
 
-- Owner: `ComputeFault` fault family on the doctrine `Expected` shape with the dual-tier `Create` contract in the 2200 code band beside LifecycleFault 1200 and HopFault 4500; `SelectionHop` and `SelectionReceipt` evidence records; `SubstrateSelection` ordered-predicate fold; `DispatchTable` total row dispatch.
-- Cases: Text with the twelve domain cases SubstrateUnavailable | PayloadOverBounds | DeadlineExpired | Cancelled | ShutdownDrained | ModelRejected | ExtensionAssetMissing | EndpointUnreachable | RetryOwnerConflict | AllocationOverClass | EquivalenceMiss | CacheCorrupt — this owner declares the 2200..2212 core; discipline pages extend the SAME band as partial `ComputeFault` records on this owner, never a parallel fault union.
-- Law: 2200..2212 core (here); 2213..2216 Symbolic lane (`Symbolic/expression` `SymbolicFault` ParseRejected/SymbolUndefined/NonDifferentiable 2213..2215 + `Symbolic/dimensional` DimensionMismatch 2216); 2217..2219 analysis lane (`Analysis/assessment` AssessmentInputMissing/ToolchainUnresolved/AnalysisFailed); 2220..2225 scheduling lane (`Runtime/scheduling` GraphCyclic/GraphRejected/GraphStalled/CheckpointRejected/LaneSaturated/LaneUnprofiled); next-free 2226. `Runtime/wire#FAULT_PROJECTION` mirrors every band row.
-- Law: an arm declares in the fence of the lane whose fold RAISES it, never on this owner because this owner mints the family — `Expected` equality is by code alone, so an arm seated on a foreign lane's contiguous block makes one code answer two recoveries and the wire packs it under the wrong lane name.
-- Law: the Remote `WireFault` 4520..4532 wire sub-band (`Runtime/wire#FAULT_PROJECTION`) is Compute's SECOND custody — distinct from this 2200 band and from the AppHost `HopFault` 4500 hop band — recorded here beside the primary map and pinned reciprocally in the sibling registries.
-- Law: HDF5 archive refusals mint NO band arm — every `Runtime/codecs#HDF_ARCHIVE` fault rides an existing case (`ModelRejected` the open/dtype/order refusals, `PayloadOverBounds` the exchange reads and writes) wearing the `<hdf5-…:payload>` slug grammar, so the archive integration grew the band frontier by zero and a raw library message dressed as a Compute verdict stays the named defect.
-- Foreign neighborhoods (PINNED mirror rows — a foreign band change is a row edit on both ends, never prose): AppHost 1xxx lifecycle + 4100..4810 wire/coordination (its `CoordinationFault` re-banded to 4540 around Compute's 4520..4532); AppUi 6xxx; Persistence 5xxx / 771x / 82xx..83xx; the AEC 23xx..27xx registry. A sibling registry reserves Compute's two custodies as DECADE-WHOLE spans — 2200..2299 and the 4520..4532 wire sub-band — so cross-package disjointness is checkable from both ends while the live sub-band frontier inside the decade stays this page's alone and an appended arm moves no sibling row.
+- Owner: `ComputeFault` is the partial direct family on `FaultBand.Core`; every leaf declares one `[FaultCase]` ordinal. `AssessmentInputReason`, `SelectionHop`, `SelectionReceipt`, `SubstrateSelection`, and `DispatchTable` retain their existing ownership.
+- Cases: `Violation` replaces the generic text/shape/range/capacity family with typed evidence; the remaining runtime, symbolic, analysis, scheduling, model, ingest, and tensor leaves extend the same partial family at their raising fence.
+- Law: the generated numeric `Code` is the sole case identity. No category roster, mirrored band map, string case key, or offset arithmetic exists, and `Runtime/wire#FAULT_PROJECTION` transports that numeric identity directly.
+- Law: `FaultBand.Core` is 2200/30 and offsets 0..29 are contiguous; widening the family requires widening the kernel band first.
+- Law: HDF5 shape and capacity refusals use `Violation` or `PayloadOverBounds`; PureHDF throws retain their original `Error`.
+- Law: intent-specific eligibility owns fallback MEMBERSHIP and row policy owns ORDERING inside that closed set — the unit, symbolic, and decoded-sensor cases ride the local chain alone because shipping one measurement to a farm costs more than the fold it asks for, while the tensor, model, and generate chains open on their accelerated row and close on `remote-grpc`.
+- Law: the 2216 `AssessmentInputMissing` arm carries an `AssessmentInputReason` row beside its witness detail — a caller recovers on the reason and the detail carries only the ply, route, sensor, or share the reason names, so the twenty-six free-form stems the analysis lane once spelled stop being a grammar a consumer parses.
+- Law: `FaultBand.Items` is the one band authority; Compute declares no mirror.
 - Entry: `public static Fin<Seq<SelectionReceipt>> Plan(AdmittedIntent admitted, SelectionContext context)` — `Fin<T>` aborts; the pipeline case folds its stages sequentially with short-circuit and the stage receipts share the parent correlation and digest.
-- Auto: every selection walk materializes one `SelectionReceipt` — evaluated rows, rejection reasons, fallback hops, forced bypass, warm-affinity influence, final route — and the receipts page carries it to the sink as the Selection case of the package receipt union, so a farm hop proves itself on the same receipt rail every other hop rides; the composition root threads the `Runtime/receipts#HOOK_POINTS` `ComputeHookRail` around this spine — `Planned` runs the `rasm.compute.runtime.admit` veto fold over the `AdmittedIntent` before `Plan` so an app-composed policy gate transforms or refuses on the emitter's own rail, and `Ran` fires the `rasm.compute.runtime.dispatch` observe tap with the `SelectionReceipt` before `DispatchTable.Run` — domain code fires evidence, subscribers attach at composition, and a subscriber fault lands on the AppHost hook fault band, never on this spine.
+- Auto: every selection walk materializes one `SelectionReceipt` — evaluated rows, rejection reasons, fallback hops, forced bypass, warm-affinity influence, final route — and the receipts page carries it to the sink as the Selection case of the package receipt union, so a farm hop proves itself on the same receipt rail every other hop rides; the composition root threads the `Runtime/board#HOOK_POINTS` `ComputeHookRail` around this spine — `Planned` runs the `rasm.compute.runtime.admit` veto fold over the `AdmittedIntent` before `Plan` so an app-composed policy gate transforms or refuses on the emitter's own rail, and `Ran` fires the `rasm.compute.runtime.dispatch` observe tap with the `SelectionReceipt` before `DispatchTable.Run` — domain code fires evidence, subscribers attach at composition, and a subscriber fault lands on the AppHost hook fault band, never on this spine.
 - Receipt: `SelectionReceipt` — correlation, digest, route, hop evidence, forced `Option`, warm-affinity flag, `Instant` stamp.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: one fault case breaks every total Switch at compile time; one new substrate row costs one delegate field on `DispatchTable` and the generated row Switch breaks until it exists; zero new surface.
-- Boundary: every fault case projects through the remote-lane FaultDetail wire family at the server edge, never a bare status-code-plus-string terminal; cancellation classifies in one conversion arm from `CancelScope` provenance and the deadline instant so user cancel, deadline expiry, and shutdown drain stay distinct, drain-derived scopes carrying `RuntimePhase.Draining.Key` as a provenance segment; a detected second retry owner raises RetryOwnerConflict toward the Conflict receipt — the AppHost keyed Polly hop owns retry, stacking never occurs here; forced substrate replaces the ordered preference chain but still rides every capability, shed, payload, and deadline veto, so policy cannot bypass safety; dispatch delegates bind at composition through `DispatchTable` because execution capsules carry runtime state no static row column owns; substrate ranking chooses the execution family only — `Runtime/transport#TRANSPORT_AXIS` owns endpoint selection inside `remote-grpc`, and substrate-keyed load or affinity never claims node-level farm routing.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project), BCL inbox
+- Growth: one fault arm costs one typed leaf and one justified `[FaultCase]` ordinal after the band has capacity; one new substrate row costs one delegate field on `DispatchTable` and the generated row Switch breaks until it exists.
+- Boundary: every fault case projects through the remote-lane FaultDetail wire family at the server edge, never a bare status-code-plus-string terminal; cancellation classifies in one conversion arm from `CancelScope` provenance and the deadline instant so user cancel, deadline expiry, and shutdown drain stay distinct, drain-derived scopes carrying `RuntimePhase.Draining.Key` as a provenance segment; a detected second retry owner raises RetryOwnerConflict toward the Conflict receipt — the AppHost keyed Polly hop owns retry, stacking never occurs here; forced substrate replaces the ordered preference chain but still rides every capability, shed, payload, and deadline veto, so policy cannot bypass safety; dispatch delegates bind at composition through `DispatchTable` because execution capsules carry runtime state no static row column owns; substrate ranking chooses the execution family only — `Runtime/channels#TRANSPORT_AXIS` owns endpoint selection inside `remote-grpc`, and substrate-keyed load or affinity never claims node-level farm routing.
 
 ```csharp signature
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ComputeFault : Expected, IValidationError<ComputeFault> {
-    private ComputeFault(string detail, int code) : base(detail, code, None) { }
+// The folder's ONE boolean-refusal guard onto the accumulating rail, seated beside the family it mints from —
+// three Solver pages each declared an internal copy and a fourth consumer would have made a fourth.
+public static class Refusal {
+    public static Validation<Error, Unit> Unless(bool holds, ComputeArea area, ComputeViolation evidence) =>
+        holds ? Success<Error, Unit>(unit) : Fail<Error, Unit>(new ComputeFault.Violation(area, evidence));
+}
 
-    public static ComputeFault Create(string message) => new Text(message);
+// Named admission sites retain only the bounded contract they publish. A generated string-key roster here would
+// be inert: the key crosses neither the fault identity nor its evidence and therefore carries no domain fact.
+public readonly record struct ContractRefusal(ComputeArea Area, ComputeContract Contract) {
+    public ComputeFault Fault() =>
+        new ComputeFault.Violation(Area, new ComputeViolation.Contract(Contract, new ContractEvidence.None()));
+
+    public Fin<T> Fault<T>() => Fin.Fail<T>(Fault());
+}
+
+// The closed witness vocabulary the 2216 arm carries: an under-specified analysis input is a ROW, so a caller
+// recovers on the reason and the detail carries only the witness (the ply, the route, the sensor) that reason
+// names. A free-form slug read back by prefix is the deleted form — 28 raise sites spelled 26 stems no reader
+// could match without string surgery.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class AssessmentInputReason {
+    // --- [COMPOSITION] — `Analysis/aggregator` folds
+    public static readonly AssessmentInputReason SiteAbsent           = new("site-absent");
+    public static readonly AssessmentInputReason DesignDaysEmpty      = new("design-days-empty");
+    public static readonly AssessmentInputReason MemberInputAbsent    = new("member-input-absent");
+    public static readonly AssessmentInputReason MemberClassUnhandled = new("member-class-unhandled");
+    public static readonly AssessmentInputReason CompositionShape     = new("composition-shape");
+    public static readonly AssessmentInputReason CompositionEmpty     = new("composition-empty");
+    public static readonly AssessmentInputReason PlyPropertyAbsent    = new("ply-property-absent");
+    public static readonly AssessmentInputReason DeclaredUnitBasis    = new("declared-unit-basis");
+    public static readonly AssessmentInputReason CurrencyMismatch     = new("currency-mismatch");
+    public static readonly AssessmentInputReason WindowFieldAbsent    = new("window-field-absent");
+    public static readonly AssessmentInputReason WindowZeroArea       = new("window-zero-area");
+    // --- [ASSESSMENT] — `Analysis/assessment` ingress and cache
+    public static readonly AssessmentInputReason RouteUnrouted        = new("route-unrouted");
+    public static readonly AssessmentInputReason SinkUnbound          = new("sink-unbound");
+    public static readonly AssessmentInputReason TargetsEmpty         = new("targets-empty");
+    public static readonly AssessmentInputReason CacheRatioAbsent     = new("cache-ratio-absent");
+    // --- [COMMISSIONING] — `Analysis/assessment` measured-versus-predicted gates
+    public static readonly AssessmentInputReason WindowUnbounded      = new("window-unbounded");
+    public static readonly AssessmentInputReason AssessmentUnusable   = new("assessment-unusable");
+    public static readonly AssessmentInputReason MeasureAbsent        = new("measure-absent");
+    public static readonly AssessmentInputReason SeriesAbsent         = new("series-absent");
+    public static readonly AssessmentInputReason QuantityDisagreement = new("quantity-disagreement");
+    public static readonly AssessmentInputReason CoverageUnanswerable = new("coverage-unanswerable");
+    public static readonly AssessmentInputReason UnderCovered         = new("under-covered");
+}
+
+// The typed fault IS the `Error` and lifts bare onto `Fin<T>`/`Validation<Error,T>`.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ComputeArea {
+    public static readonly ComputeArea Analysis = new("analysis");
+    public static readonly ComputeArea Model = new("model");
+    public static readonly ComputeArea Runtime = new("runtime");
+    public static readonly ComputeArea Solver = new("solver");
+    public static readonly ComputeArea Stats = new("stats");
+    public static readonly ComputeArea Symbolic = new("symbolic");
+    public static readonly ComputeArea Tensor = new("tensor");
+}
+
+[SmartEnum<string>]
+public sealed partial class ComputeSubject {
+    public static readonly ComputeSubject Input = new("input");
+    public static readonly ComputeSubject Payload = new("payload");
+    public static readonly ComputeSubject Value = new("value");
+    public static readonly ComputeSubject Resource = new("resource");
+}
+
+[SmartEnum<string>]
+public sealed partial class ShapeRequirement {
+    public static readonly ShapeRequirement Arity = new("arity");
+    public static readonly ShapeRequirement Dimensions = new("dimensions");
+    public static readonly ShapeRequirement Schema = new("schema");
+}
+
+[SmartEnum<string>]
+public sealed partial class RangeRequirement {
+    public static readonly RangeRequirement Positive = new("positive");
+    public static readonly RangeRequirement WithinBounds = new("within-bounds");
+}
+
+[SmartEnum<string>]
+public sealed partial class CapacityRequirement {
+    public static readonly CapacityRequirement NonEmpty = new("non-empty");
+    public static readonly CapacityRequirement Sufficient = new("sufficient");
+    public static readonly CapacityRequirement WithinLimit = new("within-limit");
+}
+
+[SmartEnum<string>]
+public sealed partial class ComputeCapability {
+    public static readonly ComputeCapability Dataset = new("dataset");
+    public static readonly ComputeCapability ElasticMaterial = new("elastic-material");
+    public static readonly ComputeCapability EigenSystem = new("eigen-system");
+    public static readonly ComputeCapability Factorization = new("factorization");
+    public static readonly ComputeCapability Group = new("group");
+    public static readonly ComputeCapability IterativeSolver = new("iterative-solver");
+    public static readonly ComputeCapability MilpSolver = new("milp-solver");
+    public static readonly ComputeCapability NeuralField = new("neural-field");
+    public static readonly ComputeCapability ScalarMaterial = new("scalar-material");
+    public static readonly ComputeCapability SelectorClosure = new("selector-closure");
+    public static readonly ComputeCapability SparseTensor = new("sparse-tensor");
+}
+
+[SmartEnum<string>]
+public sealed partial class ComputeContract {
+    public static readonly ComputeContract Compatible = new("compatible");
+    public static readonly ComputeContract Complete = new("complete");
+    public static readonly ComputeContract Consistent = new("consistent");
+    public static readonly ComputeContract Converged = new("converged");
+    public static readonly ComputeContract Feasible = new("feasible");
+    public static readonly ComputeContract Initialized = new("initialized");
+    public static readonly ComputeContract Reachable = new("reachable");
+    public static readonly ComputeContract Rostered = new("rostered");
+    public static readonly ComputeContract Supported = new("supported");
+    public static readonly ComputeContract Unique = new("unique");
+    public static readonly ComputeContract Valid = new("valid");
+    public static readonly ComputeContract Witnessed = new("witnessed");
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ShapeEvidence {
+    private ShapeEvidence() { }
+    public sealed record Count(long Observed, long Required) : ShapeEvidence;
+    public sealed record Counts(long First, long Second, long Required) : ShapeEvidence;
+    public sealed record Rank(long Observed, long Required) : ShapeEvidence;
+    public sealed record Alignment(long Size, long Multiple) : ShapeEvidence;
+    public sealed record Key(string Observed) : ShapeEvidence;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ScalarEvidence {
+    private ScalarEvidence() { }
+    public sealed record Value(double Observed) : ScalarEvidence;
+    public sealed record Sequence(long Count) : ScalarEvidence;
+    public sealed record DurationValue(Duration Observed) : ScalarEvidence;
+    public sealed record Interval(double Observed, double Minimum, double Maximum) : ScalarEvidence;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record CapacityEvidence {
+    private CapacityEvidence() { }
+    public sealed record Count(long Observed, long Limit) : CapacityEvidence;
+    public sealed record Extent(long Offset, long Count, long Limit) : CapacityEvidence;
+    public sealed record Scalar(double Observed, double Limit) : CapacityEvidence;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record GraphWitness {
+    private GraphWitness() { }
+    public sealed record Node(long Value) : GraphWitness;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ContractEvidence {
+    private ContractEvidence() { }
+    public sealed record None() : ContractEvidence;
+    public sealed record Count(long Observed, long Required) : ContractEvidence;
+    public sealed record Counts(long First, long Second, long Third) : ContractEvidence;
+    public sealed record Index(long Observed, long Limit) : ContractEvidence;
+    public sealed record Scalar(double Observed) : ContractEvidence;
+    public sealed record Scalars(double First, double Second, double Third) : ContractEvidence;
+    public sealed record Key(string Observed) : ContractEvidence;
+    public sealed record Keys(string First, string Second) : ContractEvidence;
+    public sealed record Type(Type Observed) : ContractEvidence;
+    public sealed record Digest(UInt128 Observed) : ContractEvidence;
+    public sealed record Status(int Observed) : ContractEvidence;
+    public sealed record Extent(ImmutableArray<long> Observed) : ContractEvidence;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ComputeViolation {
+    private ComputeViolation() { }
+    public sealed partial record Required(ComputeSubject Subject) : ComputeViolation;
+    public sealed partial record Shape(ShapeRequirement Requirement, ShapeEvidence Evidence) : ComputeViolation;
+    public sealed partial record NonFinite(ComputeSubject Subject, ScalarEvidence Evidence) : ComputeViolation;
+    public sealed partial record Range(RangeRequirement Requirement, ScalarEvidence Evidence) : ComputeViolation;
+    public sealed partial record Unsupported(ComputeCapability Capability) : ComputeViolation;
+    public sealed partial record Capacity(CapacityRequirement Requirement, CapacityEvidence Evidence) : ComputeViolation;
+    public sealed partial record Cycle(GraphWitness Evidence) : ComputeViolation;
+    public sealed partial record Contract(ComputeContract Contract, ContractEvidence Evidence) : ComputeViolation;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ComputeFault : Fault {
+    private static readonly FaultBand FamilyBand = FaultBand.Core;
+    private ComputeFault(string message) => Message = message;
+
+    public sealed override string Message { get; }
+
+    [FaultCase(0)] public sealed partial record Violation(ComputeArea Area, ComputeViolation Evidence) : ComputeFault($"{Area.Key}:{Evidence}");
+    [FaultCase(1)] public sealed partial record SubstrateUnavailable(string Detail) : ComputeFault(Detail);
+    [FaultCase(2)] public sealed partial record PayloadOverBounds(string Detail) : ComputeFault(Detail);
+    [FaultCase(3)] public sealed partial record DeadlineExpired(string Detail) : ComputeFault(Detail);
+    [FaultCase(4)] public sealed partial record Cancelled(string Detail) : ComputeFault(Detail);
+    [FaultCase(5)] public sealed partial record ShutdownDrained(string Detail) : ComputeFault(Detail);
+    [FaultCase(6)] public sealed partial record ExtensionAssetMissing(string Detail) : ComputeFault(Detail);
+    [FaultCase(7)] public sealed partial record EndpointUnreachable(string Detail) : ComputeFault(Detail) { public override Retriability Retriability => Retriability.Transient; }
+    [FaultCase(8)] public sealed partial record RetryOwnerConflict(string Detail) : ComputeFault(Detail);
+    [FaultCase(9)] public sealed partial record AllocationOverClass(string Detail) : ComputeFault(Detail);
+    [FaultCase(10)] public sealed partial record EquivalenceMiss(string Detail) : ComputeFault(Detail);
+    [FaultCase(11)] public sealed partial record CacheCorrupt(string Detail) : ComputeFault(Detail);
 
     public static ComputeFault OfCancellation(CancelScope scope, Instant deadlineAt, Instant now) =>
-        now >= deadlineAt ? new DeadlineExpired(scope.Provenance)
-        : scope.Provenance.Contains(RuntimePhase.Draining.Key, StringComparison.Ordinal) ? new ShutdownDrained(scope.Provenance)
-        : new Cancelled(scope.Provenance);
-
-    public sealed record Text : ComputeFault { public Text(string detail) : base(detail, 2200) { } }
-    public sealed record SubstrateUnavailable : ComputeFault { public SubstrateUnavailable(string detail) : base(detail, 2201) { } }
-    public sealed record PayloadOverBounds : ComputeFault { public PayloadOverBounds(string detail) : base(detail, 2202) { } }
-    public sealed record DeadlineExpired : ComputeFault { public DeadlineExpired(string provenance) : base(provenance, 2203) { } }
-    public sealed record Cancelled : ComputeFault { public Cancelled(string provenance) : base(provenance, 2204) { } }
-    public sealed record ShutdownDrained : ComputeFault { public ShutdownDrained(string provenance) : base(provenance, 2205) { } }
-    public sealed record ModelRejected : ComputeFault { public ModelRejected(string detail) : base(detail, 2206) { } }
-    public sealed record ExtensionAssetMissing : ComputeFault { public ExtensionAssetMissing(string detail) : base(detail, 2207) { } }
-    public sealed record EndpointUnreachable : ComputeFault { public EndpointUnreachable(string detail) : base(detail, 2208) { } }
-    public sealed record RetryOwnerConflict : ComputeFault { public RetryOwnerConflict(string detail) : base(detail, 2209) { } }
-    public sealed record AllocationOverClass : ComputeFault { public AllocationOverClass(string detail) : base(detail, 2210) { } }
-    public sealed record EquivalenceMiss : ComputeFault { public EquivalenceMiss(string detail) : base(detail, 2211) { } }
-    public sealed record CacheCorrupt : ComputeFault { public CacheCorrupt(string detail) : base(detail, 2212) { } }
+        now >= deadlineAt ? new DeadlineExpired(scope.Path)
+        : scope.Path.Contains(RuntimePhase.Draining.Key, StringComparison.Ordinal) ? new ShutdownDrained(scope.Path)
+        : new Cancelled(scope.Path);
 }
 
 public readonly record struct SelectionHop(Substrate Row, Option<string> Rejection);
@@ -389,9 +582,6 @@ public static class SubstrateSelection {
     static readonly Seq<Substrate> LocalChain = Seq(Substrate.CpuTensor);
     static readonly Seq<Substrate> NoChain = Seq<Substrate>();
 
-    // Intent-specific eligibility owns fallback membership; row policy owns ordering within that closed set. A
-    // decoded sensor sample folds on the twin loop's own host, so it rides the local chain beside the unit and
-    // symbolic projections — shipping one measurement to a farm costs more than the fold it asks for.
     public static Seq<Substrate> Eligible(ComputeIntent intent) =>
         intent.Map(
             tensorOp: TensorChain,
@@ -448,13 +638,16 @@ public static class SubstrateSelection {
                 context.Clock.GetCurrentInstant()));
 }
 
+// Each arm answers the lane's own `ComputeReceipt` case on the rail this spine opened: an `IO<Unit>` arm discarded
+// the verdict, so the receipt a dispatch produced reached the sink by a channel no owner named and `ComputeTraces`
+// bracketed a body whose outcome it could not read.
 public sealed record DispatchTable(
-    Func<AdmittedIntent, IO<Unit>> CpuTensor,
-    Func<AdmittedIntent, IO<Unit>> DeviceWgpu,
-    Func<AdmittedIntent, IO<Unit>> Onnx,
-    Func<AdmittedIntent, IO<Unit>> GenAi,
-    Func<AdmittedIntent, IO<Unit>> RemoteGrpc) {
-    public IO<Unit> Run(SelectionReceipt selection, AdmittedIntent admitted) =>
+    Func<AdmittedIntent, IO<Fin<ComputeReceipt>>> CpuTensor,
+    Func<AdmittedIntent, IO<Fin<ComputeReceipt>>> DeviceWgpu,
+    Func<AdmittedIntent, IO<Fin<ComputeReceipt>>> Onnx,
+    Func<AdmittedIntent, IO<Fin<ComputeReceipt>>> GenAi,
+    Func<AdmittedIntent, IO<Fin<ComputeReceipt>>> RemoteGrpc) {
+    public IO<Fin<ComputeReceipt>> Run(SelectionReceipt selection, AdmittedIntent admitted) =>
         selection.Route.Switch(
             state: (Table: this, Work: admitted),
             cpuTensor: static s => s.Table.CpuTensor(s.Work),

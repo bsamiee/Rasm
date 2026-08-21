@@ -26,6 +26,8 @@
 - Law: the `s3:` row is a bridge, not a re-implementation — its ops delegate to `object/store.md` and `object/stream.md` owners (`head`/`rekey`/`Rail.range`, the intake fold for ingress), so the object plane's conditional-put and grant law hold unchanged behind the origin address.
 - Law: `RemoteFault` reasons route recovery as a fold — `connect` and `auth` invalidate the pooled session, `op` and `transfer` re-drive, `watch` re-arms the strategy, `exec` carries the exit disposition; a free-string-only fault is the named unroutable defect.
 - Law: fault recovery derives from `Fault.Class`; unavailable operations re-drive, while denied authentication and execution fail fast.
+- Law: each reason declares its own subject and renders its own sentence, and the raise carries ONE `case` payload — a free `detail` field beside a closed `reason` and a hand-written message template both delete at the class.
+- Law: legs partition the census by the surface that DECIDES the reason — session, op, transfer, watch, exec — so a refusal names its seam without re-deriving it from the scheme.
 - Law: the scheme row answers the descriptor a consumer selects on, and its two honest NON-answers carry as much weight as its columns — `flags` names what a row FITS and IS its degrade statement, since every false column is a capability given up that the op arms then degrade around, while `Remote.intake` is the one ADMISSION making remote bytes durable in this branch; TENANCY and LIFETIME no network row decides, because a foreign filesystem's isolation belongs to whoever operates it and its bytes outlive this branch's interest entirely, so `remove` is a caller verb rather than a retention policy and a row claiming either coordinate asserts authority over a host it merely dials; the `s3:` row alone answers both by delegating to the object plane's reference ledger, which is precisely why it is a bridge rather than a seventh protocol.
 
 ```typescript signature
@@ -70,22 +72,59 @@ const _SCHEMES = {
   },
 } as const
 
-// One row per reason: retryability, blame, and quarantine remain owned by the selected Fault.Class row.
-// table's — a rank or retry column here would fork that taxonomy into this folder.
+// Every reason on this plane refuses about ONE dialed origin and carries the evidence its own raise site held, so the
+// subject is the record every row shares and each row renders the sentence its reason means — a free-string `detail`
+// standing alone on the raise re-opens the axis `reason` already closes and leaves the message hand-templated at the
+// class. Retryability, blame, and quarantine stay the core Fault.Class row table's, so no rank or retry column rides
+// here to disagree with the lattice. Legs partition by the SURFACE that decides the reason — the dial and its
+// credential are the session's, the verb set is the op surface's, and the transfer, watch, and exec planes each own
+// theirs — so a census reads which seam refused without re-deriving it from the scheme.
+const _Subject = Schema.Struct({ origin: Schema.String, detail: Schema.String })
+
 const _family = Fault.Class.family(["connect", "auth", "op", "transfer", "watch", "exec"] as const, {
-  connect: { class: "unavailable" },
-  auth: { class: "denied" },
-  op: { class: "unavailable" },
-  transfer: { class: "unavailable" },
-  watch: { class: "unavailable" },
-  exec: { class: "denied" },
+  connect: Fault.Class.row({
+    class: "unavailable",
+    leg: "session",
+    detail: _Subject,
+    render: ({ origin, detail }) => `${origin} refused the dial — ${detail}`,
+  }),
+  auth: Fault.Class.row({
+    class: "denied",
+    leg: "session",
+    detail: _Subject,
+    render: ({ origin, detail }) => `${origin} refused the credential — ${detail}`,
+  }),
+  op: Fault.Class.row({
+    class: "unavailable",
+    leg: "op",
+    detail: _Subject,
+    render: ({ origin, detail }) => `${origin} refused the operation — ${detail}`,
+  }),
+  transfer: Fault.Class.row({
+    class: "unavailable",
+    leg: "transfer",
+    detail: _Subject,
+    render: ({ origin, detail }) => `${origin} broke the transfer — ${detail}`,
+  }),
+  watch: Fault.Class.row({
+    class: "unavailable",
+    leg: "watch",
+    detail: _Subject,
+    render: ({ origin, detail }) => `${origin} dropped the watch — ${detail}`,
+  }),
+  exec: Fault.Class.row({
+    class: "denied",
+    leg: "exec",
+    detail: _Subject,
+    render: ({ origin, detail }) => `${origin} refused the command — ${detail}`,
+  }),
 })
 
 declare namespace Remote {
   type Scheme = (typeof _SCHEME_KEYS)[number]
   type Flags = (typeof _SCHEMES)[Scheme]["flags"]
   type Tls = (typeof _SCHEMES)[Scheme]["tls"]
-  type Reason = (typeof _family.reasons)[number]
+  type Reason = (typeof _family.kinds)[number]
   type _Rows<
     T extends {
       readonly [S in Scheme]: {
@@ -100,15 +139,16 @@ declare namespace Remote {
 }
 
 class RemoteFault extends Schema.TaggedError<RemoteFault>()("RemoteFault", {
-  reason: _family.schema,
-  origin: Schema.String,
-  detail: Schema.String,
+  case: _family.payload,
 }) {
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _family.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<remote:${this.reason}> ${this.origin}: ${this.detail}`
+    return _family.render(this.case)
   }
 }
 
@@ -220,7 +260,7 @@ const _ssh = (origin: Origin, auth: Remote.Auth): Effect.Effect<SshClient, Remot
         client
           .once("ready", () => resume(Effect.succeed(client)))
           .once("error", (cause) =>
-            resume(Effect.fail(new RemoteFault({ reason: "connect", origin: origin.host, detail: String(cause) }))))
+            resume(Effect.fail(new RemoteFault({ case: { reason: "connect", origin: origin.host, detail: String(cause) } }))))
           .connect({
             host: origin.host,
             port: origin.port,
@@ -237,7 +277,7 @@ const _ssh = (origin: Origin, auth: Remote.Auth): Effect.Effect<SshClient, Remot
         // never fires and no handle leaks. Catching seats the refusal on `auth`, whose `denied` row states caller
         // blame and non-retryability; an escaping throw is a defect instead, which the class table grades
         // non-retryable under SYSTEM blame, so every budget refuses it for the wrong reason and misattributes it.
-        resume(Effect.fail(new RemoteFault({ reason: "auth", origin: origin.host, detail: String(cause) })))
+        resume(Effect.fail(new RemoteFault({ case: { reason: "auth", origin: origin.host, detail: String(cause) } })))
       }
       return Effect.sync(() => client.end())
     }),
@@ -253,9 +293,9 @@ const _sftp = (client: SshClient, origin: Origin): Effect.Effect<SFTPWrapper, Re
       client.sftp((cause, wrapper) =>
         cause === undefined || cause === null
           ? resume(Effect.succeed(wrapper))
-          : resume(Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: String(cause) }))))
+          : resume(Effect.fail(new RemoteFault({ case: { reason: "op", origin: origin.host, detail: String(cause) } }))))
     } catch (cause) {
-      resume(Effect.fail(new RemoteFault({ reason: "connect", origin: origin.host, detail: String(cause) })))
+      resume(Effect.fail(new RemoteFault({ case: { reason: "connect", origin: origin.host, detail: String(cause) } })))
     }
   })
 
@@ -282,7 +322,7 @@ const _ftp = (origin: Origin, auth: Remote.Auth): Effect.Effect<FtpClient, Remot
         })
         return client
       },
-      catch: (cause) => new RemoteFault({ reason: "connect", origin: origin.host, detail: String(cause) }),
+      catch: (cause) => new RemoteFault({ case: { reason: "connect", origin: origin.host, detail: String(cause) } }),
     }),
     (client) => Effect.sync(() => client.close()),
   )
@@ -295,7 +335,7 @@ const _dav = (origin: Origin, auth: Remote.Auth): Effect.Effect<WebDAVClient, Re
         username: origin.username,
         password: auth.password === undefined ? undefined : Redacted.value(auth.password),
       }),
-    catch: (cause) => new RemoteFault({ reason: "auth", origin: origin.host, detail: String(cause) }),
+    catch: (cause) => new RemoteFault({ case: { reason: "auth", origin: origin.host, detail: String(cause) } }),
   })
 
 // Sessions open on the scheme's DECLARED row and `_probe` runs inside the same acquire, so every session a caller ever
@@ -327,7 +367,7 @@ const _sessions = (auth: (key: OriginKey) => Remote.Auth): Effect.Effect<Remote.
       Effect.flatMap(
         Effect.mapError(
           Origin.parse(`${key.scheme}://${key.username}@${key.host}:${key.port}/`),
-          (fault) => new RemoteFault({ reason: "connect", origin: key.host, detail: String(fault) }),
+          (fault) => new RemoteFault({ case: { reason: "connect", origin: key.host, detail: String(fault) } }),
         ),
         (origin) => _session(origin, auth(key)),
       )),
@@ -417,7 +457,7 @@ declare namespace Remote {
 }
 
 const _fault = (origin: Origin, reason: Remote.Reason) => (cause: unknown): RemoteFault =>
-  new RemoteFault({ reason, origin: origin.host, detail: String(cause) })
+  new RemoteFault({ case: { reason, origin: origin.host, detail: String(cause) } })
 
 // ONE stamp spelling crosses this page, because the sync comparator equates two arms' values directly and persists
 // them: WebDAV answers an RFC-1123 string, MLSD a parsed date, SFTP an epoch second, so arms publishing each provider's
@@ -432,7 +472,7 @@ const _stamped = (raw: string | Date | undefined | null): Option.Option<string> 
 const _keyed = (origin: Origin): Effect.Effect<Digest.Key<"content">, RemoteFault> =>
   Effect.mapError(
     Schema.decodeUnknown(Digest.Key.content)(origin.path.slice(1)),
-    (fault) => new RemoteFault({ reason: "op", origin: origin.host, detail: String(fault) }),
+    (fault) => new RemoteFault({ case: { reason: "op", origin: origin.host, detail: String(fault) } }),
   )
 
 const _read = (origin: Origin, session: Remote.Session, offset?: number): Stream.Stream<Uint8Array, RemoteFault, ObjectStore | FileSystem.FileSystem> =>
@@ -470,7 +510,7 @@ const _read = (origin: Origin, session: Remote.Session, offset?: number): Stream
       Stream.unwrap(
         Effect.map(_keyed(origin), (key) =>
           Rail.range(key, offset === undefined ? undefined : { from: offset }).pipe(
-            Stream.mapError((fault) => new RemoteFault({ reason: "op", origin: origin.host, detail: fault.detail })),
+            Stream.mapError((fault) => new RemoteFault({ case: { reason: "op", origin: origin.host, detail: fault.case.detail } })),
           ))),
     Local: () =>
       Stream.unwrap(
@@ -519,7 +559,7 @@ const _write = (origin: Origin, session: Remote.Session, at?: number) =>
                     })))
             })),
     Bucket: () =>
-      Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<bucket:write-rides-intake>" })),
+      Effect.fail(new RemoteFault({ case: { reason: "op", origin: origin.host, detail: "<bucket:write-rides-intake>" } })),
     Local: () =>
       Effect.map(FileSystem.FileSystem, (fs) => Sink.mapError(fs.sink(origin.path), _fault(origin, "op"))),
   })
@@ -568,7 +608,7 @@ const _stat = (origin: Origin, session: Remote.Session): Effect.Effect<Remote.St
       Effect.flatMap(_keyed(origin), (key) =>
         Effect.flatMap(ObjectStore, (store) =>
           Effect.map(
-            Effect.mapError(store.head(key), (fault) => new RemoteFault({ reason: "op", origin: origin.host, detail: fault.detail })),
+            Effect.mapError(store.head(key), (fault) => new RemoteFault({ case: { reason: "op", origin: origin.host, detail: fault.case.detail } })),
             (head) => ({
               path: origin.path,
               bytes: head.bytes,
@@ -635,12 +675,12 @@ const _list = (origin: Origin, session: Remote.Session): Effect.Effect<ReadonlyA
           Stream.runCollect(
             Stream.fromAsyncIterable(
               paginateListObjectsV2({ client: store.client }, { Bucket: store.bucket, Prefix: origin.path.slice(1) }),
-              (cause) => new RemoteFault({ reason: "op", origin: origin.host, detail: String(cause) }),
+              (cause) => new RemoteFault({ case: { reason: "op", origin: origin.host, detail: String(cause) } }),
             ).pipe(
               Stream.mapConcatEffect((page) =>
                 Effect.forEach(page.Contents ?? [], (entry) =>
                   entry.Key === undefined || entry.Size === undefined
-                    ? Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<incomplete-list-entry>" }))
+                    ? Effect.fail(new RemoteFault({ case: { reason: "op", origin: origin.host, detail: "<incomplete-list-entry>" } }))
                     : Effect.succeed<Remote.Stat>({
                         path: `/${entry.Key}`,
                         bytes: entry.Size,
@@ -708,7 +748,7 @@ const _remove = (origin: Origin, session: Remote.Session): Effect.Effect<void, R
       Dav: ({ client }) =>
         Effect.tryPromise({ try: () => client.deleteFile(origin.path), catch: _fault(origin, "op") }),
       Bucket: () =>
-        Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<bucket:remove-is-release>" })),
+        Effect.fail(new RemoteFault({ case: { reason: "op", origin: origin.host, detail: "<bucket:remove-is-release>" } })),
       Local: () =>
         Effect.flatMap(FileSystem.FileSystem, (fs) =>
           Effect.mapError(fs.remove(origin.path, { recursive: held.kind === "directory" }), _fault(origin, "op"))),
@@ -775,7 +815,7 @@ const _copy = (from: Remote.End, to: Remote.End): Effect.Effect<void, RemoteFaul
               Effect.asVoid(
                 Effect.mapError(
                   store.rekey(source, target),
-                  (fault) => new RemoteFault({ reason: "op", origin: to.origin.host, detail: fault.detail }),
+                  (fault) => new RemoteFault({ case: { reason: "op", origin: to.origin.host, detail: fault.case.detail } }),
                 )))),
         Local: () =>
           Effect.flatMap(FileSystem.FileSystem, (fs) =>
@@ -784,7 +824,7 @@ const _copy = (from: Remote.End, to: Remote.End): Effect.Effect<void, RemoteFaul
 
 const _move = (from: Remote.End, to: Remote.End): Effect.Effect<void, RemoteFault, ObjectStore | FileSystem.FileSystem> =>
   _Session.$is("Bucket")(from.session)
-    ? Effect.fail(new RemoteFault({ reason: "op", origin: from.origin.host, detail: "<bucket:move-rides-ledger>" }))
+    ? Effect.fail(new RemoteFault({ case: { reason: "op", origin: from.origin.host, detail: "<bucket:move-rides-ledger>" } }))
     : from.origin.scheme === to.origin.scheme && from.origin.host === to.origin.host && from.session.flags.serverMove
     ? _Session.$match(to.session, {
         Ssh: ({ client }) =>
@@ -798,7 +838,7 @@ const _move = (from: Remote.End, to: Remote.End): Effect.Effect<void, RemoteFaul
         Dav: ({ client }) =>
           Effect.tryPromise({ try: () => client.moveFile(from.origin.path, to.origin.path), catch: _fault(to.origin, "op") }),
         Bucket: () =>
-          Effect.fail(new RemoteFault({ reason: "op", origin: to.origin.host, detail: "<bucket:move-rides-ledger>" })),
+          Effect.fail(new RemoteFault({ case: { reason: "op", origin: to.origin.host, detail: "<bucket:move-rides-ledger>" } })),
         Local: () =>
           Effect.flatMap(FileSystem.FileSystem, (fs) =>
             Effect.mapError(fs.rename(from.origin.path, to.origin.path), _fault(to.origin, "op"))),
@@ -809,14 +849,14 @@ const _intake = (origin: Origin, session: Remote.Session, retention: Retain.Clas
   Effect.gen(function* () {
     const store = yield* ObjectStore
     const flow = _read(origin, session).pipe(
-      Stream.mapError((fault) => new ObjectFault({ reason: "io", key: origin.path, detail: fault.detail })),
+      Stream.mapError((fault) => new ObjectFault({ case: { reason: "io", key: origin.path, detail: fault.case.detail } })),
     )
     const identity = yield* Rail.identity(Rail.chunked(flow, Rail.cut))
     const landed = yield* store.putKeyed(
       identity.key,
       yield* Stream.toReadableStreamEffect(
         _read(origin, session).pipe(
-          Stream.mapError((fault) => new ObjectFault({ reason: "io", key: origin.path, detail: fault.detail })),
+          Stream.mapError((fault) => new ObjectFault({ case: { reason: "io", key: origin.path, detail: fault.case.detail } })),
         )),
       identity.bytes,
     )
@@ -836,20 +876,20 @@ const _lock = (origin: Origin, session: Remote.Session): Effect.Effect<{ readonl
             Effect.tryPromise({ try: () => client.lock(origin.path), catch: _fault(origin, "op") }),
             (held) => ({ token: held.token }),
           )
-        : Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<lock:class-2-unproven>" })),
-    Ssh: () => Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<lock:unsupported>" })),
-    Ftp: () => Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<lock:unsupported>" })),
-    Bucket: () => Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<lock:conditional-put-owns-races>" })),
-    Local: () => Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<lock:unsupported>" })),
+        : Effect.fail(new RemoteFault({ case: { reason: "op", origin: origin.host, detail: "<lock:class-2-unproven>" } })),
+    Ssh: () => Effect.fail(new RemoteFault({ case: { reason: "op", origin: origin.host, detail: "<lock:unsupported>" } })),
+    Ftp: () => Effect.fail(new RemoteFault({ case: { reason: "op", origin: origin.host, detail: "<lock:unsupported>" } })),
+    Bucket: () => Effect.fail(new RemoteFault({ case: { reason: "op", origin: origin.host, detail: "<lock:conditional-put-owns-races>" } })),
+    Local: () => Effect.fail(new RemoteFault({ case: { reason: "op", origin: origin.host, detail: "<lock:unsupported>" } })),
   })
 
 const _unlock = (origin: Origin, session: Remote.Session, token: string): Effect.Effect<void, RemoteFault> =>
   _Session.$match(session, {
     Dav: ({ client }) => Effect.tryPromise({ try: () => client.unlock(origin.path, token), catch: _fault(origin, "op") }),
-    Ssh: () => Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<unlock:unsupported>" })),
-    Ftp: () => Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<unlock:unsupported>" })),
-    Bucket: () => Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<unlock:unsupported>" })),
-    Local: () => Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<unlock:unsupported>" })),
+    Ssh: () => Effect.fail(new RemoteFault({ case: { reason: "op", origin: origin.host, detail: "<unlock:unsupported>" } })),
+    Ftp: () => Effect.fail(new RemoteFault({ case: { reason: "op", origin: origin.host, detail: "<unlock:unsupported>" } })),
+    Bucket: () => Effect.fail(new RemoteFault({ case: { reason: "op", origin: origin.host, detail: "<unlock:unsupported>" } })),
+    Local: () => Effect.fail(new RemoteFault({ case: { reason: "op", origin: origin.host, detail: "<unlock:unsupported>" } })),
   })
 ```
 
@@ -943,7 +983,7 @@ const _rsync = (from: Origin, to: Origin) =>
     Command.exitCode,
     Effect.filterOrFail(
       (code) => code === 0,
-      (code) => new RemoteFault({ reason: "transfer", origin: to.host, detail: `rsync:${code}` }),
+      (code) => new RemoteFault({ case: { reason: "transfer", origin: to.host, detail: `rsync:${code}` } }),
     ),
   )
 
@@ -966,12 +1006,12 @@ const _fastPut = (to: Remote.End, local: string, step?: (progress: Remote.Progre
           }, (cause) =>
             cause === undefined || cause === null
               ? resume(Effect.void)
-              : resume(Effect.fail(new RemoteFault({ reason: "transfer", origin: to.origin.host, detail: String(cause) }))))
+              : resume(Effect.fail(new RemoteFault({ case: { reason: "transfer", origin: to.origin.host, detail: String(cause) } }))))
         })),
     Ftp: () => _piped(_localEnd(local), to),
     Dav: () => _piped(_localEnd(local), to),
-    Bucket: () => Effect.fail(new RemoteFault({ reason: "transfer", origin: to.origin.host, detail: "<bucket:transfer-rides-intake>" })),
-    Local: () => Effect.fail(new RemoteFault({ reason: "transfer", origin: to.origin.host, detail: "<local:transfer-is-copy>" })),
+    Bucket: () => Effect.fail(new RemoteFault({ case: { reason: "transfer", origin: to.origin.host, detail: "<bucket:transfer-rides-intake>" } })),
+    Local: () => Effect.fail(new RemoteFault({ case: { reason: "transfer", origin: to.origin.host, detail: "<local:transfer-is-copy>" } })),
   })
 
 const _metered = (session: Remote.Session, step: ((progress: Remote.Progress) => void) | undefined) =>
@@ -1021,9 +1061,11 @@ const _transfer = (from: Remote.End, to: Remote.End, policy?: Remote.Policy) =>
     // would spawn against an address the row does not serve and report the failure as the binary's own
     onNone: () =>
       Effect.fail(new RemoteFault({
-        reason: "transfer",
-        origin: to.origin.host,
-        detail: `<engine:${policy?.engine ?? "derived"}:${to.origin.scheme}>`,
+        case: {
+          reason: "transfer",
+          origin: to.origin.host,
+          detail: `<engine:${policy?.engine ?? "derived"}:${to.origin.scheme}>`,
+        },
       })),
     onSome: (engine) =>
       // the resume tap fires where the engine is IN HAND: the rsync contract and the offset arms both claim
@@ -1347,13 +1389,12 @@ type _Feed = Stream.Stream<
 // Total over the strategy vocabulary: a row with no arm fails at the declaration, so the dispatch never widens.
 const _FEEDS: { readonly [S in Remote.WatchStrategy]: (origin: Origin, session: Remote.Session) => _Feed } = {
   nativeWatch: (origin) => _native(origin),
-  // Re-arms a DROPPED channel, never a refusal: the class lattice gates the ladder, so an `exec` denial — a missing
-  // notify tool, a command the host rejects — surfaces once instead of re-dialing every cadence tick forever. An
-  // ungated ladder here re-drives exactly the classes the lattice marks non-retryable.
-  execPush: (origin, session) =>
-    _execPush(origin, session).pipe(
-      Stream.retry(Schedule.whileInput(Schedule.spaced(_POLL.cadence), (fault: RemoteFault) => Fault.Class.retryable(fault))),
-    ),
+  // Re-arms a DROPPED channel, never a refusal, and the curve is `Fault.Budget`'s own feed row rather than a ladder
+  // spelled here: its gate reads the recovery BAND (`terminal` never re-drives), so an `exec` denial — a missing
+  // notify tool, a command the host rejects — surfaces once instead of re-dialing every cadence tick forever, and its
+  // reset window returns the whole attempt budget to any channel that has run clean, so a long-lived watch re-arms
+  // indefinitely while a permanently dropped one ends on the row's elapsed ceiling instead of re-dialing silently.
+  execPush: (origin, session) => _execPush(origin, session).pipe(Stream.retry(Fault.Budget.schedule("feed"))),
   poll: (origin, session) => _poll(_list(origin, session)),
 }
 
@@ -1397,7 +1438,7 @@ const _exec = (
         try {
           client.exec(_shell(invocation), (cause, channel) => {
             if (cause !== undefined && cause !== null) {
-              resume(Effect.fail(new RemoteFault({ reason: "exec", origin: origin.host, detail: String(cause) })))
+              resume(Effect.fail(new RemoteFault({ case: { reason: "exec", origin: origin.host, detail: String(cause) } })))
               return
             }
             let disposition: number | null = null
@@ -1421,7 +1462,7 @@ const _exec = (
           // `exec` throws `Not connected` SYNCHRONOUSLY on a session that dropped since acquire; `connect` carries it
           // as `unavailable` so a redial re-drives, where the `exec` reason's `denied` row and an escaping defect
           // both refuse a channel the next dial opens.
-          resume(Effect.fail(new RemoteFault({ reason: "connect", origin: origin.host, detail: String(cause) })))
+          resume(Effect.fail(new RemoteFault({ case: { reason: "connect", origin: origin.host, detail: String(cause) } })))
         }
       }),
     Local: () =>
@@ -1434,9 +1475,9 @@ const _exec = (
           exit: Effect.mapError(process.exitCode, _fault(origin, "exec")),
         }),
       ),
-    Ftp: () => Effect.fail(new RemoteFault({ reason: "exec", origin: origin.host, detail: "<exec:unsupported>" })),
-    Dav: () => Effect.fail(new RemoteFault({ reason: "exec", origin: origin.host, detail: "<exec:unsupported>" })),
-    Bucket: () => Effect.fail(new RemoteFault({ reason: "exec", origin: origin.host, detail: "<exec:unsupported>" })),
+    Ftp: () => Effect.fail(new RemoteFault({ case: { reason: "exec", origin: origin.host, detail: "<exec:unsupported>" } })),
+    Dav: () => Effect.fail(new RemoteFault({ case: { reason: "exec", origin: origin.host, detail: "<exec:unsupported>" } })),
+    Bucket: () => Effect.fail(new RemoteFault({ case: { reason: "exec", origin: origin.host, detail: "<exec:unsupported>" } })),
   })
 
 // `_OPS` closes the verb axis: Effect-shaped verbs fold through `_measured`, stream verbs tap per emission inside
@@ -1533,7 +1574,7 @@ export { Origin, Remote, RemoteFault }
 - Packages: `effect` (`Metric`, `Effect`, `Duration`); `@rasm/ts/core` (`Convention` — the instrument, axis, outcome, and duration projections).
 - Entry: the `Remote` record folds each verb through `_measured(op, origin, self)` at ONE site, so the surface is instrumented by the record rather than by a tap per member and a new verb inherits measurement by construction; the census taps ride inside the legs that already hold the number.
 - Growth: a new verb is one entry-record row the fold already covers; a new axis is one `Convention` row with its tap on the owning leg.
-- Law: the operation counter is the core outcome aspect, never a hand-rolled fold — `Convention.outcome(Convention.metric.remoteOps, Convention.attr.errorType, …)` owns the single emission point, the interrupt-first discrimination, and the `halted`/`crashed`/reason vocabulary, so this page supplies only its own reason projection (`RemoteFault.class`, the core kind the family already derives) and spells no `Effect.onExit`; a page-local exit fold double-counts every retried attempt and never sees a defect.
+- Law: the operation counter is the core outcome aspect, never a hand-rolled fold — `Convention.outcome(Convention.metric.remoteOps, Convention.attr.errorType, Fault.Class, …)` owns the single emission point, the interrupt-first discrimination, and the `halted`/`crashed`/reason vocabulary; the third argument is the CENSUS the words come from, so `Fault.Class` names the roster and this page supplies only its own projection onto it (`RemoteFault.class`, the core kind the family already derives) and spells no `Effect.onExit`; a page-local exit fold double-counts every retried attempt and never sees a defect.
 - Law: the region axes ride the FIBER, not the handle — `Effect.tagMetrics` stamps `remoteOp` and `remoteScheme` across every metric the governed effect updates, so the outcome aspect keeps its own mounted handle while the two dimensions the row declares still land; pre-tagging the aspect's handle is unspellable because the aspect mounts internally, and re-mounting the row beside it forks one series into two registry entries.
 - Law: `remoteDuration` is a SUMMARY, so its update takes the scaled NUMBER — the row names a sliding quantile window because a local `stat` and a multi-gigabyte rsync ride one instrument and no frozen ladder answers both, and Effect constrains a summary's carrier to a bare number, so the site passes `Convention.duration(...)` where a bucketed row takes the `Duration` itself; handing this row a `Duration` is the one mount-shape error the kind's carrier makes unspellable.
 - Law: octets count where the count already EXISTS — `remoteBytes` taps the transfer legs that hold a byte number, never a stream the page measures by adding a fold; bytes crossing into `putKeyed` are already `objectSize`'s, so `Remote.intake` taps the remote hop alone and the object plane keeps its own census with no double count.
@@ -1542,7 +1583,7 @@ export { Origin, Remote, RemoteFault }
 
 ```typescript signature
 import { Duration, Effect, Metric } from "effect"
-import { Convention } from "@rasm/ts/core"
+import { Convention, Fault } from "@rasm/ts/core"
 
 const _bytes = Convention.mount(Convention.metric.remoteBytes)
 const _exits = Convention.mount(Convention.metric.remoteExecExits)
@@ -1556,6 +1597,7 @@ const _watched = Convention.mount(Convention.metric.remoteWatchChanges)
 const _counted = Convention.outcome(
   Convention.metric.remoteOps,
   Convention.attr.errorType,
+  Fault.Class,
   (fault: RemoteFault) => fault.class,
 )
 

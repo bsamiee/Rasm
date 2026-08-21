@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [02]-[ELEMENT_INGRESS]: `RepresentationSlot` identifiers with their graph-key accessors, the `ElementGeometry`/`ElementPayload` carrier a slot admits, `ElementSource` graph-bearing ingress, the `FactValue`/`ElementFact` evidence row, and the `ElementReceipt` sealing component, topology, canonical bytes, and fault locus.
+- [02]-[ELEMENT_INGRESS]: `Rasm.Element`'s composed `RepresentationSlot` roster carrying the `ElementPart.Admitted` column seated over it, the `ElementGeometry`/`ElementPayload` carrier a slot admits, `ElementSource` graph-bearing ingress, the `FactValue`/`ElementFact` evidence row, and the `ElementReceipt` sealing component, topology, canonical bytes, and fault locus.
 - [03]-[FACT_COLUMNS]: `FactScope`, `FactColumn`, and the declared column tables every fabrication fact folds through.
 - [04]-[LIFECYCLE]: `ElementImport.Admit` baking each distinct subject once under graph tolerance with arity-selected singular or batch admission, and `ElementImport.Project` reading the receipt alone.
 
@@ -14,7 +14,7 @@
 
 - Owner: `ElementSource` owns graph-bearing ingress; `ElementSubject` owns element identity with resolved representation; `ElementReceipt` owns the admitted carrier, ordered relationship rows, typed facts, canonical property bytes, and fault locus; `ElementImport` owns admission and egress.
 - Cases: `ElementGeometry` closes mesh, profile, and axis carriers; `FactValue` closes numeric, symbolic, and typed-property readings and preserves every `PropertyValue` case; `ElementAdmission` preserves singular and batch cardinality; `ElementEgress` selects `Component` · `Topology` · `Facts` · `CanonicalProperties`; `ElementProjection` returns the matching result or committed byte count.
-- Law: `RepresentationSlot` closes `Body` · `Axis` · `Box` · `FootPrint`, each row carrying the `RepresentationContentHash` accessor its key names, so a new identifier is one row and no arm re-spells an identifier string.
+- Law: the `Body` · `Axis` · `Box` · `FootPrint` identifier vocabulary is `Rasm.Element`'s `Graph/element#NODE_MODEL` `RepresentationSlot`, COMPOSED here — the graph lookup is `representations.At(slot)` off that owner's own keyed map, so no arm re-spells an identifier string and a second declaration of the roster is the deleted form; Fabrication seats only the `ElementPart.Admitted` carrier column Element cannot hold, dispatched through the roster's generated total `Switch` so a new Element row breaks this page rather than admitting every carrier.
 - Law: a fact PATH is a `PropertyName` minted under the seam's own `PropertyCategory.Fabrication` prefix — the key space `AdmittedComponent` reads — so a bare string key never reaches the component and a `PropertyName.Create` at a write site is the deleted form.
 - Auto: generated `Switch` members keep every closed family total, so equivalence and rendering dispatch through the union rather than a tuple pattern that goes silently non-total on a new case; the derived quantity and property maps are HELD, so a fold reading both pays one build.
 - Receipt: `ElementReceipt` carries `AdmittedComponent`, the ordered `Seq<Relationship>`, `ElementFactSet`, count-prefixed canonical property bytes, and the element content locus; `ElementAdmission` preserves one or many receipts.
@@ -46,20 +46,6 @@ using QuantityBag = Rasm.Element.Properties.ValueBag<Rasm.Element.Properties.Mea
 
 namespace Rasm.Fabrication.Ingress;
 
-// --- [TYPES] ----------------------------------------------------------------------------------------------------------------------------------------
-// Key IS the RepresentationContentHash identifier, so the graph lookup and the canonical key fold both read the row
-// rather than re-spelling the identifier string at either site.
-[SmartEnum<string>]
-public sealed partial class RepresentationSlot {
-    public static readonly RepresentationSlot Body = new("Body", static row => row.Body, static value => value is ElementGeometry.Mesh);
-    public static readonly RepresentationSlot Axis = new("Axis", static row => row.Axis, static value => value is ElementGeometry.Centreline);
-    public static readonly RepresentationSlot Box = new("Box", static row => row.Box, static value => value is ElementGeometry.Mesh);
-    public static readonly RepresentationSlot FootPrint = new("FootPrint", static row => row.FootPrint, static value => value is ElementGeometry.Profiles);
-
-    public Func<RepresentationContentHash, Option<UInt128>> Locate { get; }
-    public Func<ElementGeometry, bool> Admits { get; }
-}
-
 // --- [MODELS] ---------------------------------------------------------------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ElementGeometry {
@@ -70,10 +56,21 @@ public abstract partial record ElementGeometry {
     public sealed record Centreline(Edge3 Value) : ElementGeometry;
 }
 
-public sealed record ElementPart(RepresentationSlot Slot, ElementGeometry Value);
+// `Rasm.Element`'s `Graph/element#NODE_MODEL` `RepresentationSlot` owns this slot roster — one identifier vocabulary
+// over one key space, composed rather than re-declared, so the graph lookup is `representations.At(part.Slot)` and no
+// arm re-spells an identifier string. `Admitted` is the ONE column Element cannot hold (it decides fabrication
+// carriers Element never sees), seated on the pair that carries both operands and dispatched through the roster's
+// generated total `Switch` — an Element row mint breaks HERE at compile time instead of admitting every carrier.
+public sealed record ElementPart(RepresentationSlot Slot, ElementGeometry Value) {
+    public bool Admitted => Slot.Switch(
+        state: Value,
+        body: static carrier => carrier is ElementGeometry.Mesh,
+        axis: static carrier => carrier is ElementGeometry.Centreline,
+        box: static carrier => carrier is ElementGeometry.Mesh,
+        footPrint: static carrier => carrier is ElementGeometry.Profiles);
+}
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ElementPayload {
     public Seq<ElementPart> Parts { get; }
 
@@ -89,9 +86,9 @@ public sealed partial class ElementPayload {
         .IfNone(Arr<Loop>());
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Seq<ElementPart> parts) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<ElementPart> parts) {
         parts = toSeq(parts.OrderBy(static part => part.Slot.Key, StringComparer.Ordinal));
-        validationError = Refusal(parts);
+        validationError = Validation(parts);
     }
 
     public static Fin<ElementPayload> Admit(Seq<ElementPart> parts) =>
@@ -99,22 +96,20 @@ public sealed partial class ElementPayload {
 
     // Each clause names the slot invariant it decides, so a payload refusal is addressable at the locus rather than
     // through one aggregate message a caller has to parse.
-    private static FabricationFault? Refusal(Seq<ElementPart> parts) =>
-        parts.IsEmpty ? Inadmissible("parts")
-        : parts.Map(static part => part.Slot.Key).Distinct().Count != parts.Count ? Inadmissible("slot-repeat")
-        : parts.Exists(static part => !part.Slot.Admits(part.Value)) ? Inadmissible("slot-carrier")
-        : parts.Count(static part => part.Value is ElementGeometry.Mesh) > 1 ? Inadmissible("mesh-arity")
+    private static ValidationError? Validation(Seq<ElementPart> parts) =>
+        parts.IsEmpty ? Invalid("parts")
+        : parts.Map(static part => part.Slot.Key).Distinct().Count != parts.Count ? Invalid("slot-repeat")
+        : parts.Exists(static part => !part.Admitted) ? Invalid("slot-carrier")
+        : parts.Count(static part => part.Value is ElementGeometry.Mesh) > 1 ? Invalid("mesh-arity")
         : parts.Exists(static part => part.Value is ElementGeometry.Mesh or ElementGeometry.Profiles) ? null
-        : Inadmissible("fabricable");
+        : Invalid("fabricable");
 
-    private static FabricationFault Inadmissible(string slot) =>
-        new FabricationFault.PolicyInadmissible(FabConcern.Ingress, $"element-payload:{slot}");
+    private static ValidationError Invalid(string slot) => new($"element-payload:{slot}");
 }
 
 public sealed record ElementSubject(NodeId Id, ElementPayload Payload);
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ElementSource {
     public ElementGraph Graph { get; }
     public Seq<ElementSubject> Subjects { get; }
@@ -122,12 +117,12 @@ public sealed partial class ElementSource {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref ElementGraph graph,
         ref Seq<ElementSubject> subjects,
         ref Op key) {
         if (subjects.IsEmpty || subjects.Map(static subject => subject.Id.Value).Distinct().Count != subjects.Count)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Ingress, "element-source:subjects");
+            validationError = new ValidationError("element-source:subjects");
     }
 
     public static Fin<ElementSource> Admit(ElementGraph graph, Seq<ElementSubject> subjects, Op key) =>
@@ -168,7 +163,6 @@ public sealed record ElementFact(PropertyName Path, FactValue Value) {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ElementFactSet {
     public Seq<ElementFact> Rows { get; }
 
@@ -192,9 +186,9 @@ public sealed partial class ElementFactSet {
         .Fold(Map<PropertyName, string>(), static (index, row) => index.AddOrUpdate(row.Path, row.Value));
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Seq<ElementFact> rows) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<ElementFact> rows) {
         if (rows.Map(static row => row.Path).Distinct().Count != rows.Count)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Ingress, "element-facts:path-repeat");
+            validationError = new ValidationError("element-facts:path-repeat");
     }
 
     public static Fin<ElementFactSet> Admit(Seq<ElementFact> rows) =>
@@ -202,7 +196,6 @@ public sealed partial class ElementFactSet {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ElementReceipt {
     public AdmittedComponent Component { get; }
     public Seq<Relationship> Topology { get; }
@@ -212,14 +205,14 @@ public sealed partial class ElementReceipt {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref AdmittedComponent component,
         ref Seq<Relationship> topology,
         ref ElementFactSet facts,
         ref ReadOnlyMemory<byte> canonicalProperties,
         ref UInt128 locus) {
         if (locus == UInt128.Zero)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Ingress, "element-receipt:locus");
+            validationError = new ValidationError("element-receipt:locus");
     }
 
     public static Fin<ElementReceipt> Admit(
@@ -262,12 +255,14 @@ public abstract partial record ElementProjection {
 
 ## [03]-[FACT_COLUMNS]
 
-- Owner: `FactColumn` owns one member's row name and its reader; `FactScope` owns path composition; `ElementColumns` owns every declared table the lowering folds.
+- Owner: `FactColumn` owns one member's row name and its reader; `FactScope` owns path composition; `ElementColumns` owns every declared table the lowering folds; `FactColumns` owns the one `Emit` fan and the `Sound` completeness census over that owner's own fields.
 - Law: a member NAME appears exactly once, in the row that mints it, and the reader sits on the same line — so a fact path can never drift from the member it reports, and the interpolation that composed a root at each of a hundred and fifty sites collapses to the one join `FactScope.Row` runs.
 - Law: an absent reading is `None` and emits NO row. An optional column that emitted a zero published a measured value the graph never carried, and the coalescing census would then treat two absences as agreeing readings.
+- Law: every table is a HAND-KEPT MIRROR of its source type's member set, and `FactColumns.Sound` is what proves it — the census reflects THIS owner's own fields at first construction, so the proof roster cannot drift from the tables it proves, and a source member that no column names and no `[Unpublished]` carve claims throws where the tables initialize rather than dropping a fact in silence the way three of `PropertyEvidence`'s six went unpublished. Every table carries its own carve with its own reason: a member published by another table names that landing, a composite carrier's fields carve wholesale because they are the reach and never a fact, and a member nothing reaches carves with the reason it is unreachable — `Element.Observations` is the one such member, because no fabrication consumer reads a time series. NAMED LOSS: the proof matches NAMES, not readers, since a delegate body is not reflectable; the stronger form is a generated projection at the `Rasm.Element` owner, which is where the roster moves the day that owner publishes one.
 - Cases: a column reads a number, a symbol, or a typed `PropertyValue`; the sources are `Element` itself, one material composition case, one `MaterialPropertySet` family, one section profile, one usage case, and one relationship case.
 - Auto: banded and indicator rosters (`AcousticBand`, `ImpactCategory`, `LifecycleStage`) fold their OWN `Items`, so a new band or indicator is a generated row and never a column here.
-- Growth: a new fabrication fact is one row on the owning table; a new source family is one table and one arm on the lowering fold.
+- Growth: a new fabrication fact is one row on the owning table; a new source family is one table and one arm on the lowering fold — and either lands with its `[Unpublished]` carve, because the census refuses a table whose source carries a member no column names.
+- Packages: `System.Reflection` supplies the field, generic-argument, and property census `FactColumns.Sound` runs at first construction — the one reflective read on the page, paid once per process rather than per fact; `Rasm.Element` supplies every source type the tables mirror; LanguageExt.Core supplies `Seq`/`Option`/`Unit` and the `Empty`/`More` match the proof folds through.
 - Boundary: this cluster reads member VALUES only — no admission, no conversion policy, no fault. Unit lifting stays at the `Rasm.Element` measure owner, which already publishes SI scalars.
 
 ```csharp signature
@@ -286,9 +281,26 @@ public readonly record struct FactScope(string Prefix) {
         PropertyCategory.Fabrication.Row(Prefix.Length == 0 ? column : $"{Prefix}.{column}");
 }
 
-public sealed record FactColumn<TSource>(string Name, Func<TSource, Option<FactValue>> Read) {
+// `IFactColumn` is what lets the soundness census read a table's names without knowing its source type: `Seq<A>` is
+// `IEnumerable<A>` and `IEnumerable<out T>` is covariant, so a reflected table casts to `IEnumerable<IFactColumn>`
+// with no per-source dispatch and no second roster.
+public interface IFactColumn {
+    string Name { get; }
+}
+
+public sealed record FactColumn<TSource>(string Name, Func<TSource, Option<FactValue>> Read) : IFactColumn {
     public Option<ElementFact> Of(FactScope scope, TSource source) =>
         Read(source).Map(value => new ElementFact(scope.Row(Name), value));
+}
+
+// The named carve. A member the mirror deliberately drops rides here at the table that drops it, so an unpublished
+// fact is a DECISION with a reason beside it rather than the silence that lost three of `PropertyEvidence`'s six.
+// A member the lowering publishes through a table of its own — a nested composite, a banded roster — carves here
+// and lands there; a member nothing reaches carves with the reason it is unreachable.
+[AttributeUsage(AttributeTargets.Field)]
+public sealed class UnpublishedAttribute(string reason, params string[] members) : Attribute {
+    public string Reason { get; } = reason;
+    public IReadOnlyList<string> Members { get; } = members;
 }
 
 // `Emit` is the ONE fan: a table meets a scope and a source and yields its rows. It is named apart from `Fold`
@@ -297,16 +309,65 @@ public sealed record FactColumn<TSource>(string Name, Func<TSource, Option<FactV
 public static class FactColumns {
     public static Seq<ElementFact> Emit<TSource>(this Seq<FactColumn<TSource>> columns, FactScope scope, TSource source) =>
         columns.Choose(column => column.Of(scope, source));
+
+    // The mirror's own proof, run once at the table owner's first construction exactly as `generated identity admission`
+    // proves a fault roster. Every table is a HAND-KEPT MIRROR of a `Rasm.Element` type's member set with no
+    // compile break behind it, so a source owner gaining a member drops a fact in silence — `PropertyEvidence`
+    // published three of six that way, and nothing failed. The proof reflects the OWNER'S OWN FIELDS rather than a
+    // listed roster, so the census can never drift from the tables it proves: a table declared without a carve is
+    // proved the moment it exists. A member is covered when some column name on its table NAMES it as a dotted
+    // segment — the column paths already mirror the member path from the source root, which is what makes the
+    // match mechanical — and uncovered members throw here, naming every one, rather than at a consumer that never
+    // sees the row. NAMED LOSS: this proves NAMING, not reading; a column whose name says `Grade` while its
+    // delegate reads something else still passes, because a delegate body is not reflectable. The stronger form is
+    // a generated projection at the `Rasm.Element` owner, which is where the roster belongs the day that owner
+    // publishes one.
+    public static Unit Sound(Type owner) =>
+        toSeq(owner.GetFields(BindingFlags.Public | BindingFlags.Static))
+            .Filter(static field => field.FieldType.IsGenericType
+                && field.FieldType.GetGenericTypeDefinition() == typeof(Seq<>)
+                && field.FieldType.GetGenericArguments()[0].IsGenericType
+                && field.FieldType.GetGenericArguments()[0].GetGenericTypeDefinition() == typeof(FactColumn<>))
+            .Bind(field => Uncovered(field).Map(member => $"{field.Name}.{member}"))
+            .Match(
+                Empty: static () => unit,
+                More: static gaps => throw new InvalidOperationException(string.Create(
+                    provider: CultureInfo.InvariantCulture,
+                    $"fact tables drop members with no carve: {string.Join(", ", gaps)}")));
+
+    private static Seq<string> Uncovered(FieldInfo field) {
+        Type source = field.FieldType.GetGenericArguments()[0].GetGenericArguments()[0];
+        Seq<string> segments = toSeq((IEnumerable<IFactColumn>)field.GetValue(obj: null)!)
+            .Bind(static column => toSeq(column.Name.Split('.')))
+            .Distinct();
+        Seq<string> carved = toSeq(field.GetCustomAttribute<UnpublishedAttribute>()?.Members ?? []);
+        return toSeq(source.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            .Map(static member => member.Name)
+            .Filter(member => !segments.Contains(member) && !carved.Contains(member));
+    }
 }
 
 // The declared tables. Every fabrication fact the ingress publishes resolves to a row here, so the roster is one
 // readable census of what a fabrication consumer can key on. The six row constructors sit on this owner rather than
 // beside `FactColumn`, so a table declaration reads as one unqualified expression.
 public static class ElementColumns {
+    // The mirror closes here: the census reads THIS type's own fields, so a table added without a carve is proved
+    // the moment it is declared and a `Rasm.Element` owner that grows a member breaks this initializer rather than
+    // dropping the fact into silence.
+    static ElementColumns() => ignore(FactColumns.Sound(typeof(ElementColumns)));
+
     // The row a caller-authored property bag names its material through, and the one symbolic fallback the lowering
     // derives when a single material composition is unambiguous.
     public const string MaterialRow = "material";
 
+    // Every member the lowering publishes ELSEWHERE names its landing here; `Observations` names none, because no
+    // fabrication consumer reads a time series and nothing on this page ever did — the carve is what makes that a
+    // decision instead of an omission.
+    [Unpublished("published by their own tables and folds",
+        nameof(Element.Classifications), nameof(Element.Representations), nameof(Element.Materials),
+        nameof(Element.Properties), nameof(Element.Quantities), nameof(Element.Parts),
+        nameof(Element.Assessments), nameof(Element.Coverages), nameof(Element.Appearance),
+        nameof(Element.History), nameof(Element.Type), nameof(Element.Observations))]
     public static readonly Seq<FactColumn<Element>> Identity = Seq(
         Sym<Element>("Element.Id", static row => row.Id.Value),
         Sym<Element>("Element.Kind", static row => row.Kind.Key),
@@ -325,7 +386,10 @@ public static class ElementColumns {
         Sym<Classification>("Edition", static row => row.Edition));
 
     // The counters ride one composite source because the relation and connection censuses are derived beside the
-    // baked element rather than read off it.
+    // baked element rather than read off it. A composite CARRIER publishes no member of its own — its fields are
+    // the reach, and every fact it emits is named off what they hold — so the whole carrier carves.
+    [Unpublished("composite carrier: its fields are the reach, never a fact",
+        nameof(ComponentCensus.Baked), nameof(ComponentCensus.Topology), nameof(ComponentCensus.Connections))]
     public static readonly Seq<FactColumn<ComponentCensus>> Census = Seq(
         Num<ComponentCensus>("Component.Parts", static row => row.Baked.Parts.Count),
         Num<ComponentCensus>("Component.Materials", static row => row.Baked.Materials.Count),
@@ -358,11 +422,25 @@ public static class ElementColumns {
         Sym<MaterialConstituent>("Category", static row => row.Category),
         Num<MaterialConstituent>("Fraction", static row => row.Fraction));
 
+    // Six columns ride the evidence owner and this table published three, so a fabrication consumer could read
+    // WHERE a property came from and never whether anyone was accountable for it — `Grade` is the column
+    // `PropertyEvidence.Citable` and every audit sweep decide on, and the attestation and run rows are the accountable
+    // source itself. `Grade.Token` is the FROZEN wire spelling its owner publishes for exactly this purpose; the
+    // `[SmartEnum<int>]` key is a precedence RANK, so keying a fact path on it would publish an ordering as a name.
+    // `Reference` is `Option<string>` at its owner, so it takes the optional mint like every other absent-tolerant
+    // read on this page; the total mint it carried does not type-check against that carrier at all.
     public static readonly Seq<FactColumn<PropertyEvidence>> Evidence = Seq(
         Sym<PropertyEvidence>("Evidence.Source", static row => row.Source),
-        Sym<PropertyEvidence>("Evidence.Reference", static row => row.Reference),
+        SymOpt<PropertyEvidence>("Evidence.Reference", static row => row.Reference),
         SymOpt<PropertyEvidence>("Evidence.ValidUntil",
-            static row => row.ValidUntil.Map(static date => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))));
+            static row => row.ValidUntil.Map(static date => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))),
+        Sym<PropertyEvidence>("Evidence.Grade", static row => row.Grade.Token),
+        Num<PropertyEvidence>("Evidence.Attributable", static row => row.Grade.Attributable ? 1.0 : 0.0),
+        SymOpt<PropertyEvidence>("Evidence.Attested.Credential",
+            static row => row.Attested.Map(static seal => seal.Credential)),
+        SymOpt<PropertyEvidence>("Evidence.Run.Author", static row => row.Run.Map(static run => run.Author)),
+        SymOpt<PropertyEvidence>("Evidence.Run.Tool", static row => row.Run.Map(static run => run.Tool)),
+        SymOpt<PropertyEvidence>("Evidence.Run.Version", static row => row.Run.Map(static run => run.Version)));
 
     public static readonly Seq<FactColumn<MaterialPropertySet.Mechanical>> Mechanical = Seq(
         Num<MaterialPropertySet.Mechanical>("Density", static row => row.Density.Si),
@@ -569,10 +647,10 @@ public readonly record struct CurveSample(double Axis, double Value);
 - Owner: `ElementImport` owns admission, the fact lowering, and receipt-only egress.
 - Law: the edge snapshot is ORDERED before any ordinal reaches a fact path. `EdgesAt` hands edges in graph traversal order, so an index-keyed path re-keys the whole component the day the graph re-orders its adjacency; sorting on the relation's own discriminant and endpoints makes each ordinal a function of the edge SET, and two rows tying on every ordering column are indistinguishable to every consumer.
 - Entry: `ElementImport.Admit(ElementSource)` bakes each subject once and returns `Fin<ElementAdmission>`; `ElementImport.Project(ElementReceipt, ElementEgress)` returns `Fin<ElementProjection>` without graph access.
-- Auto: arity alone selects the outcome case — the admitted source already proved the roster non-empty and identity-distinct, so a singular request can never arrive as a vacuous batch. `Validation<Error, _>` accumulates independent batch and duplicate-path faults; every owner admits through its generated `Validate` and the one `Admitted` bridge, so no `Try.lift` wraps a throwing `Create`.
+- Auto: arity alone selects the outcome case — the admitted source already proved the roster non-empty and identity-distinct, so a singular request can never arrive as a vacuous batch. `Validation<Error, _>` accumulates independent batch and duplicate-path faults; every generated owner crosses through the one `Admitted` bridge.
 - Receipt: one grouping serves both the conflict census and the coalesced store, and each conflict carries its own path-derived locus so an accumulated batch names every offending path instead of repeating one error.
-- Exemption: `CanonicalProperties` is a statement kernel — the ordered bag walk is the serialization boundary itself, and `CanonicalWriter` is mutable-fluent, so the loop IS the byte law.
-- Packages: `CommunityToolkit.HighPerformance` (`ArrayPoolBufferWriter<byte>` egress destination), `Rasm.Element` (`ElementGraph.Bake`, `CanonicalWriter`, `ContentHash`, `PropertyCategory`), LanguageExt.Core rails, `UnitsNet` at the layer-thickness projection.
+- Exemption: `CanonicalProperties` is a statement kernel — the ordered bag walk is the serialization boundary itself, and `CanonicalWriter` is mutable-fluent, so the loop IS the byte law; it opens through the RETAINING mint and closes on the rail, because the codec publishes no public constructor and only one of its two mints holds a buffer to hand back.
+- Packages: `CommunityToolkit.HighPerformance` (`ArrayPoolBufferWriter<byte>` egress destination), `Rasm.Element` (`ElementGraph.Bake`, `CanonicalWriter.Retaining` and its `Fin`-answering `ToBytes` close, `PropertyCategory`); `Process/owner` `FabricationCanon.Ordered` for the two identity digests, LanguageExt.Core rails, `UnitsNet` at the layer-thickness projection.
 - Boundary: writer disposal stays with the caller; a buffer failure rails through the retained locus rather than escaping the `Fin` return.
 
 ```csharp signature
@@ -599,18 +677,18 @@ public static class ElementImport {
             component: static (state, _) => Fin.Succ<ElementProjection>(new ElementProjection.Component(state.Component)),
             topology: static (state, _) => Fin.Succ<ElementProjection>(new ElementProjection.Topology(state.Topology)),
             facts: static (state, _) => Fin.Succ<ElementProjection>(new ElementProjection.Facts(state.Facts)),
-            canonicalProperties: static (state, request) => Try.lift<ElementProjection>(() => {
+            canonicalProperties: static (state, request) => Op.Of(name: "element:projection").Catch(() => {
                 int before = request.Destination.WrittenCount;
                 request.Destination.Write(state.CanonicalProperties.Span);
-                return new ElementProjection.Written(request.Destination.WrittenCount - before);
-            }).Run().MapFail(_ => Translation(state.Locus)));
+                return Fin.Succ<ElementProjection>(new ElementProjection.Written(request.Destination.WrittenCount - before));
+            }));
 
     private static Fin<ElementReceipt> AdmitOne(ElementGraph graph, ElementSubject subject, Op key) =>
         from baked in graph.Bake(subject.Id, key)
         let topology = Ordered(graph.EdgesAt(baked.Id))
         let tolerance = graph.Header.Tolerance
         let locus = LocusOf(baked.Id, FactScope.Root.Row(nameof(Element)), tolerance)
-        let fault = Translation(locus)
+        let fault = Translation(locus, "element:admission")
         from representation in Resolve(baked, subject.Payload, tolerance, fault)
         let connections = ConnectionsOf(topology)
         from facts in FactsOf(baked, topology, connections, tolerance, fault)
@@ -622,26 +700,26 @@ public static class ElementImport {
             LayersOf(baked),
             connections,
             facts.Quantities,
-            facts.Properties).MapFail(_ => fault)
-        from receipt in ElementReceipt
-            .Admit(component, topology, facts, CanonicalProperties(graph, baked), locus)
-            .MapFail(_ => fault)
+            facts.Properties)
+        from properties in CanonicalProperties(graph, baked, key)
+        from receipt in ElementReceipt.Admit(component, topology, facts, properties, locus)
         select receipt;
 
     // Combined representation key count-frames the roster and length-frames each slot key, so a one-part and a
     // two-part payload can never collide and a slot rename cannot silently reuse an existing identity.
     private static Fin<UInt128> Resolve(Element baked, ElementPayload payload, double tolerance, Error fault) =>
         payload.Parts
-            .Traverse(part => part.Slot.Locate(baked.Representations)
+            .Traverse(part => baked.Representations.At(part.Slot)
                 .Map(key => (Slot: part.Slot.Key, Key: key))
                 .ToFin(fault)
                 .ToValidation())
             .As()
             .ToFin()
-            .Map(rows => rows
-                .Fold(new CanonicalWriter(tolerance).Ordinal(rows.Count),
-                    static (writer, row) => writer.String(row.Slot).U128(row.Key)))
-            .Map(static writer => ContentHash.Of(writer.ToBytes().Span));
+            // Order-only close: this key is an IDENTITY over the framed roster, never a buffer a caller reads
+            // back, so it takes the facade's digest mint. `new CanonicalWriter(...)` names no member — the codec
+            // publishes no public constructor, and its two mints answer two different closes.
+            .Map(rows => FabricationCanon.Ordered(tolerance, writer => rows
+                .Fold(writer.Ordinal(rows.Count), static (target, row) => target.String(row.Slot).U128(row.Key))));
 
     // The ONE ordering. Its key joins the discriminant, the endpoints, and the sub-kind — every column a consumer can
     // distinguish two edges by — so the ordinal a fact path carries is stable across graph rebuilds.
@@ -713,21 +791,22 @@ public static class ElementImport {
         Seq<Validation<Error, Unit>> conflicts = grouped
             .Choose(group => group.Rows.ForAll(row => group.Rows.ForAll(other => row.Equivalent(other, tolerance)))
                 ? None
-                : Some(Fin.Fail<Unit>(Translation(LocusOf(baked.Id, group.Path, tolerance))).ToValidation()))
+                : Some(Fin.Fail<Unit>(Translation(
+                    LocusOf(baked.Id, group.Path, tolerance), "element:fact-conflict")).ToValidation()))
             + baked.Properties.Bind(static bag => bag.Values.Pairs)
                 .Choose(pair => pair.Key.Value == ElementColumns.MaterialRow && pair.Value is not PropertyValue.Text
                     ? Some(Fin.Fail<Unit>(Translation(LocusOf(baked.Id,
-                        FactScope.Root.Row(ElementColumns.MaterialRow), tolerance))).ToValidation())
+                        FactScope.Root.Row(ElementColumns.MaterialRow), tolerance), "element:material-row")).ToValidation())
                     : None);
 
         return conflicts.Traverse(static conflict => conflict)
             .As()
             .ToFin()
-            .Bind(_ => ElementFactSet.Admit(grouped.Choose(static group => group.Rows.Head)).MapFail(_ => fault));
+            .Bind(_ => ElementFactSet.Admit(grouped.Choose(static group => group.Rows.Head)));
     }
 
     private static UInt128 LocusOf(NodeId id, PropertyName path, double tolerance) =>
-        ContentHash.Of(new CanonicalWriter(tolerance).String(id.Value).String(path.Value).ToBytes().Span);
+        FabricationCanon.Ordered(tolerance, writer => writer.String(id.Value).String(path.Value));
 
     private static Seq<ElementFact> MaterialRows(BakedMaterial material) {
         string key = material.Material.MaterialKey.Value;
@@ -793,7 +872,7 @@ public static class ElementImport {
 
     private static Seq<ElementFact> UsageRows(FactScope scope, MaterialUsage usage) => usage.Switch(
         state: scope,
-        none: static (at, _) => Kind(at, nameof(MaterialUsage.None)),
+        unbound: static (at, _) => Kind(at, nameof(MaterialUsage.Unbound)),
         layerSet: static (at, row) => Kind(at, nameof(MaterialUsage.LayerSet)) + ElementColumns.LayerUsage.Emit(at, row),
         profileSet: static (at, row) => Kind(at, nameof(MaterialUsage.ProfileSet)) + ElementColumns.ProfileUsage.Emit(at, row));
 
@@ -856,8 +935,8 @@ public static class ElementImport {
 
     // Exemption: the ordered bag walk IS the serialization boundary, and `CanonicalWriter` is mutable-fluent, so the
     // statement kernel is the byte law rather than an imperative accumulation of a value.
-    private static ReadOnlyMemory<byte> CanonicalProperties(ElementGraph graph, Element baked) {
-        CanonicalWriter writer = new(graph.Header.Tolerance);
+    private static Fin<ReadOnlyMemory<byte>> CanonicalProperties(ElementGraph graph, Element baked, Op key) {
+        CanonicalWriter writer = CanonicalWriter.Retaining(graph.Header.Tolerance);
         Seq<PropertyBag> bags = toSeq(baked.Properties.OrderBy(static bag => bag.SetName, StringComparer.Ordinal));
         writer.Ordinal(bags.Count);
         foreach (PropertyBag bag in bags) {
@@ -867,11 +946,13 @@ public static class ElementImport {
                 value.CanonicalBytes(writer);
             }
         }
-        return writer.ToBytes();
+        // `ToBytes` is the RETAINING close and answers on the rail: a writer opened by construction and closed with
+        // a discarded refusal keyed its bytes off a buffer it never proved it held.
+        return writer.ToBytes(key);
     }
 
-    private static Error Translation(UInt128 locus) =>
-        FabricationFault.Sourced(new SourceLocus.ElementNode(locus));
+    private static Error Translation(UInt128 locus, string detail) =>
+        FabricationFault.Sourced(new SourceLocus.ElementNode(locus), detail);
 }
 ```
 

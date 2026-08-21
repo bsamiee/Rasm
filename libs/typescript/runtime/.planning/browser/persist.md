@@ -32,13 +32,13 @@ The local-persistence plane and the one `idb-keyval` site in the branch: a close
 - Law: `mutate` encodes inside the library's transaction callback, which rejects the transaction promise with the updater's throw, so the fault fold guards `ParseError` first — a codec failure never wears the `io` reason a class-dispatching retry re-drives forever.
 - Law: `KvBacking` satisfies `Persistence.BackingPersistence` over the `persist` row, so `PersistedCache`, `PersistedQueue`, and `RequestResolver.persisted` ride IndexedDB instead of the package's Web-Storage route; expiry is a read verdict and `clear` is prefix-scoped to one store.
 - Entry: the service's eight members are the whole surface; `R` carries nothing — the store handles are construction facts.
-- Packages: `@effect/experimental` (`Persistence`); `@rasm/ts/core` (`Fault.Class`); `effect` (`Array`, `Clock`, `Data`, `Effect`, `Layer`, `Option`, `ParseResult`, `Predicate`, `Schema`); `idb-keyval`.
+- Packages: `@effect/experimental` (`Persistence`); `@rasm/ts/core` (`Fault.Class`); `effect` (`Array`, `Clock`, `Effect`, `Layer`, `Option`, `ParseResult`, `Predicate`, `Record`, `Schema`); `idb-keyval`.
 - Boundary: `@effect/platform`'s `KeyValueStore` Tag stays unbound here by design — its browser binding is Web-Storage-backed and carries no IndexedDB layer, so the durable lane is direct `idb-keyval` under this one owner; the EventLog journal's own IndexedDB database is `[5]`'s and never shares these stores.
 
 ```typescript signature
 import { Persistence } from "@effect/experimental"
 import { Fault } from "@rasm/ts/core"
-import { Array, type Clock, Data, Effect, Layer, Option, ParseResult, Predicate, Schema } from "effect"
+import { Array, type Clock, Effect, Layer, Option, ParseResult, Predicate, Record, Schema } from "effect"
 import { clear, createStore, del, delMany, get, getMany, keys, promisifyRequest, set, setMany, update, type UseStore } from "idb-keyval"
 
 const _domains = {
@@ -57,11 +57,37 @@ const _domains = {
   persist: Schema.Struct({ value: Schema.Unknown, expires: Schema.NullOr(Schema.Number) }),
 } as const
 
+// The store roster IS the fault's subject vocabulary: every lane refusal names the domain it was raised on, so the
+// column derives from `_domains` rather than widening to a string a second roster would have to close.
+const _Domain = Schema.Literal(...Record.keys(_domains))
+
 const _kvFamily = Fault.Class.family(["quota", "absent", "codec", "io"] as const, {
-  quota: { class: "exhausted" },
-  absent: { class: "absent" },
-  codec: { class: "malformed" },
-  io: { class: "unavailable" },
+  quota: Fault.Class.row({
+    class: "exhausted",
+    leg: "lane",
+    detail: Schema.Struct({ domain: _Domain, limit: Schema.String }),
+    render: ({ domain, limit }) => `${domain} store refused the write against its origin quota: ${limit}`,
+  }),
+  // The probe is the whole fact — a host with no `indexedDB` cannot reach a transaction, so the rejection riding
+  // beside it names the call that never ran rather than the absence, and the row carries the domain alone.
+  absent: Fault.Class.row({
+    class: "absent",
+    leg: "lane",
+    detail: Schema.Struct({ domain: _Domain }),
+    render: ({ domain }) => `${domain} store is unreachable: the host carries no indexedDB`,
+  }),
+  codec: Fault.Class.row({
+    class: "malformed",
+    leg: "lane",
+    detail: Schema.Struct({ domain: _Domain, issue: Schema.String }),
+    render: ({ domain, issue }) => `${domain} value failed its own domain schema: ${issue}`,
+  }),
+  io: Fault.Class.row({
+    class: "unavailable",
+    leg: "lane",
+    detail: Schema.Struct({ domain: _Domain, cause: Schema.String }),
+    render: ({ domain, cause }) => `${domain} transaction failed: ${cause}`,
+  }),
 })
 
 declare namespace Kv {
@@ -87,20 +113,14 @@ declare namespace Kv {
   type _Rows<T extends Record<Domain, Schema.Schema.Any> = typeof _domains> = T
 }
 
-declare namespace KvFault {
-  type Reason = (typeof _kvFamily.reasons)[number]
-}
-
-class KvFault extends Data.TaggedError("KvFault")<{
-  readonly reason: KvFault.Reason
-  readonly domain: Kv.Domain
-  readonly detail: string
-}> {
+class KvFault extends Schema.TaggedError<KvFault>()("KvFault", {
+  case: _kvFamily.payload,
+}) {
   get class(): Fault.Class.Kind {
-    return _kvFamily.classOf(this.reason)
+    return _kvFamily.classOf(this.case.reason)
   }
   override get message(): string {
-    return `<kv:${this.reason}> ${this.domain}: ${this.detail}`
+    return _kvFamily.render(this.case)
   }
 }
 
@@ -110,15 +130,15 @@ class KvFault extends Data.TaggedError("KvFault")<{
 // re-drove a deterministic encode failure as a retryable transient, forever.
 const _faulted = (domain: Kv.Domain) => (cause: unknown): KvFault =>
   ParseResult.isParseError(cause)
-    ? new KvFault({ reason: "codec", domain, detail: String(cause) })
+    ? new KvFault({ case: { reason: "codec", domain, issue: String(cause) } })
     : !("indexedDB" in globalThis)
-      ? new KvFault({ reason: "absent", domain, detail: String(cause) })
+      ? new KvFault({ case: { reason: "absent", domain } })
       : cause instanceof DOMException && cause.name === "QuotaExceededError"
-        ? new KvFault({ reason: "quota", domain, detail: cause.message })
-        : new KvFault({ reason: "io", domain, detail: String(cause) })
+        ? new KvFault({ case: { reason: "quota", domain, limit: cause.message } })
+        : new KvFault({ case: { reason: "io", domain, cause: String(cause) } })
 
 const _decoded = (domain: Kv.Domain) => (fault: ParseResult.ParseError): KvFault =>
-  new KvFault({ reason: "codec", domain, detail: String(fault) })
+  new KvFault({ case: { reason: "codec", domain, issue: String(fault) } })
 
 const _lane = <A, I>(domain: Kv.Domain, schema: Schema.Schema<A, I>) => {
   const store = createStore(`rasm-${domain}`, domain)
@@ -306,7 +326,7 @@ const KvBacking: Layer.Layer<Persistence.BackingPersistence, never, Kv> = Layer.
 - Law: `lifetime` answers BOTH halves in one cell — how long a row survives AND which party ends it — since a span with no ending party and a party with no span are each half a coordinate; the user agent is that party on every row, which the cell states rather than deferring.
 - Law: `degrade` carries the residual alone — a forfeit `tenancy` or `lifetime` already expresses never rides it a second time, so per-tab scoping buys back the isolation its siblings give up and states nothing further.
 - Growth: a new pressure band is one `_BANDS` row; a new backing is one `_BACKINGS` row; a new residency fact (a bucket API, a durability probe) is one member on this owner; a new egress route is one `_ROUTES` row plus its `_LADDER` seat.
-- Packages: `effect` (`Data`, `Effect`, `Exit`, `Option`, `Predicate`, `Scope`); `@rasm/ts/core` (`Fault.Class`).
+- Packages: `effect` (`Array`, `Effect`, `Exit`, `Option`, `Predicate`, `Schema`, `Scope`); `@rasm/ts/core` (`Fault.Class`).
 
 ```typescript signature
 // Bands price DURABILITY ADMISSION, never a byte threshold alone. `ceiling` spans the usage fraction, `heavyLane`
@@ -389,25 +409,38 @@ type _StorageHost = Navigator & {
 const _storage = (): Option.Option<NonNullable<_StorageHost["storage"]>> =>
   Option.fromNullable((globalThis.navigator as _StorageHost).storage)
 
+// `absent` and `declined` carry NO subject and say so: the missing surface is one constant this owner already spells
+// and a refused grant is the user agent's whole answer, so an empty struct is the honest declaration rather than a
+// free string re-opening the axis `reason` closed. Only `io` has a foreign cause worth rendering.
 const _residencyFamily = Fault.Class.family(["absent", "declined", "io"] as const, {
-  absent: { class: "absent" }, // the host carries no `navigator.storage`, so no grant is reachable at all
-  declined: { class: "denied" }, // the user agent REFUSED the grant — a decision, never a transient to re-drive
-  io: { class: "unavailable" },
+  absent: Fault.Class.row({
+    class: "absent", // the host carries no `navigator.storage`, so no grant is reachable at all
+    leg: "residency",
+    detail: Schema.Struct({}),
+    render: () => "durable residency is unreachable: the host carries no navigator.storage",
+  }),
+  declined: Fault.Class.row({
+    class: "denied", // the user agent REFUSED the grant — a decision, never a transient to re-drive
+    leg: "residency",
+    detail: Schema.Struct({}),
+    render: () => "the user agent refused the durable-storage grant",
+  }),
+  io: Fault.Class.row({
+    class: "unavailable",
+    leg: "residency",
+    detail: Schema.Struct({ cause: Schema.String }),
+    render: ({ cause }) => `the durable-storage grant call failed: ${cause}`,
+  }),
 })
 
-declare namespace ResidencyFault {
-  type Reason = (typeof _residencyFamily.reasons)[number]
-}
-
-class ResidencyFault extends Data.TaggedError("ResidencyFault")<{
-  readonly reason: ResidencyFault.Reason
-  readonly detail: string
-}> {
+class ResidencyFault extends Schema.TaggedError<ResidencyFault>()("ResidencyFault", {
+  case: _residencyFamily.payload,
+}) {
   get class(): Fault.Class.Kind {
-    return _residencyFamily.classOf(this.reason)
+    return _residencyFamily.classOf(this.case.reason)
   }
   override get message(): string {
-    return `<residency:${this.reason}> ${this.detail}`
+    return _residencyFamily.render(this.case)
   }
 }
 
@@ -419,9 +452,9 @@ const _granted = (run: () => Promise<boolean>): Effect.Effect<void, ResidencyFau
   Effect.flatMap(
     Effect.tryPromise({
       try: run,
-      catch: (cause) => new ResidencyFault({ reason: "io", detail: String(cause) }),
+      catch: (cause) => new ResidencyFault({ case: { reason: "io", cause: String(cause) } }),
     }),
-    (held) => held ? Effect.void : Effect.fail(new ResidencyFault({ reason: "declined", detail: "<grant-refused>" })),
+    (held) => held ? Effect.void : Effect.fail(new ResidencyFault({ case: { reason: "declined" } })),
   )
 
 const _verdict = (usage: number, quota: number): Opfs.Verdict =>
@@ -451,7 +484,7 @@ class Opfs extends Effect.Service<Opfs>()("runtime/browser/Opfs", {
     // decision: the read members keep absence as data because a missing number is still a posture, while the GRANT
     // is a verdict and its three outcomes stay three.
     retain: Option.match(_storage(), {
-      onNone: () => Effect.fail(new ResidencyFault({ reason: "absent", detail: "<navigator.storage>" })),
+      onNone: () => Effect.fail(new ResidencyFault({ case: { reason: "absent" } })),
       onSome: (storage) => _granted(() => storage.persist()),
     }),
     budget: Option.match(_storage(), {
@@ -502,25 +535,38 @@ type _SavePicker = (options: {
   readonly types: ReadonlyArray<{ readonly description: string; readonly accept: Record<string, ReadonlyArray<string>> }>
 }) => Promise<_SaveHandle>
 
+// Every egress refusal names the FILE it refused, because one view can have several in flight and a bare cause names
+// none of them. `absent` takes name and mime together: a host with no share sheet at all and a sheet that declines
+// this payload's type are the same verdict read off different columns, and one row renders both.
 const _egressFamily = Fault.Class.family(["absent", "declined", "io"] as const, {
-  absent: { class: "absent" }, // no route: neither a picker nor a document to anchor against
-  declined: { class: "denied" }, // the user closed the dialog — a decision, never a transient to re-drive
-  io: { class: "unavailable" },
+  absent: Fault.Class.row({
+    class: "absent", // no route: neither a picker nor a document to anchor against
+    leg: "egress",
+    detail: Schema.Struct({ name: Schema.String, mime: Schema.String }),
+    render: ({ name, mime }) => `no egress route carries ${name} (${mime})`,
+  }),
+  declined: Fault.Class.row({
+    class: "denied", // the user closed the dialog — a decision, never a transient to re-drive
+    leg: "egress",
+    detail: Schema.Struct({ name: Schema.String }),
+    render: ({ name }) => `the egress dialog closed before ${name} was written`,
+  }),
+  io: Fault.Class.row({
+    class: "unavailable",
+    leg: "egress",
+    detail: Schema.Struct({ name: Schema.String, cause: Schema.String }),
+    render: ({ name, cause }) => `${name} failed at the egress route: ${cause}`,
+  }),
 })
 
-declare namespace EgressFault {
-  type Reason = (typeof _egressFamily.reasons)[number]
-}
-
-class EgressFault extends Data.TaggedError("EgressFault")<{
-  readonly reason: EgressFault.Reason
-  readonly detail: string
-}> {
+class EgressFault extends Schema.TaggedError<EgressFault>()("EgressFault", {
+  case: _egressFamily.payload,
+}) {
   get class(): Fault.Class.Kind {
-    return _egressFamily.classOf(this.reason)
+    return _egressFamily.classOf(this.case.reason)
   }
   override get message(): string {
-    return `<egress:${this.reason}> ${this.detail}`
+    return _egressFamily.render(this.case)
   }
 }
 
@@ -556,8 +602,8 @@ const _picked = (pick: _SavePicker, file: Egress.File): Effect.Effect<void, Egre
     },
     catch: (cause) =>
       cause instanceof DOMException && cause.name === "AbortError"
-        ? new EgressFault({ reason: "declined", detail: file.name })
-        : new EgressFault({ reason: "io", detail: String(cause) }),
+        ? new EgressFault({ case: { reason: "declined", name: file.name } })
+        : new EgressFault({ case: { reason: "io", name: file.name, cause: String(cause) } }),
   })
 
 const _sharer = (): Option.Option<Required<Pick<_ShareHost, "share" | "canShare">>> => {
@@ -567,7 +613,7 @@ const _sharer = (): Option.Option<Required<Pick<_ShareHost, "share" | "canShare"
 
 const _shared = (file: Egress.File): Effect.Effect<void, EgressFault> =>
   Option.match(_sharer(), {
-    onNone: () => Effect.fail(new EgressFault({ reason: "absent", detail: file.name })),
+    onNone: () => Effect.fail(new EgressFault({ case: { reason: "absent", name: file.name, mime: file.mime } })),
     onSome: ({ share, canShare }) => {
       const payload = { files: [new globalThis.File([file.octets], file.name, { type: file.mime })] }
       return canShare(payload)
@@ -575,10 +621,10 @@ const _shared = (file: Egress.File): Effect.Effect<void, EgressFault> =>
           try: () => share(payload),
           catch: (cause) =>
             cause instanceof DOMException && (cause.name === "AbortError" || cause.name === "NotAllowedError")
-              ? new EgressFault({ reason: "declined", detail: file.name })
-              : new EgressFault({ reason: "io", detail: String(cause) }),
+              ? new EgressFault({ case: { reason: "declined", name: file.name } })
+              : new EgressFault({ case: { reason: "io", name: file.name, cause: String(cause) } }),
         })
-        : Effect.fail(new EgressFault({ reason: "absent", detail: file.mime }))
+        : Effect.fail(new EgressFault({ case: { reason: "absent", name: file.name, mime: file.mime } }))
     },
   })
 
@@ -596,8 +642,8 @@ const _opened = (pick: _SavePicker, file: Egress.File): Effect.Effect<_SaveWrita
       },
       catch: (cause) =>
         cause instanceof DOMException && cause.name === "AbortError"
-          ? new EgressFault({ reason: "declined", detail: file.name })
-          : new EgressFault({ reason: "io", detail: String(cause) }),
+          ? new EgressFault({ case: { reason: "declined", name: file.name } })
+          : new EgressFault({ case: { reason: "io", name: file.name, cause: String(cause) } }),
     }),
     (writable, exit) =>
       Effect.promise(() => (Exit.isSuccess(exit) ? writable.close() : writable.abort()).catch(() => undefined)),
@@ -615,7 +661,7 @@ const _anchored = (file: Egress.File): Effect.Effect<void, EgressFault> =>
       anchor.click()
       globalThis.URL.revokeObjectURL(url)
     },
-    catch: (cause) => new EgressFault({ reason: "io", detail: String(cause) }),
+    catch: (cause) => new EgressFault({ case: { reason: "io", name: file.name, cause: String(cause) } }),
   })
 
 // Routes are ROWS and the ladder is their order: `available` probes the host, `perform` IS this family's admitting
@@ -632,7 +678,7 @@ const _ROUTES = {
     perform: (file: Egress.File): Effect.Effect<void, EgressFault> =>
       Option.match(_picker(), {
         onSome: (pick) => _picked(pick, file),
-        onNone: () => Effect.fail(new EgressFault({ reason: "absent", detail: file.name })),
+        onNone: () => Effect.fail(new EgressFault({ case: { reason: "absent", name: file.name, mime: file.mime } })),
       }),
     streams: true,
     degrade: "<needs-user-gesture>",
@@ -666,7 +712,7 @@ const Egress: {
   save: (file) =>
     Option.match(_routed(), {
       onSome: (row) => _ROUTES[row].perform(file),
-      onNone: () => Effect.fail(new EgressFault({ reason: "absent", detail: file.name })),
+      onNone: () => Effect.fail(new EgressFault({ case: { reason: "absent", name: file.name, mime: file.mime } })),
     }),
   share: _shared,
   // Streaming reads the same `streams` column `route` publishes, so a host promised a writable always gets one
@@ -674,7 +720,7 @@ const Egress: {
   open: (file) =>
     Option.match(Option.flatMap(Option.filter(_routed(), (row) => _ROUTES[row].streams), () => _picker()), {
       onSome: (pick) => _opened(pick, file),
-      onNone: () => Effect.fail(new EgressFault({ reason: "absent", detail: file.name })),
+      onNone: () => Effect.fail(new EgressFault({ case: { reason: "absent", name: file.name, mime: file.mime } })),
     }),
 }
 ```

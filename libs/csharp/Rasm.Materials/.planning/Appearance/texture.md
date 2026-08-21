@@ -13,21 +13,25 @@ THE UV-AND-SOLID SAMPLING ENGINE. One `TextureUv` static sampling fold over the 
 - Cases: address {`Repeat`, `Clamp`, `Mirror`} · filter {`Nearest`, `Bilinear`, `Bicubic`, `Trilinear`} · noise-basis {`Perlin`, `Simplex`, `Value`, `Worley`} (fBm is octave-summation over a basis, `Octaves > 1`, never a fifth basis; `Wrappable` is the per-row periodic-lattice column) · fractal {`FBm`, `Ridged`, `PingPong`} · cellular-distance {`EuclideanSq`, `Euclidean`, `Manhattan`, `Hybrid`} · cellular-return {`CellValue`, `Distance`, `Distance2`, `Distance2Sub`, `Distance2Add`, `Distance2Mul`, `Distance2Div`} · source {`Noise`, `Checker`, `Gradient`, `Image`, `Triplanar`}.
 - Entry: `public static Fin<Noise> Noise.Of(NoiseBasis basis, double frequency, Op key, …)` is the noise-source MINT the lattice period exists for and the only way a `Noise` value comes into being — the constructor is private and every column get-only, so the sampler dispatches on a union case carrying its own proof instead of screening a value a public constructor could always have forged. An aperiodic draft passes on one predicate; a periodic one proves its basis wrappable, its lacunarity and frequency integral against the period, and its warp frequency integral, so a source seaming at the tile edge is unrepresentable rather than rendered — and `Checker.Of`, `Gradient.Of`, and `Triplanar.Of` seal their cases the same way (repeats, stops, scale, and blend sharpness prove at the mint), so no union case admits a bare `new`; `public static Fin<ShadeVec4> Sample(TextureSource source, UvSample point, SamplerState sampler, Op key)` is the deep field rail and `public static Func<double, double, Option<double>, PortValue> Port(TextureSource source, UvSample anchor, SamplerState sampler, Channel channel, Op key)` is the `graph#MATERIAL_GRAPH` `AppearanceNode.Texture` bridge — `Port` captures the source/sampler/key and returns the TOTAL `(u,v,parameter)→PortValue` closure the node fold reads, its third lane the DRIVEN `UvSample.Parameter` a node's own `Parameter` port resolves so a field-driven ramp needs no second bridge (`Channel` projects the field to `PortValue.Color`, `.Scalar` (luminance), `.Scalar` mask (`W`), or `.Vector`), an empty-pyramid/degenerate-normal/non-finite-field sample folding to the channel's neutral `PortValue` so the graph arm stays total while the deep `Sample` rail carries the `Op key`-correlated `MaterialFault` — the UV lanes themselves are `UnitInterval` value-objects, finite-in-[0,1] by construction, so no interior re-validation exists on the coordinate path; arity is one — a texture variation discriminates on the `TextureSource` union case and a sample modality on `Channel`, never on a sibling sampler method.
 - Packages: Rasm.Materials.Appearance.Bsdf (`MaterialFault` band-2450), Rasm (project — `UnitInterval`/`Dimension`, and the `Numerics/atoms#SCALAR_FLOOR` `PerceptualColor`/`BlendPath.Oklch()`/`RgbProfile.Acescg`/`GamutPolicy.Perceptual` perceptual owner the gradient resolve composes), Rhino.Geometry (`Vector3d`/`Point3d` at the shading edge, the graph-page host-geometry convention), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<int>]` at the deepest surface — generated total `Switch`, `[UseDelegateFromConstructor]` behavior columns), LanguageExt.Core (`Fin`/`Seq`/`Bind`/`Fold`/`Traverse`), Wacton.Unicolour (scene-linear color owner — the authored-stop and literal carrier), CommunityToolkit.HighPerformance (`ReadOnlyMemory2D<ShadeVec4>`/`ReadOnlySpan2D` — the mip-plane owner, admitted once per level through `AsMemory2D(height, width)`), BCL inbox.
+- Law: `ProceduralNoise` holds EVERY published FastNoiseLite anchor as a named `internal const` and no kernel on this page spells one inline — the lattice primes, the hash multiplier, the `ValCoord` projection scale, the 2D skew/unskew pair, both Perlin normalizers, both simplex bounds, the 3D rotation, both cellular jitter radii, the warp decorrelation offset, and the two defining gradient angles. INTERNAL is the load-bearing part: `Raster/gpu#WGSL_KERNEL` `Wgsl.NoiseConsts` INTERPOLATES these members into its shader prelude, so one declaration serves two emissions and a re-typed literal on either side is the deleted form the branch ruling names. A private anchor is a value the GPU page must transcribe, which is exactly the fork the interpolation closes; a new anchor lands one member here and one interpolated row there, never a value that page decides.
+- Law: `Directions2D` stays a VERBATIM transcription while `GradientAngle0`/`GradientAngleStep` state its DEFINITION, and the two are not redundant. `Math.Cos` over those angles agrees with the published decimals only to within an ulp, so the CPU cannot generate the table without forfeiting the byte-parity claim this family exists for; the shader carries no table blob at all and must generate. Declaring the angles beside the transcription is what lets both sides share one definition of the cycle where their bytes cannot agree, and the `PressGpuParity` workload grades that divergence rather than asserting texel equality.
+- Law: every `bool` on this page is a LONE column on its owner — `NoiseBasis.Wrappable` and `Noise.Solid` — so the kernel `Domain/validation#CAPABILITY` `CapabilitySet` law leaves each a bool and the owner says so. That law deletes ADJACENT bool columns whose boolean product has illegal corners; no owner here carries a second boolean axis, and a one-member capability roster would publish a set algebra no gate reads over a fact one predicate already answers. `Wrappable` is read at `Noise.Of`'s periodic gate and by the `refuse.simplex` golden row; `Solid` selects the 3D arm at `Field`. Neither reconstructs the other.
+- Law: absence never crosses as `null` past this page's boundary. `Noise.Of`'s optional columns are ROSTER VALUES — `FractalMode`, `CellularParams`, `DomainWarp`, `NoisePeriod`, and the two gradient `Unicolour` anchors — none of which has a compile-time constant form, so the language admits them only as nullable optionals and each resolves to its own roster default INSIDE the admission expression, at the ONE place a default noise posture is spelled. No interior signature, no return, and no stored column on this page carries a nullable.
 - Growth: a new addressing rule is one `AddressMode` row, a new reconstruction filter one `FilterMode` row, a new leaf noise basis one `NoiseBasis` row binding one `ProceduralNoise.Sample2D`/`Sample3D` arm pair and answering the `Wrappable` column, a new per-octave lattice policy one `NoiseLattice` column rather than a widened arm signature, a new fractal trajectory one `FractalMode` row, a new cellular feature one `CellularReturn`/`CellularDistance` row, a new texture one `TextureSource` case carrying its `MtlxCategory`, a new sampled-channel modality one `Channel` row — never a parallel `BilinearSampler`/`PerlinTexture`/`NoiseSampler3D` surface and never a parallel fractal-kind enum since the fractal trajectory is a `FractalMode` row over the basis octave-sum. `NoiseBasis` closes on the FastNoiseLite leaf-basis family (the `Perlin`/`Simplex`/`Value`/`Worley` gradient·simplex·lattice·cellular quartet) projecting onto the MaterialX 1.39 `noise2d`/`noise3d`/`fractal2d`/`cellnoise2d`/`worleynoise2d` categories — `Value` the `cellnoise2d` value-noise analogue, `noise3d` (`NodeCategory.Perlin3D`) the solid-noise wire target, `unifiednoise2d` a parameterized selector no single basis maps cleanly onto; `ValueCubic` is one `NoiseBasis` row binding one `ProceduralNoise` arm and one `MtlxNode`, not a new noise class. `TextureSource.MtlxCategory`, `NoiseBasis.MtlxNode`, `AddressMode.MtlxAddress`, and `FilterMode.MtlxFilter` project the MaterialX 1.39 node-category parity the `interchange#MATERIALX_DOCUMENT` `Mtlx.CategoryOf` resolves against the closed `NodeCategory` set — MaterialX names node categories and never the lattice math, so the FNL kernels stay the shading truth and the categories the wire projection. MaterialX's fourth `uaddressmode` member `constant` has no `AddressMode` row by design — under it an out-of-range coordinate returns the `image` node's OWN `default` input rather than folding, so the value is sampler-level payload and not a coordinate law; admitting it is one `AddressMode` row and one border-value column on `SamplerState`, and the egress side never produces it, the named import edge. A new bind-time coordinate axis is one `UvFrame` column, never a second transform carrier and never a per-source arm.
 - Boundary: UV coordinates enter as Rasm.Numerics `UnitInterval` pairs (the `[0,1]` validated value-object), image extents as `Dimension` (the `>=1` int-backed value-object), world position and normal as host `Vector3d`; the sampler NEVER re-mints a coordinate or extent primitive. `ShadeVec4` carries the interior noise/checker/gradient/image/triplanar algebra on one four-lane field register (`X`/`Y`/`Z` the scalar-field/color lanes, `W` the texel alpha the `Image` reconstruction premultiplies and `Channel.Mask` reads) — `ShadeVec4` is the texture field carrier distinct from the `bsdf#LOBE_FAMILY` `RgbSpectrum` validated reflectance: a noise field is signed, a normal-map decode is `[-1,1]`, and a texel carries alpha, none of which the non-negative-validated `RgbSpectrum` admits, so the field stays the raw register and crosses to the validated reflectance only through `ShadeVec4.AsColor`. Color crosses the axis exactly once: color literals on `TextureSource` rows (`Low`/`High`, `Even`/`Odd`, gradient `Stops`) enter as `Unicolour` and decompose to `ShadeVec4` through `ShadeVec4.FromColor` for the field math — the gradient canonicalizes its authored stops sorted-by-position, admits each through the kernel `PerceptualColor.OfRgb(…, RgbProfile.Acescg)` ingress, and pre-resolves the `Lut` texel run through `PerceptualColor.Mix` on the `BlendPath.Oklch()` authored-hue path with every texel landing through `ToRgb(RgbProfile.Acescg, GamutPolicy.Perceptual)` at `Gradient.Of` construction — the corpus' ONE perceptual-blend spelling, so the perceptual hue path (never the linear-RGB lerp that bends hue through the grey dead zone, never a host colour-blend standing in for the kernel owner) is priced ONCE off the hot path with the gamut map a raw host `Mix` omits, an unsorted authored list cannot mangle the bracketing walk, and the per-sample read is an index-lerp between adjacent resolved texels — and the single `ShadeVec4.AsColor` adapter constructs the canonical scene-linear `Unicolour(PortValue.SceneLinear, ColourSpace.RgbLinear, X, Y, Z)` at the projection tail — the sampler NEVER mints a second color register. the per-bind UV transform is `SamplerState.Frame`, a `UvFrame` of five doubles applied at exactly ONE site inside `TextureUv.Sample` BEFORE the source dispatch — scale, then rotation about the UV origin, then offset, the KHR_texture_transform composition a `Rasm.Bim` `UvTransform` lowers onto at the seam — so `AddressMode.Apply` sees the TRANSFORMED coordinate and every source case (noise, checker, gradient, image, triplanar) inherits tiling with no per-case edit, while the transform stays OFF the set: `Raster/set#SET_INGEST`'s content-addressed atlas has N sets sharing one blob, and a per-tiling column inside a set forks that key per consumer; `UvFrame.Digest` enters the `press#PRESS_PLAN` key preimage beside the post-chain ops because a re-tiled bake is different bytes, and the identity frame digests EMPTY so landing the axis re-keys nothing already pressed. `AddressMode.Apply` folds the framed continuous UV into `[0,1)` once before any non-image filter touches a coordinate, and image reconstruction addresses exclusively through the discrete `AddressMode.Texel` companion so the wrap arithmetic is consulted once per axis, not double-applied at the mip seam; `FilterMode` reconstructs through one weight algebra (`Nearest` snaps by `Floor(u·w)`, `Bilinear` is the unit-square lerp, `Bicubic` is the separable Catmull-Rom 4×4 convolution, `Trilinear` blends two `ReconstructLevel` taps across the mip pyramid by the fractional level `SampleImage` decomposes — `ReconstructLevel` itself dispatches only the spatial `Nearest`/`Bilinear`/`Bicubic` kernels, each snapped to the `MipLevel`-nearest plane so the supplied level is dead for no filter row, the cross-level blend the `Trilinear` arm's own concern); a `NoisePeriod` on the `Noise` row makes the lattice exactly periodic by wrapping the integer cell index modulo the period before the prime multiply — the fractional position inside the cell is untouched, so the interpolant stays continuous across the wrap where a coordinate modulo cuts it — and the period rides the octave ladder through `NoisePeriod.Scaled`, multiplying by the same integral lacunarity the frequency does, so octave three wraps where octave three's own lattice repeats; the `NoiseLattice` carrier threads `(seed, period, cellular)` into every basis arm as ONE column set, the cellular fold hashes the WRAPPED neighbour while displacing the feature point at its UNWRAPPED coordinate (a wrapped displacement collapses every period boundary onto one point), and a warped periodic source displaces through the wrappable `Perlin` arm at the warp's own scaled period so the displacement field shares the tile; `Raster/tile#TILE_SYNTH` is the ORTHOGONAL owner — it heals an already-authored plane whose source admits no period, where this period makes the source periodic BY CONSTRUCTION, and a procedurally periodic field needs no heal, while `Raster/gpu#WGSL_KERNEL` `noiseField` lowers the same WRAP LAW at `f32` so the preview tiles where the bake tiles — the period algebra is shared while the gradient tables generate independently at two precisions, so texel equality is never asserted and the `PressGpuParity` workload grades the divergence; the FastNoiseLite gradient/simplex/value/cellular kernels are author-folds over the hashed lattice — a DELIBERATE second family beside the kernel `Rasm/Numerics/calculus#NOISE_LATTICES` `FieldNoise`, split on parity-vs-differentiability: this family holds FNL byte-exactness for the `NoiseBasis.MtlxNode` MaterialX 1.39 category round-trip and the `Raster/gpu#WGSL_KERNEL` `noiseField` `f32` wrap-law parity, with 2D arms, periodic-by-construction cell-index lattices, and the seven-row cellular return set, while the kernel keeps the canonical published Perlin permutation feeding `NoiseKind.ContinuouslyDifferentiable` and the Lipschitz fold — collapsing either end breaks the other's gating [branch RULINGS `[03]-[COLLAPSE]`] — with the published FNL anchors — `PrimeX`/`PrimeY`/`PrimeZ` lattice primes and the `0x27d4eb2d` hash multiplier, the quintic fade `6t⁵−15t⁴+10t³` (Perlin) and the Hermite `t²(3−2t)` (Value), the 2D simplex skew `(√3−1)/2` / unskew `(3−√3)/6` with the `99.83685446303647` bound, the 3D OpenSimplex2 rotation `r=(x+y+z)·2/3` two-cell fold with the `32.69428253173828125` bound, the Perlin normalizers `1.4247691104677813` (2D) and `0.964921414852142333984375` (3D), the 24-direction 2D and 12-edge-plus-published-tail 3D gradient cycles, and `ValCoord`'s square-then-`^ << 19` hash→`[-1,1]` projection — each table taking the ONE parity mechanism its definition admits: a sequence-defined table lands exact (`Gradients3D` generates from its integer edge set, `Gradients2D` transcribes the twenty-four published directions verbatim because trig over the defining angles agrees only to within an ulp), while an AUTHORED table with no defining sequence rides as a digest-pinned content-keyed asset through `LatticeTables.Of`, so the byte-exactness claim is structural at both and a regenerated stand-in is the deleted form; the fractal trajectory is the `FractalMode` per-octave `Step` row (`FBm` the signed `n·amp` sum damping by `(n+1)/2`, `Ridged` the `(1−2|n|)·amp` fold damping by `1−|n|`, `PingPong` the centred `(p−0.5)·2·amp` triangle fold at the source's `PingPongStrength` damping by `p`) under FNL's `Lerp(1, damp, WeightedStrength)·Gain` amplitude cascade opening at the fractal bounding `1/Σ Gainⁱ` — never a hardcoded linear sum, never a post-hoc normalize — and the `Fbm` self-base is unrepresentable, `NoiseBasis` excludes it; the cellular kernel folds the `CellularDistance` metric over the 3×3 (2D) or 3×3×3 (3D) feature neighbourhood displaced by unit offset vectors at the FNL jitter radii `0.43701595` (2D) / `0.39614353` (3D) scaled by `CellularParams.Jitter`, and projects the `CellularReturn` feature (`Distance` the F1 nearest, `Distance2` the F2, `Distance2Sub` the F2−F1 vein, `Distance2Add`/`Distance2Mul`/`Distance2Div` the FNL blend trio, `CellValue` the per-cell hash), so the `Worley` arm spans the full cellular family rather than the single F1 distance; the `ProceduralNoise` hash-lattice fills, the fixed neighbourhood / three-corner (2D) and rotated two-cell (3D) simplex loops, the span tap kernels (`NearestTap`/`BilinearTap`/`BicubicTap`), and the per-source sampling folds (`SampleImage`/`SampleTriplanar`/`Gradient.Resolve`) are the page's `[EXPRESSION_SPINE]` kernel exemption, in-place by index over the per-shade hot path; triplanar projects a world point onto the three axis planes, wraps each through the sampler's `AddressMode.Apply` (never a parallel `Frac`), and blends by the squared-normal weight so the same `TextureSource` evaluates without a UV unwrap, and a `Noise` source under triplanar samples the 3D basis arm directly so solid noise needs no plane projection; the image pyramid admits ONCE at `Image.Of` — each flat level lifts through `AsMemory2D(height, width)` into a `ReadOnlyMemory2D<ShadeVec4>` plane whose `Height`/`Width` are structural facts, a payload/extent mismatch faulting at admission so the per-tap reconstruction carries no re-check and the prior per-sample undersized fault is unrepresentable; an empty pyramid or a degenerate triplanar normal rails to `MaterialFault` through the deep `Sample` rail — a stopless gradient, a zero-repeat checker, and a non-positive triplanar sharpness refuse at their own `Of` mints and never reach a sample, a non-finite field lane rails at `ShadeVec4.AsColor` (`IsFinite` spans all four lanes — a corrupt coverage lane is as degenerate as a corrupt color lane), and the `Port` closure folds any fault OR non-finite field to the `Channel` neutral so the graph arm never sees a sentinel or NaN texel — the raw host `World`/`Normal` doubles are the one lane the `UnitInterval` coordinate admission cannot gate, so the finite fold at the projection tail is the boundary that keeps the graph closure total over them. The `LatticeAsset` pin columns are DECLARED-EMPTY by law rather than pending: a digest is a measurement OF a payload, so `Vecs2D`/`Vecs3D` ship `Option<ContentAddress>.None` until the FastNoiseLite offset tables vendor as content-keyed bytes and `ContentAddress.Of` reads them, and `Admit` refuses an unpinned asset in the meantime — the gate stands against the absence, never around it, and a digest authored ahead of its payload would pin nothing while admitting whatever bytes arrived, which is the same coincidence-not-construction the regenerated table was; the fitted sky-coefficient assets carry the identical declared-empty-then-vendored pin shape. [SPIKE]: each pin's VALUE converges on the vendoring's own measurement of the landed bytes alone; the deterministic floor is the `Entries`/`Lanes` extent contract and the unpinned refusal, both total without it.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
-using System.Globalization;              // CultureInfo (the MaterialX invariant-culture attribute text)
-using System.Runtime.InteropServices;    // MemoryMarshal — the authored-table payload cast, one site
-using CommunityToolkit.HighPerformance;  // ReadOnlyMemory2D/ReadOnlySpan2D (the mip-plane owner), AsMemory2D
-using LanguageExt;                       // Seq, Option, Fin
-using Rasm.Domain;                       // Op (the boundary-admission key)
-using Rasm.Element.Projection;           // ContentAddress — the digest pin the authored lattice assets admit against
-using Rasm.Numerics;                      // UnitInterval, Dimension, PerceptualColor, BlendPath, RgbProfile, GamutPolicy (the kernel atoms + perceptual owner)
-using Rasm.Materials.Appearance.Bsdf;    // MaterialFault (band 2450)
-using Rasm.Materials.Appearance.Graph;   // PortValue (the scene-linear Configuration owner — PortValue.SceneLinear)
-using Rhino.Geometry;                    // Vector3d, Point3d
+using System.Globalization;
+using System.Runtime.InteropServices;
+using CommunityToolkit.HighPerformance;
+using LanguageExt;
+using Rasm.Domain;
+using Rasm.Element.Projection;
+using Rasm.Numerics;
+using Rasm.Materials.Appearance.Bsdf;
+using Rasm.Materials.Appearance.Graph;
+using Rhino.Geometry;
 using Thinktecture;
 using Wacton.Unicolour;
 using static LanguageExt.Prelude;
@@ -80,22 +84,17 @@ public sealed partial class FilterMode {
 // gradient (Perlin→noise2d), simplex (Simplex→fractal2d — MaterialX folds simplex under the fractal node; the vendored kernel
 // is FNL OpenSimplex2, byte-exact for the category round-trip), lattice/value (Value→cellnoise2d, the value-noise
 // analogue interchange#MATERIALX_DOCUMENT enumerates), and cellular (Worley→worleynoise2d) families; ValueCubic is one more row.
-// Wrappable is the SEAMLESS-TILING column: a lattice basis (Perlin gradient, Value hash, Worley cellular) evaluates
-// on the integer grid, so wrapping the CELL INDEX modulo a period makes the field exactly periodic; OpenSimplex2
-// evaluates on a SKEWED simplex grid whose cells do not align with any integer wrap, so the same modulo would seam
-// along the skew diagonal — a periodic Simplex source is refused at admission rather than sold as approximately
-// seamless. The column is data, so a future lattice basis answers it rather than growing a branch in the gate:
-// a deferred ValueCubic row is an integer-lattice basis and answers TRUE, a deferred OpenSimplex2S row is a second
-// skewed grid and answers FALSE, and neither binds an MtlxNode of its own because MaterialX 1.39 declares no
-// value-cubic and no simplex-class category at all — its smooth lattice is Perlin through noise2d/fractal2d and
-// `cubic` there names an image FILTER, never a basis — so each rides its nearest category as the named lossy edge
-// FractalMode already takes rather than inventing a spelling the standard library cannot resolve.
-// EGRESS IS TOTAL, INGEST IS NOT, and the asymmetry is DECLARED rather than discovered. `fractal2d` is a real 1.39
-// stdlib node and the multi-octave egress rule already claims it, so an INCOMING `fractal2d` cannot also reverse-map
-// to Simplex without two rules owning one peer string — the wire-token law admits exactly one ingest mapping per
-// string. The fractal rule owns it; Simplex's egress is therefore a DECLARED LOSSY SUBSTITUTION, the same disposition
-// form the blend vocabulary already takes, so a round-trip consumer READS that its OpenSimplex2 field crossed as a
-// Perlin fractal instead of discovering a silent basis swap on re-import.
+// Wrappable is the SEAMLESS-TILING column: a lattice basis evaluates on the INTEGER grid, so wrapping the CELL
+// INDEX modulo a period makes the field exactly periodic, while OpenSimplex2 evaluates on a SKEWED grid whose cells
+// align with no integer wrap and would seam along the skew diagonal — a periodic Simplex source refuses at
+// admission rather than selling approximate seamlessness. The column is DATA, so a future basis answers it instead
+// of growing a branch in the gate: a ValueCubic row answers TRUE, an OpenSimplex2S row FALSE, and neither binds an
+// MtlxNode because MaterialX 1.39 declares no value-cubic and no simplex-class category at all (its `cubic` names
+// an image FILTER), so each rides its nearest category as the named lossy edge FractalMode already takes.
+// EGRESS IS TOTAL, INGEST IS NOT, and the asymmetry is DECLARED rather than discovered: `fractal2d` is a real 1.39
+// stdlib node the multi-octave egress rule already claims, so an INCOMING `fractal2d` cannot also reverse-map to
+// Simplex without two rules owning one peer string. Simplex's egress is therefore a DECLARED LOSSY SUBSTITUTION
+// and a round-trip consumer READS that its field crossed as a Perlin fractal rather than discovering a silent swap.
 [SmartEnum<int>]
 public sealed partial class NoiseBasis {
     public static readonly NoiseBasis Perlin  = new(0, mtlxNode: "noise2d",        wrappable: true,  sample2D: ProceduralNoise.Perlin2D,  sample3D: ProceduralNoise.Perlin3D);
@@ -264,25 +263,25 @@ public abstract partial record TextureSource {
                        && double.IsFinite(candidate.Cellular.Jitter) && candidate.Cellular.Jitter is >= 0.0 and <= 1.0
                        && double.IsFinite(candidate.Warp.Amplitude) && candidate.Warp.Amplitude >= 0.0
                        && double.IsFinite(candidate.Warp.Frequency),
-                       MaterialFault.Parameter(key, $"<noise-column-out-of-domain:{candidate.Base.MtlxNode}>"))
+                       new MaterialFault.Parameter(key, $"<noise-column-out-of-domain:{candidate.Base.MtlxNode}>"))
                    from admitted in candidate.Period.Periodic ? Periodic(candidate, key) : Fin.Succ(candidate)
                    select admitted;
         }
 
         static Fin<Noise> Periodic(Noise candidate, Op key) =>
-            from _ in guard(candidate.Base.Wrappable, MaterialFault.Parameter(key, $"<noise-period-unwrappable-basis:{candidate.Base.MtlxNode}>"))
+            from _ in guard(candidate.Base.Wrappable, new MaterialFault.Parameter(key, $"<noise-period-unwrappable-basis:{candidate.Base.MtlxNode}>"))
             // Lacunarity multiplies the lattice period at every octave, so a fractional value wraps octave 1
             // onward at a cell boundary the grid does not have and the sum seams.
-            from __ in guard(Integral(candidate.Lacunarity), MaterialFault.Parameter(key, $"<noise-period-fractional-lacunarity:{candidate.Lacunarity:R}>"))
+            from __ in guard(Integral(candidate.Lacunarity), new MaterialFault.Parameter(key, $"<noise-period-fractional-lacunarity:{candidate.Lacunarity:R}>"))
             // Frequency sets the lattice units the UV unit square spans and the field repeats every Period
             // units, so the tile closes only when that span is a whole number of periods. 4.5 periods per tile is a seam.
             from ___ in guard(Integral(candidate.Frequency) && (int)candidate.Frequency % candidate.Period.Value is 0,
-                    MaterialFault.Parameter(key, $"<noise-period-frequency-not-multiple:{candidate.Frequency:R}:{candidate.Period.Value}>"))
+                    new MaterialFault.Parameter(key, $"<noise-period-frequency-not-multiple:{candidate.Frequency:R}:{candidate.Period.Value}>"))
             // Warp displaces a periodic source by a field sharing its tile: an integral warp frequency keeps
             // that displacement periodic on the same domain, and the warp then rides the periodic Perlin arm
             // rather than the unwrappable Simplex one.
             from ____ in guard(candidate.Warp.Amplitude <= 0.0 || Integral(candidate.Warp.Frequency),
-                    MaterialFault.Parameter(key, $"<noise-period-fractional-warp-frequency:{candidate.Warp.Frequency:R}>"))
+                    new MaterialFault.Parameter(key, $"<noise-period-fractional-warp-frequency:{candidate.Warp.Frequency:R}>"))
             select candidate;
 
         static bool Integral(double v) => double.IsInteger(v) && v is > 0.0 and <= int.MaxValue;
@@ -300,7 +299,7 @@ public abstract partial record TextureSource {
         public static Fin<Checker> Of(int repeats, Unicolour even, Unicolour odd, Op key) =>
             repeats >= 1
                 ? Fin.Succ(new Checker(repeats, even, odd))
-                : MaterialFault.Parameter(key, $"<checker-repeats-out-of-domain:{repeats}>");
+                : new MaterialFault.Parameter(key, $"<checker-repeats-out-of-domain:{repeats}>");
     }
 
     // Gradient pre-resolves its stops ONCE at Of: stops canonicalize SORTED by position (Resolve walks bracketing pairs,
@@ -327,7 +326,7 @@ public abstract partial record TextureSource {
         public Seq<ShadeVec4> Lut { get; }
 
         public static Fin<Gradient> Of(bool vertical, Seq<(UnitInterval At, Unicolour Color)> stops, Op key) {
-            if (stops.IsEmpty) { return MaterialFault.Parameter(key, "<gradient-no-stops>"); }
+            if (stops.IsEmpty) { return new MaterialFault.Parameter(key, "<gradient-no-stops>"); }
             Seq<(UnitInterval At, Unicolour Color)> sorted = toSeq(stops.OrderBy(static s => s.At.Value));
             return sorted
                 .TraverseM(stop => Admit(stop.Color, key).Map(colour => (stop.At, Colour: colour))).As()
@@ -372,12 +371,12 @@ public abstract partial record TextureSource {
     public sealed record Image(Seq<ReadOnlyMemory2D<ShadeVec4>> Levels) : TextureSource {
         public static Fin<Image> Of(Dimension width, Dimension height, Seq<ReadOnlyMemory<ShadeVec4>> levels, Op key) =>
             levels.IsEmpty
-                ? MaterialFault.Parameter(key, "<texture-image-empty>")
+                ? new MaterialFault.Parameter(key, "<texture-image-empty>")
                 : levels.Map((flat, index) => {
                       int w = Math.Max(1, width.Value >> index), h = Math.Max(1, height.Value >> index);
                       return flat.Length == w * h
                           ? Fin.Succ(flat.AsMemory2D(h, w))
-                          : Fin.Fail<ReadOnlyMemory2D<ShadeVec4>>(MaterialFault.Parameter(key, $"<texture-level-extent:{index}:{flat.Length}!={w * h}>"));
+                          : Fin.Fail<ReadOnlyMemory2D<ShadeVec4>>(new MaterialFault.Parameter(key, $"<texture-level-extent:{index}:{flat.Length}!={w * h}>"));
                   }).Traverse(identity).As().Map(static planes => new Image(planes));
     }
 
@@ -393,7 +392,7 @@ public abstract partial record TextureSource {
         public static Fin<Triplanar> Of(TextureSource projected, double scale, double blendSharpness, Op key) =>
             double.IsFinite(scale) && scale > 0.0 && double.IsFinite(blendSharpness) && blendSharpness > 0.0
                 ? Fin.Succ(new Triplanar(projected, scale, blendSharpness))
-                : MaterialFault.Parameter(key, $"<triplanar-out-of-domain:{scale:R},{blendSharpness:R}>");
+                : new MaterialFault.Parameter(key, $"<triplanar-out-of-domain:{scale:R},{blendSharpness:R}>");
     }
 
     // MtlxCategory names the MaterialX 1.39 standard-library node category each TextureSource round-trips to
@@ -539,7 +538,7 @@ public readonly record struct ShadeVec4(double X, double Y, double Z, double W) 
     public Fin<Unicolour> AsColor(Op key) =>
         IsFinite
             ? Fin.Succ(AsColorUnchecked())
-            : MaterialFault.Gamut(key, $"<texture-non-finite-field:{X:R},{Y:R},{Z:R},{W:R}>");
+            : new MaterialFault.Gamut(key, $"<texture-non-finite-field:{X:R},{Y:R},{Z:R},{W:R}>");
     public Unicolour AsColorUnchecked() => new(PortValue.SceneLinear, ColourSpace.RgbLinear, X, Y, Z);
 }
 
@@ -598,18 +597,39 @@ public readonly record struct SamplerState(AddressMode AddressU, AddressMode Add
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static class ProceduralNoise {
-    private const int PrimeX = 501125321;
-    private const int PrimeY = 1136930381;
-    private const int PrimeZ = 1720413743;
-    private const double CellJitter2D = 0.43701595;   // FNL cellular jitter radius over the unit offset vector, 2D
-    private const double CellJitter3D = 0.39614353;   // FNL cellular jitter radius, 3D
+    // --- [FNL_ANCHORS]
+    // EVERY published FastNoiseLite anchor is a NAMED member here and nowhere else, because this class is the ONE
+    // declaration two emissions read: the CPU kernels below, and the `Raster/gpu#WGSL_KERNEL` prelude, which
+    // INTERPOLATES these members into its shader text rather than re-typing a value. INTERNAL is load-bearing for
+    // exactly that reader — a private anchor is a value the GPU page must transcribe, and the branch ruling makes a
+    // re-typed literal the deleted form even where two spellings agree today.
+    internal const int PrimeX = 501125321;
+    internal const int PrimeY = 1136930381;
+    internal const int PrimeZ = 1720413743;
+    internal const int HashMultiplier = 0x27d4eb2d;                     // FNL lattice hash multiplier
+    internal const double ValCoordScale = 1.0 / 2147483648.0;           // the square-xor hash projection onto [-1,1]
+    internal const double Skew2D = 0.3660254037844386;                  // (√3−1)/2, the 2D simplex skew
+    internal const double Unskew2D = 0.21132486540518713;               // (3−√3)/6, its unskew
+    internal const double PerlinNorm2D = 1.4247691104677813;
+    internal const double PerlinNorm3D = 0.964921414852142333984375;
+    internal const double SimplexBound2D = 99.83685446303647;           // tuned to the 24-direction unit-gradient table
+    internal const double SimplexBound3D = 32.69428253173828125;
+    internal const double SimplexRotate3D = 2.0 / 3.0;                  // the OpenSimplex2 rotation r = (x+y+z)·2/3
+    internal const double CellJitter2D = 0.43701595;                    // cellular jitter radius over the unit offset vector, 2D
+    internal const double CellJitter3D = 0.39614353;                    // cellular jitter radius, 3D
+    internal const double WarpDecorrelation = 1000.0;                   // the constant offset decorrelating the warp's second and third reads; a constant shift preserves periodicity
+    // The DEFINING angles of the verbatim Directions2D transcription — direction k is (sin, cos) at
+    // GradientAngle0 + k·GradientAngleStep, the odd multiples of 7.5°. The CPU keeps its transcription because trig
+    // over these agrees with the published decimals only to within an ulp; the shader carries no table blob and
+    // GENERATES, so the angles are declared DATA and both sides share one definition of the cycle.
+    internal const double GradientAngle0 = Math.PI / 24.0;
+    internal const double GradientAngleStep = Math.PI / 12.0;
 
-    private static int Hash(int seed, int xPrimed, int yPrimed) { int h = seed ^ xPrimed ^ yPrimed; h *= 0x27d4eb2d; return h; }
-    private static int Hash(int seed, int xPrimed, int yPrimed, int zPrimed) { int h = seed ^ xPrimed ^ yPrimed ^ zPrimed; h *= 0x27d4eb2d; return h; }
-    private static double ValCoord(int hash) { hash *= hash; hash ^= hash << 19; return hash * (1.0 / 2147483648.0); }   // FNL square-xor hash → [-1,1]
+    private static int Hash(int seed, int xPrimed, int yPrimed) { int h = seed ^ xPrimed ^ yPrimed; h *= HashMultiplier; return h; }
+    private static int Hash(int seed, int xPrimed, int yPrimed, int zPrimed) { int h = seed ^ xPrimed ^ yPrimed ^ zPrimed; h *= HashMultiplier; return h; }
+    private static double ValCoord(int hash) { hash *= hash; hash ^= hash << 19; return hash * ValCoordScale; }   // FNL square-xor hash → [-1,1]
     private static int Round(double v) => v >= 0.0 ? (int)(v + 0.5) : (int)(v - 0.5);   // FNL FastRound — half-away-from-zero, never banker's
     private static int Cell(int index, NoisePeriod period) => period.Wrap(index);       // the ONE wrap site every lattice kernel primes through
-    private const double WarpDecorrelation = 1000.0;                                     // the constant offset decorrelating the warp's second and third reads; a constant shift preserves periodicity
 
     private static double GradCoord(int seed, int xPrimed, int yPrimed, double xd, double yd) {
         int hash = Hash(seed, xPrimed, yPrimed); hash ^= hash >> 15; hash &= 127 << 1;
@@ -638,7 +658,7 @@ public static class ProceduralNoise {
         int seed = lattice.Seed;
         double n00 = GradCoord(seed, xp0, yp0, xd0, yd0), n10 = GradCoord(seed, xp1, yp0, xd1, yd0);
         double n01 = GradCoord(seed, xp0, yp1, xd0, yd1), n11 = GradCoord(seed, xp1, yp1, xd1, yd1);
-        return Lerp(Lerp(n00, n10, xs), Lerp(n01, n11, xs), ys) * 1.4247691104677813;
+        return Lerp(Lerp(n00, n10, xs), Lerp(n01, n11, xs), ys) * PerlinNorm2D;
     }
     public static double Perlin3D(double x, double y, double z, NoiseLattice lattice) {
         int x0 = (int)Math.Floor(x), y0 = (int)Math.Floor(y), z0 = (int)Math.Floor(z);
@@ -652,7 +672,7 @@ public static class ProceduralNoise {
         double n001 = GradCoord(seed, xp0, yp0, zp1, xd0, yd0, zd1), n101 = GradCoord(seed, xp1, yp0, zp1, xd1, yd0, zd1);
         double n011 = GradCoord(seed, xp0, yp1, zp1, xd0, yd1, zd1), n111 = GradCoord(seed, xp1, yp1, zp1, xd1, yd1, zd1);
         double xf0 = Lerp(Lerp(n000, n100, xs), Lerp(n010, n110, xs), ys), xf1 = Lerp(Lerp(n001, n101, xs), Lerp(n011, n111, xs), ys);
-        return Lerp(xf0, xf1, zs) * 0.964921414852142333984375;
+        return Lerp(xf0, xf1, zs) * PerlinNorm3D;
     }
 
     // --- [SIMPLEX]
@@ -664,7 +684,7 @@ public static class ProceduralNoise {
     // skew. Both arms read the octave SEED alone: the period column is unreachable here because Noise.Of refuses a periodic Simplex
     // source outright, and wrapping the unskewed cell index seams along the skew diagonal.
     public static double Simplex2D(double x, double y, NoiseLattice lattice) {
-        const double F2 = 0.3660254037844386, G2 = 0.21132486540518713;
+        const double F2 = Skew2D, G2 = Unskew2D;   // the kernel's local spelling of the two declared anchors
         int seed = lattice.Seed;
         double s = (x + y) * F2;
         int i = (int)Math.Floor(x + s), j = (int)Math.Floor(y + s);
@@ -673,11 +693,11 @@ public static class ProceduralNoise {
         double x1 = x0 - i1 + G2, y1 = y0 - j1 + G2, x2 = x0 - 1.0 + 2.0 * G2, y2 = y0 - 1.0 + 2.0 * G2;
         int ip = i * PrimeX, jp = j * PrimeY;
         double Corner(double dx, double dy, int xp, int yp) { double a = 0.5 - dx * dx - dy * dy; if (a <= 0.0) { return 0.0; } a *= a; a *= a; return a * GradCoord(seed, xp, yp, dx, dy); }
-        return 99.83685446303647 * (Corner(x0, y0, ip, jp) + Corner(x1, y1, ip + i1 * PrimeX, jp + j1 * PrimeY) + Corner(x2, y2, ip + PrimeX, jp + PrimeY));
+        return SimplexBound2D * (Corner(x0, y0, ip, jp) + Corner(x1, y1, ip + i1 * PrimeX, jp + j1 * PrimeY) + Corner(x2, y2, ip + PrimeX, jp + PrimeY));
     }
     public static double Simplex3D(double x, double y, double z, NoiseLattice lattice) {
         int seed = lattice.Seed;
-        double r = (x + y + z) * (2.0 / 3.0);
+        double r = (x + y + z) * SimplexRotate3D;
         double xr = r - x, yr = r - y, zr = r - z;
         int i = Round(xr), j = Round(yr), k = Round(zr);
         double x0 = xr - i, y0 = yr - j, z0 = zr - k;
@@ -698,7 +718,7 @@ public static class ProceduralNoise {
             xSign = -xSign; ySign = -ySign; zSign = -zSign;
             seed = ~seed;
         }
-        return value * 32.69428253173828125;
+        return value * SimplexBound3D;
     }
 
     // --- [VALUE]
@@ -841,23 +861,23 @@ public static class ProceduralNoise {
     // admits and the claim is true by construction rather than by coincidence.
     //   SEQUENCE-DEFINED tables land as exact values. Gradients3D is the twelve (±1,±1,0)-family edge vectors cycled
     //   plus FNL's published four-entry tail — every entry an exactly-representable small integer, so building it
-    //   from the sequence IS the published table bit for bit and a literal blob would add nothing but transcription
-    //   risk. Gradients2D is the twenty-four-direction cycle at odd multiples of 7.5°, and it TRANSCRIBES rather
-    //   than generates: `Math.Cos` over the defining angles agrees with FNL's own decimal literals only to within
-    //   an ulp, and an ulp is exactly the divergence a parity claim cannot name. Its published asymmetries are
-    //   transcribed as published — the pairs that read ...051 against ...052 and ...72 against ...721 are IN the
-    //   source table, and normalizing them would be a second derivation wearing a tidier face.
+    //   from the sequence IS the published table bit for bit. Gradients2D TRANSCRIBES instead, because `Math.Cos`
+    //   over its defining angles agrees with FNL's decimals only to within an ulp, and an ulp is exactly the
+    //   divergence a parity claim cannot name; its published asymmetries transcribe AS PUBLISHED, since normalizing
+    //   them would be a second derivation wearing a tidier face.
     //   AUTHORED tables have no defining sequence at all: FNL's RandVecs are hand-authored random unit offsets, so
-    //   neither mechanism reaches them and they ride as CONTENT-KEYED DATA ASSETS pinned by digest — the same shape
-    //   the fitted sky-coefficient assets take, for the same reason. The prior golden-angle and spherical-Fibonacci
-    //   regeneration was a DIFFERENT TABLE wearing the same shape: every Worley feature point moved, so the cellular
-    //   family diverged from FNL wholesale while the page claimed byte-exactness. That is the deleted form.
+    //   they ride as CONTENT-KEYED DATA ASSETS pinned by digest — the shape the fitted sky-coefficient assets take.
+    //   The prior golden-angle regeneration was a DIFFERENT TABLE wearing the same shape: every Worley feature point
+    //   moved, so the cellular family diverged from FNL wholesale while the page claimed byte-exactness.
     private static readonly (double X, double Y, double Z)[] Edges3D = [
         (0, 1, 1), (0, -1, 1), (0, 1, -1), (0, -1, -1), (1, 0, 1), (-1, 0, 1), (1, 0, -1), (-1, 0, -1), (1, 1, 0), (-1, 1, 0), (1, -1, 0), (-1, -1, 0)];
     private static readonly (double X, double Y, double Z)[] Tail3D = [(1, 1, 0), (0, -1, 1), (-1, 1, 0), (0, -1, -1)];
 
-    // The twenty-four FNL unit directions VERBATIM. The lookup masks into a 128-pair span, so the cycle expands to
-    // the table shape the hash indexes; the twenty-four pairs are the whole of the published data.
+    // The twenty-four FNL unit directions VERBATIM at GradientAngle0 + k·GradientAngleStep. The lookup masks into a
+    // 128-pair span, so the cycle expands to the table shape the hash indexes; the twenty-four pairs are the whole
+    // of the published data, and the two declared angles above are their DEFINITION — the `Raster/gpu#WGSL_KERNEL`
+    // prelude reads those angles because a shader carries no table blob, so both sides share one definition of the
+    // cycle even where a transcription and a generation cannot agree to the bit.
     private static readonly double[] Directions2D = [
          0.130526192220052,  0.99144486137381,    0.38268343236509,   0.923879532511287,
          0.608761429008721,  0.793353340291235,   0.793353340291235,  0.608761429008721,
@@ -929,11 +949,11 @@ public readonly record struct LatticeTables(double[] RandVecs2D, double[] RandVe
         select new LatticeTables(a, b);
 
     static Fin<double[]> Admit(LatticeAsset asset, ReadOnlyMemory<byte> payload, Op key) =>
-        from pin in asset.Pin.ToFin(MaterialFault.Parameter(key, $"<lattice-asset-unpinned:{asset.Name}>"))
+        from pin in asset.Pin.ToFin(new MaterialFault.Parameter(key, $"<lattice-asset-unpinned:{asset.Name}>"))
         from _ in guard(payload.Length == asset.Entries * asset.Lanes * sizeof(double),
-                MaterialFault.Parameter(key, $"<lattice-asset-extent:{asset.Name}:{payload.Length}>"))
+                new MaterialFault.Parameter(key, $"<lattice-asset-extent:{asset.Name}:{payload.Length}>"))
         from __ in guard(ContentAddress.Of(payload.Span) == pin,
-                MaterialFault.Parameter(key, $"<lattice-asset-digest:{asset.Name}>"))
+                new MaterialFault.Parameter(key, $"<lattice-asset-digest:{asset.Name}>"))
         select MemoryMarshal.Cast<byte, double>(payload.Span).ToArray();
 }
 
@@ -1016,7 +1036,7 @@ public static class TextureUv {
     // level 3 must not alias off the full-res plane — the level is the anti-aliasing control, dead for no row), and
     // Trilinear decomposes the fractional level into its two Bilinear taps.
     private static Fin<ShadeVec4> SampleImage(TextureSource.Image img, UvSample point, SamplerState sampler, Op key) {
-        if (img.Levels.IsEmpty) { return MaterialFault.Parameter(key, "<texture-image-empty>"); }
+        if (img.Levels.IsEmpty) { return new MaterialFault.Parameter(key, "<texture-image-empty>"); }
         double u = point.U.Value, v = point.V.Value;
         double level = Math.Clamp(double.IsFinite(point.MipLevel) ? point.MipLevel : 0.0, 0.0, img.Levels.Count - 1.0);
         if (sampler.Filter != FilterMode.Trilinear) { return Fin.Succ(ReconstructLevel(img.Levels[(int)Math.Floor(level + 0.5)], u, v, sampler, sampler.Filter)); }
@@ -1084,7 +1104,7 @@ public static class TextureUv {
         Vector3d n = point.Normal;
         double ax = Math.Pow(Math.Abs(n.X), t.BlendSharpness), ay = Math.Pow(Math.Abs(n.Y), t.BlendSharpness), az = Math.Pow(Math.Abs(n.Z), t.BlendSharpness);
         double sum = ax + ay + az;
-        if (sum <= double.Epsilon) { return MaterialFault.Parameter(key, "<triplanar-degenerate-normal>"); }
+        if (sum <= double.Epsilon) { return new MaterialFault.Parameter(key, "<triplanar-degenerate-normal>"); }
         Vector3d p = point.World * t.Scale;
         Fin<ShadeVec4> Plane(double a, double b) => Sampled(t.Projected, point with { World = p }, a, b, sampler, key);
         return from x in Plane(p.Y, p.Z)
@@ -1147,10 +1167,11 @@ public static class PeriodProof {
     // additionally prove the ladder — a lacunarity-2 fourth octave wraps at 32 cells, which a per-octave period
     // that failed to scale would miss while octave zero still matched.
     // SeamTolerance is the ONE arithmetic floor every admitted row reads: the shift adds a whole number of lattice
-    // units to a coordinate whose fractional part then re-derives at a larger exponent, so the interpolant's own
-    // input loses low mantissa bits even where the wrapped cell index is bit-identical. Seven copies of one literal
-    // were seven places a re-derivation would have to find. SweepSamples is the stratified sweep width on the same
-    // footing — a row states what it varies and reads the rest off the roster.
+    // units to a coordinate whose fractional part re-derives at a larger exponent, so the interpolant's input loses
+    // low mantissa bits even where the wrapped cell index is bit-identical. Seven copies of one literal were seven
+    // places a re-derivation would have to find. It is a bare double HERE and a kernel Tolerance at the GATE —
+    // Shifted admits it on ToleranceLane.Residual, so the band proves once on the read path where a value-object
+    // row column would need a rail no static roster can take. SweepSamples is the sweep width on the same footing.
     public const double SeamTolerance = 1e-12;
     public const int SweepSamples = 512;
 
@@ -1181,22 +1202,30 @@ public static class PeriodProof {
             state:    key,
             admitted: static (k, a) => a.Mint(k).Bind(source => Shifted(source, a, k)),
             refused:  static (k, r) => r.Mint(k).Match(
-                Succ: _ => Fin.Fail<Unit>(MaterialFault.Parameter(k, $"<period-golden-admitted-refusable:{r.Name}:{r.Reason}>")),
-                Fail: error => error.Message.Contains(r.Reason, StringComparison.Ordinal)
+                Succ: _ => Fin.Fail<Unit>(new MaterialFault.Parameter(k, $"<period-golden-admitted-refusable:{r.Name}:{r.Reason}>")),
+                Fail: error => error is MaterialFault.Parameter parameter
+                    && parameter.Detail.StartsWith(r.Reason[..^1], StringComparison.Ordinal)
                     ? Fin.Succ(unit)
-                    : Fin.Fail<Unit>(MaterialFault.Parameter(k, $"<period-golden-wrong-refusal:{r.Name}:{error.Message}>"))));
+                    : Fin.Fail<Unit>(new MaterialFault.Parameter(k, $"<period-golden-wrong-refusal:{r.Name}:{error.Code}>"))));
 
     // Stratified sweep with a coprime v-stride: no RNG, no fixture file, both axes of every cell covered. A solid
     // source reads the 3D fold at the same coordinates lifted to a plane so the Z axis carries the shift too.
+    // BOUNDARY_ADMISSION for the seam floor: the row column is a POLICY VALUE and the kernel Tolerance carrier is
+    // what proves it before the sweep reads it, on ToleranceLane.Residual — the lane whose Band.Residual window
+    // (open at the seam ulp, closed at one) is exactly a mantissa-loss floor's shape and whose derivation an
+    // ambient Context would otherwise supply. A non-finite or out-of-band floor therefore refuses HERE with the
+    // lane named, rather than admitting every probe on a comparison that a NaN makes vacuously false-then-failing.
     static Fin<Unit> Shifted(TextureSource.Noise source, PeriodGolden.Admitted row, Op key) =>
-        toSeq(Enumerable.Range(0, row.Samples))
+        from seam in Tolerance.Of(ToleranceLane.Residual, row.Tolerance, key)
+        from _ in toSeq(Enumerable.Range(0, row.Samples))
             .Map(i => (U: (i + 0.5) / row.Samples, V: ((i * 7919) % row.Samples + 0.5) / row.Samples))
             .Map(at => (At: at, Delta: Math.Abs(Field(source, at.U, at.V) - Field(source, at.U + row.ShiftU, at.V + row.ShiftV))))
-            .Filter(probe => !(probe.Delta <= row.Tolerance))
+            .Filter(probe => !(probe.Delta <= seam.Value))
             .Head
-            .Map(probe => Fin.Fail<Unit>(MaterialFault.Parameter(key,
-                $"<period-golden-seam:{row.Name}:u={probe.At.U:R}:v={probe.At.V:R}:delta={probe.Delta:R}>")))
-            .IfNone(Fin.Succ(unit));
+            .Map(probe => Fin.Fail<Unit>(new MaterialFault.Parameter(key,
+                $"<period-golden-seam:{row.Name}:{seam.Lane.Key}:u={probe.At.U:R}:v={probe.At.V:R}:delta={probe.Delta:R}>")))
+            .IfNone(Fin.Succ(unit))
+        select unit;
 
     static double Field(TextureSource.Noise source, double u, double v) =>
         source.Solid

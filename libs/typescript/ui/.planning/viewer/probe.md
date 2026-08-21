@@ -204,16 +204,17 @@ const _board = (claim: Board.Claim, local: ReadonlyArray<Metric>): ReadonlyArray
 
 [CAPTURE_FOLD]:
 - Owner: `Probe.capture` normalizes one controlled RGBA8 readback and compares its canonical pixel hash with timeline evidence.
-- Law: the preimage is UTF-8 version, little-endian width and height, then tightly packed top-left RGBA8 sRGB straight-alpha bytes.
+- Law: the preimage is the producer kernel's `CanonicalWriter` framing — the version's int32-LE UTF-8 byte count then its bytes, width and height as int32-LE ordinals, then the tightly packed top-left RGBA8 sRGB straight-alpha plane as the trailing raw leaf whose extent those two ordinals already recover.
+- Law: `docs/laws/patterns.md` `[PREIMAGE_FRAMING]` owns that framing and the branch carries no `CanonicalWriter` peer — `core/value/contentKey` publishes `Digest.mint` and `Digest.Session` alone — so this page is the ONE site that spells it and a second framing helper elsewhere forks the law.
 - Law: capture compares only `pixels.hash`; `frameHash` identifies encoded artifact bytes and `drawHash` identifies draw attribution.
-- Law: `Probe.packed` publishes that normalization, so the hash preimage and `view/export#SERIALIZER_MATRIX`'s readback arm read one buffer and a second repack forks the pixel identity.
-- Boundary: scene supplies async readback, `Digest.mint` owns hashing, and `Wire` owns timeline decoding.
+- Law: `Probe.packed` publishes that normalization, so the hash preimage and `view/export#SERIALIZER_MATRIX`'s readback arm read one buffer — the preimage streams its framed segments and hands that packed plane as its trailing leaf rather than re-buffering it, and a second repack forks the pixel identity.
+- Boundary: scene supplies async readback, `Digest.mint` owns hashing over the framed segment stream, and `Wire` owns timeline decoding.
 
 ```typescript
 import { Digest, Wire } from "@rasm/ts/core"
 import { Array, DateTime, Effect, Equal, Option } from "effect"
 
-const _PIXEL_VERSION = "rgba8-srgb-straight-top-left-v1" as const
+const _PIXEL_VERSION = "rgba8-srgb-straight-top-left-v2" as const
 const _CAPTURE = { width: 1024, height: 1024, version: _PIXEL_VERSION } as const
 
 type Evidence = Wire.EvidenceTimeline["rows"][number]["envelope"]["payload"]
@@ -247,22 +248,47 @@ const _packed = (capture: Probe.Pixels, width: number, height: number): Uint8Arr
   return packed
 }
 
-const _preimage = (capture: Probe.Pixels, width: number, height: number): Uint8Array => {
-  const version = new TextEncoder().encode(_PIXEL_VERSION)
-  const pixels = _packed(capture, width, height)
-  const preimage = new Uint8Array(version.length + 8 + pixels.length)
-  preimage.set(version)
-  const dimensions = new DataView(preimage.buffer, version.length, 8)
-  dimensions.setInt32(0, width, true)
-  dimensions.setInt32(4, height, true)
-  preimage.set(pixels, version.length + 8)
-  return preimage
+// FRAMING IS THE PRODUCER'S KERNEL LAW, hand-spelled at this ONE site. `Rasm/Domain/identity#CONTENT_KEY`'s
+// `CanonicalWriter` writes `String` as an int32-LE UTF-8 byte count followed by its bytes, `Ordinal` as one int32-LE
+// word, and `Raw` as a caller-canonical leaf carrying no frame; `Rasm.AppUi/Render/capture#ENCODE_IDENTITY` composes
+// `String(CanonicalVersion).Ordinal(width).Ordinal(height).Raw(plane)`. That composition IS what v2 keys — v1 wrote its
+// version bytes unframed, so one plane digests differently under the two versions. `docs/laws/patterns.md`
+// `[PREIMAGE_FRAMING]` owns the rule this length frame satisfies. `core/value/contentKey` publishes `Digest.mint` and
+// `Digest.Session` alone, so no `CanonicalWriter` peer exists here to compose; minting one for a single consumer is an
+// owner nothing else reaches, and a second framing helper anywhere forks this law.
+const _VERSION_BYTES = new TextEncoder().encode(_PIXEL_VERSION)
+
+const _ordinal = (value: number): Uint8Array => {
+  const word = new Uint8Array(4)
+  new DataView(word.buffer).setInt32(0, value, true)
+  return word
 }
 
-const _render = (timeline: Wire.EvidenceTimeline, view: string): Option.Option<RenderEvidence> =>
-  Array.findFirst(Array.filterMap(timeline.rows, (row) => _isRender(row.envelope.payload)
-    ? Option.some(row.envelope.payload)
-    : Option.none()), (receipt) => receipt.slot === view && receipt.pixels !== undefined)
+// `Digest.mint` absorbs these segments through its `Iterable<Uint8Array>` arm, so the plane hashes exactly where
+// `Probe.packed` normalized it and never re-buffers into a whole-preimage copy.
+const _preimage = (capture: Probe.Pixels, width: number, height: number): ReadonlyArray<Uint8Array> => [
+  _ordinal(_VERSION_BYTES.length), // `String` — the length frame that keys v2 apart from v1's unframed version bytes
+  _VERSION_BYTES,
+  _ordinal(width), // `Ordinal` — fixed-width words concatenate injectively and carry no frame
+  _ordinal(height),
+  _packed(capture, width, height), // `Raw` — the trailing leaf whose extent the two ordinals already recover
+]
+
+// The search RETURNS the pixel identity it proved present, so the caller never re-reads the column and never
+// asserts it: a predicate that finds a receipt carrying pixels and hands back the receipt alone forces the one
+// unwrap the finder already did, and the `!` that unwrap needed was an assertion where evidence was in hand.
+const _render = (
+  timeline: Wire.EvidenceTimeline,
+  view: string,
+): RenderEvidence["pixels"] =>
+  Option.flatMap(
+    Array.findFirst(
+      Array.filterMap(timeline.rows, (row) =>
+        _isRender(row.envelope.payload) ? Option.some(row.envelope.payload) : Option.none()),
+      (receipt) => receipt.slot === view && Option.isSome(receipt.pixels),
+    ),
+    (receipt) => receipt.pixels,
+  )
 
 const _capture = (
   view: string,
@@ -271,8 +297,7 @@ const _capture = (
 ): Effect.Effect<Option.Option<Probe.Verdict>> =>
   Option.match(_render(timeline, view), {
     onNone: () => Effect.succeed(Option.none()),
-    onSome: (receipt) => Effect.gen(function* () {
-    const identity = receipt.pixels!
+    onSome: (identity) => Effect.gen(function* () {
     const capture = yield* readback(identity.width, identity.height)
     const actual = yield* Digest.mint("content", _preimage(capture, identity.width, identity.height))
     const at = yield* DateTime.now

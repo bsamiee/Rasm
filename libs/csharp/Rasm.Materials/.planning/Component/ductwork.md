@@ -1,23 +1,23 @@
 # [MATERIALS_DUCTWORK]
 
-THE DUCTWORK SEED PAGE owns the `ComponentFamily.Ductwork` fold (`ComponentClass.Minor`, `DetailLane.Product`): the buildable galvanized sheet-metal duct PRODUCT rows — pressure class, gauge, seal and liner classes, geometry — under the SMACNA duct-construction schedules. The pressure-class ladder (½″–10″ w.g. with its 125–2500 Pa metric twins) is corroborated law; the rectangular unreinforced-gauge schedule and the round Table 3-2A schedule are PRIMARY-SINGLE — transcribed from the CFR-incorporated primary text with no independent second posting — so every gauge-derived cell crosses the seam under the `Attestation.PrimarySingle` flag, never as falsely two-sourced. A component's gauge is RESOLVED from the schedule by its class, size, and seam, never asserted per stocked row. Airside SIZING — flow, friction, static-pressure balance — is `Rasm.Compute`'s; this page owns the buildable product rows alone.
+THE DUCTWORK SEED PAGE owns the `ComponentFamily.Ductwork` row facts (`ComponentClass.Minor`, `DetailLane.Product`): the buildable galvanized sheet-metal duct PRODUCT rows — pressure class, gauge, seal and liner classes, geometry — under the SMACNA duct-construction schedules. The pressure-class ladder (½″–10″ w.g. with its 125–2500 Pa metric twins) is corroborated law; the rectangular unreinforced-gauge schedule and the round Table 3-2A schedule are PRIMARY-SINGLE — transcribed from the CFR-incorporated primary text with no independent second posting — so every gauge-derived cell crosses the seam under the `Attestation.PrimarySingle` flag, never as falsely two-sourced. A component's gauge is RESOLVED from the schedule by its class, size, and seam, never asserted per stocked row, and the resolution is the seed law's own coherence conjunct, so a whole roster of out-of-schedule selections reports together. Airside SIZING — flow, friction, static-pressure balance — is `Rasm.Compute`'s; this page owns the buildable product rows alone.
 
-The page composes settled law without re-derivation: `SectionProfile.CircleHollow.Of` and `SectionProfile.RectangleHollow.Of` are the railed geometry admissions and `Component.Of` the one construction rail (`component#COMPONENT_OWNER`); the product bag builds through `ComponentDetail.ProductRows` over the `Rasm.Element/Properties/property#DETAIL_SCHEMA` rows `DuctGauge`/`SealClass`/`LinerClass` with the duct pressure classification riding the shared `PressureClass` row; `Attestation` and the `SegmentRows` trade mints compose from `pipework#PIPE_SYSTEMS` and `pipework#PIPEWORK_SEED`; `ThreadRow.InchToMm` is the one inch basis (`fastener#FASTENER_FAMILY`); the IFC stamp is `IfcPipeSegment`'s duct sibling `IfcDuctSegment`/`RIGIDSEGMENT`; the substance binds `steel.galvanized` (the ASTM A653 lock-forming sheet row) and the appearance `metal.steel` at `Properties/properties#MATERIAL_PROPERTY_CATALOGUE`.
+The page composes settled law without re-derivation: `SectionProfile.CircleHollow.Of` and `SectionProfile.RectangleHollow.Of` are the railed geometry admissions and `component#COMPONENT_SEED` the ONE generator fold; the product bag builds through `ComponentDetail.ProductRows` over the `Rasm.Element/Properties/property#DETAIL_SCHEMA` rows `DuctGauge`/`SealClass`/`LinerClass` with the duct pressure classification riding the shared `PressureClass` row; `Attestation` and the `SegmentRows` trade mints compose from `pipework#PIPE_SYSTEMS` and `pipework#PIPEWORK_SEED`; `ThreadRow.InchToMm` is the one inch basis (`fastener#FASTENER_FAMILY`); the IFC stamp is `IfcPipeSegment`'s duct sibling `IfcDuctSegment`/`RIGIDSEGMENT`; the substance binds `steel.galvanized` (the ASTM A653 lock-forming sheet row) and the appearance `metal.steel` at `Properties/properties#MATERIAL_PROPERTY_CATALOGUE`.
 
 ## [01]-[INDEX]
 
-- [02]-[DUCT_SCHEDULE]: the `DuctGauge` sheet ladder, the `DuctSeam` axis, the `DuctClass` pressure-class policy rows carrying the rectangular breakpoint schedule, the `RoundRow` Table 3-2A roster, and the `DuctSchedule` resolution folds.
-- [03]-[DUCTWORK_SEED]: the `DuctSeal`/`DuctLiner` vocabularies, the `DuctworkDetail` product bag, the `DuctworkSeed.Rows` generation fold, and the typed sizing refusal.
+- [02]-[DUCT_SCHEDULE]: the `DuctGauge` sheet ladder, the `DuctSeam` axis, the `DuctClass` pressure-class policy rows carrying the rectangular breakpoint schedule, the `RoundRow` Table 3-2A roster, and the `DuctSchedule` resolution folds with their transcription attestation.
+- [03]-[DUCTWORK_SEED]: the `DuctSeal`/`DuctLiner` vocabularies, the closed `DuctShape` geometry payload, the `DuctRow` roster row, and `DuctworkSeed` — the roster, the seed law with its accumulating coherence and product bag, and the typed sizing refusal.
 
 ## [02]-[DUCT_SCHEDULE]
 
-- Owner: `DuctClass` the one pressure-class axis — inches w.g., the SMACNA-rounded Pa class label, the rectangular unreinforced breakpoint ladder with its reinforcement-required limit, and the round-schedule read for the classes the round tables publish; `DuctGauge` the galvanized sheet ladder with its SMACNA metric-twin thickness; `DuctSeam` the spiral/longitudinal axis; `DuctSchedule` the two resolution folds.
+- Owner: `DuctClass` the one pressure-class axis — inches w.g., the SMACNA-rounded Pa class label, the rectangular unreinforced breakpoint ladder with its reinforcement-required limit, and the round-schedule read for the classes the round tables publish; `DuctGauge` the galvanized sheet ladder with its SMACNA metric-twin thickness; `DuctSeam` the spiral/longitudinal axis; `DuctSchedule` the two resolution folds and the attestation of the cells they read.
 - Cases: seven classes {½ · 1 · 2 · 3 · 4 · 6 · 10 in w.g.} × two geometries; the round schedule exists only at +2/+4/+10 in w.g., so the other classes answer `None` at the round read and a round duct outside those classes is unmintable rather than silently re-classed.
 - Law: the exact conversion is 1 in w.g. = 248.84 Pa and the class labels are SMACNA's own roundings (125/250/500/750/1000/1500/2500 Pa) — the label is a published token, never a recomputed value; the unassigned-design default is the 1 in w.g. class and VAV duct upstream of boxes the 2 in w.g. class.
 - Law: a `None` from either resolution fold names the REINFORCEMENT-REQUIRED band — the reinforcement matrices (codes A–L, tie rods, joint spacing) are out of the corroborated set, so larger sizes refuse rather than carry a gauge the standard conditions on reinforcement this page does not model.
 - Law: the gauge↔mm correspondence is the SMACNA metric twin, PRIMARY-SINGLE like the schedules; the connector `Gauges` table overlaps it at 22–16 ga with agreeing values, and both stand — one prints the AISI cold-formed design basis, the other the SMACNA duct-sheet basis, two authorities for two regimes.
-- Exemption: flat-oval and aluminum duct carry no corroborated schedule — each joins as one stocked selection with its schedule roster the moment its table proves; no vocabulary row is minted for either now.
-- Packages: Rasm.Domain (`Op`/`Context`), Rasm.Element (the seam bag currencies), Rasm.Materials.Component parent owner (`Component`/`ComponentRow`/`ComponentFamily`/`SectionProfile`/`IfcBinding`/`Coring`/`ComponentStandard`/`ComponentAuthority`/`ComponentFault`/`ComponentDetail`/`Provenance`, the sibling `Attestation`/`SegmentRows`, the `ThreadRow.InchToMm` inch basis), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + `[UseDelegateFromConstructor]`), LanguageExt.Core, BCL (`ImmutableArray`). NO duct-schedule producer exists among admitted packages, so the schedules are PUBLISHED here under SEED_ROW_LAW with per-column provenance.
+- Exemption: flat-oval and aluminum duct carry no corroborated schedule — each joins as one stocked row with its schedule roster the moment its table proves; no vocabulary row is minted for either now.
+- Packages: Rasm.Domain (`Op`/`Context`), Rasm.Element (`MaterialId`, `EvidenceGrade`, the seam bag currencies), the parent `component#COMPONENT_OWNER`/`#COMPONENT_DETAIL`/`#COMPONENT_SEED` owners, the sibling `Attestation`/`SegmentRows`, the `ThreadRow.InchToMm` inch basis, Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + `[Union]` + `[UseDelegateFromConstructor]`), LanguageExt.Core, BCL (`ImmutableArray`). NO duct-schedule producer exists among admitted packages, so the schedules are PUBLISHED here under SEED_ROW_LAW with per-column provenance.
 - Growth: a new pressure class is one `DuctClass` row; a heavier or lighter sheet one `DuctGauge` row; a negative-pressure round schedule one roster beside `RoundRow` read by the same class delegates.
 
 ```csharp signature
@@ -25,9 +25,10 @@ The page composes settled law without re-derivation: `SectionProfile.CircleHollo
 using System.Collections.Immutable;
 using System.Globalization;             // the invariant designation-tag format
 using LanguageExt;
+using LanguageExt.Common;               // Error — the Validation fault carrier the coherence census accumulates
 using Rasm.Domain;                      // Op, Context
-using Rasm.Element.Composition;         // MaterialId, DetailSchema, PropertyBag, PropertyName, PropertyValue
-using Rasm.Element.Properties;          // MeasureValue, PropertyCategory
+using Rasm.Element.Composition;         // MaterialId, PropertyBag
+using Rasm.Element.Properties;          // EvidenceGrade, DetailSchema, PropertyName, PropertyValue, Dimension
 using Thinktecture;
 using Dimension = Rasm.Element.Properties.Dimension;   // the SI-dimension axis the detail-bag mints ride
 using static LanguageExt.Prelude;
@@ -91,10 +92,14 @@ public sealed partial class DuctClass {
     public Seq<(double UpToIn, DuctGauge Gauge)> Steps { get; }
 }
 
-// The two schedule resolution folds. Rect answers the first breakpoint covering the longest side, None past the
-// unreinforced limit; RoundOf answers the first diameter band's class-and-seam cell, None where the class publishes
-// no round table. Round transcribes Table 3-2A cell-for-cell across its twelve diameter bands.
+// The two schedule resolution folds and the ATTESTATION of every cell they read: the defining gauge cell is
+// primary-single even where the pressure-class ladder itself is corroborated, and the weakest contributor rules the
+// row, so this owner states the flag its own tables earn rather than each bag asserting one. Rect answers the first
+// breakpoint covering the longest side, None past the unreinforced limit; RoundOf answers the first diameter band's
+// class-and-seam cell, None where the class publishes no round table. Round transcribes Table 3-2A cell-for-cell.
 public static class DuctSchedule {
+    public static readonly Attestation Attested = Attestation.PrimarySingle;
+
     public static readonly ImmutableArray<RoundRow> Round = [
         new(6.0,  DuctGauge.Ga28, DuctGauge.Ga28, DuctGauge.Ga28, DuctGauge.Ga28, DuctGauge.Ga28, DuctGauge.Ga28),
         new(8.0,  DuctGauge.Ga28, DuctGauge.Ga28, DuctGauge.Ga28, DuctGauge.Ga28, DuctGauge.Ga28, DuctGauge.Ga26),
@@ -121,13 +126,13 @@ public static class DuctSchedule {
 
 ## [03]-[DUCTWORK_SEED]
 
-- Owner: `DuctSeal` and `DuctLiner` the product-class vocabularies; `DuctworkDetail` the product-bag constructor; `DuctworkSeed` the stocked selections, the generation fold, and the capacity refusal.
-- Cases: round stocked rows resolve `(class, diameter, seam)` through `DuctSchedule.RoundOf` onto `CircleHollow`; rectangular rows resolve `(class, longest side)` through `DuctSchedule.Rect` onto `RectangleHollow` — the gauge is Defined by the schedule, so a stocked row cannot assert a sheet the class refuses, and a selection outside the unreinforced band faults typed at seed time.
-- Law: the seal and liner selections on a stocked row are AUTHORED product spec — the SMACNA class→seal assignment rule and the liner thickness schedule are outside the corroborated set, so the tokens stamp as this estate's selection under the row's `Sourced`/`Attested` evidence, and the assignment rule lands as data the moment it proves.
+- Owner: `DuctSeal` and `DuctLiner` the product-class vocabularies; `DuctShape` the closed geometry payload; `DuctRow` the roster row; `DuctworkSeed` the roster, the seed law, and the capacity refusal.
+- Cases: shape {round — diameter × seam, resolving `(class, diameter, seam)` through `DuctSchedule.RoundOf` onto `CircleHollow`; rectangular — width × depth, resolving `(class, longest side)` through `DuctSchedule.Rect` onto `RectangleHollow`}. The gauge is DEFINED by the schedule, so a stocked row cannot assert a sheet the class refuses, and a selection outside the unreinforced band faults typed at coherence time BESIDE every other offending row.
+- Entry: `ComponentSeed.Rows(context, DuctworkSeed.Roster, DuctworkSeed.Law)` — one roster over one closed shape payload, so the two hand folds that differed only in geometry are one law.
+- Law: the seal and liner selections on a stocked row are AUTHORED product spec — the SMACNA class→seal assignment rule and the liner thickness schedule are outside the corroborated set, so the tokens stamp under the row's own evidence grade and the assignment rule lands as data the moment it proves.
 - Law: no `JointType` stamps — the transverse-joint and reinforcement vocabulary (codes A–L, slip-drive, flanged systems) is reinforcement-grade data out of the corroborated set, and the widened Realization allowed-set carries pipe modalities only.
-- Entry: `DuctworkSeed.Rows(context)` the `ComponentFamily.Ductwork` row fold; `DuctworkSeed.Capacity` the typed refusal — a duct run's governing verdict is airside, owned by `Rasm.Compute`.
 - Output: the projector derives the takeoff rows from the solved hollow section through `QuantityRow.VolumePerLength`/`SurfaceAreaPerLength`/`LinearDensity` (`component#QUANTITY_ROW`) — no takeoff cell is stamped here.
-- Boundary: every stamped bag rides `Attestation.PrimarySingle` because the defining gauge cell is primary-single even where the pressure-class ladder itself is corroborated — the weakest contributor rules the row, per the `pipework#PIPEWORK_SEED` law.
+- Boundary: every stamped bag rides `DuctSchedule.Attested` because the defining gauge cell is primary-single even where the pressure-class ladder itself is corroborated — the weakest contributor rules the row, per the `pipework#PIPEWORK_SEED` law, and the flag reads off the schedule owner rather than being asserted at the bag. `DuctworkSeed.Capacity` is the typed refusal — a duct run's governing verdict is airside, owned by `Rasm.Compute`.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -151,83 +156,127 @@ public sealed partial class DuctLiner {
     public static readonly DuctLiner Acoustic = new("acoustic");
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
-// The DetailLane.Product bag: gauge/class/seal/liner tokens, provenance and attestation, the measured sheet wall,
-// and the diameter row only where the duct is round — a rectangular duct's envelope rides its profile.
-public static class DuctworkDetail {
-    public static Fin<PropertyBag> Of(DuctClass @class, DuctGauge gauge, DuctSeal seal, DuctLiner liner, Option<double> diameterMm, Op key) =>
-        from wall in ComponentDetail.Measured(SegmentRows.WallThickness, Dimension.LengthDim, gauge.ThicknessMm * 1e-3)
-        from diameter in diameterMm.Match(
-            Some: mm => ComponentDetail.Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, mm * 1e-3).Map(Some),
-            None: static () => Fin.Succ(Option<(PropertyName, PropertyValue)>.None))
-        select ComponentDetail.ProductRows([
-            ComponentDetail.Token(DetailSchema.DuctGauge, gauge.Key),
-            ComponentDetail.Token(DetailSchema.PressureClass, @class.Key),
-            ComponentDetail.Token(DetailSchema.SealClass, seal.Key),
-            ComponentDetail.Token(DetailSchema.LinerClass, liner.Key),
-            ComponentDetail.Sourced(Provenance.Published),
-            SegmentRows.Attested(Attestation.PrimarySingle),
-            wall,
-            .. diameter.ToSeq(),
-        ]);
+// The closed duct-geometry payload: each arm carries the dimensions ITS schedule reads and nothing else, so the
+// seam column exists only where a seam is a real axis (Table 3-2A splits its round columns on it; the rectangular
+// schedule has no seam column at all) and no row carries a dimension the other geometry owns.
+[Union]
+public abstract partial record DuctShape {
+    private DuctShape() { }
+    public sealed record Round(double DiameterIn, DuctSeam Seam) : DuctShape;
+    public sealed record Rectangular(double WidthIn, double DepthIn) : DuctShape;
 }
 
-// The ComponentFamily.Ductwork generator: two stocked selections, gauge resolved from the schedule — never carried
-// on the selection — and one construction rail per geometry. Designation tags carry the class and the size in
-// inches, so the id reads as the submittal line it names.
+// --- [MODELS] ------------------------------------------------------------------------------
+// One stocked duct: the geometry payload, the pressure class the schedule resolves against, and the AUTHORED seal
+// and liner selections. Liner is an init column rather than a fold argument — a lined run is one row, never a
+// second entry point — and Source is per row so a producer-declared build enters at its own grade.
+public readonly record struct DuctRow(DuctShape Shape, DuctClass Class, DuctSeal Seal) {
+    public DuctLiner Liner { get; init; } = DuctLiner.Bare;
+    public EvidenceGrade Source { get; init; } = EvidenceGrade.Catalogue;
+
+    // The designation carries the class and the size in inches, so the id reads as the submittal line it names.
+    public string Designation => Shape.Switch(
+        round: r => $"ductwork.round-{Class.Key}-{Tag(r.DiameterIn)}",
+        rectangular: r => $"ductwork.rect-{Class.Key}-{Tag(r.WidthIn)}x{Tag(r.DepthIn)}");
+
+    static string Tag(double inches) => inches.ToString("00", CultureInfo.InvariantCulture);
+}
+
+// --- [TABLES] ------------------------------------------------------------------------------
+// The ComponentFamily.Ductwork roster and policy: positive-pressure single-wall spiral supply at the three
+// round-rated classes and the rectangular supply mains, gauge resolved from the schedule and never carried on the
+// row. The seal selection is authored spec (heavier class, heavier seal) pending the SMACNA assignment rule.
 public static class DuctworkSeed {
-    static readonly ComponentStandard UsSmacna = new("us", StandardJointThicknessMm: 0.0, Authority: ComponentAuthority.Smacna);
+    static readonly ComponentStandard UsSmacna =
+        new(ComponentAuthority.Smacna.Region, StandardJointThicknessMm: 0.0, ComponentAuthority.Smacna);
     static readonly IfcBinding Rigid = IfcBinding.Of("IfcDuctSegment", "RIGIDSEGMENT");
     static readonly MaterialId Galvanized = MaterialId.Of("steel.galvanized");
     static readonly MaterialId Sheet = MaterialId.Of("metal.steel");
 
-    // Positive-pressure single-wall spiral supply at the three round-rated classes; the seal selection is authored
-    // spec (heavier class, heavier seal) pending the SMACNA assignment rule.
-    static readonly ImmutableArray<(double DiaIn, DuctClass Class, DuctSeam Seam, DuctSeal Seal)> Rounds = [
-        (8.0,  DuctClass.Two,  DuctSeam.Spiral, DuctSeal.C),
-        (12.0, DuctClass.Two,  DuctSeam.Spiral, DuctSeal.C),
-        (16.0, DuctClass.Two,  DuctSeam.Spiral, DuctSeal.C),
-        (20.0, DuctClass.Two,  DuctSeam.Spiral, DuctSeal.C),
-        (24.0, DuctClass.Two,  DuctSeam.Spiral, DuctSeal.C),
-        (12.0, DuctClass.Four, DuctSeam.Spiral, DuctSeal.A),
-        (24.0, DuctClass.Four, DuctSeam.Spiral, DuctSeal.A),
-        (12.0, DuctClass.Ten,  DuctSeam.Spiral, DuctSeal.A)];
+    public static readonly Seq<DuctRow> Roster = Seq(
+        new DuctRow(new DuctShape.Round(8.0,  DuctSeam.Spiral), DuctClass.Two,  DuctSeal.C),
+        new DuctRow(new DuctShape.Round(12.0, DuctSeam.Spiral), DuctClass.Two,  DuctSeal.C),
+        new DuctRow(new DuctShape.Round(16.0, DuctSeam.Spiral), DuctClass.Two,  DuctSeal.C),
+        new DuctRow(new DuctShape.Round(20.0, DuctSeam.Spiral), DuctClass.Two,  DuctSeal.C),
+        new DuctRow(new DuctShape.Round(24.0, DuctSeam.Spiral), DuctClass.Two,  DuctSeal.C),
+        new DuctRow(new DuctShape.Round(12.0, DuctSeam.Spiral), DuctClass.Four, DuctSeal.A),
+        new DuctRow(new DuctShape.Round(24.0, DuctSeam.Spiral), DuctClass.Four, DuctSeal.A),
+        new DuctRow(new DuctShape.Round(12.0, DuctSeam.Spiral), DuctClass.Ten,  DuctSeal.A),
+        new DuctRow(new DuctShape.Rectangular(12.0, 8.0),  DuctClass.Two,  DuctSeal.C),
+        new DuctRow(new DuctShape.Rectangular(24.0, 12.0), DuctClass.One,  DuctSeal.C),
+        new DuctRow(new DuctShape.Rectangular(30.0, 16.0), DuctClass.Half, DuctSeal.C));
 
-    static readonly ImmutableArray<(double WidthIn, double DepthIn, DuctClass Class, DuctSeal Seal)> Rects = [
-        (12.0, 8.0,  DuctClass.Two,  DuctSeal.C),
-        (24.0, 12.0, DuctClass.One,  DuctSeal.C),
-        (30.0, 16.0, DuctClass.Half, DuctSeal.C)];
+    public static readonly SeedLaw<DuctRow> Law = SeedLaw<DuctRow>.Of(
+        family: ComponentFamily.Ductwork,
+        designation: static r => r.Designation,
+        coherence: Coherence,
+        profile: Profile,
+        substance: static _ => Galvanized,
+        source: static r => r.Source,
+        standard: static _ => UsSmacna,
+        detail: Some<Func<DuctRow, SectionProfile, Op, Fin<PropertyBag>>>(Detail),
+        appearance: static _ => Sheet,
+        ifc: static _ => Rigid);
 
-    public static Fin<Seq<ComponentRow>> Rows(Context context) =>
-        from rounds in toSeq(Rounds).Traverse(stock =>
-            from gauge in DuctSchedule.RoundOf(stock.Class, stock.DiaIn, stock.Seam)
-                .ToFin(ComponentFault.Family(context.Key, $"<round-gauge-outside-unreinforced-schedule:{stock.DiaIn:R}:{stock.Class.Key}>"))
-            from profile in SectionProfile.CircleHollow.Of(stock.DiaIn * ThreadRow.InchToMm, gauge.ThicknessMm, context.Key)
-            from detail in DuctworkDetail.Of(stock.Class, gauge, stock.Seal, DuctLiner.Bare, Some(stock.DiaIn * ThreadRow.InchToMm), context.Key)
-            from item in Component.Of(
-                ComponentFamily.Ductwork, $"ductwork.round-{stock.Class.Key}-{Tag(stock.DiaIn)}",
-                profile, Rigid, Coring.None, UsSmacna,
-                substanceId: Galvanized, appearanceId: Sheet, detail: Some(detail), context.Key)
-            select new ComponentRow(item, Provenance.Published)).As()
-        from rects in toSeq(Rects).Traverse(stock =>
-            from gauge in DuctSchedule.Rect(stock.Class, Math.Max(stock.WidthIn, stock.DepthIn))
-                .ToFin(ComponentFault.Family(context.Key, $"<rect-gauge-outside-unreinforced-schedule:{stock.WidthIn:R}x{stock.DepthIn:R}:{stock.Class.Key}>"))
-            from profile in SectionProfile.RectangleHollow.Of(
-                stock.WidthIn * ThreadRow.InchToMm, stock.DepthIn * ThreadRow.InchToMm, gauge.ThicknessMm, innerFilletMm: 0.0, outerFilletMm: 0.0, context.Key)
-            from detail in DuctworkDetail.Of(stock.Class, gauge, stock.Seal, DuctLiner.Bare, None, context.Key)
-            from item in Component.Of(
-                ComponentFamily.Ductwork, $"ductwork.rect-{stock.Class.Key}-{Tag(stock.WidthIn)}x{Tag(stock.DepthIn)}",
-                profile, Rigid, Coring.None, UsSmacna,
-                substanceId: Galvanized, appearanceId: Sheet, detail: Some(detail), context.Key)
-            select new ComponentRow(item, Provenance.Published)).As()
-        select rounds + rects;
+    // The row census, ACCUMULATING — the schedule resolution is the seed's real gate, so a roster with three
+    // out-of-band selections names all three instead of aborting on the first. The dimensional conjunct is
+    // independent of it, so a degenerate size and an unlisted class report together.
+    static Validation<Error, Unit> Coherence(DuctRow r, Op key) =>
+        (guard(GaugeOf(r).IsSome,
+             new KernelFault.InvalidValue(nameof(DuctGauge), "a gauge inside the unreinforced schedule", Some(key))).ToValidation(),
+         guard(r.Shape.Switch(
+                 round: static x => double.IsFinite(x.DiameterIn) && x.DiameterIn > 0.0,
+                 rectangular: static x => double.IsFinite(x.WidthIn) && x.WidthIn > 0.0 && double.IsFinite(x.DepthIn) && x.DepthIn > 0.0),
+             new KernelFault.InvalidValue(nameof(r.Shape), "positive finite duct dimensions", Some(key))).ToValidation())
+            .Apply(static (_, _) => unit).As();
+
+    // The ONE schedule read both the profile and the bag compose: the shape arm selects which published table
+    // answers, and a size outside the unreinforced band answers absence rather than a borrowed sheet.
+    static Option<DuctGauge> GaugeOf(DuctRow r) => r.Shape.Switch(
+        state: r.Class,
+        round: static (@class, x) => DuctSchedule.RoundOf(@class, x.DiameterIn, x.Seam),
+        rectangular: static (@class, x) => DuctSchedule.Rect(@class, Math.Max(x.WidthIn, x.DepthIn)));
+
+    // The schedule-resolved wall is the duct's own sheet thickness — one gauge read, two geometry rails. The
+    // rectangular arm carries no fillet: SMACNA sheet metal is brake-formed to a square corner.
+    static Fin<SectionProfile> Profile(DuctRow r, Op key) =>
+        from gauge in Gauge(r, key)
+        from profile in r.Shape.Switch(
+            state: (Gauge: gauge, Key: key),
+            round: static (x, s) => SectionProfile.CircleHollow.Of(s.DiameterIn * ThreadRow.InchToMm, x.Gauge.ThicknessMm, x.Key),
+            rectangular: static (x, s) => SectionProfile.RectangleHollow.Of(
+                s.WidthIn * ThreadRow.InchToMm, s.DepthIn * ThreadRow.InchToMm, x.Gauge.ThicknessMm,
+                innerFilletMm: 0.0, outerFilletMm: 0.0, x.Key))
+        select profile;
+
+    // The DetailLane.Product bag: gauge/class/seal/liner tokens, evidence and attestation, the measured sheet wall,
+    // and the diameter row only where the duct is round — a rectangular duct's envelope rides its profile.
+    static Fin<PropertyBag> Detail(DuctRow r, SectionProfile profile, Op key) =>
+        from gauge in Gauge(r, key)
+        from wall in ComponentDetail.Measured(SegmentRows.WallThickness, Dimension.LengthDim, gauge.ThicknessMm * 1e-3)
+        from diameter in r.Shape is DuctShape.Round round
+            ? ComponentDetail.Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, round.DiameterIn * ThreadRow.InchToMm * 1e-3).Map(Some)
+            : Fin.Succ(Option<(PropertyName, PropertyValue)>.None)
+        select ComponentDetail.ProductRows([
+            ComponentDetail.Token(DetailSchema.DuctGauge, gauge.Key),
+            ComponentDetail.Token(DetailSchema.PressureClass, r.Class.Key),
+            ComponentDetail.Token(DetailSchema.SealClass, r.Seal.Key),
+            ComponentDetail.Token(DetailSchema.LinerClass, r.Liner.Key),
+            ComponentDetail.Sourced(r.Source),
+            SegmentRows.Attested(DuctSchedule.Attested),
+            wall,
+            .. diameter.ToSeq(),
+        ]);
+
+    // The coherence proved the resolution and DISCARDED it (the ComponentSeed law's declared second loss), so the
+    // profile and bag lift the same read on their own rail — one selector, never a second schedule reading.
+    static Fin<DuctGauge> Gauge(DuctRow r, Op key) =>
+        GaugeOf(r).ToFin(new KernelFault.InvalidValue(nameof(DuctGauge), "a gauge inside the unreinforced schedule", Some(key)));
 
     // The ComponentFamily.Ductwork CAPACITY producer: an explicit typed refusal — a duct segment's governing verdict
     // is airside (flow, friction, leakage against its pressure class), owned by the Rasm.Compute route.
     public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
-        ComponentFault.Capacity(key, $"<ductwork-sizing-rides-compute-airside:{component.Designation.Value}>");
-
-    static string Tag(double inches) => inches.ToString("00", CultureInfo.InvariantCulture);
+        new ComponentFault.CapacityUnavailable(key, component.Designation);
 }
 ```
 

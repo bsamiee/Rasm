@@ -208,7 +208,7 @@ const _value = {
 
 ## [03]-[RASM_ROWS]
 
-- Owner: `_module`, `_domain`, `_rasm`, `_metric`, `_unit`, `_kinds`, `_instrument`, `_event`, and `_profile` publish every estate-minted name, so a dotted spelling closes against a roster rather than a producer's coinage.
+- Owner: `_module`, `_domain`, `_rasm`, `_metric`, `_unit`, `_kinds`, `_censuses`, `_instrument`, `_event`, and `_profile` publish every estate-minted name, so a dotted spelling closes against a roster rather than a producer's coinage.
 - Law: `rasm.<domain>.<measure>` closes against `_domain` at the declaration — a measure naming an unrostered segment fails the guard rather than exporting a series no board can find, and the same `<domain>` segment is the capability subject a message-envelope `type` reads.
 - Law: `_domain` rows name their emitting modules, so a subject no module mints refuses at the guard and a segment carries legislated capability rather than a coined word.
 - Law: `_module` carries the emitting column and the emitter union derives from it, so a module that stops mounting narrows one roster instead of stranding a hand-listed union.
@@ -216,6 +216,9 @@ const _value = {
 - Law: unit codes are UCUM and every unit answers both egress tables, so an unanswered code renames its own series at one receiver and renders unitless at the other.
 - Law: instrument rows carry their bucket layout, quantile window, and carrier width as columns, so a mount reads one row and a histogram never takes a bucket vector a caller assembled.
 - Law: a frequency row admits no dimension column, because its word axis IS the exported dimension the bridge appends and a second fan multiplies one census into many.
+- Law: every word-bearing row declares its CENSUS SOURCE — `fault` binds the axis to a raiser's own reason roster and `vocabulary` to a lane's declared roster — so which census a site takes is the row's answer, never the site's.
+- Law: a census column rides a frequency row or a row declaring a reason fan, because a census over neither counts words no tag can carry.
+- Law: `rasm.fault.*` log annotations are rostered dimensions like every other estate coordinate, so an annotation key no row spells refuses at its raise rather than reaching a log sink no query resolves.
 - Law: a tracked outcome joins its evaluations on `feature_flag.context.id`, because the tracking call names a business event and carries no flag key — the targeting identity both planes stamp is the only shared coordinate, and an outcome spelled under `feature_flag.key` asserts a flag the call never named.
 - Law: the tracked magnitude rides the wide event and the occurrence rides the metric plane, because a caller-defined value carries no dimension — one summed series folds currency, duration, and arity into a code no UCUM row spells — while a sampled trace plane cannot count an outcome an experiment reads as a rate.
 - Law: `rasm.flag.detail` carries the tracking remainder as ONE rendered payload, because those members are caller-keyed and admit nested objects, arrays, and instants no attribute value type accepts, so the boundary is declared at the row rather than flattened into keys no roster closes.
@@ -250,6 +253,7 @@ const _domain = {
   export: { emitters: ["ui"], subject: "surface serialization into content-minted parcels and their egress routes" },
   fact: { emitters: ["data"], subject: "journal fact drain into the queryable fact table" },
   fanout: { emitters: ["runtime"], subject: "broker fanout publication and the consumer lanes draining it" },
+  fault: { emitters: ["core"], subject: "raised-fault identity and the recovery verdict each raise publishes to its readers" },
   flag: { emitters: ["runtime"], subject: "feature-flag decisions and the business outcomes attributed back to them" },
   form: { emitters: ["ui"], subject: "form submit round-trip settlement by outcome" },
   gateway: { emitters: ["core"], subject: "command-gateway dispatch by verb and outcome" },
@@ -268,6 +272,7 @@ const _domain = {
   security: { emitters: ["security"], subject: "authenticity, authorization, and key-custody decisions" },
   slo: { emitters: ["core"], subject: "objective burn and severity axes" },
   stream: { emitters: ["data"], subject: "resumable-upload finalization" },
+  tap: { emitters: ["core"], subject: "hook-plane seating, delivery admission, and the isolated subscriber breaches each rail accounts" },
   vital: { emitters: ["runtime"], subject: "graded web-vital observations with the phase and subject decomposition attributing each" },
   work: { emitters: ["runtime"], subject: "work-plane channel routing and durable-actor identity" },
 } as const
@@ -296,6 +301,14 @@ const _rasm = {
   exportFormat: "rasm.export.format",
   exportSource: "rasm.export.source",
   factStream: "rasm.fact.stream",
+  // the log-annotation trio a raise stamps: `code` is the routing key a reader dispatches on, `owner` the blamed leg,
+  // and `posture` the producer's own re-drive verdict — one spelling the C# kernel mints under the same three words,
+  // so a cross-language reader joins on the key rather than on a per-branch synonym. Governed rows, so
+  // `Convention.Attributes` admits them and an unrostered `rasm.fault.*` spelling refuses at its annotation site
+  // rather than reaching a log sink unresolvable
+  faultCode: "rasm.fault.code",
+  faultOwner: "rasm.fault.owner",
+  faultPosture: "rasm.fault.posture",
   flagDetail: "rasm.flag.detail", // the rendered remainder: the member family admits nested objects, arrays, and instants no attribute value type accepts
   flagEvent: "rasm.flag.event",
   flagValue: "rasm.flag.value",
@@ -326,6 +339,10 @@ const _rasm = {
   sloBurn: "rasm.slo.burn",
   sloObjective: "rasm.slo.objective",
   sloSeverity: "rasm.slo.severity",
+  tapLoss: "rasm.tap.loss",       // shed beside lost: the two halves `Tap.Census` keeps apart, since one merged tally cannot tell a refused fact from a displaced one
+  tapOutcome: "rasm.tap.outcome", // `Tap.Verdict`'s own arms on the wide event: a per-publish arbitration is not a summable series
+  tapPoint: "rasm.tap.point",     // the `rasm.<pkg>.<domain>.<point>` row the fact fired at
+  tapSeating: "rasm.tap.seating", // `Tap.Seating`'s own columns
   tenant: "rasm.tenant",
   vitalDelta: "rasm.vital.delta",
   vitalElement: "rasm.vital.element",
@@ -439,6 +456,11 @@ const _metric = {
   securitySecretRotation: "rasm.security.secret.rotation",
   securityShredReject: "rasm.security.shred.reject",
   streamSize: "rasm.stream.size",
+  tapAdmitted: "rasm.tap.admitted",
+  tapBreaches: "rasm.tap.breaches",
+  tapDropped: "rasm.tap.dropped",
+  tapSeats: "rasm.tap.seats",
+  tapVetoed: "rasm.tap.vetoed",
   vitalDuration: "rasm.vital.duration",
   vitalObserved: "rasm.vital.observed",
   vitalScore: "rasm.vital.score",
@@ -463,7 +485,9 @@ const _metricKinds = [
   _metric.sceneBackend, _metric.sceneGrafts, _metric.sceneRefusals,
   _metric.securityAdmitted, _metric.securityCeremony, _metric.securityJwksMiss, _metric.securityJwksQuarantined,
   _metric.securityJwksResolve, _metric.securityKdf, _metric.securityPolicyDeny, _metric.securityRejects,
-  _metric.securitySecretRotation, _metric.securityShredReject, _metric.streamSize, _metric.vitalDuration,
+  _metric.securitySecretRotation, _metric.securityShredReject, _metric.streamSize,
+  _metric.tapAdmitted, _metric.tapBreaches, _metric.tapDropped, _metric.tapSeats, _metric.tapVetoed,
+  _metric.vitalDuration,
   _metric.vitalObserved, _metric.vitalScore, _metric.vitalSize,
 ] as const
 
@@ -585,6 +609,12 @@ const _grafanaUnit = {
   [_unit.verdict]: { level: "short", rate: "cps" },
 } as const
 
+// Where a row's word axis comes FROM, declared on the row rather than chosen at the site: `fault` names a raiser's own
+// reason roster, so the census is complete exactly when every reason that family can raise preregisters; `vocabulary`
+// names a lane's declared state or outcome roster, whose words a fold produces. The column is what makes the word axis
+// a published census value instead of a tuple a caller assembles.
+const _censuses = ["fault", "vocabulary"] as const
+
 const _kinds = ["counter", "frequency", "gauge", "histogram", "summary", "updown"] as const
 
 const _tail = {
@@ -623,15 +653,15 @@ const _instrument = {
   factDeferred: { description: "journal append attempts the durable plane refused", kind: "counter", name: _metric.factDeferred, unit: _unit.item },
   factDrained: { description: "journal facts drained to the fact table", dimensions: [_rasm.auditAction, _rasm.auditActorKind, _rasm.factStream], kind: "counter", name: _metric.factDrained, unit: _unit.item },
   factRefused: { description: "journal facts parked on the refused roster", dimensions: [_rasm.factStream], kind: "counter", name: _metric.factRefused, unit: _unit.item },
-  flagTracked: { description: "tracked business outcomes by event name", kind: "frequency", name: _metric.flagTracked, unit: _unit.event },
+  flagTracked: { census: "vocabulary", description: "tracked business outcomes by event name", kind: "frequency", name: _metric.flagTracked, unit: _unit.event },
   formSubmit: { description: "settled submit trips by outcome", dimensions: [_rasm.formOutcome], kind: "counter", name: _metric.formSubmit, unit: _unit.trip },
   gatewayCommands: { description: "gateway dispatches by outcome", dimensions: [_rasm.gatewayOutcome], kind: "counter", name: _metric.gatewayCommands, unit: _unit.call },
   gatewayDuration: { bounds: { count: 5, factor: 4, ladder: "exponential", start: 25 }, description: "gateway dispatch wall span", kind: "histogram", name: _metric.gatewayDuration, unit: _unit.milli },
   httpServerDuration: { bounds: { edges: [0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 7.5, 10], ladder: "explicit" }, description: "server request wall span", dimensions: [_attr.httpMethod, _attr.httpRoute], kind: "histogram", name: _metric.httpServerDuration, unit: _unit.second },
   idempotencyOutcome: { description: "idempotency-key dispositions", dimensions: [_rasm.admitDisposition], kind: "counter", name: _metric.idempotencyOutcome, unit: _unit.decision },
-  invokeCalls: { description: "capability calls by outcome", dimensions: [_rasm.invokeOutcome], kind: "counter", name: _metric.invokeCalls, unit: _unit.call },
+  invokeCalls: { census: "fault", description: "capability calls by outcome", dimensions: [_rasm.invokeOutcome], kind: "counter", name: _metric.invokeCalls, unit: _unit.call },
   invokeDuration: { bounds: { count: 5, factor: 4, ladder: "exponential", start: 25 }, description: "capability call wall span", kind: "histogram", name: _metric.invokeDuration, unit: _unit.milli },
-  invokeFault: { description: "capability fault reasons", kind: "frequency", name: _metric.invokeFault, unit: _unit.fault },
+  invokeFault: { census: "fault", description: "capability fault reasons", kind: "frequency", name: _metric.invokeFault, unit: _unit.fault },
   laneCheckpoint: { bigint: true, description: "last committed projection drain position", dimensions: [_rasm.laneName], kind: "gauge", name: _metric.laneCheckpoint, unit: _unit.position },
   meterUsage: { description: "billable usage by metered resource", dimensions: [_rasm.meterResource], kind: "counter", name: _metric.meterUsage, unit: _unit.item },
   objectReclaimed: { description: "bytes reclaimed by the reference sweep", kind: "counter", name: _metric.objectReclaimed, unit: _unit.byte },
@@ -651,13 +681,13 @@ const _instrument = {
   remoteBytes: { description: "remote-origin octets moved by scheme and verb", dimensions: [_rasm.remoteOp, _rasm.remoteScheme], kind: "counter", name: _metric.remoteBytes, unit: _unit.byte },
   remoteDuration: { description: "remote-origin operation wall span", dimensions: [_rasm.remoteOp, _rasm.remoteScheme], kind: "summary", name: _metric.remoteDuration, unit: _unit.milli, window: { error: 0.01, maxAge: Duration.minutes(10), maxSize: 4096, quantiles: [0.5, 0.9, 0.99] } },
   remoteExecExits: { description: "remote command exits by scheme and fault class", dimensions: [_attr.errorType, _rasm.remoteScheme], kind: "counter", name: _metric.remoteExecExits, unit: _unit.exit },
-  remoteOps: { description: "remote-origin operations by scheme, verb, and fault class", dimensions: [_attr.errorType, _rasm.remoteOp, _rasm.remoteScheme], kind: "counter", name: _metric.remoteOps, unit: _unit.op },
+  remoteOps: { census: "fault", description: "remote-origin operations by scheme, verb, and fault class", dimensions: [_attr.errorType, _rasm.remoteOp, _rasm.remoteScheme], kind: "counter", name: _metric.remoteOps, unit: _unit.op },
   remoteResumed: { description: "transfers resumed by engine", dimensions: [_rasm.remoteEngine], kind: "counter", name: _metric.remoteResumed, unit: _unit.transfer },
   remoteSyncActions: { description: "reconciliation actions by kind", dimensions: [_rasm.remoteAction], kind: "counter", name: _metric.remoteSyncActions, unit: _unit.action },
   remoteWatchChanges: { description: "watch changes by scheme and strategy", dimensions: [_rasm.remoteScheme, _rasm.remoteWatch], kind: "counter", name: _metric.remoteWatchChanges, unit: _unit.change },
-  sceneBackend: { description: "backend lifecycle turns by landed phase", kind: "frequency", name: _metric.sceneBackend, unit: _unit.event },
+  sceneBackend: { census: "vocabulary", description: "backend lifecycle turns by landed phase", kind: "frequency", name: _metric.sceneBackend, unit: _unit.event },
   sceneGrafts: { description: "committed graft arrivals", kind: "counter", name: _metric.sceneGrafts, unit: _unit.graft },
-  sceneRefusals: { description: "graft refusals by fault reason", kind: "frequency", name: _metric.sceneRefusals, unit: _unit.refusal },
+  sceneRefusals: { census: "fault", description: "graft refusals by fault reason", kind: "frequency", name: _metric.sceneRefusals, unit: _unit.refusal },
   securityAdmitted: { description: "authenticity admissions by kind", dimensions: [_rasm.securityKind], kind: "counter", name: _metric.securityAdmitted, unit: _unit.admission },
   securityCeremony: { bounds: { count: 6, factor: 2, ladder: "exponential", start: 125 }, description: "credential-ceremony wall span", dimensions: [_rasm.securityKind], kind: "histogram", name: _metric.securityCeremony, unit: _unit.milli }, // rungs 125..4000 land 1000 as a declared edge — the audit ceremony objective pins its p99 ceiling there, and a ceiling must land on a bound
   securityJwksMiss: { description: "cold JWKS resolutions missing the cache", kind: "counter", name: _metric.securityJwksMiss, unit: _unit.miss },
@@ -669,6 +699,11 @@ const _instrument = {
   securitySecretRotation: { description: "secret rotations by custody path", kind: "counter", name: _metric.securitySecretRotation, unit: _unit.rotation },
   securityShredReject: { description: "opens rejected on a shredded key", kind: "counter", name: _metric.securityShredReject, unit: _unit.reject },
   streamSize: { description: "resumable-upload bytes finalized", kind: "counter", name: _metric.streamSize, unit: _unit.byte },
+  tapAdmitted: { description: "hook facts a point channel admitted", dimensions: [_rasm.tapPoint], kind: "counter", name: _metric.tapAdmitted, unit: _unit.event },
+  tapBreaches: { description: "isolated subscriber breaches by point and fault class", dimensions: [_attr.errorType, _rasm.tapPoint], kind: "counter", name: _metric.tapBreaches, unit: _unit.fault },
+  tapDropped: { description: "hook facts lost by half — refused at admission or displaced from the retained window", dimensions: [_rasm.tapLoss, _rasm.tapPoint], kind: "counter", name: _metric.tapDropped, unit: _unit.event },
+  tapSeats: { description: "hook seating outcomes by mount, refusal, and release", dimensions: [_rasm.tapSeating], kind: "counter", name: _metric.tapSeats, unit: _unit.admission },
+  tapVetoed: { description: "hook facts an arbiter refused before delivery", dimensions: [_rasm.tapPoint], kind: "counter", name: _metric.tapVetoed, unit: _unit.refusal },
   vitalDuration: { description: "current accounted time-measured vital level", dimensions: [_rasm.vitalKind], kind: "gauge", name: _metric.vitalDuration, unit: _unit.milli },
   vitalObserved: { description: "graded web-vital observations", dimensions: [_rasm.vitalGrade, _rasm.vitalKind], kind: "counter", name: _metric.vitalObserved, unit: _unit.event },
   vitalScore: { description: "current accounted dimensionless vital level", dimensions: [_rasm.vitalKind], kind: "gauge", name: _metric.vitalScore, unit: _unit.unity },
@@ -698,12 +733,16 @@ const _profile = {
 
 ## [04]-[IDENTITY_PROJECTION]
 
-- Owner: `_translation`, `_wire`, `_translated`, `_mount`, `_outcome`, `_dimensions`, and `_identity` own store-side naming, the estate pins, instrument materialization, the outcome fold, and resource stamping.
+- Owner: `_translation`, `_wire`, `_translated`, `_mount`, `_outcome`, `_tracked`, `_dimensions`, and `_identity` own store-side naming, the estate pins, instrument materialization, the two census aspects, and resource stamping.
 - Law: suffixing is a TARGET property — `translated` projects a store's own series name off the receiver's declared strategy, so a producer mints one dotted name and a store that escapes or suffixes reads its own row rather than a second spelling on the mint.
 - Law: `mount` memoizes each row-and-vocabulary pair, so one site names an instrument and a second site naming the same row shares its carrier instead of minting a twin the exporter reports separately.
 - Law: UCUM tagging lands at the mount, because the OTLP bridge computes an exported descriptor's unit before any view runs and the constructors take no unit option; the export lane drops that key by name.
 - Law: outcome derives from ONE `Exit` fold discriminating interrupt-first, so an interrupted run carries no outcome and a defect never reads as a typed fault; the vocabulary anchors on the family's own reason axis and widens there, never inside an arm.
 - Law: `outcome` takes the row's OWN declared fan, so an axis the instrument never mints is unspellable at the call and a tagged increment cannot invent a dimension the census refuses.
+- Law: every word axis arrives as its owner's PUBLISHED census, so a duplicate word already refused at the vocabulary mint and a word no raiser produces has no spelling at the call.
+- Law: a census word shadowing an exit row refuses at the aspect's own parameter, because a reason spelled `resolved` fuses a settled success with the fault it hid.
+- Law: the outcome fold holds one tagged carrier per admitted word from construction, so the exit path mints nothing and a word outside the census cannot be reached.
+- Law: `tracked` is the fault-census frequency aspect — the row's mount and the error-rail fold ride one declaration, so no page spells the tracking operator beside its own mount.
 - Law: the resource projection stamps identity ONCE and every optional coordinate rides a fold, so an absent region, zone, cluster, or tenant OMITS its key rather than exporting an empty string a query reads as a value.
 - Law: the estate service group is the floor a fleet's own namespace overrides, so one pin serves every unconfigured app without freezing a deployment that names its own.
 - Growth: a receiver posture is one `_translation` row; a promoted identity coordinate is one `_ESTATE` entry with its resource fold.
@@ -759,7 +798,7 @@ const _translated = (metric: Convention.MetricName, strategy: Convention.Transla
     : name
 }
 
-const _timed = (unit: Convention.Unit): unit is Convention.TimeUnit => unit in _scale
+const _temporal = (unit: Convention.Unit): unit is Convention.TimeUnit => unit in _scale
 
 const _duration = (metric: Convention.DurationMetric, span: Duration.Duration): number =>
   Duration.toMillis(span) * _scale[_Metric.at(metric).unit]
@@ -784,7 +823,7 @@ const _counted = (row: Extract<Convention.Row, { readonly kind: "counter" | "upd
 
 const _spanned = (row: Extract<Convention.Row, { readonly kind: "histogram" }>): Convention.Instrument => {
   const base = Metric.histogram(row.name, MetricBoundaries.fromIterable(_edges(row.name)), row.description)
-  return Option.match(Option.liftPredicate(row.unit, _timed), {
+  return Option.match(Option.liftPredicate(row.unit, _temporal), {
     onNone: () => base,
     onSome: (unit) => Metric.mapInput(base, (span: Duration.Duration) => Duration.toMillis(span) * _scale[unit]),
   })
@@ -812,8 +851,11 @@ const _MOUNT: { readonly [K in Convention.InstrumentKind]: (row: Extract<Convent
 
 const _mounted = MutableHashMap.empty<string, Convention.Instrument>()
 
-const _mount = <N extends Convention.MetricName>(metric: N, ...words: Convention.Words<N>): Convention.Mounted<N> => {
-  const vocabulary = words[0] ?? []
+const _mount = <N extends Convention.MetricName, const W extends Convention.Roster>(
+  metric: N,
+  ...words: Convention.Words<N, W>
+): Convention.Mounted<N> => {
+  const vocabulary: ReadonlyArray<string> = words[0]?.kinds ?? []
   const key = JSON.stringify([metric, vocabulary])
   return Option.getOrElse(MutableHashMap.get(_mounted, key), () => {
     // BOUNDARY ADAPTER: the keyed dispatch erases the row-to-arm correlation the mapped table declares and `Mounted`
@@ -832,20 +874,37 @@ const _mount = <N extends Convention.MetricName>(metric: N, ...words: Convention
   }) as Convention.Mounted<N>
 }
 
-const _outcome = <N extends Convention.MetricName<"counter">, E, W extends string>(
+const _TERMINAL = ["crashed", "halted", "resolved"] as const // the fold's own three exit rows, which every census word must stay disjoint from
+
+const _outcome = <N extends Convention.CensusMetric<"fault", "counter">, E, const W extends Convention.Roster>(
   metric: N,
   key: Convention.Fan<N>, // the row's OWN declared fan: an axis the instrument never mints is unspellable here
-  reason: (fault: E) => W,
+  census: Convention.Census<W> & Convention.Fused<W>, // the raiser's published roster, and `Fused` refuses one whose word shadows an exit row
+  reason: (fault: E) => W[number],
 ): (<A, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>) => {
   const mounted = _mount(metric)
-  const worded: (exit: Exit.Exit<unknown, E>) => Convention.Outcome<W> = Exit.match({
+  // BOUNDARY ADAPTER: the entry pairs erase to a string-keyed record and the census closes the word set the fold can
+  // reach, so every admitted word holds its tagged carrier from construction rather than minting one per exit
+  const tagged = Record.fromEntries(
+    Array.map([..._TERMINAL, ...census.kinds], (word) => [word, Metric.tagged(mounted, key, word)] as const),
+  ) as { readonly [O in Convention.Outcome<W[number]>]: Convention.Mounted<N> }
+  const worded: (exit: Exit.Exit<unknown, E>) => Convention.Outcome<W[number]> = Exit.match({
     onFailure: (cause) =>
       Cause.isInterruptedOnly(cause)
         ? ("halted" as const)
         : Option.match(Cause.failureOption(cause), { onNone: () => "crashed" as const, onSome: reason }),
     onSuccess: () => "resolved" as const,
   })
-  return (self) => Effect.onExit(self, (exit) => Metric.increment(Metric.tagged(mounted, key, worded(exit))))
+  return (self) => Effect.onExit(self, (exit) => Metric.increment(tagged[worded(exit)]))
+}
+
+const _tracked = <N extends Convention.CensusMetric<"fault", "frequency">, E, const W extends Convention.Roster>(
+  metric: N,
+  census: Convention.Census<W>,
+  reason: (fault: E) => W[number],
+): (<A, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>) => {
+  const mounted = _mount(metric, census)
+  return (self) => Metric.trackErrorWith(self, mounted, reason)
 }
 
 const _keys: ReadonlyArray<Convention.Key> = [
@@ -917,7 +976,15 @@ declare namespace Convention {
     readonly maxSize: number
     readonly quantiles: readonly [number, ...ReadonlyArray<number>]
   }
-  type Outcome<W extends string = string> = "crashed" | "halted" | "resolved" | W // the fold's three cause rows beside the family's own reason axis
+  type Terminal = (typeof _TERMINAL)[number]
+  type Outcome<W extends string = never> = Terminal | W // the fold's three exit rows beside the census's own word axis
+  type CensusSource = (typeof _censuses)[number]
+  type Roster = readonly [string, ...ReadonlyArray<string>] // the census's word tuple as a CONSTRAINT only: a mount takes the published census, never a tuple a caller assembled
+  type Census<W extends Roster = Roster> = Shape.Vocabulary<W, { readonly [K in W[number]]: unknown }> // the ordered roster its own owner minted, so a duplicate word already refused at the vocabulary
+  type CensusMetric<S extends CensusSource = CensusSource, K extends InstrumentKind = InstrumentKind> = {
+    readonly [N in keyof typeof _instrument]: (typeof _instrument)[N] extends { readonly census: S; readonly kind: K } ? (typeof _instrument)[N]["name"] : never
+  }[keyof typeof _instrument] // the rows a census aspect may aim at: a counter whose fan is a name, scheme, or resource axis is unspellable at `outcome`
+  type Fused<W extends Roster> = [Extract<W[number], Terminal>] extends [never] ? unknown : never // a census word shadowing an exit row fuses a success with a fault, so the intersection admits no argument
   type Fan<N extends MetricName> = Named[N] extends { readonly dimensions: infer D extends ReadonlyArray<Dimension> } ? D[number] : never
   type MetricName<K extends InstrumentKind = InstrumentKind> = {
     readonly [N in keyof typeof _instrument]: (typeof _instrument)[N]["kind"] extends K ? (typeof _instrument)[N]["name"] : never
@@ -931,8 +998,7 @@ declare namespace Convention {
     : Metric.Metric.Counter<R extends { readonly bigint: true } ? bigint : number>
   type Input<N extends MetricName> = Mounted<N> extends Metric.Metric<infer _Type, infer In, infer _Out> ? In : never // the admitted update a named row's own carrier takes, so a subscriber's projection types off the name alone
   type Instrument = Mounted<MetricName> // every carrier the census admits, which is exactly what one mount arm returns
-  type Word = readonly [string, ...ReadonlyArray<string>] // an empty roster forfeits the zero-before-first-occurrence guarantee the frequency law claims, so the tuple refuses it at the mint
-  type Words<N extends MetricName> = Named[N] extends { readonly kind: "frequency" } ? [words: Word] : [] // the roster is required where the family counts words and unspellable everywhere else
+  type Words<N extends MetricName, W extends Roster> = Named[N] extends { readonly kind: "frequency" } ? [census: Census<W>] : [] // the census is required where the family counts words and unspellable everywhere else
   type GrafanaUnit = typeof _grafanaUnit
   type Display = keyof GrafanaUnit[Unit] // the fold's own read: a quantity or that quantity per second
   type DurationMetric = (typeof _Duration.kinds)[number]
@@ -975,17 +1041,24 @@ declare namespace Convention {
     readonly instrument: typeof _instrument
     readonly keys: ReadonlyArray<Key>
     readonly metric: typeof _metric
-    readonly mount: <N extends MetricName>(metric: N, ...words: Words<N>) => Mounted<N>
-    readonly outcome: <N extends MetricName<"counter">, E, W extends string>(
+    readonly mount: <N extends MetricName, const W extends Roster>(metric: N, ...words: Words<N, W>) => Mounted<N>
+    readonly outcome: <N extends CensusMetric<"fault", "counter">, E, const W extends Roster>(
       metric: N,
       key: Fan<N>,
-      reason: (fault: E) => W,
+      census: Census<W> & Fused<W>,
+      reason: (fault: E) => W[number],
     ) => <A, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>
     readonly profile: typeof _profile
     readonly profiled: (identity: Identity.App) => { readonly [K in (typeof _profile)["service"]]: string }
     readonly quantiles: (metric: MetricName<"summary">) => ReadonlyArray<number>
     readonly rasm: typeof _rasm
     readonly scope: (module: Module, version: Identity.App.Version) => Scope
+    readonly temporal: (unit: Unit) => unit is TimeUnit
+    readonly tracked: <N extends CensusMetric<"fault", "frequency">, E, const W extends Roster>(
+      metric: N,
+      census: Census<W>,
+      reason: (fault: E) => W[number],
+    ) => <A, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>
     readonly translated: (metric: MetricName, strategy?: Translation) => string
     readonly translation: typeof _translation
     readonly unit: typeof _unit
@@ -1008,10 +1081,18 @@ declare namespace Convention {
         & ((typeof _instrument)[K]["kind"] extends "histogram" ? { readonly bounds: Bounds } : { readonly bounds?: never })
         & ((typeof _instrument)[K]["kind"] extends "summary" ? { readonly window: Window } : { readonly window?: never })
         & ((typeof _instrument)[K]["kind"] extends "frequency" | "histogram" | "summary" ? { readonly bigint?: never } : { readonly bigint?: true })
-        & ((typeof _instrument)[K]["kind"] extends "frequency" ? { readonly dimensions?: never }
-          : { readonly dimensions?: readonly [Exclude<Key, EstateKey>, ...ReadonlyArray<Exclude<Key, EstateKey>>] })
+        & ((typeof _instrument)[K]["kind"] extends "frequency" ? { readonly census: CensusSource; readonly dimensions?: never }
+          : { readonly census?: CensusSource; readonly dimensions?: readonly [Exclude<Key, EstateKey>, ...ReadonlyArray<Exclude<Key, EstateKey>>] })
     } = typeof _instrument,
   > = T
+  type _Censuses<
+    Loose extends never = {
+      readonly [K in keyof typeof _instrument]: (typeof _instrument)[K] extends { readonly census: CensusSource }
+        ? (typeof _instrument)[K] extends { readonly kind: "frequency" } | { readonly dimensions: ReadonlyArray<Dimension> } ? never
+        : (typeof _instrument)[K]["name"]
+        : never
+    }[keyof typeof _instrument],
+  > = Loose // a census declared on a row with neither a word axis nor a reason fan names words no exported tag can carry
   type _Named<T extends Record<MetricName, unknown> = Named> = T // the key remap covers every name: an unreachable row would leave the translation projection partial
   type _PromUnits<T extends Record<Unit, string> = typeof _promUnit> = T // totality over the unit vocabulary: an unanswered code renames its own series at the receiver
   type _GrafanaUnits<T extends Record<Unit, { readonly level: string; readonly rate: string }> = typeof _grafanaUnit> = T // totality over the same vocabulary: an unanswered code renders its panel unitless
@@ -1056,6 +1137,8 @@ const Convention: Convention.Shape = {
   quantiles: _quantiles,
   rasm: _rasm,
   scope: (module, version) => ({ name: `@rasm/ts/${module}`, schemaUrl: _wire.schemaUrl, version }),
+  temporal: _temporal,
+  tracked: _tracked,
   translated: _translated,
   translation: _translation,
   unit: _unit,

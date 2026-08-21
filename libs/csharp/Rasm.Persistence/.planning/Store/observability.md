@@ -2,7 +2,7 @@
 
 Engine-stat observability, the receipt-slot registry, the hook rail, and the store instrument contributor: one slot grammar names every evidence stream Persistence emits, one registry enforces uniqueness at composition, one harvest fold turns each engine's statistics surface — PostgreSQL cumulative views, DuckDB profiling output, SQLite status counters — into typed receipts, one plan-shape rail turns suspect statements into typed drift verdicts, one hook roster gives the durable lifecycle its veto/observe/replay points, one usage census turns storage truth into chargeback evidence, and one contributor projects the receipt fan into `rasm.persistence.*` instruments. Embedded engines expose no scrape surface, so the embedding process is their observer and the receipt rail is their observability.
 
-Settled composition: `Rasm/Domain/telemetry#CAUSAL_FRAME` carries `TelemetrySource`, `CorrelationId`, `TenantId`/`TenantContext`, `ReceiptEnvelope`, and `ReceiptSinkPort`; `Rasm/Domain/telemetry#INSTRUMENT_MECHANISM` carries `Buckets`, `InstrumentKind`, `MeasureForm`, `InstrumentSpec`, `InstrumentSet`, `InstrumentArm`, `LevelCells`, `TelemetryContributorPort`, and `TelemetryIdentity`; `Rasm/Domain/telemetry#SIGNAL_CAPSULE` carries `HookPoint<TFact>`, `IHookPoint`, `HookId`, `HookModality`, `HookRegistry`, and `IsolatedFault` — all reach this S2 package as kernel S0 references, so no AppHost type crosses down. `ProjectionContext` is this package's own `Element/graph#STORE_RAIL` frame, and the receipt observe tap arrives from `Rasm.AppHost/Observability/hooks#HOOK_RAIL` at composition. One `ThinktectureJsonConverterFactory` registration carries each generated owner across a receipt wire as its key scalar, so a `[ValueObject]` or `[SmartEnum]` field decodes as a bare key while a plain record decodes as its members. Provider instrumentation subscribes at the AppHost root as four settled rows: `Npgsql.OpenTelemetry` — `AddNpgsql()` tracing and the `Npgsql` meter by name under the `AddView` posture the `NpgsqlDataSourceBuilder.Name` pool dimension keys; `OpenTelemetry.Instrumentation.EntityFrameworkCore` — `AddEntityFrameworkCoreInstrumentation` beside `AddNpgsql`, the ORM-layer command span nesting over the ADO-layer driver span, complementary never redundant, trace-only beside the `Npgsql` meter roster; `OpenTelemetry.Instrumentation.StackExchangeRedis` — `AddRedisInstrumentation(connection)` binding the cache multiplexer with the handle captured through `ConfigureRedisInstrumentation` so `AddConnection` binds the egress `RedisStream` multiplexer under one subscription, tracer-only with `Filter`/`Enrich` unset on the hot cache path; `OpenTelemetry.Instrumentation.AWS` — `AddAWSInstrumentation` on the tracer AND meter builders once, the shared `AWSSDK.Core` pipeline customizer spanning both the `AWSSDK.S3` object-store and `AWSSDK.KeyManagementService` custody clients, `SuppressDownstreamInstrumentation` set where HTTP instrumentation co-admits. Metric names are dotted `rasm.<domain>.<measure>` carrying no unit suffix, units UCUM, scope id the `TelemetrySource.Persistence` row.
+Settled composition: `Rasm/Domain/rails#FAULT_BAND` carries `FaultBand`, `[FaultCase]`, `generated identity admission`, and `Fault`; `Rasm/Domain/frame#SOURCE` carries `TelemetrySource` and `CorrelationId`, `Rasm/Domain/frame#TENANCY` carries `TenantId`/`TenantContext`, and `Rasm/Domain/frame#RECEIPT_PORT` carries `ReceiptEnvelope` and `ReceiptSinkPort`; `Rasm/Domain/instrument#SPEC` carries `Buckets`, `InstrumentKind`, `MeasureForm`, and `InstrumentSpec`, `Rasm/Domain/instrument#WRITE` carries `InstrumentSet`, `Rasm/Domain/instrument#MOUNT` carries `LevelCells` and `TelemetryIdentity`, and `Rasm/Domain/telemetry#CONTRIBUTE` carries `InstrumentArm` and `TelemetryContributorPort`; `Rasm/Domain/hooks#HOOK_POINT` carries `HookId`, `TraceScope`, `HookModality`, `IsolatedFault`, and `IHookPoint`, `Rasm/Domain/hooks#HOOK_RAIL` carries `IHookRoster`, `IHookFact`, `IHookSpan`, `HookGate`, `HookTap`, `FaultCell`, and `HookRail`, `Rasm/Domain/hooks#HOOK_MOUNT` carries `HookBinding` and `HookMounts`, and `Rasm/Domain/hooks#HOOK_REGISTRY` carries `HookRegistry` — all reach this S2 package as kernel S0 references, so no AppHost type crosses down. `ProjectionContext` is this package's own `Element/graph#STORE_RAIL` frame, and the receipt observe tap arrives from `Rasm.AppHost/Observability/hooks#HOOK_RAIL` at composition. One `ThinktectureJsonConverterFactory` registration carries each generated owner across a receipt wire as its key scalar, so a `[ValueObject]` or `[SmartEnum]` field decodes as a bare key while a plain record decodes as its members. Provider instrumentation subscribes at the AppHost root as four settled rows: `Npgsql.OpenTelemetry` — `AddNpgsql()` tracing and the `Npgsql` meter by name under the `AddView` posture the `NpgsqlDataSourceBuilder.Name` pool dimension keys; `OpenTelemetry.Instrumentation.EntityFrameworkCore` — `AddEntityFrameworkCoreInstrumentation` beside `AddNpgsql`, the ORM-layer command span nesting over the ADO-layer driver span, complementary never redundant, trace-only beside the `Npgsql` meter roster; `OpenTelemetry.Instrumentation.StackExchangeRedis` — `AddRedisInstrumentation(connection)` binding the cache multiplexer with the handle captured through `ConfigureRedisInstrumentation` so `AddConnection` binds the egress `RedisStream` multiplexer under one subscription, tracer-only with `Filter`/`Enrich` unset on the hot cache path; `OpenTelemetry.Instrumentation.AWS` — `AddAWSInstrumentation` on the tracer AND meter builders once, the shared `AWSSDK.Core` pipeline customizer spanning both the `AWSSDK.S3` object-store and `AWSSDK.KeyManagementService` custody clients, `SuppressDownstreamInstrumentation` set where HTTP instrumentation co-admits. Metric names are dotted `rasm.<domain>.<measure>` carrying no unit suffix, units UCUM, scope id the `TelemetrySource.Persistence` row.
 
 ## [01]-[INDEX]
 
@@ -11,14 +11,14 @@ Settled composition: `Rasm/Domain/telemetry#CAUSAL_FRAME` carries `TelemetrySour
 - [04]-[DUCKDB_PROFILE_HARVEST]: Profiling-JSON harvest off the analytical lane.
 - [05]-[SQLITE_STATUS_HARVEST]: Statement and connection status counters off the raw bridge.
 - [06]-[PLAN_PROFILE]: Three-engine plan-shape capture, digest baselines, and the typed drift verdict.
-- [07]-[HOOK_RAIL]: `PersistencePoint` closes the `rasm.persistence.<domain>.<point>` vocabulary and `PersistenceHooks` seats it over the kernel signal capsule.
+- [07]-[HOOK_RAIL]: `PersistencePoint` closes the `rasm.persistence.<domain>.<point>` vocabulary over the kernel roster floor, `PersistenceFact` its one closed payload family, and `PersistenceHooks` seats both on the kernel rail, mount table, and evidence cell.
 - [08]-[USAGE_PROJECTION]: (tenant, class, tier) usage census under `store.cost.usage`, its tenancy lift, and its wire inverse.
 - [09]-[STORE_INSTRUMENTS]: `rasm.persistence.*` `InstrumentSpec` roster, contributor port, census egress, and receipt-projection arms.
 - [10]-[STORE_BOARD]: `StoreDescriptors` binds the kernel board pack over that roster.
 
 ## [02]-[SLOT_REGISTRY]
 
-- Owner: `StoreSlot` `[ValueObject<string>]` — the slot name under the `store.<domain>.<verb>` grammar, the verb a dotted path when one domain carries verb families; `SlotRegistry` — the composition-time catalog of every slot this package emits.
+- Owner: `[FaultCase]` — the harvest family's generated fault identity on the kernel floor, one band read and one declared offset per case; `StoreSlot` `[ValueObject<string>]` — the slot name under the `store.<domain>.<verb>` grammar, the verb a dotted path when one domain carries verb families; `SlotRegistry` — the composition-time catalog of every slot this package emits.
 - Entry: `SlotRegistry.Mount(params ReadOnlySpan<StoreSlot> slots)` — freezes the catalog and throws on a duplicate at composition; `SlotRegistry.Mounted(params ReadOnlySpan<StoreSlot> contributed)` — the composition-root census spreading every page's contributed roster and any sibling-package family the call site supplies; `SlotRegistry.Admit(SlotRegistry registry, StoreSlot slot)` — the pre-send gate every receipt emission crosses, so an unregistered slot is a typed refusal, never a silent new stream.
 - Auto: each owning page carries one `Slots` roster on its primary owner and `Mounted` spreads them, so the registry is the one census of the emitted-signal surface and discovery stops being page-by-page archaeology.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
@@ -29,14 +29,14 @@ Settled composition: `Rasm/Domain/telemetry#CAUSAL_FRAME` carries `TelemetrySour
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-[ValidationError<StatFault>]
+[ValidationError]
 public readonly partial struct StoreSlot {
-    static partial void ValidateFactoryArguments(ref StatFault? validationError, ref string value) =>
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
         validationError = value.Split('.') is ["store", var domain, .. var verbs]
             && domain.Length > 0 && verbs.Length >= 1 && verbs.All(static verb => verb.Length > 0)
             && value.All(static ch => char.IsAsciiLetterLower(ch) || char.IsAsciiDigit(ch) || ch is '.' or '-')
             ? null
-            : new StatFault.MalformedSlot(value);
+            : new ValidationError(string.Join(" | ", new object?[] { value }));
 
     // EF renders each `TagWith` as its own leading `-- ` comment line, so line one names the owning slot and any
     // later line the predicate. The reader seats HERE because `StoreSlot` is this page's own vocabulary — both the
@@ -50,22 +50,22 @@ public readonly partial struct StoreSlot {
 }
 
 public sealed record SlotRegistry(FrozenSet<string> Slots) {
-    // Collision refusal names its duplicate spellings, so a composition merging a page roster with a foreign
-    // family reads which slot forked rather than a bare count no operator can route.
-    public static SlotRegistry Mount(params ReadOnlySpan<StoreSlot> slots) {
-        var keys = slots.ToArray().Select(static slot => slot.ToString()).ToArray();
-        var forked = toSeq(keys.GroupBy(static key => key, StringComparer.Ordinal))
-            .Filter(static group => group.Count() > 1).Map(static group => group.Key)
-            .Order(StringComparer.Ordinal).ToArray();
-        return forked.Length > 0
-            ? throw new InvalidOperationException($"slot-collision:{string.Join(',', forked)}")
-            : new(keys.ToFrozenSet(StringComparer.Ordinal));
-    }
+    // Collision refusal names its duplicate spellings on the RAIL, so a composition merging a page roster with a
+    // foreign family reads which slot forked rather than catching an untyped throw at its own root. The collision
+    // fold is the same `Collisions` the kernel's own instrument mount and receipt fan take, so one estate spells
+    // "these keys repeat" once.
+    public static Fin<SlotRegistry> Mount(params ReadOnlySpan<StoreSlot> slots) =>
+        Framed(toSeq(slots.ToArray()).Map(static slot => slot.ToString()).Strict());
+
+    static Fin<SlotRegistry> Framed(Seq<string> keys) =>
+        keys.Collisions(static key => key) is { IsEmpty: false } forked
+            ? Fin.Fail<SlotRegistry>(new StatFault.SlotCollision(toSeq(forked.Order(StringComparer.Ordinal))))
+            : Fin.Succ(new SlotRegistry(keys.ToFrozenSet(StringComparer.Ordinal)));
 
     // Composition-root census: every page's roster spreads here, so a new page slot is one roster row and zero
     // registry edits; a sibling PACKAGE's family (the Fabrication `store.fabrication.<domain>.<verb>` shop-state
     // rows) enters through `contributed` at composition — call-site data under the same uniqueness law.
-    public static SlotRegistry Mounted(params ReadOnlySpan<StoreSlot> contributed) => Mount([
+    public static Fin<SlotRegistry> Mounted(params ReadOnlySpan<StoreSlot> contributed) => Mount([
         PgStatHarvest.StatementsSlot, PgStatHarvest.IoSlot, DuckProfileHarvest.Slot,
         SqliteStatHarvest.StatementsSlot, SqliteStatHarvest.ConnectionSlot, PlanProfile.Slot,
         StoreUsage.Slot, StoreUsage.FactSlot, .. RetentionSweep.Slots,
@@ -82,37 +82,36 @@ public sealed record SlotRegistry(FrozenSet<string> Slots) {
             : Fin.Fail<StoreSlot>(new StatFault.SlotUnregistered(slot.ToString()));
 }
 
-// Harvest band over the KERNEL `Rasm.Domain.Expected` federation base, exactly as every sibling Persistence
-// union realizes it: the parameterless private ctor with `Code`/`Message`/`Category` overrides, and the band
-// integer derived through the `Element/graph#FAULT_TABLES` registry row. A `base(detail, NNNN)` literal is the
-// form that registry deletes — it claims a decade the registry never allocated and nothing detects the clash.
-[Union]
-public abstract partial record StatFault : Expected, IValidationError<StatFault> {
-    private StatFault() : base() { }
-    public sealed record Text(string Detail) : StatFault;
-    public sealed record MalformedSlot(string Slot) : StatFault;
-    public sealed record SlotUnregistered(string Slot) : StatFault;
-    public sealed record HarvestRefused(string Engine, string Detail) : StatFault;
+// Harvest faults form one direct generated union; this family spells no manual code or secondary classification switch.
+// `Message` and the payload columns stay its own. `generated identity admission` runs at first construction, which is
+// what proves the declared offsets unique and inside the band's own span.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record StatFault : Fault {
+    private static readonly FaultBand FamilyBand = FaultBand.StoreStat;
+    private StatFault() { }
 
-    public override int Code => FaultBand.Stat + Switch(
-        text:             static _ => 0,
-        malformedSlot:    static _ => 1,
-        slotUnregistered: static _ => 2,
-        harvestRefused:   static _ => 3);
+    [FaultCase(0)]
+    public sealed partial record MalformedSlot(string Slot) : StatFault();
+    [FaultCase(1)]
+    public sealed partial record SlotUnregistered(string Slot) : StatFault();
+    [FaultCase(2)]
+    public sealed partial record HarvestRefused(string Engine, Error Cause) : StatFault(), ICausedFault;
+    // Composition-time registry refusal: the mount names EVERY forked spelling, so a root merging a page roster
+    // with a foreign family diffs nothing by hand.
+    [FaultCase(3)]
+    public sealed partial record SlotCollision(Seq<string> Slots) : StatFault();
 
     public override string Message => Switch(
-        text:             static c => c.Detail,
         malformedSlot:    static c => $"<store-slot:{c.Slot}>",
         slotUnregistered: static c => $"<store-slot-unregistered:{c.Slot}>",
-        harvestRefused:   static c => $"<store-harvest:{c.Engine}:{c.Detail}>");
+        harvestRefused:   static c => $"<store-harvest:{c.Engine}:{c.Cause.Message}>",
+        slotCollision:    static c => $"<store-slot-collision:{string.Join(',', c.Slots)}>");
 
-    public override string Category => Switch(
-        text:             static _ => "Text",
-        malformedSlot:    static _ => "Slot",
-        slotUnregistered: static _ => "Registry",
-        harvestRefused:   static _ => "Harvest");
-
-    public static StatFault Create(string message) => new Text(message);
+    // A harvest owner supplies the exception family its crossing documents; an unknown captured error remains exact.
+    public static Error Lift(string engine, Error error, Func<Exception, bool> recognizes) =>
+        error.Exception.Case is Exception raised && recognizes(raised)
+            ? new HarvestRefused(engine, error)
+            : error;
 }
 ```
 
@@ -166,7 +165,7 @@ public static class PgStatHarvest {
         """;
 
     public static IO<Seq<StatementStatRow>> Statements(NpgsqlDataSource source, int top) =>
-        IO.liftAsync(async () => {
+        Captured("postgres-statements", async () => {
             await using var command = source.CreateCommand(StatementsSql);
             command.Parameters.Add(new NpgsqlParameter<int>("top", top));
             await using var reader = await command.ExecuteReaderAsync();
@@ -180,7 +179,7 @@ public static class PgStatHarvest {
         });
 
     public static IO<Seq<IoStatRow>> Io(NpgsqlDataSource source) =>
-        IO.liftAsync(async () => {
+        Captured("postgres-io", async () => {
             await using var command = source.CreateCommand(IoSql);
             await using var reader = await command.ExecuteReaderAsync();
             var rows = new List<IoStatRow>();
@@ -193,6 +192,11 @@ public static class PgStatHarvest {
             }
             return toSeq(rows).Strict();
         });
+
+    static IO<T> Captured<T>(string engine, Func<Task<T>> crossing) =>
+        IO.liftAsync(async () => (await Op.Of().Catch(async _ => Fin<T>.Succ(await crossing().ConfigureAwait(false))).ConfigureAwait(false))
+            .MapFail(error => StatFault.Lift(engine, error, static raised => raised is NpgsqlException)))
+        .Bind(IO.liftFin);
 }
 ```
 
@@ -218,7 +222,7 @@ public static class DuckProfileHarvest {
     public static readonly StoreSlot Slot = StoreSlot.Create("store.stat.duckdb");
 
     public static IO<DuckProfileReceipt> Profiled(DuckDBConnection connection, string sql, string outputPath, ProjectionContext context) =>
-        IO.liftAsync(async () => {
+        IO.liftAsync(async () => (await Op.Of().Catch(async _ => {
             var output = Path.GetFullPath(outputPath);
             var escapedOutput = output.Replace("'", "''", StringComparison.Ordinal);
             var armed = false;
@@ -246,7 +250,9 @@ public static class DuckProfileHarvest {
                     File.Delete(output);
                 }
             }
-        });
+        }).ConfigureAwait(false)).MapFail(error => StatFault.Lift("duckdb-profile", error,
+            static raised => raised is DuckDBException or IOException or JsonException)))
+        .Bind(IO.liftFin);
 
     static DuckProfileReceipt Decode(JsonElement root, ProjectionContext frame) {
         var operators = toSeq(Operators(root).OrderByDescending(static row => row.TimingSeconds).Take(8)).Strict();
@@ -284,7 +290,7 @@ public static class DuckProfileHarvest {
 - Receipt: `SqliteStatementStat` — VM steps, full-scan steps, sorts, transient-index rows — fans under `store.stat.sqlite.statements`; `SqliteConnectionStat` — cache hits, misses, writes, cache bytes, schema and statement bytes — fans under `store.stat.sqlite.connection`, so each receipt shape owns its slot and no consumer sniffs the payload for its kind.
 - Packages: Microsoft.Data.Sqlite, SQLitePCLRaw.bundle_e_sqlite3mc, LanguageExt.Core.
 - Growth: one counter is one field and one raw-call line, bounded by the constants the core interop assembly declares — the reprepare/run statement counters and the cache-spill gauge stay off the receipts because `SQLitePCLRaw.core` declares no `SQLITE_STMTSTATUS_REPREPARE`/`SQLITE_STMTSTATUS_RUN`/`SQLITE_DBSTATUS_CACHE_SPILL` constant, and they re-widen the day the core assembly grows the rows.
-- Boundary: the raw calls reach through the same `SqliteConnection.Handle` the provisioning engine operations already bridge, so the harvest opens no second native path and reads the same native connection the ADO surface drives; `enable_sqlite3_next_stmt` is a REGISTRY arm, not a harvest step — the walk throws on an unarmed connection AND on any handle prepared before the arm, so `Arm` leads the open ritual's capability roster ahead of the first statement and a per-call arm inside the harvest faults on the statements it exists to read; the `sqlite3_next_stmt` walk borrows each statement handle only inside the fold and holds none past it; the per-table `dbstat` space census is probe-gated, never build-assumed — `raw.sqlite3_compileoption_used` over `SQLITE_ENABLE_DBSTAT_VTAB` reads false on the plain `e_sqlite3` build and the bound provider is the `Store/provisioning#EMBEDDED_FLOOR` cipher bundle, so store-level bytes ride the `SCHEMA_USED`/`STMT_USED` gauges and the SQL `PRAGMA page_count`/`page_size` product as the standing form; the embedded store is process-scoped, so these receipts carry no tenant brand by ruling; provider-bundle facts stay engine-layer and never become Persistence vocabulary.
+- Boundary: every raw call crosses the ONE `Store/provisioning#ENGINE_OPERATIONS` `HandleBridge`, so the harvest opens no second native path, reads the same native connection the ADO surface drives, and inherits that capsule's handle refusal and fault capture rather than restating either; `enable_sqlite3_next_stmt` is a REGISTRY arm, not a harvest step — the walk throws on an unarmed connection AND on any handle prepared before the arm, so `Arm` leads the open ritual's capability roster ahead of the first statement and a per-call arm inside the harvest faults on the statements it exists to read; the `sqlite3_next_stmt` walk borrows each statement handle only inside the fold and holds none past it; the per-table `dbstat` space census is probe-gated, never build-assumed — `raw.sqlite3_compileoption_used` over `SQLITE_ENABLE_DBSTAT_VTAB` reads false on the plain `e_sqlite3` build and the bound provider is the `Store/provisioning#EMBEDDED_FLOOR` cipher bundle, so store-level bytes ride the `SCHEMA_USED`/`STMT_USED` gauges and the SQL `PRAGMA page_count`/`page_size` product as the standing form; the embedded store is process-scoped, so these receipts carry no tenant brand by ruling; provider-bundle facts stay engine-layer and never become Persistence vocabulary.
 
 ```csharp signature
 public sealed record SqliteStatementStat(int VmSteps, int FullScanSteps, int Sorts, int AutoIndexRows);
@@ -298,24 +304,25 @@ public static class SqliteStatHarvest {
     // Registry arm, applied once per physical open as the LEADING `EmbeddedRitual` capability grant: the managed
     // wrapper maps a prepared statement's native pointer only while armed, so an unarmed walk throws on the
     // disabled registry AND a walk reaching a handle prepared ahead of the arm throws on the unmapped pointer —
-    // arming late is a fault, never a short read. An unopened connection has no handle and nothing to arm.
-    public static Unit Arm(SqliteConnection connection) =>
-        connection.Handle is { } db ? fun(() => db.enable_sqlite3_next_stmt(true))() : unit;
+    // arming late is a fault, never a short read. The handle arrives through the ONE
+    // `Store/provisioning#ENGINE_OPERATIONS` `HandleBridge`, and this grant runs INSIDE that capsule's own
+    // keyed-open crossing, where the handle is already proven — which is why the unopened case is unreachable
+    // here rather than a state this arm decides for itself.
+    public static Fin<Unit> Arm(SqliteConnection connection) =>
+        HandleBridge.Of(connection).Map(static db => fun(() => db.enable_sqlite3_next_stmt(true))());
 
     // Read-and-reset interval fold over every prepared statement on the connection: `sqlite3_next_stmt(db, null)`
-    // seeds the walk, each statement's counters read with resetFlg 1 so the next harvest sees only new work.
+    // seeds the walk, each statement's counters read with resetFlg 1 so the next harvest sees only new work. The
+    // crossing is the bridge's, so an absent handle is ITS typed refusal and a throwing walk converts on ITS rail —
+    // a second `SqliteConnection.Handle` reach here would re-open the disposal path that capsule closes.
     public static Fin<SqliteStatementStat> Statements(SqliteConnection connection) =>
-        connection.Handle is { } db
-            ? Fin.Succ(Walk(db))
-            : Fin.Fail<SqliteStatementStat>(new StatFault.HarvestRefused("sqlite", "connection handle absent"));
+        HandleBridge.Crossed(connection, static db => Fin.Succ(Walk(db)));
 
     public static Fin<SqliteConnectionStat> Connection(SqliteConnection connection) =>
-        connection.Handle is { } db
-            ? Fin.Succ(new SqliteConnectionStat(
-                Gauge(db, raw.SQLITE_DBSTATUS_CACHE_HIT), Gauge(db, raw.SQLITE_DBSTATUS_CACHE_MISS),
-                Gauge(db, raw.SQLITE_DBSTATUS_CACHE_WRITE), Gauge(db, raw.SQLITE_DBSTATUS_CACHE_USED),
-                Gauge(db, raw.SQLITE_DBSTATUS_SCHEMA_USED), Gauge(db, raw.SQLITE_DBSTATUS_STMT_USED)))
-            : Fin.Fail<SqliteConnectionStat>(new StatFault.HarvestRefused("sqlite", "connection handle absent"));
+        HandleBridge.Crossed(connection, static db => Fin.Succ(new SqliteConnectionStat(
+            Gauge(db, raw.SQLITE_DBSTATUS_CACHE_HIT), Gauge(db, raw.SQLITE_DBSTATUS_CACHE_MISS),
+            Gauge(db, raw.SQLITE_DBSTATUS_CACHE_WRITE), Gauge(db, raw.SQLITE_DBSTATUS_CACHE_USED),
+            Gauge(db, raw.SQLITE_DBSTATUS_SCHEMA_USED), Gauge(db, raw.SQLITE_DBSTATUS_STMT_USED))));
 
     static SqliteStatementStat Walk(sqlite3 db) {
         var (vm, scan, sort, autoIndex) = (0, 0, 0, 0);
@@ -447,12 +454,12 @@ public static class PlanProfile {
     // fallback into an index throw. The facets read node kind, join type, relation, and index recursively
     // over "Plans" — never a timing or row-count value.
     static IO<(UInt128 Key, UInt128 Shape)> Postgres(PlanSubject.Postgres leg) =>
-        IO.liftAsync(async () => {
+        Captured("postgres-plan", static raised => raised is NpgsqlException or JsonException, async () => {
             await using var command = leg.Source.CreateCommand($"EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) {leg.Sql}");
             using var plan = JsonDocument.Parse((string?)await command.ExecuteScalarAsync() ?? "[]");
             var shape = new XxHash128();
-            foreach (var entry in plan.RootElement.EnumerateArray()) {  // Exemption: hashing kernel over the plan tree
-                if (entry.TryGetProperty("Plan", out var root)) { PgShape(root, shape); }
+            foreach (var entry in plan.RootElement.EnumerateArray()) {  // Exemption: the streaming digest seam above
+                if (entry.TryGetProperty("Plan", out var root)) { Shape(root, shape, PgFacets, "Plans"); }
             }
             return (leg.QueryId.Match(Some: static id => (UInt128)unchecked((ulong)id), None: () => Key(leg.Sql)), shape.GetCurrentHashAsUInt128());
         });
@@ -460,7 +467,7 @@ public static class PlanProfile {
     // Duck leg: EXPLAIN (FORMAT json) emits (explain_key, explain_value) rows; the physical_plan row carries
     // Operator tree folds by name over children with no profiling bracket armed.
     static IO<(UInt128 Key, UInt128 Shape)> Duck(PlanSubject.Duck leg) =>
-        IO.liftAsync(async () => {
+        Captured("duckdb-plan", static raised => raised is DuckDBException or JsonException, async () => {
             await using var command = leg.Connection.CreateCommand();
             command.CommandText = $"EXPLAIN (FORMAT json) {leg.Sql}";
             await using var reader = await command.ExecuteReaderAsync();
@@ -470,14 +477,14 @@ public static class PlanProfile {
             }
             using var plan = JsonDocument.Parse(payload);
             var shape = new XxHash128();
-            foreach (var root in plan.RootElement.EnumerateArray()) { DuckShape(root, shape); }
+            foreach (var root in plan.RootElement.EnumerateArray()) { Shape(root, shape, DuckFacets, "children"); }  // Exemption: the streaming digest seam above
             return (Key(leg.Sql), shape.GetCurrentHashAsUInt128());
         });
 
     // Sqlite leg: EXPLAIN QUERY PLAN rows' detail column carries SCAN/SEARCH text and the index name.
     // Whole shape digests in row order.
     static IO<(UInt128 Key, UInt128 Shape)> Sqlite(PlanSubject.Sqlite leg) =>
-        IO.liftAsync(async () => {
+        Captured("sqlite-plan", static raised => raised is SqliteException, async () => {
             await using var command = leg.Connection.CreateCommand();
             command.CommandText = $"EXPLAIN QUERY PLAN {leg.Sql}";
             await using var reader = await command.ExecuteReaderAsync();
@@ -486,23 +493,26 @@ public static class PlanProfile {
             return (Key(leg.Sql), shape.GetCurrentHashAsUInt128());
         });
 
-    // Declared facet list: a richer pg shape facet is one row here, and hoisting it off the walk keeps a deep
-    // plan tree from re-allocating the vocabulary at every visited node.
+    static IO<T> Captured<T>(string engine, Func<Exception, bool> recognizes, Func<Task<T>> crossing) =>
+        IO.liftAsync(async () => (await Op.Of().Catch(async _ => Fin<T>.Succ(await crossing().ConfigureAwait(false))).ConfigureAwait(false))
+            .MapFail(error => StatFault.Lift(engine, error, recognizes)))
+        .Bind(IO.liftFin);
+
+    // ONE shape walk over both plan trees. The two walkers differed only in WHICH facets they digest and what
+    // their children property is called, and both are VALUES — so a third engine's tree is one facet row and one
+    // property name rather than a third recursive body drifting from its siblings. Hoisting the facet list clear
+    // of the walk keeps a deep plan tree from re-allocating that vocabulary at every visited node.
     static readonly ImmutableArray<string> PgFacets = ["Node Type", "Join Type", "Relation Name", "Index Name"];
+    static readonly ImmutableArray<string> DuckFacets = ["name"];
 
-    static void PgShape(JsonElement node, XxHash128 shape) {
-        foreach (var facet in PgFacets) {  // Exemption: hashing kernel over the plan tree
-            if (node.TryGetProperty(facet, out var value)) { shape.Append(Encoding.UTF8.GetBytes(value.GetString() ?? string.Empty)); }
+    // Exemption: the streaming digest is a MUTATION seam — `Append` folds each facet into one running hash in
+    // visit order, so the walk states that order rather than building a value a fold would then re-hash.
+    static void Shape(JsonElement node, XxHash128 shape, ImmutableArray<string> facets, string children) {
+        foreach (string facet in facets) {
+            if (node.TryGetProperty(facet, out JsonElement value)) { shape.Append(Encoding.UTF8.GetBytes(value.GetString() ?? string.Empty)); }
         }
-        if (node.TryGetProperty("Plans", out var children)) {
-            foreach (var child in children.EnumerateArray()) { PgShape(child, shape); }
-        }
-    }
-
-    static void DuckShape(JsonElement node, XxHash128 shape) {
-        if (node.TryGetProperty("name", out var name)) { shape.Append(Encoding.UTF8.GetBytes(name.GetString() ?? string.Empty)); }
-        if (node.TryGetProperty("children", out var children)) {
-            foreach (var child in children.EnumerateArray()) { DuckShape(child, shape); }  // Exemption: hashing kernel over the plan tree
+        if (node.TryGetProperty(children, out JsonElement nested)) {
+            foreach (JsonElement child in nested.EnumerateArray()) { Shape(child, shape, facets, children); }
         }
     }
 
@@ -512,103 +522,161 @@ public static class PlanProfile {
 
 ## [07]-[HOOK_RAIL]
 
-- Owner: `PersistencePoint` — the `[SmartEnum<string>]` point vocabulary carrying the kernel `HookModality` column; `PersistenceHooks` — the folder's typed point roster seating one kernel point per row, with the `Guarded` and `Swept` composition adapters that fire veto points without touching owner rail signatures.
-- Cases: six points — `rasm.persistence.element.append` (`Veto` over `GraphStoreOp`), `rasm.persistence.element.committed` (`Observe` over `GraphReceipt`), `rasm.persistence.egress.delivered` (`Observe` over `EgressReceipt`), `rasm.persistence.retention.sweep` (`Veto` over `SweepVerdict`), `rasm.persistence.merge.conflict` (`Observe` over `ConflictReceipt`), `rasm.persistence.recovery.replay` (`Replay` over `StepFact`).
-- Entry: `PersistenceHooks.Live()` — one fresh roster per composition, seating one kernel point per `PersistencePoint` row so two apps never share a mount; `Points` — the census the composition root folds into the one frozen `HookRegistry` beside the AppHost rail's own points, structural id uniqueness across both rosters.
-- Auto: veto fold, observe isolation, and replay depth ride the settled `HookPoint<TFact>` capsule; a throwing or failing subscriber parks as `IsolatedFault` on the roster's evidence cell — subscriber failure is hook-rail evidence, never a `StatFault` arm and never a broken emitter.
+- Owner: `PersistencePoint` — the `[SmartEnum<string>]` point vocabulary realizing the kernel `IHookRoster` floor, each row carrying its `HookId`, its `CapabilitySet<HookModality>`, and the one trace plane this package reports under; `PersistenceFact` — the closed fact family the roster's one rail carries, realizing the kernel `IHookFact` floor so each case names the point it seats at; `PersistenceHooks` — the composition surface over the kernel `HookRail` and `HookMounts`, with the `Guarded`, `Swept`, and `Drained` adapters that fire veto and observe points without touching owner rail signatures.
+- Cases: seven points — `rasm.persistence.element.append` (`Veto`), `.element.committed` (`Observe`), `.egress.delivered` (`Observe`), `.retention.sweep` (`Veto`), `.merge.conflict` (`Observe`), `.recovery.replay` (`Replay`), `.ingress.drained` (`Observe`); `PersistenceFact` closes the seven payloads those points carry.
+- Entry: `PersistenceHooks.Live(key, gates, taps, span, cell)` — one fresh rail per composition whose seats mint from `PersistencePoint.Items` ALONE, so a point outside the roster is unrepresentable; `Points` — the census the composition root folds into the one frozen `HookRegistry` beside the AppHost rail's own points, structural id uniqueness across both rosters; `Mounts` — the rider seat table a plugin claims its typed ask-and-grant through.
+- Auto: veto fold, observe isolation, replay depth, span bracketing, subscription rollback, detach ordering, and the bounded evidence ring all ride the kernel mechanism — a throwing or failing subscriber parks as `IsolatedFault` on the composition's one `FaultCell`, which sheds oldest-first and counts the shed rather than growing for process lifetime, so subscriber failure is hook-rail evidence and never a `StatFault` arm or a broken emitter.
 - Receipt: none — a hook fire is the evidence event itself; the emitter's own receipt already carries the fact.
 - Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
-- Growth: a new point is one `PersistencePoint` row, one typed field with its `Live()` seat, and one `Points` row; a subscriber is one `Observe`/`Veto` call at composition; a new lifecycle domain contributes its point through this roster, never a second registry type.
-- Boundary: ids and modalities live on the roster rows alone, so a `Live()` seat re-spelling either is the forked-vocabulary defect; point ids ride the `rasm.<pkg>.<domain>.<point>` grammar the settled `HookId` factory admits, `persistence` the pkg segment; the owning pages fire through the composition adapters and injected taps — a hook parameter on an owner rail signature is the deleted form; the AppHost `Receipt` point already taps every message envelope this package emits, so these points carry what that tap cannot: the TYPED facts and the two veto modalities; policy engines, audit sidecars, and UI live-update legs subscribe here without touching owner rails.
+- Growth: a new point is ONE `PersistencePoint` row and one `PersistenceFact` case — the seat, the census, and the registry entry all derive from `Items`, so no `Live` body, no census literal, and no typed column moves; a subscriber is one gate or tap value at composition; a rider is one `HookBinding` through `Mounts`; a new lifecycle domain contributes its point through this roster, never a second registry type.
+- Boundary: ids, modalities, and the trace plane live on the roster rows alone, so a construction literal re-spelling any of the three has no place to live; point ids ride the `rasm.<pkg>.<domain>.<point>` grammar the settled `HookId` factory admits, `persistence` the pkg segment; the owning pages fire through the composition adapters and injected taps — a hook parameter on an owner rail signature is the deleted form; the AppHost `Receipt` point already taps every message envelope this package emits, so these points carry what that tap cannot: the typed fact cases and the two veto modalities; policy engines, audit sidecars, and UI live-update legs subscribe or seat riders here without touching owner rails.
 
 ```csharp signature
 // --- [TYPES] ----------------------------------------------------------------------------
-// Point roster keyed rasm.persistence.<domain>.<point> — the kernel HookId four-segment grammar. Modality is
-// that kernel column deciding veto admission and replay retention, so id and delivery semantics belong to the
-// row and a `Live()` seat re-spelling either forks the vocabulary a construction literal would own.
+// Point roster keyed rasm.persistence.<domain>.<point> — the kernel `HookId` four-segment grammar — realizing the
+// kernel `IHookRoster` floor so the rail seats mint from `Items` ALONE and a point outside this roster is
+// unrepresentable rather than merely undeclared. Modalities ride as the kernel `CapabilitySet<HookModality>`
+// column deciding veto admission and replay retention, so delivery semantics belong to the row and a construction
+// literal that re-spelled an id or a modality has no place left to live. `Plane` is the one trace scope every
+// point on this roster reports under, so the rail brackets a fire without any caller binding a second band.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class PersistencePoint {
-    public static readonly PersistencePoint ElementAppend = new("rasm.persistence.element.append", modality: HookModality.Veto);
-    public static readonly PersistencePoint ElementCommitted = new("rasm.persistence.element.committed", modality: HookModality.Observe);
-    public static readonly PersistencePoint EgressDelivered = new("rasm.persistence.egress.delivered", modality: HookModality.Observe);
-    public static readonly PersistencePoint SweepEvict = new("rasm.persistence.retention.sweep", modality: HookModality.Veto);
-    public static readonly PersistencePoint MergeConflict = new("rasm.persistence.merge.conflict", modality: HookModality.Observe);
-    public static readonly PersistencePoint RecoveryReplay = new("rasm.persistence.recovery.replay", modality: HookModality.Replay);
-    // CDC fires at BOTH ends: `EgressDelivered` over an `EgressReceipt`, this point over the ingress pump's
+public sealed partial class PersistencePoint : IHookRoster<PersistencePoint> {
+    public static readonly PersistencePoint ElementAppend = new("rasm.persistence.element.append", HookModality.Veto);
+    public static readonly PersistencePoint ElementCommitted = new("rasm.persistence.element.committed", HookModality.Observe);
+    public static readonly PersistencePoint EgressDelivered = new("rasm.persistence.egress.delivered", HookModality.Observe);
+    public static readonly PersistencePoint SweepEvict = new("rasm.persistence.retention.sweep", HookModality.Veto);
+    public static readonly PersistencePoint MergeConflict = new("rasm.persistence.merge.conflict", HookModality.Observe);
+    public static readonly PersistencePoint RecoveryReplay = new("rasm.persistence.recovery.replay", HookModality.Replay);
+    // CDC fires at BOTH ends: `EgressDelivered` over an egress receipt, this point over the ingress pump's
     // end-of-partition edge — the lane's one idle signal (`Version/ingress#INGRESS_PUMP`). Without it a stalled
     // inbound lane and a drained one look identical to every subscriber.
-    public static readonly PersistencePoint IngressDrained = new("rasm.persistence.ingress.drained", modality: HookModality.Observe);
+    public static readonly PersistencePoint IngressDrained = new("rasm.persistence.ingress.drained", HookModality.Observe);
 
-    public HookModality Modality { get; }
+    public HookId Id { get; }
+    public CapabilitySet<HookModality> Modalities { get; }
+    public Option<TraceScope> Plane => Some(StorePlane);
+    static readonly TraceScope StorePlane = TraceScope.Create("rasm.persistence.store");
+    private PersistencePoint(string key, params ReadOnlySpan<HookModality> modalities) : this(key) =>
+        (Id, Modalities) = (HookId.Create(key), CapabilitySet<HookModality>.Of(modalities));
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------
-// Folder hook roster seats one typed point per composition per `PersistencePoint` row over the kernel capsule.
-// Subscriber faults park as `IsolatedFault` on the roster cell; the `StatFault` band stays the harvest rail's.
+// ONE closed fact family for the whole roster — the shape the kernel rail's single `TFact` parameter demands.
+// NAMED LOSS: per-point fact-TYPE narrowing. Seven `HookPoint<T>` columns once made a subscriber to the append
+// point structurally incapable of receiving a sweep verdict; under one rail every point shares this union and a
+// subscriber discriminates on the case. What survives is the roster row's modality admission plus this union's
+// closure — a fact case outside it is unspellable — and what pays for the loss is the mechanism itself: one
+// `Live` instead of a seven-line seat fold, one census instead of a hand-listed septuple, and the rail's veto
+// rollback, span bracket, bounded evidence ring, and rider custody arriving whole rather than per column.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record PersistenceFact : IHookFact<PersistencePoint> {
+    private PersistenceFact() { }
+    public sealed record Append(GraphStoreOp Op) : PersistenceFact;
+    public sealed record Committed(GraphReceipt Receipt) : PersistenceFact;
+    public sealed record Delivered(EgressReceipt Receipt) : PersistenceFact;
+    public sealed record Swept(SweepVerdict Verdict) : PersistenceFact;
+    public sealed record Conflicted(ConflictReceipt Receipt) : PersistenceFact;
+    public sealed record Replayed(StepFact Step) : PersistenceFact;
+    public sealed record Drained(IngressReceipt Receipt) : PersistenceFact;
+
+    // `Seats` is the union's OWN fact-to-point map, realizing the kernel `IHookFact` floor: one total generated
+    // `Switch` states which point each case seats at, so the rail refuses a mismatched (point, fact) pair structurally
+    // and the pairing stops being a discipline each `Fire` site keeps by hand. The gate the rewriting arm still
+    // owes is the PAYLOAD read below — this one closes the ADDRESS.
+    public bool Seats(PersistencePoint at) => Switch(
+        append:     _ => at.Equals(PersistencePoint.ElementAppend),
+        committed:  _ => at.Equals(PersistencePoint.ElementCommitted),
+        delivered:  _ => at.Equals(PersistencePoint.EgressDelivered),
+        swept:      _ => at.Equals(PersistencePoint.SweepEvict),
+        conflicted: _ => at.Equals(PersistencePoint.MergeConflict),
+        replayed:   _ => at.Equals(PersistencePoint.RecoveryReplay),
+        drained:    _ => at.Equals(PersistencePoint.IngressDrained));
+}
+
+// Folder hook surface over the kernel MECHANISM: one `HookRail` per composition carrying the roster's seats, the
+// bounded `FaultCell` a shielded subscriber's failure parks on, and the `HookMounts` table a rider claims its
+// typed ask-and-grant seat through — the policy engines, audit sidecars, and UI live-update legs this page's
+// boundary already admits now have the custody and partial-mount rollback to seat them. Nothing here re-declares
+// veto folding, observe isolation, replay depth, evidence bounding, or detach ordering: each is the kernel's.
 public sealed record PersistenceHooks(
-    HookPoint<GraphStoreOp> ElementAppend,
-    HookPoint<GraphReceipt> ElementCommitted,
-    HookPoint<EgressReceipt> EgressDelivered,
-    HookPoint<SweepVerdict> SweepEvict,
-    HookPoint<ConflictReceipt> MergeConflict,
-    HookPoint<StepFact> RecoveryReplay,
-    HookPoint<IngressReceipt> IngressDrained,
-    Atom<Seq<IsolatedFault>> Faults) {
+    HookRail<PersistencePoint, PersistenceFact, TelemetrySource> Rail,
+    HookMounts<PersistencePoint, TelemetrySource> Mounts) {
 
-    public static PersistenceHooks Live() {
-        Atom<Seq<IsolatedFault>> faults = Atom(Seq<IsolatedFault>());
-        return new(
-            Seat<GraphStoreOp>(PersistencePoint.ElementAppend, faults),
-            Seat<GraphReceipt>(PersistencePoint.ElementCommitted, faults),
-            Seat<EgressReceipt>(PersistencePoint.EgressDelivered, faults),
-            Seat<SweepVerdict>(PersistencePoint.SweepEvict, faults),
-            Seat<ConflictReceipt>(PersistencePoint.MergeConflict, faults),
-            Seat<StepFact>(PersistencePoint.RecoveryReplay, faults),
-            Seat<IngressReceipt>(PersistencePoint.IngressDrained, faults),
-            faults);
-    }
+    // ONE fresh surface per composition, so two apps never share a mount. Gates, taps, the span bracket, and the
+    // evidence cell all arrive from the composing root — the cell WHOLE, so every rail, tenancy stamp, and shield
+    // in one process parks on one ring and a composition replaying under a fake clock reads deterministic evidence.
+    public static Fin<PersistenceHooks> Live(
+        Op key,
+        Seq<HookGate<PersistencePoint, PersistenceFact, TelemetrySource>> gates = default,
+        Seq<HookTap<PersistencePoint, PersistenceFact, TelemetrySource>> taps = default,
+        Option<IHookSpan> span = default,
+        Option<FaultCell> cell = default) =>
+        HookRail<PersistencePoint, PersistenceFact, TelemetrySource>
+            .Of(key: key, gates: gates, taps: taps, span: span, cell: cell)
+            .Map(static rail => new PersistenceHooks(rail, new HookMounts<PersistencePoint, TelemetrySource>()));
 
-    private static HookPoint<TFact> Seat<TFact>(PersistencePoint row, Atom<Seq<IsolatedFault>> faults) =>
-        new(id: HookId.Create(value: row.Key), modality: row.Modality, faults: faults);
+    // Census folds into the one frozen `HookRegistry` beside the AppHost rail's own points — one audit table per
+    // composition, duplicate ids structurally fatal — and it DERIVES from `PersistencePoint.Items`, so a new point
+    // is one roster row and zero census edits.
+    public Seq<IHookPoint> Points => Rail.Points;
+    public FaultCell Faults => Rail.Faults;
 
-    // Census folds into the one frozen `HookRegistry` beside the AppHost rail's own
-    // points — one audit table per composition, duplicate ids structurally fatal.
-    public Seq<IHookPoint> Points => Seq<IHookPoint>(
-        ElementAppend, ElementCommitted, EgressDelivered, SweepEvict, MergeConflict, RecoveryReplay, IngressDrained);
+    // Append seam crosses the veto fold BEFORE the rail runs (a refusal returns on the caller's own `Fin` rail),
+    // and the settled receipt fires the committed observe tap — a decoration at the composition root, never a
+    // hook parameter on `GraphStore.Run`. The typed body is the kernel's own `Fire` arity: a gate may REWRITE the
+    // fact, so the op the rail runs is the admitted one and never the one the caller offered.
+    public IO<Fin<GraphReceipt>> Guarded(IDocumentSession session, GraphStoreOp op, ProjectionContext frame, Op key, CancellationToken cancellationToken) =>
+        Rail.Fire(PersistencePoint.ElementAppend, new PersistenceFact.Append(op), key, fact => Admitted<GraphStoreOp>(fact, key))
+            .Match(
+                Succ: admitted => GraphStore.Run(session, admitted, frame, cancellationToken)
+                    .Map(outcome => outcome.Map(receipt =>
+                        Rail.Fire(PersistencePoint.ElementCommitted, new PersistenceFact.Committed(receipt), key,
+                            fact => Admitted<GraphReceipt>(fact, key)).IfFail(receipt))),
+                Fail: error => IO.pure(Fin<GraphReceipt>.Fail(error)));
 
-    // Append seam crosses the veto fold BEFORE the rail runs (a refusal returns on the caller's
-    // own Fin rail), and the settled receipt fires the committed observe tap — a decoration at the composition
-    // root, never a hook parameter on `GraphStore.Run`.
-    public IO<Fin<GraphReceipt>> Guarded(IDocumentSession session, GraphStoreOp op, ProjectionContext frame, CancellationToken cancellationToken) =>
-        ElementAppend.Fire(op).Match(
-            Succ: admitted => GraphStore.Run(session, admitted, frame, cancellationToken)
-                .Map(outcome => outcome.Map(receipt => ElementCommitted.Fire(receipt).IfFail(receipt))),
-            Fail: error => IO.pure(Fin<GraphReceipt>.Fail(error)));
-
-    // Sweep seam crosses every evict verdict before the retention executor runs; a subscriber
-    // refusal DOWNGRADES that verdict to Held (the artifact survives the pass, receipted under the veto rule),
-    // never an aborted sweep; retained verdicts pass untouched.
-    public Seq<SweepVerdict> Swept(Seq<SweepVerdict> verdicts) =>
+    // Sweep seam crosses every evict verdict before the retention executor runs; a subscriber refusal DOWNGRADES
+    // that verdict to Held (the artifact survives the pass, receipted under the veto rule), never an aborted
+    // sweep; retained verdicts pass untouched.
+    public Seq<SweepVerdict> Swept(Seq<SweepVerdict> verdicts, Op key) =>
         verdicts.Map(verdict => verdict.Evicts
-            ? SweepEvict.Fire(verdict).IfFail(_ => new SweepVerdict.Held(verdict.Key, verdict.Bytes, "hook-veto"))
+            ? Rail.Fire(PersistencePoint.SweepEvict, new PersistenceFact.Swept(verdict), key, fact => Admitted<SweepVerdict>(fact, key))
+                .IfFail(_ => new SweepVerdict.Held(verdict.Key, verdict.Bytes, "hook-veto"))
             : verdict);
 
     // Ingress seam fires on the EDGE, not on every pump turn: the point's name claims the lane reached lag zero,
     // so a receipt whose `AtEdge` counted no end-of-partition position states nothing and fires nothing. Firing
     // unconditionally would publish an idle claim on a lane still draining, which is the fact the counter exists
     // to separate. Same composition-root decoration as the append and sweep seams — no hook parameter on the pump.
-    public IngressReceipt Drained(IngressReceipt receipt) =>
-        receipt.AtEdge > 0 ? IngressDrained.Fire(receipt).IfFail(receipt) : receipt;
+    public IngressReceipt Drained(IngressReceipt receipt, Op key) =>
+        receipt.AtEdge > 0
+            ? Rail.Fire(PersistencePoint.IngressDrained, new PersistenceFact.Drained(receipt), key, fact => Admitted<IngressReceipt>(fact, key))
+                .IfFail(receipt)
+            : receipt;
+
+    // `Admitted` is where the named loss is PAID: a rewriting gate could hand back a sibling case, so this
+    // payload read is a typed refusal rather than a cast — the union's closure bounds what can arrive and this
+    // states what each seam accepts.
+    static Fin<T> Admitted<T>(PersistenceFact fact, Op key) =>
+        fact switch {
+            PersistenceFact.Append row when row.Op is T held => Fin.Succ(held),
+            PersistenceFact.Committed row when row.Receipt is T held => Fin.Succ(held),
+            PersistenceFact.Swept row when row.Verdict is T held => Fin.Succ(held),
+            PersistenceFact.Drained row when row.Receipt is T held => Fin.Succ(held),
+            PersistenceFact.Delivered row when row.Receipt is T held => Fin.Succ(held),
+            PersistenceFact.Conflicted row when row.Receipt is T held => Fin.Succ(held),
+            PersistenceFact.Replayed row when row.Step is T held => Fin.Succ(held),
+            _ => Fin.Fail<T>(key.InvalidInput()),
+        };
 }
 ```
 
 ## [08]-[USAGE_PROJECTION]
 
 - Owner: `StoreUsage` — the (tenant, class, tier) usage census, the tenancy lift every partition key and every census-wire slug crosses, the census wire inverse, and the CHARGEBACK FACT residence with its projection, its reader inverse, and its durable read; `UsageReceipt` the chargeback row carrying the kernel `TenantContext` the message envelope already stamps; `UsageFactRow` the flat residence row a cost question queries.
-- Entry: `StoreUsage.Fold(Seq<BlobCatalogRow> catalog, Seq<(TenantId Tenant, EgressReceipt Drain)> drains, ProjectionContext frame)` — one pure fold over the content-lineage catalog snapshot and the drain receipts; a resumed census re-folds with no journal; `StoreUsage.Decode(JsonElement payload)` — the FALLIBLE wire inverse the `#STORE_INSTRUMENTS` arm binds, so the batch re-admits through the same owner that emitted it and a malformed payload lands as a typed refusal on the arm's own rail; `StoreUsage.Dataset`/`Facts`/`Cells`/`Shape` — the one `AnalyticsSchema` declaration, the flat-table projection landing under `StoreUsage.FactSlot`, the cell projection in that declaration's own order, and the reader inverse, so the chargeback breakdown this package's own tenancy ruling names becomes a queryable residence table instead of a receipt a reader must re-fold; `StoreUsage.Land(NpgsqlDataSource store, Seq<UsageReceipt> census, ProjectionContext frame)` — the write half through `Query/columnar#ANALYTICS_RESIDENCE`'s one relational landing, refusing a census row the frame's tenant does not scope; `StoreUsage.Resident(ResidenceReach reach, ResidenceScope scope, Seq<(Identifier Column, string Value)> narrow)` — the durable counterpart read over that table through the one residence entry, its residence, schema, window, and frame riding the one scope value that entry takes; `StoreUsage.Tenancy` — the one lift, discriminating the typed `TenantId` partition key at the catalog and drain ingress from the slug text at the census wire, so both wire ends resolve one tenancy through one owner.
-- Auto: catalog rows group under `(tenant, class, tier)` carrying the vocabulary rows themselves in the key, summing the SEALED byte figures (never a later filesystem stat) and counting objects; drain receipts fold their delivered counts onto the drain tenant's `stream`-class row — the egress obligation is event-stream custody; the census batch fans under `store.cost.usage` carrying its `rows` array, and every tenancy on either side of that wire crosses `Tenancy` exactly once, so `Partitions`, `Entry`, and `Tags` all read the kernel row rather than a page-local zero test; the fact projection carries class and tier as COLUMNS where the meter carries neither, so the breakdown a capped metric dimension cannot express is queried rather than approximated, and its schema is one `Query/columnar#ANALYTICS_RESIDENCE` `AnalyticsSchema` value so the residence DDL, the egress column list, and every reader's ordinals derive from one declaration.
+- Entry: `StoreUsage.Fold(Seq<BlobCatalogRow> catalog, Seq<(TenantId Tenant, EgressReceipt Drain)> drains, ProjectionContext frame)` — one pure fold over the content-lineage catalog snapshot and the drain receipts; a resumed census re-folds with no journal; `StoreUsage.Decode(JsonElement payload)` — the FALLIBLE wire inverse the `#STORE_INSTRUMENTS` arm binds, so the batch re-admits through the same owner that emitted it and a malformed payload lands as a typed refusal on the arm's own rail; `StoreUsage.Dataset`/`Facts`/`Cells`/`Shape`/`Batch` — the one `AnalyticsSchema` declaration, the flat-table projection landing under `StoreUsage.FactSlot`, the cell projection in that declaration's own order, the reader inverse, and the metadata-bearing `RecordBatch` fold off the SAME declaration, so the chargeback breakdown this package's own tenancy ruling names becomes a queryable residence table and an Arrow egress instead of a receipt a reader must re-fold; `StoreUsage.Land(NpgsqlDataSource store, Seq<UsageReceipt> census, ProjectionContext frame)` — the write half through `Query/serving#SERVING_PLANE`'s one relational landing, refusing a census row the frame's tenant does not scope; `StoreUsage.Resident(ResidenceReach reach, ResidenceScope scope, Seq<(Identifier Column, string Value)> narrow)` — the durable counterpart read over that table through the one residence entry, its residence, schema, window, and frame riding the one scope value that entry takes; `StoreUsage.Tenancy` — the one lift, discriminating the typed `TenantId` partition key at the catalog and drain ingress from the slug text at the census wire, so both wire ends resolve one tenancy through one owner.
+- Auto: catalog rows group under `(tenant, class, tier)` carrying the vocabulary rows themselves in the key, summing the SEALED byte figures (never a later filesystem stat) and counting objects; drain receipts fold their delivered counts onto the drain tenant's `stream`-class row — the egress obligation is event-stream custody; the census batch fans under `store.cost.usage` carrying its `rows` array, and every tenancy on either side of that wire crosses `Tenancy` exactly once, so `Partitions`, `Entry`, and `Tags` all read the kernel row rather than a page-local zero test; the fact projection carries class and tier as COLUMNS where the meter carries neither, so the breakdown a capped metric dimension cannot express is queried rather than approximated, and its schema is one `Query/residence#COLUMN_VOCABULARY` `AnalyticsSchema` value so the residence DDL, the egress column list, and every reader's ordinals derive from one declaration.
 - Receipt: `UsageReceipt` rows under `store.cost.usage` and `UsageFactRow` rows under `store.cost.fact`; the receipt stream is the EVIDENCE plane and the instrument projection is the lossy health channel, so retention class and storage tier ride the receipt, the census wire, and the fact table while the meter carries the one capped dimension.
 - Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a new usage axis is one `UsageReceipt` field, one `Decode` line, one `UsageFactRow` column with its `ColumnRow`, one `Cells` arm, and one gauge row; a new source census is one `Fold` argument row.
@@ -668,12 +736,16 @@ public static class StoreUsage {
     // reconstructs the census whole rather than stamping a sentinel frame over evidence the batch carried.
     // Correlation re-enters through the kernel factory: `CorrelationId` declares
     // `ConversionFromKeyMemberType = None`, so no `Guid`-to-`CorrelationId` operator exists to bind a raw scalar.
-    // `Decode` ADMITS a foreign payload: a missing property, a member at the wrong JSON kind, an unminted
-    // vocabulary key, and an unparsable instant each throw out of the walk, so the whole reconstruction rides one
-    // capture funnel and lands as a typed refusal the arm binds. `.Strict()` forces the run INSIDE the funnel,
-    // where a lazy projection defers every throw past it.
+    // `Decode` ADMITS a foreign payload: the rows materialize inside one capture, then each independent row captures
+    // and accumulates through `Validation<Error, T>` so one bad row never hides another. `.Strict()` forces every
+    // lazy projection inside its owning funnel.
     public static Fin<Seq<UsageReceipt>> Decode(JsonElement payload) =>
-        Try.lift(() => toSeq(payload.GetProperty("rows").EnumerateArray()).Map(static row => new UsageReceipt(
+        Op.Of().Catch(() => Fin.Succ(toSeq(payload.GetProperty("rows").EnumerateArray()).Strict()))
+            .MapFail(static error => StatFault.Lift("usage-wire", error, WireFault))
+            .Bind(rows => rows.Traverse(row => Decoded(row).ToValidation<Error>()).As().ToFin());
+
+    static Fin<UsageReceipt> Decoded(JsonElement row) =>
+        Op.Of().Catch(() => Fin.Succ(new UsageReceipt(
             Tenancy(row.GetProperty("tenant").GetProperty("slug").GetString()!),
             row.GetProperty("kind").GetString() is { } kind ? Some(ArtifactKind.Get(kind)) : None,
             RetentionClass.Get(row.GetProperty("class").GetString()!),
@@ -681,9 +753,12 @@ public static class StoreUsage {
             row.GetProperty("bytes").GetInt64(), row.GetProperty("objects").GetInt64(),
             row.GetProperty("deliveries").GetInt64(),
             InstantPattern.ExtendedIso.Parse(row.GetProperty("at").GetString()!).Value,
-            CorrelationId.Create(row.GetProperty("correlation").GetGuid()))).Strict())
-        .Run()
-        .MapFail(static error => new StatFault.HarvestRefused("usage-wire", error.Message));
+            CorrelationId.Create(row.GetProperty("correlation").GetGuid()))))
+        .MapFail(static error => StatFault.Lift("usage-wire", error, WireFault));
+
+    static bool WireFault(Exception raised) =>
+        raised is JsonException or InvalidOperationException or ArgumentException or KeyNotFoundException
+            or NodaTime.Text.UnparsableValueException;
 
     public static readonly Identifier KindColumn = Identifier.Create("kind");
     public static readonly Identifier ClassColumn = Identifier.Create("class");
@@ -694,7 +769,7 @@ public static class StoreUsage {
     public static readonly Identifier AtColumn = Identifier.Create("at");
 
     // CHARGEBACK RESIDENCE: the class-by-tier breakdown a capped meter dimension cannot carry, declared once
-    // so `Query/columnar#ANALYTICS_RESIDENCE`'s DDL emitter, the egress column list, and every reader's
+    // so `Query/residence#COLUMN_VOCABULARY`'s DDL emitter, the egress column list, and every reader's
     // ordinals derive from one value. Key is `(class, tier)` under the census instant, so a tenant's history
     // reads as one contiguous granule range and the residence expires on the same axis it partitions. NO
     // measure: three independent magnitudes ride these rows, electing one for a rollup would answer a question
@@ -705,7 +780,10 @@ public static class StoreUsage {
     // chargeback roll-up groups on after it.
     public static readonly AnalyticsSchema Dataset = new("cost.usage",
         Seq(KindColumn, ClassColumn, TierColumn),
-        Seq(new ColumnRow(KindColumn, ColumnType.Utf8, Nullable: true),
+        // `kind` LEADS the sort key, and this page's own reader law reads every column through one applicative
+        // product — absence here is the page's declared empty-key encoding, never a NULL in a leading granule
+        // segment — so the roster spells the all-required contract its producer and reader both already hold.
+        Seq(new ColumnRow(KindColumn, ColumnType.Utf8, Nullable: false),
             new ColumnRow(ClassColumn, ColumnType.Utf8, Nullable: false),
             new ColumnRow(TierColumn, ColumnType.Utf8, Nullable: false),
             new ColumnRow(BytesColumn, ColumnType.Int64, Nullable: false),
@@ -750,11 +828,26 @@ public static class StoreUsage {
     // roster, and `Shape`'s read ordinals all move together on one column insert. Tenancy is absent by the same
     // law the reader inverse states: the residence owns that column at its own key type while the landing
     // scopes a whole batch with the frame's tenant.
-    public static Seq<ResidenceCell> Cells(UsageFactRow row) =>
-        Seq<ResidenceCell>(
-            new ResidenceCell.Text(row.Kind), new ResidenceCell.Text(row.Class), new ResidenceCell.Text(row.Tier),
-            new ResidenceCell.Whole(row.Bytes), new ResidenceCell.Whole(row.Objects),
-            new ResidenceCell.Whole(row.Deliveries), new ResidenceCell.Moment(row.At));
+    public static Seq<ColumnCell> Cells(UsageFactRow row) =>
+        Seq<ColumnCell>(
+            new ColumnCell.Text(row.Kind), new ColumnCell.Text(row.Class), new ColumnCell.Text(row.Tier),
+            new ColumnCell.Whole(row.Bytes), new ColumnCell.Whole(row.Objects),
+            new ColumnCell.Whole(row.Deliveries), new ColumnCell.Moment(row.At));
+
+    // ARROW landing off the SAME declaration the DDL, the COPY roster, and `Shape`'s ordinals derive from: field
+    // order and every column's construction read `Dataset`, so an IPC or Flight consumer of the chargeback plane
+    // binds the ordinals the relational one already binds. Metadata is REQUIRED at the producer arm rather than
+    // defaulted away — the census instant, the correlation, the dataset name, and the row count are the receipt
+    // facts a batch carries onto its schema, and dropping them is the drift defect the catalogue names — so this
+    // arm states all four rather than handing `null` and losing the frame the census was folded under.
+    public static Fin<RecordBatch> Batch(Seq<UsageReceipt> census, ProjectionContext frame) => Batched(Facts(census), frame);
+
+    static Fin<RecordBatch> Batched(Seq<UsageFactRow> rows, ProjectionContext frame) =>
+        ArrowLanding.Build(Dataset, rows, Cells, Seq(
+            ("dataset", (string)Dataset.Dataset),
+            ("at", InstantPattern.ExtendedIso.Format(frame.Now())),
+            ("correlation", frame.Correlation.ToString()),
+            ("rows", rows.Count.ToString(CultureInfo.InvariantCulture))));
 
     // DURABLE half of the chargeback plane: the census this owner already folds lands on the Series tier
     // through the ONE residence landing, so the fact table a cost question queries is FED by the same fold that
@@ -770,15 +863,15 @@ public static class StoreUsage {
 
 ## [09]-[STORE_INSTRUMENTS]
 
-- Owner: `StoreInstruments` — the Persistence `InstrumentSpec` roster, the instrument-name and dimension-slot vocabulary every row and arm reads, the wire-field-to-tag-value row tables each fanned dimension enumerates, the `TelemetryContributorPort` mint, the census egress, and the slot-keyed projection arms; `StoreTelemetryCensus`/`CensusRow` — the declared-truth wire record the dashboard plane compiles from.
-- Cases: the kernel instrument kinds carry the roster — advised distributions for statement duration, profiled analytical time across its wall, cpu, and blocked phases, drain duration, the residence read's duration beside the rows its engine scanned, and dead-letter attempt depth whose own observation count IS the dead-letter stream; a plain distribution for profiled row counts (base2-exponential by default); counters for the embedded step tells, the pg buffer-pressure events, the egress settlement stream, the plan-capture stream, and the rows a residence dataset landing stages; scalar levels for the pg I/O and embedded cache hit ratios; keyed levels for the embedded memory regions and for the tenant usage byte, object, and delivery census, whose root group reports the same three figures untagged on the same three instruments.
+- Owner: `StoreInstruments` — the Persistence instrument roster, each row CARRYING its `InstrumentSpec` so the mounted sequence derives from `Items` rather than mirroring the named fields, the instrument-name and dimension-slot vocabulary every row and arm reads, the wire-field-to-tag-value row tables each fanned dimension enumerates, the `TelemetryContributorPort` mint, the census egress, and the slot-keyed projection arms; `StoreTelemetryCensus`/`CensusRow` — the declared-truth wire record the dashboard plane compiles from.
+- Cases: the kernel instrument kinds carry the roster — advised distributions for statement duration, profiled analytical time across its wall, cpu, and blocked phases, drain duration, the residence read's duration beside the rows its engine scanned, and dead-letter attempt depth whose own observation count IS the dead-letter stream; a plain distribution for profiled row counts (base2-exponential by default); counters for the embedded step tells, the pg buffer-pressure events, the egress settlement stream, the plan-capture stream, the rows a residence dataset landing stages, and the object-plane fact stream whose kind dimension spans the whole `BlobFactKind` vocabulary, refusals included; scalar levels for the pg I/O and embedded cache hit ratios; keyed levels for the embedded memory regions and for the tenant usage byte, object, and delivery census, whose root group reports the same three figures untagged on the same three instruments.
 - Law: a per-tenant chargeback figure is a LEVEL and a per-asset-class footprint census is a DATASET — the meter carries the cardinality a board polls and the lake carries the product a query groups. Fanning a bounded vocabulary across a keyed level multiplies two bounded axes into a series count neither declared, so the asset-class breakdown rides `#USAGE_PROJECTION`'s landed fact table where no cardinality ceiling exists by law and an operator asks "which asset class costs what" as a GROUP BY, while the meter keeps the tenant-only figure. Bounded × bounded is still a product; the fault, sweep, and object-plane rows carry their bounded dimensions because their instruments are COUNTERS whose series are the tag product alone, never a keyed level family whose cardinality is already the tenant count.
-- Entry: `StoreInstruments.Telemetry(string version, string schemaUrl = TelemetryIdentity.SchemaUrl)` — the contributor port peer of the AppHost host roster, carrying every row and the `#STORE_BOARD` pack over those same rows under the minted `TelemetrySource.Persistence` scope with the semconv coordinate the mint stamps as `MeterOptions.TelemetrySchemaUrl`; `StoreInstruments.Arms` — the slot-keyed projection table the AppHost receipt fan mounts beside its own arms at the composition root; `StoreInstruments.Census(string version, SlotRegistry registry)` — the declared-truth census folding rows, kinds, bounds, tag vocabularies, mounted slots, and projected-arm keys into one wire record, so a new instrument or slot appears on the board with zero dashboard edits and a hand-listed metric name in a dashboard is the deleted form.
-- Auto: rows are pure declarations, so the roster and the arm table are static values a composition binds rather than per-composition constructions, and the bind body derives from `Kind` x `MeasureForm` at the kernel — a folder re-spelling a counter, gauge, or histogram create re-mints the mechanism; the projection subscribes as one observe row on the AppHost hook rail's receipt point, so every message envelope the sink emits projects with zero call-site metering; level-shaped facts write through the kernel `InstrumentSet.Level` gate and ride observable gauges at collection cadence, so a polled level never aliases through a synchronous gauge and a level named by no pulled row refuses rather than accumulating in a cell no reader samples; the usage arm heads its fold with the kernel `Enabled` listener gate, so a process subscribed to none of the three usage rows pays no census decode; a NodaTime `Duration` crosses the wire as its JsonRoundtrip text and `Seconds` is the one arm-side decode.
+- Entry: `StoreInstruments.Telemetry(string version)` — the contributor port peer of the AppHost host roster, carrying every row and the `#STORE_BOARD` pack over those same rows under the minted `TelemetrySource.Persistence` scope with the semconv coordinate the mint stamps as `MeterOptions.TelemetrySchemaUrl`; `StoreInstruments.Arms` — the kernel-keyed projection table the AppHost receipt fan merges beside its own through `ReceiptFan.Of`, which refuses a duplicate projection key on the rail and names every collided one; `StoreInstruments.Census(string version, SlotRegistry registry)` — the declared-truth census folding rows, kinds, bounds, tag vocabularies, mounted slots, and projected-arm keys into one wire record, so a new instrument or slot appears on the board with zero dashboard edits and a hand-listed metric name in a dashboard is the deleted form.
+- Auto: rows are pure declarations, so the roster and the arm table are values a composition binds rather than per-composition constructions — both read through accessors, because a field initializer reading the generated `Items` freezes an empty roster and one reading a table declared beneath it captures null, and the bind body derives from `Kind` x `MeasureForm` at the kernel — a folder re-spelling a counter, gauge, or histogram create re-mints the mechanism; the projection subscribes as one observe row on the AppHost hook rail's receipt point, so every message envelope the sink emits projects with zero call-site metering; level-shaped facts write through the kernel `InstrumentSet.Level` gate and ride observable gauges at collection cadence, so a polled level never aliases through a synchronous gauge and a level named by no pulled row refuses rather than accumulating in a cell no reader samples; the usage arm heads its fold with the kernel `Enabled` listener gate, so a process subscribed to none of the three usage rows pays no census decode; a NodaTime `Duration` crosses the wire as its JsonRoundtrip text and `Seconds` is the one arm-side decode.
 - Receipt: none — the arms project the harvest, plan, usage, and egress receipts; a metric minted beside them is a second truth, and each arm returns the kernel `Write`/`Level` rail whose refusal names the offending row rather than dropping a measurement silently.
 - Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox.
-- Growth: one projected slot is one `Arms` row and its instrument rows here, and a slot whose receipt shape an existing arm already folds binds that arm's parameterized mint under its own tag value rather than a second body; a further step tell, memory region, profile phase, or I/O event the harvest receipts grow is one `(wire field, tag value)` pair on its own row table — never a second instrument, because the fanned dimension already carries the axis; a slot without an `Arms` row is receipt-only by default, so projection is opt-in per row and no page declares the default; a new bucket policy is one `Buckets` row at the kernel, never a folder-local bound array; the census follows rows and slots with zero edits.
-- Boundary: the port `Scope` string is the minted package row the composing root admits by name, board and reliability policy travel DOWN on that same port so the mounting root proves every descriptor inside the fold that binds the handles and never reaches a package-specific pack field by name, and instruments mount through the composing root's meter mint, never a package-local `Meter`; every level cell is the composition's kernel `LevelCells`, so no folder-shaped or process-static cell exists; pg_stat and engine-status sources are server- and process-global, so no harvest row carries a tenant tag — ONLY the usage levels carry the `rasm.tenant` dimension, capped by the one per-instrument governance view its declaring row projects and never multiplied by a class or tier product, and that dimension is the key those families MAY carry rather than one every entry holds — the root tenant's group reports untagged on the same instrument, the declaration's own absence arm, so a partitioned and an unpartitioned deployment publish one series shape a cross-deployment query unions — while every other fanned dimension closes over a vocabulary its row table enumerates or a `Query/columnar#ANALYTICS_RESIDENCE` closed roster names — `residence` over the residence family and `dataset` over the landed residence datasets — so the whole roster's series count is declared rather than payload-driven; every tag key an arm stamps is a declared `Dimensions` entry on its row, so the governance leg derives each view's `TagKeys` from the roster; the census `Instruments` roster is this scope's alone while its `Slots` are the composition's whole mounted surface, foreign contributed families included, because a board discovering one package's streams still resolves every slot the sink emits; arm bodies are the one place receipt wire names meet instrument writes, and an arm never re-validates the payload its typed receipt already admitted.
+- Growth: one projected slot is one `ReceiptFan.Arm` registration and its instrument rows here, a slot whose receipt shape an existing arm already folds binds that arm's parameterized mint under its own tag value rather than a second body, and a slot family drawn from a CLOSED vocabulary lands with no edit at all — the object plane's arms derive from `BlobFactKind.Items`, so a tenth fact kind reaches the meter the moment that vocabulary grows; a further step tell, memory region, profile phase, or I/O event the harvest receipts grow is one `(wire field, tag value)` pair on its own row table — never a second instrument, because the fanned dimension already carries the axis; a slot without an `Arms` row is receipt-only by default, so projection is opt-in per row and no page declares the default; a new bucket policy is one `Buckets` row at the kernel, never a folder-local bound array; the census follows rows and slots with zero edits.
+- Boundary: the port `Scope` string is the minted package row the composing root admits by name, board and reliability policy travel DOWN on that same port so the mounting root proves every descriptor inside the fold that binds the handles and never reaches a package-specific pack field by name, and instruments mount through the composing root's meter mint, never a package-local `Meter`; every level cell is the composition's kernel `LevelCells`, so no folder-shaped or process-static cell exists; pg_stat and engine-status sources are server- and process-global, so no harvest row carries a tenant tag — ONLY the usage levels carry the `rasm.tenant` dimension, capped by the one per-instrument governance view its declaring row projects and never multiplied by a class or tier product, and that dimension is the key those families MAY carry rather than one every entry holds — the root tenant's group reports untagged on the same instrument, the declaration's own absence arm, so a partitioned and an unpartitioned deployment publish one series shape a cross-deployment query unions — while every other fanned dimension closes over a vocabulary its row table enumerates or a `Query/residence#RESIDENCE_FAMILY` closed roster names — `residence` over the residence family and `dataset` over the landed residence datasets — so the whole roster's series count is declared rather than payload-driven; every tag key an arm stamps is a declared `Dimensions` entry on its row, so the governance leg derives each view's `TagKeys` from the roster; the census `Instruments` roster is this scope's alone while its `Slots` are the composition's whole mounted surface, foreign contributed families included, because a board discovering one package's streams still resolves every slot the sink emits; arm bodies are the one place receipt wire names meet instrument writes, and an arm never re-validates the payload its typed receipt already admitted.
 
 ```csharp signature
 // Census wire pair compiles each instrument row with its kind, declared bounds, and tag vocabulary beside the
@@ -787,7 +880,14 @@ public sealed record CensusRow(string Name, string Kind, string Unit, string Des
 
 public sealed record StoreTelemetryCensus(string Source, string Version, Seq<CensusRow> Instruments, Seq<string> Slots, Seq<string> Projected);
 
-public static class StoreInstruments {
+// Each row CARRIES its declaration and `Rows` DERIVES from `Items`, so the named-field roster and the sequence that
+// once mirrored it are one declaration — a hand-listed mirror both drifts on the next row AND reads null for every
+// field declared beneath it, since a static field initializer runs in TEXTUAL order while an accessor does not.
+// Key and row name are one fact proved at construction, exactly the kernel `KernelInstrument` form.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class StoreInstruments {
     // One head for the package's whole vocabulary: every measure name and every dimension key concatenates it
     // at compile time, so the namespace is stated once and no row drifts off the dotted grammar.
     const string Head = "rasm.persistence.";
@@ -807,14 +907,19 @@ public static class StoreInstruments {
     public const string EventSlot = Head + "event";
     public const string ResidenceSlot = Head + "residence";
     public const string DatasetSlot = Head + "dataset";
-    // Object-plane and retention axes. `CategorySlot` keys the fault dimension whose VALUES are the
-    // `Store/blobstore#OBJECT_STORE` `RemoteStoreFault.Category` projection — the union publishes its own bounded
-    // vocabulary, so no second fault roster drifts beside it; `ClassSlot` keys the retention class, bounded by the
-    // six-row `Version/retention` axis and never by the finer asset kind, which is a lake question (see the `- Law:`).
+    // Object-plane and retention axes. `ClassSlot` keys the retention class, bounded by the six-row `Version/retention` axis
+    // and never by the finer asset kind, which is a lake question (see the `- Law:`). The numeric fault axis takes NO package
+    // head: `KernelInstrument.CodeSlot` is the estate-wide key, an owner-specific opt-in this roster mounts on
+    // `CoordinationFaults` alone, and a head-prefixed twin forks one dimension into a per-package pair no board groups.
     public const string ProviderSlot = Head + "provider";
-    public const string VerbSlot = Head + "verb";
-    public const string CategorySlot = Head + "category";
+    public const string KindSlot = Head + "kind";
     public const string ClassSlot = Head + "class";
+    // Re-offer ROUTE, the axis every Persistence fault band now publishes beside the kernel retriability posture.
+    // Its values are the `RetryShape` vocabulary's own keys, so the tag set closes over a declared roster and the
+    // two hand-spelled `transient`/`terminal` literals that once stood here delete: a bool's two values could not
+    // separate a wait from a re-read from a narrowed re-entry, which is exactly what an operator reads a
+    // contention board for.
+    public const string RouteSlot = Head + "route";
 
     // Lane values close the egress fan: the drain and the letter replay emit the identical `EgressReceipt`, so
     // one arm body serves both and the tag — not a second instrument — separates steady state from recovery.
@@ -831,14 +936,23 @@ public static class StoreInstruments {
     public const string HeldOutcome = "held";
     public const string DeadOutcome = "dead";
 
-    // Retriability values publish beside their slot for the same reason the settlement values do: the board's
-    // contention indicator reads the transient share, so a literal at either site forks it the moment one moves.
-    public const string TransientOutcome = "transient";
-    public const string TerminalOutcome = "terminal";
-
     // `pg_stat_io` reports `hits` only against relation objects; a wal or temp row carries reads with no
     // buffer-hit concept, so folding it into the ratio reports a cache miss no buffer ever took.
     const string RelationObject = "relation";
+
+    // ONE mint, and the instrument name is spelled ONCE: the roster key IS the declared name, so key-vs-name
+    // disagreement is unspellable here rather than bought back by a construction throw the kernel row still pays.
+    static StoreInstruments Row(
+        string name, InstrumentKind kind, MeasureForm form, string unit, string description,
+        Seq<string> dimensions, Option<Buckets> bounds, Option<string> tag, Option<int> ceiling) =>
+        new(name, InstrumentSpec.Create(name, kind, form, unit, description, dimensions, bounds, tag, ceiling));
+
+    public InstrumentSpec Spec { get; }
+
+    // ACCESSOR-backed, never an eager field: the generator fills `Items` from its own static constructor, so a
+    // field initializer reading it freezes an EMPTY roster — and a hand-listed sequence additionally reads null
+    // for every row declared beneath it, since field initializers run in textual order.
+    public static Seq<InstrumentSpec> Rows => toSeq(Items).Map(static row => row.Spec).Strict();
 
     // Fanned-dimension vocabularies: each row pairs the receipt's wire field with the tag value it writes
     // under, so a counter or level family spans its whole axis through ONE instrument and a further
@@ -853,160 +967,190 @@ public static class StoreInstruments {
     static readonly Seq<(string Field, string Value)> IoEventRows = Seq(
         ("evictions", "eviction"), ("fsyncs", "fsync"));
 
-    public const string StatementDuration = Head + "statement.duration";
-    public const string IoHitRatio = Head + "io.hit.ratio";
-    public const string IoEvents = Head + "io.events";
-    public const string DuckDuration = Head + "duckdb.duration";
-    public const string DuckRows = Head + "duckdb.rows";
-    public const string SqliteSteps = Head + "sqlite.steps";
-    public const string SqliteCacheRatio = Head + "sqlite.cache.ratio";
-    public const string SqliteMemory = Head + "sqlite.memory";
-    public const string EgressDeliveries = Head + "egress.deliveries";
-    public const string EgressDeadLetterAttempts = Head + "egress.deadletter.attempts";
-    public const string EgressDrainDuration = Head + "egress.drain.duration";
-    public const string PlanCaptures = Head + "plan.captures";
-    public const string ResidenceReadDuration = Head + "residence.read.duration";
-    public const string ResidenceScanned = Head + "residence.scanned";
-    public const string ResidenceIngested = Head + "residence.staged";
-    public const string BlobBytes = Head + "blob.bytes";
-    public const string BlobParts = Head + "blob.parts";
-    public const string BlobFaults = Head + "blob.faults";
-    public const string CoordinationFaults = Head + "coordination.faults";
-    public const string RetentionSwept = Head + "retention.swept";
-    public const string UsageSize = Head + "usage.size";
-    public const string UsageObjects = Head + "usage.objects";
-    public const string UsageDeliveries = Head + "usage.deliveries";
+    // Instrument rows are the ADDRESS every write takes: the kernel `Write`/`Level`/`Enabled` entries key on the
+    // declared row, so a metric NAME never reaches a call site, a renamed row breaks its own arms at compile time
+    // instead of publishing a stream nothing writes, and the mount refusal a write returns names the row it was
+    // handed. Bounds read the kernel `Buckets` policy rows; a histogram row carrying no bounds keeps
+    // base2-exponential aggregation, the estate wire default an explicit-bucket row re-arms per instrument.
+    public static readonly StoreInstruments StatementDuration = Row(Head + "statement.duration",
+        InstrumentKind.Distribution, MeasureForm.Real, "s",
+        "mean execution time per harvested top-N server statement", Seq<string>(), Some(Buckets.FoldSeconds), None, None);
+    public static readonly StoreInstruments IoHitRatio = Row(Head + "io.hit.ratio",
+        InstrumentKind.Level, MeasureForm.Real, "1",
+        "shared-buffer hit ratio over the pg_stat_io window", Seq<string>(), None, None, None);
+    // Eviction pressure is what the hit ratio cannot separate — a ratio holding under mounting evictions
+    // is a buffer pool churning at its ceiling — and fsyncs are the durability cost the wal rows carry.
+    public static readonly StoreInstruments IoEvents = Row(Head + "io.events",
+        InstrumentKind.Count, MeasureForm.Whole, "{event}",
+        "buffer evictions and fsyncs over the pg_stat_io window by event", Seq(EventSlot), None, None, None);
+    // One profiled-time distribution across its phases: wall against cpu names the lane's parallel yield,
+    // wall against blocked names thread contention, and neither reads off a wall-only series.
+    public static readonly StoreInstruments DuckDuration = Row(Head + "duckdb.duration",
+        InstrumentKind.Distribution, MeasureForm.Real, "s",
+        "profiled analytical statement time by wall, cpu, and blocked phase", Seq(PhaseSlot), Some(Buckets.ProfileSeconds), None, None);
+    public static readonly StoreInstruments DuckRows = Row(Head + "duckdb.rows",
+        InstrumentKind.Distribution, MeasureForm.Whole, "{row}",
+        "rows returned per profiled analytical statement", Seq<string>(), None, None, None);
+    // Every read-and-reset step counter rides one stream under its tell, so the full-scan and
+    // transient-index tells the #PLAN_PROFILE sqlite leg explains ride the same denominator as the
+    // virtual-machine steps they are judged against.
+    public static readonly StoreInstruments SqliteSteps = Row(Head + "sqlite.steps",
+        InstrumentKind.Count, MeasureForm.Whole, "{step}",
+        "embedded statement steps per harvest interval by tell", Seq(StepSlot), None, None, None);
+    public static readonly StoreInstruments SqliteCacheRatio = Row(Head + "sqlite.cache.ratio",
+        InstrumentKind.Level, MeasureForm.Real, "1",
+        "embedded page-cache hit ratio over the sampled connection", Seq<string>(), None, None, None);
+    public static readonly StoreInstruments SqliteMemory = Row(Head + "sqlite.memory",
+        InstrumentKind.Levels, MeasureForm.Whole, "By",
+        "embedded store bytes held by memory region", Seq<string>(), None, Some(RegionSlot), None);
+    public static readonly StoreInstruments EgressDeliveries = Row(Head + "egress.deliveries",
+        InstrumentKind.Count, MeasureForm.Whole, "{delivery}",
+        "egress entries by sink, lane, and settlement outcome", Seq(SinkSlot, LaneSlot, OutcomeSlot), None, None, None);
+    // Attempt depth is what the per-drain outcome partition cannot carry — this distribution's own
+    // observation count IS the dead-letter stream, its tail naming an entry no replay budget settles.
+    public static readonly StoreInstruments EgressDeadLetterAttempts = Row(Head + "egress.deadletter.attempts",
+        InstrumentKind.Distribution, MeasureForm.Whole, "{attempt}",
+        "delivery attempts per dead-lettered egress entry by sink", Seq(SinkSlot), Some(Buckets.IterationCounts), None, None);
+    public static readonly StoreInstruments EgressDrainDuration = Row(Head + "egress.drain.duration",
+        InstrumentKind.Distribution, MeasureForm.Real, "s",
+        "wall duration per egress drain by sink and lane", Seq(SinkSlot, LaneSlot), Some(Buckets.ProfileSeconds), None, None);
+    // Every capture writes, so the drift rate reads as a ratio over its own denominator rather than as a
+    // bare numerator no objective can normalize.
+    public static readonly StoreInstruments PlanCaptures = Row(Head + "plan.captures",
+        InstrumentKind.Count, MeasureForm.Whole, "{capture}",
+        "plan-shape captures by engine and compare verdict", Seq(EngineSlot, RuleSlot), None, None, None);
 
-    // Bounds read the kernel `Buckets` policy rows; the histogram row carrying no bounds keeps base2-exponential
-    // aggregation, the estate wire default an explicit-bucket row re-arms per instrument.
-    public static readonly Seq<InstrumentSpec> Rows = Seq(
-        InstrumentSpec.Advised(StatementDuration, "s", "mean execution time per harvested top-N server statement", MeasureForm.Real, Buckets.FoldSeconds),
-        InstrumentSpec.Level(IoHitRatio, "1", "shared-buffer hit ratio over the pg_stat_io window", MeasureForm.Real),
-        // Eviction pressure is what the hit ratio cannot separate — a ratio holding under mounting evictions
-        // is a buffer pool churning at its ceiling — and fsyncs are the durability cost the wal rows carry.
-        InstrumentSpec.Count(IoEvents, "{event}", "buffer evictions and fsyncs over the pg_stat_io window by event", MeasureForm.Whole, EventSlot),
-        // One profiled-time distribution across its phases: wall against cpu names the lane's parallel yield,
-        // wall against blocked names thread contention, and neither reads off a wall-only series.
-        InstrumentSpec.Advised(DuckDuration, "s", "profiled analytical statement time by wall, cpu, and blocked phase", MeasureForm.Real, Buckets.ProfileSeconds, PhaseSlot),
-        InstrumentSpec.Distribution(DuckRows, "{row}", "rows returned per profiled analytical statement", MeasureForm.Whole),
-        // Every read-and-reset step counter rides one stream under its tell, so the full-scan and
-        // transient-index tells the #PLAN_PROFILE sqlite leg explains ride the same denominator as the
-        // virtual-machine steps they are judged against.
-        InstrumentSpec.Count(SqliteSteps, "{step}", "embedded statement steps per harvest interval by tell", MeasureForm.Whole, StepSlot),
-        InstrumentSpec.Level(SqliteCacheRatio, "1", "embedded page-cache hit ratio over the sampled connection", MeasureForm.Real),
-        InstrumentSpec.Levels(SqliteMemory, "By", "embedded store bytes held by memory region", MeasureForm.Whole, RegionSlot),
-        InstrumentSpec.Count(EgressDeliveries, "{delivery}", "egress entries by sink, lane, and settlement outcome", MeasureForm.Whole, SinkSlot, LaneSlot, OutcomeSlot),
-        // Attempt depth is what the per-drain outcome partition cannot carry — this distribution's own
-        // observation count IS the dead-letter stream, its tail naming an entry no replay budget settles.
-        InstrumentSpec.Advised(EgressDeadLetterAttempts, "{attempt}", "delivery attempts per dead-lettered egress entry by sink", MeasureForm.Whole, Buckets.IterationCounts, SinkSlot),
-        InstrumentSpec.Advised(EgressDrainDuration, "s", "wall duration per egress drain by sink and lane", MeasureForm.Real, Buckets.ProfileSeconds, SinkSlot, LaneSlot),
-        // Every capture writes, so the drift rate reads as a ratio over its own denominator rather than as a
-        // bare numerator no objective can normalize.
-        InstrumentSpec.Count(PlanCaptures, "{capture}", "plan-shape captures by engine and compare verdict", MeasureForm.Whole, EngineSlot, RuleSlot),
-        // ANALYTICS RESIDENCE tier: duration answers whether a tile is affordable and scanned magnitude answers
-        // WHY — a read whose granules stopped pruning holds its latency while its scan multiplies, and the
-        // returned row count says nothing about either, which is the whole reason the tenant leads the sort key.
-        InstrumentSpec.Advised(ResidenceReadDuration, "s", "wall duration per residence read by residence", MeasureForm.Real, Buckets.ProfileSeconds, ResidenceSlot),
-        InstrumentSpec.Advised(ResidenceScanned, "{row}", "rows the engine scanned per residence read by residence", MeasureForm.Whole, Buckets.IterationCounts, ResidenceSlot),
-        InstrumentSpec.Count(ResidenceIngested, "{row}", "rows staged per residence dataset landing", MeasureForm.Whole, DatasetSlot),
-        // Object plane and retention. Bytes is a COUNTER in UCUM `By` rather than a bucketed distribution because
-        // object magnitude spans four orders across one deployment and no bucket ladder grades that honestly; parts
-        // is the depth distribution, matching the dead-letter attempt-depth argument above it. Faults key on the
-        // union's own `Category` projection, and sweep verdicts on the nine-value `SweepVerdict.Rule` — both bounded
-        // by their publishing union, so declared cardinality and stamped cardinality cannot drift apart.
-        InstrumentSpec.Count(BlobBytes, "By", "object bytes transferred by provider and transfer verb", MeasureForm.Whole, ProviderSlot, VerbSlot),
-        InstrumentSpec.Advised(BlobParts, "{part}", "multipart parts staged per object by provider", MeasureForm.Whole, Buckets.IterationCounts, ProviderSlot),
-        InstrumentSpec.Count(BlobFaults, "{fault}", "object-plane refusals by provider and fault category", MeasureForm.Whole, ProviderSlot, CategorySlot),
-        // Fenced-store refusals partition on the union's own `Category` beside its retriability bit, because a
-        // `LeaseFenced` storm is split-brain while a `Contended` storm is lock pressure and one undifferentiated
-        // count reads identically for both. Both dimensions close over the publishing union, so declared and
-        // stamped cardinality cannot drift.
-        InstrumentSpec.Count(CoordinationFaults, "{fault}", "fenced-store refusals by fault category and retriability", MeasureForm.Whole, CategorySlot, OutcomeSlot),
-        InstrumentSpec.Count(RetentionSwept, "{verdict}", "retention verdicts by class and deciding rule", MeasureForm.Whole, ClassSlot, RuleSlot),
-        InstrumentSpec.Levels(UsageSize, "By", "durable bytes by tenant", MeasureForm.Whole, TenantContext.TenantSlot),
-        InstrumentSpec.Levels(UsageObjects, "{object}", "durable objects by tenant", MeasureForm.Whole, TenantContext.TenantSlot),
-        InstrumentSpec.Levels(UsageDeliveries, "{delivery}", "egress deliveries by tenant over the usage census window", MeasureForm.Whole, TenantContext.TenantSlot));
+    // ANALYTICS RESIDENCE tier: duration answers whether a tile is affordable and scanned magnitude answers
+    // WHY — a read whose granules stopped pruning holds its latency while its scan multiplies, and the
+    // returned row count says nothing about either, which is the whole reason the tenant leads the sort key.
+    public static readonly StoreInstruments ResidenceReadDuration = Row(Head + "residence.read.duration",
+        InstrumentKind.Distribution, MeasureForm.Real, "s",
+        "wall duration per residence read by residence", Seq(ResidenceSlot), Some(Buckets.ProfileSeconds), None, None);
+    public static readonly StoreInstruments ResidenceScanned = Row(Head + "residence.scanned",
+        InstrumentKind.Distribution, MeasureForm.Whole, "{row}",
+        "rows the engine scanned per residence read by residence", Seq(ResidenceSlot), Some(Buckets.IterationCounts), None, None);
+    public static readonly StoreInstruments ResidenceIngested = Row(Head + "residence.staged",
+        InstrumentKind.Count, MeasureForm.Whole, "{row}",
+        "rows staged per residence dataset landing", Seq(DatasetSlot), None, None, None);
+    // Object plane and retention. `BlobFacts` counts EVERY object-plane fact under its provider and its
+    // `BlobFactKind` row, which is what puts the four count-only kinds — a session opened, a conditional-write
+    // no-op, a realized tier transition, a provider-rule lifecycle no-op — on the meter at all; the separate
+    // fault counter DELETES onto its kind dimension, because that instrument merely repeated the fact's own
+    // `kind`, which the closed vocabulary fixes to one value on the fault slot and a dimension with
+    // one value is not a dimension. Bytes is a COUNTER in UCUM `By` rather than a bucketed distribution because
+    // object magnitude spans four orders across one deployment and no bucket ladder grades that honestly; parts
+    // is the depth distribution, matching the dead-letter attempt-depth argument above it. Sweep verdicts key on
+    // `SweepVerdict.Rule` — bounded by its publishing union, so declared and stamped cardinality cannot drift.
+    public static readonly StoreInstruments BlobFacts = Row(Head + "blob.facts",
+        InstrumentKind.Count, MeasureForm.Whole, "{fact}",
+        "object-plane facts by provider and fact kind", Seq(ProviderSlot, KindSlot), None, None, None);
+    public static readonly StoreInstruments BlobBytes = Row(Head + "blob.bytes",
+        InstrumentKind.Count, MeasureForm.Whole, "By",
+        "object bytes transferred by provider and fact kind", Seq(ProviderSlot, KindSlot), None, None, None);
+    public static readonly StoreInstruments BlobParts = Row(Head + "blob.parts",
+        InstrumentKind.Distribution, MeasureForm.Whole, "{part}",
+        "multipart parts staged per object by provider", Seq(ProviderSlot), Some(Buckets.IterationCounts), None, None);
+    // Fenced-store refusals partition on generated numeric `Code` beside the re-offer ROUTE, because a
+    // `LeaseFenced` storm is split-brain while a `Contended` storm is lock pressure and one undifferentiated
+    // count reads identically for both — and the route separates the wait a caller re-drives from the rescope it
+    // must re-plan, which a transient bit collapsed into one bucket. Both dimensions close over a declared
+    // vocabulary, so declared and stamped cardinality cannot drift.
+    public static readonly StoreInstruments CoordinationFaults = Row(Head + "coordination.faults",
+        InstrumentKind.Count, MeasureForm.Whole, "{fault}",
+        "fenced-store refusals by numeric fault code and re-offer route", Seq(KernelInstrument.CodeSlot, RouteSlot), None, None, None);
+    public static readonly StoreInstruments RetentionSwept = Row(Head + "retention.swept",
+        InstrumentKind.Count, MeasureForm.Whole, "{verdict}",
+        "retention verdicts by class and deciding rule", Seq(ClassSlot, RuleSlot), None, None, None);
+    public static readonly StoreInstruments UsageSize = Row(Head + "usage.size",
+        InstrumentKind.Levels, MeasureForm.Whole, "By",
+        "durable bytes by tenant", Seq<string>(), None, Some(TenantContext.TenantSlot), None);
+    public static readonly StoreInstruments UsageObjects = Row(Head + "usage.objects",
+        InstrumentKind.Levels, MeasureForm.Whole, "{object}",
+        "durable objects by tenant", Seq<string>(), None, Some(TenantContext.TenantSlot), None);
+    public static readonly StoreInstruments UsageDeliveries = Row(Head + "usage.deliveries",
+        InstrumentKind.Levels, MeasureForm.Whole, "{delivery}",
+        "egress deliveries by tenant over the usage census window", Seq<string>(), None, Some(TenantContext.TenantSlot), None);
 
     // Arm bodies are the one place receipt wire names meet instrument writes; the AppHost fan merges this table
-    // beside its own at the Mount seam. Every arm returns the kernel write rail and multi-write arms traverse
+    // beside its own through the kernel `ReceiptFan.Of`, which is what refuses a duplicate projection key on the
+    // rail and names every collided one. Every arm returns the kernel write rail and multi-write arms traverse
     // their own row table, so the first refusal names the offending row and none is discarded at the delegate.
-    public static readonly FrozenDictionary<string, InstrumentArm> Arms =
-        new Dictionary<string, InstrumentArm> {
-            [PgStatHarvest.StatementsSlot.ToString()] = static (set, payload) =>
+    // `ArmRows` is a REGISTRATION SET rather than a hand dictionary, and a family whose slots come from a closed
+    // vocabulary DERIVES from it: the object plane's nine arms are nine `BlobFactKind` rows, so the census that
+    // plane emits and the keys this one projects are ONE declaration and the four count-only kinds reach the
+    // meter by construction rather than by a tenth entry someone must remember to add.
+    // Accessor over the registration set for the same reason `Rows` is one: an eager field reading a table declared
+    // beneath it captures null, and this one additionally reads `BlobFactKind.Items` through that table.
+    public static HashMap<ArmKey, InstrumentArm> Arms =>
+        ArmRows.ToHashMap(static row => row.Key, static row => row.Arm);
+
+    static readonly Seq<(ArmKey Key, InstrumentArm Arm)> ArmRows =
+        toSeq(BlobFactKind.Items).Map(static row => ReceiptFan.Arm(row.Slot.ToString(), Blob(row)))
+        + Seq(
+            ReceiptFan.Arm(PgStatHarvest.StatementsSlot.ToString(), static (set, payload) =>
                 toSeq(payload.GetProperty("rows").EnumerateArray())
-                    .TraverseM(row => set.Write(StatementDuration, row.GetProperty("meanExecMs").GetDouble() / 1000d)).As()
-                    .Map(static _ => unit),
-            [PgStatHarvest.IoSlot.ToString()] = static (set, payload) =>
+                    .TraverseM(row => set.Write(StatementDuration.Spec, row.GetProperty("meanExecMs").GetDouble() / 1000d)).As()
+                    .Map(static _ => unit)),
+            ReceiptFan.Arm(PgStatHarvest.IoSlot.ToString(), static (set, payload) =>
                 from rows in Fin.Succ(toSeq(payload.GetProperty("rows").EnumerateArray()).Strict())
                 from taken in Fin.Succ(rows
                     .Filter(static row => row.GetProperty("object").GetString() == RelationObject)
                     .Fold((Hits: 0L, Reads: 0L),
                         static (sum, row) => (sum.Hits + row.GetProperty("hits").GetInt64(), sum.Reads + row.GetProperty("reads").GetInt64())))
-                from _ in set.Level(IoHitRatio, taken.Hits + taken.Reads > 0L ? (double)taken.Hits / (taken.Hits + taken.Reads) : 1d)
+                from _ in set.Level(IoHitRatio.Spec, taken.Hits + taken.Reads > 0L ? (double)taken.Hits / (taken.Hits + taken.Reads) : 1d)
                 // Pressure counters sum across EVERY object: a wal or temp row takes no buffer hit yet
                 // pays the same eviction and fsync cost, so the ratio's relation filter never bounds them.
-                from done in IoEventRows.TraverseM(row => set.Write(IoEvents,
+                from done in IoEventRows.TraverseM(row => set.Write(IoEvents.Spec,
                     rows.Fold(0L, (sum, entry) => sum + entry.GetProperty(row.Field).GetInt64()),
                     InstrumentSet.Tags((EventSlot, row.Value)))).As()
-                select unit,
-            [DuckProfileHarvest.Slot.ToString()] = static (set, payload) =>
-                ProfilePhases.TraverseM(row => set.Write(DuckDuration, payload.GetProperty(row.Field).GetDouble(),
+                select unit),
+            ReceiptFan.Arm(DuckProfileHarvest.Slot.ToString(), static (set, payload) =>
+                ProfilePhases.TraverseM(row => set.Write(DuckDuration.Spec, payload.GetProperty(row.Field).GetDouble(),
                     InstrumentSet.Tags((PhaseSlot, row.Value)))).As()
-                    .Bind(_ => set.Write(DuckRows, payload.GetProperty("rowsReturned").GetInt64())),
-            [SqliteStatHarvest.StatementsSlot.ToString()] = static (set, payload) =>
-                StepTells.TraverseM(row => set.Write(SqliteSteps, payload.GetProperty(row.Field).GetInt64(),
+                    .Bind(_ => set.Write(DuckRows.Spec, payload.GetProperty("rowsReturned").GetInt64()))),
+            ReceiptFan.Arm(SqliteStatHarvest.StatementsSlot.ToString(), static (set, payload) =>
+                StepTells.TraverseM(row => set.Write(SqliteSteps.Spec, payload.GetProperty(row.Field).GetInt64(),
                     InstrumentSet.Tags((StepSlot, row.Value)))).As()
-                    .Map(static _ => unit),
-            [SqliteStatHarvest.ConnectionSlot.ToString()] = static (set, payload) =>
+                    .Map(static _ => unit)),
+            ReceiptFan.Arm(SqliteStatHarvest.ConnectionSlot.ToString(), static (set, payload) =>
                 from taken in Fin.Succ((Hit: payload.GetProperty("cacheHits").GetInt64(), Miss: payload.GetProperty("cacheMisses").GetInt64()))
-                from _ in set.Level(SqliteCacheRatio, taken.Hit + taken.Miss > 0L ? (double)taken.Hit / (taken.Hit + taken.Miss) : 1d)
+                from _ in set.Level(SqliteCacheRatio.Spec, taken.Hit + taken.Miss > 0L ? (double)taken.Hit / (taken.Hit + taken.Miss) : 1d)
                 // Region gauges sample WITHOUT reset, so each keyed entry is a level the observable family
                 // reads at collection cadence rather than an interval delta a counter would accumulate.
-                from done in MemoryRegions.TraverseM(row => set.Level(SqliteMemory, payload.GetProperty(row.Field).GetInt64(), Some(row.Value))).As()
-                select unit,
-            [EgressPump.DrainSlot.ToString()] = Fan(DrainLane),
-            [EgressPump.ReplaySlot.ToString()] = Fan(ReplayLane),
-            // `ObjectIo` seats four slots on ONE verb axis over one `BlobTransferFact` shape, so they fan through
-            // one parameterized mint exactly as the two egress lanes do — four arm bodies for one fact shape is the
-            // inline-repeated-concern defect the `Fan` precedent already deleted once.
-            [ObjectIo.PartSlot.ToString()] = Verb("part"),
-            [ObjectIo.ResumeSlot.ToString()] = Verb("resume"),
-            [ObjectIo.AbortSlot.ToString()] = Verb("abort"),
-            [ObjectIo.WriteSlot.ToString()] = Verb("write"),
-            [ObjectIo.FaultSlot.ToString()] = static (set, payload) =>
-                set.Write(BlobFaults, 1L, InstrumentSet.Tags(
-                    (ProviderSlot, payload.GetProperty("provider").GetString()),
-                    (CategorySlot, payload.GetProperty("kind").GetString()))),
-            [Coordinate.FaultSlot.ToString()] = static (set, payload) =>
-                set.Write(CoordinationFaults, 1L, InstrumentSet.Tags(
-                    (CategorySlot, payload.GetProperty("category").GetString()),
-                    (OutcomeSlot, payload.GetProperty("transient").GetBoolean() ? TransientOutcome : TerminalOutcome))),
+                from done in MemoryRegions.TraverseM(row => set.Level(SqliteMemory.Spec, payload.GetProperty(row.Field).GetInt64(), Some(row.Value))).As()
+                select unit),
+            ReceiptFan.Arm(EgressPump.DrainSlot.ToString(), Fan(DrainLane)),
+            ReceiptFan.Arm(EgressPump.ReplaySlot.ToString(), Fan(ReplayLane)),
+            ReceiptFan.Arm(Coordinate.FaultSlot.ToString(), static (set, payload) =>
+                set.Write(CoordinationFaults.Spec, 1L, InstrumentSet.Tags(
+                    (KernelInstrument.CodeSlot, payload.GetProperty("identity").GetProperty("code").GetInt32()),
+                    (RouteSlot, payload.GetProperty("route").GetString())))),
             // Retention verdicts fold per class and deciding rule off the sweep receipt's own partition, so the
             // one instrument answers "what did retention decide, where" without a per-verdict-kind instrument
             // family: the rule vocabulary is `SweepVerdict.Rule`'s and the class vocabulary the six-row axis.
-            [RetentionSweep.SweepSlot.ToString()] = static (set, payload) =>
+            ReceiptFan.Arm(RetentionSweep.SweepSlot.ToString(), static (set, payload) =>
                 from carrier in Fin.Succ(InstrumentSet.Tags((ClassSlot, payload.GetProperty("class").GetString())))
-                from done in SweepOutcomes.TraverseM(row => set.Write(RetentionSwept, payload.GetProperty(row.Field).GetInt64(),
+                from done in SweepOutcomes.TraverseM(row => set.Write(RetentionSwept.Spec, payload.GetProperty(row.Field).GetInt64(),
                     [.. carrier, new(RuleSlot, row.Value)])).As().Map(static _ => unit)
-                select done,
-            [EgressPump.DeadLetterSlot.ToString()] = static (set, payload) =>
-                set.Write(EgressDeadLetterAttempts, payload.GetProperty("attempts").GetInt64(),
-                    InstrumentSet.Tags((SinkSlot, payload.GetProperty("sink").GetString()))),
-            [PlanProfile.Slot.ToString()] = static (set, payload) =>
-                set.Write(PlanCaptures, 1L, InstrumentSet.Tags(
+                select done),
+            ReceiptFan.Arm(EgressPump.DeadLetterSlot.ToString(), static (set, payload) =>
+                set.Write(EgressDeadLetterAttempts.Spec, payload.GetProperty("attempts").GetInt64(),
+                    InstrumentSet.Tags((SinkSlot, payload.GetProperty("sink").GetString())))),
+            ReceiptFan.Arm(PlanProfile.Slot.ToString(), static (set, payload) =>
+                set.Write(PlanCaptures.Spec, 1L, InstrumentSet.Tags(
                     (EngineSlot, payload.GetProperty("engine").GetString()),
-                    (RuleSlot, payload.GetProperty("rule").GetString()))),
+                    (RuleSlot, payload.GetProperty("rule").GetString())))),
             // `ResidenceReceipt` stays NON-GENERIC by construction, so scanned rows and the elapsed figure
             // reach the meter while payload rows never touch the wire — read evidence lands at this custodian
             // precisely because a consumer arrow hands back bare values.
-            [ColumnarLane.ReadSlot.ToString()] = static (set, payload) =>
+            ReceiptFan.Arm(ColumnarLane.ReadSlot.ToString(), static (set, payload) =>
                 from carrier in Fin.Succ(InstrumentSet.Tags((ResidenceSlot, payload.GetProperty("residence").GetString())))
-                from _ in set.Write(ResidenceReadDuration, Seconds(payload.GetProperty("elapsed")), carrier)
-                from done in set.Write(ResidenceScanned, payload.GetProperty("scanned").GetInt64(), carrier)
-                select done,
-            [ColumnarLane.IngestSlot.ToString()] = static (set, payload) =>
-                set.Write(ResidenceIngested, payload.GetProperty("staged").GetInt64(),
-                    InstrumentSet.Tags((DatasetSlot, payload.GetProperty("dataset").GetString()))),
+                from _ in set.Write(ResidenceReadDuration.Spec, Seconds(payload.GetProperty("elapsed")), carrier)
+                from done in set.Write(ResidenceScanned.Spec, payload.GetProperty("scanned").GetInt64(), carrier)
+                select done),
+            ReceiptFan.Arm(ColumnarLane.IngestSlot.ToString(), static (set, payload) =>
+                set.Write(ResidenceIngested.Spec, payload.GetProperty("staged").GetInt64(),
+                    InstrumentSet.Tags((DatasetSlot, payload.GetProperty("dataset").GetString())))),
             // Grouping keys on `TenantContext.Key`, the kernel's ONE optional-key read, so the root group projects
             // its figures UNTAGGED and a partitioning row tags its `Entry` text: one instrument answers both
             // deployments, the root tenant's usage stops vanishing behind a filter, and the untagged entry marks the
@@ -1015,27 +1159,27 @@ public static class StoreInstruments {
             // alone gates: a whole-census decode, a grouping, and three sums precede its writes, where every other
             // arm pays one `GetProperty` read and one `TagList` mint — under the roster walk the gate itself runs,
             // so gating those arms buys a second admission read.
-            [StoreUsage.Slot.ToString()] = static (set, payload) =>
-                !set.Enabled(UsageSize, UsageObjects, UsageDeliveries)
+            ReceiptFan.Arm(StoreUsage.Slot.ToString(), static (set, payload) =>
+                !set.Enabled(Seq(UsageSize.Spec, UsageObjects.Spec, UsageDeliveries.Spec))
                     ? Fin.Succ(unit)
                     : StoreUsage.Decode(payload).Bind(census =>
                         toSeq(census.GroupBy(static row => row.Tenant.Key))
                             .TraverseM(group => Seq(
-                                (Name: UsageSize, Value: group.Sum(static row => row.Bytes)),
-                                (Name: UsageObjects, Value: group.Sum(static row => row.Objects)),
-                                (Name: UsageDeliveries, Value: group.Sum(static row => row.Deliveries)))
-                                .TraverseM(measure => set.Level(measure.Name, measure.Value, group.Key)).As()).As()
-                            .Map(static _ => unit)),
-        }.ToFrozenDictionary(StringComparer.Ordinal);
+                                (Row: UsageSize, Value: group.Sum(static row => row.Bytes)),
+                                (Row: UsageObjects, Value: group.Sum(static row => row.Objects)),
+                                (Row: UsageDeliveries, Value: group.Sum(static row => row.Deliveries)))
+                                .TraverseM(measure => set.Level(measure.Row, measure.Value, group.Key)).As()).As()
+                            .Map(static _ => unit))));
 
-    // Scope reads the minted `TelemetrySource` row and `SchemaUrl` the one pinned semconv coordinate the
-    // settled `TelemetryIdentity.Mint` stamps as `MeterOptions.TelemetrySchemaUrl`, so the package id and the
-    // schema pin each carry exactly one spelling and no folder OTel reference exists. Rows and the `#STORE_BOARD`
+    // Scope reads the minted `TelemetrySource` row; the schema pin is the kernel `TelemetryIdentity.SchemaUrl`
+    // const the settled `TelemetryIdentity.Mint` stamps as `MeterOptions.TelemetrySchemaUrl`, so the package id
+    // and the schema pin each carry exactly one spelling, no call site names the pin, and no folder OTel
+    // reference exists. Rows and the `#STORE_BOARD`
     // pack over them leave as ONE downward fact, so the mounting root proves the pack in the same fold that binds
     // these handles. Forward reach stays safe by construction: the pack reads consts and one vocabulary column,
     // neither of which triggers this owner's static construction, while this factory is a method the pack never calls.
-    public static TelemetryContributorPort Telemetry(string version, string schemaUrl = TelemetryIdentity.SchemaUrl) =>
-        new(Scope: TelemetrySource.Persistence.Key, Version: version, Instruments: Rows, SchemaUrl: schemaUrl,
+    public static TelemetryContributorPort Telemetry(string version) =>
+        new(Scope: TelemetrySource.Persistence, Version: version, Instruments: Rows,
             Board: StoreDescriptors.Pack);
 
     // Declared-truth census reads kind, bounds, and tag vocabulary off the rows themselves, so a bucket retune
@@ -1045,7 +1189,9 @@ public static class StoreInstruments {
             Rows.Map(static row => new CensusRow(
                 row.Name, row.Kind.Key, row.Unit, row.Description, row.Bounds.IfNone([]), row.Dimensions)),
             toSeq(registry.Slots.Order(StringComparer.Ordinal)),
-            toSeq(Arms.Keys.Order(StringComparer.Ordinal)));
+            // Projected keys read the registration set's own wire keys, so the census names the slots this scope
+            // actually projects rather than a second list drifting beside the table.
+            toSeq(ArmRows.Choose(static row => row.Key is ArmKey.Kind kind ? Some(kind.Value) : None).Order(StringComparer.Ordinal)));
 
     // ONE fan body over the closed lane vocabulary: the steady drain and the letter replay each settle an
     // `EgressReceipt` whose delivered/held/dead counts partition its drained rows, so the lane rides a tag and
@@ -1062,24 +1208,28 @@ public static class StoreInstruments {
     static readonly Seq<(string Field, string Value)> SweepOutcomes = Seq(
         ("kept", "kept"), ("held", "hold"), ("cooled", "cool"), ("evicted", "evict"));
 
-    // ONE fan body over the object plane's verb axis: every `BlobTransferFact` carries provider, bytes, and part,
-    // so bytes count under (provider, verb) and the staged depth rides the part ordinal — the `abort` and `write`
-    // verbs contribute zero-byte and whole-object rows respectively through the same two writes, because the verb
-    // is a tag and a per-verb arm shape forks one fact's accounting across four bodies.
-    static InstrumentArm Verb(string verb) => (set, payload) =>
+    // ONE fan body over the WHOLE object-plane vocabulary: every `BlobTransferFact` carries provider, bytes, and
+    // part under its own `BlobFactKind`, so every fact counts once under (provider, kind), bytes accumulate on
+    // that same pair, and the staged depth rides its distribution ONLY where the fact carries a part — a
+    // zero-part event never drags a depth histogram toward its floor. The kind is a TAG, so nine arm bodies for
+    // one fact shape is the inline-repeated-concern defect the egress `Fan` precedent already deleted once, and
+    // a tenth kind lands its stream with no edit here at all.
+    static Func<InstrumentSet, JsonElement, Fin<Unit>> Blob(BlobFactKind kind) => (set, payload) =>
         from carrier in Fin.Succ(InstrumentSet.Tags(
-            (ProviderSlot, payload.GetProperty("provider").GetString()), (VerbSlot, verb)))
-        from _ in set.Write(BlobBytes, payload.GetProperty("bytes").GetInt64(), carrier)
-        from done in set.Write(BlobParts, payload.GetProperty("part").GetInt64(),
-            [.. InstrumentSet.Tags((ProviderSlot, payload.GetProperty("provider").GetString()))])
+            (ProviderSlot, payload.GetProperty("provider").GetString()), (KindSlot, kind.Key)))
+        from _facts in set.Write(BlobFacts.Spec, 1L, carrier)
+        from _bytes in set.Write(BlobBytes.Spec, payload.GetProperty("bytes").GetInt64(), carrier)
+        from done in payload.GetProperty("part").GetInt64() is long part && part > 0L
+            ? set.Write(BlobParts.Spec, part, InstrumentSet.Tags((ProviderSlot, payload.GetProperty("provider").GetString())))
+            : Fin.Succ(unit)
         select done;
 
-    static InstrumentArm Fan(string lane) => (set, payload) =>
+    static Func<InstrumentSet, JsonElement, Fin<Unit>> Fan(string lane) => (set, payload) =>
         from carrier in Fin.Succ(InstrumentSet.Tags(
             (SinkSlot, payload.GetProperty("sink").GetString()), (LaneSlot, lane)))
-        from _ in SettlementOutcomes.TraverseM(row => set.Write(EgressDeliveries, payload.GetProperty(row.Field).GetInt64(),
+        from _ in SettlementOutcomes.TraverseM(row => set.Write(EgressDeliveries.Spec, payload.GetProperty(row.Field).GetInt64(),
             [.. carrier, new(OutcomeSlot, row.Value)])).As()
-        from done in set.Write(EgressDrainDuration, Seconds(payload.GetProperty("elapsed")), carrier)
+        from done in set.Write(EgressDrainDuration.Spec, Seconds(payload.GetProperty("elapsed")), carrier)
         select done;
 
     // NodaTime `Duration` crosses the wire as its JsonRoundtrip text (`api-nodatime-stj` `DurationConverter`);
@@ -1103,8 +1253,8 @@ public static class StoreInstruments {
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using LanguageExt;
 using NodaTime;
-using Rasm.Domain;                              // BoardPack, LevelBreach, Objective, PanelKind, PanelSpec, Sli,
-                                                // TenantContext
+using Rasm.Domain;                              // BoardPack, KernelInstrument, LevelBreach, Objective, PanelKind,
+                                                // PanelSpec, Sli, TenantContext
 using static LanguageExt.Prelude;
 
 namespace Rasm.Persistence.Store;
@@ -1113,34 +1263,41 @@ namespace Rasm.Persistence.Store;
 public static class StoreDescriptors {
     public static readonly BoardPack Pack = new(
         Wire: "persistence.census", // the provenance key the deploy tuple admits this projection under; pack and key are one value
+        // Panels name their instrument by NAME because the pack is flat descriptor data a deploy plane compiles,
+        // and the roster proof resolves each name against the declaring port's own rows — so the row value is the
+        // one authority and this reads its `Name` rather than re-spelling it.
         Panels: Seq(
-            PanelSpec.Of("Server statement duration", StoreInstruments.StatementDuration),
-            PanelSpec.Of("Buffer hit ratio", StoreInstruments.IoHitRatio),
-            PanelSpec.Of("Buffer pressure", StoreInstruments.IoEvents, StoreInstruments.EventSlot),
-            PanelSpec.Of("Analytical time by phase", StoreInstruments.DuckDuration, StoreInstruments.PhaseSlot),
-            PanelSpec.Of("Analytical rows returned", StoreInstruments.DuckRows),
-            PanelSpec.Of("Embedded step tells", StoreInstruments.SqliteSteps, StoreInstruments.StepSlot),
-            PanelSpec.Of("Embedded cache ratio", StoreInstruments.SqliteCacheRatio),
-            PanelSpec.Of("Embedded memory by region", StoreInstruments.SqliteMemory, StoreInstruments.RegionSlot),
-            PanelSpec.Of("Egress settlement", StoreInstruments.EgressDeliveries, PanelKind.Table,
+            PanelSpec.Of("Server statement duration", StoreInstruments.StatementDuration.Key),
+            PanelSpec.Of("Buffer hit ratio", StoreInstruments.IoHitRatio.Key),
+            PanelSpec.Of("Buffer pressure", StoreInstruments.IoEvents.Key, StoreInstruments.EventSlot),
+            PanelSpec.Of("Analytical time by phase", StoreInstruments.DuckDuration.Key, StoreInstruments.PhaseSlot),
+            PanelSpec.Of("Analytical rows returned", StoreInstruments.DuckRows.Key),
+            PanelSpec.Of("Embedded step tells", StoreInstruments.SqliteSteps.Key, StoreInstruments.StepSlot),
+            PanelSpec.Of("Embedded cache ratio", StoreInstruments.SqliteCacheRatio.Key),
+            PanelSpec.Of("Embedded memory by region", StoreInstruments.SqliteMemory.Key, StoreInstruments.RegionSlot),
+            PanelSpec.Of("Egress settlement", StoreInstruments.EgressDeliveries.Key, PanelKind.Table,
                 StoreInstruments.SinkSlot, StoreInstruments.LaneSlot, StoreInstruments.OutcomeSlot),
-            PanelSpec.Of("Dead-letter attempt depth", StoreInstruments.EgressDeadLetterAttempts, StoreInstruments.SinkSlot),
-            PanelSpec.Of("Drain duration", StoreInstruments.EgressDrainDuration, StoreInstruments.SinkSlot, StoreInstruments.LaneSlot),
-            PanelSpec.Of("Plan captures", StoreInstruments.PlanCaptures, PanelKind.Table,
+            PanelSpec.Of("Dead-letter attempt depth", StoreInstruments.EgressDeadLetterAttempts.Key, StoreInstruments.SinkSlot),
+            PanelSpec.Of("Drain duration", StoreInstruments.EgressDrainDuration.Key, StoreInstruments.SinkSlot, StoreInstruments.LaneSlot),
+            PanelSpec.Of("Plan captures", StoreInstruments.PlanCaptures.Key, PanelKind.Table,
                 StoreInstruments.EngineSlot, StoreInstruments.RuleSlot),
-            PanelSpec.Of("Residence read duration", StoreInstruments.ResidenceReadDuration, StoreInstruments.ResidenceSlot),
-            PanelSpec.Of("Residence rows scanned", StoreInstruments.ResidenceScanned, StoreInstruments.ResidenceSlot),
-            PanelSpec.Of("Residence rows staged", StoreInstruments.ResidenceIngested, StoreInstruments.DatasetSlot),
-            PanelSpec.Of("Durable bytes by tenant", StoreInstruments.UsageSize, TenantContext.TenantSlot),
-            PanelSpec.Of("Durable objects by tenant", StoreInstruments.UsageObjects, TenantContext.TenantSlot),
-            PanelSpec.Of("Egress deliveries by tenant", StoreInstruments.UsageDeliveries, TenantContext.TenantSlot)),
+            // Object-plane facts read as a TABLE across their provider and kind axes: the four count-only kinds
+            // are events with no magnitude, so a rate panel over one of them says less than the census does.
+            PanelSpec.Of("Object-plane facts", StoreInstruments.BlobFacts.Key, PanelKind.Table,
+                StoreInstruments.ProviderSlot, StoreInstruments.KindSlot),
+            PanelSpec.Of("Residence read duration", StoreInstruments.ResidenceReadDuration.Key, StoreInstruments.ResidenceSlot),
+            PanelSpec.Of("Residence rows scanned", StoreInstruments.ResidenceScanned.Key, StoreInstruments.ResidenceSlot),
+            PanelSpec.Of("Residence rows staged", StoreInstruments.ResidenceIngested.Key, StoreInstruments.DatasetSlot),
+            PanelSpec.Of("Durable bytes by tenant", StoreInstruments.UsageSize.Key, TenantContext.TenantSlot),
+            PanelSpec.Of("Durable objects by tenant", StoreInstruments.UsageObjects.Key, TenantContext.TenantSlot),
+            PanelSpec.Of("Egress deliveries by tenant", StoreInstruments.UsageDeliveries.Key, TenantContext.TenantSlot)),
         Objectives: Seq(
             // Duplicates count as deliveries the sink absorbed, so both settled spellings ride the good half while
             // this denominator stays the whole drained population its own arm counted.
             Objective.Create(
                 name: "persistence.egress.settled",
                 sli: new Sli.Partition(
-                    Metric: StoreInstruments.EgressDeliveries,
+                    Metric: StoreInstruments.EgressDeliveries.Key,
                     By: StoreInstruments.OutcomeSlot,
                     Good: Seq(StoreInstruments.DeliveredOutcome, StoreInstruments.DuplicateOutcome)),
                 target: 0.999d,
@@ -1150,14 +1307,14 @@ public static class StoreDescriptors {
             Objective.Create(
                 name: "persistence.plan.stable",
                 sli: new Sli.Partition(
-                    Metric: StoreInstruments.PlanCaptures,
+                    Metric: StoreInstruments.PlanCaptures.Key,
                     By: StoreInstruments.RuleSlot,
                     Good: PlanRule.StableKeys),
                 target: 0.99d,
                 window: default),
             Objective.Create(
                 name: "persistence.egress.latency",
-                sli: new Sli.Latency(Metric: StoreInstruments.EgressDrainDuration, Ceiling: Duration.FromSeconds(5), Quantile: 0.95d),
+                sli: new Sli.Latency(Metric: StoreInstruments.EgressDrainDuration.Key, Ceiling: Duration.FromSeconds(5), Quantile: 0.95d),
                 target: 0.99d,
                 window: default),
             // Residence reads back interactive tiles, so this ceiling is a TILE budget rather than a batch one,
@@ -1165,19 +1322,19 @@ public static class StoreDescriptors {
             // breach here rather than naming a target an operator tunes against.
             Objective.Create(
                 name: "persistence.residence.latency",
-                sli: new Sli.Latency(Metric: StoreInstruments.ResidenceReadDuration, Ceiling: Duration.FromSeconds(2), Quantile: 0.95d),
+                sli: new Sli.Latency(Metric: StoreInstruments.ResidenceReadDuration.Key, Ceiling: Duration.FromSeconds(2), Quantile: 0.95d),
                 target: 0.99d,
                 window: default),
             // Headroom is a saturation over a pulled ratio, and the polarity column carries the direction: both
             // buffer measures breach BELOW their floor, so neither earns a shape of its own.
             Objective.Create(
                 name: "persistence.io.headroom",
-                sli: new Sli.Saturation(Metric: StoreInstruments.IoHitRatio, Bound: 0.9d, Breach: LevelBreach.Floor),
+                sli: new Sli.Saturation(Metric: StoreInstruments.IoHitRatio.Key, Bound: 0.9d, Breach: LevelBreach.Floor),
                 target: 0.95d,
                 window: default),
             Objective.Create(
                 name: "persistence.embedded.headroom",
-                sli: new Sli.Saturation(Metric: StoreInstruments.SqliteCacheRatio, Bound: 0.8d, Breach: LevelBreach.Floor),
+                sli: new Sli.Saturation(Metric: StoreInstruments.SqliteCacheRatio.Key, Bound: 0.8d, Breach: LevelBreach.Floor),
                 target: 0.95d,
                 window: default)));
 }

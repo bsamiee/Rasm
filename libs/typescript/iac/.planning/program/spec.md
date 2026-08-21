@@ -388,11 +388,12 @@ abstract class Tier extends pulumi.ComponentResource {
 - Entry: `StackOutputs.read(stack, spec.name)` after any `up`; the plane records project by field access; `outputs.pairs` into the workload env assembly; `StackOutputs.pairsOf(record, render)` inside a program body over live `Output`s.
 - Growth: a new plane is one `Option` field, its arm return keys, and one `_CHANNELS` row per field — the channel union derives from the field record, so the catalog refuses to compile until the rows land and nothing else edits; a new custody variable is one `_CUSTODY` row reaching the mint and the stamp together.
 - Boundary: which keys each arm returns is `provider.md`'s program body; how a channel row becomes a container `EnvVar` is `kube/workload.md`'s rendering; which custody variables a cell holds is `operate/secret.md`'s mint; the reading side's group nesting is the runtime `Setting` owner's; receipt evidence is `automation.md`'s — outputs and receipts never merge.
-- Packages: `effect` (`Effect`, `Schema`, `Option`, `Array`, `Record`); `@pulumi/pulumi` (`Output`); `@pulumi/pulumi/automation` (`Stack`); `./automation.ts` (`DeployFault`).
+- Packages: `effect` (`Effect`, `Schema`, `Option`, `Array`, `Record`); `@pulumi/pulumi` (`Output`); `@pulumi/pulumi/automation` (`Stack`); `@rasm/ts/core` (`Shape.Record`); `./automation.ts` (`DeployFault`).
 
 ```typescript signature
 import type { Stack } from "@pulumi/pulumi/automation"
 import { Array, Effect, Option, Record, Schema } from "effect"
+import { Shape } from "@rasm/ts/core"
 import { DeployFault } from "./automation.ts"
 
 const _Port = Schema.Int.pipe(Schema.between(1, 65535))
@@ -450,7 +451,7 @@ class StackOutputs extends Schema.Class<StackOutputs>("StackOutputs")({
     database: Schema.NonEmptyString,
   }), { as: "Option" }),
   sharding: Schema.optionalWith(Schema.Struct({ host: Schema.NonEmptyString, port: _Port }), { as: "Option" }),
-  served: Schema.optionalWith(Schema.Record({ key: Schema.NonEmptyString, value: Schema.NonEmptyString }), { as: "Option" }),
+  served: Schema.optionalWith(Shape.Record(Schema.NonEmptyString, Schema.NonEmptyString), { as: "Option" }),
   deploy: Schema.optionalWith(Schema.Struct({ id: Schema.UUID }), { as: "Option" }),
 }) {
   static readonly channels: StackOutputs.Channels = _CHANNELS
@@ -468,12 +469,12 @@ class StackOutputs extends Schema.Class<StackOutputs>("StackOutputs")({
         const leaked = entries.filter(([, entry]) => entry.secret === true).map(([key]) => key)
         return leaked.length === 0
           ? Effect.succeed(Object.fromEntries(entries.map(([key, entry]) => [key, entry.value])))
-          : Effect.fail(new DeployFault({ reason: "input", stack: name, detail: leaked.join(",") }))
+          : Effect.fail(new DeployFault({ case: { reason: "input", stack: name, detail: leaked.join(",") } }))
       }),
       Effect.flatMap((record) =>
         Effect.mapError(
           Schema.decodeUnknown(StackOutputs, { errors: "all", onExcessProperty: "error" })(record),
-          (parse) => new DeployFault({ reason: "input", stack: name, detail: parse.message }),
+          (parse) => new DeployFault({ case: { reason: "input", stack: name, detail: parse.message } }),
         )),
     )
   get pairs(): ReadonlyArray<StackOutputs.Pair> {

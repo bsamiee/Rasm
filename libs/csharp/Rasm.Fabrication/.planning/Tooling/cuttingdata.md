@@ -12,9 +12,9 @@ Wire posture: HOST-LOCAL. `CuttingData.Of`, `FeedBasis`, and `CuttingLoad` remai
 
 - [02]-[MATERIAL_TABLE]: `IsoClass`, `MaterialState`, `HardnessScale`, `FeedBasis`, `CutDirection`, `Hardness`, `MaterialCutSpec`, `MaterialSource`, `ScalarBand`, `OperationTrait`, `CutRegime`, `CorrectionInputs`, `KienzleCorrection`, `CuttingKey`, `CuttingEvidence`, `CuttingRow`, `CalibrationPoint`, `CalibrationCurve`, and the indexed `CuttingTable`.
 - [03]-[CUTTING_LOAD]: `CutIntent`, `CuttingLoad`, `CuttingDataIngress`, `GeneratedCut`, `CuttingDataMap`, and `CuttingData` — the one resolution entry and the one force model.
-- [04]-[REGRESSION]: `FitSpace`, `LinearFitReceipt`, `LinearFit`, `PowerLawReceipt`, `PowerLawFit`, `CalibrationRequest`, `CalibrationReceipt`, and `CuttingCalibration`.
+- [04]-[REGRESSION]: `FitSpace`, `Regression`, `LinearFit`, `PowerLaw`, `PowerLawFit`, `CalibrationRequest`, `KienzleModel`, and `CuttingCalibration`.
 - [05]-[FORM_PROJECTION]: `CutterFormPolicy` and the `CutterFormProjection` inference and fit predicate.
-- [06]-[CHATTER_STABILITY]: `ModalEvidence`, `ModalMode`, `ModalResponse`, `StabilityPolicy`, `StabilityRequest`, `StabilityEvidence`, `StabilityPoint`, `StabilityBand`, `StabilityGap`, `StablePoint`, `StabilityReceipt`, and `ChatterStability`.
+- [06]-[CHATTER_STABILITY]: `ModalEvidence`, `ModalMode`, `ModalResponse`, `StabilityPolicy`, `StabilityRequest`, `StabilityEvidence`, `StabilityPoint`, `StabilityBand`, `StabilityGap`, `StablePoint`, `StabilityLobes`, and `ChatterStability`.
 
 ## [02]-[MATERIAL_TABLE]
 
@@ -37,6 +37,7 @@ using MathNet.Numerics;
 using MathNet.Numerics.Interpolation;
 using MathNet.Numerics.RootFinding;
 using NodaTime;
+using Rasm.Domain;
 using Rasm.Fabrication.Process;
 using Riok.Mapperly.Abstractions;
 using Thinktecture;
@@ -98,33 +99,31 @@ public sealed partial class CutDirection {
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public readonly partial struct Hardness {
     public HardnessScale Scale { get; }
     public double Value { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref HardnessScale scale,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref HardnessScale scale,
         ref double value) =>
-        validationError = Witness.Positive(value) ? null : ToolKey.Tooling("hardness");
+        validationError = ValidityClaim.Positive(value) ? null : ToolKey.Validation("hardness");
 
     public static Fin<Hardness> Admit(HardnessScale scale, double value) =>
         Validate(scale, value, out Hardness hardness).Admitted(hardness);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public readonly partial struct ScalarBand {
     public double Minimum { get; }
     public double Nominal { get; }
     public double Maximum { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref double minimum,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double minimum,
         ref double nominal, ref double maximum) =>
         validationError = !Seq(minimum, nominal, maximum).ForAll(double.IsFinite)
             || minimum <= 0.0 || minimum > nominal || nominal > maximum
-            ? ToolKey.Tooling("scalar-band") : null;
+            ? ToolKey.Validation("scalar-band") : null;
 
     public static Fin<ScalarBand> Admit(double minimum, double nominal, double maximum) =>
         Validate(minimum, nominal, maximum, out ScalarBand band).Admitted(band);
@@ -134,7 +133,6 @@ public readonly partial struct ScalarBand {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class MaterialCutSpec {
     public Material Material { get; }
     public IsoClass Class { get; }
@@ -148,7 +146,7 @@ public sealed partial class MaterialCutSpec {
     public double AbrasionFactor { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Material material,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Material material,
         ref IsoClass @class, ref int subgroup, ref MaterialState condition, ref Hardness hardness,
         ref Pressure ultimateStrength, ref Pressure kc11, ref double mc, ref double thermalFactor,
         ref double abrasionFactor) =>
@@ -157,8 +155,8 @@ public sealed partial class MaterialCutSpec {
             // The Kienzle exponent is the chip-thinning slope: at zero the specific force is thickness-blind and at
             // one it cancels the thickness term outright, so both ends leave the model with no chip to price.
             || !double.IsFinite(mc) || mc is <= 0.0 or >= 1.0
-            || !Witness.Positive(thermalFactor) || !Witness.Positive(abrasionFactor)
-            ? ToolKey.Tooling("material-cut-spec") : null;
+            || !ValidityClaim.Positive(thermalFactor).Holds || !ValidityClaim.Positive(abrasionFactor).Holds
+            ? ToolKey.Validation("material-cut-spec") : null;
 
     public static Fin<MaterialCutSpec> Admit(Material material, IsoClass @class, int subgroup,
         MaterialState condition, Hardness hardness, Pressure ultimateStrength, Pressure kc11, double mc,
@@ -175,7 +173,6 @@ public abstract partial record MaterialSource {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class OperationTrait {
     public Operation Operation { get; }
     public FeedBasis Basis { get; }
@@ -191,13 +188,13 @@ public sealed partial class OperationTrait {
     public CutDirection Direction { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Operation operation,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Operation operation,
         ref FeedBasis basis, ref ScalarBand surfaceSpeed, ref ScalarBand feed, ref ScalarBand axialDepth,
         ref ScalarBand radialDepth, ref ScalarBand engagement, ref ScalarBand spindle, ref double feedForceRatio,
         ref double passiveForceRatio, ref Seq<CoolantDelivery> coolant, ref CutDirection direction) =>
         validationError = coolant.IsEmpty
-            || !Seq(feedForceRatio, passiveForceRatio).ForAll(Witness.Positive)
-            ? ToolKey.Tooling("operation-trait") : null;
+            || !Seq(feedForceRatio, passiveForceRatio).ForAll(static value => ValidityClaim.Positive(value).Holds)
+            ? ToolKey.Validation("operation-trait") : null;
 
     public static Fin<OperationTrait> Admit(Operation operation, FeedBasis basis, ScalarBand surfaceSpeed,
         ScalarBand feed, ScalarBand axialDepth, ScalarBand radialDepth, ScalarBand engagement, ScalarBand spindle,
@@ -207,7 +204,6 @@ public sealed partial class OperationTrait {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CutRegime {
     public ScalarBand SurfaceSpeedBand { get; }
     public ScalarBand FeedBand { get; }
@@ -223,11 +219,11 @@ public sealed partial class CutRegime {
     public double Feed => FeedBand.Nominal;
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref ScalarBand surfaceSpeedBand,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ScalarBand surfaceSpeedBand,
         ref ScalarBand feedBand, ref FeedBasis basis, ref ScalarBand axialDepthBand, ref ScalarBand radialDepthBand,
         ref ScalarBand engagementBand, ref ScalarBand spindleBand, ref Seq<CoolantDelivery> coolant,
         ref CutDirection direction) =>
-        validationError = coolant.IsEmpty ? ToolKey.Tooling("cut-regime") : null;
+        validationError = coolant.IsEmpty ? ToolKey.Validation("cut-regime") : null;
 
     public static Fin<CutRegime> Admit(ScalarBand surfaceSpeedBand, ScalarBand feedBand, FeedBasis basis,
         ScalarBand axialDepthBand, ScalarBand radialDepthBand, ScalarBand engagementBand, ScalarBand spindleBand,
@@ -237,7 +233,6 @@ public sealed partial class CutRegime {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CorrectionInputs {
     public Angle Rake { get; }
     public Angle ReferenceRake { get; }
@@ -248,12 +243,12 @@ public sealed partial class CorrectionInputs {
     public Length ChipThickness { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Angle rake,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Angle rake,
         ref Angle referenceRake, ref Coating coating, ref CoolantDelivery coolant, ref Ratio flankConsumed,
         ref Length runout, ref Length chipThickness) =>
         validationError = runout < Length.Zero || chipThickness <= Length.Zero
             || flankConsumed < Ratio.Zero || flankConsumed > Ratio.FromPercent(100)
-            ? ToolKey.Tooling("correction-inputs") : null;
+            ? ToolKey.Validation("correction-inputs") : null;
 
     public static Fin<CorrectionInputs> Admit(Angle rake, Angle referenceRake, Coating coating,
         CoolantDelivery coolant, Ratio flankConsumed, Length runout, Length chipThickness) =>
@@ -262,7 +257,6 @@ public sealed partial class CorrectionInputs {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public readonly partial struct KienzleCorrection {
     public double ToolGeometry { get; }
     public double Coating { get; }
@@ -298,11 +292,11 @@ public readonly partial struct KienzleCorrection {
                 material.ThermalFactor, material.AbrasionFactor, 1.0, 1.0));
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref double toolGeometry,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double toolGeometry,
         ref double coating, ref double coolant, ref double materialState, ref double thermal,
         ref double abrasiveness, ref double wear, ref double runout) =>
         validationError = Seq(toolGeometry, coating, coolant, materialState, thermal, abrasiveness, wear, runout)
-            .ForAll(Witness.Positive) ? null : ToolKey.Tooling("kienzle-correction");
+            .ForAll(static value => ValidityClaim.Positive(value).Holds) ? null : ToolKey.Validation("kienzle-correction");
 
     public static Fin<KienzleCorrection> Admit(double toolGeometry, double coating, double coolant,
         double materialState, double thermal, double abrasiveness, double wear, double runout) =>
@@ -311,14 +305,13 @@ public readonly partial struct KienzleCorrection {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CuttingKey {
     public MaterialCutSpec Material { get; }
     public CutterFamily Form { get; }
     public Operation Operation { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError,
         ref MaterialCutSpec material, ref CutterFamily form, ref Operation operation) { }
 
     public static Fin<CuttingKey> Admit(MaterialCutSpec material, CutterFamily form, Operation operation) =>
@@ -331,7 +324,7 @@ public abstract partial record CuttingEvidence {
     public sealed record Exact(string Source, string Revision, ScalarBand Thickness) : CuttingEvidence;
     public sealed record Production(string Lot, int Samples, double Residual, ScalarBand Thickness) : CuttingEvidence;
     public sealed record Vendor(string Catalog, string Revision, ScalarBand Thickness) : CuttingEvidence;
-    public sealed record Calibrated(CalibrationReceipt Receipt) : CuttingEvidence;
+    public sealed record Calibrated(KienzleModel Model) : CuttingEvidence;
     public sealed record Interpolated(CalibrationCurve Curve, Hardness Hardness) : CuttingEvidence;
     public sealed record Generated(MaterialCutSpec Material, OperationTrait Operation) : CuttingEvidence;
 
@@ -341,9 +334,9 @@ public abstract partial record CuttingEvidence {
         exact: static row => Some(row.Thickness),
         production: static row => Some(row.Thickness),
         vendor: static row => Some(row.Thickness),
-        calibrated: static row => ScalarBand.Admit(row.Receipt.ThicknessMinimum.Millimeters,
-            (row.Receipt.ThicknessMinimum.Millimeters + row.Receipt.ThicknessMaximum.Millimeters) * 0.5,
-            row.Receipt.ThicknessMaximum.Millimeters).ToOption(),
+        calibrated: static row => ScalarBand.Admit(row.Model.ThicknessMinimum.Millimeters,
+            (row.Model.ThicknessMinimum.Millimeters + row.Model.ThicknessMaximum.Millimeters) * 0.5,
+            row.Model.ThicknessMaximum.Millimeters).ToOption(),
         interpolated: static _ => None,
         generated: static _ => None);
 
@@ -352,15 +345,14 @@ public abstract partial record CuttingEvidence {
         exact: static row => Witness.Keyed(row.Source) && Witness.Keyed(row.Revision),
         production: static row => Witness.Keyed(row.Lot) && row.Samples > 0
             && double.IsFinite(row.Residual) && row.Residual >= 0.0,
-        vendor: static row => Witness.Keyed(row.Catalog) && Witness.Keyed(row.Revision)
-            && Witness.Positive(row.Thickness.Minimum),
+        vendor: static row => ValidityClaim.All(
+            Witness.Keyed(row.Catalog), Witness.Keyed(row.Revision), ValidityClaim.Positive(row.Thickness.Minimum)),
         calibrated: static _ => true,
-        interpolated: static row => Witness.Positive(row.Hardness.Value),
+        interpolated: static row => ValidityClaim.Positive(row.Hardness.Value),
         generated: static _ => true);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CuttingRow {
     public CuttingKey Key { get; }
     public Pressure Kc11 { get; }
@@ -372,13 +364,13 @@ public sealed partial class CuttingRow {
     public CuttingEvidence Evidence { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref CuttingKey key,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref CuttingKey key,
         ref Pressure kc11, ref double mc, ref CutRegime regime, ref KienzleCorrection correction,
         ref double feedForceRatio, ref double passiveForceRatio, ref CuttingEvidence evidence) =>
         validationError = kc11 <= Pressure.Zero || !double.IsFinite(mc) || mc is <= 0.0 or >= 1.0
-            || !Seq(feedForceRatio, passiveForceRatio).ForAll(Witness.Positive)
+            || !Seq(feedForceRatio, passiveForceRatio).ForAll(static value => ValidityClaim.Positive(value).Holds)
             || !evidence.Grounded
-            ? ToolKey.Tooling("cutting-row") : null;
+            ? ToolKey.Validation("cutting-row") : null;
 
     public static Fin<CuttingRow> Admit(CuttingKey key, Pressure kc11, double mc, CutRegime regime,
         KienzleCorrection correction, double feedForceRatio, double passiveForceRatio, CuttingEvidence evidence) =>
@@ -387,36 +379,34 @@ public sealed partial class CuttingRow {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CalibrationPoint {
     public Hardness Hardness { get; }
     public Pressure Kc11 { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Hardness hardness,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Hardness hardness,
         ref Pressure kc11) =>
-        validationError = kc11 <= Pressure.Zero ? ToolKey.Tooling("calibration-point") : null;
+        validationError = kc11 <= Pressure.Zero ? ToolKey.Validation("calibration-point") : null;
 
     public static Fin<CalibrationPoint> Admit(Hardness hardness, Pressure kc11) =>
         Validate(hardness, kc11, out CalibrationPoint point).Admitted(point);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CalibrationCurve {
     public IsoClass Class { get; }
     public int Subgroup { get; }
     public Seq<CalibrationPoint> Points { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref IsoClass @class,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref IsoClass @class,
         ref int subgroup, ref Seq<CalibrationPoint> points) =>
         // A monotone cubic needs three strictly ascending knots on ONE scale; two knots is a line the caller could
         // have stated, and a repeated abscissa leaves the interpolant undefined.
         validationError = subgroup is < 1 or > 99 || points.Count < LinearFit.MinimumSamples
             || points.Map(static point => point.Hardness.Scale).Distinct().Count != 1
             || points.Zip(points.Skip(1)).Exists(static pair => pair.Item1.Hardness.Value >= pair.Item2.Hardness.Value)
-            ? ToolKey.Tooling("calibration-curve") : null;
+            ? ToolKey.Validation("calibration-curve") : null;
 
     public static Fin<CalibrationCurve> Admit(IsoClass @class, int subgroup, Seq<CalibrationPoint> points) =>
         Validate(@class, subgroup, points, out CalibrationCurve curve).Admitted(curve);
@@ -433,7 +423,6 @@ public sealed partial class CalibrationCurve {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CuttingTable {
     public Seq<MaterialCutSpec> Materials { get; }
     public Seq<OperationTrait> Operations { get; }
@@ -452,7 +441,7 @@ public sealed partial class CuttingTable {
     private FrozenDictionary<(IsoClass Class, int Subgroup), CalibrationCurve>? curves;
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError,
         ref Seq<MaterialCutSpec> materials, ref Seq<OperationTrait> operations,
         ref HashMap<CuttingKey, CuttingRow> exact, ref Seq<CalibrationCurve> curves) =>
         validationError = materials.IsEmpty
@@ -464,7 +453,7 @@ public sealed partial class CuttingTable {
                 || !operations.Exists(operation => operation.Operation == row.Key.Operation))
             || curves.Map(static row => (row.Class, row.Subgroup)).Distinct().Count != curves.Count
             || curves.Exists(curve => !materials.Exists(curve.Covers))
-            ? ToolKey.Tooling("cutting-table") : null;
+            ? ToolKey.Validation("cutting-table") : null;
 
     public static Fin<CuttingTable> Admit(Seq<MaterialCutSpec> materials, Seq<OperationTrait> operations,
         HashMap<CuttingKey, CuttingRow> exact, Seq<CalibrationCurve> curves) =>
@@ -502,7 +491,6 @@ public sealed partial class CuttingTable {
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public readonly partial struct CutIntent {
     public Length ChipThickness { get; }
     public Length ChipWidth { get; }
@@ -523,7 +511,7 @@ public readonly partial struct CutIntent {
     public double ActiveEdges => Math.Max(1.0, Teeth * Engagement.DecimalFractions);
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Length chipThickness,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Length chipThickness,
         ref Length chipWidth, ref Length axialDepth, ref Length radialDepth, ref Length diameter,
         ref int teeth, ref RotationalSpeed spindle, ref Speed feed) =>
         validationError = !Seq(chipThickness.Millimeters, chipWidth.Millimeters, axialDepth.Millimeters,
@@ -531,7 +519,7 @@ public readonly partial struct CutIntent {
             .ForAll(double.IsFinite)
             || Seq(chipThickness, chipWidth, axialDepth, radialDepth, diameter).Exists(static value => value <= Length.Zero)
             || radialDepth > diameter || spindle <= RotationalSpeed.Zero || teeth <= 0 || feed.MetersPerSecond <= 0.0
-            ? ToolKey.Tooling("cut-intent") : null;
+            ? ToolKey.Validation("cut-intent") : null;
 
     public static Fin<CutIntent> Admit(Length chipThickness, Length chipWidth, Length axialDepth, Length radialDepth,
         Length diameter, int teeth, RotationalSpeed spindle, Speed feed) =>
@@ -592,7 +580,6 @@ public static partial class CuttingDataMap {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CuttingData {
     public Pressure Kc11 { get; }
     public double Mc { get; }
@@ -607,12 +594,12 @@ public sealed partial class CuttingData {
     public FeedBasis FeedBasis => Regime.Basis;
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Pressure kc11,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Pressure kc11,
         ref double mc, ref CutRegime regime, ref KienzleCorrection correction, ref CuttingEvidence evidence,
         ref double feedForceRatio, ref double passiveForceRatio) =>
         validationError = kc11 <= Pressure.Zero || !double.IsFinite(mc) || mc is <= 0.0 or >= 1.0
-            || !Seq(feedForceRatio, passiveForceRatio).ForAll(Witness.Positive)
-            ? ToolKey.Tooling("cutting-data") : null;
+            || !Seq(feedForceRatio, passiveForceRatio).ForAll(static value => ValidityClaim.Positive(value).Holds)
+            ? ToolKey.Validation("cutting-data") : null;
 
     public static Fin<CuttingData> Admit(CuttingDataIngress ingress) =>
         Validate(ingress.Kc11, ingress.Mc, ingress.Regime, ingress.Correction, ingress.Evidence,
@@ -657,15 +644,13 @@ public sealed partial class CuttingData {
         select resolved;
 
     private Fin<Pressure> Specific(double chipThicknessMm) =>
-        from _ in Witness.Positive(chipThicknessMm)
-            ? Fin.Succ(unit)
+        from _ in ValidityClaim.Positive(chipThicknessMm) ? Fin.Succ(unit)
             : Fin.Fail<Unit>(ToolKey.Tooling("cutting-data:chip-thickness"))
         from __ in Evidence.Thickness.ForAll(band => band.Contains(chipThicknessMm))
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(ToolKey.Tooling("cutting-data:extrapolation"))
         let value = Kc11.Megapascals * Math.Pow(chipThicknessMm, -Mc) * Correction.Factor
-        from specific in Witness.Positive(value)
-            ? Fin.Succ(Pressure.FromMegapascals(value))
+        from specific in ValidityClaim.Positive(value) ? Fin.Succ(Pressure.FromMegapascals(value))
             : Fin.Fail<Pressure>(ToolKey.Tooling("cutting-data:specific-force"))
         select specific;
 
@@ -723,13 +708,14 @@ public sealed partial class CuttingData {
 
 ## [04]-[REGRESSION]
 
-- Owner: `LinearFit` is the ONE least-squares owner in the package and `LinearFitReceipt` its ONE receipt; `PowerLawFit` narrows it to a log-log power law and `CuttingCalibration` narrows that to Kienzle terms.
+- Owner: `LinearFit` is the ONE least-squares owner in the package and `Regression` its ONE result; `PowerLawFit` narrows it to a log-log power law and `CuttingCalibration` narrows that to Kienzle terms.
 - Law: the determination is computed in the space the regression was PERFORMED in. A log-log fit minimizes log-space residuals, so scoring it against linear-space variance rejects sound fits as degenerate — the exact failure that made a well-conditioned calibration unusable.
 - Law: three samples is the floor. A two-point line passes through both points with zero residual and no determination at all, so it states a fit the data never supported.
+- Law: `Regression`, `PowerLaw`, and `KienzleModel` are regression STATISTICS — no content key, no evidence band, no stamp — so none takes the `*Receipt` name the branch reserves for the settled-receipt carrier.
 - Cases: `FitSpace` closes linear and logarithmic and carries its own forward, inverse, and admissibility columns, so the transform and the domain guard travel together.
 - Entry: `LinearFit.Apply(Seq<(double X, double Y)>, FitSpace)` is the one regression; `PowerLawFit.Apply` and `CuttingCalibration.Apply(CalibrationRequest, Material, Operation, FabricationTap?)` compose it, the calibration's tap defaulting silent.
-- Auto: `Tooling/wear` composes `LinearFitReceipt` for its trajectory fit rather than declaring a second regression body, so slope, intercept, residual, determination, domain, and terminal sample are stated once for the whole package.
-- Receipt: `LinearFitReceipt` carries slope, intercept, root-mean-square residual, fit-space determination, sample domain, ordinate mean and dispersion, the terminal abscissa and ordinate, and the sample count. Sample columns are the caller's own units and model columns the fit space's, so no consumer reads a logarithm beside a raw mean. `PowerLawReceipt` adds the coefficient and exponent its log-log reading derives and forwards the shared columns. `FabricationFact.CuttingFit.Of` projects residual and determination onto `rasm.fabrication.fit.residual` and `rasm.fabrication.fit.quality` through `Process/telemetry#FACT_PROJECTION` as kind `cutting-fit`.
+- Auto: `Tooling/wear` composes `Regression` for its trajectory fit rather than declaring a second regression body, so slope, intercept, residual, determination, domain, and terminal sample are stated once for the whole package.
+- Receipt: `Regression` carries slope, intercept, root-mean-square residual, fit-space determination, sample domain, ordinate mean and dispersion, the terminal abscissa and ordinate, and the sample count. Sample columns are the caller's own units and model columns the fit space's, so no consumer reads a logarithm beside a raw mean. `PowerLaw` adds the coefficient and exponent its log-log reading derives and forwards the shared columns. `FabricationFact.CuttingFit.Of` projects residual and determination onto `rasm.fabrication.fit.residual` and `rasm.fabrication.fit.quality` through `Process/telemetry#FACT_PROJECTION` as kind `cutting-fit`.
 - Exemption: `LinearFit.Apply` is a measured numeric kernel — the buffer reuse across the transform, prediction, and residual passes IS the arithmetic, so the statement body is the law rather than an imperative accumulation of a value.
 - Packages: MathNet.Numerics `Fit.Line` and `GoodnessOfFit.RSquared`; `Process/telemetry` (`FabricationTap`, `FabricationFact.CuttingFit`); `TensorPrimitives` finite checks and statistical reductions.
 - Growth: a new regression space is one `FitSpace` row.
@@ -751,7 +737,7 @@ public sealed partial class FitSpace {
     public bool AdmitsNonPositive { get; }
 }
 
-public sealed record LinearFitReceipt(
+public sealed record Regression(
     double Slope,
     double Intercept,
     double RootMeanSquareResidual,
@@ -771,13 +757,13 @@ public static class LinearFit {
 
     // Exemption: the transform, prediction, and residual passes ARE the arithmetic, so the buffers are the kernel
     // rather than mutable state a fold could carry.
-    public static Fin<LinearFitReceipt> Apply(Seq<(double X, double Y)> samples, FitSpace space) {
+    public static Fin<Regression> Apply(Seq<(double X, double Y)> samples, FitSpace space) {
         double[] x = samples.Map(static row => row.X).ToArray();
         double[] y = samples.Map(static row => row.Y).ToArray();
         if (x.Length < MinimumSamples
             || !TensorPrimitives.IsFiniteAll<double>(x) || !TensorPrimitives.IsFiniteAll<double>(y)
             || (!space.AdmitsNonPositive && (x.Any(static value => value <= 0.0) || y.Any(static value => value <= 0.0))))
-            return Fin.Fail<LinearFitReceipt>(ToolKey.Tooling("linear-fit:samples"));
+            return Fin.Fail<Regression>(ToolKey.Tooling("linear-fit:samples"));
 
         double[] fx = x.Select(space.Forward).ToArray();
         double[] fy = y.Select(space.Forward).ToArray();
@@ -792,22 +778,22 @@ public static class LinearFit {
         // Every SAMPLE column reads the raw observations and every MODEL column the fit space, so a consumer never
         // mixes the two on one receipt: domain, mean, dispersion, and the terminal pair are the caller's own units,
         // while slope, intercept, residual, and determination belong to the transform the regression ran in. The
-        // terminal pair read `fx`/`fy` and so were logarithms beside a raw mean on the same log-log receipt.
-        LinearFitReceipt receipt = new(slope, intercept, residual, determination,
+        // terminal pair read `fx`/`fy` and so were logarithms beside a raw mean on the same log-log result.
+        Regression fitted = new(slope, intercept, residual, determination,
             x.Min(), x.Max(), TensorPrimitives.Average<double>(y), TensorPrimitives.StdDev<double>(y),
             x[^1], y[^1], y.Length);
-        return Seq(slope, intercept, residual, determination, receipt.Mean, receipt.StandardDeviation)
+        return Seq(slope, intercept, residual, determination, fitted.Mean, fitted.StandardDeviation)
                 .ForAll(double.IsFinite)
             && determination is >= 0.0 and <= 1.0
-            && receipt.DomainMaximum > receipt.DomainMinimum
-            ? Fin.Succ(receipt)
-            : Fin.Fail<LinearFitReceipt>(ToolKey.Tooling("linear-fit:degenerate"));
+            && fitted.DomainMaximum > fitted.DomainMinimum
+            ? Fin.Succ(fitted)
+            : Fin.Fail<Regression>(ToolKey.Tooling("linear-fit:degenerate"));
     }
 }
 
 // A power law IS the shared fit read in log-log space: the coefficient is the exponentiated intercept and the
 // exponent the negated slope, so this receipt adds those two readings and forwards the rest.
-public sealed record PowerLawReceipt(double Coefficient, double Exponent, LinearFitReceipt Fit) {
+public sealed record PowerLaw(double Coefficient, double Exponent, Regression Fit) {
     public double RootMeanSquareResidual => Fit.RootMeanSquareResidual;
     public double RSquared => Fit.RSquared;
     public double DomainMinimum => Fit.DomainMinimum;
@@ -818,18 +804,17 @@ public sealed record PowerLawReceipt(double Coefficient, double Exponent, Linear
 }
 
 public static class PowerLawFit {
-    public static Fin<PowerLawReceipt> Apply(Seq<(double X, double Y)> samples) =>
+    public static Fin<PowerLaw> Apply(Seq<(double X, double Y)> samples) =>
         from fit in LinearFit.Apply(samples, FitSpace.Logarithmic)
         let coefficient = FitSpace.Logarithmic.Inverse(fit.Intercept)
         let exponent = -fit.Slope
-        from admitted in Witness.Positive(coefficient) && Witness.Positive(exponent)
-            ? Fin.Succ(new PowerLawReceipt(coefficient, exponent, fit))
-            : Fin.Fail<PowerLawReceipt>(ToolKey.Tooling("power-law:degenerate"))
+        from admitted in ValidityClaim.All(
+            ValidityClaim.Positive(coefficient), ValidityClaim.Positive(exponent)) ? Fin.Succ(new PowerLaw(coefficient, exponent, fit))
+            : Fin.Fail<PowerLaw>(ToolKey.Tooling("power-law:degenerate"))
         select admitted;
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CalibrationRequest {
     public Seq<(Length ChipThickness, Pressure SpecificForce)> Samples { get; }
     public int MinimumSamples { get; }
@@ -838,19 +823,19 @@ public sealed partial class CalibrationRequest {
     public double MinimumRSquared { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError,
         ref Seq<(Length ChipThickness, Pressure SpecificForce)> samples, ref int minimumSamples,
         ref Length minimumThicknessSpan, ref double maximumResidual, ref double minimumRSquared) =>
         validationError = minimumSamples < LinearFit.MinimumSamples || samples.Count < minimumSamples
             || minimumThicknessSpan <= Length.Zero
-            || !Witness.Positive(maximumResidual)
+            || !ValidityClaim.Positive(maximumResidual).Holds
             || !double.IsFinite(minimumRSquared) || minimumRSquared is < 0.0 or > 1.0
             || samples.Exists(static row => row.ChipThickness <= Length.Zero || row.SpecificForce <= Pressure.Zero)
             // A fit over a thickness span narrower than the caller's own floor extrapolates everywhere it is later
             // read, so the span is admitted rather than discovered at the first out-of-domain evaluation.
             || samples.Max(static row => row.ChipThickness.Millimeters)
                 - samples.Min(static row => row.ChipThickness.Millimeters) < minimumThicknessSpan.Millimeters
-            ? ToolKey.Tooling("cutting-calibration-request") : null;
+            ? ToolKey.Validation("cutting-calibration-request") : null;
 
     public static Fin<CalibrationRequest> Admit(Seq<(Length ChipThickness, Pressure SpecificForce)> samples,
         int minimumSamples, Length minimumThicknessSpan, double maximumResidual, double minimumRSquared) =>
@@ -859,11 +844,10 @@ public sealed partial class CalibrationRequest {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
-public sealed partial class CalibrationReceipt {
+public sealed partial class KienzleModel {
     public Pressure Kc11 { get; }
     public double Mc { get; }
-    public LinearFitReceipt Fit { get; }
+    public Regression Fit { get; }
     public Length ThicknessMinimum { get; }
     public Length ThicknessMaximum { get; }
     public Pressure ForceMean { get; }
@@ -874,23 +858,23 @@ public sealed partial class CalibrationReceipt {
     public int Samples => Fit.Samples;
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Pressure kc11,
-        ref double mc, ref LinearFitReceipt fit, ref Length thicknessMinimum, ref Length thicknessMaximum,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Pressure kc11,
+        ref double mc, ref Regression fit, ref Length thicknessMinimum, ref Length thicknessMaximum,
         ref Pressure forceMean, ref Pressure forceStandardDeviation) =>
         validationError = kc11 <= Pressure.Zero || !double.IsFinite(mc) || mc is <= 0.0 or >= 1.0
             || thicknessMinimum <= Length.Zero || thicknessMaximum <= thicknessMinimum
             || forceMean <= Pressure.Zero || forceStandardDeviation < Pressure.Zero
             || fit.Samples < LinearFit.MinimumSamples
-            ? ToolKey.Tooling("cutting-calibration-receipt") : null;
+            ? ToolKey.Validation("cutting-calibration-receipt") : null;
 
-    public static Fin<CalibrationReceipt> Admit(Pressure kc11, double mc, LinearFitReceipt fit,
+    public static Fin<KienzleModel> Admit(Pressure kc11, double mc, Regression fit,
         Length thicknessMinimum, Length thicknessMaximum, Pressure forceMean, Pressure forceStandardDeviation) =>
         Validate(kc11, mc, fit, thicknessMinimum, thicknessMaximum, forceMean, forceStandardDeviation,
-            out CalibrationReceipt receipt).Admitted(receipt);
+            out KienzleModel model).Admitted(model);
 }
 
 public static class CuttingCalibration {
-    public static Fin<CalibrationReceipt> Apply(CalibrationRequest request, Material material, Operation operation,
+    public static Fin<KienzleModel> Apply(CalibrationRequest request, Material material, Operation operation,
         FabricationTap? tap = null) =>
         from fit in PowerLawFit.Apply(request.Samples.Map(static row =>
             (row.ChipThickness.Millimeters, row.SpecificForce.Megapascals)))
@@ -898,15 +882,15 @@ public static class CuttingCalibration {
         // that refused it — an instrument that only ever sees accepted fits reports a quality the shop never had.
         let _fact = (tap ?? FabricationTap.Silent).Fire(
             FabricationFact.CuttingFit.Of(nameof(CuttingCalibration), fit))
-        from receipt in CalibrationReceipt.Admit(
+        from model in KienzleModel.Admit(
             Pressure.FromMegapascals(fit.Coefficient), fit.Exponent, fit.Fit,
             Length.FromMillimeters(fit.DomainMinimum), Length.FromMillimeters(fit.DomainMaximum),
             Pressure.FromMegapascals(fit.Mean), Pressure.FromMegapascals(fit.StandardDeviation))
-        from admitted in receipt.RootMeanSquareResidual <= request.MaximumResidual
-            && receipt.RSquared >= request.MinimumRSquared
-            ? Fin.Succ(receipt)
-            : Fin.Fail<CalibrationReceipt>(new FabricationFault.CuttingModelUnfit(
-                material, operation, nameof(CuttingCalibration), receipt.Samples))
+        from admitted in model.RootMeanSquareResidual <= request.MaximumResidual
+            && model.RSquared >= request.MinimumRSquared
+            ? Fin.Succ(model)
+            : Fin.Fail<KienzleModel>(new FabricationFault.CuttingModelUnfit(
+                material, operation, nameof(CuttingCalibration), model.Samples))
         select admitted;
 }
 ```
@@ -923,7 +907,6 @@ public static class CuttingCalibration {
 ```csharp signature
 // --- [FORM_PROJECTION] ----------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CutterFormPolicy {
     public Angle TaperFloor { get; }
     public Length RadiusTolerance { get; }
@@ -931,10 +914,10 @@ public sealed partial class CutterFormPolicy {
     public Option<CutterFamily> DeclaredFamily { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Angle taperFloor,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Angle taperFloor,
         ref Length radiusTolerance, ref Length zeroLength, ref Option<CutterFamily> declaredFamily) =>
         validationError = taperFloor < Angle.Zero || radiusTolerance <= Length.Zero || zeroLength < Length.Zero
-            ? ToolKey.Tooling("cutter-form-policy") : null;
+            ? ToolKey.Validation("cutter-form-policy") : null;
 
     public static Fin<CutterFormPolicy> Admit(Angle taperFloor, Length radiusTolerance, Length zeroLength,
         Option<CutterFamily> declaredFamily) =>
@@ -947,7 +930,7 @@ public static class CutterFormProjection {
         public static Fin<CutterForm> Of(ToolAssembly assembly, CutterFormPolicy policy) {
             (double Diameter, double Radius, double Taper, double Flute) geometry = Geometry(assembly);
             return (policy.DeclaredFamily | Infer(assembly, policy, geometry))
-                .ToFin(new FabricationFault.ToolAssetInadmissible(assembly.Key.ToValue(), nameof(CutterFamily)))
+                .ToFin(new FabricationFault.ToolAssetInadmissible(Some(assembly.Key.ToValue()), nameof(CutterFamily)))
                 .Bind(family => CutterForm.Admit(new CutterIngress(family, geometry.Diameter,
                     geometry.Radius, geometry.Taper, geometry.Flute, Map<CutterMetric, double>())));
         }
@@ -998,14 +981,15 @@ public static class CutterFormProjection {
 
 ## [06]-[CHATTER_STABILITY]
 
-- Owner: `ChatterStability` owns the lobe solve; `StabilityReceipt` owns the solved bands, gaps, and the recommendation; `StablePoint` is the pinned recommendation shape every posting and toolpath consumer reads.
+- Owner: `ChatterStability` owns the lobe solve; `StabilityLobes` owns the solved bands, gaps, and the recommendation; `StablePoint` is the pinned recommendation shape every posting and toolpath consumer reads.
 - Law: `Depth` yields a LENGTH IN METRES and its own definition proves it. The modal compliance is a dimensionless detuning over a stiffness in newtons per metre, so it carries metres per newton; the specific-force coefficient in pascals is newtons per square metre; their product with the dimensionless directional factor is reciprocal metres, and the negated reciprocal of that is metres. Both consuming sites therefore take the TYPED length ratio `depth / targetDepth` and no millimetre scale literal stands between the producer and either reading.
 - Law: a lobe exists only on the NEGATIVE-compliance branch, so the positive branch yields no depth at all and answers `None`. A not-a-number standing in for that absence propagated through every comparison as silently false.
 - Cases: `ModalEvidence` distinguishes tap-test, operational, analytical, and vendor modal provenance; `StabilityEvidence` distinguishes stable, marginal, and unstable bands and carries its own admissibility column; `StabilityCrossing` names each solved transition's direction; `StabilityGapReason` names why a ratio window produced no band.
-- Entry: `ChatterStability.Apply(StabilityRequest)` is the one dynamic entry; `StabilityReceipt.Recommend(double)` returns the highest-margin stable point at a requested depth and `.Require(double)` is its refusing counterpart.
+- Entry: `ChatterStability.Apply(StabilityRequest)` is the one dynamic entry; `StabilityLobes.Recommend(double)` returns the highest-margin stable point at a requested depth and `.Require(double)` is its refusing counterpart.
 - Auto: the recommendation's margin is relative to the REQUESTED depth rather than the receipt's own target, so a caller asking about a shallower pass reads the margin it actually has; admissibility rides `StabilityEvidence` as a column, so the selection filters through the generated union rather than a runtime type test.
-- Receipt: `StabilityReceipt` carries contiguous lobe-indexed spindle-depth bands, every solved crossing with its direction, ratio-bounded gaps, modal provenance, and the target depth its margins are relative to. `StablePoint` carries the spindle speed, the depth limit in millimetres, and the fraction by which that limit exceeds the request.
+- Receipt: `StabilityLobes` carries contiguous lobe-indexed spindle-depth bands, every solved crossing with its direction, ratio-bounded gaps, modal provenance, and the target depth its margins are relative to. `StablePoint` carries the spindle speed, the depth limit in millimetres, and the fraction by which that limit exceeds the request.
 - Packages: MathNet.Numerics `Generate.LinearSpaced` and `Brent.TryFindRoot`; `UnitsNet` quantity ratio.
+- Law: `StabilityLobes` carries solved bands and no settled-receipt column, so it takes a page noun rather than the `*Receipt` name; `StabilityPolicy` stays here because this page PRODUCES the bands, and the `Posting/optimization` consumer that intersects them is the `StabilityGate` that renamed.
 - Growth: a measured mode is one `ModalMode` inside `ModalResponse`; a modal provenance is one `ModalEvidence` case.
 - Boundary: a single transition where a lobe crosses twice, margins relative to a regime ceiling rather than the requested depth, and chatter-blind speed selection are deleted forms.
 
@@ -1029,7 +1013,6 @@ public abstract partial record ModalEvidence {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ModalMode {
     public double NaturalFrequencyHz { get; }
     public double DampingRatio { get; }
@@ -1038,15 +1021,14 @@ public sealed partial class ModalMode {
     public ModalEvidence Evidence { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref double naturalFrequencyHz,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double naturalFrequencyHz,
         ref double dampingRatio, ref double stiffnessNewtonsPerMeter, ref double directionalFactor,
         ref ModalEvidence evidence) =>
-        validationError = !Witness.Positive(naturalFrequencyHz) || !Witness.Positive(stiffnessNewtonsPerMeter)
+        validationError = !ValidityClaim.Positive(naturalFrequencyHz).Holds || !ValidityClaim.Positive(stiffnessNewtonsPerMeter).Holds
             // Zero damping makes the compliance singular at resonance and unit damping is critical, where no lobe
             // structure exists at all.
             || !double.IsFinite(dampingRatio) || dampingRatio is <= 0.0 or >= 1.0
-            || !Witness.Positive(directionalFactor) || !evidence.Grounded
-            ? ToolKey.Tooling("modal-mode") : null;
+            || !ValidityClaim.Positive(directionalFactor).Holds || !evidence.Grounded? ToolKey.Validation("modal-mode") : null;
 
     public static Fin<ModalMode> Admit(double naturalFrequencyHz, double dampingRatio,
         double stiffnessNewtonsPerMeter, double directionalFactor, ModalEvidence evidence) =>
@@ -1055,25 +1037,23 @@ public sealed partial class ModalMode {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ModalResponse {
     public Seq<ModalMode> Modes { get; }
     public ModalEvidence MachineEvidence { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Seq<ModalMode> modes,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<ModalMode> modes,
         ref ModalEvidence machineEvidence) =>
         validationError = modes.IsEmpty
             || modes.Map(static mode => mode.NaturalFrequencyHz).Distinct().Count != modes.Count
             || !machineEvidence.Grounded
-            ? ToolKey.Tooling("modal-response") : null;
+            ? ToolKey.Validation("modal-response") : null;
 
     public static Fin<ModalResponse> Admit(Seq<ModalMode> modes, ModalEvidence machineEvidence) =>
         Validate(modes, machineEvidence, out ModalResponse response).Admitted(response);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class StabilityPolicy {
     public int Lobes { get; }
     public int SamplesPerLobe { get; }
@@ -1084,16 +1064,15 @@ public sealed partial class StabilityPolicy {
     public double MarginalFraction { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref int lobes,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int lobes,
         ref int samplesPerLobe, ref ScalarBand spindleSearch, ref ScalarBand frequencyRatioSearch,
         ref double rootAccuracy, ref int rootIterations, ref double marginalFraction) =>
         // The negative-compliance branch begins strictly above resonance, so a ratio search starting at or below
         // unity samples a region where no lobe exists.
         validationError = lobes <= 0 || samplesPerLobe < LinearFit.MinimumSamples
             || frequencyRatioSearch.Minimum <= 1.0
-            || !Witness.Positive(rootAccuracy) || rootIterations <= 0
-            || !double.IsFinite(marginalFraction) || marginalFraction is <= 0.0 or >= 1.0
-            ? ToolKey.Tooling("stability-policy") : null;
+            || !ValidityClaim.Positive(rootAccuracy).Holds || rootIterations <= 0
+            || !double.IsFinite(marginalFraction) || marginalFraction is <= 0.0 or >= 1.0? ToolKey.Validation("stability-policy") : null;
 
     public static Fin<StabilityPolicy> Admit(int lobes, int samplesPerLobe, ScalarBand spindleSearch,
         ScalarBand frequencyRatioSearch, double rootAccuracy, int rootIterations, double marginalFraction) =>
@@ -1102,7 +1081,6 @@ public sealed partial class StabilityPolicy {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class StabilityRequest {
     public CuttingData Cutting { get; }
     public ModalResponse Modal { get; }
@@ -1112,11 +1090,11 @@ public sealed partial class StabilityRequest {
     public Length TargetDepth { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref CuttingData cutting,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref CuttingData cutting,
         ref ModalResponse modal, ref StabilityPolicy policy, ref int teeth, ref Length chipThickness,
         ref Length targetDepth) =>
         validationError = teeth <= 0 || chipThickness <= Length.Zero || targetDepth <= Length.Zero
-            ? ToolKey.Tooling("stability-request") : null;
+            ? ToolKey.Validation("stability-request") : null;
 
     public static Fin<StabilityRequest> Admit(CuttingData cutting, ModalResponse modal, StabilityPolicy policy,
         int teeth, Length chipThickness, Length targetDepth) =>
@@ -1163,7 +1141,7 @@ public sealed record StabilityGap(int Mode, int Lobe, StabilityGapReason Reason,
 // the fraction by which that depth exceeds what the caller asked for.
 public readonly record struct StablePoint(double SpindleRpm, double DepthMm, double MarginFraction);
 
-public sealed record StabilityReceipt(Seq<StabilityBand> Bands, ModalResponse Modal,
+public sealed record StabilityLobes(Seq<StabilityBand> Bands, ModalResponse Modal,
     Seq<StabilityGap> Gaps, Pressure TangentialCoefficient, ScalarBand Search, Length TargetDepth) {
     // The margin is relative to the REQUESTED depth, not the receipt's own target: a caller asking about a
     // shallower pass reads the headroom that pass actually has rather than the headroom the solve was framed on.
@@ -1182,7 +1160,7 @@ public sealed record StabilityReceipt(Seq<StabilityBand> Bands, ModalResponse Mo
 }
 
 public static class ChatterStability {
-    public static Fin<StabilityReceipt> Apply(StabilityRequest request) =>
+    public static Fin<StabilityLobes> Apply(StabilityRequest request) =>
         from coefficient in request.Cutting.Kc(request.ChipThickness)
         let requests = toSeq(Enumerable.Range(0, request.Modal.Modes.Count)).Bind(mode =>
             Range(0, request.Policy.Lobes).ToSeq()
@@ -1199,7 +1177,7 @@ public static class ChatterStability {
             ? Fin.Fail<Unit>(new FabricationFault.StabilityUnavailable(
                 request.TargetDepth.Millimeters, request.Policy.Lobes))
             : Fin.Succ(unit)
-        select new StabilityReceipt(bands, request.Modal, gaps, coefficient, request.Policy.SpindleSearch,
+        select new StabilityLobes(bands, request.Modal, gaps, coefficient, request.Policy.SpindleSearch,
             request.TargetDepth);
 
     [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1273,7 +1251,7 @@ public static class ChatterStability {
         // The typed length ratio IS the margin: a depth limit over the target depth, both quantities, so the scale
         // between the producer's metres and the request's millimetres never reaches this expression.
         let margin = depth / request.TargetDepth
-        where request.Policy.SpindleSearch.Contains(spindle) && Witness.Positive(margin)
+        where ValidityClaim.All(request.Policy.SpindleSearch.Contains(spindle), ValidityClaim.Positive(margin))
         select new StabilityPoint(ratio, RotationalSpeed.FromRevolutionsPerMinute(spindle), depth,
             margin, Evidence(margin, request.Policy.MarginalFraction));
 
@@ -1346,7 +1324,7 @@ flowchart LR
     Operation["OperationTrait"] --> Resolve
     Tool["CutterForm / ToolMetric"] --> Resolve
     Resolve --> Load["CuttingLoad — one model, edge count a parameter"]
-    Load -->|TangentialPerEdge| Deflection["Posting/program deflection"]
+    Load -->|TangentialPerEdge| Deflection["Posting/conditioning deflection"]
     Load -->|Tangential · RemovalRate| Removal["Posting/optimization removal rate"]
     Resolve --> Stability["ChatterStability.Apply"]
     Modal["ModalResponse"] --> Stability

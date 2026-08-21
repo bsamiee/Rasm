@@ -22,23 +22,25 @@
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from enum import StrEnum
 from math import ceil, isfinite
-from typing import TYPE_CHECKING, Literal, assert_never
+from typing import TYPE_CHECKING, Final, Literal, assert_never
 
 import msgspec
 import numpy as np
 from builtins import frozendict
 from expression import Error, Ok, Result, case, tag, tagged_union
+from expression.collections import Block
 from msgspec import Struct
 
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, async_boundary
+from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, async_boundary, rostered
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.media.audio import Master, Pcm, _encode_audio  # float32 blocks admit through the audio _INGEST["flt"] row
-from rasm.artifacts.media.container import CANON, ContainerFormat, MediaFault, MediaProfile, Produced, _lapsed, _worker
+from rasm.artifacts.media.container import CANON, MEDIA_RESIDUE, ContainerFormat, MediaFault, MediaProfile, Produced, _lapsed, _worker
 
 lazy from rasm.artifacts.media.container import _encode_video, _mux_av
 
@@ -134,6 +136,16 @@ _COVERED: tuple[tuple[frozenset[object], frozenset[object]], ...] = (
 )
 if any(rows != vocabulary for rows, vocabulary in _COVERED):
     raise RuntimeError("synthesis tables do not cover their vocabularies")
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's ONE raise anchor: the fold is a single fence over the whole op union, so the op tag is request data the
+# `MediaFault` case already discriminates rather than a coordinate the subject re-spells per op. TRANSIENT — a
+# worker death and a codec refusal are defects a re-issue may clear.
+SYNTHESIS_FOLD: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.SYNTHESIS, point="fold", arm="boundary", defect="synthesis-fold", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([SYNTHESIS_FOLD]))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -290,10 +302,12 @@ class Synthesis(Struct, frozen=True):
         return ContentIdentity.key(f"media.synthesis-{self.op.tag}", CANON.encode((self.op, _identity_policy(self.op, self.profile))))
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # member MediaFault folds into the boundary fault (Work[ArtifactReceipt] forbids an inner Result).
-        railed = await async_boundary(f"media.synthesis.{self.op.tag}", self._folded)
+        # the member `MediaFault` crosses WHOLE on `BoundaryFault.domain` (`Work[ArtifactReceipt]` forbids an inner
+        # Result), so its case and kwargs stay matchable; the retired `f"{tag}:{fault}"` collapse handed every case
+        # to one string and left a consumer nothing to gate on.
+        railed = await async_boundary(SYNTHESIS_FOLD, self._folded, catch=MEDIA_RESIDUE)
         return railed.bind(
-            lambda res: res.map_error(lambda fault: BoundaryFault(boundary=(f"media.synthesis.{self.op.tag}", f"{fault.tag}:{fault}")))
+            lambda res: res.map_error(lambda fault: BoundaryFault(domain=(SYNTHESIS_FOLD.subject, fault)))
         )
 
     async def _folded(self, /) -> Result[ArtifactReceipt, MediaFault]:

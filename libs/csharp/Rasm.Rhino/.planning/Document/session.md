@@ -1,39 +1,71 @@
 # [RASM_RHINO_SESSION]
 
-`Rasm.Rhino.Document` owns document identity, lifecycle admission, capability-scoped access, document lifetime, and the live model/page regime. `DocumentSession` retains an owned headless lease only after every admission gate succeeds, serializes each consuming host call around handle re-resolution and fresh evidence, and re-reads the kernel `Context` so a regime change cannot leave a stale domain bundle.
+`Rasm.Rhino.Document` owns document identity, lifecycle admission, capability-scoped access, document lifetime, and the live model/page regime. `DocumentSession` retains an owned headless lease only after every admission gate succeeds, serializes each consuming host call around handle re-resolution and fresh evidence, and re-reads the kernel `Context` so a regime change cannot leave a stale domain bundle. The page also mints the folder's admission fault family: `DraftFault` codes on the kernel `FaultBand.HostDraft` row, every generated owner across the Document and Annotation spines stamps `[ValidationError]`, and the message a `ValidateFactoryArguments` hook authors reaches the rail typed instead of dying inside a boolean funnel.
 
 ## [01]-[INDEX]
 
-- [02]-[IDENTITY_AND_STATE]: `DocKey`, `DocumentSet`, `SessionSnapshot`, the detached `WorksessionSnapshot` topology with serial-keyed model resolution, and the scripted `WorksessionOp` attach/detach/reload rail.
-- [03]-[CAPABILITY]: `SessionMode` and the behavior-bearing `SessionNeed` capability vocabulary.
-- [04]-[SOURCE_AND_SESSION]: `DocumentPath`, the flattened `SessionSource` admission family, and the lease-retaining `DocumentSession` owner.
-- [05]-[REGIME]: `DocumentSpace`, the kernel-composed tolerance regime, and the one `RegimeChange` mutation rail.
-- [06]-[REGIME_TEXT]: the locale-aware `UnitText` correspondence over one live regime.
-- [07]-[SURFACE_LEDGER]: the page-owned surface registry.
+- [02]-[FAULT]: `DraftFault` — the folder's one admission-refusal family on the kernel band registry, and the folder law that seats it.
+- [03]-[IDENTITY_AND_STATE]: `DocKey`, `DocumentReach`, `DocumentSet`, `PhaseStance`, `SessionPhase`, `SessionCondition`, `SessionSnapshot`, the detached `WorksessionSnapshot` topology with serial-keyed model resolution, and the scripted `WorksessionOp` attach/detach/reload rail under `MembershipShift`.
+- [04]-[CAPABILITY]: `LaneCapability`, `SessionMode`, `UndoCustody`, and the fully data-driven `SessionNeed` capability table.
+- [05]-[SOURCE_AND_SESSION]: `DocumentPath`, the flattened `SessionSource` admission family, `SessionGate`, and the lease-retaining `DocumentSession` owner.
+- [06]-[REGIME]: `DocumentSpace`, the kernel-`Context` regime, `DrawingPrecision` composition, and the one `RegimeChange` mutation rail.
+- [07]-[REGIME_TEXT]: the host parse/render correspondence over one live regime.
+- [08]-[SURFACE_LEDGER]: the page-owned surface registry.
 
-## [02]-[IDENTITY_AND_STATE]
+## [02]-[FAULT]
 
-- Owner: `DocKey` `[ValueObject<uint>]` admits the positive `RuntimeSerialNumber`; `DocumentSet` carries live, headless, and combined census predicates as behavior rows. `SessionPhase` folds the host lifecycle product into one position, and `SessionSnapshot` `[ComplexValueObject]` admits identity, optional path/name provenance, and every capability-relevant host fact. `WorksessionSnapshot` projects the active/reference file topology, optional runtime identity, and serial-keyed model resolution without retaining the live `Worksession` handle; `WorksessionOp` carries one model plus a closed verb program, and each `WorksessionVerb` row owns script, membership, and inverse policy.
-- Entry: `DocKey.Census` returns detached keys from the host iterator. Internal `DocKey.Resolve` re-enters the handle only inside the session owner, and internal `SessionSnapshot.Of` is the single read site for availability, transition, access, undo enablement, active undo recording, headless, dirty, active-command, and public point-acquisition state. One `session.Worksession` name carries both modalities — a serial spread reads, a `WorksessionOp` value transitions — and `WorksessionSnapshot.FileOf` resolves a worksession runtime serial to its file with no document at all.
-- Law: lifecycle precedence is closing, opening, initializing, creating, ready, unavailable; the tuple switch covers the complete flag product and names no default arm.
+- Owner: `DraftFault` is the direct draft-host family on `FaultBand.HostDraft`; generated-value refusals cross the kernel validation bridge.
+- Cases: `HostRefused` preserves the host member and native detail; generated admission and foreign failures retain their exact `Error`.
+- Law: generated owners stamp `[ValidationError]`; independent clauses use `FactoryValidation`, and public accumulation rides `Validation<Error, T>`.
+- Law: the generated fault-case identity supplies the numeric code, while this root's total `Message` switch supplies presentation.
+- Boundary: `DraftFault` never represents generated validation, aggregates, categories, or wire envelopes.
+- Packages: `Domain/rails`, Thinktecture.Runtime.Extensions, and LanguageExt.Core.
+
+```csharp signature
+// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+using Rasm.Domain;
+using Thinktecture;
+
+namespace Rasm.Rhino.Document;
+
+// --- [ERRORS] -----------------------------------------------------------------------------
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record DraftFault : Fault {
+    private static readonly FaultBand FamilyBand = FaultBand.HostDraft;
+    private DraftFault() { }
+
+    [FaultCase(0)] public sealed partial record HostRefused(Op Key, string Member, string Detail) : DraftFault;
+
+    public sealed override string Message => Switch(
+        hostRefused: static fault => $"Draft host member '{fault.Member}' refused '{fault.Key}': {fault.Detail}");
+}
+```
+
+## [03]-[IDENTITY_AND_STATE]
+
+- Owner: `DocKey` `[ValueObject<uint>]` admits the positive `RuntimeSerialNumber`; `DocumentReach` is the census vocabulary and `DocumentSet` rows carry ONE `CapabilitySet<DocumentReach>` column from which both the host iterator flag and the admission predicate DERIVE. `SessionPhase` folds the host lifecycle product into one position and carries its `PhaseStance`; `SessionCondition` is the snapshot's condition vocabulary and `SessionSnapshot` `[ComplexValueObject]` admits identity, optional path/name provenance, and every capability-relevant host fact as ONE `CapabilitySet<SessionCondition>` beside the phase. `SessionMap` is the generated host projection both snapshot mints read. `WorksessionSnapshot` projects the active/reference file topology, optional runtime identity, and serial-keyed model resolution without retaining the live `Worksession` handle; `WorksessionOp` carries one model plus a closed verb program, and each `WorksessionVerb` row owns its script token and its `MembershipShift`.
+- Entry: `DocKey.Census` returns detached keys from the host iterator. Internal `DocKey.Resolve` re-enters the handle only inside the session owner, and internal `SessionSnapshot.Of` is the single read site: `SessionMap.Facts` projects the host getters once, the condition set folds from the projected facts, and the constraint clauses admit accumulating. One `session.Worksession` name carries both modalities — a serial spread reads, a `WorksessionOp` value transitions — and `WorksessionSnapshot.FileOf` resolves a worksession runtime serial to its file with no document at all.
+- Auto: `DocumentSet.IncludeHeadless` and `Admits` both derive from the row's `Reach` set — the iterator flag is `Reach.Admits(Headless)` and the predicate reads the document's own headless bit against the set — so the census discriminant has one authority and a fourth census row is one set literal.
+- Auto: the snapshot's nine former bool columns ride `CapabilitySet<SessionCondition>`; the three pairwise clauses admit at the ONE mint through `FactoryValidation` — `UndoRecording` demands `UndoEnabled`, `Undoing` excludes `Redoing`, `Headless` excludes `Pointing` — so an illegal condition product is refused with every violated clause named. The kernel `CapabilityLaw` states exact-corner rosters and no per-row predicate arm, so the implication clause lives at this mint rather than as a law row; the set is constructible nowhere else.
+- Law: lifecycle precedence is closing, opening, initializing, creating, ready, unavailable; the tuple switch covers the complete flag product and names no default arm. `PhaseStance` is the phase's one openness column — `Open`, `Transitional`, `Closed` — so a capability row states the stances it admits as a set instead of two bools every reader re-conjoins.
 - Law: `SessionSnapshot` is immutable evidence from one read. Every capability use re-resolves the retained key and obtains a new snapshot inside `DocumentSession.Demand` immediately before invoking its host body.
-- Law: the host `Worksession` is a read-only roster — every transition rides the serial-pinned script rail: per verb one fresh membership precondition, one scripted host run, one membership postcondition, and one declared inverse; reload composes detach then attach inside one demand window, and the verb fold rides `DocumentCommit.Compensated`, the slice's one compensation algebra, so a failed suffix unwinds the completed prefix through the same landed-then-rollback shape every other rail uses. A receipt carries the before and after topology, never a bare success flag.
+- Law: the host `Worksession` is a read-only roster — every transition rides the serial-pinned script rail: per verb one fresh membership precondition, one scripted host run, one membership postcondition, and one declared inverse; reload composes detach then attach inside one demand window, and the verb fold rides `DocumentCommit.Compensated`, the slice's one compensation algebra, so a failed suffix unwinds the completed prefix through the same landed-then-rollback shape every other rail uses. A receipt carries the before and after topology, never a bare success flag. `MembershipShift` is the verb's one membership column — the precondition is `Shift.Before`, the postcondition `Shift.After`, and the inverse verb carries the opposite row — so the two former bool columns and the drift they admitted between them are unrepresentable.
 - Boundary: the worksession transition rail is STRINGLY by host truth, and the carve is named rather than tolerated. `Rhino.DocObjects.Worksession` exposes reads alone — `Document`, `RuntimeSerialNumber`, `FileName`, `Name`, `ModelCount`, `ModelPaths`, plus the two serial resolvers — and declares no attach, detach, add, or remove member at any access level, so `RhinoApp.RunScript` against the `_-Worksession` command is the only managed route a model transition has. Everything the carve costs is paid back on the same rail: `WorksessionVerb` owns the script token so no call site composes command text, `DocumentPath` refuses anything but a fully qualified path, `Scriptable` refuses a path carrying a quote or a newline so the composed line cannot be broken out of, and each verb proves membership before and after its run so a silently-failed script is a typed refusal rather than an unnoticed no-op. A hand-composed `_-Worksession` string anywhere else in the boundary is the deleted form.
 - Boundary: the worksession rail is the boundary's single non-undoable host mutation and is exempt from `DocumentCommit.Sealed` by host truth — attach and detach reshape which files the session references, which Rhino's undo stack does not record, so a bracket here would seal an empty record and advertise a rollback the host cannot perform. Its inverse is the declared per-verb script, not an undo serial, which is why it carries no `SessionNeed.Undo` and no `RedrawPolicy`.
-- Boundary: `InGetPoint` proves only a point acquisition; the broader acquisition reentrancy token belongs to the command acquisition algebra.
-- Boundary: `Worksession.ModelCount` may exceed `ModelPaths.Length` by one for an unsaved active model; `UnsavedActive` preserves that state. Serial resolution admits unique requests, exact key coverage, distinct resolved paths, and membership in the model-path roster before map construction. Attach/detach observation stays on the events page's `WorksessionFile` family; this owner carries the transactional receipt.
+- Boundary: `InGetPoint` proves only a point acquisition; the broader acquisition reentrancy token belongs to the command acquisition algebra. `Worksession.ModelCount` may exceed `ModelPaths.Length` by one for an unsaved active model; `UnsavedActive` preserves that state. Serial resolution admits unique requests, exact key coverage, distinct resolved paths, and membership in the model-path roster before map construction. Attach/detach observation stays on the events page's `WorksessionFile` family; this owner carries the transactional receipt.
+- Packages: RhinoCommon `RhinoDoc`/`Worksession` (`.api/api-rhinocommon-document.md`); Riok.Mapperly for `SessionMap` (per-project, `PrivateAssets` — generator only); Thinktecture.Runtime.Extensions; LanguageExt.Core.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using System.Globalization;
 using System.IO;
-using System.Threading;
 using Rasm.Domain;
 using Rasm.Rhino.Persistence;
 using Rhino;
 using Rhino.Commands;
 using Rhino.DocObjects;
 using Rhino.Input;
+using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Document;
 
@@ -41,9 +73,12 @@ namespace Rasm.Rhino.Document;
 public interface IDetachedDocumentResult { }
 
 [ValueObject<uint>(ConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit)]
+[ValidationError]
 public readonly partial struct DocKey : IDetachedDocumentResult {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref uint value) =>
-        validationError = value is 0u ? new ValidationError(message: "Document serial is zero.") : null;
+        validationError = value is 0u
+            ? new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(DocKey), 0d, "a positive runtime serial" }))
+            : null;
 
     internal Fin<RhinoDoc> Resolve(Op? key = null) {
         Op op = key.OrDefault();
@@ -73,41 +108,54 @@ public readonly partial struct DocKey : IDetachedDocumentResult {
     }
 }
 
+// The census vocabulary: a row's whole discriminant is WHICH reaches it admits, so the iterator flag and the
+// admission predicate both derive from one set column and cannot drift apart.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class DocumentReach : ICapability<DocumentReach> {
+    public static readonly DocumentReach Live = new(key: "live");
+    public static readonly DocumentReach Headless = new(key: "headless");
+}
+
 [SmartEnum<int>]
 public sealed partial class DocumentSet {
-    public static readonly DocumentSet Live = new(
-        key: 0,
-        includeHeadless: false,
-        admits: static document => !document.IsHeadless);
-    public static readonly DocumentSet Headless = new(
-        key: 1,
-        includeHeadless: true,
-        admits: static document => document.IsHeadless);
-    public static readonly DocumentSet All = new(
-        key: 2,
-        includeHeadless: true,
-        admits: static _ => true);
-
-    public bool IncludeHeadless { get; }
+    // Accessor-backed set literals: the generated reach roster fills from its own static constructor.
+    public static readonly DocumentSet Live = new(key: 0, reach: static () => CapabilitySet<DocumentReach>.Of(DocumentReach.Live));
+    public static readonly DocumentSet Headless = new(key: 1, reach: static () => CapabilitySet<DocumentReach>.Of(DocumentReach.Headless));
+    public static readonly DocumentSet All = new(key: 2, reach: static () => CapabilitySet<DocumentReach>.All);
 
     [UseDelegateFromConstructor]
-    internal partial bool Admits(RhinoDoc document);
+    internal partial CapabilitySet<DocumentReach> Reach();
+
+    // BOTH derive from the one reach column: the host iterator flag and the per-document predicate.
+    public bool IncludeHeadless => Reach().Admits(capability: DocumentReach.Headless);
+
+    internal bool Admits(RhinoDoc document) =>
+        Reach().Admits(capability: document.IsHeadless ? DocumentReach.Headless : DocumentReach.Live);
+}
+
+// The openness axis a capability row states as a SET: two bools made every reader re-conjoin `Open || Transitional`.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class PhaseStance : ICapability<PhaseStance> {
+    public static readonly PhaseStance Open = new(key: "open");
+    public static readonly PhaseStance Transitional = new(key: "transitional");
+    public static readonly PhaseStance Closed = new(key: "closed");
 }
 
 [SmartEnum<int>]
 public sealed partial class SessionPhase {
-    public static readonly SessionPhase Ready = new(key: 0, open: true, transitional: false);
-    public static readonly SessionPhase Opening = new(key: 1, open: false, transitional: true);
-    public static readonly SessionPhase Closing = new(key: 2, open: false, transitional: true);
-    public static readonly SessionPhase Initializing = new(key: 3, open: false, transitional: true);
-    public static readonly SessionPhase Creating = new(key: 4, open: false, transitional: true);
-    public static readonly SessionPhase Unavailable = new(key: 5, open: false, transitional: false);
+    public static readonly SessionPhase Ready = new(key: 0, stance: PhaseStance.Open);
+    public static readonly SessionPhase Opening = new(key: 1, stance: PhaseStance.Transitional);
+    public static readonly SessionPhase Closing = new(key: 2, stance: PhaseStance.Transitional);
+    public static readonly SessionPhase Initializing = new(key: 3, stance: PhaseStance.Transitional);
+    public static readonly SessionPhase Creating = new(key: 4, stance: PhaseStance.Transitional);
+    public static readonly SessionPhase Unavailable = new(key: 5, stance: PhaseStance.Closed);
 
-    public bool Open { get; }
-    public bool Transitional { get; }
+    public PhaseStance Stance { get; }
 
-    internal static SessionPhase Of(RhinoDoc document) =>
-        (document.IsAvailable, document.IsClosing, document.IsOpening, document.IsInitializing, document.IsCreating) switch {
+    internal static SessionPhase Of(SessionFacts facts) =>
+        (facts.Available, facts.Closing, facts.Opening, facts.Initializing, facts.Creating) switch {
             (_, true, _, _, _) => Closing,
             (_, false, true, _, _) => Opening,
             (_, false, false, true, _) => Initializing,
@@ -117,81 +165,156 @@ public sealed partial class SessionPhase {
         };
 }
 
+// The condition vocabulary the snapshot, the capability table, and every refusal share.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class SessionCondition : ICapability<SessionCondition> {
+    public static readonly SessionCondition ReadOnly = new(key: "read-only");
+    public static readonly SessionCondition Locked = new(key: "locked");
+    public static readonly SessionCondition UndoEnabled = new(key: "undo-enabled");
+    public static readonly SessionCondition UndoRecording = new(key: "undo-recording");
+    public static readonly SessionCondition Undoing = new(key: "undoing");
+    public static readonly SessionCondition Redoing = new(key: "redoing");
+    public static readonly SessionCondition Headless = new(key: "headless");
+    public static readonly SessionCondition Modified = new(key: "modified");
+    public static readonly SessionCondition Pointing = new(key: "pointing");
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
+// The RAW host projection `SessionMap` generates — one column per host getter, no admission, no domain type.
+// The snapshot mint folds it once; nothing else reads it.
+internal sealed record SessionFacts(
+    uint Serial,
+    string? Path,
+    string? Name,
+    bool Available,
+    bool Closing,
+    bool Opening,
+    bool Initializing,
+    bool Creating,
+    bool ReadOnly,
+    bool Locked,
+    bool UndoEnabled,
+    bool UndoRecording,
+    bool Undoing,
+    bool Redoing,
+    bool Headless,
+    bool Modified,
+    bool Pointing,
+    bool InCommand,
+    Guid ActiveCommand);
+
+internal sealed record WorksessionFacts(
+    uint Serial,
+    string? FileName,
+    string? Name,
+    int ModelCount,
+    string[] ModelPaths);
+
+// The generated host projection: every rename is a `[MapProperty]` row and the two member-call columns are the
+// named user mappings, so the getter roster has one spelling and a host member rename breaks HERE.
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target,
+        EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
+internal static partial class SessionMap {
+    [MapProperty(nameof(RhinoDoc.RuntimeSerialNumber), nameof(SessionFacts.Serial))]
+    [MapProperty(nameof(RhinoDoc.IsAvailable), nameof(SessionFacts.Available))]
+    [MapProperty(nameof(RhinoDoc.IsClosing), nameof(SessionFacts.Closing))]
+    [MapProperty(nameof(RhinoDoc.IsOpening), nameof(SessionFacts.Opening))]
+    [MapProperty(nameof(RhinoDoc.IsInitializing), nameof(SessionFacts.Initializing))]
+    [MapProperty(nameof(RhinoDoc.IsCreating), nameof(SessionFacts.Creating))]
+    [MapProperty(nameof(RhinoDoc.IsReadOnly), nameof(SessionFacts.ReadOnly))]
+    [MapProperty(nameof(RhinoDoc.IsLocked), nameof(SessionFacts.Locked))]
+    [MapProperty(nameof(RhinoDoc.UndoRecordingEnabled), nameof(SessionFacts.UndoEnabled))]
+    [MapProperty(nameof(RhinoDoc.UndoRecordingIsActive), nameof(SessionFacts.UndoRecording))]
+    [MapProperty(nameof(RhinoDoc.UndoActive), nameof(SessionFacts.Undoing))]
+    [MapProperty(nameof(RhinoDoc.RedoActive), nameof(SessionFacts.Redoing))]
+    [MapProperty(nameof(RhinoDoc.IsHeadless), nameof(SessionFacts.Headless))]
+    [MapProperty(nameof(RhinoDoc.InGetPoint), nameof(SessionFacts.Pointing))]
+    [MapProperty(nameof(RhinoDoc.ActiveCommandId), nameof(SessionFacts.ActiveCommand))]
+    [MapValue(nameof(SessionFacts.InCommand), Use = nameof(CommandDepth))]
+    internal static partial SessionFacts Facts(RhinoDoc document);
+
+    [MapProperty(nameof(Worksession.RuntimeSerialNumber), nameof(WorksessionFacts.Serial))]
+    internal static partial WorksessionFacts Worksession(Worksession worksession);
+
+    // The one member-call column the property map cannot reach.
+    private static bool CommandDepth(RhinoDoc document) => document.InCommand(bIgnoreScriptRunnerCommands: false);
+}
+
 [ComplexValueObject]
+[ValidationError]
 public sealed partial class SessionSnapshot : IDetachedDocumentResult {
     public DocKey Key { get; }
     public Option<DocumentPath> Path { get; }
     public Option<string> Name { get; }
     public SessionPhase Phase { get; }
-    public bool ReadOnly { get; }
-    public bool Locked { get; }
-    public bool UndoEnabled { get; }
-    public bool UndoRecordActive { get; }
-    public bool Undoing { get; }
-    public bool Redoing { get; }
-    public bool Headless { get; }
-    public bool Modified { get; }
-    public bool Pointing { get; }
-    public int CommandDepth { get; }
+    public CapabilitySet<SessionCondition> Conditions { get; }
     public Option<Guid> ActiveCommand { get; }
 
+    // The three pairwise clauses admit HERE, at the set's one construction, through `FactoryValidation`: the kernel
+    // `CapabilityLaw` carries corners and containment bars but no implication arm, so the
+    // implication clause is this hook's — and the set is constructible nowhere else.
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref DocKey key,
         ref Option<DocumentPath> path,
         ref Option<string> name,
         ref SessionPhase phase,
-        ref bool readOnly,
-        ref bool locked,
-        ref bool undoEnabled,
-        ref bool undoRecordActive,
-        ref bool undoing,
-        ref bool redoing,
-        ref bool headless,
-        ref bool modified,
-        ref bool pointing,
-        ref int commandDepth,
-        ref Option<Guid> activeCommand) =>
-        validationError = key == default
-            || path.Exists(static value => value == default)
-            || name.Exists(static value => string.IsNullOrWhiteSpace(value: value))
-            || phase is null
-            || undoRecordActive && !undoEnabled
-            || commandDepth < 0
-            ? new ValidationError(message: "Document snapshot evidence is invalid.")
-            : null;
+        ref CapabilitySet<SessionCondition> conditions,
+        ref Option<Guid> activeCommand) {
+        Op op = Op.Of();
+        CapabilitySet<SessionCondition> held = conditions;
+        validationError = FactoryValidation.Of(FactoryValidation.Violated(
+                (key == default, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Key) }))),
+                (name.Exists(static value => string.IsNullOrWhiteSpace(value: value)),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Name) }))),
+                (phase is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Phase) }))),
+                (held.Admits(SessionCondition.UndoRecording) && !held.Admits(SessionCondition.UndoEnabled),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Conditions), "undo recording only under undo enabled" }))),
+                (held.Admits(SessionCondition.Undoing) && held.Admits(SessionCondition.Redoing),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Conditions), "undoing excludes redoing" }))),
+                (held.Admits(SessionCondition.Headless) && held.Admits(SessionCondition.Pointing),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Conditions), "a headless document acquires no point" }))));
+    }
 
     internal static Fin<SessionSnapshot> Of(RhinoDoc document, Op? key = null) {
         Op op = key.OrDefault();
         return from active in Optional(document).ToFin(Fail: op.MissingContext())
-               from identity in DocKey.Of(document: active, key: op)
-               from path in Optional(active.Path)
+               from facts in op.Catch(() => Fin.Succ(value: SessionMap.Facts(document: active)))
+               from identity in op.AcceptValidated<DocKey>(candidate: facts.Serial)
+               from path in Optional(facts.Path)
                    .Filter(static value => !string.IsNullOrWhiteSpace(value: value))
                    .Traverse(value => DocumentPath.Of(value: value, key: op))
                    .As()
-               from snapshot in op.Catch(() => Admission.Admitted(
-                   fault: Validate(
+               from snapshot in op.AcceptValidated<SessionSnapshot>(
+                   Validate(
                        identity,
                        path,
-                       Optional(active.Name).Filter(static value => !string.IsNullOrWhiteSpace(value: value)),
-                       SessionPhase.Of(document: active),
-                       active.IsReadOnly,
-                       active.IsLocked,
-                       active.UndoRecordingEnabled,
-                       active.UndoRecordingIsActive,
-                       active.UndoActive,
-                       active.RedoActive,
-                       active.IsHeadless,
-                       active.Modified,
-                       active.InGetPoint,
-                       active.InCommand(bIgnoreScriptRunnerCommands: false),
-                       Optional(active.ActiveCommandId).Filter(static id => id != Guid.Empty),
+                       Optional(facts.Name).Filter(static value => !string.IsNullOrWhiteSpace(value: value)),
+                       SessionPhase.Of(facts: facts),
+                       Conditions(facts: facts),
+                       Optional(facts.ActiveCommand).Filter(static id => id != Guid.Empty),
                        out SessionSnapshot? admitted),
-                   value: admitted,
-                   refusal: op.InvalidResult()))
+                   admitted)
                select snapshot;
     }
+
+    // One fold from the raw projection onto the set: the getter roster and the vocabulary move together.
+    private static CapabilitySet<SessionCondition> Conditions(SessionFacts facts) =>
+        CapabilitySet<SessionCondition>.Of(
+            Seq<(bool Held, SessionCondition Row)>(
+                (facts.ReadOnly, SessionCondition.ReadOnly),
+                (facts.Locked, SessionCondition.Locked),
+                (facts.UndoEnabled, SessionCondition.UndoEnabled),
+                (facts.UndoRecording, SessionCondition.UndoRecording),
+                (facts.Undoing, SessionCondition.Undoing),
+                (facts.Redoing, SessionCondition.Redoing),
+                (facts.Headless, SessionCondition.Headless),
+                (facts.Modified, SessionCondition.Modified),
+                (facts.Pointing || facts.InCommand && facts.Headless is false && facts.Pointing, SessionCondition.Pointing))
+            .Choose(static row => row.Held ? Some(row.Row) : None)
+            .ToArray()
+            .AsSpan());
 }
 
 [SmartEnum<int>]
@@ -201,6 +324,7 @@ public sealed partial class WorksessionCustody {
 }
 
 [ComplexValueObject]
+[ValidationError]
 public sealed partial class WorksessionModel {
     public DocumentPath Path { get; }
     public WorksessionCustody Custody { get; }
@@ -210,14 +334,15 @@ public sealed partial class WorksessionModel {
         ref DocumentPath path,
         ref WorksessionCustody custody) =>
         validationError = string.IsNullOrWhiteSpace(value: path.Value) || custody is null
-            ? new ValidationError(message: "Worksession model identity is incomplete.")
+            ? new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(WorksessionModel) }))
             : null;
 
     internal static Fin<WorksessionModel> Of(DocumentPath path, WorksessionCustody custody, Op key) =>
-        Admission.Admitted(fault: Validate(path, custody, out WorksessionModel? admitted), value: admitted, refusal: key.InvalidInput());
+        key.AcceptValidated<WorksessionModel>(Validate(path, custody, out WorksessionModel? admitted), admitted);
 }
 
 [ComplexValueObject]
+[ValidationError]
 public sealed partial class WorksessionSnapshot : IDetachedDocumentResult {
     public DocKey Document { get; }
     public Option<uint> Serial { get; }
@@ -228,6 +353,8 @@ public sealed partial class WorksessionSnapshot : IDetachedDocumentResult {
     public bool UnsavedActive { get; }
     public HashMap<uint, DocumentPath> Resolved { get; }
 
+    // Every violated census clause reports, accumulated through the fault semigroup — the ten-clause `||` funnel
+    // this replaces answered one anonymous refusal for any of them.
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref DocKey document,
@@ -238,25 +365,30 @@ public sealed partial class WorksessionSnapshot : IDetachedDocumentResult {
         ref int reportedCount,
         ref bool unsavedActive,
         ref HashMap<uint, DocumentPath> resolved) {
+        Op op = Op.Of();
         Seq<WorksessionModel> admittedModels = models.Choose(static model => Optional(model)).Strict();
         int difference = reportedCount - admittedModels.Count;
         int activeCount = admittedModels.Filter(static model => model.Custody == WorksessionCustody.Active).Count;
         HashSet<DocumentPath> roster = admittedModels.Map(static model => model.Path).ToHashSet();
-        validationError = document == default
-            || serial.Exists(static value => value is 0u)
-            || definition.Exists(static value => value == default)
-            || name.Exists(static value => string.IsNullOrWhiteSpace(value: value))
-            || admittedModels.Count != models.Count
-            || admittedModels.DistinctBy(static model => model.Path).Count != admittedModels.Count
-            || activeCount != (unsavedActive ? 0 : 1)
-            || reportedCount <= 0
-            || difference is < 0 or > 1
-            || unsavedActive != (difference is 1)
-            || resolved.Keys.Exists(static value => value is 0u)
-            || resolved.Values.Distinct().Count != resolved.Count
-            || resolved.Values.Exists(path => !roster.Contains(key: path))
-            ? new ValidationError(message: "Worksession model census is inconsistent.")
-            : null;
+        bool unsaved = unsavedActive;
+        HashMap<uint, DocumentPath> map = resolved;
+        validationError = FactoryValidation.Of(
+            FactoryValidation.Violated(
+                (document == default, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Document) }))),
+                (serial.Exists(static value => value is 0u),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Serial), 0d, "a positive worksession serial" }))),
+                (name.Exists(static value => string.IsNullOrWhiteSpace(value: value)),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Name) }))),
+                (admittedModels.Count != models.Count, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Models) }))),
+                (admittedModels.DistinctBy(static model => model.Path).Count != admittedModels.Count,
+                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Models), "distinct model paths" }))),
+                (activeCount != (unsaved ? 0 : 1),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Models), "exactly one active model unless the active model is unsaved" }))),
+                (reportedCount <= 0 || difference is < 0 or > 1 || unsaved != (difference is 1),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(ReportedCount), "a count matching the roster with at most one unsaved active" }))),
+                (map.Keys.Exists(static value => value is 0u) || map.Values.Distinct().Count != map.Count
+                    || map.Values.Exists(path => !roster.Contains(key: path)),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Resolved), "distinct rostered resolutions under positive serials" }))));
     }
 
     public bool Member(DocumentPath path) => Models.Exists(model => model.Path == path);
@@ -279,13 +411,14 @@ public sealed partial class WorksessionSnapshot : IDetachedDocumentResult {
             .Filter(static value => !string.IsNullOrWhiteSpace(value: value))
             .Traverse(value => DocumentPath.Of(value: value, key: key))
             .As()
-        from worksession in Optional(owner.Worksession).ToFin(Fail: key.InvalidResult())
-        from modelPaths in Optional(worksession.ModelPaths).ToFin(Fail: key.InvalidResult())
-        from paths in toSeq(modelPaths)
+        from worksession in key.Catch(() => Optional(owner.Worksession).ToFin(Fail: new DraftFault.HostRefused(
+            Key: key, Member: nameof(RhinoDoc.Worksession), Detail: "returned no worksession")))
+        from facts in key.Catch(() => Fin.Succ(value: SessionMap.Worksession(worksession: worksession)))
+        from paths in toSeq(facts.ModelPaths ?? [])
             .Traverse(value => DocumentPath.Of(value: value, key: key).ToValidation())
             .As()
             .ToFin()
-        from definition in Optional(worksession.FileName)
+        from definition in Optional(facts.FileName)
             .Filter(static value => !string.IsNullOrWhiteSpace(value: value))
             .Traverse(value => DocumentPath.Of(value: value, key: key))
             .As()
@@ -307,19 +440,18 @@ public sealed partial class WorksessionSnapshot : IDetachedDocumentResult {
             requested: requested,
             roster: models.Map(static model => model.Path).ToHashSet(),
             key: key)
-        from snapshot in Admission.Admitted(
-            fault: Validate(
+        from snapshot in key.AcceptValidated<WorksessionSnapshot>(
+            Validate(
                 identity,
-                Optional(worksession.RuntimeSerialNumber).Filter(static serial => serial > 0u),
+                Optional(facts.Serial).Filter(static serial => serial > 0u),
                 definition,
-                Optional(worksession.Name).Filter(static value => !string.IsNullOrWhiteSpace(value: value)),
+                Optional(facts.Name).Filter(static value => !string.IsNullOrWhiteSpace(value: value)),
                 models,
-                worksession.ModelCount,
+                facts.ModelCount,
                 active.IsNone,
                 resolved,
                 out WorksessionSnapshot? admitted),
-            value: admitted,
-            refusal: key.InvalidResult())
+            admitted)
         select snapshot;
 
     private static Fin<HashMap<uint, DocumentPath>> Resolve(
@@ -356,24 +488,32 @@ public sealed partial class WorksessionSnapshot : IDetachedDocumentResult {
         select rows.ToHashMap();
 }
 
+// The membership axis as ONE row: the precondition is `Before`, the postcondition `After`, and the inverse verb
+// carries the opposite row — two bool columns admitted the drift this forecloses.
+[SmartEnum<int>]
+public sealed partial class MembershipShift {
+    public static readonly MembershipShift Joins = new(key: 0, before: false, after: true);
+    public static readonly MembershipShift Leaves = new(key: 1, before: true, after: false);
+
+    public bool Before { get; }
+    public bool After { get; }
+}
+
 [SmartEnum<string>]
 public sealed partial class WorksessionVerb {
     public static readonly WorksessionVerb Attach = new(
         "attach",
         scriptToken: "_Attach",
-        requiresMember: false,
-        leavesMember: true,
+        shift: MembershipShift.Joins,
         inverse: static () => Detach);
     public static readonly WorksessionVerb Detach = new(
         "detach",
         scriptToken: "_Detach",
-        requiresMember: true,
-        leavesMember: false,
+        shift: MembershipShift.Leaves,
         inverse: static () => Attach);
 
     internal string ScriptToken { get; }
-    internal bool RequiresMember { get; }
-    internal bool LeavesMember { get; }
+    internal MembershipShift Shift { get; }
 
     [UseDelegateFromConstructor]
     internal partial WorksessionVerb Inverse();
@@ -441,13 +581,11 @@ public static class SessionWorksession {
                                    completed: landed,
                                    op: op))
                            from after in WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
-                               .MapFail(primary => Restore(
+                               .Rollback(() => Restore(
                                    document: document,
                                    model: request.Model,
                                    completed: completed,
-                                   op: op).Match(
-                                       Succ: _ => primary,
-                                       Fail: cleanup => primary + cleanup))
+                                   op: op))
                            select new WorksessionReceipt(Operation: request, Before: before, After: after),
                        key: op,
                        needs: [SessionNeed.Read, SessionNeed.Mutate, SessionNeed.Acquire, SessionNeed.Interrupt])
@@ -455,85 +593,84 @@ public static class SessionWorksession {
         }
     }
 
+    // Run-then-prove rides one rail; any refusal — script, proving snapshot, or postcondition — hands the
+    // single-verb inverse to kernel `Custody.Rollback`'s delegate arm, which appends its fault onto the primary.
     private static Fin<Unit> Apply(RhinoDoc document, DocumentPath model, WorksessionVerb verb, Op op) =>
         from current in WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
-        from admitted in guard(current.Member(path: model) == verb.RequiresMember, op.InvalidInput()).ToFin()
-        from landed in Run(document: document, model: model, verb: verb, op: op).BiBind(
-            Succ: _ => WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
-                .Bind(proof => guard(proof.Member(path: model) == verb.LeavesMember, op.InvalidResult()).ToFin())
-                .BindFail(primary => Compensate(
-                    document: document,
-                    model: model,
-                    verb: verb,
-                    primary: primary,
-                    op: op)),
-            Fail: primary => Compensate(
-                document: document,
-                model: model,
-                verb: verb,
-                primary: primary,
-                op: op))
+        from admitted in guard(current.Member(path: model) == verb.Shift.Before, op.InvalidInput()).ToFin()
+        from landed in (
+            from run in Run(document: document, model: model, verb: verb, op: op)
+            from proof in WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
+            from exact in guard(proof.Member(path: model) == verb.Shift.After, op.InvalidResult()).ToFin()
+            select unit)
+            .Rollback(() => Restore(document: document, model: model, completed: Seq(verb), op: op))
         select unit;
 
-    private static Fin<Unit> Compensate(
-        RhinoDoc document,
-        DocumentPath model,
-        WorksessionVerb verb,
-        Error primary,
-        Op op) => Restore(document: document, model: model, verb: verb, op: op).BiBind(
-            Succ: _ => Fin.Fail<Unit>(error: primary),
-            Fail: cleanup => Fin.Fail<Unit>(error: primary + cleanup));
-
+    // ONE restore over the completed prefix, reverse order, every inverse attempted: the former single-verb twin
+    // is this fold's own per-element body.
     private static Fin<Unit> Restore(
         RhinoDoc document,
         DocumentPath model,
         Seq<WorksessionVerb> completed,
         Op op) => completed.Rev()
-        .Traverse(verb => Restore(document: document, model: model, verb: verb, op: op).ToValidation())
+        .Traverse(verb => {
+            WorksessionVerb inverse = verb.Inverse();
+            return (from current in WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
+                    from restored in current.Member(path: model) == inverse.Shift.After
+                        ? Fin.Succ(value: unit)
+                        : from admitted in guard(current.Member(path: model) == inverse.Shift.Before, op.InvalidResult()).ToFin()
+                          from run in Run(document: document, model: model, verb: inverse, op: op)
+                          from proof in WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
+                          from landed in guard(proof.Member(path: model) == inverse.Shift.After, op.InvalidResult()).ToFin()
+                          select unit
+                    select restored).ToValidation();
+        })
         .As()
         .ToFin()
         .Map(static _ => unit);
 
-    private static Fin<Unit> Restore(RhinoDoc document, DocumentPath model, WorksessionVerb verb, Op op) {
-        WorksessionVerb inverse = verb.Inverse();
-        return from current in WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
-               from restored in current.Member(path: model) == inverse.LeavesMember
-                   ? Fin.Succ(value: unit)
-                   : from admitted in guard(current.Member(path: model) == inverse.RequiresMember, op.InvalidResult()).ToFin()
-                     from run in Run(document: document, model: model, verb: inverse, op: op)
-                     from proof in WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
-                     from landed in guard(proof.Member(path: model) == inverse.LeavesMember, op.InvalidResult()).ToFin()
-                     select unit
-               select restored;
-    }
-
     private static Fin<Unit> Run(RhinoDoc document, DocumentPath model, WorksessionVerb verb, Op op) =>
-        op.Catch(() => op.Confirm(success: RhinoApp.RunScript(
+        op.Catch(() => RhinoApp.RunScript(
             documentSerialNumber: document.RuntimeSerialNumber,
             script: verb.Script(model: model),
-            echo: false)));
+            echo: false)
+                ? Fin.Succ(value: unit)
+                : Fin.Fail<Unit>(new DraftFault.HostRefused(
+                    Key: op, Member: nameof(RhinoApp.RunScript), Detail: $"{verb.Key}:{model.Value}")));
 }
 ```
 
-## [03]-[CAPABILITY]
+## [04]-[CAPABILITY]
 
-- Owner: `SessionMode` re-closes the foreign `RunMode` enum, adds the package-owned `Headless` lane, and carries independent live-host and native-dialog columns. `SessionNeed` is a keyless behavior vocabulary: each row separates mode admission from snapshot admission, so deterministic refusals run before acquisition and host state remains recoverable from the declaration.
-- Entry: `SessionMode.OfRunMode` returns `Fin<SessionMode>` and rejects an unknown foreign ordinal. `DocumentSession.Of` rejects an empty or mode-incompatible capability set before acquisition; `DocumentSession.Demand` proves one or more granted rows against one fresh snapshot around the consuming host body.
-- Law: `Observe` admits transition snapshots, while operation capabilities require `Ready`. Mutation excludes read-only documents and undo/redo replay; undo-bearing mutation narrows that set to documents with undo recording enabled. Redraw requires a live view pipeline; acquisition admits interactive and scripted command lanes; native dialogs admit only the interactive lane; interrupt remains admissible while a point acquisition is active.
-- Law: `IsLocked` is detached file-write ownership evidence, not a mutation refusal; Rhino reports it when the current document owns the file lock.
-- Law: `SessionNeed.Mutation(undo, redraw)` is the one mutation-need derivation — `Mutate` plus conditional `Undo` plus conditional `Redraw` — every commit rail passes to `Demand`; a per-rail inline `Seq(Mutate) + ...` re-derivation is the deleted form.
-- Growth: a capability lands as one `SessionNeed` row. Admission and demand folds consume `Items` through the passed values and require no parallel flag or subsystem field.
+- Owner: `LaneCapability` is the mode vocabulary and `SessionMode` rows carry ONE `CapabilitySet<LaneCapability>` from which every lane question reads. `SessionNeed` is a fully DATA-DRIVEN capability table: each row states the lane capabilities it requires, the phase stances it admits, the session conditions it demands, and the conditions that bar it — four set columns, no predicate delegate anywhere. `UndoCustody` closes the undo axis of a mutation demand as a row carrying its own grant set.
+- Entry: `SessionMode.OfRunMode` returns `Fin<SessionMode>` and rejects an unknown foreign ordinal. `SessionNeed.Admit(snapshot, mode)` is the ONE probe — it accumulates a typed refusal per violated axis, each naming the need and the axis, so a demand refused on three axes reports three. `DocumentSession.Of` rejects an empty or mode-incompatible capability set before acquisition; `DocumentSession.Demand` proves one or more granted rows against one fresh snapshot around the consuming host body.
+- Auto: every admission is set algebra over the three vocabularies this page already owns — the lane and demand gates refuse through `Require`, which hands each refusal the MISSING rows, the stance gate is `Stances.Admits(snapshot.Phase.Stance)`, and the bar gate is per-row exclusion — so a new capability row is four set literals and the fold never changes.
+- Law: `IsLocked` is detached file-write ownership evidence, not a mutation refusal; Rhino reports it when the current document owns the file lock, which is why `Locked` bars no row.
+- Law: `SessionNeed.Mutation(custody, redraw)` is the one mutation-need derivation — the custody ROW carries its own grant set (`Recorded` grants `Mutate`+`Undo`, `Unrecorded` grants `Mutate` alone) and the redraw policy appends its row — every commit rail passes it to `Demand`; a per-rail inline `Seq(Mutate) + ...` re-derivation is the deleted form. NAMED LOSS: the `bool undo` argument; witness `SessionNeed.Mutation(undo: true, redraw: policy)` rebuilt as `SessionNeed.Mutation(UndoCustody.Recorded, policy)` at all nineteen composing sites.
+- Growth: a capability lands as one `SessionNeed` row of four set literals; a new lane capability, stance, or condition is one vocabulary row and no fold edit.
+- Boundary: HOST-SPECIFIC-STAYS — `Dialog`, `Acquire`, and `Interrupt` encode `RhinoDoc.InGetPoint`/`InCommand`/`RunMode` host truths; the rows survive because the table is the host contract spelled as data.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class LaneCapability : ICapability<LaneCapability> {
+    public static readonly LaneCapability Live = new(key: "live");
+    public static readonly LaneCapability Dialogs = new(key: "dialogs");
+}
+
 [SmartEnum<int>]
 public sealed partial class SessionMode {
-    public static readonly SessionMode Interactive = new(key: 0, live: true, dialogs: true);
-    public static readonly SessionMode Scripted = new(key: 1, live: true, dialogs: false);
-    public static readonly SessionMode Headless = new(key: 2, live: false, dialogs: false);
+    // Accessor-backed: the generated lane roster fills from its own static constructor.
+    public static readonly SessionMode Interactive = new(key: 0,
+        capabilities: static () => CapabilitySet<LaneCapability>.All);
+    public static readonly SessionMode Scripted = new(key: 1,
+        capabilities: static () => CapabilitySet<LaneCapability>.Of(LaneCapability.Live));
+    public static readonly SessionMode Headless = new(key: 2,
+        capabilities: static () => CapabilitySet<LaneCapability>.None);
 
-    public bool Live { get; }
-    public bool Dialogs { get; }
+    [UseDelegateFromConstructor]
+    public partial CapabilitySet<LaneCapability> Capabilities();
 
     public static Fin<SessionMode> OfRunMode(RunMode mode, Op? key = null) {
         Op op = key.OrDefault();
@@ -545,76 +682,132 @@ public sealed partial class SessionMode {
     }
 }
 
-[SmartEnum]
+// The custody ROW carries its grant set AND the host `recordsUndo` argument the commit envelope takes, so a rail
+// naming its custody never states the same axis twice — a `custody:` row beside a literal `recordsUndo:` is two
+// authorities over one fact, free to disagree on the leg that matters.
+[SmartEnum<int>]
+public sealed partial class UndoCustody {
+    public static readonly UndoCustody Recorded = new(key: 0, records: true, grants: static () => Seq(SessionNeed.Mutate, SessionNeed.Undo));
+    public static readonly UndoCustody Unrecorded = new(key: 1, records: false, grants: static () => Seq(SessionNeed.Mutate));
+
+    internal bool Records { get; }
+
+    [UseDelegateFromConstructor]
+    internal partial Seq<SessionNeed> Grants();
+}
+
+// Four set columns ARE the whole capability policy — no predicate delegate survives on any row.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SessionNeed {
-    public static readonly SessionNeed Observe = new(
-        static _ => true,
-        static snapshot => snapshot.Phase.Open || snapshot.Phase.Transitional);
-    public static readonly SessionNeed Read = new(static _ => true, static snapshot => snapshot.Phase.Open);
-    public static readonly SessionNeed Mutate = new(
-        static _ => true,
-        static snapshot => snapshot.Phase.Open && !snapshot.ReadOnly && !snapshot.Undoing && !snapshot.Redoing);
-    public static readonly SessionNeed Undo = new(
-        static _ => true,
-        static snapshot =>
-            snapshot.Phase.Open
-            && !snapshot.ReadOnly
-            && snapshot.UndoEnabled
-            && !snapshot.Undoing
-            && !snapshot.Redoing);
-    public static readonly SessionNeed Redraw = new(
-        static mode => mode.Live,
-        static snapshot => snapshot.Phase.Open && !snapshot.Headless);
-    public static readonly SessionNeed Acquire = new(
-        static mode => mode.Live,
-        static snapshot => snapshot.Phase.Open && !snapshot.Headless && !snapshot.Pointing);
-    public static readonly SessionNeed Dialog = new(
-        static mode => mode.Dialogs,
-        static snapshot => snapshot.Phase.Open && !snapshot.Headless && !snapshot.Pointing);
-    public static readonly SessionNeed Interrupt = new(
-        static mode => mode.Live,
-        static snapshot => snapshot.Phase.Open && !snapshot.Headless);
-    public static readonly SessionNeed Export = new(static _ => true, static snapshot => snapshot.Phase.Open);
+    public static readonly SessionNeed Observe = new(key: "observe",
+        lane: static () => CapabilitySet<LaneCapability>.None,
+        stances: static () => CapabilitySet<PhaseStance>.Of(PhaseStance.Open, PhaseStance.Transitional),
+        demands: static () => CapabilitySet<SessionCondition>.None,
+        barred: static () => CapabilitySet<SessionCondition>.None);
+    public static readonly SessionNeed Read = new(key: "read",
+        lane: static () => CapabilitySet<LaneCapability>.None,
+        stances: static () => CapabilitySet<PhaseStance>.Of(PhaseStance.Open),
+        demands: static () => CapabilitySet<SessionCondition>.None,
+        barred: static () => CapabilitySet<SessionCondition>.None);
+    public static readonly SessionNeed Mutate = new(key: "mutate",
+        lane: static () => CapabilitySet<LaneCapability>.None,
+        stances: static () => CapabilitySet<PhaseStance>.Of(PhaseStance.Open),
+        demands: static () => CapabilitySet<SessionCondition>.None,
+        barred: static () => CapabilitySet<SessionCondition>.Of(SessionCondition.ReadOnly, SessionCondition.Undoing, SessionCondition.Redoing));
+    public static readonly SessionNeed Undo = new(key: "undo",
+        lane: static () => CapabilitySet<LaneCapability>.None,
+        stances: static () => CapabilitySet<PhaseStance>.Of(PhaseStance.Open),
+        demands: static () => CapabilitySet<SessionCondition>.Of(SessionCondition.UndoEnabled),
+        barred: static () => CapabilitySet<SessionCondition>.Of(SessionCondition.ReadOnly, SessionCondition.Undoing, SessionCondition.Redoing));
+    public static readonly SessionNeed Redraw = new(key: "redraw",
+        lane: static () => CapabilitySet<LaneCapability>.Of(LaneCapability.Live),
+        stances: static () => CapabilitySet<PhaseStance>.Of(PhaseStance.Open),
+        demands: static () => CapabilitySet<SessionCondition>.None,
+        barred: static () => CapabilitySet<SessionCondition>.Of(SessionCondition.Headless));
+    public static readonly SessionNeed Acquire = new(key: "acquire",
+        lane: static () => CapabilitySet<LaneCapability>.Of(LaneCapability.Live),
+        stances: static () => CapabilitySet<PhaseStance>.Of(PhaseStance.Open),
+        demands: static () => CapabilitySet<SessionCondition>.None,
+        barred: static () => CapabilitySet<SessionCondition>.Of(SessionCondition.Headless, SessionCondition.Pointing));
+    public static readonly SessionNeed Dialog = new(key: "dialog",
+        lane: static () => CapabilitySet<LaneCapability>.Of(LaneCapability.Live, LaneCapability.Dialogs),
+        stances: static () => CapabilitySet<PhaseStance>.Of(PhaseStance.Open),
+        demands: static () => CapabilitySet<SessionCondition>.None,
+        barred: static () => CapabilitySet<SessionCondition>.Of(SessionCondition.Headless, SessionCondition.Pointing));
+    public static readonly SessionNeed Interrupt = new(key: "interrupt",
+        lane: static () => CapabilitySet<LaneCapability>.Of(LaneCapability.Live),
+        stances: static () => CapabilitySet<PhaseStance>.Of(PhaseStance.Open),
+        demands: static () => CapabilitySet<SessionCondition>.None,
+        barred: static () => CapabilitySet<SessionCondition>.Of(SessionCondition.Headless));
+    public static readonly SessionNeed Export = new(key: "export",
+        lane: static () => CapabilitySet<LaneCapability>.None,
+        stances: static () => CapabilitySet<PhaseStance>.Of(PhaseStance.Open),
+        demands: static () => CapabilitySet<SessionCondition>.None,
+        barred: static () => CapabilitySet<SessionCondition>.None);
 
-    [UseDelegateFromConstructor]
-    internal partial bool AdmitsMode(SessionMode mode);
+    [UseDelegateFromConstructor] internal partial CapabilitySet<LaneCapability> Lane();
+    [UseDelegateFromConstructor] internal partial CapabilitySet<PhaseStance> Stances();
+    [UseDelegateFromConstructor] internal partial CapabilitySet<SessionCondition> Demands();
+    [UseDelegateFromConstructor] internal partial CapabilitySet<SessionCondition> Barred();
 
-    [UseDelegateFromConstructor]
-    internal partial bool AdmitsSnapshot(SessionSnapshot snapshot);
+    // `FactoryValidation` screens the four clauses into one generated validation refusal, so a need refused on three
+    // axes names all three and recovery stays on the public `Validation<Error, T>` rail.
+    // `Validation.Bind` over a `Fail` is IDENTITY, so the threaded fold this replaces surfaced the FIRST violated
+    // axis alone, reached `Combine` never, and contradicted the accumulation it advertised.
+    internal Validation<Error, SessionNeed> Admit(SessionSnapshot snapshot, SessionMode mode, Op op) {
+        SessionNeed need = this;
+        return FactoryValidation.Admit(
+                FactoryValidation.Violated(
+                    (!mode.Capabilities().AdmitsAll(Lane()),
+                        () => need.Ground(op: op, axis: "lane", shortfall: mode.Capabilities().Missing(Lane()).Wire)),
+                    (!Stances().Admits(capability: snapshot.Phase.Stance), () => need.Ground(op: op, axis: "stance")),
+                    (!snapshot.Conditions.AdmitsAll(Demands()),
+                        () => need.Ground(op: op, axis: "demand", shortfall: snapshot.Conditions.Missing(Demands()).Wire)),
+                    (toSeq(Barred().Held).Exists(row => snapshot.Conditions.Admits(capability: row)),
+                        () => need.Ground(op: op, axis: "barred"))))
+            .ToValidation()
+            .Map(_ => need);
+    }
 
-    internal bool Admits(SessionSnapshot snapshot, SessionMode mode) =>
-        AdmitsMode(mode: mode) && AdmitsSnapshot(snapshot: snapshot);
+    // `Ground` is the one refusal spelling every axis reads, so a fifth axis lands as one clause, never a second mint.
+    // `shortfall` carries the missing rows the capability door received; a scalar axis grounds on its name alone.
+    private ValidationClause Ground(Op op, string axis, Option<string> shortfall = default) =>
+        new(string.Join(" | ", new object?[] { op, Key, $"the '{Key}' need admitted on the '{axis}' axis"
+                + shortfall.Match(Some: static wire => $"; missing <{wire}>", None: static () => string.Empty) }));
 
-    internal static Seq<SessionNeed> Mutation(bool undo, RedrawPolicy redraw) =>
-        Seq(Mutate)
-        + (undo ? Seq(Undo) : Seq<SessionNeed>())
-        + (redraw.Enabled ? Seq(Redraw) : Seq<SessionNeed>());
+    // The mode half alone, for pre-acquisition admission where no snapshot exists yet.
+    internal bool AdmitsMode(SessionMode mode) => mode.Capabilities().AdmitsAll(required: Lane());
+
+    internal static Seq<SessionNeed> Mutation(UndoCustody custody, RedrawPolicy redraw) =>
+        custody.Grants() + (redraw.Traits.Admits(capability: RedrawAxis.Enabled) ? Seq(Redraw) : Seq<SessionNeed>());
 }
 ```
 
-## [04]-[SOURCE_AND_SESSION]
+## [05]-[SOURCE_AND_SESSION]
 
-- Owner: `DocumentPath` admits absolute nonblank path text once, while `DocumentFile` carries existing-file versus existing-`.3dm` resolution as behavior rows. `SessionSource` is one flat `[Union]` over borrowed live/active/keyed/opened documents and owned empty/template/archive/configured headless documents; source depth is case data, so admission performs one generated dispatch, and the ambient `RhinoDoc.ActiveDoc` static crosses the boundary only through the `Active` case.
+- Owner: `DocumentPath` admits absolute nonblank path text once, while `DocumentFile` carries existing-file versus existing-`.3dm` resolution as behavior rows. `SessionSource` is one flat `[Union]` over borrowed live/active/keyed/opened documents and owned empty/template/archive/configured headless documents; source depth is case data, so admission performs one generated dispatch, and the ambient `RhinoDoc.ActiveDoc` static crosses the boundary only through the `Active` case. `SessionGate` is the session's lifecycle state machine and `DocumentSession` the lease-retaining owner over it.
 - Entry: `SessionSource.Acquire` returns `Fin<Lease<RhinoDoc>>`; every deterministic source/mode refusal and file requirement completes before its host call, and the `Configured` case carries a typed `ArchiveMap` (Persistence/dictionary.md) minted into the native option payload inside the acquire arm, so the host receives a fresh dictionary no caller can mutate. `DocumentSession.Of` rejects empty, duplicate, or mode-incompatible capabilities, acquires, snapshots, checks lane/document agreement, validates the kernel context, and only then adopts the lease.
-- Law: a failed admission releases an owned lease before returning its original fault. A successful admission never calls `Lease.Use`, because `Use` closes `Owned` when its projection returns; the session retains the lease and releases it exactly once through `Dispose`.
-- Law: `Demand<TResult>` is the sole capability surface. It validates a nonempty unique capability set and the consumer, re-resolves `Key`, proves every granted row against one fresh snapshot, and executes the host body through `Op.Catch`; its `IDetachedDocumentResult` bound rejects a raw `RhinoDoc` result at compile time on every demanding path, and the kernel `Context` crosses through the private detached `DetachedContext` capsule rather than an unconstrained core.
-- Law: `Demand` is re-entrant on the demanding thread — the reentrant `Lock` plus the demand-depth counter admit a nested demand inside a running host body, and each nesting proves its own grants against its own fresh snapshot. `Dispose` issued during any demand defers to the outermost demand's exit, and a pending disposal refuses every new demand, nested included.
+- Auto: the lifecycle rides ONE `Atom<SessionGate>` stepped through `Cell.Step` — `Enter` declines on a disposing or released gate, `Exit` decrements and answers whether this exit owes the deferred disposal, and `Close` either releases immediately or parks the disposal on the open depth — so every transition answers a `Transition<SessionGate>` verdict and the three raw fields plus their lock this replaces cannot report a race they lost. NAMED LOSS: the lock's cross-thread serialization of headless demand bodies; the live lane serializes on the marshal it crosses, and a headless session is single-caller by its acquisition contract, stated here.
+- Law: a failed admission releases an owned lease before returning its original fault, the cleanup fault AGGREGATING into the primary through the `Error` monoid — never discarded. A successful admission never calls `Lease.Use`, because `Use` closes `Owned` when its projection returns; the session retains the lease and releases it exactly once through the gate's one terminal transition.
+- Law: `Demand<TResult>` is the sole capability surface. It validates a nonempty unique capability set and the consumer, re-resolves `Key`, proves every granted row against one fresh snapshot through `SessionNeed.Admit` — every violated need and axis reported together — and executes the host body through `Op.Catch`; its `IDetachedDocumentResult` bound rejects a raw `RhinoDoc` result at compile time on every demanding path, and the kernel `Context` crosses through the private detached `DetachedContext` capsule rather than an unconstrained core.
+- Law: the demand window is a BRACKET — `Enter` acquires, the body runs, `Exit` settles in the `Fin` arm of the same expression — so a body that raises still exits, a nested demand enters its own bracket, and `Dispose` issued mid-demand defers to the outermost exit, which runs the release and aggregates its fault into the body's outcome.
+- Law: the marshal is the kernel dispatch — a live-lane demand crosses `UiThread.Run(new UiDispatch<TResult>.Blocking(body), DispatchLane.Immediate, op)`, in-frame when the caller already holds the marshal and invoked otherwise, while a headless session runs the body on the caller thread because a headless process has no marshal to cross and the kernel entry would refuse `Headless` typed. The former hand marshal and its S2-ledger carve both delete; the gauged span is the kernel dispatch's own pulse.
 - Law: `Context()` re-enters `Context.Of(RhinoDoc)` on every call, so model-unit and tolerance changes cannot stale the context consumed by later geometry work.
-- Law: `Admission.All` and `Admission.Pair` own reference-argument admission — one span fold and one applicative pair composed by every Document spine, so the Optional-traverse spelling appears once.
-- Boundary: `Lock` plus deferred reentrant disposal serializes handle resolution, evidence, callbacks, and owned cleanup. Live acquisition and demand discriminate on `RhinoApp.IsOnMainThread` and marshal through `InvokeAndWait`; headless work remains on the caller thread.
-- Boundary: the S0 crossing is deliberately off the `MarshalLatency` ledger — that instrument seats at the S2 host-thread owner and reaching up for it is the forbidden upward edge, so `Demand` measures no crossing and the ledger's coverage claim reads S2 and above alone. What the crossing does share with the S2 seam is the fault vocabulary: `InvokeAndWait` swallows a delegate that never ran, so the null sentinel distinguishes a never-run body (`MissingContext`) from a body-produced refusal, and a generic `InvalidResult` standing for both is the deleted form.
+- Law: `Admission.All` and `Admission.Pair` own reference-argument admission — one span fold and one applicative pair composed by every Document spine, so the Optional-traverse spelling appears once. The former `Admission.Admitted` funnel is DELETED: `op.AcceptValidated` surfaces the generated `DraftFault` directly, and a member that re-stamped it with a bare refusal was the message-stranding defect `[02]` names.
 - Boundary: `IDetachedDocumentResult` marks the admitted result census: detached facts and explicit lifetime capsules. `Demand` forbids a raw `RhinoDoc`, and each capsule owns every live handle it carries beyond the callback. `DocumentPath` conforms — admitted path text is detached by construction — so a path resolution returns through `Demand` directly.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+[ValidationError]
 public readonly partial struct DocumentPath : IDetachedDocumentResult {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value?.Trim() ?? string.Empty;
         validationError = value switch {
-            "" => new ValidationError(message: "Document path is blank."),
+            "" => new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(DocumentPath) })),
             var path when !Path.IsPathFullyQualified(path: path) =>
-                new ValidationError(message: "Document path is not fully qualified."),
+                new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(DocumentPath), "a fully qualified path" })),
             _ => null,
         };
     }
@@ -668,18 +861,22 @@ public abstract partial record SessionSource {
                 from acquired in op.Catch(() => Borrowed(document: Optional(RhinoDoc.Open(
                         filePath: path,
                         wasAlreadyOpen: out _))
-                    .ToFin(Fail: op.InvalidResult(detail: path))))
+                    .ToFin(Fail: new DraftFault.HostRefused(
+                        Key: op, Member: nameof(RhinoDoc.Open), Detail: path.Value))))
                 select acquired,
             empty: static (op, _) => op.Catch(() => Minted(
                 document: RhinoDoc.CreateHeadless(file3dmTemplatePath: string.Empty),
+                member: nameof(RhinoDoc.CreateHeadless),
                 key: op)),
             template: static (op, source) => Headless(
                 path: source.Path,
                 open: static resolved => RhinoDoc.CreateHeadless(file3dmTemplatePath: resolved),
+                member: nameof(RhinoDoc.CreateHeadless),
                 key: op),
             archive: static (op, source) => Headless(
                 path: source.Path,
                 open: static resolved => RhinoDoc.OpenHeadless(file3dmPath: resolved),
+                member: nameof(RhinoDoc.OpenHeadless),
                 key: op),
             configured: static (op, source) =>
                 from path in source.Path.Resolve(file: DocumentFile.Existing, key: op)
@@ -687,46 +884,52 @@ public abstract partial record SessionSource {
                 from minted in options.Mint(key: op)
                 from lease in op.Catch(() => Minted(
                     document: RhinoDoc.OpenHeadless(filePath: path, options: minted),
+                    member: nameof(RhinoDoc.OpenHeadless),
                     key: op))
                 select lease)
         select lease;
 
+    // The borrowed band demands a live lane and the owned band a headless one; `Keyed` serves both.
     private Fin<Unit> Admits(SessionMode mode, Op key) =>
         guard(
             flag: Switch(
-                state: mode,
-                live: static (lane, _) => lane.Live,
-                active: static (lane, _) => lane.Live,
+                state: mode.Capabilities().Admits(capability: LaneCapability.Live),
+                live: static (live, _) => live,
+                active: static (live, _) => live,
                 keyed: static (_, _) => true,
-                opened: static (lane, _) => lane.Live,
-                empty: static (lane, _) => !lane.Live,
-                template: static (lane, _) => !lane.Live,
-                archive: static (lane, _) => !lane.Live,
-                configured: static (lane, _) => !lane.Live),
+                opened: static (live, _) => live,
+                empty: static (live, _) => !live,
+                template: static (live, _) => !live,
+                archive: static (live, _) => !live,
+                configured: static (live, _) => !live),
             False: key.InvalidInput()).ToFin();
 
     private static Fin<Lease<RhinoDoc>> Borrowed(Fin<RhinoDoc> document) =>
         document.Map(static value => (Lease<RhinoDoc>)new Lease<RhinoDoc>.Borrowed(Value: value));
 
-    private static Fin<Lease<RhinoDoc>> Headless(DocumentPath path, Func<string, RhinoDoc?> open, Op key) =>
+    private static Fin<Lease<RhinoDoc>> Headless(DocumentPath path, Func<string, RhinoDoc?> open, string member, Op key) =>
         from resolved in path.Resolve(file: DocumentFile.ThreeDm, key: key)
-        from lease in key.Catch(() => Minted(document: open(arg: resolved), key: key))
+        from lease in key.Catch(() => Minted(document: open(arg: resolved), member: member, key: key))
         select lease;
 
-    private static Fin<Lease<RhinoDoc>> Minted(RhinoDoc? document, Op key) =>
+    private static Fin<Lease<RhinoDoc>> Minted(RhinoDoc? document, string member, Op key) =>
         Optional(document)
-            .ToFin(Fail: key.InvalidResult())
+            .ToFin(Fail: new DraftFault.HostRefused(Key: key, Member: member, Detail: "returned no document"))
             .Map(static value => (Lease<RhinoDoc>)new Lease<RhinoDoc>.Owned(Value: value));
+}
+
+// --- [MODELS] -----------------------------------------------------------------------------
+// The lifecycle as ONE stepped state: `Depth` counts open demand windows, `Closing` parks a disposal issued
+// mid-demand, and `Released` is terminal — a transition that loses its race reads a verdict, never a torn triple.
+internal sealed record SessionGate(int Depth, bool Closing, bool Released) {
+    internal static readonly SessionGate Open = new(Depth: 0, Closing: false, Released: false);
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
-    private readonly Lock gate = new();
+    private readonly Atom<SessionGate> gate = Atom(SessionGate.Open);
     private readonly Lease<RhinoDoc> lease;
     private readonly LanguageExt.HashSet<SessionNeed> granted;
-    private bool disposePending;
-    private bool released;
-    private int demandDepth;
 
     private DocumentSession(
         DocKey key,
@@ -749,7 +952,7 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
         Op op = Op.Of();
         return from admission in Admission.Pair(first: source, second: mode, key: op)
                from demanded in AdmitNeeds(needs: needs, mode: admission.Second, op: op)
-               from session in OnHost(
+               from session in Marshalled(
                    mode: admission.Second,
                    use: () =>
                        from acquired in admission.First.Acquire(mode: admission.Second, key: op)
@@ -783,9 +986,9 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
                    .Apply(static (body, requested) => (Body: body, Requested: requested))
                    .As()
                    .ToFin()
-               from result in OnHost(
+               from result in Marshalled(
                    mode: Mode,
-                   use: () => DemandLocked(
+                   use: () => Bracketed(
                        use: admission.Body,
                        requested: admission.Requested,
                        op: op),
@@ -815,111 +1018,113 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
             needs: [SessionNeed.Interrupt]);
     }
 
-    public void Dispose() {
-        lock (gate) {
-            if (released || disposePending) {
-                return;
-            }
+    // `Close` either releases now (depth zero) or parks: the gate answers WHICH, and the disposal effect runs on
+    // the committed release arm alone — the mint-outside-the-transition law.
+    public void Dispose() =>
+        ignore(Cell.Step(
+                gate,
+                static held => held.Released || held.Closing
+                    ? Option<SessionGate>.None
+                    : Some(held.Depth is 0
+                        ? held with { Released = true }
+                        : held with { Closing = true }),
+                Op.Of().InvalidResult())
+            .Switch(
+                state: this,
+                committed: static (session, row) => row.State.Released ? ignore(session.Release(op: Op.Of())) : unit,
+                ceded: static (_, _) => unit,
+                refused: static (_, _) => unit,
+                contended: static (_, _) => unit));
 
-            if (demandDepth > 0) {
-                disposePending = true;
-                return;
-            }
-
-            released = true;
-            lease.Dispose();
-        }
-    }
-
-    private Fin<TResult> DemandLocked<TResult>(
+    // The demand window as a BRACKET: enter, run, exit — the exit runs on every arm, answers whether it owes the
+    // deferred disposal, and a disposal fault AGGREGATES into the body's outcome rather than replacing it.
+    private Fin<TResult> Bracketed<TResult>(
         Func<RhinoDoc, Fin<TResult>> use,
         LanguageExt.HashSet<SessionNeed> requested,
         Op op)
-        where TResult : IDetachedDocumentResult {
-        lock (gate) {
-            if (released || disposePending) {
-                return Fin.Fail<TResult>(error: op.MissingContext());
-            }
+        where TResult : IDetachedDocumentResult =>
+        IO.lift(() => Enter(op: op))
+            .Bracket(
+                Use: _ => IO.lift(() => Proven(use: use, requested: requested, op: op)),
+                Fin: _ => IO.lift(() => Exit(op: op)))
+            .Run()
+            .Flatten();
 
-            demandDepth += 1;
-            Fin<TResult> result;
-            try {
-                result = op.Catch(() =>
-                    from grants in Proven(needs: requested, admits: granted.Contains, refusal: op.MissingContext())
-                    from document in Key.Resolve(key: op)
-                    from snapshot in SessionSnapshot.Of(document: document, key: op)
-                    from capabilities in Proven(
-                        needs: requested,
-                        admits: need => need.Admits(snapshot: snapshot, mode: Mode),
-                        refusal: op.MissingContext())
-                    from value in Optional(use(arg: document))
-                        .ToFin(Fail: op.InvalidResult())
-                        .Bind(identity)
-                    select value);
-            } finally {
-                demandDepth -= 1;
-            }
+    private Fin<TResult> Proven<TResult>(
+        Func<RhinoDoc, Fin<TResult>> use,
+        LanguageExt.HashSet<SessionNeed> requested,
+        Op op)
+        where TResult : IDetachedDocumentResult =>
+        op.Catch(() =>
+            from grants in guard(requested.ForAll(granted.Contains), op.MissingContext()).ToFin()
+            from document in Key.Resolve(key: op)
+            from snapshot in SessionSnapshot.Of(document: document, key: op)
+            from capabilities in requested.AsIterable()
+                .Traverse(need => need.Admit(snapshot: snapshot, mode: Mode, op: op))
+                .As()
+                .ToFin()
+            from value in Optional(use(arg: document))
+                .ToFin(Fail: op.InvalidResult())
+                .Bind(identity)
+            select value);
 
-            return demandDepth is 0 && disposePending
-                ? CompleteDisposal(result: result, op: op)
-                : result;
-        }
-    }
+    private Fin<Unit> Enter(Op op) =>
+        Cell.Step(
+            gate,
+            static held => held.Released || held.Closing ? Option<SessionGate>.None : Some(held with { Depth = held.Depth + 1 }),
+            op.MissingContext())
+        .Switch(
+            state: op,
+            committed: static (_, _) => Fin.Succ(unit),
+            ceded: static (key, _) => Fin.Fail<Unit>(key.MissingContext()),
+            refused: static (_, row) => Fin.Fail<Unit>(row.Cause),
+            contended: static (key, _) => Fin.Fail<Unit>(key.InvalidResult()));
 
-    private Fin<TResult> CompleteDisposal<TResult>(Fin<TResult> result, Op op) {
-        disposePending = false;
-        return Release(op: op).BiBind(
-            Succ: _ => result,
-            Fail: cleanup => result.BiBind(
-                Succ: _ => Fin.Fail<TResult>(error: cleanup),
-                Fail: failure => Fin.Fail<TResult>(error: failure + cleanup)));
-    }
+    private Fin<Unit> Exit(Op op) =>
+        Cell.Step(
+            gate,
+            static held => held.Depth > 0
+                ? Some(held.Depth is 1 && held.Closing
+                    ? held with { Depth = 0, Closing = false, Released = true }
+                    : held with { Depth = held.Depth - 1 })
+                : Option<SessionGate>.None,
+            op.InvalidResult())
+        .Switch(
+            state: (Session: this, Key: op),
+            committed: static (held, row) => row.State.Released ? held.Session.Release(op: held.Key) : Fin.Succ(unit),
+            ceded: static (held, _) => Fin.Fail<Unit>(held.Key.InvalidResult()),
+            refused: static (_, row) => Fin.Fail<Unit>(row.Cause),
+            contended: static (held, _) => Fin.Fail<Unit>(held.Key.InvalidResult()));
 
-    private Fin<Unit> Release(Op op) {
-        if (released) {
-            return Fin.Succ(value: unit);
-        }
-
-        released = true;
-        return op.Catch(() => {
-            lease.Dispose();
-            return Fin.Succ(value: unit);
-        });
-    }
+    private Fin<Unit> Release(Op op) => op.Catch(() => {
+        lease.Dispose();
+        return Fin.Succ(value: unit);
+    });
 
     private static Fin<LanguageExt.HashSet<SessionNeed>> AdmitNeeds(
         ReadOnlySpan<SessionNeed> needs,
         SessionMode mode,
         Op op) =>
-        from demanded in toSeq(needs.ToArray())
-            .Traverse(need => op.Need(need).ToValidation())
-            .As()
-            .ToFin()
+        from demanded in Admission.All(values: needs, key: op)
         from nonempty in guard(flag: !demanded.IsEmpty, False: op.InvalidInput()).ToFin()
         let distinct = toHashSet(demanded)
         from unique in guard(flag: distinct.Count == demanded.Count, False: op.InvalidInput()).ToFin()
-        from modeAdmitted in Proven(needs: distinct, admits: need => need.AdmitsMode(mode: mode), refusal: op.InvalidInput())
-        select distinct;
-
-    private static Fin<Unit> Proven(LanguageExt.HashSet<SessionNeed> needs, Func<SessionNeed, bool> admits, Error refusal) =>
-        needs.AsIterable()
-            .Traverse(need => (admits(need) ? Fin.Succ(value: need) : Fin.Fail<SessionNeed>(error: refusal)).ToValidation())
+        from modeAdmitted in distinct.AsIterable()
+            .Traverse(need => need.AdmitsMode(mode: mode)
+                ? Validation<Error, SessionNeed>.Success(need)
+                : Validation<Error, SessionNeed>.Fail(new KernelFault.InvalidValue(nameof(SessionNeed), string.Join(" | ", new object?[] { op, need.Key, "a need the session mode's lane capabilities admit" }))))
             .As()
             .ToFin()
-            .Map(static _ => unit);
+        select distinct;
 
-    private static Fin<TResult> OnHost<TResult>(SessionMode mode, Func<Fin<TResult>> use, Op op) =>
+    // Live lanes cross the kernel dispatch; a headless session has no marshal to cross and the kernel entry would
+    // refuse `Headless` typed, so its body runs on the caller thread by construction.
+    private static Fin<TResult> Marshalled<TResult>(SessionMode mode, Func<Fin<TResult>> use, Op op) =>
         from lane in op.Need(mode)
         from body in op.Need(use)
-        from result in op.Catch(() => {
-            if (!lane.Live || RhinoApp.IsOnMainThread) {
-                return body();
-            }
-
-            Fin<TResult>? dispatched = null;
-            RhinoApp.InvokeAndWait(() => dispatched = op.Catch(body));
-            return dispatched ?? Fin.Fail<TResult>(error: op.MissingContext());
-        })
+        from result in lane.Capabilities().Admits(capability: LaneCapability.Live)
+            ? UiThread.Run(new UiDispatch<TResult>.Blocking(Body: body), DispatchLane.Immediate, op)
+            : body()
         select result;
 
     private static Fin<DocumentSession> Adopt(
@@ -931,12 +1136,13 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
         Fin<DocumentSession> admitted = op.Catch(() =>
             from snapshot in SessionSnapshot.Of(document: document, key: op)
             from laneAdmitted in guard(
-                flag: snapshot.Headless != lane.Live,
+                flag: snapshot.Conditions.Admits(capability: SessionCondition.Headless)
+                    != lane.Capabilities().Admits(capability: LaneCapability.Live),
                 False: op.InvalidInput()).ToFin()
-            from capabilities in Proven(
-                needs: granted,
-                admits: need => need.Admits(snapshot: snapshot, mode: lane),
-                refusal: op.MissingContext())
+            from capabilities in granted.AsIterable()
+                .Traverse(need => need.Admit(snapshot: snapshot, mode: lane, op: op))
+                .As()
+                .ToFin()
             from key in DocKey.Of(document: document, key: op)
             from context in Rasm.Domain.Context.Of(doc: document).ToFin()
             select new DocumentSession(
@@ -944,6 +1150,7 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
                 mode: lane,
                 lease: acquired,
                 granted: granted));
+        // The cleanup fault AGGREGATES into the primary — a released-but-refused adoption reports both.
         return admitted.BindFail(error => op.Catch(() => {
             acquired.Dispose();
             return Fin.Succ(value: unit);
@@ -957,9 +1164,6 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class Admission {
-    internal static Fin<T> Admitted<T>(ValidationError? fault, T? value, Error refusal) where T : class =>
-        fault is null && value is not null ? Fin.Succ(value: value) : Fin.Fail<T>(error: refusal);
-
     internal static Fin<Seq<T>> All<T>(ReadOnlySpan<T> values, Op key) =>
         toSeq(values.ToArray())
             .Traverse(value => key.Need(value).ToValidation())
@@ -977,16 +1181,23 @@ internal static class Admission {
 }
 ```
 
-## [05]-[REGIME]
+## [06]-[REGIME]
 
-- Owner: `DocumentSpace` carries the model/page host-member axis as read, tolerance-write, and precision-write behavior columns. Kernel `ModelUnit` owns unit admission and equality; the native `LengthUnit` survives only beside the host call that reads or writes it. Closed `RegimeChange` cases expose one overloaded `Of` admission family and one mutation dispatch.
+- Owner: `DocumentSpace` carries the model/page host-member axis as read, tolerance-write, and precision-write behavior columns. Kernel `ModelUnit` owns unit admission and equality; the native `LengthUnit` survives only beside the host call that reads or writes it. Closed `RegimeChange` cases expose one overloaded `Of` admission family and one mutation dispatch. The tolerance regime IS the kernel `Context` — model and page space are two `Context` values read through their own `DocumentSpace` rows — and display precision IS the kernel `DrawingPrecision`, derived from the drawing scale through the ISO 128-24 width ladder rather than authored as a digit count.
 - Entry: `session.Regime(space)` reads a validated `UnitRegime`. `session.Adjust(space, change)` captures the before regime, seals one undo record around the change, proves the exact requested postcondition, and returns `RegimeReceipt` with the sealed serial.
 - Law: `UnitScaling` replaces the host `bool scale` knob with `PreserveCoordinates` and `PreservePhysicalSize`. Known, custom, and native `LengthUnit` inputs all produce the private-constructed `RegimeChange.Units` case, so `AdjustLengthUnits` is the sole unit-system mutation path.
-- Law: tolerance values compose the kernel `AbsoluteTolerance`, `RelativeTolerance`, and `AngleTolerance` owners. This page carries no independent numeric admission or radians/degrees duplication.
-- Law: unit postconditions compare canonical `ModelUnit` evidence, including custom name and meters-per-unit scale. `UnitRegime` retains the native `LengthUnit` only for compensation.
-- Boundary: the row delegates contain the property-set statement seam required by the host API. A failed write restores every scalar without assuming a failed unit call changed geometry; a proven unit write followed by a failed postcondition reverses the unit scaling and restores every scalar. Compensation faults accumulate and join the original fault, and the shared `DocumentCommit.Sealed` decides the enclosing record's seal or rollback under `RedrawPolicy.None`.
+- Law: tolerance values ride the kernel `Context` whole — `Context.Of(absolute:, relative:, angle:, units: native)` is the one admission and `DocumentSpace.SetTolerances` reads `.Absolute.Value`/`.Relative.Value`/`.Angle.Value` at the host write — so this page carries no tolerance value object, no numeric admission, and no radians/degrees duplication. The three former `[ValueObject<double>]` carriers (`AbsoluteTolerance`, `RelativeTolerance`, `AngleTolerance`) are DELETED kernel-wide; every composing site reads a `Tolerance` off a `Context` lane.
+- Law: display precision has ONE derivation — `DrawingPrecision.Of(scale, units).Form(key)` answers the digit count the smallest plottable feature implies through the scale, and the host `DistanceDisplayPrecision` int is the residue: a host member publishing decimal places alone, so a `Fraction` form refuses typed naming that host limit rather than flattening a denominator into digits. NAMED LOSS: the bare `Of(int digits)` entry; a caller states its scale and units and the count derives. Witness: the D72 drain — `DisplayPrecision` `[ValueObject<int>]` deletes whole and `RegimeChange.Of(DrawingScale, DrawingUnits)` is the one precision ingress.
+- Law: unit postconditions compare canonical `ModelUnit` evidence, including custom name and meters-per-unit scale; tolerance postconditions compare the three `Tolerance` values off the two `Context`s. `UnitRegime` retains the native `LengthUnit` only for compensation.
+- Boundary: row delegates contain the property-set statement seam required by the host API. Failed writes restore every scalar without assuming a failed unit call changed geometry; a proven unit write followed by a failed postcondition reverses the unit scaling and restores every scalar. Compensation rides the kernel `Custody.Rollback` delegate arm — its faults accumulate and join the original fault — and the shared `DocumentCommit.Sealed` decides the enclosing record's seal or rollback under `RedrawPolicy.None`.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+using Rasm.Domain;
+using Rasm.Drawing;
+
+namespace Rasm.Rhino.Document;
+
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class UnitScaling {
@@ -994,14 +1205,6 @@ public sealed partial class UnitScaling {
     public static readonly UnitScaling PreservePhysicalSize = new(key: 1, hostScale: true);
 
     internal bool HostScale { get; }
-}
-
-[ValueObject<int>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
-public readonly partial struct DisplayPrecision {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = value < 0
-            ? new ValidationError(message: "Display precision is negative.")
-            : null;
 }
 
 [SmartEnum<int>]
@@ -1016,14 +1219,14 @@ public sealed partial class DocumentSpace {
             angle: document.ModelAngleToleranceRadians,
             precision: document.ModelDistanceDisplayPrecision,
             op: op),
-        setTolerances: static (document, tolerances) => {
-            document.ModelAbsoluteTolerance = tolerances.Absolute.Value;
-            document.ModelRelativeTolerance = tolerances.Relative.Value;
-            document.ModelAngleToleranceRadians = tolerances.Angle.Value;
+        setTolerances: static (document, context) => {
+            document.ModelAbsoluteTolerance = context.Absolute.Value;
+            document.ModelRelativeTolerance = context.Relative.Value;
+            document.ModelAngleToleranceRadians = context.Angle.Value;
             return unit;
         },
-        setPrecision: static (document, precision) => {
-            document.ModelDistanceDisplayPrecision = precision.Value;
+        setPrecision: static (document, digits) => {
+            document.ModelDistanceDisplayPrecision = digits;
             return unit;
         });
 
@@ -1037,14 +1240,14 @@ public sealed partial class DocumentSpace {
             angle: document.PageAngleToleranceRadians,
             precision: document.PageDistanceDisplayPrecision,
             op: op),
-        setTolerances: static (document, tolerances) => {
-            document.PageAbsoluteTolerance = tolerances.Absolute.Value;
-            document.PageRelativeTolerance = tolerances.Relative.Value;
-            document.PageAngleToleranceRadians = tolerances.Angle.Value;
+        setTolerances: static (document, context) => {
+            document.PageAbsoluteTolerance = context.Absolute.Value;
+            document.PageRelativeTolerance = context.Relative.Value;
+            document.PageAngleToleranceRadians = context.Angle.Value;
             return unit;
         },
-        setPrecision: static (document, precision) => {
-            document.PageDistanceDisplayPrecision = precision.Value;
+        setPrecision: static (document, digits) => {
+            document.PageDistanceDisplayPrecision = digits;
             return unit;
         });
 
@@ -1053,11 +1256,15 @@ public sealed partial class DocumentSpace {
     [UseDelegateFromConstructor]
     internal partial Fin<UnitRegime> Read(RhinoDoc document, Op op);
 
+    // Takes the kernel `Context` whole and reads the three tolerance values at the host write — the one place the
+    // scalars leave the kernel carrier.
     [UseDelegateFromConstructor]
-    internal partial Unit SetTolerances(RhinoDoc document, ToleranceRegime tolerances);
+    internal partial Unit SetTolerances(RhinoDoc document, Context context);
 
+    // The host member publishes DECIMAL PLACES alone; the digit count arrives already derived from the kernel
+    // precision owner, so this seam holds no precision authority of its own.
     [UseDelegateFromConstructor]
-    internal partial Unit SetPrecision(RhinoDoc document, DisplayPrecision precision);
+    internal partial Unit SetPrecision(RhinoDoc document, int digits);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1073,9 +1280,9 @@ public abstract partial record RegimeChange {
         public UnitScaling Scaling { get; }
     }
 
-    public sealed record Tolerances(ToleranceRegime Value) : RegimeChange;
+    public sealed record Tolerances(Context Value) : RegimeChange;
 
-    public sealed record Precision(DisplayPrecision Value) : RegimeChange;
+    public sealed record Precision(DrawingPrecision Value) : RegimeChange;
 
     public static Fin<RegimeChange> Of(
         UnitSystem system,
@@ -1132,24 +1339,23 @@ public abstract partial record RegimeChange {
             .ToFin();
     }
 
+    // Tolerances mint the kernel `Context` whole: the units argument is the space's native regime, so the three
+    // scalars admit through the kernel's own lanes rather than a page-local value-object triple.
     public static Fin<RegimeChange> Of(
         double absolute,
         double relative,
         double angle,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return ToleranceRegime.Of(
-                absolute: absolute,
-                relative: relative,
-                angle: angle,
-                key: op)
+        LengthUnit units,
+        Op? key = null) =>
+        Context.Of(absolute: absolute, relative: relative, angle: angle, units: units)
+            .ToFin()
             .Map(static value => (RegimeChange)new Tolerances(Value: value));
-    }
 
-    public static Fin<RegimeChange> Of(int precision, Op? key = null) {
+    // The ONE precision ingress: the digit count DERIVES from the scale through the kernel ladder, never authored.
+    public static Fin<RegimeChange> Of(DrawingScale scale, DrawingUnits units, Op? key = null) {
         Op op = key.OrDefault();
-        return op.AcceptValidated<DisplayPrecision>(candidate: precision)
-            .Map(static value => (RegimeChange)new Precision(Value: value));
+        return from admission in Admission.Pair(first: scale, second: units, key: op)
+               select (RegimeChange)new Precision(Value: DrawingPrecision.Of(scale: admission.First, units: admission.Second));
     }
 
     internal Fin<Unit> Apply(
@@ -1159,42 +1365,51 @@ public abstract partial record RegimeChange {
         Op op) {
         Fin<Unit> mutation = Switch(
             state: (Document: document, Space: space, Op: op),
-            units: static (context, change) => context.Op.Catch(() => context.Op.Confirm(
-                success: context.Document.AdjustLengthUnits(
+            units: static (context, change) => context.Op.Catch(() => context.Document.AdjustLengthUnits(
                     modelUnits: context.Space.ModelUnits,
                     units: change.Native,
-                    scale: change.Scaling.HostScale))),
+                    scale: change.Scaling.HostScale)
+                ? Fin.Succ(value: unit)
+                : Fin.Fail<Unit>(new DraftFault.HostRefused(
+                    Key: context.Op, Member: nameof(RhinoDoc.AdjustLengthUnits), Detail: "answered false"))),
             tolerances: static (context, change) => context.Op.Catch(() => Fin.Succ(
                 value: context.Space.SetTolerances(
                     document: context.Document,
-                    tolerances: change.Value))),
-            precision: static (context, change) => context.Op.Catch(() => Fin.Succ(
-                value: context.Space.SetPrecision(
-                    document: context.Document,
-                    precision: change.Value))));
-        return mutation.BindFail(error => Restore<Unit>(
+                    context: change.Value))),
+            precision: static (context, change) =>
+                from digits in change.Value.Digits(key: context.Op)
+                from written in context.Op.Catch(() => Fin.Succ(
+                    value: context.Space.SetPrecision(document: context.Document, digits: digits)))
+                select written);
+        // Failed writes assume nothing about which scalar landed: kernel `Custody.Rollback`'s delegate arm runs the
+        // whole-regime restore on the failure arm and appends any compensation fault onto the primary.
+        return mutation.Rollback(() => Restore(
             document: document,
             space: space,
             before: before,
             scaling: None,
-            failure: error,
             op: op));
     }
 
-    internal bool Matches(UnitRegime actual) =>
+    internal Fin<bool> Matches(UnitRegime actual, Op op) =>
         Switch(
-            state: actual,
-            units: static (regime, change) => regime.Unit == change.Unit,
-            tolerances: static (regime, change) => regime.Tolerances == change.Value,
-            precision: static (regime, change) => regime.Precision == change.Value);
+            state: (Regime: actual, Op: op),
+            units: static (held, change) => Fin.Succ(held.Regime.Unit == change.Unit),
+            tolerances: static (held, change) => Fin.Succ(
+                held.Regime.Space.Absolute.Value == change.Value.Absolute.Value
+                && held.Regime.Space.Relative.Value == change.Value.Relative.Value
+                && held.Regime.Space.Angle.Value == change.Value.Angle.Value),
+            precision: static (held, change) => change.Value.Digits(key: held.Op)
+                .Map(digits => held.Regime.Digits == digits));
 
-    internal Fin<TResult> Rollback<TResult>(
+    // Kernel `Custody.Rollback`'s delegate arm consumes this compensation: restore every regime scalar the failed
+    // change may have touched, reversing the unit scaling only where the change was a unit write.
+    internal Fin<Unit> Restore(
         RhinoDoc document,
         DocumentSpace space,
         UnitRegime before,
-        Error failure,
         Op op) =>
-        Restore<TResult>(
+        Restore(
             document: document,
             space: space,
             before: before,
@@ -1202,75 +1417,47 @@ public abstract partial record RegimeChange {
                 units: static change => Some(change.Scaling),
                 tolerances: static _ => None,
                 precision: static _ => None),
-            failure: failure,
             op: op);
 
-    private static Fin<TResult> Restore<TResult>(
+    private static Fin<Unit> Restore(
         RhinoDoc document,
         DocumentSpace space,
         UnitRegime before,
         Option<UnitScaling> scaling,
-        Error failure,
         Op op) {
         K<Validation<Error>, Unit> units = scaling.Match(
-            Some: policy => op.Catch(() => op.Confirm(
-                success: document.AdjustLengthUnits(
+            Some: policy => op.Catch(() => document.AdjustLengthUnits(
                     modelUnits: space.ModelUnits,
                     units: before.Native,
-                    scale: policy.HostScale))),
+                    scale: policy.HostScale)
+                ? Fin.Succ(value: unit)
+                : Fin.Fail<Unit>(new DraftFault.HostRefused(
+                    Key: op, Member: nameof(RhinoDoc.AdjustLengthUnits), Detail: "restore answered false"))),
             None: () => Fin.Succ(value: unit)).ToValidation();
         K<Validation<Error>, Unit> tolerances = op.Catch(() => Fin.Succ(value: space.SetTolerances(
             document: document,
-            tolerances: before.Tolerances))).ToValidation();
+            context: before.Space))).ToValidation();
         K<Validation<Error>, Unit> precision = op.Catch(() => Fin.Succ(value: space.SetPrecision(
             document: document,
-            precision: before.Precision))).ToValidation();
+            digits: before.Digits))).ToValidation();
         return (units, tolerances, precision)
             .Apply(static (_, _, _) => unit)
-            .As()
-            .ToFin()
-            .BiBind(
-                Succ: _ => Fin.Fail<TResult>(error: failure),
-                Fail: cleanup => Fin.Fail<TResult>(error: failure + cleanup));
-    }
-}
-
-// --- [MODELS] -----------------------------------------------------------------------------
-public sealed record ToleranceRegime(
-    AbsoluteTolerance Absolute,
-    RelativeTolerance Relative,
-    AngleTolerance Angle) : IDetachedDocumentResult {
-    public static Fin<ToleranceRegime> Of(
-        double absolute,
-        double relative,
-        double angle,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return (
-                op.AcceptValidated<AbsoluteTolerance>(candidate: absolute).ToValidation(),
-                op.AcceptValidated<RelativeTolerance>(candidate: relative).ToValidation(),
-                op.AcceptValidated<AngleTolerance>(candidate: angle).ToValidation())
-            .Apply(static (admittedAbsolute, admittedRelative, admittedAngle) => new ToleranceRegime(
-                Absolute: admittedAbsolute,
-                Relative: admittedRelative,
-                Angle: admittedAngle))
             .As()
             .ToFin();
     }
 }
 
+// --- [MODELS] -----------------------------------------------------------------------------
+// One space's regime: the kernel `Context` carries the tolerance triple and the unit scale, the native unit
+// survives for compensation alone, and the digit count is the host's own read-back evidence.
 public sealed record UnitRegime : IDetachedDocumentResult {
-    private UnitRegime(
-        LengthUnit native,
-        ModelUnit unit,
-        ToleranceRegime tolerances,
-        DisplayPrecision precision) =>
-        (Native, Unit, Tolerances, Precision) = (native, unit, tolerances, precision);
+    private UnitRegime(LengthUnit native, ModelUnit unit, Context space, int digits) =>
+        (Native, Unit, Space, Digits) = (native, unit, space, digits);
 
     internal LengthUnit Native { get; }
     public ModelUnit Unit { get; }
-    public ToleranceRegime Tolerances { get; }
-    public DisplayPrecision Precision { get; }
+    public Context Space { get; }
+    public int Digits { get; }
 
     internal static Fin<UnitRegime> Of(
         LengthUnit units,
@@ -1281,17 +1468,13 @@ public sealed record UnitRegime : IDetachedDocumentResult {
         Op op) =>
         (
             ModelUnit.Of(value: units, key: op).ToValidation(),
-            ToleranceRegime.Of(
-                absolute: absolute,
-                relative: relative,
-                angle: angle,
-                key: op).ToValidation(),
-            op.AcceptValidated<DisplayPrecision>(candidate: precision).ToValidation())
-        .Apply((admittedUnit, admittedTolerances, admittedPrecision) => new UnitRegime(
+            Context.Of(absolute: absolute, relative: relative, angle: angle, units: units),
+            guard(precision >= 0, (Error)new KernelFault.OutOfRange(Label: nameof(Digits), Scalar: precision, Requirement: "a non-negative digit count", Key: Some(op))).ToFin().ToValidation())
+        .Apply((admittedUnit, context, _) => new UnitRegime(
             native: units,
             unit: admittedUnit,
-            tolerances: admittedTolerances,
-            precision: admittedPrecision))
+            space: context,
+            digits: precision))
         .As()
         .ToFin();
 }
@@ -1364,13 +1547,12 @@ public static class SessionRegimes {
                                    op: op)
                                from after in (
                                    from observed in admission.Axis.Read(document: document, op: op)
-                                   from matches in op.Catch(() => Fin.Succ(value: admission.Request.Matches(actual: observed)))
+                                   from matches in admission.Request.Matches(actual: observed, op: op)
                                    from exact in guard(flag: matches, False: op.InvalidResult()).ToFin()
-                                   select observed).BindFail(error => admission.Request.Rollback<UnitRegime>(
+                                   select observed).Rollback(() => admission.Request.Restore(
                                    document: document,
                                    space: admission.Axis,
                                    before: before,
-                                   failure: error,
                                    op: op))
                                select RegimeReceipt.Pending(
                                    space: admission.Axis,
@@ -1380,21 +1562,23 @@ public static class SessionRegimes {
                            stamp: static (result, serial) => result.Seal(serial: serial),
                            op: op),
                        key: op,
-                       needs: SessionNeed.Mutation(undo: true, redraw: RedrawPolicy.None).ToArray())
+                       needs: SessionNeed.Mutation(custody: UndoCustody.Recorded, redraw: RedrawPolicy.None).ToArray())
                    select receipt;
         }
     }
 }
 ```
 
-## [06]-[REGIME_TEXT]
+## [07]-[REGIME_TEXT]
 
-- Owner: `UnitDialect` carries every catalogued host parser preset as a behavior row; `AngleGrammar` rows own bare-number angle interpretation and land canonical radians. `UnitForm` and `UnitNotation` re-close foreign formatting ordinals. `UnitText` `[Union]` carries encoded length/scale/angle text, detached semantic evidence, display/name projections, and rendered text on one correspondence owner. `UnitLabel` generates every case, number, and width combination from three independent policy axes.
+- Owner: `UnitDialect` carries every catalogued host parser preset as a behavior row; `AngleGrammar` rows own bare-number angle interpretation and land canonical radians. `UnitForm` re-closes the foreign formatting ordinal. `UnitText` `[Union]` carries encoded length/scale/angle text and detached semantic evidence on one correspondence owner.
 - Entry: `session.Text(space, text)` resolves the live regime and crosses one `UnitText` case. Length text crosses to semantic evidence and the same returned carrier crosses back to exact text; scale and angle values return typed unsupported faults where the catalog exposes no verified inverse formatter.
 - Law: dialect rows return the host preset statics — process-shared constants whose `Dispose` is inert — and never mutate one: a preset setter writes through to the shared native object and poisons every later parse, and `new StringParserSettings()` seeds a different ambiguous grammar, so neither is a dialect base.
 - Law: a length parse admits only a whole-string parse of a set value — `parsedAll` and `!IsUnset()` gate together — and converts on egress through `Length(LengthUnit)` into regime units. Reverse crossing scales the detached value from its captured `ModelUnit` into the current regime before formatting and preserves its admitted dialect. A scale parse gates the scale and both terms before detaching each magnitude and `LengthUnit`, so unitless, custom, mixed-unit, and same-unit ratios remain distinguishable.
 - Law: an angle phrase parses through `StringParser.ParseAngleExpressionRadians` or `ParseAngleExpressionDegrees` under its `AngleGrammar` row; the degrees row converts through `RhinoMath.ToRadians` at the seam, so `UnitText.AngleValueCase` always carries canonical radians and no consumer re-derives the angular unit.
-- Law: every parsed `LengthValue`/`ScaleValue` is a native disposable bracketed inside its arm; `UnitText` leaves as detached evidence or text, never as a live parse handle. Exact length crossing round-trips through `LengthValue.LengthString`; display suffixes use `UnitSuffix`, and `UnitSystemName` receives the generated `UnitLabel` policy rather than boolean knobs.
+- Law: every parsed `LengthValue`/`ScaleValue` is a native disposable bracketed inside its arm — the `using` statement blocks are the `[CAPSULE_OWNER]` exemption, stated once here; `UnitText` leaves as detached evidence or text, never as a live parse handle. Exact length crossing round-trips through `LengthValue.LengthString`.
+- Law: the locale display and unit-name legs are DELETED — `UnitText.Display`, `UnitText.Name`, their two private cases, the rendered projection, and the four label vocabularies proved zero consumers corpus-wide. NAMED LOSS: a locale-rendered readout correspondence; a future consumer lands it as one case plus one `LabelTrait` capability row, and the host members (`Localization.FormatNumber`/`UnitSystemName`) re-enter through that admission rather than surviving as reachable-by-nobody arms.
+- Boundary: the sheet-standard unit declaration is `Rasm.Drawing`'s `DrawingUnits` and the model regime is this page's — a title block reads the sheet's row and never this correspondence; the host parse/render estate stays because its grammar is the host's own locale surface.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -1441,73 +1625,6 @@ public sealed partial class UnitForm {
     public static readonly UnitForm CleanImproperFraction = new(key: 5, native: LengthValue.StringFormat.CleanImproperFraction);
 
     internal LengthValue.StringFormat Native { get; }
-}
-
-[SmartEnum<int>]
-public sealed partial class UnitNotation {
-    public static readonly UnitNotation Decimal = new(key: 0, native: global::Rhino.UI.DistanceDisplayMode.Decimal);
-    public static readonly UnitNotation Fractional = new(key: 1, native: global::Rhino.UI.DistanceDisplayMode.Fractional);
-    public static readonly UnitNotation FeetInches = new(key: 2, native: global::Rhino.UI.DistanceDisplayMode.FeetInches);
-
-    internal global::Rhino.UI.DistanceDisplayMode Native { get; }
-}
-
-[SmartEnum<int>]
-public sealed partial class UnitSuffix {
-    public static readonly UnitSuffix Omit = new(key: 0, append: false);
-    public static readonly UnitSuffix Append = new(key: 1, append: true);
-
-    internal bool Append { get; }
-}
-
-[SmartEnum<int>]
-public sealed partial class UnitLetterCase {
-    public static readonly UnitLetterCase Lower = new(key: 0, capitalize: false);
-    public static readonly UnitLetterCase Capitalized = new(key: 1, capitalize: true);
-
-    internal bool Capitalize { get; }
-}
-
-[SmartEnum<int>]
-public sealed partial class UnitNumber {
-    public static readonly UnitNumber Plural = new(key: 0, singular: false);
-    public static readonly UnitNumber Singular = new(key: 1, singular: true);
-
-    internal bool Singular { get; }
-}
-
-[SmartEnum<int>]
-public sealed partial class UnitWidth {
-    public static readonly UnitWidth Full = new(key: 0, abbreviate: false);
-    public static readonly UnitWidth Abbreviated = new(key: 1, abbreviate: true);
-
-    internal bool Abbreviate { get; }
-}
-
-[ComplexValueObject]
-public sealed partial class UnitLabel {
-    public UnitLetterCase LetterCase { get; }
-    public UnitNumber Number { get; }
-    public UnitWidth Width { get; }
-
-    static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
-        ref UnitLetterCase letterCase,
-        ref UnitNumber number,
-        ref UnitWidth width) =>
-        validationError = letterCase is null || number is null || width is null
-            ? new ValidationError(message: "Unit label policy is incomplete.")
-            : null;
-
-    public static Fin<UnitLabel> Of(
-        UnitLetterCase letterCase,
-        UnitNumber number,
-        UnitWidth width,
-        Op? key = null) =>
-        Admission.Admitted(
-            fault: Validate(letterCase, number, width, out UnitLabel? admitted),
-            value: admitted,
-            refusal: key.OrDefault().InvalidInput());
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1572,14 +1689,6 @@ public abstract partial record UnitText : IDetachedDocumentResult {
         public double Radians { get; }
     }
 
-    private sealed record DisplayCase(double Value, UnitNotation Notation, UnitSuffix Suffix) : UnitText;
-    private sealed record NameCase(UnitLabel Label) : UnitText;
-
-    public sealed record RenderedCase : UnitText {
-        internal RenderedCase(string text) => Text = text;
-        public string Text { get; }
-    }
-
     public static Fin<UnitText> Length(
         string text,
         Option<UnitDialect> dialect = default,
@@ -1599,27 +1708,6 @@ public abstract partial record UnitText : IDetachedDocumentResult {
     public static Fin<UnitText> Angle(string text, Option<AngleGrammar> grammar = default, Op? key = null) =>
         key.OrDefault().AcceptText(value: text)
             .Map(admitted => (UnitText)new AngleTextCase(text: admitted, grammar: grammar.IfNone(AngleGrammar.Radians)));
-
-    public static Fin<UnitText> Display(
-        double value,
-        UnitSuffix suffix,
-        Option<UnitNotation> notation = default,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return (
-                guard(flag: double.IsFinite(value), False: op.InvalidInput()).ToFin().ToValidation(),
-                op.Need(suffix).ToValidation())
-            .Apply((_, admittedSuffix) => (UnitText)new DisplayCase(
-                Value: value,
-                Notation: notation.IfNone(UnitNotation.Decimal),
-                Suffix: admittedSuffix))
-            .As()
-            .ToFin();
-    }
-
-    public static Fin<UnitText> Name(UnitLabel label, Op? key = null) =>
-        Optional(label).ToFin(Fail: key.OrDefault().InvalidInput())
-            .Map(static admitted => (UnitText)new NameCase(Label: admitted));
 
     internal Fin<UnitText> Cross(UnitRegime regime, Op key) => Switch(
         state: (Regime: regime, Op: key),
@@ -1689,29 +1777,13 @@ public abstract partial record UnitText : IDetachedDocumentResult {
             });
         }),
         scaleValueCase: static (context, _) => Fin.Fail<UnitText>(error: context.Op.Unsupported(
-            geometryType: typeof(ScaleValueCase),
+            inputType: typeof(ScaleValueCase),
             outputType: typeof(ScaleTextCase))),
         angleTextCase: static (context, text) => text.Grammar.Parse(text: text.Text, op: context.Op)
             .Map(static radians => (UnitText)new AngleValueCase(radians: radians)),
         angleValueCase: static (context, _) => Fin.Fail<UnitText>(error: context.Op.Unsupported(
-            geometryType: typeof(AngleValueCase),
-            outputType: typeof(AngleTextCase))),
-        displayCase: static (context, value) => context.Op.Catch(() => Fin.Succ(
-            value: (UnitText)new RenderedCase(text: global::Rhino.UI.Localization.FormatNumber(
-                x: value.Value,
-                units: context.Regime.Native,
-                mode: value.Notation.Native,
-                precision: context.Regime.Precision.Value,
-                appendUnitSystemName: value.Suffix.Append)))),
-        nameCase: static (context, value) => context.Op.Catch(() => Fin.Succ(
-            value: (UnitText)new RenderedCase(text: global::Rhino.UI.Localization.UnitSystemName(
-                units: context.Regime.Unit.System,
-                capitalize: value.Label.LetterCase.Capitalize,
-                singular: value.Label.Number.Singular,
-                abbreviate: value.Label.Width.Abbreviate)))),
-        renderedCase: static (context, _) => Fin.Fail<UnitText>(error: context.Op.Unsupported(
-            geometryType: typeof(RenderedCase),
-            outputType: typeof(UnitText))));
+            inputType: typeof(AngleValueCase),
+            outputType: typeof(AngleTextCase))));
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -1728,22 +1800,23 @@ public static class RegimeText {
 }
 ```
 
-## [07]-[SURFACE_LEDGER]
+## [08]-[SURFACE_LEDGER]
 
 | [INDEX] | [CONCERN]            | [OWNER]               | [FORM]                            | [ENTRY]                      |
 | :-----: | :------------------- | :-------------------- | :-------------------------------- | :--------------------------- |
-|  [01]   | document identity    | `DocKey`              | positive generated value          | `Of` / `Census`              |
-|  [02]   | lifecycle evidence   | `SessionSnapshot`     | detached host-state product       | `DocumentSession.Snapshot`   |
-|  [03]   | capability policy    | `SessionNeed`         | keyless behavior rows             | `DocumentSession.Demand`     |
-|  [04]   | source admission     | `SessionSource`       | flat closed source family         | `DocumentSession.Of`         |
-|  [05]   | scoped lifetime      | `DocumentSession`     | retained kernel lease             | `DocumentSession.Of`         |
-|  [06]   | space regime         | `DocumentSpace`       | model/page behavior rows          | `Regime` / `Adjust`          |
-|  [07]   | regime mutation      | `RegimeChange`        | units/tolerances/precision union  | `RegimeChange.Of` / `Adjust` |
-|  [08]   | unit correspondence  | `UnitText`            | encoded/semantic/projection union | `UnitText.Length` / `Text`   |
-|  [09]   | worksession topology | `WorksessionSnapshot` | detached active/reference rows    | `Worksession` / `FileOf`     |
-|  [10]   | worksession custody  | `WorksessionOp`       | scripted attach/detach/reload     | `Worksession` / receipt      |
+|  [01]   | admission fault      | `DraftFault`          | banded closed family              | hooks / `AcceptValidated`    |
+|  [02]   | document identity    | `DocKey`              | positive generated value          | `Of` / `Census`              |
+|  [03]   | lifecycle evidence   | `SessionSnapshot`     | phase + condition set             | `DocumentSession.Snapshot`   |
+|  [04]   | capability policy    | `SessionNeed`         | four-set data rows                | `DocumentSession.Demand`     |
+|  [05]   | source admission     | `SessionSource`       | flat closed source family         | `DocumentSession.Of`         |
+|  [06]   | scoped lifetime      | `DocumentSession`     | retained lease over `SessionGate` | `DocumentSession.Of`         |
+|  [07]   | space regime         | `DocumentSpace`       | model/page behavior rows          | `Regime` / `Adjust`          |
+|  [08]   | regime mutation      | `RegimeChange`        | units/context/precision union     | `RegimeChange.Of` / `Adjust` |
+|  [09]   | unit correspondence  | `UnitText`            | encoded/semantic union            | `UnitText.Length` / `Text`   |
+|  [10]   | worksession topology | `WorksessionSnapshot` | detached active/reference rows    | `Worksession` / `FileOf`     |
+|  [11]   | worksession custody  | `WorksessionOp`       | scripted attach/detach/reload     | `Worksession` / receipt      |
 
-## [08]-[RESEARCH]
+## [09]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

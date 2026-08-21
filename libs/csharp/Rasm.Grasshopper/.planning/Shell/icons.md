@@ -1,63 +1,60 @@
 # [RASM_GRASSHOPPER_SHELL_ICONS]
 
-`IconOwner` is the stateful vector-icon owner of the Grasshopper boundary — one admission gate over every GH2 icon origin (the three `AbstractIcon.FromResource` anchors, `FromFile`/`FromStream`/`FromBitmap`, and both diagnostic-bearing `FromCode` channels), one pose machine over the keyed-state surface (`States`/`FindState`/`SetState`/`MoveState`), one filter-chain fold over `IconContext`, one render gate over `Draw`/`DrawToBitmap`, and one frozen `IconCatalog` so every plugin declares its icon inventory as rows and never re-derives icon plumbing.
+`IconOwner` is the icon MATERIALIZER of the Grasshopper boundary — the one gate turning the kernel `Rasm/Interaction` asset vocabulary into live GH2 `IIcon` values: `Mint` admits a kernel `AssetOrigin` through the matching `AbstractIcon` factory, `Pose` drives the host's keyed-state machine, `Filtered` applies the kernel `IconFilter` chain onto a host `IconContext`, and `Draw` renders through `IIcon.Draw`/`DrawToBitmap` answering products on the kernel `AssetRaster` carrier. `IconCatalog` freezes a plugin's whole inventory as `(IconTag, AssetOrigin)` rows with total mint at freeze.
 
-Minting is admission with typed diagnostics: a compile failure is a `Fault` carrying every `CodeDiagnostic`, a compiler-channel mint detaches the host `CodeCompiler` census as `CompileEvidence`, pose animation carries the host `Duration`/`Motion` vocabulary, and rasterization returns owned bitmaps whose recency rides `Shell/session.md`'s `SessionCache`.
+Origin, filter, pose-orientation, and raster vocabularies are the KERNEL's (`AssetOrigin`, `IconFilter`, `IconPose`, `AssetRaster`, `IconRender`) — the folder twins that duplicated them are deleted, and this page owns only what GH2 adds: the `AbstractIcon` factory correspondence, the compile-diagnostic admission evidence (`FromCode` is the host compiler behind the kernel's `Source` case), the keyed-pose state machine (`SetState`/`MoveState` — the host's own value-state applicator, distinct from the kernel's orientation pose), and the frozen catalog. Minting is admission with typed diagnostics: a compile failure is a `Fault` carrying every `CodeDiagnostic`, a compiler-channel mint detaches the host `CodeCompiler` census as `CompileEvidence`, and rasterization answers leased bitmaps.
 
-Perceptual tint math for filter and state colour composes the kernel `PerceptualColor`/`BlendPath` owner — an in-folder colour lerp beside it is the second-derivation defect the kernel-unification law forecloses; the host `MoveState` easing stays the host's applicator and is never re-implemented.
+Perceptual tint math composes the kernel `PerceptualColor`/`BlendPath` owner — the kernel filter rows already carry `PerceptualColor`, quantized to `Eto.Drawing.Color` at this boundary alone; the host `MoveState` easing stays the host's applicator and is never re-implemented.
 
 ## [01]-[INDEX]
 
-- [02]-[ADMISSION]: `IconSource` + `ResourceAnchor` + `IconDiagnostics` + `CompileEvidence` + `IconHandle` + `IconOwner.Mint` — the origin family with compile-diagnostic and compiler-census evidence.
+- [02]-[ADMISSION]: kernel `AssetOrigin` → `AbstractIcon` correspondence + `IconDiagnostics` + `CompileEvidence` + `IconHandle` + `IconOwner.Mint` — the factory mapping with compile-diagnostic and compiler-census evidence.
 - [03]-[CATALOG]: `IconTag` + `IconCatalog` — the icon identity and the frozen per-plugin registry with total mint at freeze.
-- [04]-[POSE_AND_FILTER]: `PoseShift` + `IconFilter` — the keyed-pose machine and the draw-context filter chain.
-- [05]-[RENDER]: `IconRender` + `IconProduct` + `IconOwner` — the render-plan family, the leased product family, and the operator's gate set.
+- [04]-[POSE_AND_FILTER]: `PoseShift` + the kernel `IconFilter` applicator — the keyed-pose machine and the filter-chain fold onto `IconContext`.
+- [05]-[DRAW]: `IconDraw` + `IconProduct` + `IconOwner` — the draw-plan family (renamed off the kernel's `IconRender` request shape), the kernel-raster product family, and the operator's gate set.
 
 ## [02]-[ADMISSION]
 
-- Owner: `IconSource` `[Union]` — the closed origin family over every host factory: `ResourceCase(ResourceAnchor Anchor)`; `FileCase(string Path)` — `FromFile(string)`; `StreamCase(Stream Source)` — `FromStream(Stream)`; `BitmapCase(Seq<Bitmap> Frames)` — `FromBitmap(params Bitmap[])`, the multi-resolution raster admission; `CodeCase(string Source)` — `FromCode(string, out CodeDiagnostic[] warnings, out CodeDiagnostic[] errors)`, the vector-code compiler whose out-channels arrive warnings-first; `CompilerCase(string Source)` — `FromCode(string, out CodeCompiler)`, the same compile through the channel that hands back the compiler itself.
-- Owner: `ResourceAnchor` `[Union]` — three cases for three resource lookups, so the (anchor × name) product carries no inadmissible cell: `TypeCase(Type Anchor)` — `FromResource(Type)`, the anchor type's own assembly under the conventional name; `NamedTypeCase(string Name, Type Anchor)` — `FromResource(string, Type)`; `AssemblyCase(string Name, Assembly Source)` — `FromResource(string, Assembly)`, the ONLY path for a plugin whose icons ship in a `Plugin.SatelliteAssemblies` member, because the type-anchored overloads key off the anchor's own assembly. One anchor case carrying `Option<string> Name` is the deleted form: it spells an assembly-without-name cell the host has no overload for.
-- Owner: `IconDiagnostics` readonly record struct carries both `CodeDiagnostic` streams as `Seq` evidence; `CompileEvidence` readonly record struct detaches the `CodeCompiler` census — `References` (`ReferenceCount`), the four compile-policy flags (`GenerateInMemory`/`AllowUnsafe`/`AllowOverflow`/`AllowConcurrent`), `IncludeDebugData`, the `GetCachedSemanticModels` count, and the `GetCachedAssembly` full name; `IconHandle` sealed record binds the live `IIcon`, its host `IconType` kind, its `IconSource` origin, its `IconDiagnostics`, and its `Option<CompileEvidence>` — the admitted icon travels WITH the evidence that admitted it, so a diagnostic is never re-derived by recompiling and a consumer discriminating pixel from vector from compiled reads the host's own `Type` off the handle.
+- Owner: the `AssetOrigin` → `AbstractIcon` correspondence — one mint arm per kernel case: `Resource(AssetAnchor)` → `FromResource(anchor.ResourcePath, anchor.Owner)` (the assembly-keyed lookup; the host's `FromResource(Type)` convenience is the same call with the type's assembly and conventional name spelled at the boundary — the anchor states both facts, so no Type-anchored sibling union survives, and the convenience's implicit-name path is the NAMED LOSS: a consumer spells the conventional resource name explicitly); `File(FileLocation)` → `FromFile`; `Stream(Func<Stream>)` → `FromStream`, the factory opened EXACTLY ONCE per the kernel's stream law; `Raster(Seq<AssetRaster>)` → `FromBitmap(params Bitmap[])` over the set's `Toolkit` frames (a `Gdi` or `Pixels` frame refuses typed — GH2's factory takes Eto bitmaps, and the kernel's asked-shape law forbids silent conversion); `Source(string)` → `FromCode` — the host compiler the kernel's `Source` case exists for, through BOTH diagnostic channels; `Vector(AssetKey)` and `Render(Func<AssetExtent, Fin<PaintProgram>>)` refuse typed naming the case — GH2 publishes no by-key vector resolver, and a paint-program draw materializes at the kernel paint executor, not through an icon factory.
+- Owner: `IconDiagnostics` readonly record struct carries both `CodeDiagnostic` streams as `Seq` evidence; `CompileEvidence` readonly record struct detaches the `CodeCompiler` census — `References` (`ReferenceCount`), the four compile-policy flags (`GenerateInMemory`/`AllowUnsafe`/`AllowOverflow`/`AllowConcurrent`), `IncludeDebugData`, the `GetCachedSemanticModels` count, and the `GetCachedAssembly` full name; `IconHandle` sealed record binds the live `IIcon`, its host `IconType` kind, its kernel `AssetOrigin`, its `IconDiagnostics`, and its `Option<CompileEvidence>` — the admitted icon travels WITH the evidence that admitted it, so a diagnostic is never re-derived by recompiling and a consumer discriminating pixel from vector from compiled reads the host's own `Type` off the handle.
 - Law: an `IIcon` carries no disposal contract — the host interface declares `Type`, `States`, `FindState`, `SetState`, `MoveState`, `Draw`, and `DrawToBitmap` and nothing else — so the handle holds it as a plain reference and neither the handle nor the catalog is `IDisposable`; the leased resources on this page are the RENDERED products, never the icons. Wrapping a non-disposable host value in `Lease<T>` is unconstructible, and an `IDisposable` catalog with nothing to release advertises custody it does not hold.
-- Entry: `IconOwner.Mint(IconSource source, Op? key = null)` → `Fin<IconHandle>` — one gate, every origin. `Fault.InvalidResult` answers a null factory result; a `FromCode` compile whose error stream is non-empty is `Fault.InvalidResult` carrying each error's `Description` and line/column as detail while the handle path preserves warnings as evidence — errors refuse, warnings ride.
-- Law: minting marshals through `EtoDispatch.Run` — icon compilation and resource loading touch host drawing state — and every admission runs under `Op.Catch`, so a throwing host factory is a typed fault with the raising key.
+- Entry: `IconOwner.Mint(AssetOrigin origin, Op? key = null)` → `Fin<IconHandle>` — one gate, every kernel origin. `KernelFault.InvalidResult` answers a null factory result; a `FromCode` compile whose error stream is non-empty is `KernelFault.InvalidResult` carrying each error's `Description` and line/column as detail while the handle path preserves warnings as evidence — errors refuse, warnings ride. Compiler channel (`Mint` with `census: true`) reads `GetCachedWarnings`/`GetCachedErrors` for the same diagnostics and projects the census as `CompileEvidence` inside the dispatch window.
+- Law: minting marshals through the kernel `UiThread.Run` blocking arity — icon compilation and resource loading touch host drawing state — and every admission runs under `Op.Catch`, so a throwing host factory keeps its original exceptional `Error`.
 - Law: `CodeDiagnostic` carries `Description`/`Location`/`Length`/`Line`/`Column` with `IsWarning`/`IsError` discriminants — the evidence renders its own detail from these members, and the out-channel ORDER is load-bearing: warnings first, errors second; a consumer binding them reversed inverts the refusal policy.
-- Law: the `CodeCompiler` never leaves the gate — `CompilerCase` reads `GetCachedWarnings`/`GetCachedErrors` for the same `IconDiagnostics` the two-out-channel arm builds and projects the rest as `CompileEvidence` inside the dispatch window, so a caller diagnosing a missing reference reads a value while the host compiler, its `SemanticModel` set, and its cached assembly die with the mint. `AddReferenceAssembly` and the `CompileCSharpCode` family stay unreachable: this owner admits icons, never arbitrary assemblies.
-- Boundary: icon AUTHORING (the vector-code grammar `FromCode` compiles) is host language, not this owner's — the page transports source text and diagnostics; a Rasm-side icon DSL is a different concern on no current page.
-- Packages: Grasshopper2 (`AbstractIcon`, `IIcon`, `IconType`, `CodeDiagnostic`, `CodeCompiler`), Eto (`Bitmap`), `System.Reflection` (`Assembly`), Thinktecture.Runtime.Extensions, `Rasm.Domain` (`Op`, `Fault`, `ValidityClaim`), `Eto/runtime.md` (`EtoDispatch`).
-- Growth: a new host factory is one `IconSource` case, a new resource lookup one `ResourceAnchor` case, each with its mint arm breaking loudly.
+- Law: the `CodeCompiler` never leaves the gate — the census projects as `CompileEvidence` inside the dispatch window, so a caller diagnosing a missing reference reads a value while the host compiler, its `SemanticModel` set, and its cached assembly die with the mint. `AddReferenceAssembly` and the `CompileCSharpCode` family stay unreachable: this owner admits icons, never arbitrary assemblies.
+- Boundary: icon AUTHORING (the vector-code grammar `FromCode` compiles) is host language, not this owner's — the page transports source text and diagnostics; a Rasm-side icon DSL is a different concern on no current page. Raster caching is the host's custody per the kernel asset boundary law — no folder cache exists.
+- Packages: Grasshopper2 (`AbstractIcon`, `IIcon`, `IconType`, `CodeDiagnostic`, `CodeCompiler`), `Rasm.Interaction` (`AssetOrigin`, `AssetAnchor`, `AssetRaster`, `UiThread`, `UiDispatch`, `DispatchLane`), Eto (`Bitmap`), Thinktecture.Runtime.Extensions, `Rasm.Domain` (`Op`, `Fault`, `ValidityClaim`).
+- Growth: a new kernel origin case is one mint arm breaking loudly; a new host factory earns a kernel-case mapping, never a folder origin union.
 
 ## [03]-[CATALOG]
 
-- Owner: `IconTag` `[ValueObject<string>]` — the icon identity: trimmed, non-blank, admitted once. Every sibling identity in this folder is an owner (`FieldTag`, `CommandTag`, `StyleTag`, `CacheSlot`, `HookScope`) and a raw `string` key beside them is the deleted form, because an unadmitted key reaches the catalog map, the `SessionCache` slot text, and chrome call sites blank or padded.
-- Owner: `IconCatalog` sealed class — the frozen per-plugin icon registry: `Freeze(Seq<(IconTag Key, IconSource Source)> rows, Op? key = null)` mints EVERY row through the `[02]` gate before the catalog exists, so a misspelled resource, a broken vector-code icon, or a duplicate key is a freeze-time `Fault`, never a draw-time blank; `Find(IconTag key)` → `Option<IconHandle>` resolves a row, and `Handles` enumerates the frozen set for chrome that advertises its inventory.
-- Law: the catalog is the consumer contract — a plugin declares its icon inventory as rows once and every `Shell/chrome.md` `IIcon` slot, every component `Nomen` pairing, and every tooltip icon resolves through `Find`; a loose `Mint` call at a chrome call site survives only for genuinely dynamic icons (user-authored vector code), because a static icon minted per use re-runs admission the catalog already proved.
-- Law: raster products derived from catalog icons key their `SessionCache` entries on the catalog `IconTag` with the render plan, so icon-raster recency is one cache law with document-scoped eviction — a per-icon bitmap dictionary beside the cache is the deleted form.
-- Packages: LanguageExt.Core (`HashMap`, `Seq`, `Option`), Thinktecture.Runtime.Extensions, `Rasm.Domain`.
+- Owner: `IconTag` `[ValueObject<string>]` — the icon identity: trimmed, non-blank, admitted once. Every sibling identity in this folder is an owner (`ChromeTag`, `HookScope`) and a raw `string` key beside them is the deleted form, because an unadmitted key reaches the catalog map and chrome call sites blank or padded.
+- Owner: `IconCatalog` sealed class — the frozen per-plugin icon registry: `Freeze(Seq<(IconTag Key, AssetOrigin Source)> rows, Op? key = null)` mints EVERY row through the `[02]` gate before the catalog exists, so a misspelled resource, a broken vector-code icon, or a duplicate key is a freeze-time `Fault`, never a draw-time blank; `Find(IconTag key)` → `Option<IconHandle>` resolves a row, and `Handles` enumerates the frozen set for chrome that advertises its inventory.
+- Law: the catalog is the consumer contract — a plugin declares its icon inventory as kernel-origin rows once and every `Shell/chrome.md` `IIcon` slot, every component `Nomen` pairing, and every tooltip icon resolves through `Find`; a loose `Mint` call at a chrome call site survives only for genuinely dynamic icons (user-authored vector code), because a static icon minted per use re-runs admission the catalog already proved.
+- Packages: LanguageExt.Core (`HashMap`, `Seq`, `Option`), `Rasm.Interaction` (`AssetOrigin`), Thinktecture.Runtime.Extensions, `Rasm.Domain`.
 - Growth: a new plugin icon is one row in its catalog's freeze call; the catalog type never changes.
 
 ## [04]-[POSE_AND_FILTER]
 
-- Owner: `PoseShift` `[Union]` — the keyed-pose machine's verb family: `JumpCase(double Value, Option<string> State)` (`IIcon.SetState(double, string = null)` — the immediate pose write, `None` addressing the host's default state), `GlideCase(double Value, Option<string> State, Option<Duration> Span, Option<Motion> Curve)` (`IIcon.MoveState(double, string = null, Duration? = null, Motion? = null)` — the host-animated transition, each `None` deferring to the host default). Its pose double is the state VALUE per the host contract; the host `Duration`/`Motion` enums cross as case data — they are the host applicator's vocabulary, and the kernel `Easing` rows own any Rasm-side sampling of the same transition (a pre-rendered pose sequence, a synchronized chrome tween), so the two vocabularies meet only where a consumer maps a kernel-planned motion onto the nearest host row.
-- Owner: `IconFilter` `[Union]` — the draw-context filter chain over the full derivation surface: `DisabledCase` (`IconContext.WithDisabledFilter`), `GreyscaleCase` (`WithGreyscaleFilter`), `FadingCase(Color Tint, float Strength)` (`WithFadingFilter(Color, float)`), `PaletteCase(IconPalette Palette)` (`WithPalette`), `CustomCase(Func<Color, Color> Map)` (`WithFilter` — the open per-colour projection every bespoke tint composes). One `Seq<IconFilter>` chain folds left onto a seed context — filter order is sequence order, stated by the data.
-- Law: `IIcon.States` enumerates `IconState` rows and `FindState(string)` resolves one or null — a named pose verb gates through `FindState` so an unknown state key is `Fault.InvalidResult` before the host sees it, and a `None` state skips the gate because the default state always exists.
-- Law: a `FadingCase` tint that blends two theme colours computes through the kernel `PerceptualColor.Mix` over a `BlendPath` row with the `Eto.Drawing.Color` projection at this boundary — the kernel row owns the interpolation space and an HSL/RGB lerp beside it is the deleted form.
-- Packages: Grasshopper2 (`IIcon`, `IconState`, `IconContext`, `IconPalette`, `Duration`, `Motion`), Eto (`Color`), `Rasm.Numerics` (`PerceptualColor`, `BlendPath`), `Rasm.Domain`.
-- Growth: a new pose verb is one `PoseShift` case; a new host filter is one `IconFilter` case with the fold arm breaking loudly.
+- Owner: `PoseShift` `[Union]` — the keyed-pose machine's verb family: `JumpCase(double Value, Option<string> State)` (`IIcon.SetState(double, string = null)` — the immediate pose write, `None` addressing the host's default state), `GlideCase(double Value, Option<string> State, Option<Duration> Span, Option<Motion> Curve)` (`IIcon.MoveState(double, string = null, Duration? = null, Motion? = null)` — the host-animated transition, each `None` deferring to the host default). Its pose double is the state VALUE per the host contract; the host `Duration`/`Motion` enums cross as case data — they are the host applicator's vocabulary, and the kernel motion owners serve any Rasm-side sampling of the same transition, so the two vocabularies meet only where a consumer maps a kernel-planned motion onto the nearest host row. This is the host's VALUE-state machine, distinct from the kernel `IconPose` orientation axis — the two never alias.
+- Owner: the kernel `IconFilter` applicator — `IconOwner.Filtered(IconContext seed, Seq<IconFilter> chain, Option<IconPalette> palette, Op?)` → `Fin<IconContext>` folds the kernel chain left onto a host context, filter order = sequence order: `Disabled` → `WithDisabledFilter`, `Greyscale` → `WithGreyscaleFilter`, `Tinted(PerceptualColor)` → `WithFilter` with the replace-toward map quantized at this boundary, `Fading(PerceptualColor, UnitInterval)` → `WithFadingFilter(colour, (float)strength)`, `Custom(map)` → `WithFilter` with the perceptual map bridged through the boundary quantization both ways; `Selected` REFUSES typed naming the row — GH2's context ships no selected-state filter, and a tint stand-in silently redraws what the kernel case means. Host `IconPalette` is a host-only capability with no kernel row and rides the applicator's own optional slot (`WithPalette`), never a folder filter union — the folder `IconFilter` twin is deleted.
+- Law: `IIcon.States` enumerates `IconState` rows and `FindState(string)` resolves one or null — a named pose verb gates through `FindState` so an unknown state key is `KernelFault.InvalidResult` before the host sees it, and a `None` state skips the gate because the default state always exists.
+- Law: kernel filter colours are `PerceptualColor` quantized to `Eto.Drawing.Color` HERE and nowhere deeper — the kernel row owns the interpolation space and an HSL/RGB lerp beside it is the deleted form.
+- Packages: Grasshopper2 (`IIcon`, `IconState`, `IconContext`, `IconPalette`, `Duration`, `Motion`), `Rasm.Interaction` (`IconFilter`), `Rasm.Numerics` (`PerceptualColor`, `UnitInterval`), Eto (`Color`), `Rasm.Domain`.
+- Growth: a new pose verb is one `PoseShift` case; a new kernel filter row is one applicator arm breaking loudly.
 
-## [05]-[RENDER]
+## [05]-[DRAW]
 
-- Owner: `IconRender` `[Union]` — the render-plan family: `SurfaceCase(IconContext Target)` (`IIcon.Draw(IconContext)` — the in-window draw through a filtered context) and `RasterCase(Size Extent, int Padding, Color Backdrop)` (`IIcon.DrawToBitmap(Size size, int padding, Color background)` → `Bitmap` — the owned-bitmap projection; the backdrop informs contrast decisions while the bitmap itself renders on transparency, per the host contract). `IconProduct` `[Union]` is the render RESULT: `DrawnCase` for the surface modality, which produces no owned value, and `RasterCase(Lease<Bitmap> Frame)` carrying the host bitmap on the kernel resource rail, matching `Eto/runtime.md` `TransferPayload.PictureCase(Lease<Image>)`. `IconOwner` is the operator: `Mint` (`[02]`), `Pose(IIcon icon, PoseShift shift, Op?)` → `Fin<Unit>`, `Poses(IIcon icon, Op?)` → `Fin<Seq<IconState>>` (the keyed-state inventory), `Filtered(IconContext seed, Seq<IconFilter> chain)` → `IconContext`, and `Render(IIcon icon, IconRender plan, Op?)` → `Fin<IconProduct>` — one gate for both modalities.
-- Law: every render marshals through `EtoDispatch.Run` and runs under `Op.Catch`; the raster bitmap crosses as `Lease<Bitmap>.Owned`, so the caller's disposal window bounds the host resource and the surface modality carries no product to release — a bare `Option<Bitmap>` return spells the absent modality as an absent value and hands out a live host bitmap with no release contract. Cached rasters live inside `SessionCache` payloads keyed per `[03]`.
-- Law: an `IconContext` for an off-window surface mints through the host `IconContext(Context, RectangleF, Color)` constructor at the consumer; this gate renders through whatever context arrives and never opens a draw window of its own — the paint window is `Canvas/paint.md`'s.
-- Packages: Grasshopper2 (`IIcon`, `IconContext`), Eto (`Size`, `Color`, `Bitmap`), `Rasm.Domain` (`Op`, `Fault`, `Lease<T>`), `Eto/runtime.md` (`EtoDispatch`).
-- Growth: a new render modality is one `IconRender` plan case with its `IconProduct` result case; the gate never widens.
+- Owner: `IconDraw` `[Union]` — the draw-plan family (RENAMED from the render noun the kernel's `IconRender` request owns): `SurfaceCase(IconContext Target)` (`IIcon.Draw(IconContext)` — the in-window draw through a filtered context) and `RasterCase(Size Extent, int Padding, Color Backdrop)` (`IIcon.DrawToBitmap(Size size, int padding, Color background)` → `Bitmap` — the owned-bitmap projection; the backdrop informs contrast decisions while the bitmap itself renders on transparency, per the host contract). `IconProduct` `[Union]` is the draw RESULT: `DrawnCase` for the surface modality, which produces no owned value, and `RasterCase(AssetRaster Frame)` carrying the bitmap as the KERNEL's raster carrier — `AssetRaster.Toolkit(scale, Lease<Bitmap>.Owned)` — so an icon raster and every other admitted raster in the estate share one custody shape. `IconOwner` is the operator: `Mint` (`[02]`), `Pose(IIcon icon, PoseShift shift, Op?)` → `Fin<Unit>`, `Poses(IIcon icon, Op?)` → `Fin<Seq<IconState>>` (the keyed-state inventory), `Filtered` (`[04]`), and `Draw(IIcon icon, IconDraw plan, Op?)` → `Fin<IconProduct>` — one gate for both modalities. `Materialize(IconRender request, RasterStack stack, Op?)` → `Fin<IconProduct>` composes the kernel's whole request shape: mint the origin, refuse a non-identity `IconPose` typed (GH2 draws no rotated icons through this gate), apply the filter chain, draw at the asked shape.
+- Law: every draw marshals through the kernel `UiThread.Run` blocking arity and runs under `Op.Catch`; the raster crosses as `AssetRaster.Toolkit` over `Lease<Bitmap>.Owned`, so the caller's disposal window bounds the host resource and the surface modality carries no product to release — a bare `Option<Bitmap>` return spells the absent modality as an absent value and hands out a live host bitmap with no release contract.
+- Law: an `IconContext` for an off-window surface mints through the host `IconContext(Context, RectangleF, Color)` constructor at the consumer; this gate draws through whatever context arrives and never opens a draw window of its own — the paint window is `Canvas/paint.md`'s.
+- Packages: Grasshopper2 (`IIcon`, `IconContext`), `Rasm.Interaction` (`AssetRaster`, `RasterStack`, `IconRender`, `IconPose`), Eto (`Size`, `Color`, `Bitmap`), `Rasm.Domain` (`Op`, `Fault`, `Lease<T>`).
+- Growth: a new draw modality is one `IconDraw` plan case with its `IconProduct` result case; the gate never widens.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using System.Reflection;
 using Rasm.Domain;
-using Rasm.Grasshopper.Eto;
+using Rasm.Interaction;
 
 namespace Rasm.Grasshopper.Shell;
 
@@ -71,30 +68,6 @@ public readonly partial struct IconTag {
 }
 
 [Union]
-public abstract partial record ResourceAnchor {
-    private ResourceAnchor() { }
-    public sealed record TypeCase(Type Anchor) : ResourceAnchor;
-    public sealed record NamedTypeCase(string Name, Type Anchor) : ResourceAnchor;
-    public sealed record AssemblyCase(string Name, Assembly Source) : ResourceAnchor;
-
-    internal IIcon? Resolve() => Switch(
-        typeCase: static c => AbstractIcon.FromResource(c.Anchor),
-        namedTypeCase: static c => AbstractIcon.FromResource(c.Name, c.Anchor),
-        assemblyCase: static c => AbstractIcon.FromResource(c.Name, c.Source));
-}
-
-[Union]
-public abstract partial record IconSource {
-    private IconSource() { }
-    public sealed record ResourceCase(ResourceAnchor Anchor) : IconSource;
-    public sealed record FileCase(string Path) : IconSource;
-    public sealed record StreamCase(Stream Source) : IconSource;
-    public sealed record BitmapCase(Seq<Bitmap> Frames) : IconSource;
-    public sealed record CodeCase(string Source) : IconSource;
-    public sealed record CompilerCase(string Source) : IconSource;
-}
-
-[Union]
 public abstract partial record PoseShift {
     private PoseShift() { }
     public sealed record JumpCase(double Value, Option<string> State) : PoseShift;
@@ -102,37 +75,26 @@ public abstract partial record PoseShift {
 }
 
 [Union]
-public abstract partial record IconFilter {
-    private IconFilter() { }
-    public sealed record DisabledCase : IconFilter;
-    public sealed record GreyscaleCase : IconFilter;
-    public sealed record FadingCase(Color Tint, float Strength) : IconFilter;
-    public sealed record PaletteCase(IconPalette Palette) : IconFilter;
-    public sealed record CustomCase(Func<Color, Color> Map) : IconFilter;
+public abstract partial record IconDraw {
+    private IconDraw() { }
+    public sealed record SurfaceCase(IconContext Target) : IconDraw;
+    public sealed record RasterCase(Size Extent, int Padding, Color Backdrop) : IconDraw;
 }
 
-[Union]
-public abstract partial record IconRender {
-    private IconRender() { }
-    public sealed record SurfaceCase(IconContext Target) : IconRender;
-    public sealed record RasterCase(Size Extent, int Padding, Color Backdrop) : IconRender;
-}
-
-// The render RESULT is a family, not an Option: `None` for the surface case reads as an absent bitmap where it
-// actually means "this modality produces no owned product", and the raster arm's `Bitmap` is a live host resource
-// that must cross on the kernel lease rail like every other disposable this boundary hands out.
+// Draw RESULT is a family, not an Option: `None` for the surface case reads as an absent bitmap where it
+// actually means "this modality produces no owned product", and the raster arm rides the KERNEL AssetRaster
+// carrier so every admitted raster in the estate shares one custody shape.
 [Union]
 public abstract partial record IconProduct {
     private IconProduct() { }
     public sealed record DrawnCase : IconProduct;
-    public sealed record RasterCase(Lease<Bitmap> Frame) : IconProduct;
+    public sealed record RasterCase(AssetRaster Frame) : IconProduct;
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct IconDiagnostics(Seq<CodeDiagnostic> Errors, Seq<CodeDiagnostic> Warnings) : IValidityEvidence {
-    public bool IsValid => ValidityClaim.All(
-        ValidityClaim.Of(holds: Errors.IsEmpty));
+    public bool IsValid => Errors.IsEmpty;
     public static readonly IconDiagnostics Clean = new(Errors: Seq<CodeDiagnostic>(), Warnings: Seq<CodeDiagnostic>());
 }
 
@@ -162,7 +124,7 @@ public readonly record struct CompileEvidence(
 public sealed record IconHandle(
     IIcon Icon,
     IconType Kind,
-    IconSource Origin,
+    AssetOrigin Origin,
     IconDiagnostics Notes,
     Option<CompileEvidence> Compile);
 
@@ -173,11 +135,11 @@ public sealed class IconCatalog {
 
     public Seq<(IconTag Key, IconHandle Handle)> Handles => toSeq(rows.AsIterable().Map(static pair => (pair.Key, pair.Value)));
 
-    public static Fin<IconCatalog> Freeze(Seq<(IconTag Key, IconSource Source)> rows, Op? key = null) {
+    public static Fin<IconCatalog> Freeze(Seq<(IconTag Key, AssetOrigin Source)> rows, Op? key = null) {
         Op op = key.OrDefault();
         return from nonEmpty in guard(!rows.IsEmpty, op.InvalidInput()).ToFin()
                from unique in guard(rows.Map(static row => row.Key).Distinct().Count == rows.Count, op.InvalidInput()).ToFin()
-               from minted in rows.TraverseM(row => IconOwner.Mint(source: row.Source, key: op).Map(handle => (row.Key, Handle: handle))).As()
+               from minted in rows.TraverseM(row => IconOwner.Mint(origin: row.Source, key: op).Map(handle => (row.Key, Handle: handle))).As()
                select new IconCatalog(rows: toHashMap(minted.Map(static row => (row.Key, row.Handle))));
     }
 
@@ -187,32 +149,46 @@ public sealed class IconCatalog {
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [BoundaryAdapter]
 public static class IconOwner {
-    public static Fin<IconHandle> Mint(IconSource source, Op? key = null) {
+    // One mint arm per KERNEL origin case; census selects the compiler channel for Source admissions.
+    public static Fin<IconHandle> Mint(AssetOrigin origin, bool census = false, Op? key = null) {
         Op op = key.OrDefault();
-        return op.Need(source).Bind(valid => EtoDispatch.Run(body: () => valid.Switch(
-            state: (Origin: valid, Key: op),
-            resourceCase: static (s, c) => Clean(key: s.Key, origin: s.Origin, mint: c.Anchor.Resolve),
-            fileCase: static (s, c) => Clean(key: s.Key, origin: s.Origin, mint: () => AbstractIcon.FromFile(c.Path)),
-            streamCase: static (s, c) => Clean(key: s.Key, origin: s.Origin, mint: () => AbstractIcon.FromStream(c.Source)),
-            bitmapCase: static (s, c) => Clean(key: s.Key, origin: s.Origin, mint: () => AbstractIcon.FromBitmap([.. c.Frames])),
-            codeCase: static (s, c) => s.Key.Catch(body: () => {
-                IIcon? compiled = AbstractIcon.FromCode(c.Source, out CodeDiagnostic[] warnings, out CodeDiagnostic[] errors);
-                return Compiled(s.Key, s.Origin, compiled, new(Errors: toSeq(errors), Warnings: toSeq(warnings)), None);
-            }),
-            compilerCase: static (s, c) => s.Key.Catch(body: () => {
-                IIcon? compiled = AbstractIcon.FromCode(c.Source, out CodeCompiler compiler);
-                IconDiagnostics notes = new(
-                    Errors: toSeq(compiler.GetCachedErrors),
-                    Warnings: toSeq(compiler.GetCachedWarnings));
-                return Compiled(s.Key, s.Origin, compiled, notes, Some(CompileEvidence.Of(compiler)));
-            })), key: op));
+        return op.Need(origin).Bind(valid => UiThread.Run(new UiDispatch<IconHandle>.Blocking(() => valid.Switch(
+            state: (Origin: valid, Key: op, Census: census),
+            resource: static (s, c) => Clean(key: s.Key, origin: s.Origin,
+                mint: () => AbstractIcon.FromResource(c.Anchor.ResourcePath, c.Anchor.Owner)),
+            file: static (s, c) => Clean(key: s.Key, origin: s.Origin,
+                mint: () => AbstractIcon.FromFile((string)c.Location)),
+            stream: static (s, c) => Clean(key: s.Key, origin: s.Origin,
+                mint: () => AbstractIcon.FromStream(c.Open())),
+            // GH2's factory takes Eto bitmaps: the Toolkit frames feed FromBitmap; a Gdi or Pixels frame
+            // refuses typed per the kernel's asked-shape law — no silent imaging-stack conversion.
+            raster: static (s, c) => c.Scales.Traverse(frame => frame is AssetRaster.Toolkit kit
+                    ? Fin.Succ(kit.Bitmap)
+                    : Fin.Fail<Lease<Bitmap>>(s.Key.InvalidInput(axis: nameof(AssetRaster)))).As()
+                .Bind(frames => Clean(key: s.Key, origin: s.Origin,
+                    mint: () => AbstractIcon.FromBitmap([.. frames.Map(static lease => lease.Value)]))),
+            vector: static (s, _) => Fin.Fail<IconHandle>(s.Key.InvalidInput(axis: nameof(AssetOrigin.Vector))),
+            source: static (s, c) => s.Census
+                ? s.Key.Catch(body: () => {
+                    IIcon? compiled = AbstractIcon.FromCode(c.Text, out CodeCompiler compiler);
+                    IconDiagnostics notes = new(
+                        Errors: toSeq(compiler.GetCachedErrors),
+                        Warnings: toSeq(compiler.GetCachedWarnings));
+                    return Compiled(s.Key, s.Origin, compiled, notes, Some(CompileEvidence.Of(compiler)));
+                })
+                : s.Key.Catch(body: () => {
+                    IIcon? compiled = AbstractIcon.FromCode(c.Text, out CodeDiagnostic[] warnings, out CodeDiagnostic[] errors);
+                    return Compiled(s.Key, s.Origin, compiled, new(Errors: toSeq(errors), Warnings: toSeq(warnings)), None);
+                }),
+            render: static (s, _) => Fin.Fail<IconHandle>(s.Key.InvalidInput(axis: nameof(AssetOrigin.Render))))),
+            DispatchLane.Interactive, op));
     }
 
     public static Fin<Unit> Pose(IIcon icon, PoseShift shift, Op? key = null) {
         Op op = key.OrDefault();
         return from target in op.Need(icon)
                from valid in op.Need(shift)
-               from settled in EtoDispatch.Run(body: () => valid.Switch(
+               from settled in UiThread.Run(new UiDispatch<Unit>.Blocking(() => valid.Switch(
                    state: (Icon: target, Key: op),
                    jumpCase: static (s, c) => Gate(icon: s.Icon, state: c.State, key: s.Key)
                        .Bind(_ => s.Key.Catch(body: () => Fin.Succ(Op.Side(action: () => s.Icon.SetState(c.Value, Named(state: c.State)))))),
@@ -220,47 +196,61 @@ public static class IconOwner {
                        .Bind(_ => s.Key.Catch(body: () => Fin.Succ(Op.Side(action: () => s.Icon.MoveState(
                            c.Value, Named(state: c.State),
                            c.Span.Match<Duration?>(Some: static span => span, None: static () => null),
-                           c.Curve.Match<Motion?>(Some: static curve => curve, None: static () => null))))))), key: op)
+                           c.Curve.Match<Motion?>(Some: static curve => curve, None: static () => null)))))))),
+                   DispatchLane.Interactive, op)
                select settled;
     }
 
     public static Fin<Seq<IconState>> Poses(IIcon icon, Op? key = null) {
         Op op = key.OrDefault();
-        return op.Need(icon).Bind(target =>
-            EtoDispatch.Run(body: () => op.Catch(body: () => Fin.Succ(toSeq(target.States))), key: op));
+        return op.Need(icon).Bind(target => UiThread.Run(new UiDispatch<Seq<IconState>>.Blocking(
+            () => op.Catch(body: () => Fin.Succ(toSeq(target.States)))), DispatchLane.Interactive, op));
     }
 
-    public static IconContext Filtered(IconContext seed, Seq<IconFilter> chain) =>
-        chain.Fold(seed, static (context, filter) => filter.Switch(
-            disabledCase: _ => context.WithDisabledFilter(),
-            greyscaleCase: _ => context.WithGreyscaleFilter(),
-            fadingCase: c => context.WithFadingFilter(c.Tint, c.Strength),
-            paletteCase: c => context.WithPalette(c.Palette),
-            customCase: c => context.WithFilter(c.Map)));
+    // KERNEL filter rows fold onto the host context; the palette is a host-only capability with no kernel row.
+    public static Fin<IconContext> Filtered(
+        IconContext seed, Seq<IconFilter> chain, Option<IconPalette> palette = default, Op? key = null) {
+        Op op = key.OrDefault();
+        return chain.Fold(
+            Fin.Succ(palette.Match(Some: seed.WithPalette, None: () => seed)),
+            (acc, filter) => acc.Bind(context => filter.Switch(
+                state: (Context: context, Key: op),
+                disabled: static (s, _) => Fin.Succ(s.Context.WithDisabledFilter()),
+                // GH2 ships no selected-state filter: the row refuses typed rather than redrawing as a tint.
+                selected: static (s, _) => Fin.Fail<IconContext>(s.Key.InvalidInput(axis: nameof(IconFilter.Selected))),
+                greyscale: static (s, _) => Fin.Succ(s.Context.WithGreyscaleFilter()),
+                tinted: static (s, f) => Fin.Succ(s.Context.WithFilter(_ => Quantized(colour: f.Tint))),
+                fading: static (s, f) => Fin.Succ(s.Context.WithFadingFilter(Quantized(colour: f.Tint), (float)f.Strength)),
+                custom: static (s, f) => Fin.Succ(s.Context.WithFilter(host => Quantized(colour: f.Map(Perceptual(colour: host))))))));
+    }
 
-    public static Fin<IconProduct> Render(IIcon icon, IconRender plan, Op? key = null) {
+    public static Fin<IconProduct> Draw(IIcon icon, IconDraw plan, Op? key = null) {
         Op op = key.OrDefault();
         return from target in op.Need(icon)
                from valid in op.Need(plan)
-               from output in EtoDispatch.Run(body: () => valid.Switch(
+               from output in UiThread.Run(new UiDispatch<IconProduct>.Blocking(() => valid.Switch(
                    state: (Icon: target, Key: op),
                    surfaceCase: static (s, c) => s.Key.Catch(body: () => Fin.Succ(Op.Side(action: () => s.Icon.Draw(c.Target))))
                        .Map(static _ => (IconProduct)new IconProduct.DrawnCase()),
                    rasterCase: static (s, c) => s.Key.Catch(body: () =>
                        Optional(s.Icon.DrawToBitmap(c.Extent, c.Padding, c.Backdrop)).ToFin(s.Key.InvalidResult()))
                        .Map(static frame => (IconProduct)new IconProduct.RasterCase(
-                           Frame: new Lease<Bitmap>.Owned(Value: frame)))), key: op)
+                           Frame: new AssetRaster.Toolkit(Scale: PositiveMagnitude.One, Bitmap: new Lease<Bitmap>.Owned(Value: frame)))))),
+                   DispatchLane.Interactive, op)
                select output;
     }
 
-    private static Fin<IconHandle> Clean(Op key, IconSource origin, Func<IIcon?> mint) =>
+    // Kernel's whole request shape, materialized: origin -> handle, identity pose only, filters, draw.
+    public static Fin<IconProduct> Materialize(IconRender request, IconDraw plan, Op? key = null);
+
+    private static Fin<IconHandle> Clean(Op key, AssetOrigin origin, Func<IIcon?> mint) =>
         key.Catch(body: () => Optional(mint()).ToFin(key.InvalidResult()))
             .Map(icon => new IconHandle(
                 Icon: icon, Kind: icon.Type, Origin: origin, Notes: IconDiagnostics.Clean, Compile: None));
 
     private static Fin<IconHandle> Compiled(
         Op key,
-        IconSource origin,
+        AssetOrigin origin,
         IIcon? compiled,
         IconDiagnostics notes,
         Option<CompileEvidence> evidence) =>
@@ -278,6 +268,10 @@ public static class IconOwner {
         state.Match(
             Some: name => key.Catch(body: () => Optional(icon.FindState(name)).ToFin(key.InvalidResult(detail: name)).Map(static _ => unit)),
             None: () => Fin.Succ(unit));
+
+    // ONE perceptual/host colour crossing for icon work — quantization lives here, never deeper.
+    private static Color Quantized(PerceptualColor colour);
+    private static PerceptualColor Perceptual(Color colour);
 }
 ```
 
@@ -290,34 +284,34 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Admit, own, and render Grasshopper icons
-    accDescr: Plugin icon rows freeze through one mint gate into a catalog; consumers resolve, pose, filter, and render admitted handles while raster products enter the session cache and perceptual colour policy feeds the filter rail.
-    Plugin["plugin icon inventory"] -->|"(IconTag, IconSource) rows"| Freeze["IconCatalog.Freeze → Fin&lt;IconCatalog&gt;"]
+    accTitle: Materialize kernel assets as Grasshopper icons
+    accDescr: Plugin inventories freeze kernel AssetOrigin rows through one mint gate into a catalog; consumers resolve, pose, filter with kernel IconFilter rows, and draw admitted handles, with raster products answered on the kernel AssetRaster carrier.
+    Plugin["plugin icon inventory"] -->|"(IconTag, kernel AssetOrigin) rows"| Freeze["IconCatalog.Freeze → Fin&lt;IconCatalog&gt;"]
     Freeze -->|total mint at freeze| MintGate["IconOwner.Mint → Fin&lt;IconHandle&gt;"]
-    MintGate -->|"FromResource(Type · name+Type · name+Assembly) · FromFile · FromStream · FromBitmap"| Host["Grasshopper2 AbstractIcon"]
-    MintGate -->|"FromCode + CodeDiagnostic · FromCode + CodeCompiler → CompileEvidence"| Host
+    MintGate -->|"Resource · File · Stream · Raster(Toolkit) → From* factories"| Host["Grasshopper2 AbstractIcon"]
+    MintGate -->|"Source → FromCode + CodeDiagnostic / CodeCompiler census"| Host
     Consumer["chrome · components · tooltips"] -->|Find| Freeze
     Consumer -->|PoseShift cases| PoseGate["IconOwner.Pose"]
     PoseGate -->|"SetState · MoveState(Duration?, Motion?)"| Host
-    Consumer -->|"Seq&lt;IconFilter&gt; fold"| Filter["IconOwner.Filtered → IconContext"]
-    Consumer -->|IconRender cases| RenderGate["IconOwner.Render → Fin&lt;IconProduct&gt;"]
-    RenderGate -->|"Draw · DrawToBitmap"| Host
-    RenderGate -->|raster recency| Cache["Shell/session SessionCache"]
-    Kernel["kernel PerceptualColor · BlendPath"] -->|filter tint math| Filter
+    Consumer -->|"kernel Seq&lt;IconFilter&gt; fold"| Filter["IconOwner.Filtered → Fin&lt;IconContext&gt;"]
+    Consumer -->|IconDraw cases| DrawGate["IconOwner.Draw → Fin&lt;IconProduct&gt;"]
+    DrawGate -->|"Draw · DrawToBitmap → AssetRaster.Toolkit"| Host
+    Kernel["kernel AssetOrigin · IconFilter · IconRender · AssetRaster"] --> MintGate
+    Kernel --> Filter
 ```
 
 ## [06]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]        | [OWNER]                         | [RAIL]                      |
-| :-----: | :--------------- | :------------------------------ | :-------------------------- |
-|  [01]   | icon admission   | `IconSource` + `ResourceAnchor` | `Mint → Fin<IconHandle>`    |
-|  [02]   | icon identity    | `IconTag` `[ValueObject]`       | admitted trimmed, non-blank |
-|  [03]   | plugin inventory | `IconCatalog` frozen registry   | `Freeze → Fin<IconCatalog>` |
-|  [04]   | pose machine     | `PoseShift` keyed-state union   | `Pose → Fin<Unit>`          |
-|  [05]   | filter chain     | `IconFilter` context fold       | `Filtered → IconContext`    |
-|  [06]   | render           | `IconRender` + `IconProduct`    | `Render → Fin<IconProduct>` |
+| [INDEX] | [CONCERN]         | [OWNER]                               | [RAIL]                        |
+| :-----: | :---------------- | :------------------------------------ | :---------------------------- |
+|  [01]   | icon admission    | kernel `AssetOrigin` → `AbstractIcon` | `Mint → Fin<IconHandle>`      |
+|  [02]   | icon identity     | `IconTag` `[ValueObject]`             | admitted trimmed, non-blank   |
+|  [03]   | plugin inventory  | `IconCatalog` frozen registry         | `Freeze → Fin<IconCatalog>`   |
+|  [04]   | pose machine      | `PoseShift` keyed-state union         | `Pose → Fin<Unit>`            |
+|  [05]   | filter applicator | kernel `IconFilter` → `IconContext`   | `Filtered → Fin<IconContext>` |
+|  [06]   | draw              | `IconDraw` + `IconProduct`            | `Draw → Fin<IconProduct>`     |
 
-`EtoDispatch`, `Op`, `Fault`, `ValidityClaim`, `Lease<T>`, `SessionCache`, and the kernel `PerceptualColor`/`BlendPath` owner are composed upstream owners; `Duration`, `Motion`, and `IconType` cross as host boundary data.
+Kernel `AssetOrigin`/`AssetRaster`/`IconFilter`/`IconRender`, `UiThread`, `Op`, `Fault`, `ValidityClaim`, `Lease<T>`, and the kernel `PerceptualColor` owner are composed upstream owners; the folder `IconSource`/`ResourceAnchor`/`IconFilter` twins, the `SessionCache` raster-recency law (the cache estate is deleted; raster caching is the host's custody per the kernel asset boundary), and the kernel-shadow `IconRender` plan name are all deleted. `Duration`, `Motion`, and `IconType` cross as host boundary data.
 
 ## [07]-[RESEARCH]
 

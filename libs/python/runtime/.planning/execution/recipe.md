@@ -13,6 +13,7 @@ Recipe VOCABULARY stays queenbee's and the execution machinery stays `lbt-recipe
 - Owner: `RecipeExecution` holds the one `LanePolicy` its runs drain and offload under — capacity and deadline arrive as the caller's `execution/admission#CONTEXT` budget projection at construction, never a per-call knob — and the `Option[ResourceRoot]` remote specs resolve against. `RecipeSpec.recipe` selector discriminates by VALUE — a catalog member or an external folder path — never a `packaged: bool` beside it, and an external folder's empty readback roster derives from the baked `package.json` contract through `_declared`, never a hand-mirrored list.
 - Entry: `execute` threads the caller's session cache as a value — a prior `DrainReceipt.cache` re-enters as the next call's carrier, so elision is threaded state, never hidden owner state. `interface` is the schema projection for submission-constructing consumers; execution always returns through `execute`, never a second runner.
 - Auto: span presence IS execution evidence — one `recipe.execute` span wraps the executed leg, the engine gate and coercion ride the `guarded` derivation span at staging, and a cache-elided replay opens no execute span. Subprocess environment discipline stays `lbt_recipes`' own (`--env` PATH/RAYPATH, cleared `PYTHONHOME`) — this owner never re-derives the shell line. Deliverables are row-driven and typed: handler-parsed lists and `DataCollection` objects, never a path the caller must re-parse.
+- Law: every refusal resolves ONE `reliability/faults#FAULT` `RAISES` anchor under `RuntimeLeg.RECIPE` and derives its subject from that leg — the escaping destination, the luigi error summary, and the engine gate's own window all ride NAMED slots on their rows rather than free subject strings the resilience keys then read.
 - Growth: a new simulation workflow is one `RecipeName` member with one `RECIPES` row, its output roster riding the shared anchor the moment a second row declares the same set; a new engine one `Engine` member with one `ENGINE_CHECK` row; a new remote asset kind one `AssetFetch` on the spec; a new run-policy dimension one `RecipeRow` column or one `RecipeSpec` Option folded into the `RecipeSettings` default; the cloud-submission modality (a Pollination platform `Job` POST composing the queenbee shapes against `interface`) enters as one more execute arm with its own `@overload` over the same `RecipeSpec` when a consumer names it, never a parallel owner — an arm with no overload lands every caller on the runtime union.
 - Boundary: no luigi scheduling, no handler resolution or chain ordering, no engine probing beside `version.check_*`, and no recipe-schema re-mint — queenbee owns the vocabulary, and a `msgspec`/protobuf mirror of a queenbee model is a single-mint violation. queenbee's click CLI and urllib transfer stay rejected: `cyclopts` and the roots rail own those concerns. No durable run ledger — the session cache is lane-local, and durable reuse stays the C# `Rasm.Persistence` ledger consumed at the wire. Engines are external binaries; no simulation runs in-process.
 
@@ -29,7 +30,7 @@ from expression.extra.result import traverse
 from msgspec import Struct
 from opentelemetry import trace
 
-from rasm.runtime.faults import SCOPES, BoundaryFault, RuntimeRail, Scope, scoped
+from rasm.runtime.faults import RECIPE_ASSET, RECIPE_ENGINE, RECIPE_ROOT, RECIPE_RUN, SCOPES, BoundaryFault, RuntimeRail, Scope, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import Admit, LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -229,7 +230,7 @@ class RecipeExecution(Struct, frozen=True):
         if assets.is_empty():
             return Ok(0)
         return await self.root.map(lambda live: self._fetched(live, assets, root)).default_with(
-            lambda: _refused(BoundaryFault(resource=("recipe", "asset-fetch-without-root")))
+            lambda: _refused(RECIPE_ROOT.raised())
         )
 
     async def _fetched(self, live: ResourceRoot, assets: Block[AssetFetch], root: Path) -> "RuntimeRail[int]":
@@ -295,7 +296,7 @@ def _confined(root: Path, relative: str) -> "RuntimeRail[Path]":
     candidate = Path(relative)
     resolved = (root / candidate).resolve()
     return (
-        Error(BoundaryFault(config=("recipe.asset", f"destination-escapes-project:{relative}")))
+        Error(RECIPE_ASSET.raised(relative))
         if candidate.is_absolute() or not resolved.is_relative_to(root)
         else Ok(resolved)
     )
@@ -326,7 +327,11 @@ def _staged(spec: RecipeSpec, root: str) -> "RuntimeRail[_Staged]":
 
     row = spec.row()
     gate = traverse(
-        lambda engine: guarded_sync(RetryClass.ENGINE, getattr(version, ENGINE_CHECK[engine]), subject=f"recipe.engine.{engine}"),
+        # ONE anchor spans the engine roster: these are local version probes off one installed distribution, and a
+        # per-engine subject would spell a coordinate no row declares. No `on=` peer rides here and none is owed —
+        # `RetryClass.ENGINE` carries neither a `CIRCUIT` nor a `RATES` row, so both stateful stages no-op on it and
+        # the window-key gate answers `Nothing`; a local import probe faces no dependency instance to key one at.
+        lambda engine: guarded_sync(RetryClass.ENGINE, getattr(version, ENGINE_CHECK[engine]), at=RECIPE_ENGINE),
         Block.of_seq(sorted(row.engines)),
     )
 
@@ -364,7 +369,7 @@ def _execute(staged: _Staged) -> "RuntimeRail[RecipeProduct]":
         output_count=len(staged.outputs),
         content_key=staged.key,
     )
-    return failure.map(lambda message: Error(BoundaryFault(resource=("recipe", errors.default_value(message))))).default_with(
+    return failure.map(lambda message: Error(RECIPE_RUN.raised(errors.default_value(message)))).default_with(
         lambda: Ok(
             RecipeProduct(
                 outputs=Map.of_seq([(name, staged.recipe.output_value_by_name(name, folder)) for name in staged.outputs]),

@@ -2,7 +2,7 @@
 
 One dense chunked N-D array store over one `TensorBackend` engine axis: `TensorStore` owns the `zarr` v3 array — chunk grid, three-slot codec pipeline, orthogonal region write — with `ZARR` the pure-Python sync engine and `TENSORSTORE` the async engine opening the IDENTICAL Zarr v3 chunk grid over a native `KvStore` backend. Out-of-core is not a backend but the `cubed` plan over either store, and the versioned and ragged dimensions live on their own `gridded/virtual` and `gridded/ragged` owners, never as backend tags here.
 
-Its backend is recovered from the store URL scheme through the `runtime/transport/roots#STORE`-owned `StoreBackend` row family — `OBJECT_STORE_SCHEMES` names the remote residence and the row's own `kvstore` column names the native driver the async engine opens under it, so config is a domain value carrying its `create`/`write`/`read` behaviour and this page holds no second scheme roster, driver map, or `engine=` flag set. BOTH engines address a cloud residence: the async one through its kvstore driver, the sync one through `zarr.storage.ObjectStore` over the branch `store_handle` fold, so residence names the preference and reach decides the engine rather than a floor marker on one distribution refusing the whole remote plane. `TensorReceipt` and `PlanReceipt` key by one runtime `ContentIdentity`; the plan receipt carries the `allowed_mem` budget beside the measured peak the `cubed` executor records.
+Its backend is recovered from the store URL scheme through the `runtime/transport/roots#STORE`-owned `StoreBackend` row family — `OBJECT_STORE_SCHEMES` names the remote residence and the row's own `kvstore` column names the native driver the async engine opens under it, so config is a domain value carrying its `create`/`write`/`read` behaviour and this page holds no second scheme roster, driver map, or `engine=` flag set. BOTH engines address a cloud residence: the async one through its kvstore driver, the sync one through `zarr.storage.ObjectStore` over the branch `store_handle` fold, so residence names the preference and reach decides the engine rather than a floor marker on one distribution refusing the whole remote plane. `TensorReceipt` and `PlanReceipt` key by one runtime `ContentIdentity`; the plan receipt carries the `allowed_mem` budget beside the peak its executor measured, absent where the executor measured none.
 
 ## [01]-[INDEX]
 
@@ -12,10 +12,10 @@ Its backend is recovered from the store URL scheme through the `runtime/transpor
 ## [02]-[STORE]
 
 - Owner: `TensorStore` — one frozen store; one `create`/`write_region`/`read_region` entrypoint family owns all modalities by the recovered backend and the `Indexing`/arity axes the value carries, never a per-engine reader family and never a per-arm sync portal. Every I/O leg opens its `_TRACER` span — trace parity with the sibling spatial and egress I/O legs, the runtime fence marking a failed leg's span — off the faults-owned `scoped` stamp carrying the version and semconv triple, its `kind` reading residence off `TensorBackend.span_kind(ref)` so an object-store leg publishes the client boundary a distributed trace joins on and a local-path leg stays `INTERNAL` whichever engine serves it.
-- Law: `TensorBackend.reached` is the ONE gate `create` crosses and it proves TWO conditions in one read — `_UNREACHED`, the import-time `find_spec` row over `_ENGINE_MODULE`, so an engine the manifest holds below the interpreter floor answers `BoundaryFault(import_=)` naming the absent module instead of raising `ModuleNotFoundError` from a lazy provider import mid-leg; then `_TS_DRIVER`, so a residence the async engine addresses no kvstore driver for answers `BoundaryFault(resource=)` naming the missing driver by scheme instead of raising mid-leg from a spec builder. `for_ref` reads residence for the PREFERENCE and reach for the engine, so an unnamed remote ref lands on whichever engine this floor resolves while a caller-NAMED engine below the floor still refuses by module name — the verbatim-selection law holds exactly where a caller made a selection to honour. `write_region`/`read_region` ride the `self.backend` construction already proved, which is exactly what makes the driver read total below the gate.
+- Law: `TensorBackend.reached` is the ONE gate `create` crosses and it proves TWO conditions in one read — `_UNREACHED`, the import-time `find_spec` row over `_ENGINE_MODULE`, so an engine the manifest holds below the interpreter floor answers `TENSOR_FLOOR` naming the absent module instead of raising `ModuleNotFoundError` from a lazy provider import mid-leg; then `_TS_DRIVER`, so a residence the async engine addresses no kvstore driver for answers `TENSOR_DRIVER` naming the missing driver by scheme instead of raising mid-leg from a spec builder. Both rows carry their own subject, so the `subject: str` the gate once threaded across three hops deletes. `for_ref` reads residence for the PREFERENCE and reach for the engine, so an unnamed remote ref lands on whichever engine this floor resolves while a caller-NAMED engine below the floor still refuses by module name — the verbatim-selection law holds exactly where a caller made a selection to honour. `write_region`/`read_region` ride the `self.backend` construction already proved, which is exactly what makes the driver read total below the gate.
 - Law: `write_region` crosses the owner's `ResourceGuard` before any region lands — one guard per opened store, composition-bound — so two same-process apps racing one array refuse typed at the guard as `concurrent-write` instead of interleaving regions mid-snapshot; the guard spans the whole staged write, nothing queues behind it, and cross-process coordination stays the chunk grid's own per-chunk atomicity, which the guard never substitutes for.
 - Law: both mutation legs land durable evidence on the `python:runtime/observability/journal#LEDGER` plane and the read leg lands none — an operational `AuditFact` carrying the coordinate that leg moved, plus a `STORAGE` `MeterFact` where bytes landed, so arming records without metering and a region write records both. Both legs are already awaitable, which is what makes them the seat under the runtime producer-seam law; the facts mint off the settled outcome so none names a write the store refused, and the record rail binds into each verdict. The receipt fan keeps the series and the journal keeps the fact — neither re-mints the other's number.
-- Growth: a new filter is one `_FILTER` row plus one `TensorFilter` case; a new compressor, digest, or byte reordering is one `_BYTES` row and its `BytesStage` case, reachable at any position of any tail with no other edit; a new selection mode one `Indexing` literal plus one `_ZARR_WRITE`/`_ZARR_READ` row; a new engine one `TensorBackend` member plus one delegate row and one `_ENGINE_MODULE` floor row, `span_kind` deriving from residence with no per-engine arm at all; a new cloud backend is one `StoreBackend` row at the runtime owner that `_TS_DRIVER` picks up with zero edits here; a stored-domain resize one `TensorStore.resize` entry over the catalogued `tensorstore` `resize`/`zarr` `Array.resize`; zero new surface.
+- Growth: a new filter is one `_FILTER` row plus one `TensorFilter` case; a new compressor, digest, or byte reordering is one `_BYTES` row and its `BytesStage` case, reachable at any position of any tail with no other edit; a new selection mode one `Indexing` literal plus one `_ZARR_WRITE`/`_ZARR_READ` row; a new engine one `TensorBackend` member plus one delegate row and one `_ENGINE_MODULE` floor row, `span_kind` deriving from residence with no per-engine arm at all; a new cloud backend is one `StoreBackend` row at the runtime owner that `_TS_DRIVER` picks up with zero edits here; a stored-domain resize one `TensorStore.resize` entry over the catalogued `tensorstore` `resize`/`zarr` `Array.resize`; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.STORE` in this module's one `RAISES` table, which both sections anchor on; zero new surface.
 - Boundary: no compute-package numeric trio (labelled-array compute is `compute`), no production tensor session, no durable product store, and no `xarray` re-derivation of the dense store — `data` emits a portable content-addressed chunked store. `zarr.codecs.numcodecs` is the absorbed live home for the numcodecs-named rows; `numcodecs.zarr3` is the deprecated spelling emitting a `DeprecationWarning`, a rejected import. Deleted forms: a codec row spelling a knob its provider does not carry, which arms the store and then raises from inside the codec at the first chunk write while the same unreadable key already sits in the metadata document; a two-case `compress|raw` serializer, which spells compression or a digest and never both, and reaches only the two knobs its positional pair carries; an engine selected with no floor gate ahead of its lazy import; a hardcoded `LocalStore` on the sync arm, which wrote a local directory for a cloud residence and left the async distribution as the only remote path; a `span_kind` keyed on the engine, which mislabels a sync-engine cloud leg `INTERNAL`; and a bare `trace.get_tracer(scope)` beside the faults-owned `scoped` stamp.
 
 ```python signature
@@ -32,14 +32,16 @@ from beartype import beartype
 from expression import Error, Ok, Result, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct, field
+from obstore.exceptions import BaseError
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind
 from zarr import codecs as zc
 
 lazy import tensorstore as ts
 
+from rasm.data.tabular.interop import DataLeg
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, async_boundary, rostered, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail, async_boundary, scoped
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, MeterFact, Party, Resource, Retain
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
@@ -58,6 +60,61 @@ _TRACER: Final = scoped(trace.get_tracer, "rasm.data.gridded.store")
 # spelled once so a rename cannot leave the live series and the durable row standing under two names. The plan
 # receipt shares it deliberately: budget-versus-peak history prunes on the same partition as the store it planned.
 DOMAIN: Final[str] = "tensor"
+
+# the dense-store raise surface across BOTH engines and the residence beneath them. `obstore`'s `BaseError` is NAMED
+# because every leaf under it roots at bare `Exception` — a cloud residence's not-found, permission, precondition, and
+# unauthenticated refusals reach no builtin ancestor, and `transport/roots#RESOURCE` states that none is a `CLASSIFY`
+# row either, so a remote leg escapes the rail without it. `zarr.errors` roots at `ValueError` with its whole selection
+# family (`ArrayIndexError`, `BoundsCheckError`, `NegativeStepError`, `VindexInvalidSelectionError`) at `IndexError`,
+# so both ancestors admit the sync engine's tree without importing a single error name; the async engine's own
+# refusals reach that same builtin pair, so the set never reifies the floor-gated `tensorstore` proxy to name one.
+_STORE_RAISES: Final[Catch] = (BaseError, IndexError, KeyError, TypeError, ValueError, OSError)
+
+# this module's whole raise roster, seated once for both sections: every fenced leg and every explicit refusal on this
+# page resolves ONE anchor here, so no call site spells a subject and `FaultRow.seated` proves the leg against a real
+# module at import. `_UNREACHED` and `_TS_DRIVER` refuse BEFORE any provider import or spec build, so their rows are
+# caller-repairable and TERMINAL — a floor no re-offer raises and a scheme no re-issue teaches a driver. The store I/O
+# legs declare TRANSIENT; `write.guard` declares TRANSIENT because the racing writer that tripped the guard finishes;
+# and the plan legs split on what they refuse, the graph build over a budget the same inputs refuse identically and
+# the executor run over the scratch store a re-issue may clear.
+TENSOR_FLOOR: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.STORE, point="floor", arm="import_", defect="engine-unreached", retriability=TERMINAL, slots=("module",)
+)
+TENSOR_DRIVER: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.STORE, point="driver", arm="resource", defect="kvstore-unaddressed", retriability=TERMINAL, slots=("scheme",)
+)
+TENSOR_CREATE: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.STORE, point="create", arm="boundary", defect="store-create", retriability=TRANSIENT
+)
+TENSOR_EMPTY: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.STORE, point="write.staged", arm="config", defect="empty-writes", retriability=TERMINAL
+)
+TENSOR_CONCURRENT: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.STORE, point="write.guard", arm="boundary", defect="concurrent-write", retriability=TRANSIENT
+)
+TENSOR_WRITE: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.STORE, point="write", arm="boundary", defect="region-write", retriability=TRANSIENT
+)
+TENSOR_READ: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.STORE, point="read", arm="boundary", defect="region-read", retriability=TRANSIENT
+)
+TENSOR_PLAN: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.STORE, point="plan", arm="boundary", defect="plan-open", retriability=TERMINAL
+)
+TENSOR_MATERIALIZE: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.STORE, point="materialize", arm="boundary", defect="plan-run", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[DataLeg]]] = rostered(Block.of_seq([
+    TENSOR_FLOOR,
+    TENSOR_DRIVER,
+    TENSOR_CREATE,
+    TENSOR_EMPTY,
+    TENSOR_CONCURRENT,
+    TENSOR_WRITE,
+    TENSOR_READ,
+    TENSOR_PLAN,
+    TENSOR_MATERIALIZE,
+]))
 
 type Shape = tuple[int, ...]
 type ChunkGrid = tuple[int, ...]
@@ -276,22 +333,23 @@ class TensorBackend(StrEnum):
         preferred = TensorBackend.TENSORSTORE if remote else TensorBackend.ZARR
         return TensorBackend.ZARR if remote and _UNREACHED.try_find(preferred).is_some() else preferred
 
-    def reached(self, subject: str, ref: ResourceRef) -> "RuntimeRail[TensorBackend]":
+    def reached(self, ref: ResourceRef) -> "RuntimeRail[TensorBackend]":
         # ONE gate, two proofs, both refusing BY NAME before any provider import or spec build. Floor first: a
         # manifest marker holding a provider below the running floor leaves its module unresolvable, so the selected
-        # engine answers `BoundaryFault(import_=)` naming the absent module at `create` rather than raising
+        # engine answers `TENSOR_FLOOR` naming the absent module at `create` rather than raising
         # `ModuleNotFoundError` from a lazy import deep inside an open leg. Driver second, on the async engine alone:
         # the residence must resolve a kvstore driver, so an admitted-but-unaddressable scheme answers
-        # `BoundaryFault(resource=)` naming it instead of a `ValueError` raised mid-leg out of the spec builder.
+        # `TENSOR_DRIVER` naming it instead of a `ValueError` raised mid-leg out of the spec builder.
         # a refusal here stays honest for a NAMED engine — a caller selecting the async arm below the floor reads its
         # absent module rather than a silent swap onto the sync one, the verbatim-selection law — while `for_ref`
-        # already routed an UNNAMED remote ref onto whichever engine this floor resolves.
-        return _UNREACHED.try_find(self).map(lambda module: Error(BoundaryFault(import_=(subject, module)))).default_value(self._driven(subject, ref))
+        # already routed an UNNAMED remote ref onto whichever engine this floor resolves. The rows carry their own
+        # subjects, so the threaded `subject: str` parameter the three hops passed hand-to-hand deletes with them.
+        return _UNREACHED.try_find(self).map(lambda module: Error(TENSOR_FLOOR.raised(module))).default_value(self._driven(ref))
 
-    def _driven(self, subject: str, ref: ResourceRef) -> "RuntimeRail[TensorBackend]":
+    def _driven(self, ref: ResourceRef) -> "RuntimeRail[TensorBackend]":
         # the sync engine addresses its residence through an `obstore` handle rather than a kvstore driver, so the
         # driver proof binds the async arm alone.
-        return Ok(self) if self is TensorBackend.ZARR else _driver(ref, subject).map(lambda _name: self)
+        return Ok(self) if self is TensorBackend.ZARR else _driver(ref).map(lambda _name: self)
 
     @staticmethod
     def span_kind(ref: ResourceRef) -> SpanKind:
@@ -396,7 +454,7 @@ class TensorStore(Struct, frozen=True):
         # unreachable engine is a recorded refusal, and `create` is the one gate — `write_region`/`read_region` reuse
         # whatever `self.backend` this construction already proved.
         with _TRACER.start_as_current_span("tensor.create", kind=TensorBackend.span_kind(ref), attributes={"rasm.tensor.backend": backend.value}):
-            match backend.reached("tensor.create", ref):
+            match backend.reached(ref):
                 case Result(tag="error", error=refused):
                     return Error(refused)
                 case Result(tag="ok"):
@@ -404,7 +462,7 @@ class TensorStore(Struct, frozen=True):
                     # `delete_existing`, so a create over a live array replaces it, and the audit line naming the
                     # grid it armed is the only surface that movement leaves. The record rail binds into the
                     # verdict, so an armed evidence plane refusing it surfaces before a caller holds the handle.
-                    match await async_boundary("tensor.create", _open):
+                    match await async_boundary(TENSOR_CREATE, _open, catch=_STORE_RAISES):
                         case Result(tag="ok", ok=store):
                             armed = _evidence(store, "create", (Assigned(path="/shape", next="x".join(map(str, shape))),), 0)
                             return (await Journal.record(armed, scope=scope)).map(lambda _landed: store)
@@ -424,7 +482,7 @@ class TensorStore(Struct, frozen=True):
             case _ as unreachable:
                 assert_never(unreachable)
         if not staged:
-            return Error(BoundaryFault(config=("tensor.write_region", "empty-writes")))
+            return Error(TENSOR_EMPTY.raised())
 
         async def _write() -> int:
             head = staged[0]
@@ -441,9 +499,9 @@ class TensorStore(Struct, frozen=True):
             # writer refuses immediately as `concurrent-write` rather than interleaving its regions mid-snapshot.
             try:
                 with self.guard:
-                    written = await async_boundary("tensor.write_region", _write)
+                    written = await async_boundary(TENSOR_WRITE, _write, catch=_STORE_RAISES)
             except BusyResourceError:
-                return Error(BoundaryFault(boundary=("tensor.write_region", "concurrent-write")))
+                return Error(TENSOR_CONCURRENT.raised())
             # durable evidence lands off the SETTLED receipt, so the content key the fact names is the one the
             # snapshot actually keyed and no fact stands for a write the store refused; the meter carries the
             # volume this leg stored, the audit line the identity it landed under.
@@ -462,7 +520,7 @@ class TensorStore(Struct, frozen=True):
         with _TRACER.start_as_current_span(
             "tensor.read_region", kind=TensorBackend.span_kind(self.ref), attributes={"rasm.tensor.backend": self.backend.value}
         ):
-            return await async_boundary("tensor.read_region", lambda: self.backend.read(self.ref, region))
+            return await async_boundary(TENSOR_READ, lambda: self.backend.read(self.ref, region), catch=_STORE_RAISES)
 
 
 # module each engine imports, and the floor probe over it: `pyproject.toml` gates `tensorstore` behind
@@ -539,8 +597,8 @@ _TS_DRIVER: "Final[Map[str, str]]" = Map.of_seq(
 )
 
 
-def _driver(ref: ResourceRef, subject: str) -> "RuntimeRail[str]":
-    return _TS_DRIVER.try_find(ref.scheme).to_result_with(lambda: BoundaryFault(resource=(subject, f"tensorstore.kvstore.{ref.scheme}")))
+def _driver(ref: ResourceRef) -> "RuntimeRail[str]":
+    return _TS_DRIVER.try_find(ref.scheme).to_result_with(lambda: TENSOR_DRIVER.raised(ref.scheme))
 
 
 def _ts_kvstore(ref: ResourceRef) -> JsonSpec:
@@ -681,8 +739,8 @@ flowchart LR
 
 - Owner: the bounded-memory `cubed` plan over the same `TensorStore` module — the out-of-core dimension of the store, not a fifth backend tag; one owner module carries the dense store and its plan, never a parallel `CubedStore` class.
 - Cases: the `linalg` arm's factor tuple persists whole at materialization, so a `svd`/`qr` never drops a factor.
-- Receipt: the plan emits no receipt while lazy — it builds a graph; materialization folds one `PlanReceipt` as budget-vs-peak evidence, and the materialized store re-enters through `[02]-[STORE]` as a fresh content-keyed `TensorReceipt`. The materialize span carries the whole flat receipt as attributes through the `to_builtins` projection — one lowering serving wire and span alike.
-- Growth: a new reduction is one `Reduction` literal the Array API namespace answers; a new factorization one `_LINALG` row; a new executor one `Executor` literal; a new execution dimension (`executor_options`, `zarr_compressor`) is one `PlanBudget` field with `plan`'s signature untouched; a new measured fact is one field off the `Callback` lifecycle; zero new surface and never a `cubed` backend tag on `TensorBackend`.
+- Receipt: the plan emits no receipt while lazy — it builds a graph; materialization folds one `PlanReceipt` as budget-vs-peak evidence, and the materialized store re-enters through `[02]-[STORE]` as a fresh content-keyed `TensorReceipt`. `facts` is the one flat projection the materialize span and the durable row both read, and the measured peak rides `Posture` because an executor that fills no `peak_measured_mem_end` leaves a run with no measurement rather than a zero-byte one.
+- Growth: a new reduction is one `Reduction` literal the Array API namespace answers; a new factorization one `_LINALG` row; a new executor one `Executor` literal; a new execution dimension (`executor_options`, `zarr_compressor`) is one `PlanBudget` field with `plan`'s signature untouched; a new measured fact is one field off the `Callback` lifecycle plus one `facts` column; zero new surface and never a `cubed` backend tag on `TensorBackend`.
 - Boundary: `data` emits a bounded-memory plan plus its typed peak-memory receipt, never a runtime compute graph, and a consumer selects its own substrate off that receipt.
 
 ```python signature
@@ -694,9 +752,9 @@ from beartype import beartype
 from cubed.array_api import linalg as cla
 from expression import case, tag, tagged_union
 from expression.collections import Map
-from msgspec import Struct, to_builtins
+from msgspec import Struct
 
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
+from rasm.runtime.faults import FAULT_CONF, Catch, Posture, RuntimeRail, boundary
 from rasm.runtime.receipts import Receipt
 
 if TYPE_CHECKING:
@@ -710,6 +768,12 @@ type Op = Literal["reduce", "linalg", "blockwise", "gufunc", "rechunk"]
 type Executor = Literal["single-threaded", "threads", "processes", "dask", "lithops", "modal", "coiled", "ray", "spark"]
 type Reduction = Literal["nanmean", "sum", "mean", "nansum", "std", "var", "prod", "max", "min"]
 type Factorization = Literal["matmul", "svd", "qr", "svdvals", "tensordot", "outer", "vecdot", "matrix_transpose"]
+
+# `cubed` mints NO exception class of its own: the budget refusal, the unknown-dimension refusal, and the source-arity
+# refusals all raise `ValueError`, and an unlowered chunk pattern raises `NotImplementedError`. Beneath them the plan
+# reads and writes Zarr scratch, so the store's own residence set carries through — the `obstore` root NAMED for the
+# same reason it is above, every leaf rooting at bare `Exception`.
+_PLAN_RAISES: Final[Catch] = (*_STORE_RAISES, NotImplementedError)
 
 
 class PlanBudget(Struct, frozen=True):
@@ -772,7 +836,11 @@ class PlanOp:
 class MemoryProbe(cubed.Callback):
     def __init__(self) -> None:
         super().__init__()
-        self.peak_mem = 0
+        # the running peak rides the posture because `TaskEndEvent.peak_measured_mem_end` DEFAULTS to `None` and the
+        # single-threaded executor never fills it: the deleted `or 0` folded that absence into a real zero the receipt
+        # then reported as a measured floor, the `docs/laws/scars.md` `[FORGED_ZERO]` class exactly. A run that
+        # measured nothing and a run whose every task peaked at zero bytes now read apart at every consumer.
+        self.peak: "Posture[int]" = Posture(absent=None)
         self.tasks = 0
         self.operations = 0
 
@@ -780,8 +848,11 @@ class MemoryProbe(cubed.Callback):
         self.operations += 1
 
     def on_task_end(self, event: "cubed.TaskEndEvent") -> None:
-        self.peak_mem = max(self.peak_mem, int(event.peak_measured_mem_end or 0))
         self.tasks += 1
+        if event.peak_measured_mem_end is None:
+            return
+        # the fold seed is a MAX identity, never a reported value, so it can never escape as evidence.
+        self.peak = Posture(declared=max(self.peak.option().default_value(0), int(event.peak_measured_mem_end)))
 
 
 class PlanReceipt(Struct, frozen=True):
@@ -793,35 +864,36 @@ class PlanReceipt(Struct, frozen=True):
     arity: int
     operations: int
     tasks: int
-    peak_mem: int
     target: str
+    # the ONE column an executor may leave unanswered, carried as a posture rather than the `or 0` floor that made a
+    # never-measured run indistinguishable from a zero-byte one.
+    peak_mem: "Posture[int]" = Posture(absent=None)
+
+    def facts(self) -> dict[str, object]:
+        # ONE flat projection the span attributes and the durable receipt row BOTH read, so the two can never drift —
+        # they previously spelled overlapping column sets twice, a `to_builtins` struct lowering for the span and a
+        # hand-written mapping here. The peak spreads its key only where a task DECLARED one, the runtime `facts`
+        # omission idiom, so a series never fills with a floor no executor measured.
+        columns: dict[str, object] = {
+            "domain": DOMAIN,
+            "kind": self.op,
+            "executor": self.executor,
+            "allowed_mem": self.allowed_mem,
+            "reserved_mem": self.reserved_mem,
+            "npartitions": self.npartitions,
+            "arity": self.arity,
+            "operations": self.operations,
+            "tasks": self.tasks,
+            "target": self.target,
+        }
+        return columns | self.peak_mem.option().map(lambda peak: {"peak_mem": peak}).default_value({})
 
     def contribute(self) -> Iterable[Receipt]:
         # the plan shares the `tensor` partition with the store it plans over and keys its row by the op that ran,
         # so budget-versus-peak history prunes on the same predicate. It contributes NO `key` and records NO measure:
         # a lazy graph mints no content identity, and a null key would land at the residence as the literal `"None"`
         # while a fabricated instrument would meter a byte volume no leg moved.
-        return (
-            Receipt.of(
-                DOMAIN,
-                (
-                    "planned",
-                    self.op,
-                    {
-                        "domain": DOMAIN,
-                        "kind": self.op,
-                        "executor": self.executor,
-                        "allowed_mem": self.allowed_mem,
-                        "reserved_mem": self.reserved_mem,
-                        "peak_mem": self.peak_mem,
-                        "npartitions": self.npartitions,
-                        "arity": self.arity,
-                        "operations": self.operations,
-                        "tasks": self.tasks,
-                    },
-                ),
-            ),
-        )
+        return (Receipt.of(DOMAIN, ("planned", self.op, self.facts())),)
 
 
 @beartype(conf=FAULT_CONF)
@@ -831,7 +903,7 @@ def plan(store: "TensorStore", work_dir: "ResourceRef", *, budget: PlanBudget = 
         spec = cubed.Spec(str(work_dir.path), allowed_mem=budget.allowed_mem, reserved_mem=reserved, executor_name=budget.executor)
         return cubed.from_zarr(str(store.ref.path), spec=spec)
 
-    return boundary("tensor.plan", _open)
+    return boundary(TENSOR_PLAN, _open, catch=_PLAN_RAISES)
 
 
 def materialize(graph: "cubed.Array", op: PlanOp, target: "ResourceRef") -> "RuntimeRail[PlanReceipt]":
@@ -851,16 +923,16 @@ def materialize(graph: "cubed.Array", op: PlanOp, target: "ResourceRef") -> "Run
             arity=len(outputs),
             operations=probe.operations,
             tasks=probe.tasks,
-            peak_mem=probe.peak_mem,
+            peak_mem=probe.peak,
             target=str(target.path),
         )
-        # PlanReceipt is flat int/str, so the msgspec lowering IS the span-attribute mapping — budget-vs-peak
-        # evidence lands on the span with zero manual flattening, the catalog struct-to-attributes projection.
-        trace.get_current_span().set_attributes(to_builtins(receipt, str_keys=True))
+        # ONE projection feeds the span and the durable row alike — budget-vs-peak evidence lands on the span with no
+        # second flattening, and the unmeasured peak simply has no attribute rather than a fabricated zero.
+        trace.get_current_span().set_attributes(receipt.facts())
         return receipt
 
     with _TRACER.start_as_current_span(f"tensor.materialize.{op.tag}"):
-        return boundary("tensor.materialize", _run)
+        return boundary(TENSOR_MATERIALIZE, _run, catch=_PLAN_RAISES)
 ```
 
 ```mermaid

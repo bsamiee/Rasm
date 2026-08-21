@@ -39,7 +39,7 @@ import {
     PlatformConfigProvider,
     type PlatformError,
 } from '@effect/platform';
-import { Array, ConfigProvider, Data, Effect, Layer, Option, type ParseResult, Schema, pipe } from 'effect';
+import { Array, ConfigProvider, Data, Effect, Layer, Option, type ParseResult, Record, Schema, pipe } from 'effect';
 import { Client, type Lapse } from '../net/client.ts';
 
 declare namespace Provider {
@@ -324,12 +324,13 @@ class Setting extends Effect.Service<Setting>()('runtime/Setting', {
 - Law: `recovery` is a HOST-family extension column and the provider family forecloses it — a host integration decides where the store lands and therefore what a restore may lose, while a bound port supplies capability and decides no durability window, so a provider row answering one answers by guess; `degrade` cannot carry the pair either, naming forfeits rather than declared targets, and `lifetime` bounds what entered rather than what a failure costs.
 - Law: durability resolves once — a host row's `recovery` overrides its topology's `_TOPOLOGY_RECOVERY` entry and an unhosted row reads the table, so `iac/program/spec` spreads `Profile.recoveryOf` rather than restating windows and the deploy plane threads the same pair the booted process carries; a second table at either plane grades a deployment against a target nobody declared.
 - Law: `recovery` stays off `canonical` and `canonicalJson` — the corpus vector freezes the six axes, so a seventh pair there re-cuts a frozen preimage while the window rides the `host` row the vector already renders by key.
+- Law: admission ACCUMULATES — the host-descriptor axis and the isolation-crossing axis decide nothing about each other, so both columns run and every offender rides one census; a first-failure ladder hid the second refusal behind the first and cost one boot per axis to discover a profile wrong on both.
 - Law: deployment shape is data the root states, never a fact the branch infers — an ambient `process.platform` read, a build flag, a bundler condition, and a branch on which product embeds the runtime are the four deleted forms; `Profile.admit` runs inside `Setting`'s own effect, so an unservable axis value fails the boot line beside every `ConfigError` and the graph never half-builds.
 - Law: this branch answers `in-proc` on the Effect fiber runtime, `thread` through `proc/worker`'s pool, `process` through `proc/exec`'s subprocess spec behind a bound `local-spawn` provider, and `remote` through `net/client` behind a bound `remote-compute` provider; `wasm` refuses outright because the axis names where THIS branch's own work runs and no packaging compiles it into a guest — an embedded wasm-built engine is a dependency's own implementation, selected by `topology` and realizing no isolation value — and the worker pool nearest it gives thread isolation alone.
 - Law: `Profile`, its descriptor schemas, and `_profile` seat above the `Setting` region of `runtime/src/proc/config.ts` — the fences split by cluster, never by file order, so `Setting` composes them as one module's earlier declarations.
 - Entry: `Profile.admit(row)` at `Setting` construction; `yield* Setting` then reads `profile.row` everywhere else.
 - Receipt: `Profile.canonical` orders the six axis rows and `Profile.canonicalJson` renders them as the one UTF-8 `canonical-json` preimage the `consumption-profile` corpus contract freezes, so the three branches diff one string rather than three rosters; the render walks the ordered pairs because a serialized object seats property order in the object rather than the roster the vector pins.
-- Packages: `effect` (`Config`, `Data`, `Duration`, `Effect`, `Option`, `Schema`); `@rasm/ts/core` (`Fault`, `Identity`).
+- Packages: `effect` (`Array`, `Config`, `Duration`, `Effect`, `Option`, `Record`, `Schema`); `@rasm/ts/core` (`Fault.Class`, `Identity`).
 
 ```typescript signature
 import { Fault, Identity } from '@rasm/ts/core';
@@ -351,8 +352,10 @@ declare namespace Consumption {
     type Axis = (typeof _axes)[number];
     type Capability = (typeof _capabilities)[number];
     type Host = Schema.Schema.Type<typeof _Host>;
+    type Issue = typeof _refusal.payload.Type;
     type Objective = Schema.Schema.Type<typeof _Objective>;
     type Provider = Schema.Schema.Type<typeof _Provider>;
+    type Refused = InstanceType<typeof ProfileRefused>;
 }
 
 // DECLARED durability window: how much data a restore may lose, and how long it may take. It rides the profile row
@@ -415,28 +418,61 @@ const _crossing: { readonly [K in Consumption.Isolation]: Consumption.Capability
     remote: 'remote-compute',
 };
 
+const _Axis = Schema.Literal(..._axes);
+const _Isolation = Schema.Literal(..._isolations);
+const _Topology = Schema.Literal(..._topologies);
+
+const _LEG = 'profile';
+
 // A free-string reason is unroutable and unfoldable, so the refusal grammar closes here: `reason` is the discriminant
-// a caller dispatches on, `axis`/`value` are the coordinates it restates, and the crossing verdict rides `detail` as
-// evidence rather than as the discriminant. `class` projects the roster through one core family mint.
+// a caller dispatches on, and each row declares its OWN coordinates rather than sharing one free `value` beside an
+// optional note — the gated crossing carries the capability it needed as a rostered word, and the unserved arm
+// carries none because there is none to name. `class` projects the roster through one core family mint.
 const _refusal = Fault.Class.family(['missing', 'uncrossed', 'unserved'] as const, {
-    missing: { class: 'absent' }, // the stated topology demands a row the profile did not supply
-    uncrossed: { class: 'absent' }, // the isolation value crosses only through a capability this deployment never declared
-    unserved: { class: 'denied' }, // the isolation value has no serving path at all
+    missing: Fault.Class.row({
+        class: 'absent',
+        leg: _LEG,
+        detail: Schema.Struct({ axis: _Axis, topology: _Topology }),
+        render: ({ axis, topology }) => `topology ${topology} demands a ${axis} row this profile did not supply`,
+    }),
+    uncrossed: Fault.Class.row({
+        class: 'absent',
+        leg: _LEG,
+        detail: Schema.Struct({ capability: Schema.Literal(..._capabilities), isolation: _Isolation }),
+        render: ({ capability, isolation }) =>
+            `isolation ${isolation} crosses only through ${capability}, which no provider row on this profile supplies`,
+    }),
+    unserved: Fault.Class.row({
+        class: 'denied',
+        leg: _LEG,
+        detail: Schema.Struct({ isolation: _Isolation }),
+        render: ({ isolation }) => `isolation ${isolation} has no serving path in this branch at all`,
+    }),
 });
 
-class ProfileRefused extends Schema.TaggedError<ProfileRefused>()('ProfileRefused', {
-    axis: Schema.Literal(..._axes),
-    reason: _refusal.schema,
-    value: Schema.String,
-    detail: Schema.optionalWith(Schema.String, { as: 'Option' }),
-}) {
-    get class(): Fault.Class.Kind {
-        return _refusal.classOf(this.reason);
-    }
-    override get message(): string {
-        return `<${this.reason}> ${this.axis}=${this.value}`;
-    }
-}
+// Both axes are admitted INDEPENDENTLY — a topology missing its host row decides nothing about an isolation value's
+// crossing — so the carrier is the family's own census and every offender rides one refusal. A first-failure ladder
+// reported the host gap and hid the crossing behind it, which cost one boot per axis to discover a profile that was
+// wrong on both, and `class`, `leg`, and `message` all elect off the rank lattice with nothing declared here.
+const ProfileRefused = _refusal.census('ProfileRefused');
+
+// One column per admitted axis, each answering its own offender against the supplied row and nothing about its
+// sibling. The crossing column orders its arms so the capability narrows on its own discriminant — the cast that
+// re-asserted what `_crossing` already stated is gone with the ladder that needed it.
+const _COLUMNS: { readonly [Axis in 'host' | 'isolation']: (row: Profile) => Option.Option<Consumption.Issue> } = {
+    host: (row) =>
+        row.topology === 'in-host' && Option.isNone(row.host)
+            ? Option.some({ reason: 'missing', axis: 'host', topology: row.topology } as const)
+            : Option.none(),
+    isolation: (row) =>
+        pipe(_crossing[row.isolation], (crossing) =>
+            crossing === 'unserved'
+                ? Option.some({ reason: 'unserved', isolation: row.isolation } as const)
+                : crossing === 'served' || row.grants.has(crossing)
+                  ? Option.none()
+                  : Option.some({ reason: 'uncrossed', capability: crossing, isolation: row.isolation } as const),
+        ),
+};
 
 // One cell escaper for the canonical render, and it is the branch's own JSON codec rather than a hand-written quote
 // pass: an axis or descriptor key carrying a quote or a control character renders as an admissible literal instead
@@ -445,10 +481,10 @@ const _cell = Schema.encodeSync(Schema.parseJson(Schema.String));
 
 class Profile extends Schema.Class<Profile>('runtime/Profile')({
     tenancy: Schema.optionalWith(Identity.tenancy.schema, { default: () => 'single' as const }),
-    topology: Schema.optionalWith(Schema.Literal(..._topologies), { default: () => 'service' as const }),
+    topology: Schema.optionalWith(_Topology, { default: () => 'service' as const }),
     host: Schema.optionalWith(_Host, { as: 'Option' }),
     lifecycle: Schema.optionalWith(Schema.Literal(..._lifecycles), { default: () => 'package-owned' as const }),
-    isolation: Schema.optionalWith(Schema.Literal(..._isolations), { default: () => 'thread' as const }),
+    isolation: Schema.optionalWith(_Isolation, { default: () => 'thread' as const }),
     providers: Schema.optionalWith(Schema.Array(_Provider), { default: () => [] }),
 }) {
     // Peers spread this roster into their own literals instead of re-declaring the axis, so the branch
@@ -496,27 +532,11 @@ class Profile extends Schema.Class<Profile>('runtime/Profile')({
         ];
     }
 
-    static readonly admit = (row: Profile): Effect.Effect<Profile, ProfileRefused> =>
-        row.topology === 'in-host' && Option.isNone(row.host)
-            ? Effect.fail(
-                  new ProfileRefused({
-                      axis: 'host',
-                      reason: 'missing',
-                      value: 'none',
-                      detail: Option.some('in-host topology carries no host descriptor row'),
-                  }),
-              )
-            : _crossing[row.isolation] === 'served' || row.grants.has(_crossing[row.isolation] as Consumption.Capability)
-              ? Effect.succeed(row)
-              : Effect.fail(
-                    new ProfileRefused({
-                        axis: 'isolation',
-                        // the crossing verdict discriminates: no serving path at all, or one gated behind an undeclared capability
-                        reason: _crossing[row.isolation] === 'unserved' ? 'unserved' : 'uncrossed',
-                        value: row.isolation,
-                        detail: Option.some(_crossing[row.isolation]),
-                    }),
-                );
+    static readonly admit = (row: Profile): Effect.Effect<Profile, Consumption.Refused> =>
+        Array.match(Array.getSomes(Array.map(Record.values(_COLUMNS), (column) => column(row))), {
+            onEmpty: () => Effect.succeed(row),
+            onNonEmpty: (issues) => Effect.fail(new ProfileRefused({ issues })),
+        });
 }
 
 const _profile = Config.nested(

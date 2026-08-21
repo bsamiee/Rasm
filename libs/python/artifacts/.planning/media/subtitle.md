@@ -27,22 +27,24 @@ from fractions import Fraction
 from functools import lru_cache
 from heapq import merge
 from math import isfinite
-from typing import TYPE_CHECKING, Literal, ReadOnly, TypedDict, assert_never
+from typing import TYPE_CHECKING, Final, Literal, ReadOnly, TypedDict, assert_never
 
 import msgspec
 import numpy as np
 from builtins import frozendict
 from expression import Error, Ok, Result, case, tag, tagged_union
+from expression.collections import Block
 from msgspec import Struct
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, async_boundary
+from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, async_boundary, rostered
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
-from rasm.artifacts.media.container import CANON, Frames, MediaEvidence, MediaFault, MediaProfile, _lapsed, framed
+from rasm.artifacts.media.container import CANON, MEDIA_RESIDUE, Frames, MediaEvidence, MediaFault, MediaProfile, _lapsed, framed
 
 lazy import av
 lazy import av.error
@@ -109,6 +111,16 @@ class StyleConflict(StrEnum):
 _SOFT_SUB: frozendict[str, str] = frozendict({"matroska": "ass"})
 
 _ASS_EVENT_FORMAT = "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's ONE raise anchor: the fold is a single fence over the whole op union, so the op tag is request data the
+# `MediaFault` case already discriminates rather than a coordinate the subject re-spells per op. TRANSIENT — a
+# worker death and a codec refusal are defects a re-issue may clear.
+SUBTITLE_FOLD: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.SUBTITLE, point="fold", arm="boundary", defect="subtitle-fold", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([SUBTITLE_FOLD]))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -207,10 +219,12 @@ class Subtitle(Struct, frozen=True):
         return ContentIdentity.key(f"media.subtitle-{self.op.tag}", _canon(self.op))
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # member MediaFault folds into the boundary fault (Work[ArtifactReceipt] forbids an inner Result).
-        railed = await async_boundary(f"media.subtitle.{self.op.tag}", self._folded)
+        # the member `MediaFault` crosses WHOLE on `BoundaryFault.domain` (`Work[ArtifactReceipt]` forbids an inner
+        # Result), so its case and kwargs stay matchable; the retired `f"{tag}:{fault}"` collapse handed every case
+        # to one string and left a consumer nothing to gate on.
+        railed = await async_boundary(SUBTITLE_FOLD, self._folded, catch=MEDIA_RESIDUE)
         return railed.bind(
-            lambda res: res.map_error(lambda fault: BoundaryFault(boundary=(f"media.subtitle.{self.op.tag}", f"{fault.tag}:{fault}")))
+            lambda res: res.map_error(lambda fault: BoundaryFault(domain=(SUBTITLE_FOLD.subject, fault)))
         )
 
     async def _folded(self, /) -> Result[ArtifactReceipt, MediaFault]:

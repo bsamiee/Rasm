@@ -28,18 +28,62 @@ import { Curb, Reject } from "../crypt/verify.ts"
 const _SubjectId = Schema.UUID.pipe(Schema.brand("SubjectId"))
 const _SessionId = Schema.UUID.pipe(Schema.brand("SessionId"))
 
+// Six reasons share one subject because one respell mints them all: a `crypt/sign` fault carries a cause and the
+// COORDINATE the presentation was about — the session id where the frame already resolved to one, the ceremony
+// itself where it never did. `reuse` alone carries its own subject, because a replayed rotation is this page's own
+// statechart verdict over a stored generation and its evidence is the session, the subject, and the generation the
+// replay tried to spend — facts no primitive fault can supply and no shared cause string can hold.
 const _family = Fault.Class.family(["expired", "notFound", "reuse", "mismatch", "denied", "throttled", "store"] as const, {
-  expired: { class: "expired" },
-  notFound: { class: "absent" },
-  reuse: { class: "breached" },
-  mismatch: { class: "malformed" },
-  denied: { class: "denied" },
-  throttled: { class: "exhausted" },
-  store: { class: "unavailable" },
+  expired: Fault.Class.row({
+    class: "expired",
+    leg: "rotation",
+    detail: Schema.Struct({ coordinate: Schema.String, cause: Schema.String }),
+    render: ({ cause, coordinate }) => `session ${coordinate} is past its window: ${cause}`,
+  }),
+  notFound: Fault.Class.row({
+    class: "absent",
+    leg: "rotation",
+    detail: Schema.Struct({ coordinate: Schema.String, cause: Schema.String }),
+    render: ({ cause, coordinate }) => `no live session at ${coordinate}: ${cause}`,
+  }),
+  reuse: Fault.Class.row({
+    class: "breached",
+    leg: "rotation",
+    detail: Schema.Struct({ sid: Schema.String, subject: Schema.String, generation: Schema.Int }),
+    render: ({ generation, sid }) => `refresh replay on session ${sid} against generation ${generation}`,
+  }),
+  mismatch: Fault.Class.row({
+    class: "malformed",
+    leg: "presentation",
+    detail: Schema.Struct({ coordinate: Schema.String, cause: Schema.String }),
+    render: ({ cause, coordinate }) => `presentation at ${coordinate} is unreadable: ${cause}`,
+  }),
+  denied: Fault.Class.row({
+    class: "denied",
+    leg: "presentation",
+    detail: Schema.Struct({ coordinate: Schema.String, cause: Schema.String }),
+    render: ({ cause, coordinate }) => `presentation at ${coordinate} was refused: ${cause}`,
+  }),
+  throttled: Fault.Class.row({
+    class: "exhausted",
+    leg: "throttle",
+    detail: Schema.Struct({ coordinate: Schema.String, cause: Schema.String }),
+    render: ({ cause, coordinate }) => `session budget spent on ${coordinate}: ${cause}`,
+  }),
+  store: Fault.Class.row({
+    class: "unavailable",
+    leg: "store",
+    detail: Schema.Struct({ coordinate: Schema.String, cause: Schema.String }),
+    render: ({ cause, coordinate }) => `session store unreachable for ${coordinate}: ${cause}`,
+  }),
 })
 
 declare namespace SessionFault {
-  type Reason = (typeof _family.reasons)[number]
+  type Case = typeof _family.payload.Type
+  type Reason = (typeof _family.kinds)[number]
+  // A primitive fault never reports a REPLAY: reuse is this page's own statechart verdict over a stored generation,
+  // so the respell table's value type forecloses it and no future core class can land a breach word on an outage.
+  type Respelled = Exclude<Reason, "reuse">
 }
 
 class Subject extends Schema.Class<Subject>("Subject")({
@@ -71,14 +115,16 @@ class TokenPair extends Schema.Class<TokenPair>("TokenPair")({
 }) {}
 
 class SessionFault extends Schema.TaggedError<SessionFault>()("SessionFault", {
-  reason: _family.schema,
-  detail: Schema.String,
+  case: _family.payload,
 }) {
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _family.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<session:${this.reason}> ${this.detail}`
+    return _family.render(this.case)
   }
 }
 
@@ -128,7 +174,7 @@ const _RefreshWire = Schema.TemplateLiteralParser(_SessionId, ".", Schema.String
 // core lattice already grades, so a caller-blamed `SignFault` (a denied claim, a refused algorithm, a malformed
 // key) answers on the caller's side while a system-blamed one answers on the deployment's, and the table is total
 // over `Fault.Class.Kind` so a new core class breaks here at compile time instead of defaulting to an outage.
-const _SPELL: { readonly [K in Fault.Class.Kind]: SessionFault.Reason } = {
+const _SPELL: { readonly [K in Fault.Class.Kind]: SessionFault.Respelled } = {
   absent: "notFound",
   conflicted: "mismatch",
   invalid: "mismatch",
@@ -158,7 +204,10 @@ const _step = (session: Session, now: DateTime.Utc, matched: boolean): RotationS
     : matched ? _RotationStep.Rotate({ session })
     : _RotationStep.Reused({ session })
 
-const _spell = (fault: SignFault): SessionFault => new SessionFault({ reason: _SPELL[fault.class], detail: fault.detail })
+// The coordinate is the respell's one parameter, never a second respell member: a refresh leg already holds the
+// session id the refusal is about, a bearer guard holds only the ceremony, and both mint through this one site.
+const _spell = (coordinate: string) => (fault: SignFault): SessionFault =>
+  new SessionFault({ case: { reason: _SPELL[fault.class], coordinate, cause: fault.message } })
 
 class CurrentClaims extends Context.Tag("security/authn/CurrentClaims")<CurrentClaims, AccessClaims>() {}
 
@@ -174,7 +223,7 @@ class BearerGuard extends HttpApiMiddleware.Tag<BearerGuard>()("security/authn/B
         jwt.verify(token).pipe(
           Effect.tapError(() => Reject.mark("bearer")),
           Reject.measured("bearer"), // the guard is the plane's highest-traffic ceremony: its admissions are the denominator every reject ratio divides by
-          Effect.mapError(_spell),
+          Effect.mapError(_spell("bearer")),
         ),
     })),
   )
@@ -231,17 +280,18 @@ class Token extends Effect.Service<Token>()("security/authn/Token", {
     const refresh = (presented: Redacted.Redacted<string>): Effect.Effect<TokenPair, SessionFault> =>
       Effect.gen(function* () {
         const [sid, , secret] = yield* Schema.decode(_RefreshWire)(Redacted.value(presented)).pipe(
-          Effect.mapError(() => new SessionFault({ reason: "mismatch", detail: "malformed refresh frame" })))
-        return yield* curb.guard("refresh", sid, (detail: string) => new SessionFault({ reason: "throttled", detail }))(
+          Effect.mapError(() => new SessionFault({ case: { reason: "mismatch", coordinate: "refresh", cause: "frame is not <sid>.<secret>" } })))
+        return yield* curb.guard("refresh", sid, (cause: string) => new SessionFault({ case: { reason: "throttled", coordinate: sid, cause } }))(
           Effect.gen(function* () {
             const session = yield* Effect.flatMap(store.read(sid), Option.match({
-              onNone: () => Effect.fail(new SessionFault({ reason: "notFound", detail: sid })),
+              onNone: () => Effect.fail(new SessionFault({ case: { reason: "notFound", coordinate: sid, cause: "no session under this id" } })),
               onSome: Effect.succeed,
             }))
             const now = yield* DateTime.now
-            const matched = yield* cipher.matches(Probe.Digest({ opaque: Redacted.make(secret), stored: session.refreshHash })).pipe(Effect.mapError(_spell))
+            const matched = yield* cipher.matches(Probe.Digest({ opaque: Redacted.make(secret), stored: session.refreshHash })).pipe(Effect.mapError(_spell(sid)))
             return yield* _RotationStep.$match(_step(session, now, matched), {
-              Expired: ({ session: held }) => Effect.fail(new SessionFault({ reason: "expired", detail: held.id })),
+              Expired: ({ session: held }) =>
+                Effect.fail(new SessionFault({ case: { reason: "expired", coordinate: held.id, cause: "refresh window closed" } })),
               Reused: ({ session: held }) =>
                 Effect.gen(function* () {
                   const revocation = yield* store.revokeSubject(held.subject).pipe(
@@ -255,7 +305,9 @@ class Token extends Effect.Service<Token>()("security/authn/Token", {
                     onSome: (fault) => Effect.logError("subject revocation requires remediation", fault),
                   })
                   yield* Effect.logError("refresh reuse detected")
-                  return yield* Effect.fail(new SessionFault({ reason: "reuse", detail: "refresh token reuse detected" }))
+                  return yield* Effect.fail(new SessionFault({
+                    case: { reason: "reuse", sid: held.id, subject: held.subject, generation: held.generation },
+                  }))
                 }).pipe(Effect.annotateLogs("subject", Redacted.make(held.subject))),
               Rotate: ({ session: held }) => _rotate(held, now),
             })
@@ -293,9 +345,22 @@ const CookieSpec = {
 
 const _EMPTY_VALUE = Redacted.make("")
 
+// The pair leg names WHICH half arrived, because a missing header and a missing cookie point at different bugs in
+// the calling client. The compare leg carries no subject and says so: both operands are the tokens themselves, and
+// a renderer that named either would publish the secret the double-submit check exists to keep opaque.
 const _csrfFamily = Fault.Class.family(["absent", "mismatch"] as const, {
-  absent: { class: "denied" },
-  mismatch: { class: "denied" },
+  absent: Fault.Class.row({
+    class: "denied",
+    leg: "pair",
+    detail: Schema.Struct({ cookie: Schema.Boolean, header: Schema.Boolean }),
+    render: ({ cookie, header }) => `csrf pair incomplete: cookie ${cookie ? "present" : "absent"}, header ${header ? "present" : "absent"}`,
+  }),
+  mismatch: Fault.Class.row({
+    class: "denied",
+    leg: "compare",
+    detail: Schema.Struct({}),
+    render: () => "csrf cookie and header disagree",
+  }),
 })
 
 declare namespace CookieSpec {
@@ -304,17 +369,21 @@ declare namespace CookieSpec {
 }
 
 declare namespace CsrfFault {
-  type Reason = (typeof _csrfFamily.reasons)[number]
+  type Case = typeof _csrfFamily.payload.Type
+  type Reason = (typeof _csrfFamily.kinds)[number]
 }
 
 class CsrfFault extends Schema.TaggedError<CsrfFault>()("CsrfFault", {
-  reason: _csrfFamily.schema,
+  case: _csrfFamily.payload,
 }) {
   get class(): Fault.Class.Kind {
-    return _csrfFamily.classOf(this.reason)
+    return _csrfFamily.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _csrfFamily.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<csrf:${this.reason}>`
+    return _csrfFamily.render(this.case)
   }
 }
 
@@ -341,14 +410,17 @@ class Cookie extends Effect.Service<Cookie>()("security/authn/Cookie", {
       cipher.token(Alphabet.base62, 32).pipe(Effect.orDie, Effect.flatMap((token) => _framed("csrf", token)))
     const verify = (cookieToken: Option.Option<string>, headerToken: Option.Option<string>): Effect.Effect<void, CsrfFault> =>
       Option.match(Option.zipWith(cookieToken, headerToken, (held, presented) => ({ held, presented })), {
-        onNone: () => Effect.fail(new CsrfFault({ reason: "absent" })),
+        onNone: () =>
+          Effect.fail(new CsrfFault({
+            case: { reason: "absent", cookie: Option.isSome(cookieToken), header: Option.isSome(headerToken) },
+          })),
         onSome: ({ held, presented }) =>
           cipher.matches(Probe.Text({ held: Redacted.make(held), presented })).pipe(
             Effect.orDie,
-            Effect.filterOrFail((matched) => matched, () => new CsrfFault({ reason: "mismatch" })),
+            Effect.filterOrFail((matched) => matched, () => new CsrfFault({ case: { reason: "mismatch" } })),
             Effect.asVoid,
           ),
-      }).pipe(Effect.tapError((fault) => Reject.mark("csrf", { reason: fault.reason })), Reject.measured("csrf"))
+      }).pipe(Effect.tapError((fault) => Reject.mark("csrf", { reason: fault.case.reason })), Reject.measured("csrf"))
     return { frame, clear, csrf, verify } as const
   }),
   dependencies: [Crypto.Default],

@@ -13,12 +13,13 @@ Wire posture: HOST-LOCAL. `Seq<CutElement>` crosses to `Cam.Generate`; native ha
 
 ## [02]-[SURFACE_PATH]
 
-- Owner: `SurfaceStrategy` is the payload-bearing request family over one base `SurfacePolicy`; `SurfaceLayoutKind` is the closed planar-or-kernel generator shape; `WaterlineMode` owns operation selection; `SurfaceLayout` produces drives; `SurfacePath` exposes the sole entry. Generated `SurfaceSampling.Validate` admits native bounds once, and `SurfaceRun.Of` accumulates aggregate request faults before layout or native execution.
+- Owner: `SurfaceStrategy` is the payload-bearing request family over one base `SurfacePolicy`; `SurfaceLayoutKind` is the closed planar-or-kernel generator shape; `WaterlineMode` and `PathSamplingMode` are the two operation-selecting postures, each resolved by a generated total switch inside `OpenCamOperationKind.Of` and neither carrying a flag; `SurfaceLayout` produces drives; `SurfacePath` exposes the sole entry. Generated `SurfaceSampling.Validate` admits native bounds once, and `SurfaceRun.Of` accumulates aggregate request faults before layout or native execution.
+- Law: every sampling MEASURE rides the kernel `Tolerance` pair on the lane that names its gate — `ToleranceLane.Chord` for the band's two ends, `ToleranceLane.Orientation` for the contact limit, `ToleranceLane.Filter` for the simplification tolerance — so `Band` owns each range and this plane proves only lane identity, band ordering, and the allocation ceilings. Each independent axis gates through the `AdmissionSlots.Gate` deferred-mint arity, threading `FabConcern.Toolpath` and the `<owner>:<axis>` locus into `FabricationFault.Inadmissible` on the failing arm alone — a plane-local `Of(admitted, locus)` wrapper re-spelling that arity behind its own name is the deleted form. Unit conversion and the ABI's sentinel spellings live at `Configure` alone. `UnitsNet` carries a dimensioned strategy payload that gates nothing: the swarf flank standoff is the `Length` its emitter already holds, so the suffix that stated its unit where no compiler read it is gone and the millimetre projects once, at the ruling that offsets by it.
 - Cases: `SurfaceStrategy` carries waterline, scallop, pencil, rest, raster, fiber, indexed-axis, swarf, and drill demand. `SurfaceLayoutKind.Kernel(Key)` parameterizes geodesic, flow, morph, cross-field, iso-parametric, radial, spiral, projected-curve, boundary, contour, cusp, slope, curvature, texture, and drive-surface generation without one named row per algorithm. `FiberSlice` admits endpoint-pair drives into `BatchPushCutter`. `Raster` and `Rest` carry no drives at all: the region boundary seeds the engine's own direction-and-stepover fill, and the residual bounds the reachable-surface refinement. `ThreePlusTwo` is a real 3-axis lane per indexed view because the view fixes the tool axis for its whole pass; `Swarf` reads each admitted fiber as one flank ruling and emits the oriented station the S0 `MoveOrientation` payload carries, so continuous flank orientation is representable rather than refused.
 - Entry: `internal static Fin<SurfacePathReceipt> Sample(SurfaceStrategy strategy, MeshSpace mesh, CutterForm cutter)` is the only surface entry, folding one admitted pass per indexed view and one pass for every other strategy. Empty and populated requests cross `SurfaceRun.Of`; work cardinality changes execution only after aggregate admission.
-- Auto: `Tolerance.Apply(ToleranceRequest.Scallop)` derives stepover. `SurfaceFrame.Of` builds one axis-angle rotation and its inverse from the indexed view, so mesh triangles marshal in frame coordinates and every returned location, fiber, interval contact, and witness facet restores to world before admission. `PlanarRaster` reads the frame-relative mesh bounds once and generates serpentine rows on the reference route. `Kernel(Key)` invokes the injected layout through `Try.lift`, and callback exceptions retain key and message on the typed rail. Pencil contact angle tightens the adaptive cosine limit, and `SurfaceSampling.FilterToleranceMm` drives the upstream `LineCLFilter` so drop-cutter output reaches posting already simplified. Rest drives `setMinSampling` from the residual's own admitted tolerance, clamped into the sampling band, so the reachable-surface field refines exactly where stock remains. Drill-family centers feed `BatchDropCutter`; an empty center set becomes a no-op only after aggregate admission.
-- Receipt: `SurfacePathReceipt` carries admitted `CutElement` rows keyed by the package's one `CutElement.Identify` mint over the indexed view, path ordinal, operation, tool, work offset, and cutter geometry, beside `SurfaceSampleReceipt`; grouped `OpenCamLocation` rows, `OpenCamContactKind`, per-fiber `OpenCamInterval` engagement spans, and operation-owned topology survive lowering. `OpenCamDiagnostic` carries its operation and its `OpenCamWitness` set on every case, `Drop` adding the KD-tree instrumentation only where the operation exposes it. Locations that resolved no contact leave the triangles held under the cutter, so a gouge names geometry rather than an operation. Any nonzero native status or diagnostic-budget breach becomes `SampleStalled`; a thrown boundary preserves its message as `GeometryFault`.
-- Packages: `OpenCAMLib` (`STLSurf`, `BatchDropCutter`, `PathDropCutter`, `AdaptivePathDropCutter`, `BatchPushCutter`, `Waterline` with `run2` and its X/Y fiber sets, `AdaptiveWaterline`, `CutterLocationSurface`, `ZigZag`, the composite cutter family, `getTrianglesUnderCutter`/`getOverlapTriangles`, `LineCLFilter`, `reset`, verified setters, contact rows, and grouped outputs), `System.Numerics.Tensors` (`TensorPrimitives.IsFiniteAll`), `Rasm.Meshing`, `Spec/tolerance.md` (`Tolerance`), `Toolpath/link.md` (`CutElement.Identify`, `ElementVariant.Of`), `Toolpath/motion.md` (`EngagementPolicy`), `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, `RhinoCommon`, source-generated interop, BCL inbox.
+- Auto: `ToleranceSpec.Apply(ToleranceRequest.Scallop)` derives stepover. `SurfaceFrame.Of` builds one axis-angle rotation and its inverse from the indexed view, so mesh triangles marshal in frame coordinates and every returned location, fiber, interval contact, and witness facet restores to world before admission. `PlanarRaster` reads the frame-relative mesh bounds once and generates serpentine rows on the reference route. `Kernel(Key)` invokes the injected layout through `Op.Catch`, preserving callback failures on the rail. `SurfaceSampling.Tightened` narrows the contact limit for the pencil lane and owns the re-admission, and `SurfaceSampling.Filter` drives the upstream `LineCLFilter` so drop-cutter output reaches posting already simplified — its absence is no simplification, spelled as the ABI's zero at `Configure` alone. Rest drives `setMinSampling` from the residual's own admitted tolerance, clamped into the sampling band, so the reachable-surface field refines exactly where stock remains. Drill-family centers feed `BatchDropCutter`; an empty center set becomes a no-op only after aggregate admission.
+- Receipt: `SurfacePathReceipt` carries admitted `CutElement` rows keyed by the package's one `CutElement.Identify` mint over the indexed view, path ordinal, operation, tool, work offset, and cutter geometry, beside `SurfaceSample`; grouped `OpenCamLocation` rows, `OpenCamContactKind`, per-fiber `OpenCamInterval` engagement spans, and operation-owned topology survive lowering. `OpenCamDiagnostic` carries its operation and its `OpenCamWitness` set on every case, `Drop` adding the KD-tree instrumentation only where the operation exposes it. Locations that resolved no contact leave the triangles held under the cutter, so a gouge names geometry rather than an operation. Any nonzero native status or diagnostic-budget breach becomes `SampleStalled`; an OpenCAMLib throw retains the exact exceptional `Error`. `SurfaceSample` carries no key, band, or stamp and so takes no `*Receipt` name under the package ruling that `Receipt<TEvidence>` is the one settled-receipt carrier; `SurfacePathReceipt` keeps its name on keyed `CutElement` evidence and remains the topology-free carrier the folder ruling fixes.
+- Packages: `OpenCAMLib` (`STLSurf`, `BatchDropCutter`, `PathDropCutter`, `AdaptivePathDropCutter`, `BatchPushCutter`, `Waterline` with `run2` and its X/Y fiber sets, `AdaptiveWaterline`, `CutterLocationSurface`, `ZigZag`, the composite cutter family, `getTrianglesUnderCutter`/`getOverlapTriangles`, `LineCLFilter`, `reset`, verified setters, contact rows, and grouped outputs), `System.Numerics.Tensors` (`TensorPrimitives.IsFiniteAll`), `Rasm.Meshing`, kernel `Rasm.Domain` (`Tolerance`, `ToleranceLane`), `Rasm.Element` (`AdmissionSlots`), `Spec/tolerance.md` (`ToleranceSpec.Apply`), `Toolpath/link.md` (`CutElement.Identify`, `ElementVariant.Of`), `Toolpath/motion.md` (`EngagementPolicy`), `UnitsNet` (`Length` — the swarf flank standoff the engagement hands over), `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, `RhinoCommon`, source-generated interop, BCL inbox.
 - Growth: a new 3-axis operation is one strategy case, one operation row mapping, and one operation-specific capsule arm; a new cutter assembly shape is one relief row on the correspondence column its primary already declares. Simultaneous orientation rides the `Move.Orientation` payload the flank lane fills; indexed orientation needs none of it and rides `SurfaceFrame`. A new LAYOUT costs nothing here by construction: the caller mints its `SurfaceLayoutKey` and the injected generator answers it, so a kernel-owned field tracer — the `Rasm/Processing/flow` Morse atlas reached through `VectorIntent.Atlas`, whose `MorseGraph` projection yields the separatrix rows a flow or cross-field layout would drive on — composes inside that generator at the composition root and never inside this page.
 - Boundary: a caller-built drive set, a per-capsule triangle re-upload, path disposed before `run`, repeated `setPath` followed by one run, integer-code redispatch, flat loop/fiber decoding, unchecked output multiplication, non-finite native point, ignored contact-angle or residual payload, ambient thread count, or an unoriented station on the flank lane is a deleted form. The generator contract is DRIVES ALONE, so a layout-topology column on `SurfacePathReceipt` — fixed-point classes, separatrix rows, a Morse-graph handle — is the deleted form twice over: the generator returns no such evidence, so the column would have no producer, and a slot shaped for one of the fifteen layouts the key space spans sits dead under the other fourteen. A layout whose topology a consumer must read publishes it from the generator's own owner, keyed by the same `SurfaceLayoutKey`, never through this receipt.
 
@@ -41,19 +42,19 @@ using Rasm.Meshing;
 using Rasm.Numerics;
 using Rhino.Geometry;
 using Thinktecture;
+using UnitsNet;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Toolpath;
 
 // --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
 [ValueObject<string>]
-[ValidationError<FabricationFault>]
 public sealed partial class SurfaceLayoutKey {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "surface-layout-key");
+            validationError = new ValidationError("surface-layout-key");
     }
 
     public static Fin<SurfaceLayoutKey> Admit(string value) =>
@@ -81,23 +82,35 @@ public sealed partial class WaterlineMode {
     public static readonly WaterlineMode Weave = new("weave");
 }
 
+// The drop-path refinement posture. The rows carry NO column: a `bool UsesAdaptiveOperation` beside them was the
+// operation correspondence in disguise, read by one ternary at each of two arms, and the sibling `WaterlineMode`
+// already resolves its three rows to three operations through the generated total switch inside
+// `OpenCamOperationKind.Of`. Both mode families now answer the same way, and a third refinement posture breaks
+// that switch at compile time instead of falling through a boolean's else branch.
 [SmartEnum<string>]
 public sealed partial class PathSamplingMode {
-    public static readonly PathSamplingMode Standard = new("standard", usesAdaptiveOperation: false);
-    public static readonly PathSamplingMode Adaptive = new("adaptive", usesAdaptiveOperation: true);
-
-    public bool UsesAdaptiveOperation { get; }
+    public static readonly PathSamplingMode Standard = new("standard");
+    public static readonly PathSamplingMode Adaptive = new("adaptive");
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// The sampling band and its native budget. Every MEASURE here rides the kernel `Tolerance` pair — the lane keys the
+// gate and `Band` owns its range — so the hand finiteness-and-sign predicates this validator carried per column
+// belong to the band that admitted the value, and this hook decides only what a single column cannot: that the
+// band's two ends are ordered, that each measure sits on the lane this seam reads it as, and that the allocation
+// ceilings hold. `Filter` is `Option` because ZERO is a real state — no simplification — and `Band.Length` opens
+// above it, so a magic zero would have been inadmissible as a tolerance and unreadable as an absence.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct SurfaceSampling {
-    public double MinimumStepMm { get; }
-    public double MaximumStepMm { get; }
-    public double CosLimit { get; }
-    public double FilterToleranceMm { get; }
+    public Tolerance Fine { get; }
+    public Tolerance Coarse { get; }
+
+    // The adaptive refinement limit as an ANGLE, not the cosine the native seam consumes: a cosine is the ABI's
+    // spelling, and `Configure` converts at that edge. Tightening is then a `Max` over angles, which is the same
+    // selection the deleted `Math.Min` over cosines made, on a value whose unit the type states.
+    public Tolerance ContactLimit { get; }
+    public Option<Tolerance> Filter { get; }
     public PathSamplingMode Mode { get; }
     public int Threads { get; }
     public int BucketSize { get; }
@@ -108,39 +121,55 @@ public readonly partial struct SurfaceSampling {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
-        ref double minimumStepMm,
-        ref double maximumStepMm,
-        ref double cosLimit,
-        ref double filterToleranceMm,
+        ref ValidationError? validationError,
+        ref Tolerance fine,
+        ref Tolerance coarse,
+        ref Tolerance contactLimit,
+        ref Option<Tolerance> filter,
         ref PathSamplingMode mode,
         ref int threads,
         ref int bucketSize,
         ref int maximumCalls,
         ref int maximumTriangles,
         ref int maximumGroups,
-        ref int maximumPointsPerGroup) =>
-        validationError = minimumStepMm > 0.0
-            && maximumStepMm >= minimumStepMm
-            && double.IsFinite(minimumStepMm)
-            && double.IsFinite(maximumStepMm)
-            && cosLimit is >= -1.0 and <= 1.0
-            && double.IsFinite(cosLimit)
-            && filterToleranceMm >= 0.0
-            && double.IsFinite(filterToleranceMm)
-            && mode is not null
-            && threads >= 1
-            && bucketSize >= 1
-            && maximumCalls >= 1
-            && maximumTriangles is >= 1 and <= Array.MaxLength / 9
-            && maximumGroups >= 1
-            && maximumPointsPerGroup is >= 1 and <= Array.MaxLength / 4
-                ? null
-                : new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "surface-sampling");
+        ref int maximumPointsPerGroup) {
+        Validation<Error, Unit> admitted = (
+            AdmissionSlots.Gate(Chord(fine) && Chord(coarse) && fine.Value <= coarse.Value,
+                FabConcern.Toolpath, "surface-sampling:band", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(
+                contactLimit.Lane == ToleranceLane.Orientation && contactLimit.IsValid
+                && contactLimit.Value <= Math.PI, FabConcern.Toolpath, "surface-sampling:contact-limit", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(filter.Map(Chord).IfNone(true), FabConcern.Toolpath, "surface-sampling:filter", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(mode is not null, FabConcern.Toolpath, "surface-sampling:mode", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(threads >= 1 && bucketSize >= 1 && maximumCalls >= 1,
+                FabConcern.Toolpath, "surface-sampling:budget", FabricationFault.Inadmissible),
+            // Every ceiling is an ALLOCATION ceiling: triangles rent nine doubles apiece and a location group four,
+            // so the array limit divides rather than a caller guessing a safe magnitude.
+            AdmissionSlots.Gate(
+                maximumTriangles is >= 1 and <= Array.MaxLength / 9
+                && maximumGroups >= 1
+                && maximumPointsPerGroup is >= 1 and <= Array.MaxLength / 4,
+                FabConcern.Toolpath, "surface-sampling:capacity", FabricationFault.Inadmissible))
+            .Apply(static (_, _, _, _, _, _) => unit)
+            .As();
+        validationError = admitted.Match<ValidationError?>(
+            Fail: static _ => new ValidationError("surface-sampling"),
+            Succ: static _ => null);
+    }
+
+    // The pencil lane tightens ONE axis, so the re-admission lives here rather than at the caller: re-spelling
+    // eleven columns to move one is ceremony this owner can hold, and a twelfth column would have broken it.
+    public Fin<SurfaceSampling> Tightened(Tolerance contactLimit) =>
+        Validate(
+            Fine, Coarse,
+            contactLimit.Value >= ContactLimit.Value ? contactLimit : ContactLimit,
+            Filter, Mode, Threads, BucketSize, MaximumCalls, MaximumTriangles, MaximumGroups, MaximumPointsPerGroup,
+            out SurfaceSampling sampling).Admitted(sampling);
+
+    private static bool Chord(Tolerance step) => step.Lane == ToleranceLane.Chord && step.IsValid;
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class SurfacePolicy {
     public EngagementPolicy Engagement { get; }
     public Option<Func<MeshSpace, SurfaceLayoutKind, double, Fin<Seq<SurfaceDrive>>>> Layout { get; }
@@ -153,7 +182,7 @@ public sealed partial class SurfacePolicy {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref EngagementPolicy engagement,
         ref Option<Func<MeshSpace, SurfaceLayoutKind, double, Fin<Seq<SurfaceDrive>>>> layout) { }
 
@@ -183,18 +212,23 @@ public readonly record struct SurfaceFrame(Transform Forward, Transform Inverse)
 }
 
 internal sealed record SurfaceDriveSet(SurfaceLayoutKind Kind, Seq<SurfaceDrive> Drives, double StepOverMm);
-internal sealed record SurfacePathReceipt(Seq<CutElement> Elements, SurfaceSampleReceipt Native);
+internal sealed record SurfacePathReceipt(Seq<CutElement> Elements, SurfaceSample Native);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SurfaceStrategy(SurfacePolicy Policy) {
     public sealed record Waterline(SurfacePolicy RequestPolicy, Arr<double> Levels, WaterlineMode Mode) : SurfaceStrategy(RequestPolicy);
     public sealed record Scallop(SurfacePolicy RequestPolicy, SurfaceLayoutKind Layout) : SurfaceStrategy(RequestPolicy);
-    public sealed record Pencil(SurfacePolicy RequestPolicy, SurfaceLayoutKind Layout, double ContactAngleDeg) : SurfaceStrategy(RequestPolicy);
+    // The contact limit arrives on the kernel orientation lane the engagement admitted it on, so this case restates
+    // no unit and no range — the clamp the deleted degree column needed was the band's job all along.
+    public sealed record Pencil(SurfacePolicy RequestPolicy, SurfaceLayoutKind Layout, Tolerance ContactLimit) : SurfaceStrategy(RequestPolicy);
     public sealed record Rest(SurfacePolicy RequestPolicy, SurfaceLayoutKind Layout, ResidualStock Stock) : SurfaceStrategy(RequestPolicy);
     public sealed record Raster(SurfacePolicy RequestPolicy, Arr<Point3d> Region, double DirectionDeg, Point3d Origin) : SurfaceStrategy(RequestPolicy);
     public sealed record FiberSlice(SurfacePolicy RequestPolicy, SurfaceLayoutKind Layout) : SurfaceStrategy(RequestPolicy);
     public sealed record ThreePlusTwo(SurfacePolicy RequestPolicy, SurfaceLayoutKind Layout, Arr<ProjectionDir> IndexedViews) : SurfaceStrategy(RequestPolicy);
-    public sealed record Swarf(SurfacePolicy RequestPolicy, SurfaceLayoutKind Layout, ProjectionDir ToolAxis, double FlankOffsetMm) : SurfaceStrategy(RequestPolicy);
+    // `Toolpath/motion` sums the cutter compensation with the finish allowance the engagement admits as a
+    // quantity, so this standoff arrives as the `Length` its emitter already holds: the suffix that stated the
+    // unit where no compiler read it is gone, and the millimetre projects once, at the ruling that offsets by it.
+    public sealed record Swarf(SurfacePolicy RequestPolicy, SurfaceLayoutKind Layout, ProjectionDir ToolAxis, Length FlankOffset) : SurfaceStrategy(RequestPolicy);
     public sealed record DrillFamily(SurfacePolicy RequestPolicy, Arr<Point3d> Centers) : SurfaceStrategy(RequestPolicy);
 
     public string Key => Switch(
@@ -243,23 +277,23 @@ internal sealed record SurfaceRun(
             ? SurfaceFrame.Of(indexed.IndexedViews[view])
             : new SurfaceFrame(Transform.Identity, Transform.Identity)
         let admission = AdmissionSlots.Accumulate(Seq(
-            Gate(ValidPayload(strategy), "strategy-payload"),
-            Gate(strategy.Policy.Engagement.Budget is ProcessBudget.Subtractive, "non-subtractive-budget"),
-            Gate(cutter.Diameter > 0.0 && double.IsFinite(cutter.Diameter), "cutter")))
+            AdmissionSlots.Gate(ValidPayload(strategy), FabConcern.Toolpath, "surface:strategy-payload", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(strategy.Policy.Engagement.Budget is ProcessBudget.Subtractive,
+                FabConcern.Toolpath, "surface:non-subtractive-budget", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(cutter.Diameter > 0.0 && double.IsFinite(cutter.Diameter),
+                FabConcern.Toolpath, "surface:cutter", FabricationFault.Inadmissible)))
             .As()
             .ToFin()
         from _ in admission
-        from tolerance in Tolerance.Apply(new ToleranceRequest.Scallop(strategy.Policy.Roughness, cutter))
-        from step in tolerance is ToleranceReceipt.Scallop receipt
-               ? Fin.Succ(receipt.StepMm)
-               : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "surface:scallop-receipt"))
+        from scallop in ToleranceSpec.Apply(new ToleranceRequest.Scallop(strategy.Policy.Roughness, cutter))
+        let step = scallop.StepMm
         from __ in step > 0.0 && double.IsFinite(step)
                    ? Fin.Succ(unit)
-                   : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "surface:stepover"))
+                   : Fin.Fail<Unit>(new KernelFault.InvalidValue("surface", "surface:stepover"))
         from drives in SurfaceLayout.Produce(strategy, mesh, step, frame)
         from ___ in ValidDrives(strategy, drives)
                    ? Fin.Succ(unit)
-                   : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "surface:drive-payload"))
+                   : Fin.Fail<Unit>(new KernelFault.InvalidValue("surface", "surface:drive-payload"))
         from cutterKind in OpenCamCutterKind.Of(cutter)
         select new SurfaceRun(
                    strategy,
@@ -273,33 +307,21 @@ internal sealed record SurfaceRun(
                    view,
                    drives);
 
+    // Only the pencil lane narrows the sampling band, and the narrowing is the OWNER's — `Tightened` holds the
+    // eleven-column re-admission this call site used to spell, so a new sampling column never reaches here.
     private static Fin<SurfaceSampling> EffectiveSampling(SurfaceStrategy strategy) =>
         strategy is SurfaceStrategy.Pencil pencil
-            ? SurfaceSampling.Validate(
-                pencil.Policy.Sampling.MinimumStepMm,
-                pencil.Policy.Sampling.MaximumStepMm,
-                Math.Min(
-                    pencil.Policy.Sampling.CosLimit,
-                    Math.Cos(Math.Clamp(pencil.ContactAngleDeg, 0.0, 90.0) * Math.PI / 180.0)),
-                pencil.Policy.Sampling.FilterToleranceMm,
-                pencil.Policy.Sampling.Mode,
-                pencil.Policy.Sampling.Threads,
-                pencil.Policy.Sampling.BucketSize,
-                pencil.Policy.Sampling.MaximumCalls,
-                pencil.Policy.Sampling.MaximumTriangles,
-                pencil.Policy.Sampling.MaximumGroups,
-                pencil.Policy.Sampling.MaximumPointsPerGroup,
-                out SurfaceSampling sampling) is { } error
-                    ? Fin.Fail<SurfaceSampling>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
-                    : Fin.Succ(sampling)
+            ? pencil.Policy.Sampling.Tightened(pencil.ContactLimit)
             : Fin.Succ(strategy.Policy.Sampling);
 
     private static bool ValidPayload(SurfaceStrategy strategy) =>
         strategy.Switch(
             waterline:    static row => row.Mode is not null && !row.Levels.IsEmpty && row.Levels.All(double.IsFinite),
             scallop:      static row => Valid(row.Layout),
+            // The contact limit's range is `Band.Angle`'s, proved when the engagement minted it, so this arm proves
+            // only that the lane is the one this seam reads it as.
             pencil:       static row => Valid(row.Layout)
-                && row.ContactAngleDeg is >= 0.0 and <= 90.0 && double.IsFinite(row.ContactAngleDeg),
+                && row.ContactLimit.Lane == ToleranceLane.Orientation && row.ContactLimit.IsValid,
             rest:         static row => Valid(row.Layout) && row.Stock.Uncut.All(static loop => loop.Closed && loop.Count >= 3),
             raster:       static row => row.Region.Count >= 3 && row.Region.All(static corner => corner.IsValid)
                 && row.Origin.IsValid && double.IsFinite(row.DirectionDeg),
@@ -307,7 +329,7 @@ internal sealed record SurfaceRun(
             threePlusTwo: static row => Valid(row.Layout) && !row.IndexedViews.IsEmpty
                 && row.IndexedViews.All(static view => view is not null && view.Forward.IsValid),
             swarf:        static row => Valid(row.Layout) && row.ToolAxis is not null && row.ToolAxis.Forward.IsValid
-                && row.FlankOffsetMm >= 0.0 && double.IsFinite(row.FlankOffsetMm),
+                && row.FlankOffset.Millimeters >= 0.0 && double.IsFinite(row.FlankOffset.Millimeters),
             drillFamily:  static row => row.Centers.All(static center => center.IsValid));
 
     private static bool Valid(SurfaceLayoutKind layout) =>
@@ -323,8 +345,6 @@ internal sealed record SurfaceRun(
             Some: static set => !set.Drives.IsEmpty && set.Drives.All(static drive => drive.Points.Count == 2),
             None: static () => false);
 
-    private static K<Validation<Error>, Unit> Gate(bool holds, string axis) =>
-        AdmissionSlots.Gate(holds, new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"surface:{axis}"));
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
@@ -351,23 +371,21 @@ file static class SurfaceLayout {
             state: (Mesh: mesh, StepOver: stepOver, Frame: frame),
             planarRaster: static (state, _) => Raster(state.Mesh, state.StepOver, state.Frame),
             kernel: (state, row) => policy.Layout.Match(
-                Some: layout => Try.lift(() => layout(state.Mesh, row, state.StepOver)).Run()
-                    .MapFail(error => new GeometryFault.DegenerateInput(Kind.Curve, None, $"surface-layout:thrown:{row.Identity}:{error.Message}").ToError())
-                    .Bind(identity),
-                None: () => Fin.Fail<Seq<SurfaceDrive>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"surface-layout:unbound:{row.Identity}"))))
+                Some: layout => Op.Of(name: row.Identity).Catch(() => layout(state.Mesh, row, state.StepOver)),
+                None: () => Fin.Fail<Seq<SurfaceDrive>>(new KernelFault.InvalidValue("surface", $"surface-layout:unbound:{row.Identity}"))))
         .Bind(drives => drives.IsEmpty || drives.Exists(static drive => drive.Points.Count < 2 || drive.Points.Exists(static point => !point.IsValid))
-            ? Fin.Fail<Option<SurfaceDriveSet>>(new GeometryFault.DegenerateInput(Kind.Curve, None, $"surface-layout:invalid:{kind.Identity}").ToError())
+            ? Fin.Fail<Option<SurfaceDriveSet>>(new GeometryFault.DegenerateInput(Kind.Curve, None, $"surface-layout:invalid:{kind.Identity}"))
             : Fin.Succ(Optional(new SurfaceDriveSet(kind, drives, stepOver))));
 
     private static Fin<Seq<SurfaceDrive>> Raster(MeshSpace mesh, double stepOver, SurfaceFrame frame) {
         BoundingBox box = mesh.Native.GetBoundingBox(frame.Forward);
         double width = box.Max.X - box.Min.X;
         if (!box.IsValid || width <= 0.0 || !double.IsFinite(width) || !double.IsFinite(box.Max.Y - box.Min.Y))
-            return Fin.Fail<Seq<SurfaceDrive>>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "surface-layout:degenerate-raster").ToError());
+            return Fin.Fail<Seq<SurfaceDrive>>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "surface-layout:degenerate-raster"));
 
         double requiredRows = Math.Ceiling((box.Max.Y - box.Min.Y) / stepOver);
         if (!double.IsFinite(requiredRows) || requiredRows > int.MaxValue - 1)
-            return Fin.Fail<Seq<SurfaceDrive>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "surface-layout:row-cap"));
+            return Fin.Fail<Seq<SurfaceDrive>>(new KernelFault.InvalidValue("surface", "surface-layout:row-cap"));
 
         int rows = Math.Max(1, (int)requiredRows) + 1;
         return Fin.Succ(Range(0, rows).ToSeq().Map(row => {
@@ -385,23 +403,23 @@ file static class SurfaceLayout {
 internal static class SurfacePath {
     // Indexed views are one admitted pass each; every other strategy is the single-view degenerate case of the same fold.
     internal static Fin<SurfacePathReceipt> Sample(SurfaceStrategy strategy, MeshSpace mesh, CutterForm cutter) =>
-        from admittedStrategy in Optional(strategy).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "surface:strategy"))
-        from _ in Optional(admittedStrategy.Policy).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "surface:policy"))
-        from admittedMesh in Optional(mesh).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "surface:mesh"))
-        from admittedCutter in Optional(cutter).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "surface:cutter"))
+        from admittedStrategy in Optional(strategy).ToFin(new KernelFault.InvalidValue("surface", "surface:strategy"))
+        from _ in Optional(admittedStrategy.Policy).ToFin(new KernelFault.InvalidValue("surface", "surface:policy"))
+        from admittedMesh in Optional(mesh).ToFin(new KernelFault.InvalidValue("surface", "surface:mesh"))
+        from admittedCutter in Optional(cutter).ToFin(new KernelFault.InvalidValue("surface", "surface:cutter"))
         from views in admittedStrategy is SurfaceStrategy.ThreePlusTwo indexed
             ? indexed.IndexedViews.IsEmpty
-                ? Fin.Fail<Seq<int>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "surface:indexed-views"))
+                ? Fin.Fail<Seq<int>>(new KernelFault.InvalidValue("surface", "surface:indexed-views"))
                 : Fin.Succ(Range(0, indexed.IndexedViews.Count).ToSeq())
             : Fin.Succ(Seq(0))
         from passes in views.Traverse(view => Pass(admittedStrategy, admittedMesh, admittedCutter, view))
         // The operation is a per-run constant every pass shares, so the first pass names it; an empty pass set is
         // unreachable because `views` is admitted non-empty above, and the rail states that rather than assuming it.
         from lead in passes.Head
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "surface:no-pass"))
+            .ToFin(new KernelFault.InvalidValue("surface", "surface:no-pass"))
         select new SurfacePathReceipt(
             passes.Bind(static pass => pass.Elements),
-            new SurfaceSampleReceipt(
+            new SurfaceSample(
                 passes.Bind(static pass => pass.Native.Paths),
                 lead.Native.Operation,
                 passes.Bind(static pass => pass.Native.Diagnostics),
@@ -410,18 +428,18 @@ internal static class SurfacePath {
     private static Fin<SurfacePathReceipt> Pass(SurfaceStrategy strategy, MeshSpace mesh, CutterForm cutter, int view) =>
         from run in SurfaceRun.Of(strategy, mesh, cutter, view)
         from native in run.Strategy is SurfaceStrategy.DrillFamily { Centers.IsEmpty: true }
-            ? Fin.Succ(new SurfaceSampleReceipt(
+            ? Fin.Succ(new SurfaceSample(
                 Seq<Arr<OpenCamLocation>>(),
                 run.Operation,
                 Seq<OpenCamDiagnostic>(),
                 Seq<OpenCamFiber>()))
             : OpenCamLib.Position(run)
         from _ in native.Paths.IsEmpty && strategy is not (SurfaceStrategy.Rest or SurfaceStrategy.DrillFamily)
-            ? Fin.Fail<Unit>(strategy.Stalled(0).ToError())
+            ? Fin.Fail<Unit>(strategy.Stalled(0))
             : Fin.Succ(unit)
         from budget in strategy.Policy.Engagement.Budget is ProcessBudget.Subtractive subtractive
             ? Fin.Succ(subtractive)
-            : Fin.Fail<ProcessBudget.Subtractive>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "surface:non-subtractive-budget"))
+            : Fin.Fail<ProcessBudget.Subtractive>(new KernelFault.InvalidValue("surface", "surface:non-subtractive-budget"))
         from elements in native.Paths.IsEmpty
             ? Fin.Succ(Seq<CutElement>())
             : native.ToElements(run, budget.FeedRate)
@@ -450,6 +468,7 @@ using Microsoft.Win32.SafeHandles;
 using Rasm.Fabrication.Process;
 using Rhino.Geometry;
 using Thinktecture;
+using UnitsNet;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Toolpath;
@@ -479,14 +498,23 @@ internal sealed partial class OpenCamOperationKind {
                 standard: static () => Waterline,
                 adaptive: static () => AdaptiveWaterline,
                 weave:    static () => WeaveWaterline),
-            scallop:      _ => sampling.Mode.UsesAdaptiveOperation ? AdaptivePathDropCutter : PathDropCutter,
-            pencil:       _ => sampling.Mode.UsesAdaptiveOperation ? AdaptivePathDropCutter : PathDropCutter,
+            scallop:      _ => Drop(sampling.Mode),
+            pencil:       _ => Drop(sampling.Mode),
             rest:         static _ => CutterLocationSurface,
             raster:       static _ => ZigZag,
             fiberSlice:   static _ => BatchPushCutter,
+            // The indexed lane fixes its tool axis per view and samples the reference drives that view laid out, so
+            // it names the non-adaptive path operation directly rather than reading a refinement posture it does
+            // not honor — an adaptive re-sample would move stations off the drives the layout already fixed.
             threePlusTwo: static _ => PathDropCutter,
             swarf:        static _ => BatchPushCutter,
             drillFamily:  static _ => BatchDropCutter);
+
+    // The ONE place the refinement posture names its operation; two strategy arms drive the same drop family, so
+    // the correspondence lands once rather than as a ternary copied per arm.
+    private static OpenCamOperationKind Drop(PathSamplingMode mode) => mode.Switch(
+        standard: static () => PathDropCutter,
+        adaptive: static () => AdaptivePathDropCutter);
 }
 
 // Relief is the geometry ABOVE the cutting edge — a shank wider than the flute, or a cone opening from it — and it
@@ -565,8 +593,7 @@ internal sealed partial class OpenCamCutterKind {
     // cylinder would sample a surface the tool never reaches. `WitnessMalformed` is the wrong band — nothing here
     // contradicts its own witness kind, the axis simply has no analytic counterpart.
     private static Fin<OpenCamCutterKind> Unsupported(CutterFamily family) =>
-        Fin.Fail<OpenCamCutterKind>(new FabricationFault.PolicyInadmissible(
-            FabConcern.Toolpath, $"opencam-cutter:unsupported:{family.Key}"));
+        Fin.Fail<OpenCamCutterKind>(new KernelFault.InvalidValue("surface", $"opencam-cutter:unsupported:{family.Key}"));
 
     private static OclCutterHandle MintCyl(CutterForm cutter) => OpenCamNative.CutterCyl(cutter.Diameter, cutter.FluteLength);
     private static OclCutterHandle MintBall(CutterForm cutter) => OpenCamNative.CutterBall(cutter.Diameter, cutter.FluteLength);
@@ -605,9 +632,14 @@ file sealed class OpenCamMeshBuffer(NativeBuffer<double> storage, int triangleCo
         Mesh native = mesh.Native;
         long triangleCount = native.Faces.Sum(static face => face.IsQuad ? 2L : 1L);
         if (triangleCount <= 0L || triangleCount > maximumTriangles)
-            return Fin.Fail<OpenCamMeshBuffer>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "opencam:mesh-capacity"));
+            return Fin.Fail<OpenCamMeshBuffer>(new KernelFault.InvalidValue("surface", "opencam:mesh-capacity"));
         using NativeBuffer<int> corners = new(checked((int)triangleCount * 3));
         int cornerCount = 0;
+        // NAMED EXEMPTION — the two loops below are the ONE marshalling walk in this file, and they are imperative
+        // because the destination is a rented flat buffer rather than a value: a fold over `native.Faces` allocates
+        // a carrier per face to describe writes it then performs anyway, and the corner walk writes three doubles
+        // per index with no intermediate to name. Every other read on this plane composes, and the exemption ends
+        // at the buffer: the decode side is `Traverse` on the typed rail.
         foreach (MeshFace face in native.Faces) {
             corners.Data[cornerCount++] = face.A;
             corners.Data[cornerCount++] = face.B;
@@ -620,7 +652,7 @@ file sealed class OpenCamMeshBuffer(NativeBuffer<double> storage, int triangleCo
         }
         if (cornerCount != corners.Length
             || Range(0, corners.Length).Exists(index => corners.Data[index] < 0 || corners.Data[index] >= native.Vertices.Count))
-            return Fin.Fail<OpenCamMeshBuffer>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "opencam:mesh-indices").ToError());
+            return Fin.Fail<OpenCamMeshBuffer>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "opencam:mesh-indices"));
 
         NativeBuffer<double> buffer = new(corners.Length * 3);
         for (int index = 0; index < corners.Length; index++) {
@@ -631,7 +663,7 @@ file sealed class OpenCamMeshBuffer(NativeBuffer<double> storage, int triangleCo
         }
         if (!TensorPrimitives.IsFiniteAll(buffer.Data.AsSpan(0, buffer.Length))) {
             buffer.Dispose();
-            return Fin.Fail<OpenCamMeshBuffer>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "opencam:mesh-finite").ToError());
+            return Fin.Fail<OpenCamMeshBuffer>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "opencam:mesh-finite"));
         }
         return Fin.Succ(new OpenCamMeshBuffer(buffer, checked((int)triangleCount)));
     }
@@ -640,13 +672,12 @@ file sealed class OpenCamMeshBuffer(NativeBuffer<double> storage, int triangleCo
 }
 
 [ValueObject<int>]
-[ValidationError<FabricationFault>]
 internal readonly partial struct OpenCamContactKind {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref int value) =>
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
         validationError = value >= 0
             ? null
-            : new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "opencam-contact");
+            : new ValidationError("opencam-contact");
 }
 
 internal readonly record struct OpenCamLocation(Point3d Location, OpenCamContactKind Contact);
@@ -689,7 +720,12 @@ file delegate int OpenCamGroupFill(
     int capacity,
     out int written);
 
-internal sealed record SurfaceSampleReceipt(
+// The native READ SET, and not a receipt: it carries no content key, no evidence band, and no stamp, so under the
+// package ruling that `Receipt<TEvidence>` is the one settled-receipt carrier it takes no `*Receipt` name. None of
+// the three could be truthfully added — `EgressKind` names machine artifacts and a cutter-location read is not one,
+// and a stamp would put a clock inside the marshalling fold. `SurfacePathReceipt` keeps its name because its
+// `Elements` are `CutElement.Identify`-keyed evidence; this carrier is what that one reads from.
+internal sealed record SurfaceSample(
     Seq<Arr<OpenCamLocation>> Paths,
     OpenCamOperationKind Operation,
     Seq<OpenCamDiagnostic> Diagnostics,
@@ -705,9 +741,9 @@ internal sealed record SurfaceSampleReceipt(
     // emitted motion, so a hardcoded `0.0/0.0/0` triple no longer contradicts the objective that sums it.
     public Fin<Seq<CutElement>> ToElements(SurfaceRun run, double feed) =>
         !ValidTopology()
-            ? Fin.Fail<Seq<CutElement>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "opencam:receipt-topology"))
+            ? Fin.Fail<Seq<CutElement>>(new KernelFault.InvalidValue("surface", "opencam:receipt-topology"))
             : !(feed > 0.0 && double.IsFinite(feed))
-                ? Fin.Fail<Seq<CutElement>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "opencam:feed"))
+                ? Fin.Fail<Seq<CutElement>>(new KernelFault.InvalidValue("surface", "opencam:feed"))
                 : run.Strategy is SurfaceStrategy.Swarf swarf
                     ? Flank(run, swarf, feed).Map(Seq)
                     : Paths.Map((path, index) => (Path: path, Index: index))
@@ -719,8 +755,8 @@ internal sealed record SurfaceSampleReceipt(
     // has no ruling to orient by and stalls the strategy rather than emitting an unoriented station.
     private Fin<CutElement> Flank(SurfaceRun run, SurfaceStrategy.Swarf swarf, double feed) =>
         Fibers.Traverse(fiber => fiber.Intervals.Head
-                .ToFin(run.Strategy.Stalled(Fibers.Count).ToError())
-                .Bind(interval => Ruling(run, fiber, interval, swarf.FlankOffsetMm)))
+                .ToFin(run.Strategy.Stalled(Fibers.Count))
+                .Bind(interval => Ruling(run, fiber, interval, swarf.FlankOffset)))
             .As()
             .Bind(rulings => rulings
                 .Map((station, index) => Move.Linear.Of(
@@ -738,23 +774,25 @@ internal sealed record SurfaceSampleReceipt(
         SurfaceRun run,
         OpenCamFiber fiber,
         OpenCamInterval interval,
-        double flankOffsetMm) {
+        Length flankOffset) {
         Vector3d axis = fiber.Direction;
         if (!axis.Unitize())
             return Fin.Fail<(Point3d, Vector3d, Point3d)>(
-                new GeometryFault.DegenerateInput(Kind.Curve, None, "opencam:swarf-ruling").ToError());
+                new GeometryFault.DegenerateInput(Kind.Curve, None, "opencam:swarf-ruling"));
         // The flank standoff is normal to the ruling in the sampling plane, which is the ruling turned a quarter
         // turn about the fiber's own scan normal; the engaged contact is the surface point the offset departs from.
+        // This is the ONE site the quantity projects: the station it mints is emitted move geometry the element key
+        // digests, so the scaling below runs on exactly the double the canonical codec will read.
         Vector3d standoff = Vector3d.CrossProduct(axis, Vector3d.ZAxis);
         return standoff.Unitize()
-            ? Fin.Succ((interval.LowerContact + (standoff * flankOffsetMm), axis, interval.LowerContact))
+            ? Fin.Succ((interval.LowerContact + (standoff * flankOffset.Millimeters), axis, interval.LowerContact))
             : Fin.Fail<(Point3d, Vector3d, Point3d)>(
-                new GeometryFault.DegenerateInput(Kind.Curve, None, "opencam:swarf-standoff").ToError());
+                new GeometryFault.DegenerateInput(Kind.Curve, None, "opencam:swarf-standoff"));
     }
 
     private static Fin<CutElement> Element(SurfaceRun run, double feed, Arr<OpenCamLocation> path, int index) =>
         from _ in path.IsEmpty
-            ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, index, "opencam:empty-path").ToError())
+            ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, index, "opencam:empty-path"))
             : Fin.Succ(unit)
         from moves in path.ToSeq()
             .Map(point => Move.Linear.Of(run.Frame.Inverse * point.Location, feed))
@@ -925,20 +963,18 @@ internal static class OpenCamLib {
     private const int FacetStride = 9;
     private const int WitnessHeader = 1;
 
-    internal static Fin<SurfaceSampleReceipt> Position(SurfaceRun run) =>
-        Try.lift<Fin<SurfaceSampleReceipt>>(() => PositionNative(run)).Run()
-            .MapFail(error => new GeometryFault.DegenerateInput(Kind.Curve, None, $"opencam:thrown:{error.Message}").ToError())
-            .Bind(identity);
+    internal static Fin<SurfaceSample> Position(SurfaceRun run) =>
+        Op.Of().Catch(() => PositionNative(run));
 
     // One triangle upload and one cutter mint serve every capsule in the run; per-level re-marshalling is the deleted form.
-    private static Fin<SurfaceSampleReceipt> PositionNative(SurfaceRun run) =>
+    private static Fin<SurfaceSample> PositionNative(SurfaceRun run) =>
         OpenCamMeshBuffer.Project(run.Mesh, run.Sampling.MaximumTriangles, run.Frame.Forward).Bind(mesh => {
             using (mesh)
             using (OclSurfaceHandle surface = OpenCamNative.SurfaceCreate(mesh.Triangles, mesh.TriangleCount))
             using (OclCutterHandle cutter = run.CutterKind.Mint(run.Cutter)) {
                 OpenCamBinding binding = new(surface, cutter);
                 return surface.IsInvalid || cutter.IsInvalid
-                    ? Fin.Fail<SurfaceSampleReceipt>(run.Strategy.Stalled(-1).ToError())
+                    ? Fin.Fail<SurfaceSample>(run.Strategy.Stalled(-1))
                     : run.Strategy.Switch(
                         waterline:    row => Levels(run, binding, row.Levels),
                         scallop:      _ => Paths(run, binding),
@@ -954,10 +990,10 @@ internal static class OpenCamLib {
 
     // `reset` clears fibers, loops, and evidence in place, so one waterline capsule sweeps every admitted Z level; the
     // weave row leaves its X and Y fiber sets beside the loops, and the sampling rows leave none.
-    private static Fin<SurfaceSampleReceipt> Levels(SurfaceRun run, OpenCamBinding binding, Arr<double> levels) {
+    private static Fin<SurfaceSample> Levels(SurfaceRun run, OpenCamBinding binding, Arr<double> levels) {
         using OclOperationHandle operation = OpenCamNative.OperationCreate(run.Operation.Code);
         return operation.IsInvalid
-            ? Fin.Fail<SurfaceSampleReceipt>(run.Strategy.Stalled(-1).ToError())
+            ? Fin.Fail<SurfaceSample>(run.Strategy.Stalled(-1))
             : Configure(run, binding, operation).Bind(_ => levels.ToSeq().Traverse(level =>
                 Gate(run, () => OpenCamNative.OperationReset(operation), () => OpenCamNative.OperationSetZ(operation, level))
                     .Bind(__ => Execute(
@@ -972,9 +1008,9 @@ internal static class OpenCamLib {
                   units.Bind(static unit => unit.Value.Fibers)));
     }
 
-    private static Fin<SurfaceSampleReceipt> Paths(SurfaceRun run, OpenCamBinding binding) =>
+    private static Fin<SurfaceSample> Paths(SurfaceRun run, OpenCamBinding binding) =>
         run.Drives.Match(
-            None: () => Fin.Fail<SurfaceSampleReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "opencam:path-without-drives")),
+            None: () => Fin.Fail<SurfaceSample>(new KernelFault.InvalidValue("surface", "opencam:path-without-drives")),
             Some: set => set.Drives.Traverse(drive => Path(run, binding, drive)).Map(units => Receipt(
                 run,
                 units.Map(static unit => unit.Value),
@@ -984,7 +1020,7 @@ internal static class OpenCamLib {
     // Reachable-surface refinement needs no drive set, and the residual's own admitted tolerance is the fineness
     // that rest model demands where stock remains; one group per edge preserves the vertex-and-edge topology
     // upstream returns.
-    private static Fin<SurfaceSampleReceipt> Surface(SurfaceRun run, OpenCamBinding binding, ResidualStock stock) =>
+    private static Fin<SurfaceSample> Surface(SurfaceRun run, OpenCamBinding binding, ResidualStock stock) =>
         Unit(
             run,
             binding,
@@ -995,15 +1031,16 @@ internal static class OpenCamLib {
     // The residual's FINEST admitted tolerance is what the rest model demands, so the fold reads every uncut loop;
     // reading the head alone left a coarse first loop deciding the refinement for a fine remainder.
     private static double MinSampling(SurfaceRun run, ResidualStock stock) =>
-        toSeq(stock.Uncut)
-            .Map(static loop => loop.Tolerance.Absolute.Value)
-            .Fold(run.Sampling.MaximumStepMm, Math.Min) is var finest
-                ? Math.Clamp(finest, run.Sampling.MinimumStepMm, run.Sampling.MaximumStepMm)
-                : run.Sampling.MinimumStepMm;
+        Math.Clamp(
+            toSeq(stock.Uncut)
+                .Map(static loop => loop.Tolerance.Absolute.Value)
+                .Fold(run.Sampling.Coarse.Value, Math.Min),
+            run.Sampling.Fine.Value,
+            run.Sampling.Coarse.Value);
 
     // Region boundaries seed the fill through the same point append the drop batch uses, so direction, origin, and
     // stepover carry the whole raster policy.
-    private static Fin<SurfaceSampleReceipt> Region(SurfaceRun run, OpenCamBinding binding, SurfaceStrategy.Raster raster) =>
+    private static Fin<SurfaceSample> Region(SurfaceRun run, OpenCamBinding binding, SurfaceStrategy.Raster raster) =>
         Unit(
             run,
             binding,
@@ -1020,7 +1057,7 @@ internal static class OpenCamLib {
     private static Fin<OpenCamUnit<Arr<OpenCamLocation>>> Path(SurfaceRun run, OpenCamBinding binding, SurfaceDrive drive) {
         using OclPathHandle path = OpenCamNative.PathCreate();
         return path.IsInvalid || drive.Points.Count < 2
-            ? Fin.Fail<OpenCamUnit<Arr<OpenCamLocation>>>(new GeometryFault.DegenerateInput(Kind.Curve, None, "opencam:path").ToError())
+            ? Fin.Fail<OpenCamUnit<Arr<OpenCamLocation>>>(new GeometryFault.DegenerateInput(Kind.Curve, None, "opencam:path"))
             : Range(0, drive.Points.Count - 1).Fold(
                 Fin.Succ(0),
                 (state, index) => state.Bind(_ => Gate(run, () => OpenCamNative.PathAppendLine(
@@ -1034,9 +1071,9 @@ internal static class OpenCamLib {
                   operation => ReadLocations(operation, run)));
     }
 
-    private static Fin<SurfaceSampleReceipt> Fibers(SurfaceRun run, OpenCamBinding binding) =>
+    private static Fin<SurfaceSample> Fibers(SurfaceRun run, OpenCamBinding binding) =>
         run.Drives.Match(
-            None: () => Fin.Fail<SurfaceSampleReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "opencam:fiber-without-drives")),
+            None: () => Fin.Fail<SurfaceSample>(new KernelFault.InvalidValue("surface", "opencam:fiber-without-drives")),
             Some: set => Seq(
                 (YDirection: false, Drives: set.Drives.Filter(static drive => AlongX(drive))),
                 (YDirection: true, Drives: set.Drives.Filter(static drive => !AlongX(drive))))
@@ -1070,9 +1107,9 @@ internal static class OpenCamLib {
         return Math.Abs(to.X - from.X) >= Math.Abs(to.Y - from.Y);
     }
 
-    private static Fin<SurfaceSampleReceipt> Points(SurfaceRun run, OpenCamBinding binding, Arr<Point3d> centers) =>
+    private static Fin<SurfaceSample> Points(SurfaceRun run, OpenCamBinding binding, Arr<Point3d> centers) =>
         centers.IsEmpty
-            ? Fin.Fail<SurfaceSampleReceipt>(new GeometryFault.DegenerateInput(Kind.Curve, None, "opencam:points-empty").ToError())
+            ? Fin.Fail<SurfaceSample>(new GeometryFault.DegenerateInput(Kind.Curve, None, "opencam:points-empty"))
             : Unit(
                 run,
                 binding,
@@ -1086,7 +1123,7 @@ internal static class OpenCamLib {
                       rows.Value.Map(static row => Arr(row)).ToSeq(),
                       Seq(rows.Diagnostic),
                       Seq<OpenCamFiber>()))
-                  : Fin.Fail<SurfaceSampleReceipt>(run.Strategy.Stalled(rows.Value.Count).ToError()));
+                  : Fin.Fail<SurfaceSample>(run.Strategy.Stalled(rows.Value.Count)));
 
     private static Fin<OpenCamUnit<T>> Unit<T>(
         SurfaceRun run,
@@ -1095,7 +1132,7 @@ internal static class OpenCamLib {
         Func<OclOperationHandle, Fin<T>> read) {
         using OclOperationHandle operation = OpenCamNative.OperationCreate(run.Operation.Code);
         return operation.IsInvalid
-            ? Fin.Fail<OpenCamUnit<T>>(run.Strategy.Stalled(-1).ToError())
+            ? Fin.Fail<OpenCamUnit<T>>(run.Strategy.Stalled(-1))
             : Configure(run, binding, operation)
                 .Bind(_ => configure(operation))
                 .Bind(_ => Execute(run, operation, read));
@@ -1106,10 +1143,14 @@ internal static class OpenCamLib {
             run,
             () => OpenCamNative.OperationSetSurface(operation, binding.Surface),
             () => OpenCamNative.OperationSetCutter(operation, binding.Cutter),
-            () => OpenCamNative.OperationSetSampling(operation, run.Sampling.MaximumStepMm),
-            () => OpenCamNative.OperationSetMinSampling(operation, run.Sampling.MinimumStepMm),
-            () => OpenCamNative.OperationSetCosLimit(operation, run.Sampling.CosLimit),
-            () => OpenCamNative.OperationSetFilterTolerance(operation, run.Sampling.FilterToleranceMm),
+            () => OpenCamNative.OperationSetSampling(operation, run.Sampling.Coarse.Value),
+            () => OpenCamNative.OperationSetMinSampling(operation, run.Sampling.Fine.Value),
+            // The ABI's spelling of the contact limit is a COSINE, and its spelling of "no simplification" is a
+            // zero tolerance. Both conversions live here, at the one edge that owns them, so the sampling band
+            // upstream states an angle and an absence that no domain reader has to decode.
+            () => OpenCamNative.OperationSetCosLimit(operation, Math.Cos(run.Sampling.ContactLimit.Value)),
+            () => OpenCamNative.OperationSetFilterTolerance(
+                operation, run.Sampling.Filter.Map(static row => row.Value).IfNone(0.0)),
             () => OpenCamNative.OperationSetThreads(operation, run.Sampling.Threads))
         .Bind(_ => run.Operation.SupportsDropDiagnostics
             ? Gate(run, () => OpenCamNative.OperationSetBucketSize(operation, run.Sampling.BucketSize))
@@ -1158,23 +1199,23 @@ internal static class OpenCamLib {
     private static Fin<int> Count(SurfaceRun run, int count, int minimum, int maximum) =>
         count >= minimum && count <= maximum
             ? Fin.Succ(count)
-            : Fin.Fail<int>(run.Strategy.Stalled(count).ToError());
+            : Fin.Fail<int>(run.Strategy.Stalled(count));
 
     private static Fin<int> Written(SurfaceRun run, int written, int expected) =>
         written == expected
             ? Fin.Succ(written)
-            : Fin.Fail<int>(run.Strategy.Stalled(written).ToError());
+            : Fin.Fail<int>(run.Strategy.Stalled(written));
 
     private static Fin<Arr<OpenCamLocation>> Decode(SurfaceRun run, double[] output, int count) =>
         output.Length >= count * 4 && TensorPrimitives.IsFiniteAll(output.AsSpan(0, count * 4))
             ? Range(0, count).ToSeq().Traverse(index => Contact(run, output[(index * 4) + 3]).Map(contact => new OpenCamLocation(
                 new Point3d(output[index * 4], output[(index * 4) + 1], output[(index * 4) + 2]),
                 contact))).Map(static rows => rows.ToArr()).As()
-            : Fin.Fail<Arr<OpenCamLocation>>(run.Strategy.Stalled(-2).ToError());
+            : Fin.Fail<Arr<OpenCamLocation>>(run.Strategy.Stalled(-2));
 
     private static Fin<OpenCamContactKind> Contact(SurfaceRun run, double raw) =>
         raw < 0.0 || raw > int.MaxValue || raw != Math.Truncate(raw)
-            ? Fin.Fail<OpenCamContactKind>(run.Strategy.Stalled(-2).ToError())
+            ? Fin.Fail<OpenCamContactKind>(run.Strategy.Stalled(-2))
             : Admission.OfValue<OpenCamContactKind, int>((int)raw);
 
     // Fiber evidence is its own axis: the push lane retains one row per fiber that met material, the weave waterline
@@ -1201,7 +1242,7 @@ internal static class OpenCamLib {
                     run.Frame.Inverse * new Point3d(output[3], output[4], output[5]),
                     run.Frame.Inverse * new Vector3d(output[6], output[7], output[8]),
                     rows.ToArr())).As()
-            : Fin.Fail<OpenCamFiber>(run.Strategy.Stalled(-3).ToError());
+            : Fin.Fail<OpenCamFiber>(run.Strategy.Stalled(-3));
 
     private static Fin<OpenCamInterval> DecodeInterval(SurfaceRun run, double[] output, int at) =>
         from lower in Contact(run, output[at + 5])
@@ -1236,7 +1277,7 @@ internal static class OpenCamLib {
             ? Fin.Succ(new OpenCamWitness(
                 (int)output[0],
                 Range(0, facets).ToSeq().Map(index => DecodeFacet(run, output, WitnessHeader + (index * FacetStride))).ToArr()))
-            : Fin.Fail<OpenCamWitness>(run.Strategy.Stalled(-4).ToError());
+            : Fin.Fail<OpenCamWitness>(run.Strategy.Stalled(-4));
 
     private static OpenCamFacet DecodeFacet(SurfaceRun run, double[] output, int at) =>
         new(run.Frame.Inverse * new Point3d(output[at], output[at + 1], output[at + 2]),
@@ -1251,10 +1292,10 @@ internal static class OpenCamLib {
               && calls <= run.Sampling.MaximumCalls
               && bucketSize == run.Sampling.BucketSize
                 ? Fin.Succ<OpenCamDiagnostic>(new OpenCamDiagnostic.Drop(run.Operation, witness, calls, bucketSize))
-                : Fin.Fail<OpenCamDiagnostic>(run.Strategy.Stalled(calls).ToError())
+                : Fin.Fail<OpenCamDiagnostic>(run.Strategy.Stalled(calls))
             : Fin.Succ<OpenCamDiagnostic>(new OpenCamDiagnostic.Executed(run.Operation, witness)));
 
-    private static SurfaceSampleReceipt Receipt(
+    private static SurfaceSample Receipt(
         SurfaceRun run,
         Seq<Arr<OpenCamLocation>> paths,
         Seq<OpenCamDiagnostic> diagnostics,
@@ -1266,11 +1307,17 @@ internal static class OpenCamLib {
             Fin.Succ(0),
             (rail, step) => rail.Bind(_ => step() is var status && status == 0
                 ? Fin.Succ(status)
-                : Fin.Fail<int>(run.Strategy.Stalled(status).ToError())));
+                : Fin.Fail<int>(run.Strategy.Stalled(status))));
 }
 ```
 
 ```cpp signature
+// --- [OPENCAMLIB_ABI_SHIM] --------------------------------------------------------------------------------------
+// The authored `extern "C"` boundary, exempt WHOLESALE from this package's C# form law: upstream OpenCAMLib ships
+// C++ only, so this body exists to flatten `std::vector` into caller-owned buffers and hand back opaque handles.
+// Its loops, its status integers, and its raw pointers ARE the ABI, and every one of them terminates here — the
+// managed side above reads a typed rail and never sees a handle. Restructuring it toward the managed idiom would
+// move the boundary, not remove it.
 // `OclShimOperation` owns execution state; borrowed cutter/path handles retain their dedicated destroy owners.
 // Every export returns `0` or a negative status, and `Trap` prevents exceptions from crossing the ABI.
 #include <array>

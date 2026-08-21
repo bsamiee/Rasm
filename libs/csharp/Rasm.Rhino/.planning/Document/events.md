@@ -1,30 +1,33 @@
 # [RASM_RHINO_EVENTS]
 
-`DocumentStream` owns observation from raw host and filesystem callbacks: detached facts, nonblocking delivery, bounded loss evidence, retryable symmetric detachment. `Observation` carries source-specific admission, `EventFamily` carries host wiring as data, and `Watch` retains delivery and release outcomes under one identity. `RhinoPoint` names every detached stream as `rasm.rhino.<domain>.<point>` under the kernel `HookModality` rows, `MountRegistry` owns name-addressed discovery and first-mount-wins custody over the adopter mounts, and `RhinoInstruments` declares the contributed rows.
+`DocumentStream` owns observation from raw host and filesystem callbacks: detached facts, nonblocking delivery, bounded loss evidence, retryable symmetric detachment. `Observation` carries source-specific admission, `EventFamily` carries host wiring as data, and `Watch` retains delivery and release outcomes under one identity — its journal is the kernel bounded ring, so a receipt storm sheds against a declared cap and every loss reads as a number. `RhinoPoint` names every detached stream as `rasm.rhino.<domain>.<point>` realizing the kernel `IHookRoster`, `MountRegistry` owns name-addressed discovery and first-mount-wins custody over the kernel `HookMounts` seat table, and `RhinoInstruments` declares the contributed rows. `LifecycleGate`, `Subscription`, and the idle pump live at `Document/lifetime.md`; release composes kernel `Custody`.
 
 ## [01]-[INDEX]
 
 - [02]-[FAMILY]: `EventFamily` binds host callbacks, cadence, and projection as data.
-- [03]-[PAYLOAD_PROJECTION]: `EventPayload` and `DocEvent` carry detached callback evidence.
-- [04]-[DELIVERY_POLICY]: `Delivery` and `ReceiptPolicy` close bounded delivery and loss evidence.
+- [03]-[PAYLOAD]: `EventPayload` and `DocEvent` carry detached callback evidence.
+- [04]-[DELIVERY]: `Delivery`, `StreamBodyKind`, `StreamSlot`, and `ReceiptPolicy` close bounded delivery and loss evidence over the kernel ring.
 - [05]-[STREAM_OWNER]: `DocumentStream`, `Watch`, and `CommitSink` own admission, attachment, delivery, the sealed-commit contributor registry consuming `OPLOG_ENTRY`, and release.
-- [06]-[HOOK_REGISTRY]: `RhinoPoint`, `HookMount`, and `MountRegistry` close point addressing, host-truth modality over the kernel rows, mount custody, and multi-plugin arbitration.
+- [06]-[HOOK_REGISTRY]: `RhinoPoint` and `MountRegistry` close point addressing, host-truth modality over the kernel roster floor, mount custody, and multi-plugin arbitration over the kernel `HookMounts`.
 - [07]-[TELEMETRY_TAP]: `RhinoInstruments` declares the contributed instrument rows and the string-scoped port.
 
 ## [02]-[FAMILY]
 
-- Owner: `EventFamily` binds one symbolic host event key to its band, cadence, attach/detach pair, and callback-scope projection.
-- Entry: `EventFamily.In` derives band membership from generated `Items`, while `Bind` retains the exact attached delegate for release.
+- Owner: `EventFamily` binds one symbolic host event key to its band, cadence, attach/detach pair, and callback-scope projection; `Cadence` carries the admission its rows refuse under as a typed rail; `DocumentFault` is the folder's document-stream refusal family on the kernel `FaultBand.HostDocument` row.
+- Entry: `EventFamily.In` derives band membership from generated `Items`, while `Bind` retains the exact attached delegate for release. `On` is ONE binder under two arities discriminated by the projection's return shape — a pure projection lifts inside the binder, a fallible one rides its own rail — so no `OnFallible` sibling name exists.
 - Law: draw facts retain phase and viewport evidence without retaining `DisplayPipeline`, and per-object phases add the drawn or culled `RhinoObject` identity.
 - Law: a bracketed host pair is one family — `Transform` binds `BeforeTransformObjects` and `AfterTransformObjects` under one `CorrelationWindow` keyed on the host `TransformEventId` both sides publish, so the closing arm resolves the opening arm's `DocKey` and every scope that delivers a start delivers its matching end; the payload case, never the family, discriminates start from end.
+- Law: the correlation window rides an atom with snapshot-guarded steps and its verdict rides the transition — a contended retain answers `Contended` and the caller DELIVERS, because deduplication is an optimization and a correctness gate that dropped a fact under contention would trade a duplicate for a loss.
 - Law: table projections detach transition, index, and prior/current component evidence; later live resolution re-enters through document identity.
-- Law: callback projection faults and sink faults remain disjoint receipts; delivery failure never reclassifies as callback failure.
-- Exemption: `CorrelationWindow` is a bounded concurrent kernel serving projection deduplication and bracket correlation because callbacks arrive across host threads.
-- Growth: a host callback — or a host pair bracketing one fact — lands as one symbolic `EventFamily` row whose projection expires every callback-owned handle before delivery.
+- Law: callback projection faults and sink faults remain disjoint receipts, and no verdict is silently lost — a projection fault rides `reject` into the journal as `CallbackFault`, a delivery fault posts at the emission's own arm as `SinkFault`, and the handler's terminal discard reads a verdict the journal already holds, because a host event handler returns `void` and the journal row is the only record that can leave it.
+- Law: `Cadence.Admits` answers the rail — `PerFrame` refuses a non-dropping delivery with `DocumentFault.Cadence` naming the family, so an admission failure carries which family demanded frame cadence rather than a bare boolean a caller re-rails.
+- Growth: a host callback — or a host pair bracketing one fact — lands as one symbolic `EventFamily` row whose projection expires every callback-owned handle before delivery; a new stream refusal is one `DocumentFault` case and one offset row inside the band's span.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+using System.Collections.Frozen;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -34,6 +37,7 @@ using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
 using Rhino.Geometry;
+using Thinktecture;
 
 namespace Rasm.Rhino.Document;
 
@@ -49,13 +53,36 @@ public sealed partial class EventBand {
     public static readonly EventBand Panels = new(key: nameof(Panels));
 }
 
+// The row CARRIES its refusal: `PerFrame` names the family that demanded frame cadence, so an admission
+// failure is a typed fault a caller matches rather than a boolean the observe entry re-rails.
 [SmartEnum]
 public sealed partial class Cadence {
-    public static readonly Cadence Changed = new(static _ => true);
-    public static readonly Cadence PerFrame = new(static delivery => delivery is Delivery.Paced paced && paced.Lane.Dropping);
+    public static readonly Cadence Changed = new(static (_, _, _) => Fin.Succ(unit));
+    public static readonly Cadence PerFrame = new(static (delivery, family, key) =>
+        delivery is Delivery.Paced paced && paced.Lane.Dropping
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new DocumentFault.Cadence(Key: key, Family: family)));
 
     [UseDelegateFromConstructor]
-    public partial bool Admits(Delivery delivery);
+    public partial Fin<Unit> Admits(Delivery delivery, EventFamily family, Op key);
+}
+
+// --- [ERRORS] -----------------------------------------------------------------------------
+// The document-stream refusal family on the kernel band registry: generated case identity supplies the code and
+// the root's total switch supplies presentation.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record DocumentFault : Fault {
+    private static readonly FaultBand FamilyBand = FaultBand.HostDocument;
+    private DocumentFault() { }
+
+    [FaultCase(0)] public sealed partial record Cadence(Op Key, EventFamily Family) : DocumentFault;
+    [FaultCase(1)] public sealed partial record SeatDiverged(Op Key, RhinoPoint Point) : DocumentFault;
+    [FaultCase(2)] public sealed partial record RiderDuplicate(Op Key, RhinoPoint Point, PluginKey Plugin) : DocumentFault;
+
+    public sealed override string Message => Switch(
+        cadence: static fault => $"Document event family '{fault.Family}' refused the cadence for '{fault.Key}'.",
+        seatDiverged: static fault => $"Document event seat '{fault.Point}' diverged for '{fault.Key}'.",
+        riderDuplicate: static fault => $"Plugin '{fault.Plugin}' already rides document point '{fault.Point}' for '{fault.Key}'.");
 }
 
 [SmartEnum<string>]
@@ -98,7 +125,7 @@ public sealed partial class EventFamily {
         subscribe: h => RhinoDoc.UserStringChanged += h,
         unsubscribe: h => RhinoDoc.UserStringChanged -= h,
         project: static (_, a, scope) => Gate(document: a.Document, scope: scope, payload: new EventPayload.UserString(Key: a.Key))));
-    public static readonly EventFamily WorksessionFile = new(key: nameof(WorksessionFile), band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: OnFallible<RhinoDoc.WorksessionFileChangedEventArgs>(
+    public static readonly EventFamily WorksessionFile = new(key: nameof(WorksessionFile), band: EventBand.Lifecycle, cadence: Cadence.Changed, bind: On<RhinoDoc.WorksessionFileChangedEventArgs>(
         subscribe: h => RhinoDoc.WorksessionFileChanged += h,
         unsubscribe: h => RhinoDoc.WorksessionFileChanged -= h,
         project: static (_, a, scope) => WorksessionChange.Of(a.ChangeKind).Map(change => Gate(
@@ -194,7 +221,7 @@ public sealed partial class EventFamily {
         subscribe: h => RhinoDoc.RenderEnvironmentTableEvent += h, unsubscribe: h => RhinoDoc.RenderEnvironmentTableEvent -= h, kind: TableKind.RenderEnvironments));
     public static readonly EventFamily RenderTextureTable = new(key: nameof(RenderTextureTable), band: EventBand.Tables, cadence: Cadence.Changed, bind: Render(
         subscribe: h => RhinoDoc.RenderTextureTableEvent += h, unsubscribe: h => RhinoDoc.RenderTextureTableEvent -= h, kind: TableKind.RenderTextures));
-    public static readonly EventFamily TextureMappingTable = new(key: nameof(TextureMappingTable), band: EventBand.Tables, cadence: Cadence.Changed, bind: OnFallible<RhinoDoc.TextureMappingEventArgs>(
+    public static readonly EventFamily TextureMappingTable = new(key: nameof(TextureMappingTable), band: EventBand.Tables, cadence: Cadence.Changed, bind: On<RhinoDoc.TextureMappingEventArgs>(
         subscribe: h => RhinoDoc.TextureMappingEvent += h,
         unsubscribe: h => RhinoDoc.TextureMappingEvent -= h,
         project: static (_, a, scope) => ComponentTransition.Of(a.EventType).Map(transition => Gate(
@@ -202,7 +229,9 @@ public sealed partial class EventFamily {
             scope: scope,
             payload: new EventPayload.TextureMapping(
                 Transition: transition,
-                Current: transition.CarriesCurrent ? Optional(a.NewMapping).Map(static mapping => mapping.Id) : Option<Guid>.None)))));
+                Current: transition.Carries.Admits(TransitionEvidence.Current)
+                    ? Optional(a.NewMapping).Map(static mapping => mapping.Id)
+                    : Option<Guid>.None)))));
 
     public static readonly EventFamily ViewModified = new(key: nameof(ViewModified), band: EventBand.Screen, cadence: Cadence.Changed, bind: ViewFact(
         subscribe: h => RhinoView.Modified += h, unsubscribe: h => RhinoView.Modified -= h));
@@ -265,7 +294,7 @@ public sealed partial class EventFamily {
     internal partial Fin<Subscription> Bind(
         EventScope scope,
         ReceiptJournal journal,
-        Func<EventEnvelope, Fin<Unit>> deliver,
+        Func<Option<DocKey>, EventPayload, Fin<Unit>> deliver,
         Action<Error> reject);
 
     public static Fin<Seq<EventFamily>> In(EventBand band, Op? key = null) =>
@@ -273,42 +302,47 @@ public sealed partial class EventFamily {
             .ToFin(Fail: key.OrDefault().InvalidInput())
             .Map(active => toSeq(Items).Filter(family => family.Band == active));
 
-    private static Func<EventScope, ReceiptJournal, Func<EventEnvelope, Fin<Unit>>, Action<Error>, Fin<Subscription>> On<TArgs>(
+    // ONE binder, two arities discriminated by the projection's return shape: a pure projection lifts here and a
+    // fallible one rides its own rail — the former `OnFallible` name deletes for the general arity of one entry.
+    private static Func<EventScope, ReceiptJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> On<TArgs>(
         Action<EventHandler<TArgs>> subscribe,
         Action<EventHandler<TArgs>> unsubscribe,
-        Func<object?, TArgs, EventScope, Option<EventEnvelope>> project) where TArgs : EventArgs =>
-        OnFallible(
+        Func<object?, TArgs, EventScope, Option<(Option<DocKey> Key, EventPayload Payload)>> project) where TArgs : EventArgs =>
+        On(
             subscribe: subscribe,
             unsubscribe: unsubscribe,
             project: (sender, args, scope) => Fin.Succ(value: project(arg1: sender, arg2: args, arg3: scope)));
 
-    private static Func<EventScope, ReceiptJournal, Func<EventEnvelope, Fin<Unit>>, Action<Error>, Fin<Subscription>> OnFallible<TArgs>(
+    private static Func<EventScope, ReceiptJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> On<TArgs>(
         Action<EventHandler<TArgs>> subscribe,
         Action<EventHandler<TArgs>> unsubscribe,
-        Func<object?, TArgs, EventScope, Fin<Option<EventEnvelope>>> project) where TArgs : EventArgs =>
+        Func<object?, TArgs, EventScope, Fin<Option<(Option<DocKey> Key, EventPayload Payload)>>> project) where TArgs : EventArgs =>
         (scope, journal, deliver, reject) => {
             EventHandler<TArgs> handler = (sender, args) => {
                 Op key = Op.Of(name: nameof(EventFamily));
                 Fin<Unit> outcome = key.Catch(() => project(sender, args, scope)).Match(
                     Succ: projected => projected.Match(
-                        Some: envelope => key.Catch(() => deliver(arg: envelope)),
+                        Some: fact => key.Catch(() => deliver(arg1: fact.Key, arg2: fact.Payload)),
                         None: static () => Fin.Succ(value: unit)),
                     Fail: error => {
                         reject(obj: error);
                         return Fin.Fail<Unit>(error: error);
                     });
-                ignore(outcome);
+                // Recorded, not raised: a projection fault rode `reject` into the journal and a delivery fault
+                // posts at the emission's own arm — a host event handler returns `void`, so the journal row IS
+                // this verdict's record and the discard here reads a verdict the journal already holds.
+                _ = outcome;
             };
             return Subscription.Attach(subscribe: subscribe, unsubscribe: unsubscribe, handler: handler);
         };
 
-    private static Func<EventScope, ReceiptJournal, Func<EventEnvelope, Fin<Unit>>, Action<Error>, Fin<Subscription>> Signal(
+    private static Func<EventScope, ReceiptJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> Signal(
         Action<EventHandler<DocumentEventArgs>> subscribe,
         Action<EventHandler<DocumentEventArgs>> unsubscribe) =>
         On(subscribe: subscribe, unsubscribe: unsubscribe, project: static (_, a, scope) =>
             Gate(serial: a.DocumentSerialNumber, scope: scope, payload: new EventPayload.Signal()));
 
-    private static Func<EventScope, ReceiptJournal, Func<EventEnvelope, Fin<Unit>>, Action<Error>, Fin<Subscription>> Table<TArgs>(
+    private static Func<EventScope, ReceiptJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> Table<TArgs>(
         Action<EventHandler<TArgs>> subscribe,
         Action<EventHandler<TArgs>> unsubscribe,
         TableKind kind,
@@ -317,21 +351,21 @@ public sealed partial class EventFamily {
         Func<TArgs, Fin<ComponentTransition>> transition,
         Func<TArgs, Option<ComponentState>> previous,
         Func<TArgs, Option<ComponentState>> current) where TArgs : EventArgs =>
-        OnFallible(subscribe: subscribe, unsubscribe: unsubscribe, project: (_, args, scope) => transition(arg: args).Map(change => Gate(
+        On(subscribe: subscribe, unsubscribe: unsubscribe, project: (_, args, scope) => transition(arg: args).Map(change => Gate(
                 document: document(arg: args),
                 scope: scope,
                 payload: new EventPayload.Component(
                     Kind: kind,
                     Index: index(arg: args),
                     Transition: change,
-                    Previous: change.CarriesPrevious ? previous(arg: args) : Option<ComponentState>.None,
-                    Current: change.CarriesCurrent ? current(arg: args) : Option<ComponentState>.None))));
+                    Previous: change.Carries.Admits(TransitionEvidence.Previous) ? previous(arg: args) : Option<ComponentState>.None,
+                    Current: change.Carries.Admits(TransitionEvidence.Current) ? current(arg: args) : Option<ComponentState>.None))));
 
-    private static Func<EventScope, ReceiptJournal, Func<EventEnvelope, Fin<Unit>>, Action<Error>, Fin<Subscription>> Render(
+    private static Func<EventScope, ReceiptJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> Render(
         Action<EventHandler<RhinoDoc.RenderContentTableEventArgs>> subscribe,
         Action<EventHandler<RhinoDoc.RenderContentTableEventArgs>> unsubscribe,
         TableKind kind) =>
-        OnFallible(subscribe: subscribe, unsubscribe: unsubscribe, project: (_, args, scope) => RenderTransition.Of(args.EventType).Map(change => Gate(
+        On(subscribe: subscribe, unsubscribe: unsubscribe, project: (_, args, scope) => RenderTransition.Of(args.EventType).Map(change => Gate(
                 document: args.Document,
                 scope: scope,
                 payload: new EventPayload.RenderContent(
@@ -341,14 +375,16 @@ public sealed partial class EventFamily {
                         ? RenderAssignment.Of(assignment)
                         : Option<RenderAssignment>.None))));
 
-    private static Func<EventScope, ReceiptJournal, Func<EventEnvelope, Fin<Unit>>, Action<Error>, Fin<Subscription>> ViewFact(
+    private static Func<EventScope, ReceiptJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> ViewFact(
         Action<EventHandler<ViewEventArgs>> subscribe,
         Action<EventHandler<ViewEventArgs>> unsubscribe) =>
         On(subscribe: subscribe, unsubscribe: unsubscribe, project: static (_, a, scope) => Optional(a.View).Bind(view =>
             Gate(document: view.Document, scope: scope, payload: new EventPayload.View(
-                ViewSerial: view.RuntimeSerialNumber, MainViewportId: view.MainViewport.Id, Page: view is RhinoPageView))));
+                ViewSerial: view.RuntimeSerialNumber,
+                MainViewportId: view.MainViewport.Id,
+                Kind: view is RhinoPageView ? ViewKind.Page : ViewKind.Model))));
 
-    private static Func<EventScope, ReceiptJournal, Func<EventEnvelope, Fin<Unit>>, Action<Error>, Fin<Subscription>> DrawFact<TArgs>(
+    private static Func<EventScope, ReceiptJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> DrawFact<TArgs>(
         Action<EventHandler<TArgs>> subscribe,
         Action<EventHandler<TArgs>> unsubscribe,
         Func<TArgs, Option<(Guid Id, uint Serial)>>? subject = null) where TArgs : DrawEventArgs =>
@@ -359,7 +395,7 @@ public sealed partial class EventFamily {
                 ViewSerial: Optional(viewport.ParentView).Map(static view => view.RuntimeSerialNumber),
                 Object: subject is null ? Option<(Guid Id, uint Serial)>.None : subject(arg: a)))));
 
-    private static Func<EventScope, ReceiptJournal, Func<EventEnvelope, Fin<Unit>>, Action<Error>, Fin<Subscription>> ProjectionFact(
+    private static Func<EventScope, ReceiptJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> ProjectionFact(
         Action<EventHandler<DrawEventArgs>> subscribe,
         Action<EventHandler<DrawEventArgs>> unsubscribe,
         Func<EventFamily> family) =>
@@ -368,15 +404,17 @@ public sealed partial class EventFamily {
             return On(subscribe: subscribe, unsubscribe: unsubscribe, project: (_, a, watched) =>
                 Optional(a.RhinoDoc).Bind(document => Optional(a.Viewport).Bind(viewport => {
                     uint counter = viewport.ChangeCounter;
-                    (bool Advanced, int Cleared) advance = seen.Retain(key: (viewport.Id, document.RuntimeSerialNumber), value: counter);
-                    _ = Cleared(journal: journal, family: family, cleared: advance.Cleared);
-                    return advance.Advanced
-                        ? Gate(document: document, scope: watched, payload: new EventPayload.Projection(ViewportId: viewport.Id, ChangeCounter: counter))
-                        : Option<EventEnvelope>.None;
+                    CorrelationMove move = seen.Retain(key: (viewport.Id, document.RuntimeSerialNumber), value: counter);
+                    _ = Cleared(journal: journal, family: family, move: move);
+                    // `Held` alone suppresses: an advanced counter delivers and a CONTENDED window delivers too,
+                    // because deduplication is an optimization and a gate that dropped under contention loses a fact.
+                    return move is CorrelationMove.Held
+                        ? Option<(Option<DocKey> Key, EventPayload Payload)>.None
+                        : Gate(document: document, scope: watched, payload: new EventPayload.Projection(ViewportId: viewport.Id, ChangeCounter: counter));
                 })))(scope, journal, deliver, reject);
         };
 
-    private static Func<EventScope, ReceiptJournal, Func<EventEnvelope, Fin<Unit>>, Action<Error>, Fin<Subscription>> Bracketed<TOpen, TClose>(
+    private static Func<EventScope, ReceiptJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> Bracketed<TOpen, TClose>(
         Action<EventHandler<TOpen>> subscribeOpen,
         Action<EventHandler<TOpen>> unsubscribeOpen,
         Action<EventHandler<TClose>> subscribeClose,
@@ -393,7 +431,7 @@ public sealed partial class EventFamily {
             return Subscription.AttachAll(Seq<Func<Fin<Subscription>>>(
                 () => On(subscribe: subscribeOpen, unsubscribe: unsubscribeOpen, project: (_, args, watched) =>
                     open(arg: args).Bind(fact => {
-                        _ = Cleared(journal: journal, family: family, cleared: bracket.Retain(key: correlateOpen(arg: args), value: fact.Key).Cleared);
+                        _ = Cleared(journal: journal, family: family, move: bracket.Retain(key: correlateOpen(arg: args), value: fact.Key));
                         return Gate(key: fact.Key, scope: watched, payload: fact.Payload);
                     }))(scope, journal, deliver, reject),
                 () => On(subscribe: subscribeClose, unsubscribe: unsubscribeClose, project: (_, args, watched) =>
@@ -401,15 +439,15 @@ public sealed partial class EventFamily {
                         .Bind(key => Gate(key: key, scope: watched, payload: close(arg: args))))(scope, journal, deliver, reject)));
         };
 
-    private static Unit Cleared(ReceiptJournal journal, Func<EventFamily> family, int cleared) =>
-        cleared > 0
-            ? journal.Post(new StreamReceipt.CorrelationReset(Watch: journal.Watch, Family: family(), Cleared: cleared))
+    private static Unit Cleared(ReceiptJournal journal, Func<EventFamily> family, CorrelationMove move) =>
+        move is CorrelationMove.Advanced advanced && advanced.Cleared > 0
+            ? journal.Post(slot: StreamSlot.CorrelationReset, body: new StreamBody.Reset(Family: family(), Cleared: advanced.Cleared))
             : unit;
 
-    private static Option<EventEnvelope> ObjectFact(object? sender, RhinoObjectEventArgs args, EventScope scope) =>
+    private static Option<(Option<DocKey> Key, EventPayload Payload)> ObjectFact(object? sender, RhinoObjectEventArgs args, EventScope scope) =>
         Gate(document: (sender as RhinoDoc) ?? args.TheObject?.Document, scope: scope, payload: new EventPayload.Objects(Ids: Seq(args.ObjectId)));
 
-    private static Option<EventEnvelope> SelectionFact(object? sender, RhinoObjectSelectionEventArgs args, EventScope scope) =>
+    private static Option<(Option<DocKey> Key, EventPayload Payload)> SelectionFact(object? sender, RhinoObjectSelectionEventArgs args, EventScope scope) =>
         Gate(document: args.Document, scope: scope, payload: new EventPayload.Selection(
             Ids: toSeq(args.RhinoObjects).Choose(static item => Optional(item).Map(static value => value.Id)),
             Count: args.RhinoObjectCount));
@@ -437,86 +475,116 @@ public sealed partial class EventFamily {
     private static Option<(Guid Id, uint Serial)> DrawSubject(RhinoObject? subject) =>
         Optional(subject).Map(static value => (value.Id, value.RuntimeSerialNumber)).Filter(static value => value.Id != Guid.Empty);
 
+    // The verdict RIDES the transition and the step is snapshot-guarded — the kernel ring's own idiom — so the
+    // former `Lock`-and-`Dictionary` kernel deletes: `Held` answers an unmoved counter with no write at all,
+    // `Advanced` carries the count a capacity clear released, and `Contended` names a window another callback
+    // moved mid-step, which the caller treats as advanced because dedup is an optimization, never a gate.
+    [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+    internal abstract partial record CorrelationMove {
+        private CorrelationMove() { }
+        internal sealed record Advanced(int Cleared) : CorrelationMove;
+        internal sealed record Held : CorrelationMove;
+        internal sealed record Contended : CorrelationMove;
+    }
+
     private sealed class CorrelationWindow<TKey, TValue>(int capacity)
         where TKey : notnull
         where TValue : notnull {
-        private readonly Lock gate = new();
-        private readonly Dictionary<TKey, TValue> held = new();
+        private readonly Atom<HashMap<TKey, TValue>> held = Atom(HashMap<TKey, TValue>());
 
-        internal (bool Advanced, int Cleared) Retain(TKey key, TValue value) {
-            lock (gate) {
-                int cleared = 0;
-                if (held.Count >= capacity && !held.ContainsKey(key: key)) {
-                    cleared = held.Count;
-                    held.Clear();
-                }
-                bool advanced = !held.TryGetValue(key: key, value: out TValue? prior)
-                    || !EqualityComparer<TValue>.Default.Equals(x: prior, y: value);
-                if (advanced) {
-                    held[key] = value;
-                }
-                return (Advanced: advanced, Cleared: cleared);
+        internal CorrelationMove Retain(TKey key, TValue value) {
+            HashMap<TKey, TValue> standing = held.Value;
+            bool advanced = standing.Find(key).Map(prior => !EqualityComparer<TValue>.Default.Equals(x: prior, y: value)).IfNone(true);
+            if (!advanced) {
+                return new CorrelationMove.Held();
             }
+            int cleared = standing.Count >= capacity && !standing.ContainsKey(key: key) ? standing.Count : 0;
+            HashMap<TKey, TValue> next = (cleared > 0 ? HashMap<TKey, TValue>() : standing).AddOrUpdate(key, value);
+            return Cell.Step(
+                    cell: held,
+                    step: current => current == standing ? Some(next) : None,
+                    declined: Op.Of(name: "CorrelationWindow").InvalidResult())
+                is Transition<HashMap<TKey, TValue>>.Committed
+                    ? new CorrelationMove.Advanced(Cleared: cleared)
+                    : new CorrelationMove.Contended();
         }
 
         internal Option<TValue> Release(TKey key) {
-            lock (gate) {
-                return held.Remove(key: key, value: out TValue? claimed) ? Some(claimed) : Option<TValue>.None;
-            }
+            HashMap<TKey, TValue> standing = held.Value;
+            return standing.Find(key).Bind(claimed => Cell.Step(
+                    cell: held,
+                    step: current => current == standing ? Some(current.Remove(key)) : None,
+                    declined: Op.Of(name: "CorrelationWindow").InvalidResult())
+                is Transition<HashMap<TKey, TValue>>.Committed
+                    ? Some(claimed)
+                    : Option<TValue>.None);
         }
     }
 
-    private static Option<EventEnvelope> Gate(RhinoDoc? document, EventScope scope, EventPayload payload) =>
+    private static Option<(Option<DocKey> Key, EventPayload Payload)> Gate(RhinoDoc? document, EventScope scope, EventPayload payload) =>
         document is RhinoDoc active
             ? Gate(serial: active.RuntimeSerialNumber, scope: scope, payload: payload)
-            : Option<EventEnvelope>.None;
+            : Option<(Option<DocKey> Key, EventPayload Payload)>.None;
 
-    private static Option<EventEnvelope> Gate(uint serial, EventScope scope, EventPayload payload) =>
+    private static Option<(Option<DocKey> Key, EventPayload Payload)> Gate(uint serial, EventScope scope, EventPayload payload) =>
         serial == 0
-            ? Option<EventEnvelope>.None
+            ? Option<(Option<DocKey> Key, EventPayload Payload)>.None
             : Gate(key: DocKey.Create(value: serial), scope: scope, payload: payload);
 
-    private static Option<EventEnvelope> Gate(DocKey key, EventScope scope, EventPayload payload) =>
+    private static Option<(Option<DocKey> Key, EventPayload Payload)> Gate(DocKey key, EventScope scope, EventPayload payload) =>
         scope.Switch(
             (Key: key, Payload: payload),
             document: static (state, watched) => watched.Key == state.Key
-                ? Some(new EventEnvelope(Key: Some(state.Key), Payload: state.Payload))
-                : Option<EventEnvelope>.None,
-            anyDocument: static (state, _) => Some(new EventEnvelope(Key: Some(state.Key), Payload: state.Payload)));
+                ? Some((Some(state.Key), state.Payload))
+                : Option<(Option<DocKey> Key, EventPayload Payload)>.None,
+            anyDocument: static (state, _) => Some((Some(state.Key), state.Payload)));
 
-    private static Option<EventEnvelope> GateActive(uint serial, EventScope scope) =>
+    private static Option<(Option<DocKey> Key, EventPayload Payload)> GateActive(uint serial, EventScope scope) =>
         serial > 0
             ? Gate(serial: serial, scope: scope, payload: new EventPayload.Active(ActiveDocument: Some(DocKey.Create(value: serial))))
             : scope.Switch(
-                document: static _ => Option<EventEnvelope>.None,
-                anyDocument: static _ => Some(new EventEnvelope(
-                    Key: Option<DocKey>.None,
-                    Payload: new EventPayload.Active(ActiveDocument: Option<DocKey>.None))));
+                document: static _ => Option<(Option<DocKey> Key, EventPayload Payload)>.None,
+                anyDocument: static _ => Some((
+                    Option<DocKey>.None,
+                    (EventPayload)new EventPayload.Active(ActiveDocument: Option<DocKey>.None))));
 }
 ```
 
-## [03]-[PAYLOAD_PROJECTION]
+## [03]-[PAYLOAD]
 
-- Owner: `EventPayload` owns detached callback evidence, while `DocEvent` adds source identity and the optional document key.
+- Owner: `EventPayload` owns detached callback evidence, while `DocEvent` adds source identity and the optional document key; `TransitionEvidence` is the capability vocabulary a component transition carries; `CommitSink` owns the host's ONE contributor registry over sealed-commit facts.
 - Law: every reference-like host member projects inside its callback into stable identity, value, transition, or component evidence.
 - Law: an absent active document remains a typed transition; `TransformStarted` and `TransformEnded` both carry the host `TransformEventId`, so a consumer joins the bracket on that id without retaining either callback's arrays.
 - Law: name-keyed transition vocabularies admit host enums generically and fail unknown host values on the typed rail.
+- Law: a transition's evidence is a SET, not a bool pair — `Carries` names which of prior and current a transition publishes, the four corners are all real rows (`Added` carries current alone, `Deleted` prior alone, `Modified` both, `Sorted` neither), so the law is open and the projection reads set algebra rather than two parallel columns.
+- Law: component presence is a CASE, never a flag — `ComponentState.Present` and `Deleted` each carry the name column the host read for that state (`Name` against `DeletedName`), so the discriminant that chose the host member is the case a consumer matches; a view's kind is a `ViewKind` row for the same reason.
 - Law: `EventPayload.ObjectIds` defaults to no object contribution, and contributing cases override that projection; `DocEvent` delegates without an empty-arm dispatch ladder.
 - Law: `EventPayload.Sealed` carries one commit record's mutation roster as `SealedMutation` rows over the SAME `TableKind`/`ComponentTransition` vocabulary the `Component` case already spells, so a consumer folds both through one axis and the sealed case mints no parallel transition family.
+- Law: no intermediate envelope exists — the projection hands its key-and-payload pair straight to the delivery continuation and `DocEvent` is the ONE carrier adding origin; a second two-field record between them shadowed the kernel `EventEnvelope` inside a namespace whose prelude imports `Rasm.Domain` and carried nothing `DocEvent` does not.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
+// Which halves of a component transition the host publishes: a SET over one vocabulary, because all four
+// corners are real transitions and two parallel bool columns spelled the same fact twice per row.
+[SmartEnum<string>]
+public sealed partial class TransitionEvidence : ICapability<TransitionEvidence> {
+    public static readonly TransitionEvidence Previous = new(key: "previous");
+    public static readonly TransitionEvidence Current = new(key: "current");
+
+    // Every corner is legal — `Sorted` carries neither half and `Modified` both — so the law is open and states it.
+    public static CapabilityLaw<TransitionEvidence> Law => CapabilityLaw<TransitionEvidence>.Open;
+}
+
 [SmartEnum<string>]
 public sealed partial class ComponentTransition {
-    public static readonly ComponentTransition Added = new(key: nameof(Added), carriesPrevious: false, carriesCurrent: true);
-    public static readonly ComponentTransition Deleted = new(key: nameof(Deleted), carriesPrevious: true, carriesCurrent: false);
-    public static readonly ComponentTransition Undeleted = new(key: nameof(Undeleted), carriesPrevious: true, carriesCurrent: true);
-    public static readonly ComponentTransition Modified = new(key: nameof(Modified), carriesPrevious: true, carriesCurrent: true);
-    public static readonly ComponentTransition Sorted = new(key: nameof(Sorted), carriesPrevious: false, carriesCurrent: false);
-    public static readonly ComponentTransition Current = new(key: nameof(Current), carriesPrevious: true, carriesCurrent: true);
+    public static readonly ComponentTransition Added = new(key: nameof(Added), carries: CapabilitySet<TransitionEvidence>.Of(TransitionEvidence.Current));
+    public static readonly ComponentTransition Deleted = new(key: nameof(Deleted), carries: CapabilitySet<TransitionEvidence>.Of(TransitionEvidence.Previous));
+    public static readonly ComponentTransition Undeleted = new(key: nameof(Undeleted), carries: CapabilitySet<TransitionEvidence>.Of(TransitionEvidence.Previous, TransitionEvidence.Current));
+    public static readonly ComponentTransition Modified = new(key: nameof(Modified), carries: CapabilitySet<TransitionEvidence>.Of(TransitionEvidence.Previous, TransitionEvidence.Current));
+    public static readonly ComponentTransition Sorted = new(key: nameof(Sorted), carries: CapabilitySet<TransitionEvidence>.None);
+    public static readonly ComponentTransition Current = new(key: nameof(Current), carries: CapabilitySet<TransitionEvidence>.Of(TransitionEvidence.Previous, TransitionEvidence.Current));
 
-    public bool CarriesPrevious { get; }
-    public bool CarriesCurrent { get; }
+    public CapabilitySet<TransitionEvidence> Carries { get; }
 
     internal static Fin<ComponentTransition> Of<TEvent>(TEvent value) where TEvent : struct, Enum =>
         Named<ComponentTransition, TEvent>(value: value);
@@ -557,21 +625,35 @@ public abstract partial record RenderTarget {
     public sealed record Object(Guid Id) : RenderTarget;
 }
 
-public readonly record struct ComponentState(Guid Id, Option<string> Name, bool Deleted) {
-    internal static Option<ComponentState> Of(ModelComponent? component) => Optional(component).Map(static value => new ComponentState(
-        Id: value.Id,
-        Name: Optional(value.IsDeleted ? value.DeletedName : value.Name),
-        Deleted: value.IsDeleted));
+[SmartEnum<int>]
+public sealed partial class ViewKind {
+    public static readonly ViewKind Model = new(key: 0);
+    public static readonly ViewKind Page = new(key: 1);
+}
 
-    internal static Option<ComponentState> Of(Light? light) => Optional(light).Map(static value => new ComponentState(
-        Id: value.Id,
-        Name: Optional(value.Name),
-        Deleted: false));
+// Presence is the CASE: each case carries the name column the host read for that state — `Name` on a live
+// component, `DeletedName` on a deleted one — so the bool that chose the host member is the discriminant.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ComponentState {
+    private ComponentState() { }
+    public sealed record Present(Guid Id, Option<string> Name) : ComponentState;
+    public sealed record Deleted(Guid Id, Option<string> Name) : ComponentState;
 
-    internal static Option<ComponentState> Of(LightObject? light) => Optional(light).Bind(static value => Optional(value.LightGeometry).Map(geometry => new ComponentState(
-        Id: geometry.Id,
-        Name: Optional(geometry.Name),
-        Deleted: value.IsDeleted)));
+    public Guid Id => Switch(
+        present: static state => state.Id,
+        deleted: static state => state.Id);
+
+    internal static Option<ComponentState> Of(ModelComponent? component) => Optional(component).Map(static value => value.IsDeleted
+        ? (ComponentState)new Deleted(Id: value.Id, Name: Optional(value.DeletedName))
+        : new Present(Id: value.Id, Name: Optional(value.Name)));
+
+    internal static Option<ComponentState> Of(Light? light) => Optional(light).Map(static value =>
+        (ComponentState)new Present(Id: value.Id, Name: Optional(value.Name)));
+
+    internal static Option<ComponentState> Of(LightObject? light) => Optional(light).Bind(static value =>
+        Optional(value.LightGeometry).Map(geometry => value.IsDeleted
+            ? (ComponentState)new Deleted(Id: geometry.Id, Name: Optional(geometry.Name))
+            : new Present(Id: geometry.Id, Name: Optional(geometry.Name))));
 }
 
 public readonly record struct RenderAssignment(RenderTarget Target, Guid PreviousMaterial, Guid CurrentMaterial) {
@@ -647,7 +729,7 @@ public abstract partial record EventPayload {
     public sealed record TextureMapping(
         ComponentTransition Transition,
         Option<Guid> Current) : EventPayload;
-    public sealed record View(uint ViewSerial, Guid MainViewportId, bool Page) : EventPayload;
+    public sealed record View(uint ViewSerial, Guid MainViewportId, ViewKind Kind) : EventPayload;
     public sealed record Projection(Guid ViewportId, uint ChangeCounter) : EventPayload;
     public sealed record DisplayMode(Guid ViewportId, Guid Old, Guid Next) : EventPayload;
     public sealed record Frame(Guid ViewportId, uint ChangeCounter, Option<uint> ViewSerial, Option<(Guid Id, uint Serial)> Object) : EventPayload {
@@ -667,8 +749,6 @@ public abstract partial record EventPayload {
 public readonly record struct SealedMutation(TableKind Kind, Guid Id, ComponentTransition Transition);
 
 // --- [MODELS] -----------------------------------------------------------------------------
-internal readonly record struct EventEnvelope(Option<DocKey> Key, EventPayload Payload);
-
 [Union]
 public abstract partial record EventOrigin {
     private EventOrigin() { }
@@ -678,9 +758,9 @@ public abstract partial record EventOrigin {
 }
 
 // This host keeps ONE contributor registry over sealed-commit facts, fanned by the
-// `Document/tables#TRANSACTION_RAIL` railed `project` slot. Contributors register through `Observation.Commit` attachment, so a closing watch detaches
-// its own row under the same symmetric release law every host family obeys; a per-folder sink beside this one
-// publishes some commits and not others.
+// `Document/tables#TRANSACTION_RAIL` railed `project` slot. Contributors register through `Observation.Commit`
+// attachment, so a closing watch detaches its own row under the same symmetric release law every host family
+// obeys; a per-folder sink beside this one publishes some commits and not others.
 //
 // Registration stays PROCESS-STATIC by host law rather than by convenience: RhinoCommon's document tables and
 // undo stack are process singletons, so a per-composition registry inside one `Rhino.exe` would let two co-resident
@@ -694,11 +774,12 @@ public abstract partial record EventOrigin {
 public delegate Fin<Unit> CommitTap(DocKey Document, string Record, uint Serial, Seq<SealedMutation> Mutations);
 
 public static class CommitSink {
-    private static readonly Lock gate = new();
-    private static Seq<CommitTap> taps = Seq<CommitTap>();
+    // Total appends and filters carry no verdict to read, so the plain swap is the lawful spelling and the
+    // former `Lock` gate deletes.
+    private static readonly Atom<Seq<CommitTap>> Taps = Atom(Seq<CommitTap>());
 
-    internal static void Add(CommitTap tap) { lock (gate) { taps = taps.Add(value: tap); } }
-    internal static void Remove(CommitTap tap) { lock (gate) { taps = taps.Filter(held => !ReferenceEquals(objA: held, objB: tap)); } }
+    internal static void Add(CommitTap tap) => ignore(Taps.Swap(held => held.Add(value: tap)));
+    internal static void Remove(CommitTap tap) => ignore(Taps.Swap(held => held.Filter(row => !ReferenceEquals(objA: row, objB: tap))));
 
     // Composed as the envelope's `project` continuation, so it runs INSIDE the undo bracket after the serial stamp:
     // one refusing tap fails the publication and the sealed record rolls back, which is exactly why the fan runs
@@ -707,13 +788,11 @@ public static class CommitSink {
         DocKey document, string record, Func<TReceipt, (uint Serial, Seq<SealedMutation> Mutations)> read) =>
         receipt => {
             (uint serial, Seq<SealedMutation> mutations) = read(arg: receipt);
-            return Snapshot()
+            return Taps.Value
                 .Traverse(tap => tap(document, record, serial, mutations))
                 .As()
                 .Map(_ => receipt);
         };
-
-    private static Seq<CommitTap> Snapshot() { lock (gate) { return taps; } }
 }
 
 public readonly record struct DocEvent(EventOrigin Origin, Option<DocKey> Key, EventPayload Payload) {
@@ -741,14 +820,17 @@ public sealed partial class FileChangeKind {
 public readonly record struct FileEdge(FileChangeKind Kind, string Path, Option<string> PreviousPath);
 ```
 
-## [04]-[DELIVERY_POLICY]
+## [04]-[DELIVERY]
 
-- Owner: `Delivery` owns direct, idle-deferred, and paced modalities; `StreamLane` resolves paced channel construction from the admitted `ReceiptPolicy`.
+- Owner: `Delivery` owns direct, idle-deferred, and paced modalities; `StreamLane` resolves paced channel construction from the admitted `ReceiptPolicy`; `StreamBodyKind` is the body-kind capability vocabulary; `StreamSlot` is the watch's consequence vocabulary conforming `IFactSlot<StreamBody, StreamBodyKind>` with `StreamBody` its closed body family answering its own kind; `ReceiptJournal` is the kernel bounded ring over those facts.
 - Law: host callbacks never park — each paced lane either accepts immediately or emits loss evidence through the channel callback and write result.
 - Law: channel continuations never execute synchronously on a producing host callback.
 - Law: bounded lanes close every nonblocking full-buffer mode; `Coalesced` preserves the queued head and latest arrival by evicting the newest buffered predecessor.
 - Law: frame cadence admits only bounded dropping lanes; unbounded accumulation is rejected before attachment.
-- Law: `StreamLoss` is the paced-loss vocabulary carried unchanged by `StreamReceipt.PacedLoss`; one parameterized `ReceiptPolicy` bounds every queue and correlation set owned by a `Watch`.
+- Law: the receipt family CONFORMS to the folder's KINDED fact-stream contract — `StreamSlot : IFactSlot<StreamBody, StreamBodyKind>` names the consequence and its `Bodies` set column the kinds it emits, so the eleven former receipt cases that each restated the watch identity become slot-plus-body pairs and the `Watch` column deletes, because the journal already IS one watch's. Nine opaque type-test predicates collapse into that column — the form the contract's own law names deleted — so admission prints through `Bodies.Wire` and greps by row.
+- Law: one admission on this vocabulary is genuinely value-dependent and stays a clause rather than becoming a kind row — `FileOverflow` and `FileFault` emit the SAME `FileTrouble` body and split on whether its `Cause` carries the host error, a fact the case-keyed `Kind` fold cannot answer without holding a second authority over the value.
+- Law: the journal is the kernel `Ring<T>` — capacity, oldest-first eviction, and the shed counter are that owner's, so the hand overflow accounting, the synthesized overflow row, and the `JournalOverflow` case all delete; a reader reads `Shed` and `Lost` beside `Receipts` as numbers.
+- Law: a fault body carries the typed `Error`, never a rendered detail string — the four `string Detail` columns delete, because the `Error` in hand at every posting site survives classification, code reads, and the monoid where a message does not.
 - Law: `ReceiptPolicy` owns named operational and maximum rows; generated admission rejects nonpositive values, individual ceiling breaches, and aggregate overcommit.
 
 ```csharp signature
@@ -809,20 +891,74 @@ public abstract partial record Delivery {
     public sealed record Paced(StreamLane Lane) : Delivery;
 }
 
-[Union]
-public abstract partial record StreamReceipt {
-    private StreamReceipt() { }
-    public sealed record PacedLoss(WatchKey Watch, StreamLane Lane, StreamLoss Loss, EventOrigin Origin) : StreamReceipt;
-    public sealed record DeferredOverflow(WatchKey Watch, EventOrigin Origin) : StreamReceipt;
-    public sealed record Reentrant(WatchKey Watch, EventOrigin Origin) : StreamReceipt;
-    public sealed record CallbackFault(WatchKey Watch, EventOrigin Origin, string Detail) : StreamReceipt;
-    public sealed record SinkFault(WatchKey Watch, EventOrigin Origin, string Detail) : StreamReceipt;
-    public sealed record Cancelled(WatchKey Watch, EventOrigin Origin) : StreamReceipt;
-    public sealed record FileOverflow(WatchKey Watch, string WatchedPath) : StreamReceipt;
-    public sealed record FileFault(WatchKey Watch, string WatchedPath, string Detail) : StreamReceipt;
-    public sealed record CorrelationReset(WatchKey Watch, EventFamily Family, int Cleared) : StreamReceipt;
-    public sealed record DetachFault(WatchKey Watch, string Detail) : StreamReceipt;
-    public sealed record JournalOverflow(WatchKey Watch, long Lost) : StreamReceipt;
+// `StreamBodyKind` states the body kinds this watch emits, so a slot DECLARES its admissible kinds as data.
+// Nine opaque `Func<StreamBody, bool>` type tests carried that fact on the slot rows before — the form the
+// fact-stream contract deletes, because no reader, receipt printer, or census could enumerate them.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class StreamBodyKind : ICapability<StreamBodyKind> {
+    public static readonly StreamBodyKind Shed = new(key: "shed");
+    public static readonly StreamBodyKind Dropped = new(key: "dropped");
+    public static readonly StreamBodyKind Faulted = new(key: "faulted");
+    public static readonly StreamBodyKind FileTrouble = new(key: "trouble");
+    public static readonly StreamBodyKind Reset = new(key: "reset");
+}
+
+// `StreamSlot` names the watch's consequences under the folder's kinded fact-stream contract: each row states
+// one consequence, its `Bodies` column the kinds it emits, and the kind IS the slot — the eleven former receipt
+// cases each restating the watch identity delete, because the journal already is one watch's.
+[SmartEnum<int>]
+public sealed partial class StreamSlot : IFactSlot<StreamBody, StreamBodyKind> {
+    // Read-before-use: the row initializers consume these sets, so static construction order decides declaration
+    // order here rather than the public-before-private one.
+    private static readonly CapabilitySet<StreamBodyKind> Overrun = CapabilitySet<StreamBodyKind>.Of(StreamBodyKind.Shed);
+    private static readonly CapabilitySet<StreamBodyKind> Discarded = CapabilitySet<StreamBodyKind>.Of(StreamBodyKind.Dropped);
+    private static readonly CapabilitySet<StreamBodyKind> Errored = CapabilitySet<StreamBodyKind>.Of(StreamBodyKind.Faulted);
+    private static readonly CapabilitySet<StreamBodyKind> Troubled = CapabilitySet<StreamBodyKind>.Of(StreamBodyKind.FileTrouble);
+    private static readonly CapabilitySet<StreamBodyKind> Cleared = CapabilitySet<StreamBodyKind>.Of(StreamBodyKind.Reset);
+
+    public static readonly StreamSlot PacedLoss = new(key: 0, bodies: Overrun);
+    public static readonly StreamSlot DeferredOverflow = new(key: 1, bodies: Discarded);
+    public static readonly StreamSlot Reentrant = new(key: 2, bodies: Discarded);
+    public static readonly StreamSlot CallbackFault = new(key: 3, bodies: Errored);
+    public static readonly StreamSlot SinkFault = new(key: 4, bodies: Errored);
+    public static readonly StreamSlot Cancelled = new(key: 5, bodies: Discarded);
+    public static readonly StreamSlot FileOverflow = new(key: 6, bodies: Troubled);
+    public static readonly StreamSlot FileFault = new(key: 7, bodies: Troubled);
+    public static readonly StreamSlot CorrelationReset = new(key: 8, bodies: Cleared);
+    public static readonly StreamSlot DetachFault = new(key: 9, bodies: Errored);
+
+    public CapabilitySet<StreamBodyKind> Bodies { get; }
+
+    // `FileOverflow` and `FileFault` emit the SAME `FileTrouble` kind and split on whether its `Cause` carries the
+    // host error — value-dependence the case-keyed `Kind` fold answers only by holding a second authority over that
+    // column, so it stays one clause here and every other slot's admission is its `Bodies` set alone.
+    public bool Admits(StreamBody body) =>
+        Bodies.Admits(capability: body.Kind)
+        && (this != FileFault || body is StreamBody.FileTrouble { Cause.IsSome: true });
+
+    bool IFactSlot<StreamBody>.Admits(StreamBody body) => Admits(body: body);
+}
+
+// `StreamBody` closes the payload family: a fault carries its typed `Error`, so classification, band code, and
+// monoid all survive where a rendered detail string does not, and origin absence is the journal's own posting,
+// never a fabricated source. `Kind` is the total generated fold, so a new case breaks it loudly instead of
+// falling through some slot's type test.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record StreamBody : IFactBody<StreamBodyKind> {
+    private StreamBody() { }
+    public sealed record Shed(StreamLane Lane, StreamLoss Loss, EventOrigin Origin) : StreamBody;
+    public sealed record Dropped(EventOrigin Origin) : StreamBody;
+    public sealed record Faulted(Option<EventOrigin> Origin, Error Cause) : StreamBody;
+    public sealed record FileTrouble(string WatchedPath, Option<Error> Cause) : StreamBody;
+    public sealed record Reset(EventFamily Family, int Cleared) : StreamBody;
+
+    public StreamBodyKind Kind => Map(
+        shed: StreamBodyKind.Shed,
+        dropped: StreamBodyKind.Dropped,
+        faulted: StreamBodyKind.Faulted,
+        fileTrouble: StreamBodyKind.FileTrouble,
+        reset: StreamBodyKind.Reset);
 }
 
 // --- [STATE] ------------------------------------------------------------------------------
@@ -901,35 +1037,39 @@ public sealed partial class ReceiptPolicy {
             admitted: admitted);
 }
 
-internal sealed class ReceiptJournal(WatchKey watch, ReceiptPolicy policy) {
-    private readonly Atom<ReceiptState> state = Atom(value: new ReceiptState(Items: Seq<StreamReceipt>(), Lost: 0));
+// The kernel ring IS the journal: cap, oldest-first eviction, and the shed counter are that owner's, so the
+// hand overflow accounting and the synthesized overflow row both delete — a reader reads `Shed` and `Lost`
+// beside `Receipts` as numbers.
+internal sealed class ReceiptJournal {
+    private readonly Ring<Fact<StreamSlot, StreamBody>> ring;
 
-    internal WatchKey Watch { get; } = watch;
-    internal ReceiptPolicy Policy { get; } = policy;
-    internal Seq<StreamReceipt> Snapshot {
-        get {
-            ReceiptState snapshot = state.Value;
-            return snapshot.Lost is 0
-                ? snapshot.Items
-                : snapshot.Items.Count < Policy.ReceiptCapacity
-                    ? snapshot.Items.Add(value: new StreamReceipt.JournalOverflow(Watch: Watch, Lost: snapshot.Lost))
-                    : snapshot.Items.Tail.Add(value: new StreamReceipt.JournalOverflow(Watch: Watch, Lost: snapshot.Lost));
-        }
+    internal ReceiptJournal(WatchKey watch, ReceiptPolicy policy) {
+        Watch = watch;
+        Policy = policy;
+        ring = new Ring<Fact<StreamSlot, StreamBody>>(cap: Dimension.Create(value: policy.ReceiptCapacity));
     }
 
-    internal Unit Post(StreamReceipt receipt) =>
-        ignore(state.Swap(f: held => held.Items.Count < Policy.ReceiptCapacity
-            ? held with { Items = held.Items.Add(value: receipt) }
-            : new ReceiptState(Items: held.Items.Tail.Add(value: receipt), Lost: checked(held.Lost + 1))));
+    internal WatchKey Watch { get; }
+    internal ReceiptPolicy Policy { get; }
+    internal Seq<Fact<StreamSlot, StreamBody>> Receipts => ring.Parked;
+    internal long Shed => ring.Shed;
+    internal long Lost => ring.Lost;
+
+    // A pairing the slot does not admit posts as its own journal fault rather than vanishing; the park's
+    // transition discards here because the ring already counted it — a declined park increments `Lost`.
+    internal Unit Post(StreamSlot slot, StreamBody body) => ignore(ring.Park(item: slot.Admits(body: body)
+        ? new Fact<StreamSlot, StreamBody>(Slot: slot, Body: body)
+        : new Fact<StreamSlot, StreamBody>(
+            Slot: StreamSlot.SinkFault,
+            Body: new StreamBody.Faulted(Origin: None, Cause: Op.Of(name: nameof(ReceiptJournal)).InvalidInput()))));
 
     internal SubscriptionRelease Faults(SubscriptionRelease release) {
         _ = release is SubscriptionRelease.Faulted faulted
-            ? faulted.Errors.Fold(unit, (state, error) => (Post(new StreamReceipt.DetachFault(Watch: Watch, Detail: error.Message)), state).Item2)
+            ? faulted.Errors.Fold(unit, (state, error) =>
+                (Post(slot: StreamSlot.DetachFault, body: new StreamBody.Faulted(Origin: None, Cause: error)), state).Item2)
             : unit;
         return release;
     }
-
-    private readonly record struct ReceiptState(Seq<StreamReceipt> Items, long Lost);
 }
 ```
 
@@ -944,11 +1084,10 @@ internal sealed class ReceiptJournal(WatchKey watch, ReceiptPolicy policy) {
 - Law: `Watch.Close` cancels delivery, combines source and idle-pump detachment evidence, receipts each fault, and retains each failed owner for a later close attempt.
 - Law: close claims its owners under the lifecycle lock, executes callbacks after release, and publishes retry custody with one settled result atomically; concurrent callers join that result.
 - Law: an empty subscription closes as `Released(0)`; `Open` denotes only unclaimed live custody.
-- Law: reentrancy and deferred capacity belong to one watch, so recursive or queued work cannot suppress or exhaust a sibling observation; `Reentrancy.Guarded` is the whole reentrancy decision for both sink-invoking arms, and the paced arm invokes no sink and consults no gate, so `Emit` carries no second guard reading as an owner.
-- Law: deferred delivery owns one idle hook per watch; closing the watch detaches that hook and receipts every queued fact as cancelled.
+- Law: reentrancy and deferred capacity belong to one watch, so recursive or queued work cannot suppress or exhaust a sibling observation; the reentrancy guard answers a VERDICT — absence is a suppressed recursive delivery — and the emission posts its own suppression and sink-fault evidence, so the guard stays journal-free.
+- Law: deferred delivery owns one idle pump per watch through `IdlePump<EventOrigin>` (`Document/lifetime.md`) — the pump's loss callback posts the watch's own overflow and cancellation rows, closing the watch cancels its pending roster as evidence, and the drain crosses the kernel deferred lane for its gauged budget.
 - Law: file callbacks fold into one resettable trailing-edge timer and one bounded batch before entering the same delivery spine as host facts.
 - Exemption: native attach/detach, timer ownership, `Lock` scopes, and callback `try/finally` blocks are platform-forced lifetime seams.
-- Law: `LifecycleGate` is the package's ONE claims/close/retry lifecycle capsule — every bounded-settle lease across the boundary (pointer leases, content streams, watch custody) composes it from this namespace, and a sibling hand-rolling a `lock`/`Monitor` lifecycle machine beside it is the collapsed form.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -997,7 +1136,9 @@ public sealed class Watch : IDisposable {
     }
 
     public WatchKey Key => journal.Watch;
-    public Seq<StreamReceipt> Receipts => journal.Snapshot;
+    public Seq<Fact<StreamSlot, StreamBody>> Receipts => journal.Receipts;
+    public long Shed => journal.Shed;
+    public long Lost => journal.Lost;
     public Option<ChannelReader<DocEvent>> Reader { get; }
     public SubscriptionRelease Release {
         get {
@@ -1062,18 +1203,20 @@ public sealed class Watch : IDisposable {
 }
 
 internal sealed class Emission {
+    private static readonly Op EmitKey = Op.Of(name: nameof(Emission));
     private readonly Delivery delivery;
     private readonly ReceiptJournal journal;
     private readonly Reentrancy gate = new();
     private readonly Option<Channel<DocEvent>> channel;
-    private readonly Option<IdlePump> idle;
-    private int active = 1;
+    private readonly Option<IdlePump<EventOrigin>> idle;
+    // A one-way total set: cancellation carries no verdict a caller could lose, so the plain swap is lawful.
+    private readonly Atom<bool> active = Atom(true);
 
     private Emission(
         Delivery delivery,
         ReceiptJournal journal,
         Option<Channel<DocEvent>> channel,
-        Option<IdlePump> idle) {
+        Option<IdlePump<EventOrigin>> idle) {
         this.delivery = delivery;
         this.journal = journal;
         this.channel = channel;
@@ -1081,62 +1224,74 @@ internal sealed class Emission {
     }
 
     internal Option<ChannelReader<DocEvent>> Reader => channel.Map(static value => value.Reader);
-    private bool IsActive => Volatile.Read(location: ref active) != 0;
+    private bool IsActive => active.Value;
 
     internal static Fin<Emission> Open(Delivery delivery, ReceiptJournal journal, Op key) =>
-        key.Need(delivery).Bind(active => active.Switch(
+        key.Need(delivery).Bind(mode => mode.Switch(
             (Journal: journal, Op: key),
-            inline: static (state, mode) => state.Op.Need(mode.Sink)
+            inline: static (state, arm) => state.Op.Need(arm.Sink)
                 .Map(_ => new Emission(
-                    delivery: mode,
+                    delivery: arm,
                     journal: state.Journal,
                     channel: Option<Channel<DocEvent>>.None,
-                    idle: Option<IdlePump>.None)),
-            deferred: static (state, mode) => state.Op.Need(mode.Sink)
-                .Bind(_ => IdlePump.Open(journal: state.Journal))
+                    idle: Option<IdlePump<EventOrigin>>.None)),
+            deferred: static (state, arm) => state.Op.Need(arm.Sink)
+                // The pump's loss callback posts the WATCH's own rows, so the generic pump stays journal-free.
+                .Bind(_ => IdlePump<EventOrigin>.Open(
+                    capacity: Dimension.Create(value: state.Journal.Policy.DeferredCapacity),
+                    lost: (loss, origin) => ignore(state.Journal.Post(
+                        slot: loss == PumpLoss.Overflow ? StreamSlot.DeferredOverflow : StreamSlot.Cancelled,
+                        body: new StreamBody.Dropped(Origin: origin))),
+                    key: state.Op))
                 .Map(pump => new Emission(
-                    delivery: mode,
+                    delivery: arm,
                     journal: state.Journal,
                     channel: Option<Channel<DocEvent>>.None,
                     idle: Some(pump))),
-            paced: static (state, mode) => state.Op.Need(mode.Lane).Bind(lane =>
+            paced: static (state, arm) => state.Op.Need(arm.Lane).Bind(lane =>
                 state.Op.Catch(() => {
                     Channel<DocEvent> opened = lane.Open(
                         policy: state.Journal.Policy,
-                        lost: (loss, fact) => ignore(state.Journal.Post(new StreamReceipt.PacedLoss(
-                            Watch: state.Journal.Watch,
-                            Lane: lane,
-                            Loss: loss,
-                            Origin: fact.Origin))));
+                        lost: (loss, fact) => ignore(state.Journal.Post(
+                            slot: StreamSlot.PacedLoss,
+                            body: new StreamBody.Shed(Lane: lane, Loss: loss, Origin: fact.Origin))));
                     return Fin.Succ(value: new Emission(
-                        delivery: mode,
+                        delivery: arm,
                         journal: state.Journal,
                         channel: Some(opened),
-                        idle: Option<IdlePump>.None));
+                        idle: Option<IdlePump<EventOrigin>>.None));
                 }))));
 
     internal Fin<Unit> Emit(DocEvent fact) =>
         !IsActive
-            ? Fin.Succ(value: journal.Post(new StreamReceipt.Cancelled(Watch: journal.Watch, Origin: fact.Origin)))
+            ? Fin.Succ(value: journal.Post(slot: StreamSlot.Cancelled, body: new StreamBody.Dropped(Origin: fact.Origin)))
             : delivery.Switch(
                     (Owner: this, Fact: fact),
-                    inline: static (state, mode) => state.Owner.gate.Guarded(
-                        journal: state.Owner.journal, origin: state.Fact.Origin, run: () => mode.Sink(arg: state.Fact)),
+                    inline: static (state, mode) => state.Owner.Delivered(fact: state.Fact, run: () => mode.Sink(arg: state.Fact)),
                     deferred: static (state, mode) => state.Owner.idle
-                        .ToFin(Op.Of(name: nameof(Emission)).InvalidResult())
+                        .ToFin(EmitKey.InvalidResult())
                         .Bind(pump => pump.Enqueue(
-                            origin: state.Fact.Origin,
+                            tag: state.Fact.Origin,
                             alive: () => state.Owner.IsActive,
-                            run: () => state.Owner.gate.Guarded(
-                                journal: state.Owner.journal, origin: state.Fact.Origin, run: () => mode.Sink(arg: state.Fact)))),
-                    paced: static (state, mode) => state.Owner.channel
-                        .ToFin(Op.Of(name: nameof(Emission)).InvalidResult())
+                            run: () => state.Owner.Delivered(fact: state.Fact, run: () => mode.Sink(arg: state.Fact)))),
+                    paced: static (state, _) => state.Owner.channel
+                        .ToFin(EmitKey.InvalidResult())
                         .Map(opened => opened.Writer.TryWrite(item: state.Fact)
                             ? unit
-                            : state.Owner.journal.Post(new StreamReceipt.Cancelled(
-                                Watch: state.Owner.journal.Watch, Origin: state.Fact.Origin))));
+                            : state.Owner.journal.Post(
+                                slot: StreamSlot.Cancelled,
+                                body: new StreamBody.Dropped(Origin: state.Fact.Origin))));
 
-    internal void Cancel() => Interlocked.Exchange(location1: ref active, value: 0);
+    // The guard answers a VERDICT and this owner records it: absence posts the suppression, a failed run posts
+    // the sink fault — the guard itself stays journal-free so every composer records its own shape.
+    private Fin<Unit> Delivered(DocEvent fact, Func<Fin<Unit>> run) => gate.Guarded(key: EmitKey, run: run).Match(
+        Some: outcome => outcome.MapFail(cause => {
+            _ = journal.Post(slot: StreamSlot.SinkFault, body: new StreamBody.Faulted(Origin: Some(fact.Origin), Cause: cause));
+            return cause;
+        }),
+        None: () => Fin.Succ(value: journal.Post(slot: StreamSlot.Reentrant, body: new StreamBody.Dropped(Origin: fact.Origin))));
+
+    internal void Cancel() => ignore(active.Swap(static _ => false));
 
     internal SubscriptionRelease Complete() {
         SubscriptionRelease release = idle.Match(
@@ -1149,7 +1304,9 @@ internal sealed class Emission {
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 public static class DocumentStream {
-    private static long sequence;
+    // A monotone counter is a total step: the swap returns the value THIS call installed, so the mint reads its
+    // own ordinal and no interlocked spelling survives beside the folder's one cell vocabulary.
+    private static readonly Atom<long> Sequence = Atom(0L);
 
     public static Fin<Watch> Observe(Observation request) {
         Op op = Op.Of();
@@ -1165,7 +1322,7 @@ public static class DocumentStream {
     private static Fin<Watch> ObserveCommit(Observation.Commit request, Op key) =>
         from scope in key.Need(request.Scope)
         from delivery in key.Need(request.Delivery)
-        from _ in guard(delivery is Delivery.Inline, key.Unsupported(geometryType: typeof(Observation.Commit), outputType: typeof(Delivery))).ToFin()
+        from _ in guard(delivery is Delivery.Inline, key.Unsupported(inputType: typeof(Observation.Commit), outputType: typeof(Delivery))).ToFin()
         from watch in Mount(
             delivery: delivery,
             policy: request.Receipts,
@@ -1195,9 +1352,8 @@ public static class DocumentStream {
             .As()
             .Map(static named => named.Distinct())
             .Bind(named => named.IsEmpty ? Fin.Fail<Seq<EventFamily>>(error: key.InvalidInput()) : Fin.Succ(value: named))
-        from _ in families.TraverseM(family => family.Cadence.Admits(delivery: delivery)
-            ? Fin.Succ(value: unit)
-            : Fin.Fail<Unit>(error: key.Unsupported(geometryType: typeof(EventFamily), outputType: typeof(Delivery)))).As()
+        // The cadence row carries its own refusal, so the admission is one rail and the fault names the family.
+        from _ in families.TraverseM(family => family.Cadence.Admits(delivery: delivery, family: family, key: key)).As()
         from watch in Mount(
             delivery: delivery,
             policy: request.Receipts,
@@ -1212,7 +1368,7 @@ public static class DocumentStream {
         Op key) =>
         from bounds in key.Need(policy)
         let journal = new ReceiptJournal(
-            watch: WatchKey.Create(value: Interlocked.Increment(location: ref sequence)),
+            watch: WatchKey.Create(value: Sequence.Swap(static held => held + 1L)),
             policy: bounds)
         from emission in Emission.Open(delivery: delivery, journal: journal, key: key)
         from subscription in attach(emission, journal)
@@ -1232,10 +1388,11 @@ public static class DocumentStream {
         Subscription.AttachAll(families.Map(family => (Func<Fin<Subscription>>)(() => family.Bind(
             scope: scope,
             journal: journal,
-            deliver: envelope => emission.Emit(fact: new DocEvent(
-                Origin: new EventOrigin.Host(Family: family), Key: envelope.Key, Payload: envelope.Payload)),
-            reject: error => ignore(journal.Post(new StreamReceipt.CallbackFault(
-                Watch: journal.Watch, Origin: new EventOrigin.Host(Family: family), Detail: error.Message)))))));
+            deliver: (key, payload) => emission.Emit(fact: new DocEvent(
+                Origin: new EventOrigin.Host(Family: family), Key: key, Payload: payload)),
+            reject: error => ignore(journal.Post(
+                slot: StreamSlot.CallbackFault,
+                body: new StreamBody.Faulted(Origin: Some<EventOrigin>(new EventOrigin.Host(Family: family)), Cause: error)))))));
 
     private static Fin<Watch> ObserveFile(Observation.File request, Op key) =>
         from path in key.AcceptText(value: request.Path)
@@ -1275,7 +1432,7 @@ public static class DocumentStream {
                     FileBatch pending = new(Edges: Seq<FileEdge>(), Overflow: 0);
                     _ = batch.Swap(current => (pending = current, new FileBatch(Edges: Seq<FileEdge>(), Overflow: 0)).Item2);
                     _ = pending.Overflow > 0
-                        ? journal.Post(new StreamReceipt.FileOverflow(Watch: journal.Watch, WatchedPath: fullPath))
+                        ? journal.Post(slot: StreamSlot.FileOverflow, body: new StreamBody.FileTrouble(WatchedPath: fullPath, Cause: None))
                         : unit;
                     return pending.Edges.IsEmpty
                         ? Fin.Succ(value: unit)
@@ -1301,10 +1458,9 @@ public static class DocumentStream {
                 }
                 Fin<Unit> CaptureOverflow(Exception failure) {
                     _ = batch.Swap(current => current with { Overflow = checked(current.Overflow + 1) });
-                    _ = journal.Post(new StreamReceipt.FileFault(
-                        Watch: journal.Watch,
-                        WatchedPath: fullPath,
-                        Detail: failure.Message.Length is 0 ? failure.GetType().FullName ?? failure.GetType().Name : failure.Message));
+                    _ = journal.Post(
+                        slot: StreamSlot.FileFault,
+                        body: new StreamBody.FileTrouble(WatchedPath: fullPath, Cause: Some(Error.New(failure.Message, failure))));
                     return Schedule();
                 }
                 Fin<Unit> Capture(FileSystemEventArgs args) =>
@@ -1312,7 +1468,7 @@ public static class DocumentStream {
                     from _ in Capture(new FileEdge(Kind: kind, Path: args.FullPath, PreviousPath: Option<string>.None))
                     select unit;
                 Fin<Unit> Logged(Fin<Unit> outcome) => outcome.MapFail(error => {
-                    _ = journal.Post(new StreamReceipt.SinkFault(Watch: journal.Watch, Origin: origin, Detail: error.Message));
+                    _ = journal.Post(slot: StreamSlot.SinkFault, body: new StreamBody.Faulted(Origin: Some(origin), Cause: error));
                     return error;
                 });
                 FileSystemEventHandler change = (_, args) => ignore(Logged(outcome: Capture(args)));
@@ -1348,452 +1504,37 @@ public static class DocumentStream {
                             release: () => createdWatcher.EnableRaisingEvents = false)))
                     .Map(owner.Combine)
                     .MapFail(owner.Rollback);
-            } catch {
-                timer?.Dispose();
-                watcher?.Dispose();
-                throw;
+            } catch (Exception failure) {
+                Error primary = Error.New(failure.Message, failure);
+                return Fin.Fail<Subscription>(error: primary).Rollback(
+                    release: () => Custody.Release(
+                        releases: Seq<Func<Fin<Unit>>>(
+                            () => Optional(timer).Match(
+                                Some: live => key.Catch(() => { live.Dispose(); return Fin.Succ(unit); }),
+                                None: static () => Fin.Succ(unit)),
+                            () => Optional(watcher).Match(
+                                Some: live => key.Catch(() => { live.Dispose(); return Fin.Succ(unit); }),
+                                None: static () => Fin.Succ(unit))),
+                        key: key),
+                    key: key);
             }
         });
 
     private readonly record struct FileBatch(Seq<FileEdge> Edges, long Overflow);
 }
-
-// Package-wide bounded-lifecycle capsule: one claims/close/retry machine every boundary lease composes.
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-internal abstract partial record LeaseState {
-    private LeaseState() { }
-    internal sealed record Open(int Claims) : LeaseState;
-    internal sealed record Closing(int Claims, Guid Token, TaskCompletionSource<Unit> Quiesced, TaskCompletionSource<Fin<Unit>> Completed) : LeaseState;
-    internal sealed record Retryable(int Claims) : LeaseState;
-    internal sealed record Closed : LeaseState;
-}
-
-internal sealed class LifecycleGate {
-    private readonly Atom<LeaseState> state = Atom<LeaseState>(new LeaseState.Open(Claims: 0));
-    // A claim runs to completion on the thread that took it, so a close issued from a thread already inside a claim would
-    // wait on its own release forever. The claiming-thread set is the structural refusal for that re-entrancy, and it is
-    // what keeps a bounded blocking close safe on the host callback thread.
-    private readonly Atom<Set<int>> claiming = Atom(Set<int>());
-    private readonly TimeSpan settleWithin;
-    private LifecycleGate(TimeSpan settleWithin) => this.settleWithin = settleWithin;
-    internal static Fin<LifecycleGate> Of(TimeSpan settleWithin, Op key) =>
-        guard(settleWithin > TimeSpan.Zero, key.InvalidInput()).ToFin().Map(_ => new LifecycleGate(settleWithin));
-
-    internal Fin<T> Within<T>(Func<Fin<T>> body, Func<Fin<T>> refused, Op key) =>
-        TryClaim() ? Settle(Marked(body, key)) : key.Catch(refused);
-
-    // The drain is bounded but still BLOCKING, so it never rides the closing caller's thread: `Begin` arms the close,
-    // runs `stop` on the caller's own rail so a marshalled arm keeps its seam, and hands back the completion — a host
-    // UI-thread owner settles that completion off-thread, because blocking there stalls the very callbacks the drain
-    // waits to see released. `Close` is the blocking convenience a pool caller takes over the same one-owner close.
-    internal Fin<Unit> Close(Func<Fin<Unit>> stop, Func<Fin<Unit>> settle, Op key) =>
-        Begin(stop, settle, key).Bind(completion => Await(completion, key)).Bind(static outcome => outcome);
-
-    internal Fin<Task<Fin<Unit>>> Begin(Func<Fin<Unit>> stop, Func<Fin<Unit>> settle, Op key) {
-        if (claiming.Value.Contains(Environment.CurrentManagedThreadId)) { return Fin.Fail<Task<Fin<Unit>>>(key.InvalidContext()); }
-        Guid token = Guid.NewGuid();
-        TaskCompletionSource<Unit> quiesced = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        TaskCompletionSource<Fin<Unit>> completed = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        LeaseState next = state.Swap(current => current.Switch(
-            (Token: token, Quiesced: quiesced, Completed: completed),
-            open: static (ctx, row) => (LeaseState)new LeaseState.Closing(row.Claims, ctx.Token, ctx.Quiesced, ctx.Completed),
-            closing: static (_, row) => row,
-            retryable: static (ctx, row) => new LeaseState.Closing(row.Claims, ctx.Token, ctx.Quiesced, ctx.Completed),
-            closed: static (_, row) => row));
-        return next.Switch(
-            (Gate: this, Token: token, Stop: stop, Settle: settle, Key: key),
-            open: static (ctx, _) => Fin.Fail<Task<Fin<Unit>>>(ctx.Key.InvalidContext()),
-            closing: static (ctx, row) => Fin.Succ(row.Token == ctx.Token
-                ? ctx.Gate.Drain(row, ctx.Stop, ctx.Settle, ctx.Key)
-                : row.Completed.Task),
-            retryable: static (ctx, _) => Fin.Fail<Task<Fin<Unit>>>(ctx.Key.InvalidContext()),
-            closed: static (_, _) => Fin.Succ(Task.FromResult(Fin.Succ(unit))));
-    }
-
-    private bool TryClaim() => state.Swap(current => current.Switch(
-        open: static row => (LeaseState)new LeaseState.Open(row.Claims + 1),
-        closing: static row => row,
-        retryable: static row => row,
-        closed: static row => row)).Switch(
-            open: static _ => true,
-            closing: static _ => false,
-            retryable: static _ => false,
-            closed: static _ => false);
-
-    private Fin<T> Marked<T>(Func<Fin<T>> body, Op key) {
-        int thread = Environment.CurrentManagedThreadId;
-        _ = claiming.Swap(rows => rows.Add(thread));
-        try { return key.Catch(body); }
-        finally { _ = claiming.Swap(rows => rows.Remove(thread)); }
-    }
-
-    private Fin<T> Settle<T>(Fin<T> outcome) => outcome.BiBind(
-        Succ: value => (Release(), Fin.Succ(value)).Item2,
-        Fail: failure => (Release(), Fin.Fail<T>(failure)).Item2);
-
-    private Unit Release() => state.Swap(current => current.Switch(
-        open: static row => (LeaseState)new LeaseState.Open(row.Claims - 1),
-        closing: static row => new LeaseState.Closing(row.Claims - 1, row.Token, row.Quiesced, row.Completed),
-        retryable: static row => new LeaseState.Retryable(row.Claims - 1),
-        closed: static row => row)).Switch(
-            open: static _ => unit,
-            closing: static row => Op.SideWhen(row.Claims == 0, () => row.Quiesced.TrySetResult(unit)),
-            retryable: static _ => unit,
-            closed: static _ => unit);
-
-    // The owning close alone drives the drain, and it drives it as a SCHEDULER continuation: `stop` runs inline on the
-    // caller's rail, then the bounded wait and the settle ride the pool. A gate whose claims are already zero completes
-    // its own quiesce signal here rather than branching, so both paths reach one conclusion member.
-    private Task<Fin<Unit>> Drain(LeaseState.Closing row, Func<Fin<Unit>> stop, Func<Fin<Unit>> settle, Op key) {
-        Fin<Unit> stopped = key.Catch(stop);
-        _ = Op.SideWhen(row.Claims == 0, () => ignore(row.Quiesced.TrySetResult(unit)));
-        return row.Quiesced.Task.WaitAsync(settleWithin).ContinueWith(
-            drained => Conclude(
-                row,
-                stopped,
-                drained.Status == TaskStatus.RanToCompletion ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidContext()),
-                settle,
-                key),
-            CancellationToken.None,
-            TaskContinuationOptions.RunContinuationsAsynchronously,
-            TaskScheduler.Default);
-    }
-
-    private Fin<Unit> Conclude(LeaseState.Closing row, Fin<Unit> stopped, Fin<Unit> drained, Func<Fin<Unit>> settle, Op key) {
-        Fin<Unit> settled = drained.Match(
-            Succ: _ => key.Catch(settle),
-            Fail: static _ => Fin.Succ(unit));
-        Seq<Error> trouble = Seq(
-                stopped,
-                drained,
-                settled)
-            .Choose(static step => step.Match(
-                Succ: static _ => Option<Error>.None,
-                Fail: static failure => Some(failure)));
-        Fin<Unit> outcome = trouble.IsEmpty
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(trouble.Fold(Errors.None, static (folded, failure) => folded + failure));
-        _ = state.Swap(current => current.Switch(
-            open: static value => (LeaseState)value,
-            closing: value => value.Token == row.Token
-                ? trouble.IsEmpty ? new LeaseState.Closed() : new LeaseState.Retryable(value.Claims)
-                : value,
-            retryable: static value => value,
-            closed: static value => value));
-        _ = row.Completed.TrySetResult(outcome);
-        return outcome;
-    }
-
-    private Fin<T> Await<T>(Task<T> signal, Op key) => key.Catch(() =>
-        signal.Wait(settleWithin) ? Fin.Succ(signal.Result) : Fin.Fail<T>(key.InvalidContext()));
-}
-
-// --- [COMPOSITION] ------------------------------------------------------------------------
-public sealed class Subscription : IDisposable {
-    private readonly Lock gate = new();
-    private SubscriptionClosure closure;
-
-    private Subscription(Seq<Action> detach) =>
-        closure = new SubscriptionClosure.Ready(Pending: detach, Release: new SubscriptionRelease.Open());
-
-    public SubscriptionRelease Release {
-        get {
-            Task<SubscriptionRelease>? waiting;
-            lock (gate) {
-                if (closure is SubscriptionClosure.Ready ready) {
-                    return ready.Release;
-                }
-                waiting = ((SubscriptionClosure.Closing)closure).Settled;
-            }
-            return SubscriptionRelease.Join(waiting);
-        }
-    }
-
-    internal static Subscription Of(Action detach) {
-        ArgumentNullException.ThrowIfNull(detach);
-        return new(detach: Seq(detach));
-    }
-
-    public static Fin<Subscription> Attach<THandler>(Action<THandler> subscribe, Action<THandler> unsubscribe, THandler handler)
-        where THandler : Delegate {
-        Op key = Op.Of(name: nameof(Subscription));
-        return key.Catch(() => { subscribe(obj: handler); return Fin.Succ(value: Of(detach: () => unsubscribe(obj: handler))); })
-            .MapFail(error => key.Catch(() => { unsubscribe(obj: handler); return Fin.Succ(value: unit); }).Match(
-                Succ: _ => error,
-                Fail: cleanup => error + cleanup));
-    }
-
-    public static Fin<Subscription> Acquire(Action acquire, Action release) {
-        ArgumentNullException.ThrowIfNull(acquire);
-        ArgumentNullException.ThrowIfNull(release);
-        Op key = Op.Of(name: nameof(Subscription));
-        return key.Catch(() => { acquire(); return Fin.Succ(value: Of(detach: release)); })
-            .MapFail(error => key.Catch(() => { release(); return Fin.Succ(value: unit); }).Match(
-                Succ: _ => error,
-                Fail: cleanup => error + cleanup));
-    }
-
-    public static Fin<Subscription> AttachAll(Seq<Func<Fin<Subscription>>> attach) =>
-        attach.Fold(
-            Fin.Succ(value: new Subscription(detach: Seq<Action>())),
-            static (rail, start) => rail.Bind(held => start()
-                .Map(held.Combine)
-                .MapFail(held.Rollback)));
-
-    internal Subscription Combine(Subscription other) {
-        ArgumentNullException.ThrowIfNull(other);
-        return new(detach: other.Snapshot().Concat(Snapshot()));
-    }
-
-    public SubscriptionRelease Close() {
-        SubscriptionClosure.Ready? claimed = null;
-        Task<SubscriptionRelease>? waiting = null;
-        TaskCompletionSource<SubscriptionRelease>? flight = null;
-        lock (gate) {
-            if (closure is SubscriptionClosure.Closing closing) {
-                waiting = closing.Settled;
-            } else {
-                claimed = (SubscriptionClosure.Ready)closure;
-                if (claimed.Pending.IsEmpty) {
-                    SubscriptionRelease settled = claimed.Release is SubscriptionRelease.Open
-                        ? new SubscriptionRelease.Released(Attempted: 0)
-                        : claimed.Release;
-                    closure = claimed with { Release = settled };
-                    return settled;
-                }
-                flight = SubscriptionRelease.BeginClose();
-                closure = new SubscriptionClosure.Closing(Settled: flight.Task);
-            }
-        }
-        if (waiting is not null) {
-            return SubscriptionRelease.Join(waiting);
-        }
-        SubscriptionClosure.Ready owner = claimed!;
-        (Seq<Action> Retry, Seq<Error> Errors) outcome = owner.Pending.Fold(
-            (Retry: Seq<Action>(), Errors: Seq<Error>()),
-            static (state, action) => Op.Of(name: nameof(Subscription))
-                .Catch(() => { action(); return Fin.Succ(value: unit); })
-                .Match(
-                    Succ: _ => state,
-                    Fail: error => (
-                        Retry: state.Retry.Add(value: action),
-                        Errors: state.Errors.Add(value: error))));
-        SubscriptionRelease settled = outcome.Errors.IsEmpty
-            ? new SubscriptionRelease.Released(Attempted: owner.Pending.Count)
-            : new SubscriptionRelease.Faulted(Attempted: owner.Pending.Count, Errors: outcome.Errors);
-        lock (gate) {
-            closure = new SubscriptionClosure.Ready(Pending: outcome.Retry, Release: settled);
-            return SubscriptionRelease.Publish(pending: flight!, release: settled);
-        }
-    }
-
-    public void Dispose() => ignore(Close());
-
-    internal Error Rollback(Error primary) => Close() switch {
-        SubscriptionRelease.Faulted faulted => faulted.Errors.Fold(primary, static (error, cleanup) => error + cleanup),
-        SubscriptionRelease.Open or SubscriptionRelease.Released => primary,
-    };
-
-    private Seq<Action> Snapshot() {
-        while (true) {
-            Task<SubscriptionRelease>? waiting;
-            lock (gate) {
-                if (closure is SubscriptionClosure.Ready ready) {
-                    return ready.Pending;
-                }
-                waiting = ((SubscriptionClosure.Closing)closure).Settled;
-            }
-            ignore(SubscriptionRelease.Join(waiting));
-        }
-    }
-
-    private abstract record SubscriptionClosure {
-        private SubscriptionClosure() { }
-
-        internal sealed record Ready(Seq<Action> Pending, SubscriptionRelease Release) : SubscriptionClosure;
-        internal sealed record Closing(Task<SubscriptionRelease> Settled) : SubscriptionClosure;
-    }
-}
-
-[Union]
-public abstract partial record SubscriptionRelease {
-    private SubscriptionRelease() { }
-    public sealed record Open : SubscriptionRelease;
-    public sealed record Released(int Attempted) : SubscriptionRelease;
-    public sealed record Faulted(int Attempted, Seq<Error> Errors) : SubscriptionRelease;
-
-    internal static TaskCompletionSource<SubscriptionRelease> BeginClose() =>
-        new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-    internal static SubscriptionRelease Join(Task<SubscriptionRelease> pending) =>
-        pending.GetAwaiter().GetResult();
-
-    internal static SubscriptionRelease Publish(
-        TaskCompletionSource<SubscriptionRelease> pending,
-        SubscriptionRelease release) {
-        pending.SetResult(release);
-        return release;
-    }
-
-    internal static SubscriptionRelease All(params ReadOnlySpan<SubscriptionRelease> releases) {
-        int attempted = 0;
-        bool open = false;
-        Seq<Error> errors = Seq<Error>();
-        foreach (SubscriptionRelease release in releases) {
-            switch (release) {
-                case Open:
-                    open = true;
-                    break;
-                case Released ready:
-                    attempted = checked(attempted + ready.Attempted);
-                    break;
-                case Faulted faulted:
-                    attempted = checked(attempted + faulted.Attempted);
-                    errors = errors.Concat(faulted.Errors);
-                    break;
-            }
-        }
-        return !errors.IsEmpty
-            ? new Faulted(Attempted: attempted, Errors: errors)
-            : open
-                ? new Open()
-                : new Released(Attempted: attempted);
-    }
-
-    internal static Error AddTo(Error primary, SubscriptionRelease release) => release switch {
-        Faulted faulted => faulted.Errors.Fold(primary, static (error, cleanup) => error + cleanup),
-        Open or Released => primary,
-    };
-}
-
-internal sealed class Reentrancy {
-    private readonly AsyncLocal<int> depth = new();
-
-    internal bool Active => depth.Value > 0;
-
-    internal Fin<Unit> Guarded(ReceiptJournal journal, EventOrigin origin, Func<Fin<Unit>> run) {
-        if (Active) {
-            return Fin.Succ(value: journal.Post(new StreamReceipt.Reentrant(Watch: journal.Watch, Origin: origin)));
-        }
-        depth.Value++;
-        try {
-            return Op.Of(name: nameof(Reentrancy)).Catch(run).MapFail(error => {
-                _ = journal.Post(new StreamReceipt.SinkFault(Watch: journal.Watch, Origin: origin, Detail: error.Message));
-                return error;
-            });
-        } finally {
-            depth.Value--;
-        }
-    }
-}
-
-internal sealed class IdlePump : IDisposable {
-    private static long sequence;
-    private readonly Lock gate = new();
-    private readonly ReceiptJournal journal;
-    private DeferredStage stage = new DeferredStage.Open(Pending: Seq<DeferredWork>());
-    private Subscription? subscription;
-
-    private IdlePump(ReceiptJournal journal) => this.journal = journal;
-
-    internal static Fin<IdlePump> Open(ReceiptJournal journal) {
-        IdlePump pump = new(journal: journal);
-        return Subscription.Attach<EventHandler>(
-                subscribe: handler => RhinoApp.Idle += handler,
-                unsubscribe: handler => RhinoApp.Idle -= handler,
-                handler: pump.OnIdle)
-            .Map(attached => {
-                pump.subscription = attached;
-                return pump;
-            });
-    }
-
-    internal Fin<Unit> Enqueue(
-        EventOrigin origin,
-        Func<bool> alive,
-        Func<Fin<Unit>> run) {
-        DeferredWork work = new(
-            Id: Interlocked.Increment(ref sequence),
-            Origin: origin,
-            Alive: alive,
-            Run: run);
-        (bool Open, bool Accepted) admission;
-        lock (gate) {
-            if (stage is DeferredStage.Open open && open.Pending.Count < journal.Policy.DeferredCapacity) {
-                stage = new DeferredStage.Open(Pending: open.Pending.Add(value: work));
-                admission = (Open: true, Accepted: true);
-            } else {
-                admission = (Open: stage is DeferredStage.Open, Accepted: false);
-            }
-        }
-        return Fin.Succ(value: admission switch {
-            { Accepted: true } => unit,
-            { Open: true } => journal.Post(new StreamReceipt.DeferredOverflow(Watch: journal.Watch, Origin: origin)),
-            _ => journal.Post(new StreamReceipt.Cancelled(Watch: journal.Watch, Origin: origin)),
-        });
-    }
-
-    internal SubscriptionRelease Close() {
-        Seq<DeferredWork> pending;
-        Subscription? claimed;
-        lock (gate) {
-            pending = stage is DeferredStage.Open open ? open.Pending : Seq<DeferredWork>();
-            stage = new DeferredStage.Closed();
-            claimed = subscription;
-        }
-        ignore(pending.Iter(work => ignore(journal.Post(new StreamReceipt.Cancelled(
-            Watch: journal.Watch,
-            Origin: work.Origin)))));
-        SubscriptionRelease release = claimed?.Close() ?? new SubscriptionRelease.Released(Attempted: 0);
-        lock (gate) {
-            if (release is not SubscriptionRelease.Faulted && ReferenceEquals(subscription, claimed)) {
-                subscription = null;
-            }
-        }
-        return release;
-    }
-
-    public void Dispose() => ignore(Close());
-
-    private void OnIdle(object? _, EventArgs __) => Drain();
-
-    private void Drain() {
-        Seq<DeferredWork> pending;
-        lock (gate) {
-            pending = stage is DeferredStage.Open open ? open.Pending : Seq<DeferredWork>();
-            stage = stage is DeferredStage.Open ? new DeferredStage.Open(Pending: Seq<DeferredWork>()) : stage;
-        }
-        ignore(pending.Iter(work => ignore(work.Alive()
-            ? Op.Of(name: nameof(IdlePump)).Catch(work.Run)
-            : Fin.Succ(value: journal.Post(new StreamReceipt.Cancelled(
-                Watch: journal.Watch,
-                Origin: work.Origin))))));
-    }
-
-    [Union]
-    private abstract partial record DeferredStage {
-        private DeferredStage() { }
-        internal sealed record Open(Seq<DeferredWork> Pending) : DeferredStage;
-        internal sealed record Closed : DeferredStage;
-    }
-
-    private readonly record struct DeferredWork(
-        long Id,
-        EventOrigin Origin,
-        Func<bool> Alive,
-        Func<Fin<Unit>> Run);
-}
 ```
 
 ## [06]-[HOOK_REGISTRY]
 
-- Owner: `RhinoPoint` is the closed boundary-wide point vocabulary addressed `rasm.rhino.<domain>.<point>`, its rows ruled by the kernel `HookModality` vocabulary; `HookMount` carries one owner-registered binding as data; `MountRegistry` owns name-addressed discovery, first-mount-wins custody, and typed grant binding — a different concern than the kernel's composition-frozen point mount, so it carries its own name; `PluginKey` is the plugin identity every process-global claim keys on.
-- Law: a point name resolves in one hop — a consumer binds `MountRegistry.Bind` on the point key and receives the owning stream's own grant (a `Watch`, `PointerLease`, `WidgetHost`, `Subscription`, or `ContentStream`), so no consumer learns a per-domain stream API and no second delivery path forms beside the owner's bounded lanes.
-- Law: modality is host truth, never a registry promise — a `Veto` row exists only where the host callback admits refusal, the veto-truth census citing the exact host member; every other point is post-hoc `Observe`, and `Replay` marks only a point whose owner retains a readable latest-value ledger.
-- Law: mount custody is one SEATED BINDING per point with keyed riders — the first mount seats the owning page's binding and registers its plugin as the first rider, every later plugin rides the same seat as a keyed subscriber, and the machinery beneath (the `ObjectsTelemetry` keyed-sink fan, the `HostTap` rider handoff, the per-plugin `Watch`) serves each rider its own grant at `Bind`; a DIVERGENT binding — different ask or grant type against a live seat — faults typed because two machineries under one point fork discovery, a same-plugin duplicate rider faults typed, each detacher retires exactly its own rider, and the seat frees when the last rider leaves; `MountAll` releases an admitted prefix when any later row refuses, scoped to the rolling-back plugin's riders alone.
+- Owner: `RhinoPoint` is the closed boundary-wide point vocabulary addressed `rasm.rhino.<domain>.<point>`, realizing the kernel `IHookRoster<RhinoPoint>` so its rows ride the kernel modality capability set, its `HookId`, and its trace plane; `MountRegistry` owns name-addressed discovery, first-mount-wins custody, and multi-plugin arbitration OVER the kernel `HookMounts<RhinoPoint, PluginKey>` — a different concern than the kernel's composition-frozen point mount, so it carries its own name and composes the kernel seat table beneath; `PluginKey` is the plugin identity every process-global claim keys on.
+- Law: a point name resolves in one hop — a consumer binds `MountRegistry.Bind` on the point and receives the owning stream's own grant (a `Watch`, `PointerLease`, `WidgetHost`, `Subscription`, or `ContentStream`) through the kernel's TYPED bind, so no consumer learns a per-domain stream API, no second delivery path forms beside the owner's bounded lanes, and no `object`/`Type` cast survives on the resolve path.
+- Law: modality is host truth carried on the roster row's kernel capability set — a `Veto` row exists only where the host callback admits refusal, the veto-truth census citing the exact host member; every other point is post-hoc `Observe`, and `Replay` marks only a point whose owner retains a readable latest-value ledger. Modality ADMISSION is the kernel's: the rail's own `Veto` and `Observe` gates read the modality columns, so the registry carries no second gate and a binding carries no modality to check.
+- Law: mount custody is one SEATED BINDING per point with keyed riders — the first mount seats the owning page's TYPED binding into the kernel seat table and registers its plugin as the first rider, every later plugin rides the same seat as a keyed subscriber, and the machinery beneath (the `ObjectsTelemetry` keyed-sink fan, the `HostTap` rider handoff, the per-plugin `Watch`) serves each rider its own grant at `Bind`. A DIVERGENT binding — a different ask or grant type against a live seat — faults `DocumentFault.SeatDiverged` because two machineries under one point fork discovery, a same-plugin duplicate rider faults `DocumentFault.RiderDuplicate`, each detacher retires exactly its own rider, and the seat frees when the last rider leaves; the type-token pair on the seat is arbitration DATA compared for divergence, never a dispatch a consumer casts through.
+- Law: seat custody rides the kernel cell vocabulary — the claim is `Cell.Claim` whose verdict rides the transition, a rider joins through a snapshot-guarded `Cell.Step`, and the surplus kernel mount a ceded claim staged releases on the losing arm; no stored verdict cell exists to go stale.
+- Law: `MountAll` releases an admitted prefix when any later row refuses, through the one `Rollback` rail — every disposer runs, reverse order, cleanup faults aggregating into the primary.
 - Law: telemetry is a tap — the `rasm.rhino.objects.fault` point binds onto the `ObjectsTelemetry` keyed-sink fan, and the `rasm.rhino.host.exception`/`rasm.rhino.host.log` points bind the `HostUtils.OnExceptionReport` and `HostUtils.OnSendLogMessageToCloud` statics onto the same fan through the `HostTap.Mount` seat, so observability subscribes to domain facts and no emit call rides inside domain code.
 - Law: process-global custody is a closed census — every collision surface carries its collision class and arbitration row below, and a new process-global surface is one census row with its arbitration named before any fence composes it.
-- Growth: a new fact stream is one `RhinoPoint` row with its `HookMount` registration on its owning page; a new plugin-visible custody surface is one census row.
+- Growth: a new fact stream is one `RhinoPoint` row with its typed `HookBinding` registration on its owning page; a new plugin-visible custody surface is one census row.
 
 Document point census — every band rides the one stream owner:
 
@@ -1848,7 +1589,7 @@ Process-global custody census — collision class, arbitration, and seat cardina
 |  [03]   | `HostUtils` exception / cloud-log statics  | duplicate mounts double-publish      | `HostTap.Mount`; first mount, later ride | single  |
 |  [04]   | `ObjectsTelemetry` sink                    | replacement shadows a prior plugin   | `PluginKey` rows; teardown per caller    | fan     |
 |  [05]   | `HostUtils.RegisterNamedCallback`          | re-register replaces the handler     | `PluginKey` claim tokens, keyed per name | single  |
-|  [06]   | `Panels.RegisterPanel` / page registration | host isolates; a ledger would cross  | host-native seats; `PluginKey` ledger    | host    |
+|  [06]   | `Panels.RegisterPanel` / page registration | host isolates; a ledger crosses      | host-native seats; `PluginKey` ledger    | host    |
 |  [07]   | `CustomObjectGrips.RegisterGripsEnabler`   | re-register replaces per grips guid  | one enabler per `[Guid]` grips type      | host    |
 |  [08]   | `AssemblyResolver` search mutations        | additive process list, unremovable   | rows via `HostAssemblies.Extend`         | fan     |
 |  [09]   | `AppSettings.Commit` static families       | last-writer-wins process mutation    | `AppSettings.Mount` writer seat          | single  |
@@ -1873,133 +1614,158 @@ public readonly partial struct PluginKey {
     }
 }
 
-// Modality rows are the kernel HookModality vocabulary; a point may admit more than one row.
+// The roster realizes the kernel floor whole: the modality column is the kernel capability set — the membership
+// probe arrives with it, so no local `Admits` re-answers one question — the `HookId` and the trace plane derive
+// from the key through accessor-backed indexes, and the plane is the key's own `rasm.rhino.<domain>` prefix.
 [SmartEnum<string>]
-public sealed partial class RhinoPoint {
-    public static readonly RhinoPoint DocumentLifecycle = new(key: "rasm.rhino.document.lifecycle", modalities: Seq(HookModality.Observe));
-    public static readonly RhinoPoint DocumentStructure = new(key: "rasm.rhino.document.structure", modalities: Seq(HookModality.Observe));
-    public static readonly RhinoPoint DocumentSelection = new(key: "rasm.rhino.document.selection", modalities: Seq(HookModality.Observe));
-    public static readonly RhinoPoint DocumentTables = new(key: "rasm.rhino.document.tables", modalities: Seq(HookModality.Observe));
-    public static readonly RhinoPoint DocumentScreen = new(key: "rasm.rhino.document.screen", modalities: Seq(HookModality.Observe));
-    public static readonly RhinoPoint DocumentDraw = new(key: "rasm.rhino.document.draw", modalities: Seq(HookModality.Observe));
-    public static readonly RhinoPoint DocumentPanels = new(key: "rasm.rhino.document.panels", modalities: Seq(HookModality.Observe));
-    public static readonly RhinoPoint DocumentFile = new(key: "rasm.rhino.document.file", modalities: Seq(HookModality.Observe));
-    public static readonly RhinoPoint DisplayPointer = new(key: "rasm.rhino.display.pointer", modalities: Seq(HookModality.Observe, HookModality.Veto));
-    public static readonly RhinoPoint DisplayWidget = new(key: "rasm.rhino.display.widget", modalities: Seq(HookModality.Observe));
-    public static readonly RhinoPoint DisplayCull = new(key: "rasm.rhino.display.cull", modalities: Seq(HookModality.Veto));
-    public static readonly RhinoPoint DisplayDrawObject = new(key: "rasm.rhino.display.drawobject", modalities: Seq(HookModality.Veto));
-    public static readonly RhinoPoint ObjectsViewable = new(key: "rasm.rhino.objects.viewable", modalities: Seq(HookModality.Veto));
-    public static readonly RhinoPoint ObjectsPick = new(key: "rasm.rhino.objects.pick", modalities: Seq(HookModality.Veto));
-    public static readonly RhinoPoint ObjectsRegrow = new(key: "rasm.rhino.objects.regrow", modalities: Seq(HookModality.Veto));
-    public static readonly RhinoPoint ObjectsFault = new(key: "rasm.rhino.objects.fault", modalities: Seq(HookModality.Observe));
-    public static readonly RhinoPoint HostException = new(key: "rasm.rhino.host.exception", modalities: Seq(HookModality.Observe));
-    public static readonly RhinoPoint HostCloudLog = new(key: "rasm.rhino.host.log", modalities: Seq(HookModality.Observe));
-    public static readonly RhinoPoint HostUiPanel = new(key: "rasm.rhino.hostui.panel", modalities: Seq(HookModality.Observe, HookModality.Replay));
-    public static readonly RhinoPoint HostUiSkin = new(key: "rasm.rhino.hostui.skin", modalities: Seq(HookModality.Observe));
-    public static readonly RhinoPoint RenderContent = new(key: "rasm.rhino.render.content", modalities: Seq(HookModality.Observe));
+public sealed partial class RhinoPoint : IHookRoster<RhinoPoint> {
+    public static readonly RhinoPoint DocumentLifecycle = new(key: "rasm.rhino.document.lifecycle", modalities: CapabilitySet<HookModality>.Of(HookModality.Observe));
+    public static readonly RhinoPoint DocumentStructure = new(key: "rasm.rhino.document.structure", modalities: CapabilitySet<HookModality>.Of(HookModality.Observe));
+    public static readonly RhinoPoint DocumentSelection = new(key: "rasm.rhino.document.selection", modalities: CapabilitySet<HookModality>.Of(HookModality.Observe));
+    public static readonly RhinoPoint DocumentTables = new(key: "rasm.rhino.document.tables", modalities: CapabilitySet<HookModality>.Of(HookModality.Observe));
+    public static readonly RhinoPoint DocumentScreen = new(key: "rasm.rhino.document.screen", modalities: CapabilitySet<HookModality>.Of(HookModality.Observe));
+    public static readonly RhinoPoint DocumentDraw = new(key: "rasm.rhino.document.draw", modalities: CapabilitySet<HookModality>.Of(HookModality.Observe));
+    public static readonly RhinoPoint DocumentPanels = new(key: "rasm.rhino.document.panels", modalities: CapabilitySet<HookModality>.Of(HookModality.Observe));
+    public static readonly RhinoPoint DocumentFile = new(key: "rasm.rhino.document.file", modalities: CapabilitySet<HookModality>.Of(HookModality.Observe));
+    public static readonly RhinoPoint DisplayPointer = new(key: "rasm.rhino.display.pointer", modalities: CapabilitySet<HookModality>.Of(HookModality.Observe, HookModality.Veto));
+    public static readonly RhinoPoint DisplayWidget = new(key: "rasm.rhino.display.widget", modalities: CapabilitySet<HookModality>.Of(HookModality.Observe));
+    public static readonly RhinoPoint DisplayCull = new(key: "rasm.rhino.display.cull", modalities: CapabilitySet<HookModality>.Of(HookModality.Veto));
+    public static readonly RhinoPoint DisplayDrawObject = new(key: "rasm.rhino.display.drawobject", modalities: CapabilitySet<HookModality>.Of(HookModality.Veto));
+    public static readonly RhinoPoint ObjectsViewable = new(key: "rasm.rhino.objects.viewable", modalities: CapabilitySet<HookModality>.Of(HookModality.Veto));
+    public static readonly RhinoPoint ObjectsPick = new(key: "rasm.rhino.objects.pick", modalities: CapabilitySet<HookModality>.Of(HookModality.Veto));
+    public static readonly RhinoPoint ObjectsRegrow = new(key: "rasm.rhino.objects.regrow", modalities: CapabilitySet<HookModality>.Of(HookModality.Veto));
+    public static readonly RhinoPoint ObjectsFault = new(key: "rasm.rhino.objects.fault", modalities: CapabilitySet<HookModality>.Of(HookModality.Observe));
+    public static readonly RhinoPoint CommandBegin = new(key: "rasm.rhino.command.begin", modalities: CapabilitySet<HookModality>.Of(HookModality.Observe));
+    public static readonly RhinoPoint CommandEnd = new(key: "rasm.rhino.command.end", modalities: CapabilitySet<HookModality>.Of(HookModality.Observe));
+    public static readonly RhinoPoint CommandUndo = new(key: "rasm.rhino.command.undo", modalities: CapabilitySet<HookModality>.Of(HookModality.Observe));
+    public static readonly RhinoPoint CommandPrompt = new(key: "rasm.rhino.command.prompt", modalities: CapabilitySet<HookModality>.Of(HookModality.Observe));
+    public static readonly RhinoPoint CommandEscape = new(key: "rasm.rhino.command.escape", modalities: CapabilitySet<HookModality>.Of(HookModality.Observe));
+    public static readonly RhinoPoint HostException = new(key: "rasm.rhino.host.exception", modalities: CapabilitySet<HookModality>.Of(HookModality.Observe));
+    public static readonly RhinoPoint HostCloudLog = new(key: "rasm.rhino.host.log", modalities: CapabilitySet<HookModality>.Of(HookModality.Observe));
+    public static readonly RhinoPoint HostUiPanel = new(key: "rasm.rhino.hostui.panel", modalities: CapabilitySet<HookModality>.Of(HookModality.Observe, HookModality.Replay));
+    public static readonly RhinoPoint HostUiSkin = new(key: "rasm.rhino.hostui.skin", modalities: CapabilitySet<HookModality>.Of(HookModality.Observe));
+    public static readonly RhinoPoint RenderContent = new(key: "rasm.rhino.render.content", modalities: CapabilitySet<HookModality>.Of(HookModality.Observe));
 
-    public Seq<HookModality> Modalities { get; }
+    public CapabilitySet<HookModality> Modalities { get; }
 
-    public bool Admits(HookModality modality) => Modalities.Contains(modality);
+    public HookId Id => Ids.Value[this];
+
+    // The plane is the key's own first three segments — `rasm.rhino.<domain>` — derived once behind the accessor.
+    public Option<TraceScope> Plane => Some(Planes.Value[this]);
+
+    private static readonly Lazy<FrozenDictionary<RhinoPoint, HookId>> Ids =
+        new(static () => Items.ToFrozenDictionary(static row => row, static row => HookId.Create(value: row.Key)));
+    private static readonly Lazy<FrozenDictionary<RhinoPoint, TraceScope>> Planes =
+        new(static () => Items.ToFrozenDictionary(
+            static row => row,
+            static row => TraceScope.Create(value: string.Join('.', row.Key.Split('.').Take(3)))));
 }
-
-// --- [MODELS] -----------------------------------------------------------------------------
-public sealed record HookMount(
-    RhinoPoint Point,
-    PluginKey Plugin,
-    Type Ask,
-    Type Grant,
-    Func<object, Fin<object>> Bind);
 
 // --- [SERVICES] ---------------------------------------------------------------------------
-// One seated binding per point, keyed riders per plugin: the decision rides in the swapped value — the swap
-// returns the verdict case, so a losing writer never proceeds on a seat it did not win.
-internal sealed record PointSeat(HookMount Binding, HashMap<Guid, Unit> Riders);
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-internal abstract partial record SeatVerdict {
-    private SeatVerdict() { }
-    internal sealed record Seated : SeatVerdict;
-    internal sealed record Riding : SeatVerdict;
-    internal sealed record DuplicateRider : SeatVerdict;
-    internal sealed record DivergentBinding : SeatVerdict;
-}
-
+// Discovery, first-mount-wins custody, and multi-plugin arbitration OVER the kernel seat table: the kernel
+// `HookMounts` holds every TYPED binding and answers every typed bind, this registry holds only custody
+// metadata — the seat owner, the rider map, and the ask/grant TYPE PAIR compared for divergence, never cast.
 public static class MountRegistry {
-    private static readonly Atom<(HashMap<string, PointSeat> Seats, SeatVerdict? Last)> Mounts =
-        Atom((HashMap<string, PointSeat>(), (SeatVerdict?)null));
+    private static readonly HookMounts<RhinoPoint, PluginKey> Kernel = new();
 
-    public static Seq<HookMount> Census => toSeq(Mounts.Value.Seats).Map(static row => row.Value.Binding);
+    internal sealed record PointSeat(PluginKey Owner, Type Ask, Type Grant, HashMap<Guid, Unit> Riders, Lease<IDisposable> Mounted);
 
-    public static Seq<(RhinoPoint Point, Seq<PluginKey> Riders)> RiderCensus => toSeq(Mounts.Value.Seats)
-        .Map(static row => (row.Value.Binding.Point, toSeq(row.Value.Riders.Keys).Map(PluginKey.Create).Strict()));
+    private static readonly Atom<HashMap<string, PointSeat>> Seats = Atom(HashMap<string, PointSeat>());
 
-    public static Fin<IDisposable> Mount(HookMount mount, Op? key = null) {
+    public static Seq<(RhinoPoint Point, PluginKey Owner, Seq<PluginKey> Riders)> Census =>
+        toSeq(Seats.Value).Choose(static row => RhinoPoint.TryGet(row.Key, out RhinoPoint? point)
+            ? Some((Point: point!, Owner: row.Value.Owner, Riders: toSeq(row.Value.Riders.Keys).Map(PluginKey.Create).Strict()))
+            : None);
+
+    // The kernel mount runs FIRST — an effect never rides a claim's mint — and a ceded claim releases the
+    // surplus kernel seat on the losing arm before riding the standing one, the same posture the paint stock
+    // holds for a surplus resource mint.
+    public static Fin<IDisposable> Mount<TAsk, TGrant>(HookBinding<RhinoPoint, PluginKey, TAsk, TGrant> binding, Op? key = null)
+        where TAsk : notnull
+        where TGrant : notnull {
         Op op = key.OrDefault();
-        return from row in op.Need(mount)
-               from _ in guard(
-                   row.Point is not null && row.Ask is not null && row.Grant is not null && row.Bind is not null,
-                   op.InvalidInput()).ToFin()
-               from __ in row.Plugin.Admit(op)
-               let plugin = row.Plugin.ToValue()
-               let swapped = Mounts.Swap(held => held.Seats.Find(row.Point.Key).Match(
-                   None: () => (held.Seats.Add(row.Point.Key, new PointSeat(
-                       Binding: row,
-                       Riders: HashMap<Guid, Unit>().Add(plugin, unit))), (SeatVerdict?)new SeatVerdict.Seated()),
-                   Some: seat => seat.Binding.Ask != row.Ask || seat.Binding.Grant != row.Grant
-                       ? (held.Seats, new SeatVerdict.DivergentBinding())
-                       : seat.Riders.ContainsKey(plugin)
-                           ? (held.Seats, new SeatVerdict.DuplicateRider())
-                           : (held.Seats.SetItem(row.Point.Key, seat with { Riders = seat.Riders.Add(plugin, unit) }),
-                              new SeatVerdict.Riding())))
-               from ___ in swapped.Last switch {
-                   SeatVerdict.Seated or SeatVerdict.Riding => Fin.Succ(value: unit),
-                   SeatVerdict.DuplicateRider => Fin.Fail<Unit>(error: op.InvalidContext()),
-                   _ => Fin.Fail<Unit>(error: op.Unsupported()),
-               }
-               select (IDisposable)Subscription.Of(detach: () => ignore(Mounts.Swap(held =>
-                   held.Seats.Find(row.Point.Key).Match(
-                       None: () => held,
-                       Some: seat => {
-                           HashMap<Guid, Unit> remaining = seat.Riders.Remove(plugin);
-                           return (remaining.IsEmpty
-                               ? held.Seats.Remove(row.Point.Key)
-                               : held.Seats.SetItem(row.Point.Key, seat with { Riders = remaining }), held.Last);
-                       }))));
+        return from _ in binding.Owner.Admit(op)
+               let plugin = binding.Owner.ToValue()
+               from mounted in Kernel.Mount(binding: binding, key: op)
+               from seat in Cell.Claim(
+                       cell: Seats,
+                       key: binding.Point.Key,
+                       mint: () => new PointSeat(
+                           Owner: binding.Owner,
+                           Ask: typeof(TAsk),
+                           Grant: typeof(TGrant),
+                           Riders: HashMap((plugin, unit)),
+                           Mounted: mounted))
+                   .Switch(
+                       state: (Point: binding.Point, Plugin: plugin, Op: op, Mounted: mounted),
+                       committed: static (ctx, _) => Fin.Succ((IDisposable)Subscription.Of(
+                           detach: () => Unseat(pointKey: ctx.Point.Key, plugin: ctx.Plugin))),
+                       ceded: static (ctx, held) => (Op.Side(ctx.Mounted.Dispose), Ride<TAsk, TGrant>(
+                           seat: held.State[ctx.Point.Key], point: ctx.Point, plugin: ctx.Plugin, op: ctx.Op)).Item2,
+                       refused: static (ctx, row) => Fin.Fail<IDisposable>(row.Cause),
+                       contended: static (ctx, _) => Fin.Fail<IDisposable>(ctx.Op.InvalidResult()))
+               select seat;
     }
 
     public static Fin<Seq<IDisposable>> MountAll(Seq<Func<Fin<IDisposable>>> mounts, Op? key = null) {
         Op op = key.OrDefault();
         return mounts.FoldM<Fin, Seq<IDisposable>>(
             Seq<IDisposable>(),
-            (held, mount) => Optional(mount)
-                .ToFin(Fail: op.InvalidInput())
+            (held, mount) => op.Need(mount)
                 .Bind(run => op.Catch(run))
                 .Map(seat => held.Add(seat))
-                .MapFail(error => Rollback(held: held, primary: error, op: op)));
+                // The one rollback rail: every seated disposer runs, reverse order, cleanup faults aggregating
+                // into the primary — the hand reverse fold this page carried deletes onto it.
+                .Rollback(held: held, release: seat => op.Catch(() => { seat.Dispose(); return Fin.Succ(value: unit); }), key: op));
     }
 
+    // Name-addressed discovery resolving through the kernel's TYPED bind: the seat names the owner whose kernel
+    // binding answers, so no cast and no `IsAssignableFrom` probe survives — a mismatched ask fails at the
+    // kernel by name.
     public static Fin<TGrant> Bind<TAsk, TGrant>(RhinoPoint point, TAsk ask, Op? key = null)
         where TAsk : notnull
-        where TGrant : class {
+        where TGrant : notnull {
         Op op = key.OrDefault();
         return from active in op.Need(point)
-               from mount in Mounts.Value.Seats.Find(active.Key).Map(static seat => seat.Binding).ToFin(Fail: op.MissingContext())
-               from _ in guard(
-                   mount.Ask.IsAssignableFrom(typeof(TAsk)) && typeof(TGrant).IsAssignableFrom(mount.Grant),
-                   op.Unsupported(geometryType: typeof(TAsk), outputType: typeof(TGrant))).ToFin()
-               from granted in mount.Bind(ask)
-               from grant in Optional(granted as TGrant).ToFin(Fail: op.InvalidResult())
+               from seat in Seats.Value.Find(active.Key).ToFin(Fail: op.MissingContext())
+               from grant in Kernel.Bind<TAsk, TGrant>(point: active, owner: seat.Owner, ask: ask, key: op)
                select grant;
     }
 
-    private static Error Rollback(Seq<IDisposable> held, Error primary, Op op) =>
-        held.Rev().Fold(primary, (faults, seat) => op.Catch(() => {
-            seat.Dispose();
-            return Fin.Succ(value: unit);
-        }).Match(
-            Succ: _ => faults,
-            Fail: cleanup => faults + cleanup));
+    // Divergence and duplication are ARBITRATION over type tokens as data: the tokens compare, nothing casts.
+    // The rider joins through a snapshot-guarded step, so a raced duplicate declines rather than double-seating.
+    private static Fin<IDisposable> Ride<TAsk, TGrant>(PointSeat seat, RhinoPoint point, Guid plugin, Op op) =>
+        seat.Ask != typeof(TAsk) || seat.Grant != typeof(TGrant)
+            ? Fin.Fail<IDisposable>(new DocumentFault.SeatDiverged(Key: op, Point: point))
+            : seat.Riders.ContainsKey(plugin)
+                ? Fin.Fail<IDisposable>(new DocumentFault.RiderDuplicate(Key: op, Point: point, Plugin: PluginKey.Create(plugin)))
+                : Cell.Step(
+                        cell: Seats,
+                        step: held => held.Find(point.Key).Bind(current => current.Riders.ContainsKey(plugin)
+                            ? Option<HashMap<string, PointSeat>>.None
+                            : Some(held.SetItem(point.Key, current with { Riders = current.Riders.Add(plugin, unit) }))),
+                        declined: new DocumentFault.RiderDuplicate(Key: op, Point: point, Plugin: PluginKey.Create(plugin)))
+                    .Switch(
+                        state: (Point: point, Plugin: plugin),
+                        committed: static (ctx, _) => Fin.Succ((IDisposable)Subscription.Of(
+                            detach: () => Unseat(pointKey: ctx.Point.Key, plugin: ctx.Plugin))),
+                        ceded: static (ctx, _) => Fin.Fail<IDisposable>(new DocumentFault.RiderDuplicate(
+                            Key: Op.Of(name: nameof(MountRegistry)), Point: ctx.Point, Plugin: PluginKey.Create(ctx.Plugin))),
+                        refused: static (_, row) => Fin.Fail<IDisposable>(row.Cause),
+                        contended: static (ctx, _) => Fin.Fail<IDisposable>(Op.Of(name: nameof(MountRegistry)).InvalidResult()));
+
+    // The rider removal is a total swap; the freed seat's kernel detach is IDEMPOTENT (an atom-remove of an
+    // absent key), so the last-rider race resolves by letting every candidate release — a second dispose is a
+    // no-op, never a double-free.
+    private static Unit Unseat(string pointKey, Guid plugin) {
+        Option<PointSeat> prior = Seats.Value.Find(pointKey);
+        _ = Seats.Swap(held => held.Find(pointKey).Match(
+            None: () => held,
+            Some: seat => seat.Riders.Remove(plugin) is var remaining && remaining.IsEmpty
+                ? held.Remove(pointKey)
+                : held.SetItem(pointKey, seat with { Riders = remaining })));
+        return prior.Filter(_ => !Seats.Value.ContainsKey(pointKey)).Map(seat => Op.Side(seat.Mounted.Dispose)).IfNone(unit);
+    }
 }
 
 public static class DocumentHooks {
@@ -2014,22 +1780,17 @@ public static class DocumentHooks {
                 (Point: RhinoPoint.DocumentDraw, Band: EventBand.Draw),
                 (Point: RhinoPoint.DocumentPanels, Band: EventBand.Panels))
             .Map(row => (Func<Fin<IDisposable>>)(() => MountRegistry.Mount(
-                mount: new HookMount(
+                binding: new HookBinding<RhinoPoint, PluginKey, Observation.Host, Watch>(
                     Point: row.Point,
-                    Plugin: plugin,
-                    Ask: typeof(Observation.Host),
-                    Grant: typeof(Watch),
+                    Owner: plugin,
                     Bind: ask => EventFamily.In(band: row.Band, key: op)
-                        .Bind(families => DocumentStream.Observe(((Observation.Host)ask) with { Families = families })
-                            .Map(static watch => (object)watch))),
+                        .Bind(families => DocumentStream.Observe(ask with { Families = families }))),
                 key: op)))
             .Add(() => MountRegistry.Mount(
-                mount: new HookMount(
+                binding: new HookBinding<RhinoPoint, PluginKey, Observation.File, Watch>(
                     Point: RhinoPoint.DocumentFile,
-                    Plugin: plugin,
-                    Ask: typeof(Observation.File),
-                    Grant: typeof(Watch),
-                    Bind: static ask => DocumentStream.Observe((Observation.File)ask).Map(static watch => (object)watch)),
+                    Owner: plugin,
+                    Bind: static ask => DocumentStream.Observe(ask)),
                 key: op));
         return MountRegistry.MountAll(mounts: mounts, key: op);
     }
@@ -2039,12 +1800,12 @@ public static class DocumentHooks {
 ## [07]-[TELEMETRY_TAP]
 
 - Owner: `RhinoInstruments` — the boundary's contributed instrument rows in the kernel `InstrumentSpec` shape and the string-scoped `TelemetryContributorPort` mint under scope `Rasm.Rhino`.
-- Cases: stream-loss counts off the `StreamReceipt.PacedLoss` journal evidence by lane and loss kind; delivered document facts by band off each mounted watch; host exception and cloud-log observations off the two `HostTap.Mount` points.
-- Entry: `RhinoInstruments.Telemetry(string version, string schemaUrl = TelemetryIdentity.SchemaUrl)` — the one contributor port an app composition merges by scope, its coordinate defaulting to the branch semconv pin; the plugin root materializes the rows over its own per-ALC factory meter through `InstrumentSet.Of`, and one custody per composition holds — either the port rides an app fan or the root materializes locally, never both.
-- Auto: writes ride observe taps composed at the plugin root — a watch's receipt journal feeds the loss counter, the delivery sink feeds the band counter, and the host-tap points feed the two observation counters — so no stream, projection, or mount fence carries a meter call.
-- Packages: `Rasm` (kernel signal capsule), BCL inbox (`System.Diagnostics.Metrics`).
+- Cases: stream-loss counts off the `StreamSlot.PacedLoss` journal evidence by lane and loss kind; delivered document facts by band off each mounted watch; host exception and cloud-log observations off the two `HostTap.Mount` points.
+- Entry: `RhinoInstruments.Telemetry(string version)` — the one contributor port an app composition merges by scope, its semconv coordinate the kernel `TelemetryIdentity.SchemaUrl` const the mint stamps; the plugin root materializes the rows over its own per-ALC factory meter through `InstrumentSet.Of`, and one custody per composition holds — either the port rides an app fan or the root materializes locally, never both.
+- Auto: writes ride observe taps composed at the plugin root — the loss counter's WRITER is the paced lane's shed arm (the `lost` callback posting `StreamSlot.PacedLoss`, which the tap folds by lane and loss dimension), the delivery sink feeds the band counter, and the host-tap points feed the two observation counters — so no stream, projection, or mount fence carries a meter call and the shed evidence is measured, never inferred.
+- Packages: `Rasm` (kernel signal capsule — `InstrumentSpec`, `TelemetryContributorPort`, and the `Sensitivity` taxonomy roster this port stamps whole), BCL inbox (`System.Diagnostics.Metrics`).
 - Growth: one measured boundary concern is one `InstrumentSpec` factory call here and one observe-tap write at the plugin root.
-- Boundary: rows carry dotted `rasm.rhino.*` names with UCUM units and closed dimensions; instrument execution over these declarations is app-root altitude, never a second measurement truth inside the boundary, and provider custody stays with the per-ALC factory owner.
+- Boundary: rows carry dotted `rasm.rhino.*` names with UCUM units and closed dimensions; instrument execution over these declarations is app-root altitude, never a second measurement truth inside the boundary, and provider custody stays with the per-ALC factory owner. The kernel `Sensitivity.Values` roster rides the port's `Classifications` column whole, so every value `Objects/authoring.md`'s four attach attributes stamp is rostered at composition and a value present at the producer and absent at the root refuses at admission instead of erasing at egress.
 
 ```csharp signature
 // --- [TABLES] -----------------------------------------------------------------------------
@@ -2060,13 +1821,17 @@ public static class RhinoInstruments {
     public const string BandSlot = "band";
 
     public static readonly Seq<InstrumentSpec> Rows = Seq(
-        InstrumentSpec.Count(StreamLoss, "{fact}", "paced-lane facts shed by lane and loss kind", MeasureForm.Whole, LaneSlot, LossSlot),
-        InstrumentSpec.Count(DocumentEvents, "{event}", "delivered document facts by band", MeasureForm.Whole, BandSlot),
-        InstrumentSpec.Count(HostExceptions, "{exception}", "host exception reports observed through the host tap", MeasureForm.Whole),
-        InstrumentSpec.Count(HostLogs, "{message}", "host cloud-log messages observed through the host tap", MeasureForm.Whole));
+        InstrumentSpec.Create(StreamLoss, InstrumentKind.Count, MeasureForm.Whole, "{fact}",
+            "paced-lane facts shed by lane and loss kind", Seq(LaneSlot, LossSlot), None, None, None),
+        InstrumentSpec.Create(DocumentEvents, InstrumentKind.Count, MeasureForm.Whole, "{event}",
+            "delivered document facts by band", Seq(BandSlot), None, None, None),
+        InstrumentSpec.Create(HostExceptions, InstrumentKind.Count, MeasureForm.Whole, "{exception}",
+            "host exception reports observed through the host tap", Seq<string>(), None, None, None),
+        InstrumentSpec.Create(HostLogs, InstrumentKind.Count, MeasureForm.Whole, "{message}",
+            "host cloud-log messages observed through the host tap", Seq<string>(), None, None, None));
 
-    public static TelemetryContributorPort Telemetry(string version, string schemaUrl = TelemetryIdentity.SchemaUrl) =>
-        new(Scope: Scope, Version: version, Instruments: Rows, Classifications: HostSensitivity.Values, SchemaUrl: schemaUrl);
+    public static TelemetryContributorPort Telemetry(string version) =>
+        new(Scope: Scope, Version: version, Instruments: Rows, Classifications: Sensitivity.Values);
 }
 ```
 

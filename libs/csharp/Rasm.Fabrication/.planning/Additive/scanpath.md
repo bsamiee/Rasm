@@ -12,7 +12,7 @@ Wire posture: HOST-LOCAL. `SliceStack`, `ProcessBudget.Powder`, and optional `Su
 - [05]-[SOURCE_FIELDS]: calibrated laser fields, the pooled election plane, and stitch peers.
 - [06]-[THERMAL_SCHEDULE]: `ScanPlane` locality, kernel-served conflict pairs, bounded wave election, and `ScanOrder`.
 - [07]-[EVENTS]: `ScanEvent`, discontinuity-gated jumps, remelt passes, and sampled field compensation.
-- [08]-[EGRESS]: the canonical codec over `FabricationCanon`, `ScanReceipt`, and the `Scan.Plan` fold.
+- [08]-[EGRESS]: the canonical codec over `FabricationCanon`, `ScanEvidence`, and the `Scan.Plan` fold.
 
 ## [02]-[EXPOSURE_VOCABULARY]
 
@@ -122,17 +122,15 @@ public sealed record ExposureScaling(FrozenDictionary<ExposureClass, ExposureSca
 }
 
 [ValueObject<int>]
-[ValidationError<FabricationFault>]
 public readonly partial struct LaserId {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref int value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
         if (value < 0)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Additive, "laser-id");
+            validationError = new ValidationError("laser-id");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class LaserSource {
     public LaserId Id { get; }
     public BoundingBox Field { get; }
@@ -146,7 +144,7 @@ public sealed partial class LaserSource {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref LaserId id,
         ref BoundingBox field,
         ref Power maximumPower,
@@ -162,7 +160,7 @@ public sealed partial class LaserSource {
             || maximumPower <= Power.Zero || spotDiameter <= Length.Zero || stitchWidth < Length.Zero
             || focusMinimum > focusMaximum || drift < Ratio.Zero || drift >= Ratio.FromDecimalFractions(1.0)
             || calibration.Kind != EgressKind.Plan)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Additive, "laser-source");
+            validationError = new ValidationError("laser-source");
     }
 
     public static Fin<LaserSource> Admit(
@@ -192,7 +190,6 @@ public sealed partial class LaserSource {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ExposureProfile {
     public Power Power { get; }
     public Speed Speed { get; }
@@ -213,7 +210,7 @@ public sealed partial class ExposureProfile {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Power power,
         ref Speed speed,
         ref Length spacing,
@@ -231,7 +228,7 @@ public sealed partial class ExposureProfile {
             || power <= Power.Zero || speed <= Speed.Zero || spacing <= Length.Zero || dwell < Duration.Zero
             || spot <= Length.Zero || pulseOn < Duration.Zero || pulseOff < Duration.Zero
             || skywritingLead < Length.Zero || skywritingLag < Length.Zero)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Additive, "exposure-profile");
+            validationError = new ValidationError("exposure-profile");
     }
 
     public static Fin<ExposureProfile> Admit(
@@ -502,10 +499,10 @@ public sealed record CandidateVector(int Layer, Length Elevation, ExposureClass 
 - Owner: `LaserSource` owns one calibrated field; `SourcePolicy` owns the multi-source law; `FieldCell` owns one source's tessellated territory; `SourcePartition` owns election and stitching.
 - Law: a vector no calibrated field admits leaves `Elect` as source `-1` and converts on the rail; no election throws and no unadmitted vector reaches an emission arm.
 - Law: exclusive vectors stay inside one source field; overlap vectors stitch under one policy and retain both adjacent source identities, so a stitched seam is addressable evidence rather than an inferred boundary.
-- Auto: `SourcePartition.Build` issues one `PolygonOp.Cells` request per PLAN because calibrated source fields are invariant across layers; `SiteCell.Site` addresses the calibrated source directly and `CellReceipt.Adjacency` carries overlap, so no nearest-site probe and no page-local tessellator stands between them. This is the one legitimate point-site diagram on the page — laser fields are physically sited, unlike the hatch lattice, which is regular by definition.
+- Auto: `SourcePartition.Build` issues one `PolygonOp.Cells` request per PLAN because calibrated source fields are invariant across layers; `SiteCell.Site` addresses the calibrated source directly and `CellDiagram.Adjacency` carries overlap, so no nearest-site probe and no page-local tessellator stands between them. This is the one legitimate point-site diagram on the page — laser fields are physically sited, unlike the hatch lattice, which is regular by definition.
 - Auto: `MemoryOwner<double>` stages the vector-to-source score plane and `Elect` walks it as one pooled span kernel; `TensorPrimitives.MultiplyAdd` and `IndexOfMin` derive the load-balanced election.
 - Exemption: `Elect` carries a running load cell between elections, so it stays a span loop inside one kernel, and the `Span<double>` score plane encodes an unreachable source as infinite cost because a span of doubles carries no `Option` — the absence the DOMAIN reads is the `-1` source discriminant, which converts on the rail.
-- Packages: `Rasm.Fabrication.Geometry2D` (`PolygonAlgebra`/`PolygonOp.Cells`/`SitePolicy`/`CellReceipt`), CommunityToolkit.HighPerformance, `System.Numerics.Tensors`.
+- Packages: `Rasm.Fabrication.Geometry2D` (`PolygonAlgebra`/`PolygonOp.Cells`/`SitePolicy`/`CellDiagram`), CommunityToolkit.HighPerformance, `System.Numerics.Tensors`.
 - Growth: a source is one `LaserSource` value on the policy; the cell census gate proves the tessellation answered one cell per source.
 - Boundary: field scoring is a plain Euclidean distance between two points; a tensor call at length three allocates two arrays per cell to compute what the point atom computes with none, so the atom's own member is the entry.
 
@@ -527,10 +524,10 @@ public sealed record SourceAssignment(CandidateVector Vector, LaserSource Source
 public static class SourcePartition {
     public static Fin<Seq<FieldCell>> Build(SliceStack stack, SourcePolicy policy) =>
         stack.LayerCount == 0 || policy.Sources.IsEmpty
-        || stack.X.Length == 0 || stack.X.Length != stack.Y.Length || stack.X.Length != stack.Z.Length
-            ? Fin.Fail<Seq<FieldCell>>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "scan:source-partition"))
-            : policy.Sources.Map(static source => (source.Field.Center.X, source.Field.Center.Y)).Distinct().Count != policy.Sources.Length
-            ? Fin.Fail<Seq<FieldCell>>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "scan:duplicate-source-sites"))
+        || stack.X.Count == 0 || stack.X.Count != stack.Y.Count || stack.X.Count != stack.Z.Count
+            ? Fin.Fail<Seq<FieldCell>>(new KernelFault.InvalidValue("scanpath", "scan:source-partition"))
+            : policy.Sources.Map(static source => (source.Field.Center.X, source.Field.Center.Y)).Distinct().Count != policy.Sources.Count
+            ? Fin.Fail<Seq<FieldCell>>(new KernelFault.InvalidValue("scanpath", "scan:duplicate-source-sites"))
             : from tolerance in Context.Millimeters().ToFin()
               from boundary in TileLattice.Rectangle(Bound(stack), tolerance)
               from trace in PolygonAlgebra.Apply(
@@ -539,13 +536,11 @@ public static class SourcePartition {
                       boundary,
                       SitePolicy.Create(policy.FieldRelaxations, policy.FieldRelaxationStrength.DecimalFractions, merge: None)),
                   Op.Of(name: nameof(Build)))
-              from diagram in trace is PolygonTrace.Celled celled
-                  ? Fin.Succ(celled.Result)
-                  : Fin.Fail<CellReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "scan:cell-trace"))
-              from _census in diagram.Cells.Count == policy.Sources.Length
+              from diagram in trace.Diagram(
+                  new KernelFault.InvalidValue("scanpath", "scan:cell-trace"))
+              from _census in diagram.Cells.Count == policy.Sources.Count
                   ? Fin.Succ(unit)
-                  : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(
-                      FabConcern.Additive, $"scan:source-cell-census:{diagram.Cells.Count}"))
+                  : Fin.Fail<Unit>(new KernelFault.InvalidValue("scanpath", $"scan:source-cell-census:{diagram.Cells.Count}"))
               from cells in diagram.Cells.ToSeq().Traverse(cell => Measure(Seq(cell.Ring)).Map(measured => new FieldCell(
                   policy.Sources[cell.Site].Id,
                   toSeq(cell.Ring.Vertices).Map(static point => new Point2d(point.X, point.Y)),
@@ -565,8 +560,7 @@ public static class SourcePartition {
         int maximumVectors) =>
         vectors.IsEmpty ? Fin.Succ(Seq<SourceAssignment>())
         : vectors.Count > maximumVectors
-            ? Fin.Fail<Seq<SourceAssignment>>(new FabricationFault.PolicyInadmissible(
-                FabConcern.Additive, $"scan:vector-cap:{vectors.Count}"))
+            ? Fin.Fail<Seq<SourceAssignment>>(new KernelFault.InvalidValue("scanpath", $"scan:vector-cap:{vectors.Count}"))
         : Elected(vectors, policy).Bind(elected => vectors
             .Map((vector, row) => (Vector: vector, Index: row, Election: elected[row]))
             .Find(static row => row.Election.Source < 0)
@@ -574,7 +568,7 @@ public static class SourcePartition {
                 // The refused vector's ordinal rides the fault's own index slot and the layer is a bounded
                 // ordinal; rendering an endpoint here stamps a culture-shaped coordinate into the locus grammar.
                 Some: row => Fin.Fail<Seq<SourceAssignment>>(new GeometryFault.DegenerateInput(
-                    Kind.Mesh, row.Index, $"scan:source-field-miss:{row.Vector.Layer}").ToError()),
+                    Kind.Mesh, row.Index, $"scan:source-field-miss:{row.Vector.Layer}")),
                 None: () => Fin.Succ(vectors.Map((vector, row) => {
                     LaserSource source = policy.Sources[elected[row].Source];
                     return new SourceAssignment(vector, source, Peers(vector, source, fields, policy), elected[row].Score);
@@ -586,19 +580,17 @@ public static class SourcePartition {
 
     private static Fin<PolygonMeasure> Measure(Seq<Loop> paths) =>
         PolygonAlgebra.Apply(new PolygonOp.Measure(paths, PolygonFill.NonZero), Op.Of(name: nameof(Measure)))
-            .Bind(static trace => trace is PolygonTrace.Measured measured
-                ? Fin.Succ(measured.Result)
-                : Fin.Fail<PolygonMeasure>(Op.Of(name: nameof(Measure)).InvalidResult()));
+            .Bind(static trace => trace.Measure(
+                new KernelFault.InvalidValue("scanpath", "scan:measure-trace")));
 
     private static Fin<Arr<(int Source, double Score)>> Elected(Seq<CandidateVector> vectors, SourcePolicy policy) =>
-        Try.lift(() => {
+        Op.Of(name: "scan:score-plane").Catch(() => {
             int capacity = checked(vectors.Count * policy.Sources.Count);
             using MemoryOwner<double> scores = MemoryOwner<double>.Allocate(capacity, AllocationMode.Clear);
             ScoreAction action = new(scores.Memory, policy.Sources.Count, vectors.ToArr(), policy.Sources);
             ParallelHelper.For2D(0, vectors.Count, 0, policy.Sources.Count, in action);
-            return Elect(scores.Span, vectors.Count, policy.Sources.Count, policy.BalanceWeight.DecimalFractions);
-        }).Run()
-            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, None, "scan:score-plane").ToError() + error);
+            return Fin.Succ(Elect(scores.Span, vectors.Count, policy.Sources.Count, policy.BalanceWeight.DecimalFractions));
+        });
 
     private static Seq<LaserSource> Peers(CandidateVector vector, LaserSource source, Seq<FieldCell> fields, SourcePolicy policy) =>
         fields.Find(field => field.Source == source.Id)
@@ -654,7 +646,7 @@ public static class SourcePartition {
 - Law: contention is decided ONCE per layer. `SpatialQuery.SelfOverlap` enumerates every unordered pair inside one index whose bounds — each vector's segment box inflated by half the separation — overlap, and the exact `EdgeSeparation.Gap` predicate narrows that broad phase. A second quadratic re-test at receipt time re-derives what the election already settled and is the deleted form.
 - Law: a wave identifier stays inside `[0, ThermalWindow)`. A vector whose whole window is blocked is UNRESOLVED — it takes its seed wave, the receipt counts it, and the plan refuses on that count. Growing the identifier past the window escapes the modal vocabulary the machine schedules against and turns an unschedulable vector into a silently valid one.
 - Auto: `ScanOrder` rows carry one `Project` column, so `ScanSort.Order` is one sort over one comparable key and no caller re-tests order identity. No row rewrites geometry: serpentine orientation is owned by ray emission, so an ordering that reverses alternate rows after sorting pairs whichever vectors the sort adjoined and never survives a re-sort.
-- Packages: `Rasm.Spatial` (`Spatial.Apply`, `SpatialOp.Build`/`Query`, `SpatialKind.Bvh`, `Rasm.Spatial.BuildPolicy.Canonical` qualified against the sibling `Additive` record of that name, `SpatialQuery.SelfOverlap`, `SpatialAnswer.Result`, `QueryResult.Pairs`), `Rasm.Fabrication.Geometry2D` (`EdgeSeparation.Gap`), LanguageExt.Core.
+- Packages: `Rasm.Spatial` (`Spatial.Apply`, `SpatialOp.Build`/`Query`, `SpatialKind.Bvh`, `BuildPolicy.Canonical`, `SpatialQuery.SelfOverlap`, `SpatialAnswer.Result`, `QueryResult.Pairs`), `Rasm.Fabrication.Geometry2D` (`EdgeSeparation.Gap`), LanguageExt.Core.
 - Growth: an ordering law is one `ScanOrder` row with its projection column.
 - Boundary: the plume gate and the thermal gate share one separation — the greater of the two policy lengths — so one index answers both and no second broad phase exists to disagree with the first.
 
@@ -772,8 +764,8 @@ public abstract partial record DistortionCompensation {
         none: static _ => true,
         affine: static row => Finite(row.BuildToCommand) && row.Calibration.Digest != UInt128.Zero,
         sampled: static row => row.Field.IsValid && row.Columns > 1 && row.Rows > 1
-            && row.OffsetX.Length == row.Columns * row.Rows
-            && row.OffsetY.Length == row.Columns * row.Rows
+            && row.OffsetX.Count == row.Columns * row.Rows
+            && row.OffsetY.Count == row.Columns * row.Rows
             && row.Calibration.Digest != UInt128.Zero);
 
     public Point3d Apply(Point3d point) => Switch(
@@ -846,15 +838,15 @@ public sealed record TimingPolicy(
 
 ## [08]-[EGRESS]
 
-- Owner: `ScanCodec.Write` is the sole canonical octet projection; `ScanReceipt` owns the settled evidence; `Scan.Plan` owns the fold.
+- Owner: `ScanCodec.Write` is the sole canonical octet projection; `ScanEvidence` owns what the plan measured and `Receipt<ScanEvidence>` its plane, key, ancestry, and stamp; `Scan.Plan` owns the fold.
 - Law: the codec composes `FabricationCanon` alone — `Coords`, `Basis`, `Maybe`, `Rows`, and `Discriminant` — so a point, a transform, an optional, a row set, and a vocabulary key have one framing package-wide. A page-local point or transform writer beside them is the deleted duplicate, and a sixteen-double transform beside the twelve affine reads is a second convention over one fact.
 - Law: this page owns exposure-count, path-length, and energy evidence. The executed machine clock — recoat scheduling, wave barriers, and inter-source waits — belongs to `Verify/simulate`, so no build-time column lands here and no second clock disagrees with it. Per-vector NOMINAL exposure time survives because energy is power times time and cannot be derived without it.
 - Law: an unmeasured thermal quantity is ABSENT. A layer set with no inter-vector transition has no separation to average, so the columns carry `None` rather than a zero a consumer reads as perfect locality. `Unresolved` and `Stitches` are measured counts whose zero is a real reading.
 - Entry: `Scan.Plan` runs policy admission, audit, physics agreement, zoning, field build, candidate generation, election, wave election, ordering, event projection, canonicalization, and receipt construction in one flat query inside the `FabricationEngine.Scan` bracket the supplied `SpanBand` opens, so a long derivation traces and a headless caller passing no band runs the identical query untraced.
-- Receipt: `ScanReceipt` retains audit, source loads, field cells, thermal moments, unresolved contention, exposure, jump, remelt, and stitch counts, path, energy, and canonical size; the settled receipt fires the `FabricationFact.Engine.Of` rows through the caller-supplied `FabricationTap`, defaulting silent for headless callers.
+- Receipt: `ScanEvidence` retains source loads, field cells, thermal moments, unresolved contention, exposure, jump, remelt, and stitch counts, path, energy, and canonical size; `Consumed` carries the preflight it stood on and `AuditPolicy.EvaluatedAt` stamps it, the branch's one evaluation instant per build. The settled receipt fires the `FabricationFact.Engine.Of` rows through the caller-supplied `FabricationTap`, defaulting silent for headless callers.
 - Output: `ContentKey.Of(EgressKind.ScanVectors, bytes)` mints exactly once over the canonical stored bytes.
 - Packages: `Rasm.Element.Projection` (`CanonicalWriter`), `Rasm.Fabrication.Process` (`FabricationCanon`, `FabricationFact`, `FabricationTap`, `FabricationTrace`), LanguageExt.Core.
-- Boundary: `ScanReceipt.Exposures`, `.Jumps`, `.Remelts`, and `.Stitches` are the four columns `Process/telemetry#FACT_UNION` projects as `FabricationEngine.Scan` phases; renaming one silently strands its instrument.
+- Boundary: `ScanEvidence.Exposures`, `.Jumps`, `.Remelts`, and `.Stitches` are the four columns `Process/telemetry#FACT_UNION` projects as `FabricationEngine.Scan` phases; renaming one silently strands its instrument, and the projection now reaches them through the carrier's `Evidence`.
 
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
@@ -883,8 +875,9 @@ public sealed record ThermalEvidence(
     Option<double> SumOfSquares,
     int Unresolved);
 
-public sealed record ScanReceipt(
-    AuditReceipt Audit,
+// What the plan MEASURED. Plane, key, consumed ancestry, and stamp ride `Receipt<ScanEvidence>`, so the preflight
+// this plan stood on is one `Consumed` key rather than a nested receipt column.
+public sealed record ScanEvidence(
     Seq<SourceLoad> Sources,
     Seq<FieldCell> Fields,
     ThermalEvidence Thermal,
@@ -896,7 +889,8 @@ public sealed record ScanReceipt(
     Energy Energy,
     int CanonicalBytes);
 
-public sealed record ScanPlan(Seq<ScanLayer> Layers, ReadOnlyMemory<byte> Bytes, ContentKey Key, ScanReceipt Receipt);
+public sealed record ScanPlan(
+    Seq<ScanLayer> Layers, ReadOnlyMemory<byte> Bytes, Receipt<ScanEvidence> Receipt);
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Scan {
@@ -910,32 +904,34 @@ public static class Scan {
         band.Traced(FabricationEngine.Scan, Op.Of(), _ =>
         from _policy in (
             AdmissionSlots.Gate(policy.DownSkinLayers > 0 && policy.UpSkinLayers > 0
-                && policy.MaximumVectors > 0 && policy.MaximumVectors < int.MaxValue, Refusal("scan:layer-policy")),
-            AdmissionSlots.Gate(policy.Thermal.Admitted, Refusal("scan:thermal-policy")),
-            AdmissionSlots.Gate(policy.Scaling.Admitted, Refusal("scan:exposure-scaling")),
+                && policy.MaximumVectors > 0 && policy.MaximumVectors < int.MaxValue,
+                    FabConcern.Additive, "scan:layer-policy", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(policy.Thermal.Admitted, FabConcern.Additive, "scan:thermal-policy", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(policy.Scaling.Admitted, FabConcern.Additive, "scan:exposure-scaling", FabricationFault.Inadmissible),
             AdmissionSlots.Gate(policy.Sources.FieldRelaxations >= 0
                 && policy.Sources.FieldRelaxationStrength >= Ratio.Zero
-                && policy.Sources.Sources.Length > 0
-                && policy.Sources.Sources.Map(static source => source.Id).Distinct().Count == policy.Sources.Sources.Length
+                && policy.Sources.Sources.Count > 0
+                && policy.Sources.Sources.Map(static source => source.Id).Distinct().Count == policy.Sources.Sources.Count
                 && policy.Sources.GasBearing.IsValid && !policy.Sources.GasBearing.IsZero
                 && policy.Sources.BalanceWeight >= Ratio.Zero
                 && policy.Sources.PlumeClearance >= Length.Zero
-                && policy.Sources.Overlap >= Length.Zero, Refusal("scan:source-policy")),
-            AdmissionSlots.Gate(policy.Timing.Admitted, Refusal("scan:timing-policy")),
-            AdmissionSlots.Gate(policy.Hatch.Admitted && policy.Compensation.Admitted, Refusal("scan:hatch-policy")))
+                && policy.Sources.Overlap >= Length.Zero, FabConcern.Additive, "scan:source-policy", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(policy.Timing.Admitted, FabConcern.Additive, "scan:timing-policy", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(policy.Hatch.Admitted && policy.Compensation.Admitted,
+                FabConcern.Additive, "scan:hatch-policy", FabricationFault.Inadmissible))
             .Apply(static (_, _, _, _, _, _) => unit)
             .As()
             .ToFin()
         from audit in Audit.Preflight(stack, policy.Audit)
-        from _clean in audit.Clean
+        from _clean in audit.Evidence.Clean
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, $"scan:audit:{audit.Defects.Count}"))
+            : Fin.Fail<Unit>(new KernelFault.InvalidValue("scanpath", $"scan:audit:{audit.Evidence.Defects.Count}"))
         from physics in Physics(budget, policy)
         from _physics in physics.Power == policy.Base.Power
                 && physics.Speed == policy.Base.Speed
                 && physics.Spacing == policy.Base.Spacing
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "scan:physics-policy"))
+            : Fin.Fail<Unit>(new KernelFault.InvalidValue("scanpath", "scan:physics-policy"))
         from regions in Regions(stack, support, policy)
         from fields in SourcePartition.Build(stack, policy.Sources)
         from vectors in Candidates(regions, policy)
@@ -944,14 +940,20 @@ public static class Scan {
         let contention = elections.Fold(0, static (total, row) => total + row.Unresolved)
         from _contention in contention == 0
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(
-                FabConcern.Additive, $"scan:thermal-contention:{contention}"))
+            : Fin.Fail<Unit>(new KernelFault.InvalidValue("scanpath", $"scan:thermal-contention:{contention}"))
         from layers in Events(elections, policy)
-        let bytes = ScanCodec.Write(policy, layers)
-        let key = ContentKey.Of(EgressKind.ScanVectors, bytes)
-        let receipt = Receipt(audit, fields, elections, layers, bytes.Length)
-        let _fact = FabricationFact.Engine.Of(receipt).Map((tap ?? FabricationTap.Silent).Fire).Strict()
-        select new ScanPlan(layers, bytes, key, receipt));
+        from bytes in ScanCodec.Write(policy, layers, Op.Of(name: nameof(Plan)))
+        let evidence = Measured(fields, elections, layers, bytes.Length)
+        let receipt = new Receipt<ScanEvidence> {
+            Evidence = evidence,
+            Concern = FabConcern.Additive,
+            Key = ContentKey.Of(EgressKind.ScanVectors, bytes.Span),
+            // Ancestry carries the preflight this plan stood on, never a nested column.
+            Consumed = Seq(audit.Key),
+            Stamped = policy.Audit.EvaluatedAt,
+        }
+        let _fact = FabricationFact.Engine.Of(evidence).Map((tap ?? FabricationTap.Silent).Fire).Strict()
+        select new ScanPlan(layers, bytes, receipt));
 
     // --- [ZONING]
     private static Fin<Seq<ExposureRegion>> Regions(SliceStack stack, Option<SupportPlan> support, ScanPolicy policy) =>
@@ -1021,7 +1023,7 @@ public static class Scan {
             ? new HatchProgram.Contours(scale.ContourPasses, spacing)
             : policy.Hatch;
         return spacing <= Length.Zero || !double.IsFinite(spacing.Millimeters)
-            ? Fin.Fail<Seq<CandidateVector>>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "scan:hatch-spacing"))
+            ? Fin.Fail<Seq<CandidateVector>>(new KernelFault.InvalidValue("scanpath", "scan:hatch-spacing"))
             : program.Switch(
                 state: (Region: region, Spacing: spacing),
                 filled: static (state, row) => Filled(state.Region, row.Law, state.Spacing),
@@ -1049,7 +1051,7 @@ public static class Scan {
 
     private static Fin<Seq<Edge3>> Rings(ExposureRegion region, int passes, Length offset, OffsetPolicy policy) =>
         passes <= 0 || offset <= Length.Zero
-            ? Fin.Fail<Seq<Edge3>>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "scan:contour-program"))
+            ? Fin.Fail<Seq<Edge3>>(new KernelFault.InvalidValue("scanpath", "scan:contour-program"))
             : toSeq(Enumerable.Range(0, passes))
                 .Traverse(pass => region.Region.Grow(offset * -(pass + 1), policy))
                 .As()
@@ -1059,7 +1061,7 @@ public static class Scan {
         Seq<Edge3> bounded = edges.Take(maximum + 1).Strict();
         return bounded.Count <= maximum
             ? Fin.Succ(bounded)
-            : Fin.Fail<Seq<Edge3>>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, $"scan:vector-cap:{bounded.Count}"));
+            : Fin.Fail<Seq<Edge3>>(new KernelFault.InvalidValue("scanpath", $"scan:vector-cap:{bounded.Count}"));
     }
 
     // --- [WAVE_ELECTION]
@@ -1078,20 +1080,15 @@ public static class Scan {
         double separation = plane.Thermal.Contention.Millimeters;
         BoundingBox[] boxes = rows.Map(row => Inflated(row.Vector.Geometry, separation * 0.5)).ToArray();
         return from index in Spatial
-                   // Qualified: `Additive/production` mints a `BuildPolicy` in THIS namespace, which wins
-                   // simple-name lookup over the kernel type the using-directives import.
-                   .Apply(
-                       new SpatialOp.Build(SpatialKind.Bvh, boxes, Rasm.Spatial.BuildPolicy.Canonical),
-                       Op.Of(name: nameof(Waves)))
+                   .Apply(new SpatialOp.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical), Op.Of(name: nameof(Waves)))
                    .Bind(static answer => answer is SpatialAnswer.Index built
                        ? Fin.Succ(built.Value)
-                       : Fin.Fail<SpatialIndex>(new FabricationFault.PolicyInadmissible(FabConcern.Additive, "scan:contention-index")))
+                       : Fin.Fail<SpatialIndex>(new KernelFault.InvalidValue("scanpath", "scan:contention-index")))
                from pairs in Spatial
                    .Apply(new SpatialOp.Query(index, new SpatialQuery.SelfOverlap(separation)), Op.Of(name: nameof(Waves)))
                    .Bind(static answer => answer is SpatialAnswer.Result { Value: QueryResult.Pairs overlaps }
                        ? Fin.Succ(overlaps.Overlaps)
-                       : Fin.Fail<Seq<(int Left, int Right)>>(new FabricationFault.PolicyInadmissible(
-                           FabConcern.Additive, "scan:contention-pairs")))
+                       : Fin.Fail<Seq<(int Left, int Right)>>(new KernelFault.InvalidValue("scanpath", "scan:contention-pairs")))
                let adjacency = Adjacency(rows, pairs, plane)
                select Coloured(rows, adjacency, plane.Thermal.Window);
     }
@@ -1229,8 +1226,7 @@ public static class Scan {
             policy.Base.SkywritingLead,
             policy.Base.SkywritingLag);
 
-    private static ScanReceipt Receipt(
-        AuditReceipt audit,
+    private static ScanEvidence Measured(
         Seq<FieldCell> fields,
         Seq<WaveElection> elections,
         Seq<ScanLayer> layers,
@@ -1256,8 +1252,7 @@ public static class Scan {
                 rows.Fold(Duration.Zero, static (sum, row) => sum + Nominal(row)),
                 rows.Fold(Energy.Zero, static (sum, row) => sum + (row.Power * Nominal(row) * Duty(row))));
         });
-        return new ScanReceipt(
-            audit,
+        return new ScanEvidence(
             loads,
             fields,
             thermal,
@@ -1291,7 +1286,6 @@ public static class Scan {
 
     private static Ratio Solid => Ratio.FromDecimalFractions(1.0);
 
-    private static Error Refusal(string locus) => new FabricationFault.PolicyInadmissible(FabConcern.Additive, locus);
 }
 
 // Powder seeding factors the physics gate reads. One named preset carries the landed shop values.
@@ -1304,8 +1298,10 @@ public static class ScanCodec {
     // The whole output-driving policy enters the preimage, so two plans agreeing on geometry but disagreeing on
     // exposure never share a key. Composition is `FabricationCanon` alone — no point, transform, optional, or
     // row framing is respelled here.
-    public static byte[] Write(ScanPolicy policy, Seq<ScanLayer> layers) {
-        using CanonicalWriter writer = new();
+    // `Retaining` is the mint that HOLDS a buffer — the writer publishes no constructor — and `ToBytes` answers on
+    // the rail, so this lane carries the close's own refusal rather than discarding it into an empty payload.
+    public static Fin<ReadOnlyMemory<byte>> Write(ScanPolicy policy, Seq<ScanLayer> layers, Op key) {
+        CanonicalWriter writer = CanonicalWriter.Retaining(0.0);
         Identity(writer, policy);
         writer.Rows(layers, static (sink, layer) => sink
             .Ordinal(layer.Layer)
@@ -1314,7 +1310,7 @@ public static class ScanCodec {
                 .Ordinal(source.Source.ToValue())
                 .Rows(source.Events, Event))
             .Rows(layer.Events, Event));
-        return writer.ToBytes().ToArray();
+        return writer.ToBytes(key);
     }
 
     private static CanonicalWriter Event(CanonicalWriter writer, ScanEvent value) => value.Switch(
@@ -1441,7 +1437,7 @@ flowchart LR
     Order --> Events["discontinuity-gated ScanEvent program"]
     Events --> Codec["FabricationCanon preimage"]
     Codec --> Key["ContentKey.Of ScanVectors"]
-    Key --> Plan["ScanPlan + ScanReceipt"]
+    Key --> Plan["ScanPlan + Receipt&lt;ScanEvidence&gt;"]
 ```
 
 ## [09]-[RESEARCH]

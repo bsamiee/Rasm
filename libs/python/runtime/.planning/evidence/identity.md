@@ -2,19 +2,21 @@
 
 `ContentIdentity` is the single content-addressing owner the whole branch consumes, the module `rasm.runtime.identity`: one XxHash128 key over canonical bytes under a two-arm seed. The explicit `Some(0)` arm is the seed-zero cross-branch parity path every peer reproduces; the default arm derives its seed from the format and the consumer-folded policy bytes, so a re-tessellation at identical settings is a cache hit by reference and a settings change partitions the cache. Data, geometry, compute, and artifacts consume this one owner and mint no parallel content key.
 
-One span-fold core serves both entries — `_derive_span` the sole `content.derive` bracket, `_minted` the sole fold-annotate-status body — so the railed `of` and the bare `key` differ only in the fallibility fence, never a re-opened span or a second status spelling. Its tracer mints from the `reliability/faults#FAULT` `SCOPES[Scope.IDENTITY]` row and the railed entry fences through `boundary(fmt, ...)` inside the live span. Corpus-parity binding lives in the sibling `evidence/reproduction` module, split out so its `receipts` import stays DAG-legal (`identity < receipts < reproduction`).
+One span-fold core serves both entries — `_derive_span` the sole `content.derive` bracket, `_minted` the sole fold-annotate-status body — so the railed `of` and the bare `key` differ only in the fallibility fence, never a re-opened span or a second status spelling. Its tracer mints from the `reliability/faults#FAULT` `SCOPES[Scope.IDENTITY]` row and the railed entry fences through `boundary(IDENTITY_DERIVE, ...)` inside the live span. Corpus-parity binding lives in the sibling `evidence/reproduction` module, split out so its `receipts` import stays DAG-legal (`identity < receipts < reproduction`).
 
 ## [01]-[INDEX]
 
-- [02]-[IDENTITY]: the `ContentKey` value object with its `project` output axis, the `KEY_FMT` grammar both entries gate on, the `Tolerance`-folded seed, the closed `IdentitySource` modality ADT, the span-fold core, and the railed `of` beside the bare `key`.
+- [02]-[IDENTITY]: the `ContentKey` value object with its `project` output axis, the `KEY_FMT` grammar both entries gate on, the `Tolerance`-folded seed, the declared `BareValue` payload family over the closed `IdentitySource` modality ADT, the span-fold core, and the railed `of` beside the bare `key`.
 
 ## [02]-[IDENTITY]
 
 - Owner: `IdentityPolicy.spec` IS the canonical-seed field contract — every field it renders enters the seed bytes, which `_framed` length-and-count frames exactly as it frames a `parts` key preimage, so one width and one byte order serve both — and the policy is a GENERIC carrier: a domain knob such as geometry's tessellation deflection/angle rides a consumer-owned policy folded into the canonical seed bytes, never a new `IdentityPolicy` field per domain. Key equality is bytes-law — `of(fmt, source)` under the default and under an explicit `CANONICAL_POLICY` mint the same key, the compute design-key resume cache the demanding proof. `IdentitySource` owns its own `lift` and `fold`, so dispatch is total and the digest algebra rides the union, never an external dispatcher or a second entrypoint.
-- Entry: `KEY_FMT` admits the `fmt` before any derivation runs, because `fmt` enters the seed AND renders as the `hex` tail the C# peer joins on, so an unlawful spelling forks the key namespace at both ends and every later comparison answers "changed" for a cause the key cannot carry. One grammar, two seams keyed by each entry's own fallibility: `of` refuses on the rail before the span opens, while `key` — which returns a bare value and has no rail — carries the refined `KeyFmt` hint under `FAULT_CONF`, whose canonical violation the `CLASSIFY` `api` row folds at the enclosing fence. A per-call-site spelling check and a second pattern are the two deleted forms. `of` is the one polymorphic derivation over input shape and output projection — no per-render method and no parallel `of_canonical`; `key` is the bare synchronous accessor beside it, the one fallibility split, never a `rail: bool` knob. An empty or mixed tuple falls through to `stream`, whose seed-only fold is a deterministic degenerate key. A multi-FIELD preimage names its modality instead of inferring it — an already-lifted `IdentitySource(parts=...)` rides `of` verbatim, so the length-and-count framing the estate's preimage law demands runs at this owner and no producer spells a `to_bytes` width of its own; `key`'s signature is the `BareValue` roster `Source` widens by exactly the fallible pair, so the two entries state one admission set and its one delta rather than two hand-kept unions: the split is encode-fallibility — a `Struct` must encode and an encode can raise, which the bare accessor has no rail to carry, while a lifted `parts`/`stream` source is already bytes and its length-and-count framing cannot fail, so the lifted case rides `key` verbatim and `of` remains the rail-carrying entry for fallible admissions. The refinement is what makes that split structural: a bare `IdentitySource` annotation admits its own `canonical` case, so the exclusion the prose states would be one the type walks straight past. `seed` is the `Option[U64]` override: `Nothing` the policy-folded settings seed, `Some(0)` the bare C# `XxHash128.HashToUInt128(span)` seed-zero path the `GeometryHash`/`NamingHashOps` boundary mints — geometry `mesh/daemon` keys GLB wire bytes under this seed-zero `RepresentationContentHash` parity contract — so the seed origin is one parameter, never a fake policy. Identity is recovered from the value shape, never a path, name suffix, or mode flag.
+- Entry: `KEY_FMT` admits the `fmt` before any derivation runs, because `fmt` enters the seed AND renders as the `hex` tail the C# peer joins on, so an unlawful spelling forks the key namespace at both ends and every later comparison answers "changed" for a cause the key cannot carry. One grammar, two seams keyed by each entry's own fallibility: `of` refuses on the rail before the span opens, while `key` — which returns a bare value and has no rail — carries the refined `KeyFmt` hint under `FAULT_CONF`, whose canonical violation the `CLASSIFY` `api` row folds at the enclosing fence. A per-call-site spelling check and a second pattern are the two deleted forms. `of` is the one polymorphic derivation over input shape and output projection — no per-render method and no parallel `of_canonical`; `key` is the bare synchronous accessor beside it, the one fallibility split, never a `rail: bool` knob. An empty tuple lands on `stream`, whose seed-only fold is a deterministic degenerate key; a MIXED tuple lands on no arm at all and refuses at `lift`. A multi-FIELD preimage names its modality instead of inferring it — an already-lifted `IdentitySource(parts=...)` rides `of` verbatim, so the length-and-count framing the estate's preimage law demands runs at this owner and no producer spells a `to_bytes` width of its own; `key`'s signature is the `BareValue` roster `Source` widens by exactly the fallible pair, so the two entries state one admission set and its one delta rather than two hand-kept unions: the split is encode-fallibility — a `Struct` must encode and an encode can raise, which the bare accessor has no rail to carry, while a lifted `parts`/`stream` source is already bytes and its length-and-count framing cannot fail, so the lifted case rides `key` verbatim and `of` remains the rail-carrying entry for fallible admissions. The refinement is what makes that split structural: a bare `IdentitySource` annotation admits its own `canonical` case, so the exclusion the prose states would be one the type walks straight past. `seed` is the `Option[U64]` override: `Nothing` the policy-folded settings seed, `Some(0)` the bare C# `XxHash128.HashToUInt128(span)` seed-zero path the `GeometryHash`/`NamingHashOps` boundary mints — geometry `mesh/daemon` keys GLB wire bytes under this seed-zero `RepresentationContentHash` parity contract — so the seed origin is one parameter, never a fake policy. Identity is recovered from the value shape, never a path, name suffix, or mode flag.
+- Law: the admitted payload family is DECLARED at `BareValue`, never inferred from arm order — one union arm per `IdentitySource` case and a `lift` total over exactly that roster, so a composing package reads its modality off the annotation and an unadmitted payload refuses at the lift rather than at the hash. `Buffer` keys as `whole`, a bytes iterable as `stream` chunks of ONE payload, a homogeneous `tuple[ContentKey, ...]` as the `merkle` spine, and a lifted `BareSource` as itself; `Source` adds the one fallible admission — a `Struct` as `canonical`. Nothing else keys. N SEMANTIC fields have no bare spelling BY DESIGN: the producer hands `IdentitySource(parts=...)`, so the modality is a value the caller states rather than a shape `lift` guesses and the `[PREIMAGE_FRAMING]` count-and-length frame runs at its one owner. No arm therefore admits a MIXED tuple of keys and buffers — a key is not bytes and a chunk is not a semantic field — so a producer holding both lowers each key through `ContentKey.memory`, the same little-endian u128 spelling the `merkle` spine reads, then hands ONE `parts` tuple; a `canonical` `Struct` preimage carrying a live `ContentKey` is refused a layer down, since msgspec raises `OverflowError` on any int past `2**64-1` before `enc_hook` ever fires and that raise is outside the `EncodeError` the rail catches.
 - Auto: the `merkle` child transcription reproduces the C# `BinaryPrimitives.WriteUInt128LittleEndian` canonical span the `csharp:Rasm.Persistence/Version/commits#COMMIT_DAG` `CommitGraph.Of`/`MerkleRange.Of` and `#CRDT_WIRE` `CrdtWire.ContentKey` fold before `XxHash128.HashToUInt128`, so a parent key is order-sensitive over its parts. `lift`'s payload modalities are exported branch law — data keys operation bytes and derived-snapshot Merkle keys, compute keys buffer/stream payloads for its resume cache, geometry keys GLB bytes — so narrowing any modality is a cross-folder break. `project("hex")` renders `{value:032x}:{fmt}`, the digest-colon-tag spelling a C# artifact address carries, so a companion GLB result minted on the `Some(0)` arm keys byte-identically to the kernel seed-zero `RepresentationContentHash` — a default-arm key shares that render and never that value, since its seed preimage is this branch's own; `project("wire")` renders the bare 32-lowercase-hex form every wire digest and manifest key field carries — the python peer of `ContentAddress.ToValue()`, the ONE lowering site the key-spelling carve demands.
-- Growth: a new evaluation parameter is one `Tolerance` field on `IdentityPolicy.spec`; a new output render one `KeyView` member with one `project` arm and one `of` overload, because a render with no overload matches none and type-checks nowhere while resolving fine at runtime; a new input modality one `IdentitySource` case with one `fold` arm, plus one `lift` shape only where a bare value discriminates it; a distinct seed origin one `Some(value)` through the existing override; a new span attribute one line in the span-fold core reaching both entries; a widened `fmt` vocabulary is one `KEY_FMT` edit reaching the rail gate, the refined hint, and the corpus census at once.
-- Boundary: artifact identity is XxHash128 over canonical bytes — the suite hash law — and the C# `InterchangeIdentity` is the cross-boundary mechanics owner this seed reproduces. Consumers ride the unbroken `of`/`key`/`ContentKey`/`hex` surface. Its span scopes exactly the derivation: the downstream `execution/lanes#LANE` cache hit/miss the returned key drives is the lane owner's span, never folded into `content.derive`. This owner mints the branch's `CANONICAL_BYTE_IDENTITY` instance on the explicit `Some(0)` arm, under the `docs/laws/patterns.md` `[PREIMAGE_FRAMING]` framing law and the `[CONTENT_KEY]` seed-zero law; parity across the three independent mints IS the conformance, and WHICH fields a producer offers stays the producer's — the framing of them never is, because a width or byte order chosen at a call site forks the key namespace with no surface able to report it. The default arm's derived seed governs the branch's own re-tessellation cache identity alone and states no parity: no conformance entry pins its seed preimage, so a peer reading a default-arm key reads a branch-local address.
+- Law: `byte_length` is the MEASURED extent and bears absence: every mint states one because every fold measured its own preimage, and `ContentKey.decoded(value=, fmt=)` is the ONE arm answering `Nothing` — the refusal door for a key rebuilt from a wire render, which carries digest and tag alone. `Option` is totally ordered, so `order=True` stays total for the `Map` trees keyed on this value, and the `merkle` extent binds through the carrier so one unmeasured child leaves its whole parent unmeasured rather than lighter than its contents.
+- Growth: a new evaluation parameter is one `Tolerance` field on `IdentityPolicy.spec`; a new output render one `KeyView` member with one `project` arm and one `of` overload, because a render with no overload matches none and type-checks nowhere while resolving fine at runtime; a new input modality one `IdentitySource` case with one `fold` arm, plus one `BareValue` arm and its `lift` shape only where a bare value discriminates it — a modality whose bare form no arm can tell apart grows as a `parts`-style lifted case with no union edit at all; a distinct seed origin one `Some(value)` through the existing override; a new span attribute one line in the span-fold core reaching both entries; a widened `fmt` vocabulary is one `KEY_FMT` edit reaching the rail gate, the refined hint, and the corpus census at once.
+- Boundary: artifact identity is XxHash128 over canonical bytes — the suite hash law — and the C# `InterchangeIdentity` is the cross-boundary mechanics owner this seed reproduces. Consumers ride the unbroken `of`/`key`/`ContentKey`/`ContentKey.decoded`/`IdentitySource`/`hex` surface — `IdentitySource` is EXPORTED because the `[PREIMAGE_FRAMING]` law names a multi-field preimage as the producer's own `IdentitySource(parts=...)` value, so a page holding N semantic fields hands the lifted modality in rather than framing bytes of its own. Its span scopes exactly the derivation: the downstream `execution/lanes#LANE` cache hit/miss the returned key drives is the lane owner's span, never folded into `content.derive`. This owner mints the branch's `CANONICAL_BYTE_IDENTITY` instance on the explicit `Some(0)` arm, under the `docs/laws/patterns.md` `[PREIMAGE_FRAMING]` framing law and the `[CONTENT_KEY]` seed-zero law; parity across the three independent mints IS the conformance, and WHICH fields a producer offers stays the producer's — the framing of them never is, because a width or byte order chosen at a call site forks the key namespace with no surface able to report it. The default arm's derived seed governs the branch's own re-tessellation cache identity alone and states no parity: no conformance entry pins its seed preimage, so a peer reading a default-arm key reads a branch-local address.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -26,14 +28,14 @@ from typing import Annotated, Final, Literal, assert_never, overload
 import xxhash
 from beartype import beartype
 from beartype.vale import Is
-from expression import Error, Nothing, Ok, Option, Result, case, tag, tagged_union
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block
 from msgspec import EncodeError, Meta, Struct
 from msgspec.msgpack import Encoder
 from opentelemetry import trace
 from opentelemetry.trace import Span, Status, StatusCode
 
-from rasm.runtime.faults import FAULT_CONF, SCOPES, BoundaryFault, RuntimeRail, Scope, boundary, scoped
+from rasm.runtime.faults import FAULT_CONF, IDENTITY_DERIVE, IDENTITY_FMT, SCOPES, RuntimeRail, Scope, boundary, scoped
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -44,9 +46,17 @@ type U64 = Annotated[int, Meta(ge=0)]
 type Tolerance = Annotated[float, Meta(gt=0.0)]
 type KeyView = Literal["value", "hex", "wire", "memory", "digest"]
 type KeyRender = ContentKey | str | bytes | int
+# THE ADMITTED PAYLOAD FAMILY, DECLARED — one union arm per `IdentitySource` case, so a composing package reads its
+# modality off this annotation instead of recovering it from `lift`'s arm order, and `lift` is total over exactly
+# this roster with nothing falling through:
+#   `Buffer`                 -> `whole`     one contiguous payload, `bytes(...)`-coerced once at the arm
+#   `Iterable[bytes]`        -> `stream`    BUFFER CHUNKS of one payload; the chunk boundary is an I/O artefact
+#   `tuple[ContentKey, ...]` -> `merkle`    N child keys over the little-endian u128 C#-parity spine
+#   `BareSource`             -> itself      the ALREADY-LIFTED source, and the ONE spelling of N SEMANTIC parts
 # an ALREADY-LIFTED source rides the same entry, which is what keeps the two multi-part modalities separable: a bare
 # iterable is buffer chunks of one payload and lifts to `stream`, while N SEMANTIC parts are a value the caller
-# constructs and hands in as `IdentitySource(parts=...)`. The discriminant stays recoverable from the value.
+# constructs and hands in as `IdentitySource(parts=...)`. The discriminant stays recoverable from the value, and a
+# payload matching no arm — a MIXED tuple of keys and buffers above all — refuses at `lift` rather than keying.
 # The two entries state ONE roster and its one delta: `BareValue` is every admission already in bytes, and `Source`
 # widens it by exactly the fallible pair — a `Struct` that must encode, and the `canonical` case `BareSource` refines
 # away — so a new modality lands on the primary and the railed roster re-derives with no second union to re-spell.
@@ -85,7 +95,22 @@ class ContentKey(Struct, frozen=True, order=True, gc=False):
     # (lane drain cache, plan tables, warm seeds) needs the field-order `<` this generates.
     value: U128
     fmt: str
-    byte_length: int
+    # the measured extent of the preimage, ABSENCE-BEARING and required: every mint states one and only `decoded`
+    # answers `Nothing`, so no constructor can quietly default. `Option` is TOTALLY ordered here — `Nothing` sorts
+    # below every `Some` — so `order=True` stays total and a `Map[ContentKey, ...]` tree keeps its comparison even
+    # where a decoded key and its measured twin meet.
+    byte_length: Option[int]
+
+    @staticmethod
+    def decoded(*, value: U128, fmt: str) -> "ContentKey":
+        # the REFUSAL door for a key rebuilt from a WIRE render. The estate publishes a content key as digest and tag
+        # alone, so a decode holds no extent and this arm is what stops one being invented: the retired
+        # `byte_length=0` filled a required measurement slot with a number no producer took — `docs/laws/scars.md`
+        # `[FORGED_ZERO]`, "converting a canon-only value mints a key or stamp no producer took" — and a consumer
+        # summing extents across a mixed roster then read the crossing as WEIGHTLESS rather than as unmeasured,
+        # which is a different fact and an unrecoverable one. Keyword-only, so a decode cannot be spelled positionally
+        # beside a measured mint and read alike at the call site.
+        return ContentKey(value=value, fmt=fmt, byte_length=Nothing)
 
     @overload
     def project(self, view: Literal["value"] = ..., /) -> "ContentKey": ...
@@ -153,41 +178,59 @@ class IdentitySource:
 
     @staticmethod
     def lift(source: Source) -> "IdentitySource":
+        # TOTAL over the declared family AND over the tuple element regime alike: every tuple decides at the two arms
+        # below, so the `Iterable` arm can no longer swallow a heterogeneous one as a chunk stream — the mis-key that
+        # handed `fold` a tuple of tuples and raised a bare `TypeError` inside `digest.update`, outside every rail.
         match source:
             case IdentitySource() as lifted:
                 return lifted
-            case tuple() as parts if parts and all(isinstance(part, ContentKey) for part in parts):
-                return IdentitySource(merkle=parts)
+            case tuple() as keys if keys and all(isinstance(key, ContentKey) for key in keys):
+                return IdentitySource(merkle=keys)
+            # `all` over no element holds, so the EMPTY tuple lands here and its seed-only fold is the deterministic
+            # degenerate key; `bytes(...)` coerces a buffer chunk once, so the fold receives the case's own declared
+            # `tuple[bytes, ...]` rather than whatever the producer's iterable happened to hold.
+            case tuple() as chunks if all(isinstance(chunk, Buffer) for chunk in chunks):
+                return IdentitySource(stream=tuple(bytes(chunk) for chunk in chunks))
             case Struct() as payload:
                 return IdentitySource(canonical=payload)
             # `Buffer` (PEP 688) claims every buffer-protocol payload as `whole` BEFORE the `Iterable` arm can mis-key an iterable
             # buffer (`array`) as a chunk stream; `bytes(payload)` coerces once.
             case Buffer() as payload:
                 return IdentitySource(whole=bytes(payload))
-            case Iterable() as chunks if not isinstance(chunks, str):
-                return IdentitySource(stream=tuple(chunks))
+            # a ONE-SHOT iterable materializes once and re-enters at the tuple arms, so the element regime is read at
+            # ONE site and no guard exhausts a generator the fold would then receive empty. `tuple` is excluded here
+            # because a tuple already decided above — admitting it would recur forever on the un-admitted payload.
+            case Iterable() as chunks if not isinstance(chunks, str | tuple):
+                return IdentitySource.lift(tuple(chunks))
             case _ as unreachable:
                 assert_never(unreachable)
 
-    def fold(self, seed: U64) -> tuple[U128, int]:
+    def fold(self, seed: U64) -> tuple[U128, Option[int]]:
+        # every arm over BYTES measures its own extent, so four of the five answer `Some`. The `merkle` spine is the
+        # one arm folding CHILD extents, and a parent whose children include a decoded key measured nothing itself:
+        # the fold binds through `Option` so one unmeasured child leaves the whole parent unmeasured, where a
+        # `sum_by` over a defaulted zero would publish the parent as lighter than its own contents.
         match self:
             case IdentitySource(tag="whole", whole=payload):
-                return xxhash.xxh3_128_intdigest(payload, seed=seed), len(payload)
+                return xxhash.xxh3_128_intdigest(payload, seed=seed), Some(len(payload))
             case IdentitySource(tag="canonical", canonical=payload):
                 wire = _ENCODER.encode(payload)
-                return xxhash.xxh3_128_intdigest(wire, seed=seed), len(wire)
+                return xxhash.xxh3_128_intdigest(wire, seed=seed), Some(len(wire))
             case IdentitySource(tag="merkle", merkle=children):
                 spine = b"".join(child.memory for child in children)
-                return xxhash.xxh3_128_intdigest(spine, seed=seed), Block.of_seq(children).sum_by(lambda c: c.byte_length)
+                extent = Block.of_seq(children).fold(
+                    lambda held, child: held.bind(lambda total: child.byte_length.map(lambda size: total + size)), Some(0)
+                )
+                return xxhash.xxh3_128_intdigest(spine, seed=seed), extent
             case IdentitySource(tag="stream", stream=chunks):
                 digest = xxhash.xxh3_128(seed=seed)
                 for chunk in chunks:  # Exemption: the incremental digest is xxhash's own streaming seam
                     digest.update(chunk)
-                return digest.intdigest(), Block.of_seq(chunks).sum_by(len)
+                return digest.intdigest(), Some(Block.of_seq(chunks).sum_by(len))
             case IdentitySource(tag="parts", parts=fields):
                 # `[PREIMAGE_FRAMING]` rides `_framed`, the module's ONE spelling of the width and byte order, so the
                 # key preimage here and the settings-seed preimage `ContentIdentity.seed` folds cannot drift apart.
-                return _framed(xxhash.xxh3_128(seed=seed), fields).intdigest(), Block.of_seq(fields).sum_by(len)
+                return _framed(xxhash.xxh3_128(seed=seed), fields).intdigest(), Some(Block.of_seq(fields).sum_by(len))
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -230,7 +273,7 @@ def _minted(span: Span, fmt: str, lifted: IdentitySource, seed: U64) -> ContentK
     # site formatting a width the `project` arm claims to own alone. Then the clean-path OK; a fault never reaches
     # here — `_convert` records ERROR on the still-open span instead.
     value, byte_length = lifted.fold(seed)
-    key = ContentKey(value=value, fmt=fmt, byte_length=byte_length)
+    key = ContentKey(value=value, fmt=fmt, byte_length=byte_length)  # every mint MEASURED its preimage; only `decoded` answers Nothing
     if span.is_recording():
         span.set_attribute("identity.key", key.project("wire"))
     span.set_status(Status(StatusCode.OK))
@@ -241,13 +284,14 @@ def derived[T](fmt: str, source: IdentitySource, run: Callable[[Span], T]) -> Ru
     # railed composition, gated FIRST: an unlawful `fmt` refuses before the span opens and before the seed derives, so
     # a forked namespace costs no span, no digest, and no cache slot, and the refusal names the coordinate where a
     # minted key would have named nothing. Past the gate `boundary` fences INSIDE the live span so a canonical-encode
-    # `EncodeError` records on it; `subject` is the caller's `fmt`, never a clobbering literal.
-    match Ok(fmt) if KEY_FMT.fullmatch(fmt) is not None else Error(BoundaryFault(config=("identity.fmt", f"{fmt!r} breaches {KEY_FMT.pattern}"))):
+    # `EncodeError` records on it. Both refusals resolve a rostered `RAISES` anchor, so the caller's `fmt` rides as a
+    # NAMED coordinate on the gate's row rather than standing in as the fence subject a leg never declared.
+    match Ok(fmt) if KEY_FMT.fullmatch(fmt) is not None else Error(IDENTITY_FMT.raised(fmt, KEY_FMT.pattern)):
         case Result(tag="error") as refused:
             return refused
         case _:
             with _derive_span(fmt, source.tag) as span:
-                return boundary(fmt, lambda: run(span), catch=EncodeError)
+                return boundary(IDENTITY_DERIVE, lambda: run(span), catch=EncodeError)
 
 
 class ContentIdentity:

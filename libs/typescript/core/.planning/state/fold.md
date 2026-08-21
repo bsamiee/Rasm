@@ -14,7 +14,7 @@
 
 [PLAN_CONTRACT]:
 - Growth: a new fold is one `Fold.Plan` value binding an existing merge instance; a consumer binds that value instead of re-declaring the fold.
-- Packages: `@electric-sql/d2mini`, `@electric-sql/d2ts`; `effect`; `../value/clock.ts` (`Clock`); `./causal.ts` (`Causal`); `./merge.ts` (`Merge`).
+- Packages: `@electric-sql/d2mini`, `@electric-sql/d2ts`; `effect`; `../value/clock.ts` (`Clock`); `../value/fault.ts` (`Fault`); `./causal.ts` (`Causal`); `./merge.ts` (`Merge`).
 
 ```typescript
 import * as Mini from "@electric-sql/d2mini"
@@ -24,6 +24,7 @@ import {
   Predicate, Record, Ref, Schema, SortedMap, Stream, Subscribable, SubscriptionRef,
 } from "effect"
 import { Clock } from "../value/clock.ts"
+import { Fault } from "../value/fault.ts"
 import { Causal } from "./causal.ts"
 import { Merge } from "./merge.ts"
 
@@ -165,7 +166,11 @@ declare namespace AsOf {
 ## [04]-[MEMORY_LANE]
 
 [MEMORY_LANE]:
+- Law: `ReplayFault` carries one `Fault.Class.family` issue, so each reason grades and renders its own subject instead of sharing one class word.
+- Law: four legs partition the refusals — `admission` for offered material, `coordinate` for a stamp against the frontier, `window` for a band read, `trace` for the retained index.
+- Law: a window refusal names the sealed-to-floor band it fell outside, so the reader learns which bound to move.
 - Growth: a new lens modality is one overload line plus one projection arm.
+- Growth: a new refusal is one `Fault.Class.row` on the replay family; its subject and renderer land with it.
 
 ```typescript
 const _OrderLens = Schema.Struct({
@@ -335,11 +340,107 @@ declare namespace Replay {
   }>
 }
 
+// Every window refusal names the BAND it fell outside, never the coordinate alone: a read before the seal and a read
+// under the compaction floor are the same word only until an operator has to choose which bound to move.
+const _Band = Schema.Struct({
+  floor: Schema.OptionFromSelf(AsOf),
+  sealed: Schema.OptionFromSelf(AsOf),
+})
+const _edge = (bound: Option.Option<AsOf>): string =>
+  Option.match(bound, { onNone: () => "-", onSome: (held) => String(held.ordinal) })
+const _band = (band: typeof _Band.Type): string => `${_edge(band.floor)}..${_edge(band.sealed)}`
+
+// One family grades the whole refusal surface and each reason renders its OWN subject, so a torn retained index and a
+// rejected order lens stop reading as one severity. Classes are elected per refusal: offered material the plan cannot
+// replay is `invalid`, key parts no cell grammar admits are `malformed`, a coordinate a later seal or frontier read
+// reopens is `conflicted`, history outside the sealed band is `absent`, and a reconstruction that yields two live rows
+// for one cell is the one `breached` arm. `leg` partitions the page's own surfaces — `admission` refuses what a caller
+// offered, `coordinate` refuses a stamp against the frontier, `window` refuses a band read, `trace` refuses the index.
+const _replayFamily = Fault.Class.family(
+  ["spec", "cell", "identity", "group", "push", "seal", "read", "diff", "compact", "invariant"] as const,
+  {
+    spec: Fault.Class.row({
+      class: "invalid",
+      leg: "admission",
+      detail: Schema.Struct({ column: Schema.NonEmptyString }),
+      render: ({ column }) => `handle spec column ${column} carries a value this lane's schema refuses`,
+    }),
+    cell: Fault.Class.row({
+      class: "invalid",
+      leg: "admission",
+      detail: Schema.Struct({ cell: _Cell }),
+      render: ({ cell }) => `cell ${cell} is claimed by two keys this plan does not equate`,
+    }),
+    identity: Fault.Class.row({
+      class: "invalid",
+      leg: "admission",
+      detail: Schema.Struct({ plan: Schema.NonEmptyString, contribution: Schema.OptionFromSelf(_Cell) }),
+      render: ({ contribution, plan }) =>
+        Option.match(contribution, {
+          onNone: () => `plan ${plan} merges non-idempotently and projects no identity, so no delta replays`,
+          onSome: (cell) => `plan ${plan} restates identity ${cell} under a second key, state, or retraction`,
+        }),
+    }),
+    group: Fault.Class.row({
+      class: "malformed",
+      leg: "admission",
+      detail: Schema.Struct({ columns: Schema.NonEmptyArray(Schema.String) }),
+      render: ({ columns }) => `group columns ${Array.join(columns, ",")} carry non-finite parts no cell admits`,
+    }),
+    push: Fault.Class.row({
+      class: "conflicted",
+      leg: "coordinate",
+      detail: Schema.Struct({ at: AsOf }),
+      render: ({ at }) => `push at ordinal ${at.ordinal} claims a coordinate this lane already settled`,
+    }),
+    seal: Fault.Class.row({
+      class: "conflicted",
+      leg: "coordinate",
+      detail: Schema.Struct({ frontier: AsOf, sealed: AsOf }),
+      render: ({ frontier, sealed }) => `seal at ordinal ${frontier.ordinal} retreats behind the sealed ${sealed.ordinal}`,
+    }),
+    read: Fault.Class.row({
+      class: "absent",
+      leg: "window",
+      detail: Schema.Struct({ upTo: AsOf, ..._Band.fields }),
+      render: (subject) => `read at ordinal ${subject.upTo.ordinal} is unanswerable inside the sealed band ${_band(subject)}`,
+    }),
+    diff: Fault.Class.row({
+      class: "absent",
+      leg: "window",
+      detail: Schema.Struct({ after: AsOf, upTo: AsOf, ..._Band.fields }),
+      render: (subject) =>
+        `diff over ordinals ${subject.after.ordinal}..${subject.upTo.ordinal} is unanswerable inside the sealed band ${
+          _band(subject)
+        }`,
+    }),
+    compact: Fault.Class.row({
+      class: "conflicted",
+      leg: "window",
+      detail: Schema.Struct({ upTo: AsOf, ..._Band.fields }),
+      render: (subject) => `compaction to ordinal ${subject.upTo.ordinal} conflicts with the sealed band ${_band(subject)}`,
+    }),
+    invariant: Fault.Class.row({
+      class: "breached",
+      leg: "trace",
+      detail: Schema.Struct({ cell: _Cell, survivors: Schema.Int.pipe(Schema.positive()) }),
+      render: ({ cell, survivors }) => `cell ${cell} reconstructs ${survivors} live rows at one coordinate`,
+    }),
+  },
+)
+
 class ReplayFault extends Schema.TaggedError<ReplayFault>()("ReplayFault", {
-  reason: Schema.Literal("cell", "identity", "group", "push", "seal", "read", "diff", "compact", "invariant"),
-  cell: Schema.optionalWith(_Cell, { as: "Option" }),
+  case: _replayFamily.payload,
 }) {
-  readonly class = "invalid" as const
+  get class(): Fault.Class.Kind {
+    return _replayFamily.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _replayFamily.legOf(this.case.reason)
+  }
+  override get message(): string {
+    return _replayFamily.render(this.case)
+  }
 }
 
 const _admission = <Op, K, S>(plan: Fold.Plan<Op, K, S>) => {
@@ -352,7 +453,9 @@ const _admission = <Op, K, S>(plan: Fold.Plan<Op, K, S>) => {
       return [plan.cell(key), key, plan.lift(op), Option.map(plan.identity, (identity) => identity(op)), count] as const
     })
     if (!Merge.idempotent(plan.merge) && Option.isNone(plan.identity)) {
-      return Effect.fail(new ReplayFault({ reason: "identity", cell: Option.none() }))
+      return Effect.fail(new ReplayFault({
+        case: { reason: "identity", plan: plan.name, contribution: Option.none() },
+      }))
     }
     const stagedWitnesses = new Map(witnesses)
     const staged = new Map(counts)
@@ -378,8 +481,9 @@ const _admission = <Op, K, S>(plan: Fold.Plan<Op, K, S>) => {
         for (const [identity, count] of staged) counts.set(identity, count)
       }),
       onSome: ([cell, , , identity, count]) => Effect.fail(new ReplayFault({
-        reason: Option.isSome(identity) || count < 0 ? "identity" : "cell",
-        cell: Option.some(Option.getOrElse(identity, () => cell)),
+        case: Option.isSome(identity) || count < 0
+          ? { reason: "identity", plan: plan.name, contribution: Option.some(Option.getOrElse(identity, () => cell)) }
+          : { reason: "cell", cell },
       })),
     })
   }
@@ -491,7 +595,7 @@ const _trace = <K, S>(cell: (key: K) => Fold.Cell): Replay.Trace<K, S> => {
     )
     return rows.length <= 1
       ? Effect.succeed(Array.head(rows))
-      : Effect.fail(new ReplayFault({ reason: "invariant", cell: Option.some(key) }))
+      : Effect.fail(new ReplayFault({ case: { reason: "invariant", cell: key, survivors: rows.length } }))
   }
   return {
     cell,
@@ -571,29 +675,36 @@ const _timed = <K, S>(
             coordinates: HashMap.filter(state.coordinates, (_coordinate, ordinal) => ordinal >= Number(upTo.ordinal)),
           })),
         )
-      : Effect.fail(new ReplayFault({ reason: "compact", cell: Option.none() }))),
+      : Effect.fail(new ReplayFault({
+          case: { reason: "compact", upTo, floor: held.floor, sealed: held.sealed },
+        }))),
   diff: (after, upTo) => Effect.flatMap(Ref.get(live), (held) =>
     AsOf.covers(upTo, after)
       && Option.exists(held.sealed, (sealed) => AsOf.covers(sealed, upTo))
       && !Option.exists(held.floor, (floor) => !AsOf.covers(after, floor))
       ? trace.diff(after, upTo)
-      : Effect.fail(new ReplayFault({ reason: "diff", cell: Option.none() }))),
+      : Effect.fail(new ReplayFault({
+          case: { reason: "diff", after, upTo, floor: held.floor, sealed: held.sealed },
+        }))),
   frontier: Subscribable.map(live, (held) => held.sealed),
   history: (key) => Effect.map(Ref.get(live), (held) =>
     Array.filterMap(trace.versions(key), (ordinal) => HashMap.get(held.coordinates, ordinal))),
   read: (upTo) => Effect.flatMap(Ref.get(live), (held) =>
     !Option.exists(held.sealed, (sealed) => AsOf.covers(sealed, upTo))
       || Option.exists(held.floor, (floor) => !AsOf.covers(upTo, floor))
-      ? Effect.fail(new ReplayFault({ reason: "read", cell: Option.none() }))
+      ? Effect.fail(new ReplayFault({ case: { reason: "read", upTo, floor: held.floor, sealed: held.sealed } }))
       : trace.read(upTo)),
+  // Filtering to the OFFENDING seal binds the frontier the refusal names, so the raise reads both coordinates rather
+  // than asserting a retreat it never held.
   seal: (frontier) =>
     Effect.flatMap(Ref.get(live), (held) =>
-      Option.exists(held.sealed, (sealed) => !AsOf.covers(frontier, sealed))
-        ? Effect.fail(new ReplayFault({ reason: "seal", cell: Option.none() }))
-        : drive(
-            () => advance(Diff.v([...AsOf.time(frontier)])),
-            (drained) => publish(drained, Option.some(frontier), Option.some(frontier)),
-          )),
+      Option.match(Option.filter(held.sealed, (sealed) => !AsOf.covers(frontier, sealed)), {
+        onNone: () => drive(
+          () => advance(Diff.v([...AsOf.time(frontier)])),
+          (drained) => publish(drained, Option.some(frontier), Option.some(frontier)),
+        ),
+        onSome: (sealed) => Effect.fail(new ReplayFault({ case: { reason: "seal", frontier, sealed } })),
+      })),
 })
 
 const _pushAt = <K, S, A>(
@@ -604,7 +715,7 @@ const _pushAt = <K, S, A>(
   Effect.flatMap(Ref.get(live), (held) =>
     Option.exists(held.sealed, (sealed) => at.ordinal <= sealed.ordinal)
       || Option.exists(HashMap.get(held.coordinates, AsOf.time(at)[0]), (prior) => !AsOf.alike(prior, at))
-      ? Effect.fail(new ReplayFault({ reason: "push", cell: Option.none() }))
+      ? Effect.fail(new ReplayFault({ case: { reason: "push", at } }))
       : push)
 
 const _keyed = <Op, K, S>(graph: Mini.D2, plan: Fold.Plan<Op, K, S>) => {
@@ -715,7 +826,7 @@ const _ordered = <Op, K, S>(
 ): Effect.Effect<Replay.Ordered<Op, K, S>> =>
   Effect.gen(function* () {
     const admitted = yield* Schema.decode(_OrderLens)(lens).pipe(
-      Effect.mapError(() => new ReplayFault({ reason: "invariant", cell: Option.none() })),
+      Effect.mapError(() => new ReplayFault({ case: { reason: "spec", column: "lens" } })),
     )
     const graph = new Mini.D2()
     const keyed = _keyed(graph, plan)
@@ -961,12 +1072,26 @@ const _versionedOperators = <Op, Aggs extends Readonly<Record<string, Replay.Agg
 }
 
 const _groupCell = (key: string): Fold.Cell => Fold.cell([key])
+
+// The refusal names the COLUMNS that carried `NaN` or an infinity, so an operator repairs the projection rather than
+// re-deriving which of a wide grouping row poisoned the cell; the fold stops at the first offending op because one
+// unadmitted key already voids the whole delta.
+const _unfinite = (row: Readonly<Record<string, boolean | number | string>>): ReadonlyArray<string> =>
+  Array.filterMap(
+    Record.toEntries(row),
+    ([column, part]) => typeof part === "number" && !globalThis.Number.isFinite(part) ? Option.some(column) : Option.none(),
+  )
+
 const _admitGroup = <Op, By extends Readonly<Record<string, boolean | number | string>>>(
   by: (op: Op) => By,
 ) => (delta: Fold.Delta<Op>): Effect.Effect<void, ReplayFault> =>
-  Array.every(delta, ([op]) => Object.values(by(op)).every((part) => typeof part !== "number" || Number.isFinite(part)))
-    ? Effect.void
-    : Effect.fail(new ReplayFault({ reason: "group", cell: Option.none() }))
+  Option.match(
+    Array.findFirst(delta, ([op]) => Option.liftPredicate(_unfinite(by(op)), Array.isNonEmptyReadonlyArray)),
+    {
+      onNone: () => Effect.void,
+      onSome: (columns) => Effect.fail(new ReplayFault({ case: { reason: "group", columns } })),
+    },
+  )
 
 function _grouped<Op, By extends Readonly<Record<string, boolean | number | string>>, Aggs extends Readonly<Record<string, Replay.Agg<Op>>>>(
   spec: { readonly name: string; readonly by: (op: Op) => By; readonly aggs: Aggs },
@@ -1037,7 +1162,7 @@ const _topped = <Op, K, S>(
 ): Effect.Effect<Replay.Topped<Op, K, S>> =>
   Effect.gen(function* () {
     const take = yield* Schema.decode(_BoardTake)(spec.take).pipe(
-      Effect.mapError(() => new ReplayFault({ reason: "invariant", cell: Option.none() })),
+      Effect.mapError(() => new ReplayFault({ case: { reason: "spec", column: "take" } })),
     )
     const graph = new Mini.D2()
     const keyed = _keyed(graph, plan)
@@ -1105,7 +1230,7 @@ const _closure = (origin: AsOf): Effect.Effect<Replay.Closure> =>
     return {
       push: (at, edges) => Effect.flatMap(Ref.get(sealed), (frontier) =>
         at.ordinal <= frontier.ordinal
-          ? Effect.fail(new ReplayFault({ reason: "push", cell: Option.none() }))
+          ? Effect.fail(new ReplayFault({ case: { reason: "push", at } }))
           : engine.drive(
               () => input.sendData(
                 Diff.v([...AsOf.time(at)]),
@@ -1116,7 +1241,7 @@ const _closure = (origin: AsOf): Effect.Effect<Replay.Closure> =>
             )),
       seal: (frontier) => Effect.flatMap(Ref.get(sealed), (held) =>
         frontier.ordinal < held.ordinal
-          ? Effect.fail(new ReplayFault({ reason: "seal", cell: Option.none() }))
+          ? Effect.fail(new ReplayFault({ case: { reason: "seal", frontier, sealed: held } }))
           : engine.drive(
               () => input.sendFrontier(Diff.v([...AsOf.time(frontier)])),
               (rows) => Effect.zipRight(Ref.update(reach, drained(rows)), Ref.set(sealed, frontier)),

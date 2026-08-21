@@ -1,18 +1,21 @@
 # [RASM_RHINO_OBJECTS_ATTRIBUTES]
 
-Typed attribute mutation belongs to `Rasm.Rhino.Objects`. `AttributeEdit` closes the writable `ObjectAttributes` families with verified payload carriers, parameterizes group, decal, and face-material set operations over detached seeds, and covers layer, source-resolved display, space, overrides, section state, hatch state, frames, meshing, and tags. `AttributeProgram` admits and folds edits over the duplicate supplied by `TableOp.Amend`; this page exposes no local write entry. One `AttributeAsk` owns the read side: `AttributeSnapshot` captures detached scalar and census state, `EffectiveDisplay` resolves document- and viewport-dependent display values.
+Typed attribute mutation belongs to `Rasm.Rhino.Objects`. `AttributeEdit` closes every writable `ObjectAttributes` family with verified payload carriers — layer, source-resolved display, space, overrides, section and hatch state, frames, meshing, tags — and parameterizes group, decal, and face-material set operations over detached seeds. `AttributeProgram` admits and folds edits over the duplicate `TableOp.Amend` supplies; this page exposes no local write entry. One `AttributeAsk` owns the read side, where `AttributeSnapshot` captures detached stored state and `EffectiveDisplay` resolves what source dispatch answers.
 
 ## [01]-[INDEX]
 
-- [02]-[EDIT_FAMILY]: the keyed attribute-axis owners, `AttributeShade`, `RosterMove`, the detached seed carriers, and the `AttributeEdit` union — the closed mutation vocabulary with its total dispatch.
+- [02]-[EDIT_FAMILY]: keyed attribute-axis owners, `ObjectStance`, the `ShadowRole`/`AttachedModifier` capability vocabularies, `AttributeShade`, `RosterMove`, the detached seed carriers, and the `AttributeEdit` union — the closed mutation vocabulary with its total dispatch.
 - [03]-[PROGRAM]: `AttributeProgram` — the fold, the `Amend` handoff, and the write-path law.
 - [04]-[SNAPSHOT_AND_EFFECTIVE]: `AttributeAsk`, `AttributeSnapshot`, `EffectiveDisplay`, and the one read entry.
-- [05]-[SURFACE_LEDGER]: the page's owner table.
+- [05]-[SURFACE_LEDGER]: owner rows for every surface this page declares.
 
 ## [02]-[EDIT_FAMILY]
 
-- Owner: `RosterMove<TGrow, TCut>` closes impose, extend, and retract as cases carrying their own payload — grow cases hold value rosters, retract holds identity keys; `ShadowPolicy` owns every cast/receive combination; `DecalSeed` and `MaterialRefSeed` are generated admitted products; `AttributeEdit` `[Union]` owns the assigned stored-attribute mutations and one total `Apply` over the working duplicate.
-- Law: no raw host discriminant crosses a signature on this page. Every attribute axis re-closes as a keyed row over its host ordinal — `ColorOrigin`, `PlotColorOrigin`, `PlotWeightOrigin`, `MaterialOrigin`, `SectionOrigin`, `ItemColorOrigin`, `EndDecoration`, `SectionLabel`, `DecalFrame`, `DecalFacing` — and the linetype axis composes `Annotation/linetype.md`'s `LinetypeSource` at BOTH touch points rather than minting a sibling. Each roster mirrors its host enum completely, so a read is a total `Get` and a write is one `.Key`; every SOURCE axis — the four minted here and the composed `LinetypeSource` alike — carries a `FromObject` column, so source-payload coherence is the one `SourceValue` guard reading a row instead of an `is` comparison repeated per admission arm.
+- Owner: `RosterMove<TGrow, TCut>` closes impose, extend, and retract as cases carrying their own payload — grow cases hold value rosters, retract holds identity keys; `ObjectStance` closes the host mode word; `ShadowRole` and `AttachedModifier` are the two capability vocabularies this page's set-valued columns ride; `DecalSeed` and `MaterialRefSeed` are generated admitted products; `AttributeEdit` `[Union]` owns the assigned stored-attribute mutations and one total `Apply` over the working duplicate.
+- Law: no raw host discriminant crosses a signature on this page. Every attribute axis re-closes as a keyed row over its host ordinal — `ColorOrigin`, `PlotColorOrigin`, `PlotWeightOrigin`, `MaterialOrigin`, `SectionOrigin`, `ItemColorOrigin`, `EndDecoration`, `SectionLabel`, `DecalFrame`, `DecalFacing`, `ObjectStance` — and the linetype axis composes `Annotation/linetype.md`'s `LinetypeSource` at BOTH touch points rather than minting a sibling. Each roster mirrors its host enum row for row, so a read is a total `Get` and a write is one `.Key`; every SOURCE axis — the four minted here and the composed `LinetypeSource` alike — carries a `FromObject` column, so source-payload coherence is the one `SourceValue` guard reading a row instead of an `is` comparison repeated per admission arm.
+- Law: a plot weight is the layer plane's `PrintPen`, never a millimetre double. Rhino spells "application default" as `0.0` and "do not plot" as `-1.0` on the same scalar an authored width rides, so every weight on this page — the object weight, the hatch-boundary weight, and the source-resolved weight — admits through `PrintPen.OfHost` and writes through `ToHost`, taking the ISO 128-24 ladder rung from `Drawing/sheet`'s `LineWidth` and both sentinel postures as named cases. Three bare doubles carried them before, and each is the deleted form; `PrintPen` is `Document/layers`' owner composed, never re-derived.
+- Law: adjacent presence bits ride ONE capability column each. Shadow participation is `CapabilitySet<ShadowRole>` — two independent host bits whose four corners are all legal, so the axis is a SET and a third participation bit is one row, where the four-corner enum it replaces paid a truth table to name each corner; attached foreign carriers are `CapabilitySet<AttachedModifier>` — five mesh modifiers and three carrier probes answering one question, "what hangs off this attribute set", each row owning the host read that proves it. NAMED LOSS in both: per-column compile-time exhaustiveness — a renamed row still breaks every reader, while a narrowed producer set does not — bought back by `Wire` on every receipt and `AdmitsAll` at a consumer seam that requires a row.
+- Law: object mode is READ here and written nowhere. `ObjectStance` closes the host's four-valued `Mode` word, so the snapshot reports normal, hidden, locked, or definition membership as one row instead of re-deriving the word into separate presence bools; the WRITE stays the table rail's `TableOp.State` by the refusal law below.
 - Law: colour is perceptual at the seam and nowhere else. `AttributeShade.Of` admits on read and `AttributeShade.Rgb` quantizes on write, so `System.Drawing.Color` exists only inside those two members: no stored column, no edit payload, and no snapshot field carries it, which closes both the named-colour equality trap and every ad-hoc component fold at once.
 - Law: source-dependent payloads admit one coherent product. Object-sourced color, plot color, plot weight, linetype, and material edits require their object value; every other source rejects that irrelevant value. `LinetypePatternScale` remains independent of source and may accompany any line-pattern edit.
 - Law: mode and visibility are refused by absence — no case writes `Mode` or `Visible`, because object mode transitions are the table rail's `TableOp.State` and a second write path forks the undo story; `Realm` writes the catalogued space and optional viewport anchor, which no table op carries.
@@ -27,6 +30,7 @@ Typed attribute mutation belongs to `Rasm.Rhino.Objects`. `AttributeEdit` closes
 - Law: decal removal keys on `Decal.CRC` — the host removes by decal identity, so retract carries the snapshot's `Crc` column and the arm removes every live decal whose `CRC` matches; face-material removal keys on the plug-in guid the dictionary indexes.
 - Law: host quirks cross verbatim — `DecalCreateParams.StartLatitude`/`EndLatitude` carry the horizontal sweep and `StartLongitude`/`EndLongitude` the vertical (the host inverts the names), and `MaterialRefs.Create` swaps front and back values across its native boundary; neither is locally corrected, so a host repair never double-swaps.
 - Growth: a new writable axis adds one edit case, one admission arm, one apply arm, and its detached read projection when the page owns that read.
+- Packages: Thinktecture.Runtime.Extensions (`libs/csharp/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`, `ComparerAccessors`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `HashMap`, `Traverse`/`TraverseM`, `guard`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/rails` (`Op`, `Op.Text`, `Op.Catch`, `Op.Confirm`), `Numerics/atoms` (`PerceptualColor.OfRgb`/`ToRgb`), `Drawing/sheet` (`LineWidth` behind `PrintPen`); `Document/session` (`DraftFault`, `DocumentSession`, `SessionNeed`), `Document/layers` (`PrintPen`), `Document/tables` (`AttributeChange`, `ResourceIndex`, `TableTarget`), `Document/geometry` (`TagOp`), `Annotation/linetype` (`LinetypeSource`); RhinoCommon objects (`Rasm.Rhino/.api/api-rhinocommon-objects.md:147-177` — the attribute reads and writes, `Decals`, `MaterialRefs`, `File3dmMeshModifiers`, the decal latitude/longitude and material-ref swap traps).
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -38,7 +42,6 @@ using Rasm.Rhino.Annotation;
 using Rasm.Rhino.Document;
 using Rhino.DocObjects;
 using Rhino.Display;
-using Rhino.FileIO;
 using Rhino.Geometry;
 using Rhino.Render;
 
@@ -136,7 +139,69 @@ public sealed partial class DecalFacing {
     public static readonly DecalFacing Both = new(key: DecalProjection.Both);
 }
 
-// The page's TWO host-colour crossings. `System.Drawing.Color` reaches the boundary as the byte quadruple a host
+// Spelled in full by necessity: `Document/tables` declares a row type ALSO named `ObjectMode` over the host's
+// `ignoreModes` argument and both namespaces are imported here, so the unqualified name is ambiguous. Four derived
+// host predicates read this one word; a bool per predicate admitted the corner — hidden AND locked — the word
+// cannot hold, and re-derived the same read four times per object.
+[SmartEnum<Rhino.DocObjects.ObjectMode>]
+public sealed partial class ObjectStance {
+    public static readonly ObjectStance Normal = new(key: Rhino.DocObjects.ObjectMode.Normal);
+    public static readonly ObjectStance Hidden = new(key: Rhino.DocObjects.ObjectMode.Hidden);
+    public static readonly ObjectStance Locked = new(key: Rhino.DocObjects.ObjectMode.Locked);
+    public static readonly ObjectStance DefinitionMember = new(key: Rhino.DocObjects.ObjectMode.InstanceDefinitionObject);
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ShadowRole : ICapability<ShadowRole> {
+    public static readonly ShadowRole Cast = new(key: "cast");
+    public static readonly ShadowRole Receive = new(key: "receive");
+
+    internal static CapabilitySet<ShadowRole> Of(ObjectAttributes attributes) {
+        CapabilitySet<ShadowRole> held = CapabilitySet<ShadowRole>.Of();
+        held = attributes.CastsShadows ? held.With(capability: Cast) : held;
+        return attributes.ReceivesShadows ? held.With(capability: Receive) : held;
+    }
+}
+
+// Eight rows, one question — what foreign-owned carrier hangs off this attribute set. Each row OWNS the host read
+// that proves it, so the census is one fold over `Items` and a ninth carrier is one row; the two handle-returning
+// probes dispose inside their own row rather than leaking the carrier the presence fact came from.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class AttachedModifier : ICapability<AttachedModifier> {
+    public static readonly AttachedModifier Displacement = new(
+        key: "displacement", held: static attributes => attributes.File3dmMeshModifiers.Displacement is not null);
+    public static readonly AttachedModifier EdgeSoftening = new(
+        key: "edge-softening", held: static attributes => attributes.File3dmMeshModifiers.EdgeSoftening is not null);
+    public static readonly AttachedModifier Thickening = new(
+        key: "thickening", held: static attributes => attributes.File3dmMeshModifiers.Thickening is not null);
+    public static readonly AttachedModifier CurvePiping = new(
+        key: "curve-piping", held: static attributes => attributes.File3dmMeshModifiers.CurvePiping is not null);
+    public static readonly AttachedModifier ShutLining = new(
+        key: "shut-lining", held: static attributes => attributes.File3dmMeshModifiers.ShutLining is not null);
+    // Both carrier types are spelled in full: a row named for its carrier shadows that carrier's type name inside
+    // this body, and a field used where a type belongs is a compile error, not a silent read.
+    public static readonly AttachedModifier SectionStyle = new(
+        key: "section-style", held: static attributes => {
+            using Rhino.DocObjects.SectionStyle? style = attributes.GetCustomSectionStyle();
+            return style is not null;
+        });
+    public static readonly AttachedModifier Linetype = new(
+        key: "linetype", held: static attributes => {
+            using Rhino.DocObjects.Linetype? pattern = attributes.GetCustomLinetype();
+            return pattern is not null;
+        });
+    public static readonly AttachedModifier Mapping = new(key: "mapping", held: static attributes => attributes.HasMapping);
+
+    [UseDelegateFromConstructor]
+    public partial bool Held(ObjectAttributes attributes);
+
+    internal static CapabilitySet<AttachedModifier> Of(ObjectAttributes attributes) =>
+        CapabilitySet<AttachedModifier>.Of([.. toSeq(Items).Filter(row => row.Held(attributes: attributes))]);
+}
+
+// Two host-colour crossings, and no third: `System.Drawing.Color` reaches the boundary as the byte quadruple a host
 // read answers with and leaves as the quadruple a host write takes; no stored column and no public signature
 // carries it, so the named-colour equality trap and the sRGB component arithmetic both die at this seam.
 public static class AttributeShade {
@@ -178,25 +243,8 @@ public abstract record RosterMove<TGrow, TCut> {
         select admitted;
 }
 
-[SmartEnum]
-public sealed partial class ShadowPolicy {
-    public static readonly ShadowPolicy None = new(casts: false, receives: false);
-    public static readonly ShadowPolicy Cast = new(casts: true, receives: false);
-    public static readonly ShadowPolicy Receive = new(casts: false, receives: true);
-    public static readonly ShadowPolicy Both = new(casts: true, receives: true);
-
-    public bool Casts { get; }
-    public bool Receives { get; }
-
-    internal static ShadowPolicy Of(bool casts, bool receives) => (casts, receives) switch {
-        (false, false) => None,
-        (true, false) => Cast,
-        (false, true) => Receive,
-        _ => Both,
-    };
-}
-
 [ComplexValueObject]
+[ValidationError]
 public sealed partial class DecalSeed {
     public Guid Texture { get; }
     public DecalFrame Mapping { get; }
@@ -217,6 +265,8 @@ public sealed partial class DecalSeed {
     public double MaxU { get; }
     public double MaxV { get; }
 
+    // Clause ACCUMULATION replaces one conjunction: three violated axes named "decal seed is invalid" once and
+    // taught the caller nothing, so each axis mints its own `DraftFault` case and `Of` combines the survivors.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
@@ -238,20 +288,27 @@ public sealed partial class DecalSeed {
         ref double minV,
         ref double maxU,
         ref double maxV) {
-        validationError = texture != Guid.Empty
-            && mapping is not null && projection is not null
-            && origin.IsValid && up.IsValid && across.IsValid
-            && mapToInside is not null
-            && transparency is >= 0.0 and <= 1.0
-            && double.IsFinite(height) && height > 0.0
-            && double.IsFinite(radius) && radius > 0.0
-            && double.IsFinite(horzStart) && double.IsFinite(horzEnd)
-            && double.IsFinite(vertStart) && double.IsFinite(vertEnd)
-            && double.IsFinite(minU) && double.IsFinite(minV)
-            && double.IsFinite(maxU) && double.IsFinite(maxV)
-            && minU <= maxU && minV <= maxV
-            ? validationError
-            : new ValidationError(message: "decal seed is invalid");
+        Op op = Op.Of();
+        (Point3d Seat, Vector3d Up, Vector3d Across) frame = (origin, up, across);
+        (double Transparency, double Height, double Radius) scalar = (transparency, height, radius);
+        (double HorzStart, double HorzEnd, double VertStart, double VertEnd) sweep = (horzStart, horzEnd, vertStart, vertEnd);
+        (double MinU, double MinV, double MaxU, double MaxV) bounds = (minU, minV, maxU, maxV);
+        (DecalFrame Mapping, DecalFacing Projection, ObjectSignal Inside) rows = (mapping, projection, mapToInside);
+        validationError = FactoryValidation.Of(FactoryValidation.Violated(
+                (texture == Guid.Empty, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Texture) }))),
+                (rows.Mapping is null || rows.Projection is null || rows.Inside is null,
+                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(DecalSeed) }))),
+                (!frame.Seat.IsValid || !frame.Up.IsValid || !frame.Across.IsValid, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Origin), 0d, "a valid decal frame" }))),
+                (scalar.Transparency is not (>= 0.0 and <= 1.0), () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Transparency), scalar.Transparency, "a unit fraction" }))),
+                (!ValidityClaim.Finite(scalar.Height).Holds || scalar.Height <= 0.0, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Height), scalar.Height, "a positive finite height" }))),
+                (!ValidityClaim.Finite(scalar.Radius).Holds || scalar.Radius <= 0.0, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Radius), scalar.Radius, "a positive finite radius" }))),
+                (!ValidityClaim.Finite(sweep.HorzStart).Holds || !ValidityClaim.Finite(sweep.HorzEnd).Holds
+                    || !ValidityClaim.Finite(sweep.VertStart).Holds || !ValidityClaim.Finite(sweep.VertEnd).Holds,
+                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(HorzStart), sweep.HorzStart, "finite sweep bounds" }))),
+                (!ValidityClaim.Finite(bounds.MinU).Holds || !ValidityClaim.Finite(bounds.MinV).Holds
+                    || !ValidityClaim.Finite(bounds.MaxU).Holds || !ValidityClaim.Finite(bounds.MaxV).Holds
+                    || bounds.MinU > bounds.MaxU || bounds.MinV > bounds.MaxV,
+                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(MinU), bounds.MinU, "an ordered finite uv window" })))));
     }
 
     internal DecalCreateParams Build() => new() {
@@ -277,6 +334,7 @@ public sealed partial class DecalSeed {
 }
 
 [ComplexValueObject]
+[ValidationError]
 public sealed partial class MaterialRefSeed {
     public Guid PlugIn { get; }
     public MaterialOrigin Source { get; }
@@ -294,13 +352,16 @@ public sealed partial class MaterialRefSeed {
         ref Guid backId,
         ref int frontIndex,
         ref int backIndex) {
-        validationError = plugIn != Guid.Empty
-            && source is not null
-            && frontIndex >= -1 && backIndex >= -1
-            && (frontId != Guid.Empty || frontIndex >= 0)
-            && (backId != Guid.Empty || backIndex >= 0)
-            ? validationError
-            : new ValidationError(message: "material reference seed is invalid");
+        Op op = Op.Of();
+        (Guid Front, Guid Back, int FrontIndex, int BackIndex) face = (frontId, backId, frontIndex, backIndex);
+        MaterialOrigin row = source;
+        validationError = FactoryValidation.Of(FactoryValidation.Violated(
+                (plugIn == Guid.Empty, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(PlugIn) }))),
+                (row is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Source) }))),
+                (face.FrontIndex < ResourceIndex.Absent || face.BackIndex < ResourceIndex.Absent,
+                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(FrontIndex), face.FrontIndex, "a table index at or above the host absence sentinel" }))),
+                (face.Front == Guid.Empty && face.FrontIndex < 0, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(FrontId), "a front material identity or a front table index" }))),
+                (face.Back == Guid.Empty && face.BackIndex < 0, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(BackId), "a back material identity or a back table index" })))));
     }
 
     internal MaterialRefCreateParams Build() => new() {
@@ -320,11 +381,11 @@ public abstract partial record AttributeEdit {
     public sealed record Layer(ResourceIndex Index) : AttributeEdit;
     public sealed record Paint(ColorOrigin Source, Option<PerceptualColor> Value = default) : AttributeEdit;
     public sealed record Plot(PlotColorOrigin Source, Option<PerceptualColor> Value = default) : AttributeEdit;
-    public sealed record PlotWeight(PlotWeightOrigin Source, Option<double> Millimeters = default) : AttributeEdit;
+    public sealed record PlotWeight(PlotWeightOrigin Source, Option<PrintPen> Pen = default) : AttributeEdit;
     public sealed record LinePattern(LinetypeSource Source, Option<ResourceIndex> Index = default, Option<double> PatternScale = default) : AttributeEdit;
     public sealed record CustomLine(Option<Linetype> Pattern) : AttributeEdit;
     public sealed record MaterialBind(MaterialOrigin Source, Option<ResourceIndex> Index = default) : AttributeEdit;
-    public sealed record Shadows(ShadowPolicy Policy) : AttributeEdit;
+    public sealed record Shadows(CapabilitySet<ShadowRole> Roles) : AttributeEdit;
     public sealed record Wires(int Density) : AttributeEdit;
     public sealed record DrawOrder(int Rank) : AttributeEdit;
     public sealed record Decorate(EndDecoration Ends) : AttributeEdit;
@@ -345,7 +406,7 @@ public abstract partial record AttributeEdit {
         Option<PerceptualColor> PlotColor = default,
         Option<ItemColorOrigin> ColorSource = default,
         Option<ItemColorOrigin> PlotColorSource = default,
-        Option<double> PlotWeightMillimeters = default) : AttributeEdit;
+        Option<PrintPen> Pen = default) : AttributeEdit;
     public sealed record AnchorFrame(Plane Frame) : AttributeEdit;
     public sealed record AnchorMove(Transform Motion) : AttributeEdit;
     public sealed record Meshing(Option<string> Encoded) : AttributeEdit;
@@ -367,13 +428,10 @@ public abstract partial record AttributeEdit {
                 .Bind(source => SourceValue(source.FromObject, edit.Value, edit, key)),
             plot: static (key, edit) => key.Need(edit.Source)
                 .Bind(source => SourceValue(source.FromObject, edit.Value, edit, key)),
-            plotWeight: static (key, edit) =>
-                from source in key.Need(edit.Source)
-                from admitted in SourceValue(source.FromObject, edit.Millimeters, edit, key)
-                from _ in guard(edit.Millimeters
-                    .Map(static value => double.IsFinite(value) && value >= 0.0)
-                    .IfNone(noneValue: true), key.InvalidInput()).ToFin()
-                select admitted,
+            // Pens arrive ADMITTED — a ladder rung or a named host posture — so the weight bound a millimetre
+            // double needed is now the carrier's own construction law and no arm re-screens a scalar.
+            plotWeight: static (key, edit) => key.Need(edit.Source)
+                .Bind(source => SourceValue(source.FromObject, edit.Pen, edit, key)),
             // `LinetypeSource` is Annotation's owner composed, not a second wrap: the linetype axis has ONE
             // vocabulary and this page reads its `FromObject` column exactly as it reads the four minted axes.
             linePattern: static (key, edit) =>
@@ -386,7 +444,7 @@ public abstract partial record AttributeEdit {
             customLine: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             materialBind: static (key, edit) => key.Need(edit.Source)
                 .Bind(source => SourceValue(source.FromObject, edit.Index, edit, key)),
-            shadows: static (key, edit) => key.Need(edit.Policy).Map(_ => (AttributeEdit)edit),
+            shadows: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             wires: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             drawOrder: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             decorate: static (key, edit) => key.Need(edit.Ends).Map(_ => (AttributeEdit)edit),
@@ -417,15 +475,10 @@ public abstract partial record AttributeEdit {
             label: static (key, edit) => key.Need(edit.Style).Map(_ => (AttributeEdit)edit),
             hatchFill: static (key, edit) => guard(edit.Fill.IsSome || edit.Print.IsSome, key.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
             // `Option` payloads admit no null value, so presence and the weight bound are the whole admission.
-            hatchBoundary: static (key, edit) =>
-                from _ in guard(
-                    edit.Visible.IsSome || edit.Color.IsSome || edit.PlotColor.IsSome || edit.ColorSource.IsSome
-                    || edit.PlotColorSource.IsSome || edit.PlotWeightMillimeters.IsSome,
-                    key.InvalidInput()).ToFin()
-                from __ in guard(edit.PlotWeightMillimeters
-                    .Map(static value => double.IsFinite(value) && value >= 0.0)
-                    .IfNone(noneValue: true), key.InvalidInput()).ToFin()
-                select (AttributeEdit)edit,
+            hatchBoundary: static (key, edit) => guard(
+                edit.Visible.IsSome || edit.Color.IsSome || edit.PlotColor.IsSome || edit.ColorSource.IsSome
+                || edit.PlotColorSource.IsSome || edit.Pen.IsSome,
+                key.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
             anchorFrame: static (key, edit) => key.AcceptInput(value: edit.Frame).Map(_ => (AttributeEdit)edit),
             anchorMove: static (key, edit) => key.AcceptInput(value: edit.Motion).Map(_ => (AttributeEdit)edit),
             meshing: static (key, edit) => edit.Encoded
@@ -473,7 +526,7 @@ public abstract partial record AttributeEdit {
             }),
             plotWeight: static (context, edit) => context.Op.Catch(() => {
                 context.Attributes.PlotWeightSource = edit.Source.Key;
-                _ = edit.Millimeters.Iter(weight => context.Attributes.PlotWeight = weight);
+                _ = edit.Pen.Iter(pen => context.Attributes.PlotWeight = pen.ToHost());
             }),
             linePattern: static (context, edit) => context.Op.Catch(() => {
                 context.Attributes.LinetypeSource = edit.Source.Key;
@@ -490,8 +543,8 @@ public abstract partial record AttributeEdit {
                 _ = edit.Index.Iter(index => context.Attributes.MaterialIndex = index.Value);
             }),
             shadows: static (context, edit) => context.Op.Catch(() => {
-                context.Attributes.CastsShadows = edit.Policy.Casts;
-                context.Attributes.ReceivesShadows = edit.Policy.Receives;
+                context.Attributes.CastsShadows = edit.Roles.Admits(capability: ShadowRole.Cast);
+                context.Attributes.ReceivesShadows = edit.Roles.Admits(capability: ShadowRole.Receive);
             }),
             wires: static (context, edit) => context.Op.Catch(() => context.Attributes.WireDensity = edit.Density),
             drawOrder: static (context, edit) => context.Op.Catch(() => context.Attributes.DisplayOrder = edit.Rank),
@@ -556,7 +609,7 @@ public abstract partial record AttributeEdit {
                 _ = edit.PlotColor.Iter(shade => context.Attributes.HatchBoundaryPlotColor = AttributeShade.Rgb(shade: shade));
                 _ = edit.ColorSource.Iter(source => context.Attributes.HatchBoundaryColorSource = source.Key);
                 _ = edit.PlotColorSource.Iter(source => context.Attributes.HatchBoundaryPlotColorSource = source.Key);
-                _ = edit.PlotWeightMillimeters.Iter(weight => context.Attributes.HatchBoundaryPlotWeightMillimeters = weight);
+                _ = edit.Pen.Iter(pen => context.Attributes.HatchBoundaryPlotWeightMillimeters = pen.ToHost());
             }),
             anchorFrame: static (context, edit) => context.Op.Catch(() => context.Attributes.SetObjectFrame(plane: edit.Frame)),
             anchorMove: static (context, edit) => context.Op.Catch(() => context.Attributes.SetObjectFrame(xform: edit.Motion)),
@@ -627,7 +680,7 @@ public abstract partial record AttributeEdit {
 ## [03]-[PROGRAM]
 
 - Owner: `AttributeProgram` — the admitted edit sequence with one fold: `Apply(ObjectAttributes) : Fin<Unit>` runs every edit in declaration order over the working set and short-circuits on the first refusal, matching the `TableOp.Amend` change-callback contract exactly.
-- Law: the program IS the `Amend` payload — `TableOp.Amend(target, program.Change, interaction)` is the one write path, where `Change` is the spine's `AttributeChange` value the program mints from its own fold: the table rail duplicates the live attribute set, the program mutates the duplicate, `ModifyAttributes` commits it under the undo bracket, and the duplicate disposes before the operation leaves the host boundary; a consumer holding a live `ObjectAttributes` and mutating it in place has no undo story and is the deleted form. `Apply` is therefore `internal` — the rail is its only caller, and a public overload would be that deleted form with a supported spelling.
+- Law: the program IS the `Amend` payload — `TableOp.Amend(target, program.Change, interaction)` is the one write path, where `Change` is the spine's `AttributeChange` value the program mints from its own fold: the table rail duplicates the live attribute set, the program mutates the duplicate, `ModifyAttributes` commits it under the undo bracket, and the duplicate disposes before the operation leaves the host boundary; a consumer holding a live `ObjectAttributes` and mutating it in place has no undo story and is the deleted form. `Apply` is therefore `internal` — the rail is its only caller, and a public overload IS that deleted form under a supported spelling.
 - Law: the fold is short-circuit by construction — a program is one attribute transaction, so a mid-sequence refusal abandons the working duplicate uncommitted and the live object never sees a half-applied program; accumulation belongs to the caller batching programs across objects on the table rail's traversal.
 - Law: `Tag` read verbs are refused at admission — `Of` rejects a program carrying a non-mutating `TagOp` so the refusal is a construction fact, never a mid-commit surprise.
 - Growth: a new edit case rides every existing program untouched; a program-level policy is a field on this record, never a parallel program type.
@@ -647,10 +700,10 @@ public sealed class AttributeProgram {
                select new AttributeProgram(edits: admitted);
     }
 
-    // The program's egress is the spine's `AttributeChange`, not a bare delegate: `Commands` and `Objects` both
+    // Egress rides the spine's `AttributeChange`, not a bare delegate: `Commands` and `Objects` both
     // sit above `Document`, so the payload TYPE seats on the spine and this owner composes it upward. `Apply`
-    // stays `internal` because the change value is the only thing that leaves — a public `Apply` would be exactly
-    // the in-place live-set mutation the write-path law deletes, wearing a supported spelling.
+    // stays `internal` because the change value is the only thing that leaves — a public `Apply` IS exactly that
+    // deleted in-place live-set mutation wearing a supported spelling.
     public Fin<AttributeChange> Change =>
         AttributeChange.Validate(Apply, out AttributeChange? admitted) is null && admitted is not null
             ? Fin.Succ(value: admitted)
@@ -667,11 +720,11 @@ public sealed class AttributeProgram {
 
 ## [04]-[SNAPSHOT_AND_EFFECTIVE]
 
-- Owner: `AttributeAsk` `[Union]` closes stored and source-resolved questions; `AttributeAnswer` `[Union]` owns their detached rosters; `AttributeSnapshot` captures stored scalar state, group and override rosters, shadow policy, normalized meshing policy, render-material identity, user strings, complete decal rows, material-reference rows, and foreign-owner presence facts; `EffectiveDisplay` captures resolved color, plot, mode, and activity values.
+- Owner: `AttributeAsk` `[Union]` closes stored and source-resolved questions; `AttributeAnswer` `[Union]` owns their detached rosters; `AttributeSnapshot` captures stored scalar state, group and override rosters, shadow roles, normalized meshing policy, render-material identity, user strings, complete decal rows, material-reference rows, and the attached-carrier census; `EffectiveDisplay` captures resolved color, plot, mode, and activity values.
 - Entry: `Attributes.Ask(DocumentSession, TableTarget, AttributeAsk) : Fin<AttributeAnswer>` — one entry resolves through the state page's object fold and reads inside one `SessionNeed.Read` grant.
 - Law: stored and effective are different questions — the snapshot reports what the attribute set declares, `EffectiveDisplay` reports what `DrawColor`/`ComputedPlotColor`/`ComputedPlotWeight` resolve after source dispatch against layer, parent, and material; a consumer diffing the two reads exactly which sources defer.
 - Law: detail-hide is census membership — `HasHideInDetailOverrideSet(detailId)` is set membership in `GetHideInDetailOverrides()`, so the snapshot's `HiddenInDetails` roster answers any detail id and `EffectiveDisplay` stays a pure viewport question; a detail object id passed where a viewport id belongs is the conflation this split forecloses.
-- Law: snapshot products contain detached values only. Decals and material references project their catalogued read surfaces into records, and custom meshing round-trips through the normalized encoded value. Custom linetype, custom section style, mapping, and mesh modifiers remain foreign-owner presence facts.
+- Law: snapshot products contain detached values only, and a read product IS the write payload. Decals and material references project onto the SAME `DecalSeed` and `MaterialRefSeed` owners an edit carries, so a round trip re-imposes what was read without a column-by-column re-spelling, and a host row that cannot satisfy the seed's own construction law refuses at the read instead of entering a snapshot no write reproduces. Custom meshing round-trips through the normalized encoded value; every other foreign-owner carrier is one `AttachedModifier` row in the attached census.
 - Law: render-material identity is NOT an attribute-set read — `ObjectAttributes.RenderMaterial` is a SET-ONLY property whose setter resolves the content's document owner, projects it to a `Material`, and lands it on `MaterialIndex`, so the stored render-material identity reads through `MaterialIndex` against the document material table on `materials.md`'s resolution rail; a read of the write-only property is a compile error wearing the shape of a projection.
 - Law: the decal read composes the axes that READ TRUE — `HorzSweep`/`VertSweep` are the host's own replacements for the deprecated latitude and longitude properties, whose names invert their meaning, so the snapshot names its columns after the true axes and matches `DecalSeed`'s write vocabulary exactly; a round trip therefore requires no consumer to know the host's inversion, which stays confined to `DecalSeed.Build`.
 - Boundary: `ComputedSectionStyle` demands a sectioner's attributes and stays a direct host call at the display seam; this page resolves the three display scalars every consumer needs.
@@ -706,27 +759,10 @@ public sealed record OverrideCensus(
     Option<(Seq<Guid> Viewports, ObjectSignal Signal)> Activity,
     ObjectSignal DetailBackgroundVisible);
 
-public readonly record struct DecalSnapshot(
-    int Crc,
-    DecalFrame Mapping,
-    DecalFacing Projection,
-    Point3d Origin,
-    Vector3d Up,
-    Vector3d Across,
-    double Transparency,
-    ObjectSignal MapToInside,
-    bool Visible,
-    double Height,
-    double Radius,
-    double HorzStart,
-    double HorzEnd,
-    double VertStart,
-    double VertEnd,
-    double MinU,
-    double MinV,
-    double MaxU,
-    double MaxV,
-    Guid TextureInstanceId) {
+// Reads carry the WRITE payload beside what only a live decal answers: content hash and visibility.
+// Eighteen columns restating `DecalSeed` verbatim made the snapshot a second authority on decal shape — a column
+// added to one side silently dropped from the other — and a round trip re-spelled every one of them by hand.
+public readonly record struct DecalSnapshot(int Crc, ObjectSignal Visible, DecalSeed Seed) {
     // Railed for the HOST CALL, not for the axis reads: `GetUVBounds`/`HorzSweep`/`VertSweep` are three native
     // crossings the bracket owns. Both axis rows mirror their host enum completely, so `Get` is total over
     // anything the host returns — the same total-roster property the space partition already declares.
@@ -734,38 +770,49 @@ public readonly record struct DecalSnapshot(
         decal.GetUVBounds(out double minU, out double minV, out double maxU, out double maxV);
         decal.HorzSweep(out double horzStart, out double horzEnd);
         decal.VertSweep(out double vertStart, out double vertEnd);
-        return Fin.Succ(value: new DecalSnapshot(
-            Crc: decal.CRC,
-            Mapping: DecalFrame.Get(key: decal.Mapping),
-            Projection: DecalFacing.Get(key: decal.Projection),
-            Origin: decal.Origin,
-            Up: decal.VectorUp,
-            Across: decal.VectorAcross,
-            Transparency: decal.Transparency,
-            MapToInside: ObjectSignal.Of(on: decal.MapToInside),
-            Visible: decal.IsVisible,
-            Height: decal.Height,
-            Radius: decal.Radius,
-            HorzStart: horzStart,
-            HorzEnd: horzEnd,
-            VertStart: vertStart,
-            VertEnd: vertEnd,
-            MinU: minU,
-            MinV: minV,
-            MaxU: maxU,
-            MaxV: maxV,
-            TextureInstanceId: decal.TextureInstanceId);
+        return key.AcceptValidated<DecalSeed>(
+                fault: DecalSeed.Validate(
+                    texture: decal.TextureInstanceId,
+                    mapping: DecalFrame.Get(key: decal.Mapping),
+                    projection: DecalFacing.Get(key: decal.Projection),
+                    origin: decal.Origin,
+                    up: decal.VectorUp,
+                    across: decal.VectorAcross,
+                    transparency: decal.Transparency,
+                    mapToInside: ObjectSignal.Of(on: decal.MapToInside),
+                    height: decal.Height,
+                    radius: decal.Radius,
+                    horzStart: horzStart,
+                    horzEnd: horzEnd,
+                    vertStart: vertStart,
+                    vertEnd: vertEnd,
+                    minU: minU,
+                    minV: minV,
+                    maxU: maxU,
+                    maxV: maxV,
+                    out DecalSeed? admitted),
+                admitted: admitted)
+            .Map(seed => new DecalSnapshot(
+                Crc: decal.CRC, Visible: ObjectSignal.Of(on: decal.IsVisible), Seed: seed));
     });
 }
 
-public readonly record struct MaterialRefSnapshot(
-    Guid DictionaryKey,
-    MaterialOrigin Source,
-    Guid PlugInId,
-    Guid FrontId,
-    Guid BackId,
-    int FrontIndex,
-    int BackIndex);
+// Same correspondence on the material side: the dictionary key is the live fact, the rest IS the seed. The host's
+// own front/back swap stays inside `MaterialRefSeed.Build`, so a read-then-write pair cannot double-correct it.
+public readonly record struct MaterialRefSnapshot(Guid DictionaryKey, MaterialRefSeed Seed) {
+    internal static Fin<MaterialRefSnapshot> Of(Guid key, MaterialRef live, Op op) =>
+        op.AcceptValidated<MaterialRefSeed>(
+                fault: MaterialRefSeed.Validate(
+                    plugIn: live.PlugInId,
+                    source: MaterialOrigin.Get(key: live.MaterialSource),
+                    frontId: live.FrontFaceMaterialId,
+                    backId: live.BackFaceMaterialId,
+                    frontIndex: live.FrontFaceMaterialIndex,
+                    backIndex: live.BackFaceMaterialIndex,
+                    out MaterialRefSeed? admitted),
+                admitted: admitted)
+            .Map(seed => new MaterialRefSnapshot(DictionaryKey: key, Seed: seed));
+}
 
 public sealed record AttributeSnapshot(
     Guid ObjectId,
@@ -784,22 +831,20 @@ public sealed record AttributeSnapshot(
     SectionOrigin SectionSource,
     PerceptualColor ObjectColor,
     PerceptualColor PlotColor,
-    double PlotWeight,
+    PrintPen Print,
     double LinetypePatternScale,
     int WireDensity,
     int DisplayOrder,
     EndDecoration Decoration,
-    ShadowPolicy Shadows,
+    ObjectStance Stance,
+    CapabilitySet<ShadowRole> Shadows,
+    CapabilitySet<AttachedModifier> Attached,
     Seq<int> Groups,
     OverrideCensus Overrides,
     Option<ResourceIndex> SectionStyleIndex,
     SectionLabel Label,
-    bool CustomSectionStyle,
-    bool CustomLinetype,
     Plane Frame,
     Option<string> Meshing,
-    bool HasMapping,
-    bool DefinitionMember,
     HashMap<string, string> UserStrings,
     Seq<DecalSnapshot> Decals,
     Seq<MaterialRefSnapshot> MaterialRefs,
@@ -810,15 +855,10 @@ public sealed record AttributeSnapshot(
     PerceptualColor HatchBoundaryPlotColor,
     ItemColorOrigin HatchBoundaryColorSource,
     ItemColorOrigin HatchBoundaryPlotColorSource,
-    double HatchBoundaryPlotWeight,
-    (bool Displacement, bool EdgeSoftening, bool Thickening, bool CurvePiping, bool ShutLining) Modifiers)
-    : IDetachedDocumentResult {
+    PrintPen HatchBoundaryPen) : IDetachedDocumentResult {
     internal static Fin<AttributeSnapshot> Of(ObjectAttributes attributes, Op key) =>
         key.Catch(() => {
             bool overrides = attributes.GetActiveInViewportOverrides(viewportIds: out Guid[] viewports, active: out bool active);
-            File3dmMeshModifiers modifiers = attributes.File3dmMeshModifiers;
-            using SectionStyle? customSection = attributes.GetCustomSectionStyle();
-            using Linetype? customLine = attributes.GetCustomLinetype();
             // No `using`: the getter hands back a wrapper over the attribute set's OWN stored parameters and
             // `MeshingParameters.Dispose` unconditionally frees the pointer it holds, so bracketing this read
             // would free host-owned memory the attribute set still indexes. The encoded value detaches instead.
@@ -832,6 +872,8 @@ public sealed record AttributeSnapshot(
             // and section-style indexes carry the host's `-1` as an ordinary by-layer/no-style absence, so each
             // projects through `ResourceIndex.Maybe` instead of refusing the default-attributed object.
             return from layer in ResourceIndex.Admit(value: attributes.LayerIndex, key: key)
+                from print in PrintPen.OfHost(weight: attributes.PlotWeight, key: key)
+                from boundaryPen in PrintPen.OfHost(weight: attributes.HatchBoundaryPlotWeightMillimeters, key: key)
                 from objectColor in AttributeShade.Of(color: attributes.ObjectColor, key: key)
                 from plotColor in AttributeShade.Of(color: attributes.PlotColor, key: key)
                 from hatchFill in AttributeShade.Of(color: attributes.HatchBackgroundFillColor, key: key)
@@ -840,15 +882,8 @@ public sealed record AttributeSnapshot(
                 from boundaryPlotColor in AttributeShade.Of(color: attributes.HatchBoundaryPlotColor, key: key)
                 from decals in attributes.Decals.AsIterable().ToSeq()
                     .TraverseM(decal => DecalSnapshot.Of(decal: decal, key: key)).As()
-                let materialRefs = attributes.MaterialRefs.AsIterable().ToSeq()
-                    .Map(static pair => new MaterialRefSnapshot(
-                        DictionaryKey: pair.Key,
-                        Source: MaterialOrigin.Get(key: pair.Value.MaterialSource),
-                        PlugInId: pair.Value.PlugInId,
-                        FrontId: pair.Value.FrontFaceMaterialId,
-                        BackId: pair.Value.BackFaceMaterialId,
-                        FrontIndex: pair.Value.FrontFaceMaterialIndex,
-                        BackIndex: pair.Value.BackFaceMaterialIndex))
+                from materialRefs in attributes.MaterialRefs.AsIterable().ToSeq()
+                    .TraverseM(pair => MaterialRefSnapshot.Of(key: pair.Key, live: pair.Value, op: key)).As()
                 select new AttributeSnapshot(
                 ObjectId: attributes.ObjectId,
                 Name: Op.Text(attributes.Name),
@@ -866,12 +901,14 @@ public sealed record AttributeSnapshot(
                 SectionSource: SectionOrigin.Get(key: attributes.SectionAttributesSource),
                 ObjectColor: objectColor,
                 PlotColor: plotColor,
-                PlotWeight: attributes.PlotWeight,
+                Print: print,
                 LinetypePatternScale: attributes.LinetypePatternScale,
                 WireDensity: attributes.WireDensity,
                 DisplayOrder: attributes.DisplayOrder,
                 Decoration: EndDecoration.Get(key: attributes.ObjectDecoration),
-                Shadows: ShadowPolicy.Of(casts: attributes.CastsShadows, receives: attributes.ReceivesShadows),
+                Stance: ObjectStance.Get(key: attributes.Mode),
+                Shadows: ShadowRole.Of(attributes: attributes),
+                Attached: AttachedModifier.Of(attributes: attributes),
                 Groups: toSeq(attributes.GetGroupList()),
                 Overrides: new OverrideCensus(
                     HiddenInDetails: toSeq(attributes.GetHideInDetailOverrides()),
@@ -881,12 +918,8 @@ public sealed record AttributeSnapshot(
                     DetailBackgroundVisible: ObjectSignal.Of(on: attributes.DetailBackgroundVisible)),
                 SectionStyleIndex: ResourceIndex.Maybe(value: attributes.SectionStyleIndex),
                 Label: SectionLabel.Get(key: attributes.ClippingPlaneLabelStyle),
-                CustomSectionStyle: customSection is not null,
-                CustomLinetype: customLine is not null,
                 Frame: attributes.ObjectFrame(),
                 Meshing: Optional(customMesh).Map(static parameters => parameters.ToEncodedString()),
-                HasMapping: attributes.HasMapping,
-                DefinitionMember: attributes.IsInstanceDefinitionObject,
                 UserStrings: TagOp.Snapshot(attributes.GetUserStrings()),
                 Decals: decals,
                 MaterialRefs: materialRefs,
@@ -897,13 +930,7 @@ public sealed record AttributeSnapshot(
                 HatchBoundaryPlotColor: boundaryPlotColor,
                 HatchBoundaryColorSource: ItemColorOrigin.Get(key: attributes.HatchBoundaryColorSource),
                 HatchBoundaryPlotColorSource: ItemColorOrigin.Get(key: attributes.HatchBoundaryPlotColorSource),
-                HatchBoundaryPlotWeight: attributes.HatchBoundaryPlotWeightMillimeters,
-                Modifiers: (
-                    Optional(modifiers.Displacement).IsSome,
-                    Optional(modifiers.EdgeSoftening).IsSome,
-                    Optional(modifiers.Thickening).IsSome,
-                    Optional(modifiers.CurvePiping).IsSome,
-                    Optional(modifiers.ShutLining).IsSome));
+                HatchBoundaryPen: boundaryPen);
         });
 }
 
@@ -911,10 +938,10 @@ public readonly record struct EffectiveDisplay(
     Guid Id,
     PerceptualColor Draw,
     PerceptualColor Plot,
-    double PlotWeight,
+    PrintPen Print,
     Option<Guid> ModeOverride,
     Option<ObjectSignal> ActiveOverride) : IDetachedDocumentResult {
-    // The scoped and document-wide reads differ only in which host overload answers, so the raw quadruple
+    // Scoped and document-wide reads differ only in which host overload answers, so the raw quadruple
     // resolves in one viewport dispatch and the kernel colour gate and constructor run exactly once.
     internal static Fin<EffectiveDisplay> Of(RhinoObject native, Rhino.RhinoDoc document, Option<Guid> viewport, Op key) =>
         key.Catch(() => {
@@ -936,11 +963,14 @@ public readonly record struct EffectiveDisplay(
                     Active: Option<ObjectSignal>.None);
             return from draw in AttributeShade.Of(color: resolved.Draw, key: key)
                    from plot in AttributeShade.Of(color: resolved.Plot, key: key)
+                   // Source dispatch answers a layer's or a parent's posture, sentinels included, so a RESOLVED
+                   // weight is the same three-state host scalar a stored one is and admits through one ingress.
+                   from print in PrintPen.OfHost(weight: resolved.Weight, key: key)
                    select new EffectiveDisplay(
                        Id: native.Id,
                        Draw: draw,
                        Plot: plot,
-                       PlotWeight: resolved.Weight,
+                       Print: print,
                        ModeOverride: resolved.Mode,
                        ActiveOverride: resolved.Active);
         });
@@ -973,17 +1003,21 @@ public static class Attributes {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]          | [OWNER]             | [FORM]                                                   | [ENTRY]                         |
-| :-----: | :----------------- | :------------------ | :------------------------------------------------------- | :------------------------------ |
-|  [01]   | attribute axes     | keyed origin rows   | one row per host discriminant, `FromObject` on sources   | `.Key` write / `Get` read       |
-|  [02]   | colour crossing    | `AttributeShade`    | the page's only two host-colour seams                    | `Of` / `Rgb`                    |
-|  [03]   | attribute mutation | `AttributeEdit`     | admitted union with one total `Apply` over the duplicate | program payloads                |
-|  [04]   | set-valued edits   | `RosterMove`        | impose/extend/retract cases carrying their own rosters   | owning edit payloads            |
-|  [05]   | detached carriers  | generated products  | `DecalSeed`/`MaterialRefSeed` onto host create params    | `Decals` / `FaceMaterials`      |
-|  [06]   | write program      | `AttributeProgram`  | short-circuit fold minting the spine's change payload    | `TableOp.Amend(target, Change)` |
-|  [07]   | read dispatch      | `AttributeAsk`      | stored and resolved questions, one typed answer union    | `Attributes.Ask`                |
-|  [08]   | stored state       | `AttributeSnapshot` | detached scalars, rosters, and catalogued carriers       | `AttributeAsk.Stored`           |
-|  [09]   | resolved display   | `EffectiveDisplay`  | resolved scalars and viewport overrides                  | `AttributeAsk.Resolved`         |
+| [INDEX] | [CONCERN]          | [OWNER]             | [FORM]                                                 | [ENTRY]                    |
+| :-----: | :----------------- | :------------------ | :----------------------------------------------------- | :------------------------- |
+|  [01]   | attribute axes     | keyed origin rows   | one row per host discriminant, `FromObject` on sources | `.Key` write / `Get` read  |
+|  [02]   | object mode        | `ObjectStance`      | the four-valued host word as one read row              | `AttributeAsk.Stored`      |
+|  [03]   | colour crossing    | `AttributeShade`    | the only two host-colour seams on the page             | `Of` / `Rgb`               |
+|  [04]   | plot weight        | `PrintPen`          | layer-plane pen, rung or named host posture            | `OfHost` / `ToHost`        |
+|  [05]   | shadow roles       | `ShadowRole`        | cast and receive as one held column                    | `CapabilitySet.Admits`     |
+|  [06]   | attached carriers  | `AttachedModifier`  | eight presence rows owning their host reads            | `CapabilitySet.Admits`     |
+|  [07]   | attribute mutation | `AttributeEdit`     | admitted union, one total `Apply` over the duplicate   | program payloads           |
+|  [08]   | set-valued edits   | `RosterMove`        | impose/extend/retract cases carrying their own rosters | owning edit payloads       |
+|  [09]   | detached carriers  | generated seeds     | `DecalSeed`/`MaterialRefSeed` on both read and write   | `Decals` / `FaceMaterials` |
+|  [10]   | write program      | `AttributeProgram`  | short-circuit fold minting the spine's change payload  | `TableOp.Amend`            |
+|  [11]   | read dispatch      | `AttributeAsk`      | stored and resolved questions, one typed answer union  | `Attributes.Ask`           |
+|  [12]   | stored state       | `AttributeSnapshot` | detached scalars, rosters, and admitted seeds          | `AttributeAsk.Stored`      |
+|  [13]   | resolved display   | `EffectiveDisplay`  | resolved colour, pen, and viewport overrides           | `AttributeAsk.Resolved`    |
 
 ## [06]-[RESEARCH]
 

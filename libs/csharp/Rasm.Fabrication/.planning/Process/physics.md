@@ -16,7 +16,7 @@ Wire posture: HOST-LOCAL. `ProcessBudget` cases and `MaterialSpec` cross only in
 
 ## [01]-[INDEX]
 
-- [02]-[EQUIPMENT]: `Coating`, `ToolClass`, `ToolForm`, `Tool`, `FeedLaw`, `OperationFamily`, `Operation`, `ProcessRange`, `RangeReceipt`, `EquipmentEnvelope`.
+- [02]-[EQUIPMENT]: `Coating`, `ToolClass`, `ToolForm`, `Tool`, `FeedLaw`, `OperationFamily`, `Operation`, `ProcessRange`, `RangeEvidence`, `EquipmentEnvelope`.
 - [03]-[CONSTITUTIVE]: `ResponseAxis`, `ResponseInterpolation`, `ConstitutiveState`, `ResponseCurve`, `ConstitutiveLaw`, `ModalityPhysics`.
 - [04]-[MATERIAL_REGISTRY]: `MaterialClass`, `Material`, `CertificateClass`, `TemperState`, `MechanicalDatum`, `ThermalDatum`, `GradeIdentity`, `MaterialBaseline`, `MaterialSpec`, `MaterialRegistry`.
 - [05]-[BUDGET_SHAPE]: `PhysicsRequest`, `BudgetEnergy`, `CutterMechanics`, `BudgetEvidence`, `ProcessBudget`.
@@ -25,11 +25,11 @@ Wire posture: HOST-LOCAL. `ProcessBudget` cases and `MaterialSpec` cross only in
 
 ## [02]-[EQUIPMENT]
 
-- Owner: `Tool` owns the equipment SHAPE, its geometric admission, and its form-and-feed correspondence; `Operation` owns the feed law and engagement fractions; `Coating` owns surface response; `ProcessRange` owns the machine's own bounds and `RangeReceipt` what a derivation did with them.
+- Owner: `Tool` owns the equipment SHAPE, its geometric admission, and its form-and-feed correspondence; `Operation` owns the feed law and engagement fractions; `Coating` owns surface response; `ProcessRange` owns the machine's own bounds and `RangeEvidence` what a derivation did with them.
 - Law: this page declares NO tool instance. A shop's assemblies live at `Tooling/magazine`, which admits every candidate through `Tool.Admit` before it reaches a request; a compiled tool roster here is a fiction the shop never mounted and is the deleted form.
 - Cases: `Tool` distinguishes rotary, wheel, saw blade, turning insert, and process head. `Surface`, `SpindleCeiling`, and `DepthCeiling` are BASE positional columns each case supplies from its own geometry, so a form declares no override body and a new form is one case with its three arguments.
 - Auto: `Tool.Admits(Operation)` pairs a tool FORM against an `OperationFamily` and its feed law, so the subtractive fold dispatches on form alone and the process-versus-tool ladder it replaced cannot drift from the feed vocabulary.
-- Receipt: `RangeReceipt` carries the admitted range, the derived value, the resolved value, and every clamp witness, so a budget states which bound overrode the material's own answer.
+- Receipt: `RangeEvidence` carries the admitted range, the derived value, the resolved value, and every clamp witness, so a budget states which bound overrode the material's own answer.
 - Boundary: a ceiling the equipment never published is `None` on both tool axes, never a sentinel maximum a clamp reads as a measurement; `ProcessRange` bounds resolve through one `Bound` fold and every ceiling through the one `Capped` cap inside it.
 
 ```csharp signature
@@ -48,6 +48,11 @@ using static LanguageExt.Prelude;
 namespace Rasm.Fabrication.Process;
 
 // --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// Deposited cutting-edge chemistries are this package's OWN vocabulary — the tool trade publishes no rostered set —
+// and each row carries the three cutting responses a budget reads. DISTINCT BY DESIGN from the `Rasm.Materials`
+// `Coating` of the same name: that row is a glazing pane's optical film measured in emissivity, transmittance, and
+// reflectance; this one is a PVD or CVD tool layer measured in speed gain, wear factor, and interface-temperature
+// ceiling — one noun, no shared column, and no seam between them.
 [SmartEnum<string>]
 public sealed partial class Coating {
     public static readonly Coating Uncoated = new("uncoated", speedFactor: 1.00, wearFactor: 1.00, interfaceC: 550.0);
@@ -97,6 +102,9 @@ public abstract partial record FeedLaw {
     public sealed record SurfaceRatio(double Fraction) : FeedLaw;
 }
 
+// Operation names, their feed laws, and their engagement fractions are this package's OWN machining vocabulary —
+// no published standard rosters them — so a shop's operation is a row here rather than a mounted registry entry,
+// and each row's family is what pairs it against an admitted tool form.
 [SmartEnum<string>]
 public sealed partial class Operation {
     public static readonly Operation Contour = new("contour", OperationFamily.Milling, new FeedLaw.Chip(0.05), engagement: 1.0, axial: 1.0);
@@ -213,7 +221,6 @@ public abstract partial record Tool(string Key, Coating Surface, Option<double> 
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public readonly partial struct ProcessRange {
     public Option<double> Minimum { get; }
     public Option<double> Maximum { get; }
@@ -224,7 +231,7 @@ public readonly partial struct ProcessRange {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Option<double> minimum,
         ref Option<double> maximum,
         ref Option<double> nominal,
@@ -232,11 +239,11 @@ public readonly partial struct ProcessRange {
         Seq<double> values = minimum.ToSeq().Concat(maximum).Concat(nominal).Concat(current);
         if (values.Exists(static value => !double.IsFinite(value) || value < 0.0)
             || (minimum, maximum).Apply(static (lo, hi) => lo > hi).IfNone(false))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Tooling, "process-range");
+            validationError = new ValidationError("process-range");
     }
 }
 
-public sealed record RangeReceipt(
+public sealed record RangeEvidence(
     PhysicsQuantity Bound,
     ProcessRange Range,
     double Derived,
@@ -287,7 +294,6 @@ public sealed partial class ResponseInterpolation {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ConstitutiveState {
     public double TemperatureC { get; }
     public double Hardness { get; }
@@ -298,7 +304,7 @@ public sealed partial class ConstitutiveState {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref double temperatureC,
         ref double hardness,
         ref double strainRate,
@@ -308,12 +314,11 @@ public sealed partial class ConstitutiveState {
         if (!double.IsFinite(temperatureC)
             || Seq(hardness, strainRate, strain, grainSizeUm).Exists(static value => !double.IsFinite(value) || value < 0.0)
             || !double.IsFinite(moistureFraction) || moistureFraction is < 0.0 or > 1.0)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Process, "constitutive-state");
+            validationError = new ValidationError("constitutive-state");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ResponseCurve {
     public ResponseAxis Axis { get; }
     public Arr<double> Inputs { get; }
@@ -337,7 +342,7 @@ public sealed partial class ResponseCurve {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref ResponseAxis axis,
         ref Arr<double> inputs,
         ref Arr<double> factors,
@@ -348,12 +353,11 @@ public sealed partial class ResponseCurve {
             || inputs.Exists(static value => !double.IsFinite(value))
             || factors.Exists(static value => !double.IsFinite(value) || value <= 0.0)
             || !ordered)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Process, "response-curve");
+            validationError = new ValidationError("response-curve");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ConstitutiveLaw {
     public double Reference { get; }
     public Arr<ResponseCurve> Responses { get; }
@@ -366,11 +370,11 @@ public sealed partial class ConstitutiveLaw {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref double reference,
         ref Arr<ResponseCurve> responses) {
         if (!double.IsFinite(reference) || reference <= 0.0)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Process, "constitutive-law");
+            validationError = new ValidationError("constitutive-law");
     }
 }
 
@@ -461,7 +465,7 @@ public abstract partial record ModalityPhysics(PhysicsKind Kind) {
 - Boundary: family identity, grade evidence, equipment variant, physics input, and budget remain distinct timing regimes.
 
 ```csharp signature
-// --- [MATERIAL_REGISTRY]
+// --- [MATERIAL_REGISTRY] --------------------------------------------------------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class MaterialClass {
     public static readonly MaterialClass LightMetal = new("light-metal",
@@ -483,8 +487,9 @@ public sealed partial class MaterialClass {
     public Set<PhysicsKind> Physics { get; }
 }
 
-// Family identity alone. What a family DOES under each physics kind is a mounted `MaterialBaseline`, so this
-// vocabulary never carries a constant a shop did not supply.
+// Material families are this page's OWN roster — published designations number GRADES (UNS, EN, AISI), never the
+// family grain a physics preset keys on — so a family is one row here, and what a family DOES under each physics
+// kind is a mounted `MaterialBaseline` rather than a constant this vocabulary carries.
 [SmartEnum<string>]
 public sealed partial class Material {
     public static readonly Material Aluminium = new("aluminium", MaterialClass.LightMetal);
@@ -542,7 +547,6 @@ public sealed partial class TemperState {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class MechanicalDatum {
     public double ElasticModulusMpa { get; }
     public double PoissonRatio { get; }
@@ -567,7 +571,7 @@ public sealed partial class MechanicalDatum {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref double elasticModulusMpa,
         ref double poissonRatio,
         ref double yieldStrengthMpa,
@@ -587,12 +591,11 @@ public sealed partial class MechanicalDatum {
             || !double.IsFinite(elongationRatio) || elongationRatio is < 0.0 or > 1.0
             || !double.IsFinite(strainHardeningExponent) || strainHardeningExponent is < 0.0 or > 1.0
             || ultimateStrengthMpa < yieldStrengthMpa)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Tooling, "material-spec:mechanical");
+            validationError = new ValidationError("material-spec:mechanical");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ThermalDatum {
     public double DensityKgM3 { get; }
     public double ConductivityWMK { get; }
@@ -616,7 +619,7 @@ public sealed partial class ThermalDatum {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref double densityKgM3,
         ref double conductivityWMK,
         ref double specificHeatJKgK,
@@ -627,12 +630,11 @@ public sealed partial class ThermalDatum {
         if (Seq(densityKgM3, conductivityWMK, specificHeatJKgK, thermalExpansionPerC, meltingC, latentHeatFusionJKg)
                 .Exists(static value => !double.IsFinite(value) || value <= 0.0)
             || !double.IsFinite(emissivity) || emissivity is < 0.0 or > 1.0)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Tooling, "material-spec:thermal");
+            validationError = new ValidationError("material-spec:thermal");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class GradeIdentity {
     public string Grade { get; }
     public string Designation { get; }
@@ -644,7 +646,7 @@ public sealed partial class GradeIdentity {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref string grade,
         ref string designation,
         ref TemperState temper,
@@ -655,14 +657,13 @@ public sealed partial class GradeIdentity {
         // A traceable certificate class is a promise the heat identity and its content key must both keep.
         if (!Witness.Keyed(grade) || !Witness.Keyed(designation)
             || (certificate.Traceable && (heatNumber.IsNone || certificateKey.IsNone)))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Tooling, "material-spec:grade");
+            validationError = new ValidationError("material-spec:grade");
     }
 }
 
 // The mounted preset for one family. `ModalityPhysics.Kind` keys the map, so a preset cannot declare one physics
 // family and carry another, and a class that does not admit a kind cannot mount a law for it.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class MaterialBaseline {
     public Material Family { get; }
     public Map<PhysicsKind, ModalityPhysics> Physics { get; }
@@ -673,16 +674,15 @@ public sealed partial class MaterialBaseline {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Material family,
         ref Map<PhysicsKind, ModalityPhysics> physics) {
         if (physics.IsEmpty || !physics.ForAll(row => row.Key == row.Value.Kind && family.Class.Physics.Contains(row.Key)))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Tooling, "material-baseline");
+            validationError = new ValidationError("material-baseline");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class MaterialSpec {
     public Material Family { get; }
     public GradeIdentity Identity { get; }
@@ -713,14 +713,14 @@ public sealed partial class MaterialSpec {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Material family,
         ref GradeIdentity identity,
         ref MechanicalDatum mechanical,
         ref ThermalDatum thermal,
         ref Map<PhysicsKind, ModalityPhysics> physics) {
         if (physics.IsEmpty)
-            validationError = FabricationFault.Equipment(new EquipmentWitness.Grade("material-spec"));
+            validationError = new ValidationError($"equipment-inadmissible:{new EquipmentWitness.Grade("material-spec")}");
     }
 }
 
@@ -761,10 +761,10 @@ public sealed class MaterialRegistry {
 - Cases: `ProcessBudget.Turning` remains distinct because constant-surface-speed RPM resolves against workpiece radius at motion time, and `BudgetEnergy.RadiusDependent` carries that unclosed clock as a typed case rather than an absent value.
 - Law: a form with no mechanics answer publishes NONE, never a zero. A grinding wheel has no helix, so it has no axial force; a saw has no shank cantilever, so it has no deflection — a zero in those slots is forged evidence a downstream gate reads as a measured safe value.
 - Auto: `Kind`, `Extents`, and `Equipment` are base positional columns, so a request case is one declaration and its own payload supplies all three.
-- Receipt: `BudgetEvidence` records evaluated material state, power, energy closure, admitted grade, tool identity, every `RangeReceipt`, and the response axes that SATURATED at their preset edge.
+- Receipt: `BudgetEvidence` records evaluated material state, power, energy closure, admitted grade, tool identity, every `RangeEvidence`, and the response axes that SATURATED at their preset edge.
 
 ```csharp signature
-// --- [BUDGET_SHAPE]
+// --- [BUDGET_SHAPE] -------------------------------------------------------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PhysicsRequest(
     ProcessKind Process,
@@ -900,14 +900,13 @@ public sealed record CutterMechanics(
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class BudgetEvidence {
     public ConstitutiveState State { get; }
     public double PowerW { get; }
     public BudgetEnergy Energy { get; }
     public MaterialSpec Material { get; }
     public Option<UInt128> ToolIdentity { get; }
-    public Arr<RangeReceipt> Ranges { get; }
+    public Arr<RangeEvidence> Ranges { get; }
 
     // The response axes whose state fell outside the mounted preset's knots: the factor read is an EDGE value, so
     // a caller pricing on it knows the preset never covered the state it asked about.
@@ -917,19 +916,19 @@ public sealed partial class BudgetEvidence {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref ConstitutiveState state,
         ref double powerW,
         ref BudgetEnergy energy,
         ref MaterialSpec material,
         ref Option<UInt128> toolIdentity,
-        ref Arr<RangeReceipt> ranges,
+        ref Arr<RangeEvidence> ranges,
         ref Arr<ResponseAxis> extrapolated) {
         if (BudgetEnergy.Admit(energy).IsFail
             || !double.IsFinite(powerW) || powerW < 0.0
             || !ranges.ForAll(static range => double.IsFinite(range.Derived) && range.Derived >= 0.0
                 && double.IsFinite(range.Resolved) && range.Resolved >= 0.0))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Tooling, "budget-evidence");
+            validationError = new ValidationError("budget-evidence");
     }
 }
 
@@ -989,7 +988,7 @@ public abstract partial record ProcessBudget {
 - Boundary: every parse runs under the invariant culture, so a shop locale never re-reads a stored dimension differently.
 
 ```csharp signature
-// --- [TEXT_ADMISSION]
+// --- [TEXT_ADMISSION] -----------------------------------------------------------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class PhysicsQuantity {
     public static readonly PhysicsQuantity Feed = Of<Speed>(
@@ -1323,7 +1322,7 @@ public static class ProcessPhysics {
         double power = law.Power.At(state);
         return new ProcessBudget.Resin(
             exposure, law.CureDepth.At(state), law.LiftHeight.At(state),
-            Evidence(input, law, power, Clock(power, exposure), Arr<RangeReceipt>.Empty));
+            Evidence(input, law, power, Clock(power, exposure), Arr<RangeEvidence>.Empty));
     }
 
     private static ProcessBudget Powder(PhysicsRequest.Powder input, ModalityPhysics.Powder law) {
@@ -1339,7 +1338,7 @@ public static class ProcessPhysics {
         double seconds = Seconds(input.LayerAreaMm2 / Math.Max(hatch, double.Epsilon), speed);
         return new ProcessBudget.Powder(
             power, hatch, speed, layer, density,
-            Evidence(input, law, power, Clock(power, seconds), Arr<RangeReceipt>.Empty));
+            Evidence(input, law, power, Clock(power, seconds), Arr<RangeEvidence>.Empty));
     }
 
     private static ProcessBudget Formed(PhysicsRequest.Forming input, ModalityPhysics.Forming law) {
@@ -1353,7 +1352,7 @@ public static class ProcessPhysics {
             datum.UltimateStrengthMpa, law.KFactor.At(state), law.SpringbackRatio.At(state),
             law.MinBendRadiusFactor.At(state), flow,
             datum.LimitStrain * law.AnisotropyRatio.At(state) * law.StrainHardening.At(state),
-            Evidence(input, law, 0.0, new BudgetEnergy.PerStroke(energy), Arr<RangeReceipt>.Empty));
+            Evidence(input, law, 0.0, new BudgetEnergy.PerStroke(energy), Arr<RangeEvidence>.Empty));
     }
 
     // Taylor: VT^n = C, so life falls with the n-th root of the speed ratio against the law's own reference. The
@@ -1375,7 +1374,7 @@ public static class ProcessPhysics {
     private static double ZoneTemperature(double specificForceNMm2, ThermalDatum thermal, ConstitutiveState state) =>
         state.TemperatureC + specificForceNMm2 / Math.Max(thermal.VolumetricHeatCapacityJMm3K, double.Epsilon) / 1000.0;
 
-    private static Fin<RangeReceipt> Bound(
+    private static Fin<RangeEvidence> Bound(
         PhysicsQuantity bound,
         ProcessRange range,
         Option<double> ceiling,
@@ -1391,16 +1390,16 @@ public static class ProcessPhysics {
                 .Filter(static pair => pair.Floor > pair.Ceiling);
         if (unsatisfiable.IsSome)
             return unsatisfiable.Match(
-                Some: pair => Fin.Fail<RangeReceipt>(FabricationFault.Equipment(
+                Some: pair => Fin.Fail<RangeEvidence>(FabricationFault.Equipment(
                     new EquipmentWitness.Range(bound, RangeSide.Floor, pair.Ceiling, pair.Floor))),
-                None: () => Fin.Succ(new RangeReceipt(bound, range, derived, capped, Arr<EquipmentWitness>.Empty)));
+                None: () => Fin.Succ(new RangeEvidence(bound, range, derived, capped, Arr<EquipmentWitness>.Empty)));
 
         double floored = range.Minimum.Map(min => Math.Max(min, capped)).IfNone(capped);
         double bounded = range.Maximum.Map(max => Math.Min(max, floored)).IfNone(floored);
         Arr<EquipmentWitness> witnesses =
             (floored > capped ? Arr<EquipmentWitness>(new EquipmentWitness.Range(bound, RangeSide.Floor, capped, floored)) : Arr<EquipmentWitness>.Empty)
             + (bounded < capped ? Arr<EquipmentWitness>(new EquipmentWitness.Range(bound, RangeSide.Ceiling, capped, bounded)) : Arr<EquipmentWitness>.Empty);
-        return Fin.Succ(new RangeReceipt(bound, range, derived, bounded, witnesses));
+        return Fin.Succ(new RangeEvidence(bound, range, derived, bounded, witnesses));
     }
 
     // The ONE ceiling fold. An absent ceiling is a bound the equipment never published, so the derived value passes
@@ -1425,7 +1424,7 @@ public static class ProcessPhysics {
         ModalityPhysics law,
         double powerW,
         BudgetEnergy energy,
-        Arr<RangeReceipt> ranges) =>
+        Arr<RangeEvidence> ranges) =>
         BudgetEvidence.Create(
             input.State, powerW, energy, input.Material, input.Equipment, ranges, Saturated(law, input.State));
 

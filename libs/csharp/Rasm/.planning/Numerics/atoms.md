@@ -2,28 +2,32 @@
 
 `Rasm.Numerics` owns the typed scalar, transform, vector, and output-projection algebras that every higher kernel concern composes.
 
+`Band` is the branch's ONE range guard: every generated `ValidateFactoryArguments` body on this page and every `ToleranceLane` row at `Domain/context#TOLERANCE_LANES` reads a row here rather than spelling its own bounds, so a numeric window is declared once and admitted everywhere. It is the host-NEUTRAL rail — `double.IsFinite` screening — and stands beside, never over, the `Domain/rails` `ValidityClaim` evidence rail whose `RhinoMath.IsValidDouble` screen exists to reject the host `UnsetValue` sentinel a finiteness probe admits as an ordinary value; stratum direction makes the split structural, since Domain cannot compose a Numerics row. `PerceptualColor` carries the whole colour crossing at both hosts: the numeric floor admits and emits `System.Drawing.Color` and packed ARGB here, and the Eto pair rides an `extension(PerceptualColor)` block on `Interaction/paint#COLOR` so this page links no UI toolkit.
+
 ## [01]-[INDEX]
 
-- [02]-[SCALAR_FLOOR]: epsilon policy, generated scalar and angle admission, and the perceptual color algebra.
+- [02]-[SCALAR_FLOOR]: epsilon policy, the range-guard band vocabulary, generated scalar and angle admission, and the perceptual color algebra.
 - [03]-[TRANSFORM_ALGEBRA]: affine construction union and the one `Placement` build, analysis, and rewrite surface.
 - [04]-[VECTOR_ALGEBRA]: admitted-direction currency with the span, frame, and cone models over it.
-- [05]-[CELL_LATTICE]: the ONE bounded rectangular cell lattice — index-to-world affine, per-axis census, budget ceiling.
+- [05]-[CELL_LATTICE]: ONE bounded rectangular cell lattice — index-to-world affine, per-axis census, budget ceiling.
 - [06]-[PROJECTION_RAIL]: corpus-wide raw-to-typed output dispatch.
 
 ## [02]-[SCALAR_FLOOR]
 
-- Owner: `EpsilonPolicy` names the two epsilon rows — sqrt-epsilon for near-unit and residual gates, zero-tolerance for degeneracy floors. `Dimension`, `PositiveMagnitude`, `UnitInterval`, and `SignedUnit` generate scalar admission, so every count, positive-length, normalized-parameter, or bipolar-normalized signature carries the owner, never a raw primitive re-gated per call site — the unsigned and signed normal bounds are two rows of one family, so a `[-1,1]` reading admits here rather than re-declaring the gate one stratum up. `BoundarySense`, `SignedAxis`, `VectorRelation`, `AnglePivot`, and `VectorAngle` close directional sign, cardinal axis, coplanarity, measurement pivot, and radian-bounded angle. `PerceptualColor` owns the OKLab triple with normalized alpha, its mix, ramp, tonal, contrast, contrast-targeted tonal solve, simulation, difference, compositing, colorimetric read-back, appearance reading, and gamut-safe RGB egress composing `Wacton.Unicolour` through `BlendPath`, `RgbProfile`, `DeltaMetric`, `GamutPolicy`, `ToneSweep`, and `RgbTransfer` values, never a host-edge conversion. `ToneSweep` closes the direction a contrast-targeted solve walks the tonal axis, the ground-relative row beside the two absolute ones, so a readable pigment is derived at this owner and never searched at a call site. `RgbProfile` is the branch working-space roster and the corpus' ONE `Configuration` mint — the instance is the colour-space identity, so every package above composes a row, and `Condition` plus `Viewed` extend that same mint with the viewing-condition slot rather than opening a second one; `BlendPath` splits interpolation space from the axes only some spaces admit, one row per space with the hue traversal on the polar case's payload and the viewing condition on the appearance case's, so an HDR-referred or reference-corrected space is one row while a traversal on a rectangular space and an unconditioned appearance space are both unrepresentable; `DeltaMetric` splits the difference axis the same way, an opponent row condition-free beside an appearance row carrying its condition; `AppearanceReading` carries the correlates with the condition they were measured under; `GamutPolicy` rows own a reproducibility domain with both its containment predicate and its nearest-in-domain projection; `RgbTransfer` rows own the representation the profile egress reads a bounded colour off, the companded encoding beside scene-linear light, because a return shape cannot discriminate what the ingress triple's shape does.
-- Entry: `Dimension`, `PositiveMagnitude`, `UnitInterval`, and `SignedUnit` admit through generated `TryCreate`/`Validate`; `SignedAxis.Of` resolves the world or frame axis; `VectorRelation.Of` classifies and `VectorAngle.Of` measures two vectors through the ambient `Context` and pivot; `PerceptualColor.Of`/`OfRgb` admit — display bytes under the default configuration, an encoded unit-interval triple, or an unbounded scene-linear double triple, the latter two under an `RgbProfile` row — `Mix` and `Ramp` interpolate along a `BlendPath` and read the interpolated alpha off the result, `Blend` composites onto a backdrop under any `BlendMode`, `Simulate` previews a colour-vision deficiency at a unit-bounded severity, `Difference` measures perceptual distance under a `DeltaMetric` row, `ReferenceLightness` reads the reference-corrected lightness a ramp asserts monotonicity on, `Contrast` reads the WCAG ratio and `ToneFor` inverts it — holding hue and chroma while tone walks a `ToneSweep` row to the least extreme rung clearing a stated ratio against a stated backdrop, refusing when no tone clears it, `Colorimetry` reads relative luminance, correlated colour temperature, dominant wavelength, and excitation purity as one column, `OfTemperature` admits the inverse — a correlated colour temperature on either locus with an optional blackbody-referenced `Duv` offset and a stated luminance, `Appearance` reads the CAM correlates a `BlendPath.Appearance` row states, `InGamut` tests the selected reproducibility domain, and `ToRgb` bounds through the same row then either quantizes to the display-referred sRGB byte quadruple or reads the profile's double quadruple through an `RgbTransfer` row after the same domain bound — the companded encoding by default, scene-linear light on the `Linear` row, the counterpart of the two `OfRgb` profile ingresses; `RgbProfile.Viewed` mints the cam-bearing `Configuration` a direct-`Unicolour` composer states its condition through and `DeltaMetric.Measure` measures a `Unicolour` operand pair under the row's own condition; `RgbProfile.Condition` admits an authored viewing condition from a rostered illuminant, a stated observer, an ambient illuminance, a background luminance, and a `Surround`.
-- Auto: generated `ValidateFactoryArguments` gates finiteness and the owner's bound, so interior code never re-validates an admitted scalar; `AnglePivot.Admit` re-validates only the case payload and `Compute` dispatches the three `Vector3d.VectorAngle` overloads through the generated `Switch`; `VectorRelation.Of` admits both operands as `Direction` before reading parallel and perpendicular relations under the context angle tolerance; `RgbProfile.Viewed` memoizes each cam-bearing `Configuration` on the condition's reference identity and resolves the package-default condition to the row's own instance, so no caller sequences a mint.
+- Owner: `EpsilonPolicy` names the three anchor rows — sqrt-epsilon for near-unit and residual gates, zero-tolerance for degeneracy floors, seam-ulp for the convergence floor no double iterate reaches below. `Bound` closes one interval endpoint as a case — open, closed, or unbounded — and `Band` pairs two of them into the one named range vocabulary every scalar admission reads: `Dimension`, `PositiveMagnitude`, `UnitInterval`, `SignedUnit`, `VectorAngle`, and `PerceptualColor` all guard through a row, so a count, positive length, normalized parameter, bipolar reading, radian angle, or opponent component carries the owner and never a raw primitive re-gated per call site. `BoundarySense`, `SignedAxis`, `VectorRelation`, `AnglePivot`, and `VectorAngle` close directional sign, cardinal axis, coplanarity, measurement pivot, and radian-bounded angle. `PerceptualColor` owns the OKLab triple with normalized alpha, its mix, ramp, tonal, contrast, contrast-targeted tonal solve, simulation, difference, compositing, colorimetric read-back, appearance reading, and gamut-safe RGB, ARGB, and host egress composing `Wacton.Unicolour` through `BlendPath`, `RgbProfile`, `DeltaMetric`, `GamutPolicy`, `ToneSweep`, and `RgbTransfer` values, never a host-edge conversion. `RgbProfile` is the branch working-space roster and the corpus' ONE `Configuration` mint — the instance is the colour-space identity, so every package above composes a row, and `Condition` and `Viewed` extend that same mint with the viewing-condition slot rather than opening a second one; `BlendPath` splits interpolation space from the axes only some spaces admit, one row per space with the hue traversal on the polar case's payload and the viewing condition on the appearance case's; `DeltaMetric` splits the difference axis the same way, an opponent row condition-free beside an appearance row carrying its condition; `AppearanceReading` carries the correlates with the condition they were measured under; `GamutPolicy` rows own a reproducibility domain with both its containment predicate and its nearest-in-domain projection, `Unbounded` the whole-space row an HDR or scene-linear egress names; `RgbTransfer` rows own the representation the profile egress reads a bounded colour off, the companded encoding beside scene-linear light, because a return shape cannot discriminate what the ingress triple's shape does.
+- Cases: `Bound.Open`/`Closed` carry the endpoint value, `Bound.Unbounded` carries none — an unbounded side is a CASE, never an infinity sentinel, and inclusivity is that case rather than a flag beside a number, so an open-versus-closed mismatch is unrepresentable.
+- Law: `Band.Guard` canonicalizes negative zero to positive zero before the bound test, because `-0.0` passes every comparison its band admits and then forks the content key and every reciprocal sign downstream — this is the one canonicalization the `ref` slot exists for, and a row needing another lands it here rather than at a factory. `ValidationError?` returns from a guard as the Thinktecture generated-seam signal, admitted-as-null by the generator's own contract and never a domain absence; that seam carries ONE error, so a multi-column body is a first-refusal chain and accumulation rides `Validation` at the `Op` admission rail instead. Exact bounds — zero, one, the unit endpoints, the count floor, the device half-unit — are normalization identities and state so on site; every INEXACT bound derives from an `EpsilonPolicy` row or `Math.Tau`, and a bare epsilon at a call site is the deleted form.
+- Exemption: `Band` and `ValidityClaim` are two rails, not two spellings — `Band` guards a generated factory on host-neutral material through `double.IsFinite`, `ValidityClaim` folds receipt evidence over host-read material through `RhinoMath.IsValidDouble` so the `UnsetValue` sentinel is refused; Numerics composes Domain and never the reverse, so the two cannot merge.
+- Entry: `Dimension`, `PositiveMagnitude`, `UnitInterval`, and `SignedUnit` admit through generated `TryCreate`/`Validate`; `SignedAxis.Of` resolves the world or frame axis and `Cardinal(rank)` filters the axes a rank admits; `VectorRelation.Of` classifies and `VectorAngle.Of` measures two vectors through the ambient `Context` and pivot; `PerceptualColor.Of`/`OfRgb`/`OfArgb`/`OfHost`/`OfTemperature`/`Achromatic` admit — display bytes with a unit-gated or byte alpha, a packed ARGB word, a host `System.Drawing.Color`, an encoded unit-interval triple, an unbounded scene-linear double triple, a correlated colour temperature, or a lightness alone on the neutral axis — `Mix` and `Ramp` interpolate along a `BlendPath` and read the interpolated alpha off the result, `Blend` composites onto a backdrop under any `BlendMode`, `Simulate` previews a colour-vision deficiency at a unit-bounded severity, `Difference` measures perceptual distance under a `DeltaMetric` row, `ReferenceLightness` reads the reference-corrected lightness a ramp asserts monotonicity on, `Contrast` reads the WCAG ratio and `ToneFor` inverts it through a `ToneSweep` walk, `Colorimetry` reads relative luminance, correlated colour temperature, dominant wavelength, and excitation purity as one column, `Appearance` reads the CAM correlates a `BlendPath.Appearance` row states, `InGamut` tests the selected reproducibility domain, and `ToRgb`/`ToArgb`/`ToDrawing`/`ToColor4f` bound through that domain before quantizing (the RhinoCommon float quad enters through `OfHost(Color4f, transfer)` and leaves through `ToColor4f`, the `RgbTransfer` row discriminating companded from scene-linear on both legs); `RgbProfile.Viewed` mints the cam-bearing `Configuration` a direct-`Unicolour` composer states its condition through and `DeltaMetric.Measure` measures a `Unicolour` operand pair under the row's own condition; `RgbProfile.Condition` admits an authored viewing condition from a rostered illuminant, a stated observer, an ambient illuminance, a background luminance, and a `Surround`.
+- Auto: every generated `ValidateFactoryArguments` body is one `Band.Guard` call, so interior code never re-validates an admitted scalar and a bound moves at one row; `Band.Admits(ReadOnlySpan<double>)` reduces through `TensorPrimitives` so a whole plane admits in one vectorized pass; `AnglePivot.Admit` re-validates only the case payload and `Compute` dispatches the three `Vector3d.VectorAngle` overloads through the generated `Switch`; `VectorRelation.Of` admits both operands as `Direction` before reading parallel and perpendicular relations under the context angle tolerance; `RgbProfile.Viewed` memoizes each cam-bearing `Configuration` on the condition's reference identity and resolves the package-default condition to the row's own instance, so no caller sequences a mint.
 - Receipt: `AppearanceReading` alone — CAM correlates are meaningless apart from the condition that produced them, so the reading carries it; every other owner here is its own admission evidence.
-- Packages: Thinktecture.Runtime.Extensions for the generated value-object, union, and smart-enum owners; LanguageExt.Core for the `Fin`/`Option`/`Seq` rails and the `Atom<HashMap<_,_>>` cell behind the cam-bearing mint cache; Wacton.Unicolour for the perceptual model behind `PerceptualColor`; Rasm.Domain (project) for the `Op` key, `Context` tolerance, and `Admit` vocabulary; RhinoCommon for the `Vector3d` and `Plane` value structs.
-- Growth: a new scalar invariant is one `[ValueObject]` owner; a new axis member, relation class, pivot modality, working space, or reproducibility domain is one enum row or union case, never a sibling type; a new interpolation space is one `BlendPath` row whose case states which of the traversal and condition axes it admits, never a row per space-and-axis pair; a new difference metric is one `DeltaMetric` row on the case matching its condition dependence; a new egress representation is one `RgbTransfer` row, never a sibling `ToRgb`; egress is domain-bounded on every leg by construction, so an HDR egress publishing above-white light arrives as one `GamutPolicy` row whose domain is the whole space, never a bound-skipping flag; a declared viewing condition is a `Condition` construction at its own site, never a roster row, because a surround measures the viewer's room rather than naming a colour vocabulary member; a new epsilon is one named `EpsilonPolicy` row, and a bare epsilon literal at a call site is the deleted form; a new tonal-search direction is one `ToneSweep` row and never a comparator argument, because a caller-supplied ordering re-opens the monotonicity the walk depends on; a new color capability is one member on `PerceptualColor` reading deeper into the `Unicolour` it holds.
-- Boundary: `RhinoMath.SqrtEpsilon`/`ZeroTolerance`/`TwoPI` give way to `EpsilonPolicy` and `Math.Tau` everywhere, and `RhinoMath.IsValidDouble` gives way to `double.IsFinite` on HOST-NEUTRAL shapes — host-read material instead admits through the `Domain/rails` `ValidityClaim.Finite` row, whose scalar predicate deliberately stays `RhinoMath.IsValidDouble` because it screens the host `RhinoMath.UnsetValue` sentinel a bare finiteness probe admits as an ordinary value — keeping the numeric floor portable while the assembly stays RhinoCommon-aware; a raw `double` meaning dimension, magnitude, unit parameter, or bipolar-normalized reading never crosses a signature, the generated owner does — a package above that re-declares a `[-1,1]` value object is the split-owner form this row closes; angle measurement reaches `Vector3d.VectorAngle` only through `AnglePivot.Compute`; a componentwise sRGB lerp, a hand-rolled opponent-space matrix, a host color-blend, or a call-site tone search against a contrast target never stands in for perceptual math — every host edge admits into `PerceptualColor`, interpolates through `BlendPath`, solves a readable rung through `ToneFor`, and quantizes through `ToRgb`, whose byte leg is the ONE content-key quantizer the federation addresses against and therefore carries no transfer slot at all; a hue traversal never travels beside an interpolation space as a parallel argument, because the polar case is the only shape that carries one, and a viewing condition never travels beside one either, because the appearance case is; a working space enters as an `RgbProfile` row and never as a peer-minted `Configuration`, a chromaticity table, or a whitepoint literal, because the instance carries the space's identity and a second instance re-adapts every crossing while forking the conversion cache — the cam-bearing crossing is the SAME row's `Viewed` mint, published so every chartered direct-`Unicolour` composer reaches it, and a `Configuration` carrying a `camConfig` minted anywhere else is the same deleted form; an appearance space or CAM difference metric with no stated condition is unspellable and no default surround is ever fabricated for one — a branch-wide law binding only where the compliant construction is obtainable, which is why `Viewed` and `DeltaMetric.Measure` publish rather than the law carving an exemption — while the WCAG `Contrast` read stays condition-free because WCAG fixes its own.
+- Packages: Thinktecture.Runtime.Extensions for the generated value-object, union, and smart-enum owners; LanguageExt.Core for the `Fin`/`Option`/`Seq` rails and the `Atom<HashMap<_,_>>` cell behind the cam-bearing mint cache; Wacton.Unicolour for the perceptual model behind `PerceptualColor`; System.Numerics.Tensors for the span-arm band reduction; System.Drawing.Common for the host colour carrier at the ARGB egress pair; Rasm.Domain (project) for the `Op` key, `Context` tolerance, `ValidityClaim` evidence, and `Admit` vocabulary; RhinoCommon for the `Vector3d` and `Plane` value structs.
+- Growth: a new range window is one `Band` row and a new endpoint modality one `Bound` case, never a bespoke bounds expression inside a factory; a new scalar invariant is one `[ValueObject]` owner reading a band; a new axis member, relation class, pivot modality, working space, or reproducibility domain is one enum row or union case, never a sibling type; a new interpolation space is one `BlendPath` row whose case states which of the traversal and condition axes it admits; a new difference metric is one `DeltaMetric` row on the case matching its condition dependence; a new egress representation is one `RgbTransfer` row, never a sibling `ToRgb`; an HDR egress publishing above-white light names the `GamutPolicy.Unbounded` row rather than skipping the bound; a declared viewing condition is a `Condition` construction at its own site, never a roster row, because a surround measures the viewer's room rather than naming a colour vocabulary member; a new epsilon is one named `EpsilonPolicy` row; a new tonal-search direction is one `ToneSweep` row and never a comparator argument, because a caller-supplied ordering re-opens the monotonicity the walk depends on; a new color capability is one member on `PerceptualColor` reading deeper into the `Unicolour` it holds.
+- Boundary: `RhinoMath.SqrtEpsilon`/`ZeroTolerance`/`TwoPI` give way to `EpsilonPolicy` and `Math.Tau` everywhere, and `RhinoMath.IsValidDouble` gives way to `double.IsFinite` on HOST-NEUTRAL shapes — host-read material instead admits through the `Domain/rails` `ValidityClaim.Finite` row — keeping the numeric floor portable while the assembly stays RhinoCommon-aware; a raw `double` meaning dimension, magnitude, unit parameter, or bipolar-normalized reading never crosses a signature, the generated owner does, and a package above that re-declares a `[-1,1]` value object is the split-owner form this row closes; angle measurement reaches `Vector3d.VectorAngle` only through `AnglePivot.Compute`; a componentwise sRGB lerp, a hand-rolled opponent-space matrix, a host color-blend, or a call-site tone search against a contrast target never stands in for perceptual math — every host edge admits into `PerceptualColor`, interpolates through `BlendPath`, solves a readable rung through `ToneFor`, and quantizes through `ToRgb`, whose byte leg is the ONE content-key quantizer the federation addresses against and therefore carries no transfer slot at all and CLIPS by ruling, while the ARGB and `System.Drawing` legs REFUSE an out-of-display colour because a paint instruction that clipped silently is a colour no consumer can attribute; the `Eto.Drawing` pair of that same correspondence is an `extension(PerceptualColor)` block on `Interaction/paint#COLOR`, so this page names no UI toolkit and the numeric floor stays Eto-free; AppUi's colour-space vocabulary is a coordinate in the space, transfer, and domain axes already declared here — its scene-linear float row is `RgbProfile.Srgb` read through `RgbTransfer.Linear` under `GamutPolicy.Unbounded`, never a fourth axis or a parallel roster; a hue traversal never travels beside an interpolation space as a parallel argument, because the polar case is the only shape that carries one, and a viewing condition never travels beside one either, because the appearance case is; a working space enters as an `RgbProfile` row and never as a peer-minted `Configuration`, a chromaticity table, or a whitepoint literal — the cam-bearing crossing is the SAME row's `Viewed` mint, published so every chartered direct-`Unicolour` composer reaches it; an appearance space or CAM difference metric with no stated condition is unspellable and no default surround is ever fabricated for one, which is why `Viewed` and `DeltaMetric.Measure` publish rather than the law carving an exemption, while the WCAG `Contrast` read stays condition-free because WCAG fixes its own.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using System.Globalization;
-using System.Runtime.InteropServices;
+using System.Numerics.Tensors;
 using Rasm.Domain;
 using Thinktecture;
 using Wacton.Unicolour;
@@ -33,32 +37,129 @@ namespace Rasm.Numerics;
 // --- [CONSTANTS] ------------------------------------------------------------------------------
 public static class EpsilonPolicy {
     public const double SqrtEpsilon = 1.4901161193847656e-8;
+    // Cube root of machine epsilon: the step FRACTION where a first-derivative central difference balances
+    // truncation against roundoff, so a numeric probe multiplies its own magnitude by this row and hands the
+    // product to the stencil — a bare `* 1e-6` step literal at a probe site is the deleted form.
+    public const double CbrtEpsilon = 6.0554544523933395e-6;
     public const double ZeroTolerance = 2.3283064365386963e-10;
+    // Double-arithmetic seams floor every residual target: an iterate asked to converge tighter never
+    // terminates, so the residual band REFUSES the target rather than letting a budget exhaust against it.
+    public const double SeamUlp = 1e-12;
+    // Derived lanes read this one-decade sub-tolerance for a gouge, a collapse, and a neglect floor.
+    public const double SubTolerance = 0.1;
+}
+
+// The two periodic reductions the estate needs, seated at the lowest stratum every consumer reaches rather than
+// homed on whichever domain owner spelled one first. `Floored` lands in [0, period) — an angle, a time-of-day
+// minute; `Centred` lands in [-period/2, period/2) — a toroidal offset a difference stencil reads. Both are total
+// on a strictly positive period the caller's own band already gated.
+public static class Reduce {
+    public static double Floored(double value, double period) => value - (period * Math.Floor(d: value / period));
+    public static double Centred(double value, double period) => Floored(value: value + (period * 0.5), period: period) - (period * 0.5);
 }
 
 // --- [TYPES] ------------------------------------------------------------------------------
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record Bound {
+    private Bound() { }
+    public sealed record OpenCase(double Value) : Bound;
+    public sealed record ClosedCase(double Value) : Bound;
+    public sealed record UnboundedCase : Bound;
+    public static Bound Open(double value) => new OpenCase(Value: value);
+    public static Bound Closed(double value) => new ClosedCase(Value: value);
+    public static Bound Unbounded { get; } = new UnboundedCase();
+    internal bool AtLeast(double probe) => Switch(
+        state: probe,
+        openCase: static (value, bound) => value > bound.Value,
+        closedCase: static (value, bound) => value >= bound.Value,
+        unboundedCase: static (_, _) => true);
+    internal bool AtMost(double probe) => Switch(
+        state: probe,
+        openCase: static (value, bound) => value < bound.Value,
+        closedCase: static (value, bound) => value <= bound.Value,
+        unboundedCase: static (_, _) => true);
+    internal string Lower => Switch(
+        openCase: static bound => string.Create(CultureInfo.InvariantCulture, $"({bound.Value:R}"),
+        closedCase: static bound => string.Create(CultureInfo.InvariantCulture, $"[{bound.Value:R}"),
+        unboundedCase: static _ => "(-inf");
+    internal string Upper => Switch(
+        openCase: static bound => string.Create(CultureInfo.InvariantCulture, $"{bound.Value:R})"),
+        closedCase: static bound => string.Create(CultureInfo.InvariantCulture, $"{bound.Value:R}]"),
+        unboundedCase: static _ => "+inf)");
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class Band {
+    public static readonly Band Positive = new(key: "positive", floor: Bound.Open(EpsilonPolicy.ZeroTolerance), ceiling: Bound.Unbounded);
+    public static readonly Band Nonnegative = new(key: "nonnegative", floor: Bound.Closed(0.0), ceiling: Bound.Unbounded);
+    public static readonly Band Unit = new(key: "unit", floor: Bound.Closed(0.0), ceiling: Bound.Closed(1.0));
+    public static readonly Band SignedUnit = new(key: "signed-unit", floor: Bound.Closed(-1.0), ceiling: Bound.Closed(1.0));
+    public static readonly Band Angle = new(key: "angle", floor: Bound.Closed(0.0), ceiling: Bound.Closed(Math.Tau));
+    public static readonly Band HalfTurn = new(key: "half-turn", floor: Bound.Open(0.0), ceiling: Bound.Closed(Math.PI));
+    public static readonly Band Ratio = new(key: "ratio", floor: Bound.Open(EpsilonPolicy.ZeroTolerance), ceiling: Bound.Closed(1.0));
+    // Half-open [0,1): the window a PHASE, a stagger, or any wrapping fraction lives in, where 1 is the same
+    // position as 0 and admitting both spells one place twice.
+    public static readonly Band Fractional = new(key: "fractional", floor: Bound.Closed(0.0), ceiling: Bound.Open(1.0));
+    public static readonly Band Growth = new(key: "growth", floor: Bound.Open(1.0), ceiling: Bound.Unbounded);
+    public static readonly Band Residual = new(key: "residual", floor: Bound.Open(EpsilonPolicy.SeamUlp), ceiling: Bound.Closed(1.0));
+    // Model-distance tolerances under sqrt-epsilon are unmeetable: constructed-point arithmetic has consumed every
+    // significant bit by then, so the band refuses the target rather than admitting one no fold can satisfy.
+    public static readonly Band Length = new(key: "length", floor: Bound.Open(EpsilonPolicy.SqrtEpsilon), ceiling: Bound.Unbounded);
+    public static readonly Band Parameter = new(key: "parameter", floor: Bound.Unbounded, ceiling: Bound.Unbounded);
+    public static readonly Band Device = new(key: "device", floor: Bound.Closed(DeviceQuantum), ceiling: Bound.Unbounded);
+    public static readonly Band Count = new(key: "count", floor: Bound.Closed(1.0), ceiling: Bound.Unbounded);
+    // 32 = -log2(EpsilonPolicy.ZeroTolerance): the rung where a halving amplitude reaches the zero seam, so the
+    // ceiling DERIVES from the epsilon anchor instead of standing as a figure no clause traces.
+    public static readonly Band Octave = new(key: "octave", floor: Bound.Closed(1.0), ceiling: Bound.Closed(32.0));
+    public static readonly Band Percentile = new(key: "percentile", floor: Bound.Closed(0.0), ceiling: Bound.Closed(100.0));
+
+
+    public Bound Floor { get; }
+    public Bound Ceiling { get; }
+    public string Interval => string.Create(CultureInfo.InvariantCulture, $"{Floor.Lower}, {Ceiling.Upper}");
+    public bool Admits(double value) => double.IsFinite(value) && Floor.AtLeast(probe: value) && Ceiling.AtMost(probe: value);
+    // Span arm: one vectorized pass over a whole plane. The emptiness gate is explicit because `IsFiniteAll`
+    // answers false on an empty span while the reductions below it raise, so the two disagree on that input alone.
+    public bool Admits(ReadOnlySpan<double> values) =>
+        !values.IsEmpty && TensorPrimitives.IsFiniteAll(values)
+        && Floor.AtLeast(probe: TensorPrimitives.Min(values)) && Ceiling.AtMost(probe: TensorPrimitives.Max(values));
+    public ValidationError Refuse(string label, double value) =>
+        new(message: string.Create(CultureInfo.InvariantCulture, $"{label} must lie in {Interval} (got {value:R})."));
+    public ValidationError? Guard(string label, ref double value) {
+        value = value == 0.0 ? 0.0 : value;
+        return Admits(value: value) ? null : Refuse(label: label, value: value);
+    }
+    public ValidationError? Guard(string label, ref int value) =>
+        Admits(value: value) ? null : Refuse(label: label, value: value);
+
+    // Half a device unit is the finest position a quantized device grid resolves; below it two device tolerances
+    // name the same pixel and a hit test cannot tell them apart.
+    private const double DeviceQuantum = 0.5;
+}
+
 [ValueObject<int>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct Dimension {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = value >= 1 ? null : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"Dimension must be >= 1 (got {value})."));
+        validationError = Band.Count.Guard(label: nameof(Dimension), value: ref value);
 }
 
 [ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct PositiveMagnitude {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
-        validationError = double.IsFinite(value) && value > EpsilonPolicy.ZeroTolerance ? null : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"PositiveMagnitude requires a positive finite value (got {value:R})."));
+        validationError = Band.Positive.Guard(label: nameof(PositiveMagnitude), value: ref value);
 }
 
 [ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct UnitInterval {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
-        validationError = double.IsFinite(value) && value is >= 0.0 and <= 1.0 ? null : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"UnitInterval must be in [0,1] (got {value:R})."));
+        validationError = Band.Unit.Guard(label: nameof(UnitInterval), value: ref value);
 }
 
 [ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct SignedUnit {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
-        validationError = double.IsFinite(value) && value is >= -1.0 and <= 1.0 ? null : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"SignedUnit must be in [-1,1] (got {value:R})."));
+        validationError = Band.SignedUnit.Guard(label: nameof(SignedUnit), value: ref value);
 }
 
 [SmartEnum<int>]
@@ -78,7 +179,9 @@ public sealed partial class SignedAxis {
     public static readonly SignedAxis PositiveZ = new(key: 3, world: Vector3d.ZAxis, axis: static frame => frame.ZAxis);
     public Vector3d World { get; }
     internal Vector3d Of(Option<Plane> frame) => frame.Map(Axis).IfNone(World);
-    internal static Seq<SignedAxis> Cardinal(bool planar) => toSeq(Items).Filter(axis => !planar || Math.Abs(value: axis.Key) < PositiveZ.Key);
+    // Each absolute key IS the axis ordinal, so a rank selects its own cardinal set and no consumer carries a
+    // planarity flag beside a lattice that already publishes its rank.
+    internal static Seq<SignedAxis> Cardinal(Dimension rank) => toSeq(Items).Filter(axis => Math.Abs(value: axis.Key) <= rank.Value);
     [UseDelegateFromConstructor] private partial Vector3d Axis(Plane frame);
 }
 
@@ -106,19 +209,20 @@ public abstract partial record AnglePivot {
 [ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct VectorAngle {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
-        validationError = double.IsFinite(value) && value >= 0.0 && value <= Math.Tau ? null : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"VectorAngle must be in [0, tau] radians (got {value:R})."));
+        validationError = Band.Angle.Guard(label: nameof(VectorAngle), value: ref value);
     internal static Fin<VectorAngle> Of(Direction a, Direction b, AnglePivot pivot, Op key) =>
         from activePivot in pivot.Admit(key: key)
         from angle in key.AcceptValidated<VectorAngle>(candidate: activePivot.Compute(a: a.Value, b: b.Value))
         select angle;
-    internal static Fin<VectorAngle> Of(Vector3d a, Vector3d b, Context context, AnglePivot? pivot = null, Op? key = null) =>
-        from left in Direction.Of(value: a, context: context, key: key.OrDefault())
-        from right in Direction.Of(value: b, context: context, key: key.OrDefault())
-        from angle in Of(a: left, b: right, pivot: pivot ?? AnglePivot.World, key: key.OrDefault())
+    internal static Fin<VectorAngle> Of(Vector3d a, Vector3d b, Context context, Option<AnglePivot> pivot, Op key) =>
+        from left in Direction.Of(value: a, context: context, key: key)
+        from right in Direction.Of(value: b, context: context, key: key)
+        from angle in Of(a: left, b: right, pivot: pivot.IfNone(AnglePivot.World), key: key)
         select angle;
     internal Fin<TOut> Project<TOut>(Op key) => AtomProjection.SelfOrValue<VectorAngle, double, TOut>(self: this, value: Value, key: key);
 }
 
+[BoundaryAdapter]
 [SmartEnum<int>]
 public sealed partial class VectorRelation {
     public static readonly VectorRelation Oblique = new(key: 0);
@@ -138,25 +242,20 @@ public sealed partial class VectorRelation {
     internal Fin<TOut> Project<TOut>(Op key) => AtomProjection.Self<VectorRelation, TOut>(value: this, key: key);
 }
 
-// RgbProfile is the branch's working-space roster and the ONE site that mints a Unicolour Configuration. That
-// instance IS the colour-space identity: ConvertToConfiguration short-circuits on `config == Configuration`
-// reference equality and Configuration overrides no value equality, so a second instance of one space forces a
-// chromatic-adaptation round trip on every crossing and forks the lazy-conversion cache — every consuming package
-// composes a row here rather than constructing its own. DynamicRange is an EXPLICIT column because the package
-// default is High: an SDR row left to inherit it silently encodes the PQ/HLG transfers at the 203-nit HDR white.
-// The luma-legacy broadcast presets (Rec601/Pal/Ntsc/Secam) are YbrConfiguration's axis and stay unrostered until a
-// component-video decoder reaches them; a row lands here only for a space this estate states colour against.
-// The cam slot is that SAME mint parameterized — `camConfig:` on the row's own Configuration ctor, reached through
-// Viewed — never a second mint and never a column on the roster: a viewing condition governs the appearance spaces
-// alone, so a nullable cam column would sit dead on all eleven rows while the one space that reads it went unstated.
+// Configuration INSTANCES carry the colour-space identity: ConvertToConfiguration short-circuits on
+// `config == Configuration` reference equality and Configuration overrides no value equality, so a second instance
+// of one space forces a chromatic-adaptation round trip on every crossing and forks the lazy-conversion cache.
+// DynamicRange is an EXPLICIT column because the package default is High: an SDR row left to inherit it silently
+// encodes the PQ/HLG transfers at the 203-nit HDR white.
+[BoundaryAdapter]
 [SmartEnum<int>]
 public sealed partial class RgbProfile {
     public static readonly RgbProfile Srgb = new(key: 0, rgb: RgbConfiguration.StandardRgb, range: DynamicRange.Standard);
     public static readonly RgbProfile DisplayP3 = new(key: 1, rgb: RgbConfiguration.DisplayP3, range: DynamicRange.Standard);
     public static readonly RgbProfile A98 = new(key: 2, rgb: RgbConfiguration.A98, range: DynamicRange.Standard);
     public static readonly RgbProfile Rec2020 = new(key: 3, rgb: RgbConfiguration.Rec2020, range: DynamicRange.Standard);
-    // ProPhoto is a D50-native space, so the working-white slot travels with the primaries — a D50 gamut read under
-    // the D65 default adapts twice and lands a warm cast no consumer can attribute.
+    // ProPhoto is a D50-native space, so the working-white slot travels with the primaries — a D50 gamut read under the
+    // D65 default adapts twice and lands a warm cast no consumer can attribute.
     public static readonly RgbProfile ProPhoto = new(key: 4, rgb: RgbConfiguration.ProPhoto, range: DynamicRange.Standard, xyz: XyzConfiguration.D50);
     public static readonly RgbProfile Rec2100Pq = new(key: 5, rgb: RgbConfiguration.Rec2100Pq, range: DynamicRange.High);
     public static readonly RgbProfile Rec2100Hlg = new(key: 6, rgb: RgbConfiguration.Rec2100Hlg, range: DynamicRange.High);
@@ -166,22 +265,12 @@ public sealed partial class RgbProfile {
     public static readonly RgbProfile Acescc = new(key: 10, rgb: RgbConfiguration.Acescc, range: DynamicRange.High);
 
     public Configuration Configuration { get; }
-    // The published chromaticity geometry as ONE column, because every consumer reads the four together — a
-    // container-declaration axis matching a file's own attribute, a luminance-weight derivation, a colour-matrix
-    // fold — so a primaries roster above this owner carries container labels alone and a transcribed coordinate
-    // table anywhere in the estate is the deleted form.
     public (Chromaticity Red, Chromaticity Green, Chromaticity Blue, Chromaticity White) Geometry =>
         (Configuration.Rgb.ChromaticityR, Configuration.Rgb.ChromaticityG, Configuration.Rgb.ChromaticityB,
             Configuration.Rgb.WhitePoint.Chromaticity);
 
-    // The authored viewing condition. The two package presets — StandardRgb (sRGB white, 64 lux, 20 cd/m^2
-    // background, Average surround) and Hct — are the ONLY lookups, and every other condition an estate states is
-    // CONSTRUCTED here, once, at its own declaration site: there is no roster to grow, because a surround is a
-    // measurement of the viewer's room rather than a member of a closed colour vocabulary. The white derives from a
-    // rostered illuminant under a stated observer, so a transcribed tristimulus triple beside a preset that
-    // publishes its own is the deleted form. The ambient field enters as ILLUMINANCE because that is what a meter
-    // reads, and the package's own lux conversion is internal, so the row authors it — illuminance over pi against
-    // the 20% grey reference reflectance. Surround closes the ambient axis at three (Dark, Dim, Average).
+    // Ambient field enters as ILLUMINANCE because that is what a meter reads, and the package's own lux
+    // conversion is internal: illuminance over pi against the 20% grey reference reflectance is that derivation.
     public static Fin<CamConfiguration> Condition(
         Illuminant illuminant,
         Observer observer,
@@ -204,45 +293,30 @@ public sealed partial class RgbProfile {
                    name: label);
     }
 
-    // ONE cam-bearing mint per row, memoized: a Configuration INSTANCE is the working-space identity, so a
-    // (space, condition) pair minted twice re-adapts every crossing and forks the lazy-conversion cache exactly as
-    // a duplicate space instance does. The map keys on the condition's own reference identity — CamConfiguration
-    // overrides no value equality, as Configuration does not — and the package already binds StandardRgb as the
-    // Configuration default, so the default condition resolves to the row's own instance with no second mint.
-    // PUBLIC because the branch legislates that an unconditioned appearance read is unspellable: a chartered
-    // direct-Unicolour composer obeys that law only by obtaining the cam-bearing Configuration from this one mint,
-    // and a law whose only compliant construction is unreachable legislates a peer mint into existence instead.
+    // This memo keys on the condition's own REFERENCE identity — CamConfiguration overrides no value equality, as
+    // Configuration does not — and the package binds StandardRgb as the Configuration default, so the default
+    // condition resolves to the row's own instance with no second mint.
     public Configuration Viewed(CamConfiguration condition) =>
         ReferenceEquals(objA: condition, objB: CamConfiguration.StandardRgb)
             ? Configuration
-            : viewed.Swap(cache => cache.ContainsKey(condition)
-                    ? cache
-                    : cache.Add(condition, new Configuration(rgbConfig: rgb, xyzConfig: xyz, camConfig: condition, dynamicRange: range)))
-                .Find(condition)
-                .IfNone(Configuration);
+            : Cell.Claim(cell: viewed, key: condition, mint: () => new Configuration(rgbConfig: rgb, xyzConfig: xyz, camConfig: condition, dynamicRange: range))
+                .Current[condition];
 
     private readonly RgbConfiguration rgb;
     private readonly XyzConfiguration? xyz;
     private readonly DynamicRange range;
     private readonly Atom<HashMap<CamConfiguration, Configuration>> viewed = Atom(HashMap<CamConfiguration, Configuration>());
+    // Working-white slot forwards the package's OWN nullable, whose null IS the D65 default it publishes no
+    // named row for; an Option here would have to fabricate that row.
     private RgbProfile(int key, RgbConfiguration rgb, DynamicRange range, XyzConfiguration? xyz = null) : this(key) {
         (this.rgb, this.range, this.xyz) = (rgb, range, xyz);
         Configuration = new Configuration(rgbConfig: rgb, xyzConfig: xyz, dynamicRange: range);
     }
 }
 
-// BlendPath carries three orthogonal axes as one shape: the interpolation SPACE names the row, and the axes only
-// some spaces admit ride those cases' own payloads — the hue traversal on the polar case, the viewing condition on
-// the appearance case. A rectangular space therefore has neither to spell — the package's mix reads a hue span only
-// where the representation publishes a hue component, so a traversal on an opponent space is a value with no
-// effect, and the case split makes both pairings unrepresentable instead of two dead columns every row carries.
-// Each row states the Configuration it interpolates under, taken from the RgbProfile row that mints it: Jzazbz and
-// ICtCp encode through the SMPTE PQ inverse EOTF at DynamicRange.WhiteLuminance, so an absolute-luminance blend
-// states the reference white its channel scale is stated against rather than inheriting whichever operand happened
-// to be the receiver, and the relative rows state the SDR reference they are invariant under. The display cylinders
-// (Okhsv/Okhsl/Okhwb) are Oklch's own cylinder under a different chroma normalization, the CIE pairs (Lab/Lchab,
-// Luv/Lchuv) are the predecessors the Ok family supersedes, and Munsell states colour against a measured lattice no
-// consumer here declares — a row lands for a space this estate interpolates in, and nothing else.
+// Jzazbz and ICtCp encode through the SMPTE PQ inverse EOTF at DynamicRange.WhiteLuminance, so an absolute-luminance
+// blend states the reference white its channel scale is stated against rather than inheriting whichever operand
+// happened to be the receiver.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BlendPath {
     private protected BlendPath(ColourSpace space, Configuration working) => (Space, Working) = (space, working);
@@ -258,10 +332,9 @@ public abstract partial record BlendPath {
         internal HueSpan Span { get; }
     }
 
-    // Cam02 and Cam16 report appearance correlates that are FUNCTIONS of the viewer's adaptation, so the row is
-    // constructible only from a stated condition and reads it back for the receipt — an appearance blend under a
-    // fabricated surround publishes a measurement nobody declared. Hct is a polar row with no condition payload
-    // because the package's own HCT transform pins its conditions internally, so that space stays separable.
+    // Cam02 and Cam16 report correlates that are FUNCTIONS of the viewer's adaptation, so the row is constructible
+    // only from a stated condition. Hct is a polar row with no condition payload because the package's own HCT
+    // transform pins its conditions internally, so that space stays separable.
     public sealed record Appearance : BlendPath {
         internal Appearance(ColourSpace space, RgbProfile reference, CamConfiguration condition)
             : base(space: space, working: reference.Viewed(condition: condition)) => Condition = condition;
@@ -279,8 +352,8 @@ public abstract partial record BlendPath {
     public static BlendPath Cam02(CamConfiguration condition) => new Appearance(space: ColourSpace.Cam02, reference: RgbProfile.Srgb, condition: condition);
     public static BlendPath Cam16(CamConfiguration condition) => new Appearance(space: ColourSpace.Cam16, reference: RgbProfile.Srgb, condition: condition);
 
-    // One interpolation seam for both arities — the package's Palette is its own fold over Mix, so a point
-    // blend and a ramp differ by the count the caller names, never by a second dispatch.
+    // Palette folds over Mix inside the package, so a point blend and a ramp differ by the count the caller
+    // names, never by a second dispatch.
     internal Unicolour Mix(Unicolour from, Unicolour to, double amount) => Switch(
         state: (From: Under(from), To: Under(to), Amount: amount),
         rectangular: static (state, route) => state.From.Mix(state.To, route.Space, state.Amount),
@@ -296,12 +369,6 @@ public abstract partial record BlendPath {
     private Unicolour Under(Unicolour colour) => colour.ConvertToConfiguration(Working);
 }
 
-// GamutPolicy rows carry a REPRODUCIBILITY DOMAIN and both of its operations — the containment predicate and the
-// nearest-in-domain projection — so the three RGB strategies the package parameterizes and the two physical volumes
-// it publishes argument-free read as ONE vocabulary a caller names once. The MacAdam row folds the imaginary test
-// into its own containment because a colour outside the spectral locus fails the optimal-limit test for a different
-// reason and mapping it is meaningless. A call site spelling MapToRgbGamut, IsInPointerGamut, or MapToMacAdamLimits
-// beside a row is the deleted form, and no consumer re-mints a gamut predicate pair of its own.
 [SmartEnum<int>]
 public sealed partial class GamutPolicy {
     public static readonly GamutPolicy Clipped = new(key: 0,
@@ -312,8 +379,14 @@ public sealed partial class GamutPolicy {
         static colour => colour.IsInRgbGamut, static colour => colour.MapToRgbGamut(GamutMap.WxyPurityReduction));
     public static readonly GamutPolicy Pointer = new(key: 3,
         static colour => colour.IsInPointerGamut, static colour => colour.MapToPointerGamut());
+    // MacAdam folds the imaginary test into its own containment: a colour outside the spectral locus fails the
+    // optimal-limit test for a different reason and mapping it is meaningless.
     public static readonly GamutPolicy MacAdam = new(key: 4,
         static colour => !colour.IsImaginary && colour.IsInMacAdamLimits, static colour => colour.MapToMacAdamLimits());
+    // HDR and scene-linear egress name this whole-space domain — above-white light survives the bound instead of
+    // riding a flag that skips it, so the float leg publishes the light it measured.
+    public static readonly GamutPolicy Unbounded = new(key: 5,
+        static _ => true, static colour => colour);
 
     [UseDelegateFromConstructor]
     public partial bool Contains(Unicolour colour);
@@ -321,12 +394,7 @@ public sealed partial class GamutPolicy {
     public partial Unicolour Bound(Unicolour colour);
 }
 
-// RgbTransfer names WHICH representation the profile egress reads a bounded colour off. The OfRgb ingress pair
-// discriminates encoded from scene-linear by the SHAPE of its triple, and C# cannot discriminate a return the same
-// way — both legs are a double quadruple — so the axis rides a row rather than a flag: Encoded is the companded
-// display-referred triple the package's `Rgb` publishes and Linear the scene-linear light `RgbLinear` publishes,
-// the two differing by exactly the working transfer and by nothing about gamut, working space, or alpha. Only Rgb
-// carries a clipping or byte projection, which is why the byte egress has no transfer slot to name.
+// Only `Rgb` carries a clipping or byte projection, which is why the byte egress has no transfer slot to name.
 [SmartEnum<int>]
 public sealed partial class RgbTransfer {
     public static readonly RgbTransfer Encoded = new(key: 0,
@@ -338,12 +406,6 @@ public sealed partial class RgbTransfer {
     public partial (double Red, double Green, double Blue) Read(Unicolour colour);
 }
 
-// DeltaMetric splits the difference axis exactly as BlendPath splits interpolation: an OPPONENT row names a metric
-// whose value is condition-free, and an APPEARANCE row carries the viewing condition in its own payload. The CAM
-// metrics measure appearance correlates that are FUNCTIONS of the observer's adaptation, so a Cam02 or Cam16
-// distance with no stated condition would publish a number measured under a surround nobody declared — the pairing
-// is unspellable here rather than defaulted, and an unstated condition therefore keeps an opponent metric. WCAG
-// contrast stays off this owner entirely because WCAG fixes its own condition.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DeltaMetric {
     private protected DeltaMetric(DeltaE metric) => Metric = metric;
@@ -373,11 +435,9 @@ public abstract partial record DeltaMetric {
     public static DeltaMetric Cam02(CamConfiguration condition) => new Appearance(metric: DeltaE.Cam02, reference: RgbProfile.Srgb, condition: condition);
     public static DeltaMetric Cam16(CamConfiguration condition) => new Appearance(metric: DeltaE.Cam16, reference: RgbProfile.Srgb, condition: condition);
 
-    // Both operands rebase onto the row's own Configuration before the appearance arm measures, because the
-    // package re-projects a mismatched operand onto the RECEIVER's configuration — leaving the receiver to decide
-    // the condition would make the distance depend on argument order. PUBLIC on the same reasoning Viewed is: a
-    // direct-Unicolour composer measuring a CAM difference obeys the stated-condition law only through this row,
-    // and `Working` stays interior because it is this mint's own memo, obtainable from `RgbProfile.Viewed`.
+    // Both operands rebase onto the row's own Configuration before the appearance arm measures, because the package
+    // re-projects a mismatched operand onto the RECEIVER's configuration — leaving the receiver to decide the
+    // condition would make the distance depend on argument order.
     public double Measure(Unicolour from, Unicolour to) => Switch(
         state: (From: from, To: to),
         opponent: static (state, route) => state.From.Difference(state.To, route.Metric),
@@ -385,146 +445,168 @@ public abstract partial record DeltaMetric {
             .Difference(state.To.ConvertToConfiguration(route.Working), route.Metric));
 }
 
-// The appearance correlates a colour reports under ONE stated condition, carried with that condition: the numbers
-// mean nothing apart from the white, adapting field, background, and surround they were measured against, so the
-// condition rides the receipt and a consumer reads that geometry off it instead of re-pairing numbers with a
-// condition asserted beside them.
-public readonly record struct AppearanceReading(double Lightness, double OpponentA, double OpponentB, CamConfiguration Condition);
-
-// ToneSweep names the DIRECTION a contrast-targeted tonal solve walks, and it is a row set rather than a boolean
-// because the third case is real: `Away` is the row a readable ink wants, moving opposite whatever ground it is
-// drawn on, while the two absolute rows serve an ink whose family must stay light or dark regardless of ground.
-// A caller-supplied comparator would re-open the monotonicity the walk depends on, so the axis stays closed.
 [SmartEnum]
 public sealed partial class ToneSweep {
+    // Reference-lightness midpoint splits the ground: an ink drawn on a light ground walks down and one on a
+    // dark ground walks up, so `Away` is one row rather than a caller-chosen comparator.
     public static readonly ToneSweep Away = new(step: static ground => ground >= 0.5 ? -1 : 1);
     public static readonly ToneSweep Lighter = new(step: static _ => 1);
     public static readonly ToneSweep Darker = new(step: static _ => -1);
-    public Func<double, int> Step { get; }
+
+    [UseDelegateFromConstructor]
+    internal partial int Step(double ground);
+
+    // Walks start at the direction's LIMIT and march inward, so the first candidate failing the ratio ends a
+    // run whose last member is the least extreme tone still clearing it.
+    internal Seq<UnitInterval> Walk(double ground, Dimension grid) =>
+        (Direction: Step(ground: ground), Steps: grid.Value) switch {
+            var (direction, steps) => toSeq(Enumerable.Range(start: 0, count: steps + 1))
+                .Map(step => UnitInterval.Create(value: direction > 0 ? 1.0 - ((double)step / steps) : (double)step / steps)),
+        };
 }
 
+// --- [MODELS] -----------------------------------------------------------------------------
+public readonly record struct AppearanceReading(double Lightness, double OpponentA, double OpponentB, CamConfiguration Condition);
+
+[BoundaryAdapter]
 [ComplexValueObject]
 public sealed partial class PerceptualColor {
     public double Lightness { get; }
     public double OpponentA { get; }
     public double OpponentB { get; }
     public double Alpha { get; }
+    // Generated seams carry ONE ValidationError, so the fold is first-refusal; a multi-column accumulation
+    // rides `Validation` at the `Op` admission rail instead.
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double lightness, ref double opponentA, ref double opponentB, ref double alpha) =>
-        validationError = double.IsFinite(lightness) && double.IsFinite(opponentA) && double.IsFinite(opponentB) && double.IsFinite(alpha) && alpha is >= 0.0 and <= 1.0
-            ? null
-            : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"PerceptualColor requires finite OKLab components and alpha in [0,1] (got L={lightness:R} a={opponentA:R} b={opponentB:R} alpha={alpha:R})."));
+        validationError = Band.Parameter.Guard(label: nameof(Lightness), value: ref lightness)
+            ?? Band.Parameter.Guard(label: nameof(OpponentA), value: ref opponentA)
+            ?? Band.Parameter.Guard(label: nameof(OpponentB), value: ref opponentB)
+            ?? Band.Unit.Guard(label: nameof(Alpha), value: ref alpha);
+    // HCT tone is CIE L* on an integral 0-100 rung ladder, so the walk samples exactly one candidate per rung and the
+    // grid is derived rather than an authored search resolution.
+    public static Dimension ToneGrid { get; } = Dimension.Create(value: 100);
     public static Fin<PerceptualColor> Of(double lightness, double opponentA, double opponentB, double alpha = 1.0, Op? key = null) =>
         Validate(lightness, opponentA, opponentB, alpha, out PerceptualColor? admitted) is null && admitted is not null
             ? Fin.Succ(value: admitted)
             : Fin.Fail<PerceptualColor>(error: key.OrDefault().InvalidInput());
+    // Display-referred byte ingress with a UNIT-GATED alpha: a caller handing 0-255 into the coverage slot lands a
+    // refusal here rather than a silently saturated colour, and the byte overload below is that caller's entry.
     public static Fin<PerceptualColor> OfRgb(byte red, byte green, byte blue, double alpha = 1.0, Op? key = null) =>
-        new Unicolour(ColourSpace.Rgb255, red, green, blue, alpha).Oklab switch {
-            { } lab => Of(lightness: lab.L, opponentA: lab.A, opponentB: lab.B, alpha: alpha, key: key),
-        };
-    public static Fin<PerceptualColor> OfRgb((byte Red, byte Green, byte Blue, byte Alpha) rgba, Op? key = null) =>
-        OfRgb(red: rgba.Red, green: rgba.Green, blue: rgba.Blue, alpha: rgba.Alpha / (double)byte.MaxValue, key: key);
+        from coverage in key.OrDefault().AcceptValidated<UnitInterval>(candidate: alpha)
+        from admitted in OfOklab(colour: new Unicolour(ColourSpace.Rgb255, red, green, blue, coverage.Value), alpha: coverage.Value, key: key)
+        select admitted;
+    public static Fin<PerceptualColor> OfRgb(byte red, byte green, byte blue, byte alpha, Op? key = null) =>
+        OfRgb(red: red, green: green, blue: blue, alpha: alpha / (double)byte.MaxValue, key: key);
     // Profile-parameterized DISPLAY-REFERRED ingress: an encoded triple is three admitted unit values by
-    // definition — a normalized ratio measure is [0,1] — so the shape of the triple, never a flag beside it,
-    // discriminates encoded from the unbounded scene-linear triple below, and the row's own transfer decodes it
-    // at full double precision instead of through an 8-bit quantization no source value asked for.
+    // definition, so the SHAPE of the triple, never a flag beside it, discriminates encoded from the unbounded
+    // scene-linear triple below, and the row's own transfer decodes it at full double precision.
     public static Fin<PerceptualColor> OfRgb(UnitInterval red, UnitInterval green, UnitInterval blue, RgbProfile profile, double alpha = 1.0, Op? key = null) =>
-        new Unicolour(profile.Configuration, ColourSpace.Rgb, red.Value, green.Value, blue.Value, alpha).ConvertToConfiguration(Configuration.Default).Oklab switch {
-            { } lab => Of(lightness: lab.L, opponentA: lab.A, opponentB: lab.B, alpha: alpha, key: key),
-        };
-    // Profile-parameterized LINEAR ingress — the counterpart of the profile-parameterized ToRgb egress: a working-space
-    // triple (Acescg the scene-linear instance) admits without a byte quantization, rebasing onto the default
-    // configuration exactly as ToRgb rebases off it, so ingress and egress stay one symmetric pair.
+        from coverage in key.OrDefault().AcceptValidated<UnitInterval>(candidate: alpha)
+        from admitted in OfOklab(
+            colour: new Unicolour(profile.Configuration, ColourSpace.Rgb, red.Value, green.Value, blue.Value, coverage.Value).ConvertToConfiguration(Configuration.Default),
+            alpha: coverage.Value, key: key)
+        select admitted;
+    // Profile-parameterized LINEAR ingress — the counterpart of the profile-parameterized ToRgb egress: a
+    // working-space triple admits without a byte quantization, rebasing onto the default configuration exactly as
+    // ToRgb rebases off it, so ingress and egress stay one symmetric pair.
     public static Fin<PerceptualColor> OfRgb(double red, double green, double blue, RgbProfile profile, double alpha = 1.0, Op? key = null) =>
-        double.IsFinite(red) && double.IsFinite(green) && double.IsFinite(blue)
-            ? new Unicolour(profile.Configuration, ColourSpace.RgbLinear, red, green, blue, alpha).ConvertToConfiguration(Configuration.Default).Oklab switch {
-                { } lab => Of(lightness: lab.L, opponentA: lab.A, opponentB: lab.B, alpha: alpha, key: key),
-            }
-            : Fin.Fail<PerceptualColor>(error: key.OrDefault().InvalidInput());
-    // The CCT ingress — the inverse of the Colorimetry temperature read. Decompile-verified ctor facts: the third
+        from coverage in key.OrDefault().AcceptValidated<UnitInterval>(candidate: alpha)
+        from admitted in Band.Parameter.Admits(value: red) && Band.Parameter.Admits(value: green) && Band.Parameter.Admits(value: blue)
+            ? OfOklab(
+                colour: new Unicolour(profile.Configuration, ColourSpace.RgbLinear, red, green, blue, coverage.Value).ConvertToConfiguration(Configuration.Default),
+                alpha: coverage.Value, key: key)
+            : Fin.Fail<PerceptualColor>(error: key.OrDefault().InvalidInput())
+        select admitted;
+    // Packed words carry 0xAARRGGBB, the layout System.Drawing.Color.ToArgb publishes; unpacking is pure integer
+    // arithmetic so the ingress binds no host type and the host arm below is one hop over it.
+    public static Fin<PerceptualColor> OfArgb(int packed, Op? key = null) =>
+        OfRgb(red: (byte)(packed >> 16), green: (byte)(packed >> 8), blue: (byte)packed, alpha: (byte)(packed >> 24), key: key);
+    public static Fin<PerceptualColor> OfHost(System.Drawing.Color host, Op? key = null) =>
+        OfArgb(packed: host.ToArgb(), key: key);
+    // RhinoCommon's float quad is sRGB by transfer default (`Color4f(Color)` divides by 255 and `ApplyGamma`
+    // exists because it is companded), so the ENCODED lane admits it as three unit values under `RgbProfile.Srgb`
+    // and only a caller naming `RgbTransfer.Linear` reads it as scene light — the transfer is the discriminant,
+    // never a second host arm.
+    public static Fin<PerceptualColor> OfHost(Rhino.Display.Color4f host, Option<RgbTransfer> transfer = default, Op? key = null) =>
+        transfer.IfNone(RgbTransfer.Encoded) == RgbTransfer.Linear
+            ? OfRgb(red: host.R, green: host.G, blue: host.B, profile: RgbProfile.Srgb, alpha: host.A, key: key)
+            : from red in key.OrDefault().AcceptValidated<UnitInterval>(candidate: host.R)
+              from green in key.OrDefault().AcceptValidated<UnitInterval>(candidate: host.G)
+              from blue in key.OrDefault().AcceptValidated<UnitInterval>(candidate: host.B)
+              from admitted in OfRgb(red: red, green: green, blue: blue, profile: RgbProfile.Srgb, alpha: host.A, key: key)
+              select admitted;
+    // CCT ingress inverts the Colorimetry temperature read. Decompile-verified ctor facts: the third
     // slot of Unicolour(double cct, Locus locus, double luminance) binds LUMINANCE, never alpha (alpha rides the
     // tuple and quad ctors alone), and Temperature(double Cct, double Duv = 0.0) is blackbody-referenced, so a
     // nonzero Planckian offset under the daylight locus is contradictory and refuses. |Duv| <= 0.05 is the package's
     // own validity bound; the 1000-20000 K high-accuracy band is published evidence, never an admission gate.
     public static Fin<PerceptualColor> OfTemperature(double cct, double duv = 0.0, Locus locus = Locus.Blackbody, double luminance = 1.0, Op? key = null) =>
-        double.IsFinite(cct) && cct > 0.0 && Math.Abs(duv) <= 0.05 && (duv == 0.0 || locus == Locus.Blackbody)
-        && double.IsFinite(luminance) && luminance >= 0.0
-            ? (duv == 0.0
-                ? new Unicolour(Configuration.Default, cct, locus, luminance)
-                : new Unicolour(Configuration.Default, new Temperature(cct, duv), luminance)).Oklab switch {
-                    { } lab => Of(lightness: lab.L, opponentA: lab.A, opponentB: lab.B, alpha: 1.0, key: key),
-                }
+        Band.Positive.Admits(value: cct) && Math.Abs(duv) <= 0.05 && (duv == 0.0 || locus == Locus.Blackbody)
+        && Band.Nonnegative.Admits(value: luminance)
+            ? OfOklab(
+                colour: duv == 0.0
+                    ? new Unicolour(Configuration.Default, cct, locus, luminance)
+                    : new Unicolour(Configuration.Default, new Temperature(cct, duv), luminance),
+                alpha: 1.0, key: key)
             : Fin.Fail<PerceptualColor>(error: key.OrDefault().InvalidInput());
+    // The achromatic axis: a lightness with both opponent components at zero. A grayscale plot posture, a neutral
+    // ramp anchor, and a luminance-only readback all mint here rather than each spelling two literal zeros beside
+    // the one axis they mean, and the admission stays fallible because the lightness is a runtime measure.
+    public static Fin<PerceptualColor> Achromatic(double lightness, double alpha = 1.0, Op? key = null) =>
+        Of(lightness: lightness, opponentA: 0.0, opponentB: 0.0, alpha: alpha, key: key);
     // Alpha comes OFF the interpolated value, never from a second pass: the package's mix premultiplies by default,
     // so the returned Alpha.A is the coverage-correct result and a hand-lerped straight alpha beside premultiplied
-    // colour channels bends every partially-transparent tween. The path owns the space, the reference white, and
-    // whether a traversal exists at all, so neither entry re-reads an interpolation column.
-    public PerceptualColor Mix(PerceptualColor other, UnitInterval amount, BlendPath? path = null) =>
-        (path ?? BlendPath.Oklch()).Mix(from: AsUnicolour(), to: other.AsUnicolour(), amount: amount.Value) switch {
-            { } mixed => Create(lightness: mixed.Oklab.L, opponentA: mixed.Oklab.A, opponentB: mixed.Oklab.B, alpha: mixed.Alpha.A),
-        };
-    public Seq<PerceptualColor> Ramp(PerceptualColor to, Dimension stops, BlendPath? path = null) =>
-        (path ?? BlendPath.Oklch()).Palette(from: AsUnicolour(), to: to.AsUnicolour(), count: Math.Max(val1: stops.Value, val2: 2))
-            .Map(static stop => Create(lightness: stop.Oklab.L, opponentA: stop.Oklab.A, opponentB: stop.Oklab.B, alpha: stop.Alpha.A));
+    // colour channels bends every partially-transparent tween.
+    public PerceptualColor Mix(PerceptualColor other, UnitInterval amount, Option<BlendPath> path = default) {
+        Unicolour mixed = path.IfNone(BlendPath.Oklch()).Mix(from: AsUnicolour(), to: other.AsUnicolour(), amount: amount.Value);
+        return FromOklab(colour: mixed, alpha: mixed.Alpha.A);
+    }
+    public Seq<PerceptualColor> Ramp(PerceptualColor to, Dimension stops, Option<BlendPath> path = default) =>
+        path.IfNone(BlendPath.Oklch()).Palette(from: AsUnicolour(), to: to.AsUnicolour(), count: Math.Max(val1: stops.Value, val2: 2))
+            .Map(static stop => FromOklab(colour: stop, alpha: stop.Alpha.A));
     // Reference-corrected lightness answers exactly the question a ramp asks, where the stored basis channel
     // mis-ranks near-black: a monotonicity assertion reads this projection, published by the Ok family for that
     // purpose, while the canonical basis keeps carrying the colour.
     public double ReferenceLightness => AsUnicolour().Oklrab.L;
     public double Contrast(PerceptualColor other) => AsUnicolour().Contrast(other.AsUnicolour());
-    // The derived colorimetric facts as ONE column, on the same reasoning the RgbProfile geometry column carries:
-    // every consumer that wants one wants the set — a WCAG luminance gate beside a CCT-labelled swatch beside a
-    // spectral-purity admission — and each projection memoizes on the package's own first touch, so the column
-    // costs no more than any single read. A consumer re-deriving luminance off Xyz.Y, or reaching Wxy.W/Wxy.X
-    // past this owner for dominant wavelength and excitation purity, is the deleted form.
+    // Each projection memoizes on the package's own first touch, so the column costs no more than any single read.
     public (double RelativeLuminance, Temperature Temperature, double DominantWavelength, double ExcitationPurity) Colorimetry =>
         AsUnicolour() switch {
             { } colour => (colour.RelativeLuminance, colour.Temperature, colour.DominantWavelength, colour.ExcitationPurity),
         };
-    // W3C backdrop compositing over the package's own sixteen-mode vocabulary — the separable and non-separable
-    // modes are one argument, so the alpha-composited contrast path flattens through Normal while a tinting or
-    // shading composite names its mode, and a mode column pinned to one value on a gamut row is the deleted form.
-    public PerceptualColor Blend(PerceptualColor backdrop, BlendMode mode = BlendMode.Normal) =>
-        AsUnicolour().Blend(backdrop.AsUnicolour(), mode) switch {
-            { } blended => blended.Oklab switch {
-                { } lab => Create(lightness: lab.L, opponentA: lab.A, opponentB: lab.B, alpha: blended.Alpha.A),
-            },
-        };
-    // Colour-vision-deficiency preview at a unit-bounded severity — the accessibility gate simulates, then contrasts.
+    // W3C backdrop compositing over the package's own sixteen-mode vocabulary — the alpha-composited contrast path
+    // flattens through Normal while a tinting or shading composite names its mode.
+    public PerceptualColor Blend(PerceptualColor backdrop, BlendMode mode = BlendMode.Normal) {
+        Unicolour blended = AsUnicolour().Blend(backdrop.AsUnicolour(), mode);
+        return FromOklab(colour: blended, alpha: blended.Alpha.A);
+    }
     public PerceptualColor Simulate(Cvd deficiency, UnitInterval severity) =>
-        AsUnicolour().Simulate(deficiency, severity.Value).Oklab switch {
-            { } lab => Create(lightness: lab.L, opponentA: lab.A, opponentB: lab.B, alpha: Alpha),
-        };
-    // HCT tonal re-render — hue and chroma hold while tone (CIE L*, unit-scaled) moves, so a tonal ladder is a Seq
-    // of Tone reads over declared stops and no palette roster mints beside the owner; the derived colour re-admits
-    // through the Oklab canonical basis exactly as every other ingress does.
-    public PerceptualColor Tone(UnitInterval tone) =>
-        AsUnicolour().Hct switch {
-            { } hct => new Unicolour(ColourSpace.Hct, hct.H, hct.C, tone.Value * 100.0).Oklab switch {
-                { } lab => Create(lightness: lab.L, opponentA: lab.A, opponentB: lab.B, alpha: Alpha),
-            },
-        };
-    // The CONTRAST-TARGETED tonal solve, the inverse of the Contrast read: hue and chroma hold from the seed while
-    // tone walks the direction the sweep row names, and the answer is the LEAST extreme tone still clearing the
-    // ratio, so a readable ink is derived rather than authored and never over-contrasts past what its floor asked
-    // for. The walk starts at the direction's limit and stops at the first candidate that fails, which is total
-    // because the ratio is monotone in tone along one direction; a seed whose whole tonal range fails against this
-    // backdrop REFUSES, because handing back the nearest miss is exactly how an ink ships below the floor the
-    // accessibility gate will measure it against. Every consumer that needs a readable pigment reaches this member —
-    // a bisection over Tone beside Contrast at a call site is the deleted form, on the same reasoning a local
-    // opponent-space matrix is.
-    public Fin<PerceptualColor> ToneFor(PerceptualColor against, PositiveMagnitude ratio, ToneSweep sweep, Dimension? grid = null, Op? key = null) =>
-        (Grid: (grid ?? Dimension.Create(64)).Value, Direction: sweep.Step(against.ReferenceLightness)) switch {
-            var (steps, direction) => Enumerable.Range(0, steps + 1)
-                .Select(step => direction > 0 ? 1.0 - (double)step / steps : (double)step / steps)
-                .Select(tone => Tone(UnitInterval.Create(tone)))
-                .TakeWhile(candidate => candidate.Contrast(against) >= ratio.Value)
-                .LastOrDefault() switch {
-                    { } admitted => Fin.Succ(value: admitted),
-                    _ => Fin.Fail<PerceptualColor>(error: key.OrDefault().InvalidInput()),
-                },
-        };
-    // The appearance read under a STATED condition — the same Appearance row a ramp interpolates along is the row a
-    // reading states, so space, working white, and condition are one value at both sites and no consumer re-pairs
-    // them. The reading is total on an admitted row, because the row is unconstructible without its condition.
+        FromOklab(colour: AsUnicolour().Simulate(deficiency, severity.Value), alpha: Alpha);
+    // HCT tonal re-render — hue and chroma hold while tone (CIE L*, unit-scaled) moves, and the derived colour
+    // re-admits through the Oklab canonical basis exactly as every other ingress does. This crossing rides the Fin
+    // owner rather than the trusted one because degenerate chroma is a PROVEN non-finite path: an achromatic seed
+    // carries no HCT hue, and the re-rendered round trip lands opponents `Create` would raise on.
+    public Fin<PerceptualColor> Tone(UnitInterval tone) {
+        Hct hct = AsUnicolour().Hct;
+        return OfOklab(colour: new Unicolour(ColourSpace.Hct, hct.H, hct.C, tone.Value * 100.0), alpha: Alpha);
+    }
+    // This CONTRAST-TARGETED tonal solve inverts the Contrast read: hue and chroma hold from the seed while
+    // tone walks the sweep row's direction, and the answer is the LEAST extreme tone still clearing the ratio. The
+    // walk is total because the ratio is monotone in tone along one direction; a seed whose whole tonal range fails
+    // against this backdrop REFUSES, because handing back the nearest miss is exactly how an ink ships below the
+    // floor the accessibility gate will measure it against.
+    public Fin<PerceptualColor> ToneFor(PerceptualColor against, PositiveMagnitude ratio, ToneSweep sweep, Option<Dimension> grid = default, Op? key = null) {
+        PerceptualColor seed = this;
+        return sweep.Walk(ground: against.ReferenceLightness, grid: grid.IfNone(ToneGrid))
+            .Map(tone => seed.Tone(tone: tone))
+            // A rung the tonal crossing refuses hands back no colour to select, so it drops out of the walk rather
+            // than ending it — the clearing prefix, and with it the least-extreme-clearing answer, is unchanged.
+            .Choose(static candidate => candidate.ToOption())
+            .TakeWhile(candidate => candidate.Contrast(other: against) >= ratio.Value)
+            .Last
+            .ToFin(key.OrDefault().InvalidResult());
+    }
+    // Readings stay total on an admitted row, because the row is unconstructible without its condition.
     public AppearanceReading Appearance(BlendPath.Appearance under) =>
         AsUnicolour().ConvertToConfiguration(under.Working).GetRepresentation(under.Space).Triplet switch {
             { } correlates => new AppearanceReading(
@@ -533,28 +615,61 @@ public sealed partial class PerceptualColor {
                 OpponentB: correlates.Third,
                 Condition: under.Condition),
         };
-    // Perceptual distance under the selected metric; Ciede2000 is the default adjudicator, and an appearance metric
-    // reaches this member only carrying the condition it measured under.
-    public double Difference(PerceptualColor other, DeltaMetric? metric = null) =>
-        (metric ?? DeltaMetric.Ciede2000).Measure(from: AsUnicolour(), to: other.AsUnicolour());
-    // Containment reads the SELECTED domain, so a display-gamut check, a Pointer real-surface check, and a MacAdam
-    // optimal-limit check are one member over one row set rather than a display predicate here and two package
-    // accessors re-exposed per consumer.
-    public bool InGamut(GamutPolicy? policy = null) => (policy ?? GamutPolicy.Perceptual).Contains(AsUnicolour());
-    // The byte leg is display-referred by construction — an 8-bit scene-linear channel states nothing — and it is the
-    // ONE content-key quantizer the federation addresses against, so it carries no transfer slot and never moves.
-    public (byte Red, byte Green, byte Blue, byte Alpha) ToRgb(GamutPolicy? gamut = null) =>
-        (gamut ?? GamutPolicy.Perceptual).Bound(AsUnicolour()).Rgb.Byte255.Clipped switch {
+    public double Difference(PerceptualColor other, Option<DeltaMetric> metric = default) =>
+        metric.IfNone(DeltaMetric.Ciede2000).Measure(from: AsUnicolour(), to: other.AsUnicolour());
+    public bool InGamut(Option<GamutPolicy> policy = default) => policy.IfNone(GamutPolicy.Perceptual).Contains(AsUnicolour());
+    // Byte leg is display-referred by construction — an 8-bit scene-linear channel states nothing — and it is the
+    // ONE content-key quantizer the federation addresses against, so it carries no transfer slot and CLIPS.
+    public (byte Red, byte Green, byte Blue, byte Alpha) ToRgb(Option<GamutPolicy> gamut = default) =>
+        gamut.IfNone(GamutPolicy.Perceptual).Bound(AsUnicolour()).Rgb.Byte255.Clipped switch {
             { } clipped => ((byte)clipped.R, (byte)clipped.G, (byte)clipped.B, byte.CreateSaturating(Math.Round(Alpha * byte.MaxValue))),
         };
-    // The profile leg bounds into the same reproducibility domain, then reads whichever transfer the row names —
+    // Profile leg bounds into the same reproducibility domain, then reads whichever transfer the row names —
     // ENCODED by default, so a settled call site keeps the companded triple it was written against and a
-    // scene-linear consumer states `RgbTransfer.Linear` to read the light instead of decoding the encoded triple.
-    public (double Red, double Green, double Blue, double Alpha) ToRgb(RgbProfile profile, GamutPolicy? gamut = null, RgbTransfer? transfer = null) =>
-        (transfer ?? RgbTransfer.Encoded).Read(colour: (gamut ?? GamutPolicy.Perceptual).Bound(AsUnicolour().ConvertToConfiguration(profile.Configuration))) switch {
+    // scene-linear consumer states `RgbTransfer.Linear` under `GamutPolicy.Unbounded` to read the light.
+    public (double Red, double Green, double Blue, double Alpha) ToRgb(RgbProfile profile, Option<GamutPolicy> gamut = default, Option<RgbTransfer> transfer = default) =>
+        transfer.IfNone(RgbTransfer.Encoded).Read(colour: gamut.IfNone(GamutPolicy.Perceptual).Bound(AsUnicolour().ConvertToConfiguration(profile.Configuration))) switch {
             var (red, green, blue) => (red, green, blue, Alpha),
         };
+    // Host ARGB words are a PAINT INSTRUCTION, not a content key: a Pointer-, MacAdam-, or Unbounded-bounded
+    // colour can still sit outside the display gamut, and quantizing it would hand a painter a silently clipped
+    // colour no consumer can attribute — that refusal is the whole discriminant against the federation byte leg.
+    public Fin<int> ToArgb(Option<GamutPolicy> gamut = default, Op? key = null) =>
+        gamut.IfNone(GamutPolicy.Perceptual).Bound(AsUnicolour()) switch {
+            { } bounded when GamutPolicy.Clipped.Contains(colour: bounded) => bounded.Rgb.Byte255.Clipped switch {
+                { } clipped => Fin.Succ(value: System.Drawing.Color.FromArgb(
+                    alpha: byte.CreateSaturating(Math.Round(Alpha * byte.MaxValue)),
+                    red: (int)clipped.R,
+                    green: (int)clipped.G,
+                    blue: (int)clipped.B).ToArgb()),
+            },
+            _ => Fin.Fail<int>(error: key.OrDefault().InvalidResult(detail: "colour outside the display gamut")),
+        };
+    public Fin<System.Drawing.Color> ToDrawing(Option<GamutPolicy> gamut = default, Op? key = null) =>
+        ToArgb(gamut: gamut, key: key).Map(static packed => System.Drawing.Color.FromArgb(packed));
+    // Float quad egress reads the profile leg: the ENCODED lane refuses outside the display gamut exactly as
+    // `ToArgb` does (a paint instruction), the LINEAR lane under `GamutPolicy.Unbounded` hands a framebuffer its
+    // scene light unclipped — one member, the transfer and gamut rows selecting.
+    public Fin<Rhino.Display.Color4f> ToColor4f(Option<GamutPolicy> gamut = default, Option<RgbTransfer> transfer = default, Op? key = null) =>
+        transfer.IfNone(RgbTransfer.Encoded) == RgbTransfer.Encoded && !GamutPolicy.Clipped.Contains(colour: gamut.IfNone(GamutPolicy.Perceptual).Bound(AsUnicolour()))
+            ? Fin.Fail<Rhino.Display.Color4f>(error: key.OrDefault().InvalidResult(detail: "colour outside the display gamut"))
+            : ToRgb(profile: RgbProfile.Srgb, gamut: gamut, transfer: transfer) switch {
+                var (red, green, blue, alpha) => Fin.Succ(value: new Rhino.Display.Color4f((float)red, (float)green, (float)blue, (float)alpha)),
+            };
     private Unicolour AsUnicolour() => new(ColourSpace.Oklab, Lightness, OpponentA, OpponentB, Alpha);
+    // ONE crossing owner for every ingress and every derived colour: the package's Oklab representation is read
+    // once here, so a byte triple, a profile triple, a temperature, a mix, and a tonal re-render all admit through
+    // the same guard and no member re-spells the canonical basis read.
+    private static Fin<PerceptualColor> OfOklab(Unicolour colour, double alpha, Op? key = null) {
+        Oklab lab = colour.Oklab;
+        return Of(lightness: lab.L, opponentA: lab.A, opponentB: lab.B, alpha: alpha, key: key);
+    }
+    // Interior crossings only: operands are admitted colours and the package's conversions are finite-closed on
+    // them; Create is the loud guard, and Tone is the one proven-NaN path so it rides the Fin owner above.
+    private static PerceptualColor FromOklab(Unicolour colour, double alpha) {
+        Oklab lab = colour.Oklab;
+        return Create(lightness: lab.L, opponentA: lab.A, opponentB: lab.B, alpha: alpha);
+    }
 }
 ```
 
@@ -566,7 +681,7 @@ public sealed partial class PerceptualColor {
 - Receipt: `Decomposition` preserves every factor and orientation discriminant the selected factorization produces; construction, inverse, rewrite, bounds, list, and transpose return the admitted host value directly.
 - Packages: Thinktecture.Runtime.Extensions for the union and smart-enum owners; LanguageExt.Core for the `Fin`/`Option`/`Seq` rails; Rasm.Domain (project) for `Context`, `Op`, and `Admit`; RhinoCommon for `Transform` and its factorization results.
 - Growth: a factory semantic is one `TransformSpec` case and one generated-switch arm; a factorization or copy rewrite is one behavior row; a new result shape is one `Decomposition` case. Every consumer continues through `Placement`.
-- Boundary: `Transform.Unset`, zero matrices, and pseudo-inverses are never control values; failed construction and factorization stay failures, `TryGetInverse` returning `false` rejects its pseudo-inverse output, and only `Identity` or an empty `Compose` supplies an identity value.
+- Boundary: `TransformSpec` is DISTINCT-BY-DESIGN from every same-named upper twin — it names an affine CONSTRUCTION request the host factories realize, where an upper `TransformSpec` names a placement authored against a document; the discriminant is the admission path, stated here once and never per site. `Transform.Unset`, zero matrices, and pseudo-inverses are never control values; failed construction and factorization stay failures, `TryGetInverse` returning `false` rejects its pseudo-inverse output, and only `Identity` or an empty `Compose` supplies an identity value.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -763,6 +878,7 @@ public sealed partial class TransformRewrite {
     [UseDelegateFromConstructor]
     internal partial Fin<Transform> Apply(Transform source, Context context, Op key);
 
+    // Each row copies before the mutating host call, so the receiver a caller handed in never moves under it.
     private static Fin<Transform> AffineOf(Transform source, Context context, Op key) {
         Transform rewritten = source;
         rewritten.Affineize();
@@ -785,6 +901,7 @@ public sealed partial class TransformRewrite {
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
+[BoundaryAdapter]
 public static class Placement {
     public static Fin<Transform> Build(TransformSpec spec, Option<Context> context = default, Op? key = null) {
         Op op = key.OrDefault();
@@ -815,11 +932,9 @@ public static class Placement {
                     zScaleFactor: factors.Z))
                 select result,
             axisRotation: static (state, value) =>
+                from model in state.Context.ToFin(Fail: state.Key.MissingContext())
                 from angle in state.Key.AcceptInput(value: value.Angle)
-                from axis in Direction.Of(
-                    value: value.Axis,
-                    tolerance: DirectionTolerance(context: state.Context),
-                    key: state.Key)
+                from axis in Direction.Of(value: value.Axis, context: model, key: state.Key)
                 from center in state.Key.AcceptInput(value: value.Center)
                 from result in state.Key.AcceptValue(value: Transform.Rotation(
                     angleRadians: angle,
@@ -851,14 +966,9 @@ public static class Placement {
                     rotationCenter: center))
                 select result,
             vectorRotation: static (state, value) =>
-                from start in Direction.Of(
-                    value: value.From,
-                    tolerance: DirectionTolerance(context: state.Context),
-                    key: state.Key)
-                from end in Direction.Of(
-                    value: value.To,
-                    tolerance: DirectionTolerance(context: state.Context),
-                    key: state.Key)
+                from model in state.Context.ToFin(Fail: state.Key.MissingContext())
+                from start in Direction.Of(value: value.From, context: model, key: state.Key)
+                from end in Direction.Of(value: value.To, context: model, key: state.Key)
                 from center in state.Key.AcceptInput(value: value.Center)
                 from result in state.Key.AcceptValue(value: Transform.Rotation(
                     startDirection: start.Value,
@@ -906,11 +1016,9 @@ public static class Placement {
                     gamma: gamma))
                 select result,
             mirror: static (state, value) =>
+                from model in state.Context.ToFin(Fail: state.Key.MissingContext())
                 from point in state.Key.AcceptInput(value: value.Point)
-                from normal in Direction.Of(
-                    value: value.Normal,
-                    tolerance: DirectionTolerance(context: state.Context),
-                    key: state.Key)
+                from normal in Direction.Of(value: value.Normal, context: model, key: state.Key)
                 from result in state.Key.AcceptValue(value: Transform.Mirror(
                     pointOnMirrorPlane: point,
                     normalToMirrorPlane: normal.Value))
@@ -961,11 +1069,9 @@ public static class Placement {
                 from result in state.Key.AcceptValue(value: Transform.PlanarProjection(plane: plane))
                 select result,
             directionalProjection: static (state, value) =>
+                from model in state.Context.ToFin(Fail: state.Key.MissingContext())
                 from plane in Admit.Plane(basis: value.Plane, key: state.Key)
-                from direction in Direction.Of(
-                    value: value.Direction,
-                    tolerance: DirectionTolerance(context: state.Context),
-                    key: state.Key)
+                from direction in Direction.Of(value: value.Direction, context: model, key: state.Key)
                 from result in state.Key.AcceptValue(value: Transform.ProjectAlong(
                     plane: plane,
                     direction: direction.Value))
@@ -1040,9 +1146,6 @@ public static class Placement {
                    select result;
         }
     }
-
-    private static double DirectionTolerance(Option<Context> context) =>
-        context.Map(static model => model.Absolute.Value).IfNone(EpsilonPolicy.ZeroTolerance);
 
     private static Fin<(Vector3d X, Vector3d Y, Vector3d Z)> RotationBasis(
         Vector3d x,
@@ -1119,6 +1222,7 @@ public static class Placement {
             .As()
             .Bind(result => key.AcceptValue(value: result));
 
+    // Host composition applies right to left, so the fold reverses the caller's first-to-last program order.
     private static Fin<Transform> Compose(Seq<Transform> values, Op key) =>
         values
             .TraverseM(value => key.AcceptInput(value: value))
@@ -1132,31 +1236,39 @@ public static class Placement {
 
 ## [04]-[VECTOR_ALGEBRA]
 
-- Owner: `Direction` is the single admitted unit-vector currency of the kernel; `VectorSpan` the anchored vector, `VectorFrame` the validated orthonormal frame over `Plane`, `VectorCone` the apex/axis/half-angle solid sector. All four are construction-gated — the private constructor is unreachable except through the validating `Of`, so an instance is its own admission evidence.
+- Owner: `Direction` is the single admitted unit-vector currency of the kernel; `VectorSpan` the anchored vector, `VectorFrame` the validated orthonormal frame over `Plane`, `VectorCone` the apex/axis/half-angle solid sector. `ChainClosure` closes the ring posture of a point chain. All four carriers are construction-gated — the private constructor is unreachable except through the validating `Of`, so an instance is its own admission evidence.
 - Cases: `Direction` owns admission, reflection, refraction, and transport; `VectorSpan` anchored magnitude decomposition; `VectorFrame` orthonormal admission and chained construction; `VectorCone` containment, enclosure, and rim partition.
+- Law: `Direction` implements `IValidityEvidence`, so its `IsValid` is the ruled `ValidityClaim.All` fold rather than a loose bool — the unit-length claim and the host-finiteness claim compose there and every reader sees one evidence surface.
 - Entry: every constructor and host-backed transform returns `Fin<T>` under one `Op`; `Direction.Reflect` and `ParallelTransport`, the `VectorFrame` transform projection, and the `VectorCone` rotation folds construct only through `Placement.Build`.
-- Auto: `Direction.IsValid` is the unit-length gate, semantic rather than a mechanical fold, and `Transported` re-admits every rigid-transform result against that SAME band so reflection, refraction, and parallel transport share one floor instead of gating a unit quantity on a distance-degeneracy epsilon that lets `Unitize` mint a direction out of roundoff; `VectorSpan.Value` recomposes `Direction * Magnitude` so the stored triple is the canonical decomposition; `SeedPerpendicular` is the deterministic perpendicular seed shared by frame construction and cone partition; `NewellNormal` is the one inexact polygon-normal fold every ring and panel fit composes, the exact carrier staying on the predicates ladder.
+- Auto: `Transported` re-admits every rigid-transform result against the type's OWN validity band so reflection, refraction, and parallel transport share one floor instead of gating a unit quantity on a distance-degeneracy epsilon; `VectorSpan.Value` recomposes `Direction * Magnitude` so the stored triple is the canonical decomposition; `SeedPerpendicular` is the deterministic perpendicular seed shared by frame construction and cone partition; `NewellNormal` is the one inexact polygon-normal fold every ring and panel fit composes, the exact carrier staying on the predicates ladder.
 - Receipt: none — the models are self-evident admitted values, and failures carry the `Op` typed fault.
-- Packages: LanguageExt.Core for the `Fin`/`Seq`/`Option` rails; Thinktecture.Runtime.Extensions for the generated owners; Rasm.Domain (project) for `Op`, `Context`, and the `Admit` vocabulary; RhinoCommon for the `Vector3d`, `Point3d`, `Plane`, and `Line` value structs.
-- Growth: a new direction algorithm is one member on `Direction` or `VectorCone`, never a sibling `DirectionUtils`; a new frame-construction modality is one `Of` overload discriminating on input shape.
-- Boundary: `VectorFrame.Chain` composes the one rotation-minimizing-frame owner in `Spatial/neighbors`, which owns the chain math while this page owns only frame admission over the chained planes; quaternion pose interpolation is `Parametric/projections`' `MotionInterpolation` and never re-derives here; `Direction.ParallelTransport` transports through given frames, so a second double-reflection implementation here is the deleted form.
+- Packages: LanguageExt.Core for the `Fin`/`Seq`/`Option` rails; Thinktecture.Runtime.Extensions for the generated owners; Rasm.Domain (project) for `Op`, `Context`, `ValidityClaim`, and the `Admit` vocabulary; RhinoCommon for the `Vector3d`, `Point3d`, `Plane`, and `Line` value structs.
+- Growth: a new direction algorithm is one member on `Direction` or `VectorCone`, never a sibling `DirectionUtils`; a new frame-construction modality is one `Of` overload discriminating on input shape; a new chain posture is one `ChainClosure` row.
+- Boundary: `VectorFrame.Chain` composes the one rotation-minimizing-frame owner in `Spatial/neighbors`, which owns the chain math while this page owns only frame admission over the chained planes and the `ChainClosure` posture it hands down; quaternion pose interpolation is `Parametric/projections`' and never re-derives here; `Direction.ParallelTransport` transports through given frames, so a second double-reflection implementation here is the deleted form.
 
 ```csharp signature
+// --- [TYPES] ------------------------------------------------------------------------------
+[SmartEnum<int>]
+public sealed partial class ChainClosure {
+    public static readonly ChainClosure Open = new(key: 0);
+    public static readonly ChainClosure Closed = new(key: 1);
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct Direction {
+public readonly record struct Direction : IValidityEvidence {
     private Direction(Vector3d value) => Value = value;
     public Vector3d Value { get; }
-    public bool IsValid => Value.IsValid && Math.Abs(value: Value.Length - 1.0) <= EpsilonPolicy.SqrtEpsilon;
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Finite(value: Value),
+        Math.Abs(value: Value.Length - 1.0) <= EpsilonPolicy.SqrtEpsilon);
     public static Fin<Direction> Of(Vector3d value, Context context, Op? key = null) =>
-        Optional(context).ToFin(key.OrDefault().MissingContext()).Bind(model => Of(value: value, tolerance: model.Absolute.Value, key: key));
-    internal static Fin<Direction> Of(Vector3d value, double tolerance, Op? key = null) =>
-        Admit.Directional(value: value, tolerance: tolerance, key: key.OrDefault()).Bind(vector =>
-            vector.Unitize() ? Fin.Succ(new Direction(value: vector)) : Fin.Fail<Direction>(error: key.OrDefault().InvalidInput()));
-    // Re-admission of an ALREADY-ADMITTED direction carried through a rigid transform. A model distance floor
-    // does not gate a unit quantity and the degeneracy floor is looser still, so the band is the type's OWN
-    // validity band: under sqrt-epsilon the transform has consumed every significant bit of direction and
-    // `Unitize` would mint a confident unit vector out of roundoff. Reflect, Refract, and ParallelTransport all
-    // read this one row — a per-member epsilon beside them is three floors for one concept.
+        Optional(context).ToFin(key.OrDefault().MissingContext()).Bind(model => Of(value: value, tolerance: model.Absolute.Value, key: key.OrDefault()));
+    internal static Fin<Direction> Of(Vector3d value, double tolerance, Op key) =>
+        Admit.Directional(value: value, tolerance: tolerance, key: key).Bind(vector =>
+            vector.Unitize() ? Fin.Succ(new Direction(value: vector)) : Fin.Fail<Direction>(error: key.InvalidInput()));
+    // Re-admission of an ALREADY-ADMITTED direction carried through a rigid transform. A model distance floor does
+    // not gate a unit quantity and the degeneracy floor is looser still: under sqrt-epsilon the transform has
+    // consumed every significant bit of direction and `Unitize` would mint a confident unit vector out of roundoff.
     private static Fin<Direction> Transported(Vector3d value, Op key) => Of(value: value, tolerance: EpsilonPolicy.SqrtEpsilon, key: key);
     public static Direction operator -(Direction direction) => new(value: -direction.Value);
     public static Vector3d operator *(Direction direction, double magnitude) => direction.Value * magnitude;
@@ -1186,7 +1298,7 @@ public readonly record struct Direction {
     public Fin<Direction> ParallelTransport(Seq<Plane> frames, Op? key = null) {
         Vector3d value = Value;
         Op op = key.OrDefault();
-        return Admit.PlaneSequence(planes: frames, allowEmpty: false, key: op).Bind(admittedFrames =>
+        return Admit.All(values: frames, claim: static frame => frame.IsValid, floor: 1, key: op).Bind(admittedFrames =>
             toSeq(Enumerable.Range(start: 1, count: Math.Max(val1: 0, val2: admittedFrames.Count - 1))).Fold(
                 initialState: Transported(value: value, key: op),
                 f: (acc, i) => acc.Bind(prev =>
@@ -1200,7 +1312,7 @@ public readonly record struct Direction {
     internal Fin<TOut> Project<TOut>(Op key) => AtomProjection.SelfOrValue<Direction, Vector3d, TOut>(self: this, value: Value, key: key);
 }
 
-[StructLayout(LayoutKind.Auto)]
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct VectorSpan {
     private VectorSpan(Point3d anchor, Direction direction, PositiveMagnitude magnitude) { Anchor = anchor; Direction = direction; Magnitude = magnitude; }
     public Point3d Anchor { get; }
@@ -1235,7 +1347,7 @@ public readonly record struct VectorSpan {
     }
 }
 
-[StructLayout(LayoutKind.Auto)]
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct VectorFrame {
     private VectorFrame(Plane value) => Value = value;
     public Plane Value { get; }
@@ -1248,16 +1360,17 @@ public readonly record struct VectorFrame {
         let frame = new Plane(origin: point, xDirection: x.Value, yDirection: y.Value)
         from valid in Admit.Plane(basis: frame, key: key.OrDefault())
         select new VectorFrame(value: valid);
-    public static Fin<Seq<VectorFrame>> Chain(Seq<Point3d> points, Direction initialNormal, bool closed, Context context, Op? key = null) =>
-        NeighborKernel.BishopChain(points: points, initialNormal: initialNormal, closed: closed, context: context, key: key.OrDefault())
+    public static Fin<Seq<VectorFrame>> Chain(Seq<Point3d> points, Direction initialNormal, ChainClosure closure, Context context, Op? key = null) =>
+        NeighborKernel.BishopChain(points: points, initialNormal: initialNormal, closure: closure, context: context, key: key.OrDefault())
             .Bind(planes => planes.TraverseM(p => Of(origin: p.Origin, normal: p.ZAxis, xHint: Some(p.XAxis), context: context, key: key.OrDefault())).As());
     internal static Vector3d SeedPerpendicular(Vector3d axis) {
         Vector3d seed = Vector3d.Zero;
         return seed.PerpendicularTo(other: axis) && seed.Unitize() ? seed : Vector3d.XAxis;
     }
-    // The ONE Newell polygon-normal fold — robust on the nonplanar ring a corner cross is not. Inexact by
-    // construction: an exact carrier stays on the predicates ladder; every inexact ring, panel, and chain-seed
-    // fit composes this floor member instead of a page-local copy.
+    // Newell's polygon-normal fold lands ONCE here — robust on the nonplanar ring a corner cross is not, and inexact by
+    // construction, the exact carrier staying on the predicates ladder. The loop STAYS: the fold gathers three
+    // interleaved components at stride 3 against a rotated neighbour, and `System.Numerics.Tensors` publishes no
+    // strided-gather or rotate operator, so every span form would materialize four temporaries to save one pass.
     public static Vector3d NewellNormal(ReadOnlySpan<Point3d> ring) {
         Vector3d normal = Vector3d.Zero;
         for (int i = 0; i < ring.Length; i++) {
@@ -1278,7 +1391,7 @@ public readonly record struct VectorFrame {
     }
 }
 
-[StructLayout(LayoutKind.Auto)]
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct VectorCone {
     private VectorCone(Point3d apex, Direction axis, VectorAngle halfAngle) { Apex = apex; Axis = axis; HalfAngle = halfAngle; }
     public Point3d Apex { get; }
@@ -1358,30 +1471,37 @@ public readonly record struct VectorCone {
 
 - Owner: `CellLattice` is the kernel's ONE bounded rectangular cell lattice — an index-to-world affine, a per-axis cell census, and one budget ceiling admitted together. `LatticeInterpolation` rows carry the sample reconstruction each consumer reads. Construction is gated: the private constructor is unreachable except through `Of`, so an instance is its own admission evidence and every derived member is total.
 - Entry: `CellLattice.Of(Transform indexToWorld, Dimension columns, Dimension rows, Dimension layers, long ceiling, Op? key = null)` is the general admission, `Of(ReadOnlySpan<double> affine, …)` the host-neutral twelve-value form seam and wire consumers round-trip through with `Affine` its projection dual, and `Of(BoundingBox bounds, PositiveMagnitude cell, long ceiling, Op? key = null)` the axis-aligned isotropic overload discriminating on input shape. `Center`, `Corner`, `Locate`, `Nearest`, `Contains`, and `Linear`/`Coordinate` close addressing; `Coarsen` halves the census for a pyramid level.
-- Auto: `Of` computes and stores the inverse affine at admission, so `Locate` is a multiply rather than a per-call factorization and a singular map is unrepresentable past the gate. `Rank` derives from `Layers` — a one-layer lattice IS the plane, so no sibling 2D type exists and no consumer branches on dimension. `CellSize` reads the affine's per-axis column norm, so an anisotropic, rotated, or sheared lattice reports its own extents.
-- Receipt: none — the lattice is an admitted value and its evidence is its own construction. A sweep's census, budget, and outcome ride the consuming surface's receipt.
+- Auto: `Of` computes and stores the inverse affine at admission, so `Locate` is a multiply rather than a per-call factorization and a singular map is unrepresentable past the gate. Host-neutral admission runs its twelve values through `Band.Parameter` before minting, so a wire-borne `NaN` never reaches the inverse. `Rank` derives from `Layers` — a one-layer lattice IS the plane, so no sibling 2D type exists and no consumer branches on dimension. `CellSize` reads the affine's per-axis column norm, so an anisotropic, rotated, or sheared lattice reports its own extents.
+- Receipt: none — the lattice is an admitted value and its evidence is its own construction. Sweep census, budget, and outcome ride the consuming surface's receipt.
 - Packages: Rasm.Domain (project) for `Op`, `Context`, and the `Admit` vocabulary; LanguageExt.Core for the `Fin`/`Option` rails; Thinktecture.Runtime.Extensions for the generated smart-enum owner; RhinoCommon for `Transform`, `Point3d`, and `BoundingBox`.
-- Growth: a new addressing modality is one member; a new sample reconstruction is one `LatticeInterpolation` row; a new census projection is one derived property. A consumer's local `Nx`/`Ny`/`Nz`, `Columns`/`Rows`, cell-center arithmetic, or budget comparison is the deleted form.
-- Boundary: the lattice carries NO payload. A scalar plane is `Numerics/matrix` `Matrix` over one lattice, a typed texel arena is the consumer's own, and the byte arena is `Drawing/pack`'s — this owner addresses cells and never stores them. Index space is column-major-free: `Linear` is the one linearization and a consumer re-deriving `x + (Nx * (y + (Ny * z)))` re-opens the collapsed duplication.
+- Growth: a new addressing modality is one member; a new sample reconstruction is one `LatticeInterpolation` row carrying its own separable `Axis` body, so a consumer's recursion picks it up with no branch edited; a new census projection is one derived property. Consumer-local `Nx`/`Ny`/`Nz`, `Columns`/`Rows`, cell-center arithmetic, per-row interpolation branch ladders, and budget comparison are the deleted form.
+- Boundary: the lattice carries NO payload. Scalar planes are `Numerics/matrix` `Matrix` over one lattice, a typed texel arena is the consumer's own, and the byte arena is `Drawing/pack`'s — this owner addresses cells and never stores them. Index space is column-major-free: `Linear` is the one linearization and a consumer re-deriving `x + (Nx * (y + (Ny * z)))` re-opens the collapsed duplication.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
-// The sample reconstruction a lattice-backed value reads. Nearest is exact on an occupancy plane; Linear is the
-// trilinear/bilinear reconstruction one Rank column selects the arity of; Cubic reads the four-tap Catmull-Rom.
 [SmartEnum<int>]
 public sealed partial class LatticeInterpolation {
-    public static readonly LatticeInterpolation Nearest = new(key: 0, support: 0, continuity: 0);
-    public static readonly LatticeInterpolation Linear  = new(key: 1, support: 1, continuity: 0);
-    public static readonly LatticeInterpolation Cubic   = new(key: 2, support: 2, continuity: 1);
+    public static readonly LatticeInterpolation Nearest = new(key: 0, support: 0, continuity: 0,
+        axis: static (tap, _) => tap(arg: 0));
+    public static readonly LatticeInterpolation Linear  = new(key: 1, support: 1, continuity: 0,
+        axis: static (tap, t) => double.Lerp(tap(arg: 0), tap(arg: 1), t));
+    public static readonly LatticeInterpolation Cubic   = new(key: 2, support: 2, continuity: 1,
+        axis: static (tap, t) => CatmullRom(p0: tap(arg: -1), p1: tap(arg: 0), p2: tap(arg: 1), p3: tap(arg: 2), t: t));
     // Support is the half-width in cells a reconstruction reads; a border policy sizes its pad from this row.
     internal int Support { get; }
     internal int Continuity { get; }
+    // Cell-CENTRE convention: a nearest read floors the raw coordinate where every wider window shifts by the half
+    // cell the centre sits at, so the offset DERIVES from the support instead of standing as a second column.
+    internal double CenterOffset => Support == 0 ? 0.0 : 0.5;
+    // ONE separable axis body per row: the caller hands the tap and the fractional position, so a reconstruction
+    // recurses over rank without ever branching on which row it holds and a fourth row lands as one declaration.
+    [UseDelegateFromConstructor] internal partial double Axis(Func<int, double> tap, double t);
+
+    private static double CatmullRom(double p0, double p1, double p2, double p3, double t) =>
+        p1 + (0.5 * t * (p2 - p0 + (t * ((2.0 * p0) - (5.0 * p1) + (4.0 * p2) - p3 + (t * ((3.0 * (p1 - p2)) + p3 - p0))))));
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-// THE one bounded rectangular cell lattice. Layers == 1 IS the plane — no sibling 2D type, no dimension branch at a
-// call site. IndexToWorld maps a fractional cell coordinate to world; WorldToIndex is its stored inverse, computed
-// once at admission so Locate never re-factors and a singular map never reaches a consumer.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CellLattice {
     private CellLattice(Transform indexToWorld, Transform worldToIndex, Dimension columns, Dimension rows, Dimension layers, long ceiling) =>
@@ -1394,25 +1514,24 @@ public readonly record struct CellLattice {
     public Dimension Layers { get; }
     public long Ceiling { get; }
 
-    // General admission: any invertible affine. The ceiling gate is the ONE budget in the kernel — IsoSurfacePolicy
-    // MaxCells, VolumeGridPolicy MaxNodes, and a downstream MaximumCells all lower onto it.
+    // This ceiling gate is the ONE budget in the kernel — IsoSurfacePolicy MaxCells, VolumeGridPolicy MaxNodes, and
+    // a downstream MaximumCells all lower onto it.
     public static Fin<CellLattice> Of(Transform indexToWorld, Dimension columns, Dimension rows, Dimension layers, long ceiling, Op? key = null) {
         Op op = key.OrDefault();
         long cells = (long)columns.Value * rows.Value * layers.Value;
         return indexToWorld.TryGetInverse(inverseTransform: out Transform inverse) && inverse.IsValid
-            ? cells <= ceiling && ceiling > 0L
+            ? cells <= ceiling && Band.Count.Admits(value: ceiling)
                 ? Fin.Succ(new CellLattice(indexToWorld: indexToWorld, worldToIndex: inverse,
                       columns: columns, rows: rows, layers: layers, ceiling: ceiling))
-                : Fin.Fail<CellLattice>(error: new Fault.OutOfRange(Label: "lattice-cells", Scalar: cells, Requirement: $"<= {ceiling}", Key: Some(op)))
+                : Fin.Fail<CellLattice>(error: new KernelFault.OutOfRange(Label: "lattice-cells", Scalar: cells, Requirement: $"<= {ceiling}", Key: Some(op)))
             : Fin.Fail<CellLattice>(error: op.InvalidInput());
     }
 
     // Host-neutral admission — twelve row-major doubles of the 3x4 index-to-world affine. The seam and wire
-    // consumers (Element coverage, the lattice wire codec) round-trip a lattice through THIS pair with no host
-    // type crossing their fences; the Transform mint is interior to the kernel.
+    // consumers round-trip a lattice through THIS pair with no host type crossing their fences.
     public static Fin<CellLattice> Of(ReadOnlySpan<double> affine, Dimension columns, Dimension rows, Dimension layers, long ceiling, Op? key = null) {
         Op op = key.OrDefault();
-        return affine.Length is 12
+        return affine.Length is 12 && Band.Parameter.Admits(values: affine)
             ? Of(indexToWorld: new Transform {
                   M00 = affine[0], M01 = affine[1], M02 = affine[2],  M03 = affine[3],
                   M10 = affine[4], M11 = affine[5], M12 = affine[6],  M13 = affine[7],
@@ -1421,8 +1540,8 @@ public readonly record struct CellLattice {
             : Fin.Fail<CellLattice>(error: op.InvalidInput());
     }
 
-    // Axis-aligned isotropic overload — the shape every kernel sweep and every downstream 2D mint spells today.
-    // Cell counts derive by ceiling so a partial trailing cell is retained rather than silently clipped.
+    // Axis-aligned isotropic overload. Cell counts derive by ceiling so a partial trailing cell is retained rather
+    // than silently clipped.
     public static Fin<CellLattice> Of(BoundingBox bounds, PositiveMagnitude cell, long ceiling, Op? key = null) {
         Op op = key.OrDefault();
         return bounds.IsValid
@@ -1437,7 +1556,6 @@ public readonly record struct CellLattice {
             : Fin.Fail<CellLattice>(error: op.InvalidInput());
     }
 
-    // Rank is DERIVED — a one-layer lattice is the plane, so a consumer never carries a dimension flag beside it.
     public int Rank => Layers.Value > 1 ? 3 : 2;
     public long CellCount => (long)Columns.Value * Rows.Value * Layers.Value;
     public long NodeCount => (long)(Columns.Value + 1) * (Rows.Value + 1) * (Layers.Value + 1);
@@ -1446,7 +1564,6 @@ public readonly record struct CellLattice {
         x: new Vector3d(x: IndexToWorld.M00, y: IndexToWorld.M10, z: IndexToWorld.M20).Length,
         y: new Vector3d(x: IndexToWorld.M01, y: IndexToWorld.M11, z: IndexToWorld.M21).Length,
         z: new Vector3d(x: IndexToWorld.M02, y: IndexToWorld.M12, z: IndexToWorld.M22).Length);
-    // Planar cell measure for a rank-2 lattice, cell volume for rank 3 — the one measure a density fold reads.
     public double CellMeasure => Rank is 2 ? CellSize.X * CellSize.Y : CellSize.X * CellSize.Y * CellSize.Z;
     // Host-neutral projection — the twelve row-major 3x4 affine values the neutral Of inverts; a seam or wire
     // consumer reads THIS, never the host Transform.
@@ -1454,7 +1571,7 @@ public readonly record struct CellLattice {
         IndexToWorld.M00, IndexToWorld.M01, IndexToWorld.M02, IndexToWorld.M03,
         IndexToWorld.M10, IndexToWorld.M11, IndexToWorld.M12, IndexToWorld.M13,
         IndexToWorld.M20, IndexToWorld.M21, IndexToWorld.M22, IndexToWorld.M23];
-    // The stored inverse on the same neutral axis — a seam consumer's fractional locate never re-inverts.
+    // Stored inverse rides the same neutral axis, so a seam consumer's fractional locate never re-inverts.
     public ImmutableArray<double> Inverse => [
         WorldToIndex.M00, WorldToIndex.M01, WorldToIndex.M02, WorldToIndex.M03,
         WorldToIndex.M10, WorldToIndex.M11, WorldToIndex.M12, WorldToIndex.M13,
@@ -1463,6 +1580,12 @@ public readonly record struct CellLattice {
     // ONE linearization, column-fastest. A consumer re-deriving the stride expression re-opens the duplication.
     public long Linear(int column, int row, int layer = 0) =>
         column + ((long)Columns.Value * (row + ((long)Rows.Value * layer)));
+    // The per-axis READ of that same linearization: extent, step, and world spacing by ordinal. A separable fold
+    // walking `axis switch { 0 => (Columns, 1), 1 => (Rows, Columns), _ => (Layers, Columns * Rows) }` at its own
+    // site forks the linearization the moment a layout column moves, so every axis walk reads these three.
+    public Dimension Extent(int ordinal) => ordinal switch { 0 => Columns, 1 => Rows, _ => Layers };
+    public int Stride(int ordinal) => ordinal switch { 0 => 1, 1 => Columns.Value, _ => Columns.Value * Rows.Value };
+    public double Spacing(int ordinal) => ordinal switch { 0 => CellSize.X, 1 => CellSize.Y, _ => CellSize.Z };
     public (int Column, int Row, int Layer) Coordinate(long linear) {
         long plane = (long)Columns.Value * Rows.Value;
         long layer = linear / plane, rest = linear - (layer * plane), row = rest / Columns.Value;
@@ -1476,7 +1599,6 @@ public readonly record struct CellLattice {
         IndexToWorld * new Point3d(x: column + 0.5, y: row + 0.5, z: Rank is 3 ? layer + 0.5 : 0.0);
     public Point3d Corner(int column, int row, int layer = 0) =>
         IndexToWorld * new Point3d(x: column, y: row, z: Rank is 3 ? layer : 0.0);
-    // Fractional cell coordinate of a world sample — the stored inverse, so no per-call factorization.
     public Point3d Locate(Point3d sample) => WorldToIndex * sample;
     // Containing cell, clamped to the census: a reconstruction pads through its LatticeInterpolation support row.
     public (int Column, int Row, int Layer) Nearest(Point3d sample) {
@@ -1494,8 +1616,8 @@ public readonly record struct CellLattice {
         }
     }
 
-    // ONE pyramid step: halved census, doubled cell, same ceiling — the level chain every overview and mip fold reads.
-    // Compose runs first-to-last, so the doubling scale applies in index space before the stored affine lifts to world.
+    // ONE pyramid step: halved census, doubled cell, same ceiling. Compose runs first-to-last, so the doubling
+    // scale applies in index space before the stored affine lifts to world.
     public Fin<CellLattice> Coarsen(Op? key = null) {
         Op op = key.OrDefault();
         return from scale in Placement.Build(spec: new TransformSpec.UniformScale(Anchor: Point3d.Origin, Factor: 2.0), key: op)
@@ -1511,16 +1633,26 @@ public readonly record struct CellLattice {
 
 ## [06]-[PROJECTION_RAIL]
 
-- Owner: `ProjectionRow` is the typed dispatch row — a `Type`/`Make` pair whose `Of<TValue>` factory erases once at declaration so call sites never spell an `(object)` cast — and `AtomProjection` is the corpus-wide raw-to-typed output dispatch every kernel surface resolves its `.Project<TOut>` output type through.
+- Owner: `ProjectionRow` is the typed dispatch row — a `Type`/`Make` pair whose `Of<TValue>` factory erases once at declaration so call sites never spell an `(object)` cast — and `AtomProjection` is the corpus-wide raw-to-typed output dispatch every kernel surface resolves its `.Project<TOut>` output type through. `RawAdmission` is the capability vocabulary a raw-lattice caller declares its conditional arms with.
 - Cases: `Rows` scans a typed row-table with identity fallthrough; `Self`, `Value`, `SelfOrValue`, `Values`, and `Custom` cover the fixed acceptance shapes; `Raw` is the one raw-`object` boundary lattice where a loose payload meets the typed world.
+- Law: a conditional lattice arm reads a `CapabilitySet<RawAdmission>` the caller declares as row data, never a boolean beside the payload — magnitude admission is a property of the producing row and the set is how that row states it.
+- Exemption: `Rows` carries two arities because a `params` span may not follow an optional parameter; the owner-bearing arity is the primary and the other forwards its absent owner.
 - Entry: `AtomProjection.Rows` scans the row table, first match winning and `TOut == TSelf` yielding the value itself, anything else failing `key.Unsupported`; `ProjectionRow.Of` declares one row.
 - Auto: the row table is data — a surface grows an output modality by adding one `ProjectionRow` beside its peers while the dispatch body never changes; `Raw` admits through the owning model's `Of`, so the rail is an admission funnel, not a cast.
 - Receipt: none — the rail transports values, and failures are the `Op` `Unsupported` typed fault carrying both endpoint types.
-- Packages: LanguageExt.Core for the `Fin`/`Option`/`Seq` rails; Rasm.Domain (project) for the `Op` fault factory; RhinoCommon for the value structs at the `Raw` lattice; the BCL for `Type` and `ReadOnlySpan<T>`.
-- Growth: a new projectable output is one `ProjectionRow` at the owning surface or one arm in the `Raw` lattice, never a new dispatch helper; a surface-local `typeof(TOut)` switch is the collapse trigger that routes here.
-- Boundary: `AtomProjection` is the one sanctioned type-directed dispatch site in the kernel; inline `typeof(TOut)` reflection branching inside a consumer surface is the deleted form, replaced by declared `ProjectionRow` rows resolved through `Rows`. `AtomProjection` stays `internal`, so consumers reach it only through their surface's `.Project<TOut>` and the public API never exposes an untyped `object` seam.
+- Packages: LanguageExt.Core for the `Fin`/`Option`/`Seq` rails; Thinktecture.Runtime.Extensions for the capability vocabulary; Rasm.Domain (project) for the `Op` fault factory and the `ICapability`/`CapabilitySet` idiom; RhinoCommon for the value structs at the `Raw` lattice; the BCL for `Type` and `ReadOnlySpan<T>`.
+- Growth: a new projectable output is one `ProjectionRow` at the owning surface or one arm in the `Raw` lattice; a new conditional raw arm is one `RawAdmission` row read by set algebra, never a new parameter; a surface-local `typeof(TOut)` switch is the collapse trigger that routes here.
+- Boundary: `AtomProjection` is the one sanctioned type-directed dispatch site in the kernel; inline `typeof(TOut)` reflection branching inside a consumer surface is the deleted form. `AtomProjection` stays `internal`, so consumers reach it only through their surface's `.Project<TOut>` and the public API never exposes an untyped `object` seam. `AtomProjection.Rows`' identity fallthrough IS the whole-result row — an explicit self row earns its seat only by adding admission.
 
 ```csharp signature
+// --- [TYPES] ------------------------------------------------------------------------------
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class RawAdmission : ICapability<RawAdmission> {
+    public static readonly RawAdmission VectorMagnitude = new(key: "vector-magnitude", rank: 0);
+    public int Rank { get; }
+}
+
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal readonly record struct ProjectionRow(Type Output, Func<Fin<object>> Make) {
     internal static ProjectionRow Of<TValue>(Func<Fin<TValue>> make) =>
@@ -1528,47 +1660,47 @@ internal readonly record struct ProjectionRow(Type Output, Func<Fin<object>> Mak
 }
 
 internal static class AtomProjection {
-    internal static Fin<TOut> Rows<TSelf, TOut>(TSelf self, Op key, Type? owner, params ReadOnlySpan<ProjectionRow> rows) {
+    internal static Fin<TOut> Rows<TSelf, TOut>(TSelf self, Op key, Option<Type> owner, params ReadOnlySpan<ProjectionRow> rows) {
         foreach (ProjectionRow row in rows) {
             if (row.Output == typeof(TOut)) {
                 return row.Make().Map(static projected => (TOut)projected!);
             }
         }
-        return typeof(TOut) == typeof(TSelf) ? Fin.Succ((TOut)(object)self!) : Fin.Fail<TOut>(error: key.Unsupported(geometryType: owner ?? typeof(TSelf), outputType: typeof(TOut)));
+        return typeof(TOut) == typeof(TSelf) ? Fin.Succ((TOut)(object)self!) : Fin.Fail<TOut>(error: key.Unsupported(inputType: owner.IfNone(typeof(TSelf)), outputType: typeof(TOut)));
     }
-    internal static Fin<TOut> Rows<TSelf, TOut>(TSelf self, Op key, params ReadOnlySpan<ProjectionRow> rows) => Rows<TSelf, TOut>(self: self, key: key, owner: null, rows: rows);
-    internal static Fin<TOut> Self<TSelf, TOut>(TSelf value, Op key, Type? owner = null) =>
-        typeof(TOut) == typeof(TSelf) ? Fin.Succ((TOut)(object)value!) : Fin.Fail<TOut>(error: key.Unsupported(geometryType: owner ?? typeof(TSelf), outputType: typeof(TOut)));
-    internal static Fin<TOut> Value<TValue, TOut>(TValue value, Op key, Type? owner = null) =>
+    internal static Fin<TOut> Rows<TSelf, TOut>(TSelf self, Op key, params ReadOnlySpan<ProjectionRow> rows) => Rows<TSelf, TOut>(self: self, key: key, owner: default, rows: rows);
+    internal static Fin<TOut> Self<TSelf, TOut>(TSelf value, Op key, Option<Type> owner = default) =>
+        typeof(TOut) == typeof(TSelf) ? Fin.Succ((TOut)(object)value!) : Fin.Fail<TOut>(error: key.Unsupported(inputType: owner.IfNone(typeof(TSelf)), outputType: typeof(TOut)));
+    internal static Fin<TOut> Value<TValue, TOut>(TValue value, Op key, Option<Type> owner = default) =>
         typeof(TOut) == typeof(TValue)
             ? key.AcceptValue(value: value).Map(static accepted => (TOut)(object)accepted!)
-            : Fin.Fail<TOut>(error: key.Unsupported(geometryType: owner ?? typeof(TValue), outputType: typeof(TOut)));
+            : Fin.Fail<TOut>(error: key.Unsupported(inputType: owner.IfNone(typeof(TValue)), outputType: typeof(TOut)));
     internal static Fin<TOut> SelfOrValue<TSelf, TValue, TOut>(TSelf self, TValue value, Op key) =>
         typeof(TOut) == typeof(TValue) ? Value<TValue, TOut>(value: value, key: key) : Self<TSelf, TOut>(value: self, key: key);
-    internal static Fin<TOut> Values<TValue, TOut>(IEnumerable<TValue> values, Op key, Type? owner = null) =>
+    internal static Fin<TOut> Values<TValue, TOut>(IEnumerable<TValue> values, Op key, Option<Type> owner = default) =>
         typeof(TOut) == typeof(Seq<TValue>)
             ? key.Accept(values: values).Map(static accepted => (TOut)(object)accepted!)
-            : Fin.Fail<TOut>(error: key.Unsupported(geometryType: owner ?? typeof(TValue), outputType: typeof(TOut)));
-    internal static Fin<TOut> Custom<TValue, TOut>(TValue value, bool admitted, Op key, Type? owner = null) =>
+            : Fin.Fail<TOut>(error: key.Unsupported(inputType: owner.IfNone(typeof(TValue)), outputType: typeof(TOut)));
+    internal static Fin<TOut> Custom<TValue, TOut>(TValue value, ValidityClaim claim, Op key, Option<Type> owner = default) =>
         typeof(TOut) == typeof(TValue)
-            ? admitted ? Fin.Succ((TOut)(object)value!) : Fin.Fail<TOut>(error: key.InvalidResult())
-            : Fin.Fail<TOut>(error: key.Unsupported(geometryType: owner ?? typeof(TValue), outputType: typeof(TOut)));
-    internal static Fin<TOut> Raw<TOut>(object raw, Option<Context> context, Op key, Type owner, bool admitsVectorMagnitude = false) =>
+            ? claim ? Fin.Succ((TOut)(object)value!) : Fin.Fail<TOut>(error: key.InvalidResult())
+            : Fin.Fail<TOut>(error: key.Unsupported(inputType: owner.IfNone(typeof(TValue)), outputType: typeof(TOut)));
+    internal static Fin<TOut> Raw<TOut>(object raw, Option<Context> context, Op key, Type owner, CapabilitySet<RawAdmission> admits) =>
         (raw, typeof(TOut)) switch {
             (Vector3d v, Type t) when t == typeof(Vector3d) => Value<Vector3d, TOut>(value: v, key: key),
             (Vector3d v, Type t) when t == typeof(Direction) => context.ToFin(Fail: key.MissingContext()).Bind(model => Direction.Of(value: v, context: model, key: key).Bind(direction => direction.Project<TOut>(key: key))),
-            (Vector3d v, Type t) when t == typeof(double) && admitsVectorMagnitude => key.AcceptValue(value: v).Bind(valid => Value<double, TOut>(value: valid.Length, key: key)),
+            (Vector3d v, Type t) when t == typeof(double) && admits.Admits(RawAdmission.VectorMagnitude) => key.AcceptValue(value: v).Bind(valid => Value<double, TOut>(value: valid.Length, key: key)),
             (Plane p, Type t) when t == typeof(Plane) => Admit.Plane(basis: p, key: key).Bind(valid => Value<Plane, TOut>(value: valid, key: key)),
             (Plane p, Type t) when t == typeof(VectorFrame) => context.ToFin(Fail: key.MissingContext()).Bind(model => VectorFrame.Of(origin: p.Origin, normal: p.ZAxis, xHint: Some(p.XAxis), context: model, key: key).Bind(frame => frame.Project<TOut>(key: key))),
             (double d, Type t) when t == typeof(double) => Value<double, TOut>(value: d, key: key),
             (Circle c, Type t) when t == typeof(Circle) => Value<Circle, TOut>(value: c, key: key),
             (Point3d p, Type t) when t == typeof(Point3d) => Value<Point3d, TOut>(value: p, key: key),
-            (Matrix matrix, Type t) when t == typeof(Matrix) => Custom<Matrix, TOut>(value: matrix, admitted: matrix.IsValid, key: key),
-            (Seq<double> ks, Type t) when t == typeof(Seq<double>) => ks.ForAll(double.IsFinite) ? Fin.Succ((TOut)(object)ks) : Fin.Fail<TOut>(error: key.InvalidResult()),
-            (SymmetricMatrix matrix, Type t) when t == typeof(SymmetricMatrix) => Custom<SymmetricMatrix, TOut>(value: matrix, admitted: matrix.IsValid, key: key),
+            (Matrix matrix, Type t) when t == typeof(Matrix) => Custom<Matrix, TOut>(value: matrix, claim: matrix.IsValid, key: key),
+            (Seq<double> ks, Type t) when t == typeof(Seq<double>) => ks.ForAll(Band.Parameter.Admits) ? Fin.Succ((TOut)(object)ks) : Fin.Fail<TOut>(error: key.InvalidResult()),
+            (SymmetricMatrix matrix, Type t) when t == typeof(SymmetricMatrix) => Custom<SymmetricMatrix, TOut>(value: matrix, claim: matrix.IsValid, key: key),
             (VectorAngle angle, Type t) when t == typeof(VectorAngle) || t == typeof(double) => angle.Project<TOut>(key: key),
             (Direction direction, Type t) when t == typeof(Direction) || t == typeof(Vector3d) => direction.Project<TOut>(key: key),
-            _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: owner, outputType: typeof(TOut))),
+            _ => Fin.Fail<TOut>(error: key.Unsupported(inputType: owner, outputType: typeof(TOut))),
         };
 }
 ```

@@ -12,7 +12,7 @@ Honeybee's AGPL-3.0 band rides the standing companion-lane charter — the `ener
 
 - Owner: `BuildingModel` holds the validated honeybee `Model`, its `ContentKey`, and the `composition` custody key its weave, pulse, and bench legs stamp — the honeybee `Model` IS the canonical owner, never mirrored into a local dataclass graph, and the content-keyed bytes are its only projection. `BemPolicy` carries derivation behavior as data: the `wwr` default and orientation-binned ratio rows, the classification bounds `Room.from_polyface3d` reads, and ONE tolerance every kernel reads, never three literals. `HvacSpec.template` keys `HVAC_TYPES_DICT`, which resolves the dynamically-built class, never a per-template import; `StandardsKind` keys `RESOLVERS`, whose rows are `LateBound` values, so standards resolution is the same one late-binding fold the climate and simulate owners read.
 - Entry: `of` is `async` over the source, the lane, and the composition, and both admission arms converge on the ONE `check_all(raise_exception=False, detailed=True)` census. `hbjson` decodes on the caller floor — a short pure decode earns no crossing — while the `bim` arm's repeated `ifcopenshell.geom.create_shape` sweep is the genuinely long native phase, so `_derived` crosses as `Kernel.of(_derived, KernelTrait.HOSTILE)` with picklable args: SPF bytes and the lane's pickled pulse tap in, the pure-Python honeybee `Model` graph pickled home, the derivation content-keyed and run-scoped so the trait's `WORKER` death retry stays sound. `assign` re-runs the same census — honeybee invokes every registered extension's checks automatically, so the energy-validity rows ride it — and the returned successor re-keys because assignment changed the document bytes. Fenestration mint walks exterior walls only, a zero ratio skipping the face.
-- Auto: every fold returns `(model, receipt)` built where the facts live, so no caller hand-asserts a census; `_derived` beats one `GeometryPulse.BEM` `PulseBeat` per space through the lane conduit, so an unbounded per-space sweep reports monotonic progress under the caller's composition; `bench` wraps the whole `of` crossing through `bench_seam`, keyed by modality and space census so a latency row compares like-for-like across model sizes; structural emptiness refuses as the band's own `EnergyFault.empty_model` case carrying the modality and the census, never a coordinate string the fence flattens; a missing standards identifier resolves a typed fault naming the identifier and the registry kind, never a bare `KeyError` — the extension-dependent `building_program_type_by_identifier` fault names the absent `honeybee-energy-standards` backend; orientation binning derives from `angles_from_num_orient`, so four/eight/sixteen-bin policies are one integer, never a compass ladder.
+- Auto: every fold returns `(model, receipt)` built where the facts live, so no caller hand-asserts a census; `_derived` beats one `GeometryPulse.BEM` runtime `StageMark` per space through the lane conduit under this page's own closed `ModelStage` roster, so an unbounded per-space sweep reports monotonic progress under the caller's composition; `bench` wraps the whole `of` crossing through `bench_seam`, keyed by modality and space census so a latency row compares like-for-like across model sizes; structural emptiness refuses as the band's own `EnergyFault.empty_model` case carrying the modality and the census, never a coordinate string the fence flattens; a missing standards identifier resolves a typed fault naming the identifier and the registry kind, never a bare `KeyError` — the extension-dependent `building_program_type_by_identifier` fault names the absent `honeybee-energy-standards` backend; orientation binning derives from `angles_from_num_orient`, so four/eight/sixteen-bin policies are one integer, never a compass ladder.
 - Receipt: `check_all` rows are MEASURED admission evidence, not a fatal raise — the census and its per-code roster ride `ModelReceipt`, the graduation residual is the validation-error fraction over the element census, and the CALLER's ceiling owns the verdict, which is the only shape under which that residual can be anything but a zero no producer measured. Structural emptiness stays the raise: a decode or derivation minting no rooms has nothing to simulate, so it refuses at the census rather than graduating on a `1.0` residual nobody set a ceiling for. `spec` is the evidence subject — the wire key beside the modality — so `graduates` derives its own `ContentKey` and takes none.
 - Packages: `honeybee-core`, `honeybee-energy`, `ladybug-geometry`, and `ifcopenshell` per the fence imports. Two standards backends merge behind the `lib` loaders — `honeybee-standards` defaults floor always resolvable, `honeybee-energy-standards` ASHRAE/DOE vintage sets when installed — never a direct standards-JSON read; `honeybee-schema` validates the HBJSON dict upstream of C#, and no parallel `msgspec` model family mirrors it.
 - Growth: a new fenestration strategy is one `BemPolicy` row family — dimension-driven apertures ride `apertures_by_width_height_rectangle` as one more policy case; shading mints (`louvers_by_count`/`overhang`) enter as `EnergySpec` rows the shared `assigned` fold picks up at both tiers in one edit; a new HVAC template or vintage is zero code — the registry and its `equipment_type` vocabulary are upstream data; a new standards kind is one `RESOLVERS` row; the daylight modality (`honeybee-radiance` and sensor grids) enters only through a future package-admission motion; dragonfly-exploded models arrive as ordinary `hbjson` payloads from `energy/district`, no third modality.
@@ -38,19 +38,19 @@ from msgspec import json as msgjson
 lazy import ifcopenshell
 lazy import ifcopenshell.geom
 
-from rasm.geometry.energy.climate import EnergyFault, LateBound
+from rasm.geometry.energy.climate import ENERGY_REGIMES, EnergyFault, EnergyRegime, LateBound, RegimeKey
 from rasm.geometry.graduation import (
     EvidenceScope,
     GeometryHandoff,
     GeometryPulse,
     GeometrySubject,
-    PulseBeat,
     bench_seam,
     bench_subject,
     evidence_key,
     evidence_run,
 )
 from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.hooks import StageMark
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy, PulseFact, pulsed
 from rasm.runtime.profiles import BenchmarkReceipt
@@ -61,6 +61,11 @@ if TYPE_CHECKING:  # AGPL band: annotations resolve here and never at runtime; e
     from honeybee.model import Model
 
 # --- [TYPES] ----------------------------------------------------------------------------
+
+
+class ModelStage(StrEnum):
+    # this producer's one CLOSED mark position; `StageMark.stage` is erased at the point and closed HERE.
+    SPACE = "space"  # one beat per derived space in an unbounded per-space sweep
 
 
 class StandardsKind(StrEnum):
@@ -167,15 +172,16 @@ class ModelReceipt(Struct, frozen=True):
         # subject, so re-admitting identical bytes graduates onto the same evidence row.
         return b"|".join((self.content_key.memory, self.source.encode()))
 
-    def graduates(self, ceiling: float) -> GeometryHandoff:
+    def graduates(self, regime: EnergyRegime = ENERGY_REGIMES[RegimeKey.MODEL_VALIDITY]) -> GeometryHandoff:
         # measured admission evidence: the validation-error fraction over the element census, which is a real reading
-        # only because the census gate records rows instead of raising on them.
+        # only because the census gate records rows instead of raising on them. The bar arrives as a CITED regime row
+        # rather than an anonymous float, so the admission verdict names the residual it graded.
         census = max(self.rooms + self.faces + self.apertures, 1)
         return GeometryHandoff.of(
             GeometrySubject.BUILDING_ENERGY,
             evidence_key(GeometrySubject.BUILDING_ENERGY, self.spec()),
             {"invalid": self.check_rows / census, "rooms": float(self.rooms), "apertures": float(self.apertures)},
-            {"invalid": ceiling},
+            {"invalid": regime.bar()},
         )
 
 
@@ -372,7 +378,7 @@ def _derived(spf: bytes, policy: BemPolicy, tap: "Queue[PulseFact | None]") -> "
         name = getattr(space, "GlobalId", f"{policy.identifier}_space_{ordinal}")
         # the sweep's only progress signal: one beat per shape so an unbounded per-space native phase reports
         # monotonic extent through the parent-side conduit drain.
-        pulsed(tap, GeometryPulse.BEM, PulseBeat(stage="space", done=ordinal + 1, total=len(spaces)))
+        pulsed(tap, GeometryPulse.BEM, StageMark(stage=ModelStage.SPACE.value, done=ordinal + 1, total=Some(len(spaces))))
         return Room.from_polyface3d(f"{policy.identifier}_{name}", polyface, policy.roof_angle, policy.floor_angle, policy.ground_depth)
 
     rooms = [room_of(space, ordinal) for ordinal, space in enumerate(spaces)]

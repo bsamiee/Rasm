@@ -261,7 +261,8 @@ const _scoped = (store: (typeof _stores)[keyof typeof _stores], app: string): Re
 - Law: every row pins its rendered name — a Helm `fullname` helper collapses to the release name only when that name CONTAINS the chart name, so a release named for its signal renders `<release>-<chart>` and any endpoint spelled from the release name alone resolves to nothing; each `_charts` row carries a `fullname` projection naming the values path its own chart reads (nested where the chart nests it), `row()` folds it into every install, and `_urls` derives every address from the same pinned name — the projection and the render agree by proof, never by chart-name arithmetic.
 - Law: an operator-rendered Service is a second naming authority — a chart whose workload is a custom resource hands naming to its controller, which decorates the pinned name with its own prefix, so `fullnameOverride` pins the CR and not the address; the `service` projection is the row's own answer for that gap, identity where the chart renders its own Service and the controller's decoration where it does not, and `_urls` reads the projection rather than assuming the two names agree.
 - Law: a residence is REALIZED, never merely selected — `door` answers the read address and the arming in one column, so a row addressing a plane this stack never planted answers `None` and leaves the resident set, and the published address, the render coordinate, the board driver, the gateway exporter fan, and the sealed rows all read that one realized set; the cold tail's arming is the object plane, since this tier plants nothing for it, and selecting it on a stack carrying none realizes no residence rather than publishing a coordinate over a prefix nothing holds; answering arming on a second column beside a door that already knows it is how a plane comes to be provisioned in one fold and empty in the next.
-- Law: residences install as chart rows like any backend — `clickhouse` installs while `spec.profile.observe.analytics` selects it, its schema is branch-owned DDL the tier plants as an init-script ConfigMap, and the collector's `clickhouse` exporter runs `create_schema: false` against it; the exporter's default DDL leaves every attribute in a `Map` outside the sort key, so a query filtering one high-cardinality tenant reads granules holding every other tenant, which is why the tenant read leads `ORDER BY` and the attribute-key columns carry their own bloom-filter indices.
+- Law: the wide-event column roster is DERIVED, never transcribed — `Olap.events` at `data` `lane/olap` owns each relation's name, column list, column ORDER, and the neutral token per column, and this tier binds one `Record<Olap.WideToken, string>` type table plus its own sort-key tail, indices, partition expression, and TTL; a second column list here would be a hand copy whose prose claims a compile break the types never carried, and a token that plane starts spelling refuses at this side's own declaration instead.
+- Law: residences install as chart rows like any backend — `clickhouse` installs while `spec.profile.observe.analytics` selects it, its schema is DDL the tier renders and plants as an init-script ConfigMap, and the collector's `clickhouse` exporter runs `create_schema: false` against it; the exporter's default DDL leaves every attribute in a `Map` outside the sort key, so a query filtering one high-cardinality tenant reads granules holding every other tenant, which is why the tenant read leads `ORDER BY` and the attribute-key columns carry their own bloom-filter indices.
 - Law: a residence answers TWO signal questions and they are different questions — `signals` censuses what the plane HOLDS and the `exporter` column's own `routes` bounds what the gateway writes into it, so a plane one owner fills answers both alike while a plane two owners fill answers them differently; collapsing the pair reports every residence as wide-event-only, because no collector leg frames a metric point anywhere and the census then inherits the routing answer.
 - Law: columnar ingest at the collector carries logs and traces alone — those two carry the unbounded attribute shape the family exists for, the selected `_stores` row answers alerting because that is what a TSDB is for, and profiles stay on Pyroscope until Tier-0's own swap point arms; the bound rides `routes` rather than the census, so a residence whose plane later holds a third relation gains no gateway traffic from the widening.
 - Law: the cold tail HOLDS the metric-point relations beside the wide-event pair — a `data` branch writer plants and fills them where this tier plants nothing, so the census reads three signals against an exporter column that reads `None`, and a board joining series to wide events resolves that join on ONE plane wherever the row is realized; a stack realizing the interactive plane alone joins across two, which is what its own `degrade` already states, and a reader picks the plane off the census rather than off which branch owns the bytes.
@@ -291,14 +292,16 @@ const _scoped = (store: (typeof _stores)[keyof typeof _stores], app: string): Re
 - Law: SDK-less workloads earn RED metrics as a chart row — the `ebpf` row installs the OpenTelemetry eBPF instrumentation chart (`opentelemetry-ebpf-instrumentation` from the collector's own repository), and `config.data.otel_traces_export.endpoint` with `config.data.otel_metrics_export.endpoint` bind explicitly to the tier's one `collectorEndpoint`; the row demands privileged eBPF host access, so it binds only where the deploy target grants it and the toggle is spec data, never a default.
 - Law: profiles ride the push path — Pyroscope ingests the runtime SDKs' push streams and the collector's profiles pipeline; the row is present-by-default and its removal is a spec delta, so the LGTM plane carries four signals, not three.
 - Law: charts render, releases do not exist — `helm.v4.Chart` keeps every rendered resource under Pulumi diff and CrossGuard visibility; `helm.v3.Release` is reached only where a chart demands true release lifecycle, and no row here does.
-- Growth: a new signal backend is one `_charts` row with its endpoint projections; a collector component is one `_plan` component row and one pipeline mention; a residence is one `_RESIDENCE` row answering `chart`, `door`, `exporter`, and `plugin` — the chart earning its own install with the values body and init-script DDL that install mounts, the door earning realization and the published address, the exporter earning its component id, its write seat, and its egress dialect across the whole pipeline fan, and the plugin earning the board datasource with its dialect and dialed coordinates, each `None` stating the half this plane leaves to another owner; a new egress policy axis is one field on the shared `_POLICY` block every exporter dialect then answers.
-- Boundary: the app-side OTLP export composition is the runtime telemetry plane's and arrives only as the env row; board content is `#BOARD_APPLY`'s upstream data; residence table shape and query dialect are the data planes' — this tier plants the DDL and publishes the door; the chart values and config vocabularies are the external contracts `.api/opentelemetry-collector.md` and `.api/clickhouse.md` own.
+- Growth: a wide-event relation or column lands at `Olap.events` and reaches this tier with no edit, while a NEW token lands as one `_T` row the bound record demands; a new signal backend is one `_charts` row with its endpoint projections; a collector component is one `_plan` component row and one pipeline mention; a residence is one `_RESIDENCE` row answering `chart`, `door`, `exporter`, and `plugin` — the chart earning its own install with the values body and init-script DDL that install mounts, the door earning realization and the published address, the exporter earning its component id, its write seat, and its egress dialect across the whole pipeline fan, and the plugin earning the board datasource with its dialect and dialed coordinates, each `None` stating the half this plane leaves to another owner; a new egress policy axis is one field on the shared `_POLICY` block every exporter dialect then answers.
+- Boundary: the app-side OTLP export composition is the runtime telemetry plane's and arrives only as the env row; board content is `#BOARD_APPLY`'s upstream data; the wide-event relation, column, and token roster is `data` `lane/olap`'s `Olap.events` and the query dialect is the data planes' — this tier renders that roster into ClickHouse, plants the DDL, and publishes the door; the chart values and config vocabularies are the external contracts `.api/opentelemetry-collector.md` and `.api/clickhouse.md` own.
+- Packages: `@pulumi/kubernetes`; `@pulumi/pulumi` (`Input`, `Output`, `interpolate`); `effect` (`Array`, `Duration`, `Option`, `Record`, `Schema`); `@rasm/ts/core` (`Board`, `Convention`, `Reliability`, `Shape.Record`); `@rasm/ts/data` (`Olap.events`, `Olap.Relation`, `Olap.WideToken`); `../program/spec.ts` (`Tier`, `StackSpec`).
 
 ```typescript signature
 import * as k8s from "@pulumi/kubernetes"
 import * as pulumi from "@pulumi/pulumi"
 import { Array, Duration, Option, Record, Schema } from "effect"
-import { Board, Convention, Reliability } from "@rasm/ts/core"
+import { Board, Convention, Reliability, Shape } from "@rasm/ts/core"
+import { Olap } from "@rasm/ts/data"
 import { Tier, type StackSpec } from "../program/spec.ts"
 
 const _OWN = (name: string) => name // the chart renders its own Service under the pinned fullname
@@ -636,7 +639,7 @@ const _PIPELINE = Schema.String.pipe(Schema.pattern(/^(?:traces|metrics|logs|pro
 // the chart's own external contract and a twin declared here drifts on the next pin. Exporters carry `_Egress` instead
 // precisely because the tier authors those bodies off its own closed dialect roster.
 const _Bag = Schema.Record({ key: Schema.String, value: Schema.Unknown })
-const _Components = Schema.Record({ key: _COMPONENT, value: _Bag })
+const _Components = Shape.Record(_COMPONENT, _Bag)
 
 const _Queue = Schema.Struct({
   enabled: Schema.Boolean,
@@ -731,14 +734,14 @@ const _Service = Schema.Struct({
     logs: Schema.Struct({ level: Schema.Literal("DEBUG", "INFO", "WARN", "ERROR"), encoding: Schema.Literal("json", "console"), processors: Schema.NonEmptyArray(_Bag) }),
     traces: Schema.Struct({ processors: Schema.NonEmptyArray(_Bag) }),
   }),
-  pipelines: Schema.Record({ key: _PIPELINE, value: _Pipeline }),
+  pipelines: Shape.Record(_PIPELINE, _Pipeline),
 })
 
 class Collector extends Schema.Class<Collector>("Collector")({
   receivers: _Components,
   processors: _Components,
   connectors: _Components,
-  exporters: Schema.Record({ key: _COMPONENT, value: _Egress }),
+  exporters: Shape.Record(_COMPONENT, _Egress),
   extensions: _Components,
   service: _Service,
 }).pipe(Schema.filter((config) => {
@@ -795,8 +798,9 @@ const _COLLECTOR = {
 const _LAKE = { catalog: "lake" } as const
 
 // One residence anchor spanning both ends: the database the DDL creates, the TTL its tables carry, the ports each end
-// dials, the table names the exporter's INSERT statements address, and the plugin the board plane queries through —
-// so the exporter row, the planted DDL, and the panel target all read one source.
+// dials, and the plugin the board plane queries through — so the exporter row, the planted DDL, and the panel target
+// all read one source. Relation names are NOT here: `data` `lane/olap` owns the wide-event roster and this tier
+// derives them off it, because a name spelled on both sides of a branch seam drifts the day either side renames.
 const _COLUMNAR = {
   database: "rasm",
   port: { native: 9000, http: 8123 },
@@ -819,10 +823,6 @@ const _COLUMNAR = {
   // and no coordinate this tier can spell, so the mask is the private space every CNI allocates inside and the
   // `podSelector` fence stays the estate's real edge; the default user keeps its loopback mask beside these rows.
   reach: ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"],
-  // Two tables, both branch-owned. The metric signal never enters: `_stores` answers health and alerting, the residence
-  // answers evidence and history, and the exporter's own metric support is alpha — so the residence takes the two
-  // signals whose wide-event shape is the reason it exists and declares the third on its degradation column.
-  tables: { logs: "otel_logs", traces: "otel_traces" },
   // Reading ends need two clauses to write a pruning predicate: the partition expression bounds the parts a time
   // window opens, and the tenant expression LEADS the sort key so a single-tenant filter prunes granules instead of
   // reading every other tenant's. Both live here over inside the DDL string alone, because planter and reader are
@@ -833,6 +833,12 @@ const _COLUMNAR = {
 
 // Gateway write seat for the interactive plane: the native protocol port, distinct from the HTTP read door in both
 // port and protocol, so the exporter dials what its own driver speaks and no reader derives one address from the other.
+// The two relations this tier plants, read off the roster that owns their columns rather than restated beside it:
+// the exporter's write target, the planted DDL, and the published relation contract move together on one rename.
+// The metric signal never enters: `_stores` answers health and alerting, the residence answers evidence and history,
+// and the exporter's own metric support is alpha, so the third signal rides the degradation column instead.
+const _TABLES = Record.map(Olap.events, (row) => row.table)
+
 const _seat = (bind: { readonly release: string; readonly namespace: pulumi.Input<string> }): pulumi.Output<string> =>
   pulumi.interpolate`tcp://${_charts.clickhouse.service(`${bind.release}-clickhouse`)}.${bind.namespace}.svc:${_COLUMNAR.port.native}`
 
@@ -892,8 +898,8 @@ const _column = (endpoint: string, ttl: string) => ({
   async_insert: true as const,
   compress: "zstd" as const,
   ttl,
-  logs_table_name: _COLUMNAR.tables.logs,
-  traces_table_name: _COLUMNAR.tables.traces,
+  logs_table_name: _TABLES.logs,
+  traces_table_name: _TABLES.traces,
 })
 
 const _arrow = (endpoint: string) => ({
@@ -936,71 +942,44 @@ const _drain = (brokers: ReadonlyArray<string>) => ({
 
 // --- [RESIDENCE_DDL]
 
-// Branch-owned DDL, planted as the residence chart's init script. Exactly three clauses diverge from the exporter's
-// shipped template: the tenant expression leads `ORDER BY` so a single-tenant filter prunes granules instead of
-// reading every other tenant's, the attribute key and value indices land together so key existence prunes before any
-// value comparison, and the TTL drops whole parts. Column rosters stay the exporter's own — the INSERT statements it
-// generates address these names positionally, so a rename or a reorder breaks ingest at the first batch.
+// Branch-owned DDL, planted as the residence chart's init script. The column roster is NOT branch-owned: `Olap.events`
+// carries every wide-event relation's name, its column list, that list's ORDER, and the neutral token each column
+// rides, so this side spells the dialect and nothing else. Exactly three clauses diverge from the exporter's shipped
+// template: the tenant expression leads `ORDER BY` so a single-tenant filter prunes granules instead of reading every
+// other tenant's, the attribute key and value indices land together so key existence prunes before any value
+// comparison, and the TTL drops whole parts.
 const _Z = "CODEC(ZSTD(1))"
-const _T = {
+
+// ClickHouse's answer to the shared column alphabet, bound to the token subset the roster actually uses: a token that
+// plane starts spelling refuses HERE, at this declaration, which is the compile break a hand transcription of the
+// column list only ever asserted. Types are the exporter's own, because its generated INSERT writes these columns.
+const _T: Record<Olap.WideToken, string> = {
   stamp: "DateTime64(9) CODEC(Delta(8), ZSTD(1))", // monotonic within a part, so delta before zstd is what makes the column small
   text: `String ${_Z}`,
   low: `LowCardinality(String) ${_Z}`,
   map: `Map(LowCardinality(String), String) ${_Z}`,
-  keys: `Array(LowCardinality(String)) ${_Z}`,
   byte: "UInt8",
   span: `UInt64 ${_Z}`,
   stamps: `Array(DateTime64(9)) ${_Z}`,
   names: `Array(LowCardinality(String)) ${_Z}`,
   texts: `Array(String) ${_Z}`,
   maps: `Array(Map(LowCardinality(String), String)) ${_Z}`,
-} as const
+}
 
-// Rows transcribe the exporter's shipped `internal/sqltemplates` at the pinned version and carry its column ORDER
-// verbatim, because the generated INSERT addresses this list positionally. The `*AttributesKeys` trio is one feature
-// and lands whole or not at all — a key-existence index over two of three columns prunes half the predicates.
-const _DDL = {
-  logs: {
-    table: _COLUMNAR.tables.logs,
-    map: "LogAttributes",
-    after: ["ServiceName", "SeverityText"],
-    text: "Body",
-    columns: [
-      ["Timestamp", _T.stamp], ["TraceId", _T.text], ["SpanId", _T.text], ["TraceFlags", _T.byte],
-      ["SeverityText", _T.low], ["SeverityNumber", _T.byte], ["ServiceName", _T.low], ["Body", _T.text],
-      ["ResourceSchemaUrl", _T.low], ["ResourceAttributes", _T.map], ["ScopeSchemaUrl", _T.low],
-      ["ScopeName", _T.text], ["ScopeVersion", _T.low], ["ScopeAttributes", _T.map], ["LogAttributes", _T.map],
-      ["EventName", _T.text],
-      ["ResourceAttributesKeys", _T.keys], ["ScopeAttributesKeys", _T.keys], ["LogAttributesKeys", _T.keys],
-    ],
-  },
-  traces: {
-    table: _COLUMNAR.tables.traces,
-    map: "SpanAttributes",
-    after: ["ServiceName", "SpanName"],
-    text: "SpanName",
-    columns: [
-      ["Timestamp", _T.stamp], ["TraceId", _T.text], ["SpanId", _T.text], ["ParentSpanId", _T.text],
-      ["TraceState", _T.text], ["SpanName", _T.low], ["SpanKind", _T.low], ["ServiceName", _T.low],
-      ["ResourceAttributes", _T.map], ["ScopeName", _T.text], ["ScopeVersion", _T.text], ["SpanAttributes", _T.map],
-      ["Duration", _T.span], ["StatusCode", _T.low], ["StatusMessage", _T.text],
-      ["Events.Timestamp", _T.stamps], ["Events.Name", _T.names], ["Events.Attributes", _T.maps],
-      ["Links.TraceId", _T.texts], ["Links.SpanId", _T.texts], ["Links.TraceState", _T.texts], ["Links.Attributes", _T.maps],
-      ["ResourceAttributesKeys", _T.keys], ["SpanAttributesKeys", _T.keys],
-    ],
-  },
-} as const satisfies Record.ReadonlyRecord<string, {
-  readonly table: string
-  readonly map: string
-  readonly after: ReadonlyArray<string>
-  readonly text: string
-  readonly columns: ReadonlyArray<readonly [name: string, type: string]>
-}>
+// The one wide-event fact this side owns: which columns LEAD the sort key behind the tenant expression. Column
+// identity and order answer to the producer that writes them; which of those columns a read prunes on is a read-plane
+// decision no producer can make, so this roster stays here and closes against the relation keys the roster publishes.
+const _AFTER = {
+  logs: ["ServiceName", "SeverityText"],
+  traces: ["ServiceName", "SpanName"],
+} as const satisfies Record<Olap.Relation, ReadonlyArray<string>>
 
 // Key-existence indices over both attribute planes plus a token index over the row's own free text: a predicate
-// naming a key that no granule holds is answered from the index instead of a granule read.
-const _INDEX = (row: (typeof _DDL)[keyof typeof _DDL]): ReadonlyArray<string> => [
-  ...Array.flatMap(["ResourceAttributes", "ScopeAttributes", row.map], (map) => [
+// naming a key that no granule holds is answered from the index instead of a granule read. The `*AttributesKeys` trio
+// is one feature and lands whole or not at all — a key-existence index over two of three columns prunes half the
+// predicates — so the filter reads the roster's own column names rather than a list repeated here.
+const _INDEX = (row: (typeof Olap.events)[Olap.Relation]): ReadonlyArray<string> => [
+  ...Array.flatMap(["ResourceAttributes", "ScopeAttributes", row.plane], (map) => [
     `INDEX idx_${map}_key mapKeys(${map}) TYPE bloom_filter(0.01) GRANULARITY 1`,
     `INDEX idx_${map}_value mapValues(${map}) TYPE bloom_filter(0.01) GRANULARITY 1`,
   ]),
@@ -1013,13 +992,13 @@ const _INDEX = (row: (typeof _DDL)[keyof typeof _DDL]): ReadonlyArray<string> =>
 const _ddl = (days: number): string =>
   Array.join([
     `CREATE DATABASE IF NOT EXISTS ${_COLUMNAR.database};`,
-    ...Array.map(Record.values(_DDL), (row) =>
+    ...Array.map(Record.toEntries(Olap.events), ([relation, row]) =>
       `CREATE TABLE IF NOT EXISTS ${_COLUMNAR.database}.${row.table} (`
-      + Array.join([...Array.map(row.columns, ([name, type]) => `\`${name}\` ${type}`), ..._INDEX(row)], ", ")
+      + Array.join([...Array.map(row.columns, ([name, token]) => `\`${name}\` ${_T[token]}`), ..._INDEX(row)], ", ")
       + `) ENGINE = MergeTree PARTITION BY ${_COLUMNAR.partition} `
       // tenant reads deterministically off a stored column, so it keys the primary index directly and no
       // second column, materialized twin, or projection is minted to carry what the resource map already holds
-      + `ORDER BY (${_COLUMNAR.sort}, ${Array.join([...row.after, "toUnixTimestamp(Timestamp)", "TraceId"], ", ")}) `
+      + `ORDER BY (${_COLUMNAR.sort}, ${Array.join([..._AFTER[relation], "toUnixTimestamp(Timestamp)", "TraceId"], ", ")}) `
       + `TTL toDateTime(Timestamp) + toIntervalDay(${days}) SETTINGS ttl_only_drop_parts = 1;`),
   ], "\n")
 
@@ -1341,15 +1320,15 @@ const _RBAC = [
 class Lgtm extends Tier {
   // Reading ends bind this residence RELATION CONTRACT whole: the catalog, the two planted relations, the partition
   // expression, the tenant sort-key lead every scoped read prunes on, and the evidence horizon parts drop at. Column
-  // rosters stay the exporter's own — its generated INSERT addresses them positionally — so this contract fixes what
-  // one foreign reader must agree with while ingest itself keeps proving the roster. Re-spelling any coordinate here
-  // reads a schema this tier never planted, which is why the contract crosses as one published value.
+  // rosters answer to `Olap.events`, which both ends already read, so this contract carries only what the PLANTING
+  // decided. Re-spelling any coordinate here reads a schema this tier never planted, which is why the contract
+  // crosses as one published value.
   static readonly residence = {
     catalog: _COLUMNAR.database,
     // Cold-tail catalog crosses beside it, because the object prefix this tier publishes and the DuckLake catalog
     // a reader attaches over it are ONE name a planter owes its reader.
     lake: _LAKE.catalog,
-    relations: _COLUMNAR.tables,
+    relations: _TABLES,
     partition: _COLUMNAR.partition,
     sort: _COLUMNAR.sort,
     ttlDays: _COLUMNAR.ttlDays,

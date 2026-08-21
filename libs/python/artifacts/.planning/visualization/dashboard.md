@@ -20,7 +20,7 @@ Interactivity survives the `visualization/chart/export#PREPASS` `VegaTransform` 
 - Output: one `bytes` document — a `<style>` head carrying the grid rules, one `<script>` carrying the shared runtime, each pane's own markup inside its slot, and one trailing `<script>` mounting every chart. Byte-identical output for identical input holds because every map crosses the deterministic encoder and every pane renders in declared slot order.
 - Receipt: `emit()` mints the key ONCE and captures it into the work closure, so the receipt threads the pre-run key rather than re-walking every pane's preimage and re-opening a second `content.derive` span for one artifact. `ArtifactReceipt.Dashboard(key, bytes_, panes, charts, tables, diagrams, facts)` mints the banded kind `core/receipt#RECEIPT` carries — `bytes` reaching `_METRIC` as byte volume like every sibling, the three counts stating the deck's composition, and the `pane` band folding each chart pane's pre-pass evidence so a row-limited or interactivity-broken transform stays addressable evidence rather than a silent degradation. `_emit` then awaits `Journal.record` over `receipt.evidence()` — one `OPERATIONAL` fact for the COMPOSITION, its diff naming the deck's own counts and byte volume where each pane's producer already recorded its own artifact; the band never enters that diff, and the seat is that awaitable fold because recording suspends where `contribute` cannot.
 - Span: the composition's one native crossing carries interior stages the lane aspect cannot attribute — the shared-runtime bundle beside every pane's pre-pass — so this owner opens exactly one span and folds its egress INSIDE that scope through the runtime `faulted`, which marks `ERROR` and emits the correlated `fault.facts()` line before the span closes. The fold is the charter's, composed rather than re-spelled: a page-local twin forks the one behavior every span-carrying producer owes.
-- Packages: `vl-convert-python` (`javascript_bundle` the one shared runtime, `get_vegalite_versions` the pin); `vegafusion` reached only through `visualization/chart/export#PREPASS` `VegaTransform`; `msgspec` (`Struct` the owners, `json.Encoder(order="deterministic")` the canonical preimage and the spec bodies); `expression` (`Block`/`Map` the folds, `tagged_union` the pane and fault families); `string.templatelib` (the markup `Template` this page folds); `opentelemetry-api` (the one span, opened through the runtime-versioned `scoped` triple); runtime (`identity.ContentIdentity`/`ContentKey`, `journal.Journal` the durable seat's one writer, `lanes.LanePolicy`, `workers.Kernel`/`KernelTrait`, `faults.RuntimeRail`/`BoundaryFault`/`scoped`/`faulted` — the charter's error fold composed, never re-spelled, so this page owns no logger); `core/plan#PLAN` (`Admission`/`ArtifactWork`), `core/receipt#RECEIPT` (`ArtifactReceipt`). No `great_tables`, `altair`, `lxml`, or diagram surface imports — their bytes arrive finished.
+- Packages: `vl-convert-python` (`javascript_bundle` the one shared runtime, `get_vegalite_versions` the pin); `vegafusion` reached only through `visualization/chart/export#PREPASS` `VegaTransform`; `msgspec` (`Struct` the owners, `json.Encoder(order="deterministic")` the canonical preimage and the spec bodies); `expression` (`Block` the folds, `tagged_union` the pane and fault families); `string.templatelib` (the markup `Template` this page folds); `opentelemetry-api` (the one span, opened through the runtime-versioned `scoped` triple); runtime (`identity.ContentIdentity`/`ContentKey`, `journal.Journal` the durable seat's one writer, `lanes.LanePolicy`, `workers.Kernel`/`KernelTrait`, `faults.RuntimeRail`/`BoundaryFault`/`FaultRow`/`scoped`/`faulted` — the charter's error fold composed, never re-spelled, so this page owns no logger); `core/plan#PLAN` (`Admission`/`ArtifactWork`), `core/receipt#RECEIPT` (`ArtifactReceipt`). No `great_tables`, `altair`, `lxml`, or diagram surface imports — their bytes arrive finished.
 - Growth: a new pane kind is one `DashPane` case, one `_paned` arm, and one receipt count; a new grid axis is one `Grid` field read by the style fold; a new escape destination is one `Destination` member with its `_ESCAPE` row, an absent row failing at type-check rather than emitting unescaped; a new embed knob is one `EmbedOptions` field the mount projection spreads; a new pre-pass mode arrives free, the pre-pass owner already dispatching it.
 - Boundary: no chart authoring, no table building, no diagram layout, and no rasterization — every pane's producer owns its own render, content key, and receipt, and this owner composes their bytes. No live server, no CDN reference, no WebSocket, and no external fetch: embedding is the invariant rather than a policy, so a `ChartRenderPolicy` carrying `allowed_base_urls` refuses `<fenced-html>` exactly as `visualization/chart/export#EXPORT` refuses it, since a browser-side render enforces no fence. `great_tables` `inline_css=True` stays the rejected pane source — it needs the unadmitted `css-inline` distribution while the default scoped `<style>` already travels inside the emitted div. Every dynamic value reaches markup through a `Template` interpolation carrying its destination, so an f-string, `%`-format, or `str.format` splice is the rejected assembly form, and a per-pane `vegalite_to_html` document the rejected composition form.
 
@@ -40,6 +40,7 @@ from expression.extra.result import traverse
 from msgspec import Struct, json, structs
 from opentelemetry import trace
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.visualization.chart.export import (
@@ -52,7 +53,7 @@ from rasm.artifacts.visualization.chart.export import (
     pin_version,
 )
 from rasm.artifacts.visualization.chart.spec import ChartSpec
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, faulted, scoped
+from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, faulted, rostered, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
@@ -79,6 +80,16 @@ _SCRIPT_SAFE: Final[tuple[tuple[str, str], ...]] = (
 _MARKUP: Final[tuple[tuple[str, str], ...]] = (("&", "&amp;"), ("<", "&lt;"), (">", "&gt;"))
 _ATTRIBUTE: Final[tuple[tuple[str, str], ...]] = (*_MARKUP, ('"', "&quot;"), ("'", "&#x27;"))
 
+
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's ONE raise anchor. The pane slot rides as a NAMED coordinate rather than forking the subject per pane,
+# and the pre-pass cause beside it; TRANSIENT, since a refused transform clears once the pane's spec is repaired.
+DASH_PREPASS: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.DASHBOARD, point="prepass", arm="boundary", defect="prepass-refused", retriability=TRANSIENT, slots=("pane", "cause")
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([DASH_PREPASS]))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class Destination(StrEnum):
@@ -269,7 +280,7 @@ class DashboardPlan(Struct, frozen=True):
             case DashPane(tag="chart", chart=(slot, _key, spec, options)):
                 staged = VegaTransform.of(spec.vega, ExportFormat.HTML, self.policy.transform, self.policy.retention).apply(spec.vega)
                 return staged.map(lambda pre: (slot.slot, pre.spec, options, pre.evidence)).map_error(
-                    lambda fault: BoundaryFault(boundary=(f"dashboard.prepass.{slot.slot}", fault))
+                    lambda fault: DASH_PREPASS.raised(slot.slot, fault)
                 )
             case _ as unreachable:
                 assert_never(unreachable)

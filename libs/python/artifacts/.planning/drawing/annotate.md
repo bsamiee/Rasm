@@ -39,8 +39,9 @@ from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
-from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.runtime.faults import TRANSIENT, FaultRow, RuntimeRail, async_boundary, rostered
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.drawing.regime import INGRESS, LayerName, LayerSchema, LineWeight, Terminator
@@ -103,6 +104,16 @@ class Masking(StrEnum):
     NONE = "none"
     PAPER = "paper"
 
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's ONE lift anchor. The per-request infix leaves the SUBJECT and stays request data — one fence
+# spans every annotation target, so the coordinate is the fence rather than N subjects a reader cannot enumerate.
+# TRANSIENT: a DXF write or a render refusal is a defect a re-issue may clear.
+ANNOTATE_CROSS: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.ANNOTATE, point="cross", arm="boundary", defect="annotate-fold", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([ANNOTATE_CROSS]))
 
 # --- [VOCABULARY] -----------------------------------------------------------------------
 @tagged_union(frozen=True)
@@ -228,7 +239,7 @@ class Annotate(Struct, frozen=True):
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
         # Receipt and layer projections thread one pre-run key.
-        settled = (await async_boundary(f"drawing.annotate.{self.target}", self._crossed, catch=_FAULTS)).map(lambda pair: pair[1])
+        settled = (await async_boundary(ANNOTATE_CROSS, self._crossed, catch=_FAULTS)).map(lambda pair: pair[1])
         # A drawn annotation set is production trail, so the fact is `OPERATIONAL` and its diff is the mark count,
         # lowering, and measured span the receipt already declares, with the byte volume charging `STORAGE`.
         # Recording SUSPENDS, so the seat is this awaitable fold and never `contribute`; `layered()` shares the same
@@ -241,7 +252,7 @@ class Annotate(Struct, frozen=True):
 
     async def layered(self) -> RuntimeRail[LayerPlan]:
         # Engine rows project into one layer tree.
-        return (await async_boundary(f"drawing.annotate.{self.target}", self._crossed, catch=_FAULTS)).map(
+        return (await async_boundary(ANNOTATE_CROSS, self._crossed, catch=_FAULTS)).map(
             lambda pair: LayerPlan(schema=LayerSchema.ISO13567, roots=pair[0])
         )
 

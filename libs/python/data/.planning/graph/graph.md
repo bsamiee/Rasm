@@ -16,7 +16,7 @@ Payload identity is the railed `ContentIdentity` fingerprint over the canonical 
 - Entry: `analyze` absorbs a lone `GraphAlgorithm` or a `Block` over one `match` at the head — the arity is the value's shape, the `Disposition` selects the batch output shape through the `@overload` ladder and is inert for a lone algorithm, so the input shape and the disposition together carry the output type. A non-node-keyed result case carries no per-node row, so `frame` names the case as non-node-keyed rather than minting a degenerate frame; `write` routes the `_EGRESS` codec directly on the source backend, never through the analysis-coercion path.
 - Auto: the bare-name rustworkx members dispatch on graph subtype, so the owner never names the `graph_*`/`digraph_*` typed forms; the dense matrices stay `npt.NDArray[np.float64]` so they fold straight into the tensor carriers.
 - Receipt: the content key derives once at admission from the canonical node-link wire and the receipt reuses it — an unchanged graph keys byte-stable, an added edge re-admits to a new key; the algorithm receipt is typed rail evidence, never product graph-database state. `contribute` projects node/edge counts onto the runtime `Metrics.record` arm under `domain="graph"` keyed by algorithm, and `_one` opens the kernel span — the no-scrape analysis engine's whole observability surface, the runtime fence marking the span on a failed leg.
-- Packages: `pyarrow` and the GPL `igraph` each bind one module-scope `lazy import`, so the codec-only graph path never loads Arrow and a run that never reaches the community split never links the igraph C core — `_frame` and `_ig_from` are their only dereference sites.
+- Packages: `pyarrow` and the GPL `igraph` each bind one module-scope `lazy import`, so the codec-only graph path never loads Arrow and a run that never reaches the community split never links the igraph C core. Dereference is confined to the folds that already need the binding — `_frame` and `_arrow_raises` for Arrow, `_ig_from` and the two catch resolvers for the C core — and each catch resolves at the CALL for exactly that reason: a module-scope `Final[Catch]` naming a provider's exception class links that provider at import, on every run, which is the confinement the `lazy` bind exists to hold.
 - Growth: a new algorithm is one `GraphAlgorithm` case plus one `_run_rx` arm; a new community algorithm one `IG_COMMUNITY` row; a new centrality metric one `RX_CENTRALITY` row; a new egress one `GraphFormat` row plus one `_EGRESS` codec row; a new layout one `LayoutKind` row. A networkx `@_dispatchable` accelerator lands as one `backend=`/`nx.config.backend_priority` policy on the codec lane when such a backend enters the manifest roster, never a second analysis kernel — a phantom accelerator axis claimed but unwired is the rejected form. Deferred rustworkx residue is the named set — VF2 isomorphism (`vf2_mapping`/`is_isomorphic`), the `rustworkx.generators` builders, the DOT/Matrix-Market IO codecs, group centrality, edge coloring — each one case plus one arm when a consumer names it.
 - Boundary: the graph plane produces the node-keyed enrichment frame; the relational join belongs to the tabular plane, never a graph-database node table re-minted here. `NodeId` is never widened to `Hashable` to admit a networkx analysis kernel — conversion keeps it the rx `int`. No product collaboration store, no bridge lifecycle, no compute numeric trio.
 
@@ -32,7 +32,7 @@ import msgspec
 import networkx as nx
 import numpy as np
 import rustworkx as rx
-from expression import case, tag, tagged_union
+from expression import Error, Ok, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 from opentelemetry import trace
@@ -40,7 +40,20 @@ from opentelemetry import trace
 lazy import igraph
 lazy import pyarrow as pa
 
-from rasm.runtime.faults import BoundaryFault, Disposition, RuntimeRail, boundary, scoped, traversed
+from rasm.data.tabular.interop import DataLeg
+from rasm.runtime.faults import (
+    TERMINAL,
+    BoundaryFault,
+    Catch,
+    Depth,
+    Disposition,
+    FaultRow,
+    RuntimeRail,
+    boundary,
+    rostered,
+    scoped,
+    traversed,
+)
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import Receipt
@@ -87,6 +100,63 @@ class LayoutKind(StrEnum):
     SPRING = "spring"
     CIRCULAR = "circular"
     KAMADA_KAWAI = "kamada_kawai"
+
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+# rustworkx publishes NO exception root — every one of its twelve derives from `Exception` directly — so the kernel
+# set names them individually rather than resting on a base that does not exist. `TypeError` is the directed-only
+# misuse the `pagerank`/`hits` arms already state, and `_as_rx`'s coercion seam reaches networkx, whose whole taxonomy
+# does root at `NetworkXException`. The GPL row is NOT here by law: see `_kernel_raises`.
+_RX_RAISES: Final[Catch] = (
+    rx.DAGHasCycle,
+    rx.DAGWouldCycle,
+    rx.FailedToConverge,
+    rx.GraphNotBipartite,
+    rx.InvalidMapping,
+    rx.InvalidNode,
+    rx.JSONSerializationError,
+    rx.NegativeCycle,
+    rx.NoEdgeBetweenNodes,
+    rx.NoPathFound,
+    rx.NoSuitableNeighbors,
+    rx.NullGraph,
+    nx.NetworkXException,
+    TypeError,
+    ValueError,
+)
+
+# this module's whole raise roster under its one `DataLeg` member. Every row is TERMINAL: a kernel run, a frame
+# lowering, and a codec are pure transforms over an admitted graph, so a re-issue over the same payload refuses
+# identically and no re-offer clears any of them. The two `config` rows are this owner's OWN refusals and carry
+# `slots`, so each names its coordinate through `raised`; the `boundary` rows are fence anchors alone and declare
+# none, since a converted provider raise fills its detail from the cause it carries.
+GRAPH_ANALYZE: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.GRAPH, point="analyze", arm="boundary", defect="kernel", retriability=TERMINAL
+)
+GRAPH_FRAME: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.GRAPH, point="frame", arm="boundary", defect="frame-lowering", retriability=TERMINAL
+)
+GRAPH_UNFRAMED: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.GRAPH, point="frame.index", arm="config", defect="no-index-row", retriability=TERMINAL, slots=("result",)
+)
+GRAPH_EGRESS: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.GRAPH, point="egress", arm="boundary", defect="codec", retriability=TERMINAL
+)
+ORG_BUILD: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.GRAPH, point="organization", arm="boundary", defect="containment-build", retriability=TERMINAL
+)
+ORG_ORPHANED: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.GRAPH, point="organization.containment", arm="config", defect="orphan-containment", retriability=TERMINAL, slots=("keys",)
+)
+RAISES: Final[Block[FaultRow[DataLeg]]] = rostered(Block.of_seq([
+    GRAPH_ANALYZE,
+    GRAPH_FRAME,
+    GRAPH_UNFRAMED,
+    GRAPH_EGRESS,
+    ORG_BUILD,
+    ORG_ORPHANED,
+]))
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -141,11 +211,15 @@ class GraphAlgorithm:
         "louvain",
         "infomap",
     ] = tag()
-    bfs: NodeId = case()
+    # the three REACHABILITY rows carry `(source, bound)`: the walk that answers them measures a hop distance per
+    # node, so the bound is the runtime `Depth` every walk in the branch shares and the distance leaves as evidence
+    # on the `layered` result rather than being discarded. `Depth(fixpoint=None)` is the whole closure — what these
+    # rows answered before the bound existed — and a bounded value scopes the neighbourhood without a max-int spin.
+    bfs: tuple[NodeId, Depth] = case()
     dfs: NodeId | None = case()
     topo_sort: None = case()
-    ancestors: NodeId = case()
-    descendants: NodeId = case()
+    ancestors: tuple[NodeId, Depth] = case()
+    descendants: tuple[NodeId, Depth] = case()
     shortest_path: tuple[NodeId, NodeId, WeightSelector] = case()
     bellman_ford: tuple[NodeId, NodeId, WeightSelector] = case()
     astar: tuple[NodeId, NodeId, WeightSelector, "Callable[[NodeId], float]"] = case()
@@ -190,9 +264,16 @@ class GraphAlgorithm:
 @tagged_union(frozen=True)
 class GraphResult:
     tag: Literal[
-        "order", "path", "paths", "scores", "matrix", "partition", "tree", "coloring", "matching", "layout", "scalar", "flag", "flows"
+        "order", "layered", "path", "paths", "scores", "matrix", "partition", "tree", "coloring", "matching", "layout",
+        "scalar", "flag", "flows",
     ] = tag()
     order: tuple[NodeId, ...] = case()
+    # (node, hop distance from the source) — the MEASURED reachability carrier. `order` stays the carrier for results
+    # whose sequence position is itself the fact (a topological rank, a path step); a reachability answer has no such
+    # position, so publishing it as `order` handed the frame's `rank` column a flatten index standing in for a
+    # distance nothing computed. `bfs_layers` computes that distance to build its layers, so carrying it is free and
+    # its absence is what a consumer could not recover.
+    layered: tuple[tuple[NodeId, int], ...] = case()
     path: tuple[NodeId, ...] = case()
     paths: tuple[tuple[NodeId, ...], ...] = case()
     scores: ScoreMap = case()
@@ -208,7 +289,9 @@ class GraphResult:
     flows: tuple[tuple[NodeId, NodeId, float], ...] = case()
 
     def frame(self) -> "RuntimeRail[pa.Table]":
-        return boundary(f"graph.frame.{self.tag}", lambda: _frame(self))
+        # the fence converts a PROVIDER raise; the non-keyed refusal is this owner's own and rides the rail out of
+        # `_frame`, so the two never mix and the self-flatten is what keeps one rail at the seam.
+        return boundary(GRAPH_FRAME, lambda: _frame(self), catch=_arrow_raises()).bind(lambda railed: railed)
 
 
 class GraphReceipt(Struct, frozen=True, gc=False):
@@ -282,10 +365,10 @@ class GraphPayload(Struct, frozen=True, gc=False):
             f"graph.analyze.{algo.tag}",
             attributes={"rasm.graph.algorithm": algo.tag, "rasm.graph.backend": self.backend, "rasm.graph.nodes": self.node_count},
         ):
-            return boundary(f"graph.analyze.{algo.tag}", lambda: _run_rx(_as_rx(self.graph), algo, self.kind))
+            return boundary(GRAPH_ANALYZE, lambda: _run_rx(_as_rx(self.graph), algo, self.kind), catch=_kernel_raises(algo))
 
     def write(self, fmt: GraphFormat) -> "RuntimeRail[bytes]":
-        return boundary(f"graph.egress.{fmt}", lambda: _EGRESS[self.backend][fmt](self.graph))
+        return boundary(GRAPH_EGRESS, lambda: _EGRESS[self.backend][fmt](self.graph), catch=_egress_raises(self.backend))
 
     def receipt(self, algo: "GraphAlgorithm", result: GraphResult) -> GraphReceipt:
         return GraphReceipt(
@@ -340,36 +423,52 @@ def _shape(graph: "AnyGraph") -> "tuple[GraphBackend, GraphKind, int, int, bytes
             return "networkx", kind, graph.number_of_nodes(), graph.number_of_edges(), _wire(graph, "networkx")
 
 
-def _frame(result: GraphResult) -> "pa.Table":  # ruff:ignore[too-many-return-statements]
+def _arrow_raises() -> Catch:
+    # resolved at the CALL, never at module scope: a `Final[Catch]` naming `pa.ArrowException` would dereference the
+    # `lazy` binding at import and charge the Arrow load to the codec-only path this page deliberately keeps free of
+    # it. `.api/pyarrow.md` `[CORE_ERRORS]` names `ArrowException` as the root for a pure in-memory construction and
+    # `ArrowIOError` as the `OSError`-rooted leaf outside it, which no fold here reaches.
+    return (pa.ArrowException, TypeError, ValueError)
+
+
+def _frame(result: GraphResult) -> "RuntimeRail[pa.Table]":  # ruff:ignore[too-many-return-statements]
     # `pyarrow` binds module-scope `lazy`, so this fold is its first dereference and the
     # codec-only path never pays the Arrow load.
     match result:
         case GraphResult(tag="scores", scores=rows):
-            return pa.Table.from_pydict({"node": [n for n, _ in rows], "value": [v for _, v in rows]})
+            return Ok(pa.Table.from_pydict({"node": [n for n, _ in rows], "value": [v for _, v in rows]}))
         case GraphResult(tag="coloring", coloring=rows):
-            return pa.Table.from_pydict({"node": [n for n, _ in rows], "color": [c for _, c in rows]})
+            return Ok(pa.Table.from_pydict({"node": [n for n, _ in rows], "color": [c for _, c in rows]}))
         case GraphResult(tag="partition", partition=blocks):
-            return pa.Table.from_pydict({
+            return Ok(pa.Table.from_pydict({
                 "node": [n for block in blocks for n in block],
                 "component": [i for i, block in enumerate(blocks) for _ in block],
-            })
+            }))
         case GraphResult(tag="order", order=nodes):
-            return pa.Table.from_pydict({"node": list(nodes), "rank": list(range(len(nodes)))})
+            # `rank` is the sequence POSITION and is a fact only where the sequence is one: a topological order, a
+            # DFS visit order, a longest path. The reachability arms no longer land here — they carry a measured
+            # distance on `layered` — so this column no longer stands in for one.
+            return Ok(pa.Table.from_pydict({"node": list(nodes), "rank": list(range(len(nodes)))}))
+        case GraphResult(tag="layered", layered=rows):
+            # the MEASURED hop column the scan plane left-joins by `node` exactly as it joins every other enrichment.
+            return Ok(pa.Table.from_pydict({"node": [n for n, _ in rows], "depth": [d for _, d in rows]}))
         case GraphResult(tag="layout", layout=rows):
-            return pa.Table.from_pydict({"node": [n for n, _ in rows], "x": [xy[0] for _, xy in rows], "y": [xy[1] for _, xy in rows]})
+            return Ok(pa.Table.from_pydict({"node": [n for n, _ in rows], "x": [xy[0] for _, xy in rows], "y": [xy[1] for _, xy in rows]}))
         case GraphResult(tag="flows", flows=rows):
             # EDGE-keyed frame: the join keys on the (source, target) pair rather than the lone `node` column.
-            return pa.Table.from_pydict({
+            return Ok(pa.Table.from_pydict({
                 "source": [u for u, _, _ in rows],
                 "target": [v for _, v, _ in rows],
                 "flow": [f for _, _, f in rows],
-            })
+            }))
         case GraphResult(tag="tree", tree=rows) | GraphResult(tag="matching", matching=rows):
             # EDGE-keyed exactly as `flows` is: both carry the `(source, target)` pair every edge result joins on, so
             # refusing them claimed an absent index row while holding the very index the flow arm frames.
-            return pa.Table.from_pydict({"source": [u for u, _ in rows], "target": [v for _, v in rows]})
+            return Ok(pa.Table.from_pydict({"source": [u for u, _ in rows], "target": [v for _, v in rows]}))
         case _:
-            raise ValueError(f"{result.tag} carries no index row; only scores/coloring/partition/order/layout/tree/matching/flows key a join table")
+            # a result carrying no index row is the CALLER's defect, not a provider raise, so it refuses on the rail
+            # under this owner's own row rather than as a converted exception the fence would re-key.
+            return Error(GRAPH_UNFRAMED.raised(result.tag))
 
 
 # --- [RUSTWORKX_KERNEL] -----------------------------------------------------------------
@@ -402,18 +501,58 @@ def _as_rx(graph: "AnyGraph") -> RxGraph:
             return rx.networkx_converter(graph)
 
 
+def _upstream(g: RxGraph) -> RxGraph:
+    # ancestors walk the graph BACKWARD. `PyDiGraph.reverse` mutates in place, so the copy is what keeps the payload
+    # the owner carries untouched; an undirected `PyGraph` has no orientation to reverse and answers itself.
+    if not isinstance(g, rx.PyDiGraph):
+        return g
+    upstream = g.copy()
+    upstream.reverse()
+    return upstream
+
+
+def _reached(bound: Depth, hop: int) -> bool:
+    # the bound is a SCOPE, not a spent budget, so no exhaustion fault is owed here and none is minted:
+    # `Depth.exhausted` states a walk that could not FINISH, while a bounded neighbourhood is a COMPLETE answer to
+    # the question asked. What made the old form dishonest was silence about where it stopped — the `layered`
+    # result carries each node's true distance, so the frame's own `max(depth)` names the edge of the walk.
+    match bound:
+        case Depth(tag="fixpoint"):
+            return True
+        case Depth(tag="bounded", bounded=limit):
+            return hop <= limit
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _layered(g: RxGraph, source: NodeId, bound: Depth, *, seeded: bool) -> GraphResult:
+    # `bfs_layers` IS the hop measurement (`.api/rustworkx.md:132`): the layer INDEX is the distance from the source,
+    # so the walk publishes the number it already computed rather than the flatten position the frame used to assert.
+    # `seeded` keeps layer zero for `bfs`, whose order began with the source, and drops it for the two closure arms,
+    # which by `ancestors`/`descendants` contract answer a set the source is not a member of.
+    return GraphResult(layered=tuple(
+        (node, hop)
+        for hop, layer in enumerate(rx.bfs_layers(g, [source]))
+        if (hop > 0 or seeded) and _reached(bound, hop)
+        for node in layer
+    ))
+
+
 def _run_rx(g: RxGraph, algo: GraphAlgorithm, kind: GraphKind) -> GraphResult:  # ruff:ignore[too-many-return-statements, complex-structure]
     match algo:
-        case GraphAlgorithm(tag="bfs"):
-            return GraphResult(order=(algo.bfs, *(c for _, kids in rx.bfs_successors(g, algo.bfs) for c in kids)))
+        case GraphAlgorithm(tag="bfs", bfs=(source, bound)):
+            return _layered(g, source, bound, seeded=True)
         case GraphAlgorithm(tag="dfs"):
             return GraphResult(order=tuple(n for edge in rx.dfs_edges(g, algo.dfs) for n in edge))
         case GraphAlgorithm(tag="topo_sort"):
             return GraphResult(order=tuple(rx.topological_sort(g)))
-        case GraphAlgorithm(tag="ancestors"):
-            return GraphResult(order=tuple(rx.ancestors(g, algo.ancestors)))
-        case GraphAlgorithm(tag="descendants"):
-            return GraphResult(order=tuple(rx.descendants(g, algo.descendants)))
+        case GraphAlgorithm(tag="ancestors", ancestors=(source, bound)):
+            # the ancestor set is the descendant set of the REVERSED graph, so one layered walk answers both
+            # directions and `rx.ancestors`/`rx.descendants` — which return a membership set with the distance
+            # already thrown away — are the deleted reads.
+            return _layered(_upstream(g), source, bound, seeded=False)
+        case GraphAlgorithm(tag="descendants", descendants=(source, bound)):
+            return _layered(g, source, bound, seeded=False)
         case GraphAlgorithm(tag="shortest_path", shortest_path=(src, dst, weight)):
             # `PathMapping` is a `__contains__`/`__getitem__` view, not a `dict` — `.get` does not
             # exist, so the membership-gated subscript reads the path or the empty unreachable path.
@@ -507,6 +646,24 @@ IG_COMMUNITY: "Final[Map[str, Callable[[igraph.Graph, GraphAlgorithm], igraph.Ve
 ])
 
 
+def _kernel_raises(algo: GraphAlgorithm) -> Catch:
+    # the GPL row joins the catch ONLY for a community algorithm — the one family whose arm links the C core anyway
+    # through `_ig_from` — so a run that never partitions never reifies the `lazy` proxy and the module-scope
+    # confinement `_is_ig` holds is not undone by the fence that guards it. A `Final[Catch]` naming
+    # `igraph.InternalError` would link the core at IMPORT, on every run, which is the same defect the eager
+    # `import igraph` carries. Membership reads `IG_COMMUNITY`'s own keys, so the arm roster stays one authority.
+    if algo.tag not in IG_COMMUNITY:
+        return _RX_RAISES
+    return (*_RX_RAISES, igraph.InternalError)
+
+
+def _egress_raises(backend: GraphBackend) -> Catch:
+    # the codec lane is backend-dispatched, so the igraph row joins only where the SOURCE is already an igraph graph
+    # and the core is therefore already linked; `OSError` is the `_graphml` scratch-path leg every backend crosses.
+    codec: Catch = (rx.JSONSerializationError, nx.NetworkXException, TypeError, ValueError, OSError)
+    return codec if backend != "igraph" else (*codec, igraph.InternalError)
+
+
 def _ig_from(g: RxGraph, kind: GraphKind, weight: WeightSelector) -> "igraph.Graph":
     # ONE GPL dereference site by law — this leg is the only one that touches the module-scope
     # `lazy igraph` name, so it alone reifies the proxy and links the C core, and the confinement
@@ -542,8 +699,9 @@ def _run_ig(g: "igraph.Graph", algo: GraphAlgorithm, _: GraphKind) -> GraphResul
             names = g.vs["name"]
             return GraphResult(partition=tuple(tuple(names[v] for v in block) for block in IG_COMMUNITY[algo.tag](g, algo)))
         case off_lane:
-            # totality arm: `_run_rx` routes only the community tags here, so this raise fires only for a future direct
-            # caller — loud at the fence, never a silent partial backend.
+            # totality arm: `_run_rx` routes only the community tags here, so this fires only for a future DIRECT
+            # caller — a routing defect, never a provider fault, which is why `_kernel_raises` deliberately omits it
+            # and the raise propagates past the rail instead of arriving as a `BoundaryFault` a caller might handle.
             raise NotImplementedError(f"igraph backend owns only the community split, not {off_lane.tag}; route to rustworkx")
 
 
@@ -603,11 +761,11 @@ flowchart TD
     payload -->|analyze lone: _one boundary fence| coerce["_as_rx: rx identity · nx networkx_converter · ig to_networkx+converter"]
     coerce -->|single rustworkx kernel, bare-name dispatch| rxk["_run_rx: path·centrality·structure·cut·layout"]
     rxk -->|community arm delegates| igk["_run_ig over TupleList: Leiden·Louvain·Infomap"]
-    rxk --> result["GraphResult: order·path·scores·matrix·partition·tree·coloring·matching·layout·scalar·flag"]
+    rxk --> result["GraphResult: order·layered·path·scores·matrix·partition·tree·coloring·matching·layout·scalar·flag"]
     igk --> result
     payload -->|analyze Block: traversed by Disposition| batch["RuntimeRail[Block[GraphResult]] | (results, faults)"]
     payload -->|write over GraphFormat: codec/egress lane| egress["_EGRESS[backend][fmt]: node_link·graphml·edge_list bytes"]
-    result -->|frame: node-keyed cases| node_frame["RuntimeRail[pa.Table] node·value/color/component/rank/x·y"]
+    result -->|frame: node-keyed cases| node_frame["RuntimeRail[pa.Table] node·value/color/component/rank/depth/x·y"]
     node_frame -->|columnar#SCAN pa.Table.join keys=node left outer| enrich["node-attribute enrichment"]
     result -->|receipt| receipt["GraphReceipt"]
     key --> receipt
@@ -620,7 +778,7 @@ flowchart TD
 - Law: schema and codec MINT in C# beside `csharp:Rasm.Rhino/Document/layers#ORGANIZATION_PROJECTION`, and `runtime/transport/shapes#VOCABULARY` is this branch's ONE wire-shape owner, so no struct mirrors the document here. Names on that wire state the host-free organizational concept, so this fold reads organizational addresses and federation keys and never a host layer handle, table index, or joined path.
 - Law: key SPACES stay separated — `OrganizationIndex.entities` maps content-addressed organizational addresses and `OrganizationIndex.members` federation keys the producing authority issued. One merged map lets an authority-issued key spelling a 32-hex address collide with an entity, silently re-pointing a containment query at the wrong node.
 - Law: content-key spelling lowers exactly once at this decode — the wire carries 16 big-endian bytes and this branch's own key face is lowercase hex, so a consumer joining an address against any peer lowers and never uppercases.
-- Entry: containment ancestry is `analyze(GraphAlgorithm(ancestors=...))`, membership closure `descendants`, nesting depth the `bfs` order — the existing kernel answers every organizational query with zero new algorithm surface, and the node-keyed frame left-joins organization onto the scan plane by `node` exactly as every enrichment does.
+- Entry: containment ancestry is `analyze(GraphAlgorithm(ancestors=(key, bound)))`, membership closure `descendants`, and nesting depth the `depth` column those walks and `bfs` publish on `layered` — a measured hop count off `bfs_layers`, never the position a flattened order once stood in for — so the existing kernel answers every organizational query with zero new algorithm surface and the node-keyed frame left-joins organization onto the scan plane by `node` exactly as every enrichment does.
 - Growth: one `ContainmentWire` target arm carries a new containment relation as one edge-payload literal and one dispatch row; a new presentation axis rides the decoded overrides untouched, since presentation evidence enters no edge.
 - Boundary: decode only — this plane re-mints no wire and answers no render or print product query, which stays producer-side evidence. Sibling ordinal rides the decoded entity rows rather than a node payload, because rank orders siblings and carries no edge. Overrides stay detached on the decoded value, so containment analysis reads one topology whichever view a consumer audits.
 - Boundary: containment edges naming an absent container or an absent entity target refuse typed at the fold, mirroring the emitter's own orphan refusal; a member target names a FOREIGN key space and always mints its node, since an unresolvable member is the consuming plane's join miss rather than wire damage.
@@ -643,7 +801,7 @@ def _address(key: bytes) -> str:
 
 
 def organization_graph(wire: OrganizationWire) -> "RuntimeRail[tuple[GraphPayload, OrganizationIndex]]":
-    def build() -> "tuple[Any, OrganizationIndex]":
+    def build() -> "RuntimeRail[tuple[Any, OrganizationIndex]]":
         graph = rx.PyDiGraph(multigraph=False)
         entities = {_address(entity.key): graph.add_node(_address(entity.key)) for entity in wire.entities}
         nests = tuple((edge.container, edge.entity) for edge in wire.containment if edge.entity)
@@ -655,16 +813,17 @@ def organization_graph(wire: OrganizationWire) -> "RuntimeRail[tuple[GraphPayloa
         ) + tuple(_address(target) for _, target in nests if _address(target) not in entities)
         if orphans:
             # mirror of the emitter's own orphan refusal: a containment key outside the entity set is wire damage,
-            # never a droppable edge — the boundary fence rails this into the typed fault.
-            raise ValueError(f"<orphan-containment:{orphans}>")
+            # never a droppable edge. It refuses on the RAIL under this owner's own row — a caller keys recovery on
+            # the named coordinate, where a raise the fence re-keys would arrive wearing a provider's shape.
+            return Error(ORG_ORPHANED.raised(",".join(orphans)))
         # distinct-first: a member key two entities both hold mints ONE node — a per-occurrence add_node strands
         # duplicates behind the last-written index, and sorted assignment keeps indices stable across reads.
         members = {key: graph.add_node(key) for key in sorted({member for _, member in holds} - set(entities))}
         graph.add_edges_from([(entities[_address(c)], entities[_address(t)], NESTS) for c, t in nests])
         graph.add_edges_from([(entities[_address(c)], members[m], MEMBER) for c, m in holds])
-        return graph, OrganizationIndex(entities=Map.of_seq(entities.items()), members=Map.of_seq(members.items()))
+        return Ok((graph, OrganizationIndex(entities=Map.of_seq(entities.items()), members=Map.of_seq(members.items()))))
 
-    return boundary("graph.organization.build", build).bind(
+    return boundary(ORG_BUILD, build, catch=_RX_RAISES).bind(lambda railed: railed).bind(
         lambda built: GraphPayload.of(built[0]).map(lambda payload: (payload, built[1]))
     )
 ```

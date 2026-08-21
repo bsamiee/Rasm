@@ -40,9 +40,10 @@ from msgspec import Struct, msgpack, structs
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail, async_boundary
+from rasm.runtime.faults import FAULT_CONF, TRANSIENT, FaultRow, RuntimeRail, async_boundary, rostered
 
 from rasm.artifacts.composition.compose import Rule, arranged
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.drawing.regime import ScaleRatio, SheetId
@@ -565,6 +566,15 @@ class SheetOp:  # the closed request vocabulary lowered once into Composed
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's ONE lift anchor. The per-request infix leaves the SUBJECT and stays request data — one fence
+# spans every sheet case, so the coordinate is the fence rather than N subjects a reader cannot enumerate.
+# TRANSIENT: a frame author, a placement, or a stamp refusal is a defect a re-issue may clear.
+SHEET_FOLD: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.SHEET, point="fold", arm="boundary", defect="sheet-fold", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([SHEET_FOLD]))
+
 # ISO 5457 Table 2 — Number of fields (Long side numerals, Short side letters). The ISO-A cardinalities are
 # EXACT and load-bearing; A5 and the non-ISO-A ANSI/ARCH/JIS-B sizes derive through `ZoneSpec.of` (50 mm field).
 _ZONES: frozendict[SheetSize, ZoneSpec] = frozendict({
@@ -618,7 +628,7 @@ class Sheet(Struct, frozen=True):
         return structs.replace(self, composed=Some(_composed(self.op)))
 
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
-        return await async_boundary(f"sheet.{self.op.tag}", partial(self._folded, key), catch=_FAULTS)
+        return await async_boundary(SHEET_FOLD, partial(self._folded, key), catch=_FAULTS)
 
     async def _folded(self, key: ContentKey, /) -> ArtifactReceipt:
         # Async execution: the `_composed` fold crosses as one HOSTILE process kernel — every arm's engine holds the

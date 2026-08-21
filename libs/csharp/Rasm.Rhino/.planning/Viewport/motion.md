@@ -1,18 +1,21 @@
 # [RASM_RHINO_MOTION]
 
-Host motion-pacing adapter (`Rasm.Rhino.Viewport`). Sampling mathematics is kernel-owned — `Easing`, `CyclePlan`, `SpringShape`, `DecayShape`, `FieldIntegrator`, and `PerceptualColor` arrive from `Rasm.Parametric` and `Rasm.Numerics`. This page owns host cadence: redraw landing, clock selection, accessibility posture, screen-rate projection, bounded frame deltas, attachment lifetime, and the `MotionPump` composition. Display-link advance reads `CADisplayLink.TargetTimestamp`; timer and idle advance through `MonotonicTimeline` over the injected `TimeProvider`.
+Host motion-pacing adapter (`Rasm.Rhino.Viewport`). The sampling algebra is the kernel's whole: `MotionScript`, `MotionSample`, `MotionDrive`, `MotionPosture`, `PaceBand`, and `SettleBand` arrive from `Rasm.Parametric`, and this page computes no motion value — its tick body is ONE `MotionDrive.Step` call. What is genuinely host lives here alone: the display-link, timer, and idle clock leases, the accessibility-concession PROBE that fills the kernel posture, the redraw landing, and the drive capsule that owns pause, resume, retarget, and disposal over one clock attachment. The apply closure is the consumer's and stays host-side — the kernel owns the algebra, never the landing (E-G25).
+
+Temporal identity is the kernel's too: every tick advances one `MonotonicTimeline` beat chain per drive, so a motion frame and a gauged span order against one clock, and the display link's `TargetTimestamp` — a presentation prediction, not a monotonic counter — never leaves the pacer that reads it. Device density is a display fact: a consumer wanting hairline width or hit slop reads the kernel `DisplayFacts` scale, and no tick carries a per-frame DPI column.
 
 ## [01]-[INDEX]
 
 - [02]-[REDRAW_TARGETS]: `RedrawTarget` — the frame-landing rows and their one invalidation dispatch.
-- [03]-[CLOCKS_AND_GATES]: `FrameClock` rows, `FrameRatePolicy`, `MotionGate` accessibility state, and the macOS display-link pacer with screen-parameter rebinding.
-- [04]-[PUMP]: `MotionScript` the kernel-sampled timeline, `MotionSample`, the `MotionPump` drive fold with retargeting, and the reduced-motion collapse.
+- [03]-[CLOCKS]: `FrameClock`, `ConcessionProbe`, `MotionAttachment`, `MacPacer` — the three host clock leases, the posture producer, and the macOS display-link pacer with screen-parameter rebinding.
+- [04]-[DRIVE]: `DriveGate`, `MotionLease`, `MotionPump` — the drive capsule over one kernel `MotionDrive.Step` tick and the reduce-motion collapse.
 
 ## [02]-[REDRAW_TARGETS]
 
-- Owner: `RedrawTarget` `[Union]` owns frame landing: no redraw, one addressed view, every document view, or one Eto canvas invalidation callback. A conduit-bound overlay uses the view case because the host repaints per view; the canvas owner hands its own `Drawable.Invalidate` closure, so this page never references the Eto control tree.
+- Owner: `RedrawTarget` `[Union]` owns frame landing: no redraw, one addressed view, or every document view. A conduit-bound overlay uses the view case because the host repaints per view.
 - Entry: `Invalidate(DocumentSession, Op) : Fin<Unit>` — the one dispatch; view-addressed rows resolve through the `ViewportLease` per invalidation so a closed view refuses instead of redrawing a dead handle.
-- Law: a target is data on the drive, never a branch in the tick body — the pump invalidates whatever row it holds, and adding a landing surface is one case with the pump untouched.
+- Law: a target is data on the drive, never a branch in the tick body — the pump invalidates whatever row it holds, and adding a landing surface is one case with the pump untouched. The former canvas case is DELETED: zero sites composed it, and an Eto canvas repaint is the kernel paint surface's own `Swap`-and-`Redraw` lease, never a closure smuggled through a viewport union.
+- Law: the document-wide row marshals through the kernel dispatch on the immediate lane and proves `SessionNeed.Redraw` inside the same window — the session demand serializes the host call and the crossing asserts the thread, so neither authority is re-derived at a call site.
 - Boundary: invalidation requests a repaint and returns; paint itself happens on the host's draw pass — a target that blocks until pixels land inverts the host contract and is unrepresentable here.
 
 ```csharp signature
@@ -21,13 +24,10 @@ using AppKit;
 using CoreAnimation;
 using Foundation;
 using Rasm.Domain;
+using Rasm.Interaction;
 using Rasm.Numerics;
 using Rasm.Parametric;
 using Rasm.Rhino.Document;
-using Rasm.Rhino.Eto;
-using Rasm.Rhino.HostUi;
-using System.Collections.Frozen;
-using System.Runtime.InteropServices;
 
 namespace Rasm.Rhino.Viewport;
 
@@ -38,135 +38,55 @@ public abstract partial record RedrawTarget {
     public sealed record NoneCase : RedrawTarget;
     public sealed record ViewCase(ViewportTarget Target) : RedrawTarget;
     public sealed record DocumentCase : RedrawTarget;
-    public sealed record CanvasCase(Action Invalidate) : RedrawTarget;
 
     internal Fin<Unit> Invalidate(DocumentSession session, Op key) =>
         Switch(
             (Session: session, Op: key),
             noneCase: static (_, _) => Fin.Succ(unit),
             viewCase: static (ctx, target) => ViewportLease.Of(session: ctx.Session, target: target.Target, key: ctx.Op)
-                .Bind(lease => lease.Use(borrow: static row => Fin.Succ(value: Op.Side(row.View.Redraw)), key: ctx.Op)),
-            documentCase: static (ctx, _) => HostThread.Run(
-                work: new HostWork<Unit>.Session(
-                    Document: ctx.Session,
-                    Needs: [SessionNeed.Redraw],
-                    Body: static document => Fin.Succ(value: Op.Side(document.Views.Redraw))),
-                key: ctx.Op),
-            canvasCase: static (ctx, canvas) => ctx.Op.Catch(canvas.Invalidate));
+                .Bind(lease => lease.Read(project: static row => Fin.Succ(value: Op.Side(row.View.Redraw)), key: ctx.Op)),
+            documentCase: static (ctx, _) => UiThread.Run(
+                new UiDispatch<Unit>.Blocking(() => ctx.Session.Demand(
+                    use: static document => Fin.Succ(value: Op.Side(document.Views.Redraw)),
+                    key: ctx.Op,
+                    needs: [SessionNeed.Redraw])),
+                DispatchLane.Immediate,
+                ctx.Op));
 }
 ```
 
-## [03]-[CLOCKS_AND_GATES]
+## [03]-[CLOCKS]
 
-- Owner: `FrameClock` `[Union]` owns display-link, timer, and idle pacing; `FrameRatePolicy` `[ComplexValueObject]` owns the requested frequency interval; `MotionPresentation` owns the complete accessibility posture delivered with every sample; `FrameTick` owns timestamp and delta evidence. `TimeProvider` enters once through `MotionPump.Drive` and feeds portable clock rows.
-- Entry: `FrameClock.Resolve(Option<FrameRatePolicy>, Op?) : Fin<FrameClock>` admits a frequency policy and selects display link or timer off ONE anchor probe crossing `UiThread` — the probe is an AppKit window walk, so the row decision runs UI-affine inside the `Fin` funnel and an off-thread or throwing probe lands on the rail; `FrameClock.Idle()` admits background-tolerant pacing explicitly, and `Start(onTick, onFault, TimeProvider, Op) : Fin<MotionAttachment>` returns one pause/resume/dispose lifecycle and preserves clock failures on the drive rail.
-- Law: the display link is built from a WINDOW-DERIVED screen — `NSScreen.GetDisplayLink(target, selector)` on the key window's screen, falling to the first application window that resolves one — and `NSScreen.MainScreen` is the deleted form: it names the application main screen, not the paced surface's, so a second-display target paces against the wrong refresh ceiling and carries the wrong backing scale. No window resolving a screen is a typed refusal that selects the portable row, never a substituted anchor.
+- Owner: `FrameClock` `[Union]` owns display-link, timer, and idle pacing rows; `ConcessionProbe` is the PRODUCER filling the kernel `MotionPosture` — the five `NSWorkspace` accessibility reads land as `CapabilitySet<MotionConcession>` rows and the pace as a `PaceBand`; `MotionAttachment` is the pause/resume/dispose lease every row answers; `MacPacer` is the one `Microsoft.macOS` crossing.
+- Entry: `FrameClock.Resolve(Option<PaceBand>, Op?) : Fin<FrameClock>` admits a pace band and selects display link or timer off ONE anchor probe crossing `UiThread` — the probe is an AppKit window walk, so the row decision runs UI-affine inside the `Fin` funnel; `FrameClock.Idle()` admits background-tolerant pacing explicitly; `Start(onTick, onFault, Op) : Fin<MotionAttachment>` returns one lifecycle whose tick is a bare PULSE — the drive mints its own kernel beat per pulse, so no clock row carries a timestamp column.
+- Law: the tick is a PULSE, never a stamped value. The drive owns the one `MonotonicTimeline` beat chain (seed → `Beat(seed, cadence, key)` per tick), so timer, idle, and display-link rows all advance one temporal identity and the deleted `FrameTick` carrier — timestamp, delta, and a per-frame `BackingScale` column — has no successor: elapsed and delta ride the kernel beat, and density rides the kernel `DisplayFacts` a consumer reads once per drive, not per frame.
+- Law: the timer row is the kernel `UiClock` — `UiClock.Of(cadence, beat, posture, faults, clock, key)` over the drive's own timeline — so cadence, drift, missed-beat counting, and observer isolation are the kernel's and this page adds only the `MotionAttachment` projection over the lease's `Pause`/`Resume`/`Stop`. A page-local timer wrapper re-deriving drift beside that owner is the deleted form; the former Eto `Pulse` composition retired with the Eto sub-domain.
+- Law: the display link is built from a WINDOW-DERIVED screen — `NSScreen.GetDisplayLink(target, selector)` on the key window's screen, falling to the first application window that resolves one — and `NSScreen.MainScreen` is the deleted form: it names the application main screen, not the paced surface's, so a second-display target paces against the wrong refresh ceiling. No window resolving a screen is a typed refusal that selects the timer row, never a substituted anchor.
 - Law: `GetDisplayLink` carries `SupportedOSPlatform("macos14.0")` and declares non-null while the native result still needs validation, so the row admits on `OperatingSystem.IsMacOSVersionAtLeast(14)` — never the OS family — and every vended link crosses `Optional(...).ToFin(...)` before it is configured or attached.
-- Law: the link lifecycle is create → `AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common)` → `Paused` toggling → `RemoveFromRunLoop(NSRunLoop.Main, NSRunLoopMode.Common)` → `Invalidate` → `Dispose` — teardown is the exact inverse of attachment and an invalidated link is dead and rebuilt, never resumed; a rebind that invalidates without removing leaks a run-loop registration per display reconfiguration. Every link mutation runs ON the main run loop: arming and rebinding already arrive there through the resolve funnel and the screen-parameter notification, and release marshals through the UI dispatch because a drive is disposed from whatever lane owns it — an off-main remove-invalidate-dispose frees a registration the main loop still holds. `ObserveDidChangeScreenParameters` fires on that reconfiguration and the pacer re-reads `MaximumFramesPerSecond` and rebinds the link, so a monitor swap re-rates a running animation instead of orphaning it.
-- Law: tick delivery is already on the UI loop for every row — the display link attaches to the main run loop, `UITimer.Elapsed` raises on the UI thread, and `RhinoApp.Idle` is main-thread by contract — so the pump body never marshals and the consumer apply's own `HostThread.Run` and session demand both take their inline `RhinoApp.IsOnMainThread` branch. That inline crossing is what keeps the drive gate off a blocking host wait — a marshalling tick holds the gate across a command-thread round trip the command thread itself re-enters.
-- Law: the timer and idle rows derive every elapsed interval through one kernel `MonotonicTimeline` beat chain per drive — `Capture` seeds the origin, `Beat` advances ordinal, elapsed, and delta evidence — so no clock row reads or subtracts raw provider timestamps; the display-link row alone reads `TargetTimestamp`, the host's own presentation clock.
-- Law: the panel bounds the requested range from BOTH ends — `MaximumFramesPerSecond` is the ceiling and `MaximumRefreshInterval` its reciprocal the floor, because a variable-refresh panel advertises a rate ceiling it will not hold and the interval is the other half of the clamp; a range built from the ceiling alone lets a `CADisplayLink` drop below the panel's own slowest presentation and the drive samples against a cadence the display never delivers.
-- Law: a paced sample carries the device-pixel scale it was computed against — `FrameTick.BackingScale` reads `NSScreen.BackingScaleFactor` inside the same gated `Configured` body that reads the rate bounds, and the portable rows read the Eto display owner's `LogicalPixelSize` once per drive — so `FrameTick.DevicePixels` is the one projection a consumer reads for hairline width and hit slop, a hand-asserted `1.0` is the deleted form, and no page re-derives DPI per frame from a second host read.
-- Law: this page composes no `Eto.Forms` type: `Eto` partially qualified inside `Rasm.Rhino.Viewport` binds the sibling `Rasm.Rhino.Eto` namespace, and the strata forbid an S3 owner reaching the S1 Eto floor's package directly. The affinity assert enters through `UiThread`, the portable cadence through the Eto `Pulse` lease, and the density read through `Displays` — each the Eto sub-domain's own owner, each carrying the beat chain and disposal this page then never re-derives.
-- Boundary: `Microsoft.macOS` members live only inside the platform-gated pacer (`OperatingSystem.IsMacOSVersionAtLeast(14)` selects the row); portable code holds `FrameClock` values and `FrameTick` facts, never an `NSScreen`, `CADisplayLink`, or `nint`.
+- Law: the link lifecycle is create → `AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common)` → `Paused` toggling → `RemoveFromRunLoop` → `Invalidate` → `Dispose` — teardown is the exact inverse of attachment and an invalidated link is dead and rebuilt, never resumed. Every link mutation runs ON the main run loop; release marshals through the kernel dispatch because a drive is disposed from whatever lane owns it. `ObserveDidChangeScreenParameters` re-reads the panel bounds and rebinds the link, so a monitor swap re-rates a running animation instead of orphaning it.
+- Law: the panel bounds the requested range from BOTH ends — `MaximumFramesPerSecond` is the ceiling and `MaximumRefreshInterval` its reciprocal the floor — and the requested band is the kernel `PaceBand`, scaled onto the panel through the band's own `ScaleTo` rather than a hand clamp ladder: the band owns its ladder and the panel supplies the reference, so re-rating is two reads and no second frame-rate table survives on this page.
+- Law: tick delivery is already on the UI loop for every row — the display link attaches to the main run loop, the kernel clock's timer raises there, and `RhinoApp.Idle` is main-thread by contract — so the drive body never marshals and the consumer apply's own session demand takes its inline main-thread branch.
+- Law: the concession probe reads the live workspace per DRIVE, never a cached census — an accessibility flip mid-session lands on the next drive — and a non-macOS host answers the empty set, which is a measured absence because the platform publishes no accommodation surface at all.
+- Boundary: `Microsoft.macOS` members live only inside the platform-gated pacer; portable code holds `FrameClock` values and kernel beats, never an `NSScreen`, `CADisplayLink`, or `nint`.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
-[ComplexValueObject]
-public sealed partial class FrameRatePolicy {
-    // Portable cadence is a declared policy row, not a host read: no portable surface publishes a refresh rate, so
-    // display-link pacing derives its range from the panel while this row states its 30..60 Hz band exactly once.
-    public static FrameRatePolicy Portable { get; } = Create(min: 30f, max: 60f, preferred: 60f);
+// The kernel posture's PRODUCER: five host accessibility reads fill the kernel concession set, and the pace is the
+// admitted band the clock was resolved against. A non-macOS host answers the empty set — the platform publishes no
+// accommodation surface, so absence here is a measured fact rather than a skipped probe.
+internal static class ConcessionProbe {
+    private static readonly Seq<(MotionConcession Row, Func<bool> Active)> Reads = Seq<(MotionConcession, Func<bool>)>(
+        (MotionConcession.ReduceMotion, static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceMotion),
+        (MotionConcession.IncreaseContrast, static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldIncreaseContrast),
+        (MotionConcession.DifferentiateColour, static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldDifferentiateWithoutColor),
+        (MotionConcession.ReduceTransparency, static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceTransparency),
+        (MotionConcession.InvertColors, static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldInvertColors));
 
-    public float Min { get; }
-    public float Max { get; }
-    public float Preferred { get; }
-
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
-        ref float min,
-        ref float max,
-        ref float preferred) {
-        validationError = float.IsFinite(min) && float.IsFinite(max) && float.IsFinite(preferred)
-            && min > 0f && max >= min && preferred >= min && preferred <= max
-            ? validationError
-            : new ValidationError("frame-rate policy requires 0 < min <= preferred <= max");
-    }
-}
-
-[ValueObject<double>]
-public readonly partial struct FrameInterval {
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
-        validationError = double.IsFinite(value) && value > 0.0
-            ? validationError
-            : new ValidationError(message: "frame interval is invalid");
-    }
-}
-
-[ComplexValueObject]
-[StructLayout(LayoutKind.Auto)]
-public readonly partial struct FrameTick {
-    public double Timestamp { get; }
-    public double Delta { get; }
-    public double BackingScale { get; }
-
-    // `BackingScale` rides as a ratio, so a logical length crosses to device pixels by one multiply and no host read.
-    public double DevicePixels(double logical) => logical * BackingScale;
-
-    public double HairlineWidth => DevicePixels(logical: 1.0);
-
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError, ref double timestamp, ref double delta, ref double backingScale) {
-        validationError = double.IsFinite(timestamp) && double.IsFinite(delta) && delta >= 0.0
-            && double.IsFinite(backingScale) && backingScale > 0.0
-            ? validationError
-            : new ValidationError(message: "frame tick is invalid");
-    }
-}
-
-[SmartEnum<int>]
-public sealed partial class MotionAccommodation {
-    public static readonly MotionAccommodation ReducedMotion = new(
-        key: 0,
-        active: static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceMotion);
-    public static readonly MotionAccommodation IncreasedContrast = new(
-        key: 1,
-        active: static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldIncreaseContrast);
-    public static readonly MotionAccommodation DifferentiateWithoutColor = new(
-        key: 2,
-        active: static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldDifferentiateWithoutColor);
-    public static readonly MotionAccommodation ReducedTransparency = new(
-        key: 3,
-        active: static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceTransparency);
-
-    [UseDelegateFromConstructor]
-    internal partial bool Active();
-}
-
-[ComplexValueObject]
-public sealed partial class MotionPresentation {
-    public FrozenSet<MotionAccommodation> Accommodations { get; }
-
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
-        ref FrozenSet<MotionAccommodation> accommodations) {
-        validationError = accommodations is not null
-            ? validationError
-            : new ValidationError(message: "motion presentation is invalid");
-    }
-
-    public bool ReduceMotion => Accommodations.Contains(MotionAccommodation.ReducedMotion);
-}
-
-internal static class MotionGate {
-    internal static MotionPresentation Probe() =>
-        MotionPresentation.Create(accommodations: OperatingSystem.IsMacOS()
-            ? toSeq(MotionAccommodation.Items).Filter(static row => row.Active()).ToFrozenSet()
-            : FrozenSet<MotionAccommodation>.Empty);
+    internal static MotionPosture Posture(PaceBand pace) => new(
+        Concessions: OperatingSystem.IsMacOS()
+            ? CapabilitySet<MotionConcession>.Of(Reads.Filter(static read => read.Active()).Map(static read => read.Row).ToArray())
+            : CapabilitySet<MotionConcession>.None,
+        Pace: pace);
 }
 
 internal interface MotionAttachment : IDisposable {
@@ -177,75 +97,60 @@ internal interface MotionAttachment : IDisposable {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FrameClock {
     private FrameClock() { }
-    public sealed record DisplayLinkCase(FrameRatePolicy Rate) : FrameClock;
-    public sealed record TimerCase(FrameInterval Interval) : FrameClock;
+    public sealed record DisplayLinkCase(PaceBand Pace) : FrameClock;
+    public sealed record TimerCase(PaceBand Pace) : FrameClock;
     public sealed record IdleCase : FrameClock;
 
-    // `ScreenReachable` walks the application's windows, so the row decision is an AppKit read: probe, selection, and
-    // interval mint cross the Eto floor together and land inside one funnel. An unguarded off-thread probe is the
-    // deleted form — it reaches AppKit from whatever lane composed the drive and escapes the `Fin` this method returns.
-    public static Fin<FrameClock> Resolve(Option<FrameRatePolicy> rate = default, Op? key = null) {
+    // `ScreenReachable` walks the application's windows, so the row decision is an AppKit read: probe and selection
+    // cross the kernel dispatch together and land inside one funnel — the Blocking case is the SYNC arity, so the
+    // crossing composes in this `Fin` query with no task in sight.
+    public static Fin<FrameClock> Resolve(Option<PaceBand> pace = default, Op? key = null) {
         Op op = key.OrDefault();
-        FrameRatePolicy selected = rate.IfNone(FrameRatePolicy.Portable);
+        PaceBand band = pace.IfNone(PaceBand.Portable);
         return UiThread.Run(new UiDispatch<FrameClock>.Blocking(() => op.Catch(() => MacPacer.ScreenReachable
-            ? Fin.Succ<FrameClock>(new DisplayLinkCase(Rate: selected))
-            : Fin.Succ<FrameClock>(new TimerCase(Interval: FrameInterval.Create(value: 1.0 / selected.Preferred))))), op).Result;
+            ? Fin.Succ<FrameClock>(new DisplayLinkCase(Pace: band))
+            : Fin.Succ<FrameClock>(new TimerCase(Pace: band)))), DispatchLane.Immediate, op);
     }
 
     public static FrameClock Idle() => new IdleCase();
 
-    // The affinity assert is the Eto floor's `Current` dispatch, never a raw `Application` reach from this stratum.
-    internal Fin<MotionAttachment> Start(Action<FrameTick> onTick, Action<Error> onFault, TimeProvider provider, Op key) =>
-        from _ in UiThread.Run(new UiDispatch<Unit>.Current(() => Fin.Succ(unit)), key).Result
-        from scale in PortableScale(key: key)
+    public PaceBand Pace => Switch(
+        displayLinkCase: static clock => clock.Pace,
+        timerCase: static clock => clock.Pace,
+        idleCase: static _ => PaceBand.Portable);
+
+    // The tick is a bare PULSE: the drive mints its own kernel beat per pulse, so no row stamps time. The timer row
+    // IS the kernel clock — cadence, drift, missed counting, and observer isolation are `UiClock`'s — and this fold
+    // only projects the lease onto the attachment shape the pacer and the idle row already answer.
+    internal Fin<MotionAttachment> Start(Action onTick, Action<Error> onFault, MonotonicTimeline timeline, FaultCell faults, Op key) =>
+        from _ in UiThread.Run(new UiDispatch<Unit>.Current(() => Fin.Succ(unit)), DispatchLane.Immediate, key)
         from attachment in Switch(
-            (OnTick: onTick, OnFault: onFault, Provider: provider, Scale: scale, Op: key),
-            displayLinkCase: static (ctx, clock) => MacPacer.Start(rate: clock.Rate, onTick: ctx.OnTick, onFault: ctx.OnFault, key: ctx.Op),
-            timerCase: static (ctx, clock) => Pulse.Start(
-                    seconds: PositiveMagnitude.Create((double)clock.Interval),
-                    clock: ctx.Provider,
-                    publish: beat => ctx.OnTick(FrameTick.Create(
-                        timestamp: beat.Evidence.Elapsed.TotalSeconds, delta: beat.Evidence.Delta.TotalSeconds, backingScale: ctx.Scale)),
-                    report: ctx.OnFault,
+            (OnTick: onTick, OnFault: onFault, Timeline: timeline, Faults: faults, Op: key),
+            displayLinkCase: static (ctx, clock) => MacPacer.Start(pace: clock.Pace, onTick: ctx.OnTick, onFault: ctx.OnFault, key: ctx.Op),
+            timerCase: static (ctx, clock) =>
+                from cadence in ctx.Op.AcceptValidated<PositiveMagnitude>(candidate: clock.Pace.Period.TotalSeconds)
+                from lease in UiClock.Of(
+                    cadence: cadence,
+                    beat: _ => ctx.Op.Catch(() => { ctx.OnTick(); return Fin.Succ(unit); }),
+                    posture: Some(FaultPosture.Continue),
+                    faults: Some(ctx.Faults),
+                    clock: Some(ctx.Timeline),
                     key: ctx.Op)
-                .Map<MotionAttachment>(pulse => Attachment.Paced(pulse)),
-            idleCase: static (ctx, _) =>
-                from beats in TickBeats(onTick: ctx.OnTick, onFault: ctx.OnFault, provider: ctx.Provider, scale: ctx.Scale, key: ctx.Op)
-                from mount in ctx.Op.Catch(() => Fin.Succ<MotionAttachment>(Attachment.Idle(beat: beats)))
-                select mount)
+                from started in lease.Use(clock => clock.Start(key: ctx.Op), key: ctx.Op)
+                select (MotionAttachment)Attachment.Clocked(lease: lease, key: ctx.Op),
+            idleCase: static (ctx, _) => ctx.Op.Catch(() => Fin.Succ<MotionAttachment>(Attachment.Idle(beat: ctx.OnTick))))
         select attachment;
-
-    // The device-pixel ratio is a host read, never an asserted 1.0: the Eto display owner publishes it and one read serves the whole drive.
-    private static Fin<double> PortableScale(Op key) =>
-        Displays.Primary(key: key).Map(static facts => (double)facts.LogicalPixelSize);
-
-    // Kernel timeline owns every interval for the idle row: `Pulse` owns the timer row's chain, so neither subtracts raw
-    // provider timestamps. The cursor is the timeline's OWN seed carrier — the origin stamp and each advance are the two
-    // cases of one `BeatSeed`, so the chain cell holds what `Beat` consumes and a refused beat replays its predecessor.
-    private static Fin<Action> TickBeats(Action<FrameTick> onTick, Action<Error> onFault, TimeProvider provider, double scale, Op key) =>
-        from timeline in MonotonicTimeline.Of(provider: provider, key: key)
-        from origin in timeline.Capture(key: key)
-        let chain = Atom((BeatSeed)origin)
-        select (Action)(() => {
-            _ = chain.Swap(prior => timeline.Beat(seed: prior, key: key)
-                .Bind(beat => key.Catch(() => {
-                    onTick(FrameTick.Create(
-                        timestamp: beat.Elapsed.TotalSeconds, delta: beat.Delta.TotalSeconds, backingScale: scale));
-                    return Fin.Succ(beat);
-                }))
-                .Match(Succ: static beat => (BeatSeed)beat, Fail: error => {
-                    onFault(error);
-                    return prior;
-                }));
-        });
 }
 
+// The timer row's lease projection and the idle row's host attach — pause and resume over custody the kernel clock
+// or the host event already owns. A release fault parks on the drive's cell through the finish fold, never `ignore`.
 internal sealed class Attachment(Func<Unit> pause, Func<Unit> resume, Action release) : MotionAttachment {
     internal static readonly Attachment Completed = new(static () => unit, static () => unit, static () => { });
 
-    // The Eto `Pulse` lease owns the host timer, its beat chain, and its disposal; this row adds pause and resume over that lease.
-    internal static Attachment Paced(Pulse pulse) =>
-        new(fun(pulse.Pause), fun(pulse.Resume), pulse.Dispose);
+    internal static Attachment Clocked(Lease<UiClock> lease, Op key) => new(
+        pause: () => ignore(lease.Use(clock => clock.Pause(key: key), key: key)),
+        resume: () => ignore(lease.Use(clock => clock.Resume(key: key), key: key)),
+        release: lease.Dispose);
 
     internal static Attachment Idle(Action beat) {
         int attached = 0;
@@ -262,24 +167,23 @@ internal sealed class Attachment(Func<Unit> pause, Func<Unit> resume, Action rel
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 // One Microsoft.macOS crossing: display-link pacing behind the macos14.0 gate; the link is vended by a window-derived
-// NSScreen and validated before use; teardown marshals onto the main run loop as RemoveFromRunLoop then Invalidate then
-// Dispose, the exact inverse of attachment, and a screen-parameter change rebinds the link onto the re-resolved anchor in place.
+// NSScreen and validated before use; teardown marshals onto the main run loop as RemoveFromRunLoop then Invalidate
+// then Dispose, the exact inverse of attachment, and a screen-parameter change rebinds the link in place. The pacer
+// forwards a bare pulse: `TargetTimestamp` is a presentation PREDICTION, so it never crosses into a kernel value.
 internal sealed class MacPacer : NSObject, MotionAttachment {
     private static readonly Selector TickSelector = new("pacerTick:");
-    private readonly Action<FrameTick> onTick;
+    private readonly Action onTick;
     private readonly Action<Error> onFault;
-    private readonly FrameRatePolicy rate;
-    private double scale = 1.0;
+    private readonly PaceBand pace;
     private readonly Op key;
     // The link is vended in `Arm`, after construction, because its callback target is the pacer itself.
     private CADisplayLink? link;
     private NSObject? screenObserver;
-    private double last = double.NaN;
 
-    private MacPacer(Action<FrameTick> onTick, Action<Error> onFault, FrameRatePolicy rate, Op key) {
+    private MacPacer(Action onTick, Action<Error> onFault, PaceBand pace, Op key) {
         this.onTick = onTick;
         this.onFault = onFault;
-        this.rate = rate;
+        this.pace = pace;
         this.key = key;
     }
 
@@ -291,7 +195,8 @@ internal sealed class MacPacer : NSObject, MotionAttachment {
             return unit;
         });
 
-    // `MainScreen` describes the application's main display, never the paced surface's, so the anchor walks real windows and refuses when none resolves.
+    // `MainScreen` describes the application's main display, never the paced surface's, so the anchor walks real
+    // windows and refuses when none resolves.
     private static Option<NSScreen> Anchor() =>
         OperatingSystem.IsMacOSVersionAtLeast(14)
             ? Optional(NSApplication.SharedApplication.KeyWindow?.Screen)
@@ -300,23 +205,22 @@ internal sealed class MacPacer : NSObject, MotionAttachment {
 
     internal static bool ScreenReachable => Anchor().IsSome;
 
-    // The link's callback target is the pacer itself, so the pacer is built first and armed second; `GetDisplayLink` declares
-    // non-null and still vends native null, so `Arm` validates before configuring and a refused arm releases the half-built pacer.
-    internal static Fin<MotionAttachment> Start(FrameRatePolicy rate, Action<FrameTick> onTick, Action<Error> onFault, Op key) =>
-        from pacer in key.Catch(() => Fin.Succ(new MacPacer(onTick: onTick, onFault: onFault, rate: rate, key: key)))
+    internal static Fin<MotionAttachment> Start(PaceBand pace, Action onTick, Action<Error> onFault, Op key) =>
+        from pacer in key.Catch(() => Fin.Succ(new MacPacer(onTick: onTick, onFault: onFault, pace: pace, key: key)))
         from armed in Anchor().ToFin(Fail: key.MissingContext())
             .Bind(screen => pacer.Arm(screen: screen))
             .Match(Succ: _ => Fin.Succ<MotionAttachment>(pacer), Fail: fault => { pacer.Dispose(); return Fin.Fail<MotionAttachment>(fault); })
         select armed;
 
     private Fin<Unit> Arm(NSScreen screen) => key.Catch(() =>
-        Optional(screen.GetDisplayLink(this, TickSelector)).ToFin(Fail: key.InvalidResult()).Map(vended => {
-            link = Configured(link: vended, screen: screen);
-            link.AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common);
-            screenObserver = NSApplication.Notifications.ObserveDidChangeScreenParameters((_, _) =>
-                _ = Guarded(key.Catch(() => Fin.Succ(Op.Side(Rebind)))));
-            return unit;
-        }));
+        Optional(screen.GetDisplayLink(this, TickSelector)).ToFin(Fail: key.InvalidResult()).Bind(vended =>
+            Configured(link: vended, screen: screen).Map(configured => {
+                link = configured;
+                link.AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common);
+                screenObserver = NSApplication.Notifications.ObserveDidChangeScreenParameters((_, _) =>
+                    _ = Guarded(key.Catch(() => Fin.Succ(Op.Side(Rebind)))));
+                return unit;
+            })));
 
     public Unit Pause() => Paused(true);
     public Unit Resume() => Paused(false);
@@ -324,39 +228,32 @@ internal sealed class MacPacer : NSObject, MotionAttachment {
     private Unit Paused(bool value) => Optional(link).Match(Some: held => Op.Side(() => held.Paused = value), None: () => unit);
 
     [Export("pacerTick:")]
-    public void Tick(CADisplayLink sender) {
-        double now = sender.TargetTimestamp;
-        _ = Guarded(key.Catch(() => {
-            onTick(FrameTick.Create(
-                timestamp: now, delta: double.IsNaN(last) ? sender.Duration : now - last, backingScale: scale));
-            last = now;
-            return Fin.Succ(unit);
-        }));
-    }
+    public void Tick(CADisplayLink sender) => _ = Guarded(key.Catch(() => {
+        onTick();
+        return Fin.Succ(unit);
+    }));
 
-    private CADisplayLink Configured(CADisplayLink link, NSScreen screen) {
-        float ceiling = (float)Math.Max(1L, (long)screen.MaximumFramesPerSecond);
-        double interval = screen.MaximumRefreshInterval;
-        float floor = double.IsFinite(interval) && interval > 0.0 ? (float)(1.0 / interval) : rate.Min;
-        float maximum = Math.Min(rate.Max, ceiling);
-        float minimum = Math.Clamp(Math.Max(rate.Min, floor), 1f, maximum);
-        float preferred = Math.Clamp(rate.Preferred, minimum, maximum);
-        link.PreferredFrameRateRange = CAFrameRateRange.Create(minimum: minimum, maximum: maximum, preferred: preferred);
-        scale = (double)screen.BackingScaleFactor;
-        return link;
-    }
+    // The requested band scales ONTO the panel through the band's own ladder: `MaximumFramesPerSecond` is the
+    // ceiling reference and `MaximumRefreshInterval` the floor's reciprocal, so the clamp ladder the band owns runs
+    // once on the rail and no hand min/max chain survives here.
+    private Fin<CADisplayLink> Configured(CADisplayLink link, NSScreen screen) =>
+        from ceiling in key.AcceptValidated<PositiveMagnitude>(candidate: Math.Max(1.0, (double)screen.MaximumFramesPerSecond))
+        from scaled in pace.ScaleTo(reference: ceiling, key: key)
+        select (CADisplayLink)(link.PreferredFrameRateRange = CAFrameRateRange.Create(
+                minimum: (float)scaled.Minimum,
+                maximum: (float)scaled.Maximum,
+                preferred: (float)scaled.Preferred),
+            link).Item2;
 
     private void Rebind() {
         _ = Anchor().Bind(screen => Optional(screen.GetDisplayLink(this, TickSelector)).Map(vended => (Screen: screen, Vended: vended)))
-            .Map(held => {
-                CADisplayLink replaced = Configured(link: held.Vended, screen: held.Screen);
+            .Map(held => Configured(link: held.Vended, screen: held.Screen).Map(replaced => {
                 replaced.Paused = Optional(link).Match(Some: static prior => prior.Paused, None: static () => false);
                 replaced.AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common);
                 _ = Optional(link).Map(prior => { Detach(prior); return unit; });
                 link = replaced;
-                last = double.NaN;
                 return unit;
-            });
+            }));
     }
 
     // Teardown is the exact inverse of attachment: remove from the same loop and mode, invalidate, then dispose.
@@ -366,9 +263,8 @@ internal sealed class MacPacer : NSObject, MotionAttachment {
         held.Dispose();
     }
 
-    // Release marshals: a drive is disposed from whatever lane owns it, and removing, invalidating, and freeing a link
-    // off-main tears down a registration the main run loop still holds. The marshal's own refusal rides the same fault
-    // seam a tick refusal does, and the guard leaves an untorn link paused rather than live.
+    // Release marshals: a drive is disposed from whatever lane owns it, and removing, invalidating, and freeing a
+    // link off-main tears down a registration the main run loop still holds.
     protected override void Dispose(bool disposing) {
         if (disposing) {
             _ = Guarded(UiThread.Run(new UiDispatch<Unit>.Blocking(() => key.Catch(() => {
@@ -377,344 +273,220 @@ internal sealed class MacPacer : NSObject, MotionAttachment {
                 screenObserver?.Dispose();
                 screenObserver = null;
                 return Fin.Succ(value: unit);
-            })), key).Result);
+            })), DispatchLane.Immediate, key));
         }
         base.Dispose(disposing);
     }
 }
 ```
 
-## [04]-[PUMP]
+## [04]-[DRIVE]
 
-- Owner: `MotionScript` `[Union]` owns kernel-sampled tween, spring, and glide plans; `MotionStepPolicy` bounds driven-spring frame deltas, and each `MotionDrive` owns its retarget atom. `MotionSample` `[Union]` carries the sampled value plus `MotionPresentation`, so reduce-motion, contrast, color differentiation, and transparency facts reach the consumer instead of becoming dead probes. `MotionDrive` owns pause, resume, retarget, completion, and disposal.
-- Entry: `MotionPump.Drive(session, script, target, TimeProvider, apply, clock?, integrator?, Op?) : Fin<MotionDrive>` executes sample → apply → invalidate per tick. Accessibility probes fresh inside `Drive`; `Pause`, `Resume`, `Retarget`, `Completion`, and `Dispose` expose the complete lifecycle.
-- Law: reduced motion is a collapse, not a skip — when `MotionPresentation.ReduceMotion` holds, the drive applies the terminal sample once (`t = 1` for a tween, the settled state for a spring, the `DecayShape.Project` resting position for a glide), invalidates once, and completes; perceivable state changes still land, motion does not.
-- Law: the tick body computes nothing — `CyclePlan.Phase`, `Easing.Evaluate`, `SpringShape.Step`, and `DecayShape.Advance` are the kernel calls, the apply is the consumer's, the invalidation is the target row's; a numeric expression in the pump beyond elapsed-time bookkeeping is the census defect this page exists to kill.
-- Law: `MotionValue` preserves every finite easing result, including overshoot; a consumer whose domain is bounded performs its own projection at that boundary, so a back, elastic, or spring excursion never terminates a drive at an admission gate the producing law licensed it to exceed.
-- Law: every policy default either DERIVES from a named anchor or declares itself conventional in one clause — `MotionStepPolicy.Interactive` derives both bounds from `FrameRatePolicy.Portable`, and that row declares its band conventional because no portable surface publishes a refresh rate; an undived magic constant beside a policy name is the deleted form.
-- Law: one per-drive `Lock` — minted by the drive fold and threaded into `MotionDrive` — serializes tick, clock fault, pause, resume, retarget, and disposal transitions; disposal waits for an in-flight tick and no callback begins host work after release. Gate arity is per drive, never per target: concurrent drives on one view coalesce at the host's own redraw.
-- Law: spring settling is evidence-driven — `|position − target| ≤ EpsilonPolicy.SqrtEpsilon · max(1, |target|)` and `|velocity| ≤ EpsilonPolicy.SqrtEpsilon` — so a drive terminates on state, never on an iteration guess; a color tween is a tween whose apply samples `PerceptualColor.Mix` at the eased parameter, needing no third script case.
-- Law: released input coasting to rest with no target is a glide — the flick tail of a pan, zoom, or orbit — and its run is bound at admission, never stepped to a band: `MotionScript.Glide` reads `DecayShape.Settle` once, threads the bound through the finite gate — the kernel's closed form overflows on admissible near-unity retention, and an infinite tail is an unbounded run wearing a bound — and carries the admitted tail on the script row, the tick's one kernel call is `DecayShape.Advance` at the accumulated elapsed, and the drive completes when elapsed crosses that bound — the kernel partitions the two settling questions and a closed-form drive asks the BOUND one, where the stepped spring alone owns the band test. Release toward a chosen stop is no third case: it seeds `MotionScript.Spring` from the live release velocity — the kernel's own decay-then-approach composition — so `Retarget` on a glide refuses exactly as on a tween, because steering a coast means minting the spring.
-- Law: `MotionDrive` latches terminal intent, pauses and releases the attachment, then publishes one typed outcome; the tick rail folds every kernel, consumer, invalidation, pause, and release fault onto that terminal before any waiter resumes.
-- Law: pause, resume, retarget, and disposal serialize on one lifecycle gate — disposal waits out an in-flight call, no call reaches a disposed clock, and a released drive refuses with `InvalidContext`; `Dispose` enters the same terminal fold as natural completion.
+- Owner: `DriveGate` `[Union]` — the drive lifecycle as a closed state the CAS verdict reads; `MotionLease` — the drive capsule owning pause, resume, retarget, completion, and disposal over one clock attachment (RENAMED from the former `MotionDrive` class: the kernel owns that name for the sampler, `ARCHITECTURE.md`'s bare-name law resolves the collision, and the census witness already spells `Fin<MotionLease> Drive(...)`); `MotionPump` — the one drive entry.
+- Entry: `MotionPump.Drive(session, script, target, timeline, apply, clock?, key?) : Fin<MotionLease>` — the timeline is the session's ONE injected `MonotonicTimeline` (the folder ruling), the script admits through the kernel's own `MotionDrive.Admit`, and the tick body is sample → apply → invalidate with the sample computed by ONE `MotionDrive.Step(script, beat, posture, key)` call.
+- Law: the tick body computes nothing — the kernel steps, the consumer applies, the target row invalidates; a numeric expression in the pump beyond beat minting is the deleted form this page's history exists to warn about. Settling is the kernel's own verdict: `Step` answers `(Sample, Continues)` and the drive terminates when `Continues` reads false, so no band probe, iteration guess, or elapsed comparison survives host-side.
+- Law: the drive's temporal identity is one kernel beat chain — a per-drive `BeatSeed` cell advanced through `MonotonicTimeline.Beat(seed, cadence, key)` on every pulse, guarded by `Cell.Step` on the observed seed exactly as the kernel clock's own cursor law demands — and each tick body runs GAUGED on `DispatchLane.Paced`, whose one-frame budget reads the seated pace band, so an over-budget tick is a pulse with a breached span rather than an invisible stall.
+- Law: reduced motion is a collapse, not a skip — when the probed posture admits `MotionConcession.ReduceMotion`, the drive applies the TERMINAL sample once (the eased curve at its end, the spring at its settled target, the glide at its projected rest — each read off the kernel case's own columns), invalidates once, and completes; perceivable state changes still land, motion does not.
+- Law: the lifecycle is a CLOSED state the CAS reads — `Running → Stopping → Released` through `Cell.Step` on one `Atom<DriveGate>` — so a tick that raced a disposal reads its `Ceded`/`Refused` verdict and settles without host work, a second disposal reads `Refused` rather than re-running teardown, and the two hand booleans the prior page serialized under a lock have no successor. Terminal custody is one fold: pause, release, and the primary outcome merge with every cleanup fault APPENDING through the `Error` monoid — never `ignore`d — before any waiter resumes.
+- Law: `Retarget` is the kernel's own — the script cell commits `MotionDrive.Retarget(script, lastSample, goal, key)` so a running spring re-aims mid-flight through the algebra that owns the composition, and a retarget on a script the kernel refuses (an eased tween, a coasting glide) lands the kernel's typed refusal untouched. The last sample rides its own cell because the retarget seam is the one consumer of it.
+- Law: the apply closure and the invalidation are HOST-SIDE by decision (E-G25) — the kernel samples and the boundary lands, at both boundaries identically — and a driven spring (`FieldIntegrator`) has NO consumer and is REFUSED: no integrator parameter survives, and the kernel's fixed stepper is the whole spring arithmetic.
 - Boundary: one drive owns one clock attachment; concurrent drives on one target coexist because invalidation coalesces at the host — the pump never de-duplicates redraws across drives.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
+// The lifecycle as a CLOSED state: a tick, a fault, a disposal, and a completion each STEP the gate and read the
+// verdict, so a race is a `Ceded` read rather than a boolean pair under a lock.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record MotionSample {
-    private MotionSample() { }
-    public sealed record EasedCase(MotionValue Value, CyclePhase Phase, MotionPresentation Presentation) : MotionSample;
-    public sealed record SprungCase(SpringState State, bool Settled, MotionPresentation Presentation) : MotionSample;
-    public sealed record GlidedCase(MotionValue Value, bool Settled, MotionPresentation Presentation) : MotionSample;
-}
-
-[ValueObject<double>]
-public readonly partial struct MotionValue {
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
-        validationError = double.IsFinite(value)
-            ? validationError
-            : new ValidationError(message: "motion value is invalid");
-    }
-}
-
-[ValueObject<double>]
-public readonly partial struct MotionPeriod {
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
-        validationError = double.IsFinite(value) && value > 0.0
-            ? validationError
-            : new ValidationError(message: "motion period is invalid");
-    }
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record MotionScript {
-    private MotionScript() { }
-    public sealed record TweenCase(Easing Curve, MotionPeriod Period, CyclePlan Plan) : MotionScript;
-    public sealed record SpringCase(SpringShape Shape, SpringState From, double Target, MotionStepPolicy Step) : MotionScript;
-    public sealed record GlideCase(DecayShape Shape, double Origin, double Velocity, double Tail) : MotionScript;
-
-    public static Fin<MotionScript> Tween(Easing curve, double periodSeconds, Option<CyclePlan> plan = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return from row in op.Need(value: curve)
-               from period in op.AcceptValidated<MotionPeriod>(candidate: periodSeconds)
-               from cycle in plan.Match(Some: Fin.Succ, None: () => CyclePlan.Of(count: Some(1), yoyo: false, key: op))
-               select (MotionScript)new TweenCase(Curve: row, Period: period, Plan: cycle);
-    }
-
-    public static Fin<MotionScript> Spring(
-        SpringShape shape,
-        SpringState from,
-        double target,
-        Option<MotionStepPolicy> step = default,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return from _ in guard(shape.IsValid && from.IsValid, op.InvalidInput()).ToFin()
-               from goal in op.Finite(value: target)
-               select (MotionScript)new SpringCase(
-                   Shape: shape,
-                   From: from,
-                   Target: goal,
-                   Step: step.IfNone(MotionStepPolicy.Interactive));
-    }
-
-    // Admission evidence rides the tail: `Settle` bounds the closed-form run BEFORE it starts, so no tick
-    // re-asks the settling question and the drive's terminal is a duration crossing, never a band probe on
-    // kernel state. That bound re-enters the finite gate because the kernel's closed form overflows on
-    // admissible inputs — a near-unity retention divides the release velocity by a vanishing rate, and an
-    // infinite tail is an unbounded run wearing a bound — so a glide the arithmetic cannot bound refuses
-    // here, before any clock mounts.
-    public static Fin<MotionScript> Glide(DecayShape shape, double origin, double velocity, Op? key = null) {
-        Op op = key.OrDefault();
-        return from _ in guard(shape.IsValid, op.InvalidInput()).ToFin()
-               from start in op.Finite(value: origin)
-               from release in op.Finite(value: velocity)
-               from bound in shape.Settle(velocity: release, epsilon: EpsilonPolicy.SqrtEpsilon, key: op)
-               from tail in op.Finite(value: bound)
-               select (MotionScript)new GlideCase(Shape: shape, Origin: start, Velocity: release, Tail: tail);
-    }
-}
-
-[ComplexValueObject]
-public sealed partial class MotionStepPolicy {
-    // Step bounds derive from the portable cadence row rather than restating it: maximum step is one whole frame at
-    // that row's floor and minimum is the quarter-frame sub-step at its ceiling, so re-rating the cadence re-rates
-    // integration bounds and no second frame-rate literal survives on this page.
-    public static MotionStepPolicy Interactive { get; } = Create(
-        minimumSeconds: 1.0 / (4.0 * FrameRatePolicy.Portable.Max),
-        maximumSeconds: 1.0 / FrameRatePolicy.Portable.Min);
-
-    public double MinimumSeconds { get; }
-    public double MaximumSeconds { get; }
-
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
-        ref double minimumSeconds,
-        ref double maximumSeconds) {
-        validationError = double.IsFinite(minimumSeconds) && double.IsFinite(maximumSeconds)
-            && minimumSeconds > 0.0 && maximumSeconds >= minimumSeconds
-                ? validationError
-                : new ValidationError(message: "motion step policy is invalid");
-    }
-
-    public double Clamp(double seconds) => Math.Clamp(seconds, MinimumSeconds, MaximumSeconds);
+internal abstract partial record DriveGate {
+    private DriveGate() { }
+    internal sealed record Running : DriveGate;
+    internal sealed record Stopping : DriveGate;
+    internal sealed record Released : DriveGate;
 }
 
 // --- [SERVICES] -----------------------------------------------------------------------------
-public sealed class MotionDrive : IDisposable {
-    private readonly Lock gate;
+// RENAMED from `MotionDrive`: the kernel owns that name for the sampler, and one assembly resolves bare names.
+public sealed class MotionLease : IDisposable {
+    private readonly Atom<DriveGate> gate;
     private readonly MotionAttachment clock;
-    private readonly Option<Atom<double>> springTarget;
+    private readonly Atom<MotionScript> script;
+    private readonly Atom<Option<MotionSample>> last;
     private readonly Func<Fin<Unit>, Fin<Unit>> finish;
-    private bool released;
+    private readonly Op key;
 
-    internal MotionDrive(
-        Lock gate,
+    internal MotionLease(
+        Atom<DriveGate> gate,
         MotionAttachment clock,
-        Option<Atom<double>> springTarget,
+        Atom<MotionScript> script,
+        Atom<Option<MotionSample>> last,
         Task<Fin<Unit>> completion,
-        Func<Fin<Unit>, Fin<Unit>> finish) {
+        Func<Fin<Unit>, Fin<Unit>> finish,
+        Op key) {
         this.gate = gate;
         this.clock = clock;
-        this.springTarget = springTarget;
+        this.script = script;
+        this.last = last;
         this.finish = finish;
+        this.key = key;
         Completion = completion;
     }
 
     public Task<Fin<Unit>> Completion { get; }
 
-    public Fin<Unit> Pause(Op? key = null) {
+    public Fin<Unit> Pause(Op? key = null) => Live(key.OrDefault(), () => Fin.Succ(clock.Pause()));
+
+    public Fin<Unit> Resume(Op? key = null) => Live(key.OrDefault(), () => Fin.Succ(clock.Resume()));
+
+    // The kernel's OWN retarget: the script cell commits the re-aimed script and a kernel refusal (retargeting a
+    // tween or a glide) lands untouched — steering a coast means minting the spring, which is the caller's move.
+    public Fin<Unit> Retarget(double goal, Op? key = null) {
         Op op = key.OrDefault();
-        lock (gate) {
-            return released || Completion.IsCompleted
-                ? Fin.Fail<Unit>(op.InvalidContext())
-                : op.Catch(() => Fin.Succ(clock.Pause()));
-        }
+        return Live(op, () =>
+            from sample in last.Value.ToFin(Fail: op.InvalidContext())
+            from moved in MotionDrive.Retarget(script: script.Value, from: sample, to: goal, key: op)
+            select ignore(script.Swap(_ => moved)));
     }
 
-    public Fin<Unit> Resume(Op? key = null) {
-        Op op = key.OrDefault();
-        lock (gate) {
-            return released || Completion.IsCompleted
-                ? Fin.Fail<Unit>(op.InvalidContext())
-                : op.Catch(() => Fin.Succ(clock.Resume()));
-        }
-    }
+    private Fin<Unit> Live(Op op, Func<Fin<Unit>> body) =>
+        gate.Value is DriveGate.Running && !Completion.IsCompleted
+            ? op.Catch(body)
+            : Fin.Fail<Unit>(op.InvalidContext());
 
-    public Fin<Unit> Retarget(double target, Op? key = null) {
-        Op op = key.OrDefault();
-        lock (gate) {
-            return from _ in guard(!released && !Completion.IsCompleted, op.InvalidContext()).ToFin()
-                   from goal in op.Finite(value: target)
-                   from cell in springTarget.ToFin(Fail: op.InvalidInput())
-                   select ignore(cell.Swap(_ => goal));
-        }
-    }
-
-    public void Dispose() {
-        lock (gate) {
-            if (released) { return; }
-            released = true;
-            _ = finish(Fin.Succ(value: unit));
-        }
-    }
+    public void Dispose() => _ = finish(Fin.Succ(value: unit));
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class MotionPump {
-    public static Fin<MotionDrive> Drive(
+    // The timeline is the session's ONE injected `MonotonicTimeline`; the script admits through the kernel's own
+    // gate; the posture probes fresh per drive so an accessibility flip lands on the next drive.
+    public static Fin<MotionLease> Drive(
         DocumentSession session,
         MotionScript script,
         RedrawTarget target,
-        TimeProvider provider,
+        MonotonicTimeline timeline,
         Func<MotionSample, Fin<Unit>> apply,
         Option<FrameClock> clock = default,
-        Option<FieldIntegrator> integrator = default,
         Op? key = null) {
         Op op = key.OrDefault();
         return from owner in Optional(session).ToFin(Fail: op.MissingContext())
-               from timeline in op.Need(value: script)
+               from beats in Optional(timeline).ToFin(Fail: op.MissingContext())
                from landing in op.Need(value: target)
-               from clockProvider in Optional(provider).ToFin(Fail: op.MissingContext())
                from consumer in op.Need(value: apply)
-               from selectedClock in clock.Match(Some: Fin.Succ, None: () => FrameClock.Resolve(key: op))
-               from stepper in integrator.Match(
-                   Some: value => FieldIntegrator.AdmitOrFixed(value: value, key: op),
-                   None: () => FieldIntegrator.AdmitOrFixed(value: null, key: op))
-               from presentation in op.Catch(() => Fin.Succ(value: MotionGate.Probe()))
-               from drive in presentation.ReduceMotion
-                   ? Collapsed(session: owner, timeline: timeline, presentation: presentation, landing: landing, apply: consumer, key: op)
-                   : Running(session: owner, timeline: timeline, presentation: presentation, landing: landing, provider: clockProvider, apply: consumer, clock: selectedClock, stepper: stepper, key: op)
+               from admitted in MotionDrive.Admit(script: script, key: op)
+               from selected in clock.Match(Some: Fin.Succ, None: () => FrameClock.Resolve(key: op))
+               let posture = ConcessionProbe.Posture(pace: selected.Pace)
+               from drive in posture.Concessions.Admits(capability: MotionConcession.ReduceMotion)
+                   ? Collapsed(session: owner, script: admitted, posture: posture, landing: landing, apply: consumer, key: op)
+                   : Running(session: owner, script: admitted, posture: posture, landing: landing, timeline: beats, apply: consumer, clock: selected, key: op)
                select drive;
     }
 
-    private static Fin<MotionDrive> Collapsed(DocumentSession session, MotionScript timeline, MotionPresentation presentation, RedrawTarget landing, Func<MotionSample, Fin<Unit>> apply, Op key) =>
-        from terminal in timeline.Switch(
-            (Op: key, Presentation: presentation),
-            tweenCase: static (ctx, tween) =>
-                from phase in tween.Plan.Phase(elapsed: (double)tween.Period * tween.Plan.Count.IfNone(1), period: (double)tween.Period, key: ctx.Op)
-                from end in ctx.Op.AcceptValidated<UnitInterval>(candidate: 1.0)
-                from value in ctx.Op.AcceptValidated<MotionValue>(candidate: tween.Curve.Evaluate(t: end))
-                select (MotionSample)new MotionSample.EasedCase(Value: value, Phase: phase, Presentation: ctx.Presentation),
-            springCase: static (ctx, spring) => Fin.Succ(
-                (MotionSample)new MotionSample.SprungCase(State: new SpringState(Position: spring.Target, Velocity: 0.0), Settled: true, Presentation: ctx.Presentation)),
-            glideCase: static (ctx, glide) =>
-                from rest in glide.Shape.Project(velocity: glide.Velocity, key: ctx.Op)
-                from value in ctx.Op.AcceptValidated<MotionValue>(candidate: glide.Origin + rest)
-                select (MotionSample)new MotionSample.GlidedCase(Value: value, Settled: true, Presentation: ctx.Presentation))
+    // The TERMINAL sample per case, read off the kernel case's own columns: the eased curve at its end, the spring
+    // at its settled target, the glide at its projected rest — applied once, invalidated once, completed.
+    private static Fin<MotionLease> Collapsed(
+        DocumentSession session, MotionScript script, MotionPosture posture, RedrawTarget landing,
+        Func<MotionSample, Fin<Unit>> apply, Op key) =>
+        from terminal in script.Switch(
+            state: (Posture: posture, Op: key),
+            eased: static (ctx, plan) => ctx.Op
+                .AcceptValidated<UnitInterval>(candidate: 1.0)
+                .Map(end => (MotionSample)new MotionSample.Eased(
+                    Value: plan.Curve.Evaluate(t: end), Posture: plan.Cycle.Terminal, Motion: ctx.Posture)),
+            sprung: static (ctx, plan) => Fin.Succ((MotionSample)new MotionSample.Sprung(
+                State: new SpringState(Position: plan.To, Velocity: 0.0), Motion: ctx.Posture)),
+            glided: static (ctx, plan) => plan.Decay
+                .Project(velocity: plan.Velocity, key: ctx.Op)
+                .Map(rest => (MotionSample)new MotionSample.Glided(Value: plan.Origin + rest, Motion: ctx.Posture)))
         from _ in key.Catch(() => apply(terminal))
         from __ in landing.Invalidate(session: session, key: key)
-        select new MotionDrive(
-            gate: new Lock(),
+        select new MotionLease(
+            gate: Atom<DriveGate>(new DriveGate.Released()),
             clock: Attachment.Completed,
-            springTarget: None,
+            script: Atom(script),
+            last: Atom(Some(terminal)),
             completion: Task.FromResult(Fin.Succ(value: unit)),
-            finish: static outcome => outcome);
+            finish: static outcome => outcome,
+            key: key);
 
-    private static Fin<MotionDrive> Running(DocumentSession session, MotionScript timeline, MotionPresentation presentation, RedrawTarget landing, TimeProvider provider, Func<MotionSample, Fin<Unit>> apply, FrameClock clock, FieldIntegrator stepper, Op key) {
+    private static Fin<MotionLease> Running(
+        DocumentSession session, MotionScript script, MotionPosture posture, RedrawTarget landing,
+        MonotonicTimeline timeline, Func<MotionSample, Fin<Unit>> apply, FrameClock clock, Op key) {
         TaskCompletionSource<Fin<Unit>> done = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        Atom<double> elapsed = Atom(0.0);
-        Atom<SpringState> springState = Atom(timeline is MotionScript.SpringCase seeded ? seeded.From : new SpringState(Position: 0.0, Velocity: 0.0));
-        Option<Atom<double>> retarget = timeline is MotionScript.SpringCase spring ? Some(Atom(spring.Target)) : None;
+        Atom<DriveGate> gate = Atom<DriveGate>(new DriveGate.Running());
+        Atom<MotionScript> plan = Atom(script);
+        Atom<Option<MotionSample>> last = Atom(Option<MotionSample>.None);
         Atom<Option<MotionAttachment>> mounted = Atom(Option<MotionAttachment>.None);
-        Lock gate = new();
-        Option<Fin<Unit>> pending = None;
-        bool stopping = false;
+        FaultCell faults = new(cap: Dimension.Create(value: 16), clock: TimeProvider.System);
+        return from cadence in key.AcceptValidated<PositiveMagnitude>(candidate: clock.Pace.Period.TotalSeconds)
+               from origin in timeline.Capture(key: key)
+               let seed = Atom((BeatSeed)origin)
+               from attachment in clock.Start(
+                   onTick: () => Tick(
+                       session: session, plan: plan, last: last, posture: posture, landing: landing, apply: apply,
+                       timeline: timeline, seed: seed, cadence: cadence, gate: gate, finish: Finish, key: key),
+                   onFault: error => { _ = Finish(Fin.Fail<Unit>(error)); },
+                   timeline: timeline,
+                   faults: faults,
+                   key: key)
+               from _ in Fin.Succ(ignore(mounted.Swap(_ => Some(attachment))))
+               select new MotionLease(
+                   gate: gate, clock: attachment, script: plan, last: last,
+                   completion: done.Task, finish: Finish, key: key);
 
-        Fin<Unit> PauseMounted() => mounted.Value.Match(
-            Some: attachment => key.Catch(() => Fin.Succ(value: attachment.Pause())),
-            None: static () => Fin.Succ(value: unit));
-
-        Fin<Unit> ReleaseMounted() {
-            Option<MotionAttachment> owned = mounted.Value;
-            _ = mounted.Swap(static _ => None);
-            return owned.Match(
-                Some: attachment => key.Catch(() => {
-                    attachment.Dispose();
-                    return Fin.Succ(value: unit);
-                }),
-                None: static () => Fin.Succ(value: unit));
-        }
-
-        static Fin<Unit> Merge(Fin<Unit> primary, Fin<Unit> cleanup) => cleanup.Match(
-            Succ: _ => primary,
-            Fail: release => primary.Match(
-                Succ: _ => Fin.Fail<Unit>(error: release),
-                Fail: fault => Fin.Fail<Unit>(error: fault + release)));
-
+        // Terminal custody is ONE fold: the gate steps to Stopping (a losing step means another path finished),
+        // pause and release run all-attempted, and every cleanup fault APPENDS onto the primary before any waiter
+        // resumes — a cleanup refusal never rides a discard.
         Fin<Unit> Finish(Fin<Unit> primary) {
-            if (done.Task.IsCompleted) { return done.Task.Result; }
-            stopping = true;
-            if (mounted.Value.IsNone) {
-                pending = Some(primary);
-                return primary;
+            if (Cell.Step(gate, static held => held is DriveGate.Running ? Some<DriveGate>(new DriveGate.Stopping()) : None, key.InvalidContext())
+                is not Transition<DriveGate>.Committed) {
+                return done.Task.IsCompleted ? done.Task.Result : primary;
             }
-            Fin<Unit> pause = PauseMounted();
-            Fin<Unit> release = ReleaseMounted();
-            Fin<Unit> settled = Merge(Merge(primary, pause), release);
+            Fin<Unit> pause = mounted.Value.Match(
+                Some: held => key.Catch(() => Fin.Succ(held.Pause())),
+                None: static () => Fin.Succ(unit));
+            Fin<Unit> release = mounted.Value.Match(
+                Some: held => key.Catch(() => { held.Dispose(); return Fin.Succ(unit); }),
+                None: static () => Fin.Succ(unit));
+            _ = mounted.Swap(static _ => None);
+            _ = Cell.Step(gate, static held => held is DriveGate.Stopping ? Some<DriveGate>(new DriveGate.Released()) : None, key.InvalidContext());
+            Fin<Unit> settled = Append(Append(primary, pause), release);
             _ = done.TrySetResult(settled);
             return settled;
         }
 
-        return clock.Start(onTick: tick => {
-            lock (gate) {
-                if (stopping) { return; }
-                double at = elapsed.Swap(total => total + Math.Max(0.0, tick.Delta));
-                Fin<(MotionSample Sample, bool Finished)> advanced = key.Catch(() => timeline.Switch(
-                    (At: at, Tick: tick, Spring: springState, Stepper: stepper, Target: retarget, Presentation: presentation, Op: key),
-                    tweenCase: static (ctx, tween) =>
-                        from phase in tween.Plan.Phase(elapsed: ctx.At, period: (double)tween.Period, key: ctx.Op)
-                        from eased in ctx.Op.AcceptValidated<MotionValue>(candidate: tween.Curve.Evaluate(t: phase.Local))
-                        select ((MotionSample)new MotionSample.EasedCase(Value: eased, Phase: phase, Presentation: ctx.Presentation), phase.Completed),
-                    springCase: static (ctx, spring) =>
-                        from target in ctx.Target.ToFin(Fail: ctx.Op.InvalidResult())
-                        from step in spring.Shape.Step(
-                            origin: ctx.Spring.Value,
-                            target: target.Value,
-                            h: spring.Step.Clamp(seconds: ctx.Tick.Delta),
-                            integrator: ctx.Stepper,
-                            key: ctx.Op)
-                        from next in step.Switch(
-                            acceptedCase: accepted => Fin.Succ(accepted.Next),
-                            rejectedCase: _ => Fin.Fail<SpringState>(ctx.Op.InvalidResult()))
-                        from _ in Fin.Succ(ignore(ctx.Spring.Swap(_ => next)))
-                        from settled in Fin.Succ(
-                            Math.Abs(next.Position - target.Value) <= EpsilonPolicy.SqrtEpsilon * Math.Max(1.0, Math.Abs(target.Value))
-                            && Math.Abs(next.Velocity) <= EpsilonPolicy.SqrtEpsilon)
-                        select ((MotionSample)new MotionSample.SprungCase(State: next, Settled: settled, Presentation: ctx.Presentation), settled),
-                    glideCase: static (ctx, glide) =>
-                        from position in glide.Shape.Advance(origin: glide.Origin, velocity: glide.Velocity, elapsed: ctx.At, key: ctx.Op)
-                        from value in ctx.Op.AcceptValidated<MotionValue>(candidate: position)
-                        from finished in Fin.Succ(ctx.At >= glide.Tail)
-                        select ((MotionSample)new MotionSample.GlidedCase(Value: value, Settled: finished, Presentation: ctx.Presentation), finished)));
-                _ = advanced
-                    .Bind(frame => key.Catch(() => apply(frame.Sample))
-                        .Bind(_ => landing.Invalidate(session: session, key: key))
-                        .Map(_ => frame.Finished))
-                    .Match(
-                        Succ: finished => { if (finished) { _ = Finish(Fin.Succ(value: unit)); } },
-                        Fail: error => { _ = Finish(Fin.Fail<Unit>(error)); });
-            }
-        }, onFault: error => {
-            lock (gate) {
-                if (stopping) { return; }
-                _ = Finish(Fin.Fail<Unit>(error));
-            }
-        }, provider: provider, key: key).Bind(attachment => {
-            lock (gate) {
-                _ = mounted.Swap(_ => Some(attachment));
-                _ = pending.Iter(primary => { _ = Finish(primary); });
-                return Fin.Succ(new MotionDrive(
-                    gate: gate,
-                    clock: attachment,
-                    springTarget: retarget,
-                    completion: done.Task,
-                    finish: Finish));
-            }
-        });
+        static Fin<Unit> Append(Fin<Unit> primary, Fin<Unit> side) => side.Match(
+            Succ: _ => primary,
+            Fail: fault => primary.Match(
+                Succ: _ => Fin.Fail<Unit>(error: fault),
+                Fail: first => Fin.Fail<Unit>(error: first + fault)));
+    }
+
+    // The tick body: mint the beat, ONE kernel step, apply, invalidate — gauged on the paced lane so an over-budget
+    // frame reads as a breached span. The seed advances through the kernel's own guarded-step law: a moved tail
+    // DECLINES rather than recomputing, so a doubled host callback lands a typed refusal, not a duplicate ordinal.
+    private static void Tick(
+        DocumentSession session, Atom<MotionScript> plan, Atom<Option<MotionSample>> last, MotionPosture posture,
+        RedrawTarget landing, Func<MotionSample, Fin<Unit>> apply, MonotonicTimeline timeline, Atom<BeatSeed> seed,
+        PositiveMagnitude cadence, Atom<DriveGate> gate, Func<Fin<Unit>, Fin<Unit>> finish, Op key) {
+        if (gate.Value is not DriveGate.Running) { return; }
+        Fin<(Fin<bool> Value, GaugedSpan<DispatchLane> Span)> gauged = timeline.Gauged<bool, DispatchLane>(
+            lane: DispatchLane.Paced,
+            work: key,
+            body: () =>
+                from held in Fin.Succ(seed.Value)
+                from beat in timeline.Beat(seed: held, cadence: cadence, key: key)
+                from seated in Cell.Step(seed, next => next == held ? Some(BeatSeed.Previous(beat)) : None, key.InvalidResult())
+                        is Transition<BeatSeed>.Committed
+                    ? Fin.Succ(unit)
+                    : Fin.Fail<Unit>(key.InvalidResult())
+                from stepped in MotionDrive.Step(script: plan.Value, beat: beat, posture: posture, key: key)
+                from _ in Fin.Succ(ignore(last.Swap(_ => Some(stepped.Sample))))
+                from applied in key.Catch(() => apply(stepped.Sample))
+                from invalidated in landing.Invalidate(session: session, key: key)
+                select stepped.Continues);
+        _ = gauged.Bind(static held => held.Value).Match(
+            Succ: continues => { if (!continues) { _ = finish(Fin.Succ(value: unit)); } },
+            Fail: error => { _ = finish(Fin.Fail<Unit>(error)); });
     }
 }
 ```
@@ -729,15 +501,18 @@ config:
 ---
 flowchart LR
     accTitle: Rhino viewport motion pump
-    accDescr: Kernel easing, cycle, spring, decay, and field samplers feeding the motion pump beside the frame-clock tick and the reduce-motion gate, screen refresh policy rebinding the clock, and the pump landing samples on consumer apply, redraw targets, and the spring retarget.
-    Kernel["Rasm.Parametric Easing · CyclePlan · SpringShape · DecayShape / Rasm.Numerics PerceptualColor · FieldIntegrator"] -->|samples| Pump["MotionPump.Drive"]
-    Clock["FrameClock — CADisplayLink · UITimer · RhinoApp.Idle"] -->|FrameTick — TargetTimestamp| Pump
-    Gate["MotionGate — NSWorkspace reduce-motion family"] -->|collapse decision| Pump
-    Screen["NSScreen.MaximumFramesPerSecond · ObserveDidChangeScreenParameters"] -->|FrameRatePolicy · rebind| Clock
-    Pump -->|MotionSample| Apply["consumer apply — camera pose · conduit state · canvas paint"]
-    Pump -->|RedrawTarget rows| Land["RhinoView.Redraw · Views.Redraw · canvas Invalidate"]
-    Pump -->|Retarget| Spring["Atom&lt;double&gt; spring goal"]
+    accDescr: The kernel motion sampler and pace band feeding the host drive, the three host clock rows pulsing it, the accessibility probe filling the kernel posture, the timeline minting beats and gauging each tick, and the drive landing samples on the consumer apply and the redraw targets.
+    Kernel["Rasm.Parametric MotionDrive · MotionScript · PaceBand · SettleBand"] -->|"Step(script, beat, posture)"| Pump["MotionPump.Drive"]
+    Clock["FrameClock — CADisplayLink · UiClock · RhinoApp.Idle"] -->|pulse| Pump
+    Probe["ConcessionProbe — NSWorkspace accessibility reads"] -->|"MotionPosture"| Pump
+    Timeline["MonotonicTimeline"] -->|"Beat + Gauged(Paced)"| Pump
+    Screen["NSScreen bounds · ObserveDidChangeScreenParameters"] -->|"PaceBand.ScaleTo · rebind"| Clock
+    Pump -->|"MotionSample"| Apply["consumer apply — camera pose · conduit state"]
+    Pump -->|"RedrawTarget rows"| Land["RhinoView.Redraw · Views.Redraw"]
+    Pump -->|"MotionDrive.Retarget"| Spring["script cell re-aim"]
 ```
+
+- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-display.md` — redraw targets, view pipeline); `AppKit`/`CoreAnimation` (`Rasm.Rhino/.api/api-macos-native.md` — the display-link pulse the drive gates); `Thinktecture.Runtime.Extensions` (`libs/csharp/.api/api-thinktecture-runtime-extensions.md` — `[Union]` motion verbs); kernel `Parametric` (`MotionDrive`, `MotionScript`, `MotionSample`, `MotionPosture`, `SpringState`, `PaceBand`, `SettleBand`, `MonotonicTimeline` one-timeline law) + `Interaction/clock` (the kernel tick floor).
 
 ## [05]-[RESEARCH]
 

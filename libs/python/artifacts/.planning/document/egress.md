@@ -34,11 +34,12 @@ from expression.collections import Block, Map
 from msgspec import Struct, field, structs
 from pydantic import TypeAdapter, ValidationError
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
-from rasm.artifacts.document.model import AnnotKind, AnnotationNode, DocumentNode, SectionNode, node_digest, walk
+from rasm.artifacts.document.model import AnnotKind, AnnotationNode, DocumentNode, Lapse, SectionNode, lapsed, node_digest, walk
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.runtime.faults import TRANSIENT, Catch, FaultRow, RuntimeRail, async_boundary, rostered
 from rasm.runtime.journal import Assigned, Change, Cleared, Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -195,6 +196,22 @@ _VERIFICATION: Final[Map[OfficeVerification, tuple[bool, bool]]] = Map.of_seq([
     (OfficeVerification.FULL, (True, True)),
 ])
 
+
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's ONE lift anchor. TRANSIENT — a finishing chain that died on a provider raise or a worker death is a
+# defect a re-issue may clear, and every ADMISSION refusal is `EgressFault`'s, never a row here.
+EGRESS_FINISH: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.EGRESS, point="finish", arm="boundary", defect="finish-fold", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([EGRESS_FINISH]))
+
+# the fence's whole raise surface: `_finished` awaits a RAILED offload and collapses its terminal fault through the
+# shared `document/model#NODE` carrier, which `BoundaryFault.of` admits ahead of `CLASSIFY` so the fault crosses back
+# WHOLE on `domain`. Every provider raise (`pikepdf.PdfError`, `pymupdf.FileDataError`, `msoffcrypto.DecryptionError`)
+# already converted inside the worker, so no provider class rides here.
+_FINISH_RAISES: Final[Catch] = (Lapse,)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class Permissions(Struct, frozen=True):
@@ -525,11 +542,11 @@ class DocumentEgress(Struct, frozen=True):
     async def _finished(self) -> Self:
         # heavy GIL-releasing native work crosses the runtime thread lane through the owner's bound `lane`, never a folder-minted limiter.
         crossed = await self.lane.offload(Kernel.of(self.finished, KernelTrait.RELEASING))
-        return crossed.default_with(lambda fault: _egress_raise(fault))
+        return crossed.default_with(lapsed)
 
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
         # Terminal receipt threads the PRE-RUN key the closure captured, so receipt.slot == node.key.
-        settled = (await async_boundary(f"egress.{'+'.join(self.steps)}", self._finished)).map(lambda live: (live, live._receipt(key)))
+        settled = (await async_boundary(EGRESS_FINISH, self._finished, catch=_FINISH_RAISES)).map(lambda live: (live, live._receipt(key)))
         match settled:
             case Result(tag="ok", ok=(live, receipt)):
                 # a finish that encrypts, redacts, strips, or fills is a security control over a document somebody
@@ -675,10 +692,6 @@ def _minted(
     spec = ContentIdentity.key(f"egress-{steps[-1]}", _KEY_ENCODER.encode((steps, source, finishing, extras, footing)))
     return spec if node is None else ContentIdentity.key(f"egress-{steps[-1]}", (spec, node_digest(node)))
 
-
-def _egress_raise(fault: object) -> "DocumentEgress":
-    # terminal collapse at the finishing boundary: an offload fault reconstructs the raise the node's rail folds.
-    raise ValueError(str(fault))
 
 
 def _sections(node: DocumentNode | None, /) -> Iterator[SectionNode]:

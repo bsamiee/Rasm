@@ -1,21 +1,21 @@
 # [RASM_FABRICATION_AUDIT]
 
-`Audit.Preflight` admits one additive `SliceStack`, rasterizes it in one correlated build frame, labels per-layer and volumetric connectivity, resolves void escape, and emits geometry and process-risk evidence before scan or production commitment. `AuditReceipt` is the sole preflight receipt scan-path and production gates consume.
+`Audit.Preflight` admits one additive `SliceStack`, rasterizes it in one correlated build frame, labels per-layer and volumetric connectivity, resolves void escape, and emits geometry and process-risk evidence before scan or production commitment. `Receipt<AuditEvidence>` is the sole preflight receipt scan-path and production gates consume, addressed under `EgressKind.QualityRecord` over the request it read.
 
 Risk membership derives from the `AdditiveProcess` capability axes `Additive/production` owns — `Recoated` and `Supported` — so no risk table mirrors the process roster and a ninth process arrives with its families already decided. Every `AuditDefect` case names the `AuditRisk` it belongs to, so one filter applies the whole process policy and the census is total over the admitted families. `AuditEnvelope` binds section frame and build intervals into one relational owner. `RasterWorkspace` owns pooled solid, void, support, and label planes, `ParallelHelper.For2D` owns independent occupancy cells, and connectivity is run-scanline union-find over those planes — no graph container addresses a raster cell. Wall thickness is the one measure the raster does not answer: it composes the kernel `Offsetting.Apply` medial locus, whose `ClearanceNode` radii are exact boundary distances in the clearance vocabulary the toolpath seam already speaks.
 
 ## [01]-[INDEX]
 
-- [02]-[RISK_ALGEBRA]: `AuditRisk` and its per-process membership predicate, `TrapMedium` off the build head, `LayerMeasure`, and the `AuditDefect` family with its risk projection.
+- [02]-[RISK_ALGEBRA]: `AuditRisk` and its per-process membership predicate, `TrapMedium` off the build head, and the `AuditDefect` family with its risk projection.
 - [03]-[PREFLIGHT_POLICY]: `AuditEnvelope`, `AuditThresholds`, `LayerProcessEvidence`, and `AuditPolicy`.
 - [04]-[RASTER_FRAME]: `Cell`, `ComponentId`, `RasterGrid`, `AdmittedAudit`, `RasterWorkspace`, and the plane fill actions.
 - [05]-[FIELD_KERNELS]: the run-scanline labeling and the plane measurement folds.
-- [06]-[LAYER_EVIDENCE]: `ComponentReceipt`, `VoidReceipt`, `RecoaterLikelihood`, `LayerMetric`, and the layer state fold.
-- [07]-[PREFLIGHT]: `Audit.Preflight`, the admission gates, defect production, and `AuditReceipt`.
+- [06]-[LAYER_EVIDENCE]: `LayerComponent`, `VoidReceipt`, the composed `Additive/slicing` measurement family, and the layer state fold.
+- [07]-[PREFLIGHT]: `Audit.Preflight`, the admission gates, the request preimage, defect production, and `Receipt<AuditEvidence>`.
 
 ## [02]-[RISK_ALGEBRA]
 
-- Owner: `AuditRisk` owns the risk-family vocabulary and the predicate deciding whether a process exhibits each family; `TrapMedium` owns which medium a void traps; `LayerMeasure` owns the per-layer measurement axes a composed index can be missing; `AuditDefect` owns every reportable finding and its owning family.
+- Owner: `AuditRisk` owns the risk-family vocabulary and the predicate deciding whether a process exhibits each family; `TrapMedium` owns which medium a void traps; `AuditDefect` owns every reportable finding and its owning family. `LayerMeasure` — the axis roster a composed index can be missing — is `Additive/slicing`'s, and the strike finding carries its absent set by composition.
 - Law: family membership READS the process — `Supported` decides the support family, `Recoated` decides the recoater family, the build head decides thermal fusion and the trapped medium, and contour, bound, wall, and lineage bind every process. A per-process risk table restates the roster it mirrors and strands every family a new row forgets, so the predicate is the only membership authority.
 - Cases: `AuditDefect` covers open contour, island, split and merge lineage, enclosed medium, restricted escape, unsupported area, thin wall, independent axis bound, heat accumulation, recoater strike, area jump, and unsupported-mass trend. The three cross-layer trend findings seat on the family whose evidence each actually carries — area growth is a lineage fact every process exhibits, unsupported-mass trend is support evidence, and blade-strike likelihood is recoater evidence — so the census separates three findings a single recoater family fused.
 - Auto: `TrapMedium.Of` dispatches the generated total `Switch` over `BuildHead`, so a ninth head breaks this arm rather than silently trapping nothing; a head fusing feedstock in place carries no surrounding medium and answers `None`.
@@ -41,7 +41,11 @@ using Rasm.Numerics;
 using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
+using UnitsNet;
 using static LanguageExt.Prelude;
+// ONE alias resolves the whole `Duration` collision between the two time packages this page carries, so every
+// admitted limit and every published measurement spells its quantity bare instead of qualifying it per member.
+using Duration = NodaTime.Duration;
 using RhinoInterval = Rhino.Geometry.Interval;
 
 namespace Rasm.Fabrication.Verify;
@@ -97,16 +101,6 @@ public sealed partial class TrapMedium {
         laminator: static _ => Option<TrapMedium>.None);
 }
 
-// The per-layer measurement axes a composed index can be MISSING. A modality building no support never measures
-// unsupported mass, and the composed likelihood names which terms it was formed from rather than reading an absent
-// term as a zero that silently depresses it below every threshold.
-[SmartEnum<string>]
-public sealed partial class LayerMeasure {
-    public static readonly LayerMeasure UnsupportedMass = new("unsupported-mass");
-    public static readonly LayerMeasure AreaJump = new("area-jump");
-    public static readonly LayerMeasure RecoatExposure = new("recoat-exposure");
-}
-
 public readonly record struct Cell(int Layer, int Row, int Column);
 public readonly record struct ComponentId(int Layer, int Label);
 
@@ -119,22 +113,25 @@ public abstract partial record AuditDefect {
     private AuditDefect() { }
 
     public sealed record OpenContour(int Layer, int Count) : AuditDefect;
-    public sealed record Island(ComponentId Component, double AreaMm2, Point3d At) : AuditDefect;
+    public sealed record Island(ComponentId Component, Area Footprint, Point3d At) : AuditDefect;
     public sealed record LineageSplit(ComponentId Component, Seq<ComponentId> Children) : AuditDefect;
     public sealed record LineageMerge(ComponentId Component, Seq<ComponentId> Parents) : AuditDefect;
-    public sealed record EnclosedMedium(int Void, TrapMedium Medium, double VolumeMm3, Point3d At) : AuditDefect;
-    public sealed record EscapeRestriction(int Void, double MouthMm, double RequiredMm, Point3d At) : AuditDefect;
-    public sealed record UnsupportedArea(int Layer, double AreaMm2, Point3d At) : AuditDefect;
-    public sealed record ThinWall(int Layer, double ThicknessMm, Point3d At) : AuditDefect;
-    public sealed record TouchingBound(int Layer, MachineAxis Axis, double ClearanceMm, Point3d At) : AuditDefect;
+    public sealed record EnclosedMedium(int Void, TrapMedium Medium, Volume Trapped, Point3d At) : AuditDefect;
+    public sealed record EscapeRestriction(int Void, Length Mouth, Length Required, Point3d At) : AuditDefect;
+    public sealed record UnsupportedArea(int Layer, Area Unsupported, Point3d At) : AuditDefect;
+    public sealed record ThinWall(int Layer, Length Thickness, Point3d At) : AuditDefect;
+    public sealed record TouchingBound(int Layer, MachineAxis Axis, Length Clearance, Point3d At) : AuditDefect;
+    // The heat index is a dimensionless accumulator — energy per area per second, damped by a recoat decay and
+    // divided by a ventilation share — so no quantity names it and a `Ratio` would claim a fraction it is not
+    // bounded to. Every other magnitude here carries the quantity its axis measures.
     public sealed record HeatAccumulation(int Layer, double Index, double Limit) : AuditDefect;
     // The absent set travels ON the finding: a likelihood formed from two of three terms is still actionable, and a
     // reader that cannot see which terms composed it cannot tell a quiet process from an unmeasured one.
     public sealed record RecoaterStrike(
-        int Layer, double Likelihood, double Limit, double ClearanceMm,
+        int Layer, Ratio Likelihood, Ratio Limit, Length Clearance,
         Set<LayerMeasure> Absent, Point3d At) : AuditDefect;
-    public sealed record AreaJump(int Layer, double Ratio, double Limit) : AuditDefect;
-    public sealed record UnsupportedMassTrend(int Layer, double Kilograms, double Limit) : AuditDefect;
+    public sealed record AreaJump(int Layer, Ratio Growth, Ratio Limit) : AuditDefect;
+    public sealed record UnsupportedMassTrend(int Layer, Mass Trend, Mass Limit) : AuditDefect;
 
     // One arm per case is the whole process policy: defect production is unconditional and this projection decides
     // which findings the process in hand can exhibit. The three cross-layer trend findings seat on the family whose
@@ -164,12 +161,11 @@ public abstract partial record AuditDefect {
 - Auto: `RecoaterEnvelope` is REQUIRED exactly where the process is recoated, so a strike likelihood downstream reads a present clearance rather than defending against its absence; evidence rows carry one row per layer per admitted signal family, proved once here.
 - Packages: `Rasm.Element` (`AdmissionSlots`); `Rasm.Meshing` (`SliceStack`); `Additive/production` (`AdditiveProcess`, `BuildHead`, `RecoaterEnvelope`); `Additive/support` (`SupportPlan`); `Process/faults` (`FabricationFault`, `FabConcern`, `Admission`, `MachineAxis`); `NodaTime`; Thinktecture.Runtime.Extensions; LanguageExt.Core.
 - Growth: a process signal is one `LayerProcessEvidence` case with its risk arm; a limit is one `AuditThresholds` column.
-- Boundary: thresholds carry physical limits and raster demand alone — no risk membership, no frame, and no evidence. `MaximumRadiusCells` bounds the overhang reach the lineage walk enumerates and nothing else, because wall thickness resolves through a transform carrying no radius.
+- Boundary: thresholds carry physical limits and raster demand alone — no risk membership, no frame, and no evidence. Every admitted limit carries its quantity and the raster kernel below computes on raw ordinates, so the two regimes meet at admission and nowhere else. `MaximumRadiusCells` bounds the overhang reach the lineage walk enumerates and nothing else, because wall thickness resolves through a transform carrying no radius.
 
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class AuditEnvelope {
     public Plane Frame { get; }
     public RhinoInterval U { get; }
@@ -178,14 +174,14 @@ public sealed partial class AuditEnvelope {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Plane frame,
         ref RhinoInterval u,
         ref RhinoInterval v,
         ref RhinoInterval w) {
         if (!frame.IsValid || !u.IsValid || !v.IsValid || !w.IsValid
             || u.Length <= 0.0 || v.Length <= 0.0 || w.Length <= 0.0)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Verify, "audit-envelope");
+            validationError = new ValidationError("audit-envelope");
     }
 
     public static Fin<AuditEnvelope> Admit(Plane frame, RhinoInterval u, RhinoInterval v, RhinoInterval w) =>
@@ -207,9 +203,9 @@ public sealed partial class AuditEnvelope {
 public abstract partial record LayerProcessEvidence {
     private LayerProcessEvidence() { }
 
-    public sealed record Thermal(int LayerIndex, double EnergyJ, Duration Exposure, Option<Vector2d> FlowDirection)
+    public sealed record Thermal(int LayerIndex, Energy Deposited, Duration Exposure, Option<Vector2d> FlowDirection)
         : LayerProcessEvidence;
-    public sealed record Recoat(int LayerIndex, Duration Duration, Vector2d Direction) : LayerProcessEvidence;
+    public sealed record Recoat(int LayerIndex, Duration Traverse, Vector2d Direction) : LayerProcessEvidence;
 
     public int Layer => Switch(
         thermal: static value => value.LayerIndex,
@@ -220,9 +216,10 @@ public abstract partial record LayerProcessEvidence {
         recoat: static _ => AuditRisk.Recoater);
 
     public bool Valid => Switch(
-        thermal: static value => value.LayerIndex >= 0 && Witness.Positive(value.EnergyJ)
-            && value.Exposure > Duration.Zero && value.FlowDirection.ForAll(Directed),
-        recoat: static value => value.LayerIndex >= 0 && value.Duration > Duration.Zero && Directed(value.Direction));
+        thermal: static value => ValidityClaim.All(
+            value.LayerIndex >= 0, ValidityClaim.Positive(value.Deposited.Joules), value.Exposure > Duration.Zero,
+            value.FlowDirection.ForAll(Directed)),
+        recoat: static value => value.LayerIndex >= 0 && value.Traverse > Duration.Zero && Directed(value.Direction));
 
     // A traverse direction must have a direction: a zero vector normalizes to nothing and every exposure fold below
     // divides by its length.
@@ -230,65 +227,89 @@ public abstract partial record LayerProcessEvidence {
         direction.IsValid && Math.Abs(direction.X) + Math.Abs(direction.Y) > double.Epsilon;
 }
 
+// Every ADMITTED limit carries the quantity it bounds, so a caller cannot hand a square millimetre to a length slot
+// and no column needs a unit suffix to say what it means. The raster kernel below computes on raw ordinates by
+// charter — a cell lattice is an index space, not a measured one — so `CellCap` and `MaximumRadiusCells` stay
+// counts and the crossing between the two regimes happens here, once, at admission.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class AuditThresholds {
-    public double CellMm { get; }
-    public double MinIslandAreaMm2 { get; }
-    public double MinUnsupportedAreaMm2 { get; }
-    public double OverhangAngleDeg { get; }
-    public double MinWallMm { get; }
-    public double MinEscapeDiameterMm { get; }
-    public double BoundMarginMm { get; }
+    public Length Cell { get; }
+    public Area MinIslandArea { get; }
+    public Area MinUnsupportedArea { get; }
+    public Angle OverhangAngle { get; }
+    public Length MinWall { get; }
+    public Length MinEscapeDiameter { get; }
+    public Length BoundMargin { get; }
     public double MaxHeatIndex { get; }
-    public double MaxAreaJumpRatio { get; }
-    public double MaxUnsupportedMassTrendKg { get; }
-    public double MaxRecoaterLikelihood { get; }
-    public double MaterialDensityKgM3 { get; }
+    public Ratio MaxAreaJump { get; }
+    public Mass MaxUnsupportedMassTrend { get; }
+    public Ratio MaxRecoaterLikelihood { get; }
+    public Density MaterialDensity { get; }
     public Duration CoolingTime { get; }
     public long CellCap { get; }
     public int MaximumRadiusCells { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
-        ref double cellMm,
-        ref double minIslandAreaMm2,
-        ref double minUnsupportedAreaMm2,
-        ref double overhangAngleDeg,
-        ref double minWallMm,
-        ref double minEscapeDiameterMm,
-        ref double boundMarginMm,
+        ref ValidationError? validationError,
+        ref Length cell,
+        ref Area minIslandArea,
+        ref Area minUnsupportedArea,
+        ref Angle overhangAngle,
+        ref Length minWall,
+        ref Length minEscapeDiameter,
+        ref Length boundMargin,
         ref double maxHeatIndex,
-        ref double maxAreaJumpRatio,
-        ref double maxUnsupportedMassTrendKg,
-        ref double maxRecoaterLikelihood,
-        ref double materialDensityKgM3,
+        ref Ratio maxAreaJump,
+        ref Mass maxUnsupportedMassTrend,
+        ref Ratio maxRecoaterLikelihood,
+        ref Density materialDensity,
         ref Duration coolingTime,
         ref long cellCap,
         ref int maximumRadiusCells) {
-        double[] finite = [cellMm, minIslandAreaMm2, minUnsupportedAreaMm2, overhangAngleDeg, minWallMm,
-            minEscapeDiameterMm, boundMarginMm, maxHeatIndex, maxAreaJumpRatio, maxUnsupportedMassTrendKg,
-            maxRecoaterLikelihood, materialDensityKgM3];
+        double[] finite = [cell.Millimeters, minIslandArea.SquareMillimeters, minUnsupportedArea.SquareMillimeters,
+            overhangAngle.Degrees, minWall.Millimeters, minEscapeDiameter.Millimeters, boundMargin.Millimeters,
+            maxHeatIndex, maxAreaJump.DecimalFractions, maxUnsupportedMassTrend.Kilograms,
+            maxRecoaterLikelihood.DecimalFractions, materialDensity.KilogramsPerCubicMeter];
         // A reach disc of radius r enumerates its bounding square, so the square is what the cell budget must hold.
         long diameter = (2L * maximumRadiusCells) + 1L;
-        bool bounded = cellMm > 0.0 && minIslandAreaMm2 >= 0.0 && minUnsupportedAreaMm2 >= 0.0
-            && overhangAngleDeg is > 0.0 and < 90.0
+        bool bounded = cell > Length.Zero && minIslandArea >= Area.Zero && minUnsupportedArea >= Area.Zero
+            && overhangAngle > Angle.Zero && overhangAngle < Angle.FromDegrees(90.0)
             // Wall thickness resolves on the exact wavefront rather than the raster, so it carries no pitch floor; an
             // escape mouth IS raster-measured, so one cell is the smallest opening this preflight can resolve.
-            && Witness.Positive(minWallMm) && minEscapeDiameterMm >= cellMm
-            && boundMarginMm >= 0.0 && maxHeatIndex > 0.0 && maxAreaJumpRatio >= 0.0
-            && maxUnsupportedMassTrendKg >= 0.0 && maxRecoaterLikelihood is >= 0.0 and <= 1.0
-            && materialDensityKgM3 > 0.0 && coolingTime > Duration.Zero
+            && minWall > Length.Zero && minEscapeDiameter >= cell
+            && boundMargin >= Length.Zero && maxHeatIndex > 0.0 && maxAreaJump >= Ratio.Zero
+            && maxUnsupportedMassTrend >= Mass.Zero
+            && maxRecoaterLikelihood >= Ratio.Zero && maxRecoaterLikelihood <= Ratio.FromDecimalFractions(1.0)
+            && materialDensity > Density.Zero && coolingTime > Duration.Zero
             && cellCap is > 0L and <= int.MaxValue
             && maximumRadiusCells is > 0 and <= ((int.MaxValue - 1) / 2) && diameter * diameter <= cellCap;
         if (!finite.ForAll(double.IsFinite) || !bounded)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Verify, "audit-thresholds");
+            validationError = new ValidationError("audit-thresholds");
     }
+
+    public static Fin<AuditThresholds> Admit(
+        Length cell,
+        Area minIslandArea,
+        Area minUnsupportedArea,
+        Angle overhangAngle,
+        Length minWall,
+        Length minEscapeDiameter,
+        Length boundMargin,
+        double maxHeatIndex,
+        Ratio maxAreaJump,
+        Mass maxUnsupportedMassTrend,
+        Ratio maxRecoaterLikelihood,
+        Density materialDensity,
+        Duration coolingTime,
+        long cellCap,
+        int maximumRadiusCells) =>
+        Validate(cell, minIslandArea, minUnsupportedArea, overhangAngle, minWall, minEscapeDiameter, boundMargin,
+            maxHeatIndex, maxAreaJump, maxUnsupportedMassTrend, maxRecoaterLikelihood, materialDensity, coolingTime,
+            cellCap, maximumRadiusCells, out AuditThresholds thresholds).Admitted(thresholds);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class AuditPolicy {
     public AdditiveProcess Process { get; }
     public AuditEnvelope Envelope { get; }
@@ -302,7 +323,7 @@ public sealed partial class AuditPolicy {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref AdditiveProcess process,
         ref AuditEnvelope envelope,
         ref AuditThresholds thresholds,
@@ -317,7 +338,7 @@ public sealed partial class AuditPolicy {
         // the envelope is admitted here so no downstream fold defends against its absence.
         bool clearance = !risks.Contains(AuditRisk.Recoater) || recoater.IsSome;
         if (!rows || !clearance)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Verify, "audit-policy");
+            validationError = new ValidationError("audit-policy");
     }
 
     public static Fin<AuditPolicy> Admit(
@@ -346,7 +367,6 @@ public sealed partial class AuditPolicy {
 
 ```csharp signature
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 internal sealed partial class RasterGrid {
     public double MinU { get; }
     public double MinV { get; }
@@ -362,14 +382,14 @@ internal sealed partial class RasterGrid {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref double minU,
         ref double minV,
         ref double cellMm,
         ref int rows,
         ref int columns) {
-        if (!double.IsFinite(minU) || !double.IsFinite(minV) || !Witness.Positive(cellMm) || rows <= 0 || columns <= 0)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Verify, "audit-grid");
+        if (!double.IsFinite(minU) || !double.IsFinite(minV) || !ValidityClaim.Positive(cellMm).Holds || rows <= 0 || columns <= 0)
+            validationError = new ValidationError("audit-grid");
     }
 
     public static Fin<RasterGrid> Admit(double minU, double minV, double cellMm, int rows, int columns) =>
@@ -408,7 +428,7 @@ internal sealed record AdmittedAudit(
         double pitch = Math.Abs(layer == 0
             ? policy.Envelope.Ordinate(stack.Elevations[1]) - policy.Envelope.Ordinate(stack.Elevations[0])
             : policy.Envelope.Ordinate(stack.Elevations[layer]) - policy.Envelope.Ordinate(stack.Elevations[layer - 1]));
-        return Math.Ceiling(pitch / Math.Tan(policy.Thresholds.OverhangAngleDeg * Math.PI / 180.0) / policy.Thresholds.CellMm);
+        return Math.Ceiling(pitch / Math.Tan(policy.Thresholds.OverhangAngle.Radians) / policy.Thresholds.Cell.Millimeters);
     }
 }
 
@@ -691,12 +711,23 @@ internal static class PlaneFold {
     public static bool Empty(Memory2D<byte> plane, int row, int column, RasterGrid grid) =>
         row < 0 || column < 0 || row >= grid.Rows || column >= grid.Columns || plane.Span[row, column] == 0;
 
-    public static int Count(Memory2D<byte> plane, RasterGrid grid) {
+    // Occupied cell count and the plane's own area-weighted centroid in ONE sweep: the centroid of a uniform cell
+    // set IS the mean of its centres, so a second pass would re-read every cell to answer what this one already
+    // accumulated. An empty plane has no centroid, so absence is the answer rather than a division by zero.
+    public static (int Cells, Option<Point3d> Centroid) Occupancy(
+        Memory2D<byte> plane, RasterGrid grid, double ordinate) {
         Span2D<byte> span = plane.Span;
         int count = 0;
+        double sumU = 0.0, sumV = 0.0;
         for (int row = 0; row < grid.Rows; row++)
-            for (int column = 0; column < grid.Columns; column++) count += span[row, column];
-        return count;
+            for (int column = 0; column < grid.Columns; column++) {
+                if (span[row, column] == 0) continue;
+                Point3d centre = grid.Local(row, column, ordinate);
+                count++;
+                sumU += centre.X;
+                sumV += centre.Y;
+            }
+        return (count, count == 0 ? None : Some(new Point3d(sumU / count, sumV / count, ordinate)));
     }
 
     // Boundary edge count times the pitch: every occupied cell contributes one pitch per empty orthogonal neighbour.
@@ -736,97 +767,44 @@ internal static class PlaneFold {
 
 ## [06]-[LAYER_EVIDENCE]
 
-- Owner: `ComponentReceipt` owns one labeled region with its cross-layer genealogy; `VoidReceipt` owns one void with its escape disposition; `RecoaterLikelihood` owns the composed blade-strike index and the measures it was formed from; `LayerMetric` owns the per-layer measurement row.
-- Law: an axis a modality never measures rides `Option` and answers absence, never zero. A process building no support has no unsupported mass to read, and reading that absence as zero silently depresses every index it contributes to and freezes the gate above it — the finding this preflight exists to raise becomes the finding it cannot raise. A measured zero is `Some(0.0)` and states at its site why the reading is genuinely zero.
-- Cases: `RecoaterLikelihood.Measured` carries an index formed from every contributing term; `RecoaterLikelihood.Partial` carries an index formed from the terms present and the `LayerMeasure` set that was absent. Both compose the clearance-weighted MEAN of their present terms, so a modality exhibiting two of three terms compares against the same admitted ceiling rather than against a sum permanently short one addend.
-- Entry: `RecoaterLikelihood.Of` takes the term roster with each term's optional value and the admitted clearance factor, selects its own arm from the absent set, and answers `None` where every term is absent — a roster with nothing measured has no index, and a zero there is the fabricated reading every ceiling clears.
-- Auto: unsupported mass closes to kilograms through the dimensioned algebra — square millimetres times millimetres times kilograms per cubic metre — so the millimetre-to-SI crossing belongs to the quantity package and no transcribed conversion sits in the layer fold; the heat index integrates only where thermal evidence exists, which the process gate already proves for every layer whenever the thermal family is admitted.
+- Owner: `LayerComponent` owns one labeled region with its cross-layer genealogy; `VoidReceipt` owns one void with its escape disposition; `Additive/slicing` owns the per-layer measurement family — `LayerMetric`, `LayerMeasure`, and `RecoaterLikelihood` — and this cluster COMPOSES it.
+- Law: the measurement row is not this page's. Every axis on it is a fact about one slice layer and nothing about a defect, a risk family, or a threshold, so it seats at the plane that measures geometry and this page fills the process axes it alone can read. A second per-layer measurement record here would be the same concept under two unit regimes, which is the defect the composition deletes.
+- Law: an axis a modality never measures rides `Option` and answers absence, never zero. A process building no support has no unsupported mass to read, and reading that absence as zero silently depresses every index it contributes to and freezes the gate above it — the finding this preflight exists to raise becomes the finding it cannot raise. A measured zero is `Some(Area.Zero)` and states at its site why the reading is genuinely zero.
+- Auto: unsupported mass closes through the dimensioned algebra — area times length times density IS a mass — so the millimetre-to-SI crossing belongs to the quantity package and no transcribed conversion sits in the layer fold; the heat index integrates only where thermal evidence exists, which the process gate already proves for every layer whenever the thermal family is admitted.
 - Receipt: every component and void carries its own first cell as a witness by construction, because the labeling emits the representative cell WITH the component — a witness read that could meet an empty group has no expressible form here.
-- Packages: `UnitsNet` (`Area`, `Length`, `Density`) spelled in full, because its `Duration` collides with the `NodaTime` one this page carries; LanguageExt.Core; Thinktecture.Runtime.Extensions.
+- Packages: `Additive/slicing` (`LayerMetric`, `LayerMetric.Of`, `LayerMeasure`, `RecoaterLikelihood`, `RecoaterLikelihood.Of`); `UnitsNet` (`Area`, `Volume`, `Length`, `Mass`, `Ratio`, `Density`); LanguageExt.Core; Thinktecture.Runtime.Extensions.
 - Boundary: metrics carry measurements alone. Threshold comparison, defect minting, and family filtering all belong to `[07]-[PREFLIGHT]`.
 
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-public sealed record ComponentReceipt(
+// One labeled region and the lineage the overhang walk resolved for it. Carries no key, no plane, and no stamp —
+// it is a fold output over one raster pass, so it is not a receipt and does not wear the name.
+public sealed record LayerComponent(
     ComponentId Id,
     int Cells,
-    double AreaMm2,
+    Area Footprint,
     Point3d Witness,
     Seq<ComponentId> Parents,
     Seq<ComponentId> Children,
     int Genealogy);
 
+// Escape disposition IS the case identity, so this family rides the evidence slot whole rather than collapsing
+// onto a nullable mouth an enclosed void would have to leave absent.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record VoidReceipt {
     private VoidReceipt() { }
 
-    public sealed record Enclosed(int Id, int Cells, double VolumeMm3, Point3d Witness) : VoidReceipt;
-    public sealed record Escaping(int Id, int Cells, double VolumeMm3, double EquivalentOpeningDiameterMm, Point3d Witness)
-        : VoidReceipt;
+    public sealed record Enclosed(int Id, int Cells, Volume Trapped, Point3d Witness) : VoidReceipt;
+    public sealed record Escaping(int Id, int Cells, Volume Trapped, Length Mouth, Point3d Witness) : VoidReceipt;
 }
 
-// The absence set travels WITH the index. A gate reading only the value cannot separate a quiet layer from one whose
-// evidence a modality never produces, which is exactly how a recoater trend gate dies on a support-free process.
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record RecoaterLikelihood {
-    private RecoaterLikelihood(double value) => Value = value;
-
-    public double Value { get; }
-
-    public sealed record Measured : RecoaterLikelihood {
-        internal Measured(double value) : base(value) { }
-    }
-
-    public sealed record Partial : RecoaterLikelihood {
-        internal Partial(double value, Set<LayerMeasure> absent) : base(value) => Absent = absent;
-
-        public Set<LayerMeasure> Absent { get; }
-    }
-
-    public Set<LayerMeasure> Missing => Switch(
-        measured: static _ => Set<LayerMeasure>(),
-        partial: static row => row.Absent);
-
-    // The clearance-weighted MEAN of the present terms. A sum would make the index depend on how many terms the
-    // modality happens to exhibit, so a two-term process could never reach a ceiling a three-term process sets.
-    // A term roster with NOTHING present carries no index at all: a zero there is a fabricated reading every ceiling
-    // clears, which is the absence-as-zero defect this whole family exists to delete. Absence answers `None`, so the
-    // metric row holds no likelihood and the strike gate mints no finding.
-    public static Option<RecoaterLikelihood> Of(
-        Seq<(LayerMeasure Measure, Option<double> Term)> terms, double clearanceFactor) {
-        Seq<double> present = terms.Choose(static row => row.Term);
-        Set<LayerMeasure> absent = terms.Filter(static row => row.Term.IsNone).Map(static row => row.Measure).ToSet();
-        return present.IsEmpty
-            ? None
-            : Math.Clamp(present.Sum() / present.Count * clearanceFactor, 0.0, 1.0) switch {
-                var value => Some(absent.IsEmpty
-                    ? (RecoaterLikelihood)new Measured(value)
-                    : new Partial(value, absent)),
-            };
-    }
-}
-
-// Area and perimeter are measured on every layer and stay bare. Every remaining axis is a measurement a modality may
-// not make, so its absence is the carrier's own state.
-public sealed record LayerMetric(
-    int Layer,
-    double AreaMm2,
-    double PerimeterMm,
-    Option<double> UnsupportedAreaMm2,
-    Option<Point3d> UnsupportedAt,
-    Option<double> UnsupportedMassKg,
-    Option<double> UnsupportedMassTrendKg,
-    Option<double> GasExposureMm,
-    Option<double> RecoatExposureMm,
-    Option<Point3d> RecoaterAt,
-    Option<double> HeatIndex,
-    Option<double> AreaJumpRatio,
-    Option<RecoaterLikelihood> Recoater);
-
+// This state threads the metric fold: the running heat integral and the two prior-layer readings a growth
+// ratio and a mass trend are differences AGAINST. Each is `Option` because the first layer has no predecessor to
+// grow from and a support-free modality never measures a mass at all.
 internal readonly record struct MetricState(
     Option<double> Heat,
-    Option<double> PreviousArea,
-    Option<double> PreviousMass,
+    Option<Area> PreviousArea,
+    Option<Mass> PreviousMass,
     Seq<LayerMetric> Rows) {
     public static readonly MetricState Seed = new(None, None, None, Seq<LayerMetric>());
 }
@@ -834,22 +812,24 @@ internal readonly record struct MetricState(
 
 ## [07]-[PREFLIGHT]
 
-- Owner: `Audit` owns admission, the pooled run, defect production, and the receipt; `AuditReceipt` owns the settled preflight evidence and the per-family census.
+- Owner: `Audit` owns admission, the pooled run, defect production, and the settled receipt; `AuditEvidence` owns the preflight's own findings and the per-family census; `Receipt<AuditEvidence>` owns the spine every consumer addresses it by.
 - Law: defect production is UNCONDITIONAL and `Preflight` applies the process policy through one `AuditDefect.Risk` filter, so no family carries its own guard and no new case escapes the policy. A finding whose evidence axis is absent is never minted, so an unmeasured axis produces no defect rather than a comparison against a fabricated zero that always passes.
+- Law: a preflight ADDRESSES. Production folds every selected part's preflight into its own consumed ancestry and the defect census is the shop's quality record for that stack, so the receipt mints one `ContentKey` over the whole admitted request — stack channels, envelope, thresholds, process, and evidence rows — and two runs over one request under one policy answer one key. `AuditPolicy.EvaluatedAt` stamps it, the branch's single evaluation instant per build.
 - Exemption: `Components`, `Voids`, `Escape`, `Metrics`, `Unsupported`, and `Bounds` are the named numerical kernels folding the owned planes.
-- Entry: `public static Fin<AuditReceipt> Preflight(SliceStack stack, AuditPolicy policy)` admits the stack channels first because every later gate indexes them, then accumulates demand, evidence, and support admission before opening the pooled kernel. Allocation crosses one `Try` boundary and every owner disposes before egress.
-- Auto: `DemandGate` proves the co-axiality the frame convention rests on — a layer whose points scatter across local ordinates has no single ordinate and every grid read would mislocate — and bounds the rental in bytes against the admitted cell cap; open-contour counts read the stack's own sorted open-contour channel through its layer pointers rather than materializing every chain to count the unclosed ones; the support plan's own spatial index resolves the branch set crossing each layer once on the rail, so no cell fold scans the node roster, and an absent index — the planar-only program's honest state — takes the same empty-capsule arm an absent plan does.
-- Receipt: `AuditReceipt` carries the evaluation instant, the process, per-layer metrics, component rows with parents and children, void rows with escape disposition, typed defects, and `Census` keyed by `AuditRisk`. The census seeds over the ADMITTED families alone, so a zero means a family was checked and clean rather than a family the process cannot exhibit; a new defect case reports through it without a receipt edit.
-- Packages: `Rasm.Meshing` (`SliceStack`, `LayerAt`, `IsOpen`; `Offsetting.Apply`, `OffsetOp.Medial`, `OffsetResult.Axis`, `SkeletonGraph`, `ClearanceNode`, `OffsetPolicy.Canonical`); `Rasm.Spatial` (`Spatial.Apply`, `SpatialOp.Query`, `SpatialQuery.Range`, `SpatialAnswer.Result`, `QueryResult.Hits`); `Additive/support` (`SupportPlan.Topology`, `SupportTopology.Graph`, `.ById`, `.Sites`); QuikGraph (`BidirectionalGraph`, `SEdge`, `WeaklyConnectedComponents`) over the COMPONENT lineage alone; `Process/faults`; LanguageExt.Core.
+- Entry: `public static Fin<Receipt<AuditEvidence>> Preflight(SliceStack stack, AuditPolicy policy)` admits the stack channels first because every later gate indexes them, then accumulates demand, evidence, and support admission before opening the pooled kernel. Allocation crosses one `Try` boundary and every owner disposes before egress.
+- Auto: `DemandGate` proves the co-axiality the frame convention rests on — a layer whose points scatter across local ordinates has no single ordinate and every grid read would mislocate — and bounds the rental in bytes against the admitted cell cap; open-contour counts read the stack's own per-contour `Open` column through its layer pointers rather than materializing every chain to count the unclosed ones; the support plan's own spatial index resolves the branch set crossing each layer once on the rail, so no cell fold scans the node roster, and an absent index — the planar-only program's honest state — takes the same empty-capsule arm an absent plan does.
+- Receipt: `Receipt<AuditEvidence>` carries the plane, the request key, and the evaluation instant; `AuditEvidence` carries the process, per-layer metrics, component rows with parents and children, void rows with escape disposition, typed defects, and `Census` keyed by `AuditRisk`. The census seeds over the ADMITTED families alone, so a zero means a family was checked and clean rather than a family the process cannot exhibit; a new defect case reports through it without a receipt edit.
+- Packages: `Rasm.Meshing` (`SliceStack`, `LayerAt`, `IsOpen`; `Offsetting.Apply`, `OffsetOp.Medial`, `OffsetResult.Axis`, `SkeletonGraph`, `ClearanceNode`, `OffsetPolicy.Canonical`); `Rasm.Spatial` (`Spatial.Apply`, `SpatialOp.Query`, `SpatialQuery.Range`, `SpatialAnswer.Result`, `QueryResult.Hits`); `Additive/support` (`SupportPlan.Topology`, `SupportTopology.Graph`, `.ById`, `.Sites`); `Process/owner` (`Receipt<TEvidence>`, `FabricationCanon.Keyed`, `EgressKind.QualityRecord`); QuikGraph (`BidirectionalGraph`, `SEdge`, `WeaklyConnectedComponents`) over the COMPONENT lineage alone; `Process/faults`; LanguageExt.Core.
 - Boundary: wall thickness composes the kernel wavefront and never the raster, so this page mints no thickness measure of its own and speaks the same clearance vocabulary the toolpath seam already reads. The wavefront admits ONE simple ring, so an outer ring's medial cannot see the layer's holes — every interior node re-measures against them, and that second read is the whole reason the wall fold is not the kernel call alone. QuikGraph addresses components, never cells: a lineage graph holds one vertex per labeled region while a raster graph holds one per cell, and only the former sizes with what the demand gate budgets. `IncrementalConnectedComponentsAlgorithm` and `ForestDisjointSet<T>` are refused for raster connectivity by name — both key on a boxed vertex, so either reintroduces the per-cell element count the run algebra exists to delete.
 
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-public sealed record AuditReceipt(
-    Instant EvaluatedAt,
+// Findings are the preflight's own. Plane, request key, ancestry, and stamp ride `Receipt<AuditEvidence>`, so this
+// payload declares only what the preflight MEASURED and re-spells no spine column.
+public sealed record AuditEvidence(
     AdditiveProcess Process,
     int Layers,
-    Seq<ComponentReceipt> Components,
+    Seq<LayerComponent> Components,
     Seq<VoidReceipt> Voids,
     Seq<LayerMetric> Metrics,
     Seq<AuditDefect> Defects) {
@@ -868,13 +848,58 @@ public sealed record AuditReceipt(
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Audit {
-    public static Fin<AuditReceipt> Preflight(SliceStack stack, AuditPolicy policy) =>
+    public static Fin<Receipt<AuditEvidence>> Preflight(SliceStack stack, AuditPolicy policy) =>
         from admitted in Admit(stack, policy)
-        // The locus stays the bounded token; the trapped kernel text rides beside it as its own accumulated error.
-        from trapped in Try.lift(() => Run(admitted)).Run()
-            .MapFail(error => (Error)new FabricationFault.PolicyInadmissible(FabConcern.Verify, "audit:kernel") + error)
-        from receipt in trapped
-        select receipt;
+        from trapped in Op.Of(name: "audit:kernel").Catch(() => Fin.Succ(Run(admitted)))
+        from evidence in trapped
+        // Keys address the REQUEST: the stack channels this preflight read and the policy it read them
+        // under. Framing the findings instead would make a receipt address its own conclusions, so two runs over one
+        // request could never be recognized as the same check.
+        from key in FabricationCanon.Keyed(
+            EgressKind.QualityRecord, admitted.Grid.CellMm, writer => Request(writer, admitted),
+            Op.Of(name: nameof(Preflight)))
+        select new Receipt<AuditEvidence> {
+            Evidence = evidence,
+            Concern = FabConcern.Verify,
+            Key = key,
+            Stamped = policy.EvaluatedAt,
+            Verified = Some(evidence.Clean),
+        };
+
+    // One frame states the admitted request: the frozen geometry channels, the local frame and its intervals, every
+    // admitted limit, the process row, and the per-layer process evidence. Digested magnitudes cross as bare
+    // doubles HERE, at the write site, which is where the unit regime and the byte regime meet.
+    private static CanonicalWriter Request(CanonicalWriter writer, AdmittedAudit admitted) {
+        AuditThresholds limits = admitted.Policy.Thresholds;
+        return writer
+            .Discriminant(admitted.Policy.Process)
+            .Rows(toSeq(admitted.Stack.Elevations), static (row, value) => row.Double(value))
+            .Rows(toSeq(admitted.Stack.LayerPtr), static (row, value) => row.Ordinal(value))
+            .Rows(toSeq(admitted.Stack.ContourPtr), static (row, value) => row.Ordinal(value))
+            .Rows(toSeq(admitted.Stack.Parent), static (row, value) => row.I64(value))
+            .Rows(toSeq(admitted.Stack.Open), static (row, value) => row.Bool(value))
+            .Rows(Range(0, admitted.Stack.X.Count).ToSeq(), (row, vertex) => row
+                .Double(admitted.Stack.X[vertex]).Double(admitted.Stack.Y[vertex]).Double(admitted.Stack.Z[vertex]))
+            .Basis(Transform.PlaneToPlane(Plane.WorldXY, admitted.Policy.Envelope.Frame))
+            .Double(admitted.Policy.Envelope.U.Min).Double(admitted.Policy.Envelope.U.Max)
+            .Double(admitted.Policy.Envelope.V.Min).Double(admitted.Policy.Envelope.V.Max)
+            .Double(admitted.Policy.Envelope.W.Min).Double(admitted.Policy.Envelope.W.Max)
+            .Double(limits.Cell.Millimeters).Double(limits.MinIslandArea.SquareMillimeters)
+            .Double(limits.MinUnsupportedArea.SquareMillimeters).Double(limits.OverhangAngle.Radians)
+            .Double(limits.MinWall.Millimeters).Double(limits.MinEscapeDiameter.Millimeters)
+            .Double(limits.BoundMargin.Millimeters).Double(limits.MaxHeatIndex)
+            .Double(limits.MaxAreaJump.DecimalFractions).Double(limits.MaxUnsupportedMassTrend.Kilograms)
+            .Double(limits.MaxRecoaterLikelihood.DecimalFractions)
+            .Double(limits.MaterialDensity.KilogramsPerCubicMeter).Double(limits.CoolingTime.TotalSeconds)
+            .I64(limits.CellCap).Ordinal(limits.MaximumRadiusCells)
+            .Rows(admitted.Policy.Evidence, static (row, value) => value.Switch(
+                state: row.Discriminant(value.Risk).Ordinal(value.Layer),
+                thermal: static (cell, term) => cell.Double(term.Deposited.Joules)
+                    .Double(term.Exposure.TotalSeconds)
+                    .Maybe(term.FlowDirection, static (slot, flow) => slot.Double(flow.X).Double(flow.Y)),
+                recoat: static (cell, term) => cell.Double(term.Traverse.TotalSeconds)
+                    .Double(term.Direction.X).Double(term.Direction.Y)));
+    }
 
     // Channel admission binds first because every accumulating gate below indexes the channels it proves; the three
     // independent gates then report together.
@@ -888,34 +913,36 @@ public static class Audit {
         let regions = layers.Map(static row => row.Region)
         let rings = layers.Map(static row => row.Rings).ToArr()
         from grid in RasterGrid.Admit(
-            policy.Envelope.U.Min, policy.Envelope.V.Min, policy.Thresholds.CellMm,
-            (int)Math.Ceiling(policy.Envelope.V.Length / policy.Thresholds.CellMm),
-            (int)Math.Ceiling(policy.Envelope.U.Length / policy.Thresholds.CellMm))
+            policy.Envelope.U.Min, policy.Envelope.V.Min, policy.Thresholds.Cell.Millimeters,
+            (int)Math.Ceiling(policy.Envelope.V.Length / policy.Thresholds.Cell.Millimeters),
+            (int)Math.Ceiling(policy.Envelope.U.Length / policy.Thresholds.Cell.Millimeters))
         let elevations = Range(0, stack.LayerCount).ToSeq()
             .Map(layer => policy.Envelope.Ordinate(stack.Elevations[layer])).ToArr()
         from capsules in Capsules(stack, policy)
         select new AdmittedAudit(stack, policy, regions, rings, elevations, capsules, grid);
 
     // Channel shape is what every projection below indexes: CSR pointers monotone and terminated, forest indices in
-    // range, the open-contour channel sorted, and each contour carrying the kernel's own vertex floor — two points for
-    // an open chain, three for a closed ring.
+    // range, every per-contour column the same length as the contour census, and each contour carrying the kernel's
+    // own vertex floor — two points for an open chain, three for a closed ring. The columns publish as `Arr<T>`, the
+    // frozen indexed carrier, so the census is `.Count`. `Open` is one BOOL PER CONTOUR: the sorted ordinal roster
+    // it replaced needed an in-range gate and a monotone scan to keep its own reads honest, and both are
+    // unrepresentable against a per-contour column — what survives is the column-shape row every sibling carries.
     private static Fin<Unit> StackGate(SliceStack stack) {
         bool channels = stack.LayerCount > 1 && stack.ContourCount > 0
-            && stack.Elevations.Length == stack.LayerCount
-            && stack.LayerPtr.Length == stack.LayerCount + 1
-            && stack.ContourPtr.Length == stack.ContourCount + 1
-            && stack.X.Length == stack.Y.Length && stack.X.Length == stack.Z.Length
+            && stack.Elevations.Count == stack.LayerCount
+            && stack.LayerPtr.Count == stack.LayerCount + 1
+            && stack.ContourPtr.Count == stack.ContourCount + 1
+            && stack.X.Count == stack.Y.Count && stack.X.Count == stack.Z.Count
             && stack.LayerPtr[0] == 0 && stack.LayerPtr[^1] == stack.ContourCount
-            && stack.ContourPtr[0] == 0 && stack.ContourPtr[^1] == stack.X.Length
-            && stack.Parent.Length == stack.ContourCount && stack.ChildPtr.Length == stack.ContourCount + 1
-            && stack.ChildPtr[0] == 0 && stack.ChildPtr[^1] == stack.Children.Length
-            && Range(1, stack.LayerPtr.Length - 1).ForAll(index => stack.LayerPtr[index] >= stack.LayerPtr[index - 1])
-            && Range(1, stack.ContourPtr.Length - 1).ForAll(index => stack.ContourPtr[index] > stack.ContourPtr[index - 1])
-            && Range(1, stack.ChildPtr.Length - 1).ForAll(index => stack.ChildPtr[index] >= stack.ChildPtr[index - 1])
+            && stack.ContourPtr[0] == 0 && stack.ContourPtr[^1] == stack.X.Count
+            && stack.Parent.Count == stack.ContourCount && stack.ChildPtr.Count == stack.ContourCount + 1
+            && stack.Open.Count == stack.ContourCount
+            && stack.ChildPtr[0] == 0 && stack.ChildPtr[^1] == stack.Children.Count
+            && Range(1, stack.LayerPtr.Count - 1).ForAll(index => stack.LayerPtr[index] >= stack.LayerPtr[index - 1])
+            && Range(1, stack.ContourPtr.Count - 1).ForAll(index => stack.ContourPtr[index] > stack.ContourPtr[index - 1])
+            && Range(1, stack.ChildPtr.Count - 1).ForAll(index => stack.ChildPtr[index] >= stack.ChildPtr[index - 1])
             && stack.Parent.ForAll(parent => parent >= -1 && parent < stack.ContourCount)
             && stack.Children.ForAll(child => child >= 0 && child < stack.ContourCount)
-            && stack.Open.ForAll(contour => contour >= 0 && contour < stack.ContourCount)
-            && Range(1, Math.Max(0, stack.Open.Length - 1)).ForAll(index => stack.Open[index] > stack.Open[index - 1])
             && Range(0, stack.ContourCount).ForAll(contour =>
                 stack.ContourPtr[contour + 1] - stack.ContourPtr[contour] >= (stack.IsOpen(contour) ? 2 : 3))
             && stack.Elevations.ForAll(double.IsFinite) && stack.X.ForAll(double.IsFinite)
@@ -924,7 +951,7 @@ public static class Audit {
                 .ForAll(index => stack.Elevations[index] > stack.Elevations[index - 1]);
         return channels
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "audit:stack-channels").ToError());
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "audit:stack-channels"));
     }
 
     // `W` is a LOCAL interval and `Ordinate` the one world-elevation projection, so both halves compare local against
@@ -937,8 +964,8 @@ public static class Audit {
             return stack.LayerAt(layer).ForAll(chain => chain.Points.ForAll(point =>
                 Math.Abs(policy.Envelope.Local(point).Z - ordinate) <= Rhino.RhinoMath.ZeroTolerance));
         });
-        double rows = Math.Ceiling(policy.Envelope.V.Length / policy.Thresholds.CellMm);
-        double columns = Math.Ceiling(policy.Envelope.U.Length / policy.Thresholds.CellMm);
+        double rows = Math.Ceiling(policy.Envelope.V.Length / policy.Thresholds.Cell.Millimeters);
+        double columns = Math.Ceiling(policy.Envelope.U.Length / policy.Thresholds.Cell.Millimeters);
         bool reach = Range(1, Math.Max(0, stack.LayerCount - 1)).ForAll(layer => {
             double demand = AdmittedAudit.ReachDemand(stack, policy, layer);
             return double.IsFinite(demand) && demand >= 0.0 && demand <= policy.Thresholds.MaximumRadiusCells;
@@ -947,7 +974,7 @@ public static class Audit {
         bool demand = rows is >= 1.0 and <= int.MaxValue && columns is >= 1.0 and <= int.MaxValue
             && rows * columns * stack.LayerCount * RasterWorkspace.BytesPerCell <= policy.Thresholds.CellCap;
         return AdmissionSlots.Gate(extent && correlated && demand && reach,
-            new FabricationFault.PolicyInadmissible(FabConcern.Verify, "audit:demand"));
+            FabConcern.Verify, "audit:demand", FabricationFault.Inadmissible);
     }
 
     private static K<Validation<Error>, Unit> EvidenceGate(SliceStack stack, AuditPolicy policy) {
@@ -956,14 +983,14 @@ public static class Audit {
                 policy.Evidence.Exists(row => row.Risk == risk && row.Layer == layer)));
         bool bounded = policy.Evidence.ForAll(row => row.Layer >= 0 && row.Layer < stack.LayerCount);
         return AdmissionSlots.Gate(covered && bounded,
-            new FabricationFault.PolicyInadmissible(FabConcern.Verify, "audit:evidence"));
+            FabConcern.Verify, "audit:evidence", FabricationFault.Inadmissible);
     }
 
     private static K<Validation<Error>, Unit> SupportGate(SliceStack stack, AuditPolicy policy) =>
         AdmissionSlots.Gate(
             policy.Supports.ForAll(plan =>
                 plan.PlanarRows.ForAll(layer => layer.Layer >= 0 && layer.Layer < stack.LayerCount)),
-            new FabricationFault.PolicyInadmissible(FabConcern.Verify, "audit:support"));
+            FabConcern.Verify, "audit:support", FabricationFault.Inadmissible);
 
     // The branch set crossing each layer resolves ONCE on the rail through the support plan's own spatial index, so
     // the coverage fill reads a bounded capsule set and no cell scans the node roster.
@@ -980,7 +1007,7 @@ public static class Audit {
                         .Bind(answer => answer is SpatialAnswer.Result { Value: QueryResult.Hits hits }
                             ? Fin.Succ(Reached(held.Plan, hits.Ids))
                             : Fin.Fail<Seq<(SupportNode From, SupportNode To)>>(
-                                new FabricationFault.PolicyInadmissible(FabConcern.Verify, "audit:support-index"))))
+                                new KernelFault.InvalidValue("audit", "audit:support-index"))))
                     .As().Map(static rows => rows.ToArr()),
                 None: () => Fin.Succ(Range(0, stack.LayerCount).ToSeq()
                     .Map(static _ => Seq<(SupportNode From, SupportNode To)>()).ToArr()));
@@ -1024,22 +1051,22 @@ public static class Audit {
     private static Polyline Ring(Loop loop) =>
         new(toSeq(loop.Vertices).Add(loop.Vertices[0]));
 
-    private static Fin<AuditReceipt> Run(AdmittedAudit admitted) {
+    private static Fin<AuditEvidence> Run(AdmittedAudit admitted) {
         using RasterWorkspace workspace = RasterWorkspace.Allocate(admitted.Stack.LayerCount, admitted.Grid);
         workspace.Fill(admitted);
-        Seq<ComponentReceipt> components = Components(workspace, admitted);
+        Seq<LayerComponent> components = Components(workspace, admitted);
         Seq<VoidReceipt> voids = admitted.Risks.Contains(AuditRisk.Trap) || admitted.Risks.Contains(AuditRisk.Drainage)
             ? Voids(workspace, admitted)
             : Seq<VoidReceipt>();
         Seq<LayerMetric> metrics = Metrics(workspace, admitted);
-        return Defects(admitted, components, voids, metrics).Map(defects => new AuditReceipt(
-            admitted.Policy.EvaluatedAt, admitted.Policy.Process, admitted.Stack.LayerCount,
+        return Defects(admitted, components, voids, metrics).Map(defects => new AuditEvidence(
+            admitted.Policy.Process, admitted.Stack.LayerCount,
             components, voids, metrics, defects.Filter(defect => admitted.Risks.Contains(defect.Risk))));
     }
 
     // The label plane the run labeling wrote IS the lineage index: a child cell reads the prior layer's label directly
     // through the overhang disc, so no per-layer dictionary is built and no seed roster is re-filtered per layer.
-    private static Seq<ComponentReceipt> Components(RasterWorkspace workspace, AdmittedAudit admitted) {
+    private static Seq<LayerComponent> Components(RasterWorkspace workspace, AdmittedAudit admitted) {
         Seq<ComponentRun> runs = Runs.Label(
             workspace.Solid, workspace.Labels, admitted.Stack.LayerCount, admitted.Grid, Connectivity.Planar);
         BidirectionalGraph<ComponentId, SEdge<ComponentId>> lineage = new(allowParallelEdges: false);
@@ -1066,8 +1093,9 @@ public static class Audit {
         _ = lineage.WeaklyConnectedComponents(genealogies);
         return runs.Map(run => {
             ComponentId id = new(run.First.Layer, run.Label);
-            return new ComponentReceipt(
-                id, run.Cells, run.Cells * admitted.Grid.CellAreaMm2, admitted.World(run.First),
+            return new LayerComponent(
+                id, run.Cells, Area.FromSquareMillimeters(run.Cells * admitted.Grid.CellAreaMm2),
+                admitted.World(run.First),
                 toSeq(lineage.InEdges(id)).Map(static edge => edge.Source),
                 toSeq(lineage.OutEdges(id)).Map(static edge => edge.Target),
                 genealogies[id]);
@@ -1082,11 +1110,12 @@ public static class Audit {
         Arr<VoidFaces> faces = Escape(workspace, admitted, runs.Count);
         return runs.Map(run => {
             VoidFaces face = faces[run.Label - 1];
-            double volume = face.VolumeMm3;
+            Volume trapped = Volume.FromCubicMillimeters(face.VolumeMm3);
             Point3d at = admitted.World(face.Witness.IfNone(run.First));
             return face.Open
-                ? (VoidReceipt)new VoidReceipt.Escaping(run.Label, run.Cells, volume, face.Diameter, at)
-                : new VoidReceipt.Enclosed(run.Label, run.Cells, volume, at);
+                ? (VoidReceipt)new VoidReceipt.Escaping(
+                    run.Label, run.Cells, trapped, Length.FromMillimeters(face.Diameter), at)
+                : new VoidReceipt.Enclosed(run.Label, run.Cells, trapped, at);
         });
     }
 
@@ -1126,23 +1155,30 @@ public static class Audit {
     private static Seq<LayerMetric> Metrics(RasterWorkspace workspace, AdmittedAudit admitted) =>
         Range(0, admitted.Stack.LayerCount).Fold(MetricState.Seed, (state, layer) => {
             Memory2D<byte> solid = workspace.Solid(layer);
-            // Measured on the LOCAL raster, not through the kernel's `AreaAt`/`PerimeterAt`: those sum the shoelace over
-            // the stack's world XY channels, which a tilted build frame foreshortens, and the gates below are about the
-            // footprint this build actually deposits on its own plane.
-            double area = PlaneFold.Count(solid, admitted.Grid) * admitted.Grid.CellAreaMm2;
-            double perimeter = PlaneFold.Perimeter(solid, admitted.Grid);
+            double ordinate = admitted.Elevations[layer];
+            // Measured on the LOCAL raster, not through the kernel's `AreaAt`/`PerimeterAt`/`CentroidAt`: those sum
+            // over the stack's world XY channels, which a tilted build frame foreshortens, and every gate below is
+            // about the footprint this build actually deposits on its own plane. `LayerMetric.Of` is the read a
+            // consumer measuring on the stack's own plane takes; this fold measures on the frame it admitted.
+            (int cells, Option<Point3d> centre) = PlaneFold.Occupancy(solid, admitted.Grid, ordinate);
+            Area area = Area.FromSquareMillimeters(cells * admitted.Grid.CellAreaMm2);
+            Length perimeter = Length.FromMillimeters(PlaneFold.Perimeter(solid, admitted.Grid));
+            Length pitch = Length.FromMillimeters(admitted.Grid.CellMm);
 
             // Layer zero rests on the build plate, so its unsupported area is a MEASURED zero rather than an absent
             // reading; a process building no support measures nothing here at all.
-            (Option<double> unsupported, Option<Point3d> unsupportedAt) =
+            (Option<Area> unsupported, Option<Point3d> unsupportedAt) =
                 !admitted.Risks.Contains(AuditRisk.Support) ? (None, None)
-                : layer == 0 ? (Some(0.0), Option<Point3d>.None)
+                : layer == 0 ? (Some(Area.Zero), Option<Point3d>.None)
                 : Unsupported(workspace, admitted, layer);
 
-            Option<double> mass = unsupported.Map(value => (UnitsNet.Area.FromSquareMillimeters(value)
-                * UnitsNet.Length.FromMillimeters(admitted.Height(layer))
-                * UnitsNet.Density.FromKilogramsPerCubicMeter(admitted.Policy.Thresholds.MaterialDensityKgM3)).Kilograms);
-            Option<double> trend = from now in mass from before in state.PreviousMass select Math.Max(0.0, now - before);
+            // Area times length IS a volume and volume times density IS a mass, so the millimetre-to-SI crossing is
+            // the quantity package's and no conversion factor is transcribed here.
+            Option<Mass> mass = unsupported.Map(value =>
+                value * Length.FromMillimeters(admitted.Height(layer)) * admitted.Policy.Thresholds.MaterialDensity);
+            Option<Mass> trend = from now in mass
+                                 from before in state.PreviousMass
+                                 select now > before ? now - before : Mass.Zero;
 
             Option<LayerProcessEvidence.Thermal> thermal = admitted.Policy.Evidence
                 .Choose(row => row is LayerProcessEvidence.Thermal value && value.LayerIndex == layer ? Some(value) : None)
@@ -1151,26 +1187,28 @@ public static class Audit {
                 .Choose(row => row is LayerProcessEvidence.Recoat value && value.LayerIndex == layer ? Some(value) : None)
                 .Head;
 
-            Option<double> gasExposure = thermal.Bind(static row => row.FlowDirection)
-                .Map(direction => PlaneFold.DirectionalExposure(solid, direction, layer, admitted.Grid).Millimeters);
-            (Option<double> recoatExposure, Option<Point3d> recoaterAt) = recoat.Match(
+            Option<Length> gasExposure = thermal.Bind(static row => row.FlowDirection)
+                .Map(direction => Length.FromMillimeters(
+                    PlaneFold.DirectionalExposure(solid, direction, layer, admitted.Grid).Millimeters));
+            (Option<Length> recoatExposure, Option<Point3d> recoaterAt) = recoat.Match(
                 Some: row => {
                     (double millimeters, Option<Cell> witness) =
                         PlaneFold.DirectionalExposure(solid, row.Direction, layer, admitted.Grid);
-                    return (Some(millimeters), witness.Map(admitted.World));
+                    return (Some(Length.FromMillimeters(millimeters)), witness.Map(admitted.World));
                 },
-                None: () => (Option<double>.None, Option<Point3d>.None));
+                None: () => (Option<Length>.None, Option<Point3d>.None));
 
             // Heat integrates only where thermal evidence exists. Ventilation reads the gas exposure where a flow
             // direction was measured and stays neutral where none was, so an unmeasured flow neither inflates nor
-            // deflates the index it would otherwise divide.
+            // deflates the index it would otherwise divide. The pitch floors every denominator, so an empty layer
+            // divides by the smallest length and area this raster can resolve rather than by zero.
             Option<double> heat = thermal.Map(row => {
-                double ventilation = 1.0 + gasExposure.Map(value =>
-                    value / Math.Max(perimeter, admitted.Grid.CellMm)).IfNone(0.0);
-                double density = row.EnergyJ / Math.Max(row.Exposure.TotalSeconds, double.Epsilon)
-                    / Math.Max(area, admitted.Grid.CellAreaMm2);
+                double ventilation = 1.0 + Share(gasExposure, perimeter, pitch).DecimalFractions;
+                double density = row.Deposited.Joules / Math.Max(row.Exposure.TotalSeconds, double.Epsilon)
+                    / Math.Max(area.SquareMillimeters, admitted.Grid.CellAreaMm2);
                 double decay = recoat
-                    .Map(value => Math.Exp(-value.Duration.TotalSeconds / admitted.Policy.Thresholds.CoolingTime.TotalSeconds))
+                    .Map(value => Math.Exp(
+                        -value.Traverse.TotalSeconds / admitted.Policy.Thresholds.CoolingTime.TotalSeconds))
                     .IfNone(1.0);
                 // Accumulated heat before the first measured layer is a STRUCTURAL zero: nothing has been deposited to
                 // carry, so the integrator starts from rest rather than from an absent reading.
@@ -1179,26 +1217,36 @@ public static class Audit {
 
             // A growth ratio needs a prior layer to grow FROM, and a layer whose predecessor deposited nothing has no
             // ratio at all — the reading is absent rather than a zero every threshold clears.
-            Option<double> jump = state.PreviousArea
-                .Filter(static before => before > 0.0)
-                .Map(before => Math.Max(0.0, area - before) / before);
+            Option<Ratio> jump = state.PreviousArea
+                .Filter(static before => before > Area.Zero)
+                .Map(before => Ratio.FromDecimalFractions(
+                    Math.Max(0.0, area.SquareMillimeters - before.SquareMillimeters) / before.SquareMillimeters));
 
             Option<RecoaterLikelihood> likelihood = admitted.Policy.Recoater.Bind(envelope => RecoaterLikelihood.Of(
-                Seq((LayerMeasure.UnsupportedMass,
-                        trend.Map(value => value / Math.Max(admitted.Policy.Thresholds.MaxUnsupportedMassTrendKg, double.Epsilon))),
+                Seq((LayerMeasure.UnsupportedMass, trend.Map(value => Ratio.FromDecimalFractions(
+                        value.Kilograms
+                        / Math.Max(admitted.Policy.Thresholds.MaxUnsupportedMassTrend.Kilograms, double.Epsilon)))),
                     (LayerMeasure.AreaJump, jump),
-                    (LayerMeasure.RecoatExposure,
-                        recoatExposure.Map(value => value / Math.Max(perimeter, admitted.Grid.CellMm)))),
-                admitted.Grid.CellMm / Math.Max(envelope.Clearance.Millimeters, admitted.Grid.CellMm)));
+                    (LayerMeasure.RecoatExposure, Share(recoatExposure, perimeter, pitch).Some())),
+                Ratio.FromDecimalFractions(
+                    pitch.Millimeters / Math.Max(envelope.Clearance.Millimeters, pitch.Millimeters))));
 
             return new MetricState(heat, Some(area), mass, state.Rows.Add(new LayerMetric(
-                layer, area, perimeter, unsupported, unsupportedAt, mass, trend,
+                layer, area, perimeter, centre.IfNone(admitted.World(layer, 0, 0)),
+                unsupported, unsupportedAt, mass, trend,
                 gasExposure, recoatExposure, recoaterAt, heat, jump, likelihood)));
         }).Rows;
 
+    // Exposure reads as a share of the boundary it was measured along, floored at the pitch so an empty plane
+    // divides by the smallest length this raster resolves; an unmeasured exposure contributes nothing at all.
+    private static Ratio Share(Option<Length> exposure, Length along, Length pitch) =>
+        Ratio.FromDecimalFractions(exposure
+            .Map(value => value.Millimeters / Math.Max(along.Millimeters, pitch.Millimeters))
+            .IfNone(0.0));
+
     // Support coverage is a plane by the time this fold runs, so an unsupported cell is one deposited cell with no
     // prior-layer material within reach and no support beneath it.
-    private static (Option<double> AreaMm2, Option<Point3d> Witness) Unsupported(
+    private static (Option<Area> Unsupported, Option<Point3d> Witness) Unsupported(
         RasterWorkspace workspace, AdmittedAudit admitted, int layer) {
         Span2D<byte> current = workspace.Solid(layer).Span;
         Span2D<byte> support = workspace.Support(layer).Span;
@@ -1219,7 +1267,7 @@ public static class Audit {
                 count++;
                 if (witness.IsNone) witness = Some(admitted.World(layer, row, column));
             }
-        return (Some(count * admitted.Grid.CellAreaMm2), witness);
+        return (Some(Area.FromSquareMillimeters(count * admitted.Grid.CellAreaMm2)), witness);
     }
 
     // Wall thickness is an EXACT ring question, not a raster one: the kernel wavefront's medial locus carries the true
@@ -1235,9 +1283,9 @@ public static class Audit {
         return rings.Outers
             .Traverse(ring => Offsetting.Apply(new OffsetOp.Medial(ring, OffsetPolicy.Canonical))
                 .Bind(result => result is OffsetResult.Axis axis
-                    ? Fin.Succ(Thinnest(axis.Medial, ring, rings.Holes, admitted.Policy.Thresholds.MinWallMm))
-                    : Fin.Fail<Option<(double Thickness, Point3d At)>>(
-                        new FabricationFault.PolicyInadmissible(FabConcern.Verify, "audit:medial")))).As()
+                    ? Fin.Succ(Thinnest(axis.Medial, ring, rings.Holes, admitted.Policy.Thresholds.MinWall))
+                    : Fin.Fail<Option<(Length Thickness, Point3d At)>>(
+                        new KernelFault.InvalidValue("audit", "audit:medial")))).As()
             .Map(found => found.Choose(identity).Map(row => (AuditDefect)new AuditDefect.ThinWall(
                 layer, row.Thickness, admitted.Policy.Envelope.World(row.At))));
     }
@@ -1246,15 +1294,15 @@ public static class Audit {
     // a zero-thickness wall; only the interior nodes past that seed block carry a clearance. A hole is a boundary the
     // single-ring wavefront cannot see, so each interior node re-measures against the layer's holes and keeps the
     // nearer of the two — the seed is the node's own measured radius, never an absent-value stand-in.
-    private static Option<(double Thickness, Point3d At)> Thinnest(
-        SkeletonGraph axis, Polyline ring, Seq<Polyline> holes, double floor) =>
+    private static Option<(Length Thickness, Point3d At)> Thinnest(
+        SkeletonGraph axis, Polyline ring, Seq<Polyline> holes, Length floor) =>
         axis.Nodes.Skip(ring.Count - 1)
             .Map(node => (
-                Thickness: 2.0 * holes.Fold(node.Radius,
-                    (least, hole) => Math.Min(least, hole.ClosestPoint(node.At).DistanceTo(node.At))),
+                Thickness: Length.FromMillimeters(2.0 * holes.Fold(node.Radius,
+                    (least, hole) => Math.Min(least, hole.ClosestPoint(node.At).DistanceTo(node.At)))),
                 node.At))
             .Filter(row => row.Thickness < floor)
-            .Fold(Option<(double Thickness, Point3d At)>.None,
+            .Fold(Option<(Length Thickness, Point3d At)>.None,
                 static (thinnest, row) => thinnest.Filter(held => held.Thickness <= row.Thickness).IfNone(row));
 
     // One fold per layer for the planar axes and one over the whole stack for the growth axis; an extreme is a running
@@ -1269,9 +1317,10 @@ public static class Audit {
                         double clearance = Clearance(point, row.Item1, row.Item2);
                         return best.Filter(held => held.Clearance <= clearance).IfNone((clearance, point));
                     })
-                    .Filter(best => best.Clearance < admitted.Policy.Thresholds.BoundMarginMm)
+                    .Filter(best => best.Clearance < admitted.Policy.Thresholds.BoundMargin.Millimeters)
                     .Map(best => (AuditDefect)new AuditDefect.TouchingBound(
-                        layer, row.Item1, best.Clearance, admitted.Policy.Envelope.World(best.At))));
+                        layer, row.Item1, Length.FromMillimeters(best.Clearance),
+                        admitted.Policy.Envelope.World(best.At))));
         });
         Option<(int Layer, Point3d At)> lowest = None, highest = None;
         for (int layer = 0; layer < admitted.Stack.LayerCount; layer++)
@@ -1284,9 +1333,10 @@ public static class Audit {
                 (Extreme: lowest, Sign: 1.0, Bound: admitted.Policy.Envelope.W.Min),
                 (Extreme: highest, Sign: -1.0, Bound: admitted.Policy.Envelope.W.Max))
             .Choose(row => row.Extreme
-                .Filter(value => row.Sign * (value.At.Z - row.Bound) < admitted.Policy.Thresholds.BoundMarginMm)
+                .Filter(value =>
+                    row.Sign * (value.At.Z - row.Bound) < admitted.Policy.Thresholds.BoundMargin.Millimeters)
                 .Map(value => (AuditDefect)new AuditDefect.TouchingBound(
-                    value.Layer, MachineAxis.Z, row.Sign * (value.At.Z - row.Bound),
+                    value.Layer, MachineAxis.Z, Length.FromMillimeters(row.Sign * (value.At.Z - row.Bound)),
                     admitted.Policy.Envelope.World(value.At))));
         return planar + growth;
     }
@@ -1300,7 +1350,7 @@ public static class Audit {
     // than skipping it; every other family folds settled evidence.
     private static Fin<Seq<AuditDefect>> Defects(
         AdmittedAudit admitted,
-        Seq<ComponentReceipt> components,
+        Seq<LayerComponent> components,
         Seq<VoidReceipt> voids,
         Seq<LayerMetric> metrics) =>
         (admitted.Risks.Contains(AuditRisk.Wall) ? ThinWalls(admitted) : Fin.Succ(Seq<AuditDefect>()))
@@ -1308,14 +1358,14 @@ public static class Audit {
 
     private static Seq<AuditDefect> Settled(
         AdmittedAudit admitted,
-        Seq<ComponentReceipt> components,
+        Seq<LayerComponent> components,
         Seq<VoidReceipt> voids,
         Seq<LayerMetric> metrics) =>
         OpenContours(admitted)
         + components.Bind(component =>
             (component.Id.Layer > 0 && component.Parents.IsEmpty
-                && component.AreaMm2 >= admitted.Policy.Thresholds.MinIslandAreaMm2
-                    ? Seq<AuditDefect>(new AuditDefect.Island(component.Id, component.AreaMm2, component.Witness))
+                && component.Footprint >= admitted.Policy.Thresholds.MinIslandArea
+                    ? Seq<AuditDefect>(new AuditDefect.Island(component.Id, component.Footprint, component.Witness))
                     : Seq<AuditDefect>())
             + (component.Parents.Count > 1
                 ? Seq<AuditDefect>(new AuditDefect.LineageMerge(component.Id, component.Parents))
@@ -1324,18 +1374,18 @@ public static class Audit {
                 ? Seq<AuditDefect>(new AuditDefect.LineageSplit(component.Id, component.Children))
                 : Seq<AuditDefect>()))
         + voids.Bind(value => TrapMedium.Of(admitted.Policy.Process.Head).Map(medium => value.Switch(
-            state: (Medium: medium, Floor: admitted.Policy.Thresholds.MinEscapeDiameterMm),
+            state: (Medium: medium, Floor: admitted.Policy.Thresholds.MinEscapeDiameter),
             enclosed: static (context, enclosed) => Seq<AuditDefect>(new AuditDefect.EnclosedMedium(
-                enclosed.Id, context.Medium, enclosed.VolumeMm3, enclosed.Witness)),
-            escaping: static (context, escaping) => escaping.EquivalentOpeningDiameterMm < context.Floor
+                enclosed.Id, context.Medium, enclosed.Trapped, enclosed.Witness)),
+            escaping: static (context, escaping) => escaping.Mouth < context.Floor
                 ? Seq<AuditDefect>(new AuditDefect.EscapeRestriction(
-                    escaping.Id, escaping.EquivalentOpeningDiameterMm, context.Floor, escaping.Witness))
+                    escaping.Id, escaping.Mouth, context.Floor, escaping.Witness))
                 : Seq<AuditDefect>())).IfNone(Seq<AuditDefect>()))
         + metrics.Bind(metric => Trends(admitted, metric))
         + Bounds(admitted);
 
-    // The open-contour channel is sorted and each layer's contours occupy one `LayerPtr` span, so the count per layer
-    // is a range count over that channel rather than a materialization of every chain.
+    // `Open` is one bool per contour and each layer's contours occupy one `LayerPtr` span, so the count per layer
+    // is a range count over that column rather than a materialization of every chain.
     private static Seq<AuditDefect> OpenContours(AdmittedAudit admitted) =>
         Range(0, admitted.Stack.LayerCount).ToSeq()
             .Map(layer => (Layer: layer, Count: Range(admitted.Stack.LayerPtr[layer],
@@ -1347,22 +1397,22 @@ public static class Audit {
     // Every trend gate reads its axis through `Bind`, so an axis a modality never measured mints no finding rather than
     // comparing a fabricated zero it can only pass.
     private static Seq<AuditDefect> Trends(AdmittedAudit admitted, LayerMetric metric) =>
-        (from area in metric.UnsupportedAreaMm2
-         where area >= admitted.Policy.Thresholds.MinUnsupportedAreaMm2
+        (from unsupported in metric.UnsupportedArea
+         where unsupported >= admitted.Policy.Thresholds.MinUnsupportedArea
          from at in metric.UnsupportedAt
-         select (AuditDefect)new AuditDefect.UnsupportedArea(metric.Layer, area, at)).ToSeq()
+         select (AuditDefect)new AuditDefect.UnsupportedArea(metric.Layer, unsupported, at)).ToSeq()
         + (from index in metric.HeatIndex
            where index > admitted.Policy.Thresholds.MaxHeatIndex
            select (AuditDefect)new AuditDefect.HeatAccumulation(
                metric.Layer, index, admitted.Policy.Thresholds.MaxHeatIndex)).ToSeq()
-        + (from ratio in metric.AreaJumpRatio
-           where ratio > admitted.Policy.Thresholds.MaxAreaJumpRatio
+        + (from growth in metric.AreaJumpRatio
+           where growth > admitted.Policy.Thresholds.MaxAreaJump
            select (AuditDefect)new AuditDefect.AreaJump(
-               metric.Layer, ratio, admitted.Policy.Thresholds.MaxAreaJumpRatio)).ToSeq()
-        + (from trend in metric.UnsupportedMassTrendKg
-           where trend > admitted.Policy.Thresholds.MaxUnsupportedMassTrendKg
+               metric.Layer, growth, admitted.Policy.Thresholds.MaxAreaJump)).ToSeq()
+        + (from trend in metric.UnsupportedMassTrend
+           where trend > admitted.Policy.Thresholds.MaxUnsupportedMassTrend
            select (AuditDefect)new AuditDefect.UnsupportedMassTrend(
-               metric.Layer, trend, admitted.Policy.Thresholds.MaxUnsupportedMassTrendKg)).ToSeq()
+               metric.Layer, trend, admitted.Policy.Thresholds.MaxUnsupportedMassTrend)).ToSeq()
         // The clearance is a real read: `AuditPolicy` admits the envelope wherever the recoater family applies, and the
         // absent set travels onto the finding so a two-term index is legible as one.
         + (from likelihood in metric.Recoater
@@ -1371,7 +1421,7 @@ public static class Audit {
            from at in metric.RecoaterAt
            select (AuditDefect)new AuditDefect.RecoaterStrike(
                metric.Layer, likelihood.Value, admitted.Policy.Thresholds.MaxRecoaterLikelihood,
-               envelope.Clearance.Millimeters, likelihood.Missing, at)).ToSeq();
+               envelope.Clearance, likelihood.Missing, at)).ToSeq();
 
     // The reach disc, enumerated once per layer: every offset whose squared length is within the admitted reach.
     private static Seq<(int Row, int Column)> Disc(int radius) =>
@@ -1428,7 +1478,7 @@ flowchart TB
     Voids --> Census
     Walls --> Census
     Metrics --> Census
-    Census --> Receipt["AuditReceipt census keyed by admitted family"]
+    Census --> Receipt["Receipt&lt;AuditEvidence&gt; census keyed by admitted family"]
 ```
 
 ## [08]-[RESEARCH]

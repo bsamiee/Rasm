@@ -11,7 +11,7 @@ Definition topology (`Rasm.Rhino.Blocks`) owns one graph-source union, one evide
 
 ## [02]-[SOURCE_AND_TOPOLOGY]
 
-`GraphSource` admits a live session, a borrowed archive supplied by a caller, or a stored archive opened and closed inside the fold. `Topology` carries nodes, dependency-first edges, top-level placement facts, and `GraphEvidence`; its fold admits nonempty unique node keys and proves both endpoints before graph mutation. `OpaqueLinks` blocks every answer whose truth depends on missing linked-definition members.
+`GraphSource` admits a live session, a borrowed archive supplied by a caller, or a stored archive opened and closed inside the fold. `Topology` carries nodes, dependency-first edges, top-level placement facts, and `GraphEvidence`; its fold admits nonempty unique node keys and proves both endpoints before graph mutation. `OpaqueLinks` blocks every answer whose truth depends on missing linked-definition members, and the ROW is the probe — completeness compares against `GraphEvidence.Complete`, never a mirror bool restating the key.
 
 Live placement evidence comes from `GetReferences(0)` and retains every instance id. Archive placement evidence correlates each `File3dmObject.Id` with definition `GetObjectIds()` membership; an instance reference outside every definition roster is top-level, while one inside a roster yields a nesting edge.
 
@@ -23,18 +23,25 @@ Live placement evidence comes from `GetReferences(0)` and retains every instance
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------------
 using System.Collections.Generic;
 using System.Linq;
+using CommunityToolkit.HighPerformance.Buffers;
+using Generator.Equals;
 using QuikGraph;
 using QuikGraph.Algorithms;
+using QuikGraph.Algorithms.Condensation;
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.FileIO;
+using Thinktecture;
 
 namespace Rasm.Rhino.Blocks;
 
 // --- [TYPES] -------------------------------------------------------------------------------
-[Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
+[Union(
+    SwitchMapStateParameterName = "context",
+    ConversionFromValue = ConversionOperatorsGeneration.None,
+    SwitchMapMethodsGeneration = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 public abstract partial record GraphSource {
     private GraphSource() { }
     public sealed record Live(DocumentSession Session) : GraphSource;
@@ -44,49 +51,49 @@ public abstract partial record GraphSource {
 
 [SmartEnum<int>]
 public sealed partial class GraphEvidence {
-    public static readonly GraphEvidence Complete = new(key: 0, isComplete: true);
-    public static readonly GraphEvidence OpaqueLinks = new(key: 1, isComplete: false);
-
-    public bool IsComplete { get; }
+    public static readonly GraphEvidence Complete = new(key: 0);
+    public static readonly GraphEvidence OpaqueLinks = new(key: 1);
 }
 
 // The three policy vocabularies close over `GraphFold`, which is vertex-generic, so pinning them to `Guid` made
 // the definition rail the only consumer a shared fold could serve: Chronicle's `Guid` web and the closure walk's
-// `string` archive graph both want these rows. Each closes over its own `TVertex` and each behavior rides a
-// generated delegate column, so a row IS its behavior and no consumer re-derives one.
-[SmartEnum<int>]
-public sealed partial class GraphBoundary<TVertex> where TVertex : notnull {
-    public static readonly GraphBoundary<TVertex> Roots = new(
-        key: 0,
-        select: static graph => toSeq(graph.Roots()));
-    public static readonly GraphBoundary<TVertex> Leaves = new(
-        key: 1,
-        select: static graph => toSeq(graph.Sinks()));
+// `ArchivePath` graph both read these rows. Thinktecture REFUSES a generic owner — the generated roster lives on
+// one closed type — so each vocabulary is the hand form of a keyless behavior row: a private ctor seals the set,
+// static rows close over each instantiation, and the delegate column IS the behavior; nothing here needs the
+// roster, the wire key, or the validation a generated owner would add.
+public sealed record GraphBoundary<TVertex> where TVertex : notnull {
+    // Edges orient used -> container, so semantic ROOTS (definitions nothing uses) carry zero OUTGOING edges and
+    // bind the catalog's `Sinks` (zero-outdegree) — and semantic LEAVES (definitions containing nothing) carry
+    // zero INCOMING edges and bind the catalog's `Roots` (zero-indegree). The prior binding was inverted.
+    public static readonly GraphBoundary<TVertex> Roots = new(select: static graph => toSeq(graph.Sinks()));
+    public static readonly GraphBoundary<TVertex> Leaves = new(select: static graph => toSeq(graph.Roots()));
 
-    [UseDelegateFromConstructor]
-    internal partial Seq<TVertex> Select(BidirectionalGraph<TVertex, SEdge<TVertex>> graph);
+    private GraphBoundary(Func<BidirectionalGraph<TVertex, SEdge<TVertex>>, Seq<TVertex>> select) => Select = select;
+
+    internal Func<BidirectionalGraph<TVertex, SEdge<TVertex>>, Seq<TVertex>> Select { get; }
 }
 
-[SmartEnum<int>]
-public sealed partial class GraphGrouping<TVertex> where TVertex : notnull {
-    public static readonly GraphGrouping<TVertex> Cycles = new(key: 0, select: static graph => GraphFold.Cycles(graph: graph));
-    public static readonly GraphGrouping<TVertex> Components = new(key: 1, select: static graph => GraphFold.Components(graph: graph));
+public sealed record GraphGrouping<TVertex> where TVertex : notnull {
+    public static readonly GraphGrouping<TVertex> Cycles = new(select: static graph => GraphFold.Cycles(graph: graph));
+    public static readonly GraphGrouping<TVertex> Components = new(select: static graph => GraphFold.Components(graph: graph));
 
-    [UseDelegateFromConstructor]
-    internal partial Seq<Seq<TVertex>> Select(BidirectionalGraph<TVertex, SEdge<TVertex>> graph);
+    private GraphGrouping(Func<BidirectionalGraph<TVertex, SEdge<TVertex>>, Seq<Seq<TVertex>>> select) => Select = select;
+
+    internal Func<BidirectionalGraph<TVertex, SEdge<TVertex>>, Seq<Seq<TVertex>>> Select { get; }
 }
 
-[SmartEnum<int>]
-public sealed partial class GraphProjection<TVertex> where TVertex : notnull {
-    public static readonly GraphProjection<TVertex> Closure = new(key: 0, project: static (graph, op) =>
+public sealed record GraphProjection<TVertex> where TVertex : notnull {
+    public static readonly GraphProjection<TVertex> Closure = new(project: static (graph, op) =>
         op.Catch(() => Fin.Succ(value: graph.ComputeTransitiveClosure(
             edgeFactory: static (source, target) => new SEdge<TVertex>(source: source, target: target)))));
-    public static readonly GraphProjection<TVertex> Reduction = new(key: 1, project: static (graph, op) =>
+    public static readonly GraphProjection<TVertex> Reduction = new(project: static (graph, op) =>
         GraphFold.Reduced(graph: graph, op: op));
 
-    [UseDelegateFromConstructor]
-    internal partial Fin<BidirectionalGraph<TVertex, SEdge<TVertex>>> Project(
-        BidirectionalGraph<TVertex, SEdge<TVertex>> graph, Op op);
+    private GraphProjection(
+        Func<BidirectionalGraph<TVertex, SEdge<TVertex>>, Op, Fin<BidirectionalGraph<TVertex, SEdge<TVertex>>>> project) =>
+        Project = project;
+
+    internal Func<BidirectionalGraph<TVertex, SEdge<TVertex>>, Op, Fin<BidirectionalGraph<TVertex, SEdge<TVertex>>>> Project { get; }
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
@@ -141,7 +148,7 @@ internal sealed record Topology(
 
 `BlockGraphAsk` closes direct host queries, whole-topology projections, structural algorithms, and archive closure under one entry. `BlockGraphAnswer` preserves result meaning: definition keys never masquerade as placement ids, paths never masquerade as order, and placement answers carry completeness evidence instead of projecting opaque links as top-level instances.
 
-`GraphFold` is the one vertex-generic `QuikGraph` fold surface — cycles, weak components, DAG-guarded order and reduction, and condensation — consumed by every graph projection in the assembly; a sibling rail re-deriving one of its folds is the deleted form. `GraphGrouping<TVertex>.Cycles` includes multi-vertex components and one-vertex components containing a self-edge, and reduction refuses a cyclic graph with the cycle detail. `GraphBoundary<TVertex>`, `GraphGrouping<TVertex>`, and `GraphProjection<TVertex>` carry paired algorithm choice as generated delegate rows over the same vertex parameter `GraphFold` takes, so the definition rail's `Guid` graph and the closure walk's `string` graph read one vocabulary; a request case per algorithm, or a policy pinned to one vertex type, is the deleted form. `Containers`, `References`, `Nesting`, and `Tally` retain the host members that answer them directly and reject non-live sources.
+`GraphFold` is the one vertex-generic `QuikGraph` fold surface — cycles, weak components, DAG-guarded order and reduction, and condensation — consumed by every graph projection in the assembly; a sibling rail re-deriving one of its folds is the deleted form. `GraphGrouping<TVertex>.Cycles` includes multi-vertex components and one-vertex components containing a self-edge, and reduction refuses a cyclic graph with the cycle detail. `GraphBoundary<TVertex>`, `GraphGrouping<TVertex>`, and `GraphProjection<TVertex>` carry paired algorithm choice as delegate rows over the same vertex parameter `GraphFold` takes — hand rows with sealed constructors, because the row generator refuses a generic owner — so the definition rail's `Guid` graph and the closure walk's `ArchivePath` graph read one vocabulary; a request case per algorithm, or a policy pinned to one vertex type, is the deleted form. The boundary rows bind against the catalog's own degree semantics: under used-to-container orientation, semantic roots are the ZERO-OUTDEGREE vertices (`Sinks`) and semantic leaves the zero-indegree ones (`Roots`). `Containers`, `References`, `Nesting`, and `Tally` retain the host members that answer them directly and reject non-live sources.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -164,13 +171,13 @@ public abstract partial record BlockGraphAsk {
 }
 
 [ComplexValueObject]
+[ValidationError]
 public sealed partial class ClosureBudget {
     public int MaxArchives { get; }
     public long MaxLinks { get; }
     public int MaxDepth { get; }
     public long MaxBytes { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int maxArchives,
@@ -179,18 +186,18 @@ public sealed partial class ClosureBudget {
         ref long maxBytes) =>
         validationError = maxArchives > 0 && maxLinks > 0 && maxDepth > 0 && maxBytes > 0
             ? null
-            : new ValidationError(message: "Archive closure limits are positive.");
+            : new ValidationError(string.Join(" | ", new object?[] { nameof(ClosureBudget), "positive archive, link, depth, and byte ceilings", None }));
 
+    [BoundaryAdapter]
     public static Fin<ClosureBudget> Of(
         int maxArchives,
         long maxLinks,
         int maxDepth,
         long maxBytes,
         Op? key = null) =>
-        Admission.Admitted(
-            fault: Validate(maxArchives, maxLinks, maxDepth, maxBytes, out ClosureBudget? admitted),
-            value: admitted,
-            refusal: key.OrDefault().InvalidInput());
+        key.OrDefault().AcceptValidated<ClosureBudget>(
+            Validate(maxArchives, maxLinks, maxDepth, maxBytes, out ClosureBudget? admitted),
+            admitted);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -243,7 +250,7 @@ public static partial class BlockGraph {
                        from policy in ctx.Op.Need(ask.Policy)
                        from topology in Complete(source: ctx.Source, op: ctx.Op)
                        from graph in topology.Fold(key: ctx.Op)
-                       from values in ctx.Op.Catch(() => Fin.Succ(value: policy.Select(graph: graph)))
+                       from values in ctx.Op.Catch(() => Fin.Succ(value: policy.Select(graph)))
                        select (BlockGraphAnswer)new BlockGraphAnswer.Definitions(Keys: values),
                    path: static (ctx, ask) =>
                        from topology in Complete(source: ctx.Source, op: ctx.Op)
@@ -266,13 +273,13 @@ public static partial class BlockGraph {
                        from topology in Complete(source: ctx.Source, op: ctx.Op)
                        from policy in ctx.Op.Need(ask.Policy)
                        from graph in topology.Fold(key: ctx.Op)
-                       from groups in ctx.Op.Catch(() => Fin.Succ(value: policy.Select(graph: graph)))
+                       from groups in ctx.Op.Catch(() => Fin.Succ(value: policy.Select(graph)))
                        select (BlockGraphAnswer)new BlockGraphAnswer.Groups(Values: groups),
                    projection: static (ctx, ask) =>
                        from policy in ctx.Op.Need(ask.Policy)
                        from topology in Complete(source: ctx.Source, op: ctx.Op)
                        from folded in topology.Fold(key: ctx.Op)
-                       from graph in policy.Project(graph: folded, op: ctx.Op)
+                       from graph in policy.Project(folded, ctx.Op)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Graph(
                            Edges: toSeq(graph.Edges).Map(static edge => (edge.Source, edge.Target))),
                    condensation: static (ctx, _) =>
@@ -286,7 +293,7 @@ public static partial class BlockGraph {
                        from topology in Of(source: ctx.Source, key: ctx.Op)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Placements(
                            Evidence: topology.Evidence,
-                           Values: topology.Evidence.IsComplete ? topology.Placements : Seq<PlacementNode>()),
+                           Values: topology.Evidence == GraphEvidence.Complete ? topology.Placements : Seq<PlacementNode>()),
                    tally: static (ctx, ask) => Live(source: ctx.Source, op: ctx.Op, read: document =>
                        from target in ctx.Op.Need(ask.Target)
                        from definition in Definitions.Resolve(target: target, document: document, key: ctx.Op)
@@ -306,7 +313,7 @@ public static partial class BlockGraph {
     }
 
     private static Fin<Topology> Complete(GraphSource source, Op op) =>
-        Of(source: source, key: op).Bind(topology => topology.Evidence.IsComplete
+        Of(source: source, key: op).Bind(topology => topology.Evidence == GraphEvidence.Complete
             ? Fin.Succ(value: topology)
             : Fin.Fail<Topology>(error: op.InvalidResult(detail: nameof(GraphEvidence.OpaqueLinks))));
 
@@ -381,22 +388,23 @@ public static partial class BlockGraph {
     private static Fin<Topology> Offline(File3dm archive, Op op) =>
         ModelUnit.Of(value: archive.Settings.ModelUnitSystem, key: op).Bind(units => op.Catch(() => {
             Seq<InstanceDefinitionGeometry> roster = toSeq(archive.AllInstanceDefinitions);
-            Seq<(Guid Definition, LanguageExt.HashSet<Guid> Members)> membership = roster.Map(definition => (
-                definition.Id,
-                toSeq(definition.GetObjectIds()).ToHashSet()));
-            LanguageExt.HashSet<Guid> memberIds = membership
-                .Bind(static row => row.Members)
-                .ToHashSet();
+            // ONE owner map replaces the per-definition roster scan: each reference resolves its containing
+            // definition in one hash read, so a document whose definitions and references both grow linearly
+            // stops paying quadratically for a membership fact the map states once.
+            HashMap<Guid, Guid> owners = roster.Fold(
+                HashMap<Guid, Guid>(),
+                (held, definition) => toSeq(definition.GetObjectIds())
+                    .Fold(held, (map, member) => map.AddOrUpdate(key: member, value: definition.Id)));
             Seq<(Guid Object, Guid Definition)> references = toSeq(archive.Objects)
                 .Choose(static entry => Optional(entry.Geometry as InstanceReferenceGeometry)
                     .Map(reference => (Object: entry.Id, Definition: reference.ParentIdefId)))
                 .Filter(static row => row.Definition != Guid.Empty);
-            Seq<(Guid Used, Guid Container)> edges = membership.Bind(row => references
-                .Filter(reference => row.Members.Contains(key: reference.Object))
-                .Map(reference => (reference.Definition, row.Definition)))
+            Seq<(Guid Used, Guid Container)> edges = references
+                .Choose(reference => owners.Find(key: reference.Object)
+                    .Map(container => (reference.Definition, container)))
                 .Distinct();
             Seq<PlacementNode> placements = references
-                .Filter(reference => !memberIds.Contains(key: reference.Object))
+                .Filter(reference => !owners.ContainsKey(key: reference.Object))
                 .Map(static reference => new PlacementNode(
                     InstanceId: reference.Object,
                     DefinitionId: reference.Definition));
@@ -419,24 +427,28 @@ public static partial class BlockGraph {
                     : GraphEvidence.Complete));
         }));
 
+    // Both narrow reads ride the GENERATED partial dispatch: a type test and a `_ =>` switch each stop matching
+    // silently the day a fourth source case lands, where `SwitchPartially`'s `@default` is a declared posture.
     private static Fin<BlockGraphAnswer> Live(
         GraphSource source,
         Op op,
         Func<RhinoDoc, Fin<BlockGraphAnswer>> read) =>
-        source is GraphSource.Live live
-            ? op.Need(live.Session)
-                .Bind(session => session.Demand(use: read, key: op, needs: [SessionNeed.Read]))
-            : Fin.Fail<BlockGraphAnswer>(error: op.Unsupported(
-                geometryType: typeof(GraphSource),
-                outputType: typeof(BlockGraphAnswer)));
+        source.SwitchPartially(
+            context: (Op: op, Read: read),
+            live: static (ctx, held) => ctx.Op.Need(held.Session)
+                .Bind(session => session.Demand(use: ctx.Read, key: ctx.Op, needs: [SessionNeed.Read])),
+            @default: static (ctx, _) => Fin.Fail<BlockGraphAnswer>(error: ctx.Op.Unsupported(
+                inputType: typeof(GraphSource),
+                outputType: typeof(BlockGraphAnswer))));
 
-    private static Fin<string> RootPath(GraphSource source, Op op) => source switch {
-        GraphSource.Stored stored => op.AcceptText(value: stored.Path),
-        GraphSource.Loaded loaded => loaded.Path.ToFin(Fail: op.InvalidInput()).Bind(op.AcceptText),
-        _ => Fin.Fail<string>(error: op.Unsupported(
-            geometryType: typeof(GraphSource),
-            outputType: typeof(ClosureReport))),
-    };
+    private static Fin<string> RootPath(GraphSource source, Op op) =>
+        source.SwitchPartially(
+            context: op,
+            stored: static (key, held) => key.AcceptText(value: held.Path),
+            loaded: static (key, held) => held.Path.ToFin(Fail: key.InvalidInput()).Bind(key.AcceptText),
+            @default: static (key, _) => Fin.Fail<string>(error: key.Unsupported(
+                inputType: typeof(GraphSource),
+                outputType: typeof(ClosureReport))));
 }
 
 internal static class GraphFold {
@@ -472,25 +484,33 @@ internal static class GraphFold {
             ? Fin.Succ(value: graph.ComputeTransitiveReduction())
             : Fin.Fail<BidirectionalGraph<TVertex, SEdge<TVertex>>>(error: op.InvalidResult(detail: nameof(Cycles))));
 
+    // `CondensateStronglyConnected` is the catalog's own condensation — the hand SCC-plus-rank fold was rung 1
+    // beside it. NAMED LOSS: the condensation returns components in discovery order, so the canonical ranking
+    // re-derives from the returned graph — each component sorts its members and components rank by least member
+    // under the admitted order — and equivalent graphs still emit identical sequences.
     internal static (Seq<Seq<TVertex>> Components, Seq<(int From, int To)> Edges) Condensed<TVertex>(
         BidirectionalGraph<TVertex, SEdge<TVertex>> graph,
         IComparer<TVertex>? order = null) where TVertex : notnull {
-        Dictionary<TVertex, int> labels = new();
-        _ = graph.StronglyConnectedComponents(components: labels);
-        Seq<TVertex> vertices = OrderedVertices(graph: graph, order: order);
-        Seq<int> components = vertices.Map(vertex => labels[vertex]).Distinct();
-        Dictionary<int, int> ranks = components
-            .Map(static (label, index) => (Label: label, Index: index))
-            .ToDictionary(static pair => pair.Label, static pair => pair.Index);
-        Seq<Seq<TVertex>> members = components.Map(component =>
-            vertices.Filter(vertex => labels[vertex] == component));
-        Seq<(int From, int To)> edges = toSeq(graph.Edges
-            .Select(edge => (From: ranks[labels[edge.Source]], To: ranks[labels[edge.Target]]))
+        IMutableBidirectionalGraph<AdjacencyGraph<TVertex, SEdge<TVertex>>, CondensedEdge<TVertex, SEdge<TVertex>, AdjacencyGraph<TVertex, SEdge<TVertex>>>> condensed =
+            graph.CondensateStronglyConnected<TVertex, SEdge<TVertex>, AdjacencyGraph<TVertex, SEdge<TVertex>>>();
+        IComparer<TVertex> rank = order ?? Comparer<TVertex>.Default;
+        Seq<(AdjacencyGraph<TVertex, SEdge<TVertex>> Component, Seq<TVertex> Members)> ranked =
+            toSeq(condensed.Vertices)
+                .Map(component => (Component: component, Members: toSeq(component.Vertices.OrderBy(
+                    keySelector: static vertex => vertex, comparer: rank))))
+                .OrderBy(keySelector: static row => row.Members[0], comparer: rank)
+                .ToSeq()
+                .Strict();
+        Dictionary<AdjacencyGraph<TVertex, SEdge<TVertex>>, int> ranks = ranked
+            .Map(static (row, index) => (row.Component, Index: index))
+            .ToDictionary(static pair => pair.Component, static pair => pair.Index);
+        Seq<(int From, int To)> edges = toSeq(condensed.Edges
+            .Select(edge => (From: ranks[edge.Source], To: ranks[edge.Target]))
             .Where(static edge => edge.From != edge.To)
             .Distinct()
             .OrderBy(static edge => edge.From)
             .ThenBy(static edge => edge.To));
-        return (Components: members, Edges: edges);
+        return (Components: ranked.Map(static row => row.Members), Edges: edges);
     }
 
     private static Seq<Seq<TVertex>> Grouped<TVertex>(
@@ -515,11 +535,11 @@ internal static class GraphFold {
 
 ## [04]-[ARCHIVE_CLOSURE]
 
-`ClosureReport` is the bounded linked-archive walk: raw and resolved edges, source-aware broken links, self-inclusive cycle groups, unit facts, native read logs, resource usage, and typed completion evidence. `BlockGraphAsk.Archives` admits a closure budget plus only a stored path or a loaded archive carrying its path; each stored link resolves against its referencing archive directory.
+`ClosureReport` is the bounded linked-archive walk: one `ClosureLink` roster carrying resolution and fault as columns of one fact (edges and broken links read as projections over it), plane-canonical `ArchivePath` identity keying every container, self-inclusive cycle groups, unit facts, native read logs, resource usage, and typed completion evidence whose counts live on `ClosureUsage` alone. `BlockGraphAsk.Archives` admits a closure budget plus only a stored path or a loaded archive carrying its path; each stored link resolves against its referencing archive directory.
 
 Completion accounts for REFUSALS, not only for budgets. The walk counts targets offered, opened, and refused; a target that would not open contributes no links, so every edge beyond it is missing and the terminal settles `Truncated` with those three counts rather than `Complete`. A budget terminal outranks truncation because it already names the ceiling that stopped the walk.
 
-`ArchivePlane` is the platform seam stated once. Relative-to-a-pinned-handle opening is a POSIX capability with no Win32 peer — `openat` has no `CreateFileW` equivalent, and the segment walk is exactly what defeats a symlink race — so the plane vocabulary carries one row per servable ABI with its own `open` flag columns and its own path-comparison policy, and `ArchivePlane.Current` REFUSES typed on any other platform instead of binding a `libc` entry point that platform does not export. Comparison is a per-plane column like the flags: Darwin's default APFS is case-insensitive, so an ordinal containment test there refuses a dependency that resolves and splits one archive reached under two spellings into two cycle vertices, while Linux keeps ordinal. Every downstream comparison reads the selected row's column, so no traversal step re-asks which platform it is on.
+`ArchivePlane` is the platform seam stated once. Relative-to-a-pinned-handle opening is a POSIX capability with no Win32 peer — `openat` has no `CreateFileW` equivalent, and the segment walk is exactly what defeats a symlink race — so the plane vocabulary carries one row per servable ABI with its own `open` flag columns, its containment comparison, and its canonical-key fold, and `ArchivePlane.Current` REFUSES typed on any other platform instead of binding a `libc` entry point that platform does not export. Comparison is a per-plane column like the flags — Darwin's default APFS is case-insensitive, Linux ordinal — and the fold MATERIALIZES that policy once, at `Canonical`, into the `ArchivePath` every container keys on, so no traversal step re-asks which platform it is on and no container can forget the comparer the page's own defence names.
 
 The walk is a state-threaded fold, not a loop: `ClosureWalk` carries the frontier, the seen set, every accumulator, and the terminal as ONE value, `ClosureWalk.Step` advances exactly one frontier entry, and the drive is a bounded fixpoint whose tick count derives from `ClosureBudget.MaxArchives` — a settled walk re-emits itself, so the fold is total. Deduplication happens at ENQUEUE, so every frontier entry is new and the archive budget is the exact step bound; a link resolving onto an already-failed archive receipts its broken re-reference there rather than re-entering the frontier.
 
@@ -527,15 +547,33 @@ The walk pins the canonical root directory and opens each dependency segment rel
 
 ```csharp signature
 // --- [MODELS] ------------------------------------------------------------------------------
-public sealed record ClosureEdge(string FromPath, string StoredLink, Option<string> ResolvedPath);
+// The plane-canonical archive identity, admitted ONCE at `Canonical` and keying EVERY container: the walk's seen
+// set, the failed map, the cycle graph, and the unit roster all compare the plane's own fold, so an archive
+// reached under two spellings on a case-insensitive volume is ONE vertex everywhere rather than one at the sites
+// that remembered to pass a comparer. `Value` keeps the resolved spelling for display and equality ignores it.
+[Equatable(Explicit = true)]
+public sealed partial record ArchivePath : IComparable<ArchivePath> {
+    private ArchivePath(string key, string value) => (Key, Value) = (key, value);
 
-public sealed record BrokenLink(
-    string FromPath,
+    [DefaultEquality] public string Key { get; }
+    [IgnoreEquality] public string Value { get; }
+
+    internal static ArchivePath Of(string resolved, ArchivePlane plane) =>
+        new(key: plane.Fold(text: resolved), value: resolved);
+
+    public int CompareTo(ArchivePath? other) => string.CompareOrdinal(strA: Key, strB: other?.Key);
+}
+
+// One link row carries BOTH facts a traversal states about a stored link — where it resolved and whether it
+// failed — so the edge-and-broken pair one site had to append as two rows is one row with two columns, and the
+// report's `Edges`/`Broken` read as projections with one authority under them.
+public sealed record ClosureLink(
+    ArchivePath From,
     string StoredLink,
-    Option<string> ResolvedPath,
-    string Detail);
+    Option<ArchivePath> Resolved,
+    Option<Error> Fault);
 
-public sealed record UnitFact(string Path, ModelUnit Units);
+public sealed record UnitFact(ArchivePath Path, ModelUnit Units);
 
 [SmartEnum<string>]
 public sealed partial class ClosureLimit {
@@ -546,27 +584,30 @@ public sealed partial class ClosureLimit {
 }
 
 // A REFUSED target is a hole in the answer, not a footnote: an archive that would not open contributes no links,
-// so every edge beyond it is absent from a report that still called itself `Complete`, and a consumer reading
-// `Sound` on a closure with one unreadable dependency believed the walk had seen everything. The terminal now
-// carries the walk's own census — offered, opened, refused — so a truncated closure names its own shortfall.
-[Union]
+// so every edge beyond it is absent from a report that still called itself `Complete`. `Truncated` carries no
+// census of its own — `ClosureUsage` already holds offered, opened, and refused, and a second copy on the
+// terminal is two authorities over one count.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ClosureTerminal {
     private ClosureTerminal() { }
     public sealed record Complete : ClosureTerminal;
-    public sealed record Truncated(int Offered, int Opened, int Refused) : ClosureTerminal;
-    public sealed record Exhausted(ClosureLimit Limit, long Observed, long Allowed, string Path) : ClosureTerminal;
+    public sealed record Truncated : ClosureTerminal;
+    public sealed record Exhausted(ClosureLimit Limit, long Observed, long Allowed, ArchivePath Path) : ClosureTerminal;
 }
 
 public sealed record ClosureUsage(int Offered, int Archives, int Refused, long Links, int Depth, long Bytes);
 
 public sealed record ClosureReport(
-    Seq<ClosureEdge> Edges,
-    Seq<BrokenLink> Broken,
-    Seq<Seq<string>> Cycles,
+    Seq<ClosureLink> Links,
+    Seq<Seq<ArchivePath>> Cycles,
     Seq<UnitFact> Units,
     Seq<string> NativeLog,
     ClosureUsage Usage,
     ClosureTerminal Terminal) : IDetachedDocumentResult {
+    // Projections over ONE roster: an edge is a link however it settled, a broken link is one carrying a fault.
+    public Seq<ClosureLink> Edges => Links;
+    public Seq<ClosureLink> Broken => Links.Filter(static link => link.Fault.IsSome);
+
     public bool Sound => Terminal is ClosureTerminal.Complete && Broken.IsEmpty && Cycles.IsEmpty;
 }
 
@@ -586,23 +627,26 @@ public sealed partial class ArchivePlane {
         noFollow: 0x00000100,
         directoryOnly: 0x00100000,
         closeOnExec: 0x01000000,
-        comparer: StringComparer.OrdinalIgnoreCase,
-        comparison: StringComparison.OrdinalIgnoreCase);
+        comparison: StringComparison.OrdinalIgnoreCase,
+        fold: static text => text.ToUpperInvariant());
     public static readonly ArchivePlane Linux = new(
         key: "linux",
         read: 0x00000000,
         noFollow: 0x00020000,
         directoryOnly: 0x00010000,
         closeOnExec: 0x00080000,
-        comparer: StringComparer.Ordinal,
-        comparison: StringComparison.Ordinal);
+        comparison: StringComparison.Ordinal,
+        fold: static text => text);
 
     public int Read { get; }
     public int NoFollow { get; }
     public int DirectoryOnly { get; }
     public int CloseOnExec { get; }
-    public StringComparer Comparer { get; }
     public StringComparison Comparison { get; }
+
+    // The canonical-key fold `ArchivePath.Of` admits through: the plane's comparison policy, materialized once at
+    // admission so every container downstream keys plane-correct under DEFAULT equality.
+    [UseDelegateFromConstructor] internal partial string Fold(string text);
 
     internal int Walk => Read | NoFollow | DirectoryOnly | CloseOnExec;
 
@@ -614,15 +658,15 @@ public sealed partial class ArchivePlane {
         OperatingSystem.IsMacOS() ? Fin.Succ(value: Darwin)
         : OperatingSystem.IsLinux() ? Fin.Succ(value: Linux)
         : Fin.Fail<ArchivePlane>(error: op.Unsupported(
-            geometryType: typeof(ArchiveRoot),
+            inputType: typeof(ArchiveRoot),
             outputType: typeof(ClosureReport)));
 }
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static partial class BlockGraph {
-    private sealed record ArchiveTarget(string FromPath, string StoredLink, string Path, int Depth);
+    private sealed record ArchiveTarget(ArchivePath From, string StoredLink, ArchivePath Path, int Depth);
 
-    [Union]
+    [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
     private abstract partial record ArchiveScan {
         private ArchiveScan() { }
         internal sealed record Read(ModelUnit Units, Seq<string> Links, string NativeLog) : ArchiveScan;
@@ -641,44 +685,44 @@ public static partial class BlockGraph {
         private ArchiveRoot(Microsoft.Win32.SafeHandles.SafeFileHandle directory, ArchivePlane plane, string path) =>
             (this.directory, this.plane, this.path) = (directory, plane, path);
 
-        internal static Fin<ArchiveRoot> Open(string path, ArchivePlane plane, Op op) => op.Catch(() => {
-            string full = System.IO.Path.GetFullPath(path: path);
-            string prefix = System.IO.Path.GetPathRoot(path: full)
-                ?? throw new InvalidOperationException(message: op.InvalidInput().Message);
-            string[] segments = full[prefix.Length..].Split(
-                separator: [System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar],
-                options: StringSplitOptions.RemoveEmptyEntries);
-            Microsoft.Win32.SafeHandles.SafeFileHandle opened = OpenDirectory(path: prefix, flags: plane.Walk);
-            Microsoft.Win32.SafeHandles.SafeFileHandle? owned = opened;
-            try {
-                if (opened.IsInvalid) {
-                    int code = System.Runtime.InteropServices.Marshal.GetLastPInvokeError();
-                    return Fin.Fail<ArchiveRoot>(error: op.InvalidResult(detail: $"open-root:{code}"));
-                }
-                foreach (string segment in segments) {
-                    Microsoft.Win32.SafeHandles.SafeFileHandle current = owned
-                        ?? throw new InvalidOperationException(message: op.InvalidResult().Message);
-                    Microsoft.Win32.SafeHandles.SafeFileHandle next = OpenRelative(
-                        directory: current,
-                        path: segment,
-                        flags: plane.Walk);
-                    if (next.IsInvalid) {
-                        int code = System.Runtime.InteropServices.Marshal.GetLastPInvokeError();
-                        next.Dispose();
-                        return Fin.Fail<ArchiveRoot>(error: op.InvalidResult(detail: $"open-root-segment:{code}"));
+        internal static Fin<ArchiveRoot> Open(string path, ArchivePlane plane, Op op) => op.Catch(() =>
+            Optional(System.IO.Path.GetPathRoot(path: System.IO.Path.GetFullPath(path: path)))
+                .Filter(static prefix => prefix.Length > 0)
+                .ToFin(Fail: op.InvalidInput())
+                .Bind(prefix => {
+                    string full = System.IO.Path.GetFullPath(path: path);
+                    string[] segments = full[prefix.Length..].Split(
+                        separator: [System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar],
+                        options: StringSplitOptions.RemoveEmptyEntries);
+                    Microsoft.Win32.SafeHandles.SafeFileHandle owned = OpenDirectory(path: prefix, flags: plane.Walk);
+                    bool released = false;
+                    try {
+                        if (owned.IsInvalid) {
+                            int code = System.Runtime.InteropServices.Marshal.GetLastPInvokeError();
+                            return Fin.Fail<ArchiveRoot>(error: op.InvalidResult(detail: $"open-root:{code}"));
+                        }
+                        foreach (string segment in segments) {
+                            Microsoft.Win32.SafeHandles.SafeFileHandle next = OpenRelative(
+                                directory: owned,
+                                path: segment,
+                                flags: plane.Walk);
+                            if (next.IsInvalid) {
+                                int code = System.Runtime.InteropServices.Marshal.GetLastPInvokeError();
+                                next.Dispose();
+                                return Fin.Fail<ArchiveRoot>(error: op.InvalidResult(detail: $"open-root-segment:{code}"));
+                            }
+                            owned.Dispose();
+                            owned = next;
+                        }
+                        released = true;
+                        return Fin.Succ(value: new ArchiveRoot(directory: owned, plane: plane, path: full));
                     }
-                    current.Dispose();
-                    owned = next;
-                }
-                Microsoft.Win32.SafeHandles.SafeFileHandle admitted = owned
-                    ?? throw new InvalidOperationException(message: op.InvalidResult().Message);
-                owned = null;
-                return Fin.Succ(value: new ArchiveRoot(directory: admitted, plane: plane, path: full));
-            }
-            finally {
-                owned?.Dispose();
-            }
-        });
+                    finally {
+                        if (!released) {
+                            owned.Dispose();
+                        }
+                    }
+                }));
 
         internal Fin<ArchiveInput> Open(string candidate, Op op) => op.Catch(() => {
             string relative = System.IO.Path.GetRelativePath(relativeTo: path, path: candidate);
@@ -740,6 +784,8 @@ public static partial class BlockGraph {
 
     // Exemption: the two `[LibraryImport]` declarations are the platform-forced POSIX seam `ArchivePlane` gates —
     // no managed surface offers a relative-to-handle open, and no arm reaches them before `Current` admits a plane.
+    // The BCL `LibraryImport` source generator emits the marshalling; no NuGet package exists to register.
+    [BoundaryAdapter]
     [System.Runtime.InteropServices.LibraryImport(
         "libc",
         EntryPoint = "open",
@@ -747,6 +793,7 @@ public static partial class BlockGraph {
         StringMarshalling = System.Runtime.InteropServices.StringMarshalling.Utf8)]
     private static partial Microsoft.Win32.SafeHandles.SafeFileHandle OpenDirectory(string path, int flags);
 
+    [BoundaryAdapter]
     [System.Runtime.InteropServices.LibraryImport(
         "libc",
         EntryPoint = "openat",
@@ -768,10 +815,9 @@ public static partial class BlockGraph {
 
     private sealed record ClosureWalk(
         Seq<ArchiveTarget> Pending,
-        LanguageExt.HashSet<string> Seen,
-        HashMap<string, string> Failed,
-        Seq<ClosureEdge> Edges,
-        Seq<BrokenLink> Broken,
+        LanguageExt.HashSet<ArchivePath> Seen,
+        HashMap<ArchivePath, Error> Failed,
+        Seq<ClosureLink> Links,
         Seq<UnitFact> Units,
         Seq<string> Logs,
         ClosureUsage Usage,
@@ -779,60 +825,59 @@ public static partial class BlockGraph {
         internal static ClosureWalk Of(ArchiveTarget root) => new(
             Pending: Seq(root),
             Seen: Seq(root.Path).ToHashSet(),
-            Failed: HashMap<string, string>(),
-            Edges: Seq<ClosureEdge>(),
-            Broken: Seq<BrokenLink>(),
+            Failed: HashMap<ArchivePath, Error>(),
+            Links: Seq<ClosureLink>(),
             Units: Seq<UnitFact>(),
             Logs: Seq<string>(),
             Usage: new ClosureUsage(Offered: 1, Archives: 0, Refused: 0, Links: 0, Depth: 0, Bytes: 0),
             Terminal: new ClosureTerminal.Complete());
 
-        internal bool Running => Terminal is ClosureTerminal.Complete && !Pending.IsEmpty;
-
-        internal ClosureWalk Edge(string from, string link, Option<string> resolved) =>
-            this with { Edges = Edges.Add(value: new ClosureEdge(FromPath: from, StoredLink: link, ResolvedPath: resolved)) };
-
-        internal ClosureWalk Broke(string from, string link, Option<string> resolved, string detail) =>
+        // One appender for the one link roster: where a site once appended an edge AND a broken row for one
+        // stored link, the row now carries resolution and fault as two columns of one fact.
+        internal ClosureWalk Linked(ArchivePath from, string link, Option<ArchivePath> resolved, Option<Error> fault) =>
             this with {
-                Broken = Broken.Add(value: new BrokenLink(
-                    FromPath: from, StoredLink: link, ResolvedPath: resolved, Detail: detail)),
+                Links = Links.Add(value: new ClosureLink(
+                    From: from, StoredLink: link, Resolved: resolved, Fault: fault)),
             };
 
-        internal ClosureWalk Refused(ArchiveTarget target, string detail) =>
+        internal ClosureWalk Refused(ArchiveTarget target, Error fault) =>
             (this with {
-                Failed = Failed.AddOrUpdate(key: target.Path, value: detail),
+                Failed = Failed.AddOrUpdate(key: target.Path, value: fault),
                 Usage = Usage with { Refused = checked(Usage.Refused + 1) },
-            }).Broke(from: target.FromPath, link: target.StoredLink, resolved: Some(target.Path), detail: detail);
+            }).Linked(from: target.From, link: target.StoredLink, resolved: Some(target.Path), fault: Some(fault));
 
         internal ClosureWalk Logged(string log) =>
             string.IsNullOrWhiteSpace(value: log) ? this : this with { Logs = Logs.Add(value: log) };
 
-        internal ClosureWalk Read(string path, UnitSystem units, string log) =>
+        internal ClosureWalk Read(ArchivePath path, ModelUnit units, string log) =>
             Logged(log: log) with { Units = Units.Add(value: new UnitFact(Path: path, Units: units)) };
 
-        internal ClosureWalk Exhausted(ClosureLimit limit, long observed, long allowed, string path) =>
+        internal ClosureWalk Exhausted(ClosureLimit limit, long observed, long allowed, ArchivePath path) =>
             this with {
                 Terminal = new ClosureTerminal.Exhausted(
                     Limit: limit, Observed: observed, Allowed: allowed, Path: path),
             };
     }
 
-    // The drive is a bounded fixpoint, not a loop: enqueue-side deduplication makes every frontier entry a fresh
-    // archive, so `MaxArchives + 1` ticks strictly cover the walk (the extra tick is the one that exhausts), and a
-    // settled walk re-emits itself, keeping the fold total.
+    // The drive is a bounded fixpoint whose HALT is the fold's own predicate: enqueue-side deduplication makes
+    // every frontier entry a fresh archive, so `MaxArchives + 1` ticks strictly cover the walk (the extra tick is
+    // the one that exhausts), and `foldWhile` stops the moment the terminal settles or the frontier drains — the
+    // walk carries no `Running` mirror of a fact its own columns already state.
     private static Fin<ClosureReport> ArchiveClosure(string rootPath, ClosureBudget budget, Op op) =>
         from plane in ArchivePlane.Current(op: op)
-        from root in Canonical(path: rootPath, op: op)
-        from anchor in Optional(System.IO.Path.GetDirectoryName(path: root)).ToFin(Fail: op.InvalidInput())
+        from root in Canonical(path: rootPath, plane: plane, op: op)
+        from anchor in Optional(System.IO.Path.GetDirectoryName(path: root.Value)).ToFin(Fail: op.InvalidInput())
         from handle in ArchiveRoot.Open(path: anchor, plane: plane, op: op)
         from report in op.Catch(() => {
             using (handle) {
                 ClosureScope scope = new(Root: handle, Anchor: anchor, Plane: plane, Budget: budget, Op: op);
-                ClosureWalk settled = toSeq(Enumerable.Range(start: 0, count: checked(budget.MaxArchives + 1))).Fold(
-                    ClosureWalk.Of(root: new ArchiveTarget(
-                        FromPath: root, StoredLink: rootPath, Path: root, Depth: 0)),
-                    (walk, _) => walk.Running ? Step(walk: walk, scope: scope) : walk);
-                return Fin.Succ(value: Reported(walk: settled, plane: plane));
+                ClosureWalk settled = toSeq(Enumerable.Range(start: 0, count: checked(budget.MaxArchives + 1)))
+                    .FoldWhile(
+                        ClosureWalk.Of(root: new ArchiveTarget(
+                            From: root, StoredLink: rootPath, Path: root, Depth: 0)),
+                        (walk, _) => Step(walk: walk, scope: scope),
+                        walk => walk.Terminal is ClosureTerminal.Complete && !walk.Pending.IsEmpty);
+                return Fin.Succ(value: Reported(walk: settled));
             }
         })
         select report;
@@ -849,8 +894,8 @@ public static partial class BlockGraph {
                 observed: checked((long)walk.Usage.Archives + 1),
                 allowed: scope.Budget.MaxArchives,
                 path: target.Path)
-            : scope.Root.Open(candidate: target.Path, op: scope.Op).Match(
-                Fail: error => walk.Refused(target: target, detail: error.Message),
+            : scope.Root.Open(candidate: target.Path.Value, op: scope.Op).Match(
+                Fail: error => walk.Refused(target: target, fault: error),
                 Succ: input => Measured(walk: walk, input: input, target: target, scope: scope));
 
     // Exemption: the input handle's `using` is the platform-forced disposal seam bracketing one archive read.
@@ -879,11 +924,11 @@ public static partial class BlockGraph {
 
     private static ClosureWalk Scanned(ClosureWalk walk, ArchiveInput input, ArchiveTarget target, ClosureScope scope) =>
         InspectArchive(input: input, op: scope.Op).Match(
-            Fail: error => walk.Refused(target: target, detail: error.Message),
+            Fail: error => walk.Refused(target: target, fault: error),
             Succ: scan => scan.Switch(
                 rejected: rejected => walk
                     .Logged(log: rejected.NativeLog)
-                    .Refused(target: target, detail: rejected.Error.Message),
+                    .Refused(target: target, fault: rejected.Error),
                 read: read => Expanded(
                     walk: walk.Read(path: target.Path, units: read.Units, log: read.NativeLog),
                     links: read.Links,
@@ -912,35 +957,34 @@ public static partial class BlockGraph {
             path: System.IO.Path.IsPathRooted(path: link)
                 ? link
                 : System.IO.Path.Combine(
-                    path1: System.IO.Path.GetDirectoryName(path: target.Path) ?? string.Empty,
+                    path1: System.IO.Path.GetDirectoryName(path: target.Path.Value) ?? string.Empty,
                     path2: link),
+            plane: scope.Plane,
             op: scope.Op).Match(
-            Fail: error => walk
-                .Edge(from: target.Path, link: link, resolved: Option<string>.None)
-                .Broke(from: target.Path, link: link, resolved: Option<string>.None, detail: error.Message),
-            Succ: resolved => Within(root: scope.Anchor, candidate: resolved, comparison: scope.Plane.Comparison)
+            Fail: error => walk.Linked(
+                from: target.Path, link: link, resolved: Option<ArchivePath>.None, fault: Some(error)),
+            Succ: resolved => Within(root: scope.Anchor, candidate: resolved.Value, comparison: scope.Plane.Comparison)
                 ? Frontier(
-                    walk: walk.Edge(from: target.Path, link: link, resolved: Some(resolved)),
+                    walk: walk.Linked(
+                        from: target.Path, link: link, resolved: Some(resolved), fault: Option<Error>.None),
                     from: target.Path,
                     link: link,
                     resolved: resolved,
                     depth: checked(target.Depth + 1),
                     scope: scope)
-                : walk
-                    .Edge(from: target.Path, link: link, resolved: Option<string>.None)
-                    .Broke(
-                        from: target.Path,
-                        link: link,
-                        resolved: Some(resolved),
-                        detail: scope.Op.InvalidContext().Message));
+                : walk.Linked(
+                    from: target.Path,
+                    link: link,
+                    resolved: Some(resolved),
+                    fault: Some(scope.Op.InvalidContext())));
 
     // Deduplication is enqueue-side: a link onto an already-failed archive receipts its broken re-reference here,
     // a link onto a live shared dependency records its edge and stops, and only a fresh path joins the frontier.
     private static ClosureWalk Frontier(
         ClosureWalk walk,
-        string from,
+        ArchivePath from,
         string link,
-        string resolved,
+        ArchivePath resolved,
         int depth,
         ClosureScope scope) =>
         depth > scope.Budget.MaxDepth
@@ -950,48 +994,51 @@ public static partial class BlockGraph {
                 allowed: scope.Budget.MaxDepth,
                 path: resolved)
             : walk.Failed.Find(key: resolved).Case switch {
-                string prior => walk.Broke(from: from, link: link, resolved: Some(resolved), detail: prior),
+                Error prior => walk.Linked(from: from, link: link, resolved: Some(resolved), fault: Some(prior)),
                 _ when walk.Seen.Contains(value: resolved) => walk,
                 _ => walk with {
                     Seen = walk.Seen.Add(value: resolved),
                     Pending = walk.Pending.Add(value: new ArchiveTarget(
-                        FromPath: from, StoredLink: link, Path: resolved, Depth: depth)),
+                        From: from, StoredLink: link, Path: resolved, Depth: depth)),
                     Usage = walk.Usage with { Offered = checked(walk.Usage.Offered + 1) },
                 },
             };
 
     // A budget terminal outranks truncation — it already names the exact ceiling that stopped the walk — but an
-    // otherwise-clean walk that refused even one target settles `Truncated`, never `Complete`, so the offered,
-    // opened, and refused counts travel with the verdict a consumer branches on.
-    private static ClosureReport Reported(ClosureWalk walk, ArchivePlane plane) {
-        BidirectionalGraph<string, SEdge<string>> graph = new(allowParallelEdges: false);
-        walk.Edges.Iter(edge => edge.ResolvedPath.Iter(target => graph.AddVerticesAndEdge(
-            edge: new SEdge<string>(source: edge.FromPath, target: target))));
+    // otherwise-clean walk that refused even one target settles `Truncated`, never `Complete`; the counts a
+    // consumer reads live on `Usage` alone. The cycle graph keys `ArchivePath` under its own canonical equality,
+    // so no per-call comparer exists to forget.
+    private static ClosureReport Reported(ClosureWalk walk) {
+        BidirectionalGraph<ArchivePath, SEdge<ArchivePath>> graph = new(allowParallelEdges: false);
+        walk.Links
+            .Filter(static link => link.Fault.IsNone)
+            .Iter(link => link.Resolved.Iter(target => graph.AddVerticesAndEdge(
+                edge: new SEdge<ArchivePath>(source: link.From, target: target))));
         return new ClosureReport(
-            Edges: walk.Edges,
-            Broken: walk.Broken,
-            Cycles: GraphFold.Cycles(graph: graph, comparer: plane.Comparer, order: plane.Comparer),
+            Links: walk.Links,
+            Cycles: GraphFold.Cycles(graph: graph),
             Units: walk.Units,
             NativeLog: walk.Logs,
             Usage: walk.Usage,
             Terminal: walk.Terminal is ClosureTerminal.Complete && walk.Usage.Refused > 0
-                ? new ClosureTerminal.Truncated(
-                    Offered: walk.Usage.Offered, Opened: walk.Usage.Archives, Refused: walk.Usage.Refused)
+                ? new ClosureTerminal.Truncated()
                 : walk.Terminal);
     }
 
-    private static Fin<string> Canonical(string path, Op op) => op.Catch(() => {
+    private static Fin<ArchivePath> Canonical(string path, ArchivePlane plane, Op op) => op.Catch(() => {
         string full = System.IO.Path.TrimEndingDirectorySeparator(path: System.IO.Path.GetFullPath(path: path));
-        string prefix = System.IO.Path.GetPathRoot(path: full)
-            ?? throw new InvalidOperationException(message: op.InvalidInput().Message);
-        string resolved = full[prefix.Length..]
-            .Split(
-                separator: [System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar],
-                options: StringSplitOptions.RemoveEmptyEntries)
-            .Aggregate(prefix, static (held, segment) => Resolved(
-                candidate: System.IO.Path.Combine(path1: held, path2: segment)));
-        return Fin.Succ(value: System.IO.Path.TrimEndingDirectorySeparator(
-            path: System.IO.Path.GetFullPath(path: resolved)));
+        return Optional(System.IO.Path.GetPathRoot(path: full))
+            .Filter(static prefix => prefix.Length > 0)
+            .ToFin(Fail: op.InvalidInput())
+            .Map(prefix => ArchivePath.Of(
+                resolved: System.IO.Path.TrimEndingDirectorySeparator(path: System.IO.Path.GetFullPath(
+                    path: full[prefix.Length..]
+                        .Split(
+                            separator: [System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar],
+                            options: StringSplitOptions.RemoveEmptyEntries)
+                        .Aggregate(prefix, static (held, segment) => Resolved(
+                            candidate: System.IO.Path.Combine(path1: held, path2: segment))))),
+                plane: plane));
     });
 
     private static string Resolved(string candidate) =>
@@ -1008,21 +1055,22 @@ public static partial class BlockGraph {
             && !relative.StartsWith(value: $"..{System.IO.Path.AltDirectorySeparatorChar}", comparisonType: comparison);
     }
 
-    // Exemption: the chunked copy is the snapshot itself — the offset loop, the rented buffer, and the `finally`
-    // that returns it and deletes the temp file are one resource bracket over a native reader that takes a PATH,
-    // not a handle, so the bytes must land on disk before `File3dm` can see them.
+    // The chunked copy is the snapshot itself — the offset loop and rented buffer form the native reader's PATH
+    // boundary, while deletion settles on the same rail so cleanup cannot replace or erase the scan fault.
     //
     // `Guid.NewGuid` here is I/O UNIQUENESS, not identity: the name exists only to keep two concurrent snapshots
-    // from colliding in the temp directory and is deleted in the same `finally`, so it never enters a stamp, a
+    // from colliding in the temp directory and is deleted by the same settled bracket, so it never enters a stamp, a
     // receipt, or any replayed preimage — the determinism carve that bars a random guid elsewhere does not reach
     // a filename with a lifetime shorter than the call that made it.
     private static Fin<ArchiveScan> InspectArchive(ArchiveInput input, Op op) => op.Catch(() => {
         string snapshot = System.IO.Path.Combine(
             path1: System.IO.Path.GetTempPath(),
             path2: $"{Guid.NewGuid():N}.3dm");
-        byte[] buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(
-            minimumLength: checked((int)long.Clamp(value: input.Length, min: 1, max: SnapshotChunkBytes)));
-        try {
+        Fin<ArchiveScan> primary = op.Catch(() => {
+            // Pooled, sized from the declared chunk policy clamped to the archive's own extent, returned by disposal:
+            // the raw rent-and-return pair is the toolkit owner's own concern now.
+            using SpanOwner<byte> lease = SpanOwner<byte>.Allocate(
+                size: checked((int)long.Clamp(value: input.Length, min: 1, max: SnapshotChunkBytes)));
             using (Microsoft.Win32.SafeHandles.SafeFileHandle output = System.IO.File.OpenHandle(
                 path: snapshot,
                 mode: System.IO.FileMode.CreateNew,
@@ -1031,10 +1079,10 @@ public static partial class BlockGraph {
                 options: System.IO.FileOptions.RandomAccess)) {
                 long offset = 0;
                 while (offset < input.Length) {
-                    int count = checked((int)Math.Min(val1: buffer.Length, val2: input.Length - offset));
+                    int count = checked((int)Math.Min(val1: lease.Length, val2: input.Length - offset));
                     int read = System.IO.RandomAccess.Read(
                         handle: input.Handle,
-                        buffer: buffer.AsSpan(start: 0, length: count),
+                        buffer: lease.Span[..count],
                         fileOffset: offset);
                     if (read <= 0) {
                         return Fin.Succ<ArchiveScan>(value: new ArchiveScan.Rejected(
@@ -1043,7 +1091,7 @@ public static partial class BlockGraph {
                     }
                     System.IO.RandomAccess.Write(
                         handle: output,
-                        buffer: buffer.AsSpan(start: 0, length: read),
+                        buffer: lease.Span[..read],
                         fileOffset: offset);
                     offset = checked(offset + read);
                 }
@@ -1066,11 +1114,11 @@ public static partial class BlockGraph {
                             .Choose(static definition => Optional(definition.SourceArchive)
                                 .Filter(static source => !string.IsNullOrWhiteSpace(value: source))),
                         NativeLog: log));
-        }
-        finally {
-            System.Buffers.ArrayPool<byte>.Shared.Return(array: buffer, clearArray: true);
-            System.IO.File.Delete(path: snapshot);
-        }
+        });
+        return primary.Settled(
+            held: Seq(snapshot),
+            release: path => op.Catch(() => Fin.Succ(value: Op.Side(() => System.IO.File.Delete(path: path)))),
+            key: op);
     });
 }
 ```
@@ -1081,8 +1129,10 @@ public static partial class BlockGraph {
 | :-----: | :-------------- | :------------------------ | :-------------------------------------- | :----------------- |
 |  [01]   | `BlockGraph`    | `Ask`                     | `QuikGraph` · host reads · archive fold | `BlockGraphAnswer` |
 |  [02]   | `GraphFold`     | transient graph           | SCC · components · order · reduction    | graph evidence     |
-|  [03]   | `ClosureReport` | `Archives(ClosureBudget)` | budget-bounded `ClosureWalk` fold       | closure evidence   |
-|  [04]   | `ArchivePlane`  | `Current`                 | per-RID open flags · path comparison    | plane or refusal   |
+|  [03]   | `ClosureReport` | `Archives(ClosureBudget)` | budget-bounded `foldWhile` walk         | closure evidence   |
+|  [04]   | `ArchivePlane`  | `Current`                 | per-RID open flags · canonical fold     | plane or refusal   |
+
+- Packages: `QuikGraph` (`libs/csharp/.api/api-quikgraph.md` — `StronglyConnectedComponents`, `WeaklyConnectedComponents`, `CondensateStronglyConnected`, `ComputeTransitiveClosure`, `ComputeTransitiveReduction`, `IsDirectedAcyclicGraph`, `SourceFirstBidirectionalTopologicalSort`, `TreeBreadthFirstSearch`, `Roots`, `Sinks`); `LanguageExt.Core` (`libs/csharp/.api/api-languageext.md` — rails, `FoldWhile`, `Traverse`, keyed containers); `Thinktecture.Runtime.Extensions` (`libs/csharp/.api/api-thinktecture-runtime-extensions.md` — unions, rows, `[ValidationError]`); `Generator.Equals` (`libs/csharp/.api/api-generator-equals.md` — the `ArchivePath` explicit-member equality); `CommunityToolkit.HighPerformance` (`libs/csharp/.api/api-highperformance.md` — `SpanOwner<byte>` snapshot lease); the BCL `LibraryImport` source generator (inbox, no manifest row) for the two `libc` seams; `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-blocks.md`, `api-rhinocommon-fileio.md`).
 
 ## [06]-[RESEARCH]
 

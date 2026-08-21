@@ -39,16 +39,16 @@ import meshio  # core pure-Python; unconditional top-level, never deferred behin
 import msgspec
 import numpy as np
 from enum import StrEnum
-from expression import Error, Ok, Result, case, tag, tagged_union
-from expression.collections import Map
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
+from expression.collections import Block, Map
 from msgspec import Struct
 
-from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
+from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, StageTap, evidence_run
 from rasm.compute.solvers.receipt import SolveStatus, status_of
-from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, railed
+from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
+from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, railed, rostered
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
+from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
 # assemble and generate backends defer: `skfem` pulls a heavy FEM stack and `gmsh` a native process-global kernel, and
@@ -60,6 +60,19 @@ lazy import skfem
 # --- [TYPES] -------------------------------------------------------------------------------
 
 type MeshOp = Literal["generated", "assembled", "read", "written"]
+
+
+class MeshStage(StrEnum):
+    # the generate fold's OWN closed milestone roster, and the reason it is closed HERE rather than shared: a stage
+    # set is one fold's interior, so a cross-fold phase ladder would name positions this kernel never reaches and
+    # leave every subscriber matching on members that cannot fire. The roster erases to `StageMark.stage` at the
+    # conduit, so closure costs the registry nothing and buys the fold an exhaustive position vocabulary.
+    BUILT = "built"
+    GROUPED = "grouped"
+    SIZED = "sized"
+    MESHED = "meshed"
+    WRITTEN = "written"
+    READ = "read"
 
 
 class GmshKernel(StrEnum):
@@ -186,6 +199,23 @@ _DIM: Final[Map[str, int]] = Map.of_seq([("line", 1), ("triangle", 2), ("quad", 
 # promotion is derived from the kind the caller names and never a `recombine: bool` knob restating it.
 _RECOMBINED: Final[frozenset[str]] = frozenset({"quad", "hexahedron"})
 
+# the arms carrying interior positions worth a beat. `generate` alone drives a multi-phase native kernel whose
+# duration a caller cannot otherwise see; the interchange arms are one blocking call each and the assemble arm one
+# `skfem.asm`, so opening a pulse stream over them publishes a milestone roster with nothing between its ends.
+_STAGED: Final[frozenset[str]] = frozenset({"generate"})
+
+
+# --- [TABLES] ------------------------------------------------------------------------------
+
+# the arity gate's ONE row: the primitive rides a NAMED slot rather than the subject, because a per-primitive
+# subject spelling forks one refusal law across the whole `GmshSolid` roster and seats a census coordinate per
+# member — a table no reader can enumerate and no row can own.
+GMSH_ARITY: Final[FaultRow[ComputeLeg]] = FaultRow(
+    leg=ComputeLeg.MESH, point="generate", arm="config", defect="primitive-arity", retriability=TERMINAL,
+    slots=("primitive", "declared", "supplied"),
+)
+RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([GMSH_ARITY]))
+
 
 # --- [MODELS] ------------------------------------------------------------------------------
 
@@ -254,7 +284,7 @@ class GmshSource:
                 tuple(geo.addPlaneSurface([geo.addCurveLoop(list(curves))]) for curves in rings)
             case GmshSource(tag="solid", solid=(primitive, params)):
                 if len(params) != primitive.arity:
-                    return Error(BoundaryFault(boundary=(f"mesh.generate.{primitive.value}", f"arity {primitive.arity} != {len(params)}")))
+                    return Error(GMSH_ARITY.raised(primitive.value, str(primitive.arity), str(len(params))))
                 getattr(occ, primitive.value)(*params)
             case GmshSource(tag="imported", imported=(path, kernel)):
                 occ.importShapes(str(path)) if kernel is GmshKernel.OCC else gmsh.merge(str(path))
@@ -407,9 +437,23 @@ class MeshReceipt:
         return self.status is SolveStatus.SUCCESS
 
     def contribute(self) -> Iterable[Receipt]:
+        # ONE settled-receipt spine: the mesh key, the provenance pair, the warning band, and the stamp are the
+        # runtime owner's columns, so `key` leaves the payload rather than publishing the coordinate twice. The band
+        # IS the well-formedness roster — an empty node or cell count, a non-finite load, a zero-byte write each name
+        # their own termination class — and provenance names the produced key alone, an operation minting one field.
         subject = self.element.value if self.element is not None else self.tag
-        facts: dict[str, object] = {"operation": self.tag, "converged": self.converged, **self.facts}
-        return (Receipt.of(EvidenceScope.MESH.value, ("emitted", subject, facts)),)
+        facts: dict[str, object] = {
+            "operation": self.tag, "converged": self.converged, **{name: value for name, value in self.facts.items() if name != "key"}
+        }
+        return (
+            Receipt.of(
+                EvidenceScope.MESH.value,
+                ("emitted", subject, facts),
+                key=Some(self.content_key),
+                provenance=Some(Provenance(consumed=Block.empty(), produced=self.content_key)),
+                band=Block.empty() if self.converged else Block.singleton(self.status.value),
+            ),
+        )
 
 
 @tagged_union(frozen=True)
@@ -443,10 +487,18 @@ class MeshExchange:
         # to the RELEASING thread band; the weave owns span, fence, and harvest, the Kernel crossing isolation and retry.
         # The caller's composition key threads onto the weave so an embedded composition's lifecycle facts reach the
         # points IT registered; the default keeps the root call shape scope-free.
-        async def dispatch() -> RuntimeRail[MeshReceipt]:
-            return (await lane.offload(Kernel.of(_dispatch, _TRAIT[self.tag]), self)).bind(lambda rail: rail)
+        # the mark is built PARENT-side off the lane's own conduit and crosses as an ordinary kernel argument, exactly
+        # as the geometry peer's tap does: a worker reaches the queue proxy and never `Hooks`, a span, or the registry.
+        # `total` stays absent — the roster length is a constant every subscriber already reads off `MeshStage`, and
+        # the extent a subscriber actually wants is the element count, which exists only once `MESHED` has fired.
+        mark: Option[StageTap] = Some(StageTap.of(EvidenceScope.MESH, lane.pulses.tap)) if self.tag in _STAGED else Nothing
 
-        return await evidence_run(EvidenceScope.MESH, f"mesh.{self.tag}", dispatch, facts={"op": self.tag}, composition=composition)
+        async def dispatch() -> RuntimeRail[MeshReceipt]:
+            return (await lane.offload(Kernel.of(_dispatch, _TRAIT[self.tag]), self, mark)).bind(lambda rail: rail)
+
+        return await evidence_run(
+            EvidenceScope.MESH, f"mesh.{self.tag}", dispatch, facts={"op": self.tag}, composition=composition, stage=mark
+        )
 
 
 # --- [OPERATIONS] --------------------------------------------------------------------------
@@ -455,10 +507,10 @@ class MeshExchange:
 # `railed` `effect.result` chain: the generate and read arms `yield from`-bind a fallible rail (the kernel build's
 # arity gate, `_read`'s meshio parse / canonical-encode); assemble and write hold no fallible derive and lift straight.
 @railed
-def _dispatch(exchange: MeshExchange) -> MeshReceipt:
+def _dispatch(exchange: MeshExchange, mark: Option[StageTap]) -> MeshReceipt:
     match exchange:
         case MeshExchange(tag="generate", generate=(source, plan, path)):
-            meshed: MeshField = yield from _generate(source, plan, path)
+            meshed: MeshField = yield from _generate(source, plan, path, mark)
             row = CTOR[plan.element]
             realized = len(meshed.cell_sets) + len(meshed.node_sets)
             return MeshReceipt.Generated(
@@ -478,11 +530,14 @@ def _dispatch(exchange: MeshExchange) -> MeshReceipt:
             assert_never(unreachable)
 
 
-# `_field` mints the content key from EVERY stored array as a LABELED chunk — element tag, then per block
-# slot, map key, dtype, shape, and C-contiguous bytes, each part length-prefixed so the identity
-# owner's `stream` updater sees unambiguous boundaries, dict sections sorted so insertion order never
-# leaks. A renamed group, reshaped array, or re-homed value therefore re-keys where raw value bytes alone
-# would collide. `ContentIdentity.of` returns `RuntimeRail[ContentKey]`, so the key threads by `yield from`.
+# `_field` mints the content key from EVERY stored array as a LABELED cell — element tag, then per block slot, map
+# key, dtype, shape, and C-contiguous bytes — handed to the identity owner as ONE `IdentitySource(parts=...)` so the
+# count-and-length frame runs at its `docs/laws/patterns.md` `[PREIMAGE_FRAMING]` owner. The deleted form chose a
+# `len(part).to_bytes(8, "big")` width and byte order INSIDE this page and pre-joined each array's five cells into
+# one opaque chunk: a width picked at a call site forks the key namespace with no surface able to report it, and the
+# inner join left the five cells sharing one frame where the owner frames each. Dict sections stay sorted so
+# insertion order never leaks, and a renamed group, reshaped array, or re-homed value re-keys where raw value bytes
+# alone would collide. `ContentIdentity.of` returns `RuntimeRail[ContentKey]`, so the key threads by `yield from`.
 @railed
 def _field(
     element: ElementKind,
@@ -494,10 +549,9 @@ def _field(
     cell_sets: dict[str, np.ndarray],
     field_data: dict[str, np.ndarray],
 ) -> MeshField:
-    def chunk(slot: str, name: str, buf: np.ndarray) -> bytes:
+    def cells_of(slot: str, name: str, buf: np.ndarray) -> tuple[bytes, ...]:
         arr = np.ascontiguousarray(buf)
-        parts = (slot.encode(), name.encode(), str(arr.dtype).encode(), repr(arr.shape).encode(), arr.tobytes())
-        return b"".join(len(part).to_bytes(8, "big") + part for part in parts)
+        return (slot.encode(), name.encode(), str(arr.dtype).encode(), repr(arr.shape).encode(), arr.tobytes())
 
     sections: tuple[tuple[str, dict[str, np.ndarray]], ...] = (
         ("node_fields", node_fields),
@@ -506,13 +560,13 @@ def _field(
         ("cell_sets", cell_sets),
         ("field_data", field_data),
     )
-    buffers = (
+    preimage = (
         element.value.encode(),
-        chunk("topology", "points", points),
-        chunk("topology", "cells", cells),
-        *(chunk(slot, name, mapping[name]) for slot, mapping in sections for name in sorted(mapping)),
+        *cells_of("topology", "points", points),
+        *cells_of("topology", "cells", cells),
+        *(cell for slot, mapping in sections for name in sorted(mapping) for cell in cells_of(slot, name, mapping[name])),
     )
-    key: ContentKey = yield from ContentIdentity.of("mesh-field", buffers)
+    key: ContentKey = yield from ContentIdentity.of("mesh-field", IdentitySource(parts=preimage))
     return MeshField(
         element=element,
         points=points,
@@ -554,7 +608,9 @@ def _assemble(field: MeshField, form: FemForm) -> AssembledSystem:
 # `triangle6`/`tetra10` blocks, which `cells_dict[CTOR[element].cell]` cannot key and the `Mesh*1` constructors the
 # same row names cannot take — a P2 element in this vocabulary is a higher-order BASIS over affine geometry, so a
 # promoted mesh is not a finer input to the assemble fold but an unreadable one.
-def _generate(source: GmshSource, plan: MeshPlan, path: Path) -> RuntimeRail[MeshField]:
+def _generate(source: GmshSource, plan: MeshPlan, path: Path, mark: Option[StageTap]) -> RuntimeRail[MeshField]:
+    # every position beats through `_beat`, so a lane with no conduit folds to the no-op and the fold reads as one
+    # sequence of named milestones rather than six optional branches.
     row = CTOR[plan.element]
     gmsh.initialize()
     try:  # Exemption: the `initialize`/`finalize` bracket is the platform-forced statement kernel — the kernel is
@@ -565,20 +621,32 @@ def _generate(source: GmshSource, plan: MeshPlan, path: Path) -> RuntimeRail[Mes
             case Result(tag="error", error=fault):
                 return Error(fault)
             case Result(tag="ok"):
-                pass
+                _beat(mark, MeshStage.BUILT, 1)
         # groups name regions only AFTER the kernel commits its entities — `addPhysicalGroup` on an unsynchronized
         # model tags entity ids the mesher never sees, and the `.msh` then carries a group over nothing.
         tuple(gmsh.model.addPhysicalGroup(group.dim, list(group.tags), name=group.name) for group in plan.groups)
+        _beat(mark, MeshStage.GROUPED, 2)
         plan.size.install(gmsh)
+        _beat(mark, MeshStage.SIZED, 3)
         gmsh.model.mesh.generate(_DIM[row.cell])
         if row.cell in _RECOMBINED:
             gmsh.model.mesh.recombine()
         if plan.optimize:
             gmsh.model.mesh.optimize(plan.optimize)
+        _beat(mark, MeshStage.MESHED, 4)
         gmsh.write(str(path))
+        _beat(mark, MeshStage.WRITTEN, 5)
     finally:
         gmsh.finalize()
-    return _read(path, plan.element, "gmsh")
+    read = _read(path, plan.element, "gmsh")
+    _beat(mark, MeshStage.READ, 6)
+    return read
+
+
+def _beat(mark: Option[StageTap], stage: MeshStage, done: int) -> None:
+    # ONE optional-beat spelling for the whole fold: an arm outside `_STAGED` carries `Nothing` and every position
+    # folds to the no-op, so the kernel body states its milestones once instead of guarding each of them.
+    mark.map(lambda held: held.beat(stage, done))
 
 
 # A column the writing format namespaced under its own `<format>:` prefix is format bookkeeping, never a user region,

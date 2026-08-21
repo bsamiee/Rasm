@@ -1,16 +1,30 @@
 # [RASM_RHINO_PERSISTENCE_DICTIONARY]
 
-`ArchiveValue` is the folder's ONE typed boxed-host-value carrier: every payload a KV boundary moves — archive scalars, sequences, drawing values, geometry, carriers, enums, and the settings-only shapes — admits through one frozen slot registry whose rows carry the host-type keys, the defensive-copy law, and the native write column. `ArchiveMap` admits one native dictionary, preserves schema identity, decides equality on content alone, and mints one fresh native dictionary for each egress. String owners admit through the kernel `Op.AcceptValidated` string row — the one factory bridge onto the rail; a folder-local bridge beside it is the deleted form.
+`ArchiveValue` is the folder's ONE typed boxed-host-value carrier: every payload a KV boundary moves — archive scalars, sequences, drawing values, geometry, carriers, enums, and the settings-only shapes — admits through one `ArchiveSlot` row whose columns carry the host-type keys, the boundary reach, the defensive-copy law, and the native write. `ArchiveMap` admits one native dictionary, preserves schema identity, decides equality on content alone, and mints one fresh native dictionary for each egress.
 
-## [01]-[OWNERS]
+## [01]-[INDEX]
 
-One slot row per host payload type replaces enumerated case arms: capture, host write, and detached projection all derive from the row, so a new payload is one registry row and every consumer is complete by construction. Rows without a native `Set` overload — `char`, `DateTime`, `Option<Color>`, `HashMap<string, string>` — are held payloads that refuse the archive boundary with a typed unsupported fault and serve the settings boundary alone. Enum payloads carry `(Type, Name)` evidence through one `EnumMint` reflection seam shared by both host targets.
+- [02]-[OWNERS]: `ArchiveKey`, `ArchiveName`, `ArchiveReach`, `ArchiveSlot`, `ArchiveValue` — the key vocabulary, the boundary-reach capability, the payload row family, and the one boxed carrier.
+- [03]-[MAP_ALGEBRA]: `ArchiveChange`, `ArchiveMerge`, `ArchiveMap` — the diff vocabulary, the conflict policy rows, and the detached dictionary with its detach/mint round trip.
+
+## [02]-[OWNERS]
+
+- Owner: `ArchiveSlot` — one `[SmartEnum<string>]` row per host payload type, carrying the admitted host `Keys`, the boundary `Reach`, and the `Admit`/`Detach`/`Same`/`Mint` delegate columns; `ArchiveValue` — the boxed carrier holding one row beside one admitted payload; `ArchiveReach` — the two-row capability naming which KV boundary a payload may cross; `ArchiveKey`/`ArchiveName` — the admitted string identities.
+- Entry: a new payload type is ONE `ArchiveSlot` row. Capture, host write, detached projection, and content equality all read that row, so no consumer enumerates case arms and every boundary is complete by construction.
+- Law: the row key is the row's own wire name, never its host type, because a row admits SEVERAL host types — `Rows<T>` answers both `T[]` and `Seq<T>` — so the `Type` index is a MANY-TO-ONE projection off the `Keys` column rather than a generated single-key lookup.
+- Law: the `Type` index is accessor-backed. Building the frozen projection inside a static field initializer runs the whole fold under a type initializer whose failure poisons the type for the process life; `Lazy` defers it to the first resolve and every row field stays a plain declaration.
+- Law: `ArchiveKey` and `ArchiveName` admit through the kernel `Op.AcceptValidated` string row, the one factory bridge onto the rail; a folder-local string bridge beside it is the deleted form.
+- Law: reach is DATA, not a nullable column — `char`, `DateTime`, `Option<Color>`, and `HashMap<string, string>` hold `Settings` alone because `ArchivableDictionary` publishes no `Set` overload for them, so their `Mint` refuses typed and `AdmitArchive` reads the capability instead of testing a delegate for null.
+- Law: enum payloads keep enum identity through one `EnumMint` reflection seam shared by both host targets; values detached from a native dictionary remain text, because Rhino stores enum names as ordinary strings and exposes no readable enum discriminant.
+- Law: copy-slot custody is a TRANSFER at every leg, decompile-proven — the host dictionary stores the reference it is handed (`SetItem` -> `m_items[key] = new DictionaryItem(it, val)`), so the `Admit` clone is the carrier's own stored value for the carrier's lifetime, the `Detach` clone transfers to the caller at `Project<T>` egress, and the `Mint` clone becomes the dictionary's stored entry. No clone is a disposable temp.
+- Law: a lost mint race keeps the SEATED handle, so one host/method/enum triple resolves to one closed method for the process and `Cell.Claim` owns the transition rather than a discarded swap.
+- Growth: a new payload type is one row; a new boundary is one `ArchiveReach` row with the membership on the rows that reach it; consumers are untouched.
+- Packages: Thinktecture.Runtime.Extensions (`libs/csharp/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[UseDelegateFromConstructor]`, `[ValueObject<T>]`, `[ValidationError]`, `IDisallowDefaultValue`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Atom`, `Traverse`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Confirm`, `Op.AcceptValidated`, `Cell.Claim`, `Transition`), `Domain/validation` (`ICapability`, `CapabilitySet`); `Persistence/presets` (`PersistenceFault`); RhinoCommon persistence (`libs/csharp/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[DICTIONARY_VALUE_WRITE]`/`[DICTIONARY_VALUE_READ]`/`[DICTIONARY_LIFECYCLE]` — the `Set` overload roster, `SetEnumValue<T>`, `TryGetValue`, `Keys`, `Version`, `Name`, `ChangeSerialNumber`, `ParentUserData`), RhinoCommon geometry (`api-rhinocommon-geometry.md` — `GeometryBase.Duplicate`, `GeometryBase.GeometryEquals`, `MeshingParameters` copy constructor), RhinoCommon objects (`api-rhinocommon-objects.md` — `ObjRef` copy constructor, `ObjectId`, `GeometryComponentIndex`).
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Drawing;
-using System.Globalization;
 using System.Reflection;
 using Rasm.Domain;
 using Rhino.Collections;
@@ -19,43 +33,280 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [VALUE_VOCABULARY] ---------------------------------------------------------------------
-
+// --- [TYPES] ----------------------------------------------------------------------------------
 [ValueObject<string>]
-public readonly partial struct ArchiveKey {
+[ValidationError]
+public readonly partial struct ArchiveKey : IDisallowDefaultValue {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         validationError = string.IsNullOrWhiteSpace(value)
-            ? new ValidationError("Archive key is empty.")
+            ? new ValidationError(string.Join(" | ", new object?[] { "Archive key is empty." }))
             : null;
     }
 }
 
 [ValueObject<string>]
-public readonly partial struct ArchiveName {
+[ValidationError]
+public readonly partial struct ArchiveName : IDisallowDefaultValue {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         validationError = null;
     }
 }
 
-public sealed record ArchiveValue {
-    private ArchiveValue(Slot slot, object payload) => (Row, Payload) = (slot, payload);
+// Which KV boundary a payload row may cross. `ArchivableDictionary` and `PersistentSettings` publish overlapping but
+// unequal write vocabularies, so reach is a held set on the row rather than a nullable write delegate.
+[SmartEnum<string>]
+public sealed partial class ArchiveReach : ICapability<ArchiveReach> {
+    public static readonly ArchiveReach Archive = new("archive");
+    public static readonly ArchiveReach Settings = new("settings");
+}
 
-    private Slot Row { get; }
+// --- [MODELS] ---------------------------------------------------------------------------------
+[SmartEnum<string>]
+public sealed partial class ArchiveSlot {
+    public static readonly ArchiveSlot Bool = Scalar<bool>("bool", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Byte = Scalar<byte>("byte", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot SByte = Scalar<sbyte>("sbyte", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Short = Scalar<short>("short", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot UShort = Scalar<ushort>("ushort", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Integer = Scalar<int>("integer", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot UnsignedInteger = Scalar<uint>("unsigned-integer", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Long = Scalar<long>("long", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Float = Scalar<float>("float", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Double = Scalar<double>("double", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Guid = Scalar<Guid>("guid", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Text = Scalar<string>("text", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Color = Scalar<Color>("color", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Point = Scalar<Point>("point", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot PointF = Scalar<PointF>("point-f", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Rectangle = Scalar<Rectangle>("rectangle", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot RectangleF = Scalar<RectangleF>("rectangle-f", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Size = Scalar<Size>("size", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot SizeF = Scalar<SizeF>("size-f", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Interval = Scalar<Interval>("interval", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Point2d = Scalar<Point2d>("point2d", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Point3d = Scalar<Point3d>("point3d", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Point4d = Scalar<Point4d>("point4d", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Vector2d = Scalar<Vector2d>("vector2d", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Vector3d = Scalar<Vector3d>("vector3d", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot BoundingBox = Scalar<BoundingBox>("bounding-box", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Ray3d = Scalar<Ray3d>("ray3d", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Transform = Scalar<Transform>("transform", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Plane = Scalar<Plane>("plane", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Line = Scalar<Line>("line", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Point3f = Scalar<Point3f>("point3f", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Vector3f = Scalar<Vector3f>("vector3f", static (t, k, v) => t.Set(k, v));
+
+    public static readonly ArchiveSlot BoolSeq = Rows<bool>("bool-seq", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot ByteSeq = Rows<byte>("byte-seq", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot SByteSeq = Rows<sbyte>("sbyte-seq", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot ShortSeq = Rows<short>("short-seq", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot IntegerSeq = Rows<int>("integer-seq", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot FloatSeq = Rows<float>("float-seq", static (t, k, v) => t.Set(k, v));
+    // Host one-way door: `ItemType.PlaneEquation` (38) publishes no `Set` overload, no typed getter, and no readable
+    // discriminant, so a loaded plane-equation entry reaches capture as a bare `double[]` indistinguishable from any
+    // other double array and re-mints under `ItemType.DoubleArray`. The row pins the typed carrier it CAN prove and
+    // names the kind change; a refusal here would reject every legitimate double sequence to guard an unreadable one.
+    public static readonly ArchiveSlot DoubleSeq = Rows<double>("double-seq", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot GuidSeq = Rows<Guid>("guid-seq", static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot TextSeq = Rows<string>("text-seq", static (t, k, v) => t.Set(k, v));
+
+    public static readonly ArchiveSlot Font = Copy<Font>(
+        "font",
+        static value => (Font)value.Clone(),
+        static (left, right) => left.Equals(right),
+        static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Geometry = Copy<GeometryBase>(
+        "geometry",
+        static value => value.Duplicate(),
+        GeometryBase.GeometryEquals,
+        static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot GeometrySeq = Copies<GeometryBase>(
+        "geometry-seq",
+        static value => value.Duplicate(),
+        GeometryBase.GeometryEquals,
+        static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot ObjectRef = Copy<ObjRef>(
+        "obj-ref",
+        static value => new ObjRef(value),
+        SameRef,
+        static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot ObjectRefSeq = Copies<ObjRef>(
+        "obj-ref-seq",
+        static value => new ObjRef(value),
+        SameRef,
+        static (t, k, v) => t.Set(k, v));
+    public static readonly ArchiveSlot Meshing = Copy<MeshingParameters>(
+        "meshing",
+        static value => new MeshingParameters(value),
+        static (left, right) => left.Equals(right),
+        static (t, k, v) => t.Set(k, v));
+
+    // Settings-only rows: `PersistentSettings` writes each of these typed while `ArchivableDictionary` publishes no
+    // `Set` overload for any of them, so the archive boundary refuses through the reach column, not through a probe.
+    public static readonly ArchiveSlot Char = Held<char>("char");
+    public static readonly ArchiveSlot Date = Held<DateTime>("date");
+    public static readonly ArchiveSlot OptionalColor = Held<Option<Color>>("optional-color");
+    public static readonly ArchiveSlot TextMap = Held<HashMap<string, string>>("text-map");
+
+    public static readonly ArchiveSlot Map = new(
+        key: "map",
+        shape: typeof(ArchiveMap),
+        keys: Seq(typeof(ArchiveMap)),
+        reach: CapabilitySet<ArchiveReach>.All,
+        admit: static (value, op) => value switch {
+            ArchivableDictionary native => ArchiveMap.Detach(native, op).Map(static map => (object)map),
+            ArchiveMap detached => Fin.Succ<object>(value: detached),
+            _ => Fin.Fail<object>(error: op.InvalidInput()),
+        },
+        detach: static value => value,
+        same: static (left, right) => ((ArchiveMap)left).SameContent((ArchiveMap)right),
+        mint: static (target, key, value, op) => ((ArchiveMap)value)
+            .Mint(op)
+            .Bind(native => op.Catch(() => op.Confirm(success: target.Set(key.Value, native)))));
+
+    public static readonly ArchiveSlot Enumeration = new(
+        key: "enum",
+        shape: typeof(System.Enum),
+        keys: Seq<Type>(),
+        reach: CapabilitySet<ArchiveReach>.All,
+        admit: static (value, op) => value is System.Enum boxed
+            && boxed.ToString() is { Length: > 0 } name
+            && !char.IsDigit(name[0])
+            && name[0] != '-'
+                ? Fin.Succ<object>(value: new Entry(boxed.GetType(), name))
+                : Fin.Fail<object>(error: op.InvalidInput()),
+        detach: static value => value,
+        same: static (left, right) => (Entry)left == (Entry)right,
+        mint: static (target, key, value, op) => value is Entry stored
+            ? ArchiveValue.EnumMint(target, nameof(ArchivableDictionary.SetEnumValue), key.Value, (stored.EnumType, stored.Name), op)
+            : Fin.Fail<Unit>(error: op.InvalidInput()));
+
+    // The carrier payload type `ArchiveValue.Shape` reports and `SettingKind.For` matches.
+    public Type Shape { get; }
+
+    // Host runtime types resolving to this row — MANY-TO-ONE, because a sequence row admits both `T[]` and `Seq<T>`.
+    public Seq<Type> Keys { get; }
+
+    public CapabilitySet<ArchiveReach> Reach { get; }
+
+    [UseDelegateFromConstructor]
+    internal partial Fin<object> Admit(object value, Op op);
+
+    [UseDelegateFromConstructor]
+    internal partial object Detach(object value);
+
+    [UseDelegateFromConstructor]
+    internal partial bool Same(object left, object right);
+
+    [UseDelegateFromConstructor]
+    internal partial Fin<Unit> Mint(ArchivableDictionary target, ArchiveKey key, object value, Op op);
+
+    internal readonly record struct Entry(Type EnumType, string Name);
+
+    internal static Option<ArchiveSlot> Resolve(object source) => source switch {
+        System.Enum => Some(Enumeration),
+        _ when Index.Value.TryGetValue(source.GetType(), out ArchiveSlot? exact) => Some(exact),
+        GeometryBase[] => Some(GeometrySeq),
+        ObjRef[] => Some(ObjectRefSeq),
+        ArchivableDictionary => Some(Map),
+        MeshingParameters => Some(Meshing),
+        GeometryBase => Some(Geometry),
+        ObjRef => Some(ObjectRef),
+        _ => None,
+    };
+
+    // Accessor-backed: folding sixty host-type keys into a frozen projection inside a static field initializer runs
+    // under a type initializer whose failure poisons `ArchiveSlot` for the process. `Lazy` defers the whole fold.
+    private static readonly Lazy<FrozenDictionary<Type, ArchiveSlot>> Index = new(static () => toSeq(Items)
+        .Bind(static row => row.Keys.Map(key => KeyValuePair.Create(key, row)))
+        .ToFrozenDictionary(static row => row.Key, static row => row.Value));
+
+    private static bool SameRef(ObjRef left, ObjRef right) =>
+        left.ObjectId == right.ObjectId && left.GeometryComponentIndex == right.GeometryComponentIndex;
+
+    private static ArchiveSlot Scalar<T>(string key, Func<ArchivableDictionary, string, T, bool> set) where T : notnull => new(
+        key: key,
+        shape: typeof(T),
+        keys: Seq(typeof(T)),
+        reach: CapabilitySet<ArchiveReach>.All,
+        admit: static (value, _) => Fin.Succ(value: value),
+        detach: static value => value,
+        same: static (left, right) => EqualityComparer<T>.Default.Equals((T)left, (T)right),
+        mint: (target, key, value, op) => op.Catch(() => op.Confirm(success: set(target, key.Value, (T)value))));
+
+    private static ArchiveSlot Held<T>(string key) where T : notnull => new(
+        key: key,
+        shape: typeof(T),
+        keys: Seq(typeof(T)),
+        reach: CapabilitySet<ArchiveReach>.Of(ArchiveReach.Settings),
+        admit: static (value, _) => Fin.Succ(value: value),
+        detach: static value => value,
+        same: static (left, right) => EqualityComparer<T>.Default.Equals((T)left, (T)right),
+        mint: static (_, _, _, op) => Fin.Fail<Unit>(error: op.Unsupported(
+            inputType: typeof(T), outputType: typeof(ArchivableDictionary))));
+
+    private static ArchiveSlot Rows<T>(string key, Func<ArchivableDictionary, string, Seq<T>, bool> set) => new(
+        key: key,
+        shape: typeof(T[]),
+        keys: Seq(typeof(T[]), typeof(Seq<T>)),
+        reach: CapabilitySet<ArchiveReach>.All,
+        admit: static (value, _) => Fin.Succ<object>(value: value is T[] host ? toSeq(host) : value),
+        detach: static value => value,
+        same: static (left, right) => ((Seq<T>)left).SequenceEqual((Seq<T>)right),
+        mint: (target, key, value, op) => op.Catch(() => op.Confirm(success: set(target, key.Value, (Seq<T>)value))));
+
+    private static ArchiveSlot Copy<T>(
+        string key,
+        Func<T, T> clone,
+        Func<T, T, bool> same,
+        Func<ArchivableDictionary, string, T, bool> set) where T : class => new(
+        key: key,
+        shape: typeof(T),
+        keys: Seq(typeof(T)),
+        reach: CapabilitySet<ArchiveReach>.All,
+        admit: (value, op) => op.Catch(() => Fin.Succ<object>(value: clone((T)value))),
+        detach: value => clone((T)value),
+        same: (left, right) => same((T)left, (T)right),
+        mint: (target, key, value, op) => op.Catch(() => op.Confirm(success: set(target, key.Value, clone((T)value)))));
+
+    private static ArchiveSlot Copies<T>(
+        string key,
+        Func<T, T> clone,
+        Func<T, T, bool> same,
+        Func<ArchivableDictionary, string, Seq<T>, bool> set) where T : class => new(
+        key: key,
+        shape: typeof(T[]),
+        keys: Seq(typeof(T[]), typeof(Seq<T>)),
+        reach: CapabilitySet<ArchiveReach>.All,
+        admit: (value, op) => op.Catch(() => Fin.Succ<object>(value: (value is T[] host ? toSeq(host) : (Seq<T>)value).Map(clone))),
+        detach: value => ((Seq<T>)value).Map(clone),
+        same: (left, right) => {
+            Seq<T> first = (Seq<T>)left;
+            Seq<T> second = (Seq<T>)right;
+            return first.Count == second.Count && first.Zip(second).ForAll(pair => same(pair.First, pair.Second));
+        },
+        mint: (target, key, value, op) => op.Catch(() => op.Confirm(success: set(target, key.Value, ((Seq<T>)value).Map(clone)))));
+}
+
+public sealed record ArchiveValue {
+    private ArchiveValue(ArchiveSlot row, object payload) => (Row, Payload) = (row, payload);
+
+    private ArchiveSlot Row { get; }
 
     internal object Payload { get; }
 
-    public Type Shape => Payload is Entry stored ? stored.EnumType : Row.Shape;
+    public Type Shape => Payload is ArchiveSlot.Entry stored ? stored.EnumType : Row.Shape;
 
     internal Option<(Type EnumType, string Name)> EnumEntry =>
-        Payload is Entry stored ? Some((stored.EnumType, stored.Name)) : None;
+        Payload is ArchiveSlot.Entry stored ? Some((stored.EnumType, stored.Name)) : None;
 
     internal bool Same(ArchiveValue other) => ReferenceEquals(Row, other.Row) && Row.Same(Payload, other.Payload);
 
-    internal Fin<ArchiveValue> AdmitArchive(Op op) => Row.Mint is not null
+    internal Fin<ArchiveValue> AdmitArchive(Op op) => Row.Reach.Admits(ArchiveReach.Archive)
         ? Fin.Succ(value: this)
-        : Fin.Fail<ArchiveValue>(error: op.Unsupported(geometryType: Shape, outputType: typeof(ArchivableDictionary)));
+        : Fin.Fail<ArchiveValue>(error: op.Unsupported(inputType: Shape, outputType: typeof(ArchivableDictionary)));
 
     public static Fin<ArchiveValue> Of<T>(T source, Op? key = null) where T : notnull =>
         Capture(source: source, op: key.OrDefault());
@@ -63,9 +314,9 @@ public sealed record ArchiveValue {
     internal static Fin<ArchiveValue> Capture(object? source, Op op) =>
         Optional(source)
             .ToFin(Fail: op.InvalidInput())
-            .Bind(value => Resolve(source: value)
-                .ToFin(Fail: op.Unsupported(geometryType: value.GetType(), outputType: typeof(ArchiveValue)))
-                .Bind(slot => slot.Admit(value, op).Map(payload => new ArchiveValue(slot, payload))));
+            .Bind(value => ArchiveSlot.Resolve(source: value)
+                .ToFin(Fail: op.Unsupported(inputType: value.GetType(), outputType: typeof(ArchiveValue)))
+                .Bind(row => row.Admit(value, op).Map(payload => new ArchiveValue(row, payload))));
 
     internal static Fin<ArchiveValue> Enum(object? source, Op op) => Optional(source)
         .ToFin(Fail: op.InvalidInput())
@@ -83,11 +334,11 @@ public sealed record ArchiveValue {
 
     private readonly record struct MintKey(Type Host, string Method, Type EnumType);
 
-    // The closed generic handle is minted once per host/method/enum triple; the `GetMethods` scan plus
-    // `MakeGenericMethod` otherwise ran on every enum write against both host targets. A lost mint race keeps the seated
-    // handle, so one triple resolves to one method for the process.
     private static readonly Atom<HashMap<MintKey, MethodInfo>> Minters = Atom(HashMap<MintKey, MethodInfo>());
 
+    // The closed generic handle is minted once per host/method/enum triple; the `GetMethods` scan plus
+    // `MakeGenericMethod` otherwise ran on every enum write against both host targets. `Cell.Claim` owns the
+    // first-writer-wins transition, so a lost race reads the SEATED handle off the post-state rather than a second one.
     private static Fin<MethodInfo> Minter(MintKey row, Op op) =>
         Minters.Value.Find(row).Match(
             Some: static held => Fin.Succ(value: held),
@@ -97,211 +348,45 @@ public sealed record ArchiveValue {
                         && candidate.IsGenericMethodDefinition
                         && candidate.GetParameters().Length == 2)
                     .MakeGenericMethod(row.EnumType)))
-                .Map(minted => Minters
-                    .Swap(held => held.ContainsKey(row) ? held : held.Add(row, minted))
-                    .Find(row)
-                    .IfNone(minted)));
+                .Map(minted => Cell.Claim(cell: Minters, key: row, mint: () => minted).Current[row]));
 
     public Fin<T> Project<T>(Op? key = null) {
         Op op = key.OrDefault();
         return Payload switch {
-            Entry stored => typeof(T) == stored.EnumType
+            ArchiveSlot.Entry stored => typeof(T) == stored.EnumType
                 && System.Enum.TryParse(enumType: stored.EnumType, value: stored.Name, ignoreCase: true, result: out object? parsed)
                 && parsed is T value
                 ? Fin.Succ(value: value)
-                : Fin.Fail<T>(error: op.Unsupported(geometryType: stored.EnumType, outputType: typeof(T))),
+                : Fin.Fail<T>(error: op.Unsupported(inputType: stored.EnumType, outputType: typeof(T))),
             T typed => Fin.Succ(value: (T)Row.Detach(typed)),
-            _ => Fin.Fail<T>(error: op.Unsupported(geometryType: Row.Shape, outputType: typeof(T))),
+            _ => Fin.Fail<T>(error: op.Unsupported(inputType: Row.Shape, outputType: typeof(T))),
         };
     }
 
-    internal Fin<Unit> Write(ArchivableDictionary target, ArchiveKey key, Op op) => Row.Mint is { } mint
-        ? mint(target, key, Payload, op)
-        : Fin.Fail<Unit>(error: op.Unsupported(geometryType: Shape, outputType: typeof(ArchivableDictionary)));
-
-    private static Option<Slot> Resolve(object source) => source switch {
-        System.Enum => Some(EnumRow),
-        _ when Registry.TryGetValue(source.GetType(), out Slot? exact) => Some(exact!),
-        _ => source switch {
-            GeometryBase[] => Some(GeometrySeqRow),
-            ObjRef[] => Some(ObjRefSeqRow),
-            ArchivableDictionary => Some(MapRow),
-            MeshingParameters => Some(MeshingRow),
-            GeometryBase => Some(GeometryRow),
-            ObjRef => Some(ObjRefRow),
-            _ => None,
-        },
-    };
-
-    private readonly record struct Entry(Type EnumType, string Name);
-
-    private sealed record Slot(
-        Type Shape,
-        Seq<Type> Keys,
-        Func<object, Op, Fin<object>> Admit,
-        Func<object, object> Detach,
-        Func<object, object, bool> Same,
-        Func<ArchivableDictionary, ArchiveKey, object, Op, Fin<Unit>>? Mint);
-
-    private static Slot Scalar<T>(Func<ArchivableDictionary, string, T, bool>? set = null) where T : notnull => new(
-        Shape: typeof(T),
-        Keys: [typeof(T)],
-        Admit: static (value, _) => Fin.Succ(value: value),
-        Detach: static value => value,
-        Same: static (left, right) => EqualityComparer<T>.Default.Equals((T)left, (T)right),
-        Mint: set is null
-            ? null
-            : (target, key, value, op) => op.Catch(() => op.Confirm(success: set(target, key.Value, (T)value))));
-
-    private static Slot Rows<T>(Func<ArchivableDictionary, string, Seq<T>, bool> set) => new(
-        Shape: typeof(T[]),
-        Keys: [typeof(T[]), typeof(Seq<T>)],
-        Admit: static (value, _) => Fin.Succ<object>(value: value is T[] host ? toSeq(host) : value),
-        Detach: static value => value,
-        Same: static (left, right) => ((Seq<T>)left).SequenceEqual((Seq<T>)right),
-        Mint: (target, key, value, op) => op.Catch(() => op.Confirm(success: set(target, key.Value, (Seq<T>)value))));
-
-    // Copy-slot custody, decompile-proven: the host dictionary STORES THE REFERENCE it is handed
-    // (`SetItem` -> `m_items[key] = new DictionaryItem(it, val)`), so each clone leg transfers ownership —
-    // the Admit clone is the carrier's own stored value for the carrier's lifetime, the Detach clone
-    // transfers to the caller at `Project<T>` egress, and the Mint clone becomes the dictionary's stored
-    // entry. No clone is a disposable temp; disposing the Mint clone after the write would corrupt the
-    // entry it just became, and skipping it would alias the carrier's copy into host-mutable storage.
-    private static Slot Copy<T>(
-        Func<T, T> clone,
-        Func<T, T, bool> same,
-        Func<ArchivableDictionary, string, T, bool> set) where T : class => new(
-        Shape: typeof(T),
-        Keys: [typeof(T)],
-        Admit: (value, op) => op.Catch(() => Fin.Succ<object>(value: clone((T)value))),
-        Detach: value => clone((T)value),
-        Same: (left, right) => same((T)left, (T)right),
-        Mint: (target, key, value, op) => op.Catch(() => op.Confirm(success: set(target, key.Value, clone((T)value)))));
-
-    private static Slot Copies<T>(
-        Func<T, T> clone,
-        Func<T, T, bool> same,
-        Func<ArchivableDictionary, string, Seq<T>, bool> set) where T : class => new(
-        Shape: typeof(T[]),
-        Keys: [typeof(T[]), typeof(Seq<T>)],
-        Admit: (value, op) => op.Catch(() => Fin.Succ<object>(value: (value is T[] host ? toSeq(host) : (Seq<T>)value).Map(clone))),
-        Detach: value => ((Seq<T>)value).Map(clone),
-        Same: (left, right) => {
-            Seq<T> first = (Seq<T>)left;
-            Seq<T> second = (Seq<T>)right;
-            return first.Count == second.Count && first.Zip(second).ForAll(pair => same(pair.First, pair.Second));
-        },
-        Mint: (target, key, value, op) => op.Catch(() => op.Confirm(success: set(target, key.Value, ((Seq<T>)value).Map(clone)))));
-
-    private static readonly Slot EnumRow = new(
-        Shape: typeof(System.Enum),
-        Keys: [],
-        Admit: static (value, op) => value is System.Enum boxed
-            && boxed.ToString() is { Length: > 0 } name
-            && !char.IsDigit(name[0])
-            && name[0] != '-'
-                ? Fin.Succ<object>(value: new Entry(boxed.GetType(), name))
-                : Fin.Fail<object>(error: op.InvalidInput()),
-        Detach: static value => value,
-        Same: static (left, right) => (Entry)left == (Entry)right,
-        Mint: static (target, key, value, op) => value is Entry stored
-            ? EnumMint(target, nameof(ArchivableDictionary.SetEnumValue), key.Value, (stored.EnumType, stored.Name), op)
-            : Fin.Fail<Unit>(error: op.InvalidInput()));
-
-    private static readonly Slot MapRow = new(
-        Shape: typeof(ArchiveMap),
-        Keys: [typeof(ArchiveMap)],
-        Admit: static (value, op) => value switch {
-            ArchivableDictionary native => ArchiveMap.Detach(native, op).Map(static map => (object)map),
-            ArchiveMap detached => Fin.Succ<object>(value: detached),
-            _ => Fin.Fail<object>(error: op.InvalidInput()),
-        },
-        Detach: static value => value,
-        Same: static (left, right) => ((ArchiveMap)left).SameContent((ArchiveMap)right),
-        Mint: static (target, key, value, op) => ((ArchiveMap)value)
-            .Mint(op)
-            .Bind(native => op.Catch(() => op.Confirm(success: target.Set(key.Value, native)))));
-
-    private static readonly Slot GeometryRow = Copy<GeometryBase>(
-        static value => value.Duplicate(),
-        GeometryBase.GeometryEquals,
-        static (t, k, v) => t.Set(k, v));
-    private static readonly Slot GeometrySeqRow = Copies<GeometryBase>(
-        static value => value.Duplicate(),
-        GeometryBase.GeometryEquals,
-        static (t, k, v) => t.Set(k, v));
-    private static readonly Slot ObjRefRow = Copy<ObjRef>(
-        static value => new ObjRef(value),
-        static (left, right) => left.ObjectId == right.ObjectId && left.GeometryComponentIndex == right.GeometryComponentIndex,
-        static (t, k, v) => t.Set(k, v));
-    private static readonly Slot ObjRefSeqRow = Copies<ObjRef>(
-        static value => new ObjRef(value),
-        static (left, right) => left.ObjectId == right.ObjectId && left.GeometryComponentIndex == right.GeometryComponentIndex,
-        static (t, k, v) => t.Set(k, v));
-    private static readonly Slot MeshingRow = Copy<MeshingParameters>(
-        static value => new MeshingParameters(value),
-        static (left, right) => left.Equals(right),
-        static (t, k, v) => t.Set(k, v));
-
-    private static readonly FrozenDictionary<Type, Slot> Registry = Seq(
-            Scalar<bool>(static (t, k, v) => t.Set(k, v)),
-            Scalar<byte>(static (t, k, v) => t.Set(k, v)),
-            Scalar<sbyte>(static (t, k, v) => t.Set(k, v)),
-            Scalar<short>(static (t, k, v) => t.Set(k, v)),
-            Scalar<ushort>(static (t, k, v) => t.Set(k, v)),
-            Scalar<int>(static (t, k, v) => t.Set(k, v)),
-            Scalar<uint>(static (t, k, v) => t.Set(k, v)),
-            Scalar<long>(static (t, k, v) => t.Set(k, v)),
-            Scalar<float>(static (t, k, v) => t.Set(k, v)),
-            Scalar<double>(static (t, k, v) => t.Set(k, v)),
-            Scalar<Guid>(static (t, k, v) => t.Set(k, v)),
-            Scalar<string>(static (t, k, v) => t.Set(k, v)),
-            Scalar<Color>(static (t, k, v) => t.Set(k, v)),
-            Scalar<Point>(static (t, k, v) => t.Set(k, v)),
-            Scalar<PointF>(static (t, k, v) => t.Set(k, v)),
-            Scalar<Rectangle>(static (t, k, v) => t.Set(k, v)),
-            Scalar<RectangleF>(static (t, k, v) => t.Set(k, v)),
-            Scalar<Size>(static (t, k, v) => t.Set(k, v)),
-            Scalar<SizeF>(static (t, k, v) => t.Set(k, v)),
-            Scalar<Interval>(static (t, k, v) => t.Set(k, v)),
-            Scalar<Point2d>(static (t, k, v) => t.Set(k, v)),
-            Scalar<Point3d>(static (t, k, v) => t.Set(k, v)),
-            Scalar<Point4d>(static (t, k, v) => t.Set(k, v)),
-            Scalar<Vector2d>(static (t, k, v) => t.Set(k, v)),
-            Scalar<Vector3d>(static (t, k, v) => t.Set(k, v)),
-            Scalar<BoundingBox>(static (t, k, v) => t.Set(k, v)),
-            Scalar<Ray3d>(static (t, k, v) => t.Set(k, v)),
-            Scalar<Transform>(static (t, k, v) => t.Set(k, v)),
-            Scalar<Plane>(static (t, k, v) => t.Set(k, v)),
-            Scalar<Line>(static (t, k, v) => t.Set(k, v)),
-            Scalar<Point3f>(static (t, k, v) => t.Set(k, v)),
-            Scalar<Vector3f>(static (t, k, v) => t.Set(k, v)),
-            Rows<bool>(static (t, k, v) => t.Set(k, v)),
-            Rows<byte>(static (t, k, v) => t.Set(k, v)),
-            Rows<sbyte>(static (t, k, v) => t.Set(k, v)),
-            Rows<short>(static (t, k, v) => t.Set(k, v)),
-            Rows<int>(static (t, k, v) => t.Set(k, v)),
-            Rows<float>(static (t, k, v) => t.Set(k, v)),
-            Rows<double>(static (t, k, v) => t.Set(k, v)),
-            Rows<Guid>(static (t, k, v) => t.Set(k, v)),
-            Rows<string>(static (t, k, v) => t.Set(k, v)),
-            Copy<Font>(static value => (Font)value.Clone(), static (left, right) => left.Equals(right), static (t, k, v) => t.Set(k, v)),
-            Scalar<char>(),
-            Scalar<DateTime>(),
-            Scalar<Option<Color>>(),
-            Scalar<HashMap<string, string>>(),
-            MapRow,
-            GeometryRow,
-            GeometrySeqRow,
-            ObjRefRow,
-            ObjRefSeqRow,
-            MeshingRow)
-        .Bind(static slot => slot.Keys.Map(key => KeyValuePair.Create(key, slot)))
-        .ToFrozenDictionary(static row => row.Key, static row => row.Value);
+    internal Fin<Unit> Write(ArchivableDictionary target, ArchiveKey key, Op op) =>
+        AdmitArchive(op).Bind(_ => Row.Mint(target, key, Payload, op));
 }
+```
 
-// --- [MAP_ALGEBRA] --------------------------------------------------------------------------
+## [03]-[MAP_ALGEBRA]
 
+- Owner: `ArchiveMap` — the detached dictionary carrying schema version, name, and admitted entries; `ArchiveChange` — the diff vocabulary the folder README router names; `ArchiveMerge` — the conflict-resolution rows behind one `Resolve` column.
+- Entry: `Of` closes construction and admits every archive-capable pair; `Detach` captures one native dictionary; `Mint` answers one fresh native. `SessionSource.Configured` consumes only `Mint`; `ArchiveIo` and `IArchiveCodec` exchange only `ArchiveMap`, so no live `ArchivableDictionary` and no mutable payload crosses either boundary.
+- Law: `Detach` captures the native header and every `TryGetValue` result inside ONE `Op.Catch`, rejects the COMPLETE normalized-key collision set before any payload folding, and freezes reference values through the owning row's copy law — a partial collision report names one clash while the caller owns several.
+- Law: content decides equality outright. The native change serial is a LOWER BOUND the host leaves unmoved across `Remove` and `Clear`, so it can neither prove nor disprove a difference the fold does not already see.
+- Law: `Merge` and `Diff` admit identical names and versions before comparing entries, and an `ArchiveMerge` row resolves on the rail — a `RejectConflict` collision is a typed fault, never a thrown exception inside a fold.
+- Law: `SettingKind` consumes this carrier for every `PersistentSettings` payload — its rows lift and lower through `ArchiveValue.Of`/`Project<T>` and share `EnumMint` — so the folder carries exactly one typed-value vocabulary across both KV boundaries.
+- Growth: a new merge policy is one `ArchiveMerge` row; a new diff shape is one `ArchiveChange` case with every reader loudly broken.
+- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<TKey>]`, `[UseDelegateFromConstructor]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `HashMap`, `Traverse`, `Fold`, `Choose`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Op.AcceptValidated`, `KernelFault.InvalidValue`); RhinoCommon persistence (`libs/csharp/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[DICTIONARY_LIFECYCLE]` — `ArchivableDictionary(int, string)`, `Keys`, `TryGetValue`, `Version`, `Name`, `ChangeSerialNumber`).
+
+```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Rasm.Domain;
+using Rhino.Collections;
+
+namespace Rasm.Rhino.Persistence;
+
+// --- [TYPES] ----------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ArchiveChange {
     private ArchiveChange() { }
@@ -325,6 +410,7 @@ public sealed partial class ArchiveMerge {
     internal partial Fin<ArchiveValue> Resolve(ArchiveValue current, ArchiveValue incoming, Op op);
 }
 
+// --- [MODELS] ---------------------------------------------------------------------------------
 public sealed record ArchiveMap {
     private static readonly StringComparer KeyOrder = StringComparer.Ordinal;
 
@@ -390,7 +476,7 @@ public sealed record ArchiveMap {
                        Keys: toSeq(collision.Value.OrderBy(static raw => raw, KeyOrder)))))
                from _unique in collisions.IsEmpty
                    ? Fin.Succ(unit)
-                   : Fin.Fail<Unit>(new Fault.InvalidValue(
+                   : Fin.Fail<Unit>(new KernelFault.InvalidValue(
                        Label: nameof(ArchiveKey),
                        Requirement: string.Join(
                            "; ",
@@ -448,8 +534,6 @@ public sealed record ArchiveMap {
                 }));
     }
 
-    // Content decides equality outright: the native change serial is a LOWER BOUND the host leaves unmoved across
-    // `Remove` and `Clear`, so it can neither prove nor disprove a difference this fold does not already see.
     internal bool SameContent(ArchiveMap other) =>
         Version == other.Version
         && Name == other.Name
@@ -482,17 +566,7 @@ public sealed record ArchiveMap {
 }
 ```
 
-## [02]-[LIFECYCLE]
-
-`ArchiveMap.Of` closes construction and admits every archive-capable key/value pair. `ArchiveMap.Detach` captures the native header and every `TryGetValue` result inside one `Op.Catch`, rejects the complete normalized-key collision set before payload folding, and freezes reference values through the owning slot's copy law. `ArchiveMap.Merge` and `ArchiveMap.Diff` admit identical names and versions before comparing entries. Slot-owned content equality keeps copied geometry, object references, fonts, sequences, and nested maps stable, and it sees host `Remove` and `Clear` the native change serial never records.
-
-`ArchiveMap.Mint` creates one `ArchivableDictionary(Version, Name)` and traverses all slot writes on `Fin`. Nested dictionaries recurse through the same currency; geometry, `ObjRef`, `MeshingParameters`, arrays, and fonts copy on both crossings through the slot's one `Detach` law. `ArchiveMerge` rows resolve on the rail, so a `RejectConflict` collision is a typed fault, never a thrown exception inside a fold.
-
-`SessionSource.Configured` consumes only `ArchiveMap.Mint`. `ArchiveIo` and `SnapshotCodec` exchange only `ArchiveMap`; neither surface receives a live `ArchivableDictionary` or a mutable payload. `SettingKind` consumes this carrier for every `PersistentSettings` payload — its rows lift and lower through `ArchiveValue.Of`/`Project` and share `EnumMint` — so the folder carries exactly one typed-value vocabulary across both KV boundaries.
-
-Enum values admitted through `ArchiveValue.Of` or `ArchiveMap.WithEnum<T>` retain their enum identity and mint through `ArchivableDictionary.SetEnumValue<T>` via the shared reflection seam, whose closed handle is held per host/method/enum triple. Values detached from a native dictionary remain text because Rhino stores enum names as ordinary strings and exposes no readable enum discriminant.
-
-## [03]-[RESEARCH]
+## [04]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

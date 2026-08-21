@@ -153,7 +153,7 @@ import { DeployFault } from "../program/automation.ts"
 const _client: Effect.Effect<esc.EscApi, DeployFault> = Effect.map(
   Effect.mapError(
     Config.redacted("PULUMI_ACCESS_TOKEN").pipe(Config.withDescription("Pulumi Cloud access token the ESC client dials with; deploy-host env under doppler run")),
-    (issue) => new DeployFault({ reason: "input", stack: "<esc>", detail: String(issue) }),
+    (issue) => new DeployFault({ case: { reason: "input", stack: "<esc>", detail: String(issue) } }),
   ),
   (token) => new esc.EscApi(new esc.Configuration({ accessToken: Redacted.value(token) })),
 )
@@ -181,7 +181,7 @@ const Environments = {
           ),
           {
             onNone: () => Effect.asVoid(_call(env, (api) => api.updateEnvironment(org, project, env, definition))),
-            onSome: (diagnostics) => Effect.fail(new DeployFault({ reason: "input", stack: env, detail: JSON.stringify(diagnostics) })),
+            onSome: (diagnostics) => Effect.fail(new DeployFault({ case: { reason: "input", stack: env, detail: JSON.stringify(diagnostics) } })),
           },
         ),
     ),

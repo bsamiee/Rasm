@@ -15,6 +15,7 @@ The commit-graph anti-entropy owner: `Commit` — the content-keyed commit class
 import { Array, Data, Effect, Equal, Number, Option, Order, pipe, Schema } from "effect"
 import { Clock } from "../value/clock.ts"
 import { Digest } from "../value/contentKey.ts"
+import { Fault } from "../value/fault.ts"
 import { Causal } from "./causal.ts"
 
 const _Fanout = Schema.Int.pipe(Schema.between(2, 256), Schema.brand("CommitFanout"))
@@ -35,13 +36,39 @@ type _DivergenceValue = Data.TaggedEnum<{
 }>
 const _Divergence = Data.taggedEnum<_DivergenceValue>()
 
-class _SummaryFault extends Data.TaggedError("CommitSummaryFault")<{
-  readonly reason: "digest"
-  readonly expected: Digest.Key<"content">
-  readonly actual: Digest.Key<"content">
-  readonly tier: Option.Option<number>
-}> {
-  readonly class = "invalid" as const
+// TWO damages, never one reason carrying an `Option` coordinate: a summary whose first divergent SHARED tier the
+// rebuild can name, and one whose shared tiers all agree while the roots differ — a shape mismatch no tier index
+// locates. The old single `digest` reason fused them behind `tier: Option<number>`, so a reader could not tell "tier
+// 3 was re-bucketed" from "the leaf set itself changed" without probing the Option. Both grade `invalid`: a summary
+// that fails its own rebuild is caller-authored material and no re-drive repairs it.
+const _summaryFamily = Fault.Class.family(["tier", "root"] as const, {
+  tier: Fault.Class.row({
+    class: "invalid",
+    leg: "merkle",
+    detail: Schema.Struct({
+      at: Schema.Int.pipe(Schema.nonNegative()),
+      expected: Digest.Key.content,
+      actual: Digest.Key.content,
+    }),
+    render: ({ actual, at, expected }) => `tier ${at} diverges; rebuild roots at ${expected}, summary declares ${actual}`,
+  }),
+  root: Fault.Class.row({
+    class: "invalid",
+    leg: "merkle",
+    detail: Schema.Struct({ expected: Digest.Key.content, actual: Digest.Key.content }),
+    render: ({ actual, expected }) => `every shared tier agrees while the root differs; rebuild ${expected}, summary ${actual}`,
+  }),
+})
+
+class _SummaryFault extends Schema.TaggedError<_SummaryFault>()("CommitSummaryFault", {
+  case: _summaryFamily.payload,
+}) {
+  get class(): Fault.Class.Kind {
+    return _summaryFamily.classOf(this.case.reason)
+  }
+  override get message(): string {
+    return _summaryFamily.render(this.case)
+  }
 }
 
 const _utf8 = new TextEncoder()
@@ -130,15 +157,31 @@ class Commit extends Schema.Class<Commit>("Commit")({
       _summarize(Array.headNonEmpty(summary.tiers), summary.fanout),
       (rebuilt) => Equal.equals(rebuilt, summary)
         ? Effect.succeed(summary)
-        : Effect.fail(new _SummaryFault({
-            reason: "digest",
-            expected: Array.headNonEmpty(Array.lastNonEmpty(rebuilt.tiers)),
-            actual: Array.headNonEmpty(Array.lastNonEmpty(summary.tiers)),
-            tier: Array.findFirst(
-              Array.range(0, Number.min(rebuilt.tiers.length, summary.tiers.length) - 1),
-              (tier) => !Equal.equals(rebuilt.tiers[tier], summary.tiers[tier]),
-            ),
-          })),
+        : Effect.fail(
+            new _SummaryFault({
+              // The search that used to fill an `Option` now SELECTS the reason, so the discriminant is recovered
+              // from the value and no consumer unwraps a slot to learn which damage it holds.
+              case: Option.match(
+                Array.findFirst(
+                  Array.range(0, Number.min(rebuilt.tiers.length, summary.tiers.length) - 1),
+                  (tier) => !Equal.equals(rebuilt.tiers[tier], summary.tiers[tier]),
+                ),
+                {
+                  onNone: () => ({
+                    reason: "root" as const,
+                    expected: Array.headNonEmpty(Array.lastNonEmpty(rebuilt.tiers)),
+                    actual: Array.headNonEmpty(Array.lastNonEmpty(summary.tiers)),
+                  }),
+                  onSome: (at) => ({
+                    reason: "tier" as const,
+                    at,
+                    expected: Array.headNonEmpty(Array.lastNonEmpty(rebuilt.tiers)),
+                    actual: Array.headNonEmpty(Array.lastNonEmpty(summary.tiers)),
+                  }),
+                },
+              ),
+            }),
+          ),
     )
   static readonly diverges: (self: Commit.Merkle, that: Commit.Merkle) => Commit.Divergence = _diverges
 }
@@ -149,6 +192,7 @@ declare namespace Commit {
   type Merkle = _Merkle
   type Divergence = _DivergenceValue
   type SummaryFault = _SummaryFault
+  type SummaryCase = typeof _summaryFamily.payload.Type
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------

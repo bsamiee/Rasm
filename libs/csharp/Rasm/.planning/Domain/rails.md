@@ -1,29 +1,38 @@
 # [RASM_RAILS]
 
-Kernel ROP substrate (`Rasm.Domain`). Every fallible kernel surface fails through one `Fault` band, every disposable crossing rides `Lease<T>`, every operation is keyed by one `Op` value, and every receipt proves itself through the `IValidityEvidence` fold — the floor no kernel page compiles without.
+Kernel ROP substrate (`Rasm.Domain`). Every fallible kernel surface fails through one `Fault` band carrying one generated code, every retriable failure answers one `Retriability` discriminant, every lock-free transition returns one `Transition` verdict, every disposable crossing rides `Lease<T>`, every operation is keyed by one `Op` value, and every receipt proves itself through the `IValidityEvidence` fold — the floor no kernel page compiles without.
 
-`Rasm.Domain` is a consumer-pinned namespace: the union-ops generator emits `global::Rasm.Domain.Op.Of`, Grasshopper sources alias `using Op = Rasm.Domain.Op`, and `Directory.Build.props` injects it as the Grasshopper-aware global using, so the name is frozen contract.
+`Rasm.Domain` is a consumer-pinned namespace: the union-ops generator emits `global::Rasm.Domain.Op.Of`, Grasshopper sources alias `using Op = Rasm.Domain.Op`, and `Directory.Build.props` injects it as the Grasshopper-aware global using. `TelemetrySource` (`frame.md`) is the typed package roster this page's band owner column reads; `Dimension` (`Numerics/atoms.md`) is the bounded-budget carrier the transition owner reads — one assembly, so neither composition needs a reference edge. `Duration` resolves to LanguageExt's schedule-stream duration under the injected global using, never NodaTime's clock carrier, so a redrive delay reaches its schedule with no conversion.
 
 ## [01]-[INDEX]
 
-- [02]-[OPERATION_KEY]: `Op` — the caller-member-name operation key `[ValueObject<string>]`, its fault factory, acceptance bridge, and the `Catch`/`Side` boundary-exception rail.
+- [02]-[OPERATION_KEY]: `Op` — the caller-member-name operation key `[ValueObject<string>]`, its fault factory, acceptance bridge, public claim-keyed `Demand`, and the `Catch`/`Side` boundary-exception rail.
 - [03]-[GENERATOR_CONTRACTS]: `GenerateUnionOpsAttribute` — the opt-in codegen marker steering per-case `SelfOp` emission.
-- [04]-[FAULT_BAND]: `Expected` + `Fault` — the closed kernel fault union and `FaultExtensions.Category`.
-- [05]-[RESOURCE_RAIL]: `Lease<T>` — Owned/Borrowed disposal discipline with `Use`/`Resource`/`Dispose` folds.
-- [06]-[VALIDITY_FOLD]: `IValidityEvidence` + `ValidityClaim` — the one receipt-validity fold; a receipt declares which claims hold, never how.
-- [07]-[THREADING_LAW]: `Op` as explicit value key, `Eff<Env>` as runtime carriage, telemetry as a tap, one paradigm per operation.
-- [08]-[CARRIER_CODEC]: `LanguageExtJsonConverterFactory` — the one carrier-space System.Text.Json owner every wire mint at every stratum registers.
+- [04]-[FAULT_BAND]: `FaultBand` + `Fault` + `FaultId` + `KernelFault` — the branch-wide code-space registry, the expected-error base, generated numeric identity, the closed kernel fault union, and `FaultExtensions.Owner`.
+- [05]-[REDRIVE]: `Retriability` + `RedrivePolicy` + `Verdict` + `Redrive` — the one retriability discriminant and the one re-drive owner over `Schedule`.
+- [06]-[RESOURCE_RAIL]: `Lease<T>` — Owned/Borrowed disposal discipline with `Use`/`Resource`/`Dispose` folds — and `Custody`, the all-attempted release algebra (`Release`, failure-arm `Rollback`, both-arms `Settled`/`Bracket`).
+- [07]-[TRANSITION]: `Transition<TState>` + `Cell` — the verdict every lock-free `Atom` transition returns, and its four transition shapes.
+- [08]-[VALIDITY_FOLD]: `IValidityEvidence` + `ValidityClaim` — the one receipt-validity fold; a receipt declares which claims hold, never how.
+- [09]-[THREADING_LAW]: `Op` as explicit value key, `Eff<Env>` as runtime carriage, telemetry as a tap, one paradigm per operation.
+- [10]-[CARRIER_CODEC]: `LanguageExtJsonConverterFactory` — the one carrier-space System.Text.Json owner every wire mint at every stratum registers.
+- [11]-[DENSITY_BAR]: owner/concern/rail partition across the substrate floor.
 
 ## [02]-[OPERATION_KEY]
 
 - Owner: `Op` `[ValueObject<string>]` readonly struct — the identity of one kernel operation, ordinal in both equality and ordering under one collation so comparison-zero and equality never diverge for case-differing member names. Every fault the key's factory mints carries the `Op` that raised it, and every acceptance gate is keyed by the `Op` that demanded it. Ambient faults carry their own evidence instead — a check-row key, a rejected scalar with its requirement, a unit system — where no single operation identity exists.
 - Entry: `Op.Of([CallerMemberName] string name = "")` mints the key from the calling member; a `[GenerateUnionOps]` union case carries its generated `SelfOp` instead of re-minting per call. Public polymorphic surfaces accept `Op? key = null` resolved through `OrDefault()` (`validation.md`'s extension); internal kernels demand a required `Op key` tail parameter.
-- Cases: four factory families partition by return rail — fault factories mint `Error`, acceptance bridges delegate to `OpAcceptance` (`validation.md`'s oracle) returning `Fin<T>`, scalar guards lift a `[06]` claim row to `Fin<double>` refusing as keyed `Fault.OutOfRange` (the claim row names the label, the guard states the requirement, the rejected scalar rides the payload), and the boundary-exception rail funnels host bodies to `Fin<Unit>`; collection- and shape-level admission is `validation.md`'s `Admit`, not a kernel guard.
-- Law: `Catch` is the one inbound exception funnel — a captured `OperationCanceledException` surfaces as `Fault.Cancelled` (derived cancellations included, through `Error.HasException` recursion) so a mid-body cancel keeps its category instead of masquerading as a result failure, and every other capture becomes the `InvalidResult` detail. Input shape selects the arm: a rail-returning body rides `Catch<T>`, a void host body rides `Catch(Action)` onto the same `Fin<Unit>` funnel.
+- Cases: four factory families partition by return rail — fault factories mint `Error`, acceptance bridges delegate to `OpAcceptance` (`validation.md`'s oracle) returning `Fin<T>`, the scalar guard lifts a `[08]` claim row to `Fin<T>` refusing as keyed `KernelFault.OutOfRange`, and the boundary-exception rail funnels host bodies to `Fin<Unit>`; collection- and shape-level admission is `validation.md`'s `Admit`, not a kernel guard.
+- Law: `Demand` is PUBLIC and takes the claim, so the predicate family lives on `ValidityClaim` and a new predicate is one claim row and one call site, never a new `Op` member. `Finite` and `Positive` survive only as the two named requirement strings the kernel states once; a third predicate composes `Demand` directly and this owner does not widen. `Demand` is generic over the admitted carrier through `INumberBase<T>` — NAMED LOSS: `KernelFault.OutOfRange` carries a `double` scalar, so a carrier outside the double range saturates in the EVIDENCE payload while the returned value stays exact.
+- Law: the scalar guards refuse on the TOLERANCE family, never `InvalidInput`, and each forwards its own `[CallerMemberName]` label so the fault names the DEMANDING member rather than the guard it composed.
+- Law: `Catch` is the one thrown-exception funnel and `Capture` its exception-valued host-callback arm; both PRESERVE the exception. An `OperationCanceledException` becomes `KernelFault.Cancelled` only when the execution token handed to the boundary proves requested, since an unrequested or tokenless cancel is a library's own and never the caller's; every other capture stays the exact `Exceptional` and only a documented provider refusal crosses into a typed case through an owner classifier. A rail-returning body rides `Catch<T>`, a void host body rides `Catch(Action)`, and an event already carrying an `Exception` rides `Capture` rather than reminting `Error` locally.
+- Law: `AcceptText` survives the acceptance pair as a boundary TRIM projection, not a rename hop — it is the admitting counterpart of the read-side `Text`, and the two together are the one place a host string's blank-versus-absent regime is decided; `SideWhen` survives as the guard projection over `Side`, because the alternative spelling lifts a void host body onto a rail no consumer of `Unit` reads. `Need<T>` stays three arms: generic-constraint overload resolution forces the class/struct split and `Option<T>` is a third input domain.
 - Boundary: `Op` is a key, never a message channel — diagnostic text lives on the `Fault` case payloads and the key renders only inside the case `Message`. `ValidateFactoryArguments` rejects a blank key at mint — `[CallerMemberName]` never supplies one, so a whitespace literal is a caller defect surfacing at the generated factory, never a silent empty identity.
+- Packages: Thinktecture.Runtime.Extensions (`[ValueObject<string>]`, `ComparerAccessors`), LanguageExt.Core (`Fin`, `Option`, `Try`), BCL inbox.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using System.Numerics;
+using System.Runtime.CompilerServices;
 
 namespace Rasm.Domain;
 
@@ -35,12 +44,12 @@ public readonly partial struct Op {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
         validationError = string.IsNullOrWhiteSpace(value: value) ? new ValidationError(message: "Op requires a non-whitespace member name.") : null;
     [BoundaryAdapter] public static Op Of([CallerMemberName] string name = "") => Create(value: name);
-    [BoundaryAdapter] public Error MissingContext() => new Fault.MissingContext(Key: this);
-    [BoundaryAdapter] public Error InvalidContext() => new Fault.InvalidContext(Key: this);
-    [BoundaryAdapter] public Error InvalidInput() => new Fault.InvalidInput(Key: this);
-    [BoundaryAdapter] public Error InvalidResult(string? detail = null) => new Fault.InvalidResult(Key: this, Detail: Optional(detail).Filter(static text => !string.IsNullOrWhiteSpace(value: text)));
-    [BoundaryAdapter] public Error Unsupported(Type geometryType, Type outputType) => new Fault.Unsupported(Key: this, GeometryType: geometryType, OutputType: outputType);
-    [BoundaryAdapter] public Error Caution(string concern) => new Fault.Caution(Key: this, Concern: concern);
+    [BoundaryAdapter] public Error MissingContext() => new KernelFault.MissingContext(Key: this);
+    [BoundaryAdapter] public Error InvalidContext() => new KernelFault.InvalidContext(Key: this);
+    [BoundaryAdapter] public Error InvalidInput() => new KernelFault.InvalidInput(Key: this);
+    [BoundaryAdapter] public Error InvalidInput(string axis) => new KernelFault.InvalidInput(Key: this, Axis: Some(axis));
+    [BoundaryAdapter] public Error InvalidResult(string? detail = null) => new KernelFault.InvalidResult(Key: this, Detail: Optional(detail).Filter(static text => !string.IsNullOrWhiteSpace(value: text)));
+    [BoundaryAdapter] public Error Unsupported(Type inputType, Type outputType) => new KernelFault.Unsupported(Key: this, InputType: inputType, OutputType: outputType);
     [BoundaryAdapter] public Fin<T> AcceptInput<T>(T value) => OpAcceptance.AcceptInput(key: this, value: value);
     [BoundaryAdapter] public Fin<T> AcceptValue<T>(T value) => OpAcceptance.AcceptValue(key: this, value: value);
     [BoundaryAdapter] public Fin<string> AcceptText(string value) => AcceptValue(value: value).Map(static text => text.Trim());
@@ -48,20 +57,93 @@ public readonly partial struct Op {
     [BoundaryAdapter] public Fin<T> Need<T>(T? value) where T : class => Optional(value).ToFin(Fail: InvalidInput());
     [BoundaryAdapter] public Fin<T> Need<T>(T? value) where T : struct => Optional(value).ToFin(Fail: InvalidInput());
     [BoundaryAdapter] public Fin<T> Need<T>(Option<T> value) => value.ToFin(Fail: InvalidInput());
-    // Scalar guards refuse on the TOLERANCE family, never `InvalidInput`: a range rejection owes the rejected
-    // scalar and the requirement it missed, and `InvalidInput` carries neither, so a bad number and a bad Rhino
-    // object arrived at the drain as one indistinguishable "Input" category with the measured value gone.
-    [BoundaryAdapter] public Fin<double> Finite(double value) => Demand(claim: ValidityClaim.Finite(value: value), value: value, requirement: "finite");
-    [BoundaryAdapter] public Fin<double> Positive(double value) => Demand(claim: ValidityClaim.Positive(value: value), value: value, requirement: "finite and greater than zero");
-    private Fin<double> Demand(ValidityClaim claim, double value, string requirement, [CallerMemberName] string label = "") =>
-        claim ? Fin.Succ(value) : Fin.Fail<double>(error: new Fault.OutOfRange(Label: label, Scalar: value, Requirement: requirement, Key: Some(this)));
+    // Host slot writes are the ONE place `null` is a legal spelling; the domain never reads it back.
+    [BoundaryAdapter] public static T? ToHostSlot<T>(Option<T> value) where T : class => value.Match(Some: static v => v, None: static () => (T?)null);
+    [BoundaryAdapter] public static T? ToHostNullable<T>(Option<T> value) where T : struct => value.Match(Some: static v => (T?)v, None: static () => (T?)null);
+    [BoundaryAdapter] public Fin<double> Finite(double value, [CallerMemberName] string label = "") =>
+        Demand(claim: ValidityClaim.Finite(value: value), value: value, requirement: "finite", label: label);
+    [BoundaryAdapter] public Fin<double> Positive(double value, [CallerMemberName] string label = "") =>
+        Demand(claim: ValidityClaim.Positive(value: value), value: value, requirement: "finite and greater than zero", label: label);
     [BoundaryAdapter]
-    public Fin<T> Catch<T>(Func<Fin<T>> body) {
-        Op self = this;
-        return Optional(body).ToFin(Fail: self.InvalidInput()).Bind(valid =>
-            Try.lift<Fin<T>>(f: valid).Run().Match(
-                Succ: static result => result,
-                Fail: error => Fin.Fail<T>(error: error.HasException<OperationCanceledException>() ? new Fault.Cancelled() : self.InvalidResult(detail: error.Message))));
+    public Fin<T> Demand<T>(ValidityClaim claim, T value, string requirement, [CallerMemberName] string label = "")
+        where T : INumberBase<T> =>
+        claim
+            ? Fin.Succ(value: value)
+            : Fin.Fail<T>(error: new KernelFault.OutOfRange(Label: label, Scalar: double.CreateSaturating(value: value), Requirement: requirement, Key: Some(this)));
+    // ONE classifier serves every arm. `raised` is declared `Exception` deliberately: a derived static type makes
+    // `Error.New(string, Exception)` ambiguous against `Error.New(string, Error)` through the implicit conversion
+    // (CS0121). `Error.New(raised)` is unspellable here — it rewrites a cancellation or timeout into an `Expected`
+    // at a reserved negative code with the exception DROPPED, and splays an aggregate into `ManyErrors`.
+    private static Error Captured(Exception raised, CancellationToken token) {
+        Error captured = Error.New(raised.Message, raised);
+        return raised is OperationCanceledException && token.IsCancellationRequested
+            ? new KernelFault.Cancelled(Cause: captured)
+            : captured;
+    }
+    private static Error Classify<TFault>(Exception raised, CancellationToken token, Func<Error, Option<TFault>> provider)
+        where TFault : Fault, ICausedFault {
+        Error captured = Error.New(raised.Message, raised);
+        return raised is OperationCanceledException && token.IsCancellationRequested
+            ? new KernelFault.Cancelled(Cause: captured)
+            : provider(captured).Map(static fault => (Error)fault).IfNone(captured);
+    }
+    // Exception-valued callbacks enter through the same policy without fabricating a throw/catch round trip.
+    [BoundaryAdapter]
+    public Error Capture(Exception raised, CancellationToken token = default) {
+        ArgumentNullException.ThrowIfNull(raised);
+        return Captured(raised: raised, token: token);
+    }
+    // `Try.lift(...).Run()` is NOT the primitive here: it performs the same normalization `Error.New(Exception)`
+    // does, so every rule above would read evidence the lift already destroyed. The token is a PARAMETER because
+    // only the token handed to this body can prove the caller cancelled.
+    [BoundaryAdapter]
+    public Fin<T> Catch<T>(Func<Fin<T>> body, CancellationToken token = default) {
+        if (body is null) { return Fin.Fail<T>(this.InvalidInput()); }
+        try { return body(); }
+        catch (Exception raised) { return Fin.Fail<T>(Captured(raised: raised, token: token)); }
+    }
+    [BoundaryAdapter]
+    public Fin<T> Catch<T, TFault>(Func<Fin<T>> body, Func<Error, Option<TFault>> provider, CancellationToken token = default)
+        where TFault : Fault, ICausedFault {
+        if (body is null || provider is null) { return Fin.Fail<T>(this.InvalidInput()); }
+        try { return body(); }
+        catch (Exception raised) { return Fin.Fail<T>(Classify(raised: raised, token: token, provider: provider)); }
+    }
+    // Host callbacks that await cross HERE: ONE arm captures both the thrown and the faulted-task shapes, and the
+    // body-returned `Fin` flattens exactly once rather than nesting a rail inside a rail.
+    [BoundaryAdapter]
+    public async ValueTask<Fin<T>> Catch<T>(Func<CancellationToken, ValueTask<Fin<T>>> body, CancellationToken token = default) {
+        if (body is null) { return Fin.Fail<T>(this.InvalidInput()); }
+        try { return await body(token).ConfigureAwait(false); }
+        catch (Exception raised) { return Fin.Fail<T>(Captured(raised: raised, token: token)); }
+    }
+    [BoundaryAdapter]
+    public async ValueTask<Fin<T>> Catch<T, TFault>(
+        Func<CancellationToken, ValueTask<Fin<T>>> body,
+        Func<Error, Option<TFault>> provider,
+        CancellationToken token = default) where TFault : Fault, ICausedFault {
+        if (body is null || provider is null) { return Fin.Fail<T>(this.InvalidInput()); }
+        try { return await body(token).ConfigureAwait(false); }
+        catch (Exception raised) { return Fin.Fail<T>(Classify(raised: raised, token: token, provider: provider)); }
+    }
+    // Host `bool Try*(out T)` probes lift ONCE onto the rail: an `Option` where absence is ordinary, a `Fin`
+    // naming the miss where the caller owes a reason.
+    public delegate bool TryProbe<T>(out T value);
+    [BoundaryAdapter] public static Option<T> Probe<T>(TryProbe<T> probe) => probe(out T value) ? Some(value) : None;
+    [BoundaryAdapter] public Fin<T> Probe<T>(TryProbe<T> probe, string label) => Probe(probe).ToFin(new KernelFault.InvalidValue(Label: label, Requirement: "a host probe answering true", Key: Some(this)));
+    // Multi-out arity: a host `Try*` with several `out` params packs them in the site's own lambda, so ONE
+    // refusal shape covers a whole probe family and no consumer mints a per-arity delegate zoo.
+    [BoundaryAdapter] public static Option<T> Probe<T>(Func<(bool Ok, T Value)> probe) => probe() is (true, var value) ? Some(value) : None;
+    [BoundaryAdapter] public Fin<T> Probe<T>(Func<(bool Ok, T Value)> probe, string label) => Probe(probe).ToFin(new KernelFault.InvalidValue(Label: label, Requirement: "a host probe answering true", Key: Some(this)));
+    // Keyed-refusal arity: a per-key read (which archive key failed) names the KEY in the refusal instead of
+    // forging one generic message across a keyed family.
+    [BoundaryAdapter] public Fin<T> Probe<T>(TryProbe<T> probe, string label, string key) => Probe(probe).ToFin(new KernelFault.InvalidValue(Label: label, Requirement: $"a host probe answering true for '{key}'", Key: Some(this)));
+    // `ref`-slot settle: a `ref` host-contract override cannot capture its slot in a lambda (CS1628), so this ONE
+    // receiver writes the rail's outcome back — success writes and answers true, refusal leaves the slot untouched,
+    // answering false with the fault already on the rail the caller reported through.
+    [BoundaryAdapter] public static bool Settle<T>(ref T slot, Fin<T> outcome) {
+        if (outcome.Case is T value) { slot = value; return true; }
+        return false;
     }
     [BoundaryAdapter]
     public Fin<Unit> Catch(Action body) {
@@ -75,8 +157,8 @@ public readonly partial struct Op {
         return unit;
     }
     [BoundaryAdapter] public static Unit SideWhen(bool condition, Action action) => condition ? Side(action: action) : unit;
-    // The blank-as-absence text projection: a null and an empty host string are one absence, read-side sibling of
-    // the admitting `AcceptText`.
+    // Blank reads as absence here: a null and an empty host string are one absence, read-side sibling of the
+    // admitting `AcceptText`.
     [BoundaryAdapter] public static Option<string> Text(string? value) => Optional(value).Filter(static text => text.Length > 0);
 }
 ```
@@ -85,7 +167,7 @@ public readonly partial struct Op {
 
 - Owner: `GenerateUnionOpsAttribute` — the one local analyzer/generator marker, resolved by metadata name `Rasm.Domain.GenerateUnionOpsAttribute` (`ForAttributeWithMetadataName`); the spelling is frozen contract.
 - Auto: for every sealed record case of a `[GenerateUnionOps]` union the generator emits `internal static readonly global::Rasm.Domain.Op SelfOp = global::Rasm.Domain.Op.Of(name: nameof(<Case>));` into a partial case declaration — each case carries its own operation key, minted once, named after the case.
-- Law: emission is strictly opt-in — `SelfOp` exists only for `[GenerateUnionOps]`-marked unions, whose cases are operations; the generator never visits an unmarked union, so a `[Union]` of carriers, resources, or requests (`Fault`, `Lease<T>`) receives nothing.
+- Law: emission is strictly opt-in — `SelfOp` exists only for `[GenerateUnionOps]`-marked unions, whose cases are operations; the generator never visits an unmarked union, so a `[Union]` of carriers, resources, verdicts, or requests (`Fault`, `Lease<T>`, `Retriability`, `Verdict`, `Transition<TState>`) receives nothing.
 - Boundary: the attribute is designed vocabulary, not runtime behavior; a marked union with no sealed record cases is inert. Generator and analyzer rules home at the repository analyzer — this page owns only the contract name and the emitted `SelfOp` shape.
 
 ```csharp signature
@@ -99,86 +181,482 @@ public sealed class GenerateUnionOpsAttribute : Attribute;
 
 ## [04]-[FAULT_BAND]
 
-- Owner: `Expected` the abstract `Error` bridge pinning `IsExpected`/`IsExceptional` and lowering into the LanguageExt exception protocol through `WrappedErrorExpectedException`; `Fault` the closed `[Union]` of every kernel-substrate failure keyed by the raising `Op` payload (failure carriers, not operations, so no `[GenerateUnionOps]`); and `FaultExtensions` the `extension(Error)` block projecting `Category` off any `Error`.
-- Cases: each case carries its typed payload keyed by the raising `Op` and renders its own `Message` and `Category`.
-- Law: `Unsupported` is the only coded case — `UnsupportedCode` 9104 is the discriminant the Grasshopper drain reads to distinguish an unsupported projection from a hard failure; every other case discriminates by `Category` string and case type, and recovery predicates match on the case, never on rendered text.
-- Law: payloads are evidence, never live resources — `InvalidGeometry` carries the failing `Type`, not the geometry reference, because coercion leases dispose before a fault surfaces, so a live payload hands consumers a disposed native object and retains host memory inside accumulating `Validation` rails. `OutOfRange` is the one scalar-range refusal across the kernel and carries an optional `Op` — `None` from keyless factory admission (`context.md`'s triad), re-keyed to the demanding operation by the `AcceptValidated` bridge (`validation.md`), and keyed at mint by `Op`'s own scalar guards; a range rejection never degrades to `InvalidInput`, which drops both the measured scalar and the requirement it missed; `InvalidValue` is its non-scalar sibling, the generated-factory rejection carrying the owner label and generated requirement text, minted only by that bridge.
+- Owner: `FaultBand` the branch-wide fault-code registry whose rows partition the WHOLE code space; `Fault` the abstract `Error` base sealing the expected protocol over generated identity and lowering into the LanguageExt exception protocol through `WrappedErrorExpectedException`; `FaultId` the cached identity one `[FaultCase]` leaf mints against its family's band row — the transported code beside the generated case token; `ICausedFault` the mandatory cause projection `Inner` folds; `KernelFault` the closed `[Union]` of every kernel-substrate failure keyed by the raising `Op` payload (failure carriers, not operations, so no `[GenerateUnionOps]`); and `FaultExtensions` the `extension(Error)` block deriving allocating owner off the ledger.
+- Cases: a `FaultBand` row is one allocated range — base `Key`, `Span`, `Kind` separating log-event allocation from fault allocation, and `Owner` the typed `TelemetrySource` package. Each `KernelFault` case carries its typed payload keyed by the raising `Op`, renders its own `Message`, and states its identity as ONE `[FaultCase]` ordinal.
+- Law: ONE registry holds every band in the branch. Total disjointness is FORCED inside `FaultId` construction, before any code is issued, so a folder cannot collide by forgetting to pin a foreign neighborhood — the failure mode a per-folder registry with `Mirror` rows carries by construction, and a deferred proof no path touches runs never. NAMED LOSS accepted: a folder-local band mint becomes a kernel row, so a folder adding a band edits a kernel page; the gain is one `Disjoint` proof over the whole code space instead of five hand-mirrored registries that agree only by inspection. `Mirror` and `Page` columns both delete: one registry cannot collide with itself, and the `Owner` row already routes the provenance.
+- Law: a row name is its bare concern; where two owners claim one concern the row takes the owner prefix on BOTH sides, so no reader resolves `Command` or `Identity` by neighborhood arithmetic. A fault row's `Span` equals its direct union leaf count and ordinals fill `0..Span-1`; `Code(offset)` throws outside that bound.
+- Law: a `[LoggerMessage] EventId` argument must be a compile-time CONST while a registry row is an instance, so a log-event band publishes `public const int <Name>Base` beside its row with the SAME value — the dual-owner invariant states at both and they move as one edit; an attribute literal computed from nothing is the drifting form. Row names never shadow a TYPE their consumers hold in scope; a shadowing concern renames with its owner prefix (`UiContext`, `UiSurface`, `StoreSchedule`, `StoreTopology`).
+- Law: every kernel case carries one compact explicit ordinal. Recovery predicates match on the case or its numeric identity, never on rendered text.
+- Law: payloads are evidence, never live resources — `InvalidGeometry` carries the failing `Type`, not the geometry reference, because coercion leases dispose before a fault surfaces, so a live payload hands consumers a disposed native object and retains host memory inside accumulating `Validation` rails. `OutOfRange` is the one scalar-range refusal across the kernel and carries an optional `Op` — `None` from keyless factory admission (`context.md`'s triad), re-keyed to the demanding operation by the `AcceptValidated` bridge (`validation.md`), and keyed at mint by `Op.Demand`; a range rejection never degrades to `InvalidInput`, which drops both the measured scalar and the requirement it missed; `InvalidValue` is its non-scalar sibling, the generated-factory rejection carrying the owner label and generated requirement text.
 - Law: `InvalidContext` names an execution-context refusal — a main-thread-affinity guard, a released lease, a dead conduit or live-state gate — distinct from `MissingContext` (no model context supplied) and `InvalidInput` (the value itself is unsound); recovery differs by case (marshal or re-acquire versus repair the argument), so host thread and lifecycle gates raise `InvalidContext`.
-- Law: the two-family seam holds from the kernel side — a substrate failure (missing context, invalid input, cancelled run, unsupported projection) is a `Fault` case, a robust-core geometry failure is a `Rasm.Numerics` `GeometryFault`, and neither absorbs the other; a page composing both rails converts nothing, both already `Error`.
-- Growth: a new substrate failure is one `Fault` case with its typed payload and `Category`.
-- Boundary: `Fault` crosses the kernel, the `Rasm.Analysis` runtime, and the Grasshopper boundary as the one failure vocabulary; only self-sufficient `Message`, `Category`, and the 9104 code are read outside the kernel.
+- Law: the two-family seam holds from the kernel side — a substrate failure is a `KernelFault` case, a robust-core geometry failure is a `Rasm.Numerics` `GeometryFault` binding `FaultBand.Geometry`, and neither absorbs the other; a page composing both rails converts nothing, both already `Error`.
+- Law: the category plane is DELETED — a fault states its identity as one number and its semantics as its case type, so no owner renders, stores, or wires a category text. Owner is a LOCAL derivation off the ledger through `FaultBand.OwnerOf`, never a stored column or a wire field, and a foreign `Error` gets no fabricated owner.
+- Law: `FaultId.Case` is the generator's `nameof` for the leaf and stays LOCAL evidence — it tags a span, fills a log field, and rides `Domain/telemetry`'s `FaultObservation` in-process, while equality, hashing, recovery predicates, metric dimensions, and every wire and store column read the code alone. A column carrying the token past that line publishes a second discriminant peers then join on, so a case rename becomes a schema migration where today it is one compilation; `FaultDetail` and `FaultObservationWire` therefore transport the code, `FaultBand.OwnerOf` still derives the owner, and the token answers only the question a number cannot — WHICH case, in an operator's own vocabulary, at the moment they read the trace. Two declarations at THIS owner enforce it rather than a rule each consumer remembers: the equality pair is declared so the record fold never enrols the token, and `[JsonIgnore]` keeps every codec off it, so a boundary carrying the token must ADD a column deliberately instead of inheriting one.
+- Law: folder fault families bind ONE `FaultBand` row on the root and state one `[FaultCase]` ordinal per direct sealed leaf; the generator caches identity per case — the band-relative code and the leaf's own `nameof` in ONE `FaultId` — and diagnoses a missing, duplicate, or negative ordinal, a root missing `[Union]` or its band binding, an indirect case, and a hand-written member competing with generated identity. SPAN CONTAINMENT is the RUNTIME's half of that burden — `Code(offset)` throws outside the row's bound and `Disjoint` forces inside `FaultId` construction — because Roslyn cannot evaluate the constructor arguments of a referenced `static readonly` band, and a mirror minting a generator-readable copy is the deleted form. A per-case band literal, a hand offset switch, a roster mirroring the union, raw `+ n` arithmetic, and a family reading another owner's row are the deleted forms this floor makes unspellable.
+- Growth: a new case is one typed `[FaultCase]` leaf, followed by declaration-order ordinal compaction and the matching `Span` edit; a new family alone allocates one registry row and one `[Union]` root deriving `Fault` with that binding.
+- Boundary: `KernelFault` crosses the in-process kernel, analysis runtime, and Grasshopper boundary as the one substrate failure vocabulary; an in-process subscriber receives only `Domain/telemetry`'s `FaultObservation` projection — the optional generated `FaultId`, recovery, bounded cause stamps — never the fault value or its rendered `Message`, and a wire lowering copies the `Code` half of that identity while the case token stays behind. This union therefore owes no JSON derived-type roster. Log-event-id bands register HERE under `BandKind.Event`; `Disjoint` permits event and fault rows to share a base while keeping rows of the same kind disjoint.
+- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<int>]`, `[Union]`), LanguageExt.Core (`Error`, `Option`, `Unit`), BCL inbox (`CultureInfo`, `[JsonIgnore]`), RhinoCommon (`UnitSystem`).
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using System.Globalization;
+using System.Text.Json.Serialization;
+using Rhino;
 
 namespace Rasm.Domain;
 
-// --- [ERRORS] -------------------------------------------------------------------------------
-[BoundaryAdapter]
-public abstract record Expected : Error {
-    protected Expected() { }
-    public override bool IsExpected => true;
-    public override bool IsExceptional => false;
-    public override ErrorException ToErrorException() => new WrappedErrorExpectedException(this);
-    public virtual string Category => "Fault";
+// --- [TYPES] --------------------------------------------------------------------------------
+public enum BandKind { Event, Fault }
+
+// --- [TABLES] -------------------------------------------------------------------------------
+[SmartEnum<int>]
+public sealed partial class FaultBand {
+    public int Span { get; }
+    public BandKind Kind { get; }
+    public TelemetrySource Owner { get; }
+
+    // --- [APPHOST_CORE]
+    public static readonly FaultBand SpineEvents      = new(1000, 100, BandKind.Event, TelemetrySource.AppHost);
+    public const int SpineEventsBase = 1000;
+    public static readonly FaultBand Profile          = new(1100, 4, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Lifecycle        = new(1200, 3, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Update           = new(1300,  6, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand SupplyChain      = new(1320,  7, BandKind.Fault, TelemetrySource.AppHost);
+    // `HostSchedule` is owner-qualified so the row cannot shadow LanguageExt `Schedule` in consumer scope.
+    public static readonly FaultBand HostSchedule     = new(1340,  3, BandKind.Fault, TelemetrySource.AppHost);
+    // --- [AEC_AND_KERNEL_GEOMETRY]
+    public static readonly FaultBand Core             = new(2200,  30, BandKind.Fault, TelemetrySource.Compute);
+    public static readonly FaultBand Component        = new(2300,  41, BandKind.Fault, TelemetrySource.Materials);
+    public static readonly FaultBand Geometry         = new(2400,  28, BandKind.Fault, TelemetrySource.Kernel);
+    public static readonly FaultBand Appearance       = new(2450,   3, BandKind.Fault, TelemetrySource.Materials);
+    public static readonly FaultBand Raster           = new(2460,   7, BandKind.Fault, TelemetrySource.Materials);
+    public static readonly FaultBand Projection       = new(2470,   3, BandKind.Fault, TelemetrySource.Materials);
+    public static readonly FaultBand Element          = new(2500,   7, BandKind.Fault, TelemetrySource.Element);
+    public static readonly FaultBand Bim              = new(2600,   2, BandKind.Fault, TelemetrySource.Bim);
+    public static readonly FaultBand Fabrication      = new(2700,  66, BandKind.Fault, TelemetrySource.Fabrication);
+    // --- [APPHOST_PLATFORM]
+    public static readonly FaultBand Config           = new(4100, 5, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Hop              = new(4500,  13, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Wire             = new(4520,  15, BandKind.Fault, TelemetrySource.Compute);
+    public static readonly FaultBand HostCoordination = new(4540,  9, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand HostCommand      = new(4600,  8, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Grant            = new(4620,  6, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand HostIdentity     = new(4630,  9, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Mcp              = new(4640,  9, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Sandbox          = new(4660,  6, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Feature          = new(4700,  4, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Solver           = new(4710,  4, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand LiveWire         = new(4720,  9, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Bus              = new(4730,  1, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Outbox           = new(4740,  3, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand LaneGuard        = new(4750,  6, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Replay           = new(4760,  4, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Orchestration    = new(4770,  6, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Secret           = new(4780,  3, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Pem              = new(4790,  4, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand HostFederation   = new(4800,  5, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Support          = new(4810,  4, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Drain            = new(4820,  2, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Benchmark        = new(4840,  5, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Grasshopper      = new(4850,   5, BandKind.Fault, TelemetrySource.Grasshopper);
+    public static readonly FaultBand Companion        = new(4870,  8, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Telemetry        = new(4880,  5, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Instrument       = new(4890,  3, BandKind.Fault, TelemetrySource.AppHost);
+    // Event and fault allocations are independent spaces; `Kind` keeps this interval distinct from fault rows.
+    public static readonly FaultBand GrasshopperLog   = new(4700,  20, BandKind.Event, TelemetrySource.Grasshopper);
+    public const int GrasshopperLogBase = 4700;
+    // --- [RHINO] — the host plane's typed fault families code on these rows; kernel `UiFault` owns UI refusal.
+    public static readonly FaultBand HostDraft        = new(4900,   1, BandKind.Fault, TelemetrySource.Rhino);
+    public static readonly FaultBand HostDocument     = new(4920,   3, BandKind.Fault, TelemetrySource.Rhino);
+    public static readonly FaultBand HostExchange     = new(4930,   5, BandKind.Fault, TelemetrySource.Rhino);
+    public static readonly FaultBand HostViewport     = new(4940,   1, BandKind.Fault, TelemetrySource.Rhino);
+    public static readonly FaultBand HostRender       = new(4950,   4, BandKind.Fault, TelemetrySource.Rhino);
+    public static readonly FaultBand HostPlugin       = new(4960,   5, BandKind.Fault, TelemetrySource.Rhino);
+    public static readonly FaultBand HostPersistence  = new(4970,   4, BandKind.Fault, TelemetrySource.Rhino);
+    // --- [PERSISTENCE]
+    public static readonly FaultBand RemoteStore      = new(5400,  17, BandKind.Fault, TelemetrySource.Persistence);
+    // Generic `Cache` owns the complete provider-neutral cache refusal family.
+    public static readonly FaultBand Cache            = new(5500,  10, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand Embedded         = new(7710,  10, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand Sync             = new(8250,   8, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand Commit           = new(8260,   4, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand Egress           = new(8270,   6, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand Retention        = new(8280,   3, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand Recovery         = new(8290,   6, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand Graph            = new(8300,   3, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand Codec            = new(8310,   6, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand StoreIdentity    = new(8340,  10, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand Columnar         = new(8350,  10, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand Cypher           = new(8360,   5, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand StoreTopology    = new(8370,   3, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand Server           = new(8380,  10, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand Tabular          = new(8390,   7, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand StoreSchedule    = new(8400,   4, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand Retrieval        = new(8410,   6, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand StoreFederation  = new(8420,   9, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand StoreCoordination = new(8430, 10, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand GeoIngest        = new(8440,   8, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand Selection        = new(8460,   4, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand StoreIssue       = new(8470,   2, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand Series           = new(8480,   8, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand StoreStat        = new(8490,   4, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand Ingress          = new(8500,   6, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand Contract         = new(8510,   7, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand Scan             = new(8520,   4, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand Cesql            = new(8530,   7, BandKind.Fault, TelemetrySource.Persistence);
+    // --- [APPUI_SHELL]
+    public static readonly FaultBand UiSurface        = new(6000,  5, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Control          = new(6010,  6, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Layout           = new(6020,  3, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Virtual          = new(6030,  3, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Dialog           = new(6040,  9, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand InputDriver      = new(6050,  8, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Nav              = new(6060,  8, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand UiCommand        = new(6070,  6, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Screen           = new(6080,  7, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Accessibility    = new(6090,  4, BandKind.Fault, TelemetrySource.AppUi);
+    // --- [APPUI_RENDER]
+    public static readonly FaultBand Viewport         = new(6100,  5, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Shader           = new(6110,  5, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Immersive        = new(6120,  4, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Capture          = new(6130,  4, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand UiDraft          = new(6140,  4, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Animation        = new(6150,  7, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Visual           = new(6160,  8, BandKind.Fault, TelemetrySource.AppUi);
+    // --- [APPUI_CHARTS]
+    public static readonly FaultBand Chart            = new(6200,  20, BandKind.Fault, TelemetrySource.AppUi);
+    // --- [APPUI_EDITING]
+    public static readonly FaultBand Edit             = new(6300,  6, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Form             = new(6310,  8, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand History          = new(6320,  7, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Canvas           = new(6330,  8, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand LiveData         = new(6340,  6, BandKind.Fault, TelemetrySource.AppUi);
+    // --- [APPUI_DOCUMENT]
+    public static readonly FaultBand Notebook         = new(6400,  3, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Content          = new(6410,  4, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Export           = new(6420,  8, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Search           = new(6430,  4, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Board            = new(6440,  6, BandKind.Fault, TelemetrySource.AppUi);
+    // --- [LOG_EVENT_IDS]
+    // Event ids and fault codes are separate spaces; event rows remain mutually disjoint within `BandKind.Event`.
+    public static readonly FaultBand MaterialsLog     = new(6400,  10, BandKind.Event, TelemetrySource.Materials);
+    public const int MaterialsLogBase = 6400;
+    public static readonly FaultBand HostObjectsLog   = new(6410,  10, BandKind.Event, TelemetrySource.Rhino);
+    public const int HostObjectsLogBase = 6410;
+    // --- [APPUI_COLLAB]
+    public static readonly FaultBand Collab           = new(6500,  8, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand UiIssue          = new(6510,  7, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Tour             = new(6520,  2, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Session          = new(6530,  7, BandKind.Fault, TelemetrySource.AppUi);
+    // --- [APPUI_THEME] — one theme family owns token resolution and face election as direct cases, so the band
+    // binds one semantic union and no typography sibling shares its interval.
+    public static readonly FaultBand Asset            = new(6600,  7, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Locale           = new(6610,  6, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Theme            = new(6620,  9, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Motion           = new(6630,  6, BandKind.Fault, TelemetrySource.AppUi);
+    // --- [APPUI_DIAGNOSTICS]
+    public static readonly FaultBand Proof            = new(6700,  12, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand DevLoop          = new(6720,  3, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Governor         = new(6730,  2, BandKind.Fault, TelemetrySource.AppUi);
+    // --- [APPUI_VFX]
+    public static readonly FaultBand Material         = new(6800,  8, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Effect           = new(6810,  7, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Compose          = new(6820,  7, BandKind.Fault, TelemetrySource.AppUi);
+    // --- [APPUI_ANALYSIS]
+    public static readonly FaultBand Layer            = new(6900,  8, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand Compare          = new(6910,  5, BandKind.Fault, TelemetrySource.AppUi);
+    public static readonly FaultBand UiContext        = new(6920,  6, BandKind.Fault, TelemetrySource.AppUi);
+    // --- [KERNEL]
+    public static readonly FaultBand Kernel           = new(9100,  12, BandKind.Fault, TelemetrySource.Kernel);
+    // Three kernel bands share one owner: `Owner` names the ALLOCATING PACKAGE and is not a key, and
+    // `Rasm.Interaction` is a namespace inside this assembly rather than a minted package identity.
+    public static readonly FaultBand Interaction      = new(9200,  10, BandKind.Fault, TelemetrySource.Kernel);
+
+    public int Code(int offset) =>
+        offset >= 0 && offset < Span
+            ? Key + offset
+            : throw new ArgumentOutOfRangeException(paramName: nameof(offset), actualValue: offset,
+                message: string.Create(provider: CultureInfo.InvariantCulture, $"Band {Owner.Key}@{Key} spans {Span}."));
+
+    // `Kind` partitions the two id spaces, so a reverse read NAMES the one it decodes: an event band and a fault
+    // band may share a base, and the interval alone answers whichever row `Items` happens to order first.
+    public static Option<FaultBand> OwnerOf(BandKind kind, int code) =>
+        toSeq(Items).Filter(band => band.Kind == kind && code >= band.Key && code < band.Key + band.Span).Head;
+
+    // Accessor read, never a `static readonly` initializer: the generator fills `Items` from its own static
+    // constructor, so an eager field fold sees an EMPTY roster and passes vacuously. `FaultId` FORCES this read
+    // before issuing any code — a proof nothing on an executable path touches proves nothing at all.
+    public static Unit Disjoint => DisjointProof.Value;
+
+    private static readonly Lazy<Unit> DisjointProof = new(static () => ignore(toSeq(toSeq(Items)
+        .GroupBy(static band => band.Kind))
+        .Map(static space => toSeq(space)
+            .OrderBy(static band => band.Key)
+            .Aggregate(Option<FaultBand>.None, static (prior, band) => prior.Match(
+                Some: held => held.Key + held.Span <= band.Key
+                    ? Some(band)
+                    : throw new InvalidOperationException(message: string.Create(provider: CultureInfo.InvariantCulture,
+                        $"FaultBand overlap in {band.Kind}: {held.Owner.Key}@{held.Key}+{held.Span} and {band.Owner.Key}@{band.Key}+{band.Span}.")),
+                None: () => Some(band))))
+        .Strict()), LazyThreadSafetyMode.ExecutionAndPublication);
 }
 
-[Union]
-public abstract partial record Fault : Expected {
-    private Fault() : base() { }
-    internal const int UnsupportedCode = 9104;
-    public sealed partial record MissingOperation : Fault { public override string Message => "Geometry operation is required."; public override string Category => "Operation"; }
-    public sealed partial record MissingContext(Op Key) : Fault { public override string Message => $"Geometry operation '{Key}' requires a model context."; public override string Category => "Operation"; }
-    public sealed partial record InvalidContext(Op Key) : Fault { public override string Message => $"Geometry operation '{Key}' was invoked outside its live execution context."; public override string Category => "Context"; }
-    public sealed partial record InvalidInput(Op Key) : Fault { public override string Message => $"Geometry operation '{Key}' received invalid Rhino input."; public override string Category => "Input"; }
-    public sealed partial record InvalidResult(Op Key, Option<string> Detail = default) : Fault {
-        public override string Message => $"Geometry operation '{Key}' produced no valid Rhino result{Detail.Map(static d => $": {d}").IfNone(static () => ".")}";
-        public override string Category => "Result";
+// --- [ERRORS] -------------------------------------------------------------------------------
+// One public mechanical attribute beside the base: emitting a private copy into every compilation multiplies
+// metadata types and weakens built-estate reflection, which reads this exact attribute off each leaf.
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
+public sealed class FaultCaseAttribute(int offset) : Attribute {
+    public int Offset { get; } = offset;
+}
+
+// Identity is the NUMBER alone: band and offset are generator inputs, so two independently read ids carrying one
+// code compare and hash alike, and no consumer joins on a package, a band, or a case name. `Case` rides beside
+// the code as local EVIDENCE under that same law — carried, never compared.
+public sealed record FaultId {
+    internal FaultId(FaultBand band, int offset, string @case) {
+        ArgumentNullException.ThrowIfNull(band);
+        // Forcing this read proves total disjointness before the construction issues a single code.
+        _ = FaultBand.Disjoint;
+        if (band.Kind is not BandKind.Fault) {
+            throw new ArgumentOutOfRangeException(nameof(band), band, "Fault identity requires a fault band.");
+        }
+
+        (Code, Case) = (band.Code(offset: offset), @case);
     }
-    // Keyless and subject-neutral: every lane the Eff floor carries lowers here — a geometry fold, an OpenStudio
-    // translate, an IfcOpenShell cross — so naming geometry in the text misreports the operation that stopped.
-    public sealed partial record Cancelled : Fault { public override string Message => "Operation was cancelled."; public override string Category => "Cancelled"; }
-    public sealed partial record Unsupported(Op Key, Type GeometryType, Type OutputType) : Fault {
-        public override string Message => $"Geometry operation '{Key}' does not support geometry '{GeometryType.Name}' with output '{OutputType.Name}'.";
-        public override int Code => UnsupportedCode;
-        public override string Category => "Unsupported";
+
+    public int Code { get; }
+
+    // The leaf's own declared name, minted ONCE per case as the generator's `nameof` and never read off the CLR
+    // type. A `GetType().Name` stamp pays a runtime type probe per observation, answers whatever the trimmer or
+    // AOT compiler left of the nested record's name instead of failing at compilation, and turns a rename into a
+    // silent token change no build catches. Thinktecture publishes no such member to borrow: its regular-union
+    // metadata carries `Metadata.RegularUnion.TypeMembers`, a `Type` list whose names are the same reflection
+    // read one indirection later. The generator is the ONE producer, so a blank or foreign token has no caller
+    // to arrive from and the analyzer diagnoses a hand-written member competing with generated identity.
+    // `[JsonIgnore]` is the ENFORCEMENT of the local-only law, not decoration: a fact carrying a `FaultId` — the
+    // Persistence coordination fact and the Compute refusal receipt both do — serializes it as `{ "code": n }`
+    // for the wire-keyed receipt fan, and an un-annotated token would ride that payload to every subscriber.
+    [JsonIgnore]
+    public string Case { get; }
+
+    // The equality pair is DECLARED, not synthesized: the record fold would enrol `Case` in `Fault.Is`, in every
+    // `HashMap<FaultId, _>` taxonomy, and in every code-keyed grouping the moment it landed, publishing a second
+    // discriminant for one concept. Consumers keep one question — the number — and read the token as evidence.
+    public bool Equals(FaultId? other) => other is not null && Code == other.Code;
+
+    public override int GetHashCode() => Code;
+}
+
+// ONE mechanical cause hook serves every family: a leaf carrying a captured foreign cause states it here and
+// `Fault.Inner` projects it once, so no leaf reimplements or invents a cause chain.
+public interface ICausedFault {
+    Error Cause { get; }
+}
+
+// This base carries no message field, category, provider dictionary, metadata bag, or downstream registry, and it
+// derives `Error` DIRECTLY rather than LanguageExt `Expected`, whose positional `(message, code, inner)` state
+// joins equality, deconstruction, and copying — placeholder constructor arguments beside overriding members
+// publish two disagreeing answers for one value.
+[BoundaryAdapter]
+public abstract record Fault : Error {
+    protected abstract FaultId IdentityCore { get; }
+    protected static FaultId Identify(FaultBand band, int offset, string @case) => new(band, offset, @case);
+
+    public FaultId Identity => IdentityCore;
+    public sealed override int Code => Identity.Code;
+    public sealed override bool IsExpected => true;
+    public sealed override bool IsExceptional => false;
+    public sealed override bool Is(Error error) => error is Fault fault && Identity == fault.Identity;
+    public sealed override Option<Error> Inner => this switch {
+        ICausedFault caused => Some(caused.Cause),
+        _ => None,
+    };
+    public sealed override ErrorException ToErrorException() => new WrappedErrorExpectedException(this);
+
+    public virtual Retriability Retriability => Retriability.Terminal;
+}
+
+// Generated value admission crosses ONCE into this family's `InvalidValue`/`OutOfRange` through the acceptance
+// bridge, so no package mints a validation-error type to satisfy a generator, and no generic text case exists
+// for a refusal to degrade into.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record KernelFault : Fault {
+    private KernelFault() { }
+    private static readonly FaultBand FamilyBand = FaultBand.Kernel;
+
+    [FaultCase(0)]
+    public sealed partial record MissingOperation : KernelFault { public override string Message => "Operation is required."; }
+    [FaultCase(1)]
+    public sealed partial record MissingContext(Op Key) : KernelFault { public override string Message => $"Operation '{Key}' requires an execution context."; }
+    [FaultCase(2)]
+    public sealed partial record InvalidContext(Op Key) : KernelFault { public override string Message => $"Operation '{Key}' was invoked outside its live execution context."; }
+    // `Axis` names WHICH constraint refused when one operation guards many independent inputs — ~180 on one
+    // Modeling page alone report through this fault, and an axis-free message is indistinguishable evidence.
+    [FaultCase(3)]
+    public sealed partial record InvalidInput(Op Key, Option<string> Axis = default) : KernelFault {
+        public override string Message => $"Operation '{Key}' received invalid input{Axis.Map(static a => $" ({a})").IfNone(string.Empty)}.";
     }
-    public sealed partial record ComputationFailed(string Label) : Fault { public override string Message => $"Rhino {Label} computation failed."; public override string Category => "Computation"; }
-    public sealed partial record MissingGeometry : Fault { public override string Message => "Geometry input is required."; public override string Category => "Geometry"; }
-    public sealed partial record InvalidGeometry(Type Shape, string Check, string Log) : Fault {
+    [FaultCase(4)]
+    public sealed partial record Unsupported(Op Key, Type InputType, Type OutputType) : KernelFault {
+        public override string Message => $"Operation '{Key}' does not support input '{InputType.Name}' with output '{OutputType.Name}'.";
+    }
+    [FaultCase(5)]
+    public sealed partial record InvalidResult(Op Key, Option<string> Detail = default) : KernelFault {
+        public override string Message => $"Operation '{Key}' produced no valid result{Detail.Map(static d => $": {d}").IfNone(static () => ".")}";
+    }
+    // Cancellation carries the caught exception it was proved from, so an operator reads the real stack; direct
+    // token polls use LanguageExt `Errors.Cancelled` because no exception exists to preserve or fabricate.
+    [FaultCase(6)]
+    public sealed partial record Cancelled(Error Cause) : KernelFault, ICausedFault { public override string Message => "Operation was cancelled."; }
+    [FaultCase(7)]
+    public sealed partial record MissingGeometry : KernelFault { public override string Message => "Geometry input is required."; }
+    // Payloads are evidence, never live resources: the failing `Type`, not the geometry reference, because
+    // coercion leases dispose before a fault surfaces.
+    [FaultCase(8)]
+    public sealed partial record InvalidGeometry(Type Shape, string Check, string Log) : KernelFault {
         public override string Message => string.IsNullOrWhiteSpace(value: Log)
             ? $"Geometry validation failed for {Shape.Name} under check '{Check}'."
             : $"Geometry validation failed for {Shape.Name} under check '{Check}': {Log}";
-        public override string Category => "Geometry";
     }
-    public sealed partial record InvalidValue(string Label, string Requirement, Option<Op> Key = default) : Fault {
+    [FaultCase(9)]
+    public sealed partial record InvalidValue(string Label, string Requirement, Option<Op> Key = default) : KernelFault {
         public override string Message => $"Value '{Label}'{Key.Map(static k => $" (operation '{k}')").IfNone(static () => string.Empty)} is invalid: {Requirement}";
-        public override string Category => "Input";
     }
-    public sealed partial record OutOfRange(string Label, double Scalar, string Requirement, Option<Op> Key = default) : Fault {
-        public override string Message => string.Create(provider: CultureInfo.InvariantCulture, $"Geometry value '{Label}'{Key.Map(static k => $" (operation '{k}')").IfNone(static () => string.Empty)} must be {Requirement}; actual={Scalar:R}.");
-        public override string Category => "Tolerance";
+    [FaultCase(10)]
+    public sealed partial record OutOfRange(string Label, double Scalar, string Requirement, Option<Op> Key = default) : KernelFault {
+        public override string Message => string.Create(provider: CultureInfo.InvariantCulture, $"Value '{Label}'{Key.Map(static k => $" (operation '{k}')").IfNone(static () => string.Empty)} must be {Requirement}; actual={Scalar:R}.");
     }
-    public sealed partial record InvalidUnitSystem(UnitSystem Units, string Requirement) : Fault { public override string Message => $"Model unit system must be {Requirement}; actual={Units}."; public override string Category => "Context"; }
-    public sealed partial record Caution(Op Key, string Concern) : Fault { public override string Message => $"Geometry operation '{Key}' raised a recoverable concern: {Concern}."; public override string Category => "Caution"; }
+    [FaultCase(11)]
+    public sealed partial record InvalidUnitSystem(UnitSystem Units, string Requirement) : KernelFault { public override string Message => $"Model unit system must be {Requirement}; actual={Units}."; }
 }
 
 public static class FaultExtensions {
     extension(Error error) {
-        public string Category => error switch {
-            Expected expected => expected.Category,
-            _ => "Fault",
-        };
+        // Owner is DERIVED, never stored and never wired. A foreign `Error` answers `None` rather than taking a
+        // fabricated owner, which is exactly the distinction an operator needs the telemetry to keep.
+        public Option<TelemetrySource> Owner =>
+            error is Fault fault
+                ? FaultBand.OwnerOf(BandKind.Fault, fault.Code).Map(static band => band.Owner)
+                : None;
     }
 }
 ```
 
-## [05]-[RESOURCE_RAIL]
+## [05]-[REDRIVE]
 
-- Owner: `Lease<T>` — the closed `[Union]` over disposal ownership for any `T : class, IDisposable`. `Owned` carries a value this rail must dispose; `Borrowed` carries a value the host still owns.
-- Entry: `Use(project)` and the state-threaded `Use(state, project)` are the sole consumption gate — an `Owned` value is projected inside a `using` window and disposed the moment the projection returns, a `Borrowed` value projected untouched; `Resource` reads the live value where the caller manages the extent, and `Dispose()` releases `Owned` and no-ops `Borrowed`.
+- Owner: `Retriability` the branch-wide retriability discriminant carried as a virtual on `Fault` and the ONE posture spelling through its `Key` projection, `RedrivePolicy` the one re-drive policy value, `Verdict` the one durable re-drive answer, and `Redrive` the two-arm executor.
+- Cases: `Retriability` is a `[Union]` rather than a keyed roster because `Throttled` carries a server-stated delay the other two do not; `Verdict` splits a scheduled retry from an exhausted bound and a terminal refusal, and every case is consumed by `Settle`.
+- Entry: a fault band overrides `Retriability` on its own cases and states nothing else — every kernel and folder band inherits `Terminal` by construction, so a case that never overrides is terminal without spelling it. `RedrivePolicy.Of(law, bound)` is the ONE mint name; the bound applies by derivation at `Curve`, so a stored curve cannot disagree with `Bound`, and `Exhausted` reads the same ordinal convention `Curve`'s stream counts — attempt zero is the first failure, and exactly `Bound` re-drives admit on both arms.
+- Law: library tiers CLASSIFY and execute nothing — the discriminant rides the fault, the policy rides the runtime, and only a root-bound executor runs `Redrive`. Per-policy `Func<Error, bool>` classifiers are the deleted form: they re-decide at each policy what the fault already answers, which is exactly the split the branch retriability ruling forbids; `bool IsTransient` interfaces fall for the same reason, one axis short of the throttled case.
+- Law: `Settle` is one verdict per pass and holds NO loop state, so a resumed workflow, a swept outbox row, and a cache-aged assessment each read the same predicate against their own durable ordinal. Exhaustion is a typed `Abandoned`, never a success-shaped fall-through, and a schedule that runs dry at the ordinal abandons rather than retrying forever.
+- Law: `Key` is the ONE posture render and every consumer composes it — a metric dimension value, a span tag, a log field, and a board caption all read the same member, so the three-literal `Switch` a consumer once spelled for itself is deleted wherever it stood. The failure that form carries is silent: each copy is proved total by the generator and none is proved to AGREE with its siblings, so one renamed word splits a dashboard population and no build says so.
+- Law: a foreign `Error` — anything not deriving `Fault` — is Terminal by construction, so an un-adopted third-party rail cannot become silently retriable. `Settle` folds the `ManyErrors` MEMBERSHIP tree recursively, never `Inner` which is causal evidence: `AsIterable()` and `Count` read DIRECT children alone, so a nested aggregate otherwise hides a terminal leaf behind a wrapper.
+- Exemption: `Redrive.Run` is the IN-PROCESS arm and carries the whole retry mechanism on `IO<T>.RetryWhile`; no hand attempt loop, no `Task.Delay` window, and no clock arithmetic exists at any consumer.
+- Growth: a new retriability posture is one `Retriability` case with the `Settle` arm it selects and one word on `Key`, which every emitter then answers unedited; a new backoff shape is a `Schedule` composition at the policy mint, never a member here.
+- Packages: LanguageExt.Core (`Schedule`, `ScheduleTransformer`, `IO`, `Duration`, `Iterable`, `Option`).
+
+```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+namespace Rasm.Domain;
+
+// --- [TYPES] --------------------------------------------------------------------------------
+[Union]
+public abstract partial record Retriability {
+    private Retriability() { }
+    public sealed record TerminalCase : Retriability;
+    public sealed record TransientCase : Retriability;
+    public sealed record ThrottledCase(Duration RetryAfter) : Retriability;
+    public static Retriability Terminal { get; } = new TerminalCase();
+    public static Retriability Transient { get; } = new TransientCase();
+    public static Retriability Throttled(Duration retryAfter) => new ThrottledCase(RetryAfter: retryAfter);
+
+    // ONE posture spelling for the whole branch: every dimension value, span tag, log field, and board caption
+    // reads this member, so a fourth posture lands its word HERE and every emitter answers it unedited. A
+    // consumer `Switch` returning the three literals is the deleted form — the generated fold proves each copy
+    // total without proving the copies AGREE, so three sites drift on the first rename and a dashboard silently
+    // splits one population in two. The `[JsonDerivedType(..., "terminal")]` discriminators on the app-tier
+    // `FaultRecoveryWire` are the one lawful non-composer: an attribute argument must be a compile-time const,
+    // and that tag is a frozen wire contract rather than a render.
+    public string Key => Switch(
+        terminalCase: static _ => "terminal",
+        transientCase: static _ => "transient",
+        throttledCase: static _ => "throttled");
+}
+
+// --- [MODELS] -------------------------------------------------------------------------------
+public sealed record RedrivePolicy(Schedule Law, int Bound) {
+    public static readonly RedrivePolicy None = Of(law: Schedule.Never, bound: 0);
+    public static RedrivePolicy Of(Schedule law, int bound) => new(Law: law, Bound: int.Max(bound, 0));
+    // `recurs` is a transformer, so intersecting it with the growth law truncates to the shorter stream and
+    // keeps the longer delay: the bound is DERIVED here and never stored beside a curve that could drift.
+    public Schedule Curve => Law & Schedule.recurs(times: Bound);
+    // `attempt` counts the failures already seen (0 is the first), so both arms admit exactly `Bound` re-drives.
+    public bool Exhausted(int attempt) => attempt >= Bound;
+    public Option<Duration> Next(int attempt) => Iterable.head(list: Curve.Run().Skip(amount: attempt));
+}
+
+// --- [ERRORS] -------------------------------------------------------------------------------
+[Union]
+public abstract partial record Verdict {
+    private Verdict() { }
+    public sealed record Deferred(int Attempt, Duration After) : Verdict;
+    public sealed record Abandoned(Error Cause, int Attempt) : Verdict;
+    public sealed record Terminal(Error Cause) : Verdict;
+}
+
+// --- [OPERATIONS] ---------------------------------------------------------------------------
+public static class Redrive {
+    // In-process retry admits TRANSIENT alone: a throttled fault exits to `Settle`, whose `Deferred` carries the
+    // server's own `RetryAfter` — re-drawing it on the curve would hammer the throttle window it was told to respect.
+    public static IO<T> Run<T>(RedrivePolicy policy, IO<T> work) =>
+        work.RetryWhile(schedule: policy.Curve, predicate: static error => Posture(error) is Retriability.TransientCase);
+
+    // Recovery folds aggregate MEMBERSHIP recursively. `Inner` is causal evidence and never participates;
+    // foreign errors and an empty `Errors.None` are terminal, terminal dominates, and throttling keeps the
+    // greatest provider-stated delay.
+    public static Retriability Posture(Error fault) => fault switch {
+        ManyErrors many => many.Errors
+            .Fold(Option<Retriability>.None, static (state, child) =>
+                Some(state.Match(
+                    Some: held => Merge(held, Posture(child)),
+                    None: () => Posture(child))))
+            .IfNone(Retriability.Terminal),
+        Fault expected => expected.Retriability,
+        _ => Retriability.Terminal,
+    };
+
+    public static Verdict Settle(RedrivePolicy policy, Error fault, int attempt) =>
+        Posture(fault).Switch(
+            terminalCase: _ => (Verdict)new Verdict.Terminal(Cause: fault),
+            transientCase: _ => Defer(policy: policy, fault: fault, attempt: attempt, after: policy.Next(attempt: attempt)),
+            throttledCase: throttled => Defer(policy: policy, fault: fault, attempt: attempt, after: Some(throttled.RetryAfter)));
+
+    static Retriability Merge(Retriability left, Retriability right) => (left, right) switch {
+        (Retriability.TerminalCase, _) or (_, Retriability.TerminalCase) => Retriability.Terminal,
+        (Retriability.ThrottledCase a, Retriability.ThrottledCase b) =>
+            a.RetryAfter.CompareTo(b.RetryAfter) >= 0 ? a : b,
+        (Retriability.ThrottledCase throttled, _) => throttled,
+        (_, Retriability.ThrottledCase throttled) => throttled,
+        _ => Retriability.Transient,
+    };
+
+    static Verdict Defer(RedrivePolicy policy, Error fault, int attempt, Option<Duration> after) =>
+        policy.Exhausted(attempt: attempt)
+            ? new Verdict.Abandoned(Cause: fault, Attempt: attempt)
+            : after.Match(
+                Some: delay => (Verdict)new Verdict.Deferred(Attempt: attempt + 1, After: delay),
+                None: () => new Verdict.Abandoned(Cause: fault, Attempt: attempt));
+}
+```
+
+## [06]-[RESOURCE_RAIL]
+
+- Owner: `Lease<T>` — the closed `[Union]` over disposal ownership for any `T : class, IDisposable`. `Owned` carries a value this rail must dispose; `Borrowed` carries a value the host still owns. `Custody` — the release algebra over the `Fin` rail: `Release` the all-attempted roster fold, `Dispose` its disposable-roster projection, `Rollback` failure-only compensation, and `Settled`/`Bracket` the both-arms postures split by whether the primary is already settled.
+- Entry: `Acquire(mint, key)` is the fallible mint funnelling a throwing host mint onto the rail; the fallible `Use(body, key)` runs a rail-shaped projection through `Settled` and AGGREGATES a cleanup fault into the primary; `Use(project)` and the state-threaded `Use(state, project)` are the pure consumption gate; `Resource` reads the live value where the caller manages the extent, and `Dispose()` releases `Owned` and no-ops `Borrowed`. `Custody.Release` is the reverse-order, all-attempted fold over a rail-shaped resource roster, preserving the whole cleanup set through `Error.Many`; `Custody.Dispose` is that same fold for an `IDisposable` roster; `fold.Rollback(held...)` releases the already-acquired handle span LIFO on the FAILURE arm alone; `fold.Settled(held, release, key)` runs a fallible roster release after an already-settled primary on BOTH arms; `Custody.Bracket(body, held...)` captures a body and disposes an `IDisposable` span on both arms; `Custody.Bracket(acquire, project, key)` lifts a produced-inside resource onto the rail, projects it live, and releases unconditionally.
 - Law: ownership is a case, never a flag — the coercion lattice (`normalization.md`) returns `Fin<Lease<Curve|Surface|Brep>>` deciding owned-versus-borrowed per recovery path, `Requirement`'s lease-aware checks (`validation.md`) thread it, and projection carriers ride `Lease<GeometryBase>`.
 - Law: the state-threaded `Use` overload keeps projections closure-free — state rides the fold, lambdas stay `static`.
+- Law: release brackets ACQUISITION here, not outcome — `using` scopes the value for the whole projection and runs on every exit path, failed rail included, so the success-arm-release regression cannot occur and no failure branch owes cleanup evidence. Effect-rail brackets are the substrate form for an asynchronous or rail-shaped acquisition; a synchronous host handle whose whole contract is one lexical window composes `using` directly and lifts nothing.
+- Law: posture follows CUSTODY, never style — `Rollback` serves the acquire chain whose success value takes ownership; `Settled` serves an already-run primary still holding a fallible resource roster; `Bracket` captures scratch whose custody never transfers. Cleanup faults AGGREGATE into the primary outcome on every posture — a leaking release never silently replaces the fault that caused it, and a primary success under a failed release reads as the release fault. Folder-local release folds and domain-flow `try`/`finally` releases both delete onto this owner.
 - Boundary: `Owned.Project`'s `using` is the platform-forced disposal seam.
 
 ```csharp signature
@@ -194,27 +672,258 @@ public abstract partial record Lease<T> where T : class, IDisposable {
         internal TResult Project<TState, TResult>(TState state, Func<TState, T, TResult> project) { using T owned = Value; return project(arg1: state, arg2: owned); }
     }
     public sealed record Borrowed(T Value) : Lease<T>;
+    [BoundaryAdapter]
+    public static Fin<Lease<T>> Acquire(Func<T> mint, Op key) =>
+        key.Catch(() => Fin.Succ<Lease<T>>(new Owned(Value: mint())));
+    // This fallible projection AGGREGATES a cleanup fault into the primary (`Error` is a monoid) — a cleanup
+    // refusal never rides `ignore`, and a primary success with a failed release reads as the release fault.
+    [BoundaryAdapter]
+    public Fin<TResult> Use<TResult>(Func<T, Fin<TResult>> body, Op key) =>
+        Switch(state: (Body: body, Key: key),
+            owned: static (use, owned) => use.Key.Catch(() => use.Body(arg: owned.Value))
+                .Settled(release: () => { owned.Value.Dispose(); return Fin.Succ(unit); }, key: use.Key),
+            borrowed: static (use, borrowed) => use.Key.Catch(() => use.Body(arg: borrowed.Value)));
     public TResult Use<TResult>(Func<T, TResult> project) => Switch(state: project, owned: static (use, owned) => owned.Project(project: use), borrowed: static (use, borrowed) => use(arg: borrowed.Value));
     public TResult Use<TState, TResult>(TState state, Func<TState, T, TResult> project) =>
         Switch(state: (State: state, Project: project), owned: static (use, owned) => owned.Project(state: use.State, project: use.Project), borrowed: static (use, borrowed) => use.Project(arg1: use.State, arg2: borrowed.Value));
     public T Resource => Switch(owned: static owned => owned.Value, borrowed: static borrowed => borrowed.Value);
     public Unit Dispose() => Switch(owned: static owned => { owned.Value.Dispose(); return unit; }, borrowed: static _ => unit);
 }
+
+// --- [OPERATIONS] ---------------------------------------------------------------------------
+// Custody is the acquire-CHAIN release algebra. `Rollback` is ERROR-COMPENSATION — the failure arm releases every handle
+// already acquired, LIFO, while the success arm TRANSFERS custody into the returned value that owns disposal
+// from then on. `Settled` and `Bracket` are UNCONDITIONAL DISPOSAL — the former accepts an already-settled
+// primary plus a fallible roster release, the latter captures a body beside an `IDisposable` span. Every posture
+// aggregates cleanup faults into the primary; effect-rail acquisitions stay the substrate `IO.Bracket`.
+public static class Custody {
+    private static readonly Op Boundary = Op.Of(name: nameof(Custody));
+
+    // The higher-order release fold: every pending release runs, failures preserve roster order through
+    // `Error.Many`, and the resource overload reverses ACQUISITION order before entering the same mechanism.
+    public static Fin<Unit> Release(Seq<Func<Fin<Unit>>> releases, Op key) {
+        (Seq<Error> fails, Seq<Unit> _) = releases.Map(release => key.Catch(release)).Partition();
+        return fails.IsEmpty ? Fin.Succ(unit) : Fin.Fail<Unit>(Error.Many(fails));
+    }
+    public static Fin<Unit> Release<THeld>(Seq<THeld> held, Func<THeld, Fin<Unit>> release, Op key) =>
+        Release(held.Rev().Map(row => (Func<Fin<Unit>>)(() => release(row))).Strict(), key);
+
+    public static Fin<Unit> Dispose<THeld>(Seq<THeld> held, Op key) where THeld : class, IDisposable =>
+        Release(held: held, release: static resource => Fin.Succ(value: Op.Side(resource.Dispose)), key: key);
+
+    public static Fin<T> Rollback<T>(this Fin<T> fold, params ReadOnlySpan<IDisposable?> held) =>
+        fold.IsSucc ? fold : Combined(fold, Released(held));
+
+    // Delegate arm for a release a span cannot carry — a keyed release fold, a registry drain.
+    public static Fin<T> Rollback<T>(this Fin<T> fold, Func<Fin<Unit>> release) =>
+        fold.IsSucc ? fold : Combined(fold, Boundary.Catch(release));
+    public static Fin<T> Rollback<T>(this Fin<T> fold, Func<Fin<Unit>> release, Op key) =>
+        fold.IsSucc ? fold : Combined(fold, key.Catch(release));
+    public static Fin<T> Rollback<T, THeld>(this Fin<T> fold, Seq<THeld> held, Func<THeld, Fin<Unit>> release, Op key) =>
+        fold.IsSucc ? fold : Combined(fold, Release(held: held, release: release, key: key));
+
+    // BOTH-ARMS posture for a primary that has already settled while holding a fallible resource roster.
+    public static Fin<T> Settled<T>(this Fin<T> primary, Func<Fin<Unit>> release, Op key) =>
+        Combined(primary, key.Catch(release));
+    public static Fin<T> Settled<T, THeld>(this Fin<T> primary, Seq<THeld> held, Func<THeld, Fin<Unit>> release, Op key) =>
+        Combined(primary, Release(held: held, release: release, key: key));
+
+    public static Fin<T> Bracket<T>(Func<Fin<T>> body, params ReadOnlySpan<IDisposable?> held) =>
+        Combined(Boundary.Catch(body), Released(held));
+
+    // Acquire-project-release for a resource produced INSIDE the window: the acquire lifts onto the rail, the
+    // projection reads the live handle, and disposal runs on every path.
+    public static Fin<T> Bracket<TResource, T>(Func<TResource> acquire, Func<TResource, Fin<T>> project, Op key)
+        where TResource : class, IDisposable =>
+        key.Catch(() => Fin.Succ(acquire())).Bind(held => Bracket(() => project(held), held));
+
+    // Aggregation law shared with `Lease<T>.Use`: a primary success under a failed release reads as the
+    // release fault, and a primary failure carries the release fault appended.
+    static Fin<T> Combined<T>(Fin<T> primary, Fin<Unit> released) =>
+        released.Match(
+            Succ: _ => primary,
+            Fail: cleanup => primary.Match(Succ: _ => Fin.Fail<T>(cleanup), Fail: cause => Fin.Fail<T>(cause + cleanup)));
+
+    // LIFO over the span, null slots skipped — a half-built chain holds nulls for the handles it never
+    // reached — and every disposer fault accumulates rather than aborting the remaining releases.
+    static Fin<Unit> Released(ReadOnlySpan<IDisposable?> held) {
+        Fin<Unit> outcome = Fin.Succ(unit);
+        for (int slot = held.Length - 1; slot >= 0; slot--) {
+            if (held[slot] is not { } handle) { continue; }
+            Fin<Unit> release = Boundary.Catch(() => { handle.Dispose(); return Fin.Succ(unit); });
+            outcome = release.Match(
+                Succ: _ => outcome,
+                Fail: fault => outcome.Match(Succ: _ => Fin.Fail<Unit>(fault), Fail: prior => Fin.Fail<Unit>(prior + fault)));
+        }
+        return outcome;
+    }
+}
 ```
 
-## [06]-[VALIDITY_FOLD]
+## [07]-[TRANSITION]
+
+- Owner: `Transition<TState>` the verdict every lock-free transition owes its caller, and `Cell` the four transition shapes every `Atom` consumer composes.
+- Cases: `Committed` this caller's proposal landed, `Ceded` another contender held the seat, `Refused` the cell declined outright, `Contended` the attempt budget spent with nothing landed. `Current` projects the post-state off every case, so a caller reading only the state never branches; a stored `bool Won` is the deleted form because `is Committed` is the probe.
+- Entry: `Claim` is first-writer-wins over a keyed table, `Seat` first-writer over a single slot, `Step` a guarded transition whose step declines with `None` and cedes when its observed state moved, `Commit` an expensive transition computed outside the cell and committed by snapshot comparison — budget-free at the kernel default `SwapBudget`, which is why no consumer mints a one-member budget shell of its own — `Take` the take-and-clear whose `Committed` payload is the DRAINED value, `Converge` the bounded ITERATE checking explicit settlement before the first step and after every commit, returning `Refused` when a next step declines, `Ceded` when another writer moves the state, and `Contended` when the budget exhausts — `Swap(_ => empty)` returns the empty post-state and is the retired spelling.
+- Law: `Commit` bounds CAS ATTEMPTS, never iterations, while `Converge` bounds committed steps: completion is a committed state satisfying `settled`; `None` is a refusal, and every terminal verdict carries the state the caller reads.
+- Law: the candidate mints ONCE outside the transition. Compare-and-swap bodies re-run on every contended retry, so a capsule minted, a rank incremented, or a tally swapped from inside one burns identity or counts attempts instead of commits — the hazard three host pages document by hand and this owner retires.
+- Law: a swap returning only the new value reports success to every contender, so the losing writer proceeds on a decision it never won; the refusable swap is no better, answering the post-state rather than whether the step was taken. Every shape here returns the verdict beside the state and `ignore(cell.Swap(...))` is the deleted spelling corpus-wide.
+- Law: `Commit` bounds its attempts with a `Dimension` and returns `Contended` — a TYPED exhaustion carrying the spent budget, never a success-shaped fall-through that certifies an uncommitted state as committed.
+- Exemption: compare-and-swap bodies and the bounded `Commit`/`Converge` drivers are the mechanism's statement region — each pass reads a fresh verdict, contained HERE so no consumer writes one.
+- Law: the keyed shape takes a whole-value `Atom<HashMap<TKey, TValue>>` rather than the key-grained cell, because that cell's find-or-add answers `Option<TValue>` — a `Some` that cannot distinguish the seater from the finder, which is the exact decision this owner exists to carry; consumers threading non-keyed transitions over the same cell also keep one cell type.
+- Growth: a new transition shape is one `Cell` member over the same verdict; a new verdict is one `Transition` case with every consumer's `Switch` loudly broken.
+- Packages: LanguageExt.Core (`Atom`, `HashMap`, `Option`), Thinktecture.Runtime.Extensions (`[Union]`), `Rasm.Numerics` (`Dimension`).
+
+```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Rasm.Numerics;
+
+namespace Rasm.Domain;
+
+// --- [TYPES] --------------------------------------------------------------------------------
+[Union]
+public abstract partial record Transition<TState> {
+    private Transition() { }
+    public sealed record Committed(TState State) : Transition<TState>;
+    public sealed record Ceded(TState State) : Transition<TState>;
+    public sealed record Refused(TState State, Error Cause) : Transition<TState>;
+    public sealed record Contended(TState State, Dimension Attempts) : Transition<TState>;
+    public TState Current => Switch(
+        committed: static row => row.State,
+        ceded: static row => row.State,
+        refused: static row => row.State,
+        contended: static row => row.State);
+}
+
+// --- [OPERATIONS] ---------------------------------------------------------------------------
+public static class Cell {
+    // Contended-commit ceiling: 8 CAS rounds outlast any UI-thread interleave, and a lane measuring worse hands
+    // `Commit` its own `Dimension` rather than minting a one-member budget shell of its own.
+    public static readonly Dimension SwapBudget = Dimension.Create(value: 8);
+
+    // CAS bodies re-run until they commit, so the LAST invocation's decision is the transition's verdict.
+    public static Transition<HashMap<TKey, TValue>> Claim<TKey, TValue>(Atom<HashMap<TKey, TValue>> cell, TKey key, Func<TValue> mint) {
+        TValue candidate = mint();
+        bool seated = false;
+        HashMap<TKey, TValue> settled = cell.Swap(held => {
+            seated = !held.ContainsKey(key);
+            return seated ? held.Add(key, candidate) : held;
+        });
+        return seated
+            ? (Transition<HashMap<TKey, TValue>>)new Transition<HashMap<TKey, TValue>>.Committed(State: settled)
+            : new Transition<HashMap<TKey, TValue>>.Ceded(State: settled);
+    }
+
+    public static Transition<Option<TValue>> Seat<TValue>(Atom<Option<TValue>> cell, Func<TValue> mint) {
+        TValue candidate = mint();
+        bool seated = false;
+        Option<TValue> settled = cell.Swap(held => {
+            seated = held.IsNone;
+            return seated ? Some(candidate) : held;
+        });
+        return seated
+            ? (Transition<Option<TValue>>)new Transition<Option<TValue>>.Committed(State: settled)
+            : new Transition<Option<TValue>>.Ceded(State: settled);
+    }
+
+    // Token arity: the mint publishes a caller-held token BESIDE the seated state (a seated handle answering its
+    // ordinal), so the winner reads its token off the transition and the loser reads none — a second read of the
+    // cell cannot reconstruct which caller seated it.
+    public static (Transition<Option<TValue>> Transition, Option<TToken> Token) Seat<TValue, TToken>(Atom<Option<TValue>> cell, Func<(TValue Value, TToken Token)> mint) {
+        (TValue candidate, TToken token) = mint();
+        bool seated = false;
+        Option<TValue> settled = cell.Swap(held => {
+            seated = held.IsNone;
+            return seated ? Some(candidate) : held;
+        });
+        return seated
+            ? (new Transition<Option<TValue>>.Committed(State: settled), Some(token))
+            : ((Transition<Option<TValue>>)new Transition<Option<TValue>>.Ceded(State: settled), Option<TToken>.None);
+    }
+
+    public static Transition<TState> Step<TState>(Atom<TState> cell, Func<TState, Option<TState>> step, Error declined) {
+        TState seen = cell.Value;
+        Option<TState> candidate = step(arg: seen);
+        if (candidate.IsNone) { return new Transition<TState>.Refused(State: seen, Cause: declined); }
+
+        bool landed = false;
+        TState settled = cell.SwapMaybe(current => {
+            landed = EqualityComparer<TState>.Default.Equals(x: current, y: seen);
+            return landed ? candidate : None;
+        });
+        return landed
+            ? (Transition<TState>)new Transition<TState>.Committed(State: settled)
+            : new Transition<TState>.Ceded(State: settled);
+    }
+
+    // TAKE-AND-CLEAR: the Committed payload is the DRAINED roster (the post-state is empty), so a caller disposing
+    // what it drained holds it — `Swap(_ => Seq())` answers the empty post-state and disposes nothing.
+    public static Transition<Seq<TValue>> Take<TValue>(Atom<Seq<TValue>> cell) {
+        Seq<TValue> drained = Seq<TValue>();
+        ignore(cell.Swap(held => { drained = held; return Seq<TValue>(); }));
+        return new Transition<Seq<TValue>>.Committed(State: drained);
+    }
+    public static Transition<Option<TValue>> Take<TValue>(Atom<Option<TValue>> cell) {
+        Option<TValue> drained = None;
+        ignore(cell.Swap(held => { drained = held; return None; }));
+        return new Transition<Option<TValue>>.Committed(State: drained);
+    }
+    public static Transition<TState> Commit<TState>(Atom<TState> cell, Func<TState, TState> compute, Dimension budget) {
+        for (int attempt = 0; attempt < budget.Value; attempt++) {
+            TState seen = cell.Value;
+            TState next = compute(arg: seen);
+            bool landed = false;
+            TState settled = cell.SwapMaybe(current => {
+                landed = EqualityComparer<TState>.Default.Equals(x: current, y: seen);
+                return landed ? Some(next) : None;
+            });
+            if (landed) { return new Transition<TState>.Committed(State: settled); }
+        }
+        return new Transition<TState>.Contended(State: cell.Value, Attempts: budget);
+    }
+    public static Transition<TState> Commit<TState>(Atom<TState> cell, Func<TState, TState> compute) =>
+        Commit(cell: cell, compute: compute, budget: SwapBudget);
+
+    // THE bounded iterate. `Refused` carries the state whose next step declined; a full run of committed steps
+    // answers `Contended` with the spent budget. The loop stays inside the cell mechanism so consumers neither
+    // discard transition verdicts nor route a pure convergence step through `IO` exception normalization.
+    public static Transition<TState> Converge<TState>(
+        Atom<TState> cell,
+        Func<TState, Option<TState>> step,
+        Func<TState, bool> settled,
+        Dimension budget,
+        Error declined) {
+        if (settled(cell.Value)) { return new Transition<TState>.Committed(State: cell.Value); }
+        for (int attempt = 0; attempt < budget.Value; attempt++) {
+            Transition<TState> transition = Step(cell: cell, step: step, declined: declined);
+            if (transition is Transition<TState>.Refused refused) { return refused; }
+            if (transition is Transition<TState>.Ceded ceded) { return ceded; }
+            if (transition is Transition<TState>.Committed committed && settled(committed.State)) { return committed; }
+        }
+        return new Transition<TState>.Contended(State: cell.Value, Attempts: budget);
+    }
+}
+```
+
+## [08]-[VALIDITY_FOLD]
 
 - Owner: `IValidityEvidence` the corpus-wide evidence floor (one member, `IsValid`) every kernel receipt and carrier implements, and `ValidityClaim` the claim vocabulary whose `All` fold is the one mechanism a receipt's `IsValid` body composes.
-- Entry: a receipt spells `public bool IsValid => ValidityClaim.All(...)` over its claim rows, the implicit `bool` conversion making the fold the body.
+- Entry: a receipt spells `public bool IsValid => ValidityClaim.All(...)` over its claim rows and bare predicates alike — the implicit `bool -> ValidityClaim` conversion binds a comparison, a nested receipt's own fold, and a count test at every arity, so `ValidityClaim.Of(` is the deleted spelling corpus-wide and no call site wraps.
 - Law: one claim vocabulary states each predicate once; a receipt declares which claims hold, never how a predicate is computed.
-- Law: predicate policy is named once here — the scalar `Finite` is `RhinoMath.IsValidDouble`, screening both non-finite values and the host `RhinoMath.UnsetValue` sentinel because scalar fields on kernel receipts can carry host-read material; the span `Finite` is the vectorized `TensorPrimitives.IsFiniteAll` gate, correct for solver-produced arrays that never carry the host sentinel. `Admit` (`validation.md`) lifts these same claim rows into `Op`-keyed admission faults, one predicate statement serving both rails; a host-neutral-shaped receipt (`Numerics/*`) folds `Of(...)` claims over its own `double.IsFinite` and epsilon policy.
+- Law: predicate policy is named once here — the scalar `Finite` is `RhinoMath.IsValidDouble`, screening both non-finite values and the host `RhinoMath.UnsetValue` sentinel because scalar fields on kernel receipts can carry host-read material; the span `Finite` is the vectorized `TensorPrimitives.IsFiniteAll` gate, correct for solver-produced arrays that never carry the host sentinel; the quantity `Finite` screens a `UnitsNet` carrier through its own scalar, and a decimal-backed quantity is finite by construction so the double projection loses nothing it measures. One generic numeric witness over all of these is the REJECTED collapse: it silently drops the sentinel screen the scalar arm declares load-bearing.
+- Law: the host coordinate arms are RhinoCommon's own component-wise sentinel screen — `Point3d.IsValid`/`Vector3d.IsValid` read through ONE kernel arm per struct, so the predicate for a host coordinate keeps a single kernel site and a consumer never spells `.IsValid` beside the claim vocabulary; a fourth host struct is one more arm, never a generic witness that drops the sentinel screen.
+- Law: absence is an `Option`, never a nullable receipt reference — `Evidence<T>(Option<T>)` reads an absent nested RECEIPT as non-falsifying and `WhenPresent<T>(Option<T>, claim)` is its general sibling over any facet claim, so no consumer hand-folds `facet.Map(...).IfNone(true)`. NAMED LOSS: a present receipt no longer reaches a named member; it spells `receipt.IsValid` through the conversion, which is the same fold with the kernel vocabulary dropped at that one site.
 - Law: implementing `IValidityEvidence` registers a receipt with the acceptance oracle — `OpAcceptance.ValidityOf` (`validation.md`) probes the one `IValidityEvidence` arm ahead of every category default, so a receipt also inhabiting a blanket-admitted category still answers through its own fold and a new receipt reaches the oracle with zero oracle edits.
+- Law: keyed distinctness folds ONCE. `Collisions` is the count-then-filter every "one row per key" refusal stands on — a roster freeze, a mount table, an arm table, an alert-namespace proof — so a site supplies its key projection and its own `KernelFault.InvalidValue` text and re-spells no fold; a hand-rolled count map beside a roster is the deleted form.
+- Growth: a new predicate is one claim row and zero `Op` members — `Op.Demand` takes the claim, so the guard family widens here and the key surface does not.
 - Boundary: the fold is validity evidence, never admission — admission rejects raw material at the boundary with typed faults (`validation.md`), the fold answers whether an already-constructed receipt carries coherent evidence. `All`'s span loop is the named kernel exemption.
+- Packages: RhinoCommon (`RhinoMath`), System.Numerics.Tensors (`TensorPrimitives`), UnitsNet (`IQuantity`, `QuantityValue`).
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Numerics.Tensors;
 using Rhino;
+using UnitsNet;
 
 namespace Rasm.Domain;
 
@@ -224,92 +933,142 @@ public interface IValidityEvidence { public bool IsValid { get; } }
 // --- [MODELS] -------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct ValidityClaim(bool Holds) {
-    public static ValidityClaim Of(bool holds) => new(Holds: holds);
     public static ValidityClaim Finite(double value) => new(Holds: RhinoMath.IsValidDouble(x: value));
-    public static ValidityClaim Finite(Point3d point) => new(Holds: point.IsValid);
-    public static ValidityClaim Finite(Vector3d vector) => new(Holds: vector.IsValid);
+    public static ValidityClaim Finite<T>(T value) where T : IQuantity => new(Holds: double.IsFinite(d: (double)value.Value));
     public static ValidityClaim Finite(ReadOnlySpan<double> values) => new(Holds: TensorPrimitives.IsFiniteAll(values));
+    public static ValidityClaim Finite(Point3d value) => new(Holds: value.IsValid);
+    public static ValidityClaim Finite(Vector3d value) => new(Holds: value.IsValid);
+    // Finite AND non-zero: the direction claim every consumer re-spelled as `IsValid && !IsZero`.
+    public static ValidityClaim Direction(Vector3d value) => new(Holds: value.IsValid && !value.IsZero);
     public static ValidityClaim Nonnegative(double value) => new(Holds: RhinoMath.IsValidDouble(x: value) && value >= 0.0);
     public static ValidityClaim Positive(double value) => new(Holds: RhinoMath.IsValidDouble(x: value) && value > 0.0);
     public static ValidityClaim UnitInterval(double value) => new(Holds: RhinoMath.IsValidDouble(x: value) && value is >= 0.0 and <= 1.0);
     public static ValidityClaim Ordered(double lower, double upper) => new(Holds: RhinoMath.IsValidDouble(x: lower) && RhinoMath.IsValidDouble(x: upper) && lower <= upper);
     public static ValidityClaim CountAtLeast(int count, int floor) => new(Holds: count >= floor);
     public static ValidityClaim CountExactly(int count, int expected) => new(Holds: count == expected);
-    public static ValidityClaim Evidence(IValidityEvidence? evidence) => new(Holds: evidence is { IsValid: true });
     public static ValidityClaim Evidence<T>(Option<T> evidence) where T : IValidityEvidence =>
         new(Holds: evidence.Map(static value => value.IsValid).IfNone(noneValue: true));
-    // Span fold kernel: the one statement-shaped body in the mechanism.
+    // General absent-tolerant arm: `Evidence` reads a nested receipt's own fold, this one reads ANY claim over a
+    // present facet, so a consumer hand-folding `facet.Map(...).IfNone(true)` per field is the deleted form.
+    public static ValidityClaim WhenPresent<T>(Option<T> facet, Func<T, ValidityClaim> claim) =>
+        new(Holds: facet.Map(claim).IfNone(noneValue: true));
     public static ValidityClaim All(params ReadOnlySpan<ValidityClaim> claims) {
         foreach (ValidityClaim claim in claims) {
             if (!claim.Holds) { return new(Holds: false); }
         }
         return new(Holds: true);
     }
+    public static implicit operator ValidityClaim(bool holds) => new(Holds: holds);
     public static implicit operator bool(ValidityClaim claim) => claim.Holds;
+}
+
+// --- [OPERATIONS] ---------------------------------------------------------------------------
+// ONE keyed-distinctness fold behind every "one row per key" refusal. The count map is the whole mechanism: a
+// site hands its key projection and keeps its own `KernelFault.InvalidValue` text, so five owners that each folded,
+// filtered, and re-strictified their own roster now name one member and diverge only where they should.
+internal static class RosterFold {
+    internal static Seq<TKey> Collisions<T, TKey>(this Seq<T> rows, Func<T, TKey> key) where TKey : notnull =>
+        rows.Fold(
+                HashMap<TKey, int>(),
+                (held, row) => held.AddOrUpdate(key(arg: row), static seats => seats + 1, static () => 1))
+            .AsIterable().Filter(static seat => seat.Value > 1).Map(static seat => seat.Key).ToSeq().Strict();
 }
 ```
 
-## [07]-[THREADING_LAW]
+## [09]-[THREADING_LAW]
 
 One Op-threading law rules every kernel page; no page re-decides it.
 
 - Law: `Op` is an explicit VALUE — minted once at the public entry through `Op.Of()` or read off a union case's generated `SelfOp`, threaded as the trailing key parameter of every fallible kernel, and read by every fault factory; it identifies the failed operation, never runtime capability. Repeated `OrDefault()` inside one member is value-identical, never a split key: `[CallerMemberName]` resolves lexically to the enclosing member (lambdas included), so every resolution mints the equal `[ValueObject<string>]` value — the law is value identity, not call count.
+- Law: `Op? key = null` resolved through `OrDefault()` is the ONE optional-key spelling and survives on PUBLIC `[BoundaryAdapter]` entries alone; an interior member takes a required `Op key` tail, and every other optional context is `Option<T> x = default` consumed through `IfNone` against its policy owner's canonical row. `T? x = null` optional tails are the deleted form kernel-wide. `Op.ToHostSlot`/`ToHostNullable` are the ONE place `null` is a legal spelling — a HOST slot write the domain never reads back — so no host-facing page hand-spells the `Option` → `null` projection.
 - Law: `Eff<Env>` is the runtime CARRIAGE — a pipeline needing tolerance context, progress, or cancellation is `Eff<Env, T>` composing `Env.Asks`/`Env.EnvAsks`. No `Op` key enters `Env`, and no ambient static, `AsyncLocal`, or second key mechanism exists in the kernel.
 - Law: below the `Eff` floor the synchronous rails thread `Context` and `CancellationToken` as explicit parameters (`Requirement.Apply(context, value, cancel)` is the canonical shape); at the floor and above, `Env` carries both. One operation is written in exactly one paradigm — a `Fin`/`Validation` body with a key tail, or an `Eff<Env, T>` pipeline threading the same key as a value.
 - Law: telemetry is a TAP, never a rail — the `TelemetrySink` (`telemetry.md`) rides `Env` at the `Eff` floor or enters a synchronous gate point as one explicit trailing parameter beside `Context`/`CancellationToken`; facts publish through its one `Tap`, and an observe-side subscriber fault isolates onto the tap receipt, never failing the tapped operation.
 - Boundary: `Env` is `Analysis/query.md`'s frozen record — this page legislates the carriage law, that page owns the record and the pipeline shape.
 
-## [08]-[CARRIER_CODEC]
+## [10]-[CARRIER_CODEC]
 
-- Owner: `LanguageExtJsonConverterFactory` with its closed `SeqJsonConverter<T>`/`SetJsonConverter<T>`/`OptionJsonConverter<T>`/`HashMapJsonConverter<K, V>` rows — the ONE carrier-space System.Text.Json owner for the LanguageExt collections any wire crosses. Homed at the kernel because every stratum carries `Rasm`: the S1 suite merge (`Rasm.AppHost/Runtime/ports#WIRE_LAW` `SuiteContracts.Wire`) and the S2 private mints (`Rasm.Persistence/Element/codec` `ElementJson`, `Rasm.Fabrication/Process/telemetry` `FabricationWireContext`) each REGISTER this one type; an S1 home left the S2 graphs — whose reference set is `{Rasm, Rasm.Element}` — unable to name it, which is the strata violation that forced the move.
-- Cases: admission is ONE `FrozenDictionary<Type, Type>` carrier table read by both `CanConvert` and `CreateConverter`, so a new carrier is one row and never a second predicate clause that drifts from what the mint can actually produce.
-- Law: every element round-trips through the SAME options the carrier was resolved from, so nesting composes — a `Seq<T>` whose rows carry `Instant` or generated owners still reaches the NodaTime and Thinktecture converters the registering mint carries, and a carrier converter re-implementing an element codec is the deleted form. Each container's wire shape is exactly what the underlying BCL member emits — array for `Seq` and `Set`, object for `HashMap`, the bare value for `Option` — so wrapping the elements in a message envelope is the rejected form.
+- Owner: `LanguageExtJsonConverterFactory` with its `CollectionJsonConverter<TCarrier, T>`/`OptionJsonConverter<T>`/`HashMapJsonConverter<K, V>` rows — the ONE carrier-space System.Text.Json owner for the LanguageExt collections any wire crosses. Homed at the kernel because every stratum carries `Rasm`: the S1 suite merge (`Rasm.AppHost/Runtime/ports#WIRE_LAW` `SuiteContracts.Wire`) and the S2 private mints (`Rasm.Persistence/Element/codec` `ElementJson`, `Rasm.Fabrication/Process/telemetry` `FabricationWireContext`) each REGISTER this one type; an S1 home left the S2 graphs — whose reference set is `{Rasm, Rasm.Element}` — unable to name it, which is the strata violation that forced the move.
+- Cases: admission is ONE `Carriers` table read by both `CanConvert` and `CreateConverter`, so a new carrier is one row and never a second predicate clause that drifts from what the mint produces. Every array-shaped carrier shares ONE converter: a set and a sequence differ in admission, not in wire form, so the row names the closing shape and no second class exists — `Seq`, `Set`, `Arr`, `Lst`, and `HashSet` all read `CarrierRow.Collection`.
+- Auto: the element builder DERIVES from the carrier's own `[CollectionBuilder]` attribute, so the roster has no builder column to keep in step with the carrier set; the bind runs once per closed type in a generic static and a carrier without the attribute fails at type initialization rather than at the first decode.
+- Law: the mint is memoized on the page's own claim transition (`[07]`), so `Activator.CreateInstance` runs once per closed carrier type rather than once per `CreateConverter` call, and a contended first mint seats exactly one instance.
+- Law: every element round-trips through the SAME options the carrier was resolved from, so nesting composes — a `Seq<T>` whose rows carry `Instant` or generated owners still reaches the NodaTime and Thinktecture converters the registering mint carries, and a carrier converter re-implementing an element codec is the deleted form. Each container's wire shape is exactly what the underlying BCL member emits — array for the collection carriers, object for `HashMap`, the bare value for `Option` — so wrapping the elements in a message envelope is the rejected form.
 - Law: `Option<T>` serves BOTH emission postures without a knob — under a resolver carrying an `OmitAbsent`-class modifier (the suite merge) the write leg never sees a `None`; under an explicit-null mint (the S2 graphs, defaulting `JsonIgnoreCondition.Never`) a `None` writes `null` and the read leg admits `null` symmetrically. One converter serves every mint, and the emission posture is the registering RESOLVER's contract, never this owner's.
 - Boundary: registration is the mint's obligation and this owner registers nothing — a per-member `[JsonConverter]` attribute over these carriers and a second factory declaration are the deleted forms at every mint. LanguageExt ships no System.Text.Json support and its carriers are structurally unpopulatable by the serializer — each is an immutable readonly struct whose `[CollectionBuilder]` hook the serializer never reads and whose `Add` returns a NEW value — so without this factory the READ leg fails on every member while the write leg succeeds, the silent decode-failure shape.
-- Packages: LanguageExt.Core; BCL inbox (`System.Text.Json`, `System.Collections.Frozen`).
-- Growth: a new carrier is one `Carriers` row beside its closed converter, never a per-member attribute, a mint-local converter, or a second factory.
+- Packages: LanguageExt.Core; BCL inbox (`System.Text.Json`, `System.Collections.Frozen`, `System.Reflection`).
+- Growth: a new carrier is ONE `Carriers` row — the array shapes name the shared collection row, a distinct wire shape names its own converter. `Map<,>` is the one carrier still outside the table: it is ordered-keyed, so it lands as its own `Shaped` row with a converter that rebuilds through `toMap` rather than borrowing `HashMap`'s.
 
 ```csharp signature
-// --- [CARRIER_CODEC] ------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using System.Collections.Frozen;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace Rasm.Domain;
+
+// --- [TABLES] -------------------------------------------------------------------------------
 public sealed class LanguageExtJsonConverterFactory : JsonConverterFactory {
-    // Carrier -> closed-converter row: the admission predicate and the mint read ONE table, so a new carrier is
-    // one row and never a second `CanConvert` clause that drifts from what `CreateConverter` can actually mint.
-    static readonly FrozenDictionary<Type, Type> Carriers = new Dictionary<Type, Type> {
-        [typeof(Seq<>)] = typeof(SeqJsonConverter<>),
-        [typeof(Set<>)] = typeof(SetJsonConverter<>),
-        [typeof(Option<>)] = typeof(OptionJsonConverter<>),
-        [typeof(HashMap<,>)] = typeof(HashMapJsonConverter<,>),
+    // Carrier -> converter row: the admission predicate and the mint read ONE table, so a new carrier is one
+    // row and never a second `CanConvert` clause that drifts from what `CreateConverter` can actually mint.
+    static readonly FrozenDictionary<Type, CarrierRow> Carriers = new Dictionary<Type, CarrierRow> {
+        [typeof(Seq<>)] = CarrierRow.Collection,
+        [typeof(Set<>)] = CarrierRow.Collection,
+        [typeof(Arr<>)] = CarrierRow.Collection,
+        [typeof(Lst<>)] = CarrierRow.Collection,
+        // Qualified: the BCL `HashSet<>` rides the implicit global using and the bare name is ambiguous here.
+        [typeof(LanguageExt.HashSet<>)] = CarrierRow.Collection,
+        [typeof(Option<>)] = CarrierRow.Shaped(converter: typeof(OptionJsonConverter<>)),
+
+        [typeof(HashMap<,>)] = CarrierRow.Shaped(converter: typeof(HashMapJsonConverter<,>)),
     }.ToFrozenDictionary();
+
+    static readonly Atom<HashMap<Type, JsonConverter>> Minted = Atom(HashMap<Type, JsonConverter>());
 
     public override bool CanConvert(Type type) =>
         type.IsGenericType && Carriers.ContainsKey(type.GetGenericTypeDefinition());
 
     public override JsonConverter CreateConverter(Type type, JsonSerializerOptions options) =>
-        (JsonConverter)Activator.CreateInstance(
-            Carriers[type.GetGenericTypeDefinition()].MakeGenericType(type.GetGenericArguments()))!;
-}
+        Cell.Claim(cell: Minted, key: type, mint: () => Mint(type: type)).Current[type];
 
-public sealed class SeqJsonConverter<T> : JsonConverter<Seq<T>> {
-    public override Seq<T> Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options) =>
-        toSeq(JsonSerializer.Deserialize<T[]>(ref reader, options) ?? []);
+    static JsonConverter Mint(Type type) {
+        CarrierRow row = Carriers[type.GetGenericTypeDefinition()];
+        return (JsonConverter)Activator.CreateInstance(type: row.Converter.MakeGenericType(row.Close(type)))!;
+    }
 
-    public override void Write(Utf8JsonWriter writer, Seq<T> value, JsonSerializerOptions options) {
-        writer.WriteStartArray();
-        value.Iter(item => JsonSerializer.Serialize(writer, item, options));
-        writer.WriteEndArray();
+    readonly record struct CarrierRow(Type Converter, Func<Type, Type[]> Close) {
+        // This array-shaped row carries ONE converter for every carrier LanguageExt builds from a span, closed over the
+        // carrier BESIDE its element so the builder resolves off the carrier's own `[CollectionBuilder]`.
+        public static readonly CarrierRow Collection =
+            new(Converter: typeof(CollectionJsonConverter<,>), Close: static type => [type, type.GetGenericArguments()[0]]);
+        public static CarrierRow Shaped(Type converter) =>
+            new(Converter: converter, Close: static type => type.GetGenericArguments());
     }
 }
 
-// Set carries the array shape `Seq` does, since a set and a sequence differ in admission rather than in wire
-// form; ordering is the carrier's own, so a producer and a consumer read one canonical order without a sort
-// clause at either end.
-public sealed class SetJsonConverter<T> : JsonConverter<Set<T>> {
-    public override Set<T> Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options) =>
-        toSet(JsonSerializer.Deserialize<T[]>(ref reader, options) ?? []);
+// --- [BOUNDARIES] ---------------------------------------------------------------------------
+public delegate TCarrier CarrierBuild<TCarrier, T>(ReadOnlySpan<T> rows);
 
-    public override void Write(Utf8JsonWriter writer, Set<T> value, JsonSerializerOptions options) {
+public sealed class CollectionJsonConverter<TCarrier, T> : JsonConverter<TCarrier> where TCarrier : IEnumerable<T> {
+    // Bound once per closed carrier by the generic static, never per `Read`. The open-generic lookup keys on the
+    // span arity the attribute's factory declares, so an overload set on the builder type cannot mis-bind.
+    static readonly CarrierBuild<TCarrier, T> Build = Bind();
+
+    static CarrierBuild<TCarrier, T> Bind() {
+        CollectionBuilderAttribute hook = typeof(TCarrier).GetCustomAttribute<CollectionBuilderAttribute>()!;
+        return hook.BuilderType
+            .GetMethod(name: hook.MethodName, genericParameterCount: 1, types: [typeof(ReadOnlySpan<>).MakeGenericType(Type.MakeGenericMethodParameter(0))])!
+            .MakeGenericMethod(typeof(T))
+            .CreateDelegate<CarrierBuild<TCarrier, T>>();
+    }
+
+    public override TCarrier Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options) =>
+        Build(JsonSerializer.Deserialize<T[]>(ref reader, options) ?? []);
+
+    public override void Write(Utf8JsonWriter writer, TCarrier value, JsonSerializerOptions options) {
         writer.WriteStartArray();
-        value.Iter(item => JsonSerializer.Serialize(writer, item, options));
+        foreach (T item in value) { JsonSerializer.Serialize(writer, item, options); }
         writer.WriteEndArray();
     }
 }
@@ -323,13 +1082,13 @@ public sealed class OptionJsonConverter<T> : JsonConverter<Option<T>> {
             ? Option<T>.None
             : Optional(JsonSerializer.Deserialize<T>(ref reader, options));
 
-    public override void Write(Utf8JsonWriter writer, Option<T> value, JsonSerializerOptions options) =>
-        ignore(value.Match(
-            Some: item => { JsonSerializer.Serialize(writer, item, options); return unit; },
-            None: () => { writer.WriteNullValue(); return unit; }));
+    public override void Write(Utf8JsonWriter writer, Option<T> value, JsonSerializerOptions options) {
+        foreach (T item in value.AsEnumerable()) { JsonSerializer.Serialize(writer, item, options); return; }
+        writer.WriteNullValue();
+    }
 }
 
-// The key rides its own converter's DICTIONARY-KEY leg, so a generated owner keying a map lands as its key
+// Keys ride their own converter's DICTIONARY-KEY leg, so a generated owner keying a map lands as its key
 // scalar and the map reads as a plain JSON object rather than an entry array; serializing the key as a value
 // and trimming its quotes is the deleted form, which loses every escape the property-name leg encodes.
 // `AsIterable` is the map's one key-bearing enumeration, since `HashMap<K, V>`'s carrier-generic `Fold`
@@ -351,20 +1110,23 @@ public sealed class HashMapJsonConverter<K, V> : JsonConverter<HashMap<K, V>> wh
 }
 ```
 
-## [09]-[DENSITY_BAR]
+## [11]-[DENSITY_BAR]
 
-One substrate floor; growth is a case, a claim row, or a generated `SelfOp`, never a sibling rail.
+One substrate floor; growth is a case, a band row, a claim row, a carrier row, or a generated `SelfOp`, never a sibling rail.
 
-| [INDEX] | [CONCERN]          | [OWNER]                               | [KIND]                               | [RAIL]                     |
-| :-----: | :----------------- | :------------------------------------ | :----------------------------------- | :------------------------- |
-|  [01]   | Operation identity | `Op`                                  | `[ValueObject<string>]` fault/accept | `Op → Error`/`Op → Fin<T>` |
-|  [02]   | Codegen contract   | `GenerateUnionOps`                    | opt-in marker + generated `SelfOp`   | `[Union] case → Op`        |
-|  [03]   | Substrate faults   | `Expected` + `Fault`                  | typed `Expected`/`Fault` payloads    | `Fault → Error` subtype    |
-|  [04]   | Resource ownership | `Lease<T>`                            | `[Union]` Owned/Borrowed cases       | `Lease<T>.Use → TResult`   |
-|  [05]   | Receipt validity   | `IValidityEvidence` + `ValidityClaim` | evidence floor + claim fold          | `ValidityClaim.All → bool` |
-|  [06]   | Carrier codec      | `LanguageExtJsonConverterFactory`     | closed carrier-to-converter table    | mint registers, wire rides |
+| [INDEX] | [CONCERN]              | [OWNER]                               | [KIND]                                  | [RAIL]                      |
+| :-----: | :--------------------- | :------------------------------------ | :-------------------------------------- | :-------------------------- |
+|  [01]   | Operation identity     | `Op`                                  | `[ValueObject<string>]` fault/accept    | `Op → Error`/`Op → Fin<T>`  |
+|  [02]   | Codegen contract       | `GenerateUnionOps`                    | opt-in marker + generated `SelfOp`      | `[Union] case → Op`         |
+|  [03]   | Fault code space       | `FaultBand`                           | `[SmartEnum<int>]` branch-wide registry | `band → int` + `int → band` |
+|  [04]   | Substrate faults       | `Fault` + `KernelFault`               | typed payloads under generated identity | `Fault → Error` subtype     |
+|  [05]   | Retriability + redrive | `Retriability` + `Redrive`            | `[Union]` discriminant + policy value   | `Error → Verdict`/`IO<T>`   |
+|  [06]   | Resource ownership     | `Lease<T>`                            | `[Union]` Owned/Borrowed cases          | `Lease<T>.Use → TResult`    |
+|  [07]   | Transition verdict     | `Transition<TState>` + `Cell`         | `[Union]` verdict + four CAS shapes     | `Atom<T> → Transition<T>`   |
+|  [08]   | Receipt validity       | `IValidityEvidence` + `ValidityClaim` | evidence floor + claim fold             | `ValidityClaim.All → bool`  |
+|  [09]   | Carrier codec          | `LanguageExtJsonConverterFactory`     | closed carrier-to-converter table       | mint registers, wire rides  |
 
-## [10]-[RESEARCH]
+## [12]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

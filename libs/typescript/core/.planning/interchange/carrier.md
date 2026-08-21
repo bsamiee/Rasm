@@ -14,17 +14,17 @@ One module seats both owners, since a message envelope's extension slot IS a car
 ## [02]-[CONTEXT_VALUE]
 
 - Owner: `Traceparent`, `Carrier.State`, `Carrier.Member`, and `Carrier.Context` own parent, tracestate, baggage, and optionality.
-- Law: Malformed parents restart; invalid state or baggage members drop independently.
+- Law: Malformed parents restart; invalid state or baggage members drop independently, and every drop RETURNS as a `Fault.Drop` occurrence.
 - Law: Baggage properties prove delimiter-safe W3C grammar before entering context.
 - Law: Baggage admits 64 members, 4096 encoded bytes per member, and 8192 encoded bytes total.
 - Law: Version `ff`, invalid version-zero flags, extensions on version zero, and all-zero identities refuse.
 - Law: Parent print emits the supported version-zero spelling and sampled flag.
-- Law: `_stateRows` enforces grammar, first-key-wins uniqueness, member count, and aggregate text bounds before joining.
+- Law: `_stateRows` enforces grammar, first-key-wins uniqueness, member count, and aggregate text bounds in one fold, each arm naming its own drop reason.
 - Law: Baggage print uses Effect `Encoding` before member and aggregate encoded-byte admission.
 - Law: `Carrier.span` lifts structural span fields; `Carrier.Current` scopes ingress; `Carrier.current` overlays the live parent and preserves lists.
 - Growth: a new context list (a fourth W3C header) is one field on the triple with its parse/print row; a new parse bound is one `_CEILING` field.
 - Boundary: Tracer owns the live span; data owns persisted contexts; `Carrier` owns pure context values and folds.
-- Packages: `effect` (`Array`, `Effect`, `Either`, `Encoding`, `Option`, `Schema`, `String`, `pipe`); `../value/identity.ts` (`Identity.Tenant`).
+- Packages: `effect` (`Array`, `Effect`, `Either`, `Encoding`, `Option`, `Schema`, `String`, `pipe`); `../value/fault.ts` (`Fault.Drop`, `Fault.Ledger`); `../value/identity.ts` (`Identity.Tenant`).
 
 ```typescript signature
 import { decodeBinaryHeader, encodeBinaryHeader } from "@connectrpc/connect"
@@ -32,6 +32,7 @@ import type { Wire } from "./codec.ts" // type-only: the census family union, ca
 import { Headers, HttpTraceContext } from "@effect/platform"
 import { Array, Context, Effect, Either, Encoding, Option, Predicate, Record, Schema, String, pipe } from "effect"
 import { Convention } from "../observe/convention.ts"
+import { Fault } from "../value/fault.ts"
 import { Identity } from "../value/identity.ts"
 
 const _CEILING = { state: 32, stateText: 512, baggage: 64, baggageMember: 4096, baggageText: 8192 } as const
@@ -69,80 +70,124 @@ const _parent = (text: string): Option.Option<Traceparent> =>
       _decodedParent({ traceId, spanId, sampled: (Number.parseInt(flags ?? "00", 16) & 1) === 1 })),
   )
 
-// Property tails re-print verbatim, so grammar is admission: a malformed tail drops here exactly
-// as a malformed member drops, and the one fold serves parse and print identically.
-const _properties = (properties: ReadonlyArray<string>): ReadonlyArray<string> =>
-  pipe(
-    properties,
-    Array.map(String.trim),
-    Array.filter((property) => _PROPERTY.test(property)),
+// Property tails re-print verbatim, so grammar is admission: a malformed tail drops here exactly as a malformed
+// member drops, and the one fold serves parse and print identically. Empty segments are separator noise rather than
+// material — a trailing semicolon is lawful W3C framing, so nothing was sent to drop and no occurrence names it.
+const _properties = (properties: ReadonlyArray<string>): Carrier.Sifted<ReadonlyArray<string>> =>
+  Array.partitionMap(
+    Array.filter(Array.map(properties, String.trim), String.isNonEmpty),
+    (property) =>
+      _PROPERTY.test(property) ? Either.right(property) : Either.left(Fault.Drop.fact("unparsed", property, 1)),
   )
 
-type _StateFold = { readonly rows: ReadonlyArray<Carrier.State>; readonly length: number }
+type _StateFold = {
+  readonly rows: ReadonlyArray<Carrier.State>
+  readonly seen: ReadonlyArray<string>
+  readonly length: number
+  readonly dropped: ReadonlyArray<Fault.Drop.Fact>
+}
 
 const _stateMember = ({ key, value }: Carrier.State): boolean => _STATE_KEY.test(key) && _STATE_VALUE.test(value)
 
-const _stateRows = (rows: ReadonlyArray<Carrier.State>): ReadonlyArray<Carrier.State> =>
+// The four bounds are DEPENDENT — which rows survive uniqueness decides what the count ceiling reaches, and that
+// decides what the aggregate budget can still hold — so one fold applies them in the declared order and every arm
+// answers the reason its own bound means. Split across `filter`/`dedupeWith`/`take`/`reduce`, each stage discarded a
+// DIFFERENT thing into the same shorter list, and a caller reading four rows where a peer sent forty could not tell a
+// grammar refusal from a spent byte budget. The drop constructor is deferred, so an admitted row prices no fact.
+const _stateRows = (rows: ReadonlyArray<Carrier.State>): Carrier.Sifted<ReadonlyArray<Carrier.State>> =>
   pipe(
-    rows,
-    Array.filter(_stateMember),
-    (admitted) => Array.dedupeWith(admitted, (left, right) => left.key === right.key),
-    Array.take(_CEILING.state),
-    Array.reduce({ rows: [], length: 0 } satisfies _StateFold, (held, row) => {
-      const length = held.length + (Array.isEmptyReadonlyArray(held.rows) ? 0 : 1) + row.key.length + row.value.length + 1
-      return length <= _CEILING.stateText ? { rows: [...held.rows, row], length } : held
-    }),
-  ).rows
+    Array.reduce(
+      rows,
+      { rows: [], seen: [], length: 0, dropped: [] } satisfies _StateFold,
+      (held, row): _StateFold => {
+        const dropped = (reason: Fault.Drop.Reason, extent: number): ReadonlyArray<Fault.Drop.Fact> =>
+          [...held.dropped, Fault.Drop.fact(reason, row.key, extent)]
+        if (!_stateMember(row)) return { ...held, dropped: dropped("unparsed", 1) }
+        if (Array.contains(held.seen, row.key)) return { ...held, dropped: dropped("coalesced", 1) }
+        const seen = [...held.seen, row.key]
+        if (held.rows.length === _CEILING.state) return { ...held, seen, dropped: dropped("truncated", 1) }
+        const length = held.length + (Array.isEmptyReadonlyArray(held.rows) ? 0 : 1) + row.key.length + row.value.length + 1
+        return length > _CEILING.stateText
+          ? { ...held, seen, dropped: dropped("oversize", length - _CEILING.stateText) }
+          : { rows: [...held.rows, row], seen, length, dropped: held.dropped }
+      },
+    ),
+    (held) => [held.dropped, held.rows] as const,
+  )
 
-const _state = (text: string): ReadonlyArray<Carrier.State> =>
+const _state = (text: string): Carrier.Sifted<ReadonlyArray<Carrier.State>> =>
   pipe(
-    String.split(text, ","),
-    Array.filterMap((entry) =>
-      pipe(
-        Option.fromNullable(/^([^=]+)=(.*)$/.exec(String.trim(entry))),
-        Option.map(([, key, value]) => ({ key: key ?? "", value: value ?? "" })),
-      )),
-    _stateRows,
+    Array.partitionMap(
+      Array.filter(Array.map(String.split(text, ","), String.trim), String.isNonEmpty),
+      (entry): Either.Either<Carrier.State, Fault.Drop.Fact> =>
+        pipe(
+          Option.fromNullable(/^([^=]+)=(.*)$/.exec(entry)),
+          Option.match({
+            onNone: () => Either.left(Fault.Drop.fact("unparsed", entry, 1)),
+            onSome: ([, key, value]) => Either.right({ key: key ?? "", value: value ?? "" }),
+          }),
+        ),
+    ),
+    ([unframed, framed]) =>
+      pipe(_stateRows(framed), ([refused, admitted]) => [[...unframed, ...refused], admitted] as const),
   )
 
 const _utf8 = { read: new TextDecoder(), write: new TextEncoder() } as const
 const _bytes = (text: string): number => _utf8.write.encode(text).byteLength
 
-const _baggageMember = (entry: string): Option.Option<Carrier.Member> =>
-  pipe(
-    String.trim(entry),
-    Option.liftPredicate((held) => _bytes(held) <= _CEILING.baggageMember),
-    Option.flatMap((held) => pipe(String.split(held, ";"), ([head, ...properties]) =>
-      pipe(
-        Option.fromNullable(/^([^=]+)=(.*)$/.exec(head ?? "")),
-        Option.filter(([, key, value]) =>
-          key !== undefined && _BAGGAGE_KEY.test(key) && _BAGGAGE_VALUE.test(value ?? "")),
-        Option.flatMap(([, key, value]) =>
-          Option.map(_decodeUri(value ?? ""), (decoded) => ({
-            key: key ?? "",
-            value: decoded,
-            properties: _properties(properties),
-          }))),
-      ))),
-  )
+// A member refused WHOLE takes its property tails with it, so the occurrence names the member alone: reporting the
+// tails of a member no context will hold counts damage twice against one entry.
+const _baggageMember = (entry: string): Carrier.Sifted<Option.Option<Carrier.Member>> =>
+  pipe(String.trim(entry), (held) =>
+    _bytes(held) > _CEILING.baggageMember
+      ? [[Fault.Drop.fact("oversize", held, _bytes(held) - _CEILING.baggageMember)], Option.none()] as const
+      : pipe(String.split(held, ";"), ([head, ...properties]) =>
+          pipe(_properties(properties), ([refusedTails, tails]) =>
+            pipe(
+              Option.fromNullable(/^([^=]+)=(.*)$/.exec(head ?? "")),
+              Option.filter(([, key, value]) =>
+                key !== undefined && _BAGGAGE_KEY.test(key) && _BAGGAGE_VALUE.test(value ?? "")),
+              Option.flatMap(([, key, value]) =>
+                Option.map(_decodeUri(value ?? ""), (decoded) => ({ key: key ?? "", value: decoded, properties: tails }))),
+              Option.match({
+                onNone: (): Carrier.Sifted<Option.Option<Carrier.Member>> =>
+                  [[Fault.Drop.fact("unparsed", held, 1)], Option.none()],
+                onSome: (member): Carrier.Sifted<Option.Option<Carrier.Member>> => [refusedTails, Option.some(member)],
+              }),
+            ))))
 
-const _baggage = (text: string): ReadonlyArray<Carrier.Member> =>
+// An over-budget header used to return `[]`, which read identically to a peer that sent no baggage at all — and
+// `rasm.tenant` vanished with it. It now returns ONE occurrence naming the header and the bytes it overshot, and the
+// member ceiling that follows names each entry it refused past the count rather than trimming the tail in silence.
+const _baggage = (text: string): Carrier.Sifted<ReadonlyArray<Carrier.Member>> =>
   _bytes(text) > _CEILING.baggageText
-    ? []
-    : pipe(String.split(text, ","), Array.filterMap(_baggageMember), Array.take(_CEILING.baggage))
+    ? [[Fault.Drop.fact("oversize", "baggage", _bytes(text) - _CEILING.baggageText)], []]
+    : Array.reduce(
+        Array.filter(Array.map(String.split(text, ","), String.trim), String.isNonEmpty),
+        [[], []] as Carrier.Sifted<ReadonlyArray<Carrier.Member>>,
+        ([dropped, kept], entry): Carrier.Sifted<ReadonlyArray<Carrier.Member>> =>
+          kept.length === _CEILING.baggage
+            ? [[...dropped, Fault.Drop.fact("truncated", entry, 1)], kept]
+            : pipe(_baggageMember(entry), ([refused, member]) => [
+                [...dropped, ...refused],
+                Option.match(member, { onNone: () => kept, onSome: (held) => [...kept, held] }),
+              ]),
+      )
 
 const _printedParent = (parent: Traceparent): string =>
   `00-${parent.traceId}-${parent.spanId}-${parent.sampled ? "01" : "00"}`
 
+// Print re-applies the SAME admission to material the CALLER already holds, so its discards need no census here: the
+// caller reads them off `Carrier.parse` over its own text, and every transport row states the forfeiture on `degrade`.
 const _printedState = (rows: ReadonlyArray<Carrier.State>): string =>
-  Array.join(Array.map(_stateRows(rows), (row) => `${row.key}=${row.value}`), ",")
+  Array.join(Array.map(_stateRows(rows)[1], (row) => `${row.key}=${row.value}`), ",")
 
 const _printedMember = ({ key, value, properties }: Carrier.Member): Option.Option<string> =>
   pipe(
     Option.some(key),
     Option.filter((held) => _BAGGAGE_KEY.test(held)),
     Option.flatMap(() => _encodeUri(value)),
-    Option.map((encoded) => Array.join([`${key}=${encoded}`, ..._properties(properties)], ";")),
+    Option.map((encoded) => Array.join([`${key}=${encoded}`, ..._properties(properties)[1]], ";")),
     Option.filter((member) => _bytes(member) <= _CEILING.baggageMember),
   )
 
@@ -219,7 +264,9 @@ const _tenant = (context: Carrier.Context): Option.Option<Identity.Tenant> =>
 - Owner: `_dialects` and `Carrier.record` share immutable record-header read and write rows.
 - Owner: `_BIN` carries typed metadata as base64 octets through Connect `-bin` headers.
 - Law: `_dialects` maps one W3C context to string, repeated-string, byte, or extension-record frames; consumers use only that row.
-- Law: `inject` omits absent fields and prints `tracestate` beneath a printed parent alone; `extract` drops malformed members independently and always returns `Carrier.Context`.
+- Law: `inject` omits absent fields and prints `tracestate` beneath a printed parent alone; `extract` always returns `Carrier.Extraction` — the total context beside the census of everything the parse refused.
+- Law: a restarted parent, a refused traceparent, and an over-budget baggage header each name a MEASURED occurrence, so an empty list never reads as a peer that sent nothing.
+- Law: print re-admits the caller's own material and publishes no census — the transport row's `degrade` states that forfeiture and `Carrier.parse` answers it on demand.
 - Law: Missing or malformed W3C parents fall through to platform `b3` then `xb3` decoders; injection remains W3C-only.
 - Law: Restart discards `tracestate`, so vendor rows survive the W3C parent alone and never a `b3`-recovered one.
 - Law: B3 projection reads through the selected dialect row once, so every transport shares the same fallback.
@@ -259,6 +306,12 @@ declare namespace Carrier {
     readonly mqtt: Record.ReadonlyRecord<string, string | ReadonlyArray<string>>
     readonly nats: Record.ReadonlyRecord<string, string>
   }
+  // ONE carrier for every sifting fold on this page: the occurrences it refused beside whatever it admitted, whether
+  // that is a roster or a single member. A second shape per arity would be two names for one answer.
+  type Sifted<A> = readonly [dropped: ReadonlyArray<Fault.Drop.Fact>, kept: A]
+  // The context is the value consumers thread; the census is what the parse refused reaching it. Fusing the two into
+  // one widened context would put a decode ledger on a value `inject` also writes.
+  type Extraction = { readonly context: Context; readonly dropped: Fault.Ledger.Census }
   type RecordHeader = Uint8Array | string | ReadonlyArray<Uint8Array | string> | undefined
   type RecordHeaders = Record.ReadonlyRecord<string, RecordHeader>
   type Dialect = keyof Frame
@@ -279,16 +332,16 @@ declare namespace Carrier {
     readonly current: Effect.Effect<Context>
     readonly dialects: typeof _dialects // consumers read a row's `degrade` before selecting the transport that carries their context
     readonly empty: Context
-    readonly extract: <K extends Dialect>(dialect: K, frame: Frame[K]) => Context
+    readonly extract: <K extends Dialect>(dialect: K, frame: Frame[K]) => Extraction
     readonly inject: <K extends Dialect>(dialect: K, context: Context, frame: Frame[K]) => Frame[K]
     readonly record: {
       readonly read: (headers: RecordHeaders) => Frame["kafka"]
       readonly write: (frame: Frame["kafka"]) => Record.ReadonlyRecord<string, string>
     }
     readonly parse: {
-      readonly baggage: (text: string) => ReadonlyArray<Member>
+      readonly baggage: (text: string) => Sifted<ReadonlyArray<Member>>
       readonly traceparent: (text: string) => Option.Option<Traceparent>
-      readonly tracestate: (text: string) => ReadonlyArray<State>
+      readonly tracestate: (text: string) => Sifted<ReadonlyArray<State>>
     }
     readonly print: {
       readonly baggage: (members: ReadonlyArray<Member>) => string
@@ -399,26 +452,49 @@ const _zipkin = <K extends Carrier.Dialect>(dialect: K, frame: Carrier.Frame[K])
     ),
   )
 
-const _extract = <K extends Carrier.Dialect>(dialect: K, frame: Carrier.Frame[K]): Carrier.Context =>
+// EXTRACTION, never a bare context: every bound this parse applies discards material a peer actually sent, so the
+// occurrences RETURN beside the value and a caller reading an empty list reads WHY. `Carrier.Context` is unchanged and
+// stays the value consumers thread; the census is the ledger's own fold over the three legs' occurrences, so no tally
+// rides beside the parse and a fourth bound lands as one more fact rather than as a counter nothing reconciles.
+const _extract = <K extends Carrier.Dialect>(dialect: K, frame: Carrier.Frame[K]): Carrier.Extraction =>
   pipe(
     { row: _dialects[dialect], w3c: Option.flatMap(_dialects[dialect].read(frame, "traceparent"), _parent) },
-    ({ row, w3c }) => ({
+    ({ row, w3c }) => {
       // one projection feeds both Zipkin grammars: the fallback is already lazy, so re-projecting per decoder would
       // rebuild the same header map twice on every W3C-absent hop
-      parent: Option.orElse(w3c, () =>
+      const parent = Option.orElse(w3c, () =>
         pipe(_zipkin(dialect, frame), (zipkin) =>
           Option.flatMap(
             Option.orElse(HttpTraceContext.b3(zipkin), () => HttpTraceContext.xb3(zipkin)),
             (external) => _span(external).parent, // the recovered external span lifts through the one structural span fold
-          ))),
+          )))
+      const offered = row.read(frame, "tracestate")
       // Restart drops what it cannot anchor: vendor rows key to the W3C parent that carried them, so a refused parent
-      // and a b3-recovered one both admit an empty list rather than lineage naming a trace this hop no longer continues.
-      state: Option.isSome(w3c)
-        ? Option.match(row.read(frame, "tracestate"), { onNone: () => [], onSome: _state })
-        : [],
+      // and a b3-recovered one both admit an empty list rather than lineage naming a trace this hop no longer
+      // continues. That discard is now a MEASURED occurrence carrying the bytes it refused, where the bare `[]` it
+      // replaces read identically to a peer that shipped no vendor rows at all.
+      const [refusedState, state]: Carrier.Sifted<ReadonlyArray<Carrier.State>> = Option.isSome(w3c)
+        ? Option.match(offered, { onNone: () => [[], []], onSome: _state })
+        : Option.match(offered, {
+            onNone: (): Carrier.Sifted<ReadonlyArray<Carrier.State>> => [[], []],
+            onSome: (text) => [[Fault.Drop.fact("unanchored", "tracestate", _bytes(text))], []],
+          })
       // Baggage travels on its own W3C specification and survives a restarted parent, so its admission stays unconditional.
-      baggage: Option.match(row.read(frame, "baggage"), { onNone: () => [], onSome: _baggage }),
-    }),
+      const [refusedBaggage, baggage] = Option.match(row.read(frame, "baggage"), {
+        onNone: (): Carrier.Sifted<ReadonlyArray<Carrier.Member>> => [[], []],
+        onSome: _baggage,
+      })
+      // A parent the frame OFFERED and no decoder recovered is the loss the restart posture used to swallow whole: an
+      // absent header and a refused one both produced `Option.none()` and nothing downstream could separate them.
+      const refusedParent: ReadonlyArray<Fault.Drop.Fact> =
+        Option.isNone(parent) && Option.isSome(row.read(frame, "traceparent"))
+          ? [Fault.Drop.fact("unparsed", "traceparent", 1)]
+          : []
+      return {
+        context: { parent, state, baggage },
+        dropped: Fault.Ledger.from([...refusedParent, ...refusedState, ...refusedBaggage]),
+      }
+    },
   )
 
 const _empty: Carrier.Context = { parent: Option.none(), state: [], baggage: [] }
@@ -478,7 +554,7 @@ const Carrier: Carrier.Shape = {
 - Law: `subject` and `dataref` publish the content key as 32 LOWERCASE hex through `_EVENT_KEY`, the boundary mapping over `Digest.Key.content` whose upper-encoding interchange codec stays untouched, so an externalized payload's reference IS the digest its residence resolves and one spelling crosses every peer.
 - Law: `datacontenttype` and `dataschema` arrive as row data off the caller's serdes arrow; a literal at either field states a payload encoding the arrow already decided.
 - Law: the roster IS the name ceiling — every row conforms to `[a-z0-9]` within 20 characters by declaration, since the package proves the alphabet alone and only names the ceiling inside the message it throws.
-- Law: `read` decodes the whole roster on every call and reports every peer name the roster does not hold, dropping it rather than faulting the message.
+- Law: `read` decodes the whole roster on every call and returns every unrostered peer name as a `Fault.Drop` occurrence, dropping it rather than faulting the message.
 - Law: `severity` admits the one branch severity vocabulary, so an announced fact's grade routes through the same rows an objective's burn does.
 - Law: `signed` marks every row the DSSE digest folds; `dssematerial` is the one exclusion, because a signature cannot cover the attribute carrying it.
 - Law: roster declaration order IS the published canonical digest order, alphabetical so three branches transcribe one sequence rather than each sorting its own map at signing time.
@@ -492,7 +568,6 @@ import { CloudEvent, type CloudEventV1, V1 } from "cloudevents"
 import { DateTime, type ParseResult } from "effect"
 import { Reliability } from "../observe/slo.ts"
 import { Digest } from "../value/contentKey.ts"
-import { Fault } from "../value/fault.ts"
 import { Shape } from "../value/schema.ts"
 
 // `<domain>` is the capability subject `Convention` fixes for metric names, so a board and a subscription read one
@@ -564,17 +639,41 @@ const _extensionRows = {
 } as const
 const _extensions = Shape.vocabulary(_extensionNames, _extensionRows)
 
+// Each reason renders its OWN subject, so the attribute column stops riding an `Option` that only the envelope arm
+// ever leaves empty: an attribute refusal NAMES its attribute by declaration and an envelope refusal has no attribute
+// to name. `attribute` grades `invalid` because the value refused the schema its own roster row declares, while
+// `extension` grades `malformed` because the NAME reached a roster that holds no row for it.
 const _refusals = Fault.Class.family(["attribute", "envelope", "extension"] as const, {
-  attribute: { class: "invalid" },
-  envelope: { class: "invalid" },
-  extension: { class: "malformed" },
+  attribute: Fault.Class.row({
+    class: "invalid",
+    leg: "admission",
+    detail: Schema.Struct({ attribute: Schema.NonEmptyString, issue: Schema.NonEmptyString }),
+    render: ({ attribute, issue }) => `${attribute} refused the schema its roster row declares — ${issue}`,
+  }),
+  envelope: Fault.Class.row({
+    class: "invalid",
+    leg: "mint",
+    detail: Schema.Struct({ issue: Schema.NonEmptyString }),
+    render: ({ issue }) => `envelope construction refused — ${issue}`,
+  }),
+  extension: Fault.Class.row({
+    class: "malformed",
+    leg: "admission",
+    detail: Schema.Struct({ attribute: Schema.NonEmptyString, issue: Schema.NonEmptyString }),
+    render: ({ attribute, issue }) => `${attribute} names no rostered extension — ${issue}`,
+  }),
 })
 
 class EventRefusal extends Schema.TaggedError<EventRefusal>()("EventRefusal", {
-  reason: _refusals.schema,
-  detail: Schema.NonEmptyString,
-  attribute: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
-}) {}
+  case: _refusals.payload,
+}) {
+  get class(): Fault.Class.Kind {
+    return _refusals.classOf(this.case.reason)
+  }
+  override get message(): string {
+    return _refusals.render(this.case)
+  }
+}
 
 class Fact extends Schema.Class<Fact>("Event.Fact")({
   // Brands refine IN PLACE, so no branded scalar exports beside the owner that admits it.
@@ -595,7 +694,7 @@ declare namespace Event {
   type Value<Name extends Extension> = Schema.Schema.Type<(typeof _extensionRows)[Name]["admit"]>
   type Held = { readonly [Name in Extension]?: Value<Name> }
   type Roster = { readonly [Name in Extension]: Option.Option<Value<Name>> }
-  type Read = { readonly roster: Roster; readonly dropped: ReadonlyArray<string> }
+  type Read = { readonly roster: Roster; readonly dropped: ReadonlyArray<Fault.Drop.Fact> }
   type Refusal = EventRefusal
   type Shape = {
     readonly Fact: typeof Fact
@@ -624,7 +723,7 @@ const _held = (held: Event.Held): Effect.Effect<Record.ReadonlyRecord<string, un
       ([name, value]) =>
         Effect.mapBoth(_printers[name](value), {
           onFailure: (issue) =>
-            new EventRefusal({ reason: "attribute", detail: issue.message, attribute: Option.some(name) }),
+            new EventRefusal({ case: { reason: "attribute", attribute: name, issue: issue.message } }),
           onSuccess: (encoded) => [name, encoded] as const,
         }),
     ),
@@ -660,9 +759,7 @@ const _mint = (
       // narrowing is the only one keeping both arms on the rail.
       catch: (caught) =>
         new EventRefusal({
-          reason: "envelope",
-          detail: caught instanceof Error ? caught.message : String(caught),
-          attribute: Option.none(),
+          case: { reason: "envelope", issue: caught instanceof Error ? caught.message : String(caught) },
         }),
     }))
 
@@ -675,13 +772,17 @@ const _at = <Name extends Event.Extension>(
 // census subtracts both owned sets and reports only names neither this roster nor `Fact` itself holds.
 const _addressed: ReadonlyArray<string> = ["data", "data_base64", "specversion", ...Record.keys(Fact.fields)]
 
-// Decoders without the roster read every declared extension as an unknown string, so the whole roster decodes
-// on every read and the drop list carries what the peer sent that this roster does not name.
+// Decoders without the roster read every declared extension as an unknown string, so the whole roster decodes on
+// every read and the drop band carries what the peer sent that this roster does not name. Names alone said only THAT
+// something went missing; each name now returns as a `Fault.Drop` occurrence carrying its measured extent, so a
+// consumer folds the band through `Fault.Ledger` and reads one census rather than sizing an anonymous list.
 const _read = (envelope: CloudEventV1<unknown>): Event.Read => ({
   roster: Record.map(_readers, (read, name) => read(envelope[name])) as unknown as Event.Roster,
-  dropped: Array.filter(
+  dropped: Array.filterMap(
     Object.keys(envelope),
-    (key) => !_extensions.is(key) && !Array.contains(_addressed, key),
+    (key) => _extensions.is(key) || Array.contains(_addressed, key)
+      ? Option.none()
+      : Option.some(Fault.Drop.fact("foreign", key, 1)),
   ),
 })
 

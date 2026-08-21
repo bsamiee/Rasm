@@ -24,7 +24,7 @@ Subscription filtering is ONE owner: the seven specification dialects compile in
 - Entry: `Filter.compile(spec)` at subscription admission answers `Either<Compiled, CesqlFault>`; `Filter.admits(compiled, envelope)` at delivery answers the verdict beside the faults its evaluation accumulated.
 - Growth: a dialect is one union member, one row, and one compile arm; the delivery fold never widens.
 - Boundary: which subscription holds which filters, and where a subscription persists, are the consuming binding's; this page owns the dialect vocabulary and its evaluation alone.
-- Packages: `effect` (`Array`, `Either`, `Option`, `Record`, `Schema`, `pipe`); `cloudevents` (`CloudEventV1`).
+- Packages: `effect` (`Array`, `Either`, `Option`, `Record`, `Schema`, `pipe`); `cloudevents` (`CloudEventV1`); `@rasm/ts/core` (`Event`, `Fault.Class`, `Shape.Record`).
 
 ```typescript signature
 import {
@@ -32,7 +32,7 @@ import {
 } from "chevrotain"
 import type { CloudEventV1 } from "cloudevents"
 import { Array, Data, Effect, Either, Number, Option, Order, Predicate, Record, RegExp, Schema, String, pipe } from "effect"
-import { Event, Fault } from "@rasm/ts/core"
+import { Event, Fault, Shape } from "@rasm/ts/core"
 
 // --- [TYPES] ----------------------------------------------------------------------------
 
@@ -58,7 +58,7 @@ declare namespace Filter {
 
 // Each case ships as a single-key object, so the discriminant attaches at the declaration and encode drops it: the
 // wire stays exactly what the specification publishes while the interior dispatches one closed tagged family.
-const _Attributes = Schema.Record({ key: Schema.NonEmptyString, value: Schema.String })
+const _Attributes = Shape.Record(Schema.NonEmptyString, Schema.String)
 
 const _Spec: Schema.Schema<Filter.Spec> = Schema.Union(
   Schema.Struct({ exact: _Attributes }).pipe(Schema.attachPropertySignature("_tag", "exact")),
@@ -137,7 +137,7 @@ const _compiled = (
   depth: number,
 ): Either.Either<Filter.Compiled, CesqlFault> =>
   depth > _CESQL_CEILING.depth
-    ? Either.left(new CesqlFault({ reason: "parse", detail: `<filter-nesting-ceiling:${_CESQL_CEILING.depth}>` }))
+    ? Either.left(new CesqlFault({ case: { reason: "parse", stage: "nesting", detail: `spec nests past depth ${_CESQL_CEILING.depth}` } }))
     : _Compile[spec._tag](spec as never, grammar, lower, depth)
 
 // Compile arms map over the same closed family the union declares, so a dialect landing without
@@ -181,8 +181,9 @@ const _Compile: {
 - Law: the implicit-cast matrix is the whole three-by-three as data — an operand crossing into an operator's declared type reads one row, a refused crossing answers the target's zero beside `cast`, and no arm re-derives a conversion the table already answers.
 - Law: a string admits to Boolean on the two specification words alone and to Integer on a strict decimal alone, so `'1.5'` and `''` both refuse rather than rounding or reading as zero.
 - Law: the seven reasons carry the conformance corpus's own spellings and declare alphabetically, so two branches transcribing the roster publish one sequence; each grades through the core class table rather than minting a second taxonomy.
-- Growth: a type is one case on the value family with its own cast column; a reason is one row on the family.
-- Packages: `effect` (`Array`, `Data`, `Number`, `Option`, `Record`, `String`, `pipe`); `@rasm/ts/core` (`Fault`).
+- Law: each reason declares its OWN subject and renders it — the crossing pair a cast refused, the operand and extent a slice fell outside, the site and value the 32-bit band rejected, whether an absent identifier is a declared extension, the offered arity beside a name, the stage a text refusal reached — so a diagnostic is columns a consumer folds rather than a hand-templated word pair only a human could read.
+- Growth: a type is one case on the value family with its own cast column; a reason is one row on the family carrying its own subject and renderer.
+- Packages: `effect` (`Array`, `Data`, `Number`, `Option`, `Record`, `Schema`, `String`, `pipe`); `@rasm/ts/core` (`Fault.Class`).
 
 ```typescript signature
 type CesqlValue = Data.TaggedEnum<{
@@ -195,7 +196,8 @@ const CesqlValue = Data.taggedEnum<CesqlValue>()
 declare namespace Cesql {
   type Type = CesqlValue["_tag"]
   type Slot = Type | "Any" // the casting builtins admit every type, so their slot names the absence of a crossing
-  type Reason = (typeof _cesqlFamily.reasons)[number]
+  type Issue = typeof _cesqlFamily.payload.Type
+  type Reason = (typeof _cesqlFamily.kinds)[number]
   type Reading = { readonly value: CesqlValue; readonly faults: ReadonlyArray<CesqlFault> }
   type Binary = keyof typeof _CESQL_ARITH | keyof typeof _CESQL_EQUALITY | keyof typeof _CESQL_ORDER
   type Logic = keyof typeof _CESQL_LOGIC
@@ -227,30 +229,90 @@ const _CESQL_ZERO = {
 
 // --- [ERRORS] ---------------------------------------------------------------------------
 
+// The value roster as data, so the cast row's subject closes against the same three words `_CESQL_ZERO` already
+// proves total against the tagged family.
+const _CESQL_TYPES = ["Boolean", "Integer", "String"] as const satisfies ReadonlyArray<Cesql.Type>
+const _CesqlType = Schema.Literal(..._CESQL_TYPES)
+
+// Four legs partition the census by the surface that raised the reading: the value algebra crosses and saturates,
+// the operator tables resolve names and arities, the expression fold reads the envelope, the grammar owner admits
+// text. A consumer routing a refusal reads the leg rather than re-deriving it from the reason.
+// The four admission stages a text refusal can reach, so a `parse` reading names WHERE the text died instead of
+// carrying that stage hand-templated into its message.
+const _CESQL_STAGES = ["lex", "nesting", "parse", "text"] as const
+
+// Each reason declares its OWN subject and renders it: the free `detail` string re-opened the axis `reason` closed,
+// and every diagnostic this page produced was a hand-templated `<word:value>` no consumer could read back. The
+// coordinates are now columns — the crossing pair a cast refused, the operand and extent a slice fell outside, the
+// site and value an arithmetic band rejected, whether an absent identifier is a declared extension, the offered
+// arity beside the name, the stage a text refusal reached — and the seven spellings stay the conformance corpus's
+// own, declared alphabetically, so two branches transcribing the roster publish one sequence.
 const _cesqlFamily = Fault.Class.family(
   ["cast", "functionEvaluation", "generic", "math", "missingAttribute", "missingFunction", "parse"] as const,
   {
-    cast: { class: "invalid" },
-    functionEvaluation: { class: "invalid" },
-    generic: { class: "defect" },
-    math: { class: "invalid" },
-    missingAttribute: { class: "absent" },
-    missingFunction: { class: "malformed" },
-    parse: { class: "malformed" },
+    cast: Fault.Class.row({
+      class: "invalid",
+      leg: "value",
+      detail: Schema.Struct({ from: _CesqlType, text: Schema.String, to: _CesqlType }),
+      render: ({ from, text, to }) => `${from} value ${text} does not cross into ${to}`,
+    }),
+    functionEvaluation: Fault.Class.row({
+      class: "invalid",
+      leg: "builtin",
+      detail: Schema.Struct({ extent: Schema.Int, operand: Schema.Int }),
+      render: ({ extent, operand }) => `operand ${operand} falls outside the ${extent}-character subject`,
+    }),
+    generic: Fault.Class.row({
+      class: "defect",
+      leg: "grammar",
+      // the lowering visitor is foreign code behind an untyped seam, so its throw stringifies and nothing narrower is
+      // true of it; every other row in this family declares real coordinates
+      detail: Schema.Struct({ detail: Schema.String }),
+      render: ({ detail }) => `the lowering visitor threw — ${detail}`,
+    }),
+    math: Fault.Class.row({
+      class: "invalid",
+      leg: "value",
+      detail: Schema.Struct({ site: Schema.NonEmptyString, value: Schema.Number }),
+      render: ({ site, value }) => `${site} could not answer over ${value} inside the 32-bit band`,
+    }),
+    missingAttribute: Fault.Class.row({
+      class: "absent",
+      leg: "envelope",
+      // the roster decides the DIAGNOSTIC and it is a column, not a prefix: a declared extension the producer omitted
+      // and a name the grammar never rostered are two readings of one absence
+      detail: Schema.Struct({ name: Schema.NonEmptyString, rostered: Schema.Boolean }),
+      render: ({ name, rostered }) =>
+        rostered ? `${name} is a declared extension this envelope omitted` : `${name} names no attribute this roster declares`,
+    }),
+    missingFunction: Fault.Class.row({
+      class: "malformed",
+      leg: "builtin",
+      // arity is part of a name's identity, so the offered arity rides beside the name and `rostered` separates an
+      // unknown name from a known one offered at an arity its row does not admit
+      detail: Schema.Struct({ arity: Schema.Int, name: Schema.NonEmptyString, rostered: Schema.Boolean }),
+      render: ({ arity, name, rostered }) =>
+        rostered ? `${name} rows no arity ${arity}` : `${name} names no builtin this table rows`,
+    }),
+    parse: Fault.Class.row({
+      class: "malformed",
+      leg: "grammar",
+      detail: Schema.Struct({ detail: Schema.String, stage: Schema.Literal(..._CESQL_STAGES) }),
+      render: ({ detail, stage }) => `filter text refused at ${stage} — ${detail}`,
+    }),
   },
 )
 
-class CesqlFault extends Data.TaggedError("CesqlFault")<{
-  readonly reason: Cesql.Reason
-  readonly detail: string
-}> {
+class CesqlFault extends Schema.TaggedError<CesqlFault>()("CesqlFault", {
+  case: _cesqlFamily.payload,
+}) {
   // `class` projects off the family mint like every branch fault: without it `Fault.Class.of` finds no `class`
   // property and grades a subscription-admission refusal `defect` at whatever gate it crosses
   get class(): Fault.Class.Kind {
-    return _cesqlFamily.classOf(this.reason)
+    return _cesqlFamily.classOf(this.case.reason)
   }
   override get message(): string {
-    return `<cesql:${this.reason}> ${this.detail}`
+    return _cesqlFamily.render(this.case)
   }
 }
 
@@ -267,11 +329,10 @@ const _cesqlRead = (value: CesqlValue, ...carried: ReadonlyArray<Cesql.Reading>)
 })
 
 const _cesqlRaise = (
-  reason: Cesql.Reason,
-  detail: string,
+  issue: Cesql.Issue,
   value: CesqlValue,
   ...carried: ReadonlyArray<Cesql.Reading>
-): Cesql.Reading => ({ value, faults: [..._cesqlCarried(carried), new CesqlFault({ reason, detail })] })
+): Cesql.Reading => ({ value, faults: [..._cesqlCarried(carried), new CesqlFault({ case: issue })] })
 
 // Every reader is total over the family, so an operand that failed its crossing still hands a kernel the target type's
 // zero and no arm casts a union member it did not prove.
@@ -284,12 +345,13 @@ const _cesqlText = (reading: Cesql.Reading): string =>
 
 // Saturation, never wrapping: a result past the band answers the nearest bound beside `math`, which is exactly why the
 // absolute value of the floor cannot answer its own operand.
-const _cesqlInt = (raw: number, detail: string, ...carried: ReadonlyArray<Cesql.Reading>): Cesql.Reading =>
+// `site` names the operator, builtin, or crossing whose result left the band — a name, never a rendered template,
+// because the row that receives it renders the band statement once for every site.
+const _cesqlInt = (raw: number, site: string, ...carried: ReadonlyArray<Cesql.Reading>): Cesql.Reading =>
   globalThis.Number.isInteger(raw) && raw >= _CESQL_I32.min && raw <= _CESQL_I32.max
     ? _cesqlRead(CesqlValue.Integer({ value: raw }), ...carried)
     : _cesqlRaise(
-      "math",
-      detail,
+      { reason: "math", site, value: raw },
       CesqlValue.Integer({
         value: globalThis.Number.isNaN(raw)
           ? 0
@@ -316,15 +378,15 @@ const _CESQL_CAST: {
   String: {
     Boolean: (held) =>
       Option.match(Record.get(_CESQL_TRUTH, String.toLowerCase(held.value)), {
-        onNone: () => _cesqlRaise("cast", `<string-to-boolean:${held.value}>`, _CESQL_ZERO.Boolean),
+        onNone: () => _cesqlRaise({ reason: "cast", from: "String", text: held.value, to: "Boolean" }, _CESQL_ZERO.Boolean),
         onSome: (value) => _cesqlRead(CesqlValue.Boolean({ value })),
       }),
     Integer: (held) =>
       Option.match(
         Option.flatMap(Option.liftPredicate(held.value, (text) => _CESQL_DECIMAL.test(text)), Number.parse),
         {
-          onNone: () => _cesqlRaise("cast", `<string-to-integer:${held.value}>`, _CESQL_ZERO.Integer),
-          onSome: (parsed) => _cesqlInt(parsed, `<string-to-integer:${held.value}>`),
+          onNone: () => _cesqlRaise({ reason: "cast", from: "String", text: held.value, to: "Integer" }, _CESQL_ZERO.Integer),
+          onSome: (parsed) => _cesqlInt(parsed, "cast"),
         },
       ),
     String: (held) => _cesqlRead(held),
@@ -383,7 +445,7 @@ const _CESQL_LOGIC = {
 const _CESQL_FUNCTIONS = {
   ABS: {
     params: ["Integer"], optional: [], rest: Option.none<Cesql.Slot>(), returns: "Integer",
-    kernel: (operands) => _cesqlInt(Math.abs(_cesqlSlot(operands, 0, _cesqlNumber)), "<abs-overflow>"),
+    kernel: (operands) => _cesqlInt(Math.abs(_cesqlSlot(operands, 0, _cesqlNumber)), "ABS"),
   },
   BOOL: {
     params: ["Any"], optional: [], rest: Option.none<Cesql.Slot>(), returns: "Boolean",
@@ -415,7 +477,7 @@ const _CESQL_FUNCTIONS = {
   },
   LENGTH: {
     params: ["String"], optional: [], rest: Option.none<Cesql.Slot>(), returns: "Integer",
-    kernel: (operands) => _cesqlInt(_cesqlSlot(operands, 0, _cesqlText).length, "<length-overflow>"),
+    kernel: (operands) => _cesqlInt(_cesqlSlot(operands, 0, _cesqlText).length, "LENGTH"),
   },
   LOWER: {
     params: ["String"], optional: [], rest: Option.none<Cesql.Slot>(), returns: "String",
@@ -469,7 +531,7 @@ const _cesqlSliced = (
     { count: _cesqlSlot(operands, 1, _cesqlNumber), text: _cesqlSlot(operands, 0, _cesqlText) },
     ({ count, text }) =>
       count < 0
-        ? _cesqlRaise("functionEvaluation", `<negative-take:${count}>`, CesqlValue.String({ value: text }))
+        ? _cesqlRaise({ reason: "functionEvaluation", extent: text.length, operand: count }, CesqlValue.String({ value: text }))
         : _cesqlRead(CesqlValue.String({ value: take(text, count) })),
   )
 
@@ -488,7 +550,7 @@ const _cesqlSubstring = (operands: ReadonlyArray<CesqlValue>): Cesql.Reading =>
       start === 0
         ? _cesqlRead(_CESQL_ZERO.String)
         : from < 0 || from >= text.length
-        ? _cesqlRaise("functionEvaluation", `<start-outside-text:${start}>`, _CESQL_ZERO.String)
+        ? _cesqlRaise({ reason: "functionEvaluation", extent: text.length, operand: start }, _CESQL_ZERO.String)
         : _cesqlRead(CesqlValue.String({ value: text.slice(from, from + Number.max(span, 0)) })),
   )
 ```
@@ -543,11 +605,7 @@ const _cesqlPattern = (pattern: string): globalThis.RegExp => {
 const _cesqlAttribute = (envelope: CloudEventV1<unknown>, name: string): Cesql.Reading =>
   Option.match(Option.fromNullable(envelope[name]), {
     onNone: () =>
-      _cesqlRaise(
-        "missingAttribute",
-        Event.extensions.is(name) ? `<rostered-absent:${name}>` : `<unknown-attribute:${name}>`,
-        _CESQL_ZERO.Boolean,
-      ),
+      _cesqlRaise({ reason: "missingAttribute", name, rostered: Event.extensions.is(name) }, _CESQL_ZERO.Boolean),
     onSome: (held) =>
       _cesqlRead(
         Predicate.isBoolean(held)
@@ -575,8 +633,8 @@ const _cesqlBinary = (op: Cesql.Binary, left: Cesql.Reading, right: Cesql.Readin
                 Option.flatMap(Record.get(_CESQL_ARITH, op), (kernel) =>
                   kernel(_cesqlNumber(lhs), _cesqlNumber(rhs))),
                 {
-                  onNone: () => _cesqlRaise("math", `<zero-divisor:${op}>`, _CESQL_ZERO.Integer, lhs, rhs),
-                  onSome: (raw) => _cesqlInt(raw, `<arithmetic-overflow:${op}>`, lhs, rhs),
+                  onNone: () => _cesqlRaise({ reason: "math", site: op, value: _cesqlNumber(rhs) }, _CESQL_ZERO.Integer, lhs, rhs),
+                  onSome: (raw) => _cesqlInt(raw, op, lhs, rhs),
                 },
               ),
           }),
@@ -584,7 +642,7 @@ const _cesqlBinary = (op: Cesql.Binary, left: Cesql.Reading, right: Cesql.Readin
   })
 
 const _cesqlAbsent = (reading: Cesql.Reading): boolean =>
-  Array.some(reading.faults, (fault) => fault.reason === "missingAttribute")
+  Array.some(reading.faults, (fault) => fault.case.reason === "missingAttribute")
 
 const _cesqlEvaluate = (expr: CesqlExpr, envelope: CloudEventV1<unknown>): Cesql.Reading =>
   CesqlExpr.$match(expr, {
@@ -622,7 +680,7 @@ const _cesqlEvaluate = (expr: CesqlExpr, envelope: CloudEventV1<unknown>): Cesql
         })),
     Negate: ({ operand }) =>
       pipe(_cesqlCast(_cesqlEvaluate(operand, envelope), "Integer"), (held) =>
-        _cesqlInt(-_cesqlNumber(held), "<negate-overflow>", held)),
+        _cesqlInt(-_cesqlNumber(held), "NEGATE", held)),
     Not: ({ operand }) =>
       pipe(_cesqlCast(_cesqlEvaluate(operand, envelope), "Boolean"), (held) =>
         _cesqlRead(CesqlValue.Boolean({ value: !_cesqlFlag(held) }), held)),
@@ -636,10 +694,10 @@ const _cesqlCall = (
   envelope: CloudEventV1<unknown>,
 ): Cesql.Reading =>
   Option.match(Record.get(_CESQL_FUNCTIONS, String.toUpperCase(name)), {
-    onNone: () => _cesqlRaise("missingFunction", `<unknown-function:${name}>`, _CESQL_ZERO.Boolean),
+    onNone: () => _cesqlRaise({ reason: "missingFunction", arity: operands.length, name, rostered: false }, _CESQL_ZERO.Boolean),
     onSome: (row) =>
       Option.match(_cesqlSlots(row, operands.length), {
-        onNone: () => _cesqlRaise("missingFunction", `<arity:${name}/${operands.length}>`, _CESQL_ZERO[row.returns]),
+        onNone: () => _cesqlRaise({ reason: "missingFunction", arity: operands.length, name, rostered: true }, _CESQL_ZERO[row.returns]),
         onSome: (slots) =>
           pipe(
             Array.map(operands, (operand, index) =>
@@ -840,7 +898,7 @@ const _cesqlParsed = (grammar: _CesqlGrammar, tokens: ReadonlyArray<IToken>): Ei
   const errors = [...grammar.errors]
   grammar.reset()
   return Array.isNonEmptyReadonlyArray(errors)
-    ? Either.left(new CesqlFault({ reason: "parse", detail: `<parse:${Array.headNonEmpty(errors).message}>` }))
+    ? Either.left(new CesqlFault({ case: { reason: "parse", stage: "parse", detail: Array.headNonEmpty(errors).message } }))
     : Either.right(tree)
 }
 
@@ -850,19 +908,19 @@ const _cesqlCompiled = (
   lower: { readonly visit: (node: CstNode) => unknown },
 ): Either.Either<CesqlExpr, CesqlFault> =>
   source.length > _CESQL_CEILING.text
-    ? Either.left(new CesqlFault({ reason: "parse", detail: `<filter-text-ceiling:${source.length}>` }))
+    ? Either.left(new CesqlFault({ case: { reason: "parse", stage: "text", detail: `${source.length} characters past ${_CESQL_CEILING.text}` } }))
     : pipe(_cesqlLexer.tokenize(source), (lexed) =>
       Array.isNonEmptyReadonlyArray(lexed.errors)
-        ? Either.left(new CesqlFault({ reason: "parse", detail: `<lex:${Array.headNonEmpty(lexed.errors).message}>` }))
+        ? Either.left(new CesqlFault({ case: { reason: "parse", stage: "lex", detail: Array.headNonEmpty(lexed.errors).message } }))
         : Either.flatMap(_cesqlParsed(grammar, lexed.tokens), (tree) =>
           Either.flatMap(
             Either.try({
               try: () => lower.visit(tree) as CesqlExpr,
-              catch: (caught) => new CesqlFault({ reason: "generic", detail: String(caught) }),
+              catch: (caught) => new CesqlFault({ case: { reason: "generic", detail: String(caught) } }),
             }),
             (expr) =>
               _cesqlDepth(expr) > _CESQL_CEILING.depth
-                ? Either.left(new CesqlFault({ reason: "parse", detail: `<nesting-ceiling:${_CESQL_CEILING.depth}>` }))
+                ? Either.left(new CesqlFault({ case: { reason: "parse", stage: "nesting", detail: `expression nests past depth ${_CESQL_CEILING.depth}` } }))
                 : Either.right(expr),
           )))
 
@@ -1062,7 +1120,6 @@ class Cesql extends Effect.Service<Cesql>()("runtime/work/Cesql", {
   static readonly Value = CesqlValue
   static readonly dialects = _DIALECTS
   static readonly functions = _CESQL_FUNCTIONS
-  static readonly reasons = _cesqlFamily.reasons
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------

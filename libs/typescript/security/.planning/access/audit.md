@@ -21,7 +21,7 @@ Security's evidence rail in one owner: `SecurityFact` closes the folder's loud a
 - Packages: `effect` (`Schema`, `Option`); `@rasm/ts/core` (`Fault.Class`, `Identity.Tenant`, `Tap`).
 
 ```typescript signature
-import { Board, Convention, Fault, Identity, Reliability, Tap } from "@rasm/ts/core"
+import { Board, Convention, Fault, Identity, Reliability, Shape, Tap } from "@rasm/ts/core"
 import {
   Array, Context, DateTime, Duration, Effect, Fiber, Layer, Mailbox, Match, Number, Option, Predicate, PubSub, Queue, Record, Schema, type Scope, Stream,
 } from "effect"
@@ -51,11 +51,14 @@ const _Clone = Schema.TaggedStruct("Clone", {
   subject: Schema.NonEmptyString,
   passkey: Schema.NonEmptyString,
 })
+// Tenancy on a denial is EVIDENCE, so it crosses as the claim fold's own posture and never as a bare key: a denial
+// against a tenancy the SUBJECT declared and one against the deployment's fallback are different findings, where a
+// single `Some` reports both as the subject's own assertion and hands a reviewer a claim nobody made.
 const _Deny = Schema.TaggedStruct("Deny", {
   subject: Schema.NonEmptyString,
   action: Schema.NonEmptyString,
   reason: Schema.NonEmptyString,
-  tenant: Schema.optionalWith(Identity.Tenant.fields.tenant, { as: "Option" }),
+  tenant: Shape.posture.of(Identity.Tenant.fields.tenant),
 })
 const _Reuse = Schema.TaggedStruct("Reuse", {
   subject: Schema.NonEmptyString,
@@ -108,24 +111,40 @@ const SecurityFact: {
   wire: _Fact,
 }
 
+// Two legs partition this plane's failures and each renders its OWN subject: the rail names the point whose record
+// the journal refused, the egress names nothing but the masker's cause because the subject it was folding is exactly
+// the identifier the projection exists to keep out of a message.
 const _family = Fault.Class.family(["append", "mask"] as const, {
-  append: { class: "unavailable" },
-  mask: { class: "defect" },
+  append: Fault.Class.row({
+    class: "unavailable",
+    leg: "rail",
+    detail: Schema.Struct({ point: Tap.schema, cause: Schema.String }),
+    render: ({ cause, point }) => `journal refused the ${point} record: ${cause}`,
+  }),
+  mask: Fault.Class.row({
+    class: "defect",
+    leg: "egress",
+    detail: Schema.Struct({ cause: Schema.String }),
+    render: ({ cause }) => `pseudonymizer refused a subject: ${cause}`,
+  }),
 })
 
 declare namespace AuditFault {
-  type Reason = (typeof _family.reasons)[number]
+  type Case = typeof _family.payload.Type
+  type Reason = (typeof _family.kinds)[number]
 }
 
 class AuditFault extends Schema.TaggedError<AuditFault>()("AuditFault", {
-  reason: _family.schema,
-  detail: Schema.String,
+  case: _family.payload,
 }) {
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _family.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<audit:${this.reason}> ${this.detail}`
+    return _family.render(this.case)
   }
 }
 ```
@@ -182,7 +201,7 @@ const _selects = (selection: SecurityFact.Class | SecurityFact.Point): Predicate
 [EGRESS]:
 - Owner: `Pseudonym` — the keyed-mac port the analytics projection folds subjects through — and `AuditTrace`, the subject-safe egress wire: app, instant, point, kind, the masked subject, the plain tenant scope, and a schema-checked facet record projected per case by one `Match.valueTags` dispatch, so what leaves to an analytics store is recoverable from this declaration alone.
 - Law: the pseudonymizer is KEYED — the app root satisfies `Pseudonym` from `crypt/sign`'s `Crypto.sign` under a dedicated `Config.redacted` egress pepper, so masking is deterministic per key and irreversible without it; an unkeyed digest over subject identifiers is rejected outright, because subjects are low-entropy values a dictionary walk reverses, and the unkeyed `Crypto.fingerprint` projection stays admitted for high-entropy token lookup only.
-- Law: the projection sheds by default — identifier-grade fields (`sid`, `passkey`, free `detail` prose) never reach the trace; `intent`, policy `action`, and denial `reason` arrive from their emitting owners' closed vocabularies, while the custody `coordinate` remains an operational string. Tenant crosses as its scope string because the partition key is an operational coordinate, not a person; a new case ships with its shed arm or the dispatch record fails to compile.
+- Law: the projection sheds by default — identifier-grade fields (`sid`, `passkey`, free `detail` prose) never reach the trace; `intent`, policy `action`, and denial `reason` arrive from their emitting owners' closed vocabularies, while the custody `coordinate` remains an operational string. Tenant crosses as its scope string because the partition key is an operational coordinate, not a person, and a denial's tenancy POSTURE crosses beside it as a facet so an analytics fold separates an asserted tenancy from the deployment's fallback; a new case ships with its shed arm or the dispatch record fails to compile.
 - Law: egress is a pull projection, never a lane — a compliance or analytics consumer folds `Audit.egress` over its own journal read or subscription, so the rail carries full evidence exactly once and every downstream trust grade derives its own view.
 - Growth: a new analytics dimension is one facet key inside an existing shed arm; a new masking policy is a `Pseudonym` binding swap at the root.
 - Boundary: which store receives `AuditTrace` values is the composing app's lake seam; this page owns only the projection and its masking law.
@@ -212,7 +231,11 @@ const _shed = (fact: SecurityFact): {
     Admission: () => ({ facet: {}, subject: Option.none(), tenant: Option.none() }),
     Ceremony: ({ intent, subject }) => ({ facet: { intent }, subject: Option.some(subject), tenant: Option.none() }),
     Clone: ({ subject }) => ({ facet: {}, subject: Option.some(subject), tenant: Option.none() }),
-    Deny: ({ action, reason, subject, tenant }) => ({ facet: { action, reason }, subject: Option.some(subject), tenant: Option.map(tenant, String) }),
+    Deny: ({ action, reason, subject, tenant }) => ({
+      facet: { action, reason, tenancy: tenant._tag },
+      subject: Option.some(subject),
+      tenant: Option.map(Shape.posture.value(tenant), String),
+    }),
     Reuse: ({ subject, tenant }) => ({ facet: {}, subject: Option.some(subject), tenant: Option.map(tenant, String) }),
     Rotation: ({ coordinate }) => ({ facet: { coordinate }, subject: Option.none(), tenant: Option.none() }),
     ShredOpen: () => ({ facet: {}, subject: Option.none(), tenant: Option.none() }),

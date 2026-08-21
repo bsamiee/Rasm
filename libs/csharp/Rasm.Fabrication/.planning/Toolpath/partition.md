@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [02]-[PARTITION]: `PartitionStrategy` admits generator policy and resolves it against boundary area, `PartitionRequest` closes output modality, and `Partition.Seed` folds `PolygonOp.Cells`, `VectorIntent.Voronoi`, and QuikGraph into `PartitionReceipt`.
+- [02]-[PARTITION]: `PartitionStrategy` admits generator policy and resolves it against boundary area, `PartitionRequest` closes output modality, and `Partition.Seed` folds `PolygonOp.Cells`, `VectorIntent.Voronoi`, and QuikGraph into `Partitioned`.
 
 ## [02]-[PARTITION]
 
@@ -19,8 +19,10 @@
 - Entry: `Partition.Seed(PartitionRequest)` owns every point-site modality and preserves the frozen `Seed` operation name.
 - Auto: the `SiteDistribution` row draws a candidate cloud off `Deterministic.Unit` into the site box, fixed anchors seed the three-axis separation index first, footprint coverage inside the depth band with an index-addressed density draw admits sites under a bounded fold that stops at the resolved count, one `PolygonOp.Cells` request closes, relaxes, merges, and boundary-clips the planar diagram over the deduplicated site footprints — every disconnected region of a clipped cell contributes to census area — and a depth-bearing projection folds those same accepted sites through `VectorIntent.Voronoi` for the 3D complex.
 - Auto: spanning topology mints ONE undirected container from the adjacency links and ONE directed forest from the Kruskal edges, both through the edge-set projection rather than a hand-populated second graph; a single `BreadthFirstSearchAlgorithm` per component carries two attached distance recorders, so hop depth and path length come from ONE walk instead of a per-vertex path re-enumeration.
-- Receipt: `PartitionReceipt` carries every clipped region per generating site, both the generating site and its clipped centroid, border membership, perimeter, adjacency links, the minimum spanning forest, breadth-first tour, per-cell traversal evidence, stroke split, the `PartitionSolid` rows, candidate/requested/surviving/merge census, the nearest boundary-anchor cell, and the density closure. `PartitionDensity` closes the inverse the strategy opened — target areal density and cell area against the density and mean cell area the retained cells realized, beside the walk's Lloyd residual — so a consumer reads whether the field it asked for is the field it got. `PartitionSolid` reads the kernel `CloudVoronoiCell` column for column — bound-gated `Option` volume, centroid, and extent beside the natural-neighbour sites — so an unbounded cell publishes absence rather than a zero no fold measured, and `Bounded` is the measured subset a lattice or support-cell consumer reads. The volumetric fold projects the whole `CloudVoronoiResult` and refuses on a `Rejected` receipt, so an empty solid set means the caller asked for no depth and never that a degenerate dual returned nothing.
-- Packages: `Rasm` supplies the `Deterministic` draw lanes, the `VectorCloud`/`VectorIntent.Voronoi` rail carrying the 3D dual, its per-cell measures, and the `CloudVoronoiResult`/`CloudVoronoiReceipt`/`CloudFoldStatus` outcome evidence the solid fold gates on, and, through `PolygonOp.Cells`, the bounded planar Voronoi diagram, its Lloyd relaxation, its merge fold, and the nearest-site index; the `Geometry2D` owner supplies measure, Boolean, and open-clip; QuikGraph supplies the edge-set container projections, Kruskal spanning, component labels, the breadth-first walk, and its distance recorders; LanguageExt supplies applicative admission, the bounded fold, traversal, the `HashMap` separation index, and the `Fin` rail.
+- Law: `Partitioned` carries no content key, evidence band, or stamp, so it takes no `*Receipt` name, which belongs to the `Process/owner#RECEIPT` `Receipt<TEvidence>` carrier alone.
+- Law: adjacency retains the `Geometry2D/algebra` `SiteEdge` WHOLE and never re-projects it. That row already carries the shared dual segment and DERIVES its midpoint and length off it, so a page-local twin renaming its endpoints and materializing what the owner computes spelled one fact under two names; the Kruskal weight and the breadth-first span recorder now read the owner's own measure. NAMED LOSS: length recomputes per read rather than storing once at projection. WITNESS: the spanning fold and the distance observer are its only readers, each consuming an edge once per walk, so the store bought nothing a second traversal pays for.
+- Receipt: `Partitioned` carries every clipped region per generating site, both the generating site and its clipped centroid, border membership, perimeter, adjacency links, the minimum spanning forest, breadth-first tour, per-cell traversal evidence, stroke split, the `PartitionSolid` rows, candidate/requested/surviving/merge census, the nearest boundary-anchor cell, and the density closure. `PartitionDensity` closes the inverse the strategy opened — target areal density and cell area against the density and mean cell area the retained cells realized, beside the walk's Lloyd residual — so a consumer reads whether the field it asked for is the field it got. `PartitionSolid` reads the kernel `CloudVoronoiCell` column for column — bound-gated `Option` volume, centroid, and extent beside the natural-neighbour sites — so an unbounded cell publishes absence rather than a zero no fold measured, and `Bounded` is the measured subset a lattice or support-cell consumer reads. A depth-bearing projection reaches this success shape only after the kernel dual completes; a degenerate dual remains the exact `Fin` failure, while an empty solid set means the caller asked for no depth.
+- Packages: `Rasm` supplies the `Deterministic` draw lanes, the `VectorCloud`/`VectorIntent.Voronoi` rail carrying the 3D dual, its per-cell measures, and the success-only `CloudVoronoiResult`/`CloudVoronoiReceipt` census, and, through `PolygonOp.Cells`, the bounded planar Voronoi diagram, its Lloyd relaxation, its merge fold, and the nearest-site index; the `Geometry2D` owner supplies measure, Boolean, open-clip, and the `SiteEdge` adjacency row this page retains rather than re-projects; QuikGraph supplies the edge-set container projections, Kruskal spanning, component labels, the breadth-first walk, and its distance recorders; LanguageExt supplies applicative admission, the bounded fold, traversal, the `HashMap` separation index, and the `Fin` rail.
 - Growth: a new site-cloud law is one `SiteDistribution` row carrying its own lane fold; a new grading law is one `DensityField` row; a new egress modality is one `PartitionProjection` case; a new ordering law consumes the retained graph without changing tessellation; a new per-cell planar measure is one `PartitionCell` column read off the retained `SiteCell`, and a new volumetric measure is one `PartitionSolid` column read off the retained `CloudVoronoiCell`.
 - Boundary: QuikGraph construction and the observed walk are the one statement-bearing foreign-mutation seam; aggregate admission, domain computation, and egress remain expression-shaped. Diagrams are never minted here — a page-local tessellator, relaxation loop, draw stream, or volumetric dual is the deleted form, the planar complex routing `PolygonOp.Cells` and the 3D complex `VectorIntent.Voronoi`. Every `PolygonAlgebra.Apply` call carries its `Op` key, so a trace-shape refusal names the calling operation instead of a hand-written axis literal. No absence rides a sentinel count or an infinite length: an unreachable cell leaves the tour and the closure census refuses.
 
@@ -103,7 +105,6 @@ public sealed partial class DensityField {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class SamplingField {
     public SiteDistribution Source { get; }
     public int Seed { get; }
@@ -111,13 +112,13 @@ public sealed partial class SamplingField {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref SiteDistribution source,
         ref int seed,
         ref DensityField density) =>
         validationError = source is not null && density is not null
             ? null
-            : new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "partition-sampling-field");
+            : new ValidationError("partition-sampling-field");
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -149,7 +150,6 @@ public readonly record struct PartitionField(
     double MergeFloorMm2);
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class PartitionStrategy {
     public string Key { get; }
     public SamplingField Sampling { get; }
@@ -233,7 +233,7 @@ public sealed partial class PartitionStrategy {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref string key,
         ref SamplingField sampling,
         ref Arr<Point3d> anchors,
@@ -246,33 +246,38 @@ public sealed partial class PartitionStrategy {
         ref int attemptFactor,
         ref double mergeAreaRatio) {
         K<Validation<Error>, Unit> numeric = (
-            Gate(Witness.Keyed(key), "key"),
-            Gate(Witness.Positive(siteDensityPerMm2), "site-density"),
-            Gate(siteFloor >= 3 && siteCeiling >= siteFloor, "site-count"),
-            Gate(relaxIterations >= 0 && relaxStrength is >= 0.0 and <= 1.0 && double.IsFinite(relaxStrength), "relaxation"),
-            Gate(minimumSeparationRatio >= 0.0 && double.IsFinite(minimumSeparationRatio), "separation"),
-            Gate(attemptFactor >= 1 && siteCeiling <= Array.MaxLength / attemptFactor, "attempt-capacity"),
-            Gate(mergeAreaRatio is >= 0.0 and <= 1.0 && double.IsFinite(mergeAreaRatio), "merge-ratio"))
+            AdmissionSlots.Gate(Witness.Keyed(key), FabConcern.Toolpath, "partition-strategy:key", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(ValidityClaim.Positive(siteDensityPerMm2),
+                FabConcern.Toolpath, "partition-strategy:site-density", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(siteFloor >= 3 && siteCeiling >= siteFloor,
+                FabConcern.Toolpath, "partition-strategy:site-count", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(relaxIterations >= 0 && relaxStrength is >= 0.0 and <= 1.0 && double.IsFinite(relaxStrength),
+                FabConcern.Toolpath, "partition-strategy:relaxation", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(minimumSeparationRatio >= 0.0 && double.IsFinite(minimumSeparationRatio),
+                FabConcern.Toolpath, "partition-strategy:separation", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(attemptFactor >= 1 && siteCeiling <= Array.MaxLength / attemptFactor,
+                FabConcern.Toolpath, "partition-strategy:attempt-capacity", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(mergeAreaRatio is >= 0.0 and <= 1.0 && double.IsFinite(mergeAreaRatio),
+                FabConcern.Toolpath, "partition-strategy:merge-ratio", FabricationFault.Inadmissible))
             .Apply(static (_, _, _, _, _, _, _) => unit);
         Seq<Point3d> sites = toSeq(anchors);
         K<Validation<Error>, Unit> anchorsValid = (
-            Gate(sites.ForAll(static point => point.IsValid), "anchors-finite"),
-            Gate(sites.Count <= siteCeiling, "anchors-capacity"))
+            AdmissionSlots.Gate(sites.ForAll(static point => point.IsValid),
+                FabConcern.Toolpath, "partition-strategy:anchors-finite", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(sites.Count <= siteCeiling,
+                FabConcern.Toolpath, "partition-strategy:anchors-capacity", FabricationFault.Inadmissible))
             .Apply(static (_, _) => unit);
         validationError = (numeric, anchorsValid)
             .Apply(static (_, _) => unit)
             .As()
-            .Match<FabricationFault?>(
-                Fail: static error => new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message),
+            .Match<ValidationError?>(
+                Fail: static _ => new ValidationError("partition-strategy"),
                 Succ: static _ => null);
     }
 
-    private static K<Validation<Error>, Unit> Gate(bool admitted, string axis) =>
-        AdmissionSlots.Gate(admitted, new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"partition-strategy:{axis}"));
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class PartitionRequest {
     public PartitionStrategy Strategy { get; }
     public Loop Boundary { get; }
@@ -280,7 +285,7 @@ public sealed partial class PartitionRequest {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref PartitionStrategy strategy,
         ref Loop boundary,
         ref PartitionProjection projection) {
@@ -291,18 +296,22 @@ public sealed partial class PartitionRequest {
             .IfFail(0.0);
         Seq<Point3d> anchors = strategy.Anchors.ToSeq();
         validationError = (
-            Gate(boundary.Closed && boundary.Count >= 3, "boundary"),
-            Gate(anchors.ForAll(point => Partition.Covers(boundary, point, projection.DepthMm)), "anchors-boundary"),
-            Gate(anchors.Map(static (point, index) => (Point: point, Index: index)).ForAll(row =>
-                anchors.Take(row.Index).ForAll(prior => prior.DistanceTo(row.Point) >= separation)), "anchors-separated"),
-            Gate(projection.Switch(
+            AdmissionSlots.Gate(boundary.Closed && boundary.Count >= 3,
+                FabConcern.Toolpath, "partition-request:boundary", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(anchors.ForAll(point => Partition.Covers(boundary, point, projection.DepthMm)),
+                FabConcern.Toolpath, "partition-request:anchors-boundary", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(anchors.Map(static (point, index) => (Point: point, Index: index)).ForAll(row =>
+                anchors.Take(row.Index).ForAll(prior => prior.DistanceTo(row.Point) >= separation)),
+                    FabConcern.Toolpath, "partition-request:anchors-separated", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(projection.Switch(
                 regions: static _ => true,
                 classify: static request => request.Strokes.ForAll(static edge => edge.A.IsValid && edge.B.IsValid),
-                volumetric: static request => Witness.Positive(request.DepthMm)), "projection"))
+                volumetric: static request => ValidityClaim.Positive(request.DepthMm)),
+                    FabConcern.Toolpath, "partition-request:projection", FabricationFault.Inadmissible))
             .Apply(static (_, _, _, _) => unit)
             .As()
-            .Match<FabricationFault?>(
-                Fail: static error => new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message),
+            .Match<ValidationError?>(
+                Fail: static _ => new ValidationError("partition-request"),
                 Succ: static _ => null);
     }
 
@@ -312,19 +321,9 @@ public sealed partial class PartitionRequest {
         PartitionProjection projection) =>
         Validate(strategy, boundary, projection, out PartitionRequest request).Admitted(request);
 
-    private static K<Validation<Error>, Unit> Gate(bool admitted, string axis) =>
-        AdmissionSlots.Gate(admitted, new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"partition-request:{axis}"));
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-public sealed record PartitionLink(
-    int Source,
-    int Target,
-    Point3d Start,
-    Point3d End,
-    Point3d Mid,
-    double LengthMm);
-
 public sealed record PartitionCell(
     int Index,
     Seq<Loop> Regions,
@@ -350,12 +349,16 @@ public readonly record struct PartitionDensity(
     double MeanCellAreaMm2,
     double LloydResidualMm);
 
-public sealed record PartitionReceipt(
+// `Partitioned` publishes the decomposition and every measure taken over it. It carries no content key, evidence
+// band, or stamp, so it takes no `*Receipt` name: that name belongs to the `Process/owner#RECEIPT`
+// `Receipt<TEvidence>` carrier under this folder's own ruling, and a lane output wearing it while holding none of
+// the three required columns is the deleted form.
+public sealed record Partitioned(
     PartitionStrategy Strategy,
     Loop Boundary,
     Seq<PartitionCell> Cells,
-    Seq<PartitionLink> Links,
-    Seq<PartitionLink> Spanning,
+    Seq<SiteEdge> Links,
+    Seq<SiteEdge> Spanning,
     Seq<int> Tour,
     Seq<PartitionVisit> Traversal,
     Seq<Edge3> Inside,
@@ -389,7 +392,7 @@ public sealed record PartitionSolid(
     Option<double> ExtentMm);
 
 file sealed record SiteDiagram(
-    CellReceipt Diagram,
+    CellDiagram Diagram,
     PartitionStrategy Strategy,
     PartitionField Field,
     int Candidates,
@@ -400,12 +403,15 @@ file sealed record SiteDiagram(
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Partition {
-    public static Fin<PartitionReceipt> Seed(PartitionRequest request) =>
+    public static Fin<Partitioned> Seed(PartitionRequest request) =>
         from boundaryArea in MeasuredArea(request.Boundary).Map(Math.Abs)
         let field = request.Strategy.Resolve(boundaryArea)
         from diagram in Tessellate(request, field)
         from cells in LowerCells(diagram.Diagram, request.Boundary)
-        let links = LowerLinks(diagram.Diagram)
+        // Adjacency is retained WHOLE. The algebra owner's `SiteEdge` already carries the shared dual segment and
+        // derives its midpoint and length off it, so a page-local twin was a second name for the same fact whose
+        // only divergence was storing what the owner computes.
+        let links = diagram.Diagram.Adjacency.ToSeq()
         from topology in Topology(cells, links, diagram.Anchor)
         from _ in Census(diagram, cells, boundaryArea)
         let regions = topology.Tour.Bind(index => cells[index].Regions)
@@ -413,7 +419,7 @@ public static class Partition {
             regions: static _ => Fin.Succ((Inside: Seq<Edge3>(), Outside: Seq<Edge3>())),
             classify: projection => Classify(projection.Strokes, regions),
             volumetric: static _ => Fin.Succ((Inside: Seq<Edge3>(), Outside: Seq<Edge3>())))
-        select new PartitionReceipt(
+        select new Partitioned(
             request.Strategy,
             request.Boundary,
             cells,
@@ -459,9 +465,8 @@ public static class Partition {
         from trace in PolygonAlgebra.Apply(
             new PolygonOp.Cells(footprints.ToArr(), request.Boundary, policy),
             Op.Of(name: nameof(Tessellate)))
-        from diagram in trace is PolygonTrace.Celled celled
-            ? Fin.Succ(celled.Result)
-            : Degenerate<CellReceipt>(request.Strategy, accepted.Count)
+        from diagram in trace.Diagram(
+            new FabricationFault.PartitionDegenerate(Subject(request.Strategy), accepted.Count))
         from anchor in diagram.Locate(request.Boundary.At(0), Op.Of(name: nameof(Tessellate)))
         from solids in Solids(request, accepted)
         select new SiteDiagram(
@@ -474,23 +479,16 @@ public static class Partition {
     // pass, so a planar cell ordinal names a survivor, never an accepted site. The two decompositions answer
     // different planes and stay unjoined rather than sharing a key one of them cannot honour.
     //
-    // The projection takes the WHOLE `CloudVoronoiResult` — the rail's identity row, so cells and receipt arrive
-    // from ONE fold and no second dual runs — because the cells row ALONE cannot tell a refusal from an absence:
-    // a degenerate site set funnels through the kernel's own `ConvexHullGenerationException` seam into a
-    // `Rejected` receipt carrying EMPTY cells, which read here as a `Seq<PartitionSolid>` byte-identical to the
-    // no-depth arm's. Gating on `Status` is the volumetric twin of the planar `Census` closure: a rejected 3D fold
-    // names its cause where a caller can act on it instead of publishing zero solids for a decomposition that
-    // never happened, and `Rejection` carries the package's own outcome so the refusal names the degeneracy.
+    // The projection takes the WHOLE success-only `CloudVoronoiResult` — cells and census arrive from ONE fold and
+    // no second dual runs. A degenerate site set stays the exact failure captured by the kernel rail and therefore
+    // never reaches this projection; the empty success arm below remains reserved for an explicit no-depth request.
     private static Fin<Seq<PartitionSolid>> Solids(PartitionRequest request, Seq<Point3d> accepted) =>
         request.Projection.DepthMm <= 0.0
             ? Fin.Succ(Seq<PartitionSolid>())
             : from cloud in VectorCloud.Cluster(accepted, request.Boundary.Tolerance, key: Op.Of(name: nameof(Solids)))
               from intent in VectorIntent.Voronoi(cloud, key: Op.Of(name: nameof(Solids)))
               from dual in intent.Project<CloudVoronoiResult>(request.Boundary.Tolerance, Op.Of(name: nameof(Solids)))
-              from measured in dual.Receipt.Status.Equals(CloudFoldStatus.Completed)
-                  ? Fin.Succ(dual.Cells)
-                  : Degenerate<Seq<CloudVoronoiCell>>(request.Strategy, accepted.Count)
-              select measured.Map(static cell => new PartitionSolid(
+              select dual.Cells.Map(static cell => new PartitionSolid(
                   cell.Site, cell.Seed, toSeq(cell.Neighbors), cell.Volume, cell.Centroid, cell.Extent));
 
     // Cloud draws are lane-addressed, so candidate i is a pure function of (seed, i) and the box — a rejected
@@ -498,10 +496,11 @@ public static class Partition {
     private static Fin<Seq<Point3d>> Candidates(PartitionRequest request, PartitionField field) {
         BoundingBox box = Box(request.Boundary, request.Projection.DepthMm);
         SamplingField sampling = request.Strategy.Sampling;
-        return Try.lift(() => checked(field.Sites * request.Strategy.AttemptFactor))
-            .Run()
-            .MapFail(_ => new FabricationFault.PartitionDegenerate(Subject(request.Strategy), field.Sites).ToError())
-            .Map(attempts => Range(0, attempts).ToSeq().Map(index => sampling.Source.Draw(box, sampling.Seed, (long)index)).ToSeq())
+        int factor = request.Strategy.AttemptFactor;
+        return field.Sites > int.MaxValue / factor
+            ? Fin.Fail<Seq<Point3d>>(new FabricationFault.PartitionDegenerate(Subject(request.Strategy), field.Sites))
+            : Range(0, field.Sites * factor).ToSeq()
+                .Map(index => sampling.Source.Draw(box, sampling.Seed, (long)index)).ToSeq()
             .As()
             .ToFin();
     }
@@ -533,13 +532,13 @@ public static class Partition {
         // Rejection draws ride their own lane, so they neither consume nor perturb the cloud lanes: candidate i's
         // draw is a pure function of (seed, i) and its acceptance a pure function of the field row and the box, so
         // the whole sift replays from the strategy alone.
-        Try.lift(() => Box(request.Boundary, request.Projection.DepthMm) is var box
-                && candidates.Map((point, index) => (
+        Op.Of(name: "partition:accept").Catch(() => {
+                BoundingBox box = Box(request.Boundary, request.Projection.DepthMm);
+                return Fin.Succ(candidates.Map((point, index) => (
                     Point: point,
                     Draw: Deterministic.Unit(lanes: [(long)index, 2L], seed: request.Strategy.Sampling.Seed),
-                    Acceptance: request.Strategy.Sampling.Density.Weight(box, point))).ToArr())
-            .Run()
-            .MapFail(_ => new FabricationFault.PartitionDegenerate(Subject(request.Strategy), candidates.Count).ToError())
+                    Acceptance: request.Strategy.Sampling.Density.Weight(box, point))).ToArr());
+            })
             .Bind(rows => rows.ForAll(static row => double.IsFinite(row.Acceptance) && row.Acceptance is >= 0.0 and <= 1.0)
                 ? Fin.Succ(Sift(request, field, rows))
                 : Degenerate<Seq<Point3d>>(request.Strategy, rows.Count));
@@ -595,13 +594,13 @@ public static class Partition {
     // conservative on a re-entrant one, so the exact Boolean still runs here — and it is also what splits a cell a
     // concave boundary severs into its disconnected regions. A cell whose clipped area differs from its ring area
     // touches the boundary, which is the border verdict lead-in and stipple-density consumers read.
-    private static Fin<Seq<PartitionCell>> LowerCells(CellReceipt diagram, Loop boundary) =>
+    private static Fin<Seq<PartitionCell>> LowerCells(CellDiagram diagram, Loop boundary) =>
         diagram.Cells.ToSeq().Traverse(cell =>
             from measured in Intersect(cell.Ring, boundary).Bind(pieces => pieces.Traverse(piece => Measure(Seq(piece))
                 .Map(value => (Region: piece, Measure: value))).As())
             let regions = measured.Filter(static piece => piece.Region.Count >= 3 && piece.Measure.FilledArea > 0.0)
             from _ in regions.IsEmpty
-                ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, cell.Site, "partition:empty-cell").ToError())
+                ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, cell.Site, "partition:empty-cell"))
                 : Fin.Succ(unit)
             let area = regions.Sum(static piece => piece.Measure.FilledArea)
             select new PartitionCell(
@@ -627,41 +626,35 @@ public static class Partition {
 
     private static Fin<PolygonMeasure> Measure(Seq<Loop> paths) =>
         PolygonAlgebra.Apply(new PolygonOp.Measure(paths, PolygonFill.NonZero), Op.Of())
-            .Bind(static trace => trace is PolygonTrace.Measured measured
-                ? Fin.Succ(measured.Result)
-                : Fin.Fail<PolygonMeasure>(Op.Of(name: nameof(Measure)).InvalidResult()));
+            .Bind(static trace => trace.Measure(
+                new KernelFault.InvalidValue("partition", "partition:measure-trace")));
 
     private static Fin<Seq<Loop>> Intersect(Loop subject, Loop clip) =>
         PolygonAlgebra.Apply(new PolygonOp.Boolean(Seq(subject), Seq(clip), BooleanOp.Intersection, PolygonFill.NonZero), Op.Of())
-            .Bind(static trace => trace is PolygonTrace.Regions regions
-                ? Fin.Succ(regions.Result.Nodes.Filter(static node => !node.IsHole).Map(static node => node.Boundary))
-                : Fin.Fail<Seq<Loop>>(Op.Of(name: nameof(Intersect)).InvalidResult()));
+            .Bind(static trace => trace
+                .Regioned(new KernelFault.InvalidValue("partition", "partition:intersect-trace"))
+                .Map(static topology => topology.Nodes.Filter(static node => !node.IsHole).Map(static node => node.Boundary)));
 
     private static Fin<(Seq<Edge3> Inside, Seq<Edge3> Outside)> Classify(Seq<Edge3> subject, Seq<Loop> clip) =>
         PolygonAlgebra.Apply(new PolygonOp.ClipOpen(Seq(subject), clip, PolygonFill.NonZero), Op.Of())
-            .Bind(static trace => trace is PolygonTrace.SplitRuns split
-                ? Fin.Succ((split.Inside.Bind(static run => run), split.Outside.Bind(static run => run)))
-                : Fin.Fail<(Seq<Edge3>, Seq<Edge3>)>(Op.Of(name: nameof(Classify)).InvalidResult()));
-
-    // Adjacency already carries its shared dual segment, so a link is a projection, never a second derivation.
-    private static Seq<PartitionLink> LowerLinks(CellReceipt diagram) =>
-        diagram.Adjacency.ToSeq().Map(static edge => new PartitionLink(
-            edge.A, edge.B, edge.Start, edge.End, edge.Mid, edge.Length));
+            .Bind(static trace => trace
+                .Runs(new KernelFault.InvalidValue("partition", "partition:classify-trace"))
+                .Map(static split => (split.Inside.Bind(static run => run), split.Outside.Bind(static run => run))));
 
     // Both containers project from their own edge set: the undirected one Kruskal spans, and the directed forest
     // the rooted walk descends, each carrying the full vertex range so an isolated cell stays a component of one.
-    private static Fin<(Seq<PartitionLink> Spanning, Seq<int> Tour, Seq<PartitionVisit> Traversal)> Topology(
+    private static Fin<(Seq<SiteEdge> Spanning, Seq<int> Tour, Seq<PartitionVisit> Traversal)> Topology(
         Seq<PartitionCell> cells,
-        Seq<PartitionLink> links,
+        Seq<SiteEdge> links,
         int anchor) {
-        UndirectedGraph<int, TaggedEdge<int, PartitionLink>> graph = links
-            .Map(static link => new TaggedEdge<int, PartitionLink>(link.Source, link.Target, link))
-            .ToUndirectedGraph<int, TaggedEdge<int, PartitionLink>>(allowParallelEdges: false);
+        UndirectedGraph<int, TaggedEdge<int, SiteEdge>> graph = links
+            .Map(static link => new TaggedEdge<int, SiteEdge>(link.A, link.B, link))
+            .ToUndirectedGraph<int, TaggedEdge<int, SiteEdge>>(allowParallelEdges: false);
         graph.AddVertexRange(Range(0, cells.Count));
-        Seq<TaggedEdge<int, PartitionLink>> spanning = toSeq(graph.MinimumSpanningTreeKruskal(static edge => edge.Tag.LengthMm));
-        BidirectionalGraph<int, TaggedEdge<int, PartitionLink>> forest = spanning
-            .Bind(static edge => Seq(edge, new TaggedEdge<int, PartitionLink>(edge.Target, edge.Source, edge.Tag)))
-            .ToBidirectionalGraph<int, TaggedEdge<int, PartitionLink>>(allowParallelEdges: false);
+        Seq<TaggedEdge<int, SiteEdge>> spanning = toSeq(graph.MinimumSpanningTreeKruskal(static edge => edge.Tag.Length));
+        BidirectionalGraph<int, TaggedEdge<int, SiteEdge>> forest = spanning
+            .Bind(static edge => Seq(edge, new TaggedEdge<int, SiteEdge>(edge.Target, edge.Source, edge.Tag)))
+            .ToBidirectionalGraph<int, TaggedEdge<int, SiteEdge>>(allowParallelEdges: false);
         forest.AddVertexRange(Range(0, cells.Count));
         Dictionary<int, int> labels = [];
         _ = forest.WeaklyConnectedComponents(labels);
@@ -675,21 +668,21 @@ public static class Partition {
                 toSeq(group.Select(static pair => pair.Key))));
         return traversal.Count == cells.Count
             ? Fin.Succ((spanning.Map(static edge => edge.Tag), traversal.Map(static row => row.Cell), traversal))
-            : Fin.Fail<(Seq<PartitionLink>, Seq<int>, Seq<PartitionVisit>)>(
-                new GeometryFault.DegenerateInput(Kind.Curve, None, "partition:topology").ToError());
+            : Fin.Fail<(Seq<SiteEdge>, Seq<int>, Seq<PartitionVisit>)>(
+                new GeometryFault.DegenerateInput(Kind.Curve, None, "partition:topology"));
     }
 
     // ONE walk, two recorders: hop depth rides unit weights and path length rides the link measure, so the tour
     // order, the published depth, and the published length all come from the same descent. A vertex the walk never
     // reached leaves the tour rather than entering it under a sentinel depth, and the closure census refuses.
     private static Seq<PartitionVisit> Breadth(
-        BidirectionalGraph<int, TaggedEdge<int, PartitionLink>> forest,
+        BidirectionalGraph<int, TaggedEdge<int, SiteEdge>> forest,
         int root,
         int component,
         Seq<int> vertices) {
-        BreadthFirstSearchAlgorithm<int, TaggedEdge<int, PartitionLink>> search = new(forest);
-        VertexDistanceRecorderObserver<int, TaggedEdge<int, PartitionLink>> hops = new(static _ => 1.0);
-        VertexDistanceRecorderObserver<int, TaggedEdge<int, PartitionLink>> spans = new(static edge => edge.Tag.LengthMm);
+        BreadthFirstSearchAlgorithm<int, TaggedEdge<int, SiteEdge>> search = new(forest);
+        VertexDistanceRecorderObserver<int, TaggedEdge<int, SiteEdge>> hops = new(static _ => 1.0);
+        VertexDistanceRecorderObserver<int, TaggedEdge<int, SiteEdge>> spans = new(static edge => edge.Tag.Length);
         using (hops.Attach(search))
         using (spans.Attach(search))
             search.Compute(root);
@@ -728,11 +721,11 @@ public static class Partition {
             && !cells.IsEmpty
             && Math.Abs(boundaryArea - cellArea) <= slack * diagram.Boundary.Bound().Diagonal.Length + slack * slack
                 ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(new FabricationFault.PartitionDegenerate(Subject(diagram.Strategy), cells.Count).ToError());
+                : Fin.Fail<Unit>(new FabricationFault.PartitionDegenerate(Subject(diagram.Strategy), cells.Count));
     }
 
     private static Fin<T> Degenerate<T>(PartitionStrategy strategy, int count) =>
-        Fin.Fail<T>(new FabricationFault.PartitionDegenerate(Subject(strategy), count).ToError());
+        Fin.Fail<T>(new FabricationFault.PartitionDegenerate(Subject(strategy), count));
 
     private static FaultSubject.Partition Subject(PartitionStrategy strategy) => new(strategy.Key);
 }

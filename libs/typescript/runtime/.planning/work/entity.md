@@ -1,13 +1,14 @@
 # [RUNTIME_ENTITY]
 
-The durable-actor plane: a cluster entity is an `@effect/rpc` `RpcGroup` given sharded, per-id, single-writer identity, and this page owns everything that gives it that identity — the `WorkClass` service-class vocabulary every work surface prices itself against, the `Actor` mint that binds a protocol to fenced bounds and durability annotations, the `Mailbox` durable-message port over the data wave's `SqlClient` with the one `ClusterError → Fault.Class` bridge, and the `Grid` topology assembly — leaderless sharding over `RunnerStorage` advisory locks, K8s runner health, the runner entry rows, the cluster singleton, and the workflow-engine bridge `flow` runs on. Sharding has no manager election: runners acquire, refresh, and release shard locks against storage, so the topology is a table of peers and a runner death is a lock expiry, never a coordinator failover. `work` composes `MessageStorage` and `SqlClient` as Tags satisfied at the app root from the data wave's `Stores` scopes; no SQL driver import is spellable here. The module ships on the `./server` exports subpath as `runtime/src/work/entity.ts`.
+The durable-actor plane: a cluster entity is an `@effect/rpc` `RpcGroup` given sharded, per-id, single-writer identity, and this page owns everything that gives it that identity — the `WorkClass` service-class vocabulary every work surface prices itself against, the `Settled` receipt carrier every work surface answers with when its concern lands, the `Actor` mint that binds a protocol to fenced bounds and durability annotations, the `Mailbox` durable-message port over the data wave's `SqlClient` with the one `ClusterError → Fault.Class` bridge, and the `Grid` topology assembly — leaderless sharding over `RunnerStorage` advisory locks, K8s runner health, the runner entry rows, the cluster singleton, and the workflow-engine bridge `flow` runs on. Sharding has no manager election: runners acquire, refresh, and release shard locks against storage, so the topology is a table of peers and a runner death is a lock expiry, never a coordinator failover. `work` composes `MessageStorage` and `SqlClient` as Tags satisfied at the app root from the data wave's `Stores` scopes; no SQL driver import is spellable here. The module ships on the `./server` exports subpath as `runtime/src/work/entity.ts`.
 
 ## [01]-[INDEX]
 
 - [02]-[WORK_CLASS]: the one service-class row table — concurrency, mailbox, idle, budget, attempts, priority; `WorkClass`.
-- [03]-[ACTOR_MINT]: the entity mint: protocol, fenced bounds, durability annotations, client, exposure; `Actor`.
-- [04]-[MAILBOX]: the durable plane's two-store tier rows, dedup receipt, the `ClusterError → Fault.Class` bridge; `Mailbox`.
-- [05]-[GRID]: leaderless topology, runner health, entry rows, singleton, the workflow-engine bridge; `Grid`.
+- [03]-[SETTLED_RECEIPT]: the one landed-work carrier — partition, provenance, warning band, stamp pair; `Settled`.
+- [04]-[ACTOR_MINT]: the entity mint: protocol, fenced bounds, durability annotations, client, exposure; `Actor`.
+- [05]-[MAILBOX]: the durable plane's two-store tier rows, dedup receipt, the `ClusterError → Fault.Class` bridge; `Mailbox`.
+- [06]-[GRID]: leaderless topology, runner health, entry rows, singleton, the workflow-engine bridge; `Grid`.
 
 ## [02]-[WORK_CLASS]
 
@@ -69,7 +70,66 @@ const WorkClass: WorkClass.Shape = {
 }
 ```
 
-## [03]-[ACTOR_MINT]
+## [03]-[SETTLED_RECEIPT]
+
+[SETTLED_RECEIPT]:
+- Owner: `Settled` — the carrier a work surface answers when its concern LANDED, collapsing the delivery and document receipts onto one spine: the concern partition, the consumed and produced provenance, the warning band, and the stamp pair. Each producer declares its own `evidence` column through `Settled.extend`, so a payload's type stays exact at its producer while the spine stays total for every consumer reading across producers.
+- Law: this carrier is the SETTLED half of `queue#LANE_POLICY`'s verdict and never its twin — the verdict states that a claim's custody ended, this carrier states what the effect produced, so a drain answers the verdict and its lane row answers the carrier.
+- Law: lineage is the growth site — a producer widens through `Settled.extend<Self>(identifier)({ evidence })` and inherits every spine column and getter; a second class restating the spine is the parallel-receipt defect that let one folder carry two settlement vocabularies whose partitions, provenance, and warning bands no consumer could join.
+- Law: `partition` is a payload-free vocabulary spread from one anchor as a literal, never a case family a decoding field cannot carry — `whole` every declared concern landed, `partial` some landed and the warning band names the rest, `empty` the producer ran and produced nothing. A producer that cannot separate partial from whole states `whole` and forfeits the band rather than minting a fourth word.
+- Law: a warning is a named non-refusing DEGRADATION carrying the band its refusal would have taken — a producer folds its own `Fault.Class.family` reason through `classOf`, so the class rank lattice grades degradations exactly as it grades refusals and `degraded` elects the dominant one; a fault the rail already carried is not a warning, and a free note beside the evidence is not either.
+- Law: the content key is NOT a spine column — runtime mints no content identity, so a produced artifact's key arrives from the data wave's artifact-index put over the landed bytes; a required key here would stamp an identity no producer took.
+- Law: `provenance` states both directions — `consumed` names the identities this settlement spent, `produced` the one identity it minted — so a receipt joins backward to its cause and forward to its output without a second index.
+- Boundary: a child-exit verdict (`proc/exec`'s `Proc.Receipt`) and a byte-parity proof (`browser/fetch`'s arrival receipt) name no produced output and carry no provenance, so neither joins this family; folding either in fabricates spine columns their producers never measure, and neither seats where this carrier does.
+- Growth: a new producer is one `extend` declaration; a new spine dimension is one field every producer's fold populates.
+- Packages: `effect` (`Array`, `Option`, `Schema`); `@rasm/ts/core` (`Fault.Class`).
+
+```typescript signature
+// One warning row for every producer: the class its degradation WOULD have refused under, the producer's own family
+// reason verbatim, and that reason's rendered subject. The class closes against the core vocabulary while `reason`
+// stays the producer's word, because one carrier spanning every work surface cannot close a roster each family owns.
+const _Warning = Schema.Struct({
+  class: Fault.Class.schema,
+  reason: Schema.NonEmptyString,
+  note: Schema.String,
+})
+
+// Payload-free cases, so the vocabulary spreads from one anchor as a literal: a tagged family is unspellable on a
+// field of a class that decodes and encodes, and these three words are the whole discriminant.
+const _partitions = ["whole", "partial", "empty"] as const
+
+class Settled extends Schema.Class<Settled>("Work.Settled")({
+  partition: Schema.Literal(..._partitions),
+  // Both directions of one join: what this settlement spent and the one identity it minted. A content key is absent
+  // by law — the data wave's artifact index mints it over landed bytes and no runtime producer ever holds one.
+  provenance: Schema.Struct({
+    consumed: Schema.Array(Schema.NonEmptyString),
+    produced: Schema.NonEmptyString,
+  }),
+  warnings: Schema.Array(_Warning),
+  at: Schema.DateTimeUtc,
+  span: Schema.Duration,
+}) {
+  // The band a consumer acts on: the warning set folded through the SAME rank lattice a fault set folds through, so
+  // one order grades a degraded settlement and a refusal alike, and an empty band reads absent rather than benign.
+  get degraded(): Option.Option<Fault.Class.Kind> {
+    return Array.match(Array.map(this.warnings, (warning) => warning.class), {
+      onEmpty: Option.none,
+      onNonEmpty: (classes) => Option.some(Fault.Class.dominant(classes)),
+    })
+  }
+}
+
+declare namespace Settled {
+  type Partition = (typeof _partitions)[number]
+  type Warning = typeof _Warning.Type
+  // The spine seen WITH a producer's own evidence: a fold generic over producers names this rather than the bare
+  // spine, so an evidence payload never erases to `unknown` on the way through.
+  type Of<Evidence> = Settled & { readonly evidence: Evidence }
+}
+```
+
+## [04]-[ACTOR_MINT]
 
 [ACTOR_MINT]:
 - Owner: `Actor` — the one entity mint: `Actor.Spec` binds a name, a typed protocol generator, a `WorkClass` kind, tenant partition, and per-Rpc posture sets. The generator receives the mint's polymorphic annotation function and calls `RpcGroup.make` over its declaration tuple, preserving the exact Rpc union without an assertion while compiling each Rpc's `Persisted` and `ClientTracingEnabled` verdicts. `Entity.fromRpcGroup` then declares the actor, shard-group annotation partitions ids by tenant, and `toLayer` registers the exhaustive handler map under the class fence.
@@ -181,7 +241,7 @@ const _expose = <Type extends string, Rpcs extends Rpc.Any>(entity: Entity.Entit
 const Actor = { make: _make, expose: _expose }
 ```
 
-## [04]-[MAILBOX]
+## [05]-[MAILBOX]
 
 [MAILBOX]:
 - Owner: `Mailbox` — the durable plane's store composition and its fault fold. Each tier row publishes the two stores the plane draws on: the cluster envelope store (`SqlMessageStorage.layer` on the `SqlClient` Tag the app root satisfies from the data wave's `Stores` scopes, with `Snowflake.layerGenerator` minting the monotonic identity dedup keys on; `MessageStorage.layerMemory` for single-node and spec, `layerNoop` for ephemeral) AND the queue-item store (`PersistedQueue.layer` over `SqlPersistedQueue.layerStore()` on the same `SqlClient`, over `PersistedQueue.layerStoreMemory` on the lighter tiers) — three rows behind one selection at the root.
@@ -223,11 +283,11 @@ const _classify = (fault: ClusterError.ClusterError): Fault.Class.Kind => _bridg
 const Mailbox = {
   tier: (tier: Mailbox.Tier) => _tiers[tier],
   classify: _classify,
-  retryable: (fault: ClusterError.ClusterError) => Fault.Class.at(_classify(fault)).retryable,
+  retryable: (fault: ClusterError.ClusterError) => Fault.Class.retryable(_classify(fault)),
 }
 ```
 
-## [05]-[GRID]
+## [06]-[GRID]
 
 [GRID]:
 - Owner: `Grid` — the topology core: `ShardingConfig.layerFromEnv` reads lock intervals from `Setting`; `SqlRunnerStorage.layer` is the leaderless rebalancing substrate; `RunnerHealth` is a kind row (`k8s`, `ping`, `noop`); and `Grid.workflow` is the package's `ClusterWorkflowEngine.layer`. The runner binding remains the `proc/exec#RUNTIME_ROWS` selection — `NodeClusterHttp.layer`/`NodeClusterSocket.layer` and their Bun peers compose beside this core at boot, while single-node selects `Mailbox.tier("memory")` and `WorkflowEngine.layerMemory`.
@@ -286,7 +346,7 @@ const Grid = {
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Actor, Grid, Mailbox, WorkClass }
+export { Actor, Grid, Mailbox, Settled, WorkClass }
 ```
 
 ```mermaid
@@ -312,7 +372,7 @@ flowchart LR
   S --> W[ClusterWorkflowEngine.layer → WorkflowEngine]
 ```
 
-## [06]-[RESEARCH]
+## [07]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

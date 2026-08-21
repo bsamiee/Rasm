@@ -36,36 +36,86 @@ import { Array, Config, Context, Data, DateTime, Duration, Effect, Match, Option
 import { AccessClaims, JwksLedger, JwksSnapshot, type SingleUse } from "../crypt/sign.ts"
 import { Reject } from "../crypt/verify.ts"
 
+// Six legs partition the machine-identity fold and each reason renders its OWN subject, because the operator act
+// differs per leg: a discovery refusal names the axis the issuer never advertised, a token refusal names the
+// issuer's own error code, a DPoP refusal names the challenge parameter, an introspection refusal names the client
+// the authority just disowned, and a lease refusal names which window closed. One free `detail` string spelled them
+// all as prose, so the two `expired` shapes — a device-flow approval window and a lapsed handoff slot — read the
+// same to every consumer. Issuer IDENTITY earns no reason here: this plane admits the issuer its spec names, gates
+// only what that issuer ADVERTISES, and copies `spec.issuer` onto the principal, so nothing on it can disagree.
 const _family = Fault.Class.family(
-  ["issuer", "transport", "grant", "nonce", "proof", "shape", "inactive", "unsupported", "expired"] as const,
+  ["transport", "grant", "nonce", "proof", "shape", "inactive", "unsupported", "expired"] as const,
   {
-    issuer: { class: "invalid" },
-    transport: { class: "unavailable" },
-    grant: { class: "denied" },
+    transport: Fault.Class.row({
+      class: "unavailable",
+      leg: "transport",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `issuer leg did not complete: ${cause}`,
+    }),
+    grant: Fault.Class.row({
+      class: "denied",
+      leg: "token",
+      detail: Schema.Struct({ code: Schema.String }),
+      render: ({ code }) => `token endpoint denied the grant: ${code}`,
+    }),
     // `nonce` is deliberately NOT `unavailable`: the transport budget's class gate would re-drive a handshake the
-    // protocol settles in exactly one re-run, and the handle has already recorded the server's nonce by then.
-    nonce: { class: "invalid" },
-    proof: { class: "denied" },
-    shape: { class: "malformed" },
-    inactive: { class: "denied" },
-    unsupported: { class: "invalid" },
-    expired: { class: "expired" },
+    // protocol settles in exactly one re-run, and the handle has already recorded the server's nonce by then. The
+    // refusal genuinely carries no subject — the demand IS the whole fact — so its row states an empty one.
+    nonce: Fault.Class.row({
+      class: "invalid",
+      leg: "dpop",
+      detail: Schema.Struct({}),
+      render: () => "issuer demands a fresh dpop nonce",
+    }),
+    proof: Fault.Class.row({
+      class: "denied",
+      leg: "dpop",
+      detail: Schema.Struct({ challenge: Schema.String }),
+      render: ({ challenge }) => `resource server rejected the dpop proof: ${challenge}`,
+    }),
+    shape: Fault.Class.row({
+      class: "malformed",
+      leg: "admission",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `token response did not admit: ${cause}`,
+    }),
+    inactive: Fault.Class.row({
+      class: "denied",
+      leg: "introspect",
+      detail: Schema.Struct({ client: Schema.String }),
+      render: ({ client }) => `introspection reports client ${client} inactive`,
+    }),
+    unsupported: Fault.Class.row({
+      class: "invalid",
+      leg: "discovery",
+      detail: Schema.Struct({ axis: Schema.Literal("dpop-alg", "grant"), value: Schema.String }),
+      render: ({ axis, value }) => `issuer advertises no ${value} ${axis}`,
+    }),
+    expired: Fault.Class.row({
+      class: "expired",
+      leg: "lease",
+      detail: Schema.Struct({ on: Schema.Literal("approval", "handoff"), coordinate: Schema.String }),
+      render: ({ coordinate, on }) => `${on} window closed: ${coordinate}`,
+    }),
   },
 )
 
 declare namespace WorkloadFault {
-  type Reason = (typeof _family.reasons)[number]
+  type Case = typeof _family.payload.Type
+  type Reason = (typeof _family.kinds)[number]
 }
 
 class WorkloadFault extends Schema.TaggedError<WorkloadFault>()("WorkloadFault", {
-  reason: _family.schema,
-  detail: Schema.String,
+  case: _family.payload,
 }) {
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _family.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<workload:${this.reason}> ${this.detail}`
+    return _family.render(this.case)
   }
 }
 
@@ -81,7 +131,6 @@ const _PRESENTED = {
   expired: false,
   grant: true,
   inactive: false,
-  issuer: false,
   nonce: false,
   proof: true,
   shape: false,
@@ -104,13 +153,13 @@ const _nonced = (cause: unknown): boolean =>
     : cause instanceof WWWAuthenticateChallengeError && Option.contains(_challenged(cause), _NONCE)
 
 const _faultOf: (cause: unknown) => WorkloadFault = Match.type<unknown>().pipe(
-  Match.when(_nonced, () => new WorkloadFault({ reason: "nonce", detail: _NONCE })), // the code arm leads: it spans BOTH classes below, so ordering is what keeps each class's own arm honest
-  Match.when(Match.instanceOf(ResponseBodyError), (error) => new WorkloadFault({ reason: "grant", detail: error.error })),
+  Match.when(_nonced, () => new WorkloadFault({ case: { reason: "nonce" } })), // the code arm leads: it spans BOTH classes below, so ordering is what keeps each class's own arm honest
+  Match.when(Match.instanceOf(ResponseBodyError), (error) => new WorkloadFault({ case: { reason: "grant", code: error.error } })),
   Match.when(
     Match.instanceOf(WWWAuthenticateChallengeError),
-    (error) => new WorkloadFault({ reason: "proof", detail: Option.getOrElse(_challenged(error), () => String(error.status)) }),
+    (error) => new WorkloadFault({ case: { reason: "proof", challenge: Option.getOrElse(_challenged(error), () => String(error.status)) } }),
   ),
-  Match.orElse((error) => new WorkloadFault({ reason: "transport", detail: String(error) })),
+  Match.orElse((error) => new WorkloadFault({ case: { reason: "transport", cause: String(error) } })),
 )
 
 const _AUTH = {
@@ -331,13 +380,13 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
       const { deadline, floor } = yield* _policy
       const _legged = <A>(run: () => Promise<A>): Effect.Effect<A, WorkloadFault> =>
         Effect.tryPromise({ try: run, catch: _faultOf }).pipe(
-          Effect.timeoutFail({ duration: deadline, onTimeout: () => new WorkloadFault({ reason: "transport", detail: spec.issuer }) }),
+          Effect.timeoutFail({ duration: deadline, onTimeout: () => new WorkloadFault({ case: { reason: "transport", cause: `${spec.issuer} did not answer inside the deadline` } }) }),
           Effect.retry(Fault.Budget.schedule("lease")),
         )
       // Exactly one re-run, and only for the nonce handshake: the handle recorded the server's nonce as the
       // refusal landed, so the second attempt carries it. A genuine proof refusal keeps its single answer.
       const _proved = <A>(run: () => Promise<A>): Effect.Effect<A, WorkloadFault> =>
-        _legged(run).pipe(Effect.catchIf((fault) => fault.reason === "nonce", () => _legged(run)))
+        _legged(run).pipe(Effect.catchIf((fault) => fault.case.reason === "nonce", () => _legged(run)))
       const config = yield* _legged(() =>
         Option.match(spec.registration, {
           onNone: () => discovery(new URL(spec.issuer), spec.clientId, undefined, _clientAuth(spec.authentication)),
@@ -355,7 +404,7 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
       const proof = yield* spec.dpop
         ? Effect.gen(function* () {
             yield* Effect.unless(
-              Effect.fail(new WorkloadFault({ reason: "unsupported", detail: `issuer advertises no ${spec.proofAlg} DPoP algorithm` })),
+              Effect.fail(new WorkloadFault({ case: { reason: "unsupported", axis: "dpop-alg", value: spec.proofAlg } })),
               () =>
                 Option.match(Option.fromNullable(metadata.dpop_signing_alg_values_supported), {
                   onNone: () => true, // an issuer silent on the axis is not a refusal; the first proved leg is the real probe
@@ -385,7 +434,7 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
         Effect.tryPromise({ try: run, catch: _faultOf }).pipe(
           Effect.timeoutFail({
             duration: Duration.seconds(window),
-            onTimeout: () => new WorkloadFault({ reason: "expired", detail: `${window}s approval window` }),
+            onTimeout: () => new WorkloadFault({ case: { reason: "expired", on: "approval", coordinate: `${window}s` } }),
           }),
         )
       // Admission takes the bounded leg itself rather than a thunk, because a one-shot grant and a two-leg poll
@@ -396,7 +445,7 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
         legged.pipe(
           Effect.tap(() => _persist),
           Effect.flatMap((response) =>
-            _admitted(response).pipe(Effect.mapError((cause) => new WorkloadFault({ reason: "shape", detail: String(cause) })))),
+            _admitted(response).pipe(Effect.mapError((cause) => new WorkloadFault({ case: { reason: "shape", cause: String(cause) } })))),
           Effect.flatMap((wire) => _resolved(bound, wire, floor)),
         )
       // An issuer silent on the axis is not a refusal — the same posture the DPoP algorithm gate takes — but an
@@ -404,7 +453,7 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
       // arm re-derives it.
       const _advertised = (request: GrantRequest): Effect.Effect<void, WorkloadFault> =>
         Effect.unless(
-          Effect.fail(new WorkloadFault({ reason: "unsupported", detail: `issuer advertises no ${_GRANT_TYPES[request._tag]} grant` })),
+          Effect.fail(new WorkloadFault({ case: { reason: "unsupported", axis: "grant", value: _GRANT_TYPES[request._tag] } })),
           () => Array.isEmptyReadonlyArray(bound.grants) || Array.contains(bound.grants, _GRANT_TYPES[request._tag]),
         ).pipe(Effect.asVoid)
       const grant = (request: GrantRequest): Effect.Effect<MachinePrincipal, WorkloadFault> =>
@@ -443,7 +492,7 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
             }),
         })).pipe(
           Effect.tapError((fault) =>
-            Effect.when(Reject.mark("credential", { surface: "workload" }), () => _PRESENTED[fault.reason])),
+            Effect.when(Reject.mark("credential", { surface: "workload" }), () => _PRESENTED[fault.case.reason])),
           Reject.measured("credential", { surface: "workload" }),
           Effect.withSpan("security.workload.grant", { attributes: { issuer: spec.issuer } }),
         )
@@ -463,15 +512,15 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
             const remaining = DateTime.distance(now, principal.expiresAt)
             return yield* remaining > 0
               ? Effect.flatMap(IssuerStore, (store) => store.stash(key, principal, Duration.millis(remaining)))
-              : Effect.fail(new WorkloadFault({ reason: "expired", detail: key }))
+              : Effect.fail(new WorkloadFault({ case: { reason: "expired", on: "handoff", coordinate: key } }))
           }),
         claim: (key: string): Effect.Effect<MachinePrincipal, WorkloadFault, IssuerStore> =>
           Effect.flatMap(IssuerStore, (store) =>
             Effect.flatMap(store.consume(key), Option.match({
-              onNone: () => Effect.fail(new WorkloadFault({ reason: "expired", detail: key })),
+              onNone: () => Effect.fail(new WorkloadFault({ case: { reason: "expired", on: "handoff", coordinate: key } })),
               onSome: (principal) =>
                 Effect.flatMap(principal.lapsed, (spent) =>
-                  spent ? Effect.fail(new WorkloadFault({ reason: "expired", detail: key })) : Effect.succeed(principal)),
+                  spent ? Effect.fail(new WorkloadFault({ case: { reason: "expired", on: "handoff", coordinate: key } })) : Effect.succeed(principal)),
             }))),
         // Both arms rotate at the SAME breadth: the re-grant arm replays `origin` whole, so the refresh arm
         // carries `origin`'s own scope rather than handing the issuer a scopeless refresh to answer at its
@@ -485,7 +534,7 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
           _legged(() => tokenIntrospection(config, Redacted.value(principal.token))).pipe(
             Effect.filterOrFail(
               (response) => response.active,
-              () => new WorkloadFault({ reason: "inactive", detail: principal.clientId }),
+              () => new WorkloadFault({ case: { reason: "inactive", client: principal.clientId } }),
             )),
         call: (
           principal: MachinePrincipal,

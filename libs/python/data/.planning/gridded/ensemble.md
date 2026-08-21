@@ -15,24 +15,26 @@ The scenario axis is data twice over: `ScenarioKind` is the closed family-kind v
 - Law: `difference` names its baseline by leaf identity and refuses typed on an absent one — a silent empty delta over a mistyped baseline is the wire-damage class the refusal forecloses; the delta tree drops the baseline leaf, because a zero self-delta is a fabricated row no consumer asked for.
 - Entry: `ScenarioTree.of(kind, cubes)` builds `/{kind}/{name}` paths through `DataTree.from_dict`; `apply(op)` is the one operation entrypoint returning the `TreeResult` union; `write(target)` lands the whole hierarchy as one Zarr store and mints the page's one `FieldReceipt` under the `tree` tag, keyed off the store's `zarr.json` root-metadata bytes exactly as the field Zarr egress keys.
 - Receipt: one `FieldReceipt` per egress on the shared family — `engine="tree"` partitions scenario-set writes apart from the CF engines on the one receipt column, and `contribute` rides the family's own `domain="field"` projection with zero new receipt surface.
-- Packages: `xarray` (`DataTree.from_dict`, `map_over_datasets`, `leaves`, `to_zarr`, `concat`), `pandas` (the named `scenario` index the concat dimension rides), `msgspec` (the frozen owner), runtime (`RuntimeRail`/`boundary`/`ContentIdentity`/`scoped`), `gridded/field#EGRESS` (`FieldReceipt`, the shared receipt family).
-- Growth: a new scenario family kind is one `ScenarioKind` member; a new group-wise operation is one `TreeOp` case plus one `apply` arm; a new reduction verb is one `ReduceVerb` literal; a new receipt fact is one entry on the family's fact dict; zero new surface.
+- Packages: `xarray` (`DataTree.from_dict`, `map_over_datasets`, `leaves`, `to_zarr`, `concat`), `pandas` (the named `scenario` index the concat dimension rides), `msgspec` (the frozen owner), runtime (`RuntimeRail`/`boundary`/`FaultRow`/`ContentIdentity`/`scoped`), `gridded/field#EGRESS` (`FieldReceipt`, the shared receipt family), `tabular/interop#INTEROP` (`DataLeg`, the folder's one raise-leg roster).
+- Growth: a new scenario family kind is one `ScenarioKind` member; a new group-wise operation is one `TreeOp` case plus one `apply` arm; a new reduction verb is one `ReduceVerb` literal; a new receipt fact is one entry on the family's fact dict; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.ENSEMBLE` in this module's one `RAISES` table; zero new surface.
 - Boundary: composes the CF owner and the Zarr surface, never a second labelled-array store, no scenario GENERATION (design-option authoring is compute's, prospective builds are `impact/scenario#SCENARIO`'s), no UQ replicate container — the `gridded/field#ENSEMBLE` `EnsembleCorpus` owns replicate-chunked response matrices, a disjoint concern sharing only the receipt family.
 
 ```python signature
 from collections.abc import Iterable
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Final, Literal, assert_never
 
 import pandas as pd
-from expression import case, tag, tagged_union
-from enum import StrEnum
+from expression import Error, Ok, case, tag, tagged_union
+from expression.collections import Block
 from msgspec import Struct
 from opentelemetry import trace
 
 lazy import xarray as xr
 
 from rasm.data.gridded.field import FieldReceipt
-from rasm.runtime.faults import RuntimeRail, boundary, scoped
+from rasm.data.tabular.interop import DataLeg
+from rasm.runtime.faults import TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, boundary, rostered, scoped
 from rasm.runtime.identity import ContentIdentity
 from rasm.runtime.roots import ResourceRef
 
@@ -42,6 +44,44 @@ if TYPE_CHECKING:
 _TRACER: Final = scoped(trace.get_tracer, "rasm.data.gridded.ensemble")
 
 type ReduceVerb = Literal["mean", "std", "min", "max", "median", "sum"]
+
+
+def _tree_raises() -> Catch:
+    # reified at the call rather than named at module scope, so the set never reifies the deferred `xarray` proxy:
+    # `InvalidTreeError` is the ONE tree refusal rooting at bare `Exception`, and every sibling — `NotFoundInTreeError`,
+    # `TreeIsomorphismError`, and the `AlignmentError`/`MergeError` pair a concat reaches — is a `ValueError`
+    # refinement the builtin ancestor already admits, so naming them adds a proxy dereference and no reach.
+    return (xr.InvalidTreeError, KeyError, TypeError, ValueError)
+
+
+def _store_raises() -> Catch:
+    # the Zarr egress adds the store leg beneath the tree fold: `zarr.errors` roots at `ValueError` and its selection
+    # family at `IndexError`, so `OSError` is the one ancestor the tree set does not already carry for a directory or
+    # driver fault, and the local-path write reaches no object-store handle whose own root would need naming.
+    return (*_tree_raises(), IndexError, OSError)
+
+
+# this module's whole raise roster, seated once: every fenced leg and the one explicit refusal on this page resolves
+# ONE anchor here, so no call site spells a subject and `FaultRow.seated` proves the leg against a real module at
+# import. The in-memory folds declare TERMINAL — a re-run of one concat, one group-wise map, or one `from_dict` build
+# over the same leaves refuses identically — while the Zarr egress declares TRANSIENT, a store or driver fault a
+# re-issue may clear.
+TREE_BUILD: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.ENSEMBLE, point="build", arm="boundary", defect="tree-build", retriability=TERMINAL
+)
+TREE_APPLY: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.ENSEMBLE, point="apply", arm="boundary", defect="group-fold", retriability=TERMINAL
+)
+# the baseline refusal is CALLER-repairable — a leaf name the admitted roster never carried — so it rides `config`
+# and NAMES the scenario it could not find. The deleted `raise ValueError` crossed the same lift as a provider raise
+# and reached consumers as an unclassified `boundary` fault whose whole detail was a bracketed sentinel string.
+TREE_BASELINE: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.ENSEMBLE, point="baseline", arm="config", defect="absent-baseline", retriability=TERMINAL, slots=("scenario",)
+)
+TREE_WRITE: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.ENSEMBLE, point="write", arm="boundary", defect="tree-write", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[DataLeg]]] = rostered(Block.of_seq([TREE_BUILD, TREE_APPLY, TREE_BASELINE, TREE_WRITE]))
 
 
 class ScenarioKind(StrEnum):
@@ -78,33 +118,36 @@ class ScenarioTree(Struct, frozen=True):
             tree = xr.DataTree.from_dict({f"/{kind.value}/{name}": cube for name, cube in cubes.items()})
             return cls(tree=tree, kind=kind, scenarios=tuple(sorted(cubes)))
 
-        return boundary(f"ensemble.of.{kind.value}", build)
+        return boundary(TREE_BUILD, build, catch=_tree_raises())
 
     def apply(self, op: TreeOp) -> "RuntimeRail[TreeResult]":
         with _TRACER.start_as_current_span(
             f"ensemble.{op.tag}", attributes={"rasm.field.kind": self.kind.value, "rasm.field.scenarios": len(self.scenarios)}
         ):
-            return boundary(f"ensemble.{op.tag}", lambda: self._apply(op))
+            return boundary(TREE_APPLY, lambda: self._apply(op), catch=_tree_raises()).bind(lambda railed: railed)
 
-    def _apply(self, op: TreeOp) -> TreeResult:
+    def _apply(self, op: TreeOp) -> "RuntimeRail[TreeResult]":
+        # the arms return the rail rather than the bare result so the ONE caller-repairable arm answers its roster
+        # row directly; the lift above binds the doubled rail away and a provider raise inside any arm still converts
+        # exactly once at that fence.
         match op:
             case TreeOp(tag="mapped", mapped=step):
                 # group nodes carry EMPTY datasets — the guard maps leaves alone and passes structure through.
                 mapped = self.tree.map_over_datasets(lambda ds: step(ds) if ds else ds)
-                return TreeResult(tree=ScenarioTree(tree=mapped, kind=self.kind, scenarios=self.scenarios))
+                return Ok(TreeResult(tree=ScenarioTree(tree=mapped, kind=self.kind, scenarios=self.scenarios)))
             case TreeOp(tag="reduced", reduced=verb):
-                return TreeResult(cube=getattr(self._stacked(), verb)("scenario"))
+                return Ok(TreeResult(cube=getattr(self._stacked(), verb)("scenario")))
             case TreeOp(tag="quantile", quantile=q):
-                return TreeResult(cube=self._stacked().quantile(q, dim="scenario"))
+                return Ok(TreeResult(cube=self._stacked().quantile(q, dim="scenario")))
+            case TreeOp(tag="difference", difference=baseline) if baseline not in self.scenarios:
+                return Error(TREE_BASELINE.raised(baseline))
             case TreeOp(tag="difference", difference=baseline):
-                if baseline not in self.scenarios:
-                    raise ValueError(f"<absent-baseline:{baseline}>")
                 base = self.tree[f"/{self.kind.value}/{baseline}"].dataset
                 deltas = xr.DataTree.from_dict({
                     node.path: node.dataset - base for node in self.tree.leaves if node.path.split("/")[-1] != baseline
                 })
                 survivors = tuple(name for name in self.scenarios if name != baseline)
-                return TreeResult(tree=ScenarioTree(tree=deltas, kind=self.kind, scenarios=survivors))
+                return Ok(TreeResult(tree=ScenarioTree(tree=deltas, kind=self.kind, scenarios=survivors)))
             case unreachable:
                 assert_never(unreachable)
 
@@ -130,7 +173,7 @@ class ScenarioTree(Struct, frozen=True):
             )
 
         with _TRACER.start_as_current_span("ensemble.write", attributes={"rasm.field.kind": self.kind.value}):
-            return boundary("ensemble.write", emit).bind(lambda rail: rail)
+            return boundary(TREE_WRITE, emit, catch=_store_raises()).bind(lambda rail: rail)
 ```
 
 ## [03]-[RESEARCH]

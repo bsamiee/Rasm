@@ -14,7 +14,7 @@ This serving assembly: routes are Layers under `HttpLayerRouter` — the app-ass
 
 [SEAM_ROWS]:
 - Owner: `Seam` — the one cross-cutting composition over one `Seam.Policy` value: `Seam.guard(policy)(app)` mints the request mark (id, instant, negotiated locale from the `accept-language` header against the ambient fallback), provides the `Current` rows in one scoped provision, continues the W3C trace through `Current.traced` over the request headers, bounds every multipart read through the policy's `uploads` row as fiber-ref policy, folds every escaping cause through `Problem.net` — self-rendering first, total ladder as the floor — and stamps the derived shield headers on every response; the served app's error channel is `never` by construction. `Seam.admission(identity)` is its credential companion, `Seam.routed` the route-attribution row, and `Seam.priced`/`Seam.Priced` the priced-admission pair, so the whole cross-cutting stack composes once at the serve fold and nothing per-handler restates it.
-- Law: pricing REFUSES at this edge — a burst caller leaves as a Problem-rendered 429 rather than as a held socket, because a delayed request occupies the connection the in-flight cap is separately defending; `work/queue#THROTTLE` takes the DELAYING posture over the same store and the same four columns (`window`, `limit`, `key`, `cost`), so the branch spends one quota vocabulary across two postures and a row's `scope` names which side it sits on. `api#ADMISSION_ROWS`'s one `Gate.fenced` price is the refusal — the limiter's `"Exceeded"` arm re-spelled as a `rate` `GateFault` carrying its own measured `retryAfter` — so this page mints no refusal, and the seam's net renders the class the governed record already grades with a truthful `retry-after`.
+- Law: pricing REFUSES at this edge — a burst caller leaves as a Problem-rendered 429 rather than as a held socket, because a delayed request occupies the connection the in-flight cap is separately defending; `work/queue#THROTTLE` takes the DELAYING posture over the same store and the same four columns (`window`, `limit`, `key`, `cost`), so the branch spends one quota vocabulary across two postures and a row's `scope` names which side it sits on. `api#ADMISSION_ROWS`'s one `Gate.fenced` price is the refusal — the limiter's `"Exceeded"` arm re-spelled as a `rate` `GateFault` carrying its own measured `after` — so this page mints no refusal, and the seam's net renders the class the governed record already grades with a truthful `retry-after`.
 - Law: a quota row states its FAN AXIS and this seam derives both projections — `principal` prices a holder's whole traffic, `route` prices that holder on the matched pattern, and every row costs the pattern's own declared weight, so a row carries scope, algorithm, window, limit, and one word. Buckets join the row's `scope` to its projection because the limiter store takes `key` verbatim and namespaces nothing — the identical join the work plane folds, without which two rows fanning on different axes spend one another's tokens the moment their values coincide.
 - Law: the priced coordinates first exist INSIDE the match, so pricing rides the same two seats route attribution does — `Seam.priced(policy)` for a raw row and the `Seam.Priced` api middleware for every `addHttpApi` endpoint — because `RouteContext` carries the pattern only after a match and `Current.Admitted` carries the credential the admission row already lifted. Patterns the policy's weight record never names spend nothing at all, so the probe trio, the asset tree, and the mounted foreign protocols stay unpriced by omission rather than through a second exempt roster kept in step by hand.
 - Law: the holder is the credential where one exists and the caller address everywhere else, which is what makes `fronted` load-bearing a second time — an unfronted origin honoring `x-forwarded-for` hands one caller a fresh bucket per request and prices nobody, so the row deciding dispatch and audit coordinates decides whose bucket an anonymous request spends; exempting anonymous traffic instead exempts exactly the callers the table exists to bound.
@@ -179,7 +179,7 @@ const _doubled = (
         Option.fromNullable(request.cookies[CookieSpec.csrf.name]),
         Option.fromNullable(request.headers[CookieSpec.csrf.header]),
       ).pipe(Effect.catchAll((fault) =>
-        Gate.refuse(new GateFault({ reason: "unauthorized", detail: `csrf ${fault.reason}`, retryAfter: Option.none() })))))
+        Gate.refuse(new GateFault({ case: { reason: "unauthorized", via: `csrf:${fault.case.reason}` }, after: Option.none() })))))
 
 const _admission = (identity: Identity.App) =>
   HttpLayerRouter.middleware<{ provides: Current.Admitted | TenantScope }>()(
@@ -333,16 +333,16 @@ const Seam = {
 - Law: `Inbound` is the held-octet webhook row — the raw body reads ONCE as bytes through the platform's own `arrayBuffer` accessor (`HttpIncomingMessage`'s byte member, lifted to `Uint8Array` at the seam) and is held, the spec's named signature header lifts from the request as `Option`, `verify.verify(dialect, octets, header, mac, tolerance)` runs the security wave's dialect fold over exactly those octets, and only a `Verified` receipt releases `settle` through the app-declared ingress port — byte identity end to end, so re-serialization drift between verify and settle is unspellable; verification failure folds to the security fault's own class and the seam's net renders it.
 - Law: the spec's `ceiling` gates BEFORE the read — `Inbound` is by design the one route admitting unauthenticated bytes and its held-octets law forces full materialization before any verification, so the declared `content-length` is probed against the ceiling and refused as `invalid` before `arrayBuffer` allocates, and an absent or unparseable length is itself the refusal. Status 413 has no core fault class and a serve-local status override is the fork `problem#STATUS_RECORD` forecloses, so the governed 422 answers; the multipart ceiling every other route inherits is `[02]`'s `uploads` policy row.
 - Law: detection precedes decode and reads the FRAME, never a trial parse — `Format.event.framed` recovers format and arity from one media-type prefix comparison and the binding's own `ce-specversion` header names a binary frame whose `content-type` belongs to the data, so a frame naming neither refuses before any body is parsed; the package's `isEvent` pair runs a full deserialize inside `try`/`catch`, so a detect-then-decode pair over it parses every arriving frame twice.
-- Law: the avro structured frame decodes through `net/channel`'s `Avro.event` — the fill-seam admission the core avro row's empty arm declares — so both intakes read the one lane-minted codec and the package's JSON-only decoder never receives a media type it refuses.
+- Law: the avro structured frame decodes through `net/channel`'s `Avro.event` — the `Lane`-seat admission the core avro row's empty arm declares — so both intakes read the one lane-minted codec and the package's JSON-only decoder never receives a media type it refuses.
 - Law: the header band is SANITIZED at the seam, never handed raw — node lowercases nothing it did not receive lowercased and repeats a header as an array, and the package's own `sanitize` sits behind a `dist/` path this branch refuses, so `_sanitized` lowercases every name and takes the first repeated value before any binding reads it; a binding fed a mixed-case or repeated `ce-` name silently drops the attribute it was looking for.
 - Law: intake mints NOTHING — the decoded message envelope admits through `Event.Fact` and `Event.read` at the core owner, so the grammar, the roster, and the dropped-name census arrive typed and this route constructs no message envelope of its own; a refusal is a `ParseError` the `Problem` rail already renders.
-- Law: tenancy admits through the authenticated inverse, never inherits — where the seam's one credential lift produced a scope, `Journal.carrier` re-proves the announcement's own tenant claim against it and a mismatch refuses `denied` before the fact enters, so a valid credential can never carry a peer's tenant across; an unauthenticated intake has no scope to compare, so the signature is that route's whole gate.
-- Law: this route is the ONE ingress receiving W3C context as first-class ATTRIBUTES, so it runs `Carrier.extract("cloudevents", …)` over each admitted message envelope and continues that CREATION-time trace through `otel/emit#CONTINUATION`'s one ingress transformer; the transport hop's own context already crossed at `Seam.guard`, and the two-trace law keeps both rather than folding either onto the other.
+- Law: tenancy admits through the authenticated inverse, never inherits — where the seam's one credential lift produced a scope, `Journal.carrier` answers `Journal.Carried` and its `context` half re-proves the announcement's own tenant claim against that scope, a mismatch refusing `denied` before the fact enters, so a valid credential can never carry a peer's tenant across; an unauthenticated intake has no scope to compare, so the signature is that route's whole gate.
+- Law: this route is the ONE ingress receiving W3C context as first-class ATTRIBUTES, so it runs `Carrier.extract("cloudevents", …)` over each admitted message envelope and hands the extraction WHOLE — parse census included — to `otel/emit#CONTINUATION`'s one ingress transformer, which continues that CREATION-time trace and spends the census once; the transport hop's own context already crossed at `Seam.guard`, and the two-trace law keeps both rather than folding either onto the other.
 - Law: a batch settles per event — `Inbound.Spec.settle` receives ONE admitted event beside the signature receipt and the route folds the frame's members through it, so an accepted member and a refused member are separate halves and no batch arm re-proves an arity the frame already decided.
 - Law: abuse protection is the specification's own `OPTIONS` handshake and nothing beside it — the request's `WebHook-Request-Origin` is required, an origin outside the spec's declared roster answers 405 rather than a validation grant, and a grant answers `WebHook-Allowed-Origin` with `WebHook-Allowed-Rate` where the spec declares a ceiling; the same origin header rides every delivery request, so the target re-reads the claimed origin per message instead of trusting one handshake.
 - Boundary: which groups the api value carries is the app's assembly under `api#CONTRIBUTION`; the `Mount` Tag is `live#MOUNT_PORT`'s; the rail spec's cut policy and staging band are `data`'s; the attribute grammar, extension roster, and mint entry are `core:interchange/carrier#EVENT_ENVELOPE`'s.
 - Growth: a new served surface is one route-Layer member composing an owning-page value; a second foreign protocol is a second `Mount` Layer at a different prefix, zero edits here.
-- Packages: `@effect/platform`, `cloudevents` (`HTTP`, `CONSTANTS`), `effect`, `node:buffer`, `@rasm/ts/core` (`Carrier`, `Event`, `Format`), `@rasm/ts/data`, `@rasm/ts/security`, and `../net/channel.ts` (`Avro` — the lane-minted fill-seam admission).
+- Packages: `@effect/platform`, `cloudevents` (`HTTP`, `CONSTANTS`), `effect`, `node:buffer`, `@rasm/ts/core` (`Carrier`, `Event`, `Format`), `@rasm/ts/data`, `@rasm/ts/security`, and `../net/channel.ts` (`Avro` — the lane-minted `Lane`-seat admission).
 
 ```typescript signature
 const _oversize = (detail: string): Problem =>
@@ -411,7 +411,8 @@ declare namespace Inbound {
     readonly fact: Event.Fact
     readonly roster: Event.Roster
     readonly dropped: ReadonlyArray<string>
-    readonly carrier: Carrier.Context
+    // the extraction WHOLE — its parse census rides beside the context, and `Propagation.ingress` is what spends it
+    readonly carrier: Carrier.Extraction
   }
   type Frame = Data.TaggedEnum<{
     Structured: { readonly format: Format.Event; readonly batch: boolean }
@@ -475,7 +476,7 @@ const _framing = (headers: Message["headers"]): Option.Option<Inbound.Frame> =>
 
 // Structured frames carry their envelope as TEXT and binary frames carry opaque DATA bytes, so the frame the
 // detector already recovered selects the body shape and no second media-type read decides it again. The package's
-// decoder learns JSON alone, so the avro structured frame routes through the fill-seam admission the node lane
+// decoder learns JSON alone, so the avro structured frame routes through the lane-seat admission the node lane
 // mints — one codec for this intake and the MQTT seam both.
 const _decoded = (headers: Message["headers"], body: Uint8Array, frame: Inbound.Frame) =>
   _Frame.$is("Structured")(frame) && frame.format === "avro"
@@ -493,18 +494,21 @@ const _decoded = (headers: Message["headers"], body: Uint8Array, frame: Inbound.
 // admitted a credential, an arriving announcement's own tenant claim must EQUAL that scope before the fact enters,
 // so a peer announcing another tenant's fact under a valid credential refuses HERE rather than at the projection it
 // would otherwise reach. An unauthenticated intake carries no scope to compare against, so the signature is the whole
-// gate there and the raw extraction stands.
+// gate there and the raw extraction stands. Either arm answers the EXTRACTION whole: the tenancy proof decides the
+// context alone, so the census the parse measured survives a proved claim exactly as it survives an unauthenticated
+// intake, and `Propagation.ingress` at the settle seam is the one place it is spent.
 const _carried = (
   envelope: CloudEventV1<unknown>,
   scope: Option.Option<Identity.Tenant>,
-): Effect.Effect<Carrier.Context, Problem> =>
+): Effect.Effect<Carrier.Extraction, Problem> =>
   Option.match(scope, {
     onNone: () => Effect.succeed(Carrier.extract("cloudevents", envelope)),
     onSome: (held) =>
-      Option.match(Journal.carrier(envelope, held), {
-        onNone: () => Effect.fail(Problem.of({ class: "denied", message: "<tenant-claim-mismatch>" })),
-        onSome: Effect.succeed,
-      }),
+      pipe(Journal.carrier(envelope, held), ({ context, dropped }) =>
+        Option.match(context, {
+          onNone: () => Effect.fail(Problem.of({ class: "denied", message: "<tenant-claim-mismatch>" })),
+          onSome: (proved): Effect.Effect<Carrier.Extraction, Problem> => Effect.succeed({ context: proved, dropped }),
+        })),
   })
 
 // Admission is the core owner's: the addressed record decodes through `Event.Fact` and the roster reads whole, so a

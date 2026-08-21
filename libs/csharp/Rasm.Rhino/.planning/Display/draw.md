@@ -1,37 +1,43 @@
 # [RASM_RHINO_DISPLAY_DRAW]
 
-`Marks` owns THE retained mark, path, stroke, and fill vocabulary for the package — one algebra over the Rhino display pipeline and Eto canvas. Stroked screen marks, labels, whole sprites, and bare groups render on both backends from the same retained geometry, and hit-testing is backend-free; fill styles, `Written` glyph blocks, windowed sprites, and posed or clipped groups are Eto-surface capabilities that fail the pipeline with typed backend evidence, world marks remain pipeline-only and fail the same way when routed to Eto — every capability edge is a typed refusal, never a silent partial draw. `Marks.Program` mounts this vocabulary into the Eto surface and print flow, which never name it.
+`Marks` owns the package's ONE draw dispatch over four canvases — the live display pipeline, the retained `CustomDisplay` overlay, an interactive Eto surface, and a replayed page — and `DisplayMark` is its one vocabulary: the SCREEN band is the kernel `Rasm.Interaction` mark algebra composed verbatim, the WORLD band is `WorldMark`, the RhinoCommon payloads only a `DisplayPipeline` or `CustomDisplay` can draw, and the SPRITE band is the `DisplayBitmap` blit family only the pipeline's GPU blend path serves. The partition is HOST knowledge: a world mark routed to a surface, a kernel fill routed to the pipeline, and a sprite routed to a retained overlay each land as a typed refusal row on the receipt, never a silent partial draw.
 
-`ConduitFrame` supplies the scoped pipeline, `PipelineScope.With` owns matched state stacks, and `PerceptualColor` remains the only color source. Native pens, brushes, and paths are paint-scoped; `SpriteSheet` lends cached bitmaps only inside draw callbacks and drains every borrower before disposal. System fonts arrive host-cached through the Eto `TypeRole`.
+The Eto half of the old two-backend algebra is DELETED, not moved: paths, fills, strokes, glyph blocks, poses, clips, text shaping, the paint program, the resource stock, and hit-testing are `Interaction/paint`'s (`Mark`, `PathSpec`, `FillSource`, `StrokeSpec`, `GlyphBlock`, `PosePlan`, `PaintProgram`, `PaintStock`, `Surface`), and a consumer wanting the retained screen program calls `PaintProgram.Of` directly. What stays here is what RhinoCommon alone can know — the `DisplayPen` projection with its halo, taper, and pattern axes, the `DisplayMaterial` custody bracket, the iso-banding effect, the sprite cache, and the world mark family. `PerceptualColor` remains the only colour source and every host egress composes the kernel `ToDrawing` rail, so an out-of-gamut ink refuses typed instead of clipping.
 
 ## [01]-[INDEX]
 
-- [02]-[STYLE]: `Stroke`, `Dash`, `FillStyle`, `TextStyle`, and `Quant` own backend projection.
-- [03]-[ASSETS]: `ScreenPath`, `Pose`, `SpriteSheet`, and `IsoBanding` own retained geometry, affine projection, and native resources.
-- [04]-[MARKS]: `Marks.Render`, `Marks.Hit`, and `Marks.Program` close draw, hit-test, and seam-export modalities over one `Mark` union.
+- [02]-[STYLE]: `StrokeCap`, `StrokeJoin`, `WidthSpace`, `PatternTrait`, `PatternLaw`, `PenDecoration`, `Stroke`, `PenRhythm`, `ShadedFace`, `ShadedMaterial`, `BlendUse`, `BlendPair` — the display-pen and shaded-appearance projections.
+- [03]-[ASSETS]: `PathPrimitive`, `SpriteSource`, `ISpriteFiles`, `SpriteRef`, `SpriteSheet`, `PointUse`, `VectorTip`, `PolygonPaint`, `IsoMode`, `IsoGap`, `IsoBanding` — lowered pipeline geometry, native sprite custody, and the world-mark vocabularies.
+- [04]-[MARKS]: `WorldMark`, `SpriteAnchor`, `SpriteMark`, `DisplayMark`, `Canvas`, `DrawReceipt`, `Marks` — the one mark union, the four canvases, and the accounted paint dispatch.
 
 ## [02]-[STYLE]
 
-- Owner: style values carry backend-neutral width, color, cap, join, miter, dash, fill, and text policy.
-- Entry: each native style mints inside the paint call and releases before egress.
-- Law: color quantizes once through `Quant` — `Sys`, `Vec`, and `Eto` are its three backend projections and `Pigment` stays the perceptual-to-sRGB correspondence `Quant.Eto` composes, so a paint call reaching `Pigment` directly forks the one quantization; perceptual ramps resolve before the backend receives channel values.
-- Law: shaded appearance is `ShadedMaterial`, never a host `DisplayMaterial` — the native is disposable and carries eight raw screen colours that bypass both the one colour source and the one quantization, so it mints inside `ShadedMaterial.Use`, serves exactly the draw call inside that bracket, and releases on every exit; the second face is `Option`, so a one-sided material spells no back band rather than mirroring the front.
-- Law: typography composes the Eto owners — `TextStyle` carries the Eto `TypeRole` plus an optional point size, measurement and Eto text paint ride `GlyphBlock`, and the pipeline arm reads size and family facts off the role-resolved cached font; a font-role table or `FormattedText` shaping minted here is the deleted form.
-- Law: one `Dash` family serves both backends — standard cases mint the host dash style and the interval table from one owner, `Patterned` carries caller intervals with offset bounded by the host's own eight-entry pen cap; `StrokePattern` stays the Rhino-pen pattern policy axis beside it.
-- Growth: a style treatment is one vocabulary row, one `Dash` case, or one `FillStyle` case.
-- Boundary: no Eto or `System.Drawing` color becomes domain state.
+- Owner: `Stroke` is the display-pen spec — colour, ladder-free screen-or-world thickness, cap, join, the KERNEL `Dash`, decoration, and pattern policy — and `Mint` is its one `DisplayPen` projection; `PenRhythm` is the pipeline's interval projection of the kernel dash; `ShadedFace`/`ShadedMaterial` bracket the disposable `DisplayMaterial`; `BlendUse` mirrors the host blend roster and `BlendPair` is the source-and-destination pair every sprite blit names once.
+- Cases: `WidthSpace` closes the thickness regime at two rows carrying `CoordinateSystem` — the `bool WorldWidth` and the ternary that read it delete; `PatternTrait` is the pattern capability vocabulary (`Autoscale`, `BySegment`, `WorldLength` — every corner legal, law `Open`) and `PatternLaw` carries the set beside the scale and offset the host pattern engine reads; `PenDecoration` owns the halo and taper axes as admitted component records, so an anonymous tuple with hand positivity guards no longer rides the stroke.
+- Law: the DASH is the kernel's. `Interaction.Dash` is the one dash vocabulary and `PenRhythm.Table` is its total pipeline projection into width-multiple intervals; `PenRhythm.Admit` states the host bound — `DisplayPen.SetPattern` accepts at most eight entries (`PACKAGE_LIMIT_AS_LAW`), so a longer `PatternedCase` refuses at `Stroke.Of` rather than truncating inside a paint call. The kernel `PatternedCase.Offset` serves the Eto dash alone; the pipeline pattern offset is `PatternLaw`'s own column, and the two never alias.
+- Law: this pen is a DISPLAY thickness — screen pixels or world units — and never a paper weight. A plotted line width reads the `Drawing/sheet` `LineWidth` ladder at the publishing surface; a screen hairline is the kernel `StrokeSpec.Hairline` device law; neither aliases this column, and a `Stroke` fed into a plot is the strata violation the publish page refuses.
+- Law: shaded appearance is `ShadedMaterial`, never a host `DisplayMaterial` — the native is disposable and carries eight raw screen colours, so it mints inside `Use`, serves exactly the bracketed draw call, and releases on every exit; the second face is `Option`, so a one-sided material spells no back band rather than mirroring the front. Every quantization inside the bracket rides `PerceptualColor.ToDrawing`, so a wide-gamut face refuses typed before the native exists.
+- Law: `BlendPair.Over` is the one canonical row — the Porter-Duff source-over pair (`SourceAlpha`, `InverseSourceAlpha`) both boundaries hand-spelled at every blit — and any other composition names its pair explicitly.
+- Growth: a pattern axis is one `PatternTrait` row; a decoration axis is one component record on `PenDecoration`; a blend mode is one `BlendUse` row.
+- Boundary: no `System.Drawing` or Eto colour becomes domain state; `LineCapStyle`/`LineJoinStyle`/`CoordinateSystem`/`BlendMode` live only as row columns.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using PenLineCap = Eto.Drawing.PenLineCap;
+using PenLineJoin = Eto.Drawing.PenLineJoin;
 using Rasm.Domain;
+using Rasm.Interaction;
 using Rasm.Numerics;
-using Rasm.Parametric;
-using Rasm.Rhino.Eto;
-using Rasm.Rhino.Viewport;
+using Rhino.Display;
+using Rhino.Geometry;
+using System.Collections.Frozen;
+using Thinktecture;
 
 namespace Rasm.Rhino.Display;
 
 // --- [TYPES] --------------------------------------------------------------------------------
+// The Eto column is the correspondence the kernel `StrokeSpec` projection reads through `For`; the Rhino column is
+// the host consequence — one row carries both directions, so neither backend re-derives a cap mapping.
 [SmartEnum<int>]
 public sealed partial class StrokeCap {
     public static readonly StrokeCap Butt = new(0, PenLineCap.Butt, LineCapStyle.Flat);
@@ -39,6 +45,10 @@ public sealed partial class StrokeCap {
     public static readonly StrokeCap Square = new(2, PenLineCap.Square, LineCapStyle.Square);
     internal PenLineCap Eto { get; }
     internal LineCapStyle Rhino { get; }
+
+    internal static StrokeCap For(PenLineCap cap) => ByEto.Value[cap];
+    private static readonly Lazy<FrozenDictionary<PenLineCap, StrokeCap>> ByEto =
+        new(static () => Items.ToFrozenDictionary(static row => row.Eto, static row => row));
 }
 
 [SmartEnum<int>]
@@ -48,43 +58,28 @@ public sealed partial class StrokeJoin {
     public static readonly StrokeJoin Bevel = new(2, PenLineJoin.Bevel, LineJoinStyle.Bevel);
     internal PenLineJoin Eto { get; }
     internal LineJoinStyle Rhino { get; }
+
+    internal static StrokeJoin For(PenLineJoin join) => ByEto.Value[join];
+    private static readonly Lazy<FrozenDictionary<PenLineJoin, StrokeJoin>> ByEto =
+        new(static () => Items.ToFrozenDictionary(static row => row.Eto, static row => row));
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Dash {
-    private Dash() { }
-    public sealed record Solid : Dash;
-    public sealed record Dashed : Dash;
-    public sealed record Dotted : Dash;
-    public sealed record DashDotted : Dash;
-    public sealed record DashDotDotted : Dash;
-    public sealed record Patterned(float Offset, Seq<float> Intervals) : Dash;
+// Two rows over the thickness regime: the `bool WorldWidth` and the ternary that read it are the deleted form.
+[SmartEnum<int>]
+public sealed partial class WidthSpace {
+    public static readonly WidthSpace Screen = new(key: 0, native: CoordinateSystem.Screen);
+    public static readonly WidthSpace World = new(key: 1, native: CoordinateSystem.World);
+    internal CoordinateSystem Native { get; }
+}
 
-    // Host truth: `DisplayPen.SetPattern` accepts at most eight dash/gap entries, so a longer pattern refuses at admission
-    // rather than truncating or throwing inside the paint call.
-    internal const int MaxIntervals = 8;
-
-    internal bool Valid => this is not Patterned row
-        || (!row.Intervals.IsEmpty
-            && row.Intervals.Count <= MaxIntervals
-            && float.IsFinite(row.Offset)
-            && row.Intervals.ForAll(static gap => float.IsFinite(gap) && gap > 0f));
-
-    internal Seq<float> Pattern() => Switch(
-        solid: static _ => Seq<float>(),
-        dashed: static _ => [3f, 1f],
-        dotted: static _ => [1f, 1f],
-        dashDotted: static _ => [3f, 1f, 1f, 1f],
-        dashDotDotted: static _ => [3f, 1f, 1f, 1f, 1f, 1f],
-        patterned: static row => row.Intervals);
-
-    internal DashStyle Eto() => Switch(
-        solid: static _ => DashStyles.Solid,
-        dashed: static _ => DashStyles.Dash,
-        dotted: static _ => DashStyles.Dot,
-        dashDotted: static _ => DashStyles.DashDot,
-        dashDotDotted: static _ => DashStyles.DashDotDot,
-        patterned: static row => new DashStyle(row.Offset, [.. row.Intervals]));
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class PatternTrait : ICapability<PatternTrait> {
+    public static readonly PatternTrait Autoscale = new(key: "autoscale");
+    public static readonly PatternTrait BySegment = new(key: "by-segment");
+    public static readonly PatternTrait WorldLength = new(key: "world-length");
+    // Every corner is legal — an autoscaled per-segment world-length pattern is a real host configuration.
+    public static CapabilityLaw<PatternTrait> Law => CapabilityLaw<PatternTrait>.Open;
 }
 
 [SmartEnum<int>]
@@ -106,130 +101,166 @@ public sealed partial class BlendUse {
     internal BlendMode Native { get; }
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record FillStyle {
-    private FillStyle() { }
-    public sealed record Solid(PerceptualColor Color) : FillStyle;
-    public sealed record Linear(PerceptualColor Start, PerceptualColor End, Point2d From, Point2d To) : FillStyle;
-    public sealed record Radial(PerceptualColor Start, PerceptualColor End, Point2d Center, Point2d Origin, Size2f Radius) : FillStyle;
-    public sealed record Texture(SpriteRef Sprite, float Opacity) : FillStyle;
-
-    internal bool Valid => Switch(
-        solid: static _ => true,
-        linear: static row => Quant.Finite(row.From) && Quant.Finite(row.To),
-        radial: static row => Quant.Finite(row.Center) && Quant.Finite(row.Origin) && Quant.Positive(row.Radius),
-        texture: static row => row.Sprite is not null && row.Opacity is >= 0f and <= 1f && float.IsFinite(row.Opacity));
+// --- [MODELS] -------------------------------------------------------------------------------
+// The one canonical pair is the Porter-Duff source-over both boundaries hand-spelled at every blit.
+public readonly record struct BlendPair(BlendUse Source, BlendUse Destination) {
+    public static readonly BlendPair Over = new(Source: BlendUse.SourceAlpha, Destination: BlendUse.InverseSourceAlpha);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-public readonly record struct Size2f(float Width, float Height);
-
 [ComplexValueObject]
-public sealed partial class StrokePattern {
-    public bool Autoscale { get; }
-    public float Scale { get; }
+public sealed partial class PatternLaw {
+    public CapabilitySet<PatternTrait> Traits { get; }
+    public PositiveMagnitude Scale { get; }
     public float Offset { get; }
-    public bool BySegment { get; }
-    public bool WorldLength { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
-        ref bool autoscale,
-        ref float scale,
-        ref float offset,
-        ref bool bySegment,
-        ref bool worldLength) =>
-        validationError = float.IsFinite(scale) && scale > 0f && float.IsFinite(offset)
+        ref CapabilitySet<PatternTrait> traits,
+        ref PositiveMagnitude scale,
+        ref float offset) =>
+        validationError = float.IsFinite(offset)
             ? null
-            : new ValidationError(message: "Stroke pattern is not finite and positive.");
+            : new ValidationError(message: "PatternLaw requires a finite pattern offset.");
+
+    // Accessor-backed: the trait roster fills from its own static constructor.
+    public static PatternLaw Portable => Seed.Value;
+    private static readonly Lazy<PatternLaw> Seed = new(static () =>
+        Validate(CapabilitySet<PatternTrait>.Of(), PositiveMagnitude.Create(value: 1d), 0f, out PatternLaw? law) is null
+            ? law!
+            : throw new InvalidOperationException("PatternLaw.Portable"));
+}
+
+[ComplexValueObject]
+public sealed partial class PenHalo {
+    public PerceptualColor Colour { get; }
+    public PositiveMagnitude Width { get; }
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref PerceptualColor colour, ref PositiveMagnitude width) =>
+        validationError = null;
+}
+
+[ComplexValueObject]
+public sealed partial class PenTaper {
+    public PositiveMagnitude Start { get; }
+    public PositiveMagnitude End { get; }
+    public Point2d At { get; }
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref PositiveMagnitude start, ref PositiveMagnitude end, ref Point2d at) =>
+        validationError = double.IsFinite(at.X) && double.IsFinite(at.Y)
+            ? null
+            : new ValidationError(message: "PenTaper requires a finite anchor.");
+}
+
+// The two decoration axes as ONE admitted owner: the anonymous halo and taper tuples and their hand positivity
+// guards delete — component admission is each record's own, and `Bare` is the undecorated spelling.
+public sealed record PenDecoration(Option<PenHalo> Halo, Option<PenTaper> Taper) {
+    public static readonly PenDecoration Bare = new(Halo: None, Taper: None);
 }
 
 public sealed record Stroke {
     private Stroke(
-        double width,
-        PerceptualColor color,
-        StrokeCap cap,
-        StrokeJoin join,
-        Dash dash,
-        Option<(PerceptualColor Color, double Width)> halo,
-        Option<(double Start, double End, Point2d At)> taper,
-        bool worldWidth,
-        StrokePattern pattern,
-        float miter) =>
-        (Width, Color, Cap, Join, Dash, Halo, Taper, WorldWidth, Pattern, Miter) =
-        (width, color, cap, join, dash, halo, taper, worldWidth, pattern, miter);
+        PerceptualColor colour, PositiveMagnitude width, WidthSpace space, StrokeCap cap, StrokeJoin join,
+        Dash dash, PenDecoration decoration, PatternLaw pattern, float miter) =>
+        (Colour, Width, Space, Cap, Join, Dash, Decoration, Pattern, Miter) =
+        (colour, width, space, cap, join, dash, decoration, pattern, miter);
 
-    public double Width { get; }
-    public PerceptualColor Color { get; }
+    public PerceptualColor Colour { get; }
+    public PositiveMagnitude Width { get; }
+    public WidthSpace Space { get; }
     public StrokeCap Cap { get; }
     public StrokeJoin Join { get; }
     public Dash Dash { get; }
-    public Option<(PerceptualColor Color, double Width)> Halo { get; }
-    public Option<(double Start, double End, Point2d At)> Taper { get; }
-    public bool WorldWidth { get; }
-    public StrokePattern Pattern { get; }
+    public PenDecoration Decoration { get; }
+    public PatternLaw Pattern { get; }
     public float Miter { get; }
 
+    // Independent admissions accumulate: a bad miter AND an over-long pattern report together.
     public static Fin<Stroke> Of(
-        double width,
-        PerceptualColor color,
+        PerceptualColor colour,
+        PositiveMagnitude width,
+        WidthSpace space,
         StrokeCap cap,
         StrokeJoin join,
         Dash dash,
-        Option<(PerceptualColor Color, double Width)> halo,
-        Option<(double Start, double End, Point2d At)> taper,
-        bool worldWidth,
-        StrokePattern pattern,
+        Option<PenDecoration> decoration = default,
+        Option<PatternLaw> pattern = default,
         float miter = 10f,
         Op? key = null) {
         Op op = key.OrDefault();
-        return from _ in guard(cap is not null && join is not null && dash is not null && dash.Valid && pattern is not null
-                   && float.IsFinite(miter) && miter >= 1f
-                   && taper.Match(Some: static row => Quant.Finite(row.At), None: static () => true), op.InvalidInput()).ToFin()
-               from admitted in op.Positive(width)
-               from bounds in (halo.ToSeq().Map(static row => row.Width) + taper.ToSeq().Bind(static row => Seq(row.Start, row.End)))
-                   .TraverseM(op.Positive).As()
-               select new Stroke(admitted, color, cap, join, dash, halo, taper, worldWidth, pattern, miter);
+        return (
+                (float.IsFinite(miter) && miter >= 1f
+                    ? Validation<Error, float>.Success(miter)
+                    : Validation<Error, float>.Fail(op.InvalidInput(axis: nameof(miter)))),
+                PenRhythm.Admit(dash: dash, key: op).ToValidation())
+            .Apply((admittedMiter, admittedDash) => new Stroke(
+                colour, width, space, cap, join, admittedDash,
+                decoration.IfNone(PenDecoration.Bare), pattern.IfNone(PatternLaw.Portable), admittedMiter))
+            .As().ToFin();
     }
 
-    internal Pen Eto() => new(Quant.Eto(Color), (float)Width) {
-        LineCap = Cap.Eto,
-        LineJoin = Join.Eto,
-        MiterLimit = Miter,
-        DashStyle = Dash.Eto(),
-    };
+    // The ONE `DisplayPen` projection; quantization rides the kernel egress, so an out-of-gamut ink refuses here.
+    internal Fin<DisplayPen> Mint(Op key) =>
+        from ink in Colour.ToDrawing(key: key)
+        from halo in Decoration.Halo.Traverse(row => row.Colour.ToDrawing(key: key).Map(quantized => (Row: row, Ink: quantized))).As()
+        select Seat(ink: ink, halo: halo);
 
-    internal DisplayPen Rhino() {
+    private DisplayPen Seat(System.Drawing.Color ink, Option<(PenHalo Row, System.Drawing.Color Ink)> halo) {
         DisplayPen pen = new() {
-            Color = Quant.Sys(Color),
-            Thickness = (float)Width,
-            ThicknessSpace = WorldWidth ? CoordinateSystem.World : CoordinateSystem.Screen,
+            Color = ink,
+            Thickness = (float)Width.Value,
+            ThicknessSpace = Space.Native,
             CapStyle = Cap.Rhino,
             JoinStyle = Join.Rhino,
         };
-        _ = Halo.Iter(row => (pen.HaloColor, pen.HaloThickness) = (Quant.Sys(row.Color), (float)row.Width));
-        _ = Taper.Iter(row => pen.SetTaper((float)row.Start, (float)row.End, Quant.Pt2(row.At)));
-        Seq<float> gaps = Dash.Pattern();
+        _ = halo.Iter(row => (pen.HaloColor, pen.HaloThickness) = (row.Ink, (float)row.Row.Width.Value));
+        _ = Decoration.Taper.Iter(row => pen.SetTaper((float)row.Start.Value, (float)row.End.Value, new Point2f((float)row.At.X, (float)row.At.Y)));
+        Seq<float> gaps = PenRhythm.Table(dash: Dash);
         _ = Op.SideWhen(!gaps.IsEmpty, () => {
-            pen.SetPattern(gaps.Map(gap => gap * (float)Width).AsEnumerable());
-            (pen.PatternAutoscale, pen.PatternScale, pen.PatternOffset, pen.PatternBySegment, pen.PatternLengthInWorldUnits) =
-                (Pattern.Autoscale, Pattern.Scale, Pattern.Offset, Pattern.BySegment, Pattern.WorldLength);
+            pen.SetPattern(gaps.Map(gap => gap * (float)Width.Value).AsEnumerable());
+            (pen.PatternAutoscale, pen.PatternScale, pen.PatternOffset, pen.PatternBySegment, pen.PatternLengthInWorldUnits) = (
+                Pattern.Traits.Admits(PatternTrait.Autoscale),
+                (float)Pattern.Scale.Value,
+                Pattern.Offset,
+                Pattern.Traits.Admits(PatternTrait.BySegment),
+                Pattern.Traits.Admits(PatternTrait.WorldLength));
         });
         return pen;
     }
 
     internal double CullOutset {
         get {
-            double stroke = Width * (Join == StrokeJoin.Miter ? Miter : 1f) / 2d;
-            return Halo.Map(row => double.Max(stroke, row.Width / 2d)).IfNone(stroke);
+            double stroke = Width.Value * (Join == StrokeJoin.Miter ? Miter : 1f) / 2d;
+            return Decoration.Halo.Map(row => double.Max(stroke, row.Width.Value / 2d)).IfNone(stroke);
         }
     }
 }
 
-// `DisplayMaterial` is a disposable host native carrying eight raw `System.Drawing.Color` channels, so it is the one shaded
-// appearance vocabulary the slice cannot publish: `ShadedFace` states one side in `PerceptualColor` under `ShineAxis.Unit`,
-// `ShadedMaterial` pairs the two sides, and the native mints and dies inside `Use`.
+// --- [OPERATIONS] ---------------------------------------------------------------------------
+// The pipeline projection of the KERNEL dash: one total interval table in width multiples, and one host bound —
+// `DisplayPen.SetPattern` takes at most eight entries (PACKAGE_LIMIT_AS_LAW), so admission refuses what the paint
+// call would otherwise throw on. The kernel `PatternedCase.Offset` is the Eto dash's and never read here.
+internal static class PenRhythm {
+    private const int MaxIntervals = 8;
+
+    internal static Fin<Dash> Admit(Dash dash, Op key) => dash is Dash.PatternedCase row
+        ? !row.Intervals.IsEmpty
+            && row.Intervals.Count <= MaxIntervals
+            && row.Intervals.ForAll(static gap => float.IsFinite(gap) && gap > 0f)
+            ? Fin.Succ(dash)
+            : Fin.Fail<Dash>(key.InvalidInput(axis: nameof(Dash.PatternedCase.Intervals)))
+        : Fin.Succ(dash);
+
+    internal static Seq<float> Table(Dash dash) => dash.Switch(
+        solidCase: static _ => Seq<float>(),
+        dashedCase: static _ => [3f, 1f],
+        dottedCase: static _ => [1f, 1f],
+        dashDotCase: static _ => [3f, 1f, 1f, 1f],
+        dashDotDotCase: static _ => [3f, 1f, 1f, 1f, 1f, 1f],
+        patternedCase: static row => row.Intervals);
+}
+
+// --- [MODELS] -------------------------------------------------------------------------------
+// `DisplayMaterial` is a disposable host native carrying eight raw `System.Drawing.Color` channels, so it is the one
+// shaded appearance the slice cannot publish: `ShadedFace` states one side in `PerceptualColor` under `ShineAxis.Unit`,
+// `ShadedMaterial` pairs the sides, and the native mints and dies inside `Use`.
 [ComplexValueObject]
 public sealed partial class ShadedFace {
     public PerceptualColor Diffuse { get; }
@@ -239,7 +270,6 @@ public sealed partial class ShadedFace {
     public double Shine { get; }
     public double Transparency { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref PerceptualColor diffuse,
@@ -253,258 +283,192 @@ public sealed partial class ShadedFace {
         validationError = ShineAxis.Unit.Shine(shine) && ShineAxis.Unit.Transparency(transparency)
             ? null
             : new ValidationError(message: "Shaded face shine or transparency leaves the unit interval.");
+
+    // The four channels quantize as one accumulating pass, so a two-channel gamut breach reports both.
+    internal Validation<Error, (System.Drawing.Color Diffuse, System.Drawing.Color Specular, System.Drawing.Color Ambient, System.Drawing.Color Emission)> Quantized(Op key) =>
+        (Diffuse.ToDrawing(key: key).ToValidation(),
+         Specular.ToDrawing(key: key).ToValidation(),
+         Ambient.ToDrawing(key: key).ToValidation(),
+         Emission.ToDrawing(key: key).ToValidation())
+        .Apply(static (diffuse, specular, ambient, emission) => (diffuse, specular, ambient, emission)).As();
 }
 
 public sealed record ShadedMaterial(ShadedFace Front, Option<ShadedFace> Back) {
-    internal bool Valid => Front is not null && Back.Match(Some: static face => face is not null, None: static () => true);
-
-    internal Fin<TResult> Use<TResult>(Func<DisplayMaterial, Fin<TResult>> project, Op key) {
-        ShadedMaterial self = this;
-        return key.Catch(() => {
+    internal Fin<TResult> Use<TResult>(Func<DisplayMaterial, Fin<TResult>> project, Op key) =>
+        from front in Front.Quantized(key: key).ToFin()
+        from back in Back.Traverse(face => face.Quantized(key: key).ToFin().Map(channels => (Face: face, Channels: channels))).As()
+        from projected in key.Catch(() => {
             using DisplayMaterial native = new(
-                diffuse: Quant.Sys(self.Front.Diffuse),
-                specular: Quant.Sys(self.Front.Specular),
-                ambient: Quant.Sys(self.Front.Ambient),
-                emission: Quant.Sys(self.Front.Emission),
-                shine: self.Front.Shine,
-                transparency: self.Front.Transparency);
-            _ = self.Back.Iter(face => {
+                diffuse: front.Diffuse, specular: front.Specular, ambient: front.Ambient, emission: front.Emission,
+                shine: Front.Shine, transparency: Front.Transparency);
+            _ = back.Iter(row => {
                 native.IsTwoSided = true;
-                (native.BackDiffuse, native.BackSpecular) = (Quant.Sys(face.Diffuse), Quant.Sys(face.Specular));
-                (native.BackAmbient, native.BackEmission) = (Quant.Sys(face.Ambient), Quant.Sys(face.Emission));
-                (native.BackShine, native.BackTransparency) = (face.Shine, face.Transparency);
+                (native.BackDiffuse, native.BackSpecular) = (row.Channels.Diffuse, row.Channels.Specular);
+                (native.BackAmbient, native.BackEmission) = (row.Channels.Ambient, row.Channels.Emission);
+                (native.BackShine, native.BackTransparency) = (row.Face.Shine, row.Face.Transparency);
             });
             return project(native);
-        });
-    }
-}
-
-public sealed record TextStyle {
-    private TextStyle(TypeRole role, Option<float> size) => (Role, Size) = (role, size);
-
-    public TypeRole Role { get; }
-    public Option<float> Size { get; }
-
-    public static Fin<TextStyle> Of(TypeRole role, Option<float> size = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return guard(role is not null, op.InvalidInput()).ToFin()
-            .Bind(_ => size.Match(
-                Some: points => op.Positive(points).Map(value => new TextStyle(role, Some(value))),
-                None: () => Fin.Succ(new TextStyle(role, None))));
-    }
-
-    // Eto TypeRole resolves the host-cached SystemFonts instance; the shared font is never disposed here.
-    internal TResult Use<TResult>(Func<global::Eto.Drawing.Font, TResult> project) =>
-        project(Role.Resolve(size: Size.ToNullable()));
-
-    // Metrics are the Eto owner's and so is their affinity: shaping reaches the platform text stack, so a measurement
-    // answers on the rail here exactly as it does there rather than being flattened into a bare extent.
-    internal Fin<Size2f> Measure(string text, Op? key = null) =>
-        new GlyphBlock(text, Role, size: Size).Measure(key)
-            .Map(static measured => new Size2f(measured.Width, measured.Height));
-}
-
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-internal static class Quant {
-    internal static bool Finite(Point2d point) => double.IsFinite(point.X) && double.IsFinite(point.Y);
-
-    internal static bool Finite(Point3d point) => point.IsValid;
-
-    internal static bool Finite(Vector3d vector) => vector.IsValid;
-
-    internal static bool Positive(Size2f extent) =>
-        float.IsFinite(extent.Width) && extent.Width > 0f && float.IsFinite(extent.Height) && extent.Height > 0f;
-
-    internal static System.Drawing.Color Sys(PerceptualColor color) =>
-        color.ToRgb() switch {
-            var (red, green, blue, alpha) => System.Drawing.Color.FromArgb(alpha, red, green, blue),
-        };
-
-    internal static Color4f Vec(PerceptualColor color) =>
-        color.ToRgb(RgbProfile.Srgb) switch {
-            var (red, green, blue, alpha) => new Color4f((float)red, (float)green, (float)blue, (float)alpha),
-        };
-
-    // The Eto projection sits beside `Sys` and `Vec` so all three backends reach ONE quantizer; `Pigment` stays the
-    // perceptual-to-sRGB correspondence owner this member composes rather than a second entry paint calls reach past it.
-    internal static global::Eto.Drawing.Color Eto(PerceptualColor color) => Pigment.ToColor(color);
-
-    internal static PointF Eto(Point2d point) => new((float)point.X, (float)point.Y);
-    internal static Point2f Pt2(Point2d point) => new((float)point.X, (float)point.Y);
+        })
+        select projected;
 }
 ```
 
 ## [03]-[ASSETS]
 
-- Owner: `ScreenPath` builds and hit-tests one retained path over the kernel-lowered primitive run it stores at admission; `Pose` brackets affine projection through host matrices; `SpriteSheet` owns both native bitmap caches; `IsoBanding` owns banded-shading data.
-- Law: sprite bytes or assets admitted by `ISpriteFiles` enter once through `SpriteRef.Of` with a stable key; raw paths never cross the asset boundary.
-- Law: path paint and hit-testing use the same `GraphicsPath`; sprite caches key source identity and blend policy together.
-- Law: `Pose.Use` brackets every materialized `IMatrix` — `Stacked` appends each bracketed child onto one owned identity matrix, `Inverted` disposes its source after `Matrix.Inverse`, and no matrix escapes its projection.
-- Law: a composite screen segment is DERIVED ONCE and the derivation is the KERNEL's. `PathSegment.Lower` folds a rounded rectangle through `ParametricOp.RoundedRectangle` and a spline through `ParametricOp.CardinalSpline`, and maps the returned `ParametricResult.Outline` run onto `Line`/`Arc`/`Bezier`; the corner walk, the radius clamp, and the `tension / 3` neighbour offsets live in `Rasm.Parametric` alone, so this page carries no arithmetic a NURBS emission could disagree with. A primitive lowers to itself, so the fold is total and a zero radius drops its arc.
-- Law: the lowering runs ONCE, at `ScreenPath.Of`, and the resolved run rides the value as `Run`. A path paints and hit-tests from that stored run, so the kernel refusal folds onto the one admission rail every `ScreenPath` already crosses and neither backend re-derives per frame; `Segments` stays the authored request shape and `Run` the drawn truth.
-- Boundary: the seam hands the kernel the screen rectangle's own intervals on `Plane.WorldXY`, so frame-local coordinates ARE screen coordinates and the kernel's `Center + R·(cos θ, sin θ)` parameterization is the backend's own; the whole conversion is `ToDegrees` on `Start` and the signed `Angle`, and any sign correction here would mirror the arcs off the corner points the same kernel computed.
-- Law: every screen arc stays in world XY while its radial X axis preserves the Eto start angle; the tangent Y axis completes the in-plane basis — the corner walk emits ordinary `Arc` segments, so it inherits that one settled angle mapping rather than minting a second.
-- Boundary: cache disposal closes admission, drains every draw-scoped use, releases each native bitmap once, and clears both tables.
+- Owner: `PathPrimitive` is the pipeline's lowered screen geometry — four curve-mintable cases — and `Lower` is the ONE projection from the kernel `PathSpec` onto it; `SpriteRef` admits sprite bytes under a content-hash identity and `SpriteSheet` owns the `DisplayBitmap` cache; `PointUse`, `VectorTip`, and `PolygonPaint` are world-mark vocabularies; `IsoBanding` owns banded-shading data with `IsoGap` closing its gap tri-state.
+- Law: the composite lowering is the KERNEL's twice over — the authored figure is `Interaction.PathSpec` and the corner walk, radius clamp, and cardinal-spline arithmetic are `Rasm.Parametric`'s (`ParametricOp.RoundedRectangle`, `ParametricOp.CardinalSpline`), so this page carries no curve arithmetic a NURBS emission could disagree with. Frame-local coordinates ARE screen coordinates (`Plane.WorldXY` over the rectangle's own intervals), and angles stay RADIANS end to end — the kernel answers radians and `ArcCurve` consumes them, so the old degree round-trip is deleted whole.
+- Law: an elliptical `ArcCase` refuses on the pipeline — `PathPrimitive.Arc` is circular because the pipeline curve mint is — and the refusal names the corner; a non-circular arc rides `CurveCase` or `EllipseCase` instead. The role-resolved OS faces, fills, glyph blocks, panes, clips, and poses refuse the same way at the mark projection: each is an Eto-surface capability the kernel replays and the pipeline cannot.
+- Law: sprite bytes admitted by `ISpriteFiles` enter once through `SpriteRef.Of` under `ContentHash.Hex` — the kernel's one lowercase identity text — so two sources with one payload share one cache row and no raw path crosses the asset boundary.
+- Law: the sheet's lifecycle is a `Cell`-stepped state machine, never a monitor barrier — `Use` enters through a guarded step that declines once draining begins, a leave decrements, and the last borrower leaving a draining sheet performs all-attempted disposal. `Release(Op)` carries immediate cleanup faults; `Dispose` is only the host-required adapter.
+- Law: `PointUse` carries one row per DISTINCT host marker — `PointStyle` is an aliased enum (`Circle`≡`RoundSimple`, `Square`≡`Simple`, `SolidSquare`≡`VariableDot`, `RoundDot`≡`SolidRound`≡`SolidCircle`), so a row per alias would seat values no host call can tell apart.
+- Cases: `VectorTip` closes the vector-anchor axis (`Plain`, `Anchored`) — the `bool AnchorPoint` deletes; `PolygonPaint` closes the fill-and-edge product at its three LEGAL corners (`Filled`, `Edged`, `Full`) — the `(false, false)` corner that drew nothing is unrepresentable; `IsoGap` closes the gap tri-state (`Painted`, `Discarded`) under an `Option` — the tuple's `bool Discard` deletes.
+- Boundary: cache disposal closes admission, drains every draw-scoped use, releases each native bitmap once, and clears the table.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
+// RADIANS end to end: the kernel Parametric lowering answers radians and `ArcCurve` consumes them, so the old
+// degree round-trip through `ToDegrees`/`ToRadians` is deleted whole and `VectorAngle` carries the admission.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record PathSegment {
-    private PathSegment() { }
-    public sealed record Line(Point2d From, Point2d To) : PathSegment;
-    public sealed record Arc(Point2d Center, float Radius, float Start, float Sweep) : PathSegment;
-    public sealed record Bezier(Point2d Start, Point2d Control1, Point2d Control2, Point2d End) : PathSegment;
-    public sealed record Spline(Seq<Point2d> Points, float Tension) : PathSegment;
-    public sealed record Ellipse(Point2d Origin, Size2f Extent) : PathSegment;
-    public sealed record Rectangle(Point2d Origin, Size2f Extent) : PathSegment;
-    public sealed record RoundRectangle(Point2d Origin, Size2f Extent, float NW, float NE, float SE, float SW) : PathSegment;
+public abstract partial record PathPrimitive {
+    private PathPrimitive() { }
+    public sealed record Line(Point2d From, Point2d To) : PathPrimitive;
+    public sealed record Arc(Point2d Center, double Radius, VectorAngle Start, VectorAngle Sweep) : PathPrimitive;
+    public sealed record Bezier(Point2d Start, Point2d Control1, Point2d Control2, Point2d End) : PathPrimitive;
+    public sealed record Ellipse(Point2d Centre, double RadiusX, double RadiusY) : PathPrimitive;
 
-    internal bool Valid => Switch(
-        line: static row => Quant.Finite(row.From) && Quant.Finite(row.To),
-        arc: static row => Quant.Finite(row.Center) && float.IsFinite(row.Radius) && row.Radius > 0f && float.IsFinite(row.Start) && float.IsFinite(row.Sweep),
-        bezier: static row => Quant.Finite(row.Start) && Quant.Finite(row.Control1) && Quant.Finite(row.Control2) && Quant.Finite(row.End),
-        spline: static row => row.Points.Count >= 4 && float.IsFinite(row.Tension) && row.Points.ForAll(Quant.Finite),
-        ellipse: static row => Quant.Finite(row.Origin) && Quant.Positive(row.Extent),
-        rectangle: static row => Quant.Finite(row.Origin) && Quant.Positive(row.Extent),
-        roundRectangle: static row => Quant.Finite(row.Origin) && Quant.Positive(row.Extent)
-            && ValidRadii(row.Extent, row.NW, row.NE, row.SE, row.SW));
-
-    private static bool ValidRadii(Size2f extent, params ReadOnlySpan<float> radii) {
-        float cap = float.Min(extent.Width, extent.Height) / 2f;
-        return Iterable<float>.FromSpan(radii).ForAll(radius => float.IsFinite(radius) && radius is >= 0f && radius <= cap);
-    }
-
-    // The one lowering, and it is the KERNEL's: a composite segment becomes a `ParametricOp` whose `Outline` run
-    // this seam maps back onto primitives. Frame-local coordinates ARE screen coordinates because the frame is
-    // `Plane.WorldXY` over the screen rectangle's own intervals, so the mapping is coordinates 1:1 and `ToDegrees` on
-    // the two angles. A primitive lowers to itself, so the fold is total and only the two composite arms can refuse.
-    internal Fin<Seq<PathSegment>> Lower(Op key) => Switch(
-        key,
-        line: static (_, row) => Fin.Succ(Seq<PathSegment>(row)),
-        arc: static (_, row) => Fin.Succ(Seq<PathSegment>(row)),
-        bezier: static (_, row) => Fin.Succ(Seq<PathSegment>(row)),
-        ellipse: static (_, row) => Fin.Succ(Seq<PathSegment>(row)),
-        spline: static (op, row) => Outlined(new ParametricOp.CardinalSpline(
-            Frame: Plane.WorldXY,
-            Points: new Arr<Point2d>([.. row.Points]),
-            Tension: row.Tension,
-            Closed: false), op),
-        rectangle: static (op, row) => Cornered(row.Origin, row.Extent, 0f, 0f, 0f, 0f, op),
-        roundRectangle: static (op, row) => Cornered(row.Origin, row.Extent, row.NW, row.NE, row.SE, row.SW, op));
-
-    internal Unit Add(GraphicsPath path) => Switch(
-        path,
-        line: static (target, row) => Op.Side(() => target.AddLine((float)row.From.X, (float)row.From.Y, (float)row.To.X, (float)row.To.Y)),
-        arc: static (target, row) => Op.Side(() => target.AddArc((float)row.Center.X - row.Radius, (float)row.Center.Y - row.Radius, row.Radius * 2f, row.Radius * 2f, row.Start, row.Sweep)),
-        bezier: static (target, row) => Op.Side(() => target.AddBezier(Quant.Eto(row.Start), Quant.Eto(row.Control1), Quant.Eto(row.Control2), Quant.Eto(row.End))),
-        ellipse: static (target, row) => Op.Side(() => target.AddEllipse((float)row.Origin.X, (float)row.Origin.Y, row.Extent.Width, row.Extent.Height)),
-        // Unreachable: `ScreenPath.Of` stores the lowered run and both backends draw from it, so no composite arm
-        // reaches a backend at all.
-        spline: static (_, _) => unit,
-        rectangle: static (_, _) => unit,
-        roundRectangle: static (_, _) => unit);
-
-    // Composite arms answer NONE, the same shape the `Add` arms take: `ScreenPath.Of` stores the lowered run and both
-    // backends draw from it, so a composite segment reaches no backend and has no curve to answer. Absence spells that
-    // directly and contributes nothing to the curve run, where a throw would spell an unreachable state as a crash.
-    internal Option<Curve> Rhino() => Switch(
-        line: static row => Some((Curve)new LineCurve(new Point3d(row.From.X, row.From.Y, 0.0), new Point3d(row.To.X, row.To.Y, 0.0))),
-        arc: static row => Some<Curve>(new ArcCurve(new global::Rhino.Geometry.Arc(
+    // TOTAL: every case mints a pipeline curve — the unreachable composite arms of the old seven-case union are the
+    // deleted form, because lowering happens before this family exists.
+    internal Curve Mint() => Switch(
+        line: static row => (Curve)new LineCurve(new Point3d(row.From.X, row.From.Y, 0.0), new Point3d(row.To.X, row.To.Y, 0.0)),
+        arc: static row => new ArcCurve(new global::Rhino.Geometry.Arc(
             new Plane(
                 new Point3d(row.Center.X, row.Center.Y, 0.0),
-                new Vector3d(Math.Cos(RhinoMath.ToRadians(row.Start)), Math.Sin(RhinoMath.ToRadians(row.Start)), 0.0),
-                new Vector3d(-Math.Sin(RhinoMath.ToRadians(row.Start)), Math.Cos(RhinoMath.ToRadians(row.Start)), 0.0)),
+                new Vector3d(Math.Cos(row.Start.Value), Math.Sin(row.Start.Value), 0.0),
+                new Vector3d(-Math.Sin(row.Start.Value), Math.Cos(row.Start.Value), 0.0)),
             row.Radius,
-            RhinoMath.ToRadians(row.Sweep)))),
-        bezier: static row => Some<Curve>(new BezierCurve([new(row.Start.X, row.Start.Y, 0.0), new(row.Control1.X, row.Control1.Y, 0.0), new(row.Control2.X, row.Control2.Y, 0.0), new(row.End.X, row.End.Y, 0.0)]).ToNurbsCurve()),
-        ellipse: static row => Some<Curve>(new global::Rhino.Geometry.Ellipse(
-            new Plane(new Point3d(row.Origin.X + (row.Extent.Width / 2.0), row.Origin.Y + (row.Extent.Height / 2.0), 0.0), Vector3d.ZAxis),
-            row.Extent.Width / 2.0,
-            row.Extent.Height / 2.0).ToNurbsCurve()),
-        spline: static _ => Option<Curve>.None,
-        rectangle: static _ => Option<Curve>.None,
-        roundRectangle: static _ => Option<Curve>.None);
+            row.Sweep.Value)),
+        bezier: static row => new BezierCurve([
+            new(row.Start.X, row.Start.Y, 0.0), new(row.Control1.X, row.Control1.Y, 0.0),
+            new(row.Control2.X, row.Control2.Y, 0.0), new(row.End.X, row.End.Y, 0.0)]).ToNurbsCurve(),
+        ellipse: static row => new global::Rhino.Geometry.Ellipse(
+            new Plane(new Point3d(row.Centre.X, row.Centre.Y, 0.0), Vector3d.ZAxis),
+            row.RadiusX,
+            row.RadiusY).ToNurbsCurve());
 
-    private static Fin<Seq<PathSegment>> Cornered(
-        Point2d origin, Size2f extent, float nw, float ne, float se, float sw, Op key) =>
-        Outlined(new ParametricOp.RoundedRectangle(
+    // The ONE projection from the kernel screen vocabulary onto pipeline geometry. Composite figures lower through
+    // `Rasm.Parametric` — the same fold the kernel exemption seats at this boundary — and a primitive lowers to
+    // itself, so only the composite arms and the elliptical-arc corner can refuse.
+    internal static Fin<Seq<PathPrimitive>> Lower(PathSpec spec, Op key) => spec.Switch(
+        state: key,
+        lineCase: static (_, row) => Fin.Succ(Seq<PathPrimitive>(new Line(P(row.From), P(row.To)))),
+        polylineCase: static (_, row) => Fin.Succ(Chained(row.Points, closed: false)),
+        polygonCase: static (_, row) => Fin.Succ(Chained(row.Points, closed: true)),
+        rectCase: static (_, row) => Fin.Succ(Edges(row.Frame)),
+        roundRectCase: static (op, row) => Outlined(new ParametricOp.RoundedRectangle(
             Frame: Plane.WorldXY,
-            X: new Interval(origin.X, origin.X + extent.Width),
-            Y: new Interval(origin.Y, origin.Y + extent.Height),
-            NW: nw, NE: ne, SE: se, SW: sw), key);
+            X: new Interval(row.Frame.X, row.Frame.X + row.Frame.Width),
+            Y: new Interval(row.Frame.Y, row.Frame.Y + row.Frame.Height),
+            NW: row.NW, NE: row.NE, SE: row.SE, SW: row.SW), op),
+        ellipseCase: static (_, row) => Fin.Succ(Seq<PathPrimitive>(new Ellipse(
+            new Point2d(row.Frame.X + (row.Frame.Width / 2.0), row.Frame.Y + (row.Frame.Height / 2.0)),
+            row.Frame.Width / 2.0,
+            row.Frame.Height / 2.0))),
+        // Circular alone: the pipeline arc mint is circular, so a non-square frame refuses the corner by name and an
+        // elliptical arc rides `CurveCase` or `EllipseCase` instead of drawing a circle nobody asked for.
+        arcCase: static (op, row) => Math.Abs(row.Frame.Width - row.Frame.Height) <= float.Epsilon
+            ? Fin.Succ(Seq<PathPrimitive>(new Arc(
+                new Point2d(row.Frame.X + (row.Frame.Width / 2.0), row.Frame.Y + (row.Frame.Height / 2.0)),
+                row.Frame.Width / 2.0,
+                row.Start,
+                row.Sweep)))
+            : Fin.Fail<Seq<PathPrimitive>>(op.Unsupported(typeof(PathSpec.ArcCase), typeof(DisplayPipeline))),
+        bezierCase: static (_, row) => Fin.Succ(Seq<PathPrimitive>(new Bezier(P(row.From), P(row.ControlA), P(row.ControlB), P(row.To)))),
+        curveCase: static (op, row) => Outlined(new ParametricOp.CardinalSpline(
+            Frame: Plane.WorldXY,
+            Points: new Arr<Point2d>([.. toSeq(row.Points).Map(P)]),
+            Tension: (float)row.Tension.Value,
+            Closed: false), op),
+        compositeCase: static (op, row) => row.Figures.TraverseM(figure => Lower(spec: figure, key: op)).As()
+            .Map(static lowered => lowered.Bind(static run => run).Strict()));
 
-    // The one seam: the kernel answers frame-local primitives in radians, this page draws screen primitives in
-    // degrees, and nothing else crosses. An `Outline` is the only result these two ops produce, so any other case is
-    // a kernel contract break rather than a shape this page can render.
-    private static Fin<Seq<PathSegment>> Outlined(ParametricOp op, Op key) =>
+    private static Point2d P(Eto.Drawing.PointF at) => new(at.X, at.Y);
+
+    private static Seq<PathPrimitive> Chained(Seq<Eto.Drawing.PointF> points, bool closed) {
+        Seq<Point2d> run = toSeq(points).Map(P).Strict();
+        Seq<PathPrimitive> lines = run.Zip(run.Skip(1)).Map(static pair => (PathPrimitive)new Line(pair.Item1, pair.Item2)).Strict();
+        return closed && run.Count >= 3 ? lines.Add(new Line(run.Last, run.Head)) : lines;
+    }
+
+    private static Seq<PathPrimitive> Edges(Eto.Drawing.RectangleF frame) => Seq<PathPrimitive>(
+        new Line(new Point2d(frame.X, frame.Y), new Point2d(frame.X + frame.Width, frame.Y)),
+        new Line(new Point2d(frame.X + frame.Width, frame.Y), new Point2d(frame.X + frame.Width, frame.Y + frame.Height)),
+        new Line(new Point2d(frame.X + frame.Width, frame.Y + frame.Height), new Point2d(frame.X, frame.Y + frame.Height)),
+        new Line(new Point2d(frame.X, frame.Y + frame.Height), new Point2d(frame.X, frame.Y)));
+
+    // The one seam: the kernel answers frame-local primitives in radians over `Plane.WorldXY`, so the mapping is
+    // coordinates 1:1 with no angle conversion; an `Outline` is the only result these ops produce.
+    private static Fin<Seq<PathPrimitive>> Outlined(ParametricOp op, Op key) =>
         Parametric.Apply(op, key).Bind(result => result is ParametricResult.Outline outline
-            ? Fin.Succ(toSeq(outline.Run).Map(Screen).Strict())
-            : Fin.Fail<Seq<PathSegment>>(key.InvalidResult(detail: result.GetType().Name)));
+            ? Fin.Succ(toSeq(outline.Run).Map(Planar).Strict())
+            : Fin.Fail<Seq<PathPrimitive>>(key.InvalidResult(detail: result.GetType().Name)));
 
-    private static PathSegment Screen(PlanarPrimitive primitive) => primitive.Switch(
-        segment: static row => (PathSegment)new Line(row.From, row.To),
+    private static PathPrimitive Planar(PlanarPrimitive primitive) => primitive.Switch(
+        segment: static row => (PathPrimitive)new Line(row.From, row.To),
         sweep: static row => new Arc(
             Center: row.Center,
-            Radius: (float)row.Radius,
-            Start: (float)RhinoMath.ToDegrees(row.Start),
-            Sweep: (float)RhinoMath.ToDegrees(row.Angle)),
+            Radius: row.Radius,
+            Start: VectorAngle.Create(value: row.Start),
+            Sweep: VectorAngle.Create(value: row.Angle)),
         cubic: static row => new Bezier(row.Start, row.Control1, row.Control2, row.End));
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Pose {
-    private Pose() { }
-    public sealed record Shift(float X, float Y) : Pose;
-    public sealed record Turn(float Angle) : Pose;
-    public sealed record Grow(float X, float Y, Point2d About) : Pose;
-    public sealed record Explicit(float XX, float YX, float XY, float YY, float X0, float Y0) : Pose;
-    public sealed record Stacked(Seq<Pose> Poses) : Pose;
-    public sealed record Inverted(Pose Body) : Pose;
+// Host truth: `PointStyle` is an ALIASED enum — `Circle` and `RoundSimple` are both 4, `Square` and `Simple` both 0,
+// `SolidSquare` and `VariableDot` both 50, and `RoundDot`, `SolidRound`, and `SolidCircle` are all 51 — so the roster
+// carries one row per DISTINCT marker, named for the enum's own primary spelling.
+[SmartEnum<int>]
+public sealed partial class PointUse {
+    public static readonly PointUse Simple = Row(0, PointStyle.Simple);
+    public static readonly PointUse Control = Row(1, PointStyle.ControlPoint);
+    public static readonly PointUse Active = Row(2, PointStyle.ActivePoint);
+    public static readonly PointUse Cross = Row(3, PointStyle.X);
+    public static readonly PointUse RoundSimple = Row(4, PointStyle.RoundSimple);
+    public static readonly PointUse RoundControl = Row(5, PointStyle.RoundControlPoint);
+    public static readonly PointUse RoundActive = Row(6, PointStyle.RoundActivePoint);
+    public static readonly PointUse Triangle = Row(7, PointStyle.Triangle);
+    public static readonly PointUse Heart = Row(8, PointStyle.Heart);
+    public static readonly PointUse Chevron = Row(9, PointStyle.Chevron);
+    public static readonly PointUse Clover = Row(10, PointStyle.Clover);
+    public static readonly PointUse Tag = Row(11, PointStyle.Tag);
+    public static readonly PointUse Asterisk = Row(12, PointStyle.Asterisk);
+    public static readonly PointUse Pin = Row(13, PointStyle.Pin);
+    public static readonly PointUse ArrowTail = Row(14, PointStyle.ArrowTail);
+    public static readonly PointUse ArrowTip = Row(15, PointStyle.ArrowTip);
+    public static readonly PointUse VariableDot = Row(16, PointStyle.VariableDot);
+    public static readonly PointUse RoundDot = Row(17, PointStyle.RoundDot);
+    public static readonly PointUse None = Row(18, PointStyle.None);
 
-    internal bool Valid => Switch(
-        shift: static row => float.IsFinite(row.X) && float.IsFinite(row.Y),
-        turn: static row => float.IsFinite(row.Angle),
-        grow: static row => float.IsFinite(row.X)
-            && row.X != 0f
-            && float.IsFinite(row.Y)
-            && row.Y != 0f
-            && Quant.Finite(row.About),
-        @explicit: static row => Seq(row.XX, row.YX, row.XY, row.YY, row.X0, row.Y0).ForAll(float.IsFinite)
-            && (((double)row.XX * row.YY) - ((double)row.XY * row.YX)) is var determinant
-            && double.IsFinite(determinant)
-            && determinant != 0d,
-        stacked: static row => row.Poses.ForAll(static pose => pose is not null && pose.Valid),
-        inverted: static row => row.Body is not null && row.Body.Valid);
+    private static PointUse Row(int key, PointStyle native) => new(key, native);
 
-    internal TResult Use<TResult>(Func<IMatrix, TResult> project) {
-        using IMatrix matrix = Mint();
-        return project(matrix);
-    }
+    internal PointStyle Native { get; }
+}
 
-    internal Point2d Unproject(Point2d point) => Use(matrix => {
-        using IMatrix inverse = Matrix.Inverse(matrix);
-        PointF local = inverse.TransformPoint(Quant.Eto(point));
-        return new Point2d(local.X, local.Y);
-    });
+// The vector-anchor axis as rows: `Anchored` draws the anchor dot beside the arrow, `Plain` does not, and the host
+// bool is the row's own projection column.
+[SmartEnum<int>]
+public sealed partial class VectorTip {
+    public static readonly VectorTip Plain = new(key: 0, dot: false);
+    public static readonly VectorTip Anchored = new(key: 1, dot: true);
+    internal bool Dot { get; }
+}
 
-    private IMatrix Mint() => Switch(
-        shift: static row => Matrix.FromTranslation(row.X, row.Y),
-        turn: static row => Matrix.FromRotation(row.Angle),
-        grow: static row => Matrix.FromScaleAt(row.X, row.Y, (float)row.About.X, (float)row.About.Y),
-        @explicit: static row => Matrix.Create(row.XX, row.YX, row.XY, row.YY, row.X0, row.Y0),
-        stacked: static row => Folded(row.Poses),
-        inverted: static row => row.Body.Use(Matrix.Inverse));
-
-    private static IMatrix Folded(Seq<Pose> poses) {
-        IMatrix folded = Matrix.Create();
-        try {
-            _ = poses.Iter(pose => pose.Use(matrix => Op.Side(() => folded.Append(matrix))));
-            return folded;
-        } catch {
-            folded.Dispose();
-            throw;
-        }
-    }
+// Three LEGAL corners of the fill-and-edge product; the `(false, false)` corner that drew nothing is unrepresentable.
+[SmartEnum<int>]
+public sealed partial class PolygonPaint {
+    public static readonly PolygonPaint Filled = new(key: 0, fill: true, edge: false);
+    public static readonly PolygonPaint Edged = new(key: 1, fill: false, edge: true);
+    public static readonly PolygonPaint Full = new(key: 2, fill: true, edge: true);
+    internal bool Fill { get; }
+    internal bool Edge { get; }
 }
 
 [SmartEnum<int>]
@@ -527,6 +491,19 @@ public sealed partial class IsoMode {
     private static IsoMode Row(int key, IsoDrawMode native) => new(key, native);
 
     internal IsoDrawMode Native { get; }
+}
+
+// The gap tri-state as a closed family under an `Option`: absence is no gap, `Painted` draws it in an admitted
+// colour, `Discarded` cuts it — the tuple's `bool Discard` deletes.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record IsoGap {
+    private IsoGap() { }
+    public sealed record Painted(PerceptualColor Colour, double Size) : IsoGap;
+    public sealed record Discarded(double Size) : IsoGap;
+
+    internal bool Valid => Switch(
+        painted: static row => double.IsFinite(row.Size) && row.Size >= 0.0,
+        discarded: static row => double.IsFinite(row.Size) && row.Size >= 0.0);
 }
 
 public interface ISpriteFiles {
@@ -554,72 +531,21 @@ public sealed record SpriteRef {
     public string Key { get; }
     internal ReadOnlyMemory<byte> Content { get; }
 
+    // `ContentHash.Hex` is the kernel's ONE identity text — lowercase, admission-refusing-uppercase — so the sprite
+    // key round-trips through every identity seam the branch owns; a hand `X32` format forked the alphabet.
     public static Fin<SpriteRef> Of(SpriteSource source, Op? key = null) {
         Op op = key.OrDefault();
         return guard(source is not null && source.Valid, op.InvalidInput()).ToFin()
             .Bind(_ => source.Read(op))
             .Bind(content => {
                 ReadOnlyMemory<byte> owned = content.ToArray();
-                return guard(!owned.IsEmpty, op.InvalidInput()).ToFin().Map(_ => new SpriteRef(
-                    ContentHash.Of(owned.Span).ToString("X32", System.Globalization.CultureInfo.InvariantCulture),
-                    owned));
+                return guard(!owned.IsEmpty, op.InvalidInput()).ToFin()
+                    .Map(_ => new SpriteRef(ContentHash.Hex(ContentHash.Of(owned.Span)), owned));
             });
     }
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public sealed record ScreenPath {
-    private ScreenPath(Seq<PathSegment> segments, Seq<PathSegment> run, bool closed) =>
-        (Segments, Run, Closed) = (segments, run, closed);
-
-    // The authored request shape; `Run` is the kernel-lowered primitive run both backends actually draw.
-    public Seq<PathSegment> Segments { get; }
-    public Seq<PathSegment> Run { get; }
-    public bool Closed { get; }
-
-    // A `ScreenPath` exists only through `Of`, so validity is the stored evidence: an admitted request shape AND a
-    // non-empty lowered run, which is what the consuming `Mark` and `Shape` validity folds read.
-    internal bool Valid => ValidSegments(Segments) && !Run.IsEmpty;
-
-    // Admission lowers once: the composite arithmetic is the kernel's, its refusal folds onto this rail, and neither
-    // backend re-derives a corner walk or a spline span per paint or per hit test.
-    public static Fin<ScreenPath> Of(Seq<PathSegment> segments, bool closed, Op? key = null) {
-        Op op = key.OrDefault();
-        return guard(ValidSegments(segments), op.InvalidInput()).ToFin()
-            .Bind(_ => segments.TraverseM(segment => segment.Lower(op)).As())
-            .Map(lowered => new ScreenPath(segments, lowered.Bind(static run => run).Strict(), closed));
-    }
-
-    private static bool ValidSegments(Seq<PathSegment> segments) =>
-        !segments.IsEmpty && segments.ForAll(static segment => segment is not null && segment.Valid);
-
-    internal GraphicsPath Eto() {
-        GraphicsPath path = new();
-        _ = Run.Iter(segment => segment.Add(path));
-        _ = Op.SideWhen(Closed, path.CloseFigure);
-        return path;
-    }
-
-    // The run materializes INSIDE the try, so every curve the fold minted reaches the disposal even when a later
-    // segment throws; a composite arm contributes nothing, exactly as it contributes nothing to the Eto path.
-    internal Fin<TResult> UseCurves<TResult>(Func<Seq<Curve>, Fin<TResult>> use, Op key) => key.Catch(() => {
-        Seq<Curve> curves = Seq<Curve>();
-        try {
-            curves = Run.Choose(static segment => segment.Rhino()).Strict();
-            return use(curves);
-        }
-        finally { _ = curves.Iter(static curve => curve.Dispose()); }
-    });
-
-    internal bool Hit(Point2d point, Option<Stroke> stroke, bool filled) {
-        using GraphicsPath path = Eto();
-        return filled && Closed && path.FillContains(Quant.Eto(point))
-            || stroke.Match(
-                Some: value => { using Pen pen = value.Eto(); return path.StrokeContains(pen, Quant.Eto(point)); },
-                None: static () => false);
-    }
-}
-
 public sealed record IsoBanding(
     IsoMode Mode,
     Vector3d Direction,
@@ -627,432 +553,471 @@ public sealed record IsoBanding(
     int Frequency,
     double Rotation,
     double Falloff,
-    Option<(PerceptualColor Color, double Size, bool Discard)> Gap,
+    Option<IsoGap> Gap,
     PerceptualColor From,
     PerceptualColor To,
     Dimension Bands) {
     internal bool Valid => Mode is not null
-        && Quant.Finite(Direction)
-        && Quant.Finite(Anchor)
+        && Direction.IsValid
+        && Anchor.IsValid
         && Frequency > 0
         && double.IsFinite(Rotation)
         && double.IsFinite(Falloff)
         && Bands.Value is > 0 and <= 10
-        && Gap.Match(Some: static row => row.Size >= 0.0 && double.IsFinite(row.Size), None: static () => true);
+        && Gap.Match(Some: static row => row.Valid, None: static () => true);
 
     internal Fin<IsoDrawEffect> Mint(Op key) =>
         from _ in guard(Valid, key.InvalidInput()).ToFin()
-        from colors in Fin.Succ(From.Ramp(To, Bands))
+        from ramp in From.Ramp(To, Bands).Traverse(colour => colour.ToDrawing(key: key)).As()
+        from gap in Gap.Traverse(row => row switch {
+            IsoGap.Painted painted => painted.Colour.ToDrawing(key: key).Map(ink => (Ink: Some(ink), painted.Size, Discard: false)),
+            IsoGap.Discarded cut => Fin.Succ((Ink: Option<System.Drawing.Color>.None, cut.Size, Discard: true)),
+            _ => Fin.Fail<(Option<System.Drawing.Color>, double, bool)>(key.InvalidInput()),
+        }).As()
         from effect in key.Catch(() => {
             IsoDrawEffect value = new() { DrawMode = Mode.Native, Direction = Direction, Point = Anchor, Frequency = Frequency, RotationRadians = Rotation, Falloff = Falloff, UsedBandColorCount = Bands.Value };
-            _ = Gap.Iter(row => (value.GapColor, value.GapSize, value.DiscardGap) = (Quant.Sys(row.Color), row.Size, row.Discard));
-            _ = colors.Map(static (color, index) => (color, index)).Iter(row => ignore(value.SetBandColor(row.index, Quant.Sys(row.color))));
+            _ = gap.Iter(row => {
+                _ = row.Ink.Iter(ink => value.GapColor = ink);
+                (value.GapSize, value.DiscardGap) = (row.Size, row.Discard);
+            });
+            _ = ramp.Map(static (ink, index) => (ink, index)).Iter(row => ignore(value.SetBandColor(row.index, row.ink)));
             return Fin.Succ(value);
         })
         select effect;
 }
 
 // --- [SERVICES] -----------------------------------------------------------------------------
+// The lifecycle is a stepped state machine: `Use` enters through a guarded step that DECLINES once draining begins,
+// the leave decrements, and the LAST borrower out of a draining sheet performs the native disposal — so `Dispose`
+// under live borrowers defers instead of blocking on a monitor pulse, and a second `Dispose` reads `Refused`. The
+// cache is the operation owner's own mutable registry and stays with it.
 public sealed class SpriteSheet : IDisposable {
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<(string Key, BlendMode Src, BlendMode Dst), Lazy<DisplayBitmap>> pipeline = new();
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<Bitmap>> surface = new(StringComparer.Ordinal);
-    private readonly object gate = new();
-    private int active;
-    private int released;
+    private enum SheetPhase { Open, Draining, Released }
+    private sealed record SheetGate(int Active, SheetPhase Phase);
 
-    internal Fin<TResult> Pipeline<TResult>(
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<(string Key, BlendMode Src, BlendMode Dst), Lazy<Fin<DisplayBitmap>>> cache = new();
+    private readonly Atom<SheetGate> gate = Atom(new SheetGate(Active: 0, Phase: SheetPhase.Open));
+
+    internal Fin<TResult> Use<TResult>(
         SpriteRef sprite,
-        BlendUse source,
-        BlendUse destination,
+        BlendPair blend,
         Func<DisplayBitmap, Fin<TResult>> use,
         Op key) =>
-        Use(pipeline, (sprite.Key, source.Native, destination.Native), () => LoadPipeline(sprite, source.Native, destination.Native), use, key);
+        Cell.Step(gate, static held => held.Phase is SheetPhase.Open ? Some(held with { Active = held.Active + 1 }) : None, key.InvalidContext())
+            .Switch(
+                state: (Self: this, Sprite: sprite, Blend: blend, Use: use, Key: key),
+                committed: static (ctx, _) => ctx.Self.Borrowed(ctx.Sprite, ctx.Blend, ctx.Use, ctx.Key),
+                ceded: static (ctx, _) => Fin.Fail<TResult>(ctx.Key.InvalidContext()),
+                refused: static (_, row) => Fin.Fail<TResult>(row.Cause),
+                contended: static (ctx, _) => Fin.Fail<TResult>(ctx.Key.InvalidResult()));
 
-    internal Fin<TResult> Surface<TResult>(SpriteRef sprite, Func<Bitmap, Fin<TResult>> use, Op key) =>
-        Use(surface, sprite.Key, () => LoadSurface(sprite), use, key);
-
-    private Fin<TResult> Use<TKey, TSheet, TResult>(
-        System.Collections.Concurrent.ConcurrentDictionary<TKey, Lazy<TSheet>> table,
-        TKey slot,
-        Func<TSheet> load,
-        Func<TSheet, Fin<TResult>> use,
-        Op key)
-        where TKey : notnull {
-        Fin<TSheet> admitted;
-        lock (gate) {
-            admitted = guard(released == 0, key.InvalidContext()).ToFin().Bind(_ => {
-                Lazy<TSheet> cached = table.GetOrAdd(
-                    slot, _ => new Lazy<TSheet>(load, LazyThreadSafetyMode.ExecutionAndPublication));
-                return key.Catch(() => Fin.Succ(cached.Value)).BindFail(failure => (
-                    table.TryRemove(new KeyValuePair<TKey, Lazy<TSheet>>(slot, cached)),
-                    Fin.Fail<TSheet>(failure)).Item2);
-            });
-            if (admitted.IsSucc) { active++; }
-        }
-        return admitted.Bind(resource => {
-            try { return key.Catch(() => use(resource)); }
-            finally { Settle(); }
+    private Fin<TResult> Borrowed<TResult>(SpriteRef sprite, BlendPair blend, Func<DisplayBitmap, Fin<TResult>> use, Op key) {
+        Fin<TResult> primary = key.Catch(() => {
+            Lazy<Fin<DisplayBitmap>> cached = cache.GetOrAdd(
+                (sprite.Key, blend.Source.Native, blend.Destination.Native),
+                _ => new Lazy<Fin<DisplayBitmap>>(
+                    () => Load(sprite: sprite, blend: blend, key: key),
+                    LazyThreadSafetyMode.ExecutionAndPublication));
+            return cached.Value.Match(
+                Succ: bitmap => key.Catch(() => use(bitmap)),
+                Fail: failure => (
+                    cache.TryRemove(new KeyValuePair<(string, BlendMode, BlendMode), Lazy<Fin<DisplayBitmap>>>((sprite.Key, blend.Source.Native, blend.Destination.Native), cached)),
+                    Fin.Fail<TResult>(failure)).Item2);
         });
+        return primary.Settled(held: Seq(unit), release: _ => Leave(key), key: key);
     }
 
-    private void Settle() {
-        lock (gate) {
-            active--;
-            if (active == 0) { Monitor.PulseAll(gate); }
-        }
+    // Last borrower out of a draining sheet disposes on the same rail, so a drain fault cannot replace or vanish
+    // beside the use outcome.
+    private Fin<Unit> Leave(Op key) => key.Catch(() => {
+        Transition<SheetGate> left = Cell.Commit(gate, static held => held with { Active = held.Active - 1 });
+        return left.Current is { Active: 0, Phase: SheetPhase.Draining } ? Drain(key) : Fin.Succ(unit);
+    });
+
+    private Fin<Unit> Drain(Op key) =>
+        Cell.Step(gate, static held => held.Phase is SheetPhase.Draining ? Some(held with { Phase = SheetPhase.Released }) : None, Errors.None)
+            .Switch(
+                state: (Self: this, Key: key),
+                committed: static (context, _) => Custody.Release(
+                    held: toSeq(context.Self.cache.Values)
+                        .Filter(static bitmap => bitmap.IsValueCreated)
+                        .Choose(static bitmap => bitmap.Value.ToOption()),
+                    release: bitmap => context.Key.Catch(() => Fin.Succ(value: Op.Side(bitmap.Dispose))),
+                    key: context.Key).Map(_ => Op.Side(context.Self.cache.Clear)),
+                ceded: static (_, _) => Fin.Succ(unit),
+                refused: static (_, _) => Fin.Succ(unit),
+                contended: static (_, _) => Fin.Succ(unit));
+
+    private static Fin<DisplayBitmap> Load(SpriteRef sprite, BlendPair blend, Op key) =>
+        key.Catch(() => Fin.Succ(value: new System.IO.MemoryStream(sprite.Content.ToArray())))
+            .Bind(stream => new Lease<System.IO.MemoryStream>.Owned(Value: stream).Use(
+                body: input => key.Catch(() => Fin.Succ(value: new System.Drawing.Bitmap(input)))
+                    .Bind(encoded => new Lease<System.Drawing.Bitmap>.Owned(Value: encoded).Use(
+                        body: source => key.Catch(() => Fin.Succ(value: new System.Drawing.Bitmap(source)))
+                            .Bind(bitmap => new Lease<System.Drawing.Bitmap>.Owned(Value: bitmap).Use(
+                                body: copy => key.Catch(() => Fin.Succ(value: new DisplayBitmap(copy)))
+                                    .Bind(loaded => key.Catch(() => Fin.Succ(value: Op.Side(() =>
+                                            loaded.SetBlendFunction(blend.Source.Native, blend.Destination.Native))))
+                                        .Map(_ => loaded)
+                                        .Rollback(
+                                            release: () => key.Catch(() => Fin.Succ(value: Op.Side(loaded.Dispose))),
+                                            key: key)),
+                                key: key)),
+                        key: key)),
+                key: key));
+
+    public Fin<Unit> Release(Op? key = null) {
+        Op op = key.OrDefault();
+        Transition<SheetGate> closing = Cell.Step(
+            gate,
+            static held => held.Phase is SheetPhase.Open ? Some(held with { Phase = SheetPhase.Draining }) : None,
+            Errors.None);
+        return closing is Transition<SheetGate>.Committed { State.Active: 0 }
+            ? Drain(op)
+            : Fin.Succ(unit);
     }
 
-    private static DisplayBitmap LoadPipeline(SpriteRef sprite, BlendMode source, BlendMode destination) {
-        using System.IO.MemoryStream stream = new(sprite.Content.ToArray());
-        using System.Drawing.Bitmap encoded = new(stream);
-        using System.Drawing.Bitmap bitmap = new(encoded);
-        DisplayBitmap loaded = new(bitmap);
-        try {
-            loaded.SetBlendFunction(source, destination);
-            return loaded;
-        }
-        catch {
-            loaded.Dispose();
-            throw;
-        }
-    }
-
-    private static Bitmap LoadSurface(SpriteRef sprite) {
-        using System.IO.MemoryStream stream = new(sprite.Content.ToArray());
-        using Bitmap encoded = new(stream);
-        return encoded.Clone();
-    }
-
-    public void Dispose() {
-        lock (gate) {
-            if (released != 0) { return; }
-            released = 1;
-            while (active != 0) { Monitor.Wait(gate); }
-            _ = toSeq(pipeline.Values).Filter(static bitmap => bitmap.IsValueCreated).Iter(static bitmap => bitmap.Value.Dispose());
-            _ = toSeq(surface.Values).Filter(static bitmap => bitmap.IsValueCreated).Iter(static bitmap => bitmap.Value.Dispose());
-            pipeline.Clear();
-            surface.Clear();
-        }
-    }
+    public void Dispose() => ignore(Release());
 }
 ```
 
 ## [04]-[MARKS]
 
-- Owner: `Mark` partitions screen and world payloads by backend capability while preserving one public concept; this union is THE package draw vocabulary, and the Eto surface consumes it only through `Marks.Program`.
-- Entry: `Marks.Render` draws one mark batch onto a `Canvas` backend and returns the drawn count; `Marks.Hit` answers hit ordinals with no backend receiver; `Marks.Program` mints the Eto `PaintProgram`, so surface mounting and print flow reuse this vocabulary without naming it.
-- Law: render order is the input order; the first failed draw aborts and preserves its typed fault.
-- Law: the pipeline screen arm is stroke-shaped — a `Path` fill, a `Written` block, a windowed `Sprite`, and a posed or clipped `Group` are Eto-surface capabilities and fail the pipeline with typed backend evidence before any partial draw.
-- Law: hit-testing returns source ordinals, so overlapping marks retain z-order evidence; topmost is the last ordinal. Geometry answers from the mark alone, but a text mark's extent is HOST metrics, so the predicate rides the Eto owner's measurement rail and a refused measure is a typed fault rather than a silent miss.
-- Law: an arrowhead is a HOST primitive, never a re-derived triangle — `WorldMark.Arrowhead` folds `DisplayPipeline.DrawAnnotationArrowhead(Arrowhead, Transform, Color)` so head shape rides the `DimensionStyle.ArrowType` row or the user-block `BlockId` the `Arrowhead` carries, and scale, orientation, and position ride the one `Transform`; a dimension overlay, a direction grip, and a section-cut leader all draw through this case rather than each hand-rolling a path in `ScreenMark.Path`.
-- Law: `ScreenPath` is the sole retained screen geometry carrier; `ScreenMark.Path` applies stroke and fill once across paint, clip culling, and hit-testing.
-- Law: mark admission folds every nested path, pose, clip, style presence, coordinate, and extent before render or hit-test dispatch; no invalid child or non-finite screen scalar reaches a backend.
-- Law: `Group` poses, clips, and sequences children on the Eto backend; a posed or clipped group routed to the pipeline fails with typed backend evidence, while a bare group sequences on both backends.
-- Law: `Label` is the dual-backend plain-text mark; `Written` carries a full `GlyphBlock` (wrap, alignment, trimming, max extent) and is Eto-only, failing the pipeline with the same typed evidence.
-- Law: a `Label` shapes ONCE, at admission, and holds the measurement on the rail — hit-testing walks every mark per pointer pixel and paint would shape again, so both read the one held verdict and centring can never disagree with the hit rectangle; the shaping therefore happens where the mark is built, which is the seam that draws it.
-- Boundary: world marks routed to Eto or to hit-testing fail before any partial draw.
-- Growth: a drawable is one inner-union case and one backend arm; callers and the public entry remain unchanged.
+- Owner: `DisplayMark` partitions the three payload bands by backend capability while preserving one public concept; `WorldMark` is the RhinoCommon world band, grown by the retained-overlay fold (`Points`, `Vector`, `Polygon`, `Label3d` — the old eight-case `RetainedMark` deletes whole); `SpriteMark` is the ONE `DisplayBitmap` blit family whose `SpriteAnchor` closes the three anchor shapes the host publishes; `Canvas` names the four backends, each case CARRYING what its backend consumes; `Marks.Paint` is the one dispatch and `DrawReceipt` its accounted evidence.
+- Entry: `Marks.Paint(canvas, marks, key)` draws one batch and accounts every mark as drawn, culled, or refused — a capability-illegal `Canvas × mark` corner lands a typed refusal ROW on the receipt and the batch continues, while a HOST fault aborts typed; `DrawReceipt.IsValid` is the empty refusal set, so a silent partial draw is unrepresentable.
+- Law: the corner table is LAW, per canvas: the PIPELINE draws world marks, sprite blits, and the stroke-and-plain-text projection of kernel screen marks (fills, glyph blocks, panes, clips, poses, and OS-role faces refuse — Eto-surface capabilities); the RETAINED overlay draws the `CustomDisplay`-addressable world subset (`Points`, `Vector`, `Polygon`, undecorated `Curve`, `Label3d`) and refuses the rest; the SURFACE and PAGE replay kernel screen marks through `PaintProgram.Replay` — the kernel owns draw, cull, hit, and stock — and refuse world and sprite bands. NAMED LOSS: the per-entry backend twins (`Pipeline`/`Surface`/`ScreenPipeline`/`ScreenSurface`/`WorldPipeline`) and their per-arm refusals; bought back as the explicit corner rows this dispatch names and the receipt reports.
+- Law: `Surface` and `Page` are two quality postures over one Graphics replay — `Surface` carries its caller's `ScenePolicy`, `Page` is pinned `Fidelity` because a printed page never trades quality for latency — and both hand the kernel the stock and timeline the replay is gauged against.
+- Law: render order is input order; hit-testing is the KERNEL's (`PaintProgram.Hit` over the screen band) and this page answers none — the world band hit-tests through the host pick pipeline, a different owner.
+- Law: an arrowhead is a HOST primitive, never a re-derived triangle — `WorldMark.Arrowhead` folds `DrawAnnotationArrowhead(Arrowhead, Transform, Color)` so head shape rides the `DimensionStyle.ArrowType` row or the user-block the `Arrowhead` carries.
+- Law: the retained fold is loss-stated — `AddArc`/`AddCircle`/`AddLine` convenience adds collapse onto `AddCurve` over the caller's own curve (same geometry, one arm), and a DECORATED stroke (halo, taper, pattern) refuses on the retained arm because `CustomDisplay` draws colour-and-width alone; witness: `RetainedMark.Line(line, colour, 2)` rebuilds as `new WorldMark.Curve(new LineCurve(line.From, line.To), stroke)`.
+- Law: mark admission folds every payload, style presence, and finite coordinate before dispatch; no invalid child reaches a backend, and every colour egress rides `ToDrawing` inside the arm that draws it.
+- Growth: a world drawable is one `WorldMark` case and one arm per canvas that admits it; a sprite anchor is one `SpriteAnchor` case; a canvas is one `Canvas` case carrying its own context and its corner rows.
+- Boundary: the kernel `Mark` vocabulary is composed VERBATIM — no local screen union, path carrier, stroke, fill, pose, text style, or paint program exists on this page, and a consumer wanting the retained screen program calls `PaintProgram.Of`.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Canvas {
-    private Canvas() { }
-    public sealed record Pipeline(ConduitFrame Frame) : Canvas;
-    public sealed record Surface(Graphics Graphics) : Canvas;
-
-    internal bool Valid => Switch(
-        pipeline: static row => row.Frame.Pipeline is not null,
-        surface: static row => row.Graphics is not null);
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ScreenMark {
-    private ScreenMark() { }
-    public sealed record Path(ScreenPath Value, Option<Stroke> Stroke, Option<FillStyle> Fill) : ScreenMark;
-    public sealed record Label(string Text, Point2d At, TextStyle Style, PerceptualColor Color, bool Centered) : ScreenMark {
-        // Shaped ONCE, at admission, and HELD on the rail: a pointer move hit-tests every mark in a frame, so a per-probe
-        // measure re-shapes the whole label set on every mouse pixel and paint re-shapes it again. The verdict stays a
-        // `Fin` because host metrics refuse, so one shaping answers both the hit rectangle and the centring offset — a
-        // malformed label carries the refusal its `Valid` row already spells rather than a fabricated zero extent.
-        internal Fin<Size2f> Extent { get; } = Style is null || string.IsNullOrEmpty(Text)
-            ? Fin.Fail<Size2f>(Op.Of(name: nameof(Label)).InvalidInput())
-            : Style.Measure(Text);
-    }
-
-    public sealed record Written(GlyphBlock Block, Point2d At) : ScreenMark;
-    public sealed record Sprite(SpriteRef Value, Point2d At, Size2i Extent, Option<(Point2d Origin, Size2f Extent)> Window, BlendUse Source, BlendUse Destination) : ScreenMark;
-    public sealed record Group(Option<Pose> Pose, Option<ScreenPath> Clip, Seq<ScreenMark> Children) : ScreenMark;
-
-    internal bool Valid => Switch(
-        path: static row => row.Value is not null
-            && row.Value.Valid
-            && (row.Stroke.IsSome || row.Fill.IsSome)
-            && row.Stroke.Match(Some: static stroke => stroke is not null, None: static () => true)
-            && row.Fill.Match(Some: static fill => fill is not null && fill.Valid, None: static () => true),
-        label: static row => !string.IsNullOrEmpty(row.Text) && Quant.Finite(row.At) && row.Style is not null,
-        written: static row => row.Block is not null && Quant.Finite(row.At),
-        sprite: static row => row.Value is not null && row.Source is not null && row.Destination is not null
-            && Quant.Finite(row.At)
-            && row.Extent.Width > 0
-            && row.Extent.Height > 0
-            && row.Window.Match(
-                Some: static held => Quant.Finite(held.Origin) && Quant.Positive(held.Extent),
-                None: static () => true),
-        group: static row => row.Children.ForAll(static child => child is not null && child.Valid)
-            && row.Clip.Match(Some: static clip => clip is not null && clip.Valid && clip.Closed, None: static () => true)
-            && row.Pose.Match(Some: static pose => pose is not null && pose.Valid, None: static () => true));
-
-    // Geometry answers from the mark alone; TEXT cannot — a label's extent is host metrics, so the two text arms carry
-    // the measurement rail and the whole predicate rides it rather than flattening a refused measure into a miss.
-    internal Fin<bool> HitTest(Point2d at, Op key) => Switch(
-        (At: at, Key: key),
-        path: static (ctx, row) => Fin.Succ(row.Value.Hit(ctx.At, row.Stroke, row.Fill.IsSome)),
-        label: static (ctx, row) => row.Extent.Map(size => new RectangleF(
-                row.Centered ? (float)row.At.X - (size.Width / 2f) : (float)row.At.X,
-                row.Centered ? (float)row.At.Y - (size.Height / 2f) : (float)row.At.Y,
-                size.Width,
-                size.Height).Contains(Quant.Eto(ctx.At))),
-        written: static (ctx, row) => row.Block.Measure(ctx.Key)
-            .Map(size => new RectangleF(Quant.Eto(row.At), size).Contains(Quant.Eto(ctx.At))),
-        sprite: static (ctx, row) => Fin.Succ(
-            new RectangleF((float)row.At.X, (float)row.At.Y, row.Extent.Width, row.Extent.Height).Contains(Quant.Eto(ctx.At))),
-        group: static (ctx, row) => row.Pose.Map(pose => pose.Unproject(ctx.At)).IfNone(ctx.At) is var local
-            && row.Clip.Map(clip => clip.Hit(local, None, filled: true)).IfNone(true)
-                ? row.Children.Map(child => (Child: child, Local: local, ctx.Key))
-                    .TraverseM(static item => item.Child.HitTest(item.Local, item.Key)).As()
-                    .Map(static hits => hits.Exists(static hit => hit))
-                : Fin.Succ(false));
-}
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record WorldMark {
     private WorldMark() { }
     public sealed record Curve(global::Rhino.Geometry.Curve Value, Stroke Stroke) : WorldMark;
     public sealed record MeshShaded(Mesh Value, ShadedMaterial Material) : WorldMark;
-    public sealed record MeshBanded(Mesh Value, PerceptualColor Color, IsoBanding Banding) : WorldMark;
+    public sealed record MeshBanded(Mesh Value, PerceptualColor Colour, IsoBanding Banding) : WorldMark;
     public sealed record MeshFalseColors(Mesh Value) : WorldMark;
     public sealed record SubDShaded(SubD Value, ShadedMaterial Material) : WorldMark;
-    public sealed record SubDWires(SubD Value, PerceptualColor Color, float Width) : WorldMark;
+    public sealed record SubDWires(SubD Value, PerceptualColor Colour, float Width) : WorldMark;
     public sealed record BrepShaded(Brep Value, ShadedMaterial Material) : WorldMark;
-    public sealed record BrepWires(Brep Value, PerceptualColor Color, int Density) : WorldMark;
+    public sealed record BrepWires(Brep Value, PerceptualColor Colour, int Density) : WorldMark;
     public sealed record Block(InstanceDefinition Definition, ShadedMaterial Material, Transform Placement) : WorldMark;
-    public sealed record Clipping(ClippingPlaneSurface Value, PerceptualColor Color) : WorldMark;
+    public sealed record Clipping(ClippingPlaneSurface Value, PerceptualColor Colour) : WorldMark;
     public sealed record Hatch(global::Rhino.Geometry.Hatch Value, PerceptualColor Lines, PerceptualColor Fill) : WorldMark;
-    public sealed record Text(TextEntity Value, PerceptualColor Color) : WorldMark;
-    public sealed record Annotation(AnnotationBase Value, RhinoObject Owner, PerceptualColor Color) : WorldMark;
-    public sealed record Arrowhead(global::Rhino.Geometry.Arrowhead Value, Transform Placement, PerceptualColor Color) : WorldMark;
-    public sealed record Sprite(SpriteRef Value, Point3d At, float Size, bool WorldSized, PerceptualColor Tint, BlendUse Source, BlendUse Destination) : WorldMark;
-    public sealed record SpriteCloud(SpriteRef Sprite, Seq<Point3d> Points, float Size, bool WorldSized, Option<Seq<PerceptualColor>> Colors, BlendUse Source, BlendUse Destination) : WorldMark;
+    public sealed record Text(TextEntity Value, PerceptualColor Colour) : WorldMark;
+    public sealed record Annotation(AnnotationBase Value, RhinoObject Owner, PerceptualColor Colour) : WorldMark;
+    public sealed record Arrowhead(global::Rhino.Geometry.Arrowhead Value, Transform Placement, PerceptualColor Colour) : WorldMark;
     public sealed record Direction(SurfaceDirectionIndicators Value) : WorldMark;
-    public sealed record Curvature(Brep Value, PerceptualColor Color) : WorldMark;
-    public sealed record Draft(Mesh Value, PerceptualColor Color) : WorldMark;
+    public sealed record Curvature(Brep Value, PerceptualColor Colour) : WorldMark;
+    public sealed record Draft(Mesh Value, PerceptualColor Colour) : WorldMark;
+    // The retained-overlay fold: four cases the old `RetainedMark` union carried land here, drawable on BOTH the
+    // pipeline and the retained overlay, so the parallel retained vocabulary deletes whole.
+    public sealed record Points(Seq<Point3d> Values, PerceptualColor Colour, PointUse Style, Dimension Radius) : WorldMark;
+    public sealed record Vector(Point3d Anchor, Vector3d Span, PerceptualColor Colour, VectorTip Tip) : WorldMark;
+    public sealed record Polygon(Seq<Point3d> Ring, PerceptualColor Fill, PerceptualColor Edge, PolygonPaint Paint) : WorldMark;
+    public sealed record Label3d(Text3d Value, PerceptualColor Colour) : WorldMark;
 
     internal bool Valid => Switch(
         curve: static row => row.Value is not null && row.Stroke is not null,
-        meshShaded: static row => row.Value is not null && row.Material is { Valid: true },
-        meshBanded: static row => row.Value is not null && row.Banding is not null && row.Banding.Valid,
+        meshShaded: static row => row.Value is not null && row.Material is not null,
+        meshBanded: static row => row.Value is not null && row.Banding is { Valid: true },
         meshFalseColors: static row => row.Value is not null,
-        subDShaded: static row => row.Value is not null && row.Material is { Valid: true },
+        subDShaded: static row => row.Value is not null && row.Material is not null,
         subDWires: static row => row.Value is not null && row.Width > 0f && float.IsFinite(row.Width),
-        brepShaded: static row => row.Value is not null && row.Material is { Valid: true },
+        brepShaded: static row => row.Value is not null && row.Material is not null,
         brepWires: static row => row.Value is not null && row.Density >= 0,
-        block: static row => row.Definition is not null && row.Material is { Valid: true },
+        block: static row => row.Definition is not null && row.Material is not null,
         clipping: static row => row.Value is not null,
         hatch: static row => row.Value is not null,
         text: static row => row.Value is not null,
         annotation: static row => row.Value is not null && row.Owner is not null,
         arrowhead: static row => row.Value is not null && row.Placement.IsValid,
-        sprite: static row => row.Value is not null && row.Source is not null && row.Destination is not null
-            && row.Size > 0f && float.IsFinite(row.Size),
-        spriteCloud: static row => row.Sprite is not null && row.Source is not null && row.Destination is not null
-            && !row.Points.IsEmpty
-            && row.Size > 0f
-            && float.IsFinite(row.Size)
-            && row.Colors.Match(Some: colors => colors.Count == row.Points.Count, None: static () => true),
         direction: static row => row.Value is not null,
         curvature: static row => row.Value is not null,
-        draft: static row => row.Value is not null);
+        draft: static row => row.Value is not null,
+        points: static row => !row.Values.IsEmpty && row.Style is not null,
+        vector: static row => row.Anchor.IsValid && row.Span.IsValid && row.Tip is not null,
+        polygon: static row => row.Ring.Count >= 3 && row.Paint is not null,
+        label3d: static row => row.Value is not null);
 }
 
+// The three anchor shapes the host sprite surface publishes: a screen blit, a world blit with its sizing regime,
+// and the point-cloud batch with optional per-point colour. Sizing reuses `WidthSpace` — the same screen-or-world
+// axis the stroke thickness rides — so no `bool WorldSized` survives.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Mark {
-    private Mark() { }
-    public sealed record Screen(ScreenMark Value) : Mark;
-    public sealed record World(WorldMark Value) : Mark;
+public abstract partial record SpriteAnchor {
+    private SpriteAnchor() { }
+    public sealed record Screen(Point2d At, Size2i Extent) : SpriteAnchor;
+    public sealed record World(Point3d At, PositiveMagnitude Size, WidthSpace Sizing, Option<PerceptualColor> Tint) : SpriteAnchor;
+    public sealed record Cloud(Seq<Point3d> Points, Option<Seq<PerceptualColor>> Colours, PositiveMagnitude Size, WidthSpace Sizing) : SpriteAnchor;
 
     internal bool Valid => Switch(
-        screen: static row => row.Value is not null && row.Value.Valid,
-        world: static row => row.Value is not null && row.Value.Valid);
+        screen: static row => double.IsFinite(row.At.X) && double.IsFinite(row.At.Y) && row.Extent.Width > 0 && row.Extent.Height > 0,
+        world: static row => row.At.IsValid,
+        cloud: static row => !row.Points.IsEmpty
+            && row.Colours.Match(Some: colours => colours.Count == row.Points.Count, None: static () => true));
+}
+
+// ONE blit family over the three anchors: the screen sprite, the world sprite, and the sprite cloud were three
+// sibling spellings of one `DisplayBitmap` draw discriminated only by anchor shape.
+public sealed record SpriteMark(SpriteRef Sprite, BlendPair Blend, SpriteAnchor Anchor) {
+    internal bool Valid => Sprite is not null && Anchor is { Valid: true };
+}
+
+// The three payload bands under one public concept. `Screen` is the KERNEL mark composed verbatim — the partition
+// is which BACKEND can draw a payload, which is RhinoCommon knowledge the kernel cannot hold.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record DisplayMark {
+    private DisplayMark() { }
+    public sealed record Screen(Mark Value) : DisplayMark;
+    public sealed record World(WorldMark Value) : DisplayMark;
+    public sealed record Sprite(SpriteMark Value) : DisplayMark;
+
+    internal bool Valid => Switch(
+        screen: static row => row.Value is not null,
+        world: static row => row.Value is not null && row.Value.Valid,
+        sprite: static row => row.Value is not null && row.Value.Valid);
+}
+
+// Each case CARRIES what its backend consumes, so the dispatch takes no side context and a canvas cannot arrive
+// missing the stock its replay needs. `Surface` and `Page` are two postures over one Graphics replay: the page is
+// pinned `Fidelity` because a printed sheet never trades quality for latency.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record Canvas {
+    private Canvas() { }
+    public sealed record Pipeline(ConduitFrame Frame, SpriteSheet Sprites) : Canvas;
+    public sealed record Retained(CustomDisplay Display) : Canvas;
+    public sealed record Surface(Lease<Graphics> Target, ScenePolicy Policy, PaintStock Stock, MonotonicTimeline Clock) : Canvas;
+    public sealed record Page(Lease<Graphics> Target, PaintStock Stock, MonotonicTimeline Clock) : Canvas;
+
+    internal bool Valid => Switch(
+        pipeline: static row => row.Frame.Pipeline is not null && row.Sprites is not null,
+        retained: static row => row.Display is not null,
+        surface: static row => row.Target is not null && row.Policy is not null && row.Stock is not null && row.Clock is not null,
+        page: static row => row.Target is not null && row.Stock is not null && row.Clock is not null);
+}
+
+// --- [MODELS] -------------------------------------------------------------------------------
+// Accountability, not narration: every mark lands in exactly one column, refusals carry their typed cause, and the
+// evidence fold is the EMPTY refusal set — a batch that skipped a mark cannot read valid.
+public readonly record struct DrawReceipt(Dimension Drawn, Dimension Culled, Seq<Error> Refused) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.All(Refused.IsEmpty);
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Marks {
-    public static Fin<int> Render(Canvas canvas, SpriteSheet sprites, Seq<Mark> marks, Op? key = null) {
+    private enum Outcome { Drawn, Culled }
+
+    // Capability corners PARTITION onto the receipt; host faults ABORT typed. The fold is one pass: each admitted
+    // mark answers drawn-or-culled, each illegal corner adds its typed refusal row, and the counts derive.
+    public static Fin<DrawReceipt> Paint(Canvas canvas, Seq<DisplayMark> marks, Op? key = null) {
         Op op = key.OrDefault();
-        return guard(sprites is not null, op.InvalidInput()).ToFin()
-            .Bind(_ => guard(canvas is not null && canvas.Valid
-                && marks.ForAll(static mark => mark is not null && mark.Valid), op.InvalidInput()).ToFin())
+        return guard(canvas is not null && canvas.Valid
+                && marks.ForAll(static mark => mark is not null && mark.Valid), op.InvalidInput()).ToFin()
             .Bind(_ => canvas.Switch(
-                (Marks: marks, Sprites: sprites, Op: op),
-                pipeline: static (ctx, backend) => ctx.Marks.Map(mark => (backend.Frame, ctx.Sprites, ctx.Op, Mark: mark))
-                    .TraverseM(static item => Pipeline(item.Frame, item.Sprites, item.Mark, item.Op)).As()
-                    .Map(static drawn => drawn.Count),
-                surface: static (ctx, backend) =>
-                    from _ in guard(ctx.Marks.ForAll(static mark => mark is Mark.Screen), ctx.Op.Unsupported(typeof(WorldMark), typeof(Graphics))).ToFin()
-                    from drawn in ctx.Marks.Map(mark => (backend.Graphics, ctx.Sprites, ctx.Op, Mark: mark))
-                        .TraverseM(static item => Surface(item.Graphics, item.Sprites, item.Mark, item.Op)).As()
-                    select drawn.Count));
+                (Marks: marks, Op: op),
+                pipeline: static (ctx, backend) => Immediate(ctx.Marks, ctx.Op, mark =>
+                    PipelineArm(backend.Frame, backend.Sprites, mark, ctx.Op)),
+                retained: static (ctx, backend) => Immediate(ctx.Marks, ctx.Op, mark =>
+                    RetainedArm(backend.Display, mark, ctx.Op)),
+                surface: static (ctx, backend) => Replayed(
+                    ctx.Marks, backend.Target, backend.Policy, backend.Stock, backend.Clock, ctx.Op),
+                page: static (ctx, backend) => Replayed(
+                    ctx.Marks, backend.Target, ScenePolicy.Fidelity, backend.Stock, backend.Clock, ctx.Op)));
     }
 
-    public static Fin<Seq<int>> Hit(Seq<Mark> marks, Point2d point, Op? key = null) {
-        Op op = key.OrDefault();
-        return guard(Quant.Finite(point), op.InvalidInput()).ToFin()
-            .Bind(_ => guard(marks.ForAll(static mark => mark is Mark.Screen screen && screen.Valid), op.Unsupported(typeof(WorldMark), typeof(Marks))).ToFin())
-            .Bind(_ => marks.Map(static (mark, index) => (Mark: ((Mark.Screen)mark).Value, Index: index))
-                .TraverseM(item => item.Mark.HitTest(point, op).Map(hit => (Hit: hit, item.Index))).As())
-            .Map(static hits => hits.Choose(static item => item.Hit ? Some(item.Index) : None));
+    // One accounting fold serves both immediate backends: `None` is a capability refusal already recorded, a host
+    // fault inside an arm aborts through the rail, and the counts derive from the outcomes.
+    private static Fin<DrawReceipt> Immediate(
+        Seq<DisplayMark> marks, Op op, Func<DisplayMark, Fin<Either<Error, Outcome>>> arm) =>
+        marks.TraverseM(arm).As().Map(outcomes => new DrawReceipt(
+            Drawn: Dimension.Create(value: outcomes.Count(static row => row is Either.Right<Error, Outcome>(Outcome.Drawn))),
+            Culled: Dimension.Create(value: outcomes.Count(static row => row is Either.Right<Error, Outcome>(Outcome.Culled))),
+            Refused: outcomes.Choose(static row => row.Match(Left: Some, Right: static _ => Option<Error>.None))));
+
+    // The kernel owns the whole screen replay — draw, cull, stock, gauge — so the surface arms build one
+    // `PaintProgram` from the screen band and fold the kernel receipt; world and sprite bands are the refusal rows.
+    private static Fin<DrawReceipt> Replayed(
+        Seq<DisplayMark> marks, Lease<Graphics> target, ScenePolicy policy, PaintStock stock, MonotonicTimeline clock, Op op) {
+        Seq<Mark> screen = marks.Choose(static mark => mark is DisplayMark.Screen row ? Some(row.Value) : None);
+        Seq<Error> refused = marks.Choose(mark => mark switch {
+            DisplayMark.World row => Some((Error)op.Unsupported(row.Value.GetType(), typeof(Graphics))),
+            DisplayMark.Sprite => Some((Error)op.Unsupported(typeof(SpriteMark), typeof(Graphics))),
+            _ => Option<Error>.None,
+        });
+        return PaintProgram.Of(marks: screen, key: op)
+            .Bind(program => program.Replay(target: target, policy: policy, stock: stock, clock: clock, lane: DispatchLane.Paced, key: op))
+            .Map(receipt => new DrawReceipt(Drawn: receipt.Drawn, Culled: receipt.Culled, Refused: refused));
     }
 
-    public static PaintProgram Program(SpriteSheet sprites, Seq<Mark> marks, Op? key = null) => new(
-        Paint: graphics => Render(new Canvas.Surface(graphics), sprites, marks, key).Map(static _ => unit),
-        Hit: point => Hit(marks, new Point2d(point.X, point.Y), key));
-
-    private static Fin<Unit> Pipeline(ConduitFrame frame, SpriteSheet sprites, Mark mark, Op key) => mark.Switch(
-        (Frame: frame, Sprites: sprites, Op: key),
+    // --- [PIPELINE_ARM]
+    private static Fin<Either<Error, Outcome>> PipelineArm(ConduitFrame frame, SpriteSheet sprites, DisplayMark mark, Op op) => mark.Switch(
+        (Frame: frame, Sprites: sprites, Op: op),
         screen: static (ctx, row) => PipelineScope.With(
             ctx.Frame.Pipeline,
             [new RenderAspect.Screen()],
-            () => ScreenPipeline(ctx.Frame, ctx.Sprites, row.Value, ctx.Op),
+            () => ScreenProjection(ctx.Frame, row.Value, ctx.Op),
             ctx.Op),
-        world: static (ctx, row) => WorldPipeline(ctx.Frame, ctx.Sprites, row.Value, ctx.Op));
+        world: static (ctx, row) => WorldPipeline(ctx.Frame, row.Value, ctx.Op).Map(static _ => Either.Right<Error, Outcome>(Outcome.Drawn)),
+        sprite: static (ctx, row) => SpritePipeline(ctx.Frame, ctx.Sprites, row.Value, ctx.Op));
 
-    private static Fin<Unit> Surface(Graphics graphics, SpriteSheet sprites, Mark mark, Op key) => mark.Switch(
-        (Graphics: graphics, Sprites: sprites, Op: key),
-        screen: static (ctx, row) => ScreenSurface(ctx.Graphics, ctx.Sprites, row.Value, ctx.Op),
-        world: static (ctx, row) => Fin.Fail<Unit>(ctx.Op.Unsupported(row.Value.GetType(), typeof(Graphics))));
+    // The stroke-and-plain-text projection of the KERNEL screen vocabulary: `StrokeCase` lowers through the one
+    // `PathSpec` seam onto pipeline curves under the 2d projection, `TextCase` rides `Draw2dText` when its face
+    // NAMES a family — an OS-role face is an Eto capability and refuses — and every other case is a corner row.
+    private static Fin<Either<Error, Outcome>> ScreenProjection(ConduitFrame frame, Mark mark, Op op) => mark switch {
+        Mark.StrokeCase row =>
+            (from primitives in PathPrimitive.Lower(spec: row.Path, key: op)
+             from stroke in Stroke.Of(
+                 colour: row.Stroke.Colour,
+                 width: row.Stroke.Width,
+                 space: WidthSpace.Screen,
+                 cap: StrokeCap.For(row.Stroke.Cap),
+                 join: StrokeJoin.For(row.Stroke.Join),
+                 dash: row.Stroke.Dash,
+                 key: op)
+             from pen in stroke.Mint(key: op)
+             from drawn in op.Catch(() => Fin.Succ(primitives.Iter(primitive => {
+                 using global::Rhino.Geometry.Curve curve = primitive.Mint();
+                 frame.Pipeline.DrawCurve(curve, pen);
+             })))
+             select Either.Right<Error, Outcome>(Outcome.Drawn)),
+        Mark.TextCase { Face.Source: TypeSource.FamilyCase family } row =>
+            from ink in row.Ink.ToDrawing(key: op)
+            from drawn in op.Catch(() => Fin.Succ(Op.Side(() => frame.Pipeline.Draw2dText(
+                row.Text,
+                ink,
+                new Point2d(row.At.X, row.At.Y),
+                row.Block.Map(static block => block.Align == Eto.Drawing.FormattedTextAlignment.Center).IfNone(false),
+                (int)row.Face.Size.Map(static size => size.Value).IfNone(12d),
+                family.Family.Value))))
+            select Either.Right<Error, Outcome>(Outcome.Drawn),
+        _ => Fin.Succ(Either.Left<Error, Outcome>(op.Unsupported(mark.GetType(), typeof(DisplayPipeline)))),
+    };
 
-    private static Fin<Unit> Stroked(ConduitFrame frame, ScreenPath path, Stroke stroke, Op key) =>
-        path.UseCurves(curves => key.Catch(() => curves.Iter(curve => frame.Pipeline.DrawCurve(curve, stroke.Rhino()))), key);
+    private static Fin<Either<Error, Outcome>> SpritePipeline(ConduitFrame frame, SpriteSheet sprites, SpriteMark mark, Op op) =>
+        sprites.Use(mark.Sprite, mark.Blend, bitmap => mark.Anchor.Switch(
+            (Frame: frame, Bitmap: bitmap, Op: op),
+            screen: static (ctx, row) => ctx.Op.Catch(() => Fin.Succ(Op.Side(() =>
+                ctx.Frame.Pipeline.DrawSprite(ctx.Bitmap, new Point2d(row.At.X, row.At.Y), row.Extent.Width, row.Extent.Height)))),
+            world: static (ctx, row) =>
+                from tint in row.Tint.Traverse(colour => colour.ToDrawing(key: ctx.Op)).As()
+                from drawn in ctx.Op.Catch(() => Fin.Succ(Op.Side(() => ctx.Frame.Pipeline.DrawSprite(
+                    ctx.Bitmap, row.At, (float)row.Size.Value,
+                    tint.IfNone(System.Drawing.Color.White),
+                    row.Sizing == WidthSpace.World))))
+                select drawn,
+            cloud: static (ctx, row) =>
+                from inks in row.Colours.Traverse(colours => colours.Traverse(colour => colour.ToDrawing(key: ctx.Op)).As()).As()
+                from drawn in ctx.Op.Catch(() => {
+                    DisplayBitmapDrawList list = new();
+                    _ = inks.Match(
+                        Some: colours => Op.Side(() => list.SetPoints(row.Points.AsEnumerable(), colours.AsEnumerable())),
+                        None: () => Op.Side(() => list.SetPoints(row.Points.AsEnumerable())));
+                    ctx.Frame.Pipeline.DrawSprites(ctx.Bitmap, list, (float)row.Size.Value, row.Sizing == WidthSpace.World);
+                    return Fin.Succ(unit);
+                })
+                select drawn), op)
+        .Map(static _ => Either.Right<Error, Outcome>(Outcome.Drawn));
 
-    private static Fin<Unit> ScreenPipeline(ConduitFrame frame, SpriteSheet sprites, ScreenMark mark, Op key) => mark.Switch(
-        (Frame: frame, Sprites: sprites, Op: key),
-        path: static (ctx, row) => row.Fill.Match(
-            Some: _ => Fin.Fail<Unit>(ctx.Op.Unsupported(typeof(FillStyle), typeof(DisplayPipeline))),
-            None: () => row.Stroke.ToFin(ctx.Op.InvalidInput()).Bind(stroke => Stroked(ctx.Frame, row.Value, stroke, ctx.Op))),
-        label: static (ctx, row) => row.Style.Use(font => ctx.Op.Catch(() => ctx.Frame.Pipeline.Draw2dText(row.Text, Quant.Sys(row.Color), row.At, row.Centered, (int)font.Size, font.FamilyName))),
-        written: static (ctx, row) => Fin.Fail<Unit>(ctx.Op.Unsupported(typeof(ScreenMark.Written), typeof(DisplayPipeline))),
-        sprite: static (ctx, row) => row.Window.IsSome
-            ? Fin.Fail<Unit>(ctx.Op.Unsupported(typeof(ScreenMark.Sprite), typeof(DisplayPipeline)))
-            : ctx.Sprites.Pipeline(row.Value, row.Source, row.Destination, bitmap => ctx.Op.Catch(() =>
-                Fin.Succ(Op.Side(() => ctx.Frame.Pipeline.DrawSprite(bitmap, row.At, row.Extent.Width, row.Extent.Height)))), ctx.Op),
-        group: static (ctx, row) => row.Pose.IsNone && row.Clip.IsNone
-            ? row.Children.Map(child => (ctx.Frame, ctx.Sprites, ctx.Op, Child: child))
-                .TraverseM(static item => ScreenPipeline(item.Frame, item.Sprites, item.Child, item.Op)).As().Map(static _ => unit)
-            : Fin.Fail<Unit>(ctx.Op.Unsupported(typeof(ScreenMark.Group), typeof(DisplayPipeline))));
-
-    private static Fin<Unit> ScreenSurface(Graphics graphics, SpriteSheet sprites, ScreenMark mark, Op key) => mark.Switch(
-        (Graphics: graphics, Sprites: sprites, Op: key),
-        path: static (ctx, row) => DrawPath(ctx.Graphics, ctx.Sprites, row, ctx.Op),
-        // Paint reads the mark's OWN held extent, so the drawn origin and the hit rectangle derive from one shaping.
-        label: static (ctx, row) => ctx.Op.Catch(() => row.Extent.Map(measured =>
-            new GlyphBlock(row.Text, row.Style.Role, foreground: Some(row.Color), size: row.Style.Size)
-                .Draw(ctx.Graphics, row.Centered
-                    ? new PointF((float)row.At.X - (measured.Width / 2f), (float)row.At.Y - (measured.Height / 2f))
-                    : Quant.Eto(row.At)))),
-        written: static (ctx, row) => ctx.Op.Catch(() => Fin.Succ(row.Block.Draw(ctx.Graphics, Quant.Eto(row.At)))),
-        sprite: static (ctx, row) => ctx.Sprites.Surface(row.Value, bitmap => ctx.Op.Catch(() => Fin.Succ(Op.Side(() =>
-            ctx.Graphics.DrawImage(
-                bitmap,
-                row.Window.Match(
-                    Some: static held => new RectangleF(Quant.Eto(held.Origin), new SizeF(held.Extent.Width, held.Extent.Height)),
-                    None: () => new RectangleF(0f, 0f, bitmap.Width, bitmap.Height)),
-                new RectangleF((float)row.At.X, (float)row.At.Y, row.Extent.Width, row.Extent.Height))))), ctx.Op),
-        group: static (ctx, row) => ctx.Op.Catch(() => {
-            using IDisposable window = ctx.Graphics.SaveTransformState();
-            _ = row.Pose.Iter(pose => pose.Use(matrix => Op.Side(() => ctx.Graphics.MultiplyTransform(matrix))));
-            _ = row.Clip.Iter(clip => { using GraphicsPath built = clip.Eto(); ctx.Graphics.SetClip(built); });
-            return row.Children.Map(child => (ctx.Graphics, ctx.Sprites, ctx.Op, Child: child))
-                .TraverseM(static item => ScreenSurface(item.Graphics, item.Sprites, item.Child, item.Op)).As().Map(static _ => unit);
-        }));
-
-    private static Fin<Unit> DrawPath(Graphics graphics, SpriteSheet sprites, ScreenMark.Path row, Op key) => key.Catch(() => {
-        using GraphicsPath path = row.Value.Eto();
-        RectangleF bounds = path.Bounds;
-        float outset = (float)row.Stroke.Map(static stroke => stroke.CullOutset).IfNone(0d);
-        RectangleF painted = new(bounds.X - outset, bounds.Y - outset, bounds.Width + (2f * outset), bounds.Height + (2f * outset));
-        return graphics.IsVisible(painted)
-            ? row.Fill.Match(
-                Some: fill => Brush(fill, sprites, brush => key.Catch(() => Fin.Succ(Op.Side(() => graphics.FillPath(brush, path)))), key),
-                None: static () => Fin.Succ(unit))
-                .Bind(_ => key.Catch(() => Fin.Succ(row.Stroke.Iter(stroke => {
-                    using Pen pen = stroke.Eto();
-                    graphics.DrawPath(pen, path);
-                }))))
-            : Fin.Succ(unit);
-    });
-
-    private static Fin<TResult> Brush<TResult>(
-        FillStyle fill,
-        SpriteSheet sprites,
-        Func<Brush, Fin<TResult>> use,
-        Op key) => fill.Switch(
-        (Sprites: sprites, Use: use, Op: key),
-        solid: static (ctx, row) => ctx.Op.Catch(() => {
-            using Brush brush = new SolidBrush(Quant.Eto(row.Color));
-            return ctx.Use(brush);
-        }),
-        linear: static (ctx, row) => ctx.Op.Catch(() => {
-            using Brush brush = new LinearGradientBrush(Quant.Eto(row.Start), Quant.Eto(row.End), Quant.Eto(row.From), Quant.Eto(row.To));
-            return ctx.Use(brush);
-        }),
-        radial: static (ctx, row) => ctx.Op.Catch(() => {
-            using Brush brush = new RadialGradientBrush(
-                Quant.Eto(row.Start), Quant.Eto(row.End), Quant.Eto(row.Center), Quant.Eto(row.Origin), new SizeF(row.Radius.Width, row.Radius.Height));
-            return ctx.Use(brush);
-        }),
-        texture: static (ctx, row) => ctx.Sprites.Surface(row.Sprite, image => ctx.Op.Catch(() => {
-            using Brush brush = new TextureBrush(image, row.Opacity);
-            return ctx.Use(brush);
-        }), ctx.Op));
-
-    private static Fin<Unit> WorldPipeline(ConduitFrame frame, SpriteSheet sprites, WorldMark mark, Op key) => mark.Switch(
-        (Frame: frame, Sprites: sprites, Op: key),
-        curve: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawCurve(row.Value, row.Stroke.Rhino())),
+    private static Fin<Unit> WorldPipeline(ConduitFrame frame, WorldMark mark, Op key) => mark.Switch(
+        (Frame: frame, Op: key),
+        curve: static (ctx, row) => row.Stroke.Mint(key: ctx.Op)
+            .Bind(pen => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawCurve(row.Value, pen))),
         // Every shaded arm mints its native inside `ShadedMaterial.Use`, draws within that bracket, and releases on exit.
         meshShaded: static (ctx, row) => row.Material.Use(
             material => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawMeshShaded(row.Value, material)), ctx.Op),
-        meshBanded: static (ctx, row) => row.Banding.Mint(ctx.Op).Bind(effect => ctx.Op.Catch(() => Fin.Succ(Op.Side(() =>
-            ctx.Frame.Pipeline.DrawMeshShaded(row.Value, Quant.Sys(row.Color), effect))))),
+        meshBanded: static (ctx, row) =>
+            from ink in row.Colour.ToDrawing(key: ctx.Op)
+            from effect in row.Banding.Mint(ctx.Op)
+            from drawn in ctx.Op.Catch(() => Fin.Succ(Op.Side(() => ctx.Frame.Pipeline.DrawMeshShaded(row.Value, ink, effect))))
+            select drawn,
         meshFalseColors: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawMeshFalseColors(row.Value)),
         subDShaded: static (ctx, row) => row.Material.Use(
             material => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawSubDShaded(row.Value, material)), ctx.Op),
-        subDWires: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawSubDWires(row.Value, Quant.Sys(row.Color), row.Width)),
+        subDWires: static (ctx, row) => row.Colour.ToDrawing(key: ctx.Op)
+            .Bind(ink => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawSubDWires(row.Value, ink, row.Width))),
         brepShaded: static (ctx, row) => row.Material.Use(
             material => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawBrepShaded(row.Value, material)), ctx.Op),
-        brepWires: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawBrepWires(row.Value, Quant.Sys(row.Color), row.Density)),
+        brepWires: static (ctx, row) => row.Colour.ToDrawing(key: ctx.Op)
+            .Bind(ink => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawBrepWires(row.Value, ink, row.Density))),
         block: static (ctx, row) => row.Material.Use(
             material => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawInstanceDefinitionShaded(row.Definition, material, row.Placement)), ctx.Op),
-        clipping: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawClippingPlaneWires(row.Value, Quant.Sys(row.Color))),
-        hatch: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawHatch(row.Value, Quant.Sys(row.Lines), Quant.Sys(row.Fill))),
-        text: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawText(row.Value, Quant.Sys(row.Color))),
-        annotation: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawAnnotation(row.Value, row.Owner, Quant.Sys(row.Color))),
-        arrowhead: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawAnnotationArrowhead(row.Value, row.Placement, Quant.Sys(row.Color))),
-        sprite: static (ctx, row) => ctx.Sprites.Pipeline(row.Value, row.Source, row.Destination, bitmap => ctx.Op.Catch(() => Fin.Succ(Op.Side(() =>
-            ctx.Frame.Pipeline.DrawSprite(bitmap, row.At, row.Size, Quant.Sys(row.Tint), row.WorldSized)))), ctx.Op),
-        spriteCloud: static (ctx, row) => ctx.Sprites.Pipeline(row.Sprite, row.Source, row.Destination, bitmap => ctx.Op.Catch(() => {
-            DisplayBitmapDrawList list = new();
-            _ = row.Colors.Match(
-                Some: colors => Op.Side(() => list.SetPoints(row.Points.AsEnumerable(), colors.Map(Quant.Sys).AsEnumerable())),
-                None: () => Op.Side(() => list.SetPoints(row.Points.AsEnumerable())));
-            ctx.Frame.Pipeline.DrawSprites(bitmap, list, row.Size, row.WorldSized);
-            return Fin.Succ(unit);
-        }), ctx.Op),
+        clipping: static (ctx, row) => row.Colour.ToDrawing(key: ctx.Op)
+            .Bind(ink => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawClippingPlaneWires(row.Value, ink))),
+        hatch: static (ctx, row) =>
+            from lines in row.Lines.ToDrawing(key: ctx.Op)
+            from fill in row.Fill.ToDrawing(key: ctx.Op)
+            from drawn in ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawHatch(row.Value, lines, fill))
+            select drawn,
+        text: static (ctx, row) => row.Colour.ToDrawing(key: ctx.Op)
+            .Bind(ink => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawText(row.Value, ink))),
+        annotation: static (ctx, row) => row.Colour.ToDrawing(key: ctx.Op)
+            .Bind(ink => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawAnnotation(row.Value, row.Owner, ink))),
+        arrowhead: static (ctx, row) => row.Colour.ToDrawing(key: ctx.Op)
+            .Bind(ink => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawAnnotationArrowhead(row.Value, row.Placement, ink))),
         direction: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawSurfaceDirectionIndicators(row.Value)),
-        curvature: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawCurvaturePreview(row.Value, Quant.Sys(row.Color))),
-        draft: static (ctx, row) => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawDraftAnglePreview(row.Value, Quant.Sys(row.Color))));
+        curvature: static (ctx, row) => row.Colour.ToDrawing(key: ctx.Op)
+            .Bind(ink => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawCurvaturePreview(row.Value, ink))),
+        draft: static (ctx, row) => row.Colour.ToDrawing(key: ctx.Op)
+            .Bind(ink => ctx.Op.Catch(() => ctx.Frame.Pipeline.DrawDraftAnglePreview(row.Value, ink))),
+        points: static (ctx, row) => row.Colour.ToDrawing(key: ctx.Op)
+            .Bind(ink => ctx.Op.Catch(() => Fin.Succ(Op.Side(() =>
+                ctx.Frame.Pipeline.DrawPoints(row.Values.AsEnumerable(), row.Style.Native, row.Radius.Value, ink))))),
+        vector: static (ctx, row) => row.Colour.ToDrawing(key: ctx.Op)
+            .Bind(ink => ctx.Op.Catch(() => Fin.Succ(Op.Side(() => {
+                ctx.Frame.Pipeline.DrawArrow(new Line(row.Anchor, row.Anchor + row.Span), ink);
+                _ = Op.SideWhen(row.Tip.Dot, () => ctx.Frame.Pipeline.DrawPoint(row.Anchor, ink));
+            })))),
+        polygon: static (ctx, row) =>
+            from fill in row.Fill.ToDrawing(key: ctx.Op)
+            from edge in row.Edge.ToDrawing(key: ctx.Op)
+            from drawn in ctx.Op.Catch(() => Fin.Succ(Op.Side(() => {
+                _ = Op.SideWhen(row.Paint.Fill, () => ctx.Frame.Pipeline.DrawPolygon(row.Ring.AsEnumerable(), fill, filled: true));
+                _ = Op.SideWhen(row.Paint.Edge, () => ctx.Frame.Pipeline.DrawPolygon(row.Ring.AsEnumerable(), edge, filled: false));
+            })))
+            select drawn,
+        label3d: static (ctx, row) => row.Colour.ToDrawing(key: ctx.Op)
+            .Bind(ink => ctx.Op.Catch(() => Fin.Succ(Op.Side(() => ctx.Frame.Pipeline.Draw3dText(row.Value, ink))))));
+
+    // --- [RETAINED_ARM]
+    // The `CustomDisplay`-addressable subset: colour-and-width alone, so a decorated stroke refuses the corner by
+    // name and the convenience adds collapse onto `AddCurve`.
+    private static Fin<Either<Error, Outcome>> RetainedArm(CustomDisplay display, DisplayMark mark, Op op) => mark switch {
+        DisplayMark.World { Value: WorldMark.Points row } =>
+            row.Colour.ToDrawing(key: op).Bind(ink => op.Catch(() => Fin.Succ(Op.Side(() =>
+                display.AddPoints(row.Values.AsEnumerable(), ink, row.Style.Native, row.Radius.Value)))))
+            .Map(static _ => Either.Right<Error, Outcome>(Outcome.Drawn)),
+        DisplayMark.World { Value: WorldMark.Vector row } =>
+            row.Colour.ToDrawing(key: op).Bind(ink => op.Catch(() => Fin.Succ(Op.Side(() =>
+                display.AddVector(row.Anchor, row.Span, ink, row.Tip.Dot)))))
+            .Map(static _ => Either.Right<Error, Outcome>(Outcome.Drawn)),
+        DisplayMark.World { Value: WorldMark.Polygon row } =>
+            from fill in row.Fill.ToDrawing(key: op)
+            from edge in row.Edge.ToDrawing(key: op)
+            from drawn in op.Catch(() => Fin.Succ(Op.Side(() =>
+                display.AddPolygon(row.Ring.AsEnumerable(), fill, edge, row.Paint.Fill, row.Paint.Edge))))
+            select Either.Right<Error, Outcome>(Outcome.Drawn),
+        DisplayMark.World { Value: WorldMark.Curve { Stroke.Decoration: var decoration } row }
+            when decoration == PenDecoration.Bare =>
+            row.Stroke.Colour.ToDrawing(key: op).Bind(ink => op.Catch(() => Fin.Succ(Op.Side(() =>
+                display.AddCurve(row.Value, ink, (int)Math.Max(1d, row.Stroke.Width.Value))))))
+            .Map(static _ => Either.Right<Error, Outcome>(Outcome.Drawn)),
+        DisplayMark.World { Value: WorldMark.Label3d row } =>
+            row.Colour.ToDrawing(key: op).Bind(ink => op.Catch(() => Fin.Succ(Op.Side(() =>
+                display.AddText(row.Value, ink)))))
+            .Map(static _ => Either.Right<Error, Outcome>(Outcome.Drawn)),
+        _ => Fin.Succ(Either.Left<Error, Outcome>(op.Unsupported(mark.GetType(), typeof(CustomDisplay)))),
+    };
 }
 ```
+
+- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-display.md` — `DisplayPipeline` draw verbs, `DisplayPen`/`DisplayBitmap` surfaces); `Eto.Drawing` (`Rasm.Rhino/.api/api-eto-drawing.md` — `PenLineCap`/`PenLineJoin` aliased at the pen boundary); `Thinktecture.Runtime.Extensions` (`libs/csharp/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum]` mark rows, `[ComplexValueObject]` pens); kernel `Interaction/paint` (`Marks` partition floor) + `Numerics/atoms` (`PerceptualColor`).
 
 ## [05]-[RESEARCH]
 

@@ -49,7 +49,7 @@ lazy from queenbee.recipe.recipe import RecipeInterface
 
 from rasm.data.tabular.columnar import arrow_columns
 from rasm.data.tabular.interop import arrow_bytes
-from rasm.geometry.energy.climate import EnergyFault, LateBound
+from rasm.geometry.energy.climate import ENERGY_REGIMES, EnergyFault, EnergyRegime, LateBound, RegimeKey
 from rasm.geometry.energy.model import BuildingModel
 from rasm.geometry.graduation import (
     EvidenceScope,
@@ -259,12 +259,14 @@ class SimulationReceipt(Struct, frozen=True):
         # decodes over one run key apart and an identical re-decode dedupes in the persistence ledger.
         return b"|".join((self.model_key.memory, self.recipe.encode(), self.operation.encode(), self.discriminant.encode()))
 
-    def graduates(self, ceiling: float) -> GeometryHandoff:
+    def graduates(self, regime: EnergyRegime = ENERGY_REGIMES[RegimeKey.BUILDING_EUI]) -> GeometryHandoff:
         # EUI is the eui arm's own measurement; every other decode OMITS it, so the spine reports `unmeasured:eui`
-        # and the crossing refuses rather than clearing a compliance ceiling on a fabricated zero.
+        # and the crossing refuses rather than clearing a compliance ceiling on a fabricated zero. The ceiling arrives
+        # as a CITED regime row naming the intensity and the units it grades, never an anonymous float a caller
+        # supplies under no authority at all.
         measured = self.eui_total.map(lambda total: {"eui": total}).default_value({}) | {"rows": float(self.rows)}
         subject = GeometrySubject.BUILDING_ENERGY
-        return GeometryHandoff.of(subject, evidence_key(subject, self.spec()), measured, {"eui": ceiling})
+        return GeometryHandoff.of(subject, evidence_key(subject, self.spec()), measured, {"eui": regime.bar()})
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -457,7 +459,7 @@ def _shades(glb: bytes, identifier: str) -> tuple[tuple["ShadeMesh", ...], int]:
     from ladybug_geometry.geometry3d.mesh import Mesh3D  # ruff:ignore[import-outside-top-level] — AGPL isolation
     from ladybug_geometry.geometry3d.pointvector import Point3D  # ruff:ignore[import-outside-top-level] — AGPL isolation
 
-    scene = trimesh.load(io.BytesIO(glb), file_type="glb", force="scene")
+    scene = trimesh.load_scene(io.BytesIO(glb), file_type="glb")
     posed = tuple(
         scene.geometry[scene.graph[node][1]].copy().apply_transform(scene.graph[node][0])
         for node in scene.graph.nodes_geometry

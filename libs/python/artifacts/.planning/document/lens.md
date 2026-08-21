@@ -34,12 +34,13 @@ from expression.collections import Block, Map
 from msgspec import Struct, field, structs
 from pydantic import TypeAdapter, ValidationError
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.document.model import (
-    AnnotationNode,
     AnnotKind,
     AnnotTarget,
+    AnnotationNode,
     BlockKind,
     BlockNode,
     ButtonField,
@@ -52,12 +53,13 @@ from rasm.artifacts.document.model import (
     FigureNode,
     ForeignRole,
     FormulaNode,
+    Lapse,
     ListField,
     ListKind,
     ListNode,
+    NoTarget,
     NodeKind,
     NodeMeta,
-    NoTarget,
     PageNode,
     RadioField,
     RunNode,
@@ -77,10 +79,11 @@ from rasm.artifacts.document.model import (
     children,
     field_text,
     hardened_parse,
+    lapsed,
     walk,
 )
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.runtime.faults import TRANSIENT, Catch, FaultRow, RuntimeRail, async_boundary, rostered
 from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -205,6 +208,22 @@ _HEADING: Final[tuple[StructEltKind, ...]] = (
     StructEltKind.H5,
     StructEltKind.H6,
 )
+
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's ONE lift anchor. TRANSIENT — a recovery that died on a provider raise or a gated-companion worker death
+# is a defect a re-issue may clear; every op/provider admission refusal is `LensFault.provider`'s, never a row here.
+LENS_RECOVER: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.LENS, point="recover", arm="boundary", defect="recover-fold", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([LENS_RECOVER]))
+
+# the fence's whole raise surface: `_recovered` awaits a RAILED offload and collapses its terminal fault through
+# the shared `document/model#NODE` carrier, which `BoundaryFault.of` admits ahead of `CLASSIFY` so the fault crosses
+# back WHOLE on `domain`. Each reader arm's `@beartype` narrowing and every provider raise already converted inside
+# the worker, so no provider class rides here.
+_RECOVER_RAISES: Final[Catch] = (Lapse,)
 
 # --- [ERRORS] ---------------------------------------------------------------------------
 
@@ -368,11 +387,11 @@ class DocumentLens(Struct, frozen=True):
             if self.provider.band is LensBand.GATED
             else await self.lane.offload(Kernel.of(route.arm, KernelTrait.RELEASING), self.payload, self.provider, self.spec)
         )
-        return structs.replace(self, recovered=crossed.default_with(lambda fault: _lens_raise(fault)))
+        return structs.replace(self, recovered=crossed.default_with(lapsed))
 
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
         # Terminal receipt threads the PRE-RUN key the closure captured, so receipt.slot == node.key.
-        railed = await async_boundary(f"lens.{self.op.value}", self._recovered)
+        railed = await async_boundary(LENS_RECOVER, self._recovered, catch=_RECOVER_RAISES)
         match railed.map(lambda stepped: stepped._receipt(key)):
             case Result(tag="ok", ok=receipt):
                 # the `introspection` kind's ONE durable seat: recording suspends on the journal's bounded intake and
@@ -1771,10 +1790,6 @@ def _xml_built(element: object, path: Trail, grown: tuple[DocumentNode, ...]) ->
     )
     return _node(NodeKind.BLOCK, name, 0, etree.tostring(element).strip(), path=path, block=BlockKind.PARAGRAPH, level=1, children=(*runs, *woven))
 
-
-def _lens_raise(fault: object) -> tuple[DocumentNode, ...]:
-    # terminal collapse at the extraction boundary: an offload fault reconstructs the raise the node's rail folds.
-    raise ValueError(str(fault))
 
 
 def _gated_recover(lens: "DocumentLens") -> tuple[DocumentNode, ...]:

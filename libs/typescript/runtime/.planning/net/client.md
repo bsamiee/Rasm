@@ -33,25 +33,53 @@ Each lane is a policy row whose durations are the core budget ledger's: a row na
 - Law: rejection is `Lapse` evidence — `reason: "break"`, class `unavailable`, the policy's `cool` as the spent span — so an open circuit routes through the same budget gate as every transient and no second shed fault exists.
 - Law: the registry is a `Context.Reference` — cells key by guard key in one `MutableHashMap` default bounded by the capacity row: a mint at capacity flushes the ledger to rest, so degradation is a cold circuit, never process-lifetime memory growth; the requirement channel stays clean (`R` never grows), and a root or proof overrides the whole ledger by providing the Reference. Exemption: `_cell` is the one statement kernel — the synchronous mint-or-get, with the capacity flush, against the registry map.
 - Growth: hedging and load-shed stay owned elsewhere (`Effect.raceAll` at the caller, `Gate.shed` at the serving edge); a per-tenant circuit is a key suffix, zero new surface.
-- Packages: `effect` (`Cause`, `Clock`, `Context`, `Data`, `Duration`, `Exit`, `MutableHashMap`, `Option`, `Ref`), `@rasm/ts/core` (`Fault.Class`).
+- Packages: `effect` (`Cause`, `Clock`, `Context`, `Data`, `Duration`, `Exit`, `MutableHashMap`, `Option`, `Ref`, `Schema`), `@rasm/ts/core` (`Fault.Class`).
 
 ```typescript signature
-const _family = Fault.Class.family(['budget', 'break', 'binding'] as const, {
-    budget: { class: 'expired' },
-    break: { class: 'unavailable' },
-    binding: { class: 'denied' },
+// Every row names the lane, and each names the ONE span or number that decided it — the deadline that lapsed, the
+// cool window still open, the peer's own refusal status. The sender-binding row names none, because a proof that
+// cannot be minted spends no span: the `Duration.zero` it used to carry was a slot the raise filled with a lie.
+const _family = Fault.Class.family(['budget', 'break', 'binding', 'throttled'] as const, {
+    budget: Fault.Class.row({
+        class: 'expired',
+        leg: 'dial',
+        detail: Schema.Struct({ lane: Schema.String, budget: Schema.DurationFromSelf }),
+        render: ({ lane, budget }) => `${lane} outlived its ${Duration.toMillis(budget)}ms budget`,
+    }),
+    break: Fault.Class.row({
+        class: 'unavailable',
+        leg: 'break',
+        detail: Schema.Struct({ lane: Schema.String, cool: Schema.DurationFromSelf }),
+        render: ({ lane, cool }) => `${lane} circuit is open for another ${Duration.toMillis(cool)}ms`,
+    }),
+    binding: Fault.Class.row({
+        class: 'denied',
+        leg: 'dial',
+        detail: Schema.Struct({ lane: Schema.String }),
+        render: ({ lane }) => `${lane} cannot present a sender-constrained credential over a bare authorization header`,
+    }),
+    // The one row whose PRODUCER states the window: a peer answering `Retry-After` measured the wait itself, so this
+    // reason classes `exhausted` — the single `throttled`-capable kind — and its raise fills `after`.
+    throttled: Fault.Class.row({
+        class: 'exhausted',
+        leg: 'dial',
+        detail: Schema.Struct({ lane: Schema.String, status: Schema.Int }),
+        render: ({ lane, status }) => `${lane} peer answered ${status} and stated its own re-offer window`,
+    }),
 });
 
-class Lapse extends Data.TaggedError('Lapse')<{
-    readonly lane: string;
-    readonly budget: Duration.Duration;
-    readonly reason: (typeof _family.reasons)[number];
-}> {
+class Lapse extends Schema.TaggedError<Lapse>()('Lapse', {
+    case: _family.payload,
+    // The stated window rides the VALUE under the one word `core/value/fault#CLASS_VOCABULARY` fixes, so
+    // `Fault.Class.statedOf` reads exactly this field and `Fault.Budget.schedule` re-seats its base from it; every
+    // row but `throttled` states absence rather than a zero a gate would re-offer against immediately.
+    after: Fault.Class.After,
+}) {
     get class(): Fault.Class.Kind {
-        return _family.classOf(this.reason);
+        return _family.classOf(this.case.reason);
     }
     override get message(): string {
-        return `<lapse:${this.reason}> ${this.lane}`;
+        return _family.render(this.case);
     }
 }
 
@@ -138,7 +166,7 @@ const _guard =
                           Ref.update(cell, (held) => _settled(held, admitted.value, at, policy, _verdict(exit))),
                       ),
                   ) // one emission point, fired uninterruptibly after the outcome settles: an interrupted probe never escapes unaccounted
-                : yield* new Lapse({ lane: key, budget: policy.cool, reason: 'break' });
+                : yield* new Lapse({ case: { reason: 'break', lane: key, cool: policy.cool }, after: Option.none() });
         });
 
 const Breaker = { guard: _guard } as const;
@@ -149,7 +177,8 @@ const Breaker = { guard: _guard } as const;
 [DIAL_SEAM]:
 - Owner: `Client.dial` — the one entry. Modality follows the call shape: `dial(lane, request)` yields the scoped `HttpClientResponse` (the caller owns the body's lifetime — the `feed` posture); `dial(lane, request, shape)` fuses execution, status admission, bounded body materialization through `HttpIncomingMessage.withMaxBodySize`, JSON-body decode through `HttpClientResponse.schemaBodyJson`, and scope closure into one self-contained step; both apply the lane's transformers — `HttpClient.filterStatusOk`, `HttpClient.followRedirects`, `HttpClient.retryTransient({ schedule })`, `HttpClient.withTracerPropagation(true)` — over the client yielded from the requirement channel.
 - Law: budget geometry is stated, not accidental — the lane budget is the TOTAL budget, applied above transient retry and, on the settled modality, above body drain and Schema decode, so retries and a slow body spend the same allowance; a per-attempt sub-budget is deliberately not a knob, and a surface needing one composes the ledger row's `attempt` duration as its own `Effect.fn` pipeline step under the rails layering law.
-- Law: expiry, shed, and credential refusal are one typed family — `Lapse` carries the lane and the spent span as evidence, its `reason` splitting `budget` (class `expired`) from `break` (class `unavailable`) from `binding` (class `denied`), so the core budget gate re-drives the two transient rows while a sender-binding refusal routes as the terminal evidence it is; transport and status faults ride the platform's own `HttpClientError` family untouched, and decode skew rides `ParseError` — three families, each already routable, none re-wrapped.
+- Law: expiry, shed, throttling, and credential refusal are one typed family — each `Lapse` row names the lane beside the one span or number that decided it, splitting `budget` (class `expired`, the deadline that lapsed) from `break` (class `unavailable`, the cool window still open) from `binding` (class `denied`, naming no span at all) from `throttled` (class `exhausted`, the peer's own refusal status), so the core budget gate re-drives the transient rows while a sender-binding refusal routes as the terminal evidence it is; transport and status faults ride the platform's own `HttpClientError` family untouched, and decode skew rides `ParseError` — three families, each already routable, none re-wrapped.
+- Law: a peer that STATES its re-offer window is honored under that window and never under a curve this lane invented — `Retry-After` reads off the refusal as delay-seconds or an HTTP-date, rides the raised value as `Fault.Class.After`, and spends `Fault.Budget.schedule`'s `stated` slot; the blind transient policy gates such a refusal OUT, so one refusal is re-offered once under one wait rather than twice under two policies. A header stating nothing parsable leaves the platform's own refusal untouched.
 - Law: request construction is the platform surface at full depth — `HttpClientRequest.get`/`post`, `bodyJson`, `setHeader`, `setUrlParams` compose at the consumer's seam; the dial owns policy, never request vocabulary. `bearerToken` is the one member this seam takes BACK, because a workload credential is lane policy and a call-site token is the hand-carried secret the projection deletes.
 - Law: the credential is a projection off one port, never a call-site header — `Machine` is a `Context.Reference` holding a source the app root fills from `security:authn/workload`'s `Workload`, so this plane mounts a resolved `MachinePrincipal` and holds no grant grammar, no client secret, and no rotation timer; the requirement channel stays clean exactly as the breaker ledger's does, and an estate binding nothing keeps the default source, which answers no principal and dials anonymous — today's posture, unchanged, rather than a lane that refuses until someone remembers a Layer.
 - Law: the audience is the request ORIGIN and the source decides per audience — a fleet token minted for one service is not a bearer instrument for whatever host a caller names, so `Machine.at` asks for the origin the request already addresses and a source holding nothing for it presents nothing; scoping the read by lane instead would hand service A's credential to service B on the same lane, which is credential exfiltration wearing a policy table.
@@ -159,25 +188,28 @@ const Breaker = { guard: _guard } as const;
 - Boundary: the client binding is the runtime row's (`proc/exec#RUNTIME_ROWS`); OTLP export composes the `batch` lane so telemetry egress inherits the same posture as every other call — an exporter with a private client is the named fork. Principal mint, rotation, introspection, and revocation are `security:authn/workload`'s; this owner mounts the projection and decides nothing about the grant.
 - Entry: `Client.dial(lane, request[, shape])`; `R` carries `HttpClient` (and `Scope` on the response modality) to the root, and the app root overrides `Machine` where a workload identity exists.
 - Receipt: the overload annotations are the whole seam contract — fault union and requirement set readable without opening the body.
-- Packages: `@effect/platform` (`HttpClient`, `HttpClientRequest`, `HttpClientResponse`, `Headers`), `effect` (`Data`, `Effect`, `Function`, `Option`, `Redacted`), `@rasm/ts/security` (`MachinePrincipal`).
+- Packages: `@effect/platform` (`HttpClient`, `HttpClientError`, `HttpClientRequest`, `HttpClientResponse`, `Headers.get`), `effect` (`Data`, `DateTime`, `Duration`, `Effect`, `Either`, `Function`, `Number`, `Option`, `Redacted`, `Schema`), `@rasm/ts/core` (`Fault.Budget`, `Fault.Class`), `@rasm/ts/security` (`MachinePrincipal`).
 
 ```typescript signature
-import { HttpClient, type HttpClientError, HttpClientRequest, HttpClientResponse, HttpIncomingMessage } from '@effect/platform';
+import { Headers, HttpClient, HttpClientError, HttpClientRequest, HttpClientResponse, HttpIncomingMessage } from '@effect/platform';
 import {
     Cause,
     Clock,
     Context,
     Data,
+    DateTime,
     Duration,
     Effect,
+    Either,
     Exit,
     Function,
     MutableHashMap,
+    Number,
     Option,
     type ParseResult,
     Redacted,
     Ref,
-    type Schema,
+    Schema,
     type Scope,
     pipe,
 } from 'effect';
@@ -266,7 +298,7 @@ const _at = (lane: string, audience: string): Effect.Effect<Option.Option<Machin
                 onNone: () => Effect.succeedNone,
                 onSome: (principal: MachinePrincipal) =>
                     principal.scheme === 'dpop'
-                        ? Effect.fail(new Lapse({ lane, budget: Duration.zero, reason: 'binding' }))
+                        ? Effect.fail(new Lapse({ case: { reason: 'binding', lane }, after: Option.none() }))
                         : Effect.succeed(Option.some(principal)),
             }),
         ));
@@ -295,14 +327,63 @@ class Machine extends Context.Reference<Machine>()('runtime/Machine', {
     static readonly band = _band;
 }
 
+// A peer that STATED its window is not spent on the blind curve: the gate reads the refusal's own `Retry-After`
+// presence off the response the platform's refusal already carries, so a throttling answer leaves the transient
+// policy untouched and re-offers at the wait its producer measured. Everything else — a torn transport, an ungraded
+// 5xx — is exactly what the blind curve exists for.
+const _blind = (fault: unknown): boolean =>
+    !(fault instanceof HttpClientError.ResponseError && Option.isSome(Headers.get(fault.response.headers, 'retry-after')));
+
 const _tempered =
     (lane: Client.Lane) =>
     (client: HttpClient.HttpClient): HttpClient.HttpClient =>
         client.pipe(
             HttpClient.filterStatusOk,
             HttpClient.followRedirects(_lanes[lane].hops),
-            HttpClient.retryTransient({ schedule: Fault.Budget.schedule(_lanes[lane].kind, Function.constTrue) }),
+            HttpClient.retryTransient({ schedule: Fault.Budget.schedule(_lanes[lane].kind, _blind) }),
             HttpClient.withTracerPropagation(true),
+        );
+
+// `Retry-After` arrives as delay-seconds or as an HTTP-date and both spell ONE `Duration`. The date form measures
+// against the reading clock through the SIGNED distance, so a deadline already elapsed answers absence rather than
+// the absolute magnitude a bare distance returns; an unparsable header states nothing rather than collapsing to a
+// zero the gate would re-offer against immediately.
+const _stated = (response: HttpClientResponse.HttpClientResponse): Effect.Effect<Fault.Class.Stated> =>
+    Option.match(Headers.get(response.headers, 'retry-after'), {
+        onNone: () => Effect.succeedNone,
+        onSome: (named) =>
+            Option.match(Number.parse(named), {
+                onNone: () =>
+                    Option.match(DateTime.make(named), {
+                        onNone: () => Effect.succeedNone,
+                        onSome: (deadline) =>
+                            Effect.map(DateTime.now, (now) => Either.getRight(DateTime.distanceDurationEither(now, deadline))),
+                    }),
+                onSome: (seconds) => Effect.succeedSome(Duration.seconds(seconds)),
+            }),
+    });
+
+// The refusal becomes THIS page's fault only where a window was actually stated; otherwise the platform's own
+// `ResponseError` passes through untouched, so no re-wrap invents evidence the peer never sent.
+const _throttled =
+    (lane: Client.Lane) =>
+    (refusal: HttpClientError.ResponseError): Effect.Effect<never, Lapse | HttpClientError.ResponseError> =>
+        Effect.flatMap(_stated(refusal.response), (after) =>
+            Option.isSome(after)
+                ? Effect.fail(new Lapse({ case: { reason: 'throttled', lane, status: refusal.response.status }, after }))
+                : Effect.fail(refusal));
+
+// One re-offer at the wait the producer named: `Fault.Budget.schedule` re-seats the lane row's `base` from the
+// stated window and the curve grows from there under that row's own attempts, reset, and elapsed ceiling — so the
+// blind curves stay compiled at module evaluation and only a stated re-offer pays a compile, once per refusal.
+const _paced =
+    (lane: Client.Lane) =>
+    <A, E, R>(dial: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
+        Effect.catchIf(
+            dial,
+            (fault: E) => Option.isSome(Fault.Class.statedOf(fault)),
+            (fault) =>
+                Effect.retry(dial, Fault.Budget.schedule(_lanes[lane].kind, Function.constTrue, Fault.Class.statedOf(fault))),
         );
 
 const _gated = <A, E, R>(
@@ -312,10 +393,15 @@ const _gated = <A, E, R>(
 ): Effect.Effect<A, E | Lapse, R> =>
     pipe(
         self,
+        _paced(lane),
         (sent) =>
             Option.match(_lanes[lane].budget, {
                 onNone: () => sent,
-                onSome: (budget) => Effect.timeoutFail(sent, { duration: budget, onTimeout: () => new Lapse({ lane, budget, reason: 'budget' }) }),
+                onSome: (budget) =>
+                    Effect.timeoutFail(sent, {
+                        duration: budget,
+                        onTimeout: () => new Lapse({ case: { reason: 'budget', lane, budget }, after: Option.none() }),
+                    }),
             }),
         (bounded) =>
             Option.match(_lanes[lane].break, {
@@ -332,7 +418,11 @@ const _sent = (
 ): Effect.Effect<HttpClientResponse.HttpClientResponse, HttpClientError.HttpClientError | Lapse, HttpClient.HttpClient | Scope.Scope> =>
     Effect.flatMap(_band(lane, _origin(request)), (band) =>
         Effect.flatMap(HttpClient.HttpClient, (client) =>
-            _tempered(lane)(client).execute(HttpClientRequest.setHeaders(request, band))));
+            Effect.catchTag(
+                _tempered(lane)(client).execute(HttpClientRequest.setHeaders(request, band)),
+                'ResponseError',
+                _throttled(lane),
+            )));
 
 function dial(
     lane: Client.Lane,
@@ -418,7 +508,7 @@ const Client = { dial, resident: _resident, residency: _dispatch } as const;
 - Law: the thunk takes ONE `Rpc.Call` fragment and spreads it whole into `CallOptions`, because the two coordinates this seam owns — the fiber's `AbortSignal` and the lane's credential band — are both per-call `CallOptions` members and handing them over separately invites a consumer to forward one and drop the other. Threading `signal` is what makes a `Lapse` on the lane budget cancel the HTTP/2 stream as `Code.Canceled` instead of abandoning it — a give-up leaving the stream in flight holds a session slot for the full server-side duration, against the `maxConcurrentStreams` ceiling `[05]` declares. `Effect.tryPromise` hands its evaluator that signal directly, so no `AbortController` threads through the caller's own flow, and the interrupt this cancellation raises is the one `[03]`'s `halted` verdict refuses to charge.
 - Law: the credential band is the same projection the HTTP arm stamps, read once ahead of the retry ladder — gRPC call metadata IS `CallOptions.headers`, so `Machine.band` answers the origin this transport addresses and the band rides into the call rather than onto a transport-wide record, which could not know which audience a generated client reached. Reading once is correct rather than thrifty: `Code.Unauthenticated` grades `denied` in `_grades` and spends no attempt, so a stale credential ends the call and the caller's NEXT call re-reads the source, which is exactly where a rotation lands.
 - Law: the band and the trace print stay disjoint by key — this seam writes `authorization` alone while `core:interchange/invoke#DIAL_AXIS`'s per-call lift writes the bare W3C pair onto the same `headers`, so the two owners merge without either spelling the other's names, and neither needs an interceptor onion to stay out of the other's way.
-- Law: connect-node publishes no retry knob on any transport record, so the one-attempt provider pin binds nothing and `core/value/fault#RETRY_BUDGET` composes the whole curve at this seam — `_graded` folds the protocol's closed `Code` enum onto `Fault.Class` rows and the lane schedule gates on that row's `retryable`, so a caller-blamed code spends no attempt. `Http2SessionManager` reopening past a `GOAWAY` replaces the connection inside one attempt and is not a re-attempt: it reads no schedule and spends no budget.
+- Law: connect-node publishes no retry knob on any transport record, so the one-attempt provider pin binds nothing and `core/value/fault#RETRY_BUDGET` composes the whole curve at this seam — `_graded` folds the protocol's closed `Code` enum onto `Fault.Class` kinds and the lane schedule gates on the derived `Fault.Class.retryable` projection, so a caller-blamed code spends no attempt. `Http2SessionManager` reopening past a `GOAWAY` replaces the connection inside one attempt and is not a re-attempt: it reads no schedule and spends no budget.
 - Law: the promise seam folds at this owner — a rejection converts through the package's own `ConnectError.from`, so the fault channel carries the typed `ConnectError` family a consumer's `Code` dispatch already routes and no `unknown` channel escapes the seam that widened it.
 - Law: W3C print crosses at the Connect client owner, never this row — `core:interchange/invoke#DIAL_AXIS`'s per-call lift folds `Carrier.current` through `Carrier.inject("connect", ...)` onto the call's own `headers`, so the trace continues with no interceptor onion and no ambient runtime handle; `Rpc.call` stays the lane-budget gate over an opaque promise thunk, and generated service-client construction stays at the consumer seam over the core-admitted contract surface.
 - Boundary: session residency is this row's, not `[05]`'s — connect-node opens `node:http2` sessions through its own module and no undici agent dispatches them, so `_KEEPALIVE` and the manager's session settings READ the `[05]` residency row and the two pools answer to one declared ceiling.
@@ -538,7 +628,7 @@ const _rpc = <A>(lane: Client.Lane, origin: string, thunk: (call: Rpc.Call) => P
                     try: (signal) => thunk({ headers, signal }), // the evaluator receives the fiber's interrupt-wired signal: the lane budget becomes real cancellation, not a local give-up
                     catch: (reason) => ConnectError.from(reason),
                 }),
-                Fault.Budget.schedule(_lanes[lane].kind, (fault) => Fault.Class.at(_graded(fault)).retryable),
+                Fault.Budget.schedule(_lanes[lane].kind, (fault) => Fault.Class.retryable(_graded(fault))),
             ),
         ));
 

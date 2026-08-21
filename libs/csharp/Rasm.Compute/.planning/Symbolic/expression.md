@@ -1,21 +1,21 @@
 # [COMPUTE_SYMBOLIC_EXPRESSION]
 
-Rasm.Compute symbolic lane head: the closed computer-algebra owner over the admitted `AngouriMath` `Entity` tree, internalized as the `SymbolicExpr` `[ComplexValueObject]` whose identity is the simplified normal-form content key ALONE. Its stored `Entity` and rendered canonical pre-image both stay equality-inert through one generic `Inert<T>` `[MemberEqualityComparer]`, so builds whose `Simplify().Stringize()` projections match collapse onto one key and one cache slot; broader algebraic equivalence is not asserted as identity. Owned here: the value itself, the one polymorphic `Build` entry over the `BuildSpec` `[Union]`, the `SymbolicOp` `[Union]` folding the whole CAS surface through one generated total `Switch`, and the `SymbolicFault` rail extending the `ComputeFault` 2200 band at codes 2213/2214/2215. Canonical form is the `Simplify()` normal form rendered through `Stringize()` — commutative operand ordering is structural-lexicographic through `SortAndGroup` over pure-recursive `SortHash` strings, with no `GetHashCode`, `Random`, or dictionary-enumeration dependence, so the key is byte-stable across process runs on ONE engine version. Stability ACROSS versions is not a property this page declares: ordering belongs to the engine, so `CanonicalProbe` re-derives a pinned expression set at composition and faults naming the drifted source, and a silently re-keyed corpus is what that gate exists to make loud. Admission crosses through non-throwing `Entity.TryParse(string, IFormatProvider, out Entity)` and `NumberBox`; build, evaluation, transform, and coefficient kernels capture every other engine exception onto `SymbolicFault`, and no engine carrier crosses a wire.
+Rasm.Compute symbolic lane head: the closed computer-algebra owner over the admitted `AngouriMath` `Entity` tree, internalized as the `SymbolicExpr` `[ComplexValueObject]` whose identity is the simplified normal-form content key ALONE. Its stored `Entity` and rendered canonical pre-image both stay equality-inert through one generic `Inert<T>` `[MemberEqualityComparer]`, so builds whose `Simplify().Stringize()` projections match collapse onto one key and one cache slot; broader algebraic equivalence is not asserted as identity. Owned here: the value itself, the one polymorphic `Build` entry over the `BuildSpec` `[Union]`, the `SymbolicOp` `[Union]` folding the whole CAS surface through one generated total `Switch`, and the direct `ComputeFault` arms at codes 2212/2213/2214. Canonical form is the `Simplify()` normal form rendered through `Stringize()` — commutative operand ordering is structural-lexicographic through `SortAndGroup` over pure-recursive `SortHash` strings, with no `GetHashCode`, `Random`, or dictionary-enumeration dependence, so the key is byte-stable across process runs on ONE engine version. Stability ACROSS versions is not a property this page declares: ordering belongs to the engine, so `CanonicalProbe` re-derives a pinned expression set at composition and faults naming the drifted source, and a silently re-keyed corpus is what that gate exists to make loud. Admission crosses through non-throwing `Entity.TryParse(string, IFormatProvider, out Entity)` and `NumberBox`; build, evaluation, transform, and coefficient kernels preserve every other engine exception as its original `Error`, and no engine carrier crosses a wire.
 
 That canonical content key is the single identity the lane composes by: `Symbolic/dimensional#DIMENSION_PROOF` walks the same `Entity` records for its SI dimensional fold, and `Symbolic/lowering#LOWERING` keys its `CompiledExpr` cache and `SymbolicJacobian` off the same `XxHash128` over the canonical form — the operation fold and canonical key live here, the compiled-delegate carrier and cache plumbing on `lowering`, the dimension monomial on `dimensional`. `Solver/satisfy#RULE_SATISFACTION` consumes the same tree from the constraint side, an `Entity.Statement` lowering term-by-term to Z3, this CAS the lowering source. Host-local, no TS_PROJECTION cluster: the `SymbolicExpr` is an interior value whose only cross-surface contribution is the content key the `Rasm.Persistence/Query/cache#MODEL_RESULT_INDEX` cost-catalog/QTO-formula consumers dedup by reference, aligned at the key, never coupled. One statement exemption survives — the `TryParse` out-parameter and the `MathS.Utils.TryGetPolynomial` out-dictionary reads project foreign carriers into the rail in language-owned control flow; every other operation is a generated `Switch` fold or a `Bind` chain. Algebraic equivalence between differently-spelled inputs is not identity — the content key binds the canonical form under ordinal comparison. In-proc symbolic-regression fitting is the rejected form: offline formula discovery belongs to the Python branch, never this analytic-algebra owner over an already-known expression.
 
 ## [01]-[INDEX]
 
 - [02]-[SYMBOLIC_EXPR]: `SymbolicExpr` `[ComplexValueObject]`; the `Entity` numeric-leaf capsule; the stored canonical pre-image and its key; the `CanonicalProbe` composition gate.
-- [03]-[BUILD_ADMISSION]: `BuildSpec` `[Union]` parse/structured entry; the `SymbolicFault` 2213–2215 rail.
+- [03]-[BUILD_ADMISSION]: `BuildSpec` `[Union]` parse/structured entry; the direct `ComputeFault` 2212–2214 arms.
 - [04]-[OPERATION_FOLD]: `SymbolicOp` `[Union]` over the CAS surface; one total `Apply` switch; typed harvests.
 
 ## [02]-[SYMBOLIC_EXPR]
 
-- Owner: `SymbolicExpr` `[ComplexValueObject]` over the `AngouriMath` `Entity`, identity-bearing through its canonical `XxHash128` content key (never `Entity.GetHashCode()`, per-process randomized and forbidden as a key source even though `Entity` equality is structural); `NumberBox` the one projector collapsing the evaluated numeric tower to `Fin<double>`; `ComparerAccessors.StringOrdinal` the ordinal accessor the free-symbol set folds and sorts through; `CanonicalProbe` the composition-time gate proving the engine still canonicalizes a pinned expression set to the keys the corpus was written against.
+- Owner: `SymbolicExpr` `[ComplexValueObject]` over the `AngouriMath` `Entity`, identity-bearing through its canonical `XxHash128` content key (never `Entity.GetHashCode()`, per-process randomized and forbidden as a key source even though `Entity` equality is structural); `SymbolName`/`Order`/`Degree`/`Finite` the admitted scalars every downstream fold reads instead of a raw `string`/`int`/`double`; `Notation` the rendering axis; `NumberBox` the one projector collapsing the evaluated numeric tower to `Fin<double>`; `ComparerAccessors.StringOrdinal` the ordinal accessor the free-symbol set folds and sorts through; `CanonicalProbe` the composition-time gate proving the engine still canonicalizes a pinned expression set to the keys the corpus was written against.
 - Cases: the wrapped `Entity` is the engine's closed node hierarchy — numeric-tower leaves (`Integer` ⊂ `Rational` ⊂ `Real` ⊂ `Complex`, exact via the `PeterO.Numbers` carriers the content key depends on), `Entity.Variable` (free symbols `Name`-keyed, pi/e excluded from `Vars`), the arithmetic and function records, the deferred-analytic residues (`Derivativef`/`Integralf`/`Limitf` — the decline sentinels the operation fold gates on), the regime-switch nodes (`Entity.Piecewise` over its `Providedf(Expression, Predicate)` cases with the `ComparisonSign` records `Equalsf`/`Greaterf`/`GreaterOrEqualf`/`Lessf`/`LessOrEqualf` its predicates carry — the first-class carrier for design-code piecewise formulas, dimension-proved by `Symbolic/dimensional`), `Entity.Set` (the solve-result carrier), and the statement nodes (`Solver/satisfy` lowers); `NumberBox` collapses the tower to one `Fin<double>` at the `Real` leaf (subsuming `Rational`/`Integer`, carrying ±∞ as `Real` specials) and faults the `Complex`/unbound arms.
-- Entry: `SymbolicExpr.Of(Entity)` routes the generated `Create(entity, string.Empty, default)` whose `ValidateFactoryArguments` derives BOTH the canonical pre-image and the content key once from the entity (both passed slots are always overwritten, so a forged key or a forged rendering cannot desync identity); the projection is `e.Simplify().Stringize()` — the reduce pass first, because equivalent reductions can render distinct strings without it; `ContentKey` mints through the kernel `ContentHash.Of` federation entry over canonical UTF-8 bytes, so architecture endianness and runtime string layout never enter the cross-runtime key; `FreeSymbols` folds `Entity.Vars` (constants excluded) into the ordinal-sorted set; `Evaluate(Map<string,double>)` substitutes through `Entity.Substitute` and projects `Evaled` through `NumberBox`.
-- Auto: construction pays exactly ONE normalization and every read pays none — the canonical string and its key derive together, so builds with identical projections share one key and one cache slot while `Canonical` is a stored read rather than a re-simplify; equality and hashing are generated over `ContentKey` ALONE and both inert members ride one generic accessor. `Evaluate` reads `Evaled`, so an under-bound expression surfaces as `SymbolUndefined` at `NumberBox`.
+- Entry: `SymbolicExpr.Of(Entity)` routes the generated `Create(entity, string.Empty, default)` whose `ValidateFactoryArguments` derives BOTH the canonical pre-image and the content key once from the entity (both passed slots are always overwritten, so a forged key or a forged rendering cannot desync identity), and `SymbolicExpr.Admit(Entity)` routes the generated `Validate` for the one FOREIGN tree — `[ValidationError]` makes that `Validate` return the domain fault, so the refusal lands on `Fin` with no translation hop; the projection is `e.Simplify().Stringize()` — the reduce pass first, because equivalent reductions can render distinct strings without it; `ContentKey` mints through the kernel `ContentHash.Of` federation entry over canonical UTF-8 bytes, so architecture endianness and runtime string layout never enter the cross-runtime key; `FreeSymbols` folds `Entity.Vars` (constants excluded) into the ordinal-sorted `SymbolName` set; `Tree` answers the forged-`default` null once for every consumer; `Evaluate(Map<SymbolName,Finite>)` routes the same `SymbolicOp.Substitute` fold and projects `Evaled` through `NumberBox`.
+- Auto: construction pays exactly ONE normalization and every read pays none — the canonical string and its key derive together, so builds with identical projections share one key and one cache slot while `Canonical` is a stored read rather than a re-simplify; equality and hashing are generated over `ContentKey` ALONE and both inert members ride one generic accessor. `Evaluate` reads `Evaled`, so an under-bound expression surfaces as `SymbolUndefined` at `NumberBox`. The admitted scalars carry their invariants at construction, so blank symbols, non-positive derivative orders, negative Taylor degrees, and non-finite expansion points are unspellable rather than re-tested per arm.
 - Receipt: none of its own — an interior value; differentiate/compile/evaluate outcomes ride the `lowering` `CompiledExpr` cache receipt and the `optimizer` `Optimization` slot, and a parse/dimension/analytic fault rides the `ComputeFault` rail at the admitting edge.
 - Packages: AngouriMath (`Entity`, `Simplify`/`Stringize`/`Latexise`/`Vars`/`Substitute`/`Evaled`), PeterO.Numbers (the exact-number carriers the `Entity.Number` leaves expose), Rasm (project, `Domain.ContentHash` — the one federation content-hash entry), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new canonical-form policy is one projection change inside the factory hook, never a parallel key; a new evaluation-result projection is one `NumberBox` arm; the wrapped hierarchy grows only when `AngouriMath` adds a node type, which the dimensional fold's exhaustive walk surfaces as a typed fault, never a silent default.
@@ -23,6 +23,66 @@ That canonical content key is the single identity the lane composes by: `Symboli
 
 ```csharp signature
 // --- [TYPES] -----------------------------------------------------------------------------
+// Free-symbol NAME admitted once. Blank and whitespace-padded keys stop being spellable, so no binding fold,
+// transform arm, symbol-order gate, or fault message re-tests what construction settled; `Var` is the one hop
+// to the engine's own variable, so `MathS.Var` has no second call site.
+[ValueObject<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public readonly partial struct SymbolName {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+        value = value?.Trim() ?? string.Empty;
+        if (value.Length == 0) {
+            validationError = new ValidationError(string.Join(" | ", new object?[] { "<blank-symbol>" }));
+        }
+    }
+
+    public Entity.Variable Var => MathS.Var(Value);
+}
+
+// Differentiation order is one-or-more and Taylor degree is zero-or-more — two floors, so two owners; a shared
+// `int` would need the floor re-tested at both call sites, which is exactly the guard pair these delete.
+[ValueObject<int>]
+public readonly partial struct Order {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
+        if (value < 1) {
+            validationError = new ValidationError(string.Join(" | ", new object?[] { $"<derivative-order:{value}>" }));
+        }
+    }
+}
+
+[ValueObject<int>]
+public readonly partial struct Degree {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
+        if (value < 0) {
+            validationError = new ValidationError(string.Join(" | ", new object?[] { $"<taylor-degree:{value}>" }));
+        }
+    }
+}
+
+// Every finite scalar this lane admits — an expansion point, a numeric binding — rides one owner, so the
+// `double.IsFinite` test lands at construction instead of once per arm.
+[ValueObject<double>]
+public readonly partial struct Finite {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
+        if (!double.IsFinite(value)) {
+            validationError = new ValidationError(string.Join(" | ", new object?[] { $"<non-finite-scalar:{value}>" }));
+        }
+    }
+}
+
+// Rendering is an AXIS, not two properties: `Display`/`LaTeX` were two named reads of one projection, each
+// re-rendering the tree per read against a stored canonical the value already holds. A further target is one row.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class Notation {
+    public static readonly Notation Text = new("text", static e => e.Stringize());
+    public static readonly Notation Latex = new("latex", static e => e.Latexise());
+
+    [UseDelegateFromConstructor]
+    public partial string Project(Entity entity);
+}
 
 // --- [MODELS] ----------------------------------------------------------------------------
 [ComplexValueObject]
@@ -42,9 +102,11 @@ public readonly partial struct SymbolicExpr {
     // Key derives from the entity here through the kernel ContentHash.Of federation entry, never the Create slot, never a per-call-site hasher.
     public UInt128 ContentKey { get; }
 
+    // `[ValidationError]` makes the generated `Validate` return the DOMAIN fault, so `Admit` lands
+    // it on `Fin` with no translation hop and the Thinktecture `ValidationError` never reaches the rail.
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Entity entity, ref string canonical, ref UInt128 contentKey) {
         if (entity is null) {
-            validationError = new ValidationError("symbolic-expr: null entity");
+            validationError = new ValidationError(string.Join(" | ", new object?[] { "<null-entity>" }));
             return;
         }
         // Simplify() is the canonicalization pass; Stringize() renders the settled tree once.
@@ -52,26 +114,36 @@ public readonly partial struct SymbolicExpr {
         contentKey = ContentHash.Of(Encoding.UTF8.GetBytes(canonical));
     }
 
+    // `Of` mints from a tree the CAS itself produced — never null by the engine's own contract — so it takes the
+    // throwing generated `Create`; a FOREIGN tree enters through `Admit`, whose generated `Validate` returns the
+    // typed refusal the rail already accepts.
     internal static SymbolicExpr Of(Entity entity) => Create(entity, string.Empty, default);
 
-    public string Display => this.Entity.Stringize();
+    internal static Fin<SymbolicExpr> Admit(Entity tree) =>
+        Validate(tree, string.Empty, default, out SymbolicExpr admitted) is ComputeFault refusal
+            ? Fin.Fail<SymbolicExpr>(refusal)
+            : Fin.Succ(admitted);
 
-    public string LaTeX => this.Entity.Latexise();
+    // A `default` struct forges a null `Entity` — the ONE null this value admits, and the reason five folds each
+    // carried their own gate. Every consumer reads the tree through here, so the forgery is answered once.
+    public Fin<Entity> Tree =>
+        this.Entity is not null
+            ? Fin.Succ(this.Entity)
+            : Fin.Fail<Entity>(new ComputeFault.ParseRejected("<forged-symbolic-expr>"));
 
-    public Seq<string> FreeSymbols =>
+    public string Render(Notation target) => target.Project(this.Entity);
+
+    public Seq<SymbolName> FreeSymbols =>
         toSeq(toSeq(this.Entity.Vars)
-            .Map(static v => v.Name)
+            .Map(static v => SymbolName.Create(v.Name))
             .Distinct()
-            .OrderBy(static name => name, ComparerAccessors.StringOrdinal.Comparer));
+            .OrderBy(static symbol => symbol.Value, ComparerAccessors.StringOrdinal.Comparer));
 
-    public Fin<double> Evaluate(Map<string, double> bindings) =>
-        this.Entity is null || !toSeq(bindings.Keys).ForAll(static key => !string.IsNullOrWhiteSpace(key)) || !bindings.Values.ForAll(double.IsFinite)
-            ? Fin.Fail<double>(new ComputeFault.SymbolUndefined("<invalid-evaluation-binding>"))
-            : Try.lift<Fin<double>>(() => NumberBox.Project(
-                    bindings.Fold(this.Entity, static (acc, pair) => acc.Substitute(MathS.Var(pair.Key), pair.Value)).Evaled))
-                .Run()
-                .MapFail(static error => (Error)new ComputeFault.SymbolUndefined($"<evaluation-kernel:{error.Message}>"))
-                .Bind(identity);
+    // Numeric evaluation IS substitution then projection: the bindings ride the same `Substitute` case `Apply`
+    // folds, so no second engine path, no second binding predicate, and no second kernel capture exist.
+    public Fin<double> Evaluate(Map<SymbolName, Finite> bindings) =>
+        SymbolicOps.Apply(this, new SymbolicOp.Substitute(bindings.Map(static value => SymbolicExpr.Of(value.Value))))
+            .Bind(static substituted => NumberBox.Project(substituted.Entity.Evaled));
 
     private sealed class Inert<T> : IEqualityComparerAccessor<T>, IEqualityComparer<T> {
         public static IEqualityComparer<T> EqualityComparer { get; } = new Inert<T>();
@@ -81,8 +153,8 @@ public readonly partial struct SymbolicExpr {
 }
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
+// Real subsumes Rational/Integer and carries ±∞ as Real specials; the Complex leaf and any unbound residue fault typed, never a NaN sentinel.
 public static class NumberBox {
-    // Real subsumes Rational/Integer and carries ±∞ as Real specials; the Complex leaf and any unbound residue fault typed, never a NaN sentinel.
     public static Fin<double> Project(Entity evaled) =>
         evaled switch {
             null => Fin.Fail<double>(new ComputeFault.SymbolUndefined("<null-evaluation>")),
@@ -101,31 +173,36 @@ public static class NumberBox {
 // rather than as a permanently cold cache. The pinned rows are the fixture's own measured baseline, refreshed
 // deliberately when a bump is accepted; the probe mints none and asserts nothing about their values.
 public static class CanonicalProbe {
+    // Accumulating, and each row keeps its OWN cause: an `IfFail(true)` fold reported a source that no longer
+    // PARSES and a source that re-KEYED as one undifferentiated drift list, which is the one distinction the
+    // operator refreshing the pins needs.
     public static Fin<Unit> Probe(FrozenDictionary<string, UInt128> pinned) =>
         toSeq(pinned.AsEnumerable())
-            .Filter(static row => SymbolicBuild.Build(new BuildSpec.Infix(row.Key))
-                .Map(expr => expr.ContentKey != row.Value)
-                .IfFail(true))
-            .Map(static row => row.Key) is { IsEmpty: false } drift
-            ? Fin.Fail<Unit>(new ComputeFault.ParseRejected($"<canonical-drift:{string.Join(", ", drift)}>"))
-            : Fin.Succ(unit);
+            .Traverse(static row => SymbolicBuild.Build(new BuildSpec.Infix(row.Key)).Match(
+                Succ: expr => expr.ContentKey == row.Value
+                    ? Success<Error, Unit>(unit)
+                    : Fail<Error, Unit>(new ComputeFault.ParseRejected($"<canonical-drift:rekeyed:{row.Key}>")),
+                Fail: error => Fail<Error, Unit>(error)))
+            .Map(static _ => unit)
+            .As()
+            .ToFin();
 }
 ```
 
 ## [03]-[BUILD_ADMISSION]
 
-- Owner: `BuildSpec` `[Union]` discriminating an infix-string parse (`Infix`) from a structured entity construction (`Structured`) so one `Build` entry serves both by shape; `Build` the one polymorphic entrypoint over the generated total `Switch`; `SymbolicFault` the abstract base nested on `ComputeFault`, its three arms (`ParseRejected` 2213, `SymbolUndefined` 2214, `NonDifferentiable` 2215) extending the 2200 band so `dimensional`'s `DimensionMismatch` (2216) lands as one more `SymbolicFault` arm, never a second family.
-- Cases: `BuildSpec` — `Infix(string Source)`, `Structured(Entity Tree)`; `SymbolicFault` arms — `ParseRejected` 2213 (`Entity.TryParse` declined), `SymbolUndefined` 2214 (a reduction hit a non-real or unbound leaf, an absent symbol was named, or a harvest met a non-constant coefficient), `NonDifferentiable` 2215 (a transform left an unresolved `Derivativef`/`Integralf`/`Limitf` residue, or a compile declined), with 2216 the next code `dimensional` claims.
+- Owner: `BuildSpec` discriminates infix and structured input; `Captured` preserves provider errors; direct `ComputeFault` arms carry explicit symbolic refusals.
+- Cases: `BuildSpec` — `Infix(string Source)`, `Structured(Entity Tree)`; direct `ComputeFault` arms — `ParseRejected` 2212 (`Entity.TryParse` declined), `SymbolUndefined` 2213 (a reduction hit a non-real or unbound leaf, an absent symbol was named, or a harvest met a non-constant coefficient), `NonDifferentiable` 2214 (a transform left an unresolved `Derivativef`/`Integralf`/`Limitf` residue, or a compile declined), with 2215 the next code `dimensional` claims.
 - Entry: `Build(BuildSpec)` is the ONE admission entrypoint dispatching on input shape over the generated `Switch` — `Infix` routes `Entity.TryParse(source, CultureInfo.InvariantCulture, out var parsed)` so a malformed string is a `ParseRejected` fault, never a thrown exception, and `Structured` wraps a pre-built `Entity` through `SymbolicExpr.Of`; convenience overloads mirroring the union cases (`Build(string)`, `Build(Entity)`) are the deleted split — the case constructor is the call-site spelling, and every admitted build follows the same total dispatch and the same `Fin` rail.
-- Auto: `Build` reads the non-throwing `Entity.TryParse` pinned to `InvariantCulture`, never `MathS.FromString` or the implicit `string`→`Entity` conversion (both throw on malformed input); the `Structured` case carries an already-valid value, so it skips the parse and only computes the canonical key; the three `SymbolicFault` arms are partial-record extensions on the existing `ComputeFault` `[Union]`, sharing the `Expected` shape and the dual-tier `Create` contract without a second family.
-- Receipt: a build lands no receipt — it admits a value or a `ComputeFault`; the downstream compile/optimize outcome carries the receipt, and the fault's code (2213/2214/2215) projects through `FaultDetail` at the wire edge like every other `ComputeFault`.
+- Auto: `Build` reads `Entity.TryParse` at admission; direct `ComputeFault` partial leaves declare their `[FaultCase]` ordinals and derive `Code` from `Fault`.
+- Receipt: a build lands no receipt — it admits a value or a `ComputeFault`; the downstream compile/optimize outcome carries the receipt, and the fault's code (2212/2213/2214) projects through `FaultDetail` at the wire edge like every other `ComputeFault`.
 - Packages: AngouriMath (`Entity.TryParse` — the ANTLR front-end), Thinktecture.Runtime.Extensions, LanguageExt.Core.
-- Growth: a new input shape is one `BuildSpec` case with one `Build` arm (a LaTeX-source admission is one `BuildSpec.Latex` case routing a LaTeX parser), never a `BuildFromLatex` sibling; a new failure mode is one `SymbolicFault` arm on the free frontier the `Runtime/admission#DISPATCH_SPINE` band map states, never a parallel error type and never a code inside another lane's block — `dimensional` takes 2216 and closes this lane's contiguous range, so the next symbolic arm opens at that frontier and its band row moves with it.
-- Boundary: `Build` is the single entry — a `Parse`/`FromEntity`/`FromInfix` factory trio modeling one concept is the collapsed defect, per-case convenience overloads re-spelling the union cases are the same defect one hop later, and the input shape selects the arm, never the call site; the union `Switch` is exhaustive at compile time, so a new `BuildSpec` case breaks loudly rather than falling through a runtime `_`; `Entity.TryParse` is the admitted parse surface and `MathS.FromString`/the implicit conversion are rejected in domain flow because they raise into the rail; the `SymbolicFault` arms extend `ComputeFault`, so a standalone `SymbolicError`/`ParseError` union is the rejected parallel rail; the engine's ANTLR front-end owns the grammar, and this page admits no second parser.
+- Growth: a new input shape adds one `BuildSpec` case and one total `Build` arm; a new fault widens `FaultBand.Core` before its contiguous `[FaultCase]` ordinal lands.
+- Boundary: `Build` is the single entry — a `Parse`/`FromEntity`/`FromInfix` factory trio modeling one concept is the collapsed defect, per-case convenience overloads re-spelling the union cases are the same defect one hop later, and the input shape selects the arm, never the call site; the union `Switch` is exhaustive at compile time, so a new `BuildSpec` case breaks loudly rather than falling through a runtime `_`; `Entity.TryParse` is the admitted parse surface and `MathS.FromString`/the implicit conversion are rejected in domain flow because they raise into the rail; the direct `ComputeFault` arms extend `ComputeFault`, so a standalone `SymbolicError`/`ParseError` union is the rejected parallel rail; the engine's ANTLR front-end owns the grammar, and this page admits no second parser.
 
 ```csharp signature
 // --- [TYPES] -----------------------------------------------------------------------------
-[Union]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BuildSpec {
     private BuildSpec() { }
 
@@ -134,46 +211,41 @@ public abstract partial record BuildSpec {
 }
 
 // --- [ERRORS] ----------------------------------------------------------------------------
+// Symbolic failures are direct leaves on the package family; no intermediate family or category mirror exists.
 public abstract partial record ComputeFault {
-    public abstract partial record SymbolicFault : ComputeFault {
-        protected SymbolicFault(string detail, int code) : base(detail, code) { }
-    }
-
-    public sealed record ParseRejected : SymbolicFault { public ParseRejected(string detail) : base(detail, 2213) { } }
-    public sealed record SymbolUndefined : SymbolicFault { public SymbolUndefined(string detail) : base(detail, 2214) { } }
-    public sealed record NonDifferentiable : SymbolicFault { public NonDifferentiable(string detail) : base(detail, 2215) { } }
+    [FaultCase(12)] public sealed partial record ParseRejected(string Detail) : ComputeFault(Detail);
+    [FaultCase(13)] public sealed partial record SymbolUndefined(string Detail) : ComputeFault(Detail);
+    [FaultCase(14)] public sealed partial record NonDifferentiable(string Detail) : ComputeFault(Detail);
 }
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
+// ONE foreign-throw funnel preserves provider errors; explicit symbolic refusals arise inside each operation.
+public static class Captured {
+    public static Fin<T> Of<T>(Func<Fin<T>> operation) => Op.Of(name: "symbolic.capture").Catch(operation);
+}
+
 public static class SymbolicBuild {
     // ONE entrypoint; the union case IS the modality. Overloads mirroring the cases (a Build(string), a
     // Build(Entity)) split the admission surface by call-site static type and are the deleted form.
     public static Fin<SymbolicExpr> Build(BuildSpec spec) =>
-        spec is null
-            ? Fin.Fail<SymbolicExpr>(new ComputeFault.ParseRejected("<null-build-spec>"))
-            : Try.lift<Fin<SymbolicExpr>>(() => spec.Switch(
-                    infix: static i => !string.IsNullOrWhiteSpace(i.Source) && Entity.TryParse(i.Source, CultureInfo.InvariantCulture, out Entity parsed)
-                        ? Fin.Succ(SymbolicExpr.Of(parsed))
-                        : Fin.Fail<SymbolicExpr>(new ComputeFault.ParseRejected(i.Source)),
-                    structured: static s => s.Tree is not null
-                        ? Fin.Succ(SymbolicExpr.Of(s.Tree))
-                        : Fin.Fail<SymbolicExpr>(new ComputeFault.ParseRejected("<null-structured-tree>"))))
-                .Run()
-                .MapFail(static error => (Error)new ComputeFault.ParseRejected($"<build-kernel:{error.Message}>"))
-                .Bind(identity);
+        Captured.Of(() => spec.Switch(
+                infix: static i => Entity.TryParse(i.Source, CultureInfo.InvariantCulture, out Entity parsed)
+                    ? Fin.Succ(SymbolicExpr.Of(parsed))
+                    : Fin.Fail<SymbolicExpr>(new ComputeFault.ParseRejected($"<unparsed:{i.Source}>")),
+                structured: static s => SymbolicExpr.Admit(s.Tree)));
 }
 ```
 
 ## [04]-[OPERATION_FOLD]
 
-- Owner: `SymbolicOp` `[Union]` the closed operation family over the CAS surface, each case carrying its operand data so one total `Apply` switch dispatches every transform; `SymbolicForm` `[SmartEnum<string>]` the normalization-route rows folded into one `Simplify` arm; `Apply` the one fold returning `Fin<SymbolicExpr>`; `Coefficients` and `Solutions` the sibling typed projections (`Fin<Seq<double>>`, `Fin<Seq<SymbolicExpr>>`), kept off the transform union because a harvest yields a vector, never a `SymbolicExpr`.
-- Cases: `SymbolicOp` — `Differentiate(Symbol, Order=1)`, `Integrate(Symbol, Bounds=default)` (indefinite and definite on ONE case, bounds' presence selecting the engine overload), `Limit(Symbol, Destination, Approach=BothSides)`, `Solve(Symbol)`, `Taylor(Symbol, Degree, At)` (degree 1 IS the tangent line — a `TangentLine` sibling is the collapsed form), `Simplify(Form)`, `Substitute(Bindings)`, `Approximate(Bindings)`; `SymbolicForm` rows `simplified`/`expanded`/`factorized`/`inner`; the `Coefficients` harvest (dense ascending power vector off `MathS.Utils.TryGetPolynomial`) and `Solutions` harvest (enumerated `FiniteSet` roots) are the sibling projections, and `Evaluate`/`Compile`/`Stringize`/`Latexise` are owned at their home clusters.
-- Entry: `Apply(SymbolicExpr, SymbolicOp)` folds the eight transform cases, each re-wrapping the resulting `Entity` through `SymbolicExpr.Of` so the canonical key recomputes; `Coefficients(source, symbol)` reads `MathS.Utils.TryGetPolynomial` into the dense ascending vector the optimizer seed consumes (absent powers zero-fill; a non-polynomial or symbolic-coefficient source faults); `Solutions(source, symbol)` applies `Solve` and enumerates `FiniteSet.Elements` — the cut-parameter inversion — faulting a non-finite (`Interval`/`ConditionalSet`) solution a numeric consumer cannot enumerate.
-- Auto: `Apply` is a generated total `Switch` in the allocation-free stateful form — `source` threads as `state` and each `static` case delegate takes `(case, source)`, so no closure allocates and an unhandled case is a compile break; `Capture` converts every engine throw to `SymbolUndefined`; every symbol-naming arm validates the symbol against `FreeSymbols` before the engine call, so an absent-symbol transform is a typed fault, not a silent no-op; the residue gate (`Derivativef`/`Integralf`/`Limitf` surviving in `result.Nodes`) is ONE shared guard parameterized by residue type; `Simplify` reads the `SymbolicForm` row's generated `[UseDelegateFromConstructor]` `Normalize` column; `Approximate` lifts each finite `double` through substitution while absent bindings stay exact.
+- Owner: `SymbolicOp` `[Union]` the closed operation family over the CAS surface, each case carrying its admitted operand data so one total `Apply` switch dispatches every transform; `SymbolicForm` `[SmartEnum<string>]` the normalization-route rows folded into one `Simplify` arm; `Apply` the one fold returning `Fin<SymbolicExpr>`; `Coefficients` and `Solutions` the sibling typed projections (`Fin<Seq<double>>`, `Fin<Seq<SymbolicExpr>>`), kept off the transform union because a harvest yields a vector, never a `SymbolicExpr`.
+- Cases: `SymbolicOp` — `Differentiate(SymbolName, Order)`, `Integrate(SymbolName, Bounds=default)` (indefinite and definite on ONE case, bounds' presence selecting the engine overload), `Limit(SymbolName, Destination, Approach=BothSides)`, `Solve(SymbolName)`, `Taylor(SymbolName, Degree, At)` (degree 1 IS the tangent line — a `TangentLine` sibling is the collapsed form), `Simplify(Form)`, `Substitute(Map<SymbolName,SymbolicExpr>)`; `SymbolicForm` rows `simplified`/`expanded`/`factorized`/`inner`; the `Coefficients` harvest (dense ascending power vector off `MathS.Utils.TryGetPolynomial`) and `Solutions` harvest (enumerated `FiniteSet` roots) are the sibling projections, and `Compile` is owned at its home cluster.
+- Entry: `Apply(SymbolicExpr, SymbolicOp)` folds the seven transform cases, each re-wrapping the resulting `Entity` through `SymbolicExpr.Of` so the canonical key recomputes; `Coefficients(source, symbol, payloadBound)` reads `MathS.Utils.TryGetPolynomial` into the dense ascending vector the optimizer seed consumes (absent powers zero-fill; a non-polynomial source, an empty harvest, and a vector over the intent-declared payload bound each decline typed and apart); `Solutions(source, symbol)` applies `Solve` and enumerates `FiniteSet.Elements` — the cut-parameter inversion — declining a non-finite solution by the set kind (`Interval`/`ConditionalSet`) a numeric consumer cannot enumerate.
+- Auto: `Apply` is a generated total `Switch` in the allocation-free stateful form — `source` threads as `state` and each `static` case delegate takes `(case, source)`, so no closure allocates and an unhandled case is a compile break; `Tree` answers the forged-`default` gate once at the entry and `Captured` preserves every engine throw as its original `Error`; every symbol-naming arm proves membership against `FreeSymbols` before the engine call, so an absent-symbol transform is a typed fault, not a silent no-op; the residue gate (`Derivativef`/`Integralf`/`Limitf` surviving in `result.Nodes`) is ONE shared guard parameterized by residue type; `Simplify` reads the `SymbolicForm` row's generated `[UseDelegateFromConstructor]` `Normalize` column; a numeric approximation is `Substitute` over lifted `Finite` bindings composed with `Simplify(SymbolicForm.Inner)`, and absent bindings stay exact.
 - Receipt: none of its own — the differentiate output feeds `lowering` (compiled-Jacobian cache receipt), the optimizer adjoint (`Optimization` slot), the coefficient vector feeds the optimizer seed, the solve/integrate rows feed the AEC cost/QTO lane, and a transform fault rides the `ComputeFault` rail.
 - Packages: AngouriMath (`Differentiate`/`Integrate`/`Limit`/`Solve`/`Simplify`/`Expand`/`Factorize`/`InnerSimplified`/`Substitute`, `MathS.Var`/`MathS.Taylor`/`MathS.Utils.TryGetPolynomial`, `ApproachFrom`), PeterO.Numbers (`EInteger` power keys off the polynomial harvest), Thinktecture.Runtime.Extensions, LanguageExt.Core.
-- Growth: a new transform is one `SymbolicOp` case with one `Apply` arm; a new normalization route is one `SymbolicForm` row with its inline delegate; a new rendering target is one terminal beside `Stringize`/`Latexise`; polynomial gcd/partial-fraction algebra has NO engine owner at the pin — a recorded charter deferral admitted as a vendored row only when a consumer names it, never a hand-rolled kernel here; a `Differentiator`/`Solver`/`Integrator` sibling family is the collapsed defect folded onto `Apply`.
-- Boundary: `Apply` is the one transform surface — a per-operation static-method ladder is the rejected form, and `Coefficients`/`Solutions` stay off `Apply` because their results are vectors (a degenerate echo case inside `Apply` is the rejected shoehorn); the engine surface is mined whole (order-parameterized `Differentiate`, both `Integrate` arities, directed `Limit`, typed-`Set` `Solve`, `MathS.Taylor`, `Simplify`/`Expand`/`Factorize`/`InnerSimplified`, `Substitute`, `TryGetPolynomial`, `Compile`, `Stringize`/`Latexise`), so a local finite-difference gradient, a string `eval`, or a hand-rolled root-finder beside `Solve` is the deleted lower-level form; `Solve` returns the typed `Entity.Set` and a first-element grab off an un-discriminated set is deleted because an `Interval`/`ConditionalSet` is not enumerable — `Solutions` is the one projection that discriminates; the symbol argument constructs through `MathS.Var(name)`, and pi/e never enter `FreeSymbols` because `Vars` excludes them.
+- Growth: a new transform is one `SymbolicOp` case with one `Apply` arm; a new normalization route is one `SymbolicForm` row with its inline delegate; a new rendering target is one `Notation` row, never a further named projection property; polynomial gcd/partial-fraction algebra has NO engine owner at the pin — a recorded charter deferral admitted as a vendored row only when a consumer names it, never a hand-rolled kernel here; a `Differentiator`/`Solver`/`Integrator` sibling family is the collapsed defect folded onto `Apply`.
+- Boundary: `Apply` is the one transform surface — a per-operation static-method ladder is the rejected form, a `Substitute`/`Approximate`/`Evaluate` trio over one substitution fold is the same defect one hop later, and `Coefficients`/`Solutions` stay off `Apply` because their results are vectors (a degenerate echo case inside `Apply` is the rejected shoehorn); the dense harvest sizes against the intent-declared payload bound, so a ceiling constant standing in for a caller's allocation policy is deleted; the engine surface is mined whole (order-parameterized `Differentiate`, both `Integrate` arities, directed `Limit`, typed-`Set` `Solve`, `MathS.Taylor`, `Simplify`/`Expand`/`Factorize`/`InnerSimplified`, `Substitute`, `TryGetPolynomial`, `Compile`, `Stringize`/`Latexise`), so a local finite-difference gradient, a string `eval`, or a hand-rolled root-finder beside `Solve` is the deleted lower-level form; `Solve` returns the typed `Entity.Set` and a first-element grab off an un-discriminated set is deleted because an `Interval`/`ConditionalSet` is not enumerable — `Solutions` is the one projection that discriminates; the symbol argument constructs through the admitted `SymbolName`, whose `Var` column is the ONE `MathS.Var` call site, and pi/e never enter `FreeSymbols` because `Vars` excludes them.
 
 ```csharp signature
 // --- [TYPES] -----------------------------------------------------------------------------
@@ -190,87 +262,84 @@ public sealed partial class SymbolicForm {
     public partial Entity Normalize(Entity entity);
 }
 
-[Union]
+// `Approximate` was `Substitute` composed with `Simplify(SymbolicForm.Inner)` and `SymbolicExpr.Evaluate` was
+// `Substitute` composed with `NumberBox` — three spellings of one fold, two of them re-deriving the binding
+// predicate. The bindings carry `SymbolicExpr`, so a numeric binding lifts at the caller's edge and an exact
+// symbolic binding needs no second case.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SymbolicOp {
     private SymbolicOp() { }
 
-    public sealed record Differentiate(string Symbol, int Order = 1) : SymbolicOp;
-    public sealed record Integrate(string Symbol, Option<(SymbolicExpr Lower, SymbolicExpr Upper)> Bounds = default) : SymbolicOp;
-    public sealed record Limit(string Symbol, SymbolicExpr Destination, ApproachFrom Approach = ApproachFrom.BothSides) : SymbolicOp;
-    public sealed record Solve(string Symbol) : SymbolicOp;
-    public sealed record Taylor(string Symbol, int Degree, double At) : SymbolicOp;
+    public sealed record Differentiate(SymbolName SymbolName, Order Order) : SymbolicOp;
+    public sealed record Integrate(SymbolName SymbolName, Option<(SymbolicExpr Lower, SymbolicExpr Upper)> Bounds = default) : SymbolicOp;
+    public sealed record Limit(SymbolName SymbolName, SymbolicExpr Destination, ApproachFrom Approach = ApproachFrom.BothSides) : SymbolicOp;
+    public sealed record Solve(SymbolName SymbolName) : SymbolicOp;
+    public sealed record Taylor(SymbolName SymbolName, Degree Degree, Finite At) : SymbolicOp;
     public sealed record Simplify(SymbolicForm Form) : SymbolicOp;
-    public sealed record Substitute(Map<string, Entity> Bindings) : SymbolicOp;
-    public sealed record Approximate(Map<string, double> Bindings) : SymbolicOp;
+    public sealed record Substitute(Map<SymbolName, SymbolicExpr> Bindings) : SymbolicOp;
 }
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
+// The three symbolic arms are recovery-DISTINCT and the fold routes on that, never on one arm carrying every
+// refusal: `ParseRejected` is a caller value the lane declines to admit, `SymbolUndefined` an evaluation that met
+// an unbound or non-real leaf, `NonDifferentiable` an analytic residue or an engine decline. The band below
+// `FaultBand.Component` is exactly consumed (`Runtime/admission#DISPATCH_SPINE`), so a finer split is a kernel
+// span edit, never a local fourth arm.
 public static class SymbolicOps {
     public static Fin<SymbolicExpr> Apply(SymbolicExpr source, SymbolicOp op) =>
-        source.Entity is null || op is null
-            ? Fin.Fail<SymbolicExpr>(new ComputeFault.SymbolUndefined("<null-symbolic-operation>"))
-            : Capture(() => op.Switch(
+        source.Tree.Bind(_ => Captured.Of(() => op.Switch(
                 source,
-                differentiate: static (c, src) => c.Order > 0
-                    ? Guard(src, c.Symbol).Bind(sym => Settle<Entity.Derivativef>(src.Entity.Differentiate(sym, c.Order)))
-                    : Fin.Fail<SymbolicExpr>(new ComputeFault.SymbolUndefined($"<derivative-order:{c.Order}>")),
-                integrate: static (c, src) => Guard(src, c.Symbol).Bind(sym => c.Bounds.Match(
-                    Some: b => b.Lower.Entity is not null && b.Upper.Entity is not null
-                        ? Settle<Entity.Integralf>(src.Entity.Integrate(sym, b.Lower.Entity, b.Upper.Entity))
-                        : Fin.Fail<SymbolicExpr>(new ComputeFault.SymbolUndefined("<null-integration-bound>")),
-                    None: () => Settle<Entity.Integralf>(src.Entity.Integrate(sym)))),
-                limit: static (c, src) => c.Destination.Entity is not null
-                    ? Guard(src, c.Symbol).Bind(sym => Settle<Entity.Limitf>(src.Entity.Limit(sym, c.Destination.Entity, c.Approach)))
-                    : Fin.Fail<SymbolicExpr>(new ComputeFault.SymbolUndefined("<null-limit-destination>")),
-                solve: static (c, src) => Guard(src, c.Symbol).Map(sym => SymbolicExpr.Of(src.Entity.Solve(sym))),
-                taylor: static (c, src) => c.Degree >= 0 && double.IsFinite(c.At)
-                    ? Guard(src, c.Symbol).Map(sym => SymbolicExpr.Of(MathS.Taylor(src.Entity, c.Degree, (sym, c.At))))
-                    : Fin.Fail<SymbolicExpr>(new ComputeFault.SymbolUndefined($"<taylor-policy:degree={c.Degree}:at={c.At}>")),
-                simplify: static (c, src) => c.Form is not null
-                    ? Fin.Succ(SymbolicExpr.Of(c.Form.Normalize(src.Entity)))
-                    : Fin.Fail<SymbolicExpr>(new ComputeFault.SymbolUndefined("<null-symbolic-form>")),
-                substitute: static (c, src) => toSeq(c.Bindings.Keys).ForAll(static key => !string.IsNullOrWhiteSpace(key)) && c.Bindings.Values.ForAll(static value => value is not null)
-                    ? Fin.Succ(SymbolicExpr.Of(c.Bindings.Fold(src.Entity, static (acc, pair) => acc.Substitute(MathS.Var(pair.Key), pair.Value))))
-                    : Fin.Fail<SymbolicExpr>(new ComputeFault.SymbolUndefined("<invalid-symbolic-binding>")),
-                approximate: static (c, src) => toSeq(c.Bindings.Keys).ForAll(static key => !string.IsNullOrWhiteSpace(key)) && c.Bindings.Values.ForAll(double.IsFinite)
-                    ? Fin.Succ(SymbolicExpr.Of(c.Bindings.Fold(src.Entity, static (acc, pair) => acc.Substitute(MathS.Var(pair.Key), pair.Value)).InnerSimplified))
-                    : Fin.Fail<SymbolicExpr>(new ComputeFault.SymbolUndefined("<non-finite-binding>"))));
+                differentiate: static (c, src) => Bind(src, c.Symbol)
+                    .Bind(v => Settle<Entity.Derivativef>(src.Entity.Differentiate(v, c.Order.Value))),
+                integrate: static (c, src) => Bind(src, c.Symbol).Bind(v => c.Bounds.Match(
+                    Some: b => Settle<Entity.Integralf>(src.Entity.Integrate(v, b.Lower.Entity, b.Upper.Entity)),
+                    None: () => Settle<Entity.Integralf>(src.Entity.Integrate(v)))),
+                limit: static (c, src) => Bind(src, c.Symbol)
+                    .Bind(v => Settle<Entity.Limitf>(src.Entity.Limit(v, c.Destination.Entity, c.Approach))),
+                solve: static (c, src) => Bind(src, c.Symbol).Map(v => SymbolicExpr.Of(src.Entity.Solve(v))),
+                taylor: static (c, src) => Bind(src, c.Symbol)
+                    .Map(v => SymbolicExpr.Of(MathS.Taylor(src.Entity, c.Degree.Value, (v, c.At.Value)))),
+                simplify: static (c, src) => Fin.Succ(SymbolicExpr.Of(c.Form.Normalize(src.Entity))),
+                substitute: static (c, src) => Fin.Succ(SymbolicExpr.Of(
+                    c.Bindings.Fold(src.Entity, static (acc, pair) => acc.Substitute(pair.Key.Var, pair.Value.Entity))))))));
 
-    // Harvesting is DENSE by max degree, so a sparse high-degree polynomial allocates one slot per absent power
-    // — `x^1000000 + 1` is two terms and a million doubles. Ceiling names the contiguous vector an optimizer seed
-    // can take, and a source above it declines typed rather than sizing an allocation off input.
-    const int DegreeCeiling = 1024;
+    // Harvesting is DENSE by max degree, so a sparse high-degree polynomial holds one slot per absent power —
+    // `x^1000000 + 1` is two terms and a million doubles. The bound is the INTENT-declared payload cap the
+    // admission spine already carries, so the decline lands on the allocation arm the package recovers on
+    // (`Tensor/memory#ALLOCATION_AXIS` grammar) rather than a lane literal wearing a symbol fault.
+    public static Fin<Seq<double>> Coefficients(SymbolicExpr source, SymbolName symbol, long payloadBound) =>
+        Captured.Of(() => Bind(source, symbol).Bind(variable =>
+                !MathS.Utils.TryGetPolynomial(source.Entity, variable, out Dictionary<EInteger, Entity>? terms)
+                    ? Fin.Fail<Seq<double>>(new ComputeFault.ParseRejected($"<non-polynomial:{source.Canonical}>"))
+                // A true return with zero terms means nothing was HARVESTED; returning `[0.0]` published that as
+                // the zero polynomial, which an optimizer seed then fits.
+                : terms.Count == 0
+                    ? Fin.Fail<Seq<double>>(new ComputeFault.ParseRejected($"<empty-harvest:{source.Canonical}>"))
+                : terms.Keys.Max(static power => power.ToInt32Checked()) + 1 is var width && (long)width * sizeof(double) > payloadBound
+                    ? Fin.Fail<Seq<double>>(new ComputeFault.AllocationOverClass(
+                        $"{AllocationClass.SpanStack.Key}:over-bound:{(long)width * sizeof(double)}>{payloadBound}"))
+                : toSeq(Enumerable.Range(0, width))
+                    .Traverse(power => terms.TryGetValue(EInteger.FromInt32(power), out Entity? coefficient)
+                        ? NumberBox.Project(coefficient.Evaled)
+                        : Fin.Succ(0d))
+                    .As()));
 
-    // Dense ascending coefficient vector: absent powers zero-fill; a symbolic coefficient faults rather than corrupting the numeric seed.
-    public static Fin<Seq<double>> Coefficients(SymbolicExpr source, string symbol) =>
-        Capture(() => Guard(source, symbol).Bind(sym =>
-                MathS.Utils.TryGetPolynomial(source.Entity, sym, out Dictionary<EInteger, Entity>? terms)
-                    ? (terms.Count == 0 ? 0 : terms.Keys.Max(static p => p.ToInt32Checked())) is var degree && degree > DegreeCeiling
-                        ? Fin.Fail<Seq<double>>(new ComputeFault.SymbolUndefined($"<polynomial-degree:{degree}-over-{DegreeCeiling}>"))
-                        : toSeq(Enumerable.Range(0, degree + 1))
-                            .Traverse(power => terms.TryGetValue(EInteger.FromInt32(power), out Entity? c)
-                                ? NumberBox.Project(c.Evaled)
-                                : Fin.Succ(0d))
-                    : Fin.Fail<Seq<double>>(new ComputeFault.SymbolUndefined($"<non-polynomial:{source.Canonical}>"))));
-
-    // Cut-parameter inversion: only a FiniteSet enumerates; Interval/ConditionalSet solutions are typed declines a numeric consumer cannot enumerate.
-    public static Fin<Seq<SymbolicExpr>> Solutions(SymbolicExpr source, string symbol) =>
+    // Cut-parameter inversion: only a FiniteSet enumerates, and the decline NAMES the set kind, because an
+    // `Interval` solution and a `ConditionalSet` solution ask the caller for different things.
+    public static Fin<Seq<SymbolicExpr>> Solutions(SymbolicExpr source, SymbolName symbol) =>
         Apply(source, new SymbolicOp.Solve(symbol)).Bind(static solved =>
             solved.Entity is Entity.Set.FiniteSet finite
                 ? Fin.Succ(toSeq(finite.Elements).Map(SymbolicExpr.Of))
-                : Fin.Fail<Seq<SymbolicExpr>>(new ComputeFault.SymbolUndefined($"<non-finite-solution:{solved.Canonical}>")));
+                : Fin.Fail<Seq<SymbolicExpr>>(new ComputeFault.SymbolUndefined(
+                    $"<non-finite-solution:{solved.Entity.GetType().Name}:{solved.Canonical}>")));
 
-    static Fin<Entity.Variable> Guard(SymbolicExpr source, string symbol) =>
-        source.Entity is not null && !string.IsNullOrWhiteSpace(symbol) && source.FreeSymbols.Contains(symbol)
-            ? Fin.Succ(MathS.Var(symbol))
-            : Fin.Fail<Entity.Variable>(new ComputeFault.SymbolUndefined($"<absent-symbol:{symbol}>"));
+    // The value object forecloses a blank name, so membership is the one question left.
+    static Fin<Entity.Variable> Bind(SymbolicExpr source, SymbolName symbol) =>
+        source.FreeSymbols.Contains(symbol)
+            ? Fin.Succ(symbol.Var)
+            : Fin.Fail<Entity.Variable>(new ComputeFault.SymbolUndefined($"<absent-symbol:{symbol.Value}>"));
 
-    static Fin<T> Capture<T>(Func<Fin<T>> operation) =>
-        Try.lift(operation).Run()
-            .MapFail(static error => (Error)new ComputeFault.SymbolUndefined($"<symbolic-kernel:{error.Message}>"))
-            .Bind(identity);
-
-    // Engine defers what it cannot solve as a Derivativef/Integralf/Limitf residue; a survivor is the typed 2215 decline, never a symbolic leftover downstream.
+    // Engine defers what it cannot solve as a Derivativef/Integralf/Limitf residue; a survivor is the typed 2214 decline, never a symbolic leftover downstream.
     static Fin<SymbolicExpr> Settle<TResidue>(Entity result) where TResidue : Entity =>
         result.Nodes.Any(static n => n is TResidue)
             ? Fin.Fail<SymbolicExpr>(new ComputeFault.NonDifferentiable($"<analytic-decline:{typeof(TResidue).Name}:{result.Stringize()}>"))

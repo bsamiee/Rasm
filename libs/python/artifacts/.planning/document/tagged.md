@@ -33,6 +33,7 @@ from expression import Error, Ok, Result, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct, structs
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.document.model import (
@@ -41,6 +42,7 @@ from rasm.artifacts.document.model import (
     ForeignRole,
     FormulaNode,
     LangTag,
+    Lapse,
     RunNode,
     StandardRole,
     StructCategory,
@@ -49,12 +51,13 @@ from rasm.artifacts.document.model import (
     alt_of,
     children,
     hardened_parse,
+    lapsed,
     role_category,
     role_of,
     standard_for,
 )
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.runtime.faults import TRANSIENT, Catch, FaultRow, RuntimeRail, async_boundary, rostered
 from rasm.runtime.journal import Assigned, Change, Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -348,11 +351,11 @@ class Access(Struct, frozen=True):
     async def _authored(self) -> Self:
         # GIL-releasing native folds cross the runtime thread lane through the owner's bound `lane`, never a folder-minted limiter.
         crossed = await self.lane.offload(Kernel.of(self._stepped, KernelTrait.RELEASING))
-        return crossed.default_with(lambda fault: _access_raise(fault))
+        return crossed.default_with(lapsed)
 
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
         # terminal receipt threads the PRE-RUN key the closure captured, so receipt.slot == node.key.
-        settled = (await async_boundary(f"access.{self.op}", self._authored)).map(lambda done: (done, done._receipt(key)))
+        settled = (await async_boundary(ACCESS_AUTHOR, self._authored, catch=_AUTHOR_RAISES)).map(lambda done: (done, done._receipt(key)))
         match settled:
             case Result(tag="ok", ok=(done, receipt)):
                 # a conformance close is a claim a regulator or a client disputes years later, so the durable fact
@@ -409,10 +412,6 @@ def _minted(request: AccessRequest, pdf: bytes, /) -> ContentKey:
     op = AccessOp.TAG if request.tag == "tagged" else AccessOp(request.tag)
     return ContentIdentity.key(f"access-{op}", _AUDIT_ENCODER.encode((request, pdf)))
 
-
-def _access_raise(fault: object) -> "Access":
-    # terminal collapse at the authoring boundary: an offload fault reconstructs the raise the node's rail folds.
-    raise ValueError(str(fault))
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -507,6 +506,21 @@ _ARCHIVE_CLAUSES: Final[tuple[tuple[ArchiveCheck, Callable[[ArchiveAudit], bool]
     (ArchiveCheck.ORACLE, lambda a: a.oracle_valid and a.oracle_errors == 0),
 )
 
+
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's ONE lift anchor. TRANSIENT — an authoring fold that died on a provider raise or a thread-lane death is
+# a defect a re-issue may clear; every admission refusal is the op's own vocabulary, never a row here.
+ACCESS_AUTHOR: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.TAGGED, point="author", arm="boundary", defect="author-fold", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([ACCESS_AUTHOR]))
+
+# the fence's whole raise surface: `_authored` awaits a RAILED offload and collapses its terminal fault through the
+# shared `document/model#NODE` carrier, which `BoundaryFault.of` admits ahead of `CLASSIFY` so the fault crosses back
+# WHOLE on `domain`. Every `pikepdf` raise already converted inside the worker, so no provider class rides here.
+_AUTHOR_RAISES: Final[Catch] = (Lapse,)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

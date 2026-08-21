@@ -11,9 +11,9 @@
 
 ## [02]-[TRANSPORT_FAULT]
 
-- Owner: `Invoke.Transport` maps Connect failures and registered details into `Wire.FaultDetail`.
-- Law: one total code table preserves remote hops and appends the local edge.
-- Boundary: Connect supplies error/detail decoding; `Wire` owns hop and fault vocabularies.
+- Owner: `Invoke.Transport` maps each Connect failure into exactly one `Wire.InvokeFault` outcome.
+- Law: one valid recognized detail becomes `Remote`; zero recognized details become `Transport`; malformed or multiple recognized details become terminal `MalformedDetail`.
+- Boundary: only `Transport(connectivity | deadline | ceiling)` may drive topology; remote recovery may retry only on the current lane.
 
 ```typescript signature
 import type { Client, ContextValues, Interceptor, Transport as ConnectTransport } from "@connectrpc/connect"
@@ -23,7 +23,7 @@ import { createFetchClient } from "@connectrpc/connect/protocol"
 import { createTransport as createConnectProtocol } from "@connectrpc/connect/protocol-connect"
 import { createTransport as createGrpcProtocol } from "@connectrpc/connect/protocol-grpc"
 import { createTransport as createGrpcWebProtocol } from "@connectrpc/connect/protocol-grpc-web"
-import { isMessage, type DescService, type MessageInitShape } from "@bufbuild/protobuf"
+import { isMessage, type DescMethod, type DescService, type MessageInitShape } from "@bufbuild/protobuf"
 import { Headers, HttpClient, HttpClientRequest, MsgPack, Ndjson, Socket } from "@effect/platform"
 import {
   Array,
@@ -34,6 +34,7 @@ import {
   Data,
   Duration,
   Effect,
+  Either,
   ExecutionPlan,
   Exit,
   HashMap,
@@ -63,41 +64,37 @@ import { Wire } from "./codec.ts"
 import { Contract } from "./contract.ts"
 import { Format } from "./format.ts"
 
-const _edge = (reason: Wire.Hops.Reason): InstanceType<typeof Wire.FaultDetail.Hop> =>
-  new Wire.FaultDetail.Hop({ site: "<local-edge>", reason, elapsed: Duration.zero })
-
 const Transport: {
-  readonly expired: (surface: string, detail: string) => Wire.FaultDetail
-  readonly fault: (caught: unknown) => Wire.FaultDetail
+  readonly expired: (detail: string) => Wire.InvokeFault
+  readonly fault: (caught: unknown) => Wire.InvokeFault
 } = {
-  expired: (surface, detail) =>
-    new Wire.FaultDetail({ reason: "deadline", surface, detail, hops: [_edge("deadline")], tenant: Option.none() }),
-  fault: (caught) =>
-    pipe(ConnectError.from(caught, Code.Unknown), (error) =>
-      Option.match(
-        pipe(
-          Array.findFirst(error.findDetails(Format.proto.registry), (detail) => isMessage(detail, Format.proto.suite.FaultDetail)),
-          Option.flatMap((wire) => Option.getRight(Schema.decodeUnknownEither(Wire.FaultDetail.FromWire)(wire))),
-        ),
-        {
-          onNone: () =>
-            new Wire.FaultDetail({
-              reason: Wire.Hops.fromCode(error.code),
-              surface: "<transport>",
-              detail: error.rawMessage,
-              hops: [_edge(Wire.Hops.fromCode(error.code))],
-              tenant: Option.none(),
-            }),
-          onSome: (detail) => new Wire.FaultDetail({ ...detail, hops: [...detail.hops, _edge(Wire.Hops.fromCode(error.code))] }),
-        },
-      )),
+  expired: (detail) => new Wire.Transport({ kind: "deadline", detail }),
+  fault: (caught) => {
+    const error = ConnectError.from(caught, Code.Unknown)
+    const details = error.findDetails(Format.proto.registry)
+      .filter((detail) => isMessage(detail, Format.proto.suite.FaultDetail))
+    if (details.length === 0) {
+      return new Wire.Transport({ kind: Wire.Transport.kindOf(error.code), detail: error.rawMessage })
+    }
+    if (details.length !== 1) {
+      return new Wire.MalformedDetail({ detail: `<recognized-details:${details.length}>` })
+    }
+    return pipe(
+      Schema.decodeUnknownEither(Wire.Remote.FromWire)(details[0]),
+      Either.match({
+        onLeft: (issue) => new Wire.MalformedDetail({ detail: issue.message }),
+        onRight: (remote) => remote,
+      }),
+    )
+  },
 }
 ```
 
 ## [03]-[DIAL_AXIS]
 
 - Owner: `Invoke.Dial` builds one typed Connect client per configured protocol-and-carrier lane.
-- Law: `Dial.sdk` admits a descriptor and mints every client; no second entry reaches a transport.
+- Law: `Dial.sdk` takes `Capability.Admitted` and mints every client, so an unadmitted pin is a type error and never a guarded path.
+- Law: no second entry reaches a transport.
 - Law: `tenancy` carries no column on either Dial family because NEITHER decides it — a profile selects the row and tenancy realizes through `Carrier.promote`, so a cell here states by guess what a live owner already answers.
 - Law: protocol rows decide framing alone — `admit` is uniform (every row takes one `CommonTransportOptions` through `transport`) and `lifetime` belongs to the carrier row beneath, so each rides this lead rather than repeating itself or guessing down a column.
 - Law: carrier rows answer `admit` and `lifetime` per row because both DIVERGE — the two carriers take different handles and end a connection under different owners, which is the whole difference the axis exists to state.
@@ -106,7 +103,7 @@ const Transport: {
 - Law: protocol and carrier are orthogonal rows over one `CommonTransportOptions`; no lane branches on a name.
 - Law: every lane reads one ingress ceiling, so failover never widens the bound a primary lane proved.
 - Law: unary failover uses `ExecutionPlan`; server streams never retry after an emitted value.
-- Law: a ceiling refusal never fails over — one bound holds on every lane, so a second dial re-proves the same arithmetic.
+- Law: remote recovery retries only in place; transport connectivity, deadline, or ceiling may advance the execution plan; malformed detail stops.
 - Law: carrier headers, tenant scope, HLC, deadlines, and telemetry remain typed Effect context.
 - Boundary: the runtime supplies fetch, interceptors, compression algorithms, and the platform HTTP client.
 
@@ -328,13 +325,13 @@ const _stamped: Effect.Effect<Headers.Headers> = Effect.map(
 
 const _unary = <O>(
   call: (options: { readonly contextValues: ContextValues; readonly headers: Headers.Headers; readonly signal: AbortSignal }) => Promise<O>,
-): Effect.Effect<O, Wire.FaultDetail> =>
+): Effect.Effect<O, Wire.InvokeFault> =>
   Effect.flatMap(Effect.all({ context: _charged, headers: _stamped }), ({ context, headers }) =>
     Effect.tryPromise({ try: (signal) => call({ contextValues: context, headers, signal }), catch: Transport.fault }))
 
 const _openStream = <O>(
   open: (options: { readonly contextValues: ContextValues; readonly headers: Headers.Headers; readonly signal: AbortSignal }) => AsyncIterable<O>,
-): Stream.Stream<O, Wire.FaultDetail> =>
+): Stream.Stream<O, Wire.InvokeFault> =>
   Stream.unwrapScoped(
     Effect.acquireRelease(
       Effect.sync(() => new AbortController()),
@@ -349,16 +346,10 @@ const _openStream = <O>(
     ),
   )
 
-// Failover and retry-in-place are DIFFERENT questions one retryability column cannot answer alone. A ceiling refusal
-// raises the same `exhausted` reason a loaded server raises, yet every lane now carries one ingress bound, so dialing
-// a second row re-proves one arithmetic fact and spends the whole budget doing it. Every other retryable reason names
-// a condition a different peer path genuinely answers, so the ladder advances on those and stops on this one.
-const _failsOver = (fault: Wire.FaultDetail): boolean => fault.retryable && fault.reason !== "exhausted"
-
-// One verdict governs a ladder step: the budget recurs on exactly what the ladder advances on, so a lane can never
-// re-drive a fault its own failover rule refuses. `Fault.Budget`'s own gate reads a `class` property the wire detail
-// does not carry, so the gate is passed rather than inherited, and the instance test keeps the read O(1).
-const _retries: Predicate.Predicate<unknown> = (fault) => fault instanceof Wire.FaultDetail && _failsOver(fault)
+// Remote recovery spends attempts on the current lane only. Transport is the sole topology signal, while malformed
+// detail is terminal; no remote numeric code is interpreted as a route decision.
+const _failsOver = (fault: Wire.InvokeFault): boolean => fault instanceof Wire.Transport
+const _retries: Predicate.Predicate<unknown> = (fault) => fault instanceof Wire.Remote && fault.retryable
 
 class Dial extends Effect.Service<Dial>()("@rasm/ts/core/Dial", {
   effect: (config: Dial.Config, seam: Dial.Seam) =>
@@ -381,7 +372,7 @@ class Dial extends Effect.Service<Dial>()("@rasm/ts/core/Dial", {
         }),
         attempts: Fault.Budget.at(row.budget).attempts,
         schedule: Fault.Budget.schedule(row.budget, _retries),
-        while: (fault: Wire.FaultDetail) => Effect.succeed(_failsOver(fault)),
+        while: (fault: Wire.InvokeFault) => Effect.succeed(_failsOver(fault)),
       }))
       return {
         plan: ExecutionPlan.make(Array.headNonEmpty(ladder), ...Array.tailNonEmpty(ladder)),
@@ -397,18 +388,24 @@ class Dial extends Effect.Service<Dial>()("@rasm/ts/core/Dial", {
   static readonly Config: typeof _DialConfig = _DialConfig
   static readonly Context: typeof _CONTEXT = _CONTEXT
   static readonly Lane: typeof Lane = Lane
-  static readonly sdk = <T extends DescService>(service: T): Effect.Effect<
+  // The admitted capability is the FIRST argument because it is the precondition, not a decoration: a caller holding
+  // only raw descriptor bytes cannot reach this entry at all, so `Contract.Descriptor` rides in transitively through
+  // the value's own provenance rather than as a second Tag every composition root must remember to provide.
+  static readonly sdk = <T extends DescService>(admitted: Capability.Admitted, service: T): Effect.Effect<
     Dial.Sdk<T>, ParseResult.ParseError | Wire.Fault, Dial
-  > => _sdkOf(service)
+  > => _sdkOf(admitted, service)
 }
 ```
 
 ## [04]-[CAPABILITY_BIND]
 
-- Owner: `Invoke.Capability.admit` validates exact descriptor-pin bytes, while `Invoke.Dial.sdk` derives Connect members.
-- Law: pin admission hashes the carried document bytes and validates count, descriptor order, and unit order.
+- Owner: `Invoke.Capability.admit` mints `Capability.Admitted`, the one value `Invoke.Dial.sdk` derives Connect members from.
+- Law: pin admission hashes the carried document bytes, and admission order is a type fact rather than a caller convention.
+- Law: `Capability.Admitted` spends `Contract.Descriptor.canonical(pin)` as its construction filter, so count and order hold one owner and no consumer re-checks either.
+- Law: unit order is the descriptor row's own refinement, so this owner relates a pin to the rows it addresses and restates neither.
 - Law: parsed rows authorize semantic reads only; the original UTF-8 document remains the identity preimage.
 - Law: Connect derivation reads only `DescService`; no descriptor row is inferred as a service or method coordinate.
+- Law: derivation spends the admitted pin as PROVENANCE alone — the derived decoder's identifier and every binding refusal name that digest.
 - Law: each unary attempt uses the transport timeout, and one outer timeout bounds the complete execution plan.
 - Law: server-stream fallback stops after the first emitted value.
 
@@ -416,13 +413,29 @@ class Dial extends Effect.Service<Dial>()("@rasm/ts/core/Dial", {
 const _descriptorDocument = Format.json.schema(Schema.Array(Contract.Descriptor.Row))
 const _descriptorBytes = new TextEncoder()
 
-const _pinFault = (detail: string, actual: unknown, expected: unknown): Wire.Fault =>
-  new Wire.Fault({
-    family: "DescriptorPinWire",
-    reason: "parity",
-    detail,
-    evidence: Option.some({ actual, expected }),
-  })
+// Both halves arrive ALREADY decoded — the pin through `Wire.decode` and the rows through `_descriptorDocument` — so
+// each field re-reads its owner's TYPE side rather than minting a second encoded shape nothing writes. This value is an
+// in-process admission witness that crosses no wire, and `typeSchema` states that at the field instead of in prose.
+const _admission = Schema.Struct({
+  pin: Schema.typeSchema(Contract.Pin),
+  descriptors: Schema.Array(Schema.typeSchema(Contract.Descriptor.Row)),
+})
+
+// THE resolved type. Evaluation takes this owner and nothing else, so a descriptor that never met the network step is
+// unrepresentable at `Dial.sdk` rather than refused by a guard a caller could skip. The class is the nominal identity
+// this branch admits — `docs/stacks/typescript/shapes.md` makes a standalone exported brand the named defect, so the
+// admission fact rides the owner, whose constructor and decode both re-run the filter set below.
+class CapabilityAdmitted extends Schema.Class<CapabilityAdmitted>("Capability.Admitted")(
+  // Canonicality has ONE owner: `Contract.Descriptor.canonical(pin)` states the descriptor count and the roster
+  // ordering no single row can witness, and this owner RELATES its two fields by spending that gate. Restating the
+  // predicates here gave one law a second declaration to drift under, and a third canonical rule now lands at the
+  // contract owner with every consumer inheriting it unmoved.
+  _admission.pipe(Schema.filter(
+    ({ descriptors, pin }) =>
+      Schema.is(Contract.Descriptor.canonical(pin))(descriptors) || "<noncanonical-descriptor-pin>",
+    { identifier: "CanonicalAdmission" },
+  )),
+) {}
 
 const _admitCapability = ({ descriptor, pinned }: Capability.Source): Effect.Effect<
   Capability.Admitted,
@@ -434,88 +447,119 @@ const _admitCapability = ({ descriptor, pinned }: Capability.Source): Effect.Eff
   yield* Wire.Parity.verified("DescriptorPinWire", pin.digest, octets)
   yield* Wire.Parity.matched("DescriptorPinWire", pin.digest, pinned)
   const descriptors = yield* Schema.decodeUnknown(_descriptorDocument)(octets)
-  if (descriptors.length !== pin.descriptors) {
-    return yield* Effect.fail(_pinFault("<descriptor-count>", descriptors.length, pin.descriptors))
-  }
-  if (!descriptors.every((row, at) => at === 0 || descriptors[at - 1]!.descriptor < row.descriptor)) {
-    return yield* Effect.fail(_pinFault("<descriptor-order>", descriptors, "<strictly-sorted-distinct>"))
-  }
-  return { pin, descriptors }
+  return yield* Schema.decode(CapabilityAdmitted)({ pin, descriptors })
 })
 
 declare namespace Capability {
   type Source = { readonly descriptor: Uint8Array; readonly pinned: Digest.Key<"content"> }
-  type Admitted = {
-    readonly pin: Contract.Pin
-    readonly descriptors: ReadonlyArray<Contract.Descriptor.Row>
-  }
+  type Admitted = CapabilityAdmitted
 }
 
 declare namespace Dial {
-  type Outcome = Convention.Outcome<`rejected:${Wire.FaultDetail["reason"]}`>
+  type Outcome = Convention.Outcome<Wire.InvokeReason>
   type Sdk<T extends DescService> = {
     readonly [K in keyof Client<T>]: Client<T>[K] extends (input: infer I, options?: infer _O) => Promise<infer O>
-      ? (input: I) => Effect.Effect<O, Wire.FaultDetail>
+      ? (input: I) => Effect.Effect<O, Wire.InvokeFault>
       : Client<T>[K] extends (input: infer I, options?: infer _O) => AsyncIterable<infer O>
-        ? (input: I) => Stream.Stream<O, Wire.FaultDetail>
+        ? (input: I) => Stream.Stream<O, Wire.InvokeFault>
         : never
   }
 }
 
-const _sdkSchema = <T extends DescService>(service: T): Schema.Schema<Dial.Sdk<T>> =>
+// The identifier carries the derivation's PROVENANCE: a service name alone answers for every generation that ever
+// shipped it, so a binding refusal could not say which pinned document its members were derived against.
+const _sdkSchema = <T extends DescService>(admitted: Capability.Admitted, service: T): Schema.Schema<Dial.Sdk<T>> =>
   Schema.declare(
     (input: unknown): input is Dial.Sdk<T> =>
       Predicate.isRecord(input)
       && Array.every(service.methods, (method) => Predicate.isFunction(input[method.localName])),
-    { identifier: `${service.typeName}Sdk` },
+    { identifier: `${service.typeName}Sdk@${admitted.pin.digest}` },
   )
 
-// The reason roster preregisters, so a hop nothing has raised yet reports zero rather than leaving the panel a hole
+// The closed boundary roster preregisters, so a posture nothing has raised yet reports zero rather than a panel hole.
 const _calls = Convention.mount(Convention.metric.invokeCalls) // module scope: Effect keys an instrument by name and tag set, so a mount inside a fold re-derives one registry entry per call
 const _clock = Convention.mount(Convention.metric.invokeDuration)
-const _faults = Convention.mount(Convention.metric.invokeFault, Wire.Hops.reasons)
+// The owner is the ARM that raised, read off the same closed union the reason projection dispatches on, so a governed
+// dimension carries a rostered word rather than a coinage: a fourth arm breaks HERE instead of stamping `admission`,
+// a name no member of `Wire.InvokeFault` answers to and no query resolves.
+const _faultOwner = (fault: Wire.InvokeFault): "malformed-detail" | "remote" | "transport" =>
+  fault instanceof Wire.Remote ? "remote" : fault instanceof Wire.Transport ? "transport" : "malformed-detail"
 
-const _rejected = (fault: Wire.FaultDetail): `rejected:${Wire.Hops.Reason}` => `rejected:${fault.reason}` as const
+// `code` is the whole routing key this branch derives a reason from and `posture` the producer's own re-drive verdict,
+// so the compact detail publishes exactly the two columns a reader dispatches or re-drives on and nothing beside them.
+// Every key comes off `Convention.rasm`, so an unrostered `rasm.fault.*` spelling is unspellable at this raise and the
+// record types as `Convention.Attributes` rather than as a free string map a sink cannot resolve.
+const _faultEvidence = (fault: Wire.InvokeFault): Convention.Attributes =>
+  fault instanceof Wire.Remote
+    ? {
+        [Convention.rasm.faultCode]: fault.detail.code,
+        [Convention.rasm.faultOwner]: _faultOwner(fault),
+        [Convention.rasm.faultPosture]: fault.recovery.kind,
+      }
+    : { [Convention.rasm.faultOwner]: _faultOwner(fault) }
 
-// The rail lane composes the convention owner's aspect whole — mount, single emission point, and interrupt-first fold
-// all live there, and this page supplies only its own reason projection.
-const _counted = Convention.outcome(Convention.metric.invokeCalls, Convention.rasm.invokeOutcome, _rejected)
+// Both census aspects take the raiser's OWN published roster and mount INSIDE the aspect, so no page spells the
+// tracking operator beside its own mount and a word no arm produces has no spelling here. `Wire.invokeReason` is the
+// one projection every lane reads: the `rejected:` prefix it used to wear said nothing the roster does not already
+// say, since `Convention.Fused` proves these words disjoint from the three exit rows rather than a reader stripping
+// a decoration to compare them.
+const _tracked = Convention.tracked(Convention.metric.invokeFault, Wire.invokeReasons, Wire.invokeReason)
+const _counted = Convention.outcome(
+  Convention.metric.invokeCalls,
+  Convention.rasm.invokeOutcome,
+  Wire.invokeReasons,
+  Wire.invokeReason,
+)
 
-// Stream carries no `onExit` aspect, so the feed lane folds the SAME anchor at its own scope exit; `_rejected` is the
-// one reason projection both lanes read, so the two exits can never disagree on a word.
-const _streamOutcome = (exit: Exit.Exit<unknown, Wire.FaultDetail>): Dial.Outcome =>
+// Stream carries no `onExit` aspect, so the feed lane folds the SAME anchor at its own scope exit; one reason
+// projection serves both lanes, so the two exits can never disagree on a word.
+const _streamOutcome = (exit: Exit.Exit<unknown, Wire.InvokeFault>): Dial.Outcome =>
   Exit.match(exit, {
     onFailure: (cause) =>
       Cause.isInterruptedOnly(cause)
         ? ("halted" as const)
-        : Option.match(Cause.failureOption(cause), { onNone: () => "crashed" as const, onSome: _rejected }),
+        : Option.match(Cause.failureOption(cause), { onNone: () => "crashed" as const, onSome: Wire.invokeReason }),
     onSuccess: () => "resolved" as const,
   })
 
 const _observed = (span: string, tags: Convention.Attributes) =>
-  <A, R>(self: Effect.Effect<A, Wire.FaultDetail, R>): Effect.Effect<A, Wire.FaultDetail, R> =>
+  <A, R>(self: Effect.Effect<A, Wire.InvokeFault, R>): Effect.Effect<A, Wire.InvokeFault, R> =>
     self.pipe(
       Metric.trackDuration(_clock),
-      Metric.trackErrorWith(_faults, (fault: Wire.FaultDetail) => fault.reason),
+      _tracked,
+      Effect.tapError((fault) => Effect.annotateLogs(_faultEvidence(fault))),
       _counted,
       Effect.withSpan(span, { attributes: tags }),
       Effect.annotateLogs(tags),
     )
 
 const _observedStream = (span: string, tags: Convention.Attributes) =>
-  <A, R>(self: Stream.Stream<A, Wire.FaultDetail, R>): Stream.Stream<A, Wire.FaultDetail, R> =>
+  <A, R>(self: Stream.Stream<A, Wire.InvokeFault, R>): Stream.Stream<A, Wire.InvokeFault, R> =>
     self.pipe(
-      Stream.tapError((fault) => Metric.update(_faults, fault.reason)),
+      // Stream holds no error-census aspect, so the tap re-offers each fault as a one-shot effect through the SAME
+      // `Convention.tracked` operator the rail lane spends — one mount, one projection, no second instrument here.
+      Stream.tapError((fault) => Effect.all([
+        Effect.ignore(_tracked(Effect.fail(fault))),
+        Effect.annotateLogs(_faultEvidence(fault)),
+      ])),
       Stream.ensuringWith((exit) => Metric.increment(Metric.tagged(_calls, Convention.rasm.invokeOutcome, _streamOutcome(exit)))),
       Stream.withSpan(span, { attributes: tags }),
     )
 
-const _unbindable = (kind: string, name: string): Wire.Fault =>
+// A method kind Connect cannot bind is drift between the generated service and the capability that admitted it, so the
+// refusal names BOTH coordinates. Naming the method alone leaves an operator holding the failure without the pinned
+// document that declared the surface it failed against, which is the one fact a re-pin acts on.
+const _unbindable = (admitted: Capability.Admitted, method: DescMethod): Wire.Fault =>
   new Wire.Fault({
     family: "FaultDetail",
-    reason: "drift",
-    detail: `<unbindable-kind:${kind}:${name}>`,
-    evidence: Option.none(),
+    case: {
+      reason: "drift",
+      divergence: {
+        subject: "binding",
+        actual: { kind: method.methodKind, method: method.localName, service: method.parent.typeName },
+        expected: { kinds: "<unary|server-streaming>", pin: admitted.pin.digest },
+      },
+    },
   })
 
 const _laneClient = <T extends DescService>(
@@ -530,7 +574,7 @@ const _laneClient = <T extends DescService>(
       Option.getOrElse(HashMap.get(clients, lane.key), () => createClient(service, lane.transport)),
     ))
 
-const _sdkOf = <T extends DescService>(service: T): Effect.Effect<
+const _sdkOf = <T extends DescService>(admitted: Capability.Admitted, service: T): Effect.Effect<
   Dial.Sdk<T>, ParseResult.ParseError | Wire.Fault, Dial
 > =>
     Effect.gen(function* () {
@@ -550,7 +594,7 @@ const _sdkOf = <T extends DescService>(service: T): Effect.Effect<
                     ).pipe(
                     Effect.timeoutFail({
                       duration: dial.totalTimeout,
-                      onTimeout: () => Transport.expired(unary.localName, "<total-budget>"),
+                      onTimeout: () => Transport.expired(`<total-budget:${unary.localName}>`),
                     }),
                     _observed(`invoke/${service.typeName}/${unary.localName}`, {
                       [Convention.rasm.invokeMethod]: unary.localName,
@@ -574,15 +618,19 @@ const _sdkOf = <T extends DescService>(service: T): Effect.Effect<
                     }),
                   ),
               ] as const),
-            client_streaming: (refused) => Effect.fail(_unbindable(refused.methodKind, refused.localName)),
-            bidi_streaming: (refused) => Effect.fail(_unbindable(refused.methodKind, refused.localName)),
+            client_streaming: (refused) => Effect.fail(_unbindable(admitted, refused)),
+            bidi_streaming: (refused) => Effect.fail(_unbindable(admitted, refused)),
           }),
         ))
-      return yield* Schema.decodeUnknown(_sdkSchema(service))(Record.fromEntries(rows))
+      return yield* Schema.decodeUnknown(_sdkSchema(admitted, service))(Record.fromEntries(rows))
     })
 
-const Capability = {
-  admit: _admitCapability,
+// The owner publishes its resolved type beside its mint: a caller with no live peer — a test double, a loopback —
+// declares a fixture through `Capability.Admitted` and dials on it, which is a visible act at a named decode rather
+// than an admission step quietly skipped.
+abstract class Capability {
+  static readonly Admitted: typeof CapabilityAdmitted = CapabilityAdmitted
+  static readonly admit: typeof _admitCapability = _admitCapability
 }
 ```
 
@@ -609,7 +657,7 @@ const CommandPayload = Schema.Union(
   Schema.Struct({ kind: Schema.Literal("text"), value: Schema.String }),
   Schema.Struct({
     kind: Schema.Literal("fields"),
-    values: Schema.Record({ key: Schema.NonEmptyString, value: Shape.Json }).pipe(
+    values: Shape.Record(Schema.NonEmptyString, Shape.Json).pipe(
       Schema.filter((values) => {
         const members = Object.keys(values).length
         return members > 0 && members <= Shape.Ingress.floor.members || "<command-field-census>"
@@ -770,9 +818,7 @@ const _make = <
         const row = yield* Option.match(HashMap.get(table, command.key), {
           onNone: () => Effect.fail(new Wire.Fault({
             family: "CommandPayloadWire",
-            reason: "drift",
-            detail: `<unknown-verb:${command.key}>`,
-            evidence: Option.none(),
+            case: { reason: "drift", divergence: { subject: "verb", key: command.key } },
           })),
           onSome: Effect.succeed,
         })

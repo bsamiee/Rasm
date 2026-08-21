@@ -32,17 +32,19 @@ from beartype.roar import BeartypeCallHintViolation
 from beartype.vale import Is
 from builtins import frozendict
 from expression import Nothing, Option, Some, case, tag, tagged_union
+from expression.collections import Block
 from msgspec import Struct, msgpack, structs
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail, async_boundary
+from rasm.runtime.faults import FAULT_CONF, TRANSIENT, FaultRow, RuntimeRail, async_boundary, rostered
 
 # PATH and REGION own the imported vector surface: `RegionOp.Clip` the per-shape crop, `Boolean` the N-ary
 # set-op, `Outline` the fixed-width offset, and `Serialize` the `Fragment` document fold.
 from rasm.artifacts.graphic.vector.path import Bounds, PathFault, Span, bounds, fragment, px, scene
 from rasm.artifacts.graphic.vector.region import BooleanOp, Fragment, RegionFault, RegionOp, RegionResult, RenderPolicy, applied
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.export.layered import Layer
@@ -137,6 +139,16 @@ _TRAIT: Final[frozendict[str, KernelTrait]] = frozendict({
     "metadata": KernelTrait.HOSTILE,
 })
 
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's ONE lift anchor. The per-request infix leaves the SUBJECT and stays request data — one fence
+# spans every placement case, so the coordinate is the fence rather than N subjects a reader cannot enumerate.
+# TRANSIENT: a provider render, a pool death, or a contract breach is a defect a re-issue may clear.
+FIGURE_RENDER: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.COMPOSE, point="render", arm="boundary", defect="figure-fold", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([FIGURE_RENDER]))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class MarkSpec(Struct, frozen=True):
@@ -439,7 +451,7 @@ class Figure(Struct, frozen=True):
         return structs.replace(self, placed=_placed(self.op))
 
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
-        return await async_boundary(f"figure.{self.op.tag}", partial(self._rendered, key), catch=_FAULTS)
+        return await async_boundary(FIGURE_RENDER, partial(self._rendered, key), catch=_FAULTS)
 
     async def _rendered(self, key: ContentKey, /) -> ArtifactReceipt:
         match self.op:

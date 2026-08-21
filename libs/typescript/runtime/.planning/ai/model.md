@@ -229,7 +229,9 @@ const _graded = Match.type<AiError.AiError>().pipe(
 const _classOf = (fault: unknown): Fault.Class.Kind =>
   AiError.isAiError(fault) ? _graded(fault) : Fault.Class.of(fault) // a branch-branded fault still grades at its own owner
 
-const _yields = (fault: unknown): boolean => Fault.Class.at(_classOf(fault)).retryable
+// the DERIVED projection, never a stored bit: the column is gone from the core row table and this member is the
+// whole survivor, so a gate wanting only a boolean keeps one and a reader wanting the band reads `recoveryOf`
+const _yields = (fault: unknown): boolean => Fault.Class.retryable(_classOf(fault))
 
 // Providers publish their own wait on the refusal itself, so the header reads off the error the ladder already holds.
 const _after = (fault: unknown): Option.Option<Duration.Duration> =>
@@ -305,24 +307,55 @@ const Ladder = { drive: _tiered, yields: _yields, grade: _classOf, after: _after
 - Growth: a screen or sweep policy is a predicate row on the gate's policy table; a new modality inherits the fold by construction; a provider gaining a namespaced telemetry module is one annotation row.
 
 ```typescript signature
+// Every reason declares the evidence its OWN band can produce, so the two provider-stated bands close against the
+// exact finish words that reach them and a local screen carries the rule or span it matched. One free `evidence`
+// string carried all five and let a finish word, a regex span, and a tool name read as one column.
+const _LEG = "gate"
+
 const _refusals = Fault.Class.family(["screened", "swept", "provider", "stalled", "policy"] as const, {
-  screened: { class: "denied" },
-  swept: { class: "denied" },
-  provider: { class: "denied" },
+  screened: Fault.Class.row({
+    class: "denied",
+    leg: _LEG,
+    detail: Schema.Struct({ rule: Schema.NonEmptyString }),
+    render: ({ rule }) => `the prompt matched screen rule ${rule}`,
+  }),
+  swept: Fault.Class.row({
+    class: "denied",
+    leg: _LEG,
+    detail: Schema.Struct({ span: Schema.NonEmptyString }),
+    render: ({ span }) => `the answer carried a swept span — ${span}`,
+  }),
+  provider: Fault.Class.row({
+    class: "denied",
+    // the two finish words a provider refuses under, closed here: `content-filter` is its moderation verdict and
+    // `error` is a tool fault it resolved itself, and a turn under either never ran
+    leg: _LEG,
+    detail: Schema.Struct({ finish: Schema.Literal("content-filter", "error") }),
+    render: ({ finish }) => `the provider refused this turn and finished ${finish}`,
+  }),
   // a paused turn is unfinished work, not a verdict: re-driving it is exactly what the provider is waiting for
-  stalled: { class: "unavailable" },
-  policy: { class: "invalid" }, // a caller's own tool-choice misconfiguration is a quarantinable defect, never a moderation verdict
+  stalled: Fault.Class.row({
+    class: "unavailable",
+    leg: _LEG,
+    detail: Schema.Struct({ finish: Schema.Literal("pause") }),
+    render: () => "the provider paused this turn mid-tool and it is unfinished, never settled",
+  }),
+  policy: Fault.Class.row({
+    class: "invalid", // a caller's own tool-choice misconfiguration is a quarantinable defect, never a moderation verdict
+    leg: _LEG,
+    detail: Schema.Struct({ choice: Schema.NonEmptyString }),
+    render: ({ choice }) => `tool choice ${choice} names nothing this gate made visible`,
+  }),
 })
 
 class GuardrailFault extends Schema.TaggedError<GuardrailFault>()("GuardrailFault", {
-  reason: _refusals.schema,
-  evidence: Schema.String,
+  case: _refusals.payload,
 }) {
   get class(): Fault.Class.Kind {
-    return _refusals.classOf(this.reason)
+    return _refusals.classOf(this.case.reason)
   }
   override get message(): string {
-    return `<guardrail:${this.reason}> ${this.evidence}`
+    return _refusals.render(this.case)
   }
 }
 
@@ -333,18 +366,20 @@ class GuardrailFault extends Schema.TaggedError<GuardrailFault>()("GuardrailFaul
 // live work. TRAP: `pause` reaches this table from the Anthropic row alone; the identical wire value on the Bedrock
 // row is unmapped and arrives as `unknown`, which settles — a paused Bedrock turn is indistinguishable here.
 const _finishes = {
-  "content-filter": Option.some("provider" as const),
-  error: Option.some("provider" as const),
-  pause: Option.some("stalled" as const),
+  "content-filter": Option.some({ reason: "provider", finish: "content-filter" } as const),
+  error: Option.some({ reason: "provider", finish: "error" } as const),
+  pause: Option.some({ reason: "stalled", finish: "pause" } as const),
   stop: Option.none(),
   length: Option.none(),
   "tool-calls": Option.none(),
   other: Option.none(),
   unknown: Option.none(),
-} as const satisfies Record<Response.FinishReason, Option.Option<Guardrail.Reason>>
+} as const satisfies Record<Response.FinishReason, Option.Option<Guardrail.Issue>>
 
+// The row carries the WHOLE issue, not a band beside a word the mint then re-pairs: the finish literal and the
+// reason it elects travel together, so a row electing a band its subject cannot spell breaks at the table.
 const _refused = (reason: Response.FinishReason): Option.Option<GuardrailFault> =>
-  Option.map(_finishes[reason], (band) => new GuardrailFault({ reason: band, evidence: reason }))
+  Option.map(_finishes[reason], (issue) => new GuardrailFault({ case: issue }))
 
 const _free = {
   generateText: LanguageModel.generateText,
@@ -354,7 +389,8 @@ const _free = {
 
 declare namespace Guardrail {
   type Carrier = Pick<Chat.Service, "generateText" | "generateObject" | "streamText">
-  type Reason = (typeof _refusals.reasons)[number]
+  type Issue = typeof _refusals.payload.Type
+  type Reason = (typeof _refusals.kinds)[number]
   type Policy = {
     readonly screen: (prompt: Prompt.Prompt) => Option.Option<string>
     readonly sweep: (text: string) => Option.Option<string>
@@ -382,7 +418,7 @@ const _admitted = (policy: Guardrail.Policy) => {
     onSome: (forced) => {
       if (forced === "required") {
         return visible.length === 0
-          ? Effect.fail(new GuardrailFault({ reason: "policy", evidence: "tool:required" }))
+          ? Effect.fail(new GuardrailFault({ case: { reason: "policy", choice: "required" } }))
           : Effect.succeed({
             toolChoice: { mode: "required" as const, oneOf: visible },
             disableToolCallResolution: disabled,
@@ -391,7 +427,7 @@ const _admitted = (policy: Guardrail.Policy) => {
       }
       return Array.contains(visible, forced.tool)
         ? Effect.succeed({ toolChoice: forced, disableToolCallResolution: disabled, held: admission.held } as const)
-        : Effect.fail(new GuardrailFault({ reason: "policy", evidence: `tool:${forced.tool}` }))
+        : Effect.fail(new GuardrailFault({ case: { reason: "policy", choice: forced.tool } }))
     },
   })
 }
@@ -399,7 +435,7 @@ const _admitted = (policy: Guardrail.Policy) => {
 const _screened = (policy: Guardrail.Policy, prompt: Prompt.Prompt) =>
   Option.match(policy.screen(prompt), {
     onNone: () => Effect.void,
-    onSome: (rule) => Effect.fail(new GuardrailFault({ reason: "screened", evidence: rule })),
+    onSome: (rule) => Effect.fail(new GuardrailFault({ case: { reason: "screened", rule } })),
   })
 
 const _split = (window: string, width: number): readonly [kept: string, freed: string] => [
@@ -422,7 +458,7 @@ const _sweepStream = (policy: Guardrail.Policy) =>
                 : Chunk.empty<Response.StreamPart<Tools>>(),
             ] as const)
           },
-          onSome: (span) => Effect.fail(new GuardrailFault({ reason: "swept", evidence: span })),
+          onSome: (span) => Effect.fail(new GuardrailFault({ case: { reason: "swept", span } })),
         })
         // the finish part is the one place a provider states its own verdict, and the roster reader owns all three bands
         : Option.match(part.type === "finish" ? _refused(part.reason) : Option.none<GuardrailFault>(), {
@@ -438,7 +474,7 @@ const _sweepStream = (policy: Guardrail.Policy) =>
                   )
                   : Chunk.of<Response.StreamPart<Tools>>(part),
               ] as const),
-              onSome: (span) => Effect.fail(new GuardrailFault({ reason: "swept", evidence: span })),
+              onSome: (span) => Effect.fail(new GuardrailFault({ case: { reason: "swept", span } })),
             }),
         })),
     Stream.flattenChunks,
@@ -461,7 +497,7 @@ const _swept = (policy: Guardrail.Policy) =>
     onNone: () =>
       Option.match(policy.sweep(settled.text), {
         onNone: () => Effect.succeed(settled),
-        onSome: (span) => Effect.fail(new GuardrailFault({ reason: "swept", evidence: span })),
+        onSome: (span) => Effect.fail(new GuardrailFault({ case: { reason: "swept", span } })),
       }),
   })
 

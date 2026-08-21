@@ -2,7 +2,7 @@
 
 `ChartExport` is the render half of the 2D chart axis: format dispatch and the vegafusion data pre-pass on one page. It folds the `visualization/chart/spec#CHART` chart case, the typed `ChartRenderPolicy`, and the target `ExportFormat` to bytes, minting one `core/receipt#RECEIPT` `ArtifactReceipt.Chart`. Host-free posture is decisive: vl-convert stays the one chart-origin SVG rasterizer (Rust-native, embedded V8, zero browser), lets-plot self-renders in-process on its named `to_svg`/`to_png`/`to_pdf` rows, matplotlib serves the publication case. Both Vega dialects ride one row table — each `VlRow` binds the `vegalite_to_*` converter beside its `vega_to_*` twin, and the spec's own `$schema` selects the family, so a consumer-compiled full-Vega dict renders without a dialect flag beside the spec that already carries it. `VegaTransform` pre-pass lives in this page because vl-convert exposes no external-dataset feed — server-evaluated transforms inline into one self-contained spec the render arm consumes, so the reduced data crosses inside the spec and the interactive HTML row needs no live server.
 
-`ChartRenderPolicy` carries the full converter axis as one typed policy value — raster `scale`/`ppi`/`quality`, the `VegaTheme` theme, the pinned `vl_version`, `register_font_directory` closing the font-identity loop, the `format_locale`/`time_format_locale` d3-locale pair, the `allowed_base_urls` SSRF fence (a non-empty fence refuses HTML export typed, because the browser-side render cannot enforce it), the `show_warnings` compile-diagnostic toggle the Vega-Lite raster/SVG rows admit, and the HTML `renderer`/`bundle` — and each `VlRow` stores two fully typed `(Spec, ChartRenderPolicy) -> str | bytes` calls with explicit provider keywords, so either a policy-field rename or a converter-signature change breaks its row at type-check. Every native render crosses the runtime lane through the owned `lane: LanePolicy` (vegafusion and matplotlib as `KernelTrait.HOSTILE` kernels on the warm process pool under the trait-row worker-death retry, the GIL-releasing vl-convert core and the lets-plot self-render as `KernelTrait.RELEASING` — lets-plot bundles a native core whose catalog fixes the thread arm, never a subinterpreter) inside one OpenTelemetry span, and every fault stays a typed `RuntimeRail` — a pre-pass refusal folds onto `BoundaryFault` at the seam, never a stringified raise mid-transform. Node contract is `emit()` minting the key PRE-RUN over the canonical input preimage and `_emit` threading that same key into the receipt; the Vega case admits `keyed` for warm elision while the live-figure cases admit `bare`, because a live `Figure`/`PlotSpec` has no cross-host canonical bytes. Themed bytes are a flat handoff `composition/compose#COMPOSE` places; `layered()` is the one editorial alternative — the rendered SVG decomposed into semantic `role-*` mark-group layers as the `tuple[Layer, ...]` that `export/layered#LAYERED` lands as a named-layer designer file.
+`ChartRenderPolicy` carries the full converter axis as one typed policy value — raster `scale`/`ppi`/`quality`, the `VegaTheme` theme, the pinned `vl_version`, `register_font_directory` closing the font-identity loop, the `format_locale`/`time_format_locale` d3-locale pair, the `allowed_base_urls` SSRF fence (a non-empty fence refuses HTML export typed, because the browser-side render cannot enforce it), the `show_warnings` compile-diagnostic toggle the Vega-Lite raster/SVG rows admit, and the HTML `renderer`/`bundle` — and each `VlRow` stores two fully typed `(Spec, ChartRenderPolicy) -> str | bytes` calls with explicit provider keywords, so either a policy-field rename or a converter-signature change breaks its row at type-check. Every native render crosses the runtime lane through the owned `lane: LanePolicy` (vegafusion and matplotlib as `KernelTrait.HOSTILE` kernels on the warm process pool under the trait-row worker-death retry, the GIL-releasing vl-convert core and the lets-plot self-render as `KernelTrait.RELEASING` — lets-plot bundles a native core whose catalog fixes the thread arm, never a subinterpreter) inside one OpenTelemetry span, and every fault stays a typed `RuntimeRail` — a pre-pass refusal folds onto its own `CHART_PREPASS` row at the seam, never a stringified raise mid-transform. Node contract is `emit()` minting the key PRE-RUN over the canonical input preimage and `_emit` threading that same key into the receipt; the Vega case admits `keyed` for warm elision while the live-figure cases admit `bare`, because a live `Figure`/`PlotSpec` has no cross-host canonical bytes. Themed bytes are a flat handoff `composition/compose#COMPOSE` places; `layered()` is the one editorial alternative — the rendered SVG decomposed into semantic `role-*` mark-group layers as the `tuple[Layer, ...]` that `export/layered#LAYERED` lands as a named-layer designer file.
 
 ## [01]-[INDEX]
 
@@ -38,17 +38,19 @@ import structlog
 import vl_convert as vlc
 from builtins import frozendict
 from expression import Error, Ok, Result, case, tag, tagged_union
+from expression.collections import Block
 from expression.extra.result import catch
 from msgspec import Struct, json, structs
 from opentelemetry import trace
 from pydantic import JsonValue
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.export.layered import Layer, OcgIntent
 from rasm.artifacts.graphic.color.derive import Palette, hex_ramp
 from rasm.artifacts.visualization.chart.spec import ChartSpec
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary, faulted, scoped
+from rasm.runtime.faults import TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, boundary, faulted, rostered, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
@@ -98,6 +100,33 @@ _LOG: Final = structlog.get_logger()
 _TRACER: Final = scoped(trace.get_tracer, "rasm.artifacts.visualization.chart.export")
 _CANON: Final = json.Encoder(order="deterministic")
 
+
+
+# the log-line fence's whole raise surface: the emit folds a bound event through the composition's own processor
+# chain into its sink, so a closed or broken stream answers `OSError` and a renderer that cannot serialize a bound
+# value answers `TypeError`/`ValueError`. `structlog.DropEvent` is deliberately absent — a processor discarding an
+# event is the chain's own control flow, which the bound logger already absorbs, never a fault this fence converts.
+_LINE_RAISES: Final[Catch] = (OSError, TypeError, ValueError)
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's whole raise roster. Two refusals are caller-repairable and TERMINAL — the layers egress answers vega
+# alone, and an SSRF fence cannot ride a browser-side HTML render — while the pre-pass fold and the observation line
+# are TRANSIENT, each a defect a re-issue may clear. The export format and the engine ride as NAMED coordinates
+# rather than forking one fence's subject per value.
+CHART_PREPASS: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.CHART_EXPORT, point="prepass", arm="boundary", defect="prepass-refused", retriability=TRANSIENT, slots=("format", "cause")
+)
+CHART_LAYERS: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.CHART_EXPORT, point="layers", arm="config", defect="layers-vega-only", retriability=TERMINAL, slots=("engine",)
+)
+CHART_HTML: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.CHART_EXPORT, point="html", arm="config", defect="base-urls-unenforceable", retriability=TERMINAL
+)
+CHART_LINE: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.CHART_EXPORT, point="line", arm="boundary", defect="line-refused", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([CHART_PREPASS, CHART_LAYERS, CHART_HTML, CHART_LINE]))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class ExportFormat(StrEnum):
@@ -446,8 +475,9 @@ def _committed(receipt: ArtifactReceipt, engine: str, fmt: str, byte_len: int, e
     # best-effort beside the receipt truth, a broken log chain lands as one span event on the live export span and
     # never escapes into — or replaces — the receipt the caller composes.
     boundary(
-        "chart.export.line",
+        CHART_LINE,
         lambda: _LOG.info("chart.export", engine=engine, format=fmt, bytes=byte_len, **(_evidence_attrs(evidence) if evidence is not None else {})),
+        catch=_LINE_RAISES,
     ).swap().map(lambda fault: trace.get_current_span().add_event("chart.export.line-refused", fault.facts()))
     return receipt
 
@@ -672,7 +702,7 @@ class ChartExport(Struct, frozen=True):
     async def _prepared(self, spec: Spec, fmt: ExportFormat) -> RuntimeRail[PrePass]:
         return (
             await self.lane.offload(Kernel.of(_pre_transform, KernelTrait.HOSTILE), spec, fmt, self._resolved, self.retention)
-        ).bind(lambda inner: inner.map_error(lambda fault: BoundaryFault(boundary=(f"chart.prepass.{fmt}", fault))))
+        ).bind(lambda inner: inner.map_error(lambda fault: CHART_PREPASS.raised(fmt.value, fault)))
 
     async def layered(self) -> RuntimeRail[tuple[Layer, ...]]:
         match self.chart:
@@ -690,7 +720,7 @@ class ChartExport(Struct, frozen=True):
                         case _ as unreachable:
                             assert_never(unreachable)
             case _:
-                return Error(BoundaryFault(boundary=("chart.layers", "<vega-only>")))
+                return Error(CHART_LAYERS.raised(self.chart.tag))
 
     async def _rendered(self) -> RuntimeRail[tuple[bytes, PrePassEvidence | None]]:
         match self.chart:
@@ -698,7 +728,7 @@ class ChartExport(Struct, frozen=True):
                 if self.fmt is ExportFormat.HTML and self.policy.allowed_base_urls:
                     # vl-convert's `*_to_html` defers rendering to the browser, so the SSRF fence cannot ride the
                     # call — a fenced policy refuses HTML export loudly rather than shipping an unfenced document.
-                    return Error(BoundaryFault(config=("chart.export.html", "allowed-base-urls-unenforceable")))
+                    return Error(CHART_HTML.raised())
                 staged = await self._prepared(spec, self.fmt)
                 match staged:
                     case Result(tag="ok", ok=prepass):

@@ -1,24 +1,25 @@
 # [RASM_GRASSHOPPER_CANVAS_WIRES]
 
-Wire visuals for the Grasshopper boundary fold through one owner set — route geometry over the public `WireShape` family, custom-route installation through `ShapeType`, point picking through the closed canvas query/projection rail, marquee selection through `WindowSelection`, and the wire-pen pass over `WireSkin`.
+Wire visuals for the Grasshopper boundary fold through one owner set — route admission over the public `WireShape` family, custom-route installation through the leased `ShapeType` seam, point picking through the result-typed canvas query, and the wire pass as a PLAN PRODUCER: `WirePass.Plan` answers a `GhPlan` the paint executor draws under its pass-scoped stock, so the per-wire-per-layer brush and pen minting this page once did inside its own loop — the exact defect the paint stock law names — has no loop left to live in.
 
-`Canvas.WireDrawCache` and its `WireRepository` type are internal, so the repository's nominally public `WireAt` member is unreachable; point picking therefore composes the public `Canvas.ResolvePick` boundary already owned by `Canvas/canvas.md`. `WireShapeLinear` and `WireShapeBiArc` are likewise internal implementation types, and `WireShapeElbow` is absent. Document-side traversal, mutation, split, and undo capabilities remain `Document/graph.md`'s `GraphScope`; this page consumes resolved `WireEnds` and pin attributes without touching the graph.
+`Canvas.WireDrawCache` and its `WireRepository` are internal, so point picking composes the public `Canvas.ResolvePick` boundary `Canvas/canvas.md` owns. Document-side traversal, mutation, split, and undo stay `Document/graph.md`'s `GraphScope`; this page consumes resolved `WireEnds` and pin attributes without touching the graph.
 
 ## [01]-[INDEX]
 
-- [02]-[ROUTES]: `WireRoute` + `RouteStyle` — the admitted route capsule over the `WireShape` family and the one custom-shape installation seam.
-- [03]-[PICKING]: `WirePick` — point picking through the gated pick map and marquee picking through the `WindowSelection` fuzz algebra.
-- [04]-[PENS]: `WirePens` + `WireSkinLens` + `WirePass` — wire-pen resolution by selection state, skin derivation folds, and the detail-gated draw pass.
+- [02]-[ROUTES]: `WireRoute` + `RouteStyle` + `Traced` — the admitted route capsule, the leased custom-shape seam, and the partitioned route producer.
+- [03]-[PICKING]: `WirePick` — result-typed point picking and host marquee selection.
+- [04]-[PENS]: `EndSelection` + `WirePens` + `WireSkinLens` + `WirePass` — the four-corner palette correspondence, perceptual pen evidence, skin derivation, and the plan producer.
 
 ## [02]-[ROUTES]
 
-- Owner: `WireRoute` `readonly record struct` `[BoundaryAdapter]` — the admitted route capsule holding one host `WireShape`. Admission is ONE polymorphic `Of` discriminating on input shape: an endpoint pair (`PointF`, `PointF`) routes raw points, and a pin-attribute pair (`IParameterAttributes`, `IParameterAttributes`) routes outlet-to-inlet — the host `Create` throws on a source without an outlet or a target without an inlet, so both arms run under `Op.Catch` and a refused pin surfaces as the typed fault. Capsule queries are the full geometry contract renamed to canonical verbs: `Nearest(PointF)` (`Project` — closest point on the route), `Gap(PointF)` (`DistanceTo`), `Crosses(RectangleF)` (`Intersects`), `Touches(PointF, float)` (`IsCoincident`), `Extent` (`Bounds`), and `Endpoints` (`Source`/`Target`).
-- Owner: `RouteStyle` — the custom-route seam over `WireShape.ShapeType`. `Install(Type, Op?)` → `Fin<IDisposable>` admits one closed, concrete `WireShape` subtype with a public two-`PointF` constructor before assignment — precluding abstract, open-generic, and constructor-late failures before the host reaches `Activator.CreateInstance` — and holds the PROCESS-GLOBAL slot under leased custody: the returned capsule restores the captured prior style exactly once, a second concurrent install refuses with `InvalidContext` instead of silently overriding a sibling plugin, and `Current` reads the installed type as `Option<Type>`. `WireShapeDefault` is the public cubic-spline fallback and `CreateSpline(PointF, PointF)` mints its `BezierF`; the internal linear and biarc implementations are not extension surfaces. Every elbow, orthogonal, or bundled route lands as a public plugin-owned `WireShape` subclass installed through this seam.
-- Owner: `Traced` — the route-set producer: `Traced.Of(Seq<(WireEnds Ends, IParameterAttributes Source, IParameterAttributes Target)> pins, Op key)` folds pin rows into `TracedRoutes` through the attribute admission arm — every routed pin lands in `Routes`, every refused pin lands in `Refused` as typed evidence beside its `WireEnds`, so a single detached pin never voids the pass: the draw fold strokes what routed and a diagnostics consumer folds what refused. Pin resolution — `Guid` to `IParameterAttributes` — is graph territory; the rows arrive resolved.
-- Law: a route is rebuilt when its endpoints move, never cached across layout — construction is two points and a spline mint, and the host repaints wires per frame anyway;
-- Boundary: wire creation, deletion, endpoint rewiring, and the split into `Shout`/`Listen` are `Document/graph.md`'s `GraphScope.Mutate`; the straighten NUDGE candidate (`SnappingAction.CreateStraightenWireAction`) is `Canvas/layout.md`'s row; this page owns route geometry and its rendering only.
-- Packages: Grasshopper2 (`WireShape.Create`/`Project`/`DistanceTo`/`Intersects`/`IsCoincident`/`Draw`/`Bounds`/`Source`/`Target`/`ShapeType`, `WireShapeDefault.CreateSpline`, `IParameterAttributes.HasInlet`/`HasOutlet`/`Inlet`/`Outlet`, `WireEnds`), Eto.Drawing (`PointF`, `RectangleF`, `BezierF`, `Graphics`, `Pen`), LanguageExt.Core, `Rasm.Domain`.
-- Growth: a new route geometry is one installed `WireShape` subclass — zero edits here; a new route query is one capsule member over the host contract.
+- Owner: `WireRoute` — the ADMISSION capsule and nothing more: one polymorphic `Of` discriminating on input shape (an endpoint pair routes raw points; a pin-attribute pair routes outlet-to-inlet, both under `Op.Catch` because the host `Create` throws on a pin-less attribute), and the public `Shape` the admission proved. Six rename members (`Nearest`/`Gap`/`Crosses`/`Touches`/`Extent`/`Endpoints`) are DELETED — the page's own no-rename-wrapper law, finally applied to itself: a consumer reads the host contract off `Shape` directly, and four of the six had zero call sites anywhere.
+- Owner: `RouteStyle` — the custom-route seam over `WireShape.ShapeType`. `Install(Type, FaultCell, Op?)` → `Fin<Lease<Mounted<Unit>>>` admits the candidate through THREE accumulated clauses (`WireShape`-derived, closed and concrete, public two-`PointF` constructor — a candidate failing two reads both), then claims the HOST SLOT ITSELF — the one authority: a held slot, whether this plugin's or a sibling's, refuses `InvalidContext` instead of silently overriding, and release clears only the candidate it still owns — the fan's one capsule, no shadow seat to disagree with the slot.
+- Owner: `Traced` — the route producer on the ruled partial-success posture: `Of` maps every pin row onto the admission rail and PARTITIONS — accepted routes beside typed refusals, each refusal carrying its `WireEnds` in the fault detail — so a single detached pin never voids the pass — the composition root's paint PLANNER (`Platform/composition.md` roster row [07]) is the consumer: it folds `Traced.Of` → `WirePass.Plan` each pass and parks the refusal lane on the composition's `FaultCell`.
+- Law: `WireShape.ShapeType` is PROCESS-GLOBAL host state and the ONE authority — every canvas and every co-resident plugin reads the same slot, so installation is leased custody over the slot itself: `Install` runs at plugin load inside the UI marshal (read-check-write is single-threaded by the marshal law), a held slot refuses rather than stacks, and the lease's inverse writes the slot back to unclaimed.
+- Law: a route is rebuilt when its endpoints move, never cached across layout — construction is two points and a spline mint, and the host repaints wires per frame.
+- Boundary: wire creation, deletion, endpoint rewiring, and the split into `Shout`/`Listen` are `Document/graph.md`'s; the straighten nudge candidate is `Canvas/layout.md`'s row; hover proximity is a `Shape.IsCoincident` read with the caller's tolerance — the consumer's policy datum, never a folder constant.
+- Packages: Grasshopper2 (`WireShape`, `WireShapeDefault.CreateSpline`, `IParameterAttributes`, `WireEnds`), LanguageExt.Core (`Validation`, `Partition`), `Rasm.Domain` (`Op`, `Cell`, `FaultCell`, `Lease<T>`).
+- Growth: a new route geometry is one installed `WireShape` subclass — zero edits here.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -27,241 +28,217 @@ using Rasm.Domain;
 namespace Rasm.Grasshopper.Canvas;
 
 // --- [MODELS] -------------------------------------------------------------------------------
+// Admission alone: `Shape` is the proved host value and consumers read the host contract off it directly —
+// Rename-wrapper roster this capsule once carried is the deleted form its own law named.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct WireRoute {
     private WireRoute(WireShape shape) => Shape = shape;
-    internal WireShape Shape { get; }
+
+    public WireShape Shape { get; }
 
     public static Fin<WireRoute> Of(PointF source, PointF target, Op? key = null) {
         Op op = key.OrDefault();
-        return op.Catch(body: () => Fin.Succ(new WireRoute(shape: WireShape.Create(source, target))));
+        return op.Catch(() => Fin.Succ(new WireRoute(shape: WireShape.Create(source, target))));
     }
 
+    // Both pin admissions ACCUMULATE, so a detached source and a detached target report together.
     public static Fin<WireRoute> Of(IParameterAttributes source, IParameterAttributes target, Op? key = null) {
         Op op = key.OrDefault();
-        return from origin in op.Need(value: source)
-               from goal in op.Need(value: target)
-               from route in op.Catch(body: () => Fin.Succ(new WireRoute(shape: WireShape.Create(origin, goal))))
-               select route;
-    }
-
-    public PointF Nearest(PointF point) => Shape.Project(point);
-    public float Gap(PointF point) => Shape.DistanceTo(point);
-    public bool Crosses(RectangleF box) => Shape.Intersects(box);
-    public bool Touches(PointF point, float tolerance) => Shape.IsCoincident(point, tolerance);
-    public RectangleF Extent => Shape.Bounds;
-    public (PointF Source, PointF Target) Endpoints => (Shape.Source, Shape.Target);
-    internal Unit Render(Graphics graphics, Pen edge) => Op.Side(action: () => Shape.Draw(graphics, edge));
-}
-
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-[BoundaryAdapter]
-// WireShape.ShapeType is PROCESS-GLOBAL host state — every canvas and every co-resident plugin reads one slot —
-// so installation is leased custody: the lease captures the prior style and its inverse restores it exactly,
-// refusing a second concurrent install rather than silently overriding a sibling's route.
-public static class RouteStyle {
-    private static readonly Atom<Option<IDisposable>> Seat = Atom(Option<IDisposable>.None);
-
-    public static Option<Type> Current => Optional(WireShape.ShapeType);
-
-    public static Fin<IDisposable> Install(Type routeType, Op? key = null) {
-        Op op = key.OrDefault();
-        return from candidate in op.Need(value: routeType)
-               from derived in guard(typeof(WireShape).IsAssignableFrom(candidate), op.InvalidInput()).ToFin()
-               from closed in guard(!candidate.IsAbstract && !candidate.ContainsGenericParameters, op.InvalidInput()).ToFin()
-               from constructible in guard(
-                   candidate.GetConstructor([typeof(PointF), typeof(PointF)]) is not null, op.InvalidInput()).ToFin()
-               from installed in op.Catch(body: () => {
-                   Type? prior = WireShape.ShapeType;
-                   RouteRestore restore = new(Detach: () => {
-                       WireShape.ShapeType = prior;
-                       ignore(Seat.Swap(static _ => Option<IDisposable>.None));
-                   });
-                   return Seat.Swap(held => held.IsNone ? Some((IDisposable)restore) : held)
-                       .Filter(occupant => ReferenceEquals(occupant, restore))
-                       .Match(
-                           Some: _ => { WireShape.ShapeType = candidate; return Fin.Succ((IDisposable)restore); },
-                           None: () => Fin.Fail<IDisposable>(op.InvalidContext()));
-               })
-               select installed;
-    }
-
-    private sealed record RouteRestore(Action Detach) : IDisposable {
-        private int released;
-        public void Dispose() => Op.SideWhen(
-            condition: Interlocked.Exchange(ref released, 1) == 0,
-            action: Detach);
+        return (op.Need(value: source).ToValidation(), op.Need(value: target).ToValidation())
+            .Apply(static (origin, goal) => (Origin: origin, Goal: goal))
+            .As().ToFin()
+            .Bind(pair => op.Catch(() => Fin.Succ(new WireRoute(shape: WireShape.Create(pair.Origin, pair.Goal)))));
     }
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct TracedRoutes(Seq<(WireEnds Ends, WireRoute Route)> Routes, Seq<(WireEnds Ends, Error Refusal)> Refused);
+public readonly record struct TracedRoutes(Seq<(WireEnds Ends, WireRoute Route)> Routes, Seq<Error> Refused);
+
+// --- [OPERATIONS] ---------------------------------------------------------------------------
+[BoundaryAdapter]
+// PROCESS-GLOBAL custody, ONE authority: the host slot itself — Install runs inside the UI marshal at plugin
+// load, refuses a held slot (this plugin's or a sibling's), and Release clears only the candidate it still owns;
+// no shadow seat exists to disagree with the slot.
+public static class RouteStyle {
+    public static Option<Type> Current => Optional(WireShape.ShapeType);
+
+    public static Fin<Lease<Mounted<Unit>>> Install(Type routeType, FaultCell faults, Op? key = null) {
+        Op op = key.OrDefault();
+        return from candidate in op.Need(value: routeType)
+               // Three clauses, one applicative: a candidate failing two reads both refusals.
+               from admitted in (
+                       Clause(typeof(WireShape).IsAssignableFrom(candidate), "a WireShape-derived type", op),
+                       Clause(!candidate.IsAbstract && !candidate.ContainsGenericParameters, "a closed concrete type", op),
+                       Clause(candidate.GetConstructor([typeof(PointF), typeof(PointF)]) is not null, "a public (PointF, PointF) constructor", op))
+                   .Apply(static (_, _, _) => unit).As().ToFin()
+               from free in guard(WireShape.ShapeType is null, op.InvalidContext()).ToFin()
+               from seated in op.Catch(() => {
+                   WireShape.ShapeType = candidate;
+                   return Fin.Succ((Lease<Mounted<Unit>>)new Lease<Mounted<Unit>>.Owned(Value: new Mounted<Unit>(
+                       release: () => guard(ReferenceEquals(WireShape.ShapeType, candidate), op.InvalidContext()).ToFin()
+                           .Map(_ => Op.Side(static () => WireShape.ShapeType = null)),
+                       faults: faults, operation: op)));
+               }).Rollback(
+                   release: () => ReferenceEquals(WireShape.ShapeType, candidate)
+                       ? op.Catch(() => Fin.Succ(Op.Side(static () => WireShape.ShapeType = null)))
+                       : Fin.Succ(unit),
+                   key: op)
+               select seated;
+    }
+
+    private static Validation<Error, Unit> Clause(bool holds, string requirement, Op key) => holds
+        ? Validation<Error, Unit>.Success(unit)
+        : Validation<Error, Unit>.Fail(new KernelFault.InvalidValue(Label: nameof(RouteStyle), Requirement: requirement, Key: Some(key)));
+}
 
 [BoundaryAdapter]
 public static class Traced {
-    public static TracedRoutes Of(Seq<(WireEnds Ends, IParameterAttributes Source, IParameterAttributes Target)> pins, Op key) =>
-        pins.Fold(
-            new TracedRoutes(Routes: Seq<(WireEnds, WireRoute)>(), Refused: Seq<(WireEnds, Error)>()),
-            (held, row) => WireRoute.Of(source: row.Source, target: row.Target, key: key).Match(
-                Succ: route => held with { Routes = held.Routes.Add((row.Ends, route)) },
-                Fail: fault => held with { Refused = held.Refused.Add((row.Ends, fault)) }));
+    // Ruled posture: every row lands in one lane — accepted routes or typed refusals carrying their ends —
+    // through the one Partition fold; the caller parks the refusal lane on the composition's fault cell.
+    public static TracedRoutes Of(Seq<(WireEnds Ends, IParameterAttributes Source, IParameterAttributes Target)> pins, Op key) {
+        (Seq<Error> refused, Seq<(WireEnds, WireRoute)> routed) = pins
+            .Map(row => WireRoute.Of(source: row.Source, target: row.Target, key: key)
+                .Map(route => (row.Ends, route)))
+            .Partition();
+        return new TracedRoutes(Routes: routed, Refused: refused);
+    }
 }
 ```
 
 ## [03]-[PICKING]
 
-- Owner: `WirePick` — the two pick modalities over public host contracts. `At(PointF, Op?)` submits `CanvasQuery.PickCase(at, PickGates.Wiring, None)` to `CanvasOperator.Read`; wire picking carries no drag grain, so its receipt reports none, admits only `CanvasProjection.PickCase`, and totally projects its `PickHit`: wire becomes `Some(WireEnds)`, every known non-wire case becomes `None`, and any non-pick projection is a typed invalid-result fault. Any unknown future host `Pick` refuses rather than degrading to `None`: `Canvas/canvas.md`'s `PickHit.Of` fails before a projection exists. `Windowed(WindowSelection, Seq<(WireEnds, WireRoute)>, float)` folds the host `WindowSelection.Selects(WireShape, float)` overload, retaining the host's crossing-versus-containing law.
-- Law: pick admission is gate policy — whether wires participate in a marquee at all is `Canvas/canvas.md`'s `SelectGates`, and whether a pick verb is allowed at all is its `ActionGate` rows (`WireSelect`, `MakeWire`, `DeleteWire`, `ModifyWire`); this owner resolves geometry and never consults policy.
-- Law: hover proximity is route geometry — `route.Touches(point, tolerance)` with the caller's tolerance value; the tolerance is the consumer's policy datum, never a folder constant.
-- Packages: Grasshopper2 (`WindowSelection.Selects(WireShape, float)`/`IsCrossing`/`Box`, `SelectionResult`, `Pick`, `WireEnds`), `Canvas/canvas.md` (`CanvasOperator.Read(CanvasQuery)`, `CanvasQuery.PickCase`, `CanvasProjection.PickCase`, `PickGates`, `PickHit`), LanguageExt.Core, `Rasm.Domain`.
-- Growth: a new pick modality is one method over an existing host read; the gates and the fuzz algebra never fork.
+- Owner: `WirePick` — the two pick modalities over public host contracts. `At` composes the result-typed `CanvasQuery.Pick(at, PickGates.Wiring, None)` — the receipt arrives as `PickReceipt` directly, so the projection-union ladder this member once paid is gone — and projects the hit through the generated PARTIAL overload: one wire arm, one default, so the four identical `None` arms have no spelling and an unknown future host `Pick` kind still refuses upstream at `PickHit.Of`. `Windowed` folds the host `WindowSelection.Selects(WireShape, float)` overload, retaining the host's crossing-versus-containing law.
+- Law: pick admission is gate policy — whether wires participate in a marquee is `Canvas/canvas.md`'s `SelectAxis` set, and whether a pick verb is allowed is its `ActionGate` rows; this owner resolves geometry and never consults policy.
+- Packages: Grasshopper2 (`WindowSelection`, `WireEnds`), `Canvas/canvas.md` (`CanvasQuery.Pick`, `CanvasOperator.Read`, `PickHit`), kernel `PickGates`, LanguageExt.Core, `Rasm.Domain`.
+- Growth: a new pick modality is one method over an existing host read.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Domain;
+using Rasm.Interaction;
 
 namespace Rasm.Grasshopper.Canvas;
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [BoundaryAdapter]
 public static class WirePick {
+    // Result-typed end to end: the query answers the receipt, and the hit projects through the generated partial
+    // overload — one meaningful arm, one default, no ceremony ladder.
     public static Fin<Option<WireEnds>> At(PointF at, Op? key = null) {
         Op op = key.OrDefault();
-        return CanvasOperator.Read(
-            query: new CanvasQuery.PickCase(At: at, Gates: PickGates.Wiring, Chord: None),
-            key: op).Bind(projection => projection.Switch(
-                state: op,
-                pointCase: static (active, _) => Unexpected(key: active),
-                frameCase: static (active, _) => Unexpected(key: active),
-                pickCase: static (_, result) => Fin.Succ(value: result.Value.Hit.Switch(
-                    wireCase: static wire => Some(wire.Wire),
-                    inletCase: static _ => Option<WireEnds>.None,
-                    outletCase: static _ => Option<WireEnds>.None,
-                    surfaceCase: static _ => Option<WireEnds>.None,
-                    voidCase: static _ => Option<WireEnds>.None)),
-                stateCase: static (active, _) => Unexpected(key: active),
-                pulseCase: static (active, _) => Unexpected(key: active),
-                rasterCase: static (active, _) => Unexpected(key: active)));
+        return from query in CanvasQuery.Pick(at: at, gates: PickGates.Wiring, key: op)
+               from receipt in CanvasOperator.Read(query: query, key: op)
+               select receipt.Hit.SwitchPartially(
+                   @default: static _ => Option<WireEnds>.None,
+                   wireCase: static wire => Some(wire.Wire));
     }
 
     public static Seq<WireEnds> Windowed(WindowSelection window, Seq<(WireEnds Ends, WireRoute Route)> routes, float fuzz) =>
         routes.Filter(row => window.Selects(row.Route.Shape, fuzz)).Map(static row => row.Ends).Strict();
-
-    private static Fin<Option<WireEnds>> Unexpected(Op key) =>
-        Fin.Fail<Option<WireEnds>>(error: key.InvalidResult(detail: "Wire pick received a non-pick canvas projection."));
 }
 ```
 
 ## [04]-[PENS]
 
-- Owner: `WirePens` `readonly record struct` — the resolved wire-ink evidence: `Source` and `Target` end colours from `WireSkin.ResolveColours`, the required `Outer` edge, and the runtime-nullable `Inner` edge as `Option<EdgeDescription>`. Ends and layers are orthogonal axes: each present layer mints one pen whose ink is solid when the end colours agree and a source-to-target `LinearGradientBrush` when they differ, applies `EdgeDescription.AssignToPen`, and disposes the brush and pen with the stroke.
-- Owner: `WireSkinLens` — the two folds that add shape over the verified `WireSkin` surface: `Pens(WireSkin, bool sourceSelected, bool targetSelected)` lifts the `out`-pair onto `WirePens`, and `Styled(WireSkin, ...)` projects the corpus `Option` vocabulary onto the host `Modify` nullable-slot fold (`normal`/`selected`/`selectedOpposite`/`selectedGlow`/`outerEdge`/`innerEdge`) so a themed wire palette is one derivation expression, never a rebuilt skin. `WireSkin.Interpolate` and `Fade` are host-direct — a rename fold beside them is the deleted form, the same law that keeps the `Skin` `With` algebra unwrapped on `Canvas/paint.md`. Host palette rows are `Normal`, `Selected`, `Unselected`, and `SelectedGlow`; a perceptual blend between local palettes crosses through `Pigment` onto the kernel `PerceptualColor`/`BlendPath` owner, while `Interpolate` remains the host's own palette blend.
-- Owner: `WirePass` — the detail-gated draw fold: `Draw(PaintScene, WireSkin, Seq<(WireRoute, bool, bool)>, Op)` culls each route against the visible frame, resolves end colours, always strokes the required outer edge, and strokes the optional inner edge only when `ZuiWireDetailingState > 0`. Both layers call `WireShape.Draw(Graphics, Pen)`. This pass runs inside a `Canvas/paint.md` `BeforeWires` or `AfterWires` window.
-- Law: selection state arrives as data on the wire rows — the pass never reads document selection; the caller projects selection truth (a `Document/graph.md` read) into the row flags, keeping the draw fold pure over its inputs.
-- Packages: Grasshopper2 (`WireSkin.ResolveColours`/`Interpolate`/`Fade`/`Modify`/`Normal`/`Selected`/`Unselected`/`SelectedGlow`/`Outer`/`Inner`, `EdgeDescription.AssignToPen`/`Width`/`Cap`/`Dash`, `Canvas.ZuiWireDetailingState`), Eto.Drawing (`Pen`, `Brush`, `SolidBrush`, `LinearGradientBrush`, `Color`, `Graphics`), `Canvas/paint.md` (`PaintScene`), kernel `PerceptualColor`/`BlendPath` via `Pigment`, LanguageExt.Core, `Rasm.Domain`.
-- Growth: a new wire treatment is a `Styled` derivation or one skin row through the host `Modify` slots; a new pass policy (glow, bundle dimming) is one fold parameter — the draw seam never forks.
+- Owner: `EndSelection` `[SmartEnum<int>]` — the four-corner palette correspondence the HOST itself names: `Neither`/`Source`/`Target`/`Both` are the four outcomes of `WireSkin.ResolveColours(sourceSelected, targetSelected, out, out)`, and each row carries that resolve as its column, admitting the two host colours onto the kernel colour owner — the two loose bools and the out-pair lift are one keyed row read. `WirePens` — the resolved ink evidence in PERCEPTUAL colour (`Source`/`Target` ends, required `Outer` edge, optional `Inner` detail edge); the Eto quantization happens once at the executor's pen stock, never on this value.
+- Owner: `WireSkinLens.Styled` — the one derivation fold projecting the corpus `Option` vocabulary onto the host `Modify` nullable-slot fold through the kernel `Op.ToHostNullable` — the six hand `Match(… null)` arms are one owner's projection. `WireSkin.Interpolate`/`Fade` stay host-direct; a perceptual blend between palettes crosses the kernel `Tween.Between`.
+- Owner: `WirePass` — the PLAN PRODUCER: `Plan(skin, wires, detailing)` culls nothing and draws nothing — it answers a `GhPlan` of `GhMark.WireCase` rows (ONE per wire; both present layers ride the row's `Ink`, so the edge is stored once), and `Canvas/paint.md`'s executor draws them under its pass-scoped stock, where at most the palette's four corners per edge mint a pen. Culling, tallies, receipt, and stock custody all arrive from the executor — the hand loop with its `if`-continue cull, manual counter, and float-threshold gate is deleted whole.
+- Law: the inner detail edge is a ZUI policy read — a wire row carries `Inner` only when the caller's `detailing` read admits it (the producer CLEARS the slot otherwise), so the detail gate is plan data, not a draw-time branch.
+- Law: selection state arrives as data on the wire rows — the pass never reads document selection; the caller projects selection truth into `EndSelection` rows, keeping the producer pure over its inputs.
+- Packages: Grasshopper2 (`WireSkin`, `EdgeDescription`, `Canvas.ZuiWireDetailingState`), `Rasm.Interaction` (`PaintColor`, `Tween`, `Op.ToHostNullable`), `Rasm.Numerics` (`PerceptualColor`), `Canvas/paint.md` (`GhPlan`, `GhMark.WireCase`), LanguageExt.Core, `Rasm.Domain`.
+- Growth: a new wire treatment is a `Styled` derivation; a new pass policy is one plan parameter — the draw seam lives at the executor and never forks.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Domain;
+using Rasm.Interaction;
+using Rasm.Numerics;
 
 namespace Rasm.Grasshopper.Canvas;
 
+// --- [TYPES] --------------------------------------------------------------------------------
+// Host names all four corners — ResolveColours' two bools select among four palette outcomes — so the
+// correspondence is a keyed row set carrying the resolve, and the bool pair is unrepresentable past this seam.
+[SmartEnum<int>]
+public sealed partial class EndSelection {
+    public static readonly EndSelection Neither = new(key: 0, source: false, target: false);
+    public static readonly EndSelection Source = new(key: 1, source: true, target: false);
+    public static readonly EndSelection Target = new(key: 2, source: false, target: true);
+    public static readonly EndSelection Both = new(key: 3, source: true, target: true);
+
+    internal bool SelectsSource { get; }
+    internal bool SelectsTarget { get; }
+
+    // Out-pair lift and the colour admission in one row read: host colours enter the kernel owner HERE, and
+    // Eto quantization waits for the executor's pen stock.
+    public Fin<WirePens> Pens(WireSkin skin, Op key) {
+        skin.ResolveColours(SelectsSource, SelectsTarget, out Color source, out Color target);
+        return from a in PaintColor.OfHost(host: source, key: key)
+               from b in PaintColor.OfHost(host: target, key: key)
+               select new WirePens(Source: a, Target: b, Outer: skin.Outer, Inner: Optional(skin.Inner));
+    }
+}
+
 // --- [MODELS] -------------------------------------------------------------------------------
+// PERCEPTUAL ends: equal ends draw solid, unequal ends draw the source-to-target gradient — derived at the
+// executor's pen mint, never stored as a mode.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct WirePens(Color Source, Color Target, EdgeDescription Outer, Option<EdgeDescription> Inner);
+public readonly record struct WirePens(
+    PerceptualColor Source, PerceptualColor Target, EdgeDescription Outer, Option<EdgeDescription> Inner);
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [BoundaryAdapter]
 public static class WireSkinLens {
-    public static WirePens Pens(WireSkin skin, bool sourceSelected, bool targetSelected) {
-        skin.ResolveColours(sourceSelected, targetSelected, out Color source, out Color target);
-        return new WirePens(Source: source, Target: target, Outer: skin.Outer, Inner: Optional(skin.Inner));
-    }
-
+    // ONE projection owner: the kernel host-slot member carries every Option onto the host's nullable fold.
     public static WireSkin Styled(
         WireSkin skin, Option<Color> normal = default, Option<Color> selected = default,
         Option<Color> selectedOpposite = default, Option<Color> selectedGlow = default,
         Option<EdgeDescription> outerEdge = default, Option<EdgeDescription> innerEdge = default) =>
         skin.Modify(
-            normal: normal.Match<Color?>(Some: static c => c, None: static () => null),
-            selected: selected.Match<Color?>(Some: static c => c, None: static () => null),
-            selectedOpposite: selectedOpposite.Match<Color?>(Some: static c => c, None: static () => null),
-            selectedGlow: selectedGlow.Match<Color?>(Some: static c => c, None: static () => null),
-            outerEdge: outerEdge.Match<EdgeDescription?>(Some: static e => e, None: static () => null),
-            innerEdge: innerEdge.Match<EdgeDescription?>(Some: static e => e, None: static () => null));
+            normal: Op.ToHostNullable(normal),
+            selected: Op.ToHostNullable(selected),
+            selectedOpposite: Op.ToHostNullable(selectedOpposite),
+            selectedGlow: Op.ToHostNullable(selectedGlow),
+            outerEdge: Op.ToHostNullable(outerEdge),
+            innerEdge: Op.ToHostNullable(innerEdge));
 }
 
 [BoundaryAdapter]
 public static class WirePass {
-    public static Fin<int> Draw(
-        PaintScene scene, WireSkin skin,
-        Seq<(WireRoute Route, bool SourceSelected, bool TargetSelected)> wires, Op key) =>
-        key.Catch(body: () => {
-            float detailing = scene.Surface.ZuiWireDetailingState;
-            Graphics graphics = scene.Graphics.Content;
-            int drawn = wires.Fold(0, (count, row) => {
-                if (!scene.Visible.Intersects(row.Route.Extent)) { return count; }
-                WirePens pens = WireSkinLens.Pens(skin: skin, sourceSelected: row.SourceSelected, targetSelected: row.TargetSelected);
-                _ = Stroke(graphics: graphics, route: row.Route, pens: pens, edge: pens.Outer);
-                if (detailing > 0f) { _ = pens.Inner.Iter(edge => Stroke(graphics: graphics, route: row.Route, pens: pens, edge: edge)); }
-                return count + 1;
-            });
-            return Fin.Succ(drawn);
-        });
-
-    private static Unit Stroke(Graphics graphics, WireRoute route, WirePens pens, EdgeDescription edge) {
-        (PointF source, PointF target) = route.Endpoints;
-        using Brush ink = pens.Source == pens.Target
-            ? new SolidBrush(pens.Source)
-            : new LinearGradientBrush(pens.Source, pens.Target, source, target);
-        using Pen pen = new(ink, edge.Width);
-        edge.AssignToPen(pen);
-        return route.Render(graphics: graphics, edge: pen);
+    // PRODUCER, not a draw loop: ONE WireCase per wire — both present layers ride its Ink (the executor
+    // draws the outer edge always, the inner on presence); the executor culls, caches pens per palette corner,
+    // draws, and tallies — this fold owns none of that.
+    public static Fin<GhPlan> Plan(
+        WireSkin skin, Seq<(WireRoute Route, EndSelection Ends)> wires, float detailing, Op? key = null) {
+        Op op = key.OrDefault();
+        return wires
+            .Map(row => row.Ends.Pens(skin: skin, key: op).Map(pens =>
+                new GhMark.WireCase(
+                    Route: row.Route.Shape,
+                    Ink: detailing > 0f ? pens : pens with { Inner = Option<EdgeDescription>.None }) as GhMark))
+            .Sequence().As()
+            .Map(static marks => new GhPlan(Marks: marks));
     }
 }
 ```
 
-```mermaid
----
-config:
-  layout: elk
-  flowchart:
-    curve: linear
-    padding: 25
----
-flowchart LR
-    accTitle: Grasshopper wire visual boundary
-    accDescr: Resolved graph pins produce wire routes, custom shapes enter through the public style seam, point picks cross the closed canvas query and projection rail, marquee selection remains host-owned, and the paint pass resolves optional detail ink.
-    Graph["Document/graph WireEnds + pin attributes"] -->|resolved rows| Trace["Traced.Of → Seq&lt;(WireEnds, WireRoute)&gt;"]
-    Trace --> Route["WireRoute over host WireShape family"]
-    Plugin["custom route subclass"] -->|"Install(Type)"| Style["RouteStyle over WireShape.ShapeType"]
-    Style --> Route
-    PickRequest["WirePick.At"] -->|"CanvasQuery.PickCase · Wiring"| CanvasPage["CanvasOperator.Read"]
-    CanvasPage -->|"CanvasProjection.PickCase"| PickResult["Fin&lt;Option&lt;WireEnds&gt;&gt;"]
-    Marquee["WirePick.Windowed"] -->|"Selects(WireShape, fuzz)"| Host["host WindowSelection algebra"]
-    Pass["WirePass.Draw"] -->|"pen pair per selection state"| SkinLens["WireSkinLens over WireSkin"]
-    Pass -->|"BeforeWires / AfterWires window"| PaintPage["Canvas/paint PaintScene"]
-```
-
 ## [05]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]        | [OWNER]                     | [KIND]                                     | [RAIL]                       | [CASES] |
-| :-----: | :--------------- | :-------------------------- | :----------------------------------------- | :--------------------------- | :-----: |
-|  [01]   | route geometry   | `WireRoute`                 | admitted capsule, one polymorphic `Of`     | `Of → Fin<WireRoute>`        |    2    |
-|  [02]   | custom routes    | `RouteStyle`                | leased host `ShapeType` custody            | `Install → Fin<IDisposable>` |    1    |
-|  [03]   | route production | `Traced` + `TracedRoutes`   | partial-success fold over pin rows         | `Of → TracedRoutes`          |    1    |
-|  [04]   | wire picking     | `WirePick`                  | pick-map point read + marquee fuzz fold    | `At → Fin<Option<WireEnds>>` |    2    |
-|  [05]   | pen resolution   | `WirePens` + `WireSkinLens` | out-pair lift + optional-detail projection | pure                         |    2    |
-|  [06]   | wire draw pass   | `WirePass`                  | detail-gated cull-and-stroke fold          | `Draw → Fin<int>`            |    1    |
+| [INDEX] | [CONCERN]        | [OWNER]                     | [RAIL]                                          | [CASES] |
+| :-----: | :--------------- | :-------------------------- | :---------------------------------------------- | :-----: |
+|  [01]   | route admission  | `WireRoute`                 | one polymorphic `Of`, public proved `Shape`     |    2    |
+|  [02]   | custom routes    | `RouteStyle` + `Mounted`    | host-slot custody, accumulated clauses          |    1    |
+|  [03]   | route production | `Traced`                    | one `Partition` fold, refusals carry their ends |    1    |
+|  [04]   | wire picking     | `WirePick`                  | result-typed query + partial-overload project   |    2    |
+|  [05]   | palette seam     | `EndSelection` + `WirePens` | four host-named corners, perceptual ends        |    4    |
+|  [06]   | wire pass        | `WirePass`                  | plan producer over the paint executor           |    1    |
 
-`CanvasOperator`, `CanvasQuery`, `CanvasProjection`, `PickGates`, `PaintScene`, `Pigment`, `Op`, and the host `WindowSelection`/`WireSkin` algebras are composed upstream owners; host internality and absence facts live on the lead.
+Per-wire brush/pen mint loop, the six rename wrappers, the third release capsule, the hand CAS seat and its hazard comment, the three sequential guards, the two-lane hand fold, and the six `Match(… null)` arms are all deleted; the process-global `ShapeType` custody law survives verbatim as this page's strongest passage.
 
 ## [06]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

@@ -1,8 +1,8 @@
 # [PERSISTENCE_INGEST_TABULAR]
 
-Rasm.Persistence ingests and emits spreadsheet and delimited tabular data through ONE `TabularSource` owner over the MiniExcel zero-template streaming codec. `TabularSpec` fixes a read once — its format, source (a path or a caller-owned stream), sheet, header stance, and an `Option<RowWindow>` sub-rectangle — and the owner discriminates every modality on that one value rather than on a method-name family: a typed POCO read, a `dynamic` read, a streaming `IDataReader`, a sheet/column probe, and the egress (write, sheet-append, template render, adorn, transcode) are all dispatches over `TabularSpec`, never parallel `ReadTyped`/`ReadDynamic`/`ReadStream` entrypoints. This codec NEVER knows the element graph — the per-app tabular→element map (the wire-composition owner, owned per-app at the host/app composition root) projects each delivered row into a `Rasm.Element` graph node per the `ARCHITECTURE.md` `[02]-[SEAMS]` `Ingest → Rasm.Element` `ElementGraph` wire row, so `TabularSource` delivers only the row shape at the wire and a workbook of element rows is to it an anonymous record stream.
+Rasm.Persistence ingests and emits spreadsheet and delimited tabular data through ONE `TabularSource` owner over the MiniExcel zero-template streaming codec. `TabularSpec` fixes a read once — its format, source (a path or a caller-owned stream), sheet, header stance, and an `Option<RowWindow>` sub-rectangle — and the owner discriminates every modality on that one value rather than on a method-name family: a schema-unknown read, a streaming `IDataReader`, a sheet/column probe, and the egress (write, sheet-append, template render, adorn, transcode) are CASES on one closed `TabularOp` union that `TabularSource.Run` dispatches, and the typed POCO read is the single member outside it because its row type is an open generic no case can carry — never a `ReadTyped`/`ReadDynamic`/`ReadStream` member family. This codec NEVER knows the element graph — the per-app tabular→element map (the wire-composition owner, owned per-app at the host/app composition root) projects each delivered row into a `Rasm.Element` graph node per the `ARCHITECTURE.md` `[02]-[SEAMS]` `Ingest → Rasm.Element` `ElementGraph` wire row, so `TabularSource` delivers only the row shape at the wire and a workbook of element rows is to it an anonymous record stream.
 
-One `TabularFormat` `[SmartEnum<string>]` crosses the format axis (`.xlsx`/`.csv`): each row carries its `ExcelType` and `[UseDelegateFromConstructor]` `Policy(Option<OpenXmlStyleOptions>, Option<TabularWorkbook>)` behavior. `TabularWorkbook` composes freeze panes, auto-filter, table style, auto-width bounds, and `DynamicSheets` as one validated policy value; CSV rejects this OpenXML-only posture. `TabularTranscode` owns the frozen `(from, to)` codec table whose membership derives `CanReach`. Both boundaries fold MiniExcel exceptions through `TabularFault.Lift`, and `Semigroup<TabularFault>` accumulates independent row faults. MiniExcel owns spreadsheets and symmetric CSV transcode; `DelimitedSource` owns high-throughput `Sep` rows; both project into one downstream record rail.
+One `TabularFormat` `[SmartEnum<string>]` crosses the format axis (`.xlsx`/`.csv`): each row carries its `ExcelType` and `[UseDelegateFromConstructor]` `Policy(Option<OpenXmlStyleOptions>, Option<TabularWorkbook>)` behavior. `TabularWorkbook` composes freeze panes, auto-filter, table style, auto-width bounds, and `DynamicSheets` as one validated policy value; CSV rejects this OpenXML-only posture. `TabularTranscode` owns the frozen `(from, to)` codec table whose membership derives `CanReach`. Both boundaries fold MiniExcel exceptions through `TabularFault.Lift`, and `Validation<Error, …>` accumulates independent row faults as `Error.Many`. MiniExcel owns spreadsheets and symmetric CSV transcode; `DelimitedSource` owns high-throughput `Sep` rows; both project into one downstream record rail.
 
 `TabularWire.Bind<T>` folds each header-keyed `dynamic` row through the ONE STJ wire projection under `TabularWire.Options` — a composed `JsonSerializerOptions` carrying `ThinktectureJsonConverterFactory` with `ConfigureForNodaTime` (`api-thinktecture-json`/`api-nodatime-stj`), the SAME converter families the `Element/codec#CODEC_AXIS` `ElementJson.Options` mounts but over an OPEN resolver, because a `JsonSerializerContext` resolver resolves only registered types and a consumer POCO is not one — so an `Instant`/`LocalDate`/value-object/smart-enum cell mints through the same converter set a JSON ingress uses and a column binds by the POCO's `[JsonPropertyName]` alias. NOT `MiniExcel.Query<T>` (the `where T : class, new()` reflective POCO binder neither invokes a `DynamicExcelColumn.CustomFormatter` nor mints a semantic type — the bypass-the-wire-factory hollow form), and never positional magic-index `dynamic` access on a known schema. Typed ingress is CONTRACT-CHECKED: every settable wire member of `T` (resolved through `Options.GetTypeInfo(typeof(T)).Properties`, honouring aliases) must resolve a column on the first row, each missing column accumulating a typed `ColumnMissing` — a silently-defaulted member from a missing header is the deleted hollow form. `DynamicExcelColumn.CustomFormatter` is the cell projection on the `dynamic`/reader/write legs (where MiniExcel's own `DynamicColumns` honour it), and the spec's `Policy()` COMPOSES the `TabularWire.Wire`-built columns onto `Configuration.DynamicColumns`, so the wire column is a REGISTERED member, never a built-but-never-composed phantom. Redacted egress re-emits each row through a `RedactionPlan` that resolves a `Microsoft.Extensions.Compliance.Redaction` `Redactor` PER COLUMN from the field's `DataClassificationSet` (`api-redaction`) and redacts each classified cell through the generic typed-value `Redact<T>` — never a `value.ToString()`-then-redact hop — into `SaveAs`, so a redacted spreadsheet streams column-redacted without materializing the table. Streaming `MiniExcelDataReader : IDataReader` feeds the `Query/columnar` Arrow/DuckDB materializer directly; the linq2db/EF bulk-copy lane (`api-linq2db-ef`) consumes the typed `IEnumerable<T>`/`IAsyncEnumerable<T>` a typed read yields, never the reader, because `BulkCopy`/`BulkCopyAsync` are `IEnumerable<T>`-sourced — the fenced `TabularBulk.Copy<T>` surface passes the V6 identity `DbContext` directly to `LinqToDBForEFTools.BulkCopyAsync`, so the bridge consumes the context's EF metadata while `BulkCopyType.ProviderSpecific` lowers to PG binary COPY with `KeepIdentity` pinned. DuckDB `COPY` owns columnar FILES, the Npgsql binary importer owns raw-wire streams, and linq2db owns the EF-MODEL-MAPPED lane. Redaction inputs `IRedactorProvider`/`DataClassificationSet` and `ReceiptSinkPort` belong to the composition root; wall clock and correlation ride the injected `Element/graph#STORE_RAIL` `ProjectionContext` frame (a `ClockPolicy` parameter on any signature here is the named strata inversion, no AppHost type crosses down).
 
@@ -14,30 +14,43 @@ One `TabularFormat` `[SmartEnum<string>]` crosses the format axis (`.xlsx`/`.csv
 
 ## [02]-[TABULAR_SOURCE]
 
-- Owner: `TabularFormat` carries `ExcelType` and the `[UseDelegateFromConstructor]` configuration column; `TabularWorkbook` owns OpenXML workbook policy; `TabularTranscode` owns path and stream codec correspondences; `TabularSpec` fixes format, source, sheet, header, window, wire columns, style, and workbook policy; `Origin` closes path/stream ingress; `RowWindow` factory-gates cell ranges; `RedactionPlan` owns per-column classification; `TabularAdornment` closes report finishing; `TabularFault` closes the accumulating boundary band; `TabularFactKind` closes receipts; `TabularSource` owns dispatch.
-- Cases: `TabularFormat` is `Xlsx` (`ExcelType.XLSX`, an `OpenXmlConfiguration` with the shared-string disk cache on) or `Csv` (`ExcelType.CSV`, a `CsvConfiguration`); `TabularTranscode.Table` holds `(Csv, Xlsx)` and `(Xlsx, Csv)`, so a no-op or unsupported pair is a key miss railing the typed fault; `Origin` is `FromPath(string)` (opens a shared-read `FileStream` via the path overload) or `FromStream(Func<Stream>)` (a caller-owned stream the `this Stream` overload reads); `RowWindow` carries the `A1:C3` start/end cells the `dynamic` `QueryRange` reads — a typed `Query<T>` reaches only `startCell`, so a windowed typed read lowers through the `dynamic` `QueryRange` projected to `T`, never a non-existent typed `endCell` overload; `TabularFault` is `ColumnMissing | CellCast | NotSerializable` (the three lifted MiniExcel exceptions, `ColumnMissing` ALSO minted by the typed-read header contract), `TranscodeUnreachable` (the routing-only rejection), `BulkRefused` (the `#BULK_LANE` copy refusal), `CodecReject` (the residual boundary throw — never `ColumnMissing` wearing a message), and `Aggregate` (the `Semigroup` fold of independent row faults); `TabularAdornment` is `MergeCells(target)` (`MergeSameCells` vertical fold) or `Pictures(images)` (`AddPicture` embeds at cell addresses); `TabularFact` kinds are `read | write | append | template | adorn | transcode | redact | bulk`.
-- Entry: `public static IO<Validation<TabularFault, Seq<T>>> Read<T>(TabularSpec spec, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink)` reads typed rows — the header-keyed `dynamic` `Query` from `StartCell`, or the `dynamic` `QueryRange` when the spec carries a `RowWindow`, BOTH projected to `T` through the ONE `TabularWire.Project<T>` rail: the header contract accumulates a `ColumnMissing` per unresolvable wire member, then every row mints through `Bind<T>` with per-row faults accumulated applicatively, riding a `read` fact; `public static IO<Validation<TabularFault, Seq<HashMap<string,object>>>> Scan(TabularSpec spec, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink)` reads header-keyed `dynamic` rows for the schema-unknown ingress; `public static IO<MiniExcelDataReader> Reader(TabularSpec spec)` projects the streaming reader the `Query/columnar` materializer consumes; `public static IO<TabularSheet> Probe(TabularSpec spec)` reads the sheet roster, per-sheet `SheetInfo`, used-range `ExcelRange`, and first-row column keys without reading the body; `public static IO<Validation<TabularFault, int[]>> Write(TabularSpec spec, object value, Option<RedactionPlan> plan, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink)` writes any `IEnumerable`/`IDataReader`/`DataTable`/anonymous value under the spec's own `HeaderRow` stance (a `bool header` knob beside the spec re-describes a value it already fixes — deleted), optionally re-emitting each row through the `RedactionPlan` per-column redactor map (a typed POCO, `DataTable`, or `IDataReader` lowered to its header-keyed bag first so EVERY write shape redacts — the redact fold dispatches on the payload shape, never on an enumerable-only fast path), riding a `write` (or `redact`) fact; `public static IO<Validation<TabularFault, int>> Append(TabularSpec spec, object value, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink)` appends rows to a sheet in an existing workbook through `Insert` (`overwriteSheet` pinned false — replacing a sheet is a `Write` of the workbook, never an in-place overwrite); `public static IO<Validation<TabularFault, Unit>> Render(TabularSpec spec, ReadOnlyMemory<byte> template, object value, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink)` renders an `.xlsx` template through `SaveAsByTemplate`; `public static IO<Validation<TabularFault, Unit>> Transcode(TabularSpec spec, TabularFormat to, string target, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink)` resolves `(spec.Format, to)` against `TabularTranscode.Table` (the spec's `Format` IS the source format, its `Source` the origin — no redundant `from` knob) and invokes the row's path or stream arm, a key miss railing `TranscodeUnreachable`; `public static IO<Validation<TabularFault, Unit>> Adorn(TabularSpec spec, TabularAdornment adornment, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink)` is the report-egress finisher — `MergeCells` folds vertically-repeated values through `MergeSameCells`, `Pictures` embeds `MiniExcelPicture` payloads through `AddPicture` — one polymorphic dispatch riding an `adorn` fact, never sibling `Merge`/`Illustrate` entrypoints.
-- Auto: a typed read folds the header-keyed `dynamic` `Query` (or `QueryRange` for a window) rows through `TabularWire.Project<T>` — header contract first (each settable wire member of `T` resolved against the first row's keys, every miss a typed `ColumnMissing`, accumulated), then each row through `Bind<T>` under the one wire options graph, a `JsonException` lifting to the typed `CellCast` carrying the row ordinal, and row faults accumulating across the sheet through the applicative `Traverse` over the `Semigroup` — so MiniExcel delivers only the header-keyed cell bag and the wire rail mints the semantic type, while `DateOnlyConversionMode.RequireMidnight` governs the boundary `DateOnly` admission; the windowed read lowers through `QueryRange` (the only public windowing surface, `dynamic`-yielding) projecting each `IDictionary<string,object>` row through the SAME `Project<T>`, so `RowWindow.EndCell` is honoured and the windowed and non-windowed typed paths share one projection; the `DynamicExcelColumn.CustomFormatter` (`Func<object,object>`) that `TabularWire.Wire` builds is the cell projection on the `dynamic`/reader/write legs (where MiniExcel's `DynamicColumns` honour it), and `spec.Policy()` REGISTERS the built columns onto `Configuration.DynamicColumns` for every `WireColumns` name, so the projection fires on those legs; a large read streams through `Query`/`GetReader` (lazy `yield`) with `EnableSharedStringCache` on so the shared-strings table spills to `SharedStringCachePath` and a million-row workbook never fully resides in memory; the egress reuses the reader/lane rail the query produced (`SaveAs(stream, dataReader)`) so a schedule/cost/catalog export never re-materializes a table, report-shaped output uses `SaveAsByTemplate` with placeholder binding and the `Adorn` finisher (`MergeSameCells`/`AddPicture`), header/cell styling rides the spec's `OpenXmlStyleOptions` policy value (`OpenXmlHeaderStyle`/`HorizontalCellAlignment` — never per-cell writes), a formula column is the declarative `ColumnType.Formula` attribute row and a runtime multi-sheet binding the `OpenXmlConfiguration.DynamicSheets` row, a multi-sheet workbook lands sheet-by-sheet through `Insert`, and `Reader` yields a `MiniExcelDataReader : IDataReader` the columnar materializer pulls; the redacted egress wraps the row enumerable in a projection that resolves a `Redactor` PER COLUMN from the `RedactionPlan`'s `DataClassificationSet` map through the AppHost `IRedactorProvider.GetRedactor` and rewrites each classified cell through the generic `Redactor.Redact<object>(value)` typed-value seam before `SaveAs` — a typed POCO, `DataTable`, or `IDataReader` lowered to its header-keyed bag first so every write shape redacts, the same span-based redactor the telemetry exporters use, so no unredacted value is `ToString`-stringified into transit first.
+- Owner: `TabularCapability` closes what a wire can do beyond delivering rows; `TabularFormat` carries `ExcelType`, its capability set, and the `[UseDelegateFromConstructor]` configuration column; `TabularWorkbook` owns OpenXML workbook policy; `TabularTranscode` owns path and stream codec correspondences; `TabularSpec` fixes format, source, sheet, header, window, wire columns, style, and workbook policy; `Origin` closes path/stream ingress; `RowWindow` factory-gates cell ranges; `TabularRow` is the admitted header-keyed row every interior member reads; `TabularOp`/`TabularYield` close dispatch; `RedactionPlan` owns per-column classification; `TabularAdornment` closes report finishing; `[FaultCase]` closes the fault roster realizing the kernel `[FaultCase]` floor over the `Tabular` row; `TabularFault` closes the accumulating boundary family above it; `TabularFactKind` closes receipts; `TabularSource` owns `Run`.
+- Cases: `TabularCapability` is `styled | template | adornment`, held whole by `Xlsx` and not at all by `Csv`; `TabularFormat` is `Xlsx` (`ExcelType.XLSX`, an `OpenXmlConfiguration` with the shared-string disk cache on) or `Csv` (`ExcelType.CSV`, a `CsvConfiguration`); `TabularTranscode.Table` holds `(Csv, Xlsx)` and `(Xlsx, Csv)`, so a no-op or unsupported pair is a key miss railing the typed fault; `Origin` is `FromPath(string)` (opens a shared-read `FileStream` via the path overload) or `FromStream(Func<Stream>)` (a caller-owned stream the `this Stream` overload reads); `RowWindow` carries the `A1:C3` start/end cells the `dynamic` `QueryRange` reads — a typed `Query<T>` reaches only `startCell`, so a windowed typed read lowers through the `dynamic` `QueryRange` projected to `T`, never a non-existent typed `endCell` overload; `TabularFault` is `ColumnMissing | CellCast | NotSerializable | TranscodeUnreachable | BulkRefused | CapabilityLoss | CodecReject`; independent cases accumulate as `Error.Many`. `TabularAdornment` is `MergeCells(target)` (`MergeSameCells` vertical fold) or `Pictures(images)` (`AddPicture` embeds at cell addresses); `TabularFact` kinds are `read | write | append | template | adorn | transcode | redact | bulk`.
+- Entry: `public static IO<Validation<Error, TabularYield>> Run(TabularOp op, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink)` — ONE polymorphic entry over the closed op union through the generated total `Switch`, so `Scan` (schema-unknown header-keyed rows), `Stream` (the `MiniExcelDataReader` the `Query/columnar` materializer pulls), `Probe` (sheet roster, per-sheet `SheetInfo`, used-range `ExcelRange`, and first-row keys without reading the body), `Write` (any `IEnumerable`/`IDataReader`/`DataTable`/anonymous value under the spec's own `HeaderRow` stance, optionally re-emitted through the `RedactionPlan` per-column redactor map), `Append` (`Insert` with `overwriteSheet` pinned false — replacing a sheet is a `Write` of the workbook), `Render` (`SaveAsByTemplate`), `Transcode` (`(spec.Format, to)` against `TabularTranscode.Table`, a key miss railing `TranscodeUnreachable`), and `Adorn` (`MergeSameCells`/`AddPicture`) are CASES, never members. `public static IO<Validation<Error, Seq<T>>> Read<T>(TabularSpec spec, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink)` is the ONE member outside the union — its row type is an open generic no closed case can carry — folding the header-keyed rows through `TabularWire.Project<T>`: the header contract accumulates a `ColumnMissing` per unresolvable wire member, then every row mints through `Bind<T>` with per-row faults accumulated applicatively.
+- Auto: a typed read folds the header-keyed `dynamic` `Query` (or `QueryRange` for a window) rows through `TabularWire.Project<T>` — header contract first (each settable wire member of `T` resolved against the first row's keys, every miss a typed `ColumnMissing`, accumulated), then each row through `Bind<T>` under the one wire options graph, a `JsonException` lifting to the typed `CellCast` carrying the row ordinal, and row faults accumulating across the sheet through applicative `Validation<Error, …>` traversal — so MiniExcel delivers only the header-keyed cell bag and the wire rail mints the semantic type, while `DateOnlyConversionMode.RequireMidnight` governs the boundary `DateOnly` admission; the windowed read lowers through `QueryRange` (the only public windowing surface, `dynamic`-yielding) projecting each `IDictionary<string,object>` row through the SAME `Project<T>`, so `RowWindow.EndCell` is honoured and the windowed and non-windowed typed paths share one projection; the `DynamicExcelColumn.CustomFormatter` (`Func<object,object>`) that `TabularWire.Wire` builds is the cell projection on the `dynamic`/reader/write legs (where MiniExcel's `DynamicColumns` honour it), and `spec.Policy()` REGISTERS the built columns onto `Configuration.DynamicColumns` for every `WireColumns` name, so the projection fires on those legs; a large read streams through `Query`/`GetReader` (lazy `yield`) with `EnableSharedStringCache` on so the shared-strings table spills to `SharedStringCachePath` and a million-row workbook never fully resides in memory; the egress reuses the reader/lane rail the query produced (`SaveAs(stream, dataReader)`) so a schedule/cost/catalog export never re-materializes a table, report-shaped output uses `SaveAsByTemplate` with placeholder binding and the `Adorn` finisher (`MergeSameCells`/`AddPicture`), header/cell styling rides the spec's `OpenXmlStyleOptions` policy value (`OpenXmlHeaderStyle`/`HorizontalCellAlignment` — never per-cell writes), a formula column is the declarative `ColumnType.Formula` attribute row and a runtime multi-sheet binding the `OpenXmlConfiguration.DynamicSheets` row, a multi-sheet workbook lands sheet-by-sheet through `Insert`, and `Reader` yields a `MiniExcelDataReader : IDataReader` the columnar materializer pulls; the redacted egress wraps the row enumerable in a projection that resolves a `Redactor` PER COLUMN from the `RedactionPlan`'s `DataClassificationSet` map through the AppHost `IRedactorProvider.GetRedactor` and rewrites each classified cell through the generic `Redactor.Redact<object>(value)` typed-value seam before `SaveAs` — a typed POCO, `DataTable`, or `IDataReader` lowered to its header-keyed bag first so every write shape redacts, the same span-based redactor the telemetry exporters use, so no unredacted value is `ToString`-stringified into transit first.
 - Receipt: every fact-bearing operation rides a `TabularFact` through the `ReceiptSinkPort` message envelope under `store.tabular.*` — a `read` fact carrying the row count, sheet, and format; a `write`/`append` fact carrying the per-sheet row counts; a `template` fact; a `transcode` fact carrying the resolved `(from,to)`; a `redact` fact carrying the redacted-row count — one fact stream with a kind discriminant, never parallel receipt records; `Reader` alone emits no fact (it hands the raw `MiniExcelDataReader` to the `Query/columnar` materializer, which owns its own receipt over the bytes it pulls).
-- Packages: MiniExcel (`MiniExcel.Query`/`QueryRange`/`GetReader`/`GetSheetNames`/`GetSheetInformations`/`GetColumns`/`GetSheetDimensions`/`SaveAs`/`Insert`/`SaveAsByTemplate`/`MergeSameCells`/`AddPicture`/`ConvertCsvToXlsx`/`ConvertXlsxToCsv`/`MiniExcelDataReader`/`OpenXmlConfiguration`/`CsvConfiguration`/`OpenXmlStyleOptions`/`OpenXmlHeaderStyle`/`MiniExcelPicture`/`ColumnType`/`DateOnlyConversionMode`/`DynamicExcelColumn`/`SheetInfo`/`ExcelRange` — the typed read rides the `dynamic` `Query`/`QueryRange` header-keyed bag, never the `where T : class, new()` `Query<T>` POCO binder), Microsoft.Extensions.Compliance.Redaction (`Redactor`/`IRedactorProvider`/`DataClassificationSet`), Sep (the `#DELIMITED_SOURCE` owner), linq2db.EntityFrameworkCore (the `#BULK_LANE` bridge), Rasm.Persistence (`Element/graph#FAULT_TABLES` `FaultBand`), LanguageExt.Core, Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, NodaTime, NodaTime.Serialization.SystemTextJson, BCL inbox.
-- Growth: a new tabular format is one `TabularFormat` row carrying its `ExcelType`, its policy delegate, and its `TabularTranscode.Table` rows (a new transcode target is one table row, never a new entrypoint); a new column mapping is one `ExcelColumnAttribute`/`DynamicExcelColumn`; a new wire-cell projection is one `WireColumns` name the spec's `Policy()` registers; a new report decoration is one `TabularAdornment` case; a new style stance is one `OpenXmlStyleOptions` policy value on the spec; a new source kind is one `Origin` case; a new boundary-fault class is one `TabularFault` case inside the registry decade; zero new surface — a hand-rolled OpenXML/CSV parser, a second spreadsheet codec, a `QueryAsDataTable` whole-sheet buffer on a streaming path, a format-key conditional outside the vocabulary, a parallel `ReadTyped`/`ReadDynamic`/`ReadStream` family beside the spec discriminant, or a tabular→element map inside this codec is the deleted form because MiniExcel owns the spreadsheet/CSV codec, `Sep` the high-throughput delimited lane, the `TabularSpec` value the modality discriminant, and the app composition root the tabular→element projection.
-- Boundary: `TabularSource` is the ONE tabular ingress/egress owner over MiniExcel — the `#DELIMITED_SOURCE` `Sep` owner is the high-throughput delimited-text sibling and the two project into the SAME downstream record rail, the source format selecting one, while `Apache.Arrow`/`DuckDB`/`ParquetSharp` own the binary columnar path (a `.xlsx` is never treated as a columnar file); the path-vs-stream modality the codec exposes as twin overloads is the `Origin` `[Union]`, so a read does not split into a path family and a stream family — one spec carries the source and one dispatch opens it; the typed read NEVER rides the `where T : class, new()` `MiniExcel.Query<T>` POCO binder — that overload both refuses an unconstrained `T` and bypasses the NodaTime/Thinktecture cell minting (an `Instant`/value-object/smart-enum column silently fails to bind, the deleted hollow form) — so BOTH the start-cell typed read and the windowed typed read fold the header-keyed `dynamic` `Query`/`QueryRange` rows through the ONE `TabularWire.Project<T>` rail, the window adding only the `endCell` argument `Query<T>` cannot express; the codec NEVER knows the element graph — the per-app tabular→element map is the wire-composition owner at the host/app composition root, so a workbook of element rows reads through `Read<T>`/`Reader`, the app projects each row into an `ElementGraph` node, and a catalog/cost/schedule egress writes element-derived tables back through `Write`/`Append`/`Render`, the codec seeing only the row shape; a typed read against a missing header surfaces `ExcelColumnNotFoundException` (or the header-contract `ColumnMissing`), a bad cell `ExcelInvalidCastException`, and a non-serializable write member `MiniExcelNotSerializableException`, all folded through the one `TabularFault.Lift` funnel into a typed `Validation` at the row boundary on BOTH the read and the write leg rather than thrown through the receipt path — the write leg folds faults exactly as the read leg does, so `NotSerializable` is a reachable case, not decoration; the bulk-copy rail (`api-linq2db-ef`) consumes the typed `IEnumerable<T>`/`IAsyncEnumerable<T>` a `Read<T>` yields (`BulkCopy`/`BulkCopyAsync` are `IEnumerable<T>`-sourced), while the `MiniExcelDataReader : IDataReader` from `Reader` feeds the `Query/columnar` Arrow/DuckDB materializer — the reader is the columnar source, the typed enumerable the bulk source, never conflated; a redacted export resolves the per-column `Redactor` from the field's `DataClassificationSet` through the AppHost `IRedactorProvider` and rewrites each classified cell before `SaveAs`, so a redacted spreadsheet streams column-redacted without materializing the table (MiniExcel exposes no reader→writer copy bridge, so the redaction rides the row-enumerable egress, not a `DbDataReader` decorator — the DELIMITED redaction egress owns the real bridge: `#DELIMITED_SOURCE` re-emits Sep rows column-by-column through the writer `NewRow` with the classified cells redacted before `Col.Set`); MiniExcel retires `Sylvan.Data.Excel` as the spreadsheet codec — no `Sylvan` reference remains.
+- Packages: MiniExcel (`MiniExcel.Query`/`QueryRange`/`GetReader`/`GetSheetNames`/`GetSheetInformations`/`GetColumns`/`GetSheetDimensions`/`SaveAs`/`Insert`/`SaveAsByTemplate`/`MergeSameCells`/`AddPicture`/`ConvertCsvToXlsx`/`ConvertXlsxToCsv`/`MiniExcelDataReader`/`OpenXmlConfiguration`/`CsvConfiguration`/`OpenXmlStyleOptions`/`OpenXmlHeaderStyle`/`MiniExcelPicture`/`ColumnType`/`DateOnlyConversionMode`/`DynamicExcelColumn`/`SheetInfo`/`ExcelRange` — the typed read rides the `dynamic` `Query`/`QueryRange` header-keyed bag, never the `where T : class, new()` `Query<T>` POCO binder), Microsoft.Extensions.Compliance.Redaction (`Redactor`/`IRedactorProvider`/`DataClassificationSet`), Sep (the `#DELIMITED_SOURCE` owner), linq2db.EntityFrameworkCore (the `#BULK_LANE` bridge), Rasm (`Rasm/Domain/rails#FAULT_BAND` `FaultBand`, `Rasm/Domain/validation#CAPABILITY` `ICapability`/`CapabilitySet`), LanguageExt.Core, Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, NodaTime, NodaTime.Serialization.SystemTextJson, BCL inbox.
+- Growth: a new tabular format is one `TabularFormat` row carrying its `ExcelType`, its capability set, its policy delegate, and its `TabularTranscode.Table` rows (a new transcode target is one table row, never a new entrypoint); a new wire ability is one `TabularCapability` row and the gate that demands it; a new modality is one `TabularOp` case breaking `Run` at compile time; a new column mapping is one `ExcelColumnAttribute`/`DynamicExcelColumn`; a new wire-cell projection is one `WireColumns` name the spec's `Policy()` registers; a new report decoration is one `TabularAdornment` case; a new style stance is one `OpenXmlStyleOptions` policy value on the spec; a new source kind is one `Origin` case; a new boundary-fault class is one `TabularFault` case inside its band span; zero new surface — a hand-rolled OpenXML/CSV parser, a second spreadsheet codec, a `QueryAsDataTable` whole-sheet buffer on a streaming path, a format-key conditional outside the vocabulary, a parallel `ReadTyped`/`ReadDynamic`/`ReadStream` family beside the spec discriminant, or a tabular→element map inside this codec is the deleted form because MiniExcel owns the spreadsheet/CSV codec, `Sep` the high-throughput delimited lane, the `TabularSpec` value the modality discriminant, and the app composition root the tabular→element projection.
+- Boundary: `TabularSource` is the ONE tabular ingress/egress owner over MiniExcel — the `#DELIMITED_SOURCE` `Sep` owner is the high-throughput delimited-text sibling and the two project into the SAME downstream record rail, the source format selecting one, while `Apache.Arrow`/`DuckDB`/`ParquetSharp` own the binary columnar path (a `.xlsx` is never treated as a columnar file); the path-vs-stream modality the codec exposes as twin overloads is the `Origin` `[Union]`, so a read does not split into a path family and a stream family — one spec carries the source and one dispatch opens it; the typed read NEVER rides the `where T : class, new()` `MiniExcel.Query<T>` POCO binder — that overload both refuses an unconstrained `T` and bypasses the NodaTime/Thinktecture cell minting (an `Instant`/value-object/smart-enum column silently fails to bind, the deleted hollow form) — so BOTH the start-cell typed read and the windowed typed read fold the header-keyed `dynamic` `Query`/`QueryRange` rows through the ONE `TabularWire.Project<T>` rail, the window adding only the `endCell` argument `Query<T>` cannot express; the codec NEVER knows the element graph — the per-app tabular→element map is the wire-composition owner at the host/app composition root, so a workbook of element rows reads through `Read<T>`/`Reader`, the app projects each row into an `ElementGraph` node, and a catalog/cost/schedule egress writes element-derived tables back through `Write`/`Append`/`Render`, the codec seeing only the row shape; a typed read against a missing header surfaces `ExcelColumnNotFoundException` (or the header-contract `ColumnMissing`), a bad cell `ExcelInvalidCastException`, and a non-serializable write member `MiniExcelNotSerializableException`, all folded through the one `TabularFault.Lift` funnel into a typed `Validation` at the row boundary on BOTH the read and the write leg rather than thrown through the receipt path — the write leg folds faults exactly as the read leg does, so `NotSerializable` is a reachable case, not decoration; the bulk-copy rail (`api-linq2db-ef`) consumes the typed `IEnumerable<T>`/`IAsyncEnumerable<T>` a `Read<T>` yields (`BulkCopy`/`BulkCopyAsync` are `IEnumerable<T>`-sourced), while the `MiniExcelDataReader : IDataReader` from `Reader` feeds the `Query/columnar` Arrow/DuckDB materializer — the reader is the columnar source, the typed enumerable the bulk source, never conflated; a redacted export resolves the per-column `Redactor` from the field's `DataClassificationSet` through the AppHost `IRedactorProvider` and rewrites each classified cell before `SaveAs`, so a redacted spreadsheet streams column-redacted without materializing the table (MiniExcel exposes no reader→writer copy bridge, so the redaction rides the row-enumerable egress, not a `DbDataReader` decorator — the DELIMITED redaction egress owns the real bridge: `#DELIMITED_SOURCE` re-emits Sep rows column-by-column through the writer `NewRow` with the classified cells redacted before `Col.Set`); MiniExcel retires `Sylvan.Data.Excel` as the spreadsheet codec — no `Sylvan` reference remains; every `Dictionary`/`IDictionary` shape crossing this page is MiniExcel's OWN row and write contract rather than a durable owner's map — the read side admits once into `TabularRow` and the write side hands the codec the bag shape it demands, so no never-mutated dictionary owner exists here to freeze; and the wire projection takes NO Mapperly seat — its source is a header-keyed cell bag and its target an OPEN generic consumer POCO whose members are unknown at generation, which the generator refuses (RMG001) exactly as `docs/stacks/csharp/domain/data-interchange.md` rules an ordinal reader out as a mappable source.
 
 ```csharp signature
 using LanguageExt.UnsafeValueAccess;
+using Rasm.Domain;
 using Rasm.Persistence.Element;
-using Expected = Rasm.Domain.Expected;
 
 // --- [TYPES] ----------------------------------------------------------------------------
+
+// What a tabular wire can DO beyond delivering rows. Every row here is an OOXML capability by construction, so
+// xlsx holds the whole vocabulary without a transcribed roster while a delimited file holds none of it, and
+// one new capability row re-authors neither format's membership.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class TabularCapability : ICapability<TabularCapability> {
+    public static readonly TabularCapability Styled = new("styled");
+    public static readonly TabularCapability Template = new("template");
+    public static readonly TabularCapability Adornment = new("adornment");
+}
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TabularFormat {
-    public static readonly TabularFormat Xlsx = new("xlsx", ExcelType.XLSX, BuildXlsx);
-    public static readonly TabularFormat Csv = new("csv", ExcelType.CSV, BuildCsv);
+    public static readonly TabularFormat Xlsx = new("xlsx", ExcelType.XLSX, CapabilitySet<TabularCapability>.All, BuildXlsx);
+    public static readonly TabularFormat Csv = new("csv", ExcelType.CSV, CapabilitySet<TabularCapability>.None, BuildCsv);
 
     public ExcelType Excel { get; }
+    public CapabilitySet<TabularCapability> Capabilities { get; }
 
     [UseDelegateFromConstructor]
     public partial Configuration Policy(Option<OpenXmlStyleOptions> style, Option<TabularWorkbook> workbook);
@@ -85,11 +98,14 @@ public sealed partial class RowWindow {
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string startCell, ref string endCell) {
         if (string.IsNullOrWhiteSpace(startCell) || string.IsNullOrWhiteSpace(endCell)) {
-            validationError = ValidationError.Create("<tabular-window-cell>");
+            validationError = new ValidationError(string.Join(" | ", new object?[] { "<tabular-window-cell>" }));
         }
     }
 }
 
+// `AutoFilter` and `AutoWidth` stay BOOLS by the kernel capability law: they are genuinely independent OOXML
+// switches with no illegal corner between them, so a set would buy a membership read and sell the compile-time
+// proof — the capability axis here is what the FORMAT can do, which `TabularCapability` carries.
 [ComplexValueObject]
 public sealed partial class TabularWorkbook {
     public int FreezeRows { get; }
@@ -105,7 +121,7 @@ public sealed partial class TabularWorkbook {
         ref ValidationError? validationError, ref int freezeRows, ref int freezeColumns, ref bool autoFilter,
         ref TableStyles tables, ref bool autoWidth, ref double minWidth, ref double maxWidth, ref Seq<DynamicExcelSheet> sheets) {
         if (freezeRows < 0 || freezeColumns < 0 || minWidth < 0d || maxWidth < minWidth) {
-            validationError = ValidationError.Create("<tabular-workbook-policy>");
+            validationError = new ValidationError(string.Join(" | ", new object?[] { "<tabular-workbook-policy>" }));
         }
     }
 }
@@ -128,13 +144,13 @@ public sealed partial class TabularSpec {
         ref bool headerRow, ref Option<RowWindow> window, ref Seq<string> wireColumns, ref Option<OpenXmlStyleOptions> style,
         ref Option<TabularWorkbook> workbook) {
         if (source is Origin.FromPath { Path: string path } && string.IsNullOrWhiteSpace(path)) {
-            validationError = ValidationError.Create("<tabular-spec-path>");
+            validationError = new ValidationError(string.Join(" | ", new object?[] { "<tabular-spec-path>" }));
         } else if (sheet.Map(string.IsNullOrWhiteSpace).IfNone(false)) {
-            validationError = ValidationError.Create("<tabular-spec-sheet>");
+            validationError = new ValidationError(string.Join(" | ", new object?[] { "<tabular-spec-sheet>" }));
         } else if (wireColumns.Exists(string.IsNullOrWhiteSpace) || wireColumns.Distinct().Count != wireColumns.Count) {
-            validationError = ValidationError.Create("<tabular-spec-wire-columns>");
-        } else if (format != TabularFormat.Xlsx && (style.IsSome || workbook.IsSome)) {
-            validationError = ValidationError.Create("<tabular-spec-openxml-policy>");
+            validationError = new ValidationError(string.Join(" | ", new object?[] { "<tabular-spec-wire-columns>" }));
+        } else if ((style.IsSome || workbook.IsSome) && !format.Capabilities.Admits(TabularCapability.Styled)) {
+            validationError = new ValidationError(string.Join(" | ", new object?[] { "<tabular-spec-openxml-policy>" }));
         }
     }
 
@@ -147,6 +163,46 @@ public sealed partial class TabularSpec {
     }
 }
 
+// MiniExcel's header-keyed row is an `IDictionary<string, object>` the codec owns. It admits ONCE here into the
+// carrier the interior reads — cells frozen into a `HashMap` beside the sheet ordinal the fault rail needs — so
+// no interior member takes the foreign shape and no row ordinal travels as a parameter beside its own row.
+public readonly record struct TabularRow(int At, HashMap<string, object> Cells) {
+    public static Seq<TabularRow> Of(IEnumerable<dynamic> rows) =>
+        toSeq(rows.Cast<IDictionary<string, object>>())
+            .Map(static (row, at) => new TabularRow(at, toHashMap(row.Map(static cell => (cell.Key, cell.Value)))));
+}
+
+// Every modality is a CASE, never a sibling entrypoint: the page's own law ("one spec discriminates the read")
+// held for the spec and broke at the surface, where nine members spelled one operation family.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record TabularOp {
+    private TabularOp() { }
+    public sealed record Scan(TabularSpec Spec) : TabularOp;
+    public sealed record Stream(TabularSpec Spec) : TabularOp;
+    public sealed record Probe(TabularSpec Spec) : TabularOp;
+    public sealed record Write(TabularSpec Spec, object Value, Option<RedactionPlan> Plan) : TabularOp;
+    public sealed record Append(TabularSpec Spec, object Value) : TabularOp;
+    public sealed record Render(TabularSpec Spec, ReadOnlyMemory<byte> Template, object Value) : TabularOp;
+    public sealed record Transcode(TabularSpec Spec, TabularFormat To, string Target) : TabularOp;
+    public sealed record Adorn(TabularSpec Spec, TabularAdornment Adornment) : TabularOp;
+
+    public TabularSpec Spec => Switch<TabularSpec>(
+        scan: static c => c.Spec, stream: static c => c.Spec, probe: static c => c.Spec, write: static c => c.Spec,
+        append: static c => c.Spec, render: static c => c.Spec, transcode: static c => c.Spec, adorn: static c => c.Spec);
+}
+
+// `Written` carries the per-sheet counts BOTH the write and the append leg produce — an append is one sheet, so
+// its scalar is a one-element roster and the sum every receipt reads is unchanged.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record TabularYield {
+    private TabularYield() { }
+    public sealed record Rows(Seq<TabularRow> Cells) : TabularYield;
+    public sealed record Reader(MiniExcelDataReader Stream) : TabularYield;
+    public sealed record Sheet(TabularSheet Roster) : TabularYield;
+    public sealed record Written(Seq<int> Counts) : TabularYield;
+    public sealed record Done : TabularYield;
+}
+
 public static class TabularTranscode {
     public static readonly FrozenDictionary<(TabularFormat From, TabularFormat To), (Action<string, string> Path, Action<Stream, Stream> Stream)> Table =
         new Dictionary<(TabularFormat, TabularFormat), (Action<string, string>, Action<Stream, Stream>)> {
@@ -156,59 +212,49 @@ public static class TabularTranscode {
 }
 
 // --- [ERRORS] ---------------------------------------------------------------------------
-[Union]
-public abstract partial record TabularFault : Expected, IValidationError<TabularFault>, Semigroup<TabularFault> {
-    private TabularFault() : base() { }
-    public sealed record ColumnMissing(string Column, int Row) : TabularFault;
-    public sealed record CellCast(string Column, int Row, string Target) : TabularFault;
-    public sealed record NotSerializable(string Member) : TabularFault;
-    public sealed record TranscodeUnreachable(string From, string To) : TabularFault;
-    public sealed record BulkRefused(string Detail) : TabularFault;
-    public sealed record CodecReject(string Detail) : TabularFault;
-    public sealed record Aggregate(Seq<TabularFault> Faults) : TabularFault;
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record TabularFault : Fault {
+    private static readonly FaultBand FamilyBand = FaultBand.Tabular;
+    private TabularFault() { }
+    [FaultCase(0)]
+    public sealed partial record ColumnMissing(Option<string> Column, int Row) : TabularFault();
+    [FaultCase(1)]
+    public sealed partial record CellCast(Option<string> Column, int Row, Option<string> Target) : TabularFault();
+    [FaultCase(2)]
+    public sealed partial record NotSerializable(Option<string> Member, Error Cause) : TabularFault(), ICausedFault;
+    [FaultCase(3)]
+    public sealed partial record TranscodeUnreachable(string From, string To) : TabularFault();
+    [FaultCase(4)]
+    public sealed partial record BulkRefused(Error Cause) : TabularFault(), ICausedFault;
+    [FaultCase(5)]
+    public sealed partial record CapabilityLoss(string Format, CapabilitySet<TabularCapability> Missing) : TabularFault();
+    [FaultCase(6)]
+    public sealed partial record CodecReject(Error Cause) : TabularFault(), ICausedFault;
 
-    public override int Code => FaultBand.Tabular + Switch(
-        columnMissing:        static _ => 0,
-        cellCast:             static _ => 1,
-        notSerializable:      static _ => 2,
-        transcodeUnreachable: static _ => 3,
-        bulkRefused:          static _ => 4,
-        codecReject:          static _ => 5,
-        aggregate:            static _ => 6);
 
     public override string Message => Switch(
-        columnMissing:        static c => $"<tabular-column-missing:{c.Column}@{c.Row}>",
-        cellCast:             static c => $"<tabular-cell-cast:{c.Column}@{c.Row}:{c.Target}>",
-        notSerializable:      static c => $"<tabular-not-serializable:{c.Member}>",
+        columnMissing:        static c => $"<tabular-column-missing:{c.Column.IfNone("<unnamed>")}@{c.Row}>",
+        cellCast:             static c => $"<tabular-cell-cast:{c.Column.IfNone("<row>")}@{c.Row}:{c.Target.IfNone("<unknown>")}>",
+        notSerializable:      static c => $"<tabular-not-serializable:{c.Member.IfNone("<unnamed>")}>",
         transcodeUnreachable: static c => $"<tabular-transcode-unreachable:{c.From}->{c.To}>",
-        bulkRefused:          static c => $"<tabular-bulk-refused:{c.Detail}>",
-        codecReject:          static c => $"<tabular-codec-reject:{c.Detail}>",
-        aggregate:            static c => $"<tabular-aggregate:{c.Faults.Count}>");
+        bulkRefused:          static c => $"<tabular-bulk-refused:{c.Cause.Message}>",
+        capabilityLoss:       static c => $"<tabular-capability-loss:{c.Format}:{c.Missing.Wire}>",
+        codecReject:          static c => $"<tabular-codec-reject:{c.Cause.Message}>");
 
-    public override string Category => Switch(
-        columnMissing:        static _ => "Column",
-        cellCast:             static _ => "Cell",
-        notSerializable:      static _ => "Serialize",
-        transcodeUnreachable: static _ => "Transcode",
-        bulkRefused:          static _ => "Bulk",
-        codecReject:          static _ => "Codec",
-        aggregate:            static _ => "Aggregate");
-
-    public static TabularFault Create(string message) => new CodecReject(message);
-
-    public TabularFault Combine(TabularFault rhs) => (this, rhs) switch {
-        (Aggregate l, Aggregate r) => new Aggregate(l.Faults + r.Faults),
-        (Aggregate l, _) => new Aggregate(l.Faults.Add(rhs)),
-        (_, Aggregate r) => new Aggregate(this.Cons(r.Faults)),
-        _ => new Aggregate(Seq(this, rhs)),
+    // Typed MiniExcel/STJ failures re-case with their exact cause; every other error remains exact.
+    public static Error Lift(Error boundary) => boundary switch {
+        Fault => boundary,
+        { Exception.Case: MiniExcelNotSerializableException refusal } =>
+            new NotSerializable(Named(refusal.Member?.Name), boundary),
+        { Exception.Case: ExcelColumnNotFoundException or ExcelInvalidCastException or JsonException or NotSupportedException } =>
+            new CodecReject(boundary),
+        _ => boundary,
     };
 
-    public static TabularFault Lift(Exception boundary) => boundary switch {
-        ExcelColumnNotFoundException c => new ColumnMissing(c.ColumnName ?? "", c.RowIndex),
-        ExcelInvalidCastException c => new CellCast(c.ColumnName ?? "", c.Row, c.InvalidCastType?.Name ?? ""),
-        MiniExcelNotSerializableException s => new NotSerializable(s.Member?.Name ?? ""),
-        _ => new CodecReject($"{boundary.GetType().Name}:{boundary.Message}"),
-    };
+    // MiniExcel hands every one of these names nullable and a blank is no name at all: absence stays absence
+    // rather than becoming an empty string a receipt reads as a column literally called "".
+    static Option<string> Named(string? value) =>
+        Optional(value).Filter(static name => !string.IsNullOrWhiteSpace(name));
 }
 
 [SmartEnum<string>]
@@ -250,103 +296,126 @@ public static class TabularSource {
     public static readonly Seq<StoreSlot> Slots =
         toSeq(TabularFactKind.Items).Map(static kind => StoreSlot.Create($"store.tabular.{kind.Key}"));
 
-    public static IO<Validation<TabularFault, Seq<T>>> Read<T>(TabularSpec spec, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink) =>
-        from rows in IO.lift(() => Capture(() => toSeq(spec.Window.Match(
-                Some: w => spec.Source.Read(
-                    path:   p => MiniExcel.QueryRange(p, spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, w.EndCell, spec.Policy()),
-                    stream: s => s.QueryRange(spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, w.EndCell, spec.Policy())),
-                None: () => spec.Source.Read(
-                    path:   p => MiniExcel.Query(p, spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, spec.Policy()),
-                    stream: s => s.Query(spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, spec.Policy())))
-                .Cast<IDictionary<string, object>>()))
-            .Bind(TabularWire.Project<T>))
+    // ONE polymorphic entry over the closed op union through the generated total `Switch`, riding one fact
+    // fold whose kind derives from the OP and whose count derives from the YIELD, so no leg mints its own.
+    public static IO<Validation<Error, TabularYield>> Run(TabularOp op, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink) =>
+        from now in IO.lift(frame.Now)
+        from done in Executed(op)
+        from _ in Emit(op, done, sink, now)
+        select done;
+
+    // `Read<T>` stands as the ONE member outside `Run`: its row type is an OPEN generic no closed union case
+    // carries, and erasing it to a `Type` trades the compiler's proof for a runtime cast.
+    public static IO<Validation<Error, Seq<T>>> Read<T>(TabularSpec spec, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink) =>
+        from now in IO.lift(frame.Now)
+        from rows in IO.lift(() => Capture(() => Sourced(spec)).Bind(TabularWire.Project<T>))
         from _ in rows.Match(
-            Succ: r => sink(new TabularFact(TabularFactKind.Read, spec.Format.Key, spec.Sheet, r.Count, frame.Now())),
-            Fail: _ => IO.pure(unit))
+            Succ: r => sink(new TabularFact(TabularFactKind.Read, spec.Format.Key, spec.Sheet, r.Count, now)),
+            Fail: static _ => IO.pure(unit))
         select rows;
 
-    public static IO<Validation<TabularFault, Seq<HashMap<string, object>>>> Scan(TabularSpec spec, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink) =>
-        from rows in IO.lift(() => Capture(() => spec.Source.Read(
-            path:   p => toSeq(MiniExcel.Query(p, spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, spec.Policy()).Select(Bag)),
-            stream: s => toSeq(s.Query(spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, spec.Policy()).Select(Bag)))))
-        from _ in rows.Match(Succ: r => sink(new TabularFact(TabularFactKind.Read, spec.Format.Key, spec.Sheet, r.Count, frame.Now())), Fail: _ => IO.pure(unit))
-        select rows;
+    static IO<Validation<Error, TabularYield>> Executed(TabularOp op) => op.Switch(
+        scan:      static s => IO.lift(() => Capture(() => (TabularYield)new TabularYield.Rows(Sourced(s.Spec)))),
+        stream:    static s => IO.lift(() => Capture(() => (TabularYield)new TabularYield.Reader(s.Spec.Source.Read(
+                       path:   p => MiniExcel.GetReader(p, s.Spec.HeaderRow, s.Spec.Sheet.ValueUnsafe(), s.Spec.Format.Excel, s.Spec.StartCell, s.Spec.Policy()),
+                       stream: c => c.GetReader(s.Spec.HeaderRow, s.Spec.Sheet.ValueUnsafe(), s.Spec.Format.Excel, s.Spec.StartCell, s.Spec.Policy()))))),
+        probe:     static p => IO.lift(() => Capture(() => (TabularYield)new TabularYield.Sheet(p.Spec.Source.Read(
+                       path: f => new TabularSheet(
+                           toSeq(MiniExcel.GetSheetInformations(f)),
+                           toSeq(MiniExcel.GetColumns(f, p.Spec.HeaderRow, p.Spec.Sheet.ValueUnsafe(), p.Spec.Format.Excel, p.Spec.StartCell, p.Spec.Policy())),
+                           Optional(MiniExcel.GetSheetDimensions(f).FirstOrDefault())),
+                       stream: c => new TabularSheet(
+                           toSeq(c.GetSheetInformations()),
+                           toSeq(c.GetColumns(p.Spec.HeaderRow, p.Spec.Sheet.ValueUnsafe(), p.Spec.Format.Excel, p.Spec.StartCell, p.Spec.Policy())),
+                           Optional(c.GetSheetDimensions().FirstOrDefault())))))),
+        write:     static w => IO.lift(() => Capture(() => {
+                       object payload = w.Plan.Match(Some: plan => Redact(w.Value, plan), None: () => w.Value);
+                       return (TabularYield)new TabularYield.Written(toSeq(w.Spec.Source.Read(
+                           path:   p => MiniExcel.SaveAs(p, payload, w.Spec.HeaderRow, w.Spec.Sheet.IfNone("Sheet1"), w.Spec.Format.Excel, w.Spec.Policy(), overwriteFile: true),
+                           stream: c => c.SaveAs(payload, w.Spec.HeaderRow, w.Spec.Sheet.IfNone("Sheet1"), w.Spec.Format.Excel, w.Spec.Policy()))));
+                   })),
+        append:    static a => IO.lift(() => Capture(() => (TabularYield)new TabularYield.Written(Seq1(a.Spec.Source.Read(
+                       path:   p => MiniExcel.Insert(p, a.Value, a.Spec.Sheet.IfNone("Sheet1"), a.Spec.Format.Excel, a.Spec.Policy(), a.Spec.HeaderRow, overwriteSheet: false),
+                       stream: c => c.Insert(a.Value, a.Spec.Sheet.IfNone("Sheet1"), a.Spec.Format.Excel, a.Spec.Policy(), a.Spec.HeaderRow, overwriteSheet: false)))))),
+        render:    static r => Gated(r.Spec, TabularCapability.Template, () => IO.lift(() => Capture(() => r.Spec.Source.Read(
+                       path:   p => { MiniExcel.SaveAsByTemplate(p, r.Template.ToArray(), r.Value); return (TabularYield)new TabularYield.Done(); },
+                       stream: c => { c.SaveAsByTemplate(r.Template.ToArray(), r.Value); return new TabularYield.Done(); })))),
+        transcode: static t => Transcoded(t.Spec, t.To, t.Target),
+        adorn:     static a => Gated(a.Spec, TabularCapability.Adornment, () => IO.lift(() => Capture(() => a.Adornment.Switch(
+                       a.Spec,
+                       mergeCells: static (s, m) => s.Source.Read(
+                           path:   p => { MiniExcel.MergeSameCells(m.Target, p); return (TabularYield)new TabularYield.Done(); },
+                           stream: source => {
+                               using MemoryStream buffered = new();
+                               source.CopyTo(buffered);
+                               using FileStream merged = File.Create(m.Target);
+                               merged.MergeSameCells(buffered.ToArray());
+                               return new TabularYield.Done();
+                           }),
+                       pictures: static (s, images) => s.Source.Read(
+                           path:   p => { MiniExcel.AddPicture(p, [.. images.Images]); return (TabularYield)new TabularYield.Done(); },
+                           stream: source => { MiniExcel.AddPicture(source, [.. images.Images]); return new TabularYield.Done(); }))))));
 
-    public static IO<MiniExcelDataReader> Reader(TabularSpec spec) =>
-        IO.lift(() => spec.Source.Read(
-            path:   p => MiniExcel.GetReader(p, spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, spec.Policy()),
-            stream: s => s.GetReader(spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, spec.Policy())));
+    // Template render and adornment are OOXML operations. A delimited spec reaching one used to surface as a
+    // MiniExcel throw mid-write; the demand is stated as a VALUE and refused on the rail before any file opens.
+    static IO<Validation<Error, TabularYield>> Gated(TabularSpec spec, TabularCapability required, Func<IO<Validation<Error, TabularYield>>> run) =>
+        spec.Format.Capabilities.Admits(required)
+            ? run()
+            : IO.pure((Validation<Error, TabularYield>)new TabularFault.CapabilityLoss(
+                spec.Format.Key, CapabilitySet<TabularCapability>.Of(required)));
 
-    public static IO<TabularSheet> Probe(TabularSpec spec) =>
-        IO.lift(() => spec.Source.Read(
-            path: p => new TabularSheet(
-                toSeq(MiniExcel.GetSheetInformations(p)),
-                toSeq(MiniExcel.GetColumns(p, spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, spec.Policy())),
-                Optional(MiniExcel.GetSheetDimensions(p).FirstOrDefault())),
-            stream: s => new TabularSheet(
-                toSeq(s.GetSheetInformations()),
-                toSeq(s.GetColumns(spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, spec.Policy())),
-                Optional(s.GetSheetDimensions().FirstOrDefault()))));
-
-    public static IO<Validation<TabularFault, int[]>> Write(TabularSpec spec, object value, Option<RedactionPlan> plan, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink) {
-        (object Payload, TabularFactKind Kind) write = plan.Match(
-            Some: p => (Redact(value, p), TabularFactKind.Redact),
-            None: () => (value, TabularFactKind.Write));
-        return from counts in IO.lift(() => Capture(() => spec.Source.Read(
-                   path:   p => MiniExcel.SaveAs(p, write.Payload, spec.HeaderRow, spec.Sheet.IfNone("Sheet1"), spec.Format.Excel, spec.Policy(), overwriteFile: true),
-                   stream: s => s.SaveAs(write.Payload, spec.HeaderRow, spec.Sheet.IfNone("Sheet1"), spec.Format.Excel, spec.Policy()))))
-               from _ in counts.Match(Succ: c => sink(new TabularFact(write.Kind, spec.Format.Key, spec.Sheet, c.Sum(), frame.Now())), Fail: _ => IO.pure(unit))
-               select counts;
-    }
-
-    public static IO<Validation<TabularFault, int>> Append(TabularSpec spec, object value, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink) =>
-        from rows in IO.lift(() => Capture(() => spec.Source.Read(
-            path:   p => MiniExcel.Insert(p, value, spec.Sheet.IfNone("Sheet1"), spec.Format.Excel, spec.Policy(), spec.HeaderRow, overwriteSheet: false),
-            stream: s => s.Insert(value, spec.Sheet.IfNone("Sheet1"), spec.Format.Excel, spec.Policy(), spec.HeaderRow, overwriteSheet: false))))
-        from _ in rows.Match(Succ: r => sink(new TabularFact(TabularFactKind.Append, spec.Format.Key, spec.Sheet, r, frame.Now())), Fail: _ => IO.pure(unit))
-        select rows;
-
-    public static IO<Validation<TabularFault, Unit>> Render(TabularSpec spec, ReadOnlyMemory<byte> template, object value, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink) =>
-        from done in IO.lift(() => Capture(() => spec.Source.Read(
-            path:   p => { MiniExcel.SaveAsByTemplate(p, template.ToArray(), value); return unit; },
-            stream: s => { s.SaveAsByTemplate(template.ToArray(), value); return unit; })))
-        from _ in done.Match(Succ: _ => sink(new TabularFact(TabularFactKind.Template, spec.Format.Key, spec.Sheet, 0, frame.Now())), Fail: _ => IO.pure(unit))
-        select done;
-
-    public static IO<Validation<TabularFault, Unit>> Transcode(TabularSpec spec, TabularFormat to, string target, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink) =>
+    static IO<Validation<Error, TabularYield>> Transcoded(TabularSpec spec, TabularFormat to, string target) =>
         TabularTranscode.Table.TryGetValue((spec.Format, to), out (Action<string, string> Path, Action<Stream, Stream> Stream) codec)
-            ? from done in IO.lift(() => Capture(() => spec.Source.Read(
-                  path:   p => { codec.Path(p, target); return unit; },
-                  stream: s => { using FileStream lowered = File.Create(target); codec.Stream(s, lowered); return unit; })))
-              from _ in done.Match(Succ: _ => sink(new TabularFact(TabularFactKind.Transcode, $"{spec.Format.Key}->{to.Key}", None, 0, frame.Now())), Fail: _ => IO.pure(unit))
-              select done
-            : IO.pure((Validation<TabularFault, Unit>)new TabularFault.TranscodeUnreachable(spec.Format.Key, to.Key));
+            ? IO.lift(() => Capture(() => spec.Source.Read(
+                path:   p => { codec.Path(p, target); return (TabularYield)new TabularYield.Done(); },
+                stream: s => { using FileStream lowered = File.Create(target); codec.Stream(s, lowered); return new TabularYield.Done(); })))
+            : IO.pure((Validation<Error, TabularYield>)new TabularFault.TranscodeUnreachable(spec.Format.Key, to.Key));
 
-    public static IO<Validation<TabularFault, Unit>> Adorn(TabularSpec spec, TabularAdornment adornment, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink) =>
-        from done in IO.lift(() => Capture(() => adornment.Switch(
-            spec,
-            mergeCells: static (s, m) => s.Source.Read(
-                path:   p => { MiniExcel.MergeSameCells(m.Target, p); return unit; },
-                stream: source => {
-                    using MemoryStream buffered = new();
-                    source.CopyTo(buffered);
-                    using FileStream merged = File.Create(m.Target);
-                    merged.MergeSameCells(buffered.ToArray());
-                    return unit;
-                }),
-            pictures: static (s, images) => s.Source.Read(
-                path:   p => { MiniExcel.AddPicture(p, [.. images.Images]); return unit; },
-                stream: source => { MiniExcel.AddPicture(source, [.. images.Images]); return unit; }))))
-        from _ in done.Match(Succ: _ => sink(new TabularFact(TabularFactKind.Adorn, spec.Format.Key, spec.Sheet, 0, frame.Now())), Fail: _ => IO.pure(unit))
-        select done;
+    // ONE row source both reads share: the typed and dynamic legs re-spelled the same `Query`/`QueryRange`
+    // dispatch, and the dynamic copy dropped `spec.Window` — a windowed schema-unknown read returned the whole
+    // sheet while its spec said otherwise.
+    static Seq<TabularRow> Sourced(TabularSpec spec) =>
+        TabularRow.Of(spec.Window.Match(
+            Some: w => spec.Source.Read(
+                path:   p => MiniExcel.QueryRange(p, spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, w.EndCell, spec.Policy()),
+                stream: s => s.QueryRange(spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, w.EndCell, spec.Policy())),
+            None: () => spec.Source.Read(
+                path:   p => MiniExcel.Query(p, spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, spec.Policy()),
+                stream: s => s.Query(spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, spec.Policy()))));
 
-    internal static Validation<TabularFault, TValue> Capture<TValue>(Func<TValue> codec) =>
-        Try.lift(codec).Run().Match(
-            Succ: static value => (Validation<TabularFault, TValue>)value,
-            Fail: static e => (Validation<TabularFault, TValue>)TabularFault.Lift(e.ToException()));
+    // Two rosters, one fold: the OP names the receipt slot and the YIELD names its count. A handed-out reader
+    // and a metadata probe emit nothing — the columnar materializer and the caller own those receipts.
+    static IO<Unit> Emit(TabularOp op, Validation<Error, TabularYield> outcome, Func<TabularFact, IO<Unit>> sink, Instant at) =>
+        outcome.Match(
+            Succ: yielded => Slot(op).Match(
+                Some: kind => sink(new TabularFact(kind, Format(op), op.Spec.Sheet, Rows(yielded), at)),
+                None: static () => IO.pure(unit)),
+            Fail: static _ => IO.pure(unit));
 
-    static HashMap<string, object> Bag(dynamic row) =>
-        toHashMap(((IDictionary<string, object>)row).Map(static kv => (kv.Key, kv.Value)));
+    static Option<TabularFactKind> Slot(TabularOp op) => op.Switch(
+        scan:      static _ => Some(TabularFactKind.Read),
+        stream:    static _ => Option<TabularFactKind>.None,
+        probe:     static _ => Option<TabularFactKind>.None,
+        write:     static w => Some(w.Plan.IsSome ? TabularFactKind.Redact : TabularFactKind.Write),
+        append:    static _ => Some(TabularFactKind.Append),
+        render:    static _ => Some(TabularFactKind.Template),
+        transcode: static _ => Some(TabularFactKind.Transcode),
+        adorn:     static _ => Some(TabularFactKind.Adorn));
+
+    static string Format(TabularOp op) =>
+        op is TabularOp.Transcode hop ? $"{hop.Spec.Format.Key}->{hop.To.Key}" : op.Spec.Format.Key;
+
+    static long Rows(TabularYield yielded) => yielded.Switch(
+        rows:    static r => (long)r.Cells.Count,
+        reader:  static _ => 0L,
+        sheet:   static _ => 0L,
+        written: static w => w.Counts.Sum(),
+        done:    static _ => 0L);
+
+    internal static Validation<Error, TValue> Capture<TValue>(Func<TValue> codec) =>
+        Op.Of().Catch(() => Fin.Succ(codec())).Match(
+            Succ: static value => (Validation<Error, TValue>)value,
+            Fail: static e => (Validation<Error, TValue>)TabularFault.Lift(e));
 
     static object Redact(object value, RedactionPlan plan) => value switch {
         DataTable table => table.Rows.Cast<DataRow>().Select(row => table.Columns.Cast<DataColumn>()
@@ -373,14 +442,21 @@ public static class TabularWire {
             Converters = { new ThinktectureJsonConverterFactory() },
         }.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
 
-    public static Validation<TabularFault, Seq<T>> Project<T>(Seq<IDictionary<string, object>> rows) =>
-        Contract<T>(rows).Bind(_ =>
-            rows.Map((row, at) => Minted<T>(row, at)).Traverse(identity).As());
+    public static Validation<Error, Seq<T>> Project<T>(Seq<TabularRow> rows) =>
+        Contract<T>(rows).Bind(_ => rows.Traverse(Bind<T>).As());
 
-    public static T Bind<T>(IDictionary<string, object> row) {
-        T? value = JsonSerializer.Deserialize<T>(JsonSerializer.SerializeToUtf8Bytes(row, Options), Options);
-        return value is null ? throw new JsonException("<tabular-wire-null>") : value;
-    }
+    // ONE member where two stood: the raw-value bind and its capture wrapper differed only in who caught the
+    // throw, so the deserialize refusal — a JSON fault, a null document, any other codec throw — settles here
+    // on the rail. NAMED LOSS: a caller wanting the bare value now unwraps a `Validation`; every caller already
+    // went through the wrapper, so none existed.
+    public static Validation<Error, T> Bind<T>(TabularRow row) =>
+        Op.Of().Catch(() => Fin.Succ(JsonSerializer.Deserialize<T>(
+                JsonSerializer.SerializeToUtf8Bytes(row.Cells.ToDictionary(static cell => cell.Key, static cell => cell.Value), Options), Options)))
+            .Match(
+                Succ: bound => Optional(bound).Match(
+                    Some: static value => (Validation<Error, T>)value,
+                    None: () => new TabularFault.CellCast(None, row.At, Some(typeof(T).Name))),
+                Fail: e => (Validation<Error, T>)TabularFault.Lift(e));
 
     public static DynamicExcelColumn Wire(string column) => new(column) { CustomFormatter = Scalar };
 
@@ -400,23 +476,16 @@ public static class TabularWire {
     public static object RedactRow(object row, RedactionPlan plan) =>
         Lowered(row).ToDictionary(static kv => kv.Key, kv => plan.Cell(kv.Key, kv.Value));
 
-    static Validation<TabularFault, Unit> Contract<T>(Seq<IDictionary<string, object>> rows) =>
+    static Validation<Error, Unit> Contract<T>(Seq<TabularRow> rows) =>
         rows.Head.Match(
-            None: static () => (Validation<TabularFault, Unit>)unit,
+            None: static () => (Validation<Error, Unit>)unit,
             Some: static head => toSeq(Options.GetTypeInfo(typeof(T)).Properties)
                 .Filter(static p => p.Set is not null)
                 .Map(static p => p.Name)
-                .Filter(name => !head.ContainsKey(name))
-                .Traverse(static name => (Validation<TabularFault, string>)new TabularFault.ColumnMissing(name, 0))
+                .Filter(name => !head.Cells.ContainsKey(name))
+                .Traverse(static name => (Validation<Error, string>)new TabularFault.ColumnMissing(Some(name), 0))
                 .As()
                 .Map(static _ => unit));
-
-    static Validation<TabularFault, T> Minted<T>(IDictionary<string, object> row, int at) =>
-        Try.lift(() => Bind<T>(row)).Run().Match(
-            Succ: static value => (Validation<TabularFault, T>)value,
-            Fail: e => (Validation<TabularFault, T>)(e.ToException() is JsonException wire
-                ? new TabularFault.CellCast(wire.Path ?? "<row>", at, typeof(T).Name)
-                : TabularFault.Lift(e.ToException())));
 
     static IDictionary<string, object?> Lowered(object row) =>
         row is IDictionary<string, object> dict
@@ -430,25 +499,27 @@ public static class TabularWire {
 | [INDEX] | [POLICY]              | [VALUE]                                          | [BINDING]                                                   |
 | :-----: | :-------------------- | :----------------------------------------------- | :---------------------------------------------------------- |
 |  [01]   | one tabular owner     | `TabularSource` over MiniExcel                   | `#DELIMITED_SOURCE` owns delimited text; one record rail    |
-|  [02]   | modality discriminant | `TabularSpec` + `Origin` `[Union]`               | one value selects typed/dynamic/reader/probe                |
-|  [03]   | typed read            | header-keyed `dynamic` rows → `Project<T>`       | contract-checked + accumulated; not the `Query<T>` binder   |
-|  [04]   | windowed typed read   | `dynamic` `QueryRange` → the SAME `Project<T>`   | `QueryRange` adds only `endCell`; one shared projection     |
+|  [02]   | modality discriminant | `TabularOp` `[Union]` + `TabularSpec`            | every modality is a case; `Read<T>` alone carries a generic |
+|  [03]   | typed read            | header-keyed rows → `Project<T>`                 | contract-checked + accumulated; not the `Query<T>` binder   |
+|  [04]   | one row source        | `Sourced` honours `Window` on BOTH reads         | `QueryRange` adds only `endCell`; one shared dispatch       |
 |  [05]   | format policy         | `[UseDelegateFromConstructor]` `Policy` column   | no consumer branches on the format key                      |
 |  [06]   | wire-cell projection  | `DynamicExcelColumn.CustomFormatter`             | `spec.Policy()` registers on `DynamicColumns`, wire-minted  |
-|  [07]   | row-boundary fault    | `Validation<TabularFault, …>` on both legs       | `Semigroup` + `Aggregate` accumulate; both legs fold        |
+|  [07]   | row-boundary fault    | `Validation<Error, …>` on both legs              | `Error.Many` accumulates; both legs fold                    |
 |  [08]   | bulk vs columnar      | typed `IEnumerable<T>` vs `IDataReader`          | bulk-copy from `IEnumerable<T>`; reader feeds columnar      |
 |  [09]   | redacted egress       | per-column `Redactor` before `SaveAs`            | streams column-redacted; no `DbDataReader` decorator        |
 |  [10]   | transcode             | `TabularTranscode.Table` frozen correspondence   | `CanReach` derives; a miss is the typed fault               |
 |  [11]   | receipt               | one `TabularFact` stream under `store.tabular.*` | kind-discriminated; never parallel receipt records          |
 |  [12]   | element projection    | per-app tabular→element map                      | `[02]-[SEAMS]` `Ingest → Rasm.Element` wire; row shape only |
-|  [13]   | fault band            | `Code => FaultBand.Tabular + n`                  | re-banded 839x off the 837x collision                       |
+|  [13]   | fault band            | `[FaultCase]` ordinals on `Fault`                | 839x; `Code` seal off the kernel registry base              |
 |  [14]   | report egress         | `Adorn` over `TabularAdornment` + spec `Style`   | merge/pictures/styling as policy DATA                       |
+|  [15]   | wire capability       | `CapabilitySet<TabularCapability>` per format    | template/adornment refuse before a file opens               |
+|  [16]   | admitted row          | `TabularRow` off MiniExcel's `IDictionary`       | the foreign bag admits once; ordinal rides its own row      |
 
 ## [03]-[DELIMITED_SOURCE]
 
 - Owner: `DelimitedSpec` the parse-policy value fixing separator, culture, trim classifier, header stance, parallelism, and the string-pool caps in one declaration — reader and writer options BOTH derive from it as one hardened pair; `DelimitedSource` the static surface owning the record-rail materialization (`Read<T>`), the async bulk stream (`Stream<T>`), and the reader→writer redaction/projection bridge (`Project`) — the `Sep` SIMD delimited owner made an EXPLICIT fence, projecting into the SAME downstream record rail the MiniExcel legs feed.
 - Cases: a read materializes through `Enumerate(RowFunc<T>)` (sequential), `ParallelEnumerate(RowFunc<T>, degreeOfParallelism)` (order-preserving parallel projection — the spec's `Parallelism > 1` selects it and the THREAD-SAFE pool variant with it), or `EnumerateAsync(RowFunc<T>)` (the `IAsyncEnumerable<T>` bulk source); the `RowFunc<T>` projection is the ONE boundary where `ref struct` rows lift into domain records — `Col.Parse<T>()` for `ISpanParsable<T>` columns, the column span handed to the wire converters otherwise, never `string`-materialize-then-parse in the hot path.
-- Entry: `public static IO<Validation<TabularFault, Seq<T>>> Read<T>(DelimitedSpec spec, Origin source, SepReader.RowFunc<T> shape, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink)` opens the reader over the `Origin` (`FromFile` on a path, `From` on a caller-owned stream), materializes through the spec-selected enumerator, folds the boundary through the shared `TabularSource.Capture` funnel, and rides a `read` fact; `public static async IAsyncEnumerable<T> Stream<T>(DelimitedSpec spec, Origin source, SepReader.RowFunc<T> shape, CancellationToken token = default)` is the `#BULK_LANE` source — `FromFileAsync`/`FromAsync` then `EnumerateAsync`, streaming a delimited file into the bulk copy without buffering; `public static IO<Validation<TabularFault, long>> Project(DelimitedSpec spec, Origin source, Origin target, RedactionPlan plan, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink)` is the redaction/column-projection egress — reader→writer per row, an UNCLASSIFIED column copied span-to-span (`Col.Set(span)`, zero materialization) and a classified column redacted through `plan.Cell` before `Col.Set`, riding a `redact` fact.
+- Entry: `public static IO<Validation<Error, Seq<T>>> Read<T>(DelimitedSpec spec, Origin source, SepReader.RowFunc<T> shape, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink)` opens the reader over the `Origin` (`FromFile` on a path, `From` on a caller-owned stream), materializes through the spec-selected enumerator, folds the boundary through the shared `TabularSource.Capture` funnel, and rides a `read` fact; `public static async IAsyncEnumerable<T> Stream<T>(DelimitedSpec spec, Origin source, SepReader.RowFunc<T> shape, CancellationToken token = default)` is the `#BULK_LANE` source — `FromFileAsync`/`FromAsync` then `EnumerateAsync`, streaming a delimited file into the bulk copy without buffering; `public static IO<Validation<Error, long>> Project(DelimitedSpec spec, Origin source, Origin target, RedactionPlan plan, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink)` is the redaction/column-projection egress — reader→writer per row, an UNCLASSIFIED column copied span-to-span (`Col.Set(span)`, zero materialization) and a classified column redacted through `plan.Cell` before `Col.Set`, riding a `redact` fact.
 - Auto: the options compose functionally off the spec as one HARDENED PAIR — `Sep.New(char)` on a declared separator or `Sep.Default` (the semicolon contract) on `None`, `SepReaderOptions.CultureInfo` `null` for the invariant fast path, `Trim` the `[Flags]` `SepTrim` classifier, `CreateToString` the pool policy (`PoolPerColThreadSafeFixedCapacity` under parallel consumption, `PoolPerCol` otherwise — low-cardinality identifier columns collapse to pooled lookups), and `Strict()` applied to BOTH the reader and the writer options because one side hardened alone produces files the other cannot round-trip; separator auto-detection is exploratory ingest, never a contract profile, so an exploratory read probes first and declares the found separator; header resolution rides `Header.IndexOf`/`IndicesOf(Span<string>, Span<int>)` (caller-buffer, zero-alloc) and prefix windows ride `Header.NamesStartingWith`; rows, cols, and headers are `ref struct` projections that NEVER escape the read scope — materialization is the one `Enumerate` boundary.
 - Receipt: a delimited read rides `store.tabular.read` carrying the row count and `"delimited"` as the format; a projection/redaction pass rides `store.tabular.redact` carrying the emitted row count; the bulk stream emits no fact of its own (the `#BULK_LANE` receipt carries the copied count).
 - Packages: Sep (`Sep`/`SepSpec`/`SepReaderOptions`/`SepWriterOptions`/`SepTrim`/`SepToString` pool family/`SepReader` + `Row`/`Col`/`Cols`/`RowFunc<T>`/`SepReaderHeader`/`Enumerate`/`EnumerateAsync`/`ParallelEnumerate`/`FromFile`/`From`/`FromFileAsync`/`FromAsync`/`Strict`/`SepWriter` + `NewRow` — namespace `nietras.SeparatedValues`), Microsoft.Extensions.Compliance.Redaction (the per-column redactor the bridge resolves), LanguageExt.Core, NodaTime, BCL inbox.
@@ -482,7 +553,7 @@ public readonly record struct DelimitedSpec(
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class DelimitedSource {
-    public static IO<Validation<TabularFault, Seq<T>>> Read<T>(DelimitedSpec spec, Origin source, SepReader.RowFunc<T> shape, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink) =>
+    public static IO<Validation<Error, Seq<T>>> Read<T>(DelimitedSpec spec, Origin source, SepReader.RowFunc<T> shape, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink) =>
         from rows in IO.lift(() => TabularSource.Capture(() => {
             using SepReader reader = Open(spec, source);
             // Strict() drains inside the using scope — a lazy Seq escaping the disposed reader is a use-after-dispose.
@@ -500,7 +571,7 @@ public static class DelimitedSource {
         await foreach (T row in reader.EnumerateAsync(shape).WithCancellation(token).ConfigureAwait(false)) { yield return row; }
     }
 
-    public static IO<Validation<TabularFault, long>> Project(DelimitedSpec spec, Origin source, Origin target, RedactionPlan plan, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink) =>
+    public static IO<Validation<Error, long>> Project(DelimitedSpec spec, Origin source, Origin target, RedactionPlan plan, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink) =>
         from emitted in IO.lift(() => TabularSource.Capture(() => {
             using SepReader reader = Open(spec, source);
             using SepWriter writer = target.Read(
@@ -541,7 +612,7 @@ public static class DelimitedSource {
 
 - Owner: `TabularBulk` the static bulk-copy fence over the linq2db EF bridge — ONE `Copy<T>` operation whose input SHAPE discriminates the source (`IEnumerable<T>` the materialized read, `IAsyncEnumerable<T>` the streamed `#DELIMITED_SOURCE`/`Read<T>` rail), lowering to PostgreSQL binary COPY over the V6 identity `DbContext` with the mapping DERIVED from the EF model — never a second mapping, never a per-source method family.
 - Cases: the source is `IEnumerable<T>` or `IAsyncEnumerable<T>` (overloads on input shape, one semantic operation); the copy strategy is `BulkCopyOptions.BulkCopyType.ProviderSpecific` (PG binary COPY — the default this fence pins) with `MultipleRows` the engine-neutral fallback a profile may select; `KeepIdentity` is PINNED true — under the time-ordered Guid-v7 identity row an unset flag lets the store re-mint identities and admission identity is lost; a refused copy rails `TabularFault.BulkRefused` in-band.
-- Entry: `public static IO<Validation<TabularFault, BulkCopyRowsCopied>> Copy<T>(DbContext identity, IAsyncEnumerable<T> rows, Option<int> batch = default, CancellationToken token = default) where T : class` and the `IEnumerable<T>` twin compose `LinqToDBForEFTools.BulkCopyAsync<T>(context, BulkCopyOptions, rows, token)` returning the TYPED `BulkCopyRowsCopied` receipt (rows copied + the options that produced it); `LinqToDBForEFTools.Initialize()` runs ONCE at the composition root (bridge-cache activation), never per call.
+- Entry: `public static IO<Validation<Error, BulkCopyRowsCopied>> Copy<T>(DbContext identity, IAsyncEnumerable<T> rows, Option<int> batch = default, CancellationToken token = default) where T : class` and the `IEnumerable<T>` twin compose `LinqToDBForEFTools.BulkCopyAsync<T>(context, BulkCopyOptions, rows, token)` returning the TYPED `BulkCopyRowsCopied` receipt (rows copied + the options that produced it); `LinqToDBForEFTools.Initialize()` runs ONCE at the composition root (bridge-cache activation), never per call.
 - Auto: `LinqToDBForEFTools.BulkCopyAsync<T>(DbContext, BulkCopyOptions, IEnumerable<T>, CancellationToken)` derives mapping from the supplied EF context; a lifted read remains outside EF change tracking because bulk copy consumes its source directly. `MergeWithOutputAsync<TTarget,TSource,TOutput>` supplies the `(action, deleted, inserted)` projection for an upsert on the same bridged context.
 - Receipt: a copy rides `store.tabular.bulk` carrying the copied-row count off the `BulkCopyRowsCopied` receipt and the batch bound; a refusal rides the typed `BulkRefused` on the rail.
 - Packages: linq2db.EntityFrameworkCore (`LinqToDBForEFTools.BulkCopyAsync<T>`); core `linq2db` (`BulkCopyOptions`/`BulkCopyType`/`BulkCopyRowsCopied`/`MergeWithOutputAsync`), Microsoft.EntityFrameworkCore (`DbContext` — the V6 identity context), LanguageExt.Core, BCL inbox.
@@ -551,18 +622,21 @@ public static class DelimitedSource {
 ```csharp signature
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class TabularBulk {
-    public static IO<Validation<TabularFault, BulkCopyRowsCopied>> Copy<T>(DbContext identity, IAsyncEnumerable<T> rows, Option<int> batch = default, CancellationToken token = default) where T : class =>
+    public static IO<Validation<Error, BulkCopyRowsCopied>> Copy<T>(DbContext identity, IAsyncEnumerable<T> rows, Option<int> batch = default, CancellationToken token = default) where T : class =>
         Copied(() => LinqToDBForEFTools.BulkCopyAsync(identity, Options(batch), rows, token));
 
-    public static IO<Validation<TabularFault, BulkCopyRowsCopied>> Copy<T>(DbContext identity, IEnumerable<T> rows, Option<int> batch = default, CancellationToken token = default) where T : class =>
+    public static IO<Validation<Error, BulkCopyRowsCopied>> Copy<T>(DbContext identity, IEnumerable<T> rows, Option<int> batch = default, CancellationToken token = default) where T : class =>
         Copied(() => LinqToDBForEFTools.BulkCopyAsync(identity, Options(batch), rows, token));
 
     static BulkCopyOptions Options(Option<int> batch) =>
         new(BulkCopyType: BulkCopyType.ProviderSpecific, KeepIdentity: true, MaxBatchSize: batch.ToNullable());
 
-    static IO<Validation<TabularFault, BulkCopyRowsCopied>> Copied(Func<Task<BulkCopyRowsCopied>> copy) =>
-        IO.liftAsync(async () => (Validation<TabularFault, BulkCopyRowsCopied>)await copy().ConfigureAwait(false))
-        | @catch<IO, Validation<TabularFault, BulkCopyRowsCopied>>(static _ => true, static e => IO.pure((Validation<TabularFault, BulkCopyRowsCopied>)new TabularFault.BulkRefused(e.Message)));
+    static IO<Validation<Error, BulkCopyRowsCopied>> Copied(Func<Task<BulkCopyRowsCopied>> copy) =>
+        IO.liftAsync(async () => (await Op.Of().Catch(async _ =>
+            Fin.Succ(await copy().ConfigureAwait(false))).ConfigureAwait(false))
+            .Match(
+                Succ: static copied => (Validation<Error, BulkCopyRowsCopied>)copied,
+                Fail: static error => (Validation<Error, BulkCopyRowsCopied>)new TabularFault.BulkRefused(error)));
 }
 ```
 

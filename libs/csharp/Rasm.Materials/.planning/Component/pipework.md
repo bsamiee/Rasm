@@ -1,33 +1,35 @@
 # [MATERIALS_PIPEWORK]
 
-THE PIPEWORK SEED PAGE owns the `ComponentFamily.Pipework` fold (`ComponentClass.Minor`, `DetailLane.Product`): the buildable pressure-pipe PRODUCT rows — dimensions, materials, ratings — across seven material systems. Copper water tube rides ASTM B88 Types K/L/M over the copper-tube-size rule, steel A53/A106 and PVC D1785 and CPVC F441 share ONE ASME B36.10 iron-pipe-size ladder under Sch 40/80 wall selection, PEX F876 derives its SDR9 wall from the standard's own formula, cast-iron soil A74 carries the SV and XH hub-and-spigot services, and ductile AWWA C151 stands as an OD-and-class roster whose wall matrix is typed-absent. Every ladder GENERATES from one published roster per system — a size is a roster row and a system a policy row, never sixty hand-minted components. Hydraulic SIZING — flow, pressure drop, demand — is `Rasm.Compute`'s; this page owns the buildable product rows alone.
+THE PIPEWORK SEED PAGE owns the `ComponentFamily.Pipework` row facts (`ComponentClass.Minor`, `DetailLane.Product`): the buildable pressure-pipe PRODUCT rows — dimensions, materials, ratings — across seven material systems. Copper water tube rides ASTM B88 Types K/L/M over the copper-tube-size rule, steel A53/A106 and PVC D1785 and CPVC F441 share ONE ASME B36.10 iron-pipe-size ladder under Sch 40/80 wall selection, PEX F876 derives its SDR9 wall from the standard's own formula, cast-iron soil A74 carries the SV and XH hub-and-spigot services, and ductile AWWA C151 stands as an OD-and-class roster whose wall matrix is typed-absent. Every ladder GENERATES from one published roster per system: the SIZING is a `PipeSystem` row's own delegate column, so `PipeworkSeed.Roster` is the flattened cross product and a new system is ONE row with no second edit anywhere. Hydraulic SIZING — flow, pressure drop, demand — is `Rasm.Compute`'s; this page owns the buildable product rows alone.
 
-The page composes settled law without re-derivation: `SectionProfile.CircleHollow.Of` is the railed geometry admission and `Component.Of` the one construction rail (`component#COMPONENT_OWNER`); the product bag builds through `ComponentDetail.ProductRows` over the `Rasm.Element/Properties/property#DETAIL_SCHEMA` rows `PipeSchedule`/`PressureClass`/`NominalBore`, with the joint modality riding `JointType` over the widened `Realization` allowed-set (`Threaded`/`Grooved`/`Fused`/`Compression`/`Brazed`/`Bonded` — the solvent-cement modality the PVC/CPVC systems stamp — beside the structural `Cast`/`Welded` tokens); `ThreadRow.InchToMm` is the one inch basis (`fastener#FASTENER_FAMILY`); `Provenance` states each row's producer and the page-minted `Attestation` axis states its source count; the IFC stamp is `IfcPipeSegment` with `RIGIDSEGMENT` for rigid systems and `FLEXIBLESEGMENT` for PEX; substances bind `copper.c12200`/`steel.a53`/`pipe.pvc`/`pipe.cpvc`/`pipe.pex`/`iron.cast` at `Properties/properties#MATERIAL_PROPERTY_CATALOGUE`.
+The page composes settled law without re-derivation: `SectionProfile.CircleHollow.Of` is the railed geometry admission and `component#COMPONENT_SEED` the ONE generator fold; the product bag builds through `ComponentDetail.ProductRows` over the `Rasm.Element/Properties/property#DETAIL_SCHEMA` rows `PipeSchedule`/`PressureClass`/`NominalBore`, with the joint modality riding `JointType` over the widened `Realization` allowed-set (`Threaded`/`Grooved`/`Fused`/`Compression`/`Brazed`/`Bonded` — the solvent-cement modality the PVC/CPVC systems stamp — beside the structural `Cast`/`Welded` tokens); `ThreadRow.InchToMm` is the one inch basis (`fastener#FASTENER_FAMILY`); the seam `EvidenceGrade` states each row's producer and the page-minted `Attestation` axis its source count; the IFC stamp is `IfcPipeSegment` with `RIGIDSEGMENT` for rigid systems and `FLEXIBLESEGMENT` for PEX; substances bind `copper.c12200`/`steel.a53`/`pipe.pvc`/`pipe.cpvc`/`pipe.pex`/`iron.cast` at `Properties/properties#MATERIAL_PROPERTY_CATALOGUE`.
 
 ## [01]-[INDEX]
 
-- [02]-[PIPE_SYSTEMS]: the `Attestation` source-count axis, the `PipeSystem` policy row, and the four published rosters — `CtsRow` copper-tube sizes, `IpsRow` iron-pipe sizes, `SoilRow` hub-and-spigot services, `DuctileRow` OD-and-class — each carrying its derivation algebra.
-- [03]-[PIPEWORK_SEED]: `SegmentRows` shared trade mints, the `PipeworkDetail` product bag, the `PipeworkSeed.Rows` generation fold, and the typed sizing refusal.
+- [02]-[PIPE_SYSTEMS]: the `Attestation` source-count axis, the `PipeSystem` policy row with its sizing delegate, the `PipeSize`/`PipeRow` seed currencies, and the four published rosters — `CtsRow` copper-tube sizes, `IpsRow` iron-pipe sizes, `SoilRow` hub-and-spigot services, `DuctileRow` OD-and-class — each carrying its derivation algebra.
+- [03]-[PIPEWORK_SEED]: `SegmentRows` the shared trade mints, and `PipeworkSeed` — the flattened roster, the seed law with its accumulating coherence and product bag, and the typed sizing refusal.
 
 ## [02]-[PIPE_SYSTEMS]
 
-- Owner: `PipeSystem` the one policy axis — schedule token, default joint modality, IFC flexibility, provenance, per-column attestation, and both `MaterialId` slots per system; `Cts`/`Ips`/`Soil`/`Ductile` the published rosters; `Attestation` the SEED_ROW_LAW source-count axis every fluid-trade page composes.
+- Owner: `PipeSystem` the one policy axis — schedule token, default joint modality, IFC flexibility, evidence grade, per-column attestation, both `MaterialId` slots, and the SIZING delegate that produces the system's own rungs; `Cts`/`Ips`/`Soil`/`Ductile` the published rosters; `PipeSize` the sized rung and `PipeRow` the system × rung seed row; `Attestation` the SEED_ROW_LAW source-count axis every fluid-trade page composes.
 - Cases: twelve minting systems {copper-k · copper-l · copper-m · steel-sch40 · steel-sch80 · pvc-sch40 · pvc-sch80 · cpvc-sch40 · cpvc-sch80 · pex-sdr9 · soil-sv · soil-xh} over four rosters; ductile is a ROSTER without a system row — its wall matrix conflicts between secondary sources, so no `CircleHollow` exists to admit and no component mints until the wall column lands `Corroborated`.
 - Law: stored columns are only what the standards print independently — copper OD derives from the CTS rule (nominal + 1/8 in), PEX wall from the SDR9 formula under its 0.070 in floor, soil wall from the published barrel OD/ID pair — so a transcription slip in a derivable cell is unrepresentable and the derivation is the executable spec.
 - Law: the copper working-pressure matrix lands typed-absent — its basis (P = 2·S·t_min/(D_max − 0.8·t_min), S = 41.4/71.0 MPa annealed/drawn at 100 °F) is PRIMARY-SINGLE and keys on tolerance minima the nominal roster does not carry, so a nominal-wall derivation overstates every rating; no derived pressure publishes.
-- Exemption: an HDPE system (and the `Fused` joint token's first pipework consumer) joins as one `PipeSystem` row and one roster the moment its dimension pack proves; `pipe.hdpe` already resolves at the property catalogue.
-- Packages: Rasm.Domain (`Op`/`Context`), Rasm.Element (the seam bag currencies), Rasm.Materials.Component parent owner (`Component`/`ComponentRow`/`ComponentFamily`/`SectionProfile`/`IfcBinding`/`Coring`/`ComponentStandard`/`ComponentAuthority`/`ComponentFault`/`ComponentDetail`/`Provenance`, the `ThreadRow.InchToMm` inch basis), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`), LanguageExt.Core (`Fin`/`Seq`/`Option`/`Traverse`), BCL (`ImmutableArray`). NO pipe-dimension producer exists among admitted packages, so the rosters are PUBLISHED here under SEED_ROW_LAW with per-column provenance.
-- Growth: a new size is one roster row; a new schedule or material system one `PipeSystem` row wired into the `Rows` fold; a new service class one `SoilRow` column pair; the ductile wall matrix is one `Option` column flip from typed-absent to minting.
-- Boundary: `Attestation` qualifies the TRANSCRIPTION, `Provenance` the PRODUCER — a value lands standards-published yet single-posted, and the two axes cross the seam as independent bag rows so a downstream reader never mistakes a primary-single cell for a corroborated one.
+- Law: a system's RATING attestation and its sized rows' rating cells are ONE fact read at two owners — the sizing delegate stamps a psi cell exactly where the `Rated` column declares one, and the seed coherence proves the correspondence per row, so the bag's attestation fold reads the declared column with no second presence test.
+- Exemption: an HDPE system (and the `Fused` joint token's first pipework consumer) joins as one `PipeSystem` row the moment its dimension pack proves; `pipe.hdpe` already resolves at the property catalogue.
+- Packages: Rasm.Domain (`Op`/`Context`), Rasm.Element (`MaterialId`, `EvidenceGrade`, the seam bag currencies), the parent `component#COMPONENT_OWNER`/`#COMPONENT_DETAIL`/`#COMPONENT_SEED` owners (and the `ThreadRow.InchToMm` inch basis), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + `[UseDelegateFromConstructor]`), LanguageExt.Core (`Validation`/`Fin`/`Seq`/`Option`), BCL (`ImmutableArray`, `FrozenDictionary`). NO pipe-dimension producer exists among admitted packages, so the rosters are PUBLISHED here under SEED_ROW_LAW with per-column provenance.
+- Growth: a new size is one roster row; a new schedule or material system one `PipeSystem` row carrying its own sizing delegate — the roster flattens `Items`, so nothing else edits; a new service class one `SoilRow` column pair; the ductile wall matrix is one `Option` column flip from typed-absent to minting.
+- Boundary: `Attestation` qualifies the TRANSCRIPTION, `EvidenceGrade` the PRODUCER — a value lands standards-published yet single-posted, and the two axes cross the seam as independent bag rows so a downstream reader never mistakes a primary-single cell for a corroborated one.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
 using System.Collections.Immutable;
 using System.Globalization;             // the invariant designation-tag format
 using LanguageExt;
+using LanguageExt.Common;               // Error — the Validation fault carrier the coherence census accumulates
 using Rasm.Domain;                      // Op, Context
-using Rasm.Element.Composition;         // MaterialId, DetailSchema, PropertyBag, PropertyName, PropertyValue
-using Rasm.Element.Properties;          // MeasureValue, PropertyCategory
+using Rasm.Element.Composition;         // MaterialId, PropertyBag
+using Rasm.Element.Properties;          // EvidenceGrade, DetailSchema, PropertyCategory, PropertyName, PropertyValue, Dimension
 using Thinktecture;
 using Dimension = Rasm.Element.Properties.Dimension;   // the SI-dimension axis the detail-bag mints ride
 using static LanguageExt.Prelude;
@@ -35,7 +37,7 @@ using static LanguageExt.Prelude;
 namespace Rasm.Materials.Component;
 
 // --- [TYPES] -------------------------------------------------------------------------------
-// The SEED_ROW_LAW source-count axis BESIDE Provenance: Provenance names WHO produced a value, Attestation states
+// The SEED_ROW_LAW source-count axis BESIDE EvidenceGrade: the grade names WHO produced a value, Attestation states
 // whether a second INDEPENDENT posting corroborates the transcription. A primary-single column crosses the seam
 // flagged rather than dressed as two-sourced — the ductwork gauge schedules and the soil XH service are the standing
 // consumers. And combines cell attestations onto one bag row: any primary-single contributor rules the row.
@@ -48,45 +50,24 @@ public sealed partial class Attestation {
     public Attestation And(Attestation other) => Independent && other.Independent ? Corroborated : PrimarySingle;
 }
 
-// The pipework policy axis: one row per minting material system. Schedule is the PipeSchedule bag token; Joint the
-// system's default modality over the widened Realization allowed-set (a per-connection override is realization
-// detail, never a type edit); Flexible selects the IfcPipeSegment predefined token; Dims/Rated the attestation of the
-// dimension and rating columns (steel carries Rated None — the pack scope is dimensions only, so no rating stamps).
-// PEX appearance rides plastic.pvc — the one smooth-polymer render row the library publishes.
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class PipeSystem {
-    public static readonly PipeSystem CopperK    = new("copper-k",    schedule: "type-k", joint: "Brazed",      flexible: false, source: Provenance.Published, dims: Attestation.Corroborated,  rated: None,                               substanceId: "copper.c12200", appearanceId: "metal.copper");
-    public static readonly PipeSystem CopperL    = new("copper-l",    schedule: "type-l", joint: "Brazed",      flexible: false, source: Provenance.Published, dims: Attestation.Corroborated,  rated: None,                               substanceId: "copper.c12200", appearanceId: "metal.copper");
-    public static readonly PipeSystem CopperM    = new("copper-m",    schedule: "type-m", joint: "Brazed",      flexible: false, source: Provenance.Published, dims: Attestation.Corroborated,  rated: None,                               substanceId: "copper.c12200", appearanceId: "metal.copper");
-    public static readonly PipeSystem SteelSch40 = new("steel-sch40", schedule: "sch40",  joint: "Threaded",    flexible: false, source: Provenance.Published, dims: Attestation.Corroborated,  rated: None,                               substanceId: "steel.a53",     appearanceId: "metal.steel");
-    public static readonly PipeSystem SteelSch80 = new("steel-sch80", schedule: "sch80",  joint: "Welded",      flexible: false, source: Provenance.Published, dims: Attestation.Corroborated,  rated: None,                               substanceId: "steel.a53",     appearanceId: "metal.steel");
-    public static readonly PipeSystem PvcSch40   = new("pvc-sch40",   schedule: "sch40",  joint: "Bonded",      flexible: false, source: Provenance.Published, dims: Attestation.Corroborated,  rated: Some(Attestation.PrimarySingle),    substanceId: "pipe.pvc",      appearanceId: "plastic.pvc");
-    public static readonly PipeSystem PvcSch80   = new("pvc-sch80",   schedule: "sch80",  joint: "Bonded",      flexible: false, source: Provenance.Published, dims: Attestation.Corroborated,  rated: Some(Attestation.Corroborated),     substanceId: "pipe.pvc",      appearanceId: "plastic.pvc");
-    public static readonly PipeSystem CpvcSch40  = new("cpvc-sch40",  schedule: "sch40",  joint: "Bonded",      flexible: false, source: Provenance.Published, dims: Attestation.Corroborated,  rated: Some(Attestation.PrimarySingle),    substanceId: "pipe.cpvc",     appearanceId: "plastic.pvc");
-    public static readonly PipeSystem CpvcSch80  = new("cpvc-sch80",  schedule: "sch80",  joint: "Bonded",      flexible: false, source: Provenance.Published, dims: Attestation.Corroborated,  rated: Some(Attestation.Corroborated),     substanceId: "pipe.cpvc",     appearanceId: "plastic.pvc");
-    public static readonly PipeSystem PexSdr9    = new("pex-sdr9",    schedule: "sdr9",   joint: "Compression", flexible: true,  source: Provenance.Defined,   dims: Attestation.Corroborated,  rated: Some(Attestation.Corroborated),     substanceId: "pipe.pex",      appearanceId: "plastic.pvc");
-    public static readonly PipeSystem SoilSv     = new("soil-sv",     schedule: "sv",     joint: "Compression", flexible: false, source: Provenance.Published, dims: Attestation.Corroborated,  rated: None,                               substanceId: "iron.cast",     appearanceId: "metal.iron");
-    public static readonly PipeSystem SoilXh     = new("soil-xh",     schedule: "xh",     joint: "Compression", flexible: false, source: Provenance.Published, dims: Attestation.PrimarySingle, rated: None,                               substanceId: "iron.cast",     appearanceId: "metal.iron");
+// --- [MODELS] ------------------------------------------------------------------------------
+// One SIZED rung: the nominal designation, the inch nominal the tag derives from, the admitted OD/wall pair, and the
+// two typed-absent product cells (a psi rating where the system declares one, a hub envelope where the service
+// publishes one). It is the delegate's return, so a system's ladder is data its own row produces.
+public readonly record struct PipeSize(
+    string Nominal, double NominalIn, double OdMm, double WallMm, Option<double> RatedPsi, Option<double> HubMm);
 
-    public string Schedule { get; }
-    public string Joint { get; }
-    public bool Flexible { get; }
-    public Provenance Source { get; }
-    public Attestation Dims { get; }
-    public Option<Attestation> Rated { get; }
-    public string SubstanceId { get; }
-    public string AppearanceId { get; }
-    public IfcBinding Ifc => IfcBinding.Of("IfcPipeSegment", Flexible ? "FLEXIBLESEGMENT" : "RIGIDSEGMENT");
-    public MaterialId Substance => MaterialId.Of(SubstanceId);
-    public MaterialId Appearance => MaterialId.Of(AppearanceId);
+// The seed row: the policy row and the rung it produced. The roster is the flattened product of the two, so ~150
+// components come from 55 published roster rows with no hand mint.
+public readonly record struct PipeRow(PipeSystem System, PipeSize Size) {
+    public string Designation =>
+        $"pipework.{System.Key}-{(Size.NominalIn * 1000.0).ToString("00000", CultureInfo.InvariantCulture)}";
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
 // ASTM B88 / F876 copper-tube-size row: the CTS rule OD = nominal + 1/8 in is the standard's own correspondence, so
 // only the nominal and the three published wall columns store; None = the type is not furnished at that size. The
 // F876 SDR9 wall is OD/9 under the 0.070 in floor — the formula reproduces every printed F876 cell, so PEX carries
-// Provenance.Defined and no wall column of its own.
+// EvidenceGrade.Defined and no wall column of its own.
 public readonly record struct CtsRow(string Nominal, double NominalIn, Option<double> KWallIn, Option<double> LWallIn, Option<double> MWallIn, bool Pex) {
     public double OdIn => NominalIn + 0.125;
     public double OdMm => OdIn * ThreadRow.InchToMm;
@@ -112,6 +93,72 @@ public readonly record struct SoilRow(string Size, double SizeIn, double SvHubIn
 public readonly record struct DuctileRow(string Size, double OdIn, Option<double> WallIn);
 
 // --- [TABLES] ------------------------------------------------------------------------------
+// The pipework policy axis: one row per minting material system. Schedule is the PipeSchedule bag token; Joint the
+// system's default modality over the widened Realization allowed-set (a per-connection override is realization
+// detail, never a type edit); Flexible selects the IfcPipeSegment predefined token; Dims/Rated the attestation of the
+// dimension and rating columns (steel carries Rated None — the pack scope is dimensions only, and its sizing
+// delegate therefore stamps no psi cell); Sizes the system's OWN ladder, deferred so the axis never races the table
+// statics. PEX appearance rides plastic.pvc — the one smooth-polymer render row the library publishes.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class PipeSystem {
+    public const double PexRatedPsi = 160.0;   // F876 standard rating at 73 °F; the 100 psi/180 °F and 80 psi/200 °F rungs are Compute-side temperature derating
+
+    public static readonly PipeSystem CopperK    = new("copper-k",    schedule: "type-k", joint: "Brazed",      flexible: false, source: EvidenceGrade.Catalogue, dims: Attestation.Corroborated,  rated: None,                            substanceId: "copper.c12200", appearanceId: "metal.copper",  sizes: static () => CopperSizes(static r => r.KWallIn));
+    public static readonly PipeSystem CopperL    = new("copper-l",    schedule: "type-l", joint: "Brazed",      flexible: false, source: EvidenceGrade.Catalogue, dims: Attestation.Corroborated,  rated: None,                            substanceId: "copper.c12200", appearanceId: "metal.copper",  sizes: static () => CopperSizes(static r => r.LWallIn));
+    public static readonly PipeSystem CopperM    = new("copper-m",    schedule: "type-m", joint: "Brazed",      flexible: false, source: EvidenceGrade.Catalogue, dims: Attestation.Corroborated,  rated: None,                            substanceId: "copper.c12200", appearanceId: "metal.copper",  sizes: static () => CopperSizes(static r => r.MWallIn));
+    public static readonly PipeSystem SteelSch40 = new("steel-sch40", schedule: "sch40",  joint: "Threaded",    flexible: false, source: EvidenceGrade.Catalogue, dims: Attestation.Corroborated,  rated: None,                            substanceId: "steel.a53",     appearanceId: "metal.steel",   sizes: static () => IpsSizes(static r => r.Sch40In, None));
+    public static readonly PipeSystem SteelSch80 = new("steel-sch80", schedule: "sch80",  joint: "Welded",      flexible: false, source: EvidenceGrade.Catalogue, dims: Attestation.Corroborated,  rated: None,                            substanceId: "steel.a53",     appearanceId: "metal.steel",   sizes: static () => IpsSizes(static r => r.Sch80In, None));
+    public static readonly PipeSystem PvcSch40   = new("pvc-sch40",   schedule: "sch40",  joint: "Bonded",      flexible: false, source: EvidenceGrade.Catalogue, dims: Attestation.Corroborated,  rated: Some(Attestation.PrimarySingle), substanceId: "pipe.pvc",      appearanceId: "plastic.pvc",   sizes: static () => IpsSizes(static r => r.Sch40In, Rated40));
+    public static readonly PipeSystem PvcSch80   = new("pvc-sch80",   schedule: "sch80",  joint: "Bonded",      flexible: false, source: EvidenceGrade.Catalogue, dims: Attestation.Corroborated,  rated: Some(Attestation.Corroborated),  substanceId: "pipe.pvc",      appearanceId: "plastic.pvc",   sizes: static () => IpsSizes(static r => r.Sch80In, Rated80));
+    public static readonly PipeSystem CpvcSch40  = new("cpvc-sch40",  schedule: "sch40",  joint: "Bonded",      flexible: false, source: EvidenceGrade.Catalogue, dims: Attestation.Corroborated,  rated: Some(Attestation.PrimarySingle), substanceId: "pipe.cpvc",     appearanceId: "plastic.pvc",   sizes: static () => IpsSizes(static r => r.Sch40In, Rated40));
+    public static readonly PipeSystem CpvcSch80  = new("cpvc-sch80",  schedule: "sch80",  joint: "Bonded",      flexible: false, source: EvidenceGrade.Catalogue, dims: Attestation.Corroborated,  rated: Some(Attestation.Corroborated),  substanceId: "pipe.cpvc",     appearanceId: "plastic.pvc",   sizes: static () => IpsSizes(static r => r.Sch80In, Rated80));
+    public static readonly PipeSystem PexSdr9    = new("pex-sdr9",    schedule: "sdr9",   joint: "Compression", flexible: true,  source: EvidenceGrade.Defined,   dims: Attestation.Corroborated,  rated: Some(Attestation.Corroborated),  substanceId: "pipe.pex",      appearanceId: "plastic.pvc",   sizes: static () => PexSizes());
+    public static readonly PipeSystem SoilSv     = new("soil-sv",     schedule: "sv",     joint: "Compression", flexible: false, source: EvidenceGrade.Catalogue, dims: Attestation.Corroborated,  rated: None,                            substanceId: "iron.cast",     appearanceId: "metal.iron",    sizes: static () => SoilSizes(static r => (r.SvOdIn, r.SvWallIn, r.SvHubIn)));
+    public static readonly PipeSystem SoilXh     = new("soil-xh",     schedule: "xh",     joint: "Compression", flexible: false, source: EvidenceGrade.Catalogue, dims: Attestation.PrimarySingle, rated: None,                            substanceId: "iron.cast",     appearanceId: "metal.iron",    sizes: static () => SoilSizes(static r => (r.XhOdIn, r.XhWallIn, r.XhHubIn)));
+
+    [UseDelegateFromConstructor] public partial Seq<PipeSize> Sizes();
+    public string Schedule { get; }
+    public string Joint { get; }
+    public bool Flexible { get; }
+    public EvidenceGrade Source { get; }
+    public Attestation Dims { get; }
+    public Option<Attestation> Rated { get; }
+    public string SubstanceId { get; }
+    public string AppearanceId { get; }
+    public IfcBinding Ifc => IfcBinding.Of("IfcPipeSegment", Flexible ? "FLEXIBLESEGMENT" : "RIGIDSEGMENT");
+    public MaterialId Substance => MaterialId.Of(SubstanceId);
+    public MaterialId Appearance => MaterialId.Of(AppearanceId);
+
+    // --- [LADDERS]
+    // One generator per published roster; the per-system variation is the SELECTOR each row hands its own generator,
+    // so a wall column, a rating column, or a service triple is the whole difference between two systems. The rating
+    // selector is an Option rather than a flag: a system whose pack scope excludes ratings passes None and its rungs
+    // carry no psi cell at all, which the seed coherence then proves against the Rated attestation column.
+    static readonly Option<Func<IpsRow, double>> Rated40 = Some<Func<IpsRow, double>>(static r => r.Rated40Psi);
+    static readonly Option<Func<IpsRow, double>> Rated80 = Some<Func<IpsRow, double>>(static r => r.Rated80Psi);
+
+    static Seq<PipeSize> CopperSizes(Func<CtsRow, Option<double>> wall) =>
+        toSeq(Cts.Rows).Bind(row => wall(row)
+            .Map(inches => new PipeSize(row.Nominal, row.NominalIn, row.OdMm, inches * ThreadRow.InchToMm, None, None))
+            .ToSeq());
+
+    static Seq<PipeSize> IpsSizes(Func<IpsRow, double> wall, Option<Func<IpsRow, double>> rated) =>
+        toSeq(Ips.Rows).Map(row => new PipeSize(
+            row.Nps, row.NpsIn, row.OdMm, wall(row) * ThreadRow.InchToMm, rated.Map(pick => pick(row)), None));
+
+    static Seq<PipeSize> PexSizes() =>
+        toSeq(Cts.Rows).Filter(static r => r.Pex).Map(static row => new PipeSize(
+            row.Nominal, row.NominalIn, row.OdMm, row.PexWallMm, Some(PexRatedPsi), None));
+
+    static Seq<PipeSize> SoilSizes(Func<SoilRow, (double OdIn, double WallIn, double HubIn)> service) =>
+        toSeq(Soil.Rows).Map(row => {
+            (double odIn, double wallIn, double hubIn) = service(row);
+            return new PipeSize(row.Size, row.SizeIn, odIn * ThreadRow.InchToMm, wallIn * ThreadRow.InchToMm,
+                None, Some(hubIn * ThreadRow.InchToMm));
+        });
+}
+
 // ASTM B88 Table: 16 sizes, walls in the inches the standard prints. Type M is not furnished at 1/4 and 5/8.
 public static class Cts {
     public static readonly ImmutableArray<CtsRow> Rows = [
@@ -183,13 +230,12 @@ public static class Ductile {
 
 ## [03]-[PIPEWORK_SEED]
 
-- Owner: `SegmentRows` the Materials-scoped bag rows every fluid-segment trade shares; `PipeworkDetail` the product-bag constructor; `PipeworkSeed` the generation fold and the capacity refusal.
-- Cases: one `Mint` rail for every system — `Copper` folds the CTS roster per wall selector, `Schedule` the IPS ladder per schedule selector, `Pex` the CTS PEX subset through the SDR9 derivation, `Cast` the soil roster per service selector — ~150 components from 55 roster rows, zero hand-minted.
+- Owner: `SegmentRows` the Materials-scoped bag rows every fluid-segment trade shares; `PipeworkSeed` the flattened roster, the seed law (coherence, profile, product bag), and the capacity refusal.
+- Entry: `ComponentSeed.Rows(context, PipeworkSeed.Roster, PipeworkSeed.Law)` — the roster is `PipeSystem.Items` flattened through each row's own sizing delegate, so ~150 components come from 55 published roster rows with zero hand mints and the `Rows` fold that hand-wired twelve systems is gone.
 - Law: `PressureClass` stamps only a class-designated system (the ductile PC tokens, once walls prove); a psi rating is a `WorkingPressure` Measured row, never a class token — the two facts have different shapes and one row cannot carry both honestly.
-- Law: the bag's one `Attestation` row is the AND of its stamped cells' attestations — a corroborated dimension set under a primary-single rating reads primary-single, because the weakest contributor rules what a reader may rely on.
-- Entry: `PipeworkSeed.Rows(context)` the `ComponentFamily.Pipework` row fold; `PipeworkSeed.Capacity` the typed refusal — a pipe run's hydraulic verdict rides `Rasm.Compute`, and the refusal names that route.
+- Law: the bag's one `Attestation` row is the AND of its stamped cells' attestations — a corroborated dimension set under a primary-single rating reads primary-single, because the weakest contributor rules what a reader may rely on. The rating presence is the seed coherence's own proof, so the fold reads the declared column rather than re-testing the cell.
 - Output: the projector derives the takeoff rows from the solved `CircleHollow` section through `QuantityRow.VolumePerLength`/`SurfaceAreaPerLength`/`LinearDensity` (`component#QUANTITY_ROW`) — no takeoff cell is stamped here.
-- Boundary: `SegmentRows` mints through the owner-blessed `PropertyCategory.Materials` scope, so the wall, working-pressure, hub, and attestation rows are one vocabulary across pipework, ductwork, and electrical — a per-page `PropertyName.Create` respelling is the fork this owner closes.
+- Boundary: `SegmentRows` mints through the owner-blessed `PropertyCategory.Materials` scope, so the wall, working-pressure, and attestation rows are one vocabulary across pipework, ductwork, and electrical — a per-page `PropertyName.Create` respelling is the fork this owner closes. `PipeworkSeed.Capacity` is the typed refusal — a pipe run's hydraulic verdict rides `Rasm.Compute`, and the refusal names that route.
 
 ```csharp signature
 // --- [OPERATIONS] --------------------------------------------------------------------------
@@ -204,90 +250,69 @@ public static class SegmentRows {
         (PropertyCategory.Materials.Row(nameof(Attestation)), new PropertyValue.Text(attestation.Key));
 }
 
-// The DetailLane.Product bag: schedule and bore tokens, the joint modality through the schema's closed allowed-set,
-// provenance and attestation, and the measured OD/wall pair; the rating and hub rows ride only where the system
-// publishes them, absent otherwise — never a zero.
-public static class PipeworkDetail {
+// --- [TABLES] ------------------------------------------------------------------------------
+// The ComponentFamily.Pipework roster and policy: every system's own ladder flattened once. The designation tag is
+// the nominal in decimal mils ("1/2" -> 00500), derived so the tag can never name a size the row does not carry.
+public static class PipeworkSeed {
     public const double PsiPa = 6_894.757;   // the one psi→Pa basis every stamped rating converts on
+    static readonly ComponentStandard UsAstm =
+        new(ComponentAuthority.Astm.Region, StandardJointThicknessMm: 0.0, ComponentAuthority.Astm);
     static readonly PropertyName Hub = PropertyCategory.Materials.Row("HubDiameter");
 
-    public static Fin<PropertyBag> Of(PipeSystem system, string nominal, double odMm, double wallMm, Option<double> ratedPsi, Option<double> hubMm, Op key) =>
-        from joint in ComponentDetail.Joint(system.Joint, key)
-        from od in ComponentDetail.Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, odMm * 1e-3)
-        from wall in ComponentDetail.Measured(SegmentRows.WallThickness, Dimension.LengthDim, wallMm * 1e-3)
-        from rated in Opt(ratedPsi, psi => ComponentDetail.Measured(SegmentRows.WorkingPressure, Dimension.PressureDim, psi * PsiPa))
-        from hub in Opt(hubMm, mm => ComponentDetail.Measured(Hub, Dimension.LengthDim, mm * 1e-3))
+    public static readonly Seq<PipeRow> Roster =
+        toSeq(PipeSystem.Items).Bind(static system => system.Sizes().Map(size => new PipeRow(system, size)));
+
+    public static readonly SeedLaw<PipeRow> Law = SeedLaw<PipeRow>.Of(
+        family: ComponentFamily.Pipework,
+        designation: static r => r.Designation,
+        coherence: Coherence,
+        profile: static (r, key) => SectionProfile.CircleHollow.Of(r.Size.OdMm, r.Size.WallMm, key),
+        substance: static r => r.System.Substance,
+        source: static r => r.System.Source,
+        standard: static _ => UsAstm,
+        detail: Some<Func<PipeRow, SectionProfile, Op, Fin<PropertyBag>>>(Detail),
+        appearance: static r => r.System.Appearance,
+        ifc: static r => r.System.Ifc);
+
+    // The row census, ACCUMULATING — two INDEPENDENT proofs. The rating correspondence is what lets the bag read the
+    // declared attestation column directly: a rung carrying a psi cell its system never declared, or a declaring
+    // system whose ladder produced none, is the state that would make the attestation fold lie. The annulus proof
+    // names the offending designation where the geometry rail alone would report a bare dimensional fault.
+    static Validation<Error, Unit> Coherence(PipeRow r, Op key) =>
+        (guard(r.Size.RatedPsi.IsSome == r.System.Rated.IsSome,
+             new KernelFault.InvalidValue(nameof(r.Size.RatedPsi), "presence matching the pipe-system rating", Some(key))).ToValidation(),
+         guard(double.IsFinite(r.Size.OdMm) && double.IsFinite(r.Size.WallMm)
+                 && r.Size.WallMm > 0.0 && r.Size.OdMm > 2.0 * r.Size.WallMm,
+             new KernelFault.InvalidValue(nameof(r.Size), "a positive finite annulus", Some(key))).ToValidation())
+            .Apply(static (_, _) => unit).As();
+
+    // The DetailLane.Product bag: schedule and bore tokens, the joint modality through the schema's closed
+    // allowed-set, evidence and attestation, and the measured OD/wall pair; the rating and hub rows ride only where
+    // the system publishes them, absent otherwise — never a zero.
+    static Fin<PropertyBag> Detail(PipeRow r, SectionProfile profile, Op key) =>
+        from joint in ComponentDetail.Joint(r.System.Joint, key)
+        from od in ComponentDetail.Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, r.Size.OdMm * 1e-3)
+        from wall in ComponentDetail.Measured(SegmentRows.WallThickness, Dimension.LengthDim, r.Size.WallMm * 1e-3)
+        from rated in Optional(r.Size.RatedPsi, static psi => ComponentDetail.Measured(SegmentRows.WorkingPressure, Dimension.PressureDim, psi * PsiPa))
+        from hub in Optional(r.Size.HubMm, static mm => ComponentDetail.Measured(Hub, Dimension.LengthDim, mm * 1e-3))
         select ComponentDetail.ProductRows([
-            ComponentDetail.Token(DetailSchema.PipeSchedule, system.Schedule),
-            ComponentDetail.Token(DetailSchema.NominalBore, nominal),
-            ComponentDetail.Sourced(system.Source),
-            SegmentRows.Attested(system.Rated.Filter(_ => ratedPsi.IsSome).Map(system.Dims.And).IfNone(system.Dims)),
+            ComponentDetail.Token(DetailSchema.PipeSchedule, r.System.Schedule),
+            ComponentDetail.Token(DetailSchema.NominalBore, r.Size.Nominal),
+            ComponentDetail.Sourced(r.System.Source),
+            SegmentRows.Attested(r.System.Rated.Map(r.System.Dims.And).IfNone(r.System.Dims)),
             joint, od, wall,
             .. rated.ToSeq(),
             .. hub.ToSeq(),
         ]);
 
-    static Fin<Option<(PropertyName, PropertyValue)>> Opt(Option<double> value, Func<double, Fin<(PropertyName, PropertyValue)>> mint) =>
+    static Fin<Option<(PropertyName, PropertyValue)>> Optional(Option<double> value, Func<double, Fin<(PropertyName, PropertyValue)>> mint) =>
         value.Match(Some: v => mint(v).Map(Some), None: static () => Fin.Succ(Option<(PropertyName, PropertyValue)>.None));
-}
-
-// The ComponentFamily.Pipework generator: one Mint rail, four roster folds, the system→roster wiring in ONE Rows
-// expression. The designation tag is the nominal in decimal mils ("1/2" -> 00500), derived so the tag can never name
-// a size the row does not carry.
-public static class PipeworkSeed {
-    public const double PexRatedPsi = 160.0;   // F876 standard rating at 73 °F; the 100 psi/180 °F and 80 psi/200 °F rungs are Compute-side temperature derating
-    static readonly ComponentStandard UsAstm = new("us", StandardJointThicknessMm: 0.0, Authority: ComponentAuthority.Astm);
-
-    public static Fin<Seq<ComponentRow>> Rows(Context context) =>
-        Seq(Copper(PipeSystem.CopperK, static r => r.KWallIn, context),
-            Copper(PipeSystem.CopperL, static r => r.LWallIn, context),
-            Copper(PipeSystem.CopperM, static r => r.MWallIn, context),
-            Schedule(PipeSystem.SteelSch40, static r => r.Sch40In, static r => r.Rated40Psi, context),
-            Schedule(PipeSystem.SteelSch80, static r => r.Sch80In, static r => r.Rated80Psi, context),
-            Schedule(PipeSystem.PvcSch40,   static r => r.Sch40In, static r => r.Rated40Psi, context),
-            Schedule(PipeSystem.PvcSch80,   static r => r.Sch80In, static r => r.Rated80Psi, context),
-            Schedule(PipeSystem.CpvcSch40,  static r => r.Sch40In, static r => r.Rated40Psi, context),
-            Schedule(PipeSystem.CpvcSch80,  static r => r.Sch80In, static r => r.Rated80Psi, context),
-            Pex(context),
-            Cast(PipeSystem.SoilSv, static r => (r.SvOdIn, r.SvWallIn, r.SvHubIn), context),
-            Cast(PipeSystem.SoilXh, static r => (r.XhOdIn, r.XhWallIn, r.XhHubIn), context))
-        .Traverse(static fold => fold).As()
-        .Map(static folds => folds.Bind(static rows => rows));
 
     // The ComponentFamily.Pipework CAPACITY producer: an explicit typed refusal — a pipe segment's governing verdict
     // is hydraulic (flow, pressure drop, surge), owned by the Rasm.Compute fluid route, and pricing it off a section
     // integral here would certify a structural answer to a hydraulic question.
     public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
-        ComponentFault.Capacity(key, $"<pipework-sizing-rides-compute-hydraulic:{component.Designation.Value}>");
-
-    static Fin<Seq<ComponentRow>> Copper(PipeSystem system, Func<CtsRow, Option<double>> wall, Context context) =>
-        toSeq(Cts.Rows)
-            .Bind(row => wall(row).Map(w => (Row: row, WallIn: w)).ToSeq())
-            .Traverse(sized => Mint(system, sized.Row.Nominal, sized.Row.NominalIn, sized.Row.OdMm, sized.WallIn * ThreadRow.InchToMm, None, None, context)).As();
-
-    static Fin<Seq<ComponentRow>> Schedule(PipeSystem system, Func<IpsRow, double> wall, Func<IpsRow, double> rated, Context context) =>
-        toSeq(Ips.Rows)
-            .Traverse(row => Mint(system, row.Nps, row.NpsIn, row.OdMm, wall(row) * ThreadRow.InchToMm, system.Rated.Map(_ => rated(row)), None, context)).As();
-
-    static Fin<Seq<ComponentRow>> Pex(Context context) =>
-        toSeq(Cts.Rows).Filter(static r => r.Pex)
-            .Traverse(row => Mint(PipeSystem.PexSdr9, row.Nominal, row.NominalIn, row.OdMm, row.PexWallMm, Some(PexRatedPsi), None, context)).As();
-
-    static Fin<Seq<ComponentRow>> Cast(PipeSystem system, Func<SoilRow, (double OdIn, double WallIn, double HubIn)> service, Context context) =>
-        toSeq(Soil.Rows)
-            .Traverse(row => Mint(system, row.Size, row.SizeIn,
-                service(row).OdIn * ThreadRow.InchToMm, service(row).WallIn * ThreadRow.InchToMm,
-                None, Some(service(row).HubIn * ThreadRow.InchToMm), context)).As();
-
-    static Fin<ComponentRow> Mint(PipeSystem system, string nominal, double nominalIn, double odMm, double wallMm, Option<double> ratedPsi, Option<double> hubMm, Context context) =>
-        from profile in SectionProfile.CircleHollow.Of(odMm, wallMm, context.Key)
-        from detail in PipeworkDetail.Of(system, nominal, odMm, wallMm, ratedPsi, hubMm, context.Key)
-        from item in Component.Of(
-            ComponentFamily.Pipework, $"pipework.{system.Key}-{(nominalIn * 1000.0).ToString("00000", CultureInfo.InvariantCulture)}",
-            profile, system.Ifc, Coring.None, UsAstm,
-            substanceId: system.Substance, appearanceId: system.Appearance,
-            detail: Some(detail), context.Key)
-        select new ComponentRow(item, system.Source);
+        new ComponentFault.CapacityUnavailable(key, component.Designation);
 }
 ```
 

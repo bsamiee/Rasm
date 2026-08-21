@@ -13,14 +13,16 @@
 
 ## [02]-[POLICY]
 
-- Owner: `VerifyPolicy` admits the complete removal request once and publishes its resolved setup partition; `SetupWindow` admits each partition, and `RemovalTolerance` carries every verdict and evidence-coverage threshold as data.
+- Owner: `VerifyPolicy` admits the complete removal request once and publishes its resolved setup partition; `SetupWindow` admits each partition, and `RemovalBands` rides as ONE named column block carrying the admitting `Context` and every verdict and evidence-coverage threshold that vocabulary does not already name.
 - Cases: `SweepSampling` rows carry only the bound-to-arc-length conversion their name states — chord length, arc length, sagitta height — so every row feeds one arc-length generator over the move family and stationing stays row-invariant.
+- Law: a band the kernel tolerance vocabulary NAMES is derived, never stored. `RemovalBands.Gouge` and `.Surface` read `Context.For(ToleranceLane.Gouge)` and `Context.For(ToleranceLane.Deviation)` off the block's own admitted context, so a shop tightening either gate moves one `Context.Override` and no policy column can drift from the lane it copies. The residue volumes and the two coverage ceilings name no lane, so they stay OWNED columns — typed as `Volume` and `UnitInterval`, whose own bands prove finiteness, non-negativity, and the closed unit range the record used to re-test by hand.
+- Law: the verification runs on the CALLER's admitted context. The grid every residual loop, canonical preimage, and section walk reads is `Bands.Model`, so a project that tightened its absolute band verifies against that band rather than against a millimetre context the operation minted for itself and no caller could reach.
 - Law: a circular move's sweep and radius are the S0 atom's OWN admitted columns. `Move.Circular.SweepRadians` is signed with magnitude in `(0, Tau]` and `Move.Circular.Radius` is the centre-to-target distance, both proved at `Move.Circular.Of`; this page reads them and mints no endpoint re-derivation, no angular epsilon, and no clockwise sign convention. A full turn and its zero-sweep twin are distinct admitted moves, so the generator separates them where an `atan2` difference cannot.
 - Law: the setup partition resolves ONCE off the admitted members and is held on the policy, so the coverage gate, the depth gate, the fold, and the snapshot preimage read one sequence rather than four re-sorts of the same rows.
 - Entry: `Removal.Verify(FabricationPolicy.Verify, FabricationInput, FabricationTap?)` is the sole public operation; the policy case carries the admitted `VerifyPolicy`, the prior residual, and the prior snapshots, and the tap defaults silent so a headless verification emits nothing and branches nowhere.
 - Auto: generated factories reject primitive defects on the fabrication band, one `AdmissionSlots.Gate` fan proves stock lineage, setup partition, cutting-motion presence, tool-frame coverage, silhouette generability, and voxel demand together, and `Capture` encloses native source construction, voxelization, callback execution, and lease disposal.
 - Exemption: `RequiredCells` folds a `BigInteger` axis product to prove the grid fits the cell cap before any allocation.
-- Growth: a sampling law is one `SweepSampling` row, and a tolerance regime is a `RemovalTolerance` value without another named preset or entrypoint.
+- Growth: a sampling law is one `SweepSampling` row, and an acceptance regime is one `RemovalBands` value — a lane-named gate moves at the context override with no column added here.
 - Boundary: `VoxelWire` remains the only stock ingress and egress codec; native `Library`, `Voxels`, `Lattice`, and `Mesh` leases never cross the operation. A verification whose motion carries no cutting move is refused rather than answered with a fabricated air-cut ratio, so the ratio's denominator is positive by admission at every later read.
 
 ```csharp signature
@@ -103,39 +105,23 @@ public sealed partial class SweepSampling {
         new(from.X + ((to.X - from.X) * t), from.Y + ((to.Y - from.Y) * t), from.Z + ((to.Z - from.Z) * t));
 }
 
-[ComplexValueObject]
-[ValidationError<FabricationFault>]
-public sealed partial class RemovalTolerance {
-    public double GougeMm { get; }
-    public double UncutMm3 { get; }
-    public double OvercutMm3 { get; }
-    public double AirCutRatio { get; }
-    public double SurfaceMm { get; }
-    public double UnresolvedRatio { get; }
-
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
-        ref double gougeMm,
-        ref double uncutMm3,
-        ref double overcutMm3,
-        ref double airCutRatio,
-        ref double surfaceMm,
-        ref double unresolvedRatio) {
-        if (!(Seq(gougeMm, uncutMm3, overcutMm3, airCutRatio, surfaceMm, unresolvedRatio)
-                .ForAll(static value => double.IsFinite(value) && value >= 0.0)
-            && airCutRatio <= 1.0 && unresolvedRatio <= 1.0))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Verify, "removal:tolerance");
-    }
-
-    public static Fin<RemovalTolerance> Admit(
-        double gougeMm, double uncutMm3, double overcutMm3, double airCutRatio, double surfaceMm, double unresolvedRatio) =>
-        Validate(gougeMm, uncutMm3, overcutMm3, airCutRatio, surfaceMm, unresolvedRatio, out RemovalTolerance tolerance)
-            .Admitted(tolerance);
+// The acceptance regime as one named column block. Every member arrives ALREADY ADMITTED in a carrier that owns its
+// own range — `Volume` carries dimension and finiteness, `UnitInterval` the closed unit band both ratios were
+// hand-tested against — and the two model-space gates are DERIVED off the block's own context rather than stored,
+// so the six-clause range body this record used to run has nothing left to prove and no separate admission exists.
+public readonly record struct RemovalBands(
+    Context Model,
+    Volume Uncut,
+    Volume Overcut,
+    UnitInterval AirCut,
+    UnitInterval Coverage) {
+    // Depth past nominal rides the vocabulary's own sub-tolerance gouge lane; signed surface error rides the
+    // deviation lane. Both READ the context, so an override moves the gate and a stale copy cannot exist.
+    public Tolerance Gouge => Model.For(ToleranceLane.Gouge);
+    public Tolerance Surface => Model.For(ToleranceLane.Deviation);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class SetupWindow {
     public int Setup { get; }
     public int FirstMove { get; }
@@ -144,13 +130,13 @@ public sealed partial class SetupWindow {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref int setup,
         ref int firstMove,
         ref int count,
         ref Plane frame) {
-        if (!(Witness.Index(setup) && Witness.Index(firstMove) && count > 0 && frame.IsValid))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Verify, "removal:setup-window");
+        if (!(ValidityClaim.All(ValidityClaim.Nonnegative(setup), ValidityClaim.Nonnegative(firstMove), count > 0, frame.IsValid)))
+            validationError = new ValidationError("removal:setup-window");
     }
 
     public static Fin<SetupWindow> Admit(int setup, int firstMove, int count, Plane frame) =>
@@ -158,7 +144,6 @@ public sealed partial class SetupWindow {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class VerifyPolicy {
     public FabricationResult.Motion Motion { get; }
     public Point3d Origin { get; }
@@ -167,12 +152,16 @@ public sealed partial class VerifyPolicy {
     public VoxelWire Stock { get; }
     public VoxelWire Target { get; }
     public BoundingBox Bounds { get; }
-    public double VoxelSizeMm { get; }
+    public Length VoxelSize { get; }
+
+    // Cell counts run past `int` on a fine grid over a large envelope, and the branch count carrier is int-keyed, so
+    // the cap stays a `long` with its own positivity clause rather than taking a type that cannot hold the value.
     public long VoxelCap { get; }
-    public double StationMm { get; }
-    public int SurfaceSamples { get; }
+
+    public Length Station { get; }
+    public Dimension SurfaceSamples { get; }
     public SweepSampling Sampling { get; }
-    public RemovalTolerance Tolerance { get; }
+    public RemovalBands Bands { get; }
     public CalibrationPolicy Calibration { get; }
     public Seq<SetupWindow> Setups { get; }
     public Map<int, Plane> ToolFrames { get; }
@@ -184,17 +173,21 @@ public sealed partial class VerifyPolicy {
 
     public Seq<SetupWindow> Windows => windows ??= Resolved(Setups, Motion, Origin);
 
+    // The grid every generator, preimage, and section walk reads is the CALLER's, carried on the band block, so one
+    // admitted context serves the whole verification and no lane forks against a locally minted one.
+    public Context Model => Bands.Model;
+
     // Station and voxel resolution both bound the sweep, so the finer of the two is the ONE step every generator,
     // silhouette profile, and membership walk consumes.
-    public double StepMm => Math.Min(StationMm, VoxelSizeMm);
+    public double StepMm => Math.Min(Station.Millimeters, VoxelSize.Millimeters);
 
     // Half the voxel edge is the finest silhouette feature the field can resolve, so it is the profile floor and
     // the beam-radius floor at once — a section thinner than this rasterizes to nothing.
-    public double SilhouetteMm => VoxelSizeMm * 0.5;
+    public double SilhouetteMm => VoxelSize.Millimeters * 0.5;
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref FabricationResult.Motion motion,
         ref Point3d origin,
         ref CutterForm cutter,
@@ -202,20 +195,24 @@ public sealed partial class VerifyPolicy {
         ref VoxelWire stock,
         ref VoxelWire target,
         ref BoundingBox bounds,
-        ref double voxelSizeMm,
+        ref Length voxelSize,
         ref long voxelCap,
-        ref double stationMm,
-        ref int surfaceSamples,
+        ref Length station,
+        ref Dimension surfaceSamples,
         ref SweepSampling sampling,
-        ref RemovalTolerance tolerance,
+        ref RemovalBands bands,
         ref CalibrationPolicy calibration,
         ref Seq<SetupWindow> setups,
         ref Map<int, Plane> toolFrames) {
-        if (!(origin.IsValid && bounds.IsValid
-            && Witness.Positive(voxelSizeMm) && Witness.Positive(stationMm)
-            && voxelCap > 0L && surfaceSamples > 0
-            && toolFrames.ForAll(static row => Witness.Index(row.Key) && row.Value.IsValid)))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Verify, "removal:policy");
+        // The quantity and count carriers already proved finiteness and their own ranges, so this body states only
+        // the claims no carrier can: geometry validity, a positive cell cap, a positive resolution pair, and a tool
+        // frame roster whose ordinals address real moves.
+        if (!ValidityClaim.All(
+            ValidityClaim.Finite(origin), bounds.IsValid,
+            ValidityClaim.Positive(voxelSize.Millimeters), ValidityClaim.Positive(station.Millimeters),
+            voxelCap > 0L, ValidityClaim.CountAtLeast(surfaceSamples.Value, floor: 1),
+            toolFrames.ForAll(static row => ValidityClaim.All(ValidityClaim.Nonnegative(row.Key), row.Value.IsValid))))
+            validationError = new ValidationError("removal:policy");
     }
 
     public static Fin<VerifyPolicy> Admit(
@@ -226,17 +223,17 @@ public sealed partial class VerifyPolicy {
         VoxelWire stock,
         VoxelWire target,
         BoundingBox bounds,
-        double voxelSizeMm,
+        Length voxelSize,
         long voxelCap,
-        double stationMm,
-        int surfaceSamples,
+        Length station,
+        Dimension surfaceSamples,
         SweepSampling sampling,
-        RemovalTolerance tolerance,
+        RemovalBands bands,
         CalibrationPolicy calibration,
         Seq<SetupWindow> setups,
         Map<int, Plane> toolFrames) =>
-        Validate(motion, origin, cutter, holder, stock, target, bounds, voxelSizeMm, voxelCap, stationMm,
-            surfaceSamples, sampling, tolerance, calibration, setups, toolFrames, out VerifyPolicy policy)
+        Validate(motion, origin, cutter, holder, stock, target, bounds, voxelSize, voxelCap, station,
+            surfaceSamples, sampling, bands, calibration, setups, toolFrames, out VerifyPolicy policy)
             .Admitted(policy);
 
     // An empty setup roster is ONE window over the whole program on the origin frame; a declared roster orders by
@@ -257,7 +254,7 @@ public sealed partial class VerifyPolicy {
 - Law: a non-cutting body strike is a pure MEMBERSHIP question — the shank and holder silhouettes are program invariants sampled once, and a strike is any silhouette or axis point inside remaining stock. No prism field is rasterized, no voxel is allocated, and no polygon containment is computed, so the per-station cost is a point query rather than a Boolean over two fields.
 - Entry: setup and move arity collapse into immutable sequences consumed by `FoldM`, while resource custody stays inside the native boundary capsule.
 - Auto: `HolderEnvelope` arrives as an admitted `Loop` and the shank silhouette is a three-vertex bulge circle, so both obstruction rings sample arc-exactly through `Loop.Apply` and no polygonal circle generator exists; every silhouette derivation is outward-bounding, so a narrowing family verifies against a superset of its own body.
-- Exemption: `RemoveWindow` holds the native shadow lease and its cut list, `AddTool` folds lattice beams, and `Difference`/`Intersects` probe two voxel fields — the four native statement kernels.
+- Exemption: `RemoveWindow` holds the native shadow lease and its cut list, `AddTool` and `Seal` push lattice beams across the provider ABI, and `Difference`/`Intersects` probe two voxel fields — the native statement kernels. Every one is a per-element `Lattice`/`Voxels` call the provider publishes no batched entry for, so no fold, span, or tensor operator can stand where they do; the branch's own sequence combinators own every walk that is not such a call.
 - Receipt: `RemovalFinding` retains gouge, strike, uncut, overcut, air-cut, signed-deviation, and unresolved-coverage evidence, and each case carries its own invalidating verdict through one total dispatch.
 - Growth: a cutter geometry is one `CutterFamily` row on the existing rule columns; a new non-cutting body is one `Obstruction` row.
 - Boundary: a body that crashes never reads as material removed, because obstruction membership never subtracts.
@@ -279,9 +276,9 @@ public abstract partial record RemovalFinding {
     // Volume and air-cut findings are quality evidence the verification atom projects and its `Clean` property
     // adjudicates; only a physical strike, a gouge past band, or evidence too sparse to support any claim
     // invalidates the run itself.
-    public Option<Error> Fault(RemovalTolerance tolerance, CollisionZone zone) => Switch(
-        state: (Tolerance: tolerance, Zone: zone),
-        gouge: static (state, row) => row.DepthMm > state.Tolerance.GougeMm
+    public Option<Error> Fault(RemovalBands bands, CollisionZone zone) => Switch(
+        state: (Bands: bands, Zone: zone),
+        gouge: static (state, row) => row.DepthMm > state.Bands.Gouge.Value
             ? Some<Error>(new FabricationFault.Gouge(row.Point, row.Cutter))
             : None,
         strike: static (state, row) => Some<Error>(new FabricationFault.Collision(state.Zone, row.Contact)),
@@ -289,10 +286,10 @@ public abstract partial record RemovalFinding {
         overcut: static (_, _) => Option<Error>.None,
         airCut: static (_, _) => Option<Error>.None,
         deviation: static (state, row) => row.Field.Samples
-            .Find(sample => sample.SignedMm < -state.Tolerance.SurfaceMm)
+            .Find(sample => sample.SignedMm < -state.Bands.Surface.Value)
             .Map<Error>(sample => new FabricationFault.Gouge(sample.Nominal, row.Field.Cutter)),
-        unresolved: static (state, row) => row.Ratio > state.Tolerance.UnresolvedRatio
-            ? Some<Error>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "removal:surface-coverage"))
+        unresolved: static (state, row) => row.Ratio > state.Bands.Coverage.Value
+            ? Some<Error>(new KernelFault.InvalidValue("removal", "removal:surface-coverage"))
             : None);
 
     public Option<GougeWitness> Witness => Switch(
@@ -350,6 +347,9 @@ public static class Removal {
     private static readonly CliMode Lease =
         new CliMode.Grayscale(ESliceMode.SignedDistance, MaskSampling.Interpolated, ESliceAxis.Z);
 
+    // The one operation key both preimage closes and every native lift raise under.
+    internal static readonly Op RemovalOp = Op.Of(name: "fabrication:removal");
+
     public static Fin<FabricationResult.VerificationResult> Verify(
         FabricationPolicy.Verify request,
         FabricationInput input,
@@ -367,20 +367,21 @@ public static class Removal {
     private static Fin<FabricationResult.VerificationResult> Solve(
         FabricationPolicy.Verify request, FabricationInput input) {
         VerifyPolicy policy = request.Policy;
+        // One admitted grid serves the whole verification: residual-loop admission, every canonical preimage, and
+        // the section walk read the CALLER's `Context` off the band block, so no per-window re-admission and no
+        // locally minted millimetre default forks the tolerance the project actually declared.
+        Context context = policy.Model;
         return from requiredCells in RequiredCells(policy)
                from _ in Admit(policy, request, input, requiredCells)
-               from budget in VoxelBudget.Admit(policy.Bounds, policy.VoxelSizeMm, policy.VoxelCap, requiredCells)
+               from budget in VoxelBudget.Admit(policy.Bounds, policy.VoxelSize.Millimeters, policy.VoxelCap, requiredCells)
                from runtime in ImplicitPolicy.Validate(
                        budget,
-                       Length.FromMillimeters(policy.VoxelSizeMm),
+                       policy.VoxelSize,
                        Lease,
                        policy.Calibration,
                        policy.Stock.FromVoxels,
                        out ImplicitPolicy composed)
                    .Admitted(composed)
-               // One admitted grid serves the whole verification: residual-loop admission, every canonical preimage,
-               // and the section walk read the same `Context`, so no per-window re-admission forks the tolerance.
-               from context in Context.Millimeters().ToFin()
                from obstructions in Obstructions(policy, context)
                from result in Capture(() => Implicit.Voxelize(
                    Seq<ImplicitOp>(
@@ -392,20 +393,20 @@ public static class Removal {
 
     private static Fin<Unit> Admit(
         VerifyPolicy policy, FabricationPolicy.Verify request, FabricationInput input, long requiredCells) =>
-        (Gate(policy.Motion.Moves.Count > 0, "removal:motion"),
-         Gate(policy.Motion.Moves.Exists(static move => move is not Move.Rapid), "removal:cutting-motion"),
-         Gate(Descends(policy, request, input), "removal:stock-lineage"),
-         Gate(Partitioned(policy), "removal:setup-partition"),
-         Gate(policy.ToolFrames.ForAll(row => row.Key < policy.Motion.Moves.Count), "removal:tool-frame"),
-         Gate(DepthWithin(policy), "removal:tool-depth"),
-         Gate(Generable(policy.Cutter), "removal:cutter-point-angle"),
-         Gate(requiredCells <= policy.VoxelCap, "removal:voxel-cap"))
+        (AdmissionSlots.Gate(policy.Motion.Moves.Count > 0, FabConcern.Verify, "removal:motion", FabricationFault.Inadmissible),
+         AdmissionSlots.Gate(policy.Motion.Moves.Exists(static move => move is not Move.Rapid),
+             FabConcern.Verify, "removal:cutting-motion", FabricationFault.Inadmissible),
+         AdmissionSlots.Gate(Descends(policy, request, input), FabConcern.Verify, "removal:stock-lineage", FabricationFault.Inadmissible),
+         AdmissionSlots.Gate(Partitioned(policy), FabConcern.Verify, "removal:setup-partition", FabricationFault.Inadmissible),
+         AdmissionSlots.Gate(policy.ToolFrames.ForAll(row => row.Key < policy.Motion.Moves.Count),
+             FabConcern.Verify, "removal:tool-frame", FabricationFault.Inadmissible),
+         AdmissionSlots.Gate(DepthWithin(policy), FabConcern.Verify, "removal:tool-depth", FabricationFault.Inadmissible),
+         AdmissionSlots.Gate(Generable(policy.Cutter), FabConcern.Verify, "removal:cutter-point-angle", FabricationFault.Inadmissible),
+         AdmissionSlots.Gate(requiredCells <= policy.VoxelCap, FabConcern.Verify, "removal:voxel-cap", FabricationFault.Inadmissible))
         .Apply(static (_, _, _, _, _, _, _, _) => unit)
         .As()
         .ToFin();
 
-    private static K<Validation<Error>, Unit> Gate(bool valid, string locus) =>
-        AdmissionSlots.Gate(valid, new FabricationFault.PolicyInadmissible(FabConcern.Verify, locus));
 
     // The verified stock descends from the run's declared ancestry: it is either a source the run names, a parent
     // run's artifact, or the residual the policy is re-verifying. Verifying a field the run never consumed produces
@@ -446,17 +447,18 @@ public static class Removal {
         || cutter.PointAngleDeg.IfNone(cutter.TaperAngle * 2.0) < 180.0;
 
     private static Fin<long> RequiredCells(VerifyPolicy policy) {
+        double edge = policy.VoxelSize.Millimeters;
         Seq<double> axes = Seq(
-            Math.Ceiling((policy.Bounds.Max.X - policy.Bounds.Min.X) / policy.VoxelSizeMm),
-            Math.Ceiling((policy.Bounds.Max.Y - policy.Bounds.Min.Y) / policy.VoxelSizeMm),
-            Math.Ceiling((policy.Bounds.Max.Z - policy.Bounds.Min.Z) / policy.VoxelSizeMm));
+            Math.Ceiling((policy.Bounds.Max.X - policy.Bounds.Min.X) / edge),
+            Math.Ceiling((policy.Bounds.Max.Y - policy.Bounds.Min.Y) / edge),
+            Math.Ceiling((policy.Bounds.Max.Z - policy.Bounds.Min.Z) / edge));
         if (!axes.ForAll(static count => double.IsFinite(count) && count >= 1.0 && count <= long.MaxValue))
-            return Fin.Fail<long>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "removal:voxel-grid"));
+            return Fin.Fail<long>(new KernelFault.InvalidValue("removal", "removal:voxel-grid"));
         BigInteger required = axes.Map(static count => new BigInteger(count))
             .Fold(BigInteger.One, static (product, count) => product * count);
         return required <= long.MaxValue
             ? Fin.Succ((long)required)
-            : Fin.Fail<long>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "removal:voxel-grid"));
+            : Fin.Fail<long>(new KernelFault.InvalidValue("removal", "removal:voxel-grid"));
     }
 
     // --- [OBSTRUCTIONS]
@@ -507,14 +509,14 @@ public static class Removal {
         from measured in envelope.Apply(new ProfileOp.Measure())
         from path in measured is ProfileResult.Measure row
             ? Fin.Succ(row.Path.Millimeters)
-            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "removal:holder-measure"))
+            : Fin.Fail<double>(new KernelFault.InvalidValue("removal", "removal:holder-measure"))
         let count = Math.Max(envelope.Count, (int)Math.Ceiling(path / resolutionMm))
         from ring in toSeq(Enumerable.Range(0, count)).TraverseM(index =>
             envelope.Apply(new ProfileOp.Sample(Length.FromMillimeters(path * index / count))).Bind(sample =>
                 sample is ProfileResult.Sampled point
                     ? Fin.Succ((point.Point.X, point.Point.Y))
                     : Fin.Fail<(double X, double Y)>(
-                        new FabricationFault.PolicyInadmissible(FabConcern.Verify, "removal:holder-sample")))).As()
+                        new KernelFault.InvalidValue("removal", "removal:holder-sample")))).As()
         select ring;
 
     private static double Reach(Seq<(double X, double Y)> ring) =>
@@ -572,18 +574,21 @@ public static class Removal {
             policy, shadow, obstructions, state.Cursor, stations, move, frame, window.Setup, index);
         if (move is Move.Rapid)
             return Fin.Succ(state with { Cursor = move.Target, Findings = state.Findings + strikes });
-        Voxels swept = SweepTool(policy, state.Cursor, stations, move, frame);
-        return Fin.Succ(CommitMove(shadow, cuts, swept, Intersects(shadow, swept), state, move, strikes));
+        return Fin.Succ(CommitMove(
+            shadow, cuts, SweepTool(policy, state.Cursor, stations, move, frame), state, move, strikes));
     }
 
+    // The commit ASKS the field whether the sweep removed anything, because the answer is a property of the two
+    // volumes it already holds. A caller-computed verdict handed in beside the sweep is one fact answered twice and
+    // lets a site pass a probe of a field the commit never touches.
     private static RemovalState CommitMove(
         Voxels shadow,
         List<Voxels> cuts,
         Voxels swept,
-        bool removes,
         RemovalState state,
         Move move,
         Seq<RemovalFinding> strikes) {
+        bool removes = Intersects(shadow, swept);
         if (removes) {
             cuts.Add(swept);
             shadow.BoolSubtract(swept);
@@ -623,9 +628,13 @@ public static class Removal {
     private static Voxels SweepTool(VerifyPolicy policy, Point3d from, Seq<Point3d> stations, Move move, Plane frame) {
         using Lattice lattice = new();
         Seq<CutterSection> sections = Sections(policy.Cutter, policy.SilhouetteMm);
-        _ = Parameterized(stations).Fold((Point: from, At: 0.0, First: true), (held, row) => {
-            AddTool(lattice, held.Point, row.Point, Axis(move, frame, held.At), Axis(move, frame, row.At), sections, held.First);
-            return (row.Point, row.At, false);
+        // The leading face seals ONCE, before the walk, because only the first station has an unswept body behind
+        // it. Sealing it here deletes the per-station flag the fold used to carry and the branch every later
+        // station paid to read it.
+        Seal(lattice, from, Axis(move, frame, 0.0), sections);
+        _ = Parameterized(stations).Fold((Point: from, At: 0.0), (held, row) => {
+            AddTool(lattice, held.Point, row.Point, Axis(move, frame, held.At), Axis(move, frame, row.At), sections);
+            return (row.Point, row.At);
         });
         return new Voxels(lattice);
     }
@@ -644,27 +653,33 @@ public static class Removal {
         return blended.Unitize() ? blended : start;
     }
 
+    // One span of the swept body: an axial beam per section between the two stations, plus the trailing face the
+    // consecutive sections bridge at the arriving station.
     private static void AddTool(
         Lattice lattice,
         Point3d from,
         Point3d to,
         Vector3d axisFrom,
         Vector3d axisTo,
-        Seq<CutterSection> sections,
-        bool first) {
+        Seq<CutterSection> sections) {
+        sections.Iter(section => lattice.AddBeam(
+            ToVector(from + (axisFrom * section.OffsetMm)), (float)section.RadiusMm,
+            ToVector(to + (axisTo * section.OffsetMm)), (float)section.RadiusMm,
+            bRoundCap: section.Round));
+        Seal(lattice, to, axisTo, sections);
+    }
+
+    // The section-to-section bridge at ONE station: the cutter's own body closed across its profile. The leading
+    // and trailing faces are the same construction at two stations, so one member serves both and neither reads a
+    // flag to decide which it is.
+    private static void Seal(Lattice lattice, Point3d at, Vector3d axis, Seq<CutterSection> sections) =>
         _ = sections.Fold(Option<CutterSection>.None, (previous, section) => {
-            Vector3 a = ToVector(from + (axisFrom * section.OffsetMm));
-            Vector3 b = ToVector(to + (axisTo * section.OffsetMm));
-            lattice.AddBeam(a, (float)section.RadiusMm, b, (float)section.RadiusMm, bRoundCap: section.Round);
             _ = previous.Iter(prior => lattice.AddBeam(
-                ToVector(to + (axisTo * prior.OffsetMm)), (float)prior.RadiusMm,
-                b, (float)section.RadiusMm, bRoundCap: prior.Round || section.Round));
-            if (first) _ = previous.Iter(prior => lattice.AddBeam(
-                ToVector(from + (axisFrom * prior.OffsetMm)), (float)prior.RadiusMm,
-                a, (float)section.RadiusMm, bRoundCap: prior.Round || section.Round));
+                ToVector(at + (axis * prior.OffsetMm)), (float)prior.RadiusMm,
+                ToVector(at + (axis * section.OffsetMm)), (float)section.RadiusMm,
+                bRoundCap: prior.Round || section.Round));
             return Some(section);
         });
-    }
 
     // Swept-envelope geometry derives from the family's own admission columns, never from a per-family arm:
     // `CornerRadius` seats the nose arc (zero flat, half-diameter ball, between toroidal) and `TaperFrom` selects
@@ -777,10 +792,10 @@ public static class Removal {
 - Owner: `DeviationField` selects positive-area target triangles against a cumulative-area prefix so coverage is uniform over surface rather than tessellation, then projects each sampled nominal point onto the ACTUAL field through `Voxels.bClosestPointOnSurface` and orients it by the gradient `vecSurfaceNormal` at the hit.
 - Law: the deviation ORACLE is `actual.bIsInside(nominal)` — a point sampled on the NOMINAL surface, tested for membership in the as-machined field. Inside the actual means stock still stands proud of nominal and the deviation is POSITIVE uncut; outside means material was taken past nominal and the deviation is NEGATIVE gouge. Testing a nominal point against the field that generated it asks whether a surface point lies inside its own zero level set, which decides nothing and returns noise.
 - Law: absence is `Option`, never a bound. A field with no resolved sample carries no `DeviationSpan`, so a reader meets the empty case rather than a floor and ceiling of zero that reads as a perfect surface; the air-cut ratio needs no such arm because admission already refused a motion with no cutting move.
-- Law: identity reads the S0 owners whole. `Loop.CanonicalBytes` is THE loop preimage — rotation-canonical and tolerance-quantized — and `FabricationCanon` is THE framing family, so this page declares no rotation rule, no coordinate writer, no presence tag, and no hex render inside a preimage. Residual loops order by their own canonical origin and area under a stable sort, so a re-rooted section cannot fork one snapshot key.
+- Law: identity reads the S0 owners whole. `Loop.CanonicalBytes` is THE loop preimage — rotation-canonical and tolerance-quantized — and `FabricationCanon` is THE framing family and both of its closes, so this page declares no rotation rule, no coordinate writer, no presence tag, no hex render inside a preimage, and no writer mint of its own. Residual loops order by their own canonical origin and area under a stable sort, so a re-rooted section cannot fork one snapshot key.
 - Auto: barycentric draws come from `Deterministic.UnitInterval` on the face centroid over two streams, so the field reproduces bit-identically and the pair stays uncorrelated; Boolean volume deltas remain the independent conservation check and neither scalar path substitutes for the other.
-- Exemption: `Surface` folds the cumulative-area prefix and `ResidualLoops` welds extracted native vertices — the two native statement kernels here.
-- Receipt: every setup snapshot key composes the `Rasm.Element` `CanonicalWriter` over stock lineage, motion, setup and tool frames, tool assembly identity, cutter and tolerance policy, machined loops, metrics, and signed field samples, so a `-0.0`, a NaN payload, or a string boundary cannot fork one snapshot into two. The circular arm writes `SweepRadians`, so a full-turn arc and its zero-sweep twin keep distinct keys.
+- Exemption: `Surface` folds the cumulative-area prefix and `ResidualLoops` welds extracted native vertices — the two native statement kernels here. Both walk `PicoGK.Mesh.GetTriangle`, an out-parameter call per triangle with no batched or spanned form, so the prefix scan and the vertex weld are statement bodies for the ABI's sake and not for the arithmetic's; the sample draw over that prefix is an ordinary sequence fold.
+- Receipt: every setup snapshot key closes through `FabricationCanon.Keyed` — the ONE retaining mint over the `Rasm.Element` codec, answering on the `Fin` rail — framing stock lineage, motion, setup and tool frames, tool assembly identity, cutter policy, the acceptance bands, machined loops, metrics, and signed field samples, so a `-0.0`, a NaN payload, or a string boundary cannot fork one snapshot into two. The circular arm writes `SweepRadians`, so a full-turn arc and its zero-sweep twin keep distinct keys.
 - Boundary: `ResidualLoops` reuses one Rhino vertex index per extracted native vertex before plane intersection; provider geometry terminates here.
 
 ```csharp signature
@@ -806,17 +821,18 @@ public static partial class Removal {
         });
         if (surface.IsEmpty)
             return Fin.Fail<DeviationField>(
-                new GeometryFault.DegenerateInput(Kind.Mesh, None, "removal:target-surface").ToError());
+                new GeometryFault.DegenerateInput(Kind.Mesh, None, "removal:target-surface"));
 
+        int budget = policy.SurfaceSamples.Value;
         double[] cumulative = new double[surface.Count];
         _ = toSeq(Enumerable.Range(0, surface.Count)).Fold(0.0, (running, index) => {
             cumulative[index] = running + surface[index].Area;
             return cumulative[index];
         });
         double total = cumulative[surface.Count - 1];
-        Seq<Option<DeviationSample>> rows = toSeq(Enumerable.Range(0, policy.SurfaceSamples)).Map(index => {
+        Seq<Option<DeviationSample>> rows = toSeq(Enumerable.Range(0, budget)).Map(index => {
             int face = Math.Clamp(
-                Array.BinarySearch(cumulative, total * (index + 0.5) / policy.SurfaceSamples) is var found && found >= 0
+                Array.BinarySearch(cumulative, total * (index + 0.5) / budget) is var found && found >= 0
                     ? found
                     : ~found,
                 0,
@@ -830,14 +846,9 @@ public static partial class Removal {
                 ((float)(1.0 - root) * a) + ((float)(root * (1.0 - sweep)) * b) + ((float)(root * sweep) * c));
         });
         Seq<DeviationSample> samples = rows.Bind(static row => row.ToSeq());
-        return Fin.Succ(new DeviationField(
-            window.Setup,
-            fieldKey,
-            SnapshotKey(policy, window, fieldKey, loops, metrics, samples, rows.Count - samples.Count, tolerance),
-            policy.Cutter,
-            samples,
-            rows.Count - samples.Count,
-            Span(samples)));
+        int unresolved = rows.Count - samples.Count;
+        return SnapshotKey(policy, window, fieldKey, loops, metrics, samples, unresolved, tolerance).Map(key =>
+            new DeviationField(window.Setup, fieldKey, key, policy.Cutter, samples, unresolved, Span(samples)));
     }
 
     // The nominal point is sampled on the TARGET surface and its membership is asked of the ACTUAL field: inside
@@ -861,7 +872,10 @@ public static partial class Removal {
                 Math.Min(span.MinimumMm, row.SignedMm),
                 Math.Max(span.MaximumMm, row.SignedMm))));
 
-    private static ContentKey SnapshotKey(
+    // The snapshot preimage closes at the S0 facade: `FabricationCanon.Keyed` opens the RETAINING writer, frames
+    // through the family, and answers on the `Fin` rail, because the codec publishes no public constructor and a
+    // lane opening one keyed its artifact off bytes it never held.
+    private static Fin<ContentKey> SnapshotKey(
         VerifyPolicy policy,
         SetupWindow window,
         ContentKey fieldKey,
@@ -869,8 +883,22 @@ public static partial class Removal {
         RemovalMetrics metrics,
         Seq<DeviationSample> samples,
         int unresolved,
-        Context tolerance) {
-        CanonicalWriter writer = new(tolerance.Absolute.Value);
+        Context tolerance) =>
+        FabricationCanon.Keyed(EgressKind.StockSnapshot, tolerance, writer =>
+            FrameSnapshot(writer, policy, window, fieldKey, loops, metrics, samples, unresolved), RemovalOp);
+
+    // The band block writes its OWN millimetre-basis magnitudes — `Tolerance.Value`, `Volume.CubicMillimeters`, and
+    // `UnitInterval.Value` are the same scalars the bare-double columns carried — so the typed head left the
+    // preimage byte-identical and no landed snapshot key moved.
+    private static CanonicalWriter FrameSnapshot(
+        CanonicalWriter writer,
+        VerifyPolicy policy,
+        SetupWindow window,
+        ContentKey fieldKey,
+        Arr<Loop> loops,
+        RemovalMetrics metrics,
+        Seq<DeviationSample> samples,
+        int unresolved) {
         writer.U128(fieldKey.Digest).U128(policy.Stock.Key.Digest).U128(policy.Target.Key.Digest)
             .Coords(policy.Origin)
             .Ordinal(window.Setup).Ordinal(window.FirstMove).Ordinal(window.Count);
@@ -887,15 +915,16 @@ public static partial class Removal {
                 static (row, digest) => row.String(digest))
             .Maybe(policy.Holder.Map(static assembly => assembly.Identity),
                 static (row, identity) => row.U128(identity))
-            .Double(policy.VoxelSizeMm).I64(policy.VoxelCap).Double(policy.StationMm)
-            .Ordinal(policy.SurfaceSamples).Discriminant(policy.Sampling)
+            .Double(policy.VoxelSize.Millimeters).I64(policy.VoxelCap).Double(policy.Station.Millimeters)
+            .Ordinal(policy.SurfaceSamples.Value).Discriminant(policy.Sampling)
             .Ordinal(policy.Calibration.MinimumSamples).Ordinal(policy.Calibration.MaximumSamples)
             .Double(policy.Calibration.QuantileError.DecimalFractions)
             .Double(policy.Calibration.DensityFloor.DecimalFractions)
             .Double(policy.Calibration.GradientFloorPerMillimeter)
-            .Double(policy.Tolerance.GougeMm).Double(policy.Tolerance.UncutMm3).Double(policy.Tolerance.OvercutMm3)
-            .Double(policy.Tolerance.AirCutRatio).Double(policy.Tolerance.SurfaceMm)
-            .Double(policy.Tolerance.UnresolvedRatio)
+            .Double(policy.Bands.Gouge.Value).Double(policy.Bands.Uncut.CubicMillimeters)
+            .Double(policy.Bands.Overcut.CubicMillimeters)
+            .Double(policy.Bands.AirCut.Value).Double(policy.Bands.Surface.Value)
+            .Double(policy.Bands.Coverage.Value)
             .Double(metrics.UncutVolume).Double(metrics.OvercutVolume).Double(metrics.AirCutRatio)
             .Ordinal(unresolved);
         // The arc carries `SweepRadians` as identity: target, centre, and sense leave a full-turn arc and its
@@ -919,15 +948,12 @@ public static partial class Removal {
         writer.Rows(
             toSeq(loops.Map(static loop => loop.Canonical()).OrderBy(static loop => loop, Loop.CanonicalOrder)),
             static (row, loop) => loop.CanonicalBytes(row));
-        writer.Rows(samples, static (row, sample) =>
+        return writer.Rows(samples, static (row, sample) =>
             row.Coords(sample.Nominal).Coords(sample.Normal).Double(sample.SignedMm));
-        return ContentKey.Of(EgressKind.StockSnapshot, writer.ToBytes().Span);
     }
 
-    private static ContentKey ResidualKey(ContentKey field, Context tolerance) =>
-        ContentKey.Of(
-            EgressKind.Remnant,
-            new CanonicalWriter(tolerance.Absolute.Value).U128(field.Digest).ToBytes().Span);
+    private static Fin<ContentKey> ResidualKey(ContentKey field, Context tolerance) =>
+        FabricationCanon.Keyed(EgressKind.Remnant, tolerance, writer => writer.U128(field.Digest), RemovalOp);
 
     // A plane is four `Coords` writes over the S0 family, so this composition adds no framing convention of its own.
     private static CanonicalWriter Frame(CanonicalWriter writer, Plane value) =>
@@ -956,7 +982,7 @@ public static partial class Removal {
                            .Map(static loop => loop.AsCcw()))
                        .As()
                    : Fin.Fail<Seq<Loop>>(
-                       new FabricationFault.PolicyInadmissible(FabConcern.Verify, "removal:residual-section"))
+                       new KernelFault.InvalidValue("removal", "removal:residual-section"))
                select loops.ToArr();
     }
 }
@@ -981,14 +1007,16 @@ public static partial class Removal {
         Context tolerance) {
         RemovalMetrics metrics = Metrics(actual, target, run);
         Seq<RemovalFinding> findings = run.Findings + Findings(policy, metrics);
-        double quantum = Math.Max(policy.Tolerance.OvercutMm3, Math.Pow(policy.VoxelSizeMm, 3.0));
+        double quantum = Math.Max(
+            policy.Bands.Overcut.CubicMillimeters, Math.Pow(policy.VoxelSize.Millimeters, 3.0));
         return from final in run.Snapshots.Last
-                   .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "removal:no-snapshot"))
+                   .ToFin(new KernelFault.InvalidValue("removal", "removal:no-snapshot"))
                from field in run.Field
-                   .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "removal:no-field"))
-               from residual in ResidualStock.Admit(ResidualKey(field, tolerance), final.Machined)
+                   .ToFin(new KernelFault.InvalidValue("removal", "removal:no-field"))
+               from residualKey in ResidualKey(field, tolerance)
+               from residual in ResidualStock.Admit(residualKey, final.Machined)
                from zone in CollisionZone.Admit(policy.Stock.Key, policy.Bounds)
-               from _ in Invalidating(findings, policy.Tolerance, zone).Match(
+               from _ in Invalidating(findings, policy.Bands, zone).Match(
                    Some: Fin.Fail<Unit>,
                    None: static () => Fin.Succ(unit))
                select new FabricationResult.VerificationResult(
@@ -1008,11 +1036,11 @@ public static partial class Removal {
 
     private static Seq<RemovalFinding> Findings(VerifyPolicy policy, RemovalMetrics metrics) =>
         Seq(
-            metrics.UncutVolume > policy.Tolerance.UncutMm3
+            metrics.UncutVolume > policy.Bands.Uncut.CubicMillimeters
                 ? Some<RemovalFinding>(new RemovalFinding.Uncut(metrics.UncutVolume)) : None,
-            metrics.OvercutVolume > policy.Tolerance.OvercutMm3
+            metrics.OvercutVolume > policy.Bands.Overcut.CubicMillimeters
                 ? Some<RemovalFinding>(new RemovalFinding.Overcut(metrics.OvercutVolume)) : None,
-            metrics.AirCutRatio > policy.Tolerance.AirCutRatio
+            metrics.AirCutRatio > policy.Bands.AirCut.Value
                 ? Some<RemovalFinding>(new RemovalFinding.AirCut(metrics.AirCutRatio)) : None)
         .Bind(static row => row.ToSeq());
 
@@ -1025,7 +1053,7 @@ public static partial class Removal {
                 (double)field.Unresolved / (field.Samples.Count + field.Unresolved)))
             : Seq<RemovalFinding>())
         + field.Samples
-            .Filter(sample => sample.SignedMm < -policy.Tolerance.GougeMm)
+            .Filter(sample => sample.SignedMm < -policy.Bands.Gouge.Value)
             .Map(sample => (RemovalFinding)new RemovalFinding.Gouge(
                 field.Setup,
                 ClosestMove(policy, window, sample.Nominal),
@@ -1034,8 +1062,8 @@ public static partial class Removal {
                 -sample.SignedMm));
 
     private static Option<Error> Invalidating(
-        Seq<RemovalFinding> findings, RemovalTolerance tolerance, CollisionZone zone) {
-        Seq<Error> errors = findings.Choose(finding => finding.Fault(tolerance, zone));
+        Seq<RemovalFinding> findings, RemovalBands bands, CollisionZone zone) {
+        Seq<Error> errors = findings.Choose(finding => finding.Fault(bands, zone));
         return errors.Head.Map(first => errors.Tail.Fold(first, static (combined, error) => combined + error));
     }
 
@@ -1064,14 +1092,9 @@ public static partial class Removal {
         return point.DistanceTo(from + (direction * t));
     }
 
-    // PicoGK allocation and library-mismatch exits are thrown, so the whole native walk funnels through one lift;
-    // the self-flattening bind collapses the capture rail onto the walk's own typed outcome.
+    // PicoGK allocation and library-mismatch exits are thrown, so the whole native walk funnels through Op.Catch.
     private static Fin<T> Capture<T>(Func<Fin<T>> native) =>
-        Try.lift(native)
-            .Run()
-            // The locus stays the bounded token; the trapped native text rides beside it as its own accumulated error.
-            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, None, "removal:native").ToError() + error)
-            .Bind(static result => result);
+        Op.Of(name: "removal:native").Catch(native);
 }
 ```
 

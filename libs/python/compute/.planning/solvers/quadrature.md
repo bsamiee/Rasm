@@ -35,7 +35,7 @@ from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, ev
 from rasm.compute.numerics.jit import EngineProfile, LoweredSpec
 from rasm.compute.solvers.linear import LinearMap, LinearPolicy, MatrixStructure, SparseScheme, sparse_receipt
 from rasm.compute.solvers.mesh import AssembledSystem
-from rasm.compute.solvers.receipt import SolverReceipt, graduate
+from rasm.compute.solvers.receipt import Provider, SolverReceipt, graduate
 from rasm.runtime.faults import RuntimeRail
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy
@@ -244,23 +244,29 @@ class QuadratureIntent:
     ) -> "QuadratureIntent":
         return QuadratureIntent(fem=(system, dirichlet, scheme, policy))
 
-    async def solve(self, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[SolverReceipt]":
+    async def solve(self, lane: LanePolicy, key: ContentKey, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[SolverReceipt]":
         # gated routes declare HOSTILE (x64 gate applies at worker import), the FEM arm RELEASING; isolation,
         # band, and worker-death retry derive at the runtime Kernel crossing owner. The weave owns span, fence, and
         # harvest under the caller's composition key, defaulted so the root call shape stays scope-free.
+        # `key` names the integrand, sample set, or assembled system the caller already identified and crosses as an
+        # ordinary kernel argument, so the receipt settles carrying its own content coordinate. The FEM arm's operand
+        # already holds one — `AssembledSystem.content_key` — and a caller on that route passes exactly it.
         async def dispatch() -> RuntimeRail[SolverReceipt]:
-            return await lane.offload(Kernel.of(_dispatch, _TRAIT[self.tag]), self)
+            return await lane.offload(Kernel.of(_dispatch, _TRAIT[self.tag]), self, key)
 
         return await evidence_run(EvidenceScope.QUADRATURE, f"solve.{self.tag}", dispatch, facts={"route": self.tag}, composition=composition)
 
     def graduates(
-        self, receipt: SolverReceipt, key: ContentKey, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE
+        self, receipt: SolverReceipt, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE
     ) -> "RuntimeRail[GraduationReceipt]":
-        # sibling-shaped solver-axis crossing: `graduate` projects the receipt's own ledger, so the receipt IS the
-        # evidence, and the key names the integrand, sample set, or assembled system the caller already identified.
+        # sibling-shaped solver-axis crossing: `graduate` projects the receipt's own ledger AND its own key, so the
+        # receipt IS the whole evidence and the retired `key` parameter restated what the value already reconstructs.
         # The weak-form `condense -> solve` result is the terminal evidence of the whole mesh-assemble-solve chain, so
         # this route graduates on the same axis its linear, nonlinear, and differential siblings cross on.
-        return graduate(EvidenceScope.QUADRATURE.value, f"solve.{self.tag}", key, receipt, ceiling or dict(_CEILING.items()), composition=composition)
+        return graduate(
+            EvidenceScope.QUADRATURE.value, f"solve.{self.tag}", receipt.content_key, receipt, ceiling or dict(_CEILING.items()),
+            composition=composition,
+        )
 
 
 # --- [TABLES] ------------------------------------------------------------------------------
@@ -307,19 +313,19 @@ def _quad_status(quadax: object, status: int | np.ndarray) -> str:
 
 
 # One measured kernel returning the `SolverReceipt` — module-level and import-resolvable, so it crosses the process lane as spec data plus operands.
-def _dispatch(intent: QuadratureIntent) -> SolverReceipt:
+def _dispatch(intent: QuadratureIntent, key: ContentKey) -> SolverReceipt:
     match intent:
         case QuadratureIntent(tag="integrate", integrate=(fn, span, kind, policy)):
-            return _integrate_receipt(fn, span, kind, policy)
+            return _integrate_receipt(key, fn, span, kind, policy)
         case QuadratureIntent(tag="interpolate", interpolate=(points, values, query, kind, policy, dydx)):
-            return _interpolate_receipt(points, values, query, kind, policy, dydx)
+            return _interpolate_receipt(key, points, values, query, kind, policy, dydx)
         case QuadratureIntent(tag="fem", fem=(system, dirichlet, scheme, policy)):
-            return _fem_receipt(system, dirichlet, scheme, policy)
+            return _fem_receipt(key, system, dirichlet, scheme, policy)
         case _ as unreachable:
             assert_never(unreachable)
 
 
-def _integrate_receipt(fn: object, span: tuple[float, float], kind: QuadKind, policy: QuadPolicy) -> SolverReceipt:
+def _integrate_receipt(key: ContentKey, fn: object, span: tuple[float, float], kind: QuadKind, policy: QuadPolicy) -> SolverReceipt:
     lo, hi = span
     # Lowering bridge: a jit-minted `LoweredSpec` integrand compiles through its own route row before the
     # driver runs (symbolic->jit->quadrature, zero symbolic imports); a compile fault degrades to the host kernel.
@@ -341,7 +347,7 @@ def _integrate_receipt(fn: object, span: tuple[float, float], kind: QuadKind, po
             else np.asarray(fn.integrate(lo, hi))
         )
         residual = 0.0 if np.all(np.isfinite(out)) else float("inf")
-        return SolverReceipt.Iterative(residual, 0, policy.epsrel, result=None, profile=profile)
+        return SolverReceipt.Iterative(key, residual, 0, Provider.GATED, policy.epsrel, result=None, profile=profile)
     row = _QUAD[kind]
     try:
         engine = QuadEngine.gated()  # floats the rail to float64 for the differentiable integral
@@ -351,22 +357,25 @@ def _integrate_receipt(fn: object, span: tuple[float, float], kind: QuadKind, po
             grid = np.linspace(lo, hi, samples.size)
             out = engine.sampled(samples, grid, policy.readout)
             residual = 0.0 if np.all(np.isfinite(out)) else float("inf")
-            return SolverReceipt.Iterative(residual, int(samples.size), policy.epsrel, result=None, profile=profile)
+            return SolverReceipt.Iterative(key, residual, int(samples.size), Provider.GATED, policy.epsrel, result=None, profile=profile)
         # a VECTORIZED row carries per-component `err`/`neval`, so the receipt folds the WORST component (the scipy
         # quad_vec `np.max(abserr)` discipline), scalar rows reducing to themselves.
         _, info = engine.integrate(row, fn, lo, hi, policy)
         err, neval = float(np.max(np.asarray(info.err))), int(np.max(np.asarray(info.neval)))
-        return SolverReceipt.Iterative(err, neval, policy.epsrel, result=_quad_status(engine.quadax, info.status), profile=profile)
+        return SolverReceipt.Iterative(key, err, neval, Provider.GATED, policy.epsrel, result=_quad_status(engine.quadax, info.status), profile=profile)
     except ImportError:
-        return _integrate_scipy(fn, lo, hi, row, policy, profile)
+        return _integrate_scipy(key, fn, lo, hi, row, policy, profile)
 
 
 # Scipy host floor: the row's `scipy` field names the callable and one match folds the divergent call/return
 # shapes into the one (err, neval) pair; result=None defers the verdict to the receipt residual floor. `profile`
 # threads through unchanged — the integrand's compile happened before the driver was chosen, so a host-floor solve
 # over a compiled kernel still reports the compile extent that produced the callable it ran.
+# reached ONLY from the gated arm's absent-quadax fall — so every receipt it mints is a FLOOR receipt, its own
+# nested trapezoid fall included. Publishing these under `Provider.GATED` would tell a consumer the differentiable
+# quadax kernel answered when scipy's did, which is exactly the confusion the discriminant exists to end.
 def _integrate_scipy(
-    fn: object, lo: float, hi: float, row: QuadRow, policy: QuadPolicy, profile: EngineProfile | None = None
+    key: ContentKey, fn: object, lo: float, hi: float, row: QuadRow, policy: QuadPolicy, profile: EngineProfile | None = None
 ) -> SolverReceipt:
     try:
         match row.scipy:
@@ -376,16 +385,16 @@ def _integrate_scipy(
                 fold = integ.cumulative_simpson if policy.readout is Readout.CUMULATIVE else integ.simpson
                 out = np.asarray(fold(samples, x=grid))
                 residual = 0.0 if np.all(np.isfinite(out)) else float("inf")
-                return SolverReceipt.Iterative(residual, int(samples.size), policy.epsrel, result=None, profile=profile)
+                return SolverReceipt.Iterative(key, residual, int(samples.size), Provider.FLOOR, policy.epsrel, result=None, profile=profile)
             case "quad_vec":
                 _, abserr = integ.quad_vec(fn, lo, hi, epsabs=policy.epsabs, epsrel=policy.epsrel)[:2]
-                return SolverReceipt.Iterative(float(np.max(abserr)), 0, policy.epsrel, result=None, profile=profile)
+                return SolverReceipt.Iterative(key, float(np.max(abserr)), 0, Provider.FLOOR, policy.epsrel, result=None, profile=profile)
             case "tanhsinh":
                 res = integ.tanhsinh(fn, lo, hi)  # endpoint-singular host floor; result carries .error/.nfev
-                return SolverReceipt.Iterative(float(res.error), int(res.nfev), policy.epsrel, result=None, profile=profile)
+                return SolverReceipt.Iterative(key, float(res.error), int(res.nfev), Provider.FLOOR, policy.epsrel, result=None, profile=profile)
             case _:
                 _, abserr, info = integ.quad(fn, lo, hi, epsabs=policy.epsabs, epsrel=policy.epsrel, full_output=True)[:3]
-                return SolverReceipt.Iterative(float(abserr), int(info.get("neval", 0)), policy.epsrel, result=None, profile=profile)
+                return SolverReceipt.Iterative(key, float(abserr), int(info.get("neval", 0)), Provider.FLOOR, policy.epsrel, result=None, profile=profile)
     except ImportError:
         n = policy.floor_nodes
         grid = np.linspace(lo, hi, n)
@@ -394,14 +403,18 @@ def _integrate_scipy(
         samples = np.asarray([fn(float(t)) for t in grid]) if callable(fn) else np.asarray(fn)
         out = _prefix_trapezoid(samples, grid) if policy.readout is Readout.CUMULATIVE else np.trapezoid(samples, grid, axis=0)
         residual = float((hi - lo) / n) if np.all(np.isfinite(out)) else float("inf")
-        return SolverReceipt.Iterative(residual, n, policy.epsrel, result=None, profile=profile)
+        return SolverReceipt.Iterative(key, residual, n, Provider.FLOOR, policy.epsrel, result=None, profile=profile)
 
 
 def _interpolate_receipt(
-    points: np.ndarray, values: np.ndarray, query: np.ndarray | None, kind: InterpKind, policy: QuadPolicy, dydx: np.ndarray | None
+    key: ContentKey, points: np.ndarray, values: np.ndarray, query: np.ndarray | None, kind: InterpKind, policy: QuadPolicy,
+    dydx: np.ndarray | None,
 ) -> SolverReceipt:
     xq = query if query is not None else 0.5 * (points[:-1] + points[1:])
-    fitted = np.asarray(_evaluate_interpolant(points, values, xq, kind, policy, dydx))
+    # the engine tier is decided INSIDE the evaluator — interpax answers, or a `None` fold and an absent band both
+    # route scipy — so the evaluator ANSWERS which ran. Reading a tier off the call site would publish whichever
+    # constant the site guessed, and the two kernels differ in exactly the residual this receipt then grades.
+    provider, fitted = _evaluate_interpolant(points, values, xq, kind, policy, dydx)
     # VALUE residual measures the interpolant against the np.interp linear baseline; a non-VALUE readout has no
     # shared baseline, so its verdict is the finiteness floor, never the readout magnitude smuggled into the residual.
     residual = (
@@ -409,22 +422,26 @@ def _interpolate_receipt(
         if policy.readout is Readout.VALUE
         else (0.0 if np.all(np.isfinite(fitted)) else float("inf"))
     )
-    return SolverReceipt.LeastSquares(residual, int(points.size), 0)
+    return SolverReceipt.LeastSquares(key, residual, int(points.size), 0, provider)
 
 
 # Interpax floor reads the `_INTERP` row through `QuadEngine.interpolant`; a method-only ANTIDERIVATIVE/CUMULATIVE
 # folds the running integral (no analytic `.antiderivative()`).
 def _evaluate_interpolant(
     points: np.ndarray, values: np.ndarray, xq: np.ndarray, kind: InterpKind, policy: QuadPolicy, dydx: np.ndarray | None
-) -> np.ndarray:
+) -> tuple[Provider, np.ndarray]:
+    # ANSWERS its tier beside its values: the caller cannot see which of the three paths ran, and a receipt that
+    # names the tier the caller assumed rather than the one that answered is the forged fact `Provider` retires.
     row = _INTERP[kind]
     try:
         engine = QuadEngine.gated()  # floats the rail to float64 for the differentiable interpolant
         # `QuadEngine.interpolant` is the SINGLE interpax fold; a `None` return (BSPLINE) routes the scipy body.
         out = engine.interpolant(row, points, values, xq, kind, policy, dydx)
-        return out if out is not None else _interpolate_scipy(points, values, xq, kind, policy, dydx)
+        if out is not None:
+            return (Provider.GATED, np.asarray(out))
+        return (Provider.FLOOR, np.asarray(_interpolate_scipy(points, values, xq, kind, policy, dydx)))
     except ImportError:
-        return _interpolate_scipy(points, values, xq, kind, policy, dydx)
+        return (Provider.FLOOR, np.asarray(_interpolate_scipy(points, values, xq, kind, policy, dydx)))
 
 
 # Numpy-floor running antiderivative: a vectorized prefix trapezoid with a leading zero row — numpy exposes no
@@ -500,10 +517,10 @@ def _read_spline(spline: object, xq: np.ndarray, policy: QuadPolicy) -> np.ndarr
 # FEM solve owns only the condense->solve half. `skfem.condense(..., expand=False)` returns the reduced
 # `(cond_a, cond_b, *_restore)` bundle, then the caller's scheme solves it through `sparse_receipt` — honest
 # `‖cond_a @ x - cond_b‖`, MatrixStructure.SYMMETRIC exposing SPD.
-def _fem_receipt(system: AssembledSystem, dirichlet: float, scheme: SparseScheme, policy: LinearPolicy) -> SolverReceipt:
+def _fem_receipt(key: ContentKey, system: AssembledSystem, dirichlet: float, scheme: SparseScheme, policy: LinearPolicy) -> SolverReceipt:
     seed = np.zeros(system.dof_count) + dirichlet
     cond_a, cond_b, *_restore = skfem.condense(system.stiffness, system.load, x=seed, D=system.dirichlet_dofs, expand=False)
-    return sparse_receipt(LinearMap.SparseMat(cond_a, MatrixStructure.SYMMETRIC), np.asarray(cond_b), scheme, policy)
+    return sparse_receipt(key, LinearMap.SparseMat(cond_a, MatrixStructure.SYMMETRIC), np.asarray(cond_b), scheme, policy)
 ```
 
 ## [03]-[RESEARCH]

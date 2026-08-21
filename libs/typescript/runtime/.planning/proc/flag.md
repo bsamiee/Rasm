@@ -1,6 +1,6 @@
 # [RUNTIME_FLAG]
 
-Feature evaluation is one owner over the real OpenFeature server SDK: targeting is data — a closed recursive rule family decoded from the provider document and folded by one total `decide` whose percentage bucket derives from the kernel content-key mint, so the same subject lands in the same bucket in every language — and evaluation is the SDK's own lifecycle: this page's provider implements the SDK `Provider` contract over the live ruleset cell, registers through `OpenFeature.setProviderAndWait`, emits `ConfigurationChanged` on every accepted patch, and answers through the SDK client so hooks and evaluation context ride the standard seam, with `track` seating business outcomes on that same plane under the one targeting-identity join. `Verdict` is the branch projection of the shared evaluation contract — flag, kind-typed value (the object kind is a real arm over one recursive JSON schema), variant, reason, error code, error message, metadata, instant — the single shape the C#-evaluated `FlagVerdictWire` decodes into and local evaluation mints. Stickiness and memoization are policy rows: a held variant is a ledger fact with an epoch and a lease, a memoized verdict expires by its own reason, and `evaluate` never fails — a missing flag, a malformed rule, and a cold provider are verdict evidence, never channel faults. The `security` `FlagGate` port is satisfied here. The module is `runtime/src/proc/flag.ts`.
+Feature evaluation is one owner over the real OpenFeature server SDK: targeting is data — a closed recursive rule family decoded from the provider document and folded by one total `decide` whose percentage bucket derives from the kernel content-key mint, so the same subject lands in the same bucket in every language — and evaluation is the SDK's own lifecycle: this page's provider implements the SDK `Provider` contract over the live ruleset cell, registers through `OpenFeature.setProviderAndWait`, emits `ConfigurationChanged` on every accepted patch, and answers through the SDK client so hooks and evaluation context ride the standard seam, with `track` seating business outcomes on that same plane under the one targeting-identity join. `Verdict` is the branch projection of the shared evaluation contract — flag, kind-typed value (the object kind is a real arm over one recursive JSON schema), variant, reason, error code, error message, metadata, instant — the one shape local evaluation mints and the one an interchange-decoded peer verdict admits into. Stickiness and memoization are policy rows: a held variant is a ledger fact with an epoch and a lease, a memoized verdict expires by its own reason, and `evaluate` never fails — a missing flag, a malformed rule, and a cold provider are verdict evidence, never channel faults. The `security` `FlagGate` port is satisfied here. The module is `runtime/src/proc/flag.ts`.
 
 ## [01]-[INDEX]
 
@@ -217,10 +217,11 @@ const Sticky: Sticky.Shape = {
 
 [VERDICT_CONTRACT]:
 - Owner: `Verdict` — one `Schema.Class` carrying `flag`, `kind` (`boolean | string | number | object`), `value` (the kind-typed union whose object arm is the page's one recursive `_Json` schema), `variant: Option`, `reason`, the complete OpenFeature error-code row including `PROVIDER_FATAL`, optional `errorMessage`, `flagMetadata`, and `at`; the wire twins ride the owner — `Verdict.Ruleset` is the provider document, `Verdict.Shift` the live delta family (`Set | Clear | Reset`), `Verdict.codes` the error-code anchor — one import carries the whole contract.
-- Law: the contract is shared, not owned twice — `csharp:Rasm.AppHost/Runtime/features#TS_PROJECTION` mints `FlagVerdictWire` over the same OpenFeature evaluation semantics, the interchange codec decodes it under the `json` arm that mint writes into this class (admitted as `CACHED` evidence), this page owns evaluation, and a second verdict shape anywhere in the branch is the named defect.
+- Law: the contract is shared, not owned twice, and the wire DECODES ONCE — `csharp:Rasm.AppHost/Runtime/features#TS_PROJECTION` mints `FlagVerdictWire` over the same OpenFeature evaluation semantics and `core/interchange/codec#LANDING_WIRE` is the sole seat that decodes it; this page ADMITS that decoded value through `Verdict.admitted` rather than re-decoding the wire under a shape of its own, so a second decode of one family is unspellable and this owner keeps evaluation alone.
+- Law: the producer's reason roster is its own and crosses through one total map — it spells `targeting` where the SDK spells `TARGETING_MATCH` and rows no staleness word at all, so `_WIRE_REASON` is the whole crossing and an arrival keeps the reason its own evaluator settled on rather than being restamped as this process's cache read.
 - Law: the document row is a flag definition — `FlagDef` carries `kind`, the targeting `rule`, and the per-variant value map whose values ride `_Json`, so an object-valued flag is one definition row and value resolution is a variant lookup; the definition's `kind` gates type agreement at resolution, a mismatch minting `TYPE_MISMATCH` evidence.
 - Law: every delta carries its source epoch — `Reset` replaces the document and `Set`/`Clear` patch one flag only when their epoch is equal to or newer than the held document; accepted rows advance `Ruleset.epoch`, stale rows are no-ops, and reset invalidation is the symmetric key difference so removed flags invalidate beside added and changed flags.
-- Packages: `effect` (`Schema`, `Option`, `DateTime`, `HashMap`); `@openfeature/server-sdk` (`JsonValue` — `_Json` types itself against the SDK's own JSON union, so the provider seam and the `get*Details` calls carry no cast).
+- Packages: `effect` (`Schema`, `Option`, `DateTime`, `HashMap`); `@rasm/ts/core` (`Wire.Decoded` — the interchange-decoded peer verdict); `@openfeature/server-sdk` (`JsonValue` — `_Json` types itself against the SDK's own JSON union, so the provider seam and the `get*Details` calls carry no cast).
 
 ```typescript signature
 const _CODES = [
@@ -263,6 +264,21 @@ const _Shift = Schema.Union(
     Schema.TaggedStruct('Reset', { ruleset: Ruleset }),
 );
 
+// The peer verdict's reason roster is the PRODUCER's, and it is neither of the two this page already holds: it spells
+// `targeting` where the SDK spells `TARGETING_MATCH` and rows no staleness word at all. Deriving it from either
+// neighbour would refuse every real targeting document, so the crossing is one total map keyed by the decoded family
+// itself — a token added at the producer breaks this literal instead of arriving as an unroutable string.
+const _WIRE_REASON: { readonly [R in Wire.Decoded<'FlagVerdictWire'>['reason']]: Rollout.Reason } = {
+    cached: 'CACHED',
+    default: 'DEFAULT',
+    disabled: 'DISABLED',
+    error: 'ERROR',
+    split: 'SPLIT',
+    static: 'STATIC',
+    targeting: 'TARGETING_MATCH',
+    unknown: 'UNKNOWN',
+};
+
 class Verdict extends Schema.Class<Verdict>('Verdict')({
     flag: Schema.NonEmptyString,
     kind: Schema.Literal(..._KINDS),
@@ -278,6 +294,21 @@ class Verdict extends Schema.Class<Verdict>('Verdict')({
     static readonly Ruleset = Ruleset;
     static readonly Shift = _Shift;
     static readonly codes = _CODES;
+    // The one admission for an interchange-decoded peer verdict: the codec owns the decode and this projection owns
+    // the reason crossing, so no second decode of `FlagVerdictWire` exists in the branch. The producer evaluates
+    // booleans alone, and a peer that settled cleanly carries no error code or message to restate.
+    static readonly admitted = (wire: Wire.Decoded<'FlagVerdictWire'>, at: DateTime.Utc): Verdict =>
+        new Verdict({
+            flag: wire.flag,
+            kind: 'boolean',
+            value: wire.value,
+            variant: wire.variant,
+            reason: _WIRE_REASON[wire.reason],
+            code: Option.none(),
+            errorMessage: Option.none(),
+            flagMetadata: {},
+            at,
+        });
 }
 
 declare namespace Verdict {
@@ -300,7 +331,7 @@ declare namespace Verdict {
 - Law: events are the invalidation edge and the HEALTH edge, and the server event map carries exactly four rows the feed fold drives from its own seams — every accepted patch emits `ConfigurationChanged` with the changed flag keys, a malformed patch emits `Error`, feed death emits `Stale` before the reconnect budget runs, and an accepted `Reset` emits `Ready` because a whole document is the plane's own recovery edge. Without them the cell freezes at its last epoch and `evaluate` keeps answering `CACHED`/`STATIC` off a document nobody refreshes, with no reason column separating that from health and nothing for `client.addHandler` consumers or the `Setting.flag.quarantine` posture to observe; `Rollout.Reason` already carries `STALE`, so the reason vocabulary was waiting on the producer. `OpenFeatureEventEmitter` is the one health producer, so a poll or side-channel epoch probe beside it has no spelling.
 - Law: outcome association is a provider member, not a service entry — the client NO-OPS `track` unless the registered `Provider` implements the optional member, so the seat is the provider literal and any caller above it only forwards. The member projects the call onto convention rows: the event name is `rasm.flag.event`, the optional numeric `value` is `rasm.flag.value`, the remaining `TrackingEventDetails` members render into the one `rasm.flag.detail` payload, and `feature_flag.context.id` carries the targeting identity. That identity is the WHOLE join — a tracking call names a business outcome and carries no flag key, so the coordinate the telemetry hook already stamps on every evaluation is the only thing both planes share, and an outcome spelled under a flag-key row asserts a flag the call never named.
 - Law: the tracking member is the SDK's one synchronous seat — it answers `void`, never a promise, so the bridge is `Runtime.runSync` over a total effect rather than the promise bridge the `resolve*` members take; a promise here strands its work off the caller's stack, and the client wraps the call in a `try` that swallows a throw into a debug log, so any failure the seat could raise would vanish as silent evidence loss. The client freezes the MERGED context before the call, so global, client, and transaction altitudes all reach the member with no second context shape, and a track before readiness short-circuits inside the client and never arrives.
-- Law: the occurrence rides the metric plane beside the span rows, because a trace plane is sampled and an experiment reads its outcomes as a rate — `rasm.flag.tracked` is a frequency row whose word axis IS the event name, so the root declares its outcome roster once at the Layer factory, every declared word reports zero before its first occurrence, and an undeclared one still counts rather than being dropped. The magnitude never joins it: a caller-defined `value` carries no dimension, so one summed series would fold currency, duration, and arity into a code no UCUM row spells, and the wide event is where that evidence is read.
+- Law: the occurrence rides the metric plane beside the span rows, because a trace plane is sampled and an experiment reads its outcomes as a rate — `rasm.flag.tracked` is a frequency row whose word axis IS the event name, so the root hands its outcome CENSUS — the published vocabulary its own owner minted, never a tuple assembled at the call — once at the Layer factory, every declared word reports zero before its first occurrence, and an undeclared one still counts rather than being dropped. The magnitude never joins it: a caller-defined `value` carries no dimension, so one summed series would fold currency, duration, and arity into a code no UCUM row spells, and the wide event is where that evidence is read.
 - Law: the subject projects from the SDK `EvaluationContext` — `targetingKey` is the subject key (absent folds to `TARGETING_KEY_MISSING` evidence on targeted rules), string-valued attributes are the axes — so context construction is the SDK's standard seam and transaction-context propagation composes at the app edge, never a parallel context shape; that composition is an EXPLICIT install, because the SDK's default transaction propagator is the no-op — a root wanting request-scoped context sets the async-local-storage propagator through `OpenFeature.setTransactionContextPropagator` once at boot, and a deployment that never installs one reads only the global and per-call altitudes.
 - Law: kind agreement is evidence — a resolved value that fails the requested kind's guard answers the fallback with `TYPE_MISMATCH`; a cold cell (epoch 0) answers `PROVIDER_NOT_READY`; a populated cell missing the flag answers `FLAG_NOT_FOUND` — the error channel stays empty and every degradation is data.
 - Packages: `@openfeature/server-sdk` (`Provider`, `ResolutionDetails`, `EvaluationContext`, `OpenFeatureEventEmitter`, `ProviderEvents`, `JsonValue`, `TrackingEventDetails`, `TrackingEventValue`), `effect` (`Effect`, `Runtime`, `Metric`, `Option`, `HashMap`, `DateTime`).
@@ -337,7 +368,7 @@ import {
     Cache, Cause, Data, Effect, Exit, Function, HashMap, Layer, Match, Metric, Option, Predicate, Record, Runtime, Schedule, Schema, Stream,
     SubscriptionRef,
 } from 'effect';
-import { Convention, Fault } from '@rasm/ts/core';
+import { Convention, Fault, Wire } from '@rasm/ts/core';
 import { FlagGate } from '@rasm/ts/security';
 import { Setting } from './config.ts';
 import { Feed } from '../net/channel.ts';
@@ -481,7 +512,14 @@ const _resolved =
         });
 
 class Flags extends Effect.Service<Flags>()('runtime/Flags', {
-    scoped: (digest: (text: string) => number, mode: Sticky.Mode, outcomes: Convention.Word) =>
+    // The tracking counter is a WORD-counting frequency row, so its mount takes the roster's own published census —
+    // the ordered vocabulary its owner minted, where a duplicate word already refused at the mint — never a bare
+    // tuple a caller assembled and no owner keeps aligned.
+    scoped: <const Outcomes extends Convention.Roster>(
+        digest: (text: string) => number,
+        mode: Sticky.Mode,
+        outcomes: Convention.Census<Outcomes>,
+    ) =>
         Effect.gen(function* () {
             const setting = yield* Setting;
             const feed = yield* Feed;

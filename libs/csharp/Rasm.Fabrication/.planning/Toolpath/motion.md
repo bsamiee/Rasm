@@ -17,10 +17,12 @@ CAM motion closes the admitted `(ProcessModality, CutStrategy)` cross-product un
 - Owner: each sub-owner admits ONE axis family and validates it alone — `AxialLaw` the depth schedule and its stability recommendation, `FinishLaw` the surface and grade demand, `ContourLaw` entry, seam, sense, compensation and planar offset, `InfillLaw` the raster and walk law, `SurfaceLaw` sampling, indexed views and the caller-minted layout keys, `RouteLaw` guard, link and machine identity, `MotionStock` the mounted fixture state beside residual and snapshot geometry. `EngagementPolicy` composes admitted sub-owners and validates only the generator map, so no validator carries thirty-eight parameters and a new axis lands on the sub-owner that owns it. The optional `Toolpath/wire` `WirePolicy` and `Toolpath/bevel` `BevelPolicy` ride beside them: an erosion boundary pass is a wire cut and a thermal or abrasive one is a prepared edge wherever the admitted geometry demands the groove, so the law each owner already admits travels on the engagement rather than being re-transcribed at the strategy that routes into it.
 - Cases: `MotionMounts.Floor` admits guard and workholding evidence and rejects execution without joint evidence; `Mounted` threads `CurveSkeleton`, `SpatialIndex`, and `MachineKinematics` through `MotionRun`.
 - Entry: every sub-owner exposes `Admit` returning `Fin`, so a caller composes them once and `EngagementPolicy.Admit` never re-proves an axis its sub-owner already closed.
-- Law: the stability recommendation is `Tooling/cuttingdata#STABILITY` `StabilityReceipt.Recommend`'s own `Option<StablePoint>` seated on the axial law — the chatter-free depth is an AXIAL fact, so it rides the schedule it constrains. `MotionRun.Of` clamps the resolved step-down to the recommended depth and records the adopted spindle point as a `RunWarning`; an absent recommendation leaves the requested schedule untouched.
+- Law: a sub-owner's axes are INDEPENDENT, so its hook accumulates through `AdmissionSlots.Gate` slots and a caller learns every bad axis at once; the refusal locus is `<owner>:<axis>`, so no reader decodes which of six columns a single `contour-law` token meant. A dependent chain — `MotionRun.Of`, where the scallop receipt feeds the chord that feeds the schedule — stays on `Fin` and aborts, because a later step reads an earlier one's value.
+- Law: the stability recommendation is `Tooling/cuttingdata#STABILITY` `StabilityLobes.Recommend`'s own `Option<StablePoint>` seated on the axial law — the chatter-free depth is an AXIAL fact, so it rides the schedule it constrains. `MotionRun.Of` clamps the resolved step-down to the recommended depth and records the adopted spindle point as a `RunWarning`; an absent recommendation leaves the requested schedule untouched.
+- Law: every DIMENSIONED sub-owner column rides its `UnitsNet` quantity under the package ruling that quantities seat on each policy head no preimage digests — the four axial depths, the finish allowance and its engagement angle, the raster direction with its per-layer advance, the thread pitch, and the five hole lengths beside the countersink included angle. Each suffix stated its unit where no compiler read it, so an inch-basis caller admitted its magnitude unchanged and an angle column sat interchangeable with a length one; the quantity states the unit at construction, closes that cross-dimension mix, and leaves the millimetre a projection at the numeric seam. `AxialPass` is the ONE bare-millimetre row left: `Cam.AtDepth` writes each pass depth into a `FabricationCanon.Ordered` preimage, so the folder ruling that a digested scalar keeps its raw spelling holds it, and `AxialLaw.Schedule` is the derivation site the projection sits at. Feed, retract, spot, deep-step, and ream fractions stay bare — no unit names them, and `Ratio` leaves all five mutually substitutable while buying a conversion at every scale site.
 - Auto: `EngagementPolicy.Resolve` folds the budget case to ONE `BudgetDraw` row — the modality the case requires, its refusal locus, and the feed/compensation/step-down triple it can answer — so the eleven arms carry no repeated gate and one admission decides them all. `AxialLaw.Schedule` derives axial-pass rows from total depth, step ceiling, finish step-down, and allowances. `MotionRun.Of` resolves scallop chord and IT-grade allowance once.
 - Receipt: `MotionRun` carries the admitted carrier every emitter reads; `Schedule` is derived, never stored, so a policy edit cannot leave a stale roster behind it.
-- Packages: `Process/owner.md` atoms, `Process/family.md`, `Process/physics.md`, `Process/faults.md`, `Tooling/cuttingdata.md`, `Spec/tolerance.md`, `Toolpath/bevel.md`, `Toolpath/guard.md`, `Toolpath/link.md`, `Toolpath/surface.md`, `Toolpath/wire.md`, `Fixturing/workholding.md`, `Kinematics/machine.md`, `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, `Riok.Mapperly`, `RhinoCommon`, BCL inbox.
+- Packages: `Process/owner.md` atoms and `FabricationCanon`, `Process/family.md`, `Process/physics.md`, `Process/faults.md`, `Tooling/cuttingdata.md`, `Spec/tolerance.md` (`ToleranceSpec.Apply`), `Toolpath/bevel.md`, `Toolpath/guard.md`, `Toolpath/link.md`, `Toolpath/surface.md`, `Toolpath/wire.md`, `Fixturing/workholding.md`, `Kinematics/machine.md`, kernel `Rasm.Domain` (`Tolerance`, `ToleranceLane`), `Rasm.Element` (`AdmissionSlots`, `CanonicalWriter`), `UnitsNet` (`Length` and `Angle` over every dimensioned sub-owner column, and the quantity algebra that folds the raster heading), `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, `Riok.Mapperly`, `RhinoCommon`, BCL inbox.
 - Growth: a new engagement axis is one column on the sub-owner that owns it; a new machine posture is one `RouteLaw` column.
 - Boundary: `Cam` never uses pass count as an axial-depth surrogate and never chord-samples a revolution a `Move.Circular` arc states exactly. Fabricated physics, Cartesian coordinates relabeled as joints, and automatic guard lifts stay unrepresentable.
 
@@ -31,6 +33,7 @@ using LanguageExt;
 using LanguageExt.Common;
 using LanguageExt.Traits;
 using Rasm.Domain;
+using Rasm.Element.Projection;
 using Rasm.Fabrication.Fixturing;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Kinematics;
@@ -43,20 +46,32 @@ using Rasm.Spatial;
 using Rhino.Geometry;
 using Riok.Mapperly.Abstractions;
 using Thinktecture;
+using UnitsNet;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Toolpath;
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// Every sub-owner refuses as `PolicyInadmissible` on `Toolpath` through `AdmissionSlots.Gate` with the cached
+// `FabricationFault.Inadmissible` group, so the locus is the only column that varies and each gate spells its whole
+// `<owner>:<axis>` token at the site the refusal names. A per-owner gate wrapper is the deleted form.
+// `AxialPass` derives, and holds the one place on this plane a millimetre stays a bare double: `Cam.AtDepth`
+// writes each pass depth straight into a `FabricationCanon.Ordered` preimage, so the folder ruling that a digested
+// scalar keeps its raw spelling binds here — typing a column moves the preimage and re-keys every element the
+// depth ladder has already minted. `AxialLaw.Schedule` is therefore the derivation site the conversion sits at.
 public readonly record struct AxialPass(double DepthMm, double RadialAllowanceMm, double FloorAllowanceMm, double FeedScale);
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class AxialLaw {
-    public double MaxAxialDepthMm { get; }
-    public double AxialDepthMm { get; }
-    public double FinishStepDownMm { get; }
-    public double FloorAllowanceMm { get; }
+    // Four depths along ONE axis. `Length` states the unit where a compiler reads it, so an inch-basis machine
+    // value converts at construction instead of admitting its magnitude unchanged behind a name promising
+    // millimetres; ordering compares as quantities besides, which is why the step-down-under-total gate below
+    // reads no unit at all. This law reaches no canonical preimage of its own — `Schedule` mints the digested row
+    // below it — so no key moves.
+    public Length MaxAxialDepth { get; }
+    public Length AxialDepth { get; }
+    public Length FinishStepDown { get; }
+    public Length FloorAllowance { get; }
 
     // The chatter-free operating point `Tooling/cuttingdata` recommends at the requested depth. Absence is the second
     // state — no stability model was solved — so the carrier is `Option` and never a sentinel depth a clamp would read.
@@ -64,144 +79,173 @@ public sealed partial class AxialLaw {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
-        ref double maxAxialDepthMm,
-        ref double axialDepthMm,
-        ref double finishStepDownMm,
-        ref double floorAllowanceMm,
+        ref ValidationError? validationError,
+        ref Length maxAxialDepth,
+        ref Length axialDepth,
+        ref Length finishStepDown,
+        ref Length floorAllowance,
         ref Option<StablePoint> stability) {
-        if (!(Witness.Positive(maxAxialDepthMm) && Witness.Positive(axialDepthMm)
-            && finishStepDownMm >= 0.0 && finishStepDownMm <= axialDepthMm
-            && double.IsFinite(floorAllowanceMm) && floorAllowanceMm >= 0.0
-            && stability.Map(static point => Witness.Positive(point.DepthMm) && Witness.Positive(point.SpindleRpm)).IfNone(true)))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "axial-law");
+        if (!(ValidityClaim.Positive(maxAxialDepth.Millimeters).Holds && ValidityClaim.Positive(axialDepth.Millimeters).Holds
+            && finishStepDown.Millimeters >= 0.0 && finishStepDown <= axialDepth
+            && double.IsFinite(floorAllowance.Millimeters) && floorAllowance.Millimeters >= 0.0
+            && stability.Map(static point => ValidityClaim.Positive(point.DepthMm).Holds && ValidityClaim.Positive(point.SpindleRpm).Holds).IfNone(true)))
+            validationError = new ValidationError("axial-law");
     }
 
     public static Fin<AxialLaw> Admit(
-        double maxAxialDepthMm,
-        double axialDepthMm,
-        double finishStepDownMm,
-        double floorAllowanceMm,
+        Length maxAxialDepth,
+        Length axialDepth,
+        Length finishStepDown,
+        Length floorAllowance,
         Option<StablePoint> stability) =>
-        Validate(maxAxialDepthMm, axialDepthMm, finishStepDownMm, floorAllowanceMm, stability, out AxialLaw law)
+        Validate(maxAxialDepth, axialDepth, finishStepDown, floorAllowance, stability, out AxialLaw law)
             .Admitted(law);
 
-    // Rough levels descend to the finish stock line; the terminal row alone clears the floor at the scaled finishing feed.
+    // Rough levels descend to the finish stock line; the terminal row alone clears the floor at the scaled finishing
+    // feed. Every typed column projects ONCE here, at the derivation site, because the rows this fold mints are the
+    // digested ones: the ladder arithmetic below runs on exactly the doubles the canonical writer will read.
     public Seq<AxialPass> Schedule(double stepDown, double allowanceMm, double finishAllowanceMm, double finishFeedFraction) {
-        double step = Math.Min(MaxAxialDepthMm, stepDown > 0.0 ? stepDown : MaxAxialDepthMm);
-        double rough = Math.Max(0.0, AxialDepthMm - FinishStepDownMm);
+        double ceiling = MaxAxialDepth.Millimeters;
+        double floor = FloorAllowance.Millimeters;
+        double total = AxialDepth.Millimeters;
+        double step = Math.Min(ceiling, stepDown > 0.0 ? stepDown : ceiling);
+        double rough = Math.Max(0.0, total - FinishStepDown.Millimeters);
         return Range(1, Math.Max(1, (int)Math.Ceiling(rough / step))).ToSeq()
             .Map(level => new AxialPass(
                 Math.Min(rough, level * step),
                 allowanceMm + finishAllowanceMm,
-                FloorAllowanceMm,
+                floor,
                 FeedScale: 1.0))
             .Filter(static pass => pass.DepthMm > 0.0)
-            .Add(new AxialPass(AxialDepthMm, allowanceMm, FloorAllowanceMm: 0.0, finishFeedFraction));
+            .Add(new AxialPass(total, allowanceMm, FloorAllowanceMm: 0.0, finishFeedFraction));
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class FinishLaw {
-    public double TargetAngleDeg { get; }
-    public double FinishAllowanceMm { get; }
+    // `Toolpath/skeleton` turns this engagement angle into a scallop height, and every reader of it takes a
+    // cosine — so it rides `Angle`, and the degree suffix that left each reader re-spelling its own
+    // degree-to-radian conversion off a name no compiler read is gone.
+    public Angle TargetAngle { get; }
+    public Length FinishAllowance { get; }
+
+    // Feed SCALE, never a measure: no unit names it, `Ratio` leaves it interchangeable with every other fraction
+    // on this plane, and the closed unit interval is the whole of its admission.
     public double FinishFeedFraction { get; }
     public RaTarget Roughness { get; }
     public ItGrade Grade { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
-        ref double targetAngleDeg,
-        ref double finishAllowanceMm,
+        ref ValidationError? validationError,
+        ref Angle targetAngle,
+        ref Length finishAllowance,
         ref double finishFeedFraction,
         ref RaTarget roughness,
         ref ItGrade grade) {
-        if (!(targetAngleDeg is > 0.0 and <= 180.0
-            && double.IsFinite(finishAllowanceMm) && finishAllowanceMm >= 0.0
+        if (!(targetAngle.Degrees is > 0.0 and <= 180.0
+            && double.IsFinite(finishAllowance.Millimeters) && finishAllowance.Millimeters >= 0.0
             && finishFeedFraction is > 0.0 and <= 1.0))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "finish-law");
+            validationError = new ValidationError("finish-law");
     }
 
     public static Fin<FinishLaw> Admit(
-        double targetAngleDeg,
-        double finishAllowanceMm,
+        Angle targetAngle,
+        Length finishAllowance,
         double finishFeedFraction,
         RaTarget roughness,
         ItGrade grade) =>
-        Validate(targetAngleDeg, finishAllowanceMm, finishFeedFraction, roughness, grade, out FinishLaw law).Admitted(law);
+        Validate(targetAngle, finishAllowance, finishFeedFraction, roughness, grade, out FinishLaw law).Admitted(law);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ContourLaw {
     public ContourCompensation Compensation { get; }
     public EntryPolicy Entry { get; }
     public CutSense Sense { get; }
-    public SeamPolicy Seam { get; }
+    public SeamPlacement Seam { get; }
     public Point3d SeamReference { get; }
     public OffsetPolicy PlanarOffset { get; }
 
+    // Three independent axes, so the refusal ACCUMULATES: a caller holding a degenerate entry payload beside an
+    // invalid seam reference learns both. The entry axis carries the union's own per-variant slot, so a helical
+    // entry with a zero pitch answers `entry:helix` instead of four payload shapes collapsing into one token.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref ContourCompensation compensation,
         ref EntryPolicy entry,
         ref CutSense sense,
-        ref SeamPolicy seam,
+        ref SeamPlacement seam,
         ref Point3d seamReference,
         ref OffsetPolicy planarOffset) {
-        if (!(entry.Valid && seamReference.IsValid && planarOffset.IsValid))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "contour-law");
+        Validation<Error, Unit> admitted = (
+            entry.Admitted,
+            AdmissionSlots.Gate(seamReference.IsValid, FabConcern.Toolpath, "contour-law:seam-reference", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(planarOffset.IsValid, FabConcern.Toolpath, "contour-law:planar-offset", FabricationFault.Inadmissible))
+            .Apply(static (_, _, _) => unit)
+            .As();
+        validationError = admitted.Match<ValidationError?>(
+            Fail: static _ => new ValidationError("contour-law"),
+            Succ: static _ => null);
     }
 
     public static Fin<ContourLaw> Admit(
         ContourCompensation compensation,
         EntryPolicy entry,
         CutSense sense,
-        SeamPolicy seam,
+        SeamPlacement seam,
         Point3d seamReference,
         OffsetPolicy planarOffset) =>
         Validate(compensation, entry, sense, seam, seamReference, planarOffset, out ContourLaw law).Admitted(law);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class InfillLaw {
     public PartitionStrategy Partition { get; }
     public WalkStrategy Walk { get; }
-    public double AngleDeg { get; }
-    public double AngleAdvanceDeg { get; }
-    public double ThreadPitchMm { get; }
+
+    // `Direction` seeds the raster heading and `Advance` turns it per layer; they compose, so
+    // `Direction + (Advance * layer)` IS that layer's heading. Both ride `Angle` and the sum projects to radians
+    // once, at the site that rotates the row generator; degree suffixes forced that fold to carry its own
+    // `Math.PI / 180.0`.
+    public Angle Direction { get; }
+    public Angle Advance { get; }
+    public Length ThreadPitch { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref PartitionStrategy partition,
         ref WalkStrategy walk,
-        ref double angleDeg,
-        ref double angleAdvanceDeg,
-        ref double threadPitchMm) {
-        if (!(angleDeg is >= 0.0 and < 180.0 && angleAdvanceDeg is >= 0.0 and < 180.0 && Witness.Positive(threadPitchMm)))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "infill-law");
+        ref Angle direction,
+        ref Angle advance,
+        ref Length threadPitch) {
+        if (!(direction.Degrees is >= 0.0 and < 180.0 && advance.Degrees is >= 0.0 and < 180.0
+            && ValidityClaim.Positive(threadPitch.Millimeters).Holds))
+            validationError = new ValidationError("infill-law");
     }
 
     public static Fin<InfillLaw> Admit(
         PartitionStrategy partition,
         WalkStrategy walk,
-        double angleDeg,
-        double angleAdvanceDeg,
-        double threadPitchMm) =>
-        Validate(partition, walk, angleDeg, angleAdvanceDeg, threadPitchMm, out InfillLaw law).Admitted(law);
+        Angle direction,
+        Angle advance,
+        Length threadPitch) =>
+        Validate(partition, walk, direction, advance, threadPitch, out InfillLaw law).Admitted(law);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class SurfaceLaw {
     public SurfaceSampling Sampling { get; }
     public WaterlineMode Waterline { get; }
-    public double PencilContactAngleDeg { get; }
+
+    // The pencil lane's contact limit is an ANGLE GATE, so it rides the kernel `ToleranceLane.Orientation` lane in
+    // radians and `Band.Angle` owns its admission: a degree-suffixed bare double let every consumer re-decide the
+    // unit, and `Toolpath/surface` then re-clamped it before converting to the cosine the native seam wants. The
+    // half-turn ceiling is this lane's own — `Band.Angle` closes at a full turn, and a contact angle past a right
+    // angle names a cutter reaching behind its own axis.
+    public Tolerance PencilContact { get; }
 
     // Indexed views are a FAMILY: three-plus-two folds one admitted pass per view, so a single-view arm is the
     // deleted form and swarf reads the first view as its flank reference.
@@ -214,35 +258,45 @@ public sealed partial class SurfaceLaw {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref SurfaceSampling sampling,
         ref WaterlineMode waterline,
-        ref double pencilContactAngleDeg,
+        ref Tolerance pencilContact,
         ref Arr<ProjectionDir> views,
         ref HashMap<CutStrategy, SurfaceLayoutKey> layoutKeys,
         ref Option<Func<MeshSpace, SurfaceLayoutKind, double, Fin<Seq<SurfaceDrive>>>> layout) {
-        if (!(pencilContactAngleDeg is >= 0.0 and <= 90.0 && !views.IsEmpty
-            && (layoutKeys.IsEmpty || layout.IsSome)))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "surface-law");
+        Validation<Error, Unit> admitted = (
+            AdmissionSlots.Gate(
+                pencilContact.Lane == ToleranceLane.Orientation
+                && pencilContact.IsValid
+                && pencilContact.Value <= Math.PI / 2.0, FabConcern.Toolpath, "surface-law:pencil-contact", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(!views.IsEmpty, FabConcern.Toolpath, "surface-law:views", FabricationFault.Inadmissible),
+            // A minted layout key with no generator behind it is an unroutable strategy, and the folder ruling puts
+            // no algorithm on this plane to fall back to, so the pair admits together or not at all.
+            AdmissionSlots.Gate(layoutKeys.IsEmpty || layout.IsSome, FabConcern.Toolpath, "surface-law:layout-generator", FabricationFault.Inadmissible))
+            .Apply(static (_, _, _) => unit)
+            .As();
+        validationError = admitted.Match<ValidationError?>(
+            Fail: static _ => new ValidationError("surface-law"),
+            Succ: static _ => null);
     }
 
     public static Fin<SurfaceLaw> Admit(
         SurfaceSampling sampling,
         WaterlineMode waterline,
-        double pencilContactAngleDeg,
+        Tolerance pencilContact,
         Arr<ProjectionDir> views,
         HashMap<CutStrategy, SurfaceLayoutKey> layoutKeys,
         Option<Func<MeshSpace, SurfaceLayoutKind, double, Fin<Seq<SurfaceDrive>>>> layout) =>
-        Validate(sampling, waterline, pencilContactAngleDeg, views, layoutKeys, layout, out SurfaceLaw law).Admitted(law);
+        Validate(sampling, waterline, pencilContact, views, layoutKeys, layout, out SurfaceLaw law).Admitted(law);
 
     public Fin<SurfaceLayoutKind> Kernel(CutStrategy strategy) =>
         LayoutKeys.Find(strategy)
             .Map(static key => (SurfaceLayoutKind)new SurfaceLayoutKind.Kernel(key))
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"surface-law:layout-key:{strategy.Key}"));
+            .ToFin(new KernelFault.InvalidValue("motion", $"surface-law:layout-key:{strategy.Key}"));
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class RouteLaw {
     public GuardPolicy Guard { get; }
     public Seq<GuardProbe> Probes { get; }
@@ -254,7 +308,7 @@ public sealed partial class RouteLaw {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref GuardPolicy guard,
         ref Seq<GuardProbe> probes,
         ref LinkPolicy link,
@@ -264,7 +318,7 @@ public sealed partial class RouteLaw {
         ref string workOffset) {
         workOffset = workOffset.Trim();
         if (!(home.IsValid && Witness.Keyed(workOffset)))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "route-law");
+            validationError = new ValidationError("route-law");
     }
 
     public static Fin<RouteLaw> Admit(
@@ -306,7 +360,6 @@ public abstract partial record MotionMounts(Fixture Fixture, FixtureState State,
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class MotionStock {
     public MotionMounts Mounts { get; }
     public Option<ResidualStock> Residual { get; }
@@ -314,12 +367,12 @@ public sealed partial class MotionStock {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref MotionMounts mounts,
         ref Option<ResidualStock> residual,
         ref Seq<StockSnapshot> snapshots) {
         if (snapshots.Map(static snapshot => snapshot.Setup).Distinct().Count != snapshots.Count)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "motion-stock:setup-duplicate");
+            validationError = new ValidationError("motion-stock:setup-duplicate");
     }
 
     public static Fin<MotionStock> Admit(
@@ -337,7 +390,6 @@ public readonly record struct BudgetDraw(
     Option<(double Feed, double Compensation, double StepDown)> Values);
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class EngagementPolicy {
     public ProcessBudget Budget { get; }
     public Option<CuttingData> Cutting { get; }
@@ -359,13 +411,19 @@ public sealed partial class EngagementPolicy {
     // The edge-preparation lane's admitted law. Absence is the SQUARE edge — a thermal or abrasive boundary pass
     // with no preparation is an ordinary contour — so presence alone routes the lane and no second flag states it.
     public Option<BevelPolicy> Bevel { get; }
+
+    // The open extension point, and the ONE column this package never populates: no site in the corpus fills this
+    // map, because `Extend` routes the four strategies whose emitter is the caller's — `Trochoidal`, `Support`,
+    // `Form`, and any strategy a downstream composition root adds — and the composition root that owns those
+    // emitters is above this plane. An empty map is therefore the ordinary state and refuses by locus at `Extend`,
+    // never a page-local default emitter standing in for a decision no page here holds.
     public HashMap<CutStrategy, Func<MotionRun, Fin<Seq<CutElement>>>> Generators { get; }
 
     // Every axis was proved by the sub-owner that admits it, so this hook decides only what composition itself owns:
     // an injected generator must be reachable, never null under a live key.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref ProcessBudget budget,
         ref Option<CuttingData> cutting,
         ref AxialLaw axial,
@@ -382,7 +440,7 @@ public sealed partial class EngagementPolicy {
         ref Option<BevelPolicy> bevel,
         ref HashMap<CutStrategy, Func<MotionRun, Fin<Seq<CutElement>>>> generators) {
         if (generators.Exists(static row => row.Value is null))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "engagement:generator");
+            validationError = new ValidationError("engagement:generator");
     }
 
     public static Fin<EngagementPolicy> Admit(
@@ -405,7 +463,7 @@ public sealed partial class EngagementPolicy {
             wire, bevel, generators, out EngagementPolicy policy).Admitted(policy);
 
     public Seq<AxialPass> Schedule(double stepDown, double allowanceMm) =>
-        Axial.Schedule(stepDown, allowanceMm, Finish.FinishAllowanceMm, Finish.FinishFeedFraction);
+        Axial.Schedule(stepDown, allowanceMm, Finish.FinishAllowance.Millimeters, Finish.FinishFeedFraction);
 
     // Each arm states its required modality, its locus, and the columns it can answer; the deposition, resin, and
     // formed families answer no continuous feed at all, so their draw carries no values and the one gate refuses them.
@@ -442,11 +500,10 @@ public sealed partial class EngagementPolicy {
         ProcessModality modality, BudgetDraw draw) =>
         draw.Required.Filter(required => required == modality)
             .Bind(_ => draw.Values)
-            .Filter(static row => Witness.Positive(row.Feed)
+            .Filter(static row => ValidityClaim.Positive(row.Feed).Holds
                 && double.IsFinite(row.Compensation) && row.Compensation >= 0.0
                 && double.IsFinite(row.StepDown) && row.StepDown >= 0.0)
-            .ToFin(new FabricationFault.PolicyInadmissible(
-                FabConcern.Toolpath, $"engagement:{modality.Key}:{draw.Locus}"));
+            .ToFin(new KernelFault.InvalidValue("motion", $"engagement:{modality.Key}:{draw.Locus}"));
 }
 
 public sealed record MotionRun(
@@ -467,15 +524,9 @@ public sealed record MotionRun(
 
     public static Fin<MotionRun> Of(FabricationPolicy.Cam policy, FabricationInput input) =>
         from physics in policy.Engagement.Resolve(input.Process.Modality, policy.Cutter)
-        from scallop in Tolerance.Apply(new ToleranceRequest.Scallop(policy.Engagement.Finish.Roughness, policy.Cutter))
-        from chord in scallop is ToleranceReceipt.Scallop receipt
-            ? Fin.Succ(receipt.StepMm)
-            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:scallop-receipt"))
-        from tolerance in Tolerance.Apply(new ToleranceRequest.Allowance(policy.Engagement.Finish.Grade))
-        from allowance in tolerance is ToleranceReceipt.Allowance grade
-            ? Fin.Succ(grade.Millimeters)
-            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:allowance-receipt"))
-        let requested = physics.StepDown > 0.0 ? physics.StepDown : policy.Engagement.Axial.MaxAxialDepthMm
+        from scallop in ToleranceSpec.Apply(new ToleranceRequest.Scallop(policy.Engagement.Finish.Roughness, policy.Cutter))
+        from allowance in ToleranceSpec.Apply(new ToleranceRequest.Allowance(policy.Engagement.Finish.Grade))
+        let requested = physics.StepDown > 0.0 ? physics.StepDown : policy.Engagement.Axial.MaxAxialDepth.Millimeters
         let stable = policy.Engagement.Axial.Stability.Filter(point => point.DepthMm < requested)
         // Stock carries blank, forbidden, and snapshot geometry only: `Fixture.Zones` is the sole exclusion-zone
         // owner and reaches `Guard.Check` through `GuardRequest.Fixture`, so passing it here would seat a second
@@ -497,8 +548,8 @@ public sealed record MotionRun(
             physics.Feed,
             physics.Compensation,
             stable.Map(static point => point.DepthMm).IfNone(requested),
-            chord,
-            allowance,
+            scallop.StepMm,
+            allowance.Millimeters,
             // A clamped schedule is a REPORTED adoption, not a silent one: the warning names the plane, the axis, and
             // the spindle point the depth came from, so the run-warning instrument partitions it by concern.
             stable.ToSeq().Map(point => new RunWarning(
@@ -510,7 +561,8 @@ public sealed record MotionRun(
 
 ## [03]-[STRATEGY]
 
-- Owner: `ContourCompensation`, `SeamPolicy`, and `HoleCycle` are constructor-bound behavior rows; `HoleLaw` is the admitted hole geometry every cycle reads; `EntryPolicy` is the per-variant payload family for tangential arc, ramp, plunge, and helical entry; `CamStrategy` is the ONE row table binding each `CutStrategy` to its closed-profile demand and its emitter.
+- Owner: `ContourCompensation`, `SeamPlacement`, and `HoleCycle` are constructor-bound behavior rows; `HoleLaw` is the admitted hole geometry every cycle reads; `EntryPolicy` is the per-variant payload family for tangential arc, ramp, plunge, and helical entry; `CamStrategy` is the ONE row table binding each `CutStrategy` to its closed-profile demand and its emitter.
+- Law: `Policy` names an ADMITTED law on this plane — a `[ComplexValueObject]` whose `Admit` gates caller values and whose absence is a routing fact, which is what `EngagementPolicy`, `LinkPolicy`, `WirePolicy`, `BevelPolicy`, and `OffsetPolicy` all are. A constructor-bound scoring row admits nothing and cannot be absent, so `SeamPlacement` carries the behavior noun its rows spell; a caller reading `Seam` no longer expects an `Admit` that never existed.
 - Cases: `HoleCycle` covers spotting, drilling, pecking, chip-breaking, deep-hole, reaming, interpolated boring, counterboring, countersinking, and fine boring; fine boring emits an `OrientedStop` directive carrying its orient angle beside the retract vector.
 - Law: edge preparation routes on TWO facts because two questions exist — the run's `FabricationInput.Preparations` column is the DEMAND the ingress lowered off the source that states it, and the engagement's `BevelPolicy` is the LAW that cuts it. No demand answers the ordinary contour under either law, and a demand under no law answers `cam:bevel-demand-unpolicied` rather than squaring a joint downstream work was designed around.
 - Law: `CamStrategy.Rows` is keyed by `CutStrategy` and the ROW carries `DemandsClosed`, so the closed-profile gate and the emitter can never disagree about a strategy — the two thirty-three-arm switches that could are the deleted form. A `CutStrategy` with no row is inadmissible for CAM and answers `RelationFault.ModalityStrategy`, which is the same verdict the modality gate raises.
@@ -528,12 +580,20 @@ public abstract partial record EntryPolicy {
     public sealed record Plunge(double ClearanceMm) : EntryPolicy;
     public sealed record Helix(double RadiusMm, double PitchMm, double ClearanceMm) : EntryPolicy;
 
-    public bool Valid => Switch(
-        tangentialArc: static _ => true,
-        ramp: static row => Witness.Positive(row.LengthMm) && double.IsFinite(row.ClearanceMm) && row.ClearanceMm >= 0.0,
-        plunge: static row => double.IsFinite(row.ClearanceMm) && row.ClearanceMm >= 0.0,
-        helix: static row => Witness.Positive(row.RadiusMm) && Witness.Positive(row.PitchMm)
-            && double.IsFinite(row.ClearanceMm) && row.ClearanceMm >= 0.0);
+    // The per-variant payload gate as an ADMISSION SLOT, not a bool: the arm that refused names itself, so a caller
+    // reads `entry:helix` where a boolean gave the admitting law one opaque verdict over four payload shapes. The
+    // generated total switch keeps a fifth entry shape from landing unproved.
+    public K<Validation<Error>, Unit> Admitted => Switch(
+        tangentialArc: static _ => AdmissionSlots.Gate(true, FabConcern.Toolpath, "entry:tangential-arc", FabricationFault.Inadmissible),
+        ramp: static row => AdmissionSlots.Gate(
+            ValidityClaim.Positive(row.LengthMm).Holds && Standoff(row.ClearanceMm), FabConcern.Toolpath, "entry:ramp", FabricationFault.Inadmissible),
+        plunge: static row => AdmissionSlots.Gate(Standoff(row.ClearanceMm), FabConcern.Toolpath, "entry:plunge", FabricationFault.Inadmissible),
+        helix: static row => AdmissionSlots.Gate(
+            ValidityClaim.Positive(row.RadiusMm).Holds && ValidityClaim.Positive(row.PitchMm).Holds && Standoff(row.ClearanceMm), FabConcern.Toolpath, "entry:helix", FabricationFault.Inadmissible));
+
+    // Zero standoff is the admitted case — an entry that starts on the material face — so the gate is finiteness
+    // and sign, and the three arms carrying a clearance share the one predicate rather than restating it.
+    private static bool Standoff(double clearanceMm) => double.IsFinite(clearanceMm) && clearanceMm >= 0.0;
 }
 
 [SmartEnum<string>]
@@ -547,12 +607,12 @@ public sealed partial class ContourCompensation {
 }
 
 [SmartEnum<string>]
-public sealed partial class SeamPolicy {
-    public static readonly SeamPolicy Nearest = new("nearest", NearestScore);
-    public static readonly SeamPolicy Farthest = new("farthest", FarthestScore);
-    public static readonly SeamPolicy SharpestConcave = new("sharpest-concave", SharpestConcaveScore);
-    public static readonly SeamPolicy Aligned = new("aligned", AlignedScore);
-    public static readonly SeamPolicy Distributed = new("distributed", DistributedScore);
+public sealed partial class SeamPlacement {
+    public static readonly SeamPlacement Nearest = new("nearest", NearestScore);
+    public static readonly SeamPlacement Farthest = new("farthest", FarthestScore);
+    public static readonly SeamPlacement SharpestConcave = new("sharpest-concave", SharpestConcaveScore);
+    public static readonly SeamPlacement Aligned = new("aligned", AlignedScore);
+    public static readonly SeamPlacement Distributed = new("distributed", DistributedScore);
 
     // A vertex a policy cannot rank is ABSENT from the ranking, never a maximal score a fold would still select when
     // every vertex is unrankable; the seam fold reads `None` and keeps its incumbent.
@@ -616,13 +676,13 @@ public sealed partial class HoleCycle {
 
     public bool Fits(double cutterDiameterMm, double holeDiameterMm) {
         double ratio = cutterDiameterMm / holeDiameterMm;
-        return Witness.Positive(holeDiameterMm) && ratio >= MinFitRatio && ratio <= MaxFitRatio;
+        return ValidityClaim.Positive(holeDiameterMm).Holds && ratio >= MinFitRatio && ratio <= MaxFitRatio;
     }
 
     private static Fin<Seq<Move>> Spotting(HoleTarget target, HoleLaw law) =>
         Cam.Trail(
             Move.Rapid.Of(target.Clear(law)),
-            Move.Linear.Of(target.At(Math.Min(law.Through, target.StepMm * law.SpotDepthFraction)), target.Feed),
+            Move.Linear.Of(target.At(Math.Min(law.Through.Millimeters, target.StepMm * law.SpotDepthFraction)), target.Feed),
             Move.Rapid.Of(target.Clear(law)));
 
     private static Fin<Seq<Move>> Drilling(HoleTarget target, HoleLaw law) =>
@@ -638,36 +698,39 @@ public sealed partial class HoleCycle {
             Move.Linear.Of(target.Clear(law), target.Feed * law.ReamRetractFraction));
 
     private static Fin<Seq<Move>> Boring(HoleTarget target, HoleLaw law) =>
-        Interpolated(target, law, target.Radius - target.CutterRadiusMm, law.Through);
+        Interpolated(target, law, target.Radius - target.CutterRadiusMm, law.Through.Millimeters);
 
     private static Fin<Seq<Move>> Counterboring(HoleTarget target, HoleLaw law) =>
-        Interpolated(target, law, (law.CounterDiameterMm * 0.5) - target.CutterRadiusMm, law.RecessDepthMm);
+        Interpolated(target, law, (law.CounterDiameter.Millimeters * 0.5) - target.CutterRadiusMm, law.RecessDepth.Millimeters);
 
     private static Fin<Seq<Move>> Countersinking(HoleTarget target, HoleLaw law) {
-        double depth = law.SinkDepth(target.DiameterMm);
-        return depth > 0.0 && depth <= law.Through
+        Length depth = law.SinkDepth(Length.FromMillimeters(target.DiameterMm));
+        return depth > Length.Zero && depth <= law.Through
             ? Cam.Trail(
                 Move.Rapid.Of(target.Clear(law)),
                 Move.Linear.Of(target.At(depth), target.Feed),
                 Move.Rapid.Of(target.Clear(law)))
-            : Fin.Fail<Seq<Move>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "hole:countersink:included-angle"));
+            : Fin.Fail<Seq<Move>>(new KernelFault.InvalidValue("motion", "hole:countersink:included-angle"));
     }
 
     private static Fin<Seq<Move>> Interpolated(HoleTarget target, HoleLaw law, double radius, double depth) =>
         radius <= 0.0 || depth <= 0.0 || target.StepMm <= 0.0 || !double.IsFinite(radius) || !double.IsFinite(depth)
-            ? Fin.Fail<Seq<Move>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "hole:interpolated-clearance"))
+            ? Fin.Fail<Seq<Move>>(new KernelFault.InvalidValue("motion", "hole:interpolated-clearance"))
             : Cam.Bounded(depth, target.StepMm, Cam.QuarterCap, "hole:interpolated-passes")
-                .Bind(turns => Cam.Helix(target.Top, radius, depth, turns, law.ClearanceMm, target.Feed));
+                .Bind(turns => Cam.Helix(target.Top, radius, depth, turns, law.Clearance.Millimeters, target.Feed));
 
     private static Fin<Seq<Move>> Pecks(
         HoleTarget target,
         HoleLaw law,
         double step,
-        Func<HoleTarget, HoleLaw, double, double> retractAt) =>
-        Cam.Bounded(law.Through, step, Cam.PassCap, "hole:peck-passes").Bind(passes =>
+        Func<HoleTarget, HoleLaw, double, double> retractAt) {
+        // Peck-ladder arithmetic stays bare millimetres because the depths it mints ARE the emitted move geometry,
+        // so the law projects once here and every row below reads the same double the canonical codec will.
+        double through = law.Through.Millimeters;
+        return Cam.Bounded(through, step, Cam.PassCap, "hole:peck-passes").Bind(passes =>
             Move.Rapid.Of(target.Clear(law)).Bind(entry =>
                 Range(1, passes).ToSeq()
-                    .Bind(index => Math.Min(law.Through, index * step) is var depth
+                    .Bind(index => Math.Min(through, index * step) is var depth
                         ? Seq(
                             Move.Linear.Of(target.At(depth), target.Feed),
                             Move.Rapid.Of(target.At(retractAt(target, law, depth))))
@@ -675,8 +738,9 @@ public sealed partial class HoleCycle {
                     .TraverseM(identity)
                     .As()
                     .Map(moves => entry.Cons(moves))));
+    }
 
-    private static double FullRetract(HoleTarget target, HoleLaw law, double depth) => -law.ClearanceMm;
+    private static double FullRetract(HoleTarget target, HoleLaw law, double depth) => -law.Clearance.Millimeters;
 
     private static double PartialRetract(HoleTarget target, HoleLaw law, double depth) =>
         Math.Max(0.0, depth - (target.StepMm * law.RetractFraction));
@@ -686,78 +750,87 @@ public sealed partial class HoleCycle {
 public readonly record struct HoleTarget(Point3d Top, double DiameterMm, double StepMm, double CutterRadiusMm, double Feed) {
     public double Radius => DiameterMm * 0.5;
 
+    // `At` owns the bare-millimetre lane digested move geometry runs on, and it is the ONE projection seat for
+    // this target's typed law: a cycle driving a quantity hands it here rather than spelling the unit at each
+    // depth it emits.
     public Point3d At(double depth) => new(Top.X, Top.Y, Top.Z - depth);
+    public Point3d At(Length depth) => At(depth.Millimeters);
 
-    public Point3d Clear(HoleLaw law) => At(-law.ClearanceMm);
+    public Point3d Clear(HoleLaw law) => At(-law.Clearance);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class HoleLaw {
-    public double DepthMm { get; }
-    public double BreakthroughMm { get; }
-    public double ClearanceMm { get; }
-    public double RecessDepthMm { get; }
-    public double CounterDiameterMm { get; }
-    public double IncludedAngleDeg { get; }
+    // Five lengths, one angle, and five scale fractions. Typing the dimensioned six states each unit where the
+    // compiler reads it and closes the cross-dimension mix a suffix left open — `IncludedAngle` can no longer be
+    // handed where a diameter belongs — while the five fractions carry no unit to state and stay the
+    // closed-interval scalars they are. `Through` and `SinkDepth` stay quantity-valued: both are lengths, and a
+    // millimetre projection at either pushes the unit back onto every cycle that reads them.
+    public Length Depth { get; }
+    public Length Breakthrough { get; }
+    public Length Clearance { get; }
+    public Length RecessDepth { get; }
+    public Length CounterDiameter { get; }
+    public Angle IncludedAngle { get; }
     public double RetractFraction { get; }
     public double SpotDepthFraction { get; }
     public double DeepStepFraction { get; }
     public double ReamFeedFraction { get; }
     public double ReamRetractFraction { get; }
 
-    public double Through => DepthMm + BreakthroughMm;
+    public Length Through => Depth + Breakthrough;
 
-    public double SinkDepth(double diameterMm) =>
-        (CounterDiameterMm - diameterMm) * 0.5 / Math.Tan(IncludedAngleDeg * Math.PI / 360.0);
+    // `Angle` divides directly, so the half-angle the tangent takes is the included angle over two; the deleted
+    // `/ 360.0` folded a degree-to-radian conversion and that halving into one literal no reader could decompose.
+    public Length SinkDepth(Length diameter) =>
+        (CounterDiameter - diameter) * (0.5 / Math.Tan((IncludedAngle / 2.0).Radians));
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
-        ref double depthMm,
-        ref double breakthroughMm,
-        ref double clearanceMm,
-        ref double recessDepthMm,
-        ref double counterDiameterMm,
-        ref double includedAngleDeg,
+        ref ValidationError? validationError,
+        ref Length depth,
+        ref Length breakthrough,
+        ref Length clearance,
+        ref Length recessDepth,
+        ref Length counterDiameter,
+        ref Angle includedAngle,
         ref double retractFraction,
         ref double spotDepthFraction,
         ref double deepStepFraction,
         ref double reamFeedFraction,
         ref double reamRetractFraction) {
-        if (!(Witness.Positive(depthMm)
-            && double.IsFinite(breakthroughMm) && breakthroughMm >= 0.0
-            && double.IsFinite(clearanceMm) && clearanceMm >= 0.0
-            && double.IsFinite(recessDepthMm) && recessDepthMm >= 0.0
-            && Witness.Positive(counterDiameterMm)
-            && includedAngleDeg is > 0.0 and < 180.0
+        if (!(ValidityClaim.Positive(depth.Millimeters).Holds
+            && double.IsFinite(breakthrough.Millimeters) && breakthrough.Millimeters >= 0.0
+            && double.IsFinite(clearance.Millimeters) && clearance.Millimeters >= 0.0
+            && double.IsFinite(recessDepth.Millimeters) && recessDepth.Millimeters >= 0.0
+            && ValidityClaim.Positive(counterDiameter.Millimeters).Holds
+            && includedAngle.Degrees is > 0.0 and < 180.0
             && retractFraction is >= 0.0 and <= 1.0
             && spotDepthFraction is > 0.0 and <= 1.0
             && deepStepFraction is > 0.0 and < 1.0
             && reamFeedFraction is > 0.0 and <= 1.0
             && reamRetractFraction is > 0.0 and <= 1.0))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "hole-law");
+            validationError = new ValidationError("hole-law");
     }
 
     public static Fin<HoleLaw> Admit(
-        double depthMm,
-        double breakthroughMm,
-        double clearanceMm,
-        double recessDepthMm,
-        double counterDiameterMm,
-        double includedAngleDeg,
+        Length depth,
+        Length breakthrough,
+        Length clearance,
+        Length recessDepth,
+        Length counterDiameter,
+        Angle includedAngle,
         double retractFraction,
         double spotDepthFraction,
         double deepStepFraction,
         double reamFeedFraction,
         double reamRetractFraction) =>
-        Validate(depthMm, breakthroughMm, clearanceMm, recessDepthMm, counterDiameterMm, includedAngleDeg,
+        Validate(depth, breakthrough, clearance, recessDepth, counterDiameter, includedAngle,
             retractFraction, spotDepthFraction, deepStepFraction, reamFeedFraction, reamRetractFraction,
             out HoleLaw law).Admitted(law);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class LathePolicy {
     public TurnStock Stock { get; }
     public TurnInsert Insert { get; }
@@ -767,14 +840,14 @@ public sealed partial class LathePolicy {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref TurnStock stock,
         ref TurnInsert insert,
         ref SpindleMode spindle,
         ref TurnPolicy motion,
         ref HashMap<CutStrategy, Seq<TurnStep>> programs) {
         if (programs.IsEmpty || programs.Exists(static row => row.Value.IsEmpty))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "lathe-policy:empty-program");
+            validationError = new ValidationError("lathe-policy:empty-program");
     }
 
     public static Fin<LathePolicy> Admit(
@@ -787,7 +860,7 @@ public sealed partial class LathePolicy {
 
     public Fin<Seq<TurnStep>> Steps(CutStrategy strategy) =>
         Programs.Find(strategy).ToFin(
-            new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"lathe-policy:unprogrammed:{strategy.Key}"));
+            new KernelFault.InvalidValue("motion", $"lathe-policy:unprogrammed:{strategy.Key}"));
 }
 
 // The ONE strategy table. `DemandsClosed` and `Emit` ride the same row, so the closed-profile gate and the generator
@@ -809,6 +882,9 @@ public sealed record CamStrategy(CutStrategy Strategy, bool DemandsClosed, Func<
 // The specialized-row seam for every lane. Source and target members correspond one-to-one, so each transcription
 // generates and the only hand members are the value lifts a row's own key demands. The `[Mapper]` declaration lives
 // HERE and every other lane contributes a bare partial to it, because one partial class carries one attribute.
+// `RequiredMappingStrategy.Both` is what makes the seam load-bearing: a column added to either side and left
+// unmapped is a build break, so a lane's `[MapperIgnoreSource]` rows are DEFENDED omissions carrying their reason
+// inline — deleting them wholesale would not tighten the seam, it would break every lane that declares one.
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
 public static partial class ToolpathRowMap {
     public static partial SpecializedToolpathRow.TurningThread ToRow(LatheDirective.ThreadGeometry directive);
@@ -899,7 +975,7 @@ public static class Cam {
             joined: static value => Inadmissible<Seq<CutElement>>(value))),
         new CamStrategy(CutStrategy.Helical, DemandsClosed: true, static run => Helical(run, run.StepDown)),
         new CamStrategy(CutStrategy.ThreadMill, DemandsClosed: true,
-            static run => Helical(run, run.Engagement.Infill.ThreadPitchMm)),
+            static run => Helical(run, run.Engagement.Infill.ThreadPitch.Millimeters)),
         new CamStrategy(CutStrategy.LayerWalk, DemandsClosed: true, Layer),
         new CamStrategy(CutStrategy.Waterline, DemandsClosed: false, static run => Surface(run,
             policy => Fin.Succ<SurfaceStrategy>(new SurfaceStrategy.Waterline(
@@ -912,7 +988,7 @@ public static class Cam {
             policy => Fin.Succ<SurfaceStrategy>(new SurfaceStrategy.Pencil(
                 policy,
                 new SurfaceLayoutKind.PlanarRaster(),
-                run.Engagement.Surface.PencilContactAngleDeg)))),
+                run.Engagement.Surface.PencilContact)))),
         new CamStrategy(CutStrategy.Rest, DemandsClosed: false, Rest),
         new CamStrategy(CutStrategy.ThreePlusTwo, DemandsClosed: false, static run => Surface(run,
             policy => Fin.Succ<SurfaceStrategy>(new SurfaceStrategy.ThreePlusTwo(
@@ -964,8 +1040,7 @@ public static class Cam {
         .Map(static row => (row.Strategy, row)));
 
     private static Fin<CamStrategy> Row(CutStrategy strategy) =>
-        Rows.Find(strategy).ToFin(new FabricationFault.PolicyInadmissible(
-            FabConcern.Toolpath, $"cam:strategy-unrouted:{strategy.Key}"));
+        Rows.Find(strategy).ToFin(new KernelFault.InvalidValue("motion", $"cam:strategy-unrouted:{strategy.Key}"));
 
     private static Fin<T> Inadmissible<T>(MotionRun run) =>
         Fin.Fail<T>(FabricationFault.Pairing(
@@ -988,11 +1063,11 @@ public static class Cam {
                 from receipt in RobotProgram.Run(cell, guarded, new CellProgramRequest.Motion(run.Policy.Cell))
                 from motion in receipt is CellProgramReceipt.Motion completed
                     ? Fin.Succ(completed.Result)
-                    : Fin.Fail<FabricationResult.Motion>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:cell-motion-receipt"))
+                    : Fin.Fail<FabricationResult.Motion>(new KernelFault.InvalidValue("motion", "cam:cell-motion-receipt"))
                 select motion,
             None: () => run.Mounts.Kinematics.Match(
                 Some: kinematics => MachineTool.Solve(kinematics, guarded).Map(static solution => solution.Motion),
-                None: () => Fin.Fail<FabricationResult.Motion>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:motion-evidence-unavailable"))))
+                None: () => Fin.Fail<FabricationResult.Motion>(new KernelFault.InvalidValue("motion", "cam:motion-evidence-unavailable"))))
         from evidence in MotionEvidence.Admit(
             solved.Evidence.Joints,
             solved.Evidence.SegmentDurations,
@@ -1009,7 +1084,7 @@ public static class Cam {
         Workholding.Apply(new WorkholdingOp.Condition(run.Mounts.Fixture, run.Mounts.State, moves)).Bind(result =>
             result is WorkholdingResult.Conditioned conditioned
                 ? Fin.Succ(conditioned.Moves)
-                : Fin.Fail<Seq<Move>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:workholding-receipt")));
+                : Fin.Fail<Seq<Move>>(new KernelFault.InvalidValue("motion", "cam:workholding-receipt")));
 
     // Every move is guarded so one verdict reports the whole program's hazards; aborting on the first hides the rest.
     private static Fin<Seq<Move>> Cleared(MotionRun run, Seq<Move> moves, Point3d home) {
@@ -1021,7 +1096,7 @@ public static class Cam {
 
     private static Fin<Seq<Move>> Lower(MotionRun run, Seq<Point3d> points, RetractKind kind) =>
         points.Count < 2
-            ? Fin.Fail<Seq<Move>>(new GeometryFault.DegenerateInput(Kind.Curve, None, "cam:link-route").ToError())
+            ? Fin.Fail<Seq<Move>>(new GeometryFault.DegenerateInput(Kind.Curve, None, "cam:link-route"))
             : points.Tail
                 .Map((point, index) => kind == RetractKind.Ramp
                         || (kind == RetractKind.ControlledDescent && index == points.Count - 2)
@@ -1044,17 +1119,12 @@ public static class Cam {
          select receipt.Hazards.Map(hazard => hazard.Switch(
              state: run,
              gouge: static (value, row) => (Error)new FabricationFault.Gouge(row.Witness.Surface, value.Policy.Cutter),
-             @fixed: static (_, row) => new FabricationFault.PolicyInadmissible(
-                 FabConcern.Toolpath, $"cam:guard:fixed:{row.Obstacle.Operation}:{row.Obstacle.Element}"),
-             keepout: static (_, row) => new FabricationFault.PolicyInadmissible(
-                 FabConcern.Toolpath, "cam:guard:keepout"),
-             stock: static (_, _) => new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:guard:stock"),
-             channel: static (_, row) => new FabricationFault.PolicyInadmissible(
-                 FabConcern.Toolpath, $"cam:guard:channel:{row.RequiredMm:R}"),
-             voxel: static (_, row) => new FabricationFault.PolicyInadmissible(
-                 FabConcern.Toolpath, $"cam:guard:voxel:{row.Contact.Obstacle.Key}"),
-             robot: static (_, row) => new FabricationFault.PolicyInadmissible(
-                 FabConcern.Toolpath, $"cam:guard:robot:{row.Contact.CollisionTarget}"))))
+             @fixed: static (_, row) => new KernelFault.InvalidValue("motion", $"cam:guard:fixed:{row.Obstacle.Operation}:{row.Obstacle.Element}"),
+             keepout: static (_, row) => new KernelFault.InvalidValue("motion", "cam:guard:keepout"),
+             stock: static (_, _) => new KernelFault.InvalidValue("motion", "cam:guard:stock"),
+             channel: static (_, row) => new KernelFault.InvalidValue("motion", $"cam:guard:channel:{row.RequiredMm:R}"),
+             voxel: static (_, row) => new KernelFault.InvalidValue("motion", $"cam:guard:voxel:{row.Contact.Obstacle.Key}"),
+             robot: static (_, row) => new KernelFault.InvalidValue("motion", $"cam:guard:robot:{row.Contact.CollisionTarget}"))))
         .Match(Succ: static hazards => hazards, Fail: static error => Seq(error));
 
     private static Fin<Seq<CutElement>> Contour(MotionRun run) =>
@@ -1071,7 +1141,7 @@ public static class Cam {
                    ? Fin.Succ(Seq(loop.AsCcw()))
                    : Offset(Seq(loop.AsCcw()), delta, run.Engagement.Contour.PlanarOffset)
                from elements in offsets.IsEmpty
-                   ? Fin.Fail<Seq<CutElement>>(new GeometryFault.DegenerateInput(Kind.Curve, occurrence, "cam:contour-inaccessible").ToError())
+                   ? Fin.Fail<Seq<CutElement>>(new GeometryFault.DegenerateInput(Kind.Curve, occurrence, "cam:contour-inaccessible"))
                    : offsets.Traverse(ring =>
                        from conditioned in Entry(
                            run.Engagement.Contour.Entry,
@@ -1105,7 +1175,7 @@ public static class Cam {
                     LeadRole.Entry))
                 from motion in trace is ArcTrace.Motion moved
                     ? Fin.Succ(moved.Receipt)
-                    : Fin.Fail<MotionReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:lead-receipt"))
+                    : Fin.Fail<MotionReceipt>(new KernelFault.InvalidValue("motion", "cam:lead-receipt"))
                 from lead in AtDepth(motion.Moves, depth)
                 select (lead, Seq<Move>()),
             ramp: row => RampEntry(ring, feed, depth, row),
@@ -1122,7 +1192,7 @@ public static class Cam {
         EntryPolicy.Ramp policy) {
         Vector3d tangent = ring.At(1) - ring.At(0);
         if (!tangent.Unitize())
-            return Fin.Fail<(Seq<Move>, Seq<Move>)>(new GeometryFault.DegenerateInput(Kind.Curve, None, "cam:ramp-entry").ToError());
+            return Fin.Fail<(Seq<Move>, Seq<Move>)>(new GeometryFault.DegenerateInput(Kind.Curve, None, "cam:ramp-entry"));
         Point3d start = ring.At(0) - (tangent * policy.LengthMm);
         return Trail(
                 Move.Rapid.Of(AtZ(start, start.Z + policy.ClearanceMm)),
@@ -1138,7 +1208,7 @@ public static class Cam {
         Bounded(depth, policy.PitchMm, QuarterCap, "cam:helix-entry-turns")
             .Bind(turns => Helix(ring.Bound().Center, policy.RadiusMm, depth, turns, policy.ClearanceMm, feed))
             .Bind(descent => descent.Exists(move => !ring.Covers(move.Target))
-                ? Fin.Fail<(Seq<Move>, Seq<Move>)>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:helix-entry-outside"))
+                ? Fin.Fail<(Seq<Move>, Seq<Move>)>(new KernelFault.InvalidValue("motion", "cam:helix-entry-outside"))
                 : Fin.Succ((descent, Seq<Move>())));
 
     // One helical owner serves entry, thread milling, and interpolated boring; quarter arcs are exact on `Move.Circular`.
@@ -1165,7 +1235,7 @@ public static class Cam {
                 .TraverseM(identity)
                 .As()
                 .Map(arcs => entry.Cons(arcs))),
-            None: () => Fin.Fail<Seq<Move>>(new GeometryFault.DegenerateInput(Kind.Curve, None, "cam:helix-stations").ToError()));
+            None: () => Fin.Fail<Seq<Move>>(new GeometryFault.DegenerateInput(Kind.Curve, None, "cam:helix-stations")));
     }
 
     private static Fin<Seq<CutElement>> Pocket(MotionRun run) =>
@@ -1176,7 +1246,7 @@ public static class Cam {
                     -(run.Compensation + pass.RadialAllowanceMm),
                     run.Engagement.Contour.PlanarOffset).Bind(accessible =>
                         accessible.IsEmpty
-                            ? Fin.Fail<Seq<CutElement>>(new GeometryFault.DegenerateInput(Kind.Curve, row.Occurrence, "cam:pocket-inaccessible").ToError())
+                            ? Fin.Fail<Seq<CutElement>>(new GeometryFault.DegenerateInput(Kind.Curve, row.Occurrence, "cam:pocket-inaccessible"))
                             : accessible.Traverse(region => Seed(
                                 PartitionStrategy.PocketRegion,
                                 region,
@@ -1206,11 +1276,10 @@ public static class Cam {
     // Cycle admission spans both directions: the tool must fit the measured bore and the bore must admit the tool.
     private static Fin<Seq<CutElement>> Holes(MotionRun run, HoleCycle cycle) =>
         run.StepDown <= 0.0
-            ? Fin.Fail<Seq<CutElement>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:hole-stepdown"))
+            ? Fin.Fail<Seq<CutElement>>(new KernelFault.InvalidValue("motion", "cam:hole-stepdown"))
             : Tops(run).Bind(targets => targets.Map(static (target, index) => (Target: target, Occurrence: index)).Traverse(row =>
                 !cycle.Fits(run.Policy.Cutter.Diameter, row.Target.DiameterMm)
-                    ? Fin.Fail<CutElement>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath,
-                        FormattableString.Invariant(
+                    ? Fin.Fail<CutElement>(new KernelFault.InvalidValue("motion", FormattableString.Invariant(
                             $"cam:hole-fit:{cycle.Key}:{run.Policy.Cutter.Diameter:R}:{row.Target.DiameterMm:R}")))
                     : cycle.Expand(row.Target, run.Engagement.Hole).Bind(moves => Element(
                         run,
@@ -1225,7 +1294,7 @@ public static class Cam {
                                 new Vector3d(
                                     row.Target.Radius - row.Target.CutterRadiusMm,
                                     0.0,
-                                    run.Engagement.Hole.ClearanceMm)))
+                                    run.Engagement.Hole.Clearance.Millimeters)))
                             : Seq<MotionDirective>()))));
 
     private static Fin<Seq<HoleTarget>> Tops(MotionRun run) =>
@@ -1242,7 +1311,7 @@ public static class Cam {
                         .Bind(static variant => variant.Moves)
                         .Map(static move => move.Target) is var tops && tops.Count == measured.Count
                             ? Fin.Succ(tops)
-                            : Fin.Fail<Seq<Point3d>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:hole-drop-census"))
+                            : Fin.Fail<Seq<Point3d>>(new KernelFault.InvalidValue("motion", "cam:hole-drop-census"))
                     select measured.Zip(dropped).Map(static row => row.Item1 with { Top = row.Item2 }),
                 None: () => Fin.Succ(measured)));
 
@@ -1261,10 +1330,10 @@ public static class Cam {
             .Map(span => new HoleTarget(
                 center,
                 span.Min + span.Max,
-                Math.Min(run.Engagement.Axial.MaxAxialDepthMm, run.StepDown),
+                Math.Min(run.Engagement.Axial.MaxAxialDepth.Millimeters, run.StepDown),
                 run.Compensation,
                 run.Feed))
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, None, "cam:hole-profile").ToError());
+            .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, None, "cam:hole-profile"));
     }
 
     // The erosion boundary lane. `WireEdm` owns the cut whole — schedule, guides, correspondence, retention, and
@@ -1274,10 +1343,10 @@ public static class Cam {
     // have destroyed it, and an absent wire policy refuses here rather than defaulting a discharge law.
     private static Fin<Seq<CutElement>> Erode(MotionRun run) =>
         from policy in run.Engagement.Wire
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:erosion-wire-policy"))
+            .ToFin(new KernelFault.InvalidValue("motion", "cam:erosion-wire-policy"))
         from budget in run.Engagement.Budget is ProcessBudget.Erosion erosion
             ? Fin.Succ(erosion)
-            : Fin.Fail<ProcessBudget.Erosion>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:erosion-budget"))
+            : Fin.Fail<ProcessBudget.Erosion>(new KernelFault.InvalidValue("motion", "cam:erosion-budget"))
         from elements in toSeq(run.Input.Profiles).Map(static (loop, index) => (Loop: loop, Occurrence: index)).Traverse(row =>
             from program in WireEdm.Generate(new WireDemand(policy, row.Loop, budget), static walked => walked)
             from lowered in WireEdm.Lower(program)
@@ -1304,8 +1373,7 @@ public static class Cam {
             Some: policy =>
                 from _ in policy.Budget.Serves(run.Engagement.Budget)
                     ? Fin.Succ(unit)
-                    : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(
-                        FabConcern.Toolpath, $"cam:bevel-budget:{run.Pair.Modality.Key}"))
+                    : Fin.Fail<Unit>(new KernelFault.InvalidValue("motion", $"cam:bevel-budget:{run.Pair.Modality.Key}"))
                 from elements in toSeq(run.Input.Profiles)
                     .Map(static (loop, index) => (Loop: loop, Occurrence: index))
                     .Traverse(row =>
@@ -1320,8 +1388,7 @@ public static class Cam {
                         select element)
                     .As()
                 select elements,
-            None: () => Fin.Fail<Seq<CutElement>>(new FabricationFault.PolicyInadmissible(
-                FabConcern.Toolpath, "cam:bevel-demand-unpolicied")));
+            None: () => Fin.Fail<Seq<CutElement>>(new KernelFault.InvalidValue("motion", "cam:bevel-demand-unpolicied")));
 
     // Tool axis, pivot, and tilt ride the `Bevel` envelope row each block already publishes, so the lowered station
     // stays Cartesian: orienting it would seat one fact under two owners and refuse at the planar swept-solid guard,
@@ -1338,7 +1405,7 @@ public static class Cam {
     private static Fin<Seq<CutElement>> Tack(MotionRun run) =>
         toSeq(run.Input.Profiles).Map(static (loop, index) => (Loop: loop, Occurrence: index)).Traverse(row => {
             Point3d station = row.Loop.Bound().Center;
-            double clearance = run.Engagement.Hole.ClearanceMm;
+            double clearance = run.Engagement.Hole.Clearance.Millimeters;
             return Trail(
                     Move.Rapid.Of(AtZ(station, station.Z + clearance)),
                     Move.Linear.Of(station, run.Feed),
@@ -1369,7 +1436,7 @@ public static class Cam {
                         run.Engagement.Contour.Sense,
                         run.Engagement.Infill.Walk,
                         run.Pair.Modality).Bind(Skeleton.Walk)
-                    : Fin.Fail<SkeletonReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:medial-result"))
+                    : Fin.Fail<SkeletonWalk>(new KernelFault.InvalidValue("motion", "cam:medial-result"))
             from elements in run.Schedule
                             .Traverse(pass => receipt.Elements.Traverse(element =>
                                 AtDepth(element, pass.DepthMm - pass.FloorAllowanceMm)))
@@ -1378,14 +1445,14 @@ public static class Cam {
         .Map(static profiles => profiles.Bind(identity)).As();
 
     private static Fin<Seq<CutElement>> Turn(MotionRun run) =>
-        from profile in toSeq(run.Input.Profiles).Head.ToFin(new GeometryFault.DegenerateInput(Kind.Curve, None, "cam:turn-profile").ToError())
-        from cutting in run.Engagement.Cutting.ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:turn-cutting-data"))
+        from profile in toSeq(run.Input.Profiles).Head.ToFin(new GeometryFault.DegenerateInput(Kind.Curve, None, "cam:turn-profile"))
+        from cutting in run.Engagement.Cutting.ToFin(new KernelFault.InvalidValue("motion", "cam:turn-cutting-data"))
         from _ in cutting.FeedBasis == FeedBasis.PerRevolution
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"cam:turn-feed-basis:{cutting.FeedBasis.Key}"))
+            : Fin.Fail<Unit>(new KernelFault.InvalidValue("motion", $"cam:turn-feed-basis:{cutting.FeedBasis.Key}"))
         from budget in run.Engagement.Budget is ProcessBudget.Turning turning
             ? Fin.Succ(turning)
-            : Fin.Fail<ProcessBudget.Turning>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:turn-budget"))
+            : Fin.Fail<ProcessBudget.Turning>(new KernelFault.InvalidValue("motion", "cam:turn-budget"))
         let policy = run.Engagement.Turning
         from demand in TurnDemand.Admit(
             profile, policy.Stock, policy.Insert, policy.Spindle, cutting, budget, policy.Motion)
@@ -1452,20 +1519,20 @@ public static class Cam {
 
     private static Fin<Seq<CutElement>> Helical(MotionRun run, double lead) =>
         lead <= 0.0
-            ? Fin.Fail<Seq<CutElement>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:helix-lead"))
+            ? Fin.Fail<Seq<CutElement>>(new KernelFault.InvalidValue("motion", "cam:helix-lead"))
             : toSeq(run.Input.Profiles).Map(static (loop, index) => (Loop: loop, Occurrence: index)).Traverse(row => {
                 Point3d center = row.Loop.Bound().Center;
                 double radius = row.Loop.Vertices.Min(point => point.DistanceTo(center)) - run.Compensation;
                 int turns = Math.Max(1, run.Policy.Pass.Passes);
                 return radius <= 0.0 || !double.IsFinite(radius)
-                    ? Fin.Fail<CutElement>(new GeometryFault.DegenerateInput(Kind.Curve, row.Occurrence, "cam:helix-radius").ToError())
-                    : Helix(center, radius, lead * turns, turns, run.Engagement.Hole.ClearanceMm, run.Feed)
+                    ? Fin.Fail<CutElement>(new GeometryFault.DegenerateInput(Kind.Curve, row.Occurrence, "cam:helix-radius"))
+                    : Helix(center, radius, lead * turns, turns, run.Engagement.Hole.Clearance.Millimeters, run.Feed)
                         .Bind(moves => Element(run, row.Occurrence, moves));
             }).As();
 
     private static Fin<Seq<CutElement>> Layer(MotionRun run) =>
         run.StepDown <= 0.0 || run.Policy.Pass.StepOver <= 0.0 || !double.IsFinite(run.Policy.Pass.StepOver)
-            ? Fin.Fail<Seq<CutElement>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:layer-geometry"))
+            ? Fin.Fail<Seq<CutElement>>(new KernelFault.InvalidValue("motion", "cam:layer-geometry"))
             : Range(0, Math.Max(1, run.Policy.Pass.Passes)).ToSeq().Traverse(layer =>
               toSeq(run.Input.Profiles).Map(static (loop, index) => (Loop: loop, Occurrence: index)).Traverse(row =>
                 from raster in Raster(run, row.Loop, run.Policy.Pass.StepOver, layer)
@@ -1478,7 +1545,7 @@ public static class Cam {
         MotionRun run,
         Loop loop,
         int occurrence,
-        PartitionReceipt partition,
+        Partitioned partition,
         int layer) {
         int seam = SeamIndex(run, loop, layer);
         return from perimeter in Range(0, loop.Count + 1).ToSeq()
@@ -1501,11 +1568,10 @@ public static class Cam {
     // Per-layer angle advance breaks the inter-layer bond anisotropy a fixed raster direction bakes into the part.
     private static Fin<Seq<Edge3>> Raster(MotionRun run, Loop loop, double spacing, int layer) {
         if (!double.IsFinite(spacing) || spacing <= 0.0)
-            return Fin.Fail<Seq<Edge3>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:raster-spacing"));
+            return Fin.Fail<Seq<Edge3>>(new KernelFault.InvalidValue("motion", "cam:raster-spacing"));
         BoundingBox box = loop.Bound();
         Point3d pivot = box.Center;
-        double angle = (run.Engagement.Infill.AngleDeg
-            + (layer * run.Engagement.Infill.AngleAdvanceDeg)) * Math.PI / 180.0;
+        double angle = (run.Engagement.Infill.Direction + (run.Engagement.Infill.Advance * layer)).Radians;
         double reach = box.Diagonal.Length * 0.5;
         return Bounded(box.Diagonal.Length, spacing, PassCap, "cam:raster-rows").Bind(rows =>
             PolygonAlgebra.Apply(new PolygonOp.ClipOpen(
@@ -1522,19 +1588,18 @@ public static class Cam {
                     })),
                     Seq(loop),
                     PolygonFill.NonZero))
-                .Bind(trace => trace is PolygonTrace.SplitRuns split
-                    ? Fin.Succ(split.Inside.Bind(identity))
-                    : Fin.Fail<Seq<Edge3>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:raster-trace"))));
+                .Bind(static trace => trace
+                    .Runs(new KernelFault.InvalidValue("motion", "cam:raster-trace"))
+                    .Map(static runs => runs.Inside.Bind(identity))));
     }
 
     private static Fin<Seq<Loop>> Offset(Seq<Loop> paths, double distance, OffsetPolicy policy) =>
         PolygonAlgebra.Apply(new PolygonOp.Offset(
                 paths, new OffsetField.Uniform(distance), JoinType.Round, EndType.Closed, policy))
-            .Bind(trace => trace is PolygonTrace.Regions regions
-                ? Fin.Succ(regions.Result.Nodes.Map(static node => node.Boundary))
-                : Fin.Fail<Seq<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:offset-trace")));
+            .Bind(static trace => trace.Loops(
+                new KernelFault.InvalidValue("motion", "cam:offset-trace")));
 
-    private static Fin<PartitionReceipt> Seed(
+    private static Fin<Partitioned> Seed(
         PartitionStrategy strategy,
         Loop boundary,
         PartitionProjection projection) =>
@@ -1542,7 +1607,7 @@ public static class Cam {
 
     private static Fin<Seq<CutElement>> Rest(MotionRun run) =>
         run.Engagement.Stock.Residual
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:rest-residual"))
+            .ToFin(new KernelFault.InvalidValue("motion", "cam:rest-residual"))
             .Bind(residual => Surface(run, policy => Fin.Succ<SurfaceStrategy>(
                 new SurfaceStrategy.Rest(policy, new SurfaceLayoutKind.PlanarRaster(), residual))));
 
@@ -1555,13 +1620,13 @@ public static class Cam {
     // radial stepover, which prices a different axis entirely.
     private static Fin<Seq<CutElement>> Swarf(MotionRun run, CutStrategy strategy) =>
         run.Engagement.Surface.Views.Head
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:swarf-tool-axis"))
+            .ToFin(new KernelFault.InvalidValue("motion", "cam:swarf-tool-axis"))
             .Bind(axis => Surface(run, policy => run.Engagement.Surface.Kernel(strategy)
                 .Map(layout => (SurfaceStrategy)new SurfaceStrategy.Swarf(
                     policy,
                     layout,
                     axis,
-                    run.Compensation + run.Engagement.Finish.FinishAllowanceMm))));
+                    Length.FromMillimeters(run.Compensation) + run.Engagement.Finish.FinishAllowance))));
 
     private static Fin<Seq<CutElement>> Trace(MotionRun run) =>
         toSeq(run.Input.Profiles).Map(static (loop, index) => (Loop: loop, Occurrence: index)).Traverse(row =>
@@ -1569,11 +1634,11 @@ public static class Cam {
 
     private static Fin<Seq<CutElement>> Extend(MotionRun run) =>
         run.Engagement.Generators.Find(run.Pair.Strategy)
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"cam:generator:{run.Pair.Strategy.Key}"))
+            .ToFin(new KernelFault.InvalidValue("motion", $"cam:generator:{run.Pair.Strategy.Key}"))
             .Bind(generator => generator(run));
 
     private static Fin<Seq<CutElement>> Surface(MotionRun run, Func<SurfacePolicy, Fin<SurfaceStrategy>> strategy) =>
-        from model in run.Input.Model.ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cam:surface-model"))
+        from model in run.Input.Model.ToFin(new KernelFault.InvalidValue("motion", "cam:surface-model"))
         from policy in Sampling(run)
         from demand in strategy(policy)
         from receipt in SurfacePath.Sample(demand, model, run.Policy.Cutter)
@@ -1625,8 +1690,13 @@ public static class Cam {
             .Bind(entry => CutElement.Admit(key, element.ToolKey, element.WorkOffset, entry));
     }
 
+    // `FabricationCanon.Ordered` is the order-only close, and it is the ONE way this plane opens a writer:
+    // `CanonicalWriter` publishes no public constructor, so the deleted `new CanonicalWriter(0.0)` named no member
+    // and its `ToBytes` rail was discarded besides. The grid is an exact zero because the depth ladder is the
+    // caller's own — quantizing it to a model tolerance would collide two passes a step apart under a coarse
+    // context and hand both the same identity.
     private static string DepthKey(string key, double depth) =>
-        ContentHash.Of(new CanonicalWriter(0.0).String("depth").String(key).Double(depth).ToBytes().Span)
+        FabricationCanon.Ordered(0.0, writer => writer.String("depth").String(key).Double(depth))
             .ToString("x32", CultureInfo.InvariantCulture);
 
     private static Fin<EntryFamily> AtDepth(EntryFamily entry, double depth, string key) =>
@@ -1680,7 +1750,7 @@ public static class Cam {
         double count = Math.Ceiling(extent / step);
         return double.IsFinite(count) && count >= 1.0 && count <= ceiling
             ? Fin.Succ(checked((int)count))
-            : Fin.Fail<int>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, locus));
+            : Fin.Fail<int>(new KernelFault.InvalidValue("motion", locus));
     }
 
     private static Point3d AtZ(Point3d point, double z) => new(point.X, point.Y, z);
@@ -1707,7 +1777,7 @@ flowchart LR
   Policy --> Resolve["budget draw × modality Resolve"]
   Input["FabricationInput"] --> Run["MotionRun.Of"]
   Resolve --> Run
-  Stability["StabilityReceipt.Recommend"] --> Run
+  Stability["StabilityLobes.Recommend"] --> Run
   Run --> Rows["CamStrategy row table"]
   Rows --> Elements["Seq&lt;CutElement&gt; preserving every island/path/span"]
   Elements --> Link["LinkDemand · carried objective · precedence · policy"]

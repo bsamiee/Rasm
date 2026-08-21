@@ -1,12 +1,12 @@
 # [RASM_FABRICATION_LINK]
 
-`Link.Route` admits cut occurrences, keepout volumes, sequencing constraints, machine clearance, and a weighted objective before selecting orientation, order, and transition posture, then refines the closed tour under the same precedence it was built against. `Linked` preserves every cutting and transition move, and `LinkReceipt` explains the winning full route beside the solver evidence that produced it.
+`Link.Route` admits cut occurrences, keepout volumes, sequencing constraints, machine clearance, and a weighted objective before selecting orientation, order, and transition posture, then refines the closed tour under the same precedence it was built against. `Linked` preserves every cutting and transition move, and `LinkTour` explains the winning full route beside the solver evidence that produced it.
 
-`Link.Route`, `Linked`, and `LinkReceipt` are the linking seam. `Linked.SpecializedDirective` projects transition metrics into the admitted `SpecializedToolpathEnvelope`, while cutting directives remain on source segments. `ArcAlgebra.Apply` owns planar clearance inflation, `QuikGraph` owns precedence in-degrees, reachability, and routed transitions, and supplied `Guard` verifies collision admission without importing host state. Tool and work-offset identity remain objective terms.
+`Link.Route`, `Linked`, and `LinkTour` are the linking seam. `Linked.SpecializedDirective` projects transition metrics into the admitted `SpecializedToolpathEnvelope`, while cutting directives remain on source segments. `ArcAlgebra.Apply` owns planar clearance inflation, `QuikGraph` owns precedence in-degrees, reachability, and routed transitions, and supplied `Guard` verifies collision admission without importing host state. Tool and work-offset identity remain objective terms.
 
 ## [01]-[INDEX]
 
-- [02]-[ADMISSION]: `LinkDemand` materializes delegates once; generated owners admit coupled elements, keepouts, precedence, policy, and objective, and `CutSignature` declares the shared element-key columns.
+- [02]-[ADMISSION]: `LinkDemand` materializes delegates once; generated owners admit coupled elements, keepouts, precedence, policy, and objective; `CutSignature` declares the shared element-key columns and `LinkStationKey` closes what a station key can name.
 - [03]-[ROUTING]: `Link.Route` jointly selects a precedence-safe tour and occurrence orientation against realized transition costs, refines it by precedence-safe exchange, and lowers each transition through one rail.
 - [04]-[EGRESS]: `Linked` projects through a caller-supplied arrow while retaining route, objective, reachability, solver, and guard evidence.
 
@@ -15,11 +15,13 @@
 `LinkJob` owns every fact that changes ordering or transition safety. Geometry and vertical extent are one `Keepout`; tool, work offset, thermal load, and admissible orientations are one `CutElement`; neither admits a parallel ordinal collection.
 
 - Owner: `CutSignature` is the ONE declaration of the columns every element key shares — strategy, tool, work offset, all four cutter dimensions, and the emitted moves — so a widened cutter or a renamed offset changes one record instead of being transcribed onto each identity case. `CutElementIdentity` cases then carry their DISCRIMINANTS alone.
-- Owner: `CutElement.Identify` is the package's ONE element-key mint — it admits every move, digests the discriminating motion, surface, or skeleton preimage beside the shared signature through the `Rasm.Element` `CanonicalWriter`, and seeds `ContentHash.Of`, so a generator minting its own key is the deleted form and two arcs differing only in sweep never hash equal. `ElementVariant.Of` is the ONE derivation of entry, exit, rotation, thermal exposure, and pierces off emitted motion; `LinkStation` binds the chosen variant to `ToolKey` and `WorkOffset`, and `LinkStation.Park` gives home and return legs the same machine identity.
+- Owner: `CutElement.Identify` is the package's ONE element-key mint — it admits every move, digests the discriminating motion, surface, or skeleton preimage beside the shared signature through the `Process/owner#RUN_DISPATCH` `FabricationCanon.Ordered` close, so a generator minting its own key is the deleted form and two arcs differing only in sweep never hash equal. `ElementVariant.Of` is the ONE derivation of entry, exit, rotation, thermal exposure, and pierces off emitted motion; `LinkStation` binds the chosen variant to `ToolKey` and `WorkOffset`, and `LinkStation.Park` gives home and return legs the same machine identity.
+- Owner: `LinkStationKey` closes what a station key can NAME — a cut element's own digest or one `ParkLeg` row — so home legs stop riding literal words in the slot a content hash also inhabits, and a consumer reading an order or a transition endpoint discriminates on the value instead of comparing against a spelling. `ParkLeg` carries those legs as rows, so every site that spelled a reserved word reads one declaration.
 - Owner: `Keepout` couples the stable obstacle key, each inflated region and its admission-built `IndexedPolyline<double>` flatbush index, and payload-bearing `KeepoutExtent`; `ArcOffset` is the ONE arc-offset ingress the specialized lanes share, so a trace shape that is not an offset family refuses in one place rather than in a ladder per caller.
-- Owner: `LinkPolicy` carries machine lift, ramp, skim, clearance, tolerance, feed rates, tool and setup change durations after dimensional conversion, and the SOLVER's own declared bounds — beam width and refinement budget are policy values a caller reads and tunes, never a square-root heuristic buried in the expansion.
+- Owner: `LinkPolicy` carries three DIMENSIONED sub-owners and the solver's own declared bounds. `LinkClearance` holds the five lengths one job routes under, `LinkRate` the two traverse speeds, and `LinkChangeover` the two identity-change durations — each as the `UnitsNet` quantity it is, so no column spells its unit in its identifier and a millimetre can never be handed where a second was wanted; beam width and refinement budget stay bare ordinals because a search bound has no dimension, and each is a policy value a caller reads and tunes rather than a square-root heuristic buried in the expansion.
+- Owner: each dimensioned sub-owner declares its OWN `QuantityArrow` and its own `Admit` arm, so all three axes a caller can state as text cross the one boundary — the arrow answers the canonical magnitude and the owner re-quantifies it once, where a lone length arrow no member called left the speed and duration columns with no text lane at all.
 - Owner: generated `LinkObjective` weights admit distance, time, lift, thermal, rotation, retract, pierce, tool change, and setup change; named objectives are seed data over one metric generator, and every weight has a producer on both metric legs — the station supplies cutting thermal, rotation, and pierce counts while the transition derives thermal from `RetractKind.ThermalCoupling` over its horizontal span and rotation from the emitted path's exterior turn angles, so no weight multiplies a constant.
-- Packages: `Process/owner#RUN_DISPATCH` `QuantityArrow` is the ONE dimension-text entry a caller reaches before admission; `TensorPrimitives.IsFiniteAll` admits numeric batches; `Thinktecture` closes construction.
+- Packages: `Process/owner#RUN_DISPATCH` `QuantityArrow` is the ONE dimension-text entry a caller reaches before admission and `FabricationCanon.Ordered` the ONE digest close the element mint rides; `UnitsNet` seats `Length`, `Speed`, and `Duration` on the policy head; `TensorPrimitives.IsFiniteAll` admits numeric batches; `AdmissionSlots.Gate` accumulates the policy's own axes; `Thinktecture` closes construction.
 - Boundary: `LinkDemand` crosses the nullable boundary exactly once, and every interior function consumes `LinkJob`. The guard slot is a VERIFICATION — it returns `Fin<Unit>` and cannot rewrite the moves it inspects, so a rewriting guard is a compile rejection rather than a runtime equality check.
 
 ## [03]-[ROUTING]
@@ -40,12 +42,14 @@
 
 ## [04]-[EGRESS]
 
-`Linked` is inverse-sufficient: `LinkSegment.Cutting` and `Transiting` keep cut and travel moves distinct, `Linked.Moves` projects guarded motion without erasing that split, and `LinkReceipt` preserves order, solver evidence, component evidence, guarded-move count, and full-route metrics.
+`Linked` is inverse-sufficient: `LinkSegment.Cutting` and `Transiting` keep cut and travel moves distinct, `Linked.Moves` projects guarded motion without erasing that split, and `LinkTour` preserves order, solver evidence, component evidence, guarded-move count, and full-route metrics.
 
-- Law: the `SpecializedToolpathEnvelope` is admitted ONCE at receipt construction through the S0 factory, so `Linked` holds a proven payload and no consumer re-walks its rows; `ToolpathRowMap` owns the transition-to-row transcription, so the twelve columns generate from the receipt's own members.
-- Law: motion supplies transition lowering; its commit fold conditions and guards the linked program once. Posting and simulation retain typed transition metrics, and estimation consumes the realized motion clock without double-counting receipt duration.
+- Law: neither `LinkTour` nor `LinkLeg` carries a content key, an evidence band, or a stamp, so neither takes a `*Receipt` name — the folder ruling reserves that name for the `Process/owner#RECEIPT` `Receipt<TEvidence>` carrier, and a lane output wearing it while holding none of its three required columns is the deleted form.
+- Law: `LinkLeg` holds the transition WHOLE — its endpoints, posture, corridor, emitted moves, metric, and score in one row — so the routing fold, the beam state, and the transiting segment stop each carrying a moves-and-evidence pair that never travels apart, keeping one correspondence in three places that each drift from the others.
+- Law: the `SpecializedToolpathEnvelope` is admitted ONCE at tour construction through the S0 factory, so `Linked` holds a proven payload and no consumer re-walks its rows; `ToolpathRowMap` owns the leg-to-row transcription, so the twelve columns generate from the leg's own members and the station keys lower to their wire spelling through the mapper's one key projection.
+- Law: motion supplies transition lowering; its commit fold conditions and guards the linked program once. Posting and simulation retain typed transition metrics, and estimation consumes the realized motion clock without double-counting tour duration.
 - Output: `Linked.PostingSource` carries transition evidence into canonical posting; the caller arrow retains other result projections.
-- Receipt: `TransitionReceipt` records transition endpoints, posture, its S0 `LinkTransition` classification, distance, time, lift, retract, tool-change, and setup-change terms beside its objective score; `LinkSolver` records the declared beam width, refused variants, pruned states, accepted exchanges, the improvement they bought, and the runner-up tour's score — the margin the winner actually beat, which is measured evidence where an estimated bound would not be; `LinkReceipt.Total` adds cutting distance, time, thermal exposure, rotation, and pierces exactly once.
+- Receipt: `LinkLeg` records transition endpoints as typed station keys, posture, its S0 `LinkTransition` classification, the corridor it rode, the moves it emitted, and distance, time, lift, retract, tool-change, and setup-change terms beside its objective score; `LinkSolver` records the declared beam width, refused variants, pruned states, accepted exchanges, the improvement they bought, and the runner-up tour's score — the margin the winner actually beat, which is measured evidence where an estimated bound would not be; `LinkTour.Total` adds cutting distance, time, thermal exposure, rotation, and pierces exactly once.
 - Growth: a new machine posture is one `RetractKind` policy value carrying its S0 classification; a new cost regime is one admitted `LinkObjective`; a new obstacle occurrence is one `Keepout` admission; a new move classification is one `LinkSegment` case.
 - Boundary: no route publishes `double.PositiveInfinity`, a disconnected partial tour, an open tour that never returns home, or unguarded moves.
 
@@ -68,11 +72,36 @@ using Rasm.Numerics;
 using Rhino.Geometry;
 using Riok.Mapperly.Abstractions;
 using Thinktecture;
+using UnitsNet;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Toolpath;
 
 // --- [VOCABULARY] ---------------------------------------------------------------------------------------------------------------------------------
+// Home legs declare as rows. Each rode a literal spelled into the same `string` slot a content digest also fills,
+// so nothing separated a parked endpoint from a cut element without already knowing the reserved words; a further
+// home posture lands as one row here.
+[SmartEnum<string>]
+public sealed partial class ParkLeg {
+    public static readonly ParkLeg Origin = new("origin");
+    public static readonly ParkLeg Return = new("return");
+}
+
+// `LinkStationKey` closes what a station key can NAME: a cut station keys off `CutElement.Identify`'s digest and a
+// home leg off its own `ParkLeg` row, so a tour order and a transition endpoint discriminate on the value rather
+// than on whether a string reads like a reserved word. `Key` owns the ONE lowering to the wire spelling.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record LinkStationKey {
+    private LinkStationKey() { }
+
+    public sealed record Element(string Digest) : LinkStationKey;
+    public sealed record Park(ParkLeg Leg) : LinkStationKey;
+
+    public string Key => Switch(
+        element: static row => row.Digest,
+        park: static row => row.Leg.Key);
+}
+
 public readonly record struct LinkMetric(
     double DistanceMm,
     double DurationSeconds,
@@ -96,7 +125,6 @@ public readonly record struct LinkMetric(
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class LinkObjective {
     public static readonly LinkObjective Distance = Create(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
     public static readonly LinkObjective CycleTime = Create(0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 25.0, 90.0);
@@ -126,7 +154,7 @@ public sealed partial class LinkObjective {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref double distanceWeight,
         ref double timeWeight,
         ref double liftWeight,
@@ -141,7 +169,7 @@ public sealed partial class LinkObjective {
         if (!TensorPrimitives.IsFiniteAll<double>(weights)
             || TensorPrimitives.Min<double>(weights) < 0.0
             || TensorPrimitives.Sum<double>(weights) <= 0.0)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "link:objective");
+            validationError = new ValidationError("link:objective");
     }
 }
 
@@ -304,7 +332,6 @@ public abstract partial record CutElementIdentity(CutSignature Signature) {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CutElement {
     public string Key { get; }
     public string ToolKey { get; }
@@ -315,7 +342,7 @@ public sealed partial class CutElement {
     public static Fin<string> Identify(CutElementIdentity identity) =>
         from _ in identity.Signature.Complete && Discriminated(identity)
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "link:element-identity"))
+            : Fin.Fail<Unit>(new KernelFault.InvalidValue("link", "link:element-identity"))
         from admitted in identity.Signature.Moves.TraverseM(Move.Admit).As()
         select Digest(identity, admitted);
 
@@ -330,68 +357,67 @@ public sealed partial class CutElement {
         variant.Moves.TraverseM(Move.Admit).As().Map(moves => variant with { Moves = moves });
 
     private static bool Discriminated(CutElementIdentity identity) => identity.Switch(
-        motion: static row => Witness.Index(row.Occurrence),
-        surface: static row => Witness.Index(row.View) && Witness.Index(row.Path) && Witness.Keyed(row.Operation),
-        skeleton: static row => Witness.Index(row.Component) && Witness.Index(row.Path)
-            && !row.OriginEdges.IsEmpty && row.OriginEdges.ForAll(Witness.Index));
+        motion: static row => ValidityClaim.Nonnegative(row.Occurrence),
+        surface: static row => ValidityClaim.All(
+            ValidityClaim.Nonnegative(row.View), ValidityClaim.Nonnegative(row.Path), Witness.Keyed(row.Operation)),
+        skeleton: static row => ValidityClaim.All(
+            ValidityClaim.Nonnegative(row.Component), ValidityClaim.Nonnegative(row.Path), !row.OriginEdges.IsEmpty,
+            row.OriginEdges.ForAll(static value => ValidityClaim.Nonnegative(value).Holds)));
 
-    private static string Digest(CutElementIdentity identity, Seq<Move> moves) {
-        CanonicalWriter writer = new CanonicalWriter(0.0);
-        _ = identity.Switch(
-            state: writer,
-            motion: static (preimage, row) => preimage
-                .String("motion")
-                .Ordinal(row.Occurrence)
-                .String(row.Signature.Strategy.Key),
-            surface: static (preimage, row) => preimage
-                .String("surface")
-                .Ordinal(row.View)
+    // `FabricationCanon.Ordered` owns the ONE digest close: it opens the streaming writer at this lane's own exact
+    // grid, folds the preimage, and answers the seed-zero digest with no buffer ever materialized — a lane spelling
+    // `new CanonicalWriter(...)` names no member at all, since the constructor is private and the facade's two mints
+    // answer two different closes. `CutSignature.Write` frames ONCE ahead of the move run, where writing it inside
+    // the walk restated its shared columns per move and paid that repetition on every element.
+    // NAMED LOSS: no preimage bytes survive for a reader to re-inspect. WITNESS: the retaining close was consumed by
+    // one hash at this same 128-bit width and nothing else read the buffer, so the published key is unchanged.
+    private static string Digest(CutElementIdentity identity, Seq<Move> moves) =>
+        FabricationCanon
+            .Ordered(0.0, preimage => moves.Fold(identity.Signature.Write(Discriminate(preimage, identity)), Write))
+            .ToString("x32", CultureInfo.InvariantCulture);
+
+    // `Discriminate` frames the discriminants alone; `CutSignature.Write` owns the shared columns. A skeleton walk
+    // counts its origin-edge run ahead of the run, so the layout self-delimits and no edge sequence forges another's.
+    private static CanonicalWriter Discriminate(CanonicalWriter writer, CutElementIdentity identity) => identity.Switch(
+        state: writer,
+        motion: static (preimage, row) => preimage
+            .String("motion")
+            .Ordinal(row.Occurrence)
+            .String(row.Signature.Strategy.Key),
+        surface: static (preimage, row) => preimage
+            .String("surface")
+            .Ordinal(row.View)
+            .Ordinal(row.Path)
+            .String(row.Signature.Strategy.Key)
+            .String(row.Operation),
+        skeleton: static (preimage, row) => row.OriginEdges.Fold(
+            preimage
+                .String("skeleton")
+                .Ordinal(row.Component)
                 .Ordinal(row.Path)
                 .String(row.Signature.Strategy.Key)
-                .String(row.Operation),
-            skeleton: static (preimage, row) => row.OriginEdges.Fold(
-                preimage
-                    .String("skeleton")
-                    .Ordinal(row.Component)
-                    .Ordinal(row.Path)
-                    .String(row.Signature.Strategy.Key)
-                    .Ordinal(row.OriginEdges.Count),
-                static (writer, edge) => writer.Ordinal(edge)));
-        moves.Iter(move => Write(identity.Signature.Write(writer), move));
-        return ContentHash.Of(writer.ToBytes().Span).ToString("x32", CultureInfo.InvariantCulture);
-    }
+                .Ordinal(row.OriginEdges.Count),
+            static (writer, edge) => writer.Ordinal(edge)));
 
-    private static Unit Write(CanonicalWriter writer, Move move) => move.Switch(
-        state: writer,
-        rapid: static (preimage, row) => Write(preimage, 0, row.Target, 0.0, Point3d.Origin, 0.0, 0.0),
-        linear: static (preimage, row) => Write(preimage, 1, row.Target, row.Feed, Point3d.Origin, 0.0, 0.0),
-        circular: static (preimage, row) => Write(preimage, 2, row.Target, row.Feed, row.Arc.Center,
-            row.Arc.Sense == RotationSense.Clockwise ? -1.0 : 1.0, row.SweepRadians));
-
-    private static Unit Write(
-        CanonicalWriter writer,
-        int kind,
-        Point3d target,
-        double feed,
-        Point3d center,
-        double sense,
-        double sweep) {
-        writer.Ordinal(kind)
-            .Double(target.X)
-            .Double(target.Y)
-            .Double(target.Z)
-            .Double(feed)
-            .Double(center.X)
-            .Double(center.Y)
-            .Double(center.Z)
-            .Double(sense)
-            .Double(sweep);
-        return unit;
-    }
+    // Every move frames on ONE column layout — kind ordinal, target, feed, arc centre, sense, sweep — so a rapid and
+    // a circular span occupy the same preimage width and no case can alias another by writing fewer columns. The
+    // arms differ only in the VALUES they supply, so the layout is stated once rather than once per case.
+    private static CanonicalWriter Write(CanonicalWriter writer, Move move) => move.Switch(
+        rapid: static row => (Kind: 0, row.Target, Feed: 0.0, Center: Point3d.Origin, Sense: 0.0, Sweep: 0.0),
+        linear: static row => (Kind: 1, row.Target, row.Feed, Center: Point3d.Origin, Sense: 0.0, Sweep: 0.0),
+        circular: static row => (Kind: 2, row.Target, row.Feed, row.Arc.Center,
+            Sense: row.Arc.Sense == RotationSense.Clockwise ? -1.0 : 1.0, Sweep: row.SweepRadians))
+        .Apply(row => writer
+            .Ordinal(row.Kind)
+            .Coords(row.Target)
+            .Double(row.Feed)
+            .Coords(row.Center)
+            .Double(row.Sense)
+            .Double(row.Sweep));
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref string key,
         ref string toolKey,
         ref string workOffset,
@@ -402,7 +428,7 @@ public sealed partial class CutElement {
             && TensorPrimitives.IsFiniteAll<double>([row.RotationPenalty, row.ThermalExposure])
             && row.RotationPenalty >= 0.0 && row.ThermalExposure >= 0.0 && row.Pierces >= 0);
         if (!(Witness.Keyed(key) && Witness.Keyed(toolKey) && Witness.Keyed(workOffset) && valid))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "link:element");
+            validationError = new ValidationError("link:element");
     }
 
     private static Fin<Arr<ElementVariant>> Variants(EntryFamily entry) => entry.Switch(
@@ -412,7 +438,7 @@ public sealed partial class CutElement {
 
     private static Fin<Arr<ElementVariant>> Cyclic(EntryFamily.Cyclic row) {
         if (!row.Boundary.Closed || row.Samples < 2)
-            return Fin.Fail<Arr<ElementVariant>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "link:cyclic-entry"));
+            return Fin.Fail<Arr<ElementVariant>>(new KernelFault.InvalidValue("link", "link:cyclic-entry"));
         Polyline<double> path = new(
             toSeq(row.Boundary.Vertices).Map((point, index) => PlineVertex<double>.FromSlice(
                 [point.X, point.Y, row.Boundary.BulgeAt(index)])),
@@ -422,7 +448,7 @@ public sealed partial class CutElement {
             path.FindPointAtPathLength(index * length / row.Samples) switch {
                 (true, _, Vector2<double> point, _) => LinkJob.Invoke(
                     () => row.AtPoint(new Point3d(point.X, point.Y, row.Boundary.Plane))),
-                _ => Fin.Fail<ElementVariant>(new GeometryFault.DegenerateInput(Kind.Curve, None, "link:cyclic-station").ToError()),
+                _ => Fin.Fail<ElementVariant>(new GeometryFault.DegenerateInput(Kind.Curve, None, "link:cyclic-station")),
             }).As().Map(static rows => rows.ToArr());
     }
 }
@@ -445,10 +471,10 @@ internal static class ArcOffset {
     public static Fin<Loop> Single(Loop source, double distance, string locus) =>
         Family(source, distance, locus).Bind(rows => rows.Count == 1
             ? Fin.Succ(rows[0])
-            : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, rows.Count, $"{locus}:topology").ToError()));
+            : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, rows.Count, $"{locus}:topology")));
 
     private static Fin<Seq<Loop>> Refused(string locus) =>
-        Fin.Fail<Seq<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, locus));
+        Fin.Fail<Seq<Loop>>(new KernelFault.InvalidValue("link", locus));
 }
 
 [Union]
@@ -465,12 +491,11 @@ public abstract partial record KeepoutExtent {
         unbounded: static _ => Option<double>.None);
 
     public bool IsValid => Switch(
-        bounded: static row => Witness.Finite(row.FloorZ, row.TopZ) && row.TopZ >= row.FloorZ,
+        bounded: static row => ValidityClaim.All(ValidityClaim.Finite([row.FloorZ, row.TopZ]), row.TopZ >= row.FloorZ),
         unbounded: static _ => true);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class Keepout {
     public string Key { get; }
     public Arr<(Loop Boundary, IndexedPolyline<double> Index)> Geometry { get; }
@@ -490,7 +515,7 @@ public sealed partial class Keepout {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref string key,
         ref Arr<(Loop Boundary, IndexedPolyline<double> Index)> geometry,
         ref KeepoutExtent extent,
@@ -498,7 +523,7 @@ public sealed partial class Keepout {
         if (!(Witness.Keyed(key) && !geometry.IsEmpty
             && geometry.ForAll(static row => row.Boundary.Closed && row.Boundary.Count >= 3)
             && extent.IsValid && double.IsFinite(marginMm) && marginMm >= 0.0))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "keepout");
+            validationError = new ValidationError("keepout");
     }
 
     // Keepout admission builds one flatbush index per inflated region; every corridor test queries it instead of walking segments.
@@ -514,68 +539,113 @@ public sealed partial class Keepout {
 
 public readonly record struct OrderConstraint(int Before, int After);
 
-[ComplexValueObject]
-[ValidationError<FabricationFault>]
-public sealed partial class LinkPolicy {
-    public double ClearanceMm { get; }
-    public double SkimClearanceMm { get; }
-    public double RampRiseMm { get; }
-    public double RoutedCornerClearanceMm { get; }
-    public double RapidMmPerMin { get; }
-    public double PlungeMmPerMin { get; }
-    public double ToolChangeSeconds { get; }
-    public double SetupChangeSeconds { get; }
-    public double ToleranceMm { get; }
+// `LinkClearance` carries the five lengths one job routes under as the quantity they ARE. Naming the unit in each
+// identifier was all that kept them apart, so a caller handed a corner offset where a clearance plane belonged and
+// nothing refused; `Length` makes that unspellable and leaves the millimetre a projection at the numeric seam.
+// Dimension TEXT still crosses at `Process/owner#RUN_DISPATCH` `QuantityArrow` alone, which re-raises on the
+// caller's own plane: the arrow answers the canonical magnitude and this owner re-quantifies it once.
+public readonly record struct LinkClearance(Length Plane, Length Skim, Length RampRise, Length Corner, Length Slack) {
+    private static readonly QuantityArrow Text =
+        new(PhysicsQuantity.Length, FabConcern.Toolpath, "link:clearance");
 
-    // The solver's own declared bounds. Beam width is how many partial tours survive each placement level and the
-    // refinement budget is how many precedence-safe exchanges the closed tour may attempt — a caller trading search
-    // cost against route quality reads and sets both, where a square-root of the element count was a heuristic no
-    // caller could see, let alone tune, and no receipt could report.
+    public static Fin<LinkClearance> Admit(
+        string plane, string skim, string rampRise, string corner, string slack) =>
+        Text.Admit(Seq(plane, skim, rampRise, corner, slack)).Map(static rows => new LinkClearance(
+            Length.FromMillimeters(rows[0]),
+            Length.FromMillimeters(rows[1]),
+            Length.FromMillimeters(rows[2]),
+            Length.FromMillimeters(rows[3]),
+            Length.FromMillimeters(rows[4])));
+
+    // `Sound` holds the plane, the corner offset, and the corridor slack STRICTLY positive: a zero plane routes
+    // through the obstacle it exists to clear, a zero offset seeds the visibility graph on the wall itself, and a
+    // zero slack refuses every corridor riding its own inflated boundary. Skim and ramp rise are floors a flat job
+    // leaves at zero, so both admit it.
+    public bool Sound =>
+        TensorPrimitives.IsFiniteAll<double>([(double)Plane.Millimeters, (double)Skim.Millimeters,
+            (double)RampRise.Millimeters, (double)Corner.Millimeters, (double)Slack.Millimeters])
+        && (double)Plane.Millimeters > 0.0
+        && (double)Skim.Millimeters >= 0.0
+        && (double)RampRise.Millimeters >= 0.0
+        && (double)Corner.Millimeters > 0.0
+        && (double)Slack.Millimeters > 0.0;
+}
+
+// `LinkRate` carries the two traverse speeds. `PhysicsQuantity.Feed` names the axis a machine rate parses on, and
+// its canonical projection is the millimetre per minute this page's own duration arithmetic already runs in.
+public readonly record struct LinkRate(Speed Rapid, Speed Plunge) {
+    private static readonly QuantityArrow Text = new(PhysicsQuantity.Feed, FabConcern.Toolpath, "link:rate");
+
+    public static Fin<LinkRate> Admit(string rapid, string plunge) =>
+        Text.Admit(Seq(rapid, plunge)).Map(static rows => new LinkRate(
+            Speed.FromMillimetersPerMinutes(rows[0]), Speed.FromMillimetersPerMinutes(rows[1])));
+
+    public bool Sound =>
+        TensorPrimitives.IsFiniteAll<double>(
+            [(double)Rapid.MillimetersPerMinutes, (double)Plunge.MillimetersPerMinutes])
+        && (double)Rapid.MillimetersPerMinutes > 0.0
+        && (double)Plunge.MillimetersPerMinutes > 0.0;
+}
+
+// `LinkChangeover` prices crossing a tool or a work-offset identity. `Metric` charges each at most ONCE per
+// transition, so both are per-CHANGE durations and never per-move ones; a shop changing neither admits both zero.
+public readonly record struct LinkChangeover(UnitsNet.Duration Tool, UnitsNet.Duration Setup) {
+    private static readonly QuantityArrow Text =
+        new(PhysicsQuantity.Duration, FabConcern.Toolpath, "link:changeover");
+
+    public static Fin<LinkChangeover> Admit(string tool, string setup) =>
+        Text.Admit(Seq(tool, setup)).Map(static rows => new LinkChangeover(
+            UnitsNet.Duration.FromSeconds(rows[0]), UnitsNet.Duration.FromSeconds(rows[1])));
+
+    public bool Sound =>
+        TensorPrimitives.IsFiniteAll<double>([(double)Tool.Seconds, (double)Setup.Seconds])
+        && (double)Tool.Seconds >= 0.0
+        && (double)Setup.Seconds >= 0.0;
+}
+
+[ComplexValueObject]
+public sealed partial class LinkPolicy {
+    public LinkClearance Clearance { get; }
+    public LinkRate Rate { get; }
+    public LinkChangeover Changeover { get; }
+
+    // These two carry the solver's own declared bounds and no dimension at all. Beam width names how many partial
+    // tours survive each placement level and the refinement budget how many precedence-safe exchanges the closed
+    // tour may attempt — a caller trading search cost against route quality reads and sets both, where a square-root
+    // of the element count was a heuristic no caller saw, tuned, or reported.
     public int BeamWidth { get; }
     public int RefinementPairs { get; }
 
-    // Dimension TEXT crosses at `Process/owner#RUN_DISPATCH` `QuantityArrow` alone, which re-raises on the caller's
-    // own plane; a policy that parsed four strings of its own was a second text boundary answering for a foreign one.
-    public static readonly QuantityArrow Length =
-        new(PhysicsQuantity.Length, FabConcern.Toolpath, "link-policy:length");
-
     public static Fin<LinkPolicy> Admit(
-        double clearanceMm,
-        double skimClearanceMm,
-        double rampRiseMm,
-        double routedCornerClearanceMm,
-        double rapidMmPerMin,
-        double plungeMmPerMin,
-        double toolChangeSeconds,
-        double setupChangeSeconds,
-        double toleranceMm,
+        LinkClearance clearance,
+        LinkRate rate,
+        LinkChangeover changeover,
         int beamWidth,
         int refinementPairs) =>
-        Validate(clearanceMm, skimClearanceMm, rampRiseMm, routedCornerClearanceMm, rapidMmPerMin, plungeMmPerMin,
-            toolChangeSeconds, setupChangeSeconds, toleranceMm, beamWidth, refinementPairs, out LinkPolicy policy)
-            .Admitted(policy);
+        Validate(clearance, rate, changeover, beamWidth, refinementPairs, out LinkPolicy policy).Admitted(policy);
 
+    // Each axis gates on its OWN owner's soundness, names itself in its refusal, and accumulates with the rest, so
+    // a caller reads every violated axis at once where one anonymous `link-policy` verdict stood for every possible
+    // violation and named none.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
-        ref double clearanceMm,
-        ref double skimClearanceMm,
-        ref double rampRiseMm,
-        ref double routedCornerClearanceMm,
-        ref double rapidMmPerMin,
-        ref double plungeMmPerMin,
-        ref double toolChangeSeconds,
-        ref double setupChangeSeconds,
-        ref double toleranceMm,
+        ref ValidationError? validationError,
+        ref LinkClearance clearance,
+        ref LinkRate rate,
+        ref LinkChangeover changeover,
         ref int beamWidth,
-        ref int refinementPairs) {
-        if (!TensorPrimitives.IsFiniteAll<double>([clearanceMm, skimClearanceMm, rampRiseMm, routedCornerClearanceMm,
-                rapidMmPerMin, plungeMmPerMin, toolChangeSeconds, setupChangeSeconds, toleranceMm])
-            || clearanceMm <= 0.0 || skimClearanceMm < 0.0 || rampRiseMm < 0.0 || routedCornerClearanceMm <= 0.0
-            || rapidMmPerMin <= 0.0 || plungeMmPerMin <= 0.0 || toolChangeSeconds < 0.0 || setupChangeSeconds < 0.0
-            || toleranceMm <= 0.0 || beamWidth < 1 || refinementPairs < 0)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "link-policy");
-    }
+        ref int refinementPairs) =>
+        validationError = (
+            AdmissionSlots.Gate(clearance.Sound, FabConcern.Toolpath, "link-policy:clearance", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(rate.Sound, FabConcern.Toolpath, "link-policy:rate", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(changeover.Sound, FabConcern.Toolpath, "link-policy:changeover", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(beamWidth >= 1 && refinementPairs >= 0, FabConcern.Toolpath, "link-policy:search", FabricationFault.Inadmissible))
+            .Apply(static (_, _, _, _) => unit)
+            .As()
+            .Match<ValidationError?>(
+                Fail: static _ => new ValidationError("link-policy"),
+                Succ: static _ => null);
+
 }
 
 public sealed record LinkDemand(
@@ -589,7 +659,6 @@ public sealed record LinkDemand(
     Func<Seq<Move>, Fin<Unit>> Guard);
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class LinkJob {
     public Point3d Start { get; }
     public Arr<CutElement> Elements { get; }
@@ -604,17 +673,17 @@ public sealed partial class LinkJob {
     public Func<Seq<Move>, Fin<Unit>> Guard { get; }
 
     public static Fin<LinkJob> Admit(LinkDemand? candidate) =>
-        from raw in Optional(candidate).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "link:demand"))
+        from raw in Optional(candidate).ToFin(FabricationFault.Inadmissible(FabConcern.Toolpath, "link:demand"))
         from admitted in Validate(raw.Start, raw.Elements, raw.Keepouts, raw.Precedence, raw.Policy,
             raw.Objective, raw.Lower, raw.Guard, out LinkJob job).Admitted(job)
         select admitted;
 
     internal static Fin<T> Invoke<T>(Func<Fin<T>> callback) =>
-        Try.lift<Fin<T>>(callback).Run().Bind(static result => result);
+        Op.Of(name: "link:callback").Catch(callback);
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Point3d start,
         ref Arr<CutElement> elements,
         ref Arr<Keepout> keepouts,
@@ -630,7 +699,7 @@ public sealed partial class LinkJob {
             && keepouts.Map(static row => row.Key).Distinct().Count == keepouts.Count;
         if (!(start.IsValid && !elements.IsEmpty && lower is not null && guard is not null
             && unique && edges && Acyclic(precedence)))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "link:job");
+            validationError = new ValidationError("link:job");
     }
 
     private static bool Acyclic(Arr<OrderConstraint> precedence) =>
@@ -639,11 +708,17 @@ public sealed partial class LinkJob {
 }
 
 // --- [EVIDENCE] -----------------------------------------------------------------------------------------------------------------------------------
-public sealed record TransitionReceipt(
-    string From,
-    string To,
+// `LinkLeg` holds the transition WHOLE: where it ran from and to, the posture it took, the corridor it rode, the
+// moves it emitted, and what those cost. The routing fold, the beam state, and the transiting segment each carried
+// a moves-and-evidence PAIR that never travels apart — one correspondence kept in three places, each free to drift
+// from the others. It takes no `*Receipt` name, holding no content key, evidence band, or stamp: that name belongs
+// to the `Process/owner#RECEIPT` `Receipt<TEvidence>` carrier under this folder's own ruling.
+public sealed record LinkLeg(
+    LinkStationKey From,
+    LinkStationKey To,
     RetractKind Kind,
     Seq<Point3d> Path,
+    Seq<Move> Moves,
     LinkMetric Metric,
     double ObjectiveScore,
     int VisibilityComponents) {
@@ -652,7 +727,7 @@ public sealed record TransitionReceipt(
 }
 
 public sealed record LinkStation(
-    string Key,
+    LinkStationKey Key,
     string ToolKey,
     string WorkOffset,
     Point3d Entry,
@@ -663,22 +738,24 @@ public sealed record LinkStation(
     double ThermalExposure,
     int Pierces) {
     public static LinkStation Of(CutElement element, ElementVariant variant) => new(
-        variant.Key, element.ToolKey, element.WorkOffset, variant.Entry, variant.Exit, variant.Moves, variant.Directives,
-        variant.RotationPenalty, variant.ThermalExposure, variant.Pierces);
+        new LinkStationKey.Element(variant.Key), element.ToolKey, element.WorkOffset, variant.Entry, variant.Exit,
+        variant.Moves, variant.Directives, variant.RotationPenalty, variant.ThermalExposure, variant.Pierces);
 
-    // Parking inherits the neighbour's machine identity, so a home leg never scores a fabricated tool or setup change.
-    public static LinkStation Park(string key, Point3d point, LinkStation neighbour) => new(
-        key, neighbour.ToolKey, neighbour.WorkOffset, point, point, Seq<Move>(), Seq<MotionDirective>(), 0.0, 0.0, 0);
+    // Parking inherits the neighbour's machine identity, so a home leg never scores a fabricated tool or setup
+    // change, and it keys off its own `ParkLeg` row rather than a word spelled at the call site.
+    public static LinkStation Park(ParkLeg leg, Point3d point, LinkStation neighbour) => new(
+        new LinkStationKey.Park(leg), neighbour.ToolKey, neighbour.WorkOffset, point, point,
+        Seq<Move>(), Seq<MotionDirective>(), 0.0, 0.0, 0);
 }
 
 [Union]
 public abstract partial record LinkSegment {
-    public sealed record Cutting(string Key, Seq<Move> Moves, Seq<MotionDirective> Directives) : LinkSegment;
-    public sealed record Transiting(TransitionReceipt Receipt, Seq<Move> Moves) : LinkSegment;
+    public sealed record Cutting(LinkStationKey Key, Seq<Move> Moves, Seq<MotionDirective> Directives) : LinkSegment;
+    public sealed record Transiting(LinkLeg Leg) : LinkSegment;
 
     public Seq<Move> Emitted => Switch(
         cutting: static row => row.Moves,
-        transiting: static row => row.Moves);
+        transiting: static row => row.Leg.Moves);
 }
 
 // What the search actually did. The declared width it ran at, the variants it refused with cause, the states the
@@ -692,9 +769,12 @@ public readonly record struct LinkSolver(
     double ImprovementDelta,
     Option<double> RunnerUpScore);
 
-public sealed record LinkReceipt(
-    Arr<string> Order,
-    Seq<TransitionReceipt> Transitions,
+// `LinkTour` publishes the winning route and what the search paid for it. It holds no content key, evidence band,
+// or stamp, so it takes no `*Receipt` name; `Order` carries the typed station roster the beam settled on, so a
+// reader separates a cut station from a home leg without matching a string against a reserved word.
+public sealed record LinkTour(
+    Arr<LinkStationKey> Order,
+    Seq<LinkLeg> Legs,
     LinkMetric Total,
     double ObjectiveScore,
     LinkSolver Solver,
@@ -702,7 +782,7 @@ public sealed record LinkReceipt(
 
 public sealed record Linked(
     Seq<LinkSegment> Segments,
-    LinkReceipt Receipt,
+    LinkTour Tour,
     SpecializedToolpathEnvelope Specialized) {
     public Seq<Move> Moves => Segments.Bind(static segment => segment.Emitted);
     public Seq<MotionDirective> Directives => Segments.Bind(static segment => segment is LinkSegment.Cutting cutting
@@ -715,30 +795,36 @@ public sealed record Linked(
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
-// The transition seam: every specialized column reads off a member the receipt already carries, so the twelve-field
+// The transition seam: every specialized column reads off a member the leg already carries, so the twelve-field
 // transcription generates and the metric flattening is declared once instead of spelled at the construction site.
 // The `[Mapper]` declaration is `Toolpath/motion`'s alone — one attribute per partial class — and each lane
 // contributes its own methods to it.
 public static partial class ToolpathRowMap {
-    [MapProperty([nameof(TransitionReceipt.Metric), nameof(LinkMetric.DistanceMm)], [nameof(SpecializedToolpathRow.Link.DistanceMm)])]
-    [MapProperty([nameof(TransitionReceipt.Metric), nameof(LinkMetric.DurationSeconds)], [nameof(SpecializedToolpathRow.Link.DurationSeconds)])]
-    [MapProperty([nameof(TransitionReceipt.Metric), nameof(LinkMetric.LiftMm)], [nameof(SpecializedToolpathRow.Link.LiftMm)])]
-    [MapProperty([nameof(TransitionReceipt.Metric), nameof(LinkMetric.ThermalExposure)], [nameof(SpecializedToolpathRow.Link.ThermalExposure)])]
-    [MapProperty([nameof(TransitionReceipt.Metric), nameof(LinkMetric.RotationPenalty)], [nameof(SpecializedToolpathRow.Link.RotationPenalty)])]
-    [MapProperty([nameof(TransitionReceipt.Metric), nameof(LinkMetric.Retracts)], [nameof(SpecializedToolpathRow.Link.Retracts)])]
-    [MapProperty([nameof(TransitionReceipt.Metric), nameof(LinkMetric.Pierces)], [nameof(SpecializedToolpathRow.Link.Pierces)])]
-    [MapProperty([nameof(TransitionReceipt.Metric), nameof(LinkMetric.ToolChanges)], [nameof(SpecializedToolpathRow.Link.ToolChanges)])]
-    [MapProperty([nameof(TransitionReceipt.Metric), nameof(LinkMetric.SetupChanges)], [nameof(SpecializedToolpathRow.Link.SetupChanges)])]
-    [MapperIgnoreSource(nameof(TransitionReceipt.Kind))] // the posture publishes through its own `Transition` column
-    [MapperIgnoreSource(nameof(TransitionReceipt.Path))] // corridor geometry stays route evidence, never a posted row
-    [MapperIgnoreSource(nameof(TransitionReceipt.ObjectiveScore))] // solver ranking, not machine evidence
-    [MapperIgnoreSource(nameof(TransitionReceipt.VisibilityComponents))] // reachability census, not machine evidence
-    public static partial SpecializedToolpathRow.Link ToRow(TransitionReceipt receipt);
+    [MapProperty([nameof(LinkLeg.Metric), nameof(LinkMetric.DistanceMm)], [nameof(SpecializedToolpathRow.Link.DistanceMm)])]
+    [MapProperty([nameof(LinkLeg.Metric), nameof(LinkMetric.DurationSeconds)], [nameof(SpecializedToolpathRow.Link.DurationSeconds)])]
+    [MapProperty([nameof(LinkLeg.Metric), nameof(LinkMetric.LiftMm)], [nameof(SpecializedToolpathRow.Link.LiftMm)])]
+    [MapProperty([nameof(LinkLeg.Metric), nameof(LinkMetric.ThermalExposure)], [nameof(SpecializedToolpathRow.Link.ThermalExposure)])]
+    [MapProperty([nameof(LinkLeg.Metric), nameof(LinkMetric.RotationPenalty)], [nameof(SpecializedToolpathRow.Link.RotationPenalty)])]
+    [MapProperty([nameof(LinkLeg.Metric), nameof(LinkMetric.Retracts)], [nameof(SpecializedToolpathRow.Link.Retracts)])]
+    [MapProperty([nameof(LinkLeg.Metric), nameof(LinkMetric.Pierces)], [nameof(SpecializedToolpathRow.Link.Pierces)])]
+    [MapProperty([nameof(LinkLeg.Metric), nameof(LinkMetric.ToolChanges)], [nameof(SpecializedToolpathRow.Link.ToolChanges)])]
+    [MapProperty([nameof(LinkLeg.Metric), nameof(LinkMetric.SetupChanges)], [nameof(SpecializedToolpathRow.Link.SetupChanges)])]
+    [MapperIgnoreSource(nameof(LinkLeg.Kind))] // the posture publishes through its own `Transition` column
+    [MapperIgnoreSource(nameof(LinkLeg.Path))] // corridor geometry stays route evidence, never a posted row
+    [MapperIgnoreSource(nameof(LinkLeg.Moves))] // the emitted program rides `Linked.Moves`, never a posted row
+    [MapperIgnoreSource(nameof(LinkLeg.ObjectiveScore))] // solver ranking, not machine evidence
+    [MapperIgnoreSource(nameof(LinkLeg.VisibilityComponents))] // reachability census, not machine evidence
+    public static partial SpecializedToolpathRow.Link ToRow(LinkLeg leg);
+
+    // `ToKey` owns the ONE lowering of a typed station key onto its wire spelling. `SpecializedToolpathRow` is the
+    // posted grain and spells its endpoints as text; discrimination stays the interior's, so the boundary mapping
+    // lives here and no consumer re-derives which endpoints were home legs from the strings it reads back.
+    private static string ToKey(LinkStationKey station) => station.Key;
 }
 
 public static class Link {
     public static Fin<TOut> Route<TOut>(LinkDemand? demand, Func<Linked, TOut> project) =>
-        from _ in Optional(project).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "link:projection"))
+        from _ in Optional(project).ToFin(new KernelFault.InvalidValue("link", "link:projection"))
         from job in LinkJob.Admit(demand)
         let scratch = new List<int>()
         // Corners are a property of the JOB: the clearance plane clears every bounded top by construction, so only
@@ -757,7 +843,7 @@ public static class Link {
         Seq<int> Remaining,
         HashMap<int, int> Pending,
         Option<LinkStation> Current,
-        Seq<(Seq<Move> Moves, TransitionReceipt Receipt)> Legs,
+        Seq<LinkLeg> Legs,
         double Score,
         int Rejected,
         int Pruned);
@@ -779,7 +865,7 @@ public static class Link {
                             HashMap<int, int>.Empty,
                             (pending, index) => pending.Add(index, order.InDegree(index))),
                         Option<LinkStation>.None,
-                        Seq<(Seq<Move>, TransitionReceipt)>(),
+                        Seq<LinkLeg>(),
                         0.0,
                         0,
                         0)),
@@ -808,7 +894,7 @@ public static class Link {
                 LinkStation station = LinkStation.Of(job.Elements[candidate], variant);
                 LinkStation from = state.Current.Match(
                     Some: static current => current,
-                    None: () => LinkStation.Park("origin", job.Start, station));
+                    None: () => LinkStation.Park(ParkLeg.Origin, job.Start, station));
                 return Transition(job, corridor, scratch, from, station).Map(leg => new BeamState(
                     state.Rows.Add(station),
                     state.Placed.Add(candidate),
@@ -818,7 +904,7 @@ public static class Link {
                         static (rows, edge) => rows.SetItem(edge.Target, rows.Find(edge.Target).IfNone(1) - 1)),
                     Some(station),
                     state.Legs.Add(leg),
-                    state.Score + leg.Receipt.ObjectiveScore + job.Objective.Score(CuttingMetric(station, job.Policy)),
+                    state.Score + leg.ObjectiveScore + job.Objective.Score(CuttingMetric(station, job.Policy)),
                     state.Rejected,
                     state.Pruned));
             })));
@@ -848,15 +934,16 @@ public static class Link {
 
     private static Fin<BeamState> Close(LinkJob job, LinkCorridor corridor, List<int> scratch, BeamState state) =>
         state.Current.Match(
-            Some: current => Transition(job, corridor, scratch, current, LinkStation.Park("return", job.Start, current))
+            Some: current => Transition(
+                    job, corridor, scratch, current, LinkStation.Park(ParkLeg.Return, job.Start, current))
                 .Map(leg => state with {
                     Legs = state.Legs.Add(leg),
-                    Score = state.Score + leg.Receipt.ObjectiveScore,
+                    Score = state.Score + leg.ObjectiveScore,
                 }),
             None: () => Fin.Fail<BeamState>(Blocked(job, Seq(state))));
 
     // Bounded exchange refinement. Each accepted swap re-routes only the legs it touched and its delta is measured
-    // on those routes, so the improvement the receipt publishes is realized travel rather than a metric estimate.
+    // on those routes, so the improvement the solver publishes is realized travel rather than a metric estimate.
     private static Fin<(BeamState State, LinkSolver Solver)> Refine(
         LinkJob job,
         LinkCorridor corridor,
@@ -915,7 +1002,7 @@ public static class Link {
                 Placed = placed,
                 Legs = legs,
                 Current = rows.Last,
-                Score = legs.Sum(static leg => leg.Receipt.ObjectiveScore)
+                Score = legs.Sum(static leg => leg.ObjectiveScore)
                     + rows.Sum(row => job.Objective.Score(CuttingMetric(row, job.Policy))),
             });
     }
@@ -923,8 +1010,8 @@ public static class Link {
     // Leg `i` runs from anchor `i-1` to anchor `i`; the terminals are the parked home legs, which inherit their
     // neighbour's machine identity so neither end scores a fabricated tool or setup change.
     private static LinkStation Anchor(LinkJob job, Seq<LinkStation> rows, int index) =>
-        index < 0 ? LinkStation.Park("origin", job.Start, rows[0])
-        : index >= rows.Count ? LinkStation.Park("return", job.Start, rows[^1])
+        index < 0 ? LinkStation.Park(ParkLeg.Origin, job.Start, rows[0])
+        : index >= rows.Count ? LinkStation.Park(ParkLeg.Return, job.Start, rows[^1])
         : rows[index];
 
     // Stalled frontier names the blocked pair: the placed cursor and the first element precedence still withholds.
@@ -938,58 +1025,61 @@ public static class Link {
                 .Bind(static state => state.Remaining.Head)
                 .Bind(index => job.Elements[index].Variants.ToSeq().Head)
                 .Map(static variant => variant.Entry)
-                .IfNone(job.Start)).ToError();
+                .IfNone(job.Start));
 
     private static Fin<Linked> Connect(LinkJob job, BeamState selected, LinkSolver solver) =>
         from stations in Fin.Succ(selected.Rows.ToArr())
         from _ in !stations.IsEmpty && selected.Legs.Count == stations.Count + 1
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "link:empty-tour"))
+            : Fin.Fail<Unit>(new KernelFault.InvalidValue("link", "link:empty-tour"))
         from segments in toSeq(stations)
             .Map((station, index) => (Leg: selected.Legs[index], Station: station))
             .TraverseM(row =>
                 from _guarded in Guard(job, row.Station.Moves)
                 select Seq<LinkSegment>(
-                    new LinkSegment.Transiting(row.Leg.Receipt, row.Leg.Moves),
+                    new LinkSegment.Transiting(row.Leg),
                     new LinkSegment.Cutting(row.Station.Key, row.Station.Moves, row.Station.Directives))).As()
-        let parked = selected.Legs[^1]
-        let closed = segments.Bind(static row => row) + Seq<LinkSegment>(new LinkSegment.Transiting(parked.Receipt, parked.Moves))
-        from linked in Receipt(job, stations, selected.Legs.Map(static leg => leg.Receipt), closed, solver)
+        let closed = segments.Bind(static row => row)
+            + Seq<LinkSegment>(new LinkSegment.Transiting(selected.Legs[^1]))
+        from linked in Tour(job, stations, selected.Legs, closed, solver)
         select linked;
 
     private static Fin<Unit> Guard(LinkJob job, Seq<Move> source) => LinkJob.Invoke(() => job.Guard(source));
 
-    private static Fin<(Seq<Move> Moves, TransitionReceipt Receipt)> Transition(
+    private static Fin<LinkLeg> Transition(
         LinkJob job, LinkCorridor corridor, List<int> scratch, LinkStation from, LinkStation to) =>
         // One traversal stack serves the whole transition, visibility graph included.
         from route in Path(job, corridor, scratch, from.Exit, to.Entry)
         from _ in !route.Kind.RequiresPlane || route.Points.Count >= 3
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new FabricationFault.LinkBlocked(from.Exit, to.Entry).ToError())
+            : Fin.Fail<Unit>(new FabricationFault.LinkBlocked(from.Exit, to.Entry))
         from moves in LinkJob.Invoke(() => job.Lower(route.Points, route.Kind))
         from admitted in moves.TraverseM(Move.Admit).As()
         from _guarded in Guard(job, admitted)
         let metric = Metric(route.Points, route.Kind, job.Policy,
             from.ToolKey != to.ToolKey, from.WorkOffset != to.WorkOffset)
-        select (
-            admitted,
-            new TransitionReceipt(from.Key, to.Key, route.Kind, route.Points, metric, job.Objective.Score(metric), route.Components));
+        select new LinkLeg(
+            from.Key, to.Key, route.Kind, route.Points, admitted, metric,
+            job.Objective.Score(metric), route.Components);
 
     private static Fin<(Seq<Point3d> Points, RetractKind Kind, int Components)> Path(
         LinkJob job, LinkCorridor corridor, List<int> scratch, Point3d from, Point3d to) {
+        // `Path` unpacks the typed head ONCE onto the millimetre plane its arithmetic runs in, mirroring the axis
+        // owner's own `Bounds` seam: quantities stay the admitted surface and nothing below re-units a value.
+        LinkClearance clearance = job.Policy.Clearance;
         // The plane clears both endpoints and every bounded top, so the endpoint maximum SEEDS the fold rather than
         // an infinity standing in for a height no obstacle has.
         double clearancePlane = job.Keepouts
             .Bind(static row => row.Extent.Top.ToSeq())
-            .Fold(Math.Max(from.Z, to.Z), Math.Max) + job.Policy.ClearanceMm;
-        double skimZ = Math.Max(from.Z, to.Z) + job.Policy.SkimClearanceMm;
+            .Fold(Math.Max(from.Z, to.Z), Math.Max) + (double)clearance.Plane.Millimeters;
+        double skimZ = Math.Max(from.Z, to.Z) + (double)clearance.Skim.Millimeters;
         Point3d skimFrom = new(from.X, from.Y, skimZ);
         Point3d skimTo = new(to.X, to.Y, skimZ);
-        bool direct = Clear(from, to, job.Keepouts, job.Policy.ToleranceMm, scratch)
-            && Math.Abs(to.Z - from.Z) <= job.Policy.RampRiseMm;
-        bool skim = Clear(from, skimFrom, job.Keepouts, job.Policy.ToleranceMm, scratch)
-            && Clear(skimFrom, skimTo, job.Keepouts, job.Policy.ToleranceMm, scratch)
-            && Clear(skimTo, to, job.Keepouts, job.Policy.ToleranceMm, scratch);
+        bool direct = Clear(from, to, job.Keepouts, clearance.Slack, scratch)
+            && Math.Abs(to.Z - from.Z) <= (double)clearance.RampRise.Millimeters;
+        bool skim = Clear(from, skimFrom, job.Keepouts, clearance.Slack, scratch)
+            && Clear(skimFrom, skimTo, job.Keepouts, clearance.Slack, scratch)
+            && Clear(skimTo, to, job.Keepouts, clearance.Slack, scratch);
         return (direct, skim) switch {
             (true, _) => Fin.Succ((Seq(from, to), from.Z == to.Z ? RetractKind.Direct : RetractKind.Ramp, 1)),
             (false, true) => Fin.Succ((Seq(from, skimFrom, skimTo, to), RetractKind.Skim, 1)),
@@ -1010,26 +1100,28 @@ public static class Link {
         private Arr<(int From, int To)> Edges { get; }
 
         public static LinkCorridor Of(LinkJob job, List<int> scratch) {
+            LinkClearance clearance = job.Policy.Clearance;
             Arr<Keepout> walls = job.Keepouts.Filter(static row => row.Extent is KeepoutExtent.Unbounded);
             Arr<(double X, double Y)> corners = walls.Bind(row => row.Geometry.Bind(region =>
                 Range(0, region.Boundary.Vertices.Count).ToArr().Bind(index => region.Boundary.BulgeAt(index) == 0.0
-                    ? Arr(Corner(region.Boundary, index, job.Policy.RoutedCornerClearanceMm))
+                    ? Arr(Corner(region.Boundary, index, clearance.Corner))
                     : Arr(
-                        Corner(region.Boundary, index, job.Policy.RoutedCornerClearanceMm),
-                        Apex(region.Boundary, index, job.Policy.RoutedCornerClearanceMm)))));
+                        Corner(region.Boundary, index, clearance.Corner),
+                        Apex(region.Boundary, index, clearance.Corner)))));
             Arr<(int From, int To)> edges = Range(0, corners.Count).ToArr()
                 .Bind(i => Range(i + 1, corners.Count - i - 1).ToArr().Map(j => (From: i, To: j)))
-                .Filter(edge => Visible(walls, corners[edge.From], corners[edge.To], job.Policy.ToleranceMm, scratch));
+                .Filter(edge => Visible(walls, corners[edge.From], corners[edge.To], clearance.Slack, scratch));
             return new LinkCorridor(walls, corners, edges);
         }
 
         public Fin<(Seq<Point3d> Points, RetractKind Kind, int Components)> Route(
             LinkJob job, List<int> scratch, Point3d from, Point3d to, double plane) {
+            LinkClearance clearance = job.Policy.Clearance;
             Point3d liftedFrom = new(from.X, from.Y, plane);
             Point3d liftedTo = new(to.X, to.Y, plane);
-            if (!Clear(from, liftedFrom, job.Keepouts, job.Policy.ToleranceMm, scratch)
-                || !Clear(liftedTo, to, job.Keepouts, job.Policy.ToleranceMm, scratch))
-                return Fin.Fail<(Seq<Point3d>, RetractKind, int)>(new FabricationFault.LinkBlocked(from, to).ToError());
+            if (!Clear(from, liftedFrom, job.Keepouts, clearance.Slack, scratch)
+                || !Clear(liftedTo, to, job.Keepouts, clearance.Slack, scratch))
+                return Fin.Fail<(Seq<Point3d>, RetractKind, int)>(new FabricationFault.LinkBlocked(from, to));
             // Terminal ordinals: 0 is the lifted start and 1 the lifted end, and every corner shifts past them by
             // two. Naming both keeps the A* seed, its heuristic, and its target reading one declaration.
             const int Start = 0;
@@ -1042,7 +1134,7 @@ public static class Link {
                     + Arr((From: Start, To: End)))
                 // Corner pairs were solved at build; only the terminal joins are new work this transition.
                 .Filter(edge => (edge.From >= 2 && edge.To >= 2)
-                    || Visible(Walls, vertices[edge.From], vertices[edge.To], job.Policy.ToleranceMm, scratch))
+                    || Visible(Walls, vertices[edge.From], vertices[edge.To], clearance.Slack, scratch))
                 .Bind(edge => Seq(
                     new TaggedEdge<int, double>(edge.From, edge.To, Span(vertices, edge.From, edge.To)),
                     new TaggedEdge<int, double>(edge.To, edge.From, Span(vertices, edge.From, edge.To))))
@@ -1051,17 +1143,17 @@ public static class Link {
             Dictionary<int, int> components = [];
             int componentCount = graph.WeaklyConnectedComponents(components);
             if (components[Start] != components[End])
-                return Fin.Fail<(Seq<Point3d>, RetractKind, int)>(new FabricationFault.LinkBlocked(from, to).ToError());
+                return Fin.Fail<(Seq<Point3d>, RetractKind, int)>(new FabricationFault.LinkBlocked(from, to));
             TryFunc<int, IEnumerable<TaggedEdge<int, double>>> search = graph.ShortestPathsAStar(
                 static edge => edge.Tag,
                 vertex => Span(vertices, vertex, End),
                 Start);
             if (!search(End, out IEnumerable<TaggedEdge<int, double>>? path))
-                return Fin.Fail<(Seq<Point3d>, RetractKind, int)>(new FabricationFault.LinkBlocked(from, to).ToError());
+                return Fin.Fail<(Seq<Point3d>, RetractKind, int)>(new FabricationFault.LinkBlocked(from, to));
             Seq<TaggedEdge<int, double>> route = toSeq(path);
             RetractKind kind = route.Count > 1
                 ? RetractKind.Routed
-                : Math.Abs(plane - to.Z) > job.Policy.RampRiseMm
+                : Math.Abs(plane - to.Z) > (double)clearance.RampRise.Millimeters
                     ? RetractKind.ControlledDescent
                     : RetractKind.FullLift;
             return Fin.Succ((
@@ -1076,8 +1168,8 @@ public static class Link {
             Math.Sqrt(Math.Pow(vertices[to].X - vertices[from].X, 2.0) + Math.Pow(vertices[to].Y - vertices[from].Y, 2.0));
 
         private static bool Visible(
-            Arr<Keepout> walls, (double X, double Y) from, (double X, double Y) to, double tolerance, List<int> scratch) =>
-            Clear(new Point3d(from.X, from.Y, 0.0), new Point3d(to.X, to.Y, 0.0), walls, tolerance, scratch);
+            Arr<Keepout> walls, (double X, double Y) from, (double X, double Y) to, Length slack, List<int> scratch) =>
+            Clear(new Point3d(from.X, from.Y, 0.0), new Point3d(to.X, to.Y, 0.0), walls, slack, scratch);
     }
 
     // The six-way verdict read WHOLE. A crossing blocks the corridor; a tangent touch and a collinear or arc overlap
@@ -1093,9 +1185,12 @@ public static class Link {
             tolerance).Kind is not (PlineSegIntrKind.OneIntersect or PlineSegIntrKind.TwoIntersects);
     }
 
-    // Corridor AABB prunes each region's admitted flatbush index; a full segment walk per candidate is the rejected form.
-    private static bool Clear(Point3d from, Point3d to, Arr<Keepout> keepouts, double tolerance, List<int> scratch) =>
-        keepouts.Filter(row => row.Active(from.Z, to.Z)).ForAll(row => row.Geometry.ForAll(region => {
+    // Corridor AABB prunes each region's admitted flatbush index; a full segment walk per candidate is the rejected
+    // form. Admitted slack arrives TYPED and lowers to its millimetre once here, at the numeric leaf, so the whole
+    // corridor path above carries the quantity and no caller re-units it per probe.
+    private static bool Clear(Point3d from, Point3d to, Arr<Keepout> keepouts, Length slack, List<int> scratch) {
+        double tolerance = slack.Millimeters;
+        return keepouts.Filter(row => row.Active(from.Z, to.Z)).ForAll(row => row.Geometry.ForAll(region => {
             if (region.Boundary.Covers(new Point3d(from.X, from.Y, region.Boundary.Plane))
                 || region.Boundary.Covers(new Point3d(to.X, to.Y, region.Boundary.Plane)))
                 return false;
@@ -1108,8 +1203,10 @@ public static class Link {
                 ref visitor,
                 scratch);
         }));
+    }
 
-    private static (double X, double Y) Corner(Loop loop, int index, double clearance) {
+    private static (double X, double Y) Corner(Loop loop, int index, Length offset) {
+        double clearance = offset.Millimeters;
         Point3d previous = loop.At(index - 1);
         Point3d point = loop.At(index);
         Point3d next = loop.At(index + 1);
@@ -1126,7 +1223,8 @@ public static class Link {
     }
 
     // Exact arc midpoint pushed outward by routed clearance is the bulged span's extreme visibility witness.
-    private static (double X, double Y) Apex(Loop loop, int index, double clearance) {
+    private static (double X, double Y) Apex(Loop loop, int index, Length offset) {
+        double clearance = offset.Millimeters;
         Polyline<double> path = new(
             toSeq(loop.Vertices).Map((point, ordinal) => PlineVertex<double>.FromSlice(
                 [point.X, point.Y, loop.BulgeAt(ordinal)])),
@@ -1146,6 +1244,9 @@ public static class Link {
         LinkPolicy policy,
         bool toolChange,
         bool setupChange) {
+        // `Metric` unpacks the typed rate columns ONCE onto the plane its clock arithmetic runs in.
+        double rapid = policy.Rate.Rapid.MillimetersPerMinutes;
+        double plunge = policy.Rate.Plunge.MillimetersPerMinutes;
         // One walk carries every term the objective prices. Turning is the exterior angle at each interior vertex of
         // the emitted polyline, so a routed corridor threading eight corners costs its eight direction reversals where
         // a two-corner corridor of equal length does not — the discrimination `RotationWeight` exists to express and
@@ -1169,9 +1270,9 @@ public static class Link {
                 });
         return new LinkMetric(
             lengths.Distance,
-            60.0 * (lengths.Horizontal / policy.RapidMmPerMin + lengths.Vertical / policy.PlungeMmPerMin)
-                + (toolChange ? policy.ToolChangeSeconds : 0.0)
-                + (setupChange ? policy.SetupChangeSeconds : 0.0),
+            60.0 * ((lengths.Horizontal / rapid) + (lengths.Vertical / plunge))
+                + (toolChange ? (double)policy.Changeover.Tool.Seconds : 0.0)
+                + (setupChange ? (double)policy.Changeover.Setup.Seconds : 0.0),
             lengths.Vertical,
             kind.ThermalCoupling * lengths.Horizontal,
             lengths.Turning,
@@ -1184,12 +1285,13 @@ public static class Link {
     }
 
     private static LinkMetric CuttingMetric(LinkStation station, LinkPolicy policy) {
+        double rapid = policy.Rate.Rapid.MillimetersPerMinutes;
         (Point3d Cursor, double Distance, double Duration) walked = station.Moves.Fold(
             (Cursor: station.Entry, Distance: 0.0, Duration: 0.0),
             (state, move) => {
                 double distance = Swept(state.Cursor, move);
                 double feed = move.Switch(
-                    rapid: _ => policy.RapidMmPerMin,
+                    rapid: _ => rapid,
                     linear: static row => row.Feed,
                     circular: static row => row.Feed);
                 return (move.Target, state.Distance + distance, state.Duration + 60.0 * distance / feed);
@@ -1216,24 +1318,24 @@ public static class Link {
         circular: static (start, row) => Math.Sqrt(
             Math.Pow(row.Radius * Math.Abs(row.SweepRadians), 2.0) + Math.Pow(row.Target.Z - start.Z, 2.0)));
 
-    private static Fin<Linked> Receipt(
+    private static Fin<Linked> Tour(
         LinkJob job,
         Arr<LinkStation> stations,
-        Seq<TransitionReceipt> transitions,
+        Seq<LinkLeg> legs,
         Seq<LinkSegment> segments,
         LinkSolver solver) {
         LinkMetric cutting = stations.Fold(new LinkMetric(), (sum, row) => sum + CuttingMetric(row, job.Policy));
         return SpecializedToolpathEnvelope.Admit(
                 SpecializedToolpathKind.Link,
-                transitions.Map(static row => (SpecializedToolpathRow)ToolpathRowMap.ToRow(row)),
-                transitions.Sum(static row => row.Metric.DurationSeconds))
+                legs.Map(static row => (SpecializedToolpathRow)ToolpathRowMap.ToRow(row)),
+                legs.Sum(static row => row.Metric.DurationSeconds))
             .Map(envelope => new Linked(
                 segments,
-                new LinkReceipt(
+                new LinkTour(
                     stations.Map(static row => row.Key),
-                    transitions,
-                    transitions.Fold(cutting, static (sum, row) => sum + row.Metric),
-                    transitions.Sum(static row => row.ObjectiveScore) + job.Objective.Score(cutting),
+                    legs,
+                    legs.Fold(cutting, static (sum, row) => sum + row.Metric),
+                    legs.Sum(static row => row.ObjectiveScore) + job.Objective.Score(cutting),
                     solver,
                     segments.Fold(0, static (count, segment) => count + segment.Emitted.Count)),
                 envelope));

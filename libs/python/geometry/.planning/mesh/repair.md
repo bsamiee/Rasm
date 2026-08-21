@@ -106,12 +106,33 @@ CLOSURE_CEILING: Final[float] = 1e-9
 # --- [ERRORS] ---------------------------------------------------------------------------
 
 
-# raised INTO the lane's `async_boundary`, never a domain `raise ValueError` the lane re-wraps.
+# raised INTO the lane's `async_boundary`, never a domain `raise ValueError` the lane re-wraps. The token crosses
+# the worker seam as `CrossedFault` DATA and re-mints parent-side per `execution/workers#CROSSING`.
 @tagged_union(frozen=True)
 class RepairFault(Exception):
+    # `BoundaryFault.of` admits a `Tagged()` token AHEAD of every `CLASSIFY` row, so this family crosses the
+    # conversion door WHOLE on the `domain` case and the catch-all's `str(cause)` half never renders it — consumers
+    # match the CASE. A worker seam carries it whole too: `execution/workers#CROSSING` lowers the token onto
+    # `CrossedFault` DATA at `shipped` and re-mints this family's own case parent-side, so a raise inside a HOSTILE
+    # kernel needs no edit here and no render stands anywhere on the crossing. `__str__` serves the LOG and HOST
+    # edge alone — a token surfacing in a worker traceback or a log line before the seam lowers it — where
+    # `Exception.__str__` answers the EMPTY string for a kwarg-only union.
     tag: Literal["rejected", "unknown_step"] = tag()
     rejected: str = case()  # the non-NoError manifold3d Error name
     unknown_step: str = case()  # a step/verb absent from its dispatch table
+
+    def __str__(self) -> str:
+        # the law half IS the tag, so no arm re-spells its own case name and a renamed case cannot drift from its render.
+        return f"{self.tag}:{self._coordinate()}"
+
+    def _coordinate(self) -> str:
+        match self:
+            case RepairFault(tag="rejected", rejected=status):
+                return status
+            case RepairFault(tag="unknown_step", unknown_step=step):
+                return step
+            case _ as unreachable:
+                assert_never(unreachable)
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -129,7 +150,10 @@ class MeshRepairReceipt(Struct, frozen=True, gc=False):  # leaf-scalar evidence;
     verb: str  # the applied step-set join or the CSG verb
     status: str  # the manifold3d Error name ("NoError" off the conditioning arm)
     subject: GeometrySubject
-    closure_gap: float | None = None  # |kernel volume - re-wrapped Trimesh volume| on the boolean arm
+    # ABSENT `closure_gap` means NO kernel-vs-mesh agreement was measured: only the boolean arm cross-checks the
+    # exact kernel volume against the re-wrapped `Trimesh` volume, so a conditioned result has no agreement to report
+    # and the ceiling roster drops the bar rather than grading a fabricated zero that clears it vacuously.
+    closure_gap: Option[float] = Nothing  # |kernel volume - re-wrapped Trimesh volume| on the boolean arm
 
     # watertight-after-NoError emits; an open conditioned surface is an admitted caveat
     def fact(self) -> tuple[Phase, GeometrySubject, dict[str, object]]:
@@ -144,8 +168,7 @@ class MeshRepairReceipt(Struct, frozen=True, gc=False):  # leaf-scalar evidence;
             "area": self.area,
             "vertex_count": self.vertex_count,
             "face_count": self.face_count,
-            "closure_gap": self.closure_gap,
-        }
+        } | self.closure_gap.map(lambda held: {"closure_gap": held}).default_value({})
         return phase, self.subject, facts
 
     @property
@@ -158,8 +181,8 @@ class MeshRepairReceipt(Struct, frozen=True, gc=False):  # leaf-scalar evidence;
     def graduates(self) -> GeometryHandoff:
         # ceilings derive PER MEASURE: a conditioned result measures no kernel-vs-mesh agreement, so the closure bar
         # does not apply rather than grading `0.0` against it, and the watertight residual is graded every time.
-        measured = {"nonwatertight": 0.0 if self.watertight else 1.0} | ({} if self.closure_gap is None else {"closure_gap": self.closure_gap})
-        ceilings: Mapping[str, float] = {"nonwatertight": 0.0} | ({} if self.closure_gap is None else {"closure_gap": CLOSURE_CEILING})
+        measured = {"nonwatertight": 0.0 if self.watertight else 1.0} | self.closure_gap.map(lambda held: {"closure_gap": held}).default_value({})
+        ceilings: Mapping[str, float] = {"nonwatertight": 0.0} | self.closure_gap.map(lambda _: {"closure_gap": CLOSURE_CEILING}).default_value({})
         return GeometryHandoff.of(self.subject, evidence_key(self.subject, self.spec), measured, ceilings)
 
 
@@ -298,7 +321,8 @@ def _combined(meshes: Meshes, op: BooleanOp) -> MeshResult:
             op.value,
             status.name,
             GeometrySubject.MESH_ALGEBRA,
-            abs(kernel_volume - float(mesh.volume)) if watertight else None,  # kernel-vs-mesh agreement, None on an open result
+            # kernel-vs-mesh agreement; an OPEN result has no enclosed volume on either side, so nothing was measured
+            Some(abs(kernel_volume - float(mesh.volume))) if watertight else Nothing,
         ),
     )
 

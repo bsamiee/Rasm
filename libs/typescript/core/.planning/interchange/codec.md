@@ -11,7 +11,7 @@
 - [04]-[PARITY_VERIFY]: content-key verification and semantic roundtrip; `Wire.Parity`.
 - [05]-[LANDING_EVIDENCE]: evidence, identity, version, CRDT, and oplog landings; `Wire`.
 - [06]-[LANDING_WIRE]: wire-owned decoded shapes for later-wave consumers; landing classes on `Wire`.
-- [07]-[KEYED_REGISTRY]: mapped landing table, polymorphic decode/encode/stream entrypoints; `Wire`.
+- [07]-[KEYED_REGISTRY]: mapped landing table, polymorphic decode/encode/stream entrypoints, bounded tree walk; `Wire`, `Wire.Walk`.
 - [08]-[FEED_DEDUP]: quarantine diversion and family transition policies; `Wire.feed`.
 - [09]-[SEQUENCE_GAP]: sequence evidence, oplog continuity, and frontier reads; `Wire.Gap`, `Wire.OpLog`.
 
@@ -21,6 +21,9 @@
 - Law: each row preserves literal direction and arm and carries one schema, optional contract gate, and optional parity.
 - Law: `_faultFamilies` widens the roster with families this page never decodes but whose owners raise faults against it.
 - Law: `_faultArms` names the arm of every such family, so arm resolution stays total across the fault roster.
+- Law: a frozen family KEEPS its byte shape when its interior owner moves down-strata, and the decode re-targets onto the new owner in ONE unit.
+- Law: tear-then-rebuild is the barred order, because every peer decoder is stranded across the window between the tear and the re-land.
+- Law: the re-target edits that family's `_schema` entry ALONE, never `_families`, so the census row, contract gate, and parity obligation survive the move.
 - Boundary: `Format` owns codec engines and the arm vocabulary; external producers own wire spellings.
 - Boundary: `interchange/carrier` owns the message envelope and `Format.event` its media roster, so no row, landing class, fault cause, or parity obligation here names a CloudEvents shape.
 - Boundary: a message envelope crossing this plane carries a wire family in its payload rather than being one.
@@ -37,6 +40,8 @@ const _families = [
   "EntityEditWire", "TallyWire", "CredentialPemWire", "DescriptorPinWire",
   "BenchmarkClaimWire", "HostFingerprintWire",
   "BindingStatusWire", "CoercedValueWire", "WriteReceiptWire",
+  "HopReceiptWire", "DeliveryReceiptWire", "DropReceiptWire",
+  "OutboxRowWire", "DeadLetterRowWire", "ReplayTallyWire", "OutboxLaneWire", "OutboxSweepWire",
   "FlagVerdictWire", "ControlIntentWire", "LayoutConstraintWire", "CommandGateWire", "EvidenceTimelineWire",
   "BcfTopicWire", "BcfViewpointWire", "ModelDiff", "PredicateWire",
   "MaterialWire", "OpenPbrGroupsWire", "TextureSetWire", "AssetSetManifest",
@@ -78,71 +83,202 @@ const _faultArms = {
 - Law: the census is process-scoped and tenant-blind, so `diagnostic` renders one tenant's octets to whoever holds the service and no caller may treat it as a tenant-partitioned store.
 
 ```typescript signature
-import { fromJson, toJson, type MessageShape } from "@bufbuild/protobuf"
+import { fromJson, isMessage, toJson } from "@bufbuild/protobuf"
 import {
-  Cause, Chunk, DateTime, Effect, Either, Exit, Function, HashMap, Option, Order, pipe, Predicate, Schedule,
-  STM, TMap, TRef,
+  Cause, Chunk, DateTime, Effect, Either, Exit, Function, HashMap, Match, Option, Order, pipe, Predicate, Record,
+  Schedule, STM, TMap, TRef,
 } from "effect"
 import { Fault } from "../value/fault.ts"
 import { Format } from "./format.ts"
 
 const _causes = ["malformed", "truncated", "overrun", "sequence", "parity", "drift", "stale", "conflict"] as const
 
-// This plane mints one family: `class` is the branch taxonomy every rail already grades and orders on, and the two
-// columns beside it are genuinely this plane's — `held` whether the failing frame is RETAINED in the poison census
-// (a frame-retention disposition, not the class table's repair-intake divert), `replayable` whether re-decoding the
-// same octets can change the verdict at all (which no class-level retryability answers: unparseable bytes are
-// non-retryable as transport and replayable as evidence the moment the producing peer is fixed). A local rank column
-// beside `class` would fork the one severity lattice the branch tuple already declares.
-const _policy = Fault.Class.family(_causes, {
-  malformed: { class: "malformed", held: true, replayable: true },
-  truncated: { class: "malformed", held: true, replayable: true },
-  // Over-budget frames are the ONE cause whose evidence is its measurement: `Fault.evidence` already carries the
-  // actual and expected extents, and retaining the octets would pin exactly the bytes the budget refused — a
-  // census of oversized frames is the exhaustion the refusal exists to prevent, and `replayable: false` means the
-  // retention buys no second verdict either.
-  overrun: { class: "exhausted", held: false, replayable: false },
-  sequence: { class: "absent", held: false, replayable: false },
-  parity: { class: "breached", held: true, replayable: false },
-  drift: { class: "invalid", held: true, replayable: true },
-  stale: { class: "conflicted", held: false, replayable: true },
-  conflict: { class: "conflicted", held: false, replayable: true },
-})
+// The budget axes are a CLOSED roster because every one of them was a `<walk-fan>`-shaped token inside a free
+// string: nine ceilings across this page and `frame` refuse under one cause, and naming which one broke is the
+// single fact an operator acts on. The artifact coordinate is optional on this cause alone, since only the assembly
+// legs know which artifact and generation a refused band belonged to.
+const _overrunAxes = [
+  "payload", "frames", "assembly", "rendezvous",
+  "walk-depth", "walk-fan",
+  "tensor-extent", "tensor-stride", "tensor-span",
+] as const
+// Every other subject roster the retired string encoded, named the same way: the raiser passes a roster member and
+// the mint below takes that member's own type, so a token this page never declared refuses at the call rather than
+// reaching a census as prose.
+const _paritySubjects = ["key", "golden-bytes", "semantic", "merkle-root"] as const
+const _gapSubjects = ["ordinal", "total", "tail"] as const
+const _coordinate = Schema.OptionFromSelf(
+  Schema.Struct({ artifact: Digest.codecs.content.wire, generation: Schema.Int.pipe(Schema.nonNegative()) }),
+)
 
-class WireFault extends Schema.TaggedError<WireFault>()("WireFault", {
-  family: _faultLiteral,
-  reason: _policy.schema,
-  detail: Schema.NonEmptyString,
-  evidence: Schema.optionalWith(
-    Schema.Union(
-      Schema.Struct({ actual: Schema.Unknown, expected: Schema.Unknown }),
-      Schema.Struct({
-        artifact: Digest.codecs.content.wire,
-        generation: Schema.Int.pipe(Schema.nonNegative()),
+// One row declares the whole cause: the branch class, the surface leg that DECIDES it, the SUBJECT a raise must
+// supply, and the renderer over that subject. The retired shape carried a free-string `detail` beside a three-arm
+// `evidence` union every reason shared, so a cause's real columns were unrecoverable in both directions —
+// `<total-drift>`, `<tensor-stride>`, `<unmatched-envelope:…>`, and nine more were DISCRIMINANTS living inside a
+// string no consumer could switch on and no compiler could spell-check, while the shared union offered a merkle
+// refusal the `artifact`/`generation` pair only the assembly legs carry and offered a contract refusal to causes
+// that never see one. Each subject below is exact at its own raise, so the axis a budget broke, the end a schema
+// version moved, and the side of a rendezvous that never matched are typed columns a board reads.
+//
+// Beside the owner's four columns sit the two genuinely this plane's — `held` whether the failing frame is RETAINED
+// in the poison census (a frame-retention disposition, not the class table's repair-intake divert), `replayable`
+// whether re-decoding the same octets can change the verdict at all (which no class-level retryability answers:
+// unparseable bytes are non-retryable as transport and replayable as evidence the moment the producing peer is
+// fixed). They ride BESIDE `Fault.Class.row` rather than inside it, so the owner stays the one exactness gate over
+// class, leg, subject, and renderer and neither plane-local column can be mistaken for part of that contract. A
+// local rank column beside `class` would fork the one severity lattice the branch tuple already declares.
+const _policy = Fault.Class.family(_causes, {
+  malformed: {
+    ...Fault.Class.row({
+      class: "malformed",
+      leg: "codec",
+      // `at` separates the two refusals that shared one reason: the ARRIVAL iterator threw, or the octets did not
+      // conform. Both fold to one class and one posture, and only the column says which end a repair belongs at.
+      detail: Schema.Struct({ at: Schema.Literal("source", "decode"), issue: Schema.String }),
+      render: ({ at, issue }) => `<${at}> refused the frame — ${issue}`,
+    }),
+    held: true,
+    replayable: true,
+  },
+  truncated: {
+    ...Fault.Class.row({
+      class: "malformed",
+      leg: "frame",
+      detail: Schema.Struct({ side: Schema.Literal("envelope", "artifact"), coordinate: Schema.NonEmptyString }),
+      render: ({ side, coordinate }) => `${coordinate} held an unmatched ${side} when the stream ended`,
+    }),
+    held: true,
+    replayable: true,
+  },
+  // Over-budget frames are the ONE cause whose evidence is its measurement: the subject already carries the actual
+  // and expected extents, and retaining the octets would pin exactly the bytes the budget refused — a census of
+  // oversized frames is the exhaustion the refusal exists to prevent, and `replayable: false` means the retention
+  // buys no second verdict either.
+  overrun: {
+    ...Fault.Class.row({
+      class: "exhausted",
+      leg: "budget",
+      detail: Schema.Struct({
+        axis: Schema.Literal(..._overrunAxes),
+        actual: Schema.Number,
+        expected: Schema.Number,
+        at: _coordinate,
+      }),
+      render: ({ axis, actual, expected }) => `<${axis}> spent ${actual} against a ceiling of ${expected}`,
+    }),
+    held: false,
+    replayable: false,
+  },
+  sequence: {
+    ...Fault.Class.row({
+      class: "absent",
+      leg: "frame",
+      detail: Schema.Struct({
+        subject: Schema.Literal(..._gapSubjects),
+        actual: Schema.BigIntFromSelf,
+        expected: Schema.BigIntFromSelf,
+      }),
+      render: ({ subject, actual, expected }) => `<${subject}> read ${actual} where ${expected} was owed`,
+    }),
+    held: false,
+    replayable: false,
+  },
+  parity: {
+    ...Fault.Class.row({
+      class: "breached",
+      leg: "identity",
+      detail: Schema.Struct({
+        subject: Schema.Literal(..._paritySubjects),
         actual: Schema.Unknown,
         expected: Schema.Unknown,
       }),
-      Contract.Refusal,
-    ),
-    { as: "Option" },
-  ),
+      render: ({ subject }) => `<${subject}> re-derived to a value its own producer did not send`,
+    }),
+    held: true,
+    replayable: false,
+  },
+  drift: {
+    ...Fault.Class.row({
+      class: "invalid",
+      leg: "contract",
+      // The three drift raises name UNLIKE coordinates — a descriptor comparison answers a typed `Contract.Refusal`,
+      // a method-kind mismatch a shipped-against-pinned pair, an unknown verb the key alone — so the discriminant
+      // carries the arm rather than one pair widened to `unknown` for all three. The refusal stays TYPED where one
+      // exists, and the verb arm carries no pair at all rather than an absent one.
+      detail: Schema.Struct({
+        divergence: Schema.Union(
+          Schema.Struct({ subject: Schema.Literal("contract"), refusal: Contract.Refusal }),
+          Schema.Struct({ subject: Schema.Literal("binding"), actual: Schema.Unknown, expected: Schema.Unknown }),
+          Schema.Struct({ subject: Schema.Literal("verb"), key: Schema.NonEmptyString }),
+        ),
+      }),
+      render: (issue) =>
+        Match.value(issue.divergence).pipe(Match.discriminatorsExhaustive("subject")({
+          contract: ({ refusal }) => `<contract:${refusal.compatibility}:${refusal.verdict}> ${refusal.changes}`,
+          binding: () => "<binding> the shipped surface no longer carries the kind the pin admitted",
+          verb: ({ key }) => `<verb> ${key} names no row on the frozen deck`,
+        })),
+    }),
+    held: true,
+    replayable: true,
+  },
+  // Both version verdicts are ONE defect — a cluster roster read at the wrong offset — told apart by which END
+  // moved, so they share a subject and split on the reason the raiser elects off the same comparison.
+  stale: {
+    ...Fault.Class.row({
+      class: "conflicted",
+      leg: "residency",
+      detail: Schema.Struct({ pinned: Schema.Int, arrived: Schema.Int }),
+      render: ({ pinned, arrived }) => `schema ${arrived} is superseded by the pinned ${pinned}`,
+    }),
+    held: false,
+    replayable: true,
+  },
+  conflict: {
+    ...Fault.Class.row({
+      class: "conflicted",
+      leg: "residency",
+      detail: Schema.Struct({ pinned: Schema.Int, arrived: Schema.Int }),
+      render: ({ pinned, arrived }) => `schema ${arrived} carries columns the pinned ${pinned} has never seen`,
+    }),
+    held: false,
+    replayable: true,
+  },
+})
+
+// `case` is the whole refusal: the reason and exactly the columns that reason declares, admitted together by the
+// roster's own payload schema. A raise cannot supply a subject its cause does not own, and `message` renders
+// through the cause's own arm rather than through a template this class hand-writes over a free string.
+class WireFault extends Schema.TaggedError<WireFault>()("WireFault", {
+  family: _faultLiteral,
+  case: _policy.payload,
 }) {
   static readonly bySeverity: Order.Order<WireFault> = Order.mapInput(Fault.Class.order, (fault: WireFault) => fault.class)
   static readonly dominant = (faults: Array.NonEmptyReadonlyArray<WireFault>): WireFault =>
     Array.max(faults, WireFault.bySeverity)
+  // Reason, class, and leg publish AS MEMBERS because every altitude above grades this value structurally — the
+  // quarantine census keys retention on the policy row, and the invoke emission names the reason in its own label
+  // space — so a fact reachable only by re-reading `case` outside the class is a fact those altitudes cannot spend.
+  get reason(): WireFault.Reason {
+    return this.case.reason
+  }
   get class(): Fault.Class.Kind {
-    return _policy.classOf(this.reason)
+    return _policy.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _policy.legOf(this.case.reason)
   }
   get policy(): WireFault.Row {
-    return _policy.at(this.reason)
+    return _policy.at(this.case.reason)
   }
   override get message(): string {
-    return `<${this.family}:${this.reason}> ${this.detail}`
+    return `<${this.family}> ${_policy.render(this.case)}`
   }
 }
 
 declare namespace WireFault {
-  type Reason = (typeof _policy.reasons)[number]
+  type Case = typeof _policy.payload.Type
+  type Reason = (typeof _policy.kinds)[number]
   type Row = ReturnType<typeof _policy.at>
 }
 
@@ -310,8 +446,12 @@ class Quarantine extends Effect.Service<Quarantine>()("@rasm/ts/core/Quarantine"
 import { Digest } from "../value/contentKey.ts"
 import { Contract } from "./contract.ts"
 
-const _mismatch = (family: Wire.FaultFamily, actual: unknown, expected: unknown, detail: string): WireFault =>
-  new WireFault({ family, reason: "parity", detail, evidence: Option.some({ actual, expected }) })
+const _mismatch = (
+  family: Wire.FaultFamily,
+  subject: (typeof _paritySubjects)[number],
+  actual: unknown,
+  expected: unknown,
+): WireFault => new WireFault({ family, case: { reason: "parity", subject, actual, expected } })
 
 const Parity = {
   key: (payload: Digest.Payload): Effect.Effect<Digest.Key<"content">> => Digest.mint("content", payload),
@@ -320,7 +460,7 @@ const Parity = {
     actual: Digest.Key<"content">,
     expected: Digest.Key<"content">,
   ): Effect.Effect<void, WireFault> =>
-    actual === expected ? Effect.void : Effect.fail(_mismatch(family, actual, expected, "<key-mismatch>")),
+    actual === expected ? Effect.void : Effect.fail(_mismatch(family, "key", actual, expected)),
   verified: (
     family: Wire.FaultFamily,
     expected: Digest.Key<"content">,
@@ -340,9 +480,9 @@ const Parity = {
       if (mismatch === -1 && emitted.length === octets.length) return
       return yield* Effect.fail(_mismatch(
         family,
+        "golden-bytes",
         { extent: emitted.length, offset, byte: emitted[offset] },
         { extent: octets.length, offset, byte: octets[offset] },
-        "<golden-byte-divergence>",
       ))
     }),
 } as const
@@ -365,22 +505,61 @@ import { Commit } from "../state/commit.ts"
 import { Evidence } from "../state/evidence.ts"
 import { Board } from "../observe/board.ts"
 
-// `_op` is the ONE place the producer's framing lives: a positional tuple on the encoded side, a tagged struct on the
-// interior side, and the slot list carrying both the order and the names. A `Schema.TaggedStruct` alone encodes a map
-// keyed by `_tag` and refuses the producer's first byte, while a per-arm hand transform lets one arm drift its tag
-// position off the other nine.
-type _Pairs = ReadonlyArray<readonly [string, Schema.Schema.Any]>
+// Positional framing is ONE law this page reads at two grains, and the slot roster is where it lives: a positional
+// tuple on the encoded side, a named owner on the interior side, and the roster carrying the producer's `[Key(n)]`
+// ORDER and its column NAMES together. `_op` prefixes the integer union tag its ten CRDT arms lead with; `_keyed` is
+// the same fold untagged, which is exactly what every `[MessagePackObject]` appearance record is. A
+// `Schema.TaggedStruct` alone encodes a map keyed by `_tag` and refuses the producer's first byte; a per-record hand
+// transform reading `v[0]`…`v[30]` lets one slot drift off the roster naming it, and it restates that roster a
+// second time to encode, so the two directions can disagree with nothing raising.
+//
+// An APPENDED slot rides `Schema.optionalElement`, so pre-append bytes ending early decode unchanged and the named
+// column carries the branch's own absence carrier rather than a hole — the producer's stated default is supplied at
+// the ONE arm that reads the column, never fabricated inside this fold.
+type _Cell = Schema.Schema.Any | Schema.Element<Schema.Schema.Any, "?">
+type _Pairs = ReadonlyArray<readonly [string, _Cell]>
 type _Slots<S extends _Pairs> = { readonly [I in keyof S]: S[I][1] }
-type _Named<S extends _Pairs> = { readonly [E in S[number] as E[0]]: E[1] }
+type _Named<S extends _Pairs> = {
+  readonly [E in S[number] as E[0]]: E[1] extends Schema.Element<infer T extends Schema.Schema.Any, "?">
+    ? Schema.optionalWith<T, { readonly as: "Option"; readonly exact: true }>
+    : E[1]
+}
+
+// The tuple takes the cell verbatim and the named owner takes its unwrapped column, so one roster row states both
+// sides of an appended slot. `Schema.isSchema` is the shipped discriminant: an `Element` carries the token, never
+// the schema brand, so no local marker or arity knob decides which half a row is.
+const _held = (cell: _Cell): Schema.Schema.Any =>
+  Schema.isSchema(cell) ? cell : Schema.optionalWith(cell.from, { as: "Option", exact: true })
+const _fields = <const S extends _Pairs>(slots: S): _Named<S> & Schema.Struct.Fields =>
+  Record.map(Record.fromEntries(slots), _held) as _Named<S> & Schema.Struct.Fields
+// Both directions read the roster and NEVER a position literal, and both drop an absent slot rather than seating a
+// hole: `Array.get` answers `Option` for a tuple that ended early and `Record.get` answers `Option` for the column
+// its Option-carried absence omitted. Omission is safe in exactly one direction — `Schema.optionalElement` admits
+// trailing slots alone — so a middle column can never go missing and shift every later slot onto its neighbour.
+const _read = (slots: _Pairs, cells: ReadonlyArray<unknown>): Record.ReadonlyRecord<string, unknown> =>
+  Record.fromEntries(Array.filterMap(slots, ([key], at) => Option.map(Array.get(cells, at), (cell) => [key, cell] as const)))
+const _write = (slots: _Pairs, named: Record.ReadonlyRecord<string, unknown>): ReadonlyArray<unknown> =>
+  Array.filterMap(slots, ([key]) => Record.get(named, key))
+
+const _keyed = <const N extends string, const S extends _Pairs>(name: N, slots: S) =>
+  Schema.transform(
+    Schema.Tuple(...(Array.map(slots, ([, cell]) => cell) as unknown as _Slots<S>)),
+    Schema.Struct(_fields(slots)).annotations({ identifier: name }),
+    {
+      strict: false,
+      decode: (wire) => _read(slots, wire),
+      encode: (named) => _write(slots, named),
+    },
+  )
 
 const _op = <const T extends number, const N extends string, const S extends _Pairs>(tag: T, name: N, slots: S) =>
   Schema.transform(
-    Schema.Tuple(Schema.Literal(tag), ...(slots.map(([, slot]) => slot) as unknown as _Slots<S>)),
-    Schema.TaggedStruct(name, Object.fromEntries(slots) as _Named<S> & Schema.Struct.Fields),
+    Schema.Tuple(Schema.Literal(tag), ...(Array.map(slots, ([, cell]) => cell) as unknown as _Slots<S>)),
+    Schema.TaggedStruct(name, _fields(slots)),
     {
       strict: false,
-      decode: (wire) => ({ _tag: name, ...Object.fromEntries(slots.map(([key], index) => [key, wire[index + 1]])) }),
-      encode: (op) => [tag, ...slots.map(([key]) => op[key])],
+      decode: (wire) => ({ _tag: name, ..._read(slots, Array.drop(wire, 1)) }),
+      encode: (op) => [tag, ..._write(slots, op)],
     },
   )
 
@@ -425,48 +604,94 @@ const _stamped = (op: Extract<CrdtOp, { readonly physicalTicks: bigint }>): Cloc
 - Owner: `Wire` lands producer-exact domain values for graph, edits, BCF, model diff, appearance, and support evidence.
 - Law: the producer's `NodeId` and its `ContentAddress` — the C# bare-digest brand this branch spells `ContentKey`, never C#'s own composite of that name — land as distinct brands, and `Node` retains the producer-carried authoritative content address.
 - Law: entity edits apply a closed JSON Patch document to exact `NodeWire` ProtoJSON under per-node base-address OCC.
+- Law: `RemoteDetail` carries the COMPACT fault roster — `code` is the whole transported identity, and owner and case stay local derivations.
+- Law: one gRPC code roster answers every TRANSPORT-status question, so the egress fault reads its columns and no literal ladder re-derives a kind.
+- Law: a remote fault's class elects off the producer's typed recovery arm; the domain code stays identity and reaches no retry band.
+- Law: the three invocation outcomes elect by trailer SHAPE — one decodable detail is remote, undecodable or plural is malformed, absent is transport.
+- Law: the IFC typed-value fold lands as the producer's own fourteen-arm `{ case, value }` face, closed both ways against its roster.
+- Law: the control-intent family closes THIRTY-ONE arms; the wire stays open, so decoding a subset is lawful and re-authoring it is not.
+- Law: banner dismissibility and overview frame geometry never cross; each head derives them from the severity literal and the named source key.
+- Law: a cold materialization and a pool re-entry seal one control receipt, so a recycling regression reads as `controlType` against `intentKey`.
+- Law: canonical pixel identity pins the kernel-framed preimage version, so a digest minted under the unframed prior preimage refuses at the column.
+- Law: a record with a REFINED key closes through `Shape.Record`, so a refused key fails the decode instead of vanishing from the map.
+- Law: the write disposition lands as the producer's closed FOUR-arm union, so a rejection, a rollback, and an indeterminate write stay distinct.
+- Law: the live-wire trio decodes the producer's own smart-enum tokens for transport, state, direction, and echo class; none is minted at this end.
+- Law: live-wire absence rides the UNDEFINED encoding, since the producer's merge omits an unset slot rather than null-filling it.
+- Law: receipt kinds this page decodes against are literals, and a kind whose payload no branch decodes is named nowhere here.
+- Law: ONE decoded fault observation serves every seam carrying one, so no arm re-declares it and none carries a code or a sentence beside it.
+- Law: the command settlement closes FIVE arms; a rejection carries its observation, and a rollback and a compensation stay two reasons.
+- Law: evidence arms carry their producer's own record, so no timeline slot decodes as an untyped payload.
+- Law: an optional evidence column rides the branch option carrier, so no consumer asserts presence the decode already proved.
+- Law: apphost and appui wire absence is OMISSION, settled once at the producer's merge, so no landing here binds a `null` token no minter writes.
+- Law: the message plane's eight families decode as one cluster; a coordinate addressing a row crosses as decimal text and a magnitude as a number.
+- Law: hop and delivery legs omit their attempt and elapsed readings TOGETHER, so one without the other names a dial that never happened.
+- Law: the control family spells one roster per representation, since an omitted key lands as an option inside and as an absent column on the wire.
 - Boundary: raw GeoJSON text and CloudEvents remain outside the registry because no typed family crosses.
+- Boundary: a nested family member registers no census row, so an intent binding, a menu row, and the control receipt carry no gate or parity.
 
 ```typescript signature
 import { VariantSchema } from "@effect/experimental"
 import { Context, Layer } from "effect"
+
+// The absence policy leads this section because every landing below reads it: `_absent` folds the producer's typed
+// absence on a scalar string column once, since proto3 emits `""` for an unset singular string — a remote detail's
+// `tenant`, a verdict's `variant`, an authored material's `emissionUnit`, an acquired set's `materialId`, and a
+// dielectric's `conductor` all arrive empty and read as `Option.none()`. Declared below its first reader it sat in
+// the temporal dead zone of every eagerly-evaluated `Schema.Class` above it. The shipped operator owns the fold; a
+// local twin is the drift defect.
+const _absent: typeof Schema.OptionFromNonEmptyTrimmedString = Schema.OptionFromNonEmptyTrimmedString
 
 const _reasons = [
   "canceled", "unknown", "invalid", "deadline", "notfound", "exists", "denied", "exhausted",
   "precondition", "aborted", "range", "unimplemented", "internal", "unavailable", "dataloss", "unauthenticated",
 ] as const
 
-// Transport families mint through the same seam every folder family takes: `class` is the branch taxonomy, and
-// `code`/`retryable`/`terminal` are the gRPC peer's OWN columns adopted verbatim — the wire's retryability diverges
-// from its class default where the protocol says so (an already-exists refusal never succeeds on a re-send), so
-// these are peer facts the landing carries, never a second taxonomy this branch mints.
+// `class` is the branch taxonomy this roster ADOPTS; `code`, `retryable`, and `terminal` are the gRPC peer's OWN
+// columns carried verbatim, and neither derives from the class beside it. `retryable` is the peer's re-send verdict
+// and it diverges from `Fault.Class.retryable` at exactly ONE row — `exists` grades `conflicted`, whose branch band
+// is `transient`, while an already-exists refusal never succeeds on a re-send — so folding the column into that
+// projection would flip that row silently and stamp a re-drive an operator's own protocol forbids. `terminal` is a
+// FAILOVER fact rather than a severity: it says this peer will refuse the call again, which is why four rows carry
+// it where eleven carry a terminal class. `transport` is the fourth column and it exists so ONE table answers every
+// code question: the egress fault below reads it instead of re-deriving a kind from bare code literals, which is
+// the second code roster this column forecloses.
 const _hopRows = {
-  canceled: { code: 1, retryable: false, terminal: false, class: "defect" },
-  unknown: { code: 2, retryable: false, terminal: false, class: "defect" },
-  invalid: { code: 3, retryable: false, terminal: false, class: "invalid" },
-  deadline: { code: 4, retryable: true, terminal: false, class: "expired" },
-  notfound: { code: 5, retryable: false, terminal: false, class: "absent" },
-  exists: { code: 6, retryable: false, terminal: false, class: "conflicted" },
-  denied: { code: 7, retryable: false, terminal: true, class: "denied" },
-  exhausted: { code: 8, retryable: true, terminal: false, class: "exhausted" },
-  precondition: { code: 9, retryable: false, terminal: false, class: "invalid" },
-  aborted: { code: 10, retryable: true, terminal: false, class: "conflicted" },
-  range: { code: 11, retryable: false, terminal: false, class: "invalid" },
-  unimplemented: { code: 12, retryable: false, terminal: true, class: "defect" },
-  internal: { code: 13, retryable: false, terminal: false, class: "defect" },
-  unavailable: { code: 14, retryable: true, terminal: false, class: "unavailable" },
-  dataloss: { code: 15, retryable: false, terminal: true, class: "breached" },
-  unauthenticated: { code: 16, retryable: false, terminal: true, class: "denied" },
-} as const
+  canceled: { code: 1, retryable: false, terminal: false, class: "defect", transport: "deadline" },
+  unknown: { code: 2, retryable: false, terminal: false, class: "defect", transport: "connectivity" },
+  invalid: { code: 3, retryable: false, terminal: false, class: "invalid", transport: "connectivity" },
+  deadline: { code: 4, retryable: true, terminal: false, class: "expired", transport: "deadline" },
+  notfound: { code: 5, retryable: false, terminal: false, class: "absent", transport: "connectivity" },
+  exists: { code: 6, retryable: false, terminal: false, class: "conflicted", transport: "connectivity" },
+  denied: { code: 7, retryable: false, terminal: true, class: "denied", transport: "connectivity" },
+  exhausted: { code: 8, retryable: true, terminal: false, class: "exhausted", transport: "ceiling" },
+  precondition: { code: 9, retryable: false, terminal: false, class: "invalid", transport: "connectivity" },
+  aborted: { code: 10, retryable: true, terminal: false, class: "conflicted", transport: "connectivity" },
+  range: { code: 11, retryable: false, terminal: false, class: "invalid", transport: "connectivity" },
+  unimplemented: { code: 12, retryable: false, terminal: true, class: "defect", transport: "connectivity" },
+  internal: { code: 13, retryable: false, terminal: false, class: "defect", transport: "connectivity" },
+  unavailable: { code: 14, retryable: true, terminal: false, class: "unavailable", transport: "connectivity" },
+  dataloss: { code: 15, retryable: false, terminal: true, class: "breached", transport: "connectivity" },
+  unauthenticated: { code: 16, retryable: false, terminal: true, class: "denied", transport: "connectivity" },
+} as const satisfies { readonly [K in (typeof _reasons)[number]]: {
+  readonly code: number
+  readonly retryable: boolean
+  readonly terminal: boolean
+  readonly class: Fault.Class.Kind
+  readonly transport: TransportKind
+} }
+// ONE vocabulary over ONE roster. `Shape.vocabulary` already publishes every projection this plane spends — the
+// literal schema, the row read, the guard, and the declaration order — so a second owner folded over the same rows
+// to re-answer `class` was a mirror with nothing holding the two in step. `class` stays a COLUMN rather than a
+// family mint because no refusal on this page raises a hop reason: `Remote` is the fault and the peer's code is its
+// whole reason space, so a reason roster with a per-reason subject and renderer would have no raise to serve.
 const _hopVocabulary = Shape.vocabulary(_reasons, _hopRows)
-const _hops = Fault.Class.family(_reasons, Record.map(_hopRows, (row) => ({ class: row.class })))
 
 declare namespace Hops {
-  type Reason = (typeof _hops.reasons)[number]
+  type Reason = (typeof _reasons)[number]
   type Row = (typeof _hopRows)[Reason]
   type Shape = {
     readonly reasons: typeof _reasons
-    readonly wire: typeof _hops.schema
+    readonly wire: typeof _hopVocabulary.schema
     readonly is: (input: unknown) => input is Reason
     readonly at: (reason: Reason) => Row
     readonly fromCode: (code: number) => Reason
@@ -481,7 +706,7 @@ const _byCode: HashMap.HashMap<number, Hops.Reason> = Array.reduce(
 
 const Hops: Hops.Shape = {
   reasons: _reasons,
-  wire: _hops.schema,
+  wire: _hopVocabulary.schema,
   is: _hopVocabulary.is,
   at: _hopVocabulary.at,
   fromCode: (code) => Option.getOrElse(HashMap.get(_byCode, code), () => "unknown"),
@@ -494,86 +719,299 @@ const _stamp = (tag: string): Schema.Schema<unknown, unknown> =>
     encode: Function.identity,
   })
 
-class Hop extends Schema.Class<Hop>("Hop")({
-  site: Schema.NonEmptyString,
-  reason: Hops.wire,
-  elapsed: Schema.DurationFromMillis,
-}) {}
-
 const _WIRE_ATTR = { reason: "wire.reason", retryable: "wire.retryable", terminal: "wire.terminal" } as const
 
-class FaultDetail extends Schema.TaggedError<FaultDetail>()("FaultDetail", {
-  reason: Hops.wire,
-  surface: Schema.NonEmptyString,
-  detail: Schema.NonEmptyString,
-  hops: Schema.Array(Hop),
-  tenant: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+// The enricher seats on the ROSTER rather than on any fault class, because what it enriches is a capture band the
+// producing surface already stamped with a reason token: it reads the roster's own columns and mints nothing, so a
+// class carrying the same three columns beside it would be a second answer to one question.
+const _EnricherLive: Layer.Layer<Fault.Enricher> = Layer.succeed(
+  Fault.Enricher,
+  Fault.Enricher.of({
+    enrich: (capture) =>
+      Effect.succeed(
+        Option.match(Option.filter(Option.fromNullable(capture.attributes[_WIRE_ATTR.reason]), Hops.is), {
+          onNone: () => capture,
+          onSome: (reason) =>
+            capture.enriched({
+              [_WIRE_ATTR.reason]: reason,
+              [_WIRE_ATTR.retryable]: Hops.at(reason).retryable,
+              [_WIRE_ATTR.terminal]: Hops.at(reason).terminal,
+            }),
+        }),
+      ),
+  }),
+)
+
+const _ProtoTimestamp = Schema.Struct({
+  seconds: Schema.BigIntFromSelf.pipe(Schema.betweenBigInt(-62135596800n, 253402300799n)),
+  nanos: Schema.Int.pipe(Schema.between(0, 999999999)),
+})
+const _ProtoDuration = Schema.Struct({
+  seconds: Schema.BigIntFromSelf.pipe(Schema.betweenBigInt(0n, 315576000000n)),
+  nanos: Schema.Int.pipe(Schema.between(0, 999999999)),
+})
+const _Correlation = Schema.String.pipe(
+  Schema.pattern(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i),
+)
+const _Recovery = Schema.Union(
+  Schema.Struct({ kind: Schema.Literal("terminal") }),
+  Schema.Struct({ kind: Schema.Literal("transient") }),
+  Schema.Struct({ kind: Schema.Literal("retryAfter"), delay: _ProtoDuration }),
+)
+// A remote fault's CLASS elects off the producer's own typed recovery arm and never off the domain code beside it.
+// A code band reaching a class is a second answer to retriability that contradicts the arm the producer sent: an
+// `unavailable` code arriving under a `terminal` arm graded `transient` through the hop roster and handed
+// `Fault.Budget` a re-drive the peer had already refused, while `retryable` and `terminal` beside it read the arm
+// and disagreed. The code stays IDENTITY and the arm stays RECOVERY. `retryAfter` lands `exhausted` because that is
+// the one branch band whose producers state their own window and whose raise carries `Fault.Class.After`;
+// `transient` lands `unavailable`, the transient band a caller re-invokes identically under the budget; `terminal`
+// lands `invalid`, the terminal caller-blamed band whose re-offer route is the material the caller must re-author.
+const _remoteClasses = {
+  terminal: "invalid",
+  transient: "unavailable",
+  retryAfter: "exhausted",
+} as const satisfies { readonly [K in (typeof _Recovery.Type)["kind"]]: Fault.Class.Kind }
+// Generated oneof faces name the set arm on `case` and carry its message on `value`. Both verdict arms carry
+// `google.protobuf.Empty`, a message whose whole content is its `$typeName` brand, so their payload stays DECLARED
+// untyped rather than seated — this landing reads the arm name and never the arm's value, and a typed `Empty` shape
+// would assert a generated spelling no catalog row publishes. `retryAfter` alone carries a schema, because
+// `retryAfter` alone carries a value this end reads.
+const _WireRecovery = Schema.Struct({
+  kind: Schema.Union(
+    Schema.Struct({ case: Schema.Literal("terminal"), value: Schema.Unknown }),
+    Schema.Struct({ case: Schema.Literal("transient"), value: Schema.Unknown }),
+    Schema.Struct({ case: Schema.Literal("retryAfter"), value: _ProtoDuration }),
+  ),
+})
+
+// `FaultDetail` crosses SEVEN columns and this decode-only mirror carries all seven. `code` is the whole transported
+// identity — the corpus contract compacted `package`, `case`, and `evidence` away at every producer and consumer in
+// one move, so owner and case are LOCAL derivations off the code and no column here rehydrates the producer's own
+// union. `tenant` takes `_absent`, because the empty string a proto3 singular column carries for an unset value
+// reads `Option.none()` at ONE seat; `message` stays required, since a producer's blank message is an authored
+// blank rather than an unstamped column.
+class RemoteDetail extends Schema.Class<RemoteDetail>("RemoteDetail")({
+  code: Schema.Int.pipe(Schema.positive()),
+  message: Schema.String,
+  correlation: _Correlation,
+  hlcPhysical: _ProtoTimestamp,
+  hlcLogical: Schema.BigIntFromSelf.pipe(Schema.betweenBigInt(0n, 18446744073709551615n)),
+  tenant: _absent,
+}) {}
+
+// Slots run in the producer's own field order, so the mirror reads against the `.proto` top to bottom and an
+// appended column lands at the tail rather than wherever a reader opened the file. Fields bind by NAME on both
+// sides, so the concurrent proto renumbering moves no line here.
+const _RemoteWire = Schema.Struct({
+  code: RemoteDetail.fields.code,
+  message: RemoteDetail.fields.message,
+  correlation: RemoteDetail.fields.correlation,
+  hlcPhysical: RemoteDetail.fields.hlcPhysical,
+  hlcLogical: RemoteDetail.fields.hlcLogical,
+  tenant: RemoteDetail.fields.tenant,
+  recovery: _WireRecovery,
+})
+
+class Remote extends Schema.TaggedError<Remote>()("Remote", {
+  detail: RemoteDetail,
+  recovery: _Recovery,
 }) {
-  static readonly Hop: typeof Hop = Hop
-  static readonly FromWire: Schema.Schema<FaultDetail, unknown> = Schema.compose(_stamp("FaultDetail"), FaultDetail, { strict: false })
-  static readonly EnricherLive: Layer.Layer<Fault.Enricher> = Layer.succeed(
-    Fault.Enricher,
-    Fault.Enricher.of({
-      enrich: (capture) =>
-        Effect.succeed(
-          Option.match(
-            Option.filter(
-              Option.fromNullable(capture.attributes[_WIRE_ATTR.reason]),
-              Hops.is,
-            ),
-            {
-              onNone: () => capture,
-              onSome: (reason) =>
-                capture.enriched({
-                  [_WIRE_ATTR.reason]: reason,
-                  [_WIRE_ATTR.retryable]: Hops.at(reason).retryable,
-                  [_WIRE_ATTR.terminal]: Hops.at(reason).terminal,
-                }),
-            },
-          ),
-        ),
+  // Wire and detail differ by ONE column, so these arms move `recovery` and nothing else: every detail column is
+  // one field declaration serving both sides, which is what makes a per-column copy unspellable rather than merely
+  // absent. Growth lands on `RemoteDetail` alone and crosses both directions with no arm edited.
+  static readonly FromWire: Schema.Schema<Remote, typeof _RemoteWire.Encoded> = Schema.transform(_RemoteWire, Remote, {
+    strict: true,
+    decode: ({ recovery, ...detail }) => new Remote({
+      detail: new RemoteDetail(detail),
+      recovery: recovery.kind.case === "retryAfter"
+        ? { kind: "retryAfter", delay: recovery.kind.value }
+        : { kind: recovery.kind.case },
     }),
-  )
-  get class(): Fault.Class.Kind {
-    return _hops.classOf(this.reason)
-  }
+    encode: (fault) => ({
+      ...fault.detail,
+      recovery: {
+        kind: fault.recovery.kind === "retryAfter"
+          ? { case: "retryAfter" as const, value: fault.recovery.delay }
+          : { case: fault.recovery.kind, value: {} },
+      },
+    }),
+  })
+  // Both re-drive facts publish AS MEMBERS because the egress altitude grades this value STRUCTURALLY: the problem
+  // ladder reads the pair off the instance by name and imports nothing from here, so a fact answered only by
+  // reading `recovery` outside the class is a fact that altitude cannot reach. Complementary here and only here —
+  // `recovery` is one closed three-arm union — while the ladder keeps them independent, because a foreign hop may
+  // claim retryability on a verdict its own producer already called final.
   get retryable(): boolean {
-    return Hops.at(this.reason).retryable
+    return this.recovery.kind !== "terminal"
   }
   get terminal(): boolean {
-    return Hops.at(this.reason).terminal
+    return this.recovery.kind === "terminal"
   }
-  get origin(): Option.Option<Hop> {
-    return Array.head(this.hops)
+  get class(): Fault.Class.Kind {
+    return _remoteClasses[this.recovery.kind]
   }
   override get message(): string {
-    return `<${this.surface}:${this.reason}> ${this.detail}`
+    return `<remote:${this.detail.code}> ${this.detail.message}`
   }
 }
 
-const _flagReasons = ["static", "default", "targeting", "split", "cached", "disabled", "stale", "error", "unknown"] as const
+const _transportKinds = ["connectivity", "deadline", "ceiling"] as const
+// Both reads DERIVE off the one code roster: `kindOf` spends its `transport` column and `denied` its `class`, so a
+// gRPC code is answered by the table that already rows it and never by a literal ladder beside it. A code no row
+// names resolves through the roster's own `unknown` arm rather than through a fallback spelled here.
+class Transport extends Schema.TaggedError<Transport>()("Transport", {
+  kind: Schema.Literal(..._transportKinds),
+  detail: Schema.String,
+}) {
+  static kindOf(code: number): TransportKind {
+    return Hops.at(Hops.fromCode(code)).transport
+  }
+  static denied(code: number): boolean {
+    return Hops.at(Hops.fromCode(code)).class === "denied"
+  }
+}
 
+class MalformedDetail extends Schema.TaggedError<MalformedDetail>()("MalformedDetail", {
+  detail: Schema.String,
+}) {}
+
+// The invocation boundary's three outcomes are one closed reason space, so the egress census mounts ONE roster and
+// no consumer folds a fault instance into a label of its own. `Remote` contributes its recovery arms, `Transport`
+// its kinds, and `MalformedDetail` its single terminal reason — the roster IS the sum, never a hand list beside it.
+type InvokeFault = Remote | Transport | MalformedDetail
+const _invokeReasons = [
+  "remote-terminal", "remote-transient", "remote-retry-after",
+  ..._transportKinds,
+  "malformed-detail",
+] as const
+type InvokeReason = (typeof _invokeReasons)[number]
+type TransportKind = (typeof _transportKinds)[number]
+
+// The roster publishes as a VOCABULARY rather than the bare tuple it was: `Convention.tracked` and
+// `Convention.outcome` take a `Convention.Census` — the ordered roster its own owner minted — so a duplicate word
+// refuses at this mint and neither aspect re-proves membership at its own call. Rows carry nothing because the
+// words ARE the contract here: order and membership are all a census aspect reads, exactly as the recovery,
+// re-offer, and blame vocabularies at the fault floor declare theirs.
+const _invokeCensus = Shape.vocabulary(_invokeReasons, {
+  "remote-terminal": {},
+  "remote-transient": {},
+  "remote-retry-after": {},
+  connectivity: {},
+  deadline: {},
+  ceiling: {},
+  "malformed-detail": {},
+})
+
+const _invokeReason = (fault: InvokeFault): InvokeReason =>
+  fault instanceof Remote
+    ? fault.recovery.kind === "retryAfter" ? "remote-retry-after" : `remote-${fault.recovery.kind}`
+    : fault instanceof Transport ? fault.kind : "malformed-detail"
+
+// The producer's EIGHT frozen wire tokens, transcribed whole. Three lowercase reason vocabularies neighbour this
+// column and none of them is it: `Convention.FlagReason` is the OpenTelemetry `feature_flag.result.reason` value
+// family, which spells the targeting arm `targeting_match` and carries a ninth `stale` row; the OpenFeature SDK
+// resolves its own uppercase constants; this roster is `FlagReason.Wire`, the column the producer's `[Mapper]`
+// actually writes. Deriving this literal from the telemetry family would refuse every real `targeting` document and
+// admit a `stale` token whose own producer declares no such row — the emitting producer owns the wire vocabulary.
+const _flagReasons = ["static", "default", "targeting", "split", "cached", "disabled", "error", "unknown"] as const
+
+// Four columns, field for field against the producer record. `value` is the evaluated BOOLEAN — the producer maps
+// its own `Enabled` onto it, so a string or number here is a shape no minter writes. `variant` is REQUIRED: the
+// producer's own absent arm is the named token `Variant.Absent` rather than a missing column, so the undefined-
+// reading optional matched nothing this seam carries; `_absent` folds a structurally empty column from a foreign
+// provider echo to `Option.none()` while a named variant — the absent arm included — lands as itself.
 class FlagVerdict extends Schema.Class<FlagVerdict>("FlagVerdict")({
   flag: Schema.NonEmptyString,
-  value: Schema.Union(Schema.Boolean, Schema.NonEmptyString, Schema.Number),
-  variant: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+  value: Schema.Boolean,
+  variant: _absent,
   reason: Schema.Literal(..._flagReasons),
 }) {}
 
+// Absence OMITS on this producer and does not null-fill: the app-root merge declares `WhenWritingNull` and the
+// resolver's own `OmitAbsent` modifier drops an unset `Option<T>` member outright, so every optional slot below
+// reads the UNDEFINED encoding. A `NullOr` here would declare a token the merge posture guarantees never appears,
+// and the empty-string fold `_absent` owns belongs to proto3 singular columns on another producer entirely.
+const _omitted = <A, I, R>(value: Schema.Schema<A, I, R>) => Schema.optionalWith(value, { as: "Option" })
+
+// NodaTime round-trip `Duration` text, not an ISO-8601 duration: the producer prints through the round-trip pattern
+// and a consumer parsing this as ISO refuses every value. It lands as text because no branch owner decodes that
+// grammar, and inventing one here would fork the temporal alphabet the producer's converter set already fixes.
+const _elapsed = Schema.NonEmptyString
+
+// The bounded fault observation the producer lowers every `Error` through, and the ONE compact fault shape this
+// seam carries: `code` plus a typed recovery arm, with no package, family, band, offset, or case column — the same
+// compaction `RemoteDetail` states above, reached here through the producer's own `AppHostFaultMap`. `causes` is a
+// BOUNDED stamp chain and `truncated` says the chain was cut, so a reader knows whether it holds the whole cause
+// list; folding that flag away would make a cut chain and a short one read alike.
+const _FaultCause = Schema.Struct({
+  code: _omitted(Schema.Int),
+  exceptionType: _omitted(Schema.NonEmptyString),
+  hResult: _omitted(Schema.Int),
+})
+const _FaultRecovery = Schema.Union(
+  Schema.Struct({ kind: Schema.Literal("terminal") }),
+  Schema.Struct({ kind: Schema.Literal("transient") }),
+  Schema.Struct({ kind: Schema.Literal("throttled"), retryAfter: _elapsed }),
+)
+const _FaultObservation = Schema.Struct({
+  recovery: _FaultRecovery,
+  causes: Schema.Array(_FaultCause),
+  truncated: Schema.Boolean,
+  code: _omitted(Schema.Int),
+})
+
+// The command deck's own settlement union, five arms on the producer's `[JsonDerivedType]` roster. `rejected`
+// carries the STRUCTURED observation the deck lowered its refusal through, never a detail string beside a numeric
+// code: a code is telemetry identity and a sentence is prose, and neither answers whether the refusal is worth
+// re-offering — the recovery arm inside the observation does. `rolled-back` and `compensated` each carry the reason
+// their own transaction settled under, and they stay two arms because an undone command and a compensated one owe
+// the user different words. Both verdict arms carry nothing: a completed command IS its receipt.
+const _CommandOutcome = Schema.Union(
+  Schema.Struct({ kind: Schema.Literal("completed") }),
+  Schema.Struct({ kind: Schema.Literal("cancelled") }),
+  Schema.Struct({ kind: Schema.Literal("rejected"), fault: _FaultObservation }),
+  Schema.Struct({ kind: Schema.Literal("rolled-back"), reason: Schema.NonEmptyString }),
+  Schema.Struct({ kind: Schema.Literal("compensated"), reason: Schema.NonEmptyString }),
+)
+
+// The deck receipt and the native-asset fact are nested family members with no census row of their own, landed
+// here because the evidence timeline's own arms carry them: an untyped `Unknown` in those two slots asserted that
+// no producer shape existed, where both are declared records on the pages this page already mirrors.
+const _DeckReceipt = Schema.Struct({
+  key: Schema.NonEmptyString,
+  surface: Schema.NonEmptyString,
+  elapsed: _elapsed,
+  outcome: _CommandOutcome,
+  payloadDigest: Schema.NonEmptyString,
+  correlation: Schema.NonEmptyString,
+})
+const _NativeAssetFact = Schema.Struct({
+  library: Schema.NonEmptyString,
+  version: Schema.NonEmptyString,
+  path: Schema.NonEmptyString,
+  rid: Schema.NonEmptyString,
+})
+
+// The version literal names a PREIMAGE LAW, never a field roster: the producer keys the plane through the kernel's
+// canonical framing — the length-framed version string, each extent as a little-endian ordinal, then the tight
+// top-left RGBA plane as the trailing raw leaf whose extent the two ordinals already recover. The v1 literal named
+// the same pixels under an UNFRAMED version prefix, so the two versions key one plane to two digests and a decoder
+// pinning the older literal admits a hash from a preimage no producer writes. Pinning the literal is what makes that
+// a refusal at the column rather than a silent parity pass on a digest nothing can reproduce.
 const _PixelIdentity = Schema.Struct({
-  version: Schema.Literal("rgba8-srgb-straight-top-left-v1"),
+  version: Schema.Literal("rgba8-srgb-straight-top-left-v2"),
   width: Shape.Refined.OrdinalKey.pipe(Schema.positive()),
   height: Shape.Refined.OrdinalKey.pipe(Schema.positive()),
   hash: Digest.codecs.content.wire,
 })
 const _EvidenceReceipt = Schema.Union(
-  Schema.Struct({ kind: Schema.Literal("surface"), host: Schema.String, descriptor: Schema.String, scale: Schema.Number, at: Schema.DateTimeUtc, correlation: Schema.String, handle: Schema.optional(Schema.String) }),
+  Schema.Struct({ kind: Schema.Literal("surface"), host: Schema.String, descriptor: Schema.String, scale: Schema.Number, at: Schema.DateTimeUtc, correlation: Schema.String, handle: _omitted(Schema.NonEmptyString) }),
   Schema.Struct({ kind: Schema.Literal("focus"), target: Schema.String, focused: Schema.Boolean }),
-  Schema.Struct({ kind: Schema.Literal("render"), slot: Schema.String, format: Schema.String, frameHash: Schema.String, drawHash: Schema.optional(Schema.String), pixels: Schema.optional(_PixelIdentity), bytes: Schema.String.pipe(Schema.pattern(/^\d+$/)), elapsed: Schema.String, colorSpace: Schema.String, destination: Schema.optional(Schema.String) }),
+  Schema.Struct({ kind: Schema.Literal("render"), slot: Schema.String, format: Schema.String, frameHash: Schema.String, drawHash: _omitted(Schema.NonEmptyString), pixels: _omitted(_PixelIdentity), bytes: Schema.String.pipe(Schema.pattern(/^\d+$/)), elapsed: _elapsed, colorSpace: Schema.String, destination: _omitted(Schema.NonEmptyString) }),
   Schema.Struct({ kind: Schema.Literal("disposal"), screenId: Schema.String, active: Schema.String, disposables: Schema.Int }),
   Schema.Struct({ kind: Schema.Literal("edit"), slot: Schema.String, surface: Schema.String, target: Schema.String, editor: Schema.String, outcome: Schema.String }),
-  Schema.Struct({ kind: Schema.Literal("command"), receipt: Schema.Unknown }),
-  Schema.Struct({ kind: Schema.Literal("native-asset"), fact: Schema.Unknown }),
+  Schema.Struct({ kind: Schema.Literal("command"), receipt: _DeckReceipt }),
+  Schema.Struct({ kind: Schema.Literal("native-asset"), fact: _NativeAssetFact }),
   Schema.Struct({ kind: Schema.Literal("theme"), variant: Schema.String, density: Schema.String, trigger: Schema.String, changedKeys: Schema.Int }),
   Schema.Struct({ kind: Schema.Literal("motion"), token: Schema.String, resolved: Schema.String, reduced: Schema.Boolean }),
   Schema.Struct({ kind: Schema.Literal("effect"), plane: Schema.String, key: Schema.String, outcome: Schema.String, flag: Schema.Boolean, count: Schema.Int, magnitude: Schema.String }),
@@ -581,12 +1019,15 @@ const _EvidenceReceipt = Schema.Union(
   Schema.Struct({ kind: Schema.Literal("live-data"), slot: Schema.String, adds: Schema.Int, updates: Schema.Int, removes: Schema.Int, refreshes: Schema.Int }),
   Schema.Struct({ kind: Schema.Literal("collab-sync"), docKey: Schema.String, deltas: Schema.Int, bytes: Schema.String, pending: Schema.Int, applied: Schema.Boolean }),
   Schema.Struct({ kind: Schema.Literal("collab-revert"), docKey: Schema.String, frontierDigest: Schema.String, inverseOps: Schema.Int }),
-  Schema.Struct({ kind: Schema.Literal("media"), key: Schema.String, codec: Schema.String, source: Schema.String, outcome: Schema.String }),
+  // `outcome` and `fault` are COMPLEMENTARY by the producer's own projection — a ready media outcome lowers to no
+  // observation and a failed one always carries its error — so the pair is one fact read two ways and a `failed`
+  // arriving without a fault is a producer defect this shape makes visible instead of a numeric code standing in.
+  Schema.Struct({ kind: Schema.Literal("media"), key: Schema.String, codec: Schema.String, source: Schema.String, outcome: Schema.Literal("ready", "failed"), fault: _omitted(_FaultObservation) }),
   Schema.Struct({ kind: Schema.Literal("quality"), tier: Schema.String, pathTraceSamples: Schema.Int, watermarkFactor: Schema.Number, motion: Schema.String, foveationLevel: Schema.Int, refreshHz: Schema.Number }),
   Schema.Struct({ kind: Schema.Literal("gpu-frame"), frameOrdinal: Schema.String, passes: Schema.Int, unmeasured: Schema.Int, measuredNanoseconds: Schema.String }),
-  Schema.Struct({ kind: Schema.Literal("layout"), panel: Schema.String, constraints: Schema.Int, elapsed: Schema.String, fault: Schema.optional(Schema.String) }),
+  Schema.Struct({ kind: Schema.Literal("layout"), panel: Schema.String, constraints: Schema.Int, elapsed: _elapsed, fault: _omitted(_FaultObservation) }),
   Schema.Struct({ kind: Schema.Literal("dispatcher-lag"), boundary: Schema.String, elapsed: Schema.String }),
-  Schema.Struct({ kind: Schema.Literal("collab-precommit"), docKey: Schema.String, lamport: Schema.Int, ops: Schema.Int, origin: Schema.String, message: Schema.optional(Schema.String) }),
+  Schema.Struct({ kind: Schema.Literal("collab-precommit"), docKey: Schema.String, lamport: Schema.Int, ops: Schema.Int, origin: Schema.String, message: _omitted(Schema.NonEmptyString) }),
 )
 const _RasmPackage = Schema.Literal(
   "rasm.kernel", "Rasm.Element", "Rasm.AppHost", "Rasm.Materials", "Rasm.Bim", "Rasm.Fabrication",
@@ -617,32 +1058,207 @@ class EvidenceTimeline extends Schema.Class<EvidenceTimeline>("EvidenceTimeline"
   rows: Schema.Array(_EvidenceRow),
 }) {
   static readonly Receipt: typeof _EvidenceReceipt = _EvidenceReceipt
+  static readonly Command: typeof _DeckReceipt = _DeckReceipt
+  static readonly Outcome: typeof _CommandOutcome = _CommandOutcome
+  static readonly NativeAsset: typeof _NativeAssetFact = _NativeAssetFact
+  static readonly Fault: typeof _FaultObservation = _FaultObservation
   static readonly Pixel: typeof _PixelIdentity = _PixelIdentity
 }
 
+// The live-wire trio decodes the producer's OWN rosters, each one the smart-enum `Key` its row carries rather than a
+// vocabulary this end invented: eleven transports, five lifecycle states, three directions, four echo classes. An
+// ordinal-keyed enum crossing this seam is the named producer violation, so every one of these is a token.
+const _transports = [
+  "opc-ua", "opc-ua-pubsub", "modbus", "mqtt", "serial", "bacnet",
+  "mtconnect", "rest", "graphql", "spreadsheet", "erp-plm",
+] as const
+const _bindingStates = ["connecting", "subscribed", "polling", "stale", "faulted"] as const
+const _bindingDirections = ["inbound", "outbound", "bidirectional"] as const
+const _echoKinds = ["absent", "stamped", "tokened", "slotted"] as const
+
+// The write disposition is a CLOSED four-arm union the producer projects once and this end reconstructs on the
+// `kind` literal — never re-minted branch-side, and never flattened to a boolean. The two fault-bearing arms are
+// what make the flattening a defect: `rejected` says the edge refused and the prior value stands, while
+// `indeterminate` says the attempt AND its rollback both failed, so the external value is unknown to this process.
+// A success flag fuses those two with `rolled-back`, whose prior value IS recoverable, and a dashboard would show
+// one repair for three unlike states. `acknowledged` carries the echo CLASS its own arm proved, so the strength of
+// the acknowledgement — a bare ack, a stamp, a token, a slot read-back — crosses beside the fact of it.
+const _WriteBack = Schema.Union(
+  Schema.Struct({ kind: Schema.Literal("acknowledged"), echo: Schema.Literal(..._echoKinds) }),
+  Schema.Struct({ kind: Schema.Literal("rejected"), fault: _FaultObservation }),
+  Schema.Struct({ kind: Schema.Literal("rolled-back"), priorValue: Schema.Number }),
+  Schema.Struct({
+    kind: Schema.Literal("indeterminate"),
+    attempt: _FaultObservation,
+    rollback: _FaultObservation,
+  }),
+)
+
 class BindingStatus extends Schema.TaggedClass<BindingStatus>()("BindingStatus", {
-  binding: Schema.NonEmptyString,
-  phase: Schema.Literal("bound", "coercing", "refused", "detached"),
-  detail: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+  bindingId: Schema.NonEmptyString,
+  transport: Schema.Literal(..._transports),
+  state: Schema.Literal(..._bindingStates),
+  direction: Schema.Literal(..._bindingDirections),
+  lastGoodAt: _omitted(Schema.DateTimeUtc),
 }) {
   static readonly FromWire: Schema.Schema<BindingStatus, unknown> = Schema.compose(_stamp("BindingStatus"), BindingStatus, { strict: false })
 }
+// The coercion crosses as the CANONICAL value beside both units, never as an offered/landed pair of opaque values:
+// what a reader needs is the magnitude it must render and the unit the source published it under, and the seam's
+// conversion receipt stays at the producer where the evidence lives.
 class CoercedValue extends Schema.TaggedClass<CoercedValue>()("CoercedValue", {
-  binding: Schema.NonEmptyString,
-  offered: Schema.Unknown,
-  landed: Schema.Unknown,
-  path: Schema.NonEmptyString,
+  // The KEY the value was coerced for, projected at the producer's mapper off the binding spec rather than stored on
+  // the coercion record — the domain value stays identity-free and the wire carries the identity a consumer needs.
+  // Without it a decoded coercion could be attributed to nothing: the push envelope's descriptor addresses the
+  // invocation and never enters the serialized element, so this column is what lets the value key a board slot.
+  bindingId: Schema.NonEmptyString,
+  canonical: Schema.Number,
+  canonicalUnit: Schema.NonEmptyString,
+  sourceUnit: Schema.NonEmptyString,
+  sourceAt: Schema.DateTimeUtc,
 }) {
   static readonly FromWire: Schema.Schema<CoercedValue, unknown> = Schema.compose(_stamp("CoercedValue"), CoercedValue, { strict: false })
 }
+// `rendered` and `renderedUnit` cross as a PAIR or not at all — they are the value as the external edge received
+// it, absent wherever the write needed no rendering — so a reader holding one without the other reads a write that
+// never happened.
 class WriteReceipt extends Schema.TaggedClass<WriteReceipt>()("WriteReceipt", {
-  binding: Schema.NonEmptyString,
-  landed: Schema.Unknown,
-  stamp: Clock.Hlc,
+  bindingId: Schema.NonEmptyString,
+  canonical: Schema.Number,
+  rendered: _omitted(Schema.Number),
+  renderedUnit: _omitted(Schema.NonEmptyString),
+  disposition: _WriteBack,
+  elapsed: _elapsed,
+  correlation: Schema.NonEmptyString,
 }) {
+  static readonly Disposition: typeof _WriteBack = _WriteBack
+  static readonly Fault: typeof _FaultObservation = _FaultObservation
   static readonly FromWire: Schema.Schema<WriteReceipt, unknown> = Schema.compose(_stamp("WriteReceipt"), WriteReceipt, { strict: false })
 }
-// Palette gating reuses `Evidence.Availability`'s level vocabulary without sharing its document.
+
+// The receipt kinds these families ride under, as LITERALS. The envelope's own `kind` column stays a free string
+// because that roster is the producing package's and open across packages, but the kinds THIS page decodes against
+// are closed and named here, so a consumer routing an envelope to a landing matches a token this page declares
+// rather than one it spells at the call. Two kinds, not one: a committed transition and a committed write are
+// different documents, and a reader keying both on one token cannot route them. The producer's third live-wire
+// kind, `wire-rejection`, is deliberately ABSENT — it carries `WireRejectionWire`, an in-process refusal receipt
+// whose producer, decoder, and readers are all C#, so naming it here would assert a decoder no branch declares.
+const _receiptKinds = {
+  BindingStatusWire: "wire-status",
+  WriteReceiptWire: "write-back",
+} as const satisfies { readonly [K in "BindingStatusWire" | "WriteReceiptWire"]: string }
+
+// The AppHost MESSAGE PLANE: eight families the outbound hop, the topic bus, and the outbox pump mint, landed as
+// one cluster because they share three narrowings and one absence law. Every optional slot OMITS — the producer's
+// merge encodes absence once at `SuiteContracts` and every peer face spells `field?: T` — so a `null` here would
+// bind a token no minter writes. A coordinate that ADDRESSES a row crosses as a decimal STRING, because a `ulong`
+// past 2^53 loses precision in a JSON number and exact comparison is the whole purpose of an ordinal; a lag, an
+// age, or a tally is a magnitude no reader compares for identity and stays a number.
+const _ordinalText = Schema.String.pipe(Schema.pattern(/^\d+$/))
+const _count = Schema.Int.pipe(Schema.nonNegative())
+const _hopOutcomes = ["delivered", "refused", "faulted"] as const
+const _dialDispositions = ["dialed", "suppressed", "unbound"] as const
+const _outboxDispositions = ["pending", "deferred", "dead-lettered"] as const
+const _dropClasses = ["shed", "missed"] as const
+
+// `attempts` and `elapsedSeconds` are ABSENT TOGETHER on any leg that reached no pipeline. They stay two flat
+// columns because the producer emits two flat columns, so a nested cell here would decode nothing it sends; the
+// pairing is the invariant a reader honours, and one column present without the other names a producer that
+// reported a dial which never happened. `fault` is complementary to `outcome`: `delivered` omits it, and the two
+// failing arms carry the exact observation the hop lowered.
+class HopReceipt extends Schema.Class<HopReceipt>("HopReceipt")({
+  hop: Schema.NonEmptyString,
+  outcome: Schema.Literal(..._hopOutcomes),
+  attempts: _omitted(_count),
+  elapsedSeconds: _omitted(Schema.Number),
+  breaker: _omitted(Schema.NonEmptyString),
+  fault: _omitted(_FaultObservation),
+}) {}
+
+// The dedupe watermark is an HLC ORDINAL and takes the same decimal-text narrowing its three outbox siblings take:
+// it can exceed 2^53, where a JSON number loses precision and exact comparison is the whole purpose of an ordinal.
+// Reading it as a magnitude would have admitted a watermark that compares equal to its own neighbour.
+class DeliveryReceipt extends Schema.Class<DeliveryReceipt>("DeliveryReceipt")({
+  channel: Schema.NonEmptyString,
+  outcome: Schema.Literal(..._hopOutcomes),
+  disposition: Schema.Literal(..._dialDispositions),
+  attempts: _omitted(_count),
+  elapsedSeconds: _omitted(Schema.Number),
+  watermark: _omitted(_ordinalText),
+  fault: _omitted(_FaultObservation),
+}) {}
+
+// `first` and `last` bound the dropped RUN and `count` measures it, so a shed burst and a missed one are one row
+// with a span rather than a receipt per lost message; `resent` says the pump re-drove that span.
+class DropReceipt extends Schema.Class<DropReceipt>("DropReceipt")({
+  topic: Schema.NonEmptyString,
+  subscription: _omitted(Schema.NonEmptyString),
+  class: Schema.Literal(..._dropClasses),
+  first: _count,
+  last: _count,
+  count: _count,
+  resent: Schema.Boolean,
+}) {}
+
+class OutboxRow extends Schema.Class<OutboxRow>("OutboxRow")({
+  topic: Schema.NonEmptyString,
+  dedupKey: Schema.NonEmptyString,
+  disposition: Schema.Literal(..._outboxDispositions),
+  attempt: _count,
+  ordinal: _ordinalText,
+  physical: Schema.NonEmptyString,
+  at: _omitted(Schema.DateTimeUtc),
+  // absent while the row is pending, since a row that has not failed has nothing to observe
+  fault: _omitted(_FaultObservation),
+  // the two W3C members cross under their own names, so a board row deep-links to the producing trace and an
+  // unlistened producer omits both rather than carrying a trace id no backend resolves
+  traceParent: _omitted(Schema.NonEmptyString),
+  traceState: _omitted(Schema.NonEmptyString),
+}) {}
+
+// `fault` is REQUIRED here and optional on the row above, and the split is the table's own meaning: a letter
+// reaches this table only by failing, so a dead letter carrying no observation names a producer that lost its own
+// evidence. The content key addresses the letter the pump replays, so it lands on the branch's content-key brand
+// rather than as loose text.
+class DeadLetterRow extends Schema.Class<DeadLetterRow>("DeadLetterRow")({
+  contentKey: Digest.codecs.content.wire,
+  sink: Schema.NonEmptyString,
+  ordinal: _ordinalText,
+  fault: _FaultObservation,
+  attempts: _count,
+  at: Schema.DateTimeUtc,
+}) {}
+
+class ReplayTally extends Schema.Class<ReplayTally>("ReplayTally")({
+  delivered: _count,
+  held: _count,
+  dead: _count,
+}) {}
+
+// The lane holds a census row of its own AND rides the sweep's roster, so it is declared once and composed: the
+// sweep's `lanes` column is the same shape a lane row decodes to, and a second declaration would let the two drift.
+const _OutboxLane = Schema.Struct({
+  topic: Schema.NonEmptyString,
+  lag: _count,
+  oldestAgeSeconds: Schema.Number,
+})
+class OutboxLane extends Schema.Class<OutboxLane>("OutboxLane")(_OutboxLane.fields) {}
+
+class OutboxSweep extends Schema.Class<OutboxSweep>("OutboxSweep")({
+  lag: _count,
+  oldestAgeSeconds: Schema.Number,
+  watermark: _ordinalText,
+  relayed: _count,
+  duplicates: _count,
+  deferred: _count,
+  at: Schema.DateTimeUtc,
+  lanes: Schema.Array(_OutboxLane),
+}) {}
+// This verdict is the SHELL's, materialized at `ui/viewer/panel` as a slot on the board row its `key` addresses,
+// never the palette's: palette legality is this branch's own `Overlay.Grant` set, derived per render at
+// `ui/view/overlay` off grants nothing here publishes. What crosses is the producer's degradation `level`, which
+// adopts `Evidence.Availability`'s level vocabulary through that owner's own field without sharing its document, so
+// a producer level added at core breaks the consuming degradation table at its declaration rather than at a render.
 class CommandGate extends Schema.TaggedClass<CommandGate>()("CommandGate", {
   key: Schema.NonEmptyString,
   available: Schema.Boolean,
@@ -651,9 +1267,26 @@ class CommandGate extends Schema.TaggedClass<CommandGate>()("CommandGate", {
   static readonly FromWire: Schema.Schema<CommandGate, unknown> = Schema.compose(_stamp("CommandGate"), CommandGate, { strict: false })
 }
 
+// The deck ROW a head mounts a verb from, decode-only and column for column against the producer record. Every
+// column is STATIC: the producer's availability delegate never crosses, so `requires` names the capability keys the
+// gate READ and never a verdict — the verdict rides `CommandGateWire` beside it, and a head re-running the
+// predicate against a capability set it does not hold is the second availability algebra this seam forecloses.
+// `targets` names the palette KINDS a verb acts on as a contextual action, keys rather than rows, because the set
+// is what crosses. `arguments` names the form schema a parameterized verb collects through, and that schema's own
+// key IS this row's key by construction, so the column carries a key rather than a nested document. Both absent
+// columns take the NULL encoding the producer's own absence mappers write. A nested member registers no census row.
+class CommandRow extends Schema.Class<CommandRow>("CommandRow")({
+  key: Schema.NonEmptyString,
+  scope: Schema.Literal("global", "screen", "viewport", "dialog"),
+  requires: Schema.Array(Schema.NonEmptyString),
+  gesture: Schema.OptionFromNullOr(Schema.NonEmptyString),
+  targets: Schema.Array(Schema.NonEmptyString),
+  arguments: Schema.OptionFromNullOr(Schema.NonEmptyString),
+}) {}
+
 const _Vec3 = Schema.Tuple(Schema.Number, Schema.Number, Schema.Number)
 
-// AppUi's shell publishes this widget vocabulary: twenty-nine locked kind literals, each arm carrying its typed shape beside the
+// AppUi's shell publishes this widget vocabulary: thirty-one locked kind literals, each arm carrying its typed shape beside the
 // one `IntentBinding` carrier. The producer SHIPS the discriminant, so this landing decodes on the `kind`
 // column the wire already carries and mints no second tag. Key-grade columns take `NonEmptyString` because an
 // empty key resolves against no label catalog, command registry, or automation id on either head; display text
@@ -667,10 +1300,10 @@ const _IconSlot = Schema.Struct({
   asset: Schema.NonEmptyString,
   placement: Schema.Literal("Left", "Top", "Right", "Bottom"),
   size: Schema.Int.pipe(Schema.positive()),
-  pending: Schema.NullOr(Schema.NonEmptyString),
+  pending: _omitted(Schema.NonEmptyString),
 })
 
-const _HintRow = Schema.Struct({ body: Schema.String, gesture: Schema.NullOr(Schema.NonEmptyString) })
+const _HintRow = Schema.Struct({ body: Schema.String, gesture: _omitted(Schema.NonEmptyString) })
 
 // `role` is the producer's `PaintRole` key — a growable theme roster each head reads as a style class, so it stays
 // an open key where every closed producer table below decodes as its own literal union; no automation-name column
@@ -678,11 +1311,11 @@ const _HintRow = Schema.Struct({ body: Schema.String, gesture: Schema.NullOr(Sch
 const _Binding = Schema.Struct({
   role: Schema.NonEmptyString,
   emphasis: _Emphasis,
-  command: Schema.NullOr(Schema.NonEmptyString),
-  valueKey: Schema.NullOr(Schema.NonEmptyString),
-  trigger: Schema.NullOr(Schema.Literal("activate", "change", "commit")),
-  icon: Schema.NullOr(_IconSlot),
-  hint: Schema.NullOr(_HintRow),
+  command: _omitted(Schema.NonEmptyString),
+  valueKey: _omitted(Schema.NonEmptyString),
+  trigger: _omitted(Schema.Literal("activate", "change", "commit")),
+  icon: _omitted(_IconSlot),
+  hint: _omitted(_HintRow),
 })
 
 const _Window = Schema.Struct({
@@ -714,8 +1347,8 @@ const _PlainDate = Schema.String.pipe(Schema.pattern(/^\d{4}-\d{2}-\d{2}$/), Sch
 const _OptionRow = Schema.Struct({
   value: Schema.NonEmptyString,
   labelKey: Schema.NonEmptyString,
-  group: Schema.NullOr(Schema.NonEmptyString),
-  icon: Schema.NullOr(_IconSlot),
+  group: _omitted(Schema.NonEmptyString),
+  icon: _omitted(_IconSlot),
 })
 
 const _OptionSource = Schema.Union(
@@ -726,41 +1359,53 @@ const _OptionSource = Schema.Union(
 const _CrumbRow = Schema.Struct({
   value: Schema.NonEmptyString,
   labelKey: Schema.NonEmptyString,
-  icon: Schema.NullOr(_IconSlot),
-  command: Schema.NullOr(Schema.NonEmptyString),
+  icon: _omitted(_IconSlot),
+  command: _omitted(Schema.NonEmptyString),
 })
 
-const _AvatarRow = Schema.Struct({ labelKey: Schema.NonEmptyString, portrait: Schema.NullOr(Schema.NonEmptyString) })
+const _AvatarRow = Schema.Struct({ labelKey: Schema.NonEmptyString, portrait: _omitted(Schema.NonEmptyString) })
 
 // pattern lists land non-empty because the producer's own filter encoder refuses an empty one before the
 // picker mounts, so the landing states the emission's shape rather than admitting a document it never writes
 const _FileFilterRow = Schema.Struct({ label: Schema.String, patterns: Schema.NonEmptyArray(Schema.NonEmptyString) })
 
 // a menu row is a ROW one level down, never a child intent, so its recursion closes on itself; every column is
-// representation-invariant, so ONE interface annotates both sides of the suspended reference
-interface _MenuRow {
+// ABSENCE is the second axis this family spells over, and it is what ended the representation invariance the row
+// once had: under the producer's settled encoding an unset key is OMITTED, so the wire side of every optional
+// column is `A | undefined` while the landed side is the branch's own `Option`. One mode parameter carries that
+// split, so each roster is still declared ONCE and instantiated per representation rather than transcribed twice.
+// `_Held` applies the split to a column and `_Of` to a whole nested schema, which is what lets a row hold an icon
+// slot whose own columns split the same way.
+type _Mode = "type" | "encoded"
+type _Held<M extends _Mode, A> = M extends "type" ? Option.Option<A> : A | undefined
+type _Of<M extends _Mode, S extends Schema.Schema.Any> = M extends "type" ? Schema.Schema.Type<S>
+  : Schema.Schema.Encoded<S>
+
+interface _MenuRowOf<M extends _Mode> {
   readonly key: string
   readonly labelKey: string
   readonly posture: "command" | "check" | "radio" | "separator"
-  readonly icon: typeof _IconSlot.Type | null
-  readonly gesture: string | null
-  readonly command: string | null
-  readonly checkedKey: string | null
-  readonly rows: ReadonlyArray<_MenuRow>
+  readonly icon: _Held<M, _Of<M, typeof _IconSlot>>
+  readonly gesture: _Held<M, string>
+  readonly command: _Held<M, string>
+  readonly checkedKey: _Held<M, string>
+  readonly rows: ReadonlyArray<_MenuRowOf<M>>
 }
 
-const _MenuRow: Schema.Schema<_MenuRow> = Schema.Struct({
+const _MenuRow: Schema.Schema<_MenuRowOf<"type">, _MenuRowOf<"encoded">> = Schema.Struct({
   key: Schema.NonEmptyString,
   labelKey: Schema.NonEmptyString,
   posture: Schema.Literal("command", "check", "radio", "separator"),
-  icon: Schema.NullOr(_IconSlot),
-  gesture: Schema.NullOr(Schema.NonEmptyString),
-  command: Schema.NullOr(Schema.NonEmptyString),
-  checkedKey: Schema.NullOr(Schema.NonEmptyString),
-  rows: Schema.Array(Schema.suspend((): Schema.Schema<_MenuRow> => _MenuRow)),
+  icon: _omitted(_IconSlot),
+  gesture: _omitted(Schema.NonEmptyString),
+  command: _omitted(Schema.NonEmptyString),
+  checkedKey: _omitted(Schema.NonEmptyString),
+  rows: Schema.Array(
+    Schema.suspend((): Schema.Schema<_MenuRowOf<"type">, _MenuRowOf<"encoded">> => _MenuRow),
+  ),
 })
 
-// Leaf arms close the family: twenty shapes bottom out, so both representations DERIVE from the union
+// Leaf arms close the family: twenty-one shapes bottom out, so both representations DERIVE from the union
 // rather than being spelled twice — the numeric and temporal columns are what make the two sides differ at all.
 const _leaves = Schema.Union(
   Schema.Struct({ kind: Schema.Literal("button"), key: Schema.NonEmptyString, labelKey: Schema.NonEmptyString, binding: _Binding }),
@@ -771,9 +1416,9 @@ const _leaves = Schema.Union(
     kind: Schema.Literal("dateInput"),
     key: Schema.NonEmptyString,
     temporalKind: Schema.Literal("date", "time", "datetime", "range"),
-    from: Schema.NullOr(_PlainDate),
-    until: Schema.NullOr(_PlainDate),
-    upperKey: Schema.NullOr(Schema.NonEmptyString),
+    from: _omitted(_PlainDate),
+    until: _omitted(_PlainDate),
+    upperKey: _omitted(Schema.NonEmptyString),
     binding: _Binding,
   }),
   Schema.Struct({ kind: Schema.Literal("pathInput"), key: Schema.NonEmptyString, mode: _PickerMode, filters: Schema.Array(_FileFilterRow), multiple: Schema.Boolean, binding: _Binding }),
@@ -786,50 +1431,65 @@ const _leaves = Schema.Union(
   Schema.Struct({ kind: Schema.Literal("radio"), key: Schema.NonEmptyString, options: Schema.Array(_OptionRow), binding: _Binding }),
   Schema.Struct({ kind: Schema.Literal("segmented"), key: Schema.NonEmptyString, posture: Schema.Literal("select", "command"), options: Schema.Array(_OptionRow), binding: _Binding }),
   Schema.Struct({ kind: Schema.Literal("chip"), key: Schema.NonEmptyString, textKey: Schema.NonEmptyString, posture: Schema.Literal("static", "toggle", "removable"), binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("progress"), key: Schema.NonEmptyString, form: Schema.Literal("bar", "ring", "skeleton"), fraction: Schema.NullOr(Schema.Number), binding: _Binding }),
+  Schema.Struct({ kind: Schema.Literal("progress"), key: Schema.NonEmptyString, form: Schema.Literal("bar", "ring", "skeleton"), fraction: _omitted(Schema.Number), binding: _Binding }),
   Schema.Struct({ kind: Schema.Literal("avatar"), key: Schema.NonEmptyString, members: Schema.Array(_AvatarRow), visible: Schema.Int.pipe(Schema.nonNegative()), binding: _Binding }),
   Schema.Struct({ kind: Schema.Literal("breadcrumb"), key: Schema.NonEmptyString, crumbs: Schema.Array(_CrumbRow), binding: _Binding }),
   Schema.Struct({ kind: Schema.Literal("tooltip"), key: Schema.NonEmptyString, hint: _HintRow, binding: _Binding }),
+  // The minimap strip bottoms out: it names its frame producer and its jump verb by KEY and mounts no child intent,
+  // so the recursion never enters it and the walk projection answers zero children by construction rather than by a
+  // roster row. Carrying the frame geometry here instead would put a viewport stream on a control declaration.
+  Schema.Struct({ kind: Schema.Literal("overview"), key: Schema.NonEmptyString, axis: Schema.Literal("vertical", "horizontal", "plane"), sourceKey: Schema.NonEmptyString, jumpCommand: Schema.NonEmptyString, binding: _Binding }),
   Schema.Struct({ kind: Schema.Literal("menu"), key: Schema.NonEmptyString, rows: Schema.Array(_MenuRow), binding: _Binding }),
 )
 
 // Nesting spells ONCE and instantiates per representation: the child type is the only axis that
 // moves, because `_Binding`, `_Window`, and the extent/align columns are representation-invariant by
 // construction — every one of their columns is a string, a literal, or a nullable of one.
-type _BindingRow = typeof _Binding.Type
+type _BindingOf<M extends _Mode> = _Of<M, typeof _Binding>
 type _WindowRow = typeof _Window.Type
 
-type _ColumnOf<T> = {
+type _ColumnOf<M extends _Mode, T> = {
   readonly headerKey: string
   readonly cell: T
-  readonly editor: T | null
+  readonly editor: _Held<M, T>
   readonly extent: { readonly value: number; readonly unit: "auto" | "pixel" | "star" | "sizeToCells" | "sizeToHeader" }
-  readonly sortKey: string | null
+  readonly sortKey: _Held<M, string>
   readonly align: "Left" | "Center" | "Right" | "Stretch"
 }
 
-type _Nest<T> =
-  | { readonly kind: "emptyState"; readonly key: string; readonly headlineKey: string; readonly bodyKey: string; readonly action: T | null; readonly binding: _BindingRow }
-  | { readonly kind: "grid"; readonly key: string; readonly columns: ReadonlyArray<_ColumnOf<T>>; readonly window: _WindowRow; readonly binding: _BindingRow }
-  | { readonly kind: "tree"; readonly key: string; readonly item: T; readonly expansionCommand: string; readonly window: _WindowRow; readonly binding: _BindingRow }
-  | { readonly kind: "toolbar"; readonly key: string; readonly rows: ReadonlyArray<{ readonly item: T; readonly overflow: "AsNeeded" | "Always" | "Never" }>; readonly orientation: "Horizontal" | "Vertical"; readonly binding: _BindingRow }
-  | { readonly kind: "tab"; readonly key: string; readonly pages: ReadonlyArray<{ readonly headerKey: string; readonly body: T }>; readonly binding: _BindingRow }
-  | { readonly kind: "accordion"; readonly key: string; readonly sections: ReadonlyArray<{ readonly headerKey: string; readonly body: T }>; readonly binding: _BindingRow }
-  | { readonly kind: "panel"; readonly key: string; readonly children: ReadonlyArray<T>; readonly constraintProgram: string; readonly binding: _BindingRow }
-  | { readonly kind: "dock"; readonly key: string; readonly regions: ReadonlyArray<T>; readonly constraintProgram: string; readonly binding: _BindingRow }
-  | { readonly kind: "splitter"; readonly key: string; readonly first: T; readonly second: T; readonly orientation: "Horizontal" | "Vertical"; readonly binding: _BindingRow }
+type _Nest<M extends _Mode, T> =
+  | {
+    readonly kind: "banner"
+    readonly key: string
+    readonly headlineKey: string
+    readonly bodyKey: string
+    readonly severity: "information" | "success" | "warning" | "error"
+    readonly placement: "page" | "section"
+    readonly actions: ReadonlyArray<T>
+    readonly evidence: _Held<M, T>
+    readonly binding: _BindingOf<M>
+  }
+  | { readonly kind: "emptyState"; readonly key: string; readonly headlineKey: string; readonly bodyKey: string; readonly action: _Held<M, T>; readonly binding: _BindingOf<M> }
+  | { readonly kind: "grid"; readonly key: string; readonly columns: ReadonlyArray<_ColumnOf<M, T>>; readonly window: _WindowRow; readonly binding: _BindingOf<M> }
+  | { readonly kind: "tree"; readonly key: string; readonly item: T; readonly expansionCommand: string; readonly window: _WindowRow; readonly binding: _BindingOf<M> }
+  | { readonly kind: "toolbar"; readonly key: string; readonly rows: ReadonlyArray<{ readonly item: T; readonly overflow: "AsNeeded" | "Always" | "Never" }>; readonly orientation: "Horizontal" | "Vertical"; readonly binding: _BindingOf<M> }
+  | { readonly kind: "tab"; readonly key: string; readonly pages: ReadonlyArray<{ readonly headerKey: string; readonly body: T }>; readonly binding: _BindingOf<M> }
+  | { readonly kind: "accordion"; readonly key: string; readonly sections: ReadonlyArray<{ readonly headerKey: string; readonly body: T }>; readonly binding: _BindingOf<M> }
+  | { readonly kind: "panel"; readonly key: string; readonly children: ReadonlyArray<T>; readonly constraintProgram: string; readonly binding: _BindingOf<M> }
+  | { readonly kind: "dock"; readonly key: string; readonly regions: ReadonlyArray<T>; readonly constraintProgram: string; readonly binding: _BindingOf<M> }
+  | { readonly kind: "splitter"; readonly key: string; readonly first: T; readonly second: T; readonly orientation: "Horizontal" | "Vertical"; readonly binding: _BindingOf<M> }
 
-type ControlIntent = typeof _leaves.Type | _Nest<ControlIntent>
-type ControlIntentWire = typeof _leaves.Encoded | _Nest<ControlIntentWire>
+type ControlIntent = typeof _leaves.Type | _Nest<"type", ControlIntent>
+type ControlIntentWire = typeof _leaves.Encoded | _Nest<"encoded", ControlIntentWire>
 
 const _child: Schema.Schema<ControlIntent, ControlIntentWire> = Schema.suspend(() => ControlIntent)
 
 const _Column = Schema.Struct({
   headerKey: Schema.NonEmptyString,
   cell: _child,
-  editor: Schema.NullOr(_child),
+  editor: _omitted(_child),
   extent: Schema.Struct({ value: Schema.Number, unit: Schema.Literal("auto", "pixel", "star", "sizeToCells", "sizeToHeader") }),
-  sortKey: Schema.NullOr(Schema.NonEmptyString),
+  sortKey: _omitted(Schema.NonEmptyString),
   align: Schema.Literal("Left", "Center", "Right", "Stretch"),
 })
 
@@ -837,7 +1497,13 @@ const _Section = Schema.Struct({ headerKey: Schema.NonEmptyString, body: _child 
 
 const ControlIntent: Schema.Schema<ControlIntent, ControlIntentWire> = Schema.Union(
   _leaves,
-  Schema.Struct({ kind: Schema.Literal("emptyState"), key: Schema.NonEmptyString, headlineKey: Schema.NonEmptyString, bodyKey: Schema.NonEmptyString, action: Schema.NullOr(_child), binding: _Binding }),
+  // The condition strip NESTS: its verbs and its evidence are child intents, so a retry button inside a banner and
+  // one inside a form decode through this same union and resolve their command keys against the same deck. A
+  // banner-local verb roster would be a second availability algebra over one command vocabulary. `severity` carries
+  // the producer's four-row ladder and `placement` its two; DISMISSIBILITY is a producer column that never crosses,
+  // so each head resolves it from the severity literal rather than from a bit the wire would let drift.
+  Schema.Struct({ kind: Schema.Literal("banner"), key: Schema.NonEmptyString, headlineKey: Schema.NonEmptyString, bodyKey: Schema.NonEmptyString, severity: Schema.Literal("information", "success", "warning", "error"), placement: Schema.Literal("page", "section"), actions: Schema.Array(_child), evidence: _omitted(_child), binding: _Binding }),
+  Schema.Struct({ kind: Schema.Literal("emptyState"), key: Schema.NonEmptyString, headlineKey: Schema.NonEmptyString, bodyKey: Schema.NonEmptyString, action: _omitted(_child), binding: _Binding }),
   Schema.Struct({ kind: Schema.Literal("grid"), key: Schema.NonEmptyString, columns: Schema.Array(_Column), window: _Window, binding: _Binding }),
   Schema.Struct({ kind: Schema.Literal("tree"), key: Schema.NonEmptyString, item: _child, expansionCommand: Schema.NonEmptyString, window: _Window, binding: _Binding }),
   Schema.Struct({ kind: Schema.Literal("toolbar"), key: Schema.NonEmptyString, rows: Schema.Array(Schema.Struct({ item: _child, overflow: Schema.Literal("AsNeeded", "Always", "Never") })), orientation: _Orientation, binding: _Binding }),
@@ -847,6 +1513,25 @@ const ControlIntent: Schema.Schema<ControlIntent, ControlIntentWire> = Schema.Un
   Schema.Struct({ kind: Schema.Literal("dock"), key: Schema.NonEmptyString, regions: Schema.Array(_child), constraintProgram: Schema.NonEmptyString, binding: _Binding }),
   Schema.Struct({ kind: Schema.Literal("splitter"), key: Schema.NonEmptyString, first: _child, second: _child, orientation: _Orientation, binding: _Binding }),
 )
+
+// The materialization face of the intent family, decode-only and column for column against the producer record. A
+// COLD fold and a pool re-entry seal the SAME row, which is the whole point of the shape: a recycling regression
+// shows as a receipt whose `controlType` disagrees with its `intentKey`, and that comparison only holds while both
+// columns cross verbatim — a receipt carrying a re-entry marker would let the two states be told apart at the reader
+// and the regression would stop showing. `kind` is the producer's own constant column rather than a census
+// discriminant, because this face is a `ReceiptEnvelopeWire` PAYLOAD: it names itself across a seam whose envelope
+// `kind` is a free string, so the landing pins the literal instead of trusting the envelope's word for it. Nested
+// family members register no `_families` row, so no census entry, contract gate, or parity obligation crosses here.
+class ControlReceipt extends Schema.Class<ControlReceipt>("ControlReceipt")({
+  kind: Schema.Literal("control"),
+  intentKey: Schema.NonEmptyString,
+  controlType: Schema.NonEmptyString,
+  // the producer's `Option<string>` command key crosses through its own `Absent` mapper as an explicit null, so the
+  // landing reads the NULL encoding — the empty-string form `_absent` folds belongs to proto3 singular columns
+  command: Schema.OptionFromNullOr(Schema.NonEmptyString),
+  emphasis: _Emphasis,
+  at: Schema.DateTimeUtc,
+}) {}
 
 const _Term = Schema.Struct({ variable: Schema.NonEmptyString, coefficient: Schema.Number })
 const _Constraint = Schema.Struct({
@@ -1035,7 +1720,7 @@ const _predicateLeaves = Schema.Union(
 // row — an authored predicate re-encodes with no projection twin to keep in step.
 type _NodeMatchOf<T> = { readonly exact: string | null; readonly matching: T | null }
 
-type _Nest<T> =
+type _PredicateNest<T> =
   | { readonly arm: "spatialContainer"; readonly container: _NodeMatchOf<T>; readonly reach: string }
   | { readonly arm: "composed"; readonly subKind: string; readonly whole: _NodeMatchOf<T> }
   | { readonly arm: "type"; readonly type: _NodeMatchOf<T> }
@@ -1047,7 +1732,7 @@ type _Nest<T> =
   | { readonly arm: "any"; readonly operands: ReadonlyArray<T> }
   | { readonly arm: "not"; readonly operand: T }
 
-type PredicateWire = typeof _predicateLeaves.Type | _Nest<PredicateWire>
+type PredicateWire = typeof _predicateLeaves.Type | _PredicateNest<PredicateWire>
 
 declare namespace PredicateWire {
   type ValueMatch = typeof _ValueMatch.Type
@@ -1081,10 +1766,6 @@ const PredicateWire: Schema.Schema<PredicateWire, PredicateWire> = Schema.Union(
   Schema.Struct({ arm: Schema.Literal("not"), operand: _predicate }),
 )
 
-// `_absent` folds the producer's typed absence on a scalar string column once: proto3 emits `""` for an unset
-// singular string, so an authored material's `emissionUnit`, an acquired set's `materialId`, and a dielectric's
-// `conductor` all arrive empty and read as `Option.none()`. The shipped operator owns it; a local twin is the drift defect.
-const _absent: typeof Schema.OptionFromNonEmptyTrimmedString = Schema.OptionFromNonEmptyTrimmedString
 
 const _Color = Schema.Tuple(Schema.Number, Schema.Number, Schema.Number)
 const _Weight = Schema.Number.pipe(Schema.between(0, 1)) // the unit interval every OpenPBR weight, ratio, and grain azimuth rides
@@ -1098,6 +1779,10 @@ const _Provenance = Schema.Struct({
   device: Schema.String,
   wavelengthCount: Schema.Int.pipe(Schema.nonNegative()),
   fitResidual: Schema.Number, // +Inf is a legal conditioning report; no finite() constraint belongs here
+  // The producer DERIVES this column off its own `CaptureMethod`, and that column crosses beside it as `method`, so
+  // the two states a lone bool would fuse stay separable at this end: a blank `method` beside `false` is a receipt
+  // that recorded no capture method at all, a named one beside `false` is a method that measures nothing. No third
+  // posture token belongs here — it would restate what the pair already carries.
   measured: Schema.Boolean,
   method: Schema.String,
   angularSamples: Schema.Int.pipe(Schema.nonNegative()),
@@ -1126,77 +1811,98 @@ const _Provenance = Schema.Struct({
 // `GeometryThinWalled` last at 30, both APPENDED past the frozen block, so pre-append bytes decode unchanged when the
 // missing trailing slot folds to the producer's stated default (rotation 0; thinWalled false, the OpenPBR
 // closed-solid default). Position is the whole mirror contract because the array carries no names: a slot re-seated
-// to its reading position decodes a neighbour's value silently. The reshape arms move POSITION to NAME only; every
-// refinement re-proves on the named class after the mapping runs, exactly once.
-const _ColorWire = Schema.Tuple(Schema.Number, Schema.Number, Schema.Number, Schema.String) // WireColor Key(0..3): scene-linear r/g/b + the clipped hex the web swatch reads
+// to its reading position decodes a neighbour's value silently. Every record below is therefore one `_keyed` ROSTER
+// in Key order — the producer's index list and its column names as one declaration — so appending Key(31) is one
+// roster row rather than a tuple slot, a decode line, an encode line, and a comment ladder that can disagree. What
+// survives the roster is the TREE: `PbrGroups` bands thirty-one sibling slots into nine groups and `_Shade` folds
+// three sibling channels into one triple, so the two reshape arms carry that nesting and nothing else, reading the
+// roster's own column names. Every refinement re-proves on the named class after the mapping runs, exactly once.
+const _ColorWire = _keyed("WireColor", [
+  ["r", Schema.Number], ["g", Schema.Number], ["b", Schema.Number], // Key 0..2: scene-linear channels
+  ["hex", Schema.String], // Key 3: the clipped hex the web swatch reads
+])
 const _Shade = Schema.Struct({ rgb: _Color, hex: Schema.String })
-const _shaded = ([r, g, b, hex]: typeof _ColorWire.Type): typeof _Shade.Encoded => ({ rgb: [r, g, b], hex })
-const _unshaded = ({ rgb: [r, g, b], hex }: typeof _Shade.Encoded): typeof _ColorWire.Type => [r, g, b, hex]
+const _shaded = ({ r, g, b, hex }: typeof _ColorWire.Type): typeof _Shade.Encoded => ({ rgb: [r, g, b], hex })
+const _unshaded = ({ rgb: [r, g, b], hex }: typeof _Shade.Encoded): typeof _ColorWire.Type => ({ r, g, b, hex })
 
-// `WireProvenance` Key(0..16) in index order; slot 15 is the producer's `double?` nil — the one numeric slot
-// carrying explicit presence, decoded by the SAME `NullOr` the named field declares.
-const _ProvenanceWire = Schema.Tuple(
-  Schema.String, Schema.Number, Schema.Number, Schema.Boolean, Schema.String, Schema.Number, // Key 0..5: device, wavelengthCount, fitResidual, measured, method, angularSamples
-  Schema.Number, Schema.Number, Schema.Number, Schema.Number, Schema.Number, Schema.Number, // Key 6..11: fitConditionNumber, fitRank, dominantWavelengthNm, excitationPurity, cctKelvin, cctDuv
-  Schema.String, Schema.String, Schema.Boolean, Schema.NullOr(Schema.Number), Schema.String, // Key 12..16: modelCard, license, calibrated, calibrationDeltaE, modelArtefact
-)
-const _proved = (v: typeof _ProvenanceWire.Type): typeof _Provenance.Encoded => ({
-  device: v[0], wavelengthCount: v[1], fitResidual: v[2], measured: v[3], method: v[4], angularSamples: v[5],
-  fitConditionNumber: v[6], fitRank: v[7], dominantWavelengthNm: v[8], excitationPurity: v[9], cctKelvin: v[10],
-  cctDuv: v[11], modelCard: v[12], license: v[13], calibrated: v[14], calibrationDeltaE: v[15], modelArtefact: v[16],
-})
-const _unproved = (p: typeof _Provenance.Encoded): typeof _ProvenanceWire.Type => [
-  p.device, p.wavelengthCount, p.fitResidual, p.measured, p.method, p.angularSamples, p.fitConditionNumber,
-  p.fitRank, p.dominantWavelengthNm, p.excitationPurity, p.cctKelvin, p.cctDuv, p.modelCard, p.license,
-  p.calibrated, p.calibrationDeltaE, p.modelArtefact,
-]
+// `WireProvenance` Key(0..16). Column names match `_Provenance` one for one, so the receipt crosses the seam with
+// NO reshape arm at all; slot 15 is the producer's `double?` nil, decoded by the SAME `NullOr` the named field
+// declares, which is the one column where wire and interior disagree about presence rather than about spelling.
+const _ProvenanceWire = _keyed("WireProvenance", [
+  ["device", Schema.String], ["wavelengthCount", Schema.Number], ["fitResidual", Schema.Number],
+  ["measured", Schema.Boolean], ["method", Schema.String], ["angularSamples", Schema.Number],
+  ["fitConditionNumber", Schema.Number], ["fitRank", Schema.Number], ["dominantWavelengthNm", Schema.Number],
+  ["excitationPurity", Schema.Number], ["cctKelvin", Schema.Number], ["cctDuv", Schema.Number],
+  ["modelCard", Schema.String], ["license", Schema.String], ["calibrated", Schema.Boolean],
+  ["calibrationDeltaE", Schema.NullOr(Schema.Number)], ["modelArtefact", Schema.String],
+])
 
 // `OpenPbrGroupsWire` Key(0..30) — the FULL OpenPBR Surface 1.1 parameter vector, one-for-one: the producer
 // flattens `OpenPbrSurface` so a peer reconstructs the exact slab stack, never a lossy subset, and this mirror
 // carries every band — subsurface, coat, fuzz, and thin-film included — because a dropped band repaints the
 // producer's surface silently. The vector crosses NESTED at `MaterialWire` Key(1); the standalone census row binds
-// this same declaration so the nested slot and the family row cannot drift.
-const _PbrVector = Schema.Tuple(
-  Schema.Number, _ColorWire, Schema.Number, Schema.Number, Schema.Number, // Key 0..4: baseWeight, baseColor, baseMetalness, baseDiffuseRoughness, baseSpecularTint
-  Schema.Number, _ColorWire, Schema.Number, Schema.Number, Schema.Number, // Key 5..9: specularWeight, specularColor, specularRoughness, specularIor, specularAnisotropy
-  Schema.Number, Schema.Number, // Key 10..11: transmissionWeight, transmissionRoughness
-  Schema.Number, Schema.Number, Schema.Number, Schema.Number, // Key 12..15: subsurfaceWeight, subsurfaceRadiusR/G/B — mean-free-path scalars, never unit-interval
-  Schema.Number, _ColorWire, Schema.Number, Schema.Number, // Key 16..19: coatWeight, coatColor, coatRoughness, coatIor
-  Schema.Number, _ColorWire, Schema.Number, // Key 20..22: fuzzWeight, fuzzColor, fuzzRoughness
-  Schema.Number, Schema.Number, Schema.Number, // Key 23..25: thinFilmWeight, thinFilmThickness, thinFilmIor
-  _ColorWire, Schema.Number, Schema.Number, // Key 26..28: emissionColor, emissionLuminance, geometryOpacity
-  Schema.optionalElement(Schema.Number), // Key 29: specularRotation — appended past the frozen block; absent decodes 0
-  Schema.optionalElement(Schema.Boolean), // Key 30: geometryThinWalled — appended; absent decodes false, the closed-solid default
-)
-// `WireEmission` Key(0..5) — the admitted-emission receipt nested at `MaterialWire` Key(7); the positional twin the
-// class field reshapes to names, per-field refinements re-proving on the named side.
-const _EmissionVector = Schema.Tuple(
-  Schema.Number, Schema.Number, // Key 0..1: dominantWavelengthNm, excitationPurity
-  Schema.Number, Schema.Number, // Key 2..3: cctKelvin, cctDuv
-  Schema.Number, Schema.Boolean, // Key 4..5: relativeLuminance, gamutMapped
-)
+// this same declaration so the nested slot and the family row cannot drift. The two appended slots ride
+// `Schema.optionalElement`, so pre-append bytes land `Option.none()` and the arm below supplies the producer's own
+// stated default at the one site that reads the column.
+const _PbrVector = _keyed("OpenPbrGroupsWire", [
+  ["baseWeight", Schema.Number], ["baseColor", _ColorWire], ["baseMetalness", Schema.Number],
+  ["baseDiffuseRoughness", Schema.Number], ["baseSpecularTint", Schema.Number],
+  ["specularWeight", Schema.Number], ["specularColor", _ColorWire], ["specularRoughness", Schema.Number],
+  ["specularIor", Schema.Number], ["specularAnisotropy", Schema.Number],
+  ["transmissionWeight", Schema.Number], ["transmissionRoughness", Schema.Number],
+  // mean-free-path scalars, never unit-interval, and three sibling columns rather than one wire triple
+  ["subsurfaceWeight", Schema.Number], ["subsurfaceRadiusR", Schema.Number],
+  ["subsurfaceRadiusG", Schema.Number], ["subsurfaceRadiusB", Schema.Number],
+  ["coatWeight", Schema.Number], ["coatColor", _ColorWire], ["coatRoughness", Schema.Number], ["coatIor", Schema.Number],
+  ["fuzzWeight", Schema.Number], ["fuzzColor", _ColorWire], ["fuzzRoughness", Schema.Number],
+  ["thinFilmWeight", Schema.Number], ["thinFilmThickness", Schema.Number], ["thinFilmIor", Schema.Number],
+  ["emissionColor", _ColorWire], ["emissionLuminance", Schema.Number], ["geometryOpacity", Schema.Number],
+  ["specularRotation", Schema.optionalElement(Schema.Number)], // Key 29: appended past the frozen block
+  ["geometryThinWalled", Schema.optionalElement(Schema.Boolean)], // Key 30: appended
+])
+// `WireEmission` Key(0..5) — the admitted-emission receipt nested at `MaterialWire` Key(7). Its column names match
+// `Material.emission` one for one, so the receipt crosses with no reshape arm and no second spelling of the roster.
+const _EmissionVector = _keyed("WireEmission", [
+  ["dominantWavelengthNm", Schema.Number], ["excitationPurity", Schema.Number],
+  ["cctKelvin", Schema.Number], ["cctDuv", Schema.Number],
+  ["relativeLuminance", Schema.Number], ["gamutMapped", Schema.Boolean],
+])
 const _vectored = (v: typeof _PbrVector.Type): typeof PbrGroups.Encoded => ({
-  base: { weight: v[0], color: _shaded(v[1]), metalness: v[2], diffuseRoughness: v[3], specularTint: v[4] },
-  specular: { weight: v[5], color: _shaded(v[6]), roughness: v[7], ior: v[8], anisotropy: v[9], rotation: v[29] ?? 0 },
-  transmission: { weight: v[10], roughness: v[11] },
-  subsurface: { weight: v[12], radius: [v[13], v[14], v[15]] },
-  coat: { weight: v[16], color: _shaded(v[17]), roughness: v[18], ior: v[19] },
-  fuzz: { weight: v[20], color: _shaded(v[21]), roughness: v[22] },
-  thinFilm: { weight: v[23], thickness: v[24], ior: v[25] },
-  emission: { color: _shaded(v[26]), luminance: v[27] },
-  geometry: { opacity: v[28], thinWalled: v[30] ?? false },
+  base: { weight: v.baseWeight, color: _shaded(v.baseColor), metalness: v.baseMetalness, diffuseRoughness: v.baseDiffuseRoughness, specularTint: v.baseSpecularTint },
+  specular: {
+    weight: v.specularWeight, color: _shaded(v.specularColor), roughness: v.specularRoughness,
+    ior: v.specularIor, anisotropy: v.specularAnisotropy,
+    rotation: Option.getOrElse(v.specularRotation, () => 0), // the producer's stated pre-append value
+  },
+  transmission: { weight: v.transmissionWeight, roughness: v.transmissionRoughness },
+  subsurface: { weight: v.subsurfaceWeight, radius: [v.subsurfaceRadiusR, v.subsurfaceRadiusG, v.subsurfaceRadiusB] },
+  coat: { weight: v.coatWeight, color: _shaded(v.coatColor), roughness: v.coatRoughness, ior: v.coatIor },
+  fuzz: { weight: v.fuzzWeight, color: _shaded(v.fuzzColor), roughness: v.fuzzRoughness },
+  thinFilm: { weight: v.thinFilmWeight, thickness: v.thinFilmThickness, ior: v.thinFilmIor },
+  emission: { color: _shaded(v.emissionColor), luminance: v.emissionLuminance },
+  geometry: {
+    opacity: v.geometryOpacity,
+    thinWalled: Option.getOrElse(v.geometryThinWalled, () => false), // the OpenPBR closed-solid default the producer states
+  },
 })
-const _unvectored = (g: typeof PbrGroups.Encoded): typeof _PbrVector.Type => [
-  g.base.weight, _unshaded(g.base.color), g.base.metalness, g.base.diffuseRoughness, g.base.specularTint,
-  g.specular.weight, _unshaded(g.specular.color), g.specular.roughness, g.specular.ior, g.specular.anisotropy,
-  g.transmission.weight, g.transmission.roughness,
-  g.subsurface.weight, g.subsurface.radius[0], g.subsurface.radius[1], g.subsurface.radius[2],
-  g.coat.weight, _unshaded(g.coat.color), g.coat.roughness, g.coat.ior,
-  g.fuzz.weight, _unshaded(g.fuzz.color), g.fuzz.roughness,
-  g.thinFilm.weight, g.thinFilm.thickness, g.thinFilm.ior,
-  _unshaded(g.emission.color), g.emission.luminance, g.geometry.opacity,
-  g.specular.rotation, g.geometry.thinWalled,
-]
+const _unvectored = (g: typeof PbrGroups.Encoded): typeof _PbrVector.Type => ({
+  baseWeight: g.base.weight, baseColor: _unshaded(g.base.color), baseMetalness: g.base.metalness,
+  baseDiffuseRoughness: g.base.diffuseRoughness, baseSpecularTint: g.base.specularTint,
+  specularWeight: g.specular.weight, specularColor: _unshaded(g.specular.color),
+  specularRoughness: g.specular.roughness, specularIor: g.specular.ior, specularAnisotropy: g.specular.anisotropy,
+  transmissionWeight: g.transmission.weight, transmissionRoughness: g.transmission.roughness,
+  subsurfaceWeight: g.subsurface.weight, subsurfaceRadiusR: g.subsurface.radius[0],
+  subsurfaceRadiusG: g.subsurface.radius[1], subsurfaceRadiusB: g.subsurface.radius[2],
+  coatWeight: g.coat.weight, coatColor: _unshaded(g.coat.color), coatRoughness: g.coat.roughness, coatIor: g.coat.ior,
+  fuzzWeight: g.fuzz.weight, fuzzColor: _unshaded(g.fuzz.color), fuzzRoughness: g.fuzz.roughness,
+  thinFilmWeight: g.thinFilm.weight, thinFilmThickness: g.thinFilm.thickness, thinFilmIor: g.thinFilm.ior,
+  emissionColor: _unshaded(g.emission.color), emissionLuminance: g.emission.luminance,
+  geometryOpacity: g.geometry.opacity,
+  // Re-emission always writes both appended slots: the interior column is total, so an encode that omitted them
+  // would mint a shorter record than the value it holds and lose a producer-authored rotation on the round trip.
+  specularRotation: Option.some(g.specular.rotation),
+  geometryThinWalled: Option.some(g.geometry.thinWalled),
+})
 
 class PbrGroups extends Schema.Class<PbrGroups>("PbrGroups")({
   base: Schema.Struct({ weight: _Weight, color: _Shade, metalness: _Weight, diffuseRoughness: _Weight, specularTint: _Weight }),
@@ -1249,23 +1955,18 @@ class Material extends Schema.Class<Material>("Material")({
     Schema.Tuple(Schema.String, _PbrVector, Schema.String, _ProvenanceWire, _ColorWire, Schema.String, Schema.Number, Schema.optionalElement(Schema.NullOr(_EmissionVector))),
     Material,
     {
+      // Slot names bind at the destructure and the two roster-named records — the capture receipt and the emission
+      // receipt — cross with no arm at all, so this transform carries the two reshapes that are genuinely its own:
+      // the OpenPBR banding and the shade triple. The emission column is the one absence the wire spells twice, an
+      // absent trailing slot or an explicit nil, and both read as the interior's own missing column.
       strict: true,
       decode: ([id, vector, conductor, receipt, shade, emissionUnit, emissionValue, emission]) => ({
-        id, openPbr: _vectored(vector), conductor, provenance: _proved(receipt), preview: _shaded(shade), emissionUnit, emissionValue,
-        ...(emission == null ? {} : { emission: {
-          dominantWavelengthNm: emission[0], excitationPurity: emission[1],
-          cctKelvin: emission[2], cctDuv: emission[3],
-          relativeLuminance: emission[4], gamutMapped: emission[5],
-        } }),
+        id, openPbr: _vectored(vector), conductor, provenance: receipt, preview: _shaded(shade), emissionUnit, emissionValue,
+        ...(emission == null ? {} : { emission }),
       }),
       encode: (wire) => [
-        wire.id, _unvectored(wire.openPbr), wire.conductor, _unproved(wire.provenance), _unshaded(wire.preview),
-        wire.emissionUnit, wire.emissionValue,
-        wire.emission == null ? null : [
-          wire.emission.dominantWavelengthNm, wire.emission.excitationPurity,
-          wire.emission.cctKelvin, wire.emission.cctDuv,
-          wire.emission.relativeLuminance, wire.emission.gamutMapped,
-        ],
+        wire.id, _unvectored(wire.openPbr), wire.conductor, wire.provenance, _unshaded(wire.preview),
+        wire.emissionUnit, wire.emissionValue, wire.emission ?? null,
       ],
     },
   )
@@ -1754,7 +2455,12 @@ class TextureSet extends Schema.Class<TextureSet>("TextureSet")(Schema.Struct({
   normalConvention: Schema.Literal(..._conventions), // ingest-source record; the plane bytes are always gl
   alphaMode: Schema.Literal(..._alphaModes), // set-level declaration; a channel row may narrow to none
   heightScale: Schema.Number.pipe(Schema.nonNegative()), // the mm span the [0,1] height plane normalizes against
-  tiled: Schema.Boolean, // TileGate-proven coherence carried from the producer, never a caller assertion
+  // DECLARED PROJECTION, not a two-state fact. The producer holds `Evidence<TileProof>` — absent until its gate
+  // grades, measured carrying the proof's own acceptance, refused carrying the spectral band's cause — and its own
+  // wire law projects the measured-and-accepted read onto this bool. The bytes therefore CANNOT separate an
+  // ungraded set from a graded-and-rejected one, and no posture vocabulary at this end recovers a state the
+  // producer never sent; widening it here would assert evidence off the wire. `false` is that whole complement.
+  tiled: Schema.Boolean,
   udimTiles: _MariTiles,
   channels: Schema.Array(_ChannelRow).pipe(
     Schema.filter((rows) => _rosterOrdered(rows) || "<channel-roster-disorder>", { identifier: "RosterOrdered" }),
@@ -1839,7 +2545,12 @@ class AssetSetManifest extends Schema.Class<AssetSetManifest>("AssetSetManifest"
   alphaMode: Schema.Literal(..._alphaModes),
   udim: Schema.Literal("none", "mari"),
   udimTiles: _MariTiles,
-  tiled: Schema.Boolean, // DECLARED, carried from producer or verifier — python synthesizes no tiling
+  // DECLARATION-SOURCED PERMANENTLY at its producer, which settled the question rather than deferring it: a
+  // labelled calibration measured the tiled and cut populations overlapping WHOLE under its own seam probe, so no
+  // cutoff separates them and the producer publishes its `tile_score` as receipt-band evidence a consumer
+  // thresholds against family knowledge. That score never enters this frozen wire, so the claim's own provenance —
+  // classifier verdict or caller declaration — stays unreadable here and a third state has nothing to decode from.
+  tiled: Schema.Boolean,
   maps: Schema.Array(_MapRow).pipe(
     // `(role, container)` is the map key — a CompanionPolicy.RENDER set legitimately carries a primary and a
     // sampled companion for one role, so the strict per-role order gate is the TextureSetWire roster's, not this one.
@@ -2040,7 +2751,10 @@ class StepHeader extends Schema.Class<StepHeader>("StepHeader")({
 // Crossings head at `ElementGraphWire` field 1 and `GraphDeltaWire` field 6. `tolerance` lands as the producer
 // lands it, a free real under no seam gate, and it is the tolerance any address verification here grades at.
 // `unitScheme` maps a quantity token to its registry unit-enum member and an EMPTY map reads as SI, so a consumer
-// renders a magnitude under the producer's own scheme rather than guessing one.
+// renders a magnitude under the producer's own scheme rather than guessing one — which is exactly why the record
+// REFUSES a key its own refinement rejects. Left at the default a `Schema.Record` DROPS such a key and answers
+// success, so a blank token would delete one scheme entry and that quantity would silently render as SI: the one
+// wrong answer this column exists to prevent, reached through a decode that reported nothing.
 class Header extends Schema.Class<Header>("Header")({
   schema: Schema.NonEmptyString,
   view: Schema.NonEmptyString,
@@ -2048,7 +2762,7 @@ class Header extends Schema.Class<Header>("Header")({
   tolerance: Schema.Number,
   at: Schema.DateTimeUtc,
   step: StepHeader,
-  unitScheme: Schema.Record({ key: Schema.NonEmptyString, value: Schema.NonEmptyString }),
+  unitScheme: Shape.Record(Schema.NonEmptyString, Schema.NonEmptyString),
 }) {
   static readonly GeoReference: typeof GeoReference = GeoReference
   static readonly Step: typeof StepHeader = StepHeader
@@ -2143,13 +2857,18 @@ const _NodeJson: Schema.Schema<Node, Shape.Json> = Schema.transformOrFail(Shape.
     try: () => fromJson(Format.proto.suite.NodeWire, json),
     catch: () => new ParseResult.Type(ast, json, "<node-json>"),
   }),
-  encode: (wire, _options, ast) => Either.try({
-    try: () => toJson(
-      Format.proto.suite.NodeWire,
-      wire as MessageShape<typeof Format.proto.suite.NodeWire>,
-    ),
-    catch: () => new ParseResult.Type(ast, wire, "<node-json>"),
-  }),
+  // `Node.FromWire`'s encoded side is `unknown` by construction — the oneof lift crosses through `Schema.Unknown` —
+  // so the emitter is handed a value the type system cannot vouch for. `isMessage(value, descriptor)` is the shipped
+  // NARROWING guard over the generated `$typeName` brand, so the descriptor proves the shape and a foreign value
+  // becomes a refusal carrying its own coordinate; the cast that used to stand here asserted the same fact and
+  // produced no evidence when it was wrong, which is exactly what a proto engine's own guard exists to prevent.
+  encode: (wire, _options, ast) =>
+    isMessage(wire, Format.proto.suite.NodeWire)
+      ? Either.try({
+        try: () => toJson(Format.proto.suite.NodeWire, wire),
+        catch: () => new ParseResult.Type(ast, wire, "<node-json>"),
+      })
+      : Either.left(new ParseResult.Type(ast, wire, "<node-message>")),
 })
 
 const EntityEditWire = Schema.Union(
@@ -2162,12 +2881,102 @@ const EntityEditWire = Schema.Union(
   }),
 )
 
+// `PropertyValueWire` is the producer's recursive FOURTEEN-arm typed-value fold — `csharp:Rasm.Element/Graph/wirevalue`
+// owns the roster and `RelationshipWire`'s generic arm carries it as `map<string, PropertyValueWire>`. It lands as
+// the generated `{ case, value }` oneof face verbatim, the same choice `Organization.containment` takes and for a
+// sharper reason: five arms carry a SCALAR, so the oneof-hoisting lift has no record to spread and the case name IS
+// the discriminant space. Ten arms bottom out and four recurse through the same carrier, so the nesting half spells
+// once over its child type exactly as the shell intent family does.
+const _attrCases = [
+  "text", "measure", "boolean", "logical", "reference", "bounded", "temporal", "integer", "number", "binary",
+  "enumerated", "list", "table", "complex",
+] as const
+
+// The producer's `LogicalWire` carries an OPTIONAL bool, so IFC's third LOGICAL state crosses as an absent column
+// and never as a third literal this end would have to invent. `integer` crosses as big-endian two's-complement
+// octets because the producer's arm is a `BigInteger` no JSON number holds, and `binary` is the opaque octet arm
+// beside it — two arms with one wire shape and two meanings, which is why the case name and not the shape routes.
+const _Logical = Schema.Struct({ value: Schema.optionalWith(Schema.Boolean, { as: "Option" }) })
+const _AttrStamp = Schema.Struct({
+  seconds: Schema.BigIntFromSelf,
+  nanos: Schema.Int.pipe(Schema.between(0, 999999999)),
+})
+// The temporal arm is the producer's own five-leaf sub-oneof: four ISO TEXT crossings under NodaTime patterns, and
+// one epoch stamp riding the well-known adapter. Text is where the producer re-admits, so this end carries the token.
+const _AttrTemporal = Schema.Union(
+  Schema.Struct({ case: Schema.Literal("date"), value: Schema.NonEmptyString }),
+  Schema.Struct({ case: Schema.Literal("moment"), value: Schema.NonEmptyString }),
+  Schema.Struct({ case: Schema.Literal("time"), value: Schema.NonEmptyString }),
+  Schema.Struct({ case: Schema.Literal("span"), value: Schema.NonEmptyString }),
+  Schema.Struct({ case: Schema.Literal("stamp"), value: _AttrStamp }),
+)
+const _attrLeaves = Schema.Union(
+  Schema.Struct({ case: Schema.Literal("text"), value: Schema.String }),
+  Schema.Struct({ case: Schema.Literal("measure"), value: MeasureValue }),
+  Schema.Struct({ case: Schema.Literal("boolean"), value: Schema.Boolean }),
+  Schema.Struct({ case: Schema.Literal("logical"), value: _Logical }),
+  Schema.Struct({
+    case: Schema.Literal("reference"),
+    value: Schema.Struct({ targetId: _NodeId, usageName: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }) }),
+  }),
+  Schema.Struct({
+    case: Schema.Literal("bounded"),
+    value: Schema.Struct({
+      lower: Schema.optionalWith(MeasureValue, { as: "Option" }),
+      upper: Schema.optionalWith(MeasureValue, { as: "Option" }),
+      setPoint: Schema.optionalWith(MeasureValue, { as: "Option" }),
+    }),
+  }),
+  Schema.Struct({ case: Schema.Literal("temporal"), value: _AttrTemporal }),
+  Schema.Struct({ case: Schema.Literal("integer"), value: Schema.Uint8ArrayFromSelf }),
+  Schema.Struct({ case: Schema.Literal("number"), value: Schema.Number }),
+  Schema.Struct({ case: Schema.Literal("binary"), value: Schema.Uint8ArrayFromSelf }),
+)
+
+type _AttrNest<T> =
+  | { readonly case: "enumerated"; readonly value: { readonly selected: ReadonlyArray<T>; readonly allowed: ReadonlyArray<T> } }
+  | { readonly case: "list"; readonly value: { readonly values: ReadonlyArray<T> } }
+  | { readonly case: "table"; readonly value: { readonly interpolation: string; readonly rows: ReadonlyArray<{ readonly defining: T; readonly defined: T }> } }
+  | { readonly case: "complex"; readonly value: { readonly usageName: string; readonly properties: { readonly [key: string]: T } } }
+
+type _AttrValue = typeof _attrLeaves.Type | _AttrNest<_AttrValue>
+type _AttrValueWire = typeof _attrLeaves.Encoded | _AttrNest<_AttrValueWire>
+
+const _attr: Schema.Schema<_AttrValue, _AttrValueWire> = Schema.suspend(() => _AttrValue)
+const _AttrRow = Schema.Struct({ defining: _attr, defined: _attr })
+
+const _AttrValue: Schema.Schema<_AttrValue, _AttrValueWire> = Schema.Union(
+  _attrLeaves,
+  Schema.Struct({
+    case: Schema.Literal("enumerated"),
+    value: Schema.Struct({ selected: Schema.Array(_attr), allowed: Schema.Array(_attr) }),
+  }),
+  Schema.Struct({ case: Schema.Literal("list"), value: Schema.Struct({ values: Schema.Array(_attr) }) }),
+  // `interpolation` is roster-gated at the producer exactly as the generic arm's `wireName` is, so this decode
+  // RE-QUOTES that roster rather than copying it here to drift, and an unrostered token is refused by the
+  // producer's own row lookup on re-entry.
+  Schema.Struct({
+    case: Schema.Literal("table"),
+    value: Schema.Struct({ interpolation: Schema.NonEmptyString, rows: Schema.Array(_AttrRow) }),
+  }),
+  Schema.Struct({
+    case: Schema.Literal("complex"),
+    value: Schema.Struct({ usageName: Schema.String, properties: Schema.Record({ key: Schema.String, value: _attr }) }),
+  }),
+)
+
+// Two-way close over the producer's own roster: a fifteenth arm on the union fails the first alias, and a roster
+// token no arm lands fails the second, so neither half can drift off the other and a renamed producer case breaks
+// every dispatching consumer at compile time instead of reaching `ui` as an untyped record.
+type _AttrArm = _AttrValue["case"]
+type _AttrWidened<K extends _AttrArm = (typeof _attrCases)[number]> = K
+type _AttrClosed<K extends (typeof _attrCases)[number] = _AttrArm> = K
+
 // `RelationshipWire` is a six-arm oneof and every arm carries its OWN endpoint pair beside its own payload columns,
 // so the landing is the union those arms already are: a flat source/target pair erases which endpoint role each arm
 // names — a whole and its part, a subject and its definition, a host and its feature are three different relations —
 // and drops the ordinal, sub-kind, usage, realizing, interface, attribute, and participant columns beside them.
-// `subKind` is the arm's own token column, admitted at the producer's smart-enum gate. The generic arm's `attributes`
-// map carries the recursive fourteen-case value family untyped for the reason `Node.payload` does, and its
+// `subKind` is the arm's own token column, admitted at the producer's smart-enum gate; the generic arm's
 // `relatingId`/`relatedId` are the wire spellings of the seam's source and target.
 const _edges = Schema.Union(
   Schema.Struct({
@@ -2208,7 +3017,7 @@ const _edges = Schema.Union(
     wireName: Schema.NonEmptyString,
     relatingId: _NodeId,
     relatedId: _NodeId,
-    attributes: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+    attributes: Schema.Record({ key: Schema.String, value: _attr }),
     participants: Schema.Array(Schema.Struct({
       nodeId: _NodeId,
       role: Schema.NonEmptyString,
@@ -2330,7 +3139,10 @@ class SnapshotHeader extends Schema.Class<SnapshotHeader>("SnapshotHeader")({
 }) {}
 
 // `print` is the one rendered identity every gate compares on; `stamps` is the open extension bag a
-// minting runtime fills with what its own probe reached, so a new host fact needs no schema edit here.
+// minting runtime fills with what its own probe reached, so a new host fact needs no schema edit here. Open in its
+// KEY SPACE is not open in its key SHAPE: the record refuses a key its refinement rejects rather than dropping it,
+// because the default drop answers success on a document this end never received and `print` is compared against
+// exactly that document.
 class HostFingerprint extends Schema.Class<HostFingerprint>("HostFingerprint")({
   print: Schema.NonEmptyString,
   machine: Schema.NonEmptyString,
@@ -2338,7 +3150,7 @@ class HostFingerprint extends Schema.Class<HostFingerprint>("HostFingerprint")({
   arch: Schema.NonEmptyString,
   processors: Schema.Int.pipe(Schema.positive()),
   runtime: Schema.NonEmptyString,
-  stamps: Schema.Record({ key: Schema.NonEmptyString, value: Schema.String }),
+  stamps: Shape.Record(Schema.NonEmptyString, Schema.String),
 }) {}
 
 const _triggers = ["user-requested", "fault-transition", "health-threshold", "watchdog-timeout", "external-command", "scheduled"] as const
@@ -2415,6 +3227,10 @@ declare namespace Credential {
 ## [07]-[KEYED_REGISTRY]
 
 - Owner: one closed row table derives `Wire.schema`, `decode`, `encode`, `audited`, and complete-frame `stream`.
+- Owner: `Wire.Walk` holds one child projection per recursive landed tree and the one bounded pre-order fold over them.
+- Law: every recursive landed family carries a walk row, so no consumer hand-recurses a foreign tree and none goes unbounded.
+- Law: walk budgets are unit-carrying — depth spends `Shape.Bound<"hops">` and fan the ingress collection ceiling.
+- Law: a walk projection is total against its family's own closed split, so a new arm breaks the table rather than reading as a leaf.
 - Law: contract compatibility reads the arm row, and structured refusals remain typed fault evidence.
 - Law: `frame` parity gates every decode; Merkle summary parity calls `Commit.admit` before a decoded value returns.
 - Law: `suite` parity grades the schema, so `audited` spends it and the decode path never charges it per payload.
@@ -2436,6 +3252,10 @@ const OpLogEntry = Schema.transform(
 )
 type OpLogEntry = typeof OpLogEntry.Type
 
+// The envelope's `payload` is DECLARED untyped at this field: the receipt roster is the producing package's own and
+// open by construction — a sandbox receipt, an update receipt, a lease fence all ride this one envelope without a
+// census family — so a typed seat here would claim a closed shape no producer publishes. A consumer owing one
+// decodes it against the family that mirrors its own payload, exactly as `Node.payload` is read.
 const _ReceiptEnvelopeWire = _receiptEnvelope(Schema.Unknown)
 const _schema = {
   ReceiptEnvelopeWire: Format.json.schema(_ReceiptEnvelopeWire),
@@ -2444,7 +3264,7 @@ const _schema = {
   HlcStampWire: Format.msgpack.schema(Clock.Hlc),
   TenantContextWire: Format.json.schema(_TenantContextWire),
   CommandAvailabilityWire: Format.json.schema(Evidence.Availability),
-  FaultDetail: Format.proto.family(Format.proto.suite.FaultDetail, FaultDetail.FromWire),
+  FaultDetail: Format.proto.family(Format.proto.suite.FaultDetail, Remote.FromWire),
   ElementGraphWire: Format.proto.family(Format.proto.suite.ElementGraphWire, ElementGraph),
   GraphDeltaWire: Format.proto.family(Format.proto.suite.GraphDeltaWire, GraphDelta),
   NodeWire: Format.proto.family(Format.proto.suite.NodeWire, Node.FromWire),
@@ -2470,6 +3290,14 @@ const _schema = {
   BindingStatusWire: Format.json.schema(BindingStatus.FromWire),
   CoercedValueWire: Format.json.schema(CoercedValue.FromWire),
   WriteReceiptWire: Format.json.schema(WriteReceipt.FromWire),
+  HopReceiptWire: Format.json.schema(HopReceipt),
+  DeliveryReceiptWire: Format.json.schema(DeliveryReceipt),
+  DropReceiptWire: Format.json.schema(DropReceipt),
+  OutboxRowWire: Format.json.schema(OutboxRow),
+  DeadLetterRowWire: Format.json.schema(DeadLetterRow),
+  ReplayTallyWire: Format.json.schema(ReplayTally),
+  OutboxLaneWire: Format.json.schema(OutboxLane),
+  OutboxSweepWire: Format.json.schema(OutboxSweep),
   FlagVerdictWire: Format.json.schema(FlagVerdict),
   ControlIntentWire: Format.json.schema(ControlIntent),
   LayoutConstraintWire: Format.json.schema(LayoutProgram),
@@ -2501,7 +3329,7 @@ const _semantic = <A, I>(family: Wire.Family, schema: Schema.Schema<A, I>): Wire
     Effect.flatMap(Schema.decodeUnknown(schema)(encoded), (decoded) =>
       Schema.equivalence(schema)(value, decoded)
         ? Effect.void
-        : Effect.fail(_mismatch(family, value, decoded, "<semantic-divergence>"))))
+        : Effect.fail(_mismatch(family, "semantic", value, decoded))))
 
 const _descriptor = <A>(family: Contract.Family): Contract.Gate<A> => ({ compatibility }) =>
   Contract.Descriptor.gate({ family, compatibility })
@@ -2531,12 +3359,9 @@ const _merkleParity: Wire.Parity<Commit.Merkle> = {
   run: (summary) =>
     Commit.admit(summary).pipe(
       Effect.asVoid,
-      Effect.mapError(() => new WireFault({
-        family: "MerkleSummaryWire",
-        reason: "parity",
-        detail: "<merkle-root>",
-        evidence: Option.none(),
-      })),
+      // the summary owner already measured the divergence, so its refusal RIDES here; discarding it and raising a
+      // bare token made the one fault an operator drills on the one fault carrying no coordinate to drill
+      Effect.mapError((refusal) => _mismatch("MerkleSummaryWire", "merkle-root", refusal.actual, refusal.expected)),
     ),
 }
 
@@ -2577,6 +3402,14 @@ const _rows = {
   BindingStatusWire: _row("decode", "json", _schema.BindingStatusWire),
   CoercedValueWire: _row("decode", "json", _schema.CoercedValueWire),
   WriteReceiptWire: _row("decode", "json", _schema.WriteReceiptWire),
+  HopReceiptWire: _row("decode", "json", _schema.HopReceiptWire),
+  DeliveryReceiptWire: _row("decode", "json", _schema.DeliveryReceiptWire),
+  DropReceiptWire: _row("decode", "json", _schema.DropReceiptWire),
+  OutboxRowWire: _row("decode", "json", _schema.OutboxRowWire),
+  DeadLetterRowWire: _row("decode", "json", _schema.DeadLetterRowWire),
+  ReplayTallyWire: _row("decode", "json", _schema.ReplayTallyWire),
+  OutboxLaneWire: _row("decode", "json", _schema.OutboxLaneWire),
+  OutboxSweepWire: _row("decode", "json", _schema.OutboxSweepWire),
   FlagVerdictWire: _row("decode", "json", _schema.FlagVerdictWire),
   ControlIntentWire: _row("decode", "json", _schema.ControlIntentWire),
   LayoutConstraintWire: _row("decode", "json", _schema.LayoutConstraintWire),
@@ -2596,6 +3429,129 @@ const _rows = {
 
 const _family = Shape.vocabulary(_families, _rows)
 
+// ONE bounded traversal owner over every recursive foreign tree this page lands. Five families recurse — the shell
+// menu strip, the control-intent tree, the selection predicate fold, GeoJSON geometry collections, and the IFC
+// typed-value fold — and each reached its consumers with no walk, no depth bound, and a hand recursion per reader,
+// so a hostile document was bounded by whichever consumer happened to guard. The roster is ONE child projection per
+// family, seated at the registry rather than inside any one landing because it serves them all: a sixth recursive
+// family lands as one row and inherits the budget, where today it would inherit nothing.
+//
+// Projections are TOTAL by construction rather than by a catch-all. Each family already carries a closed split — a
+// leaf union beside a nesting union, or a `case` roster — so the projection reads that split and a new arm breaks
+// the table at its declaration. A `Match.orElse` here would turn exactly that compile break into a silent zero-child
+// answer, which reads as a leaf and truncates the walk.
+const _walkRows = {
+  ControlIntentWire: {
+    children: (node: ControlIntent): ReadonlyArray<ControlIntent> =>
+      Schema.is(_leaves)(node) ? Array.empty() : Match.value(node).pipe(Match.discriminatorsExhaustive("kind")({
+        // a banner's verbs and its evidence are both child intents, so the strip contributes its whole verb row
+        // plus the optional evidence intent — a projection naming only `actions` truncates the walk at the evidence
+        banner: (arm) => Array.appendAll(arm.actions, Array.fromOption(arm.evidence)),
+        emptyState: (arm) => Array.fromOption(arm.action),
+        grid: (arm) => Array.flatMap(arm.columns, (column) => Array.appendAll([column.cell], Array.fromOption(column.editor))),
+        tree: (arm) => [arm.item],
+        toolbar: (arm) => Array.map(arm.rows, (row) => row.item),
+        tab: (arm) => Array.map(arm.pages, (page) => page.body),
+        accordion: (arm) => Array.map(arm.sections, (section) => section.body),
+        panel: (arm) => arm.children,
+        dock: (arm) => arm.regions,
+        splitter: (arm) => [arm.first, arm.second],
+      })),
+  },
+  // Menu rows recurse on THEMSELVES rather than on a child intent, so the strip is its own family: a walk that
+  // followed the intent projection into a menu would stop at the arm and never see the rows under it.
+  ControlMenuRow: {
+    children: (node: _MenuRowOf<"type">): ReadonlyArray<_MenuRowOf<"type">> => node.rows,
+  },
+  PredicateWire: {
+    children: (node: PredicateWire): ReadonlyArray<PredicateWire> =>
+      Schema.is(_predicateLeaves)(node) ? Array.empty() : Match.value(node).pipe(Match.discriminatorsExhaustive("arm")({
+        // every incidence arm recurses through the SAME target carrier, so the match half reads off one projection
+        spatialContainer: (op) => Array.fromNullable(op.container.matching),
+        composed: (op) => Array.fromNullable(op.whole.matching),
+        type: (op) => Array.fromNullable(op.type.matching),
+        zone: (op) => Array.fromNullable(op.group.matching),
+        connected: (op) => Array.fromNullable(op.other.matching),
+        voided: (op) => Array.fromNullable(op.other.matching),
+        generic: (op) => Array.fromNullable(op.other.matching),
+        all: (op) => op.operands,
+        any: (op) => op.operands,
+        not: (op) => [op.operand],
+      })),
+  },
+  // GeoJSON nests through ONE arm and the six coordinate arms bottom out, so the collection is the whole recursion.
+  GeoFeatureGeometry: {
+    children: (node: GeoFeature.Geometry): ReadonlyArray<GeoFeature.Geometry> =>
+      node._tag === "GeometryCollection" ? node.geometries : Array.empty(),
+  },
+  RelationshipAttribute: {
+    children: (node: _AttrValue): ReadonlyArray<_AttrValue> =>
+      Schema.is(_attrLeaves)(node) ? Array.empty() : Match.value(node).pipe(Match.discriminatorsExhaustive("case")({
+        enumerated: (arm) => Array.appendAll(arm.value.selected, arm.value.allowed),
+        list: (arm) => arm.value.values,
+        table: (arm) => Array.flatMap(arm.value.rows, (row) => [row.defining, row.defined]),
+        complex: (arm) => Record.values(arm.value.properties),
+      })),
+  },
+} as const
+
+// Budgets are UNIT-CARRYING: the traversal ceiling is `Shape.Bound<"hops">`, so a hop budget can never be spent
+// where a fanout or fuel budget belongs, and the fan ceiling stays `Shape.Ingress.floor.collection` — the same
+// number the ingress gate already refuses a too-wide document on, read here rather than restated.
+const _WALK: Shape.Bound<"hops"> = Shape.Bound.of("hops", Shape.Ingress.floor.depth)
+
+// One typed refusal per budget carrying the measured extent beside the ceiling it broke, on the `overrun` cause the
+// policy table already rows — so a walk refusal grades, retains, and replays exactly as every other bounded refusal
+// on this page does, instead of minting a second exhaustion vocabulary beside it.
+const _overspent = (
+  family: Wire.FaultFamily,
+  axis: "walk-depth" | "walk-fan",
+  actual: number,
+  expected: number,
+): WireFault => new WireFault({ family, case: { reason: "overrun", axis, actual, expected, at: Option.none() } })
+
+// BOUNDARY ADAPTER: the explicit stack is what bounds a hostile depth without consuming the JS call stack — the
+// same posture `Shape.Ingress`'s own probe takes over a foreign graph — where a recursive fold exhausts the engine
+// before the declared budget ever refuses. Order is PRE-ORDER: children enter ahead of the remaining frontier, so a
+// consumer folding the result sees a parent before anything under it.
+const _walked = <A>(
+  family: Wire.FaultFamily,
+  row: Wire.Walk.Row<A>,
+  root: A,
+  bound: Shape.Bound<"hops">,
+): Effect.Effect<ReadonlyArray<A>, WireFault> =>
+  Effect.map(
+    Effect.iterate(
+      { held: Array.empty<A>(), pending: Array.of([root, 0] as readonly [A, number]) as ReadonlyArray<readonly [A, number]> },
+      {
+        while: ({ pending }) => Array.isNonEmptyReadonlyArray(pending),
+        body: ({ held, pending }) =>
+          Array.matchLeft(pending, {
+            onEmpty: () => Effect.succeed({ held, pending }),
+            onNonEmpty: ([node, hops], rest) =>
+              hops > bound
+                ? Effect.fail(_overspent(family, "walk-depth", hops, bound))
+                : pipe(row.children(node), (children) =>
+                  children.length > Shape.Ingress.floor.collection
+                    ? Effect.fail(_overspent(family, "walk-fan", children.length, Shape.Ingress.floor.collection))
+                    : Effect.succeed({
+                      held: Array.append(held, node),
+                      pending: Array.appendAll(Array.map(children, (child) => [child, hops + 1] as const), rest),
+                    })),
+          }),
+      },
+    ),
+    ({ held }) => held,
+  )
+
+type _OverrunAxis = (typeof _overrunAxes)[number]
+type _ReceiptKind = (typeof _receiptKinds)[keyof typeof _receiptKinds]
+type _CommandOutcome = typeof _CommandOutcome.Type
+type _DeckReceipt = typeof _DeckReceipt.Type
+type _WriteBack = typeof _WriteBack.Type
+type _FaultObservation = typeof _FaultObservation.Type
+type _WireFaultCase = WireFault.Case
+type _WireFaultReason = WireFault.Reason
 type _Credential = Schema.Schema.Type<(typeof _rows)["CredentialPemWire"]["schema"]>
 type _CredentialLabel = Credential.Label
 type _GeoFeature = Schema.Schema.Type<typeof GeoFeature>
@@ -2604,6 +3560,10 @@ type _GeoFeatureExtent = GeoFeature.Extent
 type _GeoFeatureTile = GeoFeature.Tile
 type _HopsReason = Hops.Reason
 type _HopsRow = Hops.Row
+type _InvokeFault = InvokeFault
+type _InvokeReason = InvokeReason
+type _RemoteDetail = RemoteDetail
+type _TransportKind = TransportKind
 type _TextureAlphaMode = Texture.AlphaMode
 type _TextureLayerLaw = Texture.LayerLaw
 type _TextureMipPolicy = Texture.MipPolicy
@@ -2636,10 +3596,35 @@ declare namespace Wire {
   type Ingress = { readonly [K in Family]: (typeof _rows)[K]["direction"] extends "encode" ? never : K }[Family]
   type Egress = { readonly [K in Family]: (typeof _rows)[K]["direction"] extends "decode" ? never : K }[Family]
   type Fault = WireFault
+  namespace Fault {
+    // The refusal payload publishes so a peer assembler raises through the roster rather than re-spelling a cause's
+    // columns, and the budget axis publishes because `frame` refuses on ceilings this page never sees — a raiser
+    // there names a member of THIS roster or breaks, which is what keeps nine ceilings under one vocabulary.
+    type Case = _WireFaultCase
+    type Reason = _WireFaultReason
+  }
+  type OverrunAxis = _OverrunAxis
+  type ReceiptKind = _ReceiptKind
+  type CommandOutcome = _CommandOutcome
+  type DeckReceipt = _DeckReceipt
+  type WriteBack = _WriteBack
+  type FaultObservation = _FaultObservation
   type FaultDetail = Decoded<"FaultDetail">
+  type InvokeFault = _InvokeFault
+  type InvokeReason = _InvokeReason
+  type RemoteDetail = _RemoteDetail
+  type TransportKind = _TransportKind
   type BindingStatus = Decoded<"BindingStatusWire">
   type CoercedValue = Decoded<"CoercedValueWire">
   type WriteReceipt = Decoded<"WriteReceiptWire">
+  type HopReceipt = Decoded<"HopReceiptWire">
+  type DeliveryReceipt = Decoded<"DeliveryReceiptWire">
+  type DropReceipt = Decoded<"DropReceiptWire">
+  type OutboxRow = Decoded<"OutboxRowWire">
+  type DeadLetterRow = Decoded<"DeadLetterRowWire">
+  type ReplayTally = Decoded<"ReplayTallyWire">
+  type OutboxLane = Decoded<"OutboxLaneWire">
+  type OutboxSweep = Decoded<"OutboxSweepWire">
   type CommandGate = Decoded<"CommandGateWire">
   type ControlIntent = Decoded<"ControlIntentWire">
   type LayoutProgram = Decoded<"LayoutConstraintWire">
@@ -2690,15 +3675,33 @@ declare namespace Wire {
       Either.Either<Decoded<K>, WireFault>, WireFault, Quarantine | Context.Tag.Service<typeof Contract.Descriptor>
     >
   }
+  // The recursive families are their OWN key space: a walk row keys on the tree, not on the census family that
+  // happens to carry it, because one census row can nest two unlike trees (the intent family carries its menu
+  // strip) and one tree can ride two census rows.
+  namespace Walk {
+    type Family = keyof typeof _walkRows
+    type Row<A> = { readonly children: (node: A) => ReadonlyArray<A> }
+    type Node<K extends Family> = (typeof _walkRows)[K] extends { readonly children: (node: infer N) => unknown } ? N
+      : never
+    // `Surface`, never `Shape`: a member named `Shape` inside this namespace shadows the value floor's own owner at
+    // every reference below it, so the budget type would silently resolve against this declaration.
+    type Surface = {
+      readonly families: ReadonlyArray<Family>
+      readonly floor: Shape.Bound<"hops">
+      readonly nodes: <K extends Family>(
+        family: K,
+        root: Node<K>,
+        bound: Shape.Bound<"hops">,
+      ) => Effect.Effect<ReadonlyArray<Node<K>>, WireFault>
+    }
+  }
 }
 
+// The refusal rides TYPED on its own arm rather than being flattened into a token and re-offered as loose evidence
+// beside it: the retired form spelled three of the refusal's columns into a string and handed the whole value over
+// again, so one fact crossed twice under two shapes and a reader had to parse the string to learn which.
 const _refused = (family: Wire.Family, refusal: Contract.Refusal): WireFault =>
-  new WireFault({
-    family,
-    reason: "drift",
-    detail: `<contract:${refusal.compatibility}:${refusal.verdict}:${refusal.changes}>`,
-    evidence: Option.some(refusal),
-  })
+  new WireFault({ family, case: { reason: "drift", divergence: { subject: "contract", refusal } } })
 
 const _decode = <K extends Wire.Ingress>(family: K, octets: Uint8Array) =>
   Effect.flatMap(Schema.decodeUnknown(_rows[family].schema)(octets), (decoded) =>
@@ -2726,14 +3729,12 @@ const _decode = <K extends Wire.Ingress>(family: K, octets: Uint8Array) =>
 const _overrun = (family: Wire.FaultFamily, actual: number): WireFault =>
   new WireFault({
     family,
-    reason: "overrun",
-    detail: "<payload-overrun>",
-    evidence: Option.some({ actual, expected: Shape.Ingress.floor.bytes }),
+    case: { reason: "overrun", axis: "payload", actual, expected: Shape.Ingress.floor.bytes, at: Option.none() },
   })
 
 const _completeStream = <K extends Wire.Ingress>(family: K, frames: AsyncIterable<Uint8Array>) =>
   Stream.fromAsyncIterable(frames, (defect) =>
-    new WireFault({ family, reason: "malformed", detail: String(defect), evidence: Option.none() })).pipe(
+    new WireFault({ family, case: { reason: "malformed", at: "source", issue: String(defect) } })).pipe(
     Stream.mapEffect(
       (octets) =>
         (octets.byteLength > Shape.Ingress.floor.bytes
@@ -2741,7 +3742,7 @@ const _completeStream = <K extends Wire.Ingress>(family: K, frames: AsyncIterabl
           : _decode(family, octets)).pipe(
           Effect.mapError((issue) => issue instanceof WireFault
             ? issue
-            : new WireFault({ family, reason: "malformed", detail: issue.message, evidence: Option.none() })),
+            : new WireFault({ family, case: { reason: "malformed", at: "decode", issue: issue.message } })),
           Quarantine.divert({ family, octets: () => octets }),
         ),
       { concurrency: 1 },
@@ -2756,6 +3757,8 @@ const _completeStream = <K extends Wire.Ingress>(family: K, frames: AsyncIterabl
 - Law: shaping delays values without cross-subject coalescing or loss.
 - Law: a feed row admits a STATE family alone — one whose subject re-reports an unchanged reading.
 - Law: `_CADENCE` bands price every shaped feed; a row selects a band and never spells its own triple.
+- Law: every bounded loss RETURNS as a fact on the band beside the value, so a quiet subject and a coalesced burst never read alike.
+- Law: the census DERIVES by folding that fact band through the ledger monoid; a counter kept beside the stream is the deleted form.
 
 ```typescript signature
 import type { Duration, Equivalence } from "effect"
@@ -2810,7 +3813,7 @@ const _feeds: { readonly [K in feed.Family]: feed.Row<Wire.Decoded<K>> } = {
     band: Option.none(),
   },
   BindingStatusWire: {
-    subject: (status) => status.binding,
+    subject: (status) => status.bindingId,
     alike: Schema.equivalence(BindingStatus),
     band: Option.some("control"),
   },
@@ -2821,27 +3824,31 @@ const _feeds: { readonly [K in feed.Family]: feed.Row<Wire.Decoded<K>> } = {
   },
 }
 
-const _transitions = <A>(row: feed.Row<A>) => <E, R>(marks: Stream.Stream<A, E, R>): Stream.Stream<A, E, R> =>
+// The restatement the fold drops RETURNS as a fact on the same band the survivors ride, so a subject that went
+// quiet and a subject whose burst coalesced are two readings a consumer can tell apart. The fact carries the
+// subject it dropped and the extent it dropped, so the census below derives from occurrences rather than from a
+// tally kept beside the stream that no arrival can reconcile against.
+const _transitions = <A>(row: feed.Row<A>) =>
+<E, R>(marks: Stream.Stream<A, E, R>): Stream.Stream<Either.Either<A, Fault.Drop.Fact>, E, R> =>
   marks.pipe(
     // subject projection binds ONCE per element: a re-read per arm charges the keying fold three projections on the
     // feed's own hot path, where the declared cadence is hundreds of marks a second
     Stream.mapAccum(HashMap.empty<string, A>(), (seen, value) =>
       pipe(row.subject(value), (subject) =>
         Option.match(HashMap.get(seen, subject), {
-          onNone: () => [HashMap.set(seen, subject, value), Option.some(value)] as const,
+          onNone: () => [HashMap.set(seen, subject, value), Either.right(value)] as const,
           onSome: (prior) =>
             row.alike(prior, value)
-              ? ([seen, Option.none<A>()] as const)
-              : ([HashMap.set(seen, subject, value), Option.some(value)] as const),
+              ? ([seen, Either.left(Fault.Drop.fact("coalesced", subject, 1))] as const)
+              : ([HashMap.set(seen, subject, value), Either.right(value)] as const),
         }))),
-    Stream.filterMap((held) => held),
   )
 
 const feed = <K extends feed.Family>(
   family: K,
   frames: AsyncIterable<Uint8Array>,
 ): Stream.Stream<
-  Wire.Decoded<K>, Wire.Fault, Quarantine | Context.Tag.Service<typeof Contract.Descriptor>
+  Either.Either<Wire.Decoded<K>, Fault.Drop.Fact>, Wire.Fault, Quarantine | Context.Tag.Service<typeof Contract.Descriptor>
 > => {
   const row = _feeds[family]
   return Wire.stream(family, frames).pipe(
@@ -2862,38 +3869,66 @@ const feed = <K extends feed.Family>(
       }),
   )
 }
+
+// The census is a FOLD of the fact band and nothing else, through the ledger's own monoid: `empty` is the zero
+// every reason answers and `combineAll` walks the band once, so a caller reads one census and no counter rides
+// beside the stream to disagree with it. `Fault.Ledger` is the estate's one drop-census owner — the closed reason
+// roster, the per-reason `{ count, extent }` cell, and the monoid over them — seated at the value floor because
+// this page and `interchange/carrier` both drop under it, and `carrier` holds only a TYPE edge to this one.
+const _dropped = <A, E, R>(
+  band: Stream.Stream<Either.Either<A, Fault.Drop.Fact>, E, R>,
+): Effect.Effect<Fault.Ledger.Census, E, R> =>
+  Stream.runFold(band, Fault.Ledger.monoid.empty, (held, lane) =>
+    Either.match(lane, {
+      onLeft: (fact) => Fault.Ledger.monoid.combine(held, Fault.Ledger.of(fact)),
+      onRight: () => held,
+    }))
 ```
 
 ## [09]-[SEQUENCE_GAP]
 
 - Owner: `Wire.Gap` owns sequence evidence and resumable ordered delivery.
-- Law: replayed coordinates drop, gaps emit evidence once, and valid arrivals still deliver.
+- Law: gaps emit evidence once and valid arrivals still deliver.
+- Law: a replayed coordinate RETURNS a drop fact carrying the coordinate it refused, so at-least-once redelivery reads as a measured extent.
+- Law: a gap is a FAULT and a replay is a DROP — one is missing evidence the peer owes, the other is lawful duplication under the delivery contract.
 
 ```typescript signature
 const _bySeq: Order.Order<OpLogEntry> = Order.mapInput(Order.bigint, (entry: OpLogEntry) => entry.seq)
 
+// The refused band carries two unlike verdicts and keeps them unlike: a sequence GAP is evidence the producing peer
+// owes a frame this consumer never saw, while a replayed coordinate is the delivery contract working as declared.
+// Folding both onto the fault rail made the second read as breakage; dropping the second silently — the
+// `Chunk.empty` this replaces — left a caller unable to tell a quiet producer from one re-driving its whole tail.
+type _Lane<A> = Either.Either<A, WireFault | Fault.Drop.Fact>
+
 const Gap: {
-  readonly evidence: (family: Wire.FaultFamily, expected: bigint, actual: bigint, detail?: string) => WireFault
+  readonly evidence: (
+    family: Wire.FaultFamily,
+    subject: (typeof _gapSubjects)[number],
+    expected: bigint,
+    actual: bigint,
+  ) => WireFault
   readonly sequential: (
     family: Wire.FaultFamily,
     resume: bigint,
   ) => <A extends { readonly seq: bigint }, E, R>(
     entries: Stream.Stream<Either.Either<A, WireFault>, E, R>,
-  ) => Stream.Stream<Either.Either<A, WireFault>, E, R>
+  ) => Stream.Stream<_Lane<A>, E, R>
 } = {
-  evidence: (family, expected, actual, detail = "<gap>") =>
-    new WireFault({ family, reason: "sequence", detail, evidence: Option.some({ actual, expected }) }),
+  evidence: (family, subject, expected, actual) =>
+    new WireFault({ family, case: { reason: "sequence", subject, actual, expected } }),
   sequential: (family, resume) => <A extends { readonly seq: bigint }, E, R>(entries: Stream.Stream<Either.Either<A, WireFault>, E, R>) =>
     entries.pipe(
-      Stream.mapAccum(resume, (last, lane): readonly [bigint, Chunk.Chunk<Either.Either<A, WireFault>>] =>
+      Stream.mapAccum(resume, (last, lane): readonly [bigint, Chunk.Chunk<_Lane<A>>] =>
         Either.match(lane, {
-          onLeft: (): readonly [bigint, Chunk.Chunk<Either.Either<A, WireFault>>] => [last, Chunk.of(lane)],
+          onLeft: (): readonly [bigint, Chunk.Chunk<_Lane<A>>] => [last, Chunk.of(lane)],
           onRight: (entry) =>
             entry.seq <= last
-              ? ([last, Chunk.empty<Either.Either<A, WireFault>>()] as const)
+              // the coordinate names the drop, so a replayed tail folds to an extent rather than to silence
+              ? ([last, Chunk.of(Either.left(Fault.Drop.fact("replayed", String(entry.seq), 1)))] as const)
               : entry.seq === last + 1n
                 ? ([entry.seq, Chunk.of(lane)] as const)
-                : ([entry.seq, Chunk.make(Either.left(Gap.evidence(family, last + 1n, entry.seq)), lane)] as const),
+                : ([entry.seq, Chunk.make(Either.left(Gap.evidence(family, "ordinal", last + 1n, entry.seq)), lane)] as const),
         })),
       Stream.flattenChunks,
     ),
@@ -2905,7 +3940,7 @@ const OpLog: {
   readonly stream: (
     frames: ReadableStream<Uint8Array> | AsyncIterable<Uint8Array>,
     resume: bigint,
-  ) => Stream.Stream<Either.Either<OpLogEntry, WireFault>, WireFault, Quarantine>
+  ) => Stream.Stream<_Lane<OpLogEntry>, WireFault, Quarantine>
   readonly frontier: (entries: ReadonlyArray<OpLogEntry>) => Option.Option<bigint>
 } = {
   Entry: OpLogEntry,
@@ -2930,25 +3965,51 @@ const _registry: Wire.Shape = {
   stream: _completeStream,
 }
 
+// The roster publishes BESIDE the entry, so a consumer choosing a projection reads which trees are walkable rather
+// than discovering it by a refused key, and `floor` is the page's own budget a caller either spends or narrows.
+const _walk: Wire.Walk.Surface = {
+  families: Record.keys(_walkRows),
+  floor: _WALK,
+  nodes: (family, root, bound) => _walked(family, _walkRows[family] as Wire.Walk.Row<typeof root>, root, bound),
+}
+
 const Wire = {
   ..._registry,
+  Walk: _walk,
   Fault: WireFault,
   Quarantine,
   Parity,
   feed,
   Gap,
+  dropped: _dropped,
   OpLog,
   CrdtOp,
   Hops,
-  FaultDetail,
+  Remote,
+  Transport,
+  MalformedDetail,
+  invokeReasons: _invokeCensus,
+  receiptKinds: _receiptKinds,
+  invokeReason: _invokeReason,
+  EnricherLive: _EnricherLive,
   Credential,
   FlagVerdict,
   EvidenceTimeline,
   BindingStatus,
   CoercedValue,
   WriteReceipt,
+  HopReceipt,
+  DeliveryReceipt,
+  DropReceipt,
+  OutboxRow,
+  DeadLetterRow,
+  ReplayTally,
+  OutboxLane,
+  OutboxSweep,
   CommandGate,
+  CommandRow,
   ControlIntent,
+  ControlReceipt,
   LayoutProgram,
   BcfTopic,
   BcfViewpoint,

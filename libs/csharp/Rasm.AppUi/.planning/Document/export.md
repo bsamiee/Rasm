@@ -1,28 +1,32 @@
 # [APPUI_DOCUMENT_EXPORT]
 
-Rasm.AppUi document export owns one paginated-output rail. MigraDoc composes flow reports, PDFsharp policies harden PDF output, OOXML writers carry XLSX/DOCX/PPTX, and lcmsNET rows carry print fidelity. This page owns destinations, `ExportFault`, support-bundle contributions, report specifications, PDF policies, Office output, and print transforms. Drafting flow reports and diagnostics evidence compose this owner; drafting sheet-PDF remains on capture's vector-print arm.
+Rasm.AppUi document export owns one paginated-output rail. MigraDoc composes flow reports, PDFsharp policies harden PDF output, OOXML writers carry XLSX/DOCX, and lcmsNET rows carry print fidelity. This page owns destinations, the direct generated `ExportFault` union, support-bundle contributions, report specifications, PDF hardening, Office output, print transforms, and the per-format configuration form whose admitted request lowers into those arms. Drafting flow reports and diagnostics evidence compose this owner; drafting sheet-PDF remains on capture's vector-print arm.
 
 ## [01]-[INDEX]
 
-- [02]-[EXPORT_DESTINATIONS]: One destination union; the typed `ExportFault` rail; the support-bundle contributor rows.
-- [03]-[FLOW_REPORT]: MigraDoc flow DOM; auto-pagination; running bands; placed visuals.
-- [04]-[PDF_POLICY]: Security, signatures over the AppHost secrets lease, AcroForms, PDF-UA, the colour-mode row, cross-reference annotations.
-- [05]-[OFFICE_ARM]: OOXML part-graph writers — XLSX, DOCX, PPTX.
+- [02]-[EXPORT_DESTINATIONS]: One destination union; the `[FaultCase]`/`ExportFault` rail; the one delivery-and-seal fold; the support-bundle contributor rows.
+- [03]-[FLOW_REPORT]: MigraDoc flow DOM; the one block-to-line fold and its emitter rows; the kernel-issued page geometry; auto-pagination; running bands; placed visuals.
+- [04]-[PDF_POLICY]: `PdfExport` — the security union, the `CapabilitySet<PdfTrait>` conformance, signatures over the AppHost secrets lease, AcroForms, the colour-mode row, cross-reference annotations.
+- [05]-[OFFICE_ARM]: OOXML part-graph writers carried as a column on the format row — XLSX, DOCX.
 - [06]-[PRINT_ARM]: lcmsNET device-CMYK/ICC transforms; intent proving; ink limiting; proofing; K-preservation intents.
-- [07]-[SCHEDULED_EXPORT]: Consumer-owned `ScheduleEntry` rows for recurring report delivery and bounded backfill.
-- [08]-[EXPORT_FORM]: Per-format option schemas, destination recency, the preflight readout, and the run-queue handoff.
+- [07]-[SCHEDULED_EXPORT]: Consumer-owned `ScheduleEntry` rows for recurring report delivery under a real re-drive curve.
+- [08]-[EXPORT_FORM]: The capability roster, its per-format schema and preflight readout, the run-queue handoff, and the lowering that carries an admitted request into `[03]`/`[04]`/`[05]`.
 
 ## [02]-[EXPORT_DESTINATIONS]
 
-- Owner: `VisualDestination` [Union] — the one delivery vocabulary every export arm and the capture vector-print/video arms deliver through, carrying its own `Key` case column so a delivery-keyed projection reads the owner rather than re-spelling the case literals; `ExportFault` — the typed export rail; `ExportDelivery` — the one delivery fold; `BundleMember` — the classified, content-keyed diagnostic-artifact row; `SupportBundle` — the member roster and the contribution fold onto the Bundle destination.
-- Cases: FilePath · BlobLane · Bundle; bundle member rows evidence-journal · hud-samples · gpu-timelines · quality-verdicts · native-assets · proof-goldens · collab-ops — each a named factory pinning artifact name and classification.
-- Entry: `public static IO<string> Deliver(VisualRuntime runtime, VisualDestination destination, ReadOnlyMemory<byte> payload)` — the ONE delivery rail at the widest payload shape, an array-holding producer binding through the implicit conversion; the FilePath arm receives its absolute path as a value from the picker intent and never computes paths; artifact scopes resolve from `ProfileRoots`; `SupportBundle.Contribute(VisualRuntime runtime, params ReadOnlySpan<BundleMember> members)` — one modality-polymorphic contribution fold delivering every member through the Bundle destination and sealing one `RenderReceipt` per member whose kind IS that destination's own `Key`.
-- Auto: the Bundle arm stages every classified artifact through the runtime `BundleWrite` delegate before any receipt enters the sink, then commits receipts only for the complete delivered roster; a delivery or sink refusal stays on the IO rail for AppHost `SupportCapture` to recover as its partial manifest row and cleanup fold; every delivered payload seals a `RenderReceipt` of kind document/office/print/bundle whose `FrameHash` mints through the runtime `ContentHash` delegate bound to the kernel `Rasm.Domain` `ContentHash.Of` entry; each `BundleMember` payload arrives already serialized by its owning codec — the evidence journal off the sealed message-envelope stream, HUD samples and GPU timelines off the devloop feeds, quality verdicts and native-asset facts off their receipt folds, proof-golden digests off the render-hash lane, and the collab op window off the devloop `CollabJson` readable export — so assembly is a fold over settled receipt streams and no member re-measures.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project), Rasm (project)
-- Growth: one destination case extends delivery and breaks the dispatch at compile time; one export target is one row on the owning arm, never a second engine; one diagnostic stream is one `BundleMember` factory row; one `ExportFault` case is one `detail` ordinal under the `AppUiFaultBand.Export` row (6420); zero new surface.
-- Boundary: this union is the ONE export-destination owner — capture's vector-print arm, the FFmpeg clip rows, drafting's sheet-PDF egress, and the diagnostics report-PDF all deliver through it, so a per-arm destination enum is the deleted form; `FilePath` admits only fully qualified targets whose normalized path remains under `ProfileRoots.AppRoot`, `StoreRoot`, or `SupportRoot`, rejects every symlink or junction in the selected root and existing parent chain, opens the unique pending file with create-new semantics before writing, and lands the final rename fail-closed against a parent swap — source and target resolve through one parent path in one rename syscall, the GUID-named pending sibling cannot pre-exist at a redirected parent, and the link-free parent re-walk runs after the write immediately before the rename — so a relative, linked, escaping, or mid-flight-redirected path folds to `ExportFault.DeliveryFailed`; every fault derives through `AppUiFaultBand.Export` — a bare `Error.New` is the deleted form; archive assembly and manifest custody are the AppHost support-capture fold's — contributed members cross the `BundleWrite` seam as classified payloads, the AppHost `SupportCapture` redacts, caps, and archives them, and an AppUi-local zip assembler or second manifest store is the deleted form; the contributor roster declares AppUi membership and classification, and `BundleMember.ContentKey` mints each pre-redaction payload identity through kernel `ContentHash.Of`, while AppHost `SupportManifest.Entry` carries the post-redaction, post-cap `ContentKey` over the bytes each zip member holds, so the two keys agree exactly where nothing was masked or truncated and an inequality names redaction or a cap rather than corruption.
+- Owner: `VisualDestination` [Union] — the one delivery vocabulary every export arm and the capture vector-print/video arms deliver through; `ExportArm` [SmartEnum] — the receipt-kind roster this page's four seal sites read; `ExportFault` — the direct generated `[Union]` with one `[FaultCase]` leaf per export failure; `ExportDelivery` — the one delivery entry and the one measure-deliver-seal fold every arm mints its receipt through; `BundleMember` — the classified, content-keyed diagnostic-artifact row; `SupportBundle` — the contribution fold onto the Bundle destination.
+- Cases: `VisualDestination` = FilePath · BlobLane · Bundle; `ExportArm` = document · office · print · bundle; `[FaultCase]` = RenderFailed · SignerUnavailable · ProfileInvalid · PartGraphRejected · DeliveryFailed · ContentUnsupported · AnnotationRejected · IntentUnsupported; bundle member rows evidence-journal · hud-samples · gpu-timelines · quality-verdicts · native-assets · proof-goldens · collab-ops.
+- Entry: `public static IO<string> Deliver(VisualRuntime runtime, VisualDestination destination, ReadOnlyMemory<byte> payload)` — the ONE delivery rail at the widest payload shape; `public static IO<RenderReceipt> Landed(VisualRuntime runtime, ExportArm arm, string format, string colour, Option<VisualDestination> destination, IO<ReadOnlyMemory<byte>> produce)` — the one measured deliver-and-seal fold, sinking nothing so each arm keeps its own commit discipline; `SupportBundle.Contribute(VisualRuntime runtime, params ReadOnlySpan<BundleMember> members)` — one modality-polymorphic contribution fold.
+- Law: `DeliveryFailed` and `SignerUnavailable` publish `Retriability.Transient`, so a scheduled delivery re-drives on the fault's own declaration and no consumer classifies by message.
+- Law: the payload crosses as ONE `ReadOnlyMemory<byte>` from compose to write — both delegate seams on `VisualRuntime` already take memory, so the defensive `ToArray` on the blob and bundle arms copied against a signature that never demanded it.
+- Auto: the Bundle arm stages every classified artifact through the runtime `BundleWrite` delegate before any receipt enters the sink, then commits receipts only for the complete delivered roster; a delivery or sink refusal stays on the IO rail for AppHost `SupportCapture` to recover as its partial manifest row; each `BundleMember` payload arrives already serialized by its owning codec, so assembly is a fold over settled receipt streams and no member re-measures.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project), Rasm (project — `Domain/rails`: `FaultBand`, `Fault`, `Custody`, `Retriability`; `Domain/identity`: `ContentHash`; `Parametric/projections`: `MonotonicTimeline`)
+- Growth: one destination case extends delivery and breaks the dispatch at compile time; one export target is one row on `[08]`'s format roster, never a second engine; one diagnostic stream is one `BundleMember` factory row; one fault case is one `[FaultCase]` leaf.
+- Boundary: this union is the ONE export-destination owner, so a per-arm destination enum is the deleted form. `FilePath` admits only fully qualified targets whose normalized path stays under `ProfileRoots.AppRoot`, `StoreRoot`, or `SupportRoot`, rejects every symlink or junction in the selected root and existing parent chain, opens the unique pending file with create-new semantics before writing, and lands the final rename fail-closed against a parent swap — source and target resolve through one parent path in one rename syscall, the GUID-named pending sibling cannot pre-exist at a redirected parent, and the link-free parent re-walk runs after the write immediately before the rename. Path admission is PURE and refuses on the `Fin` rail naming which segment refused, so the lift carries the OS write alone. Archive assembly and manifest custody are the AppHost support-capture fold's — an AppUi-local zip assembler or second manifest store is the deleted form; `BundleMember.ContentKey` mints each pre-redaction payload identity through kernel `ContentHash.Of` while AppHost `SupportManifest.Entry` carries the post-redaction key, so an inequality names redaction or a cap rather than corruption.
 
 ```csharp signature
+// --- [TYPES] ----------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record VisualDestination {
     private VisualDestination() { }
@@ -30,119 +34,194 @@ public abstract partial record VisualDestination {
     public sealed record BlobLane(string ArtifactKey) : VisualDestination;
     public sealed record Bundle(string ArtifactName, DataClassification Classification) : VisualDestination;
 
-    // The delivery-case key is OWNER-declared, exactly as every other union on this branch declares its
-    // own: a consuming projection reads `Key` instead of re-spelling three literals on a `Switch` the
-    // owner already exhausts, so a fourth case renames nothing at a consumer.
+    // The bundle arm reads the ARM row's own key rather than a fourth literal, so the destination a fold takes
+    // and the kind its receipt reports are one value.
     public string Key => Switch(
-        filePath: static _ => "file", blobLane: static _ => "blob", bundle: static _ => "bundle");
+        filePath: static _ => "file", blobLane: static _ => "blob", bundle: static _ => ExportArm.Bundle.Key);
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ExportFault : Expected {
-    private ExportFault(string detail, int code) : base(detail, code) { }
-    public sealed record RenderFailed(string Stage, string Detail)
-        : ExportFault($"export/render: {Stage} — {Detail}", AppUiFaultBand.Export.Code(0));
-    public sealed record SignerUnavailable(string Detail)
-        : ExportFault($"export/signer: {Detail}", AppUiFaultBand.Export.Code(1));
-    public sealed record ProfileInvalid(string ProfileKey)
-        : ExportFault($"export/icc: {ProfileKey} does not parse as an ICC profile", AppUiFaultBand.Export.Code(2));
-    public sealed record PartGraphRejected(string Part, string Detail)
-        : ExportFault($"export/ooxml: {Part} — {Detail}", AppUiFaultBand.Export.Code(3));
-    public sealed record DeliveryFailed(string Destination, string Detail)
-        : ExportFault($"export/deliver: {Destination} — {Detail}", AppUiFaultBand.Export.Code(4));
-    public sealed record ContentUnsupported(string Format, string Sheet)
-        : ExportFault($"export/content: {Sheet} has no {Format} materialization", AppUiFaultBand.Export.Code(5));
-    public sealed record AnnotationRejected(string Kind, string Detail)
-        : ExportFault($"export/annotation: {Kind} — {Detail}", AppUiFaultBand.Export.Code(6));
-    public sealed record IntentUnsupported(string Role, string Intent)
-        : ExportFault($"export/intent: the {Role} profile carries no {Intent} pipeline", AppUiFaultBand.Export.Code(7));
+// The receipt-kind roster: four seal sites read these rows, so `const string Kind` on four static classes and the
+// literal each one repeated at its `RenderReceipt` mint have no spelling left.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ExportArm {
+    public static readonly ExportArm Document = new("document");
+    public static readonly ExportArm Office = new("office");
+    public static readonly ExportArm Print = new("print");
+    public static readonly ExportArm Bundle = new("bundle");
 }
+
+// --- [ERRORS] ---------------------------------------------------------------------------
+
+
+
+// Retriability is DECLARED per case: a network or filesystem delivery and an unreachable signing credential are
+// the two crossings a re-drive can change, and every other case inherits the base's Terminal.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ExportFault : Fault {
+    private static readonly FaultBand FamilyBand = FaultBand.Export;
+    private ExportFault() { }
+
+    [FaultCase(0)]
+    public sealed partial record RenderFailed(string Stage, string Detail) : ExportFault() {
+        public override string Message => $"export/render: {Stage} — {Detail}";
+    }
+    [FaultCase(1)]
+    public sealed partial record SignerUnavailable(string Detail) : ExportFault() {
+        public override string Message => $"export/signer: {Detail}";
+        public override Retriability Retriability => Retriability.Transient;
+    }
+    [FaultCase(2)]
+    public sealed partial record ProfileInvalid(string ProfileKey) : ExportFault() {
+        public override string Message => $"export/icc: {ProfileKey} does not parse as an ICC profile";
+    }
+    [FaultCase(3)]
+    public sealed partial record PartGraphRejected(string Part, string Detail) : ExportFault() {
+        public override string Message => $"export/ooxml: {Part} — {Detail}";
+    }
+    [FaultCase(4)]
+    public sealed partial record DeliveryFailed(string Destination, string Detail) : ExportFault() {
+        public override string Message => $"export/deliver: {Destination} — {Detail}";
+        public override Retriability Retriability => Retriability.Transient;
+    }
+    [FaultCase(5)]
+    public sealed partial record ContentUnsupported(string Format, string Sheet) : ExportFault() {
+        public override string Message => $"export/content: {Sheet} has no {Format} materialization";
+    }
+    [FaultCase(6)]
+    public sealed partial record AnnotationRejected(string Kind, string Detail) : ExportFault() {
+        public override string Message => $"export/annotation: {Kind} — {Detail}";
+    }
+    [FaultCase(7)]
+    public sealed partial record IntentUnsupported(string Role, string Intent) : ExportFault() {
+        public override string Message => $"export/intent: the {Role} profile carries no {Intent} pipeline";
+    }
+}
+
+// --- [OPERATIONS] -----------------------------------------------------------------------
 
 public static class ExportDelivery {
-    // ONE entry at the widest payload shape the three arms admit. `ReadOnlyMemory<byte>` is what the file arm
-    // writes natively, and the implicit `byte[]` conversion binds every array-holding producer with no adapter
-    // and no call-site edit — so the array-shaped sibling that forwarded here was a hop, not a modality, and
-    // its removal is what keeps a streamed export from paying a defensive copy to reach the one delivery it
-    // shares with a composed report. The two delegate-backed arms materialize because their seams are
-    // composition-bound delegate columns typed on the array, so the copy happens on exactly the two paths that
-    // cannot avoid it rather than on all three.
+    static readonly Op Write = Op.Of(name: "appui.export.deliver");
+
+    // ONE entry at the widest payload shape the three arms admit. Both delegate columns on `VisualRuntime`
+    // already take `ReadOnlyMemory<byte>`, so the array copy that stood on the blob and bundle arms defended a
+    // signature that never demanded it and the payload now crosses compose-to-write once.
     public static IO<string> Deliver(VisualRuntime runtime, VisualDestination destination, ReadOnlyMemory<byte> payload) =>
         destination.Switch(
             state: (runtime, payload),
             filePath: static (ctx, file) => AtomicFile(ctx.runtime.Roots, file.AbsolutePath, ctx.payload),
-            blobLane: static (ctx, blob) => ctx.runtime.BlobWrite(blob.ArtifactKey, ctx.payload.ToArray()),
-            bundle: static (ctx, bundle) => ctx.runtime.BundleWrite(bundle.ArtifactName, bundle.Classification, ctx.payload.ToArray()));
+            blobLane: static (ctx, blob) => ctx.runtime.BlobWrite(blob.ArtifactKey, ctx.payload),
+            bundle: static (ctx, bundle) => ctx.runtime.BundleWrite(bundle.ArtifactName, bundle.Classification, ctx.payload));
 
-    // Parent-swap redirection fails closed by construction, not by a trusted string re-check: the
-    // rename source and target share ONE parent path the OS resolves inside a single rename syscall,
-    // and the pending sibling's name carries an unguessable GUID — a parent directory swapped for a
-    // link after admission re-points BOTH paths, the pending byte stream is absent at the redirected
-    // parent, and the rename faults instead of landing bytes outside the admitted root. The link-free
-    // parent re-walk runs AFTER the write, immediately before the rename, so a long payload write
-    // never widens the admission-to-rename window; no BCL directory-handle-relative rename exists,
-    // and this shared-parent + unguessable-sibling shape is the fail-closed equivalent.
+    // The one measure-deliver-seal fold every arm mints its receipt through: the span brackets production AND
+    // delivery, the artifact key is the kernel hasher rather than a runtime delegate, and a print conversion that
+    // delivers nothing passes `None` instead of a fourth positional shape. Sinking stays OUTSIDE, because the
+    // single-artifact arms commit their one receipt while the bundle roster commits only a complete roster.
+    public static IO<(T Value, RenderReceipt Receipt)> Landed<T>(
+        VisualRuntime runtime, ExportArm arm, string format, string colour,
+        Option<VisualDestination> destination, IO<T> produce, Func<T, ReadOnlyMemory<byte>> bytes) =>
+        from start in Marked(runtime)
+        from value in produce
+        let payload = bytes(value)
+        from landed in destination.Match(
+            Some: target => Deliver(runtime, target, payload).Map(Some),
+            None: static () => IO.pure(Option<string>.None))
+        from end in Marked(runtime)
+        from elapsed in Spanned(runtime, start, end)
+        select (value, new RenderReceipt(
+            arm.Key, format, ContentHash.Hex(ContentHash.Of(payload.Span)), None, None,
+            payload.Length, elapsed, runtime.Correlation, landed, colour));
+
+    // The artifact-shaped arity: a producer whose value IS its bytes takes the identity projection, so three of
+    // the four arms name no reader and the print arm — whose plate carries a typed proof beside its pixels — is
+    // the one that does.
+    public static IO<RenderReceipt> Landed(
+        VisualRuntime runtime, ExportArm arm, string format, string colour,
+        Option<VisualDestination> destination, IO<ReadOnlyMemory<byte>> produce) =>
+        Landed(runtime, arm, format, colour, destination, produce, static payload => payload).Map(static sealed_ => sealed_.Receipt);
+
+    // The explicit type argument selects the RAILED thunk overload (`Func<Fin<A>>`): a bare call cannot
+    // disambiguate it against `Func<A>` when the body already answers a rail.
+    static IO<MonotonicStamp> Marked(VisualRuntime runtime) => IO.lift<MonotonicStamp>(() => runtime.Line.Capture(Write));
+
+    static IO<Duration> Spanned(VisualRuntime runtime, MonotonicStamp start, MonotonicStamp end) =>
+        IO.lift<Duration>(() => runtime.Line.Elapsed(start, end, Write).Map(Duration.FromTimeSpan));
+
+    // Admission is PURE and names WHICH segment refused; the lift carries the OS write and the rename alone, the
+    // handle releases through the kernel bracket, and the pending sibling is compensated on the failure arm — so
+    // the statement `try`/`finally` this shape used to force has no spelling left.
     static IO<string> AtomicFile(ProfileRoots roots, string destination, ReadOnlyMemory<byte> payload) =>
-        (IO.lift(() => {
-                string target = Path.GetFullPath(destination);
-                Option<string> admittedRoot = Path.IsPathFullyQualified(destination) ? Within(roots, target) : None;
-                if (admittedRoot.IsNone)
-                    throw new UnauthorizedAccessException("destination is outside the configured profile roots");
-                string? directory = Path.GetDirectoryName(target);
-                if (string.IsNullOrWhiteSpace(directory))
-                    throw new DirectoryNotFoundException("destination has no directory");
-                string pending = Path.Combine(directory, $".{Path.GetFileName(target)}.{Guid.NewGuid():N}.pending");
-                try {
-                    using (Microsoft.Win32.SafeHandles.SafeFileHandle handle = File.OpenHandle(
-                        pending, FileMode.CreateNew, FileAccess.Write, FileShare.None, FileOptions.WriteThrough)) {
-                        RandomAccess.Write(handle, payload.Span, fileOffset: 0L);
-                    }
-                    if (!ResolvedParent(admittedRoot.IfNone(string.Empty), target))
-                        throw new UnauthorizedAccessException("destination parent changed during admission");
-                    File.Move(pending, target, overwrite: true);
-                    return target;
-                }
-                finally { if (File.Exists(pending)) { File.Delete(pending); } }
-            })
-            | @catch<IO, string>(static _ => true,
-                error => IO.fail<string>(new ExportFault.DeliveryFailed(destination, error.Message)))).As();
+        Admitted(roots, destination).Match(
+            Succ: seat => IO.lift<string>(() => Written(seat, payload)),
+            Fail: IO.fail<string>);
 
-    static Option<string> Within(ProfileRoots roots, string target) =>
+    // The rename source and target share ONE parent path the OS resolves inside a single rename syscall, and the
+    // pending sibling's name carries an unguessable GUID — a parent swapped for a link after admission re-points
+    // BOTH paths, the pending byte stream is absent at the redirected parent, and the rename faults instead of
+    // landing bytes outside the admitted root. The link-free re-walk runs AFTER the write, immediately before the
+    // rename, so a long payload never widens the admission-to-rename window; no BCL directory-handle-relative
+    // rename exists, and this shape is the fail-closed equivalent.
+    static Fin<string> Written((string Root, string Directory, string Target) seat, ReadOnlyMemory<byte> payload) {
+        string pending = Path.Combine(seat.Directory, $".{Path.GetFileName(seat.Target)}.{Guid.NewGuid():N}.pending");
+        return Custody.Bracket(
+                acquire: () => File.OpenHandle(pending, FileMode.CreateNew, FileAccess.Write, FileShare.None, FileOptions.WriteThrough),
+                project: handle => Write.Catch(() => { RandomAccess.Write(handle, payload.Span, fileOffset: 0L); return Fin.Succ(unit); }),
+                key: Write)
+            .Bind(_ => LinkFreeChain(seat.Root, seat.Directory))
+            .Bind(_ => Write.Catch(() => { File.Move(pending, seat.Target, overwrite: true); return Fin.Succ(seat.Target); }))
+            .Rollback(() => Write.Catch(() => { if (File.Exists(pending)) { File.Delete(pending); } return Fin.Succ(unit); }));
+    }
+
+    static Fin<(string Root, string Directory, string Target)> Admitted(ProfileRoots roots, string destination) =>
+        from qualified in Refusable(destination, Path.IsPathFullyQualified(destination), "destination is not fully qualified")
+        let target = Path.GetFullPath(qualified)
+        from directory in Refusable(target, Path.GetDirectoryName(target), "destination has no directory")
+        from root in Within(roots, target, directory)
+        select (root, directory, target);
+
+    // The admitted root is the FIRST configured root whose relative walk stays inside it and whose existing parent
+    // chain is link-free; a target under none of them names the roots it was measured against.
+    static Fin<string> Within(ProfileRoots roots, string target, string directory) =>
         (Seq(roots.AppRoot, roots.SupportRoot) + roots.StoreRoot.ToSeq())
             .Map(Path.GetFullPath)
-            .Find(root => {
-                string relative = Path.GetRelativePath(Path.GetFullPath(root), target);
-                return relative != ".."
-                    && !relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-                    && !Path.IsPathFullyQualified(relative)
-                    && ResolvedParent(root, target);
-            });
+            .Find(root => Contained(root, directory) && LinkFreeChain(root, directory).IsSucc)
+            .ToFin(new ExportFault.DeliveryFailed(target, "destination is outside the configured profile roots"));
 
-    static bool ResolvedParent(string root, string target) {
-        string? directory = Path.GetDirectoryName(target);
-        if (string.IsNullOrWhiteSpace(directory)) { return false; }
-        string relative = Path.GetRelativePath(root, directory);
-        if (relative == ".." || relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-            || Path.IsPathFullyQualified(relative)) { return false; }
-        string current = root;
-        foreach (string segment in relative.Split(
-            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries)) {
-            if (!DirectoryAdmitted(current)) { return false; }
-            current = Path.Join(current, segment);
-        }
-        return DirectoryAdmitted(current);
-    }
+    static bool Contained(string root, string directory) =>
+        Path.GetRelativePath(root, directory) is var relative
+        && relative != ".."
+        && !relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+        && !Path.IsPathFullyQualified(relative);
 
-    static bool DirectoryAdmitted(string path) {
-        DirectoryInfo directory = new(path);
-        return directory.Exists
-            && directory.LinkTarget is null
-            && (directory.Attributes & FileAttributes.ReparsePoint) == 0;
-    }
+    // A fold over the split segments, so the refusal names the segment it stopped at instead of the flat message a
+    // bool-returning walk collapsed every reason onto.
+    static Fin<Unit> LinkFreeChain(string root, string directory) =>
+        toSeq(Path.GetRelativePath(root, directory).Split(
+                [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries))
+            .Fold(Fin.Succ(root), (held, segment) => held.Bind(current =>
+                Admits(current) ? Fin.Succ(Path.Join(current, segment)) : Refused(current)))
+            .Bind(leaf => Admits(leaf) ? Fin.Succ(unit) : Refused(leaf).Map(static _ => unit));
+
+    static Fin<string> Refused(string segment) =>
+        Fin.Fail<string>(new ExportFault.DeliveryFailed(segment, "path segment is absent, a link, or a reparse point"));
+
+    static bool Admits(string path) =>
+        new DirectoryInfo(path) is { Exists: true, LinkTarget: null } directory
+        && (directory.Attributes & FileAttributes.ReparsePoint) == 0;
+
+    static Fin<string> Refusable(string destination, bool held, string requirement) =>
+        held ? Fin.Succ(destination) : Fin.Fail<string>(new ExportFault.DeliveryFailed(destination, requirement));
+
+    static Fin<string> Refusable(string destination, string? value, string requirement) =>
+        string.IsNullOrWhiteSpace(value)
+            ? Fin.Fail<string>(new ExportFault.DeliveryFailed(destination, requirement))
+            : Fin.Succ(value);
 }
 
-// One classified, content-keyed diagnostic artifact: the payload arrives already serialized by its
-// owning codec, the content key mints through the kernel one-hasher entry, and delivery rides the
-// Bundle destination so the AppHost support-capture fold owns archive assembly and manifest custody.
+// --- [MODELS] ---------------------------------------------------------------------------
+
+// The payload arrives already serialized by its owning codec and the content key mints through the kernel
+// one-hasher entry, so delivery rides the Bundle destination and AppHost owns archive assembly.
 public sealed record BundleMember(string ArtifactName, DataClassification Classification, ReadOnlyMemory<byte> Payload) {
     public UInt128 ContentKey => ContentHash.Of(Payload.Span);
 
@@ -156,22 +235,15 @@ public sealed record BundleMember(string ArtifactName, DataClassification Classi
 }
 
 public static class SupportBundle {
-    // Arity rides the span: one member or the whole roster contributes through one fold, each member
-    // stages as its classified Bundle artifact before any receipt commits; a refused roster returns
-    // on the IO rail, and AppHost alone projects partial manifest evidence and staging cleanup. The
-    // receipt kind READS the destination's own key rather than re-spelling the case literal the union
-    // already exhausts, so the delivery this fold takes and the kind its receipt reports cannot fork.
+    // Arity rides the span: one member or the whole roster contributes through one fold. Every member stages as
+    // its classified Bundle artifact BEFORE any receipt commits, so a refused roster leaves no partial evidence
+    // for AppHost to reconcile against a manifest it never wrote.
     public static IO<Seq<RenderReceipt>> Contribute(VisualRuntime runtime, params ReadOnlySpan<BundleMember> members) =>
-        from staged in toSeq(members.ToArray()).TraverseM(member =>
-            from mark in IO.lift(runtime.Clocks.Mark)
-            from payload in IO.pure(member.Payload.ToArray())
-            let target = new VisualDestination.Bundle(member.ArtifactName, member.Classification)
-            from destination in ExportDelivery.Deliver(runtime, target, payload)
-            from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
-            let receipt = new RenderReceipt(
-                target.Key, Path.GetExtension(member.ArtifactName).TrimStart('.'), runtime.ContentHash(payload), None, None,
-                payload.LongLength, elapsed, runtime.Correlation, Optional(destination), VisualCodec.ColorPolicy.Display.Key)
-            select receipt).As()
+        from staged in toSeq(members.ToArray()).TraverseM(member => ExportDelivery.Landed(
+            runtime, ExportArm.Bundle, Path.GetExtension(member.ArtifactName).TrimStart('.'),
+            VisualCodec.ColorPolicy.Display.Key,
+            Some<VisualDestination>(new VisualDestination.Bundle(member.ArtifactName, member.Classification)),
+            IO.pure(member.Payload))).As()
         from _ in staged.TraverseM(runtime.Sink).As()
         select staged;
 }
@@ -179,25 +251,105 @@ public static class SupportBundle {
 
 ## [03]-[FLOW_REPORT]
 
-- Owner: `ReportSpec` — the flow-report composition row; `ReportSetup` — the page-geometry policy row (dimensions, margins, orientation) applied once to the section `PageSetup`; `ReportBlock` [Union] — the typed content vocabulary the MigraDoc fold consumes; `ReportHeading` — the composed heading node the bookmark outline binds to; `FlowReport` — the one MigraDoc render surface.
-- Cases: `ReportBlock` = Heading · Body · List · Callout · Code · Table · PlacedVisual · Figure · Footnote · Section · Rule · PageBreak.
-- Entry: `public static IO<RenderReceipt> Render(VisualRuntime runtime, ReportSpec spec)` — IO rail; the MigraDoc `Document`/`Section` DOM composes from the block seq, `PdfDocumentRenderer` paginates, and the payload delivers through the destination union.
-- Auto: the heading tree becomes the PDF bookmark outline: composition retains each heading's own layout node, the renderer's page walk answers which page that node landed on, and the level ladder nests each bookmark under its nearest shallower ancestor — so a long report navigates by structure and a heading level that skips a rung attaches sensibly rather than at the root. Every heading-bearing block STATES its own level and an untitled group states no heading at all, so a nested section bookmarks under its parent instead of flattening onto one rung and a quoted passage lowered as an untitled callout mints no blank bookmark. Pagination, widow/orphan control, running headers/footers with `PageField`/`NumPagesField`, and cross-page table breaking are the MigraDoc layout engine's — the hand-rolled `FlowBlock`/`FlowFold` pagination engine is the deleted form this owner replaces; `FormattedDocument` exposes the measured layout so a page count or block position reads from the renderer, never a local cursor fold; placed visuals enter as `PlacedVisual` rows whose `SKImage` tiles encode through the capture codec axis (`VisualCodec.Encode`) and place as MigraDoc `Image` values — capture stays the one raster owner, the report only places.
-- Receipt: one `RenderReceipt` of kind document per report with whole-payload content hash through the kernel-bound delegate and the delivered destination key.
-- Packages: PDFsharp-MigraDoc, PDFsharp, SkiaSharp, Rasm.AppHost (project), NodaTime, LanguageExt.Core
-- Growth: one `ReportBlock` case extends the content vocabulary; one style row retunes a role's typography mapping; one bookmark-bearing block is one arm returning its own `ReportHeading`; zero new surface.
-- Boundary: the report's colour model is its `PdfPolicy.Color` row bound onto the renderer document before `RenderDocument`, so a press report and a screen report are one composition under one row value; the MigraDoc flow DOM is the ONE flow-pagination owner — a bespoke page-break fold, a per-format report builder, or a second cursor algebra is the deleted form; typography roles map to MigraDoc styles from the `Theme/typography.md` role rows at composition so a report style never re-mints font literals; drafting's paginated flow reports and the diagnostics report-PDF (`EvidenceReport.Blocks` feeding this arm) compose `FlowReport.Render` with their own block seqs, while the drafting sheet-PDF is capture's vector-print arm — a sibling-page PDF writer is the deleted form; the page geometry is the `ReportSetup` policy row applied once to the section `PageSetup`, never per-block layout literals. The MigraDoc NATIVE chart DOM (`Shapes.Charts.Chart`) is a stated CARVE and stays unreached: a report chart enters as a `PlacedVisual` raster encoded through the capture codec axis, because the chart plane's own grammar — the layered series algebra, the paint resolver, the threshold family, the annotation plane, and the legend split — has no representation in the MigraDoc chart DOM, so routing a report chart through it would mean maintaining a second, weaker chart vocabulary whose output disagreed with the same chart on screen. The carve costs vector text inside a chart and buys one chart authority; a report chart that must stay vector is a `PlacedVisual` of a vector-print page rather than a native chart object.
+- Owner: `ReportBlock` [Union] — the typed content vocabulary the branch's five report producers compose; `TableBody` — the header-and-rows table payload both `ReportBlock` and `OfficeSheet` carry; `ListStyle` — the list marker row; `BlockLine` [Union] with `LineRole` — the target-neutral line vocabulary ONE block walk produces; `LineEmitter<TNode>` — the per-target emitter row; `BlockLines` — the one polymorphic fold from a report block or an office cell onto lines; `ReportHeading` — the composed heading node the bookmark outline binds to; `ReportTrait` — the report-composition capability axis; `ReportSetup` — the kernel-issued page geometry; `ReportSpec` — the flow-report composition row; `FlowReport` — the one MigraDoc render surface.
+- Cases: `ReportBlock` = Heading · Body · List · Callout · Code · Table · PlacedVisual · Figure · Footnote · Section · Rule · PageBreak; `BlockLine` = Text · Grid · Series · Tile · Divider · Split; `LineRole` = heading · body · code · caption · footnote; `ListStyle` = ordered · bulleted; `ReportTrait` = page-numbers · bookmarks.
+- Entry: `public static IO<RenderReceipt> Render(VisualRuntime runtime, ReportSpec spec)` — IO rail; `public static Fin<ReportSetup> Issue(SheetSize size, Op? key = null)` on `ReportSetup` — the kernel-issued geometry; `public static Seq<BlockLine> Of(ReportBlock block)` and `public static Seq<BlockLine> Of(OfficeCell cell)` on `BlockLines` — one entrypoint discriminating on input shape.
+- Law: page geometry is the kernel `Rasm/Drawing/sheet` owner's — `ReportSetup` carries one admitted `PlotPolicy` and the standard's own binding-aware `SheetMargin`, so a report page states a published size, an orientation ROW, and four published edges rather than a free centimetre scalar drawn on all four sides. An absent setup IS `Option.None`: a record whose every column was absent while still answering `IsInert` carried two absence regimes for one question.
+- Law: the block walk happens ONCE. `BlockLines.Of` is the only traversal of `ReportBlock` and `OfficeSheet`, and MigraDoc, XLSX, and DOCX are three `LineEmitter` rows over the produced lines — three full parallel walks of one twelve-case union could disagree about a case, and one of them carried a `default:` arm that turned a new case into a silent drop.
+- Law: a series is its OWN line case, so the XLSX emitter writes typed numeric cells; folding chart points into a string table would have lost the numeric cell type the workbook part graph carries.
+- Auto: the heading tree becomes the PDF bookmark outline — composition retains each heading's own layout node, the renderer's page walk answers which page that node landed on, and the level ladder nests each bookmark under its nearest shallower ancestor. Every heading-bearing block STATES its own level and an untitled group states no heading at all, so a quoted passage lowered as an untitled callout mints no blank bookmark. Pagination, widow/orphan control, running headers/footers with `PageField`/`NumPagesField`, and cross-page table breaking are the MigraDoc layout engine's; `FormattedDocument` exposes the measured layout so a page count reads from the renderer, never a local cursor fold; placed visuals encode through the capture codec axis and place as MigraDoc `Image` values.
+- Receipt: one `RenderReceipt` of kind document per report, sealed through `ExportDelivery.Landed` and committed to the runtime sink at this arm.
+- Packages: PDFsharp-MigraDoc, PDFsharp, SkiaSharp, UnitsNet (`Length.Centimeters`), Rasm (project — `Drawing/sheet`: `SheetSize`, `SheetOrientation`, `SheetMargin`, `SheetFrame`, `PlotPolicy`, `IssuePosture`, `ScaleLadder`; `Domain/validation`: `CapabilitySet`), Rasm.AppHost (project), NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions
+- Growth: one `ReportBlock` case extends the content vocabulary and breaks `BlockLines.Of` at compile time; one `BlockLine` case breaks all three emitter rows at once; one report-composition posture is one `ReportTrait` row; zero new surface.
+- Boundary: the report's colour model is its `PdfExport.Color` row bound onto the renderer document before `RenderDocument`, so a press report and a screen report are one composition under one row value; the MigraDoc flow DOM is the ONE flow-pagination owner — a bespoke page-break fold, a per-format report builder, or a second cursor algebra is the deleted form; typography roles map to MigraDoc styles from the `Theme/typography.md` role rows at composition so a report style never re-mints font literals; drafting's paginated flow reports and the diagnostics report-PDF compose `FlowReport.Render` with their own block seqs, while the drafting sheet-PDF is capture's vector-print arm. The MigraDoc NATIVE chart DOM (`Shapes.Charts.Chart`) is a stated CARVE and stays unreached: a report chart enters as a `PlacedVisual` raster encoded through the capture codec axis, because the chart plane's own grammar — the layered series algebra, the paint resolver, the threshold family, the annotation plane, and the legend split — has no representation in the MigraDoc chart DOM, so routing a report chart through it would mean maintaining a second, weaker chart vocabulary whose output disagreed with the same chart on screen. The carve costs vector text inside a chart and buys one chart authority.
 
 ```csharp signature
+// --- [TYPES] ----------------------------------------------------------------------------
+
+// A header is a row that EXISTS or does not; `bool Header` beside a row seq admitted "heading true, rows empty",
+// which the MigraDoc arm silently dropped and the workbook arm wrote as a heading-formatted absence.
+public sealed record TableBody(Option<Seq<string>> Header, Seq<Seq<string>> Rows) {
+    public static TableBody Of(Seq<Seq<string>> rows) => new(None, rows);
+    public static TableBody Headed(Seq<string> header, Seq<Seq<string>> rows) => new(Some(header), rows);
+    public Seq<Seq<string>> Lines => Header.ToSeq() + Rows;
+    // The MAX cell count across every line, so a ragged or empty-first-row body never under-sizes a grid.
+    public int Width => Lines.Fold(0, static (max, cells) => Math.Max(max, cells.Count));
+    public bool IsEmpty => Width == 0;
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ListStyle {
+    public static readonly ListStyle Ordered = new("ordered", marker: static index => $"{index + 1}.");
+    public static readonly ListStyle Bulleted = new("bulleted", marker: static _ => "•");
+    [UseDelegateFromConstructor] public partial string Marker(int index);
+}
+
+// The line role carries its own style name and whether it outlines, so the heading-style spelling lives at one
+// row rather than at three emitters, and `Preserve` names the whitespace posture the DOCX run needs.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class LineRole {
+    public static readonly LineRole Heading = new("heading", style: "Heading", outlines: true, preserve: false);
+    public static readonly LineRole Body = new("body", style: "Normal", outlines: false, preserve: false);
+    public static readonly LineRole Code = new("code", style: "Normal", outlines: false, preserve: true);
+    public static readonly LineRole Caption = new("caption", style: "Normal", outlines: false, preserve: false);
+    public static readonly LineRole Footnote = new("footnote", style: "Normal", outlines: false, preserve: false);
+
+    public string Style { get; }
+    public bool Outlines { get; }
+    public bool Preserve { get; }
+
+    public string StyleAt(int level) => Outlines ? $"{Style}{level}" : Style;
+}
+
+// The target-neutral line vocabulary: one block walk produces these and every emitter consumes them, so the
+// three parallel twelve-case walks that could disagree about a case have one shape between them.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record BlockLine {
+    private BlockLine() { }
+    public sealed record Text(string Value, LineRole Role, int Level) : BlockLine;
+    public sealed record Grid(TableBody Body) : BlockLine;
+    public sealed record Series(string Name, Seq<(double X, double Y)> Points) : BlockLine;
+    public sealed record Tile(SKImage Image, double WidthCm, Option<string> Caption) : BlockLine;
+    public sealed record Divider : BlockLine;
+    public sealed record Split : BlockLine;
+
+    // Heading levels clamp at the MINT, so no emitter re-derives the bound and a level-nine heading cannot reach
+    // a style name MigraDoc never declared.
+    public static BlockLine Head(int level, string text) => new Text(text, LineRole.Heading, int.Clamp(level, 1, 6));
+    public static Seq<BlockLine> Titled(int level, string title) =>
+        string.IsNullOrWhiteSpace(title) ? Seq<BlockLine>() : Seq(Head(level, title));
+}
+
+// One emitter ROW per target: MigraDoc answers the headings it seated, the workbook answers rows, and the word
+// document answers paragraphs, so a seventh line case breaks all three at once.
+public sealed record LineEmitter<TNode>(
+    Func<BlockLine.Text, Seq<TNode>> Text,
+    Func<BlockLine.Grid, Seq<TNode>> Grid,
+    Func<BlockLine.Series, Seq<TNode>> Series,
+    Func<BlockLine.Tile, Seq<TNode>> Tile,
+    Func<BlockLine.Divider, Seq<TNode>> Divider,
+    Func<BlockLine.Split, Seq<TNode>> Split) {
+    public Seq<TNode> Emit(Seq<BlockLine> lines) => lines.Bind(line => line.Switch(
+        state: this,
+        text: static (emitter, row) => emitter.Text(row),
+        grid: static (emitter, row) => emitter.Grid(row),
+        series: static (emitter, row) => emitter.Series(row),
+        tile: static (emitter, row) => emitter.Tile(row),
+        divider: static (emitter, row) => emitter.Divider(row),
+        split: static (emitter, row) => emitter.Split(row)));
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ReportBlock {
     private ReportBlock() { }
     public sealed record Heading(int Level, string Text) : ReportBlock;
     public sealed record Body(string Text) : ReportBlock;
-    public sealed record List(Seq<string> Items, bool Ordered) : ReportBlock;
+    public sealed record List(Seq<string> Items, ListStyle Style) : ReportBlock;
     public sealed record Callout(int HeadingLevel, string Title, Seq<ReportBlock> Blocks) : ReportBlock;
     public sealed record Code(string Language, string Source) : ReportBlock;
-    public sealed record Table(Seq<Seq<string>> Rows, bool Header) : ReportBlock;
+    public sealed record Table(TableBody Body) : ReportBlock;
     public sealed record PlacedVisual(SKImage Tile, double WidthCm) : ReportBlock;
     public sealed record Figure(SKImage Tile, double WidthCm, string AltText, Option<string> Caption) : ReportBlock;
     public sealed record Footnote(string Key, string Text) : ReportBlock;
@@ -208,75 +360,158 @@ public abstract partial record ReportBlock {
     public sealed record PageBreak : ReportBlock;
 }
 
+// Composition-posture capabilities the caller grants: page numbering and the bookmark outline are two independent
+// decisions, and the `bool Bookmarks = true` trailing default they were spelled as hid an unstated policy behind a
+// parameter no call site had to name. A running header is its own `Option<string>` — presence IS the decision.
+// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
+[NoReorder]
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ReportTrait : ICapability<ReportTrait> {
+    public static readonly ReportTrait PageNumbers = new("page-numbers");
+    public static readonly ReportTrait Bookmarks = new("bookmarks");
+}
+
 // A composed heading holds its own layout NODE, because the outline binds bookmarks to the pages the layout
 // engine chose and only node identity survives two sections that happen to carry one title.
 public readonly record struct ReportHeading(int Level, string Text, Paragraph Node);
 
-// Page geometry is one policy row applied once — a per-block layout literal is the rejected form; None
-// on every column keeps the MigraDoc defaults, so an inert setup skips the PageSetup pass entirely.
-public sealed record ReportSetup(Option<double> PageWidthCm, Option<double> PageHeightCm, Option<double> MarginCm, bool Landscape) {
-    public static readonly ReportSetup Default = new(None, None, None, Landscape: false);
-    public bool IsInert => PageWidthCm.IsNone && PageHeightCm.IsNone && MarginCm.IsNone && !Landscape;
+// --- [MODELS] ---------------------------------------------------------------------------
+
+// Page geometry is ONE admitted kernel value: the plot policy carries the size, the orientation ROW, the standard's
+// frame, the scale rung, the resolution class, the layer emission, and the PDF conformance together, and the margin
+// is that standard's own binding-aware quad. The centimetre pair this replaces let a caller state a width and a
+// height belonging to no published series, and its single margin scalar could not spell ISO 5457's 20 mm binding
+// edge against 10 mm elsewhere.
+public sealed record ReportSetup(PlotPolicy Plot, SheetMargin Margin) {
+    // The size's OWN standard decides orientation, scale, posture, resolution, emission, and conformance, so a
+    // report page and an issued drawing sheet take one convention and no literal stands beside either.
+    public static Fin<ReportSetup> Issue(SheetSize size, Op? key = null) =>
+        from plot in PlotPolicy.Issue(size, key)
+        from margin in plot.Frame.Margin(size, key)
+        select new ReportSetup(plot, margin);
+
+    // The oriented extent and the four edges in the unit MigraDoc admits — a published projection off the kernel
+    // `Length` columns, never a caller-typed pair.
+    public (double Width, double Height) Extent {
+        get {
+            (Length width, Length height) = Plot.Orientation.Extent(Plot.Size);
+            return (width.Centimeters, height.Centimeters);
+        }
+    }
+
+    public (double Left, double Top, double Right, double Bottom) Edges =>
+        (Margin.Left.Centimeters, Margin.Top.Centimeters, Margin.Right.Centimeters, Margin.Bottom.Centimeters);
 }
 
 public sealed record ReportSpec(
     string Title,
     Seq<ReportBlock> Blocks,
     Option<string> RunningHeader,
-    bool PageNumbers,
-    ReportSetup Setup,
-    PdfPolicy Pdf,
+    Option<ReportSetup> Setup,
+    PdfExport Pdf,
     VisualDestination Destination,
-    bool Bookmarks = true);
+    CapabilitySet<ReportTrait> Traits);
+
+// --- [OPERATIONS] -----------------------------------------------------------------------
+
+public static class BlockLines {
+    // ONE entrypoint discriminating on input SHAPE: a report block tree and an admitted office cell lower onto the
+    // same line vocabulary, so the report, the workbook, and the word document read one walk.
+    public static Seq<BlockLine> Of(ReportBlock block) => block.Switch(
+        heading: static h => Seq(BlockLine.Head(h.Level, h.Text)),
+        body: static b => Seq<BlockLine>(new BlockLine.Text(b.Text, LineRole.Body, 0)),
+        list: static l => l.Items.Map((item, index) => (BlockLine)new BlockLine.Text($"{l.Style.Marker(index)} {item}", LineRole.Body, 0)),
+        // A TITLED callout heads its group and enters the outline; an untitled one is a plain block group and
+        // mints neither a heading paragraph nor a bookmark, because an empty bookmark reaches nothing.
+        callout: static c => BlockLine.Titled(c.HeadingLevel, c.Title) + c.Blocks.Bind(Of),
+        code: static c => Seq<BlockLine>(new BlockLine.Text(c.Source, LineRole.Code, 0)),
+        table: static t => Seq<BlockLine>(new BlockLine.Grid(t.Body)),
+        placedVisual: static v => Seq<BlockLine>(new BlockLine.Tile(v.Tile, v.WidthCm, None)),
+        figure: static f => Seq<BlockLine>(new BlockLine.Tile(f.Tile, f.WidthCm, Some(f.Caption.IfNone(f.AltText)))),
+        footnote: static f => Seq<BlockLine>(new BlockLine.Text($"[{f.Key}] {f.Text}", LineRole.Footnote, 0)),
+        section: static s => Seq(BlockLine.Head(s.Level, s.Title)) + s.Blocks.Bind(Of),
+        rule: static _ => Seq<BlockLine>(new BlockLine.Divider()),
+        pageBreak: static _ => Seq<BlockLine>(new BlockLine.Split()));
+
+    // The admitted cell's PREFACE leads its lines, so a Declared projection states itself in the produced document
+    // and a Native one writes with no banner.
+    public static Seq<BlockLine> Of(OfficeCell cell) =>
+        cell.Preface.Map(static text => (BlockLine)new BlockLine.Text(text, LineRole.Caption, 0)).ToSeq()
+        + cell.Sheet.Switch(
+            table: static t => Seq<BlockLine>(new BlockLine.Grid(t.Body)),
+            chart: static c => Seq<BlockLine>(new BlockLine.Series(c.Name, c.Points)),
+            // The image cell is unreachable past admission — every format's matrix row reads it Unsupported — and
+            // the arm states that rather than falling through a catch-all.
+            image: static _ => Seq<BlockLine>(),
+            richText: static r => r.Blocks.Bind(Of));
+}
 
 public static class FlowReport {
-    public const string Kind = "document";
+    static readonly Op Compose = Op.Of(name: "appui.export.report");
 
     public static IO<RenderReceipt> Render(VisualRuntime runtime, ReportSpec spec) =>
-        from mark in IO.lift(runtime.Clocks.Mark)
-        from payload in (IO.lift(() => Compose(spec))
-            | @catch<IO, byte[]>(static _ => true, static error => IO.fail<byte[]>(new ExportFault.RenderFailed("flow-report", error.Message)))).As()
-        from sealed_ in PdfPolicies.Apply(runtime, spec.Pdf, payload)
-        from destination in ExportDelivery.Deliver(runtime, spec.Destination, sealed_)
-        from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
-        let receipt = new RenderReceipt(
-            Kind, "pdf", runtime.ContentHash(sealed_), None, None, sealed_.LongLength,
-            elapsed, runtime.Correlation, Optional(destination), VisualCodec.ColorPolicy.Display.Key)
+        from receipt in ExportDelivery.Landed(
+            runtime, ExportArm.Document, "pdf", spec.Pdf.Color.Key, Some(spec.Destination),
+            from rendered in IO.lift<ReadOnlyMemory<byte>>(() => Composed(spec))
+            from hardened in PdfHardening.Apply(spec.Pdf, rendered)
+            select hardened)
         from _ in runtime.Sink(receipt)
         select receipt;
 
-    static byte[] Compose(ReportSpec spec) {
-        Document document = new();
-        Section section = document.AddSection();
-        if (!spec.Setup.IsInert) { ApplySetup(section.PageSetup, spec.Setup); }
-        spec.RunningHeader.Iter(header => section.Headers.Primary.AddParagraph(header));
-        if (spec.PageNumbers) {
-            Paragraph footer = section.Footers.Primary.AddParagraph();
-            footer.AddPageField();
-            footer.AddText(" / ");
-            footer.AddNumPagesField();
-        }
-        // Heading paragraphs are RETAINED as they are composed, because the outline needs the identity of
-        // each heading node to find which page the layout engine put it on — recovering headings by text
-        // after the fact would bind two identically titled sections to one bookmark.
-        Seq<ReportHeading> headings = spec.Blocks.Fold(Seq<ReportHeading>(), (held, block) => held + Append(section, block));
-        PdfDocumentRenderer renderer = new() { Document = document };
-        // Both pre-render binds land here: ColorMode governs how each XColor is written and UAManager
-        // emits structure with content, so neither survives a post-render pass over sealed streams.
-        renderer.PdfDocument.Options.ColorMode = spec.Pdf.Color.Mode;
-        if (spec.Pdf.TaggedUa) { _ = UAManager.ForDocument(renderer.PdfDocument); }
-        renderer.RenderDocument();
-        if (spec.Bookmarks) { Outlined(renderer, headings); }
-        using MemoryStream sink = new();
-        renderer.PdfDocument.Save(sink);
-        return sink.ToArray();
-    }
+    static Fin<ReadOnlyMemory<byte>> Composed(ReportSpec spec) =>
+        Compose.Catch<ReadOnlyMemory<byte>>(() => {
+            Document document = new();
+            Section section = document.AddSection();
+            spec.Setup.Iter(setup => ApplySetup(section.PageSetup, setup));
+            spec.RunningHeader.Iter(header => section.Headers.Primary.AddParagraph(header));
+            if (spec.Traits.Admits(ReportTrait.PageNumbers)) {
+                Paragraph footer = section.Footers.Primary.AddParagraph();
+                footer.AddPageField();
+                footer.AddText(" / ");
+                footer.AddNumPagesField();
+            }
+            // Heading paragraphs are RETAINED as they are composed, because the outline needs each heading node's
+            // identity to find the page the layout engine put it on — recovering headings by text after the fact
+            // would bind two identically titled sections to one bookmark.
+            Seq<ReportHeading> headings = Seat(section).Emit(spec.Blocks.Bind(BlockLines.Of));
+            PdfDocumentRenderer renderer = new() { Document = document };
+            // Both pre-render binds land here: ColorMode governs how each XColor is WRITTEN and UAManager emits
+            // structure with content, so neither survives a post-render pass over sealed streams.
+            renderer.PdfDocument.Options.ColorMode = spec.Pdf.Color.Mode;
+            if (spec.Pdf.Tagged) { _ = UAManager.ForDocument(renderer.PdfDocument); }
+            renderer.RenderDocument();
+            if (spec.Traits.Admits(ReportTrait.Bookmarks)) { Outlined(renderer, headings); }
+            using MemoryStream sink = new();
+            renderer.PdfDocument.Save(sink);
+            return Fin.Succ<ReadOnlyMemory<byte>>(sink.ToArray());
+        });
 
-    // The bookmark outline: the layout engine already knows which page every rendered object landed on, so
-    // the heading tree binds to real pages by asking it — a page count derived from block positions would
-    // re-implement pagination the flow DOM owns. Nesting rides the heading LEVEL through a running stack, so
-    // a level-three heading under a level-one attaches to the level-one's own child collection and a level
-    // that skips a rung attaches to the nearest shallower ancestor rather than to the document root.
+    // The MigraDoc emitter row: it seats content into the section and answers the headings it minted, so the
+    // outline builds from the same pass that laid the content out.
+    static LineEmitter<ReportHeading> Seat(Section section) => new(
+        Text: row => row.Role.Outlines
+            ? Seq(new ReportHeading(row.Level, row.Value, section.AddParagraph(row.Value, row.Role.StyleAt(row.Level))))
+            : Nothing(() => section.AddParagraph(row.Value)),
+        Grid: row => Nothing(() => AppendTable(section, row.Body)),
+        Series: row => Nothing(() => AppendTable(section, TableBody.Headed(
+            Seq(row.Name),
+            row.Points.Map(static point => Seq(
+                point.X.ToString(CultureInfo.InvariantCulture), point.Y.ToString(CultureInfo.InvariantCulture)))))),
+        Tile: row => Nothing(() => {
+            AppendVisual(section, row.Image, row.WidthCm);
+            row.Caption.Iter(caption => section.AddParagraph(caption));
+        }),
+        Divider: static _ => Nothing(static () => { }),
+        Split: _ => Nothing(() => section.AddPageBreak()));
+
+    static Seq<ReportHeading> Nothing(Action seat) { seat(); return Seq<ReportHeading>(); }
+    static Seq<ReportHeading> Nothing(Func<Paragraph> seat) { _ = seat(); return Seq<ReportHeading>(); }
+
+    // The layout engine already knows which page every rendered object landed on, so the heading tree binds to real
+    // pages by asking it — a page count derived from block positions would re-implement pagination the flow DOM
+    // owns. Nesting rides the heading LEVEL through a running stack, so a level that skips a rung attaches to the
+    // nearest shallower ancestor rather than to the document root.
     static void Outlined(PdfDocumentRenderer renderer, Seq<ReportHeading> headings) {
         HashMap<DocumentObject, int> pages = toSeq(Enumerable.Range(1, renderer.PageCount)).Fold(
             HashMap<DocumentObject, int>(),
@@ -296,101 +531,63 @@ public static class FlowReport {
         });
     }
 
-    // Appending returns the headings it minted, so the outline builds from the same pass that laid the
-    // content out and no second walk of the block tree can disagree about which nodes are headings.
-    static Seq<ReportHeading> Append(Section section, ReportBlock block) {
-        switch (block) {
-            case ReportBlock.Heading heading:
-                return Seq(new ReportHeading(
-                    int.Clamp(heading.Level, 1, 6), heading.Text,
-                    section.AddParagraph(heading.Text, $"Heading{int.Clamp(heading.Level, 1, 6)}")));
-            case ReportBlock.Body body: section.AddParagraph(body.Text); return Seq<ReportHeading>();
-            case ReportBlock.List list:
-                list.Items.Map(static (item, index) => (Item: item, Index: index))
-                    .Iter(row => section.AddParagraph($"{(list.Ordered ? $"{row.Index + 1}." : "•")} {row.Item}"));
-                return Seq<ReportHeading>();
-            // A TITLED callout heads its group and enters the outline; an untitled one is a plain block group —
-            // a quoted passage, an aside — and mints neither a heading paragraph nor a bookmark, because an
-            // empty bookmark is a row a reader clicks to reach nothing and every blockquote would mint one.
-            case ReportBlock.Callout callout:
-                return (string.IsNullOrWhiteSpace(callout.Title)
-                        ? Seq<ReportHeading>()
-                        : Seq(new ReportHeading(
-                            int.Clamp(callout.HeadingLevel, 1, 6), callout.Title,
-                            section.AddParagraph(callout.Title, $"Heading{int.Clamp(callout.HeadingLevel, 1, 6)}"))))
-                    + callout.Blocks.Fold(Seq<ReportHeading>(), (held, child) => held + Append(section, child));
-            case ReportBlock.Code code: section.AddParagraph(code.Source); return Seq<ReportHeading>();
-            case ReportBlock.Table table: AppendTable(section, table); return Seq<ReportHeading>();
-            case ReportBlock.PlacedVisual visual: AppendVisual(section, visual); return Seq<ReportHeading>();
-            case ReportBlock.Figure figure:
-                AppendVisual(section, new ReportBlock.PlacedVisual(figure.Tile, figure.WidthCm));
-                section.AddParagraph(figure.Caption.IfNone(figure.AltText));
-                return Seq<ReportHeading>();
-            case ReportBlock.Footnote footnote:
-                section.AddParagraph($"[{footnote.Key}] {footnote.Text}");
-                return Seq<ReportHeading>();
-            case ReportBlock.Section group:
-                return Seq(new ReportHeading(
-                        int.Clamp(group.Level, 1, 6), group.Title,
-                        section.AddParagraph(group.Title, $"Heading{int.Clamp(group.Level, 1, 6)}")))
-                    + group.Blocks.Fold(Seq<ReportHeading>(), (held, child) => held + Append(section, child));
-            case ReportBlock.Rule: section.AddParagraph().Format.Borders.Bottom.Width = 0.5; return Seq<ReportHeading>();
-            case ReportBlock.PageBreak: section.AddPageBreak(); return Seq<ReportHeading>();
-            default: return Seq<ReportHeading>();
-        }
-    }
-
-    // Column count is the MAX cell count across ALL rows — a ragged or empty-first-row spec never
-    // under-sizes the grid; a table with zero cells renders nothing instead of an invalid zero-column table.
-    static void AppendTable(Section section, ReportBlock.Table block) {
-        int width = block.Rows.Fold(0, static (max, cells) => Math.Max(max, cells.Count));
-        if (width == 0) { return; }
+    // A body with zero cells renders nothing instead of an invalid zero-column table; the header row, when the
+    // body carries one, is the only row wearing the heading format.
+    static void AppendTable(Section section, TableBody body) {
+        if (body.IsEmpty) { return; }
         MigraDoc.DocumentObjectModel.Tables.Table table = section.AddTable();
-        for (var column = 0; column < width; column++) { table.AddColumn(); }
-        block.Rows.Map(static (cells, index) => (Cells: cells, Index: index)).Iter(entry => {
+        for (var column = 0; column < body.Width; column++) { table.AddColumn(); }
+        body.Lines.Map(static (cells, index) => (Cells: cells, Index: index)).Iter(entry => {
             MigraDoc.DocumentObjectModel.Tables.Row row = table.AddRow();
-            row.HeadingFormat = block.Header && entry.Index == 0;
+            row.HeadingFormat = body.Header.IsSome && entry.Index == 0;
             entry.Cells.Map(static (value, column) => (Value: value, Column: column))
                 .Iter(cell => row.Cells[cell.Column].AddParagraph(cell.Value));
         });
     }
 
-    // One PageSetup pass per section: dimension and margin columns land in centimeters.
+    // One PageSetup pass per section, reading the kernel-issued extent and the standard's own four edges.
     static void ApplySetup(MigraDoc.DocumentObjectModel.PageSetup setup, ReportSetup policy) {
-        policy.PageWidthCm.Iter(width => setup.PageWidth = MigraDoc.DocumentObjectModel.Unit.FromCentimeter(width));
-        policy.PageHeightCm.Iter(height => setup.PageHeight = MigraDoc.DocumentObjectModel.Unit.FromCentimeter(height));
-        policy.MarginCm.Iter(margin => {
-            MigraDoc.DocumentObjectModel.Unit edge = MigraDoc.DocumentObjectModel.Unit.FromCentimeter(margin);
-            setup.TopMargin = edge; setup.BottomMargin = edge; setup.LeftMargin = edge; setup.RightMargin = edge;
-        });
-        if (policy.Landscape) { setup.Orientation = MigraDoc.DocumentObjectModel.Orientation.Landscape; }
+        (double width, double height) = policy.Extent;
+        setup.PageWidth = MigraDoc.DocumentObjectModel.Unit.FromCentimeter(width);
+        setup.PageHeight = MigraDoc.DocumentObjectModel.Unit.FromCentimeter(height);
+        (double left, double top, double right, double bottom) = policy.Edges;
+        setup.LeftMargin = MigraDoc.DocumentObjectModel.Unit.FromCentimeter(left);
+        setup.TopMargin = MigraDoc.DocumentObjectModel.Unit.FromCentimeter(top);
+        setup.RightMargin = MigraDoc.DocumentObjectModel.Unit.FromCentimeter(right);
+        setup.BottomMargin = MigraDoc.DocumentObjectModel.Unit.FromCentimeter(bottom);
+        setup.Orientation = policy.Plot.Orientation.Equals(SheetOrientation.Landscape)
+            ? MigraDoc.DocumentObjectModel.Orientation.Landscape
+            : MigraDoc.DocumentObjectModel.Orientation.Portrait;
     }
 
-    static void AppendVisual(Section section, ReportBlock.PlacedVisual visual) {
-        using SKData encoded = visual.Tile.Encode(SKEncodedImageFormat.Png, 100);
+    static void AppendVisual(Section section, SKImage tile, double widthCm) {
+        using SKData encoded = tile.Encode(SKEncodedImageFormat.Png, 100);
         MigraDoc.DocumentObjectModel.Shapes.Image image = section.AddImage($"base64:{Convert.ToBase64String(encoded.AsSpan())}");
-        image.Width = MigraDoc.DocumentObjectModel.Unit.FromCentimeter(visual.WidthCm);
+        image.Width = MigraDoc.DocumentObjectModel.Unit.FromCentimeter(widthCm);
     }
 }
 ```
 
 ## [04]-[PDF_POLICY]
 
-- Owner: `PdfPolicy` — the one PDF-hardening policy row; `ColorTarget` [SmartEnum] — the ONE colour-model row both PDF egress legs read; `PdfIdentity` — the document-information identity columns every sealed artifact carries beside its content hash; `PdfAnnotation` [Union] · `PdfAnnotations` — the cross-reference vocabulary and its page decoration; `PdfPolicies` — the apply fold over the rendered payload.
-- Cases: `ColorTarget` = screen · press · press-deep; `PdfAnnotation` = Link · Destination · Reference — the backend's whole honored-key roster, closed by it rather than by preference.
-- Entry: `public static IO<byte[]> Apply(VisualRuntime runtime, PdfPolicy policy, byte[] rendered)` — IO rail; opens the rendered payload through `PdfReader`, applies the enabled arms, and re-saves; `public static Func<SKCanvas, Fin<Unit>> Decorate(params ReadOnlySpan<PdfAnnotation> rows)` — one page decoration folding straight into the `Render/capture#VECTOR_PRINT` `VisualExportSpec.Pages` seq, so arity rides the span and a single cross-reference and a whole sheet's roster take the one call.
-- Auto: the colour model is the `ColorTarget` row alone — `PdfDocumentOptions.ColorMode` takes its `Mode` on the renderer document before content materializes while `[06]-[PRINT_ARM]` takes the same row's `Device`, buffer formats, and pixel strides, so a screen export and a proofed press export differ by this value and never by a second code path, and an implicit `PdfColorMode.Undefined` device default cannot arise; the security arm selects AES-256 through `PdfDocument.SecurityHandler.SetEncryptionToV5(bool encryptMetadata)` and applies permissions through `PdfDocument.SecuritySettings`; identity writes `PdfDocumentInformation`; signatures compose `DigitalSignatureHandler.ForDocument`; and AcroForm rows write through the catalogued field surface. `TaggedUa` attaches `UAManager` to the renderer document before `RenderDocument`, so structure emits with content. Annotations ride Skia's own annotation entrypoints on the paged canvas — `DrawUrlAnnotation`, `DrawNamedDestinationAnnotation`, and `DrawLinkDestinationAnnotation` mint the `SKData` the native annotation record retains, so an exported sheet's outbound links and internal cross-references survive as real PDF annotations rather than drawn text.
-- Packages: PDFsharp, SkiaSharp, Rasm.AppHost (project), LanguageExt.Core
-- Growth: a new hardening concern is one `PdfPolicy` field; a new permission is one column value; a new identity column is one `PdfIdentity` member; a new colour model is one `ColorTarget` row both legs read; the cross-reference family grows only when the PDF backend honors a fourth key, so growth here is a widened region admission rather than a fourth case; zero new surface.
-- Boundary: the signing-credential crossing is a declared ledger row (`Document/export` -> AppHost `Runtime/secrets.md`). PDF-UA tagging and the colour model both bind before content materialization — `PdfDocumentOptions.ColorMode` governs how each `XColor` is WRITTEN, so a post-render pass setting it re-saves already-written content streams and governs nothing; the post-render policy pass therefore applies security, identity, forms, and signatures alone, without re-tagging or re-colouring the document. `ColorTarget` is the ONE colour-model authority for the whole page — a `PdfColorMode` literal at a render site, a second CMYK selector on the print arm, and a `bool cmyk` knob beside a spec are the three deleted forms. Annotations are page-composition content, so they enter through the capture vector-print page fold and never through the post-render `PdfReader` pass; the PDF backend honors exactly three annotation keys and each is reached through the named Skia entrypoint that passes it, so the family is CLOSED at three cases and the raw `DrawAnnotation(rect, key, value)` passthrough is the deleted form — an unhonored key returns void with no diagnostic, making an arbitrary-key case a silent no-op wearing a capability's name. Region shape is the backend's own discriminant: a named destination is DEFINED at a point, which is the zero-extent rect the backend requires, while an outbound url and an internal link carry a real rect, so a zero-area region on either rect-bearing case refuses at admission rather than drawing an annotation no reader can hit.
+- Owner: `PdfExport` — the one PDF-hardening policy row this stratum keeps beside the kernel `PlotPolicy` it composes; `ColorTarget` [SmartEnum] — the ONE colour-model row both PDF egress legs read; `PdfSecurity` [Union] with `PdfPermission` and `MetadataPosture` — the encryption posture and its permission set; `PdfIdentity` — the document-information columns; `PdfCredentials` — the half of a hardening policy no form control can set; `PdfAnnotation` [Union] with `PdfAnnotations` — the cross-reference vocabulary and its page decoration; `PdfHardening` — the apply fold over the rendered payload.
+- Cases: `ColorTarget` = screen · press · press-deep; `PdfSecurity` = Open | Encrypted; `PdfPermission` = print · extract; `MetadataPosture` = encrypted · clear; `PdfAnnotation` = Link · Destination · Reference — the backend's whole honored-key roster, closed by it rather than by preference.
+- Entry: `public static Fin<PdfExport> Of(ColorTarget colour, CapabilitySet<PdfTrait> conformance, PdfSecurity security, PdfCredentials credentials)` — the ONE mint, running the kernel `PdfTrait.Law` over the conformance claim; `public static Fin<PdfExport> Issued(PlotPolicy plot, ColorTarget colour, PdfSecurity security, PdfCredentials credentials)` — the sheet-issued twin whose conformance IS the plot's; `public static IO<ReadOnlyMemory<byte>> Apply(PdfExport policy, ReadOnlyMemory<byte> rendered)` — opens the rendered payload through `PdfReader`, applies the enabled arms, and re-saves; `public static Func<SKCanvas, Fin<Unit>> Decorate(params ReadOnlySpan<PdfAnnotation> rows)` — one page decoration folding straight into the `Render/capture#VECTOR_PRINT` `VisualExportSpec.Pages` seq.
+- Law: conformance is the kernel `CapabilitySet<PdfTrait>` and its `CapabilityLaw` — PDF/A-2b, PDF/A-3, and PDF/UA are orthogonal claims one file routinely carries together, the two archival LEVELS are the one illegal corner the law forecloses, and the single `bool TaggedUa` they were spelled as could name only one of three while a row NAMED archival set accessibility and no archival trait at all.
+- Law: the ISSUED mint is the only place a sheet-bearing policy takes its conformance, so a report stating a conformance beside a `ReportSetup` that already issued one is the deleted form.
+- Auto: the colour model is the `ColorTarget` row alone — `PdfDocumentOptions.ColorMode` takes its `Mode` on the renderer document before content materializes while `[06]-[PRINT_ARM]` takes the same row's `Device`, buffer formats, and pixel strides, so a screen export and a proofed press export differ by this value and never by a second code path; the security arm selects AES-256 through `PdfDocument.SecurityHandler.SetEncryptionToV5(bool encryptMetadata)` and applies permissions through `PdfDocument.SecuritySettings`; identity writes `PdfDocumentInformation`; signatures compose `DigitalSignatureHandler.ForDocument`; AcroForm rows write through the catalogued field surface; the accessibility trait attaches `UAManager` to the renderer document before `RenderDocument`. Annotations ride Skia's own annotation entrypoints on the paged canvas — `DrawUrlAnnotation`, `DrawNamedDestinationAnnotation`, and `DrawLinkDestinationAnnotation` mint the `SKData` the native annotation record retains.
+- Packages: PDFsharp, SkiaSharp, Rasm (project — `Drawing/sheet`: `PdfTrait`, `PlotPolicy`; `Domain/validation`: `CapabilitySet`, `CapabilityLaw`), Rasm.AppHost (project), LanguageExt.Core, Thinktecture.Runtime.Extensions
+- Growth: a new hardening concern is one `PdfExport` column; a new permission is one `PdfPermission` row; a new identity column is one `PdfIdentity` member; a new colour model is one `ColorTarget` row both legs read; a new conformance claim is one kernel `PdfTrait` row; the cross-reference family grows only when the PDF backend honors a fourth key.
+- Boundary: the signing-credential crossing is a declared ledger row (`Document/export` -> AppHost `Runtime/secrets.md`), and `PdfCredentials` is the typed carve naming exactly what the `[08]` form cannot set. PDF-UA tagging and the colour model both bind before content materialization — `PdfDocumentOptions.ColorMode` governs how each `XColor` is WRITTEN, so a post-render pass setting it re-saves already-written content streams and governs nothing; the post-render pass therefore applies security, identity, forms, and signatures alone. `ColorTarget` is the ONE colour-model authority for the whole page — a `PdfColorMode` literal at a render site, a second CMYK selector on the print arm, and a `bool cmyk` knob beside a spec are the three deleted forms. Annotations are page-composition content, so they enter through the capture vector-print page fold and never through the post-render `PdfReader` pass; the PDF backend honors exactly three annotation keys and each is reached through the named Skia entrypoint that passes it, so the family is CLOSED at three cases and the raw `DrawAnnotation(rect, key, value)` passthrough is the deleted form — an unhonored key returns void with no diagnostic. Region shape is the backend's own discriminant: a named destination is DEFINED at a point, which is the zero-extent rect the backend requires, while an outbound url and an internal link carry a real rect, so a zero-area region on either rect-bearing case refuses at admission.
 
 ```csharp signature
-// Colour is ONE row read by both PDF egress legs: PDFsharp's document colour model and the print
-// transform's device space, buffer formats, and pixel strides travel together, so a screen export and
-// a proofed press export differ by this value alone. Stride rides the row beside its format word
-// because lcms packs bytes-per-channel into that word behind private shifters, so whichever row chooses
-// a format is the one seat that can state its width.
+// --- [TYPES] ----------------------------------------------------------------------------
+
+// Colour is ONE row read by both PDF egress legs: PDFsharp's document colour model and the print transform's
+// device space, buffer formats, and pixel strides travel together. Stride rides the row beside its format word
+// because lcms packs bytes-per-channel into that word behind private shifters.
 [SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ColorTarget {
     public static readonly ColorTarget Screen = new(
         "screen", PdfColorMode.Rgb, ColorSpaceSignature.RgbData, Cms.TYPE_RGBA_8, Cms.TYPE_RGBA_8, inputStride: 4, outputStride: 4);
@@ -408,43 +605,104 @@ public sealed partial class ColorTarget {
 
     public uint Channels => Cms.ChannelsOf(Device);
 
-    // Pixel count is the raster's own byte length over the input stride, so a raster whose length is
-    // not a whole number of pixels refuses here rather than transforming a truncated final pixel.
+    // Pixel count is the raster's own byte length over the input stride, so a raster whose length is not a whole
+    // number of pixels refuses here rather than transforming a truncated final pixel.
     public Fin<int> Pixels(int rasterBytes) =>
         rasterBytes > 0 && rasterBytes % InputStride == 0
             ? Fin.Succ(rasterBytes / InputStride)
             : Fin.Fail<int>(new ExportFault.RenderFailed("raster", $"{rasterBytes} bytes is not whole {Key} pixels"));
 }
 
-// Identity metadata beside the content hash: every sealed export names itself through the catalogued
-// PdfDocumentInformation columns; an inert identity skips the modify pass entirely.
-public sealed record PdfIdentity(Option<string> Title, Option<string> Author, Option<string> Subject, Option<string> Keywords) {
-    public static readonly PdfIdentity Inert = new(Option<string>.None, Option<string>.None, Option<string>.None, Option<string>.None);
-    public bool IsInert => Title.IsNone && Author.IsNone && Subject.IsNone && Keywords.IsNone;
+// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
+[NoReorder]
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class PdfPermission : ICapability<PdfPermission> {
+    public static readonly PdfPermission Print = new("print");
+    public static readonly PdfPermission Extract = new("extract");
 }
 
-public sealed record PdfPolicy(
-    ColorTarget Color,
-    bool EncryptAes256,
-    bool EncryptMetadata,
-    Option<string> OwnerPasswordLease,
-    bool AllowPrinting,
-    bool AllowExtraction,
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class MetadataPosture {
+    public static readonly MetadataPosture Encrypted = new("encrypted", encrypts: true);
+    public static readonly MetadataPosture Clear = new("clear", encrypts: false);
+    public bool Encrypts { get; }
+}
+
+// Permissions and the metadata posture exist only UNDER encryption, so they ride the encrypted case rather than
+// standing beside it: the five-bool blob spelled thirty-two states of which at most six were legal, and three of
+// its columns were read only after a gate on a fourth.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record PdfSecurity {
+    private PdfSecurity() { }
+    public sealed record OpenCase : PdfSecurity;
+    public sealed record Encrypted(Option<string> OwnerPasswordLease, CapabilitySet<PdfPermission> Permits, MetadataPosture Metadata) : PdfSecurity;
+    public static readonly PdfSecurity Open = new OpenCase();
+    public static PdfSecurity Locked(Option<string> lease, params ReadOnlySpan<PdfPermission> permits) =>
+        new Encrypted(lease, CapabilitySet<PdfPermission>.Of(permits), MetadataPosture.Encrypted);
+}
+
+// --- [MODELS] ---------------------------------------------------------------------------
+
+// Identity metadata beside the content hash. `Of` answers ABSENCE when every column is absent, so an inert
+// identity IS `Option.None` and no consumer reads a second inertness predicate on a present value.
+public sealed record PdfIdentity(Option<string> Title, Option<string> Author, Option<string> Subject, Option<string> Keywords) {
+    public static Option<PdfIdentity> Of(
+        Option<string> title = default, Option<string> author = default,
+        Option<string> subject = default, Option<string> keywords = default) =>
+        title.IsNone && author.IsNone && subject.IsNone && keywords.IsNone
+            ? None
+            : Some(new PdfIdentity(title, author, subject, keywords));
+}
+
+// The half of a hardening policy the `[08]` form structurally cannot set: a signing credential is an AppHost
+// secrets lease, an AcroForm value belongs to the document being filled, and neither is a control a user picks.
+public sealed record PdfCredentials(
+    Option<PdfIdentity> Identity,
     Option<IDigitalSigner> Signer,
     Option<DigitalSignatureOptions> SignatureOptions,
-    Seq<(string Field, string Value)> AcroFields,
-    bool TaggedUa,
-    PdfIdentity Identity) {
-
-    public static readonly PdfPolicy Plain = new(ColorTarget.Screen, false, false, None, true, true, None, None, [], false, PdfIdentity.Inert);
-    public static readonly PdfPolicy Archival = Plain with { TaggedUa = true };
-    public static readonly PdfPolicy Press = Plain with { Color = ColorTarget.Press };
+    Seq<(string Field, string Value)> AcroFields) {
+    public static readonly PdfCredentials None = new(Option<PdfIdentity>.None, Option<IDigitalSigner>.None, Option<DigitalSignatureOptions>.None, []);
+    public bool IsInert => Identity.IsNone && Signer.IsNone && AcroFields.IsEmpty;
 }
 
-// PDF cross-references are Skia's OWN annotation records on the paged canvas: a rect carrying an
-// outbound url, a point DEFINING a named destination, and a rect LINKING to one. The PDF device honors
-// exactly these three annotation keys, each reached through the named entrypoint that passes it, so the
-// family is closed by the backend — a fourth case could only carry a key the device drops in silence.
+public sealed record PdfExport {
+    private PdfExport(ColorTarget colour, CapabilitySet<PdfTrait> conformance, PdfSecurity security, PdfCredentials credentials) =>
+        (Color, Conformance, Security, Credentials) = (colour, conformance, security, credentials);
+
+    public ColorTarget Color { get; }
+    public CapabilitySet<PdfTrait> Conformance { get; }
+    public PdfSecurity Security { get; }
+    public PdfCredentials Credentials { get; }
+
+    public bool Tagged => Conformance.Admits(PdfTrait.Accessible);
+    // The post-render pass has nothing to do when the document is open and names itself nothing.
+    public bool IsInert => Security is PdfSecurity.OpenCase && Credentials.IsInert;
+
+    // The ctor is private and this is the ONE mint, so a conformance pair the kernel law bars is unrepresentable
+    // rather than guarded at whichever writer read the set last.
+    public static Fin<PdfExport> Of(ColorTarget colour, CapabilitySet<PdfTrait> conformance, PdfSecurity security, PdfCredentials credentials) =>
+        PdfTrait.Law.Admit(conformance).Map(admitted => new PdfExport(colour, admitted, security, credentials));
+
+    // Issued against a sheet: the conformance IS the plot policy's own, so a report and the drawing it was issued
+    // beside cannot claim two archival levels.
+    public static Fin<PdfExport> Issued(PlotPolicy plot, ColorTarget colour, PdfSecurity security, PdfCredentials credentials) =>
+        Of(colour, plot.Conformance, security, credentials);
+
+    public static readonly PdfExport Plain =
+        Of(ColorTarget.Screen, CapabilitySet<PdfTrait>.None, PdfSecurity.Open, PdfCredentials.None).ThrowIfFail();
+    // The archival row now DECLARES the archival trait it is named for; spelled as `TaggedUa = true` it set
+    // accessibility alone and claimed conformance to a standard it never named.
+    public static readonly PdfExport Archival =
+        Of(ColorTarget.Screen, CapabilitySet<PdfTrait>.Of(PdfTrait.ArchivalA2b, PdfTrait.Accessible), PdfSecurity.Open, PdfCredentials.None).ThrowIfFail();
+    public static readonly PdfExport Press =
+        Of(ColorTarget.Press, CapabilitySet<PdfTrait>.None, PdfSecurity.Open, PdfCredentials.None).ThrowIfFail();
+}
+
+// PDF cross-references are Skia's OWN annotation records on the paged canvas: a rect carrying an outbound url, a
+// point DEFINING a named destination, and a rect LINKING to one. The device honors exactly these three keys, so a
+// fourth case could only carry a key it drops in silence.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PdfAnnotation {
     private PdfAnnotation() { }
@@ -453,30 +711,29 @@ public abstract partial record PdfAnnotation {
     public sealed record Reference(SKRect Region, string Name) : PdfAnnotation;
 }
 
+// --- [OPERATIONS] -----------------------------------------------------------------------
+
 public static class PdfAnnotations {
-    // Decoration is a page fold, not a document pass: it returns the exact shape the vector-print arm's
-    // Pages seq admits, so a sheet composes its content fold and its cross-reference fold with no
-    // second paging capsule and no second SKDocument owner.
+    // Decoration is a page fold, not a document pass: it returns the exact shape the vector-print arm's Pages seq
+    // admits, so a sheet composes its content fold and its cross-reference fold with no second SKDocument owner.
     public static Func<SKCanvas, Fin<Unit>> Decorate(params ReadOnlySpan<PdfAnnotation> rows) {
-        // Exemption: the params buffer is implicitly scoped and cannot escape into the returned fold,
-        // so the roster detaches into owned storage on the one line before the closure captures it.
+        // Exemption: the params buffer is implicitly scoped and cannot escape into the returned fold, so the
+        // roster detaches into owned storage before the closure captures it.
         Seq<PdfAnnotation> admitted = toSeq(rows.ToArray());
         return canvas => admitted.Fold(Fin.Succ(unit), (rail, row) => rail.Bind(_ => Draw(canvas, row)));
     }
 
-    // The point-bearing destination carries the backend's required zero-extent rect by construction, so
-    // it presents no region to prove and only the two rect-bearing cases carry one.
+    // The point-bearing destination carries the backend's required zero-extent rect by construction, so it
+    // presents no region to prove and only the two rect-bearing cases carry one.
     static Fin<Unit> Draw(SKCanvas canvas, PdfAnnotation row) => row.Switch(
         state: canvas,
         link:        static (c, l) => Minted("link", l.Url, Some(l.Region), () => c.DrawUrlAnnotation(l.Region, l.Url)),
         destination: static (c, d) => Minted("destination", d.Name, None, () => c.DrawNamedDestinationAnnotation(d.At, d.Name)),
         reference:   static (c, r) => Minted("reference", r.Name, Some(r.Region), () => c.DrawLinkDestinationAnnotation(r.Region, r.Name)));
 
-    // Skia's string-shaped entrypoints MINT the SKData their native annotation record retains, so this
-    // managed lease scopes to the draw and its `using` is the fold's one platform-forced statement
-    // seam. A blank target draws a dead annotation and a zero-area rect draws one no reader can hit, so
-    // both refuse at admission instead. Emptiness is measured on the extents rather than `SKRect.IsEmpty`,
-    // which equals the origin rect alone and admits every other degenerate rect.
+    // Skia's string-shaped entrypoints MINT the SKData their native annotation record retains, so this managed
+    // lease scopes to the draw. Emptiness is measured on the extents rather than `SKRect.IsEmpty`, which equals
+    // the origin rect alone and admits every other degenerate rect.
     static Fin<Unit> Minted(string kind, string target, Option<SKRect> region, Func<SKData> draw) {
         if (string.IsNullOrWhiteSpace(target)) { return Fin.Fail<Unit>(new ExportFault.AnnotationRejected(kind, "target is blank")); }
         if (region.Exists(static rect => rect.Width <= 0f || rect.Height <= 0f)) {
@@ -487,229 +744,210 @@ public static class PdfAnnotations {
     }
 }
 
-public static class PdfPolicies {
-    // PdfPolicies folds native failures typed: a throw with a signer bound classifies
-    // SignerUnavailable (credential lease and crypto path), anything else RenderFailed("pdf-policy").
-    // Colour is absent from this pass by construction — the row bound the renderer before content
-    // materialized, and re-stating it over written content streams would govern nothing.
-    public static IO<byte[]> Apply(VisualRuntime runtime, PdfPolicy policy, byte[] rendered) =>
-        policy is { EncryptAes256: false, Signer.IsNone: true, AcroFields.IsEmpty: true, Identity.IsInert: true }
-            ? IO.pure(rendered)
-            : (Modify(policy, rendered)
-                | @catch<IO, byte[]>(static _ => true, error => IO.fail<byte[]>(policy.Signer.IsSome
-                    ? new ExportFault.SignerUnavailable(error.Message)
-                    : new ExportFault.RenderFailed("pdf-policy", error.Message)))).As();
+public static class PdfHardening {
+    static readonly Op Harden = Op.Of(name: "appui.export.pdf");
 
-    static IO<byte[]> Modify(PdfPolicy policy, byte[] rendered) =>
-        IO.lift(() => {
-            using MemoryStream source = new(rendered);
+    // A signer bound at the moment of a native raise classifies SignerUnavailable — the credential lease and the
+    // crypto path are the only arms it reaches — and everything else is a render refusal. Colour is absent by
+    // construction: the row bound the renderer before content materialized.
+    public static IO<ReadOnlyMemory<byte>> Apply(PdfExport policy, ReadOnlyMemory<byte> rendered) =>
+        policy.IsInert ? IO.pure(rendered) : IO.lift<ReadOnlyMemory<byte>>(() => Modify(policy, rendered));
+
+    static Fin<ReadOnlyMemory<byte>> Modify(PdfExport policy, ReadOnlyMemory<byte> rendered) =>
+        Harden.Catch<ReadOnlyMemory<byte>>(() => {
+            using MemoryStream source = new(rendered.ToArray());
             using PdfDocument document = PdfReader.Open(source, PdfDocumentOpenMode.Modify);
-            policy.Identity.Title.Iter(title => document.Info.Title = title);
-            policy.Identity.Author.Iter(author => document.Info.Author = author);
-            policy.Identity.Subject.Iter(subject => document.Info.Subject = subject);
-            policy.Identity.Keywords.Iter(keywords => document.Info.Keywords = keywords);
-            // A null-conditional member access is not an assignment target, so the field resolves onto the
-            // presence rail first and the write lands inside the `Iter` — an absent AcroForm or an unnamed
-            // field is a no-op write rather than a spelling that does not compile.
-            policy.AcroFields.Iter(field => Optional(document.AcroForm)
+            policy.Credentials.Identity.Iter(identity => {
+                identity.Title.Iter(title => document.Info.Title = title);
+                identity.Author.Iter(author => document.Info.Author = author);
+                identity.Subject.Iter(subject => document.Info.Subject = subject);
+                identity.Keywords.Iter(keywords => document.Info.Keywords = keywords);
+            });
+            // A null-conditional member access is not an assignment target, so the field resolves onto the presence
+            // rail first and the write lands inside the `Iter`.
+            policy.Credentials.AcroFields.Iter(field => Optional(document.AcroForm)
                 .Bind(form => Optional(form.Fields[field.Field]))
                 .Iter(target => target.Value = new PdfString(field.Value)));
-            if (policy.EncryptAes256) {
-                document.SecurityHandler.SetEncryptionToV5(policy.EncryptMetadata);
-                policy.OwnerPasswordLease.Iter(lease => document.SecuritySettings.OwnerPassword = lease);
-                document.SecuritySettings.PermitPrint = policy.AllowPrinting;
-                document.SecuritySettings.PermitExtractContent = policy.AllowExtraction;
-            }
+            policy.Security.Switch(
+                openCase: static _ => unit,
+                encrypted: locked => {
+                    document.SecurityHandler.SetEncryptionToV5(locked.Metadata.Encrypts);
+                    locked.OwnerPasswordLease.Iter(lease => document.SecuritySettings.OwnerPassword = lease);
+                    document.SecuritySettings.PermitPrint = locked.Permits.Admits(PdfPermission.Print);
+                    document.SecuritySettings.PermitExtractContent = locked.Permits.Admits(PdfPermission.Extract);
+                    return unit;
+                });
             using MemoryStream sink = new();
-            // ForDocument ATTACHES the signing handler to the document; the subsequent Save computes
-            // and embeds the signature — the handler exposes no save verb of its own.
-            policy.Signer.Iter(signer => _ = DigitalSignatureHandler.ForDocument(
-                document, signer, policy.SignatureOptions.IfNone(() => new DigitalSignatureOptions())));
+            // ForDocument ATTACHES the signing handler; the subsequent Save computes and embeds the signature —
+            // the handler exposes no save verb of its own.
+            policy.Credentials.Signer.Iter(signer => _ = DigitalSignatureHandler.ForDocument(
+                document, signer, policy.Credentials.SignatureOptions.IfNone(static () => new DigitalSignatureOptions())));
             document.Save(sink);
-            return sink.ToArray();
+            return Fin.Succ<ReadOnlyMemory<byte>>(sink.ToArray());
         });
 }
 ```
 
 ## [05]-[OFFICE_ARM]
 
-- Owner: `OfficeFormat` [SmartEnum] · `OfficeSpec` · `OfficeSheet` [Union] · `OfficeFidelity` the per-(format × case) materialization vocabulary carrying its own materialization column · `OfficeCell` the admitted sheet and its decided preface · `OfficeExport` — the OOXML part-graph arm.
-- Cases: `OfficeFormat` = xlsx · pptx · docx; `OfficeSheet` = Table · Chart · Image · RichText; `OfficeFidelity` = Native · Declared · Unsupported.
-- Entry: `public static IO<RenderReceipt> Emit(VisualRuntime runtime, OfficeSpec spec)` — the Office IO rail; admission runs the fidelity matrix over every sheet FIRST, so an `Unsupported` combination folds to `ExportFault.ContentUnsupported` before any part writes and every admitted sheet hands the write its own materialization row.
-- Auto: XLSX writes through `SpreadsheetDocument.Create` and its workbook/worksheet part graph; DOCX writes through `WordprocessingDocument.Create` and its main-document part graph. PPTX remains a typed `Unsupported` fidelity row until the presentation/master/layout/slide members are catalogued; no speculative part graph survives in the body.
-- Receipt: one `RenderReceipt` of kind office per emit with whole-payload content hash and the delivered destination key.
-- Packages: DocumentFormat.OpenXml, SkiaSharp, Rasm.AppHost (project), NodaTime, LanguageExt.Core
-- Growth: one `OfficeFormat` row admits an Office target and one `OfficeSheet` case admits a content kind; a fidelity promotion is one matrix cell flipped as the verified part members land; zero new surface.
-- Boundary: the Office destination is the same `VisualDestination` union. The fidelity row CARRIES its materialization rather than naming it in prose — `Native` cells materialize their own part vocabulary, `Declared` cells preface the projection they state into the produced document, and `Unsupported` cells reject through `ExportFault.ContentUnsupported` — so the matrix cell is the dispatch, the admission's product drives the write, and a fidelity read as a bare inequality against one row is the deleted form; every PPTX cell and every image cell takes that typed rejection path.
+- Owner: `OfficeSheet` [Union] — the content kinds an Office artifact carries; `OfficeFidelity` [SmartEnum] — the per-(format × kind) materialization vocabulary carrying its own materialization column; `OfficeCell` — the admitted sheet and its decided preface; `OfficeWrite` — the part-graph writer a format row carries; `OfficeSpec` — the emit request; `OfficeExport` — the OOXML part-graph arm and the two writer bodies the `[08]` format rows bind.
+- Cases: `OfficeSheet` = Table · Chart · Image · RichText; `OfficeFidelity` = native · declared · unsupported.
+- Entry: `public static IO<RenderReceipt> Emit(VisualRuntime runtime, OfficeSpec spec)` — the Office IO rail; admission runs the target's own fidelity column over every sheet FIRST, so an `Unsupported` combination folds to `ExportFault.ContentUnsupported` before any part writes and every admitted sheet hands the write its own materialization row.
+- Law: the format vocabulary is `[08]`'s `ExportTarget` and this arm declares none of its own — the three OOXML media-type literals stood character-identical on two rosters, and the sibling roster's closed switch is recovered as the target row's own `Arm` column and its `Option<OfficeWrite>`, so a non-office target and a catalogued-but-unwritten one both refuse typed.
+- Law: PPTX refuses by ABSENCE — its row carries no writer — so the speculative presentation/master/layout/slide part graph has no arm to sit in and a promotion is one column filled rather than a switch arm rewritten.
+- Auto: XLSX writes through `SpreadsheetDocument.Create` and its workbook/worksheet part graph; DOCX writes through `WordprocessingDocument.Create` and its main-document part graph. Both consume the ONE `BlockLines` fold through their own `LineEmitter` row, so the workbook and the word document cannot disagree about what a rich-text block contains.
+- Receipt: one `RenderReceipt` of kind office per emit, sealed through `ExportDelivery.Landed` and committed at this arm.
+- Packages: DocumentFormat.OpenXml, Rasm.AppHost (project), NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions
+- Growth: one Office target is one `[08]` `ExportTarget` row carrying its fidelity column and its writer; one `OfficeSheet` case admits a content kind and breaks the block fold at compile time; a fidelity promotion is one matrix cell flipped as the verified part members land.
+- Boundary: the Office destination is the same `VisualDestination` union. The fidelity row CARRIES its materialization rather than naming it in prose — `Native` cells materialize their own part vocabulary, `Declared` cells preface the projection they state into the produced document, and `Unsupported` cells reject through `ExportFault.ContentUnsupported` — so the matrix cell is the dispatch and a fidelity read as a bare inequality against one row is the deleted form. The workbook part graph carries no font-embedding part, so the spreadsheet writer takes the admitted cells alone: an `EmbeddedFonts` argument threaded there would be a column the format structurally cannot honour, which `[08]`'s preflight already reports as the format's own absent capability.
 
 ```csharp signature
-[SmartEnum<string>]
-public sealed partial class OfficeFormat {
-    public static readonly OfficeFormat Xlsx = new("xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    public static readonly OfficeFormat Pptx = new("pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation");
-    public static readonly OfficeFormat Docx = new("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-
-    public string MediaType { get; }
-}
-
-public sealed record OfficeSpec(
-    OfficeFormat Format,
-    Seq<OfficeSheet> Sheets,
-    Seq<(string FontFamily, ReadOnlyMemory<byte> Face)> EmbeddedFonts,
-    VisualDestination Destination);
+// --- [TYPES] ----------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record OfficeSheet {
     private OfficeSheet() { }
-    public sealed record Table(string Name, Seq<Seq<string>> Rows, bool Header) : OfficeSheet;
-    public sealed record Chart(string Name, ChartSeriesSpec Spec, Seq<(double X, double Y)> Points) : OfficeSheet;
+    public sealed record Table(string Name, TableBody Body) : OfficeSheet;
+    public sealed record Chart(string Name, ChartSeriesKind Kind, Seq<(double X, double Y)> Points) : OfficeSheet;
     public sealed record Image(string Name, SKImage Picture) : OfficeSheet;
     public sealed record RichText(string Name, Seq<ReportBlock> Blocks) : OfficeSheet;
 
     public string Kind => Switch(
         table: static _ => "table", chart: static _ => "chart", image: static _ => "image", richText: static _ => "richText");
+
+    public string Name => Switch(
+        table: static t => t.Name, chart: static c => c.Name, image: static i => i.Name, richText: static r => r.Name);
 }
 
-// The fidelity row IS the materialization: `Native` names the format's own part vocabulary, `Declared`
-// names a stated projection that prefaces itself in the produced document so a reader never mistakes a
-// flattening for the native shape, and `Unsupported` names the refusal. One reader serves all three rows
-// and the matrix cell is the dispatch — a vocabulary whose only consumer tested it for inequality against
-// one row governed nothing, and `Native` and `Declared` were indistinguishable at every write site.
-[SmartEnum]
+// The fidelity row IS the materialization: `Native` names the format's own part vocabulary, `Declared` names a
+// stated projection that prefaces itself in the produced document so a reader never mistakes a flattening for the
+// native shape, and `Unsupported` names the refusal. The key is a WIRE spelling like every sibling row's — a
+// keyless matrix cell had no spelling a preflight readout or a receipt could carry.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class OfficeFidelity {
     public static readonly OfficeFidelity Native = new(
-        materialized: static (_, _) => Fin.Succ(Option<string>.None));
+        "native", materialized: static (_, _) => Fin.Succ(Option<string>.None));
     public static readonly OfficeFidelity Declared = new(
-        materialized: static (format, sheet) => Fin.Succ(Some($"{sheet} projected into {format}")));
+        "declared", materialized: static (format, sheet) => Fin.Succ(Some($"{sheet} projected into {format}")));
     public static readonly OfficeFidelity Unsupported = new(
-        materialized: static (format, sheet) => Fin.Fail<Option<string>>(new ExportFault.ContentUnsupported(format, sheet)));
+        "unsupported", materialized: static (format, sheet) => Fin.Fail<Option<string>>(new ExportFault.ContentUnsupported(format, sheet)));
 
     [UseDelegateFromConstructor]
     public partial Fin<Option<string>> Materialized(string format, string sheet);
 }
 
-// The admitted cell: its sheet and the preface its fidelity row decided, so the write consumes admission's
-// own product instead of re-deciding a verdict the admission pass already took.
+// The part-graph writer a format row carries: a target holding none refuses by absence, so PPTX, SVG, DWG, DXF,
+// and PNG all reach the office arm's one typed refusal without an arm apiece.
+public delegate Fin<ReadOnlyMemory<byte>> OfficeWrite(OfficeSpec spec, Seq<OfficeCell> cells);
+
+// --- [MODELS] ---------------------------------------------------------------------------
+
+// The admitted cell: its sheet and the preface its fidelity row decided, so the write consumes admission's own
+// product instead of re-deciding a verdict the admission pass already took.
 public readonly record struct OfficeCell(OfficeSheet Sheet, Option<string> Preface);
 
+public sealed record OfficeSpec(
+    ExportTarget Target,
+    Seq<OfficeSheet> Sheets,
+    Seq<(string FontFamily, ReadOnlyMemory<byte> Face)> EmbeddedFonts,
+    VisualDestination Destination);
+
+// --- [OPERATIONS] -----------------------------------------------------------------------
+
 public static class OfficeExport {
-    public const string Kind = "office";
+    static readonly Op Part = Op.Of(name: "appui.export.office");
 
-    // One cell per (format × sheet-kind) pair naming which materialization that combination gets; a
-    // promotion is one cell flipped to a stronger row when the part members verify.
-    static readonly FrozenDictionary<(string Format, string Sheet), OfficeFidelity> Support = new Dictionary<(string, string), OfficeFidelity> {
-        [("xlsx", "table")] = OfficeFidelity.Native,
-        [("xlsx", "chart")] = OfficeFidelity.Declared,
-        [("xlsx", "richText")] = OfficeFidelity.Declared,
-        [("xlsx", "image")] = OfficeFidelity.Unsupported,
-        [("docx", "table")] = OfficeFidelity.Declared,
-        [("docx", "chart")] = OfficeFidelity.Declared,
-        [("docx", "richText")] = OfficeFidelity.Native,
-        [("docx", "image")] = OfficeFidelity.Unsupported,
-        [("pptx", "table")] = OfficeFidelity.Unsupported,
-        [("pptx", "chart")] = OfficeFidelity.Unsupported,
-        [("pptx", "richText")] = OfficeFidelity.Unsupported,
-        [("pptx", "image")] = OfficeFidelity.Unsupported,
-    }.ToFrozenDictionary();
-
-    // Admission is a settled pure fold, so it lifts through the `IO.lift(Fin<A>)` rail entry — the thunk
-    // overloads take `Func<A>` and `Func<Fin<A>>`, which a `Fin`-returning lambda matches identically, so
-    // the deferred spelling was ambiguous and its trailing `Match` re-folded a rail `IO` already carries.
     public static IO<RenderReceipt> Emit(VisualRuntime runtime, OfficeSpec spec) =>
-        from admitted in IO.lift(Admitted(spec))
-        from mark in IO.lift(runtime.Clocks.Mark)
-        from payload in Write(spec, admitted)
-        from destination in ExportDelivery.Deliver(runtime, spec.Destination, payload)
-        from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
-        let receipt = new RenderReceipt(
-            Kind, spec.Format.Key, runtime.ContentHash(payload), None, None, payload.LongLength,
-            elapsed, runtime.Correlation, Optional(destination), VisualCodec.ColorPolicy.Display.Key)
+        from receipt in ExportDelivery.Landed(
+            runtime, ExportArm.Office, spec.Target.Key, VisualCodec.ColorPolicy.Display.Key, Some(spec.Destination),
+            IO.lift<ReadOnlyMemory<byte>>(() => Written(spec)))
         from _ in runtime.Sink(receipt)
         select receipt;
 
-    // Total generated dispatch over the closed format vocabulary — a new OfficeFormat row breaks this
-    // site at compile time; a part-graph throw folds typed PartGraphRejected, never an untyped Error.
-    static IO<byte[]> Write(OfficeSpec spec, Seq<OfficeCell> cells) =>
-        spec.Format.Switch(
-            state: (Spec: spec, Cells: cells),
-            xlsx: static ctx => (IO.lift(() => WriteXlsx(ctx.Cells))
-                | @catch<IO, byte[]>(static _ => true, static error => IO.fail<byte[]>(new ExportFault.PartGraphRejected("xlsx", error.Message)))).As(),
-            pptx: static _ => IO.fail<byte[]>(new ExportFault.ContentUnsupported("pptx", "catalogued part graph")),
-            docx: static ctx => (IO.lift(() => WriteDocx(ctx.Spec, ctx.Cells))
-                | @catch<IO, byte[]>(static _ => true, static error => IO.fail<byte[]>(new ExportFault.PartGraphRejected("docx", error.Message)))).As());
+    // The target's own writer column IS the dispatch: absence is the typed refusal every non-office and
+    // uncatalogued format takes, and admission runs whole before the first part is created.
+    static Fin<ReadOnlyMemory<byte>> Written(OfficeSpec spec) =>
+        from cells in Admitted(spec)
+        from write in spec.Target.Office.ToFin(new ExportFault.ContentUnsupported(spec.Target.Key, "catalogued part graph"))
+        from payload in write(spec, cells)
+        select payload;
 
-    // The workbook part graph carries no font-embedding part, so the spreadsheet writer takes the admitted
-    // cells alone: an `EmbeddedFonts` argument threaded here would be a column this format structurally
-    // cannot honour, which the preflight already reports as the format's own absent capability.
-    static byte[] WriteXlsx(Seq<OfficeCell> cells) {
-        using MemoryStream sink = new();
-        using (SpreadsheetDocument doc = SpreadsheetDocument.Create(sink, SpreadsheetDocumentType.Workbook)) {
-            WorkbookPart workbook = doc.AddWorkbookPart();
-            workbook.Workbook = new Workbook();
-            Sheets sheets = workbook.Workbook.AppendChild(new Sheets());
-            // Indexed instance Map is (value, index) — the module spelling transposes; Iter carries no index.
-            // The admitted cell's preface leads its rows, so a Declared projection states itself in the
-            // produced sheet and a Native one writes its parts with no banner.
-            cells.Map(static (cell, index) => (Cell: cell, Index: index)).Iter(row => {
-                WorksheetPart part = workbook.AddNewPart<WorksheetPart>();
-                SheetData data = new();
-                (row.Cell.Preface.Map(TextRow).ToSeq() + Rows(row.Cell.Sheet)).Iter(cell => data.Append(cell));
-                part.Worksheet = new Worksheet(data);
-                sheets.Append(new Sheet { Id = workbook.GetIdOfPart(part), SheetId = (uint)(row.Index + 1), Name = SheetName(row.Cell.Sheet) });
-            });
-            workbook.Workbook.Save();
-        }
-        return sink.ToArray();
-    }
-
-    static byte[] WriteDocx(OfficeSpec spec, Seq<OfficeCell> cells) {
-        using MemoryStream sink = new();
-        using (WordprocessingDocument doc = WordprocessingDocument.Create(sink, WordprocessingDocumentType.Document)) {
-            MainDocumentPart main = doc.AddMainDocumentPart();
-            Body body = new();
-            cells.Iter(cell => (cell.Preface.Map(static text => new Paragraph(new Run(new Text(text)))).ToSeq()
-                + Paragraphs(cell.Sheet)).Iter(paragraph => body.Append(paragraph)));
-            main.Document = new Document(body);
-            EmbedFonts(main, spec.EmbeddedFonts);
-            main.Document.Save();
-        }
-        return sink.ToArray();
-    }
-
-    // The matrix read fails CLOSED and its PRODUCT drives the write: an uncatalogued (format, kind) cell
-    // reads Unsupported, so a new `OfficeFormat` row or `OfficeSheet` case rejects typed until its cells
-    // land instead of throwing a key-not-found out of an indexer the growth line invites a caller to
-    // outrun, and an admitted cell carries its fidelity's own preface forward rather than leaving the
-    // verdict for a serializer to re-decide.
+    // The matrix read fails CLOSED and its PRODUCT drives the write: an uncatalogued (format, kind) cell reads
+    // Unsupported, so a new format row or a new sheet case rejects typed until its cells land.
     static Fin<Seq<OfficeCell>> Admitted(OfficeSpec spec) =>
-        spec.Sheets.TraverseM(sheet =>
-            (Support.TryGetValue((spec.Format.Key, sheet.Kind), out OfficeFidelity? fidelity)
-                ? fidelity
-                : OfficeFidelity.Unsupported)
-            .Materialized(spec.Format.Key, SheetName(sheet))
+        spec.Sheets.TraverseM(sheet => spec.Target
+            .Materializes(sheet.Kind)
+            .Materialized(spec.Target.Key, sheet.Name)
             .Map(preface => new OfficeCell(sheet, preface))).As();
 
-    // Total dispatch per serializer: every case has an explicit arm; the image arm is unreachable past
-    // admission (its matrix cell is Unsupported) and stated so, never a silent catch-all.
-    static Seq<Row> Rows(OfficeSheet sheet) => sheet.Switch(
-        table: static t => t.Rows.Map(CellsRow),
-        chart: static c => TextRow(c.Name).Cons(c.Points.Map(PointRow)),
-        image: static _ => Seq<Row>(),
-        richText: static r => r.Blocks.Bind(BlockRow));
+    // --- [WRITERS] — bound as the `Office` column on the `[08]` format rows.
 
-    static Seq<Row> BlockRow(ReportBlock block) => block.Switch(
-        heading: static h => Seq(TextRow(h.Text)),
-        body: static b => Seq(TextRow(b.Text)),
-        list: static l => l.Items.Map(TextRow),
-        callout: static c => TextRow(c.Title).Cons(c.Blocks.Bind(BlockRow)),
-        code: static c => Seq(TextRow(c.Source)),
-        table: static t => t.Rows.Map(cells => TextRow(string.Join('\t', cells))),
-        placedVisual: static _ => Seq<Row>(),
-        figure: static f => f.Caption.Map(TextRow).ToSeq(),
-        footnote: static f => Seq(TextRow($"[{f.Key}] {f.Text}")),
-        section: static s => TextRow(s.Title).Cons(s.Blocks.Bind(BlockRow)),
-        rule: static _ => Seq<Row>(),
-        pageBreak: static _ => Seq<Row>());
+    public static Fin<ReadOnlyMemory<byte>> Xlsx(OfficeSpec spec, Seq<OfficeCell> cells) =>
+        Native("xlsx", () => {
+            using MemoryStream sink = new();
+            using (SpreadsheetDocument doc = SpreadsheetDocument.Create(sink, SpreadsheetDocumentType.Workbook)) {
+                WorkbookPart workbook = doc.AddWorkbookPart();
+                workbook.Workbook = new Workbook();
+                Sheets sheets = workbook.Workbook.AppendChild(new Sheets());
+                // Indexed instance Map is (value, index) — the module spelling transposes; Iter carries no index.
+                cells.Map(static (cell, index) => (Cell: cell, Index: index)).Iter(row => {
+                    WorksheetPart part = workbook.AddNewPart<WorksheetPart>();
+                    SheetData data = new();
+                    Cells().Emit(BlockLines.Of(row.Cell)).Iter(cell => data.Append(cell));
+                    part.Worksheet = new Worksheet(data);
+                    sheets.Append(new Sheet {
+                        Id = workbook.GetIdOfPart(part), SheetId = (uint)(row.Index + 1), Name = row.Cell.Sheet.Name,
+                    });
+                });
+                workbook.Workbook.Save();
+            }
+            return sink.ToArray();
+        });
+
+    public static Fin<ReadOnlyMemory<byte>> Docx(OfficeSpec spec, Seq<OfficeCell> cells) =>
+        Native("docx", () => {
+            using MemoryStream sink = new();
+            using (WordprocessingDocument doc = WordprocessingDocument.Create(sink, WordprocessingDocumentType.Document)) {
+                MainDocumentPart main = doc.AddMainDocumentPart();
+                Body body = new();
+                cells.Iter(cell => Blocks().Emit(BlockLines.Of(cell)).Iter(paragraph => body.Append(paragraph)));
+                main.Document = new Document(body);
+                EmbedFonts(main, spec.EmbeddedFonts);
+                main.Document.Save();
+            }
+            return sink.ToArray();
+        });
+
+    // ONE native door for both writers: the kernel catch keeps a cancellation as a cancellation, and every other
+    // raise lands as the part-graph refusal naming its own format. A total `@catch` predicate over the IO rail
+    // swallowed cancellation and out-of-memory alongside the malformed part it meant to classify.
+    static Fin<ReadOnlyMemory<byte>> Native(string part, Func<byte[]> write) =>
+        Part.Catch<ReadOnlyMemory<byte>>(() => Fin.Succ<ReadOnlyMemory<byte>>(write()));
+
+    // --- [EMITTERS] — the two office rows over the one line vocabulary.
+
+    static LineEmitter<Row> Cells() => new(
+        Text: static row => Seq(TextRow(row.Value)),
+        Grid: static row => row.Body.Lines.Map(CellsRow),
+        // Numeric cells stay TYPED: folding a series into the string grid would have written every ordinate as
+        // text into a workbook whose whole value is that it did not.
+        Series: static row => TextRow(row.Name).Cons(row.Points.Map(PointRow)),
+        Tile: static row => row.Caption.Map(TextRow).ToSeq(),
+        Divider: static _ => Seq<Row>(),
+        Split: static _ => Seq<Row>());
+
+    static LineEmitter<Paragraph> Blocks() => new(
+        Text: static row => Seq(Runs(row.Value, row.Role.Preserve)),
+        Grid: static row => row.Body.Lines.Map(static cells => Runs(string.Join('\t', cells), preserve: false)),
+        Series: static row => Runs(row.Name, preserve: false).Cons(row.Points.Map(static point =>
+            Runs(string.Create(CultureInfo.InvariantCulture, $"{point.X}\t{point.Y}"), preserve: false))),
+        Tile: static row => row.Caption.Map(static caption => Runs(caption, preserve: false)).ToSeq(),
+        Divider: static _ => Seq<Paragraph>(),
+        Split: static _ => Seq<Paragraph>());
+
+    static Paragraph Runs(string value, bool preserve) =>
+        new(new Run(preserve ? new Text(value) { Space = SpaceProcessingModeValues.Preserve } : new Text(value)));
 
     static Row CellsRow(Seq<string> cells) {
         Row row = new();
@@ -730,30 +968,6 @@ public static class OfficeExport {
         return row;
     }
 
-    static Seq<Paragraph> Paragraphs(OfficeSheet sheet) => sheet.Switch(
-        table: static t => t.Rows.Map(static cells => new Paragraph(new Run(new Text(string.Join('\t', cells))))),
-        chart: static c => new Paragraph(new Run(new Text(c.Name)))
-            .Cons(c.Points.Map(static point => new Paragraph(new Run(new Text($"{point.X}\t{point.Y}"))))),
-        image: static _ => Seq<Paragraph>(),
-        richText: static r => r.Blocks.Bind(BlockParagraph));
-
-    static Seq<Paragraph> BlockParagraph(ReportBlock block) => block.Switch(
-        heading: static h => Seq(new Paragraph(new Run(new Text(h.Text)))),
-        body: static b => Seq(new Paragraph(new Run(new Text(b.Text) { Space = SpaceProcessingModeValues.Preserve }))),
-        list: static l => l.Items.Map(static item => new Paragraph(new Run(new Text(item)))),
-        callout: static c => new Paragraph(new Run(new Text(c.Title))).Cons(c.Blocks.Bind(BlockParagraph)),
-        code: static c => Seq(new Paragraph(new Run(new Text(c.Source) { Space = SpaceProcessingModeValues.Preserve }))),
-        table: static t => t.Rows.Map(static cells => new Paragraph(new Run(new Text(string.Join('\t', cells))))),
-        placedVisual: static _ => Seq<Paragraph>(),
-        figure: static f => f.Caption.Map(static caption => new Paragraph(new Run(new Text(caption)))).ToSeq(),
-        footnote: static f => Seq(new Paragraph(new Run(new Text($"[{f.Key}] {f.Text}")))),
-        section: static s => new Paragraph(new Run(new Text(s.Title))).Cons(s.Blocks.Bind(BlockParagraph)),
-        rule: static _ => Seq<Paragraph>(),
-        pageBreak: static _ => Seq<Paragraph>());
-
-    static string SheetName(OfficeSheet sheet) =>
-        sheet.Switch(table: static t => t.Name, chart: static c => c.Name, image: static i => i.Name, richText: static r => r.Name);
-
     static void EmbedFonts(MainDocumentPart main, Seq<(string FontFamily, ReadOnlyMemory<byte> Face)> fonts) =>
         fonts.Iter(font => {
             FontTablePart table = main.FontTablePart ?? main.AddNewPart<FontTablePart>();
@@ -761,7 +975,6 @@ public static class OfficeExport {
             using MemoryStream source = new(font.Face.ToArray());
             part.FeedData(source);
         });
-
 }
 ```
 
@@ -769,19 +982,24 @@ public static class OfficeExport {
 
 - Owner: `PrintIntent` [SmartEnum] — the rendering-intent policy rows; `PressCeiling` [ValueObject] — the admitted total-area-coverage ceiling; `GamutAlarm` [ComplexValueObject] — the per-channel out-of-gamut marking colour; `PrintTransform` — the lcmsNET transform row; `PrintProof` — the typed proving receipt; `PrintLink` — one chain link with its own policy columns; `PrintPlate` — the converted pixels beside their proof; `PrintArm` — the device-CMYK conversion surface.
 - Cases: `PrintIntent` = perceptual · relative-colorimetric · saturation · absolute-colorimetric · relative-bpc · preserve-k — K preservation, black-point compensation, and adaptation state are policy columns, never flags scattered at call sites.
-- Entry: `public static IO<PrintPlate> Convert(VisualRuntime runtime, PrintTransform row, ReadOnlyMemory<byte> raster)` — IO rail; one `Context`, one proving fold, one extended `Transform.Create`, one `DoTransform` per payload.
-- Auto: `PrintArm` owns its own lcmsNET `Context`, opens every profile on it, and writes the `GamutAlarm` codes to `Context.AlarmCodes` — the per-context instance property, never the `Cms.AlarmCodes` process-global twin, so one proofing arm's marking colour never leaks into a concurrent conversion; the alarm width is READ back off the context vector lcms itself sizes, so the native fixed-width refusal is unreachable. Proving runs BEFORE the build: each profile answers `IsIntentSupported` in the direction the chain uses it (source as input, destination as output, proof as proof) and an unsupported intent is `ExportFault.IntentUnsupported`, never a silent fallback; `Profile.TotalAreaCoverage` measures the destination's own coverage and a measurement above the admitted `PressCeiling` mints `Profile.CreateInkLimitingDeviceLink` on the arm's context as the chain's tail link; `DetectDestinationBlackPoint` decides whether the intent row's declared black-point compensation changes anything. One extended `Transform.Create(Context, Profile[], bool[], Intent[], double[], Profile, int, uint, uint, CmsFlags)` builds every case — per-link BPC, per-link intent, per-link adaptation, the gamut operand, and the ink-limit tail are columns of one build, so limited, unlimited, proofed, and plain conversions are one code path. Soft proofing is CHAIN SEATING, never a flag over a gamut operand: the press profile enters the chain TWICE — into-press under the document intent, back out under `Intent.RelativeColorimetric` — and the destination link then renders that simulation under `ProofIntent`, which is the chain lcms's own proofing entry expands to, admitted by `CmsFlags.SoftProofing`. The gamut operand is read only under `CmsFlags.GamutCheck`, where it builds a SEPARATE alarm lookup overwriting out-of-gamut pixels with the `GamutAlarm` codes; preview and marking are therefore independent columns of one build, and the alarm reads the PROOF gamut so an alarm with no proofing profile refuses at proving rather than resolving a flag lcms drops. Native lcms2 ships with the app.
-- Receipt: one `RenderReceipt` of kind print per conversion whose `ColorSpace` field carries the `PrintTransform` row key — the identity naming source, destination, intent, and ceiling together — so a print baseline keys distinctly, and one `PrintProof` carrying the measured coverage, the admitted ceiling, the ink-limit verdict, the detected destination black point, and the resolved flag set — every field a run fact, and an undetectable black point is `None`, never a zero.
-- Packages: lcmsNET, Rasm.AppHost (project), LanguageExt.Core
-- Growth: a new intent is one `PrintIntent` row; a new device profile is one `PrintTransform` value from profile bytes; a new buffer depth is one `ColorTarget` row; a new chain stage is one `PrintLink` row the four build vectors project from; zero new surface.
-- Boundary: lcmsNET owns device-CMYK/ICC transforms at the print boundary ONLY — Unicolour stays the suite color-model kernel and `VisualCodec.ColorPolicy` stays the capture codec gamut family, three disjoint charters; an unparseable profile folds to `ExportFault.ProfileInvalid`, never a silent sRGB fallback; buffer formats and pixel strides are the `[04]` `ColorTarget` row's columns, so a `Cms.TYPE_*` literal at this site and a `rgba.Length / 4` pixel count are the two deleted forms the 16-bit lane made wrong; the press simulation lives in the CHAIN and the gamut operand checks alone, so handing the proofing profile to the gamut slot as the simulation is the deleted form — it drops the preview entirely under anything but `CmsFlags.GamutCheck`, and neither flag set at all collapses the build to a bare source-to-destination conversion carrying no proof; per-link BPC, intent, and adaptation are columns of the same `PrintLink` row so the four positional vectors project from one ordered set and cannot fall out of step with the profiles beside them; every handle — `Context`, each `Profile`, the `Transform` — is a `CmsHandle<T>` over `SafeHandle` released in the kernel's `finally`, and the context releases last because every profile opened on it borrows its scope.
+- Entry: `public static IO<PrintPlate> Convert(VisualRuntime runtime, PrintTransform row, ReadOnlyMemory<byte> raster)` — IO rail; one `Context`, one accumulating proving fold, one extended `Transform.Create`, one `DoTransform` per payload.
+- Law: every native handle is acquired through ONE bracket door — the acquisition's own typed refusal, then the kernel `Custody.Bracket` release — so acquisition order IS release order, the context releases last because every profile opened on it borrows its scope, and the mutable `stage` string that named the crossing in flight and then DISPATCHED the fault off its own value has no spelling left.
+- Law: proving accumulates. Three intent roles and two alarm gates report through ONE `Validation`, so a chain refused on two counts names both instead of hiding the second behind whichever ran first.
+- Auto: `PrintArm` opens every profile on its own lcmsNET `Context` and writes the `GamutAlarm` codes to `Context.AlarmCodes` — the per-context instance property, never the `Cms.AlarmCodes` process-global twin — and the alarm width is READ back off the context vector lcms itself sizes. Proving runs BEFORE the build: each profile answers `IsIntentSupported` in the direction the chain uses it and an unsupported intent is `ExportFault.IntentUnsupported`, never a silent fallback; `Profile.TotalAreaCoverage` measures the destination's own coverage and a measurement above the admitted `PressCeiling` mints `Profile.CreateInkLimitingDeviceLink` on the arm's context as the chain's tail link; `DetectDestinationBlackPoint` decides whether the intent row's declared black-point compensation changes anything. One extended `Transform.Create(Context, Profile[], bool[], Intent[], double[], Profile, int, uint, uint, CmsFlags)` builds every case, so limited, unlimited, proofed, and plain conversions are one code path. Soft proofing is CHAIN SEATING, never a flag over a gamut operand: the press profile enters the chain TWICE — into-press under the document intent, back out under `Intent.RelativeColorimetric` — and the destination link renders that simulation under `ProofIntent`, admitted by `CmsFlags.SoftProofing`. The gamut operand is read only under `CmsFlags.GamutCheck`, where it builds a SEPARATE alarm lookup overwriting out-of-gamut pixels with the `GamutAlarm` codes. Native lcms2 ships with the app.
+- Receipt: one `RenderReceipt` of kind print per conversion whose `ColorSpace` field carries the `PrintTransform` row key — the identity naming source, destination, intent, and ceiling together — and one `PrintProof` carrying the measured coverage, the admitted ceiling, the ink-limit verdict, the detected destination black point, and the resolved flag set; an undetectable black point is `None`, never a zero.
+- Packages: lcmsNET, Rasm (project — `Domain/rails`: `Custody`, `Op`), Rasm.AppHost (project), LanguageExt.Core, Thinktecture.Runtime.Extensions
+- Growth: a new intent is one `PrintIntent` row; a new device profile is one `PrintTransform` value from profile bytes; a new buffer depth is one `ColorTarget` row; a new chain stage is one `PrintLink` row the four build vectors project from.
+- Boundary: lcmsNET owns device-CMYK/ICC transforms at the print boundary ONLY — Unicolour stays the suite color-model kernel and `VisualCodec.ColorPolicy` stays the capture codec gamut family, three disjoint charters; an unparseable profile folds to `ExportFault.ProfileInvalid`, never a silent sRGB fallback; buffer formats and pixel strides are the `[04]` `ColorTarget` row's columns, so a `Cms.TYPE_*` literal at this site and a `rgba.Length / 4` pixel count are the two deleted forms the 16-bit lane made wrong; the press simulation lives in the CHAIN and the gamut operand checks alone, so handing the proofing profile to the gamut slot as the simulation is the deleted form — it drops the preview under anything but `CmsFlags.GamutCheck`; per-link BPC, intent, and adaptation are columns of the same `PrintLink` row so the four positional vectors project from one ordered set; the admitted ceiling reads through its value-object `Value`, so no raw cast leaves the typed magnitude at the native edge.
 
 ```csharp signature
-// Intent carries its own colorimetric policy: the rendering intent, whether black-point compensation is
-// ADMITTED for this intent, and the adaptation state lcms consumes on the absolute-colorimetric link
-// alone (0 is true unadapted absolute; the other rows declare complete adaptation as the neutral).
-// Compensation rides the extended build's per-link bpc vector, so no CmsFlags column restates it.
+// --- [TYPES] ----------------------------------------------------------------------------
+
+// Intent carries its own colorimetric policy: the rendering intent, whether black-point compensation is ADMITTED
+// for this intent, and the adaptation state lcms consumes on the absolute-colorimetric link alone (0 is true
+// unadapted absolute; the other rows declare complete adaptation as the neutral). Compensation rides the extended
+// build's per-link bpc vector, so no CmsFlags column restates it.
 [SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PrintIntent {
     public static readonly PrintIntent Perceptual  = new("perceptual", Intent.Perceptual, blackPoint: false, adaptation: 1d);
     public static readonly PrintIntent Relative    = new("relative-colorimetric", Intent.RelativeColorimetric, blackPoint: false, adaptation: 1d);
@@ -805,9 +1023,9 @@ public readonly partial struct PressCeiling {
             : new ValidationError("press ceiling is a finite total-area coverage percentage in (0, 400]");
 }
 
-// Out-of-gamut marking is DEVICE COLOUR, one code per destination channel — the proving fold refuses an
-// alarm whose channel count disagrees with Cms.ChannelsOf(target.Device), and Mark folds those codes
-// into whatever vector the context itself sizes, so lcms's fixed-width refusal has no reachable path.
+// Out-of-gamut marking is DEVICE COLOUR, one code per destination channel — the proving fold refuses an alarm
+// whose channel count disagrees with `Cms.ChannelsOf(target.Device)`, and Mark folds those codes into whatever
+// vector the context itself sizes, so lcms's fixed-width refusal has no reachable path.
 [ComplexValueObject]
 public sealed partial class GamutAlarm {
     public Seq<ushort> Ink { get; }
@@ -825,9 +1043,11 @@ public sealed partial class GamutAlarm {
     }
 }
 
-// Proof-profile presence IS the soft-proof decision and alarm presence the gamut-check decision — two
-// independent columns the flag set derives from, never boolean knobs beside them. The check reads the
-// PROOF gamut, so an alarm without a proofing profile marks nothing and refuses at proving.
+// --- [MODELS] ---------------------------------------------------------------------------
+
+// Proof-profile presence IS the soft-proof decision and alarm presence the gamut-check decision — two independent
+// columns the flag set derives from. The check reads the PROOF gamut, so an alarm without a proofing profile
+// marks nothing and refuses at proving.
 public sealed record PrintTransform(
     string Key,
     ColorTarget Target,
@@ -839,10 +1059,9 @@ public sealed record PrintTransform(
     Option<PressCeiling> Ceiling,
     Option<GamutAlarm> Alarm);
 
-// Every field is a run fact the conversion measured: the destination's own coverage, the ceiling that
-// admitted it, the detected destination black point, and the flag set the build resolved. An
-// undetectable black point is None — never a fabricated zero. The ink-limit verdict DERIVES from the
-// measured coverage against the admitted ceiling, so the chain and the receipt cannot disagree.
+// Every field is a run fact the conversion measured. An undetectable black point is None — never a fabricated
+// zero. The ink-limit verdict DERIVES from the measured coverage against the admitted ceiling, so the chain and
+// the receipt cannot disagree.
 public sealed record PrintProof(
     string Key,
     ColorTarget Target,
@@ -853,521 +1072,826 @@ public sealed record PrintProof(
     bool BlackPointApplied,
     CmsFlags Flags,
     int Pixels) {
-    public bool InkLimited => Ceiling.Exists(ceiling => AreaCoverage > (double)ceiling);
+    public bool InkLimited => Ceiling.Exists(ceiling => AreaCoverage > ceiling.Value);
 }
 
-// One chain link carries its own policy columns, so the four positional vectors the extended build
-// consumes project from ONE ordered row set — a profile array that grew a stage while a sibling intent
-// vector did not is unrepresentable rather than a silent per-link misalignment.
+// One chain link carries its own policy columns, so the four positional vectors the extended build consumes
+// project from ONE ordered row set — a profile array that grew a stage while a sibling intent vector did not is
+// unrepresentable rather than a silent per-link misalignment.
 public readonly record struct PrintLink(Profile Profile, Intent Rendering, bool BlackPoint, double Adaptation);
 
 public sealed record PrintPlate(byte[] Pixels, PrintProof Proof);
 
+// --- [OPERATIONS] -----------------------------------------------------------------------
+
 public static class PrintArm {
-    public const string Kind = "print";
+    static readonly Op Convert = Op.Of(name: "appui.export.print");
 
-    // Successful conversion seals one RenderReceipt through the runtime Sink with destination-profile
-    // identity, content hash, byte count, and elapsed span, and hands the plate's typed proof to the
-    // caller. Failed conversion stays on ExportFault with no success receipt.
-    // The native kernel stays DEFERRED, so the explicit type argument selects the railed thunk overload
-    // (`Func<Fin<A>>`) the bare call could not disambiguate against `Func<A>`, and its rail is the IO's own
-    // — the trailing `Match` re-folded what the entry already carries. Elapsed reads through `IO.lift` on
-    // the same clock crossing the report, office, and bundle arms take.
+    // A successful conversion seals one receipt through the shared fold with the transform row's own key as its
+    // colour identity and hands the plate's typed proof to the caller; the conversion delivers nothing, so the
+    // destination is absent rather than a fourth positional shape.
     public static IO<PrintPlate> Convert(VisualRuntime runtime, PrintTransform row, ReadOnlyMemory<byte> raster) =>
-        from mark in IO.lift(runtime.Clocks.Mark)
-        from plate in IO.lift<PrintPlate>(() => Transformed(row, raster))
-        from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
-        from _ in runtime.Sink(new RenderReceipt(
-            Kind, $"{row.Target.Key}-{row.IntentRow.Key}", runtime.ContentHash(plate.Pixels), None, None, plate.Pixels.LongLength,
-            elapsed, runtime.Correlation, None, row.Key))
-        select plate;
+        from sealed_ in ExportDelivery.Landed(
+            runtime, ExportArm.Print, $"{row.Target.Key}-{row.IntentRow.Key}", row.Key, None,
+            IO.lift<PrintPlate>(() => Transformed(row, raster)),
+            static plate => plate.Pixels)
+        from _ in runtime.Sink(sealed_.Receipt)
+        select sealed_.Value;
 
-    // lcms native boundary kernel — the page's ONE statement seam. The arm's own Context scopes every
-    // handle; `stage` names the crossing in flight so each parse classifies its own ProfileInvalid
-    // ordinal with no per-parse catch ladder, and every advertised fault case keeps a producing path.
-    // One finally releases in reverse-acquisition order with the context last, because each profile
-    // opened on it borrows its scope.
-    static Fin<PrintPlate> Transformed(PrintTransform row, ReadOnlyMemory<byte> raster) {
-        Context? context = null;
-        Profile? source = null, destination = null, proofing = null;
-        string stage = "context";
-        try {
-            context = Context.Create(IntPtr.Zero, IntPtr.Zero);
-            stage = "source";
-            source = Profile.Open(context, row.SourceProfile.Span.ToArray());
-            stage = "destination";
-            destination = Profile.Open(context, row.DestinationProfile.Span.ToArray());
-            stage = "proof";
-            proofing = row.ProofProfile.Match(
-                Some: bytes => Profile.Open(context, bytes.Span.ToArray()),
-                None: () => (Profile?)null);
-            stage = "transform";
-            return Proved(row, source, destination, proofing, raster.Length)
-                .Bind(proof => Run(context, row, source, destination, proofing, proof, raster));
-        }
-        catch (Exception error) {
-            return Fin.Fail<PrintPlate>(stage is "source" or "destination" or "proof"
-                ? new ExportFault.ProfileInvalid($"{row.Key}:{stage}")
-                : new ExportFault.RenderFailed("print", error.Message));
-        }
-        finally { proofing?.Dispose(); destination?.Dispose(); source?.Dispose(); context?.Dispose(); }
-    }
+    // The native chain, one bracket per acquisition in acquisition order: the context outlives every profile
+    // opened on it, each acquisition preserves its exact captured error, and the release is the kernel's.
+    static Fin<PrintPlate> Transformed(PrintTransform row, ReadOnlyMemory<byte> raster) =>
+        Bracketed(
+            () => Context.Create(IntPtr.Zero, IntPtr.Zero),
+            context => Opened(context, row.SourceProfile, source =>
+                Opened(context, row.DestinationProfile, destination =>
+                    Proofing(context, row, proofing =>
+                        Proved(row, source, destination, proofing, raster.Length)
+                            .Bind(proof => Run(context, row, source, destination, proofing, proof, raster))))));
 
-    // Proving is a ROLE table, not a per-profile probe: lcms answers intent support in the direction the
-    // chain uses each profile, so source, destination, and proof each prove their own row and the first
-    // refusal names the role. Coverage, ceiling, and black point resolve here too, so the build receives
-    // decided values and re-derives nothing.
-    static Fin<PrintProof> Proved(PrintTransform row, Profile source, Profile destination, Profile? proofing, int rasterBytes) =>
+    // ONE acquisition door: the kernel catch preserves the exact foreign error and `Custody.Bracket` releases
+    // on success and failure alike because custody never
+    // transfers — the plate carries bytes, never a handle.
+    static Fin<T> Bracketed<TNative, T>(Func<TNative> acquire, Func<TNative, Fin<T>> project)
+        where TNative : class, IDisposable =>
+        Convert.Catch(() => Fin.Succ(acquire()))
+            .Bind(native => Custody.Bracket(() => project(native), native));
+
+    static Fin<T> Opened<T>(Context context, ReadOnlyMemory<byte> bytes, Func<Profile, Fin<T>> project) =>
+        Bracketed(() => Profile.Open(context, bytes.Span.ToArray()), project);
+
+    static Fin<T> Proofing<T>(Context context, PrintTransform row, Func<Option<Profile>, Fin<T>> project) =>
+        row.ProofProfile.Match(
+            Some: bytes => Opened(context, bytes, profile => project(Some(profile))),
+            None: () => project(None));
+
+    // Proving is a ROLE table plus the alarm gates, accumulated through ONE Validation: lcms answers intent
+    // support in the direction the chain uses each profile, the marking colour must carry one code per
+    // destination channel, and it must have a proof gamut to check against — an alarm with no proofing profile
+    // resolves a flag lcms silently drops.
+    static Fin<PrintProof> Proved(PrintTransform row, Profile source, Profile destination, Option<Profile> proofing, int rasterBytes) =>
         row.Target.Pixels(rasterBytes).Bind(pixels =>
-            (Seq((Role: "source", Profile: source, Rendering: row.IntentRow.Rendering, Direction: UsedDirection.AsInput),
-                 (Role: "destination", Profile: destination, Rendering: row.IntentRow.Rendering, Direction: UsedDirection.AsOutput))
-             + (proofing is { } held
-                 ? Seq((Role: "proof", Profile: held, Rendering: row.ProofIntent.Rendering, Direction: UsedDirection.AsProof))
-                 : Seq<(string Role, Profile Profile, Intent Rendering, UsedDirection Direction)>()))
-            .Find(static role => !role.Profile.IsIntentSupported(role.Rendering, role.Direction))
-            .Match(
-                Some: refused => Fin.Fail<PrintProof>(new ExportFault.IntentUnsupported(refused.Role, refused.Rendering.ToString())),
-                // Alarm admission is a second refusal table on the same fold: the marking colour must
-                // carry one code per destination channel, and it must have a proof gamut to check
-                // against — an alarm with no proofing profile resolves a flag lcms silently drops.
-                None: () => Seq(
-                        (Refusal: "alarm-channels", Broken: row.Alarm.Exists(alarm => alarm.Ink.Count != (int)row.Target.Channels)),
-                        (Refusal: "alarm-without-proof", Broken: row.Alarm.IsSome && proofing is null))
-                    .Find(static gate => gate.Broken)
-                    .Match(
-                        Some: gate => Fin.Fail<PrintProof>(new ExportFault.ProfileInvalid($"{row.Key}:{gate.Refusal}")),
-                        None: () => Fin.Succ(Resolved(row, destination, proofing, pixels)))));
+            Gates(row, source, destination, proofing)
+                .Traverse(static gate => gate.Held
+                    ? Validation<Error, Unit>.Success(unit)
+                    : Validation<Error, Unit>.Fail(gate.Refuse()))
+                .As()
+                .ToFin()
+                .Map(_ => Resolved(row, destination, proofing, pixels)));
 
-    // Intent rows DECLARE black-point compensation and a detected destination black point decides
-    // whether it changes anything: a destination reaching true zero black drops the compensation as the
-    // no-op it is, while an undetectable black point leaves that declaration standing. The two flags are
-    // independent: the proof profile admits the simulation chain, the alarm admits the check overlay, and
-    // the proving fold has already refused an alarm that has no proof gamut to read.
-    static PrintProof Resolved(PrintTransform row, Profile destination, Profile? proofing, int pixels) {
+    static Seq<(bool Held, Func<Error> Refuse)> Gates(PrintTransform row, Profile source, Profile destination, Option<Profile> proofing) =>
+        Seq(
+            (source.IsIntentSupported(row.IntentRow.Rendering, UsedDirection.AsInput),
+             (Func<Error>)(() => new ExportFault.IntentUnsupported("source", row.IntentRow.Rendering.ToString()))),
+            (destination.IsIntentSupported(row.IntentRow.Rendering, UsedDirection.AsOutput),
+             () => new ExportFault.IntentUnsupported("destination", row.IntentRow.Rendering.ToString())))
+        + proofing.Map(held => (
+            held.IsIntentSupported(row.ProofIntent.Rendering, UsedDirection.AsProof),
+            (Func<Error>)(() => new ExportFault.IntentUnsupported("proof", row.ProofIntent.Rendering.ToString())))).ToSeq()
+        + Seq(
+            (row.Alarm.ForAll(alarm => alarm.Ink.Count == (int)row.Target.Channels),
+             (Func<Error>)(() => new ExportFault.ProfileInvalid($"{row.Key}:alarm-channels"))),
+            (row.Alarm.IsNone || proofing.IsSome,
+             () => new ExportFault.ProfileInvalid($"{row.Key}:alarm-without-proof")));
+
+    // Intent rows DECLARE black-point compensation and a detected destination black point decides whether it
+    // changes anything: a destination reaching true zero black drops the compensation as the no-op it is, while an
+    // undetectable black point leaves that declaration standing.
+    static PrintProof Resolved(PrintTransform row, Profile destination, Option<Profile> proofing, int pixels) {
         Option<CIEXYZ> black = destination.DetectDestinationBlackPoint(out CIEXYZ detected, row.IntentRow.Rendering)
             ? Some(detected)
             : None;
         return new PrintProof(
             row.Key, row.Target, row.IntentRow.Rendering, destination.TotalAreaCoverage, row.Ceiling, black,
             row.IntentRow.BlackPoint && black.Match(Some: static xyz => xyz.Y > 0d, None: static () => true),
-            (proofing is null ? CmsFlags.None : CmsFlags.SoftProofing)
+            (proofing.IsNone ? CmsFlags.None : CmsFlags.SoftProofing)
                 | (row.Alarm.IsSome ? CmsFlags.GamutCheck : CmsFlags.None),
             pixels);
     }
 
-    // ONE extended build carries every case, and the CHAIN is where soft proofing lives. The gamut
-    // operand is a separate alarm lookup lcms reads only under CmsFlags.GamutCheck, so it rides the
-    // alarm and never the simulation — handing it the press profile as the preview drops the preview.
-    // The PCS the alarm reads is the one after the source link, the position lcms's own proofing entry
-    // pins, so it is the chain's own index and never a caller-supplied slot. This build mints and
-    // releases its own limit link because it is the only reader of it.
+    // ONE extended build carries every case, and the CHAIN is where soft proofing lives. The gamut operand is a
+    // separate alarm lookup lcms reads only under CmsFlags.GamutCheck, so it rides the alarm and never the
+    // simulation. The PCS the alarm reads is the one after the source link, the position lcms's own proofing entry
+    // pins, so it is the chain's own index and never a caller-supplied slot.
     static Fin<PrintPlate> Run(
-        Context context, PrintTransform row, Profile source, Profile destination, Profile? proofing,
+        Context context, PrintTransform row, Profile source, Profile destination, Option<Profile> proofing,
         PrintProof proof, ReadOnlyMemory<byte> raster) {
         const int GamutPcs = 1;
-        // The chain reads the receipt's OWN verdict and takes the ceiling off the same option, so the
-        // comparison exists once: two spellings of one predicate are how a chain and its receipt come to
-        // disagree about whether the plate was ink-limited.
-        using Profile? limit = (proof.InkLimited ? proof.Ceiling : Option<PressCeiling>.None)
-            .Match(
-                Some: ceiling => Profile.CreateInkLimitingDeviceLink(context, row.Target.Device, (double)ceiling),
-                None: () => (Profile?)null);
-        row.Alarm.Iter(alarm => ignore(alarm.Mark(context)));
-        Seq<PrintLink> chain = Chained(row, source, destination, proofing, limit, proof);
-        using Transform transform = Transform.Create(
-            context,
-            chain.Map(static link => link.Profile).ToArray(),
-            chain.Map(static link => link.BlackPoint).ToArray(),
-            chain.Map(static link => link.Rendering).ToArray(),
-            chain.Map(static link => link.Adaptation).ToArray(),
-            row.Alarm.IsSome ? proofing : null, GamutPcs,
-            row.Target.Input, row.Target.Output, proof.Flags);
-        byte[] plate = new byte[(long)proof.Pixels * row.Target.OutputStride];
-        transform.DoTransform(raster.Span, plate, proof.Pixels);
-        return Fin.Succ(new PrintPlate(plate, proof));
+        return Limited(context, row, proof, limit => {
+            row.Alarm.Iter(alarm => ignore(alarm.Mark(context)));
+            Seq<PrintLink> chain = Chained(row, source, destination, proofing, limit, proof);
+            return Bracketed(
+                () => Transform.Create(
+                    context,
+                    chain.Map(static link => link.Profile).ToArray(),
+                    chain.Map(static link => link.BlackPoint).ToArray(),
+                    chain.Map(static link => link.Rendering).ToArray(),
+                    chain.Map(static link => link.Adaptation).ToArray(),
+                    row.Alarm.IsSome ? proofing.Match(Some: static held => held, None: static () => (Profile?)null) : null,
+                    GamutPcs, row.Target.Input, row.Target.Output, proof.Flags),
+                transform => Convert.Catch(() => {
+                    byte[] plate = new byte[(long)proof.Pixels * row.Target.OutputStride];
+                    transform.DoTransform(raster.Span, plate, proof.Pixels);
+                    return Fin.Succ(new PrintPlate(plate, proof));
+                }));
+        });
     }
 
-    // Chain order IS the colour law: source, then the press seated TWICE for a soft proof — into-press
-    // under the document intent, back out under relative colorimetric, the pair that MAKES the
-    // simulation — then the destination rendering that simulation under ProofIntent, then the ink-limit
-    // tail. A plain conversion is the same fold with the press pair absent, so proofed and unproofed
-    // builds differ by two rows rather than by a second code path. Black-point compensation lands on the
-    // destination link alone because that is the only link whose endpoint the detected black measured.
+    // The chain reads the receipt's OWN verdict and takes the ceiling off the same option, so the comparison
+    // exists once: two spellings of one predicate are how a chain and its receipt come to disagree about whether
+    // the plate was ink-limited. The link is this build's alone, so it releases at this build's own bracket.
+    static Fin<T> Limited<T>(Context context, PrintTransform row, PrintProof proof, Func<Option<Profile>, Fin<T>> project) =>
+        (proof.InkLimited ? proof.Ceiling : Option<PressCeiling>.None).Match(
+            Some: ceiling => Bracketed(
+                () => Profile.CreateInkLimitingDeviceLink(context, row.Target.Device, ceiling.Value),
+                link => project(Some(link))),
+            None: () => project(None));
+
+    // Chain order IS the colour law: source, then the press seated TWICE for a soft proof — into-press under the
+    // document intent, back out under relative colorimetric, the pair that MAKES the simulation — then the
+    // destination rendering that simulation under ProofIntent, then the ink-limit tail. Black-point compensation
+    // lands on the destination link alone because that is the only link whose endpoint the detected black measured.
     static Seq<PrintLink> Chained(
-        PrintTransform row, Profile source, Profile destination, Profile? proofing, Profile? limit, PrintProof proof) =>
+        PrintTransform row, Profile source, Profile destination, Option<Profile> proofing, Option<Profile> limit, PrintProof proof) =>
         Seq(new PrintLink(source, row.IntentRow.Rendering, BlackPoint: false, row.IntentRow.Adaptation))
-        + (proofing is { } press
-            ? Seq(new PrintLink(press, row.IntentRow.Rendering, BlackPoint: false, row.IntentRow.Adaptation),
-                  new PrintLink(press, Intent.RelativeColorimetric, BlackPoint: false, row.IntentRow.Adaptation))
-            : Seq<PrintLink>())
+        + proofing.Map(press => Seq(
+            new PrintLink(press, row.IntentRow.Rendering, BlackPoint: false, row.IntentRow.Adaptation),
+            new PrintLink(press, Intent.RelativeColorimetric, BlackPoint: false, row.IntentRow.Adaptation))).IfNone(Seq<PrintLink>())
         + Seq(new PrintLink(
             destination,
-            proofing is null ? row.IntentRow.Rendering : row.ProofIntent.Rendering,
+            proofing.IsNone ? row.IntentRow.Rendering : row.ProofIntent.Rendering,
             proof.BlackPointApplied,
             row.IntentRow.Adaptation))
-        + (limit is { } tail
-            ? Seq(new PrintLink(tail, row.IntentRow.Rendering, BlackPoint: false, row.IntentRow.Adaptation))
-            : Seq<PrintLink>());
+        + limit.Map(tail => Seq(new PrintLink(tail, row.IntentRow.Rendering, BlackPoint: false, row.IntentRow.Adaptation))).IfNone(Seq<PrintLink>());
 }
 ```
 
 ## [07]-[SCHEDULED_EXPORT]
 
 - Owner: `ReportSubscription` — the consumer-owned recurring-delivery row that closes a report specification over the AppHost scheduler without introducing a document-local timer.
-- Entry: `public ScheduleEntry Register(Func<string, IO<ReportSpec>> resolve, VisualRuntime runtime)` — contributes one `ScheduleEntry`; its work resolves the current report specification at firing time, renders through `FlowReport.Render`, and preserves the ordinary destination, receipt, deadline, lease, and failure rails.
-- Auto: cadence is an `OccurrenceSpec` value, fleet distribution is `ScheduleEntry.Spread`, and bounded missed-occurrence recovery reads `SchedulePort.Window`; the subscription stores only the report key and schedule policy, so a profile reload re-resolves the live report rather than retaining a stale `ReportSpec` object graph.
+- Entry: `public static Validation<Error, ReportSubscription> Of(string key, string reportKey, OccurrenceSpec occurrence, Option<LeasePolicy> lease, RedrivePolicy redrive)` — the accumulating admission; `public ScheduleEntry Register(Func<string, IO<ReportSpec>> resolve, VisualRuntime runtime)` — contributes one `ScheduleEntry` whose work resolves the current report specification at firing time, renders through `FlowReport.Render`, and preserves the ordinary destination, receipt, deadline, lease, and failure rails.
+- Law: a scheduled delivery carries a REAL re-drive curve. `RedrivePolicy.None` on a network-or-filesystem delivery meant a transient refusal ended the occurrence, and the two fault cases that publish `Retriability.Transient` had no policy to be re-driven under; the default is the kernel exponential curve and a caller states its own.
+- Law: identity admission ACCUMULATES — the schedule key and the report key are independent columns, so a value missing both names both rather than reporting the first and hiding the second. The `[ComplexValueObject]` generator's single-slot `ValidateFactoryArguments` hook cannot express that, which is why the mint is the `Validation` fold and the record carries its own private constructor. NAMED LOSS: the generated `Create`/`TryCreate` pair — `Of` is the one mint, and record equality survives.
+- Auto: cadence is an `OccurrenceSpec` value, fleet distribution is `ScheduleEntry.Spread`, bounded missed-occurrence recovery is `SchedulePort.Missed` read at the caller; the subscription stores only the report key and the schedule policy, so a profile reload re-resolves the live report rather than retaining a stale `ReportSpec` object graph.
 - Receipt: every run returns the ordinary document `RenderReceipt` through `FlowReport.Render` and the AppHost `DeadlineReceipt` through `SchedulePort.Run`; a failed delivery remains the scheduled work failure and never advances the last-success stamp.
-- Packages: Rasm.AppHost (project), LanguageExt.Core, NodaTime
+- Packages: Rasm.AppHost (project — `Runtime/time`: `OccurrenceSpec`, `DeadlineClass`, `LeasePolicy`, `ScheduleEntry`), Rasm (project — `Domain/rails`: `RedrivePolicy`), LanguageExt.Core, NodaTime
 - Growth: one recurring deliverable is one `ReportSubscription` value; one cadence is one existing `OccurrenceSpec` case; zero scheduler surface.
-- Boundary: `SchedulePort` is the only time owner, `FlowReport` is the only pagination owner, and `VisualDestination` is the only delivery owner; a timer, login hook, or document-local retry loop is rejected.
+- Boundary: `SchedulePort` is the only time owner, `FlowReport` the only pagination owner, and `VisualDestination` the only delivery owner; a timer, login hook, or document-local retry loop is rejected. The missed-occurrence window is `SchedulePort.Missed`, read by whichever surface owns the last-success stamp — the pass-through accessor that stood here named a `SchedulePort.Window` member the owner does not declare and re-published a fold with no consumer of its own.
 
 ```csharp signature
-[ComplexValueObject]
-public sealed partial class ReportSubscription {
+// --- [MODELS] ---------------------------------------------------------------------------
+
+public sealed record ReportSubscription {
+    private ReportSubscription(string key, string reportKey, OccurrenceSpec occurrence, DeadlineClass deadline,
+        Option<LeasePolicy> lease, RedrivePolicy redrive) =>
+        (Key, ReportKey, Occurrence, Deadline, Lease, Redrive) = (key, reportKey, occurrence, deadline, lease, redrive);
+
     public string Key { get; }
     public string ReportKey { get; }
-    public Rasm.AppHost.Runtime.OccurrenceSpec Occurrence { get; }
-    public Rasm.AppHost.Runtime.DeadlineClass Deadline { get; }
-    public Option<Rasm.AppHost.Runtime.LeasePolicy> Lease { get; }
+    public OccurrenceSpec Occurrence { get; }
+    public DeadlineClass Deadline { get; }
+    public Option<LeasePolicy> Lease { get; }
+    public RedrivePolicy Redrive { get; }
 
-    static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
-        ref string key,
-        ref string reportKey,
-        ref Rasm.AppHost.Runtime.OccurrenceSpec occurrence,
-        ref Rasm.AppHost.Runtime.DeadlineClass deadline,
-        ref Option<Rasm.AppHost.Runtime.LeasePolicy> lease) =>
-        validationError = string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(reportKey)
-            ? new ValidationError("report subscription requires schedule and report identities")
-            : validationError;
+    // A composed report is a FOLD-class crossing, so its allotment is the in-process fold ceiling rather than an
+    // interactive lane a multi-hundred-page render would breach on every run.
+    public static readonly DeadlineClass Allotment = DeadlineClass.LaneFold;
 
-    public Rasm.AppHost.Runtime.ScheduleEntry Register(Func<string, IO<ReportSpec>> resolve, VisualRuntime runtime) =>
-        new(
-            Key,
-            Occurrence,
-            Deadline,
-            Lease,
+    // A delivery refused for a locked file, a full volume, or an unreachable signing credential is exactly the
+    // crossing the transient cases declare, so the default curve is a real one and never `RedrivePolicy.None`.
+    public static readonly RedrivePolicy Curve = RedrivePolicy.Of(law: Schedule.exponential(Duration.FromSeconds(30)), bound: 4);
+
+    public static Validation<Error, ReportSubscription> Of(
+        string key, string reportKey, OccurrenceSpec occurrence,
+        Option<LeasePolicy> lease = default, RedrivePolicy? redrive = null) =>
+        (Named(key, "schedule identity"), Named(reportKey, "report identity"))
+            .Apply((schedule, report) => new ReportSubscription(schedule, report, occurrence, Allotment, lease, redrive ?? Curve))
+            .As();
+
+    static Validation<Error, string> Named(string value, string axis) =>
+        string.IsNullOrWhiteSpace(value)
+            ? Validation<Error, string>.Fail(new ExportFault.RenderFailed("subscription", $"{axis} is blank"))
+            : Validation<Error, string>.Success(value);
+
+    public ScheduleEntry Register(Func<string, IO<ReportSpec>> resolve, VisualRuntime runtime) =>
+        new(Key, Occurrence, Deadline, Lease, Redrive,
             () => resolve(ReportKey).Bind(spec => FlowReport.Render(runtime, spec).Map(static _ => unit)));
-
-    public Seq<Instant> Backfill(Rasm.AppHost.Runtime.ScheduleEntry registered, Instant lastSuccess, Instant now) =>
-        Rasm.AppHost.Runtime.SchedulePort.Window(registered, lastSuccess, now);
 }
 ```
 
 ## [08]-[EXPORT_FORM]
 
-- Owner: `ExportCapability` `[SmartEnum<string>]` the capability vocabulary carrying BOTH its field contribution and its preflight reading; `ExportFields` and `ExportNotes` the two column bodies those rows bind; `ExportTarget` `[SmartEnum<string>]` the per-format row carrying its honoured-capability roster and its media type; `DestinationRow` the recalled destination with its recency; `PreflightNote` the per-capability readout row; `ExportRequest` the admitted configuration a run consumes; `ExportForm` the admission, the preflight fold, and the run-queue handoff.
-- Cases: `ExportTarget` = pdf · xlsx · docx · pptx · svg · dwg · dxf · png; `ExportCapability` = page-setup · colour · fonts · security · redaction · outline · tagged · line-weights · cad-version · layers · scale; `PreflightNote` = Honoured | Degraded | Refused — three readings of one capability, because "will this export keep my fonts" has exactly three honest answers.
-- Entry: `public Validation<Error, FormSchema> Schema()` on `ExportTarget` — the per-format option schema through the one form grammar, every caption a label KEY the form chrome resolves, so the schema carries no culture and a locale flip re-renders one built schema; `public static Fin<ExportRequest> Admit(ExportTarget target, FormSchema schema, FormState state, DestinationRow destination)` — the configuration admission against the schema that rendered it; `public static Seq<PreflightNote> Preflight(ExportRequest request)` — the readout naming what the chosen arm honours, read off the request's own target; `public static RunCard Handoff(ExportRequest request, CorrelationId correlation, Instant at)` — the run-queue card; `public static Seq<OutputRow> Completed(RenderReceipt receipt)` — the open and reveal verbs a sealed artifact earns; `public static Seq<DestinationRow> Remember(Seq<DestinationRow> held, DestinationRow used, Instant at)` and `public static Seq<DestinationRow> For(Seq<DestinationRow> held, ExportTarget target)` — the recency fold and its per-format read.
-- Auto: configuration is SCHEMA, never a per-format dialog: each `ExportTarget` row names the capability rows it honours and each of those rows contributes its own section-tagged fields — page setup for the paginated targets, colour policy for every raster and press target, security and redaction posture for PDF, version policy for the CAD pair — and the one `FormChrome` capsule renders the built schema, so adding a format adds a row rather than a screen. Section rows partition the fields exactly as the schema gate demands, so a format whose fields do not partition refuses at schema construction rather than rendering a form with an unseated field. The preflight readout is that SAME roster read a second way, each row answering itself against the admitted configuration, so it names what WILL happen — embedded fonts, colour management, an ink limit, a page cap, a redaction pass — rather than restating the options the user just set, and the two readings cannot disagree about which capabilities a format carries because they fold one list. Progress hands to the `Shell/screens#RUN_QUEUE` surface through an ordinary `RunCard` with a `RunOrigin.Verb` correlation, so a long export appears beside every other job with the same cancel and retry affordances, and completion projects `OutputRow` rows whose adopt keys are the open and reveal command intents — the queue raises a verb and this page constructs nothing. Destination rows recall through the persistence snapshot vocabulary the selection sets already use, so the last-used folder per format survives a restart and a new destination enters at the head.
+- Owner: `ExportSection` [SmartEnum] — the schema partition rows; `ExportField` [SmartEnum] — the field vocabulary, each row owning its id suffix, its label key, its section, its entry rail, and its own control mint; `ExportCapability` [SmartEnum] — the capability vocabulary carrying the field rows it renders and the readout it reports; `PreflightNote` [Union] — the per-capability readout carrying the capability ROW; `ExportNotes` — the readout bodies those rows bind; `ExportTarget` [SmartEnum] — the per-format row carrying media type, honoured capabilities, arm, Office fidelity column, and Office writer; `DestinationRow` — the recalled destination with its recency; `ExportRequest` — the admitted configuration; `ExportHandoff` with `ExportCardMap` — the run-queue card seam; `ExportPlan` — the lowering that carries an admitted request into `[03]`, `[04]`, and `[05]`; `ExportForm` — admission, preflight, recency, and completion.
+- Cases: `ExportTarget` = pdf · xlsx · docx · pptx · svg · dwg · dxf · png; `ExportCapability` = page-setup · colour · fonts · security · redaction · outline · tagged · line-weights · cad-version · layers · scale; `ExportSection` = page · colour · security · structure · format; `PreflightNote` = Honoured | Degraded | Refused — three readings of one capability, because "will this export keep my fonts" has exactly three honest answers.
+- Entry: `public Validation<Error, FormSchema> Schema()` on `ExportTarget` — the per-format option schema through the one form grammar; `public static Fin<ExportRequest> Admit(ExportTarget target, FormSchema schema, FormState state, DestinationRow destination)` — the accumulating configuration admission; `public static Seq<PreflightNote> Preflight(ExportRequest request)` — the readout read off the request's own target; `ExportPlan.Report(...)`, `ExportPlan.Office(...)` — the two lowerings into this page's arms; `ExportCardMap.ToCard(ExportHandoff handoff)` — the run-queue card; `public static Seq<OutputRow> Completed(RenderReceipt receipt)`; `public static Seq<DestinationRow> Remember(Seq<DestinationRow> held, DestinationRow used, Instant at)` and `For(Seq<DestinationRow> held, ExportTarget target)`.
+- Law: an admitted request REACHES an arm. `ExportPlan` lowers the page size, orientation, colour, security, outline, and tagged fields onto the kernel-issued `ReportSetup` and the `PdfExport` the report arm consumes, and onto the `OfficeSpec` the office arm consumes — a form whose fields no arm ever read reported over a configuration nothing consumed, which is the one defect a preflight cannot detect.
+- Law: field identity is the ROW's. `ExportField.Id(target)` is the one spelling the schema mints, the note reads, and the lowering reads, so a control the schema never rendered refuses at the read instead of resolving to a silent default, and the two spellings of one field id that stood at the mint and at the readout have one authority.
+- Law: a capability row carries EVERY reading — the field rows it renders and the verdict it reports — so a capability naming neither is a row rendering no control while reporting itself honoured, which is decorative density. `line-weights` binds the kernel `LineGroup` the issued policy already derives and `layers` binds the kernel `LayerEmission`, both read back as their own readouts rather than answering Honoured unconditionally.
+- Law: a field rule the schema evaluates is a DECLARED edge — the permission toggles are visible only under encryption through `FieldRule.WhenSet`, so the constant success validator that stood on every field is replaced by an edge the schema gate actually reads.
+- Auto: configuration is SCHEMA, never a per-format dialog: each `ExportTarget` row names the capability rows it honours, each capability names the field rows it renders, and the one `FormChrome` capsule renders the built schema — so adding a format adds a row rather than a screen. Section rows partition the fields by construction, which is exactly what the schema gate proves. The preflight is that SAME roster read a second way, each row answering itself against the admitted configuration. Progress hands to the `Shell/screens#RUN_QUEUE` surface through an ordinary `RunCard` with a `RunOrigin.Verb` correlation, and completion projects `OutputRow` rows whose adopt keys are the open and reveal command intents. Destination rows recall through the persistence snapshot vocabulary the selection sets already use.
 - Receipt: the export itself seals its own `RenderReceipt` at its arm; this cluster seals nothing, so a configured export produces exactly one artifact receipt and the queue card reads that receipt's correlation.
-- Packages: Avalonia, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project)
-- Growth: a new export format is one `ExportTarget` row naming the capability rows it honours, and its schema and its readout follow from that one list; a new capability is ONE `ExportCapability` row carrying its own field contribution and its own verdict, so the schema gains its control and the preflight gains its note in the same declaration — a capability that could be named on a roster without both was the shape that rendered no control and reported itself honoured; zero new surface.
-- Boundary: the form is the ONE configuration surface — a per-format options dialog, a per-format view model, and a per-format validation pass are the three deleted forms, because each is a place a format's options can drift from what its arm actually reads. Fields are `FormField` values over the settled `FieldEntry` rows, so dimensioned entry resolves through the measurement policy and expression entry through the symbolic owner exactly as every other form — an export-local unit table or number parser is rejected. The preflight NAMES capability rather than promising it: a note is `Honoured`, `Degraded` with the reason, or `Refused` with the reason, and a target that cannot answer a capability at all omits the note rather than reporting a false positive. Capability is a VOCABULARY ROW owning both readings, so a bare-constant capability roster read by two switches — each with a default arm that rendered nothing and reported honoured — is the deleted form, and the key a note carries is the row's own rather than a spelling a member repeats. Progress rides the settled run queue — an export-local progress dialog, an export-local cancel token, and an export-local retry loop are the three deleted forms — and the completion verbs are command intents the deck raises, so opening a sealed artifact goes through the same host pipe every other reveal does. Destination admission stays the `[02]` delivery gate's: a recalled row is a remembered PATH the picker produced, and this cluster never computes one.
+- Packages: Avalonia, NodaTime, Thinktecture.Runtime.Extensions, Riok.Mapperly, LanguageExt.Core, DocumentFormat.OpenXml, Rasm (project — `Drawing/sheet`: `SheetSize`, `SheetSeries`, `SheetOrientation`, `PlotPolicy`, `IssuePosture`, `ScaleLadder`, `LineGroup`, `LayerEmission`, `PdfTrait`; `Interaction/control`: `FieldValue`, `FieldTag`), Rasm.AppHost (project)
+- Growth: a new export format is one `ExportTarget` row naming the capability rows it honours, its arm, and its writer; a new capability is ONE `ExportCapability` row carrying its field rows and its verdict; a new control is one `ExportField` row; a new partition is one `ExportSection` row.
+- Boundary: the form is the ONE configuration surface — a per-format options dialog, a per-format view model, and a per-format validation pass are the three deleted forms. Fields are `FormField` values over the settled `FieldEntry` rows, so dimensioned entry resolves through the measurement policy and expression entry through the symbolic owner exactly as every other form. The preflight NAMES capability rather than promising it, and a target that cannot answer a capability at all omits the note rather than reporting a false positive. Offered page sizes and CAD releases are CURATED seats of their owners' rosters — each page option is a kernel `SheetSize` whose key round-trips through the owner's own admission and each CAD option is an `ACadVersion` the writer policy admits — so a free paper token and a free version string are the two deleted forms. Progress rides the settled run queue, and the completion verbs are command intents the deck raises. Destination admission stays the `[02]` delivery gate's: a recalled row is a remembered PATH the picker produced, and this cluster never computes one.
 
 ```csharp signature
 // --- [TYPES] ----------------------------------------------------------------------------
 
-// The per-capability readout. Three cases rather than a bool plus a message, because "the fonts embed",
-// "the fonts substitute and here is why", and "this target cannot embed fonts at all" are three different
-// things a user acts on differently, and a boolean collapses the middle one into whichever pole it resembles.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ExportSection {
+    public static readonly ExportSection Page = new("page");
+    public static readonly ExportSection Colour = new("colour");
+    public static readonly ExportSection Security = new("security");
+    public static readonly ExportSection Structure = new("structure");
+    public static readonly ExportSection Format = new("format");
+
+    public string TitleKey => $"export.section.{Key}";
+}
+
+// The field vocabulary as ROWS: the id suffix, the label key, the section it seats in, the entry rail it admits
+// through, and the control it mints all live on one row, so the schema that renders a control, the note that
+// reads its value, and the lowering that carries it to an arm cannot name three spellings of one id.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ExportField {
+    // Every windowed option list opens at the same viewport extent; the constant is the schema's own, so four
+    // rows do not each carry a bare pixel literal.
+    public const double Viewport = 200d;
+
+    public static readonly ExportField PageSize = new(
+        "page.size", ExportSection.Page, FieldEntry.Choice,
+        static (field, target) => Chosen(field, target, ExportOptions.PageSizes));
+    public static readonly ExportField Landscape = new(
+        "page.landscape", ExportSection.Page, FieldEntry.Flag, static (field, target) => Toggled(field, target));
+    public static readonly ExportField Colour = new(
+        "colour.target", ExportSection.Colour, FieldEntry.Choice,
+        static (field, target) => Chosen(field, target, ExportOptions.Colours));
+    public static readonly ExportField Encrypt = new(
+        "security.encrypt", ExportSection.Security, FieldEntry.Flag, static (field, target) => Toggled(field, target));
+    public static readonly ExportField AllowPrint = new(
+        "security.print", ExportSection.Security, FieldEntry.Flag, static (field, target) => Toggled(field, target));
+    public static readonly ExportField AllowExtract = new(
+        "security.extract", ExportSection.Security, FieldEntry.Flag, static (field, target) => Toggled(field, target));
+    public static readonly ExportField Redaction = new(
+        "redaction.posture", ExportSection.Security, FieldEntry.Choice,
+        static (field, target) => Chosen(field, target, ExportOptions.Classifications));
+    public static readonly ExportField Bookmarks = new(
+        "outline.bookmarks", ExportSection.Structure, FieldEntry.Flag, static (field, target) => Toggled(field, target));
+    public static readonly ExportField Tagged = new(
+        "tagged.ua", ExportSection.Structure, FieldEntry.Flag, static (field, target) => Toggled(field, target));
+    public static readonly ExportField LineGroupRung = new(
+        "weights.group", ExportSection.Format, FieldEntry.Choice,
+        static (field, target) => Chosen(field, target, ExportOptions.LineGroups));
+    public static readonly ExportField LayerEmissionMode = new(
+        "layers.emission", ExportSection.Format, FieldEntry.Choice,
+        static (field, target) => Chosen(field, target, ExportOptions.Emissions));
+    public static readonly ExportField CadRelease = new(
+        "cad.version", ExportSection.Format, FieldEntry.Choice,
+        static (field, target) => Chosen(field, target, ExportOptions.CadReleases));
+    public static readonly ExportField Scale = new(
+        "raster.scale", ExportSection.Format, FieldEntry.Scalar,
+        static (field, target) => new ControlIntent.Slider(field.Id(target), 1d, 4d, 0.5d, IntentBinding.Of(PaintRole.Accent)));
+
+    public ExportSection Section { get; }
+
+    public FieldEntry Entry { get; }
+
+    [UseDelegateFromConstructor]
+    public partial ControlIntent Control(ExportField field, ExportTarget target);
+
+    // The control id names the format it configures, so two formats honouring one capability cannot collide.
+    public string Id(ExportTarget target) => $"{target.Key}.{Key}";
+
+    public string LabelKey => $"export.field.{Key}";
+
+    // Visibility is a DECLARED edge the schema gate reads: a permission toggle standing while the document is
+    // open configures nothing, and the constant-success validator every field used to carry proved nothing at all.
+    public Option<ExportField> DependsOn =>
+        Equals(AllowPrint) || Equals(AllowExtract) ? Some(Encrypt) : None;
+
+    public Validation<Error, (ExportSection Section, FormField Field)> Seat(ExportTarget target) =>
+        (FormSchema.Tag(Id(target)).ToValidation(), DependsOn.Traverse(row => FormSchema.Tag(row.Id(target)).ToValidation()).As())
+            .Apply((key, gate) => (Section, new FormField(
+                key, LabelKey, Control(this, target), Entry,
+                gate.ToSeq(),
+                gate.Match(Some: static held => (FieldRule)new FieldRule.WhenSet(held), None: static () => new FieldRule.Always()),
+                new FieldRule.Never(),
+                Option<FieldValue>.None, Option<string>.None, Option<FieldMeasure>.None,
+                CommitPosture.Deferred,
+                static _ => Validation<Error, Unit>.Success(unit))))
+            .As();
+
+    static ControlIntent Chosen(ExportField field, ExportTarget target, Seq<OptionRow> options) =>
+        new ControlIntent.Select(
+            field.Id(target), SelectPosture.Closed, new OptionSource.Inline(options),
+            VirtualWindowSpec.FixedRow(Viewport), IntentBinding.Of(PaintRole.Well));
+
+    static ControlIntent Toggled(ExportField field, ExportTarget target) =>
+        new ControlIntent.Toggle(field.Id(target), field.LabelKey, IntentBinding.Of(PaintRole.Panel));
+}
+
+// Every offered row is a CURATED seat of its OWNER's roster, never a second vocabulary: a page option is a kernel
+// `SheetSize` whose key its own admission parses back, a colour option is a `[04]` row, a line-group and an
+// emission option are the kernel plot rows, a CAD option is the release the writer policy admits, and a redaction
+// option is the classification vocabulary. Each label key derives from its own row key, so a row carries one
+// spelling and a curation states what it seats rather than restating a value.
+public static class ExportOptions {
+    // The offered paper seats: A4 and A3 on the ISO ladder, ANSI A and B on the imperial one — the four an export
+    // dialog offers of the roughly forty the series publish, stated as roster SEATS so each key is the owner's own.
+    static readonly Seq<(SheetSeries Series, int Index)> PaperSeats =
+        Seq((SheetSeries.IsoA, 4), (SheetSeries.IsoA, 3), (SheetSeries.Ansi, 0), (SheetSeries.Ansi, 1));
+
+    // The releases the DWG/DXF writers admit, seated off the host enum the `Render/drafting` version policy types.
+    static readonly Seq<ACadVersion> CadSeats = Seq(ACadVersion.AC1032, ACadVersion.AC1027, ACadVersion.AC1021);
+
+    public static Seq<OptionRow> PageSizes =>
+        PaperSeats.Choose(static seat => SheetSize.Of(seat.Series, seat.Index).ToOption()).Map(static size => Row("page", size.Key));
+
+    public static Seq<OptionRow> Colours => toSeq(ColorTarget.Items).Map(static row => Row("colour", row.Key));
+
+    public static Seq<OptionRow> LineGroups => toSeq(LineGroup.Items).Map(static row => Row("weights", row.Key));
+
+    public static Seq<OptionRow> Emissions => toSeq(LayerEmission.Items).Map(static row => Row("layers", row.Key));
+
+    public static Seq<OptionRow> CadReleases =>
+        CadSeats.Map(static release => Row("cad", release.ToString().ToLowerInvariant()));
+
+    public static Seq<OptionRow> Classifications => toSeq(DataClassification.Items).Map(static row => Row("redaction", row.Key));
+
+    static OptionRow Row(string family, string key) => new(key, $"export.{family}.{key}", None, None);
+}
+
+// The per-capability readout. Three cases rather than a bool plus a message, because "the fonts embed", "the
+// fonts substitute and here is why", and "this target cannot embed fonts at all" are three different things a
+// user acts on differently. The note carries the capability ROW, never its key as text, so a note naming a row
+// nothing honours is unconstructible and the severity a strip renders is the folder's ONE ranked family.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PreflightNote {
     private PreflightNote() { }
-    public sealed record Honoured(string CapabilityKey) : PreflightNote;
-    public sealed record Degraded(string CapabilityKey, string Reason) : PreflightNote;
-    public sealed record Refused(string CapabilityKey, string Reason) : PreflightNote;
+    public sealed record Honoured(ExportCapability Capability) : PreflightNote;
+    public sealed record Degraded(ExportCapability Capability, string Reason) : PreflightNote;
+    public sealed record Refused(ExportCapability Capability, string Reason) : PreflightNote;
 
-    public string Capability => Switch(
-        honoured: static h => h.CapabilityKey, degraded: static d => d.CapabilityKey, refused: static r => r.CapabilityKey);
+    public ExportCapability Capability => Switch(
+        honoured: static h => h.Capability, degraded: static d => d.Capability, refused: static r => r.Capability);
 
-    public WorkSeverity Severity => Switch(
-        honoured: static _ => WorkSeverity.Info, degraded: static _ => WorkSeverity.Warning, refused: static _ => WorkSeverity.Error);
+    public Severity Severity => Switch(
+        honoured: static _ => Severity.Info, degraded: static _ => Severity.Warning, refused: static _ => Severity.Critical);
+
+    public string LabelKey => $"export.preflight.{Capability.Key}";
+
+    public string ValueKey => Switch(
+        honoured: static _ => "export.preflight.honoured",
+        degraded: static d => d.Reason,
+        refused: static r => r.Reason);
 }
 
-// The capability vocabulary as ROWS carrying BOTH readings of one decision: the section-tagged fields a
-// format's options render as, and the note its preflight reports against an admitted request. A capability is
-// exactly the pair "what a user can set" and "what the arm will then honour", so one row owns both and a
-// format's roster is the one list both consumers fold. Spelled as bare string constants the two readings
-// were two switches over that vocabulary, each with a silent default arm — a new capability named on a row
-// rendered NO field and reported itself Honoured, so the schema quietly lost a control and the readout
-// quietly promised a capability nothing implemented.
+// The capability vocabulary as ROWS carrying BOTH readings of one decision: the field rows a format's options
+// render as, and the note its preflight reports against an admitted request. Spelled as bare string constants the
+// two readings were two switches over that vocabulary, each with a silent default arm — a new capability named on
+// a row rendered NO field and reported itself Honoured.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ExportCapability {
-    public static readonly ExportCapability PageSetup = new("page-setup", ExportFields.PageSetup, ExportNotes.Plain);
-    public static readonly ExportCapability Colour = new("colour", ExportFields.Colour, ExportNotes.Colour);
-    // No field: font embedding is a property of the produced part graph rather than a value a user sets, so
-    // the capability contributes a READOUT alone and the schema stays free of a control no arm consults.
-    public static readonly ExportCapability Fonts = new("fonts", ExportFields.None, ExportNotes.Fonts);
-    public static readonly ExportCapability Security = new("security", ExportFields.Security, ExportNotes.Security);
-    public static readonly ExportCapability Redaction = new("redaction", ExportFields.Redaction, ExportNotes.Plain);
-    public static readonly ExportCapability Outline = new("outline", ExportFields.Outline, ExportNotes.Outline);
-    public static readonly ExportCapability Tagged = new("tagged", ExportFields.Tagged, ExportNotes.Plain);
-    public static readonly ExportCapability Weights = new("line-weights", ExportFields.None, ExportNotes.Plain);
-    public static readonly ExportCapability CadVersion = new("cad-version", ExportFields.CadVersion, ExportNotes.Plain);
-    public static readonly ExportCapability Layers = new("layers", ExportFields.None, ExportNotes.Plain);
-    public static readonly ExportCapability Scale = new("scale", ExportFields.Scale, ExportNotes.Plain);
+    public static readonly ExportCapability PageSetup = new(
+        "page-setup", Seq(ExportField.PageSize, ExportField.Landscape), ExportNotes.PageSetup);
+    public static readonly ExportCapability Colour = new(
+        "colour", Seq(ExportField.Colour), ExportNotes.Colour);
+    // No field: font embedding is a property of the produced part graph rather than a value a user sets, so the
+    // capability contributes a READOUT alone and the schema stays free of a control no arm consults.
+    public static readonly ExportCapability Fonts = new("fonts", Seq<ExportField>(), ExportNotes.Fonts);
+    public static readonly ExportCapability Security = new(
+        "security", Seq(ExportField.Encrypt, ExportField.AllowPrint, ExportField.AllowExtract), ExportNotes.Security);
+    public static readonly ExportCapability Redaction = new(
+        "redaction", Seq(ExportField.Redaction), ExportNotes.Redaction);
+    public static readonly ExportCapability Outline = new(
+        "outline", Seq(ExportField.Bookmarks), ExportNotes.Outline);
+    public static readonly ExportCapability Tagged = new(
+        "tagged", Seq(ExportField.Tagged), ExportNotes.Tagged);
+    // The linework and layer rows BIND their kernel owners: the group rung is the one `LineGroup.For` derives
+    // from an issued sheet and the emission mode is the kernel `LayerEmission` an issued policy carries, so
+    // neither row renders nothing while reporting itself honoured.
+    public static readonly ExportCapability Weights = new(
+        "line-weights", Seq(ExportField.LineGroupRung), ExportNotes.Weights);
+    public static readonly ExportCapability CadVersion = new(
+        "cad-version", Seq(ExportField.CadRelease), ExportNotes.CadVersion);
+    public static readonly ExportCapability Layers = new(
+        "layers", Seq(ExportField.LayerEmissionMode), ExportNotes.Layers);
+    public static readonly ExportCapability Scale = new(
+        "scale", Seq(ExportField.Scale), ExportNotes.Scale);
 
-    // The row's own field contribution, keyed on the target so every control id carries the format it
-    // configures and two formats honouring one capability cannot collide at the factory.
+    // The field ROWS this capability renders; a capability contributing none is a readout-only row and says so by
+    // carrying an empty seq rather than by binding a body that ignores its own argument.
+    public Seq<ExportField> Controls { get; }
+
+    // The row's own readout against an admitted request. The capability arrives as the ROW itself, so a member
+    // cannot transcribe a key that names a row nothing honours.
     [UseDelegateFromConstructor]
-    public partial Seq<(string Section, FormField Field)> Fields(ExportTarget target);
+    public partial PreflightNote Note(ExportCapability capability, ExportRequest request);
 
-    // The row's own readout against an admitted request. `Plain` is the row that always honours, so a
-    // capability whose verdict never varies still answers through the same column rather than falling out of
-    // a switch a reader has to check for a default. The capability the note names arrives as an ARGUMENT the
-    // row supplies from its own key, so a member cannot transcribe a key that names a row nothing honours.
-    [UseDelegateFromConstructor]
-    public partial PreflightNote Note(string capability, ExportRequest request);
-
-    // The one reading a surface takes: the row hands its own key to its own column, so the note's capability
-    // and the row that produced it are one value by construction.
-    public PreflightNote Read(ExportRequest request) => Note(Key, request);
+    public PreflightNote Read(ExportRequest request) => Note(this, request);
 }
 
-// The format roster. Each row carries the capability rows its options render from and its preflight reads,
-// so a format is a row rather than a screen and the two facts that differ per format live beside each other
-// where they cannot fall out of step.
+// The readout contributions, one member per capability row's column. Each names what the chosen arm WILL do
+// against the admitted configuration, reading the field ROW rather than a repeated id spelling.
+public static class ExportNotes {
+    public static PreflightNote PageSetup(ExportCapability capability, ExportRequest request) =>
+        ExportPlan.Paper(request).Match(
+            Succ: static _ => (PreflightNote)new PreflightNote.Honoured(capability),
+            Fail: _ => new PreflightNote.Refused(capability, "export.preflight.page-unresolved"));
+
+    // A vector export references its faces rather than embedding them, which is a real degradation a reader acts
+    // on by installing the face — not a refusal, because the artifact still carries every glyph run. A workbook
+    // part graph carries no font part at all, so its answer is the third one.
+    public static PreflightNote Fonts(ExportCapability capability, ExportRequest request) =>
+        request.Target.Equals(ExportTarget.Svg)
+            ? new PreflightNote.Degraded(capability, "export.preflight.svg-font-reference")
+            : request.Target.Equals(ExportTarget.Xlsx)
+                ? new PreflightNote.Refused(capability, "export.preflight.workbook-no-font-part")
+                : new PreflightNote.Honoured(capability);
+
+    public static PreflightNote Colour(ExportCapability capability, ExportRequest request) =>
+        ExportPlan.Colour(request).Match(
+            Succ: row => row.Equals(ColorTarget.Screen)
+                ? (PreflightNote)new PreflightNote.Honoured(capability)
+                : new PreflightNote.Degraded(capability, "export.preflight.press-proof-required"),
+            Fail: _ => new PreflightNote.Refused(capability, "export.preflight.colour-unresolved"));
+
+    public static PreflightNote Security(ExportCapability capability, ExportRequest request) =>
+        ExportPlan.Security(request).Match(
+            Succ: static security => security is PdfSecurity.Encrypted
+                ? (PreflightNote)new PreflightNote.Honoured(capability)
+                : new PreflightNote.Refused(capability, "export.preflight.encryption-off"),
+            Fail: _ => new PreflightNote.Refused(capability, "export.preflight.security-unresolved"));
+
+    // Redaction is the classification CEILING the delivery applies, so an unset posture is the widest one and
+    // says so rather than promising a pass nothing runs.
+    public static PreflightNote Redaction(ExportCapability capability, ExportRequest request) =>
+        ExportPlan.Chosen(request, ExportField.Redaction).Match(
+            Succ: key => DataClassification.TryGet(key, out DataClassification? row) && row is not null
+                ? (PreflightNote)new PreflightNote.Honoured(capability)
+                : new PreflightNote.Refused(capability, "export.preflight.redaction-unknown"),
+            Fail: _ => new PreflightNote.Refused(capability, "export.preflight.redaction-unset"));
+
+    public static PreflightNote Outline(ExportCapability capability, ExportRequest request) =>
+        Flagged(capability, request, ExportField.Bookmarks, "export.preflight.bookmarks-off");
+
+    public static PreflightNote Tagged(ExportCapability capability, ExportRequest request) =>
+        Flagged(capability, request, ExportField.Tagged, "export.preflight.tagging-off");
+
+    // The chosen rung is honoured only where the ISSUED sheet derives the same one: a caller may offer a heavier
+    // group than the extent's own ladder admits, and the plot arm will re-derive it, so the readout names that
+    // rather than promising the picked value.
+    public static PreflightNote Weights(ExportCapability capability, ExportRequest request) =>
+        (from picked in ExportPlan.Chosen(request, ExportField.LineGroupRung)
+         from setup in ExportPlan.Setup(request)
+         select (Picked: picked, Derived: setup.Plot.Group.Key)).Match(
+            Succ: read => read.Picked == read.Derived
+                ? (PreflightNote)new PreflightNote.Honoured(capability)
+                : new PreflightNote.Degraded(capability, "export.preflight.weights-resolved-by-extent"),
+            Fail: _ => new PreflightNote.Refused(capability, "export.preflight.weights-unresolved"));
+
+    public static PreflightNote Layers(ExportCapability capability, ExportRequest request) =>
+        ExportPlan.Emission(request).Match(
+            Succ: static row => row.Equals(LayerEmission.OptionalContent)
+                ? (PreflightNote)new PreflightNote.Honoured(capability)
+                : new PreflightNote.Degraded(capability, "export.preflight.layers-flattened"),
+            Fail: _ => new PreflightNote.Refused(capability, "export.preflight.layers-unresolved"));
+
+    public static PreflightNote CadVersion(ExportCapability capability, ExportRequest request) =>
+        ExportPlan.Release(request).Match(
+            Succ: static _ => (PreflightNote)new PreflightNote.Honoured(capability),
+            Fail: _ => new PreflightNote.Refused(capability, "export.preflight.cad-version-unresolved"));
+
+    public static PreflightNote Scale(ExportCapability capability, ExportRequest request) =>
+        ExportPlan.Scale(request).Match(
+            Succ: static _ => (PreflightNote)new PreflightNote.Honoured(capability),
+            Fail: _ => new PreflightNote.Refused(capability, "export.preflight.scale-unresolved"));
+
+    static PreflightNote Flagged(ExportCapability capability, ExportRequest request, ExportField field, string off) =>
+        ExportPlan.Flagged(request, field).Match(
+            Succ: held => held
+                ? (PreflightNote)new PreflightNote.Honoured(capability)
+                : new PreflightNote.Refused(capability, off),
+            Fail: _ => new PreflightNote.Refused(capability, off));
+}
+
+// The format roster. Each row carries the capability rows its options render from and its preflight reads, the
+// arm that writes it, the Office fidelity column that admission consults, and the Office writer itself — so a
+// format is a row rather than a screen and the three OOXML media-type literals that stood on a second roster have
+// one authority.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ExportTarget {
     public static readonly ExportTarget Pdf = new(
-        "pdf", "application/pdf",
+        "pdf", "application/pdf", Some(ExportArm.Document),
         Seq(ExportCapability.PageSetup, ExportCapability.Colour, ExportCapability.Fonts, ExportCapability.Security,
-            ExportCapability.Redaction, ExportCapability.Outline, ExportCapability.Tagged));
+            ExportCapability.Redaction, ExportCapability.Outline, ExportCapability.Tagged, ExportCapability.Layers),
+        fidelity: Seq<(string, OfficeFidelity)>(), office: None);
     public static readonly ExportTarget Xlsx = new(
-        "xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", Seq(ExportCapability.Fonts));
+        "xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", Some(ExportArm.Office),
+        Seq(ExportCapability.Fonts),
+        fidelity: Seq(("table", OfficeFidelity.Native), ("chart", OfficeFidelity.Declared), ("richText", OfficeFidelity.Declared)),
+        office: Some<OfficeWrite>(OfficeExport.Xlsx));
     public static readonly ExportTarget Docx = new(
-        "docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        Seq(ExportCapability.PageSetup, ExportCapability.Fonts));
+        "docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", Some(ExportArm.Office),
+        Seq(ExportCapability.PageSetup, ExportCapability.Fonts),
+        fidelity: Seq(("table", OfficeFidelity.Declared), ("chart", OfficeFidelity.Declared), ("richText", OfficeFidelity.Native)),
+        office: Some<OfficeWrite>(OfficeExport.Docx));
+    // PPTX carries no writer and no fidelity cell, so every sheet kind refuses by ABSENCE until the
+    // presentation/master/layout/slide members are catalogued — a speculative arm is the deleted form.
     public static readonly ExportTarget Pptx = new(
-        "pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation", Seq<ExportCapability>());
-    public static readonly ExportTarget Svg = new("svg", "image/svg+xml", Seq(ExportCapability.Weights));
+        "pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation", Some(ExportArm.Office),
+        Seq<ExportCapability>(), fidelity: Seq<(string, OfficeFidelity)>(), office: None);
+    public static readonly ExportTarget Svg = new(
+        "svg", "image/svg+xml", None, Seq(ExportCapability.Fonts, ExportCapability.Weights),
+        fidelity: Seq<(string, OfficeFidelity)>(), office: None);
     public static readonly ExportTarget Dwg = new(
-        "dwg", "image/vnd.dwg", Seq(ExportCapability.CadVersion, ExportCapability.Layers));
+        "dwg", "image/vnd.dwg", None, Seq(ExportCapability.CadVersion, ExportCapability.Layers, ExportCapability.Weights),
+        fidelity: Seq<(string, OfficeFidelity)>(), office: None);
     public static readonly ExportTarget Dxf = new(
-        "dxf", "image/vnd.dxf", Seq(ExportCapability.CadVersion, ExportCapability.Layers));
-    public static readonly ExportTarget Png = new("png", "image/png", Seq(ExportCapability.Colour, ExportCapability.Scale));
+        "dxf", "image/vnd.dxf", None, Seq(ExportCapability.CadVersion, ExportCapability.Layers, ExportCapability.Weights),
+        fidelity: Seq<(string, OfficeFidelity)>(), office: None);
+    public static readonly ExportTarget Png = new(
+        "png", "image/png", None, Seq(ExportCapability.Colour, ExportCapability.Scale),
+        fidelity: Seq<(string, OfficeFidelity)>(), office: None);
 
     public string MediaType { get; }
 
+    // The arm that writes this format; absence names a target another page's arm owns (drafting's CAD and vector
+    // legs, capture's raster leg), so this page refuses it typed rather than silently.
+    public Option<ExportArm> Arm { get; }
+
     public Seq<ExportCapability> Honours { get; }
 
-    // The schema is BUILT from the capability roster, so a row's options and its preflight read one list and
-    // a format cannot render an option its arm never consults. Sections partition the field set by
-    // construction, which is exactly what the schema gate proves. Every caption is a label KEY the form chrome
-    // resolves at render, so the schema carries no culture and a locale flip re-renders one built schema
-    // rather than rebuilding it — a resolved-locale parameter here would be a knob no arm reads.
+    // The per-(format x sheet-kind) materialization column: an uncatalogued cell reads Unsupported, so the twelve
+    // hand cells of a shared matrix become three per-format rosters and a new format cannot outrun its own table.
+    public Seq<(string Kind, OfficeFidelity Row)> Fidelity { get; }
+
+    public Option<OfficeWrite> Office { get; }
+
+    public OfficeFidelity Materializes(string sheetKind) =>
+        Fidelity.Find(row => row.Kind == sheetKind).Map(static row => row.Row).IfNone(OfficeFidelity.Unsupported);
+
+    // The schema is BUILT from the capability roster, so a row's options and its preflight read one list. Sections
+    // derive from the seated fields' own rows, which is exactly the partition the schema gate proves. Every
+    // caption is a label KEY the form chrome resolves at render, so the schema carries no culture.
     public Validation<Error, FormSchema> Schema() =>
-        Honours.Bind(capability => capability.Fields(this)) switch {
-            var fields => FormSchema.Create(
-                $"export.{Key}",
-                $"export.{Key}.submit",
-                $"export.{Key}.commit",
-                FormGeometry.Stacked,
-                fields.Map(static row => row.Field),
-                Sections(fields)),
-        };
+        Honours.Bind(static capability => capability.Controls)
+            .Traverse(field => field.Seat(this)).As()
+            .Bind(seats => FormSchema.Create(
+                $"export.{Key}", $"export.{Key}.submit", $"export.{Key}.commit", FormGeometry.Stacked,
+                seats.Map(static seat => seat.Field),
+                Sections(seats)));
 
-    // Sections derive from the fields' own section tags, so the partition the schema gate proves is
-    // constructed rather than authored and a field can never be seated twice or left unseated.
-    static Seq<FormSection> Sections(Seq<(string Section, FormField Field)> fields) =>
-        toSeq(fields.Map(static row => row.Section).Distinct())
+    static Seq<FormSection> Sections(Seq<(ExportSection Section, FormField Field)> seats) =>
+        toSeq(seats.Map(static seat => seat.Section).Distinct())
             .Map(section => FormSection.Of(
-                section, $"export.section.{section}",
-                fields.Filter(row => row.Section == section).Map(static row => row.Field.Key)));
-}
-
-// The field contributions, one member per capability row's column. Each takes the target so a control id
-// names the format it configures, and the settled entry rows carry the value shapes — so the measurement,
-// expression, path, and choice rails all reach export configuration unchanged.
-public static class ExportFields {
-    public const double Viewport = 200d;
-
-    public static Seq<(string Section, FormField Field)> None(ExportTarget target) => [];
-
-    public static Seq<(string Section, FormField Field)> PageSetup(ExportTarget target) => Seq(
-        ("page", FormField.Of($"{target.Key}.page.size", "export.field.page-size",
-            new ControlIntent.Select($"{target.Key}.page.size", SelectPosture.Closed,
-                OptionSource.Fixed(PageSizes), VirtualWindowSpec.FixedRow(Viewport),
-                IntentBinding.Of(PaintRole.Well)),
-            FieldEntry.Choice, static _ => Validation<Error, Unit>.Success(unit))),
-        ("page", FormField.Of($"{target.Key}.page.landscape", "export.field.landscape",
-            new ControlIntent.Toggle($"{target.Key}.page.landscape", "export.field.landscape", IntentBinding.Of(PaintRole.Panel)),
-            FieldEntry.Flag, static _ => Validation<Error, Unit>.Success(unit))));
-
-    public static Seq<(string Section, FormField Field)> Colour(ExportTarget target) => Seq(
-        ("colour", FormField.Of($"{target.Key}.colour.target", "export.field.colour",
-            new ControlIntent.Select($"{target.Key}.colour.target", SelectPosture.Closed,
-                OptionSource.Fixed(ColorTarget.Items.Map(static row =>
-                    new OptionRow(row.Key, $"export.colour.{row.Key}", None, None)).ToSeq()),
-                VirtualWindowSpec.FixedRow(Viewport), IntentBinding.Of(PaintRole.Well)),
-            FieldEntry.Choice, static _ => Validation<Error, Unit>.Success(unit))));
-
-    public static Seq<(string Section, FormField Field)> Security(ExportTarget target) => Seq(
-        ("security", FormField.Of($"{target.Key}.security.encrypt", "export.field.encrypt",
-            new ControlIntent.Toggle($"{target.Key}.security.encrypt", "export.field.encrypt", IntentBinding.Of(PaintRole.Panel)),
-            FieldEntry.Flag, static _ => Validation<Error, Unit>.Success(unit))),
-        ("security", FormField.Of($"{target.Key}.security.print", "export.field.allow-print",
-            new ControlIntent.Toggle($"{target.Key}.security.print", "export.field.allow-print", IntentBinding.Of(PaintRole.Panel)),
-            FieldEntry.Flag, static _ => Validation<Error, Unit>.Success(unit))));
-
-    public static Seq<(string Section, FormField Field)> Redaction(ExportTarget target) => Seq(
-        ("security", FormField.Of($"{target.Key}.redaction.posture", "export.field.redaction",
-            new ControlIntent.Select($"{target.Key}.redaction.posture", SelectPosture.Closed,
-                OptionSource.Fixed(DataClassification.Items.Map(static row =>
-                    new OptionRow(row.Key, $"export.redaction.{row.Key}", None, None)).ToSeq()),
-                VirtualWindowSpec.FixedRow(Viewport), IntentBinding.Of(PaintRole.Well)),
-            FieldEntry.Choice, static _ => Validation<Error, Unit>.Success(unit))));
-
-    public static Seq<(string Section, FormField Field)> Outline(ExportTarget target) => Seq(
-        ("structure", FormField.Of($"{target.Key}.outline.bookmarks", "export.field.bookmarks",
-            new ControlIntent.Toggle($"{target.Key}.outline.bookmarks", "export.field.bookmarks", IntentBinding.Of(PaintRole.Panel)),
-            FieldEntry.Flag, static _ => Validation<Error, Unit>.Success(unit))));
-
-    public static Seq<(string Section, FormField Field)> Tagged(ExportTarget target) => Seq(
-        ("structure", FormField.Of($"{target.Key}.tagged.ua", "export.field.tagged",
-            new ControlIntent.Toggle($"{target.Key}.tagged.ua", "export.field.tagged", IntentBinding.Of(PaintRole.Panel)),
-            FieldEntry.Flag, static _ => Validation<Error, Unit>.Success(unit))));
-
-    public static Seq<(string Section, FormField Field)> CadVersion(ExportTarget target) => Seq(
-        ("format", FormField.Of($"{target.Key}.cad.version", "export.field.cad-version",
-            new ControlIntent.Select($"{target.Key}.cad.version", SelectPosture.Closed,
-                OptionSource.Fixed(CadVersions), VirtualWindowSpec.FixedRow(Viewport),
-                IntentBinding.Of(PaintRole.Well)),
-            FieldEntry.Choice, static _ => Validation<Error, Unit>.Success(unit))));
-
-    public static Seq<(string Section, FormField Field)> Scale(ExportTarget target) => Seq(
-        ("format", FormField.Of($"{target.Key}.raster.scale", "export.field.scale",
-            new ControlIntent.Slider($"{target.Key}.raster.scale", 1d, 4d, 0.5d, IntentBinding.Of(PaintRole.Accent)),
-            FieldEntry.Scalar, static _ => Validation<Error, Unit>.Success(unit))));
-
-    static Seq<OptionRow> PageSizes =>
-        Seq(new OptionRow("a4", "export.page.a4", None, None),
-            new OptionRow("a3", "export.page.a3", None, None),
-            new OptionRow("letter", "export.page.letter", None, None),
-            new OptionRow("tabloid", "export.page.tabloid", None, None));
-
-    static Seq<OptionRow> CadVersions =>
-        Seq(new OptionRow("ac1032", "export.cad.ac1032", None, None),
-            new OptionRow("ac1027", "export.cad.ac1027", None, None),
-            new OptionRow("ac1021", "export.cad.ac1021", None, None));
-}
-
-// The readout contributions, one member per capability row's column. Each names what the chosen arm WILL do
-// against the admitted configuration, so a note cannot promise a capability the row does not claim; the
-// capability key arrives from the row that folds the member and is never spelled here.
-public static class ExportNotes {
-    public static PreflightNote Plain(string capability, ExportRequest request) =>
-        new PreflightNote.Honoured(capability);
-
-    // A vector export references its faces rather than embedding them, which is a real degradation a reader
-    // acts on by installing the face — not a refusal, because the artifact still carries every glyph run.
-    public static PreflightNote Fonts(string capability, ExportRequest request) =>
-        request.Target == ExportTarget.Svg
-            ? new PreflightNote.Degraded(capability, "export.preflight.svg-font-reference")
-            : new PreflightNote.Honoured(capability);
-
-    public static PreflightNote Colour(string capability, ExportRequest request) =>
-        ExportForm.Chose(request, "colour.target", ColorTarget.Press.Key)
-            ? new PreflightNote.Degraded(capability, "export.preflight.press-proof-required")
-            : new PreflightNote.Honoured(capability);
-
-    public static PreflightNote Security(string capability, ExportRequest request) =>
-        ExportForm.Chose(request, "security.encrypt", "true")
-            ? new PreflightNote.Honoured(capability)
-            : new PreflightNote.Refused(capability, "export.preflight.encryption-off");
-
-    public static PreflightNote Outline(string capability, ExportRequest request) =>
-        ExportForm.Chose(request, "outline.bookmarks", "true")
-            ? new PreflightNote.Honoured(capability)
-            : new PreflightNote.Refused(capability, "export.preflight.bookmarks-off");
+                section.Key, section.TitleKey,
+                seats.Filter(seat => seat.Section.Equals(section)).Map(static seat => seat.Field.Key)));
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------
 
-// A remembered destination. `LastUsed` orders the recall and `Format` scopes it, so a PDF picker offers the
-// last PDF folder rather than the last folder of any kind — one roster, scoped at read.
-public readonly record struct DestinationRow(string Key, string AbsolutePath, string Format, Instant LastUsed);
+// A remembered destination. `LastUsed` orders the recall and the FORMAT ROW scopes it, so a PDF picker offers the
+// last PDF folder rather than the last folder of any kind — one roster, scoped at read, keyed by the row rather
+// than by a repeated spelling of its key.
+public readonly record struct DestinationRow(string Key, string AbsolutePath, ExportTarget Format, Instant LastUsed);
 
-// The admitted configuration a run consumes: the target, the validated form state, and the destination the
-// picker produced. The state is the FORM's own admitted value, so an export cannot run on a configuration
-// the schema refused.
+// The admitted configuration a run consumes: the target, the validated form state, and the destination the picker
+// produced. The state is the FORM's own admitted value, so an export cannot run on a configuration the schema
+// refused.
 public sealed record ExportRequest(ExportTarget Target, FormState State, DestinationRow Destination);
 
+// The card seam's source: an admitted request plus the two facts a queue card needs that no configuration carries.
+public sealed record ExportHandoff(RunOrigin Origin, ExportRequest Request, Instant At);
+
+// --- [COMPOSITION] ------------------------------------------------------------------------
+
+// ONE seam for the queue-card correspondence: the card's twelve columns generate from one source value rather
+// than a twelve-argument hand mint, and the queue's four POLICY constants — queued job, queued run, outbound
+// direction, one unit of fan — leave the body as `[MapValue]` rows. Operators REFUSED and why: `[MapDerivedType]`
+// stays unused because `PreflightNote` is a CLOSED union whose own generated total `Switch` is the strip
+// projection (a derived-type roster over a closed family is the rung's stated exception); native `Seq<T>` target
+// construction is UNPROVEN for this generator, so the two collection columns ride per-type non-generic readers
+// rather than a generic `Seq<T> Map<T>(…)` the generator refuses outright (RMG001); `RequiredMappingStrategy` is
+// `Target` because the handoff carries the whole admitted `FormState` no card column reads and a reader-bearing
+// mapping's source-side completeness proves nothing anyway, so an ignore roster here would be authored inventory.
+[Mapper(
+    RequiredMappingStrategy = RequiredMappingStrategy.Target,
+    EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
+public static partial class ExportCardMap {
+    [MapValue(nameof(RunCard.JobIntent), ExportForm.RunIntent)]
+    [MapValue(nameof(RunCard.Job), Use = nameof(Queued))]
+    [MapValue(nameof(RunCard.Run), Use = nameof(Queued))]
+    [MapValue(nameof(RunCard.Direction), Use = nameof(Outbound))]
+    [MapValue(nameof(RunCard.Fan), Use = nameof(Single))]
+    [MapValue(nameof(RunCard.Fault), Use = nameof(NoFault))]
+    [MapValue(nameof(RunCard.Redrive), Use = nameof(NoRedrive))]
+    [MapPropertyFromSource(nameof(RunCard.LabelKey), Use = nameof(Label))]
+    [MapPropertyFromSource(nameof(RunCard.Strips), Use = nameof(Strips))]
+    [MapPropertyFromSource(nameof(RunCard.Steps), Use = nameof(Steps))]
+    public static partial RunCard ToCard(ExportHandoff handoff);
+
+    static WorkStatus Queued() => WorkStatus.Queued;
+    static RunDirection Outbound() => RunDirection.Outbound;
+    static FanOut Single() => new(1, 0, 0);
+    static Option<Fault> NoFault() => None;
+    static Option<RedriveMark> NoRedrive() => None;
+
+    static string Label(ExportHandoff handoff) => $"export.job.{handoff.Request.Target.Key}";
+
+    // The union's own total `Switch` supplies every strip column, so a fourth note case breaks the projection at
+    // its owner rather than here.
+    static Seq<StateStrip> Strips(ExportHandoff handoff) =>
+        ExportForm.Preflight(handoff.Request).Map(static note => new StateStrip(note.LabelKey, note.ValueKey, note.Severity));
+
+    static Seq<StepRow> Steps(ExportHandoff handoff) =>
+        Seq(new StepRow(
+            handoff.Request.Target.Key, $"export.step.{handoff.Request.Target.Key}",
+            WorkStatus.Queued, None, Seq<string>(), Seq<OutputRow>()));
+}
+
 // --- [OPERATIONS] -----------------------------------------------------------------------
+
+// The lowering: an admitted configuration BECOMES the values the arms take. Every read names the field ROW, so a
+// control the schema never rendered refuses on the rail instead of resolving to a silent default, and no arm
+// re-derives a decision the form already made.
+public static class ExportPlan {
+    static readonly Op Lower = Op.Of(name: "appui.export.lower");
+
+    public static Fin<FieldValue> Read(ExportRequest request, ExportField field) =>
+        FormSchema.Tag(field.Id(request.Target))
+            .Bind(tag => request.State.Values.Find(tag).ToFin(Refusal(field, "carries no admitted value")))
+            .Bind(cell => cell.Uniform.ToFin(Refusal(field, "diverges across targets")));
+
+    public static Fin<string> Chosen(ExportRequest request, ExportField field) =>
+        Read(request, field).Bind(value => value is FieldValue.Pick pick
+            ? Fin.Succ(pick.Text)
+            : Fin.Fail<string>(Refusal(field, "is not a choice")));
+
+    public static Fin<bool> Flagged(ExportRequest request, ExportField field) =>
+        Read(request, field).Bind(value => value is FieldValue.Flag flag
+            ? flag.Value.ToFin(Refusal(field, "carries no flag state"))
+            : Fin.Fail<bool>(Refusal(field, "is not a flag")));
+
+    public static Fin<double> Scale(ExportRequest request) =>
+        Read(request, ExportField.Scale).Bind(value => value is FieldValue.Number number
+            ? Fin.Succ(number.Value)
+            : Fin.Fail<double>(Refusal(ExportField.Scale, "is not a scalar")));
+
+    // The offered key round-trips through the OWNER's own admission, so a picked paper reaches the arms as a
+    // kernel `SheetSize` and never as a token some later consumer re-derives an extent from.
+    public static Fin<SheetSize> Paper(ExportRequest request) =>
+        Chosen(request, ExportField.PageSize).Bind(key => Lower.AcceptValidated<SheetSize>(key));
+
+    // Every host `Try*` probe lifts ONCE through the kernel door, so a roster miss and a parse miss answer one
+    // refusal shape naming the field that carried the value.
+    public static Fin<ColorTarget> Colour(ExportRequest request) =>
+        Chosen(request, ExportField.Colour).Bind(key =>
+            Op.Probe(() => (ColorTarget.TryGet(key, out ColorTarget? row), row)).Bind(Optional)
+                .ToFin(Refusal(ExportField.Colour, $"names no colour row: {key}")));
+
+    public static Fin<LayerEmission> Emission(ExportRequest request) =>
+        Chosen(request, ExportField.LayerEmissionMode).Bind(key =>
+            Op.Probe(() => (LayerEmission.TryGet(key, out LayerEmission? row), row)).Bind(Optional)
+                .ToFin(Refusal(ExportField.LayerEmissionMode, $"names no emission row: {key}")));
+
+    public static Fin<ACadVersion> Release(ExportRequest request) =>
+        Chosen(request, ExportField.CadRelease).Bind(key =>
+            Op.Probe(() => (Enum.TryParse(key, ignoreCase: true, out ACadVersion parsed), parsed))
+                .ToFin(Refusal(ExportField.CadRelease, $"names no admitted release: {key}")));
+
+    // Permissions ride the ENCRYPTED case, so an open document carries no permission set to contradict, and the
+    // grant set folds off the roster's own rows rather than a per-permission column.
+    public static Fin<PdfSecurity> Security(ExportRequest request) =>
+        Flagged(request, ExportField.Encrypt).Bind(encrypted => encrypted
+            ? Grants(request).Map(static permits => (PdfSecurity)new PdfSecurity.Encrypted(None, permits, MetadataPosture.Encrypted))
+            : Fin.Succ(PdfSecurity.Open));
+
+    static readonly Seq<(PdfPermission Row, ExportField Field)> PermissionRows =
+        Seq((PdfPermission.Print, ExportField.AllowPrint), (PdfPermission.Extract, ExportField.AllowExtract));
+
+    static Fin<CapabilitySet<PdfPermission>> Grants(ExportRequest request) =>
+        PermissionRows
+            .TraverseM(row => Flagged(request, row.Field).Map(held => (row.Row, Held: held)))
+            .As()
+            .Map(static read => read.Filter(static grant => grant.Held).Map(static grant => grant.Row))
+            .Map(static granted => CapabilitySet<PdfPermission>.Of(granted.ToArray()));
+
+    // Page geometry issues against the SIZE's own standard and the form's orientation flag overrides the
+    // convention's, because orientation is the one column an operator genuinely picks per export.
+    public static Fin<ReportSetup> Setup(ExportRequest request) =>
+        from size in Paper(request)
+        from landscape in Flagged(request, ExportField.Landscape)
+        from tagged in Flagged(request, ExportField.Tagged)
+        let convention = IssuePosture.For(size.Standard)
+        // A target that does not honour the layer capability rendered no emission control, so the convention's
+        // own row stands rather than the read refusing a page-setup lowering over an absent sibling field.
+        let emission = Emission(request).IfFail(convention.Emission)
+        from plot in PlotPolicy.Of(
+            size: size,
+            orientation: landscape ? SheetOrientation.Landscape : SheetOrientation.Portrait,
+            scale: ScaleLadder.For(size.Standard).Nearest(convention.Scale),
+            posture: convention.Posture,
+            resolution: convention.Resolution,
+            emission: emission,
+            conformance: tagged ? convention.Conformance.With(PdfTrait.Accessible) : convention.Conformance,
+            styles: None,
+            key: Lower)
+        from margin in plot.Frame.Margin(size, Lower)
+        select new ReportSetup(plot, margin);
+
+    // The hardening the form CAN state, issued against the setup so conformance has one authority; the credential
+    // half arrives from the caller because no control can produce a signing lease or an AcroForm value.
+    public static Fin<PdfExport> Hardening(ExportRequest request, ReportSetup setup, PdfCredentials credentials) =>
+        from colour in Colour(request)
+        from security in Security(request)
+        from policy in PdfExport.Issued(setup.Plot, colour, security, credentials)
+        select policy;
+
+    // The missing half of the cluster: the admitted request reaches the report arm as a whole `ReportSpec`.
+    public static Fin<ReportSpec> Report(
+        ExportRequest request, string title, Seq<ReportBlock> blocks,
+        Option<string> header, PdfCredentials credentials, CapabilitySet<ReportTrait> baseline) =>
+        from setup in Setup(request)
+        from pdf in Hardening(request, setup, credentials)
+        from bookmarks in Flagged(request, ExportField.Bookmarks)
+        select new ReportSpec(
+            title, blocks, header, Some(setup), pdf,
+            new VisualDestination.FilePath(request.Destination.AbsolutePath),
+            bookmarks ? baseline.With(ReportTrait.Bookmarks) : baseline.Without(ReportTrait.Bookmarks));
+
+    // The office arm's half: the target row is the request's own, so an office emit configured against a PDF form
+    // is unrepresentable rather than refused at the writer.
+    public static Fin<OfficeSpec> Office(
+        ExportRequest request, Seq<OfficeSheet> sheets, Seq<(string FontFamily, ReadOnlyMemory<byte> Face)> fonts) =>
+        request.Target.Arm.Filter(static arm => arm.Equals(ExportArm.Office)).IsSome
+            ? Fin.Succ(new OfficeSpec(
+                request.Target, sheets, fonts, new VisualDestination.FilePath(request.Destination.AbsolutePath)))
+            : Fin.Fail<OfficeSpec>(new ExportFault.ContentUnsupported(request.Target.Key, "office part graph"));
+
+    static Error Refusal(ExportField field, string requirement) =>
+        new ExportFault.RenderFailed("export-form", $"{field.Key} {requirement}");
+}
 
 public static class ExportForm {
     public const string OpenIntent = "export.artifact.open";
     public const string RevealIntent = "export.artifact.reveal";
     public const string RunIntent = "export.run";
 
-    // Admission is the SCHEMA's own gate: every visible field admits, every required value is present, and
-    // the destination carries an absolute path the delivery gate will accept — so a request that reaches a
-    // run cannot fail on configuration.
-    public static Fin<ExportRequest> Admit(ExportTarget target, FormSchema schema, FormState state, DestinationRow destination) =>
-        string.IsNullOrWhiteSpace(destination.AbsolutePath) || !Path.IsPathFullyQualified(destination.AbsolutePath)
-            ? Fin.Fail<ExportRequest>(new ExportFault.DeliveryFailed(destination.AbsolutePath, "destination is not a fully qualified path"))
-            : schema.Admit(state).ToFin().Map(admitted => new ExportRequest(target, admitted, destination));
+    const int RecencyDepth = 16;
 
-    // The readout is a fold over the target's OWN capability rows, each row reading itself against the
-    // admitted configuration — so it cannot promise a capability the row does not claim, a capability the
-    // target never claims produces no note at all rather than a false negative, and a capability row added to
-    // the vocabulary carries its verdict here with no arm to forget. A guard ladder over the key was the
-    // deleted form: its trailing arm reported every unmatched capability as honoured, so a newly declared
-    // capability announced itself satisfied by an arm that had never been written.
+    // Admission ACCUMULATES: the destination path and the schema's own field rules are independent columns, so a
+    // request refused on both names both. A request that reaches a run cannot fail on configuration.
+    public static Fin<ExportRequest> Admit(ExportTarget target, FormSchema schema, FormState state, DestinationRow destination) =>
+        (Landing(destination), schema.Admit(state))
+            .Apply((seat, admitted) => new ExportRequest(target, admitted, seat))
+            .As()
+            .ToFin();
+
+    static Validation<Error, DestinationRow> Landing(DestinationRow destination) =>
+        !string.IsNullOrWhiteSpace(destination.AbsolutePath) && Path.IsPathFullyQualified(destination.AbsolutePath)
+            ? Validation<Error, DestinationRow>.Success(destination)
+            : Validation<Error, DestinationRow>.Fail(
+                new ExportFault.DeliveryFailed(destination.AbsolutePath, "destination is not a fully qualified path"));
+
+    // The readout is a fold over the target's OWN capability rows, each row reading itself against the admitted
+    // configuration — so it cannot promise a capability the row does not claim, a capability the target never
+    // claims produces no note at all, and a capability row added to the vocabulary carries its verdict here with
+    // no arm to forget. A guard ladder over the key was the deleted form: its trailing arm reported every
+    // unmatched capability as honoured.
     public static Seq<PreflightNote> Preflight(ExportRequest request) =>
         request.Target.Honours.Map(capability => capability.Read(request));
 
-    // The handoff is an ORDINARY run card, so a long export sits in the one queue beside every other job with
-    // the same cancel and retry affordances — an export-local progress dialog is the deleted form.
-    public static RunCard Handoff(ExportRequest request, CorrelationId correlation, Instant at) =>
-        new(new RunOrigin.Verb(correlation),
-            RunIntent,
-            $"export.job.{request.Target.Key}",
-            WorkStatus.Queued,
-            WorkStatus.Queued,
-            RunDirection.Outbound,
-            new FanOut(1, 0, 0),
-            Preflight(request).Map(static note => new StateStrip(
-                $"export.preflight.{note.Capability}", note.Capability, note.Severity)),
-            Seq(new StepRow(
-                request.Target.Key, $"export.step.{request.Target.Key}", WorkStatus.Queued, None, Seq<string>(), Seq<OutputRow>())),
-            at);
+    // The worst live crossing of the readout, through the folder's ONE ranked family — a surface badging an
+    // export takes this rather than re-ranking three case names.
+    public static Severity Standing(ExportRequest request) =>
+        Severity.Worst(Preflight(request), static note => note.Severity);
 
-    // Completion projects the two verbs a sealed artifact earns. `Adopt` is the intent key the queue raises,
-    // so opening and revealing go through the host pipe every other reveal takes and this page constructs no
-    // process start.
+    // Completion projects the two verbs a sealed artifact earns. `Adopt` is the intent key the queue raises, so
+    // opening and revealing go through the host pipe every other reveal takes and this page constructs no process
+    // start. A correspondence is refused here by shape: one receipt column feeds two rows whose every other
+    // column is a policy constant, so the fold IS the mapping.
     public static Seq<OutputRow> Completed(RenderReceipt receipt) =>
         receipt.Destination.Map(static destination => Seq(
-                new OutputRow(destination, "export.output.open", "artifact", Sealed: true, Some(OpenIntent)),
-                new OutputRow(destination, "export.output.reveal", "artifact", Sealed: true, Some(RevealIntent))))
+                new OutputRow(destination, "export.output.open", "artifact", OutputState.Sealed(Some(OpenIntent))),
+                new OutputRow(destination, "export.output.reveal", "artifact", OutputState.Sealed(Some(RevealIntent)))))
             .IfNone(Seq<OutputRow>());
 
-    // Recency is most-recent-first, scoped by FORMAT, and deduplicated on the path — so a PDF picker offers
+    // Recency is most-recent-first, scoped by FORMAT ROW, and deduplicated on the path — so a PDF picker offers
     // the last PDF folder and re-using one moves its row to the head instead of stacking duplicates.
     public static Seq<DestinationRow> Remember(Seq<DestinationRow> held, DestinationRow used, Instant at) =>
         (Seq(used with { LastUsed = at })
-            + held.Filter(row => !(row.Format == used.Format
+            + held.Filter(row => !(row.Format.Equals(used.Format)
                 && string.Equals(row.AbsolutePath, used.AbsolutePath, StringComparison.Ordinal))))
             .Take(RecencyDepth);
 
     public static Seq<DestinationRow> For(Seq<DestinationRow> held, ExportTarget target) =>
-        toSeq(held.Filter(row => row.Format == target.Key).OrderByDescending(static row => row.LastUsed));
-
-    const int RecencyDepth = 16;
-
-    // The one admitted-state read every capability row's readout takes: the field id is the target's own key
-    // plus the row's suffix, exactly as the schema minted it, so a note reads the value the form wrote and a
-    // divergent value read is a control that never existed rather than a silent false.
-    public static bool Chose(ExportRequest request, string suffix, string expected) =>
-        request.State.Values.Find($"{request.Target.Key}.{suffix}")
-            .Bind(static value => value.Uniform)
-            .Map(value => string.Equals(value.ToString(), expected, StringComparison.OrdinalIgnoreCase))
-            .IfNone(false);
+        toSeq(held.Filter(row => row.Format.Equals(target)).OrderByDescending(static row => row.LastUsed));
 }
 ```
 

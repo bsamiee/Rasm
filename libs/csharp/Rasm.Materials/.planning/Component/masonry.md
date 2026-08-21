@@ -1,48 +1,44 @@
 # [MATERIALS_MASONRY]
 
-THE MASONRY SEED PAGE and THE GENERATIVE BOND ALGEBRA. Masonry is one `ComponentFamily` policy row (`ComponentFamily.Masonry`: `ComponentClass.Minor`, `DetailLane.Realization`, admits `SectionProfile.Rectangle` or `SectionProfile.CellularRectangle`, cross-nominal `GrossRectangleMm.WidthMm`, rows `MasonrySeed.Rows`) — a masonry unit is a `Component` row, never a `Brick` type. This page owns the FORM-law vocabularies (`Orientation`/`FaceShown`/`Cut`/`ClosureRule`/`SpecialShape`/`RecessShape`/`MortarProfile`/`MortarType`/`MortarSystem`/`EnMortarClass`/`EnMortarKind`/`RuptureModulus`/`FlexuralStrengthEn`/`FlexuralStrengthNa`/`NaMortarBand`/`LateralAction`/`SizeTolerance`/`SizeRange`/`Region`/`BondGeometry`/`BondName`), the `MortarJoint` joint specification, the `FrogGeometry`/`Perforation` generative void geometry, the `AUTHORED` regional row table, and the ONE `MasonrySeed.Rows : Context -> Fin<Seq<ComponentRow>>` fold `component#CATALOGUE` `ComponentCatalogue.Of` traverses. A masonry unit carries no payload record of its own: its geometry is the BED-PLANE `SectionProfile.Rectangle`/`CellularRectangle` (W through-wall × L along-wall), its frog/perforation voids are TRUE-GRID `VoidCell` rows the `MasonryVoids` generator stations in that plane, its vocabulary columns are the kept SmartEnums, and its `HeightMm`/`CourseHeightMm`/tolerance/range/shape realization columns are seed-row values landing in the seed-built `MasonryDetail` bag (`Masonry` carries `DetailLane.Realization` — the EN 771-1 work-vs-actual tolerance band, the unit height, and the coursing module have no other landing surface).
+THE MASONRY SEED PAGE and THE GENERATIVE BOND ALGEBRA. Masonry is one `ComponentFamily` policy row (`ComponentFamily.Masonry`: `ComponentClass.Minor`, `DetailLane.Realization`, admits `SectionProfile.Rectangle` or `SectionProfile.CellularRectangle`, cross-nominal `GrossRectangleMm.WidthMm`) — a masonry unit is a `Component` row, never a `Brick` type. This page owns the FORM-law vocabularies (`Orientation`/`FaceShown`/`Cut`/`ClosureRule`/`SpecialShape`/`RecessShape`/`MortarProfile`/`MortarType`/`MortarSystem`/`EnMortarClass`/`EnMortarKind`/`RuptureModulus`/`FlexuralStrengthEn`/`FlexuralStrengthNa`/`NaMortarBand`/`LateralAction`/`SizeTolerance`/`SizeRange`/`RatingPeriod`/`BondGeometry`/`BondName`), the `MortarJoint` joint specification, the `FrogGeometry`/`Perforation` generative void geometry, the `AUTHORED` regional row table, and the `MasonrySeed.Roster`/`Law` pair the ONE `component#COMPONENT_SEED` generator folds. A masonry unit carries no payload record of its own: its geometry is the BED-PLANE `SectionProfile.Rectangle`/`CellularRectangle` (W through-wall × L along-wall), its frog/perforation voids are TRUE-GRID `VoidCell` rows the `MasonryVoids` generator stations in that plane, its vocabulary columns are the kept SmartEnums, and its `HeightMm`/`CourseHeightMm`/tolerance/range/shape realization columns are seed-row values landing in the seed-built `MasonryDetail` bag (`Masonry` carries `DetailLane.Realization` — the EN 771-1 work-vs-actual tolerance band, the unit height, and the coursing module have no other landing surface).
 
-The unreinforced tension screen rides TWO published table families into the `capacity#SECTION_CAPACITY` `MasonryUnreinforced` columns through the `SectionCapacity.Lift(CapacityReceipt)` `CapacityReceipt.Masonry` case, the receipt's `DesignBasis` selecting the read: `RuptureModulus` the TMS 402 Table `9.1.9.2` modulus of rupture `fr` keyed by `MortarSystem`/`MortarType`; `FlexuralStrengthEn` the EN 1996-1-1 clause `3.6.3(3)` NOTE-2 flexural pair `f_xk1`/`f_xk2` keyed by unit group, carrying beside it the Table `3.4` initial shear strength `f_vko` the same unit group keys; `FlexuralStrengthNa` the UK National Annex Table `NA.6` supersession keyed by water absorption, unit format, and wall thickness. One direction column (`RuptureModulus.SpanParallelToBed`) serves every read, the mortar feed off the assemblage, never `MortarType.FlexuralBondMpa` (ASTM C1072 bond data, firewalled from `fr`). EN 1996-1-1 `8.1.4.1(2)P` requires unreinforced units to overlap on alternate courses, so an un-bonded pattern is not a weaker table row but an inadmissible unreinforced wall: `MasonrySeed.Capacity` REFUSES it typed, and `BondName.Overlap` derives the `8.1.4.1(3)` overlap from the bond's own course stagger.
+The unreinforced tension screen rides TWO published table families into the `capacity#SECTION_CAPACITY` `MasonryUnreinforced` columns through the `SectionCapacity.Lift(receipt, key)` `CapacityReceipt.Masonry` case, the receipt's `DesignBasis` selecting the read: `RuptureModulus` the TMS 402 Table `9.1.9.2` modulus of rupture `fr` keyed by `MortarSystem`/`MortarType`; `FlexuralStrengthEn` the EN 1996-1-1 clause `3.6.3(3)` NOTE-2 flexural pair `f_xk1`/`f_xk2` keyed by unit group, carrying beside it the Table `3.4` initial shear strength `f_vko` the same unit group keys; `FlexuralStrengthNa` the UK National Annex Table `NA.6` supersession keyed by water absorption, unit format, and wall thickness. One direction column (`RuptureModulus.SpanParallelToBed`) serves every read, the mortar feed off the assemblage, never `MortarType.FlexuralBondMpa` (ASTM C1072 bond data, firewalled from `fr`). EN 1996-1-1 `8.1.4.1(2)P` requires unreinforced units to overlap on alternate courses, so an un-bonded pattern is not a weaker table row but an inadmissible unreinforced wall: `MasonrySeed.Capacity` REFUSES it typed, and `BondName.Overlap` derives the `8.1.4.1(3)` overlap from the bond's own course stagger.
 
-The `Bond` axis is a GENERATIVE ALGEBRA over a THEOREM-CLOSED census: a template bond reads its course set by wrapped index, a generated bond IS a plane-symmetry tiling — its `BondGeometry` row names a `Rasm/Parametric/patternmap#PATTERNING` `WallpaperGroup` (the complete 17-row plane census) plus its motif seats in cell coordinates, and the FULL per-unit packing transform (offset + lateral + rotation + mirror parity) derives from the kernel `Patterning.Apply(PatternOp.Orbit)` fold read band by band, the unit's own coordinating module the cell basis — so a new decorative bond is DATA over a closed theorem, never a per-index delegate and never an interpreter arm. The course fold, joint policy, and station projection consuming `CourseTemplate`/`UnitPlacement`/`MortarJoint` are `Rasm.Generation`; the shared `Coring` void class, `VoidCell`, `ComponentUnit`, `SeedJoin`, and `ComponentDetail` bag constructors are `component#COMPONENT_OWNER`; the cmu sibling buckets onto the same `Coring` vocabulary and shares the `CellularRectangle` profile arm.
+The `Bond` axis is a GENERATIVE ALGEBRA over a THEOREM-CLOSED census: a template bond reads its course set by wrapped index, a generated bond IS a plane-symmetry tiling — its `BondGeometry` row names a `Rasm/Parametric/patternmap#PATTERNING` `WallpaperGroup` (the complete 17-row plane census) with its motif seats in cell coordinates, and the FULL per-unit packing transform (offset + lateral + rotation + mirror parity) derives from the kernel `Patterning.Apply(PatternOp.Orbit)` fold read band by band, the unit's own coordinating module the cell basis — so a new decorative bond is DATA over a closed theorem, never a per-index delegate and never an interpreter arm. The course fold, joint policy, and station projection consuming `CourseTemplate`/`UnitPlacement`/`MortarJoint` are `Rasm.Generation`; the shared `Coring` void class, `VoidCell`, `ComponentUnit`, `SeedJoin`, and `ComponentDetail` bag constructors are `component#COMPONENT_OWNER`; the cmu sibling buckets onto the same `Coring` vocabulary and shares the `CellularRectangle` profile arm.
 
 ## [01]-[INDEX]
 
-- [02]-[MASONRY_FAMILY]: the retained bond/orientation/cut/closure/special-shape/mortar/tolerance vocabularies with the wallpaper-group `BondGeometry` symmetry descriptor, the `BondName` template/generated catalogue with its EC6 overlap derivation, the `[ComplexValueObject]` `MortarJoint` ASTM C270 joint specification, the EN 998-2 `EnMortarClass`/`EnMortarKind` product vocabulary the ASTM `MortarType` derives its declared class against, the `MortarSystem` cementitious-system rows with the TMS 402 Table `9.1.9.2` `RuptureModulus` table, the EN 1996-1-1 clause `3.6.3(3)`/Table `3.4` `FlexuralStrengthEn` sibling and its `FlexuralStrengthNa` UK-annex supersession, the `FrogGeometry`/`Perforation` void geometry with the ONE `MasonryVoids` owner, the EN 771-1 `SizeTolerance`/`SizeRange` work-vs-actual tolerance band, the `MasonryBody` substance axis with the `MasonryPhysics` receipt and the `WallAcoustics` single-leaf mass-law fold, the `AUTHORED` `MasonryRow` regional table, the seed-built `MasonryDetail` realization bag with its `Properties` seam lowering, the `MasonrySeed.Rows` fail-loud `Traverse` fold, and the `MasonrySeed.Capacity` basis-admitting producer.
+- [02]-[MASONRY_FAMILY]: the retained bond/orientation/cut/closure/special-shape/mortar/tolerance vocabularies with the wallpaper-group `BondGeometry` symmetry descriptor, the `BondName` template/generated catalogue with its EC6 overlap derivation, the `[ComplexValueObject]` `MortarJoint` ASTM C270 joint specification, the EN 998-2 `EnMortarClass`/`EnMortarKind` product vocabulary the ASTM `MortarType` derives its declared class against, the `MortarSystem` cementitious-system rows with the TMS 402 Table `9.1.9.2` `RuptureModulus` table, the EN 1996-1-1 clause `3.6.3(3)`/Table `3.4` `FlexuralStrengthEn` sibling and its `FlexuralStrengthNa` UK-annex supersession, the `FrogGeometry`/`Perforation` void geometry with the ONE `MasonryVoids` owner, the EN 771-1 `SizeTolerance`/`SizeRange` work-vs-actual bands admitted on the kernel `Grade` tolerance lane, the `RatingPeriod` published fire-period vocabulary both coursing families floor through, the `MasonryBody` substance axis with the `MasonryPhysics` receipt and the `WallAcoustics` single-leaf mass-law fold, the `AUTHORED` `MasonryRow` regional table, the seed-built `MasonryDetail` realization bag with its `Properties` seam lowering, the `MasonrySeed.Roster`/`Law` pair, and the `MasonrySeed.Capacity` basis-admitting producer.
 
 ## [02]-[MASONRY_FAMILY]
 
-- Owner: the masonry vocabulary (all FORM-law `[SmartEnum<string>]`, each stacking `[KeyMemberComparer]` beside `[KeyMemberEqualityComparer]` so ordered key lookup matches the `ComponentFamily` row convention); `UnitPlacement`/`CourseTemplate` the per-unit course transform; `BondOverlap` the EC6 overlap receipt; `MortarJoint` the generated-admission joint specification; `FrogGeometry`/`Perforation` the generative void geometry; `MasonryVoids` the `VoidCell` derivation + railed void-class bucket; `MasonryBody` the substance axis keyed on its own `MaterialId`; `MasonryDetail` the seed-time realization bag AND the seam `Properties` lowering; `MasonryRow` the `AUTHORED` raw row; `MasonrySeed` the ONE fold the `component#CATALOGUE` composes with its `SeedJoin` body join.
-- Cases: orientation {stretcher/header/soldier/sailor/rowlock/shiner, each carrying its run/rise course footprint and its exposed `FaceShown`} · cut {whole/three-quarter/half-bat/quarter-bat/queen-closer/king-closer/bevel, each carrying its cut-plane remainder + plane-normal orientation} · closure {none/queen-closer/king-closer/half-bat} · special-shape {none/bullnose/cownose/plinth/coping/cant/squint/birdsmouth/voussoir, each carrying its profile modifier + the voussoir radial taper} · mortar-profile {concave/v/weathered/struck/raked/flush/beaded/squeezed, each carrying its `RecessShape` cross-section} · mortar-type {M/S/N/O/K, the ASTM C270 proportion and strength row whose EN class DERIVES} · en-mortar-class {M1/M2,5/M5/M10/M15/M20 categorial + `Md` open} · en-mortar-kind {G/T/L} · mortar-system {portland-lime/mortar-cement/masonry-cement/air-entrained-portland-lime} · rupture-modulus {8 direction×form rows × 4 published MPa columns} · en flexural {7 unit-group rows × the four-column `FlexuralBand` pair × the Table 3.4 shear band} · na flexural {13 UK-annex rows × the three-column `NaBand` pair} · lateral-action {transient/permanent} · tolerance {T1/T2/Tm} · range {R1/R2/Rm} · region {us/uk/din/au/is} · profile {`Rectangle` a solid unit, `CellularRectangle` a frogged/cored unit}.
-- Entry: `MasonrySeed.Rows(Context) : Fin<Seq<ComponentRow>>` — the ONE generator fold: each `MasonryRow` mints its own `Op` identity, proves its coordinating module (`CourseMm = HMm + JointMm` within the published-rounding band), proves its frog declaration complete, admits its four dimensional columns once through `ComponentUnit.Of`, derives its BED-PLANE profile through the railed `SectionProfile` factories, buckets its `Coring` through `MasonryVoids.Bucket`, binds the `ComponentFamily.Masonry.Ifc` concrete leaf, builds its `MasonryDetail` bag at seed time, and constructs through `Component.Of` INSIDE the `Traverse` — a failed row ABORTS the build, never drops. `BondName.Course(unit, jointMm, index, key)` resolves a course template or orbits the generated descriptor's wallpaper group and reads the band, `BondGeometry.Courses(unit, jointMm, courses, key)` the whole-stack primary the single-index read projects; `BondName.Fits(ComponentUnit)` is the aspect-ratio tiling gate and `BondName.Overlap(unit, jointMm, key)` the EN 1996-1-1 `8.1.4.1(3)` overlap derivation; `MasonryDetail.Properties(profile, body, key)` lowers the `MasonryPhysics` receipt onto the seam `Thermal`/`Acoustic`/`Fire` cases; `SizeTolerance.WorkEnvelopeMm(workMm, declaredMm)` is the EN 771-1 permitted actual-size range the coursing tolerance and GLB tessellation read off the bag inputs.
+- Owner: the masonry vocabulary (all FORM-law `[SmartEnum]`, each stacking `[KeyMemberComparer]` beside `[KeyMemberEqualityComparer]` so ordered key lookup matches the `ComponentFamily` row convention); `MasonrySeed` the roster, the seed law, and the basis-admitting capacity producer; `RatingPeriod` the published fire-period ladder; `UnitPlacement`/`CourseTemplate` the per-unit course transform; `BondOverlap` the EC6 overlap receipt; `MortarJoint` the generated-admission joint specification; `FrogGeometry`/`Perforation` the generative void geometry; `MasonryVoids` the `VoidCell` derivation + railed void-class bucket; `MasonryBody` the substance axis keyed on its own `MaterialId`; `MasonryDetail` the seed-time realization bag AND the seam `Properties` lowering; `MasonryRow` the `AUTHORED` raw row; `MasonrySeed` the ONE fold the `component#CATALOGUE` composes with its `SeedJoin` body join.
+- Cases: orientation {stretcher/header/soldier/sailor/rowlock/shiner, each carrying its run/rise course footprint and its exposed `FaceShown`} · cut {whole/three-quarter/half-bat/quarter-bat/queen-closer/king-closer/bevel, each carrying its cut-plane remainder + plane-normal orientation} · closure {none/queen-closer/king-closer/half-bat} · special-shape {none/bullnose/cownose/plinth/coping/cant/squint/birdsmouth/voussoir, each carrying its profile modifier + the voussoir radial taper} · mortar-profile {concave/v/weathered/struck/raked/flush/beaded/squeezed, each carrying its `RecessShape` cross-section} · mortar-type {M/S/N/O/K, the ASTM C270 proportion and strength row whose EN class DERIVES} · en-mortar-class {M1/M2,5/M5/M10/M15/M20 categorial + `Md` open} · en-mortar-kind {G/T/L} · mortar-system {portland-lime/mortar-cement/masonry-cement/air-entrained-portland-lime} · rupture-modulus {8 direction×form rows × 4 published MPa columns} · en flexural {7 unit-group rows × the four-column `FlexuralBand` pair × the Table 3.4 shear band} · na flexural {13 UK-annex rows × the three-column `NaBand` pair} · lateral-action {transient/permanent} · tolerance {T1/T2/Tm} · range {R1/R2/Rm} · authority {ASTM/BS/DIN/AS/IS, each carrying the region its own standards body publishes into} · profile {`Rectangle` a solid unit, `CellularRectangle` a frogged/cored unit}.
+- Entry: `ComponentSeed.Rows(context, MasonrySeed.Roster, MasonrySeed.Law)` — this page states the roster and the policy, never the fold, and the law's coherence proves the coordinating module, the whole frog declaration, the four dimensional columns through `ComponentUnit.Of`, the derived void fraction, and the EN 771-1 deviation and range bands TOGETHER, so a malformed row names every column it broke in one verdict. `BondName.Course(unit, jointMm, index, key)` resolves a course template or orbits the generated descriptor's wallpaper group and reads the band, `BondGeometry.Courses(unit, jointMm, courses, key)` the whole-stack primary the single-index read projects; `BondName.Fits(ComponentUnit)` is the aspect-ratio tiling gate and `BondName.Overlap(unit, jointMm, key)` the EN 1996-1-1 `8.1.4.1(3)` overlap derivation; `MasonryDetail.Properties(profile, body, key)` lowers the `MasonryPhysics` receipt onto the seam `Thermal`/`Acoustic`/`Fire` cases; `SizeTolerance.WorkEnvelope(workMm, declaredMm, key)` is the EN 771-1 permitted actual-size range, ADMITTED on the kernel `Grade` tolerance lane, that the coursing tolerance and the GLB tessellation read.
 - Packages: Rasm (project — `PositiveMagnitude` from `Rasm.Numerics`; `Op`/`Context`/`AcceptValidated` from `Rasm.Domain`), Rasm.Element (project — `MaterialId`, `PropertyBag`, the seam `DetailSchema`/`PropertyCategory`/`PropertyName`/`Dimension` currencies `MasonryDetail` composes, and the `MaterialPropertySet` its `Properties` lowering mints; every `DetailSchema.Realization` row a unit stamps is Element-declared at `Rasm.Element/Properties/property#DETAIL_SCHEMA`, never minted here), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`, `[ComplexValueObject]` + generated `ValidateFactoryArguments`/`Validate`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer]`/`[KeyMemberComparer]`, `ComparerAccessors`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`Traverse` — the fail-loud RAIL law), BCL inbox; NO `VividOrange` — masonry is `AUTHORED` under `SEED_ROW_LAW` (no admitted producer owns EN 771/ASTM C216 masonry-unit tables; every value restates verbatim with per-column provenance).
-- Growth: a new template bond is one `BondName` row carrying its course set; a new generated bond is one `BondGeometry` row naming its wallpaper group and motif seats plus one `BondName` row — the symmetry census is closed by theorem, so the row is DATA and never a new derivation; a new orientation/cut/shape/mortar/tolerance/region row is one SmartEnum row; a new `fr` direction/form row, EN unit group, UK-annex row, or cementitious system is one `RuptureModulus`/`FlexuralStrengthEn`/`FlexuralStrengthNa`/`MortarSystem` row; a thin-layer or lightweight mortar is one `MortarType` row declaring that `EnMortarKind`, which arms the EN table's T and L columns with zero type edits; a new regional unit is one `MasonryRow` — per `[DIFF_OF_NEXT_THING]`. A sibling family lands its own vocabulary on its own seed page.
-- Boundary: this page emits profiles, vocabulary rows, bags, seam property sets, and the seed fold; it authors no host curve or IFC entity — a `BondGeometry` seat is a kernel-owned cell COORDINATE, never a transform, and the course fold that materializes one is `Rasm.Generation`'s. `MasonryVoids.Cells` stations every perforation at its declared bed-plane grid position and preserves void area through an area-equivalent square cell; the frog pocket enters as a VOLUME-equivalent cell because the thermal, mass, and equivalent-thickness receipts every consumer of this profile reads are volume quantities, and the pocket's true bed-plane FOOTPRINT — the governing net section at the frog plane — rides `FrogGeometry.NetBedAreaMm2` where the capacity producer reads it, so neither basis is ever spelled as the other. `MasonryVoids.Bucket` rails a derived fraction outside `[0,1)` on `ComponentFault.Coring` and picks its row from the DECLARED hole grid, so a coring token never names a count the geometry contradicts. `ComponentRow.Sectioned` reads `SectionProfile.Topology.Solvable`, so section-map membership is DERIVED from the constructed geometry and this page asserts none: a `Rectangle` is `SolidPolygon` and a `CellularRectangle` is `Voided`, both solvable by construction. The kernel orbit is composed at ONE site (`BondGeometry.Courses`) and its plane-pattern fault maps ONCE onto `ComponentFault.Bond` with the kernel message preserved.
+- Growth: a new template bond is one `BondName` row carrying its course set; a new generated bond is one `BondGeometry` row naming its wallpaper group and motif seats beside one `BondName` row — the symmetry census is closed by theorem, so the row is DATA and never a new derivation; a new orientation/cut/shape/mortar/tolerance row is one SmartEnum row; a new `fr` direction/form row, EN unit group, UK-annex row, or cementitious system is one `RuptureModulus`/`FlexuralStrengthEn`/`FlexuralStrengthNa`/`MortarSystem` row; a thin-layer or lightweight mortar is one `MortarType` row declaring that `EnMortarKind`, which arms the EN table's T and L columns with zero type edits; a new regional unit is one `MasonryRow` — per `[DIFF_OF_NEXT_THING]`. A sibling family lands its own vocabulary on its own seed page.
+- Boundary: this page emits profiles, vocabulary rows, bags, seam property sets, and the seed fold. `MasonryVoids.Bucket` rails an invalid derived fraction on `CoringRejected`; bond-orbit refusals lower once to `BondRejected`, and section-map membership derives from `ProfileTopology.Solvable`.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
-using System.Collections.Frozen;                // FrozenDictionary — the SeedJoin-built MasonryRow body join
-using LanguageExt;                              // Fin, Option, Seq, Traverse
-using Rasm.Numerics;                            // PositiveMagnitude — the kernel value-object atoms live in Rasm.Numerics, NOT Rasm.Domain
-using Rasm.Domain;                              // Context, Op, AcceptValidated
-using Rasm.Element.Composition;                 // MaterialId, PropertyBag (the seam bag currencies MasonryDetail composes)
+using System.Collections.Frozen;
+using LanguageExt;
+using LanguageExt.Common;
+using Rasm.Numerics;
+using Rasm.Domain;
+using Rasm.Element.Composition;
 using Rasm.Element.Graph;
-using Rasm.Element.Properties;                  // DetailSchema, PropertyCategory, FireRating, FireResistance
-using Dimension = Rasm.Element.Properties.Dimension;   // the SI-dimension axis — disambiguated from the Rasm.Numerics discrete count
-using Rasm.Parametric;                          // WallpaperGroup, PatternPlan, PatternOp, Patterning, InstanceStream, TangentLogMapAlgorithm — the theorem-closed plane-symmetry orbit the generated bonds compose
-using Thinktecture;                             // [SmartEnum]/[ComplexValueObject]/[UseDelegateFromConstructor]/[KeyMemberEqualityComparer]/[KeyMemberComparer], ComparerAccessors
-using static LanguageExt.Prelude;               // Seq, toSeq, Some, None, guard
+using Rasm.Element.Properties;
+using Dimension = Rasm.Element.Properties.Dimension;
+using Rasm.Parametric;
+using Thinktecture;
+using static LanguageExt.Prelude;
 
-// This page DEFINES the masonry vocabulary the cmu sibling and the generation spec import as
-// Rasm.Materials.Component; owner types resolve by bare name in the shared namespace. Coring/CoringClass and
-// VoidCell are component#COMPONENT_OWNER's — masonry derives cells and buckets the class, owning only the
-// frog/perforation GEOMETRY.
 namespace Rasm.Materials.Component;
 
 // --- [TYPES] -------------------------------------------------------------------------------
 // The exposed brick face a laying orientation presents — the weathering engine's texture-frame key and the GLB
-// face-mapping axis. A TOKEN vocabulary rather than a bare string: the three faces of a rectangular unit are closed
-// by its own geometry, so a fourth is unrepresentable and no consumer parses a spelling.
+// face-mapping axis.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -72,8 +68,9 @@ public sealed partial class Orientation {
     public FaceShown FaceShown { get; }
 }
 
-// The field cut at a placement — the remaining footprint AND the cut-plane orientation, never a bare length
-// scalar. LengthFraction is the transverse-bat remainder, WidthFraction the longitudinal-split remainder, and
+// The field cut at a placement — the remaining footprint AND the cut-plane orientation, never a bare length scalar.
+// The cut NAMES are the bricklaying trade's standing vocabulary; every fraction and plane angle is AUTHORED, no
+// standard dimensioning a field cut as a share of its host unit, so the roster claims no published geometry. LengthFraction is the transverse-bat remainder, WidthFraction the longitudinal-split remainder, and
 // PlaneNormalDegrees the cut-plane normal off the transverse axis (0 a straight bat, 90 a queen-closer split,
 // intermediate a diagonal king-closer/bevel). The spec course fold places closures and arch-head cuts from these.
 [SmartEnum<string>]
@@ -92,6 +89,9 @@ public sealed partial class Cut {
     public double PlaneNormalDegrees { get; }
 }
 
+// The closure a bond lays at a stopped end or a jamb, each row naming the CUT it places there. The rows are the
+// bricklaying trade's own closure vocabulary and the cut geometry is the Cut row's, so this axis holds no dimension
+// of its own and claims no published one.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -103,15 +103,12 @@ public sealed partial class ClosureRule {
     public Cut Closer { get; }
 }
 
-// The special-shape vocabulary — each row carries its profile-modifier geometry, never a bare identity tag:
-// RadiusFraction rounds an arris (bullnose single, cownose double), ChamferDegrees cuts a splay
-// (cant/squint/birdsmouth), SetbackFraction steps the face (plinth), WashFraction slopes the top (coping),
-// TaperDegrees the VOUSSOIR radial bed-face convergence. The spec arch fold reads Voussoir by identity AND
-// TaperDegrees for the manufactured wedge; the arch sweep (radius/springing/count) is the spec's concern.
-// PROVENANCE SPLIT, stated because the row mixes two origins: the shape NAMES are the BS 4729 published special-shape
-// vocabulary, while every modifier fraction is AUTHORED — BS 4729 dimensions each shape as a drawn product envelope
-// per manufacturer rather than as a fraction of a host unit, so a fractional modifier is this estate's own
-// parameterization and the roster claims no published geometry it does not hold.
+// The special-shape vocabulary — each row carries its profile-modifier geometry, never a bare identity tag: a radius
+// rounds an arris, a chamfer cuts a splay, a setback steps the face, a wash slopes the top, and the taper is the
+// VOUSSOIR radial bed-face convergence the spec arch fold reads beside the row identity.
+// PROVENANCE SPLIT, stated because the row mixes two origins: the shape NAMES are the BS 4729 published vocabulary
+// while every modifier fraction is AUTHORED — BS 4729 dimensions each shape as a drawn product envelope per
+// manufacturer rather than as a fraction of a host unit — so the roster claims no published geometry it lacks.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -157,19 +154,25 @@ public sealed partial class RecessShape {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MortarProfile {
-    public static readonly MortarProfile Concave   = new("concave",   depthFactor: 0.10,  shadowLine: 0.3, recessShape: RecessShape.ConcaveArc,  slopeDegrees: 0.0,   weatherTight: true);
-    public static readonly MortarProfile Vee       = new("v",         depthFactor: 0.15,  shadowLine: 0.5, recessShape: RecessShape.VeeGroove,   slopeDegrees: 0.0,   weatherTight: true);
-    public static readonly MortarProfile Weathered = new("weathered", depthFactor: 0.20,  shadowLine: 0.4, recessShape: RecessShape.Sloped,      slopeDegrees: 15.0,  weatherTight: true);
-    public static readonly MortarProfile Struck    = new("struck",    depthFactor: 0.20,  shadowLine: 0.6, recessShape: RecessShape.Sloped,      slopeDegrees: -15.0, weatherTight: false);
-    public static readonly MortarProfile Raked     = new("raked",     depthFactor: 0.50,  shadowLine: 1.0, recessShape: RecessShape.Rectangular, slopeDegrees: 0.0,   weatherTight: false);
-    public static readonly MortarProfile Flush     = new("flush",     depthFactor: 0.00,  shadowLine: 0.0, recessShape: RecessShape.Flat,        slopeDegrees: 0.0,   weatherTight: true);
-    public static readonly MortarProfile Beaded    = new("beaded",    depthFactor: -0.10, shadowLine: 0.7, recessShape: RecessShape.ConvexBead,  slopeDegrees: 0.0,   weatherTight: false);
-    public static readonly MortarProfile Squeezed  = new("squeezed",  depthFactor: -0.20, shadowLine: 0.8, recessShape: RecessShape.Extruded,    slopeDegrees: 0.0,   weatherTight: false);
+    public static readonly MortarProfile Concave   = new("concave",   depthFactor: 0.10,  shadowLine: 0.3, recessShape: RecessShape.ConcaveArc,  slopeDegrees: 0.0);
+    public static readonly MortarProfile Vee       = new("v",         depthFactor: 0.15,  shadowLine: 0.5, recessShape: RecessShape.VeeGroove,   slopeDegrees: 0.0);
+    public static readonly MortarProfile Weathered = new("weathered", depthFactor: 0.20,  shadowLine: 0.4, recessShape: RecessShape.Sloped,      slopeDegrees: 15.0);
+    public static readonly MortarProfile Struck    = new("struck",    depthFactor: 0.20,  shadowLine: 0.6, recessShape: RecessShape.Sloped,      slopeDegrees: -15.0);
+    public static readonly MortarProfile Raked     = new("raked",     depthFactor: 0.50,  shadowLine: 1.0, recessShape: RecessShape.Rectangular, slopeDegrees: 0.0);
+    public static readonly MortarProfile Flush     = new("flush",     depthFactor: 0.00,  shadowLine: 0.0, recessShape: RecessShape.Flat,        slopeDegrees: 0.0);
+    public static readonly MortarProfile Beaded    = new("beaded",    depthFactor: -0.10, shadowLine: 0.7, recessShape: RecessShape.ConvexBead,  slopeDegrees: 0.0);
+    public static readonly MortarProfile Squeezed  = new("squeezed",  depthFactor: -0.20, shadowLine: 0.8, recessShape: RecessShape.Extruded,    slopeDegrees: 0.0);
     public double DepthFactor { get; }
     public double ShadowLine { get; }
     public RecessShape RecessShape { get; }
     public double SlopeDegrees { get; }
-    public bool WeatherTight { get; }
+
+    // Weather tightness is a DERIVATION of the recess the row already carries, never a stored verdict beside it: a
+    // tooled joint sheds water unless it LEDGES (a face-down slope), PROJECTS past the arris (a negative depth
+    // factor), or rakes deep enough to hold water on its own sill. Stored, the column could only ever agree with
+    // those three geometries or contradict them.
+    public bool WeatherTight => SlopeDegrees >= 0.0 && DepthFactor >= 0.0 && DepthFactor < RakedRetentionDepth;
+    const double RakedRetentionDepth = 0.50;   // the raked recess share at which the joint holds rather than sheds
 }
 
 // EN 998-2:2016 clause 5.4.1 Table 1 — the masonry-mortar COMPRESSIVE-STRENGTH CLASSES. The designation rule is the
@@ -193,10 +196,8 @@ public sealed partial class EnMortarClass {
     const double OpenClassFloorMpa = 20.0;
     const double OpenClassStepMpa = 5.0;
 
-    // The DESIGNATION over a measured or specified strength: the highest categorial class the value reaches, and the
-    // open class above the categorial ceiling. This is the standard's own designation rule applied to a number, which
-    // is why no table maps a foreign mortar onto a class — the rule IS the map, and a stored equivalence column could
-    // only ever agree with it or contradict it (the timber GRollMean derivation precedent).
+    // No table maps a foreign mortar onto a class — the standard's designation rule IS the map, and a stored
+    // equivalence column could only ever agree with it or contradict it (the timber GRollMean derivation precedent).
     public static Option<EnMortarClass> Of(double compressiveMpa) =>
         !double.IsFinite(compressiveMpa) || compressiveMpa < 1.0
             ? Option<EnMortarClass>.None
@@ -207,15 +208,13 @@ public sealed partial class EnMortarClass {
 
     static double OpenClassCeilingMpa => M20.FloorMpa.IfNone(OpenClassFloorMpa);
 
-    // The open class's declared strength, admitted against the standard's own two conditions. A categorial row
-    // declares nothing — its floor is printed — so a declared value beside one is the rejected form.
     public Fin<double> DeclaredMpa(double declaredMpa, Op key) =>
         this != Md
-            ? FloorMpa.ToFin(ComponentFault.Mortar(key, $"<en-mortar-class-no-floor:{Key}>"))
+            ? FloorMpa.ToFin(new ComponentFault.MortarUnavailable(key, declaredMpa))
             : double.IsFinite(declaredMpa) && declaredMpa > OpenClassFloorMpa
-                && Math.Abs(declaredMpa % OpenClassStepMpa) < double.Epsilon
+                && Math.Abs(declaredMpa % OpenClassStepMpa) < EpsilonPolicy.ZeroTolerance   // double modulo nets ~1e-16 residue on lawful steps; the denormal bound refused every real declaration
                 ? Fin.Succ(declaredMpa)
-                : ComponentFault.Mortar(key, $"<en-open-mortar-class-undeclarable:{declaredMpa:R}>");
+                : new ComponentFault.MortarUnavailable(key, declaredMpa);
 }
 
 // EN 998-2:2016 clause 3.4 — the mortar PRODUCT TYPE by property and use. The type is what selects the EN 1996-1-1
@@ -234,16 +233,14 @@ public sealed partial class EnMortarKind {
     public Option<double> MaxDryDensityKgM3 { get; }
 }
 
-// The ASTM C270 mortar classification, full row not a bare compressive scalar — Table 2 28-day minimum compressive
-// strength, the cement:lime:sand PROPORTION-SPEC volumes, the EN 998-2 product type the mortar is placed as, and the
-// ASTM C1072 minimum flexural tensile BOND. The proportion volumes are load-bearing rather than decorative: EN 998-2
-// splits mortar into DESIGNED product (properties determined by test) and PRESCRIBED product (properties taken from
-// stated proportions), and the C270 proportion specification IS a prescribed declaration — so the volumes state the
-// batching basis of the same row the strength comes from rather than decorating it.
-// FlexuralBondMpa is spec/submittal-lane data — NEVER the TMS 402 modulus of rupture fr; the
-// capacity#SECTION_CAPACITY feed is the RuptureModulus table below, this row only the mortar-type KEY it dispatches
-// on. EnClass DERIVES through the EN 998-2 designation rule rather than storing a mapped column: Type O reaches M1
-// and Type K reaches no class at all, which a hand-authored equivalence had spelled as M2,5 and M1. PUBLISHED.
+// The ASTM C270 mortar classification, full row not a bare compressive scalar — the Table 2 28-day strength, the
+// cement:lime:sand PROPORTION-SPEC volumes, the EN 998-2 product type it is placed as, and the ASTM C1072 flexural
+// BOND. The volumes are load-bearing: EN 998-2 splits mortar into DESIGNED and PRESCRIBED product, and the C270
+// proportion specification IS a prescribed declaration, so they state the batching basis of the strength beside them.
+// FlexuralBondMpa is submittal-lane data, NEVER the TMS 402 modulus of rupture — the capacity feed is the
+// RuptureModulus table below and this row only the mortar KEY it dispatches on. EnClass DERIVES through the EN 998-2
+// designation rule rather than a stored map: Type O reaches M1 and Type K no class at all, which a hand-authored
+// equivalence had spelled as M2,5 and M1. PUBLISHED.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -260,9 +257,6 @@ public sealed partial class MortarType {
     public double FlexuralBondMpa { get; }
     public EnMortarKind Kind { get; }
 
-    // The EN 998-2 class this mortar's published strength designates, and the prescribed-mortar batching declaration
-    // its proportion volumes make. A Type K mortar reaches no categorial class — absence is the honest answer and the
-    // EN reads below take the sub-M1 band rather than inventing one.
     public Option<EnMortarClass> EnClass => EnMortarClass.Of(CompressiveMpa);
 }
 
@@ -286,14 +280,11 @@ public sealed partial class MortarSystem {
 // as the CODE'S OWN VALUE rather than as an absence: TMS 402 sets flexural tension parallel to the bed joints to zero
 // for masonry not laid in running bond, because tension normal to a continuous head-joint plane has no bond path.
 // MortarType.FlexuralBondMpa (ASTM C1072 unit-mortar bond) is NEVER this fr. A new fr row or mortar system is one row.
-// SpanParallelToBed surfaces the direction the row key already states as DATA — the false rows carry tension normal
-// to the bed joints (vertical bending), the true rows tension across the head joints (horizontal bending) — so the
-// EN and TMS reads take their direction from ONE source and a basis swap never transposes the plane. The two code
-// families NAME that direction inversely: TMS names the direction of the TENSILE STRESS while EN 1996 names the
-// PLANE OF FAILURE, so TMS "parallel to bed joints" is the horizontally-spanning case EN calls f_xk2 — this column
-// is the single reconciliation point and no consumer re-derives it from a code's own wording.
-// StackBond marks the two non-running-bond rows so a basis whose code refuses an un-bonded unreinforced wall can
-// name the pattern rather than reading a number the wall may not use.
+// SpanParallelToBed carries the direction the row key states, and it is the SINGLE reconciliation point between two
+// codes that name that direction inversely — TMS names the direction of the TENSILE STRESS, EN 1996 the PLANE OF
+// FAILURE, so TMS "parallel to bed joints" is the horizontally-spanning case EN calls f_xk2. Every direction-keyed
+// read on this page therefore takes the ROW, never a loose boolean a caller could transpose. StackBond marks the two
+// non-running-bond rows so a code refusing an un-bonded unreinforced wall names the pattern rather than a number.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -313,8 +304,6 @@ public sealed partial class RuptureModulus {
     public bool SpanParallelToBed { get; }
     public bool StackBond { get; }
 
-    // The mortar-keyed fr read through the generated exhaustive Switch (the cmu#CMU_FAMILY CmuStrength.RequiredUnitMpa
-    // pattern — a new MortarType row breaks HERE at compile time, never an ==-chain a row falls past).
     public double FrMpa(MortarSystem system, MortarType mortar) => mortar.Switch(
         state: (Owner: this, System: system),
         m: static x => x.System.ReducedBond ? x.Owner.McMsMpa : x.Owner.PclMsMpa,
@@ -329,13 +318,14 @@ public sealed partial class RuptureModulus {
         NormalHollowUngrouted.FrMpa(system, mortar)
             + (NormalHollowGrouted.FrMpa(system, mortar) - NormalHollowUngrouted.FrMpa(system, mortar)) * Math.Clamp(groutedCellFraction, 0.0, 1.0);
 
-    // The ROW SELECTION, derived from geometry and fill rather than handed in by a caller: the span direction and the
-    // bond pattern are placement facts, the grout state is the lattice's own, and the solid/hollow form is the
+    // The ROW SELECTION, derived from geometry and fill rather than handed in by a caller: the DECLARED row supplies
+    // the span direction and the bond pattern (a placement fact it already states, so neither crosses as a loose
+    // boolean a caller could transpose), the grout state is the lattice's own, and the solid/hollow form is the
     // profile's own void fraction against the ASTM solid floor. A partially grouted normal-direction wall routes the
     // footnote interpolation instead of snapping to either bounding row, so the one sanctioned bypass is composed
     // here and no consumer re-spells it. Both coursing seed pages read this ONE selector.
-    public static RuptureModulus For(SectionProfile profile, bool spanParallelToBed, bool stackBond, double groutedCellFraction) =>
-        (spanParallelToBed, stackBond, Solid(profile), groutedCellFraction) switch {
+    public static RuptureModulus For(SectionProfile profile, RuptureModulus declared, double groutedCellFraction) =>
+        (declared.SpanParallelToBed, declared.StackBond, Solid(profile), groutedCellFraction) switch {
             (_, true, _, >= 1.0)      => StackContinuousGrout,
             (_, true, _, _)           => StackOther,
             (false, _, true, _)       => NormalSolid,
@@ -369,17 +359,17 @@ public readonly record struct FlexuralBand(double GpWeakMpa, double GpStrongMpa,
 // instead of borrowing the general-purpose number beside it.
 public readonly record struct ShearBand(double LowMpa, double MidMpa, double HighMpa, Option<double> ThinLayerMpa, Option<double> LightweightMpa);
 
-// Whether a lateral action is PERMANENT — EN 1996-1-1 6.3.4 NOTE 1 forbids relying on f_xk1 for permanently applied
-// lateral load (a retaining wall's earth pressure), so the parallel-to-bed plane takes zero there. A policy ROW
-// rather than a boolean parameter: the rule is a code provision with a name, and the arm that applies it reads the
-// row's own factor rather than re-deriving a condition at each call.
+// The lateral action a flexural read is taken under — EN 1996-1-1 6.3.4 NOTE 1 forbids relying on f_xk1 for a
+// PERMANENTLY applied lateral load (a retaining wall's earth pressure), so the parallel-to-bed plane takes zero
+// there. A policy ROW rather than a boolean parameter, the rule being a code provision with a name; the row carries
+// no retention column, because the exclusion applies to exactly one of two rows and `== LateralAction.Permanent` is
+// what says so.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LateralAction {
-    public static readonly LateralAction Transient = new("transient", fxk1Retained: true);    // wind, imposed
-    public static readonly LateralAction Permanent = new("permanent", fxk1Retained: false);   // retained earth, permanent lateral pressure
-    public bool Fxk1Retained { get; }
+    public static readonly LateralAction Transient = new("transient");   // wind, imposed
+    public static readonly LateralAction Permanent = new("permanent");   // retained earth, permanent lateral pressure
 }
 
 // The EN 1996-1-1 characteristic-strength row per UNIT GROUP — the second design basis the capacity rail's
@@ -387,14 +377,12 @@ public sealed partial class LateralAction {
 // stay two owners: TMS 402 keys span direction × unit/grout form and reads a mortar SYSTEM group, EN 1996 keys the
 // UNIT GROUP and reads the mortar's declared strength CLASS and product type, so neither collapses into the other and
 // the capacity receipt carries both while the basis picks the read.
-// TABLE IDENTITY, corrected and stated because the numbering is easy to transpose: the recommended f_xk1/f_xk2 pair
-// lives in the UNNUMBERED tables inside NOTE 2 to clause 3.6.3(3); Table 3.4 is the INITIAL SHEAR STRENGTH f_vko this
-// row carries beside them on the same unit-group key; Table 3.5 is the characteristic ANCHORAGE strength of
-// reinforcement in confined concrete infill and appears nowhere on this page.
-// f_xk1 is the plane of failure PARALLEL to the bed joints (vertical bending), f_xk2 the plane PERPENDICULAR
-// (horizontal bending). Autoclaved aerated concrete splits into TWO rows because the printed f_xk2 table splits it at
-// 400 kg/m³ while its f_xk1 row does not — the split is the standard's, and the two rows carry an identical f_xk1
-// band rather than one row carrying a density condition its own plane does not have.
+// TABLE IDENTITY, stated because the numbering is easy to transpose: the recommended f_xk1/f_xk2 pair lives in the
+// UNNUMBERED tables inside NOTE 2 to clause 3.6.3(3), Table 3.4 is the INITIAL SHEAR STRENGTH f_vko carried beside
+// them on the same unit-group key, and Table 3.5 is an anchorage strength appearing nowhere on this page. f_xk1 is
+// the plane PARALLEL to the bed joints, f_xk2 the plane PERPENDICULAR; autoclaved aerated concrete splits into TWO
+// rows because the printed f_xk2 table splits it at 400 kg/m³ while its f_xk1 row does not, so both carry an
+// identical f_xk1 band rather than one row carrying a condition its own plane does not have.
 // ThinLayerFbCoefficient is the NOTE 3 alternative for AAC laid in thin-layer mortar — f_xk1 = 0,035·f_b — which
 // supersedes the tabulated thin-layer cell when the unit's own normalised compressive strength is possessed. The
 // f_xk2 counterpart of that alternative is single-sourced and therefore not carried.
@@ -444,32 +432,22 @@ public sealed partial class FlexuralStrengthEn {
     // The GENERAL-PURPOSE band split the printed table cuts on.
     const double GeneralBandSplitMpa = 5.0;
 
-    // The failure PLANE decides the column pair, the mortar's PRODUCT TYPE decides the column, and its own strength
-    // decides the general-purpose band — so one mortar vocabulary spans both design bases and no second mortar axis
-    // exists. spanParallelToBed is the RuptureModulus row's direction column, the ONE direction source.
-    // An untabulated pair reads ZERO rather than borrowing the column beside it: a cell the standard prints "not
-    // used", and a special mortar below the NOTE 2 floor, both name a combination the code declines to underwrite,
-    // and zero flexural bond is the same conservative convention the codes themselves use where they forbid reliance
-    // (f_xk1 = 0 under permanent lateral action, TMS parallel-to-bed = 0 out of running bond).
-    // ONE flexural read over every evidence shape the standard admits, the richer call carrying more evidence rather
-    // than a differently-named sibling: the lateral action applies the 6.3.4 NOTE 1 exclusion (permanent lateral load
-    // may not rely on f_xk1 at all), and a possessed normalised unit strength arms the NOTE 3 AAC thin-layer
-    // alternative f_xk1 = 0,035·f_b, which supersedes the tabulated thin-layer cell only where the row carries the
-    // coefficient AND the mortar is thin-layer AND the strength is known — absence of any one leaves the tabulated
-    // read standing, so the alternative never fabricates a value.
-    public double FxkMpa(MortarType mortar, bool spanParallelToBed, LateralAction action, Option<double> normalisedStrengthMpa) =>
-        !spanParallelToBed && !action.Fxk1Retained
+    // ONE flexural read over every evidence shape the standard admits: the failure PLANE picks the column pair, the
+    // mortar's PRODUCT TYPE the column, its strength the general-purpose band, the LATERAL ACTION the 6.3.4 NOTE 1
+    // exclusion, and a possessed normalised unit strength the NOTE 3 AAC thin-layer alternative f_xk1 = 0,035·f_b —
+    // which supersedes the tabulated cell only where coefficient, thin-layer mortar, and strength are ALL present, so
+    // it never fabricates a value. The DIRECTION arrives as the RuptureModulus row that owns it, never a boolean a
+    // basis swap could transpose, and both evidence columns default to the reference state a receipt carrying neither
+    // implies. An untabulated pair reads ZERO rather than borrowing its neighbour: a cell printed "not used" and a
+    // special mortar below the NOTE 2 floor both name a combination the code declines to underwrite.
+    public double FxkMpa(MortarType mortar, RuptureModulus rupture, Option<LateralAction> action = default, Option<double> normalisedStrengthMpa = default) =>
+        !rupture.SpanParallelToBed && action.Exists(static a => a == LateralAction.Permanent)
             ? 0.0
             : (from coefficient in ThinLayerFbCoefficient
                from fb in normalisedStrengthMpa
-               where !spanParallelToBed && mortar.Kind == EnMortarKind.ThinLayer
+               where !rupture.SpanParallelToBed && mortar.Kind == EnMortarKind.ThinLayer
                select coefficient * fb)
-              .IfNone(Column(spanParallelToBed ? Fxk2 : Fxk1, mortar).IfNone(0.0));
-
-    // The seam-facing read, at the reference state a receipt carrying no action column and no declared unit strength
-    // implies: a transient lateral action against the tabulated columns.
-    public double FxkMpa(MortarType mortar, bool spanParallelToBed) =>
-        FxkMpa(mortar, spanParallelToBed, LateralAction.Transient, Option<double>.None);
+              .IfNone(Column(rupture.SpanParallelToBed ? Fxk2 : Fxk1, mortar).IfNone(0.0));
 
     // Table 3.4 initial shear strength under zero compression: the mortar's PRODUCT TYPE picks the column and its
     // declared EN class the general-purpose band (M10 and above, M2,5 through M9, M1 through M2). A mortar reaching
@@ -486,8 +464,6 @@ public sealed partial class FlexuralStrengthEn {
         thinLayer: static x => x.Owner.Fvk0.ThinLayerMpa.IfNone(0.0),
         lightweight: static x => x.Owner.Fvk0.LightweightMpa.IfNone(0.0));
 
-    // The ONE column resolution both planes share: the product type selects, the NOTE 2 floor gates the special
-    // columns, and the general-purpose split reads the mortar's own published strength.
     static Option<double> Column(FlexuralBand band, MortarType mortar) => mortar.Kind.Switch(
         state: (Band: band, Mortar: mortar),
         general: static x => Some(x.Mortar.CompressiveMpa >= GeneralBandSplitMpa ? x.Band.GpStrongMpa : x.Band.GpWeakMpa),
@@ -507,9 +483,8 @@ public sealed partial class NaMortarBand {
     public static readonly NaMortarBand M2   = new("M2",   floorMpa: 2.0);
     public double FloorMpa { get; }
 
-    // The band a mortar's own published strength falls in — the strongest band it reaches, the weakest band standing
-    // for anything below M2. The annex's thin-layer and lightweight substitutions are single-sourced and therefore
-    // not carried, so a special mortar takes no band here and its read reports not-applicable.
+    // The annex's thin-layer and lightweight substitutions are single-sourced and therefore not carried, so a
+    // special mortar takes no band here and its read reports not-applicable.
     public static Option<NaMortarBand> Of(MortarType mortar) =>
         mortar.Kind != EnMortarKind.General
             ? Option<NaMortarBand>.None
@@ -587,7 +562,6 @@ public sealed partial class FlexuralStrengthNa {
     const double InterpolationFloorMm = 100.0;
     const double InterpolationCeilingMm = 250.0;
 
-    // The clay-group row for a measured water absorption — the ONE axis the annex cuts clay by.
     public static FlexuralStrengthNa ForClay(double waterAbsorptionPercent) =>
         waterAbsorptionPercent < LowAbsorptionPercent ? ClayLowAbsorption
         : waterAbsorptionPercent <= HighAbsorptionPercent ? ClayMidAbsorption
@@ -598,30 +572,28 @@ public sealed partial class FlexuralStrengthNa {
     // strengths between 2,9 and 7,3 N/mm² at a given thickness, so a 150 mm leaf of 5 N/mm² units has a published
     // value that no printed row carries. A strength at or above the any-thickness rows leaves the thickness axis
     // behind entirely, exactly as the printed table does.
-    public static Fin<double> Block(double thicknessMm, double declaredStrengthMpa, NaMortarBand band, bool spanParallelToBed, Op key) =>
+    public static Fin<double> Block(double thicknessMm, double declaredStrengthMpa, NaMortarBand band, RuptureModulus rupture, Op key) =>
         !double.IsFinite(thicknessMm) || !double.IsFinite(declaredStrengthMpa) || thicknessMm <= 0.0 || declaredStrengthMpa <= 0.0
-            ? ComponentFault.Capacity(key, $"<na-block-axes-invalid:{thicknessMm:R}:{declaredStrengthMpa:R}>")
-        : declaredStrengthMpa >= BlockStrong175.DeclaredStrengthMpa.IfNone(17.5) ? Fin.Succ(Plane(BlockStrong175, band, spanParallelToBed))
-        : declaredStrengthMpa >= BlockStrong104.DeclaredStrengthMpa.IfNone(10.4) ? Fin.Succ(Plane(BlockStrong104, band, spanParallelToBed))
+            ? new KernelFault.InvalidValue(nameof(Block), "finite positive thickness and declared strength", Some(key))
+        : declaredStrengthMpa >= BlockStrong175.DeclaredStrengthMpa.IfNone(17.5) ? Fin.Succ(Plane(BlockStrong175, band, rupture))
+        : declaredStrengthMpa >= BlockStrong104.DeclaredStrengthMpa.IfNone(10.4) ? Fin.Succ(Plane(BlockStrong104, band, rupture))
         : Fin.Succ(Lerp(
-            Strength(BlockThin29, BlockThin36, BlockThin73, declaredStrengthMpa, band, spanParallelToBed),
-            Strength(BlockThick29, BlockThick36, BlockThick73, declaredStrengthMpa, band, spanParallelToBed),
+            Strength(BlockThin29, BlockThin36, BlockThin73, declaredStrengthMpa, band, rupture),
+            Strength(BlockThick29, BlockThick36, BlockThick73, declaredStrengthMpa, band, rupture),
             Fraction(Math.Clamp(thicknessMm, InterpolationFloorMm, InterpolationCeilingMm), InterpolationFloorMm, InterpolationCeilingMm)));
 
-    static double Plane(FlexuralStrengthNa row, NaMortarBand band, bool spanParallelToBed) =>
-        (spanParallelToBed ? row.Fxk2 : row.Fxk1).At(band);
+    static double Plane(FlexuralStrengthNa row, NaMortarBand band, RuptureModulus rupture) =>
+        (rupture.SpanParallelToBed ? row.Fxk2 : row.Fxk1).At(band);
 
-    // The declared-strength axis inside one thickness family: the printed rows bracket the value and NOTE 3 permits
-    // the straight line between them, clamped to the printed span's own ends.
-    static double Strength(FlexuralStrengthNa low, FlexuralStrengthNa mid, FlexuralStrengthNa high, double declaredStrengthMpa, NaMortarBand band, bool spanParallelToBed) =>
-        declaredStrengthMpa <= low.DeclaredStrengthMpa.IfNone(2.9) ? Plane(low, band, spanParallelToBed)
+    static double Strength(FlexuralStrengthNa low, FlexuralStrengthNa mid, FlexuralStrengthNa high, double declaredStrengthMpa, NaMortarBand band, RuptureModulus rupture) =>
+        declaredStrengthMpa <= low.DeclaredStrengthMpa.IfNone(2.9) ? Plane(low, band, rupture)
         : declaredStrengthMpa <= mid.DeclaredStrengthMpa.IfNone(3.6)
-            ? Lerp(Plane(low, band, spanParallelToBed), Plane(mid, band, spanParallelToBed),
+            ? Lerp(Plane(low, band, rupture), Plane(mid, band, rupture),
                 Fraction(declaredStrengthMpa, low.DeclaredStrengthMpa.IfNone(2.9), mid.DeclaredStrengthMpa.IfNone(3.6)))
         : declaredStrengthMpa <= high.DeclaredStrengthMpa.IfNone(7.3)
-            ? Lerp(Plane(mid, band, spanParallelToBed), Plane(high, band, spanParallelToBed),
+            ? Lerp(Plane(mid, band, rupture), Plane(high, band, rupture),
                 Fraction(declaredStrengthMpa, mid.DeclaredStrengthMpa.IfNone(3.6), high.DeclaredStrengthMpa.IfNone(7.3)))
-        : Plane(high, band, spanParallelToBed);
+        : Plane(high, band, rupture);
 
     static double Fraction(double value, double lo, double hi) => hi > lo ? (value - lo) / (hi - lo) : 0.0;
     static double Lerp(double lo, double hi, double t) => lo + (hi - lo) * Math.Clamp(t, 0.0, 1.0);
@@ -630,8 +602,11 @@ public sealed partial class FlexuralStrengthNa {
 // EN 771-1 mean-dimension tolerance: the permissible deviation of the MEAN actual size from the work size, the
 // greater of a floor and a square-root-scaled term (DEFINED — the standard's own formula), verified by EN 772-16.
 // Tm is manufacturer-declared (zero floor/coefficient): the declared deviation enters as declaredMm — spec/seed DATA
-// for a Tm unit, zero for the categorial classes, so ONE formula owns all three rows. WorkEnvelopeMm is the
-// as-manufactured envelope the coursing tolerance and the GLB tessellation read off the bag inputs.
+// for a Tm unit, zero for the categorial classes, so ONE formula owns all three rows.
+// The deviation and the delivery range are ADMITTED, never bare doubles: both are dimensional gates on model
+// geometry, so each crosses the kernel Tolerance carrier on the Grade lane — the lane whose band and dimension take a
+// published manufacturing grade width — and a derivation outside that band refuses at the admission rather than
+// handing the coursing fold and the GLB tessellation a deviation nothing proved.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -641,14 +616,18 @@ public sealed partial class SizeTolerance {
     public static readonly SizeTolerance Tm = new("Tm", floorMm: 0.0, sqrtCoefficient: 0.00);
     public double FloorMm { get; }
     public double SqrtCoefficient { get; }
-    public double MeanDeviationMm(double workMm, double declaredMm = 0.0) =>
-        Math.Max(Math.Max(FloorMm, declaredMm), SqrtCoefficient * Math.Sqrt(Math.Max(0.0, workMm)));
-    public (double LowMm, double HighMm) WorkEnvelopeMm(double workMm, double declaredMm = 0.0) =>
-        (workMm - MeanDeviationMm(workMm, declaredMm), workMm + MeanDeviationMm(workMm, declaredMm));
+
+    public Fin<Tolerance> MeanDeviation(double workMm, double declaredMm, Op key) =>
+        Tolerance.Of(ToleranceLane.Grade,
+            Math.Max(Math.Max(FloorMm, declaredMm), SqrtCoefficient * Math.Sqrt(Math.Max(0.0, workMm))), key);
+
+    public Fin<(double LowMm, double HighMm)> WorkEnvelope(double workMm, double declaredMm, Op key) =>
+        MeanDeviation(workMm, declaredMm, key).Map(band => (workMm - band.Value, workMm + band.Value));
 }
 
 // EN 771-1 range category: the permissible RANGE (largest minus smallest) of a delivery, the batch-uniformity
-// bound governing coursing consistency (a high range steps the bed joints over a long elevation). DEFINED formula.
+// bound governing coursing consistency (a high range steps the bed joints over a long elevation). DEFINED formula,
+// admitted on the same manufacturing-grade lane as the mean deviation it sits beside.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -657,36 +636,20 @@ public sealed partial class SizeRange {
     public static readonly SizeRange R2 = new("R2", sqrtCoefficient: 0.30);
     public static readonly SizeRange Rm = new("Rm", sqrtCoefficient: 0.00);
     public double SqrtCoefficient { get; }
-    public double PermittedRangeMm(double workMm) => SqrtCoefficient * Math.Sqrt(Math.Max(0.0, workMm));
+
+    public Fin<Tolerance> PermittedRange(double workMm, Op key) =>
+        Tolerance.Of(ToleranceLane.Grade, SqrtCoefficient * Math.Sqrt(Math.Max(0.0, workMm)), key);
 }
 
-// The regional product envelope a seed row is published under — a TOKEN vocabulary rather than a bare string,
-// because the region is a KEY the standards authority and the coordinating module are read against and a spelling
-// drift would silently split one region into two. Crosses to ComponentStandard as its Key at the one seed site.
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class Region {
-    public static readonly Region Us  = new("us");
-    public static readonly Region Uk  = new("uk");
-    public static readonly Region Din = new("din");
-    public static readonly Region Au  = new("au");
-    public static readonly Region Is  = new("is");
-}
-
-// The unit-body substance axis — the physics columns the MasonryRow keys by body, never per-row literals: EN 1745
-// tabulated gross dry density, design conductivity, specific heat, EN ISO 13788 vapour-resistance factor, the EN 1996
-// unit GROUP whose characteristic-strength row the body selects, and the MaterialId both component slots bind (a
-// glazed unit splits them at its own row).
-// EqThick1HrMm is the IBC equivalent thickness for a 1-hour rating and is OPTIONAL because the equivalent-thickness
-// tables are cut by material family: fired clay is rated under the IBC 722.4.1 solid-brick column, while calcium
-// silicate appears in no equivalent-thickness table this estate holds — the concrete-masonry siliceous-aggregate
-// figure it once carried rates a different material under a different table, so its fire read is ABSENT and the
-// Properties lowering omits the Fire set rather than publishing a borrowed rating.
-// The KEY IS the substance id: it resolves the Properties/properties#MATERIAL_PROPERTY_CATALOGUE and
-// Properties/sustainability#SUSTAINABILITY_PROPERTY rows verbatim, so every physics column here reads byte-identically
-// to the catalogue row it keys — a divergent design λ between the two owners would lower two conflicting Thermal
-// cases onto one MaterialId. A new body — AAC, adobe, concrete brick — is one row plus its catalogue pair.
+// The unit-body substance axis — the physics columns the MasonryRow keys by body, never per-row literals: the EN 1745
+// density, conductivity, and specific heat, the EN ISO 13788 vapour factor, the EN 1996 unit GROUP the body selects,
+// and the MaterialId both component slots bind (a glazed unit splits them at its own row).
+// EqThick1HrMm is OPTIONAL because the equivalent-thickness tables are cut by MATERIAL FAMILY: fired clay is rated
+// under the IBC 722.4.1 solid-brick column while calcium silicate appears in no such table this estate holds, so its
+// fire read is ABSENT and the Properties lowering omits the Fire set rather than publishing a borrowed rating.
+// The KEY IS the substance id, resolving the Properties catalogue and sustainability rows verbatim, so every physics
+// column here reads byte-identically to the row it keys — a divergent design λ would lower two conflicting Thermal
+// cases onto one MaterialId. A new body is one row plus its catalogue pair.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -707,19 +670,16 @@ public sealed partial class MasonryBody {
 }
 
 // The generative bond descriptor: a decorative bond IS a plane-symmetry tiling, so the row is its WALLPAPER GROUP
-// (the kernel's theorem-closed 17-row census — the complete plane census admits no 18th), its motif SEATS in cell
-// coordinates [0,1)² with each seat's own spin and laid face, and the unit aspect band the cell tiles. The course
-// derivation is the kernel Patterning.Apply(PatternOp.Orbit) fold read band by band — Orbit takes NO surface (pure
-// plane algebra) and already emits position, spin, seat ordinal, and mirror parity — so a new decorative bond is DATA
-// over a closed theorem. The group's own PatternLattice row proves the basis pair, so a unit whose coordinating
-// module cannot carry the group's lattice faults at the plan rather than tiling wrong.
-// Each row's group is DERIVED from its own motif, not adopted from a naming convention. Stack seats one stretcher at
-// the cell centre: the cell carries a horizontal and a vertical mirror through that seat and no glide and no
-// rotation, which is pmm. Flemish alternates a stretcher and a header along the course, so the translation unit spans
-// TWO seats and the mirror family repeats at the half-cell — a centred lattice whose centring cell carries the glide
-// that maps stretcher onto header, which is cmm. Diaper reaches cmm by the same centring on a turned motif, which is
-// why the two share a group while sharing no seat layout: the group is the symmetry of the tiling, never a label on
-// the pattern's name. A refutation of either is one Group column edit and leaves every seat untouched.
+// (the kernel's theorem-closed 17-row census, which admits no 18th), its motif SEATS in cell coordinates [0,1)² with
+// each seat's spin and laid face, and the unit aspect band the cell tiles. The course derivation is the kernel
+// Patterning.Apply(PatternOp.Orbit) fold read band by band — Orbit takes NO surface and already emits position, spin,
+// seat ordinal, and mirror parity — so a new decorative bond is DATA over a closed theorem, and a unit whose module
+// cannot carry the group's own lattice faults at the plan rather than tiling wrong.
+// Each row's group is DERIVED from its own motif, never adopted from a naming convention: Stack seats one stretcher
+// at the cell centre under two mirrors and no glide, which is pmm; Flemish alternates stretcher and header so the
+// translation unit spans TWO seats over a centred lattice whose glide maps one onto the other, which is cmm; Diaper
+// reaches cmm by the same centring on a turned motif, which is why two rows share a group while sharing no seat
+// layout. A refutation of either is one Group column edit and leaves every seat untouched.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -755,19 +715,16 @@ public sealed partial class BondGeometry {
     public Fin<Seq<CourseTemplate>> Courses(ComponentUnit unit, double jointMm, int courses, Op key) =>
         from plan in Fin.Succ(Plan(unit, jointMm, courses))
         from stream in Patterning.Apply(new PatternOp.Orbit(plan), key)
-            .MapFail(fault => (Error)ComponentFault.Bond(key, $"<bond-orbit:{Key}:{Group.Key}:{fault.Message}>"))
         from bands in stream.Switch(
             planar: p => Fin.Succ(Bands(p, plan, courses)),
-            mapped: _ => Fin.Fail<Seq<CourseTemplate>>(ComponentFault.Bond(key, $"<bond-orbit-mapped-stream:{Key}>")))
+            mapped: _ => Fin.Fail<Seq<CourseTemplate>>(new ComponentFault.BondRejected(key, None)))
         select bands;
 
     public Fin<CourseTemplate> Course(ComponentUnit unit, double jointMm, int index, Op key) =>
         Courses(unit, jointMm, Math.Abs(index) + 1, key).Bind(stack => stack.IsEmpty
-            ? Fin.Fail<CourseTemplate>(ComponentFault.Bond(key, $"<bond-course-stack-empty:{Key}:{index}>"))
+            ? Fin.Fail<CourseTemplate>(new ComponentFault.BondRejected(key, Some(index)))
             : Fin.Succ(stack[((index % stack.Count) + stack.Count) % stack.Count]));
 
-    // The kernel plan is plain composition: the pattern surface speaks neutral (U, V) pairs, so the coordinating
-    // module, the motif seats, and the root cross as the doubles this page already carries.
     PatternPlan Plan(ComponentUnit unit, double jointMm, int courses) =>
         new(Group,
             ((unit.LengthMm.Value + jointMm) * 1e-3, 0.0),
@@ -842,20 +799,18 @@ public sealed partial class BondName {
     public bool Fits(ComponentUnit unit) =>
         Geometry.Match(Some: g => g.Admits(unit.LengthOverHeight), None: () => true);
 
-    // A template bond reads its course by wrapped index; a generated bond orbits its wallpaper group over the unit's
-    // own coordinating module and reads the band. Both arms take the unit and joint because a generated course is a
-    // FUNCTION of the module — an index-only entry could only answer a module-free per-index offset.
+    // Both arms take the unit and joint because a generated course is a FUNCTION of the module — an index-only
+    // entry could only answer a module-free per-index offset.
     public Fin<CourseTemplate> Course(ComponentUnit unit, double jointMm, int index, Op key) =>
         Stack(unit, jointMm, Math.Abs(index) + 1, key).Bind(stack => stack.IsEmpty
-            ? Fin.Fail<CourseTemplate>(ComponentFault.Bond(key, $"<bond-course-stack-empty:{Key}:{index}>"))
+            ? Fin.Fail<CourseTemplate>(new ComponentFault.BondRejected(key, Some(index)))
             : Fin.Succ(stack[((index % stack.Count) + stack.Count) % stack.Count]));
 
-    // The whole-stack read both kinds answer — the template's own cycle or the generated orbit's bands.
     public Fin<Seq<CourseTemplate>> Stack(ComponentUnit unit, double jointMm, int courses, Op key) =>
         Geometry.Match(
             Some: geometry => geometry.Courses(unit, jointMm, courses, key),
             None: () => Courses.IsEmpty
-                ? Fin.Fail<Seq<CourseTemplate>>(ComponentFault.Bond(key, $"<template-bond-empty:{Key}>"))
+                ? Fin.Fail<Seq<CourseTemplate>>(new ComponentFault.BondRejected(key, None))
                 : Fin.Succ(Courses));
 
     // EN 1996-1-1 8.1.4.1 — the OVERLAP a bond actually achieves against the overlap the code requires. The achieved
@@ -870,8 +825,7 @@ public sealed partial class BondName {
                 : Stagger(stack) * (unit.LengthMm.Value + jointMm),
             RequiredMm: BondOverlap.Required(unit.HeightMm.Value)));
 
-    // The minimum adjacent-course stagger as a fraction of the advance, over the stack's own cyclic sequence — a
-    // single-course stack has no alternate course to overlap onto and therefore staggers nothing.
+    // A single-course stack has no alternate course to overlap onto and therefore staggers nothing.
     static double Stagger(Seq<CourseTemplate> stack) =>
         stack.Count < 2
             ? 0.0
@@ -915,7 +869,6 @@ public sealed partial class UnitClass {
 // fold applies — a template bond lays every unit unmirrored). The spec course fold consumes these.
 public readonly record struct UnitPlacement(Orientation Orientation, double AlongFraction, double LateralFraction, double RotationDegrees, bool Mirrored);
 
-// One course's full per-unit transform plus the course-level horizontal offset (the running-bond half-unit shift).
 public sealed record CourseTemplate(Seq<UnitPlacement> Units, double CourseOffsetFraction);
 
 // The EN 1996-1-1 8.1.4.1(3) overlap verdict: what the bond lays against what the code demands. The requirement is
@@ -953,7 +906,6 @@ public readonly record struct FrogGeometry(double DepthMm, double LengthFraction
     public double VoidFraction(double heightMm) =>
         Present && heightMm > 0.0 ? DepthMm / heightMm * LengthFraction * WidthFraction * (Double ? 2.0 : 1.0) : 0.0;
 
-    // The net bed area at the frog plane: the true pocket footprint removed from gross, both faces for a double frog.
     public double NetBedAreaMm2(double lengthMm, double widthMm) =>
         Present ? lengthMm * widthMm * (1.0 - LengthFraction * WidthFraction) : lengthMm * widthMm;
 }
@@ -972,8 +924,8 @@ public readonly record struct Perforation(int Columns, int Rows, double HoleDiam
 
 // The full mortar-joint specification the spec [05] joint policy resolves head/bed width AND 3D recess AND
 // mortar strength from — never a single scalar thickness. GENERATED admission ([ComplexValueObject]): the
-// validation partial owns the positive-finite head/bed guard, the ONE railed Of lifts the generated outcome onto
-// ComponentFault.Mortar (the joint-SPEC fault, disjoint from ComponentFault.Bond the course-pattern fault).
+// validation partial owns the positive-finite head/bed guard, and the ONE railed Of lowers a generated refusal
+// through the kernel's default invalid-value bridge without inventing a package fault identity.
 [ComplexValueObject]
 public readonly partial struct MortarJoint {
     public double HeadWidthMm { get; }
@@ -984,55 +936,46 @@ public readonly partial struct MortarJoint {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double headWidthMm, ref double bedWidthMm, ref MortarProfile profile, ref MortarType mortar) =>
         validationError = double.IsFinite(headWidthMm) && headWidthMm > 0.0 && double.IsFinite(bedWidthMm) && bedWidthMm > 0.0
             ? null
-            : new ValidationError($"<mortar-joint-nonpositive:head={headWidthMm}:bed={bedWidthMm}>");
+            : new ValidationError($"Mortar-joint widths must be finite and positive; received {headWidthMm:R} and {bedWidthMm:R}.");
 
     public static Fin<MortarJoint> Of(double headMm, double bedMm, MortarProfile profile, MortarType mortar, Op key) =>
-        Validate(headMm, bedMm, profile, mortar, out MortarJoint joint) is { } error
-            ? Fin.Fail<MortarJoint>(ComponentFault.Mortar(key, error.Message))
-            : Fin.Succ(joint);
+        key.AcceptValidated<MortarJoint>(Validate(headMm, bedMm, profile, mortar, out MortarJoint joint), joint);
 
     // The coordinating joint from a single thickness — the default an unspecified run resolves (concave / Type-N).
     // RAILED through the ONE Of: the fallback thickness is caller DATA (ComponentStandard.StandardJointThicknessMm
     // is 0.0 for every non-coursing family), so the generated throwing Create never sees an unproven value.
     public static Fin<MortarJoint> Standard(double thicknessMm, Op key) => Of(thicknessMm, thicknessMm, MortarProfile.Concave, MortarType.N, key);
 
-    // The signed 3D recess depth the joint solid extrudes over Profile.RecessShape/SlopeDegrees.
     public double RecessDepthMm => BedWidthMm * Profile.DepthFactor;
 }
 
-// The AUTHORED regional raw row (SEED_ROW_LAW: no admitted producer owns EN 771/ASTM C216 masonry tables; every
-// dimensional column PUBLISHED verbatim from the named standard, the void geometry the standard's printed core/frog
-// pattern). Body is the typed substance axis carrying density/conductivity/fire, the EN unit group, and the MaterialId
-// both slots bind (base render and intrinsic mechanical material coincide; a glazed unit splits them). Region is
-// explicit because din/au/is rows carry a region the bounded ComponentAuthority does not name.
+// The AUTHORED regional raw row (SEED_ROW_LAW: no admitted producer owns EN 771/ASTM C216 masonry tables). Body is
+// the typed substance axis carrying density/conductivity/fire, the EN unit group, and the MaterialId both slots bind.
+// The row carries NO region column: every regional envelope is published by the standards body that dimensions it and
+// ComponentAuthority already states that body's own region, so a second vocabulary beside it stored one fact twice.
 // Class and WaterAbsorptionPercent are the two DECLARED columns a manufacturer publishes per product and this estate
-// does not possess for these regional envelopes — the declared compressive class a TMS 602 assemblage table is entered
-// with, and the EN 772-7 absorption the UK National Annex cuts its clay rows by. Both ride Option: a capacity read
-// refuses naming the column it lacked, and filling either turns that refusal into a lift with no other edit.
+// does not possess for these envelopes — the compressive class a TMS 602 table is entered with, and the EN 772-7
+// absorption the UK annex cuts its clay rows by — so a capacity read refuses naming the column it lacked, and filling
+// either turns that refusal into a lift with no other edit.
 public readonly record struct MasonryRow(
     string Designation, double WMm, double HMm, double LMm, double CourseMm, double JointMm,
-    Region Region, ComponentAuthority Authority,
+    ComponentAuthority Authority,
     FrogGeometry Frog, Perforation Perforation, SpecialShape Shape,
     SizeTolerance Tolerance, SizeRange Range, MasonryBody Body,
     Option<UnitClass> Class = default, Option<double> WaterAbsorptionPercent = default) {
     // The dimensional and geometric columns are AUTHORED from the regional product envelopes; the class token is
-    // PUBLISHED vocabulary. A row extended off the coursing module's own structural products states Defined.
-    public Provenance Source { get; init; } = Provenance.Authored;
+    // PUBLISHED vocabulary.
+    public EvidenceGrade Source { get; init; } = EvidenceGrade.User;
 }
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
-// The ONE void owner over the frog/perforation geometry pair — the cell derivation AND the coring bucket read the
-// SAME inputs, so both live on one surface. Cells lay the BED-PLANE (W × L) lattice the cmu sibling shares:
-// Perforation stations the FULL Columns × Rows hole grid at its true positions (Columns along the length, Rows
-// across the width — the US modular's 3 cores run along the 194 mm length), each circular hole an AREA-EQUIVALENT
-// square cell of side d·√π/2, so the net bed section, its moments, and the void fraction all follow the declared
-// grid exactly (a through-hole's bed-area fraction IS its volume fraction — the equivalence is identity).
-// Frog: one centred cell whose along-length span is scaled to the pocket's VOLUME fraction, because every receipt
-// reading this profile — equivalent thickness, self-weight, thermal resistance — is a volume quantity and a
-// partial-depth pocket entered at its full footprint would over-void all three. The pocket's true footprint is
-// FrogGeometry.NetBedAreaMm2 and the capacity producer reads it there, so the two bases never wear each other's name.
-// Cells stay ungrouted/unreinforced — clay masonry has no grout path; the grouted/reinforced VoidCell flags are the
-// cmu sibling's columns.
+// The ONE void owner over the frog/perforation pair — cell derivation and coring class read the SAME inputs, so both
+// live on one surface. Cells lay the BED-PLANE lattice the cmu sibling shares: a perforation stations its FULL grid
+// at true positions, each hole an AREA-EQUIVALENT square cell of side d·√π/2, so net section, moments, and void
+// fraction follow the declared grid. A FROG is one centred cell scaled to the pocket's VOLUME fraction, every receipt
+// reading this profile being a volume quantity; its true footprint rides FrogGeometry.NetBedAreaMm2 where the
+// capacity producer reads it, so the two bases never wear each other's name. Cells stay ungrouted — clay masonry has
+// no grout path, and those VoidCell flags are the cmu sibling's.
 public static class MasonryVoids {
     public static Seq<VoidCell> Cells(FrogGeometry frog, Perforation perforation, double wMm, double hMm, double lMm) {
         double side = perforation.HoleDiameterMm * Math.Sqrt(Math.PI) / 2.0;
@@ -1056,7 +999,7 @@ public static class MasonryVoids {
     // five-column ten-hole perforation and a three-core unit must not reach the same token merely by sharing a void
     // fraction. The ASTM C652/C216 band thresholds live HERE because this is one of the two sites that compare
     // against them (the class itself stores no floor); the DERIVED fraction is the sum of two independent published
-    // columns, so a frog-plus-perforation geometry outside [0,1) RAILS ComponentFault.Coring rather than clamping to
+    // columns, so a frog-plus-perforation geometry outside [0,1) rails CoringRejected rather than clamping to
     // a fabricated 0.999, and this coarse class is the IFC-profile-lane and Appearance/bsdf#SHADING_FRAME read.
     const double HollowVoidFloor = 0.40;       // ASTM C652 H60V
     const double PerforatedVoidFloor = 0.25;   // ASTM C652 H40V; below it ASTM C216 cored
@@ -1064,16 +1007,19 @@ public static class MasonryVoids {
 
     public static Fin<Coring> Bucket(FrogGeometry frog, Perforation perforation, double wMm, double hMm, double lMm, Op key) =>
         frog.VoidFraction(hMm) + perforation.VoidFraction(lMm, wMm) is var voids && double.IsFinite(voids) && voids is >= 0.0 and < 1.0
-            ? Fin.Succ((perforation.Present, perforation.HoleCount, voids, frog.Present, frog.Double) switch {
-                (true, > MultiCellHoleCount, >= HollowVoidFloor, _, _)      => Coring.Hollow3Cell,
-                (true, _, >= HollowVoidFloor, _, _)                         => Coring.Hollow2Cell,
-                (true, > MultiCellHoleCount, >= PerforatedVoidFloor, _, _)  => Coring.Perforated10Cell,
-                (true, _, _, _, _)                                          => Coring.Cored3Hole,
-                (_, _, _, true, true)                                       => Coring.Cellular,
-                (_, _, _, true, _)                                          => Coring.Frog,
-                _                                                           => Coring.None,
-            })
-            : ComponentFault.Coring(key, $"<void-fraction-out-of-range:{voids:R}>");
+            ? Fin.Succ(Class(frog, perforation, wMm, hMm, lMm))
+            : new ComponentFault.CoringRejected(key, voids);
+
+    public static Coring Class(FrogGeometry frog, Perforation perforation, double wMm, double hMm, double lMm) =>
+        (perforation.Present, perforation.HoleCount, frog.VoidFraction(hMm) + perforation.VoidFraction(lMm, wMm), frog.Present, frog.Double) switch {
+            (true, > MultiCellHoleCount, >= HollowVoidFloor, _, _)      => Coring.Hollow3Cell,
+            (true, _, >= HollowVoidFloor, _, _)                         => Coring.Hollow2Cell,
+            (true, > MultiCellHoleCount, >= PerforatedVoidFloor, _, _)  => Coring.Perforated10Cell,
+            (true, _, _, _, _)                                          => Coring.Cored3Hole,
+            (_, _, _, true, true)                                       => Coring.Cellular,
+            (_, _, _, true, _)                                          => Coring.Frog,
+            _                                                           => Coring.None,
+        };
 }
 
 // The clay/calcium-silicate physics receipt — the CmuPhysics parity surface over (bed-plane profile, MasonryBody):
@@ -1083,11 +1029,11 @@ public static class MasonryVoids {
 // with the web/cell parallel core for a cored/perforated lattice — the cell path the trapped-air resistance), and the
 // areal mass the WallAcoustics mass law reads. Bag-free: seed time and any consumer holding the M7-resolved profile
 // plus the row Body compute the identical receipt.
-// FireRatingHours is OPTIONAL end to end: a body with no published equivalent thickness for its own material family
-// has no rating to compute, and absence travels rather than a borrowed table's number.
+// FireRating is OPTIONAL end to end: a body with no published equivalent thickness for its own material family has
+// no rating to compute, and absence travels rather than a borrowed table's number.
 public readonly record struct MasonryPhysics(
     double EquivalentThicknessMm,
-    Option<double> FireRatingHours,
+    Option<RatingPeriod> FireRating,
     double SelfWeightKnPerM2,
     double ThermalResistanceM2KPerW,
     double SolidFraction) {
@@ -1103,7 +1049,7 @@ public readonly record struct MasonryPhysics(
         double net = gross - voids, te = net / len;
         return new(
             EquivalentThicknessMm: te,
-            FireRatingHours: body.EqThick1HrMm.Map(cn => FireBand.Floor(Math.Pow(te / cn, 1.7))),
+            FireRating: body.EqThick1HrMm.Bind(cn => RatingPeriod.Floor(Math.Pow(te / cn, 1.7))),
             SelfWeightKnPerM2: net * body.DensityKgM3 * GravityMPerS2 / (len * 1e6),
             ThermalResistanceM2KPerW: Resistance(cells, body, w, len),
             SolidFraction: gross > 0.0 ? Math.Clamp(net / gross, 0.0, 1.0) : 1.0);
@@ -1125,19 +1071,27 @@ public readonly record struct MasonryPhysics(
     }
 }
 
-// The PUBLISHED fire-resistance rating periods a masonry assembly is rated at. The ACI 216.1 / IBC power law is a
-// CONTINUOUS relation over equivalent thickness, but a rating is issued only at the tabulated periods — so a wall
-// computing 1,98 hours is rated 1,5 hours, not 119 minutes. The band floor is what turns the continuous relation into
-// the certificate a code official reads, and both coursing families floor through this ONE set.
-public static class FireBand {
-    static readonly Seq<double> Hours = Seq(1.0, 1.5, 2.0, 3.0, 4.0);
+// The PUBLISHED fire-resistance rating periods a masonry assembly is issued at, keyed in the MINUTES the EN 13501-2
+// certificate and the ACI 216.1 aggregate tables both speak. The power law over equivalent thickness is a CONTINUOUS
+// relation, but a rating is ISSUED only at a tabulated period, so a wall computing 1,98 hours is rated 1,5 hours and
+// never 119 minutes — Floor is what turns the relation into the certificate, and a wall reaching no period at all
+// answers NONE rather than a zero-hour rating no table issues. Both coursing families and the cmu aggregate cells
+// key on this ONE vocabulary, so a period is matched by row identity and never by a double compared to an epsilon.
+[SmartEnum<int>]
+public sealed partial class RatingPeriod {
+    public static readonly RatingPeriod OneHour       = new(60);
+    public static readonly RatingPeriod NinetyMinute  = new(90);
+    public static readonly RatingPeriod TwoHour       = new(120);
+    public static readonly RatingPeriod ThreeHour     = new(180);
+    public static readonly RatingPeriod FourHour      = new(240);
+    public double Hours => Key / 60.0;
 
-    public static double Floor(double computedHours) =>
-        !double.IsFinite(computedHours) || computedHours < Hours.Head.IfNone(1.0)
-            ? 0.0
-            : Hours.Filter(band => computedHours >= band).Fold(0.0, static (best, band) => Math.Max(best, band));
+    static readonly Seq<RatingPeriod> Ladder = toSeq(Items).OrderBy(static row => row.Key).ToSeq();
 
-    public static int Minutes(double ratedHours) => (int)Math.Round(ratedHours * 60.0);
+    public static Option<RatingPeriod> Floor(double computedHours) =>
+        double.IsFinite(computedHours)
+            ? Ladder.Filter(period => computedHours >= period.Hours).Last
+            : Option<RatingPeriod>.None;
 }
 
 // The single-leaf field-incidence mass law over the seam acoustic bands — the heavy-wall spectrum ONE fold serves for
@@ -1160,32 +1114,33 @@ public static class WallAcoustics {
             key);
 }
 
-// The seed-built realization bag (Masonry carries DetailLane.Realization — the EN 771-1 envelope tokens, the unit
-// HEIGHT, and the coursing module the spec course fold reads have no other landing; the bed-plane W × L dims ride the
-// Profile). Token/Measured/Sourced/RealizationRows are the component#COMPONENT_DETAIL constructors; the SI mints are
-// the dimension-only MeasureValue.OfSi so an authored and an imported bag content-key identically, and every bag
-// carries its row's own Provenance beside the values it qualifies.
+// The bed-plane W × L dims ride the Profile, never the bag. Token/Measured/Sourced/RealizationRows are the
+// component#COMPONENT_DETAIL constructors; the SI mints are the dimension-only MeasureValue.OfSi so an authored and
+// an imported bag content-key identically, and every bag carries its row's own evidence grade beside the values it
+// qualifies.
 public static class MasonryDetail {
-    public static Fin<PropertyBag> Of(PositiveMagnitude heightMm, PositiveMagnitude courseHeightMm, SizeTolerance tolerance, SizeRange range, SpecialShape shape, Provenance source) =>
+    // The bag carries the EN 771-1 CATEGORY tokens the seam declares; the millimetres they resolve to are the
+    // railed SizeTolerance/SizeRange reads a consumer takes at its own work size, so no bag row can drift from the
+    // formula that owns it.
+    public static Fin<PropertyBag> Of(MasonryRow row, PositiveMagnitude heightMm, PositiveMagnitude courseHeightMm) =>
         from unitHeight in ComponentDetail.Measured(DetailSchema.UnitHeight, Dimension.LengthDim, heightMm.Value * 1e-3)
         from courseHeight in ComponentDetail.Measured(DetailSchema.CourseHeight, Dimension.LengthDim, courseHeightMm.Value * 1e-3)
         select ComponentDetail.RealizationRows(
-            ComponentDetail.Token(DetailSchema.SizeTolerance, tolerance.Key),
-            ComponentDetail.Token(DetailSchema.SizeRange, range.Key),
-            ComponentDetail.Token(DetailSchema.SpecialShape, shape.Key),
+            ComponentDetail.Token(DetailSchema.SizeTolerance, row.Tolerance.Key),
+            ComponentDetail.Token(DetailSchema.SizeRange, row.Range.Key),
+            ComponentDetail.Token(DetailSchema.SpecialShape, row.Shape.Key),
             unitHeight,
             courseHeight,
-            ComponentDetail.Sourced(source));
+            ComponentDetail.Sourced(row.Source));
 
     // The seam-lowering door, the glazing#GLAZING_FAMILY GlazingDetail.Properties parity owner: the MasonryPhysics
     // receipt the unit already computes REACHES the seam. Thermal carries the body's EN 1745 design λ and c with the
     // U-value the isothermal-planes lattice resistance inverts (the unit-level reference the EN ISO 6946 assembly fold
     // at Rasm.Compute supersedes) and the EN ISO 13788 vapour factor; Acoustic the single-leaf mass-law spectrum over
-    // the receipt's own areal mass; Fire the banded rating as EN 13501-2 minutes under the A1 non-combustible reaction
-    // every fired or calcium-silicate unit carries. A body with no published equivalent thickness lowers NO Fire set
-    // at all — the set is absent rather than rated at zero, because a missing table is not a failing wall.
-    // Bag-free and receipt-driven: the projector composes it beside the glazing door, so the coursing families lower
-    // the identical set at seed time or at projection.
+    // the receipt's own areal mass; Fire the banded period as EN 13501-2 minutes under the A1 reaction every fired or
+    // calcium-silicate unit carries. A body with no published equivalent thickness lowers NO Fire set at all — absent
+    // rather than rated at zero, a missing table not being a failing wall. Bag-free and receipt-driven, so the
+    // coursing families lower the identical set at seed time or at projection.
     public static Fin<Seq<MaterialPropertySet>> Properties(SectionProfile profile, MasonryBody body, Op key) =>
         from physics in Fin.Succ(MasonryPhysics.Of(profile, body))
         from thermal in MaterialPropertySet.OfThermal(
@@ -1195,28 +1150,25 @@ public static class MasonryDetail {
             vapourResistanceFactor: body.VapourMu, key)
         from spectrum in WallAcoustics.Of(physics.ArealMassKgPerM2, key)
         // ACI 216.1 equivalent thickness measures INSULATION alone — R and E ride absence, never a copied figure.
-        from fire in physics.FireRatingHours
-            .Map(hours => FireResistance.I(FireBand.Minutes(hours), key).Map(static r => Seq(MaterialPropertySet.OfFire(FireRating.A1, r))))
+        from fire in physics.FireRating
+            .Map(period => FireResistance.I(period.Key, key).Map(static r => Seq(MaterialPropertySet.OfFire(FireRating.A1, r))))
             .IfNone(Fin.Succ(Seq<MaterialPropertySet>()))
         select Seq(thermal, MaterialPropertySet.OfAcoustic(spectrum)) + fire;
 }
 
 // --- [TABLES] ------------------------------------------------------------------------------
 // The AUTHORED regional table: each unit carries its published coordinating dimensions, real void geometry,
-// silhouette, EN 771-1 categories, and base material — a US modular cored clay (ASTM C216, 3 cores), a UK
-// perforated calcium-silicate (BS EN 771-1, 10-hole), a DIN frogged Vollziegel (DIN 105), an AU cored clay
-// (AS 4773), the IS 1077 modular/conventional pair, the ASTM C216 norman long-format, and the BS 4729 bullnose
-// special (the SpecialShape vocabulary instantiated, not dead data). All dimensional columns PUBLISHED.
+// silhouette, EN 771-1 categories, and base material. All dimensional columns PUBLISHED.
 public static class MasonrySeed {
-    static readonly Seq<MasonryRow> Regional = Seq(
-        new MasonryRow("masonry.us-modular",      92.0,  57.0, 194.0,  67.0,  9.5, Region.Us,  ComponentAuthority.Astm, FrogGeometry.None,                              new Perforation(3, 1, 38.0, 25.0), SpecialShape.None,     SizeTolerance.T1, SizeRange.R1, MasonryBody.FiredClay),
-        new MasonryRow("masonry.us-norman",       92.0,  57.0, 295.0,  67.0,  9.5, Region.Us,  ComponentAuthority.Astm, FrogGeometry.None,                              new Perforation(3, 1, 38.0, 25.0), SpecialShape.None,     SizeTolerance.T1, SizeRange.R1, MasonryBody.FiredClay),
-        new MasonryRow("masonry.uk-standard",    102.5,  65.0, 215.0,  75.0, 10.0, Region.Uk,  ComponentAuthority.Bs,   FrogGeometry.None,                              new Perforation(5, 2, 29.0, 15.0), SpecialShape.None,     SizeTolerance.T2, SizeRange.R1, MasonryBody.CalciumSilicate),
-        new MasonryRow("masonry.uk-bullnose",    102.5,  65.0, 215.0,  75.0, 10.0, Region.Uk,  ComponentAuthority.Bs,   FrogGeometry.None,                              Perforation.None,                  SpecialShape.Bullnose, SizeTolerance.T2, SizeRange.R1, MasonryBody.FiredClay),
-        new MasonryRow("masonry.din-nf",         115.0,  71.0, 240.0,  83.5, 12.5, Region.Din, ComponentAuthority.Din,  new FrogGeometry(12.0, 0.55, 0.40, 8.0, false), Perforation.None,                  SpecialShape.None,     SizeTolerance.T2, SizeRange.R2, MasonryBody.FiredClay),
-        new MasonryRow("masonry.au-standard",    110.0,  76.0, 230.0,  86.0, 10.0, Region.Au,  ComponentAuthority.As,   FrogGeometry.None,                              new Perforation(3, 1, 40.0, 25.0), SpecialShape.None,     SizeTolerance.T2, SizeRange.R1, MasonryBody.FiredClay),
-        new MasonryRow("masonry.is-modular",      90.0,  90.0, 190.0, 100.0, 10.0, Region.Is,  ComponentAuthority.Is,   new FrogGeometry(10.0, 0.50, 0.40, 6.0, false), Perforation.None,                  SpecialShape.None,     SizeTolerance.T1, SizeRange.R1, MasonryBody.FiredClay),
-        new MasonryRow("masonry.is-conventional", 110.0, 70.0, 230.0,  80.0, 10.0, Region.Is,  ComponentAuthority.Is,   FrogGeometry.None,                              Perforation.None,                  SpecialShape.None,     SizeTolerance.T1, SizeRange.R1, MasonryBody.FiredClay));
+    public static readonly Seq<MasonryRow> Roster = Seq(
+        new MasonryRow("masonry.us-modular",      92.0,  57.0, 194.0,  67.0,  9.5, ComponentAuthority.Astm, FrogGeometry.None,                              new Perforation(3, 1, 38.0, 25.0), SpecialShape.None,     SizeTolerance.T1, SizeRange.R1, MasonryBody.FiredClay),
+        new MasonryRow("masonry.us-norman",       92.0,  57.0, 295.0,  67.0,  9.5, ComponentAuthority.Astm, FrogGeometry.None,                              new Perforation(3, 1, 38.0, 25.0), SpecialShape.None,     SizeTolerance.T1, SizeRange.R1, MasonryBody.FiredClay),
+        new MasonryRow("masonry.uk-standard",    102.5,  65.0, 215.0,  75.0, 10.0, ComponentAuthority.Bs,   FrogGeometry.None,                              new Perforation(5, 2, 29.0, 15.0), SpecialShape.None,     SizeTolerance.T2, SizeRange.R1, MasonryBody.CalciumSilicate),
+        new MasonryRow("masonry.uk-bullnose",    102.5,  65.0, 215.0,  75.0, 10.0, ComponentAuthority.Bs,   FrogGeometry.None,                              Perforation.None,                  SpecialShape.Bullnose, SizeTolerance.T2, SizeRange.R1, MasonryBody.FiredClay),
+        new MasonryRow("masonry.din-nf",         115.0,  71.0, 240.0,  83.5, 12.5, ComponentAuthority.Din,  new FrogGeometry(12.0, 0.55, 0.40, 8.0, false), Perforation.None,                  SpecialShape.None,     SizeTolerance.T2, SizeRange.R2, MasonryBody.FiredClay),
+        new MasonryRow("masonry.au-standard",    110.0,  76.0, 230.0,  86.0, 10.0, ComponentAuthority.As,   FrogGeometry.None,                              new Perforation(3, 1, 40.0, 25.0), SpecialShape.None,     SizeTolerance.T2, SizeRange.R1, MasonryBody.FiredClay),
+        new MasonryRow("masonry.is-modular",      90.0,  90.0, 190.0, 100.0, 10.0, ComponentAuthority.Is,   new FrogGeometry(10.0, 0.50, 0.40, 6.0, false), Perforation.None,                  SpecialShape.None,     SizeTolerance.T1, SizeRange.R1, MasonryBody.FiredClay),
+        new MasonryRow("masonry.is-conventional", 110.0, 70.0, 230.0,  80.0, 10.0, ComponentAuthority.Is,   FrogGeometry.None,                              Perforation.None,                  SpecialShape.None,     SizeTolerance.T1, SizeRange.R1, MasonryBody.FiredClay));
 
     // The TYPED axis join through the ONE railed component#COMPONENT_OWNER SeedJoin: admission runs inside the Lazy
     // body, so a malformed or duplicated designation lands typed on the same ComponentFault rail Component.Of would
@@ -1224,88 +1176,93 @@ public static class MasonrySeed {
     // attribute. Both key spaces mint from the identical designation column of the identical rows, so seed and
     // canonical correspondence cannot drift.
     static readonly Lazy<Fin<FrozenDictionary<ComponentId, MasonryRow>>> Table =
-        SeedJoin.Of(Regional, static r => r.Designation);
+        SeedJoin.Of(Roster, static r => r.Designation);
+
+    public static Fin<MasonryRow> Resolve(Component component, Op key) =>
+        SeedJoin.Resolve(Table, component.Designation, key);
 
     // Coordinating-module closure: Course = H + bed joint within the published-rounding band (the US modular print
     // carries 67.0 over 57.0 + 9.5) — the same standard authored twice must not diverge; a transposed column faults.
     const double CoursingClosureTolMm = 1.0;
 
-    // The ONE generator fold (RAIL law): `Fin` traversal aborts on the first failing row and never drops it. Each row
-    // mints its OWN Op identity, so a fault names the exact designation rather than the whole-catalogue Context key.
-    public static Fin<Seq<ComponentRow>> Rows(Context context) => Regional.Traverse(RowOf).As();
+    // The row's coordinating joint crosses as the standard's own joint thickness, which is what makes a coursing
+    // consumer read the bed joint off the standard rather than off a per-row constant. Both MaterialId slots take
+    // the body's material: a fired-clay unit renders as what it is made of, and a glazed unit splits them at its
+    // own row.
+    public static readonly SeedLaw<MasonryRow> Law = SeedLaw<MasonryRow>.Of(
+        family: ComponentFamily.Masonry,
+        designation: static r => r.Designation,
+        coherence: Coherence,
+        profile: static (r, key) => r.Frog.Present || r.Perforation.Present
+            ? SectionProfile.CellularRectangle.Of(r.WMm, r.LMm, MasonryVoids.Cells(r.Frog, r.Perforation, r.WMm, r.HMm, r.LMm), key)
+            : SectionProfile.Rectangle.Of(r.WMm, r.LMm, key),
+        substance: static r => r.Body.Material,
+        source: static r => r.Source,
+        standard: static r => new ComponentStandard(r.Authority.Region, r.JointMm, r.Authority),
+        detail: Some<Func<MasonryRow, SectionProfile, Op, Fin<PropertyBag>>>(Detail),
+        voids: static r => MasonryVoids.Class(r.Frog, r.Perforation, r.WMm, r.HMm, r.LMm));
 
-    // The per-row arm: the coursing-closure gate proves the module column and the frog-declaration gate proves the
-    // pocket is stated whole; dimensions admit ONCE through ComponentUnit.Of; the profile constructs through the
-    // railed SectionProfile Of factories on the BED PLANE (Rectangle W × L solid, CellularRectangle frogged/cored with
-    // the true-grid cells — the cmu-congruent orientation); the Coring bucket, the supertype IfcBinding, and the
-    // seed-built Realization bag land per row. ComponentRow.Sectioned then reads the constructed profile's own
-    // topology, so this fold asserts no section-map membership it would only ever duplicate or contradict.
-    static Fin<ComponentRow> RowOf(MasonryRow r) {
-        Op key = Op.Of(name: r.Designation);
-        return from coursed in guard(Math.Abs(r.CourseMm - (r.HMm + r.JointMm)) <= CoursingClosureTolMm,
-                   ComponentFault.Dimension(key, $"<coursing-module-mismatch:{r.Designation}>"))
-               from pocketed in guard(r.Frog.Declared,
-                   ComponentFault.Dimension(key, $"<frog-partially-declared:{r.Designation}:depth={r.Frog.DepthMm:R}:l={r.Frog.LengthFraction:R}:w={r.Frog.WidthFraction:R}>"))
-               from unit in ComponentUnit.Of(r.WMm, r.HMm, r.LMm, r.CourseMm, key)
-               from profile in r.Frog.Present || r.Perforation.Present
-                   ? SectionProfile.CellularRectangle.Of(r.WMm, r.LMm, MasonryVoids.Cells(r.Frog, r.Perforation, r.WMm, r.HMm, r.LMm), key)
-                   : SectionProfile.Rectangle.Of(r.WMm, r.LMm, key)
-               from detail in MasonryDetail.Of(unit.HeightMm, unit.CourseHeightMm, r.Tolerance, r.Range, r.Shape, r.Source)
-               from coring in MasonryVoids.Bucket(r.Frog, r.Perforation, r.WMm, r.HMm, r.LMm, key)
-               from item in Component.Of(
-                   ComponentFamily.Masonry, r.Designation, profile,
-                   ComponentFamily.Masonry.Ifc,
-                   coring,
-                   new ComponentStandard(r.Region.Key, r.JointMm, r.Authority),
-                   substanceId: r.Body.Material, appearanceId: r.Body.Material,
-                   detail: Some(detail),
-                   key)
-               select new ComponentRow(item, r.Source);
-    }
+    static Validation<Error, Unit> Coherence(MasonryRow r, Op key) =>
+        (guard(Math.Abs(r.CourseMm - (r.HMm + r.JointMm)) <= CoursingClosureTolMm,
+             new KernelFault.InvalidValue(nameof(r.CourseMm), "unit height plus joint thickness", Some(key))).ToValidation(),
+         guard(r.Frog.Declared,
+             new KernelFault.InvalidValue(nameof(r.Frog), "all frog axes declared together or all absent", Some(key))).ToValidation(),
+         ComponentUnit.Of(r.WMm, r.HMm, r.LMm, r.CourseMm, key).ToValidation().Map(static _ => unit),
+         MasonryVoids.Bucket(r.Frog, r.Perforation, r.WMm, r.HMm, r.LMm, key).ToValidation().Map(static _ => unit),
+         (r.Tolerance.MeanDeviation(r.LMm, declaredMm: 0.0, key).ToValidation().Map(static _ => unit),
+          r.Range.PermittedRange(r.LMm, key).ToValidation().Map(static _ => unit))
+             .Apply(static (_, _) => unit).As())
+            .Apply(static (_, _, _, _, _) => unit).As();
+
+    static Fin<PropertyBag> Detail(MasonryRow r, SectionProfile profile, Op key) =>
+        from unit in ComponentUnit.Of(r.WMm, r.HMm, r.LMm, r.CourseMm, key)
+        from bag in MasonryDetail.Of(r, unit.HeightMm, unit.CourseHeightMm)
+        select bag;
 
     // The ComponentFamily.Masonry CAPACITY producer, which ADMITS THE BASIS before it prices anything. Three
     // admissions run in order and each names what it refused:
-    //  · EN 1996-1-1 8.1.4.1(2)P requires the units of an UNREINFORCED wall to overlap on alternate courses, so EC6
-    //    tabulates no stack-bond flexural case at all — the un-bonded pattern is not a weaker row but an inadmissible
-    //    unreinforced wall, and it refuses here rather than reading a number the code does not publish. The TMS basis
-    //    has its own stack rows and passes.
-    //  · The UK National Annex supersedes the recommended flexural values wherever it governs, and it cuts clay by an
-    //    EN 772-7 water absorption this estate does not possess per regional envelope — so an annexed read refuses
-    //    naming the absent column instead of silently falling back to the recommended table it replaces.
-    //  · The TMS 602 assemblage f'm is entered from the unit's own normalised compressive strength paired with the
-    //    mortar type, which the unit-strength method CmuStrength.Resolve implements. A row declaring no class, or a
-    //    class that measures weathering rather than strength, REFUSES with the designation it could not price rather
-    //    than fabricating an f'm from a durability token.
-    // The RuptureModulus and FlexuralStrengthEn rows are DERIVED here rather than taken from the caller: the span
-    // direction and bond pattern ride the placement's own rupture row, the grout state is the lattice's, the solid
-    // form is the profile's, and the EN unit group is the body's — every one of them a fact this page already holds,
-    // so a caller cannot hand the receipt a table row that disagrees with the unit it describes.
+    //  · EN 1996-1-1 8.1.4.1(2)P requires an UNREINFORCED wall's units to overlap on alternate courses, so EC6
+    //    tabulates no stack-bond flexural case: the un-bonded pattern is an INADMISSIBLE wall rather than a weaker
+    //    row, and it refuses here instead of reading a number the code does not publish. The TMS basis has its own
+    //    stack rows and passes.
+    //  · The UK National Annex supersedes the recommended values wherever it governs and cuts clay by an EN 772-7
+    //    absorption this estate does not possess per envelope, so an annexed read refuses naming the absent column
+    //    rather than falling back to the table the annex replaces.
+    //  · The TMS 602 assemblage f'm is entered from the unit's normalised strength paired with the mortar type, which
+    //    MaterialGrade.CmuOf implements over the cmu grade rows. A row declaring no class, or a class measuring
+    //    weathering rather than strength, refuses with the designation it could not price.
+    // The table rows are DERIVED here rather than taken from the caller — direction and bond ride the placement's own
+    // rupture row, the grout state the lattice's, the solid form the profile's, the EN unit group the body's — so a
+    // caller cannot hand the receipt a row that disagrees with the unit it describes.
     public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
         from row in SeedJoin.Resolve(Table, component.Designation, key)
-        from solved in section.ToFin(ComponentFault.Section(key, $"<masonry-section-unresolved:{component.Designation.Value}>"))
+        from solved in section.ToFin(new ComponentFault.SectionUnavailable(key, component.Designation))
         from pocketed in guard(
             row.Frog.NetBedAreaMm2(row.LMm, row.WMm) is var netBed && netBed > 0.0 && netBed <= row.LMm * row.WMm,
-            ComponentFault.Section(key, $"<frog-net-bed-area-degenerate:{row.Designation}:{row.Frog.NetBedAreaMm2(row.LMm, row.WMm):R}>"))
+            new ComponentFault.SectionIncoherent(key, component.Profile.GetType()))
         from bonded in guard(placement.Basis != DesignBasis.En1996 || !placement.Rupture.StackBond,
-            ComponentFault.Bond(key, $"<en-unreinforced-overlap-unserved:{row.Designation}:{placement.Rupture.Key}>"))
+            new ComponentFault.BondRejected(key, None))
         from annexed in placement.Basis == DesignBasis.En1996 && placement.Annex == NationalAnnex.UnitedKingdom
-            ? from absorption in row.WaterAbsorptionPercent.ToFin(ComponentFault.Capacity(key, $"<na-water-absorption-unpossessed:{row.Designation}>"))
-              from band in NaMortarBand.Of(placement.Mortar).ToFin(ComponentFault.Capacity(key, $"<na-mortar-band-unserved:{placement.Mortar.Key}>"))
+            ? from absorption in row.WaterAbsorptionPercent.ToFin(new ComponentFault.WaterAbsorptionMissing(key, component.Designation))
+              from band in NaMortarBand.Of(placement.Mortar).ToFin(new ComponentFault.MortarBandMissing(key, placement.Mortar))
               from published in guard(
                   FlexuralStrengthNa.ForClay(absorption) is var annex
                   && (placement.Rupture.SpanParallelToBed ? annex.Fxk2 : annex.Fxk1).At(band) > 0.0,
-                  ComponentFault.Capacity(key, $"<na-flexural-unpublished:{row.Designation}:{band.Key}>"))
+                  new ComponentFault.FlexuralCellMissing(key, component.Designation))
               select row
             : Fin.Succ(row)
         from strength in row.Class
             .Bind(static declared => declared.NormalisedStrengthMpa)
-            .Bind(fb => CmuStrength.Resolve(fb, placement.Mortar))
-            .ToFin(ComponentFault.Capacity(key, $"<masonry-assemblage-strength-unpossessed:{row.Designation}>"))
-        select SectionCapacity.Lift(
+            .Bind(fb => MaterialGrade.CmuOf(fb, placement.Mortar))
+            .Bind(static grade => grade.CmuArm)
+            .ToFin(new ComponentFault.AssemblageStrengthMissing(key, component.Designation))
+        from capacity in SectionCapacity.Lift(
             new CapacityReceipt.Masonry(
                 component.Designation, strength, solved, placement.HeightMm, placement.Basis,
-                RuptureModulus.For(component.Profile, placement.Rupture.SpanParallelToBed, placement.Rupture.StackBond, groutedCellFraction: 0.0),
-                row.Body.EnGroup, placement.System, placement.Mortar));
+                RuptureModulus.For(component.Profile, placement.Rupture, groutedCellFraction: 0.0),
+                row.Body.EnGroup, placement.System, placement.Mortar),
+            key)
+        select capacity;
 }
 ```
 

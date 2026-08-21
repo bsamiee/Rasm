@@ -30,29 +30,72 @@ import { Array, Clock, Context, Data, DateTime, Duration, Effect, Layer, Option,
 import { Alphabet, Crypto, Probe, type SignFault } from "../crypt/sign.ts"
 import { Curb, Reject } from "../crypt/verify.ts"
 
+// Four legs partition the surface and each reason renders the subject its own reader acts on: the digest leg carries
+// only the primitive's cause because the material it handled must never reach a message, the shape leg the same, the
+// record leg names the credential id and its subject, and the throttle leg names the surface and the index whose
+// budget went. The blame split lives in the CLASS column and the leg makes it legible — `malformed` is the caller's
+// token, `verify` this deployment's own material, and one free `detail` string reported both as the same prose.
 const _family = Fault.Class.family(["mint", "verify", "malformed", "notFound", "revoked", "expired", "throttled"] as const, {
-  mint: { class: "defect" },
-  verify: { class: "defect" },
-  malformed: { class: "malformed" },
-  notFound: { class: "denied" },
-  revoked: { class: "denied" },
-  expired: { class: "expired" },
-  throttled: { class: "exhausted" },
+  mint: Fault.Class.row({
+    class: "defect",
+    leg: "digest",
+    detail: Schema.Struct({ cause: Schema.String }),
+    render: ({ cause }) => `credential mint refused: ${cause}`,
+  }),
+  verify: Fault.Class.row({
+    class: "defect",
+    leg: "digest",
+    detail: Schema.Struct({ cause: Schema.String }),
+    render: ({ cause }) => `credential compare refused: ${cause}`,
+  }),
+  malformed: Fault.Class.row({
+    class: "malformed",
+    leg: "shape",
+    detail: Schema.Struct({ cause: Schema.String }),
+    render: ({ cause }) => `presented credential is unreadable: ${cause}`,
+  }),
+  notFound: Fault.Class.row({
+    class: "denied",
+    leg: "record",
+    detail: Schema.Struct({ index: Schema.String }),
+    render: ({ index }) => `no live credential under ${index}`,
+  }),
+  revoked: Fault.Class.row({
+    class: "denied",
+    leg: "record",
+    detail: Schema.Struct({ id: Schema.String, subject: Schema.String }),
+    render: ({ id, subject }) => `credential ${id} of ${subject} is revoked`,
+  }),
+  expired: Fault.Class.row({
+    class: "expired",
+    leg: "record",
+    detail: Schema.Struct({ id: Schema.String, subject: Schema.String }),
+    render: ({ id, subject }) => `credential ${id} of ${subject} is past its expiry`,
+  }),
+  throttled: Fault.Class.row({
+    class: "exhausted",
+    leg: "throttle",
+    detail: Schema.Struct({ surface: Schema.String, index: Schema.String, cause: Schema.String }),
+    render: ({ cause, index, surface }) => `${surface} budget spent on ${index}: ${cause}`,
+  }),
 })
 
 declare namespace CredentialFault {
-  type Reason = (typeof _family.reasons)[number]
+  type Case = typeof _family.payload.Type
+  type Reason = (typeof _family.kinds)[number]
 }
 
 class CredentialFault extends Schema.TaggedError<CredentialFault>()("CredentialFault", {
-  reason: _family.schema,
-  detail: Schema.String,
+  case: _family.payload,
 }) {
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _family.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<credential:${this.reason}> ${this.detail}`
+    return _family.render(this.case)
   }
 }
 
@@ -86,11 +129,11 @@ const _digest = (cipher: Context.Tag.Service<Crypto>) => {
     mint: (posture: _Posture, alphabet: string, length: number): Effect.Effect<{ readonly secret: Redacted.Redacted<string>; readonly digest: Redacted.Redacted<string> }, CredentialFault> =>
       cipher.token(alphabet, length).pipe(
         Effect.flatMap((secret) => Effect.map(rows[posture].seal(secret), (digest) => ({ secret, digest }))),
-        Effect.mapError((cause) => new CredentialFault({ reason: "mint", detail: cause.detail })),
+        Effect.mapError((cause) => new CredentialFault({ case: { reason: "mint", cause: cause.message } })),
       ),
     resolve: <A>(posture: _Posture, presented: Redacted.Redacted<string>, candidates: ReadonlyArray<A>, digestOf: (candidate: A) => Redacted.Redacted<string>): Effect.Effect<Option.Option<A>, CredentialFault> =>
       Effect.findFirst(candidates, (candidate) => rows[posture].probe(presented, digestOf(candidate))).pipe(
-        Effect.mapError((cause) => new CredentialFault({ reason: "verify", detail: cause.detail })),
+        Effect.mapError((cause) => new CredentialFault({ case: { reason: "verify", cause: cause.message } })),
       ),
   } as const
 }
@@ -140,8 +183,10 @@ const _seconds = Effect.map(Clock.currentTimeMillis, (millis) => Math.floor(mill
 // or its own policy, class `defect`. Grading five typed digits as a defect pages an operator on user typing.
 const _thrown = (cause: unknown): CredentialFault =>
   new CredentialFault({
-    reason: cause instanceof TokenError ? "malformed" : "verify",
-    detail: cause instanceof OTPError ? cause.message : String(cause),
+    case: {
+      reason: cause instanceof TokenError ? "malformed" : "verify",
+      cause: cause instanceof OTPError ? cause.message : String(cause),
+    },
   })
 
 // Shape gating sits AHEAD of the budget: `validateToken` decides length and charset with no secret, no HMAC, and
@@ -161,14 +206,14 @@ class Otp extends Effect.Service<Otp>()("security/authn/Otp", {
     const _ports = { crypto: cipher.plugin, base32: cipher.base32 } as const
     const _rails: OTPGuardrails = createGuardrails({ MIN_SECRET_BYTES: 16, MIN_PERIOD: _PERIOD, MAX_WINDOW: 2 })
     const _throttled = (subject: string, surface: "otp" | "recovery") =>
-      curb.guard(surface, subject, (detail: string) => new CredentialFault({ reason: "throttled", detail }))
+      curb.guard(surface, subject, (cause: string) => new CredentialFault({ case: { reason: "throttled", surface, index: subject, cause } }))
     const enroll = (issuer: string, label: string): Effect.Effect<{ readonly secret: Redacted.Redacted<string>; readonly uri: Redacted.Redacted<string> }, CredentialFault> =>
       Effect.try({
         try: () => {
           const secret = generateSecret(_ports)
           return { secret: Redacted.make(secret), uri: Redacted.make(generateURI({ strategy: "totp", issuer, label, secret, period: _PERIOD, digits: _DIGITS })) }
         },
-        catch: (cause) => new CredentialFault({ reason: "mint", detail: String(cause) }),
+        catch: (cause) => new CredentialFault({ case: { reason: "mint", cause: String(cause) } }),
       })
     const verify_ = (
       subject: string,
@@ -280,8 +325,8 @@ class ApiKey extends Effect.Service<ApiKey>()("security/authn/ApiKey", {
     const mint = (subject: string, name: string, scopes: ReadonlyArray<string>, ttl: Option.Option<Duration.DurationInput>): Effect.Effect<MintReceipt, CredentialFault> =>
       Effect.gen(function* () {
         const now = yield* DateTime.now
-        const id = yield* cipher.uuid().pipe(Effect.mapError((cause) => new CredentialFault({ reason: "mint", detail: cause.detail })))
-        const prefixBody = yield* cipher.token(Alphabet.base62, 8).pipe(Effect.mapError((cause) => new CredentialFault({ reason: "mint", detail: cause.detail })))
+        const id = yield* cipher.uuid().pipe(Effect.mapError((cause) => new CredentialFault({ case: { reason: "mint", cause: cause.message } })))
+        const prefixBody = yield* cipher.token(Alphabet.base62, 8).pipe(Effect.mapError((cause) => new CredentialFault({ case: { reason: "mint", cause: cause.message } })))
         const prefix = `rk_${Redacted.value(prefixBody)}`
         const minted = yield* digest.mint("high", Alphabet.base62, 40)
         const record = new ApiKeyRecord({
@@ -294,9 +339,9 @@ class ApiKey extends Effect.Service<ApiKey>()("security/authn/ApiKey", {
     const resolve = (presented: Redacted.Redacted<string>): Effect.Effect<ApiKeyRecord, CredentialFault> =>
       Effect.gen(function* () {
         const [, prefixBody, , secret] = yield* Schema.decode(_KeyWire)(Redacted.value(presented)).pipe(
-          Effect.mapError(() => new CredentialFault({ reason: "malformed", detail: "malformed key frame" })))
+          Effect.mapError(() => new CredentialFault({ case: { reason: "malformed", cause: "key frame is not rk_<prefix>.<secret>" } })))
         const prefix = `rk_${prefixBody}`
-        return yield* curb.guard("apikey", prefix, (detail: string) => new CredentialFault({ reason: "throttled", detail }))(
+        return yield* curb.guard("apikey", prefix, (cause: string) => new CredentialFault({ case: { reason: "throttled", surface: "apikey", index: prefix, cause } }))(
           Effect.gen(function* () {
             const candidates = yield* store.byPrefix(prefix)
             const record = yield* Effect.flatMap(
@@ -305,14 +350,17 @@ class ApiKey extends Effect.Service<ApiKey>()("security/authn/ApiKey", {
                 onNone: () =>
                   Effect.zipRight(
                     Reject.mark("credential", { surface: "apikey" }),
-                    Effect.fail(new CredentialFault({ reason: "notFound", detail: prefix }))),
+                    Effect.fail(new CredentialFault({ case: { reason: "notFound", index: prefix } }))),
                 onSome: Effect.succeed,
               }),
             )
             const now = yield* DateTime.now
             yield* Effect.succeed(record).pipe(
-              Effect.filterOrFail((held) => Option.isNone(held.revokedAt), () => new CredentialFault({ reason: "revoked", detail: record.id })),
-              Effect.filterOrFail((held) => !Option.exists(held.expiresAt, (exp) => DateTime.greaterThan(now, exp)), () => new CredentialFault({ reason: "expired", detail: record.id })),
+              Effect.filterOrFail((held) => Option.isNone(held.revokedAt), () => new CredentialFault({ case: { reason: "revoked", id: record.id, subject: record.subject } })),
+              Effect.filterOrFail(
+                (held) => !Option.exists(held.expiresAt, (exp) => DateTime.greaterThan(now, exp)),
+                () => new CredentialFault({ case: { reason: "expired", id: record.id, subject: record.subject } }),
+              ),
             )
             yield* store.touch(record.id, now)
             return record

@@ -10,14 +10,14 @@ Exact B-rep evaluation on one `BrepOp` union: parametric solid construction, n-a
 
 ## [02]-[BREP]
 
-- Owner: `BrepOp` — one `@tagged_union` over the operation kinds with verbs as `StrEnum` rows, never a per-operation class family; `JoinPolicy` resolves to `manifold3d.JoinType` through the `_JOIN_NAME` row and `_join`, so the join is a policy value resolved at the 2D leg rather than a verb-keyed hardcode or a module-scope cell that reifies the deferred provider; `BrepResult` carries the contributor and `BrepReceipt` the leaf evidence, the carrier/leaf split the mesh siblings share. Shape-bearing cases carry `Brep` sealed octets, never a live handle — `sealed`/`unsealed` is the one STEP `AsIs` codec pair both seam directions resolve through, so the union pickles whole across the process crossing and a native-floor consumer unseals where its own OCCT work begins.
+- Owner: `BrepOp` — one `@tagged_union` over the operation kinds with verbs as `StrEnum` rows, never a per-operation class family; `JoinPolicy` VALUES ARE the `manifold3d.JoinType` member names, so `_join` is one attribute read at the 2D leg — a policy value rather than a verb-keyed hardcode, with no mirror table to drift and no module-scope cell reifying the deferred provider; `BrepResult` carries the contributor and `BrepReceipt` the leaf evidence, the carrier/leaf split the mesh siblings share. Shape-bearing cases carry `Brep` sealed octets, never a live handle — `sealed`/`unsealed` is the one STEP `AsIs` codec pair both seam directions resolve through, so the union pickles whole across the process crossing and a native-floor consumer unseals where its own OCCT work begins.
 - Cases: linear extrusion/revolution of a profile is the `Offset` arm's `EXTRUDE`/`REVOLVE` row, never a duplicate `Construct` primitive — `MakePrism`/`MakeRevol` are reached once, through the profile leg; `Boolean.section` yields a wire/edge result the consumer re-feeds as a profile, and no downstream owner re-discriminates the operation past this union.
-- Law: every factory reachable OUTSIDE `apply`'s weave returns the rail — `Boolean` re-proves its two-operand minimum and its finite non-negative fuzz as `Error(BoundaryFault)` and callers bind rather than construct, because a `raise` from a mint no enclosing fence converts escapes to its caller; inside `_dispatch`, under the offload fence, the typed `BrepFault` is the refusal and the lane's `async_boundary` converts it.
+- Law: every factory holding a caller-repairable precondition returns the rail and callers bind rather than construct, because a `raise` from a mint no enclosing fence converts escapes to its caller — `Construct` proves its parameter arity against the same `_PRIMITIVES` row the kernel calls, `Boolean` its two-operand minimum and its finite non-negative fuzz, `Offset` its non-empty profile and finite extents, `Feature` its non-negative finite magnitude; `Tessellate` alone hands the value back, holding no precondition to refuse. Each refusal anchors one `FaultRow` in this page's own table under the folder's `GeometryLeg` roster, so the coordinate a caller reads names the factory it called. Inside `_dispatch`, under the offload fence, the typed `BrepFault` is the refusal and the lane's `async_boundary` converts it.
 - Law: `graduates` mints its own evidence key off the receipt's `spec` byte projection through the graduation spine, so no caller threads a key; the measured ledger grades the null-result residual every time and admits the `closure_gap` bar only where the tessellated agreement exists, since an open or unmeshed result records no agreement and grading a fabricated zero against a ceiling clears a bar that never ran.
 - Law: `benched` rides the graduation `bench_seam` fold over the whole `apply` crossing — sealed-brep codec, offload, OCCT kernel, weave — subject-keyed `rasm.geometry.mesh.brep.<tag>`, so a boolean row prices the STEP seal beside the solve; latency and throughput rows per operation kind, zero instrument rows, and graduation's `bench_terminal` wraps the fold in the runtime `JobRun.bounded` envelope for a process-terminal run.
 - Auto: `BRepAlgoAPI_*` is the robust BOPAlgo kernel (the legacy `BRepAlgo_*` family never enters) and its operators are n-ary — one `SetArguments`/`SetTools` build, never a pairwise fold rebuilding the kernel N-1 times; a Boolean operand requires triangulation absent, so a `Boolean` always precedes any `Tessellate` over its result.
 - Packages: `cadquery-ocp` (the `OCP.*` band, every name a module-scope `lazy from` because the distribution is interpreter-marked and a loop floor importing this module for the verb vocabulary must never load OCCT — the retired conda-only `pythonocc-core` `OCC.Core.*` path never enters), `manifold3d` (`CrossSection`/`JoinType` under the same deferral, the 2D leg only — the 3D `Manifold` CSG backend belongs to `mesh/repair#MESH`), `trimesh`, `numpy`, `expression`, and `msgspec` per the fence imports; `TessellationPolicy`/`CANONICAL_TESSELLATION`, `CLOSURE_CEILING`, and `GeometrySubject` arrive from the geometry owners, the rails from runtime.
-- Growth: a new primitive, set verb, offset mode, feature, or join is one `StrEnum` row and one `Map` entry, its cell a call-time thunk or a member NAME so the row never dereferences a deferred provider at import; a spine-following `SWEEP` verb lands as one `OffsetVerb` row over `BRepOffsetAPI_MakePipeShell` the moment a real spine-wire payload field carries its path — never aliased to the linear `EXTRUDE` prism it cannot distinguish without one, and never a prelude name the fence does not yet call.
+- Growth: a new primitive is one `ConstructVerb` row and one `(arity, factory)` `_PRIMITIVES` entry, the declared arity reaching the mint gate with no factory edit; a new set verb, offset mode, feature, or join is one `StrEnum` row and one `Map` entry, its cell a call-time thunk or a member NAME so the row never dereferences a deferred provider at import; a new caller-repairable refusal is one `FaultRow` row and one guard at the owning factory; a spine-following `SWEEP` verb lands as one `OffsetVerb` row over `BRepOffsetAPI_MakePipeShell` the moment a real spine-wire payload field carries its path — never aliased to the linear `EXTRUDE` prism it cannot distinguish without one, and never a prelude name the fence does not yet call.
 - Boundary: mesh-file/GLB codec is the data `MeshPayload` owner's (`rasm.data.spatial.mesh`); scene/USD/GLTF/OBJ export is `artifacts` figures/scene; the STEP-read-to-GLB hop is `mesh/cad#BRIDGE`'s `StepBridge`, a distinct OCCT consumer meeting this evaluator only at the shared `cadquery-ocp` band, never a shared function; triangle-soup repair and mesh CSG are `mesh/repair#MESH`'s — exact OCCT B-rep Boolean here, robust triangle-mesh Boolean there, two kernels on two owners.
 
 ```python signature
@@ -33,12 +33,13 @@ from typing import Final, Literal, Protocol, Self, assert_never
 import numpy as np
 import trimesh
 from msgspec import Struct
-from expression import Error, Ok, case, tag, tagged_union
-from expression.collections import Map
+from expression import Error, Nothing, Ok, Option, Some, case, tag, tagged_union
+from expression.collections import Block, Map
 
 from rasm.geometry.graduation import (
     EvidenceScope,
     GeometryHandoff,
+    GeometryLeg,
     GeometrySubject,
     bench_seam,
     bench_subject,
@@ -47,7 +48,7 @@ from rasm.geometry.graduation import (
 )
 from rasm.geometry.mesh.cad import CANONICAL_TESSELLATION, TessellationPolicy
 from rasm.geometry.mesh.repair import CLOSURE_CEILING
-from rasm.runtime.faults import BoundaryFault, RuntimeRail
+from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, rostered
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.profiles import BenchmarkReceipt
 from rasm.runtime.receipts import DEFAULT_SCOPE, Phase, Receipt, ScopeKey
@@ -134,10 +135,41 @@ class FeatureVerb(StrEnum):
 
 
 class JoinPolicy(StrEnum):
-    ROUND = "round"
-    MITER = "miter"
-    SQUARE = "square"
-    BEVEL = "bevel"
+    # member VALUE is the `manifold3d.JoinType` member NAME, so `_join` is one `getattr` off the value and the retired
+    # `_JOIN_NAME` mirror — a second roster one row could silently drift out of — has no reason to exist. The estate's
+    # own spelling law is what the mirror bought, and it is not worth a table nothing else reads.
+    ROUND = "Round"
+    MITER = "Miter"
+    SQUARE = "Square"
+    BEVEL = "Bevel"
+
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this module's whole raise roster: every refusal a CALLER can repair anchors one row here and refuses at its own
+# factory before the weave opens, so a caller's arity slip, empty profile, or out-of-domain magnitude never crosses a
+# process boundary to be discovered as an opaque native `IndexError` or an `IsDone` false. All TERMINAL — every one is
+# a property of the arguments, and re-issuing the same call refuses identically. The interior refusals `_dispatch`
+# mints under the offload fence stay `BrepFault` cases, which the lane's own conversion carries whole.
+BREP_ARITY: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.BREP, point="construct.arity", arm="config", defect="param-arity", retriability=TERMINAL, slots=("verb", "given", "wanted")
+)
+BREP_OPERANDS: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.BREP, point="boolean.operands", arm="config", defect="operand-arity", retriability=TERMINAL, slots=("operands",)
+)
+BREP_FUZZ: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.BREP, point="boolean.fuzz", arm="config", defect="fuzz-domain", retriability=TERMINAL, slots=("fuzzy",)
+)
+BREP_PROFILE: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.BREP, point="offset.profile", arm="config", defect="empty-profile", retriability=TERMINAL, slots=("verb",)
+)
+BREP_EXTENT: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.BREP, point="offset.extent", arm="config", defect="extent-domain", retriability=TERMINAL, slots=("verb", "extent")
+)
+BREP_SIZE: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.BREP, point="feature.size", arm="config", defect="size-domain", retriability=TERMINAL, slots=("verb", "size")
+)
+RAISES: Final[Block[FaultRow[GeometryLeg]]] = rostered(Block.of_seq([BREP_ARITY, BREP_OPERANDS, BREP_FUZZ, BREP_PROFILE, BREP_EXTENT, BREP_SIZE]))
 
 
 # `_built` reads this surface rather than an erased `object`, so a maker missing a leg is a static gap, never a runtime miss.
@@ -150,27 +182,52 @@ class OcctBuilder(Protocol):
 # --- [ERRORS] ---------------------------------------------------------------------------
 
 
-# raised INTO the lane's `async_boundary`, never a domain `raise ValueError` the lane re-wraps.
+# raised INTO the lane's `async_boundary`, never a domain `raise ValueError` the lane re-wraps. The token crosses
+# the worker seam as `CrossedFault` DATA and re-mints parent-side per `execution/workers#CROSSING`.
 @tagged_union(frozen=True)
 class BrepFault(Exception):
     # every case is minted INSIDE `_dispatch` under the offload fence; the operand and fuzz refusals a caller can
     # trigger before the weave opens ride `BrepOp.Boolean`'s rail instead, so no case here lacks a minting seam.
-    tag: Literal["not_done", "empty_profile", "holed_profile", "unknown_verb"] = tag()
+    # `BoundaryFault.of` admits a `Tagged()` token AHEAD of every `CLASSIFY` row, so this family crosses the
+    # conversion door WHOLE on the `domain` case and the catch-all's `str(cause)` half never renders it — consumers
+    # match the CASE. A worker seam carries it whole too: `execution/workers#CROSSING` lowers the token onto
+    # `CrossedFault` DATA at `shipped` and re-mints this family's own case parent-side, so a raise inside a HOSTILE
+    # kernel needs no edit here and no render stands anywhere on the crossing. `__str__` serves the LOG and HOST
+    # edge alone — a token surfacing in a worker traceback or a log line before the seam lowers it — where
+    # `Exception.__str__` answers the EMPTY string for a kwarg-only union.
+    tag: Literal["not_done", "holed_profile", "unknown_verb"] = tag()
     not_done: str = case()
-    empty_profile: str = case()
     holed_profile: str = case()
     unknown_verb: str = case()
+
+    def __str__(self) -> str:
+        # the law half IS the tag, so no arm re-spells its own case name and a renamed case cannot drift from its render.
+        return f"{self.tag}:{self._coordinate()}"
+
+    def _coordinate(self) -> str:
+        match self:
+            case BrepFault(tag="not_done", not_done=builder):
+                return builder
+            case BrepFault(tag="holed_profile", holed_profile=verb):
+                return verb
+            case BrepFault(tag="unknown_verb", unknown_verb=verb):
+                return verb
+            case _ as unreachable:
+                assert_never(unreachable)
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# one factory row per verb; an unmapped verb is the `unknown_verb` fault via `try_find`, never a bare `KeyError`.
-_PRIMITIVES: Final[Map[ConstructVerb, Callable[[Params], OcctBuilder]]] = Map.of_seq([
-    (ConstructVerb.BOX, lambda p: BRepPrimAPI_MakeBox(p[0], p[1], p[2])),
-    (ConstructVerb.SPHERE, lambda p: BRepPrimAPI_MakeSphere(p[0])),
-    (ConstructVerb.CYLINDER, lambda p: BRepPrimAPI_MakeCylinder(p[0], p[1])),
-    (ConstructVerb.CONE, lambda p: BRepPrimAPI_MakeCone(p[0], p[1], p[2])),
-    (ConstructVerb.TORUS, lambda p: BRepPrimAPI_MakeTorus(p[0], p[1])),
+# one `(arity, factory)` row per verb: the arity DECLARES what the thunk indexes, so `BrepOp.Construct` refuses a
+# short or long parameter tuple at the mint off the same row the kernel later calls, and the two can never disagree
+# about how many magnitudes a primitive takes. An unmapped verb is the `unknown_verb` fault via `try_find`, never a
+# bare `KeyError`, on both the mint and the worker side.
+_PRIMITIVES: Final[Map[ConstructVerb, tuple[int, Callable[[Params], OcctBuilder]]]] = Map.of_seq([
+    (ConstructVerb.BOX, (3, lambda p: BRepPrimAPI_MakeBox(p[0], p[1], p[2]))),
+    (ConstructVerb.SPHERE, (1, lambda p: BRepPrimAPI_MakeSphere(p[0]))),
+    (ConstructVerb.CYLINDER, (2, lambda p: BRepPrimAPI_MakeCylinder(p[0], p[1]))),
+    (ConstructVerb.CONE, (3, lambda p: BRepPrimAPI_MakeCone(p[0], p[1], p[2]))),
+    (ConstructVerb.TORUS, (2, lambda p: BRepPrimAPI_MakeTorus(p[0], p[1]))),
 ])
 
 # nullary thunks, never bare class references: a row holding the class itself dereferences the deferred name at
@@ -189,17 +246,11 @@ _FEATURES: Final[Map[FeatureVerb, Callable[[TopoDS_Shape], OcctBuilder]]] = Map.
     (FeatureVerb.CHAMFER, lambda shape: BRepFilletAPI_MakeChamfer(shape)),
 ])
 
-# join policy -> `JoinType` member NAME; `_join` resolves it at the 2D leg, so no cell holds a live enum member.
-_JOIN_NAME: Final[Map[JoinPolicy, str]] = Map.of_seq([
-    (JoinPolicy.ROUND, "Round"),
-    (JoinPolicy.MITER, "Miter"),
-    (JoinPolicy.SQUARE, "Square"),
-    (JoinPolicy.BEVEL, "Bevel"),
-])
-
-
 def _join(policy: JoinPolicy) -> JoinType:
-    return getattr(JoinType, _JOIN_NAME.try_find(policy).default_with(lambda: _raise(BrepFault(unknown_verb=policy))))
+    # the policy VALUE already IS the provider member name, so the resolution is one attribute read at the 2D leg and
+    # no cell holds a live enum member. A roster the provider stopped carrying surfaces as an `AttributeError` inside
+    # `_dispatch`, under the offload fence that converts it — the same seam every other provider divergence reaches.
+    return getattr(JoinType, policy.value)
 
 
 # fixed 4-arity of TopAbs member NAMES so the `vertex, edge, face, solid` unpack is statically total against the
@@ -217,10 +268,16 @@ class BrepReceipt(Struct, frozen=True, gc=False):  # leaf-scalar evidence; owns 
     area: float
     centroid: tuple[float, float, float]
     census: Census
-    watertight: bool | None
-    closure_gap: float | None
-    modified: bool | None = None  # BOPAlgo History().HasModified() on the boolean arm; None elsewhere
-    generated: bool | None = None  # BOPAlgo History().HasGenerated()
+    # four slots ride the absence carrier because four distinct arms MEASURE nothing for them. ABSENT `watertight`
+    # means no triangulation existed to read closure off — only a `Tessellate` result carries one. ABSENT
+    # `closure_gap` means no kernel-vs-mesh agreement was measured, since the divergence-theorem volume is
+    # meaningless on an open surface. ABSENT `modified`/`generated` mean no BOPAlgo `History` ran at all — every arm
+    # but `Boolean`. A `None` past this seam is the sentinel the branch's absence law bars, and the sibling
+    # `mesh/repair#MESH` receipt spells the same `closure_gap` measure under the same `CLOSURE_CEILING` bar.
+    watertight: Option[bool]
+    closure_gap: Option[float]
+    modified: Option[bool] = Nothing  # BOPAlgo History().HasModified() on the boolean arm; absent elsewhere
+    generated: Option[bool] = Nothing  # BOPAlgo History().HasGenerated()
     subject: GeometrySubject = GeometrySubject.MESH_ALGEBRA
 
     # `valid` keys the phase: a null/open result (a section wire, an open shell) keys `admitted` — a flagged caveat, never an asserted solid.
@@ -234,12 +291,13 @@ class BrepReceipt(Struct, frozen=True, gc=False):  # leaf-scalar evidence; owns 
             "area": self.area,
             "centroid": self.centroid,
             "census": f"v{v}/e{e}/f{f}/s{s}",
-            "watertight": self.watertight,
-            "closure_gap": self.closure_gap,
-            "modified": self.modified,
-            "generated": self.generated,
         }
-        return phase, self.subject, facts
+        # ONE omit-fold over every unmeasured slot, so a new optional column is one roster pair and a decimate-style
+        # arm reads as four unmeasured slots rather than as a closed, agreeing, unmodified solid nothing produced.
+        measured: Block[tuple[str, Option[object]]] = Block.of_seq([
+            ("watertight", self.watertight), ("closure_gap", self.closure_gap), ("modified", self.modified), ("generated", self.generated)
+        ])
+        return phase, self.subject, facts | dict(measured.choose(lambda slot: slot[1].map(lambda held: (slot[0], held))))
 
     @property
     def spec(self) -> bytes:
@@ -252,8 +310,8 @@ class BrepReceipt(Struct, frozen=True, gc=False):  # leaf-scalar evidence; owns 
     def graduates(self) -> GeometryHandoff:
         # ceilings derive PER MEASURE: an untessellated or open result measures no kernel-vs-mesh agreement, so the
         # closure bar does not apply rather than grading `0.0` against it; the null-result residual grades always.
-        measured = {"null_result": 0.0 if self.valid else 1.0} | ({} if self.closure_gap is None else {"closure_gap": self.closure_gap})
-        ceilings: Mapping[str, float] = {"null_result": 0.0} | ({} if self.closure_gap is None else {"closure_gap": CLOSURE_CEILING})
+        measured = {"null_result": 0.0 if self.valid else 1.0} | self.closure_gap.map(lambda held: {"closure_gap": held}).default_value({})
+        ceilings: Mapping[str, float] = {"null_result": 0.0} | self.closure_gap.map(lambda _: {"closure_gap": CLOSURE_CEILING}).default_value({})
         return GeometryHandoff.of(self.subject, evidence_key(self.subject, self.spec), measured, ceilings)
 
 
@@ -280,8 +338,16 @@ class BrepOp:
     tessellate: tuple[Brep, TessellationPolicy] = case()
 
     @staticmethod
-    def Construct(verb: ConstructVerb, params: Params) -> Self:
-        return BrepOp(construct=(verb, params))
+    def Construct(verb: ConstructVerb, params: Params) -> "RuntimeRail[BrepOp]":
+        # arity refuses at the MINT off the verb's OWN row, RETURNING the rail: `Params` is an unbounded float tuple, so
+        # the retired factory handed a short one to a builder that indexed past its end inside the worker and a caller's
+        # own slip arrived as an opaque native `IndexError` a whole process crossing away from the site that made it.
+        wanted = _PRIMITIVES.try_find(verb).map(lambda row: row[0])
+        return (
+            Ok(BrepOp(construct=(verb, params)))
+            if wanted.map(lambda arity: arity == len(params)).default_value(False)
+            else Error(BREP_ARITY.raised(verb, str(len(params)), wanted.map(str).default_value("unrostered")))
+        )
 
     @staticmethod
     def Boolean(breps: tuple[Brep, ...], verb: BooleanVerb, fuzzy: float = 0.0) -> "RuntimeRail[BrepOp]":
@@ -290,21 +356,33 @@ class BrepOp:
         # refuses at the mint — RETURNING the rail, because this factory runs BEFORE `apply` opens its weave and a
         # raise no enclosing fence converts escapes to its caller; the caller binds, and `apply` is unchanged.
         if len(breps) < 2:
-            return Error(BoundaryFault(config=("mesh.brep.boolean", f"operands:{len(breps)}<2")))
+            return Error(BREP_OPERANDS.raised(str(len(breps))))
         if not (isfinite(fuzzy) and fuzzy >= 0.0):
-            return Error(BoundaryFault(config=("mesh.brep.boolean", f"fuzzy:{fuzzy}")))
+            return Error(BREP_FUZZ.raised(str(fuzzy)))
         return Ok(BrepOp(boolean=(breps, verb, fuzzy)))
 
     @staticmethod
     def Offset(
         profile: Profile, verb: OffsetVerb, dist: float, height: float = 0.0, join: JoinPolicy = JoinPolicy.ROUND, smooth: bool = False
-    ) -> Self:
-        # `smooth` lifts the profile through a B-spline edge instead of the polyline wire
-        return BrepOp(offset=(profile, verb, dist, height, join, smooth))
+    ) -> "RuntimeRail[BrepOp]":
+        # `smooth` lifts the profile through a B-spline edge instead of the polyline wire. An EMPTY profile and a
+        # non-finite extent both refuse HERE, RETURNING the rail: both are caller inputs no worker can repair, and the
+        # retired `_sections` raise discovered the empty one a process crossing later under a subject naming the 2D leg
+        # rather than the caller — which is exactly why the `empty_profile` case left `BrepFault` with it.
+        if not profile:
+            return Error(BREP_PROFILE.raised(verb))
+        if not (isfinite(dist) and isfinite(height)):
+            return Error(BREP_EXTENT.raised(verb, f"dist={dist},height={height}"))
+        return Ok(BrepOp(offset=(profile, verb, dist, height, join, smooth)))
 
     @staticmethod
-    def Feature(brep: Brep, verb: FeatureVerb, size: float) -> Self:
-        return BrepOp(feature=(brep, verb, size))
+    def Feature(brep: Brep, verb: FeatureVerb, size: float) -> "RuntimeRail[BrepOp]":
+        # `size` is a fillet radius, a chamfer distance, or a sewing tolerance — ONE non-negative finite magnitude
+        # across every verb that reads it, so one domain gate serves the family rather than a per-verb ladder. `NURBS`
+        # ignores it and a zero on a maker verb still rails through `IsDone`, which reports only that something failed.
+        if not (isfinite(size) and size >= 0.0):
+            return Error(BREP_SIZE.raised(verb, str(size)))
+        return Ok(BrepOp(feature=(brep, verb, size)))
 
     @staticmethod
     def Tessellate(brep: Brep, policy: TessellationPolicy = CANONICAL_TESSELLATION) -> Self:
@@ -406,20 +484,22 @@ def _triangulation(shape: TopoDS_Shape) -> trimesh.Trimesh:
 
 
 def _evidence(
-    kind: str, shape: TopoDS_Shape, mesh: trimesh.Trimesh | None, *, modified: bool | None = None, generated: bool | None = None
+    kind: str, shape: TopoDS_Shape, mesh: trimesh.Trimesh | None, *, provenance: "Option[tuple[bool, bool]]" = Nothing
 ) -> BrepResult:
     volume, area = GProp_GProps(), GProp_GProps()
     BRepGProp.VolumeProperties_s(shape, volume)
     BRepGProp.SurfaceProperties_s(shape, area)
     com, mass = volume.CentreOfMass(), float(volume.Mass())
-    watertight = None if mesh is None else bool(mesh.is_watertight)
-    # divergence-theorem `volume` is meaningless on an open surface: an open result records a `None` gap, never a spurious agreement.
-    closure_gap = abs(mass - float(mesh.volume)) if watertight else None
+    closed = Option.of_obj(mesh).map(lambda held: bool(held.is_watertight))
+    # divergence-theorem `volume` is meaningless on an open surface: an open or untessellated result measures NO gap,
+    # never a spurious agreement, and the two absences share one gate so they can never disagree about what ran.
+    closure_gap = closed.bind(lambda held: Some(abs(mass - float(mesh.volume))) if held else Nothing)
     return BrepResult(
         sealed(shape),
         mesh,
         BrepReceipt(
-            kind, not shape.IsNull(), mass, float(area.Mass()), (com.X(), com.Y(), com.Z()), _census(shape), watertight, closure_gap, modified, generated
+            kind, not shape.IsNull(), mass, float(area.Mass()), (com.X(), com.Y(), com.Z()), _census(shape), closed, closure_gap,
+            provenance.map(lambda held: held[0]), provenance.map(lambda held: held[1]),
         ),
     )
 
@@ -445,8 +525,7 @@ def _boolean(shapes: Shapes, verb: BooleanVerb, fuzzy: float) -> tuple[TopoDS_Sh
 
 # one `(base, offset)` pair serves both the face lift and the loft rings, so the `manifold3d` 2D leg runs once per profile.
 def _sections(profile: Profile, dist: float, join: JoinPolicy) -> tuple[CrossSection, CrossSection]:
-    if not profile:
-        raise BrepFault(empty_profile="offset")
+    # non-emptiness is `BrepOp.Offset`'s admission, so this leg receives a profile already proved and re-proves nothing.
     base = CrossSection([list(profile)])
     offset = base.offset(dist, _join(join), 2.0, 0).simplify(1e-6) if dist else base
     return base, offset
@@ -489,11 +568,13 @@ def _raise[T](fault: BrepFault) -> T:
 def _dispatch(op: BrepOp) -> BrepResult:
     match op:
         case BrepOp(tag="construct", construct=(verb, params)):
-            factory = _PRIMITIVES.try_find(verb).default_with(lambda: _raise(BrepFault(unknown_verb=verb)))
-            return _evidence(f"construct.{verb}", _built(factory(params)), None)
+            row = _PRIMITIVES.try_find(verb).default_with(lambda: _raise(BrepFault(unknown_verb=verb)))
+            return _evidence(f"construct.{verb}", _built(row[1](params)), None)
         case BrepOp(tag="boolean", boolean=(breps, verb, fuzzy)):
             shape, modified, generated = _boolean(tuple(unsealed(brep) for brep in breps), verb, fuzzy)
-            return _evidence(f"boolean.{verb}", shape, None, modified=modified, generated=generated)
+            # the History pair rides ONE slot: both columns come from one `History()` read, so an arm that ran no
+            # BOPAlgo cannot report half a provenance and the two can never disagree about whether the walk happened.
+            return _evidence(f"boolean.{verb}", shape, None, provenance=Some((modified, generated)))
         case BrepOp(tag="offset", offset=(profile, verb, dist, height, join, smooth)):
             base, offset = _sections(profile, dist, join)
             match verb:

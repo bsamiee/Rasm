@@ -2,7 +2,7 @@
 
 `ToolWear` admits timestamped body, edge, and consumable observations; projects each criterion through an explicit `WearChannel`; fits condition trajectories; derives conservative remaining life; and returns one maintenance decision with its evidence. Subtractive wear and non-subtractive consumption share `ToolLifeBasis` without manufacturing flank-wear fields for unrelated modalities.
 
-`WearRegistry` closes every admitted `ProcessKind` explicitly. Each process is `Tracked` with criteria, consumable specifications, or both, or `Untracked` with a stated reason; uncovered processes cannot become empty success or infinite life. Limits, warnings, reconditioning, and prices remain admitted shop data rather than taxonomy constants. `Tooling/cuttingdata` `LinearFit` owns the ONE least-squares regression in the package and `LinearFitReceipt` its ONE receipt, so a trajectory fit and a Taylor calibration read the same slope, intercept, residual, fit-space determination, domain, and terminal sample rather than two regression bodies that drift.
+`WearRegistry` closes every admitted `ProcessKind` explicitly. Each process is `Tracked` with criteria, consumable specifications, or both, or `Untracked` with a stated reason; uncovered processes cannot become empty success or infinite life. Limits, warnings, reconditioning, and prices remain admitted shop data rather than taxonomy constants. `Tooling/cuttingdata` `LinearFit` owns the ONE least-squares regression in the package and `Regression` its ONE receipt, so a trajectory fit and a Taylor calibration read the same slope, intercept, residual, fit-space determination, domain, and terminal sample rather than two regression bodies that drift. Moments come off `Rasm.Domain` `Stat<Scalar>`, the kernel's ONE moment owner.
 
 Every signal-to-channel correspondence is a COLUMN on the channel row and every channel-to-criterion projection resolves through one signal-keyed dispatch table, so a distributed type test never stands between an observation and the value it carries.
 
@@ -12,8 +12,8 @@ Wire posture: HOST-LOCAL. `WearState`, `ConsumableRow`, and `CriticalWear` remai
 
 - [02]-[WEAR_VOCABULARY]: `WearMechanism`, `WearPhase`, `WearScope`, `WearValueKind`, `ConsumableKind`, and `MaintenanceDisposition`.
 - [03]-[SIGNAL_CHANNELS]: `SignalKind`, `ConditionSignal`, the signal-keyed reader table, `WearChannel`, and `WearCriterion`.
-- [04]-[WEAR_REGISTRY]: `WearSample`, `ConsumableKey`, `ConsumableSpec`, `WearApplicability`, `ProcessWear`, `WearRegistry`, and `ConsumableReading`.
-- [05]-[FORECAST_MODELS]: `TaylorModel`, `WearPolicy`, `ForecastBand`, `WearEvidence`, `WearState`, `ConsumableRow`, `CriticalWear`, `MaintenanceAction`, `WearReceipt`, and the Taylor calibration shapes.
+- [04]-[WEAR_REGISTRY]: `WearSample`, `ConsumableSpec`, `WearApplicability`, `ProcessWear`, `WearRegistry`, and `ConsumableReading` over the `Process/atoms` `ConsumableKey`.
+- [05]-[FORECAST_MODELS]: `TaylorModel`, `PhaseSchedule`, `WearPolicy`, `ForecastBand`, `WearEvidence`, `WearState`, `ConsumableRow`, `CriticalWear`, `MaintenanceAction`, `WearReceipt`, and the `TaylorLaw` calibration shapes.
 - [06]-[ASSESSMENT]: the `ToolWear` assessment, forecast, consumable, projection, and calibration fold.
 
 ## [02]-[WEAR_VOCABULARY]
@@ -29,12 +29,12 @@ Wire posture: HOST-LOCAL. `WearState`, `ConsumableRow`, and `CriticalWear` remai
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Linq;
-using System.Numerics.Tensors;
 using System.Threading;
 using LanguageExt;
 using LanguageExt.Common;
 using MathNet.Numerics.Interpolation;
 using NodaTime;
+using Rasm.Domain;
 using Rasm.Fabrication.Kinematics;
 using Rasm.Fabrication.Process;
 using Riok.Mapperly.Abstractions;
@@ -314,7 +314,8 @@ public abstract partial record WearCriterion {
 
 ## [04]-[WEAR_REGISTRY]
 
-- Owner: `WearRegistry` owns process applicability; `ConsumableSpec` owns one consumable's admitted budget; `WearSample` owns one timestamped observation set.
+- Owner: `WearRegistry` owns process applicability; `ConsumableSpec` owns one consumable's admitted budget; `WearSample` owns one timestamped observation set; `Process/atoms` owns `ConsumableKey` and this page composes it.
+- Law: one shop catalogue identity, one type, seated at S0. Declaring consumable identity here splits a contact tip a welding procedure names from a contact tip a wear budget spends into two incomparable values, stranding every maintenance action from the procedure that consumed the part; seating it on the joining owner instead reverses the fault, because this page is S2, `Joining/weld` is S3, and composing upward crosses the stratification. `Process/atoms` is the only stratum both consumers read.
 - Law: every admitted `ProcessKind` is covered explicitly. An uncovered process reaching the fold as empty success reports a tool with infinite life, so applicability is total over the vocabulary and an untracked process states its reason.
 - Cases: `WearApplicability` distinguishes `Tracked` from reasoned `Untracked`.
 - Auto: the registry index is DERIVED from the admitted rows and held, so a per-process lookup costs a read rather than a scan.
@@ -324,7 +325,6 @@ public abstract partial record WearCriterion {
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class WearSample {
     public ToolTarget Target { get; }
     public ProcessKind Process { get; }
@@ -333,33 +333,20 @@ public sealed partial class WearSample {
     public Seq<ConditionSignal> Signals { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref ToolTarget target,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ToolTarget target,
         ref ProcessKind process, ref Instant at, ref HashMap<ToolLifeBasis, double> exposure,
         ref Seq<ConditionSignal> signals) =>
         validationError = exposure.IsEmpty || signals.IsEmpty
             || exposure.AsIterable().Exists(static row => !double.IsFinite(row.Value) || row.Value < 0.0)
             || !signals.ForAll(static signal => signal.Wellformed)
-            ? ToolKey.Tooling("wear-sample") : null;
+            ? ToolKey.Validation("wear-sample") : null;
 
     public static Fin<WearSample> Admit(ToolTarget target, ProcessKind process, Instant at,
         HashMap<ToolLifeBasis, double> exposure, Seq<ConditionSignal> signals) =>
         Validate(target, process, at, exposure, signals, out WearSample sample).Admitted(sample);
 }
 
-[ValueObject<string>]
-[ValidationError<FabricationFault>]
-public sealed partial class ConsumableKey {
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
-        value = value.Trim();
-        validationError = Witness.Keyed(value) ? null : ToolKey.Tooling("consumable-key");
-    }
-
-    public static Fin<ConsumableKey> Admit(string value) => Admission.Of<ConsumableKey, string>(value);
-}
-
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ConsumableSpec {
     public ConsumableKey Key { get; }
     public ConsumableKind Kind { get; }
@@ -371,7 +358,7 @@ public sealed partial class ConsumableSpec {
     public string Evidence { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref ConsumableKey key,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ConsumableKey key,
         ref ConsumableKind kind, ref ToolLifeBasis basis, ref double warning, ref double limit,
         ref bool reconditionable, ref int maximumReconditions, ref string evidence) {
         evidence = evidence.Trim();
@@ -380,7 +367,7 @@ public sealed partial class ConsumableSpec {
             // A non-reconditionable consumable that declares reconditioning cycles states two contradictory facts.
             || maximumReconditions < 0 || (!reconditionable && maximumReconditions != 0)
             || !Witness.Keyed(evidence)
-            ? ToolKey.Tooling("consumable-spec") : null;
+            ? ToolKey.Validation("consumable-spec") : null;
     }
 
     public static Fin<ConsumableSpec> Admit(ConsumableKey key, ConsumableKind kind, ToolLifeBasis basis,
@@ -413,7 +400,6 @@ public abstract partial record WearApplicability {
 public sealed record ProcessWear(ProcessKind Process, WearApplicability Applicability);
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class WearRegistry {
     public Seq<ProcessWear> Rows { get; }
 
@@ -421,11 +407,11 @@ public sealed partial class WearRegistry {
     private FrozenDictionary<ProcessKind, WearApplicability>? index;
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Seq<ProcessWear> rows) =>
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<ProcessWear> rows) =>
         validationError = rows.Map(static row => row.Process).Distinct().Count != rows.Count
             || toSeq(ProcessKind.Items).Exists(process => !rows.Exists(row => row.Process == process))
             || rows.Exists(static row => !row.Applicability.Grounded)
-            ? ToolKey.Tooling("wear-registry") : null;
+            ? ToolKey.Validation("wear-registry") : null;
 
     public static Fin<WearRegistry> Admit(Seq<ProcessWear> rows) =>
         Validate(rows, out WearRegistry registry).Admitted(registry);
@@ -441,19 +427,20 @@ public sealed record ConsumableReading(ConsumableKey Key, ToolLifeBasis Basis, d
 
 ## [05]-[FORECAST_MODELS]
 
-- Owner: `TaylorModel` and `ModelDiagnostic` own phase-aware evolution; `WearPolicy` owns the assessment thresholds; `ForecastBand` owns the conservative projection; `WearReceipt` owns forecast and maintenance truth.
-- Law: `ModelDiagnostic` COMPOSES the `Tooling/cuttingdata` `LinearFitReceipt` rather than declaring a second regression. The page's own lead names one regression owner, and a private fit body beside it meant the trajectory slope and the Taylor slope were computed by two functions that could disagree about the same samples.
+- Owner: `TaylorModel` and `ModelDiagnostic` own phase-aware evolution; `PhaseSchedule` owns the trajectory's ordered partition and the phase it classifies; `WearPolicy` owns the assessment thresholds; `ForecastBand` owns the conservative projection; `WearReceipt` owns forecast and maintenance truth.
+- Law: `ModelDiagnostic` COMPOSES the `Tooling/cuttingdata` `Regression` rather than declaring a second regression. The page's own lead names one regression owner, and a private fit body beside it meant the trajectory slope and the Taylor slope were computed by two functions that could disagree about the same samples.
+- Law: `PhaseSchedule` admits the consumed-fraction partition ONCE with its curvature band and answers the phase itself, so no fold re-reads the columns to classify. Four bare fractions on `WearPolicy` carried an ordering the validator proved for two of them while the comment claimed three, and inspection sat inside a partition it never belonged to — inspection reads a REMAINING fraction where break-in and acceleration read a CONSUMED one. NAMED LOSS: none — `InspectionFraction` stays on the policy as the action threshold it always was, now seated beside no boundary that invites the conflation.
 - Cases: `WearState` distinguishes tool, consumable, status, and unconsumed evidence; `MaintenanceAction` distinguishes continue, monitor, inspect, rotate, replace, recondition, retire, and not-applicable, each case projecting onto the `MaintenanceDisposition` row of the same name through one total `Disposition` arm.
-- Auto: `TaylorCalibrationReceipt` narrows one `PowerLawReceipt` to the fitted speed coefficient under admitted feed, depth, and load exponents, and its terminal projection GENERATES rather than transcribing the model columns by hand.
+- Auto: `TaylorLaw` narrows one `PowerLaw` to the fitted speed coefficient under admitted feed, depth, and load exponents, and its terminal projection GENERATES rather than transcribing the model columns by hand.
+- Entry: `TaylorLaw.Admit(ingress, study)` is the ONE construction, and the study's residual, determination, and sample floors gate it there. Reading those columns off a constructed law to reject it afterwards is the deleted form, because a law that exists at all is a law a caller holds.
 - Receipt: `ModelDiagnostic` carries the shared fit beside both endpoint derivatives, so slope, intercept, residual, determination, sample domain, and the last observed value all read off one receipt. `FabricationFact.ToolWear.Of` projects the critical state onto `rasm.fabrication.tool.wear`, `rasm.fabrication.tool.assessments`, and `rasm.fabrication.fit.residual` through `Process/telemetry#FACT_PROJECTION` as kind `tool-wear`, carrying the `Disposition` key as the assessment population's outcome dimension so the in-service share reads off that one series; a receipt without a critical state projects nothing.
-- Packages: `NodaTime` `Instant`, `Duration`, and `Interval.Contains`; `Tooling/cuttingdata` `LinearFit` and `PowerLawFit`; MathNet.Numerics monotone cubic interpolation for the endpoint derivatives; `Riok.Mapperly` for the calibration projection.
-- Growth: a phase axis is one column on `WearPolicy` and one arm in the phase pattern.
+- Packages: `NodaTime` `Instant`, `Duration`, and `Interval.Contains`; `Tooling/cuttingdata` `LinearFit`, `PowerLawFit`, `Regression`, and `PowerLaw`; MathNet.Numerics monotone cubic interpolation for the endpoint derivatives; `Riok.Mapperly` for the calibration projection.
+- Growth: a phase axis is one column on `PhaseSchedule` and one arm in its `At` pattern.
 - Boundary: point-estimate scheduling, infinite fallback life, invented zero budgets, a line fitted to a resampled spline rather than the observations, and swallowed fit failures are deleted forms.
 
 ```csharp signature
 // --- [FORECAST_MODELS] ----------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class TaylorModel {
     public ToolLifeBasis Basis { get; }
     public double Constant { get; }
@@ -463,14 +450,16 @@ public sealed partial class TaylorModel {
     public double LoadExponent { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref ToolLifeBasis basis,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ToolLifeBasis basis,
         ref double constant, ref double speedExponent, ref double feedExponent, ref double depthExponent,
         ref double loadExponent) =>
         // Every exponent is strictly positive because each term SHORTENS life: a non-positive exponent would make
         // a faster, deeper, or harder cut extend the tool's life.
-        validationError = !Witness.Positive(constant)
-            || !Seq(speedExponent, feedExponent, depthExponent, loadExponent).ForAll(Witness.Positive)
-            ? ToolKey.Tooling("taylor-model") : null;
+        validationError = !ValidityClaim.Positive(constant).Holds
+            || !Seq(
+                speedExponent, feedExponent, depthExponent, loadExponent)
+                .ForAll(static value => ValidityClaim.Positive(value).Holds)
+            ? ToolKey.Validation("taylor-model") : null;
 
     public static Fin<TaylorModel> Admit(ToolLifeBasis basis, double constant, double speedExponent,
         double feedExponent, double depthExponent, double loadExponent) =>
@@ -482,8 +471,39 @@ public sealed partial class TaylorModel {
             * Math.Pow(depth.Millimeters, DepthExponent) * Math.Pow(load.Newtons, LoadExponent));
 }
 
+// Trajectory partition, admitted ONCE as a row and carrying its own classification. Break-in ends before
+// acceleration begins and both sit inside the consumed range, so ordering is an admitted invariant rather than a
+// clause a policy restates and a fold re-reads: a schedule that exists at all is ordered, and a consumed fraction
+// paired with a curvature ratio reads its phase off this row instead of off a consumer's switch over its columns.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
+public sealed partial class PhaseSchedule {
+    public double BreakIn { get; }
+    public double Accelerated { get; }
+    public double CurvatureBand { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double breakIn,
+        ref double accelerated, ref double curvatureBand) =>
+        validationError = !Seq(breakIn, accelerated, curvatureBand).ForAll(double.IsFinite)
+            || breakIn is <= 0.0 or >= 1.0 || accelerated <= breakIn || accelerated >= 1.0
+            || curvatureBand is <= 0.0 or >= 1.0
+            ? ToolKey.Validation("phase-schedule") : null;
+
+    public static Fin<PhaseSchedule> Admit(double breakIn, double accelerated, double curvatureBand) =>
+        Validate(breakIn, accelerated, curvatureBand, out PhaseSchedule schedule).Admitted(schedule);
+
+    // Consumed fraction and curvature classify JOINTLY, so a curve that steepens reads accelerated before its limit
+    // fraction says so; a forecast carrying no curvature reads unity and the consumed fraction alone answers.
+    public WearPhase At(double consumedFraction, Option<double> curvature) =>
+        (Consumed: consumedFraction, Curvature: curvature.IfNone(1.0)) switch {
+            { Consumed: >= 1.0 } => WearPhase.Terminal,
+            var row when row.Consumed >= Accelerated || row.Curvature > 1.0 + CurvatureBand => WearPhase.Accelerated,
+            var row when row.Consumed <= BreakIn || row.Curvature < 1.0 - CurvatureBand => WearPhase.BreakIn,
+            _ => WearPhase.Steady,
+        };
+}
+
+[ComplexValueObject]
 public sealed partial class WearPolicy {
     public int MinimumSamples { get; }
     public Interval Window { get; }
@@ -491,36 +511,29 @@ public sealed partial class WearPolicy {
     public double OutlierSigma { get; }
     public double MinimumRSquared { get; }
     public double ConfidenceMultiplier { get; }
-    public double BreakInFraction { get; }
-    public double AcceleratedFraction { get; }
+    public PhaseSchedule Phases { get; }
     public double InspectionFraction { get; }
-    public double CurvatureBand { get; }
     public Option<TaylorModel> Taylor { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref int minimumSamples,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int minimumSamples,
         ref Interval window, ref Duration maximumGap, ref double outlierSigma, ref double minimumRSquared,
-        ref double confidenceMultiplier, ref double breakInFraction, ref double acceleratedFraction,
-        ref double inspectionFraction, ref double curvatureBand, ref Option<TaylorModel> taylor) =>
+        ref double confidenceMultiplier, ref PhaseSchedule phases, ref double inspectionFraction,
+        ref Option<TaylorModel> taylor) =>
         validationError = minimumSamples < LinearFit.MinimumSamples || maximumGap <= Duration.Zero
-            || !Seq(outlierSigma, minimumRSquared, confidenceMultiplier, breakInFraction, acceleratedFraction,
-                    inspectionFraction, curvatureBand)
-                .ForAll(double.IsFinite)
-            || !Witness.Positive(outlierSigma) || minimumRSquared is < 0.0 or > 1.0
-            || !Witness.Positive(confidenceMultiplier)
-            // The three phase fractions partition the trajectory in order, so break-in must end before
-            // acceleration begins and both must sit inside the consumed range.
-            || breakInFraction is <= 0.0 or >= 1.0 || acceleratedFraction <= breakInFraction
-            || acceleratedFraction >= 1.0 || inspectionFraction is <= 0.0 or >= 1.0
-            || curvatureBand is <= 0.0 or >= 1.0
-            ? ToolKey.Tooling("wear-policy") : null;
+            || !Seq(outlierSigma, minimumRSquared, confidenceMultiplier, inspectionFraction).ForAll(double.IsFinite)
+            || !ValidityClaim.Positive(outlierSigma).Holds || minimumRSquared is < 0.0 or > 1.0
+            || !ValidityClaim.Positive(confidenceMultiplier).Holds
+            // Inspection is a REMAINING fraction, so it names no boundary on the consumed-fraction partition and
+            // orders against nothing there; it bounds itself and `PhaseSchedule` proves its own ordering.
+            || inspectionFraction is <= 0.0 or >= 1.0
+            ? ToolKey.Validation("wear-policy") : null;
 
     public static Fin<WearPolicy> Admit(int minimumSamples, Interval window, Duration maximumGap,
-        double outlierSigma, double minimumRSquared, double confidenceMultiplier, double breakInFraction,
-        double acceleratedFraction, double inspectionFraction, double curvatureBand, Option<TaylorModel> taylor) =>
+        double outlierSigma, double minimumRSquared, double confidenceMultiplier, PhaseSchedule phases,
+        double inspectionFraction, Option<TaylorModel> taylor) =>
         Validate(minimumSamples, window, maximumGap, outlierSigma, minimumRSquared, confidenceMultiplier,
-            breakInFraction, acceleratedFraction, inspectionFraction, curvatureBand, taylor,
-            out WearPolicy policy).Admitted(policy);
+            phases, inspectionFraction, taylor, out WearPolicy policy).Admitted(policy);
 }
 
 public sealed record ForecastBand(double Consumed, double WarningAt, double LimitAt,
@@ -533,7 +546,7 @@ public sealed record ForecastBand(double Consumed, double WarningAt, double Limi
 
 // The trajectory diagnostic COMPOSES the package's one least-squares receipt and adds only what a monotone spline
 // over the same samples reports: the derivative at each end, whose ratio names whether the curve is steepening.
-public sealed record ModelDiagnostic(LinearFitReceipt Fit, double SlopeFirst, double SlopeLast,
+public sealed record ModelDiagnostic(Regression Fit, double SlopeFirst, double SlopeLast,
     Instant First, Instant Last) {
     public double Slope => Fit.Slope;
     public double Intercept => Fit.Intercept;
@@ -622,7 +635,6 @@ public sealed record WearReceipt(Seq<WearState> States, Seq<ConsumableRow> Consu
     Seq<LifeBudget> LifeProjection, Instant AssessedAt);
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class TaylorCondition {
     public ToolTarget Target { get; }
     public ToolLifeBasis Basis { get; }
@@ -636,7 +648,7 @@ public sealed partial class TaylorCondition {
     public double RelativeUncertainty { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref ToolTarget target,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ToolTarget target,
         ref ToolLifeBasis basis, ref WearChannel channel, ref double consumed, ref Speed speed,
         ref Speed feed, ref Length depth, ref Force load, ref double current, ref double relativeUncertainty) =>
         validationError = !double.IsFinite(consumed) || consumed < 0.0
@@ -647,7 +659,7 @@ public sealed partial class TaylorCondition {
             // A relative uncertainty at or above one puts the conservative bound at or below zero for every
             // forecast, which schedules replacement regardless of what the tool actually carries.
             || !double.IsFinite(relativeUncertainty) || relativeUncertainty is < 0.0 or >= 1.0
-            ? ToolKey.Tooling("taylor-condition") : null;
+            ? ToolKey.Validation("taylor-condition") : null;
 
     public static Fin<TaylorCondition> Admit(ToolTarget target, ToolLifeBasis basis, WearChannel channel,
         double consumed, Speed speed, Speed feed, Length depth, Force load, double current,
@@ -657,7 +669,6 @@ public sealed partial class TaylorCondition {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class WearAssessment {
     public ProcessKind Process { get; }
     public ToolAssembly Assembly { get; }
@@ -669,7 +680,7 @@ public sealed partial class WearAssessment {
     public Instant AssessedAt { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref ProcessKind process,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ProcessKind process,
         ref ToolAssembly assembly, ref Seq<WearSample> samples, ref Seq<ConsumableReading> consumables,
         ref Option<TaylorCondition> taylor, ref WearRegistry registry, ref WearPolicy policy,
         ref Instant assessedAt) =>
@@ -682,7 +693,7 @@ public sealed partial class WearAssessment {
             || consumables.Exists(row => !policy.Window.Contains(row.At) || !double.IsFinite(row.Used)
                 || row.Used < 0.0 || row.Reconditions < 0)
             || consumables.Map(static row => (row.Key, row.Basis)).Distinct().Count != consumables.Count
-            ? ToolKey.Tooling("wear-assessment") : null;
+            ? ToolKey.Validation("wear-assessment") : null;
 
     public static Fin<WearAssessment> Admit(ProcessKind process, ToolAssembly assembly, Seq<WearSample> samples,
         Seq<ConsumableReading> consumables, Option<TaylorCondition> taylor, WearRegistry registry,
@@ -692,7 +703,6 @@ public sealed partial class WearAssessment {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class TaylorSample {
     public Speed Speed { get; }
     public Speed Feed { get; }
@@ -701,18 +711,16 @@ public sealed partial class TaylorSample {
     public double Life { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Speed speed,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Speed speed,
         ref Speed feed, ref Length depth, ref Force load, ref double life) =>
         validationError = speed.MetersPerSecond <= 0.0 || feed.MetersPerSecond <= 0.0
-            || depth <= Length.Zero || load.Newtons <= 0.0 || !Witness.Positive(life)
-            ? ToolKey.Tooling("taylor-sample") : null;
+            || depth <= Length.Zero || load.Newtons <= 0.0 || !ValidityClaim.Positive(life).Holds ? ToolKey.Validation("taylor-sample") : null;
 
     public static Fin<TaylorSample> Admit(Speed speed, Speed feed, Length depth, Force load, double life) =>
         Validate(speed, feed, depth, load, life, out TaylorSample sample).Admitted(sample);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class TaylorCalibration {
     public Seq<TaylorSample> Samples { get; }
     public ToolLifeBasis Basis { get; }
@@ -725,18 +733,18 @@ public sealed partial class TaylorCalibration {
     public Speed MinimumSpeedSpan { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Seq<TaylorSample> samples,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<TaylorSample> samples,
         ref ToolLifeBasis basis, ref double feedExponent, ref double depthExponent, ref double loadExponent,
         ref int minimumSamples, ref double maximumResidual, ref double minimumRSquared, ref Speed minimumSpeedSpan) =>
         validationError = minimumSamples < LinearFit.MinimumSamples || samples.Count < minimumSamples
-            || !Seq(feedExponent, depthExponent, loadExponent, maximumResidual).ForAll(Witness.Positive)
+            || !Seq(feedExponent, depthExponent, loadExponent, maximumResidual).ForAll(static value => ValidityClaim.Positive(value).Holds)
             || !double.IsFinite(minimumRSquared) || minimumRSquared is < 0.0 or > 1.0
             || minimumSpeedSpan.MetersPerSecond <= 0.0
             // A calibration over a speed span narrower than the caller's floor fits noise rather than the Taylor
             // exponent it claims to measure.
             || samples.Max(static row => row.Speed.MetersPerSecond)
                 - samples.Min(static row => row.Speed.MetersPerSecond) < minimumSpeedSpan.MetersPerSecond
-            ? ToolKey.Tooling("taylor-calibration") : null;
+            ? ToolKey.Validation("taylor-calibration") : null;
 
     public static Fin<TaylorCalibration> Admit(Seq<TaylorSample> samples, ToolLifeBasis basis, double feedExponent,
         double depthExponent, double loadExponent, int minimumSamples, double maximumResidual,
@@ -745,45 +753,49 @@ public sealed partial class TaylorCalibration {
             minimumRSquared, minimumSpeedSpan, out TaylorCalibration calibration).Admitted(calibration);
 }
 
-// The calibration's own construction columns, so the terminal projection generates rather than transcribing the
-// model and its domain by hand.
-public sealed record TaylorCalibrationIngress(
+// The law's own construction columns, so the terminal projection generates rather than transcribing the model and
+// its domain by hand.
+public sealed record TaylorLawIngress(
     TaylorModel Model,
-    LinearFitReceipt Fit,
+    Regression Fit,
     Speed SpeedMinimum,
     Speed SpeedMaximum);
 
+// `TaylorLaw` names what it IS the way `cuttingdata` names `Regression` and `PowerLaw`: a Taylor model bound to the
+// regression that fitted it and to the speed span that regression covered.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
-public sealed partial class TaylorCalibrationReceipt {
+public sealed partial class TaylorLaw {
     public TaylorModel Model { get; }
-    public LinearFitReceipt Fit { get; }
+    public Regression Fit { get; }
     public Speed SpeedMinimum { get; }
     public Speed SpeedMaximum { get; }
 
-    public double RootMeanSquareResidual => Fit.RootMeanSquareResidual;
-    public double RSquared => Fit.RSquared;
-    public int Samples => Fit.Samples;
-
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref TaylorModel model,
-        ref LinearFitReceipt fit, ref Speed speedMinimum, ref Speed speedMaximum) =>
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref TaylorModel model,
+        ref Regression fit, ref Speed speedMinimum, ref Speed speedMaximum) =>
         validationError = speedMinimum.MetersPerSecond <= 0.0
             || speedMaximum.MetersPerSecond <= speedMinimum.MetersPerSecond
             || fit.Samples < LinearFit.MinimumSamples
-            ? ToolKey.Tooling("taylor-calibration-receipt") : null;
+            ? ToolKey.Validation("taylor-law") : null;
 
-    public static Fin<TaylorCalibrationReceipt> Admit(TaylorCalibrationIngress ingress) =>
-        Validate(ingress.Model, ingress.Fit, ingress.SpeedMinimum, ingress.SpeedMaximum,
-            out TaylorCalibrationReceipt receipt).Admitted(receipt);
+    // Fit-quality floors from the caller admit the LAW, so a regression its own study rejects never becomes a law
+    // that exists and is refused afterwards. Residual, determination, and sample reads live here — the one place
+    // anything asks them — rather than as a re-exported mirror of columns `Regression` already publishes.
+    public static Fin<TaylorLaw> Admit(TaylorLawIngress ingress, TaylorCalibration under) =>
+        ingress.Fit.RootMeanSquareResidual <= under.MaximumResidual
+        && ingress.Fit.RSquared >= under.MinimumRSquared
+        && ingress.Fit.Samples >= under.MinimumSamples
+            ? Validate(ingress.Model, ingress.Fit, ingress.SpeedMinimum, ingress.SpeedMaximum,
+                out TaylorLaw law).Admitted(law)
+            : Fin.Fail<TaylorLaw>(ToolKey.Tooling("taylor-law:unfit"));
 }
 
 // The terminal projection. Every column transcribes unchanged, so the copy generates and a column added to the
-// ingress cannot reach the receipt half-filled.
+// ingress cannot reach the law half-filled.
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target,
     EnabledConversions = MappingConversionType.None)]
-public static partial class TaylorCalibrationMap {
-    public static partial TaylorCalibrationIngress Ingress(TaylorCalibrationReceipt receipt);
+public static partial class TaylorLawMap {
+    public static partial TaylorLawIngress Ingress(TaylorLaw law);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -797,7 +809,7 @@ public abstract partial record WearRequest {
 public abstract partial record WearResult {
     private WearResult() { }
     public sealed record Assessment(WearReceipt Receipt) : WearResult;
-    public sealed record Calibration(TaylorCalibrationReceipt Receipt) : WearResult;
+    public sealed record Calibration(TaylorLaw Law) : WearResult;
 }
 ```
 
@@ -808,18 +820,21 @@ public abstract partial record WearResult {
 - Entry: `ToolWear.Apply(WearRequest, FabricationTap?)` is the one polymorphic entry over assessment and Taylor calibration; the tap threads through the request switch and defaults silent, so a headless assessment emits nothing and branches nowhere.
 - Auto: admission accumulates malformed signal, time, target, channel-kind, registry, and budget rows; assessment groups by target, projects through the declared channel row, removes policy-defined outliers, fits the exposure trajectory through the shared regression owner, and classifies phase jointly from consumed fraction and the monotone spline's start-to-end derivative ratio, so a curve that steepens reads accelerated before its limit fraction says so. Missing specification, missing reading, untracked-process readings, stale windows, and terminal status fail typed.
 - Receipt: `WearReceipt` carries all states, consumable rows, critical row, maintenance action, model diagnostics, and window-bounded `LifeProjection`; projection groups tool states by target and life basis, then retains the most conservative whole forecast per key.
-- Packages: `Tooling/cuttingdata` `LinearFit` and `PowerLawFit`; `Process/telemetry` (`FabricationTap`, `FabricationFact.ToolWear`); MathNet.Numerics `Interpolate.CubicSplineMonotone` and `IInterpolation.Differentiate`; `TensorPrimitives` statistical reductions.
-- Boundary: a current value taken outside the admitted rows, status-only spent inference, phase read from the limit fraction alone while the page claims trajectory classification, and bare `Seq.Last` reads are deleted forms.
+- Packages: `Tooling/cuttingdata` `LinearFit` and `PowerLawFit`; `Rasm.Domain` `Stat<Scalar>`, `Scalar`, `MomentNormalizer`, and `Op` — the kernel's one moment owner; `Process/telemetry` (`FabricationTap`, `FabricationFact.ToolWear`); MathNet.Numerics `Interpolate.CubicSplineMonotone` and `IInterpolation.Differentiate`.
+- Boundary: a current value taken outside the admitted rows, status-only spent inference, phase read from the limit fraction alone while the page claims trajectory classification, a mean-and-dispersion pair folded beside the kernel moment owner, and bare `Seq.Last` reads are deleted forms.
 
 ```csharp signature
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class ToolWear {
+    // Every kernel moment fold reaches under this page's own op, so a refusal names the plane that asked.
+    private static readonly Op WearOp = Op.Of(name: "fabrication:tool-wear");
+
     public static Fin<WearResult> Apply(WearRequest request, FabricationTap? tap = null) => request.Switch(
         state: tap ?? FabricationTap.Silent,
         assess: static (port, row) => Assess(row.Value, port)
             .Map<WearResult>(static receipt => new WearResult.Assessment(receipt)),
         calibrate: static (_, row) => Calibrate(row.Value)
-            .Map<WearResult>(static receipt => new WearResult.Calibration(receipt)));
+            .Map<WearResult>(static law => new WearResult.Calibration(law)));
 
     private static Fin<WearReceipt> Assess(WearAssessment request, FabricationTap tap) =>
         from applicability in request.Registry.For(request.Process)
@@ -905,13 +920,13 @@ public static class ToolWear {
         let estimate = Math.Max(0.0, total - condition.Consumed)
         let standard = total * condition.RelativeUncertainty
         let limitAt = Math.Max(total, condition.Consumed)
-        from ____ in Witness.Positive(total) && double.IsFinite(estimate)
-            ? Fin.Succ(unit) : Fin.Fail<Unit>(ToolKey.Tooling("taylor:forecast"))
+        from ____ in ValidityClaim.All(
+            ValidityClaim.Positive(total), double.IsFinite(estimate)) ? Fin.Succ(unit) : Fin.Fail<Unit>(ToolKey.Tooling("taylor:forecast"))
         select (WearState)new WearState.Tool(target, criterion.Mechanism, criterion.Channel, condition.Current,
             criterion.Warning, criterion.Limit,
             ForecastBand.Of(condition.Consumed, total * criterion.Warning / criterion.Limit,
                 limitAt, estimate, standard, policy.ConfidenceMultiplier, criterion.Basis,
-                Phase(criterion.Limit <= 0.0 ? 1.0 : condition.Current / criterion.Limit, None, policy)),
+                policy.Phases.At(criterion.Limit <= 0.0 ? 1.0 : condition.Current / criterion.Limit, None)),
             new WearEvidence.Taylor(model, condition.Channel, condition.Current,
                 condition.Speed, condition.Feed, condition.Depth, condition.Load));
 
@@ -926,16 +941,6 @@ public static class ToolWear {
             criterion.Warning, criterion.Limit,
             Remaining(criterion.Warning, criterion.Limit, criterion.Basis, fit, policy),
             new WearEvidence.Measured(criterion.Channel, samples, new WearEvidence.Condition(observed), fit));
-
-    private static WearPhase Phase(double consumedFraction, Option<double> curvature, WearPolicy policy) =>
-        (Consumed: consumedFraction, Curvature: curvature.IfNone(1.0)) switch {
-            { Consumed: >= 1.0 } => WearPhase.Terminal,
-            var row when row.Consumed >= policy.AcceleratedFraction
-                || row.Curvature > 1.0 + policy.CurvatureBand => WearPhase.Accelerated,
-            var row when row.Consumed <= policy.BreakInFraction
-                || row.Curvature < 1.0 - policy.CurvatureBand => WearPhase.BreakIn,
-            _ => WearPhase.Steady,
-        };
 
     private static Fin<WearState> TerminalForecast(ToolTarget target, WearCriterion.TerminalStatus criterion,
         Seq<WearSample> samples, WearAssessment request) =>
@@ -987,16 +992,25 @@ public static class ToolWear {
 
     // The trajectory rides the package's ONE regression owner and adds only the monotone spline's endpoint
     // derivatives, so the slope this diagnostic publishes and the slope a Taylor calibration publishes come from
-    // the same body.
+    // the same body. Mean and dispersion ride the KERNEL's one moment owner: `Stat<Scalar>`'s span leg folds both
+    // in a centred pass and refuses a non-finite plane outright, retiring the separate finiteness sweep that stood
+    // beside an average and a deviation over that same span. NAMED LOSS: none — this page re-spells the refusal as
+    // its own `wear:samples` instead of surfacing the kernel op's, and one pass replaces three.
     private static Fin<ModelDiagnostic> FitTrajectory(Seq<(double Exposure, double Value, Instant At)> raw,
-        WearPolicy policy) {
-        double[] source = raw.Map(static row => row.Value).ToArray();
-        if (raw.Count < policy.MinimumSamples || !TensorPrimitives.IsFiniteAll<double>(source))
-            return Fin.Fail<ModelDiagnostic>(ToolKey.Tooling("wear:samples"));
-        double mean = TensorPrimitives.Average<double>(source);
-        double sigma = TensorPrimitives.StdDev<double>(source);
+        WearPolicy policy) =>
+        raw.Count < policy.MinimumSamples
+            ? Fin.Fail<ModelDiagnostic>(ToolKey.Tooling("wear:samples"))
+            : Stat<Scalar>.Of(raw.Map(static row => row.Value).ToArray().AsSpan(), WearOp).Match(
+                Succ: spread => Windowed(raw, policy, spread),
+                Fail: _ => Fin.Fail<ModelDiagnostic>(ToolKey.Tooling("wear:samples")));
+
+    // Outlier removal reads ONE receipt. A zero dispersion means every observation sits on the mean, so the window
+    // is the whole run rather than an empty filter against a zero band.
+    private static Fin<ModelDiagnostic> Windowed(Seq<(double Exposure, double Value, Instant At)> raw,
+        WearPolicy policy, Stat<Scalar> spread) {
+        double sigma = spread.Deviation(MomentNormalizer.Population);
         Seq<(double Exposure, double Value, Instant At)> rows = sigma <= 0.0 ? raw
-            : raw.Filter(row => Math.Abs(row.Value - mean) <= policy.OutlierSigma * sigma).ToSeq();
+            : raw.Filter(row => Math.Abs(row.Value - spread.Mean) <= policy.OutlierSigma * sigma).ToSeq();
         return (rows.Head, rows.Last).Apply(static (first, last) => (First: first, Last: last))
             .ToFin(ToolKey.Tooling("wear:window"))
             .Bind(bounds => rows.Count >= policy.MinimumSamples
@@ -1012,8 +1026,8 @@ public static class ToolWear {
         double[] y = rows.Map(static row => row.Value).ToArray();
         IInterpolation trajectory = Interpolate.CubicSplineMonotone(x, y);
         return LinearFit.Apply(rows.Map(static row => (row.Exposure, row.Value)), FitSpace.Linear)
-            .Bind(fit => Witness.Positive(fit.Slope) && fit.RSquared >= policy.MinimumRSquared
-                ? Fin.Succ(new ModelDiagnostic(fit,
+            .Bind(fit => ValidityClaim.All(
+                ValidityClaim.Positive(fit.Slope), fit.RSquared >= policy.MinimumRSquared) ? Fin.Succ(new ModelDiagnostic(fit,
                     trajectory.Differentiate(x[0]), trajectory.Differentiate(x[^1]), first, last))
                 : Fin.Fail<ModelDiagnostic>(ToolKey.Tooling("wear:fit")));
     }
@@ -1027,7 +1041,7 @@ public static class ToolWear {
         double standard = fit.RootMeanSquareResidual / fit.Slope;
         return ForecastBand.Of(fit.LastExposure, (warning - fit.Intercept) / fit.Slope,
             limitAt, estimate, standard, policy.ConfidenceMultiplier, basis,
-            Phase(limit <= 0.0 ? 0.0 : fit.LastValue / limit, Some(fit.Curvature), policy));
+            policy.Phases.At(limit <= 0.0 ? 0.0 : fit.LastValue / limit, Some(fit.Curvature)));
     }
 
     // The criticality census reads each state's own remaining column, so a new state case answers once at the
@@ -1073,22 +1087,21 @@ public static class ToolWear {
                 row.Remaining.Consumed, row.Remaining.WarningAt, row.Remaining.LimitAt, assessedAt,
                 Some(policy.Window))).As();
 
-    private static Fin<TaylorCalibrationReceipt> Calibrate(TaylorCalibration request) =>
+    private static Fin<TaylorLaw> Calibrate(TaylorCalibration request) =>
         // The Taylor relation is a power law in cutting speed once the feed, depth, and load terms are divided
-        // out, so the shared log-log fit reads the speed exponent directly.
+        // out, so the shared log-log fit reads the speed exponent directly. The study's own quality floors ride
+        // into the law's admission, so an unfit regression never reaches a law a caller then has to reject.
         from fit in PowerLawFit.Apply(request.Samples.Map(row => (row.Speed.MetersPerSecond,
             row.Life * Math.Pow(row.Feed.MetersPerSecond, request.FeedExponent)
                 * Math.Pow(row.Depth.Millimeters, request.DepthExponent)
                 * Math.Pow(row.Load.Newtons, request.LoadExponent))))
         from model in TaylorModel.Admit(request.Basis, fit.Coefficient, fit.Exponent,
             request.FeedExponent, request.DepthExponent, request.LoadExponent)
-        from receipt in TaylorCalibrationReceipt.Admit(new TaylorCalibrationIngress(model, fit.Fit,
-            Speed.FromMetersPerSecond(fit.DomainMinimum), Speed.FromMetersPerSecond(fit.DomainMaximum)))
-        from admitted in receipt.RootMeanSquareResidual <= request.MaximumResidual
-            && receipt.RSquared >= request.MinimumRSquared
-            ? Fin.Succ(receipt)
-            : Fin.Fail<TaylorCalibrationReceipt>(ToolKey.Tooling("taylor:calibration-unfit"))
-        select admitted;
+        from law in TaylorLaw.Admit(
+            new TaylorLawIngress(model, fit.Fit,
+                Speed.FromMetersPerSecond(fit.DomainMinimum), Speed.FromMetersPerSecond(fit.DomainMaximum)),
+            request)
+        select law;
 }
 ```
 

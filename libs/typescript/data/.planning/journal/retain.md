@@ -11,7 +11,7 @@ Aging stays lawful without rewriting: the log is append-only forever, so this pa
 ## [02]-[RETENTION_ROWS]
 
 - Owner: the `Retain.Class` vocabulary — one `as const` key tuple feeding `Schema.Literal` and the window-row table, so wire admission and the type derive from one anchor pair — with the frontier ledger recording the causal handoff, the `_GROOMS` roster naming every relation that ages by wall clock and its two renderings, the `legal_hold` suspension ledger with its `hold`/`lift`/`held` verbs and the `Retain.holding` predicate pair both renderings and the object plane compose, and the partition rows that realize aging on the spine.
-- Packages: `effect` (`Array`, `Duration`, `Option`, `Record`, `Schema`); `@effect/sql`; `@rasm/ts/core` (`Causal.Retention` — the `{floor, stamp}` compaction coordinate — `Identity.tenancy`, the tenancy axis every sweep row states, and `Fault.Class` for the hold refusal's kind); the `partition` and `cron` grants gate execution.
+- Packages: `effect` (`Array`, `Duration`, `Option`, `Record`, `Schema`); `@effect/sql`; `journal/append.md` (`Journal.advance` — the folder's one monotone conditional upsert; `Journal.now` — the one dialect-now fragment); `@rasm/ts/core` (`Causal.Retention` — the `{floor, stamp}` compaction coordinate — `Identity.tenancy`, the tenancy axis every sweep row states, and `Fault.Class` for the hold refusal's kind); the `partition` and `cron` grants gate execution.
 - Entry: every aging consumer reads one vocabulary — object references store a class key, `Retain.groom(key)` sweeps in process and `Retain.groomText(key, dialect)` renders the scheduled statements `read/fold#MAINTENANCE` registers, `journal/fact.md` keys its fact streams by the same classes, and the granted maintenance rows execute the partition drops; no window literal and no groom predicate exists outside this page.
 - Growth: a new class is one row — every sweep, groom, and lifecycle rule inherits it; a new aging surface reads the table, never mints a window; a new cost depth is one `_depths` entry the object plane's own storage-class map then answers.
 - Law: a class prices AGE and DEPTH in one row — `lifetime.bound` says how long the class lives and `transitions` says how its bytes get cheaper while they do, so the retention vocabulary is a cost tier rather than a delete timer and the object plane's lifecycle rules generate both halves from this one table with no window or class literal outside it.
@@ -20,7 +20,8 @@ Aging stays lawful without rewriting: the log is append-only forever, so this pa
 - Law: the depth vocabulary is retention's and the storage-class SPELLING is the object plane's — age is what selects a depth, so the rung names one, and `object/store.md` maps depth onto the engine's own class and filters the ladder against that engine's conformance cell; naming a vendor storage class here drags one engine's vocabulary into the aging owner every other plane reads.
 - Law: depth ascends with position, so an engine honouring one honours every shallower rung and the filter is an index compare rather than a per-engine roster; `ephemeral` carries no rung at all, because every archive class bills a thirty-day minimum and a rung under a seven-day window pays that floor on bytes already gone.
 - Law: a rung states its own forfeit — `_DEPTHS` carries `restore`, the posture that costs a reader hours behind a restore verb, because cost order alone cannot tell a consumer whether bytes answer now; `regulatory` and `permanent` both run the ladder to `frozen`, so long-lived evidence is exactly the material a portability or incident read finds unavailable synchronously, and a consumer told only the class plans for a latency the class never mentioned.
-- Law: the journal itself never ages by wall clock — partition drop is lawful only at-or-below a frontier the causality owner finalized AND a snapshot at-or-above it exists; `Retain.handoff` records the `Causal.Retention` coordinate into the frontier ledger under a monotonic guard (a stale handoff commits nothing), the drop statement generates from the recorded row, and compaction can never orphan unreplayable history.
+- Law: the journal itself never ages by wall clock — partition drop is lawful only at-or-below a frontier the causality owner finalized AND a snapshot at-or-above it exists; `Retain.handoff` records the `Causal.Retention` coordinate into the frontier ledger through `Journal.advance`, the folder's one monotone conditional upsert, so a stale handoff commits nothing AND reads back the `snapshotted` floor that beat it as a `Journal.Fence` rather than inferring a landing from silence; the drop statement generates from the recorded row, and compaction can never orphan unreplayable history.
+- Law: a `Stale` handoff is settled news, never contention — a fresher frontier already covers this stream, so the caller drops its coordinate and re-hands nothing; retrying only re-offers a floor the ledger has already passed.
 - Law: partitioning is a `pg_partman` image fact — the ensure registers `journal_event` as a partitioned parent only where the `partition` grant holds, and the drop itself is the granted maintenance row `lane/postgres.md` gates; the sqlite profiles never partition (their compaction is the export-snapshot-and-truncate posture `lane/sqlite.md` owns).
 - Law: grooming is ONE roster and two renderings, never a relation pair a caller names — `_GROOMS` states each aging relation's age column, its eligibility gate, and where its class comes from, because only a relation CARRYING a `retention` column can be swept class by class: the ledger, the outbox, and the quarantine carry none, so a class-keyed predicate against them names a column no DDL declares and the sweep dies on its first run. A row whose whole content belongs to one class states that class instead, `permanent` folds to a no-op by `Duration.isFinite`, and the roster feeds ONE age table through two BINDING postures — `Retain.groom(key)` binds values through `sql.onDialectOrElse`, `Retain.groomText(key, dialect)` renders the statement TEXT the scheduled plane's extension contract takes, and both read `_AGE` and `_seconds`, so the dialect axis rides each road and a maintenance row scheduled on an embedded profile can never receive the spine's own spelling; every literal on both roads is sealed `Retain.Policy` material, so no caller value ever reaches a groom statement.
 - Law: isolation spells `tenancy` on every row and never a second name — `residency`, `partition`, and `scope` are dead spellings no reader compares across families; sweeps run at the `tenancy` their row states and never at the ambient one, so with `multi` on every current row `Retain.groom` runs from the maintenance composition under the MAINTENANCE-PLANE session posture the tenancy owner mints — the landed policy is FORCE, so an unpinned DELETE sweeps a relation it cannot see and reports success over zero rows, a sweep issued inside `Tenant.within` narrows to one tenant while every other tenant ages forever, and the plane posture is the one session state that makes the estate-wide sweep spellable at all.
@@ -149,6 +150,19 @@ const _frontierDdl: Capability.Ensure = {
 
 const _floorJson = Schema.encode(Schema.parseJson(Schema.Unknown))
 
+// The frontier's monotone gate is the folder's ONE conditional-write owner instantiated on this relation, exactly as
+// the snapshot row instantiates it: `snapshotted` is the gate, `handed_at` the column the winning arm restamps, and
+// the domain column literally named `stamp` is ordinary payload the same assignment fold carries. Nothing here spells
+// a statement, so this ledger and the snapshot row cannot drift apart on which arm reports a loss.
+const _ADVANCE = Journal.advance({
+  relation: "retain_frontier",
+  columns: ["app", "tenant", "aggregate", "floor", "stamp", "snapshotted"],
+  key: ["app", "tenant", "aggregate"],
+  gate: "snapshotted",
+  touched: "handed_at",
+  coordinate: Journal.Version,
+})
+
 const _handoff = (
   stream: StreamKey,
   frontier: { readonly floor: unknown; readonly stamp: string; readonly snapshotted: number },
@@ -156,16 +170,14 @@ const _handoff = (
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     const floor = yield* _floorJson(frontier.floor)
-    yield* sql`INSERT INTO retain_frontier ${sql.insert([{
+    return yield* _ADVANCE(sql, {
       app: stream.app,
       tenant: stream.tenant,
       aggregate: stream.aggregate,
       floor,
       stamp: frontier.stamp,
       snapshotted: frontier.snapshotted,
-    }])} ON CONFLICT (app, tenant, aggregate) DO UPDATE
-      SET floor = excluded.floor, stamp = excluded.stamp, snapshotted = excluded.snapshotted, handed_at = ${Journal.now(sql)}
-      WHERE excluded.snapshotted > retain_frontier.snapshotted`
+    }, frontier.snapshotted)
   })
 
 // One row per relation that ages by wall clock, and the whole difference between them is data. `clazz` names where
@@ -711,7 +723,7 @@ const Retain = {
   Policy: _Policy,
   depths: _depths, // ordered shallow-to-deep: the object plane's conformance filter reads position, never a roster
   depthRows: _DEPTHS, // what each rung gives up, keyed by the same names the order above ranks
-  handoff: _handoff,
+  handoff: _handoff, // answers `Journal.Fence<number>`: the recorded floor, or the fresher one that displaced it
   grooms: _GROOMS,
   groom: _groom,
   groomText: _groomText, // the scheduled plane's rendering of the same roster, dialect carried as a parameter

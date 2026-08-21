@@ -8,17 +8,19 @@
 
 ## [02]-[TIME_TRAVEL]
 
-- Owner: `TimeCut` the `[ComplexValueObject]` AS-OF boundary carrying a precise `Hlc` ceiling, its `CutKind` modality, and the optional Marten stream version; `AsOfQuery` the one reconstruction-request shape (cut, optional branch, optional node-key prefix); `Checkpoint` a sealed reconstructed-graph fold anchor that hash-chains the prior checkpoint's `Hash` over the reconstructed graph's `ContentAddress`; `KeyDelta`/`RangeDiff` the two-cut member-level delta carrying per-`(NodeId, member)` content-address change and a `ChangeKind` class; `BlameRow`/`BlameContributor` per `(NodeId, change-kind, axis)` authorship attribution carrying the winning event AND its superseded contributor lineage (the forward-log lifecycle granularity, not the property-member granularity `RangeDiff` owns); `ScrubFrame`/`ScrubReel` the ordered event-replay reel over reconstructed graph addresses; `BisectOutcome` the first-flip locus of a MONOTONE history predicate over reconstructed snapshots; `TimeLog` the one read/closure port over the Marten event stream and the AS-OF fold, carrying the injected `ProjectionContext` frame and the kernel `ReceiptSinkPort`; `TimeTravel` the static surface.
+- Owner: `TimeCut` the `[ComplexValueObject]` AS-OF boundary carrying a precise `Hlc` ceiling, its `CutKind` modality, and the optional Marten stream version; `AsOfQuery` the one reconstruction-request shape (cut, optional branch, optional node-key prefix); `Checkpoint` a sealed reconstructed-graph fold anchor that hash-chains the prior checkpoint's `Hash` over the reconstructed graph's `ContentAddress`; `KeyDelta`/`RangeDiff` the two-cut member-level delta carrying per-`(NodeId, member)` content-address change and a `ChangeKind` class; `BlameRow`/`BlameContributor` per `(NodeId, change-kind, axis)` authorship attribution carrying the winning event AND its superseded contributor lineage (the forward-log lifecycle granularity, not the property-member granularity `RangeDiff` owns); `ScrubFrame`/`ScrubReel` the ordered event-replay reel over reconstructed graph addresses; `BisectVerdict`/`BisectOutcome` the closed three-case answer of a MONOTONE history predicate over reconstructed snapshots beside the probe cost; `SealLink` the four checkpoint-chain links a `Verify` accumulates as the held `CapabilitySet`; `TimeLog` the one read/closure port over the Marten event stream and the AS-OF fold, carrying the injected `ProjectionContext` frame and the kernel `ReceiptSinkPort`; `TimeTravel` the static surface.
 - Cases: `CutKind` is `Precise | Instant | Version` — `TimeCut.Precise(Hlc)`, `Of(Instant)`, and `AtVersion(long, Hlc)` collapsed into one value-object whose `Ceiling` is the inclusive HLC bound and whose `StreamVersion` binds the Marten fold; `ChangeKind` is `Added | Removed | Replaced` keyed by the `(NodeId, member)` content address across two reconstructions (no `Converged` — convergence is the `Version/commits#CRDT_ALGEBRA` `crdt`-lane merge concept, never an AS-OF cell delta between two settled graphs); `SeekDirection` is `Forward | Backward`; `BlameAxis` is `Node | Edge` discriminating whether a member change is keyed on a node's canonical member path or an incident edge.
-- Entry: `public static IO<TimeTravelReceipt> Reconstruct(AsOfQuery query, TimeLog log)` folds the model stream to the cut into the AS-OF `ElementGraph` and returns the receipt; `public static IO<ElementGraph> Graph(AsOfQuery query, TimeLog log)` is the bare reconstructed snapshot; `public static IO<RangeDiff> Diff(AsOfQuery from, AsOfQuery to, TimeLog log)` content-address-differences two reconstructed snapshots by `(NodeId, member)`; `public static IO<Seq<BlameRow>> Blame(AsOfQuery query, TimeLog log)` folds the winning-plus-superseded authorship per changed cell from the event metadata; `public static IO<ScrubReel> Scrub(AsOfQuery query, ScrubWindow window, TimeLog log)` materializes the ordered event-replay reel; `public static IO<BisectOutcome> Bisect(AsOfQuery bound, Func<ElementGraph, bool> holds, TimeLog log)` binary-searches the first version where a MONOTONE predicate flips; `public static IO<BranchRef> BranchFromPast(AsOfQuery query, string newBranch, GrantSet acl, Guid origin, TimeLog log, Func<string, Guid, ContentAddress, CommitMessage, IO<CommitNode>> mintBranchCommit)` forks a new branch over the reconstructed graph's content address (the `acl` is the `Element/authority#GRANT_ALGEBRA` `GrantSet` the new `BranchRef` carries, the object-authorization vocabulary the commit-DAG branch lane reuses, never the AppHost effect-gating `Capability`); `public static IO<Checkpoint> Anchor(AsOfQuery query, Option<Checkpoint> prior, TimeLog log)` seals the AS-OF graph against the nearest prior checkpoint; `public static bool Verify(Checkpoint checkpoint, Option<Checkpoint> prior, ContentAddress reconstructed)` re-folds the chain and confirms the rolling address.
+- Entry: `public static IO<TimeTravelReceipt> Reconstruct(AsOfQuery query, TimeLog log)` folds the model stream to the cut into the AS-OF `ElementGraph` and returns the receipt; `public static IO<ElementGraph> Graph(AsOfQuery query, TimeLog log)` is the bare reconstructed snapshot; `public static IO<RangeDiff> Diff(AsOfQuery from, AsOfQuery to, TimeLog log)` content-address-differences two reconstructed snapshots by `(NodeId, member)`; `public static IO<Seq<BlameRow>> Blame(AsOfQuery query, TimeLog log)` folds the winning-plus-superseded authorship per changed cell from the event metadata; `public static IO<ScrubReel> Scrub(AsOfQuery query, ScrubWindow window, TimeLog log)` materializes the ordered event-replay reel; `public static IO<BisectOutcome> Bisect(AsOfQuery bound, Func<ElementGraph, bool> holds, TimeLog log)` binary-searches the first version where a MONOTONE predicate flips; `public static IO<BranchRef> BranchFromPast(AsOfQuery query, string newBranch, GrantSet acl, Guid origin, TimeLog log, Func<string, Guid, ContentAddress, CommitMessage, IO<CommitNode>> mintBranchCommit)` forks a new branch over the reconstructed graph's content address (the `acl` is the `Element/authority#GRANT_ALGEBRA` `GrantSet` the new `BranchRef` carries, the object-authorization vocabulary the commit-DAG branch lane reuses, never the AppHost effect-gating `Capability`); `public static IO<Checkpoint> Anchor(AsOfQuery query, Option<Checkpoint> prior, TimeLog log)` seals the AS-OF graph against the nearest prior checkpoint; `public static CapabilitySet<SealLink> Verify(Checkpoint checkpoint, Option<Checkpoint> prior, ContentAddress reconstructed)` re-folds the chain and returns the links that held, a consumer gating on the whole seal demanding it through `Require` under that consumer's own band.
 - Auto: `AggregateStreamAsync<GraphProjection>(model, version|timestamp)` folds the `GraphDelta` prefix through `GraphDelta.ReplayOnto`, seeded from Marten's nearest snapshot. `Seal` chains the reconstructed graph's order-independent `ContentAddress.OfGraph` value onto the prior rolling hash. Range diff projects node-member inequalities and a separate content-keyed edge set difference, so topology changes remain visible. Blame groups stored event touches by `(NodeId, change-kind, axis)` and retains superseded contributors. Scrub replays each event once and steps one seam `GraphMembers` accumulator per event, addressing each resulting graph through the seam's own sorted fold. Bisect reconstructs only logarithmic candidate versions for a monotone predicate.
-- Receipt: the AS-OF reconstruction folds a typed `TimeTravelReceipt` and emits it through the kernel `ReceiptSinkPort` the `TimeLog` carries, under its `store.timetravel.asof` slot (the `Element/codec#SNAPSHOT_SPINE` / `Version/ledger#CHANGEFEED` emission law), returning the same receipt to the caller; a checkpoint seal carries its own evidence in the returned `Checkpoint` and `Verify` returns the pure chain-validity probe.
-- Packages: Marten (`AggregateStreamAsync`/`FetchStreamAsync`/`IEvent<GraphEvent>`), Rasm.Element (`ElementGraph`/`GraphDelta.ReplayOnto`/`ContentAddress.Of`/`ContentAddress.OfGraph`/`GraphMembers.Of`/`Advance`/`EqualityComparer.Inequalities`/`Node`/`NodeId`/`Relationship` — the seam owns every content-key mint here), NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, System.IO.Hashing (the `ChainHash` rolling accumulator ONLY — a defensible-local tamper chain, never a content-key mint), BCL inbox.
+- Receipt: the AS-OF reconstruction folds a typed `TimeTravelReceipt` and emits it through the kernel `ReceiptSinkPort` the `TimeLog` carries, under its `store.timetravel.asof` slot (the `Element/codec#SNAPSHOT_SPINE` / `Version/ledger#CHANGEFEED` emission law), returning the same receipt to the caller; a checkpoint seal carries its own evidence in the returned `Checkpoint`, and `Verify` returns the pure `CapabilitySet<SealLink>` of links that held, naming every break at once rather than the first.
+- Packages: Marten (`AggregateStreamAsync`/`FetchStreamAsync`/`IEvent<GraphEvent>`), Rasm (`Rasm/Domain/validation#CAPABILITY` `ICapability`/`CapabilitySet.Of`/`With`/`Missing`/`Require` — the `SealLink` accumulation and its consumer-side demand), Rasm.Element (`ElementGraph`/`GraphDelta.ReplayOnto`/`ContentAddress.Of`/`ContentAddress.OfGraph`/`GraphMembers.Of`/`Advance`/`GraphMemberStep.Resolve`/`EqualityComparer.Inequalities`/`Node`/`NodeId`/`Relationship` — the seam owns every content-key mint here), NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, System.IO.Hashing (the `ChainHash` rolling accumulator ONLY — a defensible-local tamper chain, never a content-key mint), BCL inbox.
 - Growth: a new replay projection is one method on `TimeTravel`; a new attribution dimension is one field on `BlameRow`; a new change classification is one `ChangeKind` row; a new cut modality is one `CutKind` row and one `TimeCut` factory; zero new surface — a temporal-table mirror, a second history store, a snapshot-per-instant materialization, a bespoke `OpLogEntry` replay engine, or a parallel bisect walker is the deleted form because reconstruction is `AggregateStreamAsync` over the events Marten already holds and pins the heavy cuts to the periodic Marten snapshot as the fold floor, the lightweight `Checkpoint` carrying only the reproducibility chain.
-- Boundary: reconstruction is the SAME `GraphDelta.ReplayOnto` fold the `Element/graph#GRAPH_PROJECTION` inline projection and the live `Graph/delta#GRAPH_DELTA` `WorkingGraph` produce-and-replay run, surfaced through `Marten` `AggregateStreamAsync(version|timestamp)`, so the AS-OF `ElementGraph` at any cut is reproducible from the model stream and there is exactly ONE materializer — a second hand-rolled prefix fold (the retired `OpLogEntry`/`Crdt.Apply` replay) is the deleted form because the op-log is itself a `Version/ledger#CHANGEFEED` projection of these same events and TimeTravel reconstructs the durable graph, not a CRDT cell map; `TimeCut.Ceiling` is the inclusive `Hlc` bound and `StreamVersion` the Marten fold key — `Of(Instant)` binds `AggregateStreamAsync(timestamp:)`, `AtVersion` binds `AggregateStreamAsync(version:)`, and `Precise(Hlc)` resolves the version through `TimeLog.VersionAt` (the HLC→version map off the event `Timestamp`) so a precise causal cut still folds a deterministic version, never a wall-clock window; the `Checkpoint.Address` is the reconstructed graph's `ContentAddress.OfGraph` (the order-independent snapshot identity the `Element/codec#CONTENT_ADDRESS` owner mints, never a re-implemented hash) and `AsOfKey` names it EXPLICITLY as the S3 cross-runtime seam key — the ONE content digest the `python:data/gridded/virtual` icechunk snapshot identity keys AS-OF snapshots by AND `recovery.md` `ReAttest` proves a reconstructed restore against (`RecoveryPoint.AsCut()` resolves to this cut, the reconstructed `OfGraph` must equal the checkpoint `AsOfKey`) — while its `Hash` is the rolling content address chain above the floor, a NON-cryptographic tamper-evidence link NEVER the cross-runtime key (not reproducible from graph content alone; `Version/provenance#ATTESTED_LEDGER` owns authenticity and the attested chain explicitly defers reproducibility here), so `Verify` re-folds the prior `Hash` over the reconstructed `Address` confirming the rolling address, the `Prior` back-link, and the cumulative `Version`; `RangeDiff` reconstructs both endpoints (two AS-OF folds, never a stored delta chain) and projects TWO axes so NO change escapes: the NODE axis is the `Generator.Equals` `Inequalities` member change-set (a property/material/quantity member moved between two cuts surfaces by its `(NodeId, member)` content-address delta, the `Added`/`Removed`/`Replaced` class read from whether the node existed at each cut), and the EDGE axis is a content-keyed set-difference over the two edge arrays (because the `Edges` member is `[OrderedEquality]`, its inequality paths carry an `Index`/`Added`/`Removed` segment that is never NodeId-valued, so an `Inequalities`-only diff SILENTLY DROPS every topology rewire — the deleted thin slice; each changed edge attributes to both endpoint `NodeId`s on the Edge axis, the same both-endpoint attribution blame uses, and the node-presence `Added`/`Removed`/`Changed` accessors filter to the Node axis so an incident edge change never mis-reports an existing node) — DISTINCT in altitude from the `Version/merge#STRUCTURAL_DIFF` base-relative 3-way forest merge (that is the merge conflict surface; this is the AS-OF member delta between two settled snapshots) and from the `Version/ledger#SYNC_TRANSPORTS` `GraphDiff` transport set-difference; `BlameRow` reads the same `(Hlc, actor)` the changefeed stamp carries — the winning `GraphEvent` is the highest-version event whose `GraphDelta` touched the `(NodeId, change-kind, axis)` cell (an edge touch keyed on every node the edge `Members` involves, not a 2-tuple `Endpoints` that has no `Map`), the superseded contributors the prior touching events — so blame is event-stream authorship at forward-log lifecycle granularity, never a re-derived guess, and the property-member narrowing composes with the `RangeDiff` Node axis; bisect's `holds` is MONOTONE so the first-flip locus is a lower-bound binary search over the stream version range, `HeldAtFloor` short-circuiting an already-broken floor, each probe a `AggregateStreamAsync(version:mid)` reconstruction; branch-from-past mints a root `CommitNode` over the reconstructed graph's `ContentAddress` through the `mintBranchCommit` seam, the commit cell riding the event stream's `Hlc` stamp, never `DateTime.UtcNow`; there is no redaction stance — the `Version/retention#RETENTION_CLASSES` lifecycle is append-only with reachability GC over every AS-OF cut (history is never mutated and a blob a historical cut references is never collected), so a "fold erased bytes / mask a redacted op" reconstruction has no owner and is the deleted form.
+- Boundary: reconstruction is the SAME `GraphDelta.ReplayOnto` fold the `Element/graph#GRAPH_PROJECTION` inline projection and the live `Graph/delta#GRAPH_DELTA` `WorkingGraph` produce-and-replay run, surfaced through `Marten` `AggregateStreamAsync(version|timestamp)`, so the AS-OF `ElementGraph` at any cut is reproducible from the model stream and there is exactly ONE materializer — a second hand-rolled prefix fold (the retired `OpLogEntry`/`Crdt.Apply` replay) is the deleted form because the op-log is itself a `Version/ledger#CHANGEFEED` projection of these same events and TimeTravel reconstructs the durable graph, not a CRDT cell map; `TimeCut.Ceiling` is the inclusive `Hlc` bound and `StreamVersion` the Marten fold key — `Of(Instant)` binds `AggregateStreamAsync(timestamp:)`, `AtVersion` binds `AggregateStreamAsync(version:)`, and `Precise(Hlc)` resolves the version through `TimeLog.VersionAt` (the HLC→version map off the event `Timestamp`) so a precise causal cut still folds a deterministic version, never a wall-clock window; the `Checkpoint.Address` is the reconstructed graph's `ContentAddress.OfGraph` (the order-independent snapshot identity the `Element/codec#CONTENT_ADDRESS` owner mints, never a re-implemented hash) and `AsOfKey` names it EXPLICITLY as the S3 cross-runtime seam key — the ONE content digest the `python:data/gridded/virtual` icechunk snapshot identity keys AS-OF snapshots by AND `recovery.md` `ReAttest` proves a reconstructed restore against (`RecoveryPoint.AsCut()` resolves to this cut, the reconstructed `OfGraph` must equal the checkpoint `AsOfKey`) — while its `Hash` is the rolling content address chain above the floor, a NON-cryptographic tamper-evidence link NEVER the cross-runtime key (not reproducible from graph content alone; `Version/provenance#ATTESTED_LEDGER` owns authenticity and the attested chain explicitly defers reproducibility here), so `Verify` re-folds the prior `Hash` over the reconstructed `Address` and ACCUMULATES four independent links — the rolling address, the chain hash, the `Prior` back-link, and the cumulative `Version` — as the `CapabilitySet<SealLink>` that held, because a tamper report naming only the first break sends an operator back to the probe once per remaining link; `RangeDiff` reconstructs both endpoints (two AS-OF folds, never a stored delta chain) and projects TWO axes so NO change escapes: the NODE axis is the `Generator.Equals` `Inequalities` member change-set (a property/material/quantity member moved between two cuts surfaces by its `(NodeId, member)` content-address delta, the `Added`/`Removed`/`Replaced` class read from whether the node existed at each cut), and the EDGE axis is a content-keyed set-difference over the two edge arrays (because the `Edges` member is `[OrderedEquality]`, its inequality paths carry an `Index`/`Added`/`Removed` segment that is never NodeId-valued, so an `Inequalities`-only diff SILENTLY DROPS every topology rewire — the deleted thin slice; each changed edge attributes to both endpoint `NodeId`s on the Edge axis, the same both-endpoint attribution blame uses, and the node-presence `Added`/`Removed`/`Changed` accessors filter to the Node axis so an incident edge change never mis-reports an existing node) — DISTINCT in altitude from the `Version/merge#STRUCTURAL_DIFF` base-relative 3-way forest merge (that is the merge conflict surface; this is the AS-OF member delta between two settled snapshots) and from the `Version/ledger#SYNC_TRANSPORTS` `GraphDiff` transport set-difference; `BlameRow` reads the same `(Hlc, actor)` the changefeed stamp carries — the winning `GraphEvent` is the highest-version event whose `GraphDelta` touched the `(NodeId, change-kind, axis)` cell (an edge touch keyed on every node the edge `Members` involves, not a 2-tuple `Endpoints` that has no `Map`), the superseded contributors the prior touching events — so blame is event-stream authorship at forward-log lifecycle granularity, never a re-derived guess, and the property-member narrowing composes with the `RangeDiff` Node axis; bisect's `holds` is MONOTONE so the first-flip locus is a lower-bound binary search over the stream version range, the `BisectVerdict.HeldAtFloor` case short-circuiting an already-broken floor and staying DISTINCT from `NeverFlipped` (a predicate broken before the window and a predicate never broken inside it are two findings an operator acts on differently, which one `Option` beside one flag cannot tell apart), each probe a `AggregateStreamAsync(version:mid)` reconstruction and the bound itself never folded because nothing reads it; branch-from-past mints a root `CommitNode` over the reconstructed graph's `ContentAddress` through the `mintBranchCommit` seam, the commit cell riding the event stream's `Hlc` stamp, never `DateTime.UtcNow`; there is no redaction stance — the `Version/retention#RETENTION_CLASSES` lifecycle is append-only with reachability GC over every AS-OF cut (history is never mutated and a blob a historical cut references is never collected), so a "fold erased bytes / mask a redacted op" reconstruction has no owner and is the deleted form.
 
 ```csharp signature
 // --- [TYPES] ---------------------------------------------------------------------------
+// DISTINCT-BY-DESIGN (E-P6 allowlist): storage AUDIT tokens for the AS-OF cell delta — never Bim `Review/diff`'s
+// wire-frozen six-row `[JsonDerivedType]` ChangeKind discriminator roster; the rosters are disjoint.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -37,18 +39,39 @@ public sealed partial class ChangeKind {
     public static readonly ChangeKind Replaced = new("replaced");
 }
 
+// Each direction carries BOTH its behaviours as rows — how it lays a reel and which face of a frame a seek reads —
+// so no `Rewind` bool sits between the case and its meaning, and a third direction is one row no consumer edits.
 [SmartEnum]
 public sealed partial class SeekDirection {
-    public static readonly SeekDirection Forward = new(rewind: false);
-    public static readonly SeekDirection Backward = new(rewind: true);
-    public bool Rewind { get; }
-    public Seq<ScrubFrame> Lay(Seq<ScrubFrame> forward) => Rewind ? forward.Rev() : forward;
+    public static readonly SeekDirection Forward = new(lay: static frames => frames, face: static frame => frame.After);
+    public static readonly SeekDirection Backward = new(lay: static frames => frames.Rev(), face: static frame => frame.Before);
+    private readonly Func<Seq<ScrubFrame>, Seq<ScrubFrame>> lay;
+    private readonly Func<ScrubFrame, UInt128> face;
+    public Seq<ScrubFrame> Lay(Seq<ScrubFrame> forward) => lay(forward);
+    public UInt128 Face(ScrubFrame frame) => face(frame);
 }
 
 [SmartEnum]
 public sealed partial class BlameAxis {
     public static readonly BlameAxis Node = new();
     public static readonly BlameAxis Edge = new();
+}
+
+// Four checkpoint-chain links state INDEPENDENT facts about one seal, so `Verify` ACCUMULATES the set that HELD:
+// `Missing(All)` names every break at once where an `&&` ladder answered one bit and sent an operator back to the
+// probe per remaining link. Refusal POSTURE belongs to whichever consumer gates on the seal — it demands through
+// `Require(All, …)` and lands the refusal in its OWN band — which is why this no-band algebra mints no `Error`.
+// `Version/recovery` `ReAttest` is that consumer: its commit point demands `Require(All, …)` and lands the
+// break in the `RecoveryFault.VerifyFailed` band, running BESIDE `AttestedLedger.Verify` because the two
+// absorb absence oppositely — that chain grades authenticity and passes an unsigned ledger as `Unsigned`,
+// while these four links grade the checkpoint chain's integrity and admit no absence at all.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class SealLink : ICapability<SealLink> {
+    public static readonly SealLink Address  = new("address");
+    public static readonly SealLink Chain    = new("chain");
+    public static readonly SealLink BackLink = new("back-link");
+    public static readonly SealLink Monotone = new("monotone");
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -117,15 +140,34 @@ public readonly record struct ScrubWindow(Interval Span, SeekDirection Direction
 public readonly record struct ScrubReel(Seq<ScrubFrame> Frames, ElementGraph Terminal, Interval Span) {
     public Option<ScrubFrame> Seek(Hlc at) =>
         Frames.Filter(f => f.At.CompareTo(at) >= 0).Fold(Option<ScrubFrame>.None, static (best, f) => Some(best.Filter(b => b.At.CompareTo(f.At) <= 0).IfNone(f)));
-    public Option<UInt128> StateAt(Hlc at, SeekDirection direction) => Seek(at).Map(f => direction.Rewind ? f.Before : f.After);
+    public Option<UInt128> StateAt(Hlc at, SeekDirection direction) => Seek(at).Map(direction.Face);
 }
 
-public readonly record struct BisectOutcome(Option<ScrubFrame> FirstFlip, long Probes, bool HeldAtFloor);
-public readonly record struct TimeTravelReceipt(string Slot, TimeCut Cut, long Version, long EventsFolded, bool SnapshotHit, UInt128 Address, Duration Elapsed, Instant At, CorrelationId Correlation);
+// Bisect answers a closed THREE-case verdict, never a frame-and-flag product: `(Some frame, floor:true)` was
+// representable and meant nothing, and `(None, false)` conflated "no flip inside the range" with "the predicate was
+// already broken before the window opened" — two findings an operator acts on differently. `Probes` rides beside the
+// verdict as the search's cost, the one fact every case shares.
+[Union]
+public abstract partial record BisectVerdict {
+    private BisectVerdict() { }
+
+    public sealed record HeldAtFloor : BisectVerdict;
+    public sealed record Flipped(ScrubFrame Frame) : BisectVerdict;
+    public sealed record NeverFlipped : BisectVerdict;
+}
+
+public readonly record struct BisectOutcome(BisectVerdict Verdict, long Probes);
+
+// `SnapshotFloor` is the VERSION Marten's periodic snapshot seeded the fold from, absent when the fold ran from an
+// empty stream — the option carrier where a `SnapshotHit` bool answered that a floor existed while erasing which,
+// so the fold's real cost (`Version - floor`) was unrecoverable from the receipt that claimed to measure it.
+// `EventsToCut` renames what the field always held: the stream census up to the cut, NOT the count folded past the
+// floor — the two differ by exactly the snapshot's reach, and one name over both certified a census as a workload.
+public readonly record struct TimeTravelReceipt(string Slot, TimeCut Cut, long Version, long EventsToCut, Option<long> SnapshotFloor, UInt128 Address, Duration Elapsed, Instant At, CorrelationId Correlation);
 
 // TimeLog ports every read over the Marten event stream and the AS-OF fold. Reconstruct wraps AggregateStreamAsync (the
-// periodic Marten snapshot is the fold floor Marten seeds from internally — SnapshotHit reads whether the head state
-// carried one) and OWNS branch scoping: it receives the whole AsOfQuery, so an AsOfQuery.Branch=Some restricts the
+// periodic Marten snapshot is the fold floor Marten seeds from internally — Floor names the VERSION it seeded at and
+// answers None on an unsnapshotted stream) and OWNS branch scoping: it receives the whole AsOfQuery, so an AsOfQuery.Branch=Some restricts the
 // fold to the branch head's commit closure off the commit-DAG (the composition root wires the BranchRef-head and
 // reachable-commit resolution into this one delegate), an AsOfQuery.Branch=None folds the global model stream;
 // ReconstructAt is the by-version probe scrub/bisect drive; Events wraps FetchStreamAsync; VersionAt resolves a
@@ -137,7 +179,7 @@ public readonly record struct TimeTravelReceipt(string Slot, TimeCut Cut, long V
 // delegate, and NO standalone branch-head/closure port field — the branch scope rides AsOfQuery.Branch into
 // Reconstruct rather than a second unwired delegate beside it.
 public sealed record TimeLog(
-    Func<AsOfQuery, IO<(ElementGraph Graph, long Version, bool SnapshotHit)>> Reconstruct,
+    Func<AsOfQuery, IO<(ElementGraph Graph, long Version, Option<long> Floor)>> Reconstruct,
     Func<long, IO<ElementGraph>> ReconstructAt,
     Func<TimeCut, IO<Seq<IEvent<GraphEvent>>>> Events,
     Func<Hlc, IO<long>> VersionAt,
@@ -158,11 +200,17 @@ public static class TimeTravel {
     public static Checkpoint Seal(Option<Checkpoint> prior, Hlc at, long version, ContentAddress address) =>
         new(at, version, address, ChainHash(prior.Map(static p => p.Hash), address), prior.Map(static p => p.Hash));
 
-    public static bool Verify(Checkpoint checkpoint, Option<Checkpoint> prior, ContentAddress reconstructed) =>
-        checkpoint.Address == reconstructed
-        && checkpoint.Hash == ChainHash(prior.Map(static p => p.Hash), reconstructed)
-        && checkpoint.Prior == prior.Map(static p => p.Hash)
-        && checkpoint.Version >= prior.Map(static p => p.Version).IfNone(0L);
+    // Verify re-folds the chain and answers the set of links that HELD. The four probes are independent, so they
+    // accumulate rather than short-circuit: a tampered seal names its address, chain, back-link, and monotonicity
+    // breaks in one read. A caller gating on the whole seal demands `Require(CapabilitySet<SealLink>.All, …)` under
+    // its OWN band, and a caller reporting damage reads `Missing(All)`.
+    public static CapabilitySet<SealLink> Verify(Checkpoint checkpoint, Option<Checkpoint> prior, ContentAddress reconstructed) =>
+        Seq((Link: SealLink.Address,  Held: checkpoint.Address == reconstructed),
+            (Link: SealLink.Chain,    Held: checkpoint.Hash == ChainHash(prior.Map(static p => p.Hash), reconstructed)),
+            (Link: SealLink.BackLink, Held: checkpoint.Prior == prior.Map(static p => p.Hash)),
+            (Link: SealLink.Monotone, Held: checkpoint.Version >= prior.Map(static p => p.Version).IfNone(0L)))
+            .Filter(static row => row.Held)
+            .Fold(CapabilitySet<SealLink>.None, static (held, row) => held.With(row.Link));
 
     static UInt128 ChainHash(Option<UInt128> prior, ContentAddress address) {
         using XxHash128 rolling = new();
@@ -204,8 +252,10 @@ public static class TimeTravel {
             + EdgeDeltas(query, a, b);
 
     // EdgeDeltas owns the EDGE axis of the AS-OF diff — the topology delta node-keyed Inequalities cannot recover. Each edge is keyed
-    // through the SEAM `ContentAddress.Of` over its standalone `ToCanonicalBytes(tolerance)` bytes under its OWN graph's
-    // `Header.Tolerance` (the ONE seam hasher — a raw `XxHash128` call site is the deleted spelling; the SAME edge content
+    // through the SEAM `ContentAddress.Of(edge, tolerance)` STREAMING arm under its OWN graph's
+    // `Header.Tolerance` (the ONE seam hasher, and the only edge-key entry there is: the seam retired
+    // `Relationship.ToCanonicalBytes`, so no materialized edge-byte array exists to hash beside it and a raw
+    // `XxHash128` call site is the deleted spelling; the SAME edge content
     // key Version/merge#STRUCTURAL_DIFF composes, the SAME grid the node-side
     // `ContentAddress.Of(n, a.Header.Tolerance)` keying above uses), so an edge in `b` not in `a` is Added, in `a` not `b`
     // Removed (a rewired endpoint is one Removed + one Added — the content key changed). Threading the model tolerance
@@ -214,8 +264,8 @@ public static class TimeTravel {
     // Added+Removed. Each changed edge attributes to BOTH endpoint NodeIds — the SAME both-endpoint attribution Blame uses —
     // carrying the edge's own content key as the from/to address and honoring NodeKeyPrefix.
     static Seq<KeyDelta> EdgeDeltas(AsOfQuery query, ElementGraph a, ElementGraph b) {
-        HashMap<UInt128, Relationship> fromEdges = toHashMap(a.Edges.Select(e => (ContentAddress.Of(e.ToCanonicalBytes(a.Header.Tolerance).Span).Value, e)));
-        HashMap<UInt128, Relationship> toEdges = toHashMap(b.Edges.Select(e => (ContentAddress.Of(e.ToCanonicalBytes(b.Header.Tolerance).Span).Value, e)));
+        HashMap<UInt128, Relationship> fromEdges = toHashMap(a.Edges.Select(e => (ContentAddress.Of(e, a.Header.Tolerance).Value, e)));
+        HashMap<UInt128, Relationship> toEdges = toHashMap(b.Edges.Select(e => (ContentAddress.Of(e, b.Header.Tolerance).Value, e)));
         Seq<(Relationship Edge, ChangeKind Kind, Option<UInt128> Key)> changed =
             toSeq(toEdges.Filter((key, _) => !fromEdges.ContainsKey(key)).Map(static (key, e) => (e, ChangeKind.Added, Some(key))).Values)
             + toSeq(fromEdges.Filter((key, _) => !toEdges.ContainsKey(key)).Map(static (key, e) => (e, ChangeKind.Removed, Some(key))).Values);
@@ -225,18 +275,23 @@ public static class TimeTravel {
     }
 
     public static IO<Seq<BlameRow>> Blame(AsOfQuery query, TimeLog log) =>
-        log.Events(query.Cut).Map(events => toSeq(events
+        log.Events(query.Cut).Bind(events => IO.liftFin(toSeq(events
             .Bind(e => Touched(e).Filter(cell => query.Selects(cell.Node)).Map(cell => (Cell: cell, Event: e)))
             .GroupBy(static row => (row.Cell.Node, row.Cell.Member, row.Cell.Axis))
-            .Select(static group => {
+            .Select(group => {
                 // GroupBy yields a non-empty group, so `ordered[0]` reads the highest-version winner directly —
                 // LanguageExt Seq.Head returns Option<A>, never the bare row.
                 Seq<((NodeId Node, string Member, BlameAxis Axis) Cell, IEvent<GraphEvent> Event)> ordered = toSeq(group.OrderByDescending(static r => r.Event.Version));
                 ((NodeId Node, string Member, BlameAxis Axis) Cell, IEvent<GraphEvent> Event) winner = ordered[0];
-                return new BlameRow(group.Key.Node, group.Key.Member, group.Key.Axis,
-                    ActorOf(winner.Event), OriginOf(winner.Event), new Hlc(Instant.FromDateTimeOffset(winner.Event.Timestamp), (ulong)winner.Event.Version), winner.Event.Version,
-                    ordered.Count, ordered.Tail.Map(static r => new BlameContributor(ActorOf(r.Event), OriginOf(r.Event), new Hlc(Instant.FromDateTimeOffset(r.Event.Timestamp), (ulong)r.Event.Version), r.Event.Version)));
-            })));
+                return from authored in AuthorshipOf(winner.Event, log.Frame.Key)
+                       from superseded in ordered.Tail.Traverse(row => AuthorshipOf(row.Event, log.Frame.Key).Map(author =>
+                           new BlameContributor(author.Actor, author.Origin,
+                               new Hlc(Instant.FromDateTimeOffset(row.Event.Timestamp), (ulong)row.Event.Version), row.Event.Version))).As()
+                       select new BlameRow(group.Key.Node, group.Key.Member, group.Key.Axis,
+                           authored.Actor, authored.Origin,
+                           new Hlc(Instant.FromDateTimeOffset(winner.Event.Timestamp), (ulong)winner.Event.Version), winner.Event.Version,
+                           ordered.Count, superseded);
+            })).Traverse(static row => row).As()));
 
     public static IO<ScrubReel> Scrub(AsOfQuery query, ScrubWindow window, TimeLog log) =>
         from events in log.Events(query.Cut)
@@ -247,20 +302,26 @@ public static class TimeTravel {
         // deleted. Frame addresses ride the seam GraphMembers accumulator seeded ONCE per window: Advance steps the
         // member sets by one delta and OfGraph(members) re-enters the seam's own private sorted fold, so a frame
         // address is byte-identical to the recompute while the reel pays one member step per event instead of one
-        // whole-graph fold. A tolerance-reheader delta REFUSES the step, and that arm re-seeds off the replayed graph
-        // into the full-state fold the seam's refusal names, never a silently stale accumulator.
-        let reel = windowed.Fold(
-            (Frames: Seq<ScrubFrame>(), Graph: seeded, Members: GraphMembers.Of(seeded), Address: ContentAddress.OfGraph(seeded)),
-            (acc, e) => {
+        // whole-graph fold. A tolerance reheader returns the seam's explicit `Refold` outcome; only that outcome
+        // re-seeds from the replayed graph while every genuine advance failure stays on the rail.
+        from reel in IO.liftFin(windowed.Fold(
+            Fin.Succ((Frames: Seq<ScrubFrame>(), Graph: seeded, Members: GraphMembers.Of(seeded), Address: ContentAddress.OfGraph(seeded))),
+            (held, e) => held.Bind(acc => {
                 ElementGraph next = e.Data.Body.ReplayOnto(acc.Graph);
-                GraphMembers members = acc.Members.Advance(e.Data.Body, log.Frame.Key).IfFail(_ => GraphMembers.Of(next));
-                ContentAddress nextAddress = ContentAddress.OfGraph(members);
-                return (acc.Frames.Add(new ScrubFrame(acc.Frames.Count, e.Version, e.Data.Lifecycle, new Hlc(Instant.FromDateTimeOffset(e.Timestamp), (ulong)e.Version), ActorOf(e), acc.Address.Value, nextAddress.Value)), next, members, nextAddress);
-            })
+                return AuthorshipOf(e, log.Frame.Key).Bind(author =>
+                    acc.Members.Advance(e.Data.Body, log.Frame.Key).Map(step => {
+                        GraphMembers members = step.Resolve(_ => GraphMembers.Of(next));
+                        ContentAddress nextAddress = ContentAddress.OfGraph(members);
+                        return (acc.Frames.Add(new ScrubFrame(acc.Frames.Count, e.Version, e.Data.Lifecycle,
+                            new Hlc(Instant.FromDateTimeOffset(e.Timestamp), (ulong)e.Version), author.Actor,
+                            acc.Address.Value, nextAddress.Value)), next, members, nextAddress);
+                    }));
+            })))
         select new ScrubReel(window.Direction.Lay(reel.Frames), reel.Graph, window.Span);
 
+    // Bisect never folds the bound's own reconstruction: the floor graph and each probe are what `holds` reads, so a
+    // whole AS-OF fold at the bound was one discarded snapshot per bisect. The versions come off the event census.
     public static IO<BisectOutcome> Bisect(AsOfQuery bound, Func<ElementGraph, bool> holds, TimeLog log) =>
-        from _ in log.Reconstruct(bound with { Branch = None })
         from events in log.Events(bound.Cut)
         let versions = toSeq(events.Map(static e => e.Version).OrderBy(static v => v))
         from floorGraph in log.ReconstructAt(versions.Head.Map(static v => v - 1L).IfNone(0L))
@@ -275,23 +336,28 @@ public static class TimeTravel {
             return log.ReconstructAt(version).Bind(graph => holds(graph) ? Search(lo, mid, probes + 1) : Search(mid + 1, hi, probes + 1));
         }
         return holds(floor)
-            ? IO.pure(new BisectOutcome(None, 0L, HeldAtFloor: true))
+            ? IO.pure(new BisectOutcome(new BisectVerdict.HeldAtFloor(), 0L))
             : Search(0, versions.Count, 0L).Bind(found => found.Flip < versions.Count && byVersion.Find(versions[found.Flip]) is { IsSome: true, Case: IEvent<GraphEvent> flipEvent }
                 ? from before in log.ReconstructAt(versions[found.Flip] - 1L)
                   from after in log.ReconstructAt(versions[found.Flip])
-                  select new BisectOutcome(Some(FlipFrame(found.Flip, flipEvent, before, after, log.Frame.Key)), found.Probes, HeldAtFloor: false)
-                : IO.pure(new BisectOutcome(None, found.Probes, HeldAtFloor: false)));
+                  from frame in IO.liftFin(FlipFrame(found.Flip, flipEvent, before, after, log.Frame.Key))
+                  select new BisectOutcome(new BisectVerdict.Flipped(frame), found.Probes)
+                : IO.pure(new BisectOutcome(new BisectVerdict.NeverFlipped(), found.Probes)));
     }
 
     // Each side of the flip receives the canonical full-graph address every other AS-OF consumer reads. The AFTER side
     // rides the seam accumulator seeded off the BEFORE graph and stepped by the flip event's own delta — one member
-    // step instead of a second whole-graph fold, and byte-identical to it — the tolerance-reheader refusal re-seeding
-    // off the reconstructed after-graph.
-    static ScrubFrame FlipFrame(int index, IEvent<GraphEvent> e, ElementGraph before, ElementGraph after, Op key) {
+    // step instead of a second whole-graph fold, and byte-identical to it — only the seam's tolerance-reheader
+    // `Refold` outcome re-seeds off the reconstructed after-graph.
+    static Fin<ScrubFrame> FlipFrame(int index, IEvent<GraphEvent> e, ElementGraph before, ElementGraph after, Op key) {
         GraphMembers members = GraphMembers.Of(before);
         ContentAddress priorAddress = ContentAddress.OfGraph(members);
-        ContentAddress afterAddress = ContentAddress.OfGraph(members.Advance(e.Data.Body, key).IfFail(_ => GraphMembers.Of(after)));
-        return new ScrubFrame(index, e.Version, e.Data.Lifecycle, new Hlc(Instant.FromDateTimeOffset(e.Timestamp), (ulong)e.Version), ActorOf(e), priorAddress.Value, afterAddress.Value);
+        return from author in AuthorshipOf(e, key)
+               from step in members.Advance(e.Data.Body, key)
+               let afterAddress = ContentAddress.OfGraph(step.Resolve(_ => GraphMembers.Of(after)))
+               select new ScrubFrame(index, e.Version, e.Data.Lifecycle,
+                   new Hlc(Instant.FromDateTimeOffset(e.Timestamp), (ulong)e.Version), author.Actor,
+                   priorAddress.Value, afterAddress.Value);
     }
 
     public static IO<BranchRef> BranchFromPast(AsOfQuery query, string newBranch, GrantSet acl, Guid origin, TimeLog log, Func<string, Guid, ContentAddress, CommitMessage, IO<CommitNode>> mintBranchCommit) =>
@@ -310,7 +376,7 @@ public static class TimeTravel {
         from reconstructed in log.Reconstruct(query)
         from events in log.Events(query.Cut)
         let address = ContentAddress.OfGraph(reconstructed.Graph)
-        let receipt = new TimeTravelReceipt("store.timetravel.asof", query.Cut, reconstructed.Version, events.Count, reconstructed.SnapshotHit, address.Value, log.Frame.Elapsed(mark), log.Frame.Now(), log.Frame.Correlation)
+        let receipt = new TimeTravelReceipt("store.timetravel.asof", query.Cut, reconstructed.Version, events.Count, reconstructed.Floor, address.Value, log.Frame.Elapsed(mark), log.Frame.Now(), log.Frame.Correlation)
         from _ in log.Sink.Send(log.Frame.Correlation, log.Frame.Tenant, TelemetrySource.Persistence.Key, receipt.Slot, JsonSerializer.SerializeToElement(receipt, ElementJson.Options))
         select (reconstructed.Graph, receipt);
 
@@ -342,13 +408,17 @@ public static class TimeTravel {
             + delta.RemovedEdges.Bind(static r => r.Members.Map(ep => (ep, nameof(GraphDelta.RemovedEdges), BlameAxis.Edge)));
     }
 
-    // Authorship rides the Marten event Headers (the Element/graph#STREAM_GRAIN Append stamps `actor`/`origin` via
-    // SetHeader, the SAME `actor` slot Version/ledger#CHANGEFEED OpLog.Project reads) — never re-derived. Blame
-    // names the AUTHORING store, so an absent origin header (a pre-origin event) reads Guid.Empty as "no store
-    // named" — a blame readout alone, never the LWW tie-break input the dot's own `Id.Origin` now settles.
-    static string ActorOf(IEvent<GraphEvent> e) => e.Headers is { } h && h.TryGetValue("actor", out var actor) ? actor?.ToString() ?? string.Empty : string.Empty;
-
-    static Guid OriginOf(IEvent<GraphEvent> e) => e.Headers is { } h && h.TryGetValue("origin", out var origin) && Guid.TryParse(origin?.ToString(), out var id) ? id : Guid.Empty;
+    // Authorship rides the Marten event headers `GraphStore.Blame` stamps. Both members are required durable facts;
+    // absence or malformed origin rails as the kernel invalid-input fault instead of minting an anonymous actor or
+    // zero origin that collapses unrelated authors into one bucket.
+    static Fin<(string Actor, Guid Origin)> AuthorshipOf(IEvent<GraphEvent> e, Op key) =>
+        e.Headers is { } headers
+        && headers.TryGetValue("actor", out object? actor)
+        && actor?.ToString() is { Length: > 0 } subject
+        && headers.TryGetValue("origin", out object? origin)
+        && Guid.TryParse(origin?.ToString(), out Guid store)
+            ? Fin.Succ((subject, store))
+            : Fin.Fail<(string Actor, Guid Origin)>(key.InvalidInput());
 }
 ```
 
@@ -358,11 +428,14 @@ public static class TimeTravel {
 |  [02]   | as-of fold       | `AggregateStreamAsync(version\|timestamp)`               | Marten folds from the periodic snapshot floor           |
 |  [03]   | as-of cut        | `TimeCut.Ceiling` precise/instant/version                | the Marten fold binds version or ceiling instant        |
 |  [04]   | checkpoint chain | `ContentAddress.OfGraph` + rolling hash                  | `Anchor` seals, `Verify` re-folds; reproducibility only |
-|  [05]   | as-of key (S3)   | `Checkpoint.AsOfKey` = `Address` (icechunk + `ReAttest`) | the ONE cross-runtime digest; `Hash` never the key      |
-|  [06]   | range diff       | node `Inequalities` + edge `ContentAddress.Of` set-diff  | both axes; topology rewire never dropped                |
-|  [07]   | bisect descent   | `O(log n)` probes of a MONOTONE predicate                | each probe re-reconstructs by version                   |
-|  [08]   | frame address    | seam `GraphMembers` step + `OfGraph(members)`            | byte-identical to the recompute; reheader re-seeds      |
-|  [09]   | blame            | touching `GraphEvent` by version                         | `(NodeId, change-kind, axis)` cell, forward-log grain   |
+|  [05]   | seal proof       | `CapabilitySet<SealLink>` of the links that held         | links accumulate; refusal posture is the caller's       |
+|  [06]   | as-of key (S3)   | `Checkpoint.AsOfKey` = `Address` (icechunk + `ReAttest`) | the ONE cross-runtime digest; `Hash` never the key      |
+|  [07]   | range diff       | node `Inequalities` + edge `ContentAddress.Of` set-diff  | both axes; topology rewire never dropped                |
+|  [08]   | edge key         | seam `ContentAddress.Of(edge, tolerance)` streaming      | the retired `ToCanonicalBytes` twin materialized bytes  |
+|  [09]   | bisect descent   | `O(log n)` probes of a MONOTONE predicate                | three-case verdict; the bound is never folded           |
+|  [10]   | frame address    | seam `GraphMembers` step + `OfGraph(members)`            | byte-identical to the recompute; reheader re-seeds      |
+|  [11]   | blame            | touching `GraphEvent` by version                         | `(NodeId, change-kind, axis)` cell, forward-log grain   |
+|  [12]   | fold floor       | `Option<long> SnapshotFloor` beside `EventsToCut`        | the folded cost is `Version - floor`, never a bool      |
 
 ## [03]-[RESEARCH]
 

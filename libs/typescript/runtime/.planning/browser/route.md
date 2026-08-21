@@ -156,21 +156,23 @@ type _Navigation = EventTarget & {
   readonly forward: () => void
 }
 
-const _routeFamily = Fault.Class.family(["unsupported"] as const, { unsupported: { class: "absent" } })
+const _routeFamily = Fault.Class.family(["unsupported"] as const, {
+  unsupported: Fault.Class.row({
+    class: "absent",
+    leg: "traversal",
+    detail: Schema.Struct({}), // a host missing the Navigation API is the whole fact; no column narrows it further
+    render: () => "the host carries no Navigation API, so no intercept seam exists to mount",
+  }),
+})
 
-declare namespace RouteFault {
-  type Reason = (typeof _routeFamily.reasons)[number]
-}
-
-class RouteFault extends Data.TaggedError("RouteFault")<{
-  readonly reason: RouteFault.Reason
-  readonly detail: string
-}> {
+class RouteFault extends Schema.TaggedError<RouteFault>()("RouteFault", {
+  case: _routeFamily.payload,
+}) {
   get class(): Fault.Class.Kind {
-    return _routeFamily.classOf(this.reason)
+    return _routeFamily.classOf(this.case.reason)
   }
   override get message(): string {
-    return `<route:${this.reason}> ${this.detail}`
+    return _routeFamily.render(this.case)
   }
 }
 
@@ -196,7 +198,7 @@ const _make = <const Rows extends Router.Rows>(spec: Router.Spec<Rows>) => {
       Effect.gen(function* () {
         const kv = yield* Kv
         const navigation = yield* Option.match(_navigation(), {
-          onNone: () => Effect.fail(new RouteFault({ reason: "unsupported", detail: "<no-navigation-api>" })),
+          onNone: () => Effect.fail(new RouteFault({ case: { reason: "unsupported" } })),
           onSome: Effect.succeed,
         })
         const runtime = yield* Effect.runtime<never>()
@@ -318,25 +320,41 @@ type SessionStatus = Data.TaggedEnum<{
 }>
 const SessionStatus: Data.TaggedEnum.Constructor<SessionStatus> = Data.taggedEnum<SessionStatus>()
 
+// `replay` guards TWO forgeries against one live flow — a callback arriving with nothing pending and a callback whose
+// state never matched — so the row carries a closed `mismatch` column rather than a free string that named neither.
+// `lapsed` carries the measured age beside the grace it outran, which is what an operator widening the window reads.
 const _flowFamily = Fault.Class.family(["replay", "lapsed", "malformed"] as const, {
-  replay: { class: "conflicted" },
-  lapsed: { class: "expired" },
-  malformed: { class: "malformed" },
+  replay: Fault.Class.row({
+    class: "conflicted",
+    leg: "session",
+    detail: Schema.Struct({ mismatch: Schema.Literal("pending", "state") }),
+    render: ({ mismatch }) =>
+      mismatch === "pending"
+        ? "callback arrived with no pending flow held"
+        : "callback state does not match the pending flow",
+  }),
+  lapsed: Fault.Class.row({
+    class: "expired",
+    leg: "session",
+    detail: Schema.Struct({ aged: Schema.DurationFromSelf, grace: Schema.DurationFromSelf }),
+    render: ({ aged, grace }) => `flow aged ${Duration.toMillis(aged)}ms past a ${Duration.toMillis(grace)}ms grace`,
+  }),
+  malformed: Fault.Class.row({
+    class: "malformed",
+    leg: "session",
+    detail: Schema.Struct({ parameter: Schema.String }),
+    render: ({ parameter }) => `callback carries no ${parameter} parameter`,
+  }),
 })
 
-declare namespace FlowFault {
-  type Reason = (typeof _flowFamily.reasons)[number]
-}
-
-class FlowFault extends Data.TaggedError("FlowFault")<{
-  readonly reason: FlowFault.Reason
-  readonly detail: string
-}> {
+class FlowFault extends Schema.TaggedError<FlowFault>()("FlowFault", {
+  case: _flowFamily.payload,
+}) {
   get class(): Fault.Class.Kind {
-    return _flowFamily.classOf(this.reason)
+    return _flowFamily.classOf(this.case.reason)
   }
   override get message(): string {
-    return `<flow:${this.reason}> ${this.detail}`
+    return _flowFamily.render(this.case)
   }
 }
 
@@ -445,17 +463,21 @@ class Vault extends Effect.Service<Vault>()("runtime/browser/Vault", {
           const held = yield* kv.read("flow", _FLOW_KEY)
           yield* kv.drop("flow", _FLOW_KEY)
           const flow = yield* Option.match(held, {
-            onNone: () => Effect.fail(new FlowFault({ reason: "replay", detail: "<no-pending-flow>" })),
+            onNone: () => Effect.fail(new FlowFault({ case: { reason: "replay", mismatch: "pending" } })),
             onSome: Effect.succeed,
           })
           const now = yield* DateTime.now
+          // The age and the grace are measured ONCE and both ride the refusal: the guard that decides and the row
+          // that renders read the same two values, so a widened window can never disagree with what the fault reported.
+          const aged = DateTime.distanceDuration(flow.minted, now)
+          const grace = Duration.decode(spec.grace)
           yield* Effect.when(
-            Effect.fail(new FlowFault({ reason: "lapsed", detail: "<flow-expired>" })),
-            () => Duration.greaterThan(DateTime.distanceDuration(flow.minted, now), Duration.decode(spec.grace)),
+            Effect.fail(new FlowFault({ case: { reason: "lapsed", aged, grace } })),
+            () => Duration.greaterThan(aged, grace),
           )
           const state = Option.fromNullable(callback.searchParams.get("state"))
           yield* Effect.when(
-            Effect.fail(new FlowFault({ reason: "replay", detail: "<state-mismatch>" })),
+            Effect.fail(new FlowFault({ case: { reason: "replay", mismatch: "state" } })),
             () =>
               Option.match(flow.state, {
                 onNone: () => false,
@@ -463,7 +485,7 @@ class Vault extends Effect.Service<Vault>()("runtime/browser/Vault", {
               }),
           )
           const code = yield* Option.match(Option.fromNullable(callback.searchParams.get("code")), {
-            onNone: () => Effect.fail(new FlowFault({ reason: "malformed", detail: "<no-code>" })),
+            onNone: () => Effect.fail(new FlowFault({ case: { reason: "malformed", parameter: "code" } })),
             onSome: Effect.succeed,
           })
           const fresh = yield* exchange({ code, state })

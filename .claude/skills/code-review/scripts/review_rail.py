@@ -217,7 +217,7 @@ REVIEWER_ALIAS_ROWS: Final[tuple[tuple[str, Reviewer], ...]] = (
 REVIEWER_ALIASES: Final[Mapping[str, Reviewer]] = MappingProxyType(dict(REVIEWER_ALIAS_ROWS))
 REVIEWER_SHORT: Final[Mapping[Reviewer, str]] = MappingProxyType({"coderabbit": "cr", "greptile": "gt", "macroscope": "ms"})
 LEVER_ROWS: Final[Mapping[Reviewer, frozenset[str]]] = MappingProxyType({
-    "coderabbit": frozenset({"light"}),
+    "coderabbit": frozenset({"light", "path"}),
     "greptile": frozenset({"resume", "include"}),
     "macroscope": frozenset(),
 })
@@ -301,12 +301,19 @@ class Run(msgspec.Struct, frozen=True):
     argv: tuple[str, ...]
     sources: tuple[int, ...] = ()
     focus: str = ""
+    path: str = ""
 
 
-class Levers(msgspec.Struct, frozen=True):
+@Parameter(name="*")
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Levers:
     light: bool = False
     resume: bool = False
     include: tuple[str, ...] = ()
+    path: str = ""
+
+
+LEVERS_OFF: Final = Levers()
 
 
 class KillMark(msgspec.Struct, frozen=True):
@@ -504,6 +511,7 @@ class RoundRow(msgspec.Struct, frozen=True):
     commit: str
     at: float
     focus: str = ""
+    path: str = ""
     fp_share: float = 0.0
     relitigation_share: float = 0.0
     novel_quality: float = 0.0
@@ -1593,11 +1601,17 @@ def findings_receipt(
 def cr_epoch(repo: Path, run: Run, now: float, /) -> Option[Path]:
     low, high = run.started - STORE_SLACK_S, now + STORE_SLACK_S
     anchor = Path(os.path.realpath(repo))
+
+    def owned(directory: str, /) -> bool:
+        # --dir stamps the scoped subdirectory here, never the root; the run window and nearest-launch ordering keep the pick unambiguous.
+        held = Path(os.path.realpath(directory))
+        return held == anchor or anchor in held.parents
+
     stamped = Block.of_seq(CR_STORE.glob("*/*/reviews/*/git.json")).choose(
         lambda meta_path: shaped(meta_path, CrMeta).bind(
             lambda meta: (
                 Some((meta.timestamp, meta_path.parent))
-                if meta.working_directory and Path(os.path.realpath(meta.working_directory)) == anchor and low <= meta.timestamp <= high
+                if meta.working_directory and owned(meta.working_directory) and low <= meta.timestamp <= high
                 else Nothing
             )
         )
@@ -1669,7 +1683,7 @@ def cr_harvested(context: Context, /) -> Result[tuple[Finding, ...], Fault]:
     return Error(
         Fault(
             code="store-missing",
-            detail=f"no {CR_STORE} epoch matched the run window (workingDirectory==repo, timestamp within ±{STORE_SLACK_S:.0f}s)",
+            detail=f"no {CR_STORE} epoch matched the run window (workingDirectory under repo, timestamp within ±{STORE_SLACK_S:.0f}s)",
         )
     )
 
@@ -2605,6 +2619,7 @@ def row_built(
         commit=sh(("git", "-C", str(context.repo), "rev-parse", "--short", "HEAD")).default_with(lambda _f: ""),
         at=round(time.time(), 1),
         focus=context.run.focus,
+        path=context.run.path,
         fp_share=fp_share,
         relitigation_share=relitigation_share,
         novel_quality=round(sum(1 for row in novel if by_verdict.get(row.id) in ACCEPTED_VERDICTS) / len(novel), 3) if novel else 0.0,
@@ -3391,17 +3406,20 @@ def ms_focused(_text: str, _round_dir: Path, /) -> Result[tuple[str, ...], Fault
 
 
 def levers_armed(reviewer: Reviewer, levers: Levers, /) -> Result[tuple[str, ...], Fault]:
-    asked = frozenset(name for name, on in (("light", levers.light), ("resume", levers.resume), ("include", bool(levers.include))) if on)
-    illegal = asked - LEVER_ROWS[reviewer]
+    rows = (("light", levers.light), ("resume", levers.resume), ("include", bool(levers.include)), ("path", bool(levers.path)))
+    illegal = frozenset(name for name, on in rows if on) - LEVER_ROWS[reviewer]
     if illegal:
         flags = "/".join(sorted(f"--{name}" for name in illegal))
         return Error(
-            Fault(code="bad-flag", detail=f"{flags} not valid for {reviewer}: --light is coderabbit-only; --resume/--include are greptile-only")
+            Fault(
+                code="bad-flag", detail=f"{flags} not valid for {reviewer}: --light/--path are coderabbit-only; --resume/--include are greptile-only"
+            )
         )
     return Ok((
         *(("--light",) if levers.light else ()),
         *(("--resume",) if levers.resume else ()),
         *(("--include", *levers.include) if levers.include else ()),
+        *(("--dir", levers.path) if levers.path else ()),
     ))
 
 
@@ -3621,6 +3639,15 @@ def focus_resolved(spec: str, /) -> Result[str, Fault]:
     return read_bytes(candidate).map(lambda raw: raw.decode(errors="replace")) if spec and candidate.is_file() else Ok(spec)
 
 
+def path_scoped(repo: Path, spec: str, /) -> Result[str, Fault]:
+    if not spec:
+        return Ok("")
+    root, held = Path(os.path.realpath(repo)), Path(os.path.realpath(repo / spec))
+    if not held.is_dir() or (held != root and root not in held.parents):
+        return Error(Fault(code="bad-flag", detail=f"--path {spec!r} is not a directory inside {root}"))
+    return Ok(str(held.relative_to(root)))
+
+
 def launched(repo: Path, reviewer: Reviewer, scope: Scope, focus: str, levers: Levers, /) -> Result[LaunchReceipt, Fault]:
     adapter = ADAPTERS[reviewer]
     if scope.kind not in adapter.scopes:
@@ -3640,12 +3667,12 @@ def launched(repo: Path, reviewer: Reviewer, scope: Scope, focus: str, levers: L
         )
     return levers_armed(reviewer, levers).bind(
         lambda lever_argv: adapter.preflight(repo, scope).bind(
-            lambda pre_argv: flown_round(repo, reviewer, scope, focus, (*adapter.armed(scope), *pre_argv, *lever_argv))
+            lambda pre_argv: flown_round(repo, reviewer, scope, focus, levers.path, (*adapter.armed(scope), *pre_argv, *lever_argv))
         )
     )
 
 
-def flown_round(repo: Path, reviewer: Reviewer, scope: Scope, focus: str, base_argv: tuple[str, ...], /) -> Result[LaunchReceipt, Fault]:
+def flown_round(repo: Path, reviewer: Reviewer, scope: Scope, focus: str, path: str, base_argv: tuple[str, ...], /) -> Result[LaunchReceipt, Fault]:
     adapter = ADAPTERS[reviewer]
 
     def armed_and_spawned(number: int, round_dir: Path, /) -> Result[LaunchReceipt, Fault]:
@@ -3668,6 +3695,7 @@ def flown_round(repo: Path, reviewer: Reviewer, scope: Scope, focus: str, base_a
                         argv=argv,
                         sources=(),
                         focus=focus,
+                        path=path,
                     )
                 ),
             ).map(
@@ -3703,27 +3731,22 @@ def flown_round(repo: Path, reviewer: Reviewer, scope: Scope, focus: str, base_a
 
 
 @APP.command
-def launch(
-    *,
-    reviewer: str,
-    scope: str,
-    focus: str = "",
-    light: bool = False,
-    resume: bool = False,
-    include: tuple[str, ...] = (),
-    watch: Watch = WATCH_OFF,
-    directory: _Dir = None,
-) -> int:
+def launch(*, reviewer: str, scope: str, focus: str = "", levers: Levers = LEVERS_OFF, watch: Watch = WATCH_OFF, directory: _Dir = None) -> int:
     """Spawn one engine round at a scope; --follow arms the watcher in-verb, --json streams events, --normalize lands findings on completion."""
     match watch.faulted:
         case Option(tag="some", some=fault):
             return refused(fault)
         case _:
             pass
-    levers = Levers(light=light, resume=resume, include=include)
     outcome = repo_root(directory).bind(
         lambda repo: reviewer_resolved(reviewer).bind(
-            lambda engine: Scope.of(scope).bind(lambda parsed: focus_resolved(focus).bind(lambda text: launched(repo, engine, parsed, text, levers)))
+            lambda engine: Scope.of(scope).bind(
+                lambda parsed: focus_resolved(focus).bind(
+                    lambda text: path_scoped(repo, levers.path).bind(
+                        lambda scoped: launched(repo, engine, parsed, text, evolved(levers, path=scoped))
+                    )
+                )
+            )
         )
     )
     match outcome:

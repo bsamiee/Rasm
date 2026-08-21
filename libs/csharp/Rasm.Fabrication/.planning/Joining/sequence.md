@@ -6,7 +6,7 @@ The scheduling row is `Joining/weld`'s own `DepositSegment`: a station-indexed i
 
 Precedence is a partial order, never a serial rank: `JointPrecedence` folds `AssemblyPlan.Precedence` into a per-joint level through `DagShortestPathAlgorithm` under `DistanceRelaxers.CriticalDistance`, so joints sharing a level interleave freely under the traversal arm while a real precedence path stays ordered, and a cyclic census refuses carrying its strongly-connected component MEMBERS.
 
-`DistortionSource` and `DisplacementReceipt` are this page's PRODUCED shapes: thermal shrinkage per pass, clamp preload, and stage release enter one stiffness assembly, and one `CholeskySparse` factor over `SparseMatrix.FromTriplets` serves every candidate solve — `Fixturing/assembly` tolerance chains and `Fixturing/setups` datum-transfer budgets consume the ONE receipt. Timing evidence enters as the provider-free `CellTiming` census `Kinematics/cell` publishes off its compiled program, keyed here onto the weld pass that compiled it; this page names no robot type and holds no provider crossing.
+`DistortionSource` and `DistortionField` are this page's PRODUCED shapes: thermal shrinkage per pass, clamp preload, and stage release enter one stiffness assembly, and one `CholeskySparse` factor over `SparseMatrix.FromTriplets` serves every candidate solve — `Fixturing/assembly` tolerance chains and `Fixturing/setups` datum-transfer budgets consume the ONE field. Timing evidence enters as the provider-free `CellTiming` census `Kinematics/cell` publishes off its compiled program, keyed here onto the weld pass that compiled it; this page names no robot type and holds no provider crossing.
 
 ## [01]-[INDEX]
 
@@ -17,10 +17,10 @@ Precedence is a partial order, never a serial rank: `JointPrecedence` folds `Ass
 ## [02]-[SEQUENCE_REQUEST]
 
 - Owner: `SequenceRequest` admits the aggregate correspondence between deposits, assembly nodes, thermal limits, policy, clamp preloads, and optional motion evidence; `ClampPreload` carries the gripped member, its force, and the release step that relaxes it; `SequencePolicy` owns tack, thickness-scaled thermal, action-time, inherent-strain, feasibility-limit, candidate-generation, and multi-objective scoring values; `DistortionOrder` closes the traversal family; `MotionTiming` owns the provider-free timing census.
-- Cases: each `DistortionOrder` case carries only the segment band, stride, block, origin, direction, and side-barrier evidence its ordering arm consumes.
-- Law: ordering is a COMPARATOR COLUMN, not six bodies. Every arm sorts by precedence level, then by side barrier, then by the case's own primary and secondary projections — so a new traversal primitive supplies two projections rather than a re-spelled `OrderBy` chain whose first two keys drift from its siblings.
+- Cases: each `DistortionOrder` case carries only the segment band, stride, block, origin, and direction its ordering arm consumes.
+- Law: ordering is a COMPARATOR COLUMN, not six bodies. Every arm sorts by precedence level, then by side barrier, then by the case's own primary and secondary projections — so a new traversal primitive supplies two projections rather than a re-spelled `OrderBy` chain whose first two keys drift from its siblings. `CandidateLaw.PreserveSideBarriers` owns the barrier and stamps one value across the whole generated space, so it arrives as the comparator's argument and no case re-declares a choice every candidate shares.
 - Law: `CandidateLaw.Ceiling` truncates the generated product BEFORE materialization — the four families concatenate as a lazy stream and `Take` bounds it, so band, stride, block, and origin breadth grows without a full sweep the ceiling then discards.
-- Law: `MotionTiming` is provider-free by construction. `MotionTiming.Of` keys the `CellTiming` census a compiled pass published onto the `MotionKey` that requested it, so the station ordinal stays the producer's and the weld identity stays this page's; a compiled program's own error set refuses at its producing boundary, so this page names no `Robots` type and the `Rhino3dm` alias boundary keeps its single package crossing at `Kinematics/cell`.
+- Law: `MotionTiming` is provider-free by construction. `MotionTiming.Of` keys the `CellTiming` census a compiled pass published onto the `MotionKey` that requested it, so the station ordinal stays the producer's and the weld identity stays this page's; a compiled program's own error set refuses at its producing boundary, so this page names no provider type at all.
 - Exemption: generated admission hooks are boundary statements; `CandidateLaw.Generate` is the measured product kernel.
 - Entry: `Sequence.Order` accepts only `SequenceRequest`; decoded or foreign material re-enters through `SequenceRequest.Admit`.
 - Packages: Thinktecture.Runtime.Extensions owns admission and closed dispatch; UnitsNet owns length, speed, temperature, energy, angle, and duration; LanguageExt.Core owns accumulated admission and immutable folds; QuikGraph owns precedence; `Rasm.Element` supplies `AdmissionSlots`; `Rasm.Numerics` owns the sparse assembly and factorization; `Rasm.Fabrication.Process` supplies `RunWarning` and the fault band; `Kinematics/cell` supplies `CellTiming` and `CellSpanTiming`.
@@ -55,12 +55,12 @@ namespace Rasm.Fabrication.Joining;
 public abstract partial record DistortionOrder {
     private DistortionOrder() { }
 
-    public sealed record Progression(Length Segment, bool Reverse, bool SideBarrier) : DistortionOrder;
-    public sealed record Residue(Length Segment, int Stride, bool Reverse, bool SideBarrier) : DistortionOrder;
-    public sealed record CenterOut(Length Segment, Length Origin, bool Reverse, bool SideBarrier) : DistortionOrder;
-    public sealed record Block(Length Segment, int Size, bool Reverse, bool SideBarrier) : DistortionOrder;
-    public sealed record Cascade(Length Segment, int Stride, bool Reverse, bool SideBarrier) : DistortionOrder;
-    public sealed record Wandering(Length Segment, Length Origin, bool Reverse, bool SideBarrier) : DistortionOrder;
+    public sealed record Progression(Length Segment, bool Reverse) : DistortionOrder;
+    public sealed record Residue(Length Segment, int Stride, bool Reverse) : DistortionOrder;
+    public sealed record CenterOut(Length Segment, Length Origin, bool Reverse) : DistortionOrder;
+    public sealed record Block(Length Segment, int Size, bool Reverse) : DistortionOrder;
+    public sealed record Cascade(Length Segment, int Stride, bool Reverse) : DistortionOrder;
+    public sealed record Wandering(Length Segment, Length Origin, bool Reverse) : DistortionOrder;
 
     public Length Band => Switch(
         progression: static value => value.Segment,
@@ -69,14 +69,6 @@ public abstract partial record DistortionOrder {
         block: static value => value.Segment,
         cascade: static value => value.Segment,
         wandering: static value => value.Segment);
-
-    public bool SideBarrier => Switch(
-        progression: static value => value.SideBarrier,
-        residue: static value => value.SideBarrier,
-        centerOut: static value => value.SideBarrier,
-        block: static value => value.SideBarrier,
-        cascade: static value => value.SideBarrier,
-        wandering: static value => value.SideBarrier);
 
     // The two case-owned ordering projections. Precedence level and side barrier lead EVERY arm, so they live on the
     // shared comparator and a new traversal primitive supplies these two columns rather than a fourth sort chain.
@@ -96,13 +88,15 @@ public abstract partial record DistortionOrder {
         cascade: static order => segment => order.Reverse ? -segment.Station.Meters : segment.Station.Meters,
         wandering: static order => segment => ((segment.Pass.Layer + segment.Side) % 2) ^ (order.Reverse ? 1 : 0));
 
-    public Seq<WeldSegment> Arrange(Seq<WeldSegment> segments) {
+    // The side barrier is the POLICY's fact, not the traversal primitive's: `CandidateLaw` stamped one value on
+    // every generated order, so a per-case column published a choice no candidate could differ on. It arrives as
+    // the comparator's own argument and the six cases carry only what actually varies between them.
+    public Seq<WeldSegment> Arrange(Seq<WeldSegment> segments, bool sideBarrier) {
         Func<WeldSegment, double> primary = Primary;
         Func<WeldSegment, double> secondary = Secondary;
-        bool barrier = SideBarrier;
         return toSeq(segments.AsEnumerable()
             .OrderBy(static segment => segment.Precedence)
-            .ThenBy(segment => barrier ? segment.Side : 0)
+            .ThenBy(segment => sideBarrier ? segment.Side : 0)
             .ThenBy(primary)
             .ThenBy(secondary));
     }
@@ -110,7 +104,6 @@ public abstract partial record DistortionOrder {
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct CandidateLaw {
     public Seq<Length> SegmentBands { get; }
@@ -123,7 +116,7 @@ public readonly partial struct CandidateLaw {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Seq<Length> segmentBands,
         ref Seq<int> strides,
         ref Seq<int> blockSizes,
@@ -131,35 +124,35 @@ public readonly partial struct CandidateLaw {
         ref bool reversePairs,
         ref bool preserveSideBarriers,
         ref int ceiling) {
-        if (segmentBands.IsEmpty || segmentBands.Exists(static value => !Witness.Positive(value.Meters))
+        if (segmentBands.IsEmpty || segmentBands.Exists(static value => !ValidityClaim.Positive(value.Meters).Holds)
             || strides.IsEmpty || strides.Exists(static value => value <= 0)
             || blockSizes.IsEmpty || blockSizes.Exists(static value => value <= 0)
             || originFractions.IsEmpty
             || originFractions.Exists(static value => !double.IsFinite(value) || value is < 0.0 or > 1.0)
             || ceiling <= 0)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "candidate-law");
+            validationError = new ValidationError("candidate-law");
     }
 
     // The ceiling bounds the STREAM: the four families concatenate lazily and `Take` truncates before any candidate
     // materializes, so widening a breadth column never pays for orders the ceiling immediately discards.
     public Fin<Seq<DistortionOrder>> Generate(Length extent) {
-        if (!Witness.Positive(extent.Meters))
+        if (!ValidityClaim.Positive(extent.Meters).Holds)
             return Fin.Fail<Seq<DistortionOrder>>(
-                new FabricationFault.PolicyInadmissible(FabConcern.Joining, "candidate-law:extent"));
+                new KernelFault.InvalidValue("sequence", "candidate-law:extent"));
 
         IEnumerable<bool> directions = ReversePairs ? [false, true] : [false];
         IEnumerable<Length> bands = SegmentBands.AsEnumerable().Select(band => UnitMath.Min(band, extent));
         IEnumerable<DistortionOrder> progression =
             from reverse in directions
             from band in bands
-            select (DistortionOrder)new DistortionOrder.Progression(band, reverse, PreserveSideBarriers);
+            select (DistortionOrder)new DistortionOrder.Progression(band, reverse);
         IEnumerable<DistortionOrder> strided =
             from reverse in directions
             from band in bands
             from stride in Strides.AsEnumerable()
             from order in new DistortionOrder[] {
-                new DistortionOrder.Residue(band, stride, reverse, PreserveSideBarriers),
-                new DistortionOrder.Cascade(band, stride, reverse, PreserveSideBarriers),
+                new DistortionOrder.Residue(band, stride, reverse),
+                new DistortionOrder.Cascade(band, stride, reverse),
             }
             select order;
         IEnumerable<DistortionOrder> centered =
@@ -167,21 +160,20 @@ public readonly partial struct CandidateLaw {
             from band in bands
             from fraction in OriginFractions.AsEnumerable()
             from order in new DistortionOrder[] {
-                new DistortionOrder.CenterOut(band, extent * fraction, reverse, PreserveSideBarriers),
-                new DistortionOrder.Wandering(band, extent * fraction, reverse, PreserveSideBarriers),
+                new DistortionOrder.CenterOut(band, extent * fraction, reverse),
+                new DistortionOrder.Wandering(band, extent * fraction, reverse),
             }
             select order;
         IEnumerable<DistortionOrder> blocked =
             from reverse in directions
             from band in bands
             from size in BlockSizes.AsEnumerable()
-            select (DistortionOrder)new DistortionOrder.Block(band, size, reverse, PreserveSideBarriers);
+            select (DistortionOrder)new DistortionOrder.Block(band, size, reverse);
         return Fin.Succ(toSeq(progression.Concat(strided).Concat(centered).Concat(blocked).Take(Ceiling)));
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct ThermalLaw {
     public Temperature Ambient { get; }
@@ -194,7 +186,7 @@ public readonly partial struct ThermalLaw {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Temperature ambient,
         ref Temperature peak,
         ref Temperature minimumInterpass,
@@ -206,7 +198,7 @@ public readonly partial struct ThermalLaw {
             || ambient >= minimumInterpass || minimumInterpass >= peak
             || tauAtReference <= NodaTime.Duration.Zero || referenceThickness <= Length.Zero
             || reheatAfter <= NodaTime.Duration.Zero || reheatDuration <= NodaTime.Duration.Zero)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "thermal-law");
+            validationError = new ValidationError("thermal-law");
     }
 
     // ONE heating law for every arc event. A deposit and a tack differ in delivered energy, never in the model, so
@@ -218,7 +210,6 @@ public readonly partial struct ThermalLaw {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct TackBand {
     public Length MaximumThickness { get; }
@@ -229,22 +220,21 @@ public readonly partial struct TackBand {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Length maximumThickness,
         ref Length pitch,
         ref double lengthFactor,
         ref Length minimumLength,
         ref Energy minimumEnergy) {
-        if (maximumThickness <= Length.Zero || pitch <= Length.Zero || !Witness.Positive(lengthFactor)
+        if (maximumThickness <= Length.Zero || pitch <= Length.Zero || !ValidityClaim.Positive(lengthFactor).Holds
             || minimumLength <= Length.Zero || minimumEnergy <= Energy.Zero)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "tack-band");
+            validationError = new ValidationError("tack-band");
     }
 }
 
 // Every joint action the plan emits carries a duration, so preheat and post-weld heat treatment occupy the clock
 // they actually consume: an action family with no row here would silently shorten every schedule that stages it.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct ActionDurations {
     public NodaTime.Duration PrepareGroove { get; }
@@ -257,7 +247,7 @@ public readonly partial struct ActionDurations {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref NodaTime.Duration prepareGroove,
         ref NodaTime.Duration installBacking,
         ref NodaTime.Duration backgouge,
@@ -267,7 +257,7 @@ public readonly partial struct ActionDurations {
         ref NodaTime.Duration inspect) {
         if (Seq(prepareGroove, installBacking, backgouge, removeBacking, preheat, postWeldHeatTreatRamp, inspect)
             .Exists(static value => value < NodaTime.Duration.Zero))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "action-durations");
+            validationError = new ValidationError("action-durations");
     }
 
     // The soak an action DECLARES is the action's own fact; the policy row carries only the shop's ramp allowance,
@@ -284,7 +274,6 @@ public readonly partial struct ActionDurations {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct DistortionObjective {
     public double Sweep { get; }
@@ -296,7 +285,7 @@ public readonly partial struct DistortionObjective {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref double sweep,
         ref double camber,
         ref double twist,
@@ -305,13 +294,12 @@ public readonly partial struct DistortionObjective {
         ref double thermal) {
         Seq<double> weights = Seq(sweep, camber, twist, angular, time, thermal);
         if (weights.Exists(static value => !double.IsFinite(value) || value < 0.0)
-            || !Witness.Positive(weights.Fold(0.0, static (sum, value) => sum + value)))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "distortion-objective");
+            || !ValidityClaim.Positive(weights.Fold(0.0, static (sum, value) => sum + value)).Holds)
+            validationError = new ValidationError("distortion-objective");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class InherentStrainLaw {
     public Energy ReferenceHeat { get; }
     public Length LongitudinalAtReference { get; }
@@ -331,7 +319,7 @@ public sealed partial class InherentStrainLaw {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Energy referenceHeat,
         ref Length longitudinalAtReference,
         ref Length transverseAtReference,
@@ -348,18 +336,17 @@ public sealed partial class InherentStrainLaw {
             || Seq(longitudinalAtReference, transverseAtReference, normalAtReference, preloadAtReference, releaseAtReference)
                 .Exists(static value => !double.IsFinite(value.Meters) || value < Length.Zero)
             || Seq(twistAtReference, angularAtReference).Exists(static value => value < Angle.Zero)
-            || !Witness.Positive(selfStiffness)
+            || !ValidityClaim.Positive(selfStiffness).Holds
             || restraintStiffness.IsEmpty
             || restraintStiffness.Values.Exists(static value => !double.IsFinite(value) || value < 0.0)
             || sequenceMemory <= NodaTime.Duration.Zero)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "inherent-strain-law");
+            validationError = new ValidationError("inherent-strain-law");
     }
 
     public double Coupling(PrecedenceKind kind) => RestraintStiffness.Find(kind).IfNone(0.0);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct SequenceLimits {
     public int ConsecutiveDeposits { get; }
@@ -369,19 +356,18 @@ public readonly partial struct SequenceLimits {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref int consecutiveDeposits,
         ref NodaTime.Duration elapsed,
         ref Length linearDistortion,
         ref Angle angularDistortion) {
         if (consecutiveDeposits <= 0 || elapsed <= NodaTime.Duration.Zero
             || linearDistortion <= Length.Zero || angularDistortion <= Angle.Zero)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "sequence-limits");
+            validationError = new ValidationError("sequence-limits");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class SequencePolicy {
     public CandidateLaw Candidates { get; }
     public ThermalLaw Thermal { get; }
@@ -393,7 +379,7 @@ public sealed partial class SequencePolicy {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref CandidateLaw candidates,
         ref ThermalLaw thermal,
         ref Seq<TackBand> tackBands,
@@ -402,7 +388,7 @@ public sealed partial class SequencePolicy {
         ref SequenceLimits limits,
         ref DistortionObjective objective) {
         if (tackBands.IsEmpty)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "sequence-policy");
+            validationError = new ValidationError("sequence-policy");
     }
 
     public static Fin<SequencePolicy> Admit(
@@ -427,7 +413,6 @@ public readonly record struct MotionCycleTiming(MotionKey Key, NodaTime.Duration
 // planned cycle and hands THESE rows; a compiled program's own error set refuses at that boundary, so this page names
 // no provider type and the package keeps exactly one alias crossing.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class MotionTiming {
     public Map<(int Joint, int Pass, int Segment), NodaTime.Duration> Segments { get; }
     public Map<MotionKey, NodaTime.Duration> Cycles { get; }
@@ -435,14 +420,14 @@ public sealed partial class MotionTiming {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Map<(int Joint, int Pass, int Segment), NodaTime.Duration> segments,
         ref Map<MotionKey, NodaTime.Duration> cycles,
         ref Seq<RunWarning> warnings) {
         if (segments.Values.Exists(static value => value < NodaTime.Duration.Zero)
             || cycles.Values.Exists(static value => value <= NodaTime.Duration.Zero)
             || segments.Keys.Exists(key => !cycles.ContainsKey(new MotionKey(key.Joint, key.Pass))))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "motion-timing");
+            validationError = new ValidationError("motion-timing");
     }
 
     public static Fin<MotionTiming> Admit(
@@ -489,7 +474,6 @@ public readonly record struct ClampPreload(
     Option<int> ReleaseStep);
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class SequenceRequest {
     public WeldPlan Plan { get; }
     public AssemblyPlan Assembly { get; }
@@ -500,7 +484,7 @@ public sealed partial class SequenceRequest {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref WeldPlan plan,
         ref AssemblyPlan assembly,
         ref ProcessBudget.Joining budget,
@@ -520,14 +504,14 @@ public sealed partial class SequenceRequest {
             || !planJoints.ForAll(assemblyJoints.Contains)
             || !plan.Passes.ForAll(static pass => !pass.Segments.IsEmpty)
             || ceiling < policy.Thermal.MinimumInterpass || ceiling >= policy.Thermal.Peak
-            || !Seq(budget.CurrentA, budget.VoltageV).ForAll(Witness.Positive)
+            || !Seq(budget.CurrentA, budget.VoltageV).ForAll(static value => ValidityClaim.Positive(value).Holds)
             || clamps.Map(static clamp => clamp.Index).Distinct().Count != clamps.Count
             // A clamp naming a member the assembly never carried grips nothing, and a release naming a step that is
             // not a RELEASE phase relaxes a hold the plan never staged.
             || clamps.Exists(clamp => clamp.Preload <= Force.Zero
                 || !members.Contains(clamp.Member)
                 || clamp.ReleaseStep.Exists(step => !releases.Contains(step))))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "sequence-request");
+            validationError = new ValidationError("sequence-request");
     }
 
     public static Fin<SequenceRequest> Admit(
@@ -543,12 +527,12 @@ public sealed partial class SequenceRequest {
 
 ## [03]-[DISTORTION_FIELD]
 
-- Owner: `DistortionSource` closes the load-source family; `DisplacementRow` and `DisplacementReceipt` own the per-member field this page PRODUCES; `DistortionKernel` owns the one factored stiffness a candidate sweep reuses; `DistortionEvidence` owns the residual field summary every candidate ranks on.
+- Owner: `DistortionSource` closes the load-source family; `DisplacementRow` and `DistortionField` own the per-member field this page PRODUCES; `DistortionKernel` owns the one factored stiffness a candidate sweep reuses; `DistortionEvidence` owns the residual field summary every candidate ranks on.
 - Cases: `DistortionSource.Thermal` carries the pass ordinal and its inherent shrinkage, `.Preload` the clamp index and its force, `.Release` the assembly step whose unclamping relaxes it — three sources loading ONE stiffness through one solve, so a member the schedule never welds still moves under the clamp that grips it.
 - Law: `Fixturing/assembly` tolerance chains and `Fixturing/setups` datum-transfer budgets consume THIS receipt and no second field. A member row names the source that DOMINATES its own load — compared in the operator's own units, never by a per-case reading that would rank newtons against millimetres — so a consumer separating thermal shrinkage from clamp spring-back reads the discriminant rather than re-running the assembly with one family suppressed, and a member moving only through its restraints answers None rather than naming a stage that never ran.
 - Law: the stiffness assembles through the kernel sparse owners — `SparseMatrix.FromTriplets` sums duplicate triplets into one SPD operator and `CholeskySparse.Of` factors it once per request, so every candidate pays one solve against a cached symbolic analysis and no raw CSparse type crosses this page.
 - Auto: the residual witness rides the kernel's own `SolveReceipt`, so the field summary reports the solver's measured residual and factor fill rather than a re-derived figure.
-- Receipt: `DisplacementReceipt` carries one row per assembly member — the three linear displacement components as one `Vector3d` and the dominating source — beside the `DistortionEvidence` field summary holding the sweep, camber, twist, and angular extremes, the residual, and the factor fill.
+- Output: `DistortionField` carries one row per assembly member — the three linear displacement components as one `Vector3d` and the dominating source — beside the `DistortionEvidence` summary holding the sweep, camber, twist, and angular extremes, the residual, and the factor fill. It takes no `*Receipt` name: it addresses no content key, names no producing plane, and carries no stamp, because scheduling clocks are DURATIONS from a zero this page never anchors to an instant, and a stamp here forges an evaluation moment nothing measured.
 - Packages: `Rasm.Numerics` supplies `SparseMatrix.FromTriplets`, `CholeskySparse.Of`/`SolveDetailed`, `SolveReceipt`, and `Dimension.Create`; `Rasm.Domain` supplies `Op`.
 - Boundary: the kernel holds the factor and the member index alone; the graph, the load vector, and every intermediate array stay inside the fold.
 
@@ -580,7 +564,7 @@ public readonly record struct DistortionEvidence(
     double SolverWork,
     int FactorNonZeros);
 
-public sealed record DisplacementReceipt(Seq<DisplacementRow> Rows, DistortionEvidence Field);
+public sealed record DistortionField(Seq<DisplacementRow> Rows, DistortionEvidence Summary);
 
 // The factored stiffness and the member index it was assembled against. One factor serves every candidate solve,
 // so a five-hundred-candidate sweep pays one symbolic analysis.
@@ -599,7 +583,7 @@ internal sealed record DistortionKernel(
 - Law: `DepositSegment.Window` is the ONE subdivision geometry. A band split re-cuts the owner's own interval, so an orbital deposit subdivides into arcs and a linear one into lines, and the schedule never straightens a bead to fit a thermal band.
 - Auto: candidate rejection is typed — consecutive deposits, elapsed clock, linear distortion, angular distortion — and a fully infeasible space fails carrying the NEAREST-MISS candidate's rejections rather than a bare no-candidate error.
 - Exemption: `Sequence.Assemble` and `Sequence.Solve` are the measured sparse kernels; `Sequence.Advance` and its four arms are the immutable state fold.
-- Receipt: `WeldSchedule` carries selected work, dimensional total, the `TotalS` estimation projection, interpass ceiling and maximum, the displacement receipt, the whole candidate ranking, and typed warnings.
+- Output: `WeldSchedule` carries selected work, dimensional total, the `TotalS` estimation projection, interpass ceiling and maximum, the `DistortionField`, the whole candidate ranking, and typed warnings.
 - Packages: QuikGraph supplies `BidirectionalGraph`, `SEdge`, `IsDirectedAcyclicGraph`, `StronglyConnectedComponents`, `DagShortestPathAlgorithm`, and `DistanceRelaxers.CriticalDistance`.
 - Boundary: typed infeasibility terminates before scheduling, and a feasible but inferior candidate remains evidence rather than disappearing from the result.
 
@@ -683,7 +667,7 @@ public sealed record SequenceCandidate(
     DistortionOrder Order,
     Seq<ScheduledWork> Work,
     NodaTime.Duration Total,
-    DisplacementReceipt Displacement,
+    DistortionField Displacement,
     Temperature InterpassCeiling,
     Temperature MaximumInterpass,
     Seq<RunWarning> Warnings,
@@ -695,7 +679,7 @@ public sealed record WeldSchedule(
     NodaTime.Duration Total,
     Temperature InterpassCeiling,
     Temperature MaximumInterpass,
-    DisplacementReceipt Displacement,
+    DistortionField Displacement,
     Seq<SequenceCandidate> Candidates,
     Seq<RunWarning> Warnings) {
     public double TotalS => Total.TotalSeconds;
@@ -717,7 +701,7 @@ public static class Sequence {
         from precedence in Precedence(request.Assembly)
         from segments in Segments(request.Plan, precedence.Level)
         from _ in guard(!segments.IsEmpty,
-                (Error)new FabricationFault.PolicyInadmissible(FabConcern.Joining, "weld-sequence:no-deposit-segments"))
+                (Error)new KernelFault.InvalidValue("sequence", "weld-sequence:no-deposit-segments"))
             .ToFin()
         let extent = UnitMath.Sum(segments, static segment => segment.Length, LengthUnit.Meter)
         let ceiling = new Temperature(request.Budget.InterpassTemp, TemperatureUnit.DegreeCelsius)
@@ -746,9 +730,10 @@ public static class Sequence {
                 .ThenBy(static candidate => candidate.Score))
             .Head
             .Map(static nearest => nearest.Rejections.Fold(
-                (Error)new FabricationFault.PolicyInadmissible(FabConcern.Joining, "weld-sequence:no-feasible-candidate"),
-                static (combined, rejection) => combined + Error.New(rejection.Detail)))
-            .IfNone(() => new FabricationFault.PolicyInadmissible(FabConcern.Joining, "weld-sequence:no-candidate-space"));
+                (Error)new KernelFault.InvalidValue("sequence", "weld-sequence:no-feasible-candidate"),
+                static (combined, rejection) => combined
+                    + FabricationFault.Inadmissible(FabConcern.Joining, rejection.Detail)))
+            .IfNone(() => new KernelFault.InvalidValue("sequence", "weld-sequence:no-candidate-space"));
 
     private static Fin<SequenceCandidate> Candidate(
         SequenceRequest request,
@@ -757,7 +742,7 @@ public static class Sequence {
         Temperature ceiling,
         DistortionKernel kernel) =>
         from subdivided in Subdivide(segments, order.Band)
-        let arranged = order.Arrange(subdivided)
+        let arranged = order.Arrange(subdivided, request.Policy.Candidates.PreserveSideBarriers)
         let scheduled = Seeds(request, arranged).Fold(
             new ScheduleState(
                 NodaTime.Duration.Zero,
@@ -776,8 +761,8 @@ public static class Sequence {
             ceiling,
             scheduled.MaximumInterpass,
             request.Motion.Map(static timing => timing.Warnings).IfNone(Seq<RunWarning>()),
-            Rejections(request.Policy.Limits, scheduled.Work, scheduled.Clock, displacement.Field),
-            Score(request.Policy.Objective, scheduled.Clock, scheduled.MaximumInterpass, displacement.Field));
+            Rejections(request.Policy.Limits, scheduled.Work, scheduled.Clock, displacement.Summary),
+            Score(request.Policy.Objective, scheduled.Clock, scheduled.MaximumInterpass, displacement.Summary));
 
     private static ScheduleState Advance(
         SequenceRequest request,
@@ -1106,7 +1091,6 @@ public static class Sequence {
             .Map(static (member, ordinal) => (Member: member, Ordinal: ordinal))
             .Fold(Map<AssemblyMemberKey, int>(), static (held, row) => held.AddOrUpdate(row.Member, row.Ordinal));
         int degrees = Math.Max(MemberDegrees, MemberDegrees * members.Count);
-        Op key = Op.Of();
         IEnumerable<(int Row, int Col, double Value)> diagonal = Range(0, degrees)
             .Select(slot => (slot, slot, law.SelfStiffness));
         IEnumerable<(int Row, int Col, double Value)> couplings = restraints
@@ -1114,8 +1098,8 @@ public static class Sequence {
             .Bind(edge => Pair(owners, index, edge, law.Coupling(edge.Kind)))
             .AsEnumerable();
         return SparseMatrix
-            .FromTriplets(Dimension.Create(degrees), Dimension.Create(degrees), diagonal.Concat(couplings), key)
-            .Bind(stiffness => CholeskySparse.Of(stiffness, key: key))
+            .FromTriplets(Dimension.Create(degrees), Dimension.Create(degrees), diagonal.Concat(couplings), Key)
+            .Bind(stiffness => CholeskySparse.Of(stiffness, key: Key))
             .Map(factor => new DistortionKernel(factor, index, degrees));
     }
 
@@ -1139,7 +1123,7 @@ public static class Sequence {
     // Every source family loads ONE stiffness: thermal shrinkage decays by candidate chronology, clamp preload rides
     // its declared force, and a release stage relaxes what it held. The dominating source per member is the row's
     // own discriminant, so a fixturing consumer separates spring-back from shrinkage without a second solve.
-    private static Fin<DisplacementReceipt> Solve(
+    private static Fin<DistortionField> Solve(
         SequenceRequest request,
         Seq<WeldSegment> segments,
         Seq<ScheduledWork> work,
@@ -1201,13 +1185,17 @@ public static class Sequence {
             new double[kernel.Degrees],
             static (held, row) => { held[row.Slot] += row.Load; return held; });
         return kernel.Factor
-            .SolveDetailed(new Arr<double>(vector), Op.Of())
-            .Map(receipt => Receipt(kernel, loads + restraint, vector, receipt));
+            .SolveDetailed(new Arr<double>(vector), Key)
+            .Map(solved => Measured(kernel, loads + restraint, vector, solved));
     }
+
+    // ONE named operation identity for the whole page, so an assembly, a factorization, and a solve refusal all
+    // attribute to `Sequence` instead of three anonymous keys a caller cannot correlate across a candidate sweep.
+    private static readonly Op Key = Op.Of(name: nameof(Sequence));
 
     // ONE pass over the solution vector yields every field extreme and the solver work, reading the already-summed
     // load slot rather than re-scanning the source rows per degree of freedom.
-    private static DisplacementReceipt Receipt(
+    private static DistortionField Measured(
         DistortionKernel kernel,
         Seq<(int Slot, double Load, DistortionSource Source)> loads,
         double[] vector,
@@ -1238,7 +1226,7 @@ public static class Sequence {
                     row.Slot % MemberDegrees == 3 ? Math.Max(held.Twist, Math.Abs(row.Value)) : held.Twist,
                     row.Slot % MemberDegrees == 4 ? Math.Max(held.Angular, Math.Abs(row.Value)) : held.Angular,
                     held.Work + (row.Value * vector[row.Slot])));
-        return new DisplacementReceipt(rows, new DistortionEvidence(
+        return new DistortionField(rows, new DistortionEvidence(
             Length.FromMeters(extremes.Sweep),
             Length.FromMeters(extremes.Camber),
             new Angle(extremes.Twist, AngleUnit.Radian),
@@ -1286,10 +1274,10 @@ flowchart LR
     Work -->|"Advance — one thermal state"| Scheduled["ScheduledWork + clock"]
     Assemble --> Solve["Solve — one factor per request"]
     Scheduled --> Solve
-    Solve --> Receipt["DisplacementReceipt — per-member rows + field summary"]
-    Receipt --> Rank["Rejections + Score"]
+    Solve --> Field["DistortionField — per-member rows + evidence summary"]
+    Field --> Rank["Rejections + Score"]
     Rank --> Schedule["WeldSchedule"]
-    Receipt -->|"the ONE distortion field"| Fixturing["Fixturing/assembly + Fixturing/setups"]
+    Field -->|"the ONE distortion field"| Fixturing["Fixturing/assembly + Fixturing/setups"]
 ```
 
 ## [05]-[RESEARCH]

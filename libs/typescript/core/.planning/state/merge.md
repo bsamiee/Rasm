@@ -25,7 +25,7 @@ import * as BooleanInstances from "@effect/typeclass/data/Boolean"
 import * as NumberInstances from "@effect/typeclass/data/Number"
 import * as OptionInstances from "@effect/typeclass/data/Option"
 import * as RecordInstances from "@effect/typeclass/data/Record"
-import { Array, Data, Effect, Either, Equal, Equivalence, HashMap, HashSet, Option, type Order, Predicate, Record, STM, TMap, TRef, type Types } from "effect"
+import { Array, Effect, Either, Equal, Equivalence, HashMap, HashSet, Option, type Order, Predicate, Record, Schema, STM, TMap, TRef, type Types } from "effect"
 import { Fault } from "../value/fault.ts"
 
 declare namespace Merge {
@@ -40,7 +40,7 @@ declare namespace Merge {
   type Slots<T extends ReadonlyArray<unknown>> = { readonly [I in keyof T]: Instance<T[I]> }
   type Lattice<A> = { readonly join: Instance<A>; readonly meet: Instance<A> }
   type Cell<K, S> = {
-    readonly absorb: (rows: ReadonlyArray<readonly [K, S]>) => Effect.Effect<void, CellFault<K>>
+    readonly absorb: (rows: ReadonlyArray<readonly [K, S]>) => Effect.Effect<void, CellFault>
     readonly read: (key: K) => Effect.Effect<Option.Option<S>>
     readonly table: Effect.Effect<HashMap.HashMap<K, S>>
     readonly settled: (
@@ -52,7 +52,7 @@ declare namespace Merge {
     readonly read: Effect.Effect<S>
     readonly settled: (holds: (state: S) => boolean) => Effect.Effect<void>
   }
-  type CellFault<K> = _CellFault<K>
+  type CellFault = _CellFault
   type Shape = {
     readonly max: <A>(order: Order.Order<A>) => Instance<A>
     readonly min: <A>(order: Order.Order<A>) => Instance<A>
@@ -184,7 +184,7 @@ const _monoid = <A>(instance: Merge.Instance<A>): Option.Option<Monoid.Monoid<A>
 const _LAWS = ["associativity", "commutativity", "idempotence", "identity"] as const
 
 declare namespace Converge {
-  type Law = (typeof _family.reasons)[number] // the frozen snapshot the family mint publishes, so a caller cannot drift the law roster the witnesses enumerate
+  type Law = (typeof _family.kinds)[number] // the frozen snapshot the family mint publishes, so a caller cannot drift the law roster the witnesses enumerate
   type Sample<A> = { readonly first: A; readonly second: A; readonly third: A }
   type Shape = {
     readonly obligations: <A>(instance: Merge.Instance<A>) => ReadonlyArray<Law>
@@ -199,35 +199,58 @@ declare namespace Converge {
   }
 }
 
-// One row per law carrying the core kind alone: a merge law that fails is a torn convergence invariant — system-blamed,
-// never re-driven, and no repair report to quarantine into — so retryability and blame read off the core row table and
-// no local rank, retry, or status column rides beside `class`. `Data` is the declaration form because the operands are
-// the caller's own `A` values a harness shrinks in process; nothing here crosses a wire to earn a codec.
-const _family = Fault.Class.family(_LAWS, {
-  associativity: { class: "breached" },
-  commutativity: { class: "breached" },
-  idempotence: { class: "breached" },
-  identity: { class: "breached" },
+// The refused SAMPLE is the subject every law shares, so one row folds over the whole roster rather than transcribing
+// four identical declarations; a law that later earns its own class or sentence replaces its fold entry with one
+// declaration and no consumer moves. Operand columns admit `Unknown` because they hold the caller's own `A` values a
+// harness shrinks in process and nothing here crosses a wire to earn a codec. A failed merge law is a torn convergence
+// invariant — system-blamed, never re-driven, and no repair report to quarantine into — so retryability and blame read
+// off the core row table and no local rank, retry, or status column rides beside `class`.
+const _Sample = Schema.Struct({ first: Schema.Unknown, second: Schema.Unknown, third: Schema.Unknown })
+const _lawRow = Fault.Class.row({
+  class: "breached",
+  leg: "converge",
+  detail: _Sample,
+  render: ({ reason }) => `<merge:${reason}> failed its witness on the offered sample`,
 })
+const _family = Fault.Class.family(
+  _LAWS,
+  Record.fromEntries(Array.map(_LAWS, (law) => [law, _lawRow] as const)) as {
+    readonly [Law in (typeof _LAWS)[number]]: typeof _lawRow
+  },
+)
 
-class Breach extends Data.TaggedError("Breach")<{
-  readonly law: Converge.Law
-  readonly operands: ReadonlyArray<unknown>
-}> {
+class Breach extends Schema.TaggedError<Breach>()("Breach", {
+  case: _family.payload,
+}) {
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.law)
+    return _family.classOf(this.case.reason)
   }
   override get message(): string {
-    return `<merge:${this.law}> refused over ${this.operands.length} operands`
+    return _family.render(this.case)
   }
 }
 
-class _CellFault<K> extends Data.TaggedError("CellFault")<{
-  readonly key: K
-}> {
-  readonly class = "invalid" as const
+// The refusal NAMES the key it refused. The type parameter it used to carry was decorative precision on an error
+// channel: the class stored `key: K`, the constant `<merge:unknown-key>` message never read it, and no consumer ever
+// narrowed on it — so an operator holding the failure could not tell which of a seeded roster the caller offered.
+// One reason, one row, and the same family regime every other refusal on this branch spends.
+const _cellFamily = Fault.Class.family(["unseated"] as const, {
+  unseated: Fault.Class.row({
+    class: "invalid",
+    leg: "cell",
+    detail: Schema.Struct({ key: Schema.String }),
+    render: ({ key }) => `${key} names no cell this table seated`,
+  }),
+})
+
+class _CellFault extends Schema.TaggedError<_CellFault>()("CellFault", {
+  case: _cellFamily.payload,
+}) {
+  get class(): Fault.Class.Kind {
+    return _cellFamily.classOf(this.case.reason)
+  }
   override get message(): string {
-    return "<merge:unknown-key>"
+    return _cellFamily.render(this.case)
   }
 }
 
@@ -277,7 +300,7 @@ const Converge: Converge.Shape = {
       {
         onNone: () => Either.right(Converge.obligations(instance)),
         onSome: (law) =>
-          Either.left(new Breach({ law, operands: [sample.first, sample.second, sample.third] })),
+          Either.left(new Breach({ case: { reason: law, ...sample } })),
       },
     ),
   commutes: _commutes,
@@ -325,7 +348,9 @@ function _cell<K, S>(
                       }))
                     }), { discard: true }),
                 ),
-                onSome: ([key]) => Effect.fail(new _CellFault({ key })),
+                // BOUNDARY ADAPTER: the table's key parameter is unconstrained, so the refusal renders it once here
+                // rather than admitting an unspellable coordinate into a governed subject.
+                onSome: ([key]) => Effect.fail(new _CellFault({ case: { reason: "unseated", key: String(key) } })),
               },
             ),
           read: (key) => STM.commit(TMap.get(cells, key)),

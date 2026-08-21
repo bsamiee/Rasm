@@ -1,10 +1,10 @@
 # [MATERIALS_BSDF]
 
-THE FRAME-LOCAL SHADING KERNEL. The closed BSDF lobe family and its frame-local microfacet kernel: ONE `BsdfLobe` `[Union]` of seven physical lobes (diffuse · conductor · dielectric · sheen · clearcoat · subsurface · thin-film) under ONE `Evaluate`/`Sample`/`Pdf` contract, ONE generic `Microfacet<T>` GGX/Smith/Fresnel kernel over the `System.Numerics` generic-math floor, ONE `MultiScatter` owner carrying both the Kulla-Conty closed-form energy compensation and its unbiased position-free walk, and ONE `LayeredBsdf` weighted-composition fold every material drives by parameter row. The page owns the `ShadingFrame`, `Scalar<T>`, `LocalVector<T>`, `SpectralBand`, `BsdfLobe`, and `LayeredBsdf` shading surfaces, the folder-wide `ComparerAccessors.StringOrdinal` ordinal-key pin (the Thinktecture accessor selected once here as policy, never a local re-mint), the validated `RgbSpectrum`/`ComplexIor` reflectance carriers, and the `MaterialFault` union (band `FaultBand.Material` — allocation and disjointness are the `Rasm.Element` `FaultBand` registry, type-enforced at type initialization, never prose). The color-science lowering/grounding half — `SpectralUpsample` RGB→SPD, `ToneMap` ACES, `ConductorMetal` measured complex-IOR rows, and the `SlabStack` OpenPBR Surface 1.1 stack-of-slabs — is the sibling `surface#SPECTRAL_UPSAMPLE`/`#TONE_MAP`/`#CONDUCTOR_IOR`/`#OPENPBR_SLAB` page, split out under the per-page depth budget, composing this page's `MaterialFault` band, `ComparerAccessors.StringOrdinal`, `SpectralBand`, lobe carriers, and `LayeredBsdf.Of` fold. A material is NEVER a lobe subtype: `LayeredBsdf` carries the lobe weights and per-lobe parameters a `MaterialParameters` row supplies, so metal, glass, plastic, skin, fabric, car paint, and wax are weightings of this one closed set, never new lobe types or per-material BSDF classes. The lobe composition is the OpenPBR Surface 1.1 stack-of-slabs (`fuzz` · `coat` · `thin-film` modifier · base substrate mixing a conductor slab against a dielectric base) realized as the `surface#OPENPBR_SLAB` `SlabStack` algebra whose `ToLayered` collapse lowers to this page's `LayeredBsdf` fold; the renderer (`graph#MATERIAL_GRAPH` sink, shaded by the CPU path-trace integrator at the `Rasm.AppUi/Render/pathtrace#PATH_TRACE` seam and the GPU shading pass at the `Rasm.AppUi/Render/shading#SURFACE_SHADE` seam — one BSDF, two evaluators) shades FROM `LayeredBsdf.Sample`/`Evaluate`/`Pdf` and never re-derives lobe math.
+THE FRAME-LOCAL SHADING KERNEL. The closed BSDF lobe family and its frame-local microfacet kernel: ONE `BsdfLobe` `[Union]` of seven physical lobes (diffuse · conductor · dielectric · sheen · clearcoat · subsurface · thin-film) under ONE `Evaluate`/`Sample`/`Pdf` contract, ONE generic `Microfacet<T>` GGX/Smith/Fresnel kernel over the `System.Numerics` generic-math floor, ONE `MultiScatter` owner carrying both the Kulla-Conty closed-form energy compensation and its unbiased position-free walk, and ONE `LayeredBsdf` weighted-composition fold every material drives by parameter row. The page owns the `ShadingFrame`, `Scalar<T>`, `LocalVector<T>`, `SpectralBand`, `BsdfLobe`, and `LayeredBsdf` shading surfaces, the folder-wide `ComparerAccessors.StringOrdinal` ordinal-key pin (the Thinktecture accessor selected once here as policy, never a local re-mint), the validated `RgbSpectrum`/`ComplexIor` reflectance carriers, and the `MaterialFault` union (band `FaultBand.Appearance` — allocation and disjointness are type-enforced from the kernel `Rasm/Domain/rails#[04]-[FAULT_BAND]` ledger). The color-science lowering/grounding half — `SpectralUpsample` RGB→SPD, `ToneMap` ACES, `ConductorMetal` measured complex-IOR rows, and the `SlabStack` OpenPBR Surface 1.1 stack-of-slabs — is the sibling `surface#SPECTRAL_UPSAMPLE`/`#TONE_MAP`/`#CONDUCTOR_IOR`/`#OPENPBR_SLAB` page, split out under the per-page depth budget, composing this page's `MaterialFault` band, `ComparerAccessors.StringOrdinal`, `SpectralBand`, lobe carriers, and `LayeredBsdf.Of` fold. A material is NEVER a lobe subtype: `LayeredBsdf` carries the lobe weights and per-lobe parameters a `MaterialParameters` row supplies, so metal, glass, plastic, skin, fabric, car paint, and wax are weightings of this one closed set, never new lobe types or per-material BSDF classes. The lobe composition is the OpenPBR Surface 1.1 stack-of-slabs (`fuzz` · `coat` · `thin-film` modifier · base substrate mixing a conductor slab against a dielectric base) realized as the `surface#OPENPBR_SLAB` `SlabStack` algebra whose `ToLayered` collapse lowers to this page's `LayeredBsdf` fold; the renderer (`graph#MATERIAL_GRAPH` sink, shaded by the CPU path-trace integrator at the `Rasm.AppUi/Render/pathtrace#PATH_TRACE` seam and the GPU shading pass at the `Rasm.AppUi/Render/shading#SURFACE_SHADE` seam — one BSDF, two evaluators) shades FROM `LayeredBsdf.Sample`/`Evaluate`/`Pdf` and never re-derives lobe math.
 
 ## [01]-[INDEX]
 
-- [02]-[SHADING_FRAME]: the `ShadingFrame` local-frame transform, the generic `LocalVector<T>` z-up triple over its `Scalar<T>` anchor owner, the `SpectralBand` band-centre vocabulary, the `MaterialFault` union on the `FaultBand.Material` registry row, and the folder's `ComparerAccessors.StringOrdinal` ordinal-key pin.
+- [02]-[SHADING_FRAME]: the `ShadingFrame` local-frame transform, the generic `LocalVector<T>` z-up triple over its `Scalar<T>` anchor owner, the `SpectralBand` band-centre vocabulary, the `MaterialFault` union on the `FaultBand.Appearance` ledger row, and the folder's `ComparerAccessors.StringOrdinal` ordinal-key pin.
 - [03]-[MICROFACET_KERNEL]: the generic-math `Microfacet<T>` kernel — Fresnel (Schlick plus exact dielectric/conductor), the GGX/Trowbridge-Reitz NDF, Smith height-correlated masking, and the VNDF sampler with its paired reflect density.
 - [04]-[LOBE_FAMILY]: the `BsdfLobe` `[Union]`, the validated `RgbSpectrum`/`ComplexIor` carriers, the per-lobe `Evaluate`/`Sample`/`Pdf` contract, the Kulla-Conty multi-scatter compensation over its derived energy lattice, and the unbiased position-free walk beside it.
 - [05]-[LAYERED_COMPOSITION]: the `LayeredBsdf` weighted-lobe fold, the MIS-balanced sample/pdf, and the material-is-a-row seam.
@@ -13,37 +13,32 @@ THE FRAME-LOCAL SHADING KERNEL. The closed BSDF lobe family and its frame-local 
 
 ## [02]-[SHADING_FRAME]
 
-- Owner: `ShadingFrame` over the composed `Rasm.Numerics.VectorFrame`; `MaterialFault` `[Union]` on the `FaultBand.Material` registry row; the `ComparerAccessors.StringOrdinal` ordinal-key pin (Thinktecture's accessor, selected once as the folder's key-comparison policy).
+- Owner: `ShadingFrame` over the composed `Rasm.Numerics.VectorFrame`; `MaterialFault` `[Union]` on the `FaultBand.Appearance` ledger row via the kernel `[FaultCase]`/`Fault` floor; the `ComparerAccessors.StringOrdinal` ordinal-key pin (Thinktecture's accessor, selected once as the folder's key-comparison policy).
 - Entry: `public static Fin<ShadingFrame> Of(VectorFrame frame, Context context, Direction outgoing, Op key)` — `Fin<T>` aborts when the outgoing direction is degenerate in the local frame; `ToLocal`/`ToWorld` are the only world↔tangent transforms and `CosTheta`/`Sin2Theta`/`TanTheta`/`CosPhi`/`SinPhi` read the local z-up convention every lobe kernel shares. The frame carries the integrator's `Context` so `ToWorld` rails the unitized world direction through the PUBLIC `Direction.Of(Vector3d, Context, Op?)` overload (the `(Vector3d, double, Op?)` overload is `internal` to `Rasm` and cannot bind cross-assembly).
-- Packages: Rasm (project — `Rasm.Numerics` `VectorFrame`/`Direction`/`Dimension`/`UnitInterval`), Rasm.Element (project — the `FaultBand` band-allocation registry the `Code` override reads), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
+- Packages: Rasm (project — `Rasm.Numerics` `VectorFrame`/`Direction`/`Dimension`/`UnitInterval`), Rasm.Element (project — the `FaultBand` allocation ledger generated identity reads), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new fault is one `MaterialFault` case; a new trig accessor is one expression-bodied member on the frame; zero new surface. The frame NEVER re-mints `VectorFrame` — it wraps the composed `Plane` and reads `Vector3d` projections through it.
-- Boundary: `ShadingFrame` is the page's declared boundary capsule over `Rasm.Numerics` — host `Vector3d`/`Plane` access stays inside it and lobe kernels see only local-frame `LocalVector<T>` triples at the page's own `double` instantiation (z is the surface normal, the half-vector and incident/outgoing live in this basis); the z-up tangent convention is stated here once for every lobe so no lobe re-derives `cosθ = w.Z`; `MaterialFault` is the package's one appearance-banded fault, an `Expected`-derived `Error` (`IValidationError<MaterialFault>`) whose `Code` reads the `Rasm.Element` `FaultBand.Material` registry row (band allocation and cross-federation disjointness are the registry's type-enforced law, so a telemetry reader banding by code attributes a shading fault to this folder from the integer alone), so a bare typed case lifts directly into `Fin<T>`/`Validation<Error,T>` and `Fin.Fail` accepts it without a wrapper; every fault constructs the typed case directly — `Gamut` for an out-of-gamut/non-finite shade, `Parameter` for a degenerate input, `Graph` for a degenerate frame/unmatched arm — so a lobe never throws and never returns a NaN outward, and a degenerate local direction rails `MaterialFault.Graph`; `ComparerAccessors.StringOrdinal` is the ordinal comparer the `MaterialLibrary` and `ToneOperator` tables key through.
+- Law: this page declares NO raw validity predicate. `LobeSample` implements the kernel `Domain/rails#…` `IValidityEvidence` and folds `ValidityClaim.All` exactly as the folder's other four `IsValid` sites already do, so the corpus acceptance oracle probes a drawn sample through its own arm rather than through a member only this page knows to call. The prior `Pdf > 0.0 && double.IsFinite(Pdf)` was the kernel `ValidityClaim.Positive` row re-derived by hand — that row carries BOTH conjuncts, screening the host unset sentinel a bare finiteness test admits — and the claim's implicit `bool` conversion keeps every reading site spelled as one predicate.
+- Law: the microfacet, multi-scatter, and hemispherical-albedo loops take the page's NAMED `[EXPRESSION_SPINE]` kernel exemption and are not folded. Each is a fixed-extent numerical walk carrying loop-carried state a fold cannot express without materializing an intermediate per iteration — the VNDF draw, the Kulla-Conty energy walk, and the type-init albedo lattice — and every one runs per SAMPLE on the integrator's hottest path, where a `Seq` allocation per bounce is the cost the frozen kernels exist to avoid. Every admission, dispatch, and egress surface on the page stays expression-bodied, so the exemption names the four kernels and nothing else.
+- Boundary: `ShadingFrame` is the page's declared boundary capsule over `Rasm.Numerics` — host `Vector3d`/`Plane` access stays inside it and lobe kernels see only local-frame `LocalVector<T>` triples at the page's own `double` instantiation (z is the surface normal, the half-vector and incident/outgoing live in this basis); the z-up tangent convention is stated here once for every lobe so no lobe re-derives `cosθ = w.Z`; `MaterialFault` closes the appearance recovery vocabulary on `FaultBand.Appearance`, and each direct case lifts onto `Fin<T>` or `Validation<Error,T>` without a wrapper; every refusal constructs `Gamut`, `Parameter`, or `Graph` directly, so a lobe never returns a non-finite shade outward; `ComparerAccessors.StringOrdinal` is the ordinal comparer the `MaterialLibrary` and `ToneOperator` tables key through.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
-using System.Linq;                       // the type-init hemispherical-albedo lattice fold
-using System.Numerics;                   // INumber/IRootFunctions/IPowerFunctions/IExponentialFunctions/ILogarithmicFunctions/ITrigonometricFunctions — the generic-math floor the frame-local kernel is written on
-using LanguageExt;                       // Fin, Seq, Option
-using MathNet.Numerics;                  // Integrate.GaussLegendre — the hemispherical-albedo quadrature
+using System.Linq;
+using System.Numerics;
+using LanguageExt;
+using MathNet.Numerics;
 using Rasm.Domain;
-using Rasm.Element.Projection;                      // FaultBand — the cross-federation band-allocation registry
-using Rhino;                             // RhinoMath.ZeroTolerance — the one degeneracy epsilon
+using Rasm.Element.Projection;
+using Rhino;
 using Rhino.Geometry;
 using Thinktecture;
-using Rasm.Numerics;                     // RgbProfile — the AP1 working-space row the type-init geometry reads
-using TinyEXR.V3;                        // Chromaticities + ImageProcessing.GetLuminanceWeights — the ONE type-init luminance derivation, never a per-shade reach
-using Expected = Rasm.Domain.Expected;   // the kernel Expected (parameterless ctor + virtual Category), NOT LanguageExt.Common.Expected
+using Rasm.Numerics;
+using TinyEXR.V3;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Appearance.Bsdf;
 
 // --- [TYPES] -------------------------------------------------------------------------------
-// Scalar<T> is the ONE per-instantiation numeric anchor owner the generic kernel reads. Every anchor materializes at
-// its closed type's own static init instead of at each call through T.CreateChecked, and one owner is what keeps a
-// second instantiation from re-deriving them. These are DOMAIN floors, not precision floors: the geometric
-// degeneracy tolerance and the mirror-roughness alpha floor state the same physical bound at every T rather than
-// tracking T.Epsilon, so a float32 parity run and the double shading path agree on where a direction stops being a
-// direction rather than disagreeing by their own mantissas.
 internal static class Scalar<T> where T : INumber<T> {
     public static readonly T Half = T.CreateChecked(0.5);
     public static readonly T Two = T.CreateChecked(2.0);
@@ -52,22 +47,15 @@ internal static class Scalar<T> where T : INumber<T> {
     public static readonly T AlphaFloor = T.CreateChecked(1e-4);
 }
 
-// The frame-local shading triple, GENERIC over the scalar it carries: the microfacet kernel is pure geometry and
-// pure Fresnel, so it is written once over T and instantiated per precision rather than transcribed per precision.
-// `double` is the instantiation every lobe on this page binds and the one the integrator shades through; the
-// generic form is what lets the Raster/gpu#WGSL_KERNEL float32 parity peer and a widened analysis run read the SAME
-// kernel body rather than a second dialect a fixture would have to reconcile. Two scalar dialects over one geometry
-// is the deleted form — the partial rebuild that leaves them is worse than either whole.
 public readonly record struct LocalVector<T>(T X, T Y, T Z)
     where T : INumber<T>, IRootFunctions<T>, IPowerFunctions<T>, IExponentialFunctions<T>, ILogarithmicFunctions<T>, ITrigonometricFunctions<T> {
     public T CosTheta => Z;
     public T Cos2Theta => Z * Z;
     public T Sin2Theta => T.Max(T.Zero, T.One - (Z * Z));
     public T SinTheta => T.Sqrt(Sin2Theta);
-    // Tan2Theta floors its own denominator at the degeneracy tolerance, so the tangent DIVERGES to a large finite
-    // value at grazing instead of a non-finite one and Λ carries the true grazing limit (masking → 0) without a
-    // discard arm. The prior unguarded quotient answered +Inf and its consumer's non-finite discard returned Λ = 0,
-    // which is FULL transmission — the opposite limit, kept unreachable only by the reflect skeleton's own guard.
+    // Tan2Theta floors its denominator at the degeneracy tolerance, so the tangent DIVERGES to a large finite value
+    // at grazing and Λ carries the true grazing limit without a discard arm. The prior unguarded quotient answered
+    // +Inf and its consumer's non-finite discard returned Λ = 0 — FULL transmission, the opposite limit.
     public T Tan2Theta => Sin2Theta / T.Max(Scalar<T>.Tolerance, Cos2Theta);
     public T TanTheta => T.CopySign(T.Sqrt(Tan2Theta), Z);
     public T CosPhi => SinTheta <= Scalar<T>.Tolerance ? T.One : T.Clamp(X / SinTheta, -T.One, T.One);
@@ -101,46 +89,23 @@ public sealed partial class SpectralBand {
 }
 
 // --- [ERRORS] ------------------------------------------------------------------------------
-// The package appearance-banded fault: Expected-derived over the kernel Rasm.Domain.Expected so the FaultBand.Material
-// registry row IS the Expected Code (the generated implicit SmartEnum-to-int conversion; allocation and disjointness
-// type-enforced in Rasm.Element) and a typed case lifts BARE onto Fin<T>/Validation<Error,T> with no .ToError() hop —
-// Fin.Fail accepts an Expected-derived Error directly. The kernel Expected base ctor is PARAMETERLESS (Expected() {});
-// Code is a virtual Error member (the kernel Fault.Unsupported proves it overridable), Message abstract, Category a
-// virtual Expected member defaulting to "Fault" and read by the FaultExtensions extension property error.Category. So the band is the one-line
-// `Code => FaultBand.Material` registry read, Message and Category are ONE total generated Switch each (the canonical
-// production UiFault shape — three near-identical per-case `override Category` bodies are the collapse trigger this
-// Switch closes). No [GenerateUnionOps]: the kernel union-ops source-gen is strictly opt-in and emits only per-case
-// SelfOp keys for marked unions — fault cases are carriers already keyed by an explicit Op, so the union stays
-// unmarked. [Union] generates Switch/Map, never factories, so the band declares its OWN — a nested `…Case`
-// record carries the data and an unsuffixed static factory MaterialFault.Parameter(key, detail) returns the base, the
-// `…Case` suffix freeing the factory name (a same-named nested type + method is CS0102). Create routes the unspecific
-// case under a boundary-admission Op so the IValidationError<MaterialFault>.Create(string) floor is total.
-[Union]
-public abstract partial record MaterialFault : Expected, IValidationError<MaterialFault> {
+// MaterialFault closes the appearance recovery vocabulary; generated identity binds each direct leaf's explicit
+// ordinal to FaultBand.Appearance while the authored payload owns rendering and recovery.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record MaterialFault : Fault {
+    private static readonly FaultBand FamilyBand = FaultBand.Appearance;
     private MaterialFault(Op key, string detail) { Key = key; Detail = detail; }
     public Op Key { get; }
     public string Detail { get; }
-    public override int Code => FaultBand.Material;
-    private static readonly Op Admission = Op.Of(name: nameof(Admission));
+    [FaultCase(0)] public sealed partial record Gamut(Op Key, string Detail) : MaterialFault(Key, Detail);
+    [FaultCase(1)] public sealed partial record Parameter(Op Key, string Detail) : MaterialFault(Key, Detail);
+    [FaultCase(2)] public sealed partial record Graph(Op Key, string Detail) : MaterialFault(Key, Detail);
 
-    public sealed record GamutCase(Op Key, string Detail) : MaterialFault(Key, Detail);
-    public sealed record ParameterCase(Op Key, string Detail) : MaterialFault(Key, Detail);
-    public sealed record GraphCase(Op Key, string Detail) : MaterialFault(Key, Detail);
-
-    public override string Category => Switch(
-        gamutCase:     static _ => "Gamut",
-        parameterCase: static _ => "Parameter",
-        graphCase:     static _ => "Graph");
     public override string Message => Switch(
         state: Detail,
-        gamutCase:     static (detail, c) => $"Shade out of gamut under '{c.Key}': {detail}.",
-        parameterCase: static (detail, c) => $"Degenerate appearance parameter under '{c.Key}': {detail}.",
-        graphCase:     static (detail, c) => $"Degenerate shading frame under '{c.Key}': {detail}.");
-
-    public static MaterialFault Gamut(Op key, string detail) => new GamutCase(key, detail);
-    public static MaterialFault Parameter(Op key, string detail) => new ParameterCase(key, detail);
-    public static MaterialFault Graph(Op key, string detail) => new GraphCase(key, detail);
-    public static MaterialFault Create(string message) => Graph(Admission, message);
+        gamut: static (detail, c) => $"Shade out of gamut under '{c.Key}': {detail}.",
+        parameter: static (detail, c) => $"Degenerate appearance parameter under '{c.Key}': {detail}.",
+        graph: static (detail, c) => $"Degenerate shading frame under '{c.Key}': {detail}.");
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
@@ -153,7 +118,7 @@ public readonly record struct ShadingFrame(VectorFrame Frame, Context Context) {
         LocalVector<double> wo = Project(basis, outgoing.Value);
         return Math.Abs(wo.Z) > RhinoMath.ZeroTolerance
             ? Fin.Succ(new ShadingFrame(frame, context))
-            : Fin.Fail<ShadingFrame>(MaterialFault.Graph(key, "<degenerate-local-direction>"));
+            : Fin.Fail<ShadingFrame>(new MaterialFault.Graph(key, "<degenerate-local-direction>"));
     }
     public LocalVector<double> ToLocal(Direction world) => Project(Frame.Value, world.Value);
     public Fin<Direction> ToWorld(LocalVector<double> local, Op key) {
@@ -177,14 +142,6 @@ public readonly record struct ShadingFrame(VectorFrame Frame, Context Context) {
 
 ```csharp signature
 // --- [OPERATIONS] --------------------------------------------------------------------------
-// The microfacet kernel is GENERIC over its scalar and the constraint set is declared exactly ONCE, here, rather than
-// re-spelled on ten signatures: the whole kernel is geometry and Fresnel over a real field, so `Microfacet<double>`
-// is the instantiation every lobe on this page binds and a narrower one costs an instantiation rather than a second
-// transcription a fixture would then have to reconcile against this one.
-// Every entry that DIVIDES by a roughness floors its pair through the same mirror floor AlphaOf declares, and every
-// entry that divides by a direction cosine floors it at the frame's own degeneracy tolerance — a consumer-built lobe
-// carrying a zero roughness or a grazing pair shades the limit rather than minting the non-finite the RgbSpectrum
-// gate then throws on inside a partitioned sweep no rail covers.
 public static class Microfacet<T>
     where T : INumber<T>, IRootFunctions<T>, IPowerFunctions<T>, IExponentialFunctions<T>, ILogarithmicFunctions<T>, ITrigonometricFunctions<T> {
     public static T AlphaOf(T roughness) => T.Max(Scalar<T>.AlphaFloor, roughness * roughness);
@@ -225,9 +182,9 @@ public static class Microfacet<T>
         return Scalar<T>.Half * ((rParl * rParl) + (rPerp * rPerp));
     }
 
-    // The exact unpolarized conductor term per band. t3 + t4 floors at the degeneracy tolerance: a vacuum row
-    // (η = k = 0) at normal incidence drives both to zero and the unguarded quotient answered NaN, which the
-    // validated carrier then throws on rather than shading the perfect-transmission limit the row actually states.
+    // The exact unpolarized conductor term per band. t3 + t4 floors at the degeneracy tolerance: a vacuum row at
+    // normal incidence drives both to zero and the unguarded quotient answered NaN, which the validated carrier
+    // throws on rather than shading the perfect-transmission limit the row states.
     public static T FresnelConductor(T cosI, T eta, T k) {
         T ci = T.Clamp(T.Abs(cosI), T.Zero, T.One), ci2 = ci * ci;
         T sin2 = T.One - ci2;
@@ -335,10 +292,9 @@ public readonly partial struct RgbSpectrum {
 }
 
 // The measured complex refractive index owns its OWN spectral Fresnel read: the exact per-band conductor term is a
-// property of the (η, k) pair, so the carrier that validated the pair answers it and the scalar kernel stays generic
-// and spectrum-free. FresnelNormal is that same term at cosθ = 1 — the closed form ((η−1)²+k²)/((η+1)²+k²) IS the
-// exact term's normal-incidence value, so the second transcription that stood beside it is deleted and a change to
-// the conductor kernel can no longer leave the multi-scatter proxy behind.
+// property of the (η, k) pair, so the carrier that validated the pair answers it and the scalar kernel stays
+// spectrum-free. FresnelNormal is that same term at cosθ = 1, so the second transcription that stood beside it is
+// deleted and a change to the conductor kernel can no longer leave the multi-scatter proxy behind.
 [ComplexValueObject]
 public readonly partial struct ComplexIor {
     public RgbSpectrum Eta { get; }
@@ -349,18 +305,19 @@ public readonly partial struct ComplexIor {
     public RgbSpectrum FresnelNormal => Fresnel(1.0);
 }
 
-public readonly record struct LobeSample(LocalVector<double> Direction, RgbSpectrum Value, double Pdf, bool Transmission) {
-    public bool IsValid => Pdf > 0.0 && double.IsFinite(Pdf);
+public readonly record struct LobeSample(LocalVector<double> Direction, RgbSpectrum Value, double Pdf, bool Transmission)
+    : IValidityEvidence {
+    public bool IsValid => ValidityClaim.All(ValidityClaim.Positive(value: Pdf));
 
     // The ONE sample mint: a drawn direction with a positive FINITE density lands a receipt, anything else rails the
     // frame fault under the caller's own reason. Six near-identical succeed/fail pairs across the cosine sampler, the
     // VNDF sampler, the dielectric lottery, and the multi-scatter walk were the construction boilerplate this
-    // collapses, and the finiteness gate rides the mint so no estimator divides by an infinite density the bare
+    // collapses, and the density gate rides the mint so no estimator divides by an infinite density the bare
     // `pdf > 0` test admitted.
     public static Fin<LobeSample> Of(LocalVector<double> direction, RgbSpectrum value, double pdf, bool transmission, Op key, string reason) =>
         new LobeSample(direction, value, pdf, transmission) switch {
             var drawn when drawn.IsValid => Fin.Succ(drawn),
-            _ => Fin.Fail<LobeSample>(MaterialFault.Graph(key, reason)),
+            _ => Fin.Fail<LobeSample>(new MaterialFault.Graph(key, reason)),
         };
 }
 
@@ -398,16 +355,8 @@ public abstract partial record BsdfLobe {
     // thin_film_weight above zero while its plain-dielectric neighbour kept it.
     public sealed record ThinFilm(double Thickness, double FilmIor, double AlphaX, double AlphaY, double Rotation, ComplexIor BaseIor) : BsdfLobe;
 
-    // Transmitted answers what a lobe passes to the layers BENEATH it. Absorption is OPT-IN and declared by the case
-    // that carries a body tint — every interface lobe passes White because it attenuates by energy (the scalar
-    // 1−w·E cascade) rather than by hue, so a total Switch here would be six identical arms restating one default.
     public virtual RgbSpectrum Transmitted => RgbSpectrum.White;
 
-    // The three-method contract dispatches through the state-threading Switch overload — (wo, wi) ride the state tuple
-    // and every arm is `static`, so the per-sample path-trace hot loop allocates NO closure per lobe evaluation (the
-    // capturing-lambda Switch is the rejected form on the inner integrator loop). All four glossy-reflect lobes carry
-    // the SAME (AlphaX, AlphaY, Rotation) triple, so the four arms are one shape at four Fresnel policies and no case
-    // projects its alpha through a static its neighbour lacks.
     public RgbSpectrum Evaluate(LocalVector<double> wo, LocalVector<double> wi) => Switch(
         state: (Wo: wo, Wi: wi),
         diffuse:    static (s, d) => EvalDiffuse(d, s.Wo, s.Wi),
@@ -428,8 +377,6 @@ public abstract partial record BsdfLobe {
         subsurface: static (s, _) => DiffusePdf(s.Wo, s.Wi),
         thinFilm:   static (s, f) => ReflectPdf(s.Wo, s.Wi, f.Rotation, f.AlphaX, f.AlphaY));
 
-    // uc is the lobe-local CHOICE draw (only the dielectric lottery reads it) — decorrelated by contract from the
-    // (u0, u1) pair that shapes the half-vector; LayeredBsdf.Sample supplies it as the rescaled lobe-pick remainder.
     public Fin<LobeSample> Sample(LocalVector<double> wo, double uc, double u0, double u1, Op key) => Switch(
         state: (Owner: this, Wo: wo, Uc: uc, U0: u0, U1: u1, Key: key),
         diffuse:    static (s, _) => CosineSample(s.Wo, s.U0, s.U1, s.Owner, s.Key),
@@ -603,7 +550,7 @@ public abstract partial record BsdfLobe {
         LocalVector<double> local = wo.RotateZ(-rotation);
         LocalVector<double> h = Microfacet<double>.SampleVisibleNormal(local.CosTheta < 0.0 ? local.Scale(-1.0) : local, ax, ay, u0, u1);
         LocalVector<double> reflected = h.Scale(2.0 * local.Dot(h)).Add(local.Scale(-1.0));
-        if (!local.SameHemisphere(reflected)) { return Fin.Fail<LobeSample>(MaterialFault.Graph(key, "<vndf-below-horizon>")); }
+        if (!local.SameHemisphere(reflected)) { return Fin.Fail<LobeSample>(new MaterialFault.Graph(key, "<vndf-below-horizon>")); }
         LocalVector<double> wi = reflected.RotateZ(rotation);
         return LobeSample.Of(wi, owner.Evaluate(wo, wi), Microfacet<double>.ReflectPdf(local, h, ax, ay),
             transmission: false, key, "<zero-pdf-vndf-sample>");
@@ -627,13 +574,13 @@ public abstract partial record BsdfLobe {
             return wo.SameHemisphere(reflected)
                 ? LobeSample.Of(wiReflect, EvalDielectricReflect(g, outgoing, wiReflect),
                       f * Microfacet<double>.ReflectPdf(wo, h, g.AlphaX, g.AlphaY), transmission: false, key, "<dielectric-reflect-degenerate>")
-                : Fin.Fail<LobeSample>(MaterialFault.Graph(key, "<dielectric-reflect-degenerate>"));
+                : Fin.Fail<LobeSample>(new MaterialFault.Graph(key, "<dielectric-reflect-degenerate>"));
         }
         double eta = wo.CosTheta > 0.0 ? 1.0 / g.Ior : g.Ior;
         LocalVector<double> n = wo.Dot(h) < 0.0 ? h.Scale(-1.0) : h;
         double cosI = Math.Clamp(wo.Dot(n), -1.0, 1.0);
         double k = 1.0 - (eta * eta * (1.0 - (cosI * cosI)));
-        if (k < 0.0) { return Fin.Fail<LobeSample>(MaterialFault.Graph(key, "<dielectric-refract-tir>")); }
+        if (k < 0.0) { return Fin.Fail<LobeSample>(new MaterialFault.Graph(key, "<dielectric-refract-tir>")); }
         LocalVector<double> refracted = wo.Scale(-eta).Add(n.Scale((eta * cosI) - Math.Sqrt(k)));
         // The refraction Jacobian η²·|wi·h|/(wo·h + η·wi·h)² mirroring DielectricPdf's transmit arm (η = 1/eta, the
         // half-vector ratio) — the reflect-form 1/(4|wo·h|) here de-syncs the sample-local pdf from the balance
@@ -748,7 +695,7 @@ public static class MultiScatter {
             weight = weight.Mul(ior.Fresnel(Math.Abs(upper.Dot(h))));
             density *= Microfacet<double>.ReflectPdf(upper, h, alphaX, alphaY);
             if (next.CosTheta > 0.0) { return LobeSample.Of(next, weight, density, transmission: false, key, "<multi-scatter-walk-degenerate>"); }
-            if (Draw(seed, tap, depth, axis: 2) >= live) { return Fin.Fail<LobeSample>(MaterialFault.Graph(key, "<multi-scatter-walk-absorbed>")); }
+            if (Draw(seed, tap, depth, axis: 2) >= live) { return Fin.Fail<LobeSample>(new MaterialFault.Graph(key, "<multi-scatter-walk-absorbed>")); }
             (w, weight, density) = (next, weight.Scale(1.0 / live), density * live);
         }
     }
@@ -793,12 +740,10 @@ public sealed record LayeredBsdf {
     public static Fin<LayeredBsdf> Of(Seq<LobeWeight> lobes, Op key) {
         double total = lobes.Sum(static l => l.Weight.Value);
         return lobes.IsEmpty || total <= RhinoMath.ZeroTolerance
-            ? Fin.Fail<LayeredBsdf>(MaterialFault.Parameter(key, "<lobe-weights-degenerate>"))
+            ? Fin.Fail<LayeredBsdf>(new MaterialFault.Parameter(key, "<lobe-weights-degenerate>"))
             : Fin.Succ(new LayeredBsdf(lobes.Map(l => l with { Weight = UnitInterval.Create(l.Weight.Value / total) })));
     }
 
-    // State-threaded static folds — the per-bounce entries allocate no closure (the same closure-free hot-loop law the
-    // lobe Switch names; a lambda capturing lo/li here re-introduces the allocation the static arms deleted).
     public RgbSpectrum Evaluate(ShadingFrame frame, Direction wo, Direction wi) {
         LocalVector<double> lo = frame.ToLocal(wo), li = frame.ToLocal(wi);
         return Lobes.Fold((Acc: RgbSpectrum.Black, Lo: lo, Li: li),
@@ -834,7 +779,7 @@ public sealed record LayeredBsdf {
                 static (s, lw) => (s.Acc.Add(lw.Lobe.Evaluate(s.Lo, s.Wi).Mul(lw.Throughput).Scale(lw.Weight.Value)), s.Lo, s.Wi)).Acc;
             return mixedPdf > 0.0
                 ? Fin.Succ(sample with { Pdf = mixedPdf, Value = mixedValue })
-                : Fin.Fail<LobeSample>(MaterialFault.Graph(key, "<degenerate-mixed-pdf>"));
+                : Fin.Fail<LobeSample>(new MaterialFault.Graph(key, "<degenerate-mixed-pdf>"));
         });
     }
 }
@@ -842,7 +787,7 @@ public sealed record LayeredBsdf {
 
 ## [06]-[KERNEL_SEAMS]
 
-The lowering/grounding half — `SpectralUpsample` (RGB→SPD + measured-illuminant reduction), `ToneMap` (ACES RRT/ODT + scene-referred operators), `ConductorMetal` (the measured complex-IOR rows), and `SlabStack` (the OpenPBR Surface 1.1 stack-of-slabs) — is the `surface#SPECTRAL_UPSAMPLE`/`#TONE_MAP`/`#CONDUCTOR_IOR`/`#OPENPBR_SLAB` page, split out under the per-page depth budget so the kernel page owns frame-local shading and the surface page owns the OpenPBR construction. The two pages share the `[01]-[SHADING_FRAME]` `MaterialFault` band (`FaultBand.Material`) and the `SpectralBand` band-centre vocabulary declared once here and composed by the surface page; the `[04]-[LOBE_FAMILY]` `RgbSpectrum`/`ComplexIor` validated carriers and `BsdfLobe` closed set and the `[05]-[LAYERED_COMPOSITION]` `LayeredBsdf.Of` fold are read by `surface#OPENPBR_SLAB` `SlabStack.ToLayered`, the `[04]-[LOBE_FAMILY]` `ComplexIor.Fresnel` per-band read by `surface#CONDUCTOR_IOR`, and the `[04]-[LOBE_FAMILY]` `MultiScatter.DirectionalAlbedo` by the `SlabStack` albedo-scaling. A `MaterialParameters` row lowers through `surface#OPENPBR_SLAB` `SlabStack.Lower` to the formal stack and `ToLayered` collapses it to the PAIR the integrator reads — the one `LayeredBsdf` weighted fold this page shades and the accumulated `RgbSpectrum` emission the integrator adds as radiance outside that fold, the emission already attenuated by the throughput of every slab covering it — so the slab algebra is the construction, the lobe math single-sourced on this page, and the two terminal quantities travel together rather than one of them dying at the collapse.
+The lowering/grounding half — `SpectralUpsample` (RGB→SPD + measured-illuminant reduction), `ToneMap` (ACES RRT/ODT + scene-referred operators), `ConductorMetal` (the measured complex-IOR rows), and `SlabStack` (the OpenPBR Surface 1.1 stack-of-slabs) — is the `surface#SPECTRAL_UPSAMPLE`/`#TONE_MAP`/`#CONDUCTOR_IOR`/`#OPENPBR_SLAB` page, split out under the per-page depth budget so the kernel page owns frame-local shading and the surface page owns the OpenPBR construction. The two pages share the `[01]-[SHADING_FRAME]` `MaterialFault` band (`FaultBand.Appearance`) and the `SpectralBand` band-centre vocabulary declared once here and composed by the surface page; the `[04]-[LOBE_FAMILY]` `RgbSpectrum`/`ComplexIor` validated carriers and `BsdfLobe` closed set and the `[05]-[LAYERED_COMPOSITION]` `LayeredBsdf.Of` fold are read by `surface#OPENPBR_SLAB` `SlabStack.ToLayered`, the `[04]-[LOBE_FAMILY]` `ComplexIor.Fresnel` per-band read by `surface#CONDUCTOR_IOR`, and the `[04]-[LOBE_FAMILY]` `MultiScatter.DirectionalAlbedo` by the `SlabStack` albedo-scaling. A `MaterialParameters` row lowers through `surface#OPENPBR_SLAB` `SlabStack.Lower` to the formal stack and `ToLayered` collapses it to the PAIR the integrator reads — the one `LayeredBsdf` weighted fold this page shades and the accumulated `RgbSpectrum` emission the integrator adds as radiance outside that fold, the emission already attenuated by the throughput of every slab covering it — so the slab algebra is the construction, the lobe math single-sourced on this page, and the two terminal quantities travel together rather than one of them dying at the collapse.
 
 ## [07]-[BSDF_GOLDEN]
 
@@ -887,7 +832,7 @@ public static class Energy {
     public static Fin<Unit> Prove(BsdfGolden fixture, Op key) =>
         fixture.Probe.Measure(fixture.Lobe, fixture.Taps) switch {
             var measured when double.IsFinite(measured) && Math.Abs(measured - fixture.Expected) <= fixture.Tolerance + fixture.Residue => Fin.Succ(unit),
-            var measured => Fin.Fail<Unit>(MaterialFault.Parameter(key,
+            var measured => Fin.Fail<Unit>(new MaterialFault.Parameter(key,
                 $"<bsdf-golden:{fixture.Name}:{measured:R}!={fixture.Expected:R}+-{fixture.Tolerance + fixture.Residue:R}>")),
         };
 

@@ -1,8 +1,8 @@
 # [RASM_GRASSHOPPER_SHELL_JOURNAL]
 
-`SessionJournal` is the boundary's analytics egress — one monotone-stamped, per-document journal folding `UiEvent` facts and `GhEvidence` receipts into bounded partitions, and one export projection turning a session into a detached record for post-mortems, support bundles, and analytics. Rows are evidence values only; a live host object, lease, or delegate never enters a partition, so an export is serializable by construction at whichever wire the app root chooses.
+`SessionJournal` is the boundary's analytics egress — one monotone-stamped, per-document journal folding `UiEvent<GhFact>` envelopes and `GhEvidence` receipts into bounded partitions, and one export projection turning a session into a detached record for post-mortems, support bundles, analytics, and hook replay. Rows are evidence values only; a live host object, lease, or delegate never enters a partition, so an export is serializable by construction at whichever wire the app root chooses.
 
-Journal consumption stays off the UI thread: one single-reader loop drains `EvidenceDrain.Reader`, appends each fact under its owning `DocumentToken` identity, and accounts every shed element, so publication on the paint path stays a non-blocking `TryWrite` while the fold pays its cost on the consumer's own pace. `Shell/hooks.md` `Replay` re-enters captured rows for deterministic replay.
+Consumption stays off the UI thread: one single-reader loop drains the kernel `EvidenceDrain<GhFact>.Reader`, appends each envelope under its owning document identity, and the drain's own `Shed`/`Refused` account the publication losses — the journal accounts only what ITS ring sheds. Kernel envelope's `Ordinal` is the sink-serialized total order the replay law rests on; the journal's `MonotonicStamp` is the cross-family ordering authority inside a partition, both minted off the session's one injected timeline.
 
 ## [01]-[INDEX]
 
@@ -11,28 +11,30 @@ Journal consumption stays off the UI thread: one single-reader loop drains `Evid
 
 ## [02]-[ROWS]
 
-- Owner: `JournalPolicy` sealed record — the per-partition ring bound; `Default` keeps the newest rows per document and sheds the head with accounting, so a runaway document cannot grow the journal without bound. `JournalFact` `[Union]` — `EventCase` carries one `UiEvent`, `EvidenceCase` carries one `GhEvidence` receipt; every payload the boundary can witness is already one of these two families, so the journal adds no third truth.
-- Owner: `JournalRow` readonly record struct — one appended fact under its `Sequence` ordinal, optional owning document, and the `MonotonicStamp` the journal's own timeline captured at append; validity claims a nonnegative sequence and live stamp evidence, and a partition's rows are monotone by construction because one timeline stamps every append.
-- Law: stamps are journal-local — `UiEvent.Stamp` stays the sink-publication ordinal it was minted as, `SolutionTrace` keeps its own monotone claim, and the journal's `MonotonicStamp` is the one cross-family ordering authority inside a partition; no wall-clock read enters a row.
-- Law: document attribution derives from the fact — a `DocumentCase` fact keys its own partition through its `DocumentToken` id, a `GhEvidence` receipt keys the document its projector named, and an unattributable fact lands in the session partition rather than being dropped; a `GraphCase` subject id is object-instance identity and never keys a partition.
-- Packages: LanguageExt.Core, `Rasm.Domain` (`Op`), `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`), `Shell/events.md` (`UiEvent`), `Shell/telemetry.md` (`GhEvidence`).
+- Owner: `JournalPolicy` sealed record — the per-partition ring bound; `Default` keeps the newest rows per document and sheds the head with accounting. It stays DISTINCT from the kernel `DrainPolicy` on a named discriminant: the drain bounds a channel's admission (drop mode), this bounds a partition's retention (head shed) — two losses, two counters, two policies. `JournalFact` `[Union]` — `EventCase` carries one `UiEvent<GhFact>`, `EvidenceCase` one `GhEvidence` receipt; every payload the boundary witnesses is one of these two families, so the journal adds no third truth.
+- Owner: `JournalRow` readonly record struct — one appended fact under its `Sequence` ordinal, optional owning document, and the `MonotonicStamp` the session timeline captured at append; a partition's rows are monotone by construction because ONE timeline stamps every append.
+- Law: stamps are layered, never merged — the kernel envelope's `Ordinal` is the drain's total publication order, the journal's `Sequence` is its own append order, and the `MonotonicStamp` orders across fact families; each answers a different question and none substitutes.
+- Law: document attribution derives from the fact — a `DocumentCase` fact keys its partition through the host-published `Document.Identity`, a `GhEvidence` receipt keys the document its projector named, and an unattributable fact lands in the session partition rather than being dropped; a `GraphCase` subject id is object-instance identity and never keys a partition.
+- Packages: LanguageExt.Core, `Rasm.Domain` (`Op`), `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`), `Rasm.Interaction` (`UiEvent<TFact>`), `Shell/events.md` (`GhFact`), `Shell/telemetry.md` (`GhEvidence`).
 - Growth: a new journalable family is one `JournalFact` case; the row shape never widens per family.
 
 ## [03]-[FOLD]
 
-- Owner: `JournalLedger` readonly record struct — the committed fold state: the partitions keyed by document identity (the session partition rides `Guid.Empty`) beside the appended and shed tallies, folded by one pure `Folded` transition. `SessionJournal` sealed `IDisposable` — one `Atom<JournalLedger>` cell and one owned `MonotonicTimeline`. `Append` stamps, sequences, and folds one fact into its partition, shedding the head past the policy bound; the fold is one CAS per append, and shed rows count as evidence, never silence.
-- Law: the tallies live INSIDE the transition, never on sibling cells — a CAS body re-runs per contended retry, so a counter swapped from within it measures attempts instead of commits and over-reports exactly the loss evidence the page exists to publish; one committed value also makes an export's rows, appends, and sheds one snapshot rather than three racing reads.
-- Owner: `JournalExport` sealed record — the export projection: the selected rows in sequence order, total appended and shed counts, and the capture stamp, detached from every live cell so a support bundle serializes without holding the journal.
-- Entry: `SessionJournal.Of(Option<JournalPolicy> policy = default, TimeProvider? provider = null, Op? key = null)` → `Fin<SessionJournal>`; `Append(JournalFact fact, Option<Guid> document = default, Op? key = null)` → `Fin<JournalRow>`; `Export(Option<Guid> document = default, Op? key = null)` → `Fin<JournalExport>` — `Some` exports one partition, `None` merges every partition ordered by sequence; `Mount(EvidenceDrain drain, Option<JournalPolicy> policy = default, Op? key = null)` → `Fin<Lease<SessionJournal>>` — the off-thread drain consumer.
-- Law: `Mount` owns the single-reader contract — one retained consumer task drains `ReadAllAsync` under the journal's cancellation source and appends each event through the same `Append` gate. Disposal marks release before cancellation, and the consumer suppresses only the resulting append rejection while recording every live append fault; cancellation then joins the task before the journal releases, so no unowned consumer survives its lease.
-- Law: replay grounding is the export — `Shell/hooks.md` `Replay` consumes `JournalExport.Rows` projected back to signals, so replay capture and analytics export are one record, never two recordings.
+- Owner: `JournalLedger` readonly record struct — the committed fold state: partitions keyed by document identity (the session partition rides `Guid.Empty`) beside the next sequence and the appended and shed tallies, advanced by one pure `Folded` transition. Ordinal lives INSIDE the ledger, so one `Cell.Commit` settles the row, the sequence, and the tallies as one committed value — the split commit (an interlocked counter beside a CAS) tears an export into three figures that disagree.
+- Owner: `JournalExport` `[Equatable]` sealed record — the export projection: the selected rows in sequence order (`[OrderedEquality]`), the whole `JournalLedger` tally snapshot, and the capture stamp, detached from every live cell. `Signals` is the replay grounding this page promises: each row projects to its `Shell/hooks.md` `HookSignal`, so replay capture and analytics export are ONE record, never two recordings.
+- Entry: `SessionJournal.Of(MonotonicTimeline clock, FaultCell faults, Option<JournalPolicy> policy = default, Op? key = null)` → `Fin<SessionJournal>` — the clock is the session's one injected timeline (folder RULINGS `[02]`; no mint here) and the fault cell is the composition's; `Append(JournalFact fact, Option<Guid> document = default, Op? key = null)` → `Fin<JournalRow>`; `Export(Option<Guid> document = default, Op? key = null)` → `Fin<JournalExport>` — `Some` exports one partition, `None` merges every partition ordered by sequence; `Mount(EvidenceDrain<GhFact> drain, …)` → `Fin<Lease<SessionJournal>>` — the off-thread drain consumer the composition root's roster names.
+- Law: `Mount` owns the single-reader contract — one retained consumer task drains `ReadAllAsync` under the journal's cancellation source, its whole loop inside the kernel's ASYNC `Op.Catch` arm, so a cancelled drain keeps the `KernelFault.Cancelled` case and an unknown raise keeps its original exceptional `Error` on the composition's fault cell. Consumer stays a deliberately off-UI-thread `Task.Run`; disposal cancels, joins the task, then releases, so no unowned consumer survives its lease.
+- Law: every journal fault PARKS on the injected `FaultCell` — bounded ring, `Shed` and `Lost` counted — never a newest-only `Atom<Option<Error>>`; the release one-shot is the kernel `Atom<bool>` latch through `Cell.Step`.
 - Boundary: serialization, upload, and bundle formats are app-root concerns over the detached export; the journal never names a serializer or a wire.
-- Packages: LanguageExt.Core (`Fin`, `Seq`, `HashMap`, `Atom`), .NET (`TimeProvider`, `CancellationTokenSource`, `Task`), `Rasm.Domain` (`Op`, `Lease<T>`), `Rasm.Parametric` (`MonotonicTimeline`), `Shell/events.md` (`EvidenceDrain`).
+- Packages: LanguageExt.Core (`Fin`, `Seq`, `HashMap`, `Atom`, `Cell`), .NET (`CancellationTokenSource`, `Task`), Generator.Equals, Microsoft.Extensions.Logging.Abstractions (`JournalLog`), `Rasm.Domain` (`Op`, `Lease<T>`, `FaultCell`), `Rasm.Parametric` (`MonotonicTimeline`), `Rasm.Interaction` (`EvidenceDrain<TFact>`).
 - Growth: a new export slice is one filter over the one fold; a new retention posture is one `JournalPolicy` field.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Generator.Equals;
+using Microsoft.Extensions.Logging;
 using Rasm.Domain;
+using Rasm.Interaction;
 using Rasm.Parametric;
 
 namespace Rasm.Grasshopper.Shell;
@@ -41,11 +43,12 @@ namespace Rasm.Grasshopper.Shell;
 [Union]
 public abstract partial record JournalFact {
     private JournalFact() { }
-    public sealed record EventCase(UiEvent Fact) : JournalFact;
+    public sealed record EventCase(UiEvent<GhFact> Fact) : JournalFact;
     public sealed record EvidenceCase(GhEvidence Evidence) : JournalFact;
 }
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
+// DISTINCT from the kernel DrainPolicy by discriminant: channel admission drop versus partition head shed.
 public sealed record JournalPolicy(int Capacity) {
     public static readonly JournalPolicy Default = new(Capacity: 2048);
 }
@@ -53,169 +56,158 @@ public sealed record JournalPolicy(int Capacity) {
 // --- [MODELS] -------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct JournalRow(long Sequence, Option<Guid> Document, MonotonicStamp Stamp, JournalFact Fact) : IValidityEvidence {
+    // ONE evidence spelling: a REQUIRED member reads its own fold — `Append` already admitted the fact, so no
+    // null re-check survives past the gate.
     public bool IsValid => ValidityClaim.All(
-        ValidityClaim.Of(holds: Sequence >= 0L),
-        ValidityClaim.Evidence(evidence: Stamp),
-        ValidityClaim.Of(holds: Fact is not null));
+        Sequence >= 0L,
+        Stamp.IsValid);
 }
 
-public sealed record JournalExport(Seq<JournalRow> Rows, long Appended, long Shed, MonotonicStamp Captured);
+// Whole ledger snapshot rides the export, so rows and tallies are ONE committed value a bundle serializes.
+[Equatable]
+public sealed partial record JournalExport(
+    [property: OrderedEquality] Seq<JournalRow> Rows,
+    JournalLedger Tallies,
+    MonotonicStamp Captured) {
+    // Replay grounding: an export IS the captured signal window `Shell/hooks.md` replays, so capture and
+    // analytics are one record.
+    public Seq<HookSignal> Signals => Rows.Map(static row => row.Fact.Switch<HookSignal>(
+        eventCase: static fact => new HookSignal.EventCase(Fact: fact.Fact),
+        evidenceCase: static fact => new HookSignal.EvidenceCase(Evidence: fact.Evidence)));
+}
 
+// Sequence lives INSIDE the fold: one committed value carries rows, ordinal, and tallies, so a contended
+// retry re-derives all four together and an export never reads three cells that tore.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct JournalLedger(HashMap<Guid, Seq<JournalRow>> Partitions, long Appended, long Shed) {
-    public static readonly JournalLedger Empty = new(Partitions: HashMap<Guid, Seq<JournalRow>>(), Appended: 0L, Shed: 0L);
+public readonly record struct JournalLedger(HashMap<Guid, Seq<JournalRow>> Partitions, long Next, long Appended, long Shed) {
+    public static readonly JournalLedger Empty = new(Partitions: HashMap<Guid, Seq<JournalRow>>(), Next: 0L, Appended: 0L, Shed: 0L);
 
-    // Pure transition: `Swap` re-runs its body on every CAS retry, so a tally incremented on a sibling cell inside it
-    // counts once per contended ATTEMPT rather than once per commit (rails-and-effects [ATOM_STATE]) — and shed count
-    // is the page's declared loss evidence, so an over-report is a fabricated measurement. Folding rows, appends, and
-    // sheds into ONE committed value also makes an export read three figures that agree, where three cells tear.
-    internal JournalLedger Folded(Guid partition, JournalRow row, int capacity) =>
-        Partitions.Find(partition).IfNone(Seq<JournalRow>()).Add(row) switch {
-            var grown when grown.Count > capacity => new(
-                Partitions: Partitions.AddOrUpdate(partition, grown.Tail.Strict()), Appended: Appended + 1L, Shed: Shed + 1L),
-            var grown => new(
-                Partitions: Partitions.AddOrUpdate(partition, grown), Appended: Appended + 1L, Shed: Shed),
-        };
+    internal (JournalLedger Ledger, JournalRow Row) Folded(Option<Guid> document, MonotonicStamp stamp, JournalFact fact, int capacity) {
+        Guid partition = document.IfNone(Guid.Empty);
+        JournalRow row = new(Sequence: Next, Document: document, Stamp: stamp, Fact: fact);
+        Seq<JournalRow> grown = Partitions.Find(partition).IfNone(Seq<JournalRow>()).Add(row);
+        return (new JournalLedger(
+            Partitions: Partitions.AddOrUpdate(partition, grown.Count > capacity ? grown.Tail.Strict() : grown),
+            Next: Next + 1L,
+            Appended: Appended + 1L,
+            Shed: grown.Count > capacity ? Shed + 1L : Shed), row);
+    }
 }
 
 // --- [SERVICES] -----------------------------------------------------------------------------
+internal static partial class JournalLog {
+    // Const-beside-row (kernel S1-58): the attribute needs a compile-time value and the registry row is the
+    // authority, so the pair is proved equal at type init and drift throws at load.
+    internal const int ConsumerFault = 4711;
+    static JournalLog() => Op.SideWhen(
+        condition: ConsumerFault != FaultBand.GrasshopperLog.Code(offset: 11),
+        action: static () => throw new InvalidOperationException("JournalLog.ConsumerFault drifted from FaultBand.GrasshopperLog."));
+
+    [LoggerMessage(EventId = ConsumerFault, Level = LogLevel.Error, Message = "Journal consumer faulted: {Detail}")]
+    internal static partial void ConsumerFaulted(ILogger logger, [UserContent] string detail);
+}
+
 public sealed class SessionJournal : IDisposable {
     private readonly JournalPolicy policy;
-    private readonly MonotonicTimeline timeline;
+    private readonly MonotonicTimeline clock;
+    private readonly FaultCell faults;
     private readonly Atom<JournalLedger> ledger = Atom(JournalLedger.Empty);
-    private readonly Atom<Option<Error>> lastFault = Atom(Option<Error>.None);
+    private readonly Atom<bool> released = Atom(false);
     private readonly CancellationTokenSource drain = new();
     private Task consuming = Task.CompletedTask;
-    private long nextSequence;
-    private int releaseState;
 
-    private SessionJournal(JournalPolicy policy, MonotonicTimeline timeline) {
-        this.policy = policy;
-        this.timeline = timeline;
-    }
+    public JournalLedger Tallies => ledger.Value;
+    // Journal-scoped parks alone — the injected cell is the composition's shared custody, so an unfiltered
+    // read would republish every owner's faults under this page's name.
+    public Seq<IsolatedFault> Faults => faults.Parked.Filter(static fault => fault.Point == Rail);
 
-    public long Appended => ledger.Value.Appended;
-    public long Shed => ledger.Value.Shed;
-    public Option<Error> LastFault => lastFault.Value;
+    // Clock is INJECTED — the folder's one timeline mints at the composition root alone.
+    public static Fin<SessionJournal> Of(
+        MonotonicTimeline clock, FaultCell faults, Option<JournalPolicy> policy = default, Op? key = null);
 
-    public static Fin<SessionJournal> Of(Option<JournalPolicy> policy = default, TimeProvider? provider = null, Op? key = null) {
-        Op op = key.OrDefault();
-        JournalPolicy bound = policy.IfNone(JournalPolicy.Default);
-        return from admitted in guard(bound.Capacity > 0, op.InvalidInput()).ToFin()
-               from timeline in MonotonicTimeline.Of(provider: provider ?? TimeProvider.System, key: op)
-               select new SessionJournal(policy: bound, timeline: timeline);
-    }
-
+    // Whole loop rides the kernel ASYNC catch arm: a cancelled drain keeps `KernelFault.Cancelled` and a host raise
+    // lands typed on the cell — no swallowing and no untyped catch is spellable on this shape. The reader is the
+    // kernel drain's single-reader contract; this consumer is its one structural reader.
     public static Fin<Lease<SessionJournal>> Mount(
-        EvidenceDrain drain, Option<JournalPolicy> policy = default, Op? key = null) {
+        EvidenceDrain<GhFact> drain, MonotonicTimeline clock, FaultCell faults,
+        Option<JournalPolicy> policy = default, Op? key = null) {
         Op op = key.OrDefault();
-        return from source in op.Need(drain)
-               from journal in Of(policy: policy, key: op)
-               from consuming in op.Catch(body: () => Fin.Succ(Op.Side(action: () => journal.consuming = Task.Run(async () => {
-                   try {
-                       await foreach (UiEvent fact in source.Reader.ReadAllAsync(cancellationToken: journal.drain.Token))
-                           journal.Append(
-                               fact: new JournalFact.EventCase(Fact: fact),
-                               document: DocumentOf(fact: fact),
-                               key: op).IfFail(journal.RecordAppend);
-                   }
-                   catch (OperationCanceledException) when (journal.drain.IsCancellationRequested) { }
-                   catch (Exception raised) { journal.Record(error: Error.New(raised)); }
-               }))))
+        return from journal in Of(clock: clock, faults: faults, policy: policy, key: op)
+               from mounted in op.Catch(body: () => Fin.Succ(Op.Side(action: () => journal.consuming = Task.Run(
+                   async () => (await op.Catch(async token => {
+                       await foreach (UiEvent<GhFact> fact in drain.Reader.ReadAllAsync(cancellationToken: token)) {
+                           journal.Append(fact: new JournalFact.EventCase(Fact: fact), document: DocumentOf(fact: fact), key: op)
+                               .IfFail(journal.Park);
+                       }
+                       return Fin.Succ(unit);
+                   }, token: journal.drain.Token)).IfFail(journal.Park)))))
                select (Lease<SessionJournal>)new Lease<SessionJournal>.Owned(Value: journal);
     }
 
+    // ONE committed transition settles row, sequence, and tallies; the verdict is read, never discarded.
     public Fin<JournalRow> Append(JournalFact fact, Option<Guid> document = default, Op? key = null) {
         Op op = key.OrDefault();
         return from valid in op.Need(fact)
-               from live in guard(Volatile.Read(location: ref releaseState) == 0, op.InvalidResult()).ToFin()
-               from stamp in timeline.Capture(key: op)
-               let row = new JournalRow(
-                   Sequence: Interlocked.Increment(location: ref nextSequence) - 1L,
-                   Document: document,
-                   Stamp: stamp,
-                   Fact: valid)
-               from folded in op.Catch(body: () => Fin.Succ(ignore(ledger.Swap(held =>
-                   held.Folded(partition: document.IfNone(Guid.Empty), row: row, capacity: policy.Capacity)))))
-               from accepted in op.AcceptValue(value: row)
-               select accepted;
+               from live in guard(!released.Value, op.InvalidResult()).ToFin()
+               from stamp in clock.Capture(key: op)
+               from committed in Cell.Commit(ledger, held => held.Folded(
+                       document: document, stamp: stamp, fact: valid, capacity: policy.Capacity).Ledger)
+                   .Switch(
+                       state: op,
+                       committed: (o, row) => row.State.Partitions
+                           .Find(document.IfNone(Guid.Empty))
+                           .Bind(static rows => rows.Last)
+                           .ToFin(o.InvalidResult()),
+                       ceded: static (o, _) => Fin.Fail<JournalRow>(o.InvalidResult()),
+                       refused: static (_, row) => Fin.Fail<JournalRow>(row.Cause),
+                       contended: static (o, _) => Fin.Fail<JournalRow>(o.InvalidResult()))
+               select committed;
     }
 
     public Fin<JournalExport> Export(Option<Guid> document = default, Op? key = null) {
         Op op = key.OrDefault();
-        return from stamp in timeline.Capture(key: op)
-               from export in op.Catch(body: () => {
-                   JournalLedger held = ledger.Value;
-                   Seq<JournalRow> rows = document.Match(
-                       Some: partition => held.Partitions.Find(partition).IfNone(Seq<JournalRow>()),
-                       None: () => toSeq(held.Partitions.Values.Bind(static rows => rows)
-                           .OrderBy(static row => row.Sequence)));
-                   return Fin.Succ(new JournalExport(
-                       Rows: rows.Strict(), Appended: held.Appended, Shed: held.Shed, Captured: stamp));
-               })
-               select export;
+        return from stamp in clock.Capture(key: op)
+               let held = ledger.Value
+               let rows = document.Match(
+                   Some: partition => held.Partitions.Find(partition).IfNone(Seq<JournalRow>()),
+                   None: () => toSeq(held.Partitions.Values.Bind(static rows => rows).OrderBy(static row => row.Sequence)))
+               select new JournalExport(Rows: rows.Strict(), Tallies: held, Captured: stamp);
     }
 
-    public void Dispose() => Op.SideWhen(
-        condition: Interlocked.Exchange(location1: ref releaseState, value: 1) == 0,
-        action: () => {
-            Op op = Op.Of(name: nameof(SessionJournal));
-            op.Catch(body: () => Fin.Succ(Op.Side(action: drain.Cancel))).IfFail(Record);
-            op.Catch(body: () => Fin.Succ(Op.Side(action: () => consuming.GetAwaiter().GetResult()))).IfFail(Record);
-            op.Catch(body: () => Fin.Succ(Op.Side(action: drain.Dispose))).IfFail(Record);
-        });
+    // Kernel one-shot: a second dispose reads the step's refusal and does nothing; cancel, join, release.
+    public void Dispose();
 
-    private void Record(Error error) => ignore(lastFault.Swap(_ => Some(error)));
+    // Emit-then-park (the capture exemplar): the consumer loss surfaces on the log channel FIRST, then the
+    // cell's own accounting carries the park verdict — Shed/Lost are the telemetry root's reads.
+    private Unit Park(Error cause) {
+        JournalLog.ConsumerFaulted(GhLog.For(category: nameof(SessionJournal)), cause.Message);
+        return ignore(faults.Park(point: Rail, cause: cause));
+    }
 
-    private void RecordAppend(Error error) => Op.SideWhen(
-        condition: Volatile.Read(location: ref releaseState) == 0,
-        action: () => Record(error: error));
+    private static readonly HookId Rail = HookId.Create(value: "rasm.grasshopper.shell.journal");
 
-    // GraphCase.SubjectId is object-instance identity, never a partition key; graph facts ride the session partition.
-    private static Option<Guid> DocumentOf(UiEvent fact) => fact.Fact switch {
-        UiFact.DocumentCase document => document.DocumentId,
+    private static Option<Guid> DocumentOf(UiEvent<GhFact> fact) => fact.Fact switch {
+        GhFact.DocumentCase document => document.DocumentId,
         _ => Option<Guid>.None,
     };
 }
 ```
 
-```mermaid
----
-config:
-  layout: elk
-  flowchart:
-    curve: linear
-    padding: 25
----
-flowchart LR
-    accTitle: Fold drained evidence into a per-document session journal
-    accDescr: The bounded drain hands facts to one off-thread reader; the journal stamps each row from its own monotonic timeline, folds it into a capacity-bounded document partition with shed accounting, and one export projection serves support bundles, analytics, and hook replay.
-    Publish["UiEvents.Observe publish"] -->|"TryWrite, never waits"| Drain["EvidenceDrain bounded channel"]
-    Drain -->|"ReadAllAsync single reader"| Loop["journal consumer loop"]
-    Receipts["GhEvidence receipts"] -->|"Append(EvidenceCase)"| Journal["SessionJournal"]
-    Loop -->|"Append(EventCase)"| Journal
-    Journal -->|"MonotonicStamp per row"| Partitions[("per-document ring partitions")]
-    Partitions -->|"sequence-ordered projection"| Export["JournalExport"]
-    Export -->|"support bundle · analytics"| Root["app root"]
-    Export -->|"captured signals"| Replay["GhHooks.Replay"]
-```
-
 ## [04]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]         | [OWNER]                      | [RAIL]                                     | [CASES] |
-| :-----: | :---------------- | :--------------------------- | :----------------------------------------- | :-----: |
-|  [01]   | fact admission    | `JournalFact` + `JournalRow` | closed union → stamped row evidence        |    2    |
-|  [02]   | bounded fold      | `JournalLedger`              | `Append → Fin<JournalRow>`, one CAS commit |    1    |
-|  [03]   | drain consumption | `SessionJournal.Mount`       | `Fin<Lease<SessionJournal>>`               |    1    |
-|  [04]   | export projection | `JournalExport`              | `Export → Fin<JournalExport>`              |    1    |
+| [INDEX] | [CONCERN]         | [OWNER]                      | [RAIL]                                          | [CASES] |
+| :-----: | :---------------- | :--------------------------- | :---------------------------------------------- | :-----: |
+|  [01]   | fact admission    | `JournalFact` + `JournalRow` | closed union → stamped row evidence             |    2    |
+|  [02]   | bounded fold      | `JournalLedger`              | one `Cell.Commit` — row, ordinal, tallies whole |    1    |
+|  [03]   | drain consumption | `SessionJournal.Mount`       | async `Op.Catch` loop → `FaultCell` parks       |    1    |
+|  [04]   | export + replay   | `JournalExport`              | one record — bundle rows AND `Signals` window   |    1    |
 
-`Op`, `Lease<T>`, `MonotonicTimeline`, `EvidenceDrain`, `UiEvent`, and `GhEvidence` are composed upstream owners; retention, serialization, and upload policy compose at the app root over the detached export.
+`Op`, `Lease<T>`, `FaultCell`, `MonotonicTimeline`, `EvidenceDrain<GhFact>`, `UiEvent<GhFact>`, and `GhEvidence` are composed upstream owners; retention, serialization, and upload policy compose at the app root over the detached export.
 
 ## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

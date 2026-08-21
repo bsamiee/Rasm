@@ -6,42 +6,44 @@ Uniform blocks cross as WORDS, never floats. Every kernel's `Params` struct inte
 
 ## [01]-[INDEX]
 
-- [02]-[PRESS_DEVICE]: the `DevicePolicy` row, the `KernelUniform` word writer, the `KernelBuffer`/`KernelBinding` request shape, the `KernelReceipt`, the `PressDevice` headless lifecycle over `Lease<PressDevice>`, and the one `Dispatch` fold with its submission-index drain and error-scope rail.
-- [03]-[WGSL_KERNEL]: the `BindingKind` roster, the `KernelReduce` host-fold axis, the `WgslOpCode` lowering table over the appearance vocabularies, the closed `WgslKernel` table with each row's binding layout and workgroup shape, and the WGSL module bodies as fence law.
+- [02]-[PRESS_DEVICE]: the `DeviceArm` capability roster and the `DevicePolicy` row that carries it, the `KernelUniform` word writer, the `KernelBuffer`/`KernelBinding` request shape, the `KernelReceipt`, the `PressDevice` headless lifecycle over `Lease<PressDevice>`, and the one `Dispatch` fold with its submission-index drain and error-scope rail.
+- [03]-[WGSL_KERNEL]: the derived `Wgsl.NoiseConsts` prelude the CPU declaration emits, the `BindingKind` roster, the `KernelReduce` host-fold axis, the `WgslOpCode` lowering table over the appearance vocabularies, the closed `WgslKernel` table with each row's binding layout and workgroup shape, and the WGSL module bodies as fence law.
 - [04]-[GOLDEN_VECTOR]: the `GoldenVector` fixture row per kernel, each expected value exactly computable from the kernel's own definition and quadrature, with the tolerance, the prefix-comparison law, and the parity read the benchmark corpus gates on.
 - [05]-[KERNEL_CHAIN]: the `ChainNode` lowering request, the linear-scan buffer allocator over the compiled order, the `ChainPlan` slot pool with its three admission ceilings, and the plural `Dispatch` modality that executes a chain in one submission.
 - [06]-[RESEARCH]: open epistemic debt with its verification route.
 
 ## [02]-[PRESS_DEVICE]
 
-- Owner: `PressDevice` the surfaceless bake device and pipeline cache; `DevicePolicy` the acquisition policy row; `KernelUniform` the WGSL-aligned word writer; `KernelBuffer` `[Union]` the per-binding request; `KernelBinding` the dispatch request; `KernelReceipt` the dispatch evidence; `PressDevice.NativeSlot` the ONE completion slot every native callback writes.
+- Owner: `PressDevice` the surfaceless bake device and pipeline cache; `DevicePolicy` the acquisition policy row over a `CapabilitySet<DeviceArm>` arm column; `DeviceArm` the acquisition-capability roster; `KernelUniform` the WGSL-aligned word writer; `KernelBuffer` `[Union]` the per-binding request; `KernelBinding` the dispatch request; `KernelReceipt` the dispatch evidence; `PressDevice.NativeSlot` the ONE completion slot every native callback writes.
 - Cases: buffer {`Uniform` (a read-only constant block of WGSL words), `Read` (a read-only `f32` storage input), `Write` (a device-written storage output the fold reads back)}.
 - Law: buffer POSITION is the WGSL `@binding` index — a request's buffer sequence IS the layout, so a kernel row's declared roster and a caller's request cannot disagree without failing the roster gate loudly rather than reading a wrong slot silently.
 - Law: a uniform block is a WORD sequence, not a float array. Every `Params` struct on `[03]` interleaves `f32`, `u32`, and `i32` members, so a float-typed carrier writing `4f` into a `u32` slot hands the shader `0x40000000` read as `1073741824` — a wrong texel no validation layer reports, on every kernel that carries an extent, an octave count, a seed, or an op code.
 - Entry: `public static Fin<Lease<PressDevice>> Acquire(DevicePolicy policy, Op key)` mints the headless device on the `Lease<T>` resource rail so the `Owned` case disposes every native handle at the projection's close; `public Fin<KernelReceipt> Dispatch(WgslKernel kernel, KernelBinding binding, Op key)` is the ONE dispatch — it compiles or reuses the pipeline, uploads, records, submits, drains on the submission index, reads back, applies the row's own host reduction, and pops the error scope, so a caller composes an outcome and never sequences the device's internals.
-- Packages: Silk.NET.WebGPU (composed — `WebGPU.GetApi()` the function-table root, `CreateInstance`, `InstanceRequestAdapter` with a NULL `RequestAdapterOptions.CompatibleSurface`, `AdapterRequestDevice` over a `DeviceDescriptor.RequiredLimits` chaining the adapter's own `SupportedLimits.Limits`, `DeviceGetQueue`, `InstanceProcessEvents`, `DeviceCreateShaderModule` over the `ShaderModuleWGSLDescriptor` chain at `SType.ShaderModuleWgslDescriptor`, `DeviceCreateComputePipeline`, `ComputePipelineGetBindGroupLayout`, `DeviceCreateBindGroup`, `DeviceCreateBuffer`, `QueueWriteBuffer`, `DeviceCreateCommandEncoder`, `CommandEncoderBeginComputePass`, `ComputePassEncoderSetPipeline`/`SetBindGroup`/`DispatchWorkgroups`/`End`, `CommandEncoderCopyBufferToBuffer`, `CommandEncoderFinish`, `BufferMapAsync`, `BufferGetMapState`, `BufferGetMappedRange`, `BufferUnmap`, `DevicePushErrorScope`/`DevicePopErrorScope`, `DeviceCreateQuerySet` and `CommandEncoderWriteTimestamp`/`CommandEncoderResolveQuerySet` gated on `AdapterHasFeature(FeatureName.TimestampQuery)`, `AdapterGetLimits(Adapter*, SupportedLimits*) -> Bool32` and `DeviceGetLimits(Device*, SupportedLimits*) -> Bool32` — both answers railed, the DEVICE's block feeding the `Limits.MaxComputeWorkgroupsPerDimension`/`MaxComputeInvocationsPerWorkgroup`/`MaxStorageBufferBindingSize` ceilings the dispatch gate reads — and the void `XxxRelease` pairs including `QueueRelease`/`DeviceRelease`/`AdapterRelease`/`InstanceRelease`), Silk.NET.WebGPU.Extensions.WGPU (composed — `WebGPU.TryGetDeviceExtension<Wgpu>` the loader, `InstanceExtras` chained onto `InstanceDescriptor.NextInChain` at `NativeSType.STypeInstanceExtras` carrying the `InstanceBackend` mask and the `InstanceFlag` word, `Wgpu.QueueSubmitForIndex(Queue*, nuint, CommandBuffer**) -> ulong` the submission-index mint, `Wgpu.DevicePoll(Device*, Bool32, WrappedSubmissionIndex*) -> Bool32` the DETERMINISTIC drain a surfaceless device closes its readback on, `Wgpu.SetLogLevel`/`SetLogCallback` routing the native diagnostic stream into the receipt sink), `Rasm` (project — `Lease<T>`, `Op`, `ValidityClaim`, `IValidityEvidence`), `codec#RASTER_FAULT` (composed — `RasterFault` band 2460), BCL inbox (`Marshal.StringToCoTaskMemUTF8`/`FreeCoTaskMem` the one UTF-8 marshalling owner, `Encoding.UTF8.GetString(byte*, int)` the native-message projection, `UnmanagedCallersOnly` over `CallConvCdecl` the thunk-free completion shape, `MemoryHandle` the upload pin, `ConcurrentDictionary` the pipeline cache, `BitConverter.SingleToUInt32Bits` the uniform word projection).
-- Growth: a new kernel is one `WgslKernel` row; a new acquisition constraint is one `DevicePolicy` column; a new binding kind is one `KernelBuffer` case; a new uniform member type is one `KernelUniform` append. There is NO per-kernel device, NO managed wrapper renaming the native surface, and NO second `Dispatch` overload — arity and modality both ride the request's own buffer sequence.
-- Boundary: the adapter request passes a NULL `CompatibleSurface`, so the same lifecycle yields a device with no window; a bake never opens a viewport to obtain a device, and a folder already holding a device never re-requests one. Because there is no present to pump the event loop, the readback closes on the SUBMISSION INDEX rather than on a spin: `Wgpu.QueueSubmitForIndex` mints the index for the exact submission and `Wgpu.DevicePoll(device, wait: true, &index)` blocks until that submission retires and its map callback has run, so the fold reaches `BufferGetMapState` already `Mapped`. A `wait: false` poll loop around `BufferGetMapState` is the frame-driven form a presented plane uses because it must not block its own frame; a bake has no frame, so the loop only burns a core waiting for the answer the index already names. Readback is two-phase and BUFFER-SHAPED throughout: `CommandEncoderCopyBufferToBuffer` lands the device result in a `MapRead | CopyDst` staging buffer, and a buffer copy carries no row pitch, so the mapped range reads as one flat `f32` run. The 256-byte `ImageCopyBuffer.Layout.BytesPerRow` alignment a host un-pads row-wise belongs to `CommandEncoderCopyTextureToBuffer`, and this device allocates no texture — that padding becomes real the day a kernel row declares a storage-texture binding, which is the declared growth leg and not a cost paid today. Validation is a POLICY row, not an unconditional bracket, and it arms BOTH halves from one column: `DevicePolicy.Validation` sets `InstanceFlag.Validation` in the chained `InstanceExtras` so the native layer runs at all, and arms `DevicePushErrorScope(ErrorFilter.Validation)` around the pass, whose `DevicePopErrorScope` drains that layer's verdict into a `RasterFault.Device` with the native message preserved — a proving run pays both and a throughput run neither, where a scope armed over an unarmed layer would drain clean on a malformed dispatch. Backend selection is likewise INSTANCE state: `DevicePolicy.Backends` rides `InstanceExtras.Backends` as a flags MASK constraining which backends the instance builds, which is strictly more than the single `RequestAdapterOptions.BackendType` narrowing one request against an instance that already built them all. `Wgpu.SetLogCallback` routes adapter selection and device-lost onto the same rail unconditionally because a lost device is never optional evidence. The error scope IS the compile-diagnostics channel: `wgpuShaderModuleGetCompilationInfo` is UNIMPLEMENTED in wgpu-native and ABORTS the process — a non-unwinding panic, never a failed call — so a WGSL refusal reaches the host through the `DevicePushErrorScope`/`DevicePopErrorScope` pair and the log sink alone, and no fence on this page spells `GetCompilationInfo`. Timing is OPTIONAL EVIDENCE: `FeatureName.TimestampQuery` is probed on the adapter before the device requires it — requiring a feature the adapter lacks refuses the whole device and trades every dispatch for one timing column — and an absent feature leaves `KernelReceipt.GpuNanos` as a typed ABSENCE rather than a zero, because a fabricated zero and an unmeasured pass are the two states a parity benchmark must keep apart. Resolved query values are NANOSECONDS and this binding exposes no tick period to convert against — `Limits` carries dispatch ceilings alone and no period member — so the resolved delta IS the receipt column and no conversion step exists to get wrong. Limits are negotiated in BOTH directions and read at BOTH subjects for different reasons: the adapter's `SupportedLimits.Limits` chains back as the `DeviceDescriptor.RequiredLimits` requirement, because an unset requirement asks for the specification's conservative defaults rather than the hardware's headroom, and the DEVICE's own `DeviceGetLimits` block is what the dispatch gate compares against, because a device grants at or below what it was asked. Both reads answer `Bool32` and both answers rail, since a false answer leaves the struct zeroed and a zero ceiling refuses every dispatch as a breach rather than as the unread block it is. The pipeline cache is CONCURRENT because one leased device serves every binding of a press and a caller may fan them; a `FrozenDictionary` cannot admit a compile and a plain `Dictionary` tears under two. Every native handle releases through its own `XxxRelease` inside the `Lease<T>` projection window, and every per-dispatch handle releases in the recording fold's `finally` on the refusal path as much as the success one; `PressDevice` implements `IDisposable` solely so the kernel resource rail can carry it, and the `Owned` case's `using` is the platform-forced disposal seam this page declares. Native completions are `[UnmanagedCallersOnly]` over `CallConvCdecl` writing the CALLER's own stack slot, never `Pfn…Callback.From(delegate)`: the managed-delegate form mints one pinned `SilkMarshal` thunk per construction, so a device brought once per press with a map callback per binding leaks one thunk per dispatch. The slot copies the native message INLINE because the `byte*` a callback receives dies with the call and an unmanaged callee cannot hand a managed string back through a field; a slot storing that pointer renders freed bytes into a fault detail. The `[EXPRESSION_SPINE]` exemption is the unsafe marshalling spine — descriptor construction, pointer plumbing, the uniform word append, and the recording fold — which is platform-forced; every admission, dispatch selection, and egress surface is expression-bodied.
+- Packages: Silk.NET.WebGPU (composed — `WebGPU.GetApi()` the function-table root, `CreateInstance`, `InstanceRequestAdapter` with a NULL `RequestAdapterOptions.CompatibleSurface`, `AdapterRequestDevice` over a `DeviceDescriptor.RequiredLimits` chaining the adapter's own `SupportedLimits.Limits`, `DeviceGetQueue`, `InstanceProcessEvents`, `DeviceCreateShaderModule` over the `ShaderModuleWGSLDescriptor` chain at `SType.ShaderModuleWgslDescriptor`, `DeviceCreateComputePipeline`, `ComputePipelineGetBindGroupLayout`, `DeviceCreateBindGroup`, `DeviceCreateBuffer`, `QueueWriteBuffer`, `DeviceCreateCommandEncoder`, `CommandEncoderBeginComputePass`, `ComputePassEncoderSetPipeline`/`SetBindGroup`/`DispatchWorkgroups`/`End`, `CommandEncoderCopyBufferToBuffer`, `CommandEncoderFinish`, `BufferMapAsync`, `BufferGetMapState`, `BufferGetMappedRange`, `BufferUnmap`, `DevicePushErrorScope`/`DevicePopErrorScope`, `DeviceCreateQuerySet` and `CommandEncoderWriteTimestamp`/`CommandEncoderResolveQuerySet` gated on `AdapterHasFeature(FeatureName.TimestampQuery)`, `AdapterGetLimits(Adapter*, SupportedLimits*) -> Bool32` and `DeviceGetLimits(Device*, SupportedLimits*) -> Bool32` — both answers railed, the DEVICE's block feeding the `Limits.MaxComputeWorkgroupsPerDimension`/`MaxComputeInvocationsPerWorkgroup`/`MaxStorageBufferBindingSize` ceilings the dispatch gate reads — and the void `XxxRelease` pairs including `QueueRelease`/`DeviceRelease`/`AdapterRelease`/`InstanceRelease`), Silk.NET.WebGPU.Extensions.WGPU (composed — `WebGPU.TryGetDeviceExtension<Wgpu>` the loader, `InstanceExtras` chained onto `InstanceDescriptor.NextInChain` at `NativeSType.STypeInstanceExtras` carrying the `InstanceBackend` mask and the `InstanceFlag` word, `Wgpu.QueueSubmitForIndex(Queue*, nuint, CommandBuffer**) -> ulong` the submission-index mint, `Wgpu.DevicePoll(Device*, Bool32, WrappedSubmissionIndex*) -> Bool32` the DETERMINISTIC drain a surfaceless device closes its readback on, `Wgpu.SetLogLevel`/`SetLogCallback` routing the native diagnostic stream into the receipt sink), `Rasm` (project — `Lease<T>`, `Op`, `ValidityClaim`, `IValidityEvidence`), `codec#RASTER_FAULT` (composed — `RasterFault` band 2460), BCL inbox (`Marshal.StringToCoTaskMemUTF8`/`FreeCoTaskMem` the one UTF-8 marshalling owner, `MemoryMarshal.CreateReadOnlySpanFromNullTerminated(byte*)` the terminator scan the slot copy folds through, `Encoding.UTF8.GetString(byte*, int)` the native-message projection, `TensorPrimitives.Add` the reduction row's per-stride accumulate, `string.Create(IFormatProvider, …)` the invariant-culture projection the derived WGSL constant block emits through, `UnmanagedCallersOnly` over `CallConvCdecl` the thunk-free completion shape, `MemoryHandle` the upload pin, `ConcurrentDictionary` the pipeline cache, `BitConverter.SingleToUInt32Bits` the uniform word projection).
+- Growth: a new kernel is one `WgslKernel` row; a new acquisition ARM is one `DeviceArm` row the policy's `CapabilitySet` column carries, and a new acquisition constraint that is not an arm is one `DevicePolicy` column; a new binding kind is one `KernelBuffer` case; a new uniform member type is one `KernelUniform` append. There is NO per-kernel device, NO managed wrapper renaming the native surface, and NO second `Dispatch` overload — arity and modality both ride the request's own buffer sequence.
+- Boundary: the adapter request passes a NULL `CompatibleSurface`, so the same lifecycle yields a device with no window; a bake never opens a viewport to obtain a device, and a folder already holding a device never re-requests one. Because there is no present to pump the event loop, the readback closes on the SUBMISSION INDEX rather than on a spin: `Wgpu.QueueSubmitForIndex` mints the index for the exact submission and `Wgpu.DevicePoll(device, wait: true, &index)` blocks until that submission retires and its map callback has run, so the fold reaches `BufferGetMapState` already `Mapped`. A `wait: false` poll loop around `BufferGetMapState` is the frame-driven form a presented plane uses because it must not block its own frame; a bake has no frame, so the loop only burns a core waiting for the answer the index already names. Readback is two-phase and BUFFER-SHAPED throughout: `CommandEncoderCopyBufferToBuffer` lands the device result in a `MapRead | CopyDst` staging buffer, and a buffer copy carries no row pitch, so the mapped range reads as one flat `f32` run. The 256-byte `ImageCopyBuffer.Layout.BytesPerRow` alignment a host un-pads row-wise belongs to `CommandEncoderCopyTextureToBuffer`, and this device allocates no texture — that padding becomes real the day a kernel row declares a storage-texture binding, which is the declared growth leg and not a cost paid today. Validation is a POLICY ARM, not an unconditional bracket, and it arms BOTH halves from one row: `DeviceArm.Validation` in `DevicePolicy.Arms` sets `InstanceFlag.Validation` in the chained `InstanceExtras` so the native layer runs at all, and arms `DevicePushErrorScope(ErrorFilter.Validation)` around the pass, whose `DevicePopErrorScope` drains that layer's verdict into a `RasterFault.Device` with the native message preserved — a proving run pays both and a throughput run neither, where a scope armed over an unarmed layer would drain clean on a malformed dispatch. Backend selection is likewise INSTANCE state: `DevicePolicy.Backends` rides `InstanceExtras.Backends` as a flags MASK constraining which backends the instance builds, which is strictly more than the single `RequestAdapterOptions.BackendType` narrowing one request against an instance that already built them all. `Wgpu.SetLogCallback` routes adapter selection and device-lost onto the same rail unconditionally because a lost device is never optional evidence. The error scope IS the compile-diagnostics channel: `wgpuShaderModuleGetCompilationInfo` is UNIMPLEMENTED in wgpu-native and ABORTS the process — a non-unwinding panic, never a failed call — so a WGSL refusal reaches the host through the `DevicePushErrorScope`/`DevicePopErrorScope` pair and the log sink alone, and no fence on this page spells `GetCompilationInfo`. Timing is OPTIONAL EVIDENCE: `FeatureName.TimestampQuery` is probed on the adapter before the device requires it — requiring a feature the adapter lacks refuses the whole device and trades every dispatch for one timing column — and an absent feature leaves `KernelReceipt.GpuNanos` as a typed ABSENCE rather than a zero, because a fabricated zero and an unmeasured pass are the two states a parity benchmark must keep apart. Resolved query values are NANOSECONDS and this binding exposes no tick period to convert against — `Limits` carries dispatch ceilings alone and no period member — so the resolved delta IS the receipt column and no conversion step exists to get wrong. Limits are negotiated in BOTH directions and read at BOTH subjects for different reasons: the adapter's `SupportedLimits.Limits` chains back as the `DeviceDescriptor.RequiredLimits` requirement, because an unset requirement asks for the specification's conservative defaults rather than the hardware's headroom, and the DEVICE's own `DeviceGetLimits` block is what the dispatch gate compares against, because a device grants at or below what it was asked. Both reads answer `Bool32` and both answers rail, since a false answer leaves the struct zeroed and a zero ceiling refuses every dispatch as a breach rather than as the unread block it is. The pipeline cache is CONCURRENT because one leased device serves every binding of a press and a caller may fan them; a `FrozenDictionary` cannot admit a compile and a plain `Dictionary` tears under two. Every native handle releases through its own `XxxRelease` inside the `Lease<T>` projection window, and every per-dispatch handle releases in the recording fold's `finally` on the refusal path as much as the success one; `PressDevice` implements `IDisposable` solely so the kernel resource rail can carry it, and the `Owned` case's `using` is the platform-forced disposal seam this page declares. Native completions are `[UnmanagedCallersOnly]` over `CallConvCdecl` writing the CALLER's own stack slot, never `Pfn…Callback.From(delegate)`: the managed-delegate form mints one pinned `SilkMarshal` thunk per construction, so a device brought once per press with a map callback per binding leaks one thunk per dispatch. The slot copies the native message INLINE because the `byte*` a callback receives dies with the call and an unmanaged callee cannot hand a managed string back through a field; a slot storing that pointer renders freed bytes into a fault detail — and the copy is `MemoryMarshal.CreateReadOnlySpanFromNullTerminated` plus one `CopyTo`, so the terminator scan and the byte walk are BCL folds rather than two index loops each restating the cap. The `[EXPRESSION_SPINE]` exemption is the unsafe marshalling spine — descriptor construction, pointer plumbing, the uniform word append, and the recording fold — which is platform-forced; every admission, dispatch selection, and egress surface is expression-bodied.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
-using System.Buffers;                             // MemoryHandle — the upload pin, one per buffer write
-using System.Collections.Concurrent;              // ConcurrentDictionary — the pipeline cache one leased device fans
+using System.Buffers;
+using System.Collections.Concurrent;
 using System.Collections.Frozen;
-using System.Runtime.CompilerServices;            // CallConvCdecl — the native completion calling convention
-using System.Runtime.InteropServices;             // Marshal, UnmanagedCallersOnly — the interop owners
-using System.Text;                                // Encoding — the ONE native-message projection
-using System.Threading;                           // Lock — the diagnostic-slot gate
-using LanguageExt;                                // Seq, Option, Fin
-using Rasm.Domain;                                // Op, Lease, ValidityClaim, IValidityEvidence
-using Rasm.Materials.Appearance.Graph;            // MathOp, MixOp — the vocabularies this page LOWERS
-using Rasm.Materials.Appearance.Texture;          // NoiseBasis, FractalMode, CellularDistance, CellularReturn, ShadeVec4
-using Rasm.Numerics;                              // Dimension
+using System.Globalization;
+using System.Numerics.Tensors;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading;
+using LanguageExt;
+using Rasm.Domain;
+using Rasm.Materials.Appearance.Graph;
+using Rasm.Materials.Appearance.Texture;
+using Rasm.Numerics;
 using Silk.NET.WebGPU;
-using Silk.NET.WebGPU.Extensions.WGPU;            // Wgpu — QueueSubmitForIndex, DevicePoll, SetLogCallback
+using Silk.NET.WebGPU.Extensions.WGPU;
 using Thinktecture;
 using static LanguageExt.Prelude;
-using Buffer = Silk.NET.WebGPU.Buffer;            // the native handle, never System.Buffer
+using Buffer = Silk.NET.WebGPU.Buffer;
 
 namespace Rasm.Materials.Raster;
 
@@ -93,16 +95,28 @@ public sealed record KernelUniform(Seq<uint> Words) {
     public KernelBuffer Block => new KernelBuffer.Uniform(Words.ToArray());
 }
 
-// PowerPreference, the backend MASK, and Validation are POLICY, never constants: a bake on a discrete adapter
-// and a bake on the integrated one are the same row at different values, a CI lane pinning a backend is one
-// column, and the two rows genuinely SPLIT — Default is the throughput lane (no error scope, timestamps for the
-// parity telemetry) and Proving arms both halves of validation. Two rows that differ only in name are one policy
-// wearing two labels. Backends is the INSTANCE-level flags mask rather than a single BackendType a per-adapter
-// request narrows to: wgpu-native honours the mask while it BUILDS backends, so one column states the whole
-// admissible set and an instance never stands up a backend the policy excluded.
-public readonly record struct DevicePolicy(PowerPreference Power, InstanceBackend Backends, bool Timestamps, bool Validation) {
-    public static readonly DevicePolicy Default = new(PowerPreference.HighPerformance, InstanceBackend.All, Timestamps: true, Validation: false);
-    public static readonly DevicePolicy Proving = Default with { Validation = true };
+// Acquisition arms ride ONE combinable column over the kernel ICapability floor. Two loose
+// bools left a corner nothing closed — an error scope armed over an unarmed validation layer drains clean on a
+// malformed dispatch — where Validation is ONE row arming both halves and the set is what a refusal quotes.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class DeviceArm : ICapability<DeviceArm> {
+    public static readonly DeviceArm Timestamps = new("timestamps");
+    public static readonly DeviceArm Validation = new("validation");
+
+    private DeviceArm(string key, int rank) : this(key) => Rank = rank;
+}
+
+// PowerPreference, the backend MASK, and the arm set are POLICY, never constants: a bake on a discrete adapter and
+// a bake on the integrated one are the same row at different values, a CI lane pinning a backend is one column,
+// and the two rows genuinely SPLIT — Default is the throughput lane (timestamps alone, for the parity telemetry)
+// and Proving adds the validation arm. Two rows that differ only in name are one policy wearing two labels.
+// Backends is the INSTANCE-level flags mask rather than a single BackendType a per-adapter request narrows to:
+// wgpu-native honours the mask while it BUILDS backends, so one column states the whole admissible set and an
+// instance never stands up a backend the policy excluded.
+public readonly record struct DevicePolicy(PowerPreference Power, InstanceBackend Backends, CapabilitySet<DeviceArm> Arms) {
+    public static readonly DevicePolicy Default = new(PowerPreference.HighPerformance, InstanceBackend.All, CapabilitySet<DeviceArm>.Of(DeviceArm.Timestamps));
+    public static readonly DevicePolicy Proving = Default with { Arms = CapabilitySet<DeviceArm>.All };
 }
 
 public sealed record KernelBinding(Seq<KernelBuffer> Buffers, uint GroupsX, uint GroupsY, uint GroupsZ);
@@ -115,7 +129,7 @@ public sealed record KernelReceipt(WgslKernel Kernel, ReadOnlyMemory<float> Outp
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountAtLeast(Output.Length, 1),
         ValidityClaim.CountAtLeast((int)Dispatches, 1),
-        ValidityClaim.Of(GpuNanos.ForAll(static ticks => ticks > 0UL)));
+        GpuNanos.ForAll(static ticks => ticks > 0UL));
 }
 
 // --- [SERVICES] ----------------------------------------------------------------------------
@@ -185,20 +199,22 @@ public sealed unsafe class PressDevice : IDisposable {
         InstanceExtras extras = new() {
             Chain = new ChainedStruct { SType = (SType)NativeSType.STypeInstanceExtras },
             Backends = policy.Backends,
-            Flags = (uint)(policy.Validation ? InstanceFlag.Validation : InstanceFlag.Default),
+            Flags = (uint)(policy.Arms.Admits(DeviceArm.Validation) ? InstanceFlag.Validation : InstanceFlag.Default),
         };
         InstanceDescriptor instanceDescriptor = new() { NextInChain = (ChainedStruct*)&extras };
         Instance* instance = api.CreateInstance(&instanceDescriptor);
-        if (instance is null) { return Fin.Fail<PressDevice>(RasterFault.Device(key, $"<wgpu-instance-null:{Diagnostic()}>")); }
+        if (instance is null) { return Fin.Fail<PressDevice>(new RasterFault.Device(key, $"<wgpu-instance-null:{Diagnostic()}>")); }
 
         NativeSlot slot = default;
         RequestAdapterOptions options = new() { CompatibleSurface = null, PowerPreference = policy.Power };
         api.InstanceRequestAdapter(instance, &options, new PfnRequestAdapterCallback(&OnAdapter), &slot);
+        // KERNEL-EXEMPTION: a bounded native pump has no fold — the loop's own body advances the callback queue
+        // and its condition reads a slot a native thread writes, so neither the trip count nor the state is data.
         for (int pump = 0; slot.Fired is 0 && pump < PumpBound; pump++) { api.InstanceProcessEvents(instance); }
         Adapter* adapter = (Adapter*)slot.Handle;
         if (adapter is null) {
             api.InstanceRelease(instance);
-            return Fin.Fail<PressDevice>(RasterFault.Device(key, $"<wgpu-adapter:{(RequestAdapterStatus)slot.Status}:{Detail(&slot)}>"));
+            return Fin.Fail<PressDevice>(new RasterFault.Device(key, $"<wgpu-adapter:{(RequestAdapterStatus)slot.Status}:{Detail(&slot)}>"));
         }
 
         // AdapterGetLimits answers Bool32 and a FALSE answer leaves the struct at its zero default, where a
@@ -208,11 +224,11 @@ public sealed unsafe class PressDevice : IDisposable {
         if (!api.AdapterGetLimits(adapter, &supported)) {
             api.AdapterRelease(adapter);
             api.InstanceRelease(instance);
-            return Fin.Fail<PressDevice>(RasterFault.Device(key, $"<adapter-limits-unread:{Diagnostic()}>"));
+            return Fin.Fail<PressDevice>(new RasterFault.Device(key, $"<adapter-limits-unread:{Diagnostic()}>"));
         }
         // The feature is probed on the ADAPTER before the device requires it: requiring a feature the adapter
         // lacks refuses the whole device, which would trade every dispatch for one optional timing column.
-        bool timestamps = policy.Timestamps && api.AdapterHasFeature(adapter, FeatureName.TimestampQuery);
+        bool timestamps = policy.Arms.Admits(DeviceArm.Timestamps) && api.AdapterHasFeature(adapter, FeatureName.TimestampQuery);
 
         slot = default;
         FeatureName required = FeatureName.TimestampQuery;
@@ -228,12 +244,13 @@ public sealed unsafe class PressDevice : IDisposable {
             RequiredLimits = &requiredLimits,
         };
         api.AdapterRequestDevice(adapter, &deviceDescriptor, new PfnRequestDeviceCallback(&OnDevice), &slot);
+        // KERNEL-EXEMPTION: the same bounded pump, one acquisition step later.
         for (int pump = 0; slot.Fired is 0 && pump < PumpBound; pump++) { api.InstanceProcessEvents(instance); }
         Device* device = (Device*)slot.Handle;
         if (device is null) {
             api.AdapterRelease(adapter);
             api.InstanceRelease(instance);
-            return Fin.Fail<PressDevice>(RasterFault.Device(key, $"<wgpu-device:{(RequestDeviceStatus)slot.Status}:{Detail(&slot)}>"));
+            return Fin.Fail<PressDevice>(new RasterFault.Device(key, $"<wgpu-device:{(RequestDeviceStatus)slot.Status}:{Detail(&slot)}>"));
         }
 
         // The GATE reads the DEVICE's block, never the adapter's. A device grants what the backend honours for
@@ -245,14 +262,14 @@ public sealed unsafe class PressDevice : IDisposable {
             api.DeviceRelease(device);
             api.AdapterRelease(adapter);
             api.InstanceRelease(instance);
-            return Fin.Fail<PressDevice>(RasterFault.Device(key, $"<device-limits-unread:{Diagnostic()}>"));
+            return Fin.Fail<PressDevice>(new RasterFault.Device(key, $"<device-limits-unread:{Diagnostic()}>"));
         }
 
         if (!api.TryGetDeviceExtension(device, out Wgpu vendor)) {
             api.DeviceRelease(device);
             api.AdapterRelease(adapter);
             api.InstanceRelease(instance);
-            return Fin.Fail<PressDevice>(RasterFault.Device(key, "<wgpu-vendor-extension-absent>"));
+            return Fin.Fail<PressDevice>(new RasterFault.Device(key, "<wgpu-vendor-extension-absent>"));
         }
         // The log route is UNCONDITIONAL where the error scope is a policy row: a lost device is never optional
         // evidence, and the verbosity floor keeps the sink at the two levels a refusal quotes.
@@ -279,9 +296,9 @@ public sealed unsafe class PressDevice : IDisposable {
     // request went rather than only that it did.
     Fin<Unit> Guard(WgslKernel kernel, KernelBinding binding, Op key) =>
         binding.Buffers.Count != kernel.Layout.Count || !binding.Buffers.Zip(kernel.Layout).ForAll(static pair => pair.Item1.Kind == pair.Item2)
-            ? Fin.Fail<Unit>(RasterFault.Device(key, $"<kernel-layout-mismatch:{kernel.Key}>"))
+            ? Fin.Fail<Unit>(new RasterFault.Device(key, $"<kernel-layout-mismatch:{kernel.Key}>"))
             : Ceilings(kernel, binding).Find(static ceiling => ceiling.Reached > ceiling.Granted)
-                .Map(ceiling => (Error)RasterFault.Device(key, $"<{ceiling.Name}-ceiling:{kernel.Key}:{ceiling.Reached}:{ceiling.Granted}>"))
+                .Map(ceiling => (Error)new RasterFault.Device(key, $"<{ceiling.Name}-ceiling:{kernel.Key}:{ceiling.Reached}:{ceiling.Granted}>"))
                 .Match(Some: Fin.Fail<Unit>, None: static () => Fin.Succ(unit));
 
     // --- [DISPATCH_CEILING]
@@ -317,7 +334,7 @@ public sealed unsafe class PressDevice : IDisposable {
             };
             ShaderModuleDescriptor moduleDescriptor = new() { NextInChain = (ChainedStruct*)&wgsl };
             ShaderModule* module = api.DeviceCreateShaderModule(device, &moduleDescriptor);
-            if (module is null) { return Fin.Fail<nint>(RasterFault.Device(key, $"<wgsl-compile:{kernel.Key}:{Diagnostic()}>")); }
+            if (module is null) { return Fin.Fail<nint>(new RasterFault.Device(key, $"<wgsl-compile:{kernel.Key}:{Diagnostic()}>")); }
             ComputePipelineDescriptor descriptor = new() {
                 Layout = null,
                 Compute = new ProgrammableStageDescriptor { Module = module, EntryPoint = (byte*)entry },
@@ -326,7 +343,7 @@ public sealed unsafe class PressDevice : IDisposable {
             // The module is referenced by the pipeline it built, so it retires here rather than living as long
             // as the cache entry — one compiled kernel holds one handle, not two.
             api.ShaderModuleRelease(module);
-            if (pipeline is null) { return Fin.Fail<nint>(RasterFault.Device(key, $"<compute-pipeline:{kernel.Key}:{Diagnostic()}>")); }
+            if (pipeline is null) { return Fin.Fail<nint>(new RasterFault.Device(key, $"<compute-pipeline:{kernel.Key}:{Diagnostic()}>")); }
             // A concurrent loser releases ITS pipeline and takes the winner's: two compiles of one kernel are
             // legal under the cache's own race, two LIVE pipelines under one key are the leak.
             if (pipelines.TryAdd(kernel.Key, (nint)pipeline)) { return Fin.Succ((nint)pipeline); }
@@ -361,9 +378,12 @@ public sealed unsafe class PressDevice : IDisposable {
         int writeSlot = -1;
         ulong writeBytes = 0;
         NativeSlot scope = default, mapped = default;
-        bool scoped = policy.Validation;
+        bool scoped = policy.Arms.Admits(DeviceArm.Validation);
         if (scoped) { api.DevicePushErrorScope(device, ErrorFilter.Validation); }
         try {
+            // KERNEL-EXEMPTION: the [EXPRESSION_SPINE] marshalling spine — the loop allocates a native handle,
+            // seats a BindGroupEntry by POSITION (the @binding index), and pins an upload per slot, so the index
+            // is the contract and the body is three interop effects no operator carries.
             for (int slot = 0; slot < slots; slot++) {
                 KernelBuffer request = binding.Buffers[slot];
                 ulong bytes = (ulong)request.ByteLength;
@@ -488,6 +508,7 @@ public sealed unsafe class PressDevice : IDisposable {
             if (resolved is not 0) { api.BufferRelease((Buffer*)resolved); }
             if (querySet is not 0) { api.QuerySetRelease((QuerySet*)querySet); }
             if (staging is not 0) { api.BufferRelease((Buffer*)staging); }
+            // KERNEL-EXEMPTION: the release walk over a stackalloc'd handle run — a Span cannot cross a closure.
             for (int slot = 0; slot < slots; slot++) { if (resources[slot] is not 0) { api.BufferRelease((Buffer*)resources[slot]); } }
         }
     }
@@ -505,22 +526,27 @@ public sealed unsafe class PressDevice : IDisposable {
         api.InstanceRelease(instance);
     }
 
-    static Fin<KernelReceipt> Refuse(Op key, string detail) => Fin.Fail<KernelReceipt>(RasterFault.Device(key, detail));
+    static Fin<KernelReceipt> Refuse(Op key, string detail) => Fin.Fail<KernelReceipt>(new RasterFault.Device(key, detail));
 
     // --- [CALLBACKS]
     // Every completion is [UnmanagedCallersOnly] over the caller's own stack slot rather than a
     // Pfn…Callback.From(delegate) thunk: SilkMarshal.DelegateToPtr mints one pinned marshalling thunk per
     // construction, and a device brought once per press with a map callback per binding would leak one thunk per
     // dispatch. A null userdata is the deliberate DISCARD form the error-scope drain takes on a refusal path.
+    // MemoryMarshal projects the native run to its terminator and CopyTo lands it, so the two index loops this
+    // copy used to spell are gone; a Slice carries the cap, where a loop bound had the scan and the copy each
+    // re-state it.
     static void Capture(NativeSlot* slot, int status, nint handle, byte* message) {
         if (slot is null) { return; }
         slot->Fired = 1;
         slot->Status = status;
         slot->Handle = handle;
-        int length = 0;
-        if (message is not null) { while (length < NativeSlot.MessageCap - 1 && message[length] != 0) { length++; } }
-        for (int at = 0; at < length; at++) { slot->Message[at] = message[at]; }
-        slot->Length = length;
+        ReadOnlySpan<byte> native = message is null
+            ? ReadOnlySpan<byte>.Empty
+            : MemoryMarshal.CreateReadOnlySpanFromNullTerminated(message);
+        ReadOnlySpan<byte> bounded = native[..Math.Min(native.Length, NativeSlot.MessageCap - 1)];
+        bounded.CopyTo(new Span<byte>(slot->Message, NativeSlot.MessageCap));
+        slot->Length = bounded.Length;
     }
 
     static string Detail(NativeSlot* slot) => slot->Length is 0 ? "<none>" : Encoding.UTF8.GetString(slot->Message, slot->Length);
@@ -560,13 +586,14 @@ public sealed unsafe class PressDevice : IDisposable {
 - Owner: `WgslKernel` `[SmartEnum<string>]` the closed compute-module table; `BindingKind` `[SmartEnum<string>]` the per-slot binding vocabulary; `KernelReduce` `[SmartEnum<string>]` the host-side tail fold; `WgslOpCode` the appearance-vocabulary lowering table.
 - Cases: kernel {`noiseField`, `checkerField`, `gradientField`, `mathFold`, `mixFold`, `equirectToCube`, `irradianceSh`, `prefilterSpecular`} · binding {`uniform`, `read`, `write`} · reduce {`none`, `partialSum`}.
 - Law: the WGSL body IS the law, not a summary of one — each row carries its complete module source, so the shader a device compiles and the algorithm this corpus specifies are one text with no second spelling to drift.
+- Law: transcribed CONSTANTS DERIVE and never re-type. `Wgsl.NoiseConsts` interpolates the noise module's whole `const` prelude off `texture#TEXTURE_UV` `ProceduralNoise`'s own declared members and concatenates it ahead of the body, so a lattice prime, a normalizer, a simplex bound, a jitter radius, or the gradient-angle sequence is declared ONCE and emitted twice. All 42 golden references survive the move untouched — a fixture pins a computed value, not a literal's spelling — and the projection pins INVARIANT culture, because a double rendered under a comma-decimal locale emits a token naga refuses and the refusal would follow the machine rather than the code. A constant with NO CPU member to read states so at its site and names what it stands in for: the two cellular displacement draws are DECLARED STAND-INS for `ProceduralNoise`'s authored, digest-pinned `RandVecs2D`/`RandVecs3D` tables — a shader cannot bind a content-keyed asset, so the golden-angle and spherical-Fibonacci closed forms match the CPU's lane index and jitter radius while drawing their own offsets, and the cellular arms' agreement is a MEASURED parity column rather than an asserted table identity. Binding the pinned tables as read buffers is the growth leg that turns each stand-in into a transcription. `mathFold`'s AP1 luminance triple and `mixFold`'s W3C compositing triple are SPECIFICATION constants whose CPU twins live inside `PortValue.AsScalar` and Unicolour's own `Blend` rather than in a corpus member, so neither has a declaration to derive from and each cites its specification at its site.
 - Law: every op code a shader switches on is the CPU vocabulary's own key. `NoiseBasis`, `FractalMode`, `CellularDistance`, and `CellularReturn` are `[SmartEnum<int>]`, so their keys ARE the codes and no third numbering exists; `MathOp` and `MixOp` are string-keyed, so `WgslOpCode` derives their codes from `Items` declaration order behind a `Lazy` accessor — the lowering table is this page's because graph.md owns the vocabulary and this page owns its GPU encoding.
 - Law: WGSL `i32 >> u32` is ARITHMETIC — sign-propagating, agreeing with the C# `int` shift on every hash including the negative half — so the `h >> 15u`/`h << 19u`/masked-index spellings are FROZEN and a `bitcast<u32>` round trip is a defect on sight: it converts the arithmetic shift the FNL hash depends on into a logical one and silently re-seeds every gradient. Naga refuses a shift whose LEFT operand is an untyped literal in every position — a mask transcribed from a CPU defining sequence (`63 << 2`) spells the concrete suffix (`63i << 2u`) or the resolved literal — and a runtime-indexed table declares `var` or `var<private>`, because a `let`-bound array value and a module-scope `const` array alike admit only a constant index. The CPU/GPU parity this table claims against `texture#TEXTURE_UV` grades by TOLERANCE, never texel equality: Metal's `cos`/`sin` diverge from `MathF` at the last ULP, which alone breaks bit-identity on most gradient samples while the integer lattice agrees exactly.
 - Law: the WGSL body is the LAW but never a second ALGORITHM — a kernel whose CPU twin exists transcribes that twin's own kernel members and its constants, so a divergence is a transcription defect a fixture must be able to name rather than a lane the two arms are entitled to. `prefilterSpecular` therefore spells `Microfacet.SampleVisibleNormal` and `Microfacet.AlphaOf`'s own `1e-4` floor, `Deterministic.Hammersley`'s half-texel-offset pair, and the sweep's own tangent-to-world completion — a D-proportional half-vector draw is the deleted form even where the two distributions agree in the limit, because the same Hammersley pair drives the polar and azimuth angles in OPPOSITE roles and the two tap sets separate at every finite budget, which is exactly what `[04]`'s `SplitDomePrefilter` reads. `Microfacet.VisibleNormalPdf` is the one CPU member the transcription does NOT reach, and the honest statement is a CAPABILITY one rather than an algorithmic one: the pdf's only consumer is the filtered-importance mip term, the row binds ONE FLAT SOURCE PLANE and not a pyramid, so there is no level to select and the term has nothing to compute against. That is a missing binding, not a cheaper derivation. Its consequence — a bright source texel drawn at low probability arriving unfiltered, where the CPU arm's mip selection would have widened its footprint — is a REAL divergence, and it is measured rather than asserted: `[04]`'s `SplitDomePrefilter` fixture reads a drawn direction over a split dome, which is exactly the arrangement that separates a filtered draw from an unfiltered one, and the parity workload publishes the gap as telemetry on the same column every other backend divergence rides. A mip-bound source binding is the growth leg that closes it, and closing it is a binding change rather than a shader rewrite.
 - Entry: the table is the entry — `WgslKernel.Items` is the roster `[04]-[GOLDEN_VECTOR]` iterates and `PressDevice.Dispatch` selects on; `Layout` declares the binding kinds a request answers, `Reduce` declares the host fold the dispatch applies to the raw readback, and `Groups(width, height, layers)` derives the full three-dimensional workgroup count from the row's own workgroup shape so no caller computes a dispatch dimension and a six-face cube dispatches in one call.
-- Packages: Silk.NET.WebGPU (the `ShaderModuleWGSLDescriptor` chain each row's `Source` fills, `BufferUsage` each `BindingKind` names), `graph#MATERIAL_GRAPH` (composed — `MathOp`/`MixOp`, the rosters `mathFold` and `mixFold` lower), `texture#TEXTURE_UV` (composed — `NoiseBasis`/`FractalMode`/`CellularDistance`/`CellularReturn`, the rosters `noiseField` lowers), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: Silk.NET.WebGPU (the `ShaderModuleWGSLDescriptor` chain each row's `Source` fills, `BufferUsage` each `BindingKind` names), `graph#MATERIAL_GRAPH` (composed — `MathOp`/`MixOp`, the rosters `mathFold` and `mixFold` lower), `texture#TEXTURE_UV` (composed — `NoiseBasis`/`FractalMode`/`CellularDistance`/`CellularReturn`, the rosters `noiseField` lowers, AND `ProceduralNoise`'s declared lattice anchors, which the derived `const` prelude interpolates rather than re-typing), System.Numerics.Tensors (composed — `TensorPrimitives.Add`, the reduction row's per-stride accumulate), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new GPU kernel is one row carrying source, layout, workgroup shape, host reduction, and golden vector — never a second module table and never an ungated arm. `noiseField` covers the FULL field algebra at BOTH dimensions — every `NoiseBasis` in its 2D and SOLID 3D arm, every `FractalMode`, the whole `CellularDistance` × `CellularReturn` product, the domain warp, and the period wrap — so a real authored noise source, planar or solid, previews as itself; `mathFold` and `mixFold` cover the FULL pointwise `MathOp` and `MixOp` rosters. A new vocabulary row lands one arm in the corresponding WGSL switch beside its CPU delegate.
-- Boundary: every field kernel runs at `@workgroup_size(8, 8, 1)` over a texel grid and every reduction at `@workgroup_size(64, 1, 1)` over a linear range, so the dispatch shape derives from the row and the caller supplies extent alone; `Groups` carries the LAYER axis because a cube map is six faces of one dispatch and a hardcoded `Z = 1` makes `equirectToCube`'s own `gid.z` face selector unreachable; every FIELD kernel indexes `gid.z` into its flat write, so a layered dispatch writes every slice (a 2D field replicates across layers, the CPU lane's own layer-invariant sampling) instead of racing all Z-slices onto slice zero. Bind group zero is the only group and the WGSL `@group(0) @binding(n)` declarations ARE the layout the auto-derived `ComputePipelineGetBindGroupLayout(0)` reads — a hand-authored `BindGroupLayout` beside them is a second statement of one fact. Storage buffers carry `f32` element arrays with four elements per RGBA texel, because a `vec4<f32>` storage element imposes a sixteen-byte stride the host un-packs anyway. NO ROW NEEDS A STORAGE TEXTURE and the absence is DECLARED rather than pending: every kernel on the table is a texel-indexed gather or scatter over flat `f32` buffers, none performs hardware filtering, writes a compressed target, or produces a presentable surface, and those are the three capabilities a storage texture buys. The `COPY_BYTES_PER_ROW_ALIGNMENT` 256-byte padding follows a texture-to-buffer copy the device therefore never performs, so it is a cost this lane does not pay; a FIRST storage-texture row is the growth leg, and landing one owns the host un-pad step as part of landing it rather than as a discovered surprise. `noiseField` reproduces the `texture#TEXTURE_UV` FastNoiseLite lattice at `f32` — the same `PrimeX`/`PrimeY` lattice primes, the same `0x27d4eb2d` hash multiplier, the same quintic fade and Hermite smoothstep, the same 2D simplex skew and unskew with the `99.83685446303647` bound, the same `1.4247691104677813` Perlin normalizer, the same cellular jitter radius `0.43701595` over the SAME golden-angle unit-vector table at the FNL ROUNDED-cell anchor (never a floor-plus-half lattice or a scalar-hash displacement), and the same fractal-bounding amplitude cascade — with the twenty-four-direction gradient table GENERATED from its `82.5° − 15°·k` defining sequence rather than transcribed, so the GPU and CPU lattices agree in structure and diverge only in float width; the periodic arm wraps the INTEGER lattice coordinate modulo the row's own period, so a period-wrapped sample is exact rather than approximately periodic. The SOLID 3D arm rides the SAME row: the `dimension` uniform selects the 3D lattice — `PrimeZ`, the `0.964921414852142333984375` Perlin3D normalizer, the OpenSimplex2 rotated two-cell fold at the `32.69428253173828125` bound, the 3×3×3 cellular neighbourhood at the `0.39614353` jitter radius — with the gradient quads GENERATED as `var<private>` from the 12-edge `(±1,±1,0)` family plus the published 4-entry tail (a `const` table refuses the runtime quad index) and the cellular offsets from the spherical-Fibonacci closed form, which needs no table at all; the four 3D arms fit the same `Params`/`dst` binding shape, so solid is a COLUMN, never a second kernel, the solid depth is the layer-centre coordinate (a volume dispatch is a real 3D field where the planar arm replicates across layers), and the measured parity floor against the CPU arms is `3.1e-4` worst-arm absolute — f32 rounding riding the simplex fold's corner thresholds, zero sign flips, zero non-finite lanes, `1e-3` clearing every arm — so `press#PRESS_PLAN` ADMITS a solid source and a triplanar-of-solid-noise on the accelerator while texel equality stays unasserted. `mathFold` matches the CPU `MathOp` shape for shape — the ZIP family (add/subtract/multiply/divide/modulo/min/max) folds PER LANE exactly as the shape-preserving `Zip` does, and the `AsScalar` rows carry the operand POLARITY as a uniform because the CPU projection reads a colour's AP1 luminance and a scalar port's own value, which a plane's four lanes cannot tell apart — a kernel assuming `.x` silently reduces every colour operand to its red channel. `equirectToCube` is the ONE kernel whose product is a cube, so the `faceDir` source fragment concatenates onto its row alone at construction, WGSL having no include; the mapping itself is FROZEN — `u = 0.5 + atan2(d.y, d.x) / 2π`, `v = acos(clamp(d.z, −1, 1)) / π`, `v = 0` at `+Z`, `u` increasing counter-clockwise viewed from `+Z` — with the up axis `+Z`, no field and no knob, matching the OpenPBR local frame the whole appearance plane shares. `irradianceSh` writes PER-WORKGROUP PARTIALS — twenty-seven `f32` per workgroup at `workgroup_index * 27` — and its `KernelReduce.PartialSum` row folds them host-side in workgroup-index order: WGSL has no `f32` atomic, a workgroup-order-dependent atomic sum makes the projection non-deterministic across dispatches, and NO subgroup path exists ON THE PINNED BINDING and the reason is two facts, not one: its naga refuses the `enable subgroups;` directive outright — trunk recognizes the directive for diagnostics and still leaves the functionality unimplemented — and the pinned native carries ZERO subgroup surface beside it, no WGSL builtins and no feature bit, its whole enable-extension vocabulary being `f16` and `dual_source_blending`. The refinement that matters for a future bump: on a current `wgpu-native` the subgroup ops are reachable through the NATIVE FEATURE BIT without the directive at all, so this arms through the FEATURE ROSTER rather than through the directive parse, and the gate to watch is the adapter's granted feature row. Until then the 1728-element workgroup tile at 6912 of the 16384-byte budget IS the reduction law, and it replays bitwise-identical partials across independent dispatches; the reduction is a ROW column rather than a caller step, so no consumer re-derives a kernel's tail. `prefilterSpecular` draws the visible-normal distribution over the half-texel-offset Hammersley pair, rotates each tangent-space draw onto the texel's world normal, weights by `N·L`, and discards the below-horizon half, so the prefiltered value of a constant environment is that constant at every roughness — the property `[04]`'s first fixture gates on and the property NO sampler fails, which is why the second fixture reads a drawn direction instead. Its product lands EQUIRECT through the frozen correspondence inverted in four lines, because `environment#IBL_PREFILTER` declares one storage arrangement for every level and an accelerator that changes the product's layout is a second product rather than a faster one; the row therefore takes the plane extent where the cube kernel takes an edge, and the `gid.z` axis stays the layer index the flat write already carries. [SPIKE]: the `irradianceSh` subgroup-reduction arm converges on the granted feature roster a live adapter reports off a bumped native alone; the deterministic floor is the host-side fold of the twenty-seven per-workgroup partials in workgroup-index order over the 1728-element tile, standing whole without it.
+- Boundary: every field kernel runs at `@workgroup_size(8, 8, 1)` over a texel grid and every reduction at `@workgroup_size(64, 1, 1)` over a linear range, so the dispatch shape derives from the row and the caller supplies extent alone; `Groups` carries the LAYER axis because a cube map is six faces of one dispatch and a hardcoded `Z = 1` makes `equirectToCube`'s own `gid.z` face selector unreachable; every FIELD kernel indexes `gid.z` into its flat write, so a layered dispatch writes every slice (a 2D field replicates across layers, the CPU lane's own layer-invariant sampling) instead of racing all Z-slices onto slice zero. Bind group zero is the only group and the WGSL `@group(0) @binding(n)` declarations ARE the layout the auto-derived `ComputePipelineGetBindGroupLayout(0)` reads — a hand-authored `BindGroupLayout` beside them is a second statement of one fact. Storage buffers carry `f32` element arrays with four elements per RGBA texel, because a `vec4<f32>` storage element imposes a sixteen-byte stride the host un-packs anyway. NO ROW NEEDS A STORAGE TEXTURE and the absence is DECLARED rather than pending: every kernel on the table is a texel-indexed gather or scatter over flat `f32` buffers, none performs hardware filtering, writes a compressed target, or produces a presentable surface, and those are the three capabilities a storage texture buys. The `COPY_BYTES_PER_ROW_ALIGNMENT` 256-byte padding follows a texture-to-buffer copy the device therefore never performs, so it is a cost this lane does not pay; a FIRST storage-texture row is the growth leg, and landing one owns the host un-pad step as part of landing it rather than as a discovered surprise. `noiseField` reproduces the `texture#TEXTURE_UV` FastNoiseLite lattice at `f32` reading `ProceduralNoise`'s OWN declared members through the derived `const` prelude — the lattice primes, the hash multiplier, the `ValCoord` scale, the 2D simplex skew, unskew, and bound, the Perlin normalizers, the jitter radii, and the gradient-angle sequence the twenty-four-direction table generates from — beside the same quintic fade, Hermite smoothstep, FNL ROUNDED-cell anchor (never a floor-plus-half lattice or a scalar-hash displacement), and fractal-bounding amplitude cascade, so the GPU and CPU lattices agree by construction in structure and diverge only in float width; the two cellular DISPLACEMENT draws are the declared exception and the row states it — `RandVecs2D`/`RandVecs3D` are authored, digest-pinned assets a shader cannot bind, so the closed-form stand-ins share the lane index and radius and the parity workload measures the rest; the periodic arm wraps the INTEGER lattice coordinate modulo the row's own period, so a period-wrapped sample is exact rather than approximately periodic. The SOLID 3D arm rides the SAME row: the `dimension` uniform selects the 3D lattice — the third lattice prime, the Perlin3D normalizer, the OpenSimplex2 rotation and its two-cell bound, and the 3×3×3 cellular neighbourhood at the 3D jitter radius, every one of them derived from the CPU declaration rather than re-typed — with the gradient quads GENERATED as `var<private>` from the 12-edge `(±1,±1,0)` family plus the published 4-entry tail (a `const` table refuses the runtime quad index) and the cellular offsets from the spherical-Fibonacci closed form, which needs no table at all; the four 3D arms fit the same `Params`/`dst` binding shape, so solid is a COLUMN, never a second kernel, the solid depth is the layer-centre coordinate (a volume dispatch is a real 3D field where the planar arm replicates across layers), and the measured parity floor against the CPU arms is `3.1e-4` worst-arm absolute — f32 rounding riding the simplex fold's corner thresholds, zero sign flips, zero non-finite lanes, `1e-3` clearing every arm — so `press#PRESS_PLAN` ADMITS a solid source and a triplanar-of-solid-noise on the accelerator while texel equality stays unasserted. `mathFold` matches the CPU `MathOp` shape for shape — the ZIP family (add/subtract/multiply/divide/modulo/min/max) folds PER LANE exactly as the shape-preserving `Zip` does, and the `AsScalar` rows carry the operand POLARITY as a uniform because the CPU projection reads a colour's AP1 luminance and a scalar port's own value, which a plane's four lanes cannot tell apart — a kernel assuming `.x` silently reduces every colour operand to its red channel. `equirectToCube` is the ONE kernel whose product is a cube, so the `faceDir` source fragment concatenates onto its row alone at construction, WGSL having no include; the mapping itself is FROZEN — `u = 0.5 + atan2(d.y, d.x) / 2π`, `v = acos(clamp(d.z, −1, 1)) / π`, `v = 0` at `+Z`, `u` increasing counter-clockwise viewed from `+Z` — with the up axis `+Z`, no field and no knob, matching the OpenPBR local frame the whole appearance plane shares. `irradianceSh` writes PER-WORKGROUP PARTIALS — twenty-seven `f32` per workgroup at `workgroup_index * 27` — and its `KernelReduce.PartialSum` row folds them host-side in workgroup-index order: WGSL has no `f32` atomic, a workgroup-order-dependent atomic sum makes the projection non-deterministic across dispatches, and NO subgroup path exists ON THE PINNED BINDING and the reason is two facts, not one: its naga refuses the `enable subgroups;` directive outright — trunk recognizes the directive for diagnostics and still leaves the functionality unimplemented — and the pinned native carries ZERO subgroup surface beside it, no WGSL builtins and no feature bit, its whole enable-extension vocabulary being `f16` and `dual_source_blending`. The refinement that matters for a future bump: on a current `wgpu-native` the subgroup ops are reachable through the NATIVE FEATURE BIT without the directive at all, so this arms through the FEATURE ROSTER rather than through the directive parse, and the gate to watch is the adapter's granted feature row. Until then the 1728-element workgroup tile at 6912 of the 16384-byte budget IS the reduction law, and it replays bitwise-identical partials across independent dispatches; the reduction is a ROW column rather than a caller step, so no consumer re-derives a kernel's tail. `prefilterSpecular` draws the visible-normal distribution over the half-texel-offset Hammersley pair, rotates each tangent-space draw onto the texel's world normal, weights by `N·L`, and discards the below-horizon half, so the prefiltered value of a constant environment is that constant at every roughness — the property `[04]`'s first fixture gates on and the property NO sampler fails, which is why the second fixture reads a drawn direction instead. Its product lands EQUIRECT through the frozen correspondence inverted in four lines, because `environment#IBL_PREFILTER` declares one storage arrangement for every level and an accelerator that changes the product's layout is a second product rather than a faster one; the row therefore takes the plane extent where the cube kernel takes an edge, and the `gid.z` axis stays the layer index the flat write already carries. [SPIKE]: the `irradianceSh` subgroup-reduction arm converges on the granted feature roster a live adapter reports off a bumped native alone; the deterministic floor is the host-side fold of the twenty-seven per-workgroup partials in workgroup-index order over the 1728-element tile, standing whole without it.
 - Boundary: a PROVEN kernel and a REACHABLE one are two facts, so the table states both. `noiseField`, `checkerField`, and `gradientField` carry a dispatching consumer — `press#PRESS_PLAN` lowers a `Source` subject onto them and gates that lowerability at plan admission. `prefilterSpecular`, `irradianceSh`, and `equirectToCube` carry one at `environment#IBL_PREFILTER`, which reads the `IblPolicy.Backend` row and the `Option<PressDevice>` the accelerator arm takes. `mathFold` and `mixFold` carry their consumer at `[05]-[KERNEL_CHAIN]`: `press#PRESS_PLAN` lowers a `Graph` subject into a `ChainNode` sequence and the plan admission gates it on the allocator's own footprint, so both rows are dispatched rather than fixture-only. Fixtures prove a kernel computes its own law and nothing more; only a named consumer proves anything runs it, and a reader conflating the two mistakes a proven kernel for a reachable one.
 
 ```csharp signature
@@ -603,12 +630,15 @@ public sealed partial class KernelReduce {
     [UseDelegateFromConstructor]
     public partial ReadOnlyMemory<float> Fold(ReadOnlyMemory<float> raw, int stride);
 
-    // Workgroup-index order, fixed: the sum replays identically across dispatches where an atomic would not.
+    // KERNEL-EXEMPTION on the OUTER walk alone: workgroup-index order is the determinism law this row exists for,
+    // so the partial sequence is consumed in declared order and no reduction operator may reassociate it. The
+    // per-slot accumulate is NOT exempt — TensorPrimitives.Add folds one workgroup's whole stride into the running
+    // total in one SIMD pass, so the stride never spells a second index loop and a widened stride costs nothing.
     static ReadOnlyMemory<float> Sum(ReadOnlyMemory<float> raw, int stride) {
         float[] total = new float[stride];
         ReadOnlySpan<float> source = raw.Span;
         for (int offset = 0; offset + stride <= source.Length; offset += stride) {
-            for (int slot = 0; slot < stride; slot++) { total[slot] += source[offset + slot]; }
+            TensorPrimitives.Add<float>(total, source.Slice(offset, stride), total);
         }
         return total;
     }
@@ -663,7 +693,7 @@ public static class WgslOpCode {
     // pre-rendered detail so even the refusing arm allocates nothing per call.
     static readonly Fin<Unit> Verdict = Uncovered.IsEmpty
         ? Fin.Succ(unit)
-        : Fin.Fail<Unit>(RasterFault.Device(Op.Of(name: nameof(WgslOpCode)), $"<wgsl-op-roster-drift:{string.Join(',', Uncovered)}>"));
+        : Fin.Fail<Unit>(new RasterFault.Device(Op.Of(name: nameof(WgslOpCode)), $"<wgsl-op-roster-drift:{string.Join(',', Uncovered)}>"));
 
     public static Fin<Unit> Total(Op key) => Verdict;
 
@@ -734,6 +764,35 @@ public sealed partial class WgslKernel {
 // The WGSL bodies. Each module declares its own bind group zero, so the auto-derived layout reads exactly
 // these declarations and no host-side layout restates them.
 internal static class Wgsl {
+    // --- [TRANSCRIBED_CONSTANTS]
+    // RULINGS [02] makes a re-typed literal the deleted form even where two spellings agree today: a CPU anchor
+    // edit the shader text does not follow forks the lattice silently, and no fixture catches it until a golden
+    // moves. This prelude therefore INTERPOLATES off `ProceduralNoise`'s own declared members and concatenates
+    // ahead of the body — one declaration, two emissions. `string.Create` pins the InvariantCulture, since a
+    // double rendered under a comma-decimal locale emits `0,43701595` and naga refuses that at module creation;
+    // `:R` round-trips, so the shader parses the nearest single to the f64 the CPU holds rather than a
+    // fifteen-digit truncation. A new anchor lands one interpolated row here and one member there — never a
+    // second literal, and never a value this page decides.
+    internal static readonly string NoiseConsts = string.Create(CultureInfo.InvariantCulture, $"""
+        const PX : i32 = {ProceduralNoise.PrimeX};
+        const PY : i32 = {ProceduralNoise.PrimeY};
+        const PZ : i32 = {ProceduralNoise.PrimeZ};
+        const HASH : i32 = {ProceduralNoise.HashMultiplier};
+        const VAL_SCALE : f32 = {ProceduralNoise.ValCoordScale:R};
+        const SKEW : f32 = {ProceduralNoise.Skew2D:R};
+        const UNSKEW : f32 = {ProceduralNoise.Unskew2D:R};
+        const PERLIN_2D : f32 = {ProceduralNoise.PerlinNorm2D:R};
+        const PERLIN_3D : f32 = {ProceduralNoise.PerlinNorm3D:R};
+        const SIMPLEX_2D : f32 = {ProceduralNoise.SimplexBound2D:R};
+        const SIMPLEX_3D : f32 = {ProceduralNoise.SimplexBound3D:R};
+        const SIMPLEX_ROTATE : f32 = {ProceduralNoise.SimplexRotate3D:R};
+        const JITTER_2D : f32 = {ProceduralNoise.CellJitter2D:R};
+        const JITTER_3D : f32 = {ProceduralNoise.CellJitter3D:R};
+        const WARP_DECORRELATION : f32 = {ProceduralNoise.WarpDecorrelation:R};
+        const GRAD_ANGLE : f32 = {ProceduralNoise.GradientAngle0:R};
+        const GRAD_STEP : f32 = {ProceduralNoise.GradientAngleStep:R};
+        """);
+
     // The cube-face mapping, held by the ONE kernel whose product is a cube. WGSL has no include, so the
     // fragment concatenates at row construction — one law, one text, never two that drift.
     internal const string FaceDir = """
@@ -750,16 +809,18 @@ internal static class Wgsl {
         """;
 
     // The FULL FastNoiseLite algebra at f32, 2D and SOLID 3D: four bases per dimension, three fractal
-    // trajectories, the whole cellular distance x return product, the domain warp, and the period wrap. The
-    // 24-direction 2D gradient table GENERATES from its 82.5 - 15*k defining sequence, the 3D quads from the
-    // 12-edge family plus the published tail as var<private> (a const table refuses the runtime quad index),
-    // the 3D cellular offsets from the spherical-Fibonacci closed form with no table at all, and the periodic
-    // arm wraps the INTEGER lattice coordinate so a period-wrapped sample is exact, not approximately seamless.
-    // The dimension uniform selects the lattice: planar replicates across layers, solid samples the layer-
-    // centre depth, so a solid or triplanar-of-solid-noise source previews as itself. i32 shifts are
-    // ARITHMETIC, matching the C# hash exactly; a bitcast<u32> round trip is a defect that re-seeds every
-    // gradient.
-    internal const string NoiseField = """
+    // trajectories, the whole cellular distance x return product, the domain warp, and the period wrap. Every
+    // lattice anchor reads the DERIVED prelude above rather than a literal, so the CPU declaration is the one
+    // authority for both emissions. The 24-direction 2D gradient table GENERATES from the derived
+    // GRAD_ANGLE/GRAD_STEP sequence, the 3D quads from the 12-edge family plus the published tail as
+    // var<private> (a const table refuses the runtime quad index), and the periodic arm wraps the INTEGER
+    // lattice coordinate so a period-wrapped sample is exact, not approximately seamless. The dimension uniform
+    // selects the lattice: planar replicates across layers, solid samples the layer-centre depth, so a solid or
+    // triplanar-of-solid-noise source previews as itself. i32 shifts are ARITHMETIC, matching the C# hash
+    // exactly; a bitcast<u32> round trip is a defect that re-seeds every gradient.
+    internal static readonly string NoiseField = NoiseConsts + NoiseFieldBody;
+
+    private const string NoiseFieldBody = """
         struct Params {
             extent: vec2<u32>, frequency: f32, lacunarity: f32,
             gain: f32, weighted: f32, pingPong: f32, jitter: f32,
@@ -771,11 +832,10 @@ internal static class Wgsl {
         @group(0) @binding(0) var<uniform> p : Params;
         @group(0) @binding(1) var<storage, read_write> dst : array<f32>;
 
-        const PX : i32 = 501125321;
-        const PY : i32 = 1136930381;
-        const PZ : i32 = 1720413743;
-        const SKEW : f32 = 0.3660254037844386;      // (sqrt(3) - 1) / 2
-        const UNSKEW : f32 = 0.21132486540518713;   // (3 - sqrt(3)) / 6
+        // The ONE constant this module declares itself rather than deriving: the golden angle drives the two
+        // cellular STAND-INS below, which have no CPU member to read because the table they stand in for is an
+        // authored asset. Every derived anchor is in the interpolated prelude ahead of this text.
+        const GOLDEN_ANGLE : f32 = 2.399963229728653;
 
         // var<private>, never const: the runtime quad index refuses against a const table in module scope
         // exactly as against a let-bound local. The 64-quad FNL cycle is EDGE3[q % 12] for q < 60, TAIL3
@@ -788,19 +848,19 @@ internal static class Wgsl {
             vec3<f32>(1.0, 1.0, 0.0), vec3<f32>(0.0, -1.0, 1.0), vec3<f32>(-1.0, 1.0, 0.0), vec3<f32>(0.0, -1.0, -1.0));
 
         fn wrap(v: i32, period: i32) -> i32 { if (period <= 0) { return v; } return ((v % period) + period) % period; }
-        fn hash(seed: i32, xp: i32, yp: i32) -> i32 { return (seed ^ xp ^ yp) * 668265261; }
+        fn hash(seed: i32, xp: i32, yp: i32) -> i32 { return (seed ^ xp ^ yp) * HASH; }
         fn grad(seed: i32, xp: i32, yp: i32, xd: f32, yd: f32) -> f32 {
             var h = hash(seed, xp, yp);
             h = h ^ (h >> 15u);
             let idx = (u32(h & 254) >> 1u) % 24u;
-            let ang = radians(82.5 - 15.0 * f32(idx));
+            let ang = radians(GRAD_ANGLE - GRAD_STEP * f32(idx));
             return xd * cos(ang) + yd * sin(ang);
         }
         fn valCoord(seed: i32, xp: i32, yp: i32) -> f32 {
             var h = hash(seed, xp, yp);
             h = h * h;
             h = h ^ (h << 19u);
-            return f32(h) * 4.6566128730773926e-10;
+            return f32(h) * VAL_SCALE;
         }
         fn fade(t: f32) -> f32 { return t * t * t * (t * (t * 6.0 - 15.0) + 10.0); }
         fn hermite(t: f32) -> f32 { return t * t * (3.0 - 2.0 * t); }
@@ -813,7 +873,7 @@ internal static class Wgsl {
             let x1 = wrap(ix + 1, period) * PX; let y1 = wrap(iy + 1, period) * PY;
             let n00 = grad(seed, x0, y0, xd0, yd0); let n10 = grad(seed, x1, y0, xd0 - 1.0, yd0);
             let n01 = grad(seed, x0, y1, xd0, yd0 - 1.0); let n11 = grad(seed, x1, y1, xd0 - 1.0, yd0 - 1.0);
-            return mix(mix(n00, n10, xs), mix(n01, n11, xs), ys) * 1.4247691104677813;
+            return mix(mix(n00, n10, xs), mix(n01, n11, xs), ys) * PERLIN_2D;
         }
 
         fn valueBasis(x: f32, y: f32, seed: i32, period: i32) -> f32 {
@@ -841,7 +901,7 @@ internal static class Wgsl {
             if (t1 > 0.0) { t1 = t1 * t1; total = total + t1 * t1 * grad(seed, (i + i1) * PX, (j + j1) * PY, x1, y1); }
             var t2 = 0.5 - x2 * x2 - y2 * y2;
             if (t2 > 0.0) { t2 = t2 * t2; total = total + t2 * t2 * grad(seed, (i + 1) * PX, (j + 1) * PY, x2, y2); }
-            return total * 99.83685446303647;
+            return total * SIMPLEX_2D;
         }
 
         fn metric(dx: f32, dy: f32) -> f32 {
@@ -852,14 +912,22 @@ internal static class Wgsl {
                 default: { return dx * dx + dy * dy; }
             }
         }
-        // The CPU Worley2D lattice verbatim at f32: the neighbourhood anchors at the FNL ROUNDED cell
-        // (half-away-from-zero, never floor), each feature displaces by a hash-indexed golden-angle UNIT
-        // vector at the 0.43701595 jitter radius, the hash reads the WRAPPED neighbour while the feature sits
-        // at its UNWRAPPED coordinate, the cell value is the RAW hash scaled — and the projection clamps to
-        // [-1, 1] exactly as the CPU fold does.
+        // Worley2D at f32, matching the CPU lattice: the neighbourhood anchors at the FNL ROUNDED cell
+        // (half-away-from-zero, never floor), each feature displaces at the derived JITTER_2D radius, the hash
+        // reads the WRAPPED neighbour while the feature sits at its UNWRAPPED coordinate, the cell value is the
+        // RAW hash scaled — and the projection clamps to [-1, 1] exactly as the CPU fold does.
+        //
+        // randVec is the ONE arm that is NOT a transcription and the page states so rather than claiming one.
+        // `ProceduralNoise` displaces through RandVecs2D, which texture#TEXTURE_UV declares an AUTHORED table
+        // with no defining sequence — it rides as a digest-pinned content-keyed asset through LatticeTables.Of
+        // precisely because no closed form generates it. A shader cannot bind that asset, so this arm draws a
+        // golden-angle unit vector as a DECLARED STAND-IN: same radius, same anchor, same hash index, a different
+        // displacement set. Parity across the cellular arms is therefore a MEASURED column on the parity workload
+        // and never an asserted table identity. Binding the pinned table as a read buffer turns the stand-in into
+        // a transcription, and that is the growth leg.
         fn fastRound(v: f32) -> i32 { if (v >= 0.0) { return i32(v + 0.5); } return i32(v - 0.5); }
         fn randVec(h: i32) -> vec2<f32> {
-            let a = f32((h >> 1u) & 255) * 2.399963229728653;
+            let a = f32((h >> 1u) & 255) * GOLDEN_ANGLE;
             return vec2<f32>(cos(a), sin(a));
         }
         // ONE feature projection serves both cellular dimensions: a new CellularReturn row lands one arm here,
@@ -877,7 +945,7 @@ internal static class Wgsl {
         }
         fn worley(x: f32, y: f32, seed: i32, period: i32) -> f32 {
             let xr = fastRound(x); let yr = fastRound(y);
-            let radius = 0.43701595 * p.jitter;
+            let radius = JITTER_2D * p.jitter;
             var f1 = 1e30; var f2 = 1e30; var cell = 0.0;
             for (var oy = -1; oy <= 1; oy = oy + 1) {
                 for (var ox = -1; ox <= 1; ox = ox + 1) {
@@ -885,19 +953,18 @@ internal static class Wgsl {
                     let h = hash(seed, wrap(cx, period) * PX, wrap(cy, period) * PY);
                     let rv = randVec(h) * radius;
                     let d = metric(f32(cx) + rv.x - x, f32(cy) + rv.y - y);
-                    if (d < f1) { f2 = f1; f1 = d; cell = f32(h) * 4.6566128730773926e-10; }
+                    if (d < f1) { f2 = f1; f1 = d; cell = f32(h) * VAL_SCALE; }
                     else if (d < f2) { f2 = d; }
                 }
             }
             return clamp(featureOf(f1, f2, cell), -1.0, 1.0);
         }
 
-        // The SOLID 3D family: the same hash chain over the third prime, the generated quad table, and the
-        // FNL 3D anchors — the 0.964921414852142333984375 Perlin normalizer, the OpenSimplex2 rotated two-cell
-        // fold at the 32.69428253173828125 bound, the 0.39614353 cellular jitter radius. The cell-advance
-        // (xSign >> 1u) & PX and the h ^ (h >> 15u) chain both REQUIRE the arithmetic i32 shift: xSign is ±1,
-        // so -1 >> 1 must stay -1 to select the prime.
-        fn hash3(seed: i32, xp: i32, yp: i32, zp: i32) -> i32 { return (seed ^ xp ^ yp ^ zp) * 668265261; }
+        // The SOLID 3D family: the same hash chain over the third prime, the generated quad table, and the FNL
+        // 3D anchors read off the derived prelude — PERLIN_3D, SIMPLEX_ROTATE, SIMPLEX_3D, JITTER_3D. The
+        // cell-advance (xSign >> 1u) & PX and the h ^ (h >> 15u) chain both REQUIRE the arithmetic i32 shift:
+        // xSign is ±1, so -1 >> 1 must stay -1 to select the prime.
+        fn hash3(seed: i32, xp: i32, yp: i32, zp: i32) -> i32 { return (seed ^ xp ^ yp ^ zp) * HASH; }
         fn grad3(seed: i32, xp: i32, yp: i32, zp: i32, xd: f32, yd: f32, zd: f32) -> f32 {
             var h = hash3(seed, xp, yp, zp);
             h = h ^ (h >> 15u);
@@ -910,7 +977,7 @@ internal static class Wgsl {
             var h = hash3(seed, xp, yp, zp);
             h = h * h;
             h = h ^ (h << 19u);
-            return f32(h) * 4.6566128730773926e-10;
+            return f32(h) * VAL_SCALE;
         }
 
         fn perlin3(x: f32, y: f32, z: f32, seed: i32, period: i32) -> f32 {
@@ -929,7 +996,7 @@ internal static class Wgsl {
             let n111 = grad3(seed, x1, y1, z1, xd0 - 1.0, yd0 - 1.0, zd0 - 1.0);
             let xf0 = mix(mix(n000, n100, xs), mix(n010, n110, xs), ys);
             let xf1 = mix(mix(n001, n101, xs), mix(n011, n111, xs), ys);
-            return mix(xf0, xf1, zs) * 0.9649214148521423;
+            return mix(xf0, xf1, zs) * PERLIN_3D;
         }
 
         fn value3(x: f32, y: f32, z: f32, seed: i32, period: i32) -> f32 {
@@ -947,7 +1014,7 @@ internal static class Wgsl {
         // OpenSimplex2's rotated two-cell fold, seed-only exactly as the CPU arm: Noise.Of refuses a periodic
         // simplex outright, so no period column reaches this body.
         fn simplex3(x: f32, y: f32, z: f32, seed: i32) -> f32 {
-            let r = (x + y + z) * 0.6666666666666666;
+            let r = (x + y + z) * SIMPLEX_ROTATE;
             let xr = r - x; let yr = r - y; let zr = r - z;
             let i = fastRound(xr); let j = fastRound(yr); let k = fastRound(zr);
             var x0 = xr - f32(i); var y0 = yr - f32(j); var z0 = zr - f32(k);
@@ -977,16 +1044,17 @@ internal static class Wgsl {
                 xSign = -xSign; ySign = -ySign; zSign = -zSign;
                 s = ~s;
             }
-            return value * 32.694282531738281;
+            return value * SIMPLEX_3D;
         }
 
-        // The spherical-Fibonacci unit offset in closed form: quad index h>>2 & 255 maps to the same lane the
-        // CPU RandVecs3D builder fills, so the table never exists on either side.
+        // The 3D DECLARED STAND-IN, twin of randVec one dimension up and carrying the same statement: the CPU
+        // RandVecs3D is the second AUTHORED, digest-pinned table, so the spherical-Fibonacci closed form here
+        // matches its lane INDEX and its radius while drawing its own offsets. Parity is the measured column.
         fn randVec3(h: i32) -> vec3<f32> {
             let i = f32((h >> 2u) & 255);
             let z = 1.0 - (2.0 * i + 1.0) / 256.0;
             let r = sqrt(1.0 - z * z);
-            let a = i * 2.399963229728653;
+            let a = i * GOLDEN_ANGLE;
             return vec3<f32>(r * cos(a), r * sin(a), z);
         }
         fn metric3(dx: f32, dy: f32, dz: f32) -> f32 {
@@ -999,7 +1067,7 @@ internal static class Wgsl {
         }
         fn worley3(x: f32, y: f32, z: f32, seed: i32, period: i32) -> f32 {
             let xr = fastRound(x); let yr = fastRound(y); let zr = fastRound(z);
-            let radius = 0.39614353 * p.jitter;
+            let radius = JITTER_3D * p.jitter;
             var f1 = 1e30; var f2 = 1e30; var cell = 0.0;
             for (var oz = -1; oz <= 1; oz = oz + 1) {
                 for (var oy = -1; oy <= 1; oy = oy + 1) {
@@ -1008,7 +1076,7 @@ internal static class Wgsl {
                         let h = hash3(seed, wrap(cx, period) * PX, wrap(cy, period) * PY, wrap(cz, period) * PZ);
                         let rv = randVec3(h) * radius;
                         let d = metric3(f32(cx) + rv.x - x, f32(cy) + rv.y - y, f32(cz) + rv.z - z);
-                        if (d < f1) { f2 = f1; f1 = d; cell = f32(h) * 4.6566128730773926e-10; }
+                        if (d < f1) { f2 = f1; f1 = d; cell = f32(h) * VAL_SCALE; }
                         else if (d < f2) { f2 = d; }
                     }
                 }
@@ -1054,8 +1122,8 @@ internal static class Wgsl {
             if (p.warpAmp != 0.0) {
                 if (solid) {
                     let wx = simplex3(sx * p.warpFreq, sy * p.warpFreq, sz * p.warpFreq, p.warpSeed);
-                    let wy = simplex3(sx * p.warpFreq + 1000.0, sy * p.warpFreq, sz * p.warpFreq, p.warpSeed);
-                    let wz = simplex3(sx * p.warpFreq, sy * p.warpFreq + 1000.0, sz * p.warpFreq, p.warpSeed);
+                    let wy = simplex3(sx * p.warpFreq + WARP_DECORRELATION, sy * p.warpFreq, sz * p.warpFreq, p.warpSeed);
+                    let wz = simplex3(sx * p.warpFreq, sy * p.warpFreq + WARP_DECORRELATION, sz * p.warpFreq, p.warpSeed);
                     sx = sx + wx * p.warpAmp; sy = sy + wy * p.warpAmp; sz = sz + wz * p.warpAmp;
                 } else {
                     let wx = simplex(sx * p.warpFreq, sy * p.warpFreq, p.warpSeed);
@@ -1136,6 +1204,9 @@ internal static class Wgsl {
         @group(0) @binding(2) var<storage, read> rhs : array<f32>;
         @group(0) @binding(3) var<storage, read_write> dst : array<f32>;
         // kind 0 scalar (lane x IS the value), 1 colour (AP1 luminance), 2 vector (length) — the CPU AsScalar rows.
+        // SPECIFICATION CONSTANT, not a derivable one: the triple is the ACES AP1 Y row, and its CPU twin sits
+        // inside PortValue.AsScalar's body rather than in a member this text could interpolate — so it cites the
+        // specification here and a corpus member is what would make it derivable.
         fn asScalar(kind: u32, v: vec4<f32>) -> f32 {
             switch (kind) {
                 case 1u: { return dot(v.xyz, vec3<f32>(0.2722287, 0.6740818, 0.0536895)); }
@@ -1213,7 +1284,9 @@ internal static class Wgsl {
         // The W3C compositing Lum coefficients — the algebra the CPU MixOp reads out of Unicolour's Blend —
         // never the AP1 luminance weights, which belong to the SCALAR polarity projection in mathFold: the
         // four non-separable modes are defined over W3C's own 0.3/0.59/0.11, and an AP1 lum here diverges
-        // every Hue/Saturation/Colour/Luminosity arm from the bake, not just the HDR clip.
+        // every Hue/Saturation/Colour/Luminosity arm from the bake, not just the HDR clip. SPECIFICATION
+        // CONSTANT: the CPU twin is inside the PACKAGE's Blend, so there is no corpus declaration to derive
+        // from and the W3C clause is what this site cites.
         fn lum(c: vec3<f32>) -> f32 { return dot(c, vec3<f32>(0.3, 0.59, 0.11)); }
         fn clipColour(c: vec3<f32>) -> vec3<f32> {
             let l = lum(c); let n = min(c.x, min(c.y, c.z)); let x = max(c.x, max(c.y, c.z));
@@ -1458,7 +1531,19 @@ internal static class Wgsl {
 // same word layout; Input supplies every READ buffer the kernel's Layout declares.
 public sealed record GoldenVector(
     string Name, KernelUniform Uniform, Seq<ReadOnlyMemory<float>> Input, ReadOnlyMemory<float> Expected,
-    Dimension Width, Dimension Height, Dimension Layers, double Tolerance, bool Relative);
+    Dimension Width, Dimension Height, Dimension Layers, Tolerance Band);
+
+// The golden compare band as the kernel carrier: an absolute band admits on the Residual lane, a relative one on
+// the Relative lane — the lane IS the semantic the retired bool spelled, and the type-init refusal is the
+// registry-proof idiom.
+public static class GoldenBand {
+    public static Tolerance Abs(double value) =>
+        Tolerance.Of(lane: ToleranceLane.Residual, value: value, key: Op.Of(name: nameof(GoldenBand)))
+            .IfFail(static e => throw e.ToException());
+    public static Tolerance Rel(double value) =>
+        Tolerance.Of(lane: ToleranceLane.Relative, value: value, key: Op.Of(name: nameof(GoldenBand)))
+            .IfFail(static e => throw e.ToException());
+}
 
 // --- [TABLES] ------------------------------------------------------------------------------
 public static class Golden {
@@ -1473,7 +1558,7 @@ public static class Golden {
             .Code(WgslOpCode.Of(CellularDistance.EuclideanSq)).Code(WgslOpCode.Of(CellularReturn.Distance)).I32(0)   // metric, feature, warpSeed
             .Vec4(-1.0, -1.0, -1.0, 1.0).Vec4(1.0, 1.0, 1.0, 1.0),      // lo, hi — the Vec4 pad zeroes dimension (planar) and layers (unread on the planar path)
         Input: Seq<ReadOnlyMemory<float>>(),
-        Expected: new[] { 0f, 0f, 0f, 1f }, Width: One, Height: One, Layers: One, Tolerance: 1e-6, Relative: false);
+        Expected: new[] { 0f, 0f, 0f, 1f }, Width: One, Height: One, Layers: One, Band: GoldenBand.Abs(1e-6));
 
     // The solid twin: at dimension 1 the one texel centre (uv 0.5, layer-centre depth 0.5 over one layer) at
     // frequency 2 lands on lattice node (1, 1, 1), where every Perlin3D corner displacement vanishes — one
@@ -1486,7 +1571,7 @@ public static class Golden {
             .Code(WgslOpCode.Of(CellularDistance.EuclideanSq)).Code(WgslOpCode.Of(CellularReturn.Distance)).I32(0).U32(1).U32(1)   // metric, feature, warpSeed, dimension SOLID, layers
             .Vec4(-1.0, -1.0, -1.0, 1.0).Vec4(1.0, 1.0, 1.0, 1.0),
         Input: Seq<ReadOnlyMemory<float>>(),
-        Expected: new[] { 0f, 0f, 0f, 1f }, Width: One, Height: One, Layers: One, Tolerance: 1e-6, Relative: false);
+        Expected: new[] { 0f, 0f, 0f, 1f }, Width: One, Height: One, Layers: One, Band: GoldenBand.Abs(1e-6));
 
     // repeats = 2 puts (0.25, 0.25) in an even cell (floor(0.5) + floor(0.5) = 0) and (0.75, 0.25) in an odd
     // one (1 + 0 = 1). Integer parity — no float tolerance is involved. repeats is u32, so the word writer's
@@ -1494,7 +1579,7 @@ public static class Golden {
     internal static readonly GoldenVector CheckerParity = new("checker-parity",
         KernelUniform.Empty.Extent(Two, Two).U32(2).Pad(1).Vec4(0.0, 0.0, 0.0, 1.0).Vec4(1.0, 1.0, 1.0, 1.0),
         Input: Seq<ReadOnlyMemory<float>>(),
-        Expected: new[] { 0f, 0f, 0f, 1f, 1f, 1f, 1f, 1f }, Width: Two, Height: Two, Layers: One, Tolerance: 1e-6, Relative: false);
+        Expected: new[] { 0f, 0f, 0f, 1f, 1f, 1f, 1f, 1f }, Width: Two, Height: Two, Layers: One, Band: GoldenBand.Abs(1e-6));
 
     // A two-texel LUT of 0 and 1 read across a two-texel plane lands at t = 0.25 and t = 0.75 of the one-texel
     // span, so the index lerp is exactly 0.25 and 0.75 — no perceptual work, which is the whole point: the
@@ -1502,7 +1587,7 @@ public static class Golden {
     internal static readonly GoldenVector GradientMidpoint = new("gradient-midpoint",
         KernelUniform.Empty.Extent(Two, One).U32(2).U32(0),
         Input: Seq<ReadOnlyMemory<float>>(new[] { 0f, 0f, 0f, 1f, 1f, 1f, 1f, 1f }),
-        Expected: new[] { 0.25f, 0.25f, 0.25f, 1f, 0.75f, 0.75f, 0.75f, 1f }, Width: Two, Height: One, Layers: One, Tolerance: 1e-6, Relative: false);
+        Expected: new[] { 0.25f, 0.25f, 0.25f, 1f, 0.75f, 0.75f, 0.75f, 1f }, Width: Two, Height: One, Layers: One, Band: GoldenBand.Abs(1e-6));
 
     // The three totality conventions, ONE DISPATCH EACH — a single-op uniform cannot exercise three ops, and
     // the prior one-dispatch form proved floored modulo alone while claiming all three. Floored modulo of
@@ -1514,27 +1599,27 @@ public static class Golden {
         Input: Seq<ReadOnlyMemory<float>>(
             new[] { -1.5f, -1.5f, -1.5f, 1f, 1f, 1f, 1f, 1f },
             new[] { 1f, 1f, 1f, 1f, 0f, 0f, 0f, 1f }),
-        Expected: new[] { 0.5f, 0.5f, 0.5f, 1f, 0f, 0f, 0f, 1f }, Width: Two, Height: One, Layers: One, Tolerance: 1e-6, Relative: false);
+        Expected: new[] { 0.5f, 0.5f, 0.5f, 1f, 0f, 0f, 0f, 1f }, Width: Two, Height: One, Layers: One, Band: GoldenBand.Abs(1e-6));
 
     internal static readonly GoldenVector MathSafeDiv = new("math-safe-div",
         KernelUniform.Empty.Extent(Two, One).U32(3).U32(0).U32(0).Pad(3),
         Input: Seq<ReadOnlyMemory<float>>(
             new[] { 1f, 1f, 1f, 1f, 3f, 3f, 3f, 1f },
             new[] { 0f, 0f, 0f, 1f, 2f, 2f, 2f, 1f }),
-        Expected: new[] { 0f, 0f, 0f, 1f, 1.5f, 1.5f, 1.5f, 1f }, Width: Two, Height: One, Layers: One, Tolerance: 1e-6, Relative: false);
+        Expected: new[] { 0f, 0f, 0f, 1f, 1.5f, 1.5f, 1.5f, 1f }, Width: Two, Height: One, Layers: One, Band: GoldenBand.Abs(1e-6));
 
     internal static readonly GoldenVector MathSqrtClamp = new("math-sqrt-clamp",
         KernelUniform.Empty.Extent(Two, One).U32(7).U32(0).U32(0).Pad(3),
         Input: Seq<ReadOnlyMemory<float>>(
             new[] { -4f, -4f, -4f, 1f, 4f, 4f, 4f, 1f },
             new[] { 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f }),
-        Expected: new[] { 0f, 0f, 0f, 1f, 2f, 2f, 2f, 1f }, Width: Two, Height: One, Layers: One, Tolerance: 1e-6, Relative: false);
+        Expected: new[] { 0f, 0f, 0f, 1f, 2f, 2f, 2f, 1f }, Width: Two, Height: One, Layers: One, Band: GoldenBand.Abs(1e-6));
 
     // Multiply at full opacity over a 0.5 backdrop and a 0.5 source is exactly 0.25.
     internal static readonly GoldenVector MixMultiply = new("mix-multiply",
         KernelUniform.Empty.Extent(One, One).U32(1).Pad(1).F32(1.0).Pad(3),
         Input: Seq<ReadOnlyMemory<float>>(new[] { 0.5f, 0.5f, 0.5f, 1f }, new[] { 0.5f, 0.5f, 0.5f, 1f }),
-        Expected: new[] { 0.25f, 0.25f, 0.25f, 1f }, Width: One, Height: One, Layers: One, Tolerance: 1e-6, Relative: false);
+        Expected: new[] { 0.25f, 0.25f, 0.25f, 1f }, Width: One, Height: One, Layers: One, Band: GoldenBand.Abs(1e-6));
 
     // ALL SIX face centres in one dispatch at edge 1, faces riding gid.z, against an 8x4 source whose probes
     // are SIX DISTINCT colours — so the fixture pins the face ORDER outright, not an equivalence class of it.
@@ -1556,12 +1641,13 @@ public static class Golden {
             0.5f,   0f, 0f, 1f,        // -Y: u = 0.25
             0.625f, 0.5f, 0.25f, 1f,   // +Z: the painted pole row — the up-axis discriminator
             0.75f,  0.25f, 0.125f, 1f },  // -Z: the opposite painted pole row
-        Width: One, Height: One, Layers: Six, Tolerance: 1e-6, Relative: false);
+        Width: One, Height: One, Layers: Six, Band: GoldenBand.Abs(1e-6));
 
     // The 8x4 equirect source the cube fixture samples: row 0 and row 3 painted whole with the two pole
     // probes, four single-texel equator probes on row 2 at the four face-centre columns, black elsewhere.
     static ReadOnlyMemory<float> CubeSource() {
         float[] plane = new float[8 * 4 * 4];
+        // KERNEL-EXEMPTION: fixture painting over a fixed 8x4 lattice — each write is a coordinate, not an element.
         for (int x = 0; x < 8; x++) {
             Paint(plane, x, row: 0, 0.625f, 0.5f, 0.25f);
             Paint(plane, x, row: 3, 0.75f, 0.25f, 0.125f);
@@ -1601,7 +1687,7 @@ public static class Golden {
             0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f,
             0.0031923f, 0.0031923f, 0.0031923f,
             0f, 0f, 0f, 0f, 0f, 0f },
-        Width: SixtyFour, Height: ThirtyTwo, Layers: One, Tolerance: 1e-4, Relative: false);
+        Width: SixtyFour, Height: ThirtyTwo, Layers: One, Band: GoldenBand.Abs(1e-4));
 
     // A constant environment prefilters to that constant at EVERY roughness, because the N.L weights sum in
     // both numerator and denominator — the one property that catches a broken importance-sample WEIGHT. It
@@ -1611,7 +1697,7 @@ public static class Golden {
     internal static readonly GoldenVector ConstantPrefilter = new("constant-prefilter",
         KernelUniform.Empty.Extent(Four, Two).U32(8).U32(4).F32(0.5).U32(64).Pad(2),
         Input: Seq<ReadOnlyMemory<float>>(Constant(8 * 4)),
-        Expected: new[] { 1f, 1f, 1f, 1f }, Width: Four, Height: Two, Layers: One, Tolerance: 1e-5, Relative: true);
+        Expected: new[] { 1f, 1f, 1f, 1f }, Width: Four, Height: Two, Layers: One, Band: GoldenBand.Rel(1e-5));
 
     // This fixture DISCRIMINATES the sampler, exact in closed form because its dispatch is ONE tap. At samples = 1
     // Hammersley yields u0 = (0 + 0.5)/1 = 0.5 and u1 = radical(0) = 0, and the VNDF at wo = the local
@@ -1634,7 +1720,7 @@ public static class Golden {
     internal static readonly GoldenVector SplitDomePrefilter = new("split-dome-prefilter",
         KernelUniform.Empty.Extent(One, One).U32(16).U32(1).F32(0.5).U32(1).Pad(2),
         Input: Seq<ReadOnlyMemory<float>>(Meridian(16, mirror: 8, drawn: 9)),
-        Expected: new[] { 0.25f, 0.5f, 0.75f, 1f }, Width: One, Height: One, Layers: One, Tolerance: 1e-6, Relative: false);
+        Expected: new[] { 0.25f, 0.5f, 0.75f, 1f }, Width: One, Height: One, Layers: One, Band: GoldenBand.Abs(1e-6));
 
     // ONE roster, DERIVED: every kernel's own fixtures in table order — a hand-maintained second sequence
     // beside the rows is the dual-numbering defect this page names, and the derived form reaches the parity
@@ -1664,10 +1750,12 @@ public static class Golden {
     static Fin<Unit> Compare(WgslKernel kernel, GoldenVector fixture, KernelReceipt receipt, Op key) {
         ReadOnlySpan<float> expected = fixture.Expected.Span;
         ReadOnlySpan<float> actual = receipt.Output.Span;
-        if (actual.Length < expected.Length) { return Fin.Fail<Unit>(RasterFault.Device(key, $"<golden-output-short:{kernel.Key}:{actual.Length}<{expected.Length}>")); }
+        if (actual.Length < expected.Length) { return Fin.Fail<Unit>(new RasterFault.Device(key, $"<golden-output-short:{kernel.Key}:{actual.Length}<{expected.Length}>")); }
+        // KERNEL-EXEMPTION: the comparison reports the FIRST divergent INDEX beside both values, and a reduce
+        // that answers only whether any lane failed deletes exactly the diagnostic the fixture exists to give.
         for (int i = 0; i < expected.Length; i++) {
-            double bound = fixture.Relative ? fixture.Tolerance * Math.Max(1e-6, Math.Abs(expected[i])) : fixture.Tolerance;
-            if (Math.Abs(actual[i] - expected[i]) > bound) { return Fin.Fail<Unit>(RasterFault.Device(key, $"<golden-divergence:{fixture.Name}:{i}:{actual[i]:R}!={expected[i]:R}>")); }
+            double bound = fixture.Band.Lane == ToleranceLane.Relative ? fixture.Band.Value * Math.Max(EpsilonPolicy.ZeroTolerance, Math.Abs(expected[i])) : fixture.Band.Value;
+            if (Math.Abs(actual[i] - expected[i]) > bound) { return Fin.Fail<Unit>(new RasterFault.Device(key, $"<golden-divergence:{fixture.Name}:{i}:{actual[i]:R}!={expected[i]:R}>")); }
         }
         return Fin.Succ(unit);
     }
@@ -1742,18 +1830,22 @@ public sealed record ChainPlan(Seq<ChainStep> Steps, int Slots, int Terminal) {
     // THE PLANNER. Structural gates first, because the scan below is total only under them; then the live-range
     // pass; then the allocation walk whose high-water mark IS the slot count.
     public static Fin<ChainPlan> Of(Seq<ChainNode> nodes, Op key) {
-        if (nodes.IsEmpty) { return RasterFault.Device(key, "<chain-empty>"); }
+        if (nodes.IsEmpty) { return new RasterFault.Device(key, "<chain-empty>"); }
         int count = nodes.Count;
+        // KERNEL-EXEMPTION on the three scans below (structural gate, live-range pass, allocation walk): each is
+        // [EXPRESSION_SPINE] linear-scan register allocation, whose affordability rests on ONE ordered pass over
+        // int runs — a fold over a Seq re-allocates per step and re-derives the very order the compile already
+        // froze, which is the cost this allocator exists to refuse.
         for (int at = 0; at < count; at++) {
             ChainNode node = nodes[at];
             if (node.Operands.Count != node.Kernel.Reads) {
-                return RasterFault.Device(key, $"<chain-operand-arity:{at}:{node.Kernel.Key}:{node.Operands.Count}!={node.Kernel.Reads}>");
+                return new RasterFault.Device(key, $"<chain-operand-arity:{at}:{node.Kernel.Key}:{node.Operands.Count}!={node.Kernel.Reads}>");
             }
             if (node.Kernel.Reads + 1 > StorageBindingsPerStage) {
-                return RasterFault.Device(key, $"<chain-step-bindings:{node.Kernel.Key}:{node.Kernel.Reads + 1}:{StorageBindingsPerStage}>");
+                return new RasterFault.Device(key, $"<chain-step-bindings:{node.Kernel.Key}:{node.Kernel.Reads + 1}:{StorageBindingsPerStage}>");
             }
             foreach (int operand in node.Operands) {
-                if (operand < 0 || operand >= at) { return RasterFault.Device(key, $"<chain-operand-order:{at}:{operand}>"); }
+                if (operand < 0 || operand >= at) { return new RasterFault.Device(key, $"<chain-operand-order:{at}:{operand}>"); }
             }
         }
 
@@ -1794,9 +1886,9 @@ public sealed record ChainPlan(Seq<ChainStep> Steps, int Slots, int Terminal) {
     // floor and the aggregate is the estate declaration, so both answer from declared numbers alone.
     public Fin<Unit> Admits(long texels, Op key) =>
         texels * BytesPerTexel > BindingFloor
-            ? Fin.Fail<Unit>(RasterFault.Device(key, $"<chain-slot-over-binding-floor:{texels * BytesPerTexel}:{BindingFloor}>"))
+            ? Fin.Fail<Unit>(new RasterFault.Device(key, $"<chain-slot-over-binding-floor:{texels * BytesPerTexel}:{BindingFloor}>"))
             : Bytes(texels) > Footprint
-                ? Fin.Fail<Unit>(RasterFault.Device(key, $"<chain-footprint:{Slots}:{Bytes(texels)}:{Footprint}>"))
+                ? Fin.Fail<Unit>(new RasterFault.Device(key, $"<chain-footprint:{Slots}:{Bytes(texels)}:{Footprint}>"))
                 : Fin.Succ(unit);
 }
 ```

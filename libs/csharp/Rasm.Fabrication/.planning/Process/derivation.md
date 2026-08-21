@@ -4,7 +4,7 @@
 
 Full-plan derivation gates procedure qualification, measurement suitability, `Cpk`, and `IT` grade before scheduling. `OperationTopology` carries source-first DAG order as admitted evidence. Each admitted joint becomes an explicit operation or routes through `JoinRouting`; an unroutable class rejects.
 
-`LotReceipt` separates total `Work`, lap-phased critical `Chain`, calendar `Lead`, the operations that set `CriticalPath`, the `InstanceReservation` windows the lot held on each physical station, and the per-operation `OperationFloat` the same walk measured. `LotPolicy.TransferBuffer` releases successors after the predecessor's first transfer batch. Scheduling is FINITE-CAPACITY: each operation seats on one assigned `MachineInstanceKey`, that station's free-from clock gates its start beside its predecessors and the lot release, every instant advances through that station's own `AvailabilityPlan.Finish`, and effort a station cannot seat rejects as `CapacityExhausted` while work beyond the calendar horizon rejects as `LotUnschedulable`. `Completion` is the INDEPENDENT maximum finish across the whole topology, never the last-scheduled operation's, so a short topological tail cannot seal a lot a parallel branch is still running.
+`LotEvidence` separates total `Work`, lap-phased critical `Chain`, calendar `Lead`, the critical operations, the per-station `InstanceReservation` windows, and the per-operation `OperationFloat`; `Receipt<LotEvidence>` carries its plane, key, consumed evidence, and stamp. `LotPolicy.TransferBuffer` releases successors after the predecessor's first transfer batch. Scheduling is FINITE-CAPACITY: each operation seats on one assigned `MachineInstanceKey`, that station's free-from clock gates its start beside its predecessors and the lot release, every instant advances through that station's own `AvailabilityPlan.Finish`, and effort a station cannot seat rejects as `CapacityExhausted` while work beyond the calendar horizon rejects as `LotUnschedulable`. `Completion` is the INDEPENDENT maximum finish across the whole topology, never the last-scheduled operation's, so a short topological tail cannot seal a lot a parallel branch is still running.
 
 The critical path is a LONGEST path over the precedence DAG computed by the shipped critical relaxer, and per-operation early, late, and float fall out of the same forward and reverse walks — one algorithm, published as receipt columns, rather than a hand-threaded tuple whose ordering predicate gated chain and completion on one comparison.
 
@@ -14,16 +14,17 @@ Wire posture: HOST-LOCAL. `FabricationPlan` crosses to the caller and `Verify/es
 
 ## [01]-[INDEX]
 
-- [02]-[DERIVATION]: `DerivationStage`, `PlanIdentitySchema`, `CapabilityGate`, `WorkAxis`, `JoinRouting`, `LotPolicy`, `CapabilityRequirement`, `InstanceReservation`, `OperationFloat`, `LotReceipt`, `WorkKind`, `OperationDemand`, `OperationTopology`, `DerivePolicy`, `PlanDraft`, `Derivation.Plan`, and `FabricationProjector`.
+- [02]-[DERIVATION]: `DerivationStage`, `PlanIdentitySchema`, `WorkAxis`, `JoinRouting`, `LotPolicy`, `CapabilityRequirement`, `InstanceReservation`, `OperationFloat`, `LotEvidence`, `WorkKind`, `OperationDemand`, `OperationTopology`, `DerivePolicy`, `PlanDraft`, `Derivation.Plan`, and the `FabricationProjector.Of` seam mint.
 
 ## [02]-[DERIVATION]
 
-- Owner: `DerivationStage` owns ordered ceilings; `CapabilityGate` owns execution predicates; `WorkAxis` owns every per-modality work fact; `JoinRouting` owns the join-class-to-process correspondence; `LotPolicy` owns lot timing and batching; `LotReceipt` owns the lap-phased schedule evidence; `CapabilityRequirement` owns the required gate set; `OperationDemand` and `OperationTopology` own executable work and its proven order; `DerivePolicy` owns request depth and aggregate admission; `PlanDraft` owns rail accumulation; `Derivation` owns the stage rail; and `FabricationProjector` owns graph projection.
+- Owner: `DerivationStage` owns ordered ceilings; `WorkAxis` owns every per-modality work fact; `JoinRouting` owns the join-class-to-process correspondence; `LotPolicy` owns lot timing and batching; `LotEvidence` owns the lap-phased schedule evidence and `Receipt<LotEvidence>` its settled-receipt spine; `CapabilityRequirement` owns the demanded attestation set; `OperationDemand` and `OperationTopology` own executable work and its proven order; `DerivePolicy` owns request depth and aggregate admission; `PlanDraft` owns rail accumulation; `Derivation` owns the stage rail; and `FabricationProjector` owns the public seam mint over its internal implementation.
 - Cases: `WorkKind` carries cut, join, form, additive, inspection, finish, fixture, treatment, cleaning, coating, transfer, handling, packing, and hold work. `DerivePolicy.Assessment` carries lot and the full `DfmRequest`; `Routing` adds fleet and preferences; `FullPlan` adds assembly, operations, setup, and artifact intent. Without a setup plan, full-plan work groups by process in setup `0`; with one, each admitted setup expands by operation ids and then by process.
 - Entry: `Plan(FabricationPolicy.Derive, FabricationInput, FabricationTap?)` admits the policy aggregate, admits DfM routing at every ceiling, gates full-plan capability, reduces the operation DAG into an `OperationTopology`, composes assembly precedence, verifies setup coverage, selects the highest-score feasible machine per step, and closes the lot against its due bound; the run spine's tap threads through the request switch into the fleet join, so a headless derivation emits nothing.
 - Auto: `Manufacturability.Assess(DfmRequest)` supplies ranked routes, fleet supplies scored matches, `AssemblyPlan.Apply(AssemblyOp.Plan)` supplies reduced join precedence and join duration, and `SetupSchedule.Apply(SetupOp.Schedule)` partitions topologically ordered demands. Every plan-derivation rejection lowers through `Reject` onto the `FabricationFault.Derivation` mint, so the witness clears its own kind predicate before the fault carrying it and its stage exists. `RequestedArtifacts` changes plan identity but never pretends an artifact was produced.
-- Receipt: `FabricationPlan` is the derivation evidence: case-derived ceiling, DfM-ranked `Routing` rows, retained `MachineMatch` routes, admitted topology and steps each naming its assigned station, capability requirement and verdict, lot receipt, key ledger, and content key. `LotReceipt` adds availability, calendar completion, total work, critical-chain effort, the critical operation chain, the per-station reservation windows, the per-operation float, the derived `Slack` between work and chain, the derived `Queue` between lead and chain, and the derived `Contention` each station held. `DfmReport` and `AssemblyPlan` remain stage-local because the terminal result carries their ranked-route and plan projections at every ceiling.
-- Law: `CanonicalWriter` is MUTABLE-FLUENT — every primitive mutates its bound buffer and returns the same writer, the contract `Process/owner#RUN_DISPATCH` states — so a byte kernel here chains or discards the return interchangeably and a discarded return costs no bytes. Nothing in this page's preimage depends on a copied writer.
+- Receipt: `FabricationPlan` is the derivation evidence: case-derived ceiling, DfM-ranked `Routing` rows, retained `MachineMatch` routes, admitted topology and steps each naming its assigned station, capability requirement and verdict, lot schedule, key ledger, and content key. `Receipt<LotEvidence>` adds the availability stamp, the lot's own content key, and the consumed operation evidence, and its `LotEvidence` adds calendar completion, total work, critical-chain effort, the critical operation chain, the per-station reservation windows, the per-operation float, the derived `Slack` between work and chain, the stamp-relative `Lead` and `Queue`, and the derived `Contention` each station held. `DfmReport` and `AssemblyPlan` remain stage-local because the terminal result carries their ranked-route and plan projections at every ceiling.
+- Law: `CanonicalWriter` is MUTABLE-FLUENT — every primitive mutates its bound buffer and returns the same writer, the contract `Process/owner#RUN_DISPATCH` states — so a byte kernel here chains or discards the return interchangeably and a discarded return costs no bytes. Nothing in this page's preimage depends on a copied writer, and both preimages open and close through `FabricationCanon.Keyed`, so the retaining mint's refusal threads `Compose` and `LotOf` rather than surfacing as a key minted off bytes no writer held.
+- Law: `FabricationProjector.Of` returns the Element floor and the internal implementation owns only `Project`, whose typed rail returns untouched. `ProjectionAssembly.Capture` preserves unknown throws; only a documented terminal projector refusal could add caused `ProjectorFaulted`.
 - Packages: Process exports `AdmittedComponent`, `PlannedStep`, `FabricationPlan`, `EgressKind`, and `ContentKey`; stage owners export `Manufacturability.Assess`, `Fleet.Capable`, `AvailabilityPlan.Finish`, `AssemblyPlan.Apply`, and `SetupSchedule.Apply`; QuikGraph owns DAG validation, reduction, and topological order; NodaTime owns instant and duration semantics; `Rasm.Element` owns graph projection and the `PropertyCategory` row-name custody every bag key mints through; Thinktecture.Runtime.Extensions and LanguageExt.Core own generated values and rails.
 - Growth: a rail segment is one ordered `DerivationStage` row and one fold arm; a work modality is one `WorkAxis` row with its `WorkKind` case, admission and byte projection following without a consumer edit; a join class becomes routable as one `JoinRouting` row; a route or plan fact widens the existing `FabricationPlan` receipt and canonical-byte projection; an element fact extends the existing total `Lower` arm for its owning result case.
 - Boundary: `Derivation.Plan` owns orchestration, `RoutingInfeasible`, and plan identity. `TopologyOf` is the QuikGraph mutation kernel, while `KeyOf`, `Framed`, and the `Write` overloads are the canonical-byte kernel every optional slot presence-frames through. Projection is a COLUMN TABLE per result case — one row per bag key carrying its own source read and its typed render — so every fact keeps its type on the graph (counts `Integer`, ratios `Number`, gate outcomes `Boolean`, dimensioned facts SI-coerced `MeasureValue`, collections `List` of `Complex`), a content key lands as its framed family-and-digest pair rather than an interpolated string, and an optional payload renders its own table or contributes nothing. Every row name mints through `Row` over the seam owner's `PropertyCategory.Fabrication` scope, so this package declares its own vocabulary inside a partition the seam blesses and a bare `PropertyName.Create` at any write site is the deleted form. DfM owns routing evidence, fleet owns machine matches, assembly owns precedence, setup owns partitions, and later `Run(Post)` and `Run(Document)` calls own artifact production.
@@ -37,6 +38,7 @@ using NodaTime;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.ShortestPath;        // DagShortestPathAlgorithm, DistanceRelaxers
+using Rasm.Domain;
 using Rasm.Element.Graph;
 using Rasm.Element.Projection;
 using Rasm.Element.Properties;
@@ -71,19 +73,8 @@ public sealed partial class PlanIdentitySchema {
     public static readonly PlanIdentitySchema CanonicalLittleEndian = new("fabrication-plan:canonical-little-endian");
 }
 
-[SmartEnum<string>]
-public sealed partial class CapabilityGate {
-    public static readonly CapabilityGate Procedure = new(
-        "procedure-qualified", static verdict => verdict.ProcedureQualified);
-    public static readonly CapabilityGate Measurement = new(
-        "measurement-system-suitable", static verdict => verdict.MeasurementSystemSuitable);
-
-    public Func<CapabilityVerdict, bool> Accepts { get; }
-}
-
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class LotPolicy {
     public int Quantity { get; }
     public int BatchSize { get; }
@@ -108,7 +99,7 @@ public sealed partial class LotPolicy {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref int quantity,
         ref int batchSize,
         ref Instant release,
@@ -118,25 +109,27 @@ public sealed partial class LotPolicy {
         if (quantity < 1 || batchSize < 1 || batchSize > quantity || due < release
             || transferBuffer < Duration.Zero || predecessors.Distinct().Count != predecessors.Count
             || predecessors.Contains(UInt128.Zero))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Derivation, "derive:lot");
+            validationError = new ValidationError("derive:lot");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CapabilityRequirement {
     public double MinimumCpk { get; }
     public int DemandedItGrade { get; }
-    public Set<CapabilityGate> Gates { get; }
+
+    // Demand states the SET the verdict must admit, so a requirement adds an attestation as one roster row and the
+    // gate stays one `AdmitsAll` rather than a predicate column per axis.
+    public CapabilitySet<CapabilityAttestation> Gates { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref double minimumCpk,
         ref int demandedItGrade,
-        ref Set<CapabilityGate> gates) {
+        ref CapabilitySet<CapabilityAttestation> gates) {
         if (!double.IsFinite(minimumCpk) || minimumCpk <= 0.0 || demandedItGrade < 1)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Derivation, "derive:capability-requirement");
+            validationError = new ValidationError("derive:capability-requirement");
     }
 }
 
@@ -148,16 +141,17 @@ public sealed record InstanceReservation(MachineInstanceKey Instance, int Operat
 }
 
 // Per-operation timing evidence off the critical-path walk: the earliest an operation could start, the latest it
-// could start without moving the completion, and the difference. A float of zero names a critical operation, so
-// the critical path and the per-operation float are one algorithm's outputs rather than two derivations.
+// could start without moving the completion, and the difference. A float of zero names a critical operation, so the
+// critical path and the per-operation float are one algorithm's outputs rather than two derivations.
 public sealed record OperationFloat(int Operation, Duration Early, Duration Late) {
     public Duration Float => Late - Early;
 }
 
+// Lane evidence lands whole here — everything the finite-capacity schedule MEASURED. Plane, content key,
+// ancestry, refusal band, and the stamp the lot was scheduled from ride `Receipt<LotEvidence>`, so this owner
+// declares no spine column and the carrier's `required` slots refuse a lane output carrying none of them.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
-public sealed partial class LotReceipt {
-    public Instant Available { get; }
+public sealed partial class LotEvidence {
     public Instant Completion { get; }
     public Duration Work { get; }
     public Duration Chain { get; }
@@ -171,12 +165,13 @@ public sealed partial class LotReceipt {
     public Seq<OperationFloat> Floats { get; }
 
     // Effort, concurrency, and calendar are three separate facts: total effort never falls below the critical
-    // chain and their gap is the concurrency the plan admits, while queue is the closed time the shop calendar,
-    // the committed load, and station CONTENTION impose on that chain. A 24/7 single-operation-per-station fleet
-    // drives Queue to zero; no other reading of Lead does.
-    public Duration Lead => Completion - Available;
+    // chain and their gap is the concurrency the plan admits, while queue is the closed time the shop calendar, the
+    // committed load, and station CONTENTION impose on that chain. A 24/7 single-operation-per-station fleet
+    // drives Queue to zero; no other reading of Lead does. Both measure FROM the receipt's own stamp, so the
+    // carrier supplies the origin and this evidence never mirrors it as a second column.
+    public Duration Lead(Instant stamped) => Completion - stamped;
+    public Duration Queue(Instant stamped) => Lead(stamped) - Chain;
     public Duration Slack => Work - Chain;
-    public Duration Queue => Lead - Chain;
 
     // Contention is the share of queue that station occupancy caused rather than the calendar: the reservations
     // one instance held, summed against the span it held them across.
@@ -187,8 +182,7 @@ public sealed partial class LotReceipt {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
-        ref Instant available,
+        ref ValidationError? validationError,
         ref Instant completion,
         ref Duration work,
         ref Duration chain,
@@ -196,13 +190,12 @@ public sealed partial class LotReceipt {
         ref int batches,
         ref Seq<InstanceReservation> reservations,
         ref Seq<OperationFloat> floats) {
-        if (completion < available || work < Duration.Zero || chain < Duration.Zero || chain > work
-            || completion - available < chain || batches < 1
+        if (work < Duration.Zero || chain < Duration.Zero || chain > work || batches < 1
             || (chain > Duration.Zero && criticalPath.IsEmpty)
             || criticalPath.Distinct().Count != criticalPath.Count
             || reservations.Exists(static row => row.Finish < row.Start)
             || floats.Exists(static row => row.Late < row.Early))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Derivation, "derive:lot-receipt");
+            validationError = new ValidationError("derive:lot-evidence");
     }
 }
 
@@ -294,7 +287,6 @@ public sealed partial class JoinRouting {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class OperationDemand {
     public int Id { get; }
     public WorkKind Work { get; }
@@ -337,7 +329,7 @@ public sealed partial class OperationDemand {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref int id,
         ref WorkKind work,
         ref ProcessKind process,
@@ -349,14 +341,13 @@ public sealed partial class OperationDemand {
         if (id < 0 || work is null || process is null || quantity < 1
             || unitDuration <= Duration.Zero || setupDuration < Duration.Zero
             || predecessors.Contains(id) || !work.Axis.Admits(work))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Derivation, "derive:operation-demand");
+            validationError = new ValidationError("derive:operation-demand");
     }
 }
 
 // Reduced DAG source-first order is the invariant every downstream fold reads, so it travels as
 // evidence rather than as an ordering convention a bare Seq cannot state.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class OperationTopology {
     public Seq<OperationDemand> Ordered { get; }
     public Map<int, OperationDemand> ById => toMap(Ordered.Map(static demand => (demand.Id, demand)));
@@ -366,7 +357,7 @@ public sealed partial class OperationTopology {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Seq<OperationDemand> ordered) {
         // Each element reads the pre-add frontier, so a predecessor appearing later fails the fold.
         bool sourceFirst = ordered.Fold(
@@ -375,7 +366,7 @@ public sealed partial class OperationTopology {
                 state.Seen.Add(demand.Id),
                 state.Ordered && demand.Predecessors.ForAll(state.Seen.Contains))).Ordered;
         if (!sourceFirst || ordered.Map(static demand => demand.Id).Distinct().Count != ordered.Count)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Derivation, "derive:operation-topology");
+            validationError = new ValidationError("derive:operation-topology");
     }
 }
 
@@ -466,13 +457,14 @@ public sealed record PlanDraft(
     Seq<PlannedStep> Steps,
     Option<SetupSchedule> Setups,
     Option<CapabilityRequirement> Requirement,
-    Option<LotReceipt> LotReceipt) {
+    Option<Receipt<LotEvidence>> LotSchedule,
+    Seq<ContentKey> Consumed) {
     public static PlanDraft Of(AdmittedComponent component, FabricationInput input, DerivePolicy policy) =>
         new(component, policy.Ceiling, policy.Lot,
             policy is DerivePolicy.FullPlan full ? full.RequestedArtifacts : Set<EgressKind>(),
             input.Capability, Seq<ProcessKind>(), Seq<MachineMatch>(),
             OperationTopology.Create(Seq<OperationDemand>()),
-            Seq<PlannedStep>(), None, None, None);
+            Seq<PlannedStep>(), None, None, None, Seq<ContentKey>());
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
@@ -481,23 +473,26 @@ public static class Derivation {
         FabricationPolicy.Derive policy, FabricationInput input, FabricationTap? tap = null) =>
         from request in DerivePolicy.Admit(policy.Policy)
         from dfm in Manufacturability.Assess(request.Dfm)
-        from _ in policy.Component.RepresentationKey == dfm.ComponentKey
+        from _ in policy.Component.RepresentationKey == dfm.Evidence.ComponentKey
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(Reject(
-                new DeriveWitness.ComponentMismatch(policy.Component.RepresentationKey, dfm.ComponentKey),
+                new DeriveWitness.ComponentMismatch(policy.Component.RepresentationKey, dfm.Evidence.ComponentKey),
                 DerivationStage.Manufacturability))
         from result in request.Switch<Fin<FabricationResult>>(
-            state: (Component: policy.Component, Input: input, Dfm: dfm, Tap: tap ?? FabricationTap.Silent),
+            state: (Component: policy.Component, Input: input, Dfm: dfm.Evidence, DfmKey: dfm.Key, Tap: tap ?? FabricationTap.Silent),
             assessment: static (state, row) =>
                 from routed in RouteOf(state.Dfm, state.Component, None)
-                select Compose(PlanDraft.Of(state.Component, state.Input, row) with { Routing = routed }),
+                from composed in Compose(PlanDraft.Of(state.Component, state.Input, row) with { Routing = routed, Consumed = Seq1(state.DfmKey) })
+                select composed,
             routing: static (state, row) =>
                 from routed in RouteOf(state.Dfm, state.Component, row.PreferProcess)
                 from matches in MatchOf(state.Component, row.Fleet, routed, row.PreferMachine, state.Tap)
-                select Compose(PlanDraft.Of(state.Component, state.Input, row) with {
+                from composed in Compose(PlanDraft.Of(state.Component, state.Input, row) with {
                     Routing = routed,
                     Matches = matches,
-                }),
+                    Consumed = Seq1(state.DfmKey),
+                })
+                select composed,
             fullPlan: static (state, row) =>
                 from routed in RouteOf(state.Dfm, state.Component, row.PreferProcess)
                 // The capability gate answers for the LEADING process the routing elected; an empty routing has no
@@ -512,15 +507,17 @@ public static class Derivation {
                 from setups in SetupsOf(row.Setups, topology)
                 from steps in StepsOf(state.Component, matches, topology, setups)
                 from lot in LotOf(row.Lot, state.Component, topology, matches, row.PredecessorCompletion)
-                select Compose(PlanDraft.Of(state.Component, state.Input, row) with {
+                from composed in Compose(PlanDraft.Of(state.Component, state.Input, row) with {
                     Routing = routed,
                     Matches = matches,
                     Topology = topology,
                     Setups = setups,
                     Steps = steps,
                     Requirement = Some(row.Capability),
-                    LotReceipt = Some(lot),
-                }))
+                    LotSchedule = Some(lot),
+                    Consumed = Seq1(state.DfmKey),
+                })
+                select composed)
         select result;
 
     // Every plan-derivation rejection lowers onto the one gated mint: the witness admits against its own kind
@@ -547,13 +544,13 @@ public static class Derivation {
         Option<CapabilityVerdict> admitted,
         CapabilityRequirement required,
         ProcessKind process) =>
-        admitted.ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Derivation, "derive:capability-verdict-absent"))
+        admitted.ToFin(new KernelFault.InvalidValue("derivation", "derive:capability-verdict-absent"))
             // The verdict attests capability alone — Cpk against its own demand plus the two fail-closed states —
             // so the IT grade a request DEMANDS stays on the requirement, where the tolerance owner sets it, and no
             // gate here reads a grade column the verdict does not carry.
             .Bind(verdict => verdict.Cpk >= required.MinimumCpk
                 && verdict.DemandedCpk >= required.MinimumCpk
-                && required.Gates.ForAll(gate => gate.Accepts(verdict))
+                && verdict.Attested.AdmitsAll(required.Gates)
                     ? Fin.Succ(verdict)
                     : Fin.Fail<CapabilityVerdict>(new FabricationFault.CapabilityShortfall(
                         process, verdict.Cpk, required.MinimumCpk)));
@@ -674,7 +671,7 @@ public static class Derivation {
     // instant advances through the ASSIGNED INSTANCE's own AvailabilityPlan and its own free-from clock, so effort
     // lands on the shop calendar at that station's committed load and two operations routed to one physical
     // machine never claim the same minutes — the contention a machine-class schedule cannot see.
-    private static Fin<LotReceipt> LotOf(
+    private static Fin<Receipt<LotEvidence>> LotOf(
         LotPolicy lot,
         AdmittedComponent component,
         OperationTopology topology,
@@ -721,12 +718,29 @@ public static class Derivation {
                     Completion = finish > state.Completion ? finish : state.Completion,
                 })
         from critical in Critical(topology, lot)
-        from admitted in timeline.Completion <= lot.Due
-            ? LotReceipt.Validate(available, timeline.Completion, timeline.Work, critical.Chain, critical.Path,
-                lot.BatchCount, timeline.Reservations, critical.Floats, out LotReceipt receipt).Admitted(receipt)
-            : Fin.Fail<LotReceipt>(Reject(
+        // NAMED LOSS: the two window invariants the old carrier proved against its own availability column —
+        // completion at or after it, and lead never shorter than the chain — leave the evidence boundary with the
+        // stamp. WITNESS: both are this fold's own outputs rather than caller material, because `LotState.Seeded`
+        // starts the completion AT the stamp and only ever raises it, and a finite-capacity walk cannot finish a
+        // chain faster than its own longest path; what a caller can still get wrong stays gated here.
+        from measured in timeline.Completion <= lot.Due
+            ? LotEvidence.Validate(timeline.Completion, timeline.Work, critical.Chain, critical.Path,
+                lot.BatchCount, timeline.Reservations, critical.Floats, out LotEvidence evidence).Admitted(evidence)
+            : Fin.Fail<LotEvidence>(Reject(
                 new DeriveWitness.LotOverdue(timeline.Completion, lot.Due), DerivationStage.Operations))
-        select admitted;
+        // Lot evidence joins the spine as a settled receipt: it addresses under its own content key, names its
+        // producing plane, carries the operation evidence its schedule consumed, and stamps at the availability
+        // instant every derived span on that evidence measures from. The key rides the S0 keyed close, so the
+        // retaining mint's own refusal threads this fold rather than reaching the receipt as a forged address.
+        from addressed in FabricationCanon.Keyed(
+            EgressKind.Plan, ExactGrid, writer => LotBytes(writer, available, measured), Key)
+        select new Receipt<LotEvidence> {
+            Evidence = measured,
+            Concern = FabConcern.Derivation,
+            Key = addressed,
+            Consumed = topology.Ordered.Bind(static demand => demand.Evidence),
+            Stamped = available,
+        };
 
     // One assignment pass over the whole topology, so the station a step posts to and the station the schedule
     // reserved are read from ONE map rather than re-selected per fold step.
@@ -744,8 +758,8 @@ public static class Derivation {
             .Map(static rows => toMap(rows));
 
     // The critical path is a LONGEST path over the precedence DAG, which is exactly what the shipped critical
-    // relaxer computes: seeded at negative infinity with an inverted comparison, the shortest-path fold returns
-    // the longest chain. Early start is that distance; late start is the completion minus the longest chain
+    // relaxer computes: seeded at negative infinity with an inverted comparison, the shortest-path fold returns the
+    // longest chain. Early start is that distance; late start is the completion minus the longest chain
     // FROM each operation, so float falls out of the same two walks rather than a hand-threaded tuple.
     private static Fin<(Duration Chain, Seq<int> Path, Seq<OperationFloat> Floats)> Critical(
         OperationTopology topology,
@@ -869,19 +883,25 @@ public static class Derivation {
                 : Fin.Fail<Option<AssemblyPlan>>(Reject(
                     new DeriveWitness.AssemblyRequired(component.Connections.Count), DerivationStage.Assembly)));
 
-    private static FabricationResult Compose(PlanDraft draft) =>
-        new FabricationResult.FabricationPlan(
+    private static Fin<FabricationResult> Compose(PlanDraft draft) =>
+        KeyOf(draft).Map<FabricationResult>(key => new FabricationResult.FabricationPlan(
             draft.Ceiling,
             draft.Routing,
             draft.Matches,
             draft.Steps,
             draft.Topology,
             draft.Requirement,
-            draft.LotReceipt,
+            draft.LotSchedule,
             draft.Capability,
             draft.RequestedArtifacts,
-            Seq<ContentKey>(),
-            KeyOf(draft));
+            draft.Consumed,
+            key));
+
+    // The exact grid: plan identity quantizes nothing, so two drafts differing in the last bit of a capability
+    // index address distinctly. The keying op names the refusal a discarded retaining close would otherwise hide.
+    private const double ExactGrid = 0.0;
+
+    private static readonly Op Key = Op.Of(name: nameof(Derivation));
 
     private static Fin<Seq<PlannedStep>> StepsOf(
         AdmittedComponent component,
@@ -946,13 +966,15 @@ public static class Derivation {
             .Map(static _ => unit);
     }
 
-    // The preimage composes the `Rasm.Element` `CanonicalWriter`, the package's ONE byte codec: it normalizes `-0.0`
-    // and every NaN payload, length-prefixes each token, and writes a count before every collection, so a plan key
-    // is byte-comparable with every other content key in the estate. A page-local scalar framing beside it is the
-    // deleted form — two of them already disagreed on how a `double` reaches the digest.
+    // The preimage frames and closes at the S0 `FabricationCanon` over the `Rasm.Element` `CanonicalWriter`, the
+    // package's ONE byte codec: it normalizes `-0.0` and every NaN payload, length-prefixes each token, and writes
+    // a count before every collection, so a plan key is byte-comparable with every other content key in the estate.
+    // A page-local scalar framing beside it is the deleted form — two of them already disagreed on how a `double`
+    // reaches the digest — and the retaining close answers on the rail, so a plan never addresses under bytes no
+    // writer held.
     // Exemption: the ordered foreach walks are the measured byte kernel this codec is.
-    private static ContentKey KeyOf(PlanDraft draft) {
-        CanonicalWriter writer = new CanonicalWriter(0.0)
+    private static Fin<ContentKey> KeyOf(PlanDraft draft) => FabricationCanon.Keyed(EgressKind.Plan, ExactGrid, writer => {
+        _ = writer
             .String(PlanIdentitySchema.CanonicalLittleEndian.Key)
             .U128(draft.Component.RepresentationKey)
             .String(draft.Ceiling.Key)
@@ -973,36 +995,43 @@ public static class Derivation {
         foreach (MachineMatch route in draft.Matches.OrderBy(static route => route.Instance.Id).ThenBy(static route => route.Process.Key)) Write(writer, route);
         writer.Ordinal(draft.Steps.Count);
         foreach (PlannedStep step in draft.Steps.OrderBy(static step => step.Order)) Write(writer, step);
-        WriteOptional(draft.Capability, draft.Requirement, draft.LotReceipt, writer);
-        return ContentKey.Of(EgressKind.Plan, writer.ToBytes().Span);
-    }
+        WriteOptional(draft.Capability, draft.Requirement, draft.LotSchedule, writer);
+        return writer;
+    }, Key);
 
     // Each optional slot frames its own presence flag so a missing verdict never shifts a later field's bytes;
     // `Bool` is the codec's own presence primitive, so an absent slot never mints a new framing convention.
     private static void WriteOptional(
         Option<CapabilityVerdict> capability,
         Option<CapabilityRequirement> requirement,
-        Option<LotReceipt> lotReceipt,
+        Option<Receipt<LotEvidence>> lotReceipt,
         CanonicalWriter writer) {
-        Framed(writer, capability, static (sink, value) => sink
-            .Double(value.Cpk)
-            .Double(value.DemandedCpk)
-            .Bool(value.ProcedureQualified)
-            .Bool(value.MeasurementSystemSuitable));
-        Framed(writer, requirement, static (sink, value) => toSeq(value.Gates
+        // Attestations frame ONE presence flag per roster row in rank order, so the layout the plan digest already
+        // publishes is unchanged and a third attestation reaches the preimage with no edit here.
+        Framed(writer, capability, static (sink, value) => toSeq(CapabilityAttestation.Items).Fold(
+            sink.Double(value.Cpk).Double(value.DemandedCpk),
+            (rail, row) => rail.Bool(value.Attested.Admits(row))));
+        Framed(writer, requirement, static (sink, value) => toSeq(value.Gates.Held
             .OrderBy(static gate => gate.Key))
             .Fold(
-                sink.Double(value.MinimumCpk).Ordinal(value.DemandedItGrade).Ordinal(value.Gates.Count),
+                sink.Double(value.MinimumCpk).Ordinal(value.DemandedItGrade).Ordinal(value.Gates.Held.Count),
                 static (rail, gate) => rail.String(gate.Key)));
-        Framed(writer, lotReceipt, static (sink, value) => value.CriticalPath.Fold(
-            sink.I64(value.Available.ToUnixTimeTicks())
-                .I64(value.Completion.ToUnixTimeTicks())
-                .I64(value.Work.ToTimeSpan().Ticks)
-                .I64(value.Chain.ToTimeSpan().Ticks)
-                .Ordinal(value.CriticalPath.Count),
-            static (rail, operation) => rail.Ordinal(operation))
-            .Ordinal(value.Batches));
+        Framed(writer, lotReceipt, static (sink, receipt) => LotBytes(sink, receipt.Stamped, receipt.Evidence));
     }
+
+    // ONE lot frame serves both the lot's own content key and the plan preimage that carries it, so the digest a
+    // plan publishes and the key its lot addresses under cover the same bytes and neither can drift. Layout holds
+    // what the plan already published — stamp, completion, effort, chain, critical path, batches — so seating the
+    // lot on the carrier re-keys no plan.
+    internal static CanonicalWriter LotBytes(CanonicalWriter writer, Instant stamped, LotEvidence evidence) =>
+        evidence.CriticalPath.Fold(
+            writer.I64(stamped.ToUnixTimeTicks())
+                .I64(evidence.Completion.ToUnixTimeTicks())
+                .I64(evidence.Work.ToTimeSpan().Ticks)
+                .I64(evidence.Chain.ToTimeSpan().Ticks)
+                .Ordinal(evidence.CriticalPath.Count),
+            static (rail, operation) => rail.Ordinal(operation))
+            .Ordinal(evidence.Batches);
 
     private static void Framed<T>(CanonicalWriter writer, Option<T> slot, Func<CanonicalWriter, T, CanonicalWriter> project) =>
         ignore(slot.Match(
@@ -1045,8 +1074,10 @@ public static class Derivation {
         foreach (CapabilityFact fact in route.Checks.Facts
             .OrderBy(static value => value.Criterion.Key)
             .ThenBy(static value => Evidence(value).Locus)) {
+            // The three-state verdict key frames where a bool framed two states — stored plan keys re-baseline once,
+            // and NotDemanded stops addressing as a satisfied dimension.
             writer.String(fact.Criterion.Key)
-                .Bool(fact.Pass)
+                .String(fact.Verdict.Key)
                 .Double(fact.Demand)
                 .Double(fact.Available)
                 .String(fact.Unit.Key)
@@ -1059,14 +1090,19 @@ public static class Derivation {
         ignore(writer.String(key.Kind.Key).U128(key.Digest));
 }
 
-// --- [COMPOSITION] ----------------------------------------------------------------------------------------------------------------------------------
+// --- [COMPOSITION] --------------------------------------------------------------------------------------------------------------------------------
 // Every projected fact keeps its type on the graph: counts are Integer, ratios and scores are Number, flags are
 // Boolean, dimensioned facts are SI-coerced MeasureValue quantities, and collections are List of Complex rows.
 // Stringifying a typed fact into Text is the deleted form — it forfeits the seam's own value vocabulary.
 // Every mm-carried magnitude reaches the `OfSi` slot through the UnitsNet family that owns its dimension, never a
 // transcribed power of ten: the seam federates identity at the `Dimension` 7-vector and the package owns the
 // scale, so the two never disagree. UnitsNet is spelled in full because its `Duration` collides with NodaTime's.
-public sealed class FabricationProjector(Seq<(NodeId Element, FabricationResult Fact)> facts) : IElementProjection {
+public static class FabricationProjector {
+    public static IElementProjection Of(Seq<(NodeId Element, FabricationResult Fact)> facts) =>
+        new FabricationElementProjection(facts);
+}
+
+internal sealed class FabricationElementProjection(Seq<(NodeId Element, FabricationResult Fact)> facts) : IElementProjection {
     private static readonly Dimension Dimensionless = Dimension.Create(0, 0, 0, 0, 0, 0, 0);
     private static readonly Dimension LengthDim = Dimension.Create(1, 0, 0, 0, 0, 0, 0);
     private static readonly Dimension AreaDim = Dimension.Create(2, 0, 0, 0, 0, 0, 0);
@@ -1092,7 +1128,8 @@ public sealed class FabricationProjector(Seq<(NodeId Element, FabricationResult 
         postedProgram: static (state, program) => Emit(state, "Program", Program, program),
         travelerDocument: static (state, traveler) => Emit(state, "Traveler", Traveler, traveler),
         fabricationPlan: static (state, plan) => Emit(state, "Plan", PlanRows(plan), PlanQuantities(plan)),
-        formedResult: static (state, formed) => Emit(state, "Formed", Formed, formed));
+        formedResult: static (state, formed) => Emit(state, "Formed", Formed, formed),
+        tubeFormed: static (state, tube) => Emit(state, "TubeFormed", TubeFormed, tube));
 
     // --- [TABLES]
     // One row per bag key: the key, and the render that turns its own source into a typed value. A new fact is a
@@ -1169,6 +1206,23 @@ public sealed class FabricationProjector(Seq<(NodeId Element, FabricationResult 
         Seq(Facts<FabricationResult.FormedResult>.Quantity("SpringbackMax", Dimensionless,
             static row => UnitsNet.Angle.FromDegrees(row.SpringbackMaxDeg).Radians)));
 
+    // The tube lane's three modalities project through ONE table, discriminated by the outcome's own key: the
+    // modality token, the settled artifact key, and the count the modality actually produced — bends, passes, or
+    // developed cope curves — so a fourth tube modality is one row on `TubeResult` and one arm here.
+    private static readonly Table<FabricationResult.TubeFormed> TubeFormed = new(
+        Seq(Facts<FabricationResult.TubeFormed>.Token("Modality", static row => row.Outcome.Switch(
+                formed: static _ => "formed",
+                rolled: static _ => "rolled",
+                coped: static _ => "coped")),
+            Facts<FabricationResult.TubeFormed>.Integer("Stations", static row => row.Outcome.Switch(
+                formed: static value => value.Program.Evidence.Bends.Count,
+                rolled: static value => value.Schedule.Evidence.Passes.Count,
+                coped: static value => value.Curves.Count)),
+            Facts<FabricationResult.TubeFormed>.Key("Key", static row => row.Outcome.Key)),
+        // No dimensioned row: a developed length exists on the bend and roll arms and NOT on the cope arm, and a
+        // zero standing in for the third would project an absent measurement as a measured one.
+        Seq<Measure<FabricationResult.TubeFormed>>());
+
     private static readonly Seq<Fact<PlannedStep>> StepColumns = Seq(
         Facts<PlannedStep>.Integer("Order", static row => row.Order),
         Facts<PlannedStep>.Token("Process", static row => row.Process.Key),
@@ -1202,41 +1256,46 @@ public sealed class FabricationProjector(Seq<(NodeId Element, FabricationResult 
 
     // The optional payloads carry their OWN tables over their OWN types, so a present slot renders its rows and an
     // absent one contributes none — no gate column, and no fallback magnitude standing in for a fact nobody measured.
+    // Attestations land as ONE rank-ordered token list rather than a flag per axis, so a graph row arrives with
+    // its roster row and a reader resolves the set it was handed instead of joining columns back together.
     private static readonly Seq<Fact<CapabilityVerdict>> CapabilityColumns = Seq(
         Facts<CapabilityVerdict>.Number("CapabilityCpk", static row => row.Cpk),
         Facts<CapabilityVerdict>.Number("CapabilityDemandedCpk", static row => row.DemandedCpk),
-        Facts<CapabilityVerdict>.Flag("ProcedureQualified", static row => row.ProcedureQualified),
-        Facts<CapabilityVerdict>.Flag("MeasurementSystemSuitable", static row => row.MeasurementSystemSuitable));
+        Facts<CapabilityVerdict>.Tokens("CapabilityAttested",
+            static row => toSeq(row.Attested.Held.OrderBy(static held => held.Rank).Select(static held => held.Key))));
 
     private static readonly Seq<Fact<CapabilityRequirement>> RequirementColumns = Seq(
         Facts<CapabilityRequirement>.Number("RequiredCpk", static row => row.MinimumCpk),
         Facts<CapabilityRequirement>.Integer("RequiredItGrade", static row => row.DemandedItGrade),
         Facts<CapabilityRequirement>.Tokens("RequiredGates",
-            static row => toSeq(row.Gates.OrderBy(static gate => gate.Key).Select(static gate => gate.Key))));
+            static row => toSeq(row.Gates.Held.OrderBy(static gate => gate.Key).Select(static gate => gate.Key))));
 
-    private static readonly Seq<Fact<LotReceipt>> LotColumns = Seq(
-        Facts<LotReceipt>.Integer("LotAvailableTicks", static row => row.Available.ToUnixTimeTicks()),
-        Facts<LotReceipt>.Integer("LotCompletionTicks", static row => row.Completion.ToUnixTimeTicks()),
-        Facts<LotReceipt>.Integer("LotBatches", static row => row.Batches),
-        Facts<LotReceipt>.Ordinals("LotCriticalPath", static row => row.CriticalPath));
+    // Spine columns read off the CARRIER and lane columns off its evidence, so the receipt's plane, key, and stamp
+    // reach the graph through the same rows every other settled receipt will project them through.
+    private static readonly Seq<Fact<Receipt<LotEvidence>>> LotColumns = Seq(
+        Facts<Receipt<LotEvidence>>.Key("LotKey", static row => row.Key),
+        Facts<Receipt<LotEvidence>>.Integer("LotAvailableTicks", static row => row.Stamped.ToUnixTimeTicks()),
+        Facts<Receipt<LotEvidence>>.Integer("LotCompletionTicks", static row => row.Evidence.Completion.ToUnixTimeTicks()),
+        Facts<Receipt<LotEvidence>>.Integer("LotBatches", static row => row.Evidence.Batches),
+        Facts<Receipt<LotEvidence>>.Ordinals("LotCriticalPath", static row => row.Evidence.CriticalPath));
 
     // Duration reaches SI through `Duration.TotalSeconds`, the carrier's own projection: a ticks quotient against
     // `TimeSpan.TicksPerSecond` restates a conversion NodaTime already owns, once per column.
-    private static readonly Seq<Measure<LotReceipt>> LotQuantities = Seq(
-        Facts<LotReceipt>.Quantity("LotWork", TimeDim, static row => row.Work.TotalSeconds),
-        Facts<LotReceipt>.Quantity("LotChain", TimeDim, static row => row.Chain.TotalSeconds),
-        Facts<LotReceipt>.Quantity("LotLead", TimeDim, static row => row.Lead.TotalSeconds),
-        Facts<LotReceipt>.Quantity("LotSlack", TimeDim, static row => row.Slack.TotalSeconds),
-        Facts<LotReceipt>.Quantity("LotQueue", TimeDim, static row => row.Queue.TotalSeconds));
+    private static readonly Seq<Measure<Receipt<LotEvidence>>> LotQuantities = Seq(
+        Facts<Receipt<LotEvidence>>.Quantity("LotWork", TimeDim, static row => row.Evidence.Work.TotalSeconds),
+        Facts<Receipt<LotEvidence>>.Quantity("LotChain", TimeDim, static row => row.Evidence.Chain.TotalSeconds),
+        Facts<Receipt<LotEvidence>>.Quantity("LotLead", TimeDim, static row => row.Evidence.Lead(row.Stamped).TotalSeconds),
+        Facts<Receipt<LotEvidence>>.Quantity("LotSlack", TimeDim, static row => row.Evidence.Slack.TotalSeconds),
+        Facts<Receipt<LotEvidence>>.Quantity("LotQueue", TimeDim, static row => row.Evidence.Queue(row.Stamped).TotalSeconds));
 
     private static Seq<(string Key, PropertyValue Value)> PlanRows(FabricationResult.FabricationPlan plan) =>
         Render(PlanColumns, plan)
         + plan.Capability.Map(verdict => Render(CapabilityColumns, verdict)).IfNone(Seq<(string, PropertyValue)>())
         + plan.Requirement.Map(requirement => Render(RequirementColumns, requirement)).IfNone(Seq<(string, PropertyValue)>())
-        + plan.LotReceipt.Map(lot => Render(LotColumns, lot)).IfNone(Seq<(string, PropertyValue)>());
+        + plan.LotSchedule.Map(lot => Render(LotColumns, lot)).IfNone(Seq<(string, PropertyValue)>());
 
     private static Seq<(string Key, Dimension Dimension, double Si)> PlanQuantities(FabricationResult.FabricationPlan plan) =>
-        plan.LotReceipt.Map(lot => Measured(LotQuantities, lot)).IfNone(Seq<(string, Dimension, double)>());
+        plan.LotSchedule.Map(lot => Measured(LotQuantities, lot)).IfNone(Seq<(string, Dimension, double)>());
 
     private readonly record struct Fact<TSource>(string Key, Func<TSource, PropertyValue> Render);
 
@@ -1320,21 +1379,21 @@ public sealed class FabricationProjector(Seq<(NodeId Element, FabricationResult 
             .As()
             .Map(measures => {
                 GraphDelta authored = Author(state.Element, new Node.PropertySet(
-                    NodeId.Content(ReadOnlySpan<byte>.Empty),
+                    NodeId.Of(new NodeSeed.Placement()),
                     properties.Fold(
-                        PropertyBag.Empty($"Rasm_Fabrication_{set}", InheritanceMode.OccurrenceWins, PropertySource.Derived),
+                        PropertyBag.Empty($"Rasm_Fabrication_{set}", InheritanceMode.OccurrenceWins, EvidenceGrade.Derived),
                         static (bag, row) => bag.With(Row(row.Key), row.Value))), state.Tolerance);
                 return measures.IsEmpty
                     ? authored
                     : authored.Merge(Author(state.Element, new Node.QuantitySet(
-                        NodeId.Content(ReadOnlySpan<byte>.Empty),
+                        NodeId.Of(new NodeSeed.Placement()),
                         measures.Fold(
-                            QuantityBag.Empty($"Rasm_Fabrication_{set}", InheritanceMode.OccurrenceWins, PropertySource.Derived),
+                            QuantityBag.Empty($"Rasm_Fabrication_{set}", InheritanceMode.OccurrenceWins, EvidenceGrade.Derived),
                             static (bag, row) => bag.With(Row(row.Key), row.Measure))), state.Tolerance));
             });
 
     private static GraphDelta Author(NodeId element, Node draft, double tolerance) {
-        Node node = draft.Relabel(NodeId.Content(draft.ToCanonicalBytes(tolerance)));
+        Node node = draft.Relabel(NodeId.Of(new NodeSeed.Content(draft, tolerance)));
         return GraphDelta.Empty.Put(node).Link(new Relationship.Assign(element, node.Id, AssignKind.PropertyDefinition));
     }
 }
@@ -1353,7 +1412,7 @@ flowchart LR
     accDescr: A derive request admits once as an aggregate, then advances through manufacturability, routing, fleet matching, capability, assembly join routing, operation topology, setup coverage, machine assignment, and lap-phased lot feasibility before one canonical plan draft mints the plan key and feeds estimation and typed element projection.
     Derive["owner Run(Derive) landed arm"] --> Admit["DerivePolicy.Admit — duplicates, dangling predecessors, preferred pair"]
     Admit --> Plan["Derivation.Plan stage rail"]
-    Plan -->|1 manufacturability| Dfm["Spec/manufacturability Assess → DfmReport.Routing"]
+    Plan -->|1 manufacturability| Dfm["Spec/manufacturability Assess → Receipt&lt;DfmReport&gt;"]
     Plan -->|2 routing PreferProcess filter| Routed["ranked ProcessKind rows"]
     Plan -->|3 fleet| Matches["Kinematics/fleet Fleet.Capable → MachineMatch"]
     Plan -->|4 assembly depth-gated| Joins["Fixturing/assembly AssemblyPlan.Apply → AssemblyPlan"]
@@ -1361,16 +1420,16 @@ flowchart LR
     Operations -->|reduced DAG, source-first order proven| Topology["OperationTopology"]
     Topology -->|"6 setup SetupSchedule.Apply(SetupOp.Schedule)"| Setup["SetupSchedule — exact coverage"]
     Setup --> Steps["ranked PlannedStep rows"]
-    Topology -->|lap-phased transfer batching| Lot["LotReceipt — available, completion, work, lead, critical path"]
+    Topology -->|lap-phased transfer batching| Lot["Receipt&lt;LotEvidence&gt; — stamp, key, completion, work, lead, critical path"]
     Plan -.->|outside derive ceiling| Post["Run(Post) emits later"]
     Plan -.->|outside derive ceiling| Doc["Run(Document) composes later"]
     Routed --> Draft["PlanDraft accumulator"]
     Matches --> Draft
     Steps --> Draft
     Lot --> Draft
-    Draft -->|KeyOf canonical bytes| Compose["FabricationPlan(topology, steps, requirement, lot, capability, requests, artifacts, key)"]
+    Draft -->|KeyOf canonical bytes| Compose["FabricationPlan(topology, steps, requirement, lot schedule, capability, requests, artifacts, key)"]
     Compose -->|quote lane| Estimate["Verify/estimation Estimate.Of"]
-    Compose -->|plan facts| Projector["FabricationProjector : IElementProjection — one app-wired registration row"]
+    Compose -->|plan facts| Projector["FabricationProjector.Of → IElementProjection — one app-wired registration row"]
     Projector -->|"GraphDelta — Integer, Number, Boolean, Measure, List rows"| Graph["Rasm.Element graph"]
     Capability["CapabilityVerdict + CapabilityRequirement"] -->|full-plan gate| Plan
 ```
@@ -1383,4 +1442,3 @@ flowchart LR
 -->
 
 (none)
-

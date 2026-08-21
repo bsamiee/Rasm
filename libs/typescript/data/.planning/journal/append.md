@@ -7,11 +7,11 @@ ONE write owner of the record of truth: journal, outbox, and idempotency ledger 
 ## [01]-[INDEX]
 
 - [02]-[STREAM_VOCABULARY]: `StreamKey`, the event-family contract, the persisted row models, the ensure rows.
-- [03]-[APPEND_SURFACE]: `Occ`, the locked OCC append, `VersionConflict`, the receipt, the bulk lane.
+- [03]-[APPEND_SURFACE]: `Occ`, the locked OCC append, `VersionConflict`, `Fence` with the monotone-CAS `advance`, the receipt, the bulk lane.
 - [04]-[LEDGER_CLAIM]: `IdempotencyKey`, the scope-qualified claim, the first-writer marker, the replay receipt.
 - [05]-[ATOMIC_PUBLISH]: `publish` — claim, append, outbox, slots, settle, and wake inside one commit.
 - [06]-[READ_SURFACE]: `head` and the windowed `read` stream lifted through the evolve plan.
-- [07]-[RELAY_ROWS]: `_Deliverable` with its own announcement projection, the SKIP-LOCKED claim/complete pair, the overlay bindings.
+- [07]-[RELAY_ROWS]: `_Deliverable` with its announcement projection and lease generation, the SKIP-LOCKED claim/fenced-complete pair, the overlay bindings.
 - [08]-[HOOK_POINTS]: `Hook` — the core-brand data hook points and the publisher port an app root mounts.
 
 ## [02]-[STREAM_VOCABULARY]
@@ -135,6 +135,7 @@ const _journalDdl: Capability.Ensure = {
 ## [03]-[APPEND_SURFACE]
 
 - Owner: `Occ` carries concurrency expectation; `VersionConflict` carries mismatch evidence.
+- Owner: `Journal.Fence` closes the verdict a store-validated conditional write answers; `Journal.advance` is the one monotone upsert answering it.
 - Owner: `JournalFault` closes reason rows through `Fault.Class.family`.
 - Owner: `_append` locks, admits, inserts, and returns every landed global sequence.
 - Packages: `effect`, `@effect/sql`, and `@rasm/ts/core` (`Fault.Class`).
@@ -151,23 +152,54 @@ const _journalDdl: Capability.Ensure = {
 - Law: the signal vocabulary is three-valued and its default is `transient` — `conflicted` names a uniqueness refusal, `refused` names the enumerated rejections no retry can change, and every unrecognized code stays retryable, so an unmapped driver degrades to patience rather than to data loss.
 - Law: the conflict carries evidence — `expected` and the optional read `actual` — so recovery is reload-fold-retry as data, and retrying rides a `Schedule` gated on the tag, never a loop.
 - Law: `VersionConflict` classifies `conflicted`; reload-fold-retry owns recovery.
+- Law: a monotone CAS answers a VERDICT and never `void` — the loser has to READ its own outcome, because a statement that reports nothing reports success and failure in the same silence, and `docs/laws/scars.md` `[DECISION_UNDERIVABLE_FROM_STATE]` is exactly that inference: the verdict rides the swapped value, so `Journal.advance` answers the gate the store NOW holds and both arms leave with evidence.
+- Law: the gate rides every ASSIGNMENT and never an `ON CONFLICT … WHERE` arm — a WHERE-gated upsert hands the loser NO row, so one empty roster spells "a fresher writer won" and "this identity vanished" alike, and the writer that reads it is left re-deriving an outcome it never observed; splicing `CASE WHEN <gate> THEN excluded.<column> ELSE <relation>.<column> END` into each assignment keeps the whole condition where the engine re-evaluates it PER CONFLICTING ROW, which is `[SNAPSHOT_FROZEN_GUARD]`'s posture, and leaves `RETURNING` total over both arms.
+- Law: `Fence.Advanced` states that the store HOLDS the offered coordinate and never that this statement wrote it — a second writer offering the same coordinate lands the identical fold, so authorship is a question no gate can answer and no consumer asks; a snapshotter, a frontier handoff, and a relay settle all ask the one answerable question, whether the coordinate they carry is the current one.
+- Law: `Fence.Vanished` reaches only a writer whose identity can disappear between the read and the write — `advance` inserts what it misses, so its RETURNING roster is exactly one row and the case answers nowhere on this arm, while the outbox lease's UPDATE over a groomable relation is precisely where it does.
+- Law: `columns` is the ONE correspondence — the INSERT roster, the accepted row type, and the SET assignment set all derive from it while `key` and `gate` CHECK against it through `NoInfer` rather than driving inference, so a gate naming a column the row never carries is a compile break instead of a runtime statement fault; every one of those names is a sealed page-side value at each composing site exactly as `_GROOMS` seals its sweep relations, so no caller value reaches a statement identifier.
 - Law: Unknown tags classify `invalid`; malformed message envelopes classify `malformed`.
 - Law: Incomplete landing and unsettled replay receipts classify `breached`.
 - Law: `Fault.Class` derives retryability, blame, and quarantine from `class` alone, so every fault leaving this page carries one — the tagged faults as a getter, and a raw `SqlError` through `Journal.classOf`, because a driver fault reaching `Fault.Class.of` with no `class` property grades `defect`, and `defect` refuses every retry and every failover without saying so.
 - Law: `Journal.retryable` is the gate a budget or schedule takes over this page's statement faults — `Fault.Budget.schedule` defaults to the property grader, which is inert against a driver fault, so a drain that accepts that default parks a connection blip permanently instead of deferring it on the lease.
-- Law: `eventVersion` is stamped from `plan.latest(tag)` at write — the write coordinate and the read lift share one anchor; a tag the plan does not know fails typed as `JournalFault.reason = "unknownTag"` before any row is written, never as a defect exit.
-- Law: the `RETURNING` roster is total over the encoded batch — every written version must carry its global sequence; a missing row fails `JournalFault.reason = "landing"` and rolls back the transaction, so no receipt fabricates an identity sentinel.
+- Law: `eventVersion` is stamped from `plan.latest(tag)` at write — the write coordinate and the read lift share one anchor; a tag the plan does not know fails typed as the `unknownTag` reason on `JournalFault` before any row is written, never as a defect exit.
+- Law: the `RETURNING` roster is total over the encoded batch — every written version must carry its global sequence; a missing row fails on the `landing` reason of `JournalFault` and rolls back the transaction, so no receipt fabricates an identity sentinel.
 - Law: `Journal.now(sql)` is the one dialect-now fragment — every sibling statement that stamps a timestamp splices it, so the dialect pair exists in exactly one spelling folder-wide.
 - Boundary: encode faults are `ParseError` on the admission rail; the atomic composition is `[5]`'s.
 
 ```typescript signature
-// One row per reason: the core kind alone. Severity, retryability, blame, and quarantine are the core
-// Fault.Class row table's — a rank or retry literal here would fork the taxonomy into this folder.
+// Every reason refuses about ONE stream and carries the evidence its own site held, so the subject is the record all
+// four rows share and each row renders the sentence its reason means — a free `detail` field standing alone on the
+// raise re-opens the axis `reason` already closes and leaves the message hand-templated at the class. Severity,
+// retryability, blame, and quarantine stay the core Fault.Class row table's — a rank or retry literal here would fork
+// the taxonomy into this folder. Legs partition by the surface that DECIDES: the append transaction admits the batch
+// and lands its rows, and the delivery fold builds the envelope a broker carries.
+const _Subject = Schema.Struct({ stream: StreamKey, detail: Schema.NonEmptyString })
+
 const _family = Fault.Class.family(["unknownTag", "landing", "replay", "envelope"] as const, {
-  unknownTag: { class: "invalid" },
-  landing: { class: "breached" },
-  replay: { class: "breached" },
-  envelope: { class: "malformed" },
+  unknownTag: Fault.Class.row({
+    class: "invalid",
+    leg: "append",
+    detail: _Subject,
+    render: ({ stream, detail }) => `${stream.aggregate} offered tag ${detail}, which its plan does not know`,
+  }),
+  landing: Fault.Class.row({
+    class: "breached",
+    leg: "append",
+    detail: _Subject,
+    render: ({ stream, detail }) => `${stream.aggregate} wrote version ${detail} and the RETURNING roster carried no sequence for it`,
+  }),
+  replay: Fault.Class.row({
+    class: "breached",
+    leg: "append",
+    detail: _Subject,
+    render: ({ stream, detail }) => `${stream.aggregate} holds claim ${detail} with no settled receipt to replay`,
+  }),
+  envelope: Fault.Class.row({
+    class: "malformed",
+    leg: "deliver",
+    detail: _Subject,
+    render: ({ stream, detail }) => `${stream.aggregate} built no carriable envelope — ${detail}`,
+  }),
 })
 
 // SQLSTATE and the SQLite result codes are both the specification's own vocabulary rather than package members, so one
@@ -257,16 +289,17 @@ const _violated = (fault: SqlError.SqlError): boolean =>
 // and `Fault.Budget.schedule` takes that grader as its DEFAULT gate. Statements here fail with exactly that shape, so
 // this owner projects its signal onto the shared class vocabulary rather than leaving each consumer to invent one.
 const _CLASSES = {
-  conflicted: "conflicted", // contention a reload-fold-retry resolves: retryable, caller-blamed
-  refused: "invalid", // no schedule outlasts it: non-retryable and quarantine-worthy
-  transient: "unavailable", // the system is momentarily unable: retryable, system-blamed
+  conflicted: "conflicted", // contention a reload-fold-retry resolves: `transient` recovery, `restart` re-offer, caller-blamed
+  refused: "invalid", // no schedule outlasts it: `terminal` recovery, `rescope` re-offer, quarantine-worthy
+  transient: "unavailable", // the system is momentarily unable: `transient` recovery, `wait` re-offer, system-blamed
 } as const satisfies Record.ReadonlyRecord<Journal.Signal, Fault.Class.Kind>
 
 const _classOf = (fault: SqlError.SqlError): Fault.Class.Kind => _CLASSES[_signal(fault)]
 
-// Reads the class table rather than comparing a signal literal, so a retryability edit at the fault owner moves every
-// gate composing this with it and no drain carries a second opinion about what a refusal is.
-const _retryable = (fault: SqlError.SqlError): boolean => Fault.Class.at(_classOf(fault)).retryable
+// The core's own DERIVED projection over the class row's `recovery` band, never a column read: the row table carries
+// `recovery` and `reoffer` and no boolean at all, so a gate reaching for a stored bit reads a field that does not
+// exist — and reading the projection is what moves every gate composed from this when the band edits at its owner.
+const _retryable = (fault: SqlError.SqlError): boolean => Fault.Class.retryable(_classOf(fault))
 
 class VersionConflict extends Schema.TaggedError<VersionConflict>()("VersionConflict", {
   stream: StreamKey,
@@ -285,17 +318,16 @@ class VersionConflict extends Schema.TaggedError<VersionConflict>()("VersionConf
 }
 
 class JournalFault extends Schema.TaggedError<JournalFault>()("JournalFault", {
-  reason: _family.schema,
-  stream: StreamKey,
-  // One evidence shape: every mint site now carries a settled sentence — the refused tag, the missing version, the
-  // unsettled claim key, or the owner's own refusal detail — so no arm re-joins a foreign issue list here.
-  detail: Schema.NonEmptyString,
+  case: _family.payload,
 }) {
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _family.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<journal:${this.reason}> ${this.stream.aggregate}: ${this.detail}`
+    return _family.render(this.case)
   }
 }
 
@@ -313,9 +345,69 @@ declare namespace Journal {
     readonly plan: Upcast.Plan<A>
   }
   type Receipt = typeof _Receipt.Type
+  // The verdict a store-validated conditional write hands its writer. `Advanced` says the store now HOLDS the offered
+  // coordinate, `Stale` names the coordinate that beat it beside the one offered, and `Vanished` says the identity no
+  // longer answers at all — three outcomes an `Option` collapses to two, which is why the family carries the cause.
+  type Fence<G> = Data.TaggedEnum<{
+    Advanced: { readonly held: G }
+    Stale: { readonly offered: G; readonly held: G }
+    Vanished: {}
+  }>
+  // `columns` is the primary correspondence: the accepted row type — and through it the INSERT roster — plus the SET
+  // assignment set derive from it, so `key` and `gate` take check-only positions and an absent column breaks here.
+  type Advance<K extends string, G, I> = {
+    readonly relation: string
+    readonly columns: Array.NonEmptyReadonlyArray<K>
+    readonly key: Array.NonEmptyReadonlyArray<NoInfer<K>>
+    readonly gate: NoInfer<K>
+    readonly touched: string // the write-time column the WINNING arm restamps; the losing arm keeps the stored value
+    readonly coordinate: Schema.Schema<G, I>
+  }
 }
 
 const _Occ = Data.taggedEnum<Journal.Occ>()
+
+interface _FenceKind extends Data.TaggedEnum.WithGenerics<1> {
+  readonly taggedEnum: Journal.Fence<this["A"]>
+}
+
+const _Fence = Data.taggedEnum<_FenceKind>()
+
+// ONE monotone conditional upsert serves every gate-column CAS in the folder — the snapshot row's `version`, the
+// frontier ledger's `snapshotted` — because those statements differ in relation, key roster, and payload alone.
+// The gate rides each ASSIGNMENT rather than an `ON CONFLICT … WHERE` arm: a WHERE-gated upsert returns the loser no
+// row, so one empty roster spells "a fresher writer won" and "this identity vanished" alike and the writer is left
+// inferring its own outcome from silence. Spliced per assignment, the engine re-evaluates the whole condition once
+// per conflicting row and `RETURNING` answers the coordinate the store now holds on BOTH arms.
+const _advance = <const K extends string, G extends number | bigint, I>(spec: Journal.Advance<K, G, I>) => {
+  // Arity is the statement's own proof: insert-or-update always leaves exactly one row, so a roster of any other
+  // width fails as `ParseError` at the tuple rather than reaching a head read that would need an absent arm.
+  const _Answered = Schema.Tuple(Schema.Struct({ held: spec.coordinate }))
+  const carried = Array.difference(spec.columns, spec.key)
+  return (sql: SqlClient.SqlClient, row: Record.ReadonlyRecord<K, unknown>, offered: G) => {
+    const stored = (column: string): Statement.Fragment => sql`${sql(spec.relation)}.${sql(column)}`
+    const fresher = sql`excluded.${sql(spec.gate)} > ${stored(spec.gate)}`
+    const assign = (column: string, fresh: Statement.Fragment): Statement.Fragment =>
+      sql`${sql(column)} = CASE WHEN ${fresher} THEN ${fresh} ELSE ${stored(column)} END`
+    return Effect.map(
+      Effect.flatMap(
+        sql`INSERT INTO ${sql(spec.relation)} ${sql.insert([row])}
+            ON CONFLICT (${sql.csv(Array.map(spec.key, (column) => sql(column)))}) DO UPDATE
+            SET ${sql.csv([
+              ...Array.map(carried, (column) => assign(column, sql`excluded.${sql(column)}`)),
+              assign(spec.touched, _now(sql)),
+            ])}
+            RETURNING ${sql(spec.gate)} AS held`,
+        Schema.decodeUnknown(_Answered),
+      ),
+      // Equality against the OFFERED coordinate is the whole verdict: the gate is strictly monotone, so the store
+      // holding what this writer offered means this writer's fold is the current one — which is the only question a
+      // snapshotter or a handoff can act on, and a same-coordinate no-op answers it as truly as a fresh write.
+      ([{ held }]): Journal.Fence<G> =>
+        held === offered ? _Fence.Advanced({ held }) : _Fence.Stale({ offered, held }),
+    )
+  }
+}
 
 // Digests read bytes and the payload column holds text, so one encoder crosses that seam for the whole page.
 const _utf8 = new TextEncoder()
@@ -364,7 +456,7 @@ const _append = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
             Effect.gen(function* () {
               const payload = yield* encode(event)
               const eventVersion = yield* Effect.fromOption(spec.plan.latest(event._tag), () =>
-                new JournalFault({ reason: "unknownTag", stream, detail: event._tag }))
+                new JournalFault({ case: { reason: "unknownTag", stream, detail: event._tag } }))
               return {
                 app: stream.app,
                 tenant: stream.tenant,
@@ -392,7 +484,7 @@ const _append = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
           const received = yield* Effect.forEach(rows, (row) =>
             Effect.all({
               sequence: Effect.fromOption(HashMap.get(bySequence, row.version), () =>
-                new JournalFault({ reason: "landing", stream, detail: String(row.version) })),
+                new JournalFault({ case: { reason: "landing", stream, detail: String(row.version) } })),
               // This content key addresses the bytes THIS statement wrote: minting it from the encoded text keeps the
               // announced `subject` byte-true, where a projection-side digest over a re-encoded payload addresses a
               // spelling no reader ever stored.
@@ -692,7 +784,7 @@ const _publish = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
                 ? Effect.succeed(Option.none<Journal.Receipt>())
                 : Effect.map(
                     Effect.fromOption(held.held, () =>
-                      new JournalFault({ reason: "replay", stream: intent.stream, detail: String(held.key) })),
+                      new JournalFault({ case: { reason: "replay", stream: intent.stream, detail: String(held.key) } })),
                     Option.some,
                   ),
           })
@@ -778,12 +870,16 @@ const _read = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
 - Owner: `_Deliverable.envelope` and `Journal.carrier` own the announcement projection and its authenticated inverse.
 - Owner: `_overlay` binds EventLog storage onto the owning `SqlClient`.
 - Packages: `@effect/sql` (`Model`, `sql.in`, `SqlEventJournal`, `SqlEventLogServer`); `@rasm/ts/core` (`Event` — the branch's one mint entry, roster, and grammar; `Digest` — the content-key mint).
-- Entry: the work plane drains through its `SqlClient` port with these statement values — `claimBatch(sql, request)` takes the decoded `_ClaimBatch` carrier, and `complete(sql, ids)` requires a non-empty bigint identity roster; this page publishes the vocabulary, the drain owns fan-out policy, retry budgets, and egress quota; the async projection lane listens on the same channel.
+- Entry: the work plane drains through its `SqlClient` port with these statement values — `claimBatch(sql, request)` takes the decoded `_ClaimBatch` carrier, and `complete(sql, held)` requires the non-empty `Journal.Held` roster the claim itself answered, each row's identity travelling beside the generation the claim minted for it; this page publishes the vocabulary, the drain owns fan-out policy, retry budgets, and egress quota; the async projection lane listens on the same channel.
 - Growth: a new deliverable dimension (deliver-at, shard affinity) is a column and a `claimBatch` ORDER BY term — the drain contract never widens.
 - Law: claim order is `(urgency, id)` — the urgency term ahead of insert identity, so ordering is a stamped policy value and FIFO is the degenerate case where every publisher stamps one number; the partial pending index leads on the same pair, because an ORDER BY term the index cannot serve turns each claim into a scan of the whole undelivered backlog.
 - Law: the relay's tenancy is `multi` and STATED, never inherited from the caller's scope — `claimBatch` predicates on `app` alone by design, one drain serving every tenant of an app, so it runs under the MAINTENANCE-PLANE session posture `lane/tenant.md` mints: `outbox` registers RLS and the landed policy is FORCE, so an unpinned session reads ZERO deliverables and reports each empty claim as healthy, while a drain started inside `Tenant.within` claims that tenant's rows exclusively and every other tenant's deliverables sit undelivered behind a lease that keeps lapsing — the plane posture is the one session state that widens the claim to the app's whole estate, and its coordinate and policy arm are the tenancy owner's. `publish` answers the opposite coordinate — `single`, pinned, stamping the tenant column the drain later carries — so the two ends of one relation decide tenancy separately and each says which it is.
 - Law: `census` shares the relay's plane — it answers per `app` across every tenant, so its depth and age gauges describe the backlog the drain claims; sampled under a tenant pin it reports one tenant's slice as the whole plane's health, and sampled unpinned it reads an empty relation under the FORCE policy — both are the misreads the maintenance-plane posture forecloses.
-- Law: `claimBatch` is the competing-consumer claim realizing the `skipLocked` primitive row — attempts increment on every claim so poison rows surface as data, and the visibility-timeout redelivery idiom is the `claimed_at` lease predicate: a claimed row is invisible for `leaseSeconds`, so a crashed claimant's rows redeliver only after the lease lapses and a live claimant is never raced; the sqlite arm serializes on the single writer and drops the lock clause while keeping the lease predicate. `SqlSchema.findAll` decodes every returned identity and payload through `_Deliverable`; raw driver rows never cross the data seam.
+- Law: `claimBatch` is the competing-consumer claim realizing the `skipLocked` primitive row — attempts increment on every claim so poison rows surface as data, the `lease` generation increments beside them so the claim MINTS the identity its own completion later proves, and the visibility-timeout redelivery idiom is the `claimed_at` lease predicate: a claimed row is invisible for `leaseSeconds`, so a crashed claimant's rows redeliver only after the lease lapses and the displaced claimant's own completion refuses typed at the fence rather than overwriting the live one; the sqlite arm serializes on the single writer and drops the lock clause while keeping both. `SqlSchema.findAll` decodes every returned identity and payload through `_Deliverable`; raw driver rows never cross the data seam.
+- Law: the lease is TWO facts and each carries its own column — `claimed_at` prices EXPIRY so a crashed claimant's rows redeliver, and `lease` carries IDENTITY, a per-row generation `claimBatch` bumps on every claim so the holder is nameable at the write; time alone fences nothing, because a claimant whose window lapsed while it was transmitting still holds the same ids and still spells a completion the store cannot tell from the live claimant's, which is the lost update the visibility timeout was never able to close.
+- Law: `complete` fences on the held generation and answers `Journal.Fence` per requested id — the gate rides the `delivered_at` ASSIGNMENT while the id roster rides the WHERE, so EVERY requested row returns the lease it currently carries: a holder whose generation still stands marks delivered and reads `Advanced`, a lapsed one marks nothing and reads `Stale` carrying the generation that displaced it, and an id the groom already took reads `Vanished`; the answer is TOTAL over the request, so a drain meters settled against refused instead of reading a statement's silence as delivery.
+- Law: `lease` is its own column and never `attempts` — the two counters move together at the claim and part everywhere else, because a park replay resets attempts by design and a fence that ever resets is an ABA the next lapsed holder walks straight through; `attempts` stays the poison-census column the redelivery gauge reads.
+- Law: the settle's cost is one no-op write per displaced row and that cost is already paid — the id roster locks and touches exactly the rows the unfenced mark touched, so the fence buys its refusal for a dead tuple where the old spelling bought a lost delivery; a displaced holder that finds a live claimant mid-commit waits on that row's lock and then writes nothing, which is the ordering the unfenced form waited for and then overwrote.
 - Law: each deliverable carries the journal's global `sequence` beside its stream version, so a drain receipt, checkpoint, or forensic join names the exact source fact without re-querying by payload coordinates.
 - Law: outbox observability is the census projected across the seam — `Journal.census` answers `{ depth, oldest, redelivered }` in one decoded aggregate, the runtime meter bridge samples it through its `Probe` port and sets the `Convention.metric.outboxDepth`/`outboxAge`/`outboxRedelivered` gauges, and this page mints no instrument: the outbox rows stay the evidence truth and the gauges stay the lossy dashboard projection.
 - Law: the announcement is a projection fold the claimed row owns and never a second record of truth — `_Deliverable.envelope` composes `Event.mint`, the branch's ONE mint entry, so this page states no attribute grammar, no extension roster, and no construction posture; a refusal arrives as `Event.Refusal` and folds to the `envelope` fault reason, and the raw throw the package raises never reaches a fiber.
@@ -795,7 +891,8 @@ const _read = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
 - Law: `partitionkey` is the stream triple, so a transport partitioning on it keeps one aggregate's announcements in one ordering domain, and `dataclassification` is the writer's declared grade a binding reads before deciding the payload crosses at all.
 - Law: `Carrier.promote` seats the complete tenant scope before the mint injects, so the CREATION-time trace and the tenant baggage ride the roster extensions the mint writes; the transport's own hop context is its binding's, never this projection's.
 - Law: binding mode is the transport's fact across the claim seam — the runtime engine selects structured versus binary through its own binding row and carries the VALUE this page mints; no `Binding`, `Mode`, or emitter surface is reached here, and the process-global `Emitter` singleton stays banned estate-wide.
-- Law: `Journal.carrier` parses through `Carrier.extract("cloudevents", ...)`.
+- Law: `Journal.carrier` parses through `Carrier.extract("cloudevents", ...)` and answers `Journal.Carried` whole — the tenancy verdict on `context`, the extraction's own `Fault.Ledger.Census` on `dropped`.
+- Law: the extraction census is TOTAL over the inverse and never folds into the refusal — propagation damage is a fact of the announcement rather than of the tenancy vote, and a census a refusal swallows is the silence the drop vocabulary exists to end; this page mints no instrument, so the intake holding the fiber spends it.
 - Law: `Identity.Tenant.alike` admits only the authenticated full scope; every mismatch folds to `Option.none`.
 - Law: Successful inverse re-promotes authenticated tenancy and removes duplicate tenant members.
 - Law: the overlay bindings are overlay ONLY — the EventLog journal and sync-server storage persist onto this owning `SqlClient`, accelerate local-first reads, and are never the record of truth; a record whose loss corrupts state lives in THIS journal and projects outward, never the reverse.
@@ -819,6 +916,10 @@ class _Deliverable extends Model.Class<_Deliverable>("OutboxRow")({
   payload: Model.JsonFromString(Schema.Unknown),
   urgency: Schema.Int,
   attempts: Schema.Int,
+  // Two halves of one lease and neither substitutes for the other: `claimed_at` prices the EXPIRY a crashed claimant
+  // redelivers behind, `lease` names the HOLDER as a per-row generation the claim bumps. Its own column rather than a
+  // second read of `attempts`, because a park replay resets attempts by design and a resettable fence is an ABA.
+  lease: Model.Generated(_Sequence),
   created_at: Model.DateTimeInsert,
   claimed_at: Model.FieldOption(Schema.DateTimeUtc),
   delivered_at: Model.FieldOption(Schema.DateTimeUtc),
@@ -828,12 +929,27 @@ class _Deliverable extends Model.Class<_Deliverable>("OutboxRow")({
   envelope(carrier: Carrier.Context): Effect.Effect<CloudEvent<unknown>, JournalFault> {
     return _envelope(this, carrier)
   }
+  // The fence coordinate a settle carries back, projected off the row that already holds both halves — so a drain
+  // threads one value and never pairs an identity with a generation it re-read from somewhere else.
+  get held(): Journal.Held {
+    return { id: this.id, lease: this.lease }
+  }
 }
 
 declare namespace Journal {
   // Claims cross as this instance type: a drain names it to widen the lane's claim floor and reads `envelope` off the
   // row it already holds, so the announcement never travels as a second value beside the claim producing it.
   type Deliverable = _Deliverable
+  // What a claimant HELD, and what its completion has to present to settle: the row identity beside the generation
+  // the claim minted for it. Projected off the claimed row, never assembled at a call site.
+  type Held = { readonly id: bigint; readonly lease: bigint }
+  // Total over the requested roster: one row per requested identity, so a drain reads refusal as data rather than
+  // subtracting an affected-row count from a batch size it also has to remember.
+  type Settlement = { readonly id: bigint; readonly fence: Fence<bigint> }
+  // The authenticated inverse's whole answer: the tenancy verdict on `context`, the extraction's MEASURED loss on
+  // `dropped`. The census is total because propagation damage is a fact of the announcement rather than of the vote —
+  // a refused announcement is exactly when an operator needs to read what its headers lost.
+  type Carried = { readonly context: Option.Option<Carrier.Context>; readonly dropped: Fault.Ledger.Census }
 }
 
 const _ClaimBatch = Schema.Struct({
@@ -852,6 +968,7 @@ const _outboxDdl: Capability.Ensure = {
     event_version INT NOT NULL CHECK (event_version > 0),
     subject TEXT NOT NULL, classification TEXT NOT NULL,
     payload TEXT NOT NULL, urgency INT NOT NULL, attempts INT NOT NULL DEFAULT 0,
+    lease BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     claimed_at TIMESTAMPTZ,
     delivered_at TIMESTAMPTZ);
@@ -865,6 +982,7 @@ const _outboxDdl: Capability.Ensure = {
     event_version INTEGER NOT NULL CHECK (event_version > 0),
     subject TEXT NOT NULL, classification TEXT NOT NULL,
     payload TEXT NOT NULL, urgency INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0,
+    lease INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     claimed_at TEXT,
     delivered_at TEXT);
@@ -918,7 +1036,7 @@ const _SERDES = {
 const _envelope = (deliverable: _Deliverable, carrier: Carrier.Context): Effect.Effect<CloudEvent<unknown>, JournalFault> =>
   Effect.gen(function* () {
     const stream = new StreamKey({ app: deliverable.app, tenant: deliverable.tenant, aggregate: deliverable.aggregate })
-    const fault = (detail: string) => new JournalFault({ reason: "envelope", stream, detail })
+    const fault = (detail: string) => new JournalFault({ case: { reason: "envelope", stream, detail } })
     const { app, tenant, aggregate } = yield* Either.mapLeft(
       Either.all({
         app: Encoding.encodeUriComponent(deliverable.app),
@@ -963,14 +1081,24 @@ const _envelope = (deliverable: _Deliverable, carrier: Carrier.Context): Effect.
   })
 
 // Inbound tenancy must equal the complete authenticated scope; success re-promotes that authority and strips
-// duplicate tenant members, while absence, malformed data, and cross-app or cross-tenant values fail closed.
-const _carrier = (envelope: CloudEventV1<unknown>, scope: Identity.Tenant): Option.Option<Carrier.Context> =>
-  pipe(Carrier.extract("cloudevents", envelope), (carried) =>
-    Option.map(
-      Option.filter(Carrier.tenant(carried), (candidate) => Identity.Tenant.alike(candidate, scope)),
-      () => Carrier.promote(carried, scope),
-    ))
+// duplicate tenant members, while absence, malformed data, and cross-app or cross-tenant values fail closed. The
+// extraction's own damage crosses BESIDE that verdict rather than under it: a malformed `traceparent` is a measured
+// loss whichever way the tenancy vote lands, and folding it into the refusal would fuse "the peer sent nothing" with
+// "this inverse discarded what it sent". This page mints no instrument, so the census rides the seam and the intake
+// holding the fiber spends it — the same division the outbox census already keeps with the runtime meter bridge.
+const _carrier = (envelope: CloudEventV1<unknown>, scope: Identity.Tenant): Journal.Carried =>
+  pipe(Carrier.extract("cloudevents", envelope), (extraction) => ({
+    context: Option.map(
+      Option.filter(Carrier.tenant(extraction.context), (candidate) => Identity.Tenant.alike(candidate, scope)),
+      () => Carrier.promote(extraction.context, scope),
+    ),
+    dropped: extraction.dropped,
+  }))
 
+// The claim MINTS the fence: `lease + 1` moves once per claim on the row itself, so the returned deliverable carries
+// the generation its own completion later has to present. The two counters move together here and part everywhere
+// else — a park replay resets `attempts` by design, and a fence that resets is an ABA the next lapsed holder walks
+// straight through, so the generation never shares that column.
 const _claimBatch = (sql: SqlClient.SqlClient) =>
   SqlSchema.findAll({
     Request: _ClaimBatch,
@@ -978,19 +1106,52 @@ const _claimBatch = (sql: SqlClient.SqlClient) =>
     execute: ({ app, take, leaseSeconds }) =>
       sql.onDialectOrElse({
         orElse: () =>
-          sql`UPDATE outbox SET attempts = attempts + 1, claimed_at = ${_now(sql)}
+          sql`UPDATE outbox SET attempts = attempts + 1, lease = lease + 1, claimed_at = ${_now(sql)}
               WHERE id IN (SELECT id FROM outbox WHERE app = ${app} AND delivered_at IS NULL
                            AND (claimed_at IS NULL OR claimed_at < strftime('%Y-%m-%dT%H:%M:%fZ','now', '-' || ${leaseSeconds} || ' seconds'))
                            ORDER BY urgency, id LIMIT ${take})
               RETURNING *`,
         pg: () =>
-          sql`UPDATE outbox SET attempts = attempts + 1, claimed_at = ${_now(sql)}
+          sql`UPDATE outbox SET attempts = attempts + 1, lease = lease + 1, claimed_at = ${_now(sql)}
               WHERE id IN (SELECT id FROM outbox WHERE app = ${app} AND delivered_at IS NULL
                            AND (claimed_at IS NULL OR claimed_at < now() - make_interval(secs => ${leaseSeconds}))
                            ORDER BY urgency, id LIMIT ${take} FOR UPDATE SKIP LOCKED)
               RETURNING *`,
       }),
   })
+
+const _Settled = Schema.Struct({ id: _Sequence, lease: _Sequence })
+
+// The fence rides the ASSIGNMENT and the identity roster rides the WHERE, so EVERY requested row answers with the
+// lease it currently carries: a holder whose generation still stands marks delivered, a displaced one marks nothing
+// and reads the generation that beat it, and an identity the groom already took answers by absence. Spelling the
+// fence as `WHERE … AND lease = held` instead settles the same rows and then reports both refusals as the same empty
+// silence, which is the `[DECISION_UNDERIVABLE_FROM_STATE]` shape one arm over from the lost update it just closed.
+const _complete = (sql: SqlClient.SqlClient, held: Array.NonEmptyReadonlyArray<Journal.Held>) =>
+  Effect.map(
+    Effect.flatMap(
+      sql`UPDATE outbox
+          SET delivered_at = CASE WHEN ${
+            sql.or(Array.map(held, (row) => sql`(id = ${row.id} AND lease = ${row.lease})`))
+          } THEN ${_now(sql)} ELSE delivered_at END
+          WHERE ${sql.in("id", Array.map(held, (row) => row.id))}
+          RETURNING id, lease`,
+      Schema.decodeUnknown(Schema.Array(_Settled)),
+    ),
+    (settled) => {
+      const observed = HashMap.fromIterable(Array.map(settled, (row) => [row.id, row.lease] as const))
+      return Array.map(held, (row): Journal.Settlement => ({
+        id: row.id,
+        fence: Option.match(HashMap.get(observed, row.id), {
+          onNone: () => _Fence.Vanished(), // groomed away between the claim and the settle: nothing to displace
+          onSome: (lease) =>
+            lease === row.lease
+              ? _Fence.Advanced({ held: lease })
+              : _Fence.Stale({ offered: row.lease, held: lease }),
+        }),
+      }))
+    },
+  )
 
 const Journal = {
   of: <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) => ({
@@ -1001,6 +1162,7 @@ const Journal = {
     causal: _causal(spec),
   }),
   now: _now,
+  advance: _advance, // the folder's one monotone conditional upsert: `evolve`'s snapshot row and `retain`'s frontier
   channel: _channel,
   signal: _signal,
   classOf: _classOf,
@@ -1012,10 +1174,11 @@ const Journal = {
   carrier: _carrier,
   census: (sql: SqlClient.SqlClient, app: typeof Identity.App.fields.app.Type) =>
     _census(sql)(app),
-  complete: (sql: SqlClient.SqlClient, ids: Array.NonEmptyReadonlyArray<bigint>) =>
-    sql`UPDATE outbox SET delivered_at = ${_now(sql)} WHERE ${sql.in("id", ids)}`,
+  complete: (sql: SqlClient.SqlClient, held: Array.NonEmptyReadonlyArray<Journal.Held>) =>
+    _safe(_complete(sql, held)), // the settle reads back two BIGINT columns, so it takes the claim's own pinned posture
   ddl: [_journalDdl, _ledgerDdl, _outboxDdl],
   overlay: _overlay,
+  Fence: _Fence, // the verdict every store-validated conditional write in the folder answers with
   Occ: _Occ,
   Key: _IdempotencyKey,
   Entry: _Entry,
@@ -1029,12 +1192,14 @@ const Journal = {
 
 ## [08]-[HOOK_POINTS]
 
-- Owner: the core-brand data hook vocabulary and its publisher port — `_facts`, the per-point fact schemas this page's own payloads anchor; `_points`, the four `Tap.PointRow` rows whose names spell the `rasm.data.<domain>.<point>` brand and whose modality sets carry veto legality as data; `_POINTS`, the minted `Tap.Point` values pairing each row with its fact schema through the core `Tap.point` mint; `Hook`, the publisher port — one `Context.Tag` whose `publish` member the app root satisfies from the runtime dispatch engine scoped to the owning app; `HookVeto`, the typed admission refusal carrying the core `Tap.Veto` evidence and projecting the `denied` core class; and the two optional-service combinators `Hook.gated`/`Hook.tapped` every tap seam composes, so an app that mounts no engine pays nothing and refuses nothing.
+- Owner: the core-brand data hook vocabulary and its publisher port — `_facts`, the per-point fact schemas this page's own payloads anchor; `_points`, the four `Tap.PointRow` rows whose names spell the `rasm.data.<domain>.<point>` brand, whose modality sets carry veto legality as data, and whose `depth` reads off the `_DEPTH` band its publishing act selects; `_POINTS`, the minted `Tap.Point` values pairing each row with its fact schema through the core `Tap.point` mint; `Hook`, the publisher port — one `Context.Tag` whose `publish` member the app root satisfies from the runtime dispatch engine scoped to the owning app; `HookVeto`, the typed admission refusal carrying the core `Tap.Veto` evidence and projecting the `denied` core class; and the two optional-service combinators `Hook.gated`/`Hook.tapped` every tap seam composes, so an app that mounts no engine pays nothing and refuses nothing.
 - Packages: `effect`; `@rasm/ts/core` (`Tap`, `Fault.Class`).
 - Entry: App roots bind `Hook` to runtime dispatch under `Identity.App.Key`.
-- Growth: a new domain seam is one `_facts` schema, one `_points` row, and the `Hook.gated`/`tapped` line at the owning seam — the mapped fact contract breaks every consumer until the row exists.
+- Growth: a new domain seam is one `_facts` schema, one `_points` row carrying its `_DEPTH` band, and the `Hook.gated`/`tapped` line at the owning seam — the mapped fact contract breaks every consumer until the row exists.
+- Law: `depth` is CAPACITY on every row here and retention on none — the core modality table's `buffered` column decides the replay window and `_retained` projects it, so a replay-carrying data point would be one modality edit at the core owner rather than a width this page re-reads; declaring the non-retaining zero is unspellable anyway, because `Tap.Depth` proves positivity at admission and this page's module-init mint turns a zero into an authoring-time throw.
 - Law: the vocabulary is core's, the execution is runtime's, the facts are this page's — the point names re-prove the core `TapPoint` brand at module init, veto legality derives from the row's modality set (`Hook.VetoPoint` remaps on `"veto"` membership, so gating an observe-only point is a compile error), and this page stores no taps, runs no fan, and isolates no breach: the engine owns column-driven dispatch, forked deliveries, and the `Tap.isolated` breach fold, so data's seams stay publisher-only.
-- Law: verdicts are values and vetoes are pure — a subscriber's veto arm is the core `(fact) => Option<Tap.Veto>` decide, the engine folds first-refusal-wins before any journal row lands, `Hook.gated` re-spells the verdict as the `HookVeto` rail fault the publish transaction rolls back on, and an observe delivery runs only after durable completion on the engine's isolated fibers — the journal's atomicity and write availability are untouchable by any subscriber.
+- Law: verdicts are values and vetoes are pure — a subscriber's veto arm is the core `(fact) => Option<Tap.Veto>` decide, the engine folds first-refusal-wins before any journal row lands, and an observe delivery runs only after durable completion on the engine's isolated fibers — the journal's atomicity and write availability are untouchable by any subscriber.
+- Law: the verdict vocabulary and its delivery are core's and the runtime seats the rail; the port answers `Tap.Verdict` whole and `Hook.gated` re-spells its `vetoed` arm as the `HookVeto` rail fault the publish transaction rolls back on — a port collapsing three arms to an option erases the fan arity, the delivery census, and the unrostered case at the one seam that must read them.
 - Law: telemetry and policy subscribe to domain facts, never instrument domain code — a compliance observer, an admission quota, or an audit mirror is a `Tap.subscription` row over `Hook.points`, and forking an owner page to intercept its seam is the defect this vocabulary deletes.
 
 ```typescript signature
@@ -1045,11 +1210,20 @@ const _facts = {
   laneEscalate: Schema.Struct({ engine: Schema.String, trigger: Schema.String, delta: Schema.Number }),
 } as const
 
+// `depth` is the point's own channel CAPACITY, and RETENTION is `_retained`'s projection off the modality table's
+// `buffered` column — no modality on any row below carries it, so every replay window here is a structural zero the
+// rail derives and none is declarable: `Tap.Depth` refuses zero at admission, and a row spelling one throws at module
+// init rather than reaching a reader. Two bands and the discriminant is the point's RATE against the act publishing
+// it — a per-write seam bursts with the write path, an operator seam fires at human cadence — because one width for
+// both either sheds the publish fan under load or parks a ring a rare seam never fills. An undersized band surfaces
+// as the rail's own `shed` count rather than as loss nobody sees, so the number is a starting policy, not a measure.
+const _DEPTH = { write: 256, operator: 16 } as const
+
 const _points = {
-  journalPublish: { name: "rasm.data.journal.publish", modalities: ["veto", "observe"] },
-  objectAdmit: { name: "rasm.data.object.admit", modalities: ["veto", "observe"] },
-  retainErase: { name: "rasm.data.retain.erase", modalities: ["observe"] },
-  laneEscalate: { name: "rasm.data.lane.escalate", modalities: ["observe"] },
+  journalPublish: { name: "rasm.data.journal.publish", modalities: ["veto", "observe"], depth: _DEPTH.write },
+  objectAdmit: { name: "rasm.data.object.admit", modalities: ["veto", "observe"], depth: _DEPTH.write },
+  retainErase: { name: "rasm.data.retain.erase", modalities: ["observe"], depth: _DEPTH.operator },
+  laneEscalate: { name: "rasm.data.lane.escalate", modalities: ["observe"], depth: _DEPTH.operator },
 } as const satisfies Record<string, Tap.PointRow>
 
 const _point = <A, I>(row: Tap.PointRow, fact: Schema.Schema<A, I>): Tap.Point<A> =>
@@ -1068,7 +1242,6 @@ declare namespace Hook {
   type Key = (typeof _points)[Point]["name"]
   type VetoPoint = { [P in Point]: "veto" extends (typeof _points)[P]["modalities"][number] ? P : never }[Point]
   type Payload = { readonly [P in Point]: Schema.Schema.Type<(typeof _facts)[P]> }
-  type Verdict = Option.Option<InstanceType<typeof Tap.Veto>>
 }
 
 class HookVeto extends Data.TaggedError("HookVeto")<{
@@ -1081,7 +1254,7 @@ class HookVeto extends Data.TaggedError("HookVeto")<{
 }
 
 class Hook extends Context.Tag("data/Hook")<Hook, {
-  readonly publish: <P extends Hook.Point>(point: P, fact: Hook.Payload[P]) => Effect.Effect<Hook.Verdict>
+  readonly publish: <P extends Hook.Point>(point: P, fact: Hook.Payload[P]) => Effect.Effect<Tap.Verdict>
 }>() {
   static readonly facts = _facts
   static readonly points = _POINTS
@@ -1089,15 +1262,22 @@ class Hook extends Context.Tag("data/Hook")<Hook, {
     Effect.flatMap(Effect.serviceOption(Hook), Option.match({
       onNone: () => Effect.void, // no mounted engine: no app policy exists and the seam admits
       onSome: (hook) =>
-        Effect.flatMap(hook.publish(point, fact), Option.match({
-          onNone: () => Effect.void,
-          onSome: (veto) => Effect.fail(new HookVeto({ point: _points[point].name, veto })), // Engine verdict re-spelled onto the publish rail.
-        })),
+        // The engine's own verdict crosses WHOLE and this seam reads its arms: a collapsed `Option<Tap.Veto>` drops
+        // the fan arity, the delivery census, and the unrostered case, so a point nothing subscribes to and a point
+        // every subscriber admitted read identically at the one seam that must tell them apart.
+        Effect.flatMap(hook.publish(point, fact), (verdict) =>
+          Tap.Verdict.$match(verdict, {
+            fanned: () => Effect.void,
+            unrostered: () => Effect.void, // a point no subscription seated refuses nothing, and admitting it is the whole meaning of the arm
+            vetoed: ({ veto }) => Effect.fail(new HookVeto({ point: _points[point].name, veto })), // engine verdict re-spelled onto the publish rail
+          })),
     }))
   static readonly tapped = <P extends Hook.Point>(point: P, fact: Hook.Payload[P]): Effect.Effect<void> =>
     Effect.flatMap(Effect.serviceOption(Hook), Option.match({
       onNone: () => Effect.void,
-      onSome: (hook) => Effect.asVoid(hook.publish(point, fact)), // observe points answer none; deliveries fork on the engine's isolated fibers
+      // an observe point seats no veto arm, so its verdict carries a census this seam spends nowhere; deliveries
+      // fork on the engine's own isolated fibers
+      onSome: (hook) => Effect.asVoid(hook.publish(point, fact)),
     }))
 }
 

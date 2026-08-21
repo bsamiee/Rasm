@@ -1,12 +1,12 @@
 # [DATA_EVOLVE]
 
-Schema evolution without migrations and its read accelerator in one owner: every persisted payload carries the `eventVersion` its author stamped, reads lift it to the current shape through a total per-tag step chain — array-indexed so completeness is a construction fact — before one decode through the live family proves the landing, and the snapshot store is nothing but that same lift applied to a latest-per-stream projection row. The raw log is never rewritten; a new event shape is one step appended plus the bumped `latest`, a state reshape is one step on the snapshot's single-shape chain, and every journal read, projection lane, and hydrate fold inherits the lift through the one plan value. A snapshot is always discardable evidence, never truth — dropping the table costs a replay, nothing more — and the monotonic upsert guard makes concurrent snapshotters harmless without coordination.
+Schema evolution without migrations and its read accelerator in one owner: every persisted payload carries the `eventVersion` its author stamped, reads lift it to the current shape through a total per-tag step chain — array-indexed so completeness is a construction fact — before one decode through the live family proves the landing, and the snapshot store is nothing but that same lift applied to a latest-per-stream projection row. The raw log is never rewritten; a new event shape is one step appended plus the bumped `latest`, a state reshape is one step on the snapshot's single-shape chain, and every journal read, projection lane, and hydrate fold inherits the lift through the one plan value. A snapshot is always discardable evidence, never truth — dropping the table costs a replay, nothing more — and the monotonic upsert guard makes concurrent snapshotters harmless without coordination, each reading its own verdict off the swapped row rather than inferring one from a statement that reported nothing.
 
 ## [01]-[INDEX]
 
 - [02]-[CHAIN_VOCABULARY]: the derived envelope family, the payload column codec, the step chain, construction-checked completeness.
 - [03]-[PLAN_FOLD]: `Upcast.plan` for tagged families, `Upcast.chain` for single shapes, the decode.
-- [04]-[SNAPSHOT_ROW]: the snapshot-as-projection ensure, the bound save/load, the monotonic upsert.
+- [04]-[SNAPSHOT_ROW]: the snapshot-as-projection ensure, the bound save/load, the monotonic upsert and the fence verdict it answers.
 - [05]-[HYDRATE]: the cadence policy row and the snapshot-plus-tail recovery fold.
 
 ## [02]-[CHAIN_VOCABULARY]
@@ -148,12 +148,14 @@ const Upcast = {
 ## [04]-[SNAPSHOT_ROW]
 
 - Owner: `Snapshot.of(spec)` — binds one state schema plus its `Upcast.Lift` and yields `{ save, load }` over the neutral `SqlClient`; the `journal_snapshot` ensure row with its latest-only primary key.
-- Packages: `effect` (`Effect`, `Option`, `Schema`); `@effect/sql` (`SqlClient`, `SqlSchema` — the load decodes through a `Result` schema whose `body` field is `Upcast.Column`, so no snapshot cell is ever hand-coerced); the monotonic upsert is one dialect-shared statement because both engines carry the same `ON CONFLICT … DO UPDATE … WHERE` form.
+- Packages: `effect` (`Effect`, `Option`, `Schema`); `@effect/sql` (`SqlClient`, `SqlSchema` — the load decodes through a `Result` schema whose `body` field is `Upcast.Column`, so no snapshot cell is ever hand-coerced); `journal/append.md` (`Journal.advance` — the folder's one monotone conditional upsert, dialect-shared because both engines carry the same `ON CONFLICT … DO UPDATE … SET` form and the gate rides each assignment rather than a WHERE arm).
 - Entry: `bound.save(stream, state, version)` and `bound.load(stream)` — the only snapshot road; projection lanes and rebuilds compose these, and nothing else touches the table.
+- Receipt: `save` yields `Journal.Fence<number>` — `Advanced` means the store holds this fold's version, `Stale` names the version that beat it beside the one offered; the verdict is the swapped value, so a losing snapshotter never has to read success out of a statement that answered nothing.
 - Receipt: `load` yields `Option<{ state, version }>` — present means fold-from-`version + 1`, absent means replay from origin; the option IS the protocol.
 - Growth: a state reshape is one `Upcast.Chain` step plus a bumped `latest` stamped on subsequent saves; a second snapshotted shape for one stream family is a second `Snapshot.of` binding, never a widened row.
 - Law: the snapshot is a projection — latest-per-stream folded state addressed by the same `StreamKey`, rebuilt from the journal at will; its authority is zero and its value is read cost.
-- Law: the upsert is monotonic — `WHERE excluded.version > journal_snapshot.version` — a stale snapshotter racing a fresh one commits nothing, so cadence needs no coordination.
+- Law: the upsert is monotonic AND verdict-returning — `Journal.advance` gates on `excluded.version > journal_snapshot.version` inside every assignment, so a stale snapshotter racing a fresh one still commits nothing AND still reads the version that beat it; cadence needs no coordination either way, because the loser's whole recovery is to drop its fold, and a retry only mints a second loser.
+- Law: the loser drops its fold and never reloads — `Stale` is not contention a reload-fold-retry resolves, it is the report that a fresher fold already covers this stream, so a lane treating it like `VersionConflict` re-reads a head it has no write to land against.
 - Law: `snapshot_schema_version` is stamped from `lift.latest` at save and consumed by `lift.decode` at load — write coordinate and read fold share one anchor exactly as events do.
 - Law: a load whose body fails the lift is `ParseError` on the admission rail — the consuming lane discards the snapshot and replays; corruption degrades to cost, never to wrong state.
 - Law: the snapshot relation registers `Tenancy.rls` like every tenant-carrying relation — saves and loads run inside the consuming lane's pin, and the maintenance plane never reads snapshots, so the registration costs no reader a posture it lacks.
@@ -195,22 +197,32 @@ const _ddl: Capability.Ensure = {
     PRIMARY KEY (app, tenant, aggregate));`,
 }
 
+// The snapshot's monotone gate is the folder's ONE conditional-write owner instantiated on this relation: `columns`
+// declares the write roster the row type and the assignment set both derive from, `version` is the gate, and
+// `taken_at` is the column the winning arm restamps. Nothing here spells a statement — a second spelling beside the
+// frontier ledger's is exactly how one of them would keep a `WHERE`-gated arm that reports its loser nothing.
+const _ADVANCE = Journal.advance({
+  relation: "journal_snapshot",
+  columns: ["app", "tenant", "aggregate", "version", "snapshot_schema_version", "body"],
+  key: ["app", "tenant", "aggregate"],
+  gate: "version",
+  touched: "taken_at",
+  coordinate: Journal.Version,
+})
+
 const _save = <S, I>(spec: Snapshot.Spec<S, I>) =>
   (stream: StreamKey, state: S, version: number) =>
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient
       const body = yield* Schema.encode(Schema.parseJson(spec.state))(state)
-      yield* sql`INSERT INTO journal_snapshot ${sql.insert([{
+      return yield* _ADVANCE(sql, {
         app: stream.app,
         tenant: stream.tenant,
         aggregate: stream.aggregate,
         version,
         snapshot_schema_version: spec.lift.latest,
         body,
-      }])} ON CONFLICT (app, tenant, aggregate) DO UPDATE
-        SET version = excluded.version, snapshot_schema_version = excluded.snapshot_schema_version,
-            body = excluded.body, taken_at = ${Journal.now(sql)}
-        WHERE excluded.version > journal_snapshot.version`
+      }, version)
     })
 
 // Not an envelope variant: a snapshot carries no tag and its state rides `body`, so the row keeps its own
@@ -245,7 +257,7 @@ const _load = <S, I>(spec: Snapshot.Spec<S, I>) =>
 
 - Owner: the admitted `Snapshot.Cadence` policy, the `due` cadence fold, and `hydrate` — snapshot-plus-tail is one load: the option folds to a seed and a `from` window, the journal read stream folds the tail.
 - Packages: `effect` (`Stream`); `journal/append.md` (`Journal.of(...).read`, `Journal.Receipt`).
-- Entry: lanes call `Snapshot.due(receipt, cadence)` with the receipt the append just returned and `bound.save` when it answers true; `Snapshot.hydrate(bound, journal, stream, fold)` is the one state-recovery entry every lane and rebuild composes.
+- Entry: lanes call `Snapshot.due(receipt, cadence)` with the receipt the append just returned and `bound.save` when it answers true, reading the `Journal.Fence` it answers rather than discarding it; `Snapshot.hydrate(bound, journal, stream, fold)` is the one state-recovery entry every lane and rebuild composes.
 - Growth: a new cadence shape (byte budget, elapsed time) is a field on the policy row read inside `due` against the same span — the call sites never change.
 - Law: cadence reads the landed SPAN, never the head alone — the receipt states `first` and `version`, so a multiple crossed anywhere inside a batch fires exactly once and a batch geometry cannot silently divide the effective cadence; asking the head for a multiple is the shape that makes cadence a function of batch size with nothing observable saying so.
 - Law: cadence is admitted data — `Snapshot.Cadence` proves a positive integer before the crossing fold; snapshotting is always safe to skip and safe to repeat, so `due` is pure and no lane coordinates with another.
@@ -258,8 +270,10 @@ const _Cadence = Schema.Struct({ every: Schema.Int.pipe(Schema.positive()) })
 declare namespace Snapshot {
   type Cadence = typeof _Cadence.Type
   type Bound<S> = {
+    // The verdict rides the swapped value: a lane that snapshots on cadence learns whether its fold is the stored
+    // one, and a `void` here would report the losing writer's discarded fold as a landed snapshot.
     readonly save: (stream: StreamKey, state: S, version: number) => Effect.Effect<
-      void,
+      Journal.Fence<number>,
       SqlError.SqlError | ParseResult.ParseError,
       SqlClient.SqlClient
     >

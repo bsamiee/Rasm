@@ -1,25 +1,36 @@
 # [PERSISTENCE_VERSION_RETENTION]
 
-`ArtifactKind` binds the asset class every durable artifact admits under and DERIVES its `RetentionClass`, which in turn binds storage lane, schedule, classification ceiling, loss policy, and identity scheme. `RetentionCatalog` owns admission. `RetentionSweep` derives one conserved verdict partition, marks reachability from reconstructed cuts or Marten event tags, and executes every eviction or cold-tier demotion through one receipt rail. Full-history reachability shields referenced content; `OrphanAge` gates never-referenced debris.
+`ArtifactKind` binds the asset class every durable artifact admits under and DERIVES its `RetentionClass`, which in turn binds storage lane, schedule, classification ceiling, loss capabilities, and identity scheme. `RetentionCatalog` owns admission. `RetentionSweep` derives one conserved verdict partition, marks reachability from reconstructed cuts or Marten event tags, and executes every eviction or cold-tier demotion through one receipt rail. Full-history reachability shields referenced content; `OrphanAge` gates never-referenced debris.
 
 ## [01]-[INDEX]
 
-- [02]-[RETENTION_CLASSES]: `ArtifactKind` fixes the asset-class axis every catalog derives retention from; `RetentionClass` closes the lifecycle axis carrying its five decisions, the seam-local classification-ceiling rank table, identity-scheme behavioral families, and the budget and loss policies.
-- [03]-[SWEEP_AND_GC]: `RetentionSweep` folds one pure state-threaded verdict list at row or partition grain, honors first-class holds, marks reachability over the full history, and executes every deletion through one receipted lane.
+- [02]-[RETENTION_CLASSES]: `ArtifactKind` fixes the asset-class axis every catalog derives retention from; `RetentionClass` closes the lifecycle axis carrying its five decisions, the seam-local classification-ceiling rank table, the identity-scheme behavioral families, and the loss capability set under its declared corner law.
+- [03]-[SWEEP_AND_GC]: `RetentionSweep` folds one pure state-threaded verdict list at row or partition grain, honors first-class holds, marks reachability over the full history, and executes every deletion through one receipted lane under the kernel re-drive policy.
 
 ## [02]-[RETENTION_CLASSES]
 
-- Owner: `ArtifactKind` the `[SmartEnum<string>]` ASSET-CLASS axis every durable artifact admits under, carrying its derived `RetentionClass` and its `CacheTier` recency lane and owning the two provenance selectors (`Texture`, `Representation`) that answer both the row and the origin key one producer value projects; `CacheTier` the two-row recency-lane vocabulary the app platform reads settled; `RepresentationSlot` the bounded `RepresentationContentHash` slot roster whose deferred column names each slot's kind; `RetentionClass` the `[SmartEnum<string>]` lifecycle axis carrying its five decisions (storage lane, retention schedule, classification ceiling, loss policy, identity scheme); `StorageLane` the `[SmartEnum<string>]` durable-home axis; `LossPolicy` the receipted-evict/declared-expiry/never-evict vocabulary whose BOTH columns the sweep dispatch consumes; `IdentityScheme` the content-keyed-versus-name-plus-epoch vocabulary carrying the `Identity` mint (the name-plus-epoch key derives through the kernel `ContentHash.Of` seed-zero entry); `RetentionCeiling` the static frozen sensitivity-rank table that supplies the ordering `DataClassification` does not carry; `RetentionFault` the closed admission fault; `RetentionCatalog` the static surface owning the one-fold admission (classify-check, identity-derive, race-admit, lane-write).
-- Cases: each artifact family is one `ArtifactKind` row carrying its retention class and recency lane, and a family whose retention derives from PROVENANCE is two rows behind one selector reading the discriminant off a value the producer already holds — `Texture(planKey)` answers `TextureSet` (`Cache`, rebuildable from its recorded graph/plan/seed triple) or `TextureAcquired` (`Blob`, durable because a retired model card and a drifted execution provider make the bytes unreproducible), and `Representation(slot, bodyKey)` answers the lossless `RepresentationBox` (`Blob`, the authority no fold reproduces) against the derived `RepresentationBody`/`Axis`/`Footprint` (`Cache`, re-tessellated from that body) and the measured `CoverageRaster` (`Blob`, an observation no fold reproduces), each beside the origin key the admission records; the canonical retention set closes at six rows — `snapshot` (sealed AS-OF snapshot, `SnapshotArchive` lane, content-keyed, newest-N), `stream` (Marten event stream, `EventStream` lane, append-only, never evicted), `blob` (durable artifact bytes, `ObjectStore` lane, content-keyed, never-evict cold-tiering, full-history-reachable), `evidence` (incident bundle, `SnapshotArchive` lane, name-plus-epoch, declared-expiry), `cache` (transient content blob, `ObjectStore` lane, content-keyed, receipted-evict), `ephemeral` (presence/awareness, `Transient` lane, name-plus-epoch, declared-expiry, never durable); a class fitting no row is an admission rejection, never a default; class membership is immutable, reclassification is export-then-readmit so every lived lifecycle stays receipted.
-- Entry: `public static Fin<RetentionFact> Admit(RetentionClass cls, ContentAddress contentKey, string name, ulong epoch, DataClassification stamp, long bytes, StorageTier tier, Func<ContentAddress, bool> resident, ProjectionContext frame)` is the one admission fold (the artifact's current `StorageTier` rides into the fact so the sweep cold-tiering verdict reads it; the catalog key is minted IN the fold through `cls.Scheme.Identity(contentKey, name, epoch)` — the content-keyed scheme passes the content address through and reads neither `name` nor `epoch`, the name-plus-epoch scheme derives `ContentHash.Of(name ++ epoch)` — so a caller never pre-mints identity); `public RetentionSchedule Schedule { get; }` projects the class's sweep cadence and budget; `public static bool RetentionCeiling.Ranked(DataClassification stamp)` is the fail-closed mapped-ness gate and `public static bool RetentionCeiling.Admits(DataClassification stamp, DataClassification ceiling)` the seam-local sensitivity comparison the admission fold reads directly (no per-class forwarder, no `Exceeds`).
-- Auto: admission is one fold — classify-check (an UNRANKED stamp — a newer upstream `DataClassification` tier this seam rank table has not yet ordered — rejects `Unstamped` BEFORE the compare because absence of a seam rank is not clearance; a ranked stamp exceeding the ceiling rejects `CeilingBreach`), identity-derive (`cls.Scheme.Identity` — the content-keyed scheme IS its content address, the name-plus-epoch scheme mints its catalog key from the stable name and admission epoch through the ONE kernel `ContentHash.Of` seed-zero entry, never a second hasher), race-admit (content-keyed classes get dedup and race-loser disposal free, name-plus-epoch classes get versioned replacement free, zero conditional code), lane-write; the sensitivity rank is a frozen `RetentionCeiling` table keyed by `DataClassification` because the AppHost taxonomy carries only a `RedactorKind` column and no ordinal — the ordering the "escalating sensitivity" doctrine asserts lives HERE as a policy value, never re-derived per call; byte counts record from the artifact's own sealed length fields (`SnapshotCatalogRow.StoredLength`, `ChunkManifest.Length`, `BlobResidence.Length`), never a later filesystem stat.
-- Receipt: an admission rides `store.retention.admit` carrying the class and bytes; a ceiling breach rides `store.retention.reject` carrying the stamp and ceiling; an unranked stamp rides `store.retention.reject` carrying the key.
-- Packages: Marten (`EventTagQuery`/`QueryByTagsAsync` adapter), Rasm (`Rasm.Domain` `ContentHash.Of` — the name-plus-epoch identity mint, [B]), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` rows + `Switch` + `Items`), LanguageExt.Core (`Fin`/`Option`), NodaTime (`Duration`/`Instant`), BCL inbox.
-- Growth: a new asset family is one `ArtifactKind` row carrying its retention class and recency lane, and a family whose retention derives from provenance is two rows behind one selector returning the row beside the origin key its discriminating value also is; a new representation slot is one `RepresentationSlot` row with its deferred kind column; a new lifecycle class is one `RetentionClass` row carrying its five decisions; a new durable home is one `StorageLane` row; a new loss policy is one `LossPolicy` row; a new sensitivity tier is one `RetentionCeiling` rank entry keyed by the AppHost `DataClassification` row; a new cold-tier rung is one `RetentionCeiling.Colder` ladder entry over the blobstore `StorageTier` vocabulary; zero new surface — a per-artifact retention table, a second classification taxonomy, a STORED retention column beside the kind that derives it, an origin flag beside the value that already discriminates, an ordinal added to `DataClassification` upstream (the rank is a Persistence policy, not an AppHost concern), a `StorageTier`-ordering owner duplicated from blobstore, or a default class for an unfit artifact is the deleted form because the class set is closed and admission is one fold over the five decisions.
-- Boundary: the asset class is the DISCRIMINANT and retention its derived column, so every catalog that stores bytes stores the kind and reads `Kind.Retention` — a second catalog storing the class beside a kind is the drift this seating deletes, and the taxonomy seats HERE rather than at the read index because the object-plane catalog and the artifact index are two strata peers and a concept two peers reach seats at the lowest stratum either reaches; every stored thing belongs to exactly one class row carrying five decisions, the storage lane naming its durable home (`SnapshotArchive` for sealed artifacts, `EventStream` for the Marten system of record, `ObjectStore` for content-keyed blobs and cache, `Transient` for awareness) so the sweep budgets and the deletion executor route by lane row, never a `cls.Key == "blob"` string compare; the identity scheme alone yields two complete behavioral families (content-keyed classes get dedup and race-loser disposal free, name-plus-epoch classes get versioned replacement free); a budget breach truncates with an embedded receipt (capture must succeed degraded) while a ceiling breach rejects outright (security never degrades), the two overflow responses never interchangeable; the sensitivity comparison is seam-local because `DataClassification` is the AppHost redaction taxonomy whose only column is its `RedactorKind` — `RetentionCeiling.Admits` supplies the rank rather than calling a non-existent `Exceeds`, and an UNRANKED classification (a newer upstream tier this seam table has not ordered) is rejected as a distinct `Unstamped` fault, fail-closed, rather than silently collapsed to `int.MaxValue` and reported as a `CeilingBreach` that never compared — absence of a seam rank is not clearance; import re-verifies stamps so an export round-trip cannot launder a ceiling; the `stream` class is append-only and never evicted because the Marten event stream is the system of record (only the AS-OF snapshot density and the blob reachability are reclaimable); the `blob` class is content-keyed, `NeverEvict`, and full-history-reachable so an artifact blob a historical version references is never collected — an aged one cold-tiers down the `StorageTier` ladder and only never-referenced crash debris collects through the orphan pass (`#SWEEP_AND_GC`) — and the `Store/blobstore#BLOB_GC` lane registers its `BlobCatalogRow` in this class so the one GC governs both the snapshot spine and the object plane.
+- Owner: `ArtifactKind` the `[SmartEnum<string>]` ASSET-CLASS axis every durable artifact admits under, carrying its derived `RetentionClass` and `CacheTier` and owning the two provenance selectors (`Texture`, `Representation`) that answer both the row and the origin key one producer value projects; `CacheTier` the two-row recency-lane vocabulary the app platform reads settled; `RetentionClass` the `[SmartEnum<string>]` lifecycle axis carrying its five decisions; `StorageLane` the durable-home axis; `RetentionCapability` the loss vocabulary and `RetentionLoss` its three legal corners under one `CapabilityLaw`; `IdentityScheme` the content-keyed-versus-name-plus-epoch families carrying the total-`Switch` `Identity` mint; `RetentionCeiling` the sensitivity rank and cold-tier ladder; `RetentionFault` the closed admission fault; `RetentionCatalog` the one-fold admission.
+- Cases: each artifact family is one `ArtifactKind` row, and a family whose retention derives from PROVENANCE is two rows behind one selector reading the discriminant off a value the producer already holds — `Texture(planKey)` answers the rebuildable `TextureSet` against the unreproducible `TextureAcquired`, and `Representation(slot, bodyKey)` — a total `Switch` over the COMPOSED `Rasm.Element` `Graph/element#NODE_MODEL` `RepresentationSlot` roster, this page holding only the correspondence column — the lossless `RepresentationBox` against the re-tessellated `Body`/`Axis`/`Footprint`, each beside the origin key the admission records. Retention closes at six rows — `snapshot`, `stream`, `blob`, `evidence`, `cache`, `ephemeral` — and a class fitting no row is an admission rejection, never a default. Class membership is immutable and reclassification is export-then-readmit, so every lived lifecycle stays receipted.
+- Entry: `RetentionCatalog.Admit(cls, contentKey, name, epoch, stamp, tier, resident, write, frame)` is the one admission fold answering `IO<Fin<RetentionFact>>`; `RetentionCeiling.Admit(stamp, ceiling)` is the ONE ceiling rail answering the typed fault (`Unstamped` for an unranked stamp, `CeilingBreach` for a ranked one over the ceiling), so no call site pairs a mapped-ness probe with a comparison; `cls.Scheme.Identity(contentKey, name, epoch)` mints the catalog key inside the fold, so a caller never pre-mints identity; `cls.Schedule` projects cadence, budget, and the class's own `RedrivePolicy`.
+- Auto: admission is one rail — ceiling-admit, identity-derive, race-admit, lane-write. Ceiling admission rejects an UNRANKED stamp before any compare, because absence of a seam rank is not clearance and a `CeilingBreach` reporting a comparison that never happened is the deleted form. Identity-derive dispatches on the scheme's generated total `Switch`: content-keyed passes its address through, name-plus-epoch streams `(name, epoch)` through the ONE kernel `CanonicalWriter` field stream, so the preimage is length-framed and no separator literal can forge a key. Race-admit gives content-keyed classes dedup and race-loser disposal free and name-plus-epoch classes versioned replacement free, with zero conditional code. Byte counts come from the artifact's own sealed length fields, never a later filesystem stat.
+- Receipt: an admission rides `store.retention.admit` carrying the class and bytes; a ceiling breach and an unranked stamp both ride `store.retention.reject` carrying the fault's own payload.
+- Packages: Marten (`EventTagQuery`/`QueryByTagsAsync` adapter), Rasm (`Rasm.Domain` `ContentHash.Of<TState>` + `CanonicalWriter` — the framed name-plus-epoch preimage; `CapabilitySet`/`CapabilityLaw`; `FaultBand`), Rasm.Element (`Graph` `RepresentationSlot` — the composed identifier roster the `Representation` selector dispatches over), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` rows + `Switch` + `Items`), LanguageExt.Core (`Fin`/`Option`/`IO`/`Traverse`), NodaTime (`Duration`/`Instant`), BCL inbox (`FrozenDictionary`/`FrozenSet`).
+- Growth: a new asset family is one `ArtifactKind` row, and a provenance-derived family two rows behind one selector; a new representation slot lands at its `Rasm.Element` owner and breaks the `Representation` `Switch` here until this page answers its `ArtifactKind` arm; a new lifecycle class is one `RetentionClass` row carrying its five decisions; a new durable home is one `StorageLane` row; a new loss capability is one `RetentionCapability` row with the `RetentionLoss` corners that admit it; a new sensitivity tier is one `RetentionCeiling` rank entry; a new cold rung is one `Colder` ladder entry. Zero new surface — a per-artifact retention table, a second classification taxonomy, a STORED retention column beside the kind that derives it, an origin flag beside the value that already discriminates, or a default class for an unfit artifact is the deleted form.
+- Boundary: `Rasm.Element` owns the representation identifier vocabulary and this page COMPOSES it — a local slot roster is the deleted fork, exactly as an index-local `ArtifactKind` is (`Query/cache#ARTIFACT_BLOB_INDEX`) — so this page holds only the slot→kind correspondence, and a measured `Node.Coverage` grid stays off that roster because it is no representation slot. Asset class is the DISCRIMINANT and retention its derived column, so every catalog storing bytes stores the kind and reads `Kind.Retention`; the taxonomy seats HERE because the object-plane catalog and the artifact index are strata peers and a concept two peers reach seats at the lowest stratum either reaches. Each lane names its durable home, so sweep budgets and the deletion executor route by row, never a `cls.Key == "blob"` compare. Budget breach truncates with an embedded receipt (capture must succeed degraded) while a ceiling breach rejects outright (security never degrades) — the two overflow responses never interchange. Class `stream` IS the Marten system of record and never evicts, while class `blob` is full-history-reachable, so an aged blob cold-tiers and only never-referenced debris collects (`#SWEEP_AND_GC`).
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+using System.Collections.Frozen;
+using LanguageExt;
+using NodaTime;
+using Rasm.Domain;
+using Rasm.Element.Graph;
+using Thinktecture;
+using static LanguageExt.Prelude;
+
+namespace Rasm.Persistence.Version;
+
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -32,88 +43,94 @@ public sealed partial class StorageLane {
     private StorageLane(string key, bool durable) : this(key) => Durable = durable;
 }
 
-[SmartEnum]
-public sealed partial class LossPolicy {
-    public static readonly LossPolicy ReceiptedEvict = new(evicts: true, expires: false);
-    public static readonly LossPolicy DeclaredExpiry = new(evicts: false, expires: true);
-    public static readonly LossPolicy NeverEvict = new(evicts: false, expires: false);
-    public bool Evicts { get; }
-    public bool Expires { get; }
-    // `Collects` shields the dispatch: reachability protects only a class that can collect, while the never-evict
-    // arm consumes the mark itself as its orphan/cool discriminant.
-    public bool Collects => Evicts || Expires;
-    private LossPolicy(bool evicts, bool expires) => (Evicts, Expires) = (evicts, expires);
+// Loss capabilities close as a vocabulary: `RetentionLoss.Law` names the corner a bool pair could only leave
+// unstated.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class RetentionCapability : ICapability<RetentionCapability> {
+    public static readonly RetentionCapability Evict = new("evict");
+    public static readonly RetentionCapability Expire = new("expire");
 }
 
-[SmartEnum]
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class CacheTier {
+    public static readonly CacheTier ModelResult = new("model-result");
+    public static readonly CacheTier ArtifactBlob = new("artifact-blob");
+}
+
+// `Dedups` is a SINGLE axis with no second bool beside it, so the kernel capability law leaves it a column.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class IdentityScheme {
-    public static readonly IdentityScheme ContentKeyed = new(dedups: true);
-    public static readonly IdentityScheme NamePlusEpoch = new(dedups: false);
+    public static readonly IdentityScheme ContentKeyed = new("content-keyed", dedups: true);
+    public static readonly IdentityScheme NamePlusEpoch = new("name-plus-epoch", dedups: false);
     public bool Dedups { get; }
-    // `Identity` makes the identity-derive stage real: a content-keyed artifact IS its content address; a
-    // name-plus-epoch artifact (evidence bundle, awareness row) mints its catalog key from the stable name and
-    // admission epoch through the ONE kernel seed-zero entry — versioned replacement rides the epoch, never a
-    // second hasher.
-    public ContentAddress Identity(ContentAddress contentKey, string name, ulong epoch) =>
-        Dedups ? contentKey : ContentAddress.Of(ContentHash.Of(Encoding.UTF8.GetBytes($"{name}#{epoch:x16}")));
-    private IdentityScheme(bool dedups) => Dedups = dedups;
+    private IdentityScheme(string key, bool dedups) : this(key) => Dedups = dedups;
+
+    // Name-plus-epoch preimages stream through the kernel writer: `String` length-frames its field, so a name
+    // holding the separator a formatted key once used can no longer forge another row's identity.
+    public ContentAddress Identity(ContentAddress contentKey, string name, ulong epoch) => Switch(
+        state: (Key: contentKey, Name: name, Epoch: epoch),
+        contentKeyed: static row => row.Key,
+        namePlusEpoch: static row => ContentAddress.Of(
+            ContentHash.Of(row, static (r, writer) => writer.String(r.Name).U128(r.Epoch))));
 }
 
-// RetentionFault closes the retention fault band (828x) as a [Union] over the KERNEL `Rasm.Domain.Expected` (parameterless protected ctor;
-// `Category` virtual; `Code`/`Message` inherited from `Error`), the SAME federation base the Persistence-sibling
-// `Element/codec#SNAPSHOT_SPINE` `CodecFault` (83xx) and `Element/identity#SCHEMA_VERDICT` `IdentityFault` (834x) realize
-// — NOT `LanguageExt.Common.Expected`, whose `(string,int,Option)` `base(detail, code, None)` ctor (no `Category` to
-// override) is the deleted form. Band membership derives `Code => FaultBand.Retention + n` through the registry row
-// (`Element/graph#FAULT_TABLES` — a bare integer literal is the deleted form), `Message`/`Category` projecting
-// through the generated `Switch`, so the typed case lifts BARE onto `Fin<T>` with no `.ToError()` hop and a recovery
-// reads `error.IsType<RetentionFault.Unstamped>()` / `error.HasCode(8283)` / `error.Category`, never a message
-// substring. No `[GenerateUnionOps]` — the kernel union-ops generator is strictly opt-in, so the band carries no
-// generated per-case `SelfOp`. `Create` is the IValidationError admission the
-// generated converter bridge calls on a deserialization reject — `Unclassed` (an admitted artifact never mints it
-// directly); `CeilingBreach` is a RANKED stamp whose seam rank exceeds the class ceiling (the genuine sensitivity
-// comparison); `Unstamped` is an UNRANKED stamp the seam table does not order (fail-closed — a `CeilingBreach` reporting
-// a comparison that never happened is the deleted form).
-[Union]
-public abstract partial record RetentionFault : Rasm.Domain.Expected, IValidationError<RetentionFault> {
-    private RetentionFault() : base() { }
-    public sealed record Unclassed(string Artifact) : RetentionFault;
-    public sealed record CeilingBreach(DataClassification Stamp, DataClassification Ceiling) : RetentionFault;
-    public sealed record Unstamped(ContentAddress Key) : RetentionFault;
+// --- [MODELS] --------------------------------------------------------------------------
+// Cadence, budget, and bounds are retention VALUES; `Redrive` is the class's own kernel policy over the lane's effect
+// arrows. `OrphanAge` is DECLARED here rather than smuggled into the key-only eligibility predicate.
+public readonly record struct RetentionSchedule(
+    Duration Cadence, long ByteBudget, int CountBound, Duration AgeBound, Duration OrphanAge, RedrivePolicy Redrive);
 
-    public override int Code => FaultBand.Retention + Switch(
-        unclassed:     static _ => 1,
-        ceilingBreach: static _ => 2,
-        unstamped:     static _ => 3);
+// Partition-grained inventory seats here: a rolling-window family sweeps partitions rather than rows.
+public readonly record struct PartitionSpan(string Name, int Rows);
+
+// `Tier` is the artifact's CURRENT durable tier, read by the cold-tiering verdict so a never-evict artifact past its
+// age demotes one rung instead of evicting and one already coldest is `Kept` idempotently.
+public readonly record struct RetentionFact(
+    RetentionClass Class, ContentAddress Key, long Bytes, StorageTier Tier, Instant At, Option<PartitionSpan> Partition = default);
+
+// Admission reads the COMMITTED outcome, never a pre-write prediction.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record LaneOutcome {
+    private LaneOutcome() { }
+    public sealed record Stored(long Bytes) : LaneOutcome;
+    public sealed record Replaced(long Bytes, ulong PriorEpoch) : LaneOutcome;
+    public sealed record Deduped : LaneOutcome;
+
+    public long Committed => this.Map(stored: static s => s.Bytes, replaced: static r => r.Bytes, deduped: static _ => 0L);
+}
+
+// --- [ERRORS] ---------------------------------------------------------------------------
+// `RetentionFault` derives directly from `Rasm.Domain.Fault`; generated case identity proves each offset in-band.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record RetentionFault : Fault {
+    private static readonly FaultBand FamilyBand = FaultBand.Retention;
+    private RetentionFault() { }
+    [FaultCase(0)]
+    public sealed partial record Unclassed(string Artifact) : RetentionFault();
+    [FaultCase(1)]
+    public sealed partial record CeilingBreach(DataClassification Stamp, DataClassification Ceiling) : RetentionFault();
+    [FaultCase(2)]
+    public sealed partial record Unstamped(DataClassification Stamp) : RetentionFault();
 
     public override string Message => Switch(
         unclassed:     static c => $"<retention-unclassed:{c.Artifact}>",
         ceilingBreach: static c => $"<retention-ceiling:{c.Stamp}>{c.Ceiling}>",
-        unstamped:     static c => $"<retention-unstamped:{c.Key.Value:x32}>");
-
-    public override string Category => Switch(
-        unclassed:     static _ => "Unclassed",
-        ceilingBreach: static _ => "Ceiling",
-        unstamped:     static _ => "Unstamped");
-
-    public static RetentionFault Create(string message) => new Unclassed(message);
+        unstamped:     static c => $"<retention-unstamped:{c.Stamp}>");
 }
 
-// `OrphanAge` is the DECLARED orphan-collection age gate the never-evict arm reads — an unreachable artifact
-// younger than it is Kept (a write mid-flight, a checkpoint not yet referenced), never an age policy smuggled
-// into the key-only eligibility predicate; `Duration.MaxValue` closes the arm structurally (the `stream` SoR).
-public readonly record struct RetentionSchedule(Duration Cadence, long ByteBudget, int CountBound, Duration AgeBound, Duration OrphanAge);
-// RetentionFact measures the admitted artifact. `Tier` is its CURRENT durable storage tier (the `Store/blobstore#OBJECT_STORE`
-// `StorageTier` row the blob/snapshot lane sealed it at), read by the cold-tiering verdict so a `NeverEvict`-class artifact
-// past its age demotes one rung instead of evicting and an artifact already at the coldest tier is `Kept` idempotently —
-// a `Transient`/`EventStream`-lane fact rides `StorageTier.Standard`, and the `Lane.Durable` gate keeps the demotion
-// ladder off a non-durable lane structurally. A fact with no tier field would foreclose the dedup-plus-cold-tiering
-// alternative `H10` admits, the deleted thin slice.
-// `PartitionSpan` is the PARTITION-grained inventory slot: a family carrying a `Store/provisioning#SERVER_EXTENSIONS` `RollingWindow`
-// row sweeps its partitions rather than its rows, so its fact names the partition and the row count one drop
-// retires while `Bytes` and `At` keep their fact meaning at that grain (the partition's stored size, its window
-// start). A per-row fact carries `None` and every arm below reads exactly as it did.
-public readonly record struct PartitionSpan(string Name, int Rows);
-public readonly record struct RetentionFact(RetentionClass Class, ContentAddress Key, long Bytes, StorageTier Tier, Instant At, Option<PartitionSpan> Partition = default);
+// --- [TABLES] --------------------------------------------------------------------------
+// Loss corners close at three. `{Evict, Expire}` is the corner a bool pair could hold while no sweep arm answered it,
+// so `Law` refuses it and `Collecting` is the union the reachability shield reads.
+public static class RetentionLoss {
+    public static readonly CapabilitySet<RetentionCapability> ReceiptedEvict = CapabilitySet<RetentionCapability>.Of(RetentionCapability.Evict);
+    public static readonly CapabilitySet<RetentionCapability> DeclaredExpiry = CapabilitySet<RetentionCapability>.Of(RetentionCapability.Expire);
+    public static readonly CapabilitySet<RetentionCapability> NeverEvict = CapabilitySet<RetentionCapability>.None;
+    public static readonly CapabilitySet<RetentionCapability> Collecting = CapabilitySet<RetentionCapability>.All;
+    public static readonly CapabilityLaw<RetentionCapability> Law = new(Seq(ReceiptedEvict, DeclaredExpiry, NeverEvict));
+}
 
 public static class RetentionCeiling {
     static readonly FrozenDictionary<DataClassification, int> Rank = new[] {
@@ -121,20 +138,17 @@ public static class RetentionCeiling {
         DataClassification.UserContent, DataClassification.Personal, DataClassification.Confidential, DataClassification.Credential, DataClassification.Secret,
     }.Select(static (row, ordinal) => (row, ordinal)).ToFrozenDictionary(static t => t.row, static t => t.ordinal);
 
-    // `RetentionCeiling` supplies the seam-local sensitivity rank `DataClassification` does not carry. `Ranked` is the
-    // FAIL-CLOSED admission gate the one fold reads: a stamp absent from the rank (a NEWER upstream
-    // `DataClassification` tier this Persistence rank table has not yet ordered) is unmapped — `Admit` rejects it as
-    // `Unstamped` (a distinct, diagnosable "this seam does not know this classification" fault), NEVER a silent
-    // `int.MaxValue` collapsed into a `CeilingBreach` reporting a rank comparison that never happened. `Admits`
-    // compares two MAPPED ranks; the unmapped case is `Ranked`'s own arm.
-    static int Of(DataClassification row) => Rank[row];
-    public static bool Ranked(DataClassification row) => Rank.ContainsKey(row);
-    public static bool Admits(DataClassification stamp, DataClassification ceiling) => Ranked(stamp) && (Of(stamp) <= Of(ceiling));
+    // ONE rail, not a mapped-ness probe beside a compare: an UNRANKED stamp is a NEWER upstream tier this seam has
+    // not ordered, so it rejects rather than collapsing to `int.MaxValue` and reporting a breach that never compared.
+    public static Fin<DataClassification> Admit(DataClassification stamp, DataClassification ceiling) =>
+        (Rank.TryGetValue(stamp, out int held), Rank.TryGetValue(ceiling, out int bound)) switch {
+            (false, _) => Fin<DataClassification>.Fail(new RetentionFault.Unstamped(stamp)),
+            (true, _) when held <= bound => Fin<DataClassification>.Succ(stamp),
+            _ => Fin<DataClassification>.Fail(new RetentionFault.CeilingBreach(stamp, ceiling)),
+        };
 
-    // `Colder` ladders the cold-tiering demotion — a retention POLICY (the lifecycle cadence lives here) over the blobstore-owned
-    // `StorageTier` vocabulary: `Standard -> Infrequent -> Cold -> Archive`, `Archive` the floor returning `None`. The
-    // `NeverEvict`-class cold-tiering alternative (`H10`: geometry-GC-forbidden = dedup-plus-cold-tiering) demotes one rung
-    // per age threshold, idempotent at the floor, so an aged-but-reachable artifact blob colds-tiers rather than collects.
+    // Cold-tiering is a retention POLICY over the blobstore-owned `StorageTier`: `Archive` is the floor, so demotion
+    // is idempotent.
     static readonly FrozenDictionary<StorageTier, StorageTier> Colder = new[] {
         (StorageTier.Standard, StorageTier.Infrequent), (StorageTier.Infrequent, StorageTier.Cold), (StorageTier.Cold, StorageTier.Archive),
     }.ToFrozenDictionary(static t => t.Item1, static t => t.Item2);
@@ -145,40 +159,36 @@ public static class RetentionCeiling {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RetentionClass {
-    public static readonly RetentionClass Snapshot = new("snapshot", StorageLane.SnapshotArchive, LossPolicy.ReceiptedEvict, IdentityScheme.ContentKeyed, DataClassification.Internal, new RetentionSchedule(Duration.FromHours(6), 64L * 1024 * 1024 * 1024, 32, Duration.FromDays(365), Duration.FromDays(7)));
-    public static readonly RetentionClass Stream = new("stream", StorageLane.EventStream, LossPolicy.NeverEvict, IdentityScheme.ContentKeyed, DataClassification.Confidential, new RetentionSchedule(Duration.MaxValue, long.MaxValue, int.MaxValue, Duration.MaxValue, Duration.MaxValue));
-    public static readonly RetentionClass Blob = new("blob", StorageLane.ObjectStore, LossPolicy.NeverEvict, IdentityScheme.ContentKeyed, DataClassification.Internal, new RetentionSchedule(Duration.FromHours(12), 512L * 1024 * 1024 * 1024, int.MaxValue, Duration.FromDays(90), Duration.FromDays(7)));
-    public static readonly RetentionClass Evidence = new("evidence", StorageLane.SnapshotArchive, LossPolicy.DeclaredExpiry, IdentityScheme.NamePlusEpoch, DataClassification.Confidential, new RetentionSchedule(Duration.FromDays(1), 8L * 1024 * 1024 * 1024, 256, Duration.FromDays(90), Duration.FromDays(7)));
-    public static readonly RetentionClass Cache = new("cache", StorageLane.ObjectStore, LossPolicy.ReceiptedEvict, IdentityScheme.ContentKeyed, DataClassification.Internal, new RetentionSchedule(Duration.FromHours(1), 16L * 1024 * 1024 * 1024, int.MaxValue, Duration.FromDays(7), Duration.FromHours(24)));
-    public static readonly RetentionClass Ephemeral = new("ephemeral", StorageLane.Transient, LossPolicy.DeclaredExpiry, IdentityScheme.NamePlusEpoch, DataClassification.Internal, new RetentionSchedule(Duration.FromMinutes(1), 1L * 1024 * 1024 * 1024, int.MaxValue, Duration.FromMinutes(5), Duration.FromMinutes(10)));
+    static RetentionSchedule Cadence(Duration cadence, long bytes, int count, Duration age, Duration orphan) =>
+        new(cadence, bytes, count, age, orphan, RedrivePolicy.Of(law: Schedule.exponential(Duration.FromSeconds(2)), bound: 5));
+
+    public static readonly RetentionClass Snapshot = new("snapshot", StorageLane.SnapshotArchive, RetentionLoss.ReceiptedEvict, IdentityScheme.ContentKeyed, DataClassification.Internal, Cadence(Duration.FromHours(6), 64L * 1024 * 1024 * 1024, 32, Duration.FromDays(365), Duration.FromDays(7)));
+    public static readonly RetentionClass Stream = new("stream", StorageLane.EventStream, RetentionLoss.NeverEvict, IdentityScheme.ContentKeyed, DataClassification.Confidential, new RetentionSchedule(Duration.MaxValue, long.MaxValue, int.MaxValue, Duration.MaxValue, Duration.MaxValue, RedrivePolicy.None));
+    public static readonly RetentionClass Blob = new("blob", StorageLane.ObjectStore, RetentionLoss.NeverEvict, IdentityScheme.ContentKeyed, DataClassification.Internal, Cadence(Duration.FromHours(12), 512L * 1024 * 1024 * 1024, int.MaxValue, Duration.FromDays(90), Duration.FromDays(7)));
+    public static readonly RetentionClass Evidence = new("evidence", StorageLane.SnapshotArchive, RetentionLoss.DeclaredExpiry, IdentityScheme.NamePlusEpoch, DataClassification.Confidential, Cadence(Duration.FromDays(1), 8L * 1024 * 1024 * 1024, 256, Duration.FromDays(90), Duration.FromDays(7)));
+    public static readonly RetentionClass Cache = new("cache", StorageLane.ObjectStore, RetentionLoss.ReceiptedEvict, IdentityScheme.ContentKeyed, DataClassification.Internal, Cadence(Duration.FromHours(1), 16L * 1024 * 1024 * 1024, int.MaxValue, Duration.FromDays(7), Duration.FromHours(24)));
+    public static readonly RetentionClass Ephemeral = new("ephemeral", StorageLane.Transient, RetentionLoss.DeclaredExpiry, IdentityScheme.NamePlusEpoch, DataClassification.Internal, Cadence(Duration.FromMinutes(1), 1L * 1024 * 1024 * 1024, int.MaxValue, Duration.FromMinutes(5), Duration.FromMinutes(10)));
 
     public StorageLane Lane { get; }
-    public LossPolicy Loss { get; }
+    public CapabilitySet<RetentionCapability> Loss { get; }
     public IdentityScheme Scheme { get; }
     public DataClassification Ceiling { get; }
     public RetentionSchedule Schedule { get; }
-    private RetentionClass(string key, StorageLane lane, LossPolicy loss, IdentityScheme scheme, DataClassification ceiling, RetentionSchedule schedule) : this(key) =>
+    private RetentionClass(string key, StorageLane lane, CapabilitySet<RetentionCapability> loss, IdentityScheme scheme, DataClassification ceiling, RetentionSchedule schedule) : this(key) =>
         (Lane, Loss, Scheme, Ceiling, Schedule) = (lane, loss, scheme, ceiling, schedule);
+
+    // Reachability shields through a SET query: only a collecting class is shielded, the never-evict arm
+    // consuming the mark itself.
+    public bool Collects => Loss.Held.Overlaps(RetentionLoss.Collecting.Held);
+
+    // Corner proof runs at type initialization exactly as the kernel band `Disjoint` does, so an illegal loss corner
+    // surfaces where the row is declared rather than at the sweep arm that has no answer for it.
+    public static readonly Fin<Unit> Lawful =
+        toSeq(Items).Traverse(static row => RetentionLoss.Law.Admit(row.Loss)).As().Map(static _ => unit);
 }
 
-// CacheTier names the recency lane an admitted artifact's bytes occupy in the app-platform two-tier cache. Two rows
-// because the only decision is whether a payload may pin the process-local tier: a small receipt may, a plane pyramid
-// or a lossless representation may not. The AppHost projects the settled row and never re-derives a size heuristic.
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class CacheTier {
-    public static readonly CacheTier ModelResult = new("model-result");
-    public static readonly CacheTier ArtifactBlob = new("artifact-blob");
-}
-
-// `ArtifactKind` fixes the ASSET-CLASS axis every durable artifact admits under, seated BESIDE `RetentionClass`
-// because retention is its derived column and both `Store/blobstore#BLOB_GC`'s catalog and
-// `Query/cache#ARTIFACT_BLOB_INDEX`'s index read it — two strata peers reaching one concept seat it at the lowest
-// stratum either reaches, so the taxonomy lives here and the S3 index composes it downward rather than the S2 store
-// reaching up for it.
-// Retention is DERIVED, never stored: a row's `Retention` IS its class, so a catalogued class contradicting its
-// kind is unrepresentable at both catalogs and the two can no longer drift. A family whose retention derives from
-// PROVENANCE is two rows behind one selector reading the discriminant off a value the producer already holds.
+// Retention is DERIVED, never stored: a row's `Retention` IS its class, so a catalogued class contradicting its kind
+// is unrepresentable at both catalogs and the two can no longer drift.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -186,49 +196,37 @@ public sealed partial class ArtifactKind {
     public static readonly ArtifactKind Interchange = new("interchange", RetentionClass.Blob, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind EpContext = new("ep-context", RetentionClass.Cache, CacheTier.ModelResult);
     public static readonly ArtifactKind OnnxProfile = new("onnx-profile", RetentionClass.Cache, CacheTier.ModelResult);
-    // Re-running the canary re-derives a floor-provider parity residual, so this row takes the cache class exactly
-    // as the EP-context blob does; the app root binds the Compute `ParityPort` here, and Compute names the kind
-    // nowhere — the port hides it.
     public static readonly ArtifactKind ParityVerdict = new("parity-verdict", RetentionClass.Cache, CacheTier.ModelResult);
     public static readonly ArtifactKind IfcSemantic = new("ifc-semantic", RetentionClass.Blob, CacheTier.ArtifactBlob);
-    // Reality-capture bytes are an OBSERVATION no fold reproduces — the instrument moved, the site changed, and a
-    // re-scan yields different bytes — so the class is Blob exactly as the measured coverage grid's is, and every
-    // durable scan row (`Ingest/pointcloud#SCAN_RESIDENCE` header, registration, region) is DERIVED from these bytes.
     public static readonly ArtifactKind Scan = new("scan", RetentionClass.Blob, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind ChunkContent = new("chunk-content", RetentionClass.Blob, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind CloudRun = new("cloud-run", RetentionClass.Cache, CacheTier.ModelResult);
     public static readonly ArtifactKind Assessment = new("assessment", RetentionClass.Cache, CacheTier.ModelResult);
-    // Representation families — the object plane's own primary payload, whose five slots carry genuinely different
-    // retention economics and therefore five rows rather than one "geometry" lump. The LOSSLESS body is the
-    // authority no fold reproduces, so it is `Blob`; the display mesh, the structural line, and the boundary ring
-    // are DERIVED projections of it, so they are `Cache` and re-tessellate at compute cost; a measured coverage
-    // grid is an observation no fold reproduces, so it is `Blob`. This is the same provenance argument the texture
-    // rows make, applied to the family that made the plane exist. Every row takes `ArtifactBlob` — a mesh, a BREP,
-    // or a raster pyramid is exactly the oversized payload that must never pin the process-local tier.
+    // Per-slot economics: the lossless body is an observation no fold reproduces (`Blob`), while mesh, line, and ring
+    // re-tessellate from that body (`Cache`); no row may pin the process-local tier.
     public static readonly ArtifactKind RepresentationBox = new("representation-box", RetentionClass.Blob, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind RepresentationBody = new("representation-body", RetentionClass.Cache, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind RepresentationAxis = new("representation-axis", RetentionClass.Cache, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind RepresentationFootprint = new("representation-footprint", RetentionClass.Cache, CacheTier.ArtifactBlob);
+    // `CoverageRaster` keys a `Node.Coverage` MEASURED field grid, never a `RepresentationContentHash` slot, so it
+    // carries no provenance discriminant and admits as its own row — routing it through the representation selector
+    // handed a measured raster the producing body's key as a re-derivation origin nothing can rebuild it from.
     public static readonly ArtifactKind CoverageRaster = new("coverage-raster", RetentionClass.Blob, CacheTier.ArtifactBlob);
-    // Texture-plane families: retention derives from PROVENANCE, so the concept is two rows and the producer
-    // never hand-picks one. A PRESS-BAKED set rebuilds exactly from the (graph key, plan key, seed) triple its
-    // own press receipt records, so it is Cache — re-derivable at compute cost. A NEURAL-ACQUIRED set cannot:
-    // its model card retires, its execution provider drifts, and re-running the stage reproduces different
-    // bytes, so cache-classing it is evidence loss and the row is Blob.
+    // Press-baked sets rebuild from the triple its press receipt records; a NEURAL-ACQUIRED one cannot, because its
+    // model card retires and its provider drifts, so cache-classing it is evidence loss.
     public static readonly ArtifactKind TextureSet = new("texture-set", RetentionClass.Cache, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind TextureAcquired = new("texture-acquired", RetentionClass.Blob, CacheTier.ArtifactBlob);
-    // HDF5 archive families off the Compute Runtime/codecs archive owner, admitted content-key-only through
-    // ArtifactIndexRow like every artifact here. Provenance decides the class: an INGESTED corpus (weather grid,
-    // reference bands, Joe-Kuo class resources, external sparse exchange) is bytes no fold reproduces — Blob;
-    // a SOLVER-EMITTED history, modal basis, mesh container, ensemble, or checkpoint re-derives from its
-    // content-keyed inputs at compute cost — Cache; `GraduationEnvelope` and `InitializerPack` carry acquired
-    // evidence a retired producer cannot re-mint — Blob.
+    // Materials capacity hull: rebuilds from the eager fibre-integration sweep, so eviction costs compute, never
+    // evidence. The Freeze payload is producer=consumer-ONLY serialized JSON (a deserialization-gadget surface) —
+    // the store carries it as an opaque content-keyed blob keyed by the producer's (ComponentId, DiagramResolution.Key)
+    // admission through `ArtifactIndexRow.Admit`, never decodes it, and never crosses it to a peer runtime.
+    public static readonly ArtifactKind CapacityHull = new("capacity-hull", RetentionClass.Cache, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind ArchiveCorpus = new("archive-corpus", RetentionClass.Blob, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind ArchiveSolve = new("archive-solve", RetentionClass.Cache, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind GraduationEnvelope = new("graduation-envelope", RetentionClass.Blob, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind InitializerPack = new("initializer-pack", RetentionClass.Blob, CacheTier.ModelResult);
-    // Fabrication egress families: keys mirror the Rasm.Fabrication EgressKind rows verbatim; federation is
-    // content-key-only — no Fabrication type crosses this page.
+    // Fabrication egress keys mirror the `Rasm.Fabrication` `EgressKind` rows verbatim; federation is
+    // content-key-only, so no Fabrication type crosses this page.
     public static readonly ArtifactKind CutProgram = new("cutprogram", RetentionClass.Cache, CacheTier.ModelResult);
     public static readonly ArtifactKind Placement = new("placement", RetentionClass.Cache, CacheTier.ModelResult);
     public static readonly ArtifactKind Remnant = new("remnant", RetentionClass.Blob, CacheTier.ArtifactBlob);
@@ -248,74 +246,43 @@ public sealed partial class ArtifactKind {
     public CacheTier Tier { get; }
     private ArtifactKind(string key, RetentionClass retention, CacheTier tier) : this(key) => (Retention, Tier) = (retention, tier);
 
-    // Provenance-derived texture-set admission: the press PLAN key is present exactly when a press baked the
-    // planes and absent on an acquired set, so the discriminant is recoverable from the value the producer
-    // already holds and no origin flag rides beside it. A caller naming the row directly can pair acquired bytes
-    // with a rebuildable class, which the retention sweep then evicts — the one selector forecloses it.
-    // One plan key projects BOTH the class discriminant AND the origin the index records, so the selector hands
-    // back that SOURCE KEY beside the row: a `TextureSet` row can never claim rebuildability while its own
-    // index carries no origin, and a press family can never strand under per-set content keys.
-    // Reading the key twice at a call site is exactly the divergence one return forecloses.
+    // One plan key projects BOTH the class discriminant AND the origin the index records, so a `TextureSet` row can
+    // never claim rebuildability while its own index carries no origin.
     public static (ArtifactKind Kind, Option<UInt128> Source) Texture(Option<UInt128> planKey) =>
         (planKey.IsSome ? TextureSet : TextureAcquired, planKey);
 
-    // Representation-slot admission: the `Object` node carries one `Option<UInt128>` per slot, so the slot a
-    // producer is writing IS the discriminant and the selector returns the row beside the LOSSLESS body key the
-    // derived slots regenerate from — a `RepresentationBody`/`Axis`/`Footprint` row admitting with `None` origin
-    // would claim re-derivability while its own index names nothing to re-derive from, exactly the split the
-    // texture selector forecloses. The `Box` arm returns `None` because the lossless body IS the origin.
+    // `Rasm.Element`'s `Graph/element#NODE_MODEL` `RepresentationSlot` owns this roster — the one identifier
+    // vocabulary the producing node already keys its `RepresentationContentHash` by — composed, never re-declared,
+    // so the correspondence is this page's own column and a slot mint upstream breaks HERE. Dispatch takes the
+    // roster's generated total `Switch` rather than a row-identity compare, so the retention arm and the origin arm
+    // answer together per row: derived rows admitting with `None` origin would claim re-derivability while the index
+    // names nothing to re-derive from, and the `Box` arm alone returns `None` because the lossless body IS the origin.
     public static (ArtifactKind Kind, Option<UInt128> Source) Representation(RepresentationSlot slot, Option<UInt128> bodyKey) =>
-        (slot.Kind(), slot == RepresentationSlot.Box ? None : bodyKey);
+        slot.Switch(
+            state: bodyKey,
+            body: static key => (RepresentationBody, key),
+            axis: static key => (RepresentationAxis, key),
+            box: static _ => (RepresentationBox, Option<UInt128>.None),
+            footPrint: static key => (RepresentationFootprint, key));
 }
 
-// `RepresentationSlot` bounds the `Graph/element#NODE_MODEL` `RepresentationContentHash` slot roster, so a producer
-// names the slot it holds and the kind derives — a caller passing `ArtifactKind` directly could pair a display
-// mesh with the lossless class the sweep then never evicts, which the selector forecloses. The correspondence is
-// a DEFERRED column: two smart-enum rosters referencing each other's fields eagerly capture null before either
-// materializes, so the row answers behind `static () => Row` and the read supplies the materialization edge.
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class RepresentationSlot {
-    public static readonly RepresentationSlot Box = new("box", static () => ArtifactKind.RepresentationBox);
-    public static readonly RepresentationSlot Body = new("body", static () => ArtifactKind.RepresentationBody);
-    public static readonly RepresentationSlot Axis = new("axis", static () => ArtifactKind.RepresentationAxis);
-    public static readonly RepresentationSlot FootPrint = new("footprint", static () => ArtifactKind.RepresentationFootprint);
-    public static readonly RepresentationSlot Coverage = new("coverage", static () => ArtifactKind.CoverageRaster);
-
-    [UseDelegateFromConstructor] public partial ArtifactKind Kind();
-}
-
-// LaneOutcome carries the storage lane's own conditional-write verdict: `Stored` fresh bytes, `Replaced` a prior
-// name+epoch version (the loser's disposal is the lane receipt's, committed in the same conditional write), `Deduped`
-// a resident content key (no bytes moved) — the admission fact reads the COMMITTED outcome, never a pre-write prediction.
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record LaneOutcome {
-    private LaneOutcome() { }
-    public sealed record Stored(long Bytes) : LaneOutcome;
-    public sealed record Replaced(long Bytes, ulong PriorEpoch) : LaneOutcome;
-    public sealed record Deduped : LaneOutcome;
-
-    public long Committed => this.Map(stored: static s => s.Bytes, replaced: static r => r.Bytes, deduped: static _ => 0L);
-}
-
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class RetentionCatalog {
-    // `Admit` folds all four stages: classify-check (an UNRANKED stamp fails `Unstamped` fail-closed BEFORE the ceiling
-    // compare — absence of a seam rank is not clearance; a ranked-but-exceeding stamp fails `CeilingBreach`),
-    // identity-derive (the `cls.Scheme.Identity` mint — the scheme row consumes the ingredients it needs: content-keyed
-    // passes the content address through, name-plus-epoch mints off `name`+`epoch`; a caller-preminted key beside a
-    // prose-only derive stage is the deleted split-brain), race-admit (a content-keyed class dedups a resident key to a
-    // Deduped fact with no write; a name-plus-epoch class drives the lane's conditional write whose receipt names
-    // replace-or-fresh and disposes the race loser store-side), lane-write (the injected `write` leg IS the declared
-    // StorageLane's conditional write — an Admit that only predicts is the deleted form). The artifact's CURRENT
-    // `StorageTier` rides the fact.
-    public static IO<Fin<RetentionFact>> Admit(RetentionClass cls, ContentAddress contentKey, string name, ulong epoch, DataClassification stamp, StorageTier tier, Func<ContentAddress, bool> resident, Func<ContentAddress, IO<Fin<LaneOutcome>>> write, ProjectionContext frame) {
-        if (!RetentionCeiling.Ranked(stamp)) { return IO.pure(Fin<RetentionFact>.Fail(new RetentionFault.Unstamped(contentKey))); }
-        if (!RetentionCeiling.Admits(stamp, cls.Ceiling)) { return IO.pure(Fin<RetentionFact>.Fail(new RetentionFault.CeilingBreach(stamp, cls.Ceiling))); }
-        ContentAddress key = cls.Scheme.Identity(contentKey, name, epoch);
-        return cls.Scheme.Dedups && resident(key)
+    // One rail, four stages: ceiling-admit, identity-derive, race-admit, lane-write. The injected `write` leg IS the
+    // declared lane's conditional write, because an `Admit` that only predicts is the deleted form.
+    public static IO<Fin<RetentionFact>> Admit(
+        RetentionClass cls, ContentAddress contentKey, string name, ulong epoch, DataClassification stamp,
+        StorageTier tier, Func<ContentAddress, bool> resident, Func<ContentAddress, IO<Fin<LaneOutcome>>> write, ProjectionContext frame) =>
+        RetentionCeiling.Admit(stamp, cls.Ceiling).Match(
+            Succ: _ => Land(cls, cls.Scheme.Identity(contentKey, name, epoch), tier, resident, write, frame),
+            Fail: fault => IO.pure(Fin<RetentionFact>.Fail(fault)));
+
+    static IO<Fin<RetentionFact>> Land(
+        RetentionClass cls, ContentAddress key, StorageTier tier,
+        Func<ContentAddress, bool> resident, Func<ContentAddress, IO<Fin<LaneOutcome>>> write, ProjectionContext frame) =>
+        cls.Scheme.Dedups && resident(key)
             ? IO.pure(Fin<RetentionFact>.Succ(new RetentionFact(cls, key, 0L, tier, frame.Now())))
             : write(key).Map(outcome => outcome.Map(committed => new RetentionFact(cls, key, committed.Committed, tier, frame.Now())));
-    }
 }
 ```
 
@@ -325,24 +292,28 @@ public static class RetentionCatalog {
 |  [02]   | storage lane      | `StorageLane` row per class                         | sweep/delete route by lane, not a key string compare     |
 |  [03]   | sensitivity rank  | seam-local `RetentionCeiling` frozen table          | `DataClassification` carries no ordinal; rank lives here |
 |  [04]   | identity scheme   | content-keyed vs name-plus-epoch, `Scheme.Identity` | dedup/race-disposal vs versioned-replacement             |
-|  [05]   | ceiling vs budget | ceiling rejects, budget truncates                   | security never degrades; capture succeeds degraded       |
-|  [06]   | stream class      | append-only, never evicted                          | the event SoR; only snapshots and blobs reclaim          |
+|  [05]   | loss capabilities | `CapabilitySet<RetentionCapability>` + `Law`        | three legal corners; evict-and-expire refuses at init    |
+|  [06]   | ceiling vs budget | ceiling rejects, budget truncates                   | security never degrades; capture succeeds degraded       |
+|  [07]   | stream class      | append-only, never evicted                          | the event SoR; only snapshots and blobs reclaim          |
 
 ## [03]-[SWEEP_AND_GC]
 
-- Owner: `SweepVerdict` the closed per-artifact verdict carrying the artifact's own byte figure; `PartitionSpan` the partition-grained inventory slot a rolling-window family's fact carries; `Hold` the first-class hold row (whole-class, identity-set, stamp-range selectors composing by union); `SweepReceipt` the run summary proving `inventory = kept + held + cooled + evicted + refused` and carrying the lane's per-key refusal roster; `Reachability` the full-history mark surface; `RetentionSweep` the static surface owning the pure state-threaded verdict fold and the one receipted mutation executor (set-shaped delete beside cold-tier demote) over the `Store/blobstore#OBJECT_STORE` `EraseTally` the erase arrow answers in.
-- Cases: `SweepVerdict` is `Kept | Held | HeldOverBudget | EvictAge | EvictCount | EvictSize | EvictAdministrative | EvictOrphan | DropPartition | Cool`; `DropPartition` is the PARTITION-grained age eviction — a rolling-window family's aged trailing partition leaves whole through the database's own constant-time drop, one verdict carrying the partition name, the rows it retired, and its bytes, its `Key` the ordinary `IdentityScheme.NamePlusEpoch` mint over that name because a partition IS the epoch-grained name-plus-epoch unit; held bytes count against the budget but cannot evict so preservation pressure surfaces as `HeldOverBudget` rather than displacing onto unheld artifacts; `EvictAdministrative` is the operator-deletion verdict so a manual purge rides the same single executor and receipt stream rather than a side channel; `EvictOrphan` is the never-evict class's ONLY collection — an unreachable artifact no AS-OF cut ever referenced (crash debris, a race-loser row) past the class's DECLARED `RetentionSchedule.OrphanAge`, so a `NeverEvict` artifact younger than its orphan threshold stays non-evictable, `H10` holds for every referenced blob, and the crash-window loop still closes; `Cool` is the never-evict cold-tiering verdict (`H10`'s geometry-GC-forbidden alternative made real) carrying the `From`/`To` `StorageTier` so an aged never-evict artifact demotes one rung rather than collects or keeps-forever; every evict verdict and `HeldOverBudget` carries both the `Key` and the artifact `Bytes` so the executor emits a truthful per-eviction byte figure and the run summary sums real reclaimed bytes; the reachability mark is `Reachable | Orphan` over the full-history cut set.
-- Entry: `public static (Seq<SweepVerdict> Verdicts, SweepReceipt Receipt) Run(RetentionClass cls, Seq<RetentionFact> inventory, Seq<Hold> holds, Reachability live, Func<ContentAddress, bool> eligible, Instant now, Guid correlation)` is the pure verdict fold; `public static IO<LanguageExt.HashSet<ContentAddress>> Mark(ReachabilitySource source)` dispatches one full-history reachability entry over reconstructed `Cuts` or a Marten `EventTagQuery` `Tags` adapter; `public static IO<SweepReceipt> Execute(RetentionClass cls, Seq<SweepVerdict> verdicts, Func<Seq<ContentAddress>, IO<EraseTally>> evict, Func<ContentAddress, StorageTier, IO<Unit>> demote, ProjectionContext frame)` is the one receipted mutation executor — the WHOLE evict set routing through `evict` in one pass, every cold-tier demotion through `demote` — the returned receipt carrying the sweep's real `RetentionClass`, the bytes the lane released, the per-key refusals it declined, and the frame correlation.
-- Auto: the sweep is one pure state-threaded `Fold` walking the inventory newest-first (`OrderByDescending` on the admission `Instant`) — holds and fenced keys exit first (yielding `Held`, or `HeldOverBudget` once their running bytes clear the budget), the reachability mark shielding ONLY a collecting class (`LossPolicy.Collects`); a DECLARED-EXPIRY class then expires at its declared bound (an artifact past `AgeBound` yields the age verdict — the declared expiry IS the age eviction, and budget pressure never expires a declared-expiry artifact early because capture-side truncation owns the budget response); a NEVER-EVICT class consumes the mark itself — an unreachable, fence-cleared artifact past its declared `OrphanAge` yields `EvictOrphan` (a younger orphan is `Kept` — the age condition is the schedule's own column, never a policy hidden in the key-only eligibility predicate) and a reachable one runs the cold-tiering arm GATED on `Lane.Durable` (a durable-lane artifact past `AgeBound` whose `StorageTier` can still demote yields `Cool`; a non-durable lane has no colder home so the arm never fires there; an already-coldest or still-young one is `Kept`); a RECEIPTED-EVICT class takes the first deciding verdict in the declared order (age past `AgeBound`, then count past `CountBound`, then size past `ByteBudget`); BOTH arms mint their age verdict through the one `Aged` projection so the fact's own GRAIN decides its shape — a row-grained fact yields `EvictAge` and a partition-grained one a whole-partition `DropPartition` — while the count and size stages stay row-grained economics a still-young partition is `Kept` ahead of, so a rolling-window family pays one verdict per aged partition where it once paid one per row; the newest-first walk threads `(LiveCount, RunningBytes)` over the retained-newest so `EvictCount` fires once `CountBound` newer survivors are already kept and `EvictSize` once running bytes clears `ByteBudget`, which keeps newest-N and evicts the OLDEST beyond budget in one pass (the size and count stages demand opposite walk directions under an ascending walk — newest-first reconciles both), every evict verdict carrying the artifact's own bytes and the prepend-built ledger reading oldest-first; a `Cool` is RETAINED (the bytes stay resident, demoted) so it threads `Live`/`Bytes` exactly like `Kept`; verdicts are a pure function of the inventory snapshot, the policy snapshot, the hold rows, and the eligibility predicate under one clock instant, so the verdict list is a testable value and a partial sweep resumes by re-folding with no journal; the reachability mark runs over EVERY AS-OF cut, not head — a content key referenced by any historical `TimeCut`'s reconstructed graph is `Reachable` and never collected, so a blob a prior version still references survives even after head drops it; blob bytes delete after the catalog row commit (the crash window produces collectible orphans, never dangling rows) and the age-gated orphan pass closes the loop.
-- Receipt: every removed artifact emits `(class, identity, deciding rule, bytes)`, every dropped partition `(class, identity, "partition", bytes)` beside the partition name and the row count it retired, and every demotion `(class, identity, "cool", from-tier, to-tier)`; every per-key refusal `(class, identity, refusal code)`; the run summary proves `inventory = kept + held + cooled + evicted + refused`, reclaimed bytes counting only the keys the lane released; unreceipted deletion OR demotion anywhere is a rail rejection, and the receipt stream is itself a count-and-age-bounded class closing meta-retention at depth one; evict verdicts cross the `rasm.persistence.retention.sweep` veto point (`Store/observability#HOOK_RAIL` `PersistenceHooks.Swept`) BEFORE `Execute` — a subscriber refusal downgrades the verdict to `Held`, never an aborted sweep.
-- Packages: Marten (`store.Advanced.DropAgedRollingPartitionsAsync` — the rolling family's bound `evict` arrow), Rasm.Persistence (`Store/blobstore#OBJECT_STORE` `EraseTally` — the set-erase tally every lane's arrow answers in), LanguageExt.Core (`Seq`/`Fold`/`IO`/`TraverseM`/`HashSet`/`Option`), Thinktecture.Runtime.Extensions (`[Union]` + `Switch`), NodaTime, BCL inbox.
-- Growth: a new sweep rule is one stage in the declared verdict order; a new hold selector is one `Hold` case; a new deletion provenance is one `SweepVerdict` evict case (as `EvictAdministrative`, `EvictOrphan`, and `DropPartition` are); a new partition-retired family is one `Store/provisioning#SERVER_EXTENSIONS` `RollingWindow` row with the partition-grained inventory its sweep reads, never a second verdict case; a new preservation-side transition is one retaining `SweepVerdict` case (as `Cool` is) with one executor delegate; zero new surface — a second sweeper, a head-only GC, an unreceipted cleanup, a tier-transition side channel beside the one executor, or an export-to-preserve workaround is the deleted form because the sweep is the single mutation executor and the GC marks over the full history.
-- Boundary: the reachability GC runs over the FULL event history, not head (`H10`) — `Mark` folds the referenced content keys of every AS-OF cut's reconstructed graph so an artifact blob or snapshot a historical version references is `Reachable` and survives, and a head-only GC that collects a blob a prior version still cites is the deleted form; the alternative permitted by `H10` is geometry-GC-forbidden (dedup-plus-cold-tiering with no collection), expressed as a `blob`-class schedule whose `LossPolicy.NeverEvict` makes the age-threshold a `Cool` cold-tier demotion (the `RetentionCeiling.Demote` ladder over the blobstore `StorageTier`, re-PUT through the `Execute` `demote` delegate) rather than an eviction — the landed `Blob` row IS that schedule, and a `NeverEvict` class that merely keeps-forever, or a prose-only "tiering" with no verdict, is the deleted thin slice; reachability shields ONLY a collecting class — the never-evict arm consumes the mark as its orphan/cool discriminant, so `EvictOrphan` collects ONLY an artifact no cut ever referenced and never a referenced blob (`H10` holds structurally), while the `stream` class never reaches that arm because its cadence never schedules a sweep and the SoR fence rides the injected eligibility predicate; the sweep dispatch consumes BOTH `LossPolicy` columns, the derived `Collects` shield, and the lane's `Durable` flag — `Expires` selects the declared-expiry arm (the artifact evicts AT its declared `AgeBound`, so an aged evidence bundle or awareness row expires instead of nonsensically cold-tiering), and the `Cool` arm demands `Lane.Durable` because a tier re-PUT is a durable-home operation a `Transient`-lane artifact cannot take — a captured-but-never-read policy column is the deleted illusory form; holds are first-class rows bound late at sweep time so a hold placed today protects artifacts admitted tomorrow, release deletes the row with no eviction side effect, and every run emits an active-hold inventory because forgotten holds are the dominant retention failure; the executor is the one mutation surface every lane routes through (a snapshot sweep, a blob GC, a cache eviction, an operator purge through `EvictAdministrative`, a cold-tier demotion through `Cool`) so the receipt stream is the complete lifecycle ledger; eligibility predicates inject (sync fences, projection floors, export pins, the `Store/blobstore#BLOB_GC` WORM/object-lock fence holding a blob under an active retention-until) so the sweep owns zero domain-safety rules and every refusal names the predicate that held it — the orphan AGE condition is NOT one of them: age is a fact the sweep already holds (`fact.At` against `Schedule.OrphanAge`), and a key-only predicate cannot see it, so smuggling the age policy into `eligible` is the deleted form; the injected `evict` arrow is SET-shaped and lane-owned, so each lane deletes at the grain its substrate already has — the blob lane pages its group against the provider's own batch bound and the rolling family drops whole partitions in one call — and it answers in `Store/blobstore#OBJECT_STORE` `EraseTally`, whose two columns are the two failure grains: a transport failure fails the rail and kills the pass, while a per-key refusal (the blob lane's `WormEvict` declining a compliance-window key under `RemoteStoreFault.Locked`, the defense-in-depth second gate behind the eligibility fence) accumulates onto the tally and lands on `SweepReceipt.Refusals`, so a WORM violation is a named refusal on the receipt stream and never a silent skip, a generic provider 403, or a whole pass lost to one held key; a family carrying a `Store/provisioning#SERVER_EXTENSIONS` `RollingWindow` row sweeps at PARTITION grain — its class's own declared `AgeBound` still decides and the roster's aged edge sits one period beyond it, so a drop never outruns the verdict; its inventory enumerates partitions, so `Inventory == Kept + Held + Cooled + Evicted` closes over exactly the units the run walked and the receipt stream still accounts every deletion, one `DropPartition` naming the rows a drop retired rather than a silent bulk removal, while holds and the eligibility fence keep their meaning at that grain (a hold over the class holds the partition, and a held partition never drops); the content-keyed classes keep the per-row receipted sweep and full-history reachability untouched, because a partition drop cannot consult a reachability mark and the roster admits only families whose whole table shares one declared bound; the drop still executes through the ONE `Execute` mutation surface — for a rolling family the injected `evict` arrow IS `store.Advanced.DropAgedRollingPartitionsAsync`, so an unreceipted deletion stays a rail rejection here exactly as it is for a blob delete — and the single-writer boot pass's `ApplyRollingPartitionsAsync` (`Element/identity#SCHEMA_VERDICT`) is the same trailing drop composed with the leading `RollPartitionsForwardAsync` provision, both idempotent and multi-node safe, so boot and cadence performing the same drop is one act and a cron rotation job beside them is the deleted form.
+- Owner: `SweepVerdict` the closed per-artifact verdict carrying the artifact's own byte figure, its `Releases` case predicate, and the `Book` fold each case tallies itself through; `Hold` the first-class hold row (whole-class, identity-set, stamp-range selectors composing by union); `SweepReceipt` the run summary proving `inventory = kept + held + cooled + evicted + refused` and carrying the lane's per-key refusal roster; `Reachability` the full-history mark; `ReachabilitySource` the two mark inputs; `RetentionSweep` the static surface owning the pure state-threaded verdict fold and the one receipted mutation executor over the `Store/blobstore#OBJECT_STORE` `EraseTally` the erase arrow answers in.
+- Cases: `SweepVerdict` is `Kept | Held | HeldOverBudget | EvictAge | EvictCount | EvictSize | EvictAdministrative | EvictOrphan | DropPartition | Cool`. `DropPartition` is the PARTITION-grained age eviction — an aged trailing partition leaves whole through the database's constant-time drop, one verdict naming the partition and the rows it retired. Held bytes count against the budget but cannot evict, so preservation pressure surfaces as `HeldOverBudget` rather than displacing onto unheld artifacts. `EvictAdministrative` routes an operator purge through the same executor rather than a side channel. `EvictOrphan` is the never-evict class's ONLY collection: an unreachable artifact no cut ever referenced, past the class's declared `OrphanAge`. `Cool` is its cold-tiering verdict, carrying `From`/`To` so an aged never-evict artifact demotes rather than collects or keeps forever.
+- Entry: `RetentionSweep.Run(cls, inventory, holds, live, eligible, now, correlation)` is the pure verdict fold answering the verdict list beside its PLANNED receipt; `Mark(source)` dispatches one full-history reachability entry over reconstructed `Cuts` or a Marten `EventTagQuery` `Tags` adapter; `Execute(cls, verdicts, evict, demote, frame)` is the one receipted mutation executor — the WHOLE evict set through `evict` in one pass, every demotion through `demote`, both under the class's own `RedrivePolicy` — returning the receipt carrying released bytes, per-key refusals, and the frame correlation.
+- Auto: the sweep is one state-threaded fold walking the inventory newest-first, and `Decide` reads ONE joint discriminant rather than a guard ladder: fenced-or-shielded, then the class's own loss capabilities. Fencing yields `Held`, or `HeldOverBudget` once its running bytes clear the budget. Declared-expiry classes evict AT its declared `AgeBound`, because capture-side truncation owns the budget response and pressure never expires an artifact early. Never-evict classes consume the mark itself — an unreachable, fence-cleared artifact past its `OrphanAge` is `EvictOrphan`, a younger one `Kept`, and a reachable aged one `Cool` gated on `Lane.Durable`, since a `Transient` artifact has no colder home. Receipted-evict classes take the first deciding verdict in the declared order: age, then count, then size. Both aging arms mint through the one `Aged` projection, so the fact's own GRAIN decides whether it leaves as `EvictAge` or as one whole-partition `DropPartition`.
+- Auto: the newest-first walk threads `(Live, Bytes)` over the retained-newest, so `EvictCount` fires once `CountBound` newer survivors are kept and `EvictSize` once running bytes clear `ByteBudget` — newest-N and oldest-beyond-budget in one pass, where the two stages demand opposite directions under an ascending walk. Verdict `Cool` stays RETAINED and threads exactly like `Kept`. Every verdict books itself into the receipt through its own `Book` arm, so the planned tally and the executed tally read one generated dispatch and a new case cannot silently miss a slot. Verdicts are a pure function of the inventory, policy, holds, and eligibility under one clock instant, so a partial sweep resumes by re-folding with no journal. Reachability marks over EVERY AS-OF cut, so a blob a prior version references survives after head drops it, and blob bytes delete after the catalog row commits — the crash window produces collectible orphans, never dangling rows.
+- Receipt: every removed artifact emits `(class, identity, deciding rule, bytes)`, every dropped partition names the partition and the rows it retired, every demotion its from-and-to tier, and every per-key refusal its code; the run summary proves `inventory = kept + held + cooled + evicted + refused`, with reclaimed bytes counting only keys the lane released. Unreceipted deletion OR demotion is a rail rejection, and the receipt stream is itself a bounded class closing meta-retention at depth one. Evict verdicts cross the `rasm.persistence.retention.sweep` veto point before `Execute`, where a subscriber refusal downgrades the verdict to `Held`, never aborting the sweep.
+- Packages: Marten (`store.Advanced.DropAgedRollingPartitionsAsync` — the rolling family's bound `evict` arrow), Rasm.Persistence (`Store/blobstore#OBJECT_STORE` `EraseTally`), Rasm (`Rasm.Domain` `Redrive.Run` + `RedrivePolicy` — the ONE re-drive executor over both effect arrows), LanguageExt.Core (`Seq`/`Fold`/`IO`/`TraverseM`/`HashSet`/`Option`), Thinktecture.Runtime.Extensions (`[Union]` + `Switch`), NodaTime, BCL inbox.
+- Growth: a new sweep rule is one stage in the declared verdict order; a new hold selector one `Hold` case; a new deletion provenance one evict case with its `Book` arm; a new preservation-side transition one retaining case with one executor delegate; a new partition-retired family one `RollingWindow` row with the partition-grained inventory its sweep reads. Zero new surface — a second sweeper, a head-only GC, an unreceipted cleanup, a tier-transition side channel beside the one executor, a hand retry loop around an erase, or an export-to-preserve workaround is the deleted form.
+- Boundary: the GC marks over the FULL event history, not head — an artifact any AS-OF cut references is `Reachable` and survives, and a head-only GC that collects a blob a prior version cites is the deleted form. Dedup-plus-cold-tiering is the permitted alternative, expressed as the `blob` row's never-evict loss set making its age threshold a `Cool` demotion rather than an eviction; a never-evict class that merely keeps forever, or a prose-only "tiering" with no verdict, is the deleted thin slice. Reachability shields ONLY a collecting class, so `EvictOrphan` collects only what no cut ever referenced. Arm `Cool` demands `Lane.Durable` because a tier re-PUT is a durable-home operation, and the `stream` class never reaches any arm because its cadence never schedules a sweep.
+- Boundary: holds are first-class rows bound late at sweep time, so a hold placed today protects tomorrow's admissions, release deletes the row with no eviction side effect, and every run emits an active-hold inventory because forgotten holds are the dominant retention failure. Eligibility predicates inject (sync fences, projection floors, export pins, the `Store/blobstore#BLOB_GC` WORM fence), so the sweep owns zero domain-safety rules — but the orphan AGE condition is NOT one of them: age is a fact the sweep already holds and a key-only predicate cannot see it, so smuggling it into `eligible` is the deleted form. Every injected `evict` arrow is SET-shaped and lane-owned, answering in `EraseTally`, whose two columns are the two failure grains.
+- Boundary: a family carrying a `Store/provisioning#SERVER_EXTENSIONS` `RollingWindow` row sweeps at PARTITION grain — its class's declared `AgeBound` still decides and the roster's aged edge sits one period beyond it, so a drop never outruns the verdict. Its inventory enumerates partitions, so the conservation identity closes over exactly the units the run walked and one `DropPartition` accounts the rows a drop retired. Holds and the eligibility fence keep their meaning at that grain, while the content-keyed classes keep per-row sweep and full-history reachability untouched, because a partition drop cannot consult a mark. Drops still execute through the ONE `Execute` surface, and the single-writer boot pass's `ApplyRollingPartitionsAsync` is the same trailing drop composed with the leading provision — so boot and cadence performing one act makes a cron rotation job beside them the deleted form.
 
 ```csharp signature
-// `Key`/`Bytes` are ABSTRACT on the root so each case's synthesized positional property OVERRIDES them — a concrete
-// computed base property beside a same-named positional parameter is the deleted form, leaving the parameter unread
-// while the base switch recurses into itself; `Kept` carries no byte figure, so its override is the explicit zero.
+// --- [MODELS] --------------------------------------------------------------------------
+// `Key`/`Bytes` are ABSTRACT so each case's positional property overrides them: a concrete computed base property
+// beside a same-named parameter leaves the parameter unread while the base switch recurses into itself.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SweepVerdict {
     private SweepVerdict() { }
@@ -353,27 +324,37 @@ public abstract partial record SweepVerdict {
     public sealed record EvictCount(ContentAddress Key, long Bytes, int Rank) : SweepVerdict;
     public sealed record EvictSize(ContentAddress Key, long Bytes, long OverBy) : SweepVerdict;
     public sealed record EvictAdministrative(ContentAddress Key, long Bytes, string By) : SweepVerdict;
-    // `EvictOrphan` is the never-evict class's ONLY collection: an unreachable artifact no AS-OF cut ever referenced
-    // (crash debris, a race-loser row) past its declared Schedule.OrphanAge — the age-gated orphan pass closing the
-    // write-crash loop while H10 keeps every referenced blob collection-free and a younger orphan stays Kept.
     public sealed record EvictOrphan(ContentAddress Key, long Bytes, Duration Age) : SweepVerdict;
-    // `DropPartition` is the PARTITION-grained age eviction: a rolling-window family's aged partition leaves
-    // through its database's own constant-time drop, so one verdict accounts every row it carried rather than
-    // one verdict per row. `Key` is the ordinary `IdentityScheme.NamePlusEpoch` mint over the partition name,
-    // because a partition IS an epoch-grained name-plus-epoch unit, so the abstract `Key` holds with no shape
-    // break and the receipt stream reads one identity space end to end.
+    // `Key` is the ordinary name-plus-epoch mint over the partition name, because a partition IS an epoch-grained
+    // name-plus-epoch unit — so the abstract `Key` holds and the receipt stream reads one identity space end to end.
     public sealed record DropPartition(ContentAddress Key, string Partition, int Rows, long Bytes) : SweepVerdict;
-    // `Cool` is the cold-tiering verdict (`H10`: geometry-GC-forbidden = dedup-plus-cold-tiering): a `NeverEvict`-class artifact past
-    // its `AgeBound` whose `StorageTier` can still demote rides `Cool` carrying the next-colder tier, so eviction is REPLACED
-    // by a tier transition the `Execute` `demote` delegate re-PUTs at — preservation pressure on a never-evict class flows
-    // to colder storage, never to collection or to displacing onto unheld artifacts.
     public sealed record Cool(ContentAddress Key, long Bytes, StorageTier From, StorageTier To) : SweepVerdict;
 
     public abstract ContentAddress Key { get; }
     public abstract long Bytes { get; }
-    public bool Evicts => this is EvictAge or EvictCount or EvictSize or EvictAdministrative or EvictOrphan or DropPartition;
-    public bool Retains => this is Held or HeldOverBudget;
-    public bool Cools => this is Cool;
+
+    // ONE case predicate: whether the artifact leaves the inventory — what all three readers actually ask.
+    public bool Releases => Switch(
+        kept: static _ => false, held: static _ => false, heldOverBudget: static _ => false,
+        evictAge: static _ => true, evictCount: static _ => true, evictSize: static _ => true,
+        evictAdministrative: static _ => true, evictOrphan: static _ => true, dropPartition: static _ => true,
+        cool: static _ => false);
+
+    // Each case books ITSELF into the summary through the generated total dispatch, so the planned tally and the
+    // executed tally share one fold and a new case cannot silently land in the wrong conservation slot.
+    public SweepReceipt Book(SweepReceipt sum) => Switch(
+        state: sum,
+        kept:                static (s, _) => s with { Kept = s.Kept + 1 },
+        held:                static (s, _) => s with { Held = s.Held + 1 },
+        heldOverBudget:      static (s, _) => s with { Held = s.Held + 1 },
+        cool:                static (s, _) => s with { Cooled = s.Cooled + 1 },
+        evictAge:            static (s, v) => s with { Evicted = s.Evicted + 1, EvictedBytes = s.EvictedBytes + v.Bytes },
+        evictCount:          static (s, v) => s with { Evicted = s.Evicted + 1, EvictedBytes = s.EvictedBytes + v.Bytes },
+        evictSize:           static (s, v) => s with { Evicted = s.Evicted + 1, EvictedBytes = s.EvictedBytes + v.Bytes },
+        evictAdministrative: static (s, v) => s with { Evicted = s.Evicted + 1, EvictedBytes = s.EvictedBytes + v.Bytes },
+        evictOrphan:         static (s, v) => s with { Evicted = s.Evicted + 1, EvictedBytes = s.EvictedBytes + v.Bytes },
+        dropPartition:       static (s, v) => s with { Evicted = s.Evicted + 1, EvictedBytes = s.EvictedBytes + v.Bytes });
+
     public string Rule => Switch(
         kept:                static _ => "kept",
         held:                static _ => "hold",
@@ -413,134 +394,120 @@ public abstract partial record ReachabilitySource {
     public sealed record Tags(EventTagQuery Query, Func<EventTagQuery, IO<Seq<ContentAddress>>> QueryByTags) : ReachabilitySource;
 }
 
-// `Refused` is the fifth partition slot: an evict verdict the lane's own erase declined per key (a WORM window, a
-// provider per-object delete error) neither left the inventory nor freed a byte, so counting it as `Evicted` reported
-// reclaim that never happened. `Refusals` carries the lane's per-key evidence — the key and the code naming WHICH
-// verdict survived and why — so a refusal is diagnosable rather than a count.
-public readonly record struct SweepReceipt(RetentionClass Class, int Inventory, int Kept, int Held, int Cooled, int Evicted, int Refused, long EvictedBytes, Seq<(ContentAddress Key, string Code)> Refusals, Instant At, CorrelationId Correlation) {
-    // `Conserves` partitions a cooled artifact (RETAINED, demoted, never collected) and a refused one (retained by the
-    // lane's own veto) with kept/held, so the identity closes over all five retention-side counts and the evicted
-    // count, never silently dropping the cold-tiering rung or booking a refused key as reclaimed.
+// `Refused` is the fifth partition slot: a per-key erase the lane declined neither left the inventory nor freed a
+// byte, so booking it as `Evicted` reports reclaim that never happened.
+public readonly record struct SweepReceipt(
+    RetentionClass Class, int Inventory, int Kept, int Held, int Cooled, int Evicted, int Refused,
+    long EvictedBytes, Seq<(ContentAddress Key, string Code)> Refusals, Instant At, CorrelationId Correlation) {
+    public static SweepReceipt Empty(RetentionClass cls, int inventory, Instant at, CorrelationId correlation) =>
+        new(cls, inventory, 0, 0, 0, 0, 0, 0L, Seq<(ContentAddress Key, string Code)>(), at, correlation);
+
     public bool Conserves => Inventory == (Kept + Held + Cooled + Evicted + Refused);
 }
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class RetentionSweep {
-    // `Slots` mounts the retention lane's receipt slots through the `Store/observability#SLOT_REGISTRY` census spread
-    // like every other emitting owner's roster — admission and refusal slots the `#RETENTION_CLASSES` receipt names,
-    // with the sweep slot the run summary rides, so the verdict stream is projectable rather than a receipt no
-    // registry knows and no arm can key on.
+    // Slots mount through the `Store/observability#SLOT_REGISTRY` census spread, so the verdict stream is
+    // projectable.
     public static readonly StoreSlot AdmitSlot = StoreSlot.Create("store.retention.admit");
     public static readonly StoreSlot RejectSlot = StoreSlot.Create("store.retention.reject");
     public static readonly StoreSlot SweepSlot = StoreSlot.Create("store.retention.sweep");
     public static readonly Seq<StoreSlot> Slots = Seq(AdmitSlot, RejectSlot, SweepSlot);
 
-    // Both source cases settle to the same idempotent `LanguageExt.HashSet.Add` mark: reconstructed cuts fold every
-    // historical graph, while the tag adapter projects Marten `QueryByTagsAsync(EventTagQuery)` results to content keys.
+    // Both sources settle to one idempotent mark: cuts fold every historical graph, tags project Marten results.
     public static IO<LanguageExt.HashSet<ContentAddress>> Mark(ReachabilitySource source) => source.Switch(
         cuts: static row => IO.pure(row.EveryCut.Fold(LanguageExt.HashSet<ContentAddress>.Empty, (live, cut) => row.ReferencedAt(cut).Fold(live, static (set, key) => set.Add(key)))),
         tags: static row => row.QueryByTags(row.Query).Map(static keys => keys.Fold(LanguageExt.HashSet<ContentAddress>.Empty, static (set, key) => set.Add(key))));
 
+    // `Run`'s receipt is the PLANNED partition — the fold has executed nothing, so the refusal slots seat empty and
+    // only `Execute` fills them; a planned figure carrying a refusal reports a lane veto nobody asked for.
     public static (Seq<SweepVerdict> Verdicts, SweepReceipt Receipt) Run(
-        RetentionClass cls, Seq<RetentionFact> inventory, Seq<Hold> holds, Reachability live, Func<ContentAddress, bool> eligible, Instant now, Guid correlation) {
+        RetentionClass cls, Seq<RetentionFact> inventory, Seq<Hold> holds, Reachability live,
+        Func<ContentAddress, bool> eligible, Instant now, CorrelationId correlation) {
         (Seq<SweepVerdict> Ledger, int Live, long Bytes) scan = toSeq(inventory.OrderByDescending(static f => f.At))
             .Fold((Ledger: Seq<SweepVerdict>(), Live: 0, Bytes: 0L),
                 (state, fact) => Advance(state, fact, Decide(cls, state, fact, holds, live, eligible, now)));
-        Seq<SweepVerdict> verdicts = scan.Ledger;
-        // `Run`'s receipt is the PLANNED partition — the fold has executed nothing, so the refusal slots seat empty and
-        // only `Execute` can fill them; a planned figure carrying a refusal would report a lane veto nobody asked for.
-        SweepReceipt receipt = verdicts.Fold(new SweepReceipt(cls, inventory.Count, 0, 0, 0, 0, 0, 0L, Seq<(ContentAddress Key, string Code)>(), now, correlation), static (sum, v) =>
-            v.Evicts ? sum with { Evicted = sum.Evicted + 1, EvictedBytes = sum.EvictedBytes + v.Bytes }
-            : v.Cools ? sum with { Cooled = sum.Cooled + 1 }
-            : v.Retains ? sum with { Held = sum.Held + 1 }
-            : sum with { Kept = sum.Kept + 1 });
-        return (verdicts, receipt);
+        return (scan.Ledger, scan.Ledger.Fold(SweepReceipt.Empty(cls, inventory.Count, now, correlation), static (sum, v) => v.Book(sum)));
     }
 
-    // `Decide` dispatches on BOTH loss-policy columns, the derived Collects shield, and the lane's Durable flag:
-    // holds and the eligibility fence exit first; the reachability mark shields ONLY a collecting class (a
-    // DECLARED-EXPIRY or RECEIPTED-EVICT artifact a cut references is Held); a NEVER-EVICT class consumes the mark
-    // itself — an unreachable, fence-cleared artifact past its declared Schedule.OrphanAge is EvictOrphan (a
-    // younger orphan is Kept — age never hides in the key-only predicate) and a reachable one past its age
-    // cold-tiers one rung per pass (idempotent at `Archive`) ONLY on a durable lane — a Transient artifact has no
-    // colder home, so the arm is structurally closed there, never a silent `Kept`-forever OR a nonsense
-    // awareness-row demotion; a DECLARED-EXPIRY class evicts AT its declared AgeBound (budget pressure never
-    // expires it early — capture-side truncation owns the budget response); only a RECEIPTED-EVICT class runs the
-    // age/count/size eviction ladder. BOTH arms mint their age verdict through `Aged`, so the fact's own grain —
-    // row or partition — decides whether an aged fact leaves as EvictAge or as one whole-partition DropPartition.
-    static SweepVerdict Decide(RetentionClass cls, (Seq<SweepVerdict> Ledger, int Live, long Bytes) state, RetentionFact fact, Seq<Hold> holds, Reachability live, Func<ContentAddress, bool> eligible, Instant now) =>
-        holds.Exists(h => h.Holds(fact)) || !eligible(fact.Key) || (cls.Loss.Collects && live.Reachable(fact.Key))
-            ? (state.Bytes + fact.Bytes) > cls.Schedule.ByteBudget
-                ? new SweepVerdict.HeldOverBudget(fact.Key, fact.Bytes, (state.Bytes + fact.Bytes) - cls.Schedule.ByteBudget)
-                : new SweepVerdict.Held(fact.Key, fact.Bytes, "hold-or-reachable")
-            : cls.Loss.Expires
-                ? (now - fact.At) >= cls.Schedule.AgeBound
-                    ? Aged(fact, now - fact.At)
-                    : new SweepVerdict.Kept(fact.Key)
-                : !cls.Loss.Evicts
-                    ? !live.Reachable(fact.Key)
-                        ? (now - fact.At) >= cls.Schedule.OrphanAge
-                            ? new SweepVerdict.EvictOrphan(fact.Key, fact.Bytes, now - fact.At)
-                            : new SweepVerdict.Kept(fact.Key)
-                        : cls.Lane.Durable && ((now - fact.At) >= cls.Schedule.AgeBound) && RetentionCeiling.Demote(fact.Tier) is { IsSome: true, Case: StorageTier colder }
-                            ? new SweepVerdict.Cool(fact.Key, fact.Bytes, fact.Tier, colder)
-                            : new SweepVerdict.Kept(fact.Key)
-                    : (now - fact.At) >= cls.Schedule.AgeBound
-                        ? Aged(fact, now - fact.At)
-                        : fact.Partition.IsSome
-                            ? new SweepVerdict.Kept(fact.Key)
-                            : (state.Live + 1) > cls.Schedule.CountBound
-                                ? new SweepVerdict.EvictCount(fact.Key, fact.Bytes, state.Live + 1)
-                                : (state.Bytes + fact.Bytes) > cls.Schedule.ByteBudget
-                                    ? new SweepVerdict.EvictSize(fact.Key, fact.Bytes, (state.Bytes + fact.Bytes) - cls.Schedule.ByteBudget)
-                                    : new SweepVerdict.Kept(fact.Key);
+    // ONE joint discriminant, not a guard ladder. `Fenced` folds hold, eligibility, and the reachability shield —
+    // which applies only to a COLLECTING class, since the never-evict arm consumes the mark as its own discriminant.
+    static SweepVerdict Decide(
+        RetentionClass cls, (Seq<SweepVerdict> Ledger, int Live, long Bytes) state, RetentionFact fact,
+        Seq<Hold> holds, Reachability live, Func<ContentAddress, bool> eligible, Instant now) =>
+        (Fenced: holds.Exists(h => h.Holds(fact)) || !eligible(fact.Key) || (cls.Collects && live.Reachable(fact.Key)),
+         Expires: cls.Loss.Admits(RetentionCapability.Expire),
+         Evicts: cls.Loss.Admits(RetentionCapability.Evict)) switch {
+            { Fenced: true } => Fence(cls, state, fact),
+            { Expires: true } => Expire(cls, fact, now),
+            { Evicts: false } => Preserve(cls, fact, live, now),
+            _ => Reclaim(cls, state, fact, now),
+        };
 
-    // `Aged` mints the age verdict at the fact's own GRAIN, the ONE mint both loss-policy arms reach: a
-    // partition-grained fact leaves whole as `DropPartition` (the database's constant-time drop, one verdict for
-    // every row it carried) and a row-grained one as `EvictAge`, so a rolling-window family retires by partition
-    // under either policy and the two arms can never diverge on what an aged fact costs. The count and size
-    // stages stay ROW-grained economics — newest-N rank and a running byte budget are questions a partition does
-    // not answer — so a still-young partition-grained fact is `Kept` ahead of them rather than mis-minting an
-    // `EvictCount`/`EvictSize` over a whole window.
+    static SweepVerdict Fence(RetentionClass cls, (Seq<SweepVerdict> Ledger, int Live, long Bytes) state, RetentionFact fact) =>
+        (state.Bytes + fact.Bytes) > cls.Schedule.ByteBudget
+            ? new SweepVerdict.HeldOverBudget(fact.Key, fact.Bytes, (state.Bytes + fact.Bytes) - cls.Schedule.ByteBudget)
+            : new SweepVerdict.Held(fact.Key, fact.Bytes, "hold-or-reachable");
+
+    // Eviction lands AT the declared bound: capture-side truncation owns the budget response, so pressure never
+    // expires early.
+    static SweepVerdict Expire(RetentionClass cls, RetentionFact fact, Instant now) =>
+        (now - fact.At) >= cls.Schedule.AgeBound ? Aged(fact, now - fact.At) : new SweepVerdict.Kept(fact.Key);
+
+    // Debris past its DECLARED `OrphanAge` collects, a younger orphan is `Kept`, and a reachable aged artifact
+    // demotes one rung — durable lanes only, since a `Transient` artifact has no colder home.
+    static SweepVerdict Preserve(RetentionClass cls, RetentionFact fact, Reachability live, Instant now) =>
+        !live.Reachable(fact.Key)
+            ? (now - fact.At) >= cls.Schedule.OrphanAge
+                ? new SweepVerdict.EvictOrphan(fact.Key, fact.Bytes, now - fact.At)
+                : new SweepVerdict.Kept(fact.Key)
+            : cls.Lane.Durable && ((now - fact.At) >= cls.Schedule.AgeBound) && RetentionCeiling.Demote(fact.Tier) is { IsSome: true, Case: StorageTier colder }
+                ? new SweepVerdict.Cool(fact.Key, fact.Bytes, fact.Tier, colder)
+                : new SweepVerdict.Kept(fact.Key);
+
+    // Age, then count, then size. Count and size are ROW-grained economics a partition does not answer.
+    static SweepVerdict Reclaim(RetentionClass cls, (Seq<SweepVerdict> Ledger, int Live, long Bytes) state, RetentionFact fact, Instant now) =>
+        (now - fact.At) >= cls.Schedule.AgeBound ? Aged(fact, now - fact.At)
+        : fact.Partition.IsSome ? new SweepVerdict.Kept(fact.Key)
+        : (state.Live + 1) > cls.Schedule.CountBound ? new SweepVerdict.EvictCount(fact.Key, fact.Bytes, state.Live + 1)
+        : (state.Bytes + fact.Bytes) > cls.Schedule.ByteBudget
+            ? new SweepVerdict.EvictSize(fact.Key, fact.Bytes, (state.Bytes + fact.Bytes) - cls.Schedule.ByteBudget)
+            : new SweepVerdict.Kept(fact.Key);
+
+    // Both loss arms reach this ONE age mint, so the fact's GRAIN decides its shape and the arms cannot diverge.
     static SweepVerdict Aged(RetentionFact fact, Duration age) =>
         fact.Partition.Case is PartitionSpan span
             ? new SweepVerdict.DropPartition(fact.Key, span.Name, span.Rows, fact.Bytes)
             : new SweepVerdict.EvictAge(fact.Key, fact.Bytes, age);
 
-    // `Advance` threads `Live`/`Bytes` through a RETAINED Cool exactly as through `Kept`/`Held` — its bytes stay
-    // resident, demoted, and only an evict releases the running figures.
-    static (Seq<SweepVerdict> Ledger, int Live, long Bytes) Advance((Seq<SweepVerdict> Ledger, int Live, long Bytes) state, RetentionFact fact, SweepVerdict verdict) =>
+    // Retained `Cool` threads `Live`/`Bytes` exactly like `Kept` — its bytes stay resident, demoted.
+    static (Seq<SweepVerdict> Ledger, int Live, long Bytes) Advance(
+        (Seq<SweepVerdict> Ledger, int Live, long Bytes) state, RetentionFact fact, SweepVerdict verdict) =>
         state with {
             Ledger = verdict.Cons(state.Ledger),
-            Live = state.Live + (verdict.Evicts ? 0 : 1),
-            Bytes = state.Bytes + (verdict.Evicts ? 0L : fact.Bytes),
+            Live = state.Live + (verdict.Releases ? 0 : 1),
+            Bytes = state.Bytes + (verdict.Releases ? 0L : fact.Bytes),
         };
 
-    // `Execute` is the ONE receipted executor every lane routes through: the whole evict SET leaves through `evict` and a
-    // `Cool` rewrites its storage-class header through `demote` (both effectful, both receipted in the one fact stream) —
-    // so a manual purge, a snapshot/blob GC, a cache eviction, AND a cold-tier demotion all flow through this single
-    // surface, never a side channel. Every lane's deletion is set-shaped underneath, so the evict arrow is SET-shaped: the
-    // object plane pages a group against its provider's own batch bound, and a rolling family drops whole partitions in
-    // one call — a per-key arrow forced both to degrade to one round trip per key and left the batch machinery
-    // unreachable. It runs ONCE per pass, so an empty verdict set is a tally of zero requested rather than a skipped
-    // call the receipt cannot account for, and that tally answers the TWO failure grains the set shape makes
-    // distinguishable: a transport failure fails the rail and kills the pass, while per-key refusals accumulate
-    // onto the tally as `Refusals`.
-    public static IO<SweepReceipt> Execute(RetentionClass cls, Seq<SweepVerdict> verdicts, Func<Seq<ContentAddress>, IO<EraseTally>> evict, Func<ContentAddress, StorageTier, IO<Unit>> demote, ProjectionContext frame) =>
-        from tally in evict(verdicts.Filter(static v => v.Evicts).Map(static v => v.Key))
-        from _ in verdicts.Choose(static v => v is SweepVerdict.Cool c ? Some(c) : None).TraverseM(c => demote(c.Key, c.To)).As()
+    // Every lane routes through this ONE receipted executor: purge, GC, eviction, and demotion all flow here. The
+    // evict arrow is SET-shaped and runs ONCE per pass, so an empty verdict set is a tally of zero requested, never a
+    // skipped call the receipt cannot account for; both arrows ride the class `RedrivePolicy`, so no hand attempt
+    // loop exists.
+    public static IO<SweepReceipt> Execute(
+        RetentionClass cls, Seq<SweepVerdict> verdicts,
+        Func<Seq<ContentAddress>, IO<EraseTally>> evict, Func<ContentAddress, StorageTier, IO<Unit>> demote, ProjectionContext frame) =>
+        from tally in Redrive.Run(cls.Schedule.Redrive, evict(verdicts.Filter(static v => v.Releases).Map(static v => v.Key)))
+        from _ in verdicts.Choose(static v => v is SweepVerdict.Cool c ? Some(c) : None)
+                          .TraverseM(c => Redrive.Run(cls.Schedule.Redrive, demote(c.Key, c.To))).As()
         select Summed(cls, verdicts, tally, frame);
 
-    // Reclaim is measured against the tally, never against the verdict list: a refused key's bytes are still resident, so
-    // they leave `EvictedBytes` and the key moves to the `Refused` slot the conservation identity closes over. `Cool`
-    // bytes stay out of the reclaim figure exactly as before — a demotion moves a header and frees nothing — so the two
-    // retention-side partitions keep their distinct meanings and the summed figure is what the provider actually released.
+    // Reclaim measures against the TALLY, never the verdict list: a refused key's bytes are still resident, and
+    // `Cool` bytes stay out because a demotion moves a header and frees nothing.
     static SweepReceipt Summed(RetentionClass cls, Seq<SweepVerdict> verdicts, EraseTally tally, ProjectionContext frame) {
         Set<ContentAddress> refused = toSet(tally.Refused.Map(static row => row.Key));
-        Seq<SweepVerdict> reclaimed = verdicts.Filter(v => v.Evicts && !refused.Contains(v.Key));
-        return new SweepReceipt(cls, verdicts.Count,
-            verdicts.Count(static v => v is SweepVerdict.Kept), verdicts.Count(static v => v.Retains), verdicts.Count(static v => v.Cools),
-            reclaimed.Count, tally.Refused.Count, reclaimed.Fold(0L, static (acc, v) => acc + v.Bytes), tally.Refused,
-            frame.Now(), frame.Correlation);
+        SweepReceipt planned = verdicts.Filter(v => !(v.Releases && refused.Contains(v.Key)))
+            .Fold(SweepReceipt.Empty(cls, verdicts.Count, frame.Now(), frame.Correlation), static (sum, v) => v.Book(sum));
+        return planned with { Refused = tally.Refused.Count, Refusals = tally.Refused };
     }
 }
 ```
@@ -548,13 +515,14 @@ public static class RetentionSweep {
 | [INDEX] | [POLICY]        | [VALUE]                                                   | [BINDING]                                                 |
 | :-----: | :-------------- | :-------------------------------------------------------- | :-------------------------------------------------------- |
 |  [01]   | sweep fold      | state-threaded newest-first fold                          | pure verdict list; re-fold resumes, no journal            |
-|  [02]   | declared order  | holds-first → expires → never-evict → age/count/size      | both `LossPolicy` columns + `Collects` + `Lane.Durable`   |
+|  [02]   | declared order  | fenced → expires → never-evict → age/count/size           | one joint discriminant over the loss capability set       |
 |  [03]   | reachability GC | mark over EVERY AS-OF cut                                 | full-history, never head; historical refs survive (`H10`) |
 |  [04]   | one executor    | `Execute` (set `evict` + `demote`)                        | every lane, operator purge, demotion routes through       |
-|  [05]   | cold-tiering    | `Cool` demotes never-evict; `EvictOrphan` collects debris | `Demote` ladder; orphan gated on declared `OrphanAge`     |
-|  [06]   | holds           | first-class, late-bound, union                            | a hold today protects tomorrow's admissions               |
-|  [07]   | conservation    | `inventory = kept + held + cooled + evicted + refused`    | refused bytes stay resident; reclaim counts released only |
-|  [08]   | sweep grain     | rows, or partitions on a `RollingWindow` family           | one `DropPartition` per aged partition; one executor      |
+|  [05]   | re-drive        | class `RedrivePolicy` on both effect arrows               | kernel `Redrive.Run`; no hand loop, no delay window       |
+|  [06]   | cold-tiering    | `Cool` demotes never-evict; `EvictOrphan` collects debris | `Demote` ladder; orphan gated on declared `OrphanAge`     |
+|  [07]   | holds           | first-class, late-bound, union                            | a hold today protects tomorrow's admissions               |
+|  [08]   | conservation    | `inventory = kept + held + cooled + evicted + refused`    | one `Book` fold; refused bytes stay resident              |
+|  [09]   | sweep grain     | rows, or partitions on a `RollingWindow` family           | one `DropPartition` per aged partition; one executor      |
 
 ## [04]-[RESEARCH]
 

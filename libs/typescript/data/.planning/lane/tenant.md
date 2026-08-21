@@ -53,6 +53,7 @@ const _locus = (app: Identity.App.Key, tenancy: Tenancy): _Locus =>
 - Law: the drain never re-fails a committed unit — `never` on the registration type closes the TYPED channel alone while a defect or an interrupt walks past it, and a caller told a durable commit failed retries and publishes twice; the drain therefore runs uninterruptibly with each hook's cause folded independently onto the log rail, so a broken hook costs its own evidence and never its siblings' nor the caller's outcome.
 - Law: the GUC names are the imported `SessionCoordinate` anchors — the policy predicate, the transformer, and the security claim projection read one spelling; `Tenancy.Relation` validates every page-authored ensure relation against the SQL identifier grammar before `rls` interpolates it, so caller text and qualified or quoted identifiers cannot reach the DDL kernel.
 - Law: the maintenance plane is the second and last road — cross-tenant planes (the relay claim and census, the fact drain, the groom sweeps, the retag hold join, the frontier reads, the shadow-rebuild drain) compose `Tenancy.sweep`, which opens the transaction and pins ONLY the `plane` coordinate, because the landed policy is FORCE: an unpinned session reads zero rows and reports a healthy empty cycle, and a tenant pin narrows an estate-wide plane to one tenant's slice — the two silent inversions the posture forecloses. `Tenancy.sweepText` renders the same posture as the session-local prefix a scheduled job unit carries, so the plane word never re-spells outside this owner.
+- Law: every enforcement this page renders as TEXT is the PG plane's — `Tenancy.sweepText` and `Tenancy.rls` alike — because a rendered string holds no client to fork on, and the row-level policy the plane word unlocks exists on no other dialect; `Tenancy.sweep` is the one member that forks, and a profile without row-level policy pins isolation at its own connection boundary rather than through a word this page could render for it.
 - Law: the policy carries exactly two arms and USING doubles as the check barrel — the tenant arm admits pinned request work, the plane arm admits the maintenance posture (so its cross-tenant INSERTs pass the check the tenant arm alone would refuse), and an unpinned session matches neither, so fail-closed still needs no branch; a relation's `Tenancy.rls` registration and the plane arm are ONE landing, never two passes a groom can fall between.
 - Law: `within` is dialect-honest — the pg arm pins the coordinates and search path; the sqlite arm degrades to the bare transaction because file-per-app already isolates, selected through `onDialectOrElse`, never a fork.
 - Law: the explicit-tenant overload mints its principal through `TenantScope.of(context, subject?)` at the declaring security owner — `Principal` is that folder's shape and every value of it comes from a member there, so an inline `{ context, subject }` literal on this page tracks a field set it does not own and silently drops the next coordinate the shape acquires while the ambient arm keeps carrying it.
@@ -162,6 +163,11 @@ const _sweep = (sql: SqlClient.SqlClient) =>
       ),
     )
 
+// The PG PLANE's rendering, and the only plane a rendered form can serve: `_sweep` forks on the dialect because it
+// holds a client, while a text prefix is handed to a scheduler that holds none, so a dialect arm here would be a
+// branch on a fact this function cannot read. `_rlsEnsure` below renders under the same pin — every enforcement this
+// page emits as TEXT is pg's, because the policy the word unlocks exists nowhere else, and a profile whose engine
+// carries no row-level policy has no plane word to render and pins isolation at its own connection boundary instead.
 const _sweepText = (statement: string): string =>
   `SELECT set_config('${SessionCoordinate.plane.guc}', '${SessionCoordinate.plane.value}', false);\n${statement}`
 

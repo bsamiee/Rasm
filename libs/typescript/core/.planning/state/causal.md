@@ -20,6 +20,7 @@ import * as Semigroup from "@effect/typeclass/Semigroup"
 import { Array, Chunk, Data, Effect, Equal, HashMap, Number, Option, Order, pipe, Record, Schema, STM, TRef } from "effect"
 import { Clock } from "../value/clock.ts"
 import { Digest } from "../value/contentKey.ts"
+import { Shape } from "../value/schema.ts"
 import { Merge } from "./merge.ts"
 
 const _ORDERINGS = ["before", "after", "equal", "concurrent"] as const
@@ -32,7 +33,7 @@ const _Counter = Schema.Int.pipe(Schema.nonNegative())
 // history — and every digest taken over an encoded vector (an operation key, a commit preimage, a CRDT write context)
 // then disagrees with the peer runtimes that sort. Sorting on decode instead would hide a producer that stopped.
 const _Clocks = Schema.transform(
-  Schema.Record({ key: _Replica, value: _Counter }),
+  Shape.Record(_Replica, _Counter),
   Schema.HashMapFromSelf({ key: Schema.typeSchema(_Replica), value: Schema.typeSchema(_Counter) }),
   {
     strict: true,
@@ -129,8 +130,8 @@ declare namespace Causal {
   type Finality = (typeof _FINALITY)[number]
   type Retention = _Retention
   type Tracker<A> = {
-    readonly admit: (envelope: Envelope<A>) => Effect.Effect<Drained<A>, Merge.CellFault<Vector.Replica>>
-    readonly ack: (replica: Vector.Replica, vector: Vector) => Effect.Effect<void, Merge.CellFault<Vector.Replica>>
+    readonly admit: (envelope: Envelope<A>) => Effect.Effect<Drained<A>, Merge.CellFault>
+    readonly ack: (replica: Vector.Replica, vector: Vector) => Effect.Effect<void, Merge.CellFault>
     readonly seen: Effect.Effect<Vector>
     readonly frontier: Effect.Effect<Option.Option<Vector>>
     readonly stable: (target: Vector) => Effect.Effect<void>
@@ -257,7 +258,7 @@ const _tracker = <A>(replicas: Array.NonEmptyReadonlyArray<Vector.Replica>): Eff
             return drained
           }),
           )
-          : Effect.fail(new Merge.CellFault({ key: envelope.origin })),
+          : Effect.fail(new Merge.CellFault({ case: { reason: "unseated", key: envelope.origin } })),
       ack: (replica, vector) => acks.absorb([[replica, vector] as const]),
       seen: Effect.map(STM.commit(TRef.get(cellBuffer)), (buffer) => buffer.seen),
       frontier: Effect.map(acks.table, _frontier),

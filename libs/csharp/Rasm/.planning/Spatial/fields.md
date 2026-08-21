@@ -2,11 +2,13 @@
 
 One implicit-field algebra over three closed field unions — `ScalarField`, `VectorField`, `TensorField` — each sampled anywhere in space through one per-union dispatch, composed through flattening operators, and constructed so a case's payload types are its admission structure. Raw ingress is one-expression admitting factories and multi-knob ingress rides a policy record; everything else constructs from already-admitted material, so no re-validation switch stands beside the case list. This page samples and never meshes: iso-surface extraction is `reconstruct.md`'s.
 
+`NoiseTrait` rides the landed capability idiom rather than bool columns, carrying the lattice-caution and differentiability facts a `NoiseKind` row publishes, admitted against its own legal-corner law. Parameterless arms inside a payload-bearing `[Union]` stay marker cases — `shapes.md [02]-[COLLAPSE_FUNCTIONS]` `MergeSamePayload` preserves marker cases and row [05] fixes the owner by the FAMILY's payload timing, so `HardCase`, `ReflectCase`, and `HalfSpaceCase` are not vocabulary rows in disguise.
+
 `calculus.md` owns the sample-anywhere math this page composes — the `Nabla` stencil, the `Falloff`/`KernelKind` weight vocabularies, and the `FieldNoise` lattices the `NoiseKind` rows point at. `reconstruct.md` owns the reconstruction kernels and mesh-SDF policy; its solvers mint the fitted payloads and `SignedDistanceFromMesh` delegates to its `MeshSdf`. Mesh-aware cases delegate through the `mesh.md` `MeshSpace` seam. `SampleDetailed` and `SampleSdfDetailed` are the public tagged sampling seam reporting how a value was produced, and `pack.md` binds `SampleDetailed` for its scalar facet.
 
 ## [01]-[INDEX]
 
-- [02]-[FIELD_VOCAB]: `BlendKind`, `CsgKind`, `NoiseKind`, and the ray, bounce, and provenance vocabularies, each owning its policy columns.
+- [02]-[FIELD_VOCAB]: `BlendKind`, `CsgKind`, `NoiseKind` with its `NoiseTrait` set, and the ray, bounce, and provenance vocabularies, each owning its policy columns.
 - [03]-[SDF_PRIMITIVES]: `SdfKind` exact analytic primitives as typed parameter cases carrying `Lipschitz` and `Distance`.
 - [04]-[SCALAR_FIELD]: `ScalarField` algebra, its one total sample dispatch, the Lipschitz fold, the fitted and evaluated reconstruction cases, and the public tagged rail.
 - [05]-[VECTOR_FIELD]: `VectorField` algebra over three shared radial, rotational, and closest-directed folds.
@@ -14,8 +16,9 @@ One implicit-field algebra over three closed field unions — `ScalarField`, `Ve
 
 ## [02]-[FIELD_VOCAB]
 
-- Owner: each `BlendKind` case overrides the abstract `ErosionFactor` column the Lipschitz-erosion fold reads, so the erosion multiplier is a policy value on the row rather than a table beside the union. `NoiseKind` rows live here by the `calculus.md` seam — lattices are mathematics, field rows policy: `Perlin` sets `RaisesCaution` for visible lattice anisotropy and `Worley` clears `ContinuouslyDifferentiable`, gating `CurlNoise` admission. `SdfStatus` rows are the provenance the tagged samples carry, and `SampleSdfDetailed` faults a non-distance species with a typed fault rather than mislabeling a value.
-- Boundary: `Falloff` and `KernelKind` own their weight-profile and kernel math at `calculus.md`, composed here never re-derived; `NoiseKind` rows point at its `FieldNoise` lattices; each `BlendKind` case declares its own `ErosionFactor`, and `RayPolicy.Project` resolves through typed `ProjectionRow` entries.
+- Owner: each `BlendKind` case overrides the abstract `ErosionFactor` column the Lipschitz-erosion fold reads, so the erosion multiplier is a policy value on the row rather than a table beside the union; `HardCase` derives its factor from `min`'s own partials and the seven smooth rows carry sampled bounds tracked as a measurement owed, never as tuning literals. `NoiseKind` rows live here by the `calculus.md` seam — lattices are mathematics, field rows policy: each row publishes ONE `CapabilitySet<NoiseTrait>` rather than a bool pair, so `Perlin` holds `Cautioned` for visible lattice anisotropy beside the `Differentiable` a caution presupposes, `Worley` holds neither, and the cautioned-but-non-differentiable corner no lattice produces is what `NoiseTrait.Law` refuses; `CurlNoise` admission is then one membership read. `SdfStatus` rows are the provenance the tagged samples carry, and `SampleSdfDetailed` faults a non-distance species with a typed fault rather than mislabeling a value.
+- Growth: a new lattice is one `NoiseKind` row with its trait set, admitted by the same law; a new trait is one `NoiseTrait` row with its corners on `Law`; a second seeded field family is one `FieldLane` row and the lattices it addresses decorrelate by declaration.
+- Boundary: `Falloff` and `KernelKind` own their weight-profile and kernel math at `calculus.md`, composed here never re-derived; `NoiseKind` rows point at its `FieldNoise` lattices and read `NoisePolicy.Lattice`, the lane-folded seed, so no bare caller integer keys a lattice; each `BlendKind` case declares its own `ErosionFactor`, and `RayPolicy.Project` resolves through typed `ProjectionRow` entries.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -27,10 +30,16 @@ using Rasm.Parametric;
 namespace Rasm.Spatial;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+// `ErosionFactor` is the gradient amplification a row's smin body admits over its blend band — the factor a march
+// calibrates by sampling |grad smin| on a dense grid across the band per row, an unmet factor replaced by the measured supremum —
+// step bound multiplies `max(leftLip, rightLip)` by. `HardCase` DERIVES: `min` has exactly one unit partial and one
+// zero partial everywhere off the crease, so it amplifies nothing. The seven smooth rows carry SAMPLED bounds, not
+// derivations, and an under-claim wastes steps where an over-claim overshoots a surface silently — so each is a
+// measurement owed, tracked at `[07]-[RESEARCH]` `[BLEND_EROSION]`, never a tuning knob a reader may edit.
 [Union]
 public abstract partial record BlendKind {
     private BlendKind() { }
-    public sealed record HardCase() : BlendKind { public override double ErosionFactor => 1.00; }
+    public sealed record HardCase : BlendKind { public override double ErosionFactor => 1.00; }
     public sealed record PolynomialCase(PositiveMagnitude K) : BlendKind { public override double ErosionFactor => 1.25; }
     public sealed record ExponentialCase(PositiveMagnitude K) : BlendKind { public override double ErosionFactor => 1.15; }
     public sealed record RootCase(PositiveMagnitude K) : BlendKind { public override double ErosionFactor => 1.10; }
@@ -51,7 +60,8 @@ public abstract partial record BlendKind {
         exponentialCase: static (s, c) => { double ax = -c.K.Value * s.A, bx = -c.K.Value * s.B, m = Math.Max(ax, bx); return -(m + Math.Log(Math.Exp(ax - m) + Math.Exp(bx - m))) / c.K.Value; },
         rootCase: static (s, c) => { double h = Math.Max(c.K.Value - Math.Abs(s.A - s.B), 0.0); return Math.Min(s.A, s.B) - (h * h * 0.25 / c.K.Value); },
         cubicCase: static (s, c) => { double h = Math.Max(c.K.Value - Math.Abs(s.A - s.B), 0.0) / c.K.Value; return Math.Min(s.A, s.B) - (h * h * c.K.Value * 0.25); },
-        chamferCase: static (s, c) => Math.Min(Math.Min(s.A, s.B), (s.A + s.B - c.K.Value) * 0.7071067811865475),
+        // The chamfer plane's half-diagonal IS sqrt(1/2): the cut is the 45-degree bevel between the two surfaces.
+        chamferCase: static (s, c) => Math.Min(Math.Min(s.A, s.B), (s.A + s.B - c.K.Value) * Math.Sqrt(0.5)),
         grooveCase: static (s, c) => Math.Max(s.A, Math.Min(c.D.Value, Math.Min(s.A - c.K.Value, s.B - c.K.Value))),
         roundCase: static (s, c) => { double ax = Math.Max(c.R.Value - s.A, 0.0), bx = Math.Max(c.R.Value - s.B, 0.0); return Math.Max(c.R.Value, Math.Min(s.A, s.B)) - Math.Sqrt((ax * ax) + (bx * bx)); });
 
@@ -70,7 +80,9 @@ public sealed partial class CsgKind {
 public sealed partial class FieldBlend {
     public static readonly FieldBlend Sum = new(key: 0, scale: static _ => 1.0);
     public static readonly FieldBlend Average = new(key: 1, scale: static count => 1.0 / count);
-    [UseDelegateFromConstructor] private partial double Scale(int count);
+    // `Scale` is the ONE authority for the mode's normalizer: the Lipschitz fold reads the same column the combine
+    // does, so a third row lands in both places by declaration rather than in one and silently not the other.
+    [UseDelegateFromConstructor] internal partial double Scale(int count);
     internal Fin<Vector3d> Combine(Seq<Vector3d> vectors, Op key) => CombineCore(values: vectors, zero: Vector3d.Zero, add: static (s, v) => s + v, scale: static (s, f) => s * f, key: key);
     internal Fin<double> CombineScalar(Seq<double> values, Op key) => CombineCore(values: values, zero: 0.0, add: static (s, v) => s + v, scale: static (s, f) => s * f, key: key);
     private Fin<T> CombineCore<T>(Seq<T> values, T zero, Func<T, T, T> add, Func<T, double, T> scale, Op key) =>
@@ -89,9 +101,9 @@ public abstract partial record RayPolicy {
     public static Fin<RayPolicy> Segment(double length, Option<BoundarySense> sense = default, Op? key = null) =>
         key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: length)
             .Map(l => (RayPolicy)new SegmentCase(Sense: sense.IfNone(BoundarySense.Toward), Length: l));
-    internal Fin<TOut> Project<TOut>(Point3d origin, Direction direction, Context context, Op key) { /* typed rows:
-        Ray3d | Plane | Direction | Vector3d always; Line | VectorSpan gated on SegmentCase.Length —
-        AtomProjection.Rows over the sense-signed vector, never a typeof ladder. */ return default!; }
+    // Typed rows: Ray3d | Plane | Direction | Vector3d always; Line | VectorSpan gated on SegmentCase.Length —
+    // AtomProjection.Rows over the sense-signed vector, never a typeof ladder.
+    internal Fin<TOut> Project<TOut>(Point3d origin, Direction direction, Context context, Op key);
 }
 
 [Union]
@@ -109,6 +121,17 @@ public abstract partial record BouncePolicy {
         reflectCase: static (s, _) => Fin.Succ(s.Incident.Reflect(normal: s.Normal)),
         refractCase: static (s, r) => Direction.Refract(incident: s.Incident, normal: s.Normal,
             etaIncident: r.EtaIncident.Value, etaTransmitted: r.EtaTransmitted.Value, key: s.Key));
+}
+
+// A lattice seed declares its lane as an ORDINAL, never as caller arithmetic: two policies built from one integer
+// under different lanes address different lattices, so a shared lattice reads as a same-lane declaration rather than
+// as a collision the page cannot tell from intent. `calculus.md`'s lattices are position HASHES, not streams, so the
+// lane rides the seed fold `FieldNoise.Perm` already runs — never a threaded `Deterministic.Draw` prefix.
+[SmartEnum<int>]
+public sealed partial class FieldLane : IDrawLane<FieldLane> {
+    public static readonly FieldLane Noise = new(key: 0, lane: 0L);
+
+    public long Lane { get; }
 }
 
 [SmartEnum<int>]
@@ -129,19 +152,41 @@ public sealed partial class ProfileExtrusionFeature {
     public static readonly ProfileExtrusionFeature Rim = new(key: 3);
 }
 
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class NoiseTrait : ICapability<NoiseTrait> {
+    public static readonly NoiseTrait Cautioned = new(key: "cautioned", rank: 0);
+    public static readonly NoiseTrait Differentiable = new(key: "differentiable", rank: 1);
+    public int Rank { get; }
+    // Cautions name visible anisotropy in a SMOOTH lattice, so one never stands without differentiability; those
+    // are the three corners any lattice produces and the law refuses the fourth at construction.
+    internal static readonly CapabilityLaw<NoiseTrait> Law = new(Legal: Seq(
+        CapabilitySet<NoiseTrait>.None,
+        CapabilitySet<NoiseTrait>.Of(Differentiable),
+        CapabilitySet<NoiseTrait>.Of(Cautioned, Differentiable)));
+}
+
 [SmartEnum<int>]
 public sealed partial class NoiseKind {
-    public static readonly NoiseKind Perlin = new(key: 0, raisesCaution: true, continuouslyDifferentiable: true,
+    public static readonly NoiseKind Perlin = new(key: 0, declared: CapabilitySet<NoiseTrait>.Of(NoiseTrait.Cautioned, NoiseTrait.Differentiable),
         sample: static (p, seed, f) => FieldNoise.PerlinAt(point: p, seed: seed, frequency: f));
-    public static readonly NoiseKind Simplex = new(key: 1, raisesCaution: false, continuouslyDifferentiable: true,
-        sample: static (p, seed, f) => FieldNoise.SkewedSimplexAt(point: p, seed: seed, frequency: f, smooth: false));
-    public static readonly NoiseKind SmoothSimplex = new(key: 2, raisesCaution: false, continuouslyDifferentiable: true,
-        sample: static (p, seed, f) => FieldNoise.SkewedSimplexAt(point: p, seed: seed, frequency: f, smooth: true));
-    public static readonly NoiseKind Worley = new(key: 3, raisesCaution: false, continuouslyDifferentiable: false,
+    public static readonly NoiseKind Simplex = new(key: 1, declared: CapabilitySet<NoiseTrait>.Of(NoiseTrait.Differentiable),
+        sample: static (p, seed, f) => FieldNoise.SkewedSimplexAt(point: p, seed: seed, frequency: f, blend: SimplexBlend.Single));
+    public static readonly NoiseKind SmoothSimplex = new(key: 2, declared: CapabilitySet<NoiseTrait>.Of(NoiseTrait.Differentiable),
+        sample: static (p, seed, f) => FieldNoise.SkewedSimplexAt(point: p, seed: seed, frequency: f, blend: SimplexBlend.Rotated));
+    public static readonly NoiseKind Worley = new(key: 3, declared: CapabilitySet<NoiseTrait>.None,
         sample: static (p, seed, f) => FieldNoise.WorleyAt(point: p, seed: seed, frequency: f));
-    public bool RaisesCaution { get; }
-    public bool ContinuouslyDifferentiable { get; }
+    private CapabilitySet<NoiseTrait> Declared { get; }
     [UseDelegateFromConstructor] internal partial double Sample(Point3d point, int seed, double frequency);
+    // Reading ANY row's traits forces the roster proof, so a row declared with an illegal corner breaks at the first
+    // trait read rather than at whichever consumer happens to check — a `Lazy` no member touches never runs. The
+    // accessor is also what makes the fold see a POPULATED `Items` roster (`shapes.md [LOOKUP_LIFECYCLE]`), and the
+    // fold reads `Declared` rather than `Traits` because re-entering the Lazy under construction is not a proof.
+    public CapabilitySet<NoiseTrait> Traits { get { _ = Lawful.Value; return Declared; } }
+    private static readonly Lazy<Unit> Lawful = new(static () =>
+        Items.Fold(unit, static (_, row) => NoiseTrait.Law.Admit(held: row.Declared).Match(
+            Succ: static _ => unit,
+            Fail: static _ => throw new InvalidOperationException("Noise traits violate their capability law."))));
 }
 ```
 
@@ -178,7 +223,7 @@ public abstract partial record SdfKind {
     }
     public sealed record CylinderCase(PositiveMagnitude HalfHeight, PositiveMagnitude Radius) : SdfKind { public override double Lipschitz => 1.0; internal override double Distance(Point3d p) => CappedProfile(dxy: Math.Sqrt((p.X * p.X) + (p.Y * p.Y)) - Radius.Value, dz: Math.Abs(p.Z) - HalfHeight.Value); }
     public sealed record ConeCase(PositiveMagnitude Height, VectorAngle HalfAngle) : SdfKind { public override double Lipschitz => 1.0; internal override double Distance(Point3d p) => CappedCone(p: new Point3d(p.X, p.Y, p.Z + (0.5 * Height.Value)), halfHeight: 0.5 * Height.Value, r1: Height.Value * Math.Tan(HalfAngle.Value), r2: 0.0); }
-    public sealed record HalfSpaceCase() : SdfKind { public override double Lipschitz => 1.0; internal override double Distance(Point3d p) => p.Z; }
+    public sealed record HalfSpaceCase : SdfKind { public override double Lipschitz => 1.0; internal override double Distance(Point3d p) => p.Z; }
     public sealed record CappedConeCase(PositiveMagnitude HalfHeight, double R1, double R2) : SdfKind {
         public override double Lipschitz => 1.2;
         internal override double Distance(Point3d p) => CappedCone(p: p, halfHeight: HalfHeight.Value, r1: R1, r2: R2);
@@ -188,8 +233,10 @@ public abstract partial record SdfKind {
         public override double Lipschitz => 1.0;
         // Exact hex: k-fold to the fundamental sector then vertex-corrected edge distance (IQ); a max-of-half-planes underestimates at the corners.
         internal override double Distance(Point3d p) {
+            // IQ's hex constants: (kx, ky) = (-cos(pi/6), sin(pi/6)) is the fold half-plane normal and kz = tan(pi/6)
+            // the sector half-width. The apothem is cos(pi/6) x circumradius, which is -kx — one authority, not two.
             const double kx = -0.8660254037844386, ky = 0.5, kz = 0.5773502691896258;
-            double h = 0.8660254037844386 * Circumradius.Value;
+            double h = -kx * Circumradius.Value;
             (double ax, double ay) = (Math.Abs(p.X), Math.Abs(p.Y));
             double fold = 2.0 * Math.Min((kx * ax) + (ky * ay), 0.0);
             (ax, ay) = (ax - (fold * kx), ay - (fold * ky));
@@ -226,21 +273,26 @@ public abstract partial record SdfKind {
 
 ## [04]-[SCALAR_FIELD]
 
-- Owner: `ScalarField` `[Union]` — the scalar algebra in case families spanning analytic sources, combinators, domain warps, differential operators, mesh-aware solvers, reconstruction, and the lattice-backed `LatticeCase` that makes a baked or imported plane a first-class field. Mesh-aware and reconstruction cases construct only through their admitting factories, never `new`, so the factory proves sources against the `MeshSpace` range, the fitted payload against its `reconstruct.md` minter, or the value census against the admitting `CellLattice`. The reconstruction family splits by payload timing, not by kernel: a FITTED case (`Rbf`, `Poisson`, `TetSignedHeat`) carries the solved coefficients its minter produced, an EVALUATED case (`Mls`, `LevinMls`, `Apss`, `Sibson`) carries the admitted sample set and its support or tolerance and solves per query, so a coefficient array on an evaluated case names a solve that never ran. `Noise` takes the `NoisePolicy` record.
-- Auto: `SampleScalar` is the one total generated `Switch` over the union — analytic sources evaluate closed forms, combinators recurse, warps pre-transform the sample and recurse, differential arms delegate to the `calculus.md` `Nabla` stencil with sampler closures the stencil never learns the union from, mesh-aware arms delegate through the `MeshSpace` seam, and reconstruction arms evaluate the fitted payload through `reconstruct.md`. One shared `SampleMapped` body collapses the map-only warps, and one `ReconstructLattice` body is the sample reconstruction every lattice-backed arm (`LatticeCase`, `PoissonCase`) reads through its `LatticeInterpolation` row. `SampleLattice` is the one batch sweep — every cell centre through the same rail, the first failure carrying its cell coordinate. `LipschitzBound` folds only the analytically bounded species; an over-claimed bound overshoots ray-march steps into silently missed surfaces, so `Twist`, `Bend`, `Periodic`, and the sampled `LatticeCase` answer `None` by decision.
+- Owner: `ScalarField` `[Union]` — the scalar algebra in case families spanning analytic sources, combinators, domain warps, differential operators, mesh-aware solvers, reconstruction, and the lattice-backed `LatticeCase` that makes a baked or imported plane a first-class field. Mesh-aware and reconstruction cases construct only through their admitting factories, never `new`, so the factory proves sources against the `MeshSpace` range, the fitted payload against its `reconstruct.md` minter, or the value census against the admitting `CellLattice`. Reconstruction cases split by payload timing, not by kernel: a FITTED case (`Rbf`, `Poisson`, `TetSignedHeat`) carries the solved coefficients its minter produced, an EVALUATED case (`Mls`, `LevinMls`, `Apss`, `Sibson`) carries the admitted sample set and its support or tolerance and solves per query, so a coefficient array on an evaluated case names a solve that never ran. `Noise` takes the `NoisePolicy` record.
+- Auto: `SampleScalar` is the one total generated `Switch` over the union — analytic sources evaluate closed forms, combinators recurse, warps pre-transform the sample and recurse, differential arms delegate to the `calculus.md` `Nabla` stencil with sampler closures the stencil never learns the union from, mesh-aware arms delegate through the `MeshSpace` seam, and reconstruction arms evaluate the fitted payload through `reconstruct.md`. One shared `SampleMapped` body collapses the map-only warps, and one `ReconstructLattice` body is the sample reconstruction every lattice-backed arm (`LatticeCase`, `PoissonCase`) reads through its `LatticeInterpolation` row's own `CenterOffset` and `Axis` columns, so the body carries no per-row branch. `SampleLattice` is the one batch sweep — every cell centre through the same rail, the first failure carrying its cell coordinate. `LipschitzBound` is an ABSTRACT per-case column, not a fold with a catch-all: an over-claimed bound overshoots ray-march steps into silently missed surfaces and an unstated one silently disables the bound, so every case declares — `Twist`, `Bend`, `Periodic`, the sampled `LatticeCase`, and every mesh and reconstruction species answer `None` by decision, and a new case cannot compile without deciding.
 - Receipt: `SampleDetailed → Fin<FieldSample>` is the public tagged rail carrying value, `SdfStatus` provenance, and nested evidence for mesh, reconstruction, and tet species. `SampleSdfDetailed → Fin<SdfSample>` refuses a species with no distance semantics, faulting `Unsupported` rather than mislabeling a value as a distance; its `SdfSample` carries the profile-extrusion `ProfileFeature` and `ProfileContainment` columns only on the `NativeProfile` species.
 - Packages: `RhinoCommon`, `Thinktecture.Runtime.Extensions`, `LanguageExt.Core`.
-- Growth: a new scalar species is one case and one `Switch` arm, a factory only when raw material enters; a new blend or CSG mode is a vocabulary row; a new provenance species is one `SdfStatus` row.
+- Growth: a new scalar species is one case, one `Switch` arm, and one `LipschitzBound` declaration the compiler demands, a factory only when raw material enters; a new blend or CSG mode is a vocabulary row; a new provenance species is one `SdfStatus` row.
 - Boundary: mesh-aware arms are one-line delegations, and any solver math here is a mis-homed body. `SampleScalar` assumes admitted fields, so an in-arm re-validation is double admission. Tagged sampling is the one public seam; a second `Evaluate` or `Probe` family is the rejected surface.
 
 ```csharp signature
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct NoisePolicy(int Seed, Dimension Octaves, double Persistence, double Lacunarity, double Frequency) {
-    public static Fin<NoisePolicy> Of(int seed, int octaves, double persistence, double lacunarity, double frequency, Op? key = null) =>
+public readonly record struct NoisePolicy(int Seed, FieldLane Lane, Dimension Octaves, PositiveMagnitude Persistence, PositiveMagnitude Lacunarity, PositiveMagnitude Frequency) {
+    // `Lattice` is the seed every `NoiseKind.Sample` reads — the caller's integer FOLDED with the declared lane
+    // ordinal through the branch's one splitmix64 owner, so a bare `int` never reaches a lattice unlabelled.
+    internal int Lattice => unchecked((int)Deterministic.Stream(lanes: [Seed, Lane.Lane]));
+    public static Fin<NoisePolicy> Of(int seed, int octaves, double persistence, double lacunarity, double frequency, Option<FieldLane> lane = default, Op? key = null) =>
         from count in key.OrDefault().AcceptValidated<Dimension>(candidate: octaves)
-        from _ in guard(double.IsFinite(persistence) && persistence > 0.0 && double.IsFinite(lacunarity) && lacunarity > 0.0 && double.IsFinite(frequency) && frequency > 0.0, key.OrDefault().InvalidInput())
-        select new NoisePolicy(Seed: seed, Octaves: count, Persistence: persistence, Lacunarity: lacunarity, Frequency: frequency);
+        from gain in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: persistence)
+        from gap in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: lacunarity)
+        from rate in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: frequency)
+        select new NoisePolicy(Seed: seed, Lane: lane.IfNone(FieldLane.Noise), Octaves: count, Persistence: gain, Lacunarity: gap, Frequency: rate);
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -257,55 +309,78 @@ public readonly record struct SdfSample(
 [Union]
 public abstract partial record ScalarField {
     private ScalarField() { }
-    public sealed record ConstantCase(double Value) : ScalarField;
-    public sealed record BlendCase(Seq<ScalarField> Fields, FieldBlend Mode) : ScalarField;
-    public sealed record ScaledCase(ScalarField Source, double Scale) : ScalarField;
-    public sealed record DistanceCase(SupportSpace Source, BoundarySense Sense) : ScalarField;
-    public sealed record PotentialCase(Seq<(Point3d Position, double Charge)> Charges, Falloff Falloff) : ScalarField;
-    public sealed record DensityCase(Point3d Center, PositiveMagnitude Spread, double Strength) : ScalarField;
-    public sealed record MagnitudeCase(VectorField Source) : ScalarField;
-    public sealed record DivergenceCase(VectorField Source, PositiveMagnitude Epsilon) : ScalarField;
-    public sealed record LaplacianCase(ScalarField Source, PositiveMagnitude Epsilon) : ScalarField;
-    public sealed record StrainMagnitudeCase(VectorField Source, PositiveMagnitude Epsilon) : ScalarField;
-    public sealed record WorleyCase(Seq<Point3d> Seeds, Dimension Order) : ScalarField;
-    public sealed record MorseCase(Point3d Center, PositiveMagnitude Depth, PositiveMagnitude Width) : ScalarField;
-    public sealed record MollifierCase(Point3d Center, PositiveMagnitude Radius) : ScalarField;
-    public sealed record NoiseCase(NoiseKind Kind, NoisePolicy Policy) : ScalarField;
-    public sealed record PowerCase(ScalarField Source, double Exponent) : ScalarField;
-    public sealed record CsgCase(ScalarField Left, ScalarField Right, CsgKind Op, BlendKind Smoothing) : ScalarField;
-    public sealed record PeriodicCase(ScalarField Source, Vector3d Period) : ScalarField;
-    public sealed record ClampCase(ScalarField Source, double Minimum, double Maximum) : ScalarField;
-    public sealed record PrimitiveCase(SdfKind Shape, Plane Pose) : ScalarField;
-    public sealed record ProfileExtrusionCase(Curve Profile, Plane Plane, PositiveMagnitude HalfHeight) : ScalarField;
-    public sealed record OnionCase(ScalarField Source, PositiveMagnitude Thickness) : ScalarField;
-    public sealed record SdfRoundCase(ScalarField Source, PositiveMagnitude Radius) : ScalarField;
-    public sealed record ElongateCase(ScalarField Source, Vector3d Extent) : ScalarField;
-    public sealed record DisplaceCase(ScalarField Source, ScalarField Displacement) : ScalarField;
-    public sealed record TwistCase(ScalarField Source, double AnglePerUnit, Direction Axis) : ScalarField;
-    public sealed record BendCase(ScalarField Source, double Curvature, Direction Axis) : ScalarField;
-    public sealed record GeodesicCase(MeshSpace Space, Seq<int> Sources) : ScalarField;
-    public sealed record MeanCurvatureFlowCase(MeshSpace Space, PositiveMagnitude TimeStep, Dimension Iterations) : ScalarField;
-    public sealed record SpectralDistanceCase(MeshSpace Space, SpectralFilter Filter, Seq<int> Sources, Dimension Pairs) : ScalarField;
-    public sealed record StripeCase(MeshSpace Space, VectorField CrossField, PositiveMagnitude Frequency) : ScalarField;
-    public sealed record SignedDistanceFromMeshCase(MeshSpace Space, SdfMeshPolicy Policy) : ScalarField;
-    public sealed record RbfCase(Seq<(Point3d Position, double Value)> Samples, KernelKind Kernel, PositiveMagnitude Radius, Arr<double> Coefficients, ReconstructionReceipt Receipt) : ScalarField;
-    public sealed record MlsCase(Seq<MlsSample> Samples, KernelKind Kernel, PositiveMagnitude Radius, ReconstructionReceipt Receipt) : ScalarField;
-    public sealed record LevinMlsCase(Seq<MlsSample> Samples, LevinMlsPolicy Policy, ReconstructionReceipt Receipt) : ScalarField;
-    public sealed record ApssCase(Seq<MlsSample> Samples, ApssPolicy Policy, ReconstructionReceipt Receipt) : ScalarField;
-    // Sibson is EVALUATED, never fitted: its weights are the per-query stolen-volume ratios of the Spatial/cloud dual
-    // over the samples plus the query point, so the payload is the admitted sample set and the dual tolerance and a
-    // coefficient array here would be a solve this species never runs.
-    public sealed record SibsonCase(Seq<(Point3d Position, double Value)> Samples, PositiveMagnitude Tolerance, ReconstructionReceipt Receipt) : ScalarField;
-    public sealed record TetSignedHeatCase(TetMeshDomain Domain, TetSignedHeatPolicy Policy, Arr<double> Values, TetSignedHeatReceipt Receipt) : ScalarField;
-    public sealed record PoissonCase(PoissonGrid Grid, double Gamma, PoissonReceipt Receipt) : ScalarField;
-    // Baked or imported planes/volumes become FIRST-CLASS fields: a clearance raster, a DEM band, a pressed height
-    // field, or an IsoContour input composes into CsgCase/DisplaceCase/BlendCase/PeriodicCase like any analytic case.
-    public sealed record LatticeCase(CellLattice Grid, Arr<double> Values, LatticeInterpolation Interp) : ScalarField;
+    // --- [ANALYTIC_SOURCES] — each bound is an exact slope maximum, so the case states it and nothing folds for it.
+    public sealed record ConstantCase(double Value) : ScalarField { public override Option<double> LipschitzBound => Some(0.0); }
+    public sealed record DistanceCase(SupportSpace Source, BoundarySense Sense) : ScalarField { /* closest-point distance to ANY support is 1-Lipschitz; the sense sign preserves |grad| */ public override Option<double> LipschitzBound => Some(1.0); }
+    public sealed record PrimitiveCase(SdfKind Shape, Plane Pose) : ScalarField { public override Option<double> LipschitzBound => Some(Shape.Lipschitz); }
+    public sealed record ProfileExtrusionCase(Curve Profile, Plane Plane, PositiveMagnitude HalfHeight) : ScalarField { public override Option<double> LipschitzBound => Some(1.0); }
+    // Order-th sorted seed distance is an order statistic of 1-Lipschitz distances — still 1-Lipschitz.
+    public sealed record WorleyCase(Seq<Point3d> Seeds, Dimension Order) : ScalarField { public override Option<double> LipschitzBound => Some(1.0); }
+    // Exact radial slope maxima: Morse |V'| peaks at u = e^{-r/W} = 1/2 -> D/(2W); Gaussian density |grad| peaks at r = sigma -> |S|e^{-1/2}/sigma.
+    public sealed record MorseCase(Point3d Center, PositiveMagnitude Depth, PositiveMagnitude Width) : ScalarField { public override Option<double> LipschitzBound => Some(Depth.Value / (2.0 * Width.Value)); }
+    public sealed record DensityCase(Point3d Center, PositiveMagnitude Spread, double Strength) : ScalarField { public override Option<double> LipschitzBound => Some(Math.Abs(Strength) * Math.Exp(-0.5) / Spread.Value); }
+    // |grad sum q_i w| <= sum |q_i| sup|w'| — the calculus.md Falloff.SlopeBound column; a None-bounded decay law keeps the composite None.
+    public sealed record PotentialCase(Seq<(Point3d Position, double Charge)> Charges, Falloff Falloff) : ScalarField { public override Option<double> LipschitzBound => Falloff.SlopeBound.Map(slope => Charges.Fold(0.0, static (acc, c) => acc + Math.Abs(c.Charge)) * slope); }
+    // The mollifier's bump derivative peaks inside the support and no closed slope maximum is published; a measurement owed, not a bound.
+    public sealed record MollifierCase(Point3d Center, PositiveMagnitude Radius) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+
+    // --- [COMBINATORS] — the bound RECURSES, so an unbounded child keeps the whole composite unbounded.
+    public sealed record BlendCase(Seq<ScalarField> Fields, FieldBlend Mode) : ScalarField { public override Option<double> LipschitzBound => Fields.TraverseM(static f => f.LipschitzBound).As().Map(bounds => bounds.Fold(0.0, static (acc, bound) => acc + bound) * Mode.Scale(count: bounds.Count)); }
+    public sealed record ScaledCase(ScalarField Source, double Scale) : ScalarField { public override Option<double> LipschitzBound => Source.LipschitzBound.Map(l => Math.Abs(Scale) * l); }
+    public sealed record CsgCase(ScalarField Left, ScalarField Right, CsgKind Op, BlendKind Smoothing) : ScalarField { public override Option<double> LipschitzBound => from l in Left.LipschitzBound from r in Right.LipschitzBound select Smoothing.Erode(leftLip: l, rightLip: r); }
+    public sealed record DisplaceCase(ScalarField Source, ScalarField Displacement) : ScalarField { public override Option<double> LipschitzBound => from l in Source.LipschitzBound from r in Displacement.LipschitzBound select l + r; }
+    public sealed record ClampCase(ScalarField Source, double Minimum, double Maximum) : ScalarField { public override Option<double> LipschitzBound => Source.LipschitzBound; }
+    public sealed record OnionCase(ScalarField Source, PositiveMagnitude Thickness) : ScalarField { public override Option<double> LipschitzBound => Source.LipschitzBound; }
+    public sealed record SdfRoundCase(ScalarField Source, PositiveMagnitude Radius) : ScalarField { public override Option<double> LipschitzBound => Source.LipschitzBound; }
+    public sealed record ElongateCase(ScalarField Source, Vector3d Extent) : ScalarField { public override Option<double> LipschitzBound => Source.LipschitzBound; }
+    // An arbitrary real exponent amplifies without bound as the base grows, so no global constant exists.
+    public sealed record PowerCase(ScalarField Source, double Exponent) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+
+    // --- [DOMAIN_WARPS] — Twist/Bend stretch tangentially with radius and Periodic's wrap seam breaks the modulus
+    // of continuity for an asymmetric source, so none of the three admits an honest global bound.
+    public sealed record PeriodicCase(ScalarField Source, Vector3d Period) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+    public sealed record TwistCase(ScalarField Source, double AnglePerUnit, Direction Axis) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+    public sealed record BendCase(ScalarField Source, double Curvature, Direction Axis) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+
+    // --- [DIFFERENTIAL] — a stencil answers a DERIVATIVE of the source, whose own slope this page never bounds.
+    public sealed record MagnitudeCase(VectorField Source) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+    public sealed record DivergenceCase(VectorField Source, PositiveMagnitude Epsilon) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+    public sealed record LaplacianCase(ScalarField Source, PositiveMagnitude Epsilon) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+    public sealed record StrainMagnitudeCase(VectorField Source, PositiveMagnitude Epsilon) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+
+    // --- [SAMPLED] — a lattice or a hash publishes VALUES, and a bound over sampled data is a measurement no
+    // construction supplies; a claimed one overshoots surfaces silently, which [03] names inadmissible.
+    public sealed record NoiseCase(NoiseKind Kind, NoisePolicy Policy) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+    public sealed record LatticeCase(CellLattice Grid, Arr<double> Values, LatticeInterpolation Interp) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+
+    // --- [MESH_SOLVERS] — a heat, flow, spectral, or stripe solution carries no analytic slope bound; the mesh SDF
+    // is 1-Lipschitz in the continuum and APPROXIMATE on a triangulation, so it claims nothing either.
+    public sealed record GeodesicCase(MeshSpace Space, Seq<int> Sources) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+    public sealed record MeanCurvatureFlowCase(MeshSpace Space, PositiveMagnitude TimeStep, Dimension Iterations) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+    public sealed record SpectralDistanceCase(MeshSpace Space, SpectralFilter Filter, Seq<int> Sources, Dimension Pairs) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+    public sealed record StripeCase(MeshSpace Space, VectorField CrossField, PositiveMagnitude Frequency) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+    public sealed record SignedDistanceFromMeshCase(MeshSpace Space, SdfMeshPolicy Policy) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+
+    // --- [RECONSTRUCTION] — a fitted or evaluated reconstruction's gradient is data-dependent; a Sibson blend's
+    // weight derivative diverges as a query crosses a sliver dual cell, and no kernel here publishes a slope bound.
+    public sealed record RbfCase(Seq<(Point3d Position, double Value)> Samples, KernelKind Kernel, PositiveMagnitude Radius, Arr<double> Coefficients, ReconstructionReceipt Receipt) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+    public sealed record MlsCase(Seq<MlsSample> Samples, KernelKind Kernel, PositiveMagnitude Radius, ReconstructionReceipt Receipt) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+    public sealed record LevinMlsCase(Seq<MlsSample> Samples, LevinMlsPolicy Policy, ReconstructionReceipt Receipt) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+    public sealed record ApssCase(Seq<MlsSample> Samples, ApssPolicy Policy, ReconstructionReceipt Receipt) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+    // The case carries the PREPARED dual, not the raw sample seq: the base Voronoi complex over the sites is
+    // identical for every query, so building it per sample was M-1 rebuilds of one unchanging half.
+    public sealed record SibsonCase(NaturalNeighborField Field, Arr<double> Values, ReconstructionReceipt Receipt) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+    public sealed record TetSignedHeatCase(TetMeshDomain Domain, TetSignedHeatPolicy Policy, Arr<double> Values, TetSignedHeatReceipt Receipt) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+    public sealed record PoissonCase(PoissonGrid Grid, double Gamma, PoissonReceipt Receipt) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+
+    // The march step bound and the CSG erosion fold READ this column, so it is abstract: a new case cannot compile
+    // without stating its bound, where a catch-all switch arm silently disabled the bound instead of breaking.
+    public abstract Option<double> LipschitzBound { get; }
 
     public static ScalarField Constant(double value) => new ConstantCase(Value: value);
-    public static Fin<ScalarField> Lattice(CellLattice grid, Arr<double> values, LatticeInterpolation? interp = null, Op? key = null) =>
+    public static Fin<ScalarField> Lattice(CellLattice grid, Arr<double> values, Option<LatticeInterpolation> interp = default, Op? key = null) =>
         from _ in guard(values.Count == grid.CellCount && values.ForAll(double.IsFinite), key.OrDefault().InvalidInput()).ToFin()
-        select (ScalarField)new LatticeCase(Grid: grid, Values: values, Interp: interp ?? LatticeInterpolation.Linear);
+        select (ScalarField)new LatticeCase(Grid: grid, Values: values, Interp: interp.IfNone(LatticeInterpolation.Linear));
     public static Fin<ScalarField> Density(Point3d center, double spread, double strength, Op? key = null) =>
         from s in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: spread)
         from _ in guard(double.IsFinite(strength) && center.IsValid, key.OrDefault().InvalidInput())
@@ -323,40 +398,13 @@ public abstract partial record ScalarField {
     public static ScalarField operator *(ScalarField field, double scale) => new ScaledCase(Source: field, Scale: scale);
     public static ScalarField operator *(double scale, ScalarField field) => new ScaledCase(Source: field, Scale: scale);
 
-    public Option<double> LipschitzBound() => this switch {
-        ConstantCase => Some(0.0),
-        PrimitiveCase p => Some(p.Shape.Lipschitz),
-        ProfileExtrusionCase => Some(1.0),
-        // Closest-point distance to ANY support is 1-Lipschitz; the sense sign preserves |∇|.
-        DistanceCase => Some(1.0),
-        // Order-th sorted seed distance is an order statistic of 1-Lipschitz distances — still 1-Lipschitz.
-        WorleyCase => Some(1.0),
-        // Exact radial slope maxima: Morse |V′| peaks at u = e^{−r/W} = ½ → D/(2W); Gaussian density |∇| peaks at r = σ → |S|e^{−1/2}/σ.
-        MorseCase m => Some(m.Depth.Value / (2.0 * m.Width.Value)),
-        DensityCase d => Some(Math.Abs(d.Strength) * Math.Exp(-0.5) / d.Spread.Value),
-        // |∇Σqᵢ·w| ≤ Σ|qᵢ|·sup|w′| — the calculus.md Falloff.SlopeBound column; a None-bounded decay law keeps the composite None.
-        PotentialCase p => p.Falloff.SlopeBound.Map(slope => p.Charges.Fold(0.0, static (acc, c) => acc + Math.Abs(c.Charge)) * slope),
-        CsgCase c => from l in c.Left.LipschitzBound() from r in c.Right.LipschitzBound() select c.Smoothing.Erode(leftLip: l, rightLip: r),
-        ScaledCase s => s.Source.LipschitzBound().Map(l => Math.Abs(s.Scale) * l),
-        DisplaceCase d => from l in d.Source.LipschitzBound() from r in d.Displacement.LipschitzBound() select l + r,
-        BlendCase b => b.Fields.TraverseM(static f => f.LipschitzBound()).As().Map(bounds =>
-            bounds.Fold(0.0, static (acc, bound) => acc + bound) / (b.Mode.Equals(FieldBlend.Average) ? bounds.Count : 1)),
-        OnionCase o => o.Source.LipschitzBound(),
-        SdfRoundCase r => r.Source.LipschitzBound(),
-        ElongateCase e => e.Source.LipschitzBound(),
-        ClampCase c => c.Source.LipschitzBound(),
-        // Twist/Bend stretch tangentially with radius; Periodic's wrap seam breaks the modulus of continuity for asymmetric sources; a Sibson
-        // blend's weight derivative diverges as a query crosses a sliver dual cell — no honest global bound on any of them.
-        _ => Option<double>.None,
-    };
-
     internal Fin<double> SampleScalar(Point3d sample, Context context, Op key) =>
         key.AcceptValue(value: sample).Bind(_ => Switch(state: (Sample: sample, Context: context, Key: key),
             constantCase: static (s, c) => s.Key.AcceptValue(value: c.Value),
             distanceCase: static (s, c) =>
                 from hit in c.Source.Closest(sample: s.Sample, key: s.Key)
-                from raw in c.Source.AdmitsSignedDistance(hit: hit)
-                    ? c.Source.SignedDistance(hit: hit, sample: s.Sample, key: s.Key)
+                from raw in c.Source.SignedReach(hit: hit)
+                    ? c.Source.SignedDistance(sample: s.Sample, key: s.Key)
                     : hit.Distance.ToFin(Fail: s.Key.InvalidResult())
                 select c.Sense.Sign * raw,
             csgCase: static (s, c) =>
@@ -370,7 +418,7 @@ public abstract partial record ScalarField {
             geodesicCase: static (s, c) => GeodesicKernel.HeatGeodesicAt(space: c.Space, sources: c.Sources, sample: s.Sample, key: s.Key),
             signedDistanceFromMeshCase: static (s, c) => MeshSdf.SignedDistanceDetailed(space: c.Space, policy: c.Policy, sample: s.Sample, key: s.Key).Map(static r => r.Distance),
             /* … remaining arms: potential/density/blend/magnitude, divergence/strain via Nabla with SampleVector
-               samplers, noise (NoiseKind.Sample + the NoisePolicy fBm octave fold), worley/morse/mollifier,
+               samplers, noise (NoiseKind.Sample over NoisePolicy.Lattice + its fBm octave fold), worley/morse/mollifier,
                profileExtrusion (plane remap + Curve.ClosestPoint/Contains + cap/profile max-fold -> NativeProfile),
                scaled/power/clamp/onion/sdfRound via ONE SampleMapped recurse-then-map body,
                periodic (Nabla.ToroidalWrap)/twist/bend/elongate/displace domain warps,
@@ -382,53 +430,47 @@ public abstract partial record ScalarField {
             poissonCase: static (s, c) => s.Key.AcceptValue(value: ReconstructLattice(grid: c.Grid.Grid, values: c.Grid.Chi, interp: LatticeInterpolation.Linear, local: c.Grid.Grid.Locate(sample: s.Sample)) - c.Gamma)));
 
     // Lattice reconstruction at a fractional cell coordinate — the ONE sample-reconstruction body every
-    // lattice-backed case reads. Cell-CENTRE convention (Center writes the half-offset), separable per axis:
-    // Nearest reads the clamped floor cell, Linear lerps the two-tap window, Cubic runs the four-tap Catmull-Rom;
-    // clamped border reads make every window total on an admitted lattice.
+    // lattice-backed case reads, and ZERO branches on the row: `CenterOffset` and `Axis` are the row's own columns
+    // (`Numerics/atoms`), so a fourth interpolation lands there and this body never learns of it. Clamped border
+    // reads make every window total on an admitted lattice.
     private static double ReconstructLattice(CellLattice grid, Arr<double> values, LatticeInterpolation interp, Point3d local) {
         (int columns, int rows, int layers) = (grid.Columns.Value, grid.Rows.Value, grid.Layers.Value);
         static int Clamp(int index, int count) => Math.Clamp(value: index, min: 0, max: count - 1);
         double At(int c, int r, int l) => values[(int)grid.Linear(column: Clamp(index: c, count: columns), row: Clamp(index: r, count: rows), layer: Clamp(index: l, count: layers))];
-        if (interp == LatticeInterpolation.Nearest) {
-            return At(c: (int)Math.Floor(d: local.X), r: (int)Math.Floor(d: local.Y), l: (int)Math.Floor(d: local.Z));
-        }
-        (double x, double y, double z) = (local.X - 0.5, local.Y - 0.5, grid.Rank is 3 ? local.Z - 0.5 : 0.0);
+        (double x, double y, double z) = (local.X - interp.CenterOffset, local.Y - interp.CenterOffset,
+            grid.Rank is 3 ? local.Z - interp.CenterOffset : 0.0);
         (int cx, int cy, int cz) = ((int)Math.Floor(d: x), (int)Math.Floor(d: y), (int)Math.Floor(d: z));
         (double fx, double fy, double fz) = (x - cx, y - cy, z - cz);
-        static double CatmullRom(double p0, double p1, double p2, double p3, double t) =>
-            p1 + (0.5 * t * (p2 - p0 + (t * ((2.0 * p0) - (5.0 * p1) + (4.0 * p2) - p3 + (t * ((3.0 * (p1 - p2)) + p3 - p0))))));
-        double Axis(Func<int, double> tap, double t) => interp == LatticeInterpolation.Linear
-            ? double.Lerp(tap(arg: 0), tap(arg: 1), t)
-            : CatmullRom(p0: tap(arg: -1), p1: tap(arg: 0), p2: tap(arg: 1), p3: tap(arg: 2), t: t);
-        double Plane(int dz) => Axis(tap: dy => Axis(tap: dx => At(c: cx + dx, r: cy + dy, l: cz + dz), t: fx), t: fy);
-        return grid.Rank is 3 ? Axis(tap: Plane, t: fz) : Plane(dz: 0);
+        double Plane(int dz) => interp.Axis(tap: dy => interp.Axis(tap: dx => At(c: cx + dx, r: cy + dy, l: cz + dz), t: fx), t: fy);
+        return grid.Rank is 3 ? interp.Axis(tap: Plane, t: fz) : Plane(dz: 0);
     }
 
     // ONE sweep entry — the batch counterpart to SampleDetailed: every cell centre samples through the same rail,
-    // and the first failed cell faults with its coordinate on the Op, so a million-cell sweep reports WHERE.
+    // and the first failed cell faults with its coordinate on the Op, so a million-cell sweep reports WHERE. The
+    // traverse is the RAIL, never a statement switch over an erased `Fin.Case`: that form had no arm for a case the
+    // pattern set does not cover, and a fall-through left the cell at a 0.0 no reader could tell from a measured one.
     public Fin<Arr<double>> SampleLattice(CellLattice grid, Context context, Op? key = null) {
         Op op = key.OrDefault();
-        double[] plane = new double[grid.CellCount];
-        for (long index = 0; index < plane.LongLength; index++) {
-            (int column, int row, int layer) = grid.Coordinate(linear: index);
-            Fin<double> cell = SampleScalar(sample: grid.Center(column: column, row: row, layer: layer), context: context, key: op);
-            if (cell.IsFail) {
-                return Fin.Fail<Arr<double>>(error: cell.Match(Succ: static _ => Errors.None, Fail: identity)
-                    + op.InvalidResult(detail: $"lattice-cell:{column},{row},{layer}"));
-            }
-            plane[index] = cell.IfFail(defaultValue: 0.0);
-        }
-        return op.AcceptValue(value: toArr(plane));
+        ScalarField self = this;
+        // `Arr<double>` addresses in int, so a lattice wider than that refuses HERE rather than overflowing a buffer.
+        return from cells in guard(grid.CellCount is > 0 and <= int.MaxValue, op.InvalidInput()).ToFin().Map(_ => (int)grid.CellCount)
+               from values in toSeq(Enumerable.Range(0, cells)).TraverseM(index => {
+                   (int column, int row, int layer) = grid.Coordinate(linear: index);
+                   return self.SampleScalar(sample: grid.Center(column: column, row: row, layer: layer), context: context, key: op)
+                       .MapFail(cause => cause + op.InvalidResult(detail: $"lattice-cell:{column},{row},{layer}"));
+               }).As()
+               from plane in op.AcceptValue(value: toArr(values))
+               select plane;
     }
 
-    public Fin<FieldSample> SampleDetailed(Point3d sample, Context context, Op? key = null) { /* status-tagged rail:
-        Primitive -> Analytic; Lipschitz-bounded composite -> ComposedAnalytic; ProfileExtrusion -> NativeProfile;
-        SignedDistanceFromMesh -> MeshApproximate + SdfMeshReceipt; Rbf/Mls/LevinMls/Apss/Sibson/Poisson ->
-        Reconstruction + sample receipt; TetSignedHeat -> TetSignedHeat + receipts; everything else ->
-        ComposedAnalytic with no distance claim. */ return default!; }
-    public Fin<SdfSample> SampleSdfDetailed(Point3d sample, Context context, Op? key = null) { /* the SDF-restricted
-        form: refuses (Unsupported) any species that cannot claim distance semantics; NativeProfile samples carry
-        the ProfileFeature/ProfileContainment columns. */ return default!; }
+    // Status-tagged rail: Primitive -> Analytic; Lipschitz-bounded composite -> ComposedAnalytic; ProfileExtrusion
+    // -> NativeProfile; SignedDistanceFromMesh -> MeshApproximate + SdfMeshReceipt; Rbf/Mls/LevinMls/Apss/Sibson/
+    // Poisson -> Reconstruction + sample receipt; TetSignedHeat -> TetSignedHeat + receipts; everything else ->
+    // ComposedAnalytic with no distance claim.
+    public Fin<FieldSample> SampleDetailed(Point3d sample, Context context, Op? key = null);
+    // SDF-restricted form refuses (Unsupported) any species that cannot claim distance semantics; a
+    // NativeProfile sample carries the ProfileFeature/ProfileContainment columns and no other species does.
+    public Fin<SdfSample> SampleSdfDetailed(Point3d sample, Context context, Op? key = null);
 }
 ```
 
@@ -438,7 +480,7 @@ public abstract partial record ScalarField {
 - Entry: same construction law as the scalar union. `Ring` and `ClusterField` derive a default `Gaussian(radius/3)` falloff; `HitField` gates on `SupportProjection.CanProjectVector`; `CrossField` proves symmetry in {1,2,4,6}.
 - Auto: `SampleVector` is one total `Switch` over three shared folds — `RotationalField` (one swirl body serving `Vortex`, `Ring`, and `Helical`, where `Ring.Radius` drives only its default falloff), `RadialContribution` (the accumulating charge fold `Coulomb` and `ClusterField` share), and `ClosestDirected` (the closest-hit query feeding `Influence` shell residuals and `HitField` projections). Closed-form cases evaluate directly; differential arms delegate to the `calculus.md` `Nabla` stencil; mesh-aware arms delegate through the `MeshSpace` seam.
 - Growth: a vector sample is a plain value; a new field species is one case and one arm, absorbing into a shared fold when it is a swirl, radial, or closest variant, and a provenance-tagged arm or a vector Lipschitz fold rides the existing `SdfStatus` and `Falloff.SlopeBound` columns.
-- Boundary: the three shared folds are the collapse law — a new analytic case re-implementing swirl, radial accumulation, or closest-directed shaping is the rejected duplication. On-source behavior is deliberately asymmetric: `ClosestDirected` faults on a sample coincident with its support, because a hit-directed vector is undefined at its own source and a silent zero corrupts a streamline, while `RadialContribution` skips a coincident charge whose sum's remaining terms stay well-defined. `CurlNoise` refuses a non-differentiable potential at construction through a recursive fold over the payload tree — a `Worley` buried inside a `Blend` or `Csg` still refuses — so the sampler never guards.
+- Boundary: the three shared folds are the collapse law — a new analytic case re-implementing swirl, radial accumulation, or closest-directed shaping is the rejected duplication. On-source behavior is deliberately asymmetric: `ClosestDirected` faults on a sample coincident with its support, because a hit-directed vector is undefined at its own source and a silent zero corrupts a streamline, while `RadialContribution` skips a coincident charge whose sum's remaining terms stay well-defined. `CurlNoise` refuses a potential whose noise rows do not all hold `NoiseTrait.Differentiable`, at construction, through a recursive fold over the payload tree — a `Worley` buried inside a `Blend` or `Csg` still refuses — so the sampler never guards.
 
 ```csharp signature
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -457,7 +499,7 @@ public abstract partial record VectorField {
                     from distance in hit.Distance.ToFin(Fail: op.InvalidResult())
                     let residual = c.ShellRadius.Map(r => Math.Abs(distance - r.Value)).IfNone(distance)
                     let shellSign = c.ShellRadius.Map(r => distance >= r.Value ? 1.0 : -1.0).IfNone(1.0)
-                    from weight in c.Falloff.Weight(offset: hit.Point - s.Sample, sample: s.Sample, tolerance: s.Context.Absolute.Value, key: op)
+                    from weight in c.Falloff.Weight(offset: hit.Point - s.Sample, sample: s.Sample, tolerance: s.Context.For(lane: ToleranceLane.Duplicate).Value, key: op)
                     select (Raw: shellSign * (hit.Point - s.Sample), Scale: c.ShellRadius.IsSome ? residual * weight : weight)),
             hitFieldCase: static (s, c) => ClosestDirected(source: c.Source, sample: s.Sample, sense: c.Sense, context: s.Context, key: s.Key,
                 hitToScaled: (hit, op) => c.Projection.Equals(SupportProjection.Span) || c.Projection.Equals(SupportProjection.SignedSpanAway)
@@ -469,7 +511,7 @@ public abstract partial record VectorField {
                 (acc, charge) => acc.Bind(sum => RadialContribution(sum: sum, source: charge.Position, scale: charge.Charge, state: s, falloff: c.Falloff))),
             clusterFieldCase: static (s, c) =>
                 from index in NeighborIndex.Of(source: new NeighborSource.ClusterCase(Cloud: c.Source), key: s.Key)
-                // The cluster index is RTree-backed, and neighbors.md refuses a non-Euclidean metric on that species
+                // Cluster index is RTree-backed, and neighbors.md refuses a non-Euclidean metric on that species
                 // rather than answering Euclidean under another row's name, so the radial fold pins Euclidean here.
                 from answer in index.Query(query: new NeighborQuery.RadiusCase(R: c.Radius, Cap: Option<Dimension>.None, Metric: NeighborMetric.Euclidean), anchor: s.Sample, key: s.Key)
                 from ids in answer switch {
@@ -497,15 +539,17 @@ public abstract partial record VectorField {
     private static Fin<Vector3d> RotationalField(Point3d anchor, Direction axis, Falloff falloff, double axial, double swirl, (Point3d Sample, Context Context, Op Key) state) {
         Vector3d r = state.Sample - anchor;
         Vector3d rPerp = r - ((r * axis.Value) * axis.Value);
-        return falloff.Weight(offset: rPerp, sample: state.Sample, tolerance: state.Context.Absolute.Value, key: state.Key)
+        return falloff.Weight(offset: rPerp, sample: state.Sample, tolerance: state.Context.For(lane: ToleranceLane.Duplicate).Value, key: state.Key)
             .Map(w => w * ((axial * axis.Value) + (swirl * Vector3d.CrossProduct(a: axis.Value, b: rPerp))));
     }
-    // Sample rides every Weight call so the metric (anisotropic) falloff case works on all three folds.
+    // Sample rides every Weight call so the metric (anisotropic) falloff case works on all three folds. The
+    // coincidence floor is `ToleranceLane.Duplicate` — the lane owning "these two positions are the same point" —
+    // never the derivation-graph floor, so a model widening duplicate agreement widens every falloff with it.
     private static Fin<Vector3d> RadialContribution(Vector3d sum, Point3d source, double scale, (Point3d Sample, Context Context, Op Key) state, Falloff falloff) {
         Vector3d r = state.Sample - source;
-        return r.Length <= state.Context.Absolute.Value
+        return r.Length <= state.Context.For(lane: ToleranceLane.Duplicate).Value
             ? Fin.Succ(sum)
-            : falloff.Weight(offset: r, sample: state.Sample, tolerance: state.Context.Absolute.Value, key: state.Key).Map(w => sum + (scale * w / r.Length * r));
+            : falloff.Weight(offset: r, sample: state.Sample, tolerance: state.Context.For(lane: ToleranceLane.Duplicate).Value, key: state.Key).Map(w => sum + (scale * w / r.Length * r));
     }
     private static Fin<Vector3d> ClosestDirected(SupportSpace source, Point3d sample, BoundarySense sense, Context context, Op key,
         Func<ClosestHit, Op, Fin<(Vector3d Raw, double Scale)>> hitToScaled) =>

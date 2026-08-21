@@ -1,33 +1,51 @@
 # [COMPUTE_GENERATIVE]
 
-Rasm.Compute model generative run: the ORT-GenAI token-streaming owner emits one polymorphic `GenerationEvent` stream — incremental `Piece`, resolved `ToolInvoked`, terminal `Completed` carrying the run tally — over `GenerationInput.Text`/`Multimodal`/`StreamingAudio`/`Batched` shapes from one staged-input drain, with caller-owned per-sequence stop state, the genai provider/decoder-device override, content-admitted in-memory model and LoRA assets, a `ToolPhase` row machine that detects a free-text call, awaits the consumer resolver, and re-feeds the typed result, and a conversation-scoped `GenerativeSession` that retains the live KV prefix across turns. It owns the `GenerationPolicy` search/prompt policy with its `SearchKey`/`GuidanceKind`/`RuntimeOption` axes, the `GenerationInput` payload family with its derived `RunMode` and staged `Width`, the `ModelClass` native-capability table, the `DecoderPin`/`ModelData`/`StopOracle`/`ToolPolicy` carriers, the `GenerationEvent` `[Union]` + `GenerationTally`/`GenerationOutcome` result family, the `AdapterSet` LoRA registry, and the `GenerativeRun` boundary capsule whose process-global `OgaHandle`, fingerprint-keyed resident `Config`→`Model`→`AdapterSet` lease, per-call `GeneratorParams`→`Generator` chain, `Stage` fold, `Drain`, `Collect`, and `Receipt` ride `Microsoft.ML.OnnxRuntimeGenAI`.
+Rasm.Compute model generative run: the ORT-GenAI token-streaming owner emits one polymorphic `GenerationEvent` stream — incremental `Piece`, resolved `ToolInvoked`, typed `Faulted`, terminal `Completed` carrying the run tally and its measured span — over `GenerationInput.Text`/`Multimodal`/`StreamingAudio`/`Batched` shapes from ONE staged drain both the one-shot run and the conversation turn instantiate, with per-sequence cursor state, the genai provider/decoder-device override, content-admitted in-memory model and LoRA assets, a `ToolPhase` row machine that detects a free-text call, awaits the consumer resolver under a bounded deadline, and re-feeds the typed result, and a conversation-scoped `GenerativeSession` that retains the live KV prefix across turns.
 
-Streaming abstraction `Microsoft.Extensions.AI.Abstractions` arrives settled (the built-in `OnnxRuntimeGenAIChatClient : IChatClient` composes the same handle chain), the `ExecutionProvider` from `Model/providers#EP_AXIS` and `ModelIdentity` from `Model/identity#MODEL_IDENTITY` ride the `Generate` receipt, and the AppHost `CancelScope`, the kernel `CorrelationId` (`Rasm/Domain/telemetry#CAUSAL_FRAME`), and `NodaTime` `Duration`/`Instant` arrive settled. `Generate` is the catalogued receipt case at `Runtime/receipts#RECEIPT_UNION` (whose `GuidanceKind` and `StagedTokens` fields this page owns), the cold-build-outside-lock-publish-under-lock resident discipline arrives settled from `Model/sessions#SESSION_CAPSULE`, and a remote generative run crosses solely through the `Runtime/wire#PROTO_VOCABULARY` `Generate` rpc (`GenerateRequest` → `TokenChunk`).
+It owns the `GenerationPolicy` search/prompt policy with its `SearchKey`/`GenerationMode`/`RuntimeOption` axes, the `GenerationInput` payload family with its narrowed `MediaSet` media arm and staged `Width`, the `ModelClass` native-capability table over one frozen `ModelCapability` set, the `ChatRole`/`ChatTurn` message vocabulary under a source-generated wire context, the `DecoderPin`/`ModelData`/`StopOracle`/`ToolPolicy` carriers, the `GenerationEvent` `[Union]` + `GenerationTally`/`GenerationOutcome` result family, the `AdapterSet` LoRA registry, and the `GenerativeRun` boundary capsule whose process-global `OgaHandle`, fingerprint-keyed resident `Config`→`Model`→`AdapterSet` lease, per-call `GeneratorParams`→`Generator` chain, `Stage` fold, `Drain`, `Collect`, and `Receipt` ride `Microsoft.ML.OnnxRuntimeGenAI`.
+
+The `ExecutionProvider` from `Model/providers#EP_AXIS` and `ModelIdentity` from `Model/identity#MODEL_IDENTITY` ride the `Generate` receipt; the AppHost `CancelScope`, the kernel `CorrelationId` (`Rasm/Domain/frame#SOURCE`), `ContentHash`/`CanonicalWriter` (`Rasm/Domain/identity#CONTENT_KEY`), the kernel `MonotonicTimeline`, and `NodaTime` `Duration`/`Instant` arrive settled. `Generate` is the catalogued receipt case at `Runtime/receipts#RECEIPT_UNION` (whose `GuidanceKind` and `StagedTokens` fields this page owns), `ModelSessions.Faulted` is the ONE native-fault classifier this page composes rather than re-deriving, the cold-build-outside-lock-publish-under-lock resident discipline arrives settled from `Model/sessions#SESSION_CAPSULE`, and a remote generative run crosses solely through the `Runtime/wire#PROTO_VOCABULARY` `Generate` rpc (`GenerateRequest` → `TokenChunk`).
 
 ## [01]-[INDEX]
 
-- [02]-[GENERATIVE_RUN]: ORT-GenAI owner emitting one `GenerationEvent` stream from one staged drain; fingerprint-keyed resident `Config`/`Model`/`AdapterSet` lease with a memoized directory digest; caller-owned per-sequence stop state; genai provider/decoder pins; in-memory model admission; search-option table with the mandatory derived `batch_size`; guidance; the `ModelClass` capability gate over the multimodal, streaming-audio, and batched shapes.
-- [03]-[TOKEN_DRAIN]: one `Drain` loop over `GenerateNextToken`/`GetNextTokens`; the `ToolPhase` row machine and its `ToolStep` decisions; `Collect` fault classification and the `Receipt` projection.
-- [04]-[GENERATIVE_SESSION]: conversation-scoped KV retention — one live `Generator` per conversation, turns appended through `AppendTokens`, the conversation-wide budget, and the idle-sweep drain.
+- [02]-[GENERATIVE_RUN]: ORT-GenAI owner emitting one `GenerationEvent` stream from one staged drain; fingerprint-keyed resident `Config`/`Model`/`AdapterSet` lease over a stat-witnessed directory digest; per-sequence cursor state; genai provider/decoder pins; in-memory model admission; the behavior-complete search-option table with its mandatory derived `batch_size`; the structural guidance-or-tools mode; the `ModelClass` capability set gating the multimodal, streaming-audio, and batched shapes.
+- [03]-[TOKEN_DRAIN]: ONE `Drain` loop over `GenerateNextToken`/`GetNextTokens` that the one-shot run and the conversation turn both instantiate; the `ToolPhase` row machine and its `ToolStep` decisions; `Collect`'s total fold and the `Receipt` projection.
+- [04]-[GENERATIVE_SESSION]: conversation-scoped KV retention — one live `Generator` per conversation, turns appended through `AppendTokens`, the conversation-wide budget, the drain participant row, and the idle-sweep schedule row.
+- [05]-[RESEARCH]: closed.
 
 ## [02]-[GENERATIVE_RUN]
 
-- Owner: `GenerationPolicy` is the one search-option and prompt-assembly policy — the behavior-bearing `SearchKey` recognized-key/value-domain axis, `SearchRows`, `GuidanceKind`, admitted `RuntimeOption` rows, text stop rows, prompt-assembly columns, `ToolPolicy`, `DecoderPin`, admitted `ModelData`, the `MediaTokenReserve` staging column, and the admitted `AdapterAsset` roster. `GenerationInput` is the case-correct per-run payload family deriving both `RunMode` and the staged `Width`; `ModelClass` is the native-capability table keyed on `Model.GetModelType()`; `GenerationEvent` is the one streamed unit (`Piece` | `ToolInvoked` | `Completed`); `GenerationOutcome` is the one collected result (per-sequence pieces + `GenerationTally`); `AdapterSet` is the LoRA hot-swap registry over `Adapters : SafeHandle`, created against its resident `Model`; `GenerativeRun` owns the process-global `OgaHandle`, the path-keyed directory-digest memo, the `UInt128` content-fingerprint resident map, the per-call `GeneratorParams`→`Generator` chain, the `Stage` fold, one `Lease`/`Unload`/`Drain`, and the `Stream`/`Collect`/`Receipt`/`OpenSession` entries the later clusters spell.
-- Cases: `GuidanceKind` rows none · json-schema · regex · lark-grammar (the three LLGuidance constrained-decoding types and the unconstrained row; no native `choice` type exists, so an enumerated choice rides a `json-schema` enum or a `regex` alternation); `SearchKey` rows batch_size · num_beams · length_penalty · repetition_penalty · top_k · top_p · temperature · do_sample · max_length · min_length · early_stopping; `GenerationInput` cases text · multimodal · streaming-audio · batched; `ModelClass` rows generic · vision-language · speech-stream, each carrying multimodal, streaming-audio, and rewind capability; `GenerationEvent` cases Piece · ToolInvoked · Completed.
-- Entry: `Stream(modelDir, policy, input, clock, token)` leases the fingerprint-keyed resident, stages the payload case, yields incremental `Piece(sequence, index, text)`, surfaces a resolved `ToolInvoked(sequence, tool)`, and closes with `Completed(tally)`; it carries no `ModelIdentity`/`ExecutionProvider` — the provider rides the model's `genai_config.json` or the `DecoderPin` and identity/EP ride the `Receipt`, so a `Stream` re-deriving a provider string from an `ExecutionProvider.Key` is the deleted form.
-- Auto: `Conforms(input)` admits finite `SearchRows` through each delegate-backed `SearchKey.Accepts`, ordered `min_length <= max_length`, nonblank unique stop sequences, case-local assets, content-verified unique adapters, and tools only on unguided single-sequence text runs without competing text stops; `batch_size` is derived, so a caller row declaring it is refused. `Apply` folds the effective rows — declared set, derived `batch_size`, multimodal `max_length` reserve — through the numeric/bool `SetSearchOption` overloads; `Echo` reads native values back over the same effective key set. `DecoderPin.Apply` clears packaged providers before appending its override, so the pin never becomes an accidental fallback. `Generator.SetRuntimeOption` folds every admitted `RuntimeOption` after generator construction. Owned in-memory bytes enter through `AddModelData` and retract through `RemoveModelData` after `Model` construction. `Fingerprint` folds the path-memoized directory digest with every adapter content key, decoder option, and in-memory identity into `ContentHash.Of`. Non-copyable `ResidentLease` instances count active streams under `Gate`; `Unload` evicts only idle zero-lease residents and drops the digest of every path no resident still backs. Prompt assembly rides `ApplyChatTemplate` then `Encode`; `StopOracle` reads model EOS, pad, and turn-boundary ids and withholds the maximal text-stop prefix per sequence so a stop split across token pieces never leaks.
-- Law: `IsDone()` answers the WHOLE batch, never one sequence — a sequence that emits EOS at step 1 leaves it false while the batch runs on, and every finished sequence then emits PAD at full batch width for every remaining step. Per-sequence stop therefore rides the caller-owned `stopped[]` array, `GetNextTokens().Length` equals the staged width on every step, and a terminal EOS or PAD is consumed without advancing the tally, so a stop token never counts as generated text.
+- Owner: `GenerationPolicy` is the one search-option and prompt-assembly policy — the behavior-bearing `SearchKey` recognized-key/value-domain axis, `SearchRows`, the `GenerationMode` guidance-or-tools column, admitted `RuntimeOption` rows, text stop rows, prompt-assembly columns, `DecoderPin`, admitted `ModelData`, the `MediaTokenReserve` staging column, and the admitted `AdapterAsset` roster. `GenerationInput` is the case-correct per-run payload family deriving both the receipt `Key` and the staged `Width`; `MediaSet` narrows the multimodal arm to the three inhabited media shapes; `ModelClass` is the native-capability table keyed on `Model.GetModelType()` over one frozen `ModelCapability` set; `ChatRole`/`ChatTurn` own the message vocabulary and its wire row; `GenerationEvent` is the one streamed unit; `GenerationOutcome` is the one collected result; `AdapterSet` is the LoRA hot-swap registry over `Adapters : SafeHandle`; `GenerativeRun` owns the process-global `OgaHandle`, the stat-witnessed directory-digest memo, the `GenerativeResident` payload over a `UInt128` content fingerprint, the per-call chain, the `Stage` fold, one `Lease`/`Unload`/`Drain`, and the entries the later clusters spell; `GenerativeRefusal` names this owner's shared contract refusals without a string-key roster. Residency itself is NOT owned here — both this page's fleets instantiate the `Model/sessions#SESSION_CAPSULE` `ResidentPool`.
+- Cases: `GuidanceKind` rows none · json-schema · regex · lark-grammar — the COMPLETE native vocabulary, verified against the shipped runtime's own refusal (`only json_schema, regex, and lark_grammar are supported`); no `choice` type exists, so an enumerated choice rides a `json-schema` enum or a `regex` alternation; `SearchKey` rows batch_size · num_beams · num_return_sequences · length_penalty · repetition_penalty · no_repeat_ngram_size · top_k · top_p · temperature · diversity_penalty · do_sample · random_seed · max_length · min_length · chunk_size · blank_penalty · early_stopping · past_present_share_buffer — the COMPLETE recognized roster the shared native search parser accepts, catalogued with per-key evidence at `.api/api-onnxruntimegenai.md`; `GenerationMode` cases `Plain` · `Guided` · `Tooled`; `GenerationInput` cases text · multimodal · streaming-audio · batched; `MediaSet` cases `Images` · `Audios` · `Both`; `ModelClass` rows generic · vision-language · speech-stream; `ChatRole` rows system · user · assistant · tool; `GenerationEvent` cases `Piece` · `ToolInvoked` · `Faulted` · `Completed`; `StagedRun` cases `Decoding` · `Encoding`.
+- Entry: `Stream(modelDir, policy, input, clock, timeline, cell, token)` leases the fingerprint-keyed resident, stages the payload case, yields incremental `Piece(sequence, index, text)`, surfaces a resolved `ToolInvoked(sequence, tool)`, carries every refusal as `Faulted(error)`, and closes with `Completed(tally, elapsed)`; it carries no `ModelIdentity`/`ExecutionProvider` — the provider rides the model's `genai_config.json` or the `DecoderPin` and identity/EP ride the `Receipt`, so a `Stream` re-deriving a provider string from an `ExecutionProvider.Key` is the deleted form.
+- Law: residency has ONE owner and this page holds NONE of it. Both fleets here — the `Config`/`Model`/`AdapterSet` model fleet and the `[04]` conversation registry — instantiate the `Model/sessions#SESSION_CAPSULE` `ResidentPool`, so `Acquire`, `Publish`, `Release`, the eviction fold, the race-loser disposal, and the lease refcount delete from this page whole. NAMED LOSS: the page-local `ResidentLease` and `Seat` retire, and `GenerativeChat.Open` now hands back a POOL LEASE its caller releases. WITNESS: the conversation registry was the copy carrying no refcount at all — `Sweep` filtered on `LastUsed` and disposed what it found, so an idle sweep could close a `Generator` mid-drain while the `turning` interlock, which guards only two concurrent turns, saw nothing. Both fleets also inherit the pool's per-key eviction CAS and its bracketed LIFO disposal, closing a snapshot-then-remove window and an `Iter` that stranded every handle behind the first throwing `Dispose`.
+- Law: the STREAM ELEMENT carries the rail. `IAsyncEnumerable<GenerationEvent>` is the correct lane form for a single-producer token drain — `concurrency.md` `[BLOCK_ADMISSION]` admits a channel row only on topology completion, batch grouping, broadcast latest-value, or ordered parallel transform, and a native cursor pump has none, so `Channel<T>` is NOT owed — and the defect was never the carrier but the element type: an event family that cannot carry a fault forced ten typed rails back through exceptions and then a six-arm ladder to re-admit them. `Faulted(Error)` closes that loop, and a refusal is the FIRST element rather than an outer `Fin<IAsyncEnumerable<…>>` wrapper because the lease, the generator, and every staged handle must live exactly as long as the enumeration: a wrapper validating outside the iterator would have to acquire them to do it, and a caller that never enumerated would leak every one.
+- Law: guidance and tools are MUTUALLY EXCLUSIVE by CONSTRUCTION, not by three agreeing checks. Under `SetGuidance` the native `AppendTokens` admits only grammar-derived spans and rejects a free-text tool result with a parser error, so `GenerationMode` carries `Plain`, `Guided`, and `Tooled` as one closed column and the combination is unspellable — where the exclusion previously lived as a conjunct in `Conforms`, a gate in `Stage`, and a refusal in `OpenSession`, three sites that could disagree.
+- Law: admission ACCUMULATES. Nine independent invariants `&&`-folded into ONE prose fault told a caller breaking four of them nothing about any of the four, on a page where every other refusal is a keyed slug. Each is an `IConstraint<PolicyCandidate>` conformance folded applicatively, so the refusal names every invariant the policy broke and the prose message deletes.
+- Law: `IsDone()` answers the WHOLE batch, never one sequence — a sequence that emits EOS at step 1 leaves it false while the batch runs on, and every finished sequence then emits PAD at full batch width for every remaining step. Per-sequence stop therefore rides the drain's own `SequenceCursor` roster, `GetNextTokens().Length` equals the staged width on every step, and a terminal EOS or PAD is consumed without advancing the tally, so a stop token never counts as generated text.
 - Law: `batch_size` is a MANDATORY recognized `SetSearchOption` key — absent, staging faults `input sequences count does not match batch size` — and it is DERIVED from `GenerationInput.Width`, never declared: the batched arm sets the staged width and every other arm sets one. `EncodeBatch` left-pads a ragged batch to its longest member, `TokenCount()` is one batch-wide scalar rather than a per-sequence read, and `RewindTo` on a batch wider than one admits only `0` while any restart faults — so a batched run has NO restart and the tool arm's `Width == 1` gate is what keeps the rewind rail reachable.
-- Law: `ModelClass` gates every native processor the shape reaches. `StreamingProcessor` binds the speech-stream row alone, `MultiModalProcessor` binds only a row declaring multimodal, and a model type the table does not carry falls to the generic row — so an unrostered multimodal model REFUSES staging rather than reaching a processor the native layer never registered. Neither media row declares rewind, which is why tools admit only on a rewinding class. Batched multimodal is unreachable by construction — one image tag admits one prompt — and refuses typed rather than staging a batch the graph cannot carry.
-- Law: `max_length` is the native TOTAL sequence length and a multimodal stage commits its media tokens at `SetInputs`, BEFORE the first step, so a budget shorter than the staged total faults at staging rather than at the drain. `MediaTokenReserve` is the measured per-media staged-token reserve — resolution-invariant and linear in media count — and `Apply` widens the multimodal and streaming rows by it while every other arm passes the declared budget through.
+- Law: `ModelClass` gates every native processor the shape reaches, through a MEMBERSHIP SET rather than three parallel bools. Three booleans spell eight states of which three are inhabited and leave the `Streaming ⇒ Multimodal` implication every row satisfies unstated; one frozen `ModelCapability` set makes the gates membership tests and the implication a roster fact. `StreamingProcessor` binds the speech-stream row alone, `MultiModalProcessor` binds only a row carrying multimodal, and a model type the table does not carry falls to the generic row — so an unrostered multimodal model REFUSES staging rather than reaching a processor the native layer never registered. Neither media row carries rewind, which is why tools admit only on a rewinding class. Batched multimodal is unreachable by construction — one image tag admits one prompt — and refuses typed rather than staging a batch the graph cannot carry.
+- Law: `max_length` is the native TOTAL sequence length and a multimodal stage commits its media tokens at `SetInputs`, BEFORE the first step, so a budget shorter than the staged total faults at staging rather than at the drain. `MediaTokenReserve` is the measured per-media staged-token reserve — resolution-invariant and linear in media count — and the effective row set widens the multimodal and streaming rows by it while every other arm passes the declared budget through.
 - Law: genai provider names are case-sensitive native strings the packaged runtime resolves at `Model` construction. `CoreML` builds and generates on this runtime; `XNNPACK` refuses `not supported in this build` on osx-arm64; an unresolvable name faults at construction. `DecoderPin` therefore carries the native name verbatim and never a translated `ExecutionProvider.Key`.
-- Receipt: the `Generate` `ComputeReceipt` case carries model checksum, EP (whose `Precision.Key` rides the `ExecutionProvider` key so a quantized run is receipt-distinct), model type from `Model.GetModelType()`, generated-token count, tokens-per-second from `tally.Tokens / elapsed`, the `GuidanceKind` dimension, the constrained-token count, the tool-call count, and the `StagedTokens` media column — all read from `GenerationOutcome.Tally`, never caller-supplied, so a receipt hardcoding `0, 0` for the constrained/tool slots is structurally impossible; the run rides `Substrate.GenAi` (never the `Onnx` inference row), `WorkLane.Background`, and `AllocationClass.NativeOrt`; the `Mode` and `Adapter` receipt columns carry the `RunMode` key and the active LoRA adapter, and the `Runtime/receipts` projection fan tags `rasm.compute.generate.tokens` from them (`run.mode`, `lora.adapter`, `guidance`) so every instrument dimension derives from a receipt field; the run advances the `Runtime/progress#PROGRESS_CELL` cell to the `Streaming` `ProgressPhase` with the running token count on the `ProgressMark.Segments` slot while the terminal `Generate` receipt carries the token total, so a per-chunk `StreamSegment` receipt is the rejected form (that receipt addresses a content-keyed artifact stream — the windowed-inference `Chunked` run — which a token stream never produces).
-- Packages: Microsoft.ML.OnnxRuntimeGenAI, Microsoft.Extensions.AI.Abstractions, Microsoft.ML.OnnxRuntime, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project, `Domain.ContentHash`), Rasm.AppHost (project), BCL inbox (System.Text.Json, System.Collections.Frozen)
-- Growth: a new search option is one behavior-complete `SearchKey` row with one `SearchRows` value; a new output constraint is one `GuidanceKind` row; a new generative shape is one payload-bearing `GenerationInput` case whose `Stage` arm rides the one drain; a model type whose native capability differs from the generic floor is one `ModelClass` row; a new fine-tune is one admitted `AdapterAsset` row loaded once on the resident's `AdapterSet` and selected by `Adapter` name; a new stream observation is one `GenerationEvent` case folded into the total `Switch`; a new tool is one name + one `ToolPolicy.Resolve` arm; an in-memory model is one admitted `ModelData` value folded into `Config.AddModelData`; zero new surface.
-- Boundary: token-streaming is a run mode on this host-local lane; the cluster carries no `TS_PROJECTION`, and remote generation crosses solely through `Runtime/wire#PROTO_VOCABULARY` `Generate` (`GenerateRequest` → `TokenChunk`). `OgaHandle` is process-global on `GenerativeRun.Runtime`, while every per-call genai handle is disposed LIFO. Cold `Config`/`Model`/`AdapterSet` construction runs OUTSIDE `Gate` and publishes under it, so a race costs one redundant build instead of a serialized fleet and the loser disposes its own build; residents and digests are immutable-map values replaced through `SetItem`, never mutable setters. `Config`/`Model`/`AdapterSet` residents stay alive while `GenerativeResident.Leases > 0`; idempotent `ResidentLease.Dispose` decrements the hold once, so an idle sweep cannot dispose a model under an active `Generator`. Recognized `SetSearchOption` keys and value domains live on `SearchKey`; a literal key or unconstrained numeric row is rejected. `SetRuntimeOption` accepts an unknown key SILENTLY and `terminate_session` ABORTS the process uncatchably mid-drain, so `RuntimeOption.Admit` refuses the banned key and no other construction path exists — the abort is structurally unspellable rather than documented. `Generator.GetOutput`/`GetInput` SIGSEGV on a name the live graph does not carry, so the drain surface spells neither and a logits probe rides a model-class gate on a profiling path. `Generator.GetSequence(index)` performs no native range check — an out-of-range index returns sequence 0 — so any read gates `index < Width` first; the drain reads `GetNextTokens()` alone. `GenerationPolicy.FastForwardTokens` has no spelling: `enableFFTokens` COMMITS tokens `GetNextTokens()` never surfaces (a measured 85-token count over 83 steps, the streamed decode missing schema keys the committed sequence held), so the flag is pinned false at the one `SetGuidance` call. Genai provider selection rides `genai_config.json` or `DecoderPin`, never `ExecutionProvider.Key`. Guidance and tools are mutually exclusive by typed admission: under `SetGuidance` the native `AppendTokens` admits only grammar-satisfying spans and rejects a free-text tool result with a parser error, so a guided run carries no tool roster and an unguided one carries no grammar.
+- Law: a sampled run is replayable EXACTLY WHEN the policy declares `random_seed`, and never by default. The runtime recognizes the key — verified in the shipped native parser, integral, default `-1` meaning "seed from the random device", and readable back through `GetSearchNumber` — so replay is a caller's declaration rather than a property the lane can assert or deny wholesale. It stays UNSEEDED because a default seed silently collapses every concurrent request onto one draw. A run without it produces tokens the `Generate` receipt records and never claims reproduce; a run with it reproduces under identical model bytes, policy rows, and prompt. The `Generate` receipt carries the declared seed as `Option<int>` — `Some` is the replay claim, `None` the unseeded default — so replayability is legible in the receipt itself.
+- Auto: `Conforms(input)` accumulates finite `SearchRows` through each delegate-backed `SearchKey.Accepts`, ordered `min_length <= max_length`, nonblank unique stop sequences, case-local assets, content-verified unique adapters, mode-consistent guidance and tool rosters, and the run-shape gate — `batch_size` is derived, so a caller row declaring it is refused. The effective row set folds the declared rows with two DERIVED columns through the roster's own `Seeded` column; `Apply` invokes each row's own `Apply` arm and `Echo` each row's own `Echo` arm, so the numeric-versus-bool overload choice is a row property rather than a branch at two call sites facing opposite directions. `DecoderPin.Apply` clears packaged providers before appending its override, so the pin never becomes an accidental fallback. `Generator.SetRuntimeOption` folds every admitted `RuntimeOption` after generator construction. Owned in-memory bytes enter through `Config.AddModelData` and retract through `RemoveModelData` after `Model` construction. `Fingerprint` folds the memoized directory digest with every adapter content key, decoder option, and in-memory identity through the kernel canonical writer. Non-copyable pool leases count active streams on one keyed cell; `Unload` composes the pool's own idle eviction and then drops the witness of every path no resident still backs. Prompt assembly rides `ApplyChatTemplate` then `Encode`; `StopOracle` reads model EOS, pad, and turn-boundary ids and withholds the maximal text-stop prefix per sequence so a stop split across token pieces never leaks.
+- Receipt: the `Generate` `ComputeReceipt` case carries model checksum, EP (whose `Precision.Key` rides the `ExecutionProvider` key so a quantized run is receipt-distinct), model type from `Model.GetModelType()`, generated-token count, tokens-per-second over the drain's OWN measured span, the `GuidanceKind` dimension, the constrained-token count, the tool-call count, and the `StagedTokens` media column — all read from `GenerationOutcome`, never caller-supplied, so a receipt hardcoding `0, 0` for the constrained/tool slots is structurally impossible and the elapsed denominator is a value this page observed rather than one its caller asserted; the run rides `Substrate.GenAi` (never the `Onnx` inference row), the caller's own `WorkLane`, and `AllocationClass.NativeOrt`; the `Mode` and `Adapter` receipt columns carry the input's own key and the active LoRA adapter, and the `Runtime/receipts` projection fan tags `rasm.compute.generate.tokens` from them (`run.mode`, `lora.adapter`, `guidance`) so every instrument dimension derives from a receipt field; the run advances the injected `Runtime/progress#PROGRESS_CELL` cell to the `Streaming` `ProgressPhase` with the running token count on the `ProgressMark.Segments` slot — a call the drain makes rather than a contract the card claims — while the terminal `Generate` receipt carries the token total, so a per-chunk `StreamSegment` receipt is the rejected form (that receipt addresses a content-keyed artifact stream — the windowed-inference `Chunked` run — which a token stream never produces).
+- Packages: Microsoft.ML.OnnxRuntimeGenAI, Microsoft.ML.OnnxRuntime, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core (`AtomHashMap.SwapKey`), Rasm (project, `Domain.ContentHash`/`Domain.CanonicalWriter`/`Domain.Custody.Rollback`/`Parametric.MonotonicTimeline`), Rasm.AppHost (project), BCL inbox (System.Text.Json, System.Collections.Frozen)
+- Growth: a new search option is one behavior-complete `SearchKey` row carrying its own default, apply, and echo columns; a new output constraint is one `GuidanceKind` row; a new generative shape is one payload-bearing `GenerationInput` case whose `Stage` arm rides the one drain; a new media shape is one `MediaSet` case; a model type whose native capability differs from the generic floor is one `ModelClass` row naming its capability members; a new fine-tune is one admitted `AdapterAsset` row loaded once on the resident's `AdapterSet` and selected by `Adapter` name; a new stream observation is one `GenerationEvent` case folded into the total `Switch`; a new tool is one name + one `ToolPolicy.Resolve` arm; a new refusal is one named `GenerativeRefusal` over the shared contract vocabulary, never a free slug or new `ComputeFault` case; an in-memory model is one admitted `ModelData` value; zero new surface.
+- Boundary: token-streaming is a run mode on this host-local lane; the cluster carries no `TS_PROJECTION`, and remote generation crosses solely through `Runtime/wire#PROTO_VOCABULARY` `Generate`. `OgaHandle` is process-global on `GenerativeRun.Runtime`, while every per-call genai handle is disposed LIFO. Cold `Config`/`Model`/`AdapterSet` construction runs OUTSIDE the residency cell and publishes through one keyed CAS, so a race costs one redundant build instead of a serialized fleet and the loser disposes its own build; every acquire chain rides `Fin` with the kernel `Rasm/Domain/rails#RESOURCE_RAIL` `Custody.Rollback` carrying the partial handle set — the correct member on every arm here because the success value TAKES custody, where `Bracket`'s unconditional release would double-dispose what the pool then holds — so the four per-site `catch { X.Dispose(); throw; }` blocks the failure path used to spell are the deleted form. `Config`/`Model`/`AdapterSet` residents stay alive while the pool row holds a lease; the idempotent lease `Dispose` decrements the hold once, so an idle sweep cannot dispose a model under an active `Generator`. Recognized `SetSearchOption` keys and value domains live on `SearchKey`, which is COMPLETE against the shipped native parser both overloads share; a literal key or unconstrained numeric row is rejected, and an unrecognized key would throw a messageless native `unknown_value_error` a call site cannot attribute. `SetGuidance` validates neither its type nor the type-plus-data pairing, deferring both to `Generator` construction, so `GuidanceKind` and the policy's mode column are what keep a bad guidance string from failing a whole acquire chain instead of its own call. `SetRuntimeOption` accepts an unknown key SILENTLY and `terminate_session` ABORTS the process uncatchably mid-drain, so `RuntimeOption.Admit` refuses the banned key and no other construction path exists — the abort is structurally unspellable rather than documented. `Generator.GetOutput`/`GetInput` SIGSEGV on a name the live graph does not carry, so the drain surface spells neither. `Generator.GetSequence(index)` performs no native range check — an out-of-range index returns sequence 0 — so any read gates on the cursor's own width; the drain reads `GetNextTokens()` alone. `GenerationPolicy.FastForwardTokens` has no spelling: `enableFFTokens` COMMITS tokens `GetNextTokens()` never surfaces (a measured 85-token count over 83 steps, the streamed decode missing schema keys the committed sequence held), so the flag is pinned false at the one `SetGuidance` call. Genai provider selection rides `genai_config.json` or `DecoderPin`, never `ExecutionProvider.Key`. Prompt assembly and tool-call detection cross a SOURCE-GENERATED `GenerativeWireContext`: an anonymous type cannot carry a generated context, which is exactly why the anonymous-projection form was the tell, and the tool-call wire keys are a typed record rather than string literals read through null propagation. `Microsoft.Extensions.AI.Abstractions` names NO member on any signature here and its `IChatClient` port is unbound, so the package rides no `Packages` line on this page — an anchor naming an unlanded consumer reads as aspiration wearing verification's clothes, and the row returns the moment a conformance lands.
 
 ```csharp signature
 // --- [TYPES] -----------------------------------------------------------------------------
+// The CLOSED native guidance vocabulary, verified in the shipped runtime: three constrained types plus the
+// unconstrained row. `SetGuidance` itself validates NOTHING — it stores the pair and screens one model type — so
+// an unrecognized string survives the call and refuses only at `Generator` construction, where the native
+// constraint initializer raises `Unsupported guidance type: … (only json_schema, regex, and lark_grammar are
+// supported)`. A literal type string would therefore fail a whole run's acquire chain rather than its own call,
+// which is what this roster makes unspellable. Type and data are also inseparable natively (`Guidance type and
+// data must be provided together`), which is why the row carries the type and the policy carries the pair.
+// The `llguidance` grammar-crate vocabulary visible beside these strings in the runtime is INTERNAL to the
+// vendored constraint engine and unreachable through the `type` parameter — a fourth row transcribed from it
+// would name something no call site can select.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -40,57 +58,175 @@ public sealed partial class GuidanceKind {
     public string Type { get; }
 }
 
+// The four message roles as a ROSTER. Five hand spellings across prompt assembly, turn assembly, and the history
+// gate is one vocabulary with no owner; a grep of the agent estate returns no role declaration anywhere below or
+// beside this package, so the vocabulary SEATS here rather than owing a seat elsewhere.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ChatRole {
+    public static readonly ChatRole System = new("system");
+    public static readonly ChatRole User = new("user");
+    public static readonly ChatRole Assistant = new("assistant");
+    public static readonly ChatRole Tool = new("tool");
+
+    public static Option<ChatRole> FromWire(string wire) => TryGet(wire, out ChatRole? row) ? Some(row!) : None;
+}
+
+// The COMPLETE recognized-key roster, verified against the shipped native `libonnxruntime-genai` — the shared
+// `Search_Element::OnValue` parser both `SetSearchOption` overloads funnel into — and catalogued row by row with
+// its evidence at `.api/api-onnxruntimegenai.md`. Every row carries its OWN policy seed, its own native setter,
+// and its own native reader, so the numeric-versus-bool overload choice is a row property rather than an
+// `if (row.Key.Flag)` at one site and its inverted twin at another — forward and inverse of one correspondence on
+// one owner. `Seeded` is what collapses three `new Dictionary<…>{…}.ToFrozenDictionary()` rebuilds into one
+// `Items` projection.
+// `Seeded` is RASM's policy seed, NOT the native default: the runtime's own defaults are the catalogue's column,
+// and a row seeding something else is a deliberate product posture stated on that row. An unseeded row is one a
+// policy declares or does without.
+// TRAP the roster closes: an unrecognized key throws `JSON::unknown_value_error` from the native parser carrying
+// NO message and enumerating nothing, so a literal key is undiagnosable at the call site — which is exactly why
+// keys are a closed vocabulary here. Integral rows additionally cross native `SafeDoubleToInt`, which throws on a
+// non-integral double, so each one's `Accepts` proves integrality before the value ever reaches native.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SearchKey {
     // MANDATORY and DERIVED: staging faults `input sequences count does not match batch size` when the key is
-    // absent, and its value is the staged width, so `Conforms` refuses a caller row and `Apply` stamps it.
-    public static readonly SearchKey BatchSize = new("batch_size", flag: false, accepts: static value => value >= 1.0 && value == Math.Truncate(value));
-    public static readonly SearchKey NumBeams = new("num_beams", flag: false, accepts: static value => value >= 1.0 && value == Math.Truncate(value));
-    public static readonly SearchKey LengthPenalty = new("length_penalty", flag: false, accepts: static value => value > 0.0);
-    public static readonly SearchKey RepetitionPenalty = new("repetition_penalty", flag: false, accepts: static value => value > 0.0);
-    public static readonly SearchKey TopK = new("top_k", flag: false, accepts: static value => value >= 0.0 && value == Math.Truncate(value));
-    public static readonly SearchKey TopP = new("top_p", flag: false, accepts: static value => value is > 0.0 and <= 1.0);
-    public static readonly SearchKey Temperature = new("temperature", flag: false, accepts: static value => value > 0.0);
-    public static readonly SearchKey DoSample = new("do_sample", flag: true, accepts: static value => value is 0.0 or 1.0);
-    public static readonly SearchKey MaxLength = new("max_length", flag: false, accepts: static value => value >= 1.0 && value == Math.Truncate(value));
-    public static readonly SearchKey MinLength = new("min_length", flag: false, accepts: static value => value >= 0.0 && value == Math.Truncate(value));
-    public static readonly SearchKey EarlyStopping = new("early_stopping", flag: true, accepts: static value => value is 0.0 or 1.0);
+    // absent, and its value is the staged width, so `Conforms` refuses a caller row and the effective fold stamps
+    // it. Its seed is ABSENT because no policy row may seat it.
+    public static readonly SearchKey BatchSize = new("batch_size", None, Number, ReadNumber, static value => value >= 1.0 && value == Math.Truncate(value));
+    public static readonly SearchKey NumBeams = new("num_beams", Some(1.0), Number, ReadNumber, static value => value >= 1.0 && value == Math.Truncate(value));
+    // How many finished sequences a beam search returns. Unseeded: the drain reads `GetNextTokens()` at the staged
+    // width and a return count above one would surface sequences no cursor was minted for.
+    public static readonly SearchKey NumReturnSequences = new("num_return_sequences", None, Number, ReadNumber, static value => value >= 1.0 && value == Math.Truncate(value));
+    public static readonly SearchKey LengthPenalty = new("length_penalty", Some(1.0), Number, ReadNumber, static value => value != 0.0);
+    public static readonly SearchKey RepetitionPenalty = new("repetition_penalty", Some(1.0), Number, ReadNumber, static value => value > 0.0);
+    // Zero DISABLES; any positive width bans a repeated n-gram outright. Unseeded because a hard ban is a
+    // task-shaped decision and `repetition_penalty` is the graded knob a general policy wants.
+    public static readonly SearchKey NoRepeatNgramSize = new("no_repeat_ngram_size", None, Number, ReadNumber, static value => value >= 0.0 && value == Math.Truncate(value));
+    public static readonly SearchKey TopK = new("top_k", Some(50.0), Number, ReadNumber, static value => value >= 0.0 && value == Math.Truncate(value));
+    // Native default is 0 — nucleus sampling OFF. The seed deliberately turns it on, because this lane's sampled
+    // posture is top-p over a temperature-scaled distribution rather than pure top-k.
+    public static readonly SearchKey TopP = new("top_p", Some(0.9), Number, ReadNumber, static value => value is >= 0.0 and <= 1.0);
+    public static readonly SearchKey Temperature = new("temperature", Some(0.7), Number, ReadNumber, static value => value > 0.0);
+    // The runtime's own header marks this an UNUSED parameter: the parser recognizes it and nothing consumes it.
+    // The row exists so a caller reaching for it is refused a silent no-op by NAME rather than by a fault the
+    // native layer will never raise — the one row whose value domain is "recognized and inert".
+    public static readonly SearchKey DiversityPenalty = new("diversity_penalty", None, Number, ReadNumber, static _ => false);
+    public static readonly SearchKey DoSample = new("do_sample", Some(1.0), Flag, ReadFlag, static value => value is 0.0 or 1.0);
+    // The ONE key that makes a sampled run replayable. Native default is -1, meaning "seed from the random
+    // device"; any other integral value seeds the RNG deterministically, and `GetSearchNumber` round-trips it.
+    // Unseeded, because seeding by default would silently collapse every concurrent request onto one draw.
+    public static readonly SearchKey RandomSeed = new("random_seed", None, Number, ReadNumber, static value => value >= -1.0 && value == Math.Truncate(value));
+    // Native default is 0 and the runtime raises `search max_length is 0` on it, so it is set at load from the
+    // model's own `context_length`. The seed is this lane's budget floor, and `Conforms` orders it above
+    // `min_length`; a value above the model's context length faults natively.
+    public static readonly SearchKey MaxLength = new("max_length", Some(512.0), Number, ReadNumber, static value => value >= 1.0 && value == Math.Truncate(value));
+    public static readonly SearchKey MinLength = new("min_length", Some(0.0), Number, ReadNumber, static value => value >= 0.0 && value == Math.Truncate(value));
+    // Prefill CHUNKING: present and positive enables it, absent leaves the prefill whole. Unseeded because
+    // chunking trades first-token latency against throughput and only the caller staging the prompt knows which.
+    public static readonly SearchKey ChunkSize = new("chunk_size", None, Number, ReadNumber, static value => value >= 1.0 && value == Math.Truncate(value));
+    // CTC/RNNT blank-token logit penalty — inert on a graph with no blank token, which is every row this page's
+    // `ModelClass` table carries but the speech-stream one.
+    public static readonly SearchKey BlankPenalty = new("blank_penalty", None, Number, ReadNumber, static value => value >= 0.0);
+    // Native default is TRUE. The seed turns it OFF because this lane's default posture is sampled rather than
+    // beam-searched, and an early-stopping flag over a one-beam search decides nothing while still re-keying the
+    // params a receipt echoes.
+    public static readonly SearchKey EarlyStopping = new("early_stopping", Some(0.0), Flag, ReadFlag, static value => value is 0.0 or 1.0);
+    // The runtime may force this one either way from the model's own config, so a policy row states an INTENT the
+    // native layer is free to override — which is why nothing on this page reads its echo back as a fact.
+    public static readonly SearchKey PastPresentShareBuffer = new("past_present_share_buffer", None, Flag, ReadFlag, static value => value is 0.0 or 1.0);
 
-    public bool Flag { get; }
+    private SearchKey(
+        string key, Option<double> seeded,
+        Action<GeneratorParams, string, double> apply, Func<GeneratorParams, string, double> echo,
+        Func<double, bool> accepts) : this(key) =>
+        (Seeded, apply_, echo_, accepts_) = (seeded, apply, echo, accepts);
 
-    [UseDelegateFromConstructor]
-    public partial bool Accepts(double value);
+    // The canonical policy seed IS the roster's own projection: a row's seed lives beside the domain that admits
+    // it, so a new row cannot be added to the roster and forgotten in a separately-spelled seed map.
+    public static FrozenDictionary<SearchKey, double> Canonical =>
+        toSeq(Items).Choose(static row => row.Seeded.Map(value => (row, value))).ToFrozenDictionary(
+            static pair => pair.row, static pair => pair.value);
+
+    public Option<double> Seeded { get; }
+
+    public void Apply(GeneratorParams parameters, double value) => apply_(parameters, Key, value);
+
+    public double Echo(GeneratorParams parameters) => echo_(parameters, Key);
+
+    public bool Accepts(double value) => accepts_(value);
+
+    static void Number(GeneratorParams parameters, string key, double value) => parameters.SetSearchOption(key, value);
+    static void Flag(GeneratorParams parameters, string key, double value) => parameters.SetSearchOption(key, value != 0.0);
+    static double ReadNumber(GeneratorParams parameters, string key) => parameters.GetSearchNumber(key);
+    static double ReadFlag(GeneratorParams parameters, string key) => parameters.GetSearchBool(key) ? 1.0 : 0.0;
 }
 
+// Native capability as combinable VOCABULARY. Three parallel bools spelled eight states of which three were
+// inhabited and left the `Streaming ⇒ Multimodal` implication — true on every row — stated nowhere; membership
+// makes each gate one test and the implication a roster fact a new row either satisfies or declares against.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class RunMode {
-    public static readonly RunMode Text = new("text");
-    public static readonly RunMode Multimodal = new("multimodal");
-    public static readonly RunMode StreamingAudio = new("streaming-audio");
-    public static readonly RunMode Batched = new("batched");
+public sealed partial class ModelCapability {
+    public static readonly ModelCapability Multimodal = new("multimodal");
+    public static readonly ModelCapability Streaming = new("streaming");
+    public static readonly ModelCapability Rewinds = new("rewinds");
 }
 
-// Native capability keyed on `Model.GetModelType()`. Rows exist only where capability differs from the plain
-// decoder floor, and `Of` falls to that floor for an unrostered type, so an unknown model refuses a processor
-// it may not have registered rather than reaching native code that would fault or corrupt the run.
+// Rows exist only where capability differs from the plain decoder floor, and `Of` falls to that floor for an
+// unrostered type, so an unknown model refuses a processor it may not have registered rather than reaching native
+// code that would fault or corrupt the run.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ModelClass {
-    public static readonly ModelClass Generic = new("<generic>", multimodal: false, streaming: false, rewinds: true);
-    public static readonly ModelClass VisionLanguage = new("phi3v", multimodal: true, streaming: false, rewinds: false);
-    public static readonly ModelClass SpeechStream = new("nemotron_speech", multimodal: true, streaming: true, rewinds: false);
+    public static readonly ModelClass Generic = new("<generic>", [ModelCapability.Rewinds]);
+    public static readonly ModelClass VisionLanguage = new("phi3v", [ModelCapability.Multimodal]);
+    public static readonly ModelClass SpeechStream = new("nemotron_speech", [ModelCapability.Multimodal, ModelCapability.Streaming]);
 
-    public bool Multimodal { get; }
-    public bool Streaming { get; }
-    public bool Rewinds { get; }
+    private ModelClass(string key, params ReadOnlySpan<ModelCapability> capabilities) : this(key) =>
+        Capabilities = capabilities.ToFrozenSet();
+
+    public FrozenSet<ModelCapability> Capabilities { get; }
+
+    public bool Carries(ModelCapability capability) => Capabilities.Contains(capability);
 
     public static ModelClass Of(Model session) =>
         TryGet(session.GetModelType(), out ModelClass? row) ? row : Generic;
+}
+
+// The three INHABITED media shapes. `Images.Load`/`Audios.Load` FAULT on an empty path set, so a `(Option, Option)`
+// product admitted a fourth corner — neither present — that admission had already proved impossible, and the
+// consuming switch then carried an unreachable arm to say so. Narrowing the case is the repair; a re-check is not.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record MediaSet {
+    private MediaSet() { }
+
+    public sealed record Images(Seq<string> Paths) : MediaSet;
+    public sealed record Audios(Seq<string> Paths) : MediaSet;
+    public sealed record Both(Seq<string> ImagePaths, Seq<string> AudioPaths) : MediaSet;
+
+    public int Count => Switch(
+        images: static set => set.Paths.Count,
+        audios: static set => set.Paths.Count,
+        both: static set => set.ImagePaths.Count + set.AudioPaths.Count);
+
+    public Seq<string> Files => Switch(
+        images: static set => set.Paths,
+        audios: static set => set.Paths,
+        both: static set => set.ImagePaths + set.AudioPaths);
+
+    // Admission at the boundary: a caller holding two rosters lands the inhabited shape, and an empty pair has no
+    // case to land in — which is the whole point.
+    public static Option<MediaSet> Of(Seq<string> images, Seq<string> audios) =>
+        (images.IsEmpty, audios.IsEmpty) switch {
+            (false, false) => Some<MediaSet>(new Both(images, audios)),
+            (false, true) => Some<MediaSet>(new Images(images)),
+            (true, false) => Some<MediaSet>(new Audios(audios)),
+            _ => None,
+        };
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -98,18 +234,20 @@ public abstract partial record GenerationInput {
     private GenerationInput() { }
 
     public sealed record Text(string Prompt) : GenerationInput;
-    public sealed record Multimodal(string Prompt, Seq<string> ImagePaths, Seq<string> AudioPaths) : GenerationInput;
+    public sealed record Multimodal(string Prompt, MediaSet Media) : GenerationInput;
     public sealed record StreamingAudio(string Prompt, Seq<float[]> Chunks, FrozenDictionary<string, string> ProcessorOptions) : GenerationInput;
     public sealed record Batched(Seq<string> Prompts) : GenerationInput;
 
-    public RunMode Mode => Switch(
-        text: static _ => RunMode.Text,
-        multimodal: static _ => RunMode.Multimodal,
-        streamingAudio: static _ => RunMode.StreamingAudio,
-        batched: static _ => RunMode.Batched);
+    // The receipt's mode column reads the CASE, so one closed four-member vocabulary is spelled once. A parallel
+    // `RunMode` roster joined by a hand `Switch` meant a fifth case took two edits and the compiler caught one.
+    public string Key => Switch(
+        text: static _ => "text",
+        multimodal: static _ => "multimodal",
+        streamingAudio: static _ => "streaming-audio",
+        batched: static _ => "batched");
 
-    // Staged batch width IS the `batch_size` value and the drain's per-sequence array length; the batched arm
-    // reads it from the prompt roster because `EncodeBatch` left-pads to that exact count.
+    // Staged batch width IS the `batch_size` value and the drain's cursor count; the batched arm reads it from the
+    // prompt roster because `EncodeBatch` left-pads to that exact count.
     public int Width => Switch(
         text: static _ => 1,
         multimodal: static _ => 1,
@@ -119,9 +257,47 @@ public abstract partial record GenerationInput {
     // Media items whose staged tokens the native layer commits before the first step.
     public int Media => Switch(
         text: static _ => 0,
-        multimodal: static assets => assets.ImagePaths.Count + assets.AudioPaths.Count,
+        multimodal: static assets => assets.Media.Count,
         streamingAudio: static assets => assets.Chunks.Count,
         batched: static _ => 0);
+}
+
+// Guidance and tools are one CLOSED column rather than two fields whose illegal combination three separate sites
+// each refused. A guided generator's `AppendTokens` admits only grammar-derived spans, so re-feeding a free-text
+// tool result faults the parser — the combination is not merely invalid, it is meaningless.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record GenerationMode {
+    private GenerationMode() { }
+
+    public sealed record Plain : GenerationMode;
+    public sealed record Guided(GuidanceKind Kind, string Data) : GenerationMode;
+    public sealed record Tooled(ToolPolicy Tools) : GenerationMode;
+
+    public static readonly GenerationMode Free = new Plain();
+
+    public GuidanceKind Guidance => Switch(
+        plain: static _ => GuidanceKind.None,
+        guided: static mode => mode.Kind,
+        tooled: static _ => GuidanceKind.None);
+
+    public ToolPolicy Tools => Switch(
+        plain: static _ => ToolPolicy.None,
+        guided: static _ => ToolPolicy.None,
+        tooled: static mode => mode.Tools);
+}
+
+// The stop question both drains ask, as a ROW rather than as two members one caller picks between. A one-shot run
+// over a chat model that stopped only on EOS drained to `max_length` past every turn boundary the model marked;
+// the scope is now a staged column, so the two drains differ by a row and not by which member they happened to call.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class StopScope {
+    public static readonly StopScope Completion = new("completion", static (oracle, token) => oracle.Reached(token));
+    public static readonly StopScope Turn = new("turn", static (oracle, token) => oracle.Ends(token));
+
+    [UseDelegateFromConstructor]
+    public partial bool Halts(StopOracle oracle, int token);
 }
 
 // --- [MODELS] ----------------------------------------------------------------------------
@@ -133,14 +309,16 @@ public sealed record DecoderPin(
     FrozenDictionary<string, string> ProviderOptions) {
     // Provider names are case-sensitive native strings resolved at `Model` construction; the pin clears the
     // packaged set first so an unresolvable override faults there rather than silently running the packaged EP.
-    public void Apply(Config config) {
-        config.ClearProviders();
-        config.AppendProvider(Provider);
-        ProviderOptions.Iter(option => config.SetProviderOption(Provider, option.Key, option.Value));
-        config.SetDecoderProviderOptionsHardwareDeviceType(Provider, HardwareDeviceType);
-        config.SetDecoderProviderOptionsHardwareDeviceId(Provider, HardwareDeviceId);
-        config.SetDecoderProviderOptionsHardwareVendorId(Provider, HardwareVendorId);
-    }
+    public Fin<Unit> Apply(Config config) =>
+        Op.Of(name: "generative.decoder-pin").Catch(() => {
+            config.ClearProviders();
+            config.AppendProvider(Provider);
+            ProviderOptions.Iter(option => config.SetProviderOption(Provider, option.Key, option.Value));
+            config.SetDecoderProviderOptionsHardwareDeviceType(Provider, HardwareDeviceType);
+            config.SetDecoderProviderOptionsHardwareDeviceId(Provider, HardwareDeviceId);
+            config.SetDecoderProviderOptionsHardwareVendorId(Provider, HardwareVendorId);
+            return Fin.Succ(unit);
+        });
 }
 
 // `SetRuntimeOption` validates NOTHING managed-side and accepts an unknown key silently, while the one key that
@@ -156,7 +334,7 @@ public sealed record RuntimeOption {
 
     public static Fin<RuntimeOption> Admit(string key, string value) =>
         string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value) || Banned.Contains(key)
-            ? Fin.Fail<RuntimeOption>(new ComputeFault.ModelRejected($"<runtime-option:{key}>"))
+            ? GenerativeRefusal.RuntimeOption.Fault<RuntimeOption>()
             : Fin.Succ(new RuntimeOption(key, value));
 }
 
@@ -170,19 +348,15 @@ public sealed class ModelData {
     public UInt128 ContentKey { get; }
 
     public static Fin<ModelData> Admit(string filename, ReadOnlyMemory<byte> bytes, string overlayJson) {
-        if (string.IsNullOrWhiteSpace(filename) || bytes.IsEmpty) { return Fin.Fail<ModelData>(new ComputeFault.ModelRejected("<model-data>")); }
+        if (string.IsNullOrWhiteSpace(filename) || bytes.IsEmpty) { return GenerativeRefusal.ModelData.Fault<ModelData>(); }
         byte[] owned = bytes.ToArray();
         return overlayJson.Length is 0
             ? Fin.Succ(new ModelData(filename, owned, overlayJson, ContentHash.Of(owned)))
-            : Try.lift(() => JsonNode.Parse(overlayJson) is JsonObject).Run()
-                .MapFail(error => new ComputeFault.ModelRejected($"<model-overlay:{error.Message}>"))
+            : Op.Of(name: "generative.model-overlay").Catch(() => Fin.Succ(JsonNode.Parse(overlayJson) is JsonObject))
                 .Bind(valid => valid
                     ? Fin.Succ(new ModelData(filename, owned, overlayJson, ContentHash.Of(owned)))
-                    : Fin.Fail<ModelData>(new ComputeFault.ModelRejected("<model-overlay:not-object>")));
+                    : GenerativeRefusal.ModelOverlay.Fault<ModelData>());
     }
-
-    public void Add(Config config) => config.AddModelData(Filename, Bytes.ToArray());
-    public void Retract(Config config) => config.RemoveModelData(Filename);
 }
 
 public sealed class AdapterAsset {
@@ -195,53 +369,75 @@ public sealed class AdapterAsset {
     public static Fin<AdapterAsset> Admit(string name, string path) =>
         string.IsNullOrWhiteSpace(name) || !File.Exists(path)
             ? Fin.Fail<AdapterAsset>(new ComputeFault.ExtensionAssetMissing(path))
-            : Try.lift(() => new AdapterAsset(name, path, ContentHash.Of(File.ReadAllBytes(path))))
-                .Run()
-                .MapFail(error => new ComputeFault.ExtensionAssetMissing($"{path}:{error.Message}"));
+            : Op.Of(name: "generative.adapter-admit").Catch(() => Fin.Succ(new AdapterAsset(name, path, ContentHash.Of(File.ReadAllBytes(path)))));
 
     public Fin<Unit> Verify() =>
-        Try.lift(() => ContentHash.Of(File.ReadAllBytes(Path))).Run()
-            .MapFail(error => new ComputeFault.ExtensionAssetMissing($"{Path}:{error.Message}"))
+        Op.Of(name: "generative.adapter-verify").Catch(() => Fin.Succ(ContentHash.Of(File.ReadAllBytes(Path))))
             .Bind(current => current == ContentKey
                 ? Fin.Succ(unit)
                 : Fin.Fail<Unit>(new ComputeFault.ExtensionAssetMissing($"{Path}:content-changed")));
 }
 
+// The tool-call WIRE shape, typed and source-generated. `"name"` and `"arguments"` read as string literals through
+// a `?.` null-propagation chain crossed a boundary carrying absence as null — the exact form the estate forbids —
+// and an anonymous type cannot carry a generated context at all, which is what made the reflection serializer the
+// tell rather than the defect.
+public sealed record ToolCallWire(string Name, JsonElement Arguments);
+
+// One chat turn as the wire row, its role LOWERED from the roster: the vocabulary owns the spelling and the wire
+// record holds the primitive, so no site spells `"user"` and the generated context has a real type to bind.
+public sealed record ChatTurn(string Role, string Content) {
+    public static ChatTurn Of(ChatRole role, string content) => new(role.Key, content);
+}
+
+[JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Default)]
+[JsonSerializable(typeof(ChatTurn[]))]
+[JsonSerializable(typeof(ToolCallWire))]
+public sealed partial class GenerativeWireContext : JsonSerializerContext;
+
 public sealed record ToolRequest(string Name, string Arguments);
 
 public sealed record ToolPolicy {
-    private ToolPolicy(string schemas, Set<string> names, Func<ToolRequest, CancellationToken, ValueTask<Option<string>>> resolve) =>
-        (Schemas, Names, Resolve) = (schemas, names, resolve);
+    private ToolPolicy(string schemas, Set<string> names, Func<ToolRequest, CancellationToken, ValueTask<Fin<string>>> resolve, Duration deadline) =>
+        (Schemas, Names, Resolve, Deadline) = (schemas, names, resolve, deadline);
 
     public string Schemas { get; }
     public Set<string> Names { get; }
-    public Func<ToolRequest, CancellationToken, ValueTask<Option<string>>> Resolve { get; }
+
+    // The resolver answers a RAIL, not an `Option`: a resolver declining a call and a resolver returning empty
+    // text were one value, so a tool that legitimately produced nothing was indistinguishable from a refusal.
+    public Func<ToolRequest, CancellationToken, ValueTask<Fin<string>>> Resolve { get; }
+
+    // The resolver is awaited INSIDE a `using`-bracketed native generator holding a live KV prefix, so an
+    // unbounded await parks native state indefinitely; the deadline is the policy's own column rather than a
+    // caller's ambient token, because the bound belongs to the thing being held.
+    public Duration Deadline { get; }
 
     public static readonly ToolPolicy None =
-        new("", Set<string>(), static (_, _) => ValueTask.FromResult<Option<string>>(None));
+        new("", Set<string>(), static (_, _) => ValueTask.FromResult(Fin.Succ("")), Duration.FromSeconds(30));
 
     // `ApplyChatTemplate` takes the schema blob as raw JSON text and the native template pass rejects malformed
     // input; a template carrying no tools block ignores the argument entirely, so a silently-inert roster is the
     // failure this admission catches — the JSON proves once here rather than at every prompt assembly.
-    public static Fin<ToolPolicy> Admit(string schemas, Set<string> names, Func<ToolRequest, CancellationToken, ValueTask<Option<string>>> resolve) =>
-        names.IsEmpty || resolve is null || names.Exists(string.IsNullOrWhiteSpace)
-            ? Fin.Fail<ToolPolicy>(new ComputeFault.ModelRejected("<tool-policy-roster>"))
-            : Try.lift(() => JsonNode.Parse(schemas) is not null).Run()
-                .MapFail(error => new ComputeFault.ModelRejected($"<tool-schemas:{error.Message}>"))
+    public static Fin<ToolPolicy> Admit(string schemas, Set<string> names, Func<ToolRequest, CancellationToken, ValueTask<Fin<string>>> resolve, Duration deadline) =>
+        names.IsEmpty || resolve is null || names.Exists(string.IsNullOrWhiteSpace) || deadline <= Duration.Zero
+            ? GenerativeRefusal.ToolRoster.Fault<ToolPolicy>()
+            : Op.Of(name: "generative.tool-schemas").Catch(() => Fin.Succ(JsonNode.Parse(schemas) is not null))
                 .Bind(valid => valid
-                    ? Fin.Succ(new ToolPolicy(schemas, names, resolve))
-                    : Fin.Fail<ToolPolicy>(new ComputeFault.ModelRejected("<tool-schemas:empty>")));
+                    ? Fin.Succ(new ToolPolicy(schemas, names, resolve, deadline))
+                    : GenerativeRefusal.ToolSchemas.Fault<ToolPolicy>());
 
     // Parseable JSON naming no admitted tool is PROSE, not a rejected call — a model narrating a JSON example is
-    // ordinary output, and faulting there turns a well-formed answer into a run failure. Absence of a detection
-    // is the only signal; the reject rail belongs to a resolver that declines an admitted name.
+    // ordinary output, and faulting there turns a well-formed answer into a run failure. Absence of a detection is
+    // the only signal; the reject rail belongs to a resolver that declines an admitted name. The decode crosses
+    // the typed wire record under the generated context, so no key is a literal and no absence is a null.
     public Option<ToolRequest> Detect(string text) {
         int open = text.IndexOf('{', StringComparison.Ordinal);
         return Names.IsEmpty || open < 0
             ? Option<ToolRequest>.None
-            : Try.lift(() => JsonNode.Parse(text[open..])).Run().Match(
-                Succ: node => node?["name"]?.GetValue<string>() is string name && Names.Contains(name)
-                    ? Some(new ToolRequest(name, node["arguments"]?.ToJsonString() ?? ""))
+            : Op.Of(name: "generative.tool-detect").Catch(() => Fin.Succ(JsonSerializer.Deserialize(text[open..], GenerativeWireContext.Default.ToolCallWire))).Match(
+                Succ: call => call is { } wire && Names.Contains(wire.Name)
+                    ? Some(new ToolRequest(wire.Name, wire.Arguments.GetRawText()))
                     : Option<ToolRequest>.None,
                 Fail: static _ => Option<ToolRequest>.None);
     }
@@ -256,7 +452,7 @@ public readonly record struct StopOracle(Set<int> EosIds, Set<int> TurnIds, Froz
     // marking turn ends carries its own token and one that does not ends a turn on the EOS set alone.
     static Set<int> Probe(Tokenizer tokenizer) =>
         Seq<Func<int>>(tokenizer.GetEotTokenId, tokenizer.GetEorTokenId)
-            .Fold(Set<int>(), static (ids, read) => Try.lift(read).Run().Match(Succ: ids.Add, Fail: static _ => ids));
+            .Fold(Set<int>(), static (ids, read) => Op.Of(name: "generative.stop-token-probe").Catch(() => Fin.Succ(read())).Match(Succ: ids.Add, Fail: static _ => ids));
 
     // Finished sequences keep emitting PAD at full batch width, so PAD is a stop exactly as EOS is.
     public bool Reached(int token) => EosIds.Contains(token) || token == PadId;
@@ -275,13 +471,17 @@ public readonly record struct StopOracle(Set<int> EosIds, Set<int> TurnIds, Froz
     }
 }
 
-// `StagedTokens` is the multimodal staging total read once off `Generator.TokenCount()` after `SetInputs`; it is
-// `None` on every text-only run, so the receipt column separates prompt cost from media cost per run.
 public sealed record GenerationTally(int Tokens, int ConstrainedTokens, int ToolCalls, string ModelType, Option<int> StagedTokens) {
     public static readonly GenerationTally Empty = new(0, 0, 0, "", None);
 }
 
-[Union]
+// The ONE union crossing a public entrypoint, and the one that must carry the rail: an event family with no fault
+// case forced ten typed refusals through `ThrowIfFail` and then a six-arm ladder to re-admit them, one arm of
+// which existed purely to unwrap an `Error` thrown a frame earlier. `Completed` carries the span the drain MEASURED
+// rather than one a caller asserted, so tokens-per-second divides by an interval this owner observed.
+// The implicit value-to-union conversion is closed like every sibling's: a bare declaration on the one union a
+// caller can hold means an `Error` silently becomes an event at any assignment.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GenerationEvent {
     private GenerationEvent() { }
 
@@ -289,174 +489,278 @@ public abstract partial record GenerationEvent {
 
     public sealed record ToolInvoked(int Sequence, string Tool) : GenerationEvent;
 
-    public sealed record Completed(GenerationTally Tally) : GenerationEvent;
+    public sealed record Faulted(Error Fault) : GenerationEvent;
+
+    public sealed record Completed(GenerationTally Tally, Duration Elapsed) : GenerationEvent;
 }
 
-public sealed record GenerationOutcome(HashMap<int, Seq<string>> Sequences, GenerationTally Tally) {
+public sealed record GenerationOutcome(HashMap<int, Seq<string>> Sequences, GenerationTally Tally, Duration Elapsed) {
     public string Text => string.Concat(Sequences.Find(0).IfNone(static () => Seq<string>()));
 }
 
-public sealed record GenerationPolicy(
-    FrozenDictionary<SearchKey, double> SearchRows,
-    Seq<RuntimeOption> RuntimeOptions,
-    GuidanceKind Guidance,
-    string GuidanceData,
-    Seq<string> StopSequences,
+// The lifted candidate the accumulating admission reads: policy and input are one decision, so the constraint set
+// is over the pair rather than over a policy that would then re-take the input at every arm.
+public readonly record struct PolicyCandidate(GenerationPolicy Policy, GenerationInput Input);
+
+// `[Equatable]` with ordered collection equality because this record is a CACHE-KEY INPUT through `Fingerprint`:
+// default record equality reference-compares `Seq` and `FrozenDictionary` members, so two structurally identical
+// policies compared unequal and the fingerprint had to hand-fold every column to compensate.
+[Equatable]
+public sealed partial record GenerationPolicy(
+    [property: OrderedEquality] FrozenDictionary<SearchKey, double> SearchRows,
+    [property: OrderedEquality] Seq<RuntimeOption> RuntimeOptions,
+    GenerationMode Mode,
+    [property: OrderedEquality] Seq<string> StopSequences,
     int MediaTokenReserve,
     Option<string> Adapter,
-    Seq<AdapterAsset> AdapterPaths,
+    [property: OrderedEquality] Seq<AdapterAsset> AdapterPaths,
     string SystemPrompt,
     string ChatTemplate,
-    Seq<(string Role, string Content)> History,
-    Seq<string> RetrievedContext,
-    ToolPolicy Tools,
+    [property: OrderedEquality] Seq<ChatTurn> History,
+    [property: OrderedEquality] Seq<string> RetrievedContext,
     Option<DecoderPin> Decoder,
     Option<ModelData> InMemory) {
+    // The seed reads the ROSTER's own defaults, so a row added to `SearchKey` cannot be forgotten here and the
+    // values live beside the domain that admits them.
     public static readonly GenerationPolicy Canonical = new(
-        SearchRows: new Dictionary<SearchKey, double> {
-            [SearchKey.MaxLength] = 512.0, [SearchKey.MinLength] = 0.0, [SearchKey.Temperature] = 0.7,
-            [SearchKey.TopP] = 0.9, [SearchKey.TopK] = 50.0, [SearchKey.RepetitionPenalty] = 1.0,
-            [SearchKey.DoSample] = 1.0, [SearchKey.NumBeams] = 1.0, [SearchKey.LengthPenalty] = 1.0,
-            [SearchKey.EarlyStopping] = 0.0,
-        }.ToFrozenDictionary(),
+        SearchRows: SearchKey.Canonical,
         RuntimeOptions: Seq<RuntimeOption>(),
-        Guidance: GuidanceKind.None, GuidanceData: "", StopSequences: Seq<string>(),
+        Mode: GenerationMode.Free,
+        StopSequences: Seq<string>(),
         // Measured staged tokens per media item — resolution-invariant and linear in count — rounded up so the
         // native total admits the stage; the value is a budget ceiling, so over-reserving only loosens the cap.
         MediaTokenReserve: 2600,
         Adapter: None,
         AdapterPaths: Seq<AdapterAsset>(),
-        SystemPrompt: "", ChatTemplate: "", History: Seq<(string, string)>(), RetrievedContext: Seq<string>(),
-        Tools: ToolPolicy.None, Decoder: None, InMemory: None);
+        SystemPrompt: "", ChatTemplate: "", History: Seq<ChatTurn>(), RetrievedContext: Seq<string>(),
+        Decoder: None, InMemory: None);
 
-    public Fin<Unit> Conforms(GenerationInput input) {
-        bool rowsConform = SearchRows.ForAll(static row => double.IsFinite(row.Value) && row.Key.Accepts(row.Value))
-            && !SearchRows.ContainsKey(SearchKey.BatchSize);
-        double minimum = SearchRows.Find(SearchKey.MinLength).IfNone(0.0);
-        double maximum = SearchRows.Find(SearchKey.MaxLength).IfNone(double.PositiveInfinity);
-        bool adaptersConform = AdapterPaths.Map(static row => row.Name).Distinct().Count == AdapterPaths.Count
-            && Adapter.ForAll(name => AdapterPaths.Exists(row => row.Name == name));
-        bool guidanceConforms = Guidance == GuidanceKind.None ? GuidanceData.Length is 0 : GuidanceData.Length > 0;
-        bool stopsConform = StopSequences.ForAll(static value => !string.IsNullOrEmpty(value)) && StopSequences.Distinct().Count == StopSequences.Count;
-        // Guidance and tools are MUTUALLY EXCLUSIVE: a guided generator's `AppendTokens` admits only spans the
-        // grammar derives, so re-feeding a free-text tool result faults the parser. Detection reads free text.
-        bool toolsConform = Tools.Names.IsEmpty
-            || (input is GenerationInput.Text && Guidance == GuidanceKind.None && Tools.Schemas.Length > 0 && StopSequences.IsEmpty);
-        bool decoderConforms = Decoder.ForAll(static pin => !string.IsNullOrWhiteSpace(pin.Provider)
-            && !string.IsNullOrWhiteSpace(pin.HardwareDeviceType)
-            && pin.ProviderOptions.ForAll(static row => row.Key.Length > 0 && row.Value.Length > 0));
-        bool promptsConform = History.ForAll(static turn => (turn.Role is "system" or "user" or "assistant" or "tool") && turn.Content.Length > 0)
-            && RetrievedContext.ForAll(static context => context.Length > 0);
-        bool shapeConforms = MediaTokenReserve > 0 && input.Switch(
-            text: static _ => true,
-            multimodal: static assets => (!assets.ImagePaths.IsEmpty || !assets.AudioPaths.IsEmpty)
-                && assets.ImagePaths.ForAll(File.Exists) && assets.AudioPaths.ForAll(File.Exists),
-            streamingAudio: static assets => !assets.Chunks.IsEmpty
-                && assets.Chunks.ForAll(static chunk => chunk.Length > 0 && Array.TrueForAll(chunk, float.IsFinite))
-                && assets.ProcessorOptions.ForAll(static row => row.Key.Length > 0 && row.Value.Length > 0),
-            batched: static assets => !assets.Prompts.IsEmpty && assets.Prompts.ForAll(static prompt => prompt.Length > 0));
-        bool modelDataConforms = InMemory.ForAll(static data => data.Filename.Length > 0 && !data.Bytes.IsEmpty);
-        return rowsConform && minimum <= maximum && adaptersConform && guidanceConforms && stopsConform && toolsConform
-            && decoderConforms && promptsConform && shapeConforms && modelDataConforms
-            ? AdapterPaths.Traverse(asset => asset.Verify().ToValidation()).As().ToFin().Map(static _ => unit)
-            : Fin.Fail<Unit>(new ComputeFault.ModelRejected("Generation policy violates its search, guidance, adapter, or run-shape invariant."));
-    }
+    public GuidanceKind Guidance => Mode.Guidance;
+
+    public ToolPolicy Tools => Mode.Tools;
+
+    // Nine independent invariants, nine conformances, ONE applicative fold: a policy breaking four now names four
+    // where the `&&` chain named none of them and emitted the page's only prose refusal.
+    static readonly Seq<IConstraint<PolicyCandidate>> Gates = Seq<IConstraint<PolicyCandidate>>(
+        new RowsAdmitted(), new RowsOrdered(), new AdaptersDistinct(), new GuidanceComplete(),
+        new StopsDistinct(), new ToolsPlaceable(), new DecoderComplete(), new ShapeInhabited(), new ModelDataShaped());
+
+    public Fin<Unit> Conforms(GenerationInput input) =>
+        Gates.Traverse(gate => gate.Check(new PolicyCandidate(this, input))).As().ToFin()
+            .Bind(_ => AdapterPaths.Traverse(asset => asset.Verify().ToValidation()).As().ToFin().Map(static _ => unit));
 
     public static GenerationPolicy Beam(int beams, double lengthPenalty = 1.0) =>
         Canonical with {
-            SearchRows = new Dictionary<SearchKey, double>(Canonical.SearchRows) {
-                [SearchKey.NumBeams] = beams, [SearchKey.DoSample] = 0.0,
-                [SearchKey.LengthPenalty] = lengthPenalty, [SearchKey.EarlyStopping] = 1.0,
-            }.ToFrozenDictionary(),
+            SearchRows = Canonical.SearchRows.SetItems([
+                KeyValuePair.Create(SearchKey.NumBeams, (double)beams),
+                KeyValuePair.Create(SearchKey.DoSample, 0.0),
+                KeyValuePair.Create(SearchKey.LengthPenalty, lengthPenalty),
+                KeyValuePair.Create(SearchKey.EarlyStopping, 1.0),
+            ]),
         };
 
-    // Effective rows carry the declared set and two DERIVED columns: the mandatory staged `batch_size`, and
+    // Effective rows carry the declared set and two DERIVED columns: the mandatory staged `batch_size`, and the
     // media reserve folded into `max_length`, which is the native TOTAL length a media stage exceeds before its
     // first step. Both derive from the input, so no caller can declare them out of step with the run shape.
     public FrozenDictionary<SearchKey, double> Effective(GenerationInput input) =>
-        new Dictionary<SearchKey, double>(SearchRows) {
-            [SearchKey.BatchSize] = input.Width,
-            [SearchKey.MaxLength] = SearchRows.Find(SearchKey.MaxLength).IfNone(0.0) + ((double)MediaTokenReserve * input.Media),
-        }.ToFrozenDictionary();
+        SearchRows.SetItems([
+            KeyValuePair.Create(SearchKey.BatchSize, (double)input.Width),
+            KeyValuePair.Create(SearchKey.MaxLength,
+                SearchRows.Find(SearchKey.MaxLength).IfNone(0.0) + ((double)MediaTokenReserve * input.Media)),
+        ]);
 
-    public void Apply(GeneratorParams generatorParams, GenerationInput input) {
-        Effective(input).Iter(row => {
-            if (row.Key.Flag) { generatorParams.SetSearchOption(row.Key.Key, row.Value != 0.0); }
-            else { generatorParams.SetSearchOption(row.Key.Key, row.Value); }
+    // Each row carries its OWN setter, so the body is one fold and the numeric-versus-bool decision lives on the
+    // row that knows its own value domain. `enableFFTokens` COMMITS tokens `GetNextTokens()` never surfaces, so
+    // the streamed decode loses spans the committed sequence holds — the flag is pinned false and carries no column.
+    public Fin<Unit> Apply(GeneratorParams parameters, GenerationInput input) =>
+        Op.Of(name: "generative.search-apply").Catch(() => {
+            Effective(input).Iter(row => row.Key.Apply(parameters, row.Value));
+            if (Mode is GenerationMode.Guided guided) {
+                parameters.SetGuidance(guided.Kind.Type, guided.Data, enableFFTokens: false);
+            }
+            return Fin.Succ(unit);
         });
-        // `enableFFTokens` COMMITS tokens `GetNextTokens()` never surfaces, so the streamed decode loses spans the
-        // committed sequence holds — the flag is pinned false and carries no policy column.
-        if (Guidance != GuidanceKind.None) {
-            generatorParams.SetGuidance(Guidance.Type, GuidanceData, enableFFTokens: false);
-        }
-    }
 
-    public FrozenDictionary<SearchKey, double> Echo(GeneratorParams generatorParams, GenerationInput input) =>
-        Effective(input).Keys.ToFrozenDictionary(
-            static key => key,
-            key => key.Flag ? (generatorParams.GetSearchBool(key.Key) ? 1.0 : 0.0) : generatorParams.GetSearchNumber(key.Key));
+    // Forward and inverse of ONE correspondence on ONE owner: the row that set the value reads it back.
+    public FrozenDictionary<SearchKey, double> Echo(GeneratorParams parameters, GenerationInput input) =>
+        Effective(input).Keys.ToFrozenDictionary(static key => key, key => key.Echo(parameters));
 
     // In-memory bytes enter the `Config` and the decoder pin overrides the packaged provider set BEFORE `Model`
-    // construction, because both are construction-time facts the native loader reads once.
-    public Config OpenConfig(string modelDir) {
-        Config config = new(modelDir);
-        try {
-            InMemory.Iter(data => {
-                data.Add(config);
-                if (data.OverlayJson.Length > 0) { config.Overlay(data.OverlayJson); }
-            });
-            Decoder.Iter(pin => pin.Apply(config));
-            return config;
-        }
-        catch {
-            config.Dispose();
-            throw;
-        }
-    }
+    // construction, because both are construction-time facts the native loader reads once. The rail carries the
+    // partial handle out through `Rollback`, so the per-site `catch { config.Dispose(); throw; }` is the deleted form.
+    public Fin<Config> OpenConfig(string modelDir) =>
+        Op.Of(name: "generative.config-open").Catch(() => Fin.Succ(new Config(modelDir)))
+            .Bind(config =>
+                Op.Of(name: "generative.config-populate").Catch(() => {
+                    InMemory.Iter(data => {
+                        config.AddModelData(data.Filename, data.Bytes.ToArray());
+                        if (data.OverlayJson.Length > 0) { config.Overlay(data.OverlayJson); }
+                    });
+                    return Fin.Succ(config);
+                })
+                    .Bind(opened => Decoder.Match(
+                        Some: pin => pin.Apply(opened).Map(_ => opened),
+                        None: () => Fin.Succ(opened)))
+                    .Rollback(config));
 
+    // The whole preamble as TYPED turns under the generated context: the roster owns every role spelling and the
+    // serializer has a real type to bind, where an anonymous-type projection could carry neither.
     public string Messages(string prompt) =>
         JsonSerializer.Serialize(
-            ((SystemPrompt.Length > 0 ? Seq((Role: "system", Content: SystemPrompt)) : Seq<(string Role, string Content)>())
+            ((SystemPrompt.Length > 0 ? Seq(ChatTurn.Of(ChatRole.System, SystemPrompt)) : Seq<ChatTurn>())
                 + History
-                + (RetrievedContext.IsEmpty ? Seq<(string Role, string Content)>() : Seq((Role: "system", Content: string.Join('\n', RetrievedContext))))
-                + Seq((Role: "user", Content: prompt)))
-            .Map(static turn => new { role = turn.Role, content = turn.Content }).ToArray());
+                + (RetrievedContext.IsEmpty
+                    ? Seq<ChatTurn>()
+                    : Seq(ChatTurn.Of(ChatRole.System, string.Join('\n', RetrievedContext))))
+                + Seq(ChatTurn.Of(ChatRole.User, prompt))).ToArray(),
+            GenerativeWireContext.Default.ChatTurnArray);
+
+    sealed class RowsAdmitted : IConstraint<PolicyCandidate> {
+        public Validation<Error, PolicyCandidate> Check(PolicyCandidate candidate) =>
+            candidate.Policy.SearchRows.ForAll(static row => double.IsFinite(row.Value) && row.Key.Accepts(row.Value))
+            && !candidate.Policy.SearchRows.ContainsKey(SearchKey.BatchSize)
+                ? candidate
+                : GenerativeRefusal.SearchRows.Fault();
+    }
+
+    sealed class RowsOrdered : IConstraint<PolicyCandidate> {
+        public Validation<Error, PolicyCandidate> Check(PolicyCandidate candidate) =>
+            candidate.Policy.SearchRows.Find(SearchKey.MinLength).IfNone(0.0)
+            <= candidate.Policy.SearchRows.Find(SearchKey.MaxLength).IfNone(double.PositiveInfinity)
+                ? candidate
+                : GenerativeRefusal.LengthOrder.Fault();
+    }
+
+    sealed class AdaptersDistinct : IConstraint<PolicyCandidate> {
+        public Validation<Error, PolicyCandidate> Check(PolicyCandidate candidate) =>
+            candidate.Policy.AdapterPaths.Map(static row => row.Name).Distinct().Count == candidate.Policy.AdapterPaths.Count
+            && candidate.Policy.Adapter.ForAll(name => candidate.Policy.AdapterPaths.Exists(row => row.Name == name))
+                ? candidate
+                : GenerativeRefusal.AdapterRoster.Fault();
+    }
+
+    sealed class GuidanceComplete : IConstraint<PolicyCandidate> {
+        public Validation<Error, PolicyCandidate> Check(PolicyCandidate candidate) =>
+            candidate.Policy.Mode is not GenerationMode.Guided guided || guided.Data.Length > 0
+                ? candidate
+                : GenerativeRefusal.GuidanceData.Fault();
+    }
+
+    sealed class StopsDistinct : IConstraint<PolicyCandidate> {
+        public Validation<Error, PolicyCandidate> Check(PolicyCandidate candidate) =>
+            candidate.Policy.StopSequences.ForAll(static value => !string.IsNullOrEmpty(value))
+            && candidate.Policy.StopSequences.Distinct().Count == candidate.Policy.StopSequences.Count
+                ? candidate
+                : GenerativeRefusal.StopRows.Fault();
+    }
+
+    // The MODE already makes guidance-and-tools unspellable; what remains is the run shape a tool arm needs — one
+    // text sequence with no competing text stop, because detection reads free text and rewind needs one cursor.
+    sealed class ToolsPlaceable : IConstraint<PolicyCandidate> {
+        public Validation<Error, PolicyCandidate> Check(PolicyCandidate candidate) =>
+            candidate.Policy.Mode is not GenerationMode.Tooled tooled
+            || (candidate.Input is GenerationInput.Text && tooled.Tools.Schemas.Length > 0 && candidate.Policy.StopSequences.IsEmpty)
+                ? candidate
+                : GenerativeRefusal.ToolShape.Fault();
+    }
+
+    sealed class DecoderComplete : IConstraint<PolicyCandidate> {
+        public Validation<Error, PolicyCandidate> Check(PolicyCandidate candidate) =>
+            candidate.Policy.Decoder.ForAll(static pin => !string.IsNullOrWhiteSpace(pin.Provider)
+                && !string.IsNullOrWhiteSpace(pin.HardwareDeviceType)
+                && pin.ProviderOptions.ForAll(static row => row.Key.Length > 0 && row.Value.Length > 0))
+                ? candidate
+                : GenerativeRefusal.DecoderPin.Fault();
+    }
+
+    sealed class ShapeInhabited : IConstraint<PolicyCandidate> {
+        public Validation<Error, PolicyCandidate> Check(PolicyCandidate candidate) =>
+            candidate.Policy.MediaTokenReserve > 0 && candidate.Input.Switch(
+                text: static _ => true,
+                // The media set is inhabited BY CONSTRUCTION, so this arm proves only that the files are there.
+                multimodal: static assets => assets.Media.Files.ForAll(File.Exists),
+                streamingAudio: static assets => !assets.Chunks.IsEmpty
+                    && assets.Chunks.ForAll(static chunk => chunk.Length > 0 && Array.TrueForAll(chunk, float.IsFinite))
+                    && assets.ProcessorOptions.ForAll(static row => row.Key.Length > 0 && row.Value.Length > 0),
+                batched: static assets => !assets.Prompts.IsEmpty && assets.Prompts.ForAll(static prompt => prompt.Length > 0))
+                ? candidate
+                : GenerativeRefusal.RunShape.Fault();
+    }
+
+    sealed class ModelDataShaped : IConstraint<PolicyCandidate> {
+        public Validation<Error, PolicyCandidate> Check(PolicyCandidate candidate) =>
+            candidate.Policy.InMemory.ForAll(static data => data.Filename.Length > 0 && !data.Bytes.IsEmpty)
+                ? candidate
+                : GenerativeRefusal.ModelData.Fault();
+    }
+}
+
+// --- [ERRORS] ------------------------------------------------------------------------------
+// Named sites select bounded contracts directly; no string-key roster survives beneath the shared violation.
+public static class GenerativeRefusal {
+    public static readonly ContractRefusal SearchRows = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal LengthOrder = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal AdapterRoster = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal AdapterUnloaded = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal GuidanceData = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal StopRows = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal ToolRoster = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal ToolSchemas = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal ToolShape = new(ComputeArea.Model, ComputeContract.Compatible);
+    public static readonly ContractRefusal ToolDeadline = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal ToolsNeedRewind = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal DecoderPin = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal RuntimeOption = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal ModelData = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal ModelOverlay = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal RunShape = new(ComputeArea.Model, ComputeContract.Compatible);
+    public static readonly ContractRefusal ResidentChanged = new(ComputeArea.Model, ComputeContract.Consistent);
+    public static readonly ContractRefusal MultimodalUnregistered = new(ComputeArea.Model, ComputeContract.Supported);
+    public static readonly ContractRefusal StreamingUnbound = new(ComputeArea.Model, ComputeContract.Complete);
+    public static readonly ContractRefusal BatchedMultimodal = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal TokenWidth = new(ComputeArea.Model, ComputeContract.Compatible);
+    public static readonly ContractRefusal ConversationTurnInFlight = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal ConversationBudget = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal ConversationPolicy = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal ConversationKey = new(ComputeArea.Model, ComputeContract.Valid);
+
 }
 
 // --- [SERVICES] --------------------------------------------------------------------------
 // `Adapters : SafeHandle` releases at the GC boundary AND through `Dispose()`, so the set is disposed
-// deterministically with its resident rather than left to finalization under an unloading load context.
+// deterministically with its resident rather than left to finalization under an unloading load context. The loaded
+// roster rides an atomic cell: it is read and written from `Stream` while the residency cell guards only the
+// resident map, so a mutable field under no lock was a real race outside the page's own discipline.
 public sealed class AdapterSet : IDisposable {
     readonly Adapters adapters;
-    Set<string> loaded = Set<string>();
+    readonly Atom<Set<string>> loaded = Atom(Set<string>());
 
     public AdapterSet(Model model) => adapters = new Adapters(model);
 
-    public Fin<AdapterSet> Load(AdapterAsset asset) {
-        if (loaded.Contains(asset.Name)) { return Fin.Succ(this); }
-        return asset.Verify().Bind(_ => Try.lift(() => {
-            adapters.LoadAdapter(asset.Path, asset.Name);
-            loaded = loaded.Add(asset.Name);
-            return this;
-        }).Run().MapFail(error => new ComputeFault.ExtensionAssetMissing($"{asset.Path}:{error.Message}")));
-    }
+    public Fin<AdapterSet> Load(AdapterAsset asset) =>
+        loaded.Value.Contains(asset.Name)
+            ? Fin.Succ(this)
+            : asset.Verify().Bind(_ => Op.Of(name: "generative.adapter-load").Catch(() => {
+                adapters.LoadAdapter(asset.Path, asset.Name);
+                loaded.Swap(held => held.Add(asset.Name));
+                return Fin.Succ(this);
+            }));
 
-    // `UnloadAdapter` and `SetActiveAdapter` THROW on a name the set never loaded, so the loaded-set guard is
-    // what keeps an unknown name a typed no-op and a typed fault rather than a native throw crossing the drain.
-    public Fin<Unit> Unload(string name) {
-        if (!loaded.Contains(name)) { return Fin.Succ(unit); }
-        return Try.lift(() => {
-            adapters.UnloadAdapter(name);
-            loaded = loaded.Remove(name);
-            return unit;
-        }).Run().MapFail(error => new ComputeFault.ModelRejected($"<adapter-unload:{name}:{error.Message}>"));
-    }
+    // `UnloadAdapter` and `SetActiveAdapter` THROW on a name the set never loaded, so the loaded-set guard is what
+    // keeps an unknown name a typed no-op and a typed fault rather than a native throw crossing the drain.
+    public Fin<Unit> Unload(string name) =>
+        !loaded.Value.Contains(name)
+            ? Fin.Succ(unit)
+            : Op.Of(name: "generative.adapter-unload").Catch(() => {
+                adapters.UnloadAdapter(name);
+                loaded.Swap(held => held.Remove(name));
+                return Fin.Succ(unit);
+            });
 
     public Fin<Unit> Activate(Generator generator, string name) =>
-        loaded.Contains(name)
-            ? Try.lift(() => { generator.SetActiveAdapter(adapters, name); return unit; }).Run()
-                .MapFail(error => new ComputeFault.ModelRejected($"<adapter-activate:{name}:{error.Message}>"))
-            : Fin.Fail<Unit>(new ComputeFault.ModelRejected($"<adapter-unloaded:{name}>"));
+        loaded.Value.Contains(name)
+            ? Op.Of(name: "generative.adapter-activate").Catch(() => { generator.SetActiveAdapter(adapters, name); return Fin.Succ(unit); })
+            : GenerativeRefusal.AdapterUnloaded.Fault<Unit>();
 
     public void Dispose() => adapters.Dispose();
 }
@@ -467,165 +771,218 @@ public sealed class AdapterSet : IDisposable {
 ```csharp signature
 // --- [COMPOSITION] -----------------------------------------------------------------------
 public static partial class GenerativeRun {
-    sealed record GenerativeResident(string ModelDir, Config Config, Model Session, AdapterSet Adapters, Instant LastUsed, int Leases);
-
-    sealed class ResidentLease(UInt128 key, GenerativeResident resident, IClock clock) : IDisposable {
-        int disposed;
-
-        public GenerativeResident Resident { get; } = resident;
-
+    // The resident PAYLOAD alone: `LastUsed` and `Leases` moved onto the pool row, and the LIFO release the three
+    // hand-written eviction sites each re-spelled is the record's own `Dispose`. The pool disposes it under
+    // `Custody.Bracket`, so a throwing native release aggregates onto the sweep's rail instead of stranding every
+    // resident behind it.
+    public sealed record GenerativeResident(string ModelDir, Config Config, Model Session, AdapterSet Adapters) : IDisposable {
         public void Dispose() {
-            if (Interlocked.Exchange(ref disposed, 1) is 0) { Release(key, clock.GetCurrentInstant()); }
+            Adapters.Dispose();
+            Session.Dispose();
+            Config.Dispose();
         }
     }
+
+    // The memo row is a WITNESS, not just a digest: model directories run to tens of gigabytes, so `Build`'s
+    // mutation check reads the directory's own stat surface — file count, total bytes, newest write — instead of
+    // paying a SECOND full content pass on every cold open. The TOCTOU it guards is real and a stat witness closes
+    // the same window at a millionth of the cost; the digest itself still keys the resident.
+    readonly record struct DirectoryWitness(UInt128 Digest, int Files, long Bytes, long NewestTicks);
 
     static readonly OgaHandle Runtime = new();
-    static HashMap<UInt128, GenerativeResident> Residents = HashMap<UInt128, GenerativeResident>();
-    static HashMap<string, UInt128> Digests = HashMap<string, UInt128>();
-    static readonly Lock Gate = new();
+    // Residency is the `Model/sessions#SESSION_CAPSULE` `ResidentPool` — this page's second instantiation of it,
+    // and it keeps NOTHING of the acquire/publish/release/evict quartet it used to spell. NAMED LOSS: the
+    // page-local `ResidentLease` retires, and with it the two `IfNone(() => throw …)` escapes its `Acquire` and
+    // `Publish` used to reach a resident by a second lookup — the pool carries the handle on the lease instead.
+    // The generative fleet is UNCAPPED: a `Model` is keyed by its own content, so residency bounds at the model
+    // set a host actually opens and the idle sweep is the whole eviction policy.
+    static readonly ResidentPool<UInt128, GenerativeResident> Residents = new();
+    // The digest memo took the ONE lock TWICE per call — read, then a full directory hash, then write — where a
+    // single CAS is one atomic act with no window between the two acquisitions.
+    static readonly AtomHashMap<string, DirectoryWitness> Witnesses = AtomHashMap<string, DirectoryWitness>();
 
-    // Model directories run to tens of gigabytes of weights, so hashing one on EVERY lease turns a warm hit
-    // into a full re-read. Each digest memoizes per path and lives exactly as long as a resident backs that
-    // path: a cold open re-reads the directory and compares, so an asset mutated while no resident holds the
-    // path re-keys on its next lease, and a mutation under a live resident cannot matter — bytes already loaded.
-    static UInt128 Digest(string modelDir) {
-        lock (Gate) {
-            if (Digests.Find(modelDir).Case is UInt128 held) { return held; }
-        }
-        UInt128 fresh = DirectoryDigest(modelDir);
-        lock (Gate) {
-            Digests = Digests.AddOrUpdate(modelDir, fresh);
-            return fresh;
-        }
-    }
+    // Each witness memoizes per path and lives exactly as long as a resident backs that path: a cold open re-reads
+    // the directory and compares, so an asset mutated while no resident holds the path re-keys on its next lease,
+    // and a mutation under a live resident cannot matter — bytes already loaded.
+    static Fin<DirectoryWitness> Witness(string modelDir) =>
+        Witnesses.Find(modelDir).Match(
+            Some: Fin.Succ,
+            None: () => Measured(modelDir).Map(fresh => {
+                Witnesses.SwapKey(modelDir, held => held.IfNone(fresh));
+                return Witnesses.Find(modelDir).IfNone(fresh);
+            }));
 
-    static UInt128 DirectoryDigest(string modelDir) {
-        ArrayBufferWriter<byte> preimage = new();
-        toSeq(Directory.EnumerateFiles(modelDir, "*", SearchOption.AllDirectories)
-                .Order(StringComparer.Ordinal)
-                .Select(path => new KeyValuePair<string, string>(
-                    Path.GetRelativePath(modelDir, path),
-                    $"{ContentHash.Of(File.ReadAllBytes(path)):x32}"))
-                .ToArray())
-            .Iter(row => { Frame(preimage, row.Key); Frame(preimage, row.Value); });
-        return ContentHash.Of(preimage.WrittenSpan);
-    }
+    static Fin<DirectoryWitness> Measured(string modelDir) =>
+        Op.Of(name: "generative.resident-measure").Catch(() => {
+            Seq<string> files = toSeq(Directory.EnumerateFiles(modelDir, "*", SearchOption.AllDirectories)
+                .Order(StringComparer.Ordinal).ToArray());
+            // ONE framed preimage through the kernel canonical writer: the int32-length-prefixed UTF-8 encoder
+            // this page hand-rolled is that writer's own framing law, and three encoders over one byte-identity
+            // domain in one folder is exactly the composition-time invariant the writer exists to assert once.
+            UInt128 digest = ContentHash.Of(
+                files,
+                static (roster, writer) => roster.Iter(path => writer
+                    .Text(Path.GetRelativePath(Path.GetDirectoryName(path) ?? "", path))
+                    .Text($"{ContentHash.Of(File.ReadAllBytes(path)):x32}")));
+            Seq<FileInfo> stats = files.Map(static path => new FileInfo(path));
+            return Fin.Succ(new DirectoryWitness(
+                digest, stats.Count,
+                stats.Sum(static info => info.Length),
+                stats.Fold(0L, static (newest, info) => Math.Max(newest, info.LastWriteTimeUtc.Ticks))));
+        });
 
-    static UInt128 Fingerprint(UInt128 digest, GenerationPolicy policy) {
-        Seq<KeyValuePair<string, string>> rows =
-            Seq(new KeyValuePair<string, string>("model", $"{digest:x32}"))
-            + policy.Decoder.Map(static pin => Seq(
-                new KeyValuePair<string, string>("provider", pin.Provider),
-                new("hw-type", pin.HardwareDeviceType),
-                new("hw-device", pin.HardwareDeviceId.ToString(CultureInfo.InvariantCulture)),
-                new("hw-vendor", pin.HardwareVendorId.ToString(CultureInfo.InvariantCulture)))
-                + toSeq(pin.ProviderOptions.OrderBy(static row => row.Key, StringComparer.Ordinal)
-                    .Select(static row => new KeyValuePair<string, string>($"provider-option:{row.Key}", row.Value))
-                    .ToArray())).IfNone(Seq<KeyValuePair<string, string>>())
-            + policy.InMemory.Map(static data => Seq(
-                new KeyValuePair<string, string>("model-data", data.Filename),
-                new("model-hash", $"{data.ContentKey:x32}"),
-                new("overlay", data.OverlayJson))).IfNone(Seq<KeyValuePair<string, string>>())
-            + toSeq(policy.AdapterPaths.OrderBy(static row => row.Name, StringComparer.Ordinal))
-                .Map(static row => new KeyValuePair<string, string>($"adapter:{row.Name}", $"{row.ContentKey:x32}"));
-        ArrayBufferWriter<byte> preimage = new();
-        rows.Iter(row => { Frame(preimage, row.Key); Frame(preimage, row.Value); });
-        return ContentHash.Of(preimage.WrittenSpan);
-    }
+    // Stat-only re-read: the columns a content mutation cannot avoid moving, at no read cost.
+    static Fin<bool> Unchanged(string modelDir, DirectoryWitness witness) =>
+        Op.Of(name: "generative.resident-verify").Catch(() => {
+            Seq<FileInfo> stats = toSeq(Directory.EnumerateFiles(modelDir, "*", SearchOption.AllDirectories)
+                .Select(static path => new FileInfo(path)).ToArray());
+            return Fin.Succ(stats.Count == witness.Files
+                && stats.Sum(static info => info.Length) == witness.Bytes
+                && stats.Fold(0L, static (newest, info) => Math.Max(newest, info.LastWriteTimeUtc.Ticks)) == witness.NewestTicks);
+        });
 
-    static void Frame(ArrayBufferWriter<byte> preimage, string value) {
-        int bytes = Encoding.UTF8.GetByteCount(value);
-        BinaryPrimitives.WriteInt32LittleEndian(preimage.GetSpan(4), bytes);
-        preimage.Advance(4);
-        preimage.Advance(Encoding.UTF8.GetBytes(value, preimage.GetSpan(bytes)));
-    }
+    // The resident key folds the directory digest with every adapter content key, decoder option, and in-memory
+    // identity through the ONE framed-preimage codec, so no page-local encoder decides byte identity.
+    static UInt128 Fingerprint(UInt128 digest, GenerationPolicy policy) =>
+        ContentHash.Of((Digest: digest, Policy: policy), static (state, writer) => {
+            writer.Text("model").Text($"{state.Digest:x32}");
+            state.Policy.Decoder.Iter(pin => {
+                writer.Text("provider").Text(pin.Provider)
+                    .Text("hw-type").Text(pin.HardwareDeviceType)
+                    .Text("hw-device").Ordinal(unchecked((int)pin.HardwareDeviceId))
+                    .Text("hw-vendor").Ordinal(unchecked((int)pin.HardwareVendorId));
+                toSeq(pin.ProviderOptions.OrderBy(static row => row.Key, StringComparer.Ordinal).ToArray())
+                    .Iter(row => writer.Text($"provider-option:{row.Key}").Text(row.Value));
+            });
+            state.Policy.InMemory.Iter(data => writer
+                .Text("model-data").Text(data.Filename)
+                .Text("model-hash").Text($"{data.ContentKey:x32}")
+                .Text("overlay").Text(data.OverlayJson));
+            toSeq(state.Policy.AdapterPaths.OrderBy(static row => row.Name, StringComparer.Ordinal))
+                .Iter(row => writer.Text($"adapter:{row.Name}").Text($"{row.ContentKey:x32}"));
+        });
 
-    // COLD builds run OUTSIDE `Gate`: a `Model` construction compiles the graph for its provider, and holding the
-    // one lock across it stalls every lease of every other model. Two threads racing one key both build, `Publish`
-    // seats the first, and the loser disposes its own build — one redundant build, never two live models forking
-    // one adapter set.
-    static ResidentLease Lease(string modelDir, GenerationPolicy policy, IClock clock) {
-        UInt128 digest = Digest(modelDir);
-        UInt128 key = Fingerprint(digest, policy);
-        if (Acquire(key, clock).Case is ResidentLease held) { return held; }
-        return Publish(key, modelDir, digest, Build(modelDir, digest, policy), clock);
-    }
+    // What survives residency here is what is GENERATIVE about it: the stat-witnessed digest that keys the model
+    // and the cold `Build` chain. Cold builds still run outside every transition — a `Model` construction compiles
+    // the graph for its provider — and the keyed CAS still seats the first of two racers while the loser disposes
+    // its own build; that discipline now has ONE owner rather than one copy here and another at the session
+    // capsule.
+    // The witness seats inside `Witness` itself, which is a FIRST-WRITER memo per path, so the publish arm owes it
+    // nothing: the last-writer re-seat the old `Publish` performed contradicted that memo's own rule, and dropping
+    // it is what lets the pool stop reporting which arm it took.
+    static Fin<ResidentPool<UInt128, GenerativeResident>.Lease> Lease(string modelDir, GenerationPolicy policy, IClock clock, CancelScope scope) =>
+        from witness in Witness(modelDir)
+        let key = Fingerprint(witness.Digest, policy)
+        from held in Residents.Hold(
+            key,
+            Option<int>.None,
+            () => Build(modelDir, witness, policy),
+            clock,
+            scope)
+        select held;
 
-    static Option<ResidentLease> Acquire(UInt128 key, IClock clock) {
-        lock (Gate) {
-            if (Residents.Find(key).Case is not GenerativeResident resident) { return None; }
-            GenerativeResident touched = resident with { LastUsed = clock.GetCurrentInstant(), Leases = resident.Leases + 1 };
-            Residents = Residents.SetItem(key, touched);
-            return Some(new ResidentLease(key, touched, clock));
-        }
-    }
+    // The whole acquire chain on ONE rail with `Rollback` carrying the partial handle set: three nested
+    // `catch { X.Dispose(); throw; }` blocks were the exact per-site dispose form the resource-boundary law names
+    // as deleted, and the `ThrowIfFail` pair they existed to catch inverts here into the rail they came from.
+    // `Rollback` is the right custody member on every arm because the success value TAKES ownership — the resident
+    // the pool seats owns all three handles — where a `Bracket` would double-dispose what the pool now holds.
+    static Fin<GenerativeResident> Build(string modelDir, DirectoryWitness witness, GenerationPolicy policy) =>
+        policy.OpenConfig(modelDir).Bind(config =>
+            Op.Of(name: "generative.model-open").Catch(() => Fin.Succ(new Model(config)))
+                .Bind(session =>
+                    from fresh in Unchanged(modelDir, witness)
+                    from _ in guard(fresh, (Error)GenerativeRefusal.ResidentChanged.Fault()).ToFin()
+                    from __ in Op.Of(name: "generative.model-data-release").Catch(() => {
+                        policy.InMemory.Iter(data => config.RemoveModelData(data.Filename));
+                        return Fin.Succ(unit);
+                    })
+                    let set = new AdapterSet(session)
+                    from ___ in policy.AdapterPaths.Traverse(row => set.Load(row).ToValidation()).As().ToFin().Rollback(set)
+                    select new GenerativeResident(modelDir, config, session, set))
+                    .Rollback(session))
+            .Rollback(config));
 
-    static (Config Config, Model Session, AdapterSet Adapters) Build(string modelDir, UInt128 digest, GenerationPolicy policy) {
-        Config config = policy.OpenConfig(modelDir);
-        try {
-            Model session = new(config);
-            try {
-                if (DirectoryDigest(modelDir) != digest) {
-                    Fin.Fail<Unit>(new ComputeFault.ModelRejected("<generative-resident-input-changed>")).ThrowIfFail();
-                }
-                policy.InMemory.Iter(data => data.Retract(config));
-                AdapterSet adapterSet = new(session);
-                try {
-                    policy.AdapterPaths.Iter(row => adapterSet.Load(row).ThrowIfFail());
-                    return (config, session, adapterSet);
-                }
-                catch { adapterSet.Dispose(); throw; }
-            }
-            catch { session.Dispose(); throw; }
-        }
-        catch { config.Dispose(); throw; }
-    }
+    // Witnesses survive only while some resident still backs their path, so a re-lease after eviction re-reads the
+    // directory and a mutated asset cannot alias the evicted resident's key. The prune runs on the SWEEP's own
+    // rail: a disposal fault leaves the witness standing beside the resident it could not release, which is the
+    // honest state.
+    public static Fin<Seq<UInt128>> Unload(Instant idleBefore) =>
+        Residents.Unload(idleBefore).Map(evicted => {
+            Seq<string> live = Residents.Seated().Map(static row => row.Held.ModelDir);
+            Witnesses.ToSeq()
+                .Map(static pair => pair.Key)
+                .Filter(path => !live.Exists(held => held == path))
+                .Iter(path => Witnesses.Remove(path));
+            return evicted;
+        });
 
-    static ResidentLease Publish(UInt128 key, string modelDir, UInt128 digest, (Config Config, Model Session, AdapterSet Adapters) built, IClock clock) {
-        Instant now = clock.GetCurrentInstant();
-        lock (Gate) {
-            if (Residents.Find(key).Case is GenerativeResident raced) {
-                GenerativeResident touched = raced with { LastUsed = now, Leases = raced.Leases + 1 };
-                Residents = Residents.SetItem(key, touched);
-                built.Adapters.Dispose();
-                built.Session.Dispose();
-                built.Config.Dispose();
-                return new ResidentLease(key, touched, clock);
-            }
-            GenerativeResident fresh = new(modelDir, built.Config, built.Session, built.Adapters, now, Leases: 1);
-            Residents = Residents.Add(key, fresh);
-            Digests = Digests.AddOrUpdate(modelDir, digest);
-            return new ResidentLease(key, fresh, clock);
-        }
-    }
+    public static Fin<int> Drain() => Unload(Instant.MaxValue).Map(static keys => keys.Count);
 
-    static void Release(UInt128 key, Instant now) {
-        lock (Gate) {
-            Residents.Find(key).Iter(held => Residents = Residents.SetItem(key, held with { Leases = held.Leases - 1, LastUsed = now }));
-        }
-    }
+    // The generative capsule REGISTERS its drain exactly as the session capsule does. Without this row a host
+    // drain released every ONNX session and left every `Model`, `Config`, `AdapterSet`, and live conversation
+    // resident — an asymmetry no reader of either page could see, because each looked complete alone.
+    // Conversations MUST sweep before residents: a live conversation holds a resident lease, so draining the model
+    // fleet first would find every conversation-backed resident still held and release nothing. The ordering was
+    // incidental before the conversation registry grew a refcount; it is load-bearing now, and stating it is what
+    // keeps a later reordering from silently leaking the whole fleet on shutdown.
+    public static DrainParticipantPort DrainRow(ReceiptSurface receipts, CorrelationId correlation, MonotonicTimeline timeline) =>
+        new("compute-model-generative", DrainBand.Compute, Rank: 10, _ =>
+            from mark in IO.lift(timeline.Capture)
+            from swept in IO.lift(() => GenerativeChat.Sweep(Instant.MaxValue))
+            from drained in IO.lift(Drain)
+            // Conversations and residents are both RELEASED units, so they sum into the drained column; seating
+            // the conversation count in the `Faulted` slot would report a clean sweep as a fault every drain.
+            from span in IO.lift(() => mark.Bind(start => timeline.Capture().Bind(settled => timeline.Elapsed(start, settled))))
+            from sent in (from conversations in swept
+                          from residents in drained
+                          from elapsed in span
+                          select new ComputeReceipt.Drain(residents + conversations.Count, 0, 0) {
+                              Scope = new ReceiptScope.Execution(
+                                  correlation, WorkLane.Background, Substrate.GenAi, AllocationClass.NativeOrt, Duration.FromTimeSpan(elapsed)),
+                          }).Match(
+                Succ: receipts.Emit,
+                Fail: static fault => IO.fail<Unit>(fault))
+            select unit);
 
-    public static Seq<UInt128> Unload(Instant idleBefore) {
-        Seq<(UInt128 Key, GenerativeResident Held)> evicted;
-        lock (Gate) {
-            evicted = Residents.AsIterable()
-                .Filter(pair => pair.Value.Leases is 0 && pair.Value.LastUsed < idleBefore)
-                .Map(static pair => (Key: pair.Key, Held: pair.Value))
-                .ToSeq();
-            Residents = evicted.Fold(Residents, static (map, pair) => map.Remove(pair.Key));
-            // Digests survive only while some resident still backs their path, so a re-lease after eviction
-            // re-reads the directory and a mutated asset cannot alias the evicted resident's key.
-            Digests = toSeq(Digests.Keys)
-                .Filter(path => !Residents.AsIterable().Exists(pair => pair.Value.ModelDir == path))
-                .Fold(Digests, static (map, path) => map.Remove(path));
-        }
-        evicted.Iter(static pair => { pair.Held.Adapters.Dispose(); pair.Held.Session.Dispose(); pair.Held.Config.Dispose(); });
-        return evicted.Map(static pair => pair.Key);
-    }
+    // The idle sweep is a SCHEDULE ROW the composition binds, the same shape the session capsule's warmup takes;
+    // a `Sweep` member with no entry is a cadence nothing runs. It runs conversations first for the same reason
+    // the drain does, and a refused release rides the schedule's own rail rather than vanishing into an `Iter`.
+    public static ScheduleEntry SweepRow(Duration idle, IClock clock) =>
+        new("compute-model-generative-sweep", new OccurrenceSpec.Every(idle), DeadlineClass.Background,
+            Option<LeasePolicy>.None, RedrivePolicy.None,
+            () => IO.lift(() => {
+                Instant cutoff = clock.GetCurrentInstant() - idle;
+                return GenerativeChat.Sweep(cutoff).Bind(_ => Unload(cutoff)).Map(static _ => unit);
+            }).Bind(outcome => outcome.Match(Succ: static _ => IO.pure(unit), Fail: IO.fail<Unit>)));
 
-    public static int Drain() => Unload(Instant.MaxValue).Count;
+    // The staged run narrows on the ONE property the tool leg reads. `Encoder` as an `Option` forced a ternary
+    // whose false arm threw `UnreachableException` to assert a proof admission had already made; the case carries
+    // the encoder instead, so the tool leg takes a shape that HAS one and the arm has nothing to assert.
+    [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+    public abstract partial record StagedRun : IDisposable {
+        private StagedRun(Seq<TokenizerStream> decoders, StopOracle stop, StopScope scope, Option<int> stagedTokens, Seq<IDisposable> owned, int width, string modelType) =>
+            (Decoders, Stop, Scope, StagedTokens, Owned, Width, ModelType) = (decoders, stop, scope, stagedTokens, owned, width, modelType);
 
-    sealed record StagedRun(Seq<TokenizerStream> Decoders, Option<Tokenizer> Encoder, StopOracle Stop, Option<int> StagedTokens, Seq<IDisposable> Owned, int Width) : IDisposable {
+        public sealed record Decoding(
+            Seq<TokenizerStream> Decoders, StopOracle Stop, StopScope Scope, Option<int> StagedTokens, Seq<IDisposable> Owned, int Width, string ModelType)
+            : StagedRun(Decoders, Stop, Scope, StagedTokens, Owned, Width, ModelType);
+
+        public sealed record Encoding(
+            Tokenizer Encoder,
+            Seq<TokenizerStream> Decoders, StopOracle Stop, StopScope Scope, Option<int> StagedTokens, Seq<IDisposable> Owned, int Width, string ModelType)
+            : StagedRun(Decoders, Stop, Scope, StagedTokens, Owned, Width, ModelType);
+
+        public Seq<TokenizerStream> Decoders { get; }
+        public StopOracle Stop { get; }
+        public StopScope Scope { get; }
+        public Option<int> StagedTokens { get; }
+        public Seq<IDisposable> Owned { get; }
+        public int Width { get; }
+
+        // The tally's model-type column reads HERE: the drain holds a generator and a staged shape, never the
+        // `Model` handle, so the surface that observed the type is the surface that carries it.
+        public string ModelType { get; }
+
         public void Dispose() => Owned.Rev().Iter(static handle => handle.Dispose());
     }
 
@@ -646,115 +1003,145 @@ public static partial class GenerativeRun {
         public void Dispose() => owned.Rev().Iter(static handle => handle.Dispose());
     }
 
-    // Each arm stages its own payload, gates the native processor it needs on the model's declared class, and
-    // returns the ONE drain shape; media arms read `TokenCount()` immediately after `SetInputs`, which is their
-    // only moment where the staged media total is observable.
-    static Fin<StagedRun> Stage(Model session, Generator generator, GenerationPolicy policy, GenerationInput input) =>
+    // Each arm stages its own payload, gates the native processor it needs on the model's declared capability set,
+    // and returns the ONE drain shape; media arms read `TokenCount()` immediately after `SetInputs`, which is their
+    // only moment where the staged media total is observable. Every native call funnels through `Op.Catch`
+    // onto `ModelSessions.Faulted`, so a throw from `ApplyChatTemplate`, `Images.Load`, or `SetInputs` classifies
+    // where every other native fault on this branch classifies.
+    static Fin<StagedRun> Stage(Model session, Generator generator, GenerationPolicy policy, GenerationInput input, StopScope scope, CancelScope cancel) =>
         input.Switch(
-            state: (Session: session, Generator: generator, Policy: policy, Class: ModelClass.Of(session)),
-            text: static (s, text) => {
-                using StageScope scope = new();
-                Tokenizer tokenizer = scope.Hold(new Tokenizer(s.Session));
-                StopOracle stop = StopOracle.Read(tokenizer, s.Policy.StopSequences);
-                if (!s.Policy.Tools.Names.IsEmpty && !s.Class.Rewinds) {
-                    return Fin.Fail<StagedRun>(new ComputeFault.ModelRejected($"<tools-need-rewind:{s.Session.GetModelType()}>"));
+            state: (Session: session, Generator: generator, Policy: policy, Class: ModelClass.Of(session), Scope: scope, Cancel: cancel),
+            text: static (s, text) => Staged(s.Cancel, () => {
+                using StageScope held = new();
+                if (s.Policy.Mode is GenerationMode.Tooled && !s.Class.Carries(ModelCapability.Rewinds)) {
+                    return GenerativeRefusal.ToolsNeedRewind.Fault<StagedRun>();
                 }
-                TokenizerStream stream = scope.Hold(tokenizer.CreateStream());
+                Tokenizer tokenizer = held.Hold(new Tokenizer(s.Session));
+                StopOracle stop = StopOracle.Read(tokenizer, s.Policy.StopSequences);
+                TokenizerStream stream = held.Hold(tokenizer.CreateStream());
                 using Sequences encoded = tokenizer.Encode(tokenizer.ApplyChatTemplate(
                     s.Policy.ChatTemplate, s.Policy.Messages(text.Prompt), s.Policy.Tools.Schemas, add_generation_prompt: true));
                 s.Generator.AppendTokenSequences(encoded);
-                return Fin.Succ(new StagedRun(Seq(stream), Some(tokenizer), stop, None, scope.Transfer(), 1));
-            },
-            multimodal: static (s, multimodal) => {
-                using StageScope scope = new();
-                if (!s.Class.Multimodal) { return Fin.Fail<StagedRun>(new ComputeFault.ModelRejected($"<multimodal-unregistered:{s.Session.GetModelType()}>")); }
-                Tokenizer tokenizer = scope.Hold(new Tokenizer(s.Session));
+                return Fin.Succ<StagedRun>(new StagedRun.Encoding(
+                    tokenizer, Seq(stream), stop, s.Scope, None, held.Transfer(), 1, s.Session.GetModelType()));
+            }),
+            multimodal: static (s, multimodal) => Staged(s.Cancel, () => {
+                using StageScope held = new();
+                if (!s.Class.Carries(ModelCapability.Multimodal)) {
+                    return GenerativeRefusal.MultimodalUnregistered.Fault<StagedRun>();
+                }
+                Tokenizer tokenizer = held.Hold(new Tokenizer(s.Session));
                 StopOracle stop = StopOracle.Read(tokenizer, s.Policy.StopSequences);
-                MultiModalProcessor processor = scope.Hold(new MultiModalProcessor(s.Session));
-                TokenizerStream stream = scope.Hold(processor.CreateStream());
+                MultiModalProcessor processor = held.Hold(new MultiModalProcessor(s.Session));
+                TokenizerStream stream = held.Hold(processor.CreateStream());
                 string prompt = tokenizer.ApplyChatTemplate(
                     s.Policy.ChatTemplate, s.Policy.Messages(multimodal.Prompt), s.Policy.Tools.Schemas, add_generation_prompt: true);
-                // `Images.Load`/`Audios.Load` FAULT on an empty path set, so the loader and the processor arm both
-                // dispatch on which side actually carries media; a single always-both call is the deleted form.
-                Option<Images> images = multimodal.ImagePaths.IsEmpty ? None : Some(scope.Hold(Images.Load(multimodal.ImagePaths.ToArray())));
-                Option<Audios> audios = multimodal.AudioPaths.IsEmpty ? None : Some(scope.Hold(Audios.Load(multimodal.AudioPaths.ToArray())));
-                using NamedTensors batch = (images.Case, audios.Case) switch {
-                    (Images seen, Audios heard) => processor.ProcessImagesAndAudios(prompt, seen, heard),
-                    (Images seen, _) => processor.ProcessImages(prompt, seen),
-                    (_, Audios heard) => processor.ProcessAudios(prompt, heard),
-                    _ => throw new UnreachableException(),
-                };
+                // `Images.Load`/`Audios.Load` FAULT on an empty path set, so the loader dispatches on which side
+                // actually carries media — and the narrowed case means every arm here is reachable.
+                using NamedTensors batch = multimodal.Media.Switch(
+                    state: (Scope: held, Processor: processor, Prompt: prompt),
+                    images: static (m, set) => m.Processor.ProcessImages(m.Prompt, m.Scope.Hold(Images.Load(set.Paths.ToArray()))),
+                    audios: static (m, set) => m.Processor.ProcessAudios(m.Prompt, m.Scope.Hold(Audios.Load(set.Paths.ToArray()))),
+                    both: static (m, set) => m.Processor.ProcessImagesAndAudios(
+                        m.Prompt,
+                        m.Scope.Hold(Images.Load(set.ImagePaths.ToArray())),
+                        m.Scope.Hold(Audios.Load(set.AudioPaths.ToArray()))));
                 s.Generator.SetInputs(batch);
-                return Fin.Succ(new StagedRun(Seq(stream), None, stop, Some(checked((int)s.Generator.TokenCount())), scope.Transfer(), 1));
-            },
-            streamingAudio: static (s, streamingAudio) => {
-                using StageScope scope = new();
-                if (!s.Class.Streaming) { return Fin.Fail<StagedRun>(new ComputeFault.ModelRejected($"<streaming-audio-unbound:{s.Session.GetModelType()}>")); }
-                Tokenizer tokenizer = scope.Hold(new Tokenizer(s.Session));
+                return Fin.Succ<StagedRun>(new StagedRun.Decoding(
+                    Seq(stream), stop, s.Scope, Some(checked((int)s.Generator.TokenCount())), held.Transfer(), 1, s.Session.GetModelType()));
+            }),
+            streamingAudio: static (s, streamingAudio) => Staged(s.Cancel, () => {
+                using StageScope held = new();
+                if (!s.Class.Carries(ModelCapability.Streaming)) {
+                    return GenerativeRefusal.StreamingUnbound.Fault<StagedRun>();
+                }
+                Tokenizer tokenizer = held.Hold(new Tokenizer(s.Session));
                 StopOracle stop = StopOracle.Read(tokenizer, s.Policy.StopSequences);
                 using Sequences prompt = tokenizer.Encode(tokenizer.ApplyChatTemplate(
                     s.Policy.ChatTemplate, s.Policy.Messages(streamingAudio.Prompt), s.Policy.Tools.Schemas, add_generation_prompt: true));
                 s.Generator.AppendTokenSequences(prompt);
-                StreamingProcessor processor = scope.Hold(new StreamingProcessor(s.Session));
+                StreamingProcessor processor = held.Hold(new StreamingProcessor(s.Session));
                 streamingAudio.ProcessorOptions.Iter(option => processor.SetOption(option.Key, option.Value));
-                MultiModalProcessor decode = scope.Hold(new MultiModalProcessor(s.Session));
-                TokenizerStream stream = scope.Hold(decode.CreateStream());
-                streamingAudio.Chunks.Iter(chunk => { if (processor.Process(chunk) is NamedTensors ready) { using (ready) { s.Generator.SetInputs(ready); } } });
+                MultiModalProcessor decode = held.Hold(new MultiModalProcessor(s.Session));
+                TokenizerStream stream = held.Hold(decode.CreateStream());
+                // A named kernel over a native cursor: each chunk's produced tensors are bound and released in
+                // one step, so the fold carries no value between iterations and the statement body is the
+                // measured-boundary exemption rather than a fold shape declined.
+                streamingAudio.Chunks.Iter(chunk => {
+                    if (processor.Process(chunk) is NamedTensors ready) { using (ready) { s.Generator.SetInputs(ready); } }
+                });
                 if (processor.Flush() is NamedTensors tail) { using (tail) { s.Generator.SetInputs(tail); } }
-                return Fin.Succ(new StagedRun(Seq(stream), None, stop, Some(checked((int)s.Generator.TokenCount())), scope.Transfer(), 1));
-            },
-            batched: static (s, batched) => {
-                using StageScope scope = new();
+                return Fin.Succ<StagedRun>(new StagedRun.Decoding(
+                    Seq(stream), stop, s.Scope, Some(checked((int)s.Generator.TokenCount())), held.Transfer(), 1, s.Session.GetModelType()));
+            }),
+            batched: static (s, batched) => Staged(s.Cancel, () => {
+                using StageScope held = new();
                 // One media prompt owns one image tag, so a batch of media prompts has no staged shape at all;
                 // refusing here keeps the impossible combination out of the drain rather than in a native fault.
-                if (s.Class.Multimodal) { return Fin.Fail<StagedRun>(new ComputeFault.ModelRejected($"<batched-multimodal:{s.Session.GetModelType()}>")); }
-                Tokenizer tokenizer = scope.Hold(new Tokenizer(s.Session));
+                if (s.Class.Carries(ModelCapability.Multimodal)) {
+                    return GenerativeRefusal.BatchedMultimodal.Fault<StagedRun>();
+                }
+                Tokenizer tokenizer = held.Hold(new Tokenizer(s.Session));
                 StopOracle stop = StopOracle.Read(tokenizer, s.Policy.StopSequences);
                 // `EncodeBatch` LEFT-PADS a ragged batch to its longest member, so the encoded width equals the
                 // prompt count and the derived `batch_size` the params already carry.
                 using Sequences encoded = tokenizer.EncodeBatch(batched.Prompts.ToArray());
                 s.Generator.AppendTokenSequences(encoded);
                 int width = (int)encoded.NumSequences;
-                Seq<TokenizerStream> decoders = toSeq(Enumerable.Range(0, width).Select(_ => scope.Hold(tokenizer.CreateStream())).ToArray());
-                return Fin.Succ(new StagedRun(decoders, Some(tokenizer), stop, None, scope.Transfer(), width));
-            });
+                Seq<TokenizerStream> decoders = toSeq(Enumerable.Range(0, width).Select(_ => held.Hold(tokenizer.CreateStream())).ToArray());
+                return Fin.Succ<StagedRun>(new StagedRun.Encoding(
+                    tokenizer, decoders, stop, s.Scope, None, held.Transfer(), width, s.Session.GetModelType()));
+            }));
+
+    // THE native funnel: every staging arm's throws classify through the branch's ONE classifier, so a cancellation
+    // crossing a lease and its staging reports one fault and a native class the page never anticipated cannot
+    // escape unclassified.
+    static Fin<StagedRun> Staged(CancelScope scope, Func<Fin<StagedRun>> arm) =>
+        Op.Of(name: "generative.stage").Catch(arm, scope.Source.Token).MapFail(error => ModelSessions.Faulted(scope, error));
 }
 ```
 
 ```mermaid
 stateDiagram-v2
     accTitle: Generative resident and staged drain lifecycle
-    accDescr: A process-global runtime leases a content-keyed model resident built outside the lock, stages one run mode under its model-class gate, drains tokens through the tool-phase machine, and emits completion.
+    accDescr: A process-global runtime leases a content-keyed model resident built outside the cell, stages one run mode under its model-class capability gate, drains tokens through the tool-phase machine, and emits completion or a typed fault.
     [*] --> Runtime : process-global OgaHandle (held once)
-    Runtime --> Digest : path-memoized directory digest
-    Digest --> Resident : Fingerprint (digest + adapters + DecoderPin + ModelData)
-    Resident --> Resident : Acquire under Gate | Build outside Gate | Publish under Gate
+    Runtime --> Witness : stat-witnessed directory digest
+    Witness --> Resident : Fingerprint (digest + adapters + DecoderPin + ModelData)
+    Resident --> Resident : ResidentPool acquire | Build outside the cell | keyed-CAS publish
     Resident --> Stage : GenerationInput.Switch (per-call GeneratorParams + Generator)
-    Stage --> TextArm : RunMode.Text
-    Stage --> MediaArm : RunMode.Multimodal (ModelClass.Multimodal)
-    Stage --> AudioArm : RunMode.StreamingAudio (ModelClass.Streaming)
-    Stage --> BatchArm : RunMode.Batched (batch_size = Width)
-    TextArm --> Drain : ApplyChatTemplate + Encode + AppendTokenSequences (Width 1)
-    MediaArm --> Drain : Process* + SetInputs + TokenCount -> StagedTokens (Width 1)
-    AudioArm --> Drain : Process/Flush + SetInputs + TokenCount -> StagedTokens (Width 1)
-    BatchArm --> Drain : EncodeBatch left-pad + AppendTokenSequences (Width N, N decoders)
-    Drain --> Drain : GenerateNextToken + GetNextTokens[s] + caller-owned stopped[s] -> Piece
-    Drain --> Tool : Width 1 + unguided + ToolPhase.Step
-    Tool --> Drain : Resolve(Some) -> AppendTokens + ToolInvoked | Resolve(None) -> RewindTo + typed fault
-    Drain --> Completed : all stopped || IsDone || ThrowIfCancellationRequested
-    Completed --> [*] : GenerationEvent.Completed(tally)
+    Stage --> TextArm : text
+    Stage --> MediaArm : multimodal (ModelCapability.Multimodal)
+    Stage --> AudioArm : streaming-audio (ModelCapability.Streaming)
+    Stage --> BatchArm : batched (batch_size = Width)
+    TextArm --> Drain : ApplyChatTemplate + Encode + AppendTokenSequences (Encoding, Width 1)
+    MediaArm --> Drain : MediaSet.Switch + SetInputs + TokenCount (Decoding, Width 1)
+    AudioArm --> Drain : Process/Flush + SetInputs + TokenCount (Decoding, Width 1)
+    BatchArm --> Drain : EncodeBatch left-pad + AppendTokenSequences (Encoding, Width N)
+    Drain --> Drain : GenerateNextToken + SequenceCursor fold -> Piece
+    Drain --> Tool : Encoding + Width 1 + Tooled + ToolPhase.Step
+    Tool --> Drain : Resolve(Succ) -> AppendTokens + ToolInvoked
+    Tool --> Faulted : Resolve(Fail) or deadline -> RewindTo + GenerationEvent.Faulted
+    Drain --> Completed : every cursor stopped || IsDone || cancellation
+    Faulted --> [*] : GenerationEvent.Faulted(error)
+    Completed --> [*] : GenerationEvent.Completed(tally, measured elapsed)
 ```
 
 ## [03]-[TOKEN_DRAIN]
 
-- Owner: `ToolPhase` the `[SmartEnum<string>]` whose two rows own the whole free-text tool state machine as delegate-backed behavior; `ToolStep` the `[Union]` decision each row returns; `GenerativeRun.Stream` the one drain loop; `GenerativeRun.Collect` the fault-classifying fold onto `Fin<GenerationOutcome>`; `GenerativeRun.Receipt` the tally projection onto `ComputeReceipt.Generate`.
-- Cases: `ToolPhase` rows free (no candidate span open — text leaves as it decodes) · buffering (a `{` opened a candidate span — nothing leaves until it parses or the drain flushes it); `ToolStep` cases `Pass(Lead, Next, Pending)` (lead text emits, the phase and buffer carry forward) · `Invoke(Lead, Call)` (a call resolved — lead text emits, then the resolver runs).
-- Entry: `Stream(modelDir, policy, input, clock, token)` is the one drain; `phase.Step(policy, pending, piece)` is the one tool decision, and the loop owns exactly the three effects a row cannot: the `yield`, the awaited `Resolve`, and the native `AppendTokens`/`RewindTo` pair.
-- Auto: the loop copies `GetNextTokens()` before the next native iteration, skips BOS, consumes a stop token without advancing the tally, folds each decoded piece through `StopOracle.Feed` for the withheld text-stop prefix, and breaks the moment every sequence is stopped rather than waiting on the batch-wide `IsDone()`. Tool handling engages only at `Width == 1` with a non-empty roster and an encoder in hand, so the batched and media arms reach `Piece` directly.
-- Receipt: `Receipt` projects the collected tally whole — token count, tokens per second over the measured `Duration`, guidance dimension, constrained and tool counts, and the `StagedTokens` media column that stays null on a text-only run.
-- Packages: Microsoft.ML.OnnxRuntimeGenAI, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project, `CancelScope`), BCL inbox (System.Text.Json)
-- Growth: a new tool-detection posture is one `ToolPhase` row with one `ToolStep` arm; a new terminal classification is one `catch` arm on `Collect` mapping onto an existing `ComputeFault`; zero new surface.
-- Boundary: the phase rows are PURE — they read the policy and the buffered text and return a decision, so no row yields, awaits, or touches native state, and the loop is the one effectful seat. Rewind floor stamps at the transition INTO a candidate span (`TokenCount() - 1`, the token that opened it), so a declined resolution rewinds exactly the call span and never the turn before it. Any buffered span still open when the drain ends FLUSHES as a `Piece`: an unfinished `{…` was never a call, and withholding it silently drops generated text. `RewindTo` is reachable only because the tool leg gates on `Width == 1` and on a `ModelClass` declaring rewind; a batched run admits only `RewindTo(0)` and faults on restart, and a non-rewinding class refuses the roster at `Stage`.
+- Owner: `ToolPhase` the `[SmartEnum<string>]` whose two rows own the whole free-text tool state machine as delegate-backed behavior; `ToolStep` the `[Union]` decision each row returns; `SequenceCursor` the per-sequence drain state; `GenerativeRun.Drain` the ONE loop both entrypoints instantiate; `GenerativeRun.Collect` the total fold onto `Fin<GenerationOutcome>`; `GenerativeRun.Receipt` the outcome projection onto `ComputeReceipt.Generate`.
+- Cases: `ToolPhase` rows free (no candidate span open — text leaves as it decodes) · buffering (a `{` opened a candidate span — nothing leaves until it parses or the drain flushes it); `ToolStep` cases `Pass(Lead, Next, Pending)` · `Invoke(Lead, Call)`.
+- Entry: `Drain(generator, staged, policy, cell, timeline, token)` is the one loop; `Stream` and `GenerativeSession.Turn` are its two instantiations; `phase.Step(policy, pending, piece)` is the one tool decision, and the loop owns exactly the three effects a row cannot: the `yield`, the awaited `Resolve`, and the native `AppendTokens`/`RewindTo` pair.
+- Law: there is ONE drain. A one-shot run and a conversation turn ran two `while (!IsDone())` loops over the same `GenerateNextToken`/`GetNextTokens`/`Skips`/`Feed`/`yield Piece` body, differing only in width, in which stop member they called, and in whether the tool arm engaged — so a stop-token fix landing on one was invisible to the other and to any test on either. The turn is the drain's width-1, `Plain`-mode, turn-scoped instantiation; the differences are staged COLUMNS, never a second body.
+- Law: per-sequence state is ONE record, never four parallel arrays. `next`, `indices`, `stopped`, and `tails` were four arrays plus a fifth decoder roster indexed by one loop variable, with `tails.Length` and `staged.Width` two names for one bound and a pending flush that indexed sequence zero regardless of which sequence produced it. `SequenceCursor` carries them together, so the bound is the roster's own count and a cursor cannot be half-advanced.
+- Law: the outer loop is a MEASURED NATIVE CURSOR PUMP and takes the expression-spine exemption by name; the inner per-sequence body does not. Advancing one cursor against one token is a pure function of the cursor, the token, and the oracle, so it folds — and the six `continue`s and two `break`s the inner body carried collapse into the fold's own arms.
+- Law: the span is MEASURED here. Tokens-per-second divided by a `Duration` the caller passed in, so the receipt's rate column was computed from a value this owner never observed; the drain captures its own monotone pair and `Completed` carries it, which is also what lets a caller that never timed anything still publish an honest rate.
+- Law: the tool resolver is AWAITED UNDER A DEADLINE inside a `using`-bracketed native generator holding a live KV prefix. An unbounded await parks that native state for as long as a consumer takes, so the bound is the tool policy's own column; a rewind-then-fault on a declined resolution happens as ONE expression on the `Faulted` arm rather than as a side effect followed by a throw that unwinds a rewound generator.
+- Auto: the loop copies `GetNextTokens()` before the next native iteration, skips BOS, consumes a stop token without advancing the tally, folds each decoded piece through `StopOracle.Feed` for the withheld text-stop prefix, advances the injected progress cell with the running token count, and breaks the moment every cursor is stopped rather than waiting on the batch-wide `IsDone()`. Tool handling engages only on an `Encoding` stage at width 1 under a `Tooled` mode, so the batched and media arms reach `Piece` directly.
+- Receipt: `Receipt` projects the collected outcome whole — token count, tokens per second over the drain's OWN measured span, guidance dimension, constrained and tool counts, and the `StagedTokens` media column that stays absent on a text-only run. Both optional columns cross as `Option`, because the receipt case declares them that way; the `Match` into a nullable that this projection used to spell collapsed a carrier the target already had.
+- Packages: Microsoft.ML.OnnxRuntimeGenAI, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, `Parametric.MonotonicTimeline`), Rasm.AppHost (project, `CancelScope`), BCL inbox (System.Text.Json)
+- Growth: a new tool-detection posture is one `ToolPhase` row with one `ToolStep` arm; a new terminal classification is one named `GenerativeRefusal` over the shared contract vocabulary or one existing `ComputeFault` case reached through `ModelSessions.Faulted`; a new stop scope is one `StopScope` row both drains inherit; zero new surface.
+- Boundary: the phase rows are PURE — they read the policy and the buffered text and return a decision, so no row yields, awaits, or touches native state, and the loop is the one effectful seat. Rewind floor stamps at the transition INTO a candidate span (`TokenCount() - 1`, the token that opened it), so a declined resolution rewinds exactly the call span and never the turn before it; the floor rides a value object whose non-negativity is a construction guard rather than a ternary at the one site that computes it. Any buffered span still open when the drain ends FLUSHES as a `Piece` on the sequence that opened it: an unfinished `{…` was never a call, and withholding it silently drops generated text. `RewindTo` is reachable only because the tool leg gates on width 1 and on a `ModelClass` carrying rewind; a batched run admits only `RewindTo(0)` and faults on restart, and a non-rewinding class refuses the roster at `Stage`. `Collect` carries NO `try`: the stream's element type carries every refusal, so the fold is a total `Switch` and the six-arm ladder — one arm of which existed solely to unwrap an `Error` thrown a frame earlier — deletes whole. Residual foreign throws classify at the native boundary inside `Stage` and `Build` through `ModelSessions.Faulted`, the one classifier this branch declares. The receipt projection is NOT a Mapperly correspondence: its target is a positional record assembled from five distinct sources with three computed columns, and Mapperly constructs a positional target from ONE source, so the pure subset cannot be generated independently — the `[Mapper]`-earning gap on this lane is the `Runtime/wire#PROTO_VOCABULARY` `GenerateRequest` flattening, which drops thirteen policy columns with no transcription owner at all.
 
 ```csharp signature
 // --- [TYPES] -----------------------------------------------------------------------------
@@ -762,8 +1149,8 @@ stateDiagram-v2
 public abstract partial record ToolStep {
     private ToolStep() { }
 
-    // `Lead` is the text ahead of any candidate span and emits immediately; `Pending` is the buffer carried
-    // into the next step, empty whenever `Next` is the free row.
+    // `Lead` is the text ahead of any candidate span and emits immediately; `Pending` is the buffer carried into
+    // the next step, empty whenever `Next` is the free row.
     public sealed record Pass(string Lead, ToolPhase Next, string Pending) : ToolStep;
 
     public sealed record Invoke(string Lead, ToolRequest Call) : ToolStep;
@@ -799,321 +1186,392 @@ public sealed partial class ToolPhase {
     public partial ToolStep Step(ToolPolicy policy, string pending, string piece);
 }
 
+// --- [MODELS] ----------------------------------------------------------------------------
+// The rewind floor with its underflow guard AT CONSTRUCTION: a `current is 0UL ? 0UL : current - 1UL` ternary
+// re-proved the same fact at the one site that computed it, where the carrier makes the invalid state unspellable.
+[ValueObject<ulong>]
+public readonly partial struct RewindFloor {
+    public static RewindFloor Below(ulong current) => Create(current is 0UL ? 0UL : current - 1UL);
+}
+
+// One sequence's whole drain state. Four parallel arrays indexed by one loop variable made `tails.Length` and the
+// staged width two names for one bound, let a pending flush index sequence zero regardless of which sequence
+// opened the span, and made a half-advanced sequence representable.
+public readonly record struct SequenceCursor(int Index, long Emitted, bool Stopped, string Tail, TokenizerStream Decoder) {
+    public static Seq<SequenceCursor> Of(StagedRun staged) =>
+        staged.Decoders.Map((decoder, index) => new SequenceCursor(index, 0L, false, "", decoder));
+}
+
+// What ONE cursor advance produced: the cursor as it now stands, the text it released (absent where the step
+// emitted nothing), and whether this token counted toward the tally.
+public readonly record struct CursorStep(SequenceCursor Cursor, Option<string> Piece, bool Counted);
+
+// Everything one run holds, LIFO. The acquire chain is a RAIL that runs once and hands back either this capsule
+// or its refusal; the two entrypoints then bridge its arms without re-running a single leg.
+internal sealed record Opened(
+    ResidentPool<UInt128, GenerativeRun.GenerativeResident>.Lease Lease,
+    GeneratorParams Params, Generator Generator, StagedRun Staged) : IDisposable {
+    public void Dispose() {
+        Staged.Dispose();
+        Generator.Dispose();
+        Params.Dispose();
+        Lease.Dispose();
+    }
+}
+
+
 // --- [OPERATIONS] ------------------------------------------------------------------------
 public static partial class GenerativeRun {
-    public static async IAsyncEnumerable<GenerationEvent> Stream(
-        string modelDir, GenerationPolicy policy, GenerationInput input, IClock clock, [EnumeratorCancellation] CancellationToken token) {
-        _ = Runtime;
-        policy.Conforms(input).ThrowIfFail();
-        using ResidentLease lease = Lease(modelDir, policy, clock);
-        GenerativeResident resident = lease.Resident;
-        Model session = resident.Session;
-        using GeneratorParams generatorParams = new(session);
-        policy.Apply(generatorParams, input);
-        using Generator generator = new(session, generatorParams);
-        policy.RuntimeOptions.Iter(option => generator.SetRuntimeOption(option.Key, option.Value));
-        policy.Adapter.Iter(name => resident.Adapters.Activate(generator, name).ThrowIfFail());
-
-        using StagedRun staged = Stage(session, generator, policy, input).ThrowIfFail();
-        int[] next = new int[staged.Width];
-        long[] indices = new long[staged.Width];
-        // Caller-owned per-sequence stop: `IsDone()` answers the whole batch, so a sequence that reached EOS is
-        // tracked HERE and its PAD emissions are consumed without reaching a decoder or the tally.
-        bool[] stopped = new bool[staged.Width];
-        string[] tails = new string[staged.Width];
-        Array.Fill(tails, "");
-        bool tooling = staged.Width == 1 && !policy.Tools.Names.IsEmpty && staged.Encoder.IsSome;
+    // THE drain. Both entrypoints instantiate it: a one-shot run supplies a fresh generator and its staged shape,
+    // a conversation turn supplies its retained generator and a turn-scoped staging. Width, stop scope, tool
+    // engagement, and the encoder are STAGED COLUMNS, so the two callers differ by data and never by a second body.
+    static async IAsyncEnumerable<GenerationEvent> Drain(
+        Generator generator, StagedRun staged, GenerationPolicy policy, Option<ProgressCell> cell,
+        MonotonicTimeline timeline, [EnumeratorCancellation] CancellationToken token) {
+        Fin<MonotonicStamp> opened = timeline.Capture();
+        Seq<SequenceCursor> cursors = SequenceCursor.Of(staged);
+        bool tooling = staged is StagedRun.Encoding && staged.Width is 1 && policy.Mode is GenerationMode.Tooled;
         ToolPhase phase = ToolPhase.Free;
         string pending = "";
-        ulong floor = generator.TokenCount();
+        RewindFloor floor = RewindFloor.Create(generator.TokenCount());
         int tokens = 0;
         int constrained = 0;
         int toolCalls = 0;
-        while (!generator.IsDone()) {
-            token.ThrowIfCancellationRequested();
+        int[] next = new int[staged.Width];
+        while (!generator.IsDone() && !cursors.ForAll(static cursor => cursor.Stopped)) {
+            if (token.IsCancellationRequested) {
+                yield return new GenerationEvent.Faulted(new ComputeFault.Cancelled(nameof(Drain)));
+                yield break;
+            }
             generator.GenerateNextToken();
             if (generator.GetNextTokens().Length != staged.Width) {
-                Fin.Fail<Unit>(new ComputeFault.ModelRejected("Generator token width differs from the staged sequence width.")).ThrowIfFail();
+                yield return new GenerationEvent.Faulted(
+                    GenerativeRefusal.TokenWidth.Fault());
+                yield break;
             }
             generator.GetNextTokens().CopyTo(next);
-            for (int s = 0; s < staged.Width; s++) {
-                if (stopped[s]) { continue; }
-                int emitted = next[s];
-                if (staged.Stop.Skips(emitted)) { continue; }
-                if (staged.Stop.Reached(emitted)) {
-                    if (tails[s].Length > 0) { yield return new GenerationEvent.Piece(s, indices[s]++, tails[s]); tails[s] = ""; }
-                    stopped[s] = true;
+            // The per-sequence body is a PURE fold over the cursor roster: the six `continue`s and two `break`s it
+            // replaces were control flow standing in for the arms this returns as values.
+            Seq<CursorStep> stepped = cursors.Map(cursor => Advance(cursor, next[cursor.Index], staged));
+            cursors = stepped.Map(static step => step.Cursor);
+            tokens += stepped.Count(static step => step.Counted);
+            if (policy.Mode is GenerationMode.Guided) { constrained += stepped.Count(static step => step.Counted); }
+            cell.Iter(held => held.Advance(ProgressPhase.Streaming, segments: Some(SegmentCount.Create(tokens))));
+            foreach (CursorStep step in stepped) {
+                if (step.Piece.Case is not string piece || piece.Length is 0) { continue; }
+                if (!tooling) {
+                    yield return new GenerationEvent.Piece(step.Cursor.Index, step.Cursor.Emitted - 1, piece);
                     continue;
                 }
-                string decoded = staged.Decoders[s].Decode(emitted);
-                (string Emit, string Tail, bool Reached) stop = staged.Stop.Feed(tails[s], decoded);
-                tails[s] = stop.Tail;
-                string piece = stop.Emit;
-                if (stop.Reached) { stopped[s] = true; }
-                tokens++;
-                if (policy.Guidance != GuidanceKind.None) { constrained++; }
-                if (piece.Length is 0) { continue; }
-                if (!tooling) { yield return new GenerationEvent.Piece(s, indices[s]++, piece); continue; }
-                ToolStep step = phase.Step(policy.Tools, pending, piece);
-                // Floor stamps at the transition OUT of the free phase: the current token is the one that
-                // opened the candidate span, so a declined resolution rewinds the span alone.
-                if (phase == ToolPhase.Free && step.Opens) {
-                    ulong current = generator.TokenCount();
-                    floor = current is 0UL ? 0UL : current - 1UL;
-                }
-                if (step is ToolStep.Pass pass) {
+                ToolStep decided = phase.Step(policy.Tools, pending, piece);
+                // Floor stamps at the transition OUT of the free phase: the current token is the one that opened
+                // the candidate span, so a declined resolution rewinds the span alone.
+                if (phase == ToolPhase.Free && decided.Opens) { floor = RewindFloor.Below(generator.TokenCount()); }
+                if (decided is ToolStep.Pass pass) {
                     phase = pass.Next;
                     pending = pass.Pending;
-                    if (pass.Lead.Length > 0) { yield return new GenerationEvent.Piece(s, indices[s]++, pass.Lead); }
+                    if (pass.Lead.Length > 0) { yield return new GenerationEvent.Piece(step.Cursor.Index, step.Cursor.Emitted - 1, pass.Lead); }
                     continue;
                 }
-                ToolStep.Invoke invoke = (ToolStep.Invoke)step;
-                if (invoke.Lead.Length > 0) { yield return new GenerationEvent.Piece(s, indices[s]++, invoke.Lead); }
-                Option<string> resolved = await policy.Tools.Resolve(invoke.Call, token);
-                if (resolved.IsNone) {
-                    generator.RewindTo(floor);
-                    Fin.Fail<Unit>(new ComputeFault.ModelRejected($"<tool-resolution-rejected:{invoke.Call.Name}>")).ThrowIfFail();
+                ToolStep.Invoke invoke = (ToolStep.Invoke)decided;
+                if (invoke.Lead.Length > 0) { yield return new GenerationEvent.Piece(step.Cursor.Index, step.Cursor.Emitted - 1, invoke.Lead); }
+                Fin<string> resolved = await Resolved(policy.Tools, invoke.Call, token).ConfigureAwait(false);
+                if (resolved.Case is Error declined) {
+                    // Rewind and refuse as ONE expression: the previous form rewound and then threw, unwinding a
+                    // rewound generator through a `using` on the way out.
+                    generator.RewindTo(floor.Value);
+                    yield return new GenerationEvent.Faulted(declined);
+                    yield break;
                 }
-                using (Sequences encoded = staged.Encoder.Case is Tokenizer encoder ? encoder.Encode(resolved.IfNone("")) : throw new UnreachableException()) {
+                using (Sequences encoded = ((StagedRun.Encoding)staged).Encoder.Encode(resolved.IfFail(""))) {
                     generator.AppendTokens(encoded[0UL]);
                 }
-                floor = generator.TokenCount();
+                floor = RewindFloor.Create(generator.TokenCount());
                 toolCalls++;
                 phase = ToolPhase.Free;
                 pending = "";
-                yield return new GenerationEvent.ToolInvoked(s, invoke.Call.Name);
+                yield return new GenerationEvent.ToolInvoked(step.Cursor.Index, invoke.Call.Name);
             }
-            if (Array.TrueForAll(stopped, static done => done)) { break; }
         }
-        for (int sequence = 0; sequence < tails.Length; sequence++) {
-            if (tails[sequence].Length > 0) { yield return new GenerationEvent.Piece(sequence, indices[sequence]++, tails[sequence]); }
+        foreach (SequenceCursor cursor in cursors) {
+            if (cursor.Tail.Length > 0) { yield return new GenerationEvent.Piece(cursor.Index, cursor.Emitted, cursor.Tail); }
         }
-        // Unfinished candidate spans are prose that happened to open a brace, so each leaves as text rather
-        // than faulting a run whose output is otherwise complete.
-        if (pending.Length > 0) { yield return new GenerationEvent.Piece(0, indices[0]++, pending); }
-        yield return new GenerationEvent.Completed(
-            new GenerationTally(tokens, constrained, toolCalls, session.GetModelType(), staged.StagedTokens));
+        // Unfinished candidate spans are prose that happened to open a brace, so each leaves as text rather than
+        // faulting a run whose output is otherwise complete — on the cursor that opened it, never on sequence zero.
+        if (pending.Length > 0 && cursors.HeadOrNone().Case is SequenceCursor first) {
+            yield return new GenerationEvent.Piece(first.Index, first.Emitted + 1, pending);
+        }
+        Fin<Duration> elapsed = opened.Bind(start => timeline.Capture()
+            .Bind(settled => timeline.Elapsed(start, settled)))
+            .Map(Duration.FromTimeSpan);
+        yield return elapsed.Match<GenerationEvent>(
+            Succ: span => new GenerationEvent.Completed(
+                new GenerationTally(tokens, constrained, toolCalls, staged.ModelType, staged.StagedTokens), span),
+            Fail: static fault => new GenerationEvent.Faulted(fault));
     }
 
+    // ONE cursor, ONE token: stopped cursors consume PAD silently, BOS skips, a stop token closes the cursor after
+    // flushing its withheld tail, and anything else decodes through the oracle's own prefix withholding.
+    static CursorStep Advance(SequenceCursor cursor, int token, StagedRun staged) {
+        if (cursor.Stopped) { return new CursorStep(cursor, None, false); }
+        if (staged.Stop.Skips(token)) { return new CursorStep(cursor, None, false); }
+        if (staged.Scope.Halts(staged.Stop, token)) {
+            return cursor.Tail.Length > 0
+                ? new CursorStep(cursor with { Stopped = true, Tail = "", Emitted = cursor.Emitted + 1 }, Some(cursor.Tail), false)
+                : new CursorStep(cursor with { Stopped = true }, None, false);
+        }
+        (string Emit, string Tail, bool Reached) fed = staged.Stop.Feed(cursor.Tail, cursor.Decoder.Decode(token));
+        SequenceCursor advanced = cursor with {
+            Tail = fed.Tail,
+            Stopped = fed.Reached,
+            Emitted = fed.Emit.Length > 0 ? cursor.Emitted + 1 : cursor.Emitted,
+        };
+        return new CursorStep(advanced, fed.Emit.Length > 0 ? Some(fed.Emit) : None, true);
+    }
+
+    // The resolver's deadline belongs to the NATIVE STATE being held, not to the caller's ambient token: a linked
+    // scope bounds the await so a slow consumer cannot park a live KV prefix indefinitely.
+    static async ValueTask<Fin<string>> Resolved(ToolPolicy policy, ToolRequest call, CancellationToken token) {
+        using CancellationTokenSource bounded = CancellationTokenSource.CreateLinkedTokenSource(token);
+        bounded.CancelAfter(policy.Deadline.ToTimeSpan());
+        return await policy.Resolve(call, bounded.Token).ConfigureAwait(false) is { } answered && answered.IsSucc
+            ? answered
+            : bounded.IsCancellationRequested && !token.IsCancellationRequested
+                ? GenerativeRefusal.ToolDeadline.Fault<string>()
+                : answered;
+    }
+
+    // ONE acquire, on the rail, with `Rollback` carrying every handle already taken: the lease, the params, the
+    // generator, and the staged shape each release on the arm that refuses after them. The STOP SCOPE is the
+    // parameter that makes this chain serve both entrypoints — a one-shot run opens at completion scope and a
+    // conversation at turn scope, and nothing else about the acquire differs, which is why a second hand-built
+    // chain for the session capsule was what let an exception rail back onto a page whose repair was deleting them.
+    internal static Fin<Opened> Open(string modelDir, GenerationPolicy policy, GenerationInput input, IClock clock, CancelScope scope, StopScope stop) =>
+        from _ in policy.Conforms(input)
+        from lease in Lease(modelDir, policy, clock, scope)
+        from opened in (
+            from parameters in Op.Of(name: "generative.parameters-open").Catch(() => Fin.Succ(new GeneratorParams(lease.Held.Session)), scope.Source.Token)
+            from applied in (
+                from __ in policy.Apply(parameters, input)
+                from generator in Op.Of(name: "generative.generator-open").Catch(() => Fin.Succ(new Generator(lease.Held.Session, parameters)), scope.Source.Token)
+                from held in (
+                    from ___ in Op.Of(name: "generative.runtime-options").Catch(() => {
+                        policy.RuntimeOptions.Iter(option => generator.SetRuntimeOption(option.Key, option.Value));
+                        return Fin.Succ(unit);
+                    }, scope.Source.Token)
+                    from ____ in policy.Adapter.Map(name => lease.Held.Adapters.Activate(generator, name)).IfNone(Fin.Succ(unit))
+                    from staged in Stage(lease.Held.Session, generator, policy, input, stop, scope)
+                    select new Opened(lease, parameters, generator, staged))
+                    .Rollback(generator)
+                select held)
+                .Rollback(parameters)
+            select applied)
+            .Rollback(lease)
+        select opened;
+
+    // The one-shot entry: lease, stage, drain. Admission failures ride the stream's OWN fault case as the first
+    // element, because the lease and every staged handle must live exactly as long as the enumeration — an outer
+    // `Fin<IAsyncEnumerable<…>>` wrapper would have to acquire them to validate and would leak every one on a
+    // caller that never enumerated. The rail bridges into the iterator through its own two projections: exactly
+    // one of them is non-empty, so no arm re-runs the acquire and no cast or coalesce recovers an error a
+    // pattern-match arm already had.
+    public static async IAsyncEnumerable<GenerationEvent> Stream(
+        string modelDir, GenerationPolicy policy, GenerationInput input, IClock clock, MonotonicTimeline timeline,
+        Option<ProgressCell> cell, CancelScope scope, [EnumeratorCancellation] CancellationToken token) {
+        _ = Runtime;
+        Fin<Opened> admitted = Open(modelDir, policy, input, clock, scope, StopScope.Completion);
+        foreach (Error refused in admitted.FailAsEnumerable()) {
+            yield return new GenerationEvent.Faulted(refused);
+        }
+        foreach (Opened held in admitted.ToSeq()) {
+            using (held) {
+                await foreach (GenerationEvent produced in
+                    Drain(held.Generator, held.Staged, policy, cell, timeline, token).ConfigureAwait(false)) {
+                    yield return produced;
+                }
+            }
+        }
+    }
+
+    // NO `try` at all: the element type carries every refusal, so the fold is total and the six-arm catch ladder —
+    // whose `ErrorException` arm existed only to re-admit an `Error` thrown one frame earlier — deletes whole.
     public static async Task<Fin<GenerationOutcome>> Collect(
-        string modelDir, GenerationPolicy policy, GenerationInput input, IClock clock, CancelScope scope) {
+        string modelDir, GenerationPolicy policy, GenerationInput input, IClock clock, MonotonicTimeline timeline,
+        Option<ProgressCell> cell, CancelScope scope) {
         HashMap<int, Seq<string>> map = HashMap<int, Seq<string>>();
         GenerationTally tally = GenerationTally.Empty;
-        try {
-            await foreach (GenerationEvent ev in Stream(modelDir, policy, input, clock, scope.Source.Token)) {
-                (HashMap<int, Seq<string>> Map, GenerationTally Tally) step = ev.Switch(
-                    piece: p => (Map: map.AddOrUpdate(p.Sequence, acc => acc.Add(p.Text), Seq(p.Text)), Tally: tally),
-                    toolInvoked: _ => (Map: map, Tally: tally),
-                    completed: c => (Map: map, Tally: c.Tally));
-                map = step.Map;
-                tally = step.Tally;
-            }
-            return Fin.Succ(new GenerationOutcome(map, tally));
+        Duration elapsed = Duration.Zero;
+        Option<Error> refused = None;
+        await foreach (GenerationEvent produced in Stream(modelDir, policy, input, clock, timeline, cell, scope, scope.Source.Token)) {
+            produced.Switch(
+                piece: p => map = map.AddOrUpdate(p.Sequence, acc => acc.Add(p.Text), Seq(p.Text)),
+                toolInvoked: static _ => { },
+                faulted: f => refused = Some(f.Fault),
+                completed: c => { tally = c.Tally; elapsed = c.Elapsed; });
         }
-        catch (OperationCanceledException) {
-            return Fin.Fail<GenerationOutcome>(scope.Deadline is { IsSome: true, Case: CancellationTokenSource expired } && expired.IsCancellationRequested
-                ? new ComputeFault.DeadlineExpired(scope.Provenance)
-                : new ComputeFault.Cancelled(scope.Provenance));
-        }
-        catch (OnnxRuntimeGenAIException error) {
-            return Fin.Fail<GenerationOutcome>(new ComputeFault.ModelRejected(error.Message));
-        }
-        catch (ErrorException error) {
-            return Fin.Fail<GenerationOutcome>(error.ToError());
-        }
-        catch (IOException error) {
-            return Fin.Fail<GenerationOutcome>(new ComputeFault.ModelRejected(error.Message));
-        }
-        catch (UnauthorizedAccessException error) {
-            return Fin.Fail<GenerationOutcome>(new ComputeFault.ModelRejected(error.Message));
-        }
-        catch (Exception error) when (error is ArgumentException or InvalidOperationException or OverflowException or JsonException) {
-            return Fin.Fail<GenerationOutcome>(new ComputeFault.ModelRejected(error.Message));
-        }
+        return refused.Match(
+            Some: Fin.Fail<GenerationOutcome>,
+            None: () => Fin.Succ(new GenerationOutcome(map, tally, elapsed)));
     }
 
+    // Both optional columns cross as `Option` because the receipt case declares them that way — the `Match` into a
+    // nullable this projection used to spell collapsed a carrier the target already had. The rate divides by the
+    // span the DRAIN measured, so no caller can assert an interval it never observed.
     public static ComputeReceipt.Generate Receipt(
         ModelIdentity model, ExecutionProvider ep, GenerationPolicy policy, GenerationInput input,
-        GenerationOutcome outcome, CorrelationId correlation, Duration elapsed) =>
-        new(model.Key, ep, outcome.Tally.ModelType, input.Mode.Key,
-            policy.Adapter.Match<string?>(Some: static name => name, None: static () => null),
+        GenerationOutcome outcome, CorrelationId correlation, WorkLane lane) =>
+        new(model.Key, ep, outcome.Tally.ModelType, input.Key, policy.Adapter,
             outcome.Tally.Tokens,
-            elapsed.TotalSeconds > 0.0 ? outcome.Tally.Tokens / elapsed.TotalSeconds : 0.0,
-            policy.Guidance, outcome.Tally.ConstrainedTokens, outcome.Tally.ToolCalls) {
-            Scope = new ReceiptScope.Execution(correlation, WorkLane.Background, Substrate.GenAi, AllocationClass.NativeOrt, elapsed),
-            StagedTokens = outcome.Tally.StagedTokens.Match<int?>(Some: static staged => staged, None: static () => null),
+            outcome.Elapsed.TotalSeconds > 0.0 ? outcome.Tally.Tokens / outcome.Elapsed.TotalSeconds : 0.0,
+            policy.Guidance, outcome.Tally.ConstrainedTokens, outcome.Tally.ToolCalls,
+            // The -1 native default means "seed from the random device": only a declared non-negative seed is a
+            // replay claim, so the receipt column carries exactly the policy's declaration and nothing synthesized.
+            policy.SearchRows.TryGetValue(SearchKey.RandomSeed, out double seed) && seed >= 0.0
+                ? Some((int)seed) : None) {
+            Scope = new ReceiptScope.Execution(correlation, lane, Substrate.GenAi, AllocationClass.NativeOrt, outcome.Elapsed),
+            StagedTokens = outcome.Tally.StagedTokens,
         };
 }
 ```
 
 ## [04]-[GENERATIVE_SESSION]
 
-- Owner: `GenerativeSession` the conversation-scoped capsule holding one live `Generator`, its tokenizer, decoder, stop oracle, and cumulative tally beside the resident lease that keeps its `Model` alive; `GenerativeChat` the conversation-keyed registry with its `Gate`-serialized open, single-flight turn admission, and idle sweep.
+- Owner: `GenerativeSession` the conversation-scoped capsule holding one live `Generator`, its staged shape, and its cumulative tally beside the resident lease that keeps its `Model` alive; `GenerativeChat` the conversation-keyed registry, which is the `Model/sessions#SESSION_CAPSULE` `ResidentPool`'s third instantiation and owns no residency machinery of its own.
 - Law: a chat turn re-sent through `Stream` re-encodes and re-prefills EVERY prior turn, so turn N costs the whole transcript and a conversation costs O(turns²) prefill. This capsule keeps the `Generator` — and with it the native KV prefix — alive between turns and appends only the new turn's tokens through `AppendTokens`, so turn N costs turn N.
-- Entry: `GenerativeChat.Open(conversation, modelDir, policy, clock)` admits one session per conversation key; `session.Turn(prompt, token)` yields the same `GenerationEvent` stream one turn at a time; `GenerativeChat.Sweep(idleBefore)` disposes idle conversations and returns the keys it drained.
-- Auto: `OpenSession` refuses a guided policy and a tool roster, because a grammar spans one completion and the tool arm needs a rewind floor, and neither survives a handle deliberately outliving the run. Opening turns render the whole preamble through `GenerationPolicy.Messages` since nothing is resident yet; every later turn renders its own delimiters and the generation prompt alone, and the decoded pieces append to `History` as the conversation record rather than as material to re-encode. `Turn` ends on `StopOracle.Ends` — the EOS set, PAD, or a probed turn-boundary id — so a chat model that marks turn ends stops on its own token.
-- Receipt: each turn projects its own `ComputeReceipt.Generate` through `GenerativeRun.Receipt` over the turn's tally; the session's cumulative `Total` is the conversation's running tally and lands no receipt of its own.
-- Packages: Microsoft.ML.OnnxRuntimeGenAI, NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions
+- Law: a turn is the ONE drain at a turn-scoped stop. The capsule stages once at open with `StopScope.Turn` and every turn then runs the shared drain over the retained generator, so a chat model that marks turn ends stops on its own token and a fix to the drain reaches both entrypoints at once.
+- Entry: `GenerativeChat.Open(conversation, modelDir, policy, clock, scope)` admits one session per conversation key and hands back a POOL LEASE the caller releases when its turn ends; `lease.Held.Turn(prompt, timeline, cell, token)` yields the same `GenerationEvent` stream one turn at a time; `GenerativeChat.Sweep(idleBefore)` disposes idle ZERO-LEASE conversations and returns the keys it drained, so a held conversation survives the sweep by construction rather than by timing.
+- Auto: `OpenSession` refuses any mode but `Plain`, because a grammar spans one completion and the tool arm needs a rewind floor, and neither survives a handle deliberately outliving the run — one refusal against one column, where the guidance and tool checks were two. Opening turns render the whole preamble through `GenerationPolicy.Messages` since nothing is resident yet; every later turn renders its own delimiters and the generation prompt alone, and the decoded pieces append to `History` as typed `ChatTurn` rows rather than as material to re-encode.
+- Receipt: each turn projects its own `ComputeReceipt.Generate` through `GenerativeRun.Receipt` over the turn's outcome; the session's cumulative `Total` is the conversation's running tally and lands no receipt of its own.
+- Packages: Microsoft.ML.OnnxRuntimeGenAI, NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, Rasm (project, `Parametric.MonotonicTimeline`)
 - Growth: a new conversation-scoped column is one field on the capsule; a new eviction posture is one predicate on `Sweep`; zero new surface.
-- Boundary: `Width` is 1 BY CONSTRUCTION — the session never stages a batch, because `RewindTo` on a wider batch admits only `0` and a restart faults, so a batched conversation has no recovery rail at all. There is NO restart and NO rewind on this handle: a conversation that must fork or retract a turn opens a second session against the same resident rather than rewinding a prefix whose media-class models refuse to rewind. `max_length` is the CONVERSATION budget, not a per-turn one, because the native counter spans the retained prefix; an exhausted budget ends the session and the next turn refuses typed rather than silently producing nothing. One turn at a time: a `Generator` is one native cursor, so a second concurrent turn on one session refuses typed instead of interleaving two token streams into one prefix. `Sweep` disposes the session's handles LIFO and then releases the resident lease, so a swept conversation can never leave a `Generator` outliving its `Model`.
+- Boundary: `Width` is 1 BY CONSTRUCTION — the session never stages a batch, because `RewindTo` on a wider batch admits only `0` and a restart faults, so a batched conversation has no recovery rail at all. There is NO restart and NO rewind on this handle: a conversation that must fork or retract a turn opens a second session against the same resident rather than rewinding a prefix whose media-class models refuse to rewind. `max_length` is the CONVERSATION budget, not a per-turn one, because the native counter spans the retained prefix; an exhausted budget ends the session and the next turn refuses typed rather than silently producing nothing. One turn at a time: a `Generator` is one native cursor, so a second concurrent turn on one session refuses through the stream's own fault case instead of interleaving two token streams into one prefix. `Sweep` disposes the session's handles LIFO and then releases the resident lease, so a swept conversation can never leave a `Generator` outliving its `Model`, and the sweep is reachable from the capsule's own `ScheduleEntry` row and its `DrainParticipantPort` row rather than from a member nothing calls. Both of those rows sweep CONVERSATIONS BEFORE RESIDENTS: a live conversation holds a resident lease, so the reverse order finds every conversation-backed resident still held and releases nothing.
 
 ```csharp signature
 // --- [SERVICES] --------------------------------------------------------------------------
 public sealed class GenerativeSession : IDisposable {
-    // Handles dispose LIFO down to the resident lease, so a `Generator` can never outlive the `Model` it reads.
-    readonly Seq<IDisposable> owned;
-    readonly Generator generator;
-    readonly Tokenizer tokenizer;
-    readonly TokenizerStream decoder;
-    readonly StopOracle stop;
+    // The whole acquire capsule, held whole: its own `Dispose` releases staged shape, generator, params, and lease
+    // in that order, so LIFO discipline is the capsule's law rather than a list this class re-orders by hand.
+    readonly Opened opened;
     readonly GenerationPolicy policy;
-    readonly string modelType;
     int turning;
     int disposed;
 
-    internal GenerativeSession(
-        Seq<IDisposable> owned, Generator generator, Tokenizer tokenizer, TokenizerStream decoder,
-        StopOracle stop, GenerationPolicy policy, string modelType) =>
-        (this.owned, this.generator, this.tokenizer, this.decoder, this.stop, this.policy, this.modelType) =
-        (owned, generator, tokenizer, decoder, stop, policy, modelType);
+    internal GenerativeSession(Opened opened, GenerationPolicy policy) => (this.opened, this.policy) = (opened, policy);
 
-    public Seq<(string Role, string Content)> History { get; private set; } = Seq<(string, string)>();
+    Generator generator => opened.Generator;
+
+    StagedRun staged => opened.Staged;
+
+    public Seq<ChatTurn> History { get; private set; } = Seq<ChatTurn>();
 
     public GenerationTally Total { get; private set; } = GenerationTally.Empty;
 
-    public Instant LastUsed { get; internal set; }
+    // Recency is the POOL row's column, stamped by every acquire and release, so the writable `LastUsed` slot the
+    // registry used to reach in and set is gone: a capsule cannot disagree with the sweep about its own last use.
 
     // Retained prefix length: the whole point of the capsule, and the budget every turn spends against.
     public ulong Prefix => generator.TokenCount();
 
     // ONE turn at a time. A `Generator` is a single native cursor over one KV prefix, so two concurrent turns
-    // interleave their tokens into one sequence and corrupt both transcripts with no native complaint.
-    public async IAsyncEnumerable<GenerationEvent> Turn(string prompt, [EnumeratorCancellation] CancellationToken token) {
+    // interleave their tokens into one sequence and corrupt both transcripts with no native complaint. Both
+    // refusals ride the stream's own fault case, so a caller learns a turn was refused by reading the stream it
+    // was already reading rather than by wrapping `await foreach` in a `try`.
+    public async IAsyncEnumerable<GenerationEvent> Turn(
+        string prompt, MonotonicTimeline timeline, Option<ProgressCell> cell, [EnumeratorCancellation] CancellationToken token) {
         if (Interlocked.Exchange(ref turning, 1) is not 0) {
-            Fin.Fail<Unit>(new ComputeFault.ModelRejected("<conversation-turn-in-flight>")).ThrowIfFail();
+            yield return new GenerationEvent.Faulted(GenerativeRefusal.ConversationTurnInFlight.Fault());
+            yield break;
         }
         try {
             if (generator.IsDone()) {
-                Fin.Fail<Unit>(new ComputeFault.ModelRejected($"<conversation-budget-exhausted:{Prefix}>")).ThrowIfFail();
+                yield return new GenerationEvent.Faulted(GenerativeRefusal.ConversationBudget.Fault());
+                yield break;
             }
             // Only the NEW turn crosses the encoder. The opening turn renders the whole preamble — system prompt,
             // declared history, retrieved context — because nothing is resident yet; every later turn renders its
             // own delimiters and the generation prompt ALONE, since re-templating the accumulated transcript would
             // re-encode and re-prefill exactly the prefix the capsule exists to keep.
-            using (Sequences encoded = tokenizer.Encode(tokenizer.ApplyChatTemplate(
+            Tokenizer encoder = ((StagedRun.Encoding)staged).Encoder;
+            using (Sequences encoded = encoder.Encode(encoder.ApplyChatTemplate(
                 policy.ChatTemplate,
-                History.IsEmpty ? policy.Messages(prompt) : TurnMessage(prompt),
+                History.IsEmpty
+                    ? policy.Messages(prompt)
+                    : JsonSerializer.Serialize(new[] { ChatTurn.Of(ChatRole.User, prompt) }, GenerativeWireContext.Default.ChatTurnArray),
                 policy.Tools.Schemas,
                 add_generation_prompt: true))) {
                 generator.AppendTokens(encoded[0UL]);
             }
-            string tail = "";
-            long index = 0;
-            int tokens = 0;
             Seq<string> spoken = Seq<string>();
-            while (!generator.IsDone()) {
-                token.ThrowIfCancellationRequested();
-                generator.GenerateNextToken();
-                int emitted = generator.GetNextTokens()[0];
-                if (stop.Skips(emitted)) { continue; }
-                if (stop.Ends(emitted)) {
-                    if (tail.Length > 0) { spoken = spoken.Add(tail); yield return new GenerationEvent.Piece(0, index++, tail); }
-                    break;
-                }
-                (string Emit, string Tail, bool Reached) fed = stop.Feed(tail, decoder.Decode(emitted));
-                tail = fed.Tail;
-                tokens++;
-                if (fed.Emit.Length > 0) { spoken = spoken.Add(fed.Emit); yield return new GenerationEvent.Piece(0, index++, fed.Emit); }
-                if (fed.Reached) { break; }
+            int tokens = 0;
+            await foreach (GenerationEvent produced in GenerativeRun.Drain(generator, staged, policy, cell, timeline, token).ConfigureAwait(false)) {
+                if (produced is GenerationEvent.Piece piece) { spoken = spoken.Add(piece.Text); }
+                if (produced is GenerationEvent.Completed done) { tokens = done.Tally.Tokens; }
+                yield return produced;
             }
-            History = History.Add(("user", prompt)).Add(("assistant", string.Concat(spoken)));
+            History = History.Add(ChatTurn.Of(ChatRole.User, prompt)).Add(ChatTurn.Of(ChatRole.Assistant, string.Concat(spoken)));
             Total = Total with { Tokens = Total.Tokens + tokens };
-            yield return new GenerationEvent.Completed(new GenerationTally(tokens, 0, 0, modelType, None));
         }
         finally {
             Interlocked.Exchange(ref turning, 0);
         }
     }
 
-    static string TurnMessage(string prompt) =>
-        JsonSerializer.Serialize(new[] { new { role = "user", content = prompt } });
-
     public void Dispose() {
         if (Interlocked.Exchange(ref disposed, 1) is not 0) { return; }
-        owned.Rev().Iter(static handle => handle.Dispose());
+        opened.Dispose();
     }
 }
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
 public static partial class GenerativeRun {
-    // Sessions take the SAME fingerprint-keyed resident lease a one-shot run takes, so a conversation and a
-    // batch share one loaded `Model` and the lease alone is what keeps it past either one's idle sweep.
-    public static Fin<GenerativeSession> OpenSession(string modelDir, GenerationPolicy policy, IClock clock) {
+    // Sessions take the SAME fingerprint-keyed resident lease a one-shot run takes, so a conversation and a batch
+    // share one loaded `Model` and the lease alone is what keeps it past either one's idle sweep. The staged shape
+    // is built ONCE at open under the turn scope, so every turn rides the one drain.
+    public static Fin<GenerativeSession> OpenSession(string modelDir, GenerationPolicy policy, IClock clock, CancelScope scope) {
         GenerationInput shape = new GenerationInput.Text("");
-        // Guidance and tools both need a generator scoped to one run — a grammar spans one completion and the
-        // tool arm needs a rewind floor — so neither survives a handle deliberately outliving the run.
-        if (policy.Guidance != GuidanceKind.None || !policy.Tools.Names.IsEmpty) {
-            return Fin.Fail<GenerativeSession>(new ComputeFault.ModelRejected("<conversation-policy>"));
+        // Guidance and tools both need a generator scoped to one run — a grammar spans one completion and the tool
+        // arm needs a rewind floor — so neither survives a handle deliberately outliving the run. ONE column
+        // carries both, so this is one refusal rather than two agreeing checks.
+        if (policy.Mode is not GenerationMode.Plain) {
+            return GenerativeRefusal.ConversationPolicy.Fault<GenerativeSession>();
         }
-        return policy.Conforms(shape).Bind(_ => Try.lift(() => {
-            using StageScope scope = new();
-            ResidentLease lease = scope.Hold(Lease(modelDir, policy, clock));
-            GeneratorParams parameters = scope.Hold(new GeneratorParams(lease.Resident.Session));
-            policy.Apply(parameters, shape);
-            Generator generator = scope.Hold(new Generator(lease.Resident.Session, parameters));
-            policy.RuntimeOptions.Iter(option => generator.SetRuntimeOption(option.Key, option.Value));
-            policy.Adapter.Iter(name => lease.Resident.Adapters.Activate(generator, name).ThrowIfFail());
-            Tokenizer tokenizer = scope.Hold(new Tokenizer(lease.Resident.Session));
-            TokenizerStream decoder = scope.Hold(tokenizer.CreateStream());
-            return new GenerativeSession(
-                scope.Transfer(), generator, tokenizer, decoder,
-                StopOracle.Read(tokenizer, policy.StopSequences), policy, lease.Resident.Session.GetModelType());
-        }).Run().MapFail(static error => (Error)new ComputeFault.ModelRejected($"<conversation-open:{error.Message}>")));
+        // The conversation capsule takes the SAME acquire rail the one-shot run takes, at the TURN stop scope, so
+        // the two entrypoints share one lease-params-generator-stage chain and one rollback discipline. A second
+        // hand-built chain here is exactly what let an exception rail back onto a page whose repair was deleting
+        // them, and the capsule holding `Opened` whole is what makes its own release LIFO by construction.
+        return Open(modelDir, policy, shape, clock, scope, StopScope.Turn)
+            .Map(opened => new GenerativeSession(opened, policy));
     }
 }
 
 public static class GenerativeChat {
-    static HashMap<string, GenerativeSession> Conversations = HashMap<string, GenerativeSession>();
-    static readonly Lock Gate = new();
+    // The `Model/sessions#SESSION_CAPSULE` `ResidentPool`'s THIRD instantiation, and the one the collapse repairs
+    // rather than merely deduplicates. A conversation registry is a keyed native residency exactly like the two
+    // model fleets — find-or-open, race-loser disposal, idle eviction — and this copy was the one that never grew
+    // a REFCOUNT: `Sweep` filtered on `LastUsed` alone and disposed whatever it found, so an idle-timed sweep
+    // could close a `Generator` a turn was draining through. The `turning` interlock guards two concurrent turns
+    // and does not guard a turn against the sweep. Holding a lease does, and the same pool that carries it also
+    // deletes the hand-written `Seat` race, the `IfNone` re-lookup, and the writable `LastUsed` this class used to
+    // reach into `GenerativeSession` to set.
+    // NAMED LOSS: `Open` hands back a LEASE, not a session, so a caller must release when its turn is done and a
+    // conversation held forever is never swept. That is the correct contract — a caller draining a turn is exactly
+    // the caller that must not have its session closed — and `Turn` is reachable off `lease.Held`.
+    // Conversations are UNCAPPED: the bound is the idle horizon, because evicting a live conversation by count
+    // would drop a transcript no re-open can reconstruct.
+    static readonly ResidentPool<string, GenerativeSession> Conversations = new();
 
-    public static Fin<GenerativeSession> Open(string conversation, string modelDir, GenerationPolicy policy, IClock clock) {
-        if (string.IsNullOrWhiteSpace(conversation)) {
-            return Fin.Fail<GenerativeSession>(new ComputeFault.ModelRejected("<conversation-key>"));
-        }
-        lock (Gate) {
-            if (Conversations.Find(conversation).Case is GenerativeSession held) {
-                held.LastUsed = clock.GetCurrentInstant();
-                return Fin.Succ(held);
-            }
-        }
-        return GenerativeRun.OpenSession(modelDir, policy, clock).Map(session => Seat(conversation, session, clock));
-    }
+    public static Fin<ResidentPool<string, GenerativeSession>.Lease> Open(
+        string conversation, string modelDir, GenerationPolicy policy, IClock clock, CancelScope scope) =>
+        guard(!string.IsNullOrWhiteSpace(conversation), (Error)GenerativeRefusal.ConversationKey.Fault())
+            .ToFin()
+            .Bind(_ => Conversations.Hold(
+                conversation,
+                Option<int>.None,
+                () => GenerativeRun.OpenSession(modelDir, policy, clock, scope),
+                clock,
+                scope));
 
-    static GenerativeSession Seat(string conversation, GenerativeSession session, IClock clock) {
-        lock (Gate) {
-            if (Conversations.Find(conversation).Case is GenerativeSession raced) {
-                session.Dispose();
-                raced.LastUsed = clock.GetCurrentInstant();
-                return raced;
-            }
-            session.LastUsed = clock.GetCurrentInstant();
-            Conversations = Conversations.Add(conversation, session);
-            return session;
-        }
-    }
-
-    public static Seq<string> Sweep(Instant idleBefore) {
-        Seq<(string Key, GenerativeSession Held)> evicted;
-        lock (Gate) {
-            evicted = Conversations.AsIterable()
-                .Filter(pair => pair.Value.LastUsed < idleBefore)
-                .Map(static pair => (Key: pair.Key, Held: pair.Value))
-                .ToSeq();
-            Conversations = evicted.Fold(Conversations, static (map, pair) => map.Remove(pair.Key));
-        }
-        evicted.Iter(static pair => pair.Held.Dispose());
-        return evicted.Map(static pair => pair.Key);
-    }
+    public static Fin<Seq<string>> Sweep(Instant idleBefore) => Conversations.Unload(idleBefore);
 }
 ```
 

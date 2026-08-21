@@ -4,14 +4,14 @@ THE FRAMING-CONNECTOR SEED PAGE owns the `ComponentFamily.Connector` fold, the e
 
 ## [01]-[INDEX]
 
-- [02]-[CONNECTOR_FAMILY]: the `LoadDirection` vocabulary over both published lateral axes, the `LoadBasis` safety-format rows, the `Allowable` two-column published cell, the `ConnectorType` discriminant with its rowless stone-cladding support/restraint pair, `ConnectorInstall` attachment policy over its closed `FastenerSource`, the frozen gauge/duration tables, `EvaluationReport` provenance, the `LoadResistance` admitted set, `ConnectorPlate` fabrication receipt, the typed catalogue, detail builder, and `ConnectorSeed.Rows` fold.
+- [02]-[CONNECTOR_FAMILY]: the `LoadDirection` vocabulary over both published lateral axes, the `LoadBasis` safety-format rows, the `Allowable` two-column published cell, the `ConnectorType` discriminant with its rowless stone-cladding support/restraint pair, `ConnectorInstall` attachment policy over its closed `FastenerSource`, the frozen gauge/duration tables, `EvaluationReport` provenance, the `LoadResistance` admitted set, `ConnectorPlate` fabrication receipt, the typed catalogue, detail builder, and the `ConnectorSeed.Roster`/`Law` set.
 
 ## [02]-[CONNECTOR_FAMILY]
 
-- Owner: `ConnectorType` carries accessory identity and plate dispatch; `LoadBasis` carries the four published safety formats and the duration algebra each one licenses; `Allowable` carries one published cell with both governing columns the report prints; `LoadResistance` admits the directional set; `ConnectorInstall` carries attaching-fastener policy over the closed `FastenerSource`; `EvaluationReport` carries per-row issuing identity and its combination rule; `ConnectorRow` owns catalogue capacity; `ConnectorCapacity` owns the lifted design values; `ConnectorPlate` carries fabrication geometry; `ConnectorDetail` and `ConnectorSeed` own realization and construction.
+- Owner: `ConnectorSeed` the roster, the seed law, and the capacity producer; `ConnectorType` carries accessory identity and plate dispatch; `LoadBasis` carries the four published safety formats and the duration algebra each one licenses; `Allowable` carries one published cell with both governing columns the report prints; `LoadResistance` admits the directional set; `ConnectorInstall` carries attaching-fastener policy over the closed `FastenerSource`; `EvaluationReport` carries per-row issuing identity and its combination rule; `ConnectorRow` owns catalogue capacity; `ConnectorCapacity` owns the lifted design values; `ConnectorPlate` carries fabrication geometry; `ConnectorDetail` and `ConnectorSeed` own realization and construction.
 - Cases: type {`joist-hanger` (face-mount saddle — `SHOE`, seat-bearing download) · `top-flange-hanger` (header-bearing saddle — `SHOE`) · `column-cap` (post-to-beam saddle — `SHOE`) · `framing-angle` (L-bend clip — `BRACKET`) · `hurricane-tie` (rafter-to-plate clip — `BRACKET`) · `strap` (flat tension tie — `BRACKET`) · `post-base` (cast-in standoff — `ANCHORPLATE`) · `hold-down` (shear-wall anchor — `ANCHORPLATE`) · `stone-support` (seat-bearing cladding shelf angle — `BRACKET`) · `stone-restraint` (lateral cladding clip — `BRACKET`)} × install {nailed · screwed · bolted} — a connector is one `ConnectorRow` over one type, one install, its published allowable set, and its report, never a connector subtype. The DIRECTIONS a connector resists are the directions its report publishes, read off the row's own cells; the stone pair carries NO row, because no evaluation report's cells are transcribed in this estate and typed absence — never an invented allowable — is what the vocabulary states.
-- Entry: `ConnectorSeed.Rows(context)` traverses each row through `Allowable`, `SectionProfile.Rectangle.Of`, and `Component.Of`. `ConnectorRow.GovernedCapacity(duration, key)` applies each cell's OWN basis scaling once. `ConnectorSeed.Capacity` is the family producer the `ComponentFamily.Connector` row binds. `ConnectorRow.Plate` dispatches fabrication geometry through `ConnectorType.BuildPlate` where the report publishes a base-metal gauge.
-- Packages: Rasm.Domain (`Op`/`Context`), Rasm.Element (`MaterialId`, `DetailSchema`, `PropertyBag`, `PropertyName`, `PropertyValue`, the SI `Dimension` axis the bag mints over), Rasm.Materials.Component (the parent owner: `Component`/`ComponentRow`/`ComponentFamily`/`SectionProfile.Rectangle.Of` the railed profile admission/`IfcBinding`/`Coring`/`ComponentStandard`/`ComponentAuthority`/`ComponentFault`/`ComponentDetail`, and the sibling `Threads` thread currency a bolted install binds), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + comparer accessors for the type/direction/basis/install vocabularies, `[UseDelegateFromConstructor]` for the direction reads, the basis duration scaling, and the plate builder, `[ComplexValueObject]` for `LoadResistance`, `[Union]` for `ConnectorPlate`/`FastenerSource`), LanguageExt.Core (`Fin`/`Seq`/`Option`/`Traverse`/`.As()`/`guard`), BCL (`ImmutableArray`, `FrozenDictionary`). No structural-connector package exists among admitted surfaces (VividOrange is member-catalogue + EN-grade scope; the ICC-ES evaluation reports have no typed code object), so the rows are PUBLISHED in-fence with per-row report provenance.
+- Entry: `ComponentSeed.Rows(context, ConnectorSeed.Roster, ConnectorSeed.Law)` — this page states the roster and the policy, never the fold, and the law's coherence admits each row's published directional set, its carried-member envelope, and its fastener schedule TOGETHER. `ConnectorRow.GovernedCapacity(duration, key)` applies each cell's OWN basis scaling once. `ConnectorSeed.Capacity` is the family producer the `ComponentFamily.Connector` row binds. `ConnectorRow.Plate` dispatches fabrication geometry through `ConnectorType.BuildPlate` where the report publishes a base-metal gauge.
+- Packages: Rasm.Domain (`Op`/`Context`), Rasm.Element (`MaterialId`, `EvidenceGrade`, `DetailSchema`, `PropertyBag`, `PropertyName`, `PropertyValue`, the SI `Dimension` axis the bag mints over), Rasm.Materials.Component (the parent owner: `Component`/`ComponentRow`/`ComponentFamily`/`SectionProfile.Rectangle.Of` the railed profile admission/`IfcBinding`/`Coring`/`ComponentStandard`/`ComponentAuthority`/`ComponentFault`/`ComponentDetail`/`SeedJoin`, `component#COMPONENT_SEED` `SeedLaw`/`ComponentSeed`, and the sibling `Threads` thread currency a bolted install binds), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + comparer accessors for the type/direction/basis/install vocabularies, `[UseDelegateFromConstructor]` for the direction reads, the basis duration scaling, and the plate builder, `[ComplexValueObject]` for `LoadResistance`, `[Union]` for `ConnectorPlate`/`FastenerSource`), LanguageExt.Core (`Fin`/`Seq`/`Option`/`Validation`/`.As()`/`guard`), BCL (`ImmutableArray`, `FrozenDictionary`). No structural-connector package exists among admitted surfaces (VividOrange is member-catalogue + EN-grade scope; the ICC-ES evaluation reports have no typed code object), so the rows are PUBLISHED in-fence with per-row report provenance.
 - Growth: a new connector is one `ConnectorRow` entry (typed vocabulary refs, its report, its published cells); a new gauge one `GaugeRow`; a new duration case one `DurationRow`; a new connector class one `ConnectorType` row reusing an existing plate builder (a twist-strap reuses `BuildStrap`); a new attachment one `ConnectorInstall` row; a new published safety format one `LoadBasis` row; a new resisted-load direction one `LoadDirection` row — its delegate column forces every read site to answer at compile time. A new host body form is one `ConnectorPlate` case and one builder.
 - Boundary: the published allowable is the manufacturer-evaluated capacity, never a re-derived analysis and never a runtime-lowered one. An evaluation report publishes the fastener schedule as a CONDITION of its allowable, not as a bound to re-check, so a `Fasteners · PerFastenerKn` admission product over an invented per-fastener capacity is the deleted form — it hands a certified number a second opinion nothing certified. What a report DOES publish twice is the pair of governing columns on the strap and coil families, the connection-governed value beside the steel-strength-governed one, so `Allowable` carries both and the design value is the published lesser: a real gate over two printed cells rather than a fabricated one over a synthesized product.
 - Boundary: the SAFETY FORMAT is per cell, not per page. An uplift or lateral value is published at `C_D = 1.6` and may never be increased, only reduced for a longer duration; a hanger download is published as discrete duration columns to `C_D = 1.25` and is never interpolated past them; a post-base or column-cap download is bearing-governed and may not be increased at all; a steel-strength-governed value carries no duration factor whatsoever. Applying one blanket `C_D` across that set over-credits three of the four, which is why the factor rides `LoadBasis` and the scaling happens exactly once, HERE, where the basis is — the lifted receipt carries finished design values and `capacity#SECTION_CAPACITY` applies nothing further.
@@ -19,14 +19,15 @@ THE FRAMING-CONNECTOR SEED PAGE owns the `ComponentFamily.Connector` fold, the e
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
-using System.Collections.Frozen;        // FrozenDictionary (the designation-keyed row join the capacity producer reads)
+using System.Collections.Frozen;
 using System.Collections.Immutable;
 using LanguageExt;
-using Rasm.Domain;                      // Op, Context
-using Rasm.Element.Composition;                     // MaterialId, DetailSchema, PropertyBag, PropertyName, PropertyValue
+using LanguageExt.Common;
+using Rasm.Domain;
+using Rasm.Element.Composition;
 using Rasm.Element.Properties;
 using Thinktecture;
-using Dimension = Rasm.Element.Properties.Dimension;   // the SI-dimension axis the detail-bag mints ride — disambiguated from the Rasm.Numerics discrete count
+using Dimension = Rasm.Element.Properties.Dimension;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Component;
@@ -89,8 +90,8 @@ public sealed partial class ConnectorType {
     // clip carries lateral alone. Both are BRACKET accessories reusing the Angle body form — exactly the growth law
     // the type axis states. Their allowables are ICC-ES/UES evaluation-report property this estate holds NO
     // transcribed cells for, so no ConnectorRow seeds either type: a stone product lands as one row the moment a
-    // report's own printed cells transcribe, and that row's report states the open-joint width the seam JointWidth
-    // product stamp carries.
+    // report's own printed cells transcribe, and that row's report states the open-joint width (a seam row for it
+    // re-lands with the transcribed cells in the same edit — none exists today).
     public static readonly ConnectorType StoneSupport     = new("stone-support",     ifcDesignation: "stone-support",     ifcAccessoryType: "BRACKET",     carriesMember: true,  BuildAngle);
     public static readonly ConnectorType StoneRestraint   = new("stone-restraint",   ifcDesignation: "stone-restraint",   ifcAccessoryType: "BRACKET",     carriesMember: false, BuildAngle);
     public string IfcDesignation { get; }     // the ObjectType discriminant the federation reads past the predefined enum
@@ -236,7 +237,7 @@ public readonly partial struct LoadResistance {
             cells.Somes().Exists(static cell => !double.IsFinite(cell.ConnectionKn) || cell.ConnectionKn <= 0.0
                 || cell.SteelKn.Exists(static steel => !double.IsFinite(steel) || steel <= 0.0));
         if (degenerate)
-            validationError = new ValidationError($"<load-resistance-degenerate:{type?.Key}>");
+            validationError = new ValidationError($"Load resistance {type?.Key} requires finite positive declared values.");
     }
 }
 
@@ -303,13 +304,9 @@ public readonly record struct ConnectorRow(
     // and refuses a row resisting nothing. A direction the report never published is absent, so there is no
     // transcription gate to run against a type-level roster and no placeholder column for one to read.
     public Fin<LoadResistance> Allowable(Op key) =>
-        from row in Fin.Succ(this)
-        from admitted in LoadResistance.Validate(
-                type: row.Type, download: row.DownloadKn, uplift: row.UpliftKn,
-                lateralF1: row.LateralF1Kn, lateralF2: row.LateralF2Kn, out LoadResistance built) is { } error
-            ? Fin.Fail<LoadResistance>(ComponentFault.Dimension(key, $"<resistance-degenerate:{row.Designation}:{error.Message}>"))
-            : Fin.Succ(built)
-        select admitted;
+        key.AcceptValidated<LoadResistance>(LoadResistance.Validate(
+            type: Type, download: DownloadKn, uplift: UpliftKn,
+            lateralF1: LateralF1Kn, lateralF2: LateralF2Kn, out LoadResistance built), built);
 
     // The receipt: each admitted cell scaled by ITS OWN basis at the project duration, once. A seat-borne download
     // bears on the saddle rather than through the fastener schedule, which the direction row records and a
@@ -430,7 +427,7 @@ public static class ConnectorDetail {
             ComponentDetail.Token(DetailSchema.AccessoryType, row.Type.IfcAccessoryType),
             ComponentDetail.Token(DetailSchema.FastenerType, row.Install.FastenerKind.IfcPredefinedType),
             ComponentDetail.Token(DetailSchema.EvaluationReport, row.Report.Number),
-            ComponentDetail.Sourced(ConnectorSeed.Evaluated),
+            ComponentDetail.Sourced(EvidenceGrade.Catalogue),
             width,
             depth,
             .. plate.ToSeq(),
@@ -454,16 +451,42 @@ public static class ConnectorDetail {
         MeasureValue.OfSi(Dimension.LengthDim, mm * 1e-3).Map(static value => (PropertyValue)new PropertyValue.Measure(value));
 }
 
-// --- [COMPOSITION] -------------------------------------------------------------------------
-// The ONE catalogue fold: every row admits its allowable set once, rails its own stamped-sheet profile through the
-// parent SectionProfile.Rectangle.Of, then Component.Of — Traverse is the rail, a rejected row ABORTS the build. The
-// stamped sheet is a solvable Rectangle, so its section membership derives from that geometry; the design values still
-// come off the evaluation report alone, and no consumer reads the sheet's receipt as a connector capacity.
+// --- [POLICIES] ----------------------------------------------------------------------------
+// The roster and the seed law the ComponentFamily.Connector policy row binds. The stamped sheet is a solvable
+// Rectangle, so section membership derives from that geometry; the design values still come off the evaluation report
+// alone, and no consumer reads the sheet's receipt as a connector capacity.
 public static class ConnectorSeed {
-    // Every column on a connector row is read off its evaluation report — the allowable cells, the gauge, the
-    // fastener schedule — and an evaluation report IS the publishing body for a product no standard tabulates, so the
-    // whole roster carries one provenance rather than a per-row selector whose arms would agree.
-    public static readonly Provenance Evaluated = Provenance.Published;
+    public static readonly Seq<ConnectorRow> Roster = toSeq(Connectors.Rows);
+
+    // The seed POLICY value. The regional receipt derives from the ISSUING BODY on each row's own report — an
+    // evaluation report IS the publishing authority for a product no standard tabulates, so a roster that later
+    // carries a second body seeds its region without a page edit. Every column on a connector row is read off that
+    // report, so the whole roster carries the catalogue evidence grade rather than a per-row selector whose arms
+    // would all agree.
+    public static readonly SeedLaw<ConnectorRow> Law = SeedLaw<ConnectorRow>.Of(
+        family: ComponentFamily.Connector,
+        designation: static row => row.Designation,
+        coherence: Coherence,
+        profile: ProfileOf,
+        substance: static row => row.Substance,
+        source: static _ => EvidenceGrade.Catalogue,
+        standard: static row => new ComponentStandard(row.Report.Body.Region, StandardJointThicknessMm: 0.0, row.Report.Body),
+        detail: Some<Func<ConnectorRow, SectionProfile, Op, Fin<PropertyBag>>>(static (row, _, _) => ConnectorDetail.Of(row)),
+        appearance: static _ => Connectors.Galvanized,
+        ifc: static row => IfcBinding.Of("IfcDiscreteAccessory", row.Type.IfcAccessoryType));
+
+    // The row census, ACCUMULATING: the published directional set admits through its generated factory, the
+    // carried-member envelope must be a real positive rectangle, and a row must name the fastener count its report
+    // schedules — three INDEPENDENT defects, so a malformed row reports all three instead of the first alone. The
+    // envelope gate is the one the profile factory cannot make for a gauge-less row, whose section IS that envelope.
+    static Validation<Error, Unit> Coherence(ConnectorRow row, Op key) =>
+        (row.Allowable(key).ToValidation().Map(static _ => unit),
+         guard(double.IsFinite(row.CarriedMemberWidthMm) && row.CarriedMemberWidthMm > 0.0
+                 && double.IsFinite(row.CarriedMemberDepthMm) && row.CarriedMemberDepthMm > 0.0,
+             new KernelFault.InvalidValue(nameof(ConnectorRow), "positive finite connector and carried-member envelopes", Some(key))).ToValidation(),
+         guard(row.Fasteners > 0,
+             new KernelFault.OutOfRange(nameof(row.Fasteners), row.Fasteners, "positive", Some(key))).ToValidation())
+            .Apply(static (_, _, _) => unit).As();
 
     // The connector's OWN cross-section is its stamped sheet: the developed plate width by the base-metal thickness.
     // Where the report publishes no gauge there is no sheet to section, so the row profiles at its carried-member
@@ -473,26 +496,14 @@ public static class ConnectorSeed {
             Some: plate => SectionProfile.Rectangle.Of(plate.FootprintMm, plate.Stock.SheetThicknessMm, key),
             None: () => SectionProfile.Rectangle.Of(row.CarriedMemberWidthMm, row.CarriedMemberDepthMm, key));
 
-    public static Fin<Seq<ComponentRow>> Rows(Context context) =>
-        toSeq(Connectors.Rows)
-            .Traverse(row =>
-                from allowable in row.Allowable(context.Key)
-                from profile in ProfileOf(row, context.Key)
-                from detail in ConnectorDetail.Of(row)
-                from item in Component.Of(
-                    ComponentFamily.Connector, row.Designation, profile,
-                    IfcBinding.Of("IfcDiscreteAccessory", row.Type.IfcAccessoryType),
-                    Coring.None, Connectors.Standard, substanceId: row.Substance, appearanceId: Connectors.Galvanized,
-                    detail: Some(detail), context.Key)
-                select new ComponentRow(item, Evaluated)).As();
-
-    static readonly FrozenDictionary<ComponentId, ConnectorRow> Table =
-        Connectors.Rows.ToFrozenDictionary(static row => ComponentId.Create(row.Designation), static row => row);
+    // The railed designation-keyed join through the ONE component#COMPONENT_OWNER SeedJoin, so a malformed or
+    // duplicated designation lands typed on the ComponentFault rail rather than as a TypeInitializationException out
+    // of a throwing static no composition root can attribute.
+    static readonly Lazy<Fin<FrozenDictionary<ComponentId, ConnectorRow>>> Table =
+        SeedJoin.Of(Roster, static row => row.Designation);
 
     public static Fin<ConnectorRow> Resolve(Component component, Op key) =>
-        Table.TryGetValue(component.Designation, out ConnectorRow row)
-            ? Fin.Succ(row)
-            : ComponentFault.Family(key, $"<connector-row-unregistered:{component.Designation.Value}>");
+        SeedJoin.Resolve(Table, component.Designation, key);
 
     // The ComponentFamily.Connector CAPACITY producer: the placement's NDS duration row is the only input the
     // catalogue cannot carry, and each published cell's own basis decides what that duration is allowed to do to it.
@@ -500,7 +511,8 @@ public static class ConnectorSeed {
     public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
         from row in Resolve(component, key)
         from governed in row.GovernedCapacity(placement.ConnectorDuration, key)
-        select SectionCapacity.Lift(new CapacityReceipt.Connector(component.Designation, governed));
+        from capacity in SectionCapacity.Lift(new CapacityReceipt.Connector(component.Designation, governed), key)
+        select capacity;
 }
 ```
 

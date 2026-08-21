@@ -12,13 +12,15 @@
 
 - Owner: `GuardRequest` is the admitted move, part, stock, fixture, fixture-state, policy, and probe aggregate; `GuardReceipt` is its evidence-complete result. `Fixture.Zones` is the sole exclusion-zone owner and the spatial-index ordinal domain; stock carries blank, forbidden, and snapshot geometry only.
 - Cases: `HolderState` admits a mounted `ToolAssembly` or an identity-bound `HolderCertificate`; `ProbeRoute` admits the scalar reference or receipt-backed measured path; `GuardScope` admits a probed or plane-elided disposition; `GuardProbe` admits voxel-field and robot-cell providers; `RobotCollisionAdmission` closes accepted and refused provider evidence; `Hazard` closes gouge, fixed-zone, static-keepout, stock, channel, voxel, and robot contact.
+- Law: every owner on this plane accumulates its INDEPENDENT axes through the `AdmissionSlots.Gate` deferred-mint arity and refuses on `<owner>:<axis>`, so a caller learns each bad column and a refusal token names the one that failed; the gate threads `FabConcern.Toolpath` and the locus into `FabricationFault.Inadmissible` on the failing arm alone, so a passing gate allocates nothing and a plane-local `Of(admitted, locus)` wrapper closing over the one concern has no job left. Dimensioned columns ride the kernel lane that names their gate — `ToleranceLane.Gouge` for the swept-face allowance, `ToleranceLane.Chord` for arc densification — so `Band` owns each range and no validator re-tests finiteness. The gouge allowance is `Option` because zero shrink is a real posture that `Band.Length` opens above; the clearance plane, the channel margin, and the probe pitch stay bare measures, being a work-coordinate ordinate, an additive standoff, and a sampling pitch respectively, none of which any lane derives.
 - Cases: `FabricationBenchClaims` rosters the five kernel `BenchClaim` rows — NFP placement, ICP probe fit, skeleton offset, bend search, parallel clearance. `AcceptedBenchmarkClaim` binds one accepted result to the host digest its pass was stamped over, and `ProbeRoute.Measured` admits only the `ClearanceParallel` case, so unrelated solver evidence cannot authorize parallel clearance.
 - Law: every roster row pairs with the measuring case beside its lane owner — `NestBench` at `Nesting/nfp`, `ProbeBench` at `Verify/probing`, `SkeletonBench` at `Toolpath/skeleton`, `BrakeBench` at `Forming/brake`, `ClearanceBench` here — each a workload admission plus the measured fold in folder types; measurement columns and the receipt projection stay the bench edge's under the `Rasm.AppHost/Observability/benchmarks#CLAIM_FIELD_MAP` Fabrication row, and `ClearanceBench.Reference` is the same-run cost the field map's reference-evidence law carries for the one lane-pair claim.
-- Law: `AcceptedBenchmarkClaim.Admit` takes judgment as a `Func<string, UInt128, bool>` seam over the claim key and the `HostEvidence` digest, the exact pair `BenchmarkGate.Judge` at `Rasm.AppHost/Observability/benchmarks#CLAIM_FIELD_MAP` resolves when it stamps `BenchmarkVerdict.Pass` — the Fabrication row keys `{Suite}/{Case}` under that page's own field map. This package supplies the bench roster and the host digest, never a verdict, and never persists one.
+- Law: `AcceptedBenchmarkClaim.Admit` takes judgment as a `Func<string, UInt128, bool>` seam over the claim key and the `BenchmarkReceipt.ClaimKey` digest, the exact pair `BenchmarkGate.Judge` at `Rasm.AppHost/Observability/benchmarks#CLAIM_FIELD_MAP` resolves when it stamps `BenchmarkVerdict.Pass` — the Fabrication row keys `{Suite}/{Case}` under that page's own field map. This package supplies the bench roster and the host digest, never a verdict, and never persists one.
 - Entry: `Guard.Check(GuardRequest)` preserves the frozen `Check` operation name and accumulates independent contacts through `Traverse`, `As`, and `Bind`.
 - Auto: planar straight and circular moves lower once to an arc-true trajectory, round-ended offset sweeps retain cutter and holder separation, one `Surfaces` row set traverses every planar obstacle class against the shared cutter-and-holder `Faces` table, feed moves drop the cutter face against stock while the holder face always tests, and channel pinch uses the larger swept radius with the admitted margin.
-- Receipt: `HolderEvidence` carries mounted or certified payload without a boolean cross-product; `ContactWitness` carries the contact point and its overlap area so `Hazard.Severity` ranks contacts rather than leaving them unordered; `ClearanceEvidence` retains minimum medial clearance, the optional skeleton witness, the requested route, and whether the parallel substrate executed; `VoxelContact` retains obstacle, membership, overlap volume, ray witness, and native memory; `RobotContact` retains provider target, meshes, duration, target census, and warnings.
-- Packages: `ToolMagazine.HolderEnvelope` derives mounted and certified holder footprints; `ArcAlgebra.Densify` preserves circular motion; `PolygonAlgebra.Apply` owns offset and intersection and receives the calling `Op` key so a trace refusal names its operation; `RegionNode.SignedArea` supplies contact severity without a second measure pass; `Spatial.Apply` owns indexed pruning; `CurveSkeleton.Clearance` owns arbitrary-probe clearance; `MemoryOwner<T>`, `ParallelHelper.For2D` with the admitted partition floor, and `TensorPrimitives` own pooled measured clearance reduction; PicoGK owns copied SDF intersection, membership, and ray witnesses; `MotionEvidence` supplies the admitted joint-and-duration trajectory the cell probe tests; `IRobotCollisionProvider` owns the executable robot-cell collision boundary and every provider handle behind it.
+- Receipt: `HolderEvidence` carries mounted or certified payload without a boolean cross-product; `ContactWitness` carries the contact point and its overlap area so `Hazard.Severity` ranks contacts rather than leaving them unordered; `ClearanceEvidence` retains minimum medial clearance, the optional skeleton witness, the requested route, and whether the parallel substrate executed; `VoxelContact` retains obstacle, membership, overlap volume, ray witness, and native memory; `RobotContact` retains provider target, meshes, duration, target census, and warnings, and PRESENCE of one is the collision — `RobotCollisionEvidence.Hit` and `RobotCollisionAdmission.Accepted.Contact` are both `Option`, so no reader pairs a flag with columns meaningful only under it.
+- Receipt: `GuardReceipt` keeps its name on evidence and band it genuinely carries — `Hazards` with `Severity` ordering, `Scope`, and `Holder` — and does NOT seat on `Receipt<TEvidence>`: that carrier requires a `ContentKey` and an `Instant`, and `Guard.Check` runs once per `Move` inside the commit walk. `EgressKind` names machine artifacts, so no row keys a motion-admission verdict, and a stamp on a pure per-move fold buys a clock read per move for a fact nothing settles. `Clear` and `Proven` stay a PAIR because `GuardScope` makes them different questions — no hazards found, versus no hazards found by a lane that ran.
+- Packages: `ToolMagazine.HolderEnvelope` derives mounted and certified holder footprints; `ArcAlgebra.Densify` preserves circular motion; `PolygonAlgebra.Apply` owns offset and intersection and receives the calling `Op` key so a trace refusal names its operation; `RegionNode.SignedArea` supplies contact severity without a second measure pass; `Spatial.Apply` owns indexed pruning; `CurveSkeleton.Clearance` owns arbitrary-probe clearance; `MemoryOwner<T>`, `ParallelHelper.For2D` with the admitted partition floor, and `TensorPrimitives` own pooled measured clearance reduction; PicoGK owns copied SDF intersection, membership, and ray witnesses; `MotionEvidence` supplies the admitted joint-and-duration trajectory the cell probe tests; `IRobotCollisionProvider` owns the executable robot-cell collision boundary and every provider handle behind it; kernel `Rasm.Domain` supplies `Tolerance` and `ToleranceLane` for the gate columns and `Rasm.Element` `AdmissionSlots` the one slot primitive, while `UnitsNet` `Length` carries the policy head's dimensioned magnitudes.
 - Growth: a new obstacle is one `Hazard` case and one `Surfaces` row, a new swept face is one `Faces` row every obstacle class inherits, a new provider is one `GuardProbe` case, and a new execution substrate is one evidence-carrying `ProbeRoute` case.
 - Boundary: `Clearance` and `ArcSpan` are the named statement kernels — pooled measured reduction and arc-frame numerics respectively; Rhino-native planar geometry stays inside the package wire, the cell probe names NO provider type — `CellCollisionRequest` carries the frozen `MotionEvidence` trajectory and a kernel `MeshSpace` environment, so the `Robots` and Rhino3dm alias crossing stays solely at `Kinematics/cell` — and PicoGK resources remain bracketed inside `ProbeVoxel`; no provider geometry escapes `GuardReceipt`.
 
@@ -77,7 +79,7 @@ public static class FabricationBenchClaims {
 
 // The accepted half of a speed claim. `ContentKey` cannot name a benchmark run at all — its `EgressKind` vocabulary
 // is this package's machine-artifact families and a bench receipt is none of them — so the identity the AppHost gate
-// can actually resolve is the claim key BESIDE the `HostEvidence` digest it stamped `Pass` over. That digest crosses
+// can actually resolve is the claim key BESIDE the `BenchmarkReceipt.ClaimKey` digest it stamped `Pass` over. That digest crosses
 // as a VALUE, so no AppHost type reaches this plane, and a claim accepted on one host never authorizes the parallel
 // lane on another.
 public sealed record AcceptedBenchmarkClaim {
@@ -88,20 +90,23 @@ public sealed record AcceptedBenchmarkClaim {
 
     public string Key => FormattableString.Invariant($"{(string)Bench.Claim}/{Host:x32}");
 
+    // The three aggregate axes are INDEPENDENT — a caller with no judge and a zero host learns both — and the judge
+    // call DEPENDS on them, so admission accumulates first and the rail sequences after.
     [BoundaryAdapter]
     public static Fin<AcceptedBenchmarkClaim> Admit(
         BenchClaim bench,
         UInt128 host,
         Func<string, UInt128, bool> judged) =>
-        from _aggregate in bench is not null && host != UInt128.Zero && judged is not null
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "benchmark-claim:aggregate"))
-        from accepted in Try.lift(() => judged(bench.Claim, host)).Run()
-            .MapFail(static error => new FabricationFault.PolicyInadmissible(
-                FabConcern.Toolpath, $"benchmark-claim:judge:{error.Message}"))
+        from _aggregate in AdmissionSlots.Accumulate(Seq(
+                AdmissionSlots.Gate(bench is not null, FabConcern.Toolpath, "benchmark-claim:bench", FabricationFault.Inadmissible),
+                AdmissionSlots.Gate(host != UInt128.Zero, FabConcern.Toolpath, "benchmark-claim:host", FabricationFault.Inadmissible),
+                AdmissionSlots.Gate(judged is not null, FabConcern.Toolpath, "benchmark-claim:judge-absent", FabricationFault.Inadmissible)))
+            .As()
+            .ToFin()
+        from accepted in Op.Of().Catch(() => Fin.Succ(judged(bench.Claim, host)))
         from _judged in accepted
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "benchmark-claim:refused"))
+            : Fin.Fail<Unit>(new KernelFault.InvalidValue("guard", "benchmark-claim:refused"))
         select new AcceptedBenchmarkClaim(bench, host);
 }
 
@@ -121,13 +126,9 @@ public abstract partial record GuardProbe {
     public sealed record Robot(IRobotCollisionProvider Provider, CellCollisionRequest Request) : GuardProbe;
 }
 
-// The cell probe is provider-free on BOTH sides: the trajectory arrives as the frozen `MotionEvidence` atom
-// `Kinematics/cell` already publishes — the one joint-and-duration carrier the motion wire admits — and the
-// environment as a kernel `MeshSpace`, so a `Robots` type and the `Rhino3dm` alias stay behind `Kinematics/cell`,
-// which the package's single-crossing law names as their only home. `First` and `Second` restrict the mechanism
-// pairs the provider tests; both empty means every pair. The implementor owns whatever provider handle it needs.
+// `First` and `Second` restrict the mechanism pairs the provider tests; both empty means EVERY pair, which is why
+// an empty roster is admitted rather than refused — a caller naming no pairs asked for the exhaustive test.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CellCollisionRequest {
     public MotionEvidence Motion { get; }
     public MeshSpace Environment { get; }
@@ -142,20 +143,31 @@ public sealed partial class CellCollisionRequest {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref MotionEvidence motion,
         ref MeshSpace environment,
         ref int environmentPlane,
         ref double linearStepMm,
         ref double angularStepRad,
         ref Arr<int> first,
-        ref Arr<int> second) =>
-        validationError = motion is not null && environment is not null && environmentPlane >= 0
-            && linearStepMm > 0.0 && double.IsFinite(linearStepMm)
-            && angularStepRad > 0.0 && double.IsFinite(angularStepRad)
-            && first.ForAll(static index => index >= 0) && second.ForAll(static index => index >= 0)
-                ? null
-                : new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "cell-collision-request");
+        ref Arr<int> second) {
+        Validation<Error, Unit> admitted = (
+            AdmissionSlots.Gate(motion is not null, FabConcern.Toolpath, "cell-collision-request:motion", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(environment is not null && environmentPlane >= 0,
+                FabConcern.Toolpath, "cell-collision-request:environment", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(linearStepMm > 0.0 && double.IsFinite(linearStepMm),
+                FabConcern.Toolpath, "cell-collision-request:linear-step", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(angularStepRad > 0.0 && double.IsFinite(angularStepRad),
+                FabConcern.Toolpath, "cell-collision-request:angular-step", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(
+                first.ForAll(static index => index >= 0) && second.ForAll(static index => index >= 0),
+                FabConcern.Toolpath, "cell-collision-request:mechanism-ordinal", FabricationFault.Inadmissible))
+            .Apply(static (_, _, _, _, _) => unit)
+            .As();
+        validationError = admitted.Match<ValidationError?>(
+            Fail: static _ => new ValidationError("cell-collision-request"),
+            Succ: static _ => null);
+    }
 
     public static Fin<CellCollisionRequest> Admit(
         MotionEvidence motion,
@@ -169,23 +181,21 @@ public sealed partial class CellCollisionRequest {
             out CellCollisionRequest request).Admitted(request);
 }
 
-public sealed record RobotCollisionEvidence(
-    bool HasCollision,
-    string Target,
-    int Meshes,
-    Seq<string> Warnings);
+// A provider reports a hit or it does not, and the target and mesh census mean NOTHING when it does not — the
+// deleted `bool HasCollision` beside a `string Target` made that a hand-enforced pairing at every reader, and the
+// admission then had to refuse a blank target under a true flag. Presence carries the pairing instead.
+public sealed record RobotHit(string Target, int Meshes);
+
+public sealed record RobotCollisionEvidence(Option<RobotHit> Hit, Seq<string> Warnings);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RobotCollisionAdmission {
     private RobotCollisionAdmission() { }
 
-    public sealed record Accepted(
-        bool HasCollision,
-        string Target,
-        int Meshes,
-        int Targets,
-        double DurationSeconds,
-        Seq<string> Warnings) : RobotCollisionAdmission;
+    // The accepted arm carries the admitted contact ITSELF, not the columns a reader would reassemble it from:
+    // program-target census and cycle duration are the request's own facts and belong to the contact that names
+    // them, so the hazard fold reads one optional row instead of a flag plus five loose columns.
+    public sealed record Accepted(Option<RobotContact> Contact, Seq<string> Warnings) : RobotCollisionAdmission;
     public sealed record Refused(string Field) : RobotCollisionAdmission;
 }
 
@@ -209,25 +219,32 @@ public sealed partial class VoxelObstacle {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class VoxelRay {
     public Point3d Search { get; }
     public Vector3d Direction { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Point3d search,
-        ref Vector3d direction) =>
-        validationError = search.IsValid && direction.IsValid && !direction.IsZero
-            ? null
-            : new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "voxel-ray");
+        ref Vector3d direction) {
+        Validation<Error, Unit> admitted = (
+            AdmissionSlots.Gate(search.IsValid, FabConcern.Toolpath, "voxel-ray:search", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(direction.IsValid && !direction.IsZero, FabConcern.Toolpath, "voxel-ray:direction", FabricationFault.Inadmissible))
+            .Apply(static (_, _) => unit)
+            .As();
+        validationError = admitted.Match<ValidationError?>(
+            Fail: static _ => new ValidationError("voxel-ray"),
+            Succ: static _ => null);
+    }
 
     public static Fin<VoxelRay> Admit(Point3d search, Vector3d direction) =>
         Validate(search, direction, out VoxelRay ray).Admitted(ray);
 }
 
 public sealed class VoxelLease : IDisposable {
+    internal static readonly Op ReleaseBoundary = Op.Of(name: "guard:voxel-release");
+
     public Voxels Tool { get; }
     public Voxels Stock { get; }
     public Voxels Fixture { get; }
@@ -245,26 +262,16 @@ public sealed class VoxelLease : IDisposable {
         && !ReferenceEquals(stock, @protected)
         && !ReferenceEquals(fixture, @protected)
             ? Fin.Succ(new VoxelLease(tool, stock, fixture, @protected))
-            : Fin.Fail<VoxelLease>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "guard:voxel-lease"));
+            : Fin.Fail<VoxelLease>(new KernelFault.InvalidValue("guard", "guard:voxel-lease"));
 
-    // Release is a ROLLBACK over four independent native fields: each release runs, every failure lands on the
-    // typed rail as one `Error.Many`, and no field is skipped because an earlier one threw. `Dispose` keeps the
-    // `using` contract by draining that rail — the rail is what the probe reads, so a release defect is evidence
-    // rather than an exception crossing a `Fin`-declaring boundary.
-    public Fin<Unit> Release() =>
-        Seq(Tool, Stock, Fixture, Protected).Fold(
-            Seq<Error>(),
-            static (failures, field) => Try.lift(() => { field.Dispose(); return unit; }).Run()
-                .Match(Succ: _ => failures, Fail: failures.Add))
-        is var refusals && refusals.IsEmpty
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(Error.Many([.. refusals]));
+    // Release is the kernel's reverse, all-attempted disposable fold; the probe settles it beside the primary so
+    // cleanup runs on both result arms and joins rather than replacing the provider failure.
+    public Fin<Unit> Release() => Custody.Dispose(Seq(Tool, Stock, Fixture, Protected), ReleaseBoundary);
 
     public void Dispose() => _ = Release();
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class HolderCertificate {
     public UInt128 AssemblyIdentity { get; }
     public CutterForm Cutter { get; }
@@ -274,14 +281,22 @@ public sealed partial class HolderCertificate {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref UInt128 assemblyIdentity,
         ref CutterForm cutter,
         ref int operation,
         ref BoundingBox scope,
         ref Loop conservativeEnvelope) {
-        if (assemblyIdentity == UInt128.Zero || operation < 0 || !scope.IsValid || scope.Diagonal.Length <= 0.0)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "holder-certificate");
+        Validation<Error, Unit> admitted = (
+            AdmissionSlots.Gate(assemblyIdentity != UInt128.Zero, FabConcern.Toolpath, "holder-certificate:assembly", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(operation >= 0, FabConcern.Toolpath, "holder-certificate:operation", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(scope.IsValid && scope.Diagonal.Length > 0.0,
+                FabConcern.Toolpath, "holder-certificate:scope", FabricationFault.Inadmissible))
+            .Apply(static (_, _, _) => unit)
+            .As();
+        validationError = admitted.Match<ValidationError?>(
+            Fail: static _ => new ValidationError("holder-certificate"),
+            Succ: static _ => null);
     }
 
     public static Fin<HolderCertificate> Admit(
@@ -296,16 +311,32 @@ public sealed partial class HolderCertificate {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class GuardPolicy {
-    public double ClearancePlaneMm { get; }
-    public double GougeToleranceMm { get; }
+    // A machine Z ORDINATE in work coordinates, not a gate — no kernel lane derives it and any finite height
+    // including a negative one is admissible — so it seats as the DIMENSION it is under the package ruling that
+    // `UnitsNet` quantities ride every policy head no preimage digests. `Guard` mints no content key, so nothing
+    // here reaches a canonical preimage and no conversion moves an identity.
+    public Length ClearancePlane { get; }
     public Context Tolerance { get; }
     public OffsetPolicy SweepOffset { get; }
     public OffsetPolicy RegionOffset { get; }
-    public double ArcChordErrorMm { get; }
-    public double ChannelMarginMm { get; }
-    public double ClearanceProbeStepMm { get; }
+
+    // The gouge allowance rides the kernel lane that NAMES it, and it is `Option` because zero is a real state —
+    // shrink the swept face by nothing — which `Band.Length` opens above and therefore refuses. The deleted bare
+    // double spelled that state as a magic zero the contact fold then re-tested at every obstacle row.
+    public Option<Tolerance> Gouge { get; }
+
+    // The arc densification error rides `ToleranceLane.Chord`, which is exactly the gate it is: how far a chord may
+    // depart from the arc it replaces. `Band.Length` owns its range, so no hand finiteness test survives.
+    public Tolerance ArcChord { get; }
+
+    // An additive STANDOFF on the swept radius, not a gate — a required separation the channel probe adds, whose
+    // zero means no extra margin — so no kernel lane derives it and it rides its dimension instead.
+    public Length ChannelMargin { get; }
+
+    // A sampling PITCH paired with the census ceiling it feeds; `ClearanceSegments` is the one derivation over the
+    // pair, so the two columns already have one owner and one reader.
+    public Length ClearanceProbeStep { get; }
     public int MaximumSweepSegments { get; }
     public int MaximumClearanceProbes { get; }
 
@@ -317,82 +348,97 @@ public sealed partial class GuardPolicy {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
-        ref double clearancePlaneMm,
-        ref double gougeToleranceMm,
+        ref ValidationError? validationError,
+        ref Length clearancePlane,
         ref Context tolerance,
         ref OffsetPolicy sweepOffset,
         ref OffsetPolicy regionOffset,
-        ref double arcChordErrorMm,
-        ref double channelMarginMm,
-        ref double clearanceProbeStepMm,
+        ref Option<Tolerance> gouge,
+        ref Tolerance arcChord,
+        ref Length channelMargin,
+        ref Length clearanceProbeStep,
         ref int maximumSweepSegments,
         ref int maximumClearanceProbes,
         ref ProbeRoute route) {
         Validation<Error, Unit> admitted = (
-            Gate(double.IsFinite(clearancePlaneMm), "clearance-plane"),
-            Gate(gougeToleranceMm >= 0.0 && double.IsFinite(gougeToleranceMm), "gouge-tolerance"),
-            Gate(sweepOffset.IsValid && regionOffset.IsValid, "offset-policy"),
-            Gate(arcChordErrorMm > 0.0 && double.IsFinite(arcChordErrorMm), "arc-chord"),
-            Gate(channelMarginMm >= 0.0 && double.IsFinite(channelMarginMm), "channel-margin"),
-            Gate(clearanceProbeStepMm > 0.0 && double.IsFinite(clearanceProbeStepMm), "probe-step"),
-            Gate(maximumSweepSegments >= 8, "sweep-capacity"),
-            Gate(maximumClearanceProbes >= 2, "probe-capacity"),
+            AdmissionSlots.Gate(double.IsFinite(clearancePlane.Millimeters),
+                FabConcern.Toolpath, "guard-policy:clearance-plane", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(
+                gouge.Map(static row => row.Lane == ToleranceLane.Gouge && row.IsValid).IfNone(true),
+                FabConcern.Toolpath, "guard-policy:gouge", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(sweepOffset.IsValid && regionOffset.IsValid,
+                FabConcern.Toolpath, "guard-policy:offset-policy", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(
+                arcChord.Lane == ToleranceLane.Chord && arcChord.IsValid,
+                FabConcern.Toolpath, "guard-policy:arc-chord", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(
+                channelMargin.Millimeters >= 0.0 && double.IsFinite(channelMargin.Millimeters),
+                FabConcern.Toolpath, "guard-policy:channel-margin", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(
+                clearanceProbeStep.Millimeters > 0.0 && double.IsFinite(clearanceProbeStep.Millimeters),
+                FabConcern.Toolpath, "guard-policy:probe-step", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(maximumSweepSegments >= 8, FabConcern.Toolpath, "guard-policy:sweep-capacity", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(maximumClearanceProbes >= 2, FabConcern.Toolpath, "guard-policy:probe-capacity", FabricationFault.Inadmissible),
             // The measured lane admits only the parallel-clearance claim and only above the partition floor the
             // benchmark itself measured, so an unrelated claim or a degenerate partition refuses at policy admission
             // rather than silently running the reference lane under a measured label. Equality reads the accepted
             // claim's own `BenchClaim.Claim` — `AcceptedBenchmarkClaim.Key` interpolates the host digest beside it,
             // so comparing that composite to a bare claim name can never hold and leaves the lane dead.
-            Gate(route.Switch(
+            AdmissionSlots.Gate(route.Switch(
                 reference: static _ => true,
                 measured: static row => row.MinimumActionsPerThread > 0
-                    && row.Claim.Bench.Claim.Equals(FabricationBenchClaims.ClearanceParallel.Claim)), "probe-route"))
+                    && row.Claim.Bench.Claim.Equals(FabricationBenchClaims.ClearanceParallel.Claim)),
+                FabConcern.Toolpath, "guard-policy:probe-route", FabricationFault.Inadmissible))
             .Apply(static (_, _, _, _, _, _, _, _, _) => unit)
             .As();
-        validationError = admitted.Match<FabricationFault?>(
-            Fail: static error => new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message),
+        validationError = admitted.Match<ValidationError?>(
+            Fail: static _ => new ValidationError("guard-policy"),
             Succ: static _ => null);
     }
 
     public static Fin<GuardPolicy> Admit(
-        double clearancePlaneMm,
-        double gougeToleranceMm,
+        Length clearancePlane,
         Context tolerance,
         OffsetPolicy sweepOffset,
         OffsetPolicy regionOffset,
-        double arcChordErrorMm,
-        double channelMarginMm,
-        double clearanceProbeStepMm,
+        Option<Tolerance> gouge,
+        Tolerance arcChord,
+        Length channelMargin,
+        Length clearanceProbeStep,
         int maximumSweepSegments,
         int maximumClearanceProbes,
         ProbeRoute route) =>
-        Validate(clearancePlaneMm, gougeToleranceMm, tolerance, sweepOffset, regionOffset, arcChordErrorMm,
-            channelMarginMm, clearanceProbeStepMm, maximumSweepSegments, maximumClearanceProbes, route,
+        Validate(clearancePlane, tolerance, sweepOffset, regionOffset, gouge, arcChord,
+            channelMargin, clearanceProbeStep, maximumSweepSegments, maximumClearanceProbes, route,
             out GuardPolicy policy).Admitted(policy);
 
     public Fin<int> ClearanceSegments(double length) =>
         double.IsFinite(length) && length >= 0.0
-        && Math.Ceiling(length / ClearanceProbeStepMm) <= MaximumClearanceProbes
-            ? Fin.Succ(Math.Max(1, (int)Math.Ceiling(length / ClearanceProbeStepMm)))
-            : Fin.Fail<int>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "guard:clearance-capacity"));
-
-    private static K<Validation<Error>, Unit> Gate(bool admitted, string axis) =>
-        AdmissionSlots.Gate(admitted, new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"guard-policy:{axis}"));
+        && Math.Ceiling(length / ClearanceProbeStep.Millimeters) <= MaximumClearanceProbes
+            ? Fin.Succ(Math.Max(1, (int)Math.Ceiling(length / ClearanceProbeStep.Millimeters)))
+            : Fin.Fail<int>(FabricationFault.Inadmissible(FabConcern.Toolpath, "guard:clearance-capacity"));
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class GuardPart {
     public Point3d Cursor { get; }
     public Seq<Loop> Protected { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Point3d cursor,
         ref Seq<Loop> @protected) {
-        if (!(cursor.IsValid && @protected.ForAll(static loop => loop.Closed && loop.Count >= 3)))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "guard-part");
+        Validation<Error, Unit> admitted = (
+            AdmissionSlots.Gate(cursor.IsValid, FabConcern.Toolpath, "guard-part:cursor", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(
+                @protected.ForAll(static loop => loop.Closed && loop.Count >= 3),
+                FabConcern.Toolpath, "guard-part:protected", FabricationFault.Inadmissible))
+            .Apply(static (_, _) => unit)
+            .As();
+        validationError = admitted.Match<ValidationError?>(
+            Fail: static _ => new ValidationError("guard-part"),
+            Succ: static _ => null);
     }
 
     public static Fin<GuardPart> Admit(Point3d cursor, Seq<Loop> @protected) =>
@@ -400,7 +446,6 @@ public sealed partial class GuardPart {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class GuardStock {
     public Seq<Loop> RawBlank { get; }
     public Seq<Loop> Forbidden { get; }
@@ -421,7 +466,7 @@ public sealed partial class GuardStock {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Seq<Loop> rawBlank,
         ref Seq<Loop> forbidden,
         ref Seq<StockSnapshot> snapshots,
@@ -430,19 +475,24 @@ public sealed partial class GuardStock {
         ref Option<CurveSkeleton> channel,
         ref Option<SpatialIndex> index) {
         Validation<Error, Unit> admitted = (
-            Gate(!rawBlank.IsEmpty && rawBlank.ForAll(static loop => loop is not null && loop.Closed && loop.Count >= 3), "blank"),
-            Gate(forbidden.ForAll(static loop => loop is not null && loop.Closed && loop.Count >= 3), "forbidden"),
-            Gate(snapshots.ForAll(static snapshot => snapshot is not null && snapshot.Setup >= 0
-                && snapshot.Machined.ForAll(static loop => loop is not null && loop.Closed)), "snapshots"),
-            Gate(cutter is not null && cutter.Diameter > 0.0 && double.IsFinite(cutter.Diameter), "cutter"),
-            Gate(holder.Switch(
+            AdmissionSlots.Gate(!rawBlank.IsEmpty && rawBlank.ForAll(static loop => loop is not null && loop.Closed && loop.Count >= 3),
+                FabConcern.Toolpath, "guard-stock:blank", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(forbidden.ForAll(static loop => loop is not null && loop.Closed && loop.Count >= 3),
+                FabConcern.Toolpath, "guard-stock:forbidden", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(snapshots.ForAll(static snapshot => snapshot is not null && snapshot.Setup >= 0
+                && snapshot.Machined.ForAll(static loop => loop is not null && loop.Closed)),
+                FabConcern.Toolpath, "guard-stock:snapshots", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(cutter is not null && cutter.Diameter > 0.0 && double.IsFinite(cutter.Diameter),
+                FabConcern.Toolpath, "guard-stock:cutter", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(holder.Switch(
                 mounted: static row => row.Assembly.Identity != UInt128.Zero,
-                certified: static row => row.Certificate.AssemblyIdentity != UInt128.Zero), "holder"),
-            Gate(channel.Map(ChannelValid).IfNone(true), "channel"))
+                certified: static row => row.Certificate.AssemblyIdentity != UInt128.Zero),
+                FabConcern.Toolpath, "guard-stock:holder", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(channel.Map(ChannelValid).IfNone(true), FabConcern.Toolpath, "guard-stock:channel", FabricationFault.Inadmissible))
             .Apply(static (_, _, _, _, _, _) => unit)
             .As();
-        validationError = admitted.Match<FabricationFault?>(
-            Fail: static error => new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message),
+        validationError = admitted.Match<ValidationError?>(
+            Fail: static _ => new ValidationError("guard-stock"),
             Succ: static _ => null);
     }
 
@@ -472,13 +522,9 @@ public sealed partial class GuardStock {
         && channel.ArcTo.All(index => index >= 0 && index < channel.NodeCount)
         && channel.NodeX.Concat(channel.NodeY).Concat(channel.NodeZ).Concat(channel.Radius).All(double.IsFinite)
         && channel.Radius.All(static radius => radius >= 0.0);
-
-    private static K<Validation<Error>, Unit> Gate(bool admitted, string axis) =>
-        AdmissionSlots.Gate(admitted, new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"guard-stock:{axis}"));
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class GuardRequest {
     public Move Move { get; }
     public GuardPart Part { get; }
@@ -494,7 +540,7 @@ public sealed partial class GuardRequest {
     // it by name rather than approximating the tilt silently.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Move move,
         ref GuardPart part,
         ref GuardStock stock,
@@ -503,13 +549,14 @@ public sealed partial class GuardRequest {
         ref GuardPolicy policy,
         ref Seq<GuardProbe> probes) {
         Validation<Error, Unit> admitted = (
-            AdmissionSlots.Gate(move.AxisFree, new FabricationFault.PolicyInadmissible(
-                FabConcern.Toolpath, "swept-solid:oriented-move")),
-            Gate(HolderValid(stock.Holder, stock.Cutter, fixture.Operation, MotionScope(move, part.Cursor)), "holder"))
+            AdmissionSlots.Gate(move.AxisFree, FabConcern.Toolpath, "swept-solid:oriented-move", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(
+                HolderValid(stock.Holder, stock.Cutter, fixture.Operation, MotionScope(move, part.Cursor)),
+                FabConcern.Toolpath, "guard-request:holder", FabricationFault.Inadmissible))
             .Apply(static (_, _) => unit)
             .As();
-        validationError = admitted.Match<FabricationFault?>(
-            Fail: static error => new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message),
+        validationError = admitted.Match<ValidationError?>(
+            Fail: static _ => new ValidationError("guard-request"),
             Succ: static _ => null);
     }
 
@@ -544,9 +591,6 @@ public sealed partial class GuardRequest {
                 row.Arc.Center.X + start.DistanceTo(row.Arc.Center),
                 row.Arc.Center.Y + start.DistanceTo(row.Arc.Center),
                 Math.Max(start.Z, row.Target.Z))));
-
-    private static K<Validation<Error>, Unit> Gate(bool admitted, string axis) =>
-        AdmissionSlots.Gate(admitted, new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"guard-request:{axis}"));
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
@@ -662,12 +706,15 @@ public static class Guard {
             swept.Evidence,
             probeRows.Bind(static row => row.Warnings));
 
-    // One obstacle class is one ROW: the loops it draws, the faces it tests, and the hazard it mints. The four
-    // near-identical traversal bodies the rows replace differed only in those three columns.
+    // One obstacle class is one ROW: the loops it draws, the faces it tests, whether the gouge allowance shrinks
+    // the face before the test, and the hazard it mints. The near-identical traversal bodies the rows replace
+    // differed only in those columns — and `Shrinks` is one of them, because reading the row's own NAME back as
+    // `Axis == "protected"` made a text key decide behavior the table can simply declare.
     private sealed record ObstacleRow(
         string Axis,
         Func<GuardRequest, Fin<Seq<Loop>>> Obstacles,
         Func<GuardRequest, CollisionContact, bool> Tests,
+        bool Shrinks,
         Func<Loop, CollisionContact, ContactWitness, Hazard> Mint);
 
     private static readonly Arr<ObstacleRow> Surfaces = Arr(
@@ -675,29 +722,32 @@ public static class Guard {
             "protected",
             static request => Fin.Succ(request.Part.Protected),
             static (_, _) => true,
+            Shrinks: true,
             static (loop, contact, witness) => new Hazard.Gouge(loop, contact, witness)),
         new ObstacleRow(
             "keepout",
             static request => Fin.Succ(request.Stock.Forbidden),
             static (_, _) => true,
+            Shrinks: false,
             static (loop, contact, witness) => new Hazard.Keepout(loop, contact, witness)),
         new ObstacleRow(
             "stock",
             static request => Fin.Succ(request.Stock.Current(request.Fixture.Operation)),
             // A feed move cuts stock by design, so only the holder face tests against it; a rapid tests both.
             static (request, contact) => request.Move is Move.Rapid || contact == CollisionContact.Holder,
+            Shrinks: false,
             static (loop, contact, witness) => new Hazard.Stock(loop, contact, witness)));
 
     private static GuardScope PlanarScope(GuardRequest request) =>
         request.Move is Move.Rapid
-        && Math.Min(request.Part.Cursor.Z, request.Target.Z) >= request.Policy.ClearancePlaneMm
+        && Math.Min(request.Part.Cursor.Z, request.Target.Z) >= request.Policy.ClearancePlane.Millimeters
         && request.Stock.Channel.IsNone
         && request.Fixture.Zones.Filter(zone => zone.Active.Contains(request.State))
-            .ForAll(zone => zone.Upper.As(LengthUnit.Millimeter) <= request.Policy.ClearancePlaneMm)
+            .ForAll(zone => zone.Upper.As(LengthUnit.Millimeter) <= request.Policy.ClearancePlane.Millimeters)
         && request.Part.Protected.Concat(request.Stock.Forbidden).Concat(request.Stock.Current(request.Fixture.Operation))
-            .ForAll(loop => loop.Bound().Max.Z <= request.Policy.ClearancePlaneMm)
+            .ForAll(loop => loop.Bound().Max.Z <= request.Policy.ClearancePlane.Millimeters)
             ? new GuardScope.Elided(
-                request.Policy.ClearancePlaneMm,
+                request.Policy.ClearancePlane.Millimeters,
                 Math.Min(request.Part.Cursor.Z, request.Target.Z))
             : new GuardScope.Probed();
 
@@ -710,10 +760,10 @@ public static class Guard {
             rapid: static (state, row) => Loop.Admit(Arr(state.Cursor, row.Target), false, [], state.Policy.Tolerance),
             linear: static (state, row) => Loop.Admit(Arr(state.Cursor, row.Target), false, [], state.Policy.Tolerance),
             circular: static (state, row) => ArcSpan(state.Cursor, row, state.Policy)
-                .Bind(span => Chords(span, state.Policy.ArcChordErrorMm))
+                .Bind(span => Chords(span, state.Policy.ArcChord.Value))
                 .Bind(result => result.Spans <= state.Policy.MaximumSweepSegments
                     ? Fin.Succ(result)
-                    : Fin.Fail<Loop>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "guard:sweep-capacity"))));
+                    : Fin.Fail<Loop>(FabricationFault.Inadmissible(FabConcern.Toolpath, "guard:sweep-capacity"))));
 
     private static Fin<Loop> ArcSpan(Point3d from, Move.Circular move, GuardPolicy policy) {
         Vector3d a = from - move.Arc.Center;
@@ -723,8 +773,8 @@ public static class Guard {
             || radius <= 0.0
             || Math.Abs(from.Z - move.Target.Z) > policy.Tolerance.Absolute.Value
             || Math.Abs(from.Z - move.Arc.Center.Z) > policy.Tolerance.Absolute.Value
-            || Math.Abs(radius - b.Length) > policy.ArcChordErrorMm)
-            return Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, None, "guard:arc-motion").ToError());
+            || Math.Abs(radius - b.Length) > policy.ArcChord.Value)
+            return Fin.Fail<Loop>(FabricationFault.Inadmissible(FabConcern.Toolpath, "guard:arc-motion"));
         if (from.DistanceTo(move.Target) <= policy.Tolerance.Absolute.Value) {
             Point3d opposite = new(
                 2.0 * move.Arc.Center.X - from.X,
@@ -753,28 +803,29 @@ public static class Guard {
             mounted: static row => row.Footprint,
             certified: static row => row.Footprint), policy)
         from holder in Offset(trajectory, holderRadius, JoinType.Round, EndType.Round, policy.SweepOffset)
-        select new SweptEnvelope(cutter, holder, evidence, Math.Max(stock.Radius, holderRadius) + policy.ChannelMarginMm);
+        select new SweptEnvelope(cutter, holder, evidence, Math.Max(stock.Radius, holderRadius) + policy.ChannelMargin.Millimeters);
 
     private static Fin<double> FootprintRadius(Loop footprint, GuardPolicy policy) =>
         (footprint.Bulges.ForAll(static bulge => bulge == 0.0)
             ? Fin.Succ(footprint)
-            : Chords(footprint, policy.ArcChordErrorMm))
+            : Chords(footprint, policy.ArcChord.Value))
         .Bind(rim => rim.Vertices.Fold(0.0, static (bound, vertex) =>
                 Math.Max(bound, Math.Sqrt((vertex.X * vertex.X) + (vertex.Y * vertex.Y)))) is var radius
             && radius > 0.0 && double.IsFinite(radius)
-                ? Fin.Succ(radius + policy.ArcChordErrorMm)
-                : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, None, "guard:holder-footprint").ToError()));
+                ? Fin.Succ(radius + policy.ArcChord.Value)
+                : Fin.Fail<double>(FabricationFault.Inadmissible(FabConcern.Toolpath, "guard:holder-footprint")));
 
-    // The gouge tolerance shrinks the swept face before the protected surfaces test against it, so a contact
-    // within the admitted tolerance is not a hazard; every other obstacle class tests the raw face.
+    // The gouge allowance shrinks the swept face before the protected surfaces test against it, so a contact within
+    // it is not a hazard; every other obstacle class tests the raw face. The allowance's ABSENCE is what selects the
+    // raw face — the deleted `> 0.0` test on a bare double asked the same question of a magic value.
     private static Fin<Seq<Hazard>> Contacts(SweptEnvelope swept, GuardRequest request, ObstacleRow row) =>
         from obstacles in row.Obstacles(request)
         from rows in Faces(swept).Filter(face => row.Tests(request, face.Contact)).Traverse(face =>
-            from envelope in row.Axis == "protected" && request.Policy.GougeToleranceMm > 0.0
-                ? face.Envelope.Traverse(loop => Offset(
-                        loop, -request.Policy.GougeToleranceMm, JoinType.Round, EndType.Closed, request.Policy.RegionOffset))
-                    .As().Map(static offsets => offsets.Bind(identity))
-                : Fin.Succ(face.Envelope)
+            from envelope in (row.Shrinks ? request.Policy.Gouge : Option<Tolerance>.None).Match(
+                Some: allowance => face.Envelope.Traverse(loop => Offset(
+                        loop, -allowance.Value, JoinType.Round, EndType.Closed, request.Policy.RegionOffset))
+                    .As().Map(static offsets => offsets.Bind(identity)),
+                None: () => Fin.Succ(face.Envelope))
             from hazards in obstacles.Traverse(loop => Intersections(envelope, Seq(loop))
                 .Map(witnesses => witnesses.Map(witness => row.Mint(loop, face.Contact, witness)))).As()
             select hazards.Bind(identity)).As()
@@ -792,9 +843,9 @@ public static class Guard {
 
     private static Fin<Loop> Chords(Loop exact, double error) =>
         ArcAlgebra.Densify(new ArcProjection.Lower(exact, error))
-            .Bind(static trace => trace is ArcTrace.Densified densified
-                ? Fin.Succ(densified.Receipt.Result)
-                : Fin.Fail<Loop>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "guard:arc-projection-shape")));
+            .Bind(static trace => trace
+                .Lowering(FabricationFault.Inadmissible(FabConcern.Toolpath, "guard:arc-projection-shape"))
+                .Map(static evidence => evidence.Result));
 
     private static Fin<Seq<ExclusionZone>> StaticCandidates(SweptEnvelope swept, GuardRequest request) =>
         swept.Combined.IsEmpty
@@ -802,9 +853,9 @@ public static class Guard {
             : request.Stock.Index.Map(index => Spatial.Apply(new SpatialOp.Query(index, new SpatialQuery.Range(swept.Bound, None)))
                     .Bind(answer => answer is SpatialAnswer.Result { Value: QueryResult.Hits hits }
                         ? hits.Ids.Exists(id => id < 0 || id >= request.Fixture.Zones.Count)
-                            ? Fin.Fail<Seq<ExclusionZone>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "guard:index-ordinal"))
+                            ? Fin.Fail<Seq<ExclusionZone>>(FabricationFault.Inadmissible(FabConcern.Toolpath, "guard:index-ordinal"))
                             : Fin.Succ(hits.Ids.Map(id => request.Fixture.Zones[id]))
-                        : Fin.Fail<Seq<ExclusionZone>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "guard:index-answer"))))
+                        : Fin.Fail<Seq<ExclusionZone>>(FabricationFault.Inadmissible(FabConcern.Toolpath, "guard:index-answer"))))
                 .IfNone(Fin.Succ(request.Fixture.Zones));
 
     private static Fin<Option<ClearanceEvidence>> Channel(Loop trajectory, GuardStock stock, GuardPolicy policy) =>
@@ -849,7 +900,7 @@ public static class Guard {
             toSeq(points).Map(static (point, index) => (Point: point, Index: index))
                 .Iter(cell => values.Span[cell.Index] = channel.Clearance(cell.Point).Radius);
         if (!TensorPrimitives.IsFiniteAll(values.Span))
-            return Fin.Fail<ClearanceEvidence>(new GeometryFault.DegenerateInput(Kind.Curve, None, "guard:clearance-finite").ToError());
+            return Fin.Fail<ClearanceEvidence>(FabricationFault.Inadmissible(FabConcern.Toolpath, "guard:clearance-finite"));
         int minimum = TensorPrimitives.IndexOfMin(values.Span);
         ClearanceNode witness = channel.Clearance(points[minimum]);
         return Fin.Succ(new ClearanceEvidence(
@@ -870,19 +921,14 @@ public static class Guard {
     // both the acquire and the probe legs carry theirs onto the typed rail, and the lease's own release rail joins
     // the result rather than throwing out of a `Fin`-declaring boundary.
     private static Fin<(Seq<Hazard> Hazards, Seq<string> Warnings)> ProbeVoxel(GuardProbe.Voxel probe, Point3d target) =>
-        Try.lift(probe.Acquire).Run()
-            .MapFail(static error => new FabricationFault.PolicyInadmissible(
-                FabConcern.Toolpath, $"guard:voxel-acquire:{error.Message}"))
-            .Bind(static lease => lease)
-            .Bind(lease => Try.lift(() => Seq(
+        Op.Of().Catch(probe.Acquire)
+            .Bind(lease => Op.Of().Catch(() => Fin.Succ(Seq(
                         (VoxelObstacle.Stock, lease.Stock),
                         (VoxelObstacle.Fixture, lease.Fixture),
                         (VoxelObstacle.Protected, lease.Protected))
-                    .Bind(row => VoxelContacts(lease.Tool, row.Item2, row.Item1, probe.Ray, target)))
-                .Run()
-                .MapFail(static error => new GeometryFault.DegenerateInput(
-                    Kind.Curve, None, $"guard:voxel-native:{error.Message}").ToError())
-                .Bind(hazards => lease.Release().Map(_ => (hazards, Seq<string>()))));
+                    .Bind(row => VoxelContacts(lease.Tool, row.Item2, row.Item1, probe.Ray, target))))
+                .Map(hazards => (hazards, Seq<string>()))
+                .Settled(lease.Release, VoxelLease.ReleaseBoundary));
 
     private static Seq<Hazard> VoxelContacts(Voxels tool, Voxels obstacle, VoxelObstacle kind, VoxelRay ray, Point3d target) {
         using Voxels contact = tool.voxBoolIntersect(obstacle);
@@ -900,63 +946,58 @@ public static class Guard {
     // `MotionEvidence` only after its own program errors are empty, so a trajectory that reached this probe already
     // planned clean, and the atom's admission proves the joint rows non-empty, finite, and duration-aligned.
     private static Fin<(Seq<Hazard> Hazards, Seq<string> Warnings)> ProbeRobot(GuardProbe.Robot probe) =>
-        Try.lift<Fin<RobotCollisionEvidence>>(() => probe.Provider.Check(probe.Request))
-            .Run()
-            .MapFail(error => FabricationFault.Joint(
-                new JointDiagnostic.Configuration(error.Message, nameof(IRobotCollisionProvider)), 0).ToError())
-            .Bind(static collision => collision)
+        Op.Of().Catch(() => probe.Provider.Check(probe.Request))
             .Bind(collision => AdmitRobotEvidence(probe.Request, collision).Switch(
                 accepted: static row => Fin.Succ((
-                    row.HasCollision
-                        ? Seq<Hazard>(new Hazard.Robot(new RobotContact(
-                            row.Target,
-                            row.Meshes,
-                            row.Targets,
-                            row.DurationSeconds,
-                            row.Warnings)))
-                        : Seq<Hazard>(),
+                    row.Contact.ToSeq().Map(static contact => (Hazard)new Hazard.Robot(contact)),
                     row.Warnings)),
                 refused: static row => Fin.Fail<(Seq<Hazard>, Seq<string>)>(
                     FabricationFault.Joint(
-                        new JointDiagnostic.Configuration(row.Field, nameof(IRobotCollisionProvider)), 0).ToError())));
+                        new JointDiagnostic.Configuration(row.Field, nameof(IRobotCollisionProvider)), None))));
 
+    // Provider material admitted ONCE: absence of a hit is the clean run and needs no guard at all, so the only
+    // refusals left are a null envelope and a hit whose payload contradicts itself. The `HasCollision`-with-blank-
+    // target case the deleted flag made reachable cannot be constructed here.
+    // The trajectory's own `RunWarning` rows are `Kinematics`' and ride the `MotionEvidence` the caller already
+    // holds; re-emitting them here would file a producing plane's warning under this one on
+    // `rasm.fabrication.run.warnings`. Only the provider's collision text is this probe's to publish.
     private static RobotCollisionAdmission AdmitRobotEvidence(
         CellCollisionRequest request,
-        RobotCollisionEvidence collision) {
-        if (collision is null)
-            return new RobotCollisionAdmission.Refused("guard:robot-evidence:null");
-        if (collision.Meshes < 0)
-            return new RobotCollisionAdmission.Refused("guard:robot-evidence:meshes");
-        if (collision.HasCollision && string.IsNullOrWhiteSpace(collision.Target))
-            return new RobotCollisionAdmission.Refused("guard:robot-evidence:target");
-        // The trajectory's own `RunWarning` rows are `Kinematics`' and ride the `MotionEvidence` the caller already
-        // holds; re-emitting them here would file a producing plane's warning under this one on
-        // `rasm.fabrication.run.warnings`. Only the provider's collision text is this probe's to publish.
-        return new RobotCollisionAdmission.Accepted(
-            collision.HasCollision,
-            collision.Target,
-            collision.Meshes,
-            request.Joints.Count,
-            request.Motion.Cycle.TotalSeconds,
-            collision.Warnings);
-    }
+        RobotCollisionEvidence collision) =>
+        collision is null
+            ? new RobotCollisionAdmission.Refused("guard:robot-evidence:null")
+            : collision.Hit.Match<RobotCollisionAdmission>(
+                None: () => new RobotCollisionAdmission.Accepted(
+                    Option<RobotContact>.None, collision.Warnings),
+                Some: hit => hit.Meshes < 0
+                    ? new RobotCollisionAdmission.Refused("guard:robot-evidence:meshes")
+                    : string.IsNullOrWhiteSpace(hit.Target)
+                        ? new RobotCollisionAdmission.Refused("guard:robot-evidence:target")
+                        : new RobotCollisionAdmission.Accepted(
+                            Some(new RobotContact(
+                                hit.Target,
+                                hit.Meshes,
+                                request.Joints.Count,
+                                request.Motion.Cycle.TotalSeconds,
+                                collision.Warnings)),
+                            collision.Warnings));
 
     private static Fin<Seq<Loop>> Offset(Loop path, double distance, JoinType join, EndType end, OffsetPolicy policy) =>
         PolygonAlgebra.Apply(new PolygonOp.Offset(Seq(path), new OffsetField.Uniform(distance), join, end, policy), Op.Of())
-            .Bind(static trace => trace is PolygonTrace.Regions regions
-                ? Fin.Succ(regions.Result.Nodes.Filter(static node => !node.IsHole).Map(static node => node.Boundary))
-                : Fin.Fail<Seq<Loop>>(Op.Of(name: nameof(Offset)).InvalidResult()));
+            .Bind(static trace => trace
+                .Regioned(new KernelFault.InvalidValue("guard", "guard:offset-trace"))
+                .Map(static topology => topology.Nodes.Filter(static node => !node.IsHole).Map(static node => node.Boundary)));
 
     private static Fin<Seq<ContactWitness>> Intersections(Seq<Loop> subject, Seq<Loop> clip) =>
         subject.IsEmpty || clip.IsEmpty
             ? Fin.Succ(Seq<ContactWitness>())
             : PolygonAlgebra.Apply(new PolygonOp.Boolean(subject, clip, BooleanOp.Intersection, PolygonFill.NonZero), Op.Of())
-                .Bind(static trace => trace is PolygonTrace.Regions regions
-                    // The witness locates the CONTACT: an overlap region's first vertex is an arbitrary seam the
-                    // Boolean happened to open on, so two runs of one contact could report two different points.
-                    ? Fin.Succ(regions.Result.Nodes.Filter(static node => !node.IsHole)
-                        .Map(static node => new ContactWitness(node.Centroid, Math.Abs(node.SignedArea))))
-                    : Fin.Fail<Seq<ContactWitness>>(Op.Of(name: nameof(Intersections)).InvalidResult()));
+                // The witness locates the CONTACT: an overlap region's first vertex is an arbitrary seam the
+                // Boolean happened to open on, so two runs of one contact could report two different points.
+                .Bind(static trace => trace
+                    .Regioned(new KernelFault.InvalidValue("guard", "guard:intersection-trace"))
+                    .Map(static topology => topology.Nodes.Filter(static node => !node.IsHole)
+                        .Map(static node => new ContactWitness(node.Centroid, Math.Abs(node.SignedArea)))));
 }
 
 // The clearance-parallel measuring case: one probe census derived from the channel's own geometry, and the
@@ -979,7 +1020,7 @@ public static class ClearanceBench {
                     Point3d to = new(channel.NodeX[channel.ArcTo[arc]], channel.NodeY[channel.ArcTo[arc]], channel.NodeZ[channel.ArcTo[arc]]);
                     return Range(1, ArcSteps).ToSeq().Map(step => from + ((double)step / (ArcSteps + 1) * (to - from)));
                 })).ToArr())
-            : Fin.Fail<Arr<Point3d>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "bench:clearance-parallel"));
+            : Fin.Fail<Arr<Point3d>>(new KernelFault.InvalidValue("guard", "bench:clearance-parallel"));
 
     // Measured lane: the exact partitioned reduction the claim's vectorized column names.
     public static double Measured(Arr<Point3d> points, CurveSkeleton channel) {

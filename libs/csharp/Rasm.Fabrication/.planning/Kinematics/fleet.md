@@ -1,25 +1,29 @@
 # [RASM_FABRICATION_MACHINE_FLEET]
 
-`Fleet` owns the one shop-capability join from an admitted component and an admitted `MachineFleet` to ranked `MachineMatch` evidence, and the one finite-capacity seat from a demand roster to physical stations. `FleetDemand` reads the component quantity bag once through typed `DemandKey` rows keyed in the seam's own `PropertyName` space, each `CapabilityCriterion` generates its fact, and each `FleetObjective` generates its weighted penalty; rejected pairs remain visible with demanded, available, unit, and locus evidence.
+`Fleet` owns the one shop-capability join from an admitted component and an admitted `MachineFleet` to ranked `MachineMatch` evidence, and the one finite-capacity seat from a demand roster to physical stations. `FleetDemand` reads the component quantity bag once through typed `DemandKey` rows keyed in the seam's own `PropertyName` space and decodes that bag's capability REQUESTS into one `CapabilitySet<FleetCapability>` at the same boundary; each `CapabilityCriterion` generates its fact under the three-state `FactVerdict`, each `FleetObjective` carries the priority and scale its penalty folds through, and a dimension no pair asked for answers `NotDemanded` instead of passing over a zero demand.
 
-`StationCapacity` is a TYPED per-case payload carrying its `CapacityAxis` and a `UnitsNet` quantity, so two stations compare only where they answer the same axis and a kilonewton can never be ranked against a millimetre. Availability is a GENERATED calendar: `CalendarSpan` closes dated and yearly-recurrent windows on `AnnualDate`, `MaintenanceRule` generates every hole, `ShiftCalendar.Horizon` reports capacity per `YearMonth`, and a caller-supplied literal interval roster is the deleted form. `AvailabilityPlan.Finish` is the ONE seat — the body that consumes an instance's staffed windows at its committed load — so `Process/derivation` advances each operation through the assigned station's own plan, `FleetAvailability` publishes the window census per `MachineInstanceKey` beside it, and `Fleet.Assign` covers a demand roster through `HungarianAlgorithm` over that same seat with its cost row retained as promise-interval evidence. `MachineInstanceKey` arrives settled from `Process/owner#PLAN_ATOMS`; a bare instance string is the deleted form. A process names NO dialect, so controller fitness reads `PostDialect.Admits` against the process modality.
+`StationCapacity` is a TYPED per-case payload carrying its `CapacityAxis` and a `UnitsNet` quantity, so two stations compare only where they answer the same axis and a kilonewton can never be ranked against a millimetre. Availability is a GENERATED calendar: `CalendarSpan` closes dated and yearly-recurrent windows on `AnnualDate`, `MaintenanceRule` generates every hole, `ShiftCalendar.Horizon` reports capacity per `YearMonth`, and a caller-supplied literal interval roster is the deleted form. `AvailabilityPlan.Finish` is the ONE seat — the body that consumes an instance's staffed windows at its committed load — so `Process/derivation` advances each operation through the assigned station's own plan, `FleetAvailability` publishes the window census per `MachineInstanceKey` beside it, and `Fleet.Assign` covers a demand roster through `HungarianAlgorithm` over that same seat with its cost row retained as promise-interval evidence. `AvailabilityPlan.Standing` is the ONE routing verdict and names declared state, staffing, and registry absence apart, so the registry index and the capability join read one body. `MachineInstanceKey` arrives settled from `Process/atoms#PLAN`; a bare instance string is the deleted form. A process names NO dialect, so controller fitness reads `PostDialect.Admits` against the process modality.
 
 ## [01]-[INDEX]
 
-- [02]-[DEMAND_AXES]: `DemandUnit`, `DemandKey`, `FabricationRows`, and the once-derived `FleetDemand` with its projected `ConstitutiveState`.
-- [03]-[STATION_CAPABILITY]: `DeliveryLane`, `StationProcesses`, `ProcessEnvelope` with its base delivery, power, and admitted-process columns, `StationCapacity`, `SpindleWindow`, and `StationAssessment`.
-- [04]-[SHIFT_CALENDAR]: `CalendarSpan`, `CalendarExceptionKind`, `ShiftBlock`, `CalendarException`, `MaintenanceRule`, `ShiftCalendar`, `MachineAvailability`, and `AvailabilityPlan`.
+- [02]-[DEMAND_AXES]: `DemandUnit`, `DemandKey`, `FabricationRows`, `CapabilityRequest`, `FleetCapability`, and the once-derived `FleetDemand` with its projected `ConstitutiveState` and decoded capability requests.
+- [03]-[STATION_CAPABILITY]: `DeliveryLane`, `FactVerdict`, `StationProcesses`, `ProcessEnvelope` with its base delivery, power, and admitted-process columns, `StationCapacity`, `SpindleWindow`, and `StationAssessment`.
+- [04]-[SHIFT_CALENDAR]: `CalendarSpan`, `BlockDisposition`, `CalendarExceptionKind`, `ShiftBlock`, `CalendarException`, `MaintenanceRule`, `ShiftCalendar`, `MachineAvailability`, `RoutingStanding`, and `AvailabilityPlan`.
 - [05]-[FLEET_REGISTRY]: `PerformanceBaseline`, `MachinePerformance`, `MachineInstance`, `MachineRegistration`, `FleetRegistrationMap`, `CapabilityEnrollment`, `MachineFleet`, and `FleetSlots`.
-- [06]-[CAPABILITY_JOIN]: `CapabilityCriterion`, `FleetObjective`, `FleetPolicy`, `CapabilityFact`, `CapabilityCheck`, the context shapes, `MachineMatch`, and `Fleet.Capable`.
+- [06]-[CAPABILITY_JOIN]: `CapabilityCriterion`, `FleetObjective`, `ObjectiveTuning`, `FleetPolicy`, `CapabilityFact`, `CapabilityCheck`, the context shapes, `MachineMatch`, and `Fleet.Capable`.
 - [07]-[INSTANCE_CONTENTION]: `InstanceWindow`, `FleetAvailability`, `DemandSlot`, `AssignmentCost`, `FleetAssignment`, and `Fleet.Assign`.
 
 ## [02]-[DEMAND_AXES]
 
-- Owner: `DemandKey` owns quantity ingress, its row name, and scalar admission; `DemandUnit` owns the evidence unit tag every `CapabilityFact` carries; `FleetDemand` owns the once-derived component demand and its projected constitutive state.
+- Owner: `DemandKey` owns quantity ingress, its row name, and scalar admission; `DemandUnit` owns the evidence unit tag every `CapabilityFact` carries AND whether that unit's readings are whole; `FleetCapability` owns the pair-fitness vocabulary on the kernel `ICapability` floor; `CapabilityRequest` owns what makes a capability demanded; `FleetDemand` owns the once-derived component demand, its projected constitutive state, and its decoded capability requests.
+- Law: the `DemandKey` roster is SELF-DECLARED shop vocabulary — no ISO, VDI, or MTConnect roster enumerates these axes, and none is cited. Its provenance is this package's own station families: every row exists because a `ProcessEnvelope` case or a `CapabilityCriterion` reads it, so a row no station arm and no criterion consumes is decorative and deletes rather than waiting for a standard to bless it.
 - Law: a component quantity is keyed by `PropertyName` minted through `PropertyCategory.Fabrication.Row` — the one key space `AdmittedComponent.Quantities` and `Ingress/element` already write — so a bare string key never reaches the bag and a `PropertyName.Create` at a read site is the deleted form.
 - Law: an absent CEILING is `None`, never a positive-infinity bound. A sentinel ceiling compares as a real limit in every fold that reads it and silently admits a value no shop declared.
-- Auto: every constitutive axis is a `DemandKey` row the ingress already read and range-admitted against the same bounds `ConstitutiveState` validates, so the state is a total projection of the bag — derived once per demand on the rail, never a second stored copy a caller can fill with three of its six members.
-- Growth: a new component scalar is one `DemandKey` row carrying its unit, fallback, integrality, and bounds.
+- Law: integrality is the UNIT's fact, never a per-row knob. A count is whole and a millimetre is not, so `DemandUnit.Whole` decides it once for every row that carries the unit; the deleted form is a positional `bool integral` repeated on every row, which is also what let `Hardness` sit on `DemandUnit.Count` while declaring itself fractional — a scale reading wearing a tally's unit, now `DemandUnit.HardnessNumber`.
+- Law: a REQUEST is a capability membership, never a count. `CertificationRequired` and `BarFeedRequired` were `DemandUnit.Count` rows with a `Some(1.0)` ceiling — flags wearing a quantity's clothes, whose facts published "demand 1.0, available 1.0" in counts and whose ceiling read as a real shop limit in every fold that saw it. They are `FleetCapability` rows now, decoded once at the bag boundary into `FleetDemand.Requested`, and the interior sees membership only.
+- Auto: every constitutive axis is a `DemandKey` row the ingress already read and range-admitted against the same bounds `ConstitutiveState` validates, so the state is a total projection of the bag — derived once per demand on the rail, never a second stored copy a caller can fill with three of its six members. `FleetCapability.Holds` generates the held set from the roster and `CapabilityRequest` generates the required set, so neither is a hand-built column of adjacent booleans.
+- Growth: a new component scalar is one `DemandKey` row carrying its unit, fallback, and bounds; a new fitness dimension is one `FleetCapability` row carrying its request regime and its held predicate; a new request regime is one `CapabilityRequest` case.
+- Packages: `Rasm/Domain/validation#CAPABILITY` supplies `ICapability` and `CapabilitySet` — membership, the required-set seam, the `Missing` evidence complement, and the rank-ordered wire all arrive from the kernel column and this page mints no set algebra of its own; `Rasm/Domain/rails#VALIDITY_FOLD` supplies `ValidityClaim`; `Rasm.Element` supplies `PropertyName` and `PropertyCategory`; Thinktecture.Runtime.Extensions owns the closed rows.
 - Boundary: this cluster reads the admitted component's own bag and nothing else; geometry bounds and material identity resolve at the join.
 
 ```csharp signature
@@ -49,23 +53,33 @@ namespace Rasm.Fabrication.Kinematics;
 
 // --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
 // --- [DEMAND_AXES]
+// The unit decides whether its readings are WHOLE, so integrality is stated once per unit rather than as a
+// positional `bool` on every axis row that carries it. `HardnessNumber` exists because a scale reading is
+// dimensionless without being a tally: seated on `Count` it had to declare itself fractional, which is exactly
+// the contradiction a per-row knob can spell and a unit column cannot.
 [SmartEnum<string>]
 public sealed partial class DemandUnit {
-    public static readonly DemandUnit Count = new("count");
-    public static readonly DemandUnit Millimeter = new("mm");
-    public static readonly DemandUnit Micrometer = new("um");
-    public static readonly DemandUnit Degree = new("deg");
-    public static readonly DemandUnit Kilowatt = new("kw");
-    public static readonly DemandUnit Kilonewton = new("kn");
-    public static readonly DemandUnit Kilogram = new("kg");
-    public static readonly DemandUnit KilogramPerMinute = new("kg/min");
-    public static readonly DemandUnit NewtonMeter = new("n-m");
-    public static readonly DemandUnit Bar = new("bar");
-    public static readonly DemandUnit Kilohertz = new("khz");
-    public static readonly DemandUnit PerMinute = new("1/min");
-    public static readonly DemandUnit PerSecond = new("1/s");
-    public static readonly DemandUnit DegreeCelsius = new("deg-c");
-    public static readonly DemandUnit Ratio = new("ratio");
+    public static readonly DemandUnit Count = new("count", whole: true);
+    public static readonly DemandUnit Millimeter = new("mm", whole: false);
+    public static readonly DemandUnit Micrometer = new("um", whole: false);
+    public static readonly DemandUnit Degree = new("deg", whole: false);
+    public static readonly DemandUnit Kilowatt = new("kw", whole: false);
+    public static readonly DemandUnit Kilonewton = new("kn", whole: false);
+    public static readonly DemandUnit Kilogram = new("kg", whole: false);
+    public static readonly DemandUnit KilogramPerMinute = new("kg/min", whole: false);
+    public static readonly DemandUnit NewtonMeter = new("n-m", whole: false);
+    public static readonly DemandUnit Bar = new("bar", whole: false);
+    public static readonly DemandUnit Kilohertz = new("khz", whole: false);
+    public static readonly DemandUnit PerMinute = new("1/min", whole: false);
+    public static readonly DemandUnit PerSecond = new("1/s", whole: false);
+    public static readonly DemandUnit DegreeCelsius = new("deg-c", whole: false);
+    public static readonly DemandUnit HardnessNumber = new("hardness", whole: false);
+    public static readonly DemandUnit Ratio = new("ratio", whole: false);
+
+    public bool Whole { get; }
+
+    internal ValidityClaim Admits(double value) =>
+        ValidityClaim.All(ValidityClaim.Finite(value), !Whole || value == Math.Truncate(value));
 }
 
 // The row names this page reads off an admitted component's bag, minted under the seam's own blessed prefix so the
@@ -75,75 +89,142 @@ public static class FabricationRows {
 }
 
 // A row names its own bag key, its evidence unit, the value a silent bag answers with, and its admitted band; the
-// ceiling is `None` where the axis has no shop-declared upper bound.
+// ceiling is `None` where the axis has no shop-declared upper bound, and integrality arrives with the unit.
 [SmartEnum<string>]
 public sealed partial class DemandKey {
-    public static readonly DemandKey MinAxes = Of("demand:min-axes", DemandUnit.Count, 3.0, true, 1.0, None);
-    public static readonly DemandKey DistinctTools = Of("demand:distinct-tools", DemandUnit.Count, 0.0, true, 0.0, None);
-    public static readonly DemandKey SpindleKw = Of("demand:spindle-kw", DemandUnit.Kilowatt, 0.0, false, 0.0, None);
-    public static readonly DemandKey ItGrade = Of("demand:it-grade", DemandUnit.Count, 12.0, true, 1.0, Some(18.0));
-    public static readonly DemandKey WorkpieceDiameter = Of("demand:workpiece-diameter-mm", DemandUnit.Millimeter, 0.0, false, 0.0, None);
-    public static readonly DemandKey WorkpieceLength = Of("demand:workpiece-length-mm", DemandUnit.Millimeter, 0.0, false, 0.0, None);
-    public static readonly DemandKey Taper = Of("demand:taper-deg", DemandUnit.Degree, 0.0, false, 0.0, None);
-    public static readonly DemandKey BuildHeads = Of("demand:build-heads", DemandUnit.Count, 1.0, true, 1.0, None);
-    public static readonly DemandKey BrakeForce = Of("demand:brake-force-kn", DemandUnit.Kilonewton, 0.0, false, 0.0, None);
-    public static readonly DemandKey GaugeTravel = Of("demand:gauge-travel-mm", DemandUnit.Millimeter, 0.0, false, 0.0, None);
-    public static readonly DemandKey OpenHeight = Of("demand:open-height-mm", DemandUnit.Millimeter, 0.0, false, 0.0, None);
-    public static readonly DemandKey BedLength = Of("demand:bed-length-mm", DemandUnit.Millimeter, 0.0, false, 0.0, None);
-    public static readonly DemandKey Miter = Of("demand:miter-deg", DemandUnit.Degree, 0.0, false, 0.0, None);
-    public static readonly DemandKey Payload = Of("demand:payload-kg", DemandUnit.Kilogram, 0.0, false, 0.0, None);
-    public static readonly DemandKey MinReliability = Of("demand:min-reliability", DemandUnit.Ratio, 0.0, false, 0.0, Some(1.0));
-    public static readonly DemandKey ToolDiameter = Of("demand:tool-diameter-mm", DemandUnit.Millimeter, 0.0, false, 0.0, None);
-    public static readonly DemandKey SpindleTorque = Of("demand:spindle-torque-nm", DemandUnit.NewtonMeter, 0.0, false, 0.0, None);
-    public static readonly DemandKey PartMass = Of("demand:part-mass-kg", DemandUnit.Kilogram, 0.0, false, 0.0, None);
-    public static readonly DemandKey LayerHeight = Of("demand:layer-height-mm", DemandUnit.Millimeter, 0.0, false, 0.0, None);
-    public static readonly DemandKey Pressure = Of("demand:pressure-bar", DemandUnit.Bar, 0.0, false, 0.0, None);
-    public static readonly DemandKey AbrasiveFlow = Of("demand:abrasive-kg-min", DemandUnit.KilogramPerMinute, 0.0, false, 0.0, None);
-    public static readonly DemandKey WireDiameter = Of("demand:wire-diameter-mm", DemandUnit.Millimeter, 0.0, false, 0.0, None);
-    public static readonly DemandKey ExternalAxes = Of("demand:external-axes", DemandUnit.Count, 0.0, true, 0.0, None);
-    public static readonly DemandKey CertificationRequired = Of("demand:certification-required", DemandUnit.Count, 0.0, true, 0.0, Some(1.0));
-    public static readonly DemandKey Frequency = Of("demand:frequency-khz", DemandUnit.Kilohertz, 0.0, false, 0.0, None);
-    public static readonly DemandKey Stroke = Of("demand:stroke-mm", DemandUnit.Millimeter, 0.0, false, 0.0, None);
-    public static readonly DemandKey LineStations = Of("demand:line-stations", DemandUnit.Count, 1.0, true, 1.0, None);
-    public static readonly DemandKey CyclesPerMinute = Of("demand:cycles-per-minute", DemandUnit.PerMinute, 0.0, false, 0.0, None);
-    public static readonly DemandKey Temperature = Of("demand:temperature-c", DemandUnit.DegreeCelsius, 20.0, false, 0.0, None);
-    public static readonly DemandKey Hardness = Of("demand:hardness", DemandUnit.Count, 0.0, false, 0.0, None);
-    public static readonly DemandKey StrainRate = Of("demand:strain-rate", DemandUnit.PerSecond, 0.0, false, 0.0, None);
-    public static readonly DemandKey Strain = Of("demand:strain", DemandUnit.Ratio, 0.0, false, 0.0, None);
-    public static readonly DemandKey Moisture = Of("demand:moisture", DemandUnit.Ratio, 0.0, false, 0.0, Some(1.0));
-    public static readonly DemandKey GrainSize = Of("demand:grain-size-um", DemandUnit.Micrometer, 0.0, false, 0.0, None);
-    public static readonly DemandKey BarFeedRequired = Of("demand:bar-feed-required", DemandUnit.Count, 0.0, true, 0.0, Some(1.0));
-    public static readonly DemandKey BendRadius = Of("demand:bend-radius-mm", DemandUnit.Millimeter, 0.0, false, 0.0, None);
+    public static readonly DemandKey MinAxes = Of("demand:min-axes", DemandUnit.Count, 3.0, 1.0, None);
+    public static readonly DemandKey DistinctTools = Of("demand:distinct-tools", DemandUnit.Count, 0.0, 0.0, None);
+    public static readonly DemandKey SpindleKw = Of("demand:spindle-kw", DemandUnit.Kilowatt, 0.0, 0.0, None);
+    public static readonly DemandKey ItGrade = Of("demand:it-grade", DemandUnit.Count, 12.0, 1.0, Some(18.0));
+    public static readonly DemandKey WorkpieceDiameter = Of("demand:workpiece-diameter-mm", DemandUnit.Millimeter, 0.0, 0.0, None);
+    public static readonly DemandKey WorkpieceLength = Of("demand:workpiece-length-mm", DemandUnit.Millimeter, 0.0, 0.0, None);
+    public static readonly DemandKey Taper = Of("demand:taper-deg", DemandUnit.Degree, 0.0, 0.0, None);
+    public static readonly DemandKey BuildHeads = Of("demand:build-heads", DemandUnit.Count, 1.0, 1.0, None);
+    public static readonly DemandKey BrakeForce = Of("demand:brake-force-kn", DemandUnit.Kilonewton, 0.0, 0.0, None);
+    public static readonly DemandKey GaugeTravel = Of("demand:gauge-travel-mm", DemandUnit.Millimeter, 0.0, 0.0, None);
+    public static readonly DemandKey OpenHeight = Of("demand:open-height-mm", DemandUnit.Millimeter, 0.0, 0.0, None);
+    public static readonly DemandKey BedLength = Of("demand:bed-length-mm", DemandUnit.Millimeter, 0.0, 0.0, None);
+    public static readonly DemandKey Miter = Of("demand:miter-deg", DemandUnit.Degree, 0.0, 0.0, None);
+    public static readonly DemandKey Payload = Of("demand:payload-kg", DemandUnit.Kilogram, 0.0, 0.0, None);
+    public static readonly DemandKey MinReliability = Of("demand:min-reliability", DemandUnit.Ratio, 0.0, 0.0, Some(1.0));
+    public static readonly DemandKey ToolDiameter = Of("demand:tool-diameter-mm", DemandUnit.Millimeter, 0.0, 0.0, None);
+    public static readonly DemandKey SpindleTorque = Of("demand:spindle-torque-nm", DemandUnit.NewtonMeter, 0.0, 0.0, None);
+    public static readonly DemandKey PartMass = Of("demand:part-mass-kg", DemandUnit.Kilogram, 0.0, 0.0, None);
+    public static readonly DemandKey LayerHeight = Of("demand:layer-height-mm", DemandUnit.Millimeter, 0.0, 0.0, None);
+    public static readonly DemandKey Pressure = Of("demand:pressure-bar", DemandUnit.Bar, 0.0, 0.0, None);
+    public static readonly DemandKey AbrasiveFlow = Of("demand:abrasive-kg-min", DemandUnit.KilogramPerMinute, 0.0, 0.0, None);
+    public static readonly DemandKey WireDiameter = Of("demand:wire-diameter-mm", DemandUnit.Millimeter, 0.0, 0.0, None);
+    public static readonly DemandKey ExternalAxes = Of("demand:external-axes", DemandUnit.Count, 0.0, 0.0, None);
+    public static readonly DemandKey Frequency = Of("demand:frequency-khz", DemandUnit.Kilohertz, 0.0, 0.0, None);
+    public static readonly DemandKey Stroke = Of("demand:stroke-mm", DemandUnit.Millimeter, 0.0, 0.0, None);
+    public static readonly DemandKey LineStations = Of("demand:line-stations", DemandUnit.Count, 1.0, 1.0, None);
+    public static readonly DemandKey CyclesPerMinute = Of("demand:cycles-per-minute", DemandUnit.PerMinute, 0.0, 0.0, None);
+    public static readonly DemandKey Temperature = Of("demand:temperature-c", DemandUnit.DegreeCelsius, 20.0, 0.0, None);
+    public static readonly DemandKey Hardness = Of("demand:hardness", DemandUnit.HardnessNumber, 0.0, 0.0, None);
+    public static readonly DemandKey StrainRate = Of("demand:strain-rate", DemandUnit.PerSecond, 0.0, 0.0, None);
+    public static readonly DemandKey Strain = Of("demand:strain", DemandUnit.Ratio, 0.0, 0.0, None);
+    public static readonly DemandKey Moisture = Of("demand:moisture", DemandUnit.Ratio, 0.0, 0.0, Some(1.0));
+    public static readonly DemandKey GrainSize = Of("demand:grain-size-um", DemandUnit.Micrometer, 0.0, 0.0, None);
+    public static readonly DemandKey BendRadius = Of("demand:bend-radius-mm", DemandUnit.Millimeter, 0.0, 0.0, None);
 
     public PropertyName Row { get; }
     public DemandUnit Unit { get; }
     public double Fallback { get; }
-    public bool Integral { get; }
     public double Minimum { get; }
     public Option<double> Maximum { get; }
 
     private static DemandKey Of(
-        string key, DemandUnit unit, double fallback, bool integral, double minimum, Option<double> maximum) =>
-        new(key, PropertyCategory.Fabrication.Row(key), unit, fallback, integral, minimum, maximum);
+        string key, DemandUnit unit, double fallback, double minimum, Option<double> maximum) =>
+        new(key, PropertyCategory.Fabrication.Row(key), unit, fallback, minimum, maximum);
 
     internal Fin<double> Read(Map<PropertyName, double> quantities) {
         double value = quantities.Find(Row).IfNone(Fallback);
-        return double.IsFinite(value) && value >= Minimum
-            && Maximum.Map(ceiling => value <= ceiling).IfNone(true)
-            && (!Integral || value == Math.Truncate(value))
+        return ValidityClaim.All(
+                Unit.Admits(value),
+                value >= Minimum,
+                Maximum.Map(ceiling => value <= ceiling).IfNone(true))
             ? Fin.Succ(value)
-            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Fleet, $"fleet:demand:{Key}"));
+            : Fin.Fail<double>(new KernelFault.InvalidValue("fleet", $"fleet:demand:{Key}"));
     }
 }
 
+// What makes a fitness dimension DEMANDED of an (instance, process) pair, closed. `Routing` is an invariant every
+// pair answers, `Flagged` reads the component's own bag row once at the boundary, and `Cell` is demanded exactly
+// where a cell station answers the process. A `DemandKey` count row with a `Some(1.0)` ceiling could spell only
+// the middle regime, and spelled it as a quantity — so `2.0` in a flag row refused the whole demand and the
+// ceiling read as a shop limit in every fold that saw it.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record CapabilityRequest {
+    private CapabilityRequest() { }
+
+    public sealed record Always : CapabilityRequest;
+    public sealed record Flagged(PropertyName Row) : CapabilityRequest;
+    public sealed record OnCell : CapabilityRequest;
+
+    public static readonly CapabilityRequest Routing = new Always();
+    public static readonly CapabilityRequest Cell = new OnCell();
+
+    public static CapabilityRequest Flag(string key) => new Flagged(PropertyCategory.Fabrication.Row(key));
+}
+
+// The pair-fitness vocabulary on the kernel `ICapability` floor: five adjacent `bool` columns on one record were a
+// boolean product whose legal corners nothing stated, and the `bool isCell` beside them was a sixth answer to a
+// question the CellReach request already decides. `Rank` stays the interface's DERIVED declaration order — an
+// ordinal column beside `Items` is the refused form — and `Holds` is the row's own held predicate, so the held set
+// is GENERATED from the roster rather than crossed by hand at the one construction site.
+[SmartEnum<string>]
+public sealed partial class FleetCapability : ICapability<FleetCapability> {
+    public static readonly FleetCapability Physics = new("physics", CapabilityRequest.Routing,
+        holds: static context => context.Demand.Material.Physics.ContainsKey(context.Process.Physics));
+    public static readonly FleetCapability Material = new("material", CapabilityRequest.Routing,
+        holds: static context =>
+            (context.Instance.Materials.IsEmpty || context.Instance.Materials.Contains(context.Demand.Material))
+            && Fleet.StationMaterial(context.Instance, context.Process, context.Demand.Material));
+    public static readonly FleetCapability Grade = new("grade", CapabilityRequest.Routing,
+        holds: static context => context.Demanded.AchievedGrade <= context.Demanded.Grade);
+    public static readonly FleetCapability Certification = new("certification",
+        CapabilityRequest.Flag("demand:certification-required"),
+        holds: static context => context.Instance.Certifications.Contains(context.Process));
+    // Bar feeding is a capability with its own evidence row, not a clause buried inside the turning station's
+    // fused `fits`: a lot refused because no installed bar feeder reaches its diameter now says so, where before
+    // the refusal arrived indistinguishable from a swing or a between-centers miss.
+    public static readonly FleetCapability BarFeed = new("bar-feed",
+        CapabilityRequest.Flag("demand:bar-feed-required"),
+        holds: static context => context.Instance.Station<ProcessEnvelope.Turning>()
+            .Filter(row => row.Admits(context.Process))
+            .Exists(row => context.Demand.TurnedDiameter <= row.BarCapacity));
+    public static readonly FleetCapability CellReach = new("cell-reach", CapabilityRequest.Cell,
+        holds: static context =>
+            context.Cells.Exists(cell => Fleet.Headroom(context.Demand.Part, cell.Reach) >= 0.0));
+
+    public CapabilityRequest Request { get; }
+    internal Func<CapabilityContext, bool> Holds { get; }
+}
+
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-internal sealed record FleetDemand(BoundingBox Part, Material Material, Map<DemandKey, double> Scalars, ConstitutiveState State) {
+internal sealed record FleetDemand(
+    BoundingBox Part,
+    Material Material,
+    Map<DemandKey, double> Scalars,
+    CapabilitySet<FleetCapability> Requested,
+    ConstitutiveState State) {
     public double this[DemandKey key] => Scalars.Find(key).IfNone(key.Fallback);
+
+    // The turned envelope is derived ONCE: the demanded workpiece diameter or the part's own smaller planar
+    // extent, whichever is larger, and the demanded length against its larger extent. The turning station arm
+    // and the bar-feed capability both read THIS, so a swing verdict and a bar-capacity verdict can never
+    // disagree about which diameter they judged.
+    public Length TurnedDiameter =>
+        Length.FromMillimeters(Math.Max(this[DemandKey.WorkpieceDiameter], Fleet.Planar(Part).Min));
+    public Length TurnedLength =>
+        Length.FromMillimeters(Math.Max(this[DemandKey.WorkpieceLength], Fleet.Planar(Part).Max));
 
     // Every constitutive axis is a `DemandKey` row the ingress already read and range-admitted against the same
     // bounds `ConstitutiveState` validates, so the state is a total projection of the bag — admitted once on the
-    // rail rather than through a throwing `Create` inside a property initializer.
-    public static Fin<FleetDemand> Of(BoundingBox part, Material material, Map<DemandKey, double> scalars) =>
+    // rail rather than through a throwing `Create` inside a property initializer. Capability REQUESTS decode at
+    // the same boundary and by the same bag, so the interior never re-reads a flag row as a number.
+    public static Fin<FleetDemand> Of(
+        BoundingBox part, Material material, Map<PropertyName, double> quantities, Map<DemandKey, double> scalars) =>
         ConstitutiveState.Validate(
                 Read(scalars, DemandKey.Temperature),
                 Read(scalars, DemandKey.Hardness),
@@ -153,7 +234,15 @@ internal sealed record FleetDemand(BoundingBox Part, Material Material, Map<Dema
                 Read(scalars, DemandKey.GrainSize),
                 out ConstitutiveState state)
             .Admitted(state)
-            .Map(admitted => new FleetDemand(part, material, scalars, admitted));
+            .Map(admitted => new FleetDemand(part, material, scalars, Requests(quantities), admitted));
+
+    // A row present and nonzero requests its capability; an absent or zero row requests nothing. This is the ONE
+    // decode of a bag flag on the page, and past it the request is set membership with no number left in it.
+    private static CapabilitySet<FleetCapability> Requests(Map<PropertyName, double> quantities) =>
+        CapabilitySet<FleetCapability>.Of(FleetCapability.Items
+            .Where(row => row.Request is CapabilityRequest.Flagged flag
+                && quantities.Find(flag.Row).Exists(static value => double.IsFinite(value) && value != 0.0))
+            .ToArray());
 
     private static double Read(Map<DemandKey, double> scalars, DemandKey key) => scalars.Find(key).IfNone(key.Fallback);
 }
@@ -161,13 +250,17 @@ internal sealed record FleetDemand(BoundingBox Part, Material Material, Map<Dema
 
 ## [03]-[STATION_CAPABILITY]
 
-- Owner: `ProcessEnvelope` closes installed station capability; `StationCapacity` owns the TYPED capacity a station offers on one `CapacityAxis`; `SpindleWindow` owns the rotating-station speed band; `StationAssessment` owns one station's verdict evidence; `DeliveryLane` owns how a program reaches the machine.
+- Owner: `ProcessEnvelope` closes installed station capability; `StationCapacity` owns the TYPED capacity a station offers on one `CapacityAxis`; `SpindleWindow` owns the rotating-station speed band; `FactVerdict` owns the page's ONE three-state verdict; `StationAssessment` owns one station's verdict evidence; `DeliveryLane` owns how a program reaches the machine.
 - Cases: `ProcessEnvelope` covers rotating milling, turning, grinding, sawing, thermal sheet cutting, waterjet, ultrasonic abrasion, wire tank, additive build, press brake, linear stroke, roll forming, tube bender, and robot cell. `StationCapacity` closes extent, force, mass, power, pressure, speed, and count payloads.
 - Law: a capacity is TYPED and axis-keyed, so two stations compare only where they answer the SAME `CapacityAxis`. The untyped scalar this replaces let a press brake's kilonewtons rank against a wire tank's millimetres whenever one instance carried both stations admitting one process, and the winner was whichever number happened to be larger.
-- Law: `Delivery`, `PowerKw`, and the admitted process roster are BASE positional columns. Thirteen of fourteen stations leave an artifact where their controller reads it, so those thirteen derive one intermediate `Dropped` base and spell nothing, while the cell case supplies `Controller` directly — the fourteen-arm switch whose thirteen arms were byte-identical has no body left to hold.
+- Law: `Delivery`, `Source`, and the admitted process roster are BASE positional columns. Thirteen station leaves pass `FileDrop` directly to the union root, while the cell leaf passes `Controller`; no intermediate case enters the generated union solely to share a constant.
 - Law: the admitted process roster is stated ONCE, on the base column. Every assessment arm previously re-tested the correspondence its own `Admits` had already decided; the station fold filters on `Admits` before an arm runs, so a re-test is a second statement of one fact.
+- Law: `FactVerdict` carries THREE states and the third is `NotDemanded`, never a `true` over a zero demand. Payload off a cell and certification no component requested both reported `Pass` with demand and available at zero, so a feasibility read conflated a satisfied dimension with an unasked one and a rejection census counted the unasked as passing.
+- Law: `StationAssessment` carries ONE verdict, not a `(Present, Fits)` pair. Absent-yet-fitting is that product's fourth corner and nothing means it; the pair's only consumer conjoined both columns anyway, so the second carrier stated nothing and no reader read it.
+- Law: station validity reaches the kernel oracle. `ProcessEnvelope` implements `IValidityEvidence` and composes `ValidityClaim` rows, so `OpAcceptance.ValidityOf` answers on the envelope's own fold; the page-local `double.IsFinite && > 0` predicate it replaces was a hand twin of `ValidityClaim.Positive` sitting beside an admitted kernel.
 - Auto: `SpindleWindow.Required` composes `Process/physics#BUDGET_FOLD` `SurfaceSpeed.Rpm` over the CUTTING diameter — the one forward cutting-speed relation in the package — so no arm re-derives `vc * 1000 / (pi * D)`.
 - Growth: a new station modality is one `ProcessEnvelope` case with its three base columns and one assessment arm; a new capacity dimension is one `StationCapacity` case over an existing `CapacityAxis` row.
+- Packages: `Rasm/Domain/rails#VALIDITY_FOLD` supplies `IValidityEvidence` and every `ValidityClaim` row the envelope fold composes; UnitsNet owns the typed capacities; Thinktecture.Runtime.Extensions owns the closed families.
 - Boundary: `Process/family` `MachineCapacity` is the machine CLASS operating envelope admitted with the equipment; `ProcessEnvelope` is the INSTALLED station a program runs on, so the two never mirror and a station absent from the shop floor cannot be inferred from the class.
 
 ```csharp signature
@@ -178,6 +271,17 @@ internal sealed record FleetDemand(BoundingBox Part, Material Material, Map<Dema
 public sealed partial class DeliveryLane {
     public static readonly DeliveryLane FileDrop = new("file-drop");
     public static readonly DeliveryLane Controller = new("controller");
+}
+
+// The page's ONE verdict: a dimension is met, short, or was never demanded. `Judged` is the single lift from a
+// predicate result, so a criterion arm computing a boolean never spells the ternary itself.
+[SmartEnum<string>]
+public sealed partial class FactVerdict {
+    public static readonly FactVerdict Met = new("met");
+    public static readonly FactVerdict Short = new("short");
+    public static readonly FactVerdict NotDemanded = new("not-demanded");
+
+    internal static FactVerdict Judged(bool met) => met ? Met : Short;
 }
 
 // The frozen process rosters each station family admits. These seat BEFORE the envelope rows because a static
@@ -248,53 +352,49 @@ public readonly record struct SpindleWindow(RotationalSpeed Required, Rotational
     public bool Admits => Required >= Minimum && Required <= Maximum;
 }
 
-// `Delivery`, `PowerKw`, and `Processes` are base positional columns each case supplies from its own payload, so a
-// station declares no override body and the correspondence is stated once per case.
+// `Delivery`, `Source`, and `Processes` are base positional columns each direct case supplies from its own payload,
+// so generated union reachability stays leaf-flat and the correspondence is stated once per station case.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ProcessEnvelope(DeliveryLane Delivery, Option<Power> Source, Set<ProcessKind> Processes) {
-    // Every station but the cell leaves its program where its controller reads it, so the shared lane seats on one
-    // intermediate base and thirteen cases spell nothing.
-    public abstract record Dropped(Option<Power> Source, Set<ProcessKind> Processes)
-        : ProcessEnvelope(DeliveryLane.FileDrop, Source, Processes);
-
+public abstract partial record ProcessEnvelope(DeliveryLane Delivery, Option<Power> Source, Set<ProcessKind> Processes)
+    : IValidityEvidence {
     public sealed record Milling(
         Power SpindlePower, RotationalSpeed SpindleMin, RotationalSpeed SpindleMax, Length MinToolDiameter,
         Length MaxToolDiameter, Torque SpindleTorque, Mass TableLoad)
-        : Dropped(Some(SpindlePower), StationProcesses.Milling);
+        : ProcessEnvelope(DeliveryLane.FileDrop, Some(SpindlePower), StationProcesses.Milling);
     public sealed record Turning(
         Length Swing, Length BetweenCenters, Length BarCapacity, Length ChuckDiameter,
         Power SpindlePower, RotationalSpeed SpindleMin, RotationalSpeed SpindleMax, Set<ProcessKind> Secondary)
-        : Dropped(Some(SpindlePower), StationProcesses.Turning + Secondary);
+        : ProcessEnvelope(DeliveryLane.FileDrop, Some(SpindlePower), StationProcesses.Turning + Secondary);
     public sealed record Grinding(
         Length WheelDiameter, Length WheelWidth, Power SpindlePower, RotationalSpeed SpindleMin, RotationalSpeed SpindleMax)
-        : Dropped(Some(SpindlePower), StationProcesses.Grinding);
+        : ProcessEnvelope(DeliveryLane.FileDrop, Some(SpindlePower), StationProcesses.Grinding);
     public sealed record Saw(
         Length BladeDiameter, Length MaxSection, Angle MaxMiter,
         Power SpindlePower, RotationalSpeed SpindleMin, RotationalSpeed SpindleMax)
-        : Dropped(Some(SpindlePower), StationProcesses.Sawing);
+        : ProcessEnvelope(DeliveryLane.FileDrop, Some(SpindlePower), StationProcesses.Sawing);
     public sealed record Sheet(Length BedX, Length BedY, Length MaxThickness, Power SourcePower)
-        : Dropped(Some(SourcePower), StationProcesses.Sheet);
+        : ProcessEnvelope(DeliveryLane.FileDrop, Some(SourcePower), StationProcesses.Sheet);
     public sealed record Waterjet(
         Length BedX, Length BedY, Length MaxThickness, Pressure PumpPressure, MassFlow AbrasiveFlow)
-        : Dropped(None, StationProcesses.Waterjet);
+        : ProcessEnvelope(DeliveryLane.FileDrop, None, StationProcesses.Waterjet);
     public sealed record Abrasive(BoundingBox Volume, Frequency Ultrasound, Power SourcePower, Length MaxToolDiameter)
-        : Dropped(Some(SourcePower), StationProcesses.Ultrasonic);
+        : ProcessEnvelope(DeliveryLane.FileDrop, Some(SourcePower), StationProcesses.Ultrasonic);
     public sealed record WireTank(
         Length UTravel, Length VTravel, Angle MaxTaper, Length SubmergedHeight, Length WireMin, Length WireMax)
-        : Dropped(None, StationProcesses.Erosion);
+        : ProcessEnvelope(DeliveryLane.FileDrop, None, StationProcesses.Erosion);
     public sealed record Build(BoundingBox Volume, int Heads, Length MinLayer, Length MaxLayer, Set<Material> Materials)
-        : Dropped(None, StationProcesses.Build);
+        : ProcessEnvelope(DeliveryLane.FileDrop, None, StationProcesses.Build);
     public sealed record Brake(Force Capacity, Length GaugeTravel, Length OpenHeight, Length BedLength)
-        : Dropped(None, StationProcesses.Brake);
+        : ProcessEnvelope(DeliveryLane.FileDrop, None, StationProcesses.Brake);
     // `Admitted` is the case's own roster and the base `Processes` column projects it, the shape a rotary tool's
     // `MaxRpm` and its base spindle ceiling already take on the physics floor.
     public sealed record Stroke(
         Set<ProcessKind> Admitted, BoundingBox Volume, Length Stroke, Force Capacity, Mass TableLoad, double CyclesPerMinute)
-        : Dropped(None, Admitted);
+        : ProcessEnvelope(DeliveryLane.FileDrop, None, Admitted);
     public sealed record Roll(Length MaxWidth, Length MinThickness, Length MaxThickness, int Stations, Torque Torque)
-        : Dropped(None, StationProcesses.Roll);
+        : ProcessEnvelope(DeliveryLane.FileDrop, None, StationProcesses.Roll);
     public sealed record Bender(Length MinClr, Length MaxClr, int DieCount)
-        : Dropped(None, StationProcesses.Bender);
+        : ProcessEnvelope(DeliveryLane.FileDrop, None, StationProcesses.Bender);
     public sealed record Cell(RobotCell Robot, BoundingBox Reach, Mass Payload, int ExternalAxes)
         : ProcessEnvelope(DeliveryLane.Controller, None, StationProcesses.Cell);
 
@@ -318,51 +418,59 @@ public abstract partial record ProcessEnvelope(DeliveryLane Delivery, Option<Pow
         bender: static row => new StationCapacity.Tally(CapacityAxis.BedLength, row.DieCount),
         cell: static row => new StationCapacity.Held(CapacityAxis.Payload, row.Payload));
 
-    internal bool IsValid => Switch(
-        milling: static row => Positive(row.SpindlePower) && NonNegative(row.SpindleMin) && row.SpindleMax > row.SpindleMin
-            && Positive(row.MinToolDiameter) && row.MaxToolDiameter >= row.MinToolDiameter
-            && row.SpindleTorque > Torque.Zero && Positive(row.TableLoad),
-        turning: static row => Positive(row.Swing) && Positive(row.BetweenCenters) && Positive(row.BarCapacity)
-            && Positive(row.ChuckDiameter) && Positive(row.SpindlePower) && NonNegative(row.SpindleMin)
-            && row.SpindleMax > row.SpindleMin
-            && row.Secondary.ForAll(static process => process.Modality == ProcessModality.Subtractive && process != ProcessKind.Turn),
-        grinding: static row => Positive(row.WheelDiameter) && Positive(row.WheelWidth) && Positive(row.SpindlePower)
-            && NonNegative(row.SpindleMin) && row.SpindleMax > row.SpindleMin,
-        saw: static row => Positive(row.BladeDiameter) && Positive(row.MaxSection)
-            && row.MaxMiter >= Angle.Zero && row.MaxMiter <= Angle.FromDegrees(90.0)
-            && Positive(row.SpindlePower) && NonNegative(row.SpindleMin) && row.SpindleMax > row.SpindleMin,
-        sheet: static row => Positive(row.BedX) && Positive(row.BedY) && Positive(row.MaxThickness) && Positive(row.SourcePower),
-        waterjet: static row => Positive(row.BedX) && Positive(row.BedY) && Positive(row.MaxThickness)
-            && row.PumpPressure > Pressure.Zero && NonNegative(row.AbrasiveFlow),
-        abrasive: static row => row.Volume.IsValid && row.Ultrasound > Frequency.Zero
-            && Positive(row.SourcePower) && Positive(row.MaxToolDiameter),
-        wireTank: static row => Positive(row.UTravel) && Positive(row.VTravel) && row.MaxTaper >= Angle.Zero
-            && Positive(row.SubmergedHeight) && Positive(row.WireMin) && row.WireMax >= row.WireMin,
-        build: static row => row.Volume.IsValid && row.Heads > 0 && Positive(row.MinLayer)
-            && row.MaxLayer >= row.MinLayer && !row.Materials.IsEmpty,
-        brake: static row => row.Capacity > Force.Zero && Positive(row.GaugeTravel)
-            && Positive(row.OpenHeight) && Positive(row.BedLength),
-        stroke: static row => !row.Admitted.IsEmpty && row.Admitted.IsSubsetOf(StationProcesses.Press)
-            && row.Volume.IsValid && Positive(row.Stroke) && row.Capacity > Force.Zero
-            && Positive(row.TableLoad) && double.IsFinite(row.CyclesPerMinute) && row.CyclesPerMinute > 0.0,
-        roll: static row => Positive(row.MaxWidth) && Positive(row.MinThickness) && row.MaxThickness >= row.MinThickness
-            && row.Stations > 0 && row.Torque > Torque.Zero,
-        bender: static row => Positive(row.MinClr) && row.MaxClr >= row.MinClr && row.DieCount > 0,
-        cell: static row => row.Reach.IsValid && Positive(row.Payload) && row.ExternalAxes >= 0);
+    // The kernel evidence floor, so `OpAcceptance.ValidityOf` answers on this fold and a new station case reaches
+    // the oracle with zero oracle edits. Each arm is one `ValidityClaim.All` over the kernel's own claim rows.
+    public bool IsValid => Switch(
+        milling: static row => ValidityClaim.All(Positive(row.SpindlePower), NonNegative(row.SpindleMin),
+            row.SpindleMax > row.SpindleMin, Positive(row.MinToolDiameter),
+            row.MaxToolDiameter >= row.MinToolDiameter, Positive(row.SpindleTorque), Positive(row.TableLoad)),
+        turning: static row => ValidityClaim.All(Positive(row.Swing), Positive(row.BetweenCenters),
+            Positive(row.BarCapacity), Positive(row.ChuckDiameter), Positive(row.SpindlePower),
+            NonNegative(row.SpindleMin), row.SpindleMax > row.SpindleMin,
+            row.Secondary.ForAll(static process => process.Modality == ProcessModality.Subtractive && process != ProcessKind.Turn)),
+        grinding: static row => ValidityClaim.All(Positive(row.WheelDiameter), Positive(row.WheelWidth),
+            Positive(row.SpindlePower), NonNegative(row.SpindleMin), row.SpindleMax > row.SpindleMin),
+        saw: static row => ValidityClaim.All(Positive(row.BladeDiameter), Positive(row.MaxSection),
+            row.MaxMiter >= Angle.Zero, row.MaxMiter <= Angle.FromDegrees(90.0), Positive(row.SpindlePower),
+            NonNegative(row.SpindleMin), row.SpindleMax > row.SpindleMin),
+        sheet: static row => ValidityClaim.All(Positive(row.BedX), Positive(row.BedY),
+            Positive(row.MaxThickness), Positive(row.SourcePower)),
+        waterjet: static row => ValidityClaim.All(Positive(row.BedX), Positive(row.BedY),
+            Positive(row.MaxThickness), Positive(row.PumpPressure), NonNegative(row.AbrasiveFlow)),
+        abrasive: static row => ValidityClaim.All(row.Volume.IsValid, Positive(row.Ultrasound),
+            Positive(row.SourcePower), Positive(row.MaxToolDiameter)),
+        wireTank: static row => ValidityClaim.All(Positive(row.UTravel), Positive(row.VTravel),
+            row.MaxTaper >= Angle.Zero, Positive(row.SubmergedHeight), Positive(row.WireMin),
+            row.WireMax >= row.WireMin),
+        build: static row => ValidityClaim.All(row.Volume.IsValid, ValidityClaim.CountAtLeast(row.Heads, 1),
+            Positive(row.MinLayer), row.MaxLayer >= row.MinLayer, !row.Materials.IsEmpty),
+        brake: static row => ValidityClaim.All(Positive(row.Capacity), Positive(row.GaugeTravel),
+            Positive(row.OpenHeight), Positive(row.BedLength)),
+        stroke: static row => ValidityClaim.All(!row.Admitted.IsEmpty,
+            row.Admitted.IsSubsetOf(StationProcesses.Press), row.Volume.IsValid, Positive(row.Stroke),
+            Positive(row.Capacity), Positive(row.TableLoad), ValidityClaim.Positive(row.CyclesPerMinute)),
+        roll: static row => ValidityClaim.All(Positive(row.MaxWidth), Positive(row.MinThickness),
+            row.MaxThickness >= row.MinThickness, ValidityClaim.CountAtLeast(row.Stations, 1), Positive(row.Torque)),
+        bender: static row => ValidityClaim.All(Positive(row.MinClr), row.MaxClr >= row.MinClr,
+            ValidityClaim.CountAtLeast(row.DieCount, 1)),
+        cell: static row => ValidityClaim.All(row.Reach.IsValid, Positive(row.Payload),
+            ValidityClaim.CountAtLeast(row.ExternalAxes, 0)));
 
-    private static bool Positive<TQuantity>(TQuantity value) where TQuantity : IQuantity =>
-        double.IsFinite((double)value.Value) && (double)value.Value > 0.0;
+    // The quantity lifters compose the kernel claim rows over `IQuantity.Value` in the quantity's own unit —
+    // positivity is scale-invariant across every unit these stations carry — so the page states no predicate.
+    private static ValidityClaim Positive<TQuantity>(TQuantity value) where TQuantity : IQuantity =>
+        ValidityClaim.Positive((double)value.Value);
 
-    private static bool NonNegative<TQuantity>(TQuantity value) where TQuantity : IQuantity =>
-        double.IsFinite((double)value.Value) && (double)value.Value >= 0.0;
+    private static ValidityClaim NonNegative<TQuantity>(TQuantity value) where TQuantity : IQuantity =>
+        ValidityClaim.Nonnegative((double)value.Value);
 }
 
 // A station's verdict carries its typed capacity and, where it rotates, the SPEED band separately from the POWER
 // it can deliver. Fusing the two reported one verdict under the other's evidence, so a station refused for speed
-// published a power margin that had nothing to do with the refusal.
+// published a power margin that had nothing to do with the refusal. `Verdict` is ONE column: the `(Present, Fits)`
+// pair it replaces admitted an absent-yet-fitting corner nothing could mean, and its only reader conjoined the two.
 internal sealed record StationAssessment(
-    bool Present,
-    bool Fits,
+    FactVerdict Verdict,
     Option<SpindleWindow> Spindle,
     StationCapacity Capacity,
     Power Source,
@@ -371,19 +479,24 @@ internal sealed record StationAssessment(
 
 ## [04]-[SHIFT_CALENDAR]
 
-- Owner: `ShiftCalendar` generates working windows from a weekly `ShiftBlock` pattern, dated and yearly-recurrent `CalendarException` rows, and generated `MaintenanceRule` holes; `AvailabilityPlan` derates them by committed load into the shop's one time model; `CalendarSpan` owns date membership for both recurrence postures.
-- Cases: `CalendarSpan` closes dated and yearly; `CalendarExceptionKind` covers holiday, shutdown, reduced, overtime, and unattended, each row declaring through `Grants` whether its blocks replace the weekly pattern or extend it.
+- Owner: `ShiftCalendar` generates working windows from a weekly `ShiftBlock` pattern, dated and yearly-recurrent `CalendarException` rows, and generated `MaintenanceRule` holes; `AvailabilityPlan` derates them by committed load into the shop's one time model and owns the ONE routing verdict; `CalendarSpan` owns date membership for both recurrence postures; `BlockDisposition` owns what an exception's blocks do to the weekly pattern; `RoutingStanding` owns why an instance is or is not routable at an instant.
+- Cases: `CalendarSpan` closes dated and yearly; `CalendarExceptionKind` covers holiday, shutdown, reduced, overtime, and unattended, each row declaring its `BlockDisposition`; `BlockDisposition` closes replace and extend; `RoutingStanding` closes routable, state-blocked, unstaffed, and unregistered.
+- Law: an exception's blocks REPLACE the weekly pattern or EXTEND it, and the row says which by name. A `bool Grants` named only one side of that correspondence, so every read site had to negate it against a comment to recover the other, and the fold that composes the two postures reads a disposition instead of a polarity.
+- Law: routability is ONE body and it names its refusal. `AvailabilityPlan.IsRoutable` and the registry's memoized `Map<MachineInstanceKey, bool>` were two carriers of one fact whose agreement nothing enforced, and both answered a shop asking WHY with `false` — a machine in service, a machine outside its staffed windows, and a key the registry never seated were one indistinguishable refusal, `.IfNone(false)` fabricating the third.
 - Law: maintenance is GENERATED from `MaintenanceRule` rows, never handed in as a literal interval roster. A caller-supplied roster cannot recur, so a yearly plant shutdown had to be re-authored every year and a horizon that outran the roster silently reported full availability.
 - Law: a yearly span containing a wrap — a December-to-January shutdown — is tested against BOTH the date's own year and the year before it, so the turn of the year is inside the window rather than a two-row workaround the author has to remember.
 - Auto: `Windows` canonicalizes overlapping blocks onto one non-overlapping edge partition carrying the best staffing, so an overtime block overlapping a pattern block is counted once at the richer staffing; `Advance` consumes effort across successive staffed windows, so an eight-hour job on a one-shift calendar lands on the next working morning rather than eight hours after release; `Horizon` reports working duration per `YearMonth`, so a capacity plan reads months rather than re-deriving spans.
 - Receipt: `ShiftCalendar.Horizon` returns one row per month with its generated working duration; `AvailabilityPlan.Finish` returns the machine's actual completion instant for `Process/derivation` to convert into a promise date.
 - Exemption: none — every fold here is expression-shaped over generated rows.
 - Packages: NodaTime owns `Instant`, `Interval`, `DateInterval`, `AnnualDate`, `YearMonth`, `LocalTime.InZone`, and `Resolvers.CreateMappingResolver`; `Thinktecture.Runtime.Extensions` owns the closed rows.
-- Growth: a new calendar posture is one `CalendarExceptionKind` row carrying its own `Grants`; a new recurrence is one `CalendarSpan` case with its `Contains` arm.
+- Growth: a new calendar posture is one `CalendarExceptionKind` row carrying its own `BlockDisposition`; a new recurrence is one `CalendarSpan` case with its `Contains` arm; a new routing refusal is one `RoutingStanding` row.
 - Boundary: the calendar reports time; `Process/derivation` alone turns a finish instant into a lot promise.
 
 ```csharp signature
 // --- [SHIFT_CALENDAR]
+// The declared posture of a physical station. `Routable` is the one axis a state carries and it is independent of
+// every other column here, so it stays a lone boolean rather than being folded into a set that would state no
+// corner law; the INSTANT-keyed verdict a caller reads is `RoutingStanding`, which composes this with staffing.
 [SmartEnum<string>]
 public sealed partial class MachineAvailability {
     public static readonly MachineAvailability Ready = new("ready", routable: true);
@@ -394,15 +507,35 @@ public sealed partial class MachineAvailability {
     public bool Routable { get; }
 }
 
+// One routing verdict, naming its refusal: a plan blocked by its declared state, a plan whose routing instant
+// falls outside every staffed window, and a key the registry never seated are three shop facts, and the boolean
+// both former carriers answered with reported none of them.
+[SmartEnum<string>]
+public sealed partial class RoutingStanding {
+    public static readonly RoutingStanding Routable = new("routable");
+    public static readonly RoutingStanding StateBlocked = new("state-blocked");
+    public static readonly RoutingStanding Unstaffed = new("unstaffed");
+    public static readonly RoutingStanding Unregistered = new("unregistered");
+}
+
+// What an exception's blocks do to the weekly pattern, both sides named. `Replace` stands the pattern down for the
+// dates it covers and `Extend` adds to whatever survives, so an overtime Saturday and a shutdown week compose
+// without an ordering rule and without a read site negating a polarity to recover the other posture.
+[SmartEnum<string>]
+public sealed partial class BlockDisposition {
+    public static readonly BlockDisposition Replace = new("replace");
+    public static readonly BlockDisposition Extend = new("extend");
+}
+
 [SmartEnum<string>]
 public sealed partial class CalendarExceptionKind {
-    public static readonly CalendarExceptionKind Holiday = new("holiday", grants: false);
-    public static readonly CalendarExceptionKind Shutdown = new("shutdown", grants: false);
-    public static readonly CalendarExceptionKind Reduced = new("reduced", grants: false);
-    public static readonly CalendarExceptionKind Overtime = new("overtime", grants: true);
-    public static readonly CalendarExceptionKind Unattended = new("unattended", grants: true);
+    public static readonly CalendarExceptionKind Holiday = new("holiday", BlockDisposition.Replace);
+    public static readonly CalendarExceptionKind Shutdown = new("shutdown", BlockDisposition.Replace);
+    public static readonly CalendarExceptionKind Reduced = new("reduced", BlockDisposition.Replace);
+    public static readonly CalendarExceptionKind Overtime = new("overtime", BlockDisposition.Extend);
+    public static readonly CalendarExceptionKind Unattended = new("unattended", BlockDisposition.Extend);
 
-    public bool Grants { get; }
+    public BlockDisposition Disposition { get; }
 }
 
 // A span is a specific dated range or an ANNUAL one that recurs every year. Recurrence is what makes a plant
@@ -429,7 +562,6 @@ public abstract partial record CalendarSpan {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ShiftBlock {
     public IsoDayOfWeek Day { get; }
     public LocalTime Start { get; }
@@ -438,21 +570,24 @@ public sealed partial class ShiftBlock {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref IsoDayOfWeek day,
         ref LocalTime start,
         ref LocalTime end,
         ref double staffing) {
         if (day is IsoDayOfWeek.None || end <= start || !double.IsFinite(staffing) || staffing is <= 0.0 or > 1.0)
-            validationError = Fleet.Inadmissible("shift-block");
+            validationError = Fleet.Validation("shift-block");
     }
 
     public static Fin<ShiftBlock> Admit(IsoDayOfWeek day, LocalTime start, LocalTime end, double staffing) =>
         Validate(day, start, end, staffing, out ShiftBlock block).Admitted(block);
 }
 
+// DISTINCT-BY-DESIGN (E-P6 allowlist): the fleet's own working-calendar vocabulary — admitted through
+// `ShiftBlock`/`CalendarSpan` on the fabrication rail — discriminates it from Persistence `Ingest/schedule`'s MPXJ
+// boundary mirror of `ProjectCalendar` exceptions; the admission path is the discriminant, and a third spelling
+// re-opens the seat.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CalendarException {
     public CalendarExceptionKind Kind { get; }
     public CalendarSpan Span { get; }
@@ -460,14 +595,14 @@ public sealed partial class CalendarException {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref CalendarExceptionKind kind,
         ref CalendarSpan span,
         ref Seq<ShiftBlock> blocks) {
-        // A granting exception whose block roster is empty grants nothing, so it is an authoring mistake rather
-        // than a no-op the calendar silently absorbs.
-        if (kind.Grants && blocks.IsEmpty)
-            validationError = Fleet.Inadmissible("calendar-exception:grants-nothing");
+        // An extending exception whose block roster is empty extends nothing, so it is an authoring mistake
+        // rather than a no-op the calendar silently absorbs.
+        if (kind.Disposition == BlockDisposition.Extend && blocks.IsEmpty)
+            validationError = Fleet.Validation("calendar-exception:extends-nothing");
     }
 
     public static Fin<CalendarException> Admit(CalendarExceptionKind kind, CalendarSpan span, Seq<ShiftBlock> blocks) =>
@@ -477,7 +612,6 @@ public sealed partial class CalendarException {
 // A maintenance hole is a RULE over a span and a local start time, so a monthly service window and a yearly plant
 // shutdown both generate their intervals rather than arriving as literals a horizon can outrun.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class MaintenanceRule {
     public CalendarSpan Span { get; }
     public LocalTime Start { get; }
@@ -485,12 +619,12 @@ public sealed partial class MaintenanceRule {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref CalendarSpan span,
         ref LocalTime start,
         ref Duration length) {
         if (length <= Duration.Zero)
-            validationError = Fleet.Inadmissible("maintenance-rule:length");
+            validationError = Fleet.Validation("maintenance-rule:length");
     }
 
     public static Fin<MaintenanceRule> Admit(CalendarSpan span, LocalTime start, Duration length) =>
@@ -498,7 +632,6 @@ public sealed partial class MaintenanceRule {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ShiftCalendar {
     private static readonly ZoneLocalMappingResolver StartResolver = Resolvers.CreateMappingResolver(
         Resolvers.ReturnEarlier,
@@ -515,14 +648,14 @@ public sealed partial class ShiftCalendar {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref DateTimeZone zone,
         ref Seq<ShiftBlock> pattern,
         ref Seq<CalendarException> exceptions,
         ref Seq<MaintenanceRule> maintenance,
         ref Duration horizon) {
         if (pattern.IsEmpty || horizon <= Duration.Zero)
-            validationError = Fleet.Inadmissible("shift-calendar");
+            validationError = Fleet.Validation("shift-calendar");
     }
 
     public static Fin<ShiftCalendar> Admit(
@@ -602,13 +735,16 @@ public sealed partial class ShiftCalendar {
                 .Map(staffing => (Span: new NodaTime.Interval(edge.First, edge.Second), Staffing: staffing)));
     }
 
-    // Non-granting exceptions replace the weekly pattern for the dates they cover; a granting one adds to
-    // whatever survives, so an overtime Saturday and a shutdown week compose without an ordering rule.
+    // Replacing exceptions stand the weekly pattern down for the dates they cover; extending ones add to whatever
+    // survives, so an overtime Saturday and a shutdown week compose without an ordering rule.
     private Seq<ShiftBlock> Blocks(LocalDate date) =>
-        (Exceptions.Filter(row => row.Span.Contains(date) && !row.Kind.Grants) is { IsEmpty: false } replacing
+        (Covering(date, BlockDisposition.Replace) is { IsEmpty: false } replacing
             ? replacing.Bind(static row => row.Blocks)
             : Pattern.Filter(block => block.Day == date.DayOfWeek))
-        + Exceptions.Filter(row => row.Span.Contains(date) && row.Kind.Grants).Bind(static row => row.Blocks);
+        + Covering(date, BlockDisposition.Extend).Bind(static row => row.Blocks);
+
+    private Seq<CalendarException> Covering(LocalDate date, BlockDisposition disposition) =>
+        Exceptions.Filter(row => row.Kind.Disposition == disposition && row.Span.Contains(date));
 
     private DateInterval Around(Instant start, Instant end) =>
         new(start.InZone(Zone).Date, end.InZone(Zone).Date);
@@ -640,7 +776,6 @@ public sealed partial class ShiftCalendar {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class AvailabilityPlan {
     public MachineAvailability State { get; }
     public ShiftCalendar Calendar { get; }
@@ -651,18 +786,25 @@ public sealed partial class AvailabilityPlan {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref MachineAvailability state,
         ref ShiftCalendar calendar,
         ref double loadFactor) {
         if (!double.IsFinite(loadFactor) || loadFactor is < 0.0 or >= 1.0)
-            validationError = Fleet.Inadmissible("availability-plan:load");
+            validationError = Fleet.Validation("availability-plan:load");
     }
 
     public static Fin<AvailabilityPlan> Admit(MachineAvailability state, ShiftCalendar calendar, double loadFactor) =>
         Validate(state, calendar, loadFactor, out AvailabilityPlan plan).Admitted(plan);
 
-    public bool IsRoutable(Instant at) => State.Routable && Calendar.Covers(at);
+    // The ONE routing verdict, at an instant, naming which of the two independent gates refused. Every caller —
+    // the registry's memoized index and the capability join alike — reads this body.
+    public RoutingStanding Standing(Instant at) =>
+        (State.Routable, Calendar.Covers(at)) switch {
+            (false, _) => RoutingStanding.StateBlocked,
+            (true, false) => RoutingStanding.Unstaffed,
+            (true, true) => RoutingStanding.Routable,
+        };
 
     public Duration Working(NodaTime.Interval span) =>
         State.Routable
@@ -688,8 +830,8 @@ public sealed partial class AvailabilityPlan {
 
 ## [05]-[FLEET_REGISTRY]
 
-- Owner: `MachineInstance` owns installed process, controller, certification, tooling, material, grade, rate, energy, reliability, modal response, and cell evidence keyed by `MachineInstanceKey`; `MachinePerformance` owns the refreshed measured row; `CapabilityEnrollment` owns enrolled process-capability evidence with the grade it achieved; `MachineFleet` owns the registry, its routing instant, and the ONE routability index; `FleetRegistrationMap` owns the registration-to-instance projection.
-- Law: an instance is identified by `MachineInstanceKey`, the S0 station identity `Process/owner#PLAN_ATOMS` declares and `PlannedStep.Instance` reserves. A bare instance string forks the key space between the schedule, the registry, and the observation window that measures it.
+- Owner: `MachineInstance` owns installed process, controller, certification, tooling, material, grade, rate, energy, reliability, modal response, and cell evidence keyed by `MachineInstanceKey`; `MachinePerformance` owns the refreshed measured row; `CapabilityEnrollment` owns enrolled process-capability evidence with the grade it achieved; `MachineFleet` owns the registry, its routing instant, and the ONE routing-standing index; `FleetRegistrationMap` owns the registration-to-instance projection.
+- Law: an instance is identified by `MachineInstanceKey`, the S0 station identity `Process/atoms#PLAN` declares and `PlannedStep.Instance` reserves. A bare instance string forks the key space between the schedule, the registry, and the observation window that measures it.
 - Law: `MachinePerformance` publishes availability ONCE. The prior row carried an availability ratio and a reliability ratio that were the same derivation under two names, so the dispatch reliability that took their minimum could never read anything but the one; service availability derives from the failure spacing and repair time the same fold already measured.
 - Auto: registration-to-instance is a GENERATED projection — eighteen members crossed by hand drifted the moment one column moved, and the mapper's both-side completeness makes an unmapped column a build failure rather than a silent default. The registry seats admitted equipment through `Machine.Register` BEFORE resolving it, so real shop equipment enters the keyed resolution space instead of presupposing an archetype; registration is first-writer-wins by key.
 - Receipt: `MachinePerformance.Of` folds a decoded `Kinematics/observation` window into the refreshed measured row — producing fraction, fault-episode availability, failure spacing, repair time, and load-scaled observed power — the registry re-admits under `FleetPolicy.PerformanceHorizon`, and `FleetSlots` names the `store.fabrication.fleet.<verb>` streams the refreshed rows and the re-admitted census ride on the Persistence slot registry.
@@ -699,7 +841,6 @@ public sealed partial class AvailabilityPlan {
 ```csharp signature
 // --- [FLEET_REGISTRY]
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class PerformanceBaseline {
     public double PerformanceRatio { get; }
     public double QualityRatio { get; }
@@ -708,21 +849,22 @@ public sealed partial class PerformanceBaseline {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref double performanceRatio,
         ref double qualityRatio) {
         if (!Fraction(performanceRatio) || !Fraction(qualityRatio))
-            validationError = Fleet.Inadmissible("performance-baseline");
+            validationError = Fleet.Validation("performance-baseline");
     }
 
     public static Fin<PerformanceBaseline> Admit(double performanceRatio, double qualityRatio) =>
         Validate(performanceRatio, qualityRatio, out PerformanceBaseline baseline).Admitted(baseline);
 
-    internal static bool Fraction(double value) => double.IsFinite(value) && value is >= 0.0 and <= 1.0;
+    // The kernel claim row, not a re-spelled predicate: every ratio on this page and the observation refresh alike
+    // admit through `ValidityClaim.UnitInterval`, so the unit-interval law has one statement in the corpus.
+    internal static ValidityClaim Fraction(double value) => ValidityClaim.UnitInterval(value);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class MachinePerformance {
     public Instant ObservedAt { get; }
     public double AvailabilityRatio { get; }
@@ -755,7 +897,7 @@ public sealed partial class MachinePerformance {
         from span in Fin.Succ(window.Span.End - window.Span.Start)
         from _ in AdmissionSlots.Gate(
                 span > Duration.Zero && double.IsFinite(ratedPower.Kilowatts) && ratedPower.Kilowatts >= 0.0,
-                Fleet.Inadmissible("performance:observation-span"))
+                    FabConcern.Fleet, "performance:observation-span", FabricationFault.Inadmissible)
             .As().ToFin()
         let faultSeconds = window.FaultEpisodes.Fold(0.0, static (total, episode) => total + (episode.End - episode.Start).TotalSeconds)
         let episodes = window.FaultEpisodes.Count
@@ -784,7 +926,7 @@ public sealed partial class MachinePerformance {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Instant observedAt,
         ref double availabilityRatio,
         ref double performanceRatio,
@@ -795,18 +937,19 @@ public sealed partial class MachinePerformance {
         ref Duration meanTimeToRepair,
         ref Option<double> observedHourlyRate,
         ref Option<Power> observedSpindlePower) {
-        bool ratios = Seq(availabilityRatio, performanceRatio, qualityRatio, utilization)
-            .ForAll(PerformanceBaseline.Fraction);
-        if (!ratios || !double.IsFinite(spindleHours) || spindleHours < 0.0
-            || meanTimeBetweenFailures <= Duration.Zero || meanTimeToRepair < Duration.Zero
-            || observedHourlyRate.Exists(static value => !double.IsFinite(value) || value < 0.0)
-            || observedSpindlePower.Exists(static value => value < Power.Zero))
-            validationError = Fleet.Inadmissible("machine-performance");
+        if (!ValidityClaim.All(
+                Seq(availabilityRatio, performanceRatio, qualityRatio, utilization)
+                    .ForAll(static value => PerformanceBaseline.Fraction(value)),
+                ValidityClaim.Nonnegative(spindleHours),
+                meanTimeBetweenFailures > Duration.Zero,
+                meanTimeToRepair >= Duration.Zero,
+                ValidityClaim.WhenPresent(observedHourlyRate, ValidityClaim.Nonnegative),
+                ValidityClaim.WhenPresent(observedSpindlePower, static value => value >= Power.Zero)))
+            validationError = Fleet.Validation("machine-performance");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class MachineInstance {
     public MachineInstanceKey Id { get; }
     public Machine Kind { get; }
@@ -838,7 +981,7 @@ public sealed partial class MachineInstance {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref MachineInstanceKey id,
         ref Machine kind,
         ref Set<ProcessKind> enabledProcesses,
@@ -857,15 +1000,22 @@ public sealed partial class MachineInstance {
         ref AvailabilityPlan availability,
         ref Option<ModalResponse> modal,
         ref Option<MachinePerformance> performance) {
-        bool processSet = !enabledProcesses.IsEmpty && enabledProcesses.ForAll(kind.Processes.Contains)
-            && enabledProcesses.ForAll(process => stations.Exists(station => station.Admits(process)));
-        bool evidence = certifications.ForAll(enabledProcesses.Contains)
-            && stations.ForAll(static station => station.IsValid);
-        bool scalars = double.IsFinite(ratedHourlyRate) && ratedHourlyRate >= 0.0 && idlePower >= Power.Zero
-            && PerformanceBaseline.Fraction(declaredReliability);
-        if (!processSet || !evidence || !envelope.IsValid
-            || pocketOverride.Exists(static value => value < 0) || !scalars)
-            validationError = Fleet.Inadmissible("machine-instance");
+        ValidityClaim processSet = ValidityClaim.All(
+            !enabledProcesses.IsEmpty,
+            enabledProcesses.ForAll(kind.Processes.Contains),
+            enabledProcesses.ForAll(process => stations.Exists(station => station.Admits(process))));
+        // Station validity is the envelope's own `IValidityEvidence` member, so the roster proves itself through
+        // the kernel floor rather than through a predicate this validator restates.
+        ValidityClaim evidence = ValidityClaim.All(
+            certifications.ForAll(enabledProcesses.Contains),
+            stations.ForAll(static station => station.IsValid));
+        ValidityClaim scalars = ValidityClaim.All(
+            ValidityClaim.Nonnegative(ratedHourlyRate),
+            idlePower >= Power.Zero,
+            PerformanceBaseline.Fraction(declaredReliability));
+        if (!ValidityClaim.All(processSet, evidence, envelope.IsValid, scalars,
+            ValidityClaim.WhenPresent(pocketOverride, static value => ValidityClaim.CountAtLeast(value, 0))))
+            validationError = Fleet.Validation("machine-instance");
     }
 
     public static Fin<MachineInstance> Admit(
@@ -936,31 +1086,33 @@ public static partial class FleetRegistrationMap {
 public sealed record CapabilityEnrollment(CapabilityVerdict Verdict, ItGrade Achieved);
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class MachineFleet {
     public Seq<MachineInstance> Instances { get; }
     public FleetPolicy Policy { get; }
     public Map<(MachineInstanceKey Instance, ProcessKind Process), CapabilityEnrollment> CapabilityEvidence { get; }
     public Instant RoutingAt { get; }
 
-    // Routability at the routing instant is ONE fact per instance, and the capability join asks for it once per
-    // criterion per process. Expanding the calendar lattice per ask re-generated every window of the covering day
-    // for a verdict the fleet's own instant already fixes; the index is DERIVED from the admitted rows, so it stays
-    // out of construction, equality, and every codec.
+    // Routing standing at the routing instant is ONE fact per instance, and the capability join asks for it once
+    // per criterion per process. Expanding the calendar lattice per ask re-generated every window of the covering
+    // day for a verdict the fleet's own instant already fixes; the index is DERIVED from the admitted rows, so it
+    // stays out of construction, equality, and every codec. It memoizes the PLAN's own verdict rather than a
+    // second boolean beside it, so the index and the plan cannot drift.
     [IgnoreMember]
-    private Map<MachineInstanceKey, bool> routable;
+    private Map<MachineInstanceKey, RoutingStanding> standings;
 
     [IgnoreMember]
-    internal Map<MachineInstanceKey, bool> Routable => routable.IsEmpty
-        ? routable = Instances.Fold(Map<MachineInstanceKey, bool>(),
-            (index, instance) => index.AddOrUpdate(instance.Id, instance.Availability.IsRoutable(RoutingAt)))
-        : routable;
+    internal Map<MachineInstanceKey, RoutingStanding> Standings => standings.IsEmpty
+        ? standings = Instances.Fold(Map<MachineInstanceKey, RoutingStanding>(),
+            (index, instance) => index.AddOrUpdate(instance.Id, instance.Availability.Standing(RoutingAt)))
+        : standings;
 
-    internal bool IsRoutable(MachineInstance instance) => Routable.Find(instance.Id).IfNone(false);
+    // A key this registry never seated answers `Unregistered`, not the service machine's own refusal.
+    internal RoutingStanding Standing(MachineInstance instance) =>
+        Standings.Find(instance.Id).IfNone(RoutingStanding.Unregistered);
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Seq<MachineInstance> instances,
         ref FleetPolicy policy,
         ref Map<(MachineInstanceKey Instance, ProcessKind Process), CapabilityEnrollment> capabilityEvidence,
@@ -969,7 +1121,7 @@ public sealed partial class MachineFleet {
         bool evidence = capabilityEvidence.Keys.ForAll(key => instances.Exists(instance =>
             instance.Id == key.Instance && instance.EnabledProcesses.Contains(key.Process)));
         if (!unique || !evidence)
-            validationError = Fleet.Inadmissible("machine-fleet");
+            validationError = Fleet.Validation("machine-fleet");
     }
 
     public static Fin<MachineFleet> Admit(
@@ -992,31 +1144,35 @@ public static class FleetSlots {
 
 ## [06]-[CAPABILITY_JOIN]
 
-- Owner: `CapabilityCriterion` owns generated assessment and margin orientation; `CapabilityFact` and `CapabilityCheck` own verdict evidence; `FleetObjective` and `FleetPolicy` own generated ranking, `FleetPolicy.Burden` the one normalized weighted fold; `Fleet` owns the join.
-- Cases: `CapabilityCriterion` covers material physics, operating envelope, topology, station, spindle SPEED, spindle POWER, tooling, material, grade, controller, certification, availability, reliability, payload, cell reach, and external-axis capacity. `FleetObjective` covers headroom, grade, parsimony, reliability, effectiveness, energy, load, cost, and utilization.
+- Owner: `CapabilityCriterion` owns generated assessment and margin orientation; `CapabilityFact` and `CapabilityCheck` own verdict evidence; `FleetObjective` owns its penalty AND its canonical `ObjectiveTuning`, `FleetPolicy` the shop's overrides and `Burden` the one normalized weighted fold; `Fleet` owns the join.
+- Cases: `CapabilityCriterion` covers material physics, operating envelope, topology, station, spindle SPEED, spindle POWER, tooling, material, grade, controller, certification, bar feed, availability, reliability, payload, cell reach, and external-axis capacity. `FleetObjective` covers headroom, grade, parsimony, reliability, effectiveness, energy, load, cost, and utilization.
 - Law: a process names NO dialect — a controller is a property of the machine that runs the process — so controller fitness asks whether the instance carries a dialect admitting the process MODALITY. Reading a dialect off the process would fabricate a correspondence the shop never declared.
 - Law: the spindle criterion is TWO criteria. Speed and power are independent limits with independent units; one fused verdict refused on either and then published the power margin as its evidence, so a station rejected for an out-of-band speed reported a power number that never decided anything.
-- Law: the context is SHAPED — demanded, fitness, and measured columns each ride their own record. A twenty-four-slot positional tail with five adjacent booleans admits a silent transposition at every construction site, a hazard already realized elsewhere in this package.
+- Law: the context is SHAPED — demanded, measured, and station columns each ride their own record, and the capability columns ride the kernel's `CapabilitySet<FleetCapability>`. A twenty-four-slot positional tail with five adjacent booleans admits a silent transposition at every construction site, a hazard already realized elsewhere in this package.
+- Law: the capability POSTURE here is fold-out-for-absence, never refuse-at-admission, so the kernel `Require` door is deliberately uncomposed: every declared `(instance, process)` pair reaches a receipt and a missing capability is retained evidence rather than a refusal. `Held.Missing(Required)` is what a match publishes, and `Fleet.Capable` still returns every pair — `Process/derivation` alone converts an empty feasible selection into a refusal.
+- Law: an objective's priority and its scale are ONE row, not two maps. Two parallel `HashMap<FleetObjective, double>` columns keyed by the same roster were one row split in half: the validator proved key coverage twice by hand, and `Burden` read each half through its own `IfNone` — `0.0` silently retiring an objective and `1.0` silently leaving one unscaled. Totality is the roster's now, and a shop supplies OVERRIDES.
 - Entry: `Fleet.Capable(AdmittedComponent, MachineFleet, FabricationTap?)` returns every installed `(instance, process)` assessment, feasible rows first and then lowest excess-capability cost, firing each assessment as it settles and defaulting silent for a headless join. `Fleet.AdmitInstance(MachineRegistration)` is the one textual registry boundary and the one `Machine.Register` producer.
-- Auto: component geometry, material, and every `DemandKey` scalar accumulate through one applicative admission. `ProcessKind.Physics` selects the material law through the `Physics` fact, and `ConstitutiveLaw.At(ConstitutiveState)` derives spindle demand from temperature, hardness, and strain rate. `CapabilityCriterion.Items` generates exactly one fact per dimension, `Sense` orients each margin so an over-capable value reads positive whichever direction the dimension improves, and `FleetPolicy.Burden` folds every `FleetObjective` penalty over its own `References` scale into one dimensionless lower-is-better score.
-- Receipt: `MachineMatch` carries the instance, process, typed facts, operating-envelope and grade margins, score, assessment instant, and freshness-qualified rate, power, reliability, and utilization evidence. `Checks.Feasible` remains the frozen derivation and estimation read; every `(instance, process)` pair the registry declares reaches a receipt, so a material whose physics omits the process is rejected evidence rather than a silent absence. `FabricationFact.FleetMatch.Of` projects utilization and effectiveness onto `rasm.fabrication.fleet.utilization` and `rasm.fabrication.fleet.effectiveness` through `Process/telemetry#FACT_PROJECTION` as kind `fleet-match`, and every assessment counts once on `rasm.fabrication.fleet.matches` carrying its ranking evidence as a dimension.
-- Growth: a new assessment dimension is one behavior-bearing `CapabilityCriterion` row carrying its own `Sense`; a new ranking concern is one `FleetObjective` row with its `FleetPolicy.Weights` priority and `FleetPolicy.References` scale.
+- Auto: component geometry, material, and every `DemandKey` scalar accumulate through one applicative admission. `ProcessKind.Physics` selects the material law through the `Physics` fact, and `ConstitutiveLaw.At(ConstitutiveState)` derives spindle demand from temperature, hardness, and strain rate. `CapabilityCriterion.Items` generates exactly one fact per dimension, `FleetCapability.Items` generates both the required and the held set off the context, `Sense` orients each margin so an over-capable value reads positive whichever direction the dimension improves, and `FleetPolicy.Burden` folds every `FleetObjective` penalty through its own `ObjectiveTuning` into one dimensionless lower-is-better score.
+- Receipt: `MachineMatch` carries the instance, process, typed facts, the capability rows the pair lacked, operating-envelope and grade margins, score, assessment instant, and freshness-qualified rate, power, reliability, and utilization evidence. `Checks.Feasible` remains the frozen derivation and estimation read; every `(instance, process)` pair the registry declares reaches a receipt, so a material whose physics omits the process is rejected evidence rather than a silent absence. `FabricationFact.FleetMatch.Of` projects utilization and effectiveness onto `rasm.fabrication.fleet.utilization` and `rasm.fabrication.fleet.effectiveness` through `Process/telemetry#FACT_PROJECTION` as kind `fleet-match`, and every assessment counts once on `rasm.fabrication.fleet.matches` carrying its ranking evidence as a dimension.
+- Growth: a new assessment dimension is one behavior-bearing `CapabilityCriterion` row carrying its own `Sense`; a new ranking concern is one `FleetObjective` row carrying its penalty and its canonical `ObjectiveTuning`, and no policy value changes.
 - Boundary: `Process/derivation` alone converts an empty feasible selection to `RoutingInfeasible`; fleet owns the calendar and returns verdicts. `Forming/brake` consumes the frozen `ProcessEnvelope.Brake` case, `Verify/estimation` consumes the effective metrics retained by `MachineMatch`, and `RobotProgram` owns path-level robot reach; fleet admits only the declared operating envelope, payload, and external-axis evidence available at component-routing altitude.
 
 ```csharp signature
 // --- [CAPABILITY_JOIN]
-// The demanded columns, the fitness verdicts, and the measured columns each ride their own shape, so a construction
-// site names what it supplies and two adjacent booleans cannot silently trade places.
+// The demanded scalars and the measured columns each ride their own shape, so a construction site names what it
+// supplies and two adjacent columns cannot silently trade places.
 internal sealed record CapabilityDemanded(
     int Axes, int Grade, int AchievedGrade, Power SurfacePower, Mass Payload, int ExternalAxes) {
     public double GradeMargin => Grade - AchievedGrade;
 }
 
-internal sealed record CapabilityFit(bool Physics, bool Material, bool Certification, bool Grade, bool CellReach);
-
 internal sealed record CapabilityMeasured(
     double Reliability, double HourlyRate, Power Source, double Utilization, double Effectiveness);
 
+// The cell roster is the ONE column: the `bool IsCell` and `int ExternalAxesCapacity` it replaces were both total
+// projections of it, so the context carried three answers to one question and a construction site could have
+// disagreed with itself. The capability sets are DERIVED from the roster over this context, memoized as one pair
+// because the criterion fold reads them once per dimension.
 internal sealed record CapabilityContext(
     FleetDemand Demand,
     MachineInstance Instance,
@@ -1024,35 +1180,61 @@ internal sealed record CapabilityContext(
     MachineFleet Fleet,
     StationAssessment Station,
     CapabilityDemanded Demanded,
-    CapabilityFit Fit,
     CapabilityMeasured Measured,
     double Headroom,
-    bool IsCell,
-    int ExternalAxesCapacity);
+    Seq<ProcessEnvelope.Cell> Cells) {
+    private (CapabilitySet<FleetCapability> Required, CapabilitySet<FleetCapability> Held)? capabilities;
+
+    public bool Cell => !Cells.IsEmpty;
+    public int ExternalAxesCapacity => Cells.Map(static cell => cell.ExternalAxes).Fold(0, Math.Max);
+
+    public CapabilitySet<FleetCapability> Required => Capabilities.Required;
+    public CapabilitySet<FleetCapability> Held => Capabilities.Held;
+    public CapabilitySet<FleetCapability> Missing => Held.Missing(Required);
+
+    // Undemanded is its own answer. A dimension nothing asked for reported a satisfied verdict over a zero demand
+    // before, so a feasibility read could not separate a met dimension from an unasked one.
+    public FactVerdict Verdict(FleetCapability capability) => Required.Admits(capability)
+        ? FactVerdict.Judged(Held.Admits(capability))
+        : FactVerdict.NotDemanded;
+
+    private (CapabilitySet<FleetCapability> Required, CapabilitySet<FleetCapability> Held) Capabilities =>
+        capabilities ??= (
+            CapabilitySet<FleetCapability>.Of(FleetCapability.Items.Where(Requires).ToArray()),
+            CapabilitySet<FleetCapability>.Of(FleetCapability.Items.Where(row => row.Holds(this)).ToArray()));
+
+    // The request regime decides demand, one arm per case: a routing invariant always, a bag flag exactly where
+    // the component decoded one at admission, and cell reach exactly where a cell station answers the process.
+    private bool Requires(FleetCapability capability) => capability.Request.Switch(
+        always: static _ => true,
+        flagged: _ => Demand.Requested.Admits(capability),
+        onCell: _ => Cell);
+}
 
 [SmartEnum<string>]
 public sealed partial class CapabilityCriterion {
     public static readonly CapabilityCriterion Physics = new("physics", sense: 1, assess: static (criterion, context) =>
-        CapabilityFact.Of(criterion, context.Fit.Physics, 1.0, context.Fit.Physics ? 1.0 : 0.0,
-            DemandUnit.Count, context.Process.Physics.Key));
+        Membership(criterion, context, FleetCapability.Physics, context.Process.Physics.Key));
     public static readonly CapabilityCriterion Envelope = new("envelope", sense: 1, assess: static (criterion, context) =>
-        CapabilityFact.Of(criterion, context.Headroom >= 0.0, 0.0, context.Headroom,
+        CapabilityFact.Of(criterion, FactVerdict.Judged(context.Headroom >= 0.0), 0.0, context.Headroom,
             DemandUnit.Millimeter, context.Instance.Id.Value));
     public static readonly CapabilityCriterion Topology = new("topology", sense: 1, assess: static (criterion, context) =>
         CapabilityFact.Of(
             criterion,
-            context.Instance.Kind.AxisCount >= context.Demanded.Axes
-                && (context.Demanded.Axes < 5 || context.Instance.Kind.Topology.OrientationDof > 0 || context.IsCell),
+            FactVerdict.Judged(context.Instance.Kind.AxisCount >= context.Demanded.Axes
+                && (context.Demanded.Axes < 5 || context.Instance.Kind.Topology.OrientationDof > 0 || context.Cell)),
             context.Demanded.Axes,
             context.Instance.Kind.AxisCount,
             DemandUnit.Count,
             context.Instance.Kind.Topology.Key));
+    // The station verdict is already three-state, so a pair whose process reaches no installed station and a pair
+    // whose station misses its own limits both refuse here, on the station's own locus.
     public static readonly CapabilityCriterion Station = new("station", sense: 1, assess: static (criterion, context) =>
         CapabilityFact.Of(
             criterion,
-            context.Station.Present && context.Station.Fits,
+            context.Station.Verdict,
             1.0,
-            context.Station.Present && context.Station.Fits ? 1.0 : 0.0,
+            context.Station.Verdict == FactVerdict.Met ? 1.0 : 0.0,
             DemandUnit.Count,
             context.Station.Locus));
     // Speed and power are independent limits with independent units, so each answers on its own row and its own
@@ -1060,7 +1242,9 @@ public sealed partial class CapabilityCriterion {
     public static readonly CapabilityCriterion SpindleSpeed = new("spindle-speed", sense: 1, assess: static (criterion, context) =>
         CapabilityFact.Of(
             criterion,
-            context.Station.Spindle.Map(static window => window.Admits).IfNone(true),
+            context.Station.Spindle
+                .Map(static window => FactVerdict.Judged(window.Admits))
+                .IfNone(FactVerdict.NotDemanded),
             context.Station.Spindle.Map(static window => window.Required.RevolutionsPerMinute).IfNone(0.0),
             context.Station.Spindle.Map(static window => window.Maximum.RevolutionsPerMinute).IfNone(0.0),
             DemandUnit.PerMinute,
@@ -1068,7 +1252,7 @@ public sealed partial class CapabilityCriterion {
     public static readonly CapabilityCriterion SpindlePower = new("spindle-power", sense: 1, assess: static (criterion, context) =>
         CapabilityFact.Of(
             criterion,
-            context.Station.Source >= context.Demanded.SurfacePower,
+            FactVerdict.Judged(context.Station.Source >= context.Demanded.SurfacePower),
             context.Demanded.SurfacePower.Kilowatts,
             context.Station.Source.Kilowatts,
             DemandUnit.Kilowatt,
@@ -1076,48 +1260,49 @@ public sealed partial class CapabilityCriterion {
     public static readonly CapabilityCriterion Tooling = new("tooling", sense: 1, assess: static (criterion, context) =>
         CapabilityFact.Of(
             criterion,
-            context.Instance.PocketCount >= context.Demand[DemandKey.DistinctTools]
-                && context.Instance.ReadyToolCount >= context.Demand[DemandKey.DistinctTools],
+            FactVerdict.Judged(context.Instance.PocketCount >= context.Demand[DemandKey.DistinctTools]
+                && context.Instance.ReadyToolCount >= context.Demand[DemandKey.DistinctTools]),
             context.Demand[DemandKey.DistinctTools],
             Math.Min(context.Instance.PocketCount, context.Instance.ReadyToolCount),
             DemandUnit.Count,
             context.Instance.Id.Value));
     public static readonly CapabilityCriterion Material = new("material", sense: 1, assess: static (criterion, context) =>
-        CapabilityFact.Of(criterion, context.Fit.Material, 1.0, context.Fit.Material ? 1.0 : 0.0,
-            DemandUnit.Count, context.Demand.Material.Key));
+        Membership(criterion, context, FleetCapability.Material, context.Demand.Material.Key));
+    // Grade carries its own NUMBERS beside the set verdict: the achieved and demanded IT grades are the evidence a
+    // rejected match is read for, and the set answers only whether the pair met them.
     public static readonly CapabilityCriterion Grade = new("grade", sense: -1, assess: static (criterion, context) =>
-        CapabilityFact.Of(criterion, context.Fit.Grade, context.Demanded.Grade, context.Demanded.AchievedGrade,
-            DemandUnit.Count, context.Process.Key));
+        CapabilityFact.Of(criterion, context.Verdict(FleetCapability.Grade),
+            context.Demanded.Grade, context.Demanded.AchievedGrade, DemandUnit.Count, context.Process.Key));
     // A controller is a property of the MACHINE, so fitness asks whether any installed dialect admits the process
     // modality — the correspondence `Process/family` `PostDialect.Admits` owns.
     public static readonly CapabilityCriterion Controller = new("controller", sense: 1, assess: static (criterion, context) =>
         CapabilityFact.Of(
             criterion,
-            context.Instance.Controllers.Exists(dialect => dialect.Admits(context.Process.Modality)),
+            FactVerdict.Judged(context.Instance.Controllers.Exists(dialect => dialect.Admits(context.Process.Modality))),
             1.0,
             context.Instance.Controllers.Count(dialect => dialect.Admits(context.Process.Modality)),
             DemandUnit.Count,
             context.Process.Modality.Key));
     public static readonly CapabilityCriterion Certification = new("certification", sense: 1, assess: static (criterion, context) =>
-        CapabilityFact.Of(
+        Membership(criterion, context, FleetCapability.Certification, context.Process.Key));
+    // Bar feeding refuses on its own row. Folded into the turning station's `fits`, a lot no installed bar feeder
+    // could carry rejected indistinguishably from one that overran the swing.
+    public static readonly CapabilityCriterion BarFeed = new("bar-feed", sense: 1, assess: static (criterion, context) =>
+        Membership(criterion, context, FleetCapability.BarFeed, context.Station.Locus));
+    public static readonly CapabilityCriterion Availability = new("availability", sense: 1, assess: static (criterion, context) => {
+        RoutingStanding standing = context.Fleet.Standing(context.Instance);
+        return CapabilityFact.Of(
             criterion,
-            context.Fit.Certification,
-            context.Demand[DemandKey.CertificationRequired],
-            context.Instance.Certifications.Contains(context.Process) ? 1.0 : 0.0,
-            DemandUnit.Count,
-            context.Process.Key));
-    public static readonly CapabilityCriterion Availability = new("availability", sense: 1, assess: static (criterion, context) =>
-        CapabilityFact.Of(
-            criterion,
-            context.Fleet.IsRoutable(context.Instance) && context.Instance.Availability.LoadFactor < 1.0,
+            FactVerdict.Judged(standing == RoutingStanding.Routable && context.Instance.Availability.LoadFactor < 1.0),
             0.0,
-            context.Fleet.IsRoutable(context.Instance) ? context.Instance.Availability.Schedulable : 0.0,
+            standing == RoutingStanding.Routable ? context.Instance.Availability.Schedulable : 0.0,
             DemandUnit.Ratio,
-            context.Instance.Availability.State.Key));
+            standing.Key);
+    });
     public static readonly CapabilityCriterion Reliability = new("reliability", sense: 1, assess: static (criterion, context) =>
         CapabilityFact.Of(
             criterion,
-            context.Measured.Reliability >= context.Demand[DemandKey.MinReliability],
+            FactVerdict.Judged(context.Measured.Reliability >= context.Demand[DemandKey.MinReliability]),
             context.Demand[DemandKey.MinReliability],
             context.Measured.Reliability,
             DemandUnit.Ratio,
@@ -1125,121 +1310,125 @@ public sealed partial class CapabilityCriterion {
     // Only a cell answers the payload axis at all. Off one, the station's capacity measures whatever ITS family
     // measures, so reading its magnitude here subtracted a bore diameter from a mass — and the fact's own margin
     // gate then refused a passing non-cell match on that cross-axis difference. A station with no payload axis
-    // demands nothing and offers nothing, stated on the demand's own unit.
+    // answers `NotDemanded` on the demand's own unit rather than a met verdict over two zeros.
     public static readonly CapabilityCriterion Payload = new("payload", sense: 1, assess: static (criterion, context) =>
-        context.IsCell
+        context.Cell
             ? CapabilityFact.Of(
                 criterion,
-                context.Station.Capacity.Compare(
-                    new StationCapacity.Held(CapacityAxis.Payload, context.Demanded.Payload)).Exists(static order => order >= 0),
+                FactVerdict.Judged(context.Station.Capacity.Compare(
+                    new StationCapacity.Held(CapacityAxis.Payload, context.Demanded.Payload)).Exists(static order => order >= 0)),
                 context.Demanded.Payload.Kilograms,
                 context.Station.Capacity.Magnitude,
                 context.Station.Capacity.Unit,
                 context.Station.Locus)
-            : CapabilityFact.Of(criterion, true, 0.0, 0.0, DemandUnit.Kilogram, context.Station.Locus));
+            : CapabilityFact.Of(criterion, FactVerdict.NotDemanded, 0.0, 0.0, DemandUnit.Kilogram, context.Station.Locus));
     public static readonly CapabilityCriterion CellReach = new("cell-reach", sense: 1, assess: static (criterion, context) =>
-        CapabilityFact.Of(criterion, !context.IsCell || context.Fit.CellReach, 1.0, context.Fit.CellReach ? 1.0 : 0.0,
-            DemandUnit.Count, context.Station.Locus));
+        Membership(criterion, context, FleetCapability.CellReach, context.Station.Locus));
     public static readonly CapabilityCriterion ExternalAxes = new("external-axes", sense: 1, assess: static (criterion, context) =>
-        CapabilityFact.Of(
-            criterion,
-            context.Demanded.ExternalAxes == 0
-                || (context.IsCell && context.ExternalAxesCapacity >= context.Demanded.ExternalAxes),
-            context.Demanded.ExternalAxes,
-            context.ExternalAxesCapacity,
-            DemandUnit.Count,
-            context.Station.Locus));
+        context.Demanded.ExternalAxes == 0
+            ? CapabilityFact.Of(criterion, FactVerdict.NotDemanded, 0.0, 0.0, DemandUnit.Count, context.Station.Locus)
+            : CapabilityFact.Of(
+                criterion,
+                FactVerdict.Judged(context.Cell && context.ExternalAxesCapacity >= context.Demanded.ExternalAxes),
+                context.Demanded.ExternalAxes,
+                context.ExternalAxesCapacity,
+                DemandUnit.Count,
+                context.Station.Locus));
 
     public int Sense { get; }
     internal Func<CapabilityCriterion, CapabilityContext, Fin<CapabilityFact>> Assess { get; }
+
+    // The set-backed dimensions answer off ONE expression: demanded-and-held is a met count, demanded-and-missing
+    // reads a negative margin, and undemanded reads two zeros under `NotDemanded`. The five arms this replaces each
+    // spelled their own `bool ? 1.0 : 0.0` ternary twice over a column the boolean product no longer carries.
+    private static Fin<CapabilityFact> Membership(
+        CapabilityCriterion criterion, CapabilityContext context, FleetCapability capability, string locus) =>
+        CapabilityFact.Of(
+            criterion,
+            context.Verdict(capability),
+            context.Required.Admits(capability) ? 1.0 : 0.0,
+            context.Held.Admits(capability) && context.Required.Admits(capability) ? 1.0 : 0.0,
+            DemandUnit.Count,
+            locus);
 }
 
+// Shop PRIORITY and shop SCALE on one row, because they only ever mean anything together: the reference carries
+// the objective's own unit — millimetres of headroom, IT grade steps, axes, kilowatts, currency per hour — so a
+// penalty reaches the sum dimensionless and one weight means the same thing on every axis. The row owns the
+// arithmetic, so no fold outside it multiplies a weight by a penalty or divides by a scale.
+public readonly record struct ObjectiveTuning(double Weight, double Reference) : IValidityEvidence {
+    public bool IsValid =>
+        ValidityClaim.All(ValidityClaim.Nonnegative(Weight), ValidityClaim.Positive(Reference));
+
+    public double Scale(double penalty) => Weight * penalty / Reference;
+}
+
+// Each row carries its penalty AND the canonical tuning a shop starts from, so the roster is the one authority for
+// both and `FleetPolicy.Canonical` overrides nothing.
 [SmartEnum<string>]
 public sealed partial class FleetObjective {
-    public static readonly FleetObjective Headroom = new("headroom",
+    public static readonly FleetObjective Headroom = new("headroom", new ObjectiveTuning(1.0, 100.0),
         penalty: static context => Math.Max(context.Headroom, 0.0));
-    public static readonly FleetObjective Grade = new("grade",
+    public static readonly FleetObjective Grade = new("grade", new ObjectiveTuning(1.0, 1.0),
         penalty: static context => Math.Max(context.Demanded.GradeMargin, 0.0));
-    public static readonly FleetObjective Parsimony = new("parsimony",
+    public static readonly FleetObjective Parsimony = new("parsimony", new ObjectiveTuning(0.5, 1.0),
         penalty: static context => Math.Max(context.Instance.Kind.AxisCount - context.Demanded.Axes, 0));
-    public static readonly FleetObjective Reliability = new("reliability",
+    public static readonly FleetObjective Reliability = new("reliability", new ObjectiveTuning(0.5, 1.0),
         penalty: static context => 1.0 - context.Measured.Reliability);
-    public static readonly FleetObjective Effectiveness = new("effectiveness",
+    public static readonly FleetObjective Effectiveness = new("effectiveness", new ObjectiveTuning(0.5, 1.0),
         penalty: static context => 1.0 - context.Measured.Effectiveness);
-    public static readonly FleetObjective Energy = new("energy",
+    public static readonly FleetObjective Energy = new("energy", new ObjectiveTuning(0.1, 10.0),
         penalty: static context => (context.Instance.IdlePower + context.Measured.Source).Kilowatts);
-    public static readonly FleetObjective Load = new("load",
+    public static readonly FleetObjective Load = new("load", new ObjectiveTuning(1.0, 1.0),
         penalty: static context => context.Instance.Availability.LoadFactor);
-    public static readonly FleetObjective Cost = new("cost",
+    public static readonly FleetObjective Cost = new("cost", new ObjectiveTuning(0.1, 100.0),
         penalty: static context => context.Measured.HourlyRate);
-    public static readonly FleetObjective Utilization = new("utilization",
+    public static readonly FleetObjective Utilization = new("utilization", new ObjectiveTuning(0.5, 1.0),
         penalty: static context => context.Measured.Utilization);
 
+    public ObjectiveTuning Canonical { get; }
     internal Func<CapabilityContext, double> Penalty { get; }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class FleetPolicy {
-    public HashMap<FleetObjective, double> Weights { get; }
-    public HashMap<FleetObjective, double> References { get; }
+    // OVERRIDES only. Coverage is the roster's, so an objective the map omits is tuned by its own row rather than
+    // by the `weight 0.0` and `scale 1.0` an absent map entry used to fabricate — one silently retiring an
+    // objective from the ranking, the other silently leaving a dimensioned axis unscaled.
+    public HashMap<FleetObjective, ObjectiveTuning> Tuning { get; }
     public Duration PerformanceHorizon { get; }
 
-    // References are shop scale, weights are shop priority, and the pair is what makes one fold total over
-    // dimensioned axes: the reference carries the objective's own unit — millimetres of headroom, IT grade steps,
-    // axes, kilowatts, currency per hour — so every column reaches the sum dimensionless and one weight means the
-    // same thing on every axis. Retuning scale never silently retunes priority.
-    public static FleetPolicy Canonical { get; } = Create(
-        HashMap<FleetObjective, double>.Empty
-            .Add(FleetObjective.Headroom, 1.0)
-            .Add(FleetObjective.Grade, 1.0)
-            .Add(FleetObjective.Parsimony, 0.5)
-            .Add(FleetObjective.Reliability, 0.5)
-            .Add(FleetObjective.Effectiveness, 0.5)
-            .Add(FleetObjective.Energy, 0.1)
-            .Add(FleetObjective.Load, 1.0)
-            .Add(FleetObjective.Cost, 0.1)
-            .Add(FleetObjective.Utilization, 0.5),
-        HashMap<FleetObjective, double>.Empty
-            .Add(FleetObjective.Headroom, 100.0)
-            .Add(FleetObjective.Grade, 1.0)
-            .Add(FleetObjective.Parsimony, 1.0)
-            .Add(FleetObjective.Reliability, 1.0)
-            .Add(FleetObjective.Effectiveness, 1.0)
-            .Add(FleetObjective.Energy, 10.0)
-            .Add(FleetObjective.Load, 1.0)
-            .Add(FleetObjective.Cost, 100.0)
-            .Add(FleetObjective.Utilization, 1.0),
-        Duration.FromHours(24));
+    // The canonical policy overrides nothing: retuning a shop is an override row, and the roster stays the one
+    // authority for what an untuned objective means.
+    public static FleetPolicy Canonical { get; } =
+        Create(HashMap<FleetObjective, ObjectiveTuning>.Empty, Duration.FromHours(24));
+
+    public ObjectiveTuning For(FleetObjective objective) => Tuning.Find(objective).IfNone(objective.Canonical);
 
     // The one ranking expression in the package: a normalized, weighted burden where lower is better. Every
     // objective row measures a penalty, so the total IS the burden and no arm negates it back into a merit.
-    internal double Burden(CapabilityContext context) => FleetObjective.Items.Sum(objective =>
-        Weights.Find(objective).IfNone(0.0)
-            * objective.Penalty(context)
-            / References.Find(objective).IfNone(1.0));
+    internal double Burden(CapabilityContext context) =>
+        FleetObjective.Items.Sum(objective => For(objective).Scale(objective.Penalty(context)));
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
-        ref HashMap<FleetObjective, double> weights,
-        ref HashMap<FleetObjective, double> references,
+        ref ValidationError? validationError,
+        ref HashMap<FleetObjective, ObjectiveTuning> tuning,
         ref Duration performanceHorizon) {
-        bool complete = FleetObjective.Items.All(objective => weights.Find(objective)
-            .Exists(static weight => double.IsFinite(weight) && weight >= 0.0));
-        bool scaled = FleetObjective.Items.All(objective => references.Find(objective)
-            .Exists(static reference => double.IsFinite(reference) && reference > 0.0));
-        if (!complete || !scaled || FleetObjective.Items.Sum(objective => weights.Find(objective).IfNone(0.0)) <= 0.0
+        // Only what an override can break: the two hand completeness folds this replaces proved a coverage the
+        // roster now carries structurally, and they proved it twice because the map was split in half.
+        if (!tuning.Values.ForAll(static row => row.IsValid)
+            || FleetObjective.Items.Sum(objective =>
+                tuning.Find(objective).IfNone(objective.Canonical).Weight) <= 0.0
             || performanceHorizon <= Duration.Zero)
-            validationError = Fleet.Inadmissible("fleet-policy");
+            validationError = Fleet.Validation("fleet-policy");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CapabilityFact {
     public CapabilityCriterion Criterion { get; }
-    public bool Pass { get; }
+    public FactVerdict Verdict { get; }
     public double Demand { get; }
     public double Available { get; }
     public DemandUnit Unit { get; }
@@ -1249,39 +1438,43 @@ public sealed partial class CapabilityFact {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref CapabilityCriterion criterion,
-        ref bool pass,
+        ref FactVerdict verdict,
         ref double demand,
         ref double available,
         ref DemandUnit unit,
         ref string locus) {
         locus = locus.Trim();
-        // A passing verdict whose own margin is negative refutes itself, so the pair admits together or not at all.
+        // A met verdict whose own margin is negative refutes itself, and an undemanded one carrying numbers claims
+        // a measurement nothing asked for, so the verdict and its evidence admit together or not at all.
         if (!double.IsFinite(demand) || !double.IsFinite(available)
-            || (pass && criterion.Sense * (available - demand) < 0.0) || !Witness.Keyed(locus))
-            validationError = Fleet.Inadmissible($"capability-fact:{criterion.Key}");
+            || (verdict == FactVerdict.Met && criterion.Sense * (available - demand) < 0.0)
+            || (verdict == FactVerdict.NotDemanded && (demand != 0.0 || available != 0.0))
+            || !Witness.Keyed(locus))
+            validationError = Fleet.Validation($"capability-fact:{criterion.Key}");
     }
 
     internal static Fin<CapabilityFact> Of(
-        CapabilityCriterion criterion, bool pass, double demand, double available, DemandUnit unit, string locus) =>
-        Validate(criterion, pass, demand, available, unit, locus, out CapabilityFact fact).Admitted(fact);
+        CapabilityCriterion criterion, FactVerdict verdict, double demand, double available, DemandUnit unit, string locus) =>
+        Validate(criterion, verdict, demand, available, unit, locus, out CapabilityFact fact).Admitted(fact);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CapabilityCheck {
     public Seq<CapabilityFact> Facts { get; }
 
-    public bool Feasible => !Facts.IsEmpty && Facts.ForAll(static fact => fact.Pass);
-    public Seq<CapabilityFact> Rejections => Facts.Filter(static fact => !fact.Pass);
+    // A pair is feasible where no dimension is SHORT — an undemanded dimension refuses nothing and is not counted
+    // as a pass either, so `Rejections` names exactly the dimensions a shop has to fix.
+    public bool Feasible => !Facts.IsEmpty && Facts.ForAll(static fact => fact.Verdict != FactVerdict.Short);
+    public Seq<CapabilityFact> Rejections => Facts.Filter(static fact => fact.Verdict == FactVerdict.Short);
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Seq<CapabilityFact> facts) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<CapabilityFact> facts) {
         bool complete = toSeq(CapabilityCriterion.Items).ForAll(criterion => facts.Exists(fact => fact.Criterion == criterion));
         bool unique = facts.Map(static fact => fact.Criterion).Distinct().Count == facts.Count;
         if (!complete || !unique)
-            validationError = Fleet.Inadmissible("capability-check");
+            validationError = Fleet.Validation("capability-check");
     }
 
     internal static Fin<CapabilityCheck> Of(Seq<CapabilityFact> facts) =>
@@ -1290,11 +1483,14 @@ public sealed partial class CapabilityCheck {
 
 // `Score` is the normalized weighted BURDEN `FleetPolicy.Burden` folds: lower is better, and every ranking surface
 // in the package carries that one polarity — `CellPlacementCandidate.Score` and `RouteScore.Total` alike — so a
-// consumer never has to read which page minted a row to know which direction wins.
+// consumer never has to read which page minted a row to know which direction wins. `Missing` is the kernel column's
+// own evidence complement — the capability rows the pair was asked for and did not hold — so a rejection census
+// names them instead of re-deriving the difference off the fact roster.
 public sealed record MachineMatch(
     MachineInstance Instance,
     ProcessKind Process,
     CapabilityCheck Checks,
+    CapabilitySet<FleetCapability> Missing,
     double EnvelopeHeadroom,
     double GradeMargin,
     double Score,
@@ -1307,8 +1503,9 @@ public sealed record MachineMatch(
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Fleet {
-    internal static FabricationFault Inadmissible(string locus) =>
-        new FabricationFault.PolicyInadmissible(FabConcern.Fleet, locus);
+    internal static ValidationError Validation(string locus) => new($"fleet:{locus}");
+
+    internal static FabricationFault Inadmissible(string locus) => FabricationFault.Inadmissible(FabConcern.Fleet, locus);
 
     // Matching decides WHICH machine runs a program; delivery decides how it gets there. A cell row resolves the
     // vendor remote through `Kinematics/cell` `CellDrive.Run`, whose receipt carries the controller exchange log
@@ -1320,8 +1517,7 @@ public static class Fleet {
             .Map(static station => station.Delivery)
             .Distinct() is var lanes && lanes.Count == 1
             ? lanes.Head.ToFin(Inadmissible($"fleet:delivery:{instance.Id.Value}"))
-            : Fin.Fail<DeliveryLane>(new FabricationFault.WitnessMalformed(
-                $"{instance.Id.Value}:{process.Key}", nameof(DeliveryLane)));
+            : Fin.Fail<DeliveryLane>(Inadmissible($"fleet:delivery:{instance.Id.Value}:{process.Key}"));
 
     public static Fin<Seq<MachineMatch>> Capable(
         AdmittedComponent component, MachineFleet fleet, FabricationTap? tap = null) =>
@@ -1370,7 +1566,8 @@ public static class Fleet {
             .As()
             .ToFin()
         from demand in FleetDemand.Of(
-            derived.Part, derived.Material, derived.Rows.ToMap(static row => row.Key, static row => row.Value))
+            derived.Part, derived.Material, component.Quantities,
+            derived.Rows.ToMap(static row => row.Key, static row => row.Value))
         select demand;
 
     private static Fin<MachineMatch> Match(
@@ -1379,24 +1576,18 @@ public static class Fleet {
         double headroom = Headroom(demand.Part, instance.Envelope);
         Option<CapabilityEnrollment> enrollment = fleet.CapabilityEvidence.Find((instance.Id, process));
         Seq<ProcessEnvelope.Cell> cells = instance.Station<ProcessEnvelope.Cell>().Filter(cell => cell.Admits(process));
-        bool isCell = !cells.IsEmpty;
-        int demandedGrade = (int)demand[DemandKey.ItGrade];
+        // An enrolled row that FAILED its qualification achieves no grade at all, so its refusal rides the achieved
+        // number the grade capability compares rather than a second boolean the fit block folded in beside it.
         CapabilityDemanded demanded = new(
             (int)demand[DemandKey.MinAxes],
-            demandedGrade,
-            enrollment.Map(static row => row.Achieved.Number).IfNone(instance.DeclaredGrade.Number),
+            (int)demand[DemandKey.ItGrade],
+            enrollment
+                .Filter(static row => row.Verdict.Pass)
+                .Map(static row => row.Achieved.Number)
+                .IfNone(instance.DeclaredGrade.Number),
             Power.FromKilowatts(demand[DemandKey.SpindleKw]),
             Mass.FromKilograms(demand[DemandKey.Payload]),
             (int)demand[DemandKey.ExternalAxes]);
-        CapabilityFit fit = new(
-            demand.Material.Physics.ContainsKey(process.Physics),
-            (instance.Materials.IsEmpty || instance.Materials.Contains(demand.Material))
-                && StationMaterial(instance, process, demand.Material),
-            demand[DemandKey.CertificationRequired] == 0.0 || instance.Certifications.Contains(process),
-            enrollment
-                .Map(row => row.Verdict.Pass && row.Achieved.Number <= demandedGrade)
-                .IfNone(instance.DeclaredGrade.Number <= demandedGrade),
-            !isCell || cells.Exists(cell => Headroom(demand.Part, cell.Reach) >= 0.0));
         Option<MachinePerformance> performance = instance.PerformanceAt(fleet);
         CapabilityMeasured measured = new(
             performance.Map(static value => value.DispatchReliability).IfNone(instance.DeclaredReliability),
@@ -1405,23 +1596,25 @@ public static class Fleet {
             performance.Map(static value => value.Utilization).IfNone(instance.Availability.LoadFactor),
             performance.Map(static value => value.Oee).IfNone(instance.DeclaredPerformance.Oee));
         CapabilityContext context = new(
-            demand, instance, process, fleet, station, demanded, fit, measured, headroom, isCell,
-            cells.Map(static cell => cell.ExternalAxes).Fold(0, Math.Max));
+            demand, instance, process, fleet, station, demanded, measured, headroom, cells);
         return toSeq(CapabilityCriterion.Items)
             .Traverse(criterion => criterion.Assess(criterion, context).ToValidation())
             .As()
             .ToFin()
             .Bind(CapabilityCheck.Of)
             .Map(checks => Fired(new MachineMatch(
-                instance, process, checks, headroom, demanded.GradeMargin, fleet.Policy.Burden(context),
-                fleet.RoutingAt, measured.HourlyRate, measured.Source, measured.Reliability,
-                measured.Utilization, measured.Effectiveness), performance.IsSome, tap));
+                instance, process, checks, context.Missing, headroom, demanded.GradeMargin,
+                fleet.Policy.Burden(context), fleet.RoutingAt, measured.HourlyRate, measured.Source,
+                measured.Reliability, measured.Utilization, measured.Effectiveness), performance, tap));
     }
 
     // Every assessment counts, feasible or not, and the evidence dimension is the one fact the match itself cannot
-    // carry: whether the rate, power, reliability, and utilization columns came off observations or off declarations.
-    private static MachineMatch Fired(MachineMatch match, bool measured, FabricationTap tap) {
-        _ = tap.Fire(FabricationFact.FleetMatch.Of(match, measured));
+    // carry: whether the rate, power, reliability, and utilization columns came off observations or off
+    // declarations. The observation window IS that evidence, so the seam reads its presence rather than a boolean
+    // travelling beside it that a caller could set against it.
+    private static MachineMatch Fired(
+        MachineMatch match, Option<MachinePerformance> observed, FabricationTap tap) {
+        _ = tap.Fire(FabricationFact.FleetMatch.Of(match, observed.IsSome));
         return match;
     }
 
@@ -1435,17 +1628,20 @@ public static class Fleet {
             .Filter(station => station.Admits(process))
             .Map(station => Assess(station, process, demand, cutting))
             .Fold(Option<StationAssessment>.None, static (best, row) =>
-                best.Filter(held => Preferred(held, row)).IsSome ? best : Some(row))
+                best.Filter(held => Outranks(held, row)).IsSome ? best : Some(row))
             .IfNone(new StationAssessment(
-                false, false, None, new StationCapacity.Tally(CapacityAxis.TravelZ, 0), Power.Zero, process.Key));
+                FactVerdict.Short, None, new StationCapacity.Tally(CapacityAxis.TravelZ, 0), Power.Zero, process.Key));
     }
 
-    private static bool Preferred(StationAssessment held, StationAssessment candidate) =>
-        (held.Fits, candidate.Fits) switch {
-            (true, false) => true,
-            (false, true) => false,
-            _ => held.Capacity.Compare(candidate.Capacity).Map(static order => order >= 0).IfNone(true),
-        };
+    // Lexicographic on (verdict, same-axis capacity): a MET station outranks any other, and between two of equal
+    // verdict the larger capacity wins ONLY where both answer the same axis, so an incommensurable pair leaves the
+    // shop's own station order standing. The `(bool, bool)` tuple switch this replaces enumerated four corners of a
+    // product whose two carriers only ever answered one question, and only assessed stations reach this fold — the
+    // absent verdict belongs to the fallback alone.
+    private static bool Outranks(StationAssessment held, StationAssessment candidate) =>
+        held.Verdict == candidate.Verdict
+            ? held.Capacity.Compare(candidate.Capacity).Map(static order => order >= 0).IfNone(true)
+            : held.Verdict == FactVerdict.Met;
 
     private static StationAssessment Assess(
         ProcessEnvelope station, ProcessKind process, FleetDemand demand, Option<ModalityPhysics.Subtractive> cutting) =>
@@ -1456,15 +1652,13 @@ public static class Fleet {
                 Length.FromMillimeters(state.Demand[DemandKey.ToolDiameter]) <= row.MaxToolDiameter
                     && Torque.FromNewtonMeters(state.Demand[DemandKey.SpindleTorque]) <= row.SpindleTorque
                     && Mass.FromKilograms(state.Demand[DemandKey.PartMass]) <= row.TableLoad),
-            turning: static (state, row) => {
-                (double Max, double Min) planar = Planar(state.Demand.Part);
-                Length diameter = Length.FromMillimeters(Math.Max(state.Demand[DemandKey.WorkpieceDiameter], planar.Min));
-                Length length = Length.FromMillimeters(Math.Max(state.Demand[DemandKey.WorkpieceLength], planar.Max));
-                return Rotating(state, row.SpindleMin, row.SpindleMax, diameter,
-                    diameter <= row.Swing && diameter <= row.ChuckDiameter
-                    && (state.Demand[DemandKey.BarFeedRequired] == 0.0 || diameter <= row.BarCapacity)
-                    && length <= row.BetweenCenters);
-            },
+            // Bar capacity is NOT a clause here: it is the `FleetCapability.BarFeed` row, which reads the same
+            // `TurnedDiameter` this arm judges, so a bar-feed refusal names itself instead of arriving fused into
+            // a swing miss.
+            turning: static (state, row) => Rotating(state, row.SpindleMin, row.SpindleMax, state.Demand.TurnedDiameter,
+                state.Demand.TurnedDiameter <= row.Swing
+                && state.Demand.TurnedDiameter <= row.ChuckDiameter
+                && state.Demand.TurnedLength <= row.BetweenCenters),
             grinding: static (state, row) => Rotating(state, row.SpindleMin, row.SpindleMax, row.WheelDiameter,
                 Length.FromMillimeters(state.Demand[DemandKey.ToolDiameter]) <= row.WheelWidth),
             saw: static (state, row) => Rotating(state, row.SpindleMin, row.SpindleMax, row.BladeDiameter,
@@ -1523,23 +1717,23 @@ public static class Fleet {
     // the CUTTING diameter; re-deriving `vc * 1000 / (pi * D)` here would be its fourth transcription.
     private static StationAssessment Rotating(
         StationProbe probe, RotationalSpeed minimum, RotationalSpeed maximum, Length diameter, bool fits) =>
-        new(true,
-            fits,
-            probe.Cutting.Map(physics => new SpindleWindow(
-                RotationalSpeed.FromRevolutionsPerMinute(
-                    SurfaceSpeed.Rpm(physics.SurfaceSpeed.At(probe.Demand.State), diameter.Millimeters)),
-                minimum,
-                maximum)),
-            probe.Station.Capacity,
-            probe.Station.Source.IfNone(Power.Zero),
-            probe.Process.Key);
+        Assessed(probe, fits, probe.Cutting.Map(physics => new SpindleWindow(
+            RotationalSpeed.FromRevolutionsPerMinute(
+                SurfaceSpeed.Rpm(physics.SurfaceSpeed.At(probe.Demand.State), diameter.Millimeters)),
+            minimum,
+            maximum)));
 
     // A station that rotates nothing imposes no speed window, so its absence is `None` rather than a satisfied
     // boolean a fused verdict then reported under the power column.
-    private static StationAssessment Fixed(StationProbe probe, bool fits) =>
-        new(true, fits, None, probe.Station.Capacity, probe.Station.Source.IfNone(Power.Zero), probe.Process.Key);
+    private static StationAssessment Fixed(StationProbe probe, bool fits) => Assessed(probe, fits, None);
 
-    private static bool StationMaterial(MachineInstance instance, ProcessKind process, Material material) =>
+    // The ONE construction site, so the arm's predicate result lifts to a verdict exactly once and the capacity,
+    // power, and locus columns are read off the probe in one place rather than twice in near-identical bodies.
+    private static StationAssessment Assessed(StationProbe probe, bool fits, Option<SpindleWindow> spindle) =>
+        new(FactVerdict.Judged(fits), spindle, probe.Station.Capacity,
+            probe.Station.Source.IfNone(Power.Zero), probe.Process.Key);
+
+    internal static bool StationMaterial(MachineInstance instance, ProcessKind process, Material material) =>
         process.Modality != ProcessModality.Additive
             || instance.Station<ProcessEnvelope.Build>()
                 .Filter(station => station.Admits(process))
@@ -1553,7 +1747,7 @@ public static class Fleet {
     }
 
     // Three comparable extents, so the tightest is the minimum of exactly three — no seed and no sentinel.
-    private static double Headroom(BoundingBox part, BoundingBox envelope) {
+    internal static double Headroom(BoundingBox part, BoundingBox envelope) {
         (double Max, double Min) partPlanar = Planar(part);
         (double Max, double Min) machinePlanar = Planar(envelope);
         return Math.Min(
@@ -1561,7 +1755,7 @@ public static class Fleet {
             envelope.Diagonal.Z - part.Diagonal.Z);
     }
 
-    private static (double Max, double Min) Planar(BoundingBox box) =>
+    internal static (double Max, double Min) Planar(BoundingBox box) =>
         (Math.Max(box.Diagonal.X, box.Diagonal.Y), Math.Min(box.Diagonal.X, box.Diagonal.Y));
 
     private static Fin<BoundingBox> Bound(AdmittedComponent component) =>
@@ -1572,13 +1766,13 @@ public static class Fleet {
             .Bind(box => box.IsValid
                 ? Fin.Succ(box)
                 : Fin.Fail<BoundingBox>(new GeometryFault.DegenerateInput(
-                    Kind.BoundingBox, None, $"fleet:bound:{component.RepresentationKey}").ToError()));
+                    Kind.BoundingBox, None, $"fleet:bound:{component.RepresentationKey}")));
 
     private static Fin<BoundingBox> MeshBound(MeshSpace mesh) =>
         Analyze.Run<MeshSpace, BoundingBox>(AnalysisQuery.Bounds(Bounds.AxisAligned), mesh)
             .ToFin()
             .Bind(static boxes => boxes.Head.ToFin(
-                new GeometryFault.DegenerateInput(Kind.Mesh, None, "fleet:mesh-bound").ToError()));
+                new GeometryFault.DegenerateInput(Kind.Mesh, None, "fleet:mesh-bound")));
 
     private static Fin<Material> DemandMaterial(AdmittedComponent component) =>
         component.Layers.Head
@@ -1611,15 +1805,15 @@ public sealed record DemandSlot(int Ordinal, ProcessKind Process, Instant Ready,
 // One considered pair: what it would have cost to seat this demand on this instance, in the promise interval that
 // justifies the cost. `Row` and `Column` are the pair's own matrix coordinates, carried from the indexed projection
 // that built them, so the fill reads them directly rather than searching the rosters back. Every pair the matrix
-// carried reaches the receipt, seated or not.
+// carried reaches the receipt, seated or not. An absent `Promise` IS the block — the presence flag that rode beside
+// it restated the option's own discriminant and could contradict it.
 public sealed record AssignmentCost(
     int Row,
     int Column,
     int Demand,
     MachineInstanceKey Instance,
     Option<Instant> Promise,
-    Duration Span,
-    bool Blocked);
+    Duration Span);
 
 public sealed record FleetAssignment(
     Seq<(int Demand, MachineInstanceKey Instance, Instant Promise)> Seats,
@@ -1670,16 +1864,16 @@ public static partial class Fleet {
         Seq<AssignmentCost> costs = rows.Bind(row => columns.Map(column =>
             availability.Seat(column.Key, row.Slot.Ready, row.Slot.Effort).Match(
                 Succ: promise => new AssignmentCost(
-                    row.Row, column.Column, row.Slot.Ordinal, column.Key, Some(promise), promise - row.Slot.Ready, false),
+                    row.Row, column.Column, row.Slot.Ordinal, column.Key, Some(promise), promise - row.Slot.Ready),
                 Fail: _ => new AssignmentCost(
-                    row.Row, column.Column, row.Slot.Ordinal, column.Key, None, Duration.Zero, true))));
+                    row.Row, column.Column, row.Slot.Ordinal, column.Key, None, Duration.Zero))));
 
         // Exemption: the rectangular `int[,]` IS the solver's whole input contract, so the fill is the boundary.
         int[,] matrix = new int[rows.Count, columns.Count];
         foreach (AssignmentCost cost in costs) {
-            matrix[cost.Row, cost.Column] = cost.Blocked
-                ? Blocked
-                : (int)Math.Min(cost.Span / CostQuantum, Blocked - 1);
+            matrix[cost.Row, cost.Column] = cost.Promise
+                .Map(_ => (int)Math.Min(cost.Span / CostQuantum, Blocked - 1))
+                .IfNone(Blocked);
         }
 
         Seq<AssignmentCost> seated = toSeq(new HungarianAlgorithm(matrix).Compute())

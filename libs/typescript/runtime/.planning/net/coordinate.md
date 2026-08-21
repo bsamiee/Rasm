@@ -21,31 +21,59 @@ Distributed coordination is one engine-blind port beside the fanout plane: `Acco
 - Law: the port is engine-blind — no member names NATS or the Web Locks API; a per-app lease is a name prefix and `census(filter)` scopes the same way, so a surface change never follows a new namespace.
 - Law: `_ENGINES` answers the consumption descriptor per engine as data — `fits`, `admit`, `tenancy`, `lifetime`, `degrade` — and the cells are where the two engines part: a bucket fences tenants by name prefix under one server clock, an origin's arbiter fences nothing beyond the origin and holds no clock at all, so one value repeated across both marks a row that stopped reading its engine; where an engine cannot express a coordinate its cell records the divergence on `degrade` rather than dropping the column.
 - Entry: `yield* Accord` then the six members; engines land as `Accord.kv(bucket)` / `Accord.locks()` root Layers.
-- Packages: `effect` (`Context`, `Data`, `Option`, `Stream`), `@rasm/ts/core` (`Fault.Class`).
+- Packages: `effect` (`Context`, `Option`, `Schema`, `Stream`), `@rasm/ts/core` (`Fault.Class`).
 
 ```typescript signature
-import { Chunk, Context, Data, Deferred, Duration, Effect, Layer, Option, Random, Ref, Schedule, Schema, type Scope, Stream } from "effect"
+import { Chunk, Context, Deferred, Duration, Effect, Layer, Option, Random, Ref, Schedule, Schema, type Scope, Stream } from "effect"
 import { type KV, Kvm } from "@nats-io/kv"
 import { JetStreamApiCodes, JetStreamApiError } from "@nats-io/jetstream"
 import { Fault, type Identity } from "@rasm/ts/core"
 import { Broker } from "./pubsub.ts"
 
+// The coordination NAME is the whole subject on every row — a lock, a seat, a key, or a bucket, and the port is
+// engine-blind about which — so the four rows share one subject and each says what happened to that name. Contention,
+// outage, and a missing ledger read apart because the renderers differ, never because a caller re-splits one string.
+const _AccordSubject = Schema.Struct({ name: Schema.String })
+
 const _family = Fault.Class.family(["dial", "busy", "stale", "ledger"] as const, {
-  dial: { class: "unavailable" },
-  busy: { class: "unavailable" },
-  stale: { class: "conflicted" },
-  ledger: { class: "absent" },
+  dial: Fault.Class.row({
+    class: "unavailable",
+    leg: "accord",
+    detail: _AccordSubject,
+    render: ({ name }) => `${name} is unreachable at the coordination engine`,
+  }),
+  busy: Fault.Class.row({
+    class: "unavailable",
+    leg: "accord",
+    detail: _AccordSubject,
+    render: ({ name }) => `${name} is held by another claimant`,
+  }),
+  stale: Fault.Class.row({
+    class: "conflicted",
+    leg: "accord",
+    detail: _AccordSubject,
+    render: ({ name }) => `${name} moved beneath the fact this write expected`,
+  }),
+  ledger: Fault.Class.row({
+    class: "absent",
+    leg: "accord",
+    detail: _AccordSubject,
+    render: ({ name }) => `${name} names no state ledger on this engine`,
+  }),
 })
 
-class AccordFault extends Data.TaggedError("AccordFault")<{
-  readonly reason: (typeof _family.reasons)[number]
-  readonly name: string
-}> {
+declare namespace AccordFault {
+  type Reason = (typeof _family.kinds)[number]
+}
+
+class AccordFault extends Schema.TaggedError<AccordFault>()("AccordFault", {
+  case: _family.payload,
+}) {
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
   }
   override get message(): string {
-    return `<accord:${this.reason}> ${this.name}`
+    return _family.render(this.case)
   }
 }
 
@@ -167,8 +195,8 @@ const _raced = (cause: unknown): boolean =>
   cause instanceof JetStreamApiError &&
   (cause.code === JetStreamApiCodes.StreamWrongLastSequence || cause.code === JetStreamApiCodes.StreamWrongLastSequenceUnknown)
 
-const _refused = (name: string, lost: AccordFault["reason"]) => (cause: unknown): AccordFault =>
-  new AccordFault({ reason: _raced(cause) ? lost : "dial", name })
+const _refused = (name: string, lost: AccordFault.Reason) => (cause: unknown): AccordFault =>
+  new AccordFault({ case: { reason: _raced(cause) ? lost : "dial", name } })
 
 const _kv = (bucket: string): Layer.Layer<Accord, AccordFault, Broker> =>
   Layer.scoped(
@@ -178,7 +206,7 @@ const _kv = (bucket: string): Layer.Layer<Accord, AccordFault, Broker> =>
       const kv: KV = yield* Effect.tryPromise({
         // ttl arms the server-clocked lease expiry; markerTTL keeps TTL removals notifying the watch tail
         try: () => new Kvm(nc).create(bucket, { ttl: Duration.toMillis(_LEASE.ttl), markerTTL: Duration.toMillis(_LEASE.ttl) }),
-        catch: () => new AccordFault({ reason: "dial", name: bucket }),
+        catch: () => new AccordFault({ case: { reason: "dial", name: bucket } }),
       })
       const nonce = Effect.map(Random.nextInt, (seed) => new TextEncoder().encode(seed.toString(36)))
 
@@ -191,12 +219,12 @@ const _kv = (bucket: string): Layer.Layer<Accord, AccordFault, Broker> =>
         Stream.unwrapScoped(
           Effect.map(
             Effect.acquireRelease(
-              Effect.tryPromise({ try: open, catch: () => new AccordFault({ reason: "dial", name: key }) }),
+              Effect.tryPromise({ try: open, catch: () => new AccordFault({ case: { reason: "dial", name: key } }) }),
               (live) => Effect.sync(() => live.stop()),
             ),
             (iterator) =>
               Stream.map(
-                Stream.fromAsyncIterable(iterator, () => new AccordFault({ reason: "dial", name: key })),
+                Stream.fromAsyncIterable(iterator, () => new AccordFault({ case: { reason: "dial", name: key } })),
                 _fact,
               ),
           ),
@@ -209,12 +237,12 @@ const _kv = (bucket: string): Layer.Layer<Accord, AccordFault, Broker> =>
         Effect.tryPromise({ try: () => kv.create(name, id), catch: _refused(name, "busy") })
 
       const evicted = (name: string): Effect.Effect<void, AccordFault> =>
-        Effect.tryPromise({ try: () => kv.purge(name), catch: () => new AccordFault({ reason: "dial", name }) })
+        Effect.tryPromise({ try: () => kv.purge(name), catch: () => new AccordFault({ case: { reason: "dial", name } }) })
 
       const freed = (name: string, revision: number): Effect.Effect<void> =>
         Effect.tryPromise({
           try: () => kv.delete(name, { previousSeq: revision }),
-          catch: () => new AccordFault({ reason: "dial", name }),
+          catch: () => new AccordFault({ case: { reason: "dial", name } }),
         }).pipe(Effect.catchTag("AccordFault", () => Effect.void))
 
       const parked = (name: string): Effect.Effect<void, AccordFault> =>
@@ -234,7 +262,7 @@ const _kv = (bucket: string): Layer.Layer<Accord, AccordFault, Broker> =>
                   Effect.tryPromise({ try: () => kv.update(name, id, at), catch: _refused(name, "stale") }),
                   (next) => Ref.set(held, next),
                 )).pipe(
-                  Effect.catchIf((fault) => fault.reason === "stale", () => Effect.interrupt),
+                  Effect.catchIf((fault) => fault.case.reason === "stale", () => Effect.interrupt),
                   Effect.catchTag("AccordFault", () => Effect.void),
                 ),
               Schedule.spaced(_LEASE.beat),
@@ -252,7 +280,7 @@ const _kv = (bucket: string): Layer.Layer<Accord, AccordFault, Broker> =>
                 // The tombstone tail is the fast path; the TTL-cadence retry covers a limit expiry the watch never notified.
                 return Effect.catchIf(
                   claimed(name, id),
-                  (fault) => fault.reason === "busy",
+                  (fault) => fault.case.reason === "busy",
                   () => Effect.zipRight(Effect.race(parked(name), Effect.sleep(_LEASE.ttl)), Effect.suspend(attempt)),
                 )
               })
@@ -270,7 +298,7 @@ const _kv = (bucket: string): Layer.Layer<Accord, AccordFault, Broker> =>
             const id = yield* nonce
             const seat = yield* claimed(name, id).pipe(
               Effect.map(Option.some),
-              Effect.catchIf((fault) => fault.reason === "busy", () => Effect.succeed(Option.none<number>())),
+              Effect.catchIf((fault) => fault.case.reason === "busy", () => Effect.succeed(Option.none<number>())),
             )
             return yield* Option.match(seat, {
               onNone: () => Effect.succeed<Accord.Seat>(new _Seat({ role: "follower", token: Option.none() })),
@@ -292,7 +320,7 @@ const _kv = (bucket: string): Layer.Layer<Accord, AccordFault, Broker> =>
             // against what it actually saw instead of a successor's fact; absent, the read is the current one.
             Effect.tryPromise({
               try: () => (at === undefined ? kv.get(key) : kv.get(key, { revision: at })),
-              catch: () => new AccordFault({ reason: "dial", name: key }),
+              catch: () => new AccordFault({ case: { reason: "dial", name: key } }),
             }),
             _fact,
           ),
@@ -301,14 +329,14 @@ const _kv = (bucket: string): Layer.Layer<Accord, AccordFault, Broker> =>
         census: (filter) =>
           Effect.all({
             keys: Effect.flatMap(
-              Effect.tryPromise({ try: () => kv.keys(filter), catch: () => new AccordFault({ reason: "dial", name: bucket }) }),
+              Effect.tryPromise({ try: () => kv.keys(filter), catch: () => new AccordFault({ case: { reason: "dial", name: bucket } }) }),
               (keys) =>
                 Effect.map(
-                  Stream.runCollect(Stream.fromAsyncIterable(keys, () => new AccordFault({ reason: "dial", name: bucket }))),
+                  Stream.runCollect(Stream.fromAsyncIterable(keys, () => new AccordFault({ case: { reason: "dial", name: bucket } }))),
                   Chunk.toReadonlyArray,
                 ),
             ),
-            status: Effect.tryPromise({ try: () => kv.status(), catch: () => new AccordFault({ reason: "dial", name: bucket }) }),
+            status: Effect.tryPromise({ try: () => kv.status(), catch: () => new AccordFault({ case: { reason: "dial", name: bucket } }) }),
           }).pipe(
             Effect.map(({ keys, status }) =>
               new _Census({
@@ -366,9 +394,9 @@ const _locks = (): Layer.Layer<Accord> =>
           )
           return (yield* Deferred.await(granted))
             ? yield* Effect.void
-            : yield* new AccordFault({ reason: "busy", name })
+            : yield* new AccordFault({ case: { reason: "busy", name } })
         })
-      const absent = (name: string) => new AccordFault({ reason: "ledger", name })
+      const absent = (name: string) => new AccordFault({ case: { reason: "ledger", name } })
       return {
         lease: (name, mode = "wait") =>
           Effect.as(held(name, mode), new _Lease({ name, holder: crypto.randomUUID(), token: Option.none<number>() })),
@@ -376,7 +404,7 @@ const _locks = (): Layer.Layer<Accord> =>
           held(name, "try").pipe(
             Effect.as<Accord.Seat>(new _Seat({ role: "leader", token: Option.none() })),
             Effect.catchIf(
-              (fault) => fault.reason === "busy",
+              (fault) => fault.case.reason === "busy",
               () => Effect.succeed<Accord.Seat>(new _Seat({ role: "follower", token: Option.none() })),
             ),
           ),
@@ -388,7 +416,7 @@ const _locks = (): Layer.Layer<Accord> =>
           Effect.map(
             Effect.tryPromise({
               try: () => navigator.locks.query(),
-              catch: () => new AccordFault({ reason: "dial", name: filter ?? "" }),
+              catch: () => new AccordFault({ case: { reason: "dial", name: filter ?? "" } }),
             }),
             (snapshot) =>
               new _Census({

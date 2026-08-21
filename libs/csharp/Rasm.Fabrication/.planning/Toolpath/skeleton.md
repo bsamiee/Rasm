@@ -49,7 +49,8 @@
 - Entry: `SkeletonBench.Workload` builds the `skeleton-offset` measured demand from literal ordinals — a multi-component chain graph with per-channel clearance bands over an injected cutter and engagement — and `SkeletonBench.Run` is the fold the corpus gate times against `FabricationBenchClaims.SkeletonOffset`; measurement and receipt projection stay the bench edge's under the AppHost claim-field map.
 - Auto: the component's medial chain seeds at its maximum-clearance node and enters `ArcOp` as the guide loop, so emission follows the admitted skeleton.
 - Output: each component's emitted moves become one `CutElement` per contiguous cutting run, with rapid delimiters dropped, so branch and component travel stays absent from the cutting owner.
-- Receipt: `SkeletonPass` publishes the algorithm's OWN outputs beside the geometry — the component label it walked, the discovery-ordered visit sequence, and the tree-edge count — so a consumer reads the traversal evidence rather than reconstructing it from proximity. `SkeletonReceipt` carries those passes with their limit tables and binding rows, the graph census, and the flattened element projection `Cam` lowers; the settled census fires the `FabricationFact.Engine.Of` node, arc, and pass rows through the caller-supplied `FabricationTap` on the rail, defaulting silent for headless callers.
+- Law: `SkeletonWalk` carries no content key, evidence band, or stamp, so it takes no `*Receipt` name, which belongs to the `Process/owner#RECEIPT` `Receipt<TEvidence>` carrier alone.
+- Receipt: `SkeletonPass` publishes the algorithm's OWN outputs beside the geometry — the component label it walked, the discovery-ordered visit sequence, and the tree-edge count — so a consumer reads the traversal evidence rather than reconstructing it from proximity. `SkeletonWalk` carries those passes with their limit tables and binding rows, the graph census, and the flattened element projection `Cam` lowers; the settled census fires the `FabricationFact.Engine.Of` node, arc, and pass rows through the caller-supplied `FabricationTap` on the rail, defaulting silent for headless callers.
 - Packages: `LanguageExt.Core` owns accumulation, keyed lookup, and traversal; `Thinktecture.Runtime.Extensions` owns demand construction and the delegate-bearing rows; `QuikGraph` owns component topology, the depth-first descent, and its observers; `System.Numerics.Tensors` owns batch finiteness; `CavalierContours` arrives through `ArcAlgebra.Apply`; `MTConnect.NET-Common` arrives through `CutterForm` admission.
 - Boundary: `ArcAlgebra` owns exact-arc path generation, `Cam` owns axial repetition and safety composition, and `Link` owns travel.
 
@@ -62,6 +63,7 @@ using NodaTime;
 using Rasm.Domain;
 using QuikGraph;
 using QuikGraph.Algorithms;
+using UnitsNet;
 using QuikGraph.Algorithms.Observers;
 using QuikGraph.Algorithms.Search;
 using Rasm.Element.Projection;
@@ -80,7 +82,7 @@ namespace Rasm.Fabrication.Toolpath;
 public readonly record struct EngagementInputs(
     double CutterRadius,
     double ChannelClearance,
-    double TargetAngleDeg,
+    Angle TargetAngle,
     double ScallopStep,
     ProcessBudget.Subtractive Budget,
     Option<(LoadWindow Window, Instant EvaluatedAt)> MeasuredLoad = default);
@@ -115,7 +117,7 @@ public sealed partial class EngagementLimit {
     private static Option<double> ChannelCeiling(EngagementInputs inputs) => Some(inputs.ChannelClearance);
 
     private static Option<double> ImmersionCeiling(EngagementInputs inputs) =>
-        Some(inputs.CutterRadius * (1.0 - Math.Cos(inputs.TargetAngleDeg * Math.PI / 180.0)));
+        Some(inputs.CutterRadius * (1.0 - Math.Cos(inputs.TargetAngle.Radians)));
 
     private static Option<double> WidthCeiling(EngagementInputs inputs) => Some(inputs.Budget.WidthOfCut);
 
@@ -153,12 +155,10 @@ public sealed partial class EngagementLimit {
                 .Apply((radial, advance) => new EngagementSolution(
                     state.Table, radial.Row, radial.Value, advance.Row, advance.Value))
                 .As()
-                .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "skeleton:engagement-unbound")))
+                .ToFin(new KernelFault.InvalidValue("skeleton", "skeleton:engagement-unbound")))
             .Bind(static solution => solution.Radial > 0.0 && solution.Advance > 0.0
                 ? Fin.Succ(solution)
-                : Fin.Fail<EngagementSolution>(new FabricationFault.PolicyInadmissible(
-                    FabConcern.Toolpath,
-                    $"skeleton:engagement:{(solution.Radial > 0.0 ? solution.BindingAdvance : solution.BindingRadial).Key}")));
+                : Fin.Fail<EngagementSolution>(new KernelFault.InvalidValue("skeleton", $"skeleton:engagement:{(solution.Radial > 0.0 ? solution.BindingAdvance : solution.BindingRadial).Key}")));
 }
 
 // Each row names the `CutStrategy` its emission IS, so the element key the canonical mint digests carries the same
@@ -254,7 +254,6 @@ public sealed class SkeletonTopology {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class SkeletonDemand {
     public ArcForest Stock { get; }
     public SkeletonGraph Graph { get; }
@@ -281,7 +280,7 @@ public sealed partial class SkeletonDemand {
     // The geometric fold runs HERE, so every construction path crosses it and the operation reads admitted evidence.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref ArcForest stock,
         ref SkeletonGraph graph,
         ref CutterForm cutter,
@@ -291,12 +290,9 @@ public sealed partial class SkeletonDemand {
         ref ProcessModality modality,
         ref SkeletonTopology topology,
         ref Option<(LoadWindow Window, Instant EvaluatedAt)> measuredLoad) {
-        Seq<Error> facts = topology.Components.Count == graph.Nodes.Count
-            ? Skeleton.Facts(stock, graph, cutter, engagement, topology)
-            : Seq((Error)new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "skeleton:topology-mismatch"));
-        if (!facts.IsEmpty)
-            validationError = new FabricationFault.PolicyInadmissible(
-                FabConcern.Toolpath, Error.Many([.. facts]).Message);
+        if (topology.Components.Count != graph.Nodes.Count
+            || !Skeleton.Facts(stock, graph, cutter, engagement, topology).IsEmpty)
+            validationError = new ValidationError("skeleton:topology");
     }
 }
 
@@ -311,7 +307,11 @@ public sealed record SkeletonPass(
     Seq<int> Visit,
     int TreeEdges);
 
-public sealed record SkeletonReceipt(
+// `SkeletonWalk` publishes the walk's own census over the whole graph. It carries no content key, evidence band,
+// or stamp, so it takes no `*Receipt` name: that name belongs to the `Process/owner#RECEIPT` `Receipt<TEvidence>`
+// carrier under this folder's own ruling, and a lane output wearing it while holding none of the three required
+// columns is the deleted form.
+public sealed record SkeletonWalk(
     Seq<SkeletonPass> Passes,
     Arr<int> Components,
     int ComponentCount,
@@ -323,20 +323,17 @@ public sealed record SkeletonReceipt(
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Skeleton {
-    public static Fin<SkeletonReceipt> Walk(SkeletonDemand demand, FabricationTap? tap = null) =>
-        from tolerance in Tolerance.Apply(new ToleranceRequest.Scallop(demand.Engagement.Finish.Roughness, demand.Cutter))
-        from scallop in tolerance is ToleranceReceipt.Scallop receipt
-            ? Fin.Succ(receipt.StepMm)
-            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "skeleton:scallop-receipt"))
+    public static Fin<SkeletonWalk> Walk(SkeletonDemand demand, FabricationTap? tap = null) =>
+        from scallop in ToleranceSpec.Apply(new ToleranceRequest.Scallop(demand.Engagement.Finish.Roughness, demand.Cutter))
         from budget in demand.Engagement.Budget is ProcessBudget.Subtractive subtractive
             ? Fin.Succ(subtractive)
-            : Fin.Fail<ProcessBudget.Subtractive>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "skeleton:budget"))
+            : Fin.Fail<ProcessBudget.Subtractive>(new KernelFault.InvalidValue("skeleton", "skeleton:budget"))
         let cutterRadius = demand.Cutter.Diameter / 2.0
         from passes in Range(0, demand.Topology.ComponentCount).ToSeq()
-            .Map(component => Component(demand, budget, cutterRadius, scallop, component))
+            .Map(component => Component(demand, budget, cutterRadius, scallop.StepMm, component))
             .TraverseM(identity)
             .As()
-        let walked = new SkeletonReceipt(
+        let walked = new SkeletonWalk(
             passes,
             demand.Topology.Components,
             demand.Topology.ComponentCount,
@@ -356,10 +353,10 @@ public static class Skeleton {
         int component) =>
         from nodes in demand.Topology.NodesOf(component) is { IsEmpty: false } members
             ? Fin.Succ(members)
-            : Fin.Fail<Seq<int>>(new GeometryFault.DegenerateInput(Kind.Curve, component, $"skeleton:component-{component}:empty").ToError())
+            : Fin.Fail<Seq<int>>(new GeometryFault.DegenerateInput(Kind.Curve, component, $"skeleton:component-{component}:empty"))
         from arcs in demand.Graph.Arcs.Filter(arc => demand.Topology.Components[arc.From] == component) is { IsEmpty: false } spans
             ? Fin.Succ(spans)
-            : Fin.Fail<Seq<SkeletonArc>>(new GeometryFault.DegenerateInput(Kind.Curve, component, $"skeleton:component-{component}:arcs").ToError())
+            : Fin.Fail<Seq<SkeletonArc>>(new GeometryFault.DegenerateInput(Kind.Curve, component, $"skeleton:component-{component}:arcs"))
         let origins = toSeq(arcs.Map(static arc => arc.OriginEdge).Distinct().Order())
         // The component's arcs are proven non-empty above, so the narrowest channel seeds on a REAL span rather than
         // on an infinity a receipt would then publish as a clearance.
@@ -367,13 +364,13 @@ public static class Skeleton {
             double.Min(demand.Graph.Nodes[arc.From].Radius, demand.Graph.Nodes[arc.To].Radius) - cutterRadius)
         let clearance = spans.Fold(spans[0], double.Min)
         from engagement in EngagementLimit.Solve(new EngagementInputs(
-            cutterRadius, clearance, demand.Engagement.Finish.TargetAngleDeg, scallop, budget, demand.MeasuredLoad))
+            cutterRadius, clearance, demand.Engagement.Finish.TargetAngle, scallop, budget, demand.MeasuredLoad))
         from walked in Chain(demand.Graph, demand.Topology, nodes, demand.Stock.Tolerance, component)
         from trace in ArcAlgebra.Apply(demand.Strategy.Operation(
             demand.Stock, walked.Guide, engagement, cutterRadius, budget.FeedRate, demand.Sense))
         from motion in trace is ArcTrace.Motion moved
             ? Fin.Succ(moved.Receipt)
-            : Fin.Fail<MotionReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"skeleton:component-{component}:arc-trace"))
+            : Fin.Fail<MotionReceipt>(new KernelFault.InvalidValue("skeleton", $"skeleton:component-{component}:arc-trace"))
         from elements in Elements(demand, origins, component, motion.Moves)
         select new SkeletonPass(
             component, origins, elements, engagement, clearance, nodes.Count, arcs.Count, walked.Visit, walked.TreeEdges);
@@ -434,7 +431,7 @@ public static class Skeleton {
             ? Option<Error>.None
             : Some(new GeometryFault.DegenerateInput(Kind.Curve, index < 0 ? Option<int>.None : index, index < 0
                 ? $"skeleton:{fact.Axis}"
-                : $"skeleton:{owner}-{index}:{fact.Axis}").ToError()));
+                : $"skeleton:{owner}-{index}:{fact.Axis}")));
 
     private static Fin<(Loop Guide, Seq<int> Visit, int TreeEdges)> Chain(
         SkeletonGraph graph,
@@ -449,13 +446,13 @@ public static class Skeleton {
                 (best, index) => best
                     .Filter(held => graph.Nodes[held].Radius >= graph.Nodes[index].Radius)
                     .Match(Some: static held => Some(held), None: () => Some(index)))
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, component, $"skeleton:component-{component}:seed").ToError())
+            .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, component, $"skeleton:component-{component}:seed"))
             .Map(seed => Descend(topology, seed, nodes.Count))
             .Bind(walk => walk.Order.Count >= 2
                 ? Loop.Admit(walk.Order.Map(index => graph.Nodes[index].At).ToArr(), closed: false, Arr<double>(), tolerance)
                     .Map(guide => (Guide: guide, walk.Visit, walk.TreeEdges))
                 : Fin.Fail<(Loop, Seq<int>, int)>(
-                    new GeometryFault.DegenerateInput(Kind.Curve, component, $"skeleton:component-{component}:chain").ToError()));
+                    new GeometryFault.DegenerateInput(Kind.Curve, component, $"skeleton:component-{component}:chain")));
 
     // ONE descent per component. `ProcessAllComponents` stays false, so the seeded run covers exactly the seed's
     // component; the filter carries the deterministic child order the guide's replayability depends on; and the two
@@ -561,7 +558,7 @@ public static class SkeletonBench {
             CutSense.Climb, WalkStrategy.Clearing, ProcessModality.Subtractive)
         select demand;
 
-    public static Fin<SkeletonReceipt> Run(SkeletonDemand demand) => Skeleton.Walk(demand);
+    public static Fin<SkeletonWalk> Run(SkeletonDemand demand) => Skeleton.Walk(demand);
 
     // Chain topology per channel: consecutive nodes link once, so duplicate edges and isolated nodes are
     // structurally impossible and the per-arc channel span stays strictly above the cutter radius.

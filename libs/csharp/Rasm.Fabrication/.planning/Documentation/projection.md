@@ -1,25 +1,27 @@
 # [RASM_FABRICATION_PROJECTION]
 
-`Hlr.Solve` is the host-local adapter from an admitted fabrication model, boolean source policy, view convention, drafting convention, and characteristic loci to one evidence-complete `ProjectionReceipt`. `Rasm.Drawing.View` retains visibility and silhouette computation, `Rasm.Drawing.Hatching` retains pattern fill so a hatch-rowed view carries its exactly-clipped `HatchResult` with no host round-trip, and `Rasm.Meshing.Arrangement` retains solid composition; APP composition receives `FabricationResult.HiddenLineResult` without a direct library dependency on a UI package.
+`Hlr.Solve` is the host-local adapter from an admitted fabrication model, boolean source policy, view convention, drafting convention, and characteristic loci to one evidence-complete `ProjectionEvidence`. `Rasm.Drawing.View` retains visibility and silhouette computation, `Rasm.Drawing.Hatching` retains pattern fill so a hatch-rowed view carries its exactly-clipped `HatchResult` with no host round-trip, and `Rasm.Meshing.Arrangement` retains solid composition; APP composition receives `FabricationResult.HiddenLineResult` without a direct library dependency on a UI package.
 
-`ViewKey` is the one view identity every roster row, hatch row, run, and anchor joins on, so a projection never string-compares its own keys. `ProjectionCharacteristic` carries its `FeatureFrameReceipt` whole, and `ProjectionAnchor` republishes that receipt's layout-free `FrameSymbolRow` stream beside the projected screen locus — a drafting consumer places a feature-control frame from the anchor alone, never by re-opening specification geometry or reconstructing symbol identity.
+`ViewKey` is the one view identity every roster row, hatch row, run, and anchor joins on, so a projection never string-compares its own keys. `ProjectionCharacteristic` carries its `FeatureFrame` whole, and `ProjectionAnchor` republishes that frame's layout-free `FrameSymbolRow` stream beside the projected screen locus — a drafting consumer places a feature-control frame from the anchor alone, never by re-opening specification geometry or reconstructing symbol identity.
 
 ## [01]-[INDEX]
 
-- [02]-[PROJECTION]: `ViewKey`, `ProjectionAngle`, source and view families, `ProjectionPolicy` admission, the boolean composition lineage, and the run, anchor, and receipt shapes `Hlr.Solve` mints.
+- [02]-[PROJECTION]: `ViewKey`, source and view families, `ProjectionPolicy` admission over the issued sheet, the boolean composition lineage, and the run, anchor, and receipt shapes `Hlr.Solve` mints.
 
 ## [02]-[PROJECTION]
 
-- Owner: `ViewKey` owns view identity; `ProjectionAngle` owns the sheet-quadrant law; `ProjectionSource` owns projection ingress; `ProjectionView` owns the authored roster and `ViewOp` the solve-time kernel request; `ProjectionPolicy` owns one-shot admission; `BooleanComposition` owns operand lineage; `ProjectionRun`, `ProjectionAnchor`, and `ProjectionReceipt` own the settled evidence; `Hlr` owns the fold.
+- Owner: `ViewKey` owns view identity; `ProjectionSource` owns projection ingress; `ProjectionView` owns the authored roster and `ViewOp` the solve-time kernel request; `ProjectionPolicy` owns one-shot admission; `BooleanComposition` owns operand lineage; `ProjectionRun`, `ProjectionAnchor`, and `ProjectionEvidence` own the settled evidence; `Hlr` owns the fold.
 - Cases: `ProjectionSource.Model` forwards the admitted `FabricationInput.Model` and `.Boolean` folds identified operand rows through `Arrangement.Apply`; `ProjectionView.Projected` composes silhouette, hidden-line, or outline with an authored orientation and `.Section` adds its cut plane, so multiple cuts coexist under distinct keys without reminting a kernel operation vocabulary.
 - Law: the operand ordinal is the position an operand took in its OWN boolean leg — the accumulated model enters at `0` and the operand at `1`, which is exactly what `ManifoldProvenance.OperandOf(face)` returns. A running count across legs makes every leg past the first attribute to nothing, because no leg ever sees an ordinal above one. Attribution therefore walks the legs in REVERSE: the last leg's provenance describes the final faces, an operand-`1` hit names that leg's source, and an operand-`0` hit falls through to the leg that produced the accumulated model.
-- Law: every scalar knob is dimensioned or bounded at admission — `CreaseDihedralRadians` enters as an `Angle`, the intersection inflation as a `Length`, the spatial leaf as a positive count, and `BetaSquared` as the squared silhouette-tolerance ratio the kernel's own crease test consumes. A bare double angle beside a typed length is the fork this admission deletes.
+- Law: every scalar knob is dimensioned or bounded at admission — `CreaseDihedralRadians` enters as an `Angle`, the spatial leaf as a positive count, and `BetaSquared` as the squared silhouette-tolerance ratio the kernel's own crease test consumes. A bare double angle beside a typed length is the fork this admission deletes.
+- Law: the SHEET facts are one column. `PlotPolicy` carries the size, its standard, the ladder-admitted `DrawingScale`, the frame, the line group, the plot style table, and the PDF conformance in one privately-minted value, so the receipt's `Quadrant` DERIVES off it through `ProjectionAngle.For(standard)` — the kernel's own ISO 128-30 §5 row — and `ScaleLadder.For(standard).Admits(scale)` already ran inside the mint. Scale is read as `Plot.Scale`; an aliasing property beside it would be a rename wrapper over one hop. A local two-row angle table and a free positive `Ratio` were the deleted form: the ratio admitted `1:7.3`, and the local table keyed `first`/`third` where the kernel keys `first-angle`/`third-angle`.
+- Law: broad-phase inflation is the OPERAND's, not the policy's. `IntersectPolicy` carries no inflation column and the sweep band reads `Context.For(ToleranceLane.MeshIntersection)` off the operand's own bound context, so the band scales with the model and a caller wanting a wider sweep widens that context — one authority for the tolerance rather than a per-view scalar every hatch and view leg re-spelled.
 - Law: an anchor is projected evidence, not a cross product. A characteristic anchors in a view only where its locus projects to a FINITE POSITIVE depth in that view's own camera, so a locus behind the camera or on its plane records no anchor rather than a screen point a sheet would place.
-- Law: face-grain attribution reads the SEGMENT — `ProjectedSegment.SourceFace` carries the kernel's classifying face ordinal, which on this single-part solve IS the composed model's own face index, so `ProjectionReceipt.Attribute(segment.SourceFace)` resolves per-segment operand lineage with no side table; `SourceA`/`SourceB` stay source-edge vertex indices the chain walk links on, negative wherever a visibility split landed mid-edge, and a `-1` face (an inter-part seam or section segment) attributes to nothing, the honest answer.
+- Law: face-grain attribution reads the SEGMENT — `ProjectedSegment.SourceFace` carries the kernel's classifying face ordinal, which on this single-part solve IS the composed model's own face index, so `ProjectionEvidence.Attribute(segment.SourceFace)` resolves per-segment operand lineage with no side table; `SourceA`/`SourceB` stay source-edge vertex indices the chain walk links on, negative wherever a visibility split landed mid-edge, and a `-1` face (an inter-part seam or section segment) attributes to nothing, the honest answer.
 - Entry: `Fabrication.Run` remains the sole public package entry; `Hlr.Solve` is internal, receives parameterized ingress and egress, and preserves every `ProjectedSegment` field of every requested view through the kernel `DrawingProjection` carrier.
-- Auto: the policy is CONSUMER-AUTHORED per run — a drafting consumer raises its own `ProjectionView` rows from the camera basis it already holds and its `Ratio Scale` from its sheet scale — so no view or scale value originates inside this owner and admission validates whatever a consumer raises. Requested views enter one `Validation<Error>` traversal, so an unprojectable view reports beside every other failed view rather than masking them.
-- Receipt: `ProjectionReceipt` retains one keyed `ProjectionRun` per requested view — its `ViewPose`, kernel operation, complete `DrawingProjection` including `EdgeKind`, `Invisibility`, `Next`, `SourceA`, `SourceB`, `Part`, `SourceFace`, the flat and per-part `EdgeHistogram` tallies, and the `Contacts` interference roster, and the `Option<HatchResult>` its hatch row produced — beside every boolean composition, the drafting convention, and the anchor stream carrying its symbol rows.
-- Packages: `Rasm.Drawing` (`View.Apply`, `Hatching.Apply`, `ViewOp`, `ViewKind`, `ViewPolicy`, `ViewConvention`, `ViewPose`, `Camera`, `DrawingProjection`, `HatchOp`, `HatchPlan`, `HatchPolicy`, `HatchResult`), `Rasm.Meshing` (`Arrangement.Apply`, `ArrangementOp.MeshBoolean`, `ArrangementResult`, `MeshSpace`, `BooleanReceipt`, `ManifoldProvenance`), `Rasm.Spatial` (`BuildPolicy`, `IntersectPolicy`), `Rasm.Numerics` (`Direction.Of`), `Rasm.Fabrication.Spec` (`FeatureFrameReceipt`, `FrameSymbolRow`, `CharacteristicId`).
+- Auto: the policy is CONSUMER-AUTHORED per run — a drafting consumer raises its own `ProjectionView` rows from the camera basis it already holds and its `PlotPolicy` from the sheet it is issuing to, minting the whole row through `PlotPolicy.Issue(size, key)` where it holds only the size — so no view, scale, or sheet convention originates inside this owner and admission validates whatever a consumer raises. Requested views enter one `Validation<Error>` traversal, so an unprojectable view reports beside every other failed view rather than masking them.
+- Receipt: `ProjectionEvidence` carries the issued `PlotPolicy`, publishes its `Quadrant` off that sheet's standard, and retains one keyed `ProjectionRun` per requested view — its `ViewPose`, kernel operation, complete `DrawingProjection` including `EdgeKind`, `Invisibility`, `Next`, `SourceA`, `SourceB`, `Part`, `SourceFace`, the flat and per-part `EdgeHistogram` tallies, and the `Contacts` interference roster, and the `Option<HatchResult>` its hatch row produced — beside every boolean composition, the drafting convention, and the anchor stream carrying its symbol rows.
+- Packages: `Rasm.Drawing` (`View.Apply`, `Hatching.Apply`, `ViewOp`, `ViewKind`, `ViewPolicy`, `ViewConvention`, `ViewPose`, `Camera`, `DrawingProjection`, `HatchOp`, `HatchPlan`, `HatchPolicy`, `HatchResult`, `PlotPolicy`, `DrawingScale`, `ScaleLadder`, `ProjectionAngle`, `SheetStandard`), `Rasm.Meshing` (`Arrangement.Apply`, `ArrangementOp.MeshBoolean`, `ArrangementResult`, `MeshSpace`, `BooleanReceipt`, `ManifoldProvenance`), `Rasm.Spatial` (`BuildPolicy`, `IntersectPolicy`), `Rasm.Numerics` (`Direction.Of`), `Rasm.Fabrication.Spec` (`FeatureFrame`, `FrameSymbolRow`, `CharacteristicId`).
 - Boundary: a boolean returns SHELLS, so a severing operand refuses typed mid-fold rather than silently framing one component of a disconnected model; silhouette, crease, and intersection loci are whole-model reads and projecting the first shell would drop geometry the operand legitimately produced.
 
 ```csharp signature
@@ -47,33 +49,19 @@ namespace Rasm.Fabrication.Documentation;
 // One view identity for the roster, the hatch rows, the runs, and the anchors, so a join is an equality on an
 // admitted owner rather than an ordinal string comparison every site has to spell identically.
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
-[ValidationError<FabricationFault>]
 public readonly partial struct ViewKey {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Documentation, "view-key");
+            validationError = new ValidationError("view-key");
     }
-}
-
-// QuadrantSign is the placement law as data: a third-angle view lands on the side it looks from, a first-angle view
-// on the opposite side, so sheet layout folds the column instead of branching. The fold is the APP drafting owner's —
-// the same claimant that places this page's `FrameSymbolRow` compartments — because this package projects views and
-// seats no sheet; publishing the sign is what keeps that owner from re-deriving the convention off the angle key.
-[SmartEnum<string>]
-public sealed partial class ProjectionAngle {
-    public static readonly ProjectionAngle First = new("first", quadrantSign: -1);
-    public static readonly ProjectionAngle Third = new("third", quadrantSign: 1);
-
-    public int QuadrantSign { get; }
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ProjectionCharacteristic {
-    public FeatureFrameReceipt Frame { get; }
+    public FeatureFrame Frame { get; }
     public Point3d ModelLocus { get; }
     public Option<(ContentKey Source, int Edge)> Provenance { get; }
 
@@ -81,16 +69,16 @@ public sealed partial class ProjectionCharacteristic {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
-        ref FeatureFrameReceipt frame,
+        ref ValidationError? validationError,
+        ref FeatureFrame frame,
         ref Point3d modelLocus,
         ref Option<(ContentKey Source, int Edge)> provenance) {
         if (!modelLocus.IsValid || provenance.Exists(static value => value.Edge < 0))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Documentation, "projection:characteristic");
+            validationError = new ValidationError("projection:characteristic");
     }
 
     public static Fin<ProjectionCharacteristic> Admit(
-        FeatureFrameReceipt frame,
+        FeatureFrame frame,
         Point3d modelLocus,
         Option<(ContentKey Source, int Edge)> provenance) =>
         Validate(frame, modelLocus, provenance, out ProjectionCharacteristic characteristic).Admitted(characteristic);
@@ -150,21 +138,23 @@ public abstract partial record ProjectionView {
             silhouette: _ => Fin.Succ<ViewOp>(new ViewOp.Silhouette(state.Parts, state.Camera, state.Policy)),
             hiddenLine: _ => Fin.Succ<ViewOp>(new ViewOp.HiddenLine(state.Parts, state.Camera, state.Policy)),
             outline: _ => Fin.Succ<ViewOp>(new ViewOp.Outline(state.Parts, state.Camera, state.Policy)),
-            section: _ => Fin.Fail<ViewOp>(new FabricationFault.PolicyInadmissible(
-                FabConcern.Documentation, $"projection:section-without-plane:{view.Key.Value}"))),
+            section: _ => Fin.Fail<ViewOp>(new KernelFault.InvalidValue("projection", $"projection:section-without-plane:{view.Key.Value}"))),
         section: static (state, view) => Fin.Succ<ViewOp>(
             new ViewOp.Section(state.Parts, view.Cut, state.Camera, state.Policy)));
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ProjectionPolicy {
     public ProjectionSource Source { get; }
     public Seq<ProjectionView> Views { get; }
     public ViewConvention Convention { get; }
-    public ProjectionAngle Angle { get; }
-    public Ratio Scale { get; }
-    public Length FacetTolerance { get; }
+
+    // The ISSUED SHEET, whole. `PlotPolicy.Of` already gates its scale against `ScaleLadder.For(size.Standard)`
+    // and derives frame and line group from the size inside a private mint, so a free positive `Ratio` — under
+    // which `1:7.3` passed — is unrepresentable here rather than refused later, and the projection cannot claim a
+    // sheet convention the plot it feeds does not use. `PlotPolicy.Issue(size, key)` mints the whole value from
+    // the size alone, so the consumer that used to author angle and scale separately now authors one row.
+    public PlotPolicy Plot { get; }
 
     // Crease is an ANGLE and the silhouette tolerance a squared ratio the kernel's own crease test consumes; both
     // enter typed, so a caller cannot hand degrees where radians are read or a raw ratio where its square is.
@@ -177,23 +167,20 @@ public sealed partial class ProjectionPolicy {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref ProjectionSource source,
         ref Seq<ProjectionView> views,
         ref ViewConvention convention,
-        ref ProjectionAngle angle,
-        ref Ratio scale,
-        ref Length facetTolerance,
+        ref PlotPolicy plot,
         ref Angle creaseDihedral,
         ref double betaSquared,
         ref int spatialLeaf,
         ref Map<ViewKey, HatchPlan> hatching,
         ref Seq<ProjectionCharacteristic> characteristics) {
         Set<ViewKey> roster = toSet(views.Map(static value => value.Key));
-        if (!Witness.Positive(facetTolerance.Millimeters)
-            || !Witness.Positive(scale.DecimalFractions)
+        if (!plot.IsValid
             || !double.IsFinite(creaseDihedral.Radians) || creaseDihedral.Radians is <= 0.0 or >= Math.PI
-            || !Witness.Positive(betaSquared) || spatialLeaf <= 0
+            || !ValidityClaim.Positive(betaSquared).Holds || spatialLeaf <= 0
             || !source.Switch(
                 model: static _ => true,
                 boolean: static value => !value.Operands.IsEmpty
@@ -206,22 +193,20 @@ public sealed partial class ProjectionPolicy {
             || views.Exists(static value => value is ProjectionView.Section { Cut: var cut } && !cut.IsValid)
             || hatching.Exists(row => !roster.Contains(row.Key) || !row.Value.IsValid)
             || characteristics.Map(static value => value.Id).Distinct().Count != characteristics.Count)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Documentation, "projection:policy");
+            validationError = new ValidationError("projection:policy");
     }
 
     public static Fin<ProjectionPolicy> Admit(
         ProjectionSource source,
         Seq<ProjectionView> views,
         ViewConvention convention,
-        ProjectionAngle angle,
-        Ratio scale,
-        Length facetTolerance,
+        PlotPolicy plot,
         Angle creaseDihedral,
         double betaSquared,
         int spatialLeaf,
         Map<ViewKey, HatchPlan> hatching,
         Seq<ProjectionCharacteristic> characteristics) =>
-        Validate(source, views, convention, angle, scale, facetTolerance, creaseDihedral, betaSquared, spatialLeaf,
+        Validate(source, views, convention, plot, creaseDihedral, betaSquared, spatialLeaf,
             hatching, characteristics, out ProjectionPolicy policy).Admitted(policy);
 }
 
@@ -242,13 +227,17 @@ public sealed record ProjectionRun(
     DrawingProjection Projection,
     Option<HatchResult> Hatch = default);
 
-public sealed record ProjectionReceipt(
-    ProjectionAngle Angle,
-    Ratio Scale,
+public sealed record ProjectionEvidence(
+    PlotPolicy Plot,
     Seq<ProjectionRun> Runs,
     Seq<ProjectionAnchor> Characteristics,
     Seq<BooleanComposition> Composition,
     Seq<ContentKey> Sources) {
+    // The placement law as data, DERIVED off the sheet this projection was issued to: a third-angle view lands on
+    // the side it looks from, a first-angle view on the opposite side, so the drafting owner that seats these runs
+    // folds one signed column instead of branching, and it never re-derives the convention off a standard name.
+    public ProjectionAngle Quadrant => ProjectionAngle.For(Plot.Size.Standard);
+
     public Option<DrawingProjection> View(ViewKey key) =>
         Runs.Find(run => run.Key == key).Map(static run => run.Projection);
 
@@ -278,16 +267,15 @@ internal static class Hlr {
     internal static Fin<FabricationResult> Solve(
         FabricationPolicy.HiddenLine request,
         FabricationInput input,
-        Func<ProjectionReceipt, FabricationResult> egress) =>
+        Func<ProjectionEvidence, FabricationResult> egress) =>
         from admitted in input.Model.ToFin(HlrOp.InvalidInput())
         from sourced in Source(admitted, request.Policy.Source)
         from framed in request.Policy.Views
             .Traverse(view => ProjectionLeg(view, sourced.Model, request.Policy))
             .As()
             .ToFin()
-        select egress(new ProjectionReceipt(
-            request.Policy.Angle,
-            request.Policy.Scale,
+        select egress(new ProjectionEvidence(
+            request.Policy.Plot,
             framed.Map(static value => value.Run),
             framed.Bind(value => Anchors(value.Run.Key, value.Camera, request.Policy.Characteristics)),
             sourced.Composition,
@@ -304,8 +292,7 @@ internal static class Hlr {
         Seq<ProjectionCharacteristic> characteristics) =>
         characteristics.Bind(characteristic => {
             double depth = camera.Depth(characteristic.ModelLocus);
-            return Witness.Positive(depth)
-                ? Seq(new ProjectionAnchor(key, characteristic, camera.Project(characteristic.ModelLocus), depth))
+            return ValidityClaim.Positive(depth) ? Seq(new ProjectionAnchor(key, characteristic, camera.Project(characteristic.ModelLocus), depth))
                 : Seq<ProjectionAnchor>();
         });
 
@@ -327,7 +314,7 @@ internal static class Hlr {
                 from solid in kept.Shells.Count == 1
                     ? kept.Shells.Head.ToFin(HlrOp.InvalidResult())
                     : Fin.Fail<MeshSpace>(new GeometryFault.DegenerateInput(
-                        Kind.Mesh, None, "projection:severed-operand").ToError())
+                        Kind.Mesh, None, "projection:severed-operand"))
                 select new Sourced(
                     solid,
                     current.Composition.Add(new BooleanComposition(operand.Source, kept.Receipt)))).As());
@@ -338,9 +325,7 @@ internal static class Hlr {
         ProjectionPolicy policy) =>
         // Fast bounds are exact enough for camera framing: Pose reads only Center and Diagonal to
         // seat the standoff, so an accurate walk buys no framing precision at a full-mesh cost.
-        from bounds in Try.lift<BoundingBox>(() => model.Native.GetBoundingBox(accurate: false))
-            .Run()
-            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, None, error.Message).ToError())
+        from bounds in HlrOp.Catch(() => Fin.Succ(model.Native.GetBoundingBox(accurate: false)))
         from _ in guard(bounds.IsValid, HlrOp.InvalidInput()).ToFin()
         from forward in Direction.Of(direction.Forward, model.Tolerance, HlrOp)
         from pose in policy.Convention.Pose(bounds, Some(forward), model.Tolerance, HlrOp)
@@ -351,7 +336,10 @@ internal static class Hlr {
             ViewPolicy.Canonical with {
                 CreaseDihedralRadians = policy.CreaseDihedral.As(AngleUnit.Radian),
                 BetaSquared = policy.BetaSquared,
-                Narrow = IntersectPolicy.Canonical with { BroadPhaseInflation = policy.FacetTolerance.Millimeters },
+                // The broad phase reads `Context.For(ToleranceLane.MeshIntersection)` off the OPERAND's own bound
+                // context now, so the sweep band scales with the model and a caller wanting a wider sweep widens
+                // that context rather than pinning an absolute inflation on a policy row every view shared.
+                Narrow = IntersectPolicy.Canonical,
                 Broad = BuildPolicy.Canonical with { LeafSize = policy.SpatialLeaf },
             });
 
@@ -375,7 +363,7 @@ internal static class Hlr {
     // Hatch lanes ride the SAME admitted exactness rows Lower binds for the view solve.
     private static HatchPolicy HatchLane(ProjectionPolicy policy) =>
         HatchPolicy.Canonical with {
-            Narrow = IntersectPolicy.Canonical with { BroadPhaseInflation = policy.FacetTolerance.Millimeters },
+            Narrow = IntersectPolicy.Canonical,
             Broad = BuildPolicy.Canonical with { LeafSize = policy.SpatialLeaf },
         };
 }

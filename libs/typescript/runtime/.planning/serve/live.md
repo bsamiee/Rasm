@@ -30,28 +30,56 @@ import { Profile } from "../otel/profile.ts"
 import { Fanout } from "../net/pubsub.ts"
 import { Principal } from "./api.ts"
 
-// One row per reason: the core kind alone. Retryability, blame, and the response code stay the core row
-// table's and problem#STATUS_RECORD's, so no local policy column rides beside `class`.
+// Every refusal on this page names a COORDINATE beside its subject, because a channel, a scope, an actor, and a
+// resume position are four different refusals a caller acts on differently and a free detail string collapsed all
+// four into one word only a human could read.
+const _COORDINATES = ["actor", "channel", "resume", "scope", "topic"] as const
+const _Located = Schema.Struct({ coordinate: Schema.Literal(..._COORDINATES), subject: Schema.NonEmptyString })
+
+// One row per reason: the core kind alone decides policy. Retryability, blame, and the response code stay the core
+// row table's and problem#STATUS_RECORD's, so no local policy column rides beside `class` — what each row owns is
+// its own subject and the sentence it renders over it.
 const _live = Fault.Class.family(["denied", "shed", "lost", "closed"] as const, {
-  denied: { class: "denied" },
-  shed: { class: "unavailable" },
-  lost: { class: "conflicted" },
-  closed: { class: "unavailable" },
+  denied: Fault.Class.row({
+    class: "denied",
+    leg: "admission",
+    detail: _Located,
+    render: ({ coordinate, subject }) => `this principal is not admitted at ${coordinate} ${subject}`,
+  }),
+  shed: Fault.Class.row({
+    class: "unavailable",
+    leg: "admission",
+    detail: Schema.Struct({ seat: Schema.NonEmptyString }),
+    render: ({ seat }) => `seat ${seat} stands at its declared fan ceiling`,
+  }),
+  lost: Fault.Class.row({
+    class: "conflicted",
+    leg: "feed",
+    detail: _Located,
+    render: ({ coordinate, subject }) => `${coordinate} ${subject} cannot resume from the position offered`,
+  }),
+  closed: Fault.Class.row({
+    class: "unavailable",
+    leg: "feed",
+    // the transport's own ending, which is foreign text by nature; every other row on this page states coordinates
+    detail: Schema.Struct({ detail: Schema.String }),
+    render: ({ detail }) => `the live connection ended — ${detail}`,
+  }),
 })
 
 declare namespace LiveFault {
-  type Reason = (typeof _live.reasons)[number]
+  type Issue = typeof _live.payload.Type
+  type Reason = (typeof _live.kinds)[number]
 }
 
 class LiveFault extends Schema.TaggedError<LiveFault>()("LiveFault", {
-  reason: _live.schema,
-  detail: Schema.String,
+  case: _live.payload,
 }) {
   get class(): Fault.Class.Kind {
-    return _live.classOf(this.reason)
+    return _live.classOf(this.case.reason)
   }
   override get message(): string {
-    return `<live:${this.reason}> ${this.detail}`
+    return _live.render(this.case)
   }
 }
 
@@ -156,7 +184,7 @@ const _sse = <A, I, E, R, R2>(
 > =>
   Profile.banded(_BAND, { channel: "sse", step: "frame" }, Effect.gen(function* () {
     const attested = yield* HttpServerRequest.schemaHeaders(_ResumeHeader).pipe(
-      Effect.mapError(() => new LiveFault({ reason: "lost", detail: "resume token refused" })),
+      Effect.mapError(() => new LiveFault({ case: { reason: "lost", coordinate: "resume", subject: "last-event-id" } })),
     )
     const context = yield* Effect.context<R | R2>()
     const encode = Schema.encode(item)
@@ -171,7 +199,7 @@ const _sse = <A, I, E, R, R2>(
           })),
           Effect.orDie,
         )),
-      Stream.mapError((cause) => (cause instanceof LiveFault ? cause : new LiveFault({ reason: "closed", detail: String(cause) }))),
+      Stream.mapError((cause) => (cause instanceof LiveFault ? cause : new LiveFault({ case: { reason: "closed", detail: String(cause) } }))),
       Stream.buffer({ capacity: Option.getOrElse(_lanes.sse.lag, () => 1), strategy: "suspend" }),
     )
     // Admission fences the WHOLE frame stream, heartbeat included: a superseding subscribe settles it and
@@ -224,11 +252,11 @@ const _socket = <In, IEnc, Out, OEnc, RIn, ROut>(
     { channel: "socket", step: "upgrade" },
     Effect.gen(function* () {
       const request = yield* HttpServerRequest.HttpServerRequest
-      const socket = yield* request.upgrade.pipe(Effect.mapError(() => new LiveFault({ reason: "closed", detail: "upgrade refused" })))
+      const socket = yield* request.upgrade.pipe(Effect.mapError(() => new LiveFault({ case: { reason: "closed", detail: "the upgrade was refused" } })))
       return Socket.toChannel(socket).pipe(
         Ndjson.duplexString(),
         ChannelSchema.duplexUnknown({ inputSchema: frames.inbound, outputSchema: frames.outbound }),
-        Channel.mapError((cause) => (cause instanceof LiveFault ? cause : new LiveFault({ reason: "closed", detail: String(cause) }))),
+        Channel.mapError((cause) => (cause instanceof LiveFault ? cause : new LiveFault({ case: { reason: "closed", detail: String(cause) } }))),
         // Both endpoint rows honor this same admission fence: one supersede closes the duplex exactly as it closes an SSE
         Channel.interruptWhenDeferred(fence),
       )
@@ -270,15 +298,15 @@ const _topic = (topic: string): Realtime.Source<Fanout.Announced, LiveFault, Fan
       Effect.map(Fanout, (fanout) =>
         Option.match(resume, {
           onNone: () => fanout.subscribe(topic),
-          onSome: () => Stream.fail(new LiveFault({ reason: "lost", detail: topic })),
+          onSome: () => Stream.fail(new LiveFault({ case: { reason: "lost", coordinate: "topic", subject: topic } })),
         })),
     ).pipe(
       Stream.mapError((fault) =>
         fault instanceof LiveFault
           ? fault
-          : fault.reason === "horizon"
-            ? new LiveFault({ reason: "lost", detail: topic })
-            : new LiveFault({ reason: "closed", detail: topic })),
+          : fault.case.reason === "horizon"
+            ? new LiveFault({ case: { reason: "lost", coordinate: "topic", subject: topic } })
+            : new LiveFault({ case: { reason: "closed", detail: `topic ${topic} ended` } })),
     ),
   token: () => Option.none(),
 })
@@ -326,14 +354,14 @@ class _Rule extends Schema.Class<_Rule>("Admission/Rule")({
 const _admit = (rules: Trie.Trie<Admission.Rule>) =>
   (principal: Principal.Shape, channel: Admission.Channel): Effect.Effect<Admission.Grant, LiveFault> =>
     Option.match(Trie.longestPrefixOf(rules, channel), {
-      onNone: () => Effect.fail(new LiveFault({ reason: "denied", detail: channel })),
+      onNone: () => Effect.fail(new LiveFault({ case: { reason: "denied", coordinate: "channel", subject: channel } })),
       onSome: ([, rule]) =>
         Option.match(rule.scope, {
           onNone: () => Effect.succeed({ channel, rule }),
           onSome: (scope) =>
             Principal.allows(principal, scope)
               ? Effect.succeed({ channel, rule })
-              : Effect.fail(new LiveFault({ reason: "denied", detail: scope })),
+              : Effect.fail(new LiveFault({ case: { reason: "denied", coordinate: "scope", subject: scope } })),
         }),
     })
 
@@ -344,9 +372,9 @@ const _guard = (
 ) =>
   (op: Presence.Op): Effect.Effect<void, LiveFault> =>
     !grant.rule.presence
-      ? Effect.fail(new LiveFault({ reason: "denied", detail: grant.channel }))
+      ? Effect.fail(new LiveFault({ case: { reason: "denied", coordinate: "channel", subject: grant.channel } }))
       : op.actor !== principal.subject || !Option.exists(principal.tenant, (tenant) => tenant === op.tenant.tenant)
-        ? Effect.fail(new LiveFault({ reason: "denied", detail: op.actor }))
+        ? Effect.fail(new LiveFault({ case: { reason: "denied", coordinate: "actor", subject: op.actor } }))
         : forward(op)
 
 // one atomic verdict over the whole cell: `left` is the refused cap, `right` carries the superseded incumbent's
@@ -384,7 +412,7 @@ const _make = (rows: ReadonlyArray<readonly [prefix: Admission.Channel, rule: Ad
         const fence = yield* Deferred.make<void>()
         const verdict = yield* _reserved(cell, key, principal.subject, grant.rule.fan, fence)
         return yield* Either.match(verdict, {
-          onLeft: () => Effect.fail(new LiveFault({ reason: "shed", detail: key })),
+          onLeft: () => Effect.fail(new LiveFault({ case: { reason: "shed", seat: key } })),
           onRight: (incumbent) =>
             Effect.as(
               Effect.zipRight(
@@ -457,7 +485,7 @@ const _mounted = (handler: Mount.NodeHandler): HttpApp.Default<LiveFault, Mount.
 const _overlay = (prefix: `/${string}`): Effect.Effect<Mount.Row, never, EventLogServer.Storage> =>
   Effect.map(EventLogServer.makeHandlerHttp, (served): Mount.Row => ({
     prefix,
-    app: Effect.mapError(served, (cause) => new LiveFault({ reason: "closed", detail: String(cause) })),
+    app: Effect.mapError(served, (cause) => new LiveFault({ case: { reason: "closed", detail: String(cause) } })),
   }))
 
 class Mount extends Context.Tag("runtime/serve/Mount")<Mount, ReadonlyArray<Mount.Row>>() {

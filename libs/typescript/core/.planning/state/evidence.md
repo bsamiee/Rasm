@@ -36,9 +36,10 @@ const _Applied = Schema.TaggedStruct("Applied", {
 const _EvidenceValue = Schema.Union(Schema.String, Schema.Number.pipe(Schema.finite()), Schema.Boolean)
 const _Evidence = Schema.HashMap({ key: Schema.NonEmptyString, value: _EvidenceValue })
 
+// Retriability is DERIVED from the class column, never stored beside it: a producer writing its own bit could contradict
+// the recovery band the class already decides, and the two would diverge silently the first time the row table moved.
 const _Refused = Schema.TaggedStruct("Refused", {
   fault: Fault.Class.schema,
-  retryable: Schema.Boolean,
   evidence: _Evidence,
 })
 
@@ -78,10 +79,10 @@ const _basisCell = (basis: Option.Option<Causal.Vector>): Fold.Cell =>
 const _receiptCell = (receipt: _Receipt): Fold.Cell => Match.valueTags(receipt, {
   Accepted: () => Fold.cell(["Accepted"]),
   Applied: ({ touched }) => Fold.cell(["Applied", ...Array.sort(Array.fromIterable(touched), Order.string)]),
-  Refused: ({ evidence, fault, retryable }) => Fold.cell([
+  Refused: ({ evidence, fault }) => Fold.cell([
     "Refused",
     fault,
-    String(retryable),
+    String(Fault.Class.retryable(fault)),
     ...Array.sort(Array.map(HashMap.toEntries(evidence), ([key, value]) =>
       Fold.cell([key, typeof value, typeof value === "boolean" ? String(value) : value])), Order.string),
   ]),
@@ -353,7 +354,7 @@ const _VERDICT_RANKS = { Available: 0, Gated: 1, Withheld: 2 } as const satisfie
 >
 
 const _Commands = Schema.transform(
-  Schema.Record({ key: _Command, value: _Verdict }),
+  Shape.Record(_Command, _Verdict),
   Schema.HashMapFromSelf({ key: Schema.typeSchema(_Command), value: Schema.typeSchema(_Verdict) }),
   {
     strict: true,

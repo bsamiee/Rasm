@@ -29,7 +29,7 @@ Intl localizes the folder with zero i18n package: one ambient locale spine over 
 
 ```typescript signature
 import { Shape } from "@rasm/ts/core"
-import { Array, DateTime, Duration, HashMap, Match, Number, Option, Order, Schema, pipe } from "effect"
+import { Array, DateTime, Duration, HashMap, Match, Number, Option, Order, Record, Schema, pipe } from "effect"
 
 type Locale = Shape.Refined.Locale
 
@@ -143,7 +143,7 @@ const Format: Format.Shape = {
 
 [MESSAGE_FAMILY]:
 - Owner: `Message` — the assembled owner whose `Catalog` static is the decode surface: a catalog is `Record<key, MessageSpec>` where `MessageSpec` is one `Schema.Union` of three tagged cases — `Text { value }`, `Plural { arg, forms }` (forms keyed by the closed `Intl.LDMLPluralRule` vocabulary with `other` mandatory), `Select { arg, cases, other }` — decoded ONCE at catalog admission (an app fetch, a bundled JSON module crossing `with { type: "json" }` ingress), never re-validated per format call.
-- Packages: `effect` (`Schema.Record`, `Schema.TaggedStruct`, `Schema.Literal`, `HashMap`, `Match`, `Option`); `@rasm/ts/core` (`Shape.Refined.Locale` — the `Shape.Refined` vocabulary owner carries it; no bare `Locale` export exists) as the catalog key.
+- Packages: `effect` (`Schema.TaggedStruct`, `Schema.Literal`, `HashMap`, `Match`, `Option`); `@rasm/ts/core` (`Shape.Refined.Locale` as the catalog key — the `Shape.Refined` vocabulary owner carries it, no bare `Locale` export exists; `Shape.Record` closes the refined key domains).
 - Law: the case family is closed — a new message SHAPE (a range case, an ordinal plural) is one tagged case with one fold arm here, breaking every consumer loudly; a new message INSTANCE is catalog data and touches no code.
 - Law: plural forms carry the CLDR category vocabulary (`zero`/`one`/`two`/`few`/`many`/`other`) with only `other` required — sparse forms are legal because the fold falls through to `other`, mirroring CLDR semantics instead of demanding six strings per language.
 - Law: interpolation slots are `{name}` spellings inside form strings — bounded, positional-free, and typed: the args record is `Record<string, string | number>`, and an unreferenced slot is inert rather than an error, so catalogs evolve ahead of call sites.
@@ -151,29 +151,42 @@ const Format: Format.Shape = {
 - Growth: a locale is one catalog file; a message is one catalog row; a vocabulary case is one union member + one fold arm.
 
 ```typescript signature
-const _categories = ["zero", "one", "two", "few", "many", "other"] as const
+// `other` is the CLDR floor every locale supplies and the fold's own fallback, so it sits apart from the five a
+// locale may or may not distinguish — the split is what lets the forms struct derive its optional members from a
+// roster instead of transcribing six fields.
+const _sparse = ["zero", "one", "two", "few", "many"] as const
+const _categories = [..._sparse, "other"] as const
 
 const _Text = Schema.TaggedStruct("Text", {
   value: Schema.NonEmptyString,
 })
 
-const _Plural = Schema.TaggedStruct("Plural", {
-  arg: Schema.NonEmptyString,
-  forms: Schema.Struct(
-    { other: Schema.NonEmptyString },
-    { key: Schema.Literal(..._categories), value: Schema.NonEmptyString },
-  ),
+// Optional members DERIVE from the sparse roster, because a `Schema.Literal` index signature compiles to REQUIRED
+// fields: spelled that way the struct demanded all six categories of every catalog, made the sparse-forms law
+// false, and left the fold's own `?? other` fallback unreachable.
+const _forms = Schema.Struct({
+  ...Record.fromEntries(Array.map(_sparse, (category) => [category, Schema.optional(Schema.NonEmptyString)] as const)),
+  other: Schema.NonEmptyString,
 })
 
+const _Plural = Schema.TaggedStruct("Plural", {
+  arg: Schema.NonEmptyString,
+  forms: _forms,
+})
+
+// A REFINED record key is not a validated key by default: a member whose key fails `NonEmptyString` is dropped as
+// an excess property rather than refused, so an empty-string case would vanish silently and the fold would answer
+// `other` for a case the author did write. `Shape.Record` seats the refusal on the record node, so both refined-key
+// records below close wherever a catalog decodes rather than depending on the ingress caller passing an option.
 const _Select = Schema.TaggedStruct("Select", {
   arg: Schema.NonEmptyString,
-  cases: Schema.Record({ key: Schema.NonEmptyString, value: Schema.NonEmptyString }),
+  cases: Shape.Record(Schema.NonEmptyString, Schema.NonEmptyString),
   other: Schema.NonEmptyString,
 })
 
 const _Spec = Schema.Union(_Text, _Plural, _Select)
 
-const _Catalog = Schema.Record({ key: Schema.NonEmptyString, value: _Spec })
+const _Catalog = Shape.Record(Schema.NonEmptyString, _Spec)
 
 declare namespace Message {
   type Spec = Schema.Schema.Type<typeof _Spec>
@@ -197,7 +210,8 @@ declare namespace Message {
 - Law: plural argument coercion is exact — the `arg` slot must resolve to a number for category selection; a non-numeric plural argument selects `other`, keeping the fold total instead of minting a fault channel for author-time errors the catalog decode already polices.
 - Law: the fold is pure given its inputs — no ambient locale read; the locale arrives as a parameter (from `useLocale` at the consuming row), so the same catalog+key formats identically on server and client.
 - Law: the chain never crosses scripts silently — fallback strips subtags right-to-left (`de-CH` → `de`, re-minted through `Shape.Refined.Locale`'s own decode so an invalid truncation folds to none), the standard BCP-47 truncation; a cross-language fallback (`fr` for a missing `de`) is only the DEFAULT hop the app configured, never an inference.
-- Law: catalog assembly is app composition — this module never fetches; the app decodes catalog payloads through `Message.Catalog` at its own ingress and hands the built `Book`; hot locale swap is one atom write of the locale brand, and every message re-renders through the same fold.
+- Law: catalog assembly is app composition — this module never fetches; the app decodes catalog payloads through `Message.Catalog` at its own ingress, where `Shape.Record` already closes every refined key domain, and hands the built `Book`; hot locale swap is one atom write of the locale brand, and every message re-renders through the same fold.
+- Law: the admission option is load-bearing, not hygiene — a refined record key that fails its refinement is DROPPED as an excess property under the default posture, so a malformed message id or select case would disappear from a catalog the decode reported clean and surface later as a key rendered to a user; the erroring posture is what makes the decode the author-time police this page claims it is.
 
 ```typescript signature
 const _fill = (template: string, args: Message.Args): string =>

@@ -87,7 +87,7 @@ const _css = (rows: Record.ReadonlyRecord<string, string>, emit: Theme.Emit): st
 
 [TONE_VOCABULARY]:
 - Owner: `Theme.Seed` — the appearance-seed contract both heads render one identity from: six pigments, four surface postures, and the three tone ladders with their cast chroma; `Theme.Palette` is the semantic plane expanding it over `[02]`'s decode — `_tones` the closed roster, `_TONES` each semantic's seed ANCHOR with its bounded hue shift, `_PROJECTIONS` the per-plane variant projection, `Theme.ramp(seed, plane, tone)` the rung generator over `steps`, `_SLOTS` each slot's rank, `_PAIRS` every readable pairing with its APCA floor, `_postured` the posture and scrim rows, and `Theme.Palette.css(seed, plane)` folding the whole tone × slot cross product and the posture plane into `--color-*` rows through `[02]`'s one emission on the parse rail.
-- Packages: `colorjs.io/fn` (`steps` over the registered `OKLCH` space — the perceptually-even generator; `to` reads a pigment's perceptual coordinates; `toGamutCSS` fits each rung; `serialize` renders the rung the pair schema re-admits); `effect` (`Array`, `Effect`, `Option`, `Record`, `Schema`).
+- Packages: `colorjs.io/fn` (`steps` over the registered `OKLCH` space — the perceptually-even generator; `to` reads a pigment's perceptual coordinates; `toGamutCSS` fits each rung; `serialize` renders the rung the pair schema re-admits); `effect` (`Array`, `Effect`, `Option`, `Record`, `Schema`); `@rasm/ts/core` (`Shape.Record`).
 - Entry: `Theme.Palette.css(seed, plane)` per emission plane; `Theme.ramp(seed, plane, tone)` is the generator a probe or a contrast audit reads, and no other surface computes a color.
 - Law: the SEED is the whole authored identity and it crosses as COMPOSITION DATA, never as a wire family — the composing root hands this authority the same seed its desktop peer resolves, both heads expand it through their own perceptual machinery under their own contrast gate, and a re-seed re-tints both from one edit; `Theme.seed` is the shipped floor a standalone head runs on, so a composed seed always wins and a head attached to a host never renders its own identity. Parity is seed-level by construction: pinning resolved values couples two gamut and gate policies that legitimately land on different pixels.
 - Law: a semantic names its ANCHOR, never its own colour — `_TONES` carries the seed anchor each tone derives from with the bounded hue shift keeping it legible beside its neighbour, so hue and chroma both read off the seed pigment and a hand-authored hue here forks the identity the seed owns the moment either side moves.
@@ -103,6 +103,7 @@ const _css = (rows: Record.ReadonlyRecord<string, string>, emit: Theme.Emit): st
 
 ```typescript signature
 import { Option } from "effect"
+import { Shape } from "@rasm/ts/core"
 
 const _tones = ["neutral", "accent", "success", "caution", "danger", "added", "removed", "changed"] as const
 const _anchors = ["surface", "accent", "error", "warning", "success", "info"] as const
@@ -124,8 +125,8 @@ const _Unit = Schema.Number.pipe(Schema.between(0, 1))
 const _Seed = Schema.Struct({
   surface: _Color,
   accent: _Color,
-  status: Schema.Record({ key: Schema.Literal("error", "warning", "success", "info"), value: _Color }),
-  postures: Schema.Record({ key: Schema.Literal(..._postures), value: _Posture }),
+  status: Shape.Record(Schema.Literal("error", "warning", "success", "info"), _Color),
+  postures: Shape.Record(Schema.Literal(..._postures), _Posture),
   ramp: Schema.Struct({
     surfaceTones: Schema.NonEmptyArray(_Unit),
     accentTones: Schema.NonEmptyArray(_Unit),

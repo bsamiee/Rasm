@@ -209,8 +209,9 @@ from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
-from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.runtime.faults import TRANSIENT, FaultRow, RuntimeRail, async_boundary, rostered
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.document.model import BlockKind, BlockNode, DocumentNode, NodeMeta, RunNode, SectionNode, encode
@@ -513,6 +514,16 @@ class _Tally(Struct, frozen=True):
 _PAYLOAD: Final = TypeAdapter(SpecPayload)
 _FAULTS: Final[tuple[type[Exception], ...]] = (RuntimeError, ValueError, KeyError, OSError)
 
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's ONE lift anchor. The per-request infix leaves the SUBJECT and stays request data — one fence
+# spans every section render, so the coordinate is the fence rather than N subjects a reader cannot enumerate.
+# TRANSIENT: a template or an encode refusal is a defect a re-issue may clear.
+SECTION_ENCODE: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.SECTION, point="encode", arm="boundary", defect="section-encode", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([SECTION_ENCODE]))
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -751,7 +762,7 @@ class Spec(Struct, frozen=True):
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
         verdict = self.audit()
-        settled = (await async_boundary(f"spec.{self.section.render()}", self._encoded_rail, catch=_FAULTS)).map(
+        settled = (await async_boundary(SECTION_ENCODE, self._encoded_rail, catch=_FAULTS)).map(
             lambda payload: ArtifactReceipt.Spec(
                 self._key, self.section.render(), self._division, verdict.parts_present, verdict.articles, len(payload)
             )

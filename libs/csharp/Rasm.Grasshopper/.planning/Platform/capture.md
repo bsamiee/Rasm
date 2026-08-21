@@ -7,13 +7,13 @@ Pixel truth closes the paint loop: a capture session and the paint hooks it audi
 ## [01]-[INDEX]
 
 - [02]-[SURVEY]: `DisplayFact` + `WindowFact` + `CaptureInventory` + `CaptureScout` — shareable-content enumeration as detached typed facts.
-- [03]-[PLAN]: `CaptureTarget` + `CapturePace` + `CaptureRetention` + `CapturePlan` — target selection, cadence admission, and retention policy as one value.
+- [03]-[PLAN]: `CaptureSubject` + `CapturePace` + `CaptureRetention` + `CapturePlan` — target selection, cadence admission, and retention policy as one value.
 - [04]-[SESSION]: `CaptureFrame` + `CaptureStill` + `CaptureExport` + `SessionCapture` — the leased stream, the frame fold, the one-shot still, and the export projection.
 - [05]-[PROOF]: `CaptureBreach` + `CaptureTie` + `PaintProof` — the paint-regression judgment and the journal correlation projection.
 
 ## [02]-[SURVEY]
 
-- Owner: `CaptureScout` — the shareable-content survey: `Survey(Op?)` → `Task<Fin<CaptureInventory>>` gates through `MacGate.Demand`, awaits `SCShareableContent.GetShareableContentAsync(excludeDesktopWindows: true, onScreenWindowsOnly: true)`, and projects detached `DisplayFact` and `WindowFact` rows — display id, frame, pixel extent; window id, frame, title, owning application name, bundle identifier, process id, on-screen and active state — so a consumer selects the GH canvas window by typed evidence, never by holding a live `SCWindow`.
+- Owner: `CaptureScout` — the shareable-content survey: `Survey(Op?)` → `Task<Fin<CaptureInventory>>` gates through `MacGate.Demand`, awaits `SCShareableContent.GetShareableContentAsync(excludeDesktopWindows: true, onScreenWindowsOnly: true)`, and projects detached `DisplayFact` and `WindowFact` rows through the GENERATED `CaptureMap` Mapperly seam — three partial maps (display fact, window fact, `CGRect` frame) whose renames break mapping rows, never bodies — — display id, frame, pixel extent; window id, frame, title, owning application name, bundle identifier, process id, on-screen and active state — so a consumer selects the GH canvas window by typed evidence, never by holding a live `SCWindow`.
 - Law: survey results are evidence values — `SCDisplay`, `SCWindow`, and `SCRunningApplication` never escape the survey; the id a fact carries re-resolves against fresh shareable content inside the open gate, so a stale fact can only produce a typed refusal, never a dangling native reference.
 - Law: capture consent is host state — a process without screen-recording permission receives an empty or truncated inventory from the OS, so an expected-but-absent window is the consent diagnostic and the page never probes a permission API the binding does not carry.
 - Packages: Microsoft.macOS (`SCShareableContent.GetShareableContentAsync`, `SCDisplay.DisplayId`/`Frame`/`Width`/`Height`, `SCWindow.WindowId`/`Frame`/`Title`/`OnScreen`/`Active`/`OwningApplication`, `SCRunningApplication.ApplicationName`/`BundleIdentifier`/`ProcessId`), LanguageExt.Core, `Rasm.Domain` (`Op`).
@@ -21,7 +21,7 @@ Pixel truth closes the paint loop: a capture session and the paint hooks it audi
 
 ## [03]-[PLAN]
 
-- Owner: `CaptureTarget` `[Union]` — `DisplayCase(uint DisplayId)` selects full-display capture, `WindowCase(uint WindowId)` selects one window; the id is the survey fact's own coordinate, so target minting composes `CaptureScout` output directly. `CapturePace` `[ValueObject<double>]` admits frames-per-second finite and positive, projecting `SCStreamConfiguration.MinimumFrameInterval` through `CMTime.FromSeconds(1.0 / pace, preferredTimeScale: 600)`.
+- Owner: `CaptureSubject` `[Union]` (renamed from the target noun — the union names WHAT is captured, and every entry reads as subject selection) — `DisplayCase(uint DisplayId)` selects full-display capture, `WindowCase(uint WindowId)` selects one window; the id is the survey fact's own coordinate, so subject minting composes `CaptureScout` output directly. `CapturePace` `[ValueObject<double>]` admits frames-per-second finite and positive, projecting `SCStreamConfiguration.MinimumFrameInterval` through `CMTime.FromSeconds(1.0 / pace, preferredTimeScale: 600)`.
 - Owner: `CaptureRetention` `[SmartEnum<int>]` — `Evidence` keeps stamps, bearing, and geometry per frame at near-zero cost; `Raster` detaches the locked pixel rows into an owned byte array per frame. `CapturePlan` sealed record — pace, optional pixel extent, queue depth, cursor visibility, ring capacity, and retention as one policy value with `Default` at thirty frames per second, evidence-only retention, and a bounded ring.
 - Law: retention is the cost dial, never a second session shape — a regression run flips one policy row to `Raster` for pixel comparison while a long journal-correlated recording stays `Evidence`; both ride the same session, ring, and export.
 - Packages: Microsoft.macOS (`SCStreamConfiguration.Width`/`Height`/`MinimumFrameInterval`/`QueueDepth`/`ShowsCursor`, `CMTime.FromSeconds(double seconds, int preferredTimeScale)`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
@@ -29,24 +29,27 @@ Pixel truth closes the paint loop: a capture session and the paint hooks it audi
 
 ## [04]-[SESSION]
 
-- Owner: `SessionCapture` sealed `IDisposable, IAsyncDisposable` — the leased recording session. `Open(CaptureTarget target, CapturePlan plan, MonotonicTimeline timeline, Op? key = null)` → `Task<Fin<Lease<SessionCapture>>>` gates, re-surveys, resolves the target into an `SCContentFilter` (`new SCContentFilter(display, [], SCContentFilterOption.Exclude)` for a display, `new SCContentFilter(window)` for a window), mints one `SCStreamConfiguration` from the plan, constructs `new SCStream(contentFilter, streamConfig, aDelegate)` with the owned stop delegate, adds the owned frame sink through `AddStreamOutput(sink, SCStreamOutputType.Screen, sampleHandlerQueue: null, out error)`, and starts capture through a `RunContinuationsAsynchronously` completion gate so the AppKit callback never runs the continuation inline. One `CaptureState` cell owns frames and counters, the delivery fold and export projection share one snapshot gate so an export stamp cannot straddle a frame commit, and one idempotent release task serves both disposal modalities.
-- Owner: `RasterPane` is the ONE pixel-geometry-plus-raster carrier every capture shape composes; `CaptureFrame` — sequence, journal-grade `MonotonicStamp`, and `Option<RasterPane>` where `Bearing` derives as pane presence, so a non-bearing frame carries no zero-filled geometry slots. `CaptureStill` — the one-shot pane from `SCScreenshotManager.CaptureSampleBufferAsync`, always pixel-bearing by its own validity claim. `CaptureExport` — sequence-ordered frames with published and shed counts and the capture stamp, detached from every live cell.
-- Entry: `Snapshot(CaptureTarget target, CapturePlan plan, MonotonicTimeline timeline, Op? key = null)` → `Task<Fin<CaptureStill>>` — the single-frame modality over the same gate, filter, and raster kernel; `Export(Op? key = null)` → `Fin<CaptureExport>`; `Published`/`Shed`/`LastFault` — the evidence cells.
-- Law: the frame callback is contained — delivery projects the sample inside `Op.Catch`, stamps from the injected timeline, folds one frame into the ring with head-shedding accounted on `Shed`, and a projection fault records on `LastFault` and emits once through `CaptureLog.FrameFault`; the callback never touches the UI thread, never re-enters the host, and never retains the `CMSampleBuffer` past the projection.
+- Owner: `SessionCapture` is the leased recording session; `Open` admits the target, caller drain, fault cell and hook point, builds the ScreenCaptureKit stream, and starts it through a continuation-safe completion gate. One idempotent release task serves both disposal modalities.
+- Owner: `RasterPane` is the ONE pixel-geometry-plus-raster carrier every capture shape composes; `CaptureFrame : IUiFact` — journal-grade `MonotonicStamp` and `Option<RasterPane>` where `Bearing` derives as pane presence, so a non-bearing frame carries no zero-filled geometry slots, and the SEQUENCE is the drain envelope's own ordinal, never a session counter. `CaptureStill` — the one-shot pane from `SCScreenshotManager.CaptureSampleBufferAsync`, always pixel-bearing by its own validity claim. `CaptureExport` `[Equatable]` — the drained, ordered frame envelopes with the drain's published and shed counts and the capture stamp, minted by the exporting consumer from its own `Reader` fold.
+- Entry: `Open(CaptureSubject subject, CapturePlan plan, EvidenceDrain<CaptureFrame> drain, FaultCell faults, HookId faultPoint, MonotonicTimeline timeline, Op? key = null)` → `Task<Fin<Lease<SessionCapture>>>`; `Snapshot` is the single-frame modality over the same gate, filter, and raster kernel.
+- Law: the frame callback is contained — delivery projects the sample inside `Op.Catch`, stamps from the injected timeline, and PUBLISHES into the drain (bound shedding is the drain's own counted loss); a projection fault parks on the session's `FaultCell` and emits once through `CaptureLog.FrameFault`; the callback never touches the UI thread, never re-enters the host, and never retains the `CMSampleBuffer` past the projection.
 - Law: the raster kernel is the page's named statement seam — `GetImageBuffer()` pattern-matched to `CVPixelBuffer`, `Lock(CVPixelBufferLock.ReadOnly)` checked against `CVReturn.Success`, one `Marshal.Copy` from `BaseAddress` over `BytesPerRow * Height`, and `Unlock` in `finally`; the detached bytes are the only pixels that outlive the callback.
-- Law: release is one inverse chain on the session's own custody — close callback admission, await stop completion, drain every delivery admitted before closure, remove the stream output, then attempt every native disposal in reverse-acquisition order, preserving the first fault on `LastFault` and emitting once through `CaptureLog.ReleaseFault`; synchronous `Dispose` starts that task without blocking, `DisposeAsync` awaits the same task, and a mid-`Open` refusal runs the same release before the primary fault returns.
-- Law: a stream the OS stops lands as evidence — the owned `ISCStreamDelegate` records `DidStop`/`UserDidStop` on `LastFault` through `CaptureLog.StreamFault`, so a user ending screen sharing is an observable session terminal, never a silent frame drought.
+- Law: release is one inverse chain on the session's own custody — close callback admission, await stop completion, drain every delivery admitted before closure, remove the stream output, complete the drain (idempotent), then attempt every native disposal in reverse-acquisition order, parking the aggregated refusal on the cell and emitting once through `CaptureLog.ReleaseFault`; synchronous `Dispose` starts that task without blocking, `DisposeAsync` awaits the same task, and a mid-`Open` refusal runs the same release before the primary fault returns.
+- Law: a stream the OS stops lands as evidence — `DidStop` preserves its native exception and `UserDidStop` parks `Errors.Cancelled`; neither becomes a silent frame drought.
+- Law: the async provider crossing is the kernel's — every awaited ScreenCaptureKit call funnels through `Op.Catch`'s async arm, preserving exact exceptions; cancellation is classified only when that crossing supplies its execution token.
+- Law: native enums cross as FIXED contract values here — `SCStreamOutputType.Screen`, `CVPixelFormatType.CV32BGRA`, and `SCContentFilterOption.Exclude` are single-valued page contracts (the copy kernel reads exactly one layout), so no row owner mints for them; a native enum a CONSUMER chooses from earns its row owner the moment a second admitted value exists, per the folder's host-enum idiom.
 - Boundary: recording-to-disk (`SCRecordingOutput`, `SCRecordingOutputConfiguration`) and the system content-sharing picker are app-root modalities over this same surface; the session owns in-process frame evidence only, and serialization of an export is the app root's over the detached record.
-- Packages: Microsoft.macOS (`SCStream` ctor/`AddStreamOutput`/`RemoveStreamOutput`/`StartCapture`/`StopCapture`, `ISCStreamOutput.DidOutputSampleBuffer`, `ISCStreamDelegate.DidStop`, `SCScreenshotManager.CaptureSampleBufferAsync`, `CMSampleBuffer.IsValid`/`GetImageBuffer`, `CVPixelBuffer.Width`/`Height`/`BytesPerRow`/`BaseAddress`/`Lock`/`Unlock`, `CVPixelBufferLock.ReadOnly`, `CVReturn.Success`), Microsoft.Extensions.Logging.Abstractions (`[LoggerMessage]`), LanguageExt.Core, `Rasm.Domain` (`Op`, `Lease<T>`, `ValidityClaim`), `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`), `Shell/telemetry.md` (`GhLog`).
+- Packages: Microsoft.macOS (`SCStream` ctor/`AddStreamOutput`/`RemoveStreamOutput`/`StartCapture`/`StopCapture`, `ISCStreamOutput.DidOutputSampleBuffer`, `ISCStreamDelegate.DidStop`, `SCScreenshotManager.CaptureSampleBufferAsync`, `CMSampleBuffer.IsValid`/`GetImageBuffer`, `CVPixelBuffer.Width`/`Height`/`BytesPerRow`/`BaseAddress`/`Lock`/`Unlock`, `CVPixelBufferLock.ReadOnly`, `CVReturn.Success`), Microsoft.Extensions.Logging.Abstractions (`[LoggerMessage]`), LanguageExt.Core, `Rasm.Domain` (`Op`, `Lease<T>`, `ValidityClaim`, `Custody`), `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`), `Shell/telemetry.md` (`GhLog`).
 - Growth: a new frame-evidence axis is one `CaptureFrame` field read in the one projection; a capture metric family is one `Shell/telemetry.md` `GhEvidence` case and its roster row, never a meter call here.
 
 ## [05]-[PROOF]
 
-- Owner: `PaintProof` — the regression and correlation projections over already-minted evidence. `Judge(CaptureFrame frame, PaintReceipt receipt, MonotonicTimeline timeline, CapturePace pace, Op? key = null)` → `Fin<Option<CaptureBreach>>` — a receipt claiming `Drawn > 0` whose settlement precedes the frame within two pace periods expects a bearing frame; a non-bearing frame there is the breach, carrying the frame sequence, the receipt operation, the drawn claim, the measured lag, and the two-period bound that judged it.
+- Owner: `PaintProof` — the regression and correlation projections over already-minted evidence. `Judge(UiEvent<CaptureFrame> frame, PaintReceipt receipt, MonotonicTimeline timeline, CapturePace pace, Op? key = null)` → `Fin<Option<CaptureBreach>>` — a receipt claiming `Drawn > 0` whose settlement precedes the frame within two pace periods expects a bearing frame; a non-bearing frame there is the breach, carrying the frame ordinal, the receipt operation, the drawn claim, and the measured lag AGAINST its bound as one `GaugedSpan<CaptureLane>` — the kernel's own measured-span carrier (`Lane`, `Work`, `Elapsed`, `Bound`, with `Breached`/`Overrun` DERIVED), the same shape `Canvas/motion.md`'s `BudgetGate` answers, so no local lag/bound field pair survives and the recorded bound is the pace-derived window in force at judgment.
 - Owner: `CaptureTie` — one journal-to-frame pairing: the journal row sequence, the frame sequence, and the settlement-to-frame lag. `Correlate(CaptureExport capture, JournalExport journal, MonotonicTimeline timeline, CapturePace pace, Op? key = null)` → `Fin<Seq<CaptureTie>>` pairs every journal row carrying a `JournalFact.EvidenceCase` with a `GhEvidence.PaintCase` receipt to the first exported frame at or after that receipt's settlement inside the window.
 - Law: one timeline is the correlation precondition — `Judge` and `Correlate` compare stamps through `timeline.Elapsed`, so the capture session, the paint mounts it audits, and the judgment share the injected timeline; journal row stamps stay journal-local per `Shell/journal.md` law, and correlation reads the receipt-borne stamps inside the fact, never the row stamp.
-- Law: judgment reads, never samples — the proof owns no clock, no host reach, and no mutation; a breach carries its producing bound beside its measurement exactly as `Canvas/motion.md` `BudgetBreach` does, so the estate benchmark rail consumes capture regressions as typed claims without re-measuring and without re-deriving a threshold from capture policy it never sees.
-- Packages: LanguageExt.Core, `Rasm.Domain` (`Op`, `ValidityClaim`), `Rasm.Parametric` (`MonotonicTimeline`), `Canvas/paint.md` (`PaintReceipt` — inert evidence under the strata model-only exemption), `Shell/journal.md` (`JournalExport`), `Shell/telemetry.md` (`GhEvidence`).
+- Law: judgment reads, never samples — the proof owns no clock, no host reach, and no mutation; the span carries its producing bound beside its measurement, so the estate benchmark rail consumes capture regressions as typed claims without re-measuring and without re-deriving a threshold from capture policy it never sees.
+- Law: breaches WIRE to telemetry — the composition root routes `Judge` output through `PlatformRoot.Evidence` as `GhEvidence.CaptureCase` (roster row `capture.breach`, landed on `Shell/telemetry.md`), so a visual regression is a counted, attributed stream AND a journal `EvidenceCase` row `Correlate` pairs, never a return value only a test harness reads.
+- Packages: LanguageExt.Core, `Rasm.Domain` (`Op`, `ValidityClaim`), `Rasm.Parametric` (`MonotonicTimeline`), `Rasm.Interaction` (`PaintReceipt` — inert evidence; GH's `PassReceipt.Tally` hands it in), `Shell/journal.md` (`JournalExport`), `Shell/telemetry.md` (`GhEvidence`).
 - Growth: a new visual claim is one judgment arm over existing evidence; a new correlation family is one fact-pattern filter over the same export pair.
 
 ```csharp signature
@@ -60,7 +63,9 @@ using Microsoft.Extensions.Logging;
 using Rasm.Domain;
 using Rasm.Grasshopper.Canvas;
 using Rasm.Grasshopper.Shell;
+using Rasm.Interaction;
 using Rasm.Parametric;
+using Riok.Mapperly.Abstractions;
 using ScreenCaptureKit;
 
 namespace Rasm.Grasshopper.Platform;
@@ -79,10 +84,10 @@ public sealed partial class CaptureRetention {
 }
 
 [Union]
-public abstract partial record CaptureTarget {
-    private CaptureTarget() { }
-    public sealed record DisplayCase(uint DisplayId) : CaptureTarget;
-    public sealed record WindowCase(uint WindowId) : CaptureTarget;
+public abstract partial record CaptureSubject {
+    private CaptureSubject() { }
+    public sealed record DisplayCase(uint DisplayId) : CaptureSubject;
+    public sealed record WindowCase(uint WindowId) : CaptureSubject;
 }
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
@@ -96,7 +101,7 @@ public sealed record CapturePlan(
 // --- [MODELS] -------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct DisplayFact(uint DisplayId, RectangleF Frame, int Width, int Height) : IValidityEvidence {
-    public bool IsValid => ValidityClaim.Of(holds: Width > 0 && Height > 0);
+    public bool IsValid => Width > 0 && Height > 0;
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -107,40 +112,49 @@ public readonly record struct WindowFact(
 public sealed record CaptureInventory(Seq<DisplayFact> Displays, Seq<WindowFact> Windows);
 
 public readonly record struct RasterPane(int Width, int Height, int RowBytes, Option<ImmutableArray<byte>> Raster) : IValidityEvidence {
-    public bool IsValid =>
-        Width > 0 && Height > 0 && RowBytes > 0 &&
-        Raster.Map(bytes => bytes.Length == (long)RowBytes * Height).IfNone(true);
+    public bool IsValid => ValidityClaim.All(
+        Width > 0 && Height > 0 && RowBytes > 0,
+        ValidityClaim.WhenPresent(facet: Raster, claim: bytes => bytes.Length == (long)RowBytes * Height));
 }
 
-internal readonly record struct CaptureState(Seq<CaptureFrame> Frames, long Published, long Shed);
-
+// SEQUENCE is the drain envelope's ordinal — no session counter exists to disagree with it.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct CaptureFrame(long Sequence, MonotonicStamp Stamp, Option<RasterPane> Pane) : IValidityEvidence {
+public readonly record struct CaptureFrame(MonotonicStamp Stamp, Option<RasterPane> Pane) : IUiFact, IValidityEvidence {
     public bool Bearing => Pane.IsSome;
     public bool IsValid => ValidityClaim.All(
-        ValidityClaim.Of(holds: Sequence >= 0L),
-        ValidityClaim.Evidence(evidence: Stamp),
-        ValidityClaim.Of(holds: Pane.Map(static pane => pane.IsValid).IfNone(true)));
+        Stamp.IsValid,
+        ValidityClaim.Evidence(evidence: Pane));
+}
+
+// Drain publishes under a SOURCE row; the session is that one source.
+public sealed class CaptureSource : IUiSource<CaptureFrame> {
+    public static readonly CaptureSource Row = new();
+    public string Key => "platform.capture";
 }
 
 public sealed record CaptureStill(RasterPane Pane, MonotonicStamp Captured) : IValidityEvidence {
     public bool IsValid => Pane.IsValid && Pane.Raster.IsSome;   // a still is always pixel-bearing; Snapshot refuses a non-bearing pane at its binds
 }
 
-public sealed record CaptureExport(Seq<CaptureFrame> Frames, long Published, long Shed, MonotonicStamp Captured);
+// Minted by the exporting consumer from its own Reader fold; the counts are the drain's own.
+[Equatable]
+public sealed partial record CaptureExport(
+    [property: OrderedEquality] Seq<UiEvent<CaptureFrame>> Frames, long Published, long Shed, MonotonicStamp Captured);
 
-// `Bound` is the two-period window the judgment measured `Lag` against, carried BESIDE the measurement
-// exactly as `Canvas/motion.md` `BudgetBreach` carries its own: a claim consumer grades overrun off the row
-// it holds, so an estate benchmark rail never re-derives a threshold from a capture pace it does not own,
-// and a retuned pace moves the recorded bound with the breach rather than silently regrading old evidence.
+// Judged lane: its bound derives from the capture pace, so the span carries measurement and bound as
+// one kernel value — the same measured-span carrier BudgetGate answers — and overrun/breach DERIVE.
+[SmartEnum<int>]
+public sealed partial class CaptureLane : IGaugeLane<CaptureLane> {
+    public static readonly CaptureLane Frame = new(key: 0);
+}
+
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct CaptureBreach(long FrameSequence, Op Operation, int Drawn, TimeSpan Lag, TimeSpan Bound) : IValidityEvidence {
-    public TimeSpan Overrun => Lag - Bound;
+public readonly record struct CaptureBreach(long FrameSequence, Op Operation, int Drawn, GaugedSpan<CaptureLane> Span) : IValidityEvidence {
+    public TimeSpan Overrun => Span.Elapsed - Span.Bound;
 
     public bool IsValid => ValidityClaim.All(
-        ValidityClaim.Of(holds: FrameSequence >= 0L && Drawn > 0),
-        ValidityClaim.Nonnegative(value: Lag.TotalSeconds),
-        ValidityClaim.Positive(value: Bound.TotalSeconds));
+        FrameSequence >= 0L && Drawn > 0,
+        Span.IsValid);
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -148,13 +162,19 @@ public readonly record struct CaptureTie(long Row, long Frame, TimeSpan Lag);
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 internal static partial class CaptureLog {
-    [LoggerMessage(EventId = 4706, Level = LogLevel.Error, Message = "Capture stream stopped by host: {Detail}")]
+    // Const-beside-row proof: the ids live inside FaultBand.GrasshopperLog's span and the guard throws at
+    // type init when the band moves — the same drift proof PaintLog carries.
+    static CaptureLog() => Op.SideWhen(
+        condition: FaultBand.GrasshopperLog.Code(offset: 6) != FaultBand.GrasshopperLogBase + 6,
+        action: static () => throw new InvalidOperationException("CaptureLog ids drifted from FaultBand.GrasshopperLog."));
+
+    [LoggerMessage(EventId = FaultBand.GrasshopperLogBase + 6, Level = LogLevel.Error, Message = "Capture stream stopped by host: {Detail}")]
     internal static partial void StreamFault(ILogger logger, [UserContent] string detail);
 
-    [LoggerMessage(EventId = 4707, Level = LogLevel.Error, Message = "Capture frame projection faulted: {Detail}")]
+    [LoggerMessage(EventId = FaultBand.GrasshopperLogBase + 7, Level = LogLevel.Error, Message = "Capture frame projection faulted: {Detail}")]
     internal static partial void FrameFault(ILogger logger, [UserContent] string detail);
 
-    [LoggerMessage(EventId = 4713, Level = LogLevel.Error, Message = "Capture session release faulted: {Detail}")]
+    [LoggerMessage(EventId = FaultBand.GrasshopperLogBase + 13, Level = LogLevel.Error, Message = "Capture session release faulted: {Detail}")]
     internal static partial void ReleaseFault(ILogger logger, [UserContent] string detail);
 }
 
@@ -166,10 +186,10 @@ internal sealed class FrameSink(Action<CMSampleBuffer> deliver) : NSObject, ISCS
 
 internal sealed class StreamStop(Action<Error> record) : NSObject, ISCStreamDelegate {
     [Export("stream:didStopWithError:")]
-    public void DidStop(SCStream stream, NSError error) => record(obj: Error.New(error.ToString()));
+    public void DidStop(SCStream stream, NSError error) => record(obj: SessionCapture.NativeFailure(error));
 
     [Export("userDidStopStream:")]
-    public void UserDidStop(SCStream stream) => record(obj: Error.New(message: "user stopped the capture stream"));
+    public void UserDidStop(SCStream stream) => record(obj: Errors.Cancelled);
 }
 
 public sealed class SessionCapture : IDisposable, IAsyncDisposable {
@@ -181,22 +201,28 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
     private readonly SCStreamConfiguration configuration;
     private readonly FrameSink sink;
     private readonly StreamStop stop;
-    private readonly Atom<CaptureState> state = Atom(new CaptureState(Frames: Seq<CaptureFrame>(), Published: 0L, Shed: 0L));
-    private readonly Atom<Option<Error>> lastFault = Atom(Option<Error>.None);
-    private readonly object snapshotGate = new();
+    // Caller's drain IS the frame ring: publish mints ordinal-beside-stamp, the bound sheds counted,
+    // Reader is the export path — no state cell, snapshot lock, or sequence counter exists here.
+    private readonly EvidenceDrain<CaptureFrame> drain;
+    private readonly FaultCell faults;
+    private readonly HookId faultPoint;
     private readonly object releaseGate = new();
     private readonly TaskCompletionSource<Unit> deliveriesDrained = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private Task<Fin<Unit>>? releaseTask;
-    private long nextSequence;
-    private long deliveries;
-    private int accepting = 1;
+    // Quiescence barrier on ONE atom: (accepting, in-flight) steps through the kernel Cell verbs and the
+    // drained latch settles when the pair reads (closed, zero) — no raw Volatile/Interlocked ladder.
+    private readonly Atom<(bool Accepting, long Deliveries)> gate = Atom((true, 0L));
 
     private SessionCapture(
-        CapturePlan plan, MonotonicTimeline timeline, Op operation,
+        CapturePlan plan, MonotonicTimeline timeline, Op operation, EvidenceDrain<CaptureFrame> drain,
+        FaultCell faults, HookId faultPoint,
         SCStream stream, SCContentFilter filter, SCStreamConfiguration configuration, FrameSink sink, StreamStop stop) {
         this.plan = plan;
         this.timeline = timeline;
         this.operation = operation;
+        this.drain = drain;
+        this.faults = faults;
+        this.faultPoint = faultPoint;
         this.stream = stream;
         this.filter = filter;
         this.configuration = configuration;
@@ -204,15 +230,17 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
         this.stop = stop;
     }
 
-    public long Published => state.Value.Published;
-    public long Shed => state.Value.Shed;
-    public Option<Error> LastFault => lastFault.Value;
+    private Unit Park(Error error, Action<ILogger, string> emit) {
+        emit(GhLog.For(category: nameof(SessionCapture)), error.Message);
+        return ignore(faults.Park(point: faultPoint, cause: error));
+    }
 
     public static async Task<Fin<Lease<SessionCapture>>> Open(
-        CaptureTarget target, CapturePlan plan, MonotonicTimeline timeline, Op? key = null) {
+        CaptureSubject subject, CapturePlan plan, EvidenceDrain<CaptureFrame> drain, FaultCell faults, HookId faultPoint,
+        MonotonicTimeline timeline, Op? key = null) {
         Op op = key.OrDefault();
         Fin<(SCContentFilter Filter, SCStreamConfiguration Config, MonotonicTimeline Clock)> staged =
-            await Staged(target: target, plan: plan, timeline: timeline, requireQueue: true, key: op);
+            await Staged(subject: subject, plan: plan, timeline: timeline, requireQueue: true, key: op);
         return await staged.Match(
             Succ: async ready => {
                 (SCContentFilter minted, SCStreamConfiguration streamConfig, MonotonicTimeline clock) = ready;
@@ -220,36 +248,41 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
                 SessionCapture? session = null;
                 StreamStop stop = new(record: error => {
                     SessionCapture? live = session;
-                    Op.SideWhen(condition: live is not null, action: () => {
-                        ignore(live!.lastFault.Swap(_ => Some(error)));
-                        CaptureLog.StreamFault(logger: GhLog.For(category: nameof(SessionCapture)), detail: error.Message);
-                    });
+                    Op.SideWhen(condition: live is not null, action: () =>
+                        ignore(live!.Park(error: error, emit: static (logger, detail) => CaptureLog.StreamFault(logger: logger, detail: detail))));
                 });
                 FrameSink sink = new(deliver: buffer => session?.Deliver(buffer: buffer));
                 SCStream? candidate = null;
+                bool attached = false;
                 Fin<SCStream> wired = op.Catch(body: () => {
                     candidate = new SCStream(contentFilter: minted, streamConfig: streamConfig, aDelegate: stop);
-                    return candidate.AddStreamOutput(output: sink, type: SCStreamOutputType.Screen, sampleHandlerQueue: null, error: out NSError? refused)
-                        ? Fin.Succ(candidate)
-                        : Fin.Fail<SCStream>(error: Error.New(refused?.ToString() ?? nameof(SCStream)));
+                    if (!candidate.AddStreamOutput(
+                            output: sink, type: SCStreamOutputType.Screen, sampleHandlerQueue: null, error: out NSError? refused))
+                        return Fin.Fail<SCStream>(error: refused is { } fault
+                            ? NativeFailure(fault)
+                            : op.InvalidResult(nameof(SCStream.AddStreamOutput)));
+                    attached = true;
+                    return Fin.Succ(candidate);
                 });
                 return await wired.Match(
                     Succ: async native => {
                         session = new SessionCapture(
-                            plan: bound, timeline: clock, operation: op,
+                            plan: bound, timeline: clock, operation: op, drain: drain, faults: faults, faultPoint: faultPoint,
                             stream: native, filter: minted, configuration: streamConfig, sink: sink, stop: stop);
                         Fin<Unit> live = await Complete(begin: native.StartCapture, key: op);
                         return await live.Match(
                             Succ: _ => Task.FromResult(Fin.Succ(
                                 (Lease<SessionCapture>)new Lease<SessionCapture>.Owned(Value: session!))),
-                            Fail: async primary => Preserve(
-                                first: Fin.Fail<Lease<SessionCapture>>(error: primary),
-                                next: await session!.Release()));
+                            Fail: async primary => {
+                                Fin<Unit> cleanup = await session!.Release();
+                                return Fin.Fail<Lease<SessionCapture>>(error: primary)
+                                    .Settled(release: () => cleanup, key: op);
+                            });
                     },
                     Fail: primary => {
-                        Fin<Unit> detached = candidate is null
-                            ? Fin.Succ(unit)
-                            : RemoveOutput(stream: candidate, sink: sink, key: op);
+                        Fin<Unit> detached = candidate is not null && attached
+                            ? RemoveOutput(stream: candidate, sink: sink, key: op)
+                            : Fin.Succ(unit);
                         Fin<Unit> disposed = ReleaseAll(
                             key: op,
                             () => candidate?.Dispose(),
@@ -257,10 +290,9 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
                             stop.Dispose,
                             streamConfig.Dispose,
                             minted.Dispose);
-                        Fin<Unit> cleanup = Preserve(first: detached, next: disposed);
-                        return Task.FromResult(cleanup.Match(
-                            Succ: _ => Fin.Fail<Lease<SessionCapture>>(error: primary),
-                            Fail: failure => Fin.Fail<Lease<SessionCapture>>(error: primary + failure)));
+                        Fin<Unit> cleanup = detached.Settled(release: () => disposed, key: op);
+                        return Task.FromResult(Fin.Fail<Lease<SessionCapture>>(error: primary)
+                            .Settled(release: () => cleanup, key: op));
                     });
             },
             Fail: static error => Task.FromResult(Fin.Fail<Lease<SessionCapture>>(error: error)));
@@ -268,43 +300,44 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
 
     // ONE admission stage for both capture modalities: MacGate + operand admission, the shareable survey, the
     // filter resolve, and the configuration mint, with prefix custody released on every refusal — success hands
-    // the caller a live (filter, config) pair whose release rides the caller's own paths. `requireQueue`
+    // Caller a live (filter, config) pair whose release rides the caller's own paths. `requireQueue`
     // distinguishes the leased stream (queue depth is load-bearing) from the one-shot still (no queue).
     private static async Task<Fin<(SCContentFilter Filter, SCStreamConfiguration Config, MonotonicTimeline Clock)>> Staged(
-        CaptureTarget target, CapturePlan plan, MonotonicTimeline timeline, bool requireQueue, Op key) {
-        Fin<(CaptureTarget Target, CapturePlan Plan, MonotonicTimeline Clock)> admitted =
+        CaptureSubject subject, CapturePlan plan, MonotonicTimeline timeline, bool requireQueue, Op key) {
+        Fin<(CaptureSubject Subject, CapturePlan Plan, MonotonicTimeline Clock)> admitted =
             from _ in MacGate.Demand(key: key)
-            from row in key.Need(target)
+            from row in key.Need(subject)
             from bound in key.Need(plan)
             from clock in key.Need(timeline)
-            from capacity in guard(!requireQueue || (bound.Capacity > 0 && bound.Queue > 0), key.InvalidInput()).ToFin()
+            from plane in Admitted(plan: bound, requireQueue: requireQueue, key: key)
             select (row, bound, clock);
         return await admitted.Match(
             Succ: async row => {
-                Fin<SCShareableContent> content = await Guarded(
-                    key: key, body: static () => SCShareableContent.GetShareableContentAsync(excludeDesktopWindows: true, onScreenWindowsOnly: true));
-                return content.Bind(shareable => Filter(shareable: shareable, target: row.Target, key: key)).Bind(minted => {
+                Fin<SCShareableContent> content = await key.Catch(
+                    body: static async _ => Fin.Succ(await SCShareableContent.GetShareableContentAsync(
+                        excludeDesktopWindows: true, onScreenWindowsOnly: true).ConfigureAwait(false)));
+                return content.Bind(shareable => Filter(shareable: shareable, subject: row.Subject, key: key)).Bind(minted => {
                     Fin<SCStreamConfiguration> configured = Configure(plan: row.Plan, key: key);
                     return configured.Match(
                         Succ: config => Fin.Succ((minted, config, row.Clock)),
-                        Fail: primary => Preserve(
-                            first: Fin.Fail<(SCContentFilter, SCStreamConfiguration, MonotonicTimeline)>(error: primary),
-                            next: ReleaseAll(key: key, minted.Dispose)));
+                        Fail: primary => Fin.Fail<(SCContentFilter, SCStreamConfiguration, MonotonicTimeline)>(error: primary)
+                            .Settled(release: () => ReleaseAll(key: key, minted.Dispose), key: key));
                 });
             },
             Fail: static error => Task.FromResult(Fin.Fail<(SCContentFilter, SCStreamConfiguration, MonotonicTimeline)>(error: error)));
     }
 
     public static async Task<Fin<CaptureStill>> Snapshot(
-        CaptureTarget target, CapturePlan plan, MonotonicTimeline timeline, Op? key = null) {
+        CaptureSubject subject, CapturePlan plan, MonotonicTimeline timeline, Op? key = null) {
         Op op = key.OrDefault();
         Fin<(SCContentFilter Filter, SCStreamConfiguration Config, MonotonicTimeline Clock)> staged =
-            await Staged(target: target, plan: plan, timeline: timeline, requireQueue: false, key: op);
+            await Staged(subject: subject, plan: plan, timeline: timeline, requireQueue: false, key: op);
         return await staged.Match(
             Succ: async ready => {
                 (SCContentFilter minted, SCStreamConfiguration streamConfig, MonotonicTimeline clock) = ready;
-                Fin<CMSampleBuffer> sampled = await Guarded(
-                    key: op, body: () => SCScreenshotManager.CaptureSampleBufferAsync(contentFilter: minted, config: streamConfig));
+                Fin<CMSampleBuffer> sampled = await op.Catch(
+                    body: async _ => Fin.Succ(await SCScreenshotManager.CaptureSampleBufferAsync(
+                        contentFilter: minted, config: streamConfig).ConfigureAwait(false)));
                 Fin<CaptureStill> still = sampled.Bind(buffer => {
                     Fin<CaptureStill> projected =
                         from stamp in clock.Capture(key: op)
@@ -313,22 +346,12 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
                         from _ in bearing.Raster.ToFin(op.InvalidResult())
                         select new CaptureStill(Pane: bearing, Captured: stamp);
                     Fin<Unit> released = op.Catch(body: () => Fin.Succ(Op.Side(action: buffer.Dispose)));
-                    return Preserve(first: projected, next: released);
+                    return projected.Settled(release: () => released, key: op);
                 });
                 Fin<Unit> released = ReleaseAll(key: op, streamConfig.Dispose, minted.Dispose);
-                return Preserve(first: still, next: released);
+                return still.Settled(release: () => released, key: op);
             },
             Fail: static error => Task.FromResult(Fin.Fail<CaptureStill>(error: error)));
-    }
-
-    public Fin<CaptureExport> Export(Op? key = null) {
-        Op op = key.OrDefault();
-        lock (snapshotGate) {
-            CaptureState snapshot = state.Value;
-            return from stamp in timeline.Capture(key: op)
-                   select new CaptureExport(
-                       Frames: snapshot.Frames.Strict(), Published: snapshot.Published, Shed: snapshot.Shed, Captured: stamp);
-        }
     }
 
     public void Dispose() => ignore(Release());
@@ -338,44 +361,39 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
     private void Deliver(CMSampleBuffer buffer) {
         if (!EnterDelivery()) return;
         try {
+            // Publish mints ordinal-beside-stamp under the drain's one compare-and-swap; the bound sheds counted.
             Fin<Unit> outcome = operation.Catch(body: () =>
                 from valid in guard(buffer.IsValid, operation.InvalidInput()).ToFin()
                 from stamp in timeline.Capture(key: operation)
                 from pane in Geometry(buffer: buffer, retention: plan.Retention, key: operation)
-                let frame = new CaptureFrame(
-                    Sequence: Interlocked.Increment(location: ref nextSequence) - 1L, Stamp: stamp, Pane: pane)
-                from folded in operation.Catch(body: () => Fin.Succ(Op.Side(action: () => {
-                    lock (snapshotGate) {
-                        ignore(state.Swap(current => {
-                            Seq<CaptureFrame> rows = current.Frames.Add(frame);
-                            bool over = rows.Count > plan.Capacity;
-                            return new CaptureState(
-                                Frames: over ? rows.Tail.Strict() : rows,
-                                Published: current.Published + 1L,
-                                Shed: current.Shed + (over ? 1L : 0L));
-                        }));
-                    }
-                })))
+                from published in drain.Publish(
+                    source: CaptureSource.Row,
+                    fact: () => Fin.Succ(new CaptureFrame(Stamp: stamp, Pane: pane)),
+                    key: operation)
                 select unit);
-            outcome.IfFail(error => {
-                ignore(lastFault.Swap(_ => Some(error)));
-                CaptureLog.FrameFault(logger: GhLog.For(category: nameof(SessionCapture)), detail: error.Message);
-            });
+            outcome.IfFail(error => ignore(Park(error: error,
+                emit: static (logger, detail) => CaptureLog.FrameFault(logger: logger, detail: detail))));
         }
         finally { ExitDelivery(); }
     }
 
-    private bool EnterDelivery() {
-        if (Volatile.Read(location: ref accepting) == 0) return false;
-        Interlocked.Increment(location: ref deliveries);
-        if (Volatile.Read(location: ref accepting) != 0) return true;
-        ExitDelivery();
-        return false;
-    }
+    // Closed gate DECLINES the step — the transition's verdict IS the enter answer, atomically.
+    private bool EnterDelivery() =>
+        Cell.Step(cell: gate, step: static held => held.Accepting ? Some((true, held.Deliveries + 1L)) : None,
+            declined: operation.InvalidContext())
+        is Transition<(bool Accepting, long Deliveries)>.Committed;
 
     private void ExitDelivery() {
-        if (Interlocked.Decrement(location: ref deliveries) == 0L && Volatile.Read(location: ref accepting) == 0)
-            ignore(deliveriesDrained.TrySetResult(result: unit));
+        Transition<(bool Accepting, long Deliveries)> exited = Cell.Step(
+            cell: gate,
+            step: static held => held.Deliveries > 0L ? Some((held.Accepting, held.Deliveries - 1L)) : None,
+            declined: operation.InvalidResult(nameof(ExitDelivery)));
+        if (exited is Transition<(bool Accepting, long Deliveries)>.Refused refusal) {
+            ignore(Park(error: refusal.Cause,
+                emit: static (logger, detail) => CaptureLog.FrameFault(logger: logger, detail: detail)));
+            return;
+        }
+        if (exited.Current is (false, 0L)) ignore(deliveriesDrained.TrySetResult(result: unit));
     }
 
     private Task<Fin<Unit>> Release() {
@@ -383,12 +401,15 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
     }
 
     private async Task<Fin<Unit>> ReleaseCore() {
-        Interlocked.Exchange(location1: ref accepting, value: 0);
-        if (Interlocked.Read(location: ref deliveries) == 0L)
+        if (Cell.Step(
+                cell: gate,
+                step: static held => Some((false, held.Deliveries)),
+                declined: operation.InvalidResult(nameof(ReleaseCore))).Current is (_, 0L))
             ignore(deliveriesDrained.TrySetResult(result: unit));
         Fin<Unit> stopped = await Complete(begin: stream.StopCapture, key: operation);
         await deliveriesDrained.Task;
         Fin<Unit> removed = RemoveOutput(stream: stream, sink: sink, key: operation);
+        Fin<Unit> completed = drain.Complete(key: operation);
         Fin<Unit> disposed = ReleaseAll(
             key: operation,
             stream.Dispose,
@@ -396,47 +417,45 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
             stop.Dispose,
             configuration.Dispose,
             filter.Dispose);
-        Fin<Unit> released = Preserve(first: Preserve(first: stopped, next: removed), next: disposed);
-        released.IfFail(error => {
-            ignore(lastFault.Swap(_ => Some(error)));
-            CaptureLog.ReleaseFault(logger: GhLog.For(category: nameof(SessionCapture)), detail: error.Message);
-        });
+        Fin<Unit> released = stopped
+            .Settled(release: () => removed, key: operation)
+            .Settled(release: () => completed, key: operation)
+            .Settled(release: () => disposed, key: operation);
+        released.IfFail(error => ignore(Park(error: error,
+            emit: static (logger, detail) => CaptureLog.ReleaseFault(logger: logger, detail: detail))));
         return released;
     }
 
-    // Statement seam: the one async provider-exception funnel and the locked pixel-copy kernel of this page.
-    // It mints `Op.Catch`'s own taxonomy on the awaited leg — a cancel keeps its category instead of
-    // masquerading as a result failure — because a bare `Error.New(exception)` here would hand the estate an
-    // untyped token from the one crossing that knows both the key and the cause.
-    internal static async Task<Fin<T>> Guarded<T>(Op key, Func<Task<T>> body) {
-        try { return Fin.Succ(await body()); }
-        catch (OperationCanceledException) { return Fin.Fail<T>(error: new Fault.Cancelled()); }
-        catch (Exception raised) { return Fin.Fail<T>(error: key.InvalidResult(detail: raised.Message)); }
-    }
+    // 6-clause conjunction guard is an accumulating Validation: every violated clause NAMES itself, so a
+    // refused plan reports the whole violation set instead of the first bit of an anded blob.
+    private static Fin<Unit> Admitted(CapturePlan plan, bool requireQueue, Op key) =>
+        (
+            guard(double.IsFinite((double)plan.Pace) && (double)plan.Pace > 0.0, (Error)key.InvalidInput(axis: nameof(CapturePlan.Pace))).ToValidation(),
+            guard(!requireQueue || plan.Queue > 0, (Error)key.InvalidInput(axis: nameof(CapturePlan.Queue))).ToValidation(),
+            guard(!requireQueue || plan.Capacity > 0, (Error)key.InvalidInput(axis: nameof(CapturePlan.Capacity))).ToValidation(),
+            guard(ValidityClaim.WhenPresent(facet: plan.Extent, claim: static extent => extent.Width > 0 && extent.Height > 0),
+                (Error)key.InvalidInput(axis: nameof(CapturePlan.Extent))).ToValidation()
+        ).Apply(static (_, _, _, _) => unit).As().ToFin();
 
     private static async Task<Fin<Unit>> Complete(Action<Action<NSError>?> begin, Op key) {
         TaskCompletionSource<Fin<Unit>> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
         Fin<Unit> started = key.Catch(body: () => Fin.Succ(Op.Side(action: () => begin(
             refusal => completion.TrySetResult(result: Optional(refusal).Match(
-                Some: fault => Fin.Fail<Unit>(error: Error.New(fault.ToString())),
+                Some: fault => Fin.Fail<Unit>(error: NativeFailure(fault)),
                 None: static () => Fin.Succ(unit)))))));
         return started.IsFail ? started : await completion.Task;
     }
 
-    private static Fin<Unit> ReleaseAll(Op key, params Action[] inverses) {
-        Option<Error> first = Option<Error>.None;
-        inverses.Iter(inverse => key.Catch(body: () => Fin.Succ(Op.Side(action: inverse))).IfFail(error =>
-            first = first.Match(Some: static current => Some(current), None: () => Some(error))));
-        return first.Match(Some: static error => Fin.Fail<Unit>(error: error), None: static () => Fin.Succ(unit));
+    internal static Error NativeFailure(NSError error) {
+        Exception raised = new NSErrorException(error);
+        return Error.New(raised.Message, raised);
     }
 
-    private static Fin<Unit> Preserve(Fin<Unit> first, Fin<Unit> next) => first.IsFail ? first : next;
-
-    internal static Fin<T> Preserve<T>(Fin<T> first, Fin<Unit> next) => first.Match(
-        Succ: value => next.Map(_ => value),
-        Fail: primary => next.Match(
-            Succ: _ => Fin.Fail<T>(error: primary),
-            Fail: cleanup => Fin.Fail<T>(error: primary + cleanup)));
+    private static Fin<Unit> ReleaseAll(Op key, params Action[] inverses) => Custody.Release(
+        toSeq(inverses).Map(inverse => (Func<Fin<Unit>>)(() => {
+            inverse();
+            return Fin.Succ(unit);
+        })).Strict(), key);
 
     private static Fin<Unit> RemoveOutput(SCStream stream, FrameSink sink, Op key) => key.Catch(body: () =>
         stream.RemoveStreamOutput(
@@ -444,10 +463,12 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
             type: SCStreamOutputType.Screen,
             error: out NSError? refusal)
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(error: Error.New(refusal?.ToString() ?? nameof(SCStream))));
+            : Fin.Fail<Unit>(error: refusal is { } fault
+                ? NativeFailure(fault)
+                : key.InvalidResult(nameof(SCStream.RemoveStreamOutput))));
 
-    private static Fin<SCContentFilter> Filter(SCShareableContent shareable, CaptureTarget target, Op key) {
-        Fin<SCContentFilter> minted = target.Switch(
+    private static Fin<SCContentFilter> Filter(SCShareableContent shareable, CaptureSubject subject, Op key) {
+        Fin<SCContentFilter> minted = subject.Switch(
             state: (Content: shareable, Key: key),
             displayCase: static (s, c) => toSeq(s.Content.Displays)
                 .Find(display => display.DisplayId == c.DisplayId)
@@ -459,24 +480,15 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
                 .Bind(window => s.Key.Catch(body: () => Fin.Succ(new SCContentFilter(window)))));
         Fin<Unit> released = ReleaseAll(key: key, shareable.Dispose);
         return minted.Match(
-            Succ: filter => released.Match(
-                Succ: _ => Fin.Succ(filter),
-                Fail: primary => ReleaseAll(key: key, filter.Dispose).Match(
-                    Succ: _ => Fin.Fail<SCContentFilter>(error: primary),
-                    Fail: cleanup => Fin.Fail<SCContentFilter>(error: primary + cleanup))),
-            Fail: primary => released.Match(
-                Succ: _ => Fin.Fail<SCContentFilter>(error: primary),
-                Fail: cleanup => Fin.Fail<SCContentFilter>(error: primary + cleanup)));
+            Succ: filter => released.Map(_ => filter)
+                .Rollback(release: () => ReleaseAll(key: key, filter.Dispose), key: key),
+            Fail: primary => Fin.Fail<SCContentFilter>(error: primary)
+                .Settled(release: () => released, key: key));
     }
 
+    // Admission already proved the plan (`Admitted`, accumulating); this mint only projects it.
     private static Fin<SCStreamConfiguration> Configure(CapturePlan plan, Op key) =>
         from rate in key.Finite(value: (double)plan.Pace)
-        from admitted in guard(
-            rate > 0.0 &&
-            plan.Queue > 0 &&
-            plan.Capacity > 0 &&
-            plan.Extent.Map(static extent => extent.Width > 0 && extent.Height > 0).IfNone(true),
-            key.InvalidInput()).ToFin()
         from configured in key.Catch(body: () => {
             SCStreamConfiguration streamConfig = new() {
                 MinimumFrameInterval = CMTime.FromSeconds(seconds: 1.0 / rate, preferredTimeScale: 600),
@@ -494,8 +506,9 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
         })
         select configured;
 
-    private static Fin<Option<RasterPane>> Geometry(CMSampleBuffer buffer, CaptureRetention retention, Op key) =>
-        key.Catch(body: () => {
+    private static Fin<Option<RasterPane>> Geometry(CMSampleBuffer buffer, CaptureRetention retention, Op key) {
+        Fin<Unit> released = Fin.Succ(unit);
+        Fin<Option<RasterPane>> copied = key.Catch(body: () => {
             using CVImageBuffer? image = buffer.GetImageBuffer();
             if (image is not CVPixelBuffer pixels) return Fin.Succ(Option<RasterPane>.None);
             (nuint nativeWidth, nuint nativeHeight, nuint nativeRowBytes) = (pixels.Width, pixels.Height, pixels.BytesPerRow);
@@ -524,8 +537,14 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
                     Width: width, Height: height, RowBytes: rowBytes,
                     Raster: Some(ImmutableCollectionsMarshal.AsImmutableArray(array: copied)))));
             }
-            finally { ignore(pixels.Unlock(unlockFlags: CVPixelBufferLock.ReadOnly)); }
+            finally {
+                released = key.Catch(body: () => pixels.Unlock(unlockFlags: CVPixelBufferLock.ReadOnly) == CVReturn.Success
+                    ? Fin.Succ(unit)
+                    : Fin.Fail<Unit>(error: key.InvalidResult(nameof(CVPixelBuffer.Unlock))));
+            }
         });
+        return copied.Settled(release: () => released, key: key);
+    }
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -535,47 +554,59 @@ public static class CaptureScout {
         Op op = key.OrDefault();
         Fin<Unit> gate = MacGate.Demand(key: op);
         if (gate.IsFail) return gate.Map(static _ => default(CaptureInventory)!);
-        Fin<SCShareableContent> content = await SessionCapture.Guarded(
-            key: op,
-            body: static () => SCShareableContent.GetShareableContentAsync(
+        Fin<SCShareableContent> content = await op.Catch(
+            body: static async _ => Fin.Succ(await SCShareableContent.GetShareableContentAsync(
                 excludeDesktopWindows: true,
-                onScreenWindowsOnly: true));
+                onScreenWindowsOnly: true).ConfigureAwait(false)));
         return content.Bind(shareable => {
             Fin<CaptureInventory> projected = op.Catch(body: () => Fin.Succ(new CaptureInventory(
-                Displays: toSeq(shareable.Displays).Map(static display => new DisplayFact(
-                    DisplayId: display.DisplayId,
-                    Frame: new RectangleF((float)display.Frame.X, (float)display.Frame.Y, (float)display.Frame.Width, (float)display.Frame.Height),
-                    Width: (int)display.Width,
-                    Height: (int)display.Height)).Strict(),
-                Windows: toSeq(shareable.Windows).Map(static window => new WindowFact(
-                    WindowId: window.WindowId,
-                    Frame: new RectangleF((float)window.Frame.X, (float)window.Frame.Y, (float)window.Frame.Width, (float)window.Frame.Height),
-                    Title: Optional(window.Title),
-                    Application: Optional(window.OwningApplication).Map(static owner => owner.ApplicationName),
-                    BundleIdentifier: Optional(window.OwningApplication).Map(static owner => owner.BundleIdentifier),
-                    ProcessId: Optional(window.OwningApplication).Map(static owner => owner.ProcessId),
-                    OnScreen: window.OnScreen,
-                    Active: window.Active)).Strict())));
+                Displays: toSeq(shareable.Displays).Map(CaptureMap.Display).Strict(),
+                Windows: toSeq(shareable.Windows).Map(CaptureMap.Window).Strict())));
             Fin<Unit> released = op.Catch(body: () => Fin.Succ(Op.Side(action: shareable.Dispose)));
-            return SessionCapture.Preserve(first: projected, next: released);
+            return projected.Settled(release: () => released, key: op);
         });
     }
+}
+
+// Three survey projections as GENERATED data — a binding rename breaks a mapping row, never a body;
+// CGRect frame and the optional owning-application reads are named source columns.
+[Mapper] // conversions ride the assembly MapperDefaults (Canvas/canvas.md) — no per-seam re-spell
+internal static partial class CaptureMap {
+    [MapPropertyFromSource(nameof(DisplayFact.Frame), Use = nameof(FrameOf))]
+    internal static partial DisplayFact Display(SCDisplay display);
+
+    [MapPropertyFromSource(nameof(WindowFact.Frame), Use = nameof(WindowFrameOf))]
+    [MapPropertyFromSource(nameof(WindowFact.Application), Use = nameof(ApplicationOf))]
+    [MapPropertyFromSource(nameof(WindowFact.BundleIdentifier), Use = nameof(BundleOf))]
+    [MapPropertyFromSource(nameof(WindowFact.ProcessId), Use = nameof(ProcessOf))]
+    internal static partial WindowFact Window(SCWindow window);
+
+    internal static RectangleF Frame(CGRect rect) =>
+        new((float)rect.X, (float)rect.Y, (float)rect.Width, (float)rect.Height);
+
+    private static RectangleF FrameOf(SCDisplay display) => Frame(display.Frame);
+    private static RectangleF WindowFrameOf(SCWindow window) => Frame(window.Frame);
+    private static Option<string> ApplicationOf(SCWindow window) => Optional(window.OwningApplication).Map(static owner => owner.ApplicationName);
+    private static Option<string> BundleOf(SCWindow window) => Optional(window.OwningApplication).Map(static owner => owner.BundleIdentifier);
+    private static Option<int> ProcessOf(SCWindow window) => Optional(window.OwningApplication).Map(static owner => owner.ProcessId);
 }
 
 [BoundaryAdapter]
 public static class PaintProof {
     public static Fin<Option<CaptureBreach>> Judge(
-        CaptureFrame frame, PaintReceipt receipt, MonotonicTimeline timeline, CapturePace pace, Op? key = null) {
+        UiEvent<CaptureFrame> frame, PaintReceipt receipt, MonotonicTimeline timeline, CapturePace pace, Op? key = null) {
         Op op = key.OrDefault();
-        return from sample in op.AcceptInput(value: frame)
-               from claim in op.AcceptInput(value: receipt)
+        return from claim in op.AcceptInput(value: receipt)
                from clock in op.Need(timeline)
                from rate in op.Finite(value: (double)pace)
-               from positive in guard(rate > 0.0, op.InvalidInput()).ToFin()
-               from lag in clock.Elapsed(start: claim.Settled, end: sample.Stamp, key: op)
+               from lag in clock.Elapsed(start: claim.Settled, end: frame.Fact.Stamp, key: op)
                let window = TimeSpan.FromSeconds(value: 2.0 / rate)
-               select lag >= TimeSpan.Zero && lag <= window && claim.Drawn > 0 && !sample.Bearing
-                   ? Some(new CaptureBreach(FrameSequence: sample.Sequence, Operation: claim.Operation, Drawn: claim.Drawn, Lag: lag, Bound: window))
+               // Span is the kernel's own plain carrier — lane, work, elapsed, bound-in-force — so overrun
+               // and breach DERIVE on the record and no local lag/bound pair survives; the recorded bound is the
+               // pace-derived window in force at judgment, exactly as the span contract states.
+               let span = new GaugedSpan<CaptureLane>(Lane: CaptureLane.Frame, Work: claim.Op, Elapsed: lag, Bound: window)
+               select lag >= TimeSpan.Zero && lag <= window && claim.Drawn > 0 && !frame.Fact.Bearing
+                   ? Some(new CaptureBreach(FrameSequence: frame.Ordinal, Operation: claim.Op, Drawn: claim.Drawn, Span: span))
                    : Option<CaptureBreach>.None;
     }
 
@@ -588,16 +619,23 @@ public static class PaintProof {
                from rate in op.Finite(value: (double)pace)
                from positive in guard(rate > 0.0, op.InvalidInput()).ToFin()
                let window = TimeSpan.FromSeconds(value: 2.0 / rate)
-               select rows.Choose(row => row.Fact switch {
+               from ties in rows.TraverseM(row => row.Fact switch {
                    JournalFact.EvidenceCase { Evidence: GhEvidence.PaintCase paint } =>
-                       frames.Choose(frame => clock.Elapsed(start: paint.Receipt.Settled, end: frame.Stamp, key: op)
-                               .ToOption()
-                               .Filter(lag => lag >= TimeSpan.Zero && lag <= window)
-                               .Map(lag => new CaptureTie(Row: row.Sequence, Frame: frame.Sequence, Lag: lag)))
-                           .Head,
-                   _ => Option<CaptureTie>.None,
-               }).Strict();
+                       FirstTie(frames, row.Sequence, paint.Receipt, clock, window, op),
+                   _ => Fin.Succ(Option<CaptureTie>.None),
+               }).As()
+               select ties.Choose(identity).Strict();
     }
+
+    private static Fin<Option<CaptureTie>> FirstTie(
+        Seq<UiEvent<CaptureFrame>> frames, long row, PaintReceipt receipt,
+        MonotonicTimeline clock, TimeSpan window, Op key) =>
+        frames.Fold(Fin.Succ(Option<CaptureTie>.None), (found, frame) => found.Bind(prior => prior.Match(
+            Some: _ => Fin.Succ(prior),
+            None: () => clock.Elapsed(start: receipt.Tally.Settled, end: frame.Fact.Stamp, key: key)
+                .Map(lag => lag >= TimeSpan.Zero && lag <= window
+                    ? Some(new CaptureTie(Row: row, Frame: frame.Ordinal, Lag: lag))
+                    : Option<CaptureTie>.None))));
 }
 ```
 
@@ -613,7 +651,7 @@ flowchart LR
     accTitle: Lease native canvas capture and prove paint claims
     accDescr: The macOS gate admits a surveyed display or window target; a leased ScreenCaptureKit stream folds delivered frames into a stamped bounded ring, the one-shot screenshot rides the same filter and raster kernel, and the export feeds the paint-regression judgment and the journal correlation over one shared monotonic timeline.
     Gate["MacGate.Demand"] -->|"admits crossing"| Scout["CaptureScout.Survey"]
-    Scout -->|"DisplayFact · WindowFact"| Target["CaptureTarget + CapturePlan"]
+    Scout -->|"DisplayFact · WindowFact"| Target["CaptureSubject + CapturePlan"]
     Target -->|"SCContentFilter · SCStreamConfiguration"| Session["SessionCapture.Open"]
     Session -->|"owned SCStream · frame sink · stop delegate"| Lease["Lease&lt;SessionCapture&gt;"]
     Stream["ScreenCaptureKit frame callback"] -->|"stamped fold · shed accounting"| Ring[("bounded frame ring")]
@@ -629,18 +667,18 @@ flowchart LR
 
 ## [06]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]           | [OWNER]                         | [RAIL]                                     | [CASES] |
-| :-----: | :------------------ | :------------------------------ | :----------------------------------------- | :-----: |
-|  [01]   | shareable survey    | `CaptureScout`                  | `Survey → Task<Fin<CaptureInventory>>`     |    1    |
-|  [02]   | target and policy   | `CaptureTarget` + `CapturePlan` | closed union + one policy value            |    2    |
-|  [03]   | leased recording    | `SessionCapture`                | `Open → Task<Fin<Lease<SessionCapture>>>`  |    1    |
-|  [04]   | one-shot raster     | `SessionCapture.Snapshot`       | `Snapshot → Task<Fin<CaptureStill>>`       |    1    |
-|  [05]   | export projection   | `CaptureExport`                 | `Export → Fin<CaptureExport>`              |    1    |
-|  [06]   | regression seam     | `PaintProof` + `CaptureBreach`  | `Judge → Fin<Option<CaptureBreach>>`       |    1    |
-|  [07]   | journal correlation | `PaintProof.Correlate`          | `Correlate → Fin<Seq<CaptureTie>>`         |    1    |
-|  [08]   | fault emission      | `CaptureLog`                    | three generated `[LoggerMessage]` partials |    3    |
+| [INDEX] | [CONCERN]           | [OWNER]                          | [RAIL]                                     | [CASES] |
+| :-----: | :------------------ | :------------------------------- | :----------------------------------------- | :-----: |
+|  [01]   | shareable survey    | `CaptureScout`                   | `Survey → Task<Fin<CaptureInventory>>`     |    1    |
+|  [02]   | target and policy   | `CaptureSubject` + `CapturePlan` | closed union + one policy value            |    2    |
+|  [03]   | leased recording    | `SessionCapture`                 | `Open → Task<Fin<Lease<SessionCapture>>>`  |    1    |
+|  [04]   | one-shot raster     | `SessionCapture.Snapshot`        | `Snapshot → Task<Fin<CaptureStill>>`       |    1    |
+|  [05]   | export projection   | `CaptureExport` `[Equatable]`    | consumer fold over the drain `Reader`      |    1    |
+|  [06]   | regression seam     | `PaintProof` + `CaptureBreach`   | `Judge → Fin<Option<CaptureBreach>>`       |    1    |
+|  [07]   | journal correlation | `PaintProof.Correlate`           | `Correlate → Fin<Seq<CaptureTie>>`         |    1    |
+|  [08]   | fault emission      | `CaptureLog`                     | three generated `[LoggerMessage]` partials |    3    |
 
-`MacGate`, `Op`, `Lease<T>`, `ValidityClaim`, `MonotonicTimeline`, `GhLog`, `PaintReceipt`, `JournalExport`, and `GhEvidence` are composed upstream owners; recording-to-disk, the sharing picker, and export serialization compose at the app root over the detached record.
+`MacGate`, kernel `EvidenceDrain`/`UiEvent`/`GaugedSpan`, `Op` (async `Catch` included), `Lease<T>`, `FaultCell`, `ValidityClaim`, `MonotonicTimeline`, `GhLog`, `PaintReceipt`, `JournalExport`, and `GhEvidence` are composed upstream owners; the hand frame ring, the per-session `LastFault` atoms, the `Guarded` try/catch funnel, the 6-clause conjunction guard, the hand survey projections, and the local lag/bound breach pair are all deleted; recording-to-disk, the sharing picker, and export serialization compose at the app root over the detached record.
 
 ## [07]-[RESEARCH]
 

@@ -12,11 +12,11 @@ Variance-reduced draws ride `LowDiscrepancy` through inverse transform; every ps
 
 - Owner: `UncertaintyMethod` `[SmartEnum<string>]` propagation-strategy rows carrying a `UqStrategy` driver discriminant, a `SampleDesign` matrix column, and the draw lane every stochastic step keys on; `RandomVariable` `[Union]` input-distribution cases each lowering to an inverse-transform `Quantile`, a `Standardize` map into its own orthogonality coordinate, and a `RecurrenceCoefficients` orthonormal-polynomial row; `RecurrenceCoefficients` the one orthonormal three-term-recurrence owner (the four Askey closed forms with the discretized-Stieltjes arbitrary-PCE construction) with its own admission; `SensitivityPayload` `[Union]` the method-discriminated sensitivity carrier; `UncertaintyResult` the distribution-valued response carrier (moments through kurtosis + quantiles + the sensitivity payload + surrogate `R²` and residual standard error + `pf` + `β` + the physical MPP); `Uncertainty` the static `UqStrategy`-dispatched (total `Switch`) `Propagate` fold driving the `Solver/optimizer#OPTIMIZER_LANE` `evaluate` oracle.
 - Cases: `SampleDesign` pseudo-random · space-filling · stratified · Saltelli-AB-AB · Morris-trajectory · analytic; `UncertaintyMethod` monte-carlo · latin-hypercube-mc · polynomial-chaos · first-order-reliability · second-order-reliability · subset-simulation · sobol-saltelli · morris; `SensitivityPayload` `Sobol(First, Total)` · `Morris(MuStar, Sigma)` · `Importance(Alpha)`; `LimitState` `Oracle` · `Smooth` · `SmoothSpan`; `RandomVariable` normal · log-normal · uniform · gamma · exponential · Weibull · Gumbel · beta · triangular · empirical.
-- Entry: `public static Fin<UncertaintyResult> Propagate(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Func<DesignPoint, Fin<Seq<double>>> evaluate, IClock clock)` validates every input distribution, unique names, policy bounds, method/design compatibility, response component, supplied-limit-state shape, and correlation matrix before dispatch. `Component` faults a short or non-finite response vector; no first-component or zero fallback exists.
+- Entry: `public static Fin<UncertaintyResult> Propagate(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Func<DesignPoint, Fin<Seq<double>>> evaluate, IClock clock)` validates every input distribution, unique names, policy bounds, method/design compatibility, response component, supplied-limit-state shape, and correlation matrix before dispatch — ACCUMULATING, so a caller composing a campaign reads every broken column at once and each refusal names the column it broke. `Component` faults a short or non-finite response vector; no first-component or zero fallback exists, and an empty sample refuses rather than publishing `pf = 0` as measured perfect reliability.
 - Auto: `Propagate` builds the optional Gaussian-copula `Transform` (identity when absent) and dispatches the `UqStrategy` driver off the `UncertaintyMethod.Strategy` row — the matrix-sampling driver draws the `LowDiscrepancy.Sobol` unit matrix, shapes it per `SampleDesign` (space-filling, LHS-stratified, the Saltelli `(2+d)·N` A/B/AB block, or the Morris `(d+1)·r` randomized-permutation trajectory grid), maps each unit row through the copula and the per-axis `Quantile`, evaluates, and reduces to the moment fold with the Saltelli/Morris payload or the composed `SensitivityTornado` first-order; the spectral-fit driver builds the orthonormal basis over the per-input `RecurrenceCoefficients` in the format its route consumes — a dense Vandermonde for thin-QR, COO triplets for the sparse-QR route — and reads mean/variance/Sobol closed-form from the coefficient masses; the reliability-search driver runs HLRF to the standard-normal MPP scoring `β`/`pf`/importance-factors, the SORM row adding the Breitung curvature correction; the subset driver conditions successive populations on intermediate thresholds through the Au-Beck sampler so a `pf~10⁻⁶` rare event resolves in `O(N·log pf)` evaluations. State threads as one immutable fold accumulator, never a per-method mutable loop.
 - Receipt: `Receipt` projects the full `UncertaintyResult` onto the widened `Uncertainty` `ComputeReceipt` case — method key, realized sample/evaluation count, nullable mean/variance/skewness/kurtosis (a method that does not estimate a moment carries `null`, never `NaN` or a fabricated failure), quantiles, the three index slots the `SensitivityPayload` case fills (Sobol first and total, Morris μ* and σ, reliability importance factors — each case writing the slots it measured and leaving the rest empty), the physical MPP, the surrogate `R²` and residual standard error the spectral fit calibrates, `pf`, and `β` — under `ReceiptScope.Execution`.
-- Packages: PureHDF (`H5File` graph assignment and `H5Dataset(object, chunks:, fileDims:)` behind the ensemble seal — mechanics stay the `Runtime/codecs#HDF_ARCHIVE` owner), MathNet.Numerics, HyperJet (the exact-AD FORM/SORM gradient/Hessian leg via `SensitivityLaw`), System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, `Deterministic.Source` as the one draw owner), Rasm.Persistence (project), BCL inbox
-- Boundary: the spectral fit solves on the `Tensor/blas#DENSE_ALGEBRA` route with the `DenseSubstrate` composition selected, threaded as a POLICY VALUE — an ambient substrate cell let two compositions in one process overwrite each other's choice and stamped receipts with whatever the cell held at read time. The returned `DenseSolve` carries the row that SERVED beside its witnessed residual, so a native leg declining this operand is a fact the carrier holds rather than an assumption from the row asked for.
+- Packages: PureHDF (reached ONLY through the `Runtime/archive#HDF_ARCHIVE` `ArchiveSession` capsule — this lane declares three slots against their chunk grids and opens no container of its own), MathNet.Numerics (every `Distributions` call FULLY QUALIFIED, because six `RandomVariable` case names shadow the distribution classes inside the union's own scope), HyperJet (the exact-AD FORM/SORM gradient/Hessian leg via `SensitivityLaw`), System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core (`Validation<Error,T>` the accumulating admission through the `Solver/optimizer#OPTIMIZER_LANE` `Refusal` clause, `IO` the archive rail), NodaTime, Rasm (project, `Deterministic.Source` as the one draw owner, reached directly at each draw site), Rasm.Persistence (project), BCL inbox
+- Boundary: the spectral fit solves on the `Tensor/blas#DENSE_ALGEBRA` route with the `DenseSubstrate` composition selected, threaded as a POLICY VALUE — an ambient substrate cell let two compositions in one process overwrite each other's choice and stamped receipts with whatever the cell held at read time. The returned `SolveOutcome<Vector<double>>` carries the row that SERVED beside its witnessed residual and its own `SolveTermination`, so a native leg declining this operand is a fact the carrier holds rather than an assumption from the row asked for.
 - Growth: a new propagation strategy is one `UncertaintyMethod` row binding its `UqStrategy` driver, `SampleDesign`, and draw lane; a new input distribution is one `RandomVariable` case lowering to its `Quantile`/`Standardize`/`Recurrence` — an Askey-family input binds a closed-form `RecurrenceCoefficients` constructor, a non-Askey input falls to the one `Stieltjes` construction with zero new surface; a new sensitivity family is one `SensitivityPayload` case with its own receipt projection arm; a new response statistic is one field on `UncertaintyResult` with one slot on the `Uncertainty` receipt; a `MonteCarloRunner`/`LatinHypercubeSampler`/`PceFitter`/`FormSolver`/`SormSolver`/`SaltelliSobol`/`MorrisScreening`/`SubsetSimulator` sibling family is collapsed onto one `UqStrategy`-dispatched (total `Switch`) `Uncertainty` fold, a `MomentsResult`/`ReliabilityResult`/`SensitivityResult` result trio onto the one `UncertaintyResult` carrier, a `NormalVariable`/`WeibullVariable`/`EmpiricalVariable` class family onto the one `RandomVariable` union, and a `HermiteBasis`/`LegendreBasis`/`LaguerreBasis`/`JacobiBasis` polynomial-evaluator family onto the one `RecurrenceCoefficients` orthonormal recurrence.
 - Boundary: `evaluate` is the single solver coupling, and the sample fold is SEQUENTIAL because that contract is the bare synchronous `Fin` — a campaign wanting overlapped evaluation composes `Solver/sweep#SWEEP_AND_BUDGET`, which owns the `IO`-lifted oracle and the chunked fan-out, rather than this lane growing a second oracle shape. Variance-reduced designs use the owned `LowDiscrepancy` generator and every pseudo-random step draws from `Deterministic.Source` on the method's lane; a bare `new Random(seed)` forks replay across runtimes and has no site left.
 - Boundary: correlation admission requires a finite symmetric unit-diagonal positive-definite matrix and rejects PCE/Saltelli/Morris until a generalized correlated-sensitivity estimator exists. FORM faults a degenerate gradient or iteration-cap miss. SORM counts curvature evaluations and faults invalid Breitung curvature domains instead of dropping factors. Subset simulation faults a level-cap miss and tallies EVERY oracle call — the seeded population, each chain's own seed probe, and each proposal — so the receipt's evaluation count is the cost the campaign actually paid.
@@ -75,7 +75,7 @@ public sealed partial class UncertaintyMethod {
 public sealed record RecurrenceCoefficients(ImmutableArray<double> A, ImmutableArray<double> B) {
     public Fin<Unit> Admit(string variable) =>
         A.Any(static value => !double.IsFinite(value)) || B.Any(static value => !double.IsFinite(value) || value <= 1e-300)
-            ? Fin.Fail<Unit>(new ComputeFault.ModelRejected($"<uncertainty-recurrence-degenerate:{variable}>"))
+            ? Fin.Fail<Unit>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Key(variable))))
             : Fin.Succ(unit);
 
     // Trusts `Admit`: every `B` is finite and strictly positive, so the normalizing roots are real and non-zero.
@@ -180,18 +180,24 @@ public abstract partial record RandomVariable {
             triangular: static value => InvalidName(value.Name) || !double.IsFinite(value.Lower) || !double.IsFinite(value.Upper) || !double.IsFinite(value.Mode) || value.Lower >= value.Upper || value.Mode < value.Lower || value.Mode > value.Upper,
             empirical: static value => InvalidName(value.Name) || InvalidEmpirical(value.Support, value.Cdf));
 
+    // Every distribution call is FULLY QUALIFIED, and that is load-bearing rather than verbose. Six of this union's
+    // own case names — `Normal`, `LogNormal`, `Gamma`, `Exponential`, `Beta`, `Triangular` — are also the names of
+    // the MathNet distribution classes this body means, and inside the union's own scope the nested case wins the
+    // lookup. Unqualified, `Normal.InvCDF(...)` binds to the CASE RECORD and not to the distribution at all, while
+    // reading on the page exactly like the intended call. The nested case names stay: they are the right domain
+    // vocabulary, and the binding — not the roster — was the defect.
     public double Quantile(double u) =>
         Switch(
             state: Math.Clamp(u, 1e-12, 1.0 - 1e-12),
-            normal: static (p, v) => Normal.InvCDF(v.Mean, v.StdDev, p),
-            logNormal: static (p, v) => LogNormal.InvCDF(v.Mu, v.Sigma, p),
+            normal: static (p, v) => MathNet.Numerics.Distributions.Normal.InvCDF(v.Mean, v.StdDev, p),
+            logNormal: static (p, v) => MathNet.Numerics.Distributions.LogNormal.InvCDF(v.Mu, v.Sigma, p),
             uniform: static (p, v) => v.Lower + (v.Upper - v.Lower) * p,
-            gamma: static (p, v) => Gamma.InvCDF(v.Shape, v.Rate, p),
-            exponential: static (p, v) => Exponential.InvCDF(v.Rate, p),
+            gamma: static (p, v) => MathNet.Numerics.Distributions.Gamma.InvCDF(v.Shape, v.Rate, p),
+            exponential: static (p, v) => MathNet.Numerics.Distributions.Exponential.InvCDF(v.Rate, p),
             weibull: static (p, v) => v.Scale * Math.Pow(-Math.Log(1.0 - p), 1.0 / v.Shape),
             gumbel: static (p, v) => v.Location - v.Scale * Math.Log(-Math.Log(p)),
-            beta: static (p, v) => Beta.InvCDF(v.A, v.B, p),
-            triangular: static (p, v) => Triangular.InvCDF(v.Lower, v.Upper, v.Mode, p),
+            beta: static (p, v) => MathNet.Numerics.Distributions.Beta.InvCDF(v.A, v.B, p),
+            triangular: static (p, v) => MathNet.Numerics.Distributions.Triangular.InvCDF(v.Lower, v.Upper, v.Mode, p),
             empirical: static (p, v) => EmpiricalQuantile(v.Support, v.Cdf, p));
 
     // Each case maps into the coordinate its OWN orthogonal family is defined on — the standardized normal for the
@@ -305,25 +311,48 @@ public sealed record UncertaintyPolicy(
     public static readonly UncertaintyPolicy CanonicalMorris = CanonicalMonteCarlo with { Method = UncertaintyMethod.Morris, Samples = 512 };
     public static readonly UncertaintyPolicy CanonicalSubset = CanonicalMonteCarlo with { Method = UncertaintyMethod.SubsetSimulation, Samples = 1000 };
 
-    public Fin<Unit> Validate(Seq<RandomVariable> inputs) {
-        bool values = Samples < 2 || PceOrder < 1 || MorrisLevels < 2 || SubsetLevelProbability is <= 0.0 or >= 1.0
-            || QuantileTaus.IsEmpty || !QuantileTaus.ForAll(static tau => double.IsFinite(tau) && tau is > 0.0 and < 1.0)
-            || QuantileTaus.ToHashSet().Count != QuantileTaus.Count || LimitStateObjective < 0 || !double.IsFinite(LimitStateThreshold)
-            || !double.IsFinite(FiniteDifferenceStep) || FiniteDifferenceStep <= 0.0 || ReliabilityIterations < 1
-            || !double.IsFinite(ReliabilityTolerance) || ReliabilityTolerance <= 0.0 || SubsetMaxLevels < 1 || StieltjesNodes < PceOrder + 2 || SparseBasisThreshold < 1;
-        bool design = Method == UncertaintyMethod.SobolSaltelli && Samples % 2 != 0
-            || Method == UncertaintyMethod.Morris && Samples < inputs.Count + 1
-            || Correlation.IsSome && (Method == UncertaintyMethod.PolynomialChaos || Method == UncertaintyMethod.SobolSaltelli || Method == UncertaintyMethod.Morris)
-            // A caller supplies the DIFFERENTIABLE arms alone; the `Oracle` arm is this lane's own construction over
-            // the injected evaluate contract, so accepting one here would let a caller replace the oracle wholesale.
-            || SmoothLimitState.Exists(static state => !state.Differentiable)
-            || SmoothLimitState.IsSome && Method != UncertaintyMethod.FirstOrderReliability && Method != UncertaintyMethod.SecondOrderReliability;
-        bool variables = inputs.IsEmpty || inputs.Exists(static input => input.Invalid)
-            || inputs.Map(static input => input.VariableName).ToHashSet(StringComparer.Ordinal).Count != inputs.Count;
-        return values || design || variables
-            ? Fin.Fail<Unit>(ComputeFault.Create("<uncertainty-invalid-admission>"))
-            : Fin.Succ(unit);
-    }
+    // Twenty-one INDEPENDENT constraints, and they accumulate. Three bool blocks OR-ed into one
+    // `<uncertainty-invalid-admission>` paid for every one of those twenty-one evaluations and then reported which
+    // of them broke to nobody — a caller composing a UQ campaign learned about one defect per round trip, and the
+    // fault text could not even name the column. The positive-count and unit-interval families are ONE constraint
+    // over a column roster, so each states once and a new bounded column joins its roster.
+    Seq<(string Name, int Value)> CountColumns => Seq(
+        (nameof(PceOrder), PceOrder), (nameof(ReliabilityIterations), ReliabilityIterations),
+        (nameof(SubsetMaxLevels), SubsetMaxLevels), (nameof(SparseBasisThreshold), SparseBasisThreshold),
+        (nameof(LimitStateObjective), LimitStateObjective + 1));
+
+    Seq<(string Name, double Value)> PositiveColumns => Seq(
+        (nameof(FiniteDifferenceStep), FiniteDifferenceStep), (nameof(ReliabilityTolerance), ReliabilityTolerance));
+
+    public Fin<Unit> Validate(Seq<RandomVariable> inputs) =>
+        (CountColumns.Map(static row => Refusal.Unless(
+                row.Value > 0, ComputeArea.Solver,
+                new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(row.Value))))
+            + PositiveColumns.Map(static row => Refusal.Unless(
+                double.IsFinite(row.Value) && row.Value > 0.0, ComputeArea.Solver,
+                new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(row.Value))))
+            + Seq(
+                Refusal.Unless(Samples >= 2, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.Sufficient, new CapacityEvidence.Count(Samples, 2L))),
+                Refusal.Unless(MorrisLevels >= 2, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.Sufficient, new CapacityEvidence.Count(MorrisLevels, 2L))),
+                // The admitted band is the one the subset sampler actually runs on — the prior admission opened the
+                // whole unit interval and the sampler then re-clamped, so an admitted value became a different one.
+                Refusal.Unless(SubsetLevelProbability is >= 0.01 and <= 0.5, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Interval(SubsetLevelProbability, 0.01, 0.5))),
+                Refusal.Unless(!QuantileTaus.IsEmpty, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(QuantileTaus.Count, 1L))),
+                Refusal.Unless(QuantileTaus.ForAll(static tau => double.IsFinite(tau) && tau is > 0.0 and < 1.0), ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Sequence(QuantileTaus.Count))),
+                Refusal.Unless(toSeq(QuantileTaus).Distinct().Count == QuantileTaus.Count, ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Unique, new ContractEvidence.Count(toSeq(QuantileTaus).Distinct().Count, QuantileTaus.Count))),
+                Refusal.Unless(double.IsFinite(LimitStateThreshold), ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Value(LimitStateThreshold))),
+                Refusal.Unless(StieltjesNodes >= PceOrder + 2, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.Sufficient, new CapacityEvidence.Count(StieltjesNodes, PceOrder + 2L))),
+                Refusal.Unless(Method != UncertaintyMethod.SobolSaltelli || Samples % 2 == 0, ComputeArea.Solver, new ComputeViolation.Shape(ShapeRequirement.Dimensions, new ShapeEvidence.Alignment(Samples, 2L))),
+                Refusal.Unless(Method != UncertaintyMethod.Morris || Samples >= inputs.Count + 1, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.Sufficient, new CapacityEvidence.Count(Samples, inputs.Count + 1L))),
+                Refusal.Unless(Correlation.IsNone || (Method != UncertaintyMethod.PolynomialChaos && Method != UncertaintyMethod.SobolSaltelli && Method != UncertaintyMethod.Morris), ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Compatible, new ContractEvidence.Key(Method.Key))),
+                // A caller supplies the DIFFERENTIABLE arms alone; the `Oracle` arm is this lane's own construction
+                // over the injected evaluate contract, so accepting one here would let a caller replace the oracle.
+                Refusal.Unless(!SmoothLimitState.Exists(static state => !state.Differentiable), ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Supported, new ContractEvidence.None())),
+                Refusal.Unless(SmoothLimitState.IsNone || Method == UncertaintyMethod.FirstOrderReliability || Method == UncertaintyMethod.SecondOrderReliability, ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Compatible, new ContractEvidence.Key(Method.Key))),
+                Refusal.Unless(!inputs.IsEmpty, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(inputs.Count, 1L))),
+                Refusal.Unless(!inputs.Exists(static input => input.Invalid), ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())),
+                Refusal.Unless(inputs.Map(static input => input.VariableName).Distinct().Count == inputs.Count, ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Unique, new ContractEvidence.Count(inputs.Map(static input => input.VariableName).Distinct().Count, inputs.Count)))))
+        .Traverse(static claim => claim).As().Map(static _ => unit).ToFin();
 }
 
 public sealed record UncertaintyResult(
@@ -390,20 +419,25 @@ public static class Uncertainty {
         policy.Correlation.Match(
             None: () => Fin.Succ(new Transform(None)),
             Some: r => r.RowCount != dim || r.ColumnCount != dim
-                ? Fin.Fail<Transform>(new ComputeFault.ModelRejected($"<uncertainty-correlation-shape:{r.RowCount}x{r.ColumnCount}!={dim}>"))
+                ? Fin.Fail<Transform>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Counts(r.RowCount, r.ColumnCount, dim))))
                 : !r.Enumerate().All(double.IsFinite)
                     || !Enumerable.Range(0, dim).All(axis => Math.Abs(r[axis, axis] - 1.0) <= 1e-10
                         && Enumerable.Range(0, dim).All(other => Math.Abs(r[axis, other] - r[other, axis]) <= 1e-10))
-                    ? Fin.Fail<Transform>(ComputeFault.Create("<uncertainty-correlation-invalid>"))
-                    : Try.lift(() => r.Cholesky()).Run()
-                        .MapFail(static error => (Error)new ComputeFault.ModelRejected($"<uncertainty-correlation-not-positive-definite:{error.GetType().Name}>"))
+                    ? Fin.Fail<Transform>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())))
+                    : Op.Of(name: "uncertainty.correlation-factor").Catch(() => Fin.Succ(r.Cholesky()))
                         .Bind(cholesky => double.IsFinite(cholesky.DeterminantLn)
                             ? Fin.Succ(new Transform(Some(cholesky.Factor)))
-                            : Fin.Fail<Transform>(ComputeFault.Create("<uncertainty-correlation-not-positive-definite>"))));
+                            : Fin.Fail<Transform>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Sequence((long)dim * dim))))));
 
     static Fin<double> Component(Seq<double> values, UncertaintyPolicy policy) =>
-        policy.LimitStateObjective >= values.Count || !values.ForAll(double.IsFinite)
-            ? Fin.Fail<double>(ComputeFault.Create("<uncertainty-oracle-shape>"))
+        policy.LimitStateObjective >= values.Count
+            ? Fin.Fail<double>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Range(
+                RangeRequirement.WithinBounds,
+                new ScalarEvidence.Interval(policy.LimitStateObjective, 0, values.Count - 1))))
+        : !values.ForAll(double.IsFinite)
+            ? Fin.Fail<double>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.NonFinite(
+                ComputeSubject.Value,
+                new ScalarEvidence.Sequence(values.Count))))
             : Fin.Succ(values[policy.LimitStateObjective]);
 
     // --- [MATRIX_SAMPLING] ------------------------------------------------------------
@@ -414,23 +448,37 @@ public static class Uncertainty {
     // one — the ranking the method exists to produce.
     readonly record struct SampleMatrix(Seq<double[]> Unit, Seq<ImmutableArray<double>> Physical);
 
+    // The archive session is the ONE deferred effect on an otherwise synchronous lane, so it runs at this single
+    // named boundary rather than lifting the whole propagation onto `IO`: the card's own posture is a sequential
+    // `Fin` fold, and a campaign wanting overlapped evaluation composes `Solver/sweep#SWEEP_AND_BUDGET`, which owns
+    // the `IO`-lifted oracle. A write fault fails the propagation — the caller asked for the artifact.
     static Fin<UncertaintyResult> SampleAndReduce(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform, Func<DesignPoint, Fin<Seq<double>>> evaluate, IClock clock, Option<(Func<Stream> Sink, HdfArchivePolicy Policy)> archive) =>
         Design(inputs, policy, transform)
             .Bind(design => Sample(design.Physical, policy, evaluate)
-                .Bind(responses => EnsembleSeal(archive, inputs, policy, design, responses)
-                    .Map(_ => Reduce(inputs, policy, design, responses, clock))));
+                .Bind(responses => EnsembleSeal(archive, inputs, policy, design, responses).Run()
+                    .Bind(_ => Reduce(inputs, policy, design, responses, clock))));
 
     // Ensemble store: the whole propagation — unit block, physical block, response block — as one create-only
     // container, sample axis outermost, chunk rows on the DESIGN'S OWN block structure (the Saltelli A/B/AB half,
     // the Morris d+1 trajectory leg, else one bounded row band), so a Saltelli half-block or one trajectory reads
     // back as exactly one hyperslab and a rare-event campaign's evidence outlives its terminal scalar. Absent
     // capability, nothing writes; a write fault fails the propagation — the caller asked for the artifact.
-    static Fin<Unit> EnsembleSeal(Option<(Func<Stream> Sink, HdfArchivePolicy Policy)> archive, Seq<RandomVariable> inputs, UncertaintyPolicy policy, SampleMatrix design, Seq<Seq<double>> responses) =>
+    // The seal DECLARES three slots and writes through the ONE `Runtime/archive#HDF_ARCHIVE` session: the container
+    // graph, the filter pipeline off the policy's own `Creation()`, the attribute typing, and the release were the
+    // same five steps four producers on this branch each spelled for themselves, and this copy also handed a live
+    // `Stream` to a library that does not own it while riding a bare `Fin` with no bracket — so a mid-write fault
+    // leaked the sink. `ArchiveSession.Write` binds the release to EVERY outcome arm, `ChunkGrid` derives the
+    // station-outermost grid the block band names, and the closed `ArchiveAttribute` vocabulary types what the
+    // untyped `object` indexer used to box.
+    static IO<Fin<Unit>> EnsembleSeal(Option<(Func<Stream> Sink, HdfArchivePolicy Policy)> archive, Seq<RandomVariable> inputs, UncertaintyPolicy policy, SampleMatrix design, Seq<Seq<double>> responses) =>
         archive.Match(
-            None: () => Fin.Succ(unit),
-            Some: capability => Try.lift(() => {
+            None: () => IO.pure(Fin.Succ(unit)),
+            Some: capability => {
                 int rows = design.Physical.Count, dim = inputs.Count;
                 int m = responses.IsEmpty ? 0 : responses[0].Count;
+                // The chunk band is the DESIGN'S own block structure — the Saltelli A/B/AB half, the Morris `d+1`
+                // trajectory leg, else one bounded row band — so a half-block or one trajectory reads back as
+                // exactly one hyperslab instead of a stride across chunk boundaries.
                 int block = policy.Method == UncertaintyMethod.SobolSaltelli ? Math.Max(1, Math.Max(2, policy.Samples) / 2)
                     : policy.Method == UncertaintyMethod.Morris ? dim + 1
                     : Math.Min(rows, 4096);
@@ -440,20 +488,27 @@ public static class Uncertainty {
                     design.Physical[row].AsSpan()[..Math.Min(dim, design.Physical[row].Length)].CopyTo(physicalBlock.AsSpan(row * dim));
                     for (int objective = 0; objective < m; objective++) { responseBlock[row * m + objective] = responses[row][objective]; }
                 }
-                uint band = (uint)Math.Min(rows, block);
-                H5DatasetCreation creation = capability.Policy.Creation();
-                H5File graph = new() {
-                    ["unit"] = new H5Dataset(unitBlock, chunks: [band, (uint)dim], fileDims: [(ulong)rows, (ulong)dim], datasetCreation: creation),
-                    ["physical"] = new H5Dataset(physicalBlock, chunks: [band, (uint)dim], fileDims: [(ulong)rows, (ulong)dim], datasetCreation: creation),
-                    ["responses"] = new H5Dataset(responseBlock, chunks: [band, (uint)Math.Max(1, m)], fileDims: [(ulong)rows, (ulong)Math.Max(1, m)], datasetCreation: creation),
-                };
-                graph.Attributes["method"] = policy.Method.Key;
-                graph.Attributes["samples"] = policy.Samples;
-                graph.Attributes["seed"] = policy.Seed;
-                graph.Attributes["block"] = block;
-                graph.Write(capability.Sink());
-                return unit;
-            }).Run().MapFail(static error => (Error)new ComputeFault.ModelRejected($"<uq-ensemble-seal:{error.Message}>")));
+                ChunkGrid axisGrid = ChunkGrid.Seat(fileDims: [(ulong)rows, (ulong)dim], chunks: [(uint)Math.Min(rows, block), (uint)dim]);
+                ChunkGrid responseGrid = ChunkGrid.Seat(fileDims: [(ulong)rows, (ulong)Math.Max(1, m)], chunks: [(uint)Math.Min(rows, block), (uint)Math.Max(1, m)]);
+                ArchiveSlot<double> unitSlot = new("unit", axisGrid);
+                ArchiveSlot<double> physicalSlot = new("physical", axisGrid);
+                ArchiveSlot<double> responseSlot = new("responses", responseGrid);
+                return ArchiveSession.Write(
+                    capability.Sink(), capability.Policy,
+                    Seq<IArchiveSlot>(unitSlot, physicalSlot, responseSlot),
+                    Seq(("method", (ArchiveAttribute)new ArchiveAttribute.Text(policy.Method.Key)),
+                        ("samples", new ArchiveAttribute.Whole(policy.Samples)),
+                        ("seed", new ArchiveAttribute.Whole(policy.Seed)),
+                        ("block", new ArchiveAttribute.Whole(block))),
+                    session =>
+                        IO.pure(from unitCursor in session.Cursor(unitSlot)
+                                from physicalCursor in session.Cursor(physicalSlot)
+                                from responseCursor in session.Cursor(responseSlot)
+                                from _unit in unitCursor.Write(unitBlock)
+                                from _physical in physicalCursor.Write(physicalBlock)
+                                from _responses in responseCursor.Write(responseBlock)
+                                select unit));
+            });
 
     static Fin<SampleMatrix> Design(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform) {
         int count = Math.Max(2, policy.Samples), dim = inputs.Count;
@@ -475,14 +530,12 @@ public static class Uncertainty {
                 return (next, acc.Points.Add(point));
             }).Points);
 
-    // Every pseudo-random step on the page draws from the kernel's ONE source, lane-keyed by the method it feeds, so
-    // a Monte Carlo matrix, a Morris permutation, and a subset chain under one seed are three independent streams and
-    // a re-run reproduces each exactly; a bare `new Random(seed)` forks replay across runtimes.
-    static Random Source(UncertaintyPolicy policy, long step, int dim) =>
-        Deterministic.Source(seed: policy.Seed, lanes: [policy.Method.Lane, step, dim]);
-
     static Seq<double[]> PseudoRandomDraws(int dim, int count, UncertaintyPolicy policy) {
-        Random random = Source(policy, step: 0L, dim);
+        // The kernel source is reached DIRECTLY at each draw site, with the lane triple spelled where it is read.
+        // A local `Source(policy, step, dim)` shim partially applied the same three lanes behind a page-local name,
+        // so the one fact a reader needs at a draw — which lanes key this stream — resolved a hop away and each
+        // site's own `step` disappeared into an argument list the shim owned.
+        Random random = Deterministic.Source(seed: policy.Seed, lanes: [policy.Method.Lane, 0L, dim]);
         double[][] rows = [.. Enumerable.Range(0, count).Select(_ => new double[dim])];
         for (int row = 0; row < count; row++) {
             for (int axis = 0; axis < dim; axis++) { rows[row][axis] = random.NextDouble(); }
@@ -496,18 +549,22 @@ public static class Uncertainty {
 
     // A moment BELOW its sample floor is absent, not zero: skewness needs three samples and kurtosis four, and a
     // fabricated `0.0` inside a `Some` publishes a measured symmetry the campaign never established.
-    static UncertaintyResult Reduce(Seq<RandomVariable> inputs, UncertaintyPolicy policy, SampleMatrix design, Seq<Seq<double>> responses, IClock clock) {
+    static Fin<UncertaintyResult> Reduce(Seq<RandomVariable> inputs, UncertaintyPolicy policy, SampleMatrix design, Seq<Seq<double>> responses, IClock clock) {
         double[] qoi = [.. responses.Map(values => values[policy.LimitStateObjective])];
+        // An EMPTY sample measures nothing, and `0 / 0` used to publish `pf = 0.0` — a failure probability of zero
+        // is the strongest reliability claim this lane can make, and it was exactly what a campaign that evaluated
+        // no point reported. The refusal is typed; the moment floors below already treat a thin sample as absent.
+        if (qoi.Length == 0) { return Fin.Fail<UncertaintyResult>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Required(ComputeSubject.Input))); }
         double mean = Statistics.Mean(qoi), variance = Statistics.Variance(qoi);
         Seq<double> quantiles = policy.QuantileTaus.Map(tau => Statistics.Quantile(qoi, tau));
         Option<SensitivityPayload> sensitivity =
             policy.Method == UncertaintyMethod.SobolSaltelli ? SaltelliIndices(inputs.Count, Math.Max(2, policy.Samples) / 2, qoi, variance)
             : policy.Method == UncertaintyMethod.Morris ? MorrisScreening(inputs.Count, design.Unit, qoi)
             : SobolBinned(inputs, design.Physical, qoi).Map(static first => (SensitivityPayload)new SensitivityPayload.Sobol(first, Seq<double>()));
-        double pf = qoi.Length == 0 ? 0.0 : (double)qoi.Count(value => value > policy.LimitStateThreshold) / qoi.Length;
+        double pf = (double)qoi.Count(value => value > policy.LimitStateThreshold) / qoi.Length;
         double beta = pf is > 0.0 and < 1.0 ? -Normal.InvCDF(0.0, 1.0, pf) : pf <= 0.0 ? double.PositiveInfinity : double.NegativeInfinity;
-        return new UncertaintyResult(policy.Method, qoi.Length, Some(mean), Some(variance), Moment(qoi, 3, Statistics.Skewness), Moment(qoi, 4, Statistics.Kurtosis),
-            quantiles, sensitivity, Seq<double>(), None, None, pf, beta, clock.GetCurrentInstant());
+        return Fin.Succ(new UncertaintyResult(policy.Method, qoi.Length, Some(mean), Some(variance), Moment(qoi, 3, Statistics.Skewness), Moment(qoi, 4, Statistics.Kurtosis),
+            quantiles, sensitivity, Seq<double>(), None, None, pf, beta, clock.GetCurrentInstant()));
     }
 
     static Option<double> Moment(double[] qoi, int floor, Func<double[], double> estimate) =>
@@ -540,7 +597,7 @@ public static class Uncertainty {
         double delta = levels / (2.0 * (levels - 1)), grid = 1.0 / (levels - 1);
         List<double[]> trajectories = [];
         for (int t = 0; t < paths; t++) {
-            Random rng = Source(policy, step: t, dim);
+            Random rng = Deterministic.Source(seed: policy.Seed, lanes: [policy.Method.Lane, t, dim]);
             double[] point = [.. draws.At(t % draws.Count).IfNone(() => new double[dim])
                 .Select(u => Math.Round(Math.Clamp(u, 0.0, 1.0) / grid) * grid)];
             trajectories.Add((double[])point.Clone());
@@ -594,7 +651,7 @@ public static class Uncertainty {
         for (int t = 0; t < paths; t++) {
             int baseRow = t * (dim + 1);
             for (int leg = 0; leg < dim && baseRow + leg + 1 < y.Length && baseRow + leg + 1 < unit.Count; leg++) {
-                if (Moved(unit[baseRow + leg], unit[baseRow + leg + 1]) is not (int axis, double step)) { continue; }
+                if (Moved(unit[baseRow + leg], unit[baseRow + leg + 1]).Case is not (int axis, double step)) { continue; }
                 double effect = (y[baseRow + leg + 1] - y[baseRow + leg]) / step;
                 absolute[axis] += Math.Abs(effect);
                 sum[axis] += effect;
@@ -613,17 +670,19 @@ public static class Uncertainty {
     }
 
     // Exactly ONE axis changes across a trajectory leg by construction; a leg that moved none or several is not a
-    // Morris leg and contributes no effect rather than an effect attributed to a guess.
-    static (int Axis, double Step)? Moved(double[] from, double[] to) {
+    // Morris leg and contributes no effect rather than an effect attributed to a guess. Absence is an `Option`, not
+    // a nullable tuple: this answer crosses back into the screening fold, and a `null` past that boundary is the
+    // one absence spelling the estate does not admit.
+    static Option<(int Axis, double Step)> Moved(double[] from, double[] to) {
         int axis = -1;
         double step = 0.0;
         for (int i = 0; i < from.Length && i < to.Length; i++) {
             double delta = to[i] - from[i];
             if (Math.Abs(delta) <= 1e-12) { continue; }
-            if (axis >= 0) { return null; }
+            if (axis >= 0) { return None; }
             (axis, step) = (i, delta);
         }
-        return axis < 0 ? null : (axis, step);
+        return axis < 0 ? None : Some((axis, step));
     }
 
     // `Reduce` reads the index vector POSITIONALLY by input, while `SensitivityTornado.Bars` is effect-ordered and
@@ -656,7 +715,7 @@ public static class Uncertainty {
     static Fin<UncertaintyResult> Fit(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Seq<ImmutableArray<double>> design, Seq<Seq<double>> responses, IClock clock) {
         double[] qoi = [.. responses.Map(values => values[policy.LimitStateObjective])];
         Seq<int[]> multiIndices = MultiIndexSet(inputs.Count, policy.PceOrder, policy.HyperbolicTruncation);
-        if (qoi.Length < multiIndices.Count) { return Fin.Fail<UncertaintyResult>(ComputeFault.Create($"<uncertainty-pce-underdetermined:{qoi.Length}<{multiIndices.Count}>")); }
+        if (qoi.Length < multiIndices.Count) { return Fin.Fail<UncertaintyResult>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Count(qoi.Length, multiIndices.Count)))); }
         Seq<RecurrenceCoefficients> bases = inputs.Map(v => v.Recurrence(policy.PceOrder, policy.StieltjesNodes));
         return inputs.Map((v, axis) => bases[axis].Admit(v.VariableName)).TraverseM(identity).As().Bind(_ => {
             // ONE generator serves the dense build, the COO build, and the calibration GEMV, so the three can never
@@ -671,13 +730,14 @@ public static class Uncertainty {
     }
 
     // The substrate is HANDED in, never read from an ambient cell: `DenseRoute.Solve` takes the row composition
-    // selected and answers a `DenseSolve` carrying the row that actually served beside the witnessed residual, so a
-    // native leg that declined this operand is visible in the carrier rather than assumed from the row asked for.
+    // selected and answers a `SolveOutcome<Vector<double>>` carrying the row that actually SERVED beside the
+    // witnessed residual and a total `SolveTermination`, so a native leg that declined this operand is visible in
+    // the carrier rather than assumed from the row asked for.
     static Fin<Vector<double>> DenseFit(Func<int, int, double> basis, double[] qoi, int terms, DenseSubstrate substrate) {
         Matrix<double> vandermonde = Matrix<double>.Build.Dense(qoi.Length, terms, (row, col) => basis(row, col));
         Vector<double> rhs = Vector<double>.Build.DenseOfArray(qoi);
         return DenseRoute.Solve(new FactorRoute.Orthonormal(QRMethod.Thin, Modified: false), vandermonde, rhs, TolerancePolicy.Derive(vandermonde, rhs), substrate)
-            .Map(static solved => solved.X);
+            .Map(static solved => solved.Iterate);
     }
 
     // Fit calibration reads the surrogate the coefficients already define — one pass over the SAME basis generator
@@ -802,7 +862,7 @@ public static class Uncertainty {
                 smooth: static (state, source) => SensitivityLaw.Gradient(source.G, state.U)
                     .Bind(result => double.IsFinite(result.Value) && result.Gradient.All(double.IsFinite)
                         ? Fin.Succ((result.Value, result.Gradient, 1))
-                        : Fin.Fail<(double, double[], int)>(ComputeFault.Create("<limit-state-nonfinite>"))),
+                        : Fin.Fail<(double, double[], int)>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Sequence(state.U.Length + 1L))))),
                 smoothSpan: static (state, source) => SpanProbe(source.G, state.U));
 
         public Fin<(Matrix<double> Hessian, int Evals)> Curvature(double[] u, double step) =>
@@ -812,7 +872,7 @@ public static class Uncertainty {
                 smooth: static (state, source) => SensitivityLaw.Hessian(source.G, state.U)
                     .Bind(result => result.Hessian.Cast<double>().All(double.IsFinite)
                         ? Fin.Succ((Matrix<double>.Build.DenseOfArray(result.Hessian), 1))
-                        : Fin.Fail<(Matrix<double>, int)>(ComputeFault.Create("<limit-state-curvature-nonfinite>"))),
+                        : Fin.Fail<(Matrix<double>, int)>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Sequence((long)state.U.Length * state.U.Length))))),
                 smoothSpan: static (state, source) => SpanCurvature(source.G, state.U));
     }
 
@@ -823,7 +883,7 @@ public static class Uncertainty {
         for (int axis = 0; axis < gradient.Length; axis++) { gradient[axis] = result.G(axis); }
         return double.IsFinite(result.Value) && gradient.All(double.IsFinite)
             ? Fin.Succ((result.Value, gradient, 1))
-            : Fin.Fail<(double, double[], int)>(ComputeFault.Create("<limit-state-span-nonfinite>"));
+            : Fin.Fail<(double, double[], int)>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Sequence(u.Length + 1L))));
     }
 
     static Fin<(Matrix<double> Hessian, int Evals)> SpanCurvature(SpanLimitState source, double[] u) {
@@ -837,7 +897,7 @@ public static class Uncertainty {
         Matrix<double> hessian = Matrix<double>.Build.DenseOfRowMajor(u.Length, u.Length, curvature);
         return hessian.Enumerate().All(double.IsFinite)
             ? Fin.Succ((hessian, 1))
-            : Fin.Fail<(Matrix<double>, int)>(ComputeFault.Create("<limit-state-span-curvature-nonfinite>"));
+            : Fin.Fail<(Matrix<double>, int)>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Sequence((long)u.Length * u.Length))));
     }
 
     static UncertaintyResult Assemble(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform, MppState mpp, double pf, IClock clock) {
@@ -853,7 +913,7 @@ public static class Uncertainty {
                 .Fold(Fin.Succ(start), (acc, _) => acc.Bind(state => state.Converged ? Fin.Succ(state) : Step(state, policy, g)))
                 .Bind(state => state.Converged
                     ? Fin.Succ(Finalize(state))
-                    : Fin.Fail<MppState>(ComputeFault.Create("<uncertainty-hlrf-not-converged>"))));
+                    : Fin.Fail<MppState>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())))));
 
     static Fin<HlrfAcc> Begin(int dim, double step, LimitState g) =>
         g.Probe(new double[dim], step).Map(probe => new HlrfAcc(new double[dim], probe.G, probe.Grad, probe.G, false, probe.Evals));
@@ -872,7 +932,7 @@ public static class Uncertainty {
 
     static Fin<HlrfAcc> Step(HlrfAcc acc, UncertaintyPolicy policy, LimitState g) {
         double gradNormSquared = TensorPrimitives.SumOfSquares<double>(acc.Grad);
-        if (!double.IsFinite(gradNormSquared) || gradNormSquared < 1e-24) { return Fin.Fail<HlrfAcc>(ComputeFault.Create("<uncertainty-hlrf-degenerate-gradient>")); }
+        if (!double.IsFinite(gradNormSquared) || gradNormSquared < 1e-24) { return Fin.Fail<HlrfAcc>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None()))); }
         double scale = (TensorPrimitives.Dot<double>(acc.U, acc.Grad) - acc.GHere) / gradNormSquared;
         double[] next = [.. acc.Grad.Select(gi => scale * gi)];
         bool converged = Distance(next, acc.U) < policy.ReliabilityTolerance;
@@ -891,16 +951,16 @@ public static class Uncertainty {
     static Fin<(double FailureProbability, int Evals)> Breitung(MppState mpp, UncertaintyPolicy policy, LimitState g) =>
         g.Curvature(mpp.U, policy.FiniteDifferenceStep).Bind(curvature => {
             double gradNorm = Math.Sqrt(TensorPrimitives.SumOfSquares<double>(mpp.Grad));
-            if (gradNorm < 1e-12) { return Fin.Fail<(double, int)>(ComputeFault.Create("<uncertainty-sorm-degenerate-gradient>")); }
+            if (gradNorm < 1e-12) { return Fin.Fail<(double, int)>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(gradNorm)))); }
             double[] a = mpp.Alpha;
             Matrix<double> projector = Matrix<double>.Build.Dense(a.Length, a.Length, (i, j) => (i == j ? 1.0 : 0.0) - a[i] * a[j]);
             Matrix<double> curvatureMatrix = projector * curvature.Hessian * projector / gradNorm;
             return DenseOps.Decompose(curvatureMatrix, FactorizationKind.Evd).Bind(factor => {
                 double[] kappa = factor is Factorization.Evd evd ? [.. evd.Decomposition.EigenValues.Map(static value => value.Real)] : [];
-                if (kappa.Length != a.Length) { return Fin.Fail<(double, int)>(ComputeFault.Create("<uncertainty-sorm-curvature-shape>")); }
+                if (kappa.Length != a.Length) { return Fin.Fail<(double, int)>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(kappa.Length, a.Length)))); }
                 int drop = NearestZero(kappa);
                 if (kappa.Where((_, index) => index != drop).Any(value => !double.IsFinite(value) || 1.0 + mpp.Beta * value <= 0.0))
-                    return Fin.Fail<(double, int)>(ComputeFault.Create("<uncertainty-sorm-curvature-domain>"));
+                    return Fin.Fail<(double, int)>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())));
                 double product = 1.0;
                 for (int j = 0; j < kappa.Length; j++) {
                     if (j == drop) { continue; }
@@ -952,9 +1012,12 @@ public static class Uncertainty {
 
     static Fin<UncertaintyResult> Subset(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform, Func<DesignPoint, Fin<Seq<double>>> evaluate, IClock clock) {
         int dim = inputs.Count, n = Math.Max(4, policy.Samples);
-        double p0 = Math.Clamp(policy.SubsetLevelProbability, 0.01, 0.5);
+        // `Validate` already refused a level probability outside `(0,1)`, so a second clamp to `[0.01, 0.5]` here
+        // silently widened an ADMITTED value into a different campaign — the admission is the authority, and a
+        // narrower band than the one it enforces belongs at the admission or nowhere.
+        double p0 = policy.SubsetLevelProbability;
         int keep = Math.Max(1, (int)Math.Round(p0 * n));
-        Random rng = Source(policy, step: 0L, dim);
+        Random rng = Deterministic.Source(seed: policy.Seed, lanes: [policy.Method.Lane, 0L, dim]);
         Func<double[], Fin<double>> lsf = u => evaluate(new DesignPoint(transform.FromU(inputs, u), [], []))
             .Bind(values => Component(values, policy).Map(value => policy.LimitStateThreshold - value));
         return Population(dim, n, rng, lsf).Bind(initial =>
@@ -962,7 +1025,7 @@ public static class Uncertainty {
                 (acc, _) => acc.Bind(state => state.Done ? Fin.Succ(state) : Advance(state, dim, n, keep, p0, rng, lsf)))
             .Bind(state => state.Done
                 ? Fin.Succ(SubsetResult(policy, state, clock))
-                : Fin.Fail<UncertaintyResult>(ComputeFault.Create("<uncertainty-subset-level-cap>"))));
+                : Fin.Fail<UncertaintyResult>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Converged, new ContractEvidence.None())))));
     }
 
     static Fin<Seq<(double[] U, double Lsf)>> Population(int dim, int n, Random rng, Func<double[], Fin<double>> lsf) =>

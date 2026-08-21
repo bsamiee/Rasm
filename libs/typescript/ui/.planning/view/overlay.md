@@ -6,7 +6,7 @@ Overlay owns anchored floats, drag-dismissable sheets, the one command vocabular
 
 - [02]-[ANCHOR_HOST]: Overlay stacks the floating-anchor hooks — middleware pipeline, dismiss policy, arrow, delay group; `Overlay`.
 - [03]-[SHEET_HOST]: Overlay hosts the vaul sheet rows — detent policy, drag discipline, nesting; `Overlay`.
-- [04]-[PALETTE]: Overlay owns the `Overlay.Command` vocabulary — scope, keymap census, hosting shells, the copy rail; `Overlay`.
+- [04]-[PALETTE]: Overlay owns the `Overlay.Command` vocabulary — scope, derived grant legality, keymap census, hosting shells, the copy rail; `Overlay`.
 - [05]-[PRESENCE_COHORT]: live presence cursors — the roster projection, client-point and virtual-point anchoring; `Overlay`.
 
 ## [02]-[ANCHOR_HOST]
@@ -138,9 +138,13 @@ const _sheet = (
 ## [04]-[PALETTE]
 
 [PALETTE]:
-- Owner: the command law riding `Overlay` — the `Overlay.Command` vocabulary: one table admitted through `Overlay.commands`, where each row carries `icon` (a named `LucideIcon` — the row's identity, tree-shaken), `label` (a `system/intl` catalog key), `keywords` (alias tokens for the scorer), `scope` (which surface the row answers on), `binding` (its canonical chord, or `null` where the row carries no key), and `run` (the intent Effect a boundary adapter hands the app runtime); the global subset renders through cmdk — `Command.Input`/`Command.List`/`Command.Group`/`Command.Item`/`Command.Empty` — with controlled `value`/`onValueChange`, `useCommandState((s) => s.filtered.count)` driving the count/empty rows without list re-render.
+- Owner: the command law riding `Overlay` — the `Overlay.Command` vocabulary: one table admitted through `Overlay.commands`, where each row carries `icon` (a named `LucideIcon` — the row's identity, tree-shaken), `label` (a `system/intl` catalog key), `keywords` (alias tokens for the scorer), `scope` (which surface the row answers on), `binding` (its canonical chord, or `null` where the row carries no key), `needs` (the grants its legality requires, empty where the row is unconditionally live), and `run` (the intent Effect a boundary adapter hands the app runtime); the global subset renders through cmdk — `Command.Input`/`Command.List`/`Command.Group`/`Command.Item`/`Command.Empty` — with controlled `value`/`onValueChange`, `useCommandState((s) => s.filtered.count)` driving the count/empty rows without list re-render.
 - Packages: `cmdk` (`Command` compound, `CommandDialog`, `Command.Loading`, `useCommandState`, `defaultFilter`); `lucide-react` (`LucideIcon` — icon-as-identity); `react-aria` (`KeyboardShortcutBindings` — the record `system/act#DISCRETE_ROWS` feeds `useKeyboard`); `react-stately` (`MenuTriggerType`'s `contextMenu` arm, `OverlayTriggerState.point`/`setPoint`); `react-aria-components` (`MenuTrigger` — the aria-menu arm); `system/intl` (labels, `useFilter` pre-normalization where locale-sensitive); `system/primitive` (`Clipboard` — the copy rail); `@tanstack/react-virtual` + `@floating-ui/react` `inner`/`useInnerOffset` (the virtualized lane).
 - Law: ONE vocabulary, two readers — `scope` admits a row into a surface, so viewer marks, review rows, and tree nodes each reach their own subset through `Overlay.scoped` while the palette narrows to `global`; a second command table beside this one is the fork the column exists to foreclose, and a new surface class is one vocabulary member rather than a new record.
+- Law: legality is DERIVED at every row and STORED on none — `needs` declares which members of the closed `_grants` roster a row requires, the projection carries the `held` set composition folded this render, and `Overlay.admits` answers `Either<Command, Missing>` whose left names exactly the grants the row wanted and the surface lacks; an `enabled`/`visible`/`disabled` boolean written onto a row is the named defect, because it freezes at authoring time a verdict the state it claims to read moves out from under, and a row requiring nothing states `needs: []` — an empty set is a STATED answer, never an omitted column.
+- Law: a grant exists only beside the live read that already publishes it — `advance` and `revert` derive from `core:state/machine#MACROSTEP_FOLD`'s `Transition.legal(config)` and `Transition.admits(config, signal)` over the standing surface's forward and backward signals, `selection` from a non-empty present set at `viewer/mark#SELECTION_FOLD`, `residency` and `accelerated` from `viewer/scene`'s resident graft and its baked acceleration band, and `clipboard` and `egress` from the `Clipboard` and `Egress` Tags (`system/primitive#CLIPBOARD_PORT`, `view/export#EGRESS_PORT`) being satisfied at the browser root; a member with no such producer is decoration, and a face re-deriving a transition guard the macrostep already folds forks the machine's own row table into a second, unverified answer.
+- Law: refusal RENDERS, never silences — a refused palette row stays mounted carrying cmdk's own `disabled` beside its `Missing` grants as the rendered reason, while `Overlay.bindings` EXCLUDES that row's chord outright so the key travels on to whatever else claims it instead of meeting a bound no-op (`useKeyboard({ shortcuts })` is the sole consumption path, so an excluded row is unbound by construction). This is not the disabled-veneer defect `view/form#WIZARD` names: that veneer sits over an unguarded machine and states a verdict nothing derived, where this one reads the same evidence `run` reads and names the missing grant beside the row.
+- Law: scope and legality are orthogonal reads over the one table — `Overlay.scoped` decides WHICH surface a row answers on and `Overlay.admits` decides whether it is live there, so a surface never folds legality into its scope filter and no command is minted twice to carry two states of itself.
 - Law: pointer invocation SELECTS, then opens — the scoped surface establishes its own selection before the float mounts, so `run` stays a nullary intent reading that surface's selection atom and no row carries a subject; a `run` taking the invoked mark, row, or node forks the vocabulary once per scope.
 - Law: `run` is an Effect, never a thunk — the copy rail composes the `Clipboard` Tag from `system/primitive#CLIPBOARD_PORT` through the requirement channel and the row handles its own refusal into a toast note, so a row is total (`Effect<void, never, R>`) by the time it enters the table; cmdk's `onSelect` and the shortcut action are the two boundary adapters that hand it to the app runtime, and a `navigator.clipboard` read or a bare thunk in a spec row is the named defect.
 - Law: the positional surface is the anchored HOST carrying a point reference, never a fourth host row — `Overlay.hosts.anchored.anchor` is `reference`, and a reference is a trigger element OR a `VirtualElement` — `Overlay.virtual(rect)` wraps any live rect and `Overlay.point(x, y)` is its zero-size instance, which `autoUpdate` tracks like any anchor; an aria MENU of scoped rows instead rides RAC `MenuTrigger` at `trigger: "contextMenu"`, where RAC pins `offset: 0` and `usePopover` derives the same zero-size rect from `state.point`, and one surface takes exactly one of the two positioners.
@@ -156,11 +160,12 @@ const _sheet = (
 - Law: item `value` is the stable spec key, never the visible label — filtering and selection survive label localization; `keywords` carry the localized aliases.
 - Law: async command sources set `shouldFilter={false}` and render pre-filtered rows from an atom (`Atom.debounce`d query, `Result`-folded, `Command.Loading` on the `waiting` arm) — the machine keeps keyboard/selection, the store owns matching.
 - Law: palette motion is `Motion.palette` through the entering/exiting variants — or, where the palette morphs into its result surface, the `Motion` physical plane's `layoutId` morph; one owner per surface, never both.
-- Growth: a new command is one spec row; a new scope is one vocabulary member its surface reads through the same selector; a new palette surface is one hosting-shell choice — the table never forks.
+- Growth: a new command is one spec row; a new scope is one vocabulary member its surface reads through the same selector; a new legality axis is one `_grants` member landed beside the owner that publishes its read; a new palette surface is one hosting-shell choice — the table never forks.
 
 ```typescript signature
 import { Command, CommandDialog, defaultFilter, useCommandState } from "cmdk"
-import { Array, Either, Option, Record, Schema, type Effect } from "effect"
+import { Fault } from "@rasm/ts/core"
+import { Array, Either, HashSet, Option, Record, Schema, type Effect } from "effect"
 import type { LucideIcon } from "lucide-react"
 import { useSyncExternalStore, type ComponentProps } from "react"
 import type { KeyboardShortcutBindings } from "react-aria"
@@ -174,6 +179,12 @@ const _hosts = {
 // which surface a row answers on: the palette reads `global`, a positional float reads its own member,
 // and `shell` is the chrome's — view/shell#COMMAND_SEAM contributes its toggle and collapse rows there
 const _scopes = ["global", "mark", "node", "row", "shell"] as const
+
+// what a row NEEDS to be live: every member is a live read some owner already publishes — the machine's admitted
+// signals (advance/revert), the selection fold's present set, the scene's resident graft and its baked acceleration
+// band, and the two capability Tags the browser root satisfies — so composition folds the held set once per render
+// and no row ever stores the verdict this roster derives
+const _grants = ["accelerated", "advance", "clipboard", "egress", "residency", "revert", "selection"] as const
 
 // _ORDER, _MODIFIERS, and _ALIASES restate the shipped matcher's sort order, modifier tokens, and key aliases; `ctrl` is absent
 // from the token table on purpose — that spelling parses as a KEY and its modifier silently disappears
@@ -199,13 +210,41 @@ const _ALIASES: Record.ReadonlyRecord<string, string> = {
   up: "arrowup",
 }
 
+// Two legs partition the table gate and each reason renders its OWN subject: a grammar refusal names the binding
+// the shipped parser reads as no chord at all, a census refusal names every row claiming one canonical spelling.
+// The rows column is non-empty by construction on both arms — a refusal naming no row is a verdict about nothing —
+// and the class column is the core lattice's, so no rank or retry literal lands beside it.
+const _commandFamily = Fault.Class.family(["chord", "clash"] as const, {
+  chord: Fault.Class.row({
+    class: "malformed",
+    leg: "grammar",
+    detail: Schema.Struct({ chord: Schema.String, rows: Schema.NonEmptyArray(Schema.String) }),
+    render: ({ chord, rows }) => `${Array.join(rows, ", ")} binds ${chord}, which parses to no chord`,
+  }),
+  clash: Fault.Class.row({
+    class: "conflicted",
+    leg: "census",
+    detail: Schema.Struct({ chord: Schema.String, rows: Schema.NonEmptyArray(Schema.String) }),
+    render: ({ chord, rows }) => `${chord} is claimed by ${Array.join(rows, ", ")}`,
+  }),
+})
+
+declare namespace CommandFault {
+  type Case = typeof _commandFamily.payload.Type
+  type Reason = (typeof _commandFamily.kinds)[number]
+}
+
 class CommandFault extends Schema.TaggedError<CommandFault>()("CommandFault", {
-  reason: Schema.Literal("chord", "clash"),
-  chord: Schema.String,
-  rows: Schema.Array(Schema.String),
+  case: _commandFamily.payload,
 }) {
+  get class(): Fault.Class.Kind {
+    return _commandFamily.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _commandFamily.legOf(this.case.reason)
+  }
   override get message(): string {
-    return `<command:${this.reason}:${this.chord}>`
+    return _commandFamily.render(this.case)
   }
 }
 
@@ -219,6 +258,8 @@ declare namespace Overlay {
       : Lowercase<S> extends Overlay.Modifier | "" ? never : S
     : S
   type Scope = (typeof _scopes)[number]
+  type Grant = (typeof _grants)[number]
+  type Missing = Array.NonEmptyReadonlyArray<Overlay.Grant> // a refusal names what it wanted and lacked; an empty miss is admission, never a refusal shaped like one
   type Register = (typeof _registers)[number]
   type Owner = "cmdk" | "floating-ui" | "vaul"
   type Command<R = never> = {
@@ -227,6 +268,7 @@ declare namespace Overlay {
     readonly keywords: ReadonlyArray<string>
     readonly scope: Overlay.Scope
     readonly binding: string | null
+    readonly needs: ReadonlyArray<Overlay.Grant> // what legality REQUIRES; the verdict derives per render and is stored nowhere
     readonly run: Effect.Effect<void, never, R> // total by construction: the row folds its own refusal into a note
   }
   type Host = keyof typeof _hosts
@@ -239,6 +281,7 @@ declare namespace Overlay {
   type Entry = {
     readonly item: ComponentProps<typeof Command.Item>
     readonly chord: ReadonlyArray<string> // display tokens beside the label; empty where the row carries no key
+    readonly missing: ReadonlyArray<Overlay.Grant> // the rendered reason a row is inert; empty where it is live
   }
   type Palette = {
     readonly root: ComponentProps<typeof Command>
@@ -248,6 +291,7 @@ declare namespace Overlay {
     readonly table: Record.ReadonlyRecord<string, Overlay.Command<R>>
     readonly resolve: (label: string) => string
     readonly mod: "Control" | "Meta" // the host's `Mod` expansion for DISPLAY only; matching resolves inside useKeyboard
+    readonly held: HashSet.HashSet<Overlay.Grant> // composition's fold over the live reads; the palette derives every verdict against it
     readonly fork: (run: Effect.Effect<void, never, R>) => void
     readonly remote: boolean
   }
@@ -285,10 +329,10 @@ const _commands = <R, const T extends Record.ReadonlyRecord<string, Overlay.Comm
   )
   return Option.match(
     Option.orElse(
-      Option.map(malformed, ([key, chord]) => new CommandFault({ reason: "chord", chord, rows: [key] })),
+      Option.map(malformed, ([key, chord]) => new CommandFault({ case: { reason: "chord", chord, rows: [key] } })),
       () =>
         Option.map(collided, ([chord, rows]) =>
-          new CommandFault({ reason: "clash", chord, rows: Array.map(rows, ([key]) => key) })),
+          new CommandFault({ case: { reason: "clash", chord, rows: Array.map(rows, ([key]) => key) } })),
     ),
     { onNone: () => Either.right(table), onSome: Either.left },
   )
@@ -299,14 +343,30 @@ const _scoped = <R>(
   scope: Overlay.Scope,
 ): Record.ReadonlyRecord<string, Overlay.Command<R>> => Record.filter(table, (row) => row.scope === scope)
 
+// legality is one set difference over declared data, so a row's verdict is recomputed from the live reads on every
+// consultation and the refusal carries WHICH grants were wanted — a bare boolean here would drop exactly that fact
+const _admits = <R>(
+  row: Overlay.Command<R>,
+  held: HashSet.HashSet<Overlay.Grant>,
+): Either.Either<Overlay.Command<R>, Overlay.Missing> => {
+  const unmet = Array.filter(row.needs, (grant) => !HashSet.has(held, grant))
+  return Array.isNonEmptyReadonlyArray(unmet) ? Either.left(unmet) : Either.right(row)
+}
+
 const _bindings = <R>(
   table: Record.ReadonlyRecord<string, Overlay.Command<R>>,
+  held: HashSet.HashSet<Overlay.Grant>,
   fork: (run: Effect.Effect<void, never, R>) => void,
 ): KeyboardShortcutBindings =>
   // an action returning nothing counts as HANDLED — the matcher preventDefaults and stops propagation,
-  // which is exactly the command semantics; a row wanting the key to travel on returns `false` instead
+  // which is exactly the command semantics; a row wanting the key to travel on returns `false` instead,
+  // and a row whose grants are unmet never enters the record at all, so its chord reaches whoever else claims it
   Record.fromEntries(Array.filterMap(Record.toEntries(table), ([, row]) =>
-    row.binding === null ? Option.none() : Option.some([row.binding, () => fork(row.run)] as const)))
+    Either.match(_admits(row, held), {
+      onLeft: () => Option.none<readonly [string, () => void]>(),
+      onRight: (live) =>
+        live.binding === null ? Option.none() : Option.some([live.binding, () => fork(live.run)] as const),
+    })))
 
 const _registers = ["condensed", "prose", "spoken"] as const
 
@@ -380,14 +440,23 @@ const _point = (x: number, y: number): VirtualElement => _virtual(() => new DOMR
 const _palette = <R>(projection: Overlay.Projection<R>): Overlay.Palette => ({
   // an async source hands the store the matching and renders pre-filtered rows; the local table keeps cmdk's scorer
   root: { shouldFilter: !projection.remote, loop: true, filter: defaultFilter },
-  entries: Array.map(Record.toEntries(_scoped(projection.table, "global")), ([key, row]) => ({
-    item: {
-      value: key, // the stable spec key: filtering and selection survive label localization
-      keywords: [projection.resolve(row.label), ...row.keywords], // the localized text enters the scorer HERE, never as the value
-      onSelect: () => projection.fork(row.run),
-    },
-    chord: row.binding === null ? [] : Option.getOrElse(_chord(row.binding, projection.mod), () => []),
-  })),
+  entries: Array.map(Record.toEntries(_scoped(projection.table, "global")), ([key, row]) => {
+    // one verdict read twice at one site: cmdk's own `disabled` refuses the selection and the same miss renders the reason
+    const missing = Option.getOrElse(
+      Either.getLeft(_admits(row, projection.held)),
+      (): ReadonlyArray<Overlay.Grant> => [],
+    )
+    return {
+      item: {
+        value: key, // the stable spec key: filtering and selection survive label localization
+        keywords: [projection.resolve(row.label), ...row.keywords], // the localized text enters the scorer HERE, never as the value
+        disabled: !Array.isEmptyReadonlyArray(missing),
+        onSelect: () => projection.fork(row.run),
+      },
+      chord: row.binding === null ? [] : Option.getOrElse(_chord(row.binding, projection.mod), () => []),
+      missing,
+    }
+  }),
 })
 
 // rules-of-hooks reads the NAME, so the `use` prefix is load-bearing: this member holds a cmdk store subscription
@@ -417,6 +486,7 @@ declare namespace Overlay {
     readonly idle: boolean
   }
   type Shape = {
+    readonly admits: typeof _admits
     readonly bindings: typeof _bindings
     readonly chord: typeof _chord
     readonly commands: typeof _commands
@@ -459,6 +529,7 @@ const _cursors = (
           })))))
 
 const Overlay: Overlay.Shape = {
+  admits: _admits,
   bindings: _bindings,
   chord: _chord,
   commands: _commands,

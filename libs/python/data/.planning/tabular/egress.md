@@ -13,24 +13,25 @@ Content keys derive from operation bytes through one `ContentIdentity.of`, schem
 - Owner: `ObjectEgress` — the one object-store egress façade, holding one `ObjectStoreLane` and one composition scope and nothing else. It mints no store handle, no route table, no reach matrix, and no span: those are the runtime lane's, so a new cloud backend is one `StoreBackend` row at the runtime owner and zero edits here. Never a `put_object`/`get_object`/`list_objects` method family, never an async method twin, never a parallel `S3Egress`/`AsyncObjectEgress`.
 - Cases: the operation axis and its provider decisions are the lane's `StoreOp`; what this tier decides per op is the quantity it reports — `list`'s `read` counts the Arrow listing under `EgressUnit.OBJECTS`, `head` reports `OBJECT_SIZE`, `sign` reports `PATHS`, `delete`/`copy`/`rename`/`reader`/`writer` report `NONE`, and only payload-bearing rows report `BYTES`. One `_UNIT` row per op tag carries that judgment, so a new operation lands its unit beside the lane's own row and no receipt reads a quantity whose meaning it cannot name.
 - Entry: `ObjectEgress.of` builds the lane once over the three transport carries, the credential riding `ref.credentials` rather than a fourth parameter this owner would only forward; `run` and `run_async` are one expression each — hand the op and the per-call gate to the lane, then fold the returned `StoreOutcome` into the receipt. `prior` is the caller's own by-reference evidence supplied per call, never an owner-held ledger, because a stateless owner cannot know which of many compositions last wrote this path; it rides the call rather than the op so the transport tier carries no data-tier receipt type.
-- Auto: `_gate` is the whole pre-flight policy as one value the lane's prologue fires after reach — the registered mutation point vetoes first and a subscriber rejection returns on that rail, then an admitted put alone consults the short-circuit, so a settled skip never claims a write a governance tap refused. `_reuse` settles a put to a by-reference no-op only against an IDENTICAL write contract: the prior receipt names the `put` operation and THIS destination, its `contract` renders the same attributes and tags this put carries, its `e_tag` is non-empty so that upload was acknowledged, and the payload's `ContentKey` — derived from the payload `bytes`, never the path — equals its key; a conditional `mode` refuses the skip outright, because `create` and every `UpdateVersion` carry a remote precondition only the provider answers. The settled outcome keeps the payload on its `source` slot, so the receipt it folds mints exactly the key the upload would have, and a digest fault rides the same rail rather than falling through into an upload. Remote drift SINCE that egress is the caller's to detect by handing a fresher prior — a `Head` round-trip per put spends exactly the traffic the short-circuit removes.
+- Auto: `_gate` is the whole pre-flight policy as one value the lane's prologue fires after reach — the registered mutation point vetoes first and a subscriber rejection returns on that rail, then an admitted put alone consults the short-circuit, so a settled skip never claims a write a governance tap refused. `_reuse` settles a put to a by-reference no-op only against an IDENTICAL write contract: the prior receipt names the `put` operation and THIS destination, its `contract` renders the same attributes and tags this put carries, its `RemoteIdentity` is the `acknowledged` case so that upload really landed, and the payload's `ContentKey` — derived from the payload `bytes`, never the path — equals its key; a conditional `mode` refuses the skip outright, because `create` and every `UpdateVersion` carry a remote precondition only the provider answers. The settled outcome keeps the payload on its `source` slot, so the receipt it folds mints exactly the key the upload would have, and a digest fault rides the same rail rather than falling through into an upload. Remote drift SINCE that egress is the caller's to detect by handing a fresher prior — a `Head` round-trip per put spends exactly the traffic the short-circuit removes.
 - Law: object mutations land durable evidence on the `python:runtime/observability/journal#LEDGER` plane and reads land none — one `AuditFact` per `_AUDIT` row carrying the disposal class its verb earns, plus a `STORAGE` `MeterFact` over the bytes the operation actually stored. The seat is the AWAITABLE leg alone, since recording suspends and `contribute` is a synchronous projection; the facts mint off the settled receipt so a fact never names a write the store refused, and a by-reference settle records its audit line with no charge, because pricing a skip bills a residence for an upload nobody made. Evidence truth and series truth stay two folds: the receipt fan keeps the metric and the journal keeps the fact, and neither re-mints the other's number.
 - Law: transport-band compression arrives AS the payload — a scan-scale frame crossing to object storage rides the `tabular/interop#CARRIER` `wire_bytes` fold and its `WireCodec`, so the put moves compressed bytes while the frame's canonical identity stays the caller's uncompressed `arrow_bytes` key on its bundle; this owner keys the operation bytes it actually moved, and no codec knob lands here because the codec is the interop transport parameter, never an egress column.
-- Receipt: `EgressReceipt.contribute` yields one emitted-phase `Receipt.of("object-egress", ("emitted", path, facts))` — the two-argument `(owner, evidence)` form over the `(phase, subject, facts)` tuple, never a four-positional call — satisfying the `ReceiptContributor` `Iterable[Receipt]` Protocol. `quantity` and `unit` preserve byte volume, object count, signed-path count, and metadata size without overloading; `byte_length` projects only the `BYTES` rows consumed by cost and range folds. Byte-bearing ops key by their operation-bytes `ContentKey`; a control-plane op (`list`/`head`/`delete`/`copy`/`rename`/`reader`/`writer`/`sign`) carries `content_key=None` because it moves no operation bytes, so the receipt never digests a path string or a server-opaque `e_tag` to manufacture a key, and its fact map OMITS `key` rather than writing a null into the rendered-value contract the `tabular/lakehouse#LAKEHOUSE` residence reads. `Head` reads its `e_tag`/`version`/`size` off the typed slots, so the no-op put confirms against that typed `e_tag` rather than a redundant key over `str(e_tag)`, and a settled no-op carries `reused=True` with zero bytes — the receipt is where a skipped upload is visible, because an operation moving no bytes emits no throughput point to carry it. Byte-bearing `contribute` projects `rasm.egress.byte_volume` onto the runtime `Metrics.record` arm under `domain="egress"` keyed by operation — the canonical object-store throughput instrument, data-owned beside the runtime's artifact byte-volume row.
+- Receipt: `EgressReceipt.contribute` yields one emitted-phase `Receipt.of("object-egress", ("emitted", path, facts))` — the two-argument `(owner, evidence)` form over the `(phase, subject, facts)` tuple, never a four-positional call — satisfying the `ReceiptContributor` `Iterable[Receipt]` Protocol. `quantity` and `unit` preserve byte volume, object count, signed-path count, and metadata size without overloading; `byte_length` projects only the `BYTES` rows consumed by cost and range folds. Byte-bearing ops key by their operation-bytes `ContentKey`; a control-plane op (`list`/`head`/`delete`/`copy`/`rename`/`reader`/`writer`/`sign`) carries `content_key=None` because it moves no operation bytes, so the receipt never digests a path string or a server-opaque `e_tag` to manufacture a key, and its fact map OMITS `key` rather than writing a null into the rendered-value contract the `tabular/lakehouse#LAKEHOUSE` residence reads. `Head` reads its `e_tag`/`version`/`size` off the typed slots and `RemoteIdentity.of` admits them ONCE into a closed case, so the no-op put confirms against an ACKNOWLEDGED identity rather than the truthiness of a string that also spells "this op reported no metadata at all", and a settled no-op carries `reused=True` with zero bytes — the receipt is where a skipped upload is visible, because an operation moving no bytes emits no throughput point to carry it. Byte-bearing `contribute` projects `rasm.egress.byte_volume` onto the runtime `Metrics.record` arm under `domain="egress"` keyed by operation — the canonical object-store throughput instrument, data-owned beside the runtime's artifact byte-volume row.
 - Packages: none directly — `obstore` is the runtime lane's sole provider and this tier names no provider member, no provider exception, and no provider config beyond forwarding the three typed carries into `ObjectStoreLane.of`. `beartype(conf=FAULT_CONF)` is the public admission contract on `of` the sibling `interop`/`store`/`ragged` factories share.
-- Growth: a new store operation is one `StoreOp` case and one `_ROUTE` row at the runtime lane plus one `_UNIT` row here; a new cloud backend is one `StoreBackend` row at the runtime lane and nothing here; a second by-reference short-circuit is one `_reuse` arm over that op's own prior evidence, the `reused` and `contract` receipt slots already carrying it; a newly output-affecting write knob is one `_contract` term beside its `StoreOp` slot; a new governance concern is one subscriber the app root attaches; a new mutation point is one `_VETO` row; a newly audited operation is one `_AUDIT` row naming its retention class, the verb deriving off the tag.
+- Growth: a new store operation is one `StoreOp` case and one `_ROUTE` row at the runtime lane plus one `_UNIT` row here; a new remote-identity posture is one `RemoteIdentity` case owning its `facts` arm; a new cloud backend is one `StoreBackend` row at the runtime lane and nothing here; a second by-reference short-circuit is one `_reuse` arm over that op's own prior evidence, the `reused` and `contract` receipt slots already carrying it; a newly output-affecting write knob is one `_contract` term beside its `StoreOp` slot; a new governance concern is one subscriber the app root attaches; a new mutation point is one `_VETO` row; a newly audited operation is one `_AUDIT` row naming its retention class, the verb deriving off the tag.
 - Boundary: this is the data-tier bundle-I/O owner — the receipt, quantity, veto, and reuse semantics over the full write/mutation direction (`put`/`copy`/`rename`/`delete`/`writer`) and the bundle-byte reads (`get`/`get_range`/`get_ranges`/`head`/`reader`/`sign`) its `columnar`/`geospatial`/`tensor`/`gridded/virtual`/`spatial/catalog` consumers need. `runtime/transport/roots#STORE` owns every transport concern beneath it and `runtime/transport/roots#RESOURCE` the orthogonal generic-artifact acquisition lane; this tier consumes `ResourceRef` and the credential carries alone and re-derives neither. Composes — never re-mints — the `ContentIdentity` keyer, the `Hooks` registry, and the runtime metric spine. Rejected: a second `obstore` composer, route table, backend literal, refusal matrix, retry disposition, or client span beside the runtime lane; a capability bound answered by a provider exception where the lane's matrix states it as data; a mutation row that fires no veto point while this boundary names the mutation; a path-string `ContentIdentity.of` key against the identity owner's no-path law; an owner-held prior-egress ledger, or a `Head` probe opened per put to refresh one, where a stateless owner cannot know which composition last wrote the path and the probe costs the round-trip the short-circuit exists to remove.
 
 ```python signature
 from collections.abc import Iterable
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Any, Final, Literal, assert_never
 
 from beartype import beartype
-from expression import Error, Ok, Result
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 
+from rasm.data.tabular.interop import DataHook
 from rasm.runtime.hooks import HookPoint, Hooks, Modality
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail
@@ -61,6 +62,56 @@ class EgressUnit(StrEnum):
     PATHS = "paths"
     OBJECT_SIZE = "object_size"
     NONE = "none"
+
+
+@tagged_union(frozen=True)
+class RemoteIdentity:
+    # what the provider SAID about the object this operation touched, as a closed case rather than two strings whose
+    # emptiness two readers interpret differently. `e_tag: str = ""` fused three states the short-circuit depends on
+    # separating: a provider that answered NO metadata slot at all (every control-plane op), a provider that answered
+    # a slot carrying no e_tag (an upload the store never acknowledged), and a provider that answered an EMPTY e_tag.
+    # `_reuse` gated the by-reference skip on `not prior.e_tag` meaning "that upload was never acknowledged", so under
+    # the fused spelling a `head` receipt and an unacknowledged put were one value and a caller could settle a write
+    # against evidence of nothing. `version` rides `Option` inside the acknowledged arm alone: an unversioned bucket
+    # states no version while acknowledging the write, and that pairing is unrepresentable as two flat columns.
+    tag: Literal["acknowledged", "unacknowledged", "unreported"] = tag()
+    acknowledged: tuple[str, Option[str]] = case()
+    unacknowledged: None = case()
+    unreported: None = case()
+
+    @staticmethod
+    def of(meta: Meta) -> "RemoteIdentity":
+        # ONE sentinel projection at the single read site that first sees the provider slot, per
+        # `docs/stacks/python/boundaries.md` `[SENTINEL_SITE]`; every consumer below reads the case.
+        match meta:
+            case None:
+                return RemoteIdentity(unreported=None)
+            case slot if not slot.get("e_tag"):
+                return RemoteIdentity(unacknowledged=None)
+            case slot:
+                version = slot.get("version")
+                return RemoteIdentity(acknowledged=(str(slot["e_tag"]), Nothing if version is None else Some(str(version))))
+
+    @property
+    def e_tag(self) -> Option[str]:
+        return Some(self.acknowledged[0]) if self.tag == "acknowledged" else Nothing
+
+    @property
+    def version(self) -> Option[str]:
+        # the CAS coordinate: a caller building an `UpdateVersion` precondition off a prior egress takes it from here,
+        # so the generation a conditional put compares against is a value the provider stated rather than a `""`.
+        return self.acknowledged[1] if self.tag == "acknowledged" else Nothing
+
+    def facts(self) -> dict[str, object]:
+        # the identity CASE always renders; the coordinates render only where the provider stated them, exactly as the
+        # sibling `key` entry omits rather than writing a null into the residence's rendered-value contract.
+        match self:
+            case RemoteIdentity(tag="acknowledged", acknowledged=(etag, version)):
+                return {"identity": self.tag, "etag": etag} | version.map(lambda held: {"version": held}).default_value({})
+            case RemoteIdentity(tag="unacknowledged") | RemoteIdentity(tag="unreported"):
+                return {"identity": self.tag}
+            case _ as unreachable:
+                assert_never(unreachable)
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -112,10 +163,10 @@ class EgressMutation(Struct, frozen=True):
     byte_length: int
 
 
-PUT_POINT: Final[HookPoint[EgressMutation]] = HookPoint(id="rasm.data.egress.put", payload=EgressMutation, modality=Modality.VETO)
-DELETE_POINT: Final[HookPoint[EgressMutation]] = HookPoint(id="rasm.data.egress.delete", payload=EgressMutation, modality=Modality.VETO)
-COPY_POINT: Final[HookPoint[EgressMutation]] = HookPoint(id="rasm.data.egress.copy", payload=EgressMutation, modality=Modality.VETO)
-RENAME_POINT: Final[HookPoint[EgressMutation]] = HookPoint(id="rasm.data.egress.rename", payload=EgressMutation, modality=Modality.VETO)
+PUT_POINT: Final[HookPoint[EgressMutation]] = HookPoint(id=DataHook.EGRESS_PUT, payload=EgressMutation, modality=Modality(veto=None))
+DELETE_POINT: Final[HookPoint[EgressMutation]] = HookPoint(id=DataHook.EGRESS_DELETE, payload=EgressMutation, modality=Modality(veto=None))
+COPY_POINT: Final[HookPoint[EgressMutation]] = HookPoint(id=DataHook.EGRESS_COPY, payload=EgressMutation, modality=Modality(veto=None))
+RENAME_POINT: Final[HookPoint[EgressMutation]] = HookPoint(id=DataHook.EGRESS_RENAME, payload=EgressMutation, modality=Modality(veto=None))
 
 # `writer` opens a multipart UPLOAD — the fifth mutation this owner's boundary names — so it fires the same
 # pre-flight point `put` does; a governance tap that vetoes a put and silently admits a streamed write of the same
@@ -135,8 +186,9 @@ class EgressReceipt(Struct, frozen=True):
     byte_length: int
     quantity: int
     unit: EgressUnit
-    e_tag: str
-    version: str
+    # the provider's OWN word on this object, as a case: a control-plane op that reported nothing, an upload the store
+    # never acknowledged, and an acknowledged write with its optional version are three values, never one `""`.
+    identity: RemoteIdentity
     # `None` for a control-plane op: no content key minted — `head`'s `e_tag`/`version`/`size` ride the typed slots.
     content_key: ContentKey | None
     payload: Any = None
@@ -160,15 +212,13 @@ class EgressReceipt(Struct, frozen=True):
         reused: bool = False,
         contract: str = "",
     ) -> EgressReceipt:
-        slot = meta or {}
         return cls(
             operation=operation,
             path=path,
             byte_length=quantity if unit is EgressUnit.BYTES else 0,
             quantity=quantity,
             unit=unit,
-            e_tag=str(slot.get("e_tag") or ""),
-            version=str(slot.get("version") or ""),
+            identity=RemoteIdentity.of(meta),
             content_key=content_key,
             payload=payload,
             reused=reused,
@@ -197,10 +247,9 @@ class EgressReceipt(Struct, frozen=True):
                     "bytes": self.byte_length,
                     "quantity": self.quantity,
                     "unit": self.unit,
-                    "etag": self.e_tag,
-                    "version": self.version,
                     "reused": self.reused,
                 }
+                | self.identity.facts()
                 | ({} if self.content_key is None else {"key": self.content_key.hex}),
             ),
         )
@@ -239,7 +288,7 @@ def _vetoed(op: StoreOp, target: str, scope: ScopeKey) -> "RuntimeRail[StoreOp]"
 def _reuse(op: StoreOp, target: str, scheme: str, prior: "EgressReceipt | None") -> "RuntimeRail[StoreAdmission]":
     # By-reference put no-op, and every half is load-bearing because a settled skip CLAIMS a write nobody made:
     # the prior receipt names this operation and THIS destination, its `contract` renders the same object metadata
-    # this put carries, its non-empty `e_tag` proves that upload was acknowledged rather than merely attempted, and
+    # this put carries, its `acknowledged` identity proves that upload landed rather than merely being attempted, and
     # the fresh payload key equals its key so the BYTES are unchanged. A prior read off another path, another
     # metadata contract, or another operation settles a write that never happened at all. Mode is the fifth half and
     # refuses rather than compares: `create` and every `UpdateVersion` carry a REMOTE precondition only the provider
@@ -250,7 +299,7 @@ def _reuse(op: StoreOp, target: str, scheme: str, prior: "EgressReceipt | None")
     if (
         prior is None
         or prior.content_key is None
-        or not prior.e_tag
+        or prior.identity.tag != "acknowledged"
         or prior.operation != "put"
         or prior.path != target
         or prior.contract != _contract(op)
@@ -258,11 +307,15 @@ def _reuse(op: StoreOp, target: str, scheme: str, prior: "EgressReceipt | None")
         or op.put[1] != "overwrite"
     ):
         return Ok(StoreAdmission(dispatch=op))
+    # the guard above settled the case, so the acknowledged coordinates destructure rather than folding a default that
+    # would re-mint the very `""` this owner deleted; `version` lowers to the provider's OWN nullable spelling because
+    # `Meta` is a provider-shaped slot the lane hands back, not a domain carrier.
+    acknowledged, version = prior.identity.acknowledged
     settled = StoreOutcome(
         operation=op.tag,
         path=target,
         quantity=0,
-        meta={"e_tag": prior.e_tag or None, "version": prior.version or None},
+        meta={"e_tag": acknowledged, "version": version.to_optional()},
         source=op.put[0],
         settled=True,
     )
@@ -286,10 +339,13 @@ def _evidence(receipt: EgressReceipt) -> Block[Fact]:
             actor=Party(kind=Actor.SERVICE, key=OWNER),
             target=Party(kind="object", key=receipt.path),
             retention=retention,
-            change=(
-                (Cleared(path="/e_tag", prior=receipt.e_tag),)
-                if receipt.operation == "delete"
-                else (Assigned(path="/e_tag", next=receipt.e_tag),)
+            # a delete CLEARS the identity the prior write stated and every other mutation ASSIGNS the one this write
+            # earned; an unacknowledged or unreported identity has no e_tag to name, so the change set is empty rather
+            # than a `""` an auditor reads back as a real prior value.
+            change=tuple(
+                receipt.identity.e_tag.map(
+                    lambda held: Cleared(path="/e_tag", prior=held) if receipt.operation == "delete" else Assigned(path="/e_tag", next=held)
+                ).to_list()
             ),
         )
         metered = MeterFact(resource=Resource.STORAGE, quantity=receipt.byte_length, surface=receipt.path)

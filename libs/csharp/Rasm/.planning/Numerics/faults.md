@@ -1,26 +1,30 @@
 # [RASM_FAULTS]
 
-`GeometryFault` owns the geometry domain's one failure rail — a closed `[Union]` at the `Rasm.Numerics` root that every `Fin`/`Validation`/`Eff` path across the geometry sub-domains routes through, each case carrying its typed payload and a band-2400 ordinal `Code` lowered into the LanguageExt `Error` rail by `ToError()`. `FaultCluster` resolves a code's owning cluster and namespace by stride arithmetic, and `ParametricStage`/`DevelopmentStage` mint the stage vocabularies here; a reachable domain failure lands as one case in its sibling's sub-band, never a per-page error type.
-
-Each payload discriminant composes from its owning sibling's vocabulary — the fault mints none of its own domain axes — while `ParametricStage`/`DevelopmentStage` mint here because no single Parametric page owns the tier-wide stage axis, every string key binding the shipped `ComparerAccessors.StringOrdinal` accessor once. Band 2400-2449 sits strictly below the AEC `MaterialFault` band 2450, so a telemetry reader banding by code never conflates a geometry failure with the `Rasm.Domain` `Expected`/`Fault` substrate family that neither union absorbs.
+`GeometryFault` is the geometry domain's direct kernel `Fault` union. Its typed leaves carry the complete failure evidence and lift bare onto `Fin`, `Validation<Error, T>`, and `Eff`; no registry, cluster, message grammar, or lowering wrapper intervenes.
 
 ## [01]-[INDEX]
 
-- [02]-[FAULT_BAND]: `GeometryFault` closed `[Union]`, `FaultCluster` stride taxonomy, and the `ParametricStage`/`DevelopmentStage` stage vocabularies — typed payloads, `Code`/`Message`/`Cluster` folds, `ToError()` lowering.
+- [02]-[FAULT_BAND]: `GeometryFault` and the typed stage, carrier, and witness vocabularies its leaves compose.
 
 ## [02]-[FAULT_BAND]
 
-- Owner: `GeometryFault` the closed `[Union]` at the `Rasm.Numerics` root, one case per reachable failure carrying its typed payload and band-2400 `Code`, lowered to the `Error` rail through `ToError()`; `FaultCluster` the `[SmartEnum<int>]` taxonomy resolving a code's cluster name and owning namespace by stride arithmetic with no lookup table beside the vocabulary; `ParametricStage`/`DevelopmentStage` the `StringOrdinal`-keyed stage vocabularies, string-keyed because the stage renders into the wire-bound `Message`.
-- Cases: cases sub-band by cluster across the 2400-2449 century — each sibling's cluster owns a four-wide stride, the `parametric` tail spending the final two codes; the BASE stride carries the two cross-cutting cases every namespace routes and is the recorded exception to cluster-locality — `DegenerateInput` 2400 the admission refusal and `RunAbandoned` 2403 the cooperative-abandonment refusal, whose `Progress` is the fraction the abandoning stage measured and whose `Witness` names that stage, so a governed managed fold and a cancelled native engine run lower ONE vocabulary rather than a fault per lane; the fence carries the case, code, and payload roster; `DegenerateInput`'s `Index` is `Option<int>` — a per-element degeneracy threads the real ordinal through the implicit lift, a whole-input degeneracy states absence as `None`, and a sentinel ordinal is the deleted form.
-- Entry: each case is a positional record constructor returning the union; a sibling routes a failure as `GeometryFault.<Case>(...).ToError()`, the payload matched and read before lowering, `ToError` projecting the band `Code` and the parseable `Message` into the `Error` the `Fin<T>` failure channel carries.
-- Auto: `Code`, `Message`, and `Cluster` are total generated folds — a new case breaks every site at compile time, never a silent `_` arm; `Message` renders the `geometry:<case>:<field>=<value>` wire grammar with every keyed discriminant projected through its `Key`; `Cluster` is stride arithmetic over the single `FaultCluster` declaration.
-- Receipt: none — `GeometryFault` is the failure rail itself, the terminal value a `Fin<T>` carries; a fault is the residual.
-- Packages: Thinktecture.Runtime.Extensions for `[Union]`/`[SmartEnum]` and the `StringOrdinal` accessor, LanguageExt.Core for the `Error`/`Fin` failure channel, BCL `UInt128`.
-- Growth: a new reachable failure is one `GeometryFault` case carrying its typed payload and the next free ordinal in its sibling's sub-band, a cross-cutting failure no single cluster owns taking the base stride beside `DegenerateInput`; a sibling whose stride is spent widens nothing — the stride is uniform and `OfCode` is its arithmetic — so the case homes cross-cutting or the century re-plans; the 2400-2449 century is fully allocated across its clusters, so a genuinely new cluster is a federation re-plan against the AEC materials boundary, never a silent squeeze, and a new stage is one `static readonly` row every stage-reading fold re-proves at compile time.
-- Boundary: `GeometryFault` is the one fault union for geometry — a per-cluster `SpatialFault`/`NamingFault` family is the density defect collapsed onto it, the cluster a sub-band not a parallel union; the payload is never a generic `IFault` or an erased `string Detail` where a sibling vocabulary row, index, or measure types the cause, a `string` surviving only as a `Witness` field beside typed discriminants; `try`/`catch` is legal only at a host-numeric or native boundary, never in domain logic; the upward namespace references are legal by the one-assembly law — the kernel compiles as one `Rasm.csproj`, namespaces are cluster routing vocabulary with no build edge, and this root-consolidated union is the recorded exception to strata direction.
+- Owner: `GeometryFault` the direct `FaultBand.Geometry` union; `ParametricStage`, `DevelopmentStage`, `ParametricCarrier`, and the witness rosters type its payloads.
+- Cases: the 28 direct leaves in the fence, each at its compact generated ordinal.
+- Entry: construct a case directly and lift it bare onto the `Error` rail.
+- Auto: `[FaultCase]` generates the cached numeric identity from `FamilyBand`; the typed payload and total presentation message remain authored on this family.
+- Law: ordinals are contiguous union structure; no cluster arithmetic, category roster, or wrapper may duplicate or erase a case.
+- Receipt: the typed `GeometryFault` itself.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, and the kernel fault substrate.
+- Growth: add one direct leaf, compact declaration-order ordinals to `0..N-1`, and set the band span to `N` in the same edit; never add an offset registry or message parser.
+- Boundary: geometry failures remain here; structural, BIM, material, fabrication, and host failures keep their owning fault families.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+using System;
+using System.Collections.Frozen;
+using System.Globalization;
+using System.Linq;
+using System.Threading;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
@@ -29,33 +33,11 @@ using Rasm.Meshing;
 using Rasm.Processing;
 using Rasm.Spatial;
 using Thinktecture;
+using static LanguageExt.Prelude;
 
 namespace Rasm.Numerics;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-// Items order MUST equal Code fold order: (code-2400)>>2 indexes the owning row; the 2-wide parametric tail 2448-2449 both land on index 12.
-[SmartEnum<int>]
-public sealed partial class FaultCluster {
-    public static readonly FaultCluster Spatial          = new(2400, "spatial",          "Rasm.Spatial");
-    public static readonly FaultCluster Naming           = new(2404, "naming",           "Rasm.Spatial");
-    public static readonly FaultCluster Healing          = new(2408, "healing",          "Rasm.Processing");
-    public static readonly FaultCluster Constraints      = new(2412, "constraints",      "Rasm.Solving");
-    public static readonly FaultCluster Offsetting       = new(2416, "offsetting",       "Rasm.Meshing");
-    public static readonly FaultCluster Arrangement      = new(2420, "arrangement",      "Rasm.Meshing");
-    public static readonly FaultCluster Intersection     = new(2424, "intersection",     "Rasm.Meshing");
-    public static readonly FaultCluster Fitting          = new(2428, "fitting",          "Rasm.Solving");
-    public static readonly FaultCluster Parameterization = new(2432, "parameterization", "Rasm.Processing");
-    public static readonly FaultCluster Projection       = new(2436, "projection",       "Rasm.Drawing");
-    public static readonly FaultCluster Simplification   = new(2440, "simplification",   "Rasm.Processing");
-    public static readonly FaultCluster Encoding         = new(2444, "encoding",         "Rasm.Drawing");
-    public static readonly FaultCluster Parametric       = new(2448, "parametric",       "Rasm.Parametric");
-
-    public string Name { get; }
-    public string Namespace { get; }
-
-    public static FaultCluster OfCode(int code) => Items[(code - 2400) >> 2];
-}
-
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -77,119 +59,180 @@ public sealed partial class DevelopmentStage {
     public static readonly DevelopmentStage Pattern     = new("pattern");
 }
 
+// The parametric carrier a stage refused ON — the `NurbsForm` case set plus the three plan carriers the tier
+// raises against, seated here beside the stage axis for the same reason: no single Parametric page owns a
+// tier-wide vocabulary every one of them raises through. A `nameof` of a live type spells the same word while
+// renaming silently, so the roster row is the one diagnostic authority.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ParametricCarrier {
+    public static readonly ParametricCarrier Curve    = new("curve");
+    public static readonly ParametricCarrier Surface  = new("surface");
+    public static readonly ParametricCarrier Knots    = new("knots");
+    public static readonly ParametricCarrier Fill     = new("fill");
+    public static readonly ParametricCarrier Station  = new("station");
+    public static readonly ParametricCarrier Geodesic = new("geodesic");
+}
+
+// Refusal reasons are ROSTERS, not prose: the tessellation kernel's every witness is one row here, so a
+// consumer switches on the reason, a diagnostic counts one, and a typo breaks the build instead of forking
+// one reason into two. Keys render into Message, while the generic wire still projects only fault code and recovery.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class TessellationWitness {
+    public static readonly TessellationWitness OffHullWalk            = new("off-hull-walk");
+    public static readonly TessellationWitness WalkOverran            = new("walk-overran");
+    public static readonly TessellationWitness EmptyCavity            = new("empty-cavity");
+    public static readonly TessellationWitness OnFaceCdtetGated       = new("on-face-cdtet-gated");
+    public static readonly TessellationWitness NoCrossing             = new("no-crossing");
+    public static readonly TessellationWitness NoBlockingFace         = new("no-blocking-face");
+    public static readonly TessellationWitness FlipBudgetSpent        = new("flip-budget-spent");
+    public static readonly TessellationWitness BisectorDenominator    = new("bisector-denominator");
+    public static readonly TessellationWitness UnrepresentableVertex  = new("unrepresentable-vertex");
+    public static readonly TessellationWitness ProjectionMismatch     = new("projection-mismatch");
+    public static readonly TessellationWitness ImplicitBearingDual    = new("implicit-bearing-dual");
+    public static readonly TessellationWitness CollinearTriangle      = new("collinear-triangle");
+    public static readonly TessellationWitness CircumcircleOverflow   = new("circumcircle-overflow");
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ArrangementWitness {
+    public static readonly ArrangementWitness LatticeUnavailable   = new("lattice-unavailable");
+    public static readonly ArrangementWitness WindingUnavailable   = new("winding-index-unavailable");
+    public static readonly ArrangementWitness Substrate            = new("substrate");
+    public static readonly ArrangementWitness NoNativeCellComplex  = new("no-native-cell-complex");
+    public static readonly ArrangementWitness OperandRejected      = new("operand-rejected");
+    public static readonly ArrangementWitness BooleanStatus        = new("boolean-status");
+}
+
+// Abandonment names the STAGE that withdrew, and both routes lower one vocabulary — the managed fold's four
+// stage rows and the native engine's cancelled evaluation — so the governance sink reads one roster whichever
+// lane ran. Done is each row's declared completed fraction; the native row carries none because the engine
+// measures its own progress.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class AbandonWitness {
+    public static readonly AbandonWitness SubdivideA      = new("subdivide-a", done: Some(0.00));
+    public static readonly AbandonWitness SubdivideB      = new("subdivide-b", done: Some(0.25));
+    public static readonly AbandonWitness Classify        = new("classify", done: Some(0.50));
+    public static readonly AbandonWitness Weld            = new("weld", done: Some(0.75));
+    public static readonly AbandonWitness NativeCancelled = new("native-cancelled", done: None);
+
+    public Option<double> Done { get; }
+}
+
 // --- [ERRORS] -----------------------------------------------------------------------------
-// Record declaration order = Code/Message fold order; both folds total over the union, no silent _ arm.
-// The base stride 2400-2403 carries the two CROSS-CUTTING refusals every namespace routes — admission and
-// cooperative abandonment — and is the recorded exception to cluster-locality; each later stride is its
-// own cluster's. RunAbandoned.Progress is the fraction the abandoning stage measured, never a default.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record GeometryFault {
+public abstract partial record GeometryFault : Fault {
+    private static readonly FaultBand FamilyBand = FaultBand.Geometry;
     private GeometryFault() { }
 
-    public sealed record DegenerateInput(Kind Kind, Option<int> Index, string Witness) : GeometryFault;
-    public sealed record IndexMismatch(EntityKind Kind, int Expected, int Actual) : GeometryFault;
-    public sealed record KindMismatch(SpatialKind Index, QueryKind Query) : GeometryFault;
-    public sealed record RunAbandoned(Kind Kind, double Progress, string Witness) : GeometryFault;
+    [FaultCase(0)] public sealed partial record DegenerateInput(Kind Kind, Option<int> Index, string Witness) : GeometryFault;
+    [FaultCase(1)] public sealed partial record IndexMismatch(EntityKind Kind, int Expected, int Actual) : GeometryFault;
+    [FaultCase(2)] public sealed partial record KindMismatch(SpatialKind Index, QueryKind Query) : GeometryFault;
+    [FaultCase(3)] public sealed partial record RunAbandoned(Kind Kind, UnitInterval Progress, AbandonWitness Witness) : GeometryFault;
 
-    public sealed record NameCollision(UInt128 Name, int Kind) : GeometryFault;
-    public sealed record HashMismatch(UInt128 Name, int Kind) : GeometryFault;
+    [FaultCase(4)] public sealed partial record NameCollision(TopoName Name, EntityKind Kind) : GeometryFault;
+    [FaultCase(5)] public sealed partial record HashMismatch(TopoName Name, EntityKind Kind) : GeometryFault;
 
-    public sealed record UnrepairableMesh(HealStage Stage, int Iterations, int Remaining) : GeometryFault;
+    // `Budget` is ABSENT where the arm ran no bounded pass.
+    [FaultCase(6)] public sealed partial record UnrepairableMesh(HealStage Stage, Option<Dimension> Budget, int Remaining) : GeometryFault;
 
-    public sealed record OverConstrained(int RedundantRows, double Residual) : GeometryFault;
-    public sealed record SingularSystem(int Rank, int Parameters) : GeometryFault;
+    [FaultCase(7)] public sealed partial record OverConstrained(int RedundantRows, double Residual) : GeometryFault;
+    [FaultCase(8)] public sealed partial record SingularSystem(int Rank, int Parameters) : GeometryFault;
 
-    public sealed record DegenerateOffset(int WavefrontVertex, double Time) : GeometryFault;
-    public sealed record SkeletonStalled(int PendingEvents, double Time) : GeometryFault;
-    public sealed record CollapseStalled(int Iteration, double Residual) : GeometryFault;
+    // Wavefront `Time` is the propagation PARAMETER — an offset distance in model units, never a clock reading —
+    // and a refusal raised before any event fired measured none, so the slot is optional rather than zeroed.
+    [FaultCase(9)] public sealed partial record DegenerateOffset(int WavefrontVertex, Option<double> Time = default) : GeometryFault;
+    [FaultCase(10)] public sealed partial record SkeletonStalled(int PendingEvents, Option<double> Time = default) : GeometryFault { public override Retriability Retriability => Retriability.Transient; }
+    [FaultCase(11)] public sealed partial record CollapseStalled(int Iteration, double Residual) : GeometryFault { public override Retriability Retriability => Retriability.Transient; }
 
-    public sealed record DegenerateArrangement(int CellCount, string ManifoldWitness) : GeometryFault;
-    public sealed record ConstraintUnrecoverable(int Constraint, int Budget) : GeometryFault;
-    public sealed record DegenerateTessellation(int Simplex, string Witness) : GeometryFault;
-    public sealed record NativeAssetMissing(string Engine, string Rid, long Ceiling) : GeometryFault;
+    // Native carries the foreign engine's own multi-valued status beside the verdict, absent on every managed
+    // refusal — a caller separating a non-manifold operand from a self-intersecting one reads the number.
+    [FaultCase(12)] public sealed partial record DegenerateArrangement(int CellCount, ArrangementWitness ManifoldWitness, Option<int> Native = default) : GeometryFault;
+    [FaultCase(13)] public sealed partial record ConstraintUnrecoverable(int Constraint, int Budget) : GeometryFault { public override Retriability Retriability => Retriability.Transient; }
+    [FaultCase(14)] public sealed partial record DegenerateTessellation(int Simplex, TessellationWitness Witness) : GeometryFault;
+    // `Rid` stays text alone because it is the HOST's own read (`RuntimeInformation.RuntimeIdentifier`) and the
+    // refusal exists precisely for a host outside the published asset set — a closed roster would make the
+    // reported case unrepresentable. The ENGINE is closed and rides its roster.
+    [FaultCase(15)] public sealed partial record NativeAssetMissing(NativeEngine Engine, string Rid, long Ceiling) : GeometryFault;
 
-    public sealed record IntersectionFault(PrimitiveKind A, PrimitiveKind B) : GeometryFault;
-    public sealed record SectionFault(int Layer, double Elevation, int OpenChains) : GeometryFault;
+    // Junction is the endpoint slot the chain assembly could not place — the one fact the caller cannot
+    // re-derive from the op it passed, absent where the refusal names no endpoint.
+    [FaultCase(16)] public sealed partial record IntersectionFault(PrimitiveKind A, PrimitiveKind B, Option<int> Junction = default) : GeometryFault;
+    [FaultCase(17)] public sealed partial record SectionFault(int Layer, double Elevation, int OpenChains) : GeometryFault;
 
-    public sealed record FitFault(double AchievedInlierFraction, double Floor) : GeometryFault;
+    // `Inliers` is the measured consensus FRACTION, not a count — every producer passes an inlier ratio against
+    // the policy floor, so both slots ride the unit band and a fraction above one is unrepresentable.
+    [FaultCase(18)] public sealed partial record FitFault(UnitInterval Inliers, UnitInterval Floor) : GeometryFault;
 
-    public sealed record ParameterizationFault(ChartId Chart, double Distortion) : GeometryFault;
+    // `Chart` is ABSENT before island decomposition assigns one.
+    [FaultCase(19)] public sealed partial record ParameterizationFault(Option<ChartId> Chart, double Distortion) : GeometryFault;
 
-    public sealed record ProjectionFault(EdgeKind Kind, int Segment) : GeometryFault;
-    public sealed record HatchFault(HatchPattern Pattern, int Region, string Witness) : GeometryFault;
+    [FaultCase(20)] public sealed partial record ProjectionFault(EdgeKind Kind, int Segment) : GeometryFault;
+    [FaultCase(21)] public sealed partial record HatchFault(HatchPattern Pattern, int Region, string Witness) : GeometryFault;
 
-    public sealed record DecimationFault(int FaceBudget, int Achieved) : GeometryFault;
-    public sealed record RemeshStalled(double TargetLength, double Achieved, int Iterations) : GeometryFault;
+    [FaultCase(22)] public sealed partial record DecimationFault(int FaceBudget, int Achieved) : GeometryFault;
+    // Achieved is absent where the fold stalled before measuring an edge length; the target is a positive
+    // model-space length and rides the band that forecloses zero.
+    [FaultCase(23)] public sealed partial record RemeshStalled(PositiveMagnitude TargetLength, Option<double> Achieved, int Iterations) : GeometryFault { public override Retriability Retriability => Retriability.Transient; }
 
-    public sealed record EncodingFault(EncodingChannel Channel, ChannelDtype Dtype, string Detail) : GeometryFault;
+    // Stage names WHICH encoding step refused; `Expected`/`Actual` carry the two magnitudes an arity, extent, or
+    // round-trip breach measured, absent on the stages that measure none.
+    [FaultCase(24)] public sealed partial record EncodingFault(
+        EncodingChannel Channel,
+        ChannelDtype Dtype,
+        EncodingStage Stage,
+        Option<double> Expected = default,
+        Option<double> Actual = default) : GeometryFault;
 
-    public sealed record ParametricFault(ParametricStage Stage, string Carrier, string Witness) : GeometryFault;
-    public sealed record DevelopmentFault(DevelopmentStage Stage, int Unit, double Witness) : GeometryFault;
+    [FaultCase(25)] public sealed partial record ParametricFault(ParametricStage Stage, ParametricCarrier Carrier, string Witness) : GeometryFault;
+    // `Panel`, never `Unit`: `Unit` is a LanguageExt TYPE in scope on this fence, and a member shadowing an
+    // in-scope type name is the naming hazard the roster law forecloses. `Witness` NAMES the refusal the way
+    // every sibling witness does, and `Measure` carries the magnitude that named refusal read — a bare unnamed
+    // double carried neither, since the producers span budgets, widths, extents, and counts.
+    // `Panel` is ABSENT on a whole-request refusal.
+    [FaultCase(26)] public sealed partial record DevelopmentFault(DevelopmentStage Stage, Option<int> Panel, string Witness, Option<double> Measure = default) : GeometryFault;
+    // Direct cotangent assembly can complete arithmetically while violating the snapshot's declared quality
+    // regime; the semantic leaf carries the exact face and guarded ratio pair that proved the refusal.
+    [FaultCase(27)] public sealed partial record CotangentQuality(int Face, PositiveMagnitude Ratio, PositiveMagnitude Ceiling) : GeometryFault;
 
-    public int Code =>
-        Switch(
-            degenerateInput:         static _ => 2400,
-            indexMismatch:           static _ => 2401,
-            kindMismatch:            static _ => 2402,
-            runAbandoned:            static _ => 2403,
-            nameCollision:           static _ => 2404,
-            hashMismatch:            static _ => 2405,
-            unrepairableMesh:        static _ => 2408,
-            overConstrained:         static _ => 2412,
-            singularSystem:          static _ => 2413,
-            degenerateOffset:        static _ => 2416,
-            skeletonStalled:         static _ => 2417,
-            collapseStalled:         static _ => 2418,
-            degenerateArrangement:   static _ => 2420,
-            constraintUnrecoverable: static _ => 2421,
-            degenerateTessellation:  static _ => 2422,
-            nativeAssetMissing:      static _ => 2423,
-            intersectionFault:       static _ => 2424,
-            sectionFault:            static _ => 2425,
-            fitFault:                static _ => 2428,
-            parameterizationFault:   static _ => 2432,
-            projectionFault:         static _ => 2436,
-            hatchFault:              static _ => 2437,
-            decimationFault:         static _ => 2440,
-            remeshStalled:           static _ => 2441,
-            encodingFault:           static _ => 2444,
-            parametricFault:         static _ => 2448,
-            developmentFault:        static _ => 2449);
-
-    public FaultCluster Cluster => FaultCluster.OfCode(Code);
-
-    public Error ToError() => Error.New(Code, Message);
-
-    public string Message =>
-        Switch(
-            degenerateInput:         static f => $"geometry:degenerate-input:kind={f.Kind.Key}{f.Index.Map(static i => $":index={i}").IfNone("")}:{f.Witness}",
-            indexMismatch:           static f => $"geometry:index-mismatch:kind={f.Kind.Key}:expected={f.Expected}:actual={f.Actual}",
-            kindMismatch:            static f => $"geometry:kind-mismatch:index={f.Index.Key}:query={f.Query.Key}",
-            runAbandoned:            static f => $"geometry:run-abandoned:kind={f.Kind.Key}:progress={f.Progress}:{f.Witness}",
-            nameCollision:           static f => $"geometry:name-collision:name={f.Name}:kind={f.Kind}",
-            hashMismatch:            static f => $"geometry:hash-mismatch:name={f.Name}:kind={f.Kind}",
-            unrepairableMesh:        static f => $"geometry:unrepairable-mesh:stage={f.Stage.Key}:iterations={f.Iterations}:remaining={f.Remaining}",
-            overConstrained:         static f => $"geometry:over-constrained:redundant={f.RedundantRows}:residual={f.Residual}",
-            singularSystem:          static f => $"geometry:singular-system:rank={f.Rank}:parameters={f.Parameters}",
-            degenerateOffset:        static f => $"geometry:degenerate-offset:vertex={f.WavefrontVertex}:time={f.Time}",
-            skeletonStalled:         static f => $"geometry:skeleton-stalled:pending={f.PendingEvents}:time={f.Time}",
-            collapseStalled:         static f => $"geometry:collapse-stalled:iteration={f.Iteration}:residual={f.Residual}",
-            degenerateArrangement:   static f => $"geometry:degenerate-arrangement:cells={f.CellCount}:{f.ManifoldWitness}",
-            constraintUnrecoverable: static f => $"geometry:constraint-unrecoverable:constraint={f.Constraint}:budget={f.Budget}",
-            degenerateTessellation:  static f => $"geometry:degenerate-tessellation:simplex={f.Simplex}:{f.Witness}",
-            nativeAssetMissing:      static f => $"geometry:native-asset-missing:engine={f.Engine}:rid={f.Rid}:ceiling={f.Ceiling}",
-            intersectionFault:       static f => $"geometry:intersection-fault:a={f.A.Key}:b={f.B.Key}",
-            sectionFault:            static f => $"geometry:section-fault:layer={f.Layer}:elevation={f.Elevation}:open={f.OpenChains}",
-            fitFault:                static f => $"geometry:fit-fault:inliers={f.AchievedInlierFraction}:floor={f.Floor}",
-            parameterizationFault:   static f => $"geometry:parameterization-fault:chart={f.Chart.Value}:distortion={f.Distortion}",
-            projectionFault:         static f => $"geometry:projection-fault:kind={f.Kind.Key}:segment={f.Segment}",
-            hatchFault:              static f => $"geometry:hatch-fault:pattern={f.Pattern.Key}:region={f.Region}:{f.Witness}",
-            decimationFault:         static f => $"geometry:decimation-fault:budget={f.FaceBudget}:achieved={f.Achieved}",
-            remeshStalled:           static f => $"geometry:remesh-stalled:target={f.TargetLength}:achieved={f.Achieved}:iterations={f.Iterations}",
-            encodingFault:           static f => $"geometry:encoding-fault:channel={f.Channel.Key}:dtype={f.Dtype.Key}:{f.Detail}",
-            parametricFault:         static f => $"geometry:parametric-fault:stage={f.Stage.Key}:carrier={f.Carrier}:{f.Witness}",
-            developmentFault:        static f => $"geometry:development-fault:stage={f.Stage.Key}:unit={f.Unit}:witness={f.Witness}");
+    public sealed override string Message => Switch(
+        degenerateInput: static fault => $"Degenerate {fault.Kind} input at {fault.Index}: {fault.Witness}.",
+        indexMismatch: static fault => $"{fault.Kind} index count mismatch: expected {fault.Expected}, actual {fault.Actual}.",
+        kindMismatch: static fault => $"Spatial index {fault.Index} cannot answer query {fault.Query}.",
+        runAbandoned: static fault => $"{fault.Kind} run abandoned at {fault.Progress} during {fault.Witness}.",
+        nameCollision: static fault => $"Topology name {fault.Name} collides for {fault.Kind}.",
+        hashMismatch: static fault => $"Topology hash for {fault.Name} no longer matches {fault.Kind}.",
+        unrepairableMesh: static fault => $"Mesh repair stopped at {fault.Stage}; remaining={fault.Remaining}, budget={fault.Budget}.",
+        overConstrained: static fault => $"Constraint system has {fault.RedundantRows} redundant rows at residual {fault.Residual:R}.",
+        singularSystem: static fault => $"Constraint system rank {fault.Rank} is singular for {fault.Parameters} parameters.",
+        degenerateOffset: static fault => $"Offset wavefront degenerated at vertex {fault.WavefrontVertex}, time={fault.Time}.",
+        skeletonStalled: static fault => $"Skeleton propagation stalled with {fault.PendingEvents} pending events, time={fault.Time}.",
+        collapseStalled: static fault => $"Collapse stalled at iteration {fault.Iteration}, residual={fault.Residual:R}.",
+        degenerateArrangement: static fault => $"Arrangement of {fault.CellCount} cells failed under {fault.ManifoldWitness}; native={fault.Native}.",
+        constraintUnrecoverable: static fault => $"Constraint {fault.Constraint} exhausted recovery budget {fault.Budget}.",
+        degenerateTessellation: static fault => $"Tessellation simplex {fault.Simplex} failed under {fault.Witness}.",
+        nativeAssetMissing: static fault => $"Native engine {fault.Engine} has no asset for {fault.Rid} within ceiling {fault.Ceiling}.",
+        intersectionFault: static fault => $"Intersection between {fault.A} and {fault.B} failed at junction {fault.Junction}.",
+        sectionFault: static fault => $"Section layer {fault.Layer} at elevation {fault.Elevation:R} has {fault.OpenChains} open chains.",
+        fitFault: static fault => $"Fit inlier fraction {fault.Inliers} is below floor {fault.Floor}.",
+        parameterizationFault: static fault => $"Parameterization failed for chart {fault.Chart}; distortion={fault.Distortion:R}.",
+        projectionFault: static fault => $"Projection of {fault.Kind} segment {fault.Segment} failed.",
+        hatchFault: static fault => $"Hatch {fault.Pattern} region {fault.Region} failed: {fault.Witness}.",
+        decimationFault: static fault => $"Decimation achieved {fault.Achieved} faces against budget {fault.FaceBudget}.",
+        remeshStalled: static fault => $"Remeshing stalled after {fault.Iterations} iterations; target={fault.TargetLength}, achieved={fault.Achieved}.",
+        encodingFault: static fault => $"Encoding {fault.Channel}/{fault.Dtype} failed at {fault.Stage}; expected={fault.Expected}, actual={fault.Actual}.",
+        parametricFault: static fault => $"Parametric {fault.Carrier} failed at {fault.Stage}: {fault.Witness}.",
+        developmentFault: static fault => $"Development failed at {fault.Stage}, panel={fault.Panel}, measure={fault.Measure}: {fault.Witness}.",
+        cotangentQuality: static fault => $"Face {fault.Face} cotangent aspect ratio {fault.Ratio} exceeds ceiling {fault.Ceiling}.");
 }
+
 ```
 
 ## [03]-[RESEARCH]

@@ -242,7 +242,7 @@ const _material = Config.unwrap({
 })
 
 const _input = (spec: StackSpec, detail: string): DeployFault =>
-  new DeployFault({ reason: "input", stack: spec.name, detail })
+  new DeployFault({ case: { reason: "input", stack: spec.name, detail } })
 
 const _coord = <A>(spec: StackSpec, held: Option.Option<A>, name: string): Effect.Effect<A, DeployFault> =>
   Effect.mapError(held, () => _input(spec, `<missing-${name}>`))

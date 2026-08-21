@@ -22,10 +22,13 @@ Composition is settled: the thread and subinterpreter crossing arms stay `execut
 - Law: a native-gated worker module splits at the parse floor — the vocabulary module parses and imports on both interpreter floors while the worker-body module holds its eager native providers and loads only worker-side — and `REFERENCE` shipping resolves the kernel by qualified name through the one `shipped` gate; `covered(module, names)` is the worker-floor witness that same module runs at its own import, proving every dispatchable name resolves through the identical walk so a misspelled roster fails at worker import, never mid-offload. Crossing law homes at `libs/python/.planning/RULINGS.md`; `artifacts` scene rendering is the standing proof instance. `cloudpickle.register_pickle_by_value` stays out: a worker floor that must import its module from disk is the stronger contract than shipping a module by value into an interpreter that drifts from it.
 - Law: `traced_kernel` is the parented-emitter gate every crossing resolves through — the receipts pair resolves the carried W3C parent, the `worker.<name>` span opens under it so worker-interior evidence joins the one trace, the profiler `phase` window tags the flame by kernel subject and shipping form, and the two-read `Cost` bracket records the kernel's own process spend onto the `rasm.cost.<measure>` rows under the attached context, the promoted `rasm.tenant` entry pricing the kernel to the tenant that ran it; an uninstalled floor resolves no-op providers and a null profiler window, so the gate never conditions on install state and costs two process reads. The cost rows key on `Kernel.subject`, not `name`: a code kernel's qualname is bounded by the code base while a GUEST digest is minted from caller-controlled bytes, and only the tenant axis carries a value budget, so a per-digest attribute would accrete a series axis nothing bounds — the digest stays the span, receipt, and fault subject, where it costs no series.
 - Law: `remote_floor` is the fleet mirror of `shipped` — the far interpreter's module entry reads one sealed blob on stdin, resolves it through the same `sealed_kernel` gate, and writes one pickled `("value", T) | ("raise", BaseException)` verdict on stdout — so every `Shipping` form is total across the SSH channel (the seal cloudpickles the whole `Kernel`, a `LIVE` callable crossing by value, `REFERENCE` re-importing from the remote install, the worker-floor contract at fleet scale) and a kernel raise crosses home frame-whole under the latch `shipped` re-arms.
+- Law: a typed band token crosses as DATA and never as a pickled exception. `Exception.__reduce__` hands `(cls, self.args, self.__dict__)`, and a kwarg-only `@tagged_union` has EMPTY `args` with its case in `__dict__`, so reconstruction re-enters the union's one-case guard and dies on EVERY arm — `StopIteration` under stdlib pickle and cloudpickle, `TypeError: One and only one case can be specified` once the `tblib` latch is armed, which is every pooled and remote crossing. Both directions break identically: a token RAISED worker-side and a rail RETURNING `BoundaryFault.domain` carrying one. `shipped` is the one floor gate every arm resolves through, so `crossed` lowers both there onto `CrossedFault` — positional args and a plain `__dict__`, the inverse shape of the guard that refuses — and `homed`/`_homing` re-mint the producer's own case parent-side, ahead of the fence that seats it. A producer keeps raising its typed case and edits nothing.
+- Law: the re-mint is EXACT or it is absent. `convert` restores each case's DECLARED type off the union's own field, so a `tuple` slot arrives a tuple rather than the list its encoding decodes to; a payload no encoder lowers crosses as its own render and a class the parent cannot import keeps the carrier, which is faithfully `Tagged` and publishes the producer's case and evidence through `facts()` regardless. `mesh/daemon#DAEMON`'s `raise RuntimeError(str(token))` is that render hand-rolled at one call site, and it retires onto this seam.
 - Law: `admitted` is the host-side crossing gate — every offload passes it before an arm sees the kernel, and `GUEST` is the one form that does work there, `wasmtime.Module.validate` refusing malformed wasm and a non-bytes payload parent-side onto a typed `config` fault at parse cost with no compile, no store, and no instance. Caller-controlled bytes are the reason: a guest defect reaching the worker floor surfaces one hop and one epoch budget later as an instantiation trap the catch-all `boundary` case cannot tell from a genuine guest trap. Every other shipping form yields `Nothing` at one branch, so the gate stays one call on the offload path and never a wasm arm inside the lane's isolation table.
 - Law: `_guest` is `GUEST` shipping's worker-floor arm — zero-import instantiation (no WASI, no ambient capability), a fresh `Store` per call so guest state never leaks across kernels, `GUEST_MEMORY` bounding linear memory, and request/reply crossing as bytes over the `GUEST_ABI` exports, which is also why the arm's result type IS bytes rather than the crossing's free `T`; the module compiles once per digest per interpreter, so the per-call cost is instantiation alone. Engine and module resolve as a PAIR under one gate because `SANDBOXED` kernels ride the thread arm: two first guests land concurrently as the ordinary case, a memo that re-enters its body on a concurrent miss lets the loser's engine escape with its own pacer thread, and a store on one engine instantiating a module compiled on another refuses. One `WasmtimeError` fence spans compile, instantiate, and call, so no arm of the guest crossing escapes `shipped` outside the elapsed-budget discrimination.
 - Law: the guest deadline is the engine's epoch — one daemon pacer heartbeats the engine-global epoch every `EPOCH_TICK` while each store carries its own relative tick budget, so concurrent guests never kill each other and a guest dies mid-kernel at wall clock IN-PROCESS, the enforcement no thread or interpreter arm owns. `WasmtimeError` exposes no addressable trap code, so the arm discriminates by elapsed budget: an epoch kill re-raises `TimeoutError` onto the faults `deadline` row, and a genuine trap crosses whole into the catch-all `boundary` case with its trap message.
-- Growth: a new worker kind is one `WorkerKind` member with one `KIND_POLICY` row; a new isolation answer is one `KernelTrait` member with one `TRAIT_ROW` row and every call site untouched; a new shipping form is one `Shipping` member with one `shipped` arm and, where its payload arrives unjudged, one `admitted` arm; a new enforcement arm is one `Enforcement` member with one offload projection row; a new payload crossing is one `Wire` member with one `exported` arm; a new cost measure is one `Cost` field at the receipts owner with one `INSTRUMENTS` row at the metrics owner, reaching this bracket through `measures` with zero gate edits.
+- Law: every refusal across the three regions resolves ONE `reliability/faults#FAULT` `RAISES` anchor under `RuntimeLeg.WORKERS` and derives its subject from that leg — the kernel name, the pool phase, the lease verb, and the daemon charge all ride NAMED row slots. The three deadline re-stamps compose the owner's `expired` fold, so the budget-unknown floor is DECLARED once rather than spelled `default_value(0.0)` at each fence. Two fences keep a catch-all and state why: a crossing re-raises the caller's OWN kernel exception through `tblib`, and a settlement's evidence projection is caller-supplied — neither raise surface a runtime can roster, and a leak at either strands a receipt or a live lease.
+- Growth: a new band family crosses with ZERO edits here — `CrossedFault` keys on the union grammar, never on a roster of families; a new worker kind is one `WorkerKind` member with one `KIND_POLICY` row; a new isolation answer is one `KernelTrait` member with one `TRAIT_ROW` row and every call site untouched; a new shipping form is one `Shipping` member with one `shipped` arm and, where its payload arrives unjudged, one `admitted` arm; a new enforcement arm is one `Enforcement` member with one offload projection row; a new payload crossing is one `Wire` member with one `exported` arm; a new cost measure is one `Cost` field at the receipts owner with one `INSTRUMENTS` row at the metrics owner, reaching this bracket through `measures` with zero gate edits.
 - Boundary: trait declaration stays consumer domain knowledge — this owner never inspects a callable for GIL behavior; picklability is the one property `Kernel.of` classifies itself. Thread and subinterpreter crossing arms and the offload hop stay `execution/lanes#LANE`'s; this page mints the vocabulary the hop consumes, the process bands, and the process pools. `execution/admission#CONTEXT` admits the `isolation` axis upstream and refuses an unbound crossing there, so `KernelTrait` selects the worker kind INSIDE a value the profile already serves — `INLINE` under `in-proc`, `PURE` and `RELEASING` under `thread`, `HOSTILE` under `process`, `SANDBOXED` under `wasm`, the `WorkerKind.REMOTE` fleet arm under `remote` — and a kernel reaching a crossing the profile never admitted is unrepresentable, never a runtime downgrade this owner absorbs.
 
 ```python signature
@@ -34,8 +37,9 @@ import hashlib
 import math
 import sys
 import threading
+import dataclasses
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from enum import StrEnum
 from functools import cache, lru_cache, reduce
 from importlib import import_module
@@ -43,13 +47,14 @@ from multiprocessing.shared_memory import SharedMemory
 from typing import Final, assert_never
 
 import cloudpickle
-from expression import Nothing, Option, Result, Some
+import msgspec
+from expression import Error, Nothing, Option, Result, Some
 from expression.collections import Map
-from msgspec import Struct
+from msgspec import Struct, convert, to_builtins
 from opentelemetry import trace
 from tblib import pickling_support
 
-from rasm.runtime.faults import SCOPES, BoundaryFault, RuntimeRail, Scope, boundary, scoped
+from rasm.runtime.faults import SCOPES, WORKERS_COVERED, WORKERS_GUEST, BoundaryFault, RuntimeRail, Scope, Tagged, boundary, scoped
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.profiles import Profiles
 from rasm.runtime.receipts import Cost, Signals
@@ -243,11 +248,91 @@ def admitted[T](kernel: Kernel[T]) -> Option[BoundaryFault]:
     # and arms no epoch, so the gate never touches the memoized engine the guests themselves run on.
     if kernel.shipping is not Shipping.GUEST:
         return Nothing
-    match boundary(f"workers.wasm.{kernel.name}", lambda: wasmtime.Module.validate(wasmtime.Engine(), kernel.payload)):
+    match boundary(WORKERS_GUEST, lambda: wasmtime.Module.validate(wasmtime.Engine(), kernel.payload), catch=(wasmtime.WasmtimeError, TypeError)):
         case Result(tag="error"):
-            return Some(BoundaryFault(config=(f"workers.wasm.{kernel.name}", "guest-validation-refused")))
+            return Some(WORKERS_GUEST.raised(kernel.name))
         case _:
             return Nothing
+
+
+class CrossedFault(Exception):
+    # THE crossing-safe stand-in for a typed band token, and the reason no crossing ever ships the token itself.
+    # `Exception.__reduce__` hands `(cls, self.args, self.__dict__)`, and a kwarg-only `@tagged_union` has EMPTY
+    # `args` with its case sitting in `__dict__`, so reconstruction re-enters the union's one-case guard and dies —
+    # `StopIteration` under stdlib pickle and cloudpickle alike, and `TypeError: One and only one case can be
+    # specified` once the `tblib` latch is armed, which is every pooled and remote arm. `tblib` does not help and
+    # makes the failure louder. This carrier is the inverse shape by construction: POSITIONAL args and a plain
+    # `__dict__`, so `__init__` re-runs on the far side with everything it needs and the traceback survives with it.
+    # It is faithfully `Tagged` — `tag` names the ACTIVE case and the attribute that case names carries its payload —
+    # so a frame the parent cannot re-mint still reaches `facts()` publishing the producer's own case and evidence,
+    # where the un-crossable token rendered the empty string `Exception.__str__` answers for a kwarg-only union.
+    def __init__(self, module: str, name: str, case_: str, payload: object) -> None:
+        super().__init__(module, name, case_, payload)
+        self.tag = case_
+        setattr(self, case_, payload)
+
+    @staticmethod
+    def of(token: Tagged) -> "CrossedFault":
+        # worker-side lowering, total over the encodability question the payload alone answers. `to_builtins` carries
+        # the case whole where it can; a payload no encoder lowers — a pybind11 status enum, a live native handle —
+        # crosses as its own render, so the COORDINATE survives either way. That render is `mesh/daemon#DAEMON`'s
+        # hand-rolled `raise RuntimeError(str(token))` generalized to every band family and moved to the one seam.
+        kind, carried = type(token), getattr(token, token.tag)
+        try:
+            lowered = to_builtins(carried)
+        except (TypeError, NotImplementedError):
+            lowered = repr(carried)
+        return CrossedFault(kind.__module__, kind.__qualname__, token.tag, lowered)
+
+    def homed(self) -> Option[BaseException]:
+        # parent-side re-mint, answering ABSENCE honestly rather than a stand-in. `convert` restores the case's
+        # DECLARED type off the union's own field, so a `tuple` slot arrives a tuple and not the list its array
+        # encoding decodes to — the payload is byte-exact, which is what lets a consumer match the producer's case
+        # with its coordinates intact. A parent that cannot import the class, or a payload that crossed as a render,
+        # answers `Nothing` and keeps THIS carrier, which already reads as the case it stands for.
+        module, name, active, payload = self.args
+        try:
+            kind = reduce(getattr, name.split("."), import_module(module))
+            slot = next(field for field in dataclasses.fields(kind) if field.name == active)
+            return Some(kind(**{active: convert(payload, type=slot.type)}))
+        except (ImportError, AttributeError, StopIteration, msgspec.ValidationError):
+            return Nothing
+
+    def __str__(self) -> str:
+        return f"{self.args[1]}.{self.tag}:{self.args[3]}"
+
+
+def crossed[T](value: T) -> T:
+    # WORKER-side gate, composed by `shipped` on BOTH its arms: a returned rail carrying a `domain` token breaks the
+    # verdict frame exactly as a raised token does — both die on the same union guard — so the returned half lowers
+    # here too and no crossing ships a live token in either direction.
+    match value:
+        case Result(tag="error", error=BoundaryFault(tag="domain", domain=(subject, Tagged() as token))):
+            return Error(BoundaryFault(domain=(subject, CrossedFault.of(token))))
+        case _:
+            return value
+
+
+def homed[T](value: T) -> T:
+    # PARENT-side twin, composed at every worker crossing fence: the token re-mints BEFORE `BoundaryFault.of` reads
+    # it, so the `domain` seat receives the producer's OWN case and a consumer matches the concrete band family.
+    match value:
+        case Result(tag="error", error=BoundaryFault(tag="domain", domain=(subject, CrossedFault() as carrier))):
+            return Error(BoundaryFault(domain=(subject, carrier.homed().default_value(carrier))))
+        case _:
+            return value
+
+
+async def _homing[T](run: Awaitable[T]) -> T:
+    # the parent-side crossing shim both pooled fences compose: a RAISED carrier re-mints before the enclosing
+    # `async_boundary` converts it, and a RETURNED rail homes through the same pair, so one composition covers both
+    # directions and neither fence grows a conversion of its own. It seats INSIDE the retry band deliberately: a band
+    # token is a domain refusal no `Backoff` roster targets, so re-minting under the band changes no retry verdict
+    # and keeps the re-mint on every attempt's result rather than on the last one alone.
+    try:
+        return homed(await run)
+    except CrossedFault as carried:
+        raise carried.homed().default_value(carried) from None
 
 
 def shipped[T](kernel: Kernel[T], *args: object) -> T:
@@ -278,7 +363,16 @@ def shipped[T](kernel: Kernel[T], *args: object) -> T:
         # egress copy-fence: the ingress-only contract is enforced, never trusted — a bare ndarray result aliasing a span
         # block detaches into owned material before the handles below close its backing buffer; nested containment
         # stays the kernel's idempotent-material contract, mirroring _spanned's bare-ndarray wire law.
-        return _detached(fn(*views), views) if handles else fn(*views)
+        # BOTH arms cross the worker-side gate: the returned rail lowers a carried `domain` token, and a RAISED one
+        # converts here — at the one floor gate every arm resolves through — so no pickler downstream ever meets a
+        # kwarg-only union it cannot reconstruct, whether the crossing is loky, pebble, an interpreter, or the fleet
+        # floor. A non-`Tagged` raise keeps today's path untouched and crosses under the `tblib` latch as it always did.
+        try:
+            return crossed(_detached(fn(*views), views) if handles else fn(*views))
+        except BaseException as raised:
+            if not isinstance(raised, Tagged):
+                raise
+            raise CrossedFault.of(raised) from None
     finally:
         views.clear()  # Exemption: span views drop before close, so the buffer release finds no exported pointer to refuse on.
         for handle in handles:  # Exemption: the worker-side span handles close when the kernel returns.
@@ -337,7 +431,10 @@ def remote_floor() -> int:
 def covered(module: str, names: Iterable[str]) -> RuntimeRail[int]:
     # worker-floor import-time witness: every dispatchable name resolves through the same walk `shipped` runs,
     # so a misspelled roster fails at worker import, never mid-offload.
-    return boundary(module, lambda: sum(1 for name in names if reduce(getattr, name.split("."), import_module(module)) is not None))
+    return boundary(
+        WORKERS_COVERED, lambda: sum(1 for name in names if reduce(getattr, name.split("."), import_module(module)) is not None),
+        catch=(ImportError, AttributeError),
+    )
 
 
 def exported(wire: Wire, args: tuple[object, ...]) -> tuple[tuple[object, ...], tuple[SharedMemory, ...]]:
@@ -536,6 +633,7 @@ from concurrent.futures import Future
 from contextlib import ExitStack
 from functools import partial
 from multiprocessing import get_context
+from pickle import PicklingError
 from typing import Final, Literal, assert_never
 from uuid import uuid4
 
@@ -552,7 +650,19 @@ from opentelemetry.exporter.otlp.proto.http import Compression
 from opentelemetry.sdk.resources import SERVICE_INSTANCE_ID, SERVICE_NAME, SERVICE_NAMESPACE, Resource
 
 from rasm.runtime.admission import RuntimeContext, RuntimeProfile
-from rasm.runtime.faults import SCHEMA_URL, BoundaryFault, RuntimeRail, async_boundary
+from rasm.runtime.faults import (
+    SCHEMA_URL,
+    WORKERS_CROSSING,
+    WORKERS_ENDPOINT,
+    WORKERS_PHASE,
+    WORKERS_REMOTE,
+    WORKERS_SEAL,
+    WORKERS_SHM,
+    Catch,
+    RuntimeRail,
+    async_boundary,
+    expired,
+)
 from rasm.runtime.receipts import OPEN, Receipt, Signals, receipted
 from rasm.runtime.resilience import guard
 from rasm.runtime.roots import RemoteEndpoint
@@ -586,6 +696,13 @@ WORKER_BAND: Final[CapacityLimiter] = CapacityLimiter(loky.cpu_count(only_physic
 # fleet floor entry the remote arm's session command appends to the endpoint's interpreter; the far install owns the
 # module — the REFERENCE worker-floor contract at fleet scale.
 REMOTE_FLOOR: Final[str] = "-m rasm.runtime.workers"
+
+# the two raise surfaces the crossing fences, each named once. Sealing is a PICKLE walk over caller arguments, so its
+# classes enumerate. The crossing itself does NOT: `tblib` re-raises the worker's OWN exception parent-side with its
+# worker frames, so the class arriving here is whatever the caller's kernel raised — unrosterable by construction —
+# and an unclassified raise crossing a submit loses the whole receipt, so this is the ONE catch-all the pool plane holds.
+_SEAL_RAISES: Final[Catch] = (PicklingError, TypeError, AttributeError)
+_CROSSING_RAISES: Final[Catch] = Exception
 
 # worker-shaped egress geometry: small queues and a short interval so kernel-grain evidence exports continuously and
 # the atexit drain carries only a tail window; the HTTP transport default IS the fork fence — the gRPC row never
@@ -861,11 +978,11 @@ class WorkerPool:
             case (RemoteEndpoint(), Wire.SHARED_MEMORY):
                 # a span name never resolves across hosts — the shm channel is host-local by construction, refused loudly
                 # rather than silently downgrading a declared zero-copy crossing to a copy.
-                return Error(BoundaryFault(config=(f"workers.remote.{kernel.name}", "shared-memory-wire-is-host-local")))
+                return Error(WORKERS_SHM.raised(kernel.name))
             case (RemoteEndpoint() as endpoint, _):
                 pass
             case _:
-                return Error(BoundaryFault(config=(f"workers.remote.{kernel.name}", "remote-arm-without-endpoint")))
+                return Error(WORKERS_ENDPOINT.raised(kernel.name))
 
         async def crossing(blob: bytes) -> T:
             conn = await self._connection(endpoint)
@@ -894,6 +1011,10 @@ class WorkerPool:
             match cloudpickle.loads(payload):
                 case ("value", value):
                     return value
+                case ("raise", CrossedFault() as carried):
+                    # the typed band token crossed as DATA and re-mints HERE, ahead of the fence, so `BoundaryFault.of`
+                    # seats the producer's own case on `domain` rather than reading an empty message off a carrier.
+                    raise carried.homed().default_value(carried)
                 case ("raise", BaseException() as raised):
                     raise raised  # frame-whole under the floor-side tblib latch — the faults lift classifies the true cause
                 case _:
@@ -908,28 +1029,31 @@ class WorkerPool:
             # argument rails the typed fault instead of raising raw out of submit, an oversized payload's dumps never
             # blocks the loop, and sealing ONCE ahead of the retry keeps a re-driven attempt from re-paying it.
             sealed = await async_boundary(
-                "workers.remote",
+                WORKERS_SEAL,
                 lambda: anyio.to_thread.run_sync(
                     # the remote seal carries the boot: the floor is a fresh process per submit, so its whole install
                     # rides the blob and the atexit drain flushes the short-lived floor after the verdict lands.
                     lambda: cloudpickle.dumps((self._boot, carrier, kernel, args)), abandon_on_cancel=True, limiter=WORKER_BAND
                 ),
+                catch=_SEAL_RAISES,
             )
             match sealed:
                 case Result(tag="error") as refused:
                     return refused
                 case Result(tag="ok", ok=blob):
                     run = partial(crossing, blob)
-                    return await async_boundary("workers.remote", lambda: keyed.map(lambda cls: guard(cls)(run)).default_with(run))
+                    return await async_boundary(
+                        WORKERS_REMOTE, lambda: _homing(keyed.map(lambda cls: guard(cls)(run)).default_with(run)), catch=_CROSSING_RAISES
+                    )
                 case _ as unreachable:
                     assert_never(unreachable)
-        return Error(BoundaryFault(deadline=(f"workers.remote.{kernel.name}", kernel.deadline.default_value(0.0), "remote-kill")))
+        return Error(expired(WORKERS_REMOTE, kernel.deadline, f"remote-kill:{kernel.name}"))
 
     async def submit[T](self, kernel: Kernel[T], *args: object) -> RuntimeRail[T]:
         if self._phase in (PoolPhase.DRAINING, PoolPhase.RETIRED):
             # admission fence: a draining or retired arm refuses new work, so the remote re-dial never resurrects a closed channel
             # and a post-drain submission rails typed instead of racing the teardown.
-            return Error(BoundaryFault(config=(f"workers.{self._kind.value}.{kernel.name}", f"pool-{self._phase.value}")))
+            return Error(WORKERS_PHASE.raised(self._kind.value, kernel.name, self._phase.value))
         carrier: dict[str, str] = {}
         propagate.inject(carrier)
         if self._kind is WorkerKind.REMOTE:
@@ -970,7 +1094,11 @@ class WorkerPool:
             return await anyio.to_thread.run_sync(settled, abandon_on_cancel=True, limiter=WORKER_BAND)
 
         # in-band worker-death retry: `kernel.retry` is Nothing for a non-idempotent kernel, so the gate is the declaration.
-        return await async_boundary(f"workers.{self._kind.value}", lambda: kernel.retry.map(lambda cls: guard(cls)(crossing)).default_with(crossing))
+        return await async_boundary(
+            WORKERS_CROSSING,
+            lambda: _homing(kernel.retry.map(lambda cls: guard(cls)(crossing)).default_with(crossing)),
+            catch=_CROSSING_RAISES,
+        )
 
     @receipted(OPEN)
     async def warm(self, count: int | None = None) -> "PoolReceipt":
@@ -1080,7 +1208,7 @@ from expression import Error, Ok, Result, Some, case, tag, tagged_union
 from msgspec import Meta, Struct
 
 from rasm.runtime.admission import BackendGeneration, Digest128
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary
+from rasm.runtime.faults import LEASE_DRIFT, LEASE_EVIDENCE, LEASE_LOST, LEASE_VERDICT, RuntimeRail, boundary
 from rasm.runtime.identity import U128, ContentIdentity
 
 # `Kernel`, `WorkerPool`, and `PoolReceipt` are the [02]-[CROSSING] and [03]-[POOL] owners of this same module.
@@ -1172,7 +1300,7 @@ class LeaseSession(Struct, frozen=True):
         claimed = _verdict("claim", await self.port.apply(LeaseOp(claim=demand)), "claimed").bind(
             lambda verdict: Ok(verdict.claimed)
             if verdict.claimed.generation == demand.generation
-            else Error(BoundaryFault(config=("workers.lease", "generation-drift")))
+            else Error(LEASE_DRIFT.raised())
         )
         match claimed:
             case Result(tag="error") as refused:
@@ -1232,8 +1360,9 @@ class LeaseSession(Struct, frozen=True):
                 return LeaseSettlement(failed=fault.tag)
             case Result(tag="ok", ok=value):
                 return boundary(
-                    "workers.lease.evidence",
+                    LEASE_EVIDENCE,
                     lambda: LeaseSettlement(succeeded=ContentIdentity.key("worker-settlement", evidence(value), seed=Some(0)).value),
+                    catch=Exception,  # the projection is CALLER-supplied: its raise surface is unrosterable and a leak here strands a live lease
                 ).default_with(lambda refused: LeaseSettlement(failed=refused.tag))
             case _ as unreachable:
                 assert_never(unreachable)
@@ -1265,11 +1394,13 @@ def _verdict(verb: str, answered: RuntimeRail[LeaseVerdict], expected: str) -> R
         case Result(tag="ok", ok=verdict) if verdict.tag == expected:
             return Ok(verdict)
         case Result(tag="ok", ok=LeaseVerdict(tag="lost", lost=reason)):
-            return Error(BoundaryFault(resource=("workers.lease", reason)))
+            return Error(LEASE_LOST.raised(reason))
         case Result(tag="ok", ok=LeaseVerdict(tag="empty")):
-            return Error(BoundaryFault(resource=("workers.lease", "empty")))
+            # `empty` and `lost` are ONE law — the provider holds no lease for this demand — so both ride the one row,
+            # the reason it names as the coordinate; a second row would spell two subjects for one refusal.
+            return Error(LEASE_LOST.raised("empty"))
         case Result(tag="ok", ok=verdict):
-            return Error(BoundaryFault(config=("workers.lease", f"{verb}-verdict:{verdict.tag}")))
+            return Error(LEASE_VERDICT.raised(verb, verdict.tag))
         case _ as unreachable:
             assert_never(unreachable)
 ```
@@ -1299,7 +1430,7 @@ from anyio.abc import TaskGroup
 from expression import Result
 from expression.collections import Block
 
-from rasm.runtime.faults import BoundaryFault, async_boundary
+from rasm.runtime.faults import SUPERVISE_CYCLE, WORKERS_COMMAND, async_boundary
 from rasm.runtime.receipts import OPEN, PROCESS_FAULTS, Receipt, Signals
 from rasm.runtime.resilience import guard
 
@@ -1560,7 +1691,7 @@ class Supervisor:
             case WorkerKind.DAEMON:
                 if not charge.command:  # a DAEMON charge without a spawn command is a config refusal, parked down
                     await self._advertise(subject, False)
-                    Signals.emit(Receipt.of("workers", BoundaryFault(config=(subject, "daemon-charge-without-command"))), OPEN)
+                    Signals.emit(Receipt.of("workers", WORKERS_COMMAND.raised(subject)), OPEN)
                     return False
                 # terminate-then-kill escalation on any stale handle, then a fresh child; readiness is the next LIVE verdict,
                 # so the subject stays down until _actuate observes the respawn live — never a flip the spawn itself asserts.
@@ -1592,7 +1723,7 @@ class Supervisor:
             await self._actuate(charge, await anyio.to_thread.run_sync(self._probe, charge, abandon_on_cancel=True, limiter=self._band))
 
         while True:  # Exemption: the supervision loop is the daemon's standing probe rhythm, cancelled by its owning task group.
-            (await async_boundary(f"supervise.{charge.policy.subject}", cycled)).swap().map(
+            (await async_boundary(SUPERVISE_CYCLE, cycled, catch=Exception)).swap().map(
                 lambda fault: Signals.emit(Receipt.of("workers", fault), OPEN)
             )  # the rhythm survives a probe or actuation raise
             await anyio.sleep(charge.policy.interval)

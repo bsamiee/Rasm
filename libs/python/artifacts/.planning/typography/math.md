@@ -30,11 +30,13 @@ from typing import Final, Literal, assert_never
 from xml.etree.ElementTree import ParseError
 
 from expression import Error, Ok, Result, case, tag, tagged_union
+from expression.collections import Block
 from msgspec import Struct, msgpack
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
-from rasm.runtime.faults import BoundaryFault, RuntimeRail
+from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, rostered
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -95,6 +97,17 @@ class FormulaSpec:
 # --- [CONSTANTS] ------------------------------------------------------------------------
 _CANON: Final = msgpack.Encoder(order="deterministic")  # the stable preimage encoding the bare `ContentIdentity.key` mint addresses
 _CONFIG_LOCK: Final = RLock()
+
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's ONE raise anchor: one fence spans every spec case, so the spec tag is request data the `MathFault`
+# case already separates rather than a coordinate the subject forks. TRANSIENT — a parse, font, or render refusal is
+# a defect a re-issue under repaired inputs may clear.
+MATH_RENDER: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.MATH, point="render", arm="boundary", defect="math-refused", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([MATH_RENDER]))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class MathConstants(Struct, frozen=True):
@@ -255,7 +268,7 @@ class Formula(Struct, frozen=True):
                     "number": number,
                 }),
             )
-        ).map_error(lambda fault: BoundaryFault(boundary=(f"math.{self.spec.tag}", fault.tag)))
+        ).map_error(lambda fault: BoundaryFault(domain=(MATH_RENDER.subject, fault)))
 
 
 def _laid(spec: FormulaSpec, font: str | None, operators: frozenset[str], /) -> Result[Fragment, MathFault]:

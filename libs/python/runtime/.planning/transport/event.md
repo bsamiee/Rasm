@@ -20,9 +20,10 @@ Specification law owns every row and `cloudevents` accelerates it: `core.v1.even
 - Law: an inbound extension name the roster does not hold, or one past the ceiling, is IGNORED and never a whole-message fault, so a peer's private extension never sheds the fact it rode in on; the ignored set surfaces as decode evidence rather than silence.
 - Law: `TYPE_GRAMMAR` is the ONE compiled spelling and both entries cross it — `parse` reads it and `of` renders `_spelled` into it — so a mint proves exactly what a decode proves and neither restates the other's character class. Bare-name sequence arms (`case [TYPE_STEM, domain, ...]`) CAPTURE rather than compare: such an arm rebinds the constant it appears to read and admits every five-segment spelling, so a compiled grammar is what refuses a foreign stem at all and what proves `<subject>` and `<fact>` a producer hands in loose.
 - Law: the stamp pair leaves as the MEASURED lag rather than as the two stamps a caller already holds — `stamped` is `Announced.lag`'s one producer, so a receipt never publishes a zero no observation took, under `docs/laws/scars.md` `[FORGED_ZERO]`.
+- Law: every refusal resolves ONE `reliability/faults#FAULT` `RAISES` anchor under `RuntimeLeg.EVENT` and derives its subject from that leg, so a fence spells no coordinate its package never declared and the closed `defect` token plus the row's NAMED slots replace the sentences the literal constructions carried. One `EVENT_EXTENSION` anchor serves all four extension codecs: the refused spelling a peer repairs on rides the caught class the fence names, so the per-codec subject bought nothing the detail did not already hold.
 - Entry: `EventType.of(domain, subject, fact, version)` is the one mint and `EventType.parse(spelling)` the one admission it composes, both railed, so the wire spelling round-trips through one owner. `Uniqueness.of(envelope)` projects the composite off a decoded message rather than taking two loose arguments a caller can transpose.
 - Growth: a new capability subject is one `DOMAINS` row at the metrics owner, reaching this grammar untouched; a new fact under a standing subject is a `<fact>` value and no declaration at all; a breaking payload change is one `<version>` increment beside its `dataschema` move.
-- Boundary: attribute grammar only — no transport header spelling, no filter dialect, no subscription. Rejected: a hand-formatted `f"rasm.{...}"` type string beside this owner; a bare-name sequence pattern standing in for a stem comparison; a segment admitted by the mint that the grammar refuses; an event-local capability-segment roster; a `subject` spelling that is not `ContentKey.project("wire")`; a content digest in `id`.
+- Boundary: attribute grammar only — no transport header spelling, no filter dialect, no subscription. Rejected: a literal `BoundaryFault(...)` construction beside a rostered anchor; a hand-formatted `f"rasm.{...}"` type string beside this owner; a bare-name sequence pattern standing in for a stem comparison; a segment admitted by the mint that the grammar refuses; an event-local capability-segment roster; a `subject` spelling that is not `ContentKey.project("wire")`; a content digest in `id`.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -34,7 +35,7 @@ from urllib.parse import urlsplit
 from expression import Error, Ok
 from msgspec import Meta, Struct
 
-from rasm.runtime.faults import BoundaryFault, RuntimeRail
+from rasm.runtime.faults import EVENT_DOMAIN, EVENT_LAG, EVENT_NAIVE, EVENT_SOURCE, EVENT_TYPE, RuntimeRail
 from rasm.runtime.metrics import DOMAINS
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -87,9 +88,9 @@ class EventType(Struct, frozen=True, order=True, gc=False):
         # `<domain>` proves against the METRIC roster, never a local set: one capability vocabulary means a board
         # and a subscription name the same thing, and an unrostered segment is a missing capability row upstream.
         return (
-            Error(BoundaryFault(config=("event.type", f"malformed type {spelling!r}")))
+            Error(EVENT_TYPE.raised(spelling))
             if (found := TYPE_GRAMMAR.fullmatch(spelling)) is None
-            else Error(BoundaryFault(config=("event.type", f"unrostered capability segment {found['domain']!r}")))
+            else Error(EVENT_DOMAIN.raised(found["domain"]))
             if found["domain"] not in DOMAINS
             else Ok(cls(domain=found["domain"], subject=found["subject"], fact=found["fact"], version=int(found["version"])))
         )
@@ -110,7 +111,7 @@ class Source(Struct, frozen=True, order=True, gc=False):
         # `urlsplit` is total over a relative reference, so the gate is on the parts a capability reference may not
         # carry — a query and a fragment are routing state, never identity.
         return (
-            Error(BoundaryFault(config=("event.source", "a capability reference carries no query or fragment")))
+            Error(EVENT_SOURCE.raised())
             if (parts := urlsplit(reference)).query or parts.fragment
             else Ok(cls(reference=reference))
         )
@@ -150,9 +151,9 @@ def stamped(occurred: datetime, recorded: datetime, /) -> RuntimeRail[float]:
     # than a zero a later reader cannot tell from a real reading. A stamp after its own observation leaves the lag
     # unmeasured and refuses rather than publishing a negative one.
     return (
-        Error(BoundaryFault(config=("event.time", "both stamps are timezone aware or neither is admitted")))
+        Error(EVENT_NAIVE.raised())
         if occurred.tzinfo is None or recorded.tzinfo is None
-        else Error(BoundaryFault(config=("event.time", "recordedtime precedes time; the lag is unmeasured")))
+        else Error(EVENT_LAG.raised())
         if recorded < occurred
         else Ok((recorded - occurred).total_seconds())
     )
@@ -178,6 +179,7 @@ def stamped(occurred: datetime, recorded: datetime, /) -> RuntimeRail[float]:
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import hashlib
 from base64 import b64decode, b64encode
+from binascii import Error as Base64Error
 from collections.abc import Callable
 from datetime import datetime
 from enum import StrEnum
@@ -193,7 +195,7 @@ from cloudevents.core.spec import SPECVERSION_V1_0
 from cloudevents.core.v1.event import OPTIONAL_ATTRIBUTES, REQUIRED_ATTRIBUTES, CloudEvent
 
 from rasm.runtime.admission import Classification, Correlation
-from rasm.runtime.faults import BoundaryFault, Disposition, RuntimeRail, boundary, traversed
+from rasm.runtime.faults import EVENT_EXTENSION, EVENT_MINT, BoundaryFault, Disposition, RuntimeRail, boundary, traversed
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -265,16 +267,20 @@ class Codec[V](Struct, frozen=True, gc=False):
 def _vocabulary[V: StrEnum](kind: type[V], /) -> Codec[V]:
     # every closed-vocabulary slot shares one codec: a member renders as its own wire value, and an unknown spelling
     # refuses on the rail rather than reaching a consumer as a string it re-parses.
-    return Codec(render=str, admit=lambda raw: boundary(f"event.extension.{kind.__name__.casefold()}", lambda: kind(raw)))
+    return Codec(render=str, admit=lambda raw: boundary(EVENT_EXTENSION, lambda: kind(raw), catch=ValueError))
 
 
+# ONE rostered anchor serves every extension admit: the refused SPELLING is what a repairing peer needs and the
+# caught class carries it, so the per-codec subject the free strings spelled bought a coordinate the detail already
+# holds. `b64decode(validate=True)` raises `binascii.Error`, a `ValueError` subclass, so the narrower class is named.
 _TEXT: Final[Codec[str]] = Codec(render=str, admit=Ok)
-_ORDINAL: Final[Codec[int]] = Codec(render=str, admit=lambda raw: boundary("event.extension.ordinal", lambda: int(raw)))
+_ORDINAL: Final[Codec[int]] = Codec(render=str, admit=lambda raw: boundary(EVENT_EXTENSION, lambda: int(raw), catch=ValueError))
 _INSTANT: Final[Codec[datetime]] = Codec(
-    render=datetime.isoformat, admit=lambda raw: boundary("event.extension.instant", lambda: datetime.fromisoformat(raw))
+    render=datetime.isoformat, admit=lambda raw: boundary(EVENT_EXTENSION, lambda: datetime.fromisoformat(raw), catch=ValueError)
 )
 _BINARY: Final[Codec[bytes]] = Codec(
-    render=lambda held: b64encode(held).decode(), admit=lambda raw: boundary("event.extension.binary", lambda: b64decode(raw, validate=True))
+    render=lambda held: b64encode(held).decode(),
+    admit=lambda raw: boundary(EVENT_EXTENSION, lambda: b64decode(raw, validate=True), catch=Base64Error),
 )
 
 # --- [TABLES] -----------------------------------------------------------------------------
@@ -391,7 +397,7 @@ class MessageEnvelope(Struct, frozen=True, gc=False):
         # ONE mint boundary. `CloudEventValidationError.errors` is `dict[attribute, list[exception]]`, so every
         # finding becomes its own fault and `ACCUMULATE` reduces them onto the aggregate — a caller repairs the whole
         # attribute set in one pass, which is exactly what the aggregating constructor exists for.
-        return boundary("event.mint", lambda: CloudEvent(self.attributes(), bytes(self.payload)), catch=CloudEventValidationError).map_error(_spread)
+        return boundary(EVENT_MINT, lambda: CloudEvent(self.attributes(), bytes(self.payload)), catch=CloudEventValidationError).map_error(_spread)
 
     @classmethod
     def decoded(cls, event: BaseCloudEvent, /) -> RuntimeRail[tuple[Self, Block[str]]]:

@@ -6,19 +6,19 @@ Every selecting verb admits its query through `IfcSelector` (`ifc/selector#SELEC
 
 ## [01]-[INDEX]
 
-- [02]-[ANALYSIS]: analysis verbs over one `AnalysisRow` algebra, the `IfcSelector` gate, the `OCC_NATIVE` retry row, the columnar row egress, the `run_async` twin recording the BCF arm's operational trail, kind-specific graduation evidence under `BIM_COMPLIANCE`, and the `GeoreferenceFact` decode crossing beside the dispatch as the model CRS seam.
+- [02]-[ANALYSIS]: analysis verbs over one `AnalysisRow` algebra, the `IfcSelector` gate, the IDS parse/resolve/evaluate split gating the grade on `IdsResolved`, the `OCC_NATIVE` retry row, the columnar row egress, the `run_async` twin recording the BCF arm's operational trail, kind-specific graduation evidence under `BIM_COMPLIANCE`, and the `GeoreferenceFact` decode crossing beside the dispatch as the model CRS seam.
 
 ## [02]-[ANALYSIS]
 
 - Owner: `IfcAnalysis` dispatches verbs through one rail-returning `_dispatch` fold; `AnalysisRow` is the one carrier whose case IS the shape — one algebra, never a per-verb row dialect; graduation subject rides the `ANALYSIS_SUBJECT` module constant, never a per-receipt `subject: str` field racing the discriminant.
-- Entry: `run` takes the model, the kind, the free-form `query`, and the `composition` custody key. `query` meaning is kind-fixed through the `QUERY_SPLIT` table — pure selector, `a#b` side pair, or spec path/JSON table — read ONCE at the `_dispatch` head so every row governs the arm it keys, the four empty-delimiter rows included and the `BCF` row governing the BCF arm, where a hardcoded `CLASH` key leaves five of six rows unread. `CLASH`/`BCF` sides arrive pre-split and validate under one polymorphic batch parse aborting on the first malformed member, an empty query defaulting both sides to whole-model mode. `BCF` is the composition apex, re-running the clash leg and stacking overlaps into `bcf` topics with viewpoints AND the OCC-rendered `get_viewpoint_snapshot` image bound per topic, never a same-string round-trip.
-- Auto: IDS reads BOTH verdict depths off one validation pass — per-spec entity ratio and the `Json(ids).report()` roll-up, `percent_checks_pass` on the `Results` ROOT and `total_applicable_*` totals on the `ResultsSpecification` rows, never conflated — excluding a `status is None` not-applicable spec whose `0.0` row poisons the evidence mean. Space-program validation measures through the package that owns measurement: `ifc5d.qto.quantify` folds the shared `RuleSet` base-quantity table over the space set and the grade reads the `Qto_SpaceBaseQuantities.NetFloorArea` cell off the returned `ResultsDict`, so no local `get_psets(qtos_only=True)` key fold and no unit-scale square survive — the take-off already converts to the model's declared project units, the ONE regime the program table is read in. Two exclusions are distinct and both named: a space absent from the program table carries no program signal and is excluded from grading, while a space the take-off could not measure is a TYPED REFUSAL on its own `unquantified` axis, never a `0.0` area grading as total non-compliance.
+- Entry: `run` takes the model, the kind, the free-form `query`, and the `composition` custody key. `query` meaning is kind-fixed through the `QUERY_SPLIT` table — pure selector, `a#b` side pair, or spec path/JSON table — read ONCE at the `_dispatch` head so every row governs the arm it keys, the four empty-delimiter rows included and the `BCF` row governing the BCF arm, where a hardcoded `CLASH` key leaves five of six rows unread. `IDS`'s spec path is admitted at PARSE and never reaches the grade as a path: `run` and `run_async` both take an `Option[IdsResolved]` a caller who resolved against a registry hands in, and an unresolved URI-bearing document refuses at the sync entry rather than grading. `CLASH`/`BCF` sides arrive pre-split and validate under one polymorphic batch parse aborting on the first malformed member, an empty query defaulting both sides to whole-model mode. `BCF` is the composition apex, re-running the clash leg and stacking overlaps into `bcf` topics with viewpoints AND the OCC-rendered `get_viewpoint_snapshot` image bound per topic, never a same-string round-trip.
+- Auto: IDS runs as three NAMED steps — `parse` mints the document beside its typed `pending` roster off bytes that reached no network, `resolve` is the one async leg expanding those URIs over a built `TransportResource` and minting `IdsResolved`, and `_validate` accepts that type alone — so a `Classification`/`Property`/`Material` facet carrying a bSDD `uri` and an unexpanded value can no longer grade a narrower applicable set than its author declared and report the narrower verdict clean. `ifctester` depends on `ifcopenshell` and `xmlschema` alone and ships no HTTP client, which is exactly why the expansion is this owner's step and not the package's. IDS reads BOTH verdict depths off one validation pass — per-spec entity ratio and the `Json(ids).report()` roll-up, `percent_checks_pass` on the `Results` ROOT and `total_applicable_*` totals on the `ResultsSpecification` rows, never conflated — excluding a `status is None` not-applicable spec whose `0.0` row poisons the evidence mean. Space-program validation measures through the package that owns measurement: `ifc5d.qto.quantify` folds the shared `RuleSet` base-quantity table over the space set and the grade reads the `Qto_SpaceBaseQuantities.NetFloorArea` cell off the returned `ResultsDict`, so no local `get_psets(qtos_only=True)` key fold and no unit-scale square survive — the take-off already converts to the model's declared project units, the ONE regime the program table is read in. Two exclusions are distinct and both named: a space absent from the program table carries no program signal and is excluded from grading, while a space the take-off could not measure is a TYPED REFUSAL on its own `unquantified` axis, never a `0.0` area grading as total non-compliance.
 - Receipt: receipts carry the census, frames carry the rows. `contribute` emits one row per run — row count, subject count, archive extent where one exists, and the residual ledger — because a whole-model take-off is one fact key per element per quantity and a flattened row stream turns the runtime receipt into a hundred-thousand-key dict per run; `frame` projects those rows as ONE columnar `EvidenceFrame` through the graduation port, columns off the first row's `facts` keys exactly as the sibling lifecycle rollup does. `evidence` ledger is kind-specific, never a row count — IDS keys per-entity AND per-check failing fractions, `SPACE_PROGRAM` the per-space failing fraction beside its unquantified count, `CLASH` the unresolved-cluster count, takeoff/BCF the empty-result fraction — so a model breaching its ceiling fails the carrier's `admitted` verdict rather than crossing clean. `graduates` and `frame` derive their own `ContentKey` from the receipt's `spec` — kind plus the validated query projection — through the spine's `evidence_key`, so no caller mints a key for evidence it did not produce. `_distributed` records the `non-compliant` fraction as the `rasm.geometry.compliance.noncompliant` charter measure at the producing fold; the cluster-count and empty-fraction keys name no charter row and record nothing, a count or boolean gate earning no histogram.
 - Law: the BCF arm alone lands durable evidence on the `python:runtime/observability/journal#LEDGER` plane — one `OPERATIONAL` `AuditFact` keyed on the run's `spec`, its topic GUIDs the subject index — because that arm AUTHORS an archive the data seam persists while every other kind reads the model and produces a verdict nothing keeps. `run_async` is its seat, the awaitable twin this caller-floor owner mints over the band hop, since recording suspends and `_distributed` is a synchronous charter projection. No meter rides the leg: the archive crosses as receipt payload and the data seam charges the write it performs, so a byte count at both tiers bills one artifact twice.
-- Law: `GeoreferenceFact` decodes at this band as the branch's ONE model CRS source, a dataset's own file CRS staying a data-owned origin beside it that this fact never overrides. The decode sits BESIDE the dispatch rather than inside it: it produces no `AnalysisRow`, grades no ceiling, graduates nothing, and records no charter measure — `BIM_COMPLIANCE` is the verdict class the IDS/clash/BCF arms own and a coordinate frame is not a verdict — so an `AnalysisKind` row would seat it in an algebra with nothing to say about it. The decoded fact IS the evidence: it crosses one-way to `python:data/spatial`'s geospatial plane as the `[SHAPE]: GeoreferenceFact` seam, whose eight-field roster this producer DECLARES and the data-side decoder mirrors arm-for-arm, so a second decode anywhere in the estate is the deleted form.
-- Packages: `ifcopenshell` (`util.element` the pset and quantity reads, `util.geolocation` the ONE georeference extraction seam whose `get_helmert_transformation_parameters` collapses `IfcMapConversion`, `IfcMapConversionScaled`, `IfcRigidOperation`, and the IFC2X3 ePSet fallback onto one nine-field transform, so no consumer branches on coordinate-operation subtype), `ifctester`, `ifcclash`, `bcf-client`, and `ifc5d` (`qto.quantify` the space base-quantity take-off, its `rules` key arriving as the sibling lifecycle owner's `RuleSet` vocabulary rather than a second transcription) per the fence imports; `IfcSelector` is the only `filter_elements` caller.
-- Growth: a new verb is one `AnalysisKind` row, one `of_*` constructor and one `facts` arm, one dispatch arm, one `QUERY_SPLIT` row, and one `evidence` key — the frame column set following from `facts` with no edit here, and a durable trail only where the verb WRITES something, as one `_evidence` arm; a new selection axis is one `IfcSelector` grammar alternative, never a local query-parse fold; a new quantity axis on the space grade is one `SPACE_AREA` cell row; a newly decoded georeference axis is one `GeoreferenceFact` field landed at BOTH ends of the seam in the same pass, a producer-only field being a wire key the data decoder rejects; IDS document AUTHORING (`Ids(...)`/facet family/`to_xml`) is the named next verb once a consumer supplies a rule vocabulary — one row, never a second engine.
-- Boundary: no re-derivation of the C# `IfcSemanticModel` spatial hierarchy; no ledger, custody, or retention window minted here, the plane arriving bound at the composition root and this owner declaring a `Retain` class alone; no durable store — topic rows and the archive bytes are the wire carry, the durable `.bcfzip`, IDS-report, and frame writes the data seam's; no Rhino/GH mutation; no raw `query` string threaded past admission into `filter_elements`; no hand-rolled quantity-key fold where `ifc5d.qto` owns measurement; no per-row fact map on the receipt stream where the frame is the columnar carrier; no second model CRS decode and no CRS guess anywhere, the georeference reading through `util.geolocation` alone and the map transform composing on the data side's `reproject` prelude, never here.
+- Law: `GeoreferenceFact` decodes at this band as the branch's ONE model CRS source, a dataset's own file CRS staying a data-owned origin beside it that this fact never overrides. The decode sits BESIDE the dispatch rather than inside it: it produces no `AnalysisRow`, grades no ceiling, graduates nothing, and records no charter measure — `BIM_COMPLIANCE` is the verdict class the IDS/clash/BCF arms own and a coordinate frame is not a verdict — so an `AnalysisKind` row would seat it in an algebra with nothing to say about it. The decoded fact IS the evidence: it crosses one-way to `python:data/spatial`'s geospatial plane as the `[SHAPE]: GeoreferenceFact` seam, whose eight-field roster this producer DECLARES and the data-side decoder mirrors arm-for-arm, so a second decode anywhere in the estate is the deleted form. All eight fields are REQUIRED — an identity abscissa/ordinate pair, a unit scale, and a `None` north are the fabricated values a partial decode would publish as read facts, and typed absence already answers the ungeoreferenced model.
+- Packages: `ifcopenshell` (`util.element` the pset and quantity reads, `util.geolocation` the ONE georeference extraction seam whose `get_helmert_transformation_parameters` collapses `IfcMapConversion`, `IfcMapConversionScaled`, `IfcRigidOperation`, and the IFC2X3 ePSet fallback onto one nine-field transform, so no consumer branches on coordinate-operation subtype), `ifctester`, `ifcclash`, `bcf-client`, and `ifc5d` (`qto.quantify` the space base-quantity take-off, its `rules` key arriving as the sibling lifecycle owner's `RuleSet` vocabulary rather than a second transcription) per the fence imports; runtime transport (`TransportResource.acquire` the ONE registry acquisition, arriving BUILT so this page mints no client, no cache posture, and no egress policy) and runtime rails (`FaultRow`/`RAISES` the raise coordinates, `boundary` under a named `catch` set, `guarded_sync` bound to the clash row); `IfcSelector` is the only `filter_elements` caller.
+- Growth: a new verb is one `AnalysisKind` row, one `of_*` constructor and one `facts` arm, one dispatch arm, one `QUERY_SPLIT` row, and one `evidence` key — the frame column set following from `facts` with no edit here, and a durable trail only where the verb WRITES something, as one `_evidence` arm; a new selection axis is one `IfcSelector` grammar alternative, never a local query-parse fold; a new quantity axis on the space grade is one `SPACE_AREA` cell row; a newly decoded georeference axis is one `GeoreferenceFact` field landed at BOTH ends of the seam in the same pass, a producer-only field being a wire key the data decoder rejects; a newly resolvable registry axis is one `uri`-bearing facet the `parse` census already sees and one `RegistryTerms` shape the composition's endpoint answers, zero page edits; IDS document AUTHORING (`Ids(...)`/facet family/`to_xml`) is the named next verb once a consumer supplies a rule vocabulary — one row, never a second engine.
+- Boundary: no re-derivation of the C# `IfcSemanticModel` spatial hierarchy; no ledger, custody, or retention window minted here, the plane arriving bound at the composition root and this owner declaring a `Retain` class alone; no durable store — topic rows and the archive bytes are the wire carry, the durable `.bcfzip`, IDS-report, and frame writes the data seam's; no Rhino/GH mutation; no raw `query` string threaded past admission into `filter_elements`; no hand-rolled quantity-key fold where `ifc5d.qto` owns measurement; no per-row fact map on the receipt stream where the frame is the columnar carrier; no second model CRS decode and no CRS guess anywhere, the georeference reading through `util.geolocation` alone and the map transform composing on the data side's `reproject` prelude, never here; no HTTP client, cache posture, or egress policy minted for the registry leg, the `TransportResource` arriving built from the composition exactly as the sibling lifecycle owner's lane does.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -44,6 +44,8 @@ lazy from bcf.v3.bcfxml import BcfXml
 lazy from ifcclash.ifcclash import Clasher, ClashSet, ClashSettings, ClashSource
 lazy from ifcopenshell.util.element import get_psets
 lazy from ifcopenshell.util.geolocation import HelmertTransformation, get_crs, get_helmert_transformation_parameters, get_true_north
+lazy from ifctester.facet import Facet, Restriction
+lazy from ifctester.ids import Ids, IdsXmlValidationError
 lazy from ifctester.ids import open as open_ids
 lazy from ifctester.reporter import Json
 
@@ -52,17 +54,32 @@ from rasm.geometry.graduation import (
     EvidenceFrame,
     EvidenceScope,
     GeometryHandoff,
+    GeometryLeg,
     GeometrySubject,
     charter_record,
     evidence_key,
     evidence_run,
 )
 from rasm.geometry.ifc.costing import RuleSet
-from rasm.geometry.ifc.selector import IfcSelector
-from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail, boundary
+from rasm.geometry.ifc.selector import GeoDrop, IfcFault, IfcSelector
+from rasm.runtime.faults import (
+    FAULT_CONF,
+    PACKAGE,
+    TERMINAL,
+    TRANSIENT,
+    BoundaryFault,
+    Catch,
+    Disposition,
+    FaultRow,
+    RuntimeRail,
+    boundary,
+    rostered,
+    traversed,
+)
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, Party, Retain
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.resilience import RetryClass, guarded_sync
+from rasm.runtime.roots import Acquired, TransportResource
 
 # --- [TYPES] ---------------------------------------------------------------------------
 
@@ -136,9 +153,9 @@ class AnalysisRow:
 
 ANALYSIS_SUBJECT: Final[GeometrySubject] = GeometrySubject.BIM_COMPLIANCE
 
-# this owner's one name, serving the receipt label and the durable audit actor alike, so a rename cannot leave a
-# receipt stream and an evidence-plane actor column under two spellings.
-OWNER: Final[str] = "rasm.geometry.ifc.analysis"
+# this owner's one name, DERIVED off the leg roster member every raise on this page seats under, so the receipt
+# stream, the durable audit actor, and the fault subject cannot drift apart under three transcribed spellings.
+OWNER: Final[str] = f"{PACKAGE}.{GeometryLeg.ANALYSIS.value}"
 
 # One delimiter row per kind, read ONCE at the `_dispatch` head so every row governs the arm it keys — the four
 # empty-delimiter rows the no-split path and the `BCF` row the BCF arm, where a hardcoded `CLASH` key leaves five of six
@@ -167,6 +184,9 @@ class AnalysisResult(Struct, frozen=True, gc=False):
     subjects: tuple[str, ...]
     rows: tuple[AnalysisRow, ...]
     checks_pass: float | None = None  # IDS arm's Json-report root percent_checks_pass roll-up; None elsewhere
+    # IDS facets a registry expanded before grading: an audit that resolved NONE against a URI-bearing spec graded a
+    # narrower applicable set than its author declared, and this is the column that makes that visible.
+    resolved: int = 0
     # SPACE_PROGRAM spaces the take-off measured NO area cell for: their own axis against their own ceiling, because a
     # 0.0 area grades as total non-compliance and spells a measurement no producer took.
     unquantified: tuple[str, ...] = ()
@@ -206,6 +226,7 @@ class AnalysisResult(Struct, frozen=True, gc=False):
                 self.kind.value,
                 {"rows": len(self.rows), "subjects": len(self.subjects)}
                 | ({"product": len(self.product)} if self.product else {})
+                | ({"resolved": self.resolved} if self.resolved else {})
                 | self.evidence(),
             ),
         )
@@ -226,6 +247,44 @@ class AnalysisResult(Struct, frozen=True, gc=False):
         return EvidenceFrame.of(ANALYSIS_SUBJECT, evidence_key(ANALYSIS_SUBJECT, self.spec), table)
 
 
+class PendingFacet(Struct, frozen=True, gc=False):
+    # ONE unresolved registry axis with every anchor an operator acts on: which specification carries it, which of the
+    # two clauses it sits in, which facet class declares it, and the URI nothing dereferenced. `ifctester` depends on
+    # `ifcopenshell` and `xmlschema` alone and ships no HTTP client, so a `Classification`/`Property`/`Material` facet
+    # carrying a `uri` and an unexpanded value is a real axis the parse can see and the validation cannot close.
+    specification: str
+    clause: Literal["applicability", "requirement"]
+    facet: str
+    uri: str
+
+
+class RegistryTerms(Struct, frozen=True, gc=False):
+    # THIS owner's declared contract for a registry destination: an expansion answers the enumerated terms its URI
+    # names, and the composition that admits the endpoint is what maps a dictionary's own payload onto this shape.
+    # Declaring it here keeps the decode a closed local type rather than a dict the resolve leg re-parses per facet.
+    values: tuple[str, ...] = ()
+
+
+class IdsDocument(Struct, frozen=True, gc=False):
+    # what PARSE mints, synchronously, off bytes that reached no network: the `ifctester` handle beside the TYPED
+    # unresolved axis. An empty `pending` is the already-resolved document, so the resolved case is a VALUE `settled`
+    # projects rather than a flag a caller remembers to test.
+    document: "Ids"
+    pending: "Block[PendingFacet]"
+
+    @property
+    def settled(self) -> "Option[IdsResolved]":
+        return Some(IdsResolved(document=self.document, resolved=0)) if self.pending.is_empty() else Nothing
+
+
+class IdsResolved(Struct, frozen=True, gc=False):
+    # the distinct NOMINAL type one `resolve` mints, never a copy of `IdsDocument` with a cleared roster: a separate
+    # type is what makes an unresolved evaluation unrepresentable rather than caller-disciplined, and `resolved`
+    # carries how many facets a registry actually expanded so the receipt can say the audit ran against live terms.
+    document: "Ids"
+    resolved: int
+
+
 class GeoreferenceFact(Struct, frozen=True):
     # ONE wire fact DECLARES the model's map georeference here, mirrored arm-for-arm by the data geospatial decoder:
     # `crs` off the projected-CRS name, the six transform fields off the one `HelmertTransformation` — `scale`
@@ -235,14 +294,56 @@ class GeoreferenceFact(Struct, frozen=True):
     # unnormalized magnitude crosses unedited rather than being pre-scaled into a second producer's job.
     # `true_north` rides as DECLARED evidence and never enters that transform, the map conversion having already
     # oriented the eastings axis.
+    # No field carries a default: an identity abscissa/ordinate pair, a unit scale, and a `None` north are exactly
+    # the fabricated values a partial decode would publish as read facts, and this producer already answers typed
+    # ABSENCE for a model carrying no coordinate operation at all — so every one of the eight is REQUIRED and the
+    # decoder that mirrors this roster cannot admit a wire missing one under a value nobody measured.
     crs: str
     eastings: float
     northings: float
     orthogonal_height: float
-    x_axis_abscissa: float = 1.0
-    x_axis_ordinate: float = 0.0
-    scale: float = 1.0
-    true_north: float | None = None
+    x_axis_abscissa: float
+    x_axis_ordinate: float
+    scale: float
+    true_north: float | None
+
+
+# --- [ERRORS] --------------------------------------------------------------------------
+
+# Every domain refusal this module mints is an `IfcFault` CASE, so these rows spend ONE coordinate per raise POINT and
+# no fence spells a subject string. `IDS_PARSE` and `GEOREFERENCE` are TERMINAL — an XSD failure and a malformed
+# coordinate operation refuse identically on every re-read — while `IDS_REGISTRY` and `CLASH_TREE` declare TRANSIENT:
+# a dictionary host that did not answer and an OCC tree that died mid-build are both dependencies a re-issue may
+# clear, and `CLASH_TREE` is the row the runtime-pinned `OCC_NATIVE` envelope re-offers against.
+ANALYSIS_REFUSED: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.ANALYSIS, point="analysis", arm="boundary", defect="analysis-refused", retriability=TERMINAL
+)
+IDS_PARSE: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.ANALYSIS, point="ids.parse", arm="boundary", defect="ids-unparsed", retriability=TERMINAL
+)
+IDS_REGISTRY: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.ANALYSIS, point="ids.registry", arm="resource", defect="terms-undecoded", retriability=TRANSIENT
+)
+GEOREFERENCE: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.ANALYSIS, point="georeference", arm="boundary", defect="georeference-unread", retriability=TERMINAL
+)
+CLASH_TREE: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.ANALYSIS, point="clash.tree", arm="boundary", defect="occ-tree", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[GeometryLeg]]] = rostered(Block.of_seq([ANALYSIS_REFUSED, IDS_PARSE, IDS_REGISTRY, GEOREFERENCE, CLASH_TREE]))
+
+# `util.geolocation` is pure Python over the coordinate-operation entities, so its raise set is the builtin one those
+# attribute walks surface; `open_ids` parses through `xmlschema` and wraps its failure in the package's own error,
+# which leads the set because it is the precise class. Neither admits a bare `Exception`.
+_GEO_RAISES: Final[Catch] = (AttributeError, IndexError, KeyError, TypeError, ValueError)
+
+
+def _domain(fault: IfcFault) -> BoundaryFault:
+    # ONE door for every domain refusal this module mints, and the ONE site binding the raise row. The band's typed
+    # token rides the runtime's own `domain` case WHOLE — `BoundaryFault.of` admits a `Tagged` token ahead of every
+    # `CLASSIFY` row — so case and coordinate cross the funnel as structured evidence rather than a rendered cause a
+    # consumer re-parses; the render the wire edge reads stays `IfcFault.__str__` at the family owner.
+    return BoundaryFault.of(ANALYSIS_REFUSED, fault)
 
 
 # --- [OPERATIONS] ----------------------------------------------------------------------
@@ -289,6 +390,28 @@ def _evidence(result: AnalysisResult) -> "Block[Fact]":
     )
 
 
+def _restricted(parsed: IdsDocument, payloads: "Block[Acquired]") -> "RuntimeRail[IdsResolved]":
+    # the ONE write-back: each acquisition decodes to this owner's declared `RegistryTerms` and becomes the facet's
+    # own enumeration restriction, so the applicable set the grade runs against is the one the spec's author declared
+    # rather than the narrower one an unexpanded `uri` left behind. The whole-delivery arm answers a chunk, never an
+    # iterator, so the decode reads bytes directly; the roster and the payload block are index-aligned by the fold
+    # that produced them, and a payload the destination shaped differently refuses HERE with its own row.
+    def written() -> IdsResolved:
+        # the facets index ONCE on the same `(specification, uri)` key the pending roster carries, so the write-back
+        # is a keyed lookup per payload rather than a re-walk of every clause per facet.
+        seated: "Map[tuple[str, str], Facet]" = Map.of_seq(
+            ((spec.name, getattr(facet, "uri", None) or ""), facet)
+            for spec in parsed.document.specifications
+            for facet in (*spec.applicability, *spec.requirements)
+        )
+        for pending, payload in zip(parsed.pending, payloads, strict=True):
+            terms = decode(bytes(payload), type=RegistryTerms)
+            seated[(pending.specification, pending.uri)].value = Restriction(options=list(terms.values), base="string")
+        return IdsResolved(document=parsed.document, resolved=len(payloads))
+
+    return boundary(IDS_REGISTRY, written, catch=(AttributeError, KeyError, TypeError, ValueError))
+
+
 def _georeferenced(helmert: "HelmertTransformation | None", crs: str, true_north: float | None) -> "RuntimeRail[Option[GeoreferenceFact]]":
     # ABSENCE, never a fabricated identity: `get_helmert_transformation_parameters` answers `None` for a model
     # carrying no coordinate operation at all, and every `auto_*` sibling folds that `None` into the identity
@@ -309,11 +432,11 @@ def _georeferenced(helmert: "HelmertTransformation | None", crs: str, true_north
     # as an empty sentinel.
     factors = (helmert.factor_x, helmert.factor_y, helmert.factor_z)
     unwirable = (
-        *((f"factors:{','.join(map(str, factors))}",) if len(set(factors)) > 1 else ()),
-        *(("crs:unnamed",) if not crs else ()),
+        *(((GeoDrop.NON_UNIFORM_FACTORS, ",".join(map(str, factors))),) if len(set(factors)) > 1 else ()),
+        *(((GeoDrop.UNNAMED_CRS, ""),) if not crs else ()),
     )
     return (
-        Error(BoundaryFault(boundary=("ifc.georeference", ";".join(unwirable))))
+        Error(_domain(IfcFault(unwirable_georeference=unwirable)))
         if unwirable
         else Ok(
             Some(
@@ -335,7 +458,12 @@ def _georeferenced(helmert: "HelmertTransformation | None", crs: str, true_north
 class IfcAnalysis:
     @staticmethod
     def run(
-        model: "ifcopenshell.file", kind: AnalysisKind, query: str, *, composition: ScopeKey = DEFAULT_SCOPE
+        model: "ifcopenshell.file",
+        kind: AnalysisKind,
+        query: str,
+        *,
+        resolved: "Option[IdsResolved]" = Nothing,
+        composition: ScopeKey = DEFAULT_SCOPE,
     ) -> "RuntimeRail[AnalysisResult]":
         # weave flatten absorbs the rail-returning `_dispatch`, so a selector parse fault meets the converted provider
         # fault on one carrier; graduation stays the caller's own step on the returned receipt. The head carries no
@@ -343,22 +471,66 @@ class IfcAnalysis:
         return evidence_run(
             EvidenceScope.IFC_ANALYSIS,
             f"run.{kind}",
-            lambda: IfcAnalysis._dispatch(model, kind, query).map(lambda result: _distributed(result, composition)),
+            lambda: IfcAnalysis._dispatch(model, kind, query, resolved).map(lambda result: _distributed(result, composition)),
             composition=composition,
         )
 
     @staticmethod
     async def run_async(
-        model: "ifcopenshell.file", kind: AnalysisKind, query: str, *, composition: ScopeKey = DEFAULT_SCOPE
+        model: "ifcopenshell.file",
+        kind: AnalysisKind,
+        query: str,
+        *,
+        resolved: "Option[IdsResolved]" = Nothing,
+        composition: ScopeKey = DEFAULT_SCOPE,
     ) -> "RuntimeRail[AnalysisResult]":
         # the awaitable twin over the band hop: every verb runs caller-floor on a live pybind11 handle, so `run` is
         # synchronous whole and recording — which SUSPENDS — cannot land inside it or inside `_distributed`, the sync
         # charter projection this leg pairs with. The twin runs the same fold and records the BCF arm's authored
         # issue set past it; every other kind mints an empty block and this leg costs one map read. The record rail
         # BINDS into the verdict, so an armed plane refusing an issue-log fact reaches the caller that owns it.
-        match IfcAnalysis.run(model, kind, query, composition=composition):
+        match IfcAnalysis.run(model, kind, query, resolved=resolved, composition=composition):
             case Result(tag="ok", ok=result):
                 return (await Journal.record(_evidence(result), scope=composition)).map(lambda _landed: result)
+            case refused:
+                return Error(refused.error)
+
+    @staticmethod
+    def parse(spec_path: str) -> "RuntimeRail[IdsDocument]":
+        # PARSE is synchronous and reaches no network by construction — `ifctester` depends on `ifcopenshell` and
+        # `xmlschema` alone — so this step answers the document beside the TYPED roster of facets whose `uri` nothing
+        # dereferenced. `validate=True` is what makes the XSD failure the package's own `IdsXmlValidationError`
+        # instead of a schema error surfacing three frames deeper, and the census walks both clauses of every
+        # specification, so the clause a facet sits in reaches the operator rather than being inferred from position.
+        def read() -> IdsDocument:
+            document = open_ids(spec_path, validate=True)
+            pending = Block.of_seq(
+                PendingFacet(specification=spec.name, clause=clause, facet=type(facet).__name__, uri=uri)
+                for spec in document.specifications
+                for clause, facets in (("applicability", spec.applicability), ("requirement", spec.requirements))
+                for facet in facets
+                for uri in (getattr(facet, "uri", None) or "",)
+                if uri
+            )
+            return IdsDocument(document=document, pending=pending)
+
+        return boundary(IDS_PARSE, read, catch=(IdsXmlValidationError, OSError, AttributeError, TypeError, ValueError))
+
+    @staticmethod
+    async def resolve(spec_path: str, registry: "TransportResource") -> "RuntimeRail[IdsResolved]":
+        # RESOLVE is this owner's ONE network step and takes a BUILT `TransportResource`, so no page here mints a
+        # handle — the same law the sibling lifecycle owner holds taking a built `LanePolicy`. Every pending facet
+        # acquires under `ACCUMULATE`, so ONE refusal names every unresolvable URI rather than costing one run per
+        # registry miss, and the expanded terms land on the facet's own `Restriction(options=..., base=...)` slot
+        # through the provider's own constructor rather than a value this page formats. A spec carrying no `uri`
+        # parses to an empty roster and this leg is a TOTAL no-op issuing not one request, so the common case pays
+        # nothing for the gate that makes an unresolved evaluation unrepresentable.
+        match IfcAnalysis.parse(spec_path):
+            case Result(tag="ok", ok=parsed):
+                acquired = Block.of_seq([await registry.acquire(facet.uri) for facet in parsed.pending])
+                return traversed(acquired, by=Disposition.ACCUMULATE).bind(
+                    lambda payloads: _restricted(parsed, payloads)
+                )
             case refused:
                 return Error(refused.error)
 
@@ -378,7 +550,7 @@ class IfcAnalysis:
         # one crosses as `None` onto the wire's own absence arm, never a fabricated due-north `0.0` a solar
         # consumer would read as the model's declaration.
         return boundary(
-            "ifc.georeference",
+            GEOREFERENCE,
             lambda: (
                 get_helmert_transformation_parameters(model),
                 str((get_crs(model) or {}).get("Name", "")),
@@ -386,11 +558,14 @@ class IfcAnalysis:
                 if any(context.TrueNorth for context in model.by_type("IfcGeometricRepresentationContext", include_subtypes=False))
                 else None,
             ),
+            catch=_GEO_RAISES,
         ).bind(lambda read: _georeferenced(*read))
 
     @staticmethod
     @beartype(conf=FAULT_CONF)
-    def _dispatch(model: "ifcopenshell.file", kind: AnalysisKind, query: str) -> "RuntimeRail[AnalysisResult]":
+    def _dispatch(
+        model: "ifcopenshell.file", kind: AnalysisKind, query: str, resolved: "Option[IdsResolved]" = Nothing
+    ) -> "RuntimeRail[AnalysisResult]":
         # ONE `QUERY_SPLIT` read at the head partitions the query for every kind — the empty-delimiter rows passing the
         # whole query through — so each row governs by being read and the `CLASH`/`BCF` legs consume an already-split
         # pair rather than reaching for another kind's key. Each arm derives its own `spec` from the VALIDATED
@@ -411,7 +586,19 @@ class IfcAnalysis:
             case AnalysisKind.SPACE_PROGRAM:
                 return Ok(IfcAnalysis._space(model, head, f"{kind.value}|{head}"))
             case AnalysisKind.IDS:
-                return Ok(IfcAnalysis._validate(model, head, f"{kind.value}|{head}"))
+                # EVALUATE accepts `IdsResolved` ALONE, so an audit graded against an unexpanded registry axis is
+                # unrepresentable rather than caller-disciplined. A caller holding a resolved document hands it in; a
+                # caller handing a path parses here, and `settled` mints the resolved value for free when the document
+                # carries no `uri` at all — the common case, which issues no request and pays nothing for the gate. A
+                # URI-bearing spec reaching this SYNC entry unresolved refuses BY NAME, naming every pending URI,
+                # instead of grading a narrower applicable set than its author declared and reporting it clean.
+                return (
+                    resolved.map(Ok)
+                    .default_with(
+                        lambda: IfcAnalysis._parse_settled(head, f"{kind.value}|{head}")
+                    )
+                    .map(lambda ready: IfcAnalysis._validate(model, ready, f"{kind.value}|{head}"))
+                )
             case AnalysisKind.CLASH:
                 return IfcAnalysis._clash_sides(head, tail).bind(lambda sides: IfcAnalysis._clash(model, sides, f"{kind.value}|{sides[0]}#{sides[1]}"))
             case AnalysisKind.BCF:
@@ -459,8 +646,20 @@ class IfcAnalysis:
         return AnalysisRow.of_pset(element.GlobalId, merged)
 
     @staticmethod
-    def _validate(model: "ifcopenshell.file", spec_path: str, spec: str) -> AnalysisResult:
-        document = open_ids(spec_path)
+    def _parse_settled(spec_path: str, subject: str) -> "RuntimeRail[IdsResolved]":
+        # the sync path's whole admission: parse, then demand the document already carry nothing pending. The refusal
+        # names every unresolvable anchor at once, so an operator supplies one registry rather than re-running per URI.
+        return IfcAnalysis.parse(spec_path).bind(
+            lambda parsed: parsed.settled.to_result(
+                _domain(IfcFault(unresolved_slots=(subject, tuple(facet.uri for facet in parsed.pending))))
+            )
+        )
+
+    @staticmethod
+    def _validate(model: "ifcopenshell.file", ready: IdsResolved, spec: str) -> AnalysisResult:
+        # the signature IS the gate: this leg never opens a path, so PARSE and EVALUATE cannot fuse back together and
+        # no caller can hand it a document a registry never expanded.
+        document = ready.document
         document.validate(model)
         rows = tuple(
             AnalysisRow.of_compliance(
@@ -471,7 +670,9 @@ class IfcAnalysis:
         )
         applicable = tuple(row.name for row in document.specifications if row.status is not None)
         results = Json(document).report()
-        return AnalysisResult(AnalysisKind.IDS, spec, applicable, rows, checks_pass=float(results["percent_checks_pass"]))
+        return AnalysisResult(
+            AnalysisKind.IDS, spec, applicable, rows, checks_pass=float(results["percent_checks_pass"]), resolved=ready.resolved
+        )
 
     @staticmethod
     def _clash_sides(head: str, tail: str) -> "RuntimeRail[tuple[str, str]]":
@@ -535,7 +736,7 @@ class IfcAnalysis:
             clusters = {key: index for index, key in enumerate(clash_set.get("clash_groups", {}))}
             return clasher, tuple({**c, "cluster": clusters.get(c.get("group", ""), 0)} for c in clashes), clash_set
 
-        return guarded_sync(RetryClass.OCC_NATIVE, solve, subject="ifc.clash.tree")
+        return guarded_sync(RetryClass.OCC_NATIVE, solve, at=CLASH_TREE)
 ```
 
 ## [03]-[RESEARCH]

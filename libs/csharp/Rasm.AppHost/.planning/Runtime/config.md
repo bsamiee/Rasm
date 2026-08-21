@@ -1,6 +1,6 @@
 # [APPHOST_CONFIGURATION_AND_OPTIONS]
 
-Configuration admission for the runtime spine: eight ranked `ConfigSource` rows mount every input onto one `ConfigurationManager` chain, a source-generated binder admits immutable policy records onto the `Validation<ConfigError,T>` rail, options validate once and publish frozen at ready, every change lands as a reload-class-gated `ReloadOutcome` transition carried by a `ReloadReceipt` — a structured operator edit arriving as an RFC-6902 `application/json-patch+json` document folds through `PatchSection` onto that same transition — and the operator kill-switch is one transition-class config row whose `OperatorOverride` union forces the degradation fold. The page owns the source axis with rank and reload-class columns, the `ConfigError` fault vocabulary, the reload transition family, and the operator forcing family; the credential-material lifecycle the `SecretsStore` row feeds is `Runtime/secrets`' concern, extending the frozen rank-40 mount from above, never a second source axis. The spine is Microsoft.Extensions.Configuration with its four provider packages, Microsoft.Extensions.Options, FluentValidation, NodaTime, Thinktecture.Runtime.Extensions, and LanguageExt.Core.
+Configuration admission for the runtime spine: eight ranked `ConfigSource` rows mount every input onto one `ConfigurationManager` chain, a source-generated binder admits immutable policy records onto the standard `Validation<Error,T>` rail, options validate once and publish frozen at ready, every change lands as a reload-class-gated `ReloadOutcome` transition carried by a `ReloadReceipt`, and structured edits fold through `PatchSection` onto that transition. `ConfigError` supplies typed leaves; LanguageExt `ManyErrors` carries plural refusals without a package-local aggregate case.
 
 ## [01]-[INDEX]
 
@@ -14,15 +14,15 @@ Configuration admission for the runtime spine: eight ranked `ConfigSource` rows 
 - Owner: `ConfigSource` `[SmartEnum<string>]` eight rows carrying the rank, the reload class, the provider's own re-read capability, and the mount delegate; `ReloadClass` `[SmartEnum<string>]` two rows; `ComparerAccessors.StringOrdinalIgnoreCase` accessor; `ConfigLayer` boot input record; `HostDocumentSource`/`HostDocumentProvider` the re-readable host-document provider pair.
 - Cases: json, user-settings, host-document, secrets-store, user-secrets, in-memory, env, cli — rank order is mount order, a later mount overrides earlier keys, and the rank fold is the whole precedence law.
 - Consumed: `ConfigKeys` is the rank-10 `appsettings` key roster this axis PUBLISHES for a reader elsewhere in the package to bind — one row per key a design page reads at a `Frozen` or `Transition` class, so a key a consumer resolves is a key a source declares and neither end carries a spelling the other never named.
-- Entry: `Compose(IConfigurationManager manager, ConfigLayer layer, params ReadOnlySpan<ConfigSource> sources)` — `Fin<IConfigurationManager>` aborts on the first rejected mount and proves every row's class against its provider's re-read capability before mounting any of them; `Transitional(params ReadOnlySpan<ConfigSource> sources)` projects the rank-ordered transition-class subset a reload re-reads.
+- Entry: `Compose(IConfigurationManager manager, ConfigLayer layer, params ReadOnlySpan<ConfigSource> sources)` — `Fin<IConfigurationManager>` proves every row's class against its provider's re-read capability before mounting any of them and names EVERY mismatch in one refusal; `Transitional(params ReadOnlySpan<ConfigSource> sources)` projects the rank-ordered transition-class subset a reload re-reads.
 - Packages: Microsoft.Extensions.Configuration, Microsoft.Extensions.Configuration.Json, Microsoft.Extensions.Configuration.EnvironmentVariables, Microsoft.Extensions.Configuration.CommandLine, Microsoft.Extensions.Configuration.UserSecrets, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one source row on `ConfigSource` (key, rank, reload class, re-read capability, mount delegate); one reload-trigger is one named trigger value on the existing `ReloadReceipt` trigger band, never a new source axis; zero new surface.
 - Boundary: per-profile source selection and layering are computed from the resolved profile record at the composition root, never a second profile-keyed table here; the reload class is a CLAIM about the provider a row mounts, so `Compose` proves the pair before mounting — a `Transition` row over a snapshot provider promises a re-read the root's own `Reload()` structurally cannot deliver, and a `Frozen` row over a watching provider re-admits at runtime the material a running process pinned at boot, so the two-column agreement is a composition refusal rather than a comment; `HostDocument` is the row that proof caught — an `AddInMemoryCollection` snapshot cannot answer its declared `Transition` class, so the row mounts `HostDocumentSource`, whose provider re-invokes the layer's projection on `Load()` and raises its own reload token when the host signals a document change, which is also the one consumer the host-attach document-changed row owed; `ConfigLayer` is the boundary capsule — `HostDocument` carries the HostAttachPort doc-user-text projection and `HostDocumentWatch` the subscription the provider arms on it, `SecretsSource` carries the app-root-owned credential-store `IConfigurationSource`, RID-dispatched because no universal keychain exists (macOS the in-process Security.framework `SecItemCopyMatching` adapter, never a `/usr/bin/security` child process, so the read stays inside the host for parity with the launchd adapter; Linux, having no keychain, libsecret or `systemd-creds` or the file-backed `UserSecrets` store; Windows DPAPI Credential Manager), with the `Runtime/secrets#SECRET_LEASE` `SecretRuntime.Read` delegate acquiring through whichever store the RID selected so the suite carries one credential reader and never a second beside it, and the file-backed path resolving through `PathHelper.GetSecretsPathFromSecretsId` rather than a hand-built path, `ParentSnapshot` chains a companion onto its parent snapshot through `AddJsonStream` over the parent's serialized snapshot stream so an embedded or in-memory-stream layer mounts without a temp file, `UserSettingsPath` and `ContentRoot` arrive computed from the profile row; the inbox JSON provider parses JSONC (comments plus trailing commas) with zero added package; `ConfigurationKeyComparer` is the canonical path-segment order so a numeric array index sorts before a sibling string key; section paths travel as nameof-derived symbols, never call-site string literals; ambient `IConfiguration` reads past bootstrap are rejected; a key a package member resolves lands as a `ConfigKeys` row in the same change that lands the read, because a governance row binding a key no source publishes and a reader resolving a key no roster names fail the same way — silently, with a default standing in for a value nobody set — so the roster is the audit surface both ends prove against and a row is DELETED only when its reader is.
 
 ```csharp signature
-
+// --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<string>]
-[ValidationError<ConfigError>]
+[ValidationError]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class ReloadClass {
@@ -30,10 +30,9 @@ public sealed partial class ReloadClass {
     public static readonly ReloadClass Transition = new("transition");
 }
 
-// The rank-10 key roster: every key a package member resolves off the mounted chain, its owning section symbol,
-// and the class the reading member is entitled to. A row's `Reload` is the CONSUMER's entitlement rather than the
-// source's capability — `FeedBinding` binds `Frozen` because the update manager consumes its url once at
-// construction, so a re-read would move a value already captured and answer nothing.
+// --- [MODELS] -----------------------------------------------------------------------------
+// A row's `Reload` is the CONSUMER's entitlement rather than the source's capability — `FeedBinding` binds
+// `Frozen` because the update manager consumes its url once at construction, so a re-read moves a captured value.
 public sealed record ConfigKeyRow(string Section, string Name, ReloadClass Reload) {
     public string Path => $"{Section}:{Name}";
 }
@@ -58,8 +57,8 @@ public sealed record ConfigLayer(
     string ContentRoot,
     string ProfileKey,
     string UserSettingsPath,
-    string[] Args,
-    IReadOnlyDictionary<string, string> Switches,
+    Seq<string> Args,
+    FrozenDictionary<string, string> Switches,
     Assembly SecretsAnchor,
     Func<IEnumerable<KeyValuePair<string, string?>>> HostDocument,
     // The host-attach document-changed subscription the re-readable provider arms: the projection alone answers
@@ -96,12 +95,13 @@ public sealed record HostDocumentSource(ConfigLayer Layer) : IConfigurationSourc
 }
 
 [SmartEnum<string>]
-[ValidationError<ConfigError>]
+[ValidationError]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class ConfigSource {
     public const string EnvPrefix = "RASM_";
 
+    // --- [ROWS]
     public static readonly ConfigSource Json = new("json", rank: 10, reload: ReloadClass.Transition, rereads: true, MountJson);
     public static readonly ConfigSource UserSettings = new("user-settings", rank: 20, reload: ReloadClass.Transition, rereads: true, MountUserSettings);
     public static readonly ConfigSource HostDocument = new("host-document", rank: 30, reload: ReloadClass.Transition, rereads: true, MountHostDocument);
@@ -126,22 +126,23 @@ public sealed partial class ConfigSource {
     // The rank-ordered rows a reload actually re-reads. Every other row reached the process once at boot, so a
     // re-mount touching them would re-admit a secret, a CLI switch, or a seeded literal a running process pinned.
     public static Seq<ConfigSource> Transitional(params ReadOnlySpan<ConfigSource> sources) =>
-        toSeq(sources.ToArray().Where(static row => row.Reload == ReloadClass.Transition).OrderBy(static row => row.Rank));
+        Ranked(sources).Filter(static row => row.Reload == ReloadClass.Transition);
 
     // The class-versus-capability proof runs over the WHOLE supplied set before any mount, so a mismatched row
-    // refuses at composition rather than promising a reload behavior at runtime that nothing can deliver.
-    public static Fin<IConfigurationManager> Compose(IConfigurationManager manager, ConfigLayer layer, params ReadOnlySpan<ConfigSource> sources) {
-        var ranked = toSeq(sources.ToArray().OrderBy(static row => row.Rank));
-        return ranked.Filter(static row => (row.Reload == ReloadClass.Transition) != row.Rereads) is { IsEmpty: false } mismatched
-            ? Fin.Fail<IConfigurationManager>(new ConfigError.Aggregate(mismatched.Map(static row =>
-                (ConfigError)new ConfigError.SourceRejected(row.Key, $"reload={row.Reload.Key} rereads={row.Rereads}"))))
-            : Try.lift(() => ranked.Fold(
-                    layer.ParentSnapshot.Map(parent => ((IConfigurationBuilder)manager).AddConfiguration(parent)).IfNone(manager),
-                    (builder, row) => row.Mount(builder, layer)))
-                .Run()
-                .Map(_ => manager)
-                .MapFail(static error => ConfigError.Create(error.Message));
-    }
+    // refuses at composition rather than promising a reload behavior at runtime that nothing can deliver, and
+    // every mismatch names itself in one refusal rather than the first one aborting the audit.
+    public static Fin<IConfigurationManager> Compose(IConfigurationManager manager, ConfigLayer layer, params ReadOnlySpan<ConfigSource> sources) =>
+        Ranked(sources) switch {
+            var ranked => ranked.Filter(static row => (row.Reload == ReloadClass.Transition) != row.Rereads) is { IsEmpty: false } mismatched
+                ? Fin.Fail<IConfigurationManager>(Error.Many(mismatched.Map(static row =>
+                    (Error)new ConfigError.SourceRejected(row.Key, $"reload={row.Reload.Key} rereads={row.Rereads}"))))
+                : Op.Of().Catch(() => Fin.Succ(ranked.Fold(
+                        layer.ParentSnapshot.Map(parent => ((IConfigurationBuilder)manager).AddConfiguration(parent)).IfNone(manager),
+                        (builder, row) => row.Mount(builder, layer))))
+                    .Map(_ => manager),
+        };
+
+    static Seq<ConfigSource> Ranked(ReadOnlySpan<ConfigSource> sources) => toSeq(sources.ToArray()).OrderBy(static row => row.Rank).ToSeq();
 
     private static IConfigurationBuilder MountJson(IConfigurationBuilder builder, ConfigLayer layer) =>
         builder
@@ -167,79 +168,75 @@ public sealed partial class ConfigSource {
         builder.AddEnvironmentVariables(prefix: EnvPrefix);
 
     private static IConfigurationBuilder MountCli(IConfigurationBuilder builder, ConfigLayer layer) =>
-        builder.AddCommandLine(layer.Args, new Dictionary<string, string>(layer.Switches));
+        builder.AddCommandLine([.. layer.Args], layer.Switches.ToDictionary(StringComparer.Ordinal));
 }
 ```
 
 ## [03]-[TYPED_BINDING]
 
-- Owner: `PolicyBinding` static admission surface; `ConfigError` `[Union]` fault family on the doctrine `Expected` shape with the dual-tier `Create` contract.
-- Cases: Text, SourceRejected, SectionAbsent, BindRejected, Scalar, Invariant, Aggregate — codes derive through `FaultBand.Config` (the registry's one legal multi-decade stride), `Combine` folds independent faults into Aggregate.
-- Entry: `Bind<T>(IConfigurationRoot root, string section)` — `Validation<ConfigError,T>` accumulates; unknown keys fail closed through `ErrorOnUnknownConfiguration`.
+- Owner: `PolicyBinding` owns admission; `ConfigError` is the direct `[FaultCase]` family on `FaultBand.Config`.
+- Cases: `SourceRejected | SectionAbsent | BindRejected | Scalar | Invariant`; plural refusal uses LanguageExt `ManyErrors` on `Validation<Error,T>`.
+- Entry: `Bind<T>(IConfigurationRoot root, string section)` — `Validation<Error,T>` accumulates; unknown keys fail closed through `ErrorOnUnknownConfiguration`.
 - Packages: Microsoft.Extensions.Configuration.Binder, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one case on `ConfigError`; zero new surface.
-- Boundary: `EnableConfigurationBindingGenerator` is a required project property on every options-binding app package — the generator intercepts `Get<T>` and `Bind` call sites with reflection-free binding; policy records are constructor-bound immutable records and `BindNonPublicProperties` is rejected; temporal scalars parse through `InstantPattern.ExtendedIso` and `DurationPattern.Roundtrip`, never culture-ambient parse; the binder exception channel is the named capture seam folded through `Try.lift` into the rail.
+- Boundary: `EnableConfigurationBindingGenerator` is a required project property on every options-binding app package — the generator intercepts `Get<T>` and `Bind` call sites with reflection-free binding; policy records are constructor-bound immutable records and `BindNonPublicProperties` is rejected; temporal scalars parse through `InstantPattern.ExtendedIso` and `DurationPattern.Roundtrip`, never culture-ambient parse; the binder exception channel folds through `Op.Catch` without message reminting.
 
 ```csharp signature
-[Union]
-public abstract partial record ConfigError : Expected, IValidationError<ConfigError>, Semigroup<ConfigError> {
-    private ConfigError(string detail, int code) : base(detail, code, None) { }
+// --- [ERRORS] ---------------------------------------------------------------------------
+// no band read of its own.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ConfigError : Fault {
+    private static readonly FaultBand FamilyBand = FaultBand.Config;
+    private ConfigError(string detail) => Detail = detail;
+    public string Detail { get; }
+    public sealed override string Message => Detail;
 
-    public static ConfigError Create(string message) => new Text(message);
-
-    public sealed record Text : ConfigError { public Text(string detail) : base(detail, FaultBand.Config.Code(0)) { } }
-    public sealed record SourceRejected : ConfigError {
-        public SourceRejected(string source, string detail) : base($"{source}: {detail}", FaultBand.Config.Code(1)) => Source = source;
+    [FaultCase(0)]
+    public sealed partial record SourceRejected : ConfigError {
+        public SourceRejected(string source, string detail) : base($"{source}: {detail}") => Source = source;
         public string Source { get; }
     }
-    public sealed record SectionAbsent : ConfigError {
-        public SectionAbsent(string section) : base($"{section}: absent", FaultBand.Config.Code(2)) => Section = section;
+    [FaultCase(1)]
+    public sealed partial record SectionAbsent : ConfigError {
+        public SectionAbsent(string section) : base($"{section}: absent") => Section = section;
         public string Section { get; }
     }
-    public sealed record BindRejected : ConfigError {
-        public BindRejected(string section, string detail) : base($"{section}: {detail}", FaultBand.Config.Code(3)) => Section = section;
-        public string Section { get; }
-    }
-    public sealed record Scalar : ConfigError {
-        public Scalar(string key, string detail) : base($"{key}: {detail}", FaultBand.Config.Code(4)) => Key = key;
+    [FaultCase(2)]
+    public sealed partial record BindRejected(string Section, Error Cause)
+        : ConfigError($"{Section}: {Cause.Message}"), ICausedFault;
+    [FaultCase(3)]
+    public sealed partial record Scalar : ConfigError {
+        public Scalar(string key, string detail) : base($"{key}: {detail}") => Key = key;
         public string Key { get; }
     }
-    public sealed record Invariant : ConfigError {
-        public Invariant(string member, string detail) : base($"{member}: {detail}", FaultBand.Config.Code(5)) => Member = member;
+    [FaultCase(4)]
+    public sealed partial record Invariant : ConfigError {
+        public Invariant(string member, string detail) : base($"{member}: {detail}") => Member = member;
         public string Member { get; }
     }
-    public sealed record Aggregate : ConfigError {
-        public Aggregate(Seq<ConfigError> faults) : base($"{faults.Count} faults", FaultBand.Config.Code(99)) => Faults = faults;
-        public Seq<ConfigError> Faults { get; }
-    }
-
-    public ConfigError Combine(ConfigError rhs) => (this, rhs) switch {
-        (Aggregate l, Aggregate r) => new Aggregate(l.Faults + r.Faults),
-        (Aggregate l, _) => new Aggregate(l.Faults.Add(rhs)),
-        (_, Aggregate r) => new Aggregate(this.Cons(r.Faults)),
-        _ => new Aggregate(Seq(this, rhs)),
-    };
 }
 
+// --- [OPERATIONS] -------------------------------------------------------------------------
 public static class PolicyBinding {
-    public static Validation<ConfigError, T> Bind<T>(IConfigurationRoot root, string section) where T : notnull =>
-        Try.lift(() => Optional(root.GetSection(section).Get<T>(static binder => binder.ErrorOnUnknownConfiguration = true)))
-            .Run()
-            .Match(
-                Succ: present => present is { IsSome: true, Case: T bound }
-                    ? (Validation<ConfigError, T>)bound
-                    : new ConfigError.SectionAbsent(section),
-                Fail: error => (Validation<ConfigError, T>)new ConfigError.BindRejected(section, error.Message));
+    public static Validation<Error, T> Bind<T>(IConfigurationRoot root, string section) where T : notnull =>
+        Op.Of().Catch(() => Fin.Succ(Optional(
+                root.GetSection(section).Get<T>(static binder => binder.ErrorOnUnknownConfiguration = true))))
+            .MapFail(error => (Error)new ConfigError.BindRejected(section, error))
+            .Bind(configured => configured.ToFin((Error)new ConfigError.SectionAbsent(section)))
+            .ToValidation();
 
-    public static Validation<ConfigError, Instant> BindInstant(IConfigurationRoot root, string key) =>
-        InstantPattern.ExtendedIso.Parse(root.GetValue<string>(key) ?? string.Empty) is { Success: true } parsed
-            ? (Validation<ConfigError, Instant>)parsed.Value
-            : new ConfigError.Scalar(key, "instant text outside InstantPattern.ExtendedIso");
+    // The pattern is PINNED per temporal type rather than passed: the type is the discriminant and the pattern is
+    // the invariant, so a culture-ambient parser is unspellable at this seam instead of merely discouraged.
+    public static Validation<Error, Instant> BindInstant(IConfigurationRoot root, string key) =>
+        Admit(InstantPattern.ExtendedIso, root, key, nameof(InstantPattern.ExtendedIso));
 
-    public static Validation<ConfigError, Duration> BindDuration(IConfigurationRoot root, string key) =>
-        DurationPattern.Roundtrip.Parse(root.GetValue<string>(key) ?? string.Empty) is { Success: true } parsed
-            ? (Validation<ConfigError, Duration>)parsed.Value
-            : new ConfigError.Scalar(key, "duration text outside DurationPattern.Roundtrip");
+    public static Validation<Error, Duration> BindDuration(IConfigurationRoot root, string key) =>
+        Admit(DurationPattern.Roundtrip, root, key, nameof(DurationPattern.Roundtrip));
+
+    static Validation<Error, T> Admit<T>(IPattern<T> pattern, IConfigurationRoot root, string key, string named) =>
+        pattern.Parse(root.GetValue<string>(key) ?? string.Empty) is { Success: true } parsed
+            ? Success<Error, T>(parsed.Value)
+            : Fail<Error, T>(new ConfigError.Scalar(key, $"text outside {named}"));
 }
 ```
 
@@ -247,14 +244,15 @@ public static class PolicyBinding {
 
 - Owner: `OptionsAdmission` static registration surface; `ReloadGate` the per-section generation cell; `ReloadFold` the one coalescing reload entry every trigger reaches; `ReloadOutcome` `[Union]` carrying its own case-key projection; `ReloadReceipt` record.
 - Cases: Applied, Unchanged, RestartRequired, Rejected — Applied re-publishes frozen policy values, Unchanged records a no-diff publish, RestartRequired is the frozen-row path, Rejected carries the `ConfigError` of a failed re-validation while the prior values stay live.
-- Entry: `Admit<T>(IServiceCollection services, string section)` — composition registration; `ReloadFold.Fire(ReloadGate gate, IConfigurationRoot root, string section, ReloadClass reload, string trigger, ...)` is the ONE reload entry the monitor fan, the signal route, the control verb, and the patch route all reach, returning `Option<ReloadReceipt>` so a redundant fire leaves nothing behind; `Refine` accumulates on `Validation<ConfigError,T>` against the active rule set, `Sweep` aborts on `Fin<Unit>`.
-- Auto: generated `[OptionsValidator]` validators with `[ValidateObjectMembers]` and `[ValidateEnumeratedItems]` own structural validation; `ValidateOnStart` plus the `IStartupValidator` sweep prove every registered policy record before ready; `PostConfigure` derives a dependent policy value after binding, and `Invalidate` is the one polymorphic cache cut — a named entry routes to `IOptionsMonitorCache.TryRemove`, an absent name routes to `Clear` so the whole set re-binds, never two named operations; the provider fan collapses at `ReloadGate` before any receipt mints, because one measured `IConfigurationRoot.Reload()` over the landed source shape fires the root token three times and the per-name `OnChange` callbacks six — `FileConfigurationProvider.Load` ends with an unconditional `OnReload()` so every mounted file provider raises beside the explicit change, and `OnChange` fires once per registered options name per root fire — so a one-outcome-per-signal claim without a gate is a claim the platform contradicts by construction.
+- Entry: `Admit<T>(IServiceCollection services, string section)` — composition registration; `ReloadFold.Fire(ReloadGate gate, IConfigurationRoot root, string section, ReloadClass reload, string trigger, ...)` is the ONE reload entry the monitor fan, the signal route, the control verb, and the patch route all reach, returning `Option<ReloadReceipt>` so a redundant fire leaves nothing behind; `Refine` accumulates on `Validation<Error,T>` against the active rule set, `Sweep` aborts on `Fin<Unit>`.
+- Auto: generated `[OptionsValidator]` validators with `[ValidateObjectMembers]` and `[ValidateEnumeratedItems]` own structural validation; `ValidateOnStart` plus the `IStartupValidator` sweep prove every registered policy record before ready; `PostConfigure` derives a dependent policy value after binding, and `Invalidate` is the one polymorphic cache cut — a named entry routes to `IOptionsMonitorCache.TryRemove`, an absent name routes to `Clear` so the whole set re-binds, never two named operations; a section's generation is the kernel `CanonicalWriter.Sorted` fold over its own admitted pairs — the writer publishes the `ConfigurationKeyComparer` order, so no caller sorts beside it, and `Optional` presence-frames an unset value so an absent key never aliases an empty one; the provider fan collapses at `ReloadGate` before any receipt mints, because one measured `IConfigurationRoot.Reload()` over the landed source shape fires the root token three times and the per-name `OnChange` callbacks six — `FileConfigurationProvider.Load` ends with an unconditional `OnReload()` so every mounted file provider raises beside the explicit change, and `OnChange` fires once per registered options name per root fire — so a one-outcome-per-signal claim without a gate is a claim the platform contradicts by construction.
 - Receipt: `ReloadReceipt` — section, reload class, trigger, outcome, `Instant`, correlation id — minted at `ReloadFold.Fire` alone, so one operator edit yields one receipt whatever the provider and monitor fans beneath it did.
-- Packages: Rasm (kernel `ContentHash.Of`), Microsoft.Extensions.Options, Microsoft.AspNetCore.JsonPatch.SystemTextJson, FluentValidation, NodaTime, LanguageExt.Core
+- Packages: Rasm (kernel `ContentHash.Of` with `CanonicalWriter.Sorted`/`Optional`), Microsoft.Extensions.Options, Microsoft.AspNetCore.JsonPatch.SystemTextJson, FluentValidation, NodaTime, LanguageExt.Core
 - Growth: one case on `ReloadOutcome`; one reload trigger is one const on `ReloadReceipt` reaching the one `ReloadFold.Fire` entry, never a second reload path; one config-boundary variant is one rule-set name through `IncludeRuleSets`, never a second validator; a new per-tenant policy override is one `Overlay` named-options registration keyed by `TenantContext.Slug`, never a second options surface; a structured partial config edit is one RFC-6902 `application/json-patch+json` document folded through `PatchSection` onto the same `ReloadOutcome` transition under `ReloadReceipt.PatchTrigger`, never a second mutation path; zero new surface.
-- Boundary: every options registration carries its `ReloadClass` row — frozen rows re-publish only through process restart and `RestartRequired` is that named path; interior code receives frozen records read once at ready, never `IOptions` handles, and per-call-site `OnChange` callbacks are rejected; `Observe` subscriptions return disposable detachers composed LIFO by the lifecycle owner; the POSIX `SIGHUP` route and the ControlService reload-options verb enqueue the same `ReloadOutcome` transition under `SignalTrigger` and `ControlTrigger`, and both reach it through `ReloadFold.Fire` so the fan below them collapses before a receipt exists; `SIGHUP` is registered on every RID rather than Unix alone, because `PosixSignal.SIGHUP` carries no `[UnsupportedOSPlatform]` and the runtime maps it to the Windows console-close event — the registration SUCCEEDS there and silently hijacks console close, so a Windows host takes an explicit platform gate at the registration site and reload arrives through `ControlTrigger`, where the deleted clause claimed the registration was simply unavailable and left the hijack unguarded; the SIGHUP handler dispatches on the ThreadPool rather than the dedicated signal thread SIGINT, SIGQUIT, and SIGTERM get, and a service manager applies its start timeout to a reload window, so a saturated pool is a reload that never completes with stale configuration still live — the fold therefore hands the manager's reload bracket its own outcome rather than parking inside the handler; cross-process reload propagation rides the op-log HLC cursor; named options key by smart-enum keys; FluentValidation owns cross-field invariants behind `Refine`, where the active rule set is itself a policy value admitted through `ValidationContext.CreateWithOptions` and `IncludeRuleSets` so a boundary variant runs its own rule subset, `When`/`Unless` gate a rule on a sibling-member predicate, `DependentRules` chains a rule block that runs only after its predecessors pass, and `ChildRules` validates an inline nested member graph without a second `IValidator` type, so a relational invariant across two policy fields is one rule expression rather than a hand-rolled post-bind check; `PolymorphicValidator` and `SetInheritanceValidator` route subtype policy records to their own graph, `WithState` carries a constructed `ConfigError` straight off the failure so `Refine` reads the typed fault before falling back to a `WithErrorCode`/`WithSeverity` code the `FaultBand.Config` registry row owns, and the flat `ToDictionary` re-derivation is the deleted form; a monitor-cache invalidation becomes a typed runtime transition through the polymorphic `Invalidate` over `TryRemove` and `Clear`, never an ambient re-read; `BindConfiguration(section, configureBinder)` rides `OptionsBuilderConfigurationExtensions` from Microsoft.Extensions.Options.ConfigurationExtensions, a lock-pinned transitive of the hosting closure, never a direct project asset; a per-tenant policy override is a named-options registration keyed by `TenantContext.Slug` through `Overlay` — the named instance binds the tenant overlay section `{section}:tenants:{slug}` over the base section so `IOptionsMonitor.Get(slug)` reads the tenant-overlaid record while the default name carries the single-tenant `Root` value, never a parallel tenant-config table, and the overlay change rides the same `ReloadClass.Transition` reload as the base section; a structured operator config edit arrives as an RFC-6902 `application/json-patch+json` document the `PatchSection` route applies to a CLONE of the live `{section}` `JsonObject` projection through the package's own `JsonPatchDocument.ApplyTo(JsonObject, logErrorAction)` over the `JsonObjectAdapter` — the `logErrorAction` delegate is the named capture seam folding each `JsonPatchError` into a `ConfigError.BindRejected` so a bad op-path lands the `ReloadOutcome.Rejected` carrying the typed fault while both the published values and the live projection stay untouched, and only an admitted candidate leaves the member for the caller to swap in, the candidate re-admitting through the section-keyed `revalidate` closure the composition root registers per section — itself the composed `PolicyBinding.Bind<T>` + `Refine` for that section's policy type, so the patch route never names `T` at the verb seam and a patch that breaks an invariant never publishes — the whole apply gates on the section's `ReloadClass` so a `Frozen` section answers `RestartRequired` and only a `Transition` section re-publishes, and the transition stamps `ReloadReceipt.PatchTrigger` distinguishing it from the monitor, signal, and control triggers — a hand-rolled RFC-6902 operation dispatch and a Newtonsoft `JsonPatchDocument` are the deleted forms, the package owns the `op`/`path`/`from`/`value` operation model and the `Test`-op precondition assertion that fails the whole patch before any mutation lands.
+- Boundary: every options registration carries its `ReloadClass` row — frozen rows re-publish only through process restart and `RestartRequired` is that named path; interior code receives frozen records read once at ready, never `IOptions` handles, and per-call-site `OnChange` callbacks are rejected; `Observe` subscriptions return disposable detachers composed LIFO by the lifecycle owner; the POSIX `SIGHUP` route and the ControlService reload-options verb enqueue the same `ReloadOutcome` transition under `SignalTrigger` and `ControlTrigger`, and both reach it through `ReloadFold.Fire` so the fan below them collapses before a receipt exists; `SIGHUP` is registered on every RID rather than Unix alone, because `PosixSignal.SIGHUP` carries no `[UnsupportedOSPlatform]` and the runtime maps it to the Windows console-close event — the registration SUCCEEDS there and silently hijacks console close, so a Windows host takes an explicit platform gate at the registration site and reload arrives through `ControlTrigger`, where the deleted clause claimed the registration was simply unavailable and left the hijack unguarded; the SIGHUP handler dispatches on the ThreadPool rather than the dedicated signal thread SIGINT, SIGQUIT, and SIGTERM get, and a service manager applies its start timeout to a reload window, so a saturated pool is a reload that never completes with stale configuration still live — the fold therefore hands the manager's reload bracket its own outcome rather than parking inside the handler; cross-process reload propagation rides the op-log HLC cursor; named options key by smart-enum keys; FluentValidation owns cross-field invariants behind `Refine`, where the active rule set is itself a policy value admitted through `ValidationContext.CreateWithOptions` and `IncludeRuleSets` so a boundary variant runs its own rule subset, `When`/`Unless` gate a rule on a sibling-member predicate, `DependentRules` chains a rule block that runs only after its predecessors pass, and `ChildRules` validates an inline nested member graph without a second `IValidator` type, so a relational invariant across two policy fields is one rule expression rather than a hand-rolled post-bind check; `PolymorphicValidator` and `SetInheritanceValidator` route subtype policy records to their own graph, `WithState` carries a constructed `ConfigError` straight off the failure so `Refine` reads the typed fault before falling back to a `WithErrorCode`/`WithSeverity` code the `FaultBand.Config` registry row owns, and the flat `ToDictionary` re-derivation is the deleted form; a monitor-cache invalidation becomes a typed runtime transition through the polymorphic `Invalidate` over `TryRemove` and `Clear`, never an ambient re-read; `BindConfiguration(section, configureBinder)` rides `OptionsBuilderConfigurationExtensions` from Microsoft.Extensions.Options.ConfigurationExtensions, a lock-pinned transitive of the hosting closure, never a direct project asset; a per-tenant policy override is a named-options registration keyed by `TenantContext.Slug` through `Overlay` — the named instance binds the tenant overlay section `{section}:tenants:{slug}` over the base section so `IOptionsMonitor.Get(slug)` reads the tenant-overlaid record while the default name carries the single-tenant `Root` value, never a parallel tenant-config table, and the overlay change rides the same `ReloadClass.Transition` reload as the base section; a structured operator config edit arrives as an RFC-6902 `application/json-patch+json` document the `PatchSection` route applies to a CLONE of the live `{section}` `JsonObject` projection through the package's own `JsonPatchDocument.ApplyTo(JsonObject, logErrorAction)` over the `JsonObjectAdapter` — the `logErrorAction` delegate is the named capture seam folding each cause-less `JsonPatchError` into `ConfigError.Invariant`, while a foreign bind failure enters `ConfigError.BindRejected` with its exact `Error` cause; only an admitted candidate leaves the member for the caller to swap in, the candidate re-admitting through the section-keyed `revalidate` closure the composition root registers per section — itself the composed `PolicyBinding.Bind<T>` + `Refine` for that section's policy type, so the patch route never names `T` at the verb seam and a patch that breaks an invariant never publishes — the whole apply gates on the section's `ReloadClass` so a `Frozen` section answers `RestartRequired` and only a `Transition` section re-publishes, and the transition stamps `ReloadReceipt.PatchTrigger` distinguishing it from the monitor, signal, and control triggers — a hand-rolled RFC-6902 operation dispatch and a Newtonsoft `JsonPatchDocument` are the deleted forms, the package owns the `op`/`path`/`from`/`value` operation model and the `Test`-op precondition assertion that fails the whole patch before any mutation lands.
 
 ```csharp signature
+// --- [TYPES] ------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ReloadOutcome {
     private ReloadOutcome() { }
@@ -274,6 +272,7 @@ public abstract partial record ReloadOutcome {
         rejected: nameof(Rejected));
 }
 
+// --- [MODELS] -----------------------------------------------------------------------------
 public sealed record ReloadReceipt(
     string Section,
     ReloadClass Class,
@@ -293,16 +292,17 @@ public sealed record ReloadReceipt(
 public sealed record ReloadGate(Atom<HashMap<string, UInt128>> Published) {
     public static ReloadGate Live() => new(Atom(HashMap<string, UInt128>()));
 
-    // A section's generation is the ordered digest of its own admitted key-value pairs under the one
-    // `Runtime/determinism#DETERMINISM_KERNEL` preimage emitter, so two branches of the fan carrying one edit
-    // derive one value and a real edit derives a new one. Ordering is `ConfigurationKeyComparer`, the same
-    // path-segment order the chain itself resolves keys under, so a rehash never re-generations a section.
+    // `Sorted` is the kernel writer's own owner-published order, so `ConfigurationKeyComparer` — the same
+    // path-segment order the chain resolves keys under — travels INTO the preimage rather than beside it; a
+    // caller sorting next to the writer desyncs the moment a second reader forgets (`DIGEST_OVER_UNORDERED_CONTAINER`).
+    // `Optional` presence-frames an unset value, so an absent key and a key set to the empty string key apart.
     public static UInt128 Generation(IConfigurationRoot root, string section) =>
         ContentHash.Of(
-            toSeq(root.GetSection(section).AsEnumerable(makePathsRelative: true)
-                .OrderBy(static row => row.Key, ConfigurationKeyComparer.Instance)),
-            static (rows, hash) => hash.Rows(rows, static (row, inner) =>
-                inner.Field(row.Key).Field(row.Value ?? string.Empty)));
+            toSeq(root.GetSection(section).AsEnumerable(makePathsRelative: true)),
+            static (rows, writer) => writer.Sorted(
+                rows, static row => row.Key, ConfigurationKeyComparer.Instance,
+                static (row, inner) => inner.String(row.Key)
+                    .Optional(Optional(row.Value), static (text, framed) => framed.String(text))));
 
     // Exemption: the CAS-retry body writes the captured local, the same carve-out `Lifecycle.Transition` names —
     // the verdict cannot ride the swapped value, because an admitted generation and a rejected one publish the
@@ -319,6 +319,7 @@ public sealed record ReloadGate(Atom<HashMap<string, UInt128>> Published) {
     }
 }
 
+// --- [OPERATIONS] -------------------------------------------------------------------------
 // The ONE reload entry. Every trigger — the options-monitor fan, the SIGHUP route, the control verb, the patch
 // route — fires here and leaves with at most one receipt, so the six callbacks one edit produces are six calls
 // and one outcome. A frozen section answers `RestartRequired` on the FIRST fire and folds away after, so an
@@ -351,24 +352,22 @@ public static class OptionsAdmission {
             .BindConfiguration($"{section}:tenants:{tenant.Slug}", static binder => binder.ErrorOnUnknownConfiguration = true)
             .ValidateOnStart();
 
-    public static Validation<ConfigError, T> Refine<T>(T policy, IValidator<T> validator, Option<Seq<string>> ruleSets = default) where T : notnull =>
+    public static Validation<Error, T> Refine<T>(T policy, IValidator<T> validator, Option<Seq<string>> ruleSets = default) where T : notnull =>
         (ruleSets.Case is Seq<string> sets
                 ? validator.Validate(ValidationContext<T>.CreateWithOptions(policy, options => options.IncludeRuleSets([.. sets])))
                 : validator.Validate(policy))
             .Errors.AsIterable()
             .Map(static failure => failure.CustomState is ConfigError carried
-                ? carried
-                : failure.ErrorCode is { Length: > 0 } code && int.TryParse(code, out var coded) && FaultBand.OwnerOf(coded).Exists(static band => band == FaultBand.Config)
-                    ? (ConfigError)new ConfigError.Scalar(failure.PropertyName, failure.ErrorMessage)
+                ? (Error)carried
+                : failure.ErrorCode is { Length: > 0 } code && int.TryParse(code, out var coded) && FaultBand.OwnerOf(kind: BandKind.Fault, code: coded).Exists(static band => band == FaultBand.Config)
+
+                    ? (Error)new ConfigError.Scalar(failure.PropertyName, failure.ErrorMessage)
                     : new ConfigError.Invariant(failure.PropertyName, failure.ErrorMessage))
             .ToSeq() is { IsEmpty: false } faults
-            ? new ConfigError.Aggregate(faults)
-            : (Validation<ConfigError, T>)policy;
+            ? Error.Many(faults)
+            : (Validation<Error, T>)policy;
 
-    public static Fin<Unit> Sweep(IStartupValidator validator) =>
-        Try.lift(fun(validator.Validate))
-            .Run()
-            .MapFail(static error => ConfigError.Create(error.Message));
+    public static Fin<Unit> Sweep(IStartupValidator validator) => Op.Of().Catch(validator.Validate);
 
     public static Unit Invalidate<T>(IOptionsMonitorCache<T> cache, Option<string> name = default) where T : class =>
         name.Case is string named ? ignore(cache.TryRemove(named)) : (cache.Clear(), unit).Item2;
@@ -377,23 +376,23 @@ public static class OptionsAdmission {
     // re-validation leaves the live projection byte-identical. Applying in place and rolling nothing back was the
     // deleted form: the published options survived, but the JsonObject the NEXT patch reads carried the rejected
     // operations, so a second patch composed on top of a document no gate ever admitted.
-    public static Validation<ConfigError, (JsonObject Admitted, ReloadOutcome Outcome)> PatchSection(JsonObject live, string section, ReloadClass reload, JsonPatchDocument patch, Func<JsonObject, Validation<ConfigError, Unit>> revalidate) =>
+    public static Validation<Error, (JsonObject Admitted, ReloadOutcome Outcome)> PatchSection(JsonObject live, string section, ReloadClass reload, JsonPatchDocument patch, Func<JsonObject, Validation<Error, Unit>> revalidate) =>
         reload == ReloadClass.Frozen
             ? (live, (ReloadOutcome)new ReloadOutcome.RestartRequired(section))
-            : Try.lift(() => {
+            : Op.Of().Catch(() => {
                     // Exemption: `ApplyTo`'s error channel is a caller-supplied `Action<JsonPatchError>`, so the
                     // sink is the platform-forced accumulator; it is frozen once and never read while growing.
                     var faults = new List<ConfigError>();
                     var candidate = live.DeepClone().AsObject();
-                    patch.ApplyTo(candidate, error => faults.Add(new ConfigError.BindRejected(error.Operation?.path ?? section, error.ErrorMessage)));
-                    return (Candidate: candidate, Faults: toSeq(faults));
+                    patch.ApplyTo(candidate, error => faults.Add(new ConfigError.Invariant(
+                        error.Operation?.path ?? section, error.ErrorMessage)));
+                    return Fin.Succ((Candidate: candidate, Faults: toSeq(faults)));
                 })
-                .Run()
                 .Match(
                     Succ: applied => applied.Faults is { IsEmpty: false } ops
-                        ? (Validation<ConfigError, (JsonObject, ReloadOutcome)>)new ConfigError.Aggregate(ops)
+                        ? (Validation<Error, (JsonObject, ReloadOutcome)>)Error.Many(ops.Map(static fault => (Error)fault))
                         : revalidate(applied.Candidate).Map(_ => (applied.Candidate, (ReloadOutcome)new ReloadOutcome.Applied(section))),
-                    Fail: error => (Validation<ConfigError, (JsonObject, ReloadOutcome)>)new ConfigError.BindRejected(section, error.Message));
+                    Fail: error => Fail<Error, (JsonObject, ReloadOutcome)>(error));
 
     // The monitor's fan is the loudest of the four — one edit reaches here once per registered options NAME per
     // root fire — so the subscription mints no receipt of its own and hands every fire to the gate. Detachment
@@ -411,37 +410,45 @@ public static class OptionsAdmission {
 ## [05]-[KILL_SWITCH]
 
 - Owner: `KillSwitchConfig` config row record; `OperatorOverride` `[Union]` forcing family.
-- Cases: ForceLevel, ForceFlagsOff, Release — ForceLevel carries a degradation row key as text, ForceFlagsOff carries the forced-off flag-key set the `Runtime/features#KILL_SWITCH_FOLD` `ForcesOff` predicate reads, Release withdraws the force.
+- Cases: ForceLevel, ForceFlagsOff, Release — ForceLevel carries a degradation row key as text, ForceFlagsOff carries the forced-off flag-key set the `Runtime/features#KILL_SWITCH_FOLD` `ForcesOff` predicate reads, Release withdraws the force; each carries `Option<string> Reason`, so an operator who gave none is distinguishable from one who typed an empty line.
 - Entry: `From(KillSwitchConfig row, Instant at)` — total projection from the bound row into the forcing family.
 - Packages: Microsoft.Extensions.Configuration.Binder, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one case on `OperatorOverride`; zero new surface — the degradation fold and the features kill-switch fold each read their owning case and ignore the sibling's.
-- Boundary: `KillSwitchConfig` binds at the `Section` symbol as a `ReloadClass.Transition` row, so an operator flip lands without restart; forced beats derived and Release re-derives inside the health-and-degradation fold, which also admits `Level` against the `DegradationLevel` row keys; the ControlService set-degradation verb is the service-modality wire route into the same union; the keyed manual breaker control on hops is the enforcement consequence at the hop registry.
+- Boundary: `KillSwitchConfig` is the binder's own nullable target and `From` its ONE reader, so every nullable admits at that boundary and the forcing family carries `Option` alone — an empty-string reason standing in for an absent one is the deleted form; the row binds at the `Section` symbol as a `ReloadClass.Transition` row, so an operator flip lands without restart; forced beats derived and Release re-derives inside the health-and-degradation fold, which also admits `Level` against the `DegradationLevel` row keys; the ControlService set-degradation verb is the service-modality wire route into the same union; the keyed manual breaker control on hops is the enforcement consequence at the hop registry.
 
 ```csharp signature
+// --- [BOUNDARIES] -------------------------------------------------------------------------
+// The binder's own target shape, and the ONE place a `null` config slot is legal: `From` is its single reader
+// and admits every column into the union below, so no nullable crosses into the forcing family.
 public sealed record KillSwitchConfig(string? ForcedLevel, string? ForcedFlagsOff, string? Reason) {
     public const string Section = nameof(KillSwitchConfig);
 }
 
+// --- [TYPES] ------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record OperatorOverride {
     private OperatorOverride() { }
 
-    public sealed record ForceLevel(string Level, string Reason, Instant At) : OperatorOverride;
-    public sealed record ForceFlagsOff(FrozenSet<string> Flags, string Reason, Instant At) : OperatorOverride;
-    public sealed record Release(string Reason, Instant At) : OperatorOverride;
+    public sealed record ForceLevel(string Level, Option<string> Reason, Instant At) : OperatorOverride;
+    public sealed record ForceFlagsOff(FrozenSet<string> Flags, Option<string> Reason, Instant At) : OperatorOverride;
+    public sealed record Release(Option<string> Reason, Instant At) : OperatorOverride;
 
     // The features KILL_SWITCH_FOLD predicate: only the flag-forcing case answers true, so the
     // degradation fold and the flag fold read one union without inspecting each other's cases.
     public bool ForcesOff(string flag) => this is ForceFlagsOff f && f.Flags.Contains(flag);
 
+    // An unstated reason is ABSENT, never an empty string: an operator who gave no reason and one who typed
+    // nothing read alike under the deleted `?? string.Empty`, and the audit line cannot tell them apart after.
     public static OperatorOverride From(KillSwitchConfig row, Instant at) =>
-        row.ForcedLevel is { Length: > 0 } level
-            ? new ForceLevel(Level: level, Reason: row.Reason ?? string.Empty, At: at)
-        : row.ForcedFlagsOff is { Length: > 0 } flags
-            ? new ForceFlagsOff(
-                flags.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToFrozenSet(StringComparer.Ordinal),
-                row.Reason ?? string.Empty, At: at)
-            : new Release(Reason: row.Reason ?? string.Empty, At: at);
+        Optional(row.Reason).Filter(static text => !string.IsNullOrWhiteSpace(text)) switch {
+            var reason => row.ForcedLevel is { Length: > 0 } level
+                ? new ForceLevel(Level: level, Reason: reason, At: at)
+            : row.ForcedFlagsOff is { Length: > 0 } flags
+                ? new ForceFlagsOff(
+                    flags.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToFrozenSet(StringComparer.Ordinal),
+                    reason, At: at)
+                : new Release(Reason: reason, At: at),
+        };
 }
 ```
 

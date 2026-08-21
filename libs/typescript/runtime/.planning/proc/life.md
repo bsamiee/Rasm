@@ -85,23 +85,38 @@ class _Receipt extends Schema.Class<_Receipt>('Life/Receipt')({
     landed: Schema.Literal(..._PHASES),
 }) {}
 
+const _LEG = 'registry';
+
 // Both reasons are one refusal shape — a contribution arriving after its phase closed — so both carry `invalid`:
-// caller-blamed and terminal, since re-driving a late registration against a draining graph cannot succeed. The
-// class projects off the roster rather than standing as a field, so the branch taxonomy has one owner.
+// caller-blamed and terminal, since re-driving a late registration against a draining graph cannot succeed. Both sit
+// on one leg because one semaphore and one cell refuse both, and each row renders the phase it closed against, so the
+// class, the surface, and the message all project off the roster rather than standing as fields an instance can
+// contradict.
+const _Closed = Schema.Struct({ phase: Schema.Literal(..._PHASES) });
+
 const _life = Fault.Class.family(['probe', 'register'] as const, {
-    probe: { class: 'invalid' },
-    register: { class: 'invalid' },
+    probe: Fault.Class.row({
+        class: 'invalid',
+        leg: _LEG,
+        detail: _Closed,
+        render: ({ phase }) => `a probe row offered in phase ${phase}, which admits no registration`,
+    }),
+    register: Fault.Class.row({
+        class: 'invalid',
+        leg: _LEG,
+        detail: _Closed,
+        render: ({ phase }) => `a drain step offered in phase ${phase}, which admits no registration`,
+    }),
 });
 
 class LifeFault extends Schema.TaggedError<LifeFault>()('LifeFault', {
-    operation: _life.schema,
-    phase: Schema.Literal(..._PHASES),
+    case: _life.payload,
 }) {
     get class(): Fault.Class.Kind {
-        return _life.classOf(this.operation);
+        return _life.classOf(this.case.reason);
     }
     override get message(): string {
-        return `<${this.operation}> refused in phase ${this.phase}`;
+        return _life.render(this.case);
     }
 }
 
@@ -310,7 +325,7 @@ class Life extends Effect.Service<Life>()('runtime/Life', {
                 gate.withPermits(1)(
                     Effect.flatMap(cell.get, (held) =>
                         held === 'draining' || held === 'halted'
-                            ? Effect.fail(new LifeFault({ operation: 'register', phase: held }))
+                            ? Effect.fail(new LifeFault({ case: { reason: 'register', phase: held } }))
                             : Ref.update(steps, Chunk.append(step)),
                     ),
                 ),
@@ -318,7 +333,7 @@ class Life extends Effect.Service<Life>()('runtime/Life', {
                 gate.withPermits(1)(
                     Effect.flatMap(cell.get, (held) =>
                         held === 'draining' || held === 'halted'
-                            ? Effect.fail(new LifeFault({ operation: 'probe', phase: held }))
+                            ? Effect.fail(new LifeFault({ case: { reason: 'probe', phase: held } }))
                             : Ref.update(probes, Chunk.append(row)),
                     ),
                 ),

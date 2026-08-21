@@ -2,7 +2,7 @@
 
 `Format` owns the branch's encoding engines. One defect-normalizing transform lifts every third-party decoder onto the typed `ParseError` rail, four arms — protobuf, CBOR, MessagePack, JSON — publish bounded complete-payload codecs, the closed RFC 6902 algebra applies patches prototype-safely, and the announced-fact media roster names which arm renders each event format. Module `core/src/interchange/format.ts` admits an encoding as one arm row, a descriptor family as one `_suite` key, a MessagePack extension as one type-byte registration, and an event format as one media row.
 
-`Format` composes the `value` floor's `Shape` and `Clock.Hlc` beside the generated `interchange_pb.ts` and `cloudevents_pb.ts` descriptors, and hands `interchange/codec` the arm rows that select a family's codec, name its contract-compatibility token, and render a quarantined frame. Every engine and ceiling configures once at module initialization, so an ingress arms its bounds before the first untrusted byte.
+`Format` composes the `value` floor's `Shape`, `Clock.Hlc`, and `Fault.Class` beside the descriptor modules the root `buf.gen.yaml` emits, and hands `interchange/codec` the arm rows that select a family's codec, name its contract-compatibility token, and render a quarantined frame. Every engine and ceiling configures once at module initialization, so an ingress arms its bounds before the first untrusted byte.
 
 ## [01]-[INDEX]
 
@@ -13,7 +13,7 @@
 - [06]-[JSONPATCH_ENGINE]: typed operations and prototype-safe rooted application; `Format.Patch`.
 - [07]-[JSON_ENGINE]: bounded UTF-8 JSON and refused-octet rendering; `Format.json`.
 - [08]-[ARM_ROWS]: fits, admit, compatibility, self-description, render, and degrade per arm; `Format.arms`.
-- [09]-[EVENT_FORMAT]: announced-fact media rows, batch message envelopes, prefix framing, and batch encode; `Format.event`.
+- [09]-[EVENT_FORMAT]: announced-fact media rows, prefix framing, the demand vocabulary, and the one seat-discriminated gate; `Format.event`.
 
 ## [02]-[ENGINE_FOLD]
 
@@ -23,7 +23,7 @@
 - Packages: `effect` (`Schema`, `ParseResult`, `Either`).
 
 ```typescript signature
-import { Array, Effect, Either, Match, Option, ParseResult, Schema, type Types } from "effect"
+import { Array, Data, Effect, Either, HashSet, Match, Option, ParseResult, Schema, type Types } from "effect"
 
 const _Octets = Schema.Uint8ArrayFromSelf.pipe(
   Schema.filter((octets) => octets.byteLength <= Shape.Ingress.floor.bytes, {
@@ -57,7 +57,11 @@ const _lifted = (
 - Law: generated descriptors enter through `_suite`; no handwritten peer schema or second registry exists.
 - Law: `_suite` keys transcribe declared message names verbatim; a family owning no descriptor source rides a `codec` arm.
 - Law: `_suite` and `registry` hold estate-declared families alone; a foreign publisher's descriptor reaches `frame`/`family` as an argument, so the CloudEvents generation never enters this registry.
-- Packages: `@bufbuild/protobuf`; `effect`; `../value/schema.ts`; generated `./interchange_pb.ts`.
+- Law: the root `buf.gen.yaml` `protoc-gen-es` row is the ONE producer of every symbol `_suite` binds; `nx run workspace-foundation:proto` is its runnable entry, cached on corpus and template and restored before `typecheck`.
+- Law: the plugin Renders one `_pb.ts` per source at the module-relative path, so a family binds through the module its own `.proto` declares.
+- Law: no barrel stands between; an aggregate re-export would be a forwarding shell whose roster drifts off the one the generator emits.
+- Law: regeneration triggers on a moved `rasm.<family>.v1` source under `tests/contracts/rasm/`, or a `@bufbuild/protoc-gen-es` version or option change; every emitted file's own header stamps both, so a stale tree announces its own drift.
+- Packages: `@bufbuild/protobuf`; `effect`; `../value/schema.ts`; the generated `./gen/rasm/<family>/v1/<family>_pb.ts` modules.
 
 ```typescript signature
 import {
@@ -71,7 +75,10 @@ import {
   toJsonString,
 } from "@bufbuild/protobuf"
 import { Shape } from "../value/schema.ts"
-import * as pb from "./interchange_pb.ts"
+import * as channels from "./gen/rasm/channels/v1/channels_pb.ts"
+import * as compute from "./gen/rasm/compute/v1/compute_pb.ts"
+import * as element from "./gen/rasm/element/v1/element_pb.ts"
+import * as organization from "./gen/rasm/organization/v1/organization_pb.ts"
 
 const _READ = { readUnknownFields: true, recursionLimit: 24 } as const
 const _WRITE = { writeUnknownFields: true } as const
@@ -86,8 +93,12 @@ const _frame = (gen: DescMessage): Schema.Schema<Message, Uint8Array> =>
 
 // Keys TRANSCRIBE descriptor names verbatim — a key is the message a `.proto` declares and its value the generated
 // `<Name>Schema` protoc-gen-es derives from that same name — so the corpus mints every spelling and this registry
-// re-spells none. Rows group by declaring source: element the graph snapshots and their node and edge payloads,
-// channels the texture families, compute the suite service vocabulary, organization the containment message.
+// re-spells none. The generator Renders one module per source, so the QUALIFIER on each value below is the declaring
+// source and the grouping is the import graph rather than a comment claiming one: element the graph snapshots and
+// their node and edge payloads, channels the texture families, compute the suite service vocabulary, organization the
+// containment message. `rasm.scene.v1` generates beside them and binds no key, because this branch decodes no
+// captured-scene family — an inert emission the whole-module run costs, where a path-filtered run would instead cost a
+// SOURCE the day a roster reaches one.
 // Compute's messages carry NO `Wire` suffix while element's carry it on every message, because that suffix breaks a
 // COLLISION rather than marking a projection — element seats a wire type beside a domain twin per message, where
 // nothing co-resident with compute's collides. `AssetSetManifest` reads unsuffixed for that one reason.
@@ -106,16 +117,16 @@ const _names = [
 ] as const
 
 const _suite = {
-  ElementGraphWire: pb.ElementGraphWireSchema,
-  GraphDeltaWire: pb.GraphDeltaWireSchema,
-  NodeWire: pb.NodeWireSchema,
-  RelationshipWire: pb.RelationshipWireSchema,
-  TextureSetWire: pb.TextureSetWireSchema,
-  AssetSetManifest: pb.AssetSetManifestSchema,
-  FaultDetail: pb.FaultDetailSchema,
-  ArtifactFrame: pb.ArtifactFrameSchema,
-  GeometryPayload: pb.GeometryPayloadSchema,
-  OrganizationWire: pb.OrganizationWireSchema,
+  ElementGraphWire: element.ElementGraphWireSchema,
+  GraphDeltaWire: element.GraphDeltaWireSchema,
+  NodeWire: element.NodeWireSchema,
+  RelationshipWire: element.RelationshipWireSchema,
+  TextureSetWire: channels.TextureSetWireSchema,
+  AssetSetManifest: channels.AssetSetManifestSchema,
+  FaultDetail: compute.FaultDetailSchema,
+  ArtifactFrame: compute.ArtifactFrameSchema,
+  GeometryPayload: compute.GeometryPayloadSchema,
+  OrganizationWire: organization.OrganizationWireSchema,
 } as const
 
 declare namespace Proto {
@@ -428,7 +439,8 @@ const Json: {
 ## [08]-[ARM_ROWS]
 
 - Owner: `_armRows` carries every fact a consumer reads about an encoding without naming the encoding.
-- Law: `fits` is the one sentence a reader selects an arm on; `admit` is the entry binding an owned schema to it.
+- Law: `fits` is the one sentence a reader selects an arm on; `admit` binds an owned schema and NAMES the one row it can lack.
+- Law: `_armAbsences` is the arm plane's share of `[09]`'s capability vocabulary, so an arm's refusal and a format's refusal read from one closed set.
 - Law: `compatibility` names the contract-descriptor token the arm's bytes present.
 - Law: `selfDescribing` states whether a payload decodes with no owned schema; the proto arm alone needs a descriptor.
 - Law: `render` prints a held frame for an operator and is total — a failed decode yields absence, never a throw.
@@ -451,14 +463,21 @@ const Json: {
 // them at its own owner.
 const _arms = ["proto", "json", "cbor", "msgpack"] as const
 
+// The one row an ARM can lack. Field names live in the descriptor and never in the bytes, so the proto arm binds
+// nothing without one while the three self-describing arms lack nothing at all. Naming that row HERE is what lets
+// `[09]`'s demand vocabulary fold an arm's refusal and a format's refusal into one closed set, instead of a caller
+// reading a bare absence off this table and a second bare absence off that one.
+const _armAbsences = ["descriptor"] as const
+
 declare namespace Arm {
   type Kind = (typeof _arms)[number]
+  type Absent = (typeof _armAbsences)[number]
   type Row = {
     readonly fits: string
     readonly admit: <A, I>(
       owned: Schema.Schema<A, I>,
       descriptor: Option.Option<DescMessage>,
-    ) => Option.Option<Schema.Schema<A, Uint8Array>>
+    ) => Either.Either<Schema.Schema<A, Uint8Array>, Absent>
     readonly compatibility: "binary" | "json"
     readonly selfDescribing: boolean
     readonly render: (octets: Uint8Array, descriptor: Option.Option<DescMessage>) => Option.Option<string>
@@ -487,9 +506,13 @@ const _decoded = (schema: Schema.Schema<unknown, Uint8Array>) => (octets: Uint8A
 const _armRows = {
   proto: {
     fits: "<schema-evolving-cross-language-payload-with-a-declared-descriptor>",
-    // This arm alone can REFUSE its admission: without its family's descriptor no schema binds, where the three
-    // self-describing arms return the composition unconditionally.
-    admit: (owned, descriptor) => Option.map(descriptor, (gen) => Proto.family(gen, owned)),
+    // This arm alone can REFUSE its admission, and it names the row it lacks rather than answering a bare absence:
+    // without its family's descriptor no schema binds, where the three self-describing arms bind unconditionally.
+    admit: (owned, descriptor) =>
+      Option.match(descriptor, {
+        onNone: () => Either.left<Arm.Absent>("descriptor"),
+        onSome: (gen) => Either.right(Proto.family(gen, owned)),
+      }),
     compatibility: "binary",
     selfDescribing: false,
     // Field names live in the descriptor, never in the bytes, so this row yields absence without one rather than
@@ -504,7 +527,7 @@ const _armRows = {
   },
   json: {
     fits: "<operator-readable-payload-whose-producer-emits-text>",
-    admit: (owned) => Option.some(Json.schema(owned)),
+    admit: (owned) => Either.right(Json.schema(owned)),
     compatibility: "json",
     selfDescribing: true,
     // Held octets ARE the document, so this render survives the malformed case the other three arms cannot.
@@ -513,7 +536,7 @@ const _armRows = {
   },
   cbor: {
     fits: "<canonical-binary-payload-a-foreign-writer-mints-and-this-branch-only-reads>",
-    admit: (owned) => Option.some(Cbor.schema(owned)),
+    admit: (owned) => Either.right(Cbor.schema(owned)),
     compatibility: "binary",
     selfDescribing: true,
     render: (octets) => _decoded(Cbor.frame)(octets),
@@ -521,7 +544,7 @@ const _armRows = {
   },
   msgpack: {
     fits: "<compact-binary-payload-carrying-extension-cells-and-i64-magnitudes>",
-    admit: (owned) => Option.some(Pack.schema(owned)),
+    admit: (owned) => Either.right(Pack.schema(owned)),
     compatibility: "binary",
     selfDescribing: true,
     render: (octets) => _decoded(Pack.frame)(octets),
@@ -531,6 +554,7 @@ const _armRows = {
 
 type _ArmKind = Arm.Kind
 type _ArmRow = Arm.Row
+type _ArmAbsent = Arm.Absent
 ```
 
 ## [09]-[EVENT_FORMAT]
@@ -540,20 +564,108 @@ type _ArmRow = Arm.Row
 - Law: `batch` and `binary` are CAPABILITY columns, not universal fields — the Avro format defines neither a batch message envelope nor a binary-mode payload codec, so its `batch` reads `Option.none()` and its `binary` reads false, and a consumer routing `application/cloudevents-batch+avro` addresses a media type the specification never minted.
 - Law: a row's `arm` names a core engine or stands empty, so the ONE format whose engine is host-bound declares that on its `degrade` rather than putting a `Buffer` in a core signature.
 - Law: `framed` reads the media-type PREFIX, so one read recovers both the format and the arity and a format's batch message envelope needs no second dispatch; a row carrying no batch message envelope is skipped by the batch pass rather than compared against a spelling it never publishes.
-- Law: `admit` binds an owned schema to the row's arm and is the ONE batch-encode owner, since no `Binding` the package ships carries a batch serializer at any transport.
-- Law: `fill` is the host-bound half of the same gate — a lane hands the engine's `Either`-railed byte pair for a row whose `arm` stands empty and the owned schema lands the tree exactly as a core arm's admission lands its frame, so `admit` and `fill` partition the roster on the arm column and a lane engine for a core-armed row refuses as a second mint.
+- Law: `_needs` is the ONE capability vocabulary both planes name — an arm's absent descriptor and a format's absent content mode are rows in one closed set, never two refusal ladders.
+- Law: a `Demand` is the content-mode set a caller states; the codec pair rides every demand, so no call site restates it and none can omit it.
+- Law: `admitted` is the ONE gate and is the ONE batch-encode owner, since no `Binding` the package ships carries a batch serializer at any transport.
+- Law: the seat's own tag says whether a core arm or a lane engine mints the codec, so no caller reads the arm column to choose an entry.
+- Law: refusal is the family CENSUS naming `demand \ (format ∩ seat)` in roster order, graded at the dominant `Fault.Class` across those rows; a bare absence naming no row is the deleted form.
+- Law: a lane engine offered to a core-armed row and a core seat offered to an arm-less row both refuse as `codec` — the format contract owns that codec identity and a second mint beside it is denied.
 - Law: batch arity is the caller's schema, never a second entrypoint — a producer encoding a sequence passes `Schema.Array` and reads the row's own `batch` media type, which a format defining none refuses at the read.
 - Law: a producer past the transport budget splits before encoding, since a relay re-framing a batch cannot re-sign what it respelled.
-- Law: the JSON row delegates the message-envelope body to the package's own structured mode; the Protobuf row binds the generated CloudEvents descriptor, which the wire registry never admits.
-- Growth: a format is one row; a format gaining a core engine fills its `arm` and empties its `degrade`, while a host-bound engine stays at its lane and enters through `fill`, the row's arm staying empty.
+- Law: the JSON row delegates the message-envelope body to the package's own structured mode; the Protobuf row takes the CloudEvents descriptor through its `Core` seat, which the wire registry never admits.
+- Growth: a format is one row; a format gaining a core engine fills its `arm` and empties its `degrade`, while a host-bound engine stays at its lane and enters through a `Lane` seat, the row's arm staying empty.
+- Growth: a new capability is one `_needs` row carrying its class and its sentence, plus one `_modeHeld` reader where a format's own cell answers it.
 - Boundary: content mode, transport headers, and per-binding thresholds seat at the consuming binding; this cluster owns the media roster and its framing alone.
-- Packages: `effect`; `@bufbuild/protobuf` (`DescMessage`); generated `./cloudevents_pb.ts`.
+- Blocker: the CloudEvents descriptor has NO producer row — root `buf.yaml` excludes `tests/contracts/io` from buf's one module, so `buf generate` targets zero files under it.
+- Blocker: the protobuf row's descriptor therefore arrives as a caller-supplied argument until the corpus seats that vendored path as its own module carved out of the format lane.
+- Packages: `effect`; `@bufbuild/protobuf` (`DescMessage`); `../value/fault.ts` (`Fault.Class`).
 
 ```typescript signature
+import { Fault } from "../value/fault.ts"
+
 const _eventFormats = ["avro", "json", "protobuf"] as const
+
+// The two needs a row's OWN cells answer with no seat in hand; the codec pair below is answered by the mint instead.
+const _modes = ["batch", "binary"] as const
+
+// ONE capability vocabulary spanning both planes — what a format's row declares and what a seat supplies — so a
+// refusal names ROWS from one closed set instead of collapsing four distinct answers into one shapeless absence. The
+// arm plane contributes its own share by spread, so a second row landing at `[08]` reaches the demand with no edit
+// here. `class` grades each row onto the caller's fault ladder and `fits` is the sentence an operator reads.
+// Every need refuses ABOUT one format, so that is the subject each row declares and each row renders the sentence its
+// own need means. `leg` partitions the plane that DECIDES: a content mode is the format ROW's own cell, while the
+// codec pair is the SEAT's, so a census reads which plane refused without re-deriving it from the word.
+const _needs = [..._modes, "codec", ..._armAbsences] as const
+const _Lacked = Schema.Struct({ format: Schema.Literal(..._eventFormats) })
+const _need = Fault.Class.family(_needs, {
+  batch: Fault.Class.row({
+    class: "absent",
+    leg: "row",
+    detail: _Lacked,
+    render: ({ format }) => `${format} <no-batch-message-envelope-this-format-defines>`,
+  }),
+  binary: Fault.Class.row({
+    class: "absent",
+    leg: "row",
+    detail: _Lacked,
+    render: ({ format }) => `${format} <no-binary-mode-payload-codec-this-format-defines>`,
+  }),
+  // `denied`, never `absent`: the codec identity EXISTS and the SEAT is refused against it. A lane engine offered to a
+  // core-armed row is the second mint the format contract forbids, and a core seat offered to an arm-less row asks
+  // this roster for an engine it holds deliberately empty. `denied` outranks `absent` on the class order, so a
+  // refusal carrying both grades on the seat rather than on the content mode.
+  codec: Fault.Class.row({
+    class: "denied",
+    leg: "seat",
+    detail: _Lacked,
+    render: ({ format }) => `${format} <seat-contradicts-the-row-arm-column>`,
+  }),
+  descriptor: Fault.Class.row({
+    class: "absent",
+    leg: "seat",
+    detail: _Lacked,
+    render: ({ format }) => `${format} <no-descriptor-for-the-descriptor-bound-arm>`,
+  }),
+})
+
+// Each mode's cell carries its own shape — a batch envelope is the media type a format DEFINES, a binary mode is a
+// plain capability bit — so the read is one row per mode rather than a uniform column the roster could not honestly
+// carry. Every other need is proved by the mint, which is why no third reader lands beside these two.
+const _modeHeld = {
+  batch: (row: EventFormat.Row) => Option.isSome(row.batch),
+  binary: (row: EventFormat.Row) => row.binary,
+} as const satisfies { readonly [Mode in EventFormat.Mode]: (row: EventFormat.Row) => boolean }
+
+// A caller states the CONTENT MODES it needs and the codec pair rides every demand, because a gate minting no schema
+// answers nothing: seating the pair here is what keeps a call site from omitting the two needs it always has.
+const _CODEC_NEEDS = HashSet.fromIterable<EventFormat.Need>(["codec", "descriptor"])
+const _demand = (...modes: ReadonlyArray<EventFormat.Mode>): EventFormat.Demand =>
+  HashSet.union(_CODEC_NEEDS, HashSet.fromIterable(modes))
+
+// The seat is a TAGGED value, so the gate recovers which codec plane a caller brought from the value itself. A pair of
+// entrypoints partitioned on the arm column would be two names for one question, and a caller would have to know which
+// side of that column its format sits on before it could choose which name to ask with.
+type _SeatUnion = Data.TaggedEnum<{
+  Core: { readonly descriptor: Option.Option<DescMessage> }
+  Lane: { readonly engine: EventFormat.Engine }
+}>
+const _Seat = Data.taggedEnum<_SeatUnion>()
+
+// The refusal is a VALUE naming every row the demand asked for that the pair does not hold, in roster order, and it
+// grades itself at the dominant class across those rows — so an Avro batch request and a protobuf-without-descriptor
+// request stop reading identically at the call site. The carrier is the family's OWN census: dominance, class, leg,
+// and the joined message all derive from the roster, and a local `{ needs, class, detail }` triple beside it would
+// fork one taxonomy into two.
+const _Missing = _need.census("EventFormatMissing")
 
 declare namespace EventFormat {
   type Kind = (typeof _eventFormats)[number]
+  type Mode = (typeof _modes)[number]
+  type Need = (typeof _needs)[number]
+  type Demand = HashSet.HashSet<Need>
+  type Seat = _SeatUnion
+  type Issue = typeof _need.payload.Type
+  type Missing = InstanceType<typeof _Missing>
   type Row = {
     readonly media: string
     readonly batch: Option.Option<string> // the batch message envelope this format defines; a format defining none reads none
@@ -563,8 +675,8 @@ declare namespace EventFormat {
     readonly degrade: string
   }
   type Framing = { readonly format: Kind; readonly batch: boolean }
-  // Engine pairs cross `fill` on the Either rail for a host-bound seat: throws convert to that rail AT THE LANE, so
-  // no host type and no exception channel enters a core signature.
+  // Engine pairs cross a `Lane` seat on the Either rail: throws convert to that rail AT THE LANE, so no host type and
+  // no exception channel enters a core signature.
   type Engine = {
     readonly read: (octets: Uint8Array) => Either.Either<unknown, string>
     readonly write: (value: unknown) => Either.Either<Uint8Array, string>
@@ -576,9 +688,9 @@ declare namespace EventFormat {
 // read below recovers format and arity from one prefix comparison and no arity column exists on the row.
 const _eventFormatRows = {
   // Avro alone carries a host-bound engine: `avsc` reads `Buffer`-only slice methods, which core forbids, so
-  // this arm stands empty and the node lane fills it rather than dragging a host type into S0. Its batch and
+  // this arm stands empty and the node lane seats its engine rather than dragging a host type into S0. Its batch and
   // binary cells are the SPECIFICATION's own silence — the Avro format defines one structured message envelope and
-  // nothing else — so no lane fills them and a peer asking for either reads the refusal off this row.
+  // nothing else — so no lane supplies them and a peer demanding either reads that need NAMED off the refusal.
   avro: {
     media: "application/cloudevents+avro",
     batch: Option.none<string>(),
@@ -622,59 +734,89 @@ const _framed = (contentType: string): Option.Option<EventFormat.Framing> =>
       ),
   )
 
-// ONE admission for both arities: the caller's schema carries the arity — a sequence passes `Schema.Array` — so a
-// second batch entrypoint would re-describe what the schema already states.
-const _eventAdmit = <A, I>(
-  format: EventFormat.Kind,
-  owned: Schema.Schema<A, I>,
-  descriptor: Option.Option<DescMessage>,
-): Option.Option<Schema.Schema<A, Uint8Array>> =>
-  Option.flatMap(_eventFormatRows[format].arm, (arm) => _armRows[arm].admit(owned, descriptor))
+// A lane's host codec throws AT THE LANE and crosses on the Either rail, so no host type and no exception channel
+// enters this signature and the composed admission is indistinguishable from a core arm's at the intake gate.
+const _laned = <A, I>(engine: EventFormat.Engine, owned: Schema.Schema<A, I>): Schema.Schema<A, Uint8Array> =>
+  Schema.compose(
+    Schema.transformOrFail(Schema.Uint8ArrayFromSelf, Schema.Unknown, {
+      strict: true,
+      decode: (octets, _, ast) =>
+        Either.match(engine.read(octets), {
+          onLeft: (refusal) => ParseResult.fail(new ParseResult.Type(ast, octets, refusal)),
+          onRight: (tree) => ParseResult.succeed(tree),
+        }),
+      encode: (tree, _, ast) =>
+        Either.match(engine.write(tree), {
+          onLeft: (refusal) => ParseResult.fail(new ParseResult.Type(ast, tree, refusal)),
+          onRight: (octets) => ParseResult.succeed(octets),
+        }),
+    }),
+    owned,
+    { strict: false },
+  )
 
-// `fill` seats a host-bound engine: the composed admission is indistinguishable from a core arm's at the intake
-// gate, and a row whose arm a core engine fills REFUSES the fill — the format contract owns that codec identity,
-// and a lane engine beside it is a second mint.
-const _eventFill = <A, I>(
+// The codec half answers with the schema itself or with the one row its refusal names, so the two refusals a bare
+// `Option` fused stay apart: a seat contradicting the arm column, and an arm whose descriptor never arrived.
+const _bound = <A, I>(
   format: EventFormat.Kind,
-  engine: EventFormat.Engine,
   owned: Schema.Schema<A, I>,
-): Option.Option<Schema.Schema<A, Uint8Array>> =>
-  Option.match(_eventFormatRows[format].arm, {
-    onSome: () => Option.none(),
-    onNone: () =>
-      Option.some(
-        Schema.compose(
-          Schema.transformOrFail(Schema.Uint8ArrayFromSelf, Schema.Unknown, {
-            strict: true,
-            decode: (octets, _, ast) =>
-              Either.match(engine.read(octets), {
-                onLeft: (refusal) => ParseResult.fail(new ParseResult.Type(ast, octets, refusal)),
-                onRight: (tree) => ParseResult.succeed(tree),
-              }),
-            encode: (tree, _, ast) =>
-              Either.match(engine.write(tree), {
-                onLeft: (refusal) => ParseResult.fail(new ParseResult.Type(ast, tree, refusal)),
-                onRight: (octets) => ParseResult.succeed(octets),
-              }),
-          }),
-          owned,
-          { strict: false },
-        ),
-      ),
+  seat: EventFormat.Seat,
+): Either.Either<Schema.Schema<A, Uint8Array>, EventFormat.Missing> =>
+  _Seat.$match(seat, {
+    Core: ({ descriptor }) =>
+      Option.match(_eventFormatRows[format].arm, {
+        onNone: () => Either.left(new _Missing({ issues: [{ reason: "codec", format }] })),
+        onSome: (arm) =>
+          Either.mapLeft(_armRows[arm].admit(owned, descriptor), (need) => new _Missing({ issues: [{ reason: need, format }] })),
+      }),
+    Lane: ({ engine }) =>
+      Option.match(_eventFormatRows[format].arm, {
+        onNone: () => Either.right(_laned(engine, owned)),
+        onSome: () => Either.left(new _Missing({ issues: [{ reason: "codec", format }] })),
+      }),
   })
+
+// ONE gate over both seats and both arities. `demand \ (format ∩ seat)` computes once: what the pair HOLDS is the
+// row's own capability cells joined to whichever codec rows the mint proved, and the complement of the demand over
+// that join is the refusal. Arity stays the caller's schema — a sequence passes `Schema.Array` and reads the row's own
+// `batch` media type — so no arity column exists and no second entrypoint re-describes what the schema already states.
+const _admitted = <A, I>(
+  format: EventFormat.Kind,
+  demand: EventFormat.Demand,
+  owned: Schema.Schema<A, I>,
+  seat: EventFormat.Seat,
+): Either.Either<Schema.Schema<A, Uint8Array>, EventFormat.Missing> => {
+  const bound = _bound(format, owned, seat)
+  const held = HashSet.union(
+    HashSet.fromIterable(Array.filter(_modes, (mode) => _modeHeld[mode](_eventFormatRows[format]))),
+    Either.match(bound, {
+      onLeft: (refusal) => HashSet.difference(_CODEC_NEEDS, HashSet.fromIterable(Array.map(refusal.issues, (issue) => issue.reason))),
+      onRight: () => _CODEC_NEEDS,
+    }),
+  )
+  const lacked = HashSet.difference(demand, held)
+  return Array.match(Array.filter(_needs, (need) => HashSet.has(lacked, need)), {
+    // Nothing the demand asked for is missing, so the mint IS the answer — every demand carries the codec pair, so
+    // this arm is reachable only where `bound` already settled right.
+    onEmpty: () => bound,
+    onNonEmpty: (needs) => Either.left(new _Missing({ issues: Array.map(needs, (reason) => ({ reason, format })) })),
+  })
+}
 
 const EventFormat: {
   readonly formats: typeof _eventFormats
   readonly rows: typeof _eventFormatRows
   readonly framed: typeof _framed
-  readonly admit: typeof _eventAdmit
-  readonly fill: typeof _eventFill
+  readonly seat: typeof _Seat
+  readonly demand: typeof _demand
+  readonly admitted: typeof _admitted
 } = {
   formats: _eventFormats,
   rows: _eventFormatRows,
   framed: _framed,
-  admit: _eventAdmit,
-  fill: _eventFill,
+  seat: _Seat,
+  demand: _demand,
+  admitted: _admitted,
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------
@@ -683,12 +825,18 @@ declare namespace Format {
   type Arm = _ArmKind
   namespace Arm {
     type Row = _ArmRow
+    type Absent = _ArmAbsent
   }
   type Event = EventFormat.Kind
   namespace Event {
     type Row = EventFormat.Row
     type Framing = EventFormat.Framing
     type Engine = EventFormat.Engine
+    type Mode = EventFormat.Mode
+    type Need = EventFormat.Need
+    type Demand = EventFormat.Demand
+    type Seat = EventFormat.Seat
+    type Missing = EventFormat.Missing
   }
   type Shape = {
     readonly arms: typeof _arms

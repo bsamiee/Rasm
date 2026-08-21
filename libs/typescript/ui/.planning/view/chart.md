@@ -4,7 +4,7 @@ Chart owns declared statistics, streaming series, and user-driven pivots behind 
 
 ## [01]-[INDEX]
 
-- [02]-[REGIME_LAW]: regime row table, Arrow columnar bus, fault family, one panel measurement; `Chart`, `ChartFault`.
+- [02]-[REGIME_LAW]: regime row table, Arrow columnar bus, fault family, one panel measurement; `Chart`, `ChartFault`, `ChartCensus`.
 - [03]-[DECLARED_SURFACE]: Plot grammar bracket, decoded pointer readback, per-series bespoke marks under motion, d3 fold substrate; `Chart`.
 - [04]-[SERIES_SURFACE]: uplot scoped instance — one imperative write, options value, two-source feed; `Chart`.
 - [05]-[PIVOT_SURFACE]: perspective engine — bitness boot, origin family, workspace grain, expression and window gates, derived and borrowed lanes; `Chart`.
@@ -60,34 +60,84 @@ declare namespace Chart {
   type _Keys<K extends Regimes[number] = Regime> = K // key guard: a regime row outside the tuple fails here
 }
 
-// One row per reason carrying the core kind alone: severity, blame, retryability, and quarantine are the core
-// Fault.Class row table's, so a rank or retry column here would fork the branch lattice per folder.
+// Absent alias renders as nothing at all, so one renderer serves both grains without a placeholder column.
+const _named = (alias: Option.Option<string>): string => Option.getOrElse(Option.map(alias, (held) => ` ${held}`), () => "")
+
+// One row per reason carrying the core kind, the leg it refuses at, and the subject it alone renders: severity,
+// blame, retryability, and quarantine stay the core Fault.Class row table's, so a rank or retry column here would
+// fork the branch lattice per folder. The alias rides as absence-shaped because the two gates refuse at two
+// grains — the engine refusing to answer at all names no column, each rejected column names itself.
 const _family = Fault.Class.family(
   ["engine-lost", "frame-refused", "expression-refused", "window-refused", "view-lost"] as const,
   {
-    "engine-lost": { class: "unavailable" },
-    "frame-refused": { class: "malformed" },
-    "expression-refused": { class: "invalid" },
+    "engine-lost": Fault.Class.row({
+      class: "unavailable",
+      leg: "engine",
+      detail: Schema.Struct({ feed: Schema.String, cause: Schema.String }),
+      render: ({ cause, feed }) => `${feed} lost its engine: ${cause}`,
+    }),
+    "frame-refused": Fault.Class.row({
+      class: "malformed",
+      leg: "frame",
+      detail: Schema.Struct({ feed: Schema.String, cause: Schema.String }),
+      render: ({ cause, feed }) => `${feed} frame refused: ${cause}`,
+    }),
+    "expression-refused": Fault.Class.row({
+      class: "invalid",
+      leg: "expression",
+      detail: Schema.Struct({
+        feed: Schema.String,
+        alias: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+        cause: Schema.String,
+      }),
+      render: ({ alias, cause, feed }) => `${feed} expression${_named(alias)} refused: ${cause}`,
+    }),
     // windows carry their own reason because they refuse at a DIFFERENT gate: expressions clear an engine
     // validator before shipping, windows clear only the local alias fold this folder owns
-    "window-refused": { class: "invalid" },
-    "view-lost": { class: "unavailable" },
+    "window-refused": Fault.Class.row({
+      class: "invalid",
+      leg: "window",
+      detail: Schema.Struct({
+        feed: Schema.String,
+        alias: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+        cause: Schema.String,
+      }),
+      render: ({ alias, cause, feed }) => `${feed} window${_named(alias)} refused: ${cause}`,
+    }),
+    "view-lost": Fault.Class.row({
+      class: "unavailable",
+      leg: "view",
+      detail: Schema.Struct({ feed: Schema.String, cause: Schema.String }),
+      render: ({ cause, feed }) => `${feed} lost its view: ${cause}`,
+    }),
   },
 )
 
+declare namespace ChartFault {
+  type Case = typeof _family.payload.Type
+  type Reason = (typeof _family.kinds)[number]
+}
+
 class ChartFault extends Schema.TaggedError<ChartFault>()("ChartFault", {
-  reason: _family.schema,
-  feed: Schema.String,
-  detail: Schema.String,
+  case: _family.payload,
 }) {
-  static readonly roster: typeof _family.reasons = _family.reasons // the metric word census reads the family's own ordered tuple
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _family.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<chart:${this.reason}> ${this.feed}: ${this.detail}`
+    return _family.render(this.case)
   }
 }
+
+// Both gates admit their columns INDEPENDENTLY — a colliding window alias decides nothing about a sibling's alpha,
+// and the engine reports every refused expression in one verdict record — so each names every offender in one
+// refusal through the family's own census carrier. Joining them into one sentence hands an author the first
+// column and hides the rest until the next round trip.
+const ChartCensus = _family.census("ChartCensus")
+type ChartCensus = InstanceType<typeof ChartCensus>
 
 // a 64-bit Arrow lane (Int64, Timestamp, Duration) backs on `BigInt64Array`, which uPlot's own arithmetic and the
 // ring kernel's Float64 draft both refuse at runtime, so the widening lands ONCE here and no downstream lane meets a bigint
@@ -412,7 +462,7 @@ const _tail = (held: Chart.Aligned, next: Chart.Aligned, points: number): Chart.
 }
 
 const _refused = (feed: Chart.Feed) => (defect: unknown): ChartFault =>
-  new ChartFault({ reason: "frame-refused", feed: feed.name, detail: String(defect) })
+  new ChartFault({ case: { reason: "frame-refused", feed: feed.name, cause: String(defect) } })
 
 const _sourced = (
   feed: Chart.Feed,
@@ -549,6 +599,7 @@ declare namespace Chart {
     readonly append: (delta: ArrayBuffer) => Effect.Effect<void, ChartFault>
   }
   type Shape = {
+    readonly Census: typeof ChartCensus
     readonly Fault: typeof ChartFault
     readonly Origin: typeof _Origin
     readonly Move: typeof _Move
@@ -734,7 +785,7 @@ const _workspace = (
   Effect.tryPromise({
     // strict by construction: every `panels` entry mints a NEW panel, so a viewer token handed here REJECTS
     try: (): Promise<void> => element.restoreWorkspace(config satisfies WorkspaceConfigUpdate),
-    catch: (defect) => new ChartFault({ reason: "frame-refused", feed, detail: String(defect) }),
+    catch: (defect) => new ChartFault({ case: { reason: "frame-refused", feed, cause: String(defect) } }),
   })
 
 const _panel = (
@@ -746,21 +797,21 @@ const _panel = (
   Effect.tryPromise({
     // an absent id UPSERTS; `suppress_errors` keeps the refusal on THIS rail instead of the viewer's visible error
     try: (): Promise<void> => element.restore(update, { panel, suppress_errors: true }),
-    catch: (defect) => new ChartFault({ reason: "frame-refused", feed, detail: String(defect) }),
+    catch: (defect) => new ChartFault({ case: { reason: "frame-refused", feed, cause: String(defect) } }),
   })
 
 const _saved = (element: HTMLPerspectiveViewerElement, feed: string): Effect.Effect<Chart.Config, ChartFault> =>
   Effect.flatMap(
     Effect.tryPromise({
       try: () => element.saveWorkspace(),
-      catch: (defect) => new ChartFault({ reason: "frame-refused", feed, detail: String(defect) }),
+      catch: (defect) => new ChartFault({ case: { reason: "frame-refused", feed, cause: String(defect) } }),
     }),
     (token) =>
       Effect.mapError(
         // one grain asymmetry stands: `save` emits `layout: null` for an unlaid element while the restore field is
         // absent-or-present, so the null folds away here and never crosses back as an empty tree
         Schema.decodeUnknown(_Config)({ ...token, layout: token.layout ?? undefined }),
-        (defect) => new ChartFault({ reason: "frame-refused", feed, detail: String(defect) }),
+        (defect) => new ChartFault({ case: { reason: "frame-refused", feed, cause: String(defect) } }),
       ),
   )
 
@@ -782,7 +833,7 @@ const _moved = (
           Drop: ({ panel }) => element.removePanel(panel), // the LAST remaining panel resolves as a no-op
           Focus: ({ panel }) => element.setActivePanel(panel),
         }),
-      catch: (defect) => new ChartFault({ reason: "frame-refused", feed, detail: String(defect) }),
+      catch: (defect) => new ChartFault({ case: { reason: "frame-refused", feed, cause: String(defect) } }),
     }),
     () => _board(element),
   )
@@ -826,15 +877,15 @@ const _pivot = (
     Effect.gen(function* () {
       const client = yield* Effect.tryPromise({
         try: () => perspective.worker(),
-        catch: (defect) => new ChartFault({ reason: "engine-lost", feed, detail: String(defect) }),
+        catch: (defect) => new ChartFault({ case: { reason: "engine-lost", feed, cause: String(defect) } }),
       })
       const table = yield* Effect.tryPromise({
         try: () => _opened(client, origin),
-        catch: (defect) => new ChartFault({ reason: "frame-refused", feed, detail: String(defect) }),
+        catch: (defect) => new ChartFault({ case: { reason: "frame-refused", feed, cause: String(defect) } }),
       })
       yield* Effect.tryPromise({
         try: () => element.load(table),
-        catch: (defect) => new ChartFault({ reason: "engine-lost", feed, detail: String(defect) }),
+        catch: (defect) => new ChartFault({ case: { reason: "engine-lost", feed, cause: String(defect) } }),
       })
       yield* _workspace(element, feed, config) // the persisted grain lands whole: panels, layout, overlay, masters
       return {
@@ -844,7 +895,7 @@ const _pivot = (
         append: (delta: ArrayBuffer) =>
           Effect.asVoid(Effect.tryPromise({
             try: () => table.update(delta),
-            catch: (defect) => new ChartFault({ reason: "frame-refused", feed, detail: String(defect) }),
+            catch: (defect) => new ChartFault({ case: { reason: "frame-refused", feed, cause: String(defect) } }),
           })),
       } satisfies Chart.Pivot
     }).pipe(
@@ -869,23 +920,30 @@ const _expressions = (
   pivot: Chart.Pivot,
   feed: string,
   exprs: Record.ReadonlyRecord<string, string>,
-): Effect.Effect<void, ChartFault> =>
+): Effect.Effect<void, ChartFault | ChartCensus> =>
   Effect.tryPromise({
     try: () => pivot.table.validate_expressions({ ...exprs }),
-    catch: (defect) => new ChartFault({ reason: "expression-refused", feed, detail: String(defect) }),
+    catch: (defect) =>
+      new ChartFault({ case: { reason: "expression-refused", feed, alias: Option.none(), cause: String(defect) } }),
   }).pipe(
     Effect.flatMap(Schema.decodeUnknown(_Validated)),
-    Effect.mapError((defect) => new ChartFault({ reason: "expression-refused", feed, detail: String(defect) })),
-    Effect.filterOrFail(
-      (report) => Record.isEmptyRecord(report.errors),
-      (report) =>
-        new ChartFault({
-          reason: "expression-refused",
-          feed,
-          detail: Array.join(Record.toEntries(report.errors).map(([alias, issue]) => `${alias}: ${issue.error_message}`), "; "),
-        }),
-    ),
-    Effect.asVoid,
+    Effect.mapError((defect) =>
+      new ChartFault({ case: { reason: "expression-refused", feed, alias: Option.none(), cause: String(defect) } })),
+    // The engine answers EVERY refused column in one verdict record, so the census carries every one of them and an
+    // author repairing a board reads its whole damage in one round trip rather than the first alias iteration met.
+    Effect.flatMap((report) => {
+      const refused = Record.toEntries(report.errors)
+      return Array.isNonEmptyReadonlyArray(refused)
+        ? Effect.fail(new ChartCensus({
+          issues: Array.map(refused, ([alias, issue]): ChartFault.Case => ({
+            reason: "expression-refused",
+            feed,
+            alias: Option.some(alias),
+            cause: issue.error_message,
+          })),
+        }))
+        : Effect.void
+    }),
   )
 
 // `cumulative: false` is the omitted default, so only a TRUE cumulative counts against the trio
@@ -894,14 +952,15 @@ const _framed = (spec: Chart.Window): number =>
   (spec.range === undefined || spec.range === null ? 0 : 1) +
   (spec.cumulative === true ? 1 : 0)
 
+// The alias is the issue's own column now, so this answers the refusal alone and no site re-prefixes it.
 const _refusal = (taken: HashSet.HashSet<string>, alias: string, spec: Chart.Window): Option.Option<string> => {
   const alpha = spec.alpha === undefined || spec.alpha === null ? 1 : spec.alpha
   return HashSet.has(taken, alias)
-    ? Option.some(`${alias}: collides with a table column, an expression alias, or a sibling window key`)
+    ? Option.some("collides with a table column, an expression alias, or a sibling window key")
     : _framed(spec) > 1
-    ? Option.some(`${alias}: rows, range, and cumulative are mutually exclusive`)
+    ? Option.some("rows, range, and cumulative are mutually exclusive")
     : alpha <= 0 || alpha > 1
-    ? Option.some(`${alias}: alpha lies outside (0, 1]`)
+    ? Option.some("alpha lies outside (0, 1]")
     : Option.none()
 }
 
@@ -912,29 +971,38 @@ const _windows = (
   // ORDERED ENTRIES, never a record: a `Windows` literal has already collapsed its duplicates through JSON
   // last-wins, so this is the one shape where a repeated alias is still evidence
   rows: ReadonlyArray<readonly [string, Chart.Window]>,
-): Effect.Effect<Chart.Windows, ChartFault> =>
+): Effect.Effect<Chart.Windows, ChartFault | ChartCensus> =>
   Effect.flatMap(
     Effect.tryPromise({
       try: () => pivot.table.schema(),
-      catch: (defect) => new ChartFault({ reason: "window-refused", feed, detail: String(defect) }),
+      catch: (defect) =>
+        new ChartFault({ case: { reason: "window-refused", feed, alias: Option.none(), cause: String(defect) } }),
     }),
     (schema) => {
+      // Each alias admits against the taken set alone, so the fold censuses EVERY offending window rather than the
+      // first one iteration reached, and a board author repairs the whole config in one pass.
       const gated = Array.reduce(
         rows,
         {
           taken: HashSet.union(HashSet.fromIterable(Record.keys(schema)), HashSet.fromIterable(Record.keys(exprs))),
-          refusals: Array.empty<string>(),
+          issues: Array.empty<ChartFault.Case>(),
         },
         (held, [alias, spec]) => ({
           taken: HashSet.add(held.taken, alias),
-          refusals: Option.match(_refusal(held.taken, alias, spec), {
-            onNone: () => held.refusals,
-            onSome: (issue) => Array.append(held.refusals, issue),
+          issues: Option.match(_refusal(held.taken, alias, spec), {
+            onNone: () => held.issues,
+            onSome: (cause) =>
+              Array.append<ChartFault.Case>(held.issues, {
+                reason: "window-refused",
+                feed,
+                alias: Option.some(alias),
+                cause,
+              }),
           }),
         }),
       )
-      return Array.isNonEmptyReadonlyArray(gated.refusals)
-        ? Effect.fail(new ChartFault({ reason: "window-refused", feed, detail: Array.join(gated.refusals, "; ") }))
+      return Array.isNonEmptyReadonlyArray(gated.issues)
+        ? Effect.fail(new ChartCensus({ issues: gated.issues }))
         : Effect.succeed(Record.fromEntries(rows))
     },
   )
@@ -949,14 +1017,14 @@ const _snapshot = <A>(
     Effect.acquireRelease(
       Effect.tryPromise({
         try: () => pivot.table.view(config),
-        catch: (defect) => new ChartFault({ reason: "view-lost", feed, detail: String(defect) }),
+        catch: (defect) => new ChartFault({ case: { reason: "view-lost", feed, cause: String(defect) } }),
       }),
       (view) => Effect.promise(() => view.delete()),
     ),
     (view) =>
       Effect.tryPromise({
         try: () => read(view), // the ONLY axis a one-shot serializer varies: the bracket never forks per format
-        catch: (defect) => new ChartFault({ reason: "view-lost", feed, detail: String(defect) }),
+        catch: (defect) => new ChartFault({ case: { reason: "view-lost", feed, cause: String(defect) } }),
       }),
   )
 
@@ -975,7 +1043,7 @@ const _derive = (pivot: Chart.Pivot, feed: string, config: ViewConfigUpdate): St
           }, { mode: "row" })
           return view
         },
-        catch: (defect) => new ChartFault({ reason: "view-lost", feed, detail: String(defect) }),
+        catch: (defect) => new ChartFault({ case: { reason: "view-lost", feed, cause: String(defect) } }),
       }),
       (view) => Effect.promise(() => view.delete()),
     ),
@@ -994,6 +1062,7 @@ const _borrow = (
 
 const Chart: Chart.Shape = {
   Fault: ChartFault,
+  Census: ChartCensus,
   Origin: _Origin,
   Move: _Move,
   Config: _Config,
@@ -1030,7 +1099,7 @@ const Chart: Chart.Shape = {
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Chart, ChartFault }
+export { Chart, ChartCensus, ChartFault }
 ```
 
 ## [06]-[RESEARCH]

@@ -1,6 +1,6 @@
 # [PY_DATA_VIRTUAL]
 
-The sole manifest-cube owner: virtualizarr byte-range manifest construction AND icechunk native virtual-chunk addressing on one page. `FieldVirtual` aggregates archival chunk byte ranges into one zero-copy virtual `xarray.Dataset` — the actual bytes stay in the source files — and `VirtualReference` registers those external byte ranges as virtual chunks inside one transactional versioned `icechunk` `Repository`, never copying a byte. `ManifestWrite` is the one export/registration axis: one manifest vocabulary spanning the reference-document export, the session-store lowering, and the raw-slab registration.
+The sole manifest-cube owner: virtualizarr byte-range manifest construction AND icechunk native virtual-chunk addressing on one page. `FieldVirtual` aggregates archival chunk byte ranges into one zero-copy virtual `xarray.Dataset` — the actual bytes stay in the source files — and `VirtualReference` registers those external byte ranges as virtual chunks inside one transactional versioned `icechunk` `Repository`, never copying a byte. `ManifestWrite` is the one export/registration axis: one manifest vocabulary spanning the reference-document export, the session-store lowering, and the raw-slab registration, both folds returning the rail so an arm handed the direction it does not serve refuses typed rather than raising into the enclosing lift.
 
 Every content key is canonical bytes per the folder key-law — sorted per-variable `path offset length` rows, `snapshot.encode()`, the joined-refs stream — never a `repr()`/`str()` source. The committed snapshot's branch/tag/ancestry identity and the `set_virtual_ref` content-key cross at the wire to `csharp:Rasm.Persistence/Version/Snapshots` as the durable version-control concern, and the cross-runtime snapshot-seed reproduction grades through the runtime `evidence/reproduction` `ParityReceipt` rail from the C#-pinned `XxHash128` seed, never hand-proven here. `icechunk` ships cp312-abi3 stable-ABI wheels, so it imports module-top — the function-local gate posture is the rejected form.
 
@@ -16,7 +16,7 @@ Every content key is canonical bytes per the folder key-law — sorted per-varia
 - Entry: one entrypoint family owns the single-source, multi-source, HDF5-native, and data-tree modalities by source-URL-tuple arity and suffix, never a per-source-count or per-format reader family.
 - Receipt: the census folds EVERY `ManifestArray`-backed variable — the `hasattr(var.data, "manifest")` guard skips eagerly-materialized `loadable_variables` slots, never a first-variable-only read that undercounts a multi-variable cube; the `engine="virtual"` stamp is the invariant the icechunk registration path asserts as the provable `Literal["virtual"]`.
 - Packages: `virtualizarr` and `h5py` import module-top (both ungated); `check_enum_dtype` returns only the values map, so the `inspect` inverse re-supplies the `"u1"` base.
-- Growth: a new source format is one `VirtualParser` case carrying that parser's constructor payload; a new export target one `ManifestWrite` case; a new CF special type one `CFDtype` case; zero new surface.
+- Growth: a new source format is one `VirtualParser` case carrying that parser's constructor payload; a new export target one `ManifestWrite` case; a new CF special type one `CFDtype` case; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.VIRTUAL` in this module's one `RAISES` table, which both sections anchor on; zero new surface.
 - Boundary: this page is the one virtualizarr home — no manifest owner survives on `gridded/field`; composes the `gridded/field#EGRESS` `FieldReceipt` family downward and the `gridded/store#STORE` Zarr egress, never re-minting either; a data-copying ingest where virtual reference applies is the rejected form. The `tests/contracts/MANIFEST.md` `[02.27]` raw field container virtualizes through the existing `hdf` parser arm with zero new case — the parser names the scale-less axes phony, so the entry's byte-range consumption is already this cluster's.
 
 ```python signature
@@ -25,17 +25,20 @@ from typing import TYPE_CHECKING, Final, Literal, assert_never
 import numpy as np
 import virtualizarr as vz
 from beartype import beartype
-from expression import Ok, case, tag, tagged_union
+from expression import Error, Ok, case, tag, tagged_union
+from expression.collections import Block
 from icechunk import VirtualChunkSpec
 from msgspec import Struct, structs
 from obspec_utils.registry import ObjectStoreRegistry
+from obstore.exceptions import BaseError
 from opentelemetry import trace
 
 lazy import h5py
 lazy import xarray as xr
 
 from rasm.data.gridded.field import FieldReceipt
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary, scoped
+from rasm.data.tabular.interop import DataLeg
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, boundary, rostered, scoped
 from rasm.runtime.identity import ContentIdentity
 from rasm.runtime.roots import ResourceRef, store_handle
 from virtualizarr.parsers import (
@@ -64,6 +67,58 @@ type MfParallel = Literal[False, "dask", "lithops"]
 type MaxShape = tuple[int | None, ...]
 type StoreConfig = dict[str, object]
 type Slab = tuple[str, str, tuple[int, ...], tuple[slice, ...]]
+
+# the manifest plane's raise surface. `obstore`'s `BaseError` is NAMED because every leaf under it roots at bare
+# `Exception` — the registry walks archival sources over object-store handles, so a not-found, permission, or
+# precondition refusal on a signed href reaches no builtin ancestor and `transport/roots#RESOURCE` states none is a
+# `CLASSIFY` row either. `virtualizarr` mints ONE class of its own, `SubChunkIndexingError`, a `ValueError` refinement
+# the ancestor admits; the rest of its refusals are `ValueError`/`TypeError`/`NotImplementedError` over an unlowerable
+# chunk pattern, `ImportError` where an optional parser dependency is absent, and `RuntimeError`/`OSError` from the
+# reader beneath. `h5py` answers `OSError` for a library or driver fault, `KeyError` for an absent name, and
+# `TypeError`/`ValueError` for a dtype or layout mismatch, exactly as its catalogue documents, so the native mint
+# rides the same set. `obspec_utils` raises `ValueError` on an unresolvable or schemeless url.
+_MANIFEST_RAISES: Final[Catch] = (
+    BaseError,
+    ImportError,
+    IndexError,
+    KeyError,
+    NotImplementedError,
+    RuntimeError,
+    TypeError,
+    ValueError,
+    OSError,
+)
+
+# this module's whole raise roster, seated once for both sections: every fenced leg and every explicit refusal on this
+# page resolves ONE anchor here, so no call site spells a subject and `FaultRow.seated` proves the leg against a real
+# module at import. The manifest walks and the version verbs declare TRANSIENT — a store, driver, or repository fault
+# a re-issue may clear — while the fold-direction refusal is caller-repairable and TERMINAL.
+MANIFEST_WALK: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.VIRTUAL, point="manifest", arm="boundary", defect="manifest-walk", retriability=TRANSIENT
+)
+MANIFEST_TREE: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.VIRTUAL, point="manifest.tree", arm="boundary", defect="tree-walk", retriability=TRANSIENT
+)
+MANIFEST_NATIVE: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.VIRTUAL, point="manifest.native", arm="boundary", defect="native-mint", retriability=TRANSIENT
+)
+# ONE parameterized row for both halves of the same law — a `ManifestWrite` arm handed the fold its own direction does
+# not serve — because an export case reaching `register` and a registration case reaching `write` are one defect
+# reading two coordinates. The deleted pair of `raise ValueError`s crossed the enclosing lift as unclassified
+# `boundary` faults, so a caller's own composition error arrived wearing a provider's classification.
+MANIFEST_DIRECTION: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.VIRTUAL, point="manifest.fold", arm="config", defect="wrong-fold", retriability=TERMINAL, slots=("case", "fold")
+)
+VERSION_APPLY: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.VIRTUAL, point="version", arm="boundary", defect="version-refused", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[DataLeg]]] = rostered(Block.of_seq([
+    MANIFEST_WALK,
+    MANIFEST_TREE,
+    MANIFEST_NATIVE,
+    MANIFEST_DIRECTION,
+    VERSION_APPLY,
+]))
 
 
 @tagged_union(frozen=True)
@@ -188,7 +243,10 @@ class ManifestWrite:
     cube: "FieldVirtual" = case()
     native: tuple[str, tuple[VirtualChunkSlab, ...]] = case()
 
-    def write(self, cube: "xr.Dataset | xr.DataTree", target: ResourceRef) -> None:
+    def write(self, cube: "xr.Dataset | xr.DataTree", target: ResourceRef) -> "RuntimeRail[None]":
+        # the fold returns the rail so its ONE wrong-direction arm answers the roster row rather than raising into the
+        # enclosing lift; `_receipt` binds it ahead of the identity fold, so a misrouted arm never keys bytes it
+        # refused to write.
         is_tree = isinstance(cube, xr.DataTree)
         match self:
             # the `VirtualiZarrDataTreeAccessor` exposes no `to_kerchunk`, so a tree sink flattens
@@ -198,14 +256,17 @@ class ManifestWrite:
             case ManifestWrite(tag="kerchunk", kerchunk=(fmt, record_size, threshold)):
                 flat = cube.to_dataset() if is_tree else cube
                 flat.vz.to_kerchunk(str(target.path), format=fmt, record_size=record_size, categorical_threshold=threshold)
+                return Ok(None)
             case ManifestWrite(tag="icechunk", icechunk=(store, _, mode, _, _, validate, updated_at, inherited)) if is_tree:
                 cube.vz.to_icechunk(store, mode=mode, write_inherited_coords=inherited, validate_containers=validate, last_updated_at=updated_at)
+                return Ok(None)
             case ManifestWrite(tag="icechunk", icechunk=(store, group, mode, append_dim, region, validate, updated_at, _)):
                 cube.vz.to_icechunk(
                     store, group=group, mode=mode, append_dim=append_dim, region=region, validate_containers=validate, last_updated_at=updated_at
                 )
+                return Ok(None)
             case ManifestWrite(tag="cube" | "native"):
-                raise ValueError(f"{self.tag} is a registration case; export targets are kerchunk|icechunk")
+                return Error(MANIFEST_DIRECTION.raised(self.tag, "write"))
             case unreachable:
                 assert_never(unreachable)
 
@@ -226,7 +287,7 @@ class ManifestWrite:
                 session.store.set_virtual_refs(array_path, [slab.spec() for slab in slabs], validate_containers=True)
                 return Ok(((array_path,), "native", sum(slab.length for slab in slabs)))
             case ManifestWrite(tag="kerchunk" | "icechunk"):
-                raise ValueError(f"{self.tag} is an export target; registration cases are cube|native")
+                return Error(MANIFEST_DIRECTION.raised(self.tag, "register"))
             case unreachable:
                 assert_never(unreachable)
 
@@ -254,12 +315,12 @@ class FieldVirtual(Struct, frozen=True):
         # manifest construction walks archival headers over the object store — a spanned I/O leg, trace parity with the
         # sibling gridded/spatial legs; the fence inside marks the span ERROR + record_exception on a failed leg.
         with _TRACER.start_as_current_span("virtual.manifest", attributes={"rasm.virtual.sources": len(self.sources)}):
-            return boundary("virtual.manifest", lambda: _aggregate(self)).bind(lambda railed: railed)
+            return boundary(MANIFEST_WALK, lambda: _aggregate(self), catch=_MANIFEST_RAISES).bind(lambda railed: railed)
 
     @beartype(conf=FAULT_CONF)
     def tree(self, group: str | None = None) -> "RuntimeRail[FieldReceipt]":
         with _TRACER.start_as_current_span("virtual.manifest.tree", attributes={"rasm.virtual.sources": len(self.sources)}):
-            return boundary("virtual.manifest.tree", lambda: _tree(self, group)).bind(lambda railed: railed)
+            return boundary(MANIFEST_TREE, lambda: _tree(self, group), catch=_MANIFEST_RAISES).bind(lambda railed: railed)
 
     @staticmethod
     @beartype(conf=FAULT_CONF)
@@ -279,7 +340,7 @@ class FieldVirtual(Struct, frozen=True):
             _native_file(slabs, shape, dtype, target, maxshape, fillvalue)
             return _aggregate(FieldVirtual(sources=(target,), target=target, export=export))
 
-        return boundary("virtual.manifest.native", _built).bind(lambda railed: railed)
+        return boundary(MANIFEST_NATIVE, _built, catch=_MANIFEST_RAISES).bind(lambda railed: railed)
 
 
 def _url(ref: ResourceRef) -> str:
@@ -317,15 +378,19 @@ def _manifest_wire(name: str, manifest: dict[str, dict[str, object]]) -> bytes:
 
 
 def _receipt(sink: "xr.Dataset | xr.DataTree", stats: "xr.Dataset", export: "ManifestWrite", target: ResourceRef) -> "RuntimeRail[FieldReceipt]":
-    export.write(sink, target)
-    manifests = [
-        _manifest_wire(str(name), var.data.manifest.dict()) for name, var in stats.data_vars.items() if hasattr(var.data, "manifest")
-    ]
-    return ContentIdentity.of("virtual.manifest", manifests).map(
-        lambda key: FieldReceipt(
-            engine="virtual", dims=tuple(stats.sizes), variables=len(stats.data_vars), bytes_stored=ManifestWrite.nbytes(stats), content_key=key
+    # the export rail binds AHEAD of the census, so a refused direction sheds the identity fold instead of keying a
+    # manifest whose bytes never landed.
+    def _keyed(_landed: None) -> "RuntimeRail[FieldReceipt]":
+        manifests = [
+            _manifest_wire(str(name), var.data.manifest.dict()) for name, var in stats.data_vars.items() if hasattr(var.data, "manifest")
+        ]
+        return ContentIdentity.of("virtual.manifest", manifests).map(
+            lambda key: FieldReceipt(
+                engine="virtual", dims=tuple(stats.sizes), variables=len(stats.data_vars), bytes_stored=ManifestWrite.nbytes(stats), content_key=key
+            )
         )
-    )
+
+    return export.write(sink, target).bind(_keyed)
 
 
 def _aggregate(spec: FieldVirtual) -> "RuntimeRail[FieldReceipt]":
@@ -365,7 +430,7 @@ def _native_file(
 - Auto: a concurrent branch write auto-rebases at commit through `session.commit(rebase_with=)` under the supplied `ConflictSolver`, never a serialized retry loop; the content key materializes the snapshot-identity and registered-location component keys first, then Merkle-folds the resolved pair — the materialized-component idiom — never a nested rail the fold cannot key.
 - Receipt: the Merkle fold spans snapshot identity AND registered-location census, so a snapshot rewrite preserving the locations and a relocation preserving the snapshot id are distinct keys; the census tuple materializes once and feeds both the count and the location key, never a double walk of the lazy iterator. The `stamp`/`diff`/`reclaim`/`checkout` cases emit no `VirtualReceipt` — the typed receipt fold is the `aggregate` case alone, and the `VirtualEngine` discriminant rides the receipt subject so the cube-versus-native path survives onto the log line.
 - Packages: `_REPOSITORY` is the one `RepositoryConfig` every `open_or_create` binds — the repository's Rust-core store I/O is the one leg the runtime `store_handle` envelope cannot reach, so its `StorageRetriesSettings`/`StorageTimeoutSettings` derive from the branch `STORE_RETRIES`/`STORE_TIMEOUT` constants rather than running provider defaults beside a manifest walk that carries them, and `ManifestSplittingConfig`/`ManifestPreloadConfig` shard and bound the ref table one session open otherwise pays whole. Its `split_sizes` is a SEQUENCE of `(node-condition, sequence-of-(dim-condition, size))` pairs, never the mapping its shape reads as. The icechunk S3-family storage rows carry `from_env=` credential resolution — the `azure` `account` and `r2` `account_id` secondary identities resolve from the environment under `from_env=True`, never an `r.root` aliased onto two identity slots; `containers_credentials` values are the `AnyCredential` factory-return union, never a raw token tuple.
-- Growth: a new manifest shard axis is one `split_sizes` row narrowing `ManifestSplitCondition.PathMatches`/`NameMatches` against `ManifestSplitDimCondition.DimensionName`/`Axis`, and every other repository axis (caching budget, inline-chunk threshold, virtual-chunk containers, compression level) is a caller-supplied `RepositoryConfig` replacing the value whole with zero owner edits; a new storage backend is one `IceStorage` case plus one `_STORAGE` scheme row; a new export or registration path one `ManifestWrite` case; a new version operation (branch reset through `reset_branch`, snapshot rewrite through `rewrite_manifests`, the conflict rail through `Session.rebase`) is one `VersionOp` case composing the matching `Repository` member; a new reclaim modality one `Reclaim` case, a new time-travel anchor one `ReadAt` case; zero new surface.
+- Growth: a new manifest shard axis is one `split_sizes` row narrowing `ManifestSplitCondition.PathMatches`/`NameMatches` against `ManifestSplitDimCondition.DimensionName`/`Axis`, and every other repository axis (caching budget, inline-chunk threshold, virtual-chunk containers, compression level) is a caller-supplied `RepositoryConfig` replacing the value whole with zero owner edits; a new storage backend is one `IceStorage` case plus one `_STORAGE` scheme row; a new export or registration path one `ManifestWrite` case; a new version operation (branch reset through `reset_branch`, snapshot rewrite through `rewrite_manifests`, the conflict rail through `Session.rebase`) is one `VersionOp` case composing the matching `Repository` member; a new reclaim modality one `Reclaim` case, a new time-travel anchor one `ReadAt` case; a new repository refusal law one `FaultRow` row beside `VERSION_APPLY`; zero new surface.
 - Boundary: an `open_or_create` binding no `config` is the deleted form — the repository then re-dials and times out under provider defaults while the manifest walk against the same bucket carries the branch envelope, and the ref table shards nowhere. The durable git-like version-control ENGINE — branch-merge policy, retention orchestration, the reuse ledger — stays C# Persistence; this page emits only the snapshot identity as receipt key and consumes icechunk's native diff/reclaim/rebase-at-commit, the `ConflictSolver` a commit-time policy value, never a merge engine. The `ReadAt` case named `label` avoids the `expression.tag()` reserved discriminant, never a `tag_`-suffix mangle.
 
 ```python signature
@@ -379,7 +444,7 @@ from msgspec import Struct
 
 lazy import xarray as xr
 
-from rasm.runtime.faults import RuntimeRail, async_boundary, boundary, railed, scoped
+from rasm.runtime.faults import Catch, RuntimeRail, async_boundary, boundary, railed, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, MeterFact, Party, Resource, Retain
 from rasm.runtime.lanes import on_thread
@@ -397,6 +462,14 @@ if TYPE_CHECKING:
 type CommitMeta = dict[str, str]
 type ContainerAuth = "tuple[tuple[str, AnyCredential], ...]"
 type VirtualEngine = Literal["virtual", "native"]
+
+# the repository plane's raise surface: `IcechunkError` is NAMED because it roots at bare `Exception` and every
+# refusal the verbs reach descends from it — `ConflictError`/`RebaseFailedError` at commit, `SessionStateError` on a
+# spent session, `StorageError`/`ReadOnlyError`/`AlreadyExistsError` at the store, and the `NotFoundError` family for
+# an absent snapshot, ref, or repository. Two of its leaves DO refine a builtin (`InvalidInputError` a `ValueError`,
+# `NotFoundError` a `KeyError`), which is exactly why the root and not the builtins carries the set. The Rust core
+# owns its own store I/O, so no object-store root crosses this fence the way it does the manifest walk above.
+_VERSION_RAISES: Final[Catch] = (ic.IcechunkError, KeyError, TypeError, ValueError, OSError)
 
 # this owner's metric segment and receipt owner label, spelled once. It shares a SPELLING with the `virtual` member
 # of `VirtualEngine` and nothing else: the engine names which registration path built a cube, this names the
@@ -644,7 +717,9 @@ class VirtualReference(Struct, frozen=True):
         # snapshot commit/diff/reclaim run store I/O against the icechunk repository — spanned per verb, the branch a dimension.
         with _TRACER.start_as_current_span(f"{DOMAIN}.{op.tag}", attributes={"rasm.virtual.branch": self.branch}):
             return boundary(
-                f"{DOMAIN}.{op.tag}", lambda: op.run(IceStorage.for_ref(self.ref).repository(self.containers, self.config), self)
+                VERSION_APPLY,
+                lambda: op.run(IceStorage.for_ref(self.ref).repository(self.containers, self.config), self),
+                catch=_VERSION_RAISES,
             ).bind(lambda rail: rail)
 
     async def apply_async(self, op: VersionOp) -> "RuntimeRail[VirtualOutcome]":
@@ -654,7 +729,7 @@ class VirtualReference(Struct, frozen=True):
         # owner lands durable evidence from, because recording SUSPENDS by the never-shed law and no synchronous
         # entry can. The record rail binds into the verdict, so an armed evidence plane refusing a commit fact
         # surfaces here and a composition that installed none folds to the lawful no-op.
-        railed = await async_boundary(f"{DOMAIN}.{op.tag}", lambda: on_thread(self.apply, op))
+        railed = await async_boundary(VERSION_APPLY, lambda: on_thread(self.apply, op), catch=_VERSION_RAISES)
         match railed.bind(lambda rail: rail):
             case Result(tag="ok", ok=outcome):
                 return (await Journal.record(_evidence(self, outcome), scope=self.scope)).map(lambda _landed: outcome)

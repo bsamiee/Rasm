@@ -2,7 +2,7 @@
 
 `AssemblyPlan` owns member admission, join admission, fit-up, precedence, access, load-path stability, temporary support, tolerance closure, joining resources, robot-cell placement, inspection, release, handling, and disassembly evidence. `AssemblyPolicy` admits every component instance, connection specification, datum, fixture, resource, execution policy, and clearance once; the planner consumes typed joints and graph facts only.
 
-`JoinMethod` is the ONE joining-mechanism row table: join class, reversibility, thermal custody, phase shape, acting phase, and the required text and metric rosters are COLUMNS, so seventeen mechanisms share one `JoinProcess` shape and every projection over a process is one expression rather than a parallel twelve-arm fold. `AssemblyJoint.Index` remains the connection-census identity shared with joining plans, `AssemblyPlan.Apply` closes admission, planning, replanning, disassembly, and projection over `AssemblyOp`, and every egress carries the content key minted through `ContentKey.Of`. Scalar admission is `workholding#EVALUATION` `Fixtures`, cyclic component evidence is `setups#SCHEDULE` `Setups.Components`, the tolerance chain consumes the ONE `Joining/sequence` `DisplacementReceipt` through `workholding#FIXTURE` `DatumTransfer`, and every preimage composes `Process/owner#RUN_DISPATCH` `FabricationCanon` over the one `Rasm.Element` `CanonicalWriter`.
+`JoinMethod` is the ONE joining-mechanism row table: join class, phase shape, acting phase, and the trait, text, and metric ROSTERS are columns, so seventeen mechanisms share one `JoinProcess` shape and every projection over a process is one expression rather than a parallel twelve-arm fold. `AssemblyJoint.Index` remains the connection-census identity shared with joining plans, `AssemblyPlan.Apply` closes admission, planning, replanning, disassembly, and projection over `AssemblyOp`, and the plan key mints through the `Process/owner#RUN_DISPATCH` `FabricationCanon.Keyed` close, so its refusal rides the same rail the plan does. Scalar admission is `workholding#EVALUATION` `Fixtures`, cyclic component evidence is `setups#SCHEDULE` `Setups.Components`, the tolerance chain consumes the ONE `Joining/sequence` `DistortionField` through `workholding#FIXTURE` `DatumTransfer`, and every preimage frames through `FabricationCanon` over the one `Rasm.Element` `CanonicalWriter`.
 
 ## [01]-[INDEX]
 
@@ -12,11 +12,13 @@
 
 ## [02]-[JOINS]
 
-- Owner: `JoinMethod` owns every joining mechanism as one row carrying its `JoinClass`, reversibility, thermal custody, `PhaseShape`, acting phase, tack demand, and required `JoinText` and `JoinMetric` rosters; `JoinProcess` is the one admitted occurrence carrying that row beside its keyed text and metric streams.
+- Owner: `JoinMethod` owns every joining mechanism as one row carrying its `JoinClass`, `PhaseShape`, acting phase, and its `JoinTrait`, `JoinText`, and `JoinMetric` rosters; `JoinProcess` is the one admitted occurrence carrying that row beside its keyed text and metric streams; `JoinOrdinal` owns a join's position in its own census.
 - Owner: `AssemblyExecution` carries `InspectionCadence` and a positive lane ceiling, and `Lanes` bounds allocation by executable demand; named production presets never become domain cases and cadence is never a boolean. `AccessCorridor` carries approach axis, typed cone angle, the cutter and holder swept envelope, standoff, approach, retract, and visibility constraints, and `FitRequirement` carries gap, interference, alignment, surface, temperature, and closure limits as one admitted value.
 - Cases: `JoinPhase` covers locate, fit, tack, preheat, apply, dwell, cool, torque, inspect, release, unlock, extract, clean, handle, and final states, each row carrying the `PrecedenceKind` that entering it satisfies.
-- Law: a mechanism differs from its siblings in COLUMN VALUES alone. A payload flag that flips behaviour is a ROW, never a boolean — a tacked fusion, an arc-drawn stud, a shrink-fitted interference, and a removable pin are each their own row, so `Reversible` and `Thermal` read a column instead of sniffing an optional energy payload.
-- Law: service phases DERIVE from reversibility and thermal custody — a non-reversible mechanism has none, a reversible thermal one unlocks through preheat, and a reversible cold one unlocks directly — so no second twelve-arm fold states what two columns already decide.
+- Law: a mechanism differs from its siblings in COLUMN VALUES alone. A payload flag that flips behaviour is a ROW, never a boolean — a tacked fusion, an arc-drawn stud, a shrink-fitted interference, and a removable pin are each their own row, so `Reversible` and `Thermal` read the trait roster instead of sniffing an optional energy payload.
+- Law: custody traits ride ONE `Set<JoinTrait>` column beside the text and metric rosters this table already carries, so a declaration names the traits it holds instead of position-counting three booleans, and a fourth trait is one row plus the entries that hold it — no row, admission clause, or consumer signature widens.
+- Law: service phases DERIVE from the trait roster — a non-reversible mechanism has none, a reversible thermal one unlocks through preheat, and a reversible cold one unlocks directly — so no second twelve-arm fold states what two roster entries already decide.
+- Law: inspection is decided at ONE place from a cadence and a `JoinOrdinal`, and no boolean crosses a public phase signature. `Maximal` is the widest run either program admits and is what a duration table must cover; the ordinal carries its own census size, so the last-join test derives once instead of being spelled at each cadence read.
 - Law: `JoinClass`, `PrecedenceKind`, and `JoinPhase` carry their own wire `Code` or `Rank`, so canonical bytes read the declaration and a new row cannot inherit its predecessor's code through a trailing ladder arm.
 - Law: `JoinSpecification.Durations` is ONE map keyed by program AND phase — a parallel assembly-and-service pair forced every reader to select the map before selecting the row, and a phase present in one and absent in the other silently answered zero.
 - Law: `JoinMetric.DepositedEnergy` is the ONE thermal-load quantity, so distortion ordering ranks hot joints against each other by energy instead of collapsing to a hot-before-cold binary.
@@ -96,17 +98,24 @@ public sealed partial class JoinPhase {
     public PrecedenceKind Entered { get; }
 }
 
+// A join's position in its own census, as ONE value. The ordinal and the census size travel together, so the
+// last-join question DERIVES here instead of being recomputed at each cadence read — two sites already spelled
+// that comparison themselves, and a census that grew under one of them would have disagreed with the other.
+public readonly record struct JoinOrdinal(int Index, int Count) {
+    public bool Last => Index == Count - 1;
+}
+
 // Cadence is a shop policy over the join ordinal, never a boolean: a line inspecting every fifth joint and one
 // inspecting at subassembly close are the same all-or-nothing flag otherwise.
 [SmartEnum<string>]
 public sealed partial class InspectionCadence {
-    public static readonly InspectionCadence Never = new("never", static (_, _) => false);
-    public static readonly InspectionCadence EveryJoin = new("every-join", static (_, _) => true);
-    public static readonly InspectionCadence EveryOther = new("every-other", static (ordinal, _) => ordinal % 2 == 1);
-    public static readonly InspectionCadence EveryFifth = new("every-fifth", static (ordinal, _) => ordinal % 5 == 4);
-    public static readonly InspectionCadence SubassemblyClose = new("subassembly-close", static (_, last) => last);
+    public static readonly InspectionCadence Never = new("never", static _ => false);
+    public static readonly InspectionCadence EveryJoin = new("every-join", static _ => true);
+    public static readonly InspectionCadence EveryOther = new("every-other", static at => at.Index % 2 == 1);
+    public static readonly InspectionCadence EveryFifth = new("every-fifth", static at => at.Index % 5 == 4);
+    public static readonly InspectionCadence SubassemblyClose = new("subassembly-close", static at => at.Last);
 
-    public Func<int, bool, bool> Applies { get; }
+    public Func<JoinOrdinal, bool> Applies { get; }
 }
 
 // The middle of an assembly program: the mechanism's own acting run between fit-up and inspection. `Mechanical`
@@ -123,6 +132,16 @@ public sealed partial class PhaseShape {
         static action => Seq(action));
 
     public Func<JoinPhase, Seq<JoinPhase>> Core { get; }
+}
+
+// The custody traits a mechanism holds, as a ROSTER beside the identifier and metric rosters this row table
+// already carries. Three positional constructor booleans made a declaration count its own arguments, and each
+// new trait widened every one of the seventeen rows; a trait is now one roster entry on the rows that hold it.
+[SmartEnum<string>]
+public sealed partial class JoinTrait {
+    public static readonly JoinTrait Thermal = new("thermal");
+    public static readonly JoinTrait Reversible = new("reversible");
+    public static readonly JoinTrait Tack = new("tack");
 }
 
 // The identifiers a mechanism names: a procedure, a filler, an adhesive, a fastener and its locking feature, a
@@ -163,92 +182,98 @@ public sealed partial class JoinMetric {
 }
 
 // One row per joining mechanism. A payload flag that FLIPS behaviour is a row, never a boolean: `FusionTacked`,
-// `ArcStud`, `ShrinkFit`, and `RemovablePin` each carry their own reversibility, thermal custody, and phase shape,
-// so no projection sniffs an optional payload to decide what the mechanism is.
+// `ArcStud`, `ShrinkFit`, and `RemovablePin` each carry their own trait roster and phase shape, so no projection
+// sniffs an optional payload to decide what the mechanism is.
 [SmartEnum<string>]
 public sealed partial class JoinMethod {
     public static readonly JoinMethod Fusion = Of("fusion", JoinClass.Weld, PhaseShape.Fusion, JoinPhase.Apply,
-        thermal: true, metrics: [JoinMetric.HeatInput, JoinMetric.DepositedEnergy, JoinMetric.Preheat, JoinMetric.Interpass]);
+        traits: [JoinTrait.Thermal],
+        metrics: [JoinMetric.HeatInput, JoinMetric.DepositedEnergy, JoinMetric.Preheat, JoinMetric.Interpass]);
     public static readonly JoinMethod FusionTacked = Of("fusion-tacked", JoinClass.Weld, PhaseShape.Fusion, JoinPhase.Apply,
-        thermal: true, tack: true,
+        traits: [JoinTrait.Thermal, JoinTrait.Tack],
         metrics: [JoinMetric.HeatInput, JoinMetric.DepositedEnergy, JoinMetric.Preheat, JoinMetric.Interpass]);
     public static readonly JoinMethod Braze = Of("braze", JoinClass.Braze, PhaseShape.Heat, JoinPhase.Apply,
-        thermal: true, metrics: [JoinMetric.Liquidus, JoinMetric.Dwell, JoinMetric.DepositedEnergy]);
+        traits: [JoinTrait.Thermal], metrics: [JoinMetric.Liquidus, JoinMetric.Dwell, JoinMetric.DepositedEnergy]);
     public static readonly JoinMethod Solder = Of("solder", JoinClass.Solder, PhaseShape.Heat, JoinPhase.Apply,
-        thermal: true, reversible: true, metrics: [JoinMetric.Liquidus, JoinMetric.Dwell, JoinMetric.DepositedEnergy]);
+        traits: [JoinTrait.Thermal, JoinTrait.Reversible],
+        metrics: [JoinMetric.Liquidus, JoinMetric.Dwell, JoinMetric.DepositedEnergy]);
     public static readonly JoinMethod Adhesive = Of("adhesive", JoinClass.Adhesive, PhaseShape.Cure, JoinPhase.Apply,
         metrics: [JoinMetric.Bondline, JoinMetric.Dwell, JoinMetric.ClampPressure]);
     public static readonly JoinMethod Bolt = Of("bolt", JoinClass.Bolt, PhaseShape.Mechanical, JoinPhase.Torque,
-        reversible: true, texts: [JoinText.Agent, JoinText.Locking], metrics: [JoinMetric.Torque, JoinMetric.Preload]);
+        traits: [JoinTrait.Reversible], texts: [JoinText.Agent, JoinText.Locking],
+        metrics: [JoinMetric.Torque, JoinMetric.Preload]);
     public static readonly JoinMethod Screw = Of("screw", JoinClass.Screw, PhaseShape.Mechanical, JoinPhase.Torque,
-        reversible: true, texts: [JoinText.Agent, JoinText.Locking], metrics: [JoinMetric.Torque, JoinMetric.Preload]);
+        traits: [JoinTrait.Reversible], texts: [JoinText.Agent, JoinText.Locking],
+        metrics: [JoinMetric.Torque, JoinMetric.Preload]);
     public static readonly JoinMethod Rivet = Of("rivet", JoinClass.Rivet, PhaseShape.Mechanical, JoinPhase.Apply,
         metrics: [JoinMetric.UpsetForce, JoinMetric.HeadHeight]);
     public static readonly JoinMethod Stud = Of("stud", JoinClass.Stud, PhaseShape.Mechanical, JoinPhase.Apply,
-        reversible: true, metrics: [JoinMetric.InstallForce]);
+        traits: [JoinTrait.Reversible], metrics: [JoinMetric.InstallForce]);
     public static readonly JoinMethod ArcStud = Of("arc-stud", JoinClass.Stud, PhaseShape.Heat, JoinPhase.Apply,
-        thermal: true, metrics: [JoinMetric.InstallForce, JoinMetric.DepositedEnergy]);
+        traits: [JoinTrait.Thermal], metrics: [JoinMetric.InstallForce, JoinMetric.DepositedEnergy]);
     public static readonly JoinMethod PressFit = Of("press-fit", JoinClass.PressFit, PhaseShape.Mechanical, JoinPhase.Apply,
         texts: [], metrics: [JoinMetric.Interference, JoinMetric.InsertionForce]);
     public static readonly JoinMethod ShrinkFit = Of("shrink-fit", JoinClass.PressFit, PhaseShape.Heat, JoinPhase.Apply,
-        thermal: true, texts: [],
+        traits: [JoinTrait.Thermal], texts: [],
         metrics: [JoinMetric.Interference, JoinMetric.InsertionForce, JoinMetric.TemperatureDelta, JoinMetric.DepositedEnergy]);
     public static readonly JoinMethod Clinch = Of("clinch", JoinClass.Clinch, PhaseShape.Mechanical, JoinPhase.Apply,
         metrics: [JoinMetric.InsertionForce, JoinMetric.Button]);
     public static readonly JoinMethod Pin = Of("pin", JoinClass.Pin, PhaseShape.Mechanical, JoinPhase.Apply,
         metrics: [JoinMetric.InsertionForce]);
     public static readonly JoinMethod RemovablePin = Of("removable-pin", JoinClass.Pin, PhaseShape.Mechanical, JoinPhase.Apply,
-        reversible: true, metrics: [JoinMetric.InsertionForce]);
+        traits: [JoinTrait.Reversible], metrics: [JoinMetric.InsertionForce]);
     public static readonly JoinMethod Snap = Of("snap", JoinClass.Snap, PhaseShape.Mechanical, JoinPhase.Apply,
-        reversible: true, metrics: [JoinMetric.Engagement, JoinMetric.Release]);
+        traits: [JoinTrait.Reversible], metrics: [JoinMetric.Engagement, JoinMetric.Release]);
     public static readonly JoinMethod Connector = Of("connector", JoinClass.Connector, PhaseShape.Mechanical, JoinPhase.Apply,
-        reversible: true, metrics: [JoinMetric.MatingForce, JoinMetric.Latching]);
+        traits: [JoinTrait.Reversible], metrics: [JoinMetric.MatingForce, JoinMetric.Latching]);
 
     public JoinClass Class { get; }
     public PhaseShape Shape { get; }
     public JoinPhase Action { get; }
-    public bool Thermal { get; }
-    public bool Reversible { get; }
-    public bool Tack { get; }
+    public Set<JoinTrait> Traits { get; }
     public Set<JoinText> Texts { get; }
     public Set<JoinMetric> Metrics { get; }
 
-    // Service DERIVES from the two columns: a non-reversible mechanism comes apart never, a reversible thermal one
-    // unlocks through preheat, and a reversible cold one unlocks directly.
-    public Seq<JoinPhase> Service(bool inspect) =>
-        !Reversible
+    public bool Holds(JoinTrait trait) => Traits.Contains(trait);
+
+    // The cadence and the position decide inspection at ONE place; no bool crosses this surface, so a caller
+    // cannot hand a run an inspection verdict the cadence it also holds would have refused.
+    public Seq<JoinPhase> Phases(JoinProgram program, InspectionCadence cadence, JoinOrdinal at) =>
+        Run(program, cadence.Applies(at));
+
+    // The widest run either program admits — what a duration table must cover whatever cadence a line runs.
+    public Seq<JoinPhase> Maximal(JoinProgram program) => Run(program, inspect: true);
+
+    // Service DERIVES from the trait roster: a non-reversible mechanism comes apart never, a reversible thermal
+    // one unlocks through preheat, and a reversible cold one unlocks directly.
+    private Seq<JoinPhase> Run(JoinProgram program, bool inspect) => program.Switch(
+        state: inspect,
+        assembly: (held, _) => Seq(JoinPhase.Locate, JoinPhase.Fit)
+            + Spliced(Holds(JoinTrait.Tack), JoinPhase.Tack)
+            + Shape.Core(Action)
+            + Spliced(held, JoinPhase.Inspect)
+            + Seq(JoinPhase.Release, JoinPhase.Handle, JoinPhase.Final),
+        service: (held, _) => !Holds(JoinTrait.Reversible)
             ? Seq<JoinPhase>()
-            : Seq(JoinPhase.Locate) + (Thermal ? Seq(JoinPhase.Preheat) : Seq<JoinPhase>())
+            : Seq(JoinPhase.Locate) + Spliced(Holds(JoinTrait.Thermal), JoinPhase.Preheat)
                 + Seq(JoinPhase.Unlock, JoinPhase.Extract)
-                + (inspect ? Seq(JoinPhase.Inspect) : Seq<JoinPhase>())
-                + Seq(JoinPhase.Clean, JoinPhase.Handle, JoinPhase.Final);
+                + Spliced(held, JoinPhase.Inspect)
+                + Seq(JoinPhase.Clean, JoinPhase.Handle, JoinPhase.Final));
 
-    public Seq<JoinPhase> Assembly(bool inspect) =>
-        Seq(JoinPhase.Locate, JoinPhase.Fit) + (Tack ? Seq(JoinPhase.Tack) : Seq<JoinPhase>())
-        + Shape.Core(Action)
-        + (inspect ? Seq(JoinPhase.Inspect) : Seq<JoinPhase>())
-        + Seq(JoinPhase.Release, JoinPhase.Handle, JoinPhase.Final);
-
-    public Seq<JoinPhase> Phases(JoinProgram program, bool inspect) => program.Switch(
-        assembly: () => Assembly(inspect),
-        service: () => Service(inspect));
+    private static Seq<JoinPhase> Spliced(bool held, JoinPhase phase) => held ? Seq(phase) : Seq<JoinPhase>();
 
     private static JoinMethod Of(
         string key,
         JoinClass joinClass,
         PhaseShape shape,
         JoinPhase action,
-        bool thermal = false,
-        bool reversible = false,
-        bool tack = false,
+        JoinTrait[]? traits = null,
         JoinText[]? texts = null,
         JoinMetric[]? metrics = null) =>
-        new(key, joinClass, shape, action, thermal, reversible, tack,
-            toSet(texts ?? [JoinText.Agent]), toSet(metrics ?? []));
+        new(key, joinClass, shape, action, toSet(traits ?? []), toSet(texts ?? [JoinText.Agent]), toSet(metrics ?? []));
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class AssemblyExecution {
     public InspectionCadence Cadence { get; }
     public int MaxParallel { get; }
@@ -257,11 +282,11 @@ public sealed partial class AssemblyExecution {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref InspectionCadence cadence,
         ref int maxParallel) {
         if (maxParallel <= 0)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Fixturing, "assembly-execution");
+            validationError = new ValidationError("assembly-execution");
     }
 
     public static Fin<AssemblyExecution> Admit(InspectionCadence cadence, int maxParallel) =>
@@ -269,7 +294,6 @@ public sealed partial class AssemblyExecution {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public readonly partial struct FitRequirement {
     public Length GapMin { get; }
     public Length GapMax { get; }
@@ -282,7 +306,7 @@ public readonly partial struct FitRequirement {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Length gapMin,
         ref Length gapMax,
         ref Length interferenceMax,
@@ -295,7 +319,7 @@ public readonly partial struct FitRequirement {
             && double.IsFinite(temperatureMin.As(TemperatureUnit.DegreeCelsius))
             && double.IsFinite(temperatureMax.As(TemperatureUnit.DegreeCelsius))
             && gapMax >= gapMin && temperatureMax >= temperatureMin))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Fixturing, "fit-requirement");
+            validationError = new ValidationError("fit-requirement");
     }
 
     public CanonicalWriter CanonicalBytes(CanonicalWriter writer) => writer
@@ -315,11 +339,11 @@ public readonly record struct AccessCorridor(
     Length Approach,
     Length Retract,
     bool LineOfSight) {
-    public bool Valid =>
-        Fixtures.Unit(Axis)
-        && Fixtures.Finite(HalfAngle) && HalfAngle.As(AngleUnit.Radian) is > 0.0 and < (Math.PI / 2.0)
-        && Fixtures.Positive(Standoff)
-        && Seq(ToolRadius, HolderRadius, Approach, Retract).ForAll(Fixtures.Nonnegative);
+    public bool IsValid => ValidityClaim.All(
+        Fixtures.Unit(Axis),
+        Fixtures.Finite(HalfAngle), HalfAngle.As(AngleUnit.Radian) is > 0.0 and < (Math.PI / 2.0),
+        Fixtures.Positive(Standoff),
+        Seq(ToolRadius, HolderRadius, Approach, Retract).ForAll(Fixtures.Nonnegative));
 
     public CanonicalWriter CanonicalBytes(CanonicalWriter writer) => writer
         .Coords(Axis).Double(HalfAngle.As(AngleUnit.Radian)).Double(Standoff.As(LengthUnit.Millimeter))
@@ -330,18 +354,17 @@ public readonly record struct AccessCorridor(
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public readonly partial struct AssemblyMemberKey {
     public UInt128 Representation { get; }
     public int Instance { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref UInt128 representation,
         ref int instance) {
-        if (representation == UInt128.Zero || !Witness.Index(instance))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Fixturing, "assembly-member-key");
+        if (representation == UInt128.Zero || !ValidityClaim.Nonnegative(instance).Holds)
+            validationError = new ValidationError("assembly-member-key");
     }
 
     public CanonicalWriter CanonicalBytes(CanonicalWriter writer) => writer.U128(Representation).Ordinal(Instance);
@@ -350,35 +373,34 @@ public readonly partial struct AssemblyMemberKey {
 // One admitted occurrence: the mechanism row, its identifiers, and its metrics. Every projection a consumer once
 // reached through a twelve-arm fold is now a column read or one map lookup.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class JoinProcess {
     public JoinMethod Method { get; }
     public Map<JoinText, string> Texts { get; }
     public Map<JoinMetric, double> Metrics { get; }
 
     public JoinClass Class => Method.Class;
-    public bool Reversible => Method.Reversible;
-    public bool Thermal => Method.Thermal;
+    public bool Reversible => Method.Holds(JoinTrait.Reversible);
+    public bool Thermal => Method.Holds(JoinTrait.Thermal);
     public Energy ThermalLoad => Energy.FromJoules(Of(JoinMetric.DepositedEnergy));
     public Duration Dwell => Duration.FromSeconds(Of(JoinMetric.Dwell));
     public double Of(JoinMetric axis) => Metrics.Find(axis).IfNone(0.0);
     public string Text(JoinText axis) => Texts.Find(axis).IfNone(string.Empty);
 
-    public Seq<JoinPhase> Phases(JoinProgram program, AssemblyExecution execution, int ordinal, bool last) =>
-        Method.Phases(program, execution.Cadence.Applies(ordinal, last));
+    public Seq<JoinPhase> Phases(JoinProgram program, AssemblyExecution execution, JoinOrdinal at) =>
+        Method.Phases(program, execution.Cadence, at);
 
-    public Seq<JoinPhase> RequiredPhases(JoinProgram program) => Method.Phases(program, inspect: true);
+    public Seq<JoinPhase> RequiredPhases(JoinProgram program) => Method.Maximal(program);
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref JoinMethod method,
         ref Map<JoinText, string> texts,
         ref Map<JoinMetric, double> metrics) {
         if (!(method.Texts.ForAll(axis => texts.Find(axis).Exists(Witness.Keyed))
             && method.Metrics.ForAll(axis => metrics.Find(axis).Exists(axis.Bound.Admits))
             && metrics.ForAll(static row => row.Key.Bound.Admits(row.Value))))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Fixturing, "join-process");
+            validationError = new ValidationError("join-process");
     }
 
     public static Fin<JoinProcess> Admit(JoinMethod method, Map<JoinText, string> texts, Map<JoinMetric, double> metrics) =>
@@ -448,8 +470,9 @@ public sealed record AssemblyJoint(
 - Owner: `AssemblyPolicy` is raw ingress; `JoinNode` is one executable phase; `AssemblyPlan` is the reduced proof-bearing result; `Assemblies` owns every fold.
 - Cases: `PrecedenceKind` closes phase, datum, occlusion, fit, load-path, support, thermal, cure, resource, inspection, handling, and reversible-service reasons.
 - Law: `JointIndex` is built ONCE at admission and carries the joint-by-key map, the ordinal each joint holds, its assembly phase run, its first and last node, and the member-to-incident-joint index. Every pairwise fold reads it, so the ordinal scan that ran inside a nested pair loop — turning a quadratic precedence build into a cubic one — has no site left, and shared-member neighbours resolve through the incidence index rather than a component cross-product.
-- Law: `IAssemblyEvidenceSource.Evaluate` proves connected support, capacity, center-of-gravity margin, temporary fixture custody, load-path continuity, fit, visibility, and robot placement once per join; every phase retains that receipt.
-- Law: fit and datum errors fold along component paths, and a join fails admission when gap, interference, alignment, or accumulated closure exceeds its carried requirement. The `Joining/sequence` `DisplacementReceipt` spends the joint's own alignment budget through `workholding#FIXTURE` `DatumTransfer` before that comparison, so a distortion the weld plane measured narrows the fit a joint may claim rather than arriving as a second estimate here.
+- Law: `IAssemblyEvidenceSource.Evaluate` proves connected support, capacity, center-of-gravity margin, temporary fixture custody, load-path continuity, fit, sight, and robot placement once per join; `JoinMeasure` retains that boundary evidence WHOLE rather than spreading it across columns a construction site re-spells, so a fifth boundary column reaches every consumer with no arm that forgot to carry it.
+- Law: the boundary reports sight as `BlockedCorridor` rows — the same shape the analytic corridor kernel publishes — so an occluded sight line names its occluder and the two censuses correlate without a positional decode. `JoinRejection.Visibility` names a MALFORMED census (a row addressing a corridor outside the joint's own roster); `JoinRejection.Sight` names a corridor demanding line of sight that a row occludes.
+- Law: fit and datum errors fold along component paths, and a join fails admission when gap, interference, alignment, or accumulated closure exceeds its carried requirement. The `Joining/sequence` `DistortionField` spends the joint's own alignment budget through `workholding#FIXTURE` `DatumTransfer` before that comparison, so a distortion the weld plane measured narrows the fit a joint may claim rather than arriving as a second estimate here.
 - Law: every approach and retract corridor composes `Workholding.Apply` at the phase's `FixtureState`; analytic cone occlusion checks every potential neighbour over the full axial interval.
 - Law: source-first order respects resource exclusivity, dwell, cool, inspection, and lane policy; each step carries typed start, finish, fixture, resources, and stability evidence, and every receipt resolves by joint key through a TOTAL read — an absent subassembly label, joint, or receipt refuses typed rather than throwing out of an indexer on a non-`Fin` path.
 - Law: disassembly reverses the proven precedence through `SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Backward)`, so an occlusion or thermal edge that gated a join gates its removal; a reversed roster and a reversed order sequence both ignore those edges.
@@ -457,7 +480,7 @@ public sealed record AssemblyJoint(
 - Law: transitive reduction takes NO edge factory and returns the ORIGINAL edges, so the surviving node pairs read once into a set and the typed reason edges filter against it in one pass.
 - Receipt: a cyclic precedence graph publishes its strongly-connected COMPONENT MEMBERS on `FabricationFault.AssemblyPrecedenceCyclic`, through the ONE `setups#SCHEDULE` `Setups.Components` grouping both Fixturing precedence graphs read — a vertex-and-edge count names nothing a caller can break.
 - Exemption: `Occludes` is the analytic corridor kernel, `Schedule` the bounded lane fold, and `Physical` the connectivity labelling; mutation stays inside admitted graph and fold containers.
-- Packages: `BidirectionalGraph<JoinNode, AssemblyEdge>` carries reason payloads directly, while the component `UndirectedGraph` remains the disjoint physical-connectivity projection.
+- Packages: `BidirectionalGraph<JoinNode, AssemblyEdge>` carries reason payloads directly, while the component `UndirectedGraph` remains the disjoint physical-connectivity projection. Every graph question is a shipped `AlgorithmExtensions` call and no walk is hand-rolled: `IsDirectedAcyclicGraph` rails ahead of the two sorts that throw on cyclic input, `SourceFirstBidirectionalTopologicalSort` answers both directions, `ComputeTransitiveReduction` reduces, `InEdges` reads predecessors inside the lane fold, `ConnectedComponents` labels physical subassemblies, and the cyclic witness composes the ONE `Setups.Components` grouping.
 - Boundary: precedence and physical connectivity remain distinct; geometry failure, missing specification, unstable release, and blocked access remain typed failures carrying a `JoinRejection` reason rather than one opaque code.
 
 ```csharp signature
@@ -484,7 +507,11 @@ public readonly record struct JoinNode(int Joint, JoinPhase Phase);
 
 public readonly record struct AssemblyEdge(JoinNode Source, JoinNode Target, PrecedenceKind Kind) : IEdge<JoinNode>;
 
-public readonly record struct StabilityReceipt(
+// One occlusion row for both producers: the analytic corridor kernel names what its cone sweep found, and the
+// evidence boundary names what its own sight check found, in the same three columns.
+public readonly record struct BlockedCorridor(int Joint, int Corridor, int Occluder);
+
+public readonly record struct FixtureStability(
     int Components,
     double CapacityMargin,
     double SupportMargin,
@@ -497,7 +524,7 @@ public readonly record struct StabilityReceipt(
         .Ordinal(Components).Double(CapacityMargin).Double(SupportMargin).Double(LoadPathMargin).Bool(FixtureHeld);
 }
 
-public readonly record struct ToleranceReceipt(
+public readonly record struct FitTolerance(
     Length Gap,
     Length Interference,
     Length Alignment,
@@ -511,19 +538,24 @@ public readonly record struct ToleranceReceipt(
         .Double(Temperature.As(TemperatureUnit.DegreeCelsius));
 }
 
+// What the evidence boundary measured for one join. `Sight` reports the corridors it found OCCLUDED, each naming
+// the joint that occludes it — the same `BlockedCorridor` row the analytic corridor kernel publishes, so the two
+// occlusion censuses share one shape and a reader correlates them without a positional decode. NAMED LOSS: a
+// parallel `Seq<bool>` indexed against the corridor roster proved coverage by its own length, and a boundary
+// reporting nothing now reads as nothing occluded. WITNESS: the page already takes that posture for
+// `Seq<WorkholdingResult.Clearance>` and for the analytic `BlockedCorridor` census beside it.
 public readonly record struct AssemblyBoundaryEvidence(
-    ToleranceReceipt Tolerance,
-    StabilityReceipt Stability,
-    Option<CellPlacementReceipt> Robot,
-    Seq<bool> Visibility);
+    FitTolerance Tolerance,
+    FixtureStability Stability,
+    Option<CellPlacement> Robot,
+    Seq<BlockedCorridor> Sight);
 
-public readonly record struct JoinReceipt(
+// The boundary's own evidence rides WHOLE rather than spread across four columns a construction site re-spells,
+// so a fifth boundary column reaches every consumer with no edit here and no arm that forgot to carry it.
+public readonly record struct JoinMeasure(
     int Joint,
-    ToleranceReceipt Tolerance,
+    AssemblyBoundaryEvidence Boundary,
     Seq<WorkholdingResult.Clearance> Clearance,
-    StabilityReceipt Stability,
-    Option<CellPlacementReceipt> Robot,
-    Seq<bool> Visibility,
     Seq<string> Resources,
     Duration Duration);
 
@@ -536,15 +568,13 @@ public readonly record struct JoinStep(
     Seq<string> Resources,
     Duration Start,
     Duration Finish,
-    StabilityReceipt Stability) {
+    FixtureStability Stability) {
     public CanonicalWriter CanonicalBytes(CanonicalWriter writer) => Stability.CanonicalBytes(writer
         .Ordinal(Order).Ordinal(Joint).Ordinal(Phase.Rank).Ordinal(Subassembly)
         .Maybe(Fixture, static (held, fixture) => held.Ordinal(fixture))
         .Rows(Resources, static (held, resource) => held.String(resource))
         .Double(Start.As(DurationUnit.Second)).Double(Finish.As(DurationUnit.Second)));
 }
-
-public readonly record struct BlockedCorridor(int Joint, int Corridor, int Occluder);
 
 // --- [SERVICES] -----------------------------------------------------------------------------------------------------------------------------------
 public interface IAssemblyEvidenceSource {
@@ -562,7 +592,7 @@ public sealed record AssemblyPolicy(
     FixtureSet Fixtures,
     Map<PropertyName, JoinSpecification> Specifications,
     Force HandlingLoad,
-    Option<DisplacementReceipt> Distortion,
+    Option<DistortionField> Distortion,
     IAssemblyEvidenceSource Evidence);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -594,13 +624,13 @@ public sealed record AssemblyPlan(
     int Subassemblies,
     Seq<AssemblyEdge> Precedence,
     Seq<AssemblyJoint> Joints,
-    Seq<JoinReceipt> Receipts,
+    Seq<JoinMeasure> Receipts,
     Seq<BlockedCorridor> Blocked,
     Seq<JoinStep> ServiceOrder,
     ContentKey Key) {
     public static Fin<AssemblyResult> Apply(AssemblyOp? op) =>
         Optional(op)
-            .ToFin(new FabricationFault.FixtureInadmissible(new FixturingWitness.Absent()).ToError())
+            .ToFin(FabricationFault.Fixture(new FixturingWitness.Absent()))
             .Bind(static operation => operation.Switch(
                 admit: static row => Assemblies.Admit(row.Members, row.Policy)
                     .Map<AssemblyResult>(joints => new AssemblyResult.Admitted(joints, row.Policy)),
@@ -646,7 +676,7 @@ internal static partial class Assemblies {
                 toMap(joints.Map(static joint => (joint.Index, joint))),
                 ordinals,
                 toMap(joints.Map(joint => (joint.Index, joint.Specification.Process.Phases(
-                    JoinProgram.Assembly, execution, ordinals[joint.Index], ordinals[joint.Index] == joints.Count - 1)))),
+                    JoinProgram.Assembly, execution, new JoinOrdinal(ordinals[joint.Index], joints.Count))))),
                 joints
                     .Bind(joint => joint.Specification.Components.ToSeq().Map(component => (component, joint.Index)))
                     .Fold(Map<AssemblyMemberKey, Seq<int>>(), static (index, row) =>
@@ -655,7 +685,7 @@ internal static partial class Assemblies {
 
         public Seq<JoinPhase> ServicePhases(int joint, AssemblyExecution execution) =>
             ByKey.Find(joint).Map(row => row.Specification.Process.Phases(
-                JoinProgram.Service, execution, Ordinal.Find(joint).IfNone(0), Ordinal.Find(joint).IfNone(0) == Joints.Count - 1))
+                JoinProgram.Service, execution, new JoinOrdinal(Ordinal.Find(joint).IfNone(0), Joints.Count)))
                 .IfNone(Seq<JoinPhase>());
     }
 
@@ -672,7 +702,7 @@ internal static partial class Assemblies {
             !members.IsEmpty && keys.Count == members.Count
             && members.ForAll(static member =>
                 member.Key.Representation == member.Component.RepresentationKey && member.Pose.IsValid),
-            new FabricationFault.FixtureInadmissible(new FixturingWitness.Membership(-1, members.Count, keys.Count)));
+            FabricationFault.Fixture(new FixturingWitness.Membership(None, members.Count, keys.Count)));
     }
 
     private static K<Validation<Error>, Unit> GatePolicy(Seq<AssemblyMember> input, AssemblyPolicy policy) {
@@ -686,15 +716,15 @@ internal static partial class Assemblies {
             && realized.Count == policy.Specifications.Count
             && realized.ForAll(policy.Specifications.ContainsKey)
             && policy.Specifications.Values.ForAll(specification => Valid(specification, members, policy)),
-            new FabricationFault.FixtureInadmissible(
-                new FixturingWitness.Membership(-1, realized.Count, policy.Specifications.Count)));
+            FabricationFault.Fixture(
+                new FixturingWitness.Membership(None, realized.Count, policy.Specifications.Count)));
     }
 
     private static bool Valid(JoinSpecification specification, Set<AssemblyMemberKey> members, AssemblyPolicy policy) =>
         specification.Components.Count >= 2
         && specification.Components.Distinct().Count == specification.Components.Count
         && specification.Components.ForAll(members.Contains)
-        && specification.Access.ForAll(static access => access.Valid)
+        && specification.Access.ForAll(static access => access.IsValid)
         && specification.FixtureKeys.Distinct().Count == specification.FixtureKeys.Count
         && specification.FixtureKeys.ForAll(policy.Fixtures.ByOperation.ContainsKey)
         && specification.Resources.Distinct().Count == specification.Resources.Count
@@ -720,26 +750,26 @@ internal static partial class Assemblies {
             .Traverse(group => (
                     policy.Specifications
                         .Find(group.Key)
-                        .ToFin(new FabricationFault.FixtureInadmissible(
-                            new FixturingWitness.Membership(group.Index, group.Rows.Count, 0)).ToError()),
+                        .ToFin(FabricationFault.Fixture(
+                            new FixturingWitness.Membership(Some(group.Index), group.Rows.Count, 0))),
                     group.Rows.Choose(static row => row.connection.At.Map(at => (row.member, row.connection, at))).Head
                         .ToFin(new GeometryFault.DegenerateInput(
-                            Kind.Line, group.Index, nameof(ComponentConnection.At)).ToError()))
+                            Kind.Line, group.Index, nameof(ComponentConnection.At))))
                 .Apply((specification, located) => group.Rows.ForAll(row => specification.Components.Contains(row.member.Key))
                     ? Fin.Succ(new AssemblyJoint(group.Index, specification.Components[0], located.connection,
                         new Edge3(located.member.Pose * located.at.A, located.member.Pose * located.at.B), specification))
-                    : Fin.Fail<AssemblyJoint>(new FabricationFault.FixtureInadmissible(
-                        new FixturingWitness.Membership(group.Index, group.Rows.Count,
-                            group.Rows.Count(row => specification.Components.Contains(row.member.Key)))).ToError()))
+                    : Fin.Fail<AssemblyJoint>(FabricationFault.Fixture(new FixturingWitness.Membership(
+                        Some(group.Index), group.Rows.Count,
+                        group.Rows.Count(row => specification.Components.Contains(row.member.Key)))))
                 .As().Bind(identity).ToValidation());
 
     // --- [PLANNING]
     internal static Fin<AssemblyPlan> Ordered(Seq<AssemblyMember> input, Seq<AssemblyJoint> joints, AssemblyPolicy policy) {
         JointIndex index = JointIndex.Of(joints, policy.Execution);
         return policy.DatumJoints.Exists(anchor => !index.ByKey.ContainsKey(anchor))
-            ? Fin.Fail<AssemblyPlan>(new FabricationFault.FixtureInadmissible(new FixturingWitness.Membership(
-                policy.DatumJoints.Find(anchor => !index.ByKey.ContainsKey(anchor)).IfNone(-1),
-                policy.DatumJoints.Count, joints.Count)).ToError())
+            ? Fin.Fail<AssemblyPlan>(FabricationFault.Fixture(new FixturingWitness.Membership(
+                policy.DatumJoints.Find(anchor => !index.ByKey.ContainsKey(anchor)),
+                policy.DatumJoints.Count, joints.Count)))
             : joints.Traverse(joint => Receipt(joint, index, input, policy).ToValidation()).As().ToFin()
                 .Bind(receipts => Assemble(input, index, receipts, policy));
     }
@@ -747,29 +777,33 @@ internal static partial class Assemblies {
     private static Fin<AssemblyPlan> Assemble(
         Seq<AssemblyMember> input,
         JointIndex index,
-        Seq<JoinReceipt> receipts,
+        Seq<JoinMeasure> receipts,
         AssemblyPolicy policy) {
         (BidirectionalGraph<JoinNode, AssemblyEdge> graph, Seq<BlockedCorridor> blocked) = Graph(index, policy);
         if (!graph.IsDirectedAcyclicGraph())
             return Fin.Fail<AssemblyPlan>(new FabricationFault.AssemblyPrecedenceCyclic(
                 Setups.Components<JoinNode, AssemblyEdge>(graph)
                     .Bind(static component => component.ToSeq().Map(static node => node.Joint))
-                    .Distinct().ToArr()).ToError());
+                    .Distinct().ToArr()));
 
-        Map<AssemblyMemberKey, int> components = Physical(input, index.Joints, out int count);
-        Map<int, JoinReceipt> keyed = toMap(receipts.Map(static receipt => (receipt.Joint, receipt)));
+        (Map<AssemblyMemberKey, int> components, int count) = Physical(input, index.Joints);
+        Map<int, JoinMeasure> keyed = toMap(receipts.Map(static receipt => (receipt.Joint, receipt)));
         Seq<JoinNode> forward = toSeq(graph.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Forward));
         Seq<JoinNode> backward = toSeq(graph.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Backward));
         return (Schedule(graph, forward, index, keyed, components, policy).ToValidation(),
                 Service(backward, index, keyed, components, policy.Execution).ToValidation())
-            .Apply((steps, service) => {
-                Seq<AssemblyEdge> reduced = Reduced(graph);
-                return new AssemblyPlan(input, policy.Execution, steps, count, reduced, index.Joints, receipts, blocked, service,
-                    ContentKey.Of(EgressKind.Plan, Canonical(
-                        input, policy.Execution, steps, count, reduced, index.Joints, receipts, blocked, service,
-                        Grid(index.Joints))));
-            })
-            .As().ToFin();
+            .Apply((steps, service) => (Steps: steps, Service: service, Reduced: Reduced(graph)))
+            .As().ToFin()
+            // The plan key rides the S0 keyed close, so the retaining mint's own refusal threads this rail rather
+            // than reaching the plan as an address minted off bytes no writer held.
+            .Bind(built => FabricationCanon.Keyed(
+                EgressKind.Plan,
+                Grid(index.Joints),
+                writer => Canonical(writer, input, policy.Execution, built.Steps, count, built.Reduced,
+                    index.Joints, receipts, blocked, built.Service),
+                Key)
+                .Map(key => new AssemblyPlan(input, policy.Execution, built.Steps, count, built.Reduced,
+                    index.Joints, receipts, blocked, built.Service, key)));
     }
 
     private static (BidirectionalGraph<JoinNode, AssemblyEdge> Graph, Seq<BlockedCorridor> Blocked) Graph(
@@ -825,7 +859,7 @@ internal static partial class Assemblies {
     }
 
     // --- [EVIDENCE]
-    private static Fin<JoinReceipt> Receipt(
+    private static Fin<JoinMeasure> Receipt(
         AssemblyJoint joint,
         JointIndex index,
         Seq<AssemblyMember> members,
@@ -841,17 +875,15 @@ internal static partial class Assemblies {
                             joint.At, access, joint.Specification.GrooveIncludedAngle, policy.CorridorClearance)))
                         .Bind(static result => result switch {
                             WorkholdingResult.Clearance receipt => Fin.Succ(receipt),
-                            _ => Fin.Fail<WorkholdingResult.Clearance>(new FabricationFault.WitnessMalformed(
-                                nameof(WorkholdingResult.Clearance), nameof(ExclusionZone)).ToError()),
+                            _ => throw new InvalidOperationException("Workholding.Clear returned a non-clearance result."),
                         }).ToValidation())).As())
             .Apply(static (boundary, rows) => (boundary, Clearance: rows.Bind(identity)))
             .As().ToFin()
             .Bind(result => Admissible(result.boundary, result.Clearance, joint, fixtures, policy)
-                ? Fin.Succ(new JoinReceipt(joint.Index, result.boundary.Tolerance, result.Clearance,
-                    result.boundary.Stability, result.boundary.Robot, result.boundary.Visibility,
+                ? Fin.Succ(new JoinMeasure(joint.Index, result.boundary, result.Clearance,
                     joint.Specification.Resources, duration))
-                : Fin.Fail<JoinReceipt>(new FabricationFault.FixtureInadmissible(new FixturingWitness.Join(
-                    joint.Index, Rejection(result.boundary, joint, fixtures, policy))).ToError()));
+                : Fin.Fail<JoinMeasure>(FabricationFault.Fixture(new FixturingWitness.Join(
+                    joint.Index, Rejection(result.boundary, joint, fixtures, policy))));
     }
 
     private static bool Admissible(
@@ -868,9 +900,19 @@ internal static partial class Assemblies {
         // every unsolved station into `CellPlacementMetric.Feasibility`, and an absent metric is an unrun solve.
         && boundary.Robot.ForAll(static receipt =>
             receipt.Selected.Metrics.Find(CellPlacementMetric.Feasibility).Exists(static value => value == 0.0))
-        && boundary.Visibility.Count == joint.Specification.Access.Count
-        && joint.Specification.Access.Map((access, ordinal) => !access.LineOfSight || boundary.Visibility[ordinal]).ForAll(identity)
+        && Sighted(boundary, joint)
         && clearance.ForAll(static receipt => receipt.Clear);
+
+    // A corridor demanding line of sight must appear in no occlusion row, and every row the boundary reported
+    // must name a corridor this joint actually declares — a row addressing a corridor past the roster is a
+    // boundary that measured something else.
+    private static bool Sighted(AssemblyBoundaryEvidence boundary, AssemblyJoint joint) =>
+        boundary.Sight.ForAll(row => row.Joint == joint.Index
+            && row.Corridor >= 0 && row.Corridor < joint.Specification.Access.Count)
+        && joint.Specification.Access
+            .Map((access, ordinal) => !access.LineOfSight
+                || !boundary.Sight.Exists(row => row.Corridor == ordinal))
+            .ForAll(identity);
 
     private static JoinRejection Rejection(
         AssemblyBoundaryEvidence boundary,
@@ -884,16 +926,15 @@ internal static partial class Assemblies {
         : boundary.Robot.Exists(static receipt =>
             !receipt.Selected.Metrics.Find(CellPlacementMetric.Feasibility).Exists(static value => value == 0.0))
             ? JoinRejection.Robot
-        : boundary.Visibility.Count != joint.Specification.Access.Count ? JoinRejection.Visibility
-        : joint.Specification.Access
-            .Map((access, ordinal) => access.LineOfSight && !boundary.Visibility[ordinal]).Exists(identity)
-                ? JoinRejection.Sight
-                : JoinRejection.Access;
+        : boundary.Sight.Exists(row => row.Joint != joint.Index
+            || row.Corridor < 0 || row.Corridor >= joint.Specification.Access.Count)
+            ? JoinRejection.Visibility
+        : !Sighted(boundary, joint) ? JoinRejection.Sight : JoinRejection.Access;
 
     // The alignment budget the distortion receipt already consumed narrows the requirement BEFORE the comparison,
     // so a weld-plane displacement on this joint's own members spends the fit it may claim.
     private static bool Fits(
-        ToleranceReceipt receipt,
+        FitTolerance receipt,
         FitRequirement requirement,
         AssemblyJoint joint,
         AssemblyPolicy policy) {
@@ -918,7 +959,7 @@ internal static partial class Assemblies {
         BidirectionalGraph<JoinNode, AssemblyEdge> graph,
         Seq<JoinNode> order,
         JointIndex index,
-        Map<int, JoinReceipt> receipts,
+        Map<int, JoinMeasure> receipts,
         Map<AssemblyMemberKey, int> components,
         AssemblyPolicy policy) =>
         order.Fold(
@@ -950,7 +991,7 @@ internal static partial class Assemblies {
     private static Fin<Seq<JoinStep>> Service(
         Seq<JoinNode> backward,
         JointIndex index,
-        Map<int, JoinReceipt> receipts,
+        Map<int, JoinMeasure> receipts,
         Map<AssemblyMemberKey, int> components,
         AssemblyExecution execution) =>
         backward.Map(static node => node.Joint).Distinct().Fold(
@@ -966,9 +1007,9 @@ internal static partial class Assemblies {
 
     // Joint, subassembly label, and stability all read TOTALLY in one place: a step whose joint, label, or receipt
     // is absent refuses typed, so no scheduling arm publishes a default receipt as measured stability.
-    private static Fin<(AssemblyJoint Joint, int Subassembly, StabilityReceipt Stability)> Seated(
+    private static Fin<(AssemblyJoint Joint, int Subassembly, FixtureStability Stability)> Seated(
         JointIndex index,
-        Map<int, JoinReceipt> receipts,
+        Map<int, JoinMeasure> receipts,
         Map<AssemblyMemberKey, int> components,
         int joint) =>
         (index.ByKey.Find(joint).ToFin(Absent(joint, index.Joints.Count, 0)).ToValidation(),
@@ -977,19 +1018,23 @@ internal static partial class Assemblies {
             .As().ToFin()
             .Bind(pair => components.Find(pair.row.Specification.Components[0])
                 .ToFin(Absent(joint, pair.row.Specification.Components.Count, components.Count))
-                .Map(label => (pair.row, label, pair.receipt.Stability)));
+                .Map(label => (pair.row, label, pair.receipt.Boundary.Stability)));
 
     private static Error Absent(int joint, int expected, int available) =>
-        new FabricationFault.FixtureInadmissible(new FixturingWitness.Membership(joint, expected, available)).ToError();
+        FabricationFault.Fixture(new FixturingWitness.Membership(Some(joint), expected, available));
 
-    private static Map<AssemblyMemberKey, int> Physical(Seq<AssemblyMember> input, Seq<AssemblyJoint> joints, out int count) {
+    // The labelling and its subassembly count are ONE result of one walk, so they return together; an `out`
+    // parameter beside a returned map is a second value on a side channel a caller can drop.
+    private static (Map<AssemblyMemberKey, int> Labels, int Count) Physical(
+        Seq<AssemblyMember> input,
+        Seq<AssemblyJoint> joints) {
         UndirectedGraph<AssemblyMemberKey, SEdge<AssemblyMemberKey>> graph = new(allowParallelEdges: false);
         graph.AddVertexRange(input.Map(static member => member.Key));
         joints.Iter(joint => joint.Specification.Components.ToSeq().Tail.Iter(component =>
             graph.AddEdge(new SEdge<AssemblyMemberKey>(joint.Specification.Components[0], component))));
         Dictionary<AssemblyMemberKey, int> labels = new();
-        count = graph.ConnectedComponents(labels);
-        return toMap(toSeq(labels).Map(static row => (row.Key, row.Value)));
+        int count = graph.ConnectedComponents(labels);
+        return (toMap(toSeq(labels).Map(static row => (row.Key, row.Value))), count);
     }
 
     // --- [RESIDUAL]
@@ -1000,8 +1045,8 @@ internal static partial class Assemblies {
         if (completed.Distinct().Count != completed.Count || blocked.Distinct().Count != blocked.Count
             || completed.Exists(blocked.Contains)
             || completed.Concat(blocked).Exists(index => !plan.Joints.Exists(joint => joint.Index == index)))
-            return Fin.Fail<AssemblyPlan>(new FabricationFault.FixtureInadmissible(
-                new FixturingWitness.Residual(completed.Count, blocked.Count, plan.Joints.Count)).ToError());
+            return Fin.Fail<AssemblyPlan>(FabricationFault.Fixture(
+                new FixturingWitness.Residual(completed.Count, blocked.Count, plan.Joints.Count)));
         Set<int> removed = toSet(completed.Concat(blocked));
         Seq<AssemblyJoint> residual = plan.Joints.Filter(joint => !removed.Contains(joint.Index));
         Seq<AssemblyMember> members = plan.Members.Filter(member =>
@@ -1014,8 +1059,8 @@ internal static partial class Assemblies {
         && targets.ForAll(identity => plan.Joints.Find(joint => joint.Index == identity)
             .Exists(static joint => joint.Specification.Process.Reversible))
             ? Fin.Succ(plan.ServiceOrder.Filter(step => targets.Contains(step.Joint)))
-            : Fin.Fail<Seq<JoinStep>>(new FabricationFault.FixtureInadmissible(
-                new FixturingWitness.Residual(0, targets.Count, plan.Joints.Count)).ToError());
+            : Fin.Fail<Seq<JoinStep>>(FabricationFault.Fixture(
+                new FixturingWitness.Residual(0, targets.Count, plan.Joints.Count)));
 
     // --- [CORRIDOR]
     // Exemption: the corridor kernel is a measured analytic occlusion test. The obstacle segment sweeps the cone
@@ -1099,22 +1144,22 @@ internal static partial class Assemblies {
     private static Point3d Mid(Edge3 at) => at.A + (0.5 * (at.B - at.A));
 
     // --- [CANONICAL]
-    // Every preimage composes `FabricationCanon` over the ONE `Rasm.Element` `CanonicalWriter`: `Double` folds
-    // `-0.0` to `+0.0` and every NaN payload to one quiet pattern, `String` frames by UTF-8 byte count, and `Rows`
-    // writes the count first. A pose enters through `Basis` — its twelve affine reads ARE the matrix, so the four
-    // basis-point encoding that reconstructed them is a second convention over one fact.
-    private static ReadOnlySpan<byte> Canonical(
+    // Every preimage frames and closes at `FabricationCanon` over the ONE `Rasm.Element` `CanonicalWriter`:
+    // `Double` folds `-0.0` to `+0.0` and every NaN payload to one quiet pattern, `String` frames by UTF-8 byte
+    // count, and `Rows` writes the count first. A pose enters through `Basis` — its twelve affine reads ARE the
+    // matrix, so the four basis-point encoding that reconstructed them is a second convention over one fact.
+    private static CanonicalWriter Canonical(
+        CanonicalWriter writer,
         Seq<AssemblyMember> members,
         AssemblyExecution execution,
         Seq<JoinStep> steps,
         int subassemblies,
         Seq<AssemblyEdge> precedence,
         Seq<AssemblyJoint> joints,
-        Seq<JoinReceipt> receipts,
+        Seq<JoinMeasure> receipts,
         Seq<BlockedCorridor> blocked,
-        Seq<JoinStep> service,
-        double toleranceMm) =>
-        new CanonicalWriter(toleranceMm)
+        Seq<JoinStep> service) =>
+        writer
             .Discriminant(execution.Cadence).Ordinal(execution.MaxParallel).Ordinal(subassemblies)
             .Rows(members, static (held, member) => member.Key.CanonicalBytes(held.Basis(member.Pose)))
             .Rows(joints, static (held, joint) => joint.Specification.CanonicalBytes(joint.Owner
@@ -1127,18 +1172,21 @@ internal static partial class Assemblies {
                 .Ordinal(edge.Source.Joint).Ordinal(edge.Source.Phase.Rank)
                 .Ordinal(edge.Target.Joint).Ordinal(edge.Target.Phase.Rank).Ordinal(edge.Kind.Code))
             .Rows(blocked, static (held, row) => held.Ordinal(row.Joint).Ordinal(row.Corridor).Ordinal(row.Occluder))
-            .Rows(receipts, static (held, receipt) => receipt.Stability.CanonicalBytes(receipt.Tolerance
-                .CanonicalBytes(held.Ordinal(receipt.Joint))
-                .Rows(receipt.Clearance, static (row, clearance) => row.Maybe(
-                    clearance.Blocked, static (sink, zone) => sink.Rows(zone.Keepouts, static (leaf, loop) => loop.CanonicalBytes(leaf)))))
-                .Maybe(receipt.Robot, static (row, placement) => Placement(row, placement))
-                .Rows(receipt.Visibility, static (row, visible) => row.Bool(visible))
+            .Rows(receipts, static (held, receipt) => receipt.Boundary.Stability
+                .CanonicalBytes(receipt.Boundary.Tolerance
+                    .CanonicalBytes(held.Ordinal(receipt.Joint))
+                    .Rows(receipt.Clearance, static (row, clearance) => row.Maybe(
+                        clearance.Blocked, static (sink, zone) => sink.Rows(zone.Keepouts, static (leaf, loop) => loop.CanonicalBytes(leaf)))))
+                .Maybe(receipt.Boundary.Robot, static (row, placement) => Placement(row, placement))
+                .Rows(receipt.Boundary.Sight, static (row, sight) => row
+                    .Ordinal(sight.Joint).Ordinal(sight.Corridor).Ordinal(sight.Occluder))
                 .Rows(receipt.Resources, static (row, resource) => row.String(resource))
                 .Double(receipt.Duration.As(DurationUnit.Second)))
-            .Rows(service, static (held, step) => step.CanonicalBytes(held))
-            .ToBytes().Span;
+            .Rows(service, static (held, step) => step.CanonicalBytes(held));
 
-    private static CanonicalWriter Placement(CanonicalWriter writer, CellPlacementReceipt receipt) =>
+    private static readonly Op Key = Op.Of(name: nameof(AssemblyPlan));
+
+    private static CanonicalWriter Placement(CanonicalWriter writer, CellPlacement receipt) =>
         Candidate(writer, receipt.Selected)
             .Rows(receipt.Ranked, static (held, candidate) => Candidate(held, candidate));
 
@@ -1189,8 +1237,8 @@ public abstract partial record AssemblyArtifact {
     private AssemblyArtifact() { }
 
     public sealed record Joining(ContentKey Key, Seq<AssemblyJoint> Joints, Seq<JoinStep> Steps, Seq<AssemblyEdge> Precedence) : AssemblyArtifact;
-    public sealed record Traveler(ContentKey Key, Seq<JoinStep> Steps, Seq<JoinReceipt> Receipts) : AssemblyArtifact;
-    public sealed record Inspection(ContentKey Key, Seq<JoinReceipt> Receipts) : AssemblyArtifact;
+    public sealed record Traveler(ContentKey Key, Seq<JoinStep> Steps, Seq<JoinMeasure> Receipts) : AssemblyArtifact;
+    public sealed record Inspection(ContentKey Key, Seq<JoinMeasure> Receipts) : AssemblyArtifact;
     public sealed record Handling(ContentKey Key, Seq<JoinStep> Steps) : AssemblyArtifact;
     public sealed record Service(ContentKey Key, Seq<JoinStep> Steps) : AssemblyArtifact;
     public sealed record Evidence(ContentKey Key, AssemblyPlan Plan) : AssemblyArtifact;

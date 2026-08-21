@@ -12,11 +12,11 @@ Rasm.Persistence composes framework-owned schema artifacts and the provisioning 
 
 ## [02]-[CONTRACT]
 
-- Owner: `SchemaContract` composes content-addressed artifacts already produced by EF, Marten, and raw SQL owners.
+- Owner: `SchemaContract` composes content-addressed artifacts already produced by EF, Marten, and raw SQL owners; `[FaultCase]` is the contract family's generated fault identity on the kernel floor, carrying the one band read and each case's declared offset.
 - Law: `BackendProvider` names the engine identities a generation is MINTED FOR across the estate and `Store/provisioning#SERVER_EXTENSIONS` `StoreProfile` names the engines this package opens and provisions in-process; the two vocabularies are disjoint by construction, so a provider identity a peer hosts is a first-class contract consumer carrying no `StoreProfile` row — the backend contract composes per branch and merges by artifact key, so `Pglite` rides the postgres generation unchanged and this package never opens one.
 - Law: `CapabilityContract` projects each `ServerExtension` onto the wire carrying both closed vocabularies — `FailureRank` and `RestartClass` ride as their own types and reach the wire as keys; provisioning owns the roster, the absence policy, and the restart rank order an aggregated repair folds through.
 - Boundary: operator settings, capacity, coordinates, secrets, schedules, and observations never enter identity; the recovery window is OBSERVATION evidence the admission verdict grades and never reaches `SchemaContractWire`, so the canonical bytes, the generation digest, and every peer's decode of them are untouched by it.
-- Packages: Thinktecture, LanguageExt, QuikGraph, `System.Text.Json.Schema`, JsonSchema.Net, and kernel `ContentHash`.
+- Packages: Thinktecture, LanguageExt, QuikGraph, `System.Text.Json.Schema`, JsonSchema.Net, and kernel `ContentHash` beside `Rasm/Domain/rails#FAULT_BAND`'s `[FaultCase]`/`Fault` floor.
 - Growth: a framework adds one artifact row; a server capability remains one `ServerExtension` row; no schema DSL grows here.
 
 ```csharp signature
@@ -41,14 +41,14 @@ namespace Rasm.Persistence.Store;
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-[ValidationError<ContractFault>]
+[ValidationError]
 public readonly partial struct ContractKey {
-    static partial void ValidateFactoryArguments(ref ContractFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim().ToLowerInvariant();
         if (value is not [_, ..]
             || char.IsAsciiDigit(value[0])
             || !value.All(static ch => char.IsAsciiLetterOrDigit(ch) || ch is '.' or '-')) {
-            validationError = new ContractFault.InvalidKey(value);
+            validationError = new ValidationError(string.Join(" | ", new object?[] { value }));
         }
     }
 }
@@ -56,16 +56,20 @@ public readonly partial struct ContractKey {
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-[ValidationError<ContractFault>]
-public readonly partial struct ArtifactKey {
-    static partial void ValidateFactoryArguments(ref ContractFault? validationError, ref string value) {
+[ValidationError]
+// `ArtifactPath` coins an `owner/artifact` PATH, never a minted address: `Rasm.Bim`'s `ArtifactKey` is a content address plus an
+// interchange format, and the branch seam map draws that type INTO this namespace region — so the two spellings
+// collided on a name while naming opposite identity regimes, and this side takes the one that states its own
+// shape. The discriminant is the SPLIT arity, named at both sites.
+public readonly partial struct ArtifactPath {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim().ToLowerInvariant();
         if (value is not [_, ..]
             || value.Split('/') is not [var owner, var artifact]
             || owner.Length == 0
             || artifact.Length == 0
             || !value.All(static ch => char.IsAsciiLetterOrDigit(ch) || ch is '/' or '.' or '-')) {
-            validationError = new ContractFault.InvalidKey(value);
+            validationError = new ValidationError(string.Join(" | ", new object?[] { value }));
         }
     }
 }
@@ -94,11 +98,11 @@ public sealed partial class BackendProvider {
 }
 
 public sealed record SchemaArtifact(
-    ArtifactKey Key,
+    ArtifactPath Key,
     ArtifactRole Role,
     UInt128 Content,
     Seq<BackendProvider> Providers,
-    Seq<ArtifactKey> DependsOn);
+    Seq<ArtifactPath> DependsOn);
 
 public sealed record CapabilityContract(
     string Key,
@@ -110,9 +114,11 @@ public sealed record CapabilityContract(
     // Both vocabularies ride as their own owners here and flatten to keys only at the wire, so a capability row
     // carries the provisioning rank order the aggregated-repair fold reads rather than a re-parsed token.
     public static CapabilityContract From(ServerExtension extension) {
+        // Base-type gates carry a ROW rather than a token, so the wire value is that row's own key and the
+        // prerequisite a peer reads is one the same roster can admit.
         (string requirement, string value) = extension.Admission.Switch(
             preload: static row => ("preload", row.Library),
-            baseType: static row => ("base-type", row.Extension),
+            baseType: static row => ("base-type", row.Extension.Key),
             accessMethod: static row => ("access-method", row.Method),
             standalone: static row => ("standalone", row.Reason));
 
@@ -121,49 +127,42 @@ public sealed record CapabilityContract(
             extension.Lane,
             requirement,
             value,
-            extension.Rank,
+            extension.Absence,
             extension.Restart);
     }
 }
 
-[Union]
-public abstract partial record ContractFault : Expected, IValidationError<ContractFault> {
-    private ContractFault() : base() { }
+// Contract failures own their typed payloads; generated case identity supplies their numeric codes.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ContractFault : Fault {
+    private static readonly FaultBand FamilyBand = FaultBand.Contract;
+    private ContractFault() { }
 
-    public sealed record InvalidKey(string Value) : ContractFault;
+    [FaultCase(0)]
+    public sealed partial record InvalidKey(string Value) : ContractFault();
     // Composition faults carry WIRE tokens because the projection funnel proves them over a decoded stream whose
     // keys are untrusted text, and one collision case names an artifact or capability key from one flat space.
-    public sealed record DuplicateArtifact(string Key) : ContractFault;
-    public sealed record MissingDependency(string Owner, string Dependency) : ContractFault;
-    public sealed record CyclicArtifacts(Seq<string> Keys) : ContractFault;
-    public sealed record InvalidProjection(string Detail) : ContractFault;
-    public sealed record ContributionCollision(string Key) : ContractFault;
-
-    public override int Code => FaultBand.Contract + Switch(
-        invalidKey:        static _ => 0,
-        duplicateArtifact: static _ => 1,
-        missingDependency: static _ => 2,
-        cyclicArtifacts:   static _ => 3,
-        invalidProjection: static _ => 4,
-        contributionCollision: static _ => 5);
+    [FaultCase(1)]
+    public sealed partial record DuplicateArtifact(string Key) : ContractFault();
+    [FaultCase(2)]
+    public sealed partial record MissingDependency(string Owner, string Dependency) : ContractFault();
+    [FaultCase(3)]
+    public sealed partial record CyclicArtifacts(Seq<string> Keys) : ContractFault();
+    [FaultCase(4)]
+    public sealed partial record InvalidProjection(Error Cause) : ContractFault(), ICausedFault;
+    [FaultCase(5)]
+    public sealed partial record ContributionCollision(string Key) : ContractFault();
+    [FaultCase(6)]
+    public sealed partial record ProjectionRejected(string Detail) : ContractFault();
 
     public override string Message => Switch(
         invalidKey:        static fault => $"<contract-key:{fault.Value}>",
         duplicateArtifact: static fault => $"<contract-duplicate:{fault.Key}>",
         missingDependency: static fault => $"<contract-dependency:{fault.Owner}:{fault.Dependency}>",
         cyclicArtifacts:   static fault => $"<contract-cycle:{String.Join(',', fault.Keys)}>",
-        invalidProjection: static fault => $"<contract-projection:{fault.Detail}>",
-        contributionCollision: static fault => $"<contract-collision:{fault.Key}>");
-
-    public override string Category => Switch(
-        invalidKey:        static _ => "Admission",
-        duplicateArtifact: static _ => "Composition",
-        missingDependency: static _ => "Composition",
-        cyclicArtifacts:   static _ => "Composition",
-        invalidProjection: static _ => "Projection",
-        contributionCollision: static _ => "Composition");
-
-    public static ContractFault Create(string message) => new InvalidProjection(message);
+        invalidProjection: static fault => $"<contract-projection:{fault.Cause.Message}>",
+        contributionCollision: static fault => $"<contract-collision:{fault.Key}>",
+        projectionRejected: static fault => $"<contract-projection:{fault.Detail}>");
 }
 ```
 
@@ -175,7 +174,7 @@ public abstract partial record ContractFault : Expected, IValidationError<Contra
 - Law: source-generated `System.Text.Json` writes a scalar-and-array wire shape with no dictionary-order ambiguity.
 - Law: kernel `ContentHash.Of` mints the `UInt128` generation key; no cryptographic or language-local digest competes.
 - Law: `JsonSchemaExporter` derives the JSON Schema from the same source-generated contract used for serialization.
-- Law: `CapabilityContract`→`CapabilityWire` is generated `[Mapper]` transcription — the `Rank.Key`/`Restart.Key` SmartEnum keys flatten under `[MapProperty]` — while `ArtifactWire` keeps its hand copyist because provider dedup-and-order is a value transform no mapper expresses.
+- Law: ONE `[Mapper]` owns this whole seam — `SchemaArtifact`→`ArtifactWire`, `CapabilityContract`→`CapabilityWire`, and the element mappings the `SchemaContractWire` collections cross under — so no correspondence on this page is hand-transcribed. This Law once exempted `ArtifactWire` ("provider dedup-and-order is a value transform no mapper expresses"); disk REFUTES that premise: `[MapProperty(Use = …)]` reaching a per-TYPE `[UserMapping]` converter IS the form for a value transform, and `StringFormat` is the form for a width-pinned rendering. What stays hand-written is the 3-field wire ctor, because ORDERING and DEDUPLICATION across a contribution set are domain decisions rather than a correspondence.
 - Entry: callers supply admitted artifacts, and framework-native compilation produces each artifact's canonical content bytes.
 
 ```csharp signature
@@ -227,13 +226,10 @@ public static class ContractComposition {
         IEnumerable<ServerExtension> capabilities) =>
         Project(new SchemaContractWire(
             contract.ToString(),
-            [.. artifacts
-                .OrderBy(static row => row.Key.ToString(), StringComparer.Ordinal)
-                .Select(Wire)],
-            [.. capabilities
+            ContractMap.Artifacts(toSeq(artifacts.OrderBy(static row => row.Key.ToString(), StringComparer.Ordinal))),
+            ContractMap.Capabilities(toSeq(capabilities
                 .Select(CapabilityContract.From)
-                .OrderBy(static row => row.Key, StringComparer.Ordinal)
-                .Select(CapabilityMap.Wire)]));
+                .OrderBy(static row => row.Key, StringComparer.Ordinal)))));
 
     // Polyglot merge unions branch contributions by artifact key under the one ordinal order every mint path
     // shares, then re-projects so the merged generation mints over the merged canonical bytes. Two branches
@@ -244,13 +240,10 @@ public static class ContractComposition {
         Seq<ArtifactWire> artifacts = contributions.Bind(static one => toSeq(one.Wire.Artifacts));
         Seq<CapabilityWire> capabilities = contributions.Bind(static one => toSeq(one.Wire.Capabilities));
 
-        Option<ContractFault> onArtifacts = Collided(artifacts, static row => row.Key, static row => row.Content);
-        return (onArtifacts.IsSome
-                ? onArtifacts
-                : Collided(capabilities, static row => row.Key, static row => row))
-            .Match(
-                Some: Fin.Fail<SchemaContract>,
-                None: () => Project(new SchemaContractWire(
+        return (Collided(artifacts, static row => row.Key, static row => row.Content),
+                Collided(capabilities, static row => row.Key, static row => row))
+            .Apply(static (_, _) => unit).As().ToFin()
+            .Bind(_ => Project(new SchemaContractWire(
                     contract.ToString(),
                     [.. artifacts
                         .DistinctBy(static row => row.Key, StringComparer.Ordinal)
@@ -262,25 +255,25 @@ public static class ContractComposition {
 
     // One key whose group carries more than one distinct mark is a collision; deduplication downstream is then
     // safe because every surviving group agrees, so first-wins never decides anything.
-    static Option<ContractFault> Collided<TRow, TMark>(
+    static Validation<Error, Unit> Collided<TRow, TMark>(
         Seq<TRow> rows,
         Func<TRow, string> key,
         Func<TRow, TMark> mark) =>
         toSeq(rows.GroupBy(key, StringComparer.Ordinal))
             .Filter(group => group.Select(mark).Distinct().Count() > 1)
-            .Map(group => (ContractFault)new ContractFault.ContributionCollision(group.Key))
-            .Head;
+            .Traverse(group => (Validation<Error, Unit>)new ContractFault.ContributionCollision(group.Key))
+            .As().Map(static _ => unit);
 
     // Every mint path lands here, so the dependency proof binds Compose and Merge alike instead of only the
-    // path that happened to sort. Proof order is load-bearing: a repeated key makes the key set a lie, an
-    // out-of-set edge has no vertex to hang on, and the acyclicity verdict reads a closed graph.
+    // path that happened to sort. Independent collisions, missing dependencies, cycle evidence, and vocabulary
+    // refusals accumulate before minting; the graph includes only declared edges so invalid endpoints never enter it.
     static Fin<SchemaContract> Project(SchemaContractWire wire) =>
-        Proof(wire).Match(Some: Fin.Fail<SchemaContract>, None: () => Mint(wire));
+        Proof(wire).ToFin().Bind(_ => Mint(wire));
 
     // `Proof` opens to the transport verifier because a foreign bundle carries the structural claims a locally
     // composed one carries; `Mint` stays closed because re-deriving canonical bytes and schema from this
     // exporter would bind every peer to one type system.
-    internal static Option<ContractFault> Proof(SchemaContractWire wire) {
+    internal static Validation<Error, Unit> Proof(SchemaContractWire wire) {
         FrozenSet<string> keys = wire.Artifacts
             .Select(static row => row.Key)
             .ToFrozenSet(StringComparer.Ordinal);
@@ -309,59 +302,74 @@ public static class ContractComposition {
             .Concat(wire.Capabilities
                 .Where(static row => !FailureRank.TryGet(row.FailureRank, out _)
                     || !RestartClass.TryGet(row.RestartClass, out _))
-                .Select(static row => (ContractFault)new ContractFault.InvalidProjection(
-                    $"<capability-vocabulary:{row.Key}>"))))
-            .Head;
+                .Select(static row => (ContractFault)new ContractFault.ProjectionRejected(
+                    $"<capability-vocabulary:{row.Key}>")))
+            .Traverse(fault => (Validation<Error, Unit>)fault)
+            .As().Map(static _ => unit);
     }
 
-    static Fin<SchemaContract> Mint(SchemaContractWire wire) {
-        try {
+    static Fin<SchemaContract> Mint(SchemaContractWire wire) =>
+        Caught(() => {
             byte[] canonical = JsonSerializer.SerializeToUtf8Bytes(wire, BackendJson.Default.SchemaContractWire);
             JsonNode schemaNode = BackendJson.Default.SchemaContractWire.GetJsonSchemaAsNode(
                 JsonSchemaExporterOptions.Default);
             byte[] schemaBytes = JsonSerializer.SerializeToUtf8Bytes(schemaNode);
             JsonSchema schema = JsonSchema.Build(JsonSerializer.SerializeToElement(schemaNode));
             JsonElement instance = JsonSerializer.SerializeToElement(wire, BackendJson.Default.SchemaContractWire);
-            return schema.Evaluate(instance).IsValid
-                ? Fin.Succ(new SchemaContract(
-                    wire,
-                    canonical,
-                    GenerationId.From(ContentHash.Of(canonical)),
-                    schemaBytes,
-                    schema))
-                : Fin.Fail<SchemaContract>(new ContractFault.InvalidProjection("<schema-refused-instance>"));
-        } catch (Exception failure) when (
-            failure is JsonException
-            or InvalidOperationException
-            or JsonSchemaException
-            or RefResolutionException) {
-            return Fin.Fail<SchemaContract>(new ContractFault.InvalidProjection(failure.Message));
-        }
-    }
+            return Evaluated(schema, instance).Map(_ => new SchemaContract(
+                wire, canonical, GenerationId.From(ContentHash.Of(canonical)), schemaBytes, schema));
+        }).Bind(static held => held);
 
-    static ArtifactWire Wire(SchemaArtifact row) => new(
-        row.Key.ToString(),
-        row.Role.Key,
-        row.Content.ToString("x32"),
-        [.. row.Providers
-            .Map(static provider => provider.Key)
-            .Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal)],
-        [.. row.DependsOn
-            .Map(static dependency => dependency.ToString())
-            .Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal)]);
+    // ONE capture over every serializer, exporter, and schema family this page crosses. The filter roster is the
+    // union of the two legs it replaces, because both cross the same four packages and folding them into two
+    // rosters made one of them go stale the first time either leg grew a package.
+    internal static Fin<T> Caught<T>(Func<T> crossing) =>
+        Op.Of().Catch(() => Fin.Succ(crossing()))
+            .MapFail(static error => error.Exception.Case is JsonException or JsonSchemaException or RefResolutionException
+                ? (Error)new ContractFault.InvalidProjection(error)
+                : error);
+
+    // `IsValid` is the evaluator's own PACKAGE bool at a boundary, so it is read exactly once and immediately
+    // becomes a typed refusal — both mint paths take this, so neither carries a bare bool into a ternary.
+    internal static Fin<Unit> Evaluated(JsonSchema validator, JsonElement instance) =>
+        validator.Evaluate(instance).IsValid
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new ContractFault.ProjectionRejected("<schema-refused-instance>"));
 
 }
 
-// Pure rename-and-flatten crossing, so the projection is generated: the SmartEnum keys flatten under
-// [MapProperty] paths, and the strategy pin keeps every unmapped member a build break. ArtifactWire keeps its
-// hand copyist above — provider dedup-and-order is a value transform no mapper expresses.
+// ONE mapper owning the whole schema seam. Every crossing here is a rename-and-flatten with a declared value
+// transform, so the projection GENERATES: SmartEnum keys flatten under `[MapProperty]` segment paths, the
+// content digest renders at its pinned width through `StringFormat`, and the two roster columns reach their own
+// per-TYPE converters through `Use`. The strategy pin keeps every unmapped member a build break, and the mapping
+// stays READER-FREE — no `[MapPropertyFromSource]` member exists — which is what makes source-side completeness
+// real proof here rather than an authored inventory. No `Option` carrier crosses this seam, so the per-type
+// nullable converter the rung ladder owes elsewhere is not owed on this page.
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
-internal static partial class CapabilityMap {
-    [MapProperty("Rank.Key", nameof(CapabilityWire.FailureRank))]
-    [MapProperty("Restart.Key", nameof(CapabilityWire.RestartClass))]
+internal static partial class ContractMap {
+    [MapProperty([nameof(SchemaArtifact.Content)], [nameof(ArtifactWire.Content)], StringFormat = "x32")]
+    [MapProperty([nameof(SchemaArtifact.Providers)], [nameof(ArtifactWire.Providers)], Use = nameof(Providers))]
+    [MapProperty([nameof(SchemaArtifact.DependsOn)], [nameof(ArtifactWire.DependsOn)], Use = nameof(Dependencies))]
+    public static partial ArtifactWire Wire(SchemaArtifact row);
+
+    [MapProperty([nameof(CapabilityContract.Rank), nameof(FailureRank.Key)], [nameof(CapabilityWire.FailureRank)])]
+    [MapProperty([nameof(CapabilityContract.Restart), nameof(RestartClass.Key)], [nameof(CapabilityWire.RestartClass)])]
     public static partial CapabilityWire Wire(CapabilityContract row);
+
+    // Collection crossings the contract wire's two columns take: the ELEMENT mapping is the two methods
+    // above, so these carry the generated loop alone and no call site fills a target collection by hand.
+    public static partial ImmutableArray<ArtifactWire> Artifacts(Seq<SchemaArtifact> rows);
+    public static partial ImmutableArray<CapabilityWire> Capabilities(Seq<CapabilityContract> rows);
+
+    // Per-TYPE value transforms, never one generic body: a `Seq<T>`-shaped hand mapping is refused wholesale
+    // (RMG001), and each roster deduplicates and orders before it crosses so one artifact set frames one way.
+    [UserMapping]
+    internal static ImmutableArray<string> Providers(Seq<BackendProvider> rows) =>
+        [.. rows.Map(static row => row.Key).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
+
+    [UserMapping]
+    internal static ImmutableArray<string> Dependencies(Seq<ArtifactPath> rows) =>
+        [.. rows.Map(static row => row.ToString()).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
 }
 ```
 
@@ -467,9 +475,14 @@ public readonly record struct RecoveryWindow(Option<Duration> Rpo, Option<Durati
         Gauged(objective).Filter(static reading => reading.Breached);
 }
 
+// `HeldCapabilities` is the TYPED capability column the verification verdict now carries, so the observation
+// stops erasing a rostered vocabulary into text one hop after the probe minted it; the untrusted side is the
+// CONTRACT's wire rows, and `CapabilitySet.Admits(string)` is exactly the boundary arm that resolves one of those
+// tokens against the vocabulary before any membership test. `HeldArtifacts` stays text because an artifact key is
+// a name a CONTRIBUTOR coins rather than a row this estate declares.
 public sealed record BackendObservation(
     GenerationId Generation,
-    FrozenSet<string> HeldCapabilities,
+    CapabilitySet<ServerExtension> HeldCapabilities,
     FrozenSet<string> HeldArtifacts,
     Instant ObservedAt,
     Option<Instant> Frontier,
@@ -516,10 +529,12 @@ public static class BackendAdmission {
     // one parameter off the caller's resolved profile row, so this owner reads deployment shape as data.
     public static BackendVerdict Admit(
         SchemaContract expected, BackendObservation observed, RecoveryObjective objective) {
+        // Wire rows carry untrusted key text, so the membership test takes the capability column's BOUNDARY arm,
+        // which resolves that token against the vocabulary first — a key no row names can never read as held.
         Seq<string> requiredCapabilities = toSeq(expected.Wire.Capabilities
             .Where(static row => row.FailureRank == FailureRank.Required.Key)
             .Select(static row => row.Key)
-            .Where(key => !observed.HeldCapabilities.Contains(key)));
+            .Where(key => !observed.HeldCapabilities.Admits(key)));
         Seq<string> requiredArtifacts = toSeq(expected.Wire.Artifacts
             .Select(static row => row.Key)
             .Where(key => !observed.HeldArtifacts.Contains(key)));
@@ -574,15 +589,15 @@ public static class BackendConformance {
     // bytes the wire carried, so a peer whose exporter and type system differ satisfies the same corpus. The
     // returned contract therefore carries transport bytes and a validator parsed from the transported schema,
     // and it feeds `ContractComposition.Merge` where the dependency funnel proves the foreign artifact graph.
-    public static Fin<SchemaContract> Verify(ContractBundle bundle) {
-        try {
+    public static Fin<SchemaContract> Verify(ContractBundle bundle) =>
+        ContractComposition.Caught(() => {
             SchemaContractWire? wire = JsonSerializer.Deserialize(
                 bundle.Instance.Span, BackendJson.Default.SchemaContractWire);
             ConformanceCorpus? corpus = JsonSerializer.Deserialize(
                 bundle.Conformance.Span, BackendJson.Default.ConformanceCorpus);
             if (wire is null || corpus is null) {
                 return Fin.Fail<SchemaContract>(
-                    new ContractFault.InvalidProjection("<empty-contract>"));
+                    new ContractFault.ProjectionRejected("<empty-contract>"));
             }
 
             UInt128 generation = ContentHash.Of(bundle.Instance.Span);
@@ -607,20 +622,12 @@ public static class BackendConformance {
             JsonSchema validator = JsonSchema.FromText(Encoding.UTF8.GetString(bundle.Schema.Span));
             using JsonDocument instance = JsonDocument.Parse(bundle.Instance);
             return !corpusHeld
-                ? Fin.Fail<SchemaContract>(new ContractFault.InvalidProjection("<conformance-drift>"))
-                : ContractComposition.Proof(wire).Match(
-                    Some: Fin.Fail<SchemaContract>,
-                    None: () => validator.Evaluate(instance.RootElement).IsValid
-                        ? Fin.Succ(new SchemaContract(
-                            wire, bundle.Instance, GenerationId.From(generation), bundle.Schema, validator))
-                        : Fin.Fail<SchemaContract>(
-                            new ContractFault.InvalidProjection("<schema-refused-instance>")));
-        } catch (Exception failure) when (
-            failure is FormatException or JsonException or NotSupportedException or JsonSchemaException) {
-            return Fin.Fail<SchemaContract>(
-                new ContractFault.InvalidProjection(failure.Message));
-        }
-    }
+                ? Fin.Fail<SchemaContract>(new ContractFault.ProjectionRejected("<conformance-drift>"))
+                : ContractComposition.Proof(wire).ToFin().Bind(_ =>
+                    ContractComposition.Evaluated(validator, instance.RootElement)
+                        .Map(_ => new SchemaContract(
+                            wire, bundle.Instance, GenerationId.From(generation), bundle.Schema, validator)));
+        }).Bind(static held => held);
 }
 ```
 

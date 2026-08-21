@@ -31,14 +31,16 @@ import polars as pl
 from beartype import beartype
 from polars.exceptions import PolarsError
 from expression import Error, Nothing, Ok, Option, Result, case, tag, tagged_union
+from expression.collections import Block
 from msgspec import Struct, msgpack, structs
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, async_boundary
+from rasm.runtime.faults import TERMINAL, TRANSIENT, FaultRow, RuntimeRail, async_boundary, rostered
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.drawing.regime import Discipline, HATCH_BIND, HatchMaterial, INGRESS, LayerName, LineType
@@ -107,6 +109,20 @@ _AEC_THEME: Theme = Theme(
     style=1, color="gray", all_caps=True, header_align="center", outline=("solid", "1px", "#333333"), footnote_marks=FootnoteMarks.STANDARD
 )
 
+
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's whole raise roster. TERMINAL and caller-repairable: reading the product before the fold landed it is
+# a call-order defect no re-offer clears, and the content case rides as the row's one NAMED coordinate rather than
+# forking the subject per case.
+SCHEDULE_UNBUILT: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.SCHEDULE, point="product", arm="config", defect="built-before-folded", retriability=TERMINAL, slots=("content",)
+)
+SCHEDULE_RENDER: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.SCHEDULE, point="render", arm="boundary", defect="render-fold", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([SCHEDULE_UNBUILT, SCHEDULE_RENDER]))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class ColumnSpec(Struct, frozen=True):
@@ -304,15 +320,11 @@ class Schedule(Struct, frozen=True):
         return (
             Ok(self.product[0])
             if self.product is not None
-            else Error(BoundaryFault(config=(f"drawing.schedule.{self.content.tag}", "built-before-folded")))
+            else Error(SCHEDULE_UNBUILT.raised(self.content.tag))
         )
 
     async def _crossed(self) -> RuntimeRail[tuple[bytes, ArtifactReceipt]]:
-        crossed = await async_boundary(
-            f"drawing.schedule.{self.content.tag}",
-            lambda: self.lane.offload(Kernel.of(_render, KernelTrait.RELEASING), self),
-            catch=_FAULTS,
-        )
+        crossed = await async_boundary(SCHEDULE_RENDER, lambda: self.lane.offload(Kernel.of(_render, KernelTrait.RELEASING), self), catch=_FAULTS)
         return crossed.bind(lambda rail: rail)
 
 

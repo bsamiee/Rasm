@@ -2,7 +2,7 @@
 
 `Workholding` owns fixture admission, datum establishment, support, clamping, stage lifecycle, tool access, keep-out conditioning, and restraint evidence. Aggregate admission proves the locating scheme, contact laws, actuation order, stock compatibility, and operation windows once; every interior operation consumes the admitted `Fixture`.
 
-`WorkholdingKind` is the ONE holding-mechanism row table: role, holding class, body cardinality, actuator custody, keep-out source, preload rule, and required metric roster are COLUMNS, so a locating pin, a soft-jaw vise, and a vacuum bed are one `FixtureElement` shape apart and every fold over elements has one body. `ExclusionZone`, `Fixture`, `FixtureSet`, and `HoldingReceipt` remain the in-process seam vocabulary; `Workholding.Apply` admits every operation through one `WorkholdingOp` family and emits one `WorkholdingResult` family. Planar containment, open-path clipping, and region union ride `Geometry2D/algebra` `PolygonOp`; the restraint distribution rides the kernel `Rasm.Numerics` rectangular sparse route; every preimage composes `Process/owner#RUN_DISPATCH` `FabricationCanon` over the one `Rasm.Element` `CanonicalWriter`, and `ContentKey.Of` mints every projected fixture artifact. `FixturingWitness` is this folder's evidence vocabulary for the `Process/faults` offset-55 `FixtureInadmissible` case, which is declared there and never re-declared here.
+`WorkholdingKind` is the ONE holding-mechanism row table: role, holding class, cardinalities, the `CapabilitySet<FixtureDemand>` a form must match exactly, keep-out source, preload rule, and required metric roster are COLUMNS, so a locating pin, a soft-jaw vise, and a vacuum bed are one `FixtureElement` shape apart and every fold over elements has one body. `ExclusionZone`, `Fixture`, `FixtureSet`, and `RestraintProof` remain the in-process seam vocabulary; `Workholding.Apply` admits every operation through one `WorkholdingOp` family and emits one `WorkholdingResult` family. Planar containment, open-path clipping, and region union ride `Geometry2D/algebra` `PolygonOp`; the restraint distribution rides the kernel `Rasm.Numerics` rectangular sparse route; every preimage frames and closes at `Process/owner#RUN_DISPATCH` `FabricationCanon` over the one `Rasm.Element` `CanonicalWriter`, so every projected fixture artifact addresses through the keyed close and its refusal rides the caller's rail. `FixturingWitness` is this folder's evidence vocabulary for the `Process/faults` offset-54 `FixtureInadmissible` case, which is declared there and never re-declared here.
 
 ## [01]-[INDEX]
 
@@ -12,11 +12,14 @@
 
 ## [02]-[ELEMENTS]
 
-- Owner: `WorkholdingKind` owns every holding mechanism as one row carrying its role, holding class, body cardinality, actuator custody, keep-out source, preload rule, anchor demand, and required metrics; `ContactLaw` owns friction, pressure, stiffness, deflection, and pull-off invariants; `Actuation` carries energy source, transmission geometry, and loss-of-energy custody as data.
+- Owner: `WorkholdingKind` owns every holding mechanism as one row carrying its role, holding class, cardinalities, keep-out source, preload rule, `CapabilitySet<FixtureDemand>` demands, and required metrics; `ContactLaw` owns friction, pressure, stiffness, deflection, and pull-off invariants; `Actuation` carries energy source and transmission geometry per case with its `EnergyCustody` row on the ROOT.
+- Provenance: `WorkholdingKind` and `FixtureMetric` are this folder's OWN design vocabularies, not transcriptions — no standard publishes a closed holding-mechanism roster or a closed fixture-scalar roster, and neither table cites one. Each row therefore earns its place by being reachable through admission and read by a fold on this page; a row nothing admits and nothing reads is a fabrication, and the growth law below is what a shop adds against.
 - Cases: locating rows cover plane, round pin, diamond pin, nest, center, mandrel, and optical alignment; support rows cover fixed, adjustable, hydraulic, compliant, steady-rest, and sacrificial contact; clamping rows cover toe, vise, chuck, collet, expanding arbor, vacuum, magnetic, adhesive, freeze, center, tailstock, and bed mechanisms.
 - Law: a mechanism differs from its siblings in COLUMN VALUES alone, so `FixtureElement` is one admitted owner rather than a case family — the four parallel folds a case family forced (geometry, contacts, validity, preimage) collapse onto one body each, and a mechanism-shaped `switch` anywhere below is the deleted form.
 - Law: `ElementForm.Metrics` is the one scalar carrier — a metric is a ROW, so a new dimension needs no constructor slot and no validation clause, and `FixtureMetric.Bound` decides admissibility for every metric under one fold. `KeepoutSource` and `PreloadRule` carry their behaviour as delegate columns, so the zone body set and the contact preload are expressions, never dispatch.
-- Entry: `FixtureElement.Admit` is the sole construction; it resolves the mechanism's keep-out bodies, distributes preload under the row's rule, and proves cardinality, actuator custody, anchor presence, metric roster, and contact validity in one accumulating gate.
+- Entry: `FixtureElement.Admit` is the sole construction; it resolves the mechanism's keep-out bodies, distributes preload under the row's rule, and proves cardinality, the demand correspondence, metric roster, and contact validity in one accumulating gate.
+- Law: what a mechanism DEMANDS of its form is one `CapabilitySet<FixtureDemand>` column and the gate is set EQUALITY — a drive handed to a mechanism that never actuates is as inadmissible as a missing one — so it reads as the kernel's `Require` door taken in BOTH directions, each arm's refusal RECEIVING its missing set from the door rather than deriving a complement here, and the two accumulate. A third demand is one roster row and the entries that hold it.
+- Law: `EnergyCustody` is the ONE loss-of-energy answer and it seats on the `Actuation` ROOT, so a new drive case cannot arrive without stating what holds the workpiece when its source fails. Four per-case booleans spelling one question forced a six-arm switch to re-ask it and hard-coded the two unconditional answers in code rather than in data.
 - Growth: a new element mechanism is one `WorkholdingKind` row and, where its scalar is new, one `FixtureMetric` row; consumers change nowhere.
 - Boundary: template cases survive beside realized elements because their payload arrives before geometry realization and aggregate admission; provider geometry never reaches this cluster.
 
@@ -107,6 +110,15 @@ public sealed partial class FixtureMetric {
     public MetricBound Bound { get; }
 }
 
+// What a mechanism demands of the form it is admitted with. `Rank` stays the kernel's derived declaration order,
+// which fixes the wire rendering an admission refusal prints; `Key` is the wire token. A demand is a ROW because the
+// next one — a vacuum circuit, a thermal loop, a probe reference — lands as one entry and changes no signature.
+[SmartEnum<string>]
+public sealed partial class FixtureDemand : ICapability<FixtureDemand> {
+    public static readonly FixtureDemand Actuator = new("actuator");
+    public static readonly FixtureDemand Anchor = new("anchor");
+}
+
 // The zone body set is the mechanism's own loops, its contact footprints, or nothing at all — optical alignment
 // occupies no space. The row carries the projection, so zone construction reads one expression.
 [SmartEnum<string>]
@@ -141,21 +153,21 @@ public sealed partial class WorkholdingKind {
     public static readonly WorkholdingKind LocatingPlane = Of("locating-plane", FixtureRole.Locate, HoldingClass.Mechanical,
         KeepoutSource.Footprints, PreloadRule.Admitted, contacts: 1);
     public static readonly WorkholdingKind RoundPin = Of("round-pin", FixtureRole.Locate, HoldingClass.Mechanical,
-        KeepoutSource.Footprints, PreloadRule.Admitted, contacts: 1, anchored: true,
+        KeepoutSource.Footprints, PreloadRule.Admitted, contacts: 1, demands: [FixtureDemand.Anchor],
         metrics: FixtureMetric.Radius, FixtureMetric.Height);
     public static readonly WorkholdingKind DiamondPin = Of("diamond-pin", FixtureRole.Locate, HoldingClass.Mechanical,
-        KeepoutSource.Footprints, PreloadRule.Admitted, contacts: 1, anchored: true,
+        KeepoutSource.Footprints, PreloadRule.Admitted, contacts: 1, demands: [FixtureDemand.Anchor],
         metrics: FixtureMetric.Radius, FixtureMetric.Height);
     public static readonly WorkholdingKind Nest = Of("nest", FixtureRole.Locate, HoldingClass.Mechanical,
         KeepoutSource.Footprints, PreloadRule.Admitted, contacts: 2);
     public static readonly WorkholdingKind LocatingCenter = Of("locating-center", FixtureRole.Locate, HoldingClass.Revolved,
-        KeepoutSource.Footprints, PreloadRule.Admitted, contacts: 1, anchored: true,
+        KeepoutSource.Footprints, PreloadRule.Admitted, contacts: 1, demands: [FixtureDemand.Anchor],
         metrics: FixtureMetric.IncludedAngle);
     public static readonly WorkholdingKind Mandrel = Of("mandrel", FixtureRole.Locate, HoldingClass.Revolved,
-        KeepoutSource.Footprints, PreloadRule.Admitted, contacts: 1, anchored: true,
+        KeepoutSource.Footprints, PreloadRule.Admitted, contacts: 1, demands: [FixtureDemand.Anchor],
         metrics: FixtureMetric.Radius, FixtureMetric.Span);
     public static readonly WorkholdingKind Optical = Of("optical", FixtureRole.Locate, HoldingClass.Mechanical,
-        KeepoutSource.Absent, PreloadRule.Admitted, contacts: 0, anchored: true,
+        KeepoutSource.Absent, PreloadRule.Admitted, contacts: 0, demands: [FixtureDemand.Anchor],
         metrics: FixtureMetric.Repeatability);
     public static readonly WorkholdingKind FixedSupport = Of("fixed-support", FixtureRole.Support, HoldingClass.Mechanical,
         KeepoutSource.Footprints, PreloadRule.Admitted, contacts: 1);
@@ -170,19 +182,19 @@ public sealed partial class WorkholdingKind {
     public static readonly WorkholdingKind SacrificialSupport = Of("sacrificial-support", FixtureRole.Support, HoldingClass.Bed,
         KeepoutSource.Footprints, PreloadRule.Admitted, contacts: 1, metrics: FixtureMetric.RemainingThickness);
     public static readonly WorkholdingKind Toe = Of("toe", FixtureRole.Clamp, HoldingClass.Mechanical,
-        KeepoutSource.Bodies, PreloadRule.Whole, contacts: 1, bodies: 1, bodyCeiling: 1, actuated: true,
+        KeepoutSource.Bodies, PreloadRule.Whole, contacts: 1, bodies: 1, bodyCeiling: 1, demands: [FixtureDemand.Actuator],
         metrics: FixtureMetric.Margin, FixtureMetric.Height);
     public static readonly WorkholdingKind Vise = Of("vise", FixtureRole.Clamp, HoldingClass.Mechanical,
-        KeepoutSource.Bodies, PreloadRule.Split, contacts: 2, bodies: 2, bodyCeiling: 2, actuated: true,
+        KeepoutSource.Bodies, PreloadRule.Split, contacts: 2, bodies: 2, bodyCeiling: 2, demands: [FixtureDemand.Actuator],
         metrics: FixtureMetric.Opening, FixtureMetric.Margin, FixtureMetric.Height);
     public static readonly WorkholdingKind Chuck = Of("chuck", FixtureRole.Clamp, HoldingClass.Revolved,
-        KeepoutSource.Bodies, PreloadRule.Split, contacts: 3, bodies: 3, actuated: true,
+        KeepoutSource.Bodies, PreloadRule.Split, contacts: 3, bodies: 3, demands: [FixtureDemand.Actuator],
         metrics: FixtureMetric.AxialCapacity, FixtureMetric.Margin, FixtureMetric.Height);
     public static readonly WorkholdingKind Collet = Of("collet", FixtureRole.Clamp, HoldingClass.Revolved,
-        KeepoutSource.Bodies, PreloadRule.Split, contacts: 1, bodies: 1, bodyCeiling: 1, actuated: true,
+        KeepoutSource.Bodies, PreloadRule.Split, contacts: 1, bodies: 1, bodyCeiling: 1, demands: [FixtureDemand.Actuator],
         metrics: FixtureMetric.Collapse, FixtureMetric.Margin, FixtureMetric.Height);
     public static readonly WorkholdingKind Arbor = Of("arbor", FixtureRole.Clamp, HoldingClass.Revolved,
-        KeepoutSource.Bodies, PreloadRule.Split, contacts: 1, bodies: 1, bodyCeiling: 1, actuated: true,
+        KeepoutSource.Bodies, PreloadRule.Split, contacts: 1, bodies: 1, bodyCeiling: 1, demands: [FixtureDemand.Actuator],
         metrics: FixtureMetric.Expansion, FixtureMetric.Margin, FixtureMetric.Height);
     public static readonly WorkholdingKind Vacuum = Of("vacuum", FixtureRole.Clamp, HoldingClass.Vacuum,
         KeepoutSource.Bodies, PreloadRule.Pressure, contacts: 1, bodies: 1, axis: FixtureMetric.Pressure,
@@ -197,10 +209,10 @@ public sealed partial class WorkholdingKind {
         KeepoutSource.Bodies, PreloadRule.Coupled, contacts: 1, bodies: 1, bodyCeiling: 1, axis: FixtureMetric.Frozen,
         metrics: FixtureMetric.Frozen, FixtureMetric.Margin, FixtureMetric.Height);
     public static readonly WorkholdingKind ClampingCenter = Of("clamping-center", FixtureRole.Clamp, HoldingClass.Revolved,
-        KeepoutSource.Bodies, PreloadRule.Whole, contacts: 1, bodies: 1, bodyCeiling: 1, actuated: true,
+        KeepoutSource.Bodies, PreloadRule.Whole, contacts: 1, bodies: 1, bodyCeiling: 1, demands: [FixtureDemand.Actuator],
         metrics: FixtureMetric.Margin, FixtureMetric.Height);
     public static readonly WorkholdingKind Tailstock = Of("tailstock", FixtureRole.Clamp, HoldingClass.Revolved,
-        KeepoutSource.Bodies, PreloadRule.Whole, contacts: 1, bodies: 1, bodyCeiling: 1, actuated: true,
+        KeepoutSource.Bodies, PreloadRule.Whole, contacts: 1, bodies: 1, bodyCeiling: 1, demands: [FixtureDemand.Actuator],
         metrics: FixtureMetric.Margin, FixtureMetric.Height);
     public static readonly WorkholdingKind Bed = Of("bed", FixtureRole.Clamp, HoldingClass.Bed,
         KeepoutSource.Bodies, PreloadRule.Pressure, contacts: 1, bodies: 1, bodyCeiling: 1, axis: FixtureMetric.Pressure,
@@ -216,8 +228,11 @@ public sealed partial class WorkholdingKind {
     public int ContactFloor { get; }
     public int BodyFloor { get; }
     public Option<int> BodyCeiling { get; }
-    public bool Actuated { get; }
-    public bool Anchored { get; }
+
+    // What the mechanism DEMANDS of the form handed to it, as the kernel capability column rather than a pair of
+    // positional booleans. The demand is EXACT: a drive supplied to a mechanism that never actuates is as
+    // inadmissible as a missing one, so admission compares sets and names both shortfalls off the same column.
+    public CapabilitySet<FixtureDemand> Demands { get; }
     public Option<FixtureMetric> Axis { get; }
     public Set<FixtureMetric> Metrics { get; }
 
@@ -230,24 +245,43 @@ public sealed partial class WorkholdingKind {
         int contacts,
         int bodies = 0,
         int? bodyCeiling = null,
-        bool actuated = false,
-        bool anchored = false,
+        FixtureDemand[]? demands = null,
         FixtureMetric? axis = null,
         params FixtureMetric[] metrics) =>
-        new(key, role, holding, keepout, rule, contacts, bodies, Optional(bodyCeiling), actuated, anchored,
-            Optional(axis), toSet(metrics));
+        new(key, role, holding, keepout, rule, contacts, bodies, Optional(bodyCeiling),
+            CapabilitySet<FixtureDemand>.Of(demands ?? []), Optional(axis), toSet(metrics));
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Actuation {
-    private Actuation() { }
+// What holds the workpiece when the drive's energy source fails, as a ROW naming the MECHANISM a shop reads off a
+// setup sheet. `Retains` is the one column the cutting-custody gate reads, and four per-case booleans spelling
+// that one question — self-locking, clamps-on-loss, accumulator-held, brake-held — forced a six-arm switch to
+// re-ask it and left the two cases that answer unconditionally saying so in code rather than in data.
+[SmartEnum<string>]
+public sealed partial class EnergyCustody {
+    public static readonly EnergyCustody SelfLocking = new("self-locking", retains: true);
+    public static readonly EnergyCustody StoredEnergy = new("stored-energy", retains: true);
+    public static readonly EnergyCustody CheckValve = new("check-valve", retains: true);
+    public static readonly EnergyCustody Accumulator = new("accumulator", retains: true);
+    public static readonly EnergyCustody Brake = new("brake", retains: true);
+    public static readonly EnergyCustody Backdriving = new("backdriving", retains: false);
+    public static readonly EnergyCustody FieldDecay = new("field-decay", retains: false);
 
-    public sealed record Manual(Torque Torque, Length MeanRadius, Ratio Efficiency, bool SelfLocking) : Actuation;
-    public sealed record Spring(Force Force, Length Stroke) : Actuation;
-    public sealed record Pneumatic(Pressure Pressure, Area Piston, bool ClampsOnLoss) : Actuation;
-    public sealed record Hydraulic(Pressure Pressure, Area Piston, bool AccumulatorHeld) : Actuation;
-    public sealed record Electric(Force Force, Length Stroke, bool BrakeHeld) : Actuation;
-    public sealed record Field(Force PullOff, Duration Release) : Actuation;
+    public bool Retains { get; }
+}
+
+// The custody column seats on the ROOT because every drive answers it, so a new drive case cannot arrive without
+// stating what it holds on loss of energy, and no arm re-derives the answer.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record Actuation(EnergyCustody Custody) {
+    public sealed record Manual(Torque Torque, Length MeanRadius, Ratio Efficiency, EnergyCustody custody)
+        : Actuation(custody);
+    public sealed record Spring(Force Force, Length Stroke, EnergyCustody custody) : Actuation(custody);
+    public sealed record Pneumatic(Pressure Pressure, Area Piston, EnergyCustody custody) : Actuation(custody);
+    public sealed record Hydraulic(Pressure Pressure, Area Piston, EnergyCustody custody) : Actuation(custody);
+    public sealed record Electric(Force Force, Length Stroke, EnergyCustody custody) : Actuation(custody);
+    public sealed record Field(Force PullOff, Duration Release, EnergyCustody custody) : Actuation(custody);
+
+    public bool HeldOnLoss => Custody.Retains;
 
     public Force Preload => new(Switch(
         manual: static row => row.Torque.As(TorqueUnit.NewtonMeter) / row.MeanRadius.As(LengthUnit.Meter)
@@ -258,42 +292,37 @@ public abstract partial record Actuation {
         electric: static row => row.Force.As(ForceUnit.Newton),
         field: static row => row.PullOff.As(ForceUnit.Newton)), ForceUnit.Newton);
 
-    public bool HeldOnLoss => Switch(
-        manual: static row => row.SelfLocking,
-        spring: static _ => true,
-        pneumatic: static row => row.ClampsOnLoss,
-        hydraulic: static row => row.AccumulatorHeld,
-        electric: static row => row.BrakeHeld,
-        field: static _ => false);
+    // The corpus validity floor: every claim states its own requirement and the fold reports the conjunction, so
+    // a new drive column is one claim row rather than a hand-chained comparison ladder.
+    public bool IsValid => Switch(
+        manual: static row => ValidityClaim.All(
+            Fixtures.Positive(row.Torque), Fixtures.Positive(row.MeanRadius), Fixtures.Fraction(row.Efficiency)),
+        spring: static row => ValidityClaim.All(Fixtures.Positive(row.Force), Fixtures.Positive(row.Stroke)),
+        pneumatic: static row => ValidityClaim.All(Fixtures.Positive(row.Pressure), Fixtures.Positive(row.Piston)),
+        hydraulic: static row => ValidityClaim.All(Fixtures.Positive(row.Pressure), Fixtures.Positive(row.Piston)),
+        electric: static row => ValidityClaim.All(Fixtures.Positive(row.Force), Fixtures.Positive(row.Stroke)),
+        field: static row => ValidityClaim.All(Fixtures.Positive(row.PullOff), Fixtures.Nonnegative(row.Release)));
 
-    public bool Valid => Switch(
-        manual: static row => Fixtures.Positive(row.Torque) && Fixtures.Positive(row.MeanRadius) && Fixtures.Fraction(row.Efficiency),
-        spring: static row => Fixtures.Positive(row.Force) && Fixtures.Positive(row.Stroke),
-        pneumatic: static row => Fixtures.Positive(row.Pressure) && Fixtures.Positive(row.Piston),
-        hydraulic: static row => Fixtures.Positive(row.Pressure) && Fixtures.Positive(row.Piston),
-        electric: static row => Fixtures.Positive(row.Force) && Fixtures.Positive(row.Stroke),
-        field: static row => Fixtures.Positive(row.PullOff) && Fixtures.Nonnegative(row.Release));
-
+    // ONE-TIME RE-KEY: the custody row frames ONCE at the root where four per-case presence bits stood, so the
+    // layout gets shorter and every drive addresses under a named mechanism rather than a positional flag.
     public CanonicalWriter CanonicalBytes(CanonicalWriter writer) => Switch(
-        state: writer,
+        state: writer.Discriminant(Custody),
         manual: static (held, row) => held.String(nameof(Manual)).Double(row.Torque.As(TorqueUnit.NewtonMeter))
-            .Double(row.MeanRadius.As(LengthUnit.Millimeter)).Double(row.Efficiency.As(RatioUnit.DecimalFraction))
-            .Bool(row.SelfLocking),
+            .Double(row.MeanRadius.As(LengthUnit.Millimeter)).Double(row.Efficiency.As(RatioUnit.DecimalFraction)),
         spring: static (held, row) => held.String(nameof(Spring)).Double(row.Force.As(ForceUnit.Newton))
             .Double(row.Stroke.As(LengthUnit.Millimeter)),
         pneumatic: static (held, row) => held.String(nameof(Pneumatic)).Double(row.Pressure.As(PressureUnit.Pascal))
-            .Double(row.Piston.As(AreaUnit.SquareMeter)).Bool(row.ClampsOnLoss),
+            .Double(row.Piston.As(AreaUnit.SquareMeter)),
         hydraulic: static (held, row) => held.String(nameof(Hydraulic)).Double(row.Pressure.As(PressureUnit.Pascal))
-            .Double(row.Piston.As(AreaUnit.SquareMeter)).Bool(row.AccumulatorHeld),
+            .Double(row.Piston.As(AreaUnit.SquareMeter)),
         electric: static (held, row) => held.String(nameof(Electric)).Double(row.Force.As(ForceUnit.Newton))
-            .Double(row.Stroke.As(LengthUnit.Millimeter)).Bool(row.BrakeHeld),
+            .Double(row.Stroke.As(LengthUnit.Millimeter)),
         field: static (held, row) => held.String(nameof(Field)).Double(row.PullOff.As(ForceUnit.Newton))
             .Double(row.Release.As(DurationUnit.Second)));
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public readonly partial struct ContactLaw {
     public Ratio Friction { get; }
     public Pressure PressureLimit { get; }
@@ -304,17 +333,17 @@ public readonly partial struct ContactLaw {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Ratio friction,
         ref Pressure pressureLimit,
         ref double normalStiffnessNPerMm,
         ref double tangentialStiffnessNPerMm,
         ref Length deflectionLimit,
         ref Force pullOff) {
-        if (!(Fixtures.Nonnegative(friction) && Fixtures.Positive(pressureLimit)
-            && Witness.Positive(normalStiffnessNPerMm) && Witness.Positive(tangentialStiffnessNPerMm)
-            && Fixtures.Positive(deflectionLimit) && Fixtures.Nonnegative(pullOff)))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Fixturing, "contact-law");
+        if (!(ValidityClaim.All(
+            Fixtures.Nonnegative(friction), Fixtures.Positive(pressureLimit), ValidityClaim.Positive(normalStiffnessNPerMm),
+            ValidityClaim.Positive(tangentialStiffnessNPerMm), Fixtures.Positive(deflectionLimit), Fixtures.Nonnegative(pullOff))))
+            validationError = new ValidationError("contact-law");
     }
 
     public static Fin<ContactLaw> Admit(
@@ -362,12 +391,12 @@ public sealed record ContactPatch(
     Point3d Center,
     Vector3d Normal,
     ContactLaw Law,
-    Force Preload) {
+    Force Preload) : IValidityEvidence {
     // Geometry alone: the preload arrives from the mechanism's own `PreloadRule` at element admission, so a
     // patch handed to `FixtureElement.Admit` carries a placeholder and the seated value is gated there.
-    public bool Valid =>
-        Fixtures.Profile(Footprint) && Footprint.Bulges.ForAll(static bulge => bulge == 0.0)
-        && Fixtures.Finite(Center) && Fixtures.Unit(Normal);
+    public bool IsValid => ValidityClaim.All(
+        Fixtures.Profile(Footprint), Footprint.Bulges.ForAll(static bulge => bulge == 0.0),
+        Fixtures.Finite(Center), Fixtures.Unit(Normal));
 
     // Exemption: the tributary fold is a measured reaction kernel. Footprint is admitted already lowered, so
     // vertices are the true reaction stations and a bulged pad cannot degenerate to three; tributary edge length
@@ -412,7 +441,6 @@ public sealed record ElementForm(
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class FixtureElement {
     public int Element { get; }
     public WorkholdingKind Kind { get; }
@@ -428,39 +456,60 @@ public sealed partial class FixtureElement {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref int element,
         ref WorkholdingKind kind,
         ref ElementForm form,
         ref Option<Actuation> actuator) {
         if (element < 0)
-            validationError = new FabricationFault.FixtureInadmissible(
-                new FixturingWitness.Element(element, kind.Role, nameof(Element)));
+            validationError = new ValidationError("fixture-element");
         else if (!form.Contacts.ForAll(static contact => Fixtures.Positive(contact.Preload)))
-            validationError = new FabricationFault.FixtureInadmissible(
-                new FixturingWitness.Element(element, kind.Role, nameof(ContactPatch.Preload)));
+            validationError = new ValidationError("fixture-contacts");
     }
 
-    // ONE admission for every mechanism: cardinality, actuator custody, anchor demand, metric roster, and contact
+    // ONE admission for every mechanism: cardinality, the demand correspondence, metric roster, and contact
     // validity accumulate, then the row's own preload rule seats each contact so no caller distributes force.
+    // The demand gate is ONE comparison over the capability column and its refusal names BOTH shortfalls off the
+    // kernel's own `Missing` — required minus held in each direction — so no site hand-spells a complement.
     public static Fin<FixtureElement> Admit(int element, WorkholdingKind kind, ElementForm form, Option<Actuation> actuator) =>
         (Gate(element, kind, kind.Metrics.ForAll(axis => form.Metrics.Find(axis).Exists(axis.Bound.Admits)), nameof(FixtureMetric)),
          Gate(element, kind, form.Metrics.ForAll(static row => row.Key.Bound.Admits(row.Value)), nameof(ElementForm.Metrics)),
          Gate(element, kind, form.Contacts.Count >= kind.ContactFloor && form.Contacts.ForAll(contact =>
-                contact is not null && contact.Element == element && contact.Valid), nameof(ContactPatch)),
+                contact is not null && contact.Element == element && contact.IsValid), nameof(ContactPatch)),
          Gate(element, kind, form.Bodies.Count >= kind.BodyFloor && kind.BodyCeiling.Map(form.Bodies.Count.Equals).IfNone(true)
                 && form.Bodies.ForAll(Fixtures.Profile), nameof(ElementForm.Bodies)),
-         Gate(element, kind, actuator.Match(
-                Some: drive => kind.Actuated && drive.Valid,
-                None: () => !kind.Actuated), nameof(Actuation)),
-         Gate(element, kind, form.Anchor.Map(static plane => plane.IsValid).IfNone(!kind.Anchored), nameof(ElementForm.Anchor)))
+         Demanded(element, kind, form, actuator),
+         Gate(element, kind, actuator.ForAll(static drive => drive.IsValid)
+                && form.Anchor.ForAll(static plane => plane.IsValid), nameof(Actuation)))
             .Apply(static (_, _, _, _, _, _) => unit)
             .As()
             .ToFin()
             .Bind(_ => Validate(element, kind, Seated(kind, form, actuator), actuator, out FixtureElement seated).Admitted(seated));
 
+    // The form supplies exactly what it carries; the mechanism demands exactly what it needs. Set EQUALITY is the
+    // whole law, so this is the kernel `CapabilitySet` value comparison and NOT the `Require` door: `Require` is the
+    // SUPERSET gate, and taking it in both directions split one verdict into two refusals a reader had to rejoin —
+    // a form short one demand while carrying one nobody asked for is ONE inadmissible correspondence, not two. The
+    // two `Missing` reads are the kernel's own evidence wires, so the single refusal still names both directions and
+    // no site derives a complement; they run on the failing arm alone because a passing admission owes no rendering.
+    private static K<Validation<Error>, Unit> Demanded(
+        int element, WorkholdingKind kind, ElementForm form, Option<Actuation> actuator) {
+        CapabilitySet<FixtureDemand> supplied = CapabilitySet<FixtureDemand>.Of(
+            Seq(actuator.Map(static _ => FixtureDemand.Actuator), form.Anchor.Map(static _ => FixtureDemand.Anchor))
+                .Somes().ToArray());
+        // Both arms reach the CONCRETE carrier by user-defined implicit conversion, which C# cannot target at the
+        // `K` interface this method publishes, so the local IS the lift rather than ceremony around one.
+        Validation<Error, Unit> correspondence = supplied == kind.Demands ? unit : Refuse(element, kind, supplied);
+        return correspondence;
+    }
+
+    private static Error Refuse(int element, WorkholdingKind kind, CapabilitySet<FixtureDemand> supplied) =>
+        FabricationFault.Fixture(new FixturingWitness.Element(element, kind.Role,
+            $"{nameof(FixtureDemand)}:unmet={supplied.Missing(kind.Demands).Wire}:unasked={kind.Demands.Missing(supplied).Wire}"));
+
     private static ElementForm Seated(WorkholdingKind kind, ElementForm form, Option<Actuation> actuator) {
-        Actuation drive = actuator.IfNone(static () => new Actuation.Spring(Force.Zero, Length.Zero));
+        Actuation drive = actuator.IfNone(static () =>
+            new Actuation.Spring(Force.Zero, Length.Zero, EnergyCustody.StoredEnergy));
         double axis = kind.Axis.Map(form.Of).IfNone(0.0);
         return form with {
             Contacts = form.Contacts.Map(contact =>
@@ -469,8 +518,7 @@ public sealed partial class FixtureElement {
     }
 
     private static K<Validation<Error>, Unit> Gate(int element, WorkholdingKind kind, bool holds, string axis) =>
-        AdmissionSlots.Gate(holds, new FabricationFault.FixtureInadmissible(
-            new FixturingWitness.Element(element, kind.Role, axis)));
+        AdmissionSlots.Gate(holds, FabricationFault.Fixture(new FixturingWitness.Element(element, kind.Role, axis)));
 
     public CanonicalWriter CanonicalBytes(CanonicalWriter writer) =>
         Form.CanonicalBytes(writer.Ordinal(Element).Discriminant(Kind))
@@ -558,7 +606,6 @@ public sealed record FixtureSynthesis(
     FixtureObjective Objective);
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public readonly partial struct FixtureObjective {
     public double Holding { get; }
     public double Access { get; }
@@ -567,13 +614,14 @@ public readonly partial struct FixtureObjective {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref double holding,
         ref double access,
         ref double simplicity) {
-        if (!(double.IsFinite(holding) && holding >= 0.0 && double.IsFinite(access) && access >= 0.0
-            && double.IsFinite(simplicity) && simplicity >= 0.0 && Witness.Positive(holding + access + simplicity)))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Fixturing, "fixture-objective");
+        if (!(ValidityClaim.All(
+            double.IsFinite(holding), holding >= 0.0, double.IsFinite(access), access >= 0.0, double.IsFinite(simplicity), simplicity >= 0.0,
+            ValidityClaim.Positive(holding + access + simplicity))))
+            validationError = new ValidationError("fixture-objective");
     }
 }
 
@@ -581,7 +629,7 @@ public readonly record struct FixtureScore(double Holding, double Access, double
 
 public sealed record FixtureCandidate(
     Fixture Fixture,
-    HoldingReceipt Holding,
+    RestraintProof Holding,
     Seq<WorkholdingResult.Clearance> Clearance,
     Seq<SoftJawInsert> SoftJaws,
     FixtureScore Score);
@@ -590,23 +638,22 @@ public sealed record FixtureCandidate(
 ## [03]-[FIXTURE]
 
 - Owner: `FixtureSpec` is raw aggregate ingress; `Fixture` is the admitted owner carrying datum lineage, element identity, the stage lifecycle receipt, exact keep-outs, motion partition, and stock witness; `ExclusionZone` carries lower and upper height, active states, exact loops, source element, role, and mechanism.
-- Law: the stage sequence is a `BidirectionalGraph<FixtureStage, SEdge<FixtureStage>>` gated `IsDirectedAcyclicGraph` before `SourceFirstBidirectionalTopologicalSort` orders it, and `TreeBreadthFirstSearch` from the opening stage proves custody coverage — a stage no earlier stage reaches is a dead step the index arithmetic it replaces admitted silently. `LifecycleReceipt` publishes the order and the reachable census as receipt COLUMNS, so `Transition` answers reachability off the built graph rather than re-scanning the sequence twice per query.
+- Law: the stage sequence is a `BidirectionalGraph<FixtureStage, SEdge<FixtureStage>>` gated `IsDirectedAcyclicGraph` before `SourceFirstBidirectionalTopologicalSort` orders it, and `TreeBreadthFirstSearch` from the opening stage proves custody coverage — a stage no earlier stage reaches is a dead step the index arithmetic it replaces admitted silently. `StageLifecycle` publishes the order and the reachable census as receipt COLUMNS, so `Transition` answers reachability off the built graph rather than re-scanning the sequence twice per query.
 - Law: each `FixtureStep` activates and releases elements against one `FixtureState`; cutting states require settled location, support, and clamp custody, and a clamp whose actuator releases on loss of energy fails that custody.
-- Law: `ConstraintReceipt` preserves both closure ranks and redundancy — `Rank` over the friction-cone wrench set, `Frictionless` over normals alone — so underconstraint, overconstraint, and the form-versus-force closure distinction stay separable from holding-force sufficiency.
+- Law: `ConstraintCensus` preserves both closure ranks and redundancy — `Rank` over the friction-cone wrench set, `Frictionless` over normals alone — so underconstraint, overconstraint, and the form-versus-force closure distinction stay separable from holding-force sufficiency.
 - Exemption: `ConstraintRank` is the bounded six-column contact-wrench kernel; its Gram-Schmidt span loop is the measured numeric exemption.
 - Entry: `Fixture.Admit` is the sole construction; element, topology, lifecycle, datum, geometry, contact, and six-degree constraint failures accumulate before the `Fin<Fixture>` rail resumes.
-- Receipt: `DatumFrame` records primary, secondary, and tertiary contact evidence with the work coordinate system transform and repeatability budget; `DatumTransfer` folds the `Joining/sequence` `DisplacementReceipt` into a per-setup datum budget, so a distortion the weld plane measured narrows the repeatability a later setup may claim instead of being re-estimated here.
-- Boundary: `FixturingWitness` closes the admission rejection reasons and lowers through the `Process/faults` offset-55 `FabricationFault.FixtureInadmissible` case; degenerate geometry stays on `GeometryFault.DegenerateInput`.
+- Receipt: `DatumFrame` records primary, secondary, and tertiary contact evidence with the work coordinate system transform and repeatability budget; `DatumTransfer` folds the `Joining/sequence` `DistortionField` into a per-setup datum budget, so a distortion the weld plane measured narrows the repeatability a later setup may claim instead of being re-estimated here.
+- Boundary: `FixturingWitness` closes the admission rejection reasons and lowers through the `Process/faults` offset-54 `FabricationFault.FixtureInadmissible` case; degenerate geometry stays on `GeometryFault.DegenerateInput`.
 
 ```csharp signature
 // --- [FIXTURE] ------------------------------------------------------------------------------------------------------------------------------------
 [ValueObject<int>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
-[ValidationError<FabricationFault>]
 public readonly partial struct FixtureStage {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref int value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
         if (value < 0)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Fixturing, "fixture-stage");
+            validationError = new ValidationError("fixture-stage");
     }
 }
 
@@ -620,7 +667,7 @@ public readonly record struct FixtureStep(FixtureStage Stage, FixtureState State
 
 // The walk's own outputs as named columns: the topological order every fold consumes, the stages the opening
 // stage reaches, and the element set live at each stage. The container never leaves the admission fold.
-public sealed record LifecycleReceipt(Seq<FixtureStage> Order, Set<FixtureStage> Reachable, Map<FixtureStage, Set<int>> Active) {
+public sealed record StageLifecycle(Seq<FixtureStage> Order, Set<FixtureStage> Reachable, Map<FixtureStage, Set<int>> Active) {
     public Map<FixtureStage, int> Ordinal => Order.Fold(
         Map<FixtureStage, int>(), static (index, stage) => index.Add(stage, index.Count));
 
@@ -654,13 +701,13 @@ public sealed record DatumTransfer(Length Budget, Length Consumed, Seq<Distortio
 
     // A setup holds the WHOLE assembly, so its budget spends against every measured member; a joint holds its own
     // members, so the subset arity narrows to those. Both read the ONE receipt the weld plane produced.
-    public static DatumTransfer Of(Length budget, DisplacementReceipt displacement) =>
+    public static DatumTransfer Of(Length budget, DistortionField displacement) =>
         Of(budget, displacement, static _ => true);
 
-    public static DatumTransfer Of(Length budget, DisplacementReceipt displacement, Set<AssemblyMemberKey> members) =>
+    public static DatumTransfer Of(Length budget, DistortionField displacement, Set<AssemblyMemberKey> members) =>
         Of(budget, displacement, members.Contains);
 
-    private static DatumTransfer Of(Length budget, DisplacementReceipt displacement, Func<AssemblyMemberKey, bool> member) {
+    private static DatumTransfer Of(Length budget, DistortionField displacement, Func<AssemblyMemberKey, bool> member) {
         Seq<DisplacementRow> rows = displacement.Rows.Filter(row => member(row.Member));
         return new DatumTransfer(
             budget,
@@ -688,8 +735,8 @@ public sealed record ExclusionZone(
         }
     }
 
-    public Fin<CollisionZone> Collision => CollisionZone.Admit(
-        ContentKey.Of(EgressKind.Plan, Fixtures.ZoneIdentity(this)), Bounds);
+    public Fin<CollisionZone> Collision =>
+        Fixtures.ZoneIdentity(this).Bind(key => CollisionZone.Admit(key, Bounds));
 
     // The height band is the only test this record answers alone; planar membership and crossing belong to the
     // `Geometry2D` owner and run BATCHED over every segment of every zone at the call site.
@@ -723,7 +770,7 @@ public sealed partial class CorridorKind {
 public sealed record ToolCorridor(CorridorKind Kind, Seq<CorridorStation> Stations);
 
 // --- [ERRORS] -------------------------------------------------------------------------------------------------------------------------------------
-// The folder's own evidence vocabulary for the offset-55 band case `Process/faults` declares. The witness family
+// The folder's own evidence vocabulary for the offset-54 band case `Process/faults` declares. The witness family
 // homes here because its axes are fixturing's; the CASE homes there because the offset ledger is whole on one page.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FixturingWitness {
@@ -740,15 +787,17 @@ public abstract partial record FixturingWitness {
     public sealed record Partition(int Runs, int Moves) : FixturingWitness;
     public sealed record Synthesis(int Templates, int Minimum, int Maximum, int Budget) : FixturingWitness;
     public sealed record Plan(int Operations, int Machines, int Fixtures, int MaxSetups) : FixturingWitness;
-    public sealed record Operation(int Key, string Axis) : FixturingWitness;
+    public sealed record Operation(Option<int> Key, string Axis) : FixturingWitness;
     public sealed record Offsets(int Requested, int Available, int MaxSetups) : FixturingWitness;
-    public sealed record Roster(CarrierKey Carrier, int Station, int Instances) : FixturingWitness;
+    public sealed record Roster(Option<CarrierKey> Carrier, Option<int> Station, int Instances) : FixturingWitness;
     public sealed record Rebase(int Setup, Length Correction, Angle Rotation, Length Tolerance) : FixturingWitness;
-    public sealed record Membership(int Joint, int Components, int Resolved) : FixturingWitness;
+    public sealed record Membership(Option<int> Joint, int Components, int Resolved) : FixturingWitness;
     public sealed record Join(int Joint, JoinRejection Reason) : FixturingWitness;
     public sealed record Residual(int Completed, int Blocked, int Joints) : FixturingWitness;
 }
 
+// `Visibility` names a MALFORMED sight census — a row addressing a corridor outside the joint's own roster — and
+// `Sight` names a corridor demanding line of sight that an occlusion row blocks; two different faults, two rows.
 [SmartEnum<string>]
 public sealed partial class JoinRejection {
     public static readonly JoinRejection Fit = new("fit");
@@ -789,7 +838,7 @@ public readonly record struct Wrench(Vector3d Force, Vector3d Moment) {
         new(direction, Vector3d.CrossProduct(Fixtures.Meters(at - Point3d.Origin), direction));
 }
 
-public sealed record ConstraintReceipt(int Rank, int Frictionless, int Redundancy, Seq<ContactReaction> Reactions) {
+public sealed record ConstraintCensus(int Rank, int Frictionless, int Redundancy, Seq<ContactReaction> Reactions) {
     public bool Constrained => Rank == 6;
     public bool FormClosed => Frictionless == 6;
     public bool Determinate => Constrained && Redundancy == 0;
@@ -800,38 +849,35 @@ public sealed record ConstraintReceipt(int Rank, int Frictionless, int Redundanc
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class Fixture {
     public FixtureSpec Spec { get; }
     public Seq<ExclusionZone> Zones { get; }
     public Seq<ContactPatch> Contacts { get; }
-    public ConstraintReceipt Constraint { get; }
-    public LifecycleReceipt Lifecycle { get; }
+    public ConstraintCensus Constraint { get; }
+    public StageLifecycle Lifecycle { get; }
 
     public int Operation => Spec.Operation;
     public Point3d InitialCursor => Spec.InitialCursor;
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref FixtureSpec spec,
         ref Seq<ExclusionZone> zones,
         ref Seq<ContactPatch> contacts,
-        ref ConstraintReceipt constraint,
-        ref LifecycleReceipt lifecycle) {
+        ref ConstraintCensus constraint,
+        ref StageLifecycle lifecycle) {
         if (contacts.IsEmpty)
-            validationError = new FabricationFault.FixtureInadmissible(
-                new FixturingWitness.Aggregate(spec.Operation, spec.Elements.Count, 0));
+            validationError = new ValidationError("fixture");
         else if (!constraint.Constrained)
-            validationError = new FabricationFault.FixtureInadmissible(
-                new FixturingWitness.Closure(constraint.Rank, 6, constraint.Redundancy, constraint.Frictionless));
+            validationError = new ValidationError("fixture-closure");
     }
 
     // Independent aggregate gates accumulate, the derived members build once, and the stock witness closes last
     // because it is the only gate needing the fully seated zone set.
     public static Fin<Fixture> Admit(FixtureSpec? candidate) =>
         Optional(candidate)
-            .ToFin(new FabricationFault.FixtureInadmissible(new FixturingWitness.Absent()).ToError())
+            .ToFin(FabricationFault.Fixture(new FixturingWitness.Absent()))
             .Bind(spec =>
                 (Fixtures.GateSpec(spec), Fixtures.GateLifecycle(spec), Fixtures.GateDatum(spec))
                     .Apply(static (accepted, lifecycle, _) => (accepted, lifecycle))
@@ -845,7 +891,7 @@ public sealed partial class Fixture {
                     out Fixture fixture).Admitted(fixture)))
             .Bind(static fixture => fixture.Spec.Current.Match(
                 Some: stock => Fixtures.Machined(fixture, stock).Bind(hit => hit.Match(
-                    Some: point => Fin.Fail<Fixture>(new FabricationFault.ClampOnMachinedFace(fixture.Operation, point).ToError()),
+                    Some: point => Fin.Fail<Fixture>(new FabricationFault.ClampOnMachinedFace(fixture.Operation, point)),
                     None: () => Fin.Succ(fixture))),
                 None: () => Fin.Succ(fixture)));
 
@@ -856,14 +902,13 @@ public sealed partial class Fixture {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class FixtureSet {
     public Seq<Fixture> Fixtures { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Seq<Fixture> fixtures) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<Fixture> fixtures) {
         if (fixtures.IsEmpty || fixtures.Map(static fixture => fixture.Operation).Distinct().Count != fixtures.Count)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Fixturing, "fixture-set");
+            validationError = new ValidationError("fixture-set");
     }
 
     public static Fin<FixtureSet> Admit(Seq<Fixture> fixtures) =>
@@ -886,8 +931,9 @@ public sealed partial class FixtureSet {
 - Law: `ClampTemplate` generates boundary layouts, evaluates every candidate through the same restraint and corridor algebra, ranks the survivors, and derives soft-jaw negatives from the part silhouette. `Programs` enumerates only the admitted cardinalities under `SynthesisBudget.CandidateBudget`, so template-roster growth never costs a powerset.
 - Exemption: statements stay inside the bounded kernels alone — `ConstraintRank` spans the six-column wrench basis, `Utilization` assembles the normalized triplet stream, `ArcSegments` chords one arc, and `Slab` clips one segment against one height band.
 - Entry: `Workholding.Apply` is the sole public operation surface; each case carries every discriminant and parameter its arm consumes.
-- Output: `FixtureProjection` selects machine, setup-sheet, inspection, and evidence payloads; `Canonical` dispatches on that family and composes `FabricationCanon` over the one `CanonicalWriter` before `ContentKey.Of` mints its identity.
-- Packages: `Rasm.Numerics` (`SparseMatrix.FromTriplets`, `SolveLeastSquaresDetailed`, `SolveReceipt`, `Dimension`, `EpsilonPolicy`), `Geometry2D/algebra` (`PolygonOp.ClipOpen`, `.Boolean`, `PolygonTrace.SplitRuns`, `.Regions`, `TopologyReceipt`), `QuikGraph` (`BidirectionalGraph`, `SEdge`, `IsDirectedAcyclicGraph`, `SourceFirstBidirectionalTopologicalSort`, `TreeBreadthFirstSearch`), `UnitsNet`, LanguageExt.Core.
+- Output: `FixtureProjection` selects machine, setup-sheet, inspection, and evidence payloads; `Keyed` dispatches on that family and frames through `FabricationCanon` over the one `CanonicalWriter`, closing on the retaining mint's own rail so a projection never addresses under bytes no writer held.
+- Law: keep-out admission ACCUMULATES across elements — `Zones` traverses into `Validation`, so a spec with three degenerate offsets reports three, not the first. Inside one zone the band ordering needs no gate because `FixtureMetric.Height` carries `MetricBound.Positive` and the band reads a min and a max of the same vertex set, and activation coverage needs none because `GateLifecycle` already proves every element is activated by some step; a guard restating either is the vacuous form.
+- Packages: `Rasm.Numerics` (`SparseMatrix.FromTriplets`, `SolveLeastSquaresDetailed`, `SolveReceipt`, `Dimension`, `EpsilonPolicy`), `Geometry2D/algebra` (`PolygonOp.ClipOpen`, `.Boolean`, `PolygonTrace.Regioned`/`.Runs`, `RegionTopology`), `QuikGraph` (`BidirectionalGraph`, `SEdge`, `IsDirectedAcyclicGraph`, `SourceFirstBidirectionalTopologicalSort`, `TreeBreadthFirstSearch`), `UnitsNet`, LanguageExt.Core.
 - Boundary: geometry, aggregate, and stability failures remain typed; no failure becomes an empty fixture, a clear path, or a passing margin.
 
 ```csharp signature
@@ -901,35 +947,33 @@ public sealed partial class FixtureProjection {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public readonly partial struct ForceVector {
     public Vector3d Direction { get; }
     public Force Magnitude { get; }
     public Vector3d Vector => Direction / Direction.Length * Magnitude.As(ForceUnit.Newton);
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Vector3d direction, ref Force magnitude) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Vector3d direction, ref Force magnitude) {
         if (!(Fixtures.Finite(direction) && direction.Length > EpsilonPolicy.ZeroTolerance && Fixtures.Nonnegative(magnitude)))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Fixturing, "force-vector");
+            validationError = new ValidationError("force-vector");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public readonly partial struct MomentVector {
     public Vector3d Axis { get; }
     public Torque Magnitude { get; }
     public Vector3d Vector => Axis / Axis.Length * Magnitude.As(TorqueUnit.NewtonMeter);
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Vector3d axis, ref Torque magnitude) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Vector3d axis, ref Torque magnitude) {
         if (!(Fixtures.Finite(axis) && axis.Length > EpsilonPolicy.ZeroTolerance && Fixtures.Nonnegative(magnitude)))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Fixturing, "moment-vector");
+            validationError = new ValidationError("moment-vector");
     }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record LoadCase {
+public abstract partial record LoadCase : IValidityEvidence {
     private LoadCase() { }
 
     public sealed record Cutting(int Operation, ForceVector Force, MomentVector Moment, Point3d At, Loop Region) : LoadCase;
@@ -949,14 +993,15 @@ public abstract partial record LoadCase {
         thermal: static row => (row.Force.Vector, row.Moment.Vector, row.At),
         pressure: static row => Regional(row.Force.Vector, Vector3d.Zero, row.Center, row.Region));
 
-    public bool Valid => Switch(
-        cutting: static row => Witness.Index(row.Operation) && Fixtures.Finite(row.At) && Fixtures.Profile(row.Region),
+    public bool IsValid => Switch(
+        cutting: static row => ValidityClaim.All(
+            ValidityClaim.Nonnegative(row.Operation), Fixtures.Finite(row.At), Fixtures.Profile(row.Region)),
         gravity: static row => Fixtures.Finite(row.Center),
         acceleration: static row => Fixtures.Finite(row.Center),
         probing: static row => Fixtures.Finite(row.At),
         handling: static row => Fixtures.Finite(row.At),
         thermal: static row => Fixtures.Finite(row.At),
-        pressure: static row => Fixtures.Finite(row.Center) && Fixtures.Profile(row.Region));
+        pressure: static row => ValidityClaim.All(Fixtures.Finite(row.Center), Fixtures.Profile(row.Region)));
 
     // Only the cutting case names an operation, so operation correspondence is one read rather than a second
     // seven-arm switch whose other six arms answer `true`.
@@ -999,7 +1044,7 @@ public sealed record RestraintSolution(
     double PullOffMargin,
     double LiftMargin);
 
-public readonly record struct LoadReceipt(
+public readonly record struct LoadMargin(
     LoadCase Load,
     AxisMargin Force,
     AxisMargin Moment,
@@ -1014,7 +1059,7 @@ public readonly record struct LoadReceipt(
         PressureMargin, DeflectionMargin, TangentialDeflectionMargin, TipMargin, Solution.Scale).Min(double.PositiveInfinity);
 }
 
-public sealed record HoldingReceipt(Seq<LoadReceipt> Loads, Seq<ContactPatch> Contacts) {
+public sealed record RestraintProof(Seq<LoadMargin> Loads, Seq<ContactPatch> Contacts) {
     public double MinimumMargin => Loads.Min(static receipt => receipt.Minimum);
     public bool Holds => MinimumMargin >= 1.0;
 }
@@ -1023,9 +1068,9 @@ public sealed record HoldingReceipt(Seq<LoadReceipt> Loads, Seq<ContactPatch> Co
 public abstract partial record FixtureArtifact {
     private FixtureArtifact() { }
 
-    public sealed record Machine(ContentKey Key, Seq<ExclusionZone> Zones, DatumFrame Datum, ConstraintReceipt Constraint) : FixtureArtifact;
-    public sealed record SetupSheet(ContentKey Key, Seq<FixtureElement> Elements, Seq<FixtureStep> Sequence, DatumFrame Datum, ConstraintReceipt Constraint) : FixtureArtifact;
-    public sealed record Inspection(ContentKey Key, Seq<ContactPatch> Contacts, DatumFrame Datum, ConstraintReceipt Constraint) : FixtureArtifact;
+    public sealed record Machine(ContentKey Key, Seq<ExclusionZone> Zones, DatumFrame Datum, ConstraintCensus Constraint) : FixtureArtifact;
+    public sealed record SetupSheet(ContentKey Key, Seq<FixtureElement> Elements, Seq<FixtureStep> Sequence, DatumFrame Datum, ConstraintCensus Constraint) : FixtureArtifact;
+    public sealed record Inspection(ContentKey Key, Seq<ContactPatch> Contacts, DatumFrame Datum, ConstraintCensus Constraint) : FixtureArtifact;
     public sealed record Evidence(ContentKey Key, Fixture Fixture) : FixtureArtifact;
 }
 
@@ -1053,7 +1098,7 @@ public abstract partial record WorkholdingResult {
         public bool Clear => Blocked.IsNone;
     }
     public sealed record MachinedHit(Option<Point3d> Point) : WorkholdingResult;
-    public sealed record Restrained(HoldingReceipt Receipt) : WorkholdingResult;
+    public sealed record Restrained(RestraintProof Receipt) : WorkholdingResult;
     public sealed record Transitioned(FixtureState State, Arr<int> Active) : WorkholdingResult;
     public sealed record Synthesized(Seq<FixtureCandidate> Candidates) : WorkholdingResult;
     public sealed record Projected(FixtureArtifact Artifact) : WorkholdingResult;
@@ -1062,7 +1107,7 @@ public abstract partial record WorkholdingResult {
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Workholding {
     public static Fin<WorkholdingResult> Apply(WorkholdingOp? candidate) =>
-        Optional(candidate).ToFin(new FabricationFault.FixtureInadmissible(new FixturingWitness.Absent()).ToError())
+        Optional(candidate).ToFin(FabricationFault.Fixture(new FixturingWitness.Absent()))
             .Bind(static op => op.Switch(
                 admit: static row => Fixture.Admit(row.Spec)
                     .Map<WorkholdingResult>(static fixture => new WorkholdingResult.Admitted(fixture)),
@@ -1086,12 +1131,11 @@ internal static class Fixtures {
     // --- [ADMISSION]
     internal static K<Validation<Error>, FixtureSpec> GateSpec(FixtureSpec spec) =>
         AdmissionSlots.Gate(
-            Witness.Index(spec.Operation)
-            && Positive(spec.ArcChordError) && Finite(spec.InitialCursor)
-            && spec.Profiles.ForAll(Profile) && ValidRuns(spec.Profiles, spec.Runs)
-            && !spec.Elements.IsEmpty
-            && spec.Elements.Map(static element => element.Element).Distinct().Count == spec.Elements.Count,
-            new FabricationFault.FixtureInadmissible(new FixturingWitness.Aggregate(
+            ValidityClaim.All(
+                ValidityClaim.Nonnegative(spec.Operation), Positive(spec.ArcChordError), Finite(spec.InitialCursor), spec.Profiles.ForAll(Profile),
+                ValidRuns(spec.Profiles, spec.Runs), !spec.Elements.IsEmpty,
+                spec.Elements.Map(static element => element.Element).Distinct().Count == spec.Elements.Count),
+            FabricationFault.Fixture(new FixturingWitness.Aggregate(
                 spec.Operation,
                 spec.Elements.Count,
                 spec.Elements.Count - spec.Elements.Map(static element => element.Element).Distinct().Count)))
@@ -1099,16 +1143,16 @@ internal static class Fixtures {
 
     // The stage sequence is a DAG, so acyclicity rails BEFORE the sort throws, the topological order is the
     // authority every later fold reads, and unreachable stages are named on the witness rather than skipped.
-    internal static K<Validation<Error>, LifecycleReceipt> GateLifecycle(FixtureSpec spec) {
+    internal static K<Validation<Error>, StageLifecycle> GateLifecycle(FixtureSpec spec) {
         BidirectionalGraph<FixtureStage, SEdge<FixtureStage>> stages = new(allowParallelEdges: false);
         stages.AddVertexRange(spec.Sequence.Map(static step => step.Stage));
         stages.AddEdgeRange(spec.Sequence.Zip(spec.Sequence.Tail)
             .Map(static pair => new SEdge<FixtureStage>(pair.First.Stage, pair.Second.Stage)));
-        Error broken = new FabricationFault.FixtureInadmissible(
-            new FixturingWitness.Lifecycle(spec.Sequence.Head, None, spec.Sequence.Count, spec.Sequence.Count)).ToError();
+        Error broken = FabricationFault.Fixture(
+            new FixturingWitness.Lifecycle(spec.Sequence.Head, None, spec.Sequence.Count, spec.Sequence.Count));
         if (spec.Sequence.IsEmpty || !stages.IsDirectedAcyclicGraph()
             || spec.Sequence.Map(static step => step.Stage).Distinct().Count != spec.Sequence.Count)
-            return Validation<Error, LifecycleReceipt>.Fail(broken);
+            return Validation<Error, StageLifecycle>.Fail(broken);
 
         Seq<FixtureStage> order = toSeq(stages.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Forward));
         TryFunc<FixtureStage, IEnumerable<SEdge<FixtureStage>>> reach = stages.TreeBreadthFirstSearch(order[0]);
@@ -1144,12 +1188,12 @@ internal static class Fixtures {
             && reachable.Count == spec.Sequence.Count
             && spec.Sequence.ForAll(static step => Nonnegative(step.Settle))
             && spec.Elements.ForAll(element => spec.Sequence.Exists(step => step.Activate.Contains(element.Element))),
-            new FabricationFault.FixtureInadmissible(new FixturingWitness.Lifecycle(
+            FabricationFault.Fixture(new FixturingWitness.Lifecycle(
                 walk.Broken.Map(static row => row.Step),
                 walk.Broken.Bind(static row => row.Uncovered),
                 spec.Sequence.Count,
                 spec.Sequence.Count - reachable.Count)))
-            .Map(_ => new LifecycleReceipt(order, reachable, walk.Live));
+            .Map(_ => new StageLifecycle(order, reachable, walk.Live));
     }
 
     internal static K<Validation<Error>, Unit> GateDatum(FixtureSpec spec) {
@@ -1162,9 +1206,9 @@ internal static class Fixtures {
             spec.Datum.Primary.Count >= 1 && spec.Datum.Secondary.Count >= 1 && spec.Datum.Tertiary.Count >= 1
             && disjoint && datum.ForAll(locators.Contains)
             && spec.Datum.Work.IsValid && Nonnegative(spec.Datum.Repeatability),
-            new FabricationFault.FixtureInadmissible(new FixturingWitness.Datum(
+            FabricationFault.Fixture(new FixturingWitness.Datum(
                 spec.Datum.Primary.Count, spec.Datum.Secondary.Count, spec.Datum.Tertiary.Count,
-                datum.Count(element => !locators.Contains(element)))));
+                datum.Count(element => !locators.Contains(element))));
     }
 
     internal static Fin<Seq<ExclusionZone>> Zones(FixtureSpec spec) =>
@@ -1179,7 +1223,7 @@ internal static class Fixtures {
         double chord = spec.ArcChordError.As(LengthUnit.Millimeter);
         return Offset(shape, element.MarginMm).Bind(keepouts => keepouts.IsEmpty
             ? Fin.Fail<Option<ExclusionZone>>(
-                new GeometryFault.DegenerateInput(Kind.Polyline, element.Element, nameof(ExclusionZone)).ToError())
+                new GeometryFault.DegenerateInput(Kind.Polyline, element.Element, nameof(ExclusionZone)))
             : Fin.Succ(Some(new ExclusionZone(
                 spec.Operation,
                 element.Element,
@@ -1200,16 +1244,16 @@ internal static class Fixtures {
     // The empty reaction set refuses HERE. A locating-only roster — every `WorkholdingKind` declaring zero contacts —
     // clears spec, lifecycle, and datum admission and reaches this kernel before the fixture's own contact gate ever
     // runs, and the rank fold's scale is a selector `Max` that throws on an empty sequence rather than railing.
-    internal static Fin<ConstraintReceipt> Constraint(Seq<ContactPatch> contacts) {
+    internal static Fin<ConstraintCensus> Constraint(Seq<ContactPatch> contacts) {
         Seq<ContactReaction> reactions = contacts.Bind(static contact => contact.Field);
         if (reactions.IsEmpty)
-            return Fin.Fail<ConstraintReceipt>(new FabricationFault.WitnessMalformed(
-                nameof(FixturingWitness.Closure), nameof(ContactReaction)).ToError());
+            return Fin.Fail<ConstraintCensus>(FabricationFault.Fixture(
+                new FixturingWitness.Closure(Rank: 0, Required: 6, Redundancy: 0, Frictionless: 0)));
         Seq<Wrench> normal = reactions.Map(static reaction => Wrench.Of(reaction.At, Unitized(reaction.Normal)));
         Seq<Wrench> closure = normal + reactions.Bind(Friction);
         double lever = Lever(reactions);
         int rank = ConstraintRank(closure, lever);
-        return Fin.Succ(new ConstraintReceipt(
+        return Fin.Succ(new ConstraintCensus(
             rank, ConstraintRank(normal, lever), Math.Max(0, closure.Count - rank), reactions));
     }
 
@@ -1256,20 +1300,20 @@ internal static class Fixtures {
     }
 
     // --- [RESTRAINT]
-    internal static Fin<HoldingReceipt> Restrain(Fixture fixture, Seq<LoadCase> loads, double safety) =>
+    internal static Fin<RestraintProof> Restrain(Fixture fixture, Seq<LoadCase> loads, double safety) =>
         !loads.IsEmpty && loads.ForAll(load => ValidLoad(fixture, load)) && double.IsFinite(safety) && safety >= 1.0
             ? Support(fixture.Contacts).Bind(support => loads
                 .Traverse(load => Evaluate(fixture.Contacts, support, load, safety).ToValidation())
-                .As().ToFin().Map(receipts => new HoldingReceipt(receipts, fixture.Contacts)))
-            : Fin.Fail<HoldingReceipt>(new FabricationFault.FixtureInadmissible(new FixturingWitness.Restraint(
-                loads.Count, loads.Count(load => !ValidLoad(fixture, load)), safety)).ToError());
+                .As().ToFin().Map(receipts => new RestraintProof(receipts, fixture.Contacts)))
+            : Fin.Fail<RestraintProof>(FabricationFault.Fixture(new FixturingWitness.Restraint(
+                loads.Count, loads.Count(load => !ValidLoad(fixture, load)), safety)));
 
-    private static Fin<LoadReceipt> Evaluate(Seq<ContactPatch> contacts, Seq<Loop> support, LoadCase load, double safety) {
+    private static Fin<LoadMargin> Evaluate(Seq<ContactPatch> contacts, Seq<Loop> support, LoadCase load, double safety) {
         (Vector3d force, Vector3d moment, Point3d at) = load.Demand;
         Seq<ContactReaction> reactions = contacts.Bind(static contact => contact.Field);
         Vector3d forceDemand = force * safety;
         Vector3d momentDemand = (moment + Vector3d.CrossProduct(Meters(at - Point3d.Origin), force)) * safety;
-        return Utilization(reactions, new Wrench(forceDemand, momentDemand)).Map(solution => new LoadReceipt(
+        return Utilization(reactions, new Wrench(forceDemand, momentDemand)).Map(solution => new LoadMargin(
             load,
             new AxisMargin(Scaled(forceDemand, solution.Scale), Abs(forceDemand)),
             new AxisMargin(Scaled(momentDemand, solution.Scale), Abs(momentDemand)),
@@ -1388,10 +1432,10 @@ internal static class Fixtures {
                         .Map(path => (move.Target, current.Path + path))))
                 .Bind(current => Blocked(fixture.Zones, current.Path, state).Bind(hit => hit.Match(
                     Some: zone => zone.Collision.Bind(volume =>
-                        Fin.Fail<Seq<Move>>(new FabricationFault.Collision(volume, CollisionContact.Cutter).ToError())),
+                        Fin.Fail<Seq<Move>>(new FabricationFault.Collision(volume, CollisionContact.Cutter))),
                     None: () => Fin.Succ(moves))))
-            : Fin.Fail<Seq<Move>>(new FabricationFault.FixtureInadmissible(new FixturingWitness.Partition(
-                fixture.Spec.Runs.Sum(static run => run.Count), moves.Count)).ToError());
+            : Fin.Fail<Seq<Move>>(FabricationFault.Fixture(new FixturingWitness.Partition(
+                fixture.Spec.Runs.Sum(static run => run.Count), moves.Count)));
 
     internal static Fin<Option<ExclusionZone>> Clear(Fixture fixture, FixtureState state, ToolCorridor corridor) =>
         corridor.Stations.Count >= 2 && corridor.Stations.ForAll(station =>
@@ -1402,8 +1446,8 @@ internal static class Fixtures {
                 .Fold(Fin.Succ(Option<ExclusionZone>.None), (rail, leg) => rail.Bind(found => found.IsSome
                     ? Fin.Succ(found)
                     : Inflated(fixture.Zones, leg.Radius).Bind(grown => Blocked(grown, Seq(leg.Axis), state))))
-            : Fin.Fail<Option<ExclusionZone>>(new FabricationFault.FixtureInadmissible(
-                new FixturingWitness.Corridor(corridor.Kind, corridor.Stations.Count)).ToError());
+            : Fin.Fail<Option<ExclusionZone>>(FabricationFault.Fixture(
+                new FixturingWitness.Corridor(corridor.Kind, corridor.Stations.Count)));
 
     // ONE open-path clip per zone over the WHOLE banded path: a per-segment membership walk re-entered the same
     // overlay once per edge and per wall, and the densified wall ring it needed disappears with it.
@@ -1436,8 +1480,8 @@ internal static class Fixtures {
             || budget.MinimumTemplates <= 0 || budget.MaximumTemplates < budget.MinimumTemplates
             || budget.MaximumTemplates > seed.Templates.Count || budget.CandidateBudget <= 0
             || !AtLeastUnit(seed.SafetyFactor))
-            return Fin.Fail<Seq<FixtureCandidate>>(new FabricationFault.FixtureInadmissible(new FixturingWitness.Synthesis(
-                seed.Templates.Count, budget.MinimumTemplates, budget.MaximumTemplates, budget.CandidateBudget)).ToError());
+            return Fin.Fail<Seq<FixtureCandidate>>(FabricationFault.Fixture(new FixturingWitness.Synthesis(
+                seed.Templates.Count, budget.MinimumTemplates, budget.MaximumTemplates, budget.CandidateBudget)));
 
         double safety = seed.SafetyFactor.As(RatioUnit.DecimalFraction);
         return Fixture.Admit(seed.Basis).Bind(basis => {
@@ -1474,8 +1518,8 @@ internal static class Fixtures {
 
     private static Fin<Seq<FixtureStep>> SynthesisSequence(Fixture basis, Seq<FixtureElement> generated) {
         Seq<(FixtureStep Step, int Index)> indexed = basis.Spec.Sequence.Map(static (step, index) => (step, index));
-        Error broken = new FabricationFault.FixtureInadmissible(new FixturingWitness.Lifecycle(
-            None, None, basis.Spec.Sequence.Count, 0)).ToError();
+        Error broken = FabricationFault.Fixture(
+            new FixturingWitness.Lifecycle(None, None, basis.Spec.Sequence.Count, 0));
         return indexed.Find(static row => row.Step.State == FixtureState.Clamp).ToFin(broken).Bind(activation =>
             indexed.Find(row => row.Index > activation.Index && row.Step.State == FixtureState.Unload).ToFin(broken).Map(release => {
                 Set<int> retired = toSet(basis.Spec.Elements
@@ -1504,7 +1548,7 @@ internal static class Fixtures {
     private static FixtureCandidate Rank(
         FixtureObjective objective,
         Fixture fixture,
-        HoldingReceipt holding,
+        RestraintProof holding,
         Seq<WorkholdingResult.Clearance> clearance,
         Seq<SoftJawInsert> inserts) {
         double hold = holding.MinimumMargin / (1.0 + holding.MinimumMargin);
@@ -1525,40 +1569,45 @@ internal static class Fixtures {
             : Fin.Fail<(FixtureState, Arr<int>)>(Broken(fixture, from));
 
     private static Error Broken(Fixture fixture, FixtureStage from) =>
-        new FabricationFault.FixtureInadmissible(new FixturingWitness.Lifecycle(
-            fixture.Spec.Sequence.Find(step => step.Stage == from), None, fixture.Spec.Sequence.Count, 0)).ToError();
+        FabricationFault.Fixture(new FixturingWitness.Lifecycle(
+            fixture.Spec.Sequence.Find(step => step.Stage == from), None, fixture.Spec.Sequence.Count, 0));
 
     // --- [PROJECTION]
-    internal static Fin<FixtureArtifact> Project(Fixture fixture, FixtureProjection projection) {
-        ContentKey key = ContentKey.Of(EgressKind.Plan, Canonical(fixture, projection));
-        return Fin.Succ(projection.Switch<FixtureArtifact>(
+    internal static Fin<FixtureArtifact> Project(Fixture fixture, FixtureProjection projection) =>
+        Keyed(fixture, projection).Map(key => projection.Switch<FixtureArtifact>(
             machine: () => new FixtureArtifact.Machine(key, fixture.Zones, fixture.Spec.Datum, fixture.Constraint),
             setupSheet: () => new FixtureArtifact.SetupSheet(key, fixture.Spec.Elements, fixture.Spec.Sequence, fixture.Spec.Datum, fixture.Constraint),
             inspection: () => new FixtureArtifact.Inspection(key, fixture.Contacts, fixture.Spec.Datum, fixture.Constraint),
             evidence: () => new FixtureArtifact.Evidence(key, fixture)));
-    }
 
-    // Every preimage composes `FabricationCanon` over the ONE `Rasm.Element` `CanonicalWriter`: `Double`
-    // normalizes `-0.0` and every NaN payload before framing the IEEE bits, `String` length-prefixes UTF-8 so no
-    // delimiter can forge equality, and `Rows` writes the count ahead of its rows.
-    private static ReadOnlySpan<byte> Canonical(Fixture fixture, FixtureProjection projection) {
-        CanonicalWriter opened = new CanonicalWriter(fixture.Spec.ArcChordError.As(LengthUnit.Millimeter))
-            .Discriminant(projection);
-        return projection.Switch(
-            state: (Writer: opened, Fixture: fixture),
-            machine: static state => state.Fixture.Constraint.CanonicalBytes(state.Fixture.Spec.Datum.CanonicalBytes(
-                state.Writer.Rows(state.Fixture.Zones, static (held, zone) => zone.CanonicalBytes(held)))),
-            setupSheet: static state => state.Fixture.Constraint.CanonicalBytes(state.Fixture.Spec.Datum.CanonicalBytes(
-                state.Writer
-                    .Rows(state.Fixture.Spec.Elements, static (held, element) => element.CanonicalBytes(held))
-                    .Rows(state.Fixture.Spec.Sequence, static (held, step) => step.CanonicalBytes(held)))),
-            inspection: static state => state.Fixture.Constraint.CanonicalBytes(state.Fixture.Spec.Datum.CanonicalBytes(
-                state.Writer.Rows(state.Fixture.Contacts, static (held, contact) => contact.CanonicalBytes(held)))),
-            evidence: static state => state.Fixture.CanonicalBytes(state.Writer)).ToBytes().Span;
-    }
+    // Every preimage frames and closes at `FabricationCanon` over the ONE `Rasm.Element` `CanonicalWriter`:
+    // `Double` normalizes `-0.0` and every NaN payload before framing the IEEE bits, `String` length-prefixes
+    // UTF-8 so no delimiter can forge equality, `Rows` writes the count ahead of its rows, and `Keyed` opens the
+    // retaining mint and closes it on the rail so no artifact addresses under bytes no writer held.
+    private static Fin<ContentKey> Keyed(Fixture fixture, FixtureProjection projection) =>
+        FabricationCanon.Keyed(
+            EgressKind.Plan,
+            fixture.Spec.ArcChordError.As(LengthUnit.Millimeter),
+            writer => projection.Switch(
+                state: (Writer: writer.Discriminant(projection), Fixture: fixture),
+                machine: static state => state.Fixture.Constraint.CanonicalBytes(state.Fixture.Spec.Datum.CanonicalBytes(
+                    state.Writer.Rows(state.Fixture.Zones, static (held, zone) => zone.CanonicalBytes(held)))),
+                setupSheet: static state => state.Fixture.Constraint.CanonicalBytes(state.Fixture.Spec.Datum.CanonicalBytes(
+                    state.Writer
+                        .Rows(state.Fixture.Spec.Elements, static (held, element) => element.CanonicalBytes(held))
+                        .Rows(state.Fixture.Spec.Sequence, static (held, step) => step.CanonicalBytes(held)))),
+                inspection: static state => state.Fixture.Constraint.CanonicalBytes(state.Fixture.Spec.Datum.CanonicalBytes(
+                    state.Writer.Rows(state.Fixture.Contacts, static (held, contact) => contact.CanonicalBytes(held)))),
+                evidence: static state => state.Fixture.CanonicalBytes(state.Writer)),
+            Key);
 
-    internal static ReadOnlySpan<byte> ZoneIdentity(ExclusionZone zone) =>
-        zone.CanonicalBytes(new CanonicalWriter(zone.ArcChordError.As(LengthUnit.Millimeter))).ToBytes().Span;
+    internal static Fin<ContentKey> ZoneIdentity(ExclusionZone zone) => FabricationCanon.Keyed(
+        EgressKind.Plan,
+        zone.ArcChordError.As(LengthUnit.Millimeter),
+        zone.CanonicalBytes,
+        Key);
+
+    private static readonly Op Key = Op.Of(name: nameof(Workholding));
 
     // --- [GEOMETRY]
     private static Fin<Seq<Edge3>> Segments(Point3d from, Move move, double error) =>
@@ -1573,8 +1622,8 @@ internal static class Fixtures {
         Vector3d start = from - arc.Center;
         Vector3d end = to - arc.Center;
         double radius = start.Length;
-        if (!Witness.Positive(radius) || Math.Abs(radius - end.Length) > error)
-            return Fin.Fail<Seq<Edge3>>(new GeometryFault.DegenerateInput(Kind.Arc, None, nameof(ArcCenter)).ToError());
+        if (!ValidityClaim.Positive(radius).Holds || Math.Abs(radius - end.Length) > error)
+            return Fin.Fail<Seq<Edge3>>(new GeometryFault.DegenerateInput(Kind.Arc, None, nameof(ArcCenter)));
         double opening = Math.Atan2(start.Y, start.X);
         double closing = Math.Atan2(end.Y, end.X);
         double sweep = arc.Sense == RotationSense.Clockwise ? -Normalize(opening - closing) : Normalize(closing - opening);
@@ -1610,30 +1659,25 @@ internal static class Fixtures {
     internal static Fin<Seq<Loop>> Offset(Seq<Loop> loops, double distance) =>
         distance <= EpsilonPolicy.ZeroTolerance
             ? Fin.Succ(loops)
-            : loops.Head.ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, None, nameof(ArcOp.Offset)).ToError()).Bind(basis =>
+            : loops.Head.ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, None, nameof(ArcOp.Offset))).Bind(basis =>
                 ArcForest.Admit(loops, basis.Tolerance, basis.Plane).Bind(forest =>
                     ArcAlgebra.Apply(new ArcOp.Offset(new ArcOffsetSource.Forest(forest), distance)).Bind(static trace => trace switch {
                         ArcTrace.Forest(var result, _) => Fin.Succ(result.Loops),
                         ArcTrace.Paths(var result, _) => Fin.Succ(result),
-                        _ => Fin.Fail<Seq<Loop>>(new FabricationFault.PolicyInadmissible(
-                            FabConcern.Fixturing, $"{nameof(ArcOp.Offset)}:{nameof(ArcTrace)}")),
+                        _ => Fin.Fail<Seq<Loop>>(new KernelFault.InvalidValue("workholding", $"{nameof(ArcOp.Offset)}:{nameof(ArcTrace)}")),
                     })));
 
-    private static Fin<TopologyReceipt> Regions(Seq<Loop> subject, Seq<Loop> clip, BooleanOp kind, string locus) =>
+    private static Fin<RegionTopology> Regions(Seq<Loop> subject, Seq<Loop> clip, BooleanOp kind, string locus) =>
         PolygonAlgebra
             .Apply(new PolygonOp.Boolean(subject, clip, kind, PolygonFill.NonZero), Op.Of(name: locus))
-            .Bind(trace => trace switch {
-                PolygonTrace.Regions(var topology) => Fin.Succ(topology),
-                _ => Fin.Fail<TopologyReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Fixturing, locus)),
-            });
+            .Bind(trace => trace.Regioned(new KernelFault.InvalidValue("workholding", locus)));
 
     private static Fin<Seq<Seq<Edge3>>> Clipped(Seq<Seq<Edge3>> runs, Seq<Loop> clip) =>
         PolygonAlgebra
             .Apply(new PolygonOp.ClipOpen(runs, clip, PolygonFill.NonZero), Op.Of(name: nameof(ExclusionZone)))
-            .Bind(static trace => trace switch {
-                PolygonTrace.SplitRuns(var inside, _) => Fin.Succ(inside),
-                _ => Fin.Fail<Seq<Seq<Edge3>>>(new FabricationFault.PolicyInadmissible(FabConcern.Fixturing, nameof(ExclusionZone))),
-            });
+            .Bind(static trace => trace
+                .Runs(new KernelFault.InvalidValue("workholding", nameof(ExclusionZone)))
+                .Map(static split => split.Inside));
 
     internal static Fin<Loop> Box(Point3d center, double width, double depth, Context tolerance) {
         double halfWidth = 0.5 * width;
@@ -1677,7 +1721,7 @@ internal static class Fixtures {
     private static double Normalize(double radians) => radians < 0.0 ? radians + Math.Tau : radians;
 
     private static bool ValidLoad(Fixture fixture, LoadCase load) =>
-        load.Valid && load.Operation.Map(operation => operation == fixture.Operation).IfNone(true);
+        load.IsValid && load.Operation.ForAll(operation => operation == fixture.Operation);
 
     internal static bool ValidRuns(Arr<Loop> profiles, Seq<MoveRun> runs) =>
         !runs.IsEmpty && runs[0].Start == 0
@@ -1689,17 +1733,17 @@ internal static class Fixtures {
     internal static bool Finite(Point3d value) => TensorPrimitives.IsFiniteAll<double>([value.X, value.Y, value.Z]);
     internal static bool Finite(Vector3d value) => TensorPrimitives.IsFiniteAll<double>([value.X, value.Y, value.Z]);
     internal static bool Unit(Vector3d value) => Finite(value) && value.Length > EpsilonPolicy.ZeroTolerance;
-    internal static bool Positive(Length value) => Witness.Positive(value.As(LengthUnit.Millimeter));
+    internal static bool Positive(Length value) => ValidityClaim.Positive(value.As(LengthUnit.Millimeter));
     internal static bool Nonnegative(Length value) => double.IsFinite(value.As(LengthUnit.Millimeter)) && value.As(LengthUnit.Millimeter) >= 0.0;
-    internal static bool Positive(Force value) => Witness.Positive(value.As(ForceUnit.Newton));
+    internal static bool Positive(Force value) => ValidityClaim.Positive(value.As(ForceUnit.Newton));
     internal static bool Nonnegative(Force value) => double.IsFinite(value.As(ForceUnit.Newton)) && value.As(ForceUnit.Newton) >= 0.0;
-    internal static bool Positive(Pressure value) => Witness.Positive(value.As(PressureUnit.Pascal));
-    internal static bool Positive(Area value) => Witness.Positive(value.As(AreaUnit.SquareMeter));
-    internal static bool Positive(Torque value) => Witness.Positive(value.As(TorqueUnit.NewtonMeter));
-    internal static bool Positive(Duration value) => Witness.Positive(value.As(DurationUnit.Second));
+    internal static bool Positive(Pressure value) => ValidityClaim.Positive(value.As(PressureUnit.Pascal));
+    internal static bool Positive(Area value) => ValidityClaim.Positive(value.As(AreaUnit.SquareMeter));
+    internal static bool Positive(Torque value) => ValidityClaim.Positive(value.As(TorqueUnit.NewtonMeter));
+    internal static bool Positive(Duration value) => ValidityClaim.Positive(value.As(DurationUnit.Second));
     internal static bool Nonnegative(Duration value) => double.IsFinite(value.As(DurationUnit.Second)) && value.As(DurationUnit.Second) >= 0.0;
     internal static bool Finite(Angle value) => double.IsFinite(value.As(AngleUnit.Radian));
-    internal static bool Positive(Angle value) => Witness.Positive(value.As(AngleUnit.Radian));
+    internal static bool Positive(Angle value) => ValidityClaim.Positive(value.As(AngleUnit.Radian));
     internal static bool Nonnegative(Angle value) => Finite(value) && value.As(AngleUnit.Radian) >= 0.0;
     internal static bool Fraction(Ratio value) =>
         double.IsFinite(value.As(RatioUnit.DecimalFraction)) && value.As(RatioUnit.DecimalFraction) is > 0.0 and <= 1.0;

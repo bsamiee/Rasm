@@ -1,11 +1,11 @@
 # [CORE_MACHINE]
 
-The statechart owner: a closed transition system is data — one `Transition.Spec` whose `nodes` table declares the state tree (atomic, compound, parallel, final, history — declaration order IS document order and document order is the determinism law) and whose `rows` carry guarded, internally-or-externally-domained, ordered-emit transitions — and one accumulated admission at `Transition.spec` that refuses invalid topology before precomputing the tree algebra (ancestor chains, entry completion, LCCA, the final-state census), deriving the configuration schema from the node vocabulary, and minting the serializable `@effect/experimental` `Machine` exactly once, so `boot` and `restore` only run an admitted actor and never recompile. The same compiled value drives three altitudes: the pure macrostep fold (`step` drains eventless and raised internal signals under a bounded-microstep fuel row and returns an `Either` whose `Spent` left rail carries exhaustion), the batch driver (`drive` folds the same rail without advancing past a left), the stream driver (`trace` lifts that rail through `Stream.mapAccumEffect`), and the booted actor — one state on one fiber, phase-keyed watchdogs and node-scoped invoke fibers armed by the entered/exited wave with completions folded through the node's `finalize` row before the done signal fires, history carried inside machine state so `snapshot`/`restore` transports it durably for free, the actor's own `Subscribable` state binding view atoms, and a fact stream published from the macrostep's own receipt on the send path — the inspection hook a consumer taps while the machine forks nothing of its own. The flat Mealy table is the degenerate case — a depth-one tree with a singleton configuration. THE ALTITUDE RULING: `Machine` is the in-process serializable actor, and serializability is forced rather than asserted — `snapshot`/`restore` and the `sendUnknown` wire admission exist only on the schema-carried `Machine.serializable` list, because the schemaless `Machine.procedures` altitude forfeits exactly the durability these laws demand; a machine whose steps demand durable-execution replay, activity memoization, compensation, or cross-process sharding is the runtime branch's workflow altitude, and promoting a transition system there re-homes the spec, never re-shapes it. The module is `core/src/state/machine.ts`; a new state is a node row, a new transition is a table row, a new deadline is a watch row, a new child activity is an invoke row.
+The statechart owner: a closed transition system is data — one `Transition.Spec` whose `nodes` table declares the state tree (atomic, compound, parallel, final, history — declaration order IS document order and document order is the determinism law) and whose `rows` carry guarded, internally-or-externally-domained, ordered-emit transitions — and one accumulated admission at `Transition.spec` that refuses invalid topology before precomputing the tree algebra (ancestor chains, entry completion, LCCA, the final-state census), deriving the configuration schema from the node vocabulary, and minting the serializable `@effect/experimental` `Machine` exactly once, so `boot` and `restore` only run an admitted actor and never recompile. The same compiled value drives three altitudes: the pure macrostep fold (`step` drains eventless and raised internal signals under a bounded-microstep fuel row, returns an `Either` whose `Spent` left rail carries exhaustion, and accounts every unrouted signal on the macro's own `refused` column), the published legality read (`legal` names the signals a configuration admits and `admits` answers one signal with the rows it takes or a typed refusal separating an unaddressed signal from a closed guard, both projections of the selection the macrostep already folds), the batch driver (`drive` folds the same rail without advancing past a left), the stream driver (`trace` lifts that rail through `Stream.mapAccumEffect`), and the booted actor — one state on one fiber, phase-keyed watchdogs and node-scoped invoke fibers armed by the entered/exited wave with completions folded through the node's `finalize` row before the done signal fires, history carried inside machine state so `snapshot`/`restore` transports it durably for free, the actor's own `Subscribable` state binding view atoms, and a fact stream published from the macrostep's own receipt on the send path — the inspection hook a consumer taps while the machine forks nothing of its own. The flat Mealy table is the degenerate case — a depth-one tree with a singleton configuration. THE ALTITUDE RULING: `Machine` is the in-process serializable actor, and serializability is forced rather than asserted — `snapshot`/`restore` and the `sendUnknown` wire admission exist only on the schema-carried `Machine.serializable` list, because the schemaless `Machine.procedures` altitude forfeits exactly the durability these laws demand; a machine whose steps demand durable-execution replay, activity memoization, compensation, or cross-process sharding is the runtime branch's workflow altitude, and promoting a transition system there re-homes the spec, never re-shapes it. The module is `core/src/state/machine.ts`; a new state is a node row, a new transition is a table row, a new deadline is a watch row, a new child activity is an invoke row.
 
 ## [01]-[INDEX]
 
 - [02]-[STATECHART_TABLE]: node/row/config vocabulary, one-shot compile, static tree facts; `Transition.Spec`, `Transition.spec`.
-- [03]-[MACROSTEP_FOLD]: selection, conflict removal, exit/entry algebra, fuel-bounded macrostep; `Transition.drive`, `Transition.trace`.
+- [03]-[MACROSTEP_FOLD]: selection, conflict removal, exit/entry algebra, fuel-bounded macrostep, published legality; `Transition.drive`, `Transition.trace`.
 - [04]-[ACTOR]: boot, restore, wire admission, arming, subscribable state, fact stream; compiled `boot`/`restore`.
 
 ## [02]-[STATECHART_TABLE]
@@ -19,10 +19,11 @@ import {
   pipe, PubSub, Ref, type Schedule, Schema, type Scope, Stream, Subscribable, type Tracer,
 } from "effect"
 import { Fault } from "../value/fault.ts"
+import { Shape } from "../value/schema.ts"
 
 declare namespace Transition {
   type Spent = _Spent
-  type DefinitionFault = _DefinitionFault
+  type DefinitionFault = InstanceType<typeof _DefinitionFault>
   type Depth = "shallow" | "deep"
   type Internal<Id extends string> = `done.state.${Id}` | `done.invoke.${Id}`
   type Signal<Id extends string, S extends string> = S | Internal<Id>
@@ -64,10 +65,14 @@ declare namespace Transition {
     readonly history: Readonly<Record<string, ReadonlyArray<Id>>>
     readonly extended: X
   }
-  type Macro<Id extends string, V extends string> = {
+  type Refusal<Id extends string, S extends string> =
+    | { readonly _tag: "Unrouted"; readonly signal: Signal<Id, S> }
+    | { readonly _tag: "Guarded"; readonly signal: Signal<Id, S>; readonly rows: Array.NonEmptyReadonlyArray<number> }
+  type Macro<Id extends string, S extends string, V extends string> = {
     readonly program: ReadonlyArray<V>
     readonly entered: ReadonlyArray<Id>
     readonly exited: ReadonlyArray<Id>
+    readonly refused: ReadonlyArray<Refusal<Id, S>>
   }
   type Spec<Id extends string, S extends string, V extends string, X> = {
     readonly name: string
@@ -83,24 +88,29 @@ declare namespace Transition {
     readonly recover: <M extends Machine.Any>() => Schedule.Schedule<unknown, Machine.InitError<M> | Machine.MachineDefect>
   }
   type Frozen = readonly [unknown, unknown]
-  type Fact<Id extends string, V extends string, X> = {
+  type Fact<Id extends string, S extends string, V extends string, X> = {
     readonly config: Config<Id, X>
-    readonly macro: Macro<Id, V>
+    readonly macro: Macro<Id, S, V>
     readonly faults: ReadonlyArray<ActivityFault<Id>>
   }
   type ActivityFault<Id extends string> = { readonly id: Id; readonly key: string; readonly cause: Cause.Cause<unknown> }
   type Actor<Id extends string, S extends string, V extends string, X> = {
-    readonly initial: Macro<Id, V>
-    readonly feed: (signal: Signal<Id, S>) => Effect.Effect<Fact<Id, V, X>, _Spent>
+    readonly initial: Macro<Id, S, V>
+    readonly feed: (signal: Signal<Id, S>) => Effect.Effect<Fact<Id, S, V, X>, _Spent>
     readonly feedUnknown: (frame: unknown) => Effect.Effect<Schema.ExitEncoded<unknown, unknown, unknown>, ParseResult.ParseError>
     readonly config: Effect.Effect<Config<Id, X>>
     readonly state: Subscribable.Subscribable<Config<Id, X>>
-    readonly facts: Stream.Stream<Fact<Id, V, X>>
+    readonly facts: Stream.Stream<Fact<Id, S, V, X>>
     readonly freeze: Effect.Effect<Frozen, ParseResult.ParseError>
   }
   type Compiled<Id extends string, S extends string, V extends string, X> = Spec<Id, S, V, X> & {
     readonly origin: Config<Id, X>
-    readonly step: (config: Config<Id, X>, signal: Signal<Id, S>) => Either.Either<readonly [Config<Id, X>, Macro<Id, V>], _Spent>
+    readonly legal: (config: Config<Id, X>) => HashSet.HashSet<Signal<Id, S>>
+    readonly admits: (
+      config: Config<Id, X>,
+      signal: Signal<Id, S>,
+    ) => Either.Either<Array.NonEmptyReadonlyArray<Row<Id, S, V, X>>, Refusal<Id, S>>
+    readonly step: (config: Config<Id, X>, signal: Signal<Id, S>) => Either.Either<readonly [Config<Id, X>, Macro<Id, S, V>], _Spent>
     readonly boot: Effect.Effect<Actor<Id, S, V, X>, ParseResult.ParseError | _Spent, Scope.Scope>
     readonly restore: (frozen: Frozen) => Effect.Effect<Actor<Id, S, V, X>, ParseResult.ParseError, Scope.Scope>
   }
@@ -112,16 +122,16 @@ declare namespace Transition {
     ) => Invoke<Id, S, X>
     readonly spec: <Id extends string, S extends string, V extends string, X>(
       spec: Spec<Id, S, V, X>,
-    ) => Either.Either<Compiled<Id, S, V, X>, _DefinitionFault>
+    ) => Either.Either<Compiled<Id, S, V, X>, DefinitionFault>
     readonly drive: <Id extends string, S extends string, V extends string, X>(
       compiled: Compiled<Id, S, V, X>,
     ) => (
       origin: Config<Id, X>,
       signals: ReadonlyArray<Signal<Id, S>>,
-    ) => Either.Either<readonly [Config<Id, X>, ReadonlyArray<Macro<Id, V>>], _Spent>
+    ) => Either.Either<readonly [Config<Id, X>, ReadonlyArray<Macro<Id, S, V>>], _Spent>
     readonly trace: <Id extends string, S extends string, V extends string, X>(
       compiled: Compiled<Id, S, V, X>,
-    ) => <E, R>(signals: Stream.Stream<Signal<Id, S>, E, R>) => Stream.Stream<Macro<Id, V>, E | _Spent, R>
+    ) => <E, R>(signals: Stream.Stream<Signal<Id, S>, E, R>) => Stream.Stream<Macro<Id, S, V>, E | _Spent, R>
   }
   type _Facts<Id extends string, S extends string, V extends string, X> = {
     readonly ids: ReadonlyArray<Id>
@@ -167,59 +177,109 @@ const _invoke = <Id extends string, S extends string, X, A, E>(
     })),
 })
 
-// Two routing classes, two mints, each row carrying the core kind alone: a spent fuel budget is a livelocking table
-// whose termination invariant tore, and every topology refusal is caller-authored material the compile quarantines
-// into its repair report — so retryability, blame, and quarantine read off the core row table and no local rank,
-// retry, or status column rides beside `class` to fork the taxonomy inside this owner.
-const _spent = Fault.Class.family(["fuel"] as const, { fuel: { class: "breached" } })
-
+// A spent microstep budget is bound exhaustion, and bound exhaustion is ONE family estate-wide: `Shape.Bound` already
+// closes the unit roster and mints the evidence row, so this owner composes `Fault.Class.spent` rather than declaring
+// a private `fuel` reason a second budget would then have to keep aligned with it. The SIGNAL rides beside the case
+// because it is this owner's own coordinate — which signal the table was folding when the budget ran out — and no
+// bound vocabulary can carry it. Topology refusals stay this owner's own mint below: caller-authored material the
+// compile quarantines into a repair report, with retryability, blame, and quarantine read off the core row table.
 class _Spent extends Schema.TaggedError<_Spent>()("Transition.Spent", {
-  reason: _spent.schema,
+  case: Fault.Class.spent.payload,
   signal: Schema.String,
-  fuel: Schema.Int.pipe(Schema.nonNegative()),
 }) {
   get class(): Fault.Class.Kind {
-    return _spent.classOf(this.reason)
+    return Fault.Class.spent.classOf(this.case.reason)
   }
   override get message(): string {
-    return `<spent@${this.fuel}> ${this.signal}`
+    return `${Fault.Class.spent.render(this.case)} @ ${this.signal}`
   }
 }
 
+// Every topology refusal is caller-authored material the compile quarantines into its repair report, so all ten rows
+// grade `invalid` and retryability, blame, and quarantine read off the core row table with no local column beside
+// `class`. The SUBJECT is what varies: six reasons refuse ABOUT a declared node while four refuse about the whole
+// table or a budget scalar, so the `node: Option<string>` column only the first six ever filled collapses into
+// per-reason detail and a row carrying no node can no longer spell one. Each spec-level row carries the MEASURE its
+// own check read — the root count, the collision count, the offered scalar — which is the fact a repair acts on and
+// the fact a bare reason word withheld. `leg` partitions the plane that decides: the declaration tables, or the two
+// scalars bounding a macrostep.
+const _At = Schema.Struct({ node: Schema.NonEmptyString })
+const _Offered = Schema.Struct({ offered: Schema.Number })
 const _definition = Fault.Class.family(
   ["root", "duplicate", "reference", "cycle", "initial", "history", "parallel", "service", "fuel", "lag"] as const,
   {
-  cycle: { class: "invalid" },
-  duplicate: { class: "invalid" },
-  fuel: { class: "invalid" },
-  history: { class: "invalid" },
-  initial: { class: "invalid" },
-  lag: { class: "invalid" },
-  parallel: { class: "invalid" },
-  reference: { class: "invalid" },
-  root: { class: "invalid" },
-  service: { class: "invalid" },
-})
+    cycle: Fault.Class.row({
+      class: "invalid",
+      leg: "tree",
+      detail: _At,
+      render: ({ node }) => `${node} reaches itself through its own parent chain`,
+    }),
+    duplicate: Fault.Class.row({
+      class: "invalid",
+      leg: "tree",
+      detail: Schema.Struct({ repeated: Schema.Int.pipe(Schema.positive()) }),
+      render: ({ repeated }) => `${repeated} node ids repeat in the declared table`,
+    }),
+    fuel: Fault.Class.row({
+      class: "invalid",
+      leg: "budget",
+      detail: _Offered,
+      render: ({ offered }) => `microstep budget ${offered} is not a positive integer`,
+    }),
+    history: Fault.Class.row({
+      class: "invalid",
+      leg: "tree",
+      detail: _At,
+      render: ({ node }) => `${node} falls back to a node outside its own parent's subtree`,
+    }),
+    initial: Fault.Class.row({
+      class: "invalid",
+      leg: "tree",
+      detail: _At,
+      render: ({ node }) => `${node} names an initial state that is not its own child`,
+    }),
+    lag: Fault.Class.row({
+      class: "invalid",
+      leg: "budget",
+      detail: _Offered,
+      render: ({ offered }) => `deadline lag ${offered} is not a positive integer`,
+    }),
+    parallel: Fault.Class.row({
+      class: "invalid",
+      leg: "tree",
+      detail: _At,
+      render: ({ node }) => `${node} declares parallel regions and holds no non-history child`,
+    }),
+    reference: Fault.Class.row({
+      class: "invalid",
+      leg: "tree",
+      detail: _At,
+      render: ({ node }) => `${node} names an id the node table does not declare`,
+    }),
+    root: Fault.Class.row({
+      class: "invalid",
+      leg: "tree",
+      detail: Schema.Struct({ roots: Schema.Int.pipe(Schema.nonNegative()) }),
+      render: ({ roots }) => `the node table declares ${roots} roots where exactly one is admitted`,
+    }),
+    service: Fault.Class.row({
+      class: "invalid",
+      leg: "tree",
+      detail: _At,
+      render: ({ node }) => `${node} repeats a watch or invoke key inside its own service row`,
+    }),
+  },
+)
 
-const _DefinitionIssue = Schema.Struct({
-  reason: _definition.schema,
-  node: Schema.optionalWith(Schema.String, { as: "Option" }),
-})
-
-class _DefinitionFault extends Schema.TaggedError<_DefinitionFault>()("Transition.DefinitionFault", {
-  issues: Schema.NonEmptyArray(_DefinitionIssue),
-}) {
-  get class(): Fault.Class.Kind {
-    return Fault.Class.dominant(Array.map(this.issues, (issue) => _definition.classOf(issue.reason)))
-  }
-  override get message(): string {
-    return `<statechart:refused> ${Array.join(Array.map(this.issues, (issue) => issue.reason), ",")}`
-  }
-}
+// Topology columns are admitted INDEPENDENTLY — a cyclic parent chain and a bad initial child decide nothing about
+// each other — so the carrier is the family's OWN census and an author reads every offence of a spec in one pass.
+// Re-declaring `{ issues, class, message }` here forked one taxonomy into two, and the dominance election, the leg,
+// and the joined message all derive from the roster the rows above already close.
+const _DefinitionFault = _definition.census("Transition.DefinitionFault")
 
 const _validated = <Id extends string, S extends string, V extends string, X>(
   spec: Transition.Spec<Id, S, V, X>,
-): Either.Either<Transition.Spec<Id, S, V, X>, _DefinitionFault> => {
+): Either.Either<Transition.Spec<Id, S, V, X>, Transition.DefinitionFault> => {
   const ids = Array.map(spec.nodes, (node) => node.id)
   const lookup = (id: Id): Option.Option<Transition.Node<Id, S, V, X>> =>
     Array.findFirst(spec.nodes, (node) => node.id === id)
@@ -243,8 +303,10 @@ const _validated = <Id extends string, S extends string, V extends string, X>(
     ...(node.kind === "history" ? [node.fallback] : []),
   ]
   const issues = [
-    ...(roots.length === 1 ? [] : [{ reason: "root", node: Option.none<string>() }] as const),
-    ...(Array.dedupe(ids).length === ids.length ? [] : [{ reason: "duplicate", node: Option.none<string>() }] as const),
+    ...(roots.length === 1 ? [] : [{ reason: "root", roots: roots.length }] as const),
+    ...(Array.dedupe(ids).length === ids.length
+      ? []
+      : [{ reason: "duplicate", repeated: ids.length - Array.dedupe(ids).length }] as const),
     ...Array.flatMap(spec.nodes, (node) => {
       const service = _service<Id, S, V, X>(node)
       const duplicateServiceKey = Option.exists(service, (held) => {
@@ -256,28 +318,28 @@ const _validated = <Id extends string, S extends string, V extends string, X>(
       })
       return [
         ...(Array.some(referenced(node), (id) => Option.isNone(lookup(id)))
-          ? [{ reason: "reference", node: Option.some(node.id) }] as const
+          ? [{ reason: "reference", node: node.id }] as const
           : []),
-        ...(cyclic(node.id, HashSet.empty()) ? [{ reason: "cycle", node: Option.some(node.id) }] as const : []),
+        ...(cyclic(node.id, HashSet.empty()) ? [{ reason: "cycle", node: node.id }] as const : []),
         ...(node.kind === "compound" && !Option.exists(lookup(node.initial), (initial) => initial.parent === node.id)
-          ? [{ reason: "initial", node: Option.some(node.id) }] as const
+          ? [{ reason: "initial", node: node.id }] as const
           : []),
         ...(node.kind === "history" && !below(node.fallback, node.parent, HashSet.empty())
-          ? [{ reason: "history", node: Option.some(node.id) }] as const
+          ? [{ reason: "history", node: node.id }] as const
           : []),
         ...(node.kind === "parallel"
           && Array.every(spec.nodes, (child) => child.parent !== node.id || child.kind === "history")
-          ? [{ reason: "parallel", node: Option.some(node.id) }] as const
+          ? [{ reason: "parallel", node: node.id }] as const
           : []),
-        ...(duplicateServiceKey ? [{ reason: "service", node: Option.some(node.id) }] as const : []),
+        ...(duplicateServiceKey ? [{ reason: "service", node: node.id }] as const : []),
       ]
     }),
     ...Array.flatMap(spec.rows, (row) =>
       Array.every([row.source, ...(row.to ?? [])], (id) => Option.isSome(lookup(id)))
         ? []
-        : [{ reason: "reference", node: Option.some(row.source) }] as const),
-    ...(Number.isInteger(spec.fuel) && spec.fuel > 0 ? [] : [{ reason: "fuel", node: Option.none<string>() }] as const),
-    ...(Number.isInteger(spec.lag) && spec.lag > 0 ? [] : [{ reason: "lag", node: Option.none<string>() }] as const),
+        : [{ reason: "reference", node: row.source }] as const),
+    ...(Number.isInteger(spec.fuel) && spec.fuel > 0 ? [] : [{ reason: "fuel", offered: spec.fuel }] as const),
+    ...(Number.isInteger(spec.lag) && spec.lag > 0 ? [] : [{ reason: "lag", offered: spec.lag }] as const),
   ]
   return Array.isNonEmptyReadonlyArray(issues)
     ? Either.left(new _DefinitionFault({ issues }))
@@ -355,7 +417,11 @@ const _facts = <Id extends string, S extends string, V extends string, X>(
 ## [03]-[MACROSTEP_FOLD]
 
 [MACROSTEP_FOLD]:
-- Growth: a pure read over the compiled tree (reachability census, terminal-configuration detection) is one member composing the same facts.
+- Law: legality is DERIVED from the row table, never hand-kept — `_addressed` is the one predicate answering whether a row claims a signal from a source, `_selected` adds the guard and conflict removal to reach the rows a microstep takes, and `_refused` re-reads the same predicate to name why nothing was taken; `legal` and `admits` publish those two folds on `Compiled`, so a consumer asks the owner instead of manufacturing a mirror row, a stage-local enabled flag, or a second guard evaluation over the same extended state.
+- Law: the refusal carries its discriminant — `Guarded` names the row indexes that addressed the signal and whose `when` answered false, `Unrouted` names a signal no active leaf or ancestor claims at all, and the two are not one absence: a guarded press is a policy the extended state can satisfy while an unrouted one is a spelling the table never carried. Spelling this position as a boolean, an empty array, or a bare `Option.none` forces every consumer to fabricate the fact the fold already held.
+- Law: refusal work prices on the refusing arm alone — `_selected` computes no guard census and `_refused` runs only where the chosen set came back empty, so a routed microstep pays zero scan; a selection eagerly returning its guard evidence beside its rows charges every passing signal for a report only failures read.
+- Law: the macrostep ACCOUNTS the signals it drops — a signal with no chosen row burns one fuel unit and lands its `Refusal` on `Macro.refused`, so a `Macro` with an empty program is distinguishable from one that silently swallowed a press; the fold never fails on an unrouted signal, because discarding an unclaimed event is the transition system's own semantics and only the evidence was missing.
+- Growth: a pure read over the compiled tree (reachability census, terminal-configuration detection) is one member composing the same facts; a new transition is one `rows` entry and its legality derives with it.
 
 ```typescript signature
 const _exits = <Id extends string, S extends string, V extends string, X>(
@@ -383,6 +449,34 @@ const _exits = <Id extends string, S extends string, V extends string, X>(
             })),
       )
 
+// `_addressed` states the one claim test both halves of legality read — source identity beside the signal domain,
+// with the guard deliberately OUTSIDE it: `_selected` adds `when` to reach the taken rows, `_refused` subtracts it
+// to name the rows that claimed the signal and were closed, and a second inline spelling forks the two answers
+const _addressed = <Id extends string, S extends string, V extends string, X>(
+  row: Transition.Row<Id, S, V, X>,
+  source: Id,
+  signal: Option.Option<Transition.Signal<Id, S>>,
+): boolean =>
+  row.source === source
+  && Option.match(signal, { onNone: () => row.on === undefined, onSome: (held) => row.on === held })
+
+// minted on the refusing arm alone: a routed signal never pays this scan
+const _refused = <Id extends string, S extends string, V extends string, X>(
+  spec: Transition.Spec<Id, S, V, X>,
+  facts: Transition._Facts<Id, S, V, X>,
+  config: Transition.Config<Id, X>,
+  signal: Transition.Signal<Id, S>,
+): Transition.Refusal<Id, S> => {
+  const held = Option.some(signal)
+  const standing = facts.closure(config.active)
+  // this fold runs only where `_selected` came back empty, so every row the standing closure addresses necessarily
+  // answered false on its own `when` — an addressed row carrying no guard would have been chosen — and the index
+  // set is therefore exactly the guards that closed the door, with an empty one proving the table never claimed it
+  const rows = Array.filterMap(spec.rows, (row, index) =>
+    Array.some(standing, (id) => _addressed(row, id, held)) ? Option.some(index) : Option.none())
+  return Array.isNonEmptyReadonlyArray(rows) ? { _tag: "Guarded", signal, rows } : { _tag: "Unrouted", signal }
+}
+
 const _selected = <Id extends string, S extends string, V extends string, X>(
   spec: Transition.Spec<Id, S, V, X>,
   facts: Transition._Facts<Id, S, V, X>,
@@ -391,9 +485,7 @@ const _selected = <Id extends string, S extends string, V extends string, X>(
 ): ReadonlyArray<Transition.Row<Id, S, V, X>> => {
   const matched = (source: Id): Option.Option<Transition.Row<Id, S, V, X>> =>
     Array.findFirst(spec.rows, (row) =>
-      row.source === source
-      && Option.match(signal, { onNone: () => row.on === undefined, onSome: (held) => row.on === held })
-      && (row.when === undefined || row.when(config.extended)))
+      _addressed(row, source, signal) && (row.when === undefined || row.when(config.extended)))
   const exitSet = (row: Transition.Row<Id, S, V, X>): ReadonlyArray<Id> => _exits(spec, facts)(config.active, row)
   type Candidate = {
     readonly row: Transition.Row<Id, S, V, X>
@@ -434,13 +526,14 @@ const _macro = <Id extends string, S extends string, V extends string, X>(
 (
   config: Transition.Config<Id, X>,
   signal: Option.Option<Transition.Signal<Id, S>>,
-): Either.Either<readonly [Transition.Config<Id, X>, Transition.Macro<Id, V>], _Spent> => {
+): Either.Either<readonly [Transition.Config<Id, X>, Transition.Macro<Id, S, V>], _Spent> => {
   type Acc = {
     readonly config: Transition.Config<Id, X>
     readonly queue: ReadonlyArray<Transition.Signal<Id, S>>
     readonly program: ReadonlyArray<V>
     readonly entered: ReadonlyArray<Id>
     readonly exited: ReadonlyArray<Id>
+    readonly refused: ReadonlyArray<Transition.Refusal<Id, S>>
     readonly remaining: number
   }
   const completed = (entered: ReadonlyArray<Id>, active: ReadonlyArray<Id>): ReadonlyArray<Transition.Signal<Id, S>> =>
@@ -499,22 +592,27 @@ const _macro = <Id extends string, S extends string, V extends string, X>(
       ],
       entered: [...acc.entered, ...entered],
       exited: [...acc.exited, ...exited],
+      refused: acc.refused,
       remaining: acc.remaining - 1,
     }
   }
-  const drain = (acc: Acc): Either.Either<readonly [Transition.Config<Id, X>, Transition.Macro<Id, V>], _Spent> => {
+  const drain = (acc: Acc): Either.Either<readonly [Transition.Config<Id, X>, Transition.Macro<Id, S, V>], _Spent> => {
     const eventless = _selected(spec, facts, acc.config, Option.none())
     const dequeued = Array.match(acc.queue, {
       onEmpty: () => Option.none<readonly [Transition.Signal<Id, S>, ReadonlyArray<Transition.Signal<Id, S>>]>(),
       onNonEmpty: (held) => Option.some([Array.headNonEmpty(held), Array.tailNonEmpty(held)] as const),
     })
     if (Array.isEmptyReadonlyArray(eventless) && Option.isNone(dequeued)) {
-      return Either.right([acc.config, { program: acc.program, entered: acc.entered, exited: acc.exited }] as const)
+      return Either.right([
+        acc.config,
+        { program: acc.program, entered: acc.entered, exited: acc.exited, refused: acc.refused },
+      ] as const)
     }
     if (acc.remaining === 0) {
+      // The budget admitted as a positive integer at `spec`, so the branded ceiling mints HERE and nowhere else —
+      // on the refusing arm alone, which is the one path that reads the evidence row.
       return Either.left(new _Spent({
-        fuel: spec.fuel,
-        reason: "fuel",
+        case: { reason: "fuel", ceiling: Shape.Bound.bounded("fuel", spec.fuel).ceiling, reached: spec.fuel },
         signal: Option.match(signal, { onNone: () => "<eventless>", onSome: (held) => held }),
       }))
     }
@@ -530,8 +628,18 @@ const _macro = <Id extends string, S extends string, V extends string, X>(
           onNone: (): ReadonlyArray<Transition.Row<Id, S, V, X>> => [],
           onSome: (next) => _selected(spec, facts, acc.config, Option.some(next)),
         })
+    // an unchosen signal is DROPPED by the transition system's own semantics and RECORDED by this one, so a caller
+    // reads which press the table never carried instead of an empty program indistinguishable from a routed no-emit
     return drain(Array.isEmptyReadonlyArray(chosen)
-      ? { ...acc, queue: tail, remaining: acc.remaining - 1 }
+      ? {
+        ...acc,
+        queue: tail,
+        refused: [
+          ...acc.refused,
+          ...Option.toArray(Option.map(driving, (next) => _refused(spec, facts, acc.config, next))),
+        ],
+        remaining: acc.remaining - 1,
+      }
       : advance(acc, chosen, driving, tail))
   }
   return drain({
@@ -540,6 +648,7 @@ const _macro = <Id extends string, S extends string, V extends string, X>(
     program: [],
     entered: [],
     exited: [],
+    refused: [],
     remaining: spec.fuel,
   })
 }
@@ -557,6 +666,24 @@ const _compile = <Id extends string, S extends string, V extends string, X>(
   const macro = _macro(spec, facts)
   const step = (config: Transition.Config<Id, X>, signal: Transition.Signal<Id, S>) =>
     macro(config, Option.some(signal))
+  const admits = (
+    config: Transition.Config<Id, X>,
+    signal: Transition.Signal<Id, S>,
+  ): Either.Either<Array.NonEmptyReadonlyArray<Transition.Row<Id, S, V, X>>, Transition.Refusal<Id, S>> => {
+    const chosen = _selected(spec, facts, config, Option.some(signal))
+    return Array.isNonEmptyReadonlyArray(chosen)
+      ? Either.right(chosen)
+      : Either.left(_refused(spec, facts, config, signal))
+  }
+  // `legal` draws its signal domain from the row table's own `on` column, so the admitted set grows with a
+  // transition row and no consumer spells a second vocabulary beside the table that drifts from it
+  const legal = (config: Transition.Config<Id, X>): HashSet.HashSet<Transition.Signal<Id, S>> =>
+    pipe(
+      Array.filterMap(spec.rows, (row) => Option.fromNullable(row.on)),
+      Array.dedupe,
+      Array.filter((on) => Either.isRight(admits(config, on))),
+      HashSet.fromIterable,
+    )
   const roots = Array.filter(facts.ids, (id) => facts.node(id).parent === undefined)
   const origin: Transition.Config<Id, X> = {
     active: Option.match(Array.head(roots), {
@@ -613,13 +740,18 @@ const _compile = <Id extends string, S extends string, V extends string, X>(
   }
   const Config = Schema.Struct({
     active: Schema.Array(Leaf).pipe(Schema.filter(Array.isNonEmptyReadonlyArray)),
-    history: Schema.Record({ key: Id, value: Schema.Array(Id) }),
+    history: Shape.Record(Id, Schema.Array(Id)),
     extended: spec.extended,
   }).pipe(Schema.filter(validConfig, { identifier: "Transition.Config" }))
+  const Refusal = Schema.Union(
+    Schema.TaggedStruct("Unrouted", { signal: Plane }),
+    Schema.TaggedStruct("Guarded", { signal: Plane, rows: Schema.NonEmptyArray(Schema.Int.pipe(Schema.nonNegative())) }),
+  )
   const Macro = Schema.Struct({
     program: Schema.Array(spec.verdict),
     entered: Schema.Array(Id),
     exited: Schema.Array(Id),
+    refused: Schema.Array(Refusal),
   })
   const ActivityFault = Schema.Struct({
     id: Id,
@@ -649,7 +781,7 @@ const _compile = <Id extends string, S extends string, V extends string, X>(
   }) {}
   class FactHub extends Context.Tag(`Transition/${spec.name}/FactHub`)<
     FactHub,
-    PubSub.PubSub<Transition.Fact<Id, V, X>>
+    PubSub.PubSub<Transition.Fact<Id, S, V, X>>
   >() {}
   const defined = Machine.makeSerializable({ state: Config, input: Config }, (boot, previous) =>
     Effect.gen(function* () {
@@ -700,7 +832,7 @@ const _compile = <Id extends string, S extends string, V extends string, X>(
         state: Transition.Config<Id, X>,
         signal: Transition.Signal<Id, S>,
         faults: ReadonlyArray<Transition.ActivityFault<Id>>,
-      ): Effect.Effect<readonly [Transition.Fact<Id, V, X>, Transition.Config<Id, X>], _Spent> =>
+      ): Effect.Effect<readonly [Transition.Fact<Id, S, V, X>, Transition.Config<Id, X>], _Spent> =>
         Either.match(step(state, signal), {
           onLeft: Effect.fail,
           onRight: ([next, settled]) => Effect.gen(function* () {
@@ -758,9 +890,9 @@ const _compile = <Id extends string, S extends string, V extends string, X>(
   const machine = Machine.retry(defined, spec.recover<typeof defined>())
   const surfaced = (
     actor: Machine.SerializableActor<typeof machine>,
-    hub: PubSub.PubSub<Transition.Fact<Id, V, X>>,
+    hub: PubSub.PubSub<Transition.Fact<Id, S, V, X>>,
     span: Tracer.Span,
-    initial: Transition.Macro<Id, V>,
+    initial: Transition.Macro<Id, S, V>,
   ): Transition.Actor<Id, S, V, X> => {
     return {
       initial,
@@ -774,22 +906,23 @@ const _compile = <Id extends string, S extends string, V extends string, X>(
   }
   const risen = (
     live: Effect.Effect<Machine.SerializableActor<typeof machine>, ParseResult.ParseError, Scope.Scope | FactHub>,
-    initial: Transition.Macro<Id, V>,
+    initial: Transition.Macro<Id, S, V>,
     lane: "boot" | "restore",
   ) =>
     Effect.flatMap(Effect.makeSpanScoped(`machine/${spec.name}`, { attributes: { "machine.lane": lane } }), (span) =>
-      Effect.flatMap(PubSub.sliding<Transition.Fact<Id, V, X>>(spec.lag), (hub) =>
+      Effect.flatMap(PubSub.sliding<Transition.Fact<Id, S, V, X>>(spec.lag), (hub) =>
         Effect.map(
           Effect.provideService(Effect.withParentSpan(live, span), FactHub, hub),
           (actor) => surfaced(actor, hub, span, initial),
         )))
   const entered = facts.closure(origin.active)
-  const initial: Transition.Macro<Id, V> = {
+  const initial: Transition.Macro<Id, S, V> = {
     program: Array.flatMap(entered, (id) => _face(facts.node(id), "entry")),
     entered,
     exited: [],
+    refused: [],
   }
-  const resumed: Transition.Macro<Id, V> = { program: [], entered: [], exited: [] }
+  const resumed: Transition.Macro<Id, S, V> = { program: [], entered: [], exited: [], refused: [] }
   const fresh = Either.match(macro(origin, Option.none()), {
     onLeft: Effect.fail,
     onRight: ([current, settled]) => risen(
@@ -798,6 +931,7 @@ const _compile = <Id extends string, S extends string, V extends string, X>(
         program: [...initial.program, ...settled.program],
         entered: [...initial.entered, ...settled.entered],
         exited: settled.exited,
+        refused: settled.refused,
       },
       "boot",
     ),
@@ -806,6 +940,8 @@ const _compile = <Id extends string, S extends string, V extends string, X>(
   return {
     ...spec,
     origin,
+    legal,
+    admits,
     step,
     boot: fresh,
     restore: (frozen) => risen(restored(frozen).pipe(Machine.withTracingEnabled(spec.traced)), resumed, "restore"),
@@ -817,9 +953,9 @@ const _drive = <Id extends string, S extends string, V extends string, X>(
 ) => (
   origin: Transition.Config<Id, X>,
   signals: ReadonlyArray<Transition.Signal<Id, S>>,
-): Either.Either<readonly [Transition.Config<Id, X>, ReadonlyArray<Transition.Macro<Id, V>>], _Spent> => {
+): Either.Either<readonly [Transition.Config<Id, X>, ReadonlyArray<Transition.Macro<Id, S, V>>], _Spent> => {
   const seeded: Either.Either<
-    readonly [Transition.Config<Id, X>, ReadonlyArray<Transition.Macro<Id, V>>],
+    readonly [Transition.Config<Id, X>, ReadonlyArray<Transition.Macro<Id, S, V>>],
     _Spent
   > = Either.right([origin, []])
   return Array.reduce(signals, seeded, (rail, signal) =>

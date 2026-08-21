@@ -6,30 +6,30 @@
 ## [01]-[INDEX]
 
 - [02]-[PROJECTION] — the mounted instrument tables, the one polymorphic mount, and the `mark` fold; `Pulse`.
-- [03]-[CENSUS] — the `Probe` port and the sampled gauge sweep Layer; `Pulse`.
+- [03]-[CENSUS] — the `Probe` port, the sampled gauge sweep, and the hook-rail delta feeder; `Pulse`.
 - [04]-[VERBOSITY] — the tier-table to `Logger.minimumLogLevel` wiring; `Pulse`.
 - [05]-[VIEWS] — the metric-stream governance table contributed as one `Hooks` node; `Pulse`.
 - [06]-[BOARD] — the typed deploy-feed pack folding instrument rows and vital budgets; `Pulse`.
 
 ## [02]-[PROJECTION]
 
-- Owner: the interior `_WORK` and `_GAUGES` row tables and `_row`, the one row builder — every row carries its `Convention.named` metadata, the instrument `Convention.mount` materializes from that same row, and its own tag roster, so the settlement kinds (`drained`: relay claims settled; `parked`: deliverables diverted to the dead set) and the census levels are declared once and read by the mark fold, the sweep, and the board projection alike — the governance allow-list reads the vocabulary owner instead, because it governs every plane minting under `rasm.*`, not this module's rows. `Pulse.mark(kind, channel, count?)` is the projection fold: it increments the row's counter tagged `Convention.rasm.workChannel`, so the emitting owner adds one composed line beside its `Fact.record` call and the instrument mints nowhere else.
+- Owner: the interior `_WORK`, `_TAP`, and `_GAUGES` row tables and `_row`, the one row builder — every row carries its `Convention.named` metadata, the instrument `Convention.mount` materializes from that same row, and its own tag roster, so the settlement kinds (`drained`: relay claims settled; `parked`: deliverables diverted to the dead set) and the census levels are declared once and read by the mark fold, the sweep, and the board projection alike — the governance allow-list reads the vocabulary owner instead, because it governs every plane minting under `rasm.*`, not this module's rows. `Pulse.mark(kind, channel, count?)` is the projection fold: it increments the row's counter tagged `Convention.rasm.workChannel`, so the emitting owner adds one composed line beside its `Fact.record` call and the instrument mints nowhere else.
 - Law: the projection is lossy by design — the journal fact is the truth a billing or forensic read settles against, the counter is the dashboard series, and the two emit from ONE call site so they cannot disagree on what happened, only on retention; a missing metric point is a dashboard gap, never an evidence defect.
 - Law: materialization is the vocabulary owner's — `Convention.mount` reads wire form, description, bucket ladder, value width, and UCUM code off the named row, so this module composes handles and declares no constructor, no boundary vector, and no unit tag; a kind-dispatch table here is the second materialization owner the core ruling deletes.
-- Law: `_WORK` and `_GAUGES` name counting and level rows alone — a word census updates on a WORD rather than a number, so neither the mark fold nor a census read consumes one and those rows mount at the capability folder producing the words.
+- Law: `_WORK`, `_TAP`, and `_GAUGES` name counting and level rows alone — a word census updates on a WORD rather than a number, so no fold here consumes one and those rows mount at the capability folder producing the words.
 - Law: the carrier tag rides the mount at one value per instrument, so it adds no cardinality.
-- Law: two tables stand because two consumers do — counters answer `mark` and gauges answer the sweep, so each table's row type fixes the mounted instrument exactly and neither consumer casts; the board fold reads both through one concatenation, so a new instrument is one row in its owning table and appears on every downstream projection by construction.
+- Law: three tables stand because three consumers do — `_WORK` answers the `mark` fold at the emitting call site, `_TAP` answers the rail delta feeder, and `_GAUGES` answers the level sweep, so each table's row type fixes the mounted instrument exactly and no consumer casts; the board fold reads all three through one concatenation, so a new instrument is one row in its owning table and appears on every downstream projection by construction.
 - Law: `channel` values are the work plane's own closed channel vocabulary (the deliver channel rows, the queue lane names) and the PUBLISHER owns that boundedness, because `otel` and `work` seat at one stratum with the edge running work-to-otel, so importing those rosters back inverts it. Structural guarding stands regardless: the tag key is a `Convention.rasm` row, so `[05]`'s allow-list admits it under `views.tenant.limit` and a runaway channel value folds into the overflow bucket at `emit#GOVERNANCE` instead of fanning the series. Identifier-grade values ride span attributes, never this tag.
 - Entry: `Pulse.mark("drained", channel, settled)` beside the relay's drain fact; `Pulse.mark("parked", channel)` beside the park fact.
 - Growth: a new settlement kind is one `_WORK` row and a new census level one `_GAUGES` row, each naming its Convention metric.
 - Boundary: the facts themselves are the work plane's (`work/deliver`, `work/queue`) and the journal is the data plane's; this page owns only the projection.
-- Packages: `effect` (`Metric`, `Array`, `Record`); `@rasm/ts/core` (`Convention`).
+- Packages: `effect` (`Metric`, `Array`, `Option`, `Record`); `@rasm/ts/core` (`Convention`, `Tap`).
 
 ```typescript signature
 import { AggregationType, createAllowListAttributesProcessor, createDenyListAttributesProcessor } from "@opentelemetry/sdk-metrics"
-import { type Identity, Convention } from "@rasm/ts/core"
+import { type Identity, Convention, Tap } from "@rasm/ts/core"
 import {
-  Array, Context, Duration, Effect, Layer, Logger, LogLevel, Metric, Option, Record, Schedule, Schema,
+  Array, Context, Duration, Effect, Layer, Logger, LogLevel, Metric, Option, Record, Ref, Schedule, Schema,
 } from "effect"
 import { Setting } from "../proc/config.ts"
 import { Hooks } from "./emit.ts"
@@ -41,24 +41,32 @@ type _Row<N extends Convention.MetricName> = {
   readonly tags: ReadonlyArray<string>
 }
 
-// Word rosters thread through both builders because the mount demands one exactly where the family counts words:
-// no row here names such a family, so every call site passes none and a later frequency row cannot slip in untyped.
-const _row = <N extends Convention.MetricName>(
+// Word rosters thread through both builders as a TYPE PARAMETER, exactly as the mount seats them: a bare `Words<N>`
+// leaves the census argument typed at its constraint, so a frequency row's own word axis reaches the instrument
+// erased. No row here names such a family, so every call site passes none and a later frequency row lands typed.
+const _row = <N extends Convention.MetricName, const W extends Convention.Roster>(
   metric: N,
   tags: ReadonlyArray<string>,
-  ...words: Convention.Words<N>
+  ...words: Convention.Words<N, W>
 ): _Row<N> => ({ instrument: Convention.Metric.at(metric), metric: Convention.mount(metric, ...words), tags })
 
-const _level = <N extends Convention.MetricName>(
+const _level = <N extends Convention.MetricName, const W extends Convention.Roster>(
   metric: N,
   read: (census: Pulse.Census) => number,
-  ...words: Convention.Words<N>
+  ...words: Convention.Words<N, W>
 ) => ({ ..._row(metric, [], ...words), read })
 
 const _WORK = {
   // each Convention row rides beside its instrument, so the board fold reads the row and the mark fold reads the metric
   drained: _row(Convention.metric.relayDrained, [Convention.rasm.workChannel]),
   parked: _row(Convention.metric.queueParked, [Convention.rasm.workChannel]),
+} as const
+
+const _TAP = {
+  admitted: _row(Convention.metric.tapAdmitted, [Convention.rasm.tapPoint]),
+  dropped: _row(Convention.metric.tapDropped, [Convention.rasm.tapLoss, Convention.rasm.tapPoint]),
+  seats: _row(Convention.metric.tapSeats, [Convention.rasm.tapSeating]),
+  vetoed: _row(Convention.metric.tapVetoed, [Convention.rasm.tapPoint]),
 } as const
 
 declare namespace Pulse {
@@ -86,15 +94,19 @@ const _marked = (kind: Pulse.Work, channel: string, count = 1): Effect.Effect<vo
 
 ## [03]-[CENSUS]
 
-- Owner: the `Probe` port, the `_GAUGES` level table, and the sweep — `Probe` is one `Context.Tag` whose `census` member answers the current outbox and queue truth, each `_GAUGES` row carries its own `read` projection off that census, and `Pulse.live(policy)` is a `Layer.scopedDiscard` forking one `Schedule.spaced(policy.cadence)` repeat that folds the whole table per sample; the fork dies with the graph scope, so a leaked sweep fiber is structurally impossible.
+- Owner: the `Probe` port, the `_GAUGES` level table, the `_FEED` delta correspondence over the hook rail, and the sweep — `Probe` is one `Context.Tag` whose `census` member answers the current outbox and queue truth, each `_GAUGES` row carries its own `read` projection off that census, `_fed` diffs one `Tap.census` reading against the sample it held, and `Pulse.live(policy)` is a `Layer.scopedDiscard` forking one `Schedule.spaced(policy.cadence)` repeat that folds every table per sample; the fork dies with the graph scope, so a leaked sweep fiber is structurally impossible.
 - Law: the row owns its projection, so the sweep is total by construction — a new census dimension is one row carrying its Convention gauge and its reader, and the fold reaches it with zero sweep edits; a sweep enumerating gauges by hand strands every dimension added after it.
 - Law: the port keeps the strata clean — the data journal's `Journal.census` statement satisfies `Probe` at the app root, so the outbox truth crosses the seam as a value and this module imports no SQL surface; the queue depth arrives from the durable-queue owner's own read through the same binding, and that binding composes `Tenancy.sweep` around the census statement because the census answers per app across every tenant on a FORCE-RLS relation — an unpinned sample reads an empty outbox as healthy and a tenant-pinned one reports one slice as the plane's whole depth.
 - Law: the probe is total by contract — the satisfying binding internalizes its store faults (the prior sample or a zero census stands in), because a broken gauge sweep must degrade a dashboard, never fail a process. Contracts type against a FAILURE and a defect escapes them, so the sweep folds defects itself: an unchecked store fault costs one interval and reads on the log rail, where an unfolded one kills the repeat fiber and freezes every gauge at its last value for the process lifetime — a dashboard reading stale levels as live ones.
 - Law: `MetricPolling` is the refused substitute for this hand fold, on two independent counts the substrate itself fixes. `MetricPolling.collectAll` composes its members' polls as a sequential traversal, so each `_GAUGES` row would run the census effect once — the journal statement executes per ROW per interval and its cost grows with the table, where one census answers every level here and the table is the declared growth site. And `MetricPolling.retry` gates the poll's ERROR channel, which the `Probe` contract types as `never` by the totality law above, so it can never fire and cannot stand in for the defect fold this sweep owns — a defect under `MetricPolling.launch` kills the forked fiber and produces exactly the frozen-gauge failure the guard exists to foreclose. The substrate buys nothing else: `launch` forks scope-bound, which `Effect.forkScoped` already is.
 - Law: gauges are sampled, never accumulated — depth, age, and redelivery are census facts of one instant, so the sweep sets absolute levels and rate questions (DLQ rate, redelivery rate) derive in the query plane from the counter and gauge series.
-- Entry: `Pulse.live(policy)` merged at the composition root beside `Export.live`, after the root binds `Probe`.
-- Growth: a new census dimension is one `Census` field and one `_GAUGES` row reading it.
-- Packages: `effect` (`Context`, `Layer`, `Schedule`, `Metric`, `Duration`).
+- Law: the hook rail's own tallies reach the same sweep as DELTAS, never as levels — `Tap.census` answers cumulative totals over one `Tap.Report`, so the feeder holds the prior sample and increments each counter by the difference; setting a counter to a running total re-counts every prior interval, and one gauge per tally would answer "how many since boot" where every consumer asks "how many since last".
+- Law: one cadence and one fiber carry both reads — the level sweep and the rail delta are two projections of the same instant, so a second repeat would sample them apart and pay scheduling for the privilege; a defect in either costs one interval under the same fold.
+- Law: the tag values ARE the tally column names — the loss halves the dropped instrument splits on and the seating columns are read off the published `Tap.Census`/`Tap.Seating` shapes, so a renamed or added column breaks at the compiler rather than reporting silently as zero forever.
+- Boundary: the breach ring's own `ledger` census counts displaced BREACHES, not facts at a point, so no `tapPoint`-dimensioned row admits it; breach series ride `Convention.metric.tapBreaches` off the `Tap.breaches` stream at its own emitter.
+- Entry: `Pulse.live(policy)` merged at the composition root beside `Export.live`, after the root binds `Probe` and seats `Hooks.Dispatch`.
+- Growth: a new census dimension is one `Census` field and one `_GAUGES` row reading it; a new rail tally is one `_FEED` entry over its `_TAP` row.
+- Packages: `effect` (`Context`, `Duration`, `Layer`, `Metric`, `Option`, `Record`, `Ref`, `Schedule`); `@rasm/ts/core` (`Tap.census`); `./emit.ts` (`Hooks.Dispatch`).
 
 ```typescript signature
 class Probe extends Context.Tag("runtime/Pulse/Probe")<Probe, {
@@ -109,6 +121,57 @@ const _GAUGES = {
   outboxRedelivered: _level(Convention.metric.outboxRedelivered, (census) => census.outbox.redelivered),
   queueDepth: _level(Convention.metric.queueDepth, (census) => census.queue.depth),
 } as const
+
+// Rail tallies are CUMULATIVE and these instruments are counters, so the feeder emits DELTAS against one held
+// sample. The zero rows are what a point first seen this sweep diffs against, and the published shapes keep both
+// total — a tally column added at the owner breaks here rather than reporting as a permanent zero.
+type _Sample = { readonly points: { readonly [point: string]: Tap.Census }; readonly seating: Tap.Seating }
+type _Loss = Extract<keyof Tap.Census, "lost" | "shed">
+
+const _NO_FACTS: Tap.Census = { admitted: 0, lost: 0, shed: 0, vetoed: 0 }
+const _NO_SAMPLE: _Sample = { points: {}, seating: { mounted: 0, refused: 0, released: 0 } }
+
+// Each fact column names the instrument it feeds and, where that instrument splits the loss halves, the tag value it
+// stamps — so one fold serves the whole family and a new column is one entry rather than a fourth increment spelled
+// beside three others; `satisfies` closes the roster against the published census.
+const _FEED = {
+  admitted: { at: _TAP.admitted, half: Option.none<_Loss>() },
+  lost: { at: _TAP.dropped, half: Option.some<_Loss>("lost") },
+  shed: { at: _TAP.dropped, half: Option.some<_Loss>("shed") },
+  vetoed: { at: _TAP.vetoed, half: Option.none<_Loss>() },
+} as const satisfies { readonly [C in keyof Tap.Census]: { readonly half: Option.Option<_Loss> } }
+
+const _stamped = <N extends Convention.MetricName>(row: _Row<N>, point: string, half: Option.Option<_Loss>) =>
+  Option.match(half, {
+    onNone: () => Metric.tagged(row.metric, Convention.rasm.tapPoint, point),
+    onSome: (value) =>
+      Metric.tagged(Metric.tagged(row.metric, Convention.rasm.tapPoint, point), Convention.rasm.tapLoss, value),
+  })
+
+// The seating fold reads its roster off the PRIOR value, so the columns it walks are the published ones and no
+// second literal stands beside `Tap.Seating` waiting to drift from it.
+const _fed = (held: Ref.Ref<_Sample>): Effect.Effect<void, never, Hooks.Dispatch> =>
+  Effect.gen(function* () {
+    const report = yield* Effect.flatMap(Hooks.Dispatch, Tap.census)
+    const prior = yield* Ref.getAndSet(held, { points: Record.fromEntries(report.points), seating: report.seating })
+    yield* Effect.forEach(report.points, ([point, taken]) => {
+      const was = Option.getOrElse(Record.get(prior.points, point), () => _NO_FACTS)
+      return Effect.forEach(
+        Record.toEntries(_FEED),
+        ([column, feed]) => Metric.incrementBy(_stamped(feed.at, point, feed.half), taken[column] - was[column]),
+        { discard: true },
+      )
+    }, { discard: true })
+    yield* Effect.forEach(
+      Record.toEntries(prior.seating),
+      ([column, was]) =>
+        Metric.incrementBy(
+          Metric.tagged(_TAP.seats.metric, Convention.rasm.tapSeating, column),
+          report.seating[column] - was,
+        ),
+      { discard: true },
+    )
+  })
 
 const _swept: Effect.Effect<void, never, Probe> = Effect.catchAllDefect(
   Effect.flatMap(Probe, (probe) =>
@@ -180,8 +243,8 @@ const _views = (policy: Pulse.Policy): Layer.Layer<never, never, Hooks> =>
 
 ## [06]-[BOARD]
 
-- Owner: `Pulse.Board` and `Pulse.board(identity)` — the census projection folding the `_WORK`/`_GAUGES` instrument rows and the `Vital.rows` budget table into one Schema-classed deploy-feed value: `panels` carry name, description, UCUM unit, instrument kind, and tag keys off the row's own Convention metadata; `budgets` carry each vital kind's good/poor thresholds, unit, and the level series `Vital.level` selects for it; `burn` carries the SLO burn-rate input pairs — a bad and total series with an optional tag slice — so the boards derive from the same rows the emitters write, and a new instrument or vital appears on the board by construction because the fold reads the tables, never a hand roster.
-- Law: every panel column reads the row, never the fold — kind, unit, description, and tag keys all live on `Convention.instrument` and the row's tag column, so one concatenated map over both tables emits every panel and a fold re-stating a kind is the duplication this projection deletes.
+- Owner: `Pulse.Board` and `Pulse.board(identity)` — the census projection folding the `_WORK`/`_TAP`/`_GAUGES` instrument rows and the `Vital.rows` budget table into one Schema-classed deploy-feed value: `panels` carry name, description, UCUM unit, instrument kind, and tag keys off the row's own Convention metadata; `budgets` carry each vital kind's good/poor thresholds, unit, and the level series `Vital.level` selects for it; `burn` carries the SLO burn-rate input pairs — a bad and total series with an optional tag slice — so the boards derive from the same rows the emitters write, and a new instrument or vital appears on the board by construction because the fold reads the tables, never a hand roster.
+- Law: every panel column reads the row, never the fold — kind, unit, description, and tag keys all live on `Convention.instrument` and the row's tag column, so one concatenated map over the instrument tables emits every panel and a fold re-stating a kind is the duplication this projection deletes.
 - Law: burn inputs are series names, never queries — the vital pair (total `Convention.metric.vitalObserved`, bad the same series sliced `vitalGrade=poor`) and the work pair (total `relayDrained`, bad `queueParked`) are data rows; the burn-rate algebra, objectives, and window ladders stay the core slo plane's, compiled by the iac observe fold.
 - Law: `Pulse.wire` is the provenance key this producer mints — the deploy tuple admits a pack only under a key its producing branch spells, so the constant lives beside the projection earning it and the app's deploy feed stamps it rather than re-typing a literal; a key spelled at the consuming tier alone forks the moment either end edits it.
 - Growth: a new burn family is one `_BURN` row; a new panel axis is one field on the panel struct every producer inherits.
@@ -225,7 +288,7 @@ const _board = (identity: Identity.App): _Board =>
   new _Board({
     app: identity.app,
     panels: Array.map(
-      [...Record.values(_WORK), ...Record.values(_GAUGES)],
+      [...Record.values(_WORK), ...Record.values(_TAP), ...Record.values(_GAUGES)],
       ({ instrument, tags }) => ({
         description: instrument.description,
         instrument: instrument.kind,
@@ -245,7 +308,7 @@ const Pulse: {
   readonly Board: typeof _Board
   readonly Probe: typeof Probe
   readonly board: (identity: Identity.App) => _Board
-  readonly live: (policy: Pulse.Policy) => Layer.Layer<never, never, Probe>
+  readonly live: (policy: Pulse.Policy) => Layer.Layer<never, never, Probe | Hooks.Dispatch>
   readonly mark: typeof _marked
   readonly verbosity: Layer.Layer<never, never, Setting>
   readonly views: (policy: Pulse.Policy) => Layer.Layer<never, never, Hooks>
@@ -254,7 +317,13 @@ const Pulse: {
   Board: _Board,
   Probe,
   board: _board,
-  live: (policy) => Layer.scopedDiscard(Effect.forkScoped(Effect.repeat(_swept, Schedule.spaced(policy.cadence)))),
+  // ONE cadence and ONE fiber carry both reads: the level sweep and the rail delta are two projections of the same
+  // instant, so a second repeat would sample them apart and pay scheduling for nothing.
+  live: (policy) =>
+    Layer.scopedDiscard(Effect.flatMap(
+      Ref.make(_NO_SAMPLE),
+      (held) => Effect.forkScoped(Effect.repeat(Effect.zipRight(_swept, _fed(held)), Schedule.spaced(policy.cadence))),
+    )),
   mark: _marked,
   verbosity: _verbosity,
   views: _views,

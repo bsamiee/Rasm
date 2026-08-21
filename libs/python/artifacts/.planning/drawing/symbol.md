@@ -33,15 +33,17 @@ from beartype import beartype
 from beartype.vale import Is
 from builtins import frozendict
 from expression import Error, Ok, Result, Some, case, tag, tagged_union
+from expression.collections import Block
 from msgspec import Struct
 from msgspec.msgpack import Encoder
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import BoundaryFault, RuntimeRail
+from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, rostered
 from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.drawing.regime import INGRESS, LayerName, LayerSchema, LineType, LineWeight, Terminator, TextHeight
@@ -89,6 +91,16 @@ _PRECISION: Final[int] = 3  # svgconfig coordinate places — the content-key de
 _GLYPH: Final[RenderPolicy] = RenderPolicy(dpi=300.0)  # sheet-cell PNG policy for RegionOp.Rasterize
 _CANON: Final[Encoder] = Encoder(order="deterministic")  # stable preimage encoding the bare `ContentIdentity.key` mint addresses
 
+
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's ONE raise anchor: the glyph seam is a single fence and the member `RegionFault` case already carries
+# which refusal ran. TRANSIENT — a raster refusal is a defect a re-issue may clear.
+SYMBOL_GLYPH: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.SYMBOL, point="glyph", arm="boundary", defect="glyph-refused", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([SYMBOL_GLYPH]))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class SymbolStyle(Struct, frozen=True):
@@ -218,9 +230,9 @@ class Symbol(Struct, frozen=True):
 
     async def glyph(self, mark: SymbolKind, /) -> RuntimeRail[bytes]:
         # Symbol->sheet seam: ONE mark rasterized to PNG for a sheet NorthArrow.glyph/KeyPlan.figure cell whose
-        # reportlab ImageReader reads a raster; the member RegionFault folds into the rail's own BoundaryFault.
+        # reportlab ImageReader reads a raster; the member `RegionFault` crosses WHOLE on `BoundaryFault.domain`, so its case and kwargs stay matchable.
         outcome = await self.lane.offload(Kernel.of(_raster, KernelTrait.RELEASING), mark, self.palette)
-        return outcome.bind(lambda res: res.map_error(lambda fault: BoundaryFault(boundary=("symbol.glyph", fault.tag))))
+        return outcome.bind(lambda res: res.map_error(lambda fault: BoundaryFault(domain=(SYMBOL_GLYPH.subject, fault))))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

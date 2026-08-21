@@ -6,34 +6,34 @@ Construction for every modality lives here alone, so no producer schedules a sib
 
 ## [01]-[INDEX]
 
-- [02]-[ISSUE]: the polymorphic construction root — `IssueRequest` in, `RuntimeRail[Block[ArtifactReceipt]]` out, over the closed deliverable-modality union with its two-tier mints, the `severed` gate, the front-drain fold, the issue-scope attribution bracket, and the production-fact fire seams.
+- [02]-[ISSUE]: the polymorphic construction root — `IssueRequest` in, `RuntimeRail[Block[ArtifactReceipt]]` out, over the closed deliverable-modality union with its two-tier mints, the `RAISES` refusal roster, the `severed` gate, the lane-drive composition, the issue-scope attribution bracket, and the production-fact fire seams.
 
 ## [02]-[ISSUE]
 
 - Owner: `ArtifactIssue` carries the runtime `LanePolicy` and the `warm` receipt seed; `issue(request)` is its one entry, request in and `RuntimeRail[Block[ArtifactReceipt]]` out. `IssueRequest` is the closed modality union, each case minted through a thin `@classmethod` (`Sheets`/`Diagrams`/`Package`/`Works`) so a caller never hand-builds a case tuple, and the `works` case is the universal arm — `(nodes, targets)` from ANY producer plane's `emit()` set, a lone node one `Works(node)` call — so singular, plural, and scoped issuance discriminate on the value, never a `single`/`many` sibling pair.
-- Cases: the per-modality construction knowledge the fence tuples cannot show — `sheet_set` carries the composed `Transmittal` op and the member production nodes (the sheets and register the aggregate's `parents` name; without them the plan severs on `dangling`), its targets the aggregate node key so the plan scopes to the issue closure; `diagram_suite` carries one shared `Palette` and the non-empty `DiagramLayout` set — each layout's `assign()` resolves the positioned glyphs the root folds into one `DiagramDraw` node per diagram under the root's own `lane` (one `LanePolicy` spans the drain and every render crossing, never a second silent default lane), targets empty because every diagram is itself a deliverable; `document_package` carries the composed `DocumentNode` manual tree (`document/report#REPORT` or the caller composes it — the root composes producers, never document trees), a non-empty `DocumentMode` set, and the `Spec` sections — nodes are each section's `emit()` and `DocumentPlan.bound(node, modes, lane=self.lane, parents=...)`'s per-mode format nodes, so the format targets retain the authored sections in their ancestor closure; `works` carries a non-empty `(nodes, targets)` pair verbatim. `_nodes` refuses an empty deliverable arm through `BoundaryFault.config`, then rails fallible construction: `DocumentPlan.bound` returns `Result[..., EmitFault]` re-spelled at this seam, and the diagram arm's `assign()` rails thread through the runtime `traversed` abort fold — one total `match` closed by `assert_never`.
+- Cases: the per-modality construction knowledge the fence tuples cannot show — `sheet_set` carries the composed `Transmittal` op and the member production nodes (the sheets and register the aggregate's `parents` name; without them the plan severs on `dangling`), its targets the aggregate node key so the plan scopes to the issue closure; `diagram_suite` carries one shared `Palette` and the non-empty `DiagramLayout` set — each layout's `assign()` resolves the positioned glyphs the root folds into one `DiagramDraw` node per diagram under the root's own `lane` (one `LanePolicy` spans the drain and every render crossing, never a second silent default lane), targets empty because every diagram is itself a deliverable; `document_package` carries the composed `DocumentNode` manual tree (`document/report#REPORT` or the caller composes it — the root composes producers, never document trees), a non-empty `DocumentMode` set, and the `Spec` sections — nodes are each section's `emit()` and `DocumentPlan.bound(node, modes, lane=self.lane, parents=...)`'s per-mode format nodes, so the format targets retain the authored sections in their ancestor closure; `works` carries a non-empty `(nodes, targets)` pair verbatim. `_nodes` refuses an empty deliverable arm through the ONE parameterized `ISSUE_EMPTY` row, whose slots carry the modality and the member set the caller left empty — four arms, one law — then rails fallible construction: `DocumentPlan.bound` returns `Result[..., EmitFault]` crossing whole as `BoundaryFault.domain` under the `ISSUE_PACKAGE` coordinate, so the format planner's own case and kwargs stay matchable rather than collapsing to its tag, and the diagram arm's `assign()` rails thread through the runtime `traversed` abort fold — one total `match` closed by `assert_never`.
 - Law: `_scoped` is the one attribution bracket — every `issue` call mints a `uuid7().hex` issue scope, derives one context carrying it under `ISSUE_BAGGAGE`, and folds the owner's `tenant: Option[str]` into `TENANT_BAGGAGE` only when the parented context carries none — a parent-carried tenant always wins, so a host seed never re-attributes a paying context — then token-attaches that context around the whole drive, so the runtime worker crossing's `propagate.inject` carries both entries under the telemetry-installed W3C composite with zero producer edits. Tenant projection stays runtime-owned end to end — the metrics `_attributed` fold, the `PROMOTED_BAGGAGE` span/log promotion, and the journal writer filling a fact's unset `tenant` at admission — so this page never re-binds tenant onto a log, span, metric, or durable row, and no producer reads baggage to attribute one; the issue scope alone rides `bound_contextvars` so every structured line inside the drive carries its issue key, and it stays a log/baggage dimension, never a metric attribute, because a per-call id explodes instrument cardinality.
-- Law: production facts fire through `Production.fired` on the `core/hooks#POINTS` rows under the active issue scope, and every fire rail binds before control advances. `issue` fires the `ISSUE_ADMITTED` veto after `_nodes` stages and fires `ISSUE_REFUSED` once at the terminal choke point off the outcome's fault tag, so admission refusals, veto rejections, the severed gate, drain faults, and the lane deadline all reach one observe stream; `_planned` fires `ISSUE_PLANNED` off the cleared plan, and `_driven` fires one `FRONT_DRAINED` per front off the `DrainReceipt` columns onto the replay ring so a late subscriber reads the whole last drain. No parallel fact family: each payload is the projection of a value this page already holds.
-- Auto: `_cleared` is the severed gate — `plan.severed` folds its `PlanFault` cause (`tag` with the offending `keys` hexes) into one `BoundaryFault.config` refusal so a cyclic, untargeted, collided, or dangling graph never drains; `_driven` folds the CPM fronts in order through `plan.lane.drain(front, carried)`, threading `DrainReceipt.cache` forward exactly as the runtime `StagePlan` drive does — never a hand-rebuilt cache beside the receipt's own — and appending `DrainReceipt.values` (replayed hits included) onto the immutable `Block`; a front with faults rails the whole issue as the `BoundaryFault.combine` reduction of the drain's own fault block, and a cancelled front rails the lane deadline, so receipts are terminal, never partial. One sequential `for` is the async-front exemption: each front depends on the preceding `DrainReceipt.cache`, and `anyio`/`expression` exposes no dependent async fold. Both the `planned` fact and the coverage verdicts stay the plan's; this page adds no parallel telemetry.
-- Growth: a new modality is one `IssueRequest` case, one mint, and one `_nodes` arm — earned only by root-owned chaining or targeting knowledge, since a bare producer family already rides `Works`; a new terminal producer joins an existing arm's fold; a host batching policy is a `LanePolicy` value; a cross-run warm fill is the composing host's own durable index read threaded into `warm`.
-- Boundary: no receipt case and no content key; the scheduling algebra, coverage, and elision evidence are `core/plan#PLAN`'s, the drain, retry, offload bounds, and per-unit fault capture the runtime lane's, and the durable warm fill the host's. A second constructing surface, a producer calling a sibling's `emit()`, or a host touching `ArtifactPipeline` directly each break the single-root law. Its rail is composed, never collapsed — a plan fault reaches the caller through `bind`/`match`, never a `.ok` unwrap or a default plan; the drain return is the `DrainReceipt` owner, never iterated as a bare receipt stream; and each async carrier transition uses one total `Result` match because `expression` ships no async carrier builder.
+- Law: production facts fire through `Production.fired` on the `core/hooks#POINTS` rows under the LANE's composition key, and every fire rail binds before control advances; the issue id stays a payload field, never the custody key, so one composition holds one point table however many issues run through it. `issue` fires the `ISSUE_ADMITTED` veto after `_nodes` stages and fires `ISSUE_REFUSED` once at the terminal choke point off the outcome's fault tag, so admission refusals, veto rejections, the severed gate, drain faults, and the lane deadline all reach one observe stream; `_planned` fires `ISSUE_PLANNED` off the cleared plan. `FRONT_DRAINED` is the one point this page does NOT fire: it hands the id to the lane drive as a gate and claims the roster under that same key first, so the between-wave mark reaches the replay ring from the owner that measured it.
+- Auto: `_cleared` is the severed gate — `plan.severed` folds its `PlanFault` cause onto the `ISSUE_PLAN` row's two named coordinates, the tag and the offending key hexes, so a cyclic, untargeted, collided, or dangling graph never drains; `_driven` is COMPOSITION over `execution/lanes#LANE` `LanePolicy.driven`, not a drive: it hands the already-resolved CPM ladder through the `Fronts` `resolved` arm labelled with its own `ArtifactStage` member, seeds the warm cache, accumulates `DrainReceipt.values` (replayed hits included) onto the immutable `Block`, and names the gate point. The fault-block short-circuit, the cancelled-front deadline rail, the threaded cache, and the sequential-front exemption are all the drive's, stated once at the owner, so receipts stay terminal and no second loop can drift out of any of them. Both the `planned` fact and the coverage verdicts stay the plan's; this page adds no parallel telemetry.
+- Growth: a new refusal is one `RAISES` row under an `ArtifactsLeg.ISSUE` anchor, or one slot on the row whose law already covers it; a new modality is one `IssueRequest` case, one mint, and one `_nodes` arm — earned only by root-owned chaining or targeting knowledge, since a bare producer family already rides `Works`; a new terminal producer joins an existing arm's fold; a host batching policy is a `LanePolicy` value; a cross-run warm fill is the composing host's own durable index read threaded into `warm`.
+- Boundary: no receipt case and no content key; the scheduling algebra, coverage, and elision evidence are `core/plan#PLAN`'s, the front drive, drain, retry, offload bounds, and per-unit fault capture the runtime lane's, and the durable warm fill the host's. A second constructing surface, a producer calling a sibling's `emit()`, or a host touching `ArtifactPipeline` directly each break the single-root law. Its rail is composed, never collapsed — a plan fault reaches the caller through `bind`/`match`, never a `.ok` unwrap or a default plan; the drive return is the lane's rail, never iterated as a bare receipt stream; and each async carrier transition uses one total `Result` match because `expression` ships no async carrier builder.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Iterator
 from contextlib import contextmanager
 from itertools import chain
-from typing import Literal, Self, assert_never
+from typing import Final, Literal, Self, assert_never
 from uuid import uuid7
 
-from expression import Error, Nothing, Ok, Option, Result, case, tag, tagged_union
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct, structs
 from opentelemetry import baggage
 from opentelemetry import context as otel_context
 from structlog.contextvars import bound_contextvars
 
-from rasm.artifacts.core.hooks import ISSUE_BAGGAGE, ArtifactHook, FrontDrained, IssueAdmitted, IssuePlanned, IssueRefused, Production
+from rasm.artifacts.core.hooks import ISSUE_BAGGAGE, ArtifactHook, ArtifactStage, ArtifactsLeg, IssueAdmitted, IssuePlanned, IssueRefused, Production
 from rasm.artifacts.core.plan import ArtifactPipeline, ArtifactWork, PipelinePlan
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.delivery.transmittal import Transmittal
@@ -43,14 +43,35 @@ from rasm.artifacts.graphic.color.derive import Palette
 from rasm.artifacts.specification.section import Spec
 from rasm.artifacts.visualization.diagram.draw import DiagramDraw
 from rasm.artifacts.visualization.diagram.layout import DiagramLayout
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, traversed
+from rasm.runtime.faults import TERMINAL, BoundaryFault, FaultRow, RuntimeRail, rostered, traversed
 from rasm.runtime.identity import ContentKey
-from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.lanes import Fronts, LanePolicy
 from rasm.runtime.metrics import TENANT_BAGGAGE
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Staged = tuple[tuple[ArtifactWork, ...], frozenset[ContentKey]]
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this root's whole raise roster: every refusal here resolves ONE anchor, so no arm spells a subject and the four
+# empty-deliverable arms collapse onto ONE parameterized row — an aggregate over zero members, a suite over zero
+# layouts, a package over zero modes, and a bare work set over zero nodes are the same law reading a different
+# coordinate, and the slots carry which modality and which member set the caller left empty. Every row is TERMINAL
+# because a re-issue of the identical request refuses identically. `ISSUE_PACKAGE` carries no defect a raise site
+# reads — it names the coordinate the format planner's own typed fault crosses under as `BoundaryFault.domain`. The
+# cancelled-front deadline holds no row here: `execution/lanes#LANE` `driven` owns that refusal, so it owns its
+# coordinate, and a mirror row at this page would let one cancellation report two subjects.
+ISSUE_EMPTY: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.ISSUE, point="stage", arm="config", defect="empty-deliverable", retriability=TERMINAL, slots=("modality", "member")
+)
+ISSUE_PLAN: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.ISSUE, point="plan", arm="config", defect="plan-severed", retriability=TERMINAL, slots=("cause", "keys")
+)
+ISSUE_PACKAGE: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.ISSUE, point="package", arm="config", defect="format-plan-refused", retriability=TERMINAL
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([ISSUE_EMPTY, ISSUE_PLAN, ISSUE_PACKAGE]))
 
 
 @tagged_union(frozen=True)
@@ -94,7 +115,7 @@ class ArtifactIssue(Struct, frozen=True):
                     return Production.fired(
                         ArtifactHook.ISSUE_REFUSED,
                         IssueRefused(cause=fault.tag, scope=scope),
-                        scope=scope,
+                        scope=self.lane.scope,
                     ).bind(lambda _fact: refused)
                 case Result(tag="ok"):
                     return outcome
@@ -107,7 +128,7 @@ class ArtifactIssue(Struct, frozen=True):
             lambda pair: Production.fired(
                 ArtifactHook.ISSUE_ADMITTED,
                 IssueAdmitted(modality=request.tag, works=len(pair[0]), targets=len(pair[1]), scope=scope),
-                scope=scope,
+                scope=self.lane.scope,
             ).map(lambda _fact: pair)
         )
         match admitted:
@@ -129,13 +150,13 @@ class ArtifactIssue(Struct, frozen=True):
                 observed = Production.fired(
                     ArtifactHook.ISSUE_PLANNED,
                     IssuePlanned(works=len(works), fronts=len(plan.fronts), targets=len(targets), scope=scope),
-                    scope=scope,
+                    scope=self.lane.scope,
                 )
                 match observed:
                     case Result(tag="error") as failed:
                         return failed
                     case Result(tag="ok"):
-                        return await self._driven(plan, scope)
+                        return await self._driven(plan)
                     case _ as unreachable:
                         assert_never(unreachable)
             case _ as unreachable:
@@ -145,7 +166,7 @@ class ArtifactIssue(Struct, frozen=True):
     def _cleared(plan: PipelinePlan, /) -> RuntimeRail[PipelinePlan]:
         return (
             plan.severed
-            .map(lambda fault: Error(BoundaryFault(config=("artifacts.issue.plan", f"{fault.tag}:{','.join(sorted(key.hex for key in fault.keys))}"))))
+            .map(lambda fault: Error(ISSUE_PLAN.raised(fault.tag, ",".join(sorted(key.hex for key in fault.keys)))))
             .default_value(Ok(plan))
         )
 
@@ -153,12 +174,12 @@ class ArtifactIssue(Struct, frozen=True):
         match request:
             case IssueRequest(tag="sheet_set", sheet_set=(_transmittal, ())):
                 # every sibling arm carries this empty-set refusal — an aggregate over zero members would emit anyway
-                return Error(BoundaryFault(config=("artifacts.issue.sheet", "empty member set")))
+                return Error(ISSUE_EMPTY.raised(request.tag, "members"))
             case IssueRequest(tag="sheet_set", sheet_set=(transmittal, members)):
                 aggregate = transmittal.emit()
                 return Ok(((*members, aggregate), frozenset((aggregate.key,))))
             case IssueRequest(tag="diagram_suite", diagram_suite=(_palette, ())):
-                return Error(BoundaryFault(config=("artifacts.issue.diagram", "empty layout set")))
+                return Error(ISSUE_EMPTY.raised(request.tag, "layouts"))
             case IssueRequest(tag="diagram_suite", diagram_suite=(palette, layouts)):
                 # ONE root lane spans the whole suite: each layout's lane is rebound to the issue's, so
                 # placement, drawing, and plan draining share capacity, deadline, and retry scope.
@@ -170,53 +191,43 @@ class ArtifactIssue(Struct, frozen=True):
                     )
                 )
             case IssueRequest(tag="document_package", document_package=(_node, (), _sections)):
-                return Error(BoundaryFault(config=("artifacts.issue.package", "empty mode set")))
+                return Error(ISSUE_EMPTY.raised(request.tag, "modes"))
             case IssueRequest(tag="document_package", document_package=(node, modes, sections)):
                 authored = tuple(spec.emit() for spec in sections)
                 return (
                     DocumentPlan.bound(node, modes, lane=self.lane, parents=tuple(work.key for work in authored))
-                    .map_error(lambda fault: BoundaryFault(config=("artifacts.issue.package", fault.tag)))
+                    .map_error(lambda fault: BoundaryFault(domain=(ISSUE_PACKAGE.subject, fault)))
                     .map(lambda formats: ((*authored, *formats), frozenset(work.key for work in formats)))
                 )
             case IssueRequest(tag="works", works=((), _targets)):
-                return Error(BoundaryFault(config=("artifacts.issue.works", "empty work set")))
+                return Error(ISSUE_EMPTY.raised(request.tag, "works"))
             case IssueRequest(tag="works", works=staged):
                 return Ok(staged)
             case _ as unreachable:
                 assert_never(unreachable)
 
-    async def _driven(self, plan: PipelinePlan, scope: str, /) -> RuntimeRail[Block[ArtifactReceipt]]:
-        carried, collected = plan.cache_seed, Block.empty()
-        for index, front in enumerate(plan.fronts):
-            receipt = await plan.lane.drain(front, carried)
-            observed = Production.fired(
-                ArtifactHook.FRONT_DRAINED,
-                FrontDrained(
-                    front=index,
-                    accepted=receipt.accepted,
-                    completed=receipt.completed,
-                    cancelled=receipt.cancelled,
-                    rejected=receipt.rejected,
-                    hit=receipt.hit,
-                    scope=scope,
-                ),
-                scope=scope,
-            )
-            match observed:
-                case Result(tag="error") as failed:
-                    return failed
-                case Result(tag="ok"):
-                    pass
-                case _ as unreachable:
-                    assert_never(unreachable)
-            match receipt.faults, receipt.cancelled:
-                case faults, _ if not faults.is_empty():
-                    return Error(faults.reduce(BoundaryFault.combine))
-                case _, cancelled if cancelled:
-                    return Error(BoundaryFault(deadline=("artifacts.issue", plan.lane.deadline.default_value(float("inf")), "front cancelled")))
-                case _:
-                    carried, collected = receipt.cache, collected.append(receipt.values)
-        return Ok(collected)
+    async def _driven(self, plan: PipelinePlan, /) -> RuntimeRail[Block[ArtifactReceipt]]:
+        # the DRIVE is `execution/lanes#LANE` `LanePolicy.driven`; what stays here is the composition. The CPM ladder
+        # is already resolved, so it admits through the `resolved` arm labelled with this plane's own stage member,
+        # and the accumulator is the receipt block. The three refusals this page used to re-spell are the drive's
+        # own — a front's fault block reduces through `BoundaryFault.combine`, a cancelled front rails the lane's
+        # declared deadline, and the gate fires between waves — so a hand-rebuilt loop can no longer drift out of
+        # any of them, and the sequential-front exemption is stated once at the owner rather than here. The gate id
+        # is claimed under the LANE's composition key first: the drive fires through the registry directly, so an
+        # unregistered point would rail the whole issue on its first wave.
+        match Production.registered(scope=plan.lane.scope):
+            case Result(tag="error") as refused:
+                return refused
+            case Result(tag="ok"):
+                return await plan.lane.driven(
+                    Fronts(resolved=Block.of_seq([(ArtifactStage.DRAIN.value, front) for front in plan.fronts])),
+                    Block.empty(),
+                    lambda collected, receipt: Ok(collected.append(receipt.values)),
+                    cache=plan.cache_seed,
+                    gate=Some(ArtifactHook.FRONT_DRAINED),
+                )
+            case _ as unreachable:
+                assert_never(unreachable)
 
     @contextmanager
     def _scoped(self, /) -> Iterator[str]:

@@ -424,7 +424,10 @@ const Evidence = {
   run: (receipt: RunReceipt): Evidence.Row => _Run.make({ receipt }),
   ofVerdict: (verdict: Either.Either<DriftReport, DeployFault>): ReadonlyArray<Evidence.Row> =>
     Either.match(verdict, {
-      onLeft: (fault) => [_Faulted.make({ stack: fault.stack, reason: fault.reason, detail: fault.detail })],
+      // The rendered message IS the detail: each family row renders its OWN subject, and the two reasons carrying
+      // no foreign message would leave a free `detail` read unspellable, so the row reads what the family already
+      // composed rather than a column only some arms hold.
+      onLeft: (fault) => [_Faulted.make({ stack: fault.case.stack, reason: fault.case.reason, detail: fault.message })],
       onRight: (report) => [
         _Drifted.make({ report }),
         ...(report.rotations.length === 0 ? [] : [_Rotation.make({ stack: report.stack, urns: report.rotations })]),
@@ -495,7 +498,7 @@ const Drift = {
       Effect.flatMap((receipt) =>
         Effect.mapError(
           Schema.decodeUnknown(DriftReport)(_report(receipt)),
-          (parse) => new DeployFault({ reason: "alien", stack: name, detail: parse.message }),
+          (parse) => new DeployFault({ case: { reason: "alien", stack: name, detail: parse.message } }),
         )),
     ),
   conform: (

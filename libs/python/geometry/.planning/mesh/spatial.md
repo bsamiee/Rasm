@@ -11,7 +11,7 @@ Spine is `trimesh` and `numpy` — never a phantom `scipy` spine, since no geome
 ## [02]-[SPATIAL]
 
 - Owner: `MeshSpatial` — the boundary capsule over the one module-level `_dispatch`; the `_OFFLOAD` membership is declared work-class data — the batch-heavy kinds ride the process kernel, the index-cached kinds stay in-process — never a hardcoded per-case branch and never a module-presence probe, and the `mesh/quality#QUALITY` `ArmOutcome`/`armed` cross-cut is imported downward rather than re-spelled, so a new kind writes only its `_dispatch` arm and its membership row.
-- Cases: `Ray` reduces the all-hits return to the nearest hit per ray in one vectorized pass, never a per-ray cast; `Bounds`/`Nearest` run ONE vectorized `intersection_v`/`nearest_v` call for the whole box set, never a per-box loop; `Clearance` carries a backend-shaped payload — the FCL arm returns the signed gap and the `nearest_points` witness pair, the exact `manifold3d` gap carries no witness.
+- Cases: `Ray` reduces the all-hits return to the nearest hit per ray in one vectorized pass, never a per-ray cast; `Bounds`/`Nearest` run ONE vectorized `intersection_v`/`nearest_v` call for the whole box set, never a per-box loop; `Clearance` carries a backend-shaped payload over TWO independent `Option` slots — the FCL arm returns the signed gap and the `nearest_points` witness pair, the exact `manifold3d` arm the gap alone, and an open pair or an unprovisioned floor neither, where the retired `float("nan")` handed a consumer a magnitude it could compare, sort, and average as though a kernel had measured it.
 - Law: arity is absorbed at the head and the CROSSING is per work class, never per query — the batch-heavy members of a whole batch ship as ONE `HOSTILE` kernel invocation, so the worker's `trimesh` mesh caches its `triangles_tree` and proximity index across every member and an N-query batch pays one index construction where a per-member hop pays N; the index-cached members read the capsule's own cached tree in-process, and both legs reassemble by admission ordinal so the returned `Block` aligns with the input.
 - Law: every query is independent evidence, so the capsule holds a `Block[SpatialReceipt]` and `contribute` drains it on harvest — a single-slot hold publishes the last query of a batch and discards the rest, and an empty block yields NOTHING, because a harvest before the first query has no proximity pass to publish and a zero-filled construction would report a clean pass no kernel ran.
 - Entry: `query` is the one polymorphic read and `benched` its macro-bench, both threading the capsule's composition `ScopeKey` so an embedded root's bench receipts partition from the process root's.
@@ -32,10 +32,10 @@ from expression import Nothing, Ok, Option, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 
-from rasm.geometry.graduation import EvidenceScope, bench_seam, bench_subject
+from rasm.geometry.graduation import EvidenceScope, GeometryLeg, bench_seam, bench_subject
 from rasm.geometry.mesh.quality import ArmOutcome, armed
 from rasm.geometry.mesh.repair import ManifoldTier, to_manifold
-from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.faults import TERMINAL, Catch, FaultRow, RuntimeRail, boundary, rostered
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.profiles import BenchmarkReceipt
 from rasm.runtime.receipts import DEFAULT_SCOPE, Phase, Receipt, ScopeKey
@@ -49,6 +49,7 @@ lazy import fcl
 
 type QueryKind = Literal["proximity", "ray", "contains", "bounds", "nearest", "clearance", "sample"]
 type Witness = tuple[tuple[float, float, float], tuple[float, float, float]]
+type Gap = tuple[float, Option[Witness]]  # the measured separation beside the witness pair only the FCL arm carries
 type SpatialArm = ArmOutcome[SpatialResult, SpatialReceipt]
 
 
@@ -102,7 +103,10 @@ class SpatialResult:
     contains: np.ndarray = case()
     bounds: tuple[np.ndarray, ...] = case()
     nearest: tuple[np.ndarray, ...] = case()
-    clearance: tuple[float, Witness | None] = case()
+    # both slots ride `Option`: a floor resolving no narrow-phase provider and an open pair MEASURE NO GAP, and the
+    # retired `float("nan")` was a magnitude a consumer could compare, sort, and average like a real separation. The
+    # exact `manifold3d` arm measures a gap and carries no witness, so the two absences are independent by construction.
+    clearance: tuple[Option[float], Option[Witness]] = case()
     sample: tuple[np.ndarray, np.ndarray, np.ndarray] = case()
 
     @staticmethod
@@ -128,9 +132,9 @@ class SpatialResult:
         return SpatialResult(nearest=candidates)
 
     @staticmethod
-    def Clearance(gap: float, witness: Witness | None = None) -> "SpatialResult":
-        # witness contact pair rides the fcl arm (`DistanceResult.nearest_points`); the exact
-        # manifold3d gap carries no witness — one case, backend-shaped payload.
+    def Clearance(gap: Option[float] = Nothing, witness: Option[Witness] = Nothing) -> "SpatialResult":
+        # witness contact pair rides the fcl arm (`DistanceResult.nearest_points`); the exact manifold3d gap carries no
+        # witness, and an invalid verdict carries neither — one case, backend-shaped payload, absence as a carrier.
         return SpatialResult(clearance=(gap, witness))
 
     @staticmethod
@@ -145,20 +149,37 @@ class SpatialResult:
 # capsule mesh's cached `triangles_tree` R-tree a per-hop worker rebuild would forfeit.
 _OFFLOAD: Final[frozenset[QueryKind]] = frozenset(("proximity", "ray", "contains", "clearance", "sample"))
 
+# the numpy/trimesh degenerate-array vocabulary the in-process leg reaches: a zero-cell reduction, an out-of-range
+# probe index, and a non-float box buffer are the three shapes a caller's own query can hand the cached R-tree.
+_INDEX_RAISES: Final[Catch] = (IndexError, TypeError, ValueError)
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this module's whole raise roster: the ONE fenced leg anchors one row — the batch-heavy leg's refusals arrive already
+# railed from the lane crossing — so the sweep spells no subject and the `rostered` door seats the row on the branch
+# census, proving `geometry.mesh.spatial` against a real module at import. TERMINAL: a degenerate query refuses
+# identically on every re-issue.
+SPATIAL_INDEXED: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.SPATIAL, point="indexed", arm="boundary", defect="index-read-refused", retriability=TERMINAL
+)
+RAISES: Final[Block[FaultRow[GeometryLeg]]] = rostered(Block.of_seq([SPATIAL_INDEXED]))
+
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class SpatialReceipt(Struct, frozen=True, gc=False):
-    # `tier` is `None` on every kind no provider tier answered, so the fact projection omits it rather than naming
-    # a backend that took no part in the read.
+    # ABSENT `tier` means the read consulted NO narrow-phase provider at all — every kind but `clearance` answers
+    # without one, and a `clearance` on a floor resolving neither tier answered invalid without one either. The slot
+    # rides the branch's absence carrier rather than a `None` the arm had to manufacture: `_arm` already holds the
+    # tier as an `Option`, so the retired `.default_value(None)` collapsed a carrier the receipt then re-tested.
     kind: QueryKind
     offloaded: bool
     query_count: int
     hit_count: int
     valid: bool
     indexed: bool
-    tier: ManifoldTier | None = None
+    tier: Option[ManifoldTier] = Nothing
 
     def fact(self) -> tuple[Phase, QueryKind, dict[str, object]]:
         phase: Phase = "emitted" if self.valid else "admitted"
@@ -167,7 +188,7 @@ class SpatialReceipt(Struct, frozen=True, gc=False):
             "queries": self.query_count,
             "hits": self.hit_count,
             "indexed": self.indexed,
-        } | ({} if self.tier is None else {"tier": self.tier.value})
+        } | self.tier.map(lambda held: {"tier": held.value}).default_value({})
         return phase, self.kind, facts  # subject is the query kind
 
 
@@ -205,14 +226,15 @@ def _arm(q: SpatialQuery, result: SpatialResult, queries: int, hits: int, *, val
     # one construction site for the payload/evidence pair every arm returns: the work class derives `offloaded` and
     # `indexed` from the kind alone, so no arm threads a routing flag it cannot recover from the query itself.
     offloaded = q.tag in _OFFLOAD
-    return ArmOutcome(result, SpatialReceipt(q.tag, offloaded, queries, hits, valid, not offloaded, tier.default_value(None)))
+    return ArmOutcome(result, SpatialReceipt(q.tag, offloaded, queries, hits, valid, not offloaded, tier))
 
 
-def _gap(mesh: trimesh.Trimesh, other: trimesh.Trimesh, search_length: float, tier: "Option[ManifoldTier]") -> "Option[tuple[float, Witness | None]]":
+def _gap(mesh: trimesh.Trimesh, other: trimesh.Trimesh, search_length: float, tier: "Option[ManifoldTier]") -> "Option[Gap]":
     # tier-selected narrow phase; `Nothing` is the unprovisioned floor, answered as an invalid verdict by the caller.
+    # The exact arm measures a gap and OMITS the witness the FCL arm carries, so the two absences never collapse.
     match tier:
         case Option(tag="some", some=ManifoldTier.EXACT):
-            return Some((float(to_manifold(mesh).min_gap(to_manifold(other), search_length)), None))
+            return Some((float(to_manifold(mesh).min_gap(to_manifold(other), search_length)), Nothing))
         case Option(tag="some", some=ManifoldTier.FCL_WITNESS):
             return Some(_fcl_gap(mesh, other))
         case _:
@@ -260,8 +282,8 @@ def _dispatch(mesh: trimesh.Trimesh, q: SpatialQuery, tier: "Option[ManifoldTier
             # unprovisioned floor answer the SAME invalid verdict, never an import crash inside the worker.
             gapped = _gap(mesh, other, search_length, tier) if bool(mesh.is_watertight and other.is_watertight) else Nothing
             return gapped.map(
-                lambda pair: _arm(q, SpatialResult.Clearance(*pair), 1, int(pair[0] <= search_length), valid=True, tier=tier)
-            ).default_with(lambda: _arm(q, SpatialResult.Clearance(float("nan")), 1, 0, valid=False, tier=tier))
+                lambda pair: _arm(q, SpatialResult.Clearance(Some(pair[0]), pair[1]), 1, int(pair[0] <= search_length), valid=True, tier=tier)
+            ).default_with(lambda: _arm(q, SpatialResult.Clearance(), 1, 0, valid=False, tier=tier))
         case _ as unreachable:
             assert_never(unreachable)
 
@@ -281,14 +303,14 @@ def _bvh(mesh: trimesh.Trimesh) -> "fcl.CollisionObject":
     return fcl.CollisionObject(model)
 
 
-def _fcl_gap(mesh: trimesh.Trimesh, other: trimesh.Trimesh) -> tuple[float, Witness]:
+def _fcl_gap(mesh: trimesh.Trimesh, other: trimesh.Trimesh) -> Gap:
     # DIRECT narrow-phase read: signed separation and the witness pair — richer than the unsigned
     # CollisionManager.min_distance_single float veneer.
     request = fcl.DistanceRequest(enable_nearest_points=True, enable_signed_distance=True)
     result = fcl.DistanceResult()
     gap = float(fcl.distance(_bvh(mesh), _bvh(other), request, result))
     a, b = result.nearest_points
-    return gap, (tuple(float(v) for v in a), tuple(float(v) for v in b))
+    return gap, Some((tuple(float(v) for v in a), tuple(float(v) for v in b)))
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -320,7 +342,9 @@ class MeshSpatial:  # structural ReceiptContributor conformance — no subclass
         # offload plus one in-process fence rather than a crossing per member, and a faulted leg refuses the sweep.
         rows = queries.mapi(lambda i, one: (i, one))
         heavy, light = rows.partition(lambda row: row[1].tag in _OFFLOAD)
-        indexed = boundary("mesh.spatial.indexed", lambda: light.map(lambda row: (row[0], _dispatch(self._mesh, row[1], self._tier))))
+        indexed = boundary(
+            SPATIAL_INDEXED, lambda: light.map(lambda row: (row[0], _dispatch(self._mesh, row[1], self._tier))), catch=_INDEX_RAISES
+        )
         return (await self._heavy(heavy)).map2(indexed, lambda a, b: Map.of_seq(a.append(b))).map(self._ordered)
 
     async def _heavy(self, rows: Block[tuple[int, SpatialQuery]]) -> "RuntimeRail[Block[tuple[int, SpatialArm]]]":

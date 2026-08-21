@@ -13,7 +13,7 @@ Authoring is DATA over the closed grammar: a `SchematicSpec` carries `SymbolRow`
 - Owner: `Schematic` the one producer `(spec, theme, mode, lane)` — it resolves the spec case onto the schemdraw canvas in a single authoring fold, renders once through the standalone SVG backend, and mints one receipt; the element vocabulary is the provider's closed catalog addressed by NAME (`elements.Resistor`, `flow.Decision`, `dsp.Adc`, `logic.Nand` resolve by row string), so a new symbol is a data row, never a method.
 - Cases: `SchematicSpec` closes the domain union — `circuit`/`flow`/`dsp` each a `SymbolRow` tuple authored by relative anchor chains, `logic` a boolean expression `parsing.logicparse` lays out via its Buchheim tree (never the corpus routing engine), `kmap`/`truth_table`/`timing`/`bitfield` the data-driven owners from dict payloads — one total `match` closed by `assert_never`. `SymbolRow` is the whole placement grammar as data: `at` names a prior row's anchor (`"U1.out"`), `anchor` seats one of the row's own anchors, `tox`/`toy` stretch a two-terminal element coordinate-free to another anchor's axis, `theta` overrides the cardinal `direction`, `flip`/`reverse`/`scale` mirror and size, `dot`/`idot` add connection dots, `pins` builds an `Ic`/`Multiplexer` from `PinRow`s, and `style` is the closed `DiagramStyle` member `Theme.diagram_ink(mode, style)` resolves.
 - Entry: `emit()` returns ONE `ArtifactWork` keyed PRE-RUN through `ContentIdentity.key` over the canonical field set the runtime `IdentitySource.parts` fold frames at its one owner (each field length-prefixed under a framed count, so no re-partition of the same bytes collides) — spec⊕theme⊕mode, so `receipt.slot == node.key` and keyed elision holds; `_emit` authors, renders, and mints `ArtifactReceipt.Diagram(key, kind, nodes, edges, "schemdraw", bytes)` — `nodes` the placed-element tally, `edges` the anchored-connection tally (default chains, `at=` anchors, and `tox`/`toy` stretches; provider-authored logic networks count their materialized wire elements), `bytes` the emitted SVG length.
-- Auto: the authoring+render fold offloads through `self.lane.offload(Kernel.of(..., KernelTrait.RELEASING))` because the subinterpreter cannot load schemdraw's `ziafont`/`ziamath` render path; `use('svg')` + `svgconfig.text = 'path'` set ONCE at the rail boundary through the cached `_svg_backend` gate, never re-assigned per render. Admission errors land together in `SchematicFault.admission`; a pin-mismatched constructor or unsupported verb lands `element`; an unresolved provider anchor lands `anchor`; `logicparse` or a malformed structured payload lands `parse`; a backend refusal lands `render`; any remaining provider construction refusal lands `provider`. `BoundaryFault.boundary` closes the interior rail at the runtime seam.
+- Auto: the authoring+render fold offloads through `self.lane.offload(Kernel.of(..., KernelTrait.RELEASING))` because the subinterpreter cannot load schemdraw's `ziafont`/`ziamath` render path; `use('svg')` + `svgconfig.text = 'path'` set ONCE at the rail boundary through the cached `_svg_backend` gate, never re-assigned per render. Admission errors land together in `SchematicFault.admission`; a pin-mismatched constructor or unsupported verb lands `element`; an unresolved provider anchor lands `anchor`; `logicparse` or a malformed structured payload lands `parse`; a backend refusal lands `render`; any remaining provider construction refusal lands `provider`. The whole `SchematicFault` crosses the runtime seam on `BoundaryFault.domain` under the `SCHEMATIC_RENDER` coordinate, so the accumulated admission set and every other case survive as matchable evidence rather than as their tag spelling.
 - Growth: a new symbol is one row (the registry resolves the provider catalog by name); a new domain one `SchematicSpec` case plus one authoring arm; a new placement verb one `SymbolRow` field mapped to one fluent call; a new aesthetic axis one theme diagram row; zero new surface for a new consumer.
 - Boundary: no generic graph layout or routing (`visualization/diagram/layout#LAYOUT`'s engines), no seven-mark rendering (`visualization/diagram/draw#DRAW`'s), no custom `Segment*`/`ElementCompound` geometry (`drawing/symbol#SYMBOL`'s), no rasterization or matplotlib backend (the standalone SVG backend is the egress), no receipt or identity beyond the runtime mint; hand-emitted SVG, imperative consumer canvas code, a parallel symbol vocabulary, an unconstructed fault case, and a subinterpreter offload of the ziafont-bound kernel are the rejected forms.
 
@@ -23,16 +23,18 @@ from collections.abc import Mapping
 from enum import StrEnum
 from functools import cache, partial
 from math import isfinite
-from typing import Literal, assert_never
+from typing import Final, Literal, assert_never
 
 from expression import Error, Ok, Result, case, tag, tagged_union
+from expression.collections import Block
 from msgspec import Struct, json
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.graphic.layer import EDITORIAL, LayerContent, LayerIntent, LayerMeta, LayerNode, LayerPlan
 from rasm.artifacts.graphic.style import DiagramStyle, Theme, ThemeMode
-from rasm.runtime.faults import BoundaryFault, RuntimeRail
+from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, rostered
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -63,6 +65,17 @@ class SchematicKind(StrEnum):  # receipt kind facet — one member per Schematic
 # --- [CONSTANTS] ------------------------------------------------------------------------
 _CANON = json.Encoder(order="deterministic")
 
+
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's ONE raise anchor: the authoring+render fold is a single fence, and the `SchematicFault` case already
+# separates an admission set from an element, anchor, parse, render, or provider refusal. TRANSIENT — a backend
+# refusal is a defect a re-issue under repaired inputs may clear.
+SCHEMATIC_RENDER: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.SCHEMATIC, point="render", arm="boundary", defect="schematic-refused", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([SCHEMATIC_RENDER]))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class PinRow(Struct, frozen=True):
@@ -169,7 +182,7 @@ class Schematic(Struct, frozen=True):
         drawn = await self.lane.offload(Kernel.of(self._render, KernelTrait.RELEASING))
         return drawn.bind(
             lambda inner: inner.map(lambda r: ArtifactReceipt.Diagram(key, r[1].value, r[2], r[3], "schemdraw", len(r[0]))).map_error(
-                lambda fault: BoundaryFault(boundary=("diagram.schematic", fault.tag))
+                lambda fault: BoundaryFault(domain=(SCHEMATIC_RENDER.subject, fault))
             )
         )
 

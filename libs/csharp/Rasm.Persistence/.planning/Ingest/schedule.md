@@ -2,7 +2,7 @@
 
 Rasm.Persistence ingests and emits project-schedule files through ONE `ScheduleSource` owner over the `MPXJ.Net` interchange codec: ~20 read dialects (P6 `XER`/`PMXML`, MS Project `.mpp`/`MSPDI`/`MPX`, Asta, Phoenix, Planner, SDEF, …) materialize into the neutral `ProjectFile` graph through ONE format-sniffing ingress — `new UniversalProjectReader().ReadAll(string|Stream)` — and the WRITE half serializes back OUT through ONE egress — `new UniversalProjectWriter(FileFormat).Write(ProjectFile|IList<ProjectFile>, …)` — over the seven writable `FileFormat` members the `ScheduleFormat` `[SmartEnum<string>]` freezes, so the durable store round-trips a P6/MS-Project schedule in both directions and never truncates a multi-project XER container: the ingress is ALWAYS `ReadAll` (a single-project file is the one-element container, arity recoverable from the yield, never a `multi` knob), and the egress arity is the graph's own count (`Write(file)` at one, `Write(files, …)` past one). This persisted payload is the durable activity-network DAG a scheduling store keeps — the full `ScheduleActivity` row (schedule/actual/baseline windows, duration/work/cost, slack, constraint, WBS and activity ids, critical/milestone flags), the predecessor/successor/`DependencyKind`/lag `TaskRelation` rows (the CPM edge set), the working-time `WorkCalendarRow` weekly pattern with date-ranged `WeekRow` overrides and per-exception shift windows, and the `ResourceRow`/`ResourceAvailabilityRow`/`AssignmentRow` loading and capacity — reconstructed on the write leg through `Relation.Builder(ProjectFile)`, `Duration.GetInstance(double, TimeUnit)`, `Availability(DateTime?, DateTime?, double?)`, and the calendar day/hour surface, so the store's rows, not a retained foreign object, are the system of record.
 
-This codec NEVER knows the element graph and NEVER computes schedule math: the per-app schedule→element map (the wire-composition owner at the host/app composition root, the `ARCHITECTURE.md` `[02]-[SEAMS]` `Ingest → Rasm.Element` row-shape law) projects each activity row into a `Rasm.Element` graph node, and the CPM forward/backward pass, resource leveling, and 4D sequencing live in `Rasm.Bim` (the `TaskRelation` rows are exactly the `SequenceRel` DAG its QuikGraph `SourceFirstBidirectionalTopologicalSort` orders — the `Rasm.Bim/Planning/schedule` counterpart, widened read→round-trip along the `[02]-[SEAMS]` `Ingest ↔ Rasm.Bim` `TaskRelation` wire). `ScheduleRows.Reconcile` correlates a fresh progress-update import by `ActivityId`, then WBS, then file key and yields `ScheduleVariance` over every durable axis: activity scope and value changes, relation topology and lag, assignment loading, calendar patterns and recurrence, resource economics, and project anchors. This IKVM boundary is ONE seam: every `MPXJ.Net` proxy carries a `JavaObject` handle behind `IHasJavaObject`/`IJavaObjectProxy<T>`, and `ProjectRows.Of`/`Synthesis.Fold` are the only members that touch a proxy type — the handle never threads into a durable row, durations and lags cross unit-tagged as `Option<ScheduleSpan>` through the closed `ScheduleUnit` vocabulary, local wall stamps cross as NodaTime `LocalDateTime`/`LocalDate`, and the four `RelationType` members cross once through `DependencyKind` with the ten `ConstraintType` members crossing through `ConstraintKind`. Both legs fold every codec exception through one `ScheduleFault.Lift` funnel into `Validation<ScheduleFault, …>` at the row boundary — a null `ReadAll` yield rails `UnknownDialect`, an absent requested project rails `ProjectMissing`, a codec throw rails `CodecReject`, and `Semigroup`/`Aggregate` keeps accumulation manufacturable — with `Code => FaultBand.Schedule + n` off the `Element/graph#FAULT_TABLES` registry and every fact riding the `ScheduleFactKind`-discriminated stream under `store.schedule.*`. `Origin` arrives from `Ingest/tabular#TABULAR_SOURCE`; `ProjectionContext` from `Element/graph#STORE_RAIL`; `FaultBand` from `Element/graph#FAULT_TABLES`; `ReceiptSinkPort` from AppHost.
+This codec NEVER knows the element graph and NEVER computes schedule math: the per-app schedule→element map (the wire-composition owner at the host/app composition root, the `ARCHITECTURE.md` `[02]-[SEAMS]` `Ingest → Rasm.Element` row-shape law) projects each activity row into a `Rasm.Element` graph node, and the CPM forward/backward pass, resource leveling, and 4D sequencing live in `Rasm.Bim` (the `TaskRelation` rows are exactly the `SequenceRel` DAG its QuikGraph `SourceFirstBidirectionalTopologicalSort` orders — the `Rasm.Bim/Planning/schedule` counterpart, widened read→round-trip along the `[02]-[SEAMS]` `Ingest ↔ Rasm.Bim` `TaskRelation` wire). `ScheduleRows.Reconcile` correlates a fresh progress-update import by `ActivityId`, then WBS, then file key and yields `ScheduleVariance` over every durable axis: activity scope and value changes, relation topology and lag, assignment loading, calendar patterns and recurrence, resource economics, and project anchors. This IKVM boundary is ONE seam: every `MPXJ.Net` proxy carries a `JavaObject` handle behind `IHasJavaObject`/`IJavaObjectProxy<T>`, and `ProjectRows.Of`/`Synthesis.Fold` are the only members that touch a proxy type — the handle never threads into a durable row, durations and lags cross unit-tagged as `Option<ScheduleSpan>` through the closed `ScheduleUnit` vocabulary, local wall stamps cross as NodaTime `LocalDateTime`/`LocalDate`, and the four `RelationType` members cross once through `DependencyKind` with the ten `ConstraintType` members crossing through `ConstraintKind`. Every nullable proxy column admits ONCE at that seam into an evidence-carrying row and the interior never re-reads a proxy: an identity is ADMITTED rather than defaulted (a `?? 0` fallback collided every keyless task onto one key and pointed every keyless edge at whatever held it), a nullable text column crosses as `Option` exactly as `WBS` and `ActivityID` already did rather than as a `""` a receipt reads as a real name, and an unreported percentage stays absent rather than becoming a measured zero an earned-value read trusts. Both legs fold every codec exception through one `ScheduleFault.Lift` funnel into `Validation<Error, …>` at the row boundary — a null `ReadAll` yield rails `UnknownDialect`, an absent requested project rails `ProjectMissing`, an unkeyed row or unanchored calendar exception rails `RowUnkeyed`, a codec throw rails `CodecReject`, and applicative traversal accumulates every offending row as `Error.Many` — with each case seating one `[FaultCase]` ordinal whose `Offset` codes it on the `FaultBand.StoreSchedule` decade and every fact riding the `ScheduleFactKind`-discriminated stream under `store.schedule.*`. `Origin` arrives from `Ingest/tabular#TABULAR_SOURCE`; `ProjectionContext` from `Element/graph#STORE_RAIL`; `FaultBand` from the `Rasm/Domain/rails#FAULT_BAND` roster; `ReceiptSinkPort` from AppHost.
 
 ## [01]-[INDEX]
 
@@ -11,18 +11,17 @@ This codec NEVER knows the element graph and NEVER computes schedule math: the p
 
 ## [02]-[SCHEDULE_SOURCE]
 
-- Owner: `ScheduleFormat` the `[SmartEnum<string>]` egress axis frozen to the seven writable `FileFormat` members; `DependencyKind` the four CPM dependency modalities carrying `RelationType`; `ConstraintKind` the ten constraint modalities carrying `ConstraintType`; `ScheduleUnit` the fourteen unit and elapsed-unit rows carrying `TimeUnit`; `ScheduleSpec` the `[ComplexValueObject]` fixing `Origin` with the optional project selector; `ScheduleOp` the closed `Parse | Serialize | Probe` family; `ScheduleYield` the closed `Projects | Written | Profile` result; `ScheduleFault` the closed row-boundary fault band; `ScheduleFactKind` the closed receipt vocabulary; `ScheduleFact` the receipt record; `ScheduleSource` the one `Run` dispatch.
-- Cases: `ScheduleOp.Parse(ScheduleSpec)` reads the container through `ReadAll`, validates the selector, and projects each `ProjectFile` into `ScheduleProject`; `ScheduleOp.Serialize(ScheduleSpec, ScheduleFormat, Seq<ScheduleProject>)` synthesizes the durable rows and writes the target format; `ScheduleOp.Probe(ScheduleSpec)` yields the per-project `ScheduleProfile` roster; `ScheduleFault` is `CodecReject | UnknownDialect | ProjectMissing | Aggregate`; `ScheduleFactKind` is `Parse | Write | Probe`.
-- Entry: `public static IO<Validation<ScheduleFault, ScheduleYield>> Run(ScheduleOp op, ProjectionContext frame, Func<ScheduleFact, IO<Unit>> sink)` — ONE polymorphic entry discriminating the closed op union through the generated total `Switch` (a new modality is one case that breaks this dispatch at compile time), folding both legs through the `Capture` funnel so the receipt path never sees a thrown codec exception.
-- Auto: the parse leg opens the `Origin` (path or caller-owned stream) once, calls `ReadAll` — NEVER the single-project `Read`, which silently truncates a multi-project XER to its first project, and NEVER an extension branch, because the reader format-sniffs — then projects each `ProjectFile` through `ProjectRows.Of`, the ONE IKVM seam: activities from the flat `Tasks` container with the WBS parent threaded from `ChildTasks` reachability, the dependency network from each `Task.Predecessors` (`IList<Relation>` — reading one side of the symmetric pair so an edge lands once), the full calendar record (weekly day pattern via `GetCalendarDayType`/`GetCalendarHours`, `WorkWeeks` overrides, per-exception shift windows), resources and loading from `Resources`/`ResourceAssignments`; the serialize leg folds each `ScheduleProject` through `Synthesis.Fold` — anchor properties re-stamped, calendars rebuilt day-by-day (`SetWorkingDay`/`AddCalendarHours`/`AddWorkWeek`/`AddCalendarException` with each PERSISTED shift range re-added, never a fixed default shift), WBS children minted THROUGH their parent (`Task.AddTask()`), `Relation.Builder(file).PredecessorTask(pred).SuccessorTask(succ).Type(kind.Wire)` per relation with `.Lag(lag.Wire)` applied only on a present lag, `AddResource` and `Task.AddResourceAssignment(Resource)` per loading row — then writes through ONE `UniversalProjectWriter(to.Wire)` whose arity is the graph count; the probe leg reads `ProjectProperties` (`FileType` the parsed source dialect, `FileApplication`, `ProjectTitle`) and the container's task/relation counts, so a dialect census never pays `ProjectRows.Of` projection.
+- Owner: `ScheduleFormat` the `[SmartEnum<string>]` egress axis frozen to the seven writable `FileFormat` members; `DependencyKind` the four CPM dependency modalities carrying `RelationType`; `ConstraintKind` the ten constraint modalities carrying `ConstraintType`; `ScheduleUnit` the fourteen unit and elapsed-unit rows carrying `TimeUnit`; `DayKind` the three calendar day types carrying `DayType`; `RecurrenceEnd` the closed recurrence-termination family; `ScheduleSpec` the `[ComplexValueObject]` fixing `Origin` with the optional project selector; `ScheduleOp` the closed `Parse | Serialize | Probe` family; `ScheduleYield` the closed `Projects | Written | Profile` result; `[FaultCase]` the fault roster realizing the kernel `[FaultCase]` floor over the `StoreSchedule` row; `ScheduleFault` the closed row-boundary family above it; `ScheduleFactKind` the closed receipt vocabulary; `ScheduleFact` the receipt record; `ScheduleSource` the one `Run` dispatch.
+- Cases: `ScheduleOp.Parse(ScheduleSpec)` reads the container through `ReadAll`, validates the selector, and projects each `ProjectFile` into `ScheduleProject`; `ScheduleOp.Serialize(ScheduleSpec, ScheduleFormat, Seq<ScheduleProject>)` synthesizes the durable rows and writes the target format; `ScheduleOp.Probe(ScheduleSpec)` yields the per-project `ScheduleProfile` roster; `ScheduleFault` is `CodecReject | UnknownDialect | ProjectMissing | RowUnkeyed`; independent row failures accumulate as `Error.Many`. `ScheduleFactKind` is `Parse | Write | Probe`.
+- Entry: `public static IO<Validation<Error, ScheduleYield>> Run(ScheduleOp op, ProjectionContext frame, Func<ScheduleFact, IO<Unit>> sink)` — ONE polymorphic entry discriminating the closed op union through the generated total `Switch` (a new modality is one case that breaks this dispatch at compile time), folding both legs through the `Capture` funnel so the receipt path never sees a thrown codec exception.
+- Auto: the parse leg opens the `Origin` (path or caller-owned stream) once, calls `ReadAll` — NEVER the single-project `Read`, which silently truncates a multi-project XER to its first project, and NEVER an extension branch, because the reader format-sniffs — then projects each `ProjectFile` through `ProjectRows.Of`, the ONE IKVM seam, where every nullable proxy column ADMITS — an identity refuses rather than defaulting to a key every other keyless row shares, and a nullable name, percentage, or currency crosses as `Option` — with the refusals accumulating across every family so one report names every offending row: activities from the flat `Tasks` container with the WBS parent threaded from `ChildTasks` reachability, the dependency network from each `Task.Predecessors` (`IList<Relation>` — reading one side of the symmetric pair so an edge lands once), the full calendar record (weekly day pattern via `GetCalendarDayType`/`GetCalendarHours`, `WorkWeeks` overrides, per-exception shift windows), resources and loading from `Resources`/`ResourceAssignments`; the serialize leg folds each `ScheduleProject` through `Synthesis.Fold` — anchor properties re-stamped, calendars rebuilt day-by-day (`SetWorkingDay`/`AddCalendarHours`/`AddWorkWeek`/`AddCalendarException` with each PERSISTED shift range re-added, never a fixed default shift), WBS children minted THROUGH their parent (`Task.AddTask()`), `Relation.Builder(file).PredecessorTask(pred).SuccessorTask(succ).Type(kind.Wire)` per relation with `.Lag(lag.Wire)` applied only on a present lag, `AddResource` and `Task.AddResourceAssignment(Resource)` per loading row — then writes through ONE `UniversalProjectWriter(to.Wire)` whose arity is the graph count; the probe leg reads `ProjectProperties` (`FileType` the parsed source dialect, `FileApplication`, `ProjectTitle`) and the container's task/relation counts, so a dialect census never pays `ProjectRows.Of` projection.
 - Receipt: every op rides a `ScheduleFact` through the `ReceiptSinkPort` message envelope under `store.schedule.*` — a `parse` fact carrying the source dialect, project count, and activity/relation totals; a `write` fact carrying the target format key, project count, and activity/relation totals; a `probe` fact carrying the dialect roster size — one kind-discriminated stream, never parallel receipt records; the message envelope stamps the HLC, the fact carrying `frame.Now()` as its own observation instant.
-- Packages: MPXJ.Net (`UniversalProjectReader.ReadAll`, `UniversalProjectWriter(FileFormat).Write` single and `IList` arities, `FileFormat`, `ProjectFile.Tasks`/`ChildTasks`/`Calendars`/`Resources`/`ResourceAssignments`/`ProjectProperties`/`AddTask`/`AddResource`/`AddCalendar`/`GetTaskByUniqueID`/`GetResourceByUniqueID`, `Task` schedule/early/late/actual/baseline/constraint/WBS accessors + `AddResourceAssignment`, `Relation.Builder`/`PredecessorTask`/`SuccessorTask`/`Type`/`Lag`, `RelationType`, `ConstraintType`, `Duration.DurationValue`/`Units`/`GetInstance`, all `TimeUnit` rows, `ProjectCalendar.CalendarExceptions`/`WorkWeeks`/`Type`/`AddWorkWeek`/`AddCalendarException`, `ProjectCalendarDays.GetCalendarDayType`/`GetCalendarHours`/`SetWorkingDay`/`AddCalendarHours`, `DayType`, `TimeOnlyRange`, `DateOnlyRange`, `ResourceAssignment.Units`/`Work`/`Cost`/`BudgetCost`), Rasm.Persistence (`Element/graph#FAULT_TABLES` `FaultBand`, `Element/graph#STORE_RAIL` `ProjectionContext`, `Ingest/tabular#TABULAR_SOURCE` `Origin`), LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, BCL inbox.
-- Growth: a new writable dialect is one `ScheduleFormat` row carrying its `FileFormat` member (the read side grows upstream, zero rows here); a new durable axis is one row or member on the `#DURABLE_NETWORK` family; a new dependency semantics is one `DependencyKind` row; a new op modality is one `ScheduleOp` case breaking `Run` at compile time; a new boundary-fault class is one `ScheduleFault` case inside the registry decade; zero new surface — a hand-rolled XER/MSPDI parser, an extension-branched ingress, a `Read`-only lane that truncates containers, a parallel `ReadSchedule`/`WriteSchedule` name family beside the op union, CPM/leveling math inside the codec, or a schedule→element map inside this page is the deleted form because MPXJ owns parse/serialize, `Rasm.Bim` owns the schedule math, the op union owns modality, and the app composition root owns the element projection.
+- Packages: MPXJ.Net (`UniversalProjectReader.ReadAll`, `UniversalProjectWriter(FileFormat).Write` single and `IList` arities, `FileFormat`, `ProjectFile.Tasks`/`ChildTasks`/`Calendars`/`Resources`/`ResourceAssignments`/`ProjectProperties`/`AddTask`/`AddResource`/`AddCalendar`/`GetTaskByUniqueID`/`GetResourceByUniqueID`, `Task` schedule/early/late/actual/baseline/constraint/WBS accessors + `AddResourceAssignment`, `Relation.Builder`/`PredecessorTask`/`SuccessorTask`/`Type`/`Lag`, `RelationType`, `ConstraintType`, `Duration.DurationValue`/`Units`/`GetInstance`, all `TimeUnit` rows, `ProjectCalendar.CalendarExceptions`/`WorkWeeks`/`Type`/`AddWorkWeek`/`AddCalendarException`, `ProjectCalendarDays.GetCalendarDayType`/`GetCalendarHours`/`SetWorkingDay`/`AddCalendarHours`, `DayType` (all three members — `Default` is inheritance, not non-work), `TimeOnlyRange`, `DateOnlyRange`, `ResourceAssignment.Units`/`Work`/`Cost`/`BudgetCost`), Rasm (`Rasm/Domain/rails#FAULT_BAND` `FaultBand`), Rasm.Persistence (`Element/graph#STORE_RAIL` `ProjectionContext`, `Ingest/tabular#TABULAR_SOURCE` `Origin`), LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, BCL inbox.
+- Growth: a new writable dialect is one `ScheduleFormat` row carrying its `FileFormat` member (the read side grows upstream, zero rows here); a new durable axis is one row or member on the `#DURABLE_NETWORK` family; a new dependency semantics is one `DependencyKind` row; a new op modality is one `ScheduleOp` case breaking `Run` at compile time; a new boundary-fault class is one `ScheduleFault` case and one appended `[FaultCase]` ordinal at the next free offset; zero new surface — a hand-rolled XER/MSPDI parser, an extension-branched ingress, a `Read`-only lane that truncates containers, a parallel `ReadSchedule`/`WriteSchedule` name family beside the op union, CPM/leveling math inside the codec, or a schedule→element map inside this page is the deleted form because MPXJ owns parse/serialize, `Rasm.Bim` owns the schedule math, the op union owns modality, and the app composition root owns the element projection.
 - Boundary: `ScheduleSource` is the ONE schedule-file ingress/egress owner; spreadsheet/delimited lanes cannot parse binary MPP or P6 XER, and both codecs project into the same downstream record rail. Ingress always uses format-sniffed `ReadAll`; writes target the seven `FileFormat` members only. IKVM proxies remain inside `ProjectRows`/`Synthesis`; `ScheduleSpan` carries `ScheduleUnit`, absent durations remain `None`, and working-day arithmetic reads calendar rows. `← Rasm.Bim/Planning/schedule` consumes `TaskRelation` and `ScheduleSpan` for 4D/5D, and `→ Rasm.Element` receives row shape only.
 
 ```csharp signature
 using Rasm.Persistence.Element;
-using Expected = Rasm.Domain.Expected;
 using MpxjDuration = MPXJ.Net.Duration;
 
 // --- [TYPES] ----------------------------------------------------------------------------
@@ -111,6 +110,25 @@ public sealed partial class RecurrenceKind {
     };
 }
 
+// `DayType` is the EIGHTH foreign enum here and the one this page had collapsed to a `bool`: it carries
+// `Default` beside `Working`/`NonWorking`, so a working-week override inheriting its base calendar is no
+// non-working day, yet that bool read it as one and re-emitted it as one.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class DayKind {
+    public static readonly DayKind Working = new("working", DayType.Working);
+    public static readonly DayKind NonWorking = new("non-working", DayType.NonWorking);
+    public static readonly DayKind Inherited = new("inherited", DayType.Default);
+    public DayType Wire { get; }
+    private DayKind(string key, DayType wire) : this(key) => Wire = wire;
+    public static DayKind Of(DayType? wire) => wire switch {
+        DayType.Working => Working,
+        DayType.NonWorking => NonWorking,
+        _ => Inherited,
+    };
+}
+
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -194,16 +212,33 @@ public readonly record struct ScheduleSpan(double Magnitude, ScheduleUnit Unit) 
 
 public readonly record struct ShiftRow(TimeOnly From, TimeOnly To);
 
-public readonly record struct DayRow(DayOfWeek Day, bool Working, Seq<ShiftRow> Shifts);
+public readonly record struct DayRow(DayOfWeek Day, DayKind Kind, Seq<ShiftRow> Shifts);
 
-public readonly record struct WeekRow(string Name, Option<LocalDate> From, Option<LocalDate> To, Seq<DayRow> Days);
+public readonly record struct WeekRow(Option<string> Name, Option<LocalDate> From, Option<LocalDate> To, Seq<DayRow> Days);
 
+// `UseEndDate` selected which of `FinishDate`/`Occurrences` the wire means, so three columns encoded a two-case
+// choice and admitted two illegal corners — an end-date stance with no date and a count stance with no count.
+// NAMED LOSS: a row carrying BOTH a finish date and an occurrence count keeps only the arm `UseEndDate` named
+// authoritative; the other was dead data the wire itself ignores. WITNESS: `RecurrenceEnd.Of`.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record RecurrenceEnd {
+    private RecurrenceEnd() { }
+    public sealed record ByDate(LocalDate Finish) : RecurrenceEnd;
+    public sealed record ByCount(int Occurrences) : RecurrenceEnd;
+    public sealed record Open : RecurrenceEnd;
+
+    public static RecurrenceEnd Of(bool useEndDate, Option<LocalDate> finish, Option<int> occurrences) =>
+        useEndDate
+            ? finish.Match(Some: static date => (RecurrenceEnd)new ByDate(date), None: static () => new Open())
+            : occurrences.Match(Some: static count => (RecurrenceEnd)new ByCount(count), None: static () => new Open());
+}
+
+// `WorkingDaysOnly` and `Relative` STAY bools by the kernel capability law: they are independent `RecurringData`
+// switches mirrored one-to-one onto the wire with no illegal corner between them.
 public sealed record CalendarRecurrence(
     RecurrenceKind Kind,
     Option<LocalDate> Start,
-    Option<LocalDate> Finish,
-    Option<int> Occurrences,
-    bool UseEndDate,
+    RecurrenceEnd End,
     bool WorkingDaysOnly,
     bool Relative,
     Option<int> Frequency,
@@ -214,13 +249,15 @@ public sealed record CalendarRecurrence(
     public RecurringData Wire() {
         RecurringData recurrence = new() {
             RecurrenceType = Kind.Wire,
-            UseEndDate = UseEndDate,
+            UseEndDate = End is RecurrenceEnd.ByDate,
             WorkingDaysOnly = WorkingDaysOnly,
             Relative = Relative,
         };
         Start.Iter(date => recurrence.StartDate = date.ToDateOnly());
-        Finish.Iter(date => recurrence.FinishDate = date.ToDateOnly());
-        Occurrences.Iter(count => recurrence.Occurrences = count);
+        End.Switch(
+            byDate:  date => recurrence.FinishDate = date.Finish.ToDateOnly(),
+            byCount: count => recurrence.Occurrences = count.Occurrences,
+            open:    static _ => { });
         Frequency.Iter(frequency => recurrence.Frequency = frequency);
         Day.Iter(day => recurrence.DayOfWeek = day);
         DayNumber.Iter(day => recurrence.DayNumber = day);
@@ -230,16 +267,24 @@ public sealed record CalendarRecurrence(
     }
 }
 
+// DISTINCT-BY-DESIGN (E-P6 allowlist): the MPXJ boundary mirror of `ProjectCalendar` exceptions — the admission path
+// discriminates it from Fabrication `Kinematics/fleet`'s working-calendar vocabulary; a third spelling re-opens the seat.
 public readonly record struct CalendarException(
-    string Name, Option<LocalDate> From, Option<LocalDate> To, Option<CalendarRecurrence> Recurrence, Seq<ShiftRow> Shifts) {
+    Option<string> Name, Option<LocalDate> From, Option<LocalDate> To, Option<CalendarRecurrence> Recurrence, Seq<ShiftRow> Shifts) {
     public bool Working => !Shifts.IsEmpty;
+    // `Anchored` reports whether this row names a window to be PLACED in: a recurrence carries its own,
+    // otherwise the from-date opens one that the to-date closes, and neither present names none at all.
+    public bool Anchored => Recurrence.IsSome || From.IsSome;
 }
 
-public sealed record WorkCalendarRow(int Key, string Name, Option<CalendarKind> Kind, Seq<DayRow> Week, Seq<WeekRow> Overrides, Seq<CalendarException> Exceptions);
+public sealed record WorkCalendarRow(int Key, Option<string> Name, Option<CalendarKind> Kind, Seq<DayRow> Week, Seq<WeekRow> Overrides, Seq<CalendarException> Exceptions);
 
+// `Critical`, `Milestone`, and `Summary` STAY bools: they are the source tool's PARSED evidence on three
+// unrelated axes — a CPM verdict, a zero-duration shape, a hierarchy fact — re-emitted verbatim per this page's
+// own no-recompute law, with no corner law between them a set could state.
 public sealed record ScheduleActivity(
-    int Key, Option<int> Parent, string Name, Option<string> Wbs, Option<string> ActivityId,
-    double Percent, bool Critical, bool Milestone, bool Summary, Option<int> OutlineLevel,
+    int Key, Option<int> Parent, Option<string> Name, Option<string> Wbs, Option<string> ActivityId,
+    Option<double> Percent, bool Critical, bool Milestone, bool Summary, Option<int> OutlineLevel,
     Option<LocalDateTime> Start, Option<LocalDateTime> Finish,
     Option<LocalDateTime> EarlyStart, Option<LocalDateTime> EarlyFinish,
     Option<LocalDateTime> LateStart, Option<LocalDateTime> LateFinish,
@@ -265,7 +310,7 @@ public readonly record struct ResourceAvailabilityRow(
     Option<LocalDateTime> From, Option<LocalDateTime> To, Option<double> Units);
 
 public readonly record struct ResourceRow(
-    int Key, string Name, Option<string> Group, Option<ResourceKind> Kind,
+    int Key, Option<string> Name, Option<string> Group, Option<ResourceKind> Kind,
     Option<double> PeakUnits, Seq<ResourceAvailabilityRow> Availability,
     Option<int> Calendar, Option<double> Cost, Option<double> ActualCost, Option<double> OvertimeCost);
 
@@ -276,7 +321,7 @@ public readonly record struct AssignmentRow(
     Option<ScheduleSpan> RemainingWork, Option<double> RemainingCost);
 
 public sealed record ScheduleAnchor(
-    string Dialect, string Application, string Title, Option<ScheduleDirection> Direction,
+    Option<string> Dialect, Option<string> Application, Option<string> Title, Option<ScheduleDirection> Direction,
     Option<LocalDateTime> Start, Option<LocalDateTime> Finish, Option<LocalDateTime> Status, Option<LocalDateTime> Current,
     Option<string> Currency, Option<int> DefaultCalendar, Option<int> MinutesPerDay, Option<int> DaysPerMonth);
 
@@ -284,7 +329,7 @@ public sealed record ScheduleProject(
     ScheduleAnchor Anchor, Seq<ScheduleActivity> Activities, Seq<TaskRelation> Relations,
     Seq<WorkCalendarRow> Calendars, Seq<ResourceRow> Resources, Seq<AssignmentRow> Assignments);
 
-public readonly record struct ScheduleProfile(string Dialect, string Application, string Title, int Activities, int Relations);
+public readonly record struct ScheduleProfile(Option<string> Dialect, Option<string> Application, Option<string> Title, int Activities, int Relations);
 
 [ComplexValueObject]
 public sealed partial class ScheduleSpec {
@@ -293,20 +338,20 @@ public sealed partial class ScheduleSpec {
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Origin source, ref Option<string> project) {
         if (source is Origin.FromPath { Path: string path } && string.IsNullOrWhiteSpace(path)) {
-            validationError = ValidationError.Create("<schedule-spec-path>");
+            validationError = new ValidationError(string.Join(" | ", new object?[] { "<schedule-spec-path>" }));
         } else if (project.Map(string.IsNullOrWhiteSpace).IfNone(false)) {
-            validationError = ValidationError.Create("<schedule-spec-project>");
+            validationError = new ValidationError(string.Join(" | ", new object?[] { "<schedule-spec-project>" }));
         }
     }
 
-    public Validation<ScheduleFault, Seq<ProjectFile>> Selected(Seq<ProjectFile> container) => Project.Match(
+    public Validation<Error, Seq<ProjectFile>> Selected(Seq<ProjectFile> container) => Project.Match(
         Some: title => {
             Seq<ProjectFile> selected = container.Filter(project => project.ProjectProperties.ProjectTitle == title);
             return selected.IsEmpty
-                ? (Validation<ScheduleFault, Seq<ProjectFile>>)new ScheduleFault.ProjectMissing(title)
+                ? (Validation<Error, Seq<ProjectFile>>)new ScheduleFault.ProjectMissing(title)
                 : selected;
         },
-        None: () => (Validation<ScheduleFault, Seq<ProjectFile>>)container);
+        None: () => (Validation<Error, Seq<ProjectFile>>)container);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -326,42 +371,31 @@ public abstract partial record ScheduleYield {
 }
 
 // --- [ERRORS] ---------------------------------------------------------------------------
-[Union]
-public abstract partial record ScheduleFault : Expected, IValidationError<ScheduleFault>, Semigroup<ScheduleFault> {
-    private ScheduleFault() : base() { }
-    public sealed record CodecReject(string Detail) : ScheduleFault;
-    public sealed record UnknownDialect(string Probe) : ScheduleFault;
-    public sealed record ProjectMissing(string Title) : ScheduleFault;
-    public sealed record Aggregate(Seq<ScheduleFault> Faults) : ScheduleFault;
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ScheduleFault : Fault {
+    private static readonly FaultBand FamilyBand = FaultBand.StoreSchedule;
+    private ScheduleFault() { }
+    [FaultCase(0)]
+    public sealed partial record CodecReject(Error Cause) : ScheduleFault(), ICausedFault;
+    [FaultCase(1)]
+    public sealed partial record UnknownDialect(string Probe) : ScheduleFault();
+    [FaultCase(2)]
+    public sealed partial record ProjectMissing(string Title) : ScheduleFault();
+    [FaultCase(3)]
+    public sealed partial record RowUnkeyed(string Row, string Detail) : ScheduleFault();
 
-    public override int Code => FaultBand.Schedule + Switch(
-        codecReject:    static _ => 1,
-        unknownDialect: static _ => 2,
-        projectMissing: static _ => 3,
-        aggregate:      static _ => 4);
 
     public override string Message => Switch(
-        codecReject:    static c => $"<schedule-codec-reject:{c.Detail}>",
+        codecReject:    static c => $"<schedule-codec-reject:{c.Cause.Message}>",
         unknownDialect: static c => $"<schedule-unknown-dialect:{c.Probe}>",
         projectMissing: static c => $"<schedule-project-missing:{c.Title}>",
-        aggregate:      static c => $"<schedule-aggregate:{c.Faults.Count}>");
+        rowUnkeyed:     static c => $"<schedule-row-unkeyed:{c.Row}:{c.Detail}>");
 
-    public override string Category => Switch(
-        codecReject:    static _ => "Codec",
-        unknownDialect: static _ => "Dialect",
-        projectMissing: static _ => "Project",
-        aggregate:      static _ => "Aggregate");
-
-    public static ScheduleFault Create(string message) => new CodecReject(message);
-
-    public ScheduleFault Combine(ScheduleFault rhs) => (this, rhs) switch {
-        (Aggregate l, Aggregate r) => new Aggregate(l.Faults + r.Faults),
-        (Aggregate l, _) => new Aggregate(l.Faults.Add(rhs)),
-        (_, Aggregate r) => new Aggregate(this.Cons(r.Faults)),
-        _ => new Aggregate(Seq(this, rhs)),
+    public static Error Lift(Error boundary) => boundary switch {
+        Fault => boundary,
+        { Exception.Case: IOException or FormatException } => new CodecReject(boundary),
+        _ => boundary,
     };
-
-    public static ScheduleFault Lift(Exception boundary) => new CodecReject($"{boundary.GetType().Name}:{boundary.Message}");
 }
 
 [SmartEnum<string>]
@@ -373,7 +407,7 @@ public sealed partial class ScheduleFactKind {
     public static readonly ScheduleFactKind Probe = new("probe");
 }
 
-public readonly record struct ScheduleFact(ScheduleFactKind Kind, string Dialect, int Projects, long Activities, long Relations, Instant At);
+public readonly record struct ScheduleFact(ScheduleFactKind Kind, Option<string> Dialect, int Projects, long Activities, long Relations, Instant At);
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -382,16 +416,19 @@ public static class ScheduleSource {
     public static readonly Seq<StoreSlot> Slots =
         toSeq(ScheduleFactKind.Items).Map(static kind => StoreSlot.Create($"store.schedule.{kind.Key}"));
 
-    public static IO<Validation<ScheduleFault, ScheduleYield>> Run(ScheduleOp op, ProjectionContext frame, Func<ScheduleFact, IO<Unit>> sink) =>
+    public static IO<Validation<Error, ScheduleYield>> Run(ScheduleOp op, ProjectionContext frame, Func<ScheduleFact, IO<Unit>> sink) =>
         op.Switch(
             (frame, sink),
             parse:     static (s, p) => Parsed(p.Spec, s.frame, s.sink),
             serialize: static (s, w) => Serialized(w.Target, w.To, w.Graph, s.frame, s.sink),
             probe:     static (s, p) => Probed(p.Spec, s.frame, s.sink));
 
-    static IO<Validation<ScheduleFault, ScheduleYield>> Parsed(ScheduleSpec spec, ProjectionContext frame, Func<ScheduleFact, IO<Unit>> sink) =>
-        from rows in IO.lift(() => Container(spec).Bind(spec.Selected).Map(projects =>
-            (ScheduleYield)new ScheduleYield.Projects(projects.Map(ProjectRows.Of))))
+    // Row admission ACCUMULATES across the container: every unkeyed task, keyless edge, and unanchored calendar
+    // exception in every project reports in one refusal rather than the first one found.
+    static IO<Validation<Error, ScheduleYield>> Parsed(ScheduleSpec spec, ProjectionContext frame, Func<ScheduleFact, IO<Unit>> sink) =>
+        from rows in IO.lift(() => Container(spec).Bind(spec.Selected)
+            .Bind(projects => projects.Traverse(ProjectRows.Of).As())
+            .Map(static projects => (ScheduleYield)new ScheduleYield.Projects(projects)))
         from _ in rows.Match(
             Succ: y => y is ScheduleYield.Projects p
                 ? sink(new ScheduleFact(ScheduleFactKind.Parse, Dialect(p.Rows), p.Rows.Count, p.Rows.Sum(static r => (long)r.Activities.Count), p.Rows.Sum(static r => (long)r.Relations.Count), frame.Now()))
@@ -399,40 +436,46 @@ public static class ScheduleSource {
             Fail: _ => IO.pure(unit))
         select rows;
 
-    static IO<Validation<ScheduleFault, ScheduleYield>> Serialized(ScheduleSpec target, ScheduleFormat to, Seq<ScheduleProject> graph, ProjectionContext frame, Func<ScheduleFact, IO<Unit>> sink) =>
-        from done in IO.lift(() => Capture(() => {
-            Seq<ProjectFile> files = graph.Map(Synthesis.Fold);
+    static IO<Validation<Error, ScheduleYield>> Serialized(ScheduleSpec target, ScheduleFormat to, Seq<ScheduleProject> graph, ProjectionContext frame, Func<ScheduleFact, IO<Unit>> sink) =>
+        from done in IO.lift(() => graph.Traverse(Synthesis.Fold).As().Bind(files => Capture(() => {
             target.Source.Read(
                 path:   p => { Write(to, files, p); return unit; },
                 stream: s => { Write(to, files, s); return unit; });
             return (ScheduleYield)new ScheduleYield.Written(files.Count);
-        }))
+        })))
         from _ in done.Match(
             Succ: _ => sink(new ScheduleFact(
-                ScheduleFactKind.Write, to.Key, graph.Count,
+                ScheduleFactKind.Write, Some(to.Key), graph.Count,
                 graph.Sum(static r => (long)r.Activities.Count), graph.Sum(static r => (long)r.Relations.Count), frame.Now())),
             Fail: _ => IO.pure(unit))
         select done;
 
-    static IO<Validation<ScheduleFault, ScheduleYield>> Probed(ScheduleSpec spec, ProjectionContext frame, Func<ScheduleFact, IO<Unit>> sink) =>
+    // Probing reads properties alone and spans a whole roster, so its fact names NO single dialect rather than
+    // an empty string a census counts as one.
+    static IO<Validation<Error, ScheduleYield>> Probed(ScheduleSpec spec, ProjectionContext frame, Func<ScheduleFact, IO<Unit>> sink) =>
         from roster in IO.lift(() => Container(spec).Bind(spec.Selected).Map(projects =>
             (ScheduleYield)new ScheduleYield.Profile(projects.Map(static p => new ScheduleProfile(
-                p.ProjectProperties.FileType ?? "", p.ProjectProperties.FileApplication ?? "",
-                p.ProjectProperties.ProjectTitle ?? "", p.Tasks.Count, p.Tasks.Sum(static t => t.Predecessors.Count))))))
+                ProjectRows.Text(p.ProjectProperties.FileType), ProjectRows.Text(p.ProjectProperties.FileApplication),
+                ProjectRows.Text(p.ProjectProperties.ProjectTitle), p.Tasks.Count, p.Tasks.Sum(static t => t.Predecessors.Count))))))
         from _ in roster.Match(
             Succ: y => y is ScheduleYield.Profile profile
-                ? sink(new ScheduleFact(ScheduleFactKind.Probe, "", profile.Roster.Count, 0L, 0L, frame.Now()))
+                ? sink(new ScheduleFact(ScheduleFactKind.Probe, None, profile.Roster.Count, 0L, 0L, frame.Now()))
                 : IO.pure(unit),
             Fail: _ => IO.pure(unit))
         select roster;
 
-    static Validation<ScheduleFault, Seq<ProjectFile>> Container(ScheduleSpec spec) =>
+    static Validation<Error, Seq<ProjectFile>> Container(ScheduleSpec spec) =>
         Capture(() => spec.Source.Read(
-            path:   p => toSeq(new UniversalProjectReader().ReadAll(p) ?? []),
-            stream: s => toSeq(new UniversalProjectReader().ReadAll(s) ?? [])))
+            path:   p => Claimed(new UniversalProjectReader().ReadAll(p)),
+            stream: s => Claimed(new UniversalProjectReader().ReadAll(s))))
         .Bind(static projects => projects.IsEmpty
-            ? (Validation<ScheduleFault, Seq<ProjectFile>>)new ScheduleFault.UnknownDialect("<no-reader-claimed-input>")
+            ? (Validation<Error, Seq<ProjectFile>>)new ScheduleFault.UnknownDialect("<no-reader-claimed-input>")
             : projects);
+
+    // Null and empty yields mean the same thing — no reader claimed the input — so absence admits to the
+    // empty roster the gate below reads, and no `null` reaches a `Seq`.
+    static Seq<ProjectFile> Claimed(IList<ProjectFile>? container) =>
+        Optional(container).Match(Some: toSeq, None: Seq<ProjectFile>);
 
     static void Write(ScheduleFormat to, Seq<ProjectFile> files, string path) {
         if (files is [ProjectFile only]) { new UniversalProjectWriter(to.Wire).Write(only, path); }
@@ -444,12 +487,14 @@ public static class ScheduleSource {
         else { new UniversalProjectWriter(to.Wire).Write([.. files], sink); }
     }
 
-    static string Dialect(Seq<ScheduleProject> rows) => rows.Head.Match(Some: static r => r.Anchor.Dialect, None: static () => "");
+    static Option<string> Dialect(Seq<ScheduleProject> rows) => rows.Head.Bind(static r => r.Anchor.Dialect);
 
-    internal static Validation<ScheduleFault, TValue> Capture<TValue>(Func<TValue> codec) =>
-        Try.lift(codec).Run().Match(
-            Succ: static value => (Validation<ScheduleFault, TValue>)value,
-            Fail: static e => (Validation<ScheduleFault, TValue>)ScheduleFault.Lift(e.ToException()));
+    // Only documented format/I/O refusals re-case as CodecReject; cancellations, existing faults, and unknown
+    // exceptions remain exact on the Validation rail.
+    internal static Validation<Error, TValue> Capture<TValue>(Func<TValue> codec) =>
+        Op.Of().Catch(() => Fin.Succ(codec())).Match(
+            Succ: static value => (Validation<Error, TValue>)value,
+            Fail: static e => (Validation<Error, TValue>)ScheduleFault.Lift(e));
 }
 ```
 
@@ -464,10 +509,11 @@ public static class ScheduleSource {
 |  [07]   | local stamps       | `LocalDateTime`/`LocalDate` durable form     | a schedule date is unzoned wall time; no fabricated UTC `Instant` |
 |  [08]   | seam vocabularies  | three smart-enum vocabularies                | foreign enums cross once; durable rows carry keys                 |
 |  [09]   | IKVM seam          | `ProjectRows.Of` / `Synthesis.Fold`          | proxy types and `JavaObject` never escape the two members         |
-|  [10]   | row-boundary fault | `Validation<ScheduleFault, …>` both legs     | dialect, selector, and codec refusals stay typed                  |
-|  [11]   | fault band         | `Code => FaultBand.Schedule + n`             | 8401-8404 off the `graph#FAULT_TABLES` registry                   |
+|  [10]   | row-boundary fault | `Validation<Error, …>` both legs             | dialect, selector, and codec refusals stay typed                  |
+|  [11]   | fault band         | `[FaultCase]` ordinals on `Fault`            | 8400-8403; contiguous case-grain identity                         |
 |  [12]   | receipt            | one `ScheduleFact` stream `store.schedule.*` | kind-discriminated; never parallel receipt records                |
 |  [13]   | element projection | per-app schedule→element map                 | `[02]-[SEAMS]` `Ingest → Rasm.Element` wire; codec sees rows only |
+|  [14]   | proxy admission    | identity admitted; text and rate `Option`    | `?? 0` collided keyless rows; `?? ""` forged a real name          |
 
 ## [03]-[DURABLE_NETWORK]
 
@@ -487,65 +533,116 @@ public static class ProjectRows {
     static readonly DayOfWeek[] WeekDays =
         [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday];
 
-    public static ScheduleProject Of(ProjectFile file) {
-        FrozenDictionary<int, int> parents = file.Tasks
-            .SelectMany(static t => t.ChildTasks.Select(c => (Child: c.UniqueID ?? 0, Parent: t.UniqueID ?? 0)))
-            .ToFrozenDictionary(static p => p.Child, static p => p.Parent);
-        return new ScheduleProject(
-            new ScheduleAnchor(
-                file.ProjectProperties.FileType ?? "", file.ProjectProperties.FileApplication ?? "",
-                file.ProjectProperties.ProjectTitle ?? "", ScheduleDirection.Of(file.ProjectProperties.ScheduleFrom),
-                Local(file.ProjectProperties.StartDate), Local(file.ProjectProperties.FinishDate),
-                Local(file.ProjectProperties.StatusDate), Local(file.ProjectProperties.CurrentDate), Optional(file.ProjectProperties.CurrencyCode),
-                Optional(file.ProjectProperties.DefaultCalendarUniqueID), Optional(file.ProjectProperties.MinutesPerDay), Optional(file.ProjectProperties.DaysPerMonth)),
-            toSeq(file.Tasks).Map(t => new ScheduleActivity(
-                t.UniqueID ?? 0,
-                parents.TryGetValue(t.UniqueID ?? 0, out int parent) ? Some(parent) : None,
-                t.Name ?? "", Optional(t.WBS), Optional(t.ActivityID),
-                t.PercentageComplete ?? 0d, t.Critical, t.Milestone, t.Summary, Optional(t.OutlineLevel),
-                Local(t.Start), Local(t.Finish), Local(t.EarlyStart), Local(t.EarlyFinish),
-                Local(t.LateStart), Local(t.LateFinish), Local(t.ActualStart), Local(t.ActualFinish),
-                Local(t.BaselineStart), Local(t.BaselineFinish),
-                ScheduleSpan.From(t.Duration), ScheduleSpan.From(t.Work), Optional(t.Cost), Optional(t.BudgetCost),
-                ScheduleSpan.From(t.ActualDuration), ScheduleSpan.From(t.ActualWork), Optional(t.ActualCost),
-                ScheduleSpan.From(t.BaselineDuration), ScheduleSpan.From(t.BaselineWork), Optional(t.BaselineCost),
-                ScheduleSpan.From(t.PlannedDuration), ScheduleSpan.From(t.PlannedWork), Optional(t.PlannedCost),
-                ScheduleSpan.From(t.RemainingDuration), ScheduleSpan.From(t.RemainingWork), Optional(t.RemainingCost),
-                ScheduleSpan.From(t.TotalSlack), ScheduleSpan.From(t.FreeSlack),
-                ConstraintKind.Of(t.ConstraintType), Local(t.ConstraintDate))),
-            toSeq(file.Tasks).SelectMany(static t => t.Predecessors.Select(r => new TaskRelation(
-                r.PredecessorTask?.UniqueID ?? 0, r.SuccessorTask?.UniqueID ?? 0,
-                DependencyKind.Of(r.Type), ScheduleSpan.From(r.Lag)))).ToSeq(),
-            toSeq(file.Calendars).Map(Calendar),
-            toSeq(file.Resources).Map(static r => new ResourceRow(
-                r.UniqueID ?? 0, r.Name ?? "", Optional(r.Group), ResourceKind.Of(r.Type),
-                Optional(r.PeakUnits), toSeq(r.Availability).Map(a => new ResourceAvailabilityRow(
-                    Local(a.Range.Start), Local(a.Range.End), Optional(a.Units))),
-                Optional(r.Calendar?.UniqueID), Optional(r.Cost), Optional(r.ActualCost), Optional(r.OvertimeCost))),
-            toSeq(file.ResourceAssignments).Map(static a => new AssignmentRow(
-                a.Task?.UniqueID ?? 0, a.Resource?.UniqueID ?? 0, Optional(a.Units),
-                ScheduleSpan.From(a.Work), Optional(a.Cost), Optional(a.BudgetCost),
-                ScheduleSpan.From(a.ActualWork), Optional(a.ActualCost),
-                ScheduleSpan.From(a.RemainingWork), Optional(a.RemainingCost))));
+    // `Of` admits the IKVM seam ONCE and every family accumulates: a container with three unkeyed tasks and
+    // one keyless edge reports all four, never the first. `ProjectProperties` is never absent, so the anchor
+    // needs no rail and lifts inside the fold rather than occupying a sixth applicative column.
+    public static Validation<Error, ScheduleProject> Of(ProjectFile file) {
+        FrozenDictionary<int, int> parents = Parents(file);
+        return (Activities(file, parents), Relations(file), Calendars(file), Resources(file), Assignments(file))
+            .Apply((activities, relations, calendars, resources, assignments) => new ScheduleProject(
+                Anchor(file.ProjectProperties), activities, relations, calendars, resources, assignments))
+            .As();
     }
 
-    static WorkCalendarRow Calendar(ProjectCalendar calendar) => new(
-        calendar.UniqueID ?? 0, calendar.Name ?? "", CalendarKind.Of(calendar.Type),
-        toSeq(WeekDays).Map(day => Day(calendar, day)),
-        toSeq(calendar.WorkWeeks).Map(week => new WeekRow(
-            week.Name ?? "", Date(week.DateRange?.Start), Date(week.DateRange?.End),
-            toSeq(WeekDays).Map(day => Day(week, day)))),
-        toSeq(calendar.CalendarExceptions).Map(e => new CalendarException(
-            e.Name ?? "", Date(e.FromDate), Date(e.ToDate),
-            e.Recurring is { } recurrence ? Some(Recurrence(recurrence)) : None,
-            Shifts(e))));
+    // MPXJ hands every identity nullable, and a `?? 0` fallback COLLIDED every keyless row onto key 0 — two
+    // unkeyed tasks became one row, and an edge to a keyless endpoint became an edge to whatever held that key.
+    // Identity is therefore ADMITTED; nothing downstream re-checks it.
+    static Validation<Error, int> Keyed(string row, int? key, Option<string> detail) =>
+        Optional(key).Match(
+            Some: static value => (Validation<Error, int>)value,
+            None: () => new ScheduleFault.RowUnkeyed(row, detail.IfNone("<unnamed>")));
+
+    // Absence stays absence: this page already crossed `WBS` and `ActivityID` as `Option`, and a `?? ""` on the
+    // sibling column minted a row whose name a receipt and a reconciliation both read as real.
+    internal static Option<string> Text(string? value) =>
+        Optional(value).Filter(static text => !string.IsNullOrWhiteSpace(text));
+
+    static ScheduleAnchor Anchor(ProjectProperties properties) => new(
+        Text(properties.FileType), Text(properties.FileApplication), Text(properties.ProjectTitle),
+        ScheduleDirection.Of(properties.ScheduleFrom),
+        Local(properties.StartDate), Local(properties.FinishDate),
+        Local(properties.StatusDate), Local(properties.CurrentDate), Text(properties.CurrencyCode),
+        Optional(properties.DefaultCalendarUniqueID), Optional(properties.MinutesPerDay), Optional(properties.DaysPerMonth));
+
+    // Only a keyed child under a keyed parent names an edge in the hierarchy; the pair drops otherwise, and the
+    // activity admission refuses the keyless row itself.
+    static FrozenDictionary<int, int> Parents(ProjectFile file) =>
+        toSeq(file.Tasks)
+            .Bind(static t => toSeq(t.ChildTasks).Map(c => (Child: Optional(c.UniqueID), Parent: Optional(t.UniqueID))))
+            .Choose(static link => link.Child.Bind(child => link.Parent.Map(parent => (Child: child, Parent: parent))))
+            .ToFrozenDictionary(static link => link.Child, static link => link.Parent);
+
+    static Validation<Error, Seq<ScheduleActivity>> Activities(ProjectFile file, FrozenDictionary<int, int> parents) =>
+        toSeq(file.Tasks).Traverse(task => Activity(task, parents)).As();
+
+    static Validation<Error, ScheduleActivity> Activity(Task t, FrozenDictionary<int, int> parents) =>
+        Keyed("activity", t.UniqueID, Text(t.Name)).Map(key => new ScheduleActivity(
+            key,
+            parents.TryGetValue(key, out int parent) ? Some(parent) : None,
+            Text(t.Name), Text(t.WBS), Text(t.ActivityID),
+            Optional(t.PercentageComplete), t.Critical, t.Milestone, t.Summary, Optional(t.OutlineLevel),
+            Local(t.Start), Local(t.Finish), Local(t.EarlyStart), Local(t.EarlyFinish),
+            Local(t.LateStart), Local(t.LateFinish), Local(t.ActualStart), Local(t.ActualFinish),
+            Local(t.BaselineStart), Local(t.BaselineFinish),
+            ScheduleSpan.From(t.Duration), ScheduleSpan.From(t.Work), Optional(t.Cost), Optional(t.BudgetCost),
+            ScheduleSpan.From(t.ActualDuration), ScheduleSpan.From(t.ActualWork), Optional(t.ActualCost),
+            ScheduleSpan.From(t.BaselineDuration), ScheduleSpan.From(t.BaselineWork), Optional(t.BaselineCost),
+            ScheduleSpan.From(t.PlannedDuration), ScheduleSpan.From(t.PlannedWork), Optional(t.PlannedCost),
+            ScheduleSpan.From(t.RemainingDuration), ScheduleSpan.From(t.RemainingWork), Optional(t.RemainingCost),
+            ScheduleSpan.From(t.TotalSlack), ScheduleSpan.From(t.FreeSlack),
+            ConstraintKind.Of(t.ConstraintType), Local(t.ConstraintDate)));
+
+    static Validation<Error, Seq<TaskRelation>> Relations(ProjectFile file) =>
+        toSeq(file.Tasks).Bind(static t => toSeq(t.Predecessors)).Traverse(Edge).As();
+
+    static Validation<Error, TaskRelation> Edge(Relation r) =>
+        (Keyed("relation-predecessor", r.PredecessorTask?.UniqueID, Text(r.SuccessorTask?.Name)),
+         Keyed("relation-successor", r.SuccessorTask?.UniqueID, Text(r.PredecessorTask?.Name)))
+        .Apply((predecessor, successor) => new TaskRelation(predecessor, successor, DependencyKind.Of(r.Type), ScheduleSpan.From(r.Lag)))
+        .As();
+
+    static Validation<Error, Seq<WorkCalendarRow>> Calendars(ProjectFile file) =>
+        toSeq(file.Calendars).Traverse(Calendar).As();
+
+    static Validation<Error, WorkCalendarRow> Calendar(ProjectCalendar calendar) =>
+        Keyed("calendar", calendar.UniqueID, Text(calendar.Name)).Map(key => new WorkCalendarRow(
+            key, Text(calendar.Name), CalendarKind.Of(calendar.Type),
+            toSeq(WeekDays).Map(day => Day(calendar, day)),
+            toSeq(calendar.WorkWeeks).Map(week => new WeekRow(
+                Text(week.Name), Date(week.DateRange?.Start), Date(week.DateRange?.End),
+                toSeq(WeekDays).Map(day => Day(week, day)))),
+            toSeq(calendar.CalendarExceptions).Map(e => new CalendarException(
+                Text(e.Name), Date(e.FromDate), Date(e.ToDate),
+                Optional(e.Recurring).Map(Recurrence),
+                Shifts(e)))));
+
+    static Validation<Error, Seq<ResourceRow>> Resources(ProjectFile file) =>
+        toSeq(file.Resources).Traverse(Resource).As();
+
+    static Validation<Error, ResourceRow> Resource(MPXJ.Net.Resource r) =>
+        Keyed("resource", r.UniqueID, Text(r.Name)).Map(key => new ResourceRow(
+            key, Text(r.Name), Text(r.Group), ResourceKind.Of(r.Type),
+            Optional(r.PeakUnits), toSeq(r.Availability).Map(static a => new ResourceAvailabilityRow(
+                Local(a.Range.Start), Local(a.Range.End), Optional(a.Units))),
+            Optional(r.Calendar?.UniqueID), Optional(r.Cost), Optional(r.ActualCost), Optional(r.OvertimeCost)));
+
+    static Validation<Error, Seq<AssignmentRow>> Assignments(ProjectFile file) =>
+        toSeq(file.ResourceAssignments).Traverse(Assignment).As();
+
+    static Validation<Error, AssignmentRow> Assignment(ResourceAssignment a) =>
+        (Keyed("assignment-activity", a.Task?.UniqueID, Text(a.Resource?.Name)),
+         Keyed("assignment-resource", a.Resource?.UniqueID, Text(a.Task?.Name)))
+        .Apply((activity, resource) => new AssignmentRow(
+            activity, resource, Optional(a.Units),
+            ScheduleSpan.From(a.Work), Optional(a.Cost), Optional(a.BudgetCost),
+            ScheduleSpan.From(a.ActualWork), Optional(a.ActualCost),
+            ScheduleSpan.From(a.RemainingWork), Optional(a.RemainingCost)))
+        .As();
 
     static CalendarRecurrence Recurrence(RecurringData recurrence) => new(
         RecurrenceKind.Of(recurrence.RecurrenceType),
         Date(recurrence.StartDate),
-        Date(recurrence.FinishDate),
-        Optional(recurrence.Occurrences),
-        recurrence.UseEndDate,
+        RecurrenceEnd.Of(recurrence.UseEndDate, Date(recurrence.FinishDate), Optional(recurrence.Occurrences)),
         recurrence.WorkingDaysOnly,
         recurrence.Relative,
         Optional(recurrence.Frequency),
@@ -555,7 +652,7 @@ public static class ProjectRows {
         toSeq(WeekDays).Filter(recurrence.GetWeeklyDay));
 
     static DayRow Day(ProjectCalendarDays days, DayOfWeek day) =>
-        new(day, days.GetCalendarDayType(day) == DayType.Working, Shifts(days.GetCalendarHours(day)));
+        new(day, DayKind.Of(days.GetCalendarDayType(day)), Shifts(days.GetCalendarHours(day)));
 
     static Seq<ShiftRow> Shifts(IEnumerable<TimeOnlyRange>? ranges) => ranges is null
         ? Seq<ShiftRow>()
@@ -569,29 +666,38 @@ public static class ProjectRows {
 }
 
 public static class Synthesis {
-    public static ProjectFile Fold(ScheduleProject project) {
+    // ADMIT, then build: every calendar exception proves it names a placeable window BEFORE the first mutation,
+    // so a half-built `ProjectFile` can never escape and no refusal throws out of the middle of a fold.
+    public static Validation<Error, ProjectFile> Fold(ScheduleProject project) =>
+        project.Calendars.Traverse(Anchored).As().Map(_ => Built(project));
+
+    static Validation<Error, Unit> Anchored(WorkCalendarRow calendar) =>
+        calendar.Exceptions
+            .Filter(static e => !e.Anchored)
+            .Traverse(e => (Validation<Error, CalendarException>)new ScheduleFault.RowUnkeyed(
+                "calendar-exception", e.Name.IfNone("<unnamed>")))
+            .As()
+            .Map(static _ => unit);
+
+    static ProjectFile Built(ScheduleProject project) {
         ProjectFile file = new();
         Anchor(file.ProjectProperties, project.Anchor);
         foreach (WorkCalendarRow calendar in project.Calendars) {
             ProjectCalendar made = file.AddCalendar();
-            (made.UniqueID, made.Name) = (calendar.Key, calendar.Name);
+            made.UniqueID = calendar.Key;
+            calendar.Name.Iter(name => made.Name = name);
             calendar.Kind.Iter(kind => made.Type = kind.Wire);
             calendar.Week.Iter(day => Pattern(made, day));
             calendar.Overrides.Iter(week => {
                 ProjectCalendarWeek span = made.AddWorkWeek();
-                span.Name = week.Name;
+                week.Name.Iter(name => span.Name = name);
                 week.From.Iter(start => span.DateRange = new DateOnlyRange(start.ToDateOnly(), week.To.IfNone(start).ToDateOnly()));
                 week.Days.Iter(day => Pattern(span, day));
             });
-            calendar.Exceptions.Iter(e => {
-                ProjectCalendarException window = e.Recurrence.Match(
-                    Some: recurrence => made.AddCalendarException(recurrence.Wire()),
-                    None: () => e.From.Match(
-                        Some: start => made.AddCalendarException(start.ToDateOnly(), e.To.IfNone(start).ToDateOnly()),
-                        None: static () => throw new InvalidDataException("<calendar-exception-anchor>")));
-                window.Name = e.Name;
+            calendar.Exceptions.Iter(e => Windowed(made, e).Iter(window => {
+                e.Name.Iter(name => window.Name = name);
                 e.Shifts.Iter(shift => window.Add(new TimeOnlyRange(shift.From, shift.To)));
-            });
+            }));
         }
         HashMap<int, Seq<ScheduleActivity>> children = toHashMap(project.Activities
             .Choose(static a => a.Parent.Map(parent => (parent, a)))
@@ -609,7 +715,8 @@ public static class Synthesis {
         }
         foreach (ResourceRow resource in project.Resources) {
             Resource row = file.AddResource();
-            (row.UniqueID, row.Name) = (resource.Key, resource.Name);
+            row.UniqueID = resource.Key;
+            resource.Name.Iter(name => row.Name = name);
             resource.Group.Iter(group => row.Group = group);
             resource.Kind.Iter(kind => row.Type = kind.Wire);
             resource.PeakUnits.Iter(units => row.PeakUnits = units);
@@ -636,8 +743,16 @@ public static class Synthesis {
         return file;
     }
 
+    // `Windowed` resolves the window a recurrence or a from-date names. `Anchored` proved every row carries
+    // one, so `None` here is only ever a row admission already refused, which the loop skips instead of
+    // half-building the calendar.
+    static Option<ProjectCalendarException> Windowed(ProjectCalendar made, CalendarException e) =>
+        e.Recurrence.Match(
+            Some: recurrence => Some(made.AddCalendarException(recurrence.Wire())),
+            None: () => e.From.Map(start => made.AddCalendarException(start.ToDateOnly(), e.To.IfNone(start).ToDateOnly())));
+
     static void Anchor(ProjectProperties properties, ScheduleAnchor anchor) {
-        properties.ProjectTitle = anchor.Title;
+        anchor.Title.Iter(title => properties.ProjectTitle = title);
         anchor.Direction.Iter(direction => properties.ScheduleFrom = direction.Wire);
         anchor.Start.Iter(at => properties.StartDate = at.ToDateTimeUnspecified());
         anchor.Finish.Iter(at => properties.FinishDate = at.ToDateTimeUnspecified());
@@ -649,17 +764,21 @@ public static class Synthesis {
         anchor.DaysPerMonth.Iter(days => properties.DaysPerMonth = days);
     }
 
+    // `Pattern` crosses the day type back WHOLE: an inherited day re-emits as inherited, where the bool
+    // re-emitted it as explicitly non-working and froze what the base calendar decides.
     static void Pattern(ProjectCalendarDays days, DayRow day) {
-        days.SetWorkingDay(day.Day, day.Working);
-        if (day.Working) {
+        days.SetWorkingDay(day.Day, day.Kind.Wire);
+        if (day.Kind == DayKind.Working) {
             ProjectCalendarHours hours = days.AddCalendarHours(day.Day);
             day.Shifts.Iter(shift => hours.Add(new TimeOnlyRange(shift.From, shift.To)));
         }
     }
 
     static void Grow(Task task, ScheduleActivity activity, HashMap<int, Seq<ScheduleActivity>> children) {
-        (task.UniqueID, task.Name, task.PercentageComplete, task.Critical, task.Milestone, task.Summary) =
-            (activity.Key, activity.Name, activity.Percent, activity.Critical, activity.Milestone, activity.Summary);
+        (task.UniqueID, task.Critical, task.Milestone, task.Summary) =
+            (activity.Key, activity.Critical, activity.Milestone, activity.Summary);
+        activity.Name.Iter(name => task.Name = name);
+        activity.Percent.Iter(percent => task.PercentageComplete = percent);
         activity.OutlineLevel.Iter(level => task.OutlineLevel = level);
         activity.Wbs.Iter(wbs => task.WBS = wbs);
         activity.ActivityId.Iter(id => task.ActivityID = id);
@@ -784,6 +903,8 @@ public static class ScheduleRows {
 |  [05]   | 5D crossing    | raw doubles on `AssignmentRow`          | `Money`/`UnitsNet` lift at the Bim boundary, never here         |
 |  [06]   | round-trip     | `Of` then `Fold` preserves the network  | XER out re-imports in P6; every settable axis re-emits          |
 |  [07]   | update cycle   | `Reconcile` → `ScheduleVariance`        | diffs every durable aggregate axis                              |
+|  [08]   | day type       | `DayKind` three rows, not a bool        | an inherited day re-emits inherited, never as explicit non-work |
+|  [09]   | recurrence end | `RecurrenceEnd` closed family           | the date/count/open choice cannot be half-stated                |
 
 ## [04]-[RESEARCH]
 

@@ -15,8 +15,9 @@
 - Owner: `RemnantState`, `RemnantCondition`, `ReservationDisposition`, `ReuseTrait`, `RetireCause`, `RemnantConflict`, and `RemnantOp` close lifecycle behaviour and evidence; `ReusePolicy` owns reuse admission.
 - Cases: `RemnantOp` carries `Stocking`, `Claim`, `Close`, and `Sweep`; `ReservationDisposition.Consume` subtracts its used region and stocks each surviving connected child in the same receipt.
 - Entry: `Admit(Seq<Loop>, MaterialId, RemnantOrigin, RemnantProfile)` mints each connected component, `Reconcile(RemnantOp, RemnantInventory)` folds lifecycle operations, `From(Stock, Seq<Loop>, double)` inverts consumed stock, `Holds(Seq<Loop>, Option<double>, ReusePolicy)` answers policy-inset fit with grain, and `Stockable(RemnantInventory)` projects the next inventory smallest-adequate first.
-- Packages: `CommunityToolkit.HighPerformance`, `LanguageExt.Core`, `NodaTime`, `QuikGraph`, `Rasm`, `Rasm.Element`, `RhinoCommon`, and `Thinktecture.Runtime.Extensions` compose the owner.
-- Growth: each reuse gate adds one `ReusePolicy` member and one `ReuseGates` row minting its payload-bearing `RetireCause` case; each traceability demand adds one `ReuseTrait` row inside `ReusePolicy.Required`; each lifecycle operation adds one `RemnantOp` case and one generated dispatch arm; each physical observation axis adds one `RemnantObservation` member.
+- Packages: `CommunityToolkit.HighPerformance`, `LanguageExt.Core`, `NodaTime`, `QuikGraph`, `Rasm` (`ICapability`/`CapabilitySet`, `Context`/`ToleranceLane`), `Rasm.Element`, `RhinoCommon`, `Thinktecture.Runtime.Extensions`, and `UnitsNet` (`Length`, `Area`, `Ratio` on the reuse policy's own floors) compose the owner.
+- Law: `ReuseTrait` carries the kernel `ICapability` floor, so a traceability demand is a `CapabilitySet<ReuseTrait>` value and never a hand-walked predicate roster — `Missing` answers the accumulating retire causes and `Require` guards the one admission that genuinely refuses, the salvage floor that cannot be stated without the valuation trait carrying it. `Rank` stays the interface's DERIVED declaration order; an ordinal column beside the roster is the refused form.
+- Growth: each reuse gate adds one `ReusePolicy` member and one `ReuseGates` row minting its payload-bearing `RetireCause` case; each traceability demand adds one `ReuseTrait` row the `Required` capability column admits by name; each lifecycle operation adds one `RemnantOp` case and one generated dispatch arm; each physical observation axis adds one `RemnantObservation` member.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -77,8 +78,12 @@ public sealed partial class RemnantCondition {
     public partial RemnantState Resolve(RemnantState current, bool activeLease);
 }
 
+// Traceability demands are CAPABILITIES, so this roster carries the kernel `ICapability` floor and every demand
+// rides the ONE combinable-capability column at every stratum. `Rank` stays the interface's DERIVED member —
+// declaration order, physical facts a shop re-measures ahead of paperwork facts it cannot — so no ordinal column
+// stands beside `Items` to drift the day a row is inserted.
 [SmartEnum<string>]
-public sealed partial class ReuseTrait {
+public sealed partial class ReuseTrait : ICapability<ReuseTrait> {
     public static readonly ReuseTrait Grain = new("grain", static profile => profile.GrainAxisRadians.IsSome);
     public static readonly ReuseTrait Location = new("location", static profile => profile.Location.IsSome);
     public static readonly ReuseTrait Lot = new("lot", static profile => profile.Lot.IsSome);
@@ -87,6 +92,11 @@ public sealed partial class ReuseTrait {
 
     [UseDelegateFromConstructor]
     public partial bool Carried(RemnantProfile profile);
+
+    // Traits a profile actually CARRIES, so a demand and its evidence are two values of one column rather than a
+    // demand walked row-by-row against a predicate every caller re-spells.
+    public static CapabilitySet<ReuseTrait> Of(RemnantProfile profile) =>
+        CapabilitySet<ReuseTrait>.Of(Items.Where(trait => trait.Carried(profile)).ToArray());
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -148,7 +158,8 @@ public abstract partial record RemnantOp {
 ## [03]-[INVENTORY]
 
 - Owner: `RemnantProfile` carries traceability, gauge, grain, cost, and exclusion facts; `RemnantRow` is one inventory line with its state, condition, revision, claim census, and optional lease; `RemnantInventory` owns one material lane; `RemnantPlan` is the settled reconciliation receipt.
-- Law: a row's identity IS its content key — `Row.Key.Digest == Remnant.Identity` is an admitted invariant, so an inventory keyed by anything else cannot exist and the batch dedup threads ONE seen-set rather than re-digesting each prior remnant per candidate.
+- Law: a row's identity IS its content key — `Row.Key.Digest == Remnant.Identity` is an admitted invariant, so an inventory keyed by anything else cannot exist and the batch dedup threads ONE seen-set rather than re-digesting each prior remnant per candidate. `Remnant.Key` is an ADMITTED COLUMN minted once on the `Keyed` rail and re-derived by the validator as its proof, never a property re-folding the canonical preimage on every `Identity` read.
+- Law: `ReusePolicy` carries typed measures — `Length`, `Area`, `Ratio`, `Duration` — and reads its arc and grain budgets off the admitted `Context` lanes, because `ToleranceLane` owns every band it derives; a tolerance column beside a lane is a copy that drifts from it. Only the salvage floor stays a bare double, and it says so: a shop currency has no admitted dimension.
 - Law: lineage is a forest by construction — single-parent edges plus acyclicity — so transitive closure and reduction prove nothing here and are refused by name; the load-bearing law is generation succession and root-stock agreement along every retained parent edge, checked against the resolved parent row.
 - Receipt: `RemnantPlan` carries the next inventory, admissions, accumulated retirement causes, conflicts, validated transitions, per-source-stock `RemnantYield` rows, and the standing potential, consumed, and scrapped `RemnantMeasure` pairs of area and value.
 - Boundary: `RemnantSlots` names the `store.fabrication.remnant.<verb>` streams the validated transitions and the re-admitted inventory census ride on the Persistence slot registry, so shop offcuts survive restart and share across apps without collision.
@@ -171,72 +182,84 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Thinktecture;
+using UnitsNet;
 using static LanguageExt.Prelude;
 // `Rhino.Geometry` publishes an `Interval` of its own, so the lease window binds to the instant range by name.
 using Interval = NodaTime.Interval;
 
 namespace Rasm.Fabrication.Nesting;
 // --- [MODELS] -----------------------------------------------------------------------------
+// Fifteen columns, ten of them bare doubles whose UNIT lived only in a name suffix a caller could transpose
+// silently — a millimetre floor and a square-millimetre floor sat adjacent as two `double`s. This policy is NOT a
+// preimage participant (nothing here reaches `Remnants.KeyOf`), so the digested-scalar carve does not bind it and
+// every measure lifts to the carrier its own dimension names: `Length` and `Area` from UnitsNet for the geometric
+// floors, `Ratio` for the two shape fractions that are ratios by construction, `Duration` for the two windows.
+// Two TOLERANCE columns leave entirely: `ToleranceLane` owns every band it derives and the admitting `Context`
+// is the READ, so arc-tolerance and grain-tolerance columns beside those lanes were copies drifting from them.
+// `MinSalvageValue` stays a bare double and says why — shop currency carries no admitted dimension, so a typed
+// carrier there names a unit no source states.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ReusePolicy {
-    public double KerfTrimMm { get; }
-    public double RegripMarginMm { get; }
-    public double MinUsableAreaMm2 { get; }
-    public double MinReusableSpanMm { get; }
-    public double MinAspect { get; }
-    public double MinCompactness { get; }
-    public double MinGaugeMm { get; }
-    public double ArcToleranceMm { get; }
+    public Length KerfTrim { get; }
+    public Length RegripMargin { get; }
+    public Area MinUsable { get; }
+    public Length MinReusableSpan { get; }
+    public Ratio MinAspect { get; }
+    public Ratio MinCompactness { get; }
+    public Length MinGauge { get; }
     public double MinSalvageValue { get; }
-    public double GrainToleranceRadians { get; }
     public int MaxGeneration { get; }
     public int MaxClaims { get; }
     public Duration LeaseDuration { get; }
     public Duration ObservationHorizon { get; }
-    public Set<ReuseTrait> Required { get; }
+    public Context Tolerance { get; }
+    public CapabilitySet<ReuseTrait> Required { get; }
 
-    public double InsetMm => KerfTrimMm + RegripMarginMm;
-
-    public Seq<ReuseTrait> Missing(RemnantProfile profile) =>
-        Required.ToSeq().Filter(trait => !trait.Carried(profile));
+    // Arc chord budget and grain cone are LANE READS, so a shop widening its model tolerance moves both without
+    // touching this policy and neither can disagree with the loops that same context admitted.
+    public double ArcToleranceMm => Tolerance.For(ToleranceLane.Arc).Value;
+    public double GrainToleranceRadians => Tolerance.For(ToleranceLane.Grain).Value;
+    public double InsetMm => (KerfTrim + RegripMargin).Millimeters;
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
-        ref double kerfTrimMm,
-        ref double regripMarginMm,
-        ref double minUsableAreaMm2,
-        ref double minReusableSpanMm,
-        ref double minAspect,
-        ref double minCompactness,
-        ref double minGaugeMm,
-        ref double arcToleranceMm,
+        ref ValidationError? validationError,
+        ref Length kerfTrim,
+        ref Length regripMargin,
+        ref Area minUsable,
+        ref Length minReusableSpan,
+        ref Ratio minAspect,
+        ref Ratio minCompactness,
+        ref Length minGauge,
         ref double minSalvageValue,
-        ref double grainToleranceRadians,
         ref int maxGeneration,
         ref int maxClaims,
         ref Duration leaseDuration,
         ref Duration observationHorizon,
-        ref Set<ReuseTrait> required) {
-        double[] scalars = [kerfTrimMm, regripMarginMm, minUsableAreaMm2, minReusableSpanMm, minAspect, minCompactness, minGaugeMm,
-            arcToleranceMm, minSalvageValue, grainToleranceRadians];
-        if (scalars.Any(static value => !double.IsFinite(value) || value < 0.0) || minAspect > 1.0 || minCompactness > 1.0 || arcToleranceMm <= 0.0
-            || grainToleranceRadians >= Math.PI || maxGeneration < 0 || maxClaims < 1
+        ref Context tolerance,
+        ref CapabilitySet<ReuseTrait> required) {
+        double[] floors = [kerfTrim.Millimeters, regripMargin.Millimeters, minUsable.SquareMillimeters,
+            minReusableSpan.Millimeters, minGauge.Millimeters, minSalvageValue,
+            minAspect.DecimalFractions, minCompactness.DecimalFractions];
+        validationError = floors.Any(static value => !double.IsFinite(value) || value < 0.0)
+            || minAspect.DecimalFractions > 1.0 || minCompactness.DecimalFractions > 1.0
+            || !tolerance.IsValid || tolerance.For(ToleranceLane.Arc).Value <= 0.0
+            || tolerance.For(ToleranceLane.Grain).Value >= Math.PI
+            || maxGeneration < 0 || maxClaims < 1
             || leaseDuration <= Duration.Zero || observationHorizon <= Duration.Zero
-            || (minSalvageValue > 0.0 && !required.Contains(ReuseTrait.Valuation)))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "remnant:reuse-policy");
+            || (minSalvageValue > 0.0 && !required.Admits(ReuseTrait.Valuation))
+                ? new ValidationError("remnant:reuse-policy")
+                : null;
     }
 }
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
-[ValidationError<FabricationFault>]
 public readonly partial struct RemnantLocation {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "remnant:location");
+            validationError = new ValidationError("remnant:location");
     }
 }
 
@@ -253,7 +276,6 @@ public sealed record RemnantProfile(
 
 public readonly record struct RemnantOrigin(UInt128 Stock, Option<UInt128> Parent, int Generation);
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class Remnant {
     public Loop Boundary { get; }
     public Seq<Loop> Holes { get; }
@@ -261,29 +283,44 @@ public sealed partial class Remnant {
     public RemnantOrigin Origin { get; }
     public RemnantProfile Profile { get; }
 
+    // Identity is an ADMITTED COLUMN, not a property that re-folds. The preimage close answers on the `Fin` rail —
+    // `Keyed` opens the retaining writer and a key minted off bytes no writer held is the forged form — so the
+    // mint sits at admission where a rail already runs, and the validator RE-DERIVES it as the proof that the
+    // seated address belongs to the seated geometry. The property this replaces re-ran the whole canonical fold
+    // (loop preimages, set ordering, digest) on every `Identity` read, and `Identity` is read inside the batch
+    // dedup, every group-by, and every lineage map.
+    public ContentKey Key { get; }
+
     public Seq<Loop> Region => Seq(Boundary).Concat(Holes);
     public Option<UInt128> Parent => Origin.Parent;
     public int Generation => Origin.Generation;
-    public ContentKey Key => Remnants.KeyOf(Boundary, Holes, Material, Origin);
     public UInt128 Identity => Key.Digest;
     public double AreaMm2 => Math.Abs(Region.Sum(static loop => loop.Area()));
     public Option<double> Value => Profile.CostPerSquareMillimeter.Map(rate => rate * AreaMm2);
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Loop boundary,
         ref Seq<Loop> holes,
         ref MaterialId material,
         ref RemnantOrigin origin,
-        ref RemnantProfile profile) {
+        ref RemnantProfile profile,
+        ref ContentKey key) {
         Seq<Loop> region = Seq(boundary).Concat(holes);
         bool connected = Remnants.ComponentsOf(region).Match(
             Succ: static components => components.Count == 1,
             Fail: static _ => false);
+        Loop admittedBoundary = boundary;
+        Seq<Loop> admittedHoles = holes;
+        MaterialId admittedMaterial = material;
+        RemnantOrigin admittedOrigin = origin;
+        ContentKey admittedKey = key;
         if (boundary.Winding() != Sign.Positive || holes.Exists(static hole => hole.Winding() != Sign.Negative)
-            || origin.Generation < 0 || !connected)
-            validationError = new GeometryFault.DegenerateInput(Kind.Polyline, None, "remnant:topology").ToFabrication();
+            || origin.Generation < 0 || !connected
+            || !Remnants.KeyOf(admittedBoundary, admittedHoles, admittedMaterial, admittedOrigin)
+                .ToOption().Exists(minted => admittedKey == minted))
+            validationError = new ValidationError(string.Join(" | ", new object?[] { Kind.Polyline, None, "remnant:topology" }));
     }
 }
 
@@ -362,8 +399,8 @@ file readonly struct InventoryGate(RemnantInventory inventory, RemnantRow[] rows
 ## [04]-[RECONCILIATION]
 
 - Owner: `Remnants` owns admission, minting, containment, reconciliation, sweep, lineage admission, projection, and the canonical preimage; `Remnant` stays a value with no fold of its own, so the type is not a partial split across two sections.
-- Law: containment reads the `Geometry2D` owner's own topology walk — `PolygonTrace.Regions` publishes `Depth`, `Parent`, and `IsHole`, so a hole's owner is a COLUMN read and the pairwise arc-relation matrix over the region deletes whole. `ForestDisjointSet` is refused by name: union-find collapses a set to an arbitrary representative and cannot answer WHICH member encloses.
-- Law: `Loop.CanonicalBytes` is the ONE loop preimage — rotation-canonical, CCW-oriented, quantized on the loop's own admitted grid — so the hand rotation search and its station comparator delete onto it, and set ordering keys on each loop's own digest. A hex TEXT render of a preimage decides no byte order here; the folder preimage law forbids it.
+- Law: containment reads the `Geometry2D` owner's own topology walk — the `PolygonTrace.Regioned` projection publishes `Depth`, `Parent`, and `IsHole`, so a hole's owner is a COLUMN read and the pairwise arc-relation matrix over the region deletes whole. `ForestDisjointSet` is refused by name: union-find collapses a set to an arbitrary representative and cannot answer WHICH member encloses.
+- Law: `Loop.CanonicalBytes` is the ONE loop preimage — rotation-canonical, CCW-oriented, quantized on the loop's own admitted grid — so the hand rotation search and its station comparator delete onto it, and set ordering keys on each loop's own digest. Both preimage CLOSES seat at the S0 `FabricationCanon` — `Keyed` mints the retaining remnant address, `Ordered` answers the streaming digest that totally orders a region's loops without materializing a buffer per probe. Hex TEXT renders of a preimage decide no byte order here; the folder preimage law forbids it.
 - Law: the nine reuse gates are ROWS over one `RemnantAssay` measurement carrier, so a new gate is one row and both call sites read the same fold.
 - Law: an absent measure is carried, never forged. Value resolves from the remnant's own figure or the profile rate over its usable area, and a remnant with neither stays UNPRICED through every total and sorts behind every priced row; aspect is absent where the calipers walk returns no `OrientedEnvelope` and the sliver gate retires on that absence with the absence in its cause. A zero standing in for either fact makes an unmeasured offcut indistinguishable from a worthless one and scraps stock under a verdict nobody reached, and a provider failure rides the typed rail rather than becoming a measure.
 - Auto: arc-exact offsets and Booleans route through `ArcAlgebra.Apply`; chord projection routes through `ArcAlgebra.Densify`; exact measures route through `Loop.Area` and `Loop.Length`; independent row gates partition through `ParallelHelper`; lineage acyclicity and order route through `QuikGraph`; lease membership routes through `Interval.Contains`.
@@ -388,6 +425,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Thinktecture;
+using UnitsNet;
 using static LanguageExt.Prelude;
 // `Rhino.Geometry` publishes an `Interval` of its own, so the lease window binds to the instant range by name.
 using Interval = NodaTime.Interval;
@@ -400,12 +438,13 @@ public static class Remnants {
         MaterialId material,
         RemnantOrigin origin,
         RemnantProfile profile) =>
-        ComponentsOf(region).Map(components => components.Map(component =>
-            Mint(component.Outer, component.Holes, material, origin, profile)));
+        ComponentsOf(region).Bind(components => components
+            .Traverse(component => Mint(component.Outer, component.Holes, material, origin, profile).ToValidation())
+            .As().ToFin());
 
     public static Fin<Seq<Remnant>> From(Stock stock, Seq<Loop> placed, double clearance) =>
         !double.IsFinite(clearance) || clearance < 0.0
-            ? Fin.Fail<Seq<Remnant>>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "remnant:clearance"))
+            ? Fin.Fail<Seq<Remnant>>(new KernelFault.InvalidValue("remnant", "remnant:clearance"))
             : from available in Available(stock)
               from remaining in placed.IsEmpty
                   ? Fin.Succ(available)
@@ -413,8 +452,11 @@ public static class Remnants {
                       .As().ToFin()
                       .Bind(inflated => Boolean(available, inflated.Bind(static loops => loops), BoolKind.Not))
               from components in ComponentsOf(remaining)
-              select components.Map(component =>
-                  Mint(component.Outer, component.Holes, stock.Material, Lineage(stock), Profile(stock)));
+              from minted in components
+                  .Traverse(component => Mint(
+                      component.Outer, component.Holes, stock.Material, Lineage(stock), Profile(stock)).ToValidation())
+                  .As().ToFin()
+              select minted;
 
     private static Fin<Seq<Loop>> Available(Stock stock) => stock.Exclusions.IsEmpty
         ? Fin.Succ(stock.Region)
@@ -465,8 +507,11 @@ public static class Remnants {
                 .Map(remnants => remnants.Map(static remnant => (Stock)new Stock.FromRemnant(remnant))).ToValidation())
             .As().ToFin().Map(static rows => rows.Bind(identity)));
 
-    private static Remnant Mint(Loop boundary, Seq<Loop> holes, MaterialId material, RemnantOrigin origin, RemnantProfile profile) =>
-        Create(boundary, holes, material, origin, profile);
+    // One mint, one address: the preimage closes on the rail here and the admitted value carries the key it was
+    // proved against, so no consumer re-derives an identity the value already holds.
+    private static Fin<Remnant> Mint(Loop boundary, Seq<Loop> holes, MaterialId material, RemnantOrigin origin, RemnantProfile profile) =>
+        KeyOf(boundary, holes, material, origin).Bind(key =>
+            Remnant.Validate(boundary, holes, material, origin, profile, key, out Remnant remnant).Admitted(remnant));
 
     private static RemnantOrigin Lineage(Stock stock) => stock switch {
         Stock.FromRemnant source => new RemnantOrigin(
@@ -496,7 +541,7 @@ public static class Remnants {
         return area > 0.0 ? Some(body.Cost / area) : None;
     }
 
-    // Containment is the `Geometry2D` owner's own topology walk: `PolygonTrace.Regions` publishes `Depth`,
+    // Containment is the `Geometry2D` owner's own topology walk: `PolygonTrace.Regioned` publishes `Depth`,
     // `Parent`, and `IsHole` per node, so a hole's owner is a COLUMN READ. The pairwise arc-relation matrix, its
     // intersect-and-overlap gate, the smallest-enclosing-outer search over that matrix, and the winding-agreement
     // re-derivation all delete with it. `ForestDisjointSet` is refused by name: union-find collapses a set to an
@@ -504,26 +549,25 @@ public static class Remnants {
     internal static Fin<Seq<(Loop Outer, Seq<Loop> Holes)>> ComponentsOf(Seq<Loop> region) =>
         region.IsEmpty || region.Exists(static loop => !Valid(loop))
             ? Fin.Fail<Seq<(Loop Outer, Seq<Loop> Holes)>>(
-                new GeometryFault.DegenerateInput(Kind.Polyline, None, "remnant:region").ToError())
+                new GeometryFault.DegenerateInput(Kind.Polyline, None, "remnant:region"))
             : PolygonAlgebra
                 .Apply(new PolygonOp.Topology(region, PolygonFill.NonZero), Op.Of(name: nameof(ComponentsOf)))
-                .Bind(static trace => trace is PolygonTrace.Regions(var topology)
-                    ? Assemble(topology)
-                    : Fin.Fail<Seq<(Loop Outer, Seq<Loop> Holes)>>(
-                        new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "remnant:topology-trace")))
+                .Bind(static trace => trace
+                    .Regioned(new KernelFault.InvalidValue("remnant", "remnant:topology-trace"))
+                    .Bind(Assemble))
                 .Bind(static components => components.IsEmpty
                     ? Fin.Fail<Seq<(Loop Outer, Seq<Loop> Holes)>>(
-                        new GeometryFault.DegenerateInput(Kind.Polyline, None, "remnant:outer").ToError())
+                        new GeometryFault.DegenerateInput(Kind.Polyline, None, "remnant:outer"))
                     : Fin.Succ(components));
 
-    private static Fin<Seq<(Loop Outer, Seq<Loop> Holes)>> Assemble(TopologyReceipt topology) {
+    private static Fin<Seq<(Loop Outer, Seq<Loop> Holes)>> Assemble(RegionTopology topology) {
         Map<int, RegionNode> byIndex = toMap(topology.Nodes.Map(static node => (node.Index, node)));
         return topology.Nodes
             .Filter(static node => node.IsHole)
             .Traverse(hole => hole.Parent
                 .Bind(byIndex.Find)
                 .Filter(static owner => !owner.IsHole)
-                .ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, hole.Index, "remnant:orphan-hole").ToError())
+                .ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, hole.Index, "remnant:orphan-hole"))
                 .Map(owner => (Hole: hole, Owner: owner.Index))
                 .ToValidation())
             .As().ToFin()
@@ -544,9 +588,12 @@ public static class Remnants {
     private static Seq<(Loop Outer, Seq<Loop> Holes)> Ordered(Seq<(Loop Outer, Seq<Loop> Holes)> components) =>
         toSeq(components.OrderBy(static component => Preimage(component.Outer)));
 
-    private static UInt128 Preimage(Loop loop) => ContentKey.Of(
-        EgressKind.Remnant,
-        loop.CanonicalBytes(new CanonicalWriter(loop.Tolerance.Absolute.Value)).ToBytes().Span).Digest;
+    // Set ORDER, never an address, so this takes the STREAMING close at the S0 facade: `Ordered` answers the
+    // digest without materializing a buffer per loop, which is what an ordering comparator over a whole region
+    // asks for. NAMED LOSS: `EgressKind.Remnant` framing leaves the digest. WITNESS: ordering stays total within
+    // ONE region's own loops and no cross-family comparison exists to separate.
+    private static UInt128 Preimage(Loop loop) =>
+        FabricationCanon.Ordered(loop.Tolerance, loop.CanonicalBytes);
 
     private static bool Valid(Loop loop) => loop.Closed && loop.Count >= 3
         && loop.Vertices.ForAll(static point => double.IsFinite(point.X) && double.IsFinite(point.Y) && double.IsFinite(point.Z))
@@ -640,7 +687,7 @@ public static class Remnants {
 
     private static Fin<RemnantPlan> Claim(RemnantOp.Claim request, RemnantInventory inventory) =>
         request.Job < 0 || request.ExpectedRevision < 0
-            ? Fin.Fail<RemnantPlan>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "remnant:claim"))
+            ? Fin.Fail<RemnantPlan>(new KernelFault.InvalidValue("remnant", "remnant:claim"))
             : Resolve(request.Key, request.ExpectedRevision, inventory).Match(
                 conflict => Fin.Succ(ConflictPlan(inventory, conflict)),
                 row => (row.State == RemnantState.Stocked, row.Lease.IsSome, row.Claims >= inventory.Policy.MaxClaims) switch {
@@ -663,7 +710,7 @@ public static class Remnants {
 
     private static Fin<RemnantPlan> Close(RemnantOp.Close request, RemnantInventory inventory) =>
         request.Job < 0 || request.ExpectedRevision < 0
-            ? Fin.Fail<RemnantPlan>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "remnant:close"))
+            ? Fin.Fail<RemnantPlan>(new KernelFault.InvalidValue("remnant", "remnant:close"))
             : Resolve(request.Key, request.ExpectedRevision, inventory).Match(
                 conflict => Fin.Succ(ConflictPlan(inventory, conflict)),
                 row => (row.State == RemnantState.Reserved,
@@ -692,7 +739,7 @@ public static class Remnants {
                 from measure in outside.IsEmpty
                     ? Measure(use.Used, state.Inventory.Policy.ArcToleranceMm)
                     : Fin.Fail<(double Area, Option<double> Aspect, double Compactness)>(
-                        new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "remnant:consumption"))
+                        new KernelFault.InvalidValue("remnant", "remnant:consumption"))
                 from remaining in Boolean(usable, use.Used, BoolKind.Not)
                 from components in remaining.IsEmpty
                     ? Fin.Succ(Seq<(Loop Outer, Seq<Loop> Holes)>())
@@ -701,12 +748,14 @@ public static class Remnants {
                     state.Row.Remnant.Origin.Stock,
                     Some(state.Row.Remnant.Identity),
                     state.Row.Remnant.Generation + 1)
-                let recovered = components.Map(component => Mint(
-                    component.Outer,
-                    component.Holes,
-                    state.Row.Remnant.Material,
-                    origin,
-                    state.Row.Profile with { Exclusions = Seq<Loop>() }))
+                from recovered in components
+                    .Traverse(component => Mint(
+                        component.Outer,
+                        component.Holes,
+                        state.Row.Remnant.Material,
+                        origin,
+                        state.Row.Profile with { Exclusions = Seq<Loop>() }).ToValidation())
+                    .As().ToFin()
                 from consumed in Shift(state.Inventory, state.Row, state.Row with {
                     State = state.Next, Revision = state.Row.Revision + 1, Lease = None,
                 }, consumed: Prorated(state.Row, measure.Area))
@@ -720,7 +769,7 @@ public static class Remnants {
         from _ in guard(
             request.Observed.ForAll(static observation => observation.Key.Kind == EgressKind.Remnant)
                 && request.Observed.Map(static observation => observation.Key.Digest).Distinct().Count == request.Observed.Count,
-            (Error)new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "remnant:observation")).ToFin()
+            (Error)new KernelFault.InvalidValue("remnant", "remnant:observation")).ToFin()
         let observed = request.Observed.Fold(
             Map<UInt128, RemnantObservation>(),
             static (rows, observation) => rows.AddOrUpdate(observation.Key.Digest, observation))
@@ -832,11 +881,11 @@ public static class Remnants {
         lineage.AddVertexRange(byIdentity.Keys);
         if (!keyed || byIdentity.Count != rows.Length
             || toSeq(rows).Exists(row => row.Remnant.Parent.Exists(parent => !byIdentity.ContainsKey(parent))))
-            return Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "remnant:lineage-parent"));
+            return Fin.Fail<Unit>(new KernelFault.InvalidValue("remnant", "remnant:lineage-parent"));
         toSeq(rows).Iter(row => row.Remnant.Parent
             .Iter(parent => lineage.AddEdge(new SEdge<UInt128>(parent, row.Remnant.Identity))));
         if (!lineage.IsDirectedAcyclicGraph())
-            return Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "remnant:lineage-cycle"));
+            return Fin.Fail<Unit>(new KernelFault.InvalidValue("remnant", "remnant:lineage-cycle"));
         bool succession = toSeq(lineage.Edges).ForAll(edge =>
             (from parent in byIdentity.Find(edge.Source)
              from child in byIdentity.Find(edge.Target)
@@ -845,7 +894,7 @@ public static class Remnants {
         bool roots = toSeq(rows).ForAll(static row => row.Remnant.Parent.IsSome == row.Remnant.Generation > 0);
         return toSeq(lineage.TopologicalSort()).Count == rows.Length && succession && roots
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "remnant:lineage"));
+            : Fin.Fail<Unit>(new KernelFault.InvalidValue("remnant", "remnant:lineage"));
     }
 
     internal static Error? RowFault(RemnantRow row, RemnantInventory inventory) {
@@ -874,7 +923,7 @@ public static class Remnants {
             && row.Claims >= 0 && row.Claims <= inventory.Policy.MaxClaims
             && lifecycle && lease && profile && usable
             ? null
-            : new FabricationFault.PolicyInadmissible(FabConcern.Nesting, $"remnant:inventory:{row.Remnant.Identity}");
+            : new KernelFault.InvalidValue("remnant", $"remnant:inventory:{row.Remnant.Identity}");
     }
 
     private static Fin<Seq<Loop>> Offset(Seq<Loop> loops, double distance) => loops.Head.Match(
@@ -895,18 +944,18 @@ public static class Remnants {
             .Bind(forest => ArcAlgebra.Apply(new ArcOp.Inspect(forest, new ArcProbe.Pair(first, second))))
             .Bind(static trace => trace is ArcTrace.Inspection { Result: ArcInspection.Pair pair }
                 ? Fin.Succ(pair.Relation)
-                : Fin.Fail<ArcRelation>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "remnant:relation-trace")));
+                : Fin.Fail<ArcRelation>(new KernelFault.InvalidValue("remnant", "remnant:relation-trace")));
 
     private static Fin<Loop> Lower(Loop loop, double error) =>
         ArcAlgebra.Densify(new ArcProjection.Lower(loop, error))
-            .Bind(static trace => trace is ArcTrace.Densified densified
-                ? Fin.Succ(densified.Receipt.Result)
-                : Fin.Fail<Loop>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "remnant:projection-trace")));
+            .Bind(static trace => trace
+                .Lowering(new KernelFault.InvalidValue("remnant", "remnant:projection-trace"))
+                .Map(static evidence => evidence.Result));
 
     private static Fin<Seq<Loop>> ArcPaths(ArcTrace trace) => trace switch {
         ArcTrace.Forest forest => Fin.Succ(forest.Result.Loops),
         ArcTrace.Paths paths => Fin.Succ(paths.Result),
-        _ => Fin.Fail<Seq<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "remnant:arc-trace")),
+        _ => Fin.Fail<Seq<Loop>>(new KernelFault.InvalidValue("remnant", "remnant:arc-trace")),
     };
 
     private static Fin<(Seq<Loop> Usable, double Area, Option<double> Aspect, double Compactness, bool Spans)> Assess(
@@ -915,7 +964,7 @@ public static class Remnants {
         ReusePolicy policy) =>
         from usable in Usable(remnant, profile, policy)
         from measure in Measure(usable, policy.ArcToleranceMm)
-        from spanCore in Offset(usable, -0.5 * policy.MinReusableSpanMm)
+        from spanCore in Offset(usable, -0.5 * policy.MinReusableSpan.Millimeters)
         select (usable, measure.Area, measure.Aspect, measure.Compactness, !spanCore.IsEmpty);
 
     // The reuse assessment a policy runs against one candidate: nine independent gates whose only differences are
@@ -942,33 +991,40 @@ public static class Remnants {
         static assay => assay.Remnant.Generation > assay.Policy.MaxGeneration
             ? Some<RetireCause>(new RetireCause.Generation(assay.Remnant.Generation, assay.Policy.MaxGeneration))
             : None,
-        static assay => assay.Policy.MinGaugeMm > 0.0
-            && assay.Profile.GaugeMm.Filter(gauge => gauge >= assay.Policy.MinGaugeMm).IsNone
-                ? Some<RetireCause>(new RetireCause.Gauge(assay.Profile.GaugeMm, assay.Policy.MinGaugeMm))
+        static assay => assay.Policy.MinGauge.Millimeters > 0.0
+            && assay.Profile.GaugeMm.Filter(gauge => gauge >= assay.Policy.MinGauge.Millimeters).IsNone
+                ? Some<RetireCause>(new RetireCause.Gauge(assay.Profile.GaugeMm, assay.Policy.MinGauge.Millimeters))
                 : None,
-        static assay => assay.Area < assay.Policy.MinUsableAreaMm2
-            ? Some<RetireCause>(new RetireCause.AreaFloor(assay.Area, assay.Policy.MinUsableAreaMm2))
+        static assay => assay.Area < assay.Policy.MinUsable.SquareMillimeters
+            ? Some<RetireCause>(new RetireCause.AreaFloor(assay.Area, assay.Policy.MinUsable.SquareMillimeters))
             : None,
         static assay => !assay.Spans
-            ? Some<RetireCause>(new RetireCause.FeatureWidth(assay.Policy.MinReusableSpanMm))
+            ? Some<RetireCause>(new RetireCause.FeatureWidth(assay.Policy.MinReusableSpan.Millimeters))
             : None,
         // Absence retires exactly as a failing figure does — a region with no envelope IS the sliver — but the
         // cause carries the absence rather than a manufactured zero, so a reader can tell an unmeasurable region
         // from a measured needle.
-        static assay => assay.Aspect.Filter(aspect => aspect >= assay.Policy.MinAspect).IsNone
-            ? Some<RetireCause>(new RetireCause.SliverAspect(assay.Aspect, assay.Policy.MinAspect))
+        static assay => assay.Aspect.Filter(aspect => aspect >= assay.Policy.MinAspect.DecimalFractions).IsNone
+            ? Some<RetireCause>(new RetireCause.SliverAspect(assay.Aspect, assay.Policy.MinAspect.DecimalFractions))
             : None,
-        static assay => assay.Compactness < assay.Policy.MinCompactness
-            ? Some<RetireCause>(new RetireCause.Compactness(assay.Compactness, assay.Policy.MinCompactness))
+        static assay => assay.Compactness < assay.Policy.MinCompactness.DecimalFractions
+            ? Some<RetireCause>(new RetireCause.Compactness(assay.Compactness, assay.Policy.MinCompactness.DecimalFractions))
             : None,
         static assay => assay.Profile.CostPerSquareMillimeter
             .Map(rate => rate * assay.Area)
             .Filter(value => value < assay.Policy.MinSalvageValue)
             .Map(value => (RetireCause)new RetireCause.Salvage(value, assay.Policy.MinSalvageValue)));
 
+    // Traceability is a CAPABILITY gate, and this seam's posture is ACCUMULATE-FOR-ABSENCE, not refuse: a missing
+    // trait is one more cause beside the nine measured ones, so the kernel column's `Missing` — the evidence
+    // complement, ordered by the roster's own derived rank — is the read, and the `Require` door belongs at an
+    // admission that genuinely refuses. Per-trait predicate walks re-derive a set difference this column already
+    // answers.
     private static Seq<RetireCause> Causes(RemnantAssay assay) =>
         ReuseGates.Map(gate => gate(assay)).Somes()
-            .Concat(assay.Policy.Missing(assay.Profile).Map(static trait => (RetireCause)new RetireCause.Traceability(trait)));
+            .Concat(toSeq(ReuseTrait.Of(assay.Profile).Missing(assay.Policy.Required).Held
+                    .OrderBy(static trait => trait.Rank))
+                .Map(static trait => (RetireCause)new RetireCause.Traceability(trait)));
 
     private static Fin<Seq<Loop>> Usable(RemnantRow row, ReusePolicy policy) =>
         Usable(row.Remnant, row.Profile, policy);
@@ -991,9 +1047,9 @@ public static class Remnants {
                 double perimeter = rows.Sum(static row => row.Length);
                 double compactness = perimeter == 0.0 ? 0.0 : Math.Min(1.0, (4.0 * Math.PI * area) / (perimeter * perimeter));
                 return PolygonAlgebra.Apply(new PolygonOp.Calipers(rows.Map(static row => row.Polygon)))
-                    .Bind(static trace => trace is PolygonTrace.Enveloped enveloped
-                        ? Fin.Succ(Some(enveloped.Result.Aspect))
-                        : Fin.Fail<Option<double>>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "remnant:envelope-trace")))
+                    .Bind(static trace => trace
+                        .Envelope(new KernelFault.InvalidValue("remnant", "remnant:envelope-trace"))
+                        .Map(static envelope => Some(envelope.Aspect)))
                     .BindFail(static error => error.IsType<GeometryFault.DegenerateInput>()
                         ? Fin.Succ(Option<double>.None)
                         : Fin.Fail<Option<double>>(error))
@@ -1024,7 +1080,7 @@ public static class Remnants {
                 && after.Revision == before.Revision + 1
                 && before.Key.Kind == after.Key.Kind
                 && before.Key.Digest == after.Key.Digest,
-            (Error)new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "remnant:transition")).ToFin();
+            (Error)new KernelFault.InvalidValue("remnant", "remnant:transition")).ToFin();
 
     private static RemnantPlan Merge(RemnantPlan first, RemnantPlan second) => Plan(
         second.Next,
@@ -1078,19 +1134,19 @@ public static class Remnants {
     // and its winding prologue all delete onto it and two loops describing one region under different vertex
     // origins mint one key. `FabricationCanon` frames the rest: absence is a presence BIT and `Rows` writes the
     // count ahead of its rows. Field ORDER is this page's and stays.
-    internal static ContentKey KeyOf(
+    internal static Fin<ContentKey> KeyOf(
         Loop boundary,
         Seq<Loop> holes,
         MaterialId material,
         RemnantOrigin origin) =>
-        ContentKey.Of(
-            EgressKind.Remnant,
-            new CanonicalWriter(boundary.Tolerance.Absolute.Value)
-                .String(material.Value).U128(origin.Stock).Ordinal(origin.Generation)
-                .Maybe(origin.Parent, static (held, parent) => held.U128(parent))
-                .Rows(Seq(boundary), static (held, loop) => loop.CanonicalBytes(held))
-                .Rows(Ordered(holes), static (held, hole) => hole.CanonicalBytes(held))
-                .ToBytes().Span);
+        FabricationCanon.Keyed(EgressKind.Remnant, boundary.Tolerance, writer => writer
+            .String(material.Value).U128(origin.Stock).Ordinal(origin.Generation)
+            .Maybe(origin.Parent, static (held, parent) => held.U128(parent))
+            .Rows(Seq(boundary), static (held, loop) => loop.CanonicalBytes(held))
+            .Rows(Ordered(holes), static (held, hole) => hole.CanonicalBytes(held)),
+            RemnantOp);
+
+    private static readonly Op RemnantOp = Op.Of(name: nameof(KeyOf));
 
     private static Seq<Loop> Ordered(Seq<Loop> loops) => toSeq(loops.OrderBy(Preimage));
 

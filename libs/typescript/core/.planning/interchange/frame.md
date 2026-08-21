@@ -1,6 +1,6 @@
 # [CORE_FRAME]
 
-`Frame` owns bounded artifact reassembly, verified geometry rendezvous, generation-aware residency, and IFC container admission. Interleaved bands fold by artifact and generation under one ingress budget, verification gates the joined allocation, tensor views prove span, stride, and alignment, and manifests replace ledger state while generation-matched deltas patch it. Module `core/src/interchange/frame.ts` admits an arrival class as one refusal row, a tensor element type as one view row, a residency payload as one kind row, and an IFC serialization as one admission row.
+`Frame` owns bounded artifact reassembly, verified geometry rendezvous, schema-pinned residency admission, and IFC container admission. Interleaved bands fold by artifact and generation under one ingress budget, verification gates the joined allocation, tensor views prove span, stride, and alignment, and each residency manifest replaces whole against the producer's pinned cluster roster and the budget it declares. Module `core/src/interchange/frame.ts` admits an arrival class as one refusal row, a tensor element type as one view row, a residency payload as one kind row, and an IFC serialization as one admission row.
 
 `Frame` composes the `value` floor's `Digest` identity and `Shape.Ingress` ceilings, the `codec` owner's fault, gap, parity, and quarantine rails, and the `format` owner's proto suite and JSON schema mints. Producers own every payload axis crossing this plane, so `Frame` folds arrivals into receipts, views, ledgers, and admissions and mints no payload axis of its own.
 
@@ -9,8 +9,8 @@
 - [02]-[FRAME_PROTOCOL]: bounded keyed frame assembly and sequence evidence; `Frame.Artifact`.
 - [03]-[KEY_VERIFY]: delegated verification and single-allocation joins; `Frame.Artifact`.
 - [04]-[GEOMETRY_PLANE]: geometry envelopes, tensor views, and rendezvous; `Frame.Geometry`.
-- [05]-[RESIDENCY_LEDGER]: generation-aware manifest replacement and delta folding; `Frame.Residency`.
-- [06]-[IFC_ADMISSION]: serialization rows, the sparse container and release crossings, the release-header read; `Frame.Ifc`.
+- [05]-[RESIDENCY_MANIFEST]: schema-pinned viewport manifest admission, per-kind census, and budget grading; `Frame.Residency`.
+- [06]-[IFC_ADMISSION]: serialization rows and their two direction verdicts, the sparse container and release crossings, the release-header read; `Frame.Ifc`.
 
 ## [02]-[FRAME_PROTOCOL]
 
@@ -45,21 +45,16 @@ type _Emit = Either.Either<
 
 const _SEED: _State = { seen: 0, held: HashMap.empty() }
 
+// The axis is a roster member of the codec's own overrun vocabulary, so every ceiling this page refuses under names
+// itself in a column rather than in a token, and the artifact coordinate rides the branch's absence carrier — the
+// tensor legs genuinely hold none, where every assembly leg does.
 const _overrun = (
   family: Wire.FaultFamily,
-  detail: string,
+  axis: Wire.OverrunAxis,
   actual: number,
   expected: number,
-  coordinate?: { readonly key: Digest.Key<"content">; readonly generation: number },
-): Wire.Fault =>
-  new Wire.Fault({
-    family,
-    reason: "overrun",
-    detail,
-    evidence: Option.some(coordinate === undefined
-      ? { actual, expected }
-      : { artifact: coordinate.key, generation: coordinate.generation, actual, expected }),
-  })
+  at: Option.Option<{ readonly artifact: Digest.Key<"content">; readonly generation: number }>,
+): Wire.Fault => new Wire.Fault({ family, case: { reason: "overrun", axis, actual, expected, at } })
 
 const _coordinateOf = (key: Digest.Key<"content">, generation: number): _Coordinate => `${key}:${generation}`
 const _coordinate = (frame: ArtifactBand): _Coordinate => _coordinateOf(frame.artifact, frame.generation)
@@ -78,34 +73,32 @@ const _gathered = (budget: Shape.Ingress) => {
   const opening: ReadonlyArray<_OpenRefusal> = [
     { // a first frame at a nonzero ordinal is a headless arrival: the same gap evidence at expected zero
       when: (frame) => frame.ordinal !== 0,
-      fault: (frame) => Wire.Gap.evidence("ArtifactFrame", 0n, BigInt(frame.ordinal)),
+      fault: (frame) => Wire.Gap.evidence("ArtifactFrame", "ordinal", 0n, BigInt(frame.ordinal)),
     },
     {
       when: (frame) => frame.band.length > budget.bytes,
-      fault: (frame) => _overrun("ArtifactFrame", "<assembled-over-budget>", frame.band.length, budget.bytes,
-        { key: frame.artifact, generation: frame.generation }),
+      fault: (frame) => _overrun("ArtifactFrame", "assembly", frame.band.length, budget.bytes, Option.some(frame)),
     },
   ]
   const holding: ReadonlyArray<_HeldRefusal> = [
     {
       when: (frame, held) => frame.ordinal !== held.expect,
-      fault: (frame, held) => Wire.Gap.evidence("ArtifactFrame", BigInt(held.expect), BigInt(frame.ordinal)),
+      fault: (frame, held) => Wire.Gap.evidence("ArtifactFrame", "ordinal", BigInt(held.expect), BigInt(frame.ordinal)),
     },
     {
       when: (frame, held) => frame.total !== held.total,
-      fault: (frame, held) => Wire.Gap.evidence("ArtifactFrame", BigInt(held.total), BigInt(frame.total), "<total-drift>"),
+      fault: (frame, held) => Wire.Gap.evidence("ArtifactFrame", "total", BigInt(held.total), BigInt(frame.total)),
     },
     {
       when: (frame, held) => held.extent + frame.band.length > budget.bytes,
       fault: (frame, held) =>
-        _overrun("ArtifactFrame", "<assembled-over-budget>", held.extent + frame.band.length, budget.bytes,
-          { key: frame.artifact, generation: frame.generation }),
+        _overrun("ArtifactFrame", "assembly", held.extent + frame.band.length, budget.bytes, Option.some(frame)),
     },
   ]
   return (state: _State, frame: ArtifactBand): readonly [_State, _Emit] =>
     state.seen >= budget.frames
-      ? ([_next(state, state.held), Either.left(_overrun("ArtifactFrame", "<frame-budget>", state.seen + 1, budget.frames,
-          { key: frame.artifact, generation: frame.generation }))] as const)
+      ? ([_next(state, state.held), Either.left(_overrun("ArtifactFrame", "frames", state.seen + 1, budget.frames,
+          Option.some(frame)))] as const)
       : Option.match(HashMap.get(state.held, _coordinate(frame)), {
           onNone: () =>
             Option.match(Option.map(Array.findFirst(opening, (row) => row.when(frame)), (row) => row.fault(frame)), {
@@ -189,7 +182,7 @@ const _verifiedArtifact = (
 
 const _unfinished = (state: _State): ReadonlyArray<_Emit> =>
   Array.map(Array.fromIterable(HashMap.values(state.held)), (held) =>
-    Either.left(Wire.Gap.evidence("ArtifactFrame", BigInt(held.total), BigInt(held.expect), "<truncated>")))
+    Either.left(Wire.Gap.evidence("ArtifactFrame", "tail", BigInt(held.total), BigInt(held.expect))))
 
 const _artifactWire = <F, FI, S, SI>(
   format: Schema.Schema<F, FI>,
@@ -297,11 +290,11 @@ const _payloadStream = <A>(
   frames: AsyncIterable<Uint8Array>,
 ): Stream.Stream<Either.Either<A, Wire.Fault>, Wire.Fault, Wire.Quarantine> =>
   Stream.fromAsyncIterable(frames, (defect) =>
-    new Wire.Fault({ family, reason: "malformed", detail: String(defect), evidence: Option.none() })).pipe(
+    new Wire.Fault({ family, case: { reason: "malformed", at: "source", issue: String(defect) } })).pipe(
     Stream.mapEffect((octets) =>
       Schema.decodeUnknown(schema)(octets).pipe(
         Effect.mapError((issue) =>
-          new Wire.Fault({ family, reason: "malformed", detail: issue.message, evidence: Option.none() })),
+          new Wire.Fault({ family, case: { reason: "malformed", at: "decode", issue: issue.message } })),
         Wire.Quarantine.divert({ family, octets: () => octets }),
       ), { concurrency: 1 }),
   )
@@ -350,30 +343,16 @@ class GeometryFrame extends Schema.Class<GeometryFrame>("GeometryFrame")({
   static readonly view = (octets: Uint8Array, tensor: GeometryFrame.Tensor): Either.Either<GeometryFrame.View, Wire.Fault> =>
     octets.byteLength > Shape.Ingress.floor.bytes || _span(tensor) > Shape.Ingress.floor.bytes
       ? Either.left(
-          new Wire.Fault({
-            family: "GeometryPayload",
-            reason: "overrun",
-            detail: "<tensor-budget>",
-            evidence: Option.some({ actual: Math.max(octets.byteLength, _span(tensor)), expected: Shape.Ingress.floor.bytes }),
-          }),
+          _overrun("GeometryPayload", "tensor-extent",
+            Math.max(octets.byteLength, _span(tensor)), Shape.Ingress.floor.bytes, Option.none()),
         )
       : tensor.byteStride !== 0 && tensor.byteStride < _rowBytes(tensor)
       ? Either.left(
-          new Wire.Fault({
-            family: "GeometryPayload",
-            reason: "overrun",
-            detail: "<tensor-stride>",
-            evidence: Option.some({ actual: tensor.byteStride, expected: _rowBytes(tensor) }),
-          }),
+          _overrun("GeometryPayload", "tensor-stride", tensor.byteStride, _rowBytes(tensor), Option.none()),
         )
       : tensor.byteOffset + _span(tensor) > octets.byteLength
       ? Either.left(
-          new Wire.Fault({
-            family: "GeometryPayload",
-            reason: "overrun",
-            detail: "<tensor-span>",
-            evidence: Option.some({ actual: tensor.byteOffset + _span(tensor), expected: octets.byteLength }),
-          }),
+          _overrun("GeometryPayload", "tensor-span", tensor.byteOffset + _span(tensor), octets.byteLength, Option.none()),
         )
       : Either.right(
           tensor.byteStride === 0 && (octets.byteOffset + tensor.byteOffset) % _views[tensor.dtype].width === 0
@@ -423,8 +402,8 @@ const _rendezvous = (
       const coordinate = _coordinateOf(receipt.key, receipt.generation)
       return Option.match(Option.flatMap(HashMap.get(held, coordinate), Either.getLeft), {
         onNone: () => HashMap.size(held) >= budget.collection
-          ? [held, Option.some(Either.left(_overrun("GeometryPayload", "<geometry-rendezvous>",
-              HashMap.size(held) + 1, budget.collection, { key: receipt.key, generation: receipt.generation })))] as const
+          ? [held, Option.some(Either.left(_overrun("GeometryPayload", "rendezvous", HashMap.size(held) + 1,
+              budget.collection, Option.some({ artifact: receipt.key, generation: receipt.generation }))))] as const
           : [HashMap.set(held, coordinate, Either.right([receipt, octets] as const)), Option.none()] as const,
         onSome: (envelope) =>
           [HashMap.remove(held, coordinate), Option.some(Either.right([envelope, receipt, octets] as const))] as const,
@@ -436,9 +415,9 @@ const _unmatched = (held: _Rendezvous): ReadonlyArray<Option.Option<_Join>> =>
   Array.map(Array.fromIterable(HashMap.entries(held)), ([coordinate, lane]) =>
     Option.some(Either.left(new Wire.Fault({
       family: "GeometryPayload",
-      reason: "truncated",
-      detail: Either.isLeft(lane) ? `<unmatched-envelope:${coordinate}>` : `<unmatched-artifact:${coordinate}>`,
-      evidence: Option.none(),
+      // the side and the coordinate were fused into one token, so the fact a reader wants first — WHICH half never
+      // arrived — could only be recovered by matching a prefix on prose
+      case: { reason: "truncated", side: Either.isLeft(lane) ? "envelope" : "artifact", coordinate },
     }))))
 
 const _joinedGeometry = <E1, R1, E2, R2>(
@@ -461,20 +440,25 @@ const _joinedGeometry = <E1, R1, E2, R2>(
   )
 ```
 
-## [05]-[RESIDENCY_LEDGER]
+## [05]-[RESIDENCY_MANIFEST]
 
-- Owner: `Frame.Residency` folds authoritative manifests and generation-matched deltas into a keyed ledger.
-- Law: manifests replace state, duplicate keys refuse, and a delta applies at the held generation and scene alone.
-- Law: refusal direction grades the arrival — a superseded one reads `stale`, an unreached one `conflict`, both carrying the generation pair.
-- Law: `pending`, `census`, and `kind` projections derive scheduling and render policy from the same rows.
-- Law: Generation supersession ends a row's lifetime, and the arriving manifest is the sole authority ending it.
+- Owner: `Frame.Residency` admits the producer's viewport residency manifest and grades it against the pinned schema and the budget it declares.
+- Law: the manifest REPLACES — the producer mints the whole resident tile set for one viewpoint on every emission, so no held state exists for an arrival to patch and this crossing carries no delta arm.
+- Law: the schema pin grades the CLUSTER ROSTER as much as the envelope, so a version off the pin refuses before any tile column is read.
+- Law: refusal direction grades the arrival — a version below the pin reads `stale`, one above reads `conflict`, both carrying the version pair.
+- Law: duplicate content keys refuse, and the collection ceiling is `Shape.Ingress`.
+- Law: `kind` decides cull and draw posture, and the same rows carry the per-kind census the declared VRAM budget is judged against.
 
 ```typescript signature
-const _states = ["resident", "pending", "evicted"] as const
+// The producer's schema pin, carried as a VALUE because it grades every arrival: the pin counts the cluster roster
+// as much as the envelope, so a decoder reading a column set one row short of the producer's stops at the wrong
+// offset on every cluster past the first and every figure derived below it is fiction. Four is the roster carrying
+// the producer's `parent`, `parentError`, and `cut` columns.
+const _RESIDENCY_SCHEMA = 4
 
 // Producers cross their payload axis verbatim, and its two consumer columns cross with it: `coneCullable` names the
-// rows a cluster cull may reject before upload, `splatBorne` the rows a raster shader cannot draw. A consumer told
-// only a mesh key and an extent has to infer both from the bytes it has not fetched yet.
+// tiles a cluster cull may reject before upload, `splatBorne` the tiles a raster shader cannot draw. A consumer told
+// only a content key and a bounding sphere has to infer both from the bytes it has not fetched yet.
 const _kinds = ["meshlet-cluster", "quantized-vertex", "point-splat", "gaussian-splat"] as const
 // `as const satisfies`: a mapped ANNOTATION widens both columns to `boolean` and erases the row literals, so a
 // consumer told to raise over a column reads `boolean` and every `extends true` derivation beside it resolves `never`
@@ -486,151 +470,233 @@ const _kindRows = {
   "gaussian-splat": { coneCullable: false, splatBorne: true },
 } as const satisfies { readonly [K in Residency.Kind]: { readonly coneCullable: boolean; readonly splatBorne: boolean } }
 
-const _Row = Schema.Struct({
-  mesh: Digest.codecs.content.wire,
-  lod: Shape.Refined.OrdinalKey,
-  extent: Shape.Refined.OrdinalKey,
+// Both rosters cross as the producer's own uppercase tokens, because they name the meshopt codec's encoding and
+// filter modes rather than a vocabulary either end mints — a lowercased mirror here would be a second spelling of
+// one decoder's contract.
+const _modes = ["ATTRIBUTES", "TRIANGLES", "INDICES", "RAW"] as const
+const _filters = ["NONE", "OCTAHEDRAL", "QUATERNION", "EXPONENTIAL"] as const
+
+const _Triple = Schema.Tuple(Schema.Number, Schema.Number, Schema.Number)
+
+// Absence OMITS on this crossing and never crosses null: the producing shell serializes under one merged options
+// identity whose carrier modifier DROPS the member outright, so `optional` is the only spelling that decodes what
+// the emission writes and a `NullOr` here would declare a token that emission cannot produce.
+const _Camera = Schema.Struct({
+  projection: Schema.Literal("perspective", "orthographic"),
+  eye: _Triple,
+  target: _Triple,
+  up: _Triple,
+  scale: Schema.Number,
+})
+
+const _Measurement = Schema.Struct({
+  key: Schema.NonEmptyString,
+  vertices: Schema.Array(Schema.Struct({
+    sourceKey: Schema.NonEmptyString,
+    sampleIndex: Shape.Refined.OrdinalKey,
+    position: _Triple,
+  })),
+  totalMeters: Schema.Number,
+  anglesDegrees: Schema.Array(Schema.Number),
+})
+
+const _Viewpoint = Schema.Struct({
+  key: Schema.NonEmptyString,
+  version: Shape.Refined.OrdinalKey,
+  camera: _Camera,
+  section: Schema.optional(Schema.Struct({ min: _Triple, max: _Triple })),
+  overrides: Schema.Array(Schema.Struct({
+    elementId: Schema.NonEmptyString,
+    visible: Schema.Boolean,
+    colorArgb: Schema.optional(Shape.Refined.OrdinalKey),
+    transparency: Schema.Number,
+  })),
+  selection: Schema.Array(Schema.NonEmptyString),
+  measurements: Schema.Array(_Measurement),
+  at: Schema.DateTimeUtc,
+})
+
+const _Stream = Schema.Struct({
+  stream: Schema.NonEmptyString,
+  mode: Schema.Literal(..._modes),
+  filter: Schema.Literal(..._filters),
+  byteOffset: Shape.Refined.OrdinalKey,
+  byteLength: Shape.Refined.OrdinalKey,
+  count: Shape.Refined.OrdinalKey,
+  byteStride: Shape.Refined.OrdinalKey.pipe(Schema.positive()),
+  codecVersion: Shape.Refined.OrdinalKey,
+})
+
+// `parent` and `parentError` are ABSENT at the LOD subtree root and at its terminus rather than sentinel-valued, so
+// a cut walk reads absence as the boundary the producer meant instead of chasing a fabricated index; `cut` and
+// `curvature` are the producer's own realized figures, carried so this head's footprint derivation reads the same
+// measured bound the producing integrator's ray cone did and the two runtimes cannot disagree on a texture level.
+const _Meshlet = Schema.Struct({
+  vertexOffset: Shape.Refined.OrdinalKey,
+  triangleOffset: Shape.Refined.OrdinalKey,
+  vertexCount: Shape.Refined.OrdinalKey,
+  triangleCount: Shape.Refined.OrdinalKey,
+  center: _Triple,
+  radius: Schema.Number,
+  coneApex: _Triple,
+  coneAxis: _Triple,
+  coneCutoff: Schema.Number,
+  level: Shape.Refined.OrdinalKey,
+  parent: Schema.optional(Shape.Refined.OrdinalKey),
+  shell: Shape.Refined.OrdinalKey,
+  error: Schema.Number,
+  parentError: Schema.optional(Schema.Number),
+  curvature: Schema.Number,
+  cut: Shape.Refined.OrdinalKey,
+})
+
+// Bounds are the producer's packed `[x, y, z, radius]` sphere, so the TUPLE states the arity a bare array spelling
+// leaves open — a three-column read drops the radius silently and culls against a point.
+const _Tile = Schema.Struct({
   kind: Schema.Literal(..._kinds),
-  state: Schema.Literal(..._states),
+  contentKey: Digest.codecs.content.wire,
+  blobKey: Schema.NonEmptyString,
+  bytes: Shape.Refined.OrdinalKey,
+  residentCount: Shape.Refined.OrdinalKey,
+  harmonicDegree: Shape.Refined.OrdinalKey,
+  bounds: Schema.Tuple(Schema.Number, Schema.Number, Schema.Number, Schema.Number),
+  streams: Schema.Array(_Stream),
+  meshlets: Schema.Array(_Meshlet),
 })
 
 class Manifest extends Schema.Class<Manifest>("Manifest")({
-  scene: Digest.codecs.content.wire,
-  generation: Shape.Refined.OrdinalKey,
-  rows: Schema.Array(_Row).pipe(
-    Schema.filter((rows) => rows.length <= Shape.Ingress.floor.collection || "<residency-collection>"),
-    Schema.filter((rows) => Array.dedupe(Array.map(rows, (row) => row.mesh)).length === rows.length || "<duplicate-residency-key>"),
+  version: Shape.Refined.OrdinalKey.pipe(Schema.positive()),
+  viewpoint: _Viewpoint,
+  tiles: Schema.Array(_Tile).pipe(
+    Schema.filter((tiles) => tiles.length <= Shape.Ingress.floor.collection || "<residency-collection>"),
+    Schema.filter((tiles) =>
+      Array.dedupe(Array.map(tiles, (tile) => tile.contentKey)).length === tiles.length || "<duplicate-residency-key>"),
   ),
-  minted: Schema.DateTimeUtc,
+  vramBudget: Shape.Refined.OrdinalKey,
 }) {}
-
-class Delta extends Schema.Class<Delta>("Delta")({
-  scene: Digest.codecs.content.wire,
-  generation: Shape.Refined.OrdinalKey,
-  ..._Row.fields,
-}) {}
-
-const _envelope: Schema.Union<[typeof Manifest, typeof Delta]> = Schema.Union(Manifest, Delta)
 
 declare namespace Residency {
   type Kind = (typeof _kinds)[number]
-  type State = (typeof _states)[number]
-  type Row = Schema.Schema.Type<typeof _Row>
-  type Arrival = Manifest | Delta
-  type Ledger = {
-    readonly scene: Option.Option<Digest.Key<"content">>
-    readonly generation: number
-    readonly rows: HashMap.HashMap<Digest.Key<"content">, Row>
-  }
-  type Tally = { readonly count: number; readonly extent: number }
-  type Census = { readonly [S in State]: Tally }
+  type Mode = (typeof _modes)[number]
+  type Filter = (typeof _filters)[number]
+  type Viewpoint = Schema.Schema.Type<typeof _Viewpoint>
+  type Tile = Schema.Schema.Type<typeof _Tile>
+  type Meshlet = Schema.Schema.Type<typeof _Meshlet>
+  type StreamRow = Schema.Schema.Type<typeof _Stream>
+  type Tally = { readonly count: number; readonly bytes: number; readonly meshlets: number }
+  type Census = { readonly [K in Kind]: Tally }
+  type View = { readonly manifest: Manifest; readonly resident: number; readonly census: Census }
   type _Kinds<T extends Record<Kind, { readonly coneCullable: boolean; readonly splatBorne: boolean }> = typeof _kindRows> = T
 }
 
-const _EMPTY_LEDGER: Residency.Ledger = { scene: Option.none(), generation: 0, rows: HashMap.empty() }
+const _EMPTY_TALLY: Residency.Tally = { count: 0, bytes: 0, meshlets: 0 }
 
-// Direction names the refusal and the poison census grades on it: a ledger PAST the arrival supersedes it, while an
-// arrival at or beyond the held generation contradicts a coordinate this fold never reached and applies whole once
-// its manifest lands. Evidence carries the pair a board drills on, so this refusal reads like every other on the page.
-const _residencyFault = (ledger: Residency.Ledger, arrival: Residency.Arrival): Wire.Fault =>
-  new Wire.Fault({
-    family: "GeometryResidencyWire",
-    reason: arrival.generation < ledger.generation ? "stale" : "conflict",
-    detail: arrival.generation < ledger.generation
-      ? "<residency-superseded>"
-      : arrival.generation === ledger.generation
-      ? "<residency-scene>"
-      : "<residency-unreached>",
-    evidence: Option.some({
-      artifact: arrival.scene,
-      generation: arrival.generation,
-      actual: arrival.generation,
-      expected: ledger.generation,
-    }),
-  })
-
-const _landed = (ledger: Residency.Ledger, arrival: Residency.Arrival): Either.Either<Residency.Ledger, Wire.Fault> =>
-  arrival instanceof Manifest
-    ? arrival.generation < ledger.generation
-      ? Either.left(_residencyFault(ledger, arrival))
-      : Either.right({
-          scene: Option.some(arrival.scene),
-          generation: arrival.generation,
-          rows: Array.reduce(arrival.rows, HashMap.empty<Digest.Key<"content">, Residency.Row>(),
-            (rows, row) => HashMap.set(rows, row.mesh, row)),
-        })
-    : ledger.generation !== arrival.generation || !Option.exists(ledger.scene, (scene) => scene === arrival.scene)
-      ? Either.left(_residencyFault(ledger, arrival))
-      : !HashMap.has(ledger.rows, arrival.mesh) && HashMap.size(ledger.rows) >= Shape.Ingress.floor.collection
-        ? Either.left(_overrun(
-            "GeometryResidencyWire",
-            "<residency-collection>",
-            HashMap.size(ledger.rows) + 1,
-            Shape.Ingress.floor.collection,
-            { key: arrival.mesh, generation: arrival.generation },
-          ))
-        : Either.right({ ...ledger, rows: HashMap.set(ledger.rows, arrival.mesh, arrival) })
-
-function _folded(ledger: Residency.Ledger, arrival: Residency.Arrival): Either.Either<Residency.Ledger, Wire.Fault>
-function _folded<E, R>(arrivals: Stream.Stream<Residency.Arrival, E, R>): Stream.Stream<Either.Either<Residency.Ledger, Wire.Fault>, E, R>
-function _folded<E, R>(
-  ...input: readonly [Residency.Ledger, Residency.Arrival] | readonly [Stream.Stream<Residency.Arrival, E, R>]
-): Either.Either<Residency.Ledger, Wire.Fault> | Stream.Stream<Either.Either<Residency.Ledger, Wire.Fault>, E, R> {
-  return input.length === 2
-    ? _landed(input[0], input[1])
-    : Stream.mapAccum(input[0], _EMPTY_LEDGER, (ledger, arrival) =>
-        Either.match(_landed(ledger, arrival), {
-          onLeft: (fault) => [ledger, Either.left(fault)] as const,
-          onRight: (next) => [next, Either.right(next)] as const,
-        }))
+// Spelled per kind rather than mapped off the roster because the CENSUS TYPE closes the table against `_kinds` in
+// both directions: a fifth payload axis fails at this declaration, where a generic fold would silently seed a census
+// row nothing counts.
+const _EMPTY_CENSUS: Residency.Census = {
+  "meshlet-cluster": _EMPTY_TALLY,
+  "quantized-vertex": _EMPTY_TALLY,
+  "point-splat": _EMPTY_TALLY,
+  "gaussian-splat": _EMPTY_TALLY,
 }
 
-const _EMPTY_CENSUS: Residency.Census = {
-  resident: { count: 0, extent: 0 },
-  pending: { count: 0, extent: 0 },
-  evicted: { count: 0, extent: 0 },
+// Direction names the refusal exactly as every other arrival on this page grades one: a manifest BELOW the pin is
+// superseded and reads `stale`, one ABOVE carries columns this decoder has never seen and reads `conflict`. Both are
+// one defect — a cluster roster read at the wrong offset — told apart by which end moved, and the version pair rides
+// the evidence a board drills on.
+const _schemaFault = (manifest: Manifest): Wire.Fault =>
+  new Wire.Fault({
+    family: "GeometryResidencyWire",
+    // one comparison elects the reason and the SAME pair rides both arms, so the two verdicts cannot disagree about
+    // which end moved — the retired form re-spelled that comparison a second time to pick a prose token
+    case: manifest.version < _RESIDENCY_SCHEMA
+      ? { reason: "stale", pinned: _RESIDENCY_SCHEMA, arrived: manifest.version }
+      : { reason: "conflict", pinned: _RESIDENCY_SCHEMA, arrived: manifest.version },
+  })
+
+// The census and the resident total are ONE fold: a second pass to sum what the per-kind tally already accumulated is
+// the parallel model this owner forecloses, and the budget guard needs both figures at the same moment anyway. Each
+// accumulation crosses the safe-integer guard because tile extents are producer byte totals with no declared ceiling.
+const _tallied = (manifest: Manifest): Either.Either<Residency.View, Wire.Fault> =>
+  Array.reduce(
+    manifest.tiles,
+    Either.right<Residency.View, Wire.Fault>({ manifest, resident: 0, census: _EMPTY_CENSUS }),
+    (held, tile) =>
+      Either.flatMap(held, (view) => {
+        const tally = view.census[tile.kind]
+        return Option.match(
+          Option.all([
+            _sum(view.resident, tile.bytes),
+            _sum(tally.bytes, tile.bytes),
+            _sum(tally.meshlets, tile.meshlets.length),
+          ]),
+          {
+            onNone: () =>
+              Either.left(_overrun("GeometryResidencyWire", "<residency-census>", tally.bytes, Number.MAX_SAFE_INTEGER, {
+                key: tile.contentKey,
+                generation: manifest.version,
+              })),
+            onSome: ([resident, bytes, meshlets]) =>
+              Either.right({
+                manifest,
+                resident,
+                census: { ...view.census, [tile.kind]: { count: tally.count + 1, bytes, meshlets } },
+              }),
+          },
+        )
+      }),
+  )
+
+// Schema first, then the claim: a roster read at the wrong offset makes every byte figure below it fiction, and a
+// manifest whose resident set overruns the budget it DECLARES evicted nothing — the producer refuses that plan as a
+// budget fault before it mints, so an arrival carrying one crossed a producer that did not run its own gate.
+const _admitted = (manifest: Manifest): Either.Either<Residency.View, Wire.Fault> =>
+  manifest.version !== _RESIDENCY_SCHEMA
+    ? Either.left(_schemaFault(manifest))
+    : Either.flatMap(_tallied(manifest), (view) =>
+        view.resident > manifest.vramBudget
+          ? Either.left(_overrun("GeometryResidencyWire", "<residency-vram-budget>", view.resident, manifest.vramBudget))
+          : Either.right(view))
+
+// ONE entry over both arities, discriminating on the value's own shape: a manifest replaces whole, so the stream arm
+// is a MAP where the prior ledger needed an accumulator, and a caller holding a single decoded arrival reaches the
+// same grading without assembling a one-element stream.
+function _admit(manifest: Manifest): Either.Either<Residency.View, Wire.Fault>
+function _admit<E, R>(arrivals: Stream.Stream<Manifest, E, R>): Stream.Stream<Either.Either<Residency.View, Wire.Fault>, E, R>
+function _admit<E, R>(
+  input: Manifest | Stream.Stream<Manifest, E, R>,
+): Either.Either<Residency.View, Wire.Fault> | Stream.Stream<Either.Either<Residency.View, Wire.Fault>, E, R> {
+  return input instanceof Manifest ? _admitted(input) : Stream.map(input, _admitted)
 }
 
 const Residency: {
   readonly Manifest: typeof Manifest
-  readonly Delta: typeof Delta
-  readonly empty: Residency.Ledger
+  readonly schema: typeof _RESIDENCY_SCHEMA
   readonly kinds: typeof _kinds
   readonly kind: typeof _kindRows
-  readonly envelope: Schema.Schema<Residency.Arrival, Uint8Array>
+  readonly envelope: Schema.Schema<Manifest, Uint8Array>
   readonly stream: (
     frames: AsyncIterable<Uint8Array>,
-  ) => Stream.Stream<Either.Either<Residency.Arrival, Wire.Fault>, Wire.Fault, Wire.Quarantine>
-  readonly folded: typeof _folded
-  readonly pending: (ledger: Residency.Ledger) => ReadonlyArray<Residency.Row>
-  readonly census: (ledger: Residency.Ledger) => Either.Either<Residency.Census, Wire.Fault>
+  ) => Stream.Stream<Either.Either<Manifest, Wire.Fault>, Wire.Fault, Wire.Quarantine>
+  readonly admit: typeof _admit
+  readonly cullable: (view: Residency.View) => ReadonlyArray<Residency.Tile>
+  readonly splatBorne: (view: Residency.View) => ReadonlyArray<Residency.Tile>
 } = {
   Manifest,
-  Delta,
-  empty: _EMPTY_LEDGER,
+  schema: _RESIDENCY_SCHEMA,
   kinds: _kinds,
   kind: _kindRows,
-  // Residency envelopes arrive as the AppUi shell's source-generated JSON mint, so both rows ride the json arm while
-  // both Compute-minted frame families above keep the proto walk their own descriptor source declares
-  envelope: Format.json.schema(_envelope),
-  stream: (frames) => _payloadStream("GeometryResidencyWire", Format.json.schema(_envelope), frames),
-  folded: _folded,
-  pending: (ledger) => Array.filter(Array.fromIterable(HashMap.values(ledger.rows)), (row) => row.state === "pending"),
-  census: (ledger) =>
-    HashMap.reduce(ledger.rows, Either.right(_EMPTY_CENSUS), (held, row) =>
-      Either.flatMap(held, (acc) => {
-        const tally = acc[row.state]
-        return Option.match(Option.all([_sum(tally.count, 1), _sum(tally.extent, row.extent)]), {
-          onNone: () => Either.left(_overrun(
-            "GeometryResidencyWire",
-            "<residency-census>",
-            tally.extent,
-            Number.MAX_SAFE_INTEGER,
-            { key: row.mesh, generation: ledger.generation },
-          )),
-          onSome: ([count, extent]) => Either.right({ ...acc, [row.state]: { count, extent } }),
-        })
-      })),
+  // The residency manifest arrives as the producing shell's source-generated JSON mint, so it rides the json arm
+  // while both Compute-minted frame families above keep the proto walk their own descriptor source declares
+  envelope: Format.json.schema(Manifest),
+  stream: (frames) => _payloadStream("GeometryResidencyWire", Format.json.schema(Manifest), frames),
+  admit: _admit,
+  // The two kind columns get their readers HERE rather than at each consumer: a scheduler asking which tiles a
+  // cluster cull may reject and a renderer asking which the raster path cannot draw are two reads of one table, and
+  // a consumer re-deriving either from the kind literal has forked the roster.
+  cullable: (view) => Array.filter(view.manifest.tiles, (tile) => _kindRows[tile.kind].coneCullable),
+  splatBorne: (view) => Array.filter(view.manifest.tiles, (tile) => _kindRows[tile.kind].splatBorne),
 }
 
 ```
@@ -638,16 +704,18 @@ const Residency: {
 ## [06]-[IFC_ADMISSION]
 
 - Owner: `Frame.Ifc` owns the IFC wire form — serialization rows, the container column, and the release roster both cross sparsely.
-- Law: Serialization and container stay separate axes whose product is SPARSE on both crossings — a wrapper names the serializations it carries and never the text inside them, so `zip` admits STEP and XML alone, and each serialization names the releases it publishes for, so `Ifc.published` refuses an unpublished pair by row where a cross product admits a document no schema validates.
+- Law: Serialization and container stay separate axes whose product is SPARSE on both crossings — a wrapper names the serializations it carries and never the text inside them, so `zip` admits STEP and XML alone, and each serialization names the releases it publishes for, so `Ifc.admits` refuses an unpublished pair by row where a cross product admits a document no schema validates.
+- Law: ADMISSION and PUBLICATION are two verdicts over one row set — `Ifc.admits` grades the bytes this decoder reads, `Ifc.seals` grades what a producer may write, and one fused predicate either forfeits a lawful read or authorizes a form no producer of this estate mints.
+- Law: Direction rides the `refusal` cell, and the cell QUOTES its producer rather than re-deriving it — `libs/csharp/Rasm.Bim/.planning/Projection/wireform.md` `IfcSerialization.Refusal` names `ifcx` unproduced, its `Published` reads that cell first and fails whatever release follows, and its `Sniff` still admits the span.
 - Law: `IFC4X3` publishes under no serialization — the ISO-approved 4.3 line carries the `IFC4X3_ADD2` identifier and every published 4.3 artifact spells it, so the roster keeps the token to NAME that refusal rather than failing an unknown literal at decode.
 - Law: `ifcx` is IFC5's own encoding rather than a `json` release — a document there carries its release at `header.ifcxVersion` where ifcJSON reads `schemaIdentifier`, so folding IFC5 onto the JSON row forks two vocabularies into one member read; that `json` row itself publishes against a community-maintained schema where `step` and `xml` publish against the ISO editions, a weaker claim its consumers price at the seam.
-- Law: The C# producer of record — `libs/csharp/Rasm.Bim/.planning/Projection/wireform.md` `IfcWireForm` — crosses the same two axes and DECLARES `ifcx` a refusal it identifies but never authors, its release map giving IFC5 no writer, so a document on that row arrives from a foreign producer and never from this estate. The refusal is a stated row on both ends rather than a shape one end silently lacks.
+- Law: `ifcx` reaches this branch from a foreign producer alone — the estate's own producer maps IFC5 to no writer, so the row admits on the read side and refuses on the seal side, stated as a cell on both ends rather than a shape one end silently lacks.
 - Law: Each serialization declares the header member carrying its release, so admission reads a named member rather than guessing.
 - Law: `sniff` prices the release read, and an inflating container raises its serialization's extent to the whole document.
-- Law: Rows decide selection, admission, and `degrade` alone — a wire form realizes no tenancy and ends no lifetime.
-- Growth: a serialization is one `_ifcRows` row, a container one `_ifcContainerRows` row, a release one roster entry beside the row cells that publish it.
+- Law: Rows decide selection, admission, publication, and `degrade` alone — a wire form realizes no tenancy and ends no lifetime.
+- Growth: a serialization is one `_ifcRows` row, a container one `_ifcContainerRows` row, a release one roster entry beside the row cells that publish it; a producer refusal is one `refusal` cell, never an absent row.
 - Boundary: `Frame` carries the wire form and its descriptor; entity-graph authoring and release raising stay with the producing runtime.
-- Packages: `effect` (`Array`, `Option`, `Schema`); `./format.ts` (`Format`).
+- Packages: `effect` (`Array`, `Either`, `Option`, `Schema`); `./format.ts` (`Format`).
 
 ```typescript signature
 // Containers wrap whatever text a serialization wrote, so the wrapper rides its OWN column: a zip seated beside the
@@ -666,12 +734,17 @@ const _ifcSniffs = ["line", "element", "document"] as const
 // four editions that shipped an EXPRESS schema and an XSD together, ifcJSON carries the one release its schema was
 // authored for, and IFCX carries IFC5 alone. `IFC4X3` seats in the roster with no row naming it, so a document
 // spelling that identifier refuses by name — the ISO edition publishes as `IFC4X3_ADD2` and every artifact says so.
+//
+// `refusal` is the DIRECTION cell the span cannot carry: absence means the estate's producer of record authors the
+// row, and a present detail is that producer's own token quoted verbatim. The two gates below diverge on this single
+// column rather than on a second table, so a serialization cannot land a span without stating which way it crosses.
 const _ifcRows = {
   step: {
     extension: ".ifc",
     header: "FILE_SCHEMA",
     sniff: "line",
     releases: ["IFC2X3", "IFC4", "IFC4X1", "IFC4X3_ADD2"],
+    refusal: Option.none<string>(),
     degrade: "<release-unknown-before-header-line>",
   },
   xml: {
@@ -679,6 +752,7 @@ const _ifcRows = {
     header: "xmlns",
     sniff: "element",
     releases: ["IFC2X3", "IFC4", "IFC4X1", "IFC4X3_ADD2"],
+    refusal: Option.none<string>(),
     degrade: "<release-unknown-before-root-element>",
   },
   json: {
@@ -686,15 +760,18 @@ const _ifcRows = {
     header: "schemaIdentifier",
     sniff: "document",
     releases: ["IFC4"],
+    refusal: Option.none<string>(),
     degrade: "<release-unknown-before-whole-document>",
   },
-  // Read-only against this estate: the C# producer declares this row a refusal it names rather than a form it
-  // writes, so a payload here is foreign in origin and the decoder is its only end.
+  // Read-only against this estate, and the cell SAYS so: `ifc-form-unproduced` is the producer's own word, so a
+  // caller asking to seal here reads the token that producer's gate raises instead of inferring a no from a row
+  // this end never authored. The span stays IFC5 because the decode side is real — the direction is what differs.
   ifcx: {
     extension: ".ifcx",
     header: "header.ifcxVersion",
     sniff: "document",
     releases: ["IFC5"],
+    refusal: Option.some("ifc-form-unproduced"),
     degrade: "<release-carried-as-ifcx-version>",
   },
 } as const satisfies {
@@ -703,6 +780,7 @@ const _ifcRows = {
     readonly header: string
     readonly sniff: Ifc.Sniff
     readonly releases: Array.NonEmptyReadonlyArray<Ifc.Release>
+    readonly refusal: Option.Option<string>
     readonly degrade: string
   }
 }
@@ -751,15 +829,32 @@ const _ifcDescriptor = (form: Ifc.Form): Ifc.Descriptor => {
 }
 
 // Admission reads BOTH sparse crossings off the rows a caller can also read, so a producer selecting a form asks the
-// same question the decoder answers and no consumer re-derives the matrix from an extension.
-const _ifcPublished = (form: Ifc.Form, release: Ifc.Release): boolean =>
-  Array.contains(_ifcRows[form.serialization].releases, release) &&
-  Array.contains(_ifcContainerRows[form.container].wraps, form.serialization)
+// same question the decoder answers and no consumer re-derives the matrix from an extension. Each crossing refuses
+// under its OWN token — a fused message left a caller unable to tell a wrapper nothing defines from a release no
+// schema validates — and all three tokens are the producer's own words, so one diagnostic vocabulary spans the seam.
+const _ifcAdmits = (form: Ifc.Form, release: Ifc.Release): Either.Either<Ifc.Form, string> =>
+  !Array.contains(_ifcContainerRows[form.container].wraps, form.serialization)
+    ? Either.left(`<ifc-form-uncontained:${form.container}:${form.serialization}>`)
+    : Array.contains(_ifcRows[form.serialization].releases, release)
+    ? Either.right(form)
+    : Either.left(`<ifc-form-unpublished:${form.container}:${form.serialization}:${release}>`)
+
+// Publication reads the `refusal` cell FIRST and fails whatever release follows, exactly as the producer's own
+// `Published` does; the span check behind it IS the admit gate, so publication costs one column over admission
+// rather than a second matrix walk. Spending the decode gate here would authorize the one pair this branch's own
+// peer names unproduced, and that divergence would land at the peer's seam instead of at this selection.
+const _ifcSeals = (form: Ifc.Form, release: Ifc.Release): Either.Either<Ifc.Form, string> =>
+  Option.match(_ifcRows[form.serialization].refusal, {
+    onSome: (detail) => Either.left(`<${detail}:${form.container}:${form.serialization}:${release}>`),
+    onNone: () => _ifcAdmits(form, release),
+  })
 
 const _IfcWire = ArtifactFrame.wire(_IfcForm, Schema.Literal(..._ifcReleases)).pipe(
+  // Decode spends the ADMIT gate alone: a payload reaching this schema was already written by whoever wrote it, and
+  // refusing an `ifcx` document here would delete the read capability this row exists to carry. A producer spends
+  // `Ifc.seals` before it mints, so the seal verdict never rides an arriving artifact's filter.
   Schema.filter((payload) =>
-    _ifcPublished(payload.format, payload.schema) ||
-    `<ifc-unpublished:${payload.format.container}:${payload.format.serialization}:${payload.schema}>`),
+    Either.match(_ifcAdmits(payload.format, payload.schema), { onLeft: (detail) => detail, onRight: () => true })),
 )
 
 const Ifc: {
@@ -771,7 +866,8 @@ const Ifc: {
   readonly row: typeof _ifcRows
   readonly container: typeof _ifcContainerRows
   readonly descriptor: typeof _ifcDescriptor
-  readonly published: typeof _ifcPublished
+  readonly admits: typeof _ifcAdmits
+  readonly seals: typeof _ifcSeals
   readonly schema: Schema.Schema<Ifc.Payload, Uint8Array>
 } = {
   Wire: _IfcWire,
@@ -782,7 +878,10 @@ const Ifc: {
   row: _ifcRows,
   container: _ifcContainerRows,
   descriptor: _ifcDescriptor,
-  published: _ifcPublished,
+  // Both directions publish as members of ONE surface: a `direction` argument would be the mode knob, and a caller
+  // holding only the decode verdict is exactly the producer that seals what its peer refuses.
+  admits: _ifcAdmits,
+  seals: _ifcSeals,
   schema: Format.json.schema(_IfcWire),
 }
 
@@ -795,7 +894,10 @@ declare namespace Ifc {
   type Payload = Schema.Schema.Type<typeof _IfcWire>
   type Descriptor = { readonly extension: string; readonly header: string; readonly sniff: Sniff }
   type _Rows<
-    T extends Record<Serialization, { readonly sniff: Sniff; readonly releases: Array.NonEmptyReadonlyArray<Release> }> = typeof _ifcRows,
+    T extends Record<
+      Serialization,
+      { readonly sniff: Sniff; readonly releases: Array.NonEmptyReadonlyArray<Release>; readonly refusal: Option.Option<string> }
+    > = typeof _ifcRows,
   > = T
   type _Containers<
     T extends Record<Container, { readonly inflates: boolean; readonly wraps: Array.NonEmptyReadonlyArray<Serialization> }> = typeof _ifcContainerRows,
@@ -816,9 +918,12 @@ declare namespace Frame {
   type IfcWire = Ifc.Payload
   type IfcForm = Ifc.Form
   type IfcDescriptor = Ifc.Descriptor
-  type ResidencyLedger = Residency.Ledger
-  type ResidencyArrival = Residency.Arrival
-  type ResidencyRow = Residency.Row
+  type ResidencyManifest = Manifest
+  type ResidencyView = Residency.View
+  type ResidencyTile = Residency.Tile
+  type ResidencyViewpoint = Residency.Viewpoint
+  type ResidencyMeshlet = Residency.Meshlet
+  type ResidencyCensus = Residency.Census
   type ResidencyKind = Residency.Kind
 }
 

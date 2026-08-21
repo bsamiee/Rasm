@@ -6,8 +6,8 @@ Wire vocabulary is `transport/shapes#VOCABULARY`'s, the transcode machinery `tra
 
 ## [01]-[INDEX]
 
-- [02]-[SERVE]: the inbound server-host lifecycle, the `Route` roster, the arity-spanning servicer body under one duration weave, the two-directional `CredentialPolicy`, and the `FaultDetail` trailer egress.
-- [03]-[CAPABILITY_INVOKE]: the descriptor-driven outbound invoke and the `fault_detail` trailer ingress.
+- [02]-[SERVE]: the inbound server-host lifecycle, the `Route` roster, the arity-spanning servicer body under one duration weave, the two-directional `CredentialPolicy`, and the `FaultDetail` trailer egress with its stamped re-drive verdict.
+- [03]-[CAPABILITY_INVOKE]: the descriptor-driven outbound invoke, the `fault_detail` trailer ingress, and the two-axis re-drive gate over the `WIRE` retry row.
 - [04]-[ENTRY]: the daemon composition root — railed boot under the structure-first wire gates, supervised serve, the diagnostic-capsule mount, the ordered receipted drain, and the one-shot recipe command.
 
 ## [02]-[SERVE]
@@ -34,7 +34,8 @@ Entry: the method roster:
 
 - Auto: this interceptor is the ONE trace-context authority — it extracts the inbound W3C parent and opens the SERVER span natively, so `inbound` re-extracts nothing, no servicer body opens a second scope, and a `Signals.attach` around the handler body re-roots spans the interceptor already parented. Its health filter suppresses liveness noise from a protocol that is actually served — the registered servicer answers `Check`/`Watch`, so the filter claim is real. `enrich` is `set_attributes` inside the interceptor's active scope, not a hook param on `aio_server_interceptor` (which takes none) and not a hand-rolled tracing interceptor. `_served` binds the admitted context onto structlog contextvars for the handler window, so `merge_contextvars` stamps every handler log line with the same admitted identity whichever arity served it.
 - Auto: arity survives exactly one read — `_member`'s match over the grpc handler constructors and the servicer signature each demands, the one fork no value discriminates because an async generator's `yield` cannot cross a called coroutine's frame. Past it every route shares one prologue, one woven invoke, one encode tail, and one terminal: `_framed` keys on the handler's own returned value, a `Block` framing as many under first-miss encode and any other shape lifting to one frame, so a parallel per-arity invoke, weave, alias, and dispatch have nothing left to hold.
-- Growth: a new servicer method is one `Route` row, a streaming method the same row with its `arity` member; a new stream shape is one `RouteArity` member with one `_member` arm and one body over the standing invoke; a new wire message is one shapes registry row; a new fault-to-status mapping is one `_FAULT_STATUS` row; a new outbound credential posture is one `CredentialPolicy` case with one `channel_credentials` arm; a new health surface is automatic with the lifecycle; a new span dimension is one `enrich` key; a new compression algorithm is one `grpc.Compression` member at construction.
+- Law: EVERY fence on this page names the provider classes it reaches and rides a rostered raise. `catch` carries no default at the `reliability/faults#FAULT` owner, so this module spells its two planes once — `_WIRE_RAISES` for the gRPC-and-socket surface both the serve leg and the outbound dial reach, `_CODEC_RAISES` for the decode surface — and the daemon drain fold is the ONE catch-all the plane is allowed, because its stages are caller-supplied owners whose raise surface this runtime cannot enumerate. Every refusal resolves a `FaultRow` anchor and derives its subject from that row's own `Leg`, so a fence cannot spell a coordinate its package never declared and the free-string subjects retire with the literal constructions that carried them.
+- Growth: a new servicer method is one `Route` row, a streaming method the same row with its `arity` member; a new stream shape is one `RouteArity` member with one `_member` arm and one body over the standing invoke; a new wire message is one shapes registry row; a new `FaultTag` member is one `_FAULT_STATUS` row and nothing else, the table being total by construction and read as a raw index, and that row carries its own re-drive membership with it because `_REDRIVEN` derives from it; a new refusal on this page is one `FaultRow` anchor at the `reliability/faults#FAULT` roster called through `raised`, never a literal construction; a new outbound credential posture is one `CredentialPolicy` case with one `channel_credentials` arm; a new health surface is automatic with the lifecycle; a new span dimension is one `enrich` key; a new compression algorithm is one `grpc.Compression` member at construction.
 - Boundary: the wire contract is the corpus-homed `.proto` — the runtime mints no transport, no channel, and no second wire vocabulary; host lifecycle and product telemetry export stay with the composing application.
 
 ```python signature
@@ -46,7 +47,8 @@ from enum import StrEnum
 from typing import Final, Literal, Self, assert_never
 
 import grpc
-from expression import Error, Ok, Option, Result, case, tag, tagged_union
+import msgspec
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from google.protobuf.message import Message
 from grpc_health.v1 import health, health_pb2, health_pb2_grpc
@@ -57,9 +59,12 @@ import structlog
 
 from rasm.runtime.admission import Deadline, RuntimeContext, RuntimeProfile
 from rasm.runtime.clock import CausalFrame
-from rasm.runtime.faults import SCOPES, BoundaryFault, Disposition, FaultTag, RuntimeRail, Scope, traversed
+from rasm.runtime.faults import (
+    FAULT_OWNER, FAULT_TAG, SERVE_ANCHOR, SERVE_BUNDLE, SERVE_DIRECTION, SERVE_ROSTER,
+    BoundaryFault, Catch, Disposition, FaultTag, RuntimeRail, traversed,
+)
 from rasm.runtime.metrics import Metrics
-from rasm.runtime.shapes import FaultDetail
+from rasm.runtime.shapes import FaultDetail, FaultRecovery
 from rasm.runtime.wire import WireProtoCodec, codec
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -89,14 +94,23 @@ class RouteArity(StrEnum):
 # round-trip's two symbolic anchors: settle packs them, the invoke ingress reads them.
 _DETAIL_KEY: Final[str] = "grpc-status-details-bin"
 _FAULT_DETAIL: Final[str] = "fault_detail"
-# this module's two span-attribute keys, spelled once for both the SERVER enrichment and the CLIENT response hook —
-# a per-site literal drifts one end of a join a backend can no longer make. Tenancy is NOT one of them: it rides the
-# metric owner's `TENANT_BAGGAGE`, the one canonical spelling every plane reads.
+# the ONE span-attribute key this module owns; every fault key it stamps arrives from the fault owner's rostered
+# `FAULT_*` set, the same reason tenancy rides the metric owner's `TENANT_BAGGAGE` — one canonical spelling every
+# plane reads, where a per-site literal drifts one end of a join a backend can no longer make. The retired
+# `rasm.fault_case` was exactly that literal: it spelled a key nothing else in the estate carried, while `FAULT_TAG`
+# names the coordinate the C# kernel and the TypeScript convention roster both publish. The fault CASE stays LOCAL
+# and never a wire column — the compact `FaultDetail` transports `code` as its sole identity, so the case survives
+# on this host's own span where a backend joins it, exactly where the contract wants it kept.
 _DESCRIPTOR_ATTR: Final[str] = "rasm.descriptor"
-_FAULT_CASE_ATTR: Final[str] = "rasm.fault_case"
 # C# Instant.ToUnixTimeTicks is the 100 ns unit; the trailer echo truncates to Timestamp
 # microseconds — the carrier headers stay the authoritative full-fidelity stamp.
 _TICKS_PER_SECOND: Final[int] = 10_000_000
+# the two provider planes every fence on this page names, spelled ONCE each because `catch` is REQUIRED on all three
+# lift shapes and a per-site tuple drifts one seam's raise surface from its sibling's. `grpc.RpcError` is the base
+# `aio.AioRpcError` extends, so one row covers both legs, and `OSError` is the socket half a dial or a bind reaches.
+# Neither set widens past `Exception`: cancellation is scope-owned flow control the faults owner forbids converting.
+_WIRE_RAISES: Final[Catch] = (grpc.RpcError, OSError)
+_CODEC_RAISES: Final[Catch] = (msgspec.ValidationError, msgspec.DecodeError)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -128,7 +142,9 @@ class CredentialPolicy:
             case CredentialPolicy(tag="insecure_loopback"):
                 return Ok(grpc.local_server_credentials(grpc.LocalConnectionType.UDS))
             case CredentialPolicy(tag="tls" | "mtls" | "bearer" | "composed" as outbound):
-                return Error(BoundaryFault(config=(outbound, "outbound peer client credential; this branch serves insecure_loopback over UDS only")))
+                # `SERVE_DIRECTION` is the ONE row both projections raise through, its two coordinates naming the row
+                # offered and the seat that refused it, so the mirrored refusals cannot drift into two spellings.
+                return Error(SERVE_DIRECTION.raised(outbound, "inbound"))
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -149,7 +165,7 @@ class CredentialPolicy:
             case CredentialPolicy(tag="composed", composed=rows):
                 return _bundled(Block.of_seq(rows))
             case CredentialPolicy(tag="insecure_loopback"):
-                return Error(BoundaryFault(config=("insecure_loopback", "inbound serve credential; an outbound dial names one of the four peer rows")))
+                return Error(SERVE_DIRECTION.raised("insecure_loopback", "outbound"))
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -168,6 +184,11 @@ class Route(Struct, frozen=True):
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
+# TOTAL over `FaultTag` by construction — one row per member of the closed vocabulary — which is what lets `settle`
+# read it as a raw index. A defaulted lookup here is a catch-all over an OWNED closure: a member carrying no row
+# would answer INTERNAL on the wire for the process's whole life and nothing anywhere would report the gap.
+# `domain` carries a SIBLING's own refusal token, which refuses the request's STATE rather than its shape, so it maps
+# FAILED_PRECONDITION beside `config` instead of joining `wire`/`boundary` on INVALID_ARGUMENT.
 _FAULT_STATUS: Final[Map[FaultTag, grpc.StatusCode]] = Map.of_seq([
     ("config", grpc.StatusCode.FAILED_PRECONDITION),
     ("resource", grpc.StatusCode.UNAVAILABLE),
@@ -176,8 +197,21 @@ _FAULT_STATUS: Final[Map[FaultTag, grpc.StatusCode]] = Map.of_seq([
     ("import_", grpc.StatusCode.UNIMPLEMENTED),
     ("wire", grpc.StatusCode.INVALID_ARGUMENT),
     ("boundary", grpc.StatusCode.INVALID_ARGUMENT),
+    ("domain", grpc.StatusCode.FAILED_PRECONDITION),
     ("aggregate", grpc.StatusCode.INTERNAL),
 ])
+
+# Fault classes THIS server's own refusal grades re-drivable, DERIVED from the status table above rather than
+# spelled beside it: a status a later attempt can clear names a class a later attempt can clear, so one authority
+# answers both columns and a new `_FAULT_STATUS` row joins or stays out by its own status. RESOURCE_EXHAUSTED
+# completes the peer client's transient trio and no row sends it — this host sheds through the breaker rather than
+# answering exhausted — so naming it here would seat a membership no producer reaches. This set is the FLOOR and
+# never the last word: `BoundaryFault.retriability` reads a rostered raise's own declared posture ahead of it, so a
+# `domain` token sitting outside this derivation still grades re-drivable where the folder that raised it says so —
+# the defect knows what a re-offer clears, and this table only states what a gRPC status can.
+_REDRIVEN: Final[frozenset[FaultTag]] = frozenset(
+    tag for tag, status in _FAULT_STATUS.items() if status in (grpc.StatusCode.UNAVAILABLE, grpc.StatusCode.DEADLINE_EXCEEDED)
+)
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -243,8 +277,13 @@ class ServerHost:
         )
 
     @staticmethod
-    def enrich(context: RuntimeContext, descriptor: str, fault_case: str) -> None:
-        trace.get_current_span().set_attributes(context.attribute() | {_DESCRIPTOR_ATTR: descriptor, _FAULT_CASE_ATTR: fault_case})
+    def enrich(context: RuntimeContext, descriptor: str, refused: Option[BoundaryFault] = Nothing) -> None:
+        # the server end spans what it HOLDS. Absence takes `Nothing` and stamps NO fault key: the retired `"ok"`
+        # literal filled a fault dimension on every clean call, which is the empty-value series the branch's optional
+        # -dimension law forbids. `owner` resolves the emitting leg off the census, so a fault whose subject no
+        # module seated omits that key too rather than naming a leg nothing declared.
+        seat = refused.map(lambda fault: {FAULT_TAG: fault.tag} | fault.owner.map(lambda leg: {FAULT_OWNER: leg}).default_value({}))
+        trace.get_current_span().set_attributes(context.attribute() | {_DESCRIPTOR_ATTR: descriptor} | seat.default_value({}))
 
     @staticmethod
     async def settle[T](servicer_context: grpc.aio.ServicerContext, context: RuntimeContext, descriptor: str, wired: RuntimeRail[T]) -> T:
@@ -253,11 +292,13 @@ class ServerHost:
         # only ever names what the Ok arm hands back and no arm launders a rail through a discarding `map`.
         match wired:
             case Result(tag="ok", ok=payload):
-                ServerHost.enrich(context, descriptor, "ok")
+                ServerHost.enrich(context, descriptor)
                 return payload
             case Result(tag="error", error=fault):
-                ServerHost.enrich(context, descriptor, fault.tag)
-                status = _FAULT_STATUS.try_find(fault.tag).default_value(grpc.StatusCode.INTERNAL)
+                ServerHost.enrich(context, descriptor, Some(fault))
+                # raw index, never a defaulted lookup: the table declares one row per `FaultTag` member, so a member
+                # that gains no row must break the read rather than answer INTERNAL for the process's whole life.
+                status = _FAULT_STATUS[fault.tag]
                 # a failed trailer encode skips the trailer, never the abort; the details string
                 # still carries the human-readable facts. abort is NoReturn — nothing follows it.
                 codec(_FAULT_DETAIL).bind(lambda sealer: sealer.encode(_sealed(fault, context, status))).map(
@@ -289,7 +330,7 @@ class ServerHost:
 
     async def serve(self, ready: Callable[[], Awaitable[None]] | None = None) -> RuntimeRail[None]:
         if self._services == frozenset():
-            return Error(BoundaryFault(config=("serve.roster", "empty-roster")))
+            return Error(SERVE_ROSTER.raised())
         match self._credential.server_credentials():
             case Result(tag="error") as refused:
                 return refused
@@ -324,12 +365,13 @@ def _bundled(rows: Block[CredentialPolicy]) -> RuntimeRail[grpc.ChannelCredentia
     # so the bundle PROVES that arity rather than trusting a caller's ordering: `tls`/`mtls` are the channel half and
     # `bearer` the call half. A bundle carrying no channel row would dial under whatever ambient roots the process
     # happens to hold, two would silently drop one, and a nested `composed` or an `insecure_loopback` row belongs to
-    # neither half — each refuses by name here rather than at the socket.
+    # neither half — each refuses by name here rather than at the socket, the roster row carrying the kinds actually
+    # offered as its own coordinate, which is strictly more evidence than the fixed sentence it replaces.
     anchors, tokens = rows.filter(lambda row: row.tag in ("tls", "mtls")), rows.filter(lambda row: row.tag == "bearer")
     return (
-        Error(BoundaryFault(config=("composed", "a bundle admits tls, mtls, and bearer rows alone")))
+        Error(SERVE_BUNDLE.raised(",".join(sorted({row.tag for row in rows}))))
         if len(anchors) + len(tokens) != len(rows)
-        else Error(BoundaryFault(config=("composed", f"a bundle anchors on exactly one channel row, offered {len(anchors)}")))
+        else Error(SERVE_ANCHOR.raised(str(len(anchors))))
         if len(anchors) != 1
         else anchors.head()
         .channel_credentials()
@@ -387,35 +429,45 @@ def _streamed(row: Route, pair: CodecPair, invoke: Invoke) -> StreamBehavior:
                     case Result(tag="error") as fault:
                         # mid-stream fault rides the same trailer egress; abort raises, ending the generator.
                         await ServerHost.settle(servicer_context, context, row.descriptor, fault)
-            ServerHost.enrich(context, row.descriptor, "ok")
+            ServerHost.enrich(context, row.descriptor)
 
     return method
 
 
 def _sealed(fault: BoundaryFault, context: RuntimeContext, status: grpc.StatusCode) -> FaultDetail:
-    # one total egress fold off facts() + the inbound frame: the C# WireFault.Decode(FaultDetail)
-    # consumer reads the typed conflict; the hlc echo rides Timestamp precision.
+    # one total egress fold onto the COMPACT roster the contract froze: `code` is the SOLE transported identity, so
+    # the producer's package, its case token, and the whole `facts()` evidence map stay LOCAL — a peer rehydrating
+    # this producer's union is precisely the drift the compaction forecloses. Nothing is lost to an operator: the
+    # case rides `FAULT_TAG` on this host's own span and the facts ride the structured log line the same fold
+    # writes, both joinable on the `correlation` this trailer does carry. The hlc echo rides Timestamp precision.
+    #
+    # `recovery` stamps THIS server's re-drive verdict rather than leaving a peer to infer one: a consumer reading
+    # INVALID_ARGUMENT cannot tell a malformed payload from a codec that decodes on the next build, and one guessing
+    # from the status substitutes its own band table for this classification. It grades through the faults owner's
+    # own `retriability` read — that tier's ONE declared precedence, a rostered raise's own row posture over the
+    # `FaultTag` derivation — so an `aggregate` folds its members through `Recovery.widest` and no second classifier
+    # restates the fault family here. `throttled` is the arm a producer that MEASURES a window mints; this host
+    # measures none, so `retriability` answers terminal or transient alone and no fabricated wait ever crosses.
     facts = fault.facts()
     return FaultDetail(
-        package=SCOPES[Scope.SERVICE],
         code=status.value[0],
-        case_=fault.tag,
-        message=str(facts.get("detail") or facts.get("cause") or facts.get("members") or facts.get("subject") or ""),
-        evidence={key: str(value) for key, value in facts.items()},
+        message=str(facts.get("detail") or facts.get("cause") or facts.get("case") or facts.get("members") or facts.get("subject") or ""),
         correlation=context.correlation.trace_id.hex(),
         hlc_physical=context.causal.map(lambda frame: datetime.fromtimestamp(frame.hlc.physical_ticks / _TICKS_PER_SECOND, tz=UTC)).to_optional(),
         hlc_logical=context.causal.map(lambda frame: frame.hlc.logical).default_value(0),
         tenant=context.causal.map(lambda frame: str(frame.tenant)).default_value(""),
+        recovery=FaultRecovery.of(fault.retriability(_REDRIVEN)),
     )
 ```
 
 ## [03]-[CAPABILITY_INVOKE]
 
-- Owner: `CapabilityInvoke` decodes the C# `csharp:Rasm.AppHost/Agent/capability#SDK_CODEGEN` Python target into one dispatch — the request's own `Struct` type and the caller's `into` type are the codec discriminants off the `_ROW_BY_STRUCT` table, so one `run` spans every `PROTO_VOCABULARY` row and no injected per-shape codec pair narrows it; a shape outside that registry refuses by name on the rail rather than dialing untranscoded. Outbound legs retry under the bare cached `guard(RetryClass.WIRE)` caller with a two-fence ingress — a `guarded(...)` wrap is the ruled-out composition because its terminal lift consumes the exception before the trailer read — so no bare gRPC exception escapes and no trailer erases to a bare `boundary` tag.
+- Owner: `CapabilityInvoke` decodes the C# `csharp:Rasm.AppHost/Agent/capability#SDK_CODEGEN` Python target into one dispatch — the request's own `Struct` type and the caller's `into` type are the codec discriminants off the `_ROW_BY_STRUCT` table, so one `run` spans every `PROTO_VOCABULARY` row and no injected per-shape codec pair narrows it; a shape outside that registry refuses by name on the rail rather than dialing untranscoded. Outbound legs retry under `_WIRE_CALLER` — the `RetryClass.WIRE` row's own schedule bound to this seam's verdict hook — with a two-fence ingress, because a `guarded(...)` wrap and the terminal fence alike consume the exception AFTER the budget is gone, so no bare gRPC exception escapes and no trailer erases to a bare `boundary` tag.
+- Law: RE-DRIVE IS TWO AXES AND NEVER A BOOL — the class's route (the gRPC status the `RetryClass.WIRE` row grades) crossed with the producer's own `Recovery` verdict off the decoded trailer, and `_redrive` is the one place both are readable at once. `terminal` spends no further attempt even inside the transient trio, `throttled` rides back as the delay `stamina` waits in place of its own curve, and every other verdict defers to the row, so the overlay narrows or re-times the class curve and never widens it. `_detail` is the ONE trailer read and `_stated` the ONE verdict lift over it, both composed by the gate and the terminal lift alike, so the posture a retry acted on and the fault a caller receives can never be decoded two different ways. That verdict is the THIRD precedence rung the fault family declares and cannot carry: `reliability/faults#FAULT` owns the two rungs it can see and routes the peer-stated one here, where a live trailer exists to read; absence rides `Option` rather than a fourth case, so an unstated posture never masquerades as a stated one.
 - Cases: the per-descriptor `input_schema` is the C# `SuiteContracts.Schema` JSON Schema carried as a deferred `msgspec.Raw` slot, so the routing decode never pays the schema-document parse; the argument payload is the already-typed canonical `Struct` the resolved codec transcodes, never a hand-mirrored mapping re-validated against a schema document. `effect`/`idempotency`/cost-unit keys decode as the C# smart-enum string keys.
 - Entry: the per-call descriptor dimension rides the interceptor-set `rpc.service`/`rpc.method` attributes natively — the invoke path IS `/{WireService.CAPABILITY}/{descriptor_id}` — while the channel-stable hooks enrich tenant and fault case on the CLIENT span; an ambient per-call `set_attribute` lands on whatever span was current BEFORE the CLIENT span opened. That service name is the ONE `SERVICE_VOCABULARY` row carrying no descriptor proof: the broker mints a method per capability at discovery, so the boot gate declares the row unpooled rather than failing on a compiled service that was never emitted.
-- Packages: `msgspec`, `grpcio`, `opentelemetry-instrumentation-grpc`, and the shapes/wire/resilience/receipts/metrics/faults rails per the fence imports; `guard` is exported for exactly this composed per-seam aspect.
-- Growth: a new capability is one descriptor row the `Rasm.AppHost` capability broker folds — this branch reads it through the existing `discover`/`run` pair; a new wire shape reaches the invoke through one shapes registry row with zero edits here; a new span dimension is one hook key; a new composition is one `ScopeKey` value threaded through `connect` and `drained`, never a second registry.
+- Packages: `msgspec`, `grpcio`, `stamina`, `opentelemetry-instrumentation-grpc`, and the shapes/wire/resilience/receipts/metrics/faults rails per the fence imports; the `RetryClass.WIRE` policy row is branch-consumer law by the resilience owner's own boundary, and this seam binds a caller from it rather than re-spelling a schedule.
+- Growth: a new capability is one descriptor row the `Rasm.AppHost` capability broker folds — this branch reads it through the existing `discover`/`run` pair; a new wire shape reaches the invoke through one shapes registry row with zero edits here; a new span dimension is one hook key; a new composition is one `ScopeKey` value threaded through `connect` and `drained`, never a second registry; a new re-drive posture is one case on the `reliability/faults#FAULT` `Recovery` family with one `_redrive` arm, the retry curve untouched; a new remote ingress shape is one `RemoteConflict` case, which every consumer matching that union then owes an arm.
 - Boundary: `connect` mints the channel, so this owner owes its teardown — every dial enrols on the live registry under its own composition scope, the `[04]-[ENTRY]` drain fold names that scope as its own stage, and `aclose` retires its row so an early caller close never double-closes and a sibling composition's channels are never reached. A channel whose only teardown is the caller's memory is the leak the transport owner's pooled clients already refuse, and the two teardowns read as one row pair rather than one rescued and one forgotten. The descriptor is the suite's only op-metadata owner and the capability broker its sole mint, named by the brokered-capability domain it holds; this branch re-authors no capability shape. Cross-language shape identity is the broker's `SuiteContracts.Schema` JSON Schema all three SDKs bind, evolution riding the contract's additive-only rule. Channel liveness rides the `WIRE` row's `UNAVAILABLE` transient, so no client `HealthStub` pre-probe rides `connect`.
 
 ```python signature
@@ -426,7 +478,8 @@ from typing import Final, Literal, Self, assert_never
 import anyio
 import grpc
 import msgspec
-from expression import Error, Ok, Result
+import stamina
+from expression import Error, Nothing, Ok, Option, Result, case, tag, tagged_union
 from expression.collections import Block, Map
 from google.protobuf.message import Message
 from msgspec import Raw, Struct
@@ -434,16 +487,21 @@ from opentelemetry import trace
 from opentelemetry.instrumentation.grpc import aio_client_interceptors, filters
 
 from rasm.runtime.clock import Tenant
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, async_boundary, boundary
+from rasm.runtime.faults import (
+    FAULT_TAG, SERVE_CATALOG, SERVE_DIAL, SERVE_DISCOVERY, SERVE_REGISTRY, SERVE_REMOTE,
+    BoundaryFault, Recovery, RuntimeRail, async_boundary, boundary,
+)
 from rasm.runtime.metrics import TENANT_BAGGAGE
 from rasm.runtime.receipts import DEFAULT_SCOPE, ScopeKey
-from rasm.runtime.resilience import RetryClass, guard
-from rasm.runtime.shapes import PROTO_VOCABULARY, WireService
+from rasm.runtime.resilience import RetryClass
+from rasm.runtime.shapes import PROTO_VOCABULARY, FaultDetail, FaultRecovery, WireService
 from rasm.runtime.wire import WireProtoCodec, codec
 
-# `_DETAIL_KEY`/`_FAULT_DETAIL`/`_FAULT_CASE_ATTR` are this module's [02]-[SERVE] constants — one trailer spelling for
-# egress pack and ingress lift beside one fault-case span key both planes stamp — and `CredentialPolicy` its owner of
-# this dial's two-directional credential axis.
+# `_DETAIL_KEY`/`_FAULT_DETAIL` are this module's [02]-[SERVE] constants — one trailer spelling for
+# egress pack and ingress lift beside the fault owner's rostered `FAULT_*` span keys both planes stamp — `_CODEC_RAISES`/`_WIRE_RAISES` its
+# two provider planes, and `CredentialPolicy` its owner of this dial's two-directional credential axis. `Recovery` is
+# the RUNTIME owner's re-offer family and `FaultRecovery` the wire mirror carrying both directions of their
+# correspondence, so this seam decodes a verdict and never mints a second vocabulary for one.
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -478,11 +536,35 @@ class CommandReceipt(Struct, frozen=True, rename="camel"):
     correlation: str
 
 
+# --- [ERRORS] ---------------------------------------------------------------------------
+
+
+@tagged_union(frozen=True)
+class RemoteConflict(BaseException):
+    # the PEER's own refusal carried WHOLE across the funnel, exactly as a folder fault union crosses it: `Tagged` is
+    # structural, so `BoundaryFault.of` seats this ahead of every `CLASSIFY` row and `facts()` publishes the active
+    # case and its payload as typed evidence. Concatenating the columns into one `wire` subject string is the form
+    # this forecloses: `correlation`, the two HLC halves, and `tenant` decode and then vanish, leaving a total egress
+    # fold facing a lossy ingress fold — a round trip that does not round-trip.
+    # The producer's verdict is NOT carried beside the detail: `recovery` is the detail's own slot and `_stated` its
+    # ONE read, so no mirror of the peer's classification exists here to drift from the cell it came from. The
+    # transport status IS carried on both arms, because the contract rules that remote domain codes never elect
+    # topology while transport outcomes drive failover — two facts a single code column would fuse.
+    tag: Literal["stated", "coded"] = tag()
+    stated: tuple[FaultDetail, int] = case()  # (the decoded conflict — code, message, correlation, hlc pair, tenant, recovery; this call's status)
+    coded: tuple[int, str] = case()  # no trailer crossed, or none this codec decodes: the status and the peer's own details line
+
+
 # --- [TABLES] ---------------------------------------------------------------------------
 
 # derived from the one shapes seed table: the struct TYPE is the discriminant `run` resolves a
 # codec by, so one invoke spans the whole catalog with no injected per-shape codec pair.
 _ROW_BY_STRUCT: Final[Map[type[Struct], str]] = Map.of_seq((struct, name) for name, struct, _ in PROTO_VOCABULARY)
+
+# Outbound retry POLICY for this seam, read whole off `reliability/resilience#RESILIENCE`: attempts, timeout, backoff
+# curve, and the transience read this seam falls back to all arrive as that page's `RetryClass.WIRE` row, so nothing
+# here re-spells a schedule and a table edit lands on this dial with no consumer touch.
+_WIRE_ROW: Final = RetryClass.WIRE.policy
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -499,7 +581,9 @@ class CapabilityInvoke:
     @classmethod
     def discover(cls, payload: bytes) -> RuntimeRail[Map[str, DiscoveryResult]]:
         # descriptor-keyed fold lives at the one decode site, never a list-to-Map re-key the composition root hand-spells.
-        return boundary("wire", lambda: cls._DISCOVERY.decode(payload)).map(lambda rows: Map.of_seq((row.descriptor, row) for row in rows))
+        return boundary(SERVE_DISCOVERY, lambda: cls._DISCOVERY.decode(payload), catch=_CODEC_RAISES).map(
+            lambda rows: Map.of_seq((row.descriptor, row) for row in rows)
+        )
 
     @staticmethod
     def interceptors(tenant: Tenant) -> list[grpc.aio.ClientInterceptor]:
@@ -509,7 +593,12 @@ class CapabilityInvoke:
             span.set_attribute(TENANT_BAGGAGE, str(tenant))
 
         def response_hook(span: trace.Span, details: str) -> None:
-            span.set_attribute(_FAULT_CASE_ATTR, details or "ok")
+            # the client end spans only what it TRULY has: this hook receives the trailer's rendered `details` string
+            # and never the decoded `FaultDetail`, so `FAULT_CODE` and `FAULT_POSTURE` — which need that decode —
+            # stay with `_unsealed`, where it happens. A clean call OMITS the key rather than filling it with an "ok"
+            # no fault took, and no decode is forged here to reach the two keys this end cannot honestly answer.
+            if details:
+                span.set_attribute(FAULT_TAG, details)
 
         return aio_client_interceptors(filter_=filters.negate(filters.health_check()), request_hook=request_hook, response_hook=response_hook)
 
@@ -530,13 +619,15 @@ class CapabilityInvoke:
 
                 async def called() -> RuntimeRail[bytes]:
                     # Exemption: the trailer fence — grpc-status-details-bin lives only on the live AioRpcError, so this one
-                    # platform-forced except reclassifies the terminal raise AFTER the WIRE-row retry exhausts.
+                    # platform-forced except reclassifies the terminal raise AFTER the WIRE-row retry exhausts. The retry
+                    # itself already read that same trailer through `_redrive`, so a producer-terminal fault arrives here
+                    # having spent one attempt rather than the row's whole budget.
                     try:
-                        return Ok(await guard(RetryClass.WIRE)(method, request))
+                        return Ok(await _WIRE_CALLER(method, request))
                     except grpc.aio.AioRpcError as terminal:
                         return Error(_unsealed(terminal))
 
-                return (await async_boundary("wire", called)).bind(lambda rail: rail)
+                return (await async_boundary(SERVE_DIAL, called, catch=_WIRE_RAISES)).bind(lambda rail: rail)
 
             return _enrolled(cls(catalog, dispatch, channel, scope))
 
@@ -545,7 +636,7 @@ class CapabilityInvoke:
     async def run[S: Struct, R: Struct](self, descriptor_id: str, request: S, into: type[R]) -> RuntimeRail[R]:
         staged = (
             self._catalog.try_find(descriptor_id)
-            .to_result(BoundaryFault(wire=(descriptor_id, 0)))
+            .to_result(SERVE_CATALOG.raised(descriptor_id))
             .bind(lambda _: _transcoder(type(request)))
             .bind(lambda transcode: transcode.encode(request))
         )
@@ -602,22 +693,79 @@ async def drained(*, scope: ScopeKey = DEFAULT_SCOPE) -> None:
 
 
 def _transcoder(shape: type[Struct]) -> RuntimeRail[WireProtoCodec[Struct, Message]]:
-    return _ROW_BY_STRUCT.try_find(shape).to_result(BoundaryFault(wire=(shape.__name__, 0))).bind(codec)
+    # a registry miss is `config` and never `wire`: nothing was transported, so no protocol code exists to carry and a
+    # `0` in that slot forges one. The shape that missed the roster rides as the row's own named coordinate instead.
+    return _ROW_BY_STRUCT.try_find(shape).to_result(SERVE_REGISTRY.raised(shape.__name__)).bind(codec)
+
+
+def _detail(raised: Exception) -> Option[FaultDetail]:
+    # ONE trailer read, total over any raise, and the reason the retry gate and the terminal lift cannot disagree:
+    # `grpc-status-details-bin` lives on a LIVE `AioRpcError` alone, so a raise carrying no trailer — or one no codec
+    # decodes — answers absence here and each consumer states its own fallback instead of re-walking the metadata.
+    match raised:
+        case grpc.aio.AioRpcError() as wired:
+            return (
+                Block.of_seq(tuple(wired.trailing_metadata() or ()))
+                .filter(lambda kv: kv[0] == _DETAIL_KEY)
+                .try_head()
+                .bind(lambda kv: codec(_FAULT_DETAIL).bind(lambda sealer: sealer.decode(kv[1])).to_option())
+            )
+        case _:
+            return Nothing
+
+
+def _stated(raised: Exception) -> Option[Recovery]:
+    # the PRODUCER's rung of the retriability precedence, read at the ONE seam that can read it: `reliability/faults`
+    # declares the two rungs it can see — a rostered raise's own row posture over the `FaultTag` derivation — and
+    # rules that a peer-stated posture outranks both and decodes HERE. `Nothing` is the honest third answer rather
+    # than a fourth case: an absent trailer, a frame minted before the slot existed, and a window this producer spelled
+    # wrong all state NOTHING about re-driving, and each defers to the rung below instead of masquerading as a verdict.
+    # Both readers on this page compose it, so the posture a retry acts on is the posture a caller's fault carries.
+    return _detail(raised).bind(lambda sealed: FaultRecovery.stated(sealed.recovery).default_value(Nothing))
+
+
+def _redrive(raised: Exception) -> bool | float:
+    # TWO AXES CROSS HERE: this producer's own verdict against the class's route, and no bool anywhere. Status is the
+    # only axis the `RetryClass.WIRE` row can read, so it retries the transient trio and refuses the rest; its trailer
+    # carries the second axis — what the PRODUCER says about re-driving THIS fault — and reading it here is the only
+    # place it can be spent instead of an attempt, because `guarded(...)` and the terminal fence below both consume
+    # that raise after the budget is already gone. `terminal` refuses the re-drive even where the status sits in that
+    # trio, so a permanently-decommissioned UNAVAILABLE stops at attempt one. Stated windows ride back as the float
+    # `stamina` waits INSTEAD of its own curve, per the backoff-hook contract, so a server-negotiated wait is honored
+    # with no sleep on this page. `transient` and every unstated answer DEFER to the row's own transience read, so
+    # this overlay only ever narrows or re-times the curve and never widens what the class calls retriable.
+    # `None` is unspellable on purpose: `stamina` warns on it and refuses the retry, which would silently turn every
+    # raise carrying no verdict terminal.
+    match _stated(raised):
+        case Option(tag="some", some=Recovery(tag="terminal")):
+            return False
+        case Option(tag="some", some=Recovery(tag="throttled", throttled=seconds)):
+            return seconds
+        case _:
+            return _WIRE_ROW.target(raised)
 
 
 def _unsealed(terminal: grpc.aio.AioRpcError) -> BoundaryFault:
-    # trailer's fault_detail row decodes to the typed producer conflict; an absent or undecodable
-    # trailer falls back to the status-coded lift, never a bare erasure.
+    # the trailer's typed conflict crosses WHOLE onto the minted fault through the fault family's own `domain` seat —
+    # every column the egress fold stamped survives the decode rather than being read and then published as a string.
+    # An absent or undecodable trailer states its own `coded` arm rather than erasing to a bare status, so
+    # the two ingress shapes stay two cases a consumer matches instead of one lossy union of both.
     status = terminal.code().value[0]
-    detail = (
-        Block.of_seq(tuple(terminal.trailing_metadata() or ()))
-        .filter(lambda kv: kv[0] == _DETAIL_KEY)
-        .try_head()
-        .bind(lambda kv: codec(_FAULT_DETAIL).bind(lambda sealer: sealer.decode(kv[1])).to_option())
+    return BoundaryFault.of(
+        SERVE_REMOTE,
+        _detail(terminal)
+        .map(lambda sealed: RemoteConflict(stated=(sealed, status)))
+        .default_with(lambda: RemoteConflict(coded=(status, terminal.details() or type(terminal).__qualname__))),
     )
-    return detail.map(lambda sealed: BoundaryFault(wire=(f"{sealed.package}.{sealed.case_}:{sealed.message}", sealed.code or status))).default_with(
-        lambda: BoundaryFault(wire=(terminal.details() or type(terminal).__qualname__, status))
-    )
+
+
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+# Bound caller for this seam: ONE construction off the `RetryClass.WIRE` row, so its schedule stays the resilience
+# table's and only the RE-DRIVE VERDICT is this page's. `guard(cls)` stays the bare per-CLASS caller a consumer
+# holding no verdict binds — its `@cache` keys on the member alone — and a verdict read from a trailer is per-SEAM by
+# construction: no policy tier can decode a `FaultDetail`, and this page owns that trailer end to end.
+_WIRE_CALLER: Final[stamina.BoundAsyncRetryingCaller] = stamina.AsyncRetryingCaller(**_WIRE_ROW.schedule).on(_redrive)
 ```
 
 ## [04]-[ENTRY]
@@ -625,10 +773,10 @@ def _unsealed(terminal: grpc.aio.AioRpcError) -> BoundaryFault:
 - Owner: `companion_app` is the `cyclopts` command axis AND the daemon composition root, co-located with `ServerHost` because the serve command composes the host it launches. `companion_app(routes, drains, charges, ledger, composition)` is parameterized over the servicer roster, the drainable owners, the supervised worker charges, the durable-evidence binding, and the custody scope, so a downstream folder's composition root — geometry `mesh/serve` the named consumer — supplies its rows, drain stages, pool charges, `(Ledger, Custody)` pair, and `ScopeKey` by data; runtime never imports a downstream sibling package, and every install owner it composes is a runtime-interior module.
 - Law: STRUCTURE PROVES BEFORE CUSTODY IS CLAIMED — `aligned` and `sealed` both seat immediately after the admitted context and ahead of every install, because each install takes process ownership no refusal hands back: a set-once OTel global, a patched contrib train, a registered profiler, a claimed hook-point table. A wire gate seated after them reports a drifted descriptor or a broken packed layout onto a process that has already mounted the surfaces its own refusal cannot unmount, and neither gate reads installed state, so the earlier seat costs nothing.
 - Entry: the boot fold installs the durable evidence plane LAST among the observability owners and only where the caller bound one — `Journal.install` binds onto the same railed chain, so a refused census, an unmet port, or a colliding point roster stops the boot rather than leaving every producer's `record` railing for the process's life; an unbound composition installs none and runs unjournalled. `_supervised` then starts `Journal.drained` FIRST inside the supervision group through `tg.start`, whose readiness signal blocks until the consumer holds the receive end, so no later leg can suspend into an intake nothing reads.
-- Entry: this drain fold owns ORDER — `observability.journal` first so facts stop before the pools that produce them die and the buffered window flushes losslessly through the drain still running behind it, then the caller's `drains` rows, then one pool-drain row per charge, then the supervisor's daemon-stop escalation so no spawned child outlives the daemon, then the two outbound channel closes — the transport clients and every dialed capability invoke — and the profiles push stop. Lifecycle receipt emission settles onto the same accumulated rail after those stages; `Telemetry.shutdown` settles and stops LAST. Every stage runs after an earlier fault, and the faults accumulate into one aggregate; a first-fault abort leaving later stages undrained never lands. Boot chains ride the faults `railed` builder over heterogeneous binds a `traversed` fold cannot express.
+- Entry: this drain fold owns ORDER — the journal drain first so facts stop before the pools that produce them die and the buffered window flushes losslessly through the drain still running behind it, then the caller's `drains` rows, then one pool-drain row per charge, then the supervisor's daemon-stop escalation so no spawned child outlives the daemon, then the two outbound channel closes — the transport clients and every dialed capability invoke — and the profiles push stop. Lifecycle receipt emission settles onto the same accumulated rail after those stages; `Telemetry.shutdown` settles and stops LAST. Every stage runs after an earlier fault, and the faults accumulate into one aggregate; a first-fault abort leaving later stages undrained never lands. Boot chains ride the faults `railed` builder over heterogeneous binds a `traversed` fold cannot express. Each stage is a `(FaultRow, DrainStage)` pair rather than a labelled thunk, so a stage's fault subject derives from the owning module's own `Leg` and the free strings that named these stages retire with the anchors that replace them.
 - Auto: readiness is sd-notify-shaped data — `NotifyState` closes the handshake vocabulary, `_notify` writes the service manager's `NOTIFY_SOCKET` datagram through the anyio UNIX-datagram factory, and an absent socket folds to a no-op so the same daemon runs bare or managed. `READY` fires through the serve `ready` hook after the health flips, `STOPPING` fires at the signal seam before the drain, and the `beating` leg halves `WATCHDOG_USEC` into its ping interval only when the manager arms it. Workers' actuator joins the one supervision group with the awaited `ServerHost.status` coroutine as its flip, so pool death advertises on the served health protocol without a second loop, and the serve leg's terminal send cancels the whole group — the standing signal, watchdog, and supervision rhythms end with the server, never after it. Lifecycle facts fire on the registered `LIFECYCLE_POINTS` rows — ready after the health flips, stopping at the signal seam, the drain verdict on the one-slot replay ring — and `_booted` subscribes the receipts tap per point, so daemon lifecycle telemetry is a hook projection, never a second emit path. `_supervised` mounts the diagnostic capsule before the group opens — one bundle `Route` bound to the supervisor's `verdicts` projection — so every daemon answers incident capture over the standing wire and an unresolvable bundle codec refuses at boot, never at first pull.
-- Packages: `cyclopts`, `anyio`, `msgspec`, and the faults/telemetry/logging/profiles/hooks/metrics/receipts/resilience/admission/clock/shapes/journal/lanes/workers/recipe/roots/bundle owners per the fence imports.
-- Growth: a new private command is one `@app.command` method folding through the shared `_exit`; a new drainable owner is one `(subject, stage)` row the ordered fold, the accumulate, and the receipt absorb; a new lifecycle point is one `LIFECYCLE_POINTS` row; a new supervised pool is one `Charge` row; a new manager handshake is one `NotifyState` member; a new boot gate is one `yield from` beside the two structural ones, above the installs; a new bundle collector is one collectors row at the bundle owner, never a serve edit; a new custody posture behind the bound `ledger` pair is one `Custody` instance the caller constructs, zero serve edits; a sibling daemon is one `companion_app(routes, drains, charges, ledger, composition)` call with its own rows.
+- Packages: `cyclopts`, `anyio`, `msgspec`, `pydantic`, `pydantic-settings`, and the faults/telemetry/logging/profiles/hooks/metrics/receipts/resilience/admission/clock/shapes/journal/lanes/workers/recipe/roots/bundle owners per the fence imports; the two settings classes enter as REFUSAL vocabulary alone, because the required `catch` names the provider that raises and the settings model is pydantic's — this leg mints no model of its own, and the gRPC raise surface it fences rides `[02]-[SERVE]`'s `_WIRE_RAISES` rather than a second import.
+- Growth: a new private command is one `@app.command` method folding through the shared `_exit`; a new drainable owner is one `(FaultRow, stage)` row the ordered fold, the accumulate, and the receipt absorb, its anchor seated at the faults roster under the draining module's own `Leg`; a new lifecycle point is one `LIFECYCLE_POINTS` row; a new supervised pool is one `Charge` row; a new manager handshake is one `NotifyState` member; a new boot gate is one `yield from` beside the two structural ones, above the installs; a new bundle collector is one collectors row at the bundle owner, never a serve edit; a new custody posture behind the bound `ledger` pair is one `Custody` instance the caller constructs, zero serve edits; a sibling daemon is one `companion_app(routes, drains, charges, ledger, composition)` call with its own rows.
 - Boundary: never a new public command surface — public commands are reserved to the suite Assay command surface. `NOTIFY_SOCKET`/`WATCHDOG_USEC` are the service manager's own env contract read at this one entry seam, never a settings field and never a read past admission elsewhere.
 
 ```python signature
@@ -648,13 +796,19 @@ from cyclopts import App, Parameter
 from cyclopts.types import NonNegativeFloat
 from expression import Error, Nothing, Ok, Option, Result
 from expression.collections import Block, Map
+from pydantic import ValidationError
+from pydantic_settings import SettingsError
 
 from rasm.runtime import roots
 from rasm.runtime.admission import RuntimeContext, RuntimeProfile, SettingsAdmission
 from rasm.runtime.bundle import BUNDLE_DESCRIPTOR, BUNDLE_WIRE, SupportBundle
 from rasm.runtime.clock import sealed
-from rasm.runtime.faults import SCOPES, Disposition, RuntimeRail, Scope, async_boundary, boundary, railed, traversed
-from rasm.runtime.hooks import HookPoint, Hooks, Modality
+from rasm.runtime.faults import (
+    HOOKS_RELEASE, JOURNAL_DRAIN, PROFILES_DRAIN, RECEIPTS_EMIT, ROOTS_DRAIN, SCOPES, SERVE_DIALS, SERVE_DRAIN, SERVE_HOST,
+    SERVE_INPUTS, SERVE_SELECTOR, SERVE_SETTINGS, TELEMETRY_STOP, WORKERS_DAEMONS, WORKERS_POOL,
+    Disposition, FaultRow, RuntimeRail, Scope, async_boundary, boundary, railed, traversed,
+)
+from rasm.runtime.hooks import HookPoint, Hooks, Modality, TapRow
 from rasm.runtime.journal import Custody, Journal, Ledger
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.logging import LogPipeline, LogShip
@@ -693,9 +847,9 @@ _READY: Final[str] = "rasm.runtime.serve.ready"
 _STOPPING: Final[str] = "rasm.runtime.serve.stopping"
 _DRAINED: Final[str] = "rasm.runtime.serve.drained"
 LIFECYCLE_POINTS: Final[Block[HookPoint[LifecycleFact]]] = Block.of_seq([
-    HookPoint(_READY, LifecycleFact, Modality.OBSERVE),
-    HookPoint(_STOPPING, LifecycleFact, Modality.OBSERVE),
-    HookPoint(_DRAINED, LifecycleFact, Modality.REPLAY, buffer=1),
+    HookPoint(_READY, LifecycleFact, Modality(observe=None)),
+    HookPoint(_STOPPING, LifecycleFact, Modality(observe=None)),
+    HookPoint(_DRAINED, LifecycleFact, Modality(replay=1)),
 ])
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -714,7 +868,9 @@ def _exit(outcome: RuntimeRail[object] | DrainReceipt[object]) -> int:
 def _booted(bind: str, grace: float, routes: Block[Route], ledger: Option[tuple[Ledger, Custody]]) -> Generator[Any, Any, ServerHost]:
     # admit -> gate -> install -> bind as one railed bind chain: the first Error short-circuits, the
     # composed host rides the Ok payload; an absent otel or pyroscope endpoint installs nothing — no literal.
-    settings = yield from boundary("config", SettingsAdmission.mounted)
+    # the settings model is pydantic's, so its refusal classes are pydantic's — naming them is what the required
+    # `catch` means, and `OSError` is the secrets-mount read the same construction performs.
+    settings = yield from boundary(SERVE_SETTINGS, SettingsAdmission.mounted, catch=(SettingsError, ValidationError, OSError))
     # one ship value crosses both halves of the log egress — the chain's wire row here, the LoggerProvider registration
     # at the install — so the daemon can never render lines the provider half declines to export.
     ship = LogShip.OTLP_CONSOLE
@@ -742,7 +898,7 @@ def _booted(bind: str, grace: float, routes: Block[Route], ledger: Option[tuple[
     yield from Hooks.register(LIFECYCLE_POINTS)
     # the tap rides the SAME roster grain the claim does: one subscription over the whole table, unwound whole on a
     # refusal, so a tap-policy change lands at the registry rather than at this caller's fold.
-    yield from Hooks.subscribe(LIFECYCLE_POINTS, Hooks.tap_receipts(SCOPES[Scope.SERVICE]))
+    yield from Hooks.subscribe(LIFECYCLE_POINTS, TapRow(receipts=SCOPES[Scope.SERVICE]))
     # the durable evidence plane installs LAST among the observability owners and only where a composition bound one:
     # `Journal` holds no process latch because a ledger is a value each root supplies, not an SDK singleton to adopt,
     # so an unbound daemon runs with no journal rather than against a default the branch would have to invent. The
@@ -754,24 +910,27 @@ def _booted(bind: str, grace: float, routes: Block[Route], ledger: Option[tuple[
     return host
 
 
-async def _settled(subject: str, stage: DrainStage) -> RuntimeRail[object]:
+async def _settled(at: FaultRow, stage: DrainStage) -> RuntimeRail[object]:
     # stage() itself is fenced so a synchronous raise converts instead of escaping the drain fold; a rail-returning
-    # sync owner passes through, an async owner awaits under the same named fence.
-    match boundary(subject, stage):
+    # sync owner passes through, an async owner awaits under the same named fence. This is the daemon plane's ONE
+    # catch-all, and it earns that seat by the faults owner's own clause: the stages are caller-supplied owners whose
+    # raise surface this runtime cannot enumerate, and a shutdown that lets an unclassified raise cross the process
+    # boundary loses every stage queued behind it. Every other fence on this page names its provider classes.
+    match boundary(at, stage, catch=Exception):
         case Result(tag="error") as refused:
             return refused
         case Result(tag="ok", ok=Result() as rail):
             return rail
         case Result(tag="ok", ok=pending):
-            return await async_boundary(subject, lambda: pending)
+            return await async_boundary(at, lambda: pending, catch=Exception)
         case _ as unreachable:
             assert_never(unreachable)
 
 
-async def _drained(stages: Block[tuple[str, DrainStage]]) -> RuntimeRail[Block[object]]:
+async def _drained(stages: Block[tuple[FaultRow, DrainStage]]) -> RuntimeRail[Block[object]]:
     settled: Block[RuntimeRail[object]] = Block.empty()
-    for subject, stage in stages:  # Exemption: the ordered drain — every stage runs even after an earlier fault; the rails accumulate below.
-        settled = settled.append(Block.singleton(await _settled(subject, stage)))
+    for at, stage in stages:  # Exemption: the ordered drain — every stage runs even after an earlier fault; the rails accumulate below.
+        settled = settled.append(Block.singleton(await _settled(at, stage)))
     return traversed(settled, by=Disposition.ACCUMULATE)
 
 
@@ -810,14 +969,17 @@ async def _beating() -> None:
                 await anyio.sleep(int(usec) / 2_000_000)
 
 
-def _fleet(charges: Block[Charge]) -> Block[tuple[str, DrainStage]]:
+def _fleet(charges: Block[Charge]) -> Block[tuple[FaultRow, DrainStage]]:
     # one pool-drain row per pooled charge — a DAEMON charge drains through the supervisor's stop escalation, never a pool;
     # only a LIVE arm drains (an acquire here would spawn a pool solely to drain it), and the lookup carries the charge's
     # full arm key — a REMOTE endpoint or GPU device placement key included, or the dialed channel outlives the drain.
     # `pool.drain()` is the async graceful stage `_settled` awaits; its blocking joins already ride the worker band inside the pool owner.
+    # Every pooled arm fences under the ONE `WORKERS_POOL` anchor: a per-charge subject minted here would spell a raise
+    # coordinate the roster never declared, so which arm refused is read off the pool owner's own fault, which carries
+    # its placement key, while this row states only that a pooled drain stage refused.
     return charges.filter(lambda charge: charge.kind in (WorkerKind.PROCESS, WorkerKind.GPU, WorkerKind.REMOTE)).map(
         lambda charge: (
-            f"workers.{charge.policy.subject}",
+            WORKERS_POOL,
             lambda: WorkerPool.live(charge.kind, charge.enforcement, charge.placement)
             .map(lambda pool: pool.drain())
             .default_value(Ok(None)),
@@ -826,7 +988,7 @@ def _fleet(charges: Block[Charge]) -> Block[tuple[str, DrainStage]]:
 
 
 async def _supervised(
-    host: ServerHost, drains: Block[tuple[str, DrainStage]], charges: Block[Charge], journalled: bool, composition: ScopeKey
+    host: ServerHost, drains: Block[tuple[FaultRow, DrainStage]], charges: Block[Charge], journalled: bool, composition: ScopeKey
 ) -> RuntimeRail[None]:
     send, receive = anyio.create_memory_object_stream[RuntimeRail[object]](max_buffer_size=2)
 
@@ -835,7 +997,7 @@ async def _supervised(
         # ExceptionGroup; the terminal group cancel below ALWAYS runs, so the standing signal, watchdog, and supervision
         # rhythms end with the server and the daemon never hangs on a loop that will not stop.
         async with sink:
-            await sink.send((await async_boundary("serve.host", lambda: host.serve(ready=_launched))).bind(lambda rail: rail))
+            await sink.send((await async_boundary(SERVE_HOST, lambda: host.serve(ready=_launched), catch=_WIRE_RAISES)).bind(lambda rail: rail))
         group.cancel_scope.cancel()
 
     async def tripped(sink: MemoryObjectSendStream[RuntimeRail[object]]) -> None:
@@ -852,7 +1014,7 @@ async def _supervised(
             try:
                 with anyio.CancelScope(shield=True):
                     # stage one of the drain order: health flip + stop(grace) unblocks wait_for_termination.
-                    await sink.send(await async_boundary("serve.drain", host.drain))
+                    await sink.send(await async_boundary(SERVE_DRAIN, host.drain, catch=_WIRE_RAISES))
             finally:
                 group.cancel_scope.cancel()
 
@@ -885,18 +1047,18 @@ async def _supervised(
     # the pools drain — a child may still serve pooled work — the transport clients and the profiles push close next.
     # Lifecycle evidence emits while telemetry is live; shutdown flushes it last.
     ordered = (
-        Block.of_seq([("observability.journal", Journal.closed)] if journalled else [])
+        Block.of_seq([(JOURNAL_DRAIN, Journal.closed)] if journalled else [])
         .append(drains)
         .append(_fleet(charges))
-        .append(Block.singleton(("workers.daemons", supervisor.stop)))
-        .append(Block.singleton(("transport.roots", roots.drain)))
-        .append(Block.singleton(("transport.capability", partial(drained, scope=composition))))
-        .append(Block.singleton(("observability.profiles", lambda: Ok(Profiles.shutdown()))))
+        .append(Block.singleton((WORKERS_DAEMONS, supervisor.stop)))
+        .append(Block.singleton((ROOTS_DRAIN, roots.drain)))
+        .append(Block.singleton((SERVE_DIALS, partial(drained, scope=composition))))
+        .append(Block.singleton((PROFILES_DRAIN, lambda: Ok(Profiles.shutdown()))))
     )
     flushed = await _drained(ordered)
     pre_shutdown = traversed(settled.append(Block.singleton(flushed)), by=Disposition.ACCUMULATE)
     emitted = await _settled(
-        "observability.receipts",
+        RECEIPTS_EMIT,
         lambda: Signals.emit_async(
             Receipt.of(
                 SCOPES[Scope.SERVICE],
@@ -906,12 +1068,18 @@ async def _supervised(
         ),
     )
     lifecycle = await Hooks.fire_async(_DRAINED, LifecycleFact(subject="drained", clean=pre_shutdown.is_ok()))
-    telemetry = await _settled("observability.telemetry", Telemetry.shutdown)
+    # hook custody retires AFTER the last fire and BEFORE telemetry stops: the drained fact is the final point this
+    # composition owns, and releasing whole is what keeps a re-admitting embedded runtime from colliding with its own
+    # ghost roster. `release` answers the retirement verdict carrying both accounting windows out — after the swap no
+    # read reaches them — so the shed and refused-sink counts leave with the value rather than dying with the tables.
+    custody = await _settled(HOOKS_RELEASE, lambda: Hooks.release(scope=composition))
+    telemetry = await _settled(TELEMETRY_STOP, Telemetry.shutdown)
     return traversed(
         Block.of_seq([
             pre_shutdown.map(lambda _: None),
             emitted.map(lambda _: None),
             lifecycle.map(lambda _: None),
+            custody.map(lambda _: None),
             telemetry.map(lambda _: None),
         ]),
         by=Disposition.ACCUMULATE,
@@ -922,7 +1090,7 @@ async def _daemon(
     bind: str,
     grace: float,
     routes: Block[Route],
-    drains: Block[tuple[str, DrainStage]],
+    drains: Block[tuple[FaultRow, DrainStage]],
     charges: Block[Charge],
     ledger: Option[tuple[Ledger, Custody]],
     composition: ScopeKey,
@@ -941,7 +1109,7 @@ async def _daemon(
 
 def companion_app(
     routes: Block[Route],
-    drains: Block[tuple[str, DrainStage]] = Block.empty(),
+    drains: Block[tuple[FaultRow, DrainStage]] = Block.empty(),
     charges: Block[Charge] = Block.empty(),
     ledger: Option[tuple[Ledger, Custody]] = Nothing,
     composition: ScopeKey = DEFAULT_SCOPE,
@@ -969,10 +1137,18 @@ def companion_app(
         loaded = (
             Ok(Map.empty())
             if assignments is None
-            else boundary("config", lambda: Map.of_seq(msgspec.json.decode(assignments.read_bytes(), type=dict[str, object]).items()))
+            else boundary(
+                SERVE_INPUTS,
+                lambda: Map.of_seq(msgspec.json.decode(assignments.read_bytes(), type=dict[str, object]).items()),
+                catch=(*_CODEC_RAISES, OSError),
+            )
         )
+        # a selector outside the member roster is an EXTERNAL recipe-folder path, not a defect, so the one class a
+        # `StrEnum` construction raises is named and its refusal folds to the path arm rather than to the CLI exit.
         spec = loaded.map(
-            lambda inputs: RecipeSpec(recipe=boundary("config", lambda: RecipeName(selector)).default_value(selector), inputs=inputs)
+            lambda inputs: RecipeSpec(
+                recipe=boundary(SERVE_SELECTOR, lambda: RecipeName(selector), catch=ValueError).default_value(selector), inputs=inputs
+            )
         )
         match spec:
             case Result(tag="error") as refused:

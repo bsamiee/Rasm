@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_TRAVELER]
 
-`TravelerDocument` is the deterministic shop-execution document assembled from admitted fabrication results and cross-domain receipts. It preserves each upstream receipt at its owning type; `ContentKey.Of(EgressKind.Traveler, bytes)` mints document and amendment identities over a `CanonicalWriter` binary preimage, and `TravelerArtifact` carries the transport rendering for display and persistence beside that identity.
+`TravelerDocument` is the deterministic shop-execution document assembled from admitted fabrication results and cross-domain receipts. It preserves each upstream receipt at its owning type; `FabricationCanon.Keyed(EgressKind.Traveler, …)` mints document and amendment identities over a `CanonicalWriter` binary preimage, and `TravelerArtifact` carries the transport rendering for display and persistence beside that identity.
 
 `Fabrication.Run` remains the sole public package entry. `Traveler.Assemble` is internal, owns identity and encoding, and parameterizes the clock and result projection. The planned route is a DAG: `BindRoutes` gates acyclicity before it sorts, and the step depth, release frontier, and dangling-binding counts it measures ride the document as witness columns rather than being re-derived at every reader.
 
@@ -12,14 +12,16 @@
 
 ## [02]-[TRAVELER_IDENTITY]
 
-- Owner: `TravelerId`, `TravelerName`, `TravelerNote`, and `TravelerActor` own the four text regimes a traveler carries; `TravelerQuantity`, `TravelerStep`, `TravelerOperation`, and `TravelerSetup` own the ordinal regimes; `TravelerLocus` owns binding position; `TravelerControl` owns instructions; `TravelerReceiptCorpus` owns the admitted fan-in.
+- Owner: `TravelerId`, `TravelerName`, `TravelerNote`, and `TravelerActor` own the four text regimes a traveler carries; `TravelerQuantity`, `TravelerStep`, `TravelerOperation`, and `TravelerSetup` own the ordinal regimes; `TravelerLocus` owns binding position; `TravelerControl` owns instructions; `AttributeTag` owns the drawing tag vocabulary and which of its rows reconcile; `TravelerReceiptCorpus` owns the admitted fan-in.
 - Law: text is typed by ITS OWN REGIME, never by one shared wrapper. An identifier a shop keys on, a human-facing name, a free narrative, and a person are four different admissions with four different transposition risks, and one owner covering all of them makes passing a hazard where an authority belongs a compile-clean mistake.
+- Law: a PUBLISHED regime takes its published owner. `TravelerIdentity.Revision` is the drawing revision a traveler is issued against and its sequence is ASME Y14.35 §4.3, so it admits through the kernel `RevisionIndex`; `PartNumber` and `WorkOrder` are shop identities under no naming standard and stay `TravelerId`, because forcing a `SheetNumber` field grammar onto a part number admits under a sequence the shop never issued.
+- Law: which drawing tags reconcile is an `AttributeTag` COLUMN, not a pair list at the fold. A const row name beside a hand `Seq((name, declared), …)` puts the vocabulary in two places and lets a new reconciled tag land in one of them.
 - Law: `TravelerActor` carries the personal classification at ITS OWN declaration, so every actor and authority column inherits redaction from the type rather than from a per-field attribute a new column can forget.
 - Law: `TravelerControl` is one generated family over `TravelerLocus`. Global, step, operation, setup, and characteristic loci bind instructions; `Material` retains unit identity, and `Package` fixes the global locus with label, method, and destination policy. Every case is POSITIONAL over its base locus — a hand constructor beside the record's own is a second construction path.
 - Law: only the characteristic locus decides admission here; the routing loci prove membership later against the planned route, where the step, operation, and setup identities exist.
 - Law: `TravelerReceiptCorpus` derives its digital-product-passport identity from its sealed records, so no writable twin can diverge; an inspection link admits only where the named record actually carries the named feature, and a `HoldRelease` admits only where a carried `ProcedureReceipt` actually planned that hold point.
 - Growth: a control modality is one `TravelerControl` case; a sampling regime is one `TravelerSampling` case; a corpus row family is one column and one preimage row.
-- Packages: `Rasm.Element` (`AdmissionSlots`), `Rasm.Fabrication.Process` (`ContentKey`, `EgressKind`, `FabricationResult`, `InspectionFeature`, `PlannedStep`, `FabricationFault`, `Admission`), `Documentation/report` (`SealedRecord`, `Disposition`, `CharacteristicId`), `Joining/procedure` (`ProcedureReceipt`, `HoldPoint`, `HoldRelease`, `HoldPointKey`), `Spec` (`CapabilityReport`, `DfmReport`, `FeatureFrameReceipt`), `Fixturing/setups` (`SetupSchedule`), `Tooling/magazine` (`ToolChange`, `ToolAssembly`), `Posting/dialect` (`ProgramDelivery`, `PostDialect`), `Verify/estimation` (`CostReceipt`), UnitsNet, NodaTime, Thinktecture, LanguageExt.
+- Packages: `Rasm.Drawing` (`RevisionIndex`), `Rasm.Element` (`AdmissionSlots`), `Rasm.Fabrication.Process` (`ContentKey`, `EgressKind`, `FabricationResult`, `InspectionFeature`, `PlannedStep`, `FabricationFault`, `Admission`), `Documentation/passport` (`SealedRecord`, `QualityReport.CanonicalJson`), `Documentation/report` (`Disposition`, `CharacteristicId`), `Joining/procedure` (`ProcedureReceipt`, `HoldPoint`, `HoldRelease`, `HoldPointKey`), `Spec` (`CapabilityReport`, `Receipt<DfmReport>`, `FeatureFrame`), `Fixturing/setups` (`SetupSchedule`), `Tooling/magazine` (`ToolChange`, `ToolAssembly`), `Posting/dialect` (`ProgramDelivery`, `PostDialect`), `Verify/estimation` (`CostEvidence` on the `Receipt<TEvidence>` spine), UnitsNet, NodaTime, Thinktecture, LanguageExt.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -36,6 +38,7 @@ using NodaTime;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using Rasm.Domain;
+using Rasm.Drawing;
 using Rasm.Element.Projection;
 using Rasm.Fabrication.Fixturing;
 using Rasm.Fabrication.Ingress;
@@ -78,41 +81,38 @@ public sealed partial class TravelerRelation {
 // FOUR text regimes, four admissions. An identifier is keyed on, a name is displayed, a note is read, and an actor
 // is a person the classification rail redacts — one wrapper over all four admits every transposition between them.
 [ValueObject<string>]
-[ValidationError<FabricationFault>]
 public readonly partial struct TravelerId {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         // An identifier is keyed on and printed on a label, so interior whitespace makes two rows that scan alike
         // key apart; a name or a note carries no such constraint.
         if (!Witness.Keyed(value) || value.Any(char.IsWhiteSpace))
-            validationError = Traveler.Refusal("id");
+            validationError = Traveler.Validation("id");
     }
 
     public static Fin<TravelerId> Admit(string value) => Admission.OfValue<TravelerId, string>(value);
 }
 
 [ValueObject<string>]
-[ValidationError<FabricationFault>]
 public readonly partial struct TravelerName {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
-            validationError = Traveler.Refusal("name");
+            validationError = Traveler.Validation("name");
     }
 
     public static Fin<TravelerName> Admit(string value) => Admission.OfValue<TravelerName, string>(value);
 }
 
 [ValueObject<string>]
-[ValidationError<FabricationFault>]
 public readonly partial struct TravelerNote {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
-            validationError = Traveler.Refusal("note");
+            validationError = Traveler.Validation("note");
     }
 
     public static Fin<TravelerNote> Admit(string value) => Admission.OfValue<TravelerNote, string>(value);
@@ -121,62 +121,57 @@ public readonly partial struct TravelerNote {
 // The person a step names. Classification rides the TYPE, so every actor and authority column redacts without a
 // per-column attribute a new column can forget.
 [ValueObject<string>]
-[ValidationError<FabricationFault>]
 [PersonalData]
 public readonly partial struct TravelerActor {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
-            validationError = Traveler.Refusal("actor");
+            validationError = Traveler.Validation("actor");
     }
 
     public static Fin<TravelerActor> Admit(string value) => Admission.OfValue<TravelerActor, string>(value);
 }
 
 [ValueObject<int>]
-[ValidationError<FabricationFault>]
 public readonly partial struct TravelerQuantity {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref int value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
         if (value < 1)
-            validationError = Traveler.Refusal("quantity");
+            validationError = Traveler.Validation("quantity");
     }
 
     public static Fin<TravelerQuantity> Admit(int value) => Admission.OfValue<TravelerQuantity, int>(value);
 }
 
 [ValueObject<int>]
-[ValidationError<FabricationFault>]
 public readonly partial struct TravelerStep {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref int value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
         if (value < 0)
-            validationError = Traveler.Refusal("step");
+            validationError = Traveler.Validation("step");
     }
 
     public static Fin<TravelerStep> Admit(int value) => Admission.OfValue<TravelerStep, int>(value);
 }
 
 [ValueObject<int>]
-[ValidationError<FabricationFault>]
 public readonly partial struct TravelerOperation {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref int value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
         if (value < 0)
-            validationError = Traveler.Refusal("operation");
+            validationError = Traveler.Validation("operation");
     }
 
     public static Fin<TravelerOperation> Admit(int value) => Admission.OfValue<TravelerOperation, int>(value);
 }
 
 [ValueObject<int>]
-[ValidationError<FabricationFault>]
 public readonly partial struct TravelerSetup {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref int value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
         if (value < 0)
-            validationError = Traveler.Refusal("setup");
+            validationError = Traveler.Validation("setup");
     }
 
     public static Fin<TravelerSetup> Admit(int value) => Admission.OfValue<TravelerSetup, int>(value);
@@ -243,21 +238,24 @@ public abstract partial record TravelerLocus {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class TravelerIdentity {
     public TravelerId WorkOrder { get; }
     public TravelerId PartNumber { get; }
-    public TravelerId Revision { get; }
+
+    // The revision a traveler is issued AGAINST is the drawing's own, and its sequence is published: the kernel
+    // `RevisionIndex` admits the ASME Y14.35 §4.3 letters and advances by that odometer, so a traveler printed
+    // against a superseded sheet compares admitted designators rather than two strings that both trimmed clean.
+    public RevisionIndex Revision { get; }
     public TravelerQuantity Quantity { get; }
     public Option<TravelerId> HeatLot { get; }
     public Seq<TravelerId> Serials { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref TravelerId workOrder,
         ref TravelerId partNumber,
-        ref TravelerId revision,
+        ref RevisionIndex revision,
         ref TravelerQuantity quantity,
         ref Option<TravelerId> heatLot,
         ref Seq<TravelerId> serials) {
@@ -265,7 +263,7 @@ public sealed partial class TravelerIdentity {
         // state that makes a scrap disposition unable to say which units it consumed.
         if (serials.Distinct().Count != serials.Count
             || (!serials.IsEmpty && serials.Count != quantity.ToValue()))
-            validationError = Traveler.Refusal("identity");
+            validationError = Traveler.Validation("identity");
     }
 }
 
@@ -328,15 +326,14 @@ public abstract partial record TravelerControl(TravelerLocus Locus) {
 public sealed record TravelerInspectionLink(InspectionFeature Feature, ContentKey Record);
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class TravelerReceiptCorpus {
     public TravelerIdentity Identity { get; }
     public Seq<ToolChange> ToolChanges { get; }
     public Seq<ToolAssembly> ToolAssemblies { get; }
     public Seq<SetupSchedule> Setups { get; }
-    public Seq<FeatureFrameReceipt> Frames { get; }
+    public Seq<FeatureFrame> Frames { get; }
     public Seq<CapabilityReport> Capabilities { get; }
-    public Seq<DfmReport> Manufacturability { get; }
+    public Seq<Receipt<DfmReport>> Manufacturability { get; }
     public Seq<ProcedureReceipt> Procedures { get; }
     public Seq<SealedRecord> Records { get; }
     public Option<ContentKey> DigitalProductPassport => Records
@@ -358,14 +355,14 @@ public sealed partial class TravelerReceiptCorpus {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref TravelerIdentity identity,
         ref Seq<ToolChange> toolChanges,
         ref Seq<ToolAssembly> toolAssemblies,
         ref Seq<SetupSchedule> setups,
-        ref Seq<FeatureFrameReceipt> frames,
+        ref Seq<FeatureFrame> frames,
         ref Seq<CapabilityReport> capabilities,
-        ref Seq<DfmReport> manufacturability,
+        ref Seq<Receipt<DfmReport>> manufacturability,
         ref Seq<ProcedureReceipt> procedures,
         ref Seq<SealedRecord> records,
         ref Seq<TravelerInspectionLink> inspections,
@@ -385,7 +382,7 @@ public sealed partial class TravelerReceiptCorpus {
         if (!recordsUnique || !passportBound || !inspectionsBound || !releasesBound
             || !controls.ForAll(static control => control.Valid)
             || !amendments.ForAll(static amendment => amendment.Valid))
-            validationError = Traveler.Refusal("corpus");
+            validationError = Traveler.Validation("corpus");
     }
 }
 ```
@@ -399,7 +396,7 @@ public sealed partial class TravelerReceiptCorpus {
 - Law: `Released.Delivery` retains the verified controller handoff that authorizes the held-to-open edge, and `Released.Program` names the planned release artifact that handoff must prove — the corpus gate admits a release only when `Delivery.Image` matches `Program` by kind and digest, so a verified transfer of the wrong program never opens a held step.
 - Law: `Deviated` and `Scrapped` carry `TravelerUnits`, so a lot-wide disposition and a named-serial disposition are distinct cases and partial scrap of a serialized run records the exact units it consumed.
 - Law: `TravelerAmendment.Advance` owns the step-state arrow as one total generated dispatch, and `Disposition.Terminal` with `Accepted` supplies the `Deviated` target: an accepted terminal disposition completes the step, a refused terminal disposition scraps it, and a nonterminal disposition retains prior state.
-- Law: marks reconcile by NAME against the declared identity, and a row absent from the drawing raises no divergence — the sheet carries no such mark. Every tagged mark under a row is read, so a sheet carrying two values for one key prints both contradictions.
+- Law: marks reconcile by `AttributeTag` ROW against the declared identity, and a row absent from the drawing raises no divergence — the sheet carries no such mark. Every tagged mark under a row is read, so a sheet carrying two values for one key prints both contradictions.
 - Growth: an amendment modality is one case with its own `Advance` arm; a section is one case; a reconciled mark row is one entry in the reconcilable roster.
 
 ```csharp signature
@@ -424,9 +421,9 @@ public abstract partial record TravelerAmendment(
         Instant Started,
         Instant At,
         Duration Actual,
-        Option<CostReceipt> Estimate,
+        Option<Receipt<CostEvidence>> Estimate,
         Seq<ContentKey> Evidence) : TravelerAmendment(Previous, Step, Actor, At, Evidence) {
-        public Option<Duration> Variance => Estimate.Map(value => Actual - value.MachineTime);
+        public Option<Duration> Variance => Estimate.Map(value => Actual - value.Evidence.MachineTime);
     }
 
     public sealed record Held(
@@ -520,8 +517,10 @@ public sealed partial class TravelerStepState {
     public bool Started { get; }
 }
 
-public sealed record TravelerAmendmentReceipt(
-    ContentKey Key,
+// The sealed amendment's own payload: the amendment and the transport rendering that carried it. Plane, key,
+// ancestry, and stamp are the carrier's — `Receipt<TEvidence>` makes all three required — so a sealed link in the
+// chain cannot exist without the content key its successor's parent gate reads.
+public sealed record TravelerAmendmentEvidence(
     TravelerAmendment Amendment,
     TravelerArtifactDescriptor Descriptor,
     ReadOnlyMemory<byte> Rendering);
@@ -568,9 +567,9 @@ public abstract partial record TravelerSection {
         RouteWitness Witness) : TravelerSection;
     public sealed record Tooling(Seq<ToolChange> Changes, Seq<ToolAssembly> Assemblies) : TravelerSection;
     public sealed record Specification(
-        Seq<FeatureFrameReceipt> Frames,
+        Seq<FeatureFrame> Frames,
         Seq<CapabilityReport> Capabilities,
-        Seq<DfmReport> Manufacturability) : TravelerSection;
+        Seq<Receipt<DfmReport>> Manufacturability) : TravelerSection;
     public sealed record Procedure(Seq<ProcedureReceipt> Receipts) : TravelerSection;
     public sealed record Outputs(Option<PostDialect> Dialect, Seq<FabricationResult> Results) : TravelerSection;
     public sealed record Quality(
@@ -587,15 +586,29 @@ public abstract partial record TravelerSection {
         Seq<MarkDivergence> Reconciled) : TravelerSection;
 }
 
-public sealed record MarkDivergence(string Row, string Drawing, string Declared);
+// The drawing attribute-tag vocabulary this package owns. The tag names a shop keys on are a SHOP vocabulary, not
+// a published drawing standard, so the kernel sheet owner declares none and this roster is the folder's — but the
+// rows carry their own reconcilability, so which tags a traveler checks against its identity is a column here and
+// never a hand pair list at the fold site.
+[SmartEnum<string>]
+public sealed partial class AttributeTag {
+    public static readonly AttributeTag PartMark = new("PartMark", reconciled: true);
+    public static readonly AttributeTag HeatNumber = new("HeatNumber", reconciled: true);
+    public static readonly AttributeTag Assembly = new("Assembly", reconciled: false);
+    public static readonly AttributeTag Phase = new("Phase", reconciled: false);
+    public static readonly AttributeTag Finish = new("Finish", reconciled: false);
+
+    // A reconciled row is one this traveler holds a declared identity for; every other tag rides through as
+    // authored, because a divergence against nothing declared is a comparison the drawing never invited.
+    public bool Reconciled { get; }
+}
+
+public sealed record MarkDivergence(AttributeTag Row, string Drawing, string Declared);
 
 // Marking reads: the traveler resolves part identity against the drawing rather than re-parsing an entity sweep
-// it never receives. PartMark and HeatNumber are the two rows a shop floor keys on, so they reconcile by name
-// against TravelerIdentity while every other keyed row rides through unreconciled.
+// it never receives. The reconcilable tags come off the roster's own column and pair with the identity half each
+// one names, so a new reconciled tag is one row plus one pairing arm and never a second const beside a fold.
 internal static class TravelerMarks {
-    const string PartMarkRow = "PartMark";
-    const string HeatNumberRow = "HeatNumber";
-
     public static TravelerSection.Marks Of(FabricationInput input, TravelerIdentity identity) {
         Map<string, Arr<ProfileMarking>> keyed = input.Tags;
         // Each reconcilable row carries its declared identity as the option the identity already holds, so an
@@ -605,21 +618,31 @@ internal static class TravelerMarks {
         return new TravelerSection.Marks(
             keyed,
             input.Markings.ToSeq().Filter(static marking => marking.Tag.IsNone),
-            Seq((PartMarkRow, Some(identity.PartNumber)), (HeatNumberRow, identity.HeatLot))
-                .Choose(static row => row.Item2.Map(declared => (row.Item1, declared)))
-                .Bind(row => Divergence(keyed, row.Item1, row.Item2)));
+            toSeq(AttributeTag.Items)
+                .Filter(static tag => tag.Reconciled)
+                .Choose(tag => Declared(identity, tag).Map(declared => (Tag: tag, Declared: declared)))
+                .Bind(row => Divergence(keyed, row.Tag, row.Declared)));
     }
+
+    // The identity half a reconciled tag names, total over the roster so a new reconciled row breaks HERE rather
+    // than silently reconciling against nothing.
+    static Option<string> Declared(TravelerIdentity identity, AttributeTag tag) =>
+        tag switch {
+            _ when tag == AttributeTag.PartMark => Some(identity.PartNumber.ToValue()),
+            _ when tag == AttributeTag.HeatNumber => identity.HeatLot.Map(static value => value.ToValue()),
+            _ => None,
+        };
 
     // A row present with a different value is the contradiction a traveler prints. EVERY tagged mark under the row
     // is read, so a sheet carrying two values for one key prints both: a head-only read hides every later mark
     // behind whichever one the drawing happened to author first, which is exactly the mark a shop mis-keys on.
     static Seq<MarkDivergence> Divergence(
-        Map<string, Arr<ProfileMarking>> keyed, string row, TravelerId declared) =>
-        keyed.Find(row).ToSeq()
+        Map<string, Arr<ProfileMarking>> keyed, AttributeTag row, string declared) =>
+        keyed.Find(row.Key).ToSeq()
             .Bind(static marks => marks.ToSeq())
             .Choose(static mark => mark.Content is MarkingContent.Tag tag ? Some(tag.Type.Text) : None)
-            .Filter(text => !string.Equals(text, declared.ToValue(), StringComparison.Ordinal))
-            .Map(text => new MarkDivergence(row, text, declared.ToValue()));
+            .Filter(text => !string.Equals(text, declared, StringComparison.Ordinal))
+            .Map(text => new MarkDivergence(row, text, declared));
 }
 
 public sealed record TravelerDocument(Instant StampedAt, Seq<TravelerSection> Sections, Seq<ContentKey> Composed);
@@ -646,13 +669,13 @@ public sealed record TravelerArtifact(
     Seq<ContentKey> Consumed,
     Seq<ContentKey> Produced,
     Option<ContentKey> DigitalProductPassport,
-    Seq<TravelerAmendmentReceipt> Amendments);
+    Seq<Receipt<TravelerAmendmentEvidence>> Amendments);
 ```
 
 ## [04]-[TRAVELER_ASSEMBLY]
 
 - Owner: `TravelerPreimage` owns identity bytes; `TravelerCanonicalCodec` owns the transport rendering; `Traveler` owns the route DAG, the key harvest, amendment sealing, and `Assemble`.
-- Law: identity rides a `CanonicalWriter` BINARY preimage over `FabricationCanon`, never a serializer's bytes — the same law `Documentation/report` and `Joining/weld` key under, so one document keyed here and the same document keyed through any sibling addresses identically. The JSON rendering stays the TRANSPORT the display and persistence seams read, and its `[JsonPolymorphic]` rosters are what make both codec arms round-trip without a runtime type argument.
+- Law: identity rides `FabricationCanon.Keyed` — the ONE keyed mint, which opens the retaining writer, closes on the typed rail, and frames `EgressKind` ahead of the payload — never a serializer's bytes and never a hand-opened writer — the same law `Documentation/report` and `Joining/weld` key under, so one document keyed here and the same document keyed through any sibling addresses identically. The JSON rendering stays the TRANSPORT the display and persistence seams read, and its `[JsonPolymorphic]` rosters are what make both codec arms round-trip without a runtime type argument.
 - Law: a COMPOSED receipt enters the preimage by the key census it contributes and by the discriminating ordinals it authored — a receipt's own owner keys its full shape, and re-transcribing that shape here forks the two keys the day either page grows a column. The traveler's OWN authored rows — identity, controls, marks, amendment payloads, and the route witness — enter in full.
 - Law: the planned route is a DAG. `IsDirectedAcyclicGraph` gates BEFORE `SourceFirstBidirectionalTopologicalSort`, so a forged precedence answers a typed fault instead of throwing inside a sort, and `Roots`/`Sinks` are the release frontier a shop reads.
 - Law: dangling controls, amendments, inspection links, release programs, and unreleased blocking holds are INDEPENDENT faults that accumulate: a planner correcting one route must see the other four in the same verdict, and their counts ride `RouteWitness` so a passing document still reports the frontier it proved. The hold gate reads `Joining/procedure` `HoldPoint`/`HoldRelease` evidence, so a traveler advances against a party's attested release and never against a hold point it merely printed.
@@ -660,7 +683,7 @@ public sealed record TravelerArtifact(
 - Law: the key census reads `FabricationResult.Keys` — the result family's OWN census — so every case contributes its subjects and artifacts, and motion and inspection results stop contributing nothing to lineage while every other case does.
 - Exemption: `TravelerCanonicalCodec.Write` is the byte kernel over the rendered node tree; `Traveler.RouteGraph` is the graph-population kernel and only its named witness columns leave.
 - Entry: `Traveler.Assemble(request, input, clock, egress, tap)` is the one assembly; the tap defaults to the silent port so a headless assembly branches nowhere.
-- Receipt: `TravelerArtifact` carries the document, its descriptor and rendering, the minted key, the consumed and produced key sets, the passport identity, and the sealed amendment chain. `FabricationFact.Traveler.Of` projects the sealed artifact's amendment-chain length onto `rasm.fabrication.traveler.amendments` through `Process/telemetry#FACT_PROJECTION` as kind `traveler`.
+- Receipt: `TravelerArtifact` carries the document, its descriptor and rendering, the minted key, the consumed and produced key sets, the passport identity, and the sealed amendment chain as `Receipt<TravelerAmendmentEvidence>` rows — plane, key, ancestry, and stamp on the spine carrier, amendment and rendering as the lane evidence. `FabricationFact.Traveler.Of` projects the sealed artifact's amendment-chain length onto `rasm.fabrication.traveler.amendments` through `Process/telemetry#FACT_PROJECTION` as kind `traveler`.
 - Packages: QuikGraph (`BidirectionalGraph`, `STaggedEdge`, `IsDirectedAcyclicGraph`, `SourceFirstBidirectionalTopologicalSort`, `Sinks`, `Roots`, `InEdges`), `Rasm.Element` `CanonicalWriter` through `Process/owner#RUN_DISPATCH` `FabricationCanon`, `System.Text.Json` for the transport rendering.
 
 ```csharp signature
@@ -673,15 +696,13 @@ internal static class TravelerCanonicalCodec {
         "rasm.fabrication.traveler", "application/json", "utf-8");
 
     public static Fin<TravelerEncoding> Encode(TravelerCanonicalSource source) =>
-        Try.lift(() => {
+        Traveler.DocumentOp.Catch(() => {
                 JsonNode root = JsonSerializer.SerializeToNode(source, QualityReport.CanonicalJson)!;
                 using MemoryStream stream = new();
                 using (Utf8JsonWriter writer = new(stream, new JsonWriterOptions { Indented = false }))
                     Write(writer, root);
-                return new TravelerEncoding(Descriptor, stream.ToArray());
-            })
-            .Run()
-            .MapFail(static _ => Traveler.Refusal("encode").ToError());
+                return Fin.Succ(new TravelerEncoding(Descriptor, stream.ToArray()));
+            });
 
     static void Write(Utf8JsonWriter writer, JsonNode node) {
         switch (node) {
@@ -709,19 +730,25 @@ internal static class TravelerCanonicalCodec {
     }
 }
 
-// The IDENTITY bytes. Authored rows enter whole; composed receipts enter by their own keys and by the ordinals
-// this document authored over them.
+// The IDENTITY key. Authored rows enter the preimage whole; composed receipts enter by their own keys and by the
+// ordinals this document authored over them.
 internal static class TravelerPreimage {
     // The document authors no measured geometry — every dimensioned fact it carries belongs to a receipt that
-    // keyed it already — so the writer declares no quantization and its grid never rounds a composed key.
+    // keyed it already — so the mint declares no quantization and its grid never rounds a composed key.
     const double ExactGrid = 0.0;
 
-    public static ReadOnlyMemory<byte> Of(TravelerCanonicalSource source) =>
-        source.Switch(
-            state: new CanonicalWriter(ExactGrid),
-            document: static (sink, value) => sink.Ordinal(0).Document(value.Value),
-            amendment: static (sink, value) => sink.Ordinal(1).Amendment(value.Value))
-        .ToBytes();
+    // `FabricationCanon.Keyed` is the ONE keyed mint: it opens the retaining writer, closes on the typed rail, and
+    // frames `EgressKind` ahead of the payload. This page never holds the preimage bytes — the transport rendering
+    // is the codec's, not the identity's — so a caller-held span would be a buffer nothing reads.
+    public static Fin<ContentKey> Of(TravelerCanonicalSource source) =>
+        FabricationCanon.Keyed(
+            EgressKind.Traveler,
+            ExactGrid,
+            sink => source.Switch(
+                state: sink,
+                document: static (row, value) => row.Ordinal(0).Document(value.Value),
+                amendment: static (row, value) => row.Ordinal(1).Amendment(value.Value)),
+            Traveler.DocumentOp);
 
     extension(CanonicalWriter sink) {
         internal CanonicalWriter Key(ContentKey key) => key.CanonicalBytes(sink);
@@ -814,8 +841,10 @@ internal static class TravelerPreimage {
                 .Rows(value.Frames, static (inner, frame) => inner.U128(frame.Id.ToValue()).Key(frame.Control.Source))
                 .Rows(value.Capabilities, static (inner, report) => inner
                     .U128(report.Identity.Characteristic).Double(report.Verdict.Cpk).Moment(report.At))
-                .Rows(value.Manufacturability, static (inner, report) => inner
-                    .U128(report.ComponentKey).Moment(report.At)),
+                // The producibility assessment is a SETTLED receipt now, so it enters by its own content key —
+                // the law this page states for every composed receipt — and the component key it transcribed
+                // stops being a second address for a fact the key already covers.
+                .Rows(value.Manufacturability, static (inner, report) => inner.Key(report.Key)),
             procedure: static (row, value) => row.Ordinal(4)
                 .Rows(value.Receipts, static (inner, receipt) => inner
                     .Text(receipt.WpsId.ToValue()).Ordinal(receipt.Revision).Bool(receipt.Qualified)),
@@ -830,7 +859,7 @@ internal static class TravelerPreimage {
                 .Rows(value.Inspections, static (inner, link) => inner.Text(link.Feature.Key.ToValue()).Key(link.Record))
                 .Rows(value.Releases, static (inner, release) => inner
                     .Ordinal(release.Point.Joint).Discriminant(release.Point.Family).Discriminant(release.Point.Sampling)
-                    .Discriminant(release.By).Moment(release.At).Bool(release.Attended)
+                    .Discriminant(release.By).Moment(release.At).String(release.Discharged.Wire)
                     .Maybe(release.Method, static (cell, method) => cell.Discriminant(method))),
             marks: static (row, value) => row.Ordinal(7)
                 .Rows(toSeq(value.Keyed.Keys.OrderBy(identity, StringComparer.Ordinal)),
@@ -852,7 +881,7 @@ internal static class TravelerPreimage {
             completed: static (row, value) => row.Ordinal(0)
                 .Moment(value.Started).I64(value.Actual.BclCompatibleTicks)
                 .Maybe(value.Estimate, static (inner, estimate) => inner
-                    .Key(estimate.Subject).I64(estimate.MachineTime.BclCompatibleTicks)),
+                    .Key(estimate.Key).I64(estimate.Evidence.MachineTime.BclCompatibleTicks)),
             held: static (row, value) => row.Ordinal(1).Text(value.Cause.ToValue()),
             released: static (row, value) => row.Ordinal(2)
                 .Text(value.Authority.ToValue()).Key(value.Program).Key(value.Delivery.Image),
@@ -865,11 +894,17 @@ internal static class TravelerPreimage {
 }
 
 internal static class Traveler {
+    // The one operation key this page raises under: the keyed mint carries it so a preimage that could not be
+    // materialized answers a fault attributable to the traveler rather than to whatever default a bare close took.
+    internal static readonly Op DocumentOp = Op.Of(name: "fabrication:traveler");
+
+    internal static ValidationError Validation(string locus) => new($"traveler:{locus}");
+
     internal static FabricationFault Refusal(string locus) =>
-        new FabricationFault.PolicyInadmissible(FabConcern.Documentation, $"traveler:{locus}");
+        FabricationFault.Inadmissible(FabConcern.Documentation, $"traveler:{locus}");
 
     internal static Error Transition(TravelerStepState prior, string event_) =>
-        Refusal($"transition:{prior.Key}:{event_}").ToError();
+        Refusal($"transition:{prior.Key}:{event_}");
 
     // The fact fires where the ARTIFACT settles — after the key mints and the amendment chain seals — so the
     // amendment-depth measure the roster carries is the sealed chain rather than a draft the fold later extended.
@@ -880,16 +915,15 @@ internal static class Traveler {
         Func<TravelerArtifact, FabricationResult> egress,
         FabricationTap? tap = null) =>
         from document in Build(request, input, clock.GetCurrentInstant())
-        let key = ContentKey.Of(EgressKind.Traveler,
-            TravelerPreimage.Of(new TravelerCanonicalSource.Document(document)).Span)
+        from key in TravelerPreimage.Of(new TravelerCanonicalSource.Document(document))
         from encoded in TravelerCanonicalCodec.Encode(new TravelerCanonicalSource.Document(document))
         from amendments in SealAmendments(key, document, request.Corpus.Amendments)
         let consumed = toSeq((Seq(key)
             + document.Composed
-            + amendments.Map(static value => value.Amendment.Previous)
-            + amendments.Bind(static value => value.Amendment.Evidence)
-            + amendments.Choose(static value => value.Amendment switch {
-                TravelerAmendment.Completed completed => completed.Estimate.Map(static estimate => estimate.Subject),
+            + amendments.Bind(static value => value.Consumed)
+            + amendments.Bind(static value => value.Evidence.Amendment.Evidence)
+            + amendments.Choose(static value => value.Evidence.Amendment switch {
+                TravelerAmendment.Completed completed => completed.Estimate.Map(static estimate => estimate.Key),
                 TravelerAmendment.Released released => Some(released.Program),
                 _ => None,
             }))
@@ -964,7 +998,7 @@ internal static class Traveler {
         Seq<FabricationResult> results) =>
         (Index(planned, results), RouteGraph(planned)) switch {
             var (available, route) =>
-                from _acyclic in guard(route.IsDirectedAcyclicGraph(), Refusal("route-cyclic").ToError()).ToFin()
+                from _acyclic in guard(route.IsDirectedAcyclicGraph(), (Error)Refusal("route-cyclic")).ToFin()
                 let sorted = toSeq(route.SourceFirstBidirectionalTopologicalSort())
                 let depth = sorted.Fold(Map<int, int>(), (held, vertex) => held.AddOrUpdate(
                     vertex,
@@ -1030,7 +1064,11 @@ internal static class Traveler {
             characteristic: value => available.Characteristics.Contains(value.Value));
 
     static K<Validation<Error>, Unit> Bound<T>(Seq<T> unbound, string locus) =>
-        AdmissionSlots.Gate(unbound.IsEmpty, Refusal($"{locus}:{unbound.Count}"));
+        AdmissionSlots.Gate(unbound.IsEmpty, unbound.Count, locus, Unbound);
+
+    // Every binding gate binds this minter as a method group: the unbound census and the locus ride the gate's two
+    // identity slots, so a bound roster composes no token at all.
+    static FabricationFault Unbound(int count, string locus) => Refusal($"{locus}:{count}");
 
     // The result family's OWN key census: every case contributes its subjects and its artifacts, so a motion or
     // inspection result reaches document lineage exactly as a posted program does. The plan case additionally
@@ -1045,7 +1083,7 @@ internal static class Traveler {
     // Route precedence is what a chain of amendments must obey: a step opens only once every predecessor the sort
     // ordered before it reached a terminal state, so work recorded out of order refuses here rather than sealing
     // a chain no route explains.
-    static Fin<Seq<TravelerAmendmentReceipt>> SealAmendments(
+    static Fin<Seq<Receipt<TravelerAmendmentEvidence>>> SealAmendments(
         ContentKey root,
         TravelerDocument document,
         Seq<TravelerAmendment> amendments) =>
@@ -1053,31 +1091,33 @@ internal static class Traveler {
             var predecessors => amendments.FoldM(
                 (Previous: root,
                  At: document.StampedAt,
-                 Receipts: Seq<TravelerAmendmentReceipt>(),
+                 Receipts: Seq<Receipt<TravelerAmendmentEvidence>>(),
                  States: HashMap<int, TravelerStepState>()),
                 (state, amendment) =>
-                    from _chain in guard(amendment.Previous == state.Previous, Refusal("chain-parent").ToError()).ToFin()
+                    from _chain in guard(amendment.Previous == state.Previous, (Error)Refusal("chain-parent")).ToFin()
                     from _clock in guard(
                         amendment.At >= state.At
                         && (amendment is not TravelerAmendment.Completed completed || completed.Started >= document.StampedAt),
-                        Refusal("chain-clock").ToError()).ToFin()
+                        (Error)Refusal("chain-clock")).ToFin()
                     let step = amendment.Step.ToValue()
                     from _order in guard(
                         predecessors.Find(step).IfNone(Seq<int>()).ForAll(prior =>
                             state.States.Find(prior).IfNone(TravelerStepState.NotStarted).Terminal),
-                        Refusal($"route-precedence:{step}").ToError()).ToFin()
+                        (Error)Refusal($"route-precedence:{step}")).ToFin()
                     from next in amendment.Advance(state.States.Find(step).IfNone(TravelerStepState.NotStarted))
-                    let key = ContentKey.Of(EgressKind.Traveler,
-                        TravelerPreimage.Of(new TravelerCanonicalSource.Amendment(amendment)).Span)
+                    from key in TravelerPreimage.Of(new TravelerCanonicalSource.Amendment(amendment))
                     from encoded in TravelerCanonicalCodec.Encode(new TravelerCanonicalSource.Amendment(amendment))
                     select (
                         Previous: key,
                         At: amendment.At,
-                        Receipts: state.Receipts.Add(new TravelerAmendmentReceipt(
-                            key,
-                            amendment,
-                            encoded.Descriptor,
-                            encoded.Rendering)),
+                        Receipts: state.Receipts.Add(new Receipt<TravelerAmendmentEvidence> {
+                            Evidence = new TravelerAmendmentEvidence(amendment, encoded.Descriptor, encoded.Rendering),
+                            Concern = FabConcern.Documentation,
+                            Key = key,
+                            Consumed = Seq(amendment.Previous),
+                            Produced = Seq(key),
+                            Stamped = amendment.At,
+                        }),
                         States: state.States.SetItem(step, next)))
                 .Map(static state => state.Receipts),
         };
@@ -1115,7 +1155,7 @@ flowchart LR
     Gather --> Bind["BindRoutes — IsDirectedAcyclicGraph then SourceFirstBidirectionalTopologicalSort"]
     Bind --> Witness["RouteWitness — depth, roots, sinks, dangling counts"]
     Witness --> Document["TravelerDocument — sections plus composed keys"]
-    Document -->|"CanonicalWriter preimage"| Key["ContentKey.Of(EgressKind.Traveler)"]
+    Document -->|"CanonicalWriter preimage"| Key["FabricationCanon.Keyed(EgressKind.Traveler)"]
     Document -->|"CanonicalJson rosters, sorted plus NFC"| Rendering["TravelerEncoding — transport bytes"]
     Key --> Seal["SealAmendments — chain, clock, route precedence, step state"]
     Seal --> Artifact["TravelerArtifact — key, consumed, produced, amendment chain"]

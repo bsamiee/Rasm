@@ -12,10 +12,12 @@ Frozen law KEYS the ktx category's tables, so a drifted spelling is a type error
 
 ## [02]-[ASSET_GATE]
 
-- Owner: category rows dispatch `Asset.gate`; `AssetFault` closes every reason through `Fault.Class.family`.
+- Owner: category rows dispatch `Asset.gate`; `AssetFault` is the `Fault.Class.family(…).census` carrier every refusal rides, singular or accumulated.
 - Packages: Khronos, glTF Transform, meshoptimizer, `effect`, and core `Digest`, `Fault`, `Wire.Texture`, and `Wire.TextureSet` supply the plane.
 - Entry: `Asset.gate` before any delivered asset reaches the store or a viewer manifest — `(bytes, declared, key)` where a caller states the declaration, `(set)` where a decoded `Wire.TextureSet` carries it — and the ktx read re-runs inside the `ktx` engine's emit, so the encoder's own product proves itself before admission.
 - Receipt: per category — the `ktx` arm answers the classification `{ payload, primaries, width, height, levels, layers, layerLaw, transcodes, vram }`, where `transcodes` derives from the payload CLASS (`uastc` and `etc1s` transcode, `none` uploads direct) never from `vkFormat`, and `vram` is the uncompressed GPU footprint the transfer byte count cannot state; the `container` arm answers the census `{ extensions, report, textures }` off the proven document; the set arm answers `{ planes, unprojected }`, each plane carrying its role, its blob address, the projected declaration, the wire's semantic component count, the producer's fold policy, and the classification the roster proved.
+- Law: ADMISSION ACCUMULATES on every INDEPENDENT column this plane proves, and each table states its own split. A clause whose value a later clause consumes stays sequenced and refuses singly — the ktx gate's three dependent reads are the KTX 2.0 magic, the basic data format descriptor four colour columns read, and the sample-layout probe whose product the channel floor compares. Every column that decides nothing about its neighbours censuses into ONE verdict through `Fault.Class.family(…).census`: the ktx gate's `_CLAUSES` table, the raster arm's probe-field fold, the points arm's three structural columns, the extension roster, the validator's finding list, and the set projection's plane sweep each answer one refusal naming every offender, so a producer repairing a container reads its whole damage in one round trip. The asymmetry this forecloses was live INSIDE this page — the raster arm censused every diverged probe field while the ktx gate one section over reported the first of ten clauses — so one structural claim settled on two evidence bars and a producer re-encoded, re-uploaded, and re-gated once per clause. The engine emit fans stay abort-on-first by design and are the stated other side of the split: a row there is a PRODUCTION rather than an admission and every product is a store write, so the spine's all-or-nothing contract is what keeps a half-run fan from minting derivatives no receipt names.
+- Law: every reason carries its OWN subject schema and its own renderer at the family row, so no raise spells a free-string detail and a caller routes on structure rather than on a parsed sentence; the admission reasons are the ktx gate's columns one for one and the framing pair is the create leg's read-back, which is why a torn header, a mis-declared extent, and a wrong alpha association no longer share one blame word.
 - Law: the raster declaration IS the probe shape and the gate folds the census itself, so every fact `object/file.md`'s composer computes is a fact this gate proves and a column added there needs no edit here; naming a subset left channel count and band depth measured on every admission and compared by none, so an eight-bit grayscale plane admitted against an `rgba8` consumer's declaration.
 - Law: the gate proves CHANNEL COUNT on the two block payloads its own law leaves unproven — `vkFormat` is `VK_FORMAT_UNDEFINED` on every transcoding payload, so nothing else on a `uastc` or `etc1s` container states how many channels it carries, and an `rgba8`-declared plane whose encoder emitted three admits silently into a material that samples alpha. `ImageUtils.getChannels` reads the DFD sample layout through the `image/ktx2` impl `KHRTextureBasisu.register()` installs, and its own contract is a CONSERVATIVE estimate, so the clause is a FLOOR: a container reporting fewer channels than the declared store names refuses, an over-report admits, and the impl's throw on an unrostered colorModel lifts through `Effect.try` exactly as the header read does.
 - Law: origin and swizzle are `keyValue` facts, never DFD facts, so they are proven where the encode leg STATED them — a create row carries what it assigned beside the declaration it proves, and the emit-side re-gate reads `KTXorientation` and `KTXswizzle` back off the container; a caller-side gate over a delivered file states no framing and proves the DFD facts alone. The two axes the plane spells flags for were the two it never read back, so a tool-version change in flag handling produced a silently flipped or re-ordered texture every other clause passed.
@@ -31,7 +33,7 @@ Frozen law KEYS the ktx category's tables, so a drifted spelling is a type error
 - Law: the wire's per-channel `mipPolicy` widens NO declaration column, because no container byte proves a resampling kernel and an asserted column reads as a measurement nothing took; it routes on the projection product to `[03]`'s `_MIPS`, whose keys are that same frozen policy vocabulary, so a re-encode of a projected plane folds under the producer's declared kernel instead of a caller default and the two policies `_MIPS` marks unfoldable supply their levels exactly as a caller's create row does.
 - Law: `colorSpace` and `store` project as ONE correlated column, because the wire authors `srgb` at every INTEGER depth where this declaration's union seats it on the block rows alone — a sixteen-bit colour plane is a lawful wire row no Vulkan format spells, so it refuses on the `transfer` reason rather than re-tagging to `linear`, which forks the shading value from the stored value on a plane nothing downstream re-reads.
 - Law: `layers` is a FOLD, never a copy — the set counts six faces under `cubeFaces` where this declaration counts stacked planes and reads one, so the projection reads the same `arrayed` and `volumetric` columns the layer clause proves against; the copy passes today only because that clause ignores the count on a non-stacking law, which is the silent agreement a later reader inherits as truth.
-- Law: the `container` column selects the arm and the declined half is CARRIED — only a `ktx2` row projects, and every other container names a file no ktx reader opens while a pack row carries no transfer, association, or payload column at all, so both ride the answer by slot and reason rather than vanishing; a self-pyramiding container fixes its address list at ONE entry whatever `mips` declares, so the fan is one declaration per channel row and never one per level.
+- Law: the `container` column selects the arm and the declined half is CARRIED — only a `ktx2` row projects, and every other container names a file no ktx reader opens while a pack row carries no transfer, association, or payload column at all, so both ride the answer by slot and disposition rather than vanishing; a self-pyramiding container fixes its address list at ONE entry whatever `mips` declares, so the fan is one declaration per channel row and never one per level.
 - Law: the two proofs split by what each can know — the header read settles DECLARATION AGREEMENT (payload, store, transfer, primaries, alpha, layer shape, mips, extent are facts the declaration states and the container must match), and the provisioned `ktx validate` settles KHRONOS CONFORMANCE (level arithmetic, `typeSize`, DFD sample layout, BasisLZ global data, `KHR_texture_basisu` compatibility). Re-deriving the validator's arithmetic here forks the specification against the tool the whole estate encodes with.
 - Law: the payload discriminant is `dataFormatDescriptor[0].colorModel` with `supercompressionScheme` — `uastc` rides `NONE`/`ZSTD`/`ZLIB`, `etc1s` rides `BASISLZ`, `none` is `RGBSDA` uncompressed-or-deflated, `astc` is the branch-local LDR acceleration — and every colorModel the roster names no row for lands on the `rawBcn` RESIDUE row, so a BC block file, an ETC2 file, and a corrupt descriptor all classify honestly and carry their raw model number in the refusal detail. Readers branching on `vkFormat` class every wire-legal payload as malformed.
 - Law: wire legality and declaration agreement are ONE comparison — `Wire.Texture.WirePayload` is read from the frozen anchor, so a `rawBcn` or `astc` file cannot equal any declared payload and refuses on the same equality the drift check runs; the branch's own basis-transcoder path cannot consume either.
@@ -55,7 +57,8 @@ import {
   VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R16G16B16A16_UNORM, VK_FORMAT_R16G16_SFLOAT, VK_FORMAT_R16G16_UNORM,
   VK_FORMAT_R16_SFLOAT, VK_FORMAT_R16_UNORM, VK_FORMAT_R32G32B32A32_SFLOAT, VK_FORMAT_R32G32_SFLOAT,
   VK_FORMAT_R32_SFLOAT, VK_FORMAT_R8G8B8A8_SRGB, VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R8G8_SRGB, VK_FORMAT_R8G8_UNORM,
-  VK_FORMAT_R8_SRGB, VK_FORMAT_R8_UNORM, VK_FORMAT_UNDEFINED, read, type KTX2Container,
+  VK_FORMAT_R8_SRGB, VK_FORMAT_R8_UNORM, VK_FORMAT_UNDEFINED, read,
+  type KTX2Container, type KTX2DataFormatDescriptorBasicFormat,
 } from "ktx-parse"
 import { ImageUtils, NodeIO, type Document } from "@gltf-transform/core"
 import {
@@ -65,33 +68,203 @@ import { MeshoptDecoder } from "meshoptimizer/decoder"
 import { MeshoptEncoder } from "meshoptimizer/encoder"
 import { MeshoptSimplifier } from "meshoptimizer/simplifier"
 
+// the frozen anchor's own rosters ARE the subject alphabets, so an issue column naming a payload, a transfer, a
+// store, or a layer law spells the same closed set the tables below key on and a drifted spelling fails at the
+// schema rather than rendering into a refusal sentence nothing can match
+const _Payload = Schema.Literal(...Wire.Texture.payloads)
+const _WirePayload = Schema.Literal(...Wire.Texture.wirePayloads)
+const _Transfer = Schema.Literal(...Wire.Texture.transfers)
+const _PlaneFormat = Schema.Literal(...Wire.Texture.planeFormats)
+const _LayerLaw = Schema.Literal(...Wire.Texture.layerLaws)
+const _AlphaMode = Schema.Literal(...Wire.Texture.alphaModes)
+
+// ONE reason roster over the whole plane, each row carrying its own subject schema and its own renderer, so no
+// refusal spells a free-string detail and every offender renders from the row that refused it. The first eleven are
+// the ktx gate's INDEPENDENT admission columns and the three after them are the DEPENDENT reads those columns stand
+// on; the rest name the legs a category plane refuses at. A single `gate` reason over all of them blamed one axis
+// for every disagreement, so a caller reading the reason could not tell a mis-declared extent from a torn container.
 const _family = Fault.Class.family(
-  ["gate", "payload", "transfer", "alpha", "extension", "codec", "tool", "transform", "emit"] as const,
+  [
+    "payload", "format", "transfer", "primaries", "alpha", "layers", "mips", "extent", "channels", "orientation",
+    "swizzle", "header", "descriptor", "probe", "store", "fetch", "staging", "conform", "drift", "topology",
+    "attribute", "tally", "extension", "codec", "tool", "transform", "emit",
+  ] as const,
   {
-    gate: { class: "malformed" },
-    payload: { class: "invalid" },
-    transfer: { class: "invalid" },
-    alpha: { class: "invalid" },
-    extension: { class: "invalid" },
-    codec: { class: "unavailable" },
-    tool: { class: "unavailable" },
-    transform: { class: "invalid" },
-    emit: { class: "unavailable" },
+    payload: Fault.Class.row({
+      class: "invalid",
+      leg: "admission",
+      detail: Schema.Struct({
+        key: Schema.String, held: _Payload, declared: _WirePayload, model: Schema.Number, scheme: Schema.Number,
+      }),
+      render: ({ declared, held, key, model, scheme }) => `${key} classes ${held}<>${declared} on model ${model} scheme ${scheme}`,
+    }),
+    format: Fault.Class.row({
+      class: "invalid",
+      leg: "admission",
+      detail: Schema.Struct({ key: Schema.String, held: Schema.Number, expected: Schema.Number }),
+      render: ({ expected, held, key }) => `${key} reports vkFormat ${held}<>${expected}`,
+    }),
+    transfer: Fault.Class.row({
+      class: "invalid",
+      leg: "admission",
+      detail: Schema.Struct({ key: Schema.String, declared: _Transfer, held: Schema.Number }),
+      render: ({ declared, held, key }) => `${key} declares ${declared} over transferFunction ${held}`,
+    }),
+    primaries: Fault.Class.row({
+      class: "invalid",
+      leg: "admission",
+      detail: Schema.Struct({ key: Schema.String, held: Schema.Number, space: Schema.String }),
+      render: ({ held, key, space }) => `${key} carries primaries ${held}<>${space}`,
+    }),
+    alpha: Fault.Class.row({
+      class: "invalid",
+      leg: "admission",
+      detail: Schema.Struct({ key: Schema.String, declared: _AlphaMode, premultiplied: Schema.Boolean }),
+      render: ({ declared, key, premultiplied }) =>
+        `${key} declares ${declared} over a ${premultiplied ? "premultiplied" : "straight"} descriptor`,
+    }),
+    layers: Fault.Class.row({
+      class: "invalid",
+      leg: "admission",
+      detail: Schema.Struct({
+        key: Schema.String, layerLaw: _LayerLaw, faces: Schema.Number, held: Schema.Number, depth: Schema.Number,
+      }),
+      render: ({ depth, faces, held, key, layerLaw }) => `${key} declares ${layerLaw} over faces ${faces} layers ${held} depth ${depth}`,
+    }),
+    mips: Fault.Class.row({
+      class: "invalid",
+      leg: "admission",
+      detail: Schema.Struct({ key: Schema.String, held: Schema.Number, declared: Schema.Number, payload: _Payload }),
+      render: ({ declared, held, key, payload }) => `${key} carries levelCount ${held}<>${declared} on ${payload}`,
+    }),
+    extent: Fault.Class.row({
+      class: "invalid",
+      leg: "admission",
+      detail: Schema.Struct({ key: Schema.String, width: Schema.Number, height: Schema.Number }),
+      render: ({ height, key, width }) => `${key} measures ${width}x${height}`,
+    }),
+    channels: Fault.Class.row({
+      class: "invalid",
+      leg: "admission",
+      detail: Schema.Struct({ key: Schema.String, held: Schema.Number, floor: Schema.Number }),
+      render: ({ floor, held, key }) => `${key} proves ${held} channels under the ${floor} its store names`,
+    }),
+    orientation: Fault.Class.row({
+      class: "invalid",
+      leg: "framing",
+      detail: Schema.Struct({ key: Schema.String, carried: Schema.OptionFromSelf(Schema.String), assigned: Schema.String }),
+      render: ({ assigned, carried, key }) =>
+        `${key} carries KTXorientation ${Option.getOrElse(carried, () => "<absent>")}<>${assigned}`,
+    }),
+    swizzle: Fault.Class.row({
+      class: "invalid",
+      leg: "framing",
+      detail: Schema.Struct({ key: Schema.String, carried: Schema.OptionFromSelf(Schema.String), assigned: Schema.String }),
+      render: ({ assigned, carried, key }) => `${key} carries KTXswizzle ${Option.getOrElse(carried, () => "<absent>")}<>${assigned}`,
+    }),
+    header: Fault.Class.row({
+      class: "malformed",
+      leg: "admission",
+      detail: Schema.Struct({ key: Schema.String, defect: Schema.String }),
+      render: ({ defect, key }) => `${key} carries no readable container header: ${defect}`,
+    }),
+    descriptor: Fault.Class.row({
+      class: "malformed",
+      leg: "admission",
+      detail: Schema.Struct({ key: Schema.String }),
+      render: ({ key }) => `${key} carries no basic data format descriptor`,
+    }),
+    probe: Fault.Class.row({
+      class: "malformed",
+      leg: "admission",
+      detail: Schema.Struct({ key: Schema.String, defect: Schema.String }),
+      render: ({ defect, key }) => `${key} yields no readable plane census: ${defect}`,
+    }),
+    store: Fault.Class.row({
+      class: "invalid",
+      leg: "declaration",
+      detail: Schema.Struct({ key: Schema.String, transfer: _Transfer, store: _PlaneFormat }),
+      render: ({ key, store, transfer }) => `${key} declares ${transfer} over ${store}, a pair no Vulkan format spells`,
+    }),
+    fetch: Fault.Class.row({
+      class: "unavailable",
+      leg: "declaration",
+      detail: Schema.Struct({ key: Schema.String, detail: Schema.String }),
+      render: ({ detail, key }) => `${key} fetched no plane: ${detail}`,
+    }),
+    staging: Fault.Class.row({
+      class: "invalid",
+      leg: "encode",
+      detail: Schema.Struct({ key: Schema.String, held: Schema.String, base: Schema.String }),
+      render: ({ base, held, key }) => `${key} stages ${held} beside a ${base} base plane`,
+    }),
+    conform: Fault.Class.row({
+      class: "malformed",
+      leg: "encode",
+      detail: Schema.Struct({ key: Schema.String, finding: Schema.String }),
+      render: ({ finding, key }) => `${key} fails Khronos conformance: ${finding}`,
+    }),
+    drift: Fault.Class.row({
+      class: "invalid",
+      leg: "admission",
+      detail: Schema.Struct({ key: Schema.String, field: Schema.String, held: Schema.String, declared: Schema.String }),
+      render: ({ declared, field, held, key }) => `${key} probes ${field} ${held}<>${declared}`,
+    }),
+    topology: Fault.Class.row({
+      class: "invalid",
+      leg: "admission",
+      detail: Schema.Struct({ key: Schema.String, at: Schema.Number, mode: Schema.Number }),
+      render: ({ at, key, mode }) => `${key} primitive ${at} draws mode ${mode}, which is not POINTS`,
+    }),
+    attribute: Fault.Class.row({
+      class: "absent",
+      leg: "admission",
+      detail: Schema.Struct({ key: Schema.String, semantic: Schema.String }),
+      render: ({ key, semantic }) => `${key} declares ${semantic}, which no primitive binds`,
+    }),
+    tally: Fault.Class.row({
+      class: "invalid",
+      leg: "admission",
+      detail: Schema.Struct({ key: Schema.String, held: Schema.Number, declared: Schema.Number }),
+      render: ({ declared, held, key }) => `${key} counts ${held} points<>${declared}`,
+    }),
+    extension: Fault.Class.row({
+      class: "invalid",
+      leg: "vocabulary",
+      detail: Schema.Struct({ key: Schema.String, name: Schema.String }),
+      render: ({ key, name }) => `${key} uses ${name}, which this branch's roster does not honor`,
+    }),
+    codec: Fault.Class.row({
+      class: "unavailable",
+      leg: "boot",
+      detail: Schema.Struct({ key: Schema.String, detail: Schema.String }),
+      render: ({ detail, key }) => `${key} kernel unready: ${detail}`,
+    }),
+    tool: Fault.Class.row({
+      class: "unavailable",
+      leg: "tool",
+      detail: Schema.Struct({ key: Schema.String, detail: Schema.String }),
+      render: ({ detail, key }) => `ktx ${key}: ${detail}`,
+    }),
+    transform: Fault.Class.row({
+      class: "invalid",
+      leg: "fold",
+      detail: Schema.Struct({ key: Schema.String, defect: Schema.String }),
+      render: ({ defect, key }) => `${key} fold threw: ${defect}`,
+    }),
+    emit: Fault.Class.row({
+      class: "unavailable",
+      leg: "emit",
+      detail: Schema.Struct({ key: Schema.String, detail: Schema.String }),
+      render: ({ detail, key }) => `${key} did not land: ${detail}`,
+    }),
   },
 )
 
-class AssetFault extends Schema.TaggedError<AssetFault>()("AssetFault", {
-  reason: _family.schema,
-  key: Schema.String,
-  detail: Schema.String,
-}) {
-  get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
-  }
-  override get message(): string {
-    return `<asset:${this.reason}> ${this.detail}`
-  }
-}
+// the plane's ONE fault, and it is the ACCUMULATING carrier the core family mints: a singular refusal is that same
+// value at one issue and a censused verdict the same value at many, so `class`, `leg`, and `message` all elect off
+// the dominant issue's own row and no second scalar-detail class exists beside it to fork the taxonomy
+const AssetFault = _family.census("AssetFault")
 
 // the row contracts every table below closes against: `as const satisfies` validates WITHOUT widening, so each
 // table keeps its literals for the derived subsets while a misspelled key, a dropped row, and an invented row all
@@ -183,6 +356,12 @@ const _LAYERS = {
 } as const satisfies { readonly [K in Wire.Texture.LayerLaw]: _LayerRow }
 
 declare namespace Asset {
+  // the family's own published shapes: `Reason` closes every refusal axis, `Issue` is ONE offender carrying the
+  // subject its row declared, and `Fault` is the carrier a census hands back — one hop from every site to the core
+  // owner, and the reason a clause table can be typed to mint its own reason alone
+  type Reason = (typeof _family.kinds)[number]
+  type Issue = typeof _family.payload.Type
+  type Fault = InstanceType<typeof AssetFault>
   // the data plane's ONE derived subset — `block` is THIS table's measured encode legality, never a frozen fact,
   // so it derives here while payload, store, transfer, layer, and alpha vocabularies read the anchor directly and
   // the local aliases that used to restate them are gone: one hop from every site to the frozen roster
@@ -273,7 +452,9 @@ declare namespace Asset {
     readonly planes: ReadonlyArray<Projected>
     readonly unprojected: ReadonlyArray<{
       readonly slot: Wire.Texture.Role | Wire.Texture.Pack
-      readonly reason: "container" | "packed"
+      // `declined` and never `reason`: the fault family owns that word plane-wide, and a slot this category chose
+      // not to project is a disposition, never a refusal a caller can repair
+      readonly declined: "container" | "packed"
     }>
   }
 }
@@ -300,8 +481,12 @@ const _classified = (held: KTX2Container): Wire.Texture.Payload =>
     { onNone: () => "rawBcn" as const, onSome: ([payload]) => payload },
   )
 
-const _refuse = (reason: (typeof _family.reasons)[number], key: string, detail: string) =>
-  Effect.fail(new AssetFault({ reason, key, detail }))
+// ONE mint for both arities: `_fault` carries the censused set an independent-column fold produced and `_refuse`
+// is that same carrier at a single issue, so a dependent clause and an accumulating gate raise the SAME value and
+// `catchTag` reads one tag whichever arm refused
+const _fault = (issues: Array.NonEmptyReadonlyArray<Asset.Issue>) => new AssetFault({ issues })
+
+const _refuse = (issue: Asset.Issue) => Effect.fail(_fault([issue]))
 
 // keyValue is an open string map, so the read is index trust lifted at the seam and narrowed to text before any
 // comparison — a binary value where the container spells a text key is itself malformed and folds to none
@@ -312,98 +497,165 @@ const _probe = <A>(key: string, read: () => A | null) =>
   Effect.map(
     // the impl THROWS on a colorModel its table does not carry, exactly as the header read throws on a bad
     // identifier, so both lift on the same rail and a corrupt descriptor never escapes as a defect
-    Effect.try({ try: read, catch: (defect) => new AssetFault({ reason: "payload", key, detail: String(defect) }) }),
+    Effect.try({ try: read, catch: (defect) => _fault([{ reason: "probe", key, defect: String(defect) }]) }),
     Option.fromNullable,
   )
+
+// what ONE container proof holds before any column runs. The three reads that mint it are DEPENDENT and stay
+// sequenced: the magic gates every field below, the basic DFD block is the value four colour columns read, and the
+// sample-layout probe IS the channel column's offender number. Everything past this record is independent — each
+// column reads only these fields and never another column's verdict — which is exactly what lets the fold accumulate.
+type _Read = {
+  readonly key: string
+  readonly declared: Asset.Ktx
+  readonly held: KTX2Container
+  readonly descriptor: KTX2DataFormatDescriptorBasicFormat
+  readonly payload: Wire.Texture.Payload
+  readonly layers: number
+  readonly channels: Option.Option<number>
+  readonly stated: Option.Option<Asset.Stated>
+}
+
+// The declaration-agreement columns as a ROW TABLE keyed by the family's own reasons, never a clause ladder: a
+// drifted payload, a mis-declared extent, and a wrong alpha association decide nothing about each other, so each
+// column censuses its own offender against one container read and a twelfth column lands as one row with the verdict
+// shape unmoved. The mapped contract proves every key is a real reason and every column mints its OWN reason alone,
+// and the `?` states what the table is — the subset of the plane's reasons ONE container proof can answer.
+const _CLAUSES = {
+  // one equality carries both laws: a non-wire class equals no declarable payload, so wire refusal and declaration
+  // drift ride ONE column rather than two
+  payload: ({ declared, descriptor, held, key, payload }: _Read) =>
+    payload === declared.ktxPayload
+      ? []
+      : [{
+        reason: "payload", key, held: payload, declared: declared.ktxPayload,
+        model: descriptor.colorModel, scheme: held.supercompressionScheme,
+      } as const],
+  // proving the declared store, never classifying by it: a transcoding payload MUST report UNDEFINED and a `none`
+  // payload the enum its declared `_STORES` row names
+  format: ({ declared, held, key, payload }: _Read) => {
+    const expected = _PAYLOADS[payload].transcodes ? VK_FORMAT_UNDEFINED : _target(declared).vk
+    return held.vkFormat === expected ? [] : [{ reason: "format", key, held: held.vkFormat, expected } as const]
+  },
+  transfer: ({ declared, descriptor, key }: _Read) =>
+    descriptor.transferFunction === _TRANSFERS[declared.colorSpace].dfd
+      ? []
+      : [{ reason: "transfer", key, declared: declared.colorSpace, held: descriptor.transferFunction } as const],
+  primaries: ({ declared, descriptor, key }: _Read) =>
+    descriptor.colorPrimaries === _space(declared).dfd
+      ? []
+      : [{ reason: "primaries", key, held: descriptor.colorPrimaries, space: _space(declared).cli } as const],
+  alpha: ({ declared, descriptor, key }: _Read) =>
+    ((descriptor.flags & KHR_DF_FLAG_ALPHA_PREMULTIPLIED) !== 0) === (declared.alphaMode === "associated")
+      ? []
+      : [{
+        reason: "alpha", key, declared: declared.alphaMode,
+        premultiplied: (descriptor.flags & KHR_DF_FLAG_ALPHA_PREMULTIPLIED) !== 0,
+      } as const],
+  // all three container fields read against the ONE `_LAYERS` row, so a cubemap can never admit as a 2D plane
+  layers: ({ declared, held, key, layers }: _Read) => {
+    const shape = _LAYERS[declared.layerLaw]
+    return held.faceCount === shape.faces
+        && (held.layerCount > 0) === shape.arrayed
+        && (held.pixelDepth > 0) === shape.volumetric
+        && layers === (shape.arrayed || shape.volumetric ? declared.layers : 1)
+      ? []
+      : [{
+        reason: "layers", key, layerLaw: declared.layerLaw,
+        faces: held.faceCount, held: held.layerCount, depth: held.pixelDepth,
+      } as const]
+  },
+  // compared RAW because the wire cannot spell zero, and `levelCount` 0 is disallowed on a block payload by the
+  // container specification, which is why the runtime-pyramid posture reaches the deep store alone
+  mips: ({ declared, held, key, payload }: _Read) =>
+    held.levelCount === declared.mips && !(held.levelCount === 0 && _PAYLOADS[payload].transcodes)
+      ? []
+      : [{ reason: "mips", key, held: held.levelCount, declared: declared.mips, payload } as const],
+  // `--1d` writes pixelHeight ZERO and the layer axis names no 1D law, so equality alone admits a `height: 0`
+  // declaration against a container this branch has no plane shape for: the positive floor is the refusal
+  extent: ({ declared, held, key }: _Read) =>
+    held.pixelWidth === declared.width && held.pixelHeight === declared.height && held.pixelHeight > 0
+      ? []
+      : [{ reason: "extent", key, width: held.pixelWidth, height: held.pixelHeight } as const],
+  // the ONE channel proof: on uastc and etc1s the format column proved UNDEFINED and nothing else on the container
+  // states channel count, so a declared rgba8 whose encoder emitted three would admit into a material that samples
+  // alpha. The member's own contract is a conservative estimate, so this is a FLOOR — an under-report refuses, an
+  // over-report admits, and an absent read is no evidence at all.
+  channels: ({ channels, declared, key }: _Read) =>
+    Option.match(channels, {
+      onNone: () => [],
+      onSome: (held) =>
+        held >= _STORES[declared.store].channels
+          ? []
+          : [{ reason: "channels", key, held, floor: _STORES[declared.store].channels } as const],
+    }),
+  // origin and swizzle are keyValue facts the DFD cannot carry, so these two columns contribute ONLY where a create
+  // leg stated them; a caller-side gate over a delivered file passes none and both census nothing
+  orientation: ({ held, key, stated }: _Read) =>
+    Option.match(stated, {
+      onNone: () => [],
+      onSome: (assigned) =>
+        Option.match(_stated(held, _KEY_VALUE.orientation), {
+          onNone: () => [{ reason: "orientation", key, carried: Option.none<string>(), assigned: assigned.orientation } as const],
+          onSome: (carried) =>
+            carried === assigned.orientation
+              ? []
+              : [{ reason: "orientation", key, carried: Option.some(carried), assigned: assigned.orientation } as const],
+        }),
+    }),
+  swizzle: ({ held, key, stated }: _Read) =>
+    Option.match(Option.flatMap(stated, (assigned) => assigned.swizzle), {
+      onNone: () => [], // no create leg stated one, or an unassigned swizzle wrote no key: absence IS agreement
+      onSome: (spelled) =>
+        Option.match(_stated(held, _KEY_VALUE.swizzle), {
+          onNone: () => [{ reason: "swizzle", key, carried: Option.none<string>(), assigned: spelled } as const],
+          onSome: (carried) =>
+            carried === spelled ? [] : [{ reason: "swizzle", key, carried: Option.some(carried), assigned: spelled } as const],
+        }),
+    }),
+} as const satisfies {
+  readonly [R in Asset.Reason]?: (read: _Read) => ReadonlyArray<Extract<Asset.Issue, { readonly reason: R }>>
+}
+
+// ONE verdict over every independent column. Each column builds an issue only for an offender, so a conforming
+// container constructs nothing at all, and `Array.match` hands the census the NonEmpty proof its schema requires.
+// A first-failure ladder here answered one disagreement per attempt against drift that is routinely plural, so a
+// producer re-encoded, re-uploaded, and re-gated once per clause to learn what one round trip already knew.
+const _agreed = (read: _Read) =>
+  Array.match(Array.flatMap(Record.toEntries(_CLAUSES), ([, column]) => column(read)), {
+    onEmpty: () => Effect.void,
+    onNonEmpty: (issues) => Effect.fail(_fault(issues)),
+  })
 
 const _ktx2 = (bytes: Uint8Array, declared: Asset.Ktx, key: string, stated: Option.Option<Asset.Stated>) =>
   Effect.gen(function* () {
     const held = yield* Effect.try({
       try: () => read(bytes), // throws on a failed KTX 2.0 identifier: the magic IS the gate
-      catch: (defect) => new AssetFault({ reason: "gate", key, detail: String(defect) }),
+      catch: (defect) => _fault([{ reason: "header", key, defect: String(defect) }]),
     })
-    const descriptor = held.dataFormatDescriptor[0]
-    const payload = _classified(held)
-    const shape = _LAYERS[declared.layerLaw]
-    // one equality carries both laws: a non-wire class equals no declarable payload, so refusal and drift share a branch
-    yield* payload === declared.ktxPayload
-      ? Effect.void
-      : _refuse("payload", key, `${payload}<>${declared.ktxPayload} model ${descriptor?.colorModel} scheme ${held.supercompressionScheme}`)
-    yield* (_PAYLOADS[payload].transcodes ? held.vkFormat === VK_FORMAT_UNDEFINED : held.vkFormat === _target(declared).vk)
-      ? Effect.void
-      : _refuse("payload", key, `vkFormat ${held.vkFormat}`) // proving the declared store, never classifying by it
-    yield* descriptor?.transferFunction === _TRANSFERS[declared.colorSpace].dfd
-      ? Effect.void
-      : _refuse("transfer", key, declared.colorSpace)
-    yield* descriptor?.colorPrimaries === _space(declared).dfd
-      ? Effect.void
-      : _refuse("transfer", key, `primaries ${descriptor?.colorPrimaries}<>${_space(declared).cli}`)
-    const premultiplied = ((descriptor?.flags ?? 0) & KHR_DF_FLAG_ALPHA_PREMULTIPLIED) !== 0
-    yield* premultiplied === (declared.alphaMode === "associated")
-      ? Effect.void
-      : _refuse("alpha", key, declared.alphaMode)
-    const layers = Math.max(held.layerCount, held.pixelDepth, 1) // both read ZERO on a plain 2D file: never a bare multiplier
-    yield* held.faceCount === shape.faces
-        && (held.layerCount > 0) === shape.arrayed
-        && (held.pixelDepth > 0) === shape.volumetric
-        && layers === (shape.arrayed || shape.volumetric ? declared.layers : 1)
-      ? Effect.void
-      : _refuse("gate", key, `${declared.layerLaw} faces ${held.faceCount} layers ${held.layerCount} depth ${held.pixelDepth}`)
-    yield* held.levelCount === declared.mips && !(held.levelCount === 0 && _PAYLOADS[payload].transcodes)
-      ? Effect.void
-      : _refuse("gate", key, `mips ${held.levelCount}<>${declared.mips} payload ${payload}`) // levelCount 0 is disallowed on a block payload
-    // `--1d` writes pixelHeight ZERO and the layer axis names no 1D law, so equality alone admits a `height: 0`
-    // declaration against a container this branch has no plane shape for: the positive floor is the refusal
-    yield* held.pixelWidth === declared.width && held.pixelHeight === declared.height && held.pixelHeight > 0
-      ? Effect.void
-      : _refuse("gate", key, `${held.pixelWidth}x${held.pixelHeight}`)
-    // the ONE channel proof: on uastc and etc1s the vkFormat clause above proved UNDEFINED and nothing else on the
-    // container states channel count, so a declared rgba8 whose encoder emitted three would admit into a material
-    // that samples alpha. The member's own contract is a conservative estimate, so this is a FLOOR — a container
-    // proving fewer channels than the store names refuses, an over-report admits, and null is no evidence at all.
+    // the basic DFD block is a DEPENDENT precondition, never a column: payload, transfer, primaries, and alpha all
+    // read it, so an absent descriptor used to blame four separate axes for one malformed container
+    const descriptor = yield* Option.match(Option.fromNullable(held.dataFormatDescriptor[0]), {
+      onNone: () => _refuse({ reason: "descriptor", key }),
+      onSome: Effect.succeed,
+    })
     const channels = yield* _probe(key, () => ImageUtils.getChannels(bytes, _KTX2_MIME))
-    yield* Option.match(channels, {
-      onNone: () => Effect.void,
-      onSome: (held_) =>
-        held_ >= _STORES[declared.store].channels
-          ? Effect.void
-          : _refuse("payload", key, `channels ${held_}<${_STORES[declared.store].channels}`),
-    })
-    // origin and swizzle are keyValue facts the DFD cannot carry, so they prove ONLY where a create leg stated
-    // them; a caller-side gate over a delivered file passes none and proves the descriptor facts alone
-    yield* Option.match(stated, {
-      onNone: () => Effect.void,
-      onSome: (assigned) =>
-        Effect.zipRight(
-          Option.match(_stated(held, _KEY_VALUE.orientation), {
-            onNone: () => _refuse("gate", key, `<${_KEY_VALUE.orientation}-absent> ${assigned.orientation}`),
-            onSome: (carried) =>
-              carried === assigned.orientation
-                ? Effect.void
-                : _refuse("gate", key, `orientation ${carried}<>${assigned.orientation}`),
-          }),
-          Option.match(assigned.swizzle, {
-            onNone: () => Effect.void, // an unassigned swizzle writes no key: absence IS agreement
-            onSome: (spelled) =>
-              Option.match(_stated(held, _KEY_VALUE.swizzle), {
-                onNone: () => _refuse("gate", key, `<${_KEY_VALUE.swizzle}-absent> ${spelled}`),
-                onSome: (carried) => (carried === spelled ? Effect.void : _refuse("gate", key, `swizzle ${carried}<>${spelled}`)),
-              }),
-          }),
-        ),
-    })
+    const payload = _classified(held)
+    const layers = Math.max(held.layerCount, held.pixelDepth, 1) // both read ZERO on a plain 2D file: never a bare multiplier
+    yield* _agreed({ channels, declared, descriptor, held, key, layers, payload, stated })
     return {
       payload,
       primaries: _TRANSFERS[declared.colorSpace].primaries,
       width: held.pixelWidth,
       height: held.pixelHeight,
-      levels: Math.max(held.levelCount, 1), // the reported depth clamps; the proof above read the raw value
+      levels: Math.max(held.levelCount, 1), // the reported depth clamps; the mips column read the raw value
       layers,
       layerLaw: declared.layerLaw,
       transcodes: _PAYLOADS[payload].transcodes, // derived from the payload CLASS, never from vkFormat
       channels, // the floor's own read, carried: an egress transcode picks its target off this and re-parses nothing
-      // the uploaded footprint the landed byte count cannot state: the impl falls back to per-level block
-      // arithmetic exactly because levels[].uncompressedByteLength reads 0 under BASISLZ and may under UASTC
+      // measured AFTER the census admits, because a footprint is evidence of a proven container rather than a
+      // twelfth column: the impl falls back to per-level block arithmetic exactly because
+      // levels[].uncompressedByteLength reads 0 under BASISLZ and may under UASTC
       vram: yield* _probe(key, () => ImageUtils.getVRAMByteLength(bytes, _KTX2_MIME)),
     } satisfies Asset.Classified
   })
@@ -412,15 +664,15 @@ const _ktx2 = (bytes: Uint8Array, declared: Asset.Ktx, key: string, stated: Opti
 // declaration's block subset and travels there proven; a seam cast hands it on with nothing carrying the proof
 const _blocked = (store: Wire.Texture.PlaneFormat): store is Asset.Block => _STORES[store].block
 
-// Refusal reads `transfer` rather than `gate` because the store is legal and the PAIR is not, so a caller reading
-// that reason routes the plane to a re-encode instead of hunting a malformed container
-const _colored = (row: Asset.Channel): Effect.Effect<Asset.Colored, AssetFault> =>
+// Refusal reads `store` rather than a container reason because the store is legal and the PAIR is not, so a caller
+// reading that reason routes the plane to a re-encode instead of hunting a malformed container
+const _colored = (row: Asset.Channel): Effect.Effect<Asset.Colored, Asset.Fault> =>
   row.transfer === "srgb"
     ? Effect.map(
         Effect.filterOrFail(
           Effect.succeed(row.format),
           _blocked,
-          (store) => new AssetFault({ reason: "transfer", key: row.role, detail: `srgb ${store}` }),
+          (store) => _fault([{ reason: "store", key: row.role, transfer: "srgb" as const, store }]),
         ),
         (store) => ({ colorSpace: "srgb" as const, store }),
       )
@@ -456,34 +708,42 @@ const _projection = (set: Wire.TextureSet) =>
     const store = yield* ObjectStore
     const [outside, admitted] = Array.partition(set.channels, (row) => row.container === "ktx2")
     return {
-      // one plane at a time: each proof holds a whole container resident and a roster-full set fans wide, so a
-      // concurrent read multiplies peak residency to buy nothing on a header parse
-      planes: yield* Effect.forEach(admitted, (row) =>
-        Effect.gen(function* () {
-          const declared = yield* _declared(row, set)
-          // ONE address whatever `mips` declares — a self-pyramiding container holds its own levels — so the fan is
-          // one declaration per CHANNEL ROW and a per-level fan would re-address the same blob at every rank
-          const [{ address }] = row.levels
-          // refusals key on the ROSTER ROLE, the coordinate a set holds exactly one of: an address names the
-          // blob and never the slot a consumer was left unable to fill
-          const bytes = yield* Effect.mapError(
-            store.get(address),
-            (fault) => new AssetFault({ reason: "gate", key: row.role, detail: fault.detail }),
-          )
-          return {
-            role: row.role,
-            address,
-            declared,
-            components: row.channels, // the SEMANTIC count; the floor inside the proof read STORAGE width off `_STORES`
-            mipPolicy: row.mipPolicy, // the producer's declared fold, keying `[03]`'s `_MIPS` verbatim
-            classified: yield* _ktx2(bytes, declared, row.role, Option.none()),
-          }
-        })),
+      // Planes are INDEPENDENT — one channel row's container decides nothing about another's — so the sweep censuses
+      // EVERY refusing plane into one verdict and a producer reads its whole set's damage in one round trip instead
+      // of one plane per attempt. `validateAll` is the all-or-nothing admission form: a texture set is admitted whole
+      // or refused whole, exactly as the caller-side arm refuses a mis-declared file, so no half-projected set
+      // reaches a consumer. It visits one plane at a time by default, which is the residency law this arm already
+      // held — each proof holds a whole container resident and a roster-full set fans wide. Flattening the per-plane
+      // censuses is what keeps every offender keyed by its own role and the NonEmpty proof the carrier requires.
+      planes: yield* Effect.mapError(
+        Effect.validateAll(admitted, (row) =>
+          Effect.gen(function* () {
+            const declared = yield* _declared(row, set)
+            // ONE address whatever `mips` declares — a self-pyramiding container holds its own levels — so the fan is
+            // one declaration per CHANNEL ROW and a per-level fan would re-address the same blob at every rank
+            const [{ address }] = row.levels
+            // refusals key on the ROSTER ROLE, the coordinate a set holds exactly one of: an address names the
+            // blob and never the slot a consumer was left unable to fill
+            const bytes = yield* Effect.mapError(
+              store.get(address),
+              (fault) => _fault([{ reason: "fetch", key: row.role, detail: fault.detail }]),
+            )
+            return {
+              role: row.role,
+              address,
+              declared,
+              components: row.channels, // the SEMANTIC count; the floor inside the proof read STORAGE width off `_STORES`
+              mipPolicy: row.mipPolicy, // the producer's declared fold, keying `[03]`'s `_MIPS` verbatim
+              classified: yield* _ktx2(bytes, declared, row.role, Option.none()),
+            }
+          })),
+        (faults) => _fault(Array.flatMap(faults, (fault) => fault.issues)),
+      ),
       // a pack row carries no transfer, association, or payload column at all, so projecting one INVENTS three
       // declaration facts; it rides here by slot beside every non-ktx2 row rather than vanishing from the answer
       unprojected: [
-        ...Array.map(set.packs, (row) => ({ slot: row.pack, reason: "packed" as const })),
-        ...Array.map(outside, (row) => ({ slot: row.role, reason: "container" as const })),
+        ...Array.map(set.packs, (row) => ({ slot: row.pack, declined: "packed" as const })),
+        ...Array.map(outside, (row) => ({ slot: row.role, declined: "container" as const })),
       ],
     } satisfies Asset.Projection
   })
@@ -501,14 +761,16 @@ const _ROSTER = Array.map(_EXTENSIONS, (extension) => extension.EXTENSION_NAME)
 const _io = Effect.gen(function* () {
   yield* Effect.tryPromise({
     try: () => Promise.all(Array.map(_CODECS, (codec) => codec.ready)),
-    catch: (defect) => new AssetFault({ reason: "codec", key: "meshopt", detail: String(defect) }),
+    catch: (defect) => _fault([{ reason: "codec", key: "meshopt", detail: String(defect) }]),
   })
-  yield* Array.every(_CODECS, (codec) => codec.supported) ? Effect.void : _refuse("codec", "meshopt", "<unsupported>")
+  yield* Array.every(_CODECS, (codec) => codec.supported)
+    ? Effect.void
+    : _refuse({ reason: "codec", key: "meshopt", detail: "<unsupported>" })
   // watlas gates on Initialize() alone and publishes no `supported` flag, so it stands outside the codec roster
   // and takes its own await; an Atlas constructed before it resolves reaches an uninstantiated wasm table
   yield* Effect.tryPromise({
     try: () => watlas.Initialize(),
-    catch: (defect) => new AssetFault({ reason: "codec", key: "watlas", detail: String(defect) }),
+    catch: (defect) => _fault([{ reason: "codec", key: "watlas", detail: String(defect) }]),
   })
   KHRTextureBasisu.register() // roster registration installs no ImageUtils impl: absent this static a KTX2 texture answers getSize() null
   // the encode METHOD is a posture the row states, never a side effect of the level knob: `meshopt` picks
@@ -521,20 +783,23 @@ const _io = Effect.gen(function* () {
     .registerDependencies({ "meshopt.decoder": MeshoptDecoder, "meshopt.encoder": MeshoptEncoder })
 })
 
+// foreign names are INDEPENDENT of one another, so the census names every extension this roster refuses rather than
+// a joined string a caller has to split back apart to route on
 const _vocabulary = (handle: Document, key: string) =>
-  Effect.suspend(() => {
-    const foreign = Array.filter(
-      Array.map(handle.getRoot().listExtensionsUsed(), (extension) => extension.extensionName),
-      (name) => !Array.contains(_ROSTER, name),
-    )
-    return Array.isNonEmptyReadonlyArray(foreign) ? _refuse("extension", key, foreign.join(" ")) : Effect.void
-  })
+  Effect.suspend(() =>
+    Array.match(
+      Array.filterMap(handle.getRoot().listExtensionsUsed(), (extension) =>
+        Array.contains(_ROSTER, extension.extensionName)
+          ? Option.none()
+          : Option.some({ reason: "extension", key, name: extension.extensionName } as const)),
+      { onEmpty: () => Effect.void, onNonEmpty: (issues) => Effect.fail(_fault(issues)) },
+    ))
 
 const _opened = (io: NodeIO, bytes: Uint8Array, source: string) =>
   Effect.gen(function* () {
     const handle = yield* Effect.tryPromise({
       try: () => io.readBinary(bytes),
-      catch: (defect) => new AssetFault({ reason: "gate", key: source, detail: String(defect) }),
+      catch: (defect) => _fault([{ reason: "header", key: source, defect: String(defect) }]),
     })
     yield* _vocabulary(handle, source)
     return handle
@@ -555,7 +820,7 @@ const _opened = (io: NodeIO, bytes: Uint8Array, source: string) =>
 - Law: a cluster read is a COLUMN, never a step — glTF carries no meshlet vocabulary, so writing the kernel's product into the property graph would mint a name no consumer renders and the emit-side vocabulary proof would refuse the plane's own product; the batch and its per-meshlet sphere-and-cone bound ride the receipt, computed off the FOLDED document so they describe the topology the store holds rather than the one the fold started from.
 - Law: `unwrap` takes the whole initialized `watlas` module as its injected instance exactly as `meshopt` takes its encoder, so the transform owns the document-to-declaration flatten and the `xref` gather that rebuilds every attribute across the vertices a seam split; driving `Atlas` by hand against a glTF document re-derives what the row already composes, and an atlas run that ignores `xref` mis-gathers every attribute after the first split.
 - Law: the tool is a SUBCOMMAND FAMILY, not one call — `create` mints a container from images, `encode` block-encodes one already minted, `transcode` lowers a Basis payload to the desktop-native block class the wire refuses, `deflate` supercompresses in place, `extract` returns one level, layer, or face as an image the raster plane can read, and `validate` settles conformance; the flag builder is a column on each row, so a spawn site never spells a subcommand's arguments and a second tool entry cannot exist.
-- Law: the validator is the CONFORMANCE OWNER and its verdict rides its own report, never the exit code — the measured `--format mini-json` payload carries `valid` with a message list, so the decoded `valid` is the branch and a conformance refusal routes as a finding rather than a spawn failure; `--gltf-basisu` spells exactly where the payload's `transcodes` column is true, because the measured refusal on an `RGBSDA` container (`error-6301`) is correct and rejects every legitimate deep plane.
+- Law: the validator is the CONFORMANCE OWNER and its verdict rides its own report, never the exit code — the measured `--format mini-json` payload carries `valid` with a message list, so the decoded `valid` is the branch and a conformance refusal routes as a finding rather than a spawn failure — every message the report lists is an INDEPENDENT finding and rides its own issue, so a container failing three checks refuses once naming all three; `--gltf-basisu` spells exactly where the payload's `transcodes` column is true, because the measured refusal on an `RGBSDA` container (`error-6301`) is correct and rejects every legitimate deep plane.
 - Law: ONE spawn seam answers status, stdout, and stderr together, and every stream drains CONCURRENTLY with the exit wait — the command pipes both output streams by construction, so a run reading status alone discards the tool's own diagnosis and leaves a pipe nobody empties, while a run reading stdout alone leaves the status unread; reading one pipe to completion before the other stalls the child once the unread one fills.
 - Law: every non-report subcommand refuses on STATUS and blames with the tool's own stderr — the binary differentiates its codes across usage faults, refused origin conversions, and unrecognized inputs, and writes the sentence naming which fired, so a detail carrying the number alone discards the only evidence a caller can act on.
 - Law: flag legality is structural — `--zstd`/`--zlib` are unspellable on the `etc1s` leg (the CLI refuses either over BasisLZ), `--encode` is unreachable from a deep store because a block leg's declaration admits `_STORES` block rows alone, and `--normal-mode` rides the `uastc` leg because `[03.7]` routes every direction-carrying channel there with RDO off — the CLI honors the flag under BasisLZ too, so the narrowing is the frozen POLICY, not a tool limit.
@@ -981,7 +1246,7 @@ const _ran = (
   input: Asset.Input,
   paths: ReadonlyArray<string>,
   key: string,
-): Effect.Effect<Asset.Ran, AssetFault, CommandExecutor.CommandExecutor | Scope.Scope> =>
+): Effect.Effect<Asset.Ran, Asset.Fault, CommandExecutor.CommandExecutor | Scope.Scope> =>
   Command.start(Command.make(
     _BIN,
     spawn.command,
@@ -995,10 +1260,10 @@ const _ran = (
         out: Stream.mkString(Stream.decodeText(process.stdout)),
         err: Stream.mkString(Stream.decodeText(process.stderr)),
       }, { concurrency: "unbounded" })),
-    Effect.mapError((fault: Platform.PlatformError) => new AssetFault({ reason: "tool", key, detail: fault.message })),
+    Effect.mapError((fault: Platform.PlatformError) => _fault([{ reason: "tool", key, detail: fault.message }])),
     Effect.timeoutFail({
       duration: budget.deadline,
-      onTimeout: () => new AssetFault({ reason: "tool", key, detail: `<deadline ${spawn.command}>` }),
+      onTimeout: () => _fault([{ reason: "tool", key, detail: `<deadline ${spawn.command}>` }]),
     }),
   )
 
@@ -1006,7 +1271,9 @@ const _ran = (
 // differentiates its codes (usage fatal, refused origin conversion, unrecognized input) and writes the sentence
 // naming which one fired, so a bare `exit 1` detail throws away the only evidence a caller can act on
 const _succeeded = (ran: Asset.Ran, command: Asset.Verb, key: string) =>
-  ran.code === 0 ? Effect.void : _refuse("tool", key, `${command} exit ${ran.code}: ${String.trim(ran.err)}`)
+  ran.code === 0
+    ? Effect.void
+    : _refuse({ reason: "tool", key, detail: `${command} exit ${ran.code}: ${String.trim(ran.err)}` })
 
 const _conform = (budget: Asset.Budget, payload: Wire.Texture.Payload, file: string, key: string) =>
   Effect.gen(function* () {
@@ -1015,11 +1282,17 @@ const _conform = (budget: Asset.Budget, payload: Wire.Texture.Payload, file: str
     const ran = yield* _ran(budget, _KTX.validate({ payload }), _CONTAINER_INPUT, [file], key)
     const report = yield* Effect.mapError(
       Schema.decodeUnknown(Schema.parseJson(_Report))(ran.out),
-      (fault) => new AssetFault({ reason: "tool", key, detail: `${fault.message} ${String.trim(ran.err)}` }),
+      (fault) => _fault([{ reason: "tool", key, detail: `${fault.message} ${String.trim(ran.err)}` }]),
     )
+    // the validator already censuses: every message it lists is an INDEPENDENT finding, so each rides its own issue
+    // and a caller routes on the one it can repair rather than splitting a joined sentence back apart. A false
+    // verdict carrying no message is still a refusal, which is the empty arm below.
     yield* report.valid
       ? Effect.void
-      : _refuse("gate", key, Array.map(report.messages, (row) => `${row.type}-${row.id} ${row.message}`).join("; "))
+      : Array.match(
+        Array.map(report.messages, (row) => ({ reason: "conform", key, finding: `${row.type}-${row.id} ${row.message}` } as const)),
+        { onEmpty: () => _refuse({ reason: "conform", key, finding: "<invalid>" }), onNonEmpty: (issues) => Effect.fail(_fault(issues)) },
+      )
   })
 
 const _proof = Effect.gen(function* () {
@@ -1027,12 +1300,16 @@ const _proof = Effect.gen(function* () {
   // and no stderr to blame with, so `Command.string` is the whole outcome it needs.
   const text = yield* Effect.mapError(
     Command.string(Command.make(_BIN, "--help")),
-    (fault) => new AssetFault({ reason: "tool", key: _BIN, detail: fault.message }),
+    (fault) => _fault([{ reason: "tool", key: _BIN, detail: fault.message }]),
   )
-  // anchored at the command-list line: a bare substring read passes `encode` on the `transcode` row alone
-  const missing = Array.filter(_VERBS, (verb) => !new RegExp(`^\\s+${verb}\\s`, "m").test(text))
-  yield* Array.isNonEmptyReadonlyArray(missing) ? _refuse("tool", _BIN, missing.join(" ")) : Effect.void
-  return yield* Effect.mapError(_governance, (fault) => new AssetFault({ reason: "tool", key: _BIN, detail: fault.message }))
+  // anchored at the command-list line: a bare substring read passes `encode` on the `transcode` row alone. Verbs are
+  // INDEPENDENT, so an under-built binary names every subcommand it lacks in one refusal rather than one per boot.
+  const missing = Array.filterMap(_VERBS, (verb) =>
+    new RegExp(`^\\s+${verb}\\s`, "m").test(text)
+      ? Option.none()
+      : Option.some({ reason: "tool", key: _BIN, detail: `<verb ${verb}>` } as const))
+  yield* Array.match(missing, { onEmpty: () => Effect.void, onNonEmpty: (issues) => Effect.fail(_fault(issues)) })
+  return yield* Effect.mapError(_governance, (fault) => _fault([{ reason: "tool", key: _BIN, detail: fault.message }]))
 })
 ```
 
@@ -1055,10 +1332,10 @@ const _proof = Effect.gen(function* () {
 - Law: every encoded product mints `Digest.Key<"content">`; conditional storage makes replay idempotent.
 - Law: a product's LIFETIME follows its source, never its own clock — every engine's tail writes the `derivative:<sourceKey>` reference under the row's own retention class, so releasing the source cascades and no category carries an independent expiry; the staged input and output of a spawn are the exception and die with the pass's `Scope`, holding no reference at all.
 - Law: two subcommands FORFEIT declaration agreement and say so on their rows — `transcode` lowers to a desktop-native payload no wire declaration admits and `extract` answers an image rather than a container, so both carry `proves: Option.none()` and the Khronos validator is their whole proof; reading a classification off either is reading a declaration nothing stated.
-- Law: terminal metrics partition by engine plane and `Fault.Class.Kind`; `Convention` owns every instrument name and dimension.
+- Law: terminal metrics partition by engine plane and `Fault.Class.Kind`; `Convention` owns every instrument name and dimension. A censused refusal contributes ONE outcome under its DOMINANT issue's class, elected on the family's own rank lattice, so a verdict carrying several offenders never double-counts its plane and never grades a whole set by whichever column iteration reached last.
 
 ```typescript signature
-import { Cause, Exit, Metric, pipe } from "effect"
+import { Cause, Exit, Metric } from "effect"
 import { type CommandExecutor, FileSystem, Path } from "@effect/platform"
 import { Convention } from "@rasm/ts/core"
 import { ObjectStore } from "./store.ts"
@@ -1073,7 +1350,7 @@ const _outcome = (plane: Asset.Kind, outcome: string) =>
 
 // onExit fires ONCE after the outcome settles — the single emission point for an outcome dimension; a
 // defect or interrupt is no disposition and lands on the span, never the counter
-const _counted = <A, R>(plane: Asset.Kind, self: Effect.Effect<A, AssetFault, R>) =>
+const _counted = <A, R>(plane: Asset.Kind, self: Effect.Effect<A, Asset.Fault, R>) =>
   Effect.onExit(self, (exit) =>
     Exit.match(exit, {
       onFailure: (cause) =>
@@ -1086,7 +1363,7 @@ const _counted = <A, R>(plane: Asset.Kind, self: Effect.Effect<A, AssetFault, R>
 
 // a boot refusal carries no landed half, and its own reason routes it: an absent wasm decoder is the container
 // plane's, an absent binary the ktx plane's, so the share stays honest and no construction double-counts
-const _refused = <A, R>(plane: Asset.Kind, self: Effect.Effect<A, AssetFault, R>) =>
+const _refused = <A, R>(plane: Asset.Kind, self: Effect.Effect<A, Asset.Fault, R>) =>
   Effect.tapError(self, (fault) => _outcome(plane, fault.class))
 
 // BRANCH-OWNED census: the clusterizer ships no glTF transform, so the wiring is the kernel over the folded
@@ -1209,7 +1486,7 @@ const _points = (io: NodeIO): Derive.Plane<
   Asset.Cloud,
   Document,
   { readonly bytes: number; readonly cloud: Asset.Cloud; readonly bounds: ReadonlyArray<Bounds> },
-  AssetFault,
+  Asset.Fault,
   ObjectStore
 > => ({
   name: "points",
@@ -1222,13 +1499,13 @@ const _points = (io: NodeIO): Derive.Plane<
         const twin = cloneDocument(handle)
         yield* Effect.try({
           try: () => _cloud(twin, row),
-          catch: (defect) => new AssetFault({ reason: "transform", key: source, detail: String(defect) }),
+          catch: (defect) => _fault([{ reason: "transform", key: source, defect: String(defect) }]),
         })
         const emitted = yield* Effect.tryPromise({
           try: () => io.writeBinary(twin),
-          catch: (defect) => new AssetFault({ reason: "emit", key: source, detail: String(defect) }),
+          catch: (defect) => _fault([{ reason: "emit", key: source, detail: String(defect) }]),
         })
-        const landed = yield* Effect.mapError(store.put(emitted), (fault) => new AssetFault({ reason: "emit", key: source, detail: fault.detail }))
+        const landed = yield* Effect.mapError(store.put(emitted), (fault) => _fault([{ reason: "emit", key: source, detail: fault.detail }]))
         // both evidence reads run on the TWIN, after the fold: a census or a bound taken before decimation
         // describes a cloud the store never receives
         return { row, key: landed.key, evidence: { bytes: landed.bytes, cloud: _tallied(twin), bounds: _bounded(twin) } }
@@ -1240,7 +1517,7 @@ const _container = (io: NodeIO): Derive.Plane<
   InspectReport,
   Document,
   { readonly bytes: number; readonly clusters: Option.Option<ReadonlyArray<Asset.Meshlets>> },
-  AssetFault,
+  Asset.Fault,
   ObjectStore
 > => ({
   name: "container",
@@ -1253,14 +1530,14 @@ const _container = (io: NodeIO): Derive.Plane<
         const twin = cloneDocument(handle) // transform mutates the graph: clone per pipeline row, exactly the raster clone-N law
         yield* Effect.tryPromise({
           try: () => twin.transform(...Array.map(row.steps, (step) => step.run())),
-          catch: (defect) => new AssetFault({ reason: "transform", key: source, detail: String(defect) }),
+          catch: (defect) => _fault([{ reason: "transform", key: source, defect: String(defect) }]),
         })
         yield* _vocabulary(twin, source) // a step may write vocabulary the read never carried: the fold proves its own product
         const emitted = yield* Effect.tryPromise({
           try: () => io.writeBinary(twin),
-          catch: (defect) => new AssetFault({ reason: "emit", key: source, detail: String(defect) }),
+          catch: (defect) => _fault([{ reason: "emit", key: source, detail: String(defect) }]),
         })
-        const landed = yield* Effect.mapError(store.put(emitted), (fault) => new AssetFault({ reason: "emit", key: source, detail: fault.detail }))
+        const landed = yield* Effect.mapError(store.put(emitted), (fault) => _fault([{ reason: "emit", key: source, detail: fault.detail }]))
         // the cluster read runs on the TWIN, after the fold: a meshlet batch built before `simplify` describes
         // a topology the store never receives
         return {
@@ -1277,7 +1554,7 @@ const _staged = (leaf: string, bytes: Uint8Array) =>
     const path = yield* Path.Path
     const home = yield* fs.makeTempDirectoryScoped()
     const staged = path.join(home, leaf)
-    yield* Effect.mapError(fs.writeFile(staged, bytes), (fault) => new AssetFault({ reason: "emit", key: leaf, detail: fault.message }))
+    yield* Effect.mapError(fs.writeFile(staged, bytes), (fault) => _fault([{ reason: "emit", key: leaf, detail: fault.message }]))
     return staged
   })
 
@@ -1286,7 +1563,7 @@ const _ktx = (budget: Asset.Budget): Derive.Plane<
   Asset.Input,
   string,
   { readonly bytes: number; readonly classified: Option.Option<Asset.Classified> },
-  AssetFault,
+  Asset.Fault,
   ObjectStore | FileSystem.FileSystem | Path.Path | CommandExecutor.CommandExecutor | Scope.Scope
 > => ({
   name: "ktx",
@@ -1306,14 +1583,16 @@ const _ktx = (budget: Asset.Budget): Derive.Plane<
         // one file per level times the declared layer count, largest level first, cube faces in +X -X +Y -Y +Z -Z order
         const inputs = [staged, ...(yield* Effect.forEach(row.spawn.sources, (leaf) =>
           Effect.gen(function* () {
-            const plane = yield* Effect.mapError(store.get(leaf), (fault) => new AssetFault({ reason: "emit", key: leaf, detail: fault.detail }))
+            const plane = yield* Effect.mapError(store.get(leaf), (fault) => _fault([{ reason: "fetch", key: leaf, detail: fault.detail }]))
             const held = _classifiedInput(plane)
-            yield* held.headerless === input.headerless ? Effect.void : _refuse("gate", leaf, `${held.suffix}<>${input.suffix}`)
+            yield* held.headerless === input.headerless
+              ? Effect.void
+              : _refuse({ reason: "staging", key: leaf, held: held.suffix, base: input.suffix })
             return yield* _staged(`${leaf}.${held.suffix}`, plane)
           }))]
         const ran = yield* _ran(budget, row.spawn, input, [...inputs, out], source)
         yield* _succeeded(ran, row.spawn.command, source)
-        const bytes = yield* Effect.mapError(fs.readFile(out), (fault) => new AssetFault({ reason: "emit", key: source, detail: fault.message }))
+        const bytes = yield* Effect.mapError(fs.readFile(out), (fault) => _fault([{ reason: "emit", key: source, detail: fault.message }]))
         const classified = yield* Option.match(row.spawn.proves, {
           onNone: () => Effect.succeedNone,
           // encoders prove themselves twice before the store sees a byte: Khronos conformance, then declaration
@@ -1324,7 +1603,7 @@ const _ktx = (budget: Asset.Budget): Derive.Plane<
               Effect.asSome(_ktx2(bytes, proof.declared, source, proof.stated)),
             ),
         })
-        const landed = yield* Effect.mapError(store.put(bytes), (fault) => new AssetFault({ reason: "emit", key: source, detail: fault.detail }))
+        const landed = yield* Effect.mapError(store.put(bytes), (fault) => _fault([{ reason: "emit", key: source, detail: fault.detail }]))
         return { row, key: landed.key, evidence: { bytes: landed.bytes, classified } }
       }).pipe(Metric.trackDuration(_transcoded)))), { concurrency: 1 }), // spawns run serial: the CLI saturates its own thread pool
 })
@@ -1366,11 +1645,14 @@ const _textured = (handle: Document): ReadonlyArray<Asset.Textured> =>
   }))
 
 // EVERY probed field proves, by folding the census itself: a fact added to `Derive.Probe` becomes a proven fact
-// with no edit here, so the census can never grow a column this gate computes and silently discards, and the
-// refusal names each field that diverged rather than one flattened extent string
-const _rasterDrift = (census: Derive.Probe, declared: Asset.Raster): ReadonlyArray<string> =>
+// with no edit here, so the census can never grow a column this gate computes and silently discards. Probe fields
+// are INDEPENDENT, so each diverged one rides its OWN issue — the same posture the ktx gate's clause table holds,
+// and the reason the two arms of one plane can no longer settle one structural claim on two evidence bars.
+const _rasterDrift = (census: Derive.Probe, declared: Asset.Raster, key: string) =>
   Array.filterMap(Record.toEntries(census), ([field, value]) =>
-    value === declared[field] ? Option.none() : Option.some(`${field} ${value}<>${declared[field]}`))
+    value === declared[field]
+      ? Option.none()
+      : Option.some({ reason: "drift", key, field, held: String(value), declared: String(declared[field]) } as const))
 
 const _GATES: {
   readonly [K in Asset.Kind]: (
@@ -1378,7 +1660,7 @@ const _GATES: {
     bytes: Uint8Array,
     declared: Extract<Asset.Declared, { readonly category: K }>,
     key: string,
-  ) => Effect.Effect<Asset.Proved[K], AssetFault>
+  ) => Effect.Effect<Asset.Proved[K], Asset.Fault>
 } = {
   container: (held, bytes, _declared, key) =>
     Effect.map(_opened(held.io, bytes, key), (handle) => ({
@@ -1391,26 +1673,36 @@ const _GATES: {
   // ONE libvips composer, so no image library is imported here and the two planes cannot drift on gate posture
   raster: (_held, bytes, declared, key) =>
     Effect.flatMap(
-      Effect.mapError(Derive.probe(bytes, key), (fault) => new AssetFault({ reason: "gate", key, detail: fault.message })),
+      Effect.mapError(Derive.probe(bytes, key), (fault) => _fault([{ reason: "probe", key, defect: fault.message }])),
       (census) =>
-        pipe(_rasterDrift(census, declared), (drift) =>
-          Array.isNonEmptyReadonlyArray(drift) ? _refuse("gate", key, drift.join(" ")) : Effect.succeed(census)),
+        Array.match(_rasterDrift(census, declared, key), {
+          onEmpty: () => Effect.succeed(census),
+          onNonEmpty: (issues) => Effect.fail(_fault(issues)),
+        }),
     ),
-  // topology, census, and attribute roster all prove against the declaration: one non-POINTS primitive, one
-  // absent semantic, or a point tally disagreeing with the declared count each refuses with its own evidence
+  // topology, attribute roster, and census are three INDEPENDENT structural columns — an alien primitive, an
+  // unbound semantic, and a disagreeing tally decide nothing about each other — so one refusal carries every
+  // offender exactly as the ktx gate's clause table does, and each primitive names its own ordinal
   points: (held, bytes, declared, key) =>
     Effect.flatMap(_opened(held.io, bytes, key), (handle) => {
       const primitives = _primitives(handle)
-      const alien = Array.some(primitives, (primitive) => primitive.getMode() !== _POINTS_MODE)
-      const absent = Array.findFirst(declared.attributes, (semantic) =>
-        Array.some(primitives, (primitive) => primitive.getAttribute(semantic) === null))
       const cloud = _tallied(handle)
-      return alien
-        ? _refuse("gate", key, "non-points primitive")
-        : Option.match(absent, {
-            onSome: (semantic) => _refuse("gate", key, `attribute ${semantic}`),
-            onNone: () => cloud.points === declared.count ? Effect.succeed(cloud) : _refuse("gate", key, `${cloud.points} points`),
-          })
+      return Array.match(
+        [
+          ...Array.filterMap(primitives, (primitive, at) =>
+            primitive.getMode() === _POINTS_MODE
+              ? Option.none()
+              : Option.some({ reason: "topology", key, at, mode: primitive.getMode() } as const)),
+          ...Array.filterMap(declared.attributes, (semantic) =>
+            Array.some(primitives, (primitive) => primitive.getAttribute(semantic) === null)
+              ? Option.some({ reason: "attribute", key, semantic } as const)
+              : Option.none()),
+          ...(cloud.points === declared.count
+            ? []
+            : [{ reason: "tally", key, held: cloud.points, declared: declared.count } as const]),
+        ],
+        { onEmpty: () => Effect.succeed(cloud), onNonEmpty: (issues) => Effect.fail(_fault(issues)) },
+      )
     }),
 }
 
@@ -1445,7 +1737,7 @@ declare namespace Asset {
   type Receipt = Effect.Effect.Success<ReturnType<(typeof _ENGINES)[Kind]>>[number] // the shipped extractor over the engine table: no hand-listed evidence union
   type Fan = Effect.Effect<
     ReadonlyArray<Receipt>,
-    AssetFault | DeriveFault,
+    Asset.Fault | DeriveFault,
     ObjectStore | FileSystem.FileSystem | Path.Path | CommandExecutor.CommandExecutor
   >
   type _Served<K extends Kind = Row["kind"]> = K // guard closure over the category surfaces: a row kind with no engine fails here
@@ -1468,8 +1760,8 @@ class Asset extends Effect.Service<Asset>()("data/Asset", {
       bytes: Uint8Array,
       declared: Extract<Asset.Declared, { readonly category: K }>,
       key: string,
-    ): Effect.Effect<Asset.Proved[K], AssetFault>
-    function gate(set: Wire.TextureSet): Effect.Effect<Asset.Projection, AssetFault, ObjectStore>
+    ): Effect.Effect<Asset.Proved[K], Asset.Fault>
+    function gate(set: Wire.TextureSet): Effect.Effect<Asset.Projection, Asset.Fault, ObjectStore>
     function gate<K extends Asset.Kind>(...admission: Asset.Admission<K>) {
       // set admission carries no category tag because a set is a second declaration SOURCE, never a fifth category:
       // no engine row, gate arm, or row kind moves, and the requirement channel widens on this arm alone

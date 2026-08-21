@@ -26,22 +26,40 @@ import { Cause, Context, Data, Duration, Effect, Exit, Function, Match, Schema }
 import { Fault } from "@rasm/ts/core"
 import { WorkClass } from "./entity.ts"
 
-// One row per refusal the durable altitude can raise: the class derives, so no mint can name a class its reason contradicts.
+// One row per refusal the durable altitude can raise, and each row states the WINDOW its refusal broke beside the
+// name it broke it on: the class derives, so no mint can name a class its reason contradicts, and the two legs
+// partition the census — a budget geometry the step mint owns against a hold the signal gate owns.
+const _Lapsed = Schema.Struct({ step: Schema.String, window: Schema.Duration })
+
 const _family = Fault.Class.family(["attempt", "total", "hold"] as const, {
-  attempt: { class: "expired" },
-  total: { class: "exhausted" },
-  hold: { class: "expired" },
+  attempt: Fault.Class.row({
+    class: "expired",
+    leg: "step",
+    detail: _Lapsed,
+    render: ({ step, window }) => `${step} outlived its ${Duration.toMillis(window)}ms attempt window`,
+  }),
+  total: Fault.Class.row({
+    class: "exhausted",
+    leg: "step",
+    detail: _Lapsed,
+    render: ({ step, window }) => `${step} spent its whole ${Duration.toMillis(window)}ms budget across attempts`,
+  }),
+  hold: Fault.Class.row({
+    class: "expired",
+    leg: "signal",
+    detail: _Lapsed,
+    render: ({ step, window }) => `${step} held ${Duration.toMillis(window)}ms without an external settlement`,
+  }),
 })
 
 class StepFault extends Schema.TaggedError<StepFault>()("StepFault", {
-  reason: _family.schema,
-  step: Schema.String,
+  case: _family.payload,
 }) {
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
   }
   override get message(): string {
-    return `<step:${this.reason}> ${this.step}`
+    return _family.render(this.case)
   }
 }
 
@@ -62,14 +80,14 @@ const _run = <A, AI, AR, E extends { readonly class: Fault.Class.Kind }, EI, ER,
     execute: spec.execute.pipe(
       Effect.timeoutFail({
         duration: row.attempt,
-        onTimeout: () => new StepFault({ reason: "attempt", step: name }),
+        onTimeout: () => new StepFault({ case: { reason: "attempt", step: name, window: row.attempt } }),
       }),
     ),
     // interrupt-only `Cause` values carry no failure the class rail reads, so the default gate refuses every replay
     interruptRetryPolicy: Fault.Budget.schedule(WorkClass[clazz].budget, Function.constTrue),
   }).pipe(Effect.timeoutFail({
     duration: row.total,
-    onTimeout: () => new StepFault({ reason: "total", step: name }),
+    onTimeout: () => new StepFault({ case: { reason: "total", step: name, window: row.total } }),
   }))
 }
 
@@ -186,7 +204,9 @@ const _hold = <Success extends Schema.Schema.Any, Error extends Schema.Schema.Al
     effects: [
       DurableDeferred.await(hold.deferred),
       _pause({ name: `${hold.deferred.name}/expiry`, duration: hold.expiry }).pipe(
-        Effect.zipRight(Effect.fail(new StepFault({ reason: "hold", step: hold.deferred.name }))),
+        Effect.zipRight(
+          Effect.fail(new StepFault({ case: { reason: "hold", step: hold.deferred.name, window: Duration.decode(hold.expiry) } })),
+        ),
       ),
     ],
   })

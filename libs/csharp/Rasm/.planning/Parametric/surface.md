@@ -14,8 +14,11 @@ Every emitted `NurbsForm.Surface` carries `ToEncodeForm()` into the reconciliati
 - Cases: `SurfaceOp` is the request `[Union]`, one case per surface operation; `SurfaceResult` the result `[Union]`, one typed carrier per request family; rule, grade, and policy rows are the vocabularies the ops read.
 - Entry: `Geodesics` takes the `UvTessellation` carrier, so the provenance proof is the parameter type.
 - Auto: every op composes the vendored engine with the landed distance, refit, and arena machinery; no evaluation arithmetic is local.
+- Law: the curvature bands are `Stat<Scalar>` off `Stat<Scalar>.Of(ReadOnlySpan<double>, key)` — the kernel's ONE moment owner and the leg that already carries the vectorized reduction. NAMED LOSS: the page's local `FieldExtrema` triple and its registered `CurvatureSummaryClaim`; the speed claim belongs to the reduction's owner, and the consumer gains variance, RMS, and the rejected count no triple carries. WITNESS: `FieldExtrema.Of(k1Plane)` rebuilt as `Stat<Scalar>.Of(k1Plane, key)`, whose `Minimum`/`Maximum`/`Mean` read the same three values.
+- Law: the area integral rides `Quadrature.Integrate` over `IntegrationDomain.Rectangle`, never a raw `Integrate.OnRectangle` — the funnel's finite guard, skip budget, and `QuadratureEvidence` are the receipt a bare product rule cannot produce, and a pole in `|Su×Sv|` poisons an unguarded weighted sum silently.
+- Law: the dense-pullback seed lookup is `NeighborIndex` — Rasm `RULINGS [02]` seats bare-point neighborhoods there, and the query subject is a bare point. NAMED LOSS: the page-local `Supercluster.KDTree.Net` admission, its per-probe boxing of three doubles into an `IReadOnlyList<double>`, and a `.First()` that threw on an empty answer; the gain is one batch query, one owner, and a `Fin` rail through the seed leg.
 - Receipt: `GeodesicField.Grade` records the distance lane a consumer dispatches on; `UvTessellation` carries no receipt, the carrier its own provenance evidence.
-- Packages: `nurbs.md` the vendored engine; MathNet.Numerics for the `Integrate.OnRectangle` area quadrature; Supercluster.KDTree.Net for the dense pullback seed; `Rasm.Meshing` for the `MeshEdit` arena and `MeshSpace` freeze; `Rasm.Processing` for the landed distance lanes; `Rasm.Spatial` for the fields rail and the `EncodeForm` identity target; `Rasm.Numerics` for `ParametricFault`; `Rasm.Domain` for `Op`, `Context`, and the `BenchClaim` ledger row; Rhino.Geometry, Thinktecture.Runtime.Extensions, LanguageExt.Core, and System.Numerics.Tensors.
+- Packages: `nurbs.md` the vendored engine (`NurbsPolicy` knobs, `SplinePolicy` the G5 refit seed); `Rasm.Numerics` for `Quadrature.Integrate`/`IntegrationDomain.Rectangle`/`IntervalSpec` area cubature, `Dimension` atoms, and `GeometryFault.ParametricFault`/`ParametricStage`; `Rasm.Spatial` for the `NeighborIndex`/`NeighborSource`/`NeighborKernel` bare-point seed lookup; `Rasm.Meshing` for the `MeshEdit` arena, the `MeshSpace` freeze, the `Chain` ring carrier, and the `Conform` constrained-tessellation carriage; `Rasm.Processing` for the landed distance lanes; `Rasm.Domain` for `Op`, `Context`/`ToleranceLane`, `Stat<Scalar>`/`Scalar`, and validity; Rhino.Geometry, Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new tessellation density is one `TessellateRule` case; a new isoline selection one `IsolineRule` case; a second distance lane one `GeodesicGrade` row; a new field quantity one `CurvatureField` column off the same `CurvatureAt` sweep; a lofted, swept, or revolved construction is a growth row on the engine admission.
 - Boundary: basis, derivative, and projection arithmetic stay `nurbs.md`'s engine members; a trimmed region is `Trim` DATA on the one `Tessellate` case — the constrained cells ride the `Meshing/delaunay` `Tessellation.Build` substrate with `PlanarOverlay`'s exact winding classification, so THIS owner emits both the full-domain and the trimmed `UvTessellation` and no consumer mints a constrained substrate beside it.
 
@@ -23,38 +26,33 @@ Every emitted `NurbsForm.Surface` carries `ToEncodeForm()` into the reconciliati
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Linq;
-using System.Numerics.Tensors;
-using System.Runtime.InteropServices;
 using LanguageExt;
 using LanguageExt.Common;
-using MathNet.Numerics;
 using Rasm.Domain;
 using Rasm.Meshing;
 using Rasm.Numerics;
 using Rasm.Processing;
 using Rasm.Spatial;
 using Rhino.Geometry;
-using SuperClusterKDTree;
 using Thinktecture;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Parametric;
 
 // --- [TYPES] ------------------------------------------------------------------------------------
-// Adaptive keeps the UV column a structured grid, so downstream pullback stays O(1).
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TessellateRule {
     private TessellateRule() { }
 
-    public sealed record Grid(int Nu, int Nv) : TessellateRule;
-    public sealed record Adaptive(int BudgetU, int BudgetV) : TessellateRule;
+    public sealed record Grid(Dimension Nu, Dimension Nv) : TessellateRule;
+    public sealed record Adaptive(Dimension BudgetU, Dimension BudgetV) : TessellateRule;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record IsolineRule {
     private IsolineRule() { }
 
-    public sealed record Even(int CountU, int CountV) : IsolineRule;
+    public sealed record Even(Dimension CountU, Dimension CountV) : IsolineRule;
     public sealed record AtKnots : IsolineRule;
     public sealed record AtParameters(Arr<double> U, Arr<double> V) : IsolineRule;
 }
@@ -72,29 +70,20 @@ public sealed record GeodesicPlan(Arr<Point2d> Sources, Arr<double> Levels, Geod
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountAtLeast(count: Sources.Count, floor: 1),
         ValidityClaim.CountAtLeast(count: Levels.Count, floor: 1),
-        ValidityClaim.Of(holds: Levels.All(static level => ValidityClaim.Positive(value: level))));
+        Levels.All(static level => ValidityClaim.Positive(value: level)));
 }
 
-public sealed record PullbackPolicy(int DenseFloor, int SeedU, int SeedV, NurbsPolicy Projection) : IValidityEvidence {
-    public static readonly PullbackPolicy Canonical = new(DenseFloor: 32, SeedU: 24, SeedV: 24, NurbsPolicy.Canonical);
+public sealed record PullbackPolicy(Dimension DenseFloor, Dimension SeedU, Dimension SeedV, NurbsPolicy Projection) : IValidityEvidence {
+    public static readonly PullbackPolicy Canonical = new(
+        DenseFloor: Dimension.Create(value: 32), SeedU: Dimension.Create(value: 24), SeedV: Dimension.Create(value: 24),
+        Projection: NurbsPolicy.Canonical);
+
+    public static PullbackPolicy Of(Context context) => Canonical with { Projection = NurbsPolicy.Of(context: context) };
 
     public bool IsValid => ValidityClaim.All(
-        ValidityClaim.CountAtLeast(count: DenseFloor, floor: 1),
-        ValidityClaim.CountAtLeast(count: SeedU, floor: 2),
-        ValidityClaim.CountAtLeast(count: SeedV, floor: 2),
-        ValidityClaim.Evidence(evidence: Projection));
-}
-
-// --- [MODELS] -----------------------------------------------------------------------------------
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct FieldExtrema(double Min, double Max, double Mean) {
-    public static FieldExtrema Of(ReadOnlySpan<double> plane) =>
-        plane.Length == 0
-            ? new FieldExtrema(Min: 0.0, Max: 0.0, Mean: 0.0)
-            : new FieldExtrema(
-                Min: TensorPrimitives.Min<double>(plane),
-                Max: TensorPrimitives.Max<double>(plane),
-                Mean: TensorPrimitives.Average<double>(plane));
+        ValidityClaim.CountAtLeast(count: SeedU.Value, floor: 2),
+        ValidityClaim.CountAtLeast(count: SeedV.Value, floor: 2),
+        Projection.IsValid);
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -104,11 +93,11 @@ public abstract partial record SurfaceOp {
 
     // Trim is data on the ONE tessellate case — UV-space rings (outer CCW, holes CW) on the Chain carrier;
     // None tessellates the full tensor-product domain.
-    public sealed record Tessellate(NurbsForm.Surface Surface, TessellateRule Rule, Context Tolerance, Option<Seq<Chain>> Trim = default) : SurfaceOp;
+    public sealed record Tessellate(NurbsForm.Surface Surface, TessellateRule Rule, Context Model, Option<Seq<Chain>> Trim = default) : SurfaceOp;
     public sealed record Isolines(NurbsForm.Surface Surface, IsolineRule Rule) : SurfaceOp;
     public sealed record Geodesics(SurfaceResult.UvTessellation Source, GeodesicPlan Plan) : SurfaceOp;
-    public sealed record NormalOffset(NurbsForm.Surface Surface, double Distance, FitPolicy Refit, RefinePolicy Refine) : SurfaceOp;
-    public sealed record CurvatureSample(NurbsForm.Surface Surface, int Nu, int Nv, NurbsPolicy? Policy = null) : SurfaceOp;
+    public sealed record NormalOffset(NurbsForm.Surface Surface, double Distance, SplinePolicy Refit, RefinePolicy Refine) : SurfaceOp;
+    public sealed record CurvatureSample(NurbsForm.Surface Surface, Dimension Nu, Dimension Nv, Option<NurbsPolicy> Policy = default) : SurfaceOp;
     public sealed record Pullback(NurbsForm.Surface Surface, Arr<Point3d> Probes, PullbackPolicy Policy) : SurfaceOp;
 }
 
@@ -127,24 +116,18 @@ public abstract partial record SurfaceResult {
 
     public sealed record CurvatureField(
         Arr<Point2d> Uv, Arr<double> K1, Arr<double> K2, Arr<double> Gaussian, Arr<double> Mean,
-        Arr<Vector3d> Dir1, Arr<Vector3d> Dir2, Arr<double> AreaElement, FieldExtrema K1Band, FieldExtrema K2Band, double Area, int DegenerateNodes) : SurfaceResult;
+        Arr<Vector3d> Dir1, Arr<Vector3d> Dir2, Arr<double> AreaElement,
+        Stat<Scalar> K1Band, Stat<Scalar> K2Band, double Area, int DegenerateNodes) : SurfaceResult;
 
     public sealed record Pulled(Arr<Point2d> Uv, Arr<Point3d> Feet, Arr<double> Distances) : SurfaceResult;
 }
 
 public static class Surfaces {
-    // Band reductions prove under the corpus gate; correctness never rides the claim.
-    public static readonly BenchClaim CurvatureSummaryClaim = new(
-        Claim: Op.Of(name: nameof(SurfaceResult.CurvatureField)),
-        VectorizedLane: "TensorPrimitives.Min/Max/Average<double> over the survivor curvature planes",
-        ReferenceLane: "scalar LINQ Min/Max/Average folds over the same planes",
-        SpeedupFloor: 1.0);
-
     public static Fin<SurfaceResult> Apply(SurfaceOp op, Op? key = null) =>
         op.Switch(
-            state: key,
+            state: key.OrDefault(),
             tessellate:      static (k, t) => TessellateOf(t, k),
-            isolines:        static (k, i) => IsolinesOf(i, k),
+            isolines:        static (_, i) => IsolinesOf(i),
             geodesics:       static (k, g) => GeodesicsOf(g, k),
             normalOffset:    static (k, o) => NormalOffsetOf(o, k),
             curvatureSample: static (k, c) => CurvatureOf(c, k),
@@ -152,35 +135,37 @@ public static class Surfaces {
 
     // --- [TESSELLATE]
     // ToSpace kills no arena faces, so vertex order survives the freeze: Uv[i] parameterizes vertex i, always.
-    // Trimmed faces route the SAME lattice through the constrained overlay substrate — lattice nodes and ring
-    // vertices enter ONE Tessellation.Build in UV space with every ring edge a Constraint.Segment, cells classify
-    // by exact nonzero winding of their centroid against the rings, interior cells survive — so THIS owner emits the
-    // trimmed UvTessellation the tier consumers admit and no consumer re-derives a constrained substrate.
-    static Fin<SurfaceResult> TessellateOf(SurfaceOp.Tessellate op, Op? key) =>
+    // Trimmed faces route the SAME lattice through Tessellation.Build in UV space with every ring edge a
+    // Conform.Edge, cells surviving by exact nonzero centroid winding against the rings.
+    static Fin<SurfaceResult> TessellateOf(SurfaceOp.Tessellate op, Op key) =>
         Lattice(op.Surface, op.Rule).Bind(grid =>
             op.Trim.Match(
-                Some: rings => TrimmedCells(grid, rings, op.Tolerance, key)
-                    .Bind(cells => Lift(op.Surface, cells.Uv, cells.Triangles, op.Tolerance, key)),
-                None: () => {
-                    Arr<Point2d> uv = new([.. grid.U.SelectMany(u => grid.V.Select(v => new Point2d(u, v)))]);
-                    Point3d[] points = new Point3d[uv.Count];
-                    for (int i = 0; i < uv.Count; i++) { points[i] = op.Surface.PointAt(uv[i].X, uv[i].Y); }
-                    using MeshEdit arena = MeshEdit.Of(points, CellTriangles(grid.U.Length, grid.V.Length, points));
-                    return arena.ToSpace(op.Tolerance, key).Map(space =>
-                        (SurfaceResult)new SurfaceResult.UvTessellation(op.Surface, space, uv));
-                }));
+                Some: rings => TrimmedCells(grid, rings, op.Model, key)
+                    .Bind(cells => Lift(op.Surface, cells.Uv, _ => cells.Triangles, op.Model, key)),
+                None: () => Lift(
+                    op.Surface,
+                    new Arr<Point2d>([.. grid.U.SelectMany(u => grid.V.Select(v => new Point2d(u, v)))]),
+                    points => CellTriangles(grid.U.Length, grid.V.Length, points),
+                    op.Model, key)));
 
     static Fin<(double[] U, double[] V)> Lattice(NurbsForm.Surface surface, TessellateRule rule);        // Grid: uniform; Adaptive: per-axis budgets by cumulative mean-|κ| integral
-    static ReadOnlySpan<(int A, int B, int C)> CellTriangles(int nu, int nv, ReadOnlySpan<Point3d> points);  // shorter-diagonal split; degenerate cells culled, vertices kept
-    // Constrained UV tessellation: lattice nodes + ring vertices into Tessellation.Build (rings as
-    // Constraint.Segment runs), triangle keep = exact nonzero centroid winding over the ring set — the
-    // PlanarOverlay classification verbatim; emitted Uv covers surviving vertices only, re-indexed dense.
-    static Fin<(Arr<Point2d> Uv, (int A, int B, int C)[] Triangles)> TrimmedCells((double[] U, double[] V) grid, Seq<Chain> rings, Context tolerance, Op? key);
-    // Shared 3D lift: PointAt per surviving UV node, arena, ToSpace freeze — the one freeze both domains ride.
-    static Fin<SurfaceResult> Lift(NurbsForm.Surface surface, Arr<Point2d> uv, (int A, int B, int C)[] triangles, Context tolerance, Op? key);
+    static (int A, int B, int C)[] CellTriangles(int nu, int nv, ReadOnlySpan<Point3d> points);          // shorter-diagonal split; degenerate cells culled, vertices kept
+    // Constrained UV tessellation: lattice nodes + ring vertices into Tessellation.Build (rings as Conform.Edge
+    // runs), triangle keep = exact nonzero centroid winding over the ring set — the PlanarOverlay classification
+    // verbatim; emitted Uv covers surviving vertices only, re-indexed dense.
+    static Fin<(Arr<Point2d> Uv, (int A, int B, int C)[] Triangles)> TrimmedCells((double[] U, double[] V) grid, Seq<Chain> rings, Context model, Op key);
+
+    // Shared 3D lift: PointAt per surviving UV node, cells derived off the LIFTED points, arena, ToSpace freeze —
+    // the one freeze both domains ride, and the trimmed arm's cells ignore the lift because UV overlay decided them.
+    static Fin<SurfaceResult> Lift(NurbsForm.Surface surface, Arr<Point2d> uv, Func<Point3d[], (int A, int B, int C)[]> cells, Context model, Op key) {
+        Point3d[] points = new Point3d[uv.Count];
+        for (int i = 0; i < uv.Count; i++) { points[i] = surface.PointAt(uv[i].X, uv[i].Y); }
+        using MeshEdit arena = MeshEdit.Of(points, cells(points), model);
+        return arena.ToSpace(key).Map(space => (SurfaceResult)new SurfaceResult.UvTessellation(surface, space, uv));
+    }
 
     // --- [ISOLINES]
-    static Fin<SurfaceResult> IsolinesOf(SurfaceOp.Isolines op, Op? key) =>
+    static Fin<SurfaceResult> IsolinesOf(SurfaceOp.Isolines op) =>
         IsoRows(op.Surface, op.Rule).Bind(rows =>
             rows.U.TraverseM(u => op.Surface.IsoCurve(u, ParametricDirection.U)).As().Bind(uCurves =>
                 rows.V.TraverseM(v => op.Surface.IsoCurve(v, ParametricDirection.V)).As().Map(vCurves =>
@@ -189,69 +174,85 @@ public static class Surfaces {
     static Fin<(Arr<double> U, Arr<double> V)> IsoRows(NurbsForm.Surface surface, IsolineRule rule);     // Even lattice · interior knots off KnotsU/KnotsV · explicit rows, domain-gated
 
     // --- [GEODESICS]
-    // Contour march: ONE lerp weight interpolates world AND uv, so the pullback is the tessellation's own provenance; a ClosestParameter re-projection answers differently near cut loci.
-    static Fin<SurfaceResult> GeodesicsOf(SurfaceOp.Geodesics op, Op? key) =>
+    // ONE lerp weight interpolates world AND uv — a ClosestParameter re-projection answers differently near cut loci.
+    static Fin<SurfaceResult> GeodesicsOf(SurfaceOp.Geodesics op, Op key) =>
         !op.Plan.IsValid
-            ? Fault<SurfaceResult>(ParametricStage.Evaluation, nameof(GeodesicPlan), "empty sources or non-positive level")
+            ? Fault<SurfaceResult>(ParametricStage.Evaluation, ParametricCarrier.Geodesic, "empty sources or non-positive level")
             : VertexDistances(op.Source, op.Plan, key).Map(distances =>
                 (SurfaceResult)ChainContours(op.Source, distances, op.Plan));
 
-    static Fin<Arr<double>> VertexDistances(SurfaceResult.UvTessellation source, GeodesicPlan plan, Op? key);  // heat: GeodesicKernel.EnsureGeodesicDistances · exact: PropagateWindows min-fold, +∞ unreached kept
+    static Fin<Arr<double>> VertexDistances(SurfaceResult.UvTessellation source, GeodesicPlan plan, Op key);  // heat: GeodesicKernel.EnsureGeodesicDistances · exact: PropagateWindows min-fold, +∞ unreached kept
     static SurfaceResult.GeodesicField ChainContours(SurfaceResult.UvTessellation source, Arr<double> distances, GeodesicPlan plan);
 
     // --- [NORMAL_OFFSET]
     // curve.md's ONE Refine.Fold drives this lane's seed/probe/densify arms; a page-local copy of the bounded fold is the deleted twin.
-    static Fin<SurfaceResult> NormalOffsetOf(SurfaceOp.NormalOffset op, Op? key) =>
+    static Fin<SurfaceResult> NormalOffsetOf(SurfaceOp.NormalOffset op, Op key) =>
         Refine.Fold(
             op.Refine, GrevilleGrid(op.Surface),
             fit: (grid, round) => OffsetFit(op, grid, round, key),
             densify: Densified,
-            unconverged: deviation => new GeometryFault.ParametricFault(ParametricStage.Construction, nameof(NurbsForm.Surface), $"normal offset unconverged at deviation {deviation}").ToError())
+            unconverged: deviation => new GeometryFault.ParametricFault(ParametricStage.Construction, ParametricCarrier.Surface, $"normal offset unconverged at deviation {deviation}"))
         .Map(final => (SurfaceResult)new SurfaceResult.Offsets(final.Fit, final.Receipt));
 
     static Arr<Point2d> GrevilleGrid(NurbsForm.Surface surface);                                          // γ rows off KnotsU × KnotsV
-    static Fin<RefineRound<NurbsForm.Surface, Point2d>> OffsetFit(SurfaceOp.NormalOffset op, Arr<Point2d> grid, int round, Op? key); // NormalAt displacement (degenerate normal → Evaluation fault) → Nurbs.Of(SurfaceThrough) G5 refit → probes against the exact locus S + d·N̂
+    static Fin<RefineRound<NurbsForm.Surface, Point2d>> OffsetFit(SurfaceOp.NormalOffset op, Arr<Point2d> grid, int round, Op key); // NormalAt displacement (degenerate normal → Evaluation fault) → Nurbs.Of(SurfaceThrough) G5 refit → probes against the exact locus S + d·N̂
     static Arr<Point2d> Densified(Arr<Point2d> grid, Arr<Point2d> breaching);
 
     // --- [CURVATURE_SAMPLE]
-    // Quadrature never sees a Fin rail — the area integrand is total by construction.
-    static Fin<SurfaceResult> CurvatureOf(SurfaceOp.CurvatureSample op, Op? key) {
-        double area = Integrate.OnRectangle(
-            (u, v) => {
-                Vector3d[][] skl = op.Surface.RationalDerivatives(u, v, 1);
-                return Vector3d.CrossProduct(skl[1][0], skl[0][1]).Length;
-            },
-            0.0, 1.0, 0.0, 1.0, (op.Policy ?? NurbsPolicy.Canonical).GaussOrder);
-        return SweepCurvature(op, area);
+    // Area integrand is total by construction, so nothing on the rail enters it; the funnel still gates the
+    // weighted sum on finiteness because a rank-deficient patch drives |Su×Sv| to zero and the receipt says so.
+    static Fin<SurfaceResult> CurvatureOf(SurfaceOp.CurvatureSample op, Op key) {
+        NurbsPolicy policy = op.Policy.IfNone(noneValue: NurbsPolicy.Canonical);
+        return Quadrature.Integrate(
+                new IntegrationDomain.Rectangle(
+                    F: (u, v) => {
+                        Vector3d[][] skl = op.Surface.RationalDerivatives(u, v);
+                        return Vector3d.CrossProduct(skl[1][0], skl[0][1]).Length;
+                    },
+                    X: new IntervalSpec(Lower: 0.0, Upper: 1.0),
+                    Y: new IntervalSpec(Lower: 0.0, Upper: 1.0),
+                    Order: policy.GaussOrder.Value),
+                // The tensor product carries no error estimate of its own, so the area lane opts out of the
+                // witness gate EXPLICITLY — the finiteness gate and the skip budget still adjudicate.
+                control: Some(QuadratureControl.Default with { RequireErrorWitness = false }),
+                key: key)
+            .Bind(area => SweepCurvature(op, area.Value, key));
     }
 
-    static Fin<SurfaceResult> SweepCurvature(SurfaceOp.CurvatureSample op, double area);                  // CurvatureAt per node; survivors fill the SoA columns, pole refusals count; K1Band/K2Band = FieldExtrema.Of over the survivor planes before the Arr wrap
+    // CurvatureAt per node; survivors fill the SoA columns and pole refusals count; K1Band/K2Band are
+    // Stat<Scalar>.Of over the survivor planes, the ONE moment owner's span leg.
+    static Fin<SurfaceResult> SweepCurvature(SurfaceOp.CurvatureSample op, double area, Op key);
 
     // --- [PULLBACK]
-    // kd-tree amortizes SEEDING, the engine owns PROJECTION; a local Newton beside the engine member is the named parallel-projector defect.
-    static Fin<SurfaceResult> PullbackOf(SurfaceOp.Pullback op, Op? key) =>
-        op.Probes.Count < op.Policy.DenseFloor
-            ? op.Probes.TraverseM(probe => op.Surface.ClosestParameter(probe, op.Policy.Projection)).As()
-                .Map(uv => Emit(op, new Arr<(double U, double V)>([.. uv])))
-            : DensePullback(op, key);
+    // The neighbor index amortizes SEEDING, the engine owns PROJECTION; a local Newton beside it is the
+    // parallel-projector defect. ONE projection body serves both densities — seeding is a policy read, not a fork.
+    static Fin<SurfaceResult> PullbackOf(SurfaceOp.Pullback op, Op key) =>
+        Seeds(op, key)
+            .Bind(seeds => op.Probes
+                .Zip(seeds, static (probe, seed) => (Probe: probe, Seed: seed))
+                .TraverseM(row => op.Surface.ClosestParameter(row.Probe, Some(op.Policy.Projection), row.Seed, key)).As())
+            .Map(uv => Emit(op, new Arr<(double U, double V)>([.. uv])));
 
-    static Fin<SurfaceResult> DensePullback(SurfaceOp.Pullback op, Op? key) {
+    // Below the dense floor every probe seeds None and the engine brackets by its own sampled polygon. Above it the
+    // seed grid is a FROZEN cloud under repeated exact kNN — the neighbors.md Static kd-tree species — and ONE batch
+    // answers every probe; an empty neighborhood degrades to an unseeded projection rather than throwing.
+    static Fin<Arr<Option<(double U, double V)>>> Seeds(SurfaceOp.Pullback op, Op key) {
+        if (op.Probes.Count < op.Policy.DenseFloor.Value) {
+            return Fin.Succ(new Arr<Option<(double U, double V)>>([.. op.Probes.Map(static _ => Option<(double U, double V)>.None)]));
+        }
         (Point3d[] seeds, Point2d[] seedUv) = SeedGrid(op.Surface, op.Policy);
-        KDTree<double, double, Point2d> tree = KDTree.Create(
-            [.. seeds.Select(static p => (IReadOnlyList<double>)[p.X, p.Y, p.Z])],
-            seedUv, DistanceMetrics.EuclideanDistance);
-        return op.Probes.TraverseM(probe =>
-                tree.NearestNeighbors([probe.X, probe.Y, probe.Z], 1).First() switch {
-                    (_, Point2d seed) => op.Surface.ClosestParameter(probe, op.Policy.Projection, Some((seed.X, seed.Y))),
-                })
-            .As().Map(uv => Emit(op, new Arr<(double U, double V)>([.. uv])));
+        return NeighborIndex.Of(source: new NeighborSource.StaticCase(Values: toSeq(seeds)), key: key)
+            .Bind(index => NeighborKernel.GraphOf(
+                index: index, needles: [.. op.Probes], count: Some(1), radius: Option<double>.None, key: key))
+            .Map(graph => new Arr<Option<(double U, double V)>>([.. graph.Ids.Select(hits =>
+                hits.Length > 0 ? Some((seedUv[hits[0]].X, seedUv[hits[0]].Y)) : Option<(double U, double V)>.None)]));
     }
 
     static (Point3d[] Seeds, Point2d[] SeedUv) SeedGrid(NurbsForm.Surface surface, PullbackPolicy policy);
     static SurfaceResult Emit(SurfaceOp.Pullback op, Arr<(double U, double V)> uv);                       // feet = PointAt(u,v); distances = |probe − foot|
 
-    static Fin<T> Fault<T>(ParametricStage stage, string carrier, string witness) =>
-        Fin.Fail<T>(new GeometryFault.ParametricFault(stage, carrier, witness).ToError());
+    static Fin<T> Fault<T>(ParametricStage stage, ParametricCarrier carrier, string witness) =>
+        Fin.Fail<T>(new GeometryFault.ParametricFault(stage, carrier, witness));
 }
 ```
 
@@ -271,10 +272,10 @@ flowchart LR
     UvT -->|"tier input law"| Consumers["develop.md · panelize.md · patternmap.md"]
     UvT -->|"heat EnsureGeodesicDistances / exact PropagateWindows"| Contours["GeodesicField — UV-domain polylines"]
     Engine -->|"Greville + NormalAt → SurfaceThrough G5 refit"| Offsets["Offsets — REAL NURBS + RefineReceipt"]
-    Engine -->|"CurvatureAt sweep + OnRectangle area"| Field["CurvatureField SoA"]
-    Engine -->|"kd-tree seed → seeded ClosestParameter"| Pulled
+    Engine -->|"CurvatureAt sweep + Rectangle cubature"| Field["CurvatureField SoA + Stat&lt;Scalar&gt; bands"]
+    Engine -->|"NeighborIndex batch seed → seeded ClosestParameter"| Pulled
     Engine -->|"ToEncodeForm — 2 Directions U/V"| Identity["reconciliation EncodeForm.Parametric"]
-    Op -.->|"2448 Construction / Evaluation"| GeometryFault
+    Op -.->|"ParametricFault — Construction / Evaluation"| GeometryFault
 ```
 
 ## [03]-[DENSITY_BAR]

@@ -6,7 +6,7 @@ Composition facts arrive settled: appearance keys resolve through `system/token#
 
 ## [01]-[INDEX]
 
-- [02]-[BLOCK_ROSTER]: `Content.roster` derives all four artifacts from the `Content.Block` row contract, with the migration lattice and the stored-doc quarantine; `Content`, `ContentFault`.
+- [02]-[BLOCK_ROSTER]: `Content.roster` derives all four artifacts from the `Content.Block` row contract, with the migration lattice and the stored-doc quarantine; `Content`, `ContentFault`, `ContentCensus`.
 - [03]-[PROSE_PLANE]: `Content.registers` bridges the typography plugin, with the `not-prose` boundary and the type-hierarchy recipe; `Content`.
 - [04]-[EDITOR_HOST]: `Content.mount` scopes the `EditorView` acquisition, the plugin value roster, the paste gate, and the command roster; `Content`.
 - [05]-[COLLAB_LANE]: `Content.collab` drives the `Sequencer` port — send/receive trip, generation pinning, draft persistence; `Content`, `Sequencer`.
@@ -34,31 +34,84 @@ import { addListNodes } from "prosemirror-schema-list"
 const _planes = ["node", "mark"] as const
 const _steps = ["authored", "decoded"] as const
 
+// Four legs partition the plane and each reason renders its OWN subject, because the operator act differs per leg:
+// a roster refusal names the plane and the row it condemns, a migration gap states the two ordinals that disagree,
+// a generation skew states both joins side by side, and an ingress or decode refusal names the payload's cause.
+// One free `detail` string spelled all six, so a version bump missing its upcast and a duplicate kind read alike.
 const _family = Fault.Class.family(
   ["roster-invalid", "migration-gap", "generation-skew", "ingress-refused", "decode-refused", "sequencer-lost"] as const,
   {
-    "roster-invalid": { class: "invalid" },
-    "migration-gap": { class: "invalid" },
-    "generation-skew": { class: "conflicted" },
-    "ingress-refused": { class: "malformed" },
-    "decode-refused": { class: "malformed" },
-    "sequencer-lost": { class: "unavailable" },
+    "roster-invalid": Fault.Class.row({
+      class: "invalid",
+      leg: "roster",
+      detail: Schema.Struct({ plane: Schema.Literal(..._planes), kind: Schema.String, cause: Schema.String }),
+      render: ({ cause, kind, plane }) => `${plane} row ${kind} refused: ${cause}`,
+    }),
+    // The gap is ARITHMETIC, so the row states both ordinals: a reader repairs the chain without re-deriving the
+    // count from a sentence, and the `length === version - 1` law is legible in the refusal it produces.
+    "migration-gap": Fault.Class.row({
+      class: "invalid",
+      leg: "roster",
+      detail: Schema.Struct({
+        plane: Schema.Literal(..._planes),
+        kind: Schema.String,
+        version: Schema.Int,
+        ups: Schema.Int,
+      }),
+      render: ({ kind, plane, ups, version }) =>
+        `${plane} row ${kind}@v${version} declares ${ups} upcasts where ${version - 1} close the chain`,
+    }),
+    "generation-skew": Fault.Class.row({
+      class: "conflicted",
+      leg: "generation",
+      detail: Schema.Struct({ compiled: Schema.String, pinned: Schema.String }),
+      render: ({ compiled, pinned }) => `sequencer pins generation ${pinned}, this roster compiles ${compiled}`,
+    }),
+    "ingress-refused": Fault.Class.row({
+      class: "malformed",
+      leg: "ingress",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `document exceeded the ingress ceiling: ${cause}`,
+    }),
+    "decode-refused": Fault.Class.row({
+      class: "malformed",
+      leg: "decode",
+      detail: Schema.Struct({ kind: Schema.String }),
+      render: ({ kind }) => `wire document names block ${kind}, which this roster declares no row for`,
+    }),
+    "sequencer-lost": Fault.Class.row({
+      class: "unavailable",
+      leg: "sequencer",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `sequencer port did not answer: ${cause}`,
+    }),
   },
 )
 
+declare namespace ContentFault {
+  type Case = typeof _family.payload.Type
+  type Reason = (typeof _family.kinds)[number]
+}
+
 class ContentFault extends Schema.TaggedError<ContentFault>()("ContentFault", {
-  reason: _family.schema,
-  kind: Schema.optionalWith(Schema.String, { as: "Option" }), // the refusing row or node kind: routing evidence, never the discriminant
-  detail: Schema.String,
+  case: _family.payload,
 }) {
-  static readonly roster: typeof _family.reasons = _family.reasons
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _family.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<content:${this.reason}> ${this.detail}`
+    return _family.render(this.case)
   }
 }
+
+// The roster gate admits every row INDEPENDENTLY — a duplicate kind decides nothing about a sibling's upcast chain
+// — so it censuses every offending row in one refusal and an author repairs the whole registration in one pass
+// rather than one round trip per row. Every other reason is a single verdict and keeps the plain carrier.
+const ContentCensus = _family.census("ContentCensus")
+type ContentCensus = InstanceType<typeof ContentCensus>
 
 declare namespace Content {
   type Plane = (typeof _planes)[number]
@@ -120,7 +173,7 @@ const _generation = (rows: ReadonlyArray<Content.Block>): string =>
 
 declare const _roster: (
   rows: Array.NonEmptyReadonlyArray<Content.Block>,
-) => Either.Either<Content.Compiled, ContentFault>
+) => Either.Either<Content.Compiled, ContentCensus>
 
 declare const _core: Array.NonEmptyReadonlyArray<Content.Block> // paragraph, heading, blockquote, codeBlock, rule, hardBreak + addListNodes fold + emphasis/strong/link/code/thread marks
 ```
@@ -456,7 +509,7 @@ const Content: Content.Shape = {
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Content, ContentFault, Sequencer }
+export { Content, ContentCensus, ContentFault, Sequencer }
 ```
 
 ## [07]-[RESEARCH]

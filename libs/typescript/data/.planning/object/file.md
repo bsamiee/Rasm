@@ -65,7 +65,7 @@ const _sealed = (path: string) =>
     const fs = yield* FileSystem.FileSystem
     const store = yield* ObjectStore
     const flow = fs.stream(path).pipe(
-      Stream.mapError((fault) => new ObjectFault({ reason: "io", key: path, detail: fault.message })),
+      Stream.mapError((fault) => new ObjectFault({ case: { reason: "io", key: path, detail: fault.message } })),
     )
     const identity = yield* Rail.identity(Rail.chunked(flow, Rail.cut))
     const landed = yield* store.putKeyed(
@@ -80,7 +80,7 @@ const _intake = (path: string, retention: Retain.Class, owner?: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const store = yield* ObjectStore
-    const held = yield* Effect.mapError(fs.stat(path), (fault) => new ObjectFault({ reason: "io", key: path, detail: fault.message }))
+    const held = yield* Effect.mapError(fs.stat(path), (fault) => new ObjectFault({ case: { reason: "io", key: path, detail: fault.message } }))
     // Caller-declared owners arrive UNTRUSTED: each decodes through the object namespace and the minted-below prefixes
     // refuse, so an intake cannot attribute bytes to a subject's custody scan; an undeclared one takes the file
     // plane's own row mint, whose encoder is what keeps a path bearing `:` from re-splitting the coordinate.
@@ -117,10 +117,10 @@ const _watch = (dir: string, retention: Retain.Class, options?: Disk.WatchOption
           .on("all", (event, path) => {
             if (event === "add" || event === "change") emit.single(path)
           })
-          .on("error", (cause) => emit.fail(new ObjectFault({ reason: "io", key: dir, detail: String(cause) })))),
+          .on("error", (cause) => emit.fail(new ObjectFault({ case: { reason: "io", key: dir, detail: String(cause) } })))),
       (watcher) => Effect.orDie(Effect.tryPromise({
         try: () => watcher.close(),
-        catch: (cause) => new ObjectFault({ reason: "io", key: dir, detail: String(cause) }),
+        catch: (cause) => new ObjectFault({ case: { reason: "io", key: dir, detail: String(cause) } }),
       })),
     ).pipe(Effect.withSpan("data.watch", { attributes: { dir } })), // the registration bracket is the watcher's whole lifetime: one span per live drop directory
   ).pipe(
@@ -182,7 +182,7 @@ const _governed = (
         : capability?.output.file === true && Array.contains(_PYRAMID, spec.format)
       return emits === true
         ? Effect.void
-        : Effect.fail(new DeriveFault({ stage: "gate", key: spec.name, detail: spec.format }))
+        : Effect.fail(new DeriveFault({ case: { reason: "gate", key: spec.name, detail: spec.format } }))
     }, { discard: true }),
   )
 ```
@@ -218,6 +218,7 @@ import { Option } from "effect"
 import { Wire } from "@rasm/ts/core"
 
 declare namespace Derive {
+  type Reason = (typeof _family.kinds)[number] // the spine's stage roster, closed by the fault family that names it
   type Row = { readonly name: string; readonly retention: Retain.Class; readonly grant?: ObjectStore.GrantPolicy }
   type Product<R extends Row, I> = { readonly row: R; readonly key: Digest.Key<"content">; readonly evidence: I }
   type Plane<R extends Row, Facts, Handle, Evidence, E, Env> = {
@@ -310,7 +311,7 @@ declare namespace Derive {
 
 ## [05]-[FANOUT]
 
-- Owner: `Derive.fanout(plane, sourceKey, rows)` — the ONE spine: verified fetch, plane-owned open and facts, row admission, plane-owned emit, then per-product source-owned reference and policy-gated grant; `Derive.raster` is this page's category plane, packaging gated decode, row-cloned encode, channel assembly, derivative mint, and conditional re-put behind the plane contract with stage-discriminated `DeriveFault`, and `Derive.probe` is the same decode read as the census the category plane's raster admission arm votes on.
+- Owner: `Derive.fanout(plane, sourceKey, rows)` — the ONE spine: verified fetch, plane-owned open and facts, row admission, plane-owned emit, then per-product source-owned reference and policy-gated grant; `Derive.raster` is this page's category plane, packaging gated decode, row-cloned encode, channel assembly, derivative mint, and conditional re-put behind the plane contract with reason-discriminated `DeriveFault`, and `Derive.probe` is the same decode read as the census the category plane's raster admission arm votes on.
 - Packages: `sharp`, `effect`, `ObjectStore`, and core `Digest`, `Fault`, and `Convention` supply the derivative plane.
 - Entry: `Asset.pipe(sourceKey, rows)` after an image lands (an intake receipt, an upload finalize) — the raster rows travel the same array as the container and `ktx` rows, so a caller mixing a thumbnail rendition with a KTX2 encode states one row array and reads one receipt array; re-running is a proven noop end to end because every re-put lands 412 and every grant re-mints against the same keys.
 - Receipt: one `Derive.Receipt` per row; the batch's span carries source key, row count, and total encode span.
@@ -321,7 +322,8 @@ declare namespace Derive {
 - Law: the delivered-plane census is this page's read, never the category plane's — `Derive.probe` opens the gated decode and projects `Metadata` into `Derive.Probe`, so `object/asset.md`'s raster admission arm proves a declared codec and extent through the ONE libvips composer and imports no image library; probe and fan-out share the same decode and metadata legs, so a category gate and a derivative run can never drift on ingress options or deadline.
 - Law: derivative identity is the core mint over the ENCODED bytes — each derivative is a first-class object with its own key, its own reference row minted at the store's `derivative` owner row (whose `cascade` role is what the sweep executes when the source reclaims), and the grant its row's policy asked for; the tile arm stages its pyramid container to a scoped temp path and lands it through `Disk.seal`, taking its reference row from this tail alone; sharp owns codec work only, never addressing or idempotency.
 - Law: the row correlates its codec at the DECLARATION and the encode seam takes sharp's own union — one annotated projection folds the grade substitution into `Parameters<Sharp["toFormat"]>[1]`, so a row's stated options stay type-correlated where a caller writes them and the seam needs no cast where it consumes them.
-- Law: `DeriveFault` closes gate, fetch, decode, encode, persist, and grant through `Fault.Class.family` with structured coordinates.
+- Law: `DeriveFault` closes gate, fetch, decode, encode, persist, and grant through `Fault.Class.family`, each reason declaring its own subject and rendering its own sentence; the raise carries ONE `case` payload, so a free `detail` field and a hand-written message template both delete at the class.
+- Law: legs partition the census by the surface that DECIDES — the codec gate, the native engine, and the engine-blind tail — so a refusal names its seam without re-deriving it from the stage.
 - Law: recovery derives from `Fault.Class`; invalid or malformed work quarantines, while unavailable boundary work re-drives.
 - Law: `Derive.pressure` SETS the plane's saturation gauges — one `sharp.counters()` read writes `derivativeQueued` from `queue` and `derivativeActive` from `process` through the mounted convention rows, so the maintenance and doctor surfaces sample one owner instead of re-projecting a raw record into series names of their own; the derivative fan-out is the process's native-saturation hotspot, and a producer-side spelling that returns the record leaves both declared rows minted nowhere while a board query already reads them.
 
@@ -331,30 +333,67 @@ import { Convention, Fault } from "@rasm/ts/core"
 import { GetObjectCommand } from "@aws-sdk/client-s3"
 import type { Sharp, Stats } from "sharp"
 
-// One row per stage: retryability, blame, and quarantine remain owned by the selected Fault.Class row.
-// table's — a rank or retry column here would fork that taxonomy into this folder.
+// Every reason names ONE stage of the spine and carries the coordinate that stage held, so the subject is the record
+// every row shares and each row renders the sentence its stage means — a free `detail` field standing alone on the
+// raise re-opens the axis `reason` already closes and leaves the message hand-templated at the class. Retryability,
+// blame, and quarantine stay the core Fault.Class row table's, so no rank or retry column rides here. Legs partition
+// by the surface that DECIDES: the codec gate votes rows before any native decode, the engine owns the two native
+// legs, and the engine-blind tail owns fetch, persist, and grant.
+const _Subject = Schema.Struct({ key: Schema.String, detail: Schema.String })
+
 const _family = Fault.Class.family(["gate", "fetch", "decode", "encode", "persist", "grant"] as const, {
-  gate: { class: "invalid" },
-  fetch: { class: "unavailable" },
-  decode: { class: "malformed" },
-  encode: { class: "unavailable" },
-  persist: { class: "unavailable" },
-  grant: { class: "unavailable" },
+  gate: Fault.Class.row({
+    class: "invalid",
+    leg: "gate",
+    detail: _Subject,
+    render: ({ key, detail }) => `rendition ${key} names codec ${detail}, which this build cannot emit`,
+  }),
+  fetch: Fault.Class.row({
+    class: "unavailable",
+    leg: "spine",
+    detail: _Subject,
+    render: ({ key, detail }) => `${key} did not reach the source bytes — ${detail}`,
+  }),
+  decode: Fault.Class.row({
+    class: "malformed",
+    leg: "engine",
+    detail: _Subject,
+    render: ({ key, detail }) => `${key} refused the gated decode — ${detail}`,
+  }),
+  encode: Fault.Class.row({
+    class: "unavailable",
+    leg: "engine",
+    detail: _Subject,
+    render: ({ key, detail }) => `${key} refused the encode — ${detail}`,
+  }),
+  persist: Fault.Class.row({
+    class: "unavailable",
+    leg: "spine",
+    detail: _Subject,
+    render: ({ key, detail }) => `${key} encoded but did not land — ${detail}`,
+  }),
+  grant: Fault.Class.row({
+    class: "unavailable",
+    leg: "spine",
+    detail: _Subject,
+    render: ({ key, detail }) => `${key} landed but minted no grant — ${detail}`,
+  }),
 })
 
 class DeriveFault extends Schema.TaggedError<DeriveFault>()("DeriveFault", {
-  stage: _family.schema,
-  key: Schema.String,
-  detail: Schema.String,
+  case: _family.payload,
 }) {
-  static at(stage: DeriveFault["stage"], key: string): (fault: unknown) => DeriveFault {
-    return (fault) => new DeriveFault({ stage, key, detail: String(fault) })
+  static at(reason: Derive.Reason, key: string): (fault: unknown) => DeriveFault {
+    return (fault) => new DeriveFault({ case: { reason, key, detail: String(fault) } })
   }
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.stage)
+    return _family.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _family.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<derive:${this.stage}> ${this.key}: ${this.detail}`
+    return _family.render(this.case)
   }
 }
 

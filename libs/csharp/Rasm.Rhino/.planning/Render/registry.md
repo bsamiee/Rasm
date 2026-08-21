@@ -1,35 +1,43 @@
 # [RASM_RHINO_RENDER_REGISTRY]
 
-`ContentUuidCatalog` owns built-in type, instance, and CCI seed data, `ContentSerializer` owns explicit read transfer and multi-load reporting, and `Registry.Run` closes registration and mutation. `Registry.Read` preserves typed query correlation, icons retain bitmap custody across every verified icon modality, and static content events fold into detached facts with no live `RenderContent` escape.
+`ContentUuidCatalog` owns built-in type, instance, and CCI seed data, `ContentSerializer` owns explicit read transfer and multi-load reporting, and `Registry.Run` closes registration and mutation. `Registry.Read` preserves typed query correlation, icons retain bitmap custody across every verified icon modality, and static content events fold into detached facts with no live `RenderContent` escape. Every consequence this page publishes rides the Document spine's fact stream, every bounded journal is the kernel ring, and every refusal codes on the Display page's `RenderFault` family.
 
 ## [01]-[INDEX]
 
 - [02]-[FACTORY_REGISTRY]: `ContentTypeInfo`, plug-in registration, the `ContentSerializer` adapter, the `ShellRow`/`RenderShell` render-editor seating, and the `EditorBridge` payload seam.
 - [03]-[OPERATION_FAMILY]: `ContentAdmission`, `ContentMutation`, and identity-discriminated `ContentOp` dispatch.
 - [04]-[COMMIT_AND_QUERY]: `ContentTransaction`, typed query programs, and the `Registry` rails.
-- [05]-[RECEIPTS]: `ContentSlot`, `ContentBody`, and the `ContentReceipt` monoid.
+- [05]-[RECEIPTS]: `ContentBodyKind`, `ContentSlot`, `ContentBody`, and the `ContentReceipt` instantiation of the spine's stream.
 - [06]-[EVENTS]: `ContentPulse`, `ContentSignal`, `ContentFact`, and the `ContentStream` observation capsule.
 - [07]-[SURFACE_LEDGER]: page owner table.
 
 ## [02]-[FACTORY_REGISTRY]
 
 - Owner: `ContentUuidCatalog` projects every public static `Guid` property and field on `ContentUuids` into one slot roster, derives kind and role from its fail-closed naming grammar, and refuses an empty census and a duplicate seed id so `Find` only ever reads a validated census; `ContentTypeInfo` detaches registered factory descriptors; `ContentTypeCensus` returns both tiers without confusing type, default-instance, or CCI identifiers.
-- Owner: `SerializerProgram` admits a generated extension, content kind, optional single-file programs, typed multi-load reports, and a `RetentionPolicy`; `ContentSerializer` adapts the host, folding every failure into one `RetentionPolicy`-bounded `FailureLedger` that surfaces typed `RetentionOverflow` evidence.
-- Owner: `RetentionPolicy` admits a non-default `Dimension`, carries the parameterized capacity, and owns eviction; `FailureLedger<T>` folds an admission into a retained `Seq<T>` plus a `RetentionOverflow` count-and-fault accumulator, returning evicted rows for release. Serializer and event-stream ledgers ride it, so bounded custody drops resources but never diagnostics.
+- Owner: `SerializerProgram` admits a generated extension, content kind, optional single-file programs, typed multi-load reports, and a journal cap; `ContentSerializer` adapts the host, parking every failure in one bounded `Ring<SerializerFailure>`.
+- Owner: `RenderShellProgram` admits the panel and side-pane-tab declaration set once; `ShellGate` is the process-static arming state the host's two registration callbacks step through; `RenderShell` drains it and `ShellRow` closes the panel and tab row shapes over their host registrars.
+- Law: identity is TYPED at every boundary — a plug-in is a `PluginKey`, a content or object address is a `ResourceId`, and a write target is a `DocumentPath`. Raw `Guid` parameters carried the branch's plug-in identity through four signatures where the ruled owner exists, so an empty guid reached a host registrar and the refusal it produced named no address.
 - Law: serializer reads accept only `ContentTransfer` over `Lease<RenderContent>.Owned`; `Take` transfers custody exactly once, and no borrowed lease can masquerade as host-owned output.
 - Law: `SerializerDisposition` dispatches to `ReportContentAndFile` or `ReportDeferredContentAndFile`; load policy and kind cross generated correspondence owners before the program runs. A multi-load drains every report — a failed emit never strands later reports undisposed — and a content the host report refuses after `Take` is disposed before the fault leaves.
-- Owner: `RenderShellProgram` admits the panel and side-pane-tab declaration set once; `RenderShell` is the process-static one-shot arming cell the host's two registration callbacks drain, and `ShellRow` closes the panel and tab row shapes over their host registrars.
+- Law: the failure journal IS the kernel bounded ring. A cap, oldest-first eviction, and a drop counter were a page-local retention policy, ledger, and overflow triple that three sibling pages composed; `Ring<T>` is that shape once for the estate, its `Park` verdict is COUNTED rather than discarded, and a declined park reads as `Lost`. NAMED LOSS: the accumulated `Error` over every dropped row; that accumulator grew without bound beside a capped roster, so the cap now bounds what it claimed to.
 - Law: plug-in classes, serializers, and the render-shell declaration set register through `Registry.Run`; registration returns typed evidence and rejects missing assemblies, serializers, plug-in identities, or an undecorated row type.
 - Law: a shell row is keyed by its own `GuidAttribute`-decorated `Type` — the host reads that attribute as the registration key and throws on an undecorated type, so `ShellRow` proves the attribute at admission and the registrar call never sees an unkeyed row.
-- Law: shell registration is one-shot and host-driven, never caller-timed — `RenderPlugIn.RegisterRenderPanels`/`RegisterRenderTabs` hand the registrars in and every row registered after those callbacks return is silently ignored, so `Registry.Run` only ARMS the declaration and `RenderShell.Drain` inside each override is what registers; a second arming after a drain refuses rather than seating rows the host will discard.
+- Law: shell registration is one-shot and host-driven, never caller-timed — `RenderPlugIn.RegisterRenderPanels`/`RegisterRenderTabs` hand the registrars in and every row registered after those callbacks return is silently ignored, so `Registry.Run` only ARMS the declaration and `RenderShell.Drain` inside each override is what registers.
+- Law: arming and draining are ONE cell. Two independent atoms held "a program is armed" and "a drain has happened", so a check-then-act arm seated a program between the check and the swap, and the first surface's drain locked the second surface out of arming while claiming nothing about which surface had been seated. `ShellGate` carries the program beside the `CapabilitySet<ShellSurface>` already drained, one `Cell.Step` decides each transition, and the second surface's callback drains its own rows while a repeat of the same surface refuses.
+- Law: a drain CLAIMS its surface before it seats. The host discards every row registered after the callback returns, so a failed seat cannot be retried and a claim released on failure invites only a second attempt the host ignores; the claim standing is the truthful record that this surface's one chance was spent.
+- Law: `ShellSeated` names the surface it drained. The prior pair of counts published a zero for the surface this drain never touched, indistinguishable from a surface that drained no rows.
 - Law: `RenderPanels.RegisterPanel` and `RenderTabs.RegisterTab` are instance members on host-minted registrars with internal constructors, so no page mints one — `ShellRegistrar` absorbs whichever instance the override was handed and nothing else.
-- Law: registration composes only the engine-carrying overloads — the engine-less pair is host-obsolete and forwards the plug-in id, the place-less panel form forwards `Left`, so `ShellRow.Seat` resolves both defaults and issues exactly one registrar call per row.
-- Law: a seated row is resolvable — `RenderShell.Resolve<TBody>` folds the two static `FromRenderSessionId` resolvers and the side-pane id behind the armed row that owns `TBody`. The host declares TWO tab-id members and they carry ONE fact: `SessionIdFromTab`'s entire body is `return SidePaneUiIdFromTab(tab);`, so `ShellSeat<TBody>` holds one `Option<Guid>` — a second field would mirror the identical value under a second name — and a panel seat carries none.
-- Boundary: the host also discovers serializers through `RenderPlugIn.RenderContentSerializers()` and the shell registrars through its two register overrides; the adapter shape is this page's, the plug-in overrides that forward them are the plug-in's.
+- Law: registration composes only the engine-carrying overloads — the engine-less pair is host-obsolete and forwards the plug-in id, the place-less panel form forwards `Left`, so `ShellRow.Seat` resolves both defaults at admission and issues exactly one registrar call per row.
+- Law: a seated row is resolvable — `RenderShell.Resolve<TBody>` folds the two static `FromRenderSessionId` resolvers and the side-pane id behind the armed row that owns `TBody`. The host declares TWO tab-id members and they carry ONE fact: `SessionIdFromTab`'s entire body is `return SidePaneUiIdFromTab(tab);`, so `ShellSeat<TBody>` holds one `Option<Guid>` — a second field mirrors the identical value under a second name — and a panel seat carries none.
 - Law: `RhinoSettings` has one public constructor and it takes a native pointer, so the render-editor bridge is never minted here — `EditorBridge` wraps the `IRdkViewModel` the host hands a UI section and vends each payload by its `DataSource.ProviderIds` row, committing or discarding a write by that same id. `Registry.Read` borrows the settings payload for one callback and detaches `EditorFacts`; the live wrapper never crosses out.
-- Law: the native behind an editor payload is always the host's; only the managed wrapper's finalizer registration is the borrow's, so release is an `EditorSlot` column and every current row releases. Host truth: `GetData` resolves each provider id through ONE static id→type dispatch shared by both managed controller families — the settings row vends `Rhino.Render.DataSources.RhinoSettings`, the selection and display rows vend `Rhino.Render.RenderContentCollection` minted through its non-owning `(nint)` constructor — and each wrapper's `Dispose` clears the managed pointer, suppresses the finalizer, and deletes NO native; an id outside the dispatch answers null, never a foreign carrier. A NEW row proves its own payload's disposal body before its release column is set, because a payload family whose wrapper owns its native would be destroyed under the host.
+- Law: an editor intent's two axes are not independent — the host's auto-change bracket opens only on a write handle — so the intent rows carry `CapabilitySet<EditorTrait>` and the three declared rows ARE the whole legal corner set; a bool pair admitted a bracketed read no host call honours.
+- Law: the native behind an editor payload is always the host's; only the managed wrapper's finalizer registration is the borrow's, so release is an `EditorProvider` column and every current row releases. Host truth: `GetData` resolves each provider id through ONE static id-to-type dispatch shared by both managed controller families — the settings row vends `Rhino.Render.DataSources.RhinoSettings`, the selection and display rows vend `Rhino.Render.RenderContentCollection` minted through its non-owning `(nint)` constructor — and each wrapper's `Dispose` clears the managed pointer, suppresses the finalizer, and deletes NO native; an id outside the dispatch answers null, never a foreign carrier. A NEW row proves its own payload's disposal body before its release column is set.
 - Law: `ContentUuidCatalog.Census` is built once and memoized — the ids are process-static host constants, so a `Find` reads the built value instead of re-reflecting the type and re-invoking one native getter per member.
-- Law: the seed grammar is fail-closed on both sides — a member name matching no token and one matching two are equally unclassifiable, each refusal names the member and its match count, and a rename the grammar cannot read fails the WHOLE census rather than answering `None` for a real built-in id; the repair is a token row, never a fallback bucket.
+- Law: the seed grammar is fail-closed on both sides — no match and multiple matches are kernel validation failures carrying the member and match count; a rename the grammar cannot read fails the whole census.
+- Boundary: the host also discovers serializers through `RenderPlugIn.RenderContentSerializers()` and the shell registrars through its two register overrides; the adapter shape is this page's, the plug-in overrides that forward them are the plug-in's.
+- Boundary: serializer seating and its evidence both belong to the plug-in load root, and the seat already exists — `PluginBoot.Mounts` declares a `ShellMount.Hooks` row whose `(PluginKey, Op?) -> Fin<IDisposable>` arity a `RegistryCommand.RegisterSerializer` fold satisfies, and the same row's release is where `Parked`/`Shed`/`Lost` reach the load report. `Plugin/lifecycle.md` now STATES that row as law — the declared Hooks body runs the `RegisterSerializer` fold and its release drains `Parked`/`Shed`/`Lost` into the load report — so the discovery path is the declared row and a registration outside it is the deleted form.
+- Growth: a new serializer route is one `SerializerProgram` column; a new shell surface is one `ShellSurface` row with its `ShellRow` case; a new editor payload is one `EditorProvider` row whose disposal body is proven first.
+- Packages: `api-rhinocommon-rendercontent.md` (`RenderContentType.GetAllAvailableTypes`, `ContentUuids`, `RenderContent.RegisterContent`, `RenderContentSerializer` and its `Read`/`Write`/`CanLoadMultiple`/`LoadMultiple`/`RegisterSerializer`/`ReportContentAndFile`/`ReportDeferredContentAndFile`, `LoadMultipleFlags`); `api-rhinocommon-render-ui.md` (`RenderPanels.RegisterPanel`, `RenderTabs.RegisterTab`, `RenderPanelType`, `ExtraSidePanePosition`, `FromRenderSessionId`, `SidePaneUiIdFromTab`); `api-rhino-ui-controls.md` (`IRdkViewModel.GetData`/`Commit`/`Discard`, `DataSource.ProviderIds`, `RhinoSettings`); `api-rhinocommon-plugins.md` (`PlugIn`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Confirm`, `Op.Side`, `Lease<T>.Acquire`/`Use`, `Cell.Step`, `Transition`), `Domain/hooks` (`Ring<T>`), `Domain/validation` (`ICapability`, `CapabilitySet`, `Op.Row`, `Op.AcceptValidated`); `Display/render.md` (`RenderFault`); `Document/events.md` (`PluginKey`), `Document/tables.md` (`ResourceId`), kernel `Domain/rails` (`Custody`); `Numerics/atoms` (`Dimension`, `Size2i`); LanguageExt.Core; Thinktecture.Runtime.Extensions.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -37,6 +45,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Rasm.Domain;
 using Rasm.Numerics;
+using Rasm.Rhino.Display;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Viewport;
 using Rhino;
@@ -44,19 +53,26 @@ using Rhino.DocObjects;
 using Rhino.PlugIns;
 using Rhino.Render;
 using Rhino.Render.DataSources;
+using Thinktecture;
 
 namespace Rasm.Rhino.Render;
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public sealed record ContentTypeInfo(Guid TypeId, string InternalName, Guid RenderEngineId, Guid PlugInId) : IDetachedDocumentResult {
+public sealed record ContentTypeInfo(
+    ResourceId TypeId, string InternalName, Guid RenderEngineId, PluginKey PlugIn) : IDetachedDocumentResult {
+    // The descriptor's four columns are property reads off ONE foreign value, but two of them project onto
+    // ADMITTED owners whose converters refuse — a generated mapper cannot carry a fallible conversion (RMG001) —
+    // so the projection stays a rail here and Mapperly claims no seam on this page.
     internal static Fin<Seq<ContentTypeInfo>> Census(Op key) =>
-        key.Catch(() => toSeq(RenderContentType.GetAllAvailableTypes()).TraverseM(descriptor => key.Catch(() => {
-            using (descriptor) {
-                return Fin.Succ(value: new ContentTypeInfo(
-                    TypeId: descriptor.Id, InternalName: descriptor.InternalName,
-                    RenderEngineId: descriptor.RenderEngineId, PlugInId: descriptor.PlugInId));
-            }
-        })).As());
+        key.Catch(() => toSeq(RenderContentType.GetAllAvailableTypes()).TraverseM(descriptor =>
+            Lease<RenderContentType>.Acquire(mint: () => descriptor, key: key).Bind(lease => lease.Use(
+                body: held =>
+                    from type in ResourceId.Admit(value: held.Id, key: key)
+                    from plugin in key.AcceptValidated<PluginKey>(held.PlugInId)
+                    from name in key.AcceptText(value: held.InternalName)
+                    select new ContentTypeInfo(
+                        TypeId: type, InternalName: name, RenderEngineId: held.RenderEngineId, PlugIn: plugin),
+                key: key))).As());
 }
 
 [SmartEnum<string>]
@@ -66,36 +82,38 @@ public sealed partial class ContentUuidRole {
     public static readonly ContentUuidRole Cci = new("cci");
 }
 
-public sealed record ContentUuidSeed(string Name, ContentKind Kind, ContentUuidRole Role, Guid Id)
+public sealed record ContentUuidSeed(string Name, ContentKind Kind, ContentUuidRole Role, ResourceId Id)
     : IDetachedDocumentResult;
 
 public static class ContentUuidCatalog {
-    // Every `ContentUuids` id is a process-static host constant over `RhRdkUuids_GetUuid`, so the census is built ONCE
-    // behind a lazy cell and every `Find` reads that value — the unmemoized form re-reflected the type and re-invoked one
-    // native getter per member on each lookup.
+    // Every `ContentUuids` id is a process-static host constant over `RhRdkUuids_GetUuid`, so the census is built
+    // ONCE behind a lazy cell and every `Find` reads that value — the unmemoized form re-reflected the type and
+    // re-invoked one native getter per member on each lookup.
     private static readonly Lazy<Fin<Seq<ContentUuidSeed>>> Seeds = new(
         static () => Build(Op.Of(name: nameof(ContentUuidCatalog))),
         LazyThreadSafetyMode.ExecutionAndPublication);
 
     public static Fin<Seq<ContentUuidSeed>> Census() => Seeds.Value;
 
-    public static Fin<Option<ContentUuidSeed>> Find(Guid id, Op? key = null) {
+    public static Fin<Option<ContentUuidSeed>> Find(ResourceId id, Op? key = null) {
         Op op = key.OrDefault();
-        return from _ in guard(id != Guid.Empty, op.InvalidInput()).ToFin()
+        return from active in op.Need(id)
                from seeds in Census()
-               select seeds.Find(seed => seed.Id == id);
+               select seeds.Find(seed => seed.Id == active);
     }
 
     private static Fin<Seq<ContentUuidSeed>> Build(Op op) =>
         from slots in op.Catch(() => Fin.Succ(toSeq(Slots())))
-        from _ in guard(!slots.IsEmpty, op.InvalidResult())
+        from _ in guard(!slots.IsEmpty, (Error)new KernelFault.InvalidValue(nameof(ContentUuids), "at least one content identity")).ToFin()
         from seeds in slots.TraverseM(slot => Seed(slot, op)).As()
-        from __ in guard(seeds.Map(static seed => seed.Id).Distinct().Count == seeds.Count, op.InvalidResult())
+        from __ in guard(
+            seeds.Map(static seed => seed.Id).Distinct().Count == seeds.Count,
+            (Error)new KernelFault.InvalidValue(nameof(ContentUuids), "distinct seed identities")).ToFin()
         select seeds.Strict();
 
-    // Host truth: every `ContentUuids` id is a get-only static PROPERTY over `RhRdkUuids_GetUuid`, so the field arm is the
-    // total-coverage half rather than the live one; an EMPTY projection fails here, because a vacuously-passing duplicate
-    // guard over an empty census would answer `None` for every built-in id with no refusal.
+    // Host truth: every `ContentUuids` id is a get-only static PROPERTY over `RhRdkUuids_GetUuid`, so the field arm
+    // is the total-coverage half rather than the live one; an EMPTY projection fails above, because a vacuously
+    // passing duplicate guard over an empty census would answer `None` for every built-in id with no refusal.
     private static IEnumerable<(string Name, Func<Guid> Read)> Slots() =>
         typeof(ContentUuids).GetProperties(BindingFlags.Public | BindingFlags.Static)
             .Where(static property => property.PropertyType == typeof(Guid) && property.GetMethod is not null)
@@ -108,17 +126,15 @@ public static class ContentUuidCatalog {
     private static Fin<ContentUuidSeed> Seed((string Name, Func<Guid> Read) slot, Op op) =>
         from role in Role(slot.Name, op)
         from kind in Kind(slot.Name, op)
-        from id in op.Catch(() => slot.Read() is var value && value != Guid.Empty
-            ? Fin.Succ(value)
-            : Fin.Fail<Guid>(op.InvalidResult()))
+        from raw in op.Catch(() => Fin.Succ(value: slot.Read()))
+        from id in ResourceId.Admit(value: raw, key: op)
         select new ContentUuidSeed(Name: slot.Name, Kind: kind, Role: role, Id: id);
 
-    // The grammar is a name-shape test over host member names, so it is fail-closed on BOTH sides: a name matching no token
-    // and a name matching two are equally unclassifiable, and each refusal names the member and its match count rather than
-    // failing anonymously. An ordered first-match ladder was the silent-misfile path — a member spelling two kinds would
-    // have taken whichever arm the ladder reached first. Consequence of a host rename or a new member the grammar cannot
-    // read: the WHOLE census refuses, deliberately, because a partially classified roster answers `None` for a real built-in
-    // id and reads as absence; the repair is a token row, never a fallback bucket.
+    // The grammar is a name-shape test over host member names, so it is fail-closed on BOTH sides: a name matching
+    // no token and a name matching two are equally unclassifiable, and each refusal carries the member and its
+    // match count as typed evidence rather than a prose detail string. An ordered first-match ladder was the
+    // silent-misfile path. Consequence of a host rename or a new member the grammar cannot read: the WHOLE census
+    // refuses, deliberately, because a partially classified roster answers `None` for a real built-in id.
     private static readonly Seq<(string Suffix, ContentUuidRole Role)> RoleSuffixes = Seq(
         ("CCI", ContentUuidRole.Cci),
         ("Instance", ContentUuidRole.DefaultInstance),
@@ -136,36 +152,35 @@ public static class ContentUuidCatalog {
             .Map(static row => row.Role)
             .Distinct() switch {
             [var only] => Fin.Succ(only),
-            var matched => Fin.Fail<ContentUuidRole>(op.InvalidResult(detail: $"role:{name}:{matched.Count}")),
+            var matched => Fin.Fail<ContentUuidRole>(new KernelFault.InvalidValue(name, $"exactly one role suffix, matched {matched.Count}")),
         };
 
     private static Fin<ContentKind> Kind(string name, Op op) =>
         KindTokens.Filter(row => name.Contains(row.Token, StringComparison.Ordinal)) switch {
             [var only] => Fin.Succ(only.Kind),
-            var matched => Fin.Fail<ContentKind>(op.InvalidResult(detail: $"kind:{name}:{matched.Count}")),
+            var matched => Fin.Fail<ContentKind>(new KernelFault.InvalidValue(name, $"exactly one kind token, matched {matched.Count}")),
         };
 }
 
+// --- [TYPES] --------------------------------------------------------------------------------
 [ValueObject<string>]
+[ValidationError]
 public sealed partial class ContentExtension {
-    internal static Fin<ContentExtension> Of(string value, Op key) =>
-        Validate(value, null, out ContentExtension? admitted) is null
-            ? Fin.Succ(value: admitted!)
-            : Fin.Fail<ContentExtension>(error: key.InvalidInput());
-
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
-        if (string.IsNullOrWhiteSpace(value)) {
-            validationError = new ValidationError("serializer extension is empty");
-            return;
-        }
-        value = value.Trim();
-        validationError = value.StartsWith('.', StringComparison.Ordinal)
-            && value.Length > 1
-            && value.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) < 0
-                ? validationError
-                : new ValidationError("serializer extension is invalid");
+        value = value?.Trim() ?? string.Empty;
+        validationError = value switch {
+            "" => new ValidationError(string.Join(" | ", new object?[] { nameof(ContentExtension) })),
+            var text when !text.StartsWith('.', StringComparison.Ordinal) || text.Length <= 1 =>
+                new ValidationError(string.Join(" | ", new object?[] { nameof(ContentExtension), "a dotted extension" })),
+            var text when text.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0 =>
+                new ValidationError(string.Join(" | ", new object?[] { nameof(ContentExtension), "file-name-legal characters" })),
+            _ => null,
+        };
     }
+
+    internal static Fin<ContentExtension> Of(string value, Op key) =>
+        key.AcceptValidated<ContentExtension>(value);
 }
 
 [SmartEnum<int>]
@@ -176,17 +191,81 @@ public sealed partial class SerializerStage {
     public static readonly SerializerStage Register = new(3);
 }
 
-[SmartEnum<string>]
+[SmartEnum<int>]
 public sealed partial class LoadPolicy {
-    public static readonly LoadPolicy Normal = new("normal", RenderContentSerializer.LoadMultipleFlags.Normal);
-    public static readonly LoadPolicy Preload = new("preload", RenderContentSerializer.LoadMultipleFlags.Preload);
+    public static readonly LoadPolicy Normal = new(key: (int)RenderContentSerializer.LoadMultipleFlags.Normal);
+    public static readonly LoadPolicy Preload = new(key: (int)RenderContentSerializer.LoadMultipleFlags.Preload);
 
-    internal RenderContentSerializer.LoadMultipleFlags Native { get; }
+    internal RenderContentSerializer.LoadMultipleFlags Native => (RenderContentSerializer.LoadMultipleFlags)Key;
 
     internal static Fin<LoadPolicy> Of(RenderContentSerializer.LoadMultipleFlags native, Op key) =>
-        key.Row(Items, native, static item => item.Native);
+        key.Row<RenderContentSerializer.LoadMultipleFlags, LoadPolicy>(native, static value => (int)value);
 }
 
+[SmartEnum<bool>]
+public sealed partial class SerializerDisposition {
+    public static readonly SerializerDisposition Loaded = new(false, static (loaded, _) => loaded());
+    public static readonly SerializerDisposition Deferred = new(true, static (_, deferred) => deferred());
+
+    [UseDelegateFromConstructor]
+    internal partial Unit Fold(Func<Unit> loaded, Func<Unit> deferred);
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class EditorTrait : ICapability<EditorTrait> {
+    public static readonly EditorTrait Writes = new(key: "writes");
+    public static readonly EditorTrait Brackets = new(key: "brackets");
+}
+
+// The three rows ARE the legal corner set: a bracket without a write is unreachable because the host opens its
+// auto-change bracket only on a write handle, and no row declares that pairing.
+[SmartEnum<string>]
+public sealed partial class EditorIntent {
+    public static readonly EditorIntent Read = new("read", traits: CapabilitySet<EditorTrait>.None);
+    public static readonly EditorIntent Write = new("write",
+        traits: CapabilitySet<EditorTrait>.Of(EditorTrait.Writes, EditorTrait.Brackets));
+    public static readonly EditorIntent RawWrite = new("raw-write",
+        traits: CapabilitySet<EditorTrait>.Of(EditorTrait.Writes));
+
+    internal CapabilitySet<EditorTrait> Traits { get; }
+
+    internal bool Writes => Traits.Admits(capability: EditorTrait.Writes);
+    internal bool Brackets => Traits.Admits(capability: EditorTrait.Brackets);
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ShellSurface : ICapability<ShellSurface> {
+    public static readonly ShellSurface Panel = new(key: "panel");
+    public static readonly ShellSurface Tab = new(key: "tab");
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class PanelTrait : ICapability<PanelTrait> {
+    public static readonly PanelTrait AlwaysShow = new(key: "always-show");
+    public static readonly PanelTrait InitialShow = new(key: "initial-show");
+}
+
+[SmartEnum<int>]
+public sealed partial class SidePanePlace {
+    public static readonly SidePanePlace Left = new(key: (int)RenderPanels.ExtraSidePanePosition.Left);
+    public static readonly SidePanePlace Top = new(key: (int)RenderPanels.ExtraSidePanePosition.Top);
+    public static readonly SidePanePlace Right = new(key: (int)RenderPanels.ExtraSidePanePosition.Right);
+    public static readonly SidePanePlace Bottom = new(key: (int)RenderPanels.ExtraSidePanePosition.Bottom);
+
+    internal RenderPanels.ExtraSidePanePosition Native => (RenderPanels.ExtraSidePanePosition)Key;
+}
+
+[SmartEnum<int>]
+public sealed partial class ShellPanelKind {
+    public static readonly ShellPanelKind RenderWindow = new(key: (int)RenderPanelType.RenderWindow);
+
+    internal RenderPanelType Native => (RenderPanelType)Key;
+}
+
+// --- [MODELS] -------------------------------------------------------------------------------
 public sealed class ContentTransfer : IDisposable, IDetachedDocumentResult {
     private Lease<RenderContent>.Owned? owned;
 
@@ -199,16 +278,8 @@ public sealed class ContentTransfer : IDisposable, IDetachedDocumentResult {
     public void Dispose() => Interlocked.Exchange(ref owned, null)?.Dispose();
 }
 
-[SmartEnum<bool>]
-public sealed partial class SerializerDisposition {
-    public static readonly SerializerDisposition Loaded = new(false, static (loaded, _) => loaded());
-    public static readonly SerializerDisposition Deferred = new(true, static (_, deferred) => deferred());
-
-    [UseDelegateFromConstructor]
-    internal partial Unit Fold(Func<Unit> loaded, Func<Unit> deferred);
-}
-
 [ComplexValueObject]
+[ValidationError]
 public sealed partial class SerializerReport : IDisposable, IDetachedDocumentResult {
     public SerializerDisposition Disposition { get; }
     public ContentTransfer Content { get; }
@@ -223,52 +294,16 @@ public sealed partial class SerializerReport : IDisposable, IDetachedDocumentRes
         ref string path,
         ref int index) {
         path = path?.Trim() ?? string.Empty;
-        validationError = disposition is not null && content is not null
-            && !string.IsNullOrWhiteSpace(path) && index >= 0
-            ? validationError
-            : new ValidationError(message: "serializer report is invalid");
+        validationError = (disposition, content, path, index) switch {
+            (null, _, _, _) => new ValidationError(string.Join(" | ", new object?[] { nameof(Disposition) })),
+            (_, null, _, _) => new ValidationError(string.Join(" | ", new object?[] { nameof(Content) })),
+            (_, _, "", _) => new ValidationError(string.Join(" | ", new object?[] { nameof(Path) })),
+            (_, _, _, < 0) => new ValidationError(string.Join(" | ", new object?[] { nameof(Index), "a non-negative report index" })),
+            _ => null,
+        };
     }
 
     public void Dispose() => Content.Dispose();
-}
-
-public readonly record struct RetentionOverflow(int Dropped, Error Evidence) : IDetachedDocumentResult {
-    public static RetentionOverflow Empty { get; } = new(Dropped: 0, Evidence: Errors.None);
-
-    public bool Any => Dropped > 0;
-
-    internal RetentionOverflow Absorb(Error fault) =>
-        new(Dropped: Dropped + 1, Evidence: Evidence + fault);
-}
-
-public sealed record RetentionPolicy {
-    private RetentionPolicy(Dimension capacity) => Capacity = capacity;
-
-    public Dimension Capacity { get; }
-
-    public static Fin<RetentionPolicy> Of(Dimension capacity, Op? key = null) {
-        Op op = key.OrDefault();
-        return guard(capacity != default, op.InvalidInput()).ToFin()
-            .Map(_ => new RetentionPolicy(capacity: capacity));
-    }
-
-    internal (Seq<T> Kept, Seq<T> Evicted) Admit<T>(Seq<T> held, T incoming) {
-        Seq<T> grown = held.Add(incoming);
-        int excess = grown.Count - Capacity.Value;
-        return excess <= 0
-            ? (Kept: grown, Evicted: Seq<T>())
-            : (Kept: grown.Skip(excess), Evicted: grown.Take(excess));
-    }
-}
-
-public readonly record struct FailureLedger<T>(Seq<T> Retained, RetentionOverflow Overflow) {
-    public static FailureLedger<T> Empty { get; } = new(Retained: Seq<T>(), Overflow: RetentionOverflow.Empty);
-
-    internal (FailureLedger<T> Ledger, Seq<T> Evicted) Admit(RetentionPolicy policy, T incoming, Func<T, Error> fault) {
-        (Seq<T> kept, Seq<T> evicted) = policy.Admit(held: Retained, incoming: incoming);
-        RetentionOverflow overflowed = evicted.Fold(Overflow, (state, dropped) => state.Absorb(fault(dropped)));
-        return (Ledger: new FailureLedger<T>(Retained: kept, Overflow: overflowed), Evicted: evicted);
-    }
 }
 
 public sealed record SerializerFailure(SerializerStage Stage, string Path, Error Fault) : IDetachedDocumentResult;
@@ -279,44 +314,45 @@ public sealed record SerializerProgram(
     Option<Func<string, Fin<ContentTransfer>>> Read,
     Option<Func<string, RenderContent, CreatePreviewEventArgs, Fin<Unit>>> Write,
     Option<Func<RhinoDoc, Seq<string>, ContentKind, LoadPolicy, Fin<Seq<SerializerReport>>>> LoadMultiple,
-    RetentionPolicy Retention,
+    Dimension JournalCap,
     string EnglishDescription,
     string LocalDescription);
 
-[SmartEnum<RenderPanels.ExtraSidePanePosition>]
-public sealed partial class SidePanePlace {
-    public static readonly SidePanePlace Left = new(key: RenderPanels.ExtraSidePanePosition.Left);
-    public static readonly SidePanePlace Top = new(key: RenderPanels.ExtraSidePanePosition.Top);
-    public static readonly SidePanePlace Right = new(key: RenderPanels.ExtraSidePanePosition.Right);
-    public static readonly SidePanePlace Bottom = new(key: RenderPanels.ExtraSidePanePosition.Bottom);
-}
-
-[SmartEnum<RenderPanelType>]
-public sealed partial class ShellPanelKind {
-    public static readonly ShellPanelKind RenderWindow = new(key: RenderPanelType.RenderWindow);
-}
-
+// `Body`, `Caption`, and `Engine` hold on BOTH surfaces, so they are base columns rather than per-case fields two
+// factories could drift on; `Surface` is the row's own discriminant and the registrar's, so the drain matches rows
+// to callbacks on one vocabulary instead of two independent bool probes.
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ShellRow {
-    private ShellRow() { }
+    private ShellRow(ShellSurface surface, Type body, string caption, Option<Guid> engine) =>
+        (Surface, Body, Caption, Engine) = (surface, body, caption, engine);
+
+    internal ShellSurface Surface { get; }
+    internal Type Body { get; }
+    internal string Caption { get; }
+    internal Option<Guid> Engine { get; }
 
     private sealed record PanelCase(
-        ShellPanelKind Kind, Type Body, string Caption, bool AlwaysShow, bool InitialShow,
-        Option<Guid> Engine, Option<SidePanePlace> Place) : ShellRow;
+        ShellPanelKind Kind, CapabilitySet<PanelTrait> Visibility, SidePanePlace Place,
+        Type Seat, string Label, Option<Guid> Renderer)
+        : ShellRow(ShellSurface.Panel, Seat, Label, Renderer);
 
-    private sealed record TabCase(
-        Type Body, string Caption, System.Drawing.Icon Icon, Option<Guid> Engine) : ShellRow;
+    private sealed record TabCase(System.Drawing.Icon Icon, Type Seat, string Label, Option<Guid> Renderer)
+        : ShellRow(ShellSurface.Tab, Seat, Label, Renderer);
 
+    // Host truth: the place-less panel overload forwards `ExtraSidePanePosition.Left`, so the default resolves at
+    // ADMISSION and the seat carries a settled row rather than an optional column every call site re-defaults.
     public static Fin<ShellRow> Panel(
-        Type body, string caption, ShellPanelKind? kind = null, bool alwaysShow = false, bool initialShow = false,
-        Option<Guid> engine = default, Option<SidePanePlace> place = default, Op? key = null) {
+        Type body, string caption, ShellPanelKind? kind = null, CapabilitySet<PanelTrait> visibility = default,
+        SidePanePlace? place = null, Option<Guid> engine = default, Op? key = null) {
         Op op = key.OrDefault();
         return from keyed in Keyed(body: body, op: op)
                from label in op.AcceptText(value: caption)
-               from _ in guard(engine.ForAll(static id => id != Guid.Empty), op.InvalidInput()).ToFin()
+               from _ in guard(
+                   engine.ForAll(static id => id != Guid.Empty),
+                   (Error)new KernelFault.InvalidValue(nameof(engine), "a non-empty render engine identity")).ToFin()
                select (ShellRow)new PanelCase(
-                   Kind: kind ?? ShellPanelKind.RenderWindow, Body: keyed, Caption: label,
-                   AlwaysShow: alwaysShow, InitialShow: initialShow, Engine: engine, Place: place);
+                   Kind: kind ?? ShellPanelKind.RenderWindow, Visibility: visibility,
+                   Place: place ?? SidePanePlace.Left, Seat: keyed, Label: label, Renderer: engine);
     }
 
     public static Fin<ShellRow> Tab(
@@ -325,73 +361,95 @@ public abstract partial record ShellRow {
         return from keyed in Keyed(body: body, op: op)
                from label in op.AcceptText(value: caption)
                from art in op.Need(icon)
-               from _ in guard(engine.ForAll(static id => id != Guid.Empty), op.InvalidInput()).ToFin()
-               select (ShellRow)new TabCase(Body: keyed, Caption: label, Icon: art, Engine: engine);
+               from _ in guard(
+                   engine.ForAll(static id => id != Guid.Empty),
+                   (Error)new KernelFault.InvalidValue(nameof(engine), "a non-empty render engine identity")).ToFin()
+               select (ShellRow)new TabCase(Icon: art, Seat: keyed, Label: label, Renderer: engine);
     }
 
-    internal bool IsPanel => this is PanelCase;
-
-    internal Type BodyType => Switch(panelCase: static row => row.Body, tabCase: static row => row.Body);
-
-    // Host truth: the engine-less `RegisterPanel`/`RegisterTab` overloads are `[Obsolete]` since 7.0 and forward `plugin.Id`
-    // as the engine, and the place-less panel overload forwards `ExtraSidePanePosition.Left`, so resolving both defaults here
-    // leaves exactly one live registrar call per row instead of a five-way nest over two optional columns.
+    // Host truth: the engine-less `RegisterPanel`/`RegisterTab` overloads are `[Obsolete]` since 7.0 and forward
+    // `plugin.Id` as the engine, so resolving that default here leaves exactly one live registrar call per row.
     internal Fin<Unit> Seat(ShellRegistrar registrar, PlugIn owner, Op op) => Switch(
         (Registrar: registrar, Owner: owner, Op: op),
         panelCase: static (context, row) =>
             from panels in context.Registrar.IsPanels
                 ? context.Op.Need(context.Registrar.AsPanels)
-                : Fin.Fail<RenderPanels>(error: context.Op.InvalidContext())
-            from _ in context.Op.Catch(() => Op.Side(() => panels.RegisterPanel(
+                : Fin.Fail<RenderPanels>(error: new RenderFault.Unbound(
+                    Key: context.Op, Member: nameof(RenderPanels)))
+            from _ in context.Op.Catch(() => Fin.Succ(value: Op.Side(() => panels.RegisterPanel(
                 plugin: context.Owner,
-                renderPanelType: row.Kind.Key,
+                renderPanelType: row.Kind.Native,
                 panelType: row.Body,
                 renderEngineId: row.Engine.IfNone(context.Owner.Id),
                 caption: row.Caption,
-                alwaysShow: row.AlwaysShow,
-                initialShow: row.InitialShow,
-                pos: row.Place.IfNone(SidePanePlace.Left).Key)))
+                alwaysShow: row.Visibility.Admits(capability: PanelTrait.AlwaysShow),
+                initialShow: row.Visibility.Admits(capability: PanelTrait.InitialShow),
+                pos: row.Place.Native))))
             select unit,
         tabCase: static (context, row) =>
             from tabs in context.Registrar.IsTabs
                 ? context.Op.Need(context.Registrar.AsTabs)
-                : Fin.Fail<RenderTabs>(error: context.Op.InvalidContext())
-            from _ in context.Op.Catch(() => Op.Side(() => tabs.RegisterTab(
+                : Fin.Fail<RenderTabs>(error: new RenderFault.Unbound(Key: context.Op, Member: nameof(RenderTabs)))
+            from _ in context.Op.Catch(() => Fin.Succ(value: Op.Side(() => tabs.RegisterTab(
                 plugin: context.Owner,
                 tabType: row.Body,
                 renderEngineId: row.Engine.IfNone(context.Owner.Id),
                 caption: row.Caption,
-                icon: row.Icon)))
+                icon: row.Icon))))
             select unit);
 
-    // Host truth: each registrar throws unless the row type is a PUBLIC class carrying a parameterless constructor and
-    // EXACTLY ONE `GuidAttribute`, so all three gates prove at admission. `IsPublic` is the host's own test and a nested
-    // public type fails it there too, so widening this to `IsVisible` would admit a row the registrar still rejects.
+    // Host truth: each registrar throws unless the row type is a PUBLIC class carrying a parameterless constructor
+    // and EXACTLY ONE `GuidAttribute`, so all three gates prove at admission. `IsPublic` is the host's own test and
+    // a nested public type fails it there too, so widening this to `IsVisible` would admit a row it still rejects.
     private static Fin<Type> Keyed(Type body, Op op) =>
         from active in op.Need(body)
-        from _ in guard(active is { IsClass: true, IsPublic: true }, op.InvalidInput()).ToFin()
-        from __ in guard(active.GetConstructor(Type.EmptyTypes) is not null, op.InvalidInput()).ToFin()
+        from _ in guard(
+            active is { IsClass: true, IsPublic: true },
+            (Error)new KernelFault.InvalidValue(nameof(body), "a public class")).ToFin()
+        from __ in guard(
+            active.GetConstructor(Type.EmptyTypes) is not null,
+            (Error)new KernelFault.InvalidValue(active.Name, "a parameterless constructor")).ToFin()
         from ___ in guard(
             active.GetCustomAttributes(typeof(System.Runtime.InteropServices.GuidAttribute), inherit: false).Length == 1,
-            op.InvalidInput()).ToFin()
+            (Error)new KernelFault.InvalidValue(active.Name, "exactly one GuidAttribute")).ToFin()
         select active;
 }
 
-// The host hands one registrar per override, so the drain entry absorbs both through the union's own implicit conversions
-// rather than a nullable pair plus a flag that re-describes which one arrived.
+// The host hands one registrar per override, so the drain entry absorbs both through the union's own implicit
+// conversions and projects the surface both sides now name.
 [Union<RenderPanels, RenderTabs>(T1Name = "Panels", T2Name = "Tabs")]
-public readonly partial struct ShellRegistrar;
+public readonly partial struct ShellRegistrar {
+    internal ShellSurface Surface => IsPanels ? ShellSurface.Panel : ShellSurface.Tab;
+}
 
 public sealed record RenderShellProgram(PlugIn Owner, Seq<ShellRow> Rows) {
     public static Fin<RenderShellProgram> Of(PlugIn owner, Seq<ShellRow> rows, Op? key = null) {
         Op op = key.OrDefault();
         return from active in op.Need(owner)
-               from _ in guard(!rows.IsEmpty && rows.ForAll(static row => row is not null), op.InvalidInput()).ToFin()
+               from _ in guard(
+                   !rows.IsEmpty && rows.ForAll(static row => row is not null),
+                   (Error)new KernelFault.InvalidValue(nameof(RenderShellProgram), "a non-empty row set")).ToFin()
                select new RenderShellProgram(Owner: active, Rows: rows.Strict());
     }
 }
 
-public sealed record ShellSeated(int Panels, int Tabs) : IDetachedDocumentResult;
+// One cell, three states: the arm transition and the per-surface drain claim are both `Cell.Step` verdicts, so a
+// concurrent second arm CEDES and a repeat drain of one surface REFUSES, where two independent atoms could only
+// answer "something happened" after the fact.
+[Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
+internal abstract partial record ShellGate {
+    private ShellGate() { }
+    internal sealed record Idle : ShellGate;
+    internal sealed record Armed(RenderShellProgram Program) : ShellGate;
+    internal sealed record Draining(RenderShellProgram Program, CapabilitySet<ShellSurface> Spent) : ShellGate;
+
+    internal Option<RenderShellProgram> Declared => Switch(
+        idle: static _ => Option<RenderShellProgram>.None,
+        armed: static state => Some(state.Program),
+        draining: static state => Some(state.Program));
+}
+
+public sealed record ShellSeated(ShellSurface Surface, int Rows) : IDetachedDocumentResult;
 
 public sealed record EditorFacts(
     Guid CurrentRenderer,
@@ -399,40 +457,29 @@ public sealed record EditorFacts(
     Seq<Size2i> CustomSizes,
     bool CustomSizeIsPreset) : IDetachedDocumentResult;
 
-// Release is a per-slot column because custody is per-payload. Host truth: `GetData` maps each id through one static
-// dispatch — `RhinoSettings` for the settings row, `RenderContentCollection` for the selection and display rows — and
-// every payload is a NON-OWNING wrapper: `RhinoSettings.Dispose` runs `Dispose(true)` then `GC.SuppressFinalize` over a
-// body whose whole content is `m_cpp = IntPtr.Zero`, and the collection's `(nint)` constructor sets
-// `m_delete_cpp_pointer = false` so its `Dispose` skips `CRhRdkContentArray_Delete`. Releasing therefore retires the
-// finalizer each borrow registered and frees nothing the host holds, on every row; the column stays per-row because a
-// FUTURE payload family may own its native, and that row proves its disposal body before it lands.
+// Release is a per-slot column because custody is per-payload. Host truth: `GetData` maps each id through one
+// static dispatch — `RhinoSettings` for the settings row, `RenderContentCollection` for the selection and display
+// rows — and every payload is a NON-OWNING wrapper: `RhinoSettings.Dispose` runs `Dispose(true)` then
+// `GC.SuppressFinalize` over a body whose whole content is `m_cpp = IntPtr.Zero`, and the collection's `(nint)`
+// constructor sets `m_delete_cpp_pointer = false` so its `Dispose` skips `CRhRdkContentArray_Delete`. Releasing
+// therefore retires the finalizer each borrow registered and frees nothing the host holds, on every row; the column
+// stays per-row because a FUTURE payload family may own its native, and that row proves its disposal body first.
 [SmartEnum<Guid>]
-public sealed partial class EditorSlot {
-    public static readonly EditorSlot Settings = new(
+public sealed partial class EditorProvider {
+    public static readonly EditorProvider Settings = new(
         key: global::Rhino.UI.Controls.DataSource.ProviderIds.RhinoSettings, releases: true);
-    public static readonly EditorSlot Selection = new(
+    public static readonly EditorProvider Selection = new(
         key: global::Rhino.UI.Controls.DataSource.ProviderIds.ContentSelection, releases: true);
-    public static readonly EditorSlot Display = new(
+    public static readonly EditorProvider Display = new(
         key: global::Rhino.UI.Controls.DataSource.ProviderIds.ContentDisplayCollection, releases: true);
 
     internal bool Releases { get; }
 }
 
-[SmartEnum<string>]
-public sealed partial class EditorIntent {
-    public static readonly EditorIntent Read = new("read", writes: false, brackets: false);
-    public static readonly EditorIntent Write = new("write", writes: true, brackets: true);
-    public static readonly EditorIntent RawWrite = new("raw-write", writes: true, brackets: false);
-
-    internal bool Writes { get; }
-    internal bool Brackets { get; }
-}
-
-// Host truth: `RhinoSettings` declares exactly one public constructor and it takes a native `nint`, so no page mints one —
-// the host vends every editor payload through `IRdkViewModel.GetData(Guid, bool, bool)` inside a UI section's
-// `RunScript(IRdkViewModel)`, keyed by a `DataSource.ProviderIds` row, and `Commit`/`Discard` close a write. The NATIVE
-// stays host-owned in every case; what the borrow owns is the managed wrapper's finalizer registration, and `EditorSlot`
-// carries per row whether releasing it is proven safe.
+// Host truth: `RhinoSettings` declares exactly one public constructor and it takes a native `nint`, so no page
+// mints one — the host vends every editor payload through `IRdkViewModel.GetData(Guid, bool, bool)` inside a UI
+// section's `RunScript(IRdkViewModel)`, keyed by a `DataSource.ProviderIds` row, and `Commit`/`Discard` close a
+// write. The NATIVE stays host-owned in every case.
 public sealed record EditorBridge {
     private EditorBridge(global::Rhino.UI.Controls.IRdkViewModel model) => Model = model;
 
@@ -443,48 +490,39 @@ public sealed record EditorBridge {
         return op.Need(model).Map(static active => new EditorBridge(model: active));
     }
 
-    internal Fin<TOut> Use<TPayload, TOut>(EditorSlot slot, EditorIntent intent, Func<TPayload, Fin<TOut>> borrow, Op key)
+    internal Fin<TOut> Use<TPayload, TOut>(EditorProvider provider, EditorIntent intent, Func<TPayload, Fin<TOut>> borrow, Op key)
         where TPayload : class {
         EditorBridge self = this;
         Fin<TOut> outcome =
-            from activeSlot in key.Need(slot)
+            from activeProvider in key.Need(provider)
             from activeIntent in key.Need(intent)
             from activeBorrow in key.Need(borrow)
             from payload in key.Catch(() => Optional(self.Model.GetData(
-                    uuidDataType: activeSlot.Key,
+                    uuidDataType: activeProvider.Key,
                     bForWrite: activeIntent.Writes,
                     bAutoChangeBracket: activeIntent.Brackets) as TPayload)
-                .ToFin(Fail: key.InvalidResult(detail: activeSlot.ToString())))
-            from result in Borrowed(slot: activeSlot, payload: payload, borrow: activeBorrow, key: key)
+                .ToFin(Fail: new RenderFault.Unbound(Key: key, Member: activeProvider.ToString())))
+            from result in Borrowed(provider: activeProvider, payload: payload, borrow: activeBorrow, key: key)
             select result;
-        return intent is { Writes: true } ? self.Settle(slot: slot, outcome: outcome, key: key) : outcome;
+        return intent is { Writes: true } ? self.Settle(provider: provider, outcome: outcome, key: key) : outcome;
     }
 
-    // The release is the BRACKET's on a releasing row and a no-op otherwise, and it runs before commit or discard settles
-    // the write — the wrapper is dead the moment the borrow returns, and a failed release appends onto the borrow's fault.
+    // The release is the BRACKET's on a releasing row and a no-op otherwise, and it runs before commit or discard
+    // settles the write — the wrapper is dead the moment the borrow returns, and a failed release appends onto the
+    // borrow's fault through the package's both-arms release fold.
     private static Fin<TOut> Borrowed<TPayload, TOut>(
-        EditorSlot slot, TPayload payload, Func<TPayload, Fin<TOut>> borrow, Op key) where TPayload : class {
-        Fin<TOut> outcome = key.Catch(() => borrow(payload));
-        return slot.Releases && payload is IDisposable held
-            ? key.Catch(() => { held.Dispose(); return Fin.Succ(value: unit); }).Match(
-                Succ: _ => outcome,
-                Fail: release => outcome.Match(
-                    Succ: _ => Fin.Fail<TOut>(error: release),
-                    Fail: primary => Fin.Fail<TOut>(error: primary + release)))
-            : outcome;
-    }
+        EditorProvider provider, TPayload payload, Func<TPayload, Fin<TOut>> borrow, Op key) where TPayload : class =>
+        key.Catch(() => borrow(payload))
+            .Settled(
+                held: provider.Releases && payload is IDisposable ? Seq((IDisposable)payload) : Seq<IDisposable>(),
+                release: static held => Fin.Succ(value: Op.Side(held.Dispose)),
+                key: key);
 
-    private Fin<TOut> Settle<TOut>(EditorSlot slot, Fin<TOut> outcome, Op key) {
+    private Fin<TOut> Settle<TOut>(EditorProvider provider, Fin<TOut> outcome, Op key) {
         EditorBridge self = this;
         return outcome.Match(
-            Succ: value => key.Catch(() => {
-                self.Model.Commit(uuidDataType: slot.Key);
-                return Fin.Succ(value: value);
-            }),
-            Fail: primary => key.Catch(() => {
-                self.Model.Discard(uuidDataType: slot.Key);
-                return Fin.Succ(value: unit);
-            }).Match(
+            Succ: value => key.Catch(() => Fin.Succ(value: (Op.Side(() => self.Model.Commit(uuidDataType: provider.Key)), value).Item2)),
+            Fail: primary => key.Catch(() => Fin.Succ(value: Op.Side(() => self.Model.Discard(uuidDataType: provider.Key)))).Match(
                 Succ: static _ => Fin.Fail<TOut>(error: primary),
                 Fail: discard => Fin.Fail<TOut>(error: primary + discard)));
     }
@@ -494,63 +532,88 @@ public sealed record ShellSeat<TBody>(TBody Body, Option<Guid> SidePaneUi) where
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 public static class RenderShell {
-    private static readonly Atom<Option<RenderShellProgram>> Armed = Atom(Option<RenderShellProgram>.None);
-    private static readonly Atom<bool> Drained = Atom(false);
+    private static readonly Atom<ShellGate> Gate = Atom<ShellGate>(new ShellGate.Idle());
 
     internal static Fin<Unit> Arm(RenderShellProgram program, Op op) =>
-        from _ in guard(!Drained.Value, op.InvalidContext()).ToFin()
-        from armed in Armed.Swap(_ => Some(program)).ToFin(Fail: op.InvalidResult())
-        select unit;
+        Cell.Step(
+                cell: Gate,
+                step: state => state is ShellGate.Idle ? Some<ShellGate>(new ShellGate.Armed(Program: program)) : None,
+                declined: new KernelFault.InvalidValue(nameof(RenderShell), "an unarmed shell gate"))
+            .Switch(
+                state: op,
+                committed: static (_, _) => Fin.Succ(value: unit),
+                ceded: static (key, _) => Fin.Fail<Unit>(error: new RenderFault.SeatTaken(Key: key, Engine: Guid.Empty)),
+                refused: static (_, row) => Fin.Fail<Unit>(error: row.Cause),
+                contended: static (key, _) => Fin.Fail<Unit>(error: key.InvalidResult()));
 
-    // The drain runs inside the plug-in's own register override; a row seated after the override returns is discarded by the
-    // host, and re-registering a seated (plug-in, type) pair is a silent host no-op rather than a fault.
+    // The drain runs inside the plug-in's own register override; a row seated after the override returns is
+    // discarded by the host, so the surface claim lands FIRST and stays claimed even on a failed seat — a released
+    // claim would only invite a retry the host ignores.
     public static Fin<ShellSeated> Drain(ShellRegistrar registrar, Op? key = null) {
         Op op = key.OrDefault();
-        return from program in Armed.Value.ToFin(Fail: op.MissingContext())
-               let rows = program.Rows.Filter(row => row.IsPanel == registrar.IsPanels)
-               from _ in rows.TraverseM(row => row.Seat(registrar: registrar, owner: program.Owner, op: op)).As()
-               from __ in Fin.Succ(value: ignore(Drained.Swap(static _ => true)))
-               select new ShellSeated(
-                   Panels: registrar.IsPanels ? rows.Count : 0,
-                   Tabs: registrar.IsPanels ? 0 : rows.Count);
+        return from claimed in Claim(surface: registrar.Surface, op: op)
+               let rows = claimed.Rows.Filter(row => row.Surface == registrar.Surface)
+               from _ in rows.TraverseM(row => row.Seat(registrar: registrar, owner: claimed.Owner, op: op)).As()
+               select new ShellSeated(Surface: registrar.Surface, Rows: rows.Count);
     }
 
-    // Host truth: `FromRenderSessionId` is a public STATIC on each registry answering `null` for an unseated or undecorated
-    // type. `SidePaneUiIdFromTab` and `SessionIdFromTab` are two DISTINCT public statics, and the second's whole body is
-    // `return SidePaneUiIdFromTab(tab);` — two names, one value — so ONE side-pane id answers both and a panel carries none.
-    // The armed row that owns `TBody` selects the registry, so the caller names only its own body type.
+    // Host truth: `FromRenderSessionId` is a public STATIC on each registry answering `null` for an unseated or
+    // undecorated type. `SidePaneUiIdFromTab` and `SessionIdFromTab` are two DISTINCT public statics carrying ONE
+    // fact — the second's whole body is `return SidePaneUiIdFromTab(tab);` — so ONE side-pane id answers both and a
+    // panel carries none. The armed row that owns `TBody` selects the registry.
     public static Fin<Option<ShellSeat<TBody>>> Resolve<TBody>(PlugIn owner, Guid session, Op? key = null)
         where TBody : class {
         Op op = key.OrDefault();
         return from active in op.Need(owner)
-               from _ in guard(session != Guid.Empty, op.InvalidInput()).ToFin()
-               from program in Armed.Value.ToFin(Fail: op.MissingContext())
-               from row in program.Rows.Find(candidate => candidate.BodyType == typeof(TBody))
-                   .ToFin(Fail: op.MissingContext())
-               from found in op.Catch(() => Fin.Succ(value: Optional(row.IsPanel
+               from _ in guard(session != Guid.Empty, (Error)new KernelFault.InvalidValue(nameof(session), "a non-empty render session identity")).ToFin()
+               from program in Gate.Value.Declared.ToFin(Fail: op.MissingContext())
+               from row in program.Rows.Find(candidate => candidate.Body == typeof(TBody))
+                   .ToFin(Fail: new RenderFault.SeatAbsent(Key: op, Engine: Guid.Empty))
+               from found in op.Catch(() => Fin.Succ(value: Optional(row.Surface == ShellSurface.Panel
                    ? RenderPanels.FromRenderSessionId(plugIn: active, panelType: typeof(TBody), renderSessionId: session)
                    : RenderTabs.FromRenderSessionId(plugIn: active, tabType: typeof(TBody), renderSessionId: session))))
                from seat in found.Traverse(body => op.Catch(() =>
-                   Optional(body as TBody).ToFin(Fail: op.InvalidResult())
+                   Optional(body as TBody).ToFin(Fail: new RenderFault.Unbound(Key: op, Member: typeof(TBody).Name))
                        .Map(typed => new ShellSeat<TBody>(
                            Body: typed,
-                           SidePaneUi: row.IsPanel ? Option<Guid>.None : SidePaneUi(tab: body))))).As()
+                           SidePaneUi: row.Surface == ShellSurface.Panel ? Option<Guid>.None : SidePaneUi(tab: body))))).As()
                select seat;
     }
 
-    // Host truth: the resolver answers `Guid.Empty` for a null, undecorated, or unseated tab, so the sentinel projects here.
+    private static Fin<RenderShellProgram> Claim(ShellSurface surface, Op op) =>
+        Cell.Step(
+                cell: Gate,
+                step: state => state switch {
+                    ShellGate.Armed armed => Some<ShellGate>(new ShellGate.Draining(
+                        Program: armed.Program, Spent: CapabilitySet<ShellSurface>.Of(surface))),
+                    ShellGate.Draining draining when !draining.Spent.Admits(capability: surface) =>
+                        Some<ShellGate>(draining with { Spent = draining.Spent.With(capability: surface) }),
+                    _ => None,
+                },
+                declined: new RenderFault.SeatTaken(Key: op, Engine: Guid.Empty))
+            .Switch(
+                state: op,
+                committed: static (key, row) => row.State.Declared.ToFin(Fail: key.MissingContext()),
+                ceded: static (key, _) => Fin.Fail<RenderShellProgram>(error: new RenderFault.SeatTaken(Key: key, Engine: Guid.Empty)),
+                refused: static (_, row) => Fin.Fail<RenderShellProgram>(error: row.Cause),
+                contended: static (key, _) => Fin.Fail<RenderShellProgram>(error: key.InvalidResult()));
+
+    // Host truth: the resolver answers `Guid.Empty` for a null, undecorated, or unseated tab, so the sentinel
+    // projects here.
     private static Option<Guid> SidePaneUi(object tab) =>
-        RenderTabs.SidePaneUiIdFromTab(tab: tab) is var id && id != Guid.Empty ? Some(id) : Option<Guid>.None;
+        Optional(RenderTabs.SidePaneUiIdFromTab(tab: tab)).Filter(static id => id != Guid.Empty);
 }
 
 public sealed class ContentSerializer : RenderContentSerializer {
     private readonly SerializerProgram program;
-    private readonly Atom<FailureLedger<SerializerFailure>> ledger = Atom(FailureLedger<SerializerFailure>.Empty);
+    private readonly Ring<SerializerFailure> failures;
 
     private ContentSerializer(SerializerProgram program)
         : base(fileExtension: program.FileExtension.Value, contentKind: (RenderContentKind)program.Kind.Key,
-               canRead: program.Read.IsSome, canWrite: program.Write.IsSome) =>
+               canRead: program.Read.IsSome, canWrite: program.Write.IsSome) {
         this.program = program;
+        failures = new Ring<SerializerFailure>(cap: program.JournalCap);
+    }
 
     public static Fin<ContentSerializer> Of(SerializerProgram program, Op? key = null) {
         Op op = key.OrDefault();
@@ -559,8 +622,9 @@ public sealed class ContentSerializer : RenderContentSerializer {
                from kind in op.Need(active.Kind)
                from english in op.AcceptText(active.EnglishDescription)
                from local in op.AcceptText(active.LocalDescription)
-               from retention in op.Need(active.Retention)
-               from _ in guard(active.Read.IsSome || active.Write.IsSome || active.LoadMultiple.IsSome, op.InvalidInput())
+               from _ in guard(
+                   active.Read.IsSome || active.Write.IsSome || active.LoadMultiple.IsSome,
+                   (Error)new KernelFault.InvalidValue(nameof(SerializerProgram), "at least one serializer route")).ToFin()
                select new ContentSerializer(active with {
                    FileExtension = extension,
                    Kind = kind,
@@ -571,14 +635,15 @@ public sealed class ContentSerializer : RenderContentSerializer {
 
     public override string EnglishDescription => program.EnglishDescription;
     public override string LocalDescription => program.LocalDescription;
-    public Seq<SerializerFailure> Failures => ledger.Value.Retained;
-    public RetentionOverflow Overflow => ledger.Value.Overflow;
+    public Seq<SerializerFailure> Parked => failures.Parked;
+    public long Shed => failures.Shed;
+    public long Lost => failures.Lost;
 
     [return: MaybeNull]
     public override RenderContent Read(string pathToFile) {
         Op op = Op.Of(name: nameof(Read));
         return (from path in op.AcceptText(pathToFile)
-                from read in program.Read.ToFin(Fail: op.InvalidInput())
+                from read in program.Read.ToFin(Fail: new RenderFault.Unbound(Key: op, Member: nameof(Read)))
                 from transfer in op.Catch(() => read(path))
                 from active in Optional(transfer).ToFin(Fail: op.InvalidResult())
                 from content in active.Take(op)
@@ -592,7 +657,7 @@ public sealed class ContentSerializer : RenderContentSerializer {
         return (from path in op.AcceptText(pathToFile)
                 from content in op.Need(renderContent)
                 from preview in op.Need(previewArgs)
-                from write in program.Write.ToFin(Fail: op.InvalidInput())
+                from write in program.Write.ToFin(Fail: new RenderFault.Unbound(Key: op, Member: nameof(Write)))
                 from _ in op.Catch(() => write(path, content, preview))
                 select unit).Match(
                     Succ: static _ => true,
@@ -607,8 +672,10 @@ public sealed class ContentSerializer : RenderContentSerializer {
         return (from activeDocument in op.Need(document)
                 from activePaths in op.Need(paths)
                 from files in op.Catch(() => Fin.Succ(toSeq(activePaths)))
-                from _0 in guard(!files.IsEmpty && files.ForAll(static path => !string.IsNullOrWhiteSpace(path)), op.InvalidInput())
-                from load in program.LoadMultiple.ToFin(Fail: op.InvalidInput())
+                from _0 in guard(
+                    !files.IsEmpty && files.ForAll(static path => !string.IsNullOrWhiteSpace(path)),
+                    (Error)new KernelFault.InvalidValue(nameof(paths), "a non-empty path set")).ToFin()
+                from load in program.LoadMultiple.ToFin(Fail: new RenderFault.Unbound(Key: op, Member: nameof(LoadMultiple)))
                 from admittedKind in ContentKind.Of(kind, op)
                 from policy in LoadPolicy.Of(flags, op)
                 from reports in op.Catch(() => load(activeDocument, files, admittedKind, policy))
@@ -619,49 +686,38 @@ public sealed class ContentSerializer : RenderContentSerializer {
                     Fail: fault => Reject(SerializerStage.Load, string.Empty, fault));
     }
 
-    internal Fin<Unit> Register(Guid pluginId) {
+    internal Fin<Unit> Register(PluginKey plugin) {
         Op op = Op.Of(name: nameof(ContentSerializer));
-        Fin<Unit> registered =
-            from _ in guard(pluginId != Guid.Empty, op.InvalidInput()).ToFin()
-            from result in op.Catch(() => op.Confirm(success: RegisterSerializer(id: pluginId)))
-            select result;
-        return registered.Match(
-            Succ: static value => Fin.Succ(value),
-            Fail: fault => {
-                _ = Retain(stage: SerializerStage.Register, path: string.Empty, fault: fault);
-                return Fin.Fail<Unit>(fault);
-            });
+        return (from _ in plugin.Admit(op)
+                from result in op.Catch(() => op.Confirm(success: RegisterSerializer(id: plugin.ToValue())))
+                select result)
+            .MapFail(fault => (Op.Side(() => Retain(stage: SerializerStage.Register, path: string.Empty, fault: fault)), fault).Item2);
     }
 
-    private Fin<Unit> Emit(SerializerReport report, Op op) {
-        using (report) {
-            return from active in Optional(report).ToFin(Fail: op.InvalidResult())
-                   from transfer in Optional(active.Content).ToFin(Fail: op.InvalidResult())
-                   from path in op.AcceptText(active.Path)
-                   from content in transfer.Take(op)
-                   from _ in op.Catch(() => {
-                           _ = active.Disposition.Fold(
-                               loaded: () => { ReportContentAndFile(content, path, active.Index); return unit; },
-                               deferred: () => { ReportDeferredContentAndFile(content, path, active.Index); return unit; });
-                           return Fin.Succ(unit);
-                       })
-                       .MapFail(fault => { content.Dispose(); return fault; })
-                   select unit;
-        }
-    }
+    // The report's own disposal is the bracket's, so a refused release APPENDS to the emit fault instead of
+    // replacing it; a `Take`n content the host report then refuses is disposed on the same rail.
+    private Fin<Unit> Emit(SerializerReport report, Op op) =>
+        (from active in Optional(report).ToFin(Fail: op.InvalidResult())
+         from transfer in Optional(active.Content).ToFin(Fail: op.InvalidResult())
+         from path in op.AcceptText(active.Path)
+         from content in transfer.Take(op)
+         from _ in op.Catch(() => Fin.Succ(value: active.Disposition.Fold(
+                 loaded: () => Op.Side(() => ReportContentAndFile(content, path, active.Index)),
+                 deferred: () => Op.Side(() => ReportDeferredContentAndFile(content, path, active.Index)))))
+             .Rollback(release: () => op.Catch(() => Fin.Succ(value: Op.Side(content.Dispose))), key: op)
+         select unit)
+        .Settled(
+            held: Seq(report),
+            release: static row => Fin.Succ(value: Op.Side(row.Dispose)),
+            key: op);
 
     private bool Reject(SerializerStage stage, string path, Error error) {
-        _ = Retain(stage: stage, path: path, fault: error);
+        Retain(stage: stage, path: path, fault: error);
         return false;
     }
 
-    private Unit Retain(SerializerStage stage, string path, Error fault) {
-        _ = ledger.Swap(state => state.Admit(
-            policy: program.Retention,
-            incoming: new SerializerFailure(stage, path, fault),
-            fault: static failure => failure.Fault).Ledger);
-        return unit;
-    }
+    private Unit Retain(SerializerStage stage, string path, Error fault) =>
+        ignore(failures.Park(item: new SerializerFailure(Stage: stage, Path: path, Fault: fault)));
 
     [return: MaybeNull]
     private T Reject<T>(SerializerStage stage, string path, Error error) where T : class {
@@ -676,16 +732,26 @@ public sealed class ContentSerializer : RenderContentSerializer {
 - Owner: `ContentOp` `[Union]` derives from target identity: `Admit(ContentAdmission)` has no existing target, and `Mutate(ContentRef, ContentMutation)` resolves one target once. `ContentAdmission` closes each mint path behind one owned-lease rail. `ContentMutation` carries catalogued host concerns; `TreeMutation` and `Grouping` close their bounded subspaces without boolean modes.
 - Law: admission internalizes custody — every factory, IO, material, texture, and environment mint becomes an owned lease; top-level results transfer through the expected kind table, parented factory results transfer through the parent slot, and every refused transfer disposes the lease.
 - Law: transaction kind is a verified table-scope key — each admission exposes its expected kind, each target mutation derives its live kind, and either must equal the plan kind before mutation.
+- Law: undo participation is a ROW on the mutation family, not a derived negation. `RecordsUndo` read `this is not Export` on one union and re-derived the same fact through `Optional(...).Map(...).IfNone(false)` on another, so a second non-recording case had to be added in two places and the outer derivation answered `false` for a null change it owed a refusal. Each case declares its `UndoPolicy` and the plan reads the column.
 - Law: graph surgery is one target mutation — `TreeMutation` discriminates graft, prune, and slot state under its own `ChangeReason`; graft and parented admission prove `IsContentTypeAcceptableAsChild` before `SetChild`, and slot-state admission rejects an empty patch.
+- Law: an object-reference roster acquires on the rail, not in a counter loop. The assignment arm minted a fixed array, tracked a seat counter, and released in a `finally` that discarded its own refusals; each `ObjRef` is now a `Lease` acquired through a fold that rolls the already-held set back on the first refusal, and the assignment body releases through the package's both-arms fold so a release fault appends to the assignment's.
 - Law: field, parameter, and texture writes compose their owners; material assignment resolves `TableTarget`, contains every `ObjRef` lifetime, and carries native assignment choices.
-- Growth: a new admission path is one `ContentAdmission` case; a new target concern is one `ContentMutation` case; `ContentOp` keeps its identity-derived cases.
+- Law: every address column takes its spine owner — a content or object identity is `ResourceId` and a write target is a `DocumentPath` — so a host member reporting failure as an empty guid or a relative path cannot seat a receipt fact the reader then treats as a real consequence.
+- Growth: a new admission path is one `ContentAdmission` case; a new target concern is one `ContentMutation` case with its `UndoPolicy` column; `ContentOp` keeps its identity-derived cases.
+- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.Create`, `SetChild`, `DeleteChild`, `DeleteAllChildren`, `SetChildSlotOn`, `SetChildSlotAmount`, `IsContentTypeAcceptableAsChild`, `SetName`, `Replace`, `SaveToFile`, `MakeGroupInstance`, `Ungroup`, `UngroupRecursive`, `SmartUngroupRecursive`, `ExtraRequirementsSetContexts`, `EmbedFilesChoice`); `api-rhinocommon-render.md` (`RenderMaterial.AssignTo`, `AssignToSubFaceChoices`, `AssignToBlockChoices`); `api-rhinocommon-objects.md` (`ObjRef`); kernel `Domain/rails` (`Lease<T>.Acquire`, `Op.Catch`, `Op.Confirm`), `Domain/validation` (`Op.Row`); `Render/content.md` (`ContentKind`, `ContentRef`, `ChangeReason`, `ChangeScope`, `ContentIo`), `Render/fields.md` (`ContentValue`, `ParamScope`), `Render/kinds.md` (`TextureConfig`, `MaterialMint`, `TextureMint`, `EnvironmentState`, `TextureExport`); `Document/tables.md` (`ResourceId`, `TableTarget`), `Document/session.md` (`DocumentPath`), kernel `Domain/rails` (`Custody`); LanguageExt.Core; Thinktecture.Runtime.Extensions.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
+[SmartEnum<bool>]
+public sealed partial class UndoPolicy {
+    public static readonly UndoPolicy Skip = new(false);
+    public static readonly UndoPolicy Record = new(true);
+}
+
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ContentAdmission {
     private ContentAdmission() { }
-    public sealed record Factory(ContentKind Kind, Guid TypeId, Option<(ContentRef Parent, string Slot)> Into) : ContentAdmission;
+    public sealed record Factory(ContentKind Kind, ResourceId TypeId, Option<(ContentRef Parent, string Slot)> Into) : ContentAdmission;
     public sealed record Serialized(ContentKind Kind, ContentIo Source) : ContentAdmission;
     public sealed record Material(MaterialMint Source) : ContentAdmission;
     public sealed record Texture(TextureMint Source) : ContentAdmission;
@@ -703,17 +769,17 @@ public abstract partial record ContentAdmission {
             context: (Document: document, Reason: reason, Op: op),
             factory: static (context, source) =>
                 from kind in context.Op.Need(source.Kind)
-                from _ in guard(source.TypeId != Guid.Empty, context.Op.InvalidInput())
+                from type in context.Op.Need(source.TypeId)
                 from parent in source.Into.Traverse(into =>
                     from slot in context.Op.AcceptText(value: into.Slot)
                     from target in context.Op.Need(into.Parent)
                     from live in target.Resolve(document: context.Document, key: context.Op)
                     select (Content: live, Slot: slot)).As()
-                from minted in context.Op.Catch(() => Optional(RenderContent.Create(context.Document, source.TypeId))
-                    .ToFin(Fail: context.Op.InvalidResult()))
+                from lease in Lease<RenderContent>.Acquire(
+                    mint: () => RenderContent.Create(context.Document, type.ToValue()), key: context.Op)
                 from receipt in Transfer(
                     expected: kind,
-                    lease: new Lease<RenderContent>.Owned(Value: minted),
+                    lease: lease,
                     document: context.Document,
                     parent: parent,
                     reason: context.Reason,
@@ -744,26 +810,24 @@ public abstract partial record ContentAdmission {
 
     private static Fin<ContentReceipt> Transfer(
         ContentKind expected, Lease<RenderContent> lease, RhinoDoc document,
-        Option<(RenderContent Content, string Slot)> parent, ChangeReason reason, Op op) {
-        Fin<ContentReceipt> outcome =
-            from actual in ContentKind.Of(lease.Resource, op)
-            from _ in guard(actual == expected, op.InvalidInput())
-            from __ in parent.Case switch {
-                (RenderContent content, string slot) =>
-                    from _acceptable in TreeMutation.Accepts(
-                        parent: content, child: lease.Resource, slot: slot, op: op)
-                    from _written in ChangeScope.Write(
-                        content: content, reason: reason, key: op,
-                        body: live => op.Catch(() => op.Confirm(success: live.SetChild(renderContent: lease.Resource, childSlotName: slot))))
-                    select unit,
-                _ => op.Catch(() => op.Confirm(success: expected.Attach(document: document, content: lease.Resource))),
-            }
-            select ContentReceipt.Content(slot: ContentSlot.Minted, id: lease.Resource.Id)
-                + ContentReceipt.Content(slot: ContentSlot.Adopted, id: lease.Resource.Id);
-        return outcome.Match(
-            Succ: static receipt => Fin.Succ(value: receipt),
-            Fail: error => { lease.Dispose(); return Fin.Fail<ContentReceipt>(error: error); });
-    }
+        Option<(RenderContent Content, string Slot)> parent, ChangeReason reason, Op op) =>
+        (from actual in ContentKind.Of(lease.Resource, op)
+         from _ in guard(actual == expected, (Error)new KernelFault.InvalidValue(nameof(ContentKind), expected.ToString())).ToFin()
+         from id in ResourceId.Admit(value: lease.Resource.Id, key: op)
+         from __ in parent.Case switch {
+             (RenderContent content, string slot) =>
+                 from _acceptable in TreeMutation.Accepts(
+                     parent: content, child: lease.Resource, slot: slot, op: op)
+                 from _written in ChangeScope.Write(
+                     content: content, reason: reason, key: op,
+                     body: live => op.Catch(() => op.Confirm(success: live.SetChild(renderContent: lease.Resource, childSlotName: slot))))
+                 select unit,
+             _ => expected.Attach(document: document, content: lease.Resource, key: op),
+         }
+         from minted in ContentReceipt.Content(slot: ContentSlot.Minted, id: id, key: op)
+         from adopted in ContentReceipt.Content(slot: ContentSlot.Adopted, id: id, key: op)
+         select minted + adopted)
+        .Rollback(release: () => op.Catch(() => Fin.Succ(value: lease.Dispose())), key: op);
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -784,29 +848,35 @@ public abstract partial record TreeMutation {
                 from _acceptable in Accepts(parent: ctx.Parent, child: child, slot: slot, op: ctx.Op)
                 from _ in ChangeScope.Write(content: ctx.Parent, reason: reason, key: ctx.Op,
                     body: live => ctx.Op.Catch(() => ctx.Op.Confirm(success: live.SetChild(renderContent: child, childSlotName: slot))))
-                select ContentReceipt.Content(slot: ContentSlot.Grafted, id: ctx.Parent.Id),
+                from id in ResourceId.Admit(value: ctx.Parent.Id, key: ctx.Op)
+                from receipt in ContentReceipt.Content(slot: ContentSlot.Grafted, id: id, key: ctx.Op)
+                select receipt,
             prune: static (ctx, edit) =>
                 from reason in ctx.Op.Need(edit.Reason)
                 from slot in edit.Slot.Traverse(value => ctx.Op.AcceptText(value: value)).As()
                 from _ in ChangeScope.Write(content: ctx.Parent, reason: reason, key: ctx.Op,
                     body: live => slot.Case switch {
                         string name => ctx.Op.Catch(() => ctx.Op.Confirm(success: live.DeleteChild(name, reason.Native))),
-                        _ => ctx.Op.Catch(() => { live.DeleteAllChildren(reason.Native); return Fin.Succ(value: unit); }),
+                        _ => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => live.DeleteAllChildren(reason.Native)))),
                     })
-                select ContentReceipt.Content(slot: ContentSlot.Pruned, id: ctx.Parent.Id),
+                from id in ResourceId.Admit(value: ctx.Parent.Id, key: ctx.Op)
+                from receipt in ContentReceipt.Content(slot: ContentSlot.Pruned, id: id, key: ctx.Op)
+                select receipt,
             slot: static (ctx, edit) =>
                 from name in ctx.Op.AcceptText(value: edit.Name)
                 from reason in ctx.Op.Need(edit.Reason)
                 from _ in guard(
                     (edit.On.IsSome || edit.Amount.IsSome)
-                    && edit.Amount.Map(static amount => double.IsFinite(amount)).IfNone(true),
-                    ctx.Op.InvalidInput())
-                from __ in ChangeScope.Write(content: ctx.Parent, reason: reason, key: ctx.Op, body: live => ctx.Op.Catch(() => {
-                    _ = edit.On.Iter(on => live.SetChildSlotOn(name, on, reason.Native));
-                    _ = edit.Amount.Iter(amount => live.SetChildSlotAmount(name, amount, reason.Native));
-                    return Fin.Succ(value: unit);
-                }))
-                select ContentReceipt.Content(slot: ContentSlot.SlotSet, id: ctx.Parent.Id));
+                    && edit.Amount.Map(static amount => (bool)ValidityClaim.Finite(value: amount)).IfNone(true),
+                    (Error)new KernelFault.InvalidValue(nameof(TreeMutation.Slot), "at least one finite slot patch")).ToFin()
+                from __ in ChangeScope.Write(content: ctx.Parent, reason: reason, key: ctx.Op, body: live => ctx.Op.Catch(() =>
+                    Fin.Succ(value: Op.Side(() => {
+                        ignore(edit.On.Iter(on => live.SetChildSlotOn(name, on, reason.Native)));
+                        ignore(edit.Amount.Iter(amount => live.SetChildSlotAmount(name, amount, reason.Native)));
+                    }))))
+                from id in ResourceId.Admit(value: ctx.Parent.Id, key: ctx.Op)
+                from receipt in ContentReceipt.Content(slot: ContentSlot.SlotSet, id: id, key: ctx.Op)
+                select receipt);
 
     internal static Fin<Unit> Accepts(RenderContent parent, RenderContent child, string slot, Op op) =>
         op.Catch(() => op.Confirm(success: parent.IsContentTypeAcceptableAsChild(
@@ -817,8 +887,10 @@ public abstract partial record TreeMutation {
 [SmartEnum<string>]
 public sealed partial class Grouping {
     public static readonly Grouping Make = new("make", static (content, op) =>
-        op.Catch(() => Optional(content.MakeGroupInstance()).ToFin(Fail: op.InvalidResult())
-            .Map(grouped => ContentReceipt.Content(slot: ContentSlot.Grouped, id: grouped.Id))));
+        from grouped in op.Catch(() => Optional(content.MakeGroupInstance()).ToFin(Fail: op.InvalidResult()))
+        from id in ResourceId.Admit(value: grouped.Id, key: op)
+        from receipt in ContentReceipt.Content(slot: ContentSlot.Grouped, id: id, key: op)
+        select receipt);
     public static readonly Grouping Ungroup = new("ungroup", Undone(static content => content.Ungroup()));
     public static readonly Grouping Recursive = new("recursive", Undone(static content => content.UngroupRecursive()));
     public static readonly Grouping Smart = new("smart", Undone(static content => content.SmartUngroupRecursive()));
@@ -827,88 +899,104 @@ public sealed partial class Grouping {
     internal partial Fin<ContentReceipt> Apply(RenderContent content, Op op);
 
     private static Func<RenderContent, Op, Fin<ContentReceipt>> Undone(Func<RenderContent, bool> route) =>
-        (content, op) => op.Catch(() => op.Confirm(success: route(content)))
-            .Map(_ => ContentReceipt.Content(slot: ContentSlot.Ungrouped, id: content.Id));
+        (content, op) =>
+            from _ in op.Catch(() => op.Confirm(success: route(content)))
+            from id in ResourceId.Admit(value: content.Id, key: op)
+            from receipt in ContentReceipt.Content(slot: ContentSlot.Ungrouped, id: id, key: op)
+            select receipt;
 }
 
 [SmartEnum<bool>]
 public sealed partial class RenamePolicy {
     public static readonly RenamePolicy Exact = new(false);
     public static readonly RenamePolicy Unique = new(true);
-
-    internal bool EnsuresUnique => Key;
 }
 
-[SmartEnum<string>]
+[SmartEnum<int>]
 public sealed partial class ExtraRequirementReason {
-    public static readonly ExtraRequirementReason Ui = new("ui", RenderContent.ExtraRequirementsSetContexts.UI);
-    public static readonly ExtraRequirementReason Drop = new("drop", RenderContent.ExtraRequirementsSetContexts.Drop);
-    public static readonly ExtraRequirementReason Program = new("program", RenderContent.ExtraRequirementsSetContexts.Program);
+    public static readonly ExtraRequirementReason Ui = new(key: (int)RenderContent.ExtraRequirementsSetContexts.UI);
+    public static readonly ExtraRequirementReason Drop = new(key: (int)RenderContent.ExtraRequirementsSetContexts.Drop);
+    public static readonly ExtraRequirementReason Program = new(key: (int)RenderContent.ExtraRequirementsSetContexts.Program);
 
-    internal RenderContent.ExtraRequirementsSetContexts Native { get; }
+    internal RenderContent.ExtraRequirementsSetContexts Native => (RenderContent.ExtraRequirementsSetContexts)Key;
 }
 
-[SmartEnum<string>]
+[SmartEnum<int>]
 public sealed partial class SubFaceAssignment {
-    public static readonly SubFaceAssignment Keep = new("keep", RenderMaterial.AssignToSubFaceChoices.Keep);
-    public static readonly SubFaceAssignment Remove = new("remove", RenderMaterial.AssignToSubFaceChoices.Remove);
-    public static readonly SubFaceAssignment Ask = new("ask", RenderMaterial.AssignToSubFaceChoices.Ask);
+    public static readonly SubFaceAssignment Keep = new(key: (int)RenderMaterial.AssignToSubFaceChoices.Keep);
+    public static readonly SubFaceAssignment Remove = new(key: (int)RenderMaterial.AssignToSubFaceChoices.Remove);
+    public static readonly SubFaceAssignment Ask = new(key: (int)RenderMaterial.AssignToSubFaceChoices.Ask);
 
-    internal RenderMaterial.AssignToSubFaceChoices Native { get; }
+    internal RenderMaterial.AssignToSubFaceChoices Native => (RenderMaterial.AssignToSubFaceChoices)Key;
 }
 
-[SmartEnum<string>]
+[SmartEnum<int>]
 public sealed partial class BlockAssignment {
-    public static readonly BlockAssignment Always = new("always", RenderMaterial.AssignToBlockChoices.Always);
-    public static readonly BlockAssignment Never = new("never", RenderMaterial.AssignToBlockChoices.Never);
-    public static readonly BlockAssignment Ask = new("ask", RenderMaterial.AssignToBlockChoices.Ask);
+    public static readonly BlockAssignment Always = new(key: (int)RenderMaterial.AssignToBlockChoices.Always);
+    public static readonly BlockAssignment Never = new(key: (int)RenderMaterial.AssignToBlockChoices.Never);
+    public static readonly BlockAssignment Ask = new(key: (int)RenderMaterial.AssignToBlockChoices.Ask);
 
-    internal RenderMaterial.AssignToBlockChoices Native { get; }
+    internal RenderMaterial.AssignToBlockChoices Native => (RenderMaterial.AssignToBlockChoices)Key;
 }
 
-[SmartEnum<string>]
+[SmartEnum<int>]
 public sealed partial class EmbedPolicy {
-    public static readonly EmbedPolicy Never = new("never", RenderContent.EmbedFilesChoice.NeverEmbed);
-    public static readonly EmbedPolicy Always = new("always", RenderContent.EmbedFilesChoice.AlwaysEmbed);
-    public static readonly EmbedPolicy Ask = new("ask", RenderContent.EmbedFilesChoice.AskUser);
+    public static readonly EmbedPolicy Never = new(key: (int)RenderContent.EmbedFilesChoice.NeverEmbed);
+    public static readonly EmbedPolicy Always = new(key: (int)RenderContent.EmbedFilesChoice.AlwaysEmbed);
+    public static readonly EmbedPolicy Ask = new(key: (int)RenderContent.EmbedFilesChoice.AskUser);
 
-    internal RenderContent.EmbedFilesChoice Native { get; }
+    internal RenderContent.EmbedFilesChoice Native => (RenderContent.EmbedFilesChoice)Key;
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ContentMutation {
-    private ContentMutation() { }
-    public sealed record Detach : ContentMutation;
-    public sealed record Rename(string Name, ChangeReason Reason, RenamePolicy Policy) : ContentMutation;
-    public sealed record Tree(TreeMutation Edit) : ContentMutation;
-    public sealed record Field(string Name, FieldValue Value, ChangeReason Reason) : ContentMutation;
-    public sealed record Param(
-        ParamScope Scope, FieldValue Value, ChangeReason Reason,
-        ExtraRequirementReason Context) : ContentMutation;
-    public sealed record Texture(TextureConfig Config, ChangeReason Reason) : ContentMutation;
-    public sealed record Assign(TableTarget Objects, SubFaceAssignment SubFaces, BlockAssignment Blocks) : ContentMutation;
-    public sealed record Replace(ContentIo Source) : ContentMutation;
-    public sealed record Group(Grouping Mode) : ContentMutation;
-    public sealed record Export(ContentExport Output) : ContentMutation;
+public abstract partial record ContentExport {
+    private ContentExport() { }
+    public sealed record Archive(DocumentPath Path, EmbedPolicy Embed) : ContentExport;
+    public sealed record TextureImage(DocumentPath Path, Size2i Extent, int Depth) : ContentExport;
+}
 
-    internal bool RecordsUndo => this is not Export;
+// `Export` writes a file the host owns and opens no undo record; every other case does, so the policy is a column
+// each case declares rather than a negation the plan re-derives.
+[Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ContentMutation {
+    private ContentMutation(UndoPolicy undo) => Undo = undo;
+
+    internal UndoPolicy Undo { get; }
+
+    public sealed record Detach : ContentMutation { public Detach() : base(UndoPolicy.Record) { } }
+    public sealed record Rename(string Name, ChangeReason Reason, RenamePolicy Policy)
+        : ContentMutation(UndoPolicy.Record);
+    public sealed record Tree(TreeMutation Edit) : ContentMutation(UndoPolicy.Record);
+    public sealed record Field(string Name, ContentValue Value, ChangeReason Reason)
+        : ContentMutation(UndoPolicy.Record);
+    public sealed record Param(
+        ParamScope Scope, ContentValue Value, ChangeReason Reason,
+        ExtraRequirementReason Context) : ContentMutation(UndoPolicy.Record);
+    public sealed record Texture(TextureConfig Config, ChangeReason Reason) : ContentMutation(UndoPolicy.Record);
+    public sealed record Assign(TableTarget Objects, SubFaceAssignment SubFaces, BlockAssignment Blocks)
+        : ContentMutation(UndoPolicy.Record);
+    public sealed record Replace(ContentIo Source) : ContentMutation(UndoPolicy.Record);
+    public sealed record Group(Grouping Mode) : ContentMutation(UndoPolicy.Record);
+    public sealed record Export(ContentExport Output) : ContentMutation(UndoPolicy.Skip);
 
     internal Fin<ContentReceipt> Apply(RenderContent content, RhinoDoc document, Op op) =>
         Switch(
             context: (Content: content, Document: document, Op: op),
             detach: static (ctx, _) =>
                 from kind in ContentKind.Of(ctx.Content, ctx.Op)
-                from _ in ctx.Op.Catch(() => ctx.Op.Confirm(success: kind.Detach(ctx.Document, ctx.Content)))
-                select ContentReceipt.Content(slot: ContentSlot.Detached, id: ctx.Content.Id),
+                from _ in kind.Detach(document: ctx.Document, content: ctx.Content, key: ctx.Op)
+                from id in ResourceId.Admit(value: ctx.Content.Id, key: ctx.Op)
+                from receipt in ContentReceipt.Content(slot: ContentSlot.Detached, id: id, key: ctx.Op)
+                select receipt,
             rename: static (ctx, edit) =>
                 from name in ctx.Op.AcceptText(value: edit.Name)
                 from reason in ctx.Op.Need(edit.Reason)
                 from policy in ctx.Op.Need(edit.Policy)
-                from _ in ChangeScope.Write(ctx.Content, reason, live => ctx.Op.Catch(() => {
-                    live.SetName(name, renameEvents: true, ensureNameUnique: policy.EnsuresUnique);
-                    return Fin.Succ(value: unit);
-                }), ctx.Op)
-                select ContentReceipt.Content(slot: ContentSlot.Renamed, id: ctx.Content.Id),
+                from _ in ChangeScope.Write(ctx.Content, reason, live => ctx.Op.Catch(() =>
+                    Fin.Succ(value: Op.Side(() => live.SetName(name, renameEvents: true, ensureNameUnique: policy.Key)))), ctx.Op)
+                from id in ResourceId.Admit(value: ctx.Content.Id, key: ctx.Op)
+                from receipt in ContentReceipt.Content(slot: ContentSlot.Renamed, id: id, key: ctx.Op)
+                select receipt,
             tree: static (ctx, edit) =>
                 from change in ctx.Op.Need(edit.Edit)
                 from receipt in change.Apply(parent: ctx.Content, document: ctx.Document, op: ctx.Op)
@@ -918,43 +1006,43 @@ public abstract partial record ContentMutation {
                 from value in ctx.Op.Need(edit.Value)
                 from reason in ctx.Op.Need(edit.Reason)
                 from _ in ChangeScope.Write(ctx.Content, reason, live => value.Write(live.Fields, name, ctx.Op), ctx.Op)
-                select ContentReceipt.Content(slot: ContentSlot.FieldSet, id: ctx.Content.Id),
+                from id in ResourceId.Admit(value: ctx.Content.Id, key: ctx.Op)
+                from receipt in ContentReceipt.Content(slot: ContentSlot.FieldSet, id: id, key: ctx.Op)
+                select receipt,
             param: static (ctx, edit) =>
                 from scope in ctx.Op.Need(edit.Scope)
                 from value in ctx.Op.Need(edit.Value)
                 from reason in ctx.Op.Need(edit.Reason)
                 from context in ctx.Op.Need(edit.Context)
                 from _ in scope.Write(ctx.Content, value, reason, context.Native, ctx.Op)
-                select ContentReceipt.Content(slot: ContentSlot.FieldSet, id: ctx.Content.Id),
+                from id in ResourceId.Admit(value: ctx.Content.Id, key: ctx.Op)
+                from receipt in ContentReceipt.Content(slot: ContentSlot.FieldSet, id: id, key: ctx.Op)
+                select receipt,
             texture: static (ctx, edit) =>
                 from texture in ctx.Op.Need(ctx.Content as RenderTexture)
                 from config in ctx.Op.Need(edit.Config)
                 from reason in ctx.Op.Need(edit.Reason)
                 from _ in config.Apply(texture, reason, ctx.Op)
-                select ContentReceipt.Content(slot: ContentSlot.Configured, id: ctx.Content.Id),
+                from id in ResourceId.Admit(value: ctx.Content.Id, key: ctx.Op)
+                from receipt in ContentReceipt.Content(slot: ContentSlot.Configured, id: id, key: ctx.Op)
+                select receipt,
             assign: static (ctx, edit) =>
                 from material in ctx.Op.Need(ctx.Content as RenderMaterial)
                 from objects in ctx.Op.Need(edit.Objects)
                 from subFaces in ctx.Op.Need(edit.SubFaces)
                 from blocks in ctx.Op.Need(edit.Blocks)
                 from ids in objects.Resolve(document: ctx.Document, key: ctx.Op)
-                from _ in ctx.Op.Catch(() => {
-                    ObjRef[] references = new ObjRef[ids.Count];
-                    int minted = 0;
-                    try {
-                        foreach (Guid id in ids) {
-                            references[minted] = new ObjRef(ctx.Document, id);
-                            minted++;
-                        }
-                        return ctx.Op.Confirm(success: material.AssignTo(
-                            references, subFaces.Native, blocks.Native, bInteractive: false));
-                    } finally {
-                        for (int index = 0; index < minted; index++) {
-                            references[index].Dispose();
-                        }
-                    }
-                })
-                select ContentReceipt.Objects(slot: ContentSlot.Assigned, ids: ids),
+                from references in ids.FoldM<Fin, Seq<Lease<ObjRef>>>(
+                    Seq<Lease<ObjRef>>(),
+                    (held, id) => Lease<ObjRef>.Acquire(mint: () => new ObjRef(ctx.Document, id), key: ctx.Op)
+                        .Map(held.Add)
+                        .Rollback(held: held, release: Release, key: ctx.Op))
+                from _ in ctx.Op.Catch(() => ctx.Op.Confirm(success: material.AssignTo(
+                        references.Map(static held => held.Resource).ToArray(),
+                        subFaces.Native, blocks.Native, bInteractive: false)))
+                    .Settled(held: references, release: Release, key: ctx.Op)
+                from receipt in ContentReceipt.Objects(slot: ContentSlot.Assigned, ids: ids, key: ctx.Op)
+                select receipt,
             replace: static (ctx, edit) =>
                 from source in ctx.Op.Need(edit.Source)
                 from lease in source.Mint(document: ctx.Document, key: ctx.Op)
@@ -970,36 +1058,32 @@ public abstract partial record ContentMutation {
                     context: (Content: ctx.Content, Op: ctx.Op),
                     archive: static (state, archive) =>
                         from embed in state.Op.Need(archive.Embed)
-                        from path in state.Op.AcceptText(value: archive.Path)
-                        from _ in state.Op.Catch(() => state.Op.Confirm(success: state.Content.SaveToFile(path, embed.Native)))
-                        select ContentReceipt.Path(slot: ContentSlot.Exported, path: path),
+                        from path in state.Op.Need(archive.Path)
+                        from _ in state.Op.Catch(() => state.Op.Confirm(
+                            success: state.Content.SaveToFile(path.ToValue(), embed.Native)))
+                        from receipt in ContentReceipt.Path(slot: ContentSlot.Exported, path: path, key: state.Op)
+                        select receipt,
                     textureImage: static (state, image) =>
                         from texture in state.Op.Need(state.Content as RenderTexture)
-                        from path in state.Op.AcceptText(value: image.Path)
+                        from path in state.Op.Need(image.Path)
                         from _ in TextureExport.Export(
-                            texture: texture, path: path,
-                            width: image.Width, height: image.Height, depth: image.Depth, key: state.Op)
-                        select ContentReceipt.Path(slot: ContentSlot.Exported, path: path))
+                            texture: texture, path: path.ToValue(),
+                            width: image.Extent.Width, height: image.Extent.Height, depth: image.Depth, key: state.Op)
+                        from receipt in ContentReceipt.Path(slot: ContentSlot.Exported, path: path, key: state.Op)
+                        select receipt)
                 select receipt);
 
-    private static Fin<ContentReceipt> ReplaceWith(RenderContent target, Lease<RenderContent> lease, Op op) {
-        Fin<ContentReceipt> outcome =
-            from targetKind in ContentKind.Of(target, op)
-            from replacementKind in ContentKind.Of(lease.Resource, op)
-            from _ in guard(targetKind == replacementKind, op.InvalidInput())
-            from __ in op.Catch(() => op.Confirm(success: target.Replace(newcontent: lease.Resource)))
-            select ContentReceipt.Content(slot: ContentSlot.Swapped, id: lease.Resource.Id);
-        return outcome.Match(
-            Succ: static receipt => Fin.Succ(value: receipt),
-            Fail: error => { lease.Dispose(); return Fin.Fail<ContentReceipt>(error: error); });
-    }
-}
+    private static Fin<Unit> Release(Lease<ObjRef> held) => Fin.Succ(value: held.Dispose());
 
-[Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ContentExport {
-    private ContentExport() { }
-    public sealed record Archive(string Path, EmbedPolicy Embed) : ContentExport;
-    public sealed record TextureImage(string Path, int Width, int Height, int Depth) : ContentExport;
+    private static Fin<ContentReceipt> ReplaceWith(RenderContent target, Lease<RenderContent> lease, Op op) =>
+        (from targetKind in ContentKind.Of(target, op)
+         from replacementKind in ContentKind.Of(lease.Resource, op)
+         from _ in guard(targetKind == replacementKind, (Error)new KernelFault.InvalidValue(nameof(ContentKind), targetKind.ToString())).ToFin()
+         from __ in op.Catch(() => op.Confirm(success: target.Replace(newcontent: lease.Resource)))
+         from id in ResourceId.Admit(value: lease.Resource.Id, key: op)
+         from receipt in ContentReceipt.Content(slot: ContentSlot.Swapped, id: id, key: op)
+         select receipt)
+        .Rollback(release: () => op.Catch(() => Fin.Succ(value: lease.Dispose())), key: op);
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1008,16 +1092,16 @@ public abstract partial record ContentOp {
     public sealed record Admit(ContentAdmission Source) : ContentOp;
     public sealed record Mutate(ContentRef Target, ContentMutation Change) : ContentOp;
 
-    internal bool RecordsUndo => Switch(
-        admit: static _ => true,
-        mutate: static edit => Optional(edit.Change).Map(static change => change.RecordsUndo).IfNone(false));
+    internal UndoPolicy Undo => Switch(
+        admit: static _ => UndoPolicy.Record,
+        mutate: static edit => edit.Change.Undo);
 
     internal Fin<ContentReceipt> Apply(RhinoDoc document, ContentKind scope, ChangeReason reason, Op op) =>
         Switch(
             context: (Document: document, Scope: scope, Reason: reason, Op: op),
             admit: static (ctx, edit) =>
                 from source in ctx.Op.Need(edit.Source)
-                from _ in guard(source.Expected == ctx.Scope, ctx.Op.InvalidInput())
+                from _ in guard(source.Expected == ctx.Scope, (Error)new KernelFault.InvalidValue(nameof(ContentKind), ctx.Scope.ToString())).ToFin()
                 from receipt in source.Apply(document: ctx.Document, reason: ctx.Reason, op: ctx.Op)
                 select receipt,
             mutate: static (ctx, edit) =>
@@ -1025,7 +1109,7 @@ public abstract partial record ContentOp {
                 from change in ctx.Op.Need(edit.Change)
                 from content in target.Resolve(document: ctx.Document, key: ctx.Op)
                 from kind in ContentKind.Of(content, ctx.Op)
-                from _ in guard(kind == ctx.Scope, ctx.Op.InvalidInput())
+                from _ in guard(kind == ctx.Scope, (Error)new KernelFault.InvalidValue(nameof(ContentKind), ctx.Scope.ToString())).ToFin()
                 from receipt in change.Apply(content: content, document: ctx.Document, op: ctx.Op)
                 select receipt);
 }
@@ -1033,25 +1117,94 @@ public abstract partial record ContentOp {
 
 ## [04]-[COMMIT_AND_QUERY]
 
-- Owner: `RegistryCommand` closes content registration, serializer registration, and document mutation; `RegistryResult` keeps each receipt distinct; `Registry.Run` is the sole change entry.
+- Owner: `RegistryCommand` closes content registration, serializer registration, shell arming, and document mutation; `RegistryResult` keeps each receipt distinct; `Registry.Run` is the sole change entry.
 - Owner: `RegistryQuery<T>` closes target reads, rosters, current environments, and the two-tier factory census; `Registry.Read<T>` preserves result correlation through `IDetachedDocumentResult`.
-- Law: the spine is the one bracket owner — the whole mutation runs inside one `Demand` window, the undo record opens through the document `UndoBracket` only when the plan records, the plan's kind opens its table change scope around the fold and closes it on every exit, redraw suppression restores prior state, and the bracket's `Seal` rolls a failed owned record back before the fault leaves.
+- Owner: `IconModality` carries each verified host icon route as one bind row and `IconRequest` pairs it with an extent; `KindScope` closes what a kind list holds and `CollectionTrait` carries the collection's switches.
+- Law: the spine is the one bracket owner — the whole mutation runs inside one `Demand` window, the undo record opens through the document `UndoBracket` only when the plan records, the plan's kind opens its table change scope around the fold through `ContentKind.Table`, redraw suppression restores prior state, and the bracket's `Seal` rolls a failed owned record back before the fault leaves. `ContentKind.Table` owns that window, never this page — it carries the `Lease<TableScope>` custody and the aggregating close, so an open/body/close triple spelled here is a second window whose close refusal REPLACES the body's fault instead of appending to it.
 - Law: grants are proven per plan shape against one snapshot — `Mutate` always, `Undo` when the plan records, `Redraw` when the plan redraws — and the session is the only document ingress; the redraw vocabulary is the document `RedrawPolicy` rows, shared with the table and block rails.
-- Law: reads never open an undo record; every answer is a detached fact or self-disposing capsule, and `IconRequest` closes standard, virtual, and dynamic bitmap generation under one `ContentIcon` lease.
-- Law: `ContentCollectionProbe.Of` admits collection and kind-list leases once and `Mint` is the corpus producer over the two host constructors; owned cases dispose after the query and borrowed cases remain host-owned, while the answer detaches usage, members, editor state, thumbnail need, and kind evidence.
-- Law: the workflow-corrected hash resolves the document's own `LinearWorkflow` inside the query window off the probe's `DocumentWorkflow` posture, through the settings page's `SubOwners` bracket so the read is one coherent wrapper set; a live sub-owner never enters or leaves a query value.
+- Law: an icon route is a ROW, not a case. Three request cases and a four-row policy enum described SIX host calls between them, each re-spelling the same "did the host draw, and who owns the bitmap it handed back" custody hop; `IconModality` names the six routes once, the request is one record, and the custody funnel exists in one place — the bitmap the host hands back on a false answer releases through `Lease<T>.Use` instead of a hand-written dispose beside the failure return.
+- Law: kind evidence is a SCOPE, not three columns. A count, a membership bool, and an optional single kind re-derived one another, so a reader held `KindCount == 1` beside `SingleKind = None`; `KindScope` states empty, single, or many once and the membership probe stays its own trait.
+- Law: reads never open an undo record; every answer is a detached fact or a capsule with railed release.
+- Law: `ContentCollectionProbe.Of` admits collection and kind-list leases once and `Mint` is the corpus producer over the two host constructors; `Release(Op)` delegates both leases to kernel custody, so owned cases retire and borrowed cases remain host-owned without a disposer fault being discarded.
+- Law: the workflow-corrected hash resolves the document's own `LinearWorkflow` inside the query window and hands it to `HashProbe.Read` as the argument that SELECTS the host route, through the settings page's `SubOwners` bracket so the read is one coherent wrapper set; a live sub-owner never enters or leaves a query value, and the witness records the scope the read took.
 - Boundary: the current-environment triple reads through `RhinoDoc.CurrentEnvironment`; the settings-side per-usage binding is the settings page's edit rail, and the two never merge.
+- Growth: a new icon route is one `IconModality` row; a new query is one `ContentQuery<T>` or `RegistryQuery<T>` value with no entry change.
+- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.Icon`, `VirtualIcon`, `DynamicIcon`, `DynamicIconUsage`, `MatchData`, `MatchDataResult`, `IsCompatible`, `Xml`, `GetEmbeddedFilesList`); `api-rhinocommon-render.md` (`RenderContentCollection` and its `GetFilterContentByUsage`/`Count`/`ContentAt`/`GetForcedVaries`/`GetSearchPattern`/`ContentNeedsPreviewThumbnail`, `RenderContentKindList` and its `Add`/`Count`/`Contains`/`SingleKind`, `FilterContentByUsage`, `RenderTexture.TextureGeneration`); `api-rhinocommon-document.md` (`RhinoDoc.CurrentEnvironment`, `ICurrentEnvironment`); kernel `Domain/rails` (`Lease<T>.Acquire`/`Use`, `Op.Catch`), `Domain/validation` (`CapabilitySet`, `Op.Row`); `Render/content.md` (`HashProbe`, `HashWitness`, `ContentSnapshot`, `ContentKind`), `Render/settings.md` (`SubOwners`), `Render/kinds.md` (`BakeScope`, `MaterialBridge`, `MaterialScent`, `TextureConfig`, `TextureTraits`, `EnvironmentState`), `Render/fields.md` (`FieldCensus`, `ContentValue`, `ParamScope`); `Document/session.md` (`DocumentSession`, `SessionNeed`), `Document/commit.md` (`DocumentCommit.Sealed`, `RedrawPolicy`), kernel `Domain/rails` (`Custody`); LanguageExt.Core; Thinktecture.Runtime.Extensions.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
-[SmartEnum<bool>]
-public sealed partial class UndoPolicy {
-    public static readonly UndoPolicy Skip = new(false);
-    public static readonly UndoPolicy Record = new(true);
-
-    internal bool Enabled => Key;
+// --- [TYPES] --------------------------------------------------------------------------------
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class CollectionTrait : ICapability<CollectionTrait> {
+    public static readonly CollectionTrait ForcedVaries = new(key: "forced-varies");
+    public static readonly CollectionTrait NeedsPreview = new(key: "needs-preview");
+    public static readonly CollectionTrait ContainsOwnKind = new(key: "contains-own-kind");
 }
 
+[SmartEnum<int>]
+public sealed partial class ContentUsageFilter {
+    public static readonly ContentUsageFilter None = new(key: (int)FilterContentByUsage.None);
+    public static readonly ContentUsageFilter Used = new(key: (int)FilterContentByUsage.Used);
+    public static readonly ContentUsageFilter Unused = new(key: (int)FilterContentByUsage.Unused);
+    public static readonly ContentUsageFilter UsedSelected = new(key: (int)FilterContentByUsage.UsedSelected);
+
+    internal FilterContentByUsage Native => (FilterContentByUsage)Key;
+
+    internal static Fin<ContentUsageFilter> Of(FilterContentByUsage native, Op key) =>
+        key.Row<FilterContentByUsage, ContentUsageFilter>(native, static value => (int)value);
+}
+
+[SmartEnum<int>]
+public sealed partial class MatchVerdict {
+    public static readonly MatchVerdict None = new(key: (int)RenderContent.MatchDataResult.None);
+    public static readonly MatchVerdict Some = new(key: (int)RenderContent.MatchDataResult.Some);
+    public static readonly MatchVerdict All = new(key: (int)RenderContent.MatchDataResult.All);
+
+    internal RenderContent.MatchDataResult Native => (RenderContent.MatchDataResult)Key;
+
+    internal static Fin<MatchVerdict> Of(RenderContent.MatchDataResult native, Op key) =>
+        key.Row<RenderContent.MatchDataResult, MatchVerdict>(native, static value => (int)value);
+}
+
+// Six host icon routes on one roster: each row answers the host's draw verdict beside whatever bitmap it handed
+// back, and the ONE custody funnel above decides who owns it. Three request cases plus a four-row usage enum
+// described the same six calls and re-spelled the custody hop at each.
+[SmartEnum<string>]
+public sealed partial class IconModality {
+    public static readonly IconModality Standard = new("standard", static (content, extent) =>
+        (content.Icon(extent, out System.Drawing.Bitmap rendered), rendered));
+    public static readonly IconModality Virtual = new("virtual", static (content, extent) =>
+        (content.VirtualIcon(extent, out System.Drawing.Bitmap rendered), rendered));
+    public static readonly IconModality Tree = new("tree", Dynamic(DynamicIconUsage.TreeControl));
+    public static readonly IconModality Subnode = new("subnode", Dynamic(DynamicIconUsage.SubnodeControl));
+    public static readonly IconModality Control = new("control", Dynamic(DynamicIconUsage.ContentControl));
+    public static readonly IconModality General = new("general", Dynamic(DynamicIconUsage.General));
+
+    [UseDelegateFromConstructor]
+    internal partial (bool Drawn, System.Drawing.Bitmap? Image) Draw(RenderContent content, System.Drawing.Size extent);
+
+    private static Func<RenderContent, System.Drawing.Size, (bool, System.Drawing.Bitmap?)> Dynamic(DynamicIconUsage usage) =>
+        (content, extent) => (content.DynamicIcon(extent, out System.Drawing.Bitmap rendered, usage), rendered);
+}
+
+// One kind fact, three readings: empty, exactly one, or many. A count beside an optional single kind let a reader
+// hold `KindCount == 1` with no single kind, which is a state the host never produces.
+[Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record KindScope {
+    private KindScope() { }
+    public sealed record Empty : KindScope;
+    public sealed record Single(ContentKind Kind) : KindScope;
+    public sealed record Many(int Count) : KindScope;
+
+    internal static Fin<KindScope> Of(RenderContentKindList kinds, Op key) =>
+        key.Catch(() => kinds.Count() switch {
+            0 => Fin.Succ<KindScope>(new Empty()),
+            1 => ContentKind.Of(kinds.SingleKind(), key).Map(static kind => (KindScope)new Single(Kind: kind)),
+            var count => Fin.Succ<KindScope>(new Many(Count: count)),
+        });
+}
+
+// --- [MODELS] -------------------------------------------------------------------------------
 public sealed record ContentTransaction(
     string Name,
     ContentKind Kind,
@@ -1059,7 +1212,8 @@ public sealed record ContentTransaction(
     ChangeReason Reason,
     RedrawPolicy Redraw,
     UndoPolicy Undo) {
-    public static ContentTransaction Batch(string name, ContentKind kind, ChangeReason reason, params ReadOnlySpan<ContentOp> operations) =>
+    public static ContentTransaction Batch(
+        string name, ContentKind kind, ChangeReason reason, params ReadOnlySpan<ContentOp> operations) =>
         new(
             Name: name,
             Kind: kind,
@@ -1067,38 +1221,35 @@ public sealed record ContentTransaction(
             Reason: reason,
             Redraw: RedrawPolicy.Deferred,
             Undo: UndoPolicy.Record);
+
+    // The plan records only where its policy allows AND some operation actually opens a record, so a batch of
+    // pure exports opens no bracket the seal would then have to roll back empty.
+    internal bool Records => Undo.Key && Operations.Exists(static operation => operation.Undo.Key);
 }
 
 public sealed record EnvironmentBindings(
-    Option<Guid> Background,
-    Option<Guid> Reflection,
-    Option<Guid> Lighting) : IDetachedDocumentResult;
+    Option<ResourceId> Background,
+    Option<ResourceId> Reflection,
+    Option<ResourceId> Lighting) : IDetachedDocumentResult;
 
 public sealed record ContentArchive(string Xml, Seq<string> EmbeddedFiles) : IDetachedDocumentResult;
 
-public sealed record ContentRoster(ContentKind Kind, Seq<Guid> Ids) : IDetachedDocumentResult;
+public sealed record ContentRoster(ContentKind Kind, Seq<ResourceId> Ids) : IDetachedDocumentResult;
 
-[SmartEnum<string>]
-public sealed partial class ContentUsageFilter {
-    public static readonly ContentUsageFilter None = new("none", FilterContentByUsage.None);
-    public static readonly ContentUsageFilter Used = new("used", FilterContentByUsage.Used);
-    public static readonly ContentUsageFilter Unused = new("unused", FilterContentByUsage.Unused);
-    public static readonly ContentUsageFilter UsedSelected = new("used-selected", FilterContentByUsage.UsedSelected);
-
-    internal FilterContentByUsage Native { get; }
-
-    internal static Fin<ContentUsageFilter> Of(FilterContentByUsage native, Op key) =>
-        key.Row(Items, native, static item => item.Native);
-}
-
-// Host truth: both carriers are `IDisposable` with public parameterless constructors, so `Mint` is the corpus producer for a
-// caller-owned pair and `Of` admits the editor's own live set as borrows the host keeps.
+// Host truth: both carriers are `IDisposable` with public parameterless constructors, so `Mint` is the corpus
+// producer for a caller-owned pair and `Of` admits the editor's own live set as borrows the host keeps.
 public sealed record ContentCollectionProbe {
     private ContentCollectionProbe(Lease<RenderContentCollection> collection, Lease<RenderContentKindList> kinds) =>
         (Collection, Kinds) = (collection, kinds);
 
     internal Lease<RenderContentCollection> Collection { get; }
     internal Lease<RenderContentKindList> Kinds { get; }
+
+    public Fin<Unit> Release(Op op) => Custody.Release(
+        releases: Seq<Func<Fin<Unit>>>(
+            () => op.Catch(() => Fin.Succ(value: Kinds.Dispose())),
+            () => op.Catch(() => Fin.Succ(value: Collection.Dispose()))),
+        key: op);
 
     public static Fin<ContentCollectionProbe> Of(
         Lease<RenderContentCollection> collection, Lease<RenderContentKindList> kinds, Op? key = null) {
@@ -1108,72 +1259,59 @@ public sealed record ContentCollectionProbe {
                select new ContentCollectionProbe(collection: activeCollection, kinds: activeKinds);
     }
 
+    // Both mints land before either can refuse, and the rollback rail releases whatever was already held — a
+    // second `new` inside a success continuation strands the first on its own failure.
     public static Fin<ContentCollectionProbe> Mint(Seq<ContentKind> kinds, Op? key = null) {
         Op op = key.OrDefault();
-        return op.Catch(() => {
-            Lease<RenderContentCollection> collection = new Lease<RenderContentCollection>.Owned(Value: new RenderContentCollection());
-            Lease<RenderContentKindList> list = new Lease<RenderContentKindList>.Owned(Value: new RenderContentKindList());
-            return op.Catch(() => {
-                    kinds.Iter(kind => list.Resource.Add(kind: (RenderContentKind)kind.Key));
-                    return Of(collection: collection, kinds: list, key: op);
-                })
-                .Match(
-                    Succ: static probe => Fin.Succ(value: probe),
-                    Fail: fault => {
-                        collection.Dispose();
-                        list.Dispose();
-                        return Fin.Fail<ContentCollectionProbe>(error: fault);
-                    });
-        });
+        return from collection in Lease<RenderContentCollection>.Acquire(
+                   mint: static () => new RenderContentCollection(), key: op)
+               from list in Lease<RenderContentKindList>.Acquire(
+                       mint: static () => new RenderContentKindList(), key: op)
+                   .Rollback(release: () => Fin.Succ(value: collection.Dispose()), key: op)
+               from probe in (from _ in op.Catch(() => Fin.Succ(value: kinds.Iter(
+                                      kind => list.Resource.Add(kind: (RenderContentKind)kind.Key))))
+                              from admitted in Of(collection: collection, kinds: list, key: op)
+                              select admitted)
+                   .Rollback(
+                       release: () => Custody.Release(
+                           releases: Seq<Func<Fin<Unit>>>(
+                               () => Fin.Succ(value: list.Dispose()),
+                               () => Fin.Succ(value: collection.Dispose())),
+                           key: op),
+                       key: op)
+               select probe;
     }
 }
 
 public sealed record ContentCollectionEvidence(
     ContentUsageFilter Usage,
-    Seq<Guid> Members,
-    bool ForcedVaries,
+    Seq<ResourceId> Members,
     Option<string> SearchPattern,
-    bool NeedsPreview,
-    int KindCount,
-    bool ContainsContentKind,
-    Option<ContentKind> SingleKind) : IDetachedDocumentResult;
-
-[SmartEnum<string>]
-public sealed partial class MatchVerdict {
-    public static readonly MatchVerdict None = new("none", RenderContent.MatchDataResult.None);
-    public static readonly MatchVerdict Some = new("some", RenderContent.MatchDataResult.Some);
-    public static readonly MatchVerdict All = new("all", RenderContent.MatchDataResult.All);
-
-    internal RenderContent.MatchDataResult Native { get; }
-
-    internal static Fin<MatchVerdict> Of(RenderContent.MatchDataResult native, Op key) =>
-        key.Row(Items, native, static item => item.Native);
-}
-
-[SmartEnum<string>]
-public sealed partial class DynamicIconPolicy {
-    public static readonly DynamicIconPolicy Tree = new("tree", DynamicIconUsage.TreeControl);
-    public static readonly DynamicIconPolicy Subnode = new("subnode", DynamicIconUsage.SubnodeControl);
-    public static readonly DynamicIconPolicy Content = new("content", DynamicIconUsage.ContentControl);
-    public static readonly DynamicIconPolicy General = new("general", DynamicIconUsage.General);
-
-    internal DynamicIconUsage Native { get; }
-}
-
-[Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record IconRequest {
-    private IconRequest() { }
-    public sealed record Standard(Size2i Extent) : IconRequest;
-    public sealed record Virtual(Size2i Extent) : IconRequest;
-    public sealed record Dynamic(Size2i Extent, DynamicIconPolicy Policy) : IconRequest;
-}
+    KindScope Kinds,
+    CapabilitySet<CollectionTrait> Traits) : IDetachedDocumentResult;
 
 public readonly record struct MatchEvidence(MatchVerdict Verdict) : IDetachedDocumentResult;
 
 public readonly record struct CompatibilityEvidence(Guid RenderEngineId, bool Compatible) : IDetachedDocumentResult;
 
 public sealed record ContentIcon(Lease<System.Drawing.Bitmap> Image) : IDetachedDocumentResult, IDisposable {
-    public void Dispose() => Image.Dispose();
+    public void Dispose() => ignore(Image.Dispose());
+}
+
+public sealed record IconRequest(Size2i Extent, IconModality Modality) {
+    // The ONE custody funnel: a drawn bitmap becomes an owned lease, and a bitmap the host handed back beside a
+    // FALSE verdict releases through the lease's own fallible use rather than a dispose beside the failure return.
+    internal Fin<ContentIcon> Render(RenderContent content, Op key) =>
+        key.Catch(() => Modality.Draw(content: content, extent: Extent.Native) switch {
+            (true, System.Drawing.Bitmap drawn) =>
+                Fin.Succ(value: new ContentIcon(Image: new Lease<System.Drawing.Bitmap>.Owned(Value: drawn))),
+            (false, System.Drawing.Bitmap stray) => new Lease<System.Drawing.Bitmap>.Owned(Value: stray).Use(
+                body: _ => Fin.Fail<ContentIcon>(new RenderFault.HostRefused(
+                    Key: key, Member: nameof(IconModality), Detail: Modality.Key)),
+                key: key),
+            _ => Fin.Fail<ContentIcon>(new RenderFault.HostRefused(
+                Key: key, Member: nameof(IconModality), Detail: Modality.Key)),
+        });
 }
 
 public sealed class ContentQuery<T> where T : IDetachedDocumentResult {
@@ -1208,21 +1346,24 @@ public static class ContentQuery {
     public static ContentQuery<TextureTraits> Traits { get; } =
         As<RenderTexture, TextureTraits>(static (texture, op) => TextureTraits.Of(texture: texture, key: op));
 
-    public static ContentQuery<HashWitness> Hash(HashProbe probe) =>
+    // The document scope resolves the live workflow inside the query window and hands it to the ONE read, which
+    // records on its witness which route it took — a stored posture beside a caller-chosen overload let the receipt
+    // disagree with the call.
+    public static ContentQuery<HashWitness> Hash(HashProbe probe, HashScope scope) =>
         new(read: (document, content, op) =>
             from active in op.Need(probe)
-            from value in active.DocumentWorkflow
-                ? new Lease<RenderSettings>.Owned(Value: document.RenderSettings).Use(settings =>
-                    SubOwners.Within(
+            from row in op.Need(scope)
+            from witness in row == HashScope.Documented
+                ? Lease<RenderSettings>.Acquire(mint: () => document.RenderSettings, key: op).Bind(lease => lease.Use(
+                    body: settings => SubOwners.Within(
                         settings: settings,
-                        borrow: owners => active.Read(content: content, workflow: owners.Workflow, key: op),
-                        key: op))
-                : active.Read(content: content, key: op)
-            select new HashWitness(
-                Flags: active.Flags, Excluded: active.ExcludedParameters,
-                DocumentWorkflow: active.DocumentWorkflow, Value: value));
+                        borrow: owners => active.Read(content: content, workflow: Some(owners.Workflow), key: op),
+                        key: op),
+                    key: op))
+                : active.Read(content: content, workflow: None, key: op)
+            select witness);
 
-    public static ContentQuery<FieldValue> Param(ParamScope scope) =>
+    public static ContentQuery<ContentValue> Param(ParamScope scope) =>
         new(read: (_, content, op) =>
             from active in op.Need(scope)
             from value in active.Read(content: content, key: op)
@@ -1230,7 +1371,7 @@ public static class ContentQuery {
 
     public static ContentQuery<SlotUsage> Usage(RenderMaterial.StandardChildSlots slot) =>
         As<RenderMaterial, SlotUsage>((material, op) =>
-            from _ in guard(Enum.IsDefined(slot), op.InvalidInput()).ToFin()
+            from _ in guard(Enum.IsDefined(slot), (Error)new KernelFault.InvalidValue(nameof(RenderMaterial.StandardChildSlots), "a defined slot")).ToFin()
             from usage in MaterialBridge.Usage(material: material, slot: slot, key: op)
             select usage);
 
@@ -1239,7 +1380,7 @@ public static class ContentQuery {
         where TOut : IDetachedDocumentResult =>
         As<RenderMaterial, TOut>((material, op) =>
             from activeBorrow in op.Need(borrow)
-            from _ in guard(Enum.IsDefined(generation), op.InvalidInput()).ToFin()
+            from _ in guard(Enum.IsDefined(generation), (Error)new KernelFault.InvalidValue(nameof(RenderTexture.TextureGeneration), "a defined generation")).ToFin()
             from result in MaterialBridge.Bake(
                 material: material, generation: generation, borrow: activeBorrow, key: op)
             select result);
@@ -1249,31 +1390,19 @@ public static class ContentQuery {
         where TOut : IDetachedDocumentResult =>
         As<RenderMaterial, TOut>((material, op) =>
             from activeBorrow in op.Need(borrow)
-            from _ in guard(Enum.IsDefined(generation), op.InvalidInput()).ToFin()
+            from _ in guard(Enum.IsDefined(generation), (Error)new KernelFault.InvalidValue(nameof(RenderTexture.TextureGeneration), "a defined generation")).ToFin()
             from result in MaterialBridge.Pbr(
                 material: material, generation: generation, borrow: activeBorrow, key: op)
             select result);
 
-    public static ContentQuery<EnvironmentState> Environment(bool dataOnly) =>
+    public static ContentQuery<EnvironmentState> Environment(BakeScope scope) =>
         As<RenderEnvironment, EnvironmentState>((environment, op) =>
-            EnvironmentState.Bake(environment: environment, isForDataOnly: dataOnly, key: op));
+            EnvironmentState.Bake(environment: environment, scope: scope, key: op));
 
     public static ContentQuery<ContentIcon> Icon(IconRequest request) =>
         new(read: (_, content, op) =>
             from active in op.Need(request)
-            from icon in op.Catch(() => active.Switch(
-                context: (Content: content, Op: op),
-                standard: static (state, query) => Own(
-                    state.Content.Icon(query.Extent.Native, out System.Drawing.Bitmap rendered), rendered, state.Op),
-                @virtual: static (state, query) => Own(
-                    state.Content.VirtualIcon(query.Extent.Native, out System.Drawing.Bitmap rendered), rendered, state.Op),
-                dynamic: static (state, query) =>
-                    from policy in state.Op.Need(query.Policy)
-                    from icon in Own(
-                        state.Content.DynamicIcon(query.Extent.Native, out System.Drawing.Bitmap rendered, policy.Native),
-                        rendered,
-                        state.Op)
-                    select icon))
+            from icon in active.Render(content: content, key: op)
             select icon);
 
     public static ContentQuery<MatchEvidence> Match(ContentRef old) =>
@@ -1286,7 +1415,7 @@ public static class ContentQuery {
 
     public static ContentQuery<CompatibilityEvidence> Compatible(Guid renderEngineId) =>
         new(read: (_, content, op) =>
-            from _ in guard(renderEngineId != Guid.Empty, op.InvalidInput()).ToFin()
+            from _ in guard(renderEngineId != Guid.Empty, (Error)new KernelFault.InvalidValue(nameof(renderEngineId), "a non-empty render engine identity")).ToFin()
             from compatible in op.Catch(() => Fin.Succ(value: content.IsCompatible(renderEngineId)))
             select new CompatibilityEvidence(RenderEngineId: renderEngineId, Compatible: compatible));
 
@@ -1300,34 +1429,24 @@ public static class ContentQuery {
                 from count in op.Catch(() => Fin.Succ(collection.Count()))
                 from members in toSeq(Enumerable.Range(0, count)).TraverseM(index => op.Catch(() =>
                     Optional(collection.ContentAt(index)).ToFin(Fail: op.InvalidResult())
-                        .Map(static row => row.Id))).As()
+                        .Bind(row => ResourceId.Admit(value: row.Id, key: op)))).As()
                 from kind in ContentKind.Of(content, op)
-                from kindCount in op.Catch(() => Fin.Succ(kinds.Count()))
-                from contains in op.Catch(() => Fin.Succ(kinds.Contains((RenderContentKind)kind.Key)))
-                from single in kindCount == 1
-                    ? ContentKind.Of(kinds.SingleKind(), op).Map(static value => Some(value))
-                    : Fin.Succ(Option<ContentKind>.None)
+                from scope in KindScope.Of(kinds: kinds, key: op)
+                from traits in op.Catch(() => Fin.Succ(value: CapabilitySet<CollectionTrait>.Of(
+                    Seq((Trait: CollectionTrait.ForcedVaries, Held: collection.GetForcedVaries()),
+                        (Trait: CollectionTrait.NeedsPreview, Held: collection.ContentNeedsPreviewThumbnail(c: content, includeChildren: false)),
+                        (Trait: CollectionTrait.ContainsOwnKind, Held: kinds.Contains((RenderContentKind)kind.Key)))
+                        .Filter(static row => row.Held)
+                        .Map(static row => row.Trait)
+                        .ToArray())))
                 from evidence in op.Catch(() => Fin.Succ(new ContentCollectionEvidence(
                     Usage: usage,
                     Members: toSeq(members),
-                    ForcedVaries: collection.GetForcedVaries(),
-                    SearchPattern: Optional(collection.GetSearchPattern())
-                        .Filter(static value => !string.IsNullOrWhiteSpace(value)),
-                    NeedsPreview: collection.ContentNeedsPreviewThumbnail(c: content, includeChildren: false),
-                    KindCount: kindCount,
-                    ContainsContentKind: contains,
-                    SingleKind: single)))
+                    SearchPattern: Op.Text(collection.GetSearchPattern()),
+                    Kinds: scope,
+                    Traits: traits)))
                 select evidence))
             select result);
-
-    private static Fin<ContentIcon> Own(bool succeeded, System.Drawing.Bitmap? bitmap, Op op) {
-        if (succeeded) {
-            return Optional(bitmap).ToFin(Fail: op.InvalidResult())
-                .Map(static image => new ContentIcon(new Lease<System.Drawing.Bitmap>.Owned(Value: image)));
-        }
-        Optional(bitmap).Iter(static image => image.Dispose());
-        return Fin.Fail<ContentIcon>(op.InvalidResult());
-    }
 
     private static ContentQuery<TOut> As<TContent, TOut>(Func<TContent, Op, Fin<TOut>> project)
         where TContent : RenderContent where TOut : IDetachedDocumentResult =>
@@ -1337,8 +1456,8 @@ public static class ContentQuery {
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RegistryCommand {
     private RegistryCommand() { }
-    public sealed record RegisterContent(Assembly Assembly, Guid PlugInId) : RegistryCommand;
-    public sealed record RegisterSerializer(ContentSerializer Serializer, Guid PlugInId) : RegistryCommand;
+    public sealed record RegisterContent(Assembly Assembly, PluginKey PlugIn) : RegistryCommand;
+    public sealed record RegisterSerializer(ContentSerializer Serializer, PluginKey PlugIn) : RegistryCommand;
     public sealed record ArmShell(RenderShellProgram Program) : RegistryCommand;
     public sealed record Change(DocumentSession Session, ContentTransaction Transaction) : RegistryCommand;
 }
@@ -1392,12 +1511,11 @@ public static class Registry {
         return from active in op.Need(command)
                from result in active.Switch(
                    context: op,
-                   registerContent: static (state, request) => Register(request.Assembly, request.PlugInId, state)
+                   registerContent: static (state, request) => Register(request.Assembly, request.PlugIn, state)
                        .Map(static types => (RegistryResult)new RegistryResult.Registered(types)),
                    registerSerializer: static (state, request) =>
                        from serializer in state.Need(request.Serializer)
-                       from _ in guard(request.PlugInId != Guid.Empty, state.InvalidInput())
-                       from registered in serializer.Register(request.PlugInId)
+                       from registered in serializer.Register(request.PlugIn)
                        select (RegistryResult)new RegistryResult.SerializerRegistered(),
                    armShell: static (state, request) =>
                        from program in state.Need(request.Program)
@@ -1415,16 +1533,19 @@ public static class Registry {
                select result;
     }
 
-    // The bridge borrows the host's own `RhinoSettings` for the callback alone, so every value detaches before the borrow ends.
+    // The bridge borrows the host's own `RhinoSettings` for the callback alone, so every value detaches before the
+    // borrow ends.
     internal static Fin<EditorFacts> Editor(EditorBridge bridge, Op op) =>
         from active in op.Need(bridge)
         from facts in active.Use<RhinoSettings, EditorFacts>(
-            slot: EditorSlot.Settings,
+            provider: EditorProvider.Settings,
             intent: EditorIntent.Read,
             borrow: settings => Facts(settings: settings, op: op),
             key: op)
         select facts;
 
+    // The four reads are host METHODS, not properties, so no generated mapper can carry this projection and the
+    // rail spells it once.
     private static Fin<EditorFacts> Facts(RhinoSettings settings, Op op) =>
         from renderer in op.Catch(() => Fin.Succ(value: settings.GetCurrentRenderer()))
         from viewport in op.Catch(() => Fin.Succ(value: Optional(settings.RenderingView()).Map(static view => view.Viewport.Id)))
@@ -1436,280 +1557,291 @@ public static class Registry {
             CustomSizes: admitted.Strict(),
             CustomSizeIsPreset: settings.CustomImageSizeIsPreset);
 
-    private static Fin<Seq<Type>> Register(Assembly assembly, Guid pluginId, Op op) {
-        return from active in op.Need(assembly)
-               from _ in guard(pluginId != Guid.Empty, op.InvalidInput())
-               from registered in op.Catch(() => Optional(RenderContent.RegisterContent(assembly: active, pluginId: pluginId))
-            .ToFin(Fail: op.InvalidResult())
-            .Map(static types => toSeq(types)))
-               select registered;
-    }
+    private static Fin<Seq<Type>> Register(Assembly assembly, PluginKey plugin, Op op) =>
+        from active in op.Need(assembly)
+        from _ in plugin.Admit(op)
+        from registered in op.Catch(() =>
+            Optional(RenderContent.RegisterContent(assembly: active, pluginId: plugin.ToValue()))
+                .ToFin(Fail: new RenderFault.HostRefused(
+                    Key: op, Member: nameof(RenderContent.RegisterContent), Detail: active.FullName ?? string.Empty))
+                .Map(static types => toSeq(types)))
+        select registered;
 
-    private static Fin<ContentReceipt> Commit(DocumentSession session, ContentTransaction plan, Op op) {
-        return from activeSession in op.Need(session)
-               from active in op.Need(plan)
-               from kind in op.Need(active.Kind)
-               from reason in op.Need(active.Reason)
-               from redraw in op.Need(active.Redraw)
-               from undo in op.Need(active.Undo)
-               from name in op.AcceptText(value: active.Name)
-               from _ in guard(
-                   !active.Operations.IsEmpty && active.Operations.ForAll(static operation => operation is not null),
-                   op.InvalidInput())
-               let admitted = active with { Kind = kind, Reason = reason, Redraw = redraw, Undo = undo }
-               let recording = admitted.Undo.Enabled && admitted.Operations.Exists(static operation => operation.RecordsUndo)
-               from receipt in activeSession.Demand(
-                   use: document => Change(document: document, plan: admitted, name: name, recording: recording, op: op),
-                   key: op,
-                   needs: SessionNeed.Mutation(undo: recording, redraw: admitted.Redraw).ToArray())
-               select receipt;
-    }
+    private static Fin<ContentReceipt> Commit(DocumentSession session, ContentTransaction plan, Op op) =>
+        from activeSession in op.Need(session)
+        from active in op.Need(plan)
+        from kind in op.Need(active.Kind)
+        from reason in op.Need(active.Reason)
+        from redraw in op.Need(active.Redraw)
+        from undo in op.Need(active.Undo)
+        from name in op.AcceptText(value: active.Name)
+        from _ in guard(
+            !active.Operations.IsEmpty && active.Operations.ForAll(static operation => operation is not null),
+            (Error)new KernelFault.InvalidValue(nameof(ContentTransaction), "a non-empty operation set")).ToFin()
+        let admitted = active with { Kind = kind, Reason = reason, Redraw = redraw, Undo = undo, Name = name }
+        from receipt in activeSession.Demand(
+            use: document => Change(document: document, plan: admitted, op: op),
+            key: op,
+            needs: SessionNeed.Mutation(undo: admitted.Records, redraw: admitted.Redraw).ToArray())
+        select receipt;
 
-    private static Fin<ContentReceipt> Change(RhinoDoc document, ContentTransaction plan, string name, bool recording, Op op) =>
+    private static Fin<ContentReceipt> Change(RhinoDoc document, ContentTransaction plan, Op op) =>
         DocumentCommit.Sealed(
             document: document,
-            name: name,
-            recordsUndo: recording,
+            name: plan.Name,
+            recordsUndo: plan.Records,
             redraw: plan.Redraw,
-            run: () => TableScoped(
-                kind: plan.Kind,
+            run: () => plan.Kind.Table(
                 document: document,
                 reason: plan.Reason,
-                body: () => plan.Operations.TraverseM(operation => operation.Apply(
-                        document: document, scope: plan.Kind, reason: plan.Reason, op: op)).As()
+                body: scoped => plan.Operations.TraverseM(operation => operation.Apply(
+                        document: scoped, scope: plan.Kind, reason: plan.Reason, op: op)).As()
                     .Map(static receipts => receipts.Fold(ContentReceipt.Empty, static (state, value) => state + value)),
-                op: op),
-            stamp: static (receipt, serial) => serial > 0u ? receipt + ContentReceipt.UndoRecords(serials: Seq(serial)) : receipt,
+                key: op),
+            stamp: static (receipt, serial) => receipt.Stamped(
+                slot: ContentSlot.Undo,
+                record: static value => new ContentBody.Record(Serial: value),
+                serial: serial),
+            project: Fin.Succ,
             op: op);
 
-    private static Fin<T> TableScoped<T>(ContentKind kind, RhinoDoc document, ChangeReason reason, Func<Fin<T>> body, Op op) {
-        Fin<Unit> Close() => op.Catch(() => {
-            kind.Close(document: document);
-            return Fin.Succ(value: unit);
-        });
+    internal static Fin<T> Query<T>(DocumentSession session, ContentRef target, ContentQuery<T> query, Op op)
+        where T : IDetachedDocumentResult =>
+        from activeSession in op.Need(session)
+        from activeTarget in op.Need(target)
+        from active in op.Need(query)
+        from result in activeSession.Demand(
+            use: document =>
+                from content in activeTarget.Resolve(document: document, key: op)
+                from answer in active.Run(document: document, content: content, op: op)
+                select answer,
+            key: op,
+            needs: [SessionNeed.Read])
+        select result;
 
-        Fin<T> outcome = op.Catch(() => {
-            kind.Open(document: document, reason: reason.Native);
-            return Fin.Succ(value: unit);
-        }).Bind(_ => op.Catch(body));
+    internal static Fin<ContentRoster> Roster(DocumentSession session, ContentKind kind, Op op) =>
+        from activeSession in op.Need(session)
+        from activeKind in op.Need(kind)
+        from result in activeSession.Demand(
+            use: document => activeKind.Roster(document)
+                .Traverse(content => ResourceId.Admit(value: content.Id, key: op).ToValidation())
+                .As()
+                .ToFin()
+                .Map(ids => new ContentRoster(Kind: activeKind, Ids: ids)),
+            key: op,
+            needs: [SessionNeed.Read])
+        select result;
 
-        return outcome.Match(
-            Succ: value => Close().Map(_ => value),
-            Fail: primary => Close().Match(
-                Succ: _ => Fin.Fail<T>(error: primary),
-                Fail: restoration => Fin.Fail<T>(error: primary + restoration)));
-    }
-
-    internal static Fin<T> Query<T>(DocumentSession session, ContentRef target, ContentQuery<T> query, Op op) {
-        return from activeSession in op.Need(session)
-               from activeTarget in op.Need(target)
-               from active in op.Need(query)
-               from result in activeSession.Demand(
-                   use: document =>
-                       from content in activeTarget.Resolve(document: document, key: op)
-                       from answer in active.Run(document: document, content: content, op: op)
-                       select answer,
-                   key: op,
-                   needs: [SessionNeed.Read])
-               select result;
-    }
-
-    internal static Fin<ContentRoster> Roster(DocumentSession session, ContentKind kind, Op op) {
-        return from activeSession in op.Need(session)
-               from activeKind in op.Need(kind)
-               from result in activeSession.Demand(
-                   use: document => op.Catch(() => Fin.Succ(value: new ContentRoster(
-                       Kind: activeKind,
-                       Ids: activeKind.Roster(document).Map(static content => content.Id)))),
-                   key: op,
-                   needs: [SessionNeed.Read])
-               select result;
-    }
-
-    internal static Fin<EnvironmentBindings> CurrentEnvironments(DocumentSession session, Op op) {
-        return from activeSession in op.Need(session)
-               from result in activeSession.Demand(
-                   use: document => op.Catch(() => {
-                       ICurrentEnvironment current = document.CurrentEnvironment;
-                       return Fin.Succ(value: new EnvironmentBindings(
-                           Background: Optional(current.ForBackground).Map(static content => content.Id),
-                           Reflection: Optional(current.ForReflectionAndRefraction).Map(static content => content.Id),
-                           Lighting: Optional(current.ForLighting).Map(static content => content.Id)));
-                   }),
-                   key: op,
-                   needs: [SessionNeed.Read])
-               select result;
-    }
+    internal static Fin<EnvironmentBindings> CurrentEnvironments(DocumentSession session, Op op) =>
+        from activeSession in op.Need(session)
+        from result in activeSession.Demand(
+            use: document => op.Catch(() => {
+                ICurrentEnvironment current = document.CurrentEnvironment;
+                return Fin.Succ(value: new EnvironmentBindings(
+                    Background: Optional(current.ForBackground).Bind(static content => ResourceId.Maybe(content.Id)),
+                    Reflection: Optional(current.ForReflectionAndRefraction).Bind(static content => ResourceId.Maybe(content.Id)),
+                    Lighting: Optional(current.ForLighting).Bind(static content => ResourceId.Maybe(content.Id))));
+            }),
+            key: op,
+            needs: [SessionNeed.Read])
+        select result;
 }
 ```
 
 ## [05]-[RECEIPTS]
 
-- Owner: `ContentSlot` `[SmartEnum<int>]` — the consequence vocabulary; `ContentBody` — the payload union; `ContentReceipt` — the additive fold over the fact stream with slot-keyed projections, the same fact-stream form the document table and block rails carry.
-- Law: one fact stream, kind-discriminated — content ids, assigned object ids, export paths, and undo serials are `ContentBody` cases on one record; every projection is a `Choose` over the stream, and a new consequence class is one slot row or one body case; the mapping page's channel bind stamps its `Mapped` facts onto this same receipt.
+- Owner: `ContentBodyKind` is the body-kind capability vocabulary; `ContentSlot` `[SmartEnum<int>] : IFactSlot<ContentBody, ContentBodyKind>` is the consequence vocabulary declaring its emitted kinds as ONE set column; `ContentBody` `[Union] : IFactBody<ContentBodyKind>` is the payload family answering its own kind; `ContentReceipt` is the closed instantiation of the spine's stream and `ContentReceipts` this page's mint and projection surface.
+- Entry: the three static mints — `Content`, `Objects`, `Path` — are the fact ingress, the undo stamp rides the stream's own projection, and every projection reads by body kind off `Project`.
+- Law: the stream MACHINERY is not this page's. The accumulation, the cross-product gate, the undo projection, and the slot-keyed readers live once on `Document/facts.md`; a page-local receipt struct, fact row, gate, or projection beside that owner is the deleted form, and the same two declarations are all a third mutation folder needs to join.
+- Law: admission is a READABLE SET, not a shape the mints happen to respect. Each slot declares the body kinds it emits and the kinded contract derives `Admits`, so a census or a receipt printer enumerates the cross product off the rows and a mint pairing an object body with a path slot refuses at the gate.
+- Law: every address column takes its spine owner — `ResourceId` for content and object identity, `DocumentPath` for an export target, `UndoSerial` for a record. The prior mints filtered the empty guid on the object arm and NOT on the content arm, so a "created" fact naming nothing was publishable and no reader distinguished it from a real one; admission at the mint closes both directions and the empty-guid filter disappears with the sentinel.
+- Law: the undo stamp is a projection on the stream, not a rail — `DocumentCommit.Sealed` stamps every sealed receipt, an unrecorded program's serial is zero, `UndoSerial` refuses zero, so no fact claims record zero and the total `(receipt, serial) -> receipt` shape holds. The prior stamp compared the raw serial to zero at each of two call sites.
+- Law: the projection family is TOTAL over the payload-bearing body kinds — one reader per kind, and a one-hop projection of another projection is not an arm at all.
+- Growth: a new consequence is one `ContentSlot` row naming its kind set; a new payload is one `ContentBody` case, one `ContentBodyKind` row, and one projection arm.
+- Packages: `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `Fact`, `FactStream`, `UndoSerial`), `Document/tables.md` (`ResourceId`), `Document/session.md` (`DocumentPath`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`); LanguageExt.Core; Thinktecture.Runtime.Extensions.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ContentBodyKind : ICapability<ContentBodyKind> {
+    public static readonly ContentBodyKind Content = new(key: "content");
+    public static readonly ContentBodyKind Object = new(key: "object");
+    public static readonly ContentBodyKind Path = new(key: "path");
+    public static readonly ContentBodyKind Record = new(key: "record");
+}
+
 [SmartEnum<int>]
-public sealed partial class ContentSlot {
-    public static readonly ContentSlot Minted = new(key: 0);
-    public static readonly ContentSlot Adopted = new(key: 1);
-    public static readonly ContentSlot Detached = new(key: 2);
-    public static readonly ContentSlot Renamed = new(key: 3);
-    public static readonly ContentSlot Grafted = new(key: 4);
-    public static readonly ContentSlot Pruned = new(key: 5);
-    public static readonly ContentSlot SlotSet = new(key: 6);
-    public static readonly ContentSlot FieldSet = new(key: 7);
-    public static readonly ContentSlot Configured = new(key: 8);
-    public static readonly ContentSlot Assigned = new(key: 9);
-    public static readonly ContentSlot Swapped = new(key: 10);
-    public static readonly ContentSlot Grouped = new(key: 11);
-    public static readonly ContentSlot Ungrouped = new(key: 12);
-    public static readonly ContentSlot Exported = new(key: 13);
-    public static readonly ContentSlot Undo = new(key: 14);
-    public static readonly ContentSlot Mapped = new(key: 15);
+public sealed partial class ContentSlot : IFactSlot<ContentBody, ContentBodyKind> {
+    // Read-before-use: the row initializers consume these sets, so static construction order decides declaration
+    // order here rather than the public-before-private one.
+    private static readonly CapabilitySet<ContentBodyKind> Addressed = CapabilitySet<ContentBodyKind>.Of(ContentBodyKind.Content);
+    private static readonly CapabilitySet<ContentBodyKind> Instanced = CapabilitySet<ContentBodyKind>.Of(ContentBodyKind.Object);
+    private static readonly CapabilitySet<ContentBodyKind> Filed = CapabilitySet<ContentBodyKind>.Of(ContentBodyKind.Path);
+    private static readonly CapabilitySet<ContentBodyKind> Stamped = CapabilitySet<ContentBodyKind>.Of(ContentBodyKind.Record);
+
+    public static readonly ContentSlot Minted = new(key: 0, bodies: Addressed);
+    public static readonly ContentSlot Adopted = new(key: 1, bodies: Addressed);
+    public static readonly ContentSlot Detached = new(key: 2, bodies: Addressed);
+    public static readonly ContentSlot Renamed = new(key: 3, bodies: Addressed);
+    public static readonly ContentSlot Grafted = new(key: 4, bodies: Addressed);
+    public static readonly ContentSlot Pruned = new(key: 5, bodies: Addressed);
+    public static readonly ContentSlot SlotSet = new(key: 6, bodies: Addressed);
+    public static readonly ContentSlot FieldSet = new(key: 7, bodies: Addressed);
+    public static readonly ContentSlot Configured = new(key: 8, bodies: Addressed);
+    public static readonly ContentSlot Assigned = new(key: 9, bodies: Instanced);
+    public static readonly ContentSlot Swapped = new(key: 10, bodies: Addressed);
+    public static readonly ContentSlot Grouped = new(key: 11, bodies: Addressed);
+    public static readonly ContentSlot Ungrouped = new(key: 12, bodies: Addressed);
+    public static readonly ContentSlot Exported = new(key: 13, bodies: Filed);
+    public static readonly ContentSlot Undo = new(key: 14, bodies: Stamped);
+    public static readonly ContentSlot Mapped = new(key: 15, bodies: Instanced);
+
+    public CapabilitySet<ContentBodyKind> Bodies { get; }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ContentBody {
+public abstract partial record ContentBody : IFactBody<ContentBodyKind> {
     private ContentBody() { }
-    public sealed record Content(Guid Id) : ContentBody;
-    public sealed record Object(Guid Id) : ContentBody;
-    public sealed record Path(string Value) : ContentBody;
-    public sealed record Record(uint Serial) : ContentBody;
+    public sealed record Content(ResourceId Id) : ContentBody;
+    public sealed record Object(ResourceId Id) : ContentBody;
+    public sealed record Path(DocumentPath Value) : ContentBody;
+    public sealed record Record(UndoSerial Serial) : ContentBody;
+
+    public ContentBodyKind Kind => Map(
+        content: ContentBodyKind.Content,
+        @object: ContentBodyKind.Object,
+        path: ContentBodyKind.Path,
+        record: ContentBodyKind.Record);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-public readonly record struct ContentFactRow(ContentSlot Slot, ContentBody Body);
+// --- [EXPORTS] -------------------------------------------------------------------------------
+// The page's receipt IS the spine's stream closed over this page's two vocabularies; the aliases carry the domain
+// names call sites already read. These are `.cs` `global using` rows in a namespace-scoped file of their own — a
+// file-scoped namespace forecloses them — so no consumer spells the instantiation and no page-local receipt type
+// exists to drift from the owner.
+global using ContentFactRow = Rasm.Rhino.Document.Fact<Rasm.Rhino.Render.ContentSlot, Rasm.Rhino.Render.ContentBody>;
+global using ContentReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Render.ContentSlot, Rasm.Rhino.Render.ContentBody>;
 
-public readonly record struct ContentReceipt : IDetachedDocumentResult {
-    private readonly Seq<ContentFactRow> facts;
+// --- [OPERATIONS] ----------------------------------------------------------------------------
+// The mint surface rides an extension block over the closed instantiation, so every `ContentReceipt.*` call site
+// reads as this page's while the accumulation and the gate stay on the one owner.
+public static class ContentReceipts {
+    extension(ContentReceipt) {
+        public static Fin<ContentReceipt> Content(ContentSlot slot, ResourceId id, Op key) =>
+            ContentReceipt.Of(slot: slot, body: new ContentBody.Content(Id: id), key: key);
 
-    private ContentReceipt(Seq<ContentFactRow> facts) => this.facts = facts;
+        public static Fin<ContentReceipt> Objects(ContentSlot slot, Seq<ResourceId> ids, Op key) =>
+            ContentReceipt.All(
+                slot: slot,
+                bodies: ids.Distinct().Map(static id => (ContentBody)new ContentBody.Object(Id: id)),
+                key: key);
 
-    public static ContentReceipt Empty { get; } = new(facts: Seq<ContentFactRow>());
+        public static Fin<ContentReceipt> Path(ContentSlot slot, DocumentPath path, Op key) =>
+            ContentReceipt.Of(slot: slot, body: new ContentBody.Path(Value: path), key: key);
+    }
 
-    public Seq<ContentFactRow> Facts => facts;
+    extension(ContentReceipt receipt) {
+        public Seq<ResourceId> Contents(ContentSlot slot) =>
+            receipt.Project(slot, static body => body is ContentBody.Content row ? Some(row.Id) : None);
 
-    public static ContentReceipt operator +(ContentReceipt left, ContentReceipt right) =>
-        new(facts: left.facts + right.facts);
+        public Seq<ResourceId> Ids(ContentSlot slot) =>
+            receipt.Project(slot, static body => body is ContentBody.Object row ? Some(row.Id) : None);
 
-    public static ContentReceipt Content(ContentSlot slot, Guid id) =>
-        new(facts: Seq(new ContentFactRow(Slot: slot, Body: new ContentBody.Content(Id: id))));
+        public Seq<DocumentPath> Paths(ContentSlot slot) =>
+            receipt.Project(slot, static body => body is ContentBody.Path row ? Some(row.Value) : None);
 
-    public static ContentReceipt Objects(ContentSlot slot, Seq<Guid> ids) =>
-        new(facts: ids.Distinct().Filter(static id => id != Guid.Empty)
-            .Map(id => new ContentFactRow(Slot: slot, Body: new ContentBody.Object(Id: id))));
-
-    public static ContentReceipt Path(ContentSlot slot, string path) =>
-        new(facts: Seq(new ContentFactRow(Slot: slot, Body: new ContentBody.Path(Value: path))));
-
-    public static ContentReceipt UndoRecords(Seq<uint> serials) =>
-        new(facts: serials.Filter(static serial => serial > 0u)
-            .Map(serial => new ContentFactRow(Slot: ContentSlot.Undo, Body: new ContentBody.Record(Serial: serial))));
-
-    public Seq<Guid> Contents(ContentSlot slot) =>
-        facts.Filter(fact => fact.Slot == slot)
-            .Choose(static fact => fact.Body is ContentBody.Content body ? Some(body.Id) : Option<Guid>.None);
-
-    public Seq<Guid> Ids(ContentSlot slot) =>
-        facts.Filter(fact => fact.Slot == slot)
-            .Choose(static fact => fact.Body is ContentBody.Object body ? Some(body.Id) : Option<Guid>.None);
-
-    public int FactCount(ContentSlot slot) =>
-        facts.Count(fact => fact.Slot == slot);
+        public Seq<UndoSerial> Records =>
+            receipt.Project(ContentSlot.Undo, static body => body is ContentBody.Record row ? Some(row.Serial) : None);
+    }
 }
 ```
 
 ## [06]-[EVENTS]
 
-- Owner: `ContentPulse` carries each catalogued static event as one bind row beside its `ScopeAffinity` column; `ContentSignal` closes detached payloads; `ContentStream` owns transactional attach, document gating, symmetric release, and a `RetentionPolicy`-bounded `ContentStreamFailure` ledger surfacing typed `RetentionOverflow` evidence.
-- Law: every reference-like host member projects inside the callback — content becomes its guid, the document becomes `DocKey`, the preview bitmap clones into an owned lease; a live `RenderContent` never rides a fact.
+- Owner: `ContentPulse` carries each catalogued static event as one bind row beside its `ScopeAffinity` column; `ContentSignal` closes detached payloads; `ContentObservation` is the ask a binder hands in; `ContentStream` owns transactional attach, document gating, symmetric release, and a bounded `Ring<ContentStreamFailure>`.
+- Entry: `ContentStream.Of(observation, key)` is the ONE mint — the observation IS the parameter set, so the six-argument entry that re-spelled its columns is gone and the hook binding forwards the ask untouched.
+- Law: every reference-like host member projects inside the callback — content becomes its `ResourceId`, the document becomes `DocKey`, the preview bitmap clones into an owned lease; a live `RenderContent` never rides a fact.
 - Law: the stream and the table family split by granularity — the Document events page's `RenderContent` payload reports table transitions and material assignment; this stream reports per-content lifecycle, change context, and field mutation the table family cannot; a consumer needing both composes two watches.
 - Law: reason filtering occurs at the bind — `PulseFilter` drops changed and field facts whose reason the filter names; filtering never claims debounce or coalescing semantics the host event stream does not provide.
-- Law: a pulse row carries its `ScopeAffinity` and `ContentStream.Of` refuses the pairing its rows cannot honour — `PreviewReady` alone is `AnyDocumentOnly`, because `PreviewRenderedEventArgs` publishes no document to gate on, so a `Document`-scoped stream naming it fails admission rather than seating a subscription that can never deliver.
-- Law: callback delivery transfers the original fact to the sink and prepares a detached ledger copy first. Success releases the spare copy; failure retains it with the fault and releases the delivered original before the host delegate returns.
-- Law: the failure ledger is capacity-bounded by the injected `RetentionPolicy`; an overflow evicts the oldest retained failures, releases each evicted fact on the owner's existing `Release` rail, and folds its fault into typed `RetentionOverflow` evidence, so a full ledger sheds resources without a silent drop and its `Overflow` count-and-fault read survives the eviction.
-- Law: the stream composes the Document spine's `LifecycleGate` — the package's ONE claims/close/retry capsule — and owns only its subscription cell and bounded ledger; a hand-rolled `lock`/`Monitor` lifecycle machine beside it is the collapsed form. `Within` admits or refuses each delivery, `Close` drains every admitted claim inside the gate's bounded settle before the stop and settle callbacks release the subscription and the retained facts, and a close issued from a thread already inside a delivery claim refuses typed rather than waiting on its own release.
+- Law: a pulse row carries its `ScopeAffinity` and admission refuses the pairing its rows cannot honour — `PreviewReady` alone is `AnyDocumentOnly`, because `PreviewRenderedEventArgs` publishes no document to gate on, so a `Document`-scoped stream naming it fails admission rather than seating a subscription that can never deliver.
+- Law: callback delivery transfers the original fact to the sink and prepares a detached ledger copy first. Success releases the spare copy; failure parks it with the fault and releases the delivered original before the host delegate returns.
+- Law: the failure journal IS the kernel bounded ring; a versioned park lands before its winner releases evicted facts, and `Landed.Cleanup` keeps that release fault distinct from contention so the parked item is never retried or released twice.
+- Law: the stream composes the Document spine's `LifecycleGate` — the package's ONE claims, bounded-settle, and one-owner close capsule — and owns only its subscription cell and bounded ring; a hand-rolled `lock`/`Monitor` lifecycle machine beside it is the collapsed form. `Within` admits or refuses each delivery, `Close` drains every admitted claim inside the gate's bounded settle before the stop and settle callbacks release the subscription and the parked facts, and a close issued from a thread already inside a delivery claim refuses typed rather than waiting on its own release.
+- Law: releasing a parked fact is IDEMPOTENT, because a refused settle leaves the gate reopenable and a later close re-drains the same ring — the underlying bitmap disposal is idempotent and the lease forwards exactly one call per release, so the second drain retires nothing twice.
 - Law: `ContentStream.Close` is the exit that answers; `Dispose` forwards to it and drops the answer, so a caller needing the close verdict names `Close`.
-- Law: `ContentHooks.Mount` registers the `rasm.rhino.render.content` point on the `MountRegistry` row grammar — ask `ContentObservation` carrying scope, pulses, filter, retention, settle bound, and sink; grant `ContentStream` — so each binder mints its own stream and the point stays observe-only per the registry census.
+- Law: `ContentHooks.Mount` registers the `rasm.rhino.render.content` point through the TYPED kernel binding — ask `ContentObservation`, grant `ContentStream` — so the registry compares the declared type pair rather than casting an erased `object`, and the point stays observe-only per the registry census.
 - Growth: a new host content event is one `ContentPulse` row with its bind column; a new evidence axis is one `ContentSignal` case.
+- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.ContentAdded`/`ContentRenamed`/`ContentDeleting`/`ContentDeleted`/`ContentReplacing`/`ContentReplaced`/`ContentUpdatePreview`/`CurrentEnvironmentChanged`/`ContentChanged`/`ContentFieldChanged`/`PreviewRendered`, `RenderContentChangeReason`, `PreviewRenderedEventArgs`, `Utilities.PreviewQuality`); kernel `Domain/hooks` (`Ring<T>`, `HookBinding`), `Domain/rails` (`Cell.Seat`/`Take`, `Transition`, `Lease<T>`); `Document/events.md` (`RhinoPoint`, `MountRegistry`, `PluginKey`, `EventScope`), `Document/lifetime.md` (`LifecycleGate`, `Subscription`), kernel `Domain/rails` (`Custody`), `Document/session.md` (`DocKey`), `Document/tables.md` (`ResourceId`); `Render/content.md` (`ChangeReason`), `Render/settings.md` (`EnvironmentRole`); `Numerics/atoms` (`Dimension`); LanguageExt.Core; Thinktecture.Runtime.Extensions.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
-[SmartEnum<string>]
+[SmartEnum<int>]
 public sealed partial class LifecycleReason {
-    public static readonly LifecycleReason None = new("none", RenderContentChangeReason.None);
-    public static readonly LifecycleReason Attach = new("attach", RenderContentChangeReason.Attach);
-    public static readonly LifecycleReason Detach = new("detach", RenderContentChangeReason.Detach);
-    public static readonly LifecycleReason ChangeAttach = new("change-attach", RenderContentChangeReason.ChangeAttach);
-    public static readonly LifecycleReason ChangeDetach = new("change-detach", RenderContentChangeReason.ChangeDetach);
-    public static readonly LifecycleReason AttachUndo = new("attach-undo", RenderContentChangeReason.AttachUndo);
-    public static readonly LifecycleReason DetachUndo = new("detach-undo", RenderContentChangeReason.DetachUndo);
-    public static readonly LifecycleReason Open = new("open", RenderContentChangeReason.Open);
-    public static readonly LifecycleReason Delete = new("delete", RenderContentChangeReason.Delete);
+    public static readonly LifecycleReason None = new(key: (int)RenderContentChangeReason.None);
+    public static readonly LifecycleReason Attach = new(key: (int)RenderContentChangeReason.Attach);
+    public static readonly LifecycleReason Detach = new(key: (int)RenderContentChangeReason.Detach);
+    public static readonly LifecycleReason ChangeAttach = new(key: (int)RenderContentChangeReason.ChangeAttach);
+    public static readonly LifecycleReason ChangeDetach = new(key: (int)RenderContentChangeReason.ChangeDetach);
+    public static readonly LifecycleReason AttachUndo = new(key: (int)RenderContentChangeReason.AttachUndo);
+    public static readonly LifecycleReason DetachUndo = new(key: (int)RenderContentChangeReason.DetachUndo);
+    public static readonly LifecycleReason Open = new(key: (int)RenderContentChangeReason.Open);
+    public static readonly LifecycleReason Delete = new(key: (int)RenderContentChangeReason.Delete);
 
-    internal RenderContentChangeReason Native { get; }
+    internal RenderContentChangeReason Native => (RenderContentChangeReason)Key;
 
     internal static Fin<LifecycleReason> Of(RenderContentChangeReason native, Op key) =>
-        key.Row(Items, native, static item => item.Native);
+        key.Row<RenderContentChangeReason, LifecycleReason>(native, static value => (int)value);
 }
 
-[SmartEnum<string>]
+[SmartEnum<int>]
 public sealed partial class PreviewQuality {
-    public static readonly PreviewQuality None = new("none", global::Rhino.Render.Utilities.PreviewQuality.None);
-    public static readonly PreviewQuality Low = new("low", global::Rhino.Render.Utilities.PreviewQuality.Low);
-    public static readonly PreviewQuality Medium = new("medium", global::Rhino.Render.Utilities.PreviewQuality.Medium);
+    public static readonly PreviewQuality None = new(key: (int)global::Rhino.Render.Utilities.PreviewQuality.None);
+    public static readonly PreviewQuality Low = new(key: (int)global::Rhino.Render.Utilities.PreviewQuality.Low);
+    public static readonly PreviewQuality Medium = new(key: (int)global::Rhino.Render.Utilities.PreviewQuality.Medium);
     public static readonly PreviewQuality Progressive = new(
-        "progressive", global::Rhino.Render.Utilities.PreviewQuality.IntermediateProgressive);
-    public static readonly PreviewQuality Full = new("full", global::Rhino.Render.Utilities.PreviewQuality.Full);
+        key: (int)global::Rhino.Render.Utilities.PreviewQuality.IntermediateProgressive);
+    public static readonly PreviewQuality Full = new(key: (int)global::Rhino.Render.Utilities.PreviewQuality.Full);
 
-    internal global::Rhino.Render.Utilities.PreviewQuality Native { get; }
+    internal global::Rhino.Render.Utilities.PreviewQuality Native => (global::Rhino.Render.Utilities.PreviewQuality)Key;
 
     internal static Fin<PreviewQuality> Of(global::Rhino.Render.Utilities.PreviewQuality native, Op key) =>
-        key.Row(Items, native, static item => item.Native);
+        key.Row<global::Rhino.Render.Utilities.PreviewQuality, PreviewQuality>(native, static value => (int)value);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ContentSignal : IDisposable {
     private ContentSignal() { }
-    public sealed record Lifecycle(Guid Content, LifecycleReason Reason) : ContentSignal;
-    public sealed record Changed(Guid Content, ChangeReason Reason, Option<Guid> Old) : ContentSignal;
-    public sealed record FieldChanged(Guid Content, string Field, ChangeReason Reason) : ContentSignal;
+    public sealed record Lifecycle(ResourceId Content, LifecycleReason Reason) : ContentSignal;
+    public sealed record Changed(ResourceId Content, ChangeReason Reason, Option<ResourceId> Old) : ContentSignal;
+    public sealed record FieldChanged(ResourceId Content, string Field, ChangeReason Reason) : ContentSignal;
     public sealed record EnvironmentFlip(EnvironmentRole Usage) : ContentSignal;
     public sealed record PreviewReady(
         Lease<System.Drawing.Bitmap> Image,
-        Option<(int Width, int Height)> Signature,
+        Option<Size2i> Signature,
         PreviewQuality Quality) : ContentSignal;
 
-    public void Dispose() => Switch(
+    public void Dispose() => ignore(Switch(
         lifecycle: static _ => unit,
         changed: static _ => unit,
         fieldChanged: static _ => unit,
         environmentFlip: static _ => unit,
-        previewReady: static signal => Optional(signal.Image).Map(static image => image.Dispose()).IfNone(unit));
+        previewReady: static signal => Optional(signal.Image).Map(static image => image.Dispose()).IfNone(unit)));
 
+    // Every case but the preview is already detached evidence, so the clone is the ONE arm that copies: the host
+    // reuses its preview bitmap after the callback returns, and a fact keeping that handle reads a repainted image.
     internal Fin<ContentSignal> Detached(Op key) => Switch(
         context: key,
-        lifecycle: static (_, signal) => Fin.Succ<ContentSignal>(new Lifecycle(
-            Content: signal.Content,
-            Reason: signal.Reason)),
-        changed: static (_, signal) => Fin.Succ<ContentSignal>(new Changed(
-            Content: signal.Content,
-            Reason: signal.Reason,
-            Old: signal.Old)),
-        fieldChanged: static (_, signal) => Fin.Succ<ContentSignal>(new FieldChanged(
-            Content: signal.Content,
-            Field: signal.Field,
-            Reason: signal.Reason)),
-        environmentFlip: static (_, signal) => Fin.Succ<ContentSignal>(new EnvironmentFlip(Usage: signal.Usage)),
-        previewReady: static (op, signal) => op.Catch(() =>
-            Optional(signal.Image).ToFin(Fail: op.InvalidResult()).Map(image =>
-                (ContentSignal)new PreviewReady(
-                    Image: new Lease<System.Drawing.Bitmap>.Owned(
-                        Value: (System.Drawing.Bitmap)image.Resource.Clone()),
-                    Signature: signal.Signature,
-                    Quality: signal.Quality))));
+        lifecycle: static (_, signal) => Fin.Succ<ContentSignal>(signal),
+        changed: static (_, signal) => Fin.Succ<ContentSignal>(signal),
+        fieldChanged: static (_, signal) => Fin.Succ<ContentSignal>(signal),
+        environmentFlip: static (_, signal) => Fin.Succ<ContentSignal>(signal),
+        previewReady: static (op, signal) =>
+            from image in op.Need(signal.Image)
+            from clone in Lease<System.Drawing.Bitmap>.Acquire(
+                mint: () => (System.Drawing.Bitmap)image.Resource.Clone(), key: op)
+            select (ContentSignal)new PreviewReady(
+                Image: clone, Signature: signal.Signature, Quality: signal.Quality));
 }
 
 public readonly record struct ContentFact(ContentPulse Pulse, Option<DocKey> Key, ContentSignal Signal)
@@ -1730,8 +1862,8 @@ public sealed record PulseFilter(Seq<ChangeReason> DroppedReasons) {
         reason.Map(row => !DroppedReasons.Contains(row)).IfNone(true);
 }
 
-// Host truth: every content event but `PreviewRendered` carries a `RhinoDoc` on its args, so only those rows can honour an
-// `EventScope.Document` watch; the preview row carries none and its affinity refuses that pairing at admission.
+// Host truth: every content event but `PreviewRendered` carries a `RhinoDoc` on its args, so only those rows can
+// honour an `EventScope.Document` watch; the preview row carries none and its affinity refuses that pairing.
 [SmartEnum<string>]
 public sealed partial class ScopeAffinity {
     public static readonly ScopeAffinity EitherScope = new("either-scope", static _ => true);
@@ -1772,25 +1904,29 @@ public sealed partial class ContentPulse {
             subscribe: static h => RenderContent.ContentChanged += h,
             unsubscribe: static h => RenderContent.ContentChanged -= h,
             handler: (_, args) => ignore(
-                ChangeReason.Of(native: args.ChangeContext, key: Op.Of(name: nameof(ContentPulse))).ToOption()
+                (from reason in ChangeReason.Of(native: args.ChangeContext, key: Op.Of(name: nameof(ContentPulse))).ToOption()
                     .Filter(reason => filter.Admits(Some(reason)))
-                    .Bind(reason => Gate(pulse: pulse, scope: scope, document: args.Document,
-                        signal: new ContentSignal.Changed(
-                            Content: args.Content.Id, Reason: reason,
-                            Old: Optional(args.OldContent).Map(static old => old.Id))))
-                    .Match(Some: deliver, None: static () => Fin.Succ(value: unit)))));
+                 from content in ResourceId.Maybe(args.Content.Id)
+                 from fact in Gate(pulse: pulse, scope: scope, document: args.Document,
+                     signal: new ContentSignal.Changed(
+                         Content: content, Reason: reason,
+                         Old: Optional(args.OldContent).Bind(static old => ResourceId.Maybe(old.Id))))
+                 select fact)
+                .Match(Some: deliver, None: static () => Fin.Succ(value: unit)))));
     public static readonly ContentPulse FieldChanged = new(key: 9, affinity: ScopeAffinity.EitherScope, bind: (pulse, scope, filter, deliver) =>
         Subscription.Attach<EventHandler<RenderContentFieldChangedEventArgs>>(
             subscribe: static h => RenderContent.ContentFieldChanged += h,
             unsubscribe: static h => RenderContent.ContentFieldChanged -= h,
             handler: (_, args) => ignore(
-                ChangeReason.Of(native: args.ChangeContext, key: Op.Of(name: nameof(ContentPulse))).ToOption()
+                (from reason in ChangeReason.Of(native: args.ChangeContext, key: Op.Of(name: nameof(ContentPulse))).ToOption()
                     .Filter(reason => filter.Admits(Some(reason)))
-                    .Bind(reason => Gate(pulse: pulse, scope: scope, document: args.Document,
-                        signal: new ContentSignal.FieldChanged(Content: args.Content.Id, Field: args.FieldName, Reason: reason)))
-                    .Match(Some: deliver, None: static () => Fin.Succ(value: unit)))));
-    // `PreviewRenderedEventArgs` carries no document, so the fact is keyless; `ScopeAffinity.AnyDocumentOnly` already refused
-    // an `EventScope.Document` stream at admission, which is why no scope branch survives in the callback.
+                 from content in ResourceId.Maybe(args.Content.Id)
+                 from fact in Gate(pulse: pulse, scope: scope, document: args.Document,
+                     signal: new ContentSignal.FieldChanged(Content: content, Field: args.FieldName, Reason: reason))
+                 select fact)
+                .Match(Some: deliver, None: static () => Fin.Succ(value: unit)))));
+    // `PreviewRenderedEventArgs` carries no document, so the fact is keyless; `ScopeAffinity.AnyDocumentOnly`
+    // already refused an `EventScope.Document` stream at admission, which is why no scope branch survives here.
     public static readonly ContentPulse PreviewReady = new(key: 10, affinity: ScopeAffinity.AnyDocumentOnly, bind: (pulse, _, _, deliver) =>
         Subscription.Attach<EventHandler<PreviewRenderedEventArgs>>(
             subscribe: static h => RenderContent.PreviewRendered += h,
@@ -1804,7 +1940,9 @@ public sealed partial class ContentPulse {
                       Signal: new ContentSignal.PreviewReady(
                           Image: new Lease<System.Drawing.Bitmap>.Owned(Value: (System.Drawing.Bitmap)image.Clone()),
                           Signature: Optional(args.PreviewJobSignature)
-                              .Map(static signature => (signature.ImageWidth(), signature.ImageHeight())),
+                              .Bind(signature => Size2i.Of(
+                                  width: signature.ImageWidth(), height: signature.ImageHeight(),
+                                  key: Op.Of(name: nameof(ContentPulse))).ToOption()),
                           Quality: quality)))
                 .Match(Some: deliver, None: static () => Fin.Succ(value: unit)))));
 
@@ -1821,9 +1959,11 @@ public sealed partial class ContentPulse {
             subscribe: subscribe,
             unsubscribe: unsubscribe,
             handler: (EventHandler<RenderContentEventArgs>)((_, args) => ignore(
-                LifecycleReason.Of(args.Reason, Op.Of(name: nameof(ContentPulse))).ToOption()
-                    .Bind(reason => Gate(pulse: pulse, scope: scope, document: args.Document,
-                        signal: new ContentSignal.Lifecycle(Content: args.Content.Id, Reason: reason)))
+                (from reason in LifecycleReason.Of(args.Reason, Op.Of(name: nameof(ContentPulse))).ToOption()
+                 from content in ResourceId.Maybe(args.Content.Id)
+                 from fact in Gate(pulse: pulse, scope: scope, document: args.Document,
+                     signal: new ContentSignal.Lifecycle(Content: content, Reason: reason))
+                 select fact)
                 .Match(Some: deliver, None: static () => Fin.Succ(value: unit)))));
 
     private static Option<ContentFact> Gate(ContentPulse pulse, EventScope scope, RhinoDoc? document, ContentSignal signal) =>
@@ -1841,38 +1981,58 @@ public sealed partial class ContentPulse {
                     : Option<ContentFact>.None);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [MODELS] -------------------------------------------------------------------------------
 public sealed record ContentStreamFailure(ContentFact Fact, Error Fault) : IDisposable, IDetachedDocumentResult {
     public void Dispose() => Fact.Dispose();
 }
 
-public sealed record ContentObservation(
-    EventScope Scope,
-    Seq<ContentPulse> Pulses,
-    PulseFilter Filter,
-    RetentionPolicy Retention,
-    TimeSpan SettleWithin,
-    Func<ContentFact, Fin<Unit>> Sink);
+public sealed record ContentObservation {
+    private ContentObservation(
+        EventScope scope, Seq<ContentPulse> pulses, PulseFilter filter, Dimension journalCap,
+        TimeSpan settleWithin, Func<ContentFact, Fin<Unit>> sink) =>
+        (Scope, Pulses, Filter, JournalCap, SettleWithin, Sink) =
+            (scope, pulses, filter, journalCap, settleWithin, sink);
 
+    internal EventScope Scope { get; }
+    internal Seq<ContentPulse> Pulses { get; }
+    internal PulseFilter Filter { get; }
+    internal Dimension JournalCap { get; }
+    internal TimeSpan SettleWithin { get; }
+    internal Func<ContentFact, Fin<Unit>> Sink { get; }
+
+    // Affinity is proved HERE, so a stream mint and a hook bind cannot admit different pairings of one ask.
+    public static Fin<ContentObservation> Of(
+        EventScope scope,
+        Seq<ContentPulse> pulses,
+        PulseFilter filter,
+        Dimension journalCap,
+        TimeSpan settleWithin,
+        Func<ContentFact, Fin<Unit>> sink,
+        Op? key = null) {
+        Op op = key.OrDefault();
+        return from activeScope in op.Need(scope)
+               from activeFilter in op.Need(filter)
+               from activeSink in op.Need(sink)
+               from _ in guard(
+                   !pulses.IsEmpty && pulses.ForAll(static pulse => pulse is not null),
+                   (Error)new KernelFault.InvalidValue(nameof(ContentObservation), "a non-empty pulse set")).ToFin()
+               from __ in guard(
+                   pulses.ForAll(pulse => pulse.Affinity.Admits(scope: activeScope)),
+                   (Error)new KernelFault.InvalidValue(nameof(ScopeAffinity), "pulses this scope can deliver")).ToFin()
+               select new ContentObservation(
+                   scope: activeScope, pulses: pulses.Distinct().Strict(), filter: activeFilter,
+                   journalCap: journalCap, settleWithin: settleWithin, sink: activeSink);
+    }
+}
+
+// --- [SERVICES] -----------------------------------------------------------------------------
 public static class ContentHooks {
     public static Fin<IDisposable> Mount(PluginKey plugin, Op? key = null) =>
         MountRegistry.Mount(
-            mount: new HookMount(
+            binding: new HookBinding<RhinoPoint, PluginKey, ContentObservation, ContentStream>(
                 Point: RhinoPoint.RenderContent,
-                Plugin: plugin,
-                Ask: typeof(ContentObservation),
-                Grant: typeof(ContentStream),
-                Bind: static ask => ask switch {
-                    ContentObservation request => ContentStream.Of(
-                            scope: request.Scope,
-                            pulses: request.Pulses,
-                            filter: request.Filter,
-                            retention: request.Retention,
-                            settleWithin: request.SettleWithin,
-                            sink: request.Sink)
-                        .Map(static stream => (object)stream),
-                    _ => Fin.Fail<object>(error: Op.Of(name: nameof(ContentHooks)).InvalidInput()),
-                }),
+                Owner: plugin,
+                Bind: static ask => ContentStream.Of(observation: ask)),
             key: key.OrDefault());
 }
 
@@ -1881,154 +2041,138 @@ public sealed class ContentStream : IDisposable {
 
     private ContentStream(ContentStreamState state) => this.state = state;
 
-    public Seq<ContentStreamFailure> Failures => state.Failures;
-    public RetentionOverflow Overflow => state.Overflow;
+    public Seq<ContentStreamFailure> Parked => state.Parked;
+    public long Shed => state.Shed;
+    public long Lost => state.Lost;
 
     public Fin<Unit> Close(Op? key = null) => state.Close(op: key.OrDefault());
 
     public void Dispose() => ignore(Close());
 
-    public static Fin<ContentStream> Of(
-        EventScope scope, Seq<ContentPulse> pulses, PulseFilter filter, RetentionPolicy retention,
-        TimeSpan settleWithin, Func<ContentFact, Fin<Unit>> sink) {
-        Op op = Op.Of(name: nameof(ContentStream));
-        return from activeScope in op.Need(scope)
-               from activeFilter in op.Need(filter)
-               from activeRetention in op.Need(retention)
-               from activeSink in op.Need(sink)
-               from _ in guard(!pulses.IsEmpty && pulses.ForAll(static pulse => pulse is not null), op.InvalidInput())
-               from _affinity in guard(pulses.ForAll(pulse => pulse.Affinity.Admits(scope: activeScope)), op.InvalidInput())
-               from lifecycle in LifecycleGate.Of(settleWithin: settleWithin, key: op)
-               let state = new ContentStreamState(gate: lifecycle, retention: activeRetention)
-               from attached in Subscription.AttachAll(pulses.Distinct().Map(pulse =>
+    public static Fin<ContentStream> Of(ContentObservation observation, Op? key = null) {
+        Op op = key.OrDefault();
+        return from ask in op.Need(observation)
+               from lifecycle in LifecycleGate.Of(settleWithin: ask.SettleWithin, key: op)
+               let state = new ContentStreamState(gate: lifecycle, cap: ask.JournalCap)
+               from attached in Subscription.AttachAll(ask.Pulses.Map(pulse =>
                    (Func<Fin<Subscription>>)(() => pulse.Bind(
                        pulse: pulse,
-                       scope: activeScope,
-                       filter: activeFilter,
-                       deliver: fact => state.Deliver(fact, activeSink, op)))))
-               from _attached in state.Attach(attached: attached, op: op)
+                       scope: ask.Scope,
+                       filter: ask.Filter,
+                       deliver: fact => state.Deliver(fact, ask.Sink, op)))))
+               from _ in state.Attach(attached: attached, op: op)
                select new ContentStream(state: state);
     }
 
-    // The lifecycle machine is the Document spine's `LifecycleGate` — claims, bounded settle, and one-owner close — so this
-    // owner keeps only what is its own: the subscription cell and the bounded failure ledger. The gate's re-entrancy law
-    // applies verbatim: a close issued from a thread already inside a delivery claim REFUSES typed rather than waiting on
-    // its own release, so a sink closing its own stream gets a fault instead of a deadlock.
+    // The lifecycle machine is the Document spine's `LifecycleGate` — claims, bounded settle, and one-owner close —
+    // so this owner keeps only what is its own: the subscription cell and the bounded ring. The gate's re-entrancy
+    // law applies verbatim: a close issued from a thread already inside a delivery claim REFUSES typed rather than
+    // waiting on its own release, so a sink closing its own stream gets a fault instead of a deadlock.
     private sealed class ContentStreamState {
         private readonly LifecycleGate gate;
-        private readonly RetentionPolicy retention;
         private readonly Atom<Option<Subscription>> subscription = Atom(Option<Subscription>.None);
-        // `FailureLedger.Admit` already answers the retained ledger beside that admission's evictions, so the atom holds
-        // that pair and one `Swap` publishes both — the eviction set the releasing caller drains is the swap's own return.
-        private readonly Atom<(FailureLedger<ContentStreamFailure> Ledger, Seq<ContentStreamFailure> Evicted)> ledger =
-            Atom((Ledger: FailureLedger<ContentStreamFailure>.Empty, Evicted: Seq<ContentStreamFailure>()));
+        // The ring commits its versioned window before the winning park releases evicted failures. `Landed.Cleanup`
+        // is therefore a release rail, never permission to retry or dispose the newly parked failure.
+        private readonly Ring<ContentStreamFailure> failures;
 
-        internal ContentStreamState(LifecycleGate gate, RetentionPolicy retention) =>
-            (this.gate, this.retention) = (gate, retention);
+        internal ContentStreamState(LifecycleGate gate, Dimension cap) {
+            this.gate = gate;
+            failures = new Ring<ContentStreamFailure>(cap: cap);
+        }
 
-        internal Seq<ContentStreamFailure> Failures => ledger.Value.Ledger.Retained;
+        internal Seq<ContentStreamFailure> Parked => failures.Parked;
 
-        internal RetentionOverflow Overflow => ledger.Value.Ledger.Overflow;
+        internal long Shed => failures.Shed;
+
+        internal long Lost => failures.Lost;
 
         internal Fin<Unit> Attach(Subscription attached, Op op) =>
             gate.Within(
-                body: () => Fin.Succ(value: ignore(subscription.Swap(_ => Some(attached)))),
-                refused: () => op.Catch(() => {
-                    attached.Dispose();
-                    return Fin.Fail<Unit>(error: op.InvalidContext());
-                }),
+                body: () => Cell.Seat(cell: subscription, mint: () => attached).Switch(
+                    state: op,
+                    committed: static (_, _) => Fin.Succ(value: unit),
+                    ceded: static (key, _) => Fin.Fail<Unit>(error: new RenderFault.SeatTaken(Key: key, Engine: Guid.Empty)),
+                    refused: static (_, row) => Fin.Fail<Unit>(error: row.Cause),
+                    contended: static (key, _) => Fin.Fail<Unit>(error: key.InvalidResult())),
+                refused: () => Fin.Fail<Unit>(error: op.InvalidContext())
+                    .Rollback(release: () => Release(fact: attached, op: op), key: op),
                 key: op);
 
         internal Fin<Unit> Deliver(ContentFact fact, Func<ContentFact, Fin<Unit>> sink, Op op) =>
             gate.Within(
                 body: () => Delivered(fact: fact, sink: sink, op: op),
-                refused: () => Settled(
-                    primary: op.InvalidContext(),
-                    releases: Seq<Func<Fin<Unit>>>(() => Release(fact: fact, op: op))),
+                refused: () => Fin.Fail<Unit>(error: op.InvalidContext())
+                    .Rollback(release: () => Release(fact: fact, op: op), key: op),
                 key: op);
 
-        // Only the close owner runs these two, and only after every admitted claim has drained, so the read-then-clear on
-        // each cell needs no lock of its own.
+        // Only the close owner runs these two, and only after every admitted claim has drained, so the take on the
+        // subscription cell and the drain over the ring need no lock of their own.
         internal Fin<Unit> Close(Op op) =>
             gate.Close(
-                stop: () => op.Catch(() => {
-                    Option<Subscription> captured = subscription.Value;
-                    _ = subscription.Swap(static _ => Option<Subscription>.None);
-                    return Fin.Succ(value: captured.Iter(static held => held.Dispose()));
-                }),
-                settle: () => op.Catch(() => {
-                    Seq<ContentStreamFailure> retained = ledger.Value.Ledger.Retained;
-                    _ = ledger.Swap(static _ =>
-                        (Ledger: FailureLedger<ContentStreamFailure>.Empty, Evicted: Seq<ContentStreamFailure>()));
-                    return Fin.Succ(value: retained.Iter(static failure => failure.Dispose()));
-                }),
+                stop: () => op.Catch(() => Fin.Succ(
+                    value: Cell.Take(cell: subscription).Current.Iter(static held => held.Dispose()))),
+                settle: () => Custody.Release(
+                    held: failures.Parked,
+                    release: static failure => Fin.Succ(value: Op.Side(failure.Dispose)),
+                    key: op),
                 key: op);
 
         private Fin<Unit> Delivered(ContentFact fact, Func<ContentFact, Fin<Unit>> sink, Op op) =>
             fact.Detached(op).Match(
                 Succ: detached => op.Catch(() => sink(fact)).Match(
-                    Succ: value => Accepted(detached: detached, value: value, op: op),
-                    Fail: fault => Retained(original: fact, detached: detached, fault: fault, op: op)),
-                Fail: fault => Rejected(original: fact, fault: fault, op: op));
+                    Succ: value => Release(fact: detached, op: op).Map(_ => value),
+                    Fail: fault => Park(original: fact, detached: detached, fault: fault, op: op)),
+                Fail: fault => Fin.Fail<Unit>(error: fault).Rollback(
+                    release: () => Release(fact: fact, op: op), key: op));
 
-        private static Fin<Unit> Accepted(ContentFact detached, Unit value, Op op) =>
-            Release(fact: detached, op: op).Map(_ => value);
+        private Fin<Unit> Park(ContentFact original, ContentFact detached, Error fault, Op op) =>
+            failures.Park(
+                item: new ContentStreamFailure(Fact: detached, Fault: fault),
+                release: dropped => Release(fact: dropped.Fact, op: op),
+                key: op).Switch(
+                state: (Original: original, Detached: detached, Fault: fault, Op: op),
+                landed: static (ctx, row) => Fin.Fail<Unit>(error: ctx.Fault)
+                    .Rollback(
+                        release: () => row.Cleanup.Settled(
+                            release: () => Release(fact: ctx.Original, op: ctx.Op),
+                            key: ctx.Op),
+                        key: ctx.Op),
+                ceded: static (ctx, _) => Fin.Fail<Unit>(error: ctx.Fault + ctx.Op.InvalidResult())
+                    .Rollback(held: Seq(ctx.Original, ctx.Detached), release: row => Release(fact: row, op: ctx.Op), key: ctx.Op),
+                refused: static (ctx, row) => Fin.Fail<Unit>(error: ctx.Fault + row.Cause)
+                    .Rollback(held: Seq(ctx.Original, ctx.Detached), release: r => Release(fact: r, op: ctx.Op), key: ctx.Op));
 
-        private Fin<Unit> Retained(ContentFact original, ContentFact detached, Error fault, Op op) =>
-            op.Catch(() => Fin.Succ(value: ledger.Swap(state => state.Ledger.Admit(
-                policy: retention,
-                incoming: new ContentStreamFailure(Fact: detached, Fault: fault),
-                fault: static failure => failure.Fault)))).Match(
-                Succ: state => Settled(
-                    primary: fault,
-                    releases: Seq<Func<Fin<Unit>>>(() => Release(fact: original, op: op))
-                        + state.Evicted.Map(dropped => (Func<Fin<Unit>>)(() => Release(fact: dropped.Fact, op: op)))),
-                Fail: custody => Settled(
-                    primary: fault + custody,
-                    releases: Seq<Func<Fin<Unit>>>(
-                        () => Release(fact: original, op: op),
-                        () => Release(fact: detached, op: op))));
+        private static Fin<Unit> Release(ContentFact fact, Op op) =>
+            op.Catch(() => Fin.Succ(value: Op.Side(fact.Dispose)));
 
-        private static Fin<Unit> Rejected(ContentFact original, Error fault, Op op) =>
-            Settled(
-                primary: fault,
-                releases: Seq<Func<Fin<Unit>>>(() => Release(fact: original, op: op)));
-
-        private static Fin<Unit> Settled(Error primary, Seq<Func<Fin<Unit>>> releases) =>
-            Fin.Fail<Unit>(error: releases.Fold(
-                primary,
-                static (held, release) => release().Match(
-                    Succ: _ => held,
-                    Fail: fault => held + fault)));
-
-        private static Fin<Unit> Release(ContentFact fact, Op op) => op.Catch(() => {
-            fact.Dispose();
-            return Fin.Succ(value: unit);
-        });
+        private static Fin<Unit> Release(Subscription held, Op op) =>
+            op.Catch(() => Fin.Succ(value: Op.Side(held.Dispose)));
     }
 }
 ```
 
 ## [07]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]       | [OWNER]                            | [FORM]                            | [ENTRY]               |
-| :-----: | :-------------- | :--------------------------------- | :-------------------------------- | :-------------------- |
-|  [01]   | UUID seeds      | `ContentUuidCatalog`               | generated kind and role data      | `Census` / `Find`     |
-|  [02]   | factory census  | `ContentTypeCensus`                | UUIDs plus registered factories   | `Registry.Read`       |
-|  [03]   | custom format   | `ContentSerializer`                | transfer, reports, failure ledger | `Registry.Run`        |
-|  [04]   | mutation        | `ContentOp` / `ContentTransaction` | admission or target mutation      | `Registry.Run`        |
-|  [05]   | typed reads     | `RegistryQuery<T>`                 | result-correlated programs        | `Registry.Read<T>`    |
-|  [06]   | collection read | `ContentCollectionEvidence`        | leased set and kind evidence      | `Collection`          |
-|  [07]   | receipts        | `ContentReceipt`                   | additive fact rows                | `RegistryResult`      |
-|  [08]   | content events  | `ContentPulse`                     | verified event rows               | `ContentStream.Of`    |
-|  [09]   | event evidence  | `ContentSignal`                    | payload and failure ledger        | `ContentStream.Of`    |
-|  [10]   | hook point      | `ContentHooks`                     | `rasm.rhino.render.content` mount | `ContentHooks.Mount`  |
-|  [11]   | failure ledger  | `RetentionPolicy`                  | bounded ledger, overflow evidence | `Of` / `Admit`        |
-|  [12]   | shell rows      | `RenderShellProgram` / `ShellRow`  | keyed panel and side-pane rows    | `Registry.Run`        |
-|  [13]   | shell drain     | `RenderShell` / `ShellRegistrar`   | one-shot host-callback seating    | `RenderShell.Drain`   |
-|  [14]   | shell resolve   | `ShellSeat<TBody>`                 | seated body plus side-pane id     | `RenderShell.Resolve` |
-|  [15]   | editor payloads | `EditorBridge` / `EditorSlot`      | provider-keyed borrow and commit  | `EditorBridge.Of`     |
-|  [16]   | editor facts    | `EditorFacts`                      | renderer, view, and size facts    | `Registry.Read`       |
+| [INDEX] | [CONCERN]       | [OWNER]                            | [FORM]                            | [ENTRY]                 |
+| :-----: | :-------------- | :--------------------------------- | :-------------------------------- | :---------------------- |
+|  [01]   | UUID seeds      | `ContentUuidCatalog`               | generated kind and role data      | `Census` / `Find`       |
+|  [02]   | factory census  | `ContentTypeCensus`                | UUIDs plus registered factories   | `Registry.Read`         |
+|  [03]   | custom format   | `ContentSerializer`                | transfer, reports, bounded ring   | `Registry.Run`          |
+|  [04]   | mutation        | `ContentOp` / `ContentTransaction` | admission or target mutation      | `Registry.Run`          |
+|  [05]   | undo posture    | `UndoPolicy`                       | a column per mutation case        | `ContentTransaction`    |
+|  [06]   | typed reads     | `RegistryQuery<T>`                 | result-correlated programs        | `Registry.Read<T>`      |
+|  [07]   | collection read | `ContentCollectionEvidence`        | leased set, kind scope, traits    | `Collection`            |
+|  [08]   | icon routes     | `IconModality` / `IconRequest`     | six host routes, one custody hop  | `ContentQuery.Icon`     |
+|  [09]   | receipts        | `ContentSlot` / `ContentBody`      | the spine's stream, undo-stamped  | `ContentReceipts`       |
+|  [10]   | content events  | `ContentPulse`                     | verified event rows               | `ContentStream.Of`      |
+|  [11]   | event evidence  | `ContentSignal`                    | detached payload family           | `ContentStream.Of`      |
+|  [12]   | observation ask | `ContentObservation`               | the one admitted parameter set    | `ContentObservation.Of` |
+|  [13]   | hook point      | `ContentHooks`                     | `rasm.rhino.render.content` mount | `ContentHooks.Mount`    |
+|  [14]   | shell rows      | `RenderShellProgram` / `ShellRow`  | keyed panel and side-pane rows    | `Registry.Run`          |
+|  [15]   | shell gate      | `ShellGate` / `RenderShell`        | one-shot host-callback seating    | `RenderShell.Drain`     |
+|  [16]   | shell resolve   | `ShellSeat<TBody>`                 | seated body plus side-pane id     | `RenderShell.Resolve`   |
+|  [17]   | editor payloads | `EditorBridge` / `EditorProvider`  | provider-keyed borrow and commit  | `EditorBridge.Of`       |
+|  [18]   | editor facts    | `EditorFacts`                      | renderer, view, and size facts    | `Registry.Read`         |
 
 ## [08]-[RESEARCH]
 

@@ -1,46 +1,55 @@
 # [RASM_RHINO_ANNOTATION_TEXT]
 
-`TextSeed`, `TextSpec`, and `LeaderSpec` admit content and placement once; `RunEdit` owns both live and detached formatting; `FieldKind` generates the evaluator space from signature data instead of a mirrored case roster.
+`TextSeed`, `TextSpec`, and `LeaderSpec` admit content and placement once; `RunFormat` carries every decoration edit through the namespace's one `FaceDecoration` roster, live and RTF alike; `FieldKind` generates the evaluator space from signature data instead of a mirrored case roster.
 
-`OutlineSpec` crosses form, grouping, and transform in one flat dispatch and returns detached geometry with content identity and bounds; `TextOp` collapses text and leader placement into one mutation rail.
+`OutlineSpec` dispatches form and grouping through two closed folds and returns detached geometry with content identity and bounds; `TextOp` collapses text and leader placement into one mutation rail.
 
 ## [01]-[INDEX]
 
 - [02]-[CONTENT_MODEL]: admitted content, placement, run edits, and detached RTF formatting.
 - [03]-[FIELD_FORMULAS]: evaluator rows, typed signature data, programs, composition, and evaluation.
-- [04]-[OUTLINING]: transform-aware form/group dispatch with detached geometry evidence.
+- [04]-[OUTLINING]: transform-aware form and grouping dispatch with detached geometry evidence.
 - [05]-[TEXT_RAIL]: placement, mutation, snapshot, query, and shared commit entry.
-- [06]-[SURFACE_LEDGER]: the page's owner table.
+- [06]-[SURFACE_LEDGER]: owner table over every surface above.
+- [07]-[RESEARCH]: open questions.
 
 ## [02]-[CONTENT_MODEL]
 
 - Owner: `TextSeed` owns plain-versus-rich source, `TextSpec` owns text creation, `LeaderPath` and `LeaderSpec` share point-run admission across creation and repointing, and `RunEdit` owns replacement, formatting, and wrapping.
-- Law: public factories admit every reference row before dispatch; raw strings, numeric widths, angles, ranges, and point runs enter before a host constructor or mutation sees them.
-- Law: every plural admission on this page ACCUMULATES — point runs, format runs, field values, program runs, and run edits each report their whole refusal set, so a caller repairs one batch in one pass rather than one member per round trip.
-- Law: `RunFormat` is the sole formatting vocabulary for live annotation edits and `FormatRtfString`; no second delta shape reconstructs bold, italic, underline, or face state.
+- Law: every union on this page seals — a private owner constructor closes the case family and a public `Fin`-returning factory is the sole ingress, so a value that exists is admitted and no rail re-validates what it was handed. `Admit` folds re-screened already-constructed cases, which is a second admission authority answering after construction.
+- Law: `RunFormat` is the sole formatting vocabulary for live annotation edits and `FormatRtfString` alike; the decoration axis is `Annotation/typeface.md`'s `FaceDecoration`, whose rows carry the host members that write and probe them, so no second delta shape reconstructs bold, italic, or underline state.
+- Law: a `RunFormat.Decorate` naming a decoration the host publishes no setter for refuses typed at the write — `FaceDecoration.Mark` is absent on exactly that row, so the refusal is the roster's own declared coverage rather than a guard this page maintains.
+- Law: every plural admission on this page ACCUMULATES — point runs, format runs, formula values, program runs, and run edits each report their whole refusal set, so a caller repairs one batch in one pass rather than one member per round trip.
+- Law: every scalar owner rails through `ValidityClaim` and refuses with a typed `DraftFault` clause set, so a refused width, angle, or span names the column and the requirement instead of one sentence covering four columns.
+- Packages: `Annotation/typeface.md` (`FaceDecoration`); `Document/tables.md` (`ResourceName`); `Document/session.md` (`DraftFault`); `Domain/rails` (`ValidityClaim`, `Op` receivers); `Domain/validation` (`CapabilitySet<T>`, `Op.AcceptValidated`); RhinoCommon `TextEntity`/`Leader`/`AnnotationBase` per `.api/api-rhinocommon-annotation.md`; Thinktecture.Runtime.Extensions; LanguageExt.Core.
+- Growth: a host formatting member joins as a column on the `FaceDecoration` row that already names its concept; a new run edit is one case with its factory and its arm.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using LanguageExt.UnsafeValueAccess;
 using Rasm.Domain;
+using Rasm.Numerics;
 using Rasm.Rhino.Document;
-using Rasm.Rhino.Objects;
 using Rhino;
-using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Geometry;
 
 namespace Rasm.Rhino.Annotation;
 
 // --- [TYPES] --------------------------------------------------------------------------------
-[SmartEnum<int>]
+[SmartEnum<bool>]
 public sealed partial class TextFormat {
-    public static readonly TextFormat Plain = new(key: 0, usesRichText: false);
-    public static readonly TextFormat Rich = new(key: 1, usesRichText: true);
-    internal bool UsesRichText { get; }
+    public static readonly TextFormat Plain = new(key: false);
+    public static readonly TextFormat Rich = new(key: true);
+}
+
+[SmartEnum<bool>]
+public sealed partial class TextToggle {
+    public static readonly TextToggle Off = new(key: false);
+    public static readonly TextToggle On = new(key: true);
 }
 
 [ComplexValueObject]
+[ValidationError]
 public sealed partial class TextSeed {
     public TextFormat Format { get; }
     public string Value { get; }
@@ -48,55 +57,66 @@ public sealed partial class TextSeed {
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref TextFormat format, ref string value) {
         value ??= string.Empty;
-        if (format is null || string.IsNullOrWhiteSpace(value))
-            validationError = new ValidationError("Text format and content are required.");
+        string content = value;
+        validationError = FactoryValidation.Of(FactoryValidation.Violated(
+            (string.IsNullOrWhiteSpace(content), static () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(Value) })))));
     }
 }
 
 [ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+[ValidationError]
 public sealed partial class TextWidth {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
-        if (!double.IsFinite(value) || value <= 0.0) validationError = new ValidationError("Text width must be finite and positive.");
+        double width = value;
+        validationError = ValidityClaim.Positive(value: width)
+            ? null
+            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(TextWidth), width, "a finite positive wrap width" }));
     }
 }
 
 [ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+[ValidationError]
 public sealed partial class TextAngle {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
-        if (!double.IsFinite(value)) validationError = new ValidationError("Text angle must be finite.");
+        double radians = value;
+        validationError = ValidityClaim.Finite(value: radians)
+            ? null
+            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(TextAngle), radians, "a finite radian rotation" }));
     }
 }
 
+// Replacing a span with nothing is a deletion, so an empty run payload stays lawful and the null the host member cannot take is this owner's one clause.
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+[ValidationError]
 public sealed partial class TextValue {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
-        if (value is null) validationError = new ValidationError("Text value cannot be null.");
-    }
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
+        validationError = value is not null
+            ? null
+            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(TextValue) }));
 }
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
-public sealed partial class FieldSource {
+[ValidationError]
+public sealed partial class FormulaText {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value?.Trim() ?? string.Empty;
-        if (value.Length == 0) validationError = new ValidationError("Field source is required.");
+        string source = value;
+        validationError = source.Length > 0
+            ? null
+            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(FormulaText) }));
     }
 }
 
+// --- [MODELS] -------------------------------------------------------------------------------
 [ComplexValueObject]
+[ValidationError]
 public sealed partial class TextSpec {
     public TextSeed Seed { get; }
     public Option<TextWidth> WrapWidth { get; }
     public TextAngle Rotation { get; }
 
-    static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
-        ref TextSeed seed, ref Option<TextWidth> wrapWidth, ref TextAngle rotation) {
-        if (seed is null || rotation is null)
-            validationError = new ValidationError("Text creation state is incomplete.");
-    }
-
     internal Fin<TextEntity> Mint(Plane plane, DimensionStyle style, Op key) => key.Catch(() => Optional(
-        Seed.Format.UsesRichText
+        Seed.Format.Key
             ? TextEntity.CreateWithRichText(
                 richTextString: Seed.Value,
                 plane: plane,
@@ -118,20 +138,21 @@ public sealed record LeaderPath {
     private LeaderPath(Seq<Point3d> points) => Points = points;
     public Seq<Point3d> Points { get; }
 
+    // Optionals before `params` foreclose the positional spread, so the key mints at the entry.
     public static Fin<LeaderPath> Of(params ReadOnlySpan<Point3d> points) {
         Op op = Op.Of(name: nameof(LeaderPath));
-        return from run in LanguageExt.Iterable<Point3d>.FromSpan(points)
-                   .ToSeq()
-                   .Traverse(point => op.AcceptInput(value: point).ToValidation())
-                   .As()
-                   .ToFin()
-               from _ in guard(run.Count >= 2, op.InvalidInput()).ToFin()
+        return from run in op.Accept(values: points)
+               from _ in guard(ValidityClaim.CountAtLeast(count: run.Count, floor: 2), op.InvalidInput()).ToFin()
                select new LeaderPath(points: run);
     }
 }
 
 public sealed record LeaderSpec {
-    private LeaderSpec(TextSeed seed, LeaderPath path) { Seed = seed; Path = path; }
+    private LeaderSpec(TextSeed seed, LeaderPath path) {
+        Seed = seed;
+        Path = path;
+    }
+
     public TextSeed Seed { get; }
     public LeaderPath Path { get; }
 
@@ -143,7 +164,7 @@ public sealed record LeaderSpec {
     }
 
     internal Fin<Leader> Mint(Plane plane, DimensionStyle style, Op key) => key.Catch(() => Optional(
-        Seed.Format.UsesRichText
+        Seed.Format.Key
             ? Leader.CreateWithRichText(
                 richText: Seed.Value, plane: plane, dimstyle: style, points: Path.Points.ToArray())
             : Leader.Create(
@@ -151,59 +172,49 @@ public sealed record LeaderSpec {
         .ToFin(Fail: key.InvalidResult()));
 }
 
-[SmartEnum<int>]
-public sealed partial class TextToggle {
-    public static readonly TextToggle Off = new(key: 0, enabled: false);
-    public static readonly TextToggle On = new(key: 1, enabled: true);
-    internal bool Enabled { get; }
-}
-
+// --- [TYPES] --------------------------------------------------------------------------------
+// Both cases carry an already-admitted payload, so the family seals at its payload owners and needs no factory of
+// its own; `Named` is the one projection the RTF egress reads instead of re-testing the case.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FaceDelta {
     private FaceDelta() { }
     public sealed record Clear : FaceDelta;
     public sealed record Set(ResourceName Name) : FaceDelta;
 
-    internal Fin<FaceDelta> Admit(Op key) => Switch(
-        state: key,
-        clear: static (_, _) => Fin.Succ<FaceDelta>(value: new Clear()),
-        set: static (op, change) => op.AcceptInput(value: change.Name)
-            .Map(name => (FaceDelta)new Set(Name: name)));
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record RunFormat {
-    private RunFormat() { }
-    public sealed record Bold(TextToggle Value) : RunFormat;
-    public sealed record Italic(TextToggle Value) : RunFormat;
-    public sealed record Underline(TextToggle Value) : RunFormat;
-    public sealed record Face(FaceDelta Value) : RunFormat;
-
-    internal Fin<RunFormat> Admit(Op key) => Switch(
-        state: key,
-        bold: static (op, edit) => op.AcceptInput(value: edit.Value)
-            .Map(value => (RunFormat)new Bold(Value: value)),
-        italic: static (op, edit) => op.AcceptInput(value: edit.Value)
-            .Map(value => (RunFormat)new Italic(Value: value)),
-        underline: static (op, edit) => op.AcceptInput(value: edit.Value)
-            .Map(value => (RunFormat)new Underline(Value: value)),
-        face: static (op, edit) => op.AcceptInput(value: edit.Value)
-            .Bind(value => value.Admit(key: op))
-            .Map(value => (RunFormat)new Face(Value: value)));
+    internal Option<string> Named => Switch(
+        clear: static _ => Option<string>.None,
+        set: static change => Some(change.Name.Value));
 
     internal Fin<Unit> Apply(AnnotationBase annotation, Op key) => Switch(
         state: (Annotation: annotation, Op: key),
-        bold: static (ctx, edit) => ctx.Op.Confirm(success: ctx.Annotation.SetBold(setOn: edit.Value.Enabled)),
-        italic: static (ctx, edit) => ctx.Op.Confirm(success: ctx.Annotation.SetItalic(setOn: edit.Value.Enabled)),
-        underline: static (ctx, edit) => ctx.Op.Confirm(success: ctx.Annotation.SetUnderline(setOn: edit.Value.Enabled)),
-        face: static (ctx, edit) => edit.Value.Switch(
-            state: ctx,
-            clear: static (state, _) => state.Op.Confirm(success: state.Annotation.SetFacename(setOn: false, facename: string.Empty)),
-            set: static (state, change) => state.Op.Confirm(success: state.Annotation.SetFacename(
-                setOn: true, facename: change.Name.Value))));
+        clear: static (context, _) => context.Op.Confirm(
+            success: context.Annotation.SetFacename(setOn: false, facename: string.Empty)),
+        set: static (context, change) => context.Op.Confirm(
+            success: context.Annotation.SetFacename(setOn: true, facename: change.Name.Value)));
+}
+
+// Three decoration cases this family carried differed only in which host setter they named, which is a column
+// on the `FaceDecoration` row rather than a case here. NAMED LOSS: `RunFormat.Bold` no longer exists as a type, so
+// no compiler can enumerate the decorations a caller may spell — the roster's `Items` does, and a decoration
+// with no setter refuses at the write instead of being unrepresentable.
+[Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record RunFormat {
+    private RunFormat() { }
+    public sealed record Decorate(FaceDecoration Row, TextToggle Value) : RunFormat;
+    public sealed record Face(FaceDelta Value) : RunFormat;
+
+    internal Fin<Unit> Apply(AnnotationBase annotation, Op key) => Switch(
+        (Annotation: annotation, Op: key),
+        decorate: static (context, edit) =>
+            from mark in edit.Row.Mark.ToFin(context.Op.Unsupported(
+                valueType: typeof(FaceDecoration), outputType: typeof(Unit)))
+            from _ in context.Op.Confirm(success: mark(arg1: context.Annotation, arg2: edit.Value.Key))
+            select unit,
+        face: static (context, edit) => edit.Value.Apply(annotation: context.Annotation, key: context.Op));
 }
 
 [ComplexValueObject]
+[ValidationError]
 public sealed partial class RunSpan {
     public int StartRun { get; }
     public int StartPosition { get; }
@@ -213,100 +224,107 @@ public sealed partial class RunSpan {
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int startRun, ref int startPosition, ref int endRun, ref int endPosition) {
-        if (startRun < 0 || startPosition < 0 || endRun < startRun || endPosition < 0
-            || (endRun == startRun && endPosition < startPosition))
-            validationError = new ValidationError("Run span is reversed or negative.");
+        (int firstRun, int firstPosition, int lastRun, int lastPosition) = (startRun, startPosition, endRun, endPosition);
+        validationError = FactoryValidation.Of(FactoryValidation.Violated(
+            (firstRun < 0 || lastRun < 0, () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(StartRun), firstRun, "a non-negative run ordinal" }))),
+            (firstPosition < 0 || lastPosition < 0, () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(StartPosition), firstPosition, "a non-negative run position" }))),
+            (lastRun < firstRun || (lastRun == firstRun && lastPosition < firstPosition),
+                () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(RunSpan), "an end at or after the start" })))));
     }
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RunEdit {
     private RunEdit() { }
-    public sealed record Replace(TextValue Text, RunSpan Span) : RunEdit;
-    public sealed record Format(Seq<RunFormat> Changes) : RunEdit;
-    public sealed record Wrap(TextWidth Width) : RunEdit;
+    private sealed record ReplaceCase(TextValue Text, RunSpan Span) : RunEdit;
+    private sealed record FormatCase(Seq<RunFormat> Changes) : RunEdit;
+    private sealed record WrapCase(TextWidth Width) : RunEdit;
 
-    internal Fin<RunEdit> Admit(Op key) => Switch(
-        state: key,
-        replace: static (op, edit) =>
-            from text in op.AcceptInput(value: edit.Text)
-            from span in op.AcceptInput(value: edit.Span)
-            select (RunEdit)new Replace(Text: text, Span: span),
-        format: static (op, edit) =>
-            from changes in edit.Changes.Traverse(change => op.AcceptInput(value: change)
-                .Bind(value => value.Admit(key: op)).ToValidation()).As().ToFin()
-            from _ in guard(!changes.IsEmpty, op.InvalidInput()).ToFin()
-            select (RunEdit)new Format(Changes: changes),
-        wrap: static (op, edit) => op.AcceptInput(value: edit.Width)
-            .Map(width => (RunEdit)new Wrap(Width: width)));
+    public static Fin<RunEdit> Replace(TextValue text, RunSpan span, Op? key = null) {
+        Op op = key.OrDefault();
+        return (op.Need(value: text).ToValidation(), op.Need(value: span).ToValidation())
+            .Apply(static (value, range) => (RunEdit)new ReplaceCase(Text: value, Span: range)).As().ToFin();
+    }
+
+    public static Fin<RunEdit> Format(params ReadOnlySpan<RunFormat> changes) {
+        Op op = Op.Of(name: nameof(RunEdit));
+        return from admitted in op.Accept(values: changes)
+               from _ in guard(!admitted.IsEmpty, op.InvalidInput()).ToFin()
+               select (RunEdit)new FormatCase(Changes: admitted);
+    }
+
+    public static Fin<RunEdit> Wrap(TextWidth width, Op? key = null) =>
+        key.OrDefault().Need(value: width).Map(static value => (RunEdit)new WrapCase(Width: value));
 
     internal Fin<Unit> Apply(AnnotationBase annotation, Op key) => Switch(
-        state: (Annotation: annotation, Op: key),
-        replace: static (ctx, edit) => ctx.Op.Confirm(success: ctx.Annotation.RunReplace(
+        (Annotation: annotation, Op: key),
+        replaceCase: static (context, edit) => context.Op.Confirm(success: context.Annotation.RunReplace(
             replaceString: edit.Text.Value,
             startRunIndex: edit.Span.StartRun,
             startRunPosition: edit.Span.StartPosition,
             endRunIndex: edit.Span.EndRun,
             endRunPosition: edit.Span.EndPosition)),
-        format: static (ctx, edit) =>
-            from _ in edit.Changes.TraverseM(change => change.Apply(annotation: ctx.Annotation, key: ctx.Op)).As()
-            select unit,
-        wrap: static (ctx, edit) => ctx.Op.Catch(() => {
-            ctx.Annotation.FormatWidth = edit.Width.Value;
-            ctx.Annotation.WrapText();
-        }));
+        formatCase: static (context, edit) => edit.Changes
+            .TraverseM(change => change.Apply(annotation: context.Annotation, key: context.Op)).As()
+            .Map(static _ => unit),
+        wrapCase: static (context, edit) => context.Op.Catch(() => Fin.Succ(value: Op.Side(() => {
+            context.Annotation.FormatWidth = edit.Width.Value;
+            context.Annotation.WrapText();
+        }))));
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
+// `FormatRtfString` takes its eight booleans POSITIONALLY, so the delta is a keyed fold read at the one call site
+// rather than a nine-member argument struct rebuilt per edit: a decoration the run never named contributes
+// neither a clear nor a set, which is exactly the host's "leave alone" encoding.
 public static class TextRtf {
-    private readonly record struct FormatArguments(
-        bool ClearBold,
-        bool SetBold,
-        bool ClearItalic,
-        bool SetItalic,
-        bool ClearUnderline,
-        bool SetUnderline,
-        bool ClearFace,
-        bool SetFace,
-        string Face) {
-        internal static FormatArguments Empty { get; } = default(FormatArguments) with { Face = string.Empty };
-
-        internal FormatArguments Apply(RunFormat format) => format.Switch(
-            bold: value => this with { ClearBold = !value.Value.Enabled, SetBold = value.Value.Enabled },
-            italic: value => this with { ClearItalic = !value.Value.Enabled, SetItalic = value.Value.Enabled },
-            underline: value => this with { ClearUnderline = !value.Value.Enabled, SetUnderline = value.Value.Enabled },
-            face: value => value.Value.Switch(
-                clear: _ => this with { ClearFace = true, SetFace = false, Face = string.Empty },
-                set: change => this with { ClearFace = false, SetFace = true, Face = change.Name.Value }));
-    }
-
-    public static Fin<string> FromPlain(string text) =>
-        Op.Of(name: nameof(TextRtf)).AcceptText(value: text).Map(static value => AnnotationBase.PlainTextToRtf(str: value));
+    public static Fin<string> FromPlain(string text, Op? key = null) =>
+        key.OrDefault().AcceptText(value: text).Map(static value => AnnotationBase.PlainTextToRtf(str: value));
 
     public static Fin<string> Restyled(string rtf, params ReadOnlySpan<RunFormat> formats) {
         Op op = Op.Of(name: nameof(TextRtf));
         return from source in op.AcceptText(value: rtf)
-               from admitted in LanguageExt.Iterable<RunFormat>.FromSpan(formats)
-                   .ToSeq().Traverse(format => op.AcceptInput(value: format)
-                       .Bind(value => value.Admit(key: op)).ToValidation()).As().ToFin()
+               from admitted in op.Accept(values: formats)
                from _ in guard(!admitted.IsEmpty, op.InvalidInput()).ToFin()
-               let args = admitted.Fold(FormatArguments.Empty, static (state, format) => state.Apply(format))
+               let delta = admitted.Fold(
+                   (Decorations: HashMap<FaceDecoration, TextToggle>(), Face: Option<FaceDelta>.None),
+                   static (state, format) => format.Switch(
+                       state: state,
+                       decorate: static (carried, edit) => carried with {
+                           Decorations = carried.Decorations.AddOrUpdate(edit.Row, edit.Value),
+                       },
+                       face: static (carried, edit) => carried with { Face = Some(edit.Value) }))
                from formatted in op.Catch(() => Fin.Succ(value: AnnotationBase.FormatRtfString(
                    rtfIn: source,
-                   clearBold: args.ClearBold, setBold: args.SetBold,
-                   clearItalic: args.ClearItalic, setItalic: args.SetItalic,
-                   clearUnderline: args.ClearUnderline, setUnderline: args.SetUnderline,
-                   clearFacename: args.ClearFace, setFacename: args.SetFace, facename: args.Face)))
+                   clearBold: Clears(delta.Decorations, FaceDecoration.Bold),
+                   setBold: Sets(delta.Decorations, FaceDecoration.Bold),
+                   clearItalic: Clears(delta.Decorations, FaceDecoration.Italic),
+                   setItalic: Sets(delta.Decorations, FaceDecoration.Italic),
+                   clearUnderline: Clears(delta.Decorations, FaceDecoration.Underline),
+                   setUnderline: Sets(delta.Decorations, FaceDecoration.Underline),
+                   clearFacename: delta.Face.Exists(static change => change.Named.IsNone),
+                   setFacename: delta.Face.Exists(static change => change.Named.IsSome),
+                   facename: delta.Face.Bind(static change => change.Named).IfNone(string.Empty))))
                select formatted;
     }
+
+    private static bool Clears(HashMap<FaceDecoration, TextToggle> rows, FaceDecoration row) =>
+        rows.Find(row).Exists(static value => !value.Key);
+
+    private static bool Sets(HashMap<FaceDecoration, TextToggle> rows, FaceDecoration row) =>
+        rows.Find(row).Exists(static value => value.Key);
 }
 ```
 
 ## [03]-[FIELD_FORMULAS]
 
-- Owner: `FieldKind` is the evaluator table; each row names one exact `TextFields` member and declares every admitted argument signature. `FieldExpr` pairs one row with validated typed values.
+- Owner: `FieldKind` is the evaluator table; each row names one exact `TextFields` member and declares every admitted argument signature. `FieldExpr` pairs one row with validated typed values and `FieldProgram` composes a run of literals and expressions into the host's `%<…>%` grammar.
 - Law: `FieldProgram.Compose` derives evaluator name and argument positions from row data; adding an evaluator is one row, never a union case with a mirrored switch arm.
-- Law: optional positions remain explicit `FieldValue.Absent` values until trailing omissions trim, preserving host positional grammar.
+- Law: `FormulaValue` answers its own `FormulaKind` through one generated fold — the type-test predicate roster this page carried held a second authority over the union's own case list, and a case added without its predicate admitted nothing.
+- Law: trailing `Absent` positions trim through one right fold, so the host's positional grammar survives without an index sentinel; an interior `Absent` stays, because the host reads position, not count.
+- Law: the page/sheet and title-block evaluator rows answer HOST-EVALUATED tokens for facts the kernel `Drawing/sheet` owns — sheet extent, sheet numbering, and the ISO 7200 title-block field roster — so a consumer rendering those facts without the host reaches `SheetSize`, `SheetNumber`, and `TitleField.Read`, and no sheet-size, sheet-number, or title-field vocabulary is minted here.
+- Packages: `Domain/validation` (`Op.Accept`, `Op.Need`); `Document/tables.md` (`ResourceId`); RhinoCommon `TextFields` per `.api/api-rhinocommon-annotation.md`.
+- Growth: a catalog-proven `TextFields` member is one `FieldKind` row with its signature run; every program, composition, and evaluation gains it without another surface.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -317,115 +335,129 @@ public sealed partial class CoordAxis {
     public static readonly CoordAxis Z = new(key: "Z");
 }
 
-[SmartEnum]
-public sealed partial class FieldValueKind {
-    public static readonly FieldValueKind Text = new(accepts: static value => value is FieldValue.Text);
-    public static readonly FieldValueKind Resource = new(accepts: static value => value is FieldValue.Resource);
-    public static readonly FieldValueKind Axis = new(accepts: static value => value is FieldValue.Axis);
-    public static readonly FieldValueKind Flag = new(accepts: static value => value is FieldValue.Flag);
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class FormulaKind {
+    public static readonly FormulaKind Text = new(key: "text");
+    public static readonly FormulaKind Resource = new(key: "resource");
+    public static readonly FormulaKind Axis = new(key: "axis");
+    public static readonly FormulaKind Flag = new(key: "flag");
+    public static readonly FormulaKind Absent = new(key: "absent");
+}
 
-    [UseDelegateFromConstructor]
-    internal partial bool Accepts(FieldValue value);
+[SmartEnum<bool>]
+public sealed partial class FormulaDemand {
+    public static readonly FormulaDemand Optional = new(key: false);
+    public static readonly FormulaDemand Required = new(key: true);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record FieldValue {
-    private FieldValue() { }
-    public sealed record Text(TextValue Value) : FieldValue;
-    public sealed record Resource(ResourceId Value) : FieldValue;
-    public sealed record Axis(CoordAxis Value) : FieldValue;
-    public sealed record Flag(TextToggle Value) : FieldValue;
-    public sealed record Absent : FieldValue;
+public abstract partial record FormulaValue {
+    private FormulaValue() { }
+    public sealed record Text(TextValue Value) : FormulaValue;
+    public sealed record Resource(ResourceId Value) : FormulaValue;
+    public sealed record Axis(CoordAxis Value) : FormulaValue;
+    public sealed record Flag(TextToggle Value) : FormulaValue;
+    public sealed record Absent : FormulaValue;
 
-    internal Fin<FieldValue> Admit(Op key) => Switch(
-        state: key,
-        text: static (op, value) => op.AcceptInput(value: value.Value)
-            .Map(admitted => (FieldValue)new Text(Value: admitted)),
-        resource: static (op, value) => op.AcceptInput(value: value.Value)
-            .Map(admitted => (FieldValue)new Resource(Value: admitted)),
-        axis: static (op, value) => op.AcceptInput(value: value.Value)
-            .Map(admitted => (FieldValue)new Axis(Value: admitted)),
-        flag: static (op, value) => op.AcceptInput(value: value.Value)
-            .Map(admitted => (FieldValue)new Flag(Value: admitted)),
-        absent: static (_, _) => Fin.Succ<FieldValue>(value: new Absent()));
+    internal static readonly FormulaValue Nothing = new Absent();
+
+    internal FormulaKind Kind => Switch(
+        text: static _ => FormulaKind.Text,
+        resource: static _ => FormulaKind.Resource,
+        axis: static _ => FormulaKind.Axis,
+        flag: static _ => FormulaKind.Flag,
+        absent: static _ => FormulaKind.Absent);
 
     internal string Render() => Switch(
         text: static value => value.Value.Value,
         resource: static value => value.Value.Value.ToString("D"),
         axis: static value => value.Value.Key,
-        flag: static value => value.Value.Enabled ? "true" : "false",
+        flag: static value => value.Value.Key ? "true" : "false",
         absent: static _ => string.Empty);
 }
 
-public readonly record struct FieldSlot(FieldValueKind Kind, bool Required);
+public readonly record struct FieldSlot(FormulaKind Kind, FormulaDemand Demand) {
+    internal bool Admits(FormulaValue value) =>
+        Kind == value.Kind || (!Demand.Key && value.Kind == FormulaKind.Absent);
+}
 
+// Positional admission as one zip: the caller's run pads to the slot count with `Absent` and every slot answers
+// its own position, so no index walk re-derives which slot a value faces.
 public sealed record FieldSignature(Seq<FieldSlot> Slots) {
-    internal bool Accepts(Seq<FieldValue> values) =>
+    internal bool Accepts(Seq<FormulaValue> values) =>
         values.Count <= Slots.Count
-        && toSeq(Enumerable.Range(0, Slots.Count)).ForAll(index => index < values.Count
-            ? Slots[index].Kind.Accepts(values[index]) || (!Slots[index].Required && values[index] is FieldValue.Absent)
-            : !Slots[index].Required);
+        && Slots.Zip(values + Padding(count: Slots.Count - values.Count))
+            .ForAll(static pair => pair.First.Admits(value: pair.Second));
+
+    private static Seq<FormulaValue> Padding(int count) =>
+        toSeq(Enumerable.Repeat(FormulaValue.Nothing, count));
 }
 
 [SmartEnum<string>]
 public sealed partial class FieldKind {
-    public static readonly FieldKind Date = Row(nameof(TextFields.Date), Sig(Opt(FieldValueKind.Text), Opt(FieldValueKind.Text)));
-    public static readonly FieldKind DateModified = Row(nameof(TextFields.DateModified), Sig(Opt(FieldValueKind.Text), Opt(FieldValueKind.Text)));
+    public static readonly FieldKind Date = Row(nameof(TextFields.Date), Sig(Opt(FormulaKind.Text), Opt(FormulaKind.Text)));
+    public static readonly FieldKind DateModified = Row(nameof(TextFields.DateModified), Sig(Opt(FormulaKind.Text), Opt(FormulaKind.Text)));
     public static readonly FieldKind Notes = Row(nameof(TextFields.Notes), Sig());
     public static readonly FieldKind ModelUnits = Row(nameof(TextFields.ModelUnits), Sig());
-    public static readonly FieldKind FileName = Row(nameof(TextFields.FileName), Sig(Opt(FieldValueKind.Text)));
-    public static readonly FieldKind DocumentText = Row(nameof(TextFields.DocumentText), Sig(Req(FieldValueKind.Text)));
+    public static readonly FieldKind FileName = Row(nameof(TextFields.FileName), Sig(Opt(FormulaKind.Text)));
+    public static readonly FieldKind DocumentText = Row(nameof(TextFields.DocumentText), Sig(Req(FormulaKind.Text)));
     public static readonly FieldKind PageNumber = Row(nameof(TextFields.PageNumber), Sig());
     public static readonly FieldKind NumPages = Row(nameof(TextFields.NumPages), Sig());
-    public static readonly FieldKind PageName = Row(nameof(TextFields.PageName), Sig(Opt(FieldValueKind.Resource)));
+    public static readonly FieldKind PageName = Row(nameof(TextFields.PageName), Sig(Opt(FormulaKind.Resource)));
     public static readonly FieldKind PaperName = Row(nameof(TextFields.PaperName), Sig());
     public static readonly FieldKind PageWidth = Row(nameof(TextFields.PageWidth), Sig());
     public static readonly FieldKind PageHeight = Row(nameof(TextFields.PageHeight), Sig());
-    public static readonly FieldKind DetailScale = Row(nameof(TextFields.DetailScale), Sig(Req(FieldValueKind.Resource), Req(FieldValueKind.Text)));
+    public static readonly FieldKind DetailScale = Row(nameof(TextFields.DetailScale), Sig(Req(FormulaKind.Resource), Req(FormulaKind.Text)));
     public static readonly FieldKind LayoutUserText = Row(nameof(TextFields.LayoutUserText),
-        Sig(Req(FieldValueKind.Text)), Sig(Req(FieldValueKind.Resource), Req(FieldValueKind.Text)));
-    public static readonly FieldKind ObjectName = Row(nameof(TextFields.ObjectName), Sig(Opt(FieldValueKind.Resource)));
-    public static readonly FieldKind ObjectLayer = Row(nameof(TextFields.ObjectLayer), Sig(Req(FieldValueKind.Resource)));
-    public static readonly FieldKind LayerName = Row(nameof(TextFields.LayerName), Sig(Req(FieldValueKind.Resource)));
-    public static readonly FieldKind ObjectPageName = Row(nameof(TextFields.ObjectPageName), Sig(Req(FieldValueKind.Resource)));
-    public static readonly FieldKind ObjectPageNumber = Row(nameof(TextFields.ObjectPageNumber), Sig(Req(FieldValueKind.Resource)));
-    public static readonly FieldKind PointCoordinate = Row(nameof(TextFields.PointCoordinate), Sig(Req(FieldValueKind.Resource), Req(FieldValueKind.Axis)));
+        Sig(Req(FormulaKind.Text)), Sig(Req(FormulaKind.Resource), Req(FormulaKind.Text)));
+    public static readonly FieldKind ObjectName = Row(nameof(TextFields.ObjectName), Sig(Opt(FormulaKind.Resource)));
+    public static readonly FieldKind ObjectLayer = Row(nameof(TextFields.ObjectLayer), Sig(Req(FormulaKind.Resource)));
+    public static readonly FieldKind LayerName = Row(nameof(TextFields.LayerName), Sig(Req(FormulaKind.Resource)));
+    public static readonly FieldKind ObjectPageName = Row(nameof(TextFields.ObjectPageName), Sig(Req(FormulaKind.Resource)));
+    public static readonly FieldKind ObjectPageNumber = Row(nameof(TextFields.ObjectPageNumber), Sig(Req(FormulaKind.Resource)));
+    public static readonly FieldKind PointCoordinate = Row(nameof(TextFields.PointCoordinate), Sig(Req(FormulaKind.Resource), Req(FormulaKind.Axis)));
     public static readonly FieldKind UserText = Row(nameof(TextFields.UserText), Sig(
-        Req(FieldValueKind.Resource), Req(FieldValueKind.Text), Opt(FieldValueKind.Text), Opt(FieldValueKind.Text)));
-    public static readonly FieldKind Area = Row(nameof(TextFields.Area), Sig(Req(FieldValueKind.Resource), Opt(FieldValueKind.Text)));
+        Req(FormulaKind.Resource), Req(FormulaKind.Text), Opt(FormulaKind.Text), Opt(FormulaKind.Text)));
+    public static readonly FieldKind Area = Row(nameof(TextFields.Area), Sig(Req(FormulaKind.Resource), Opt(FormulaKind.Text)));
     public static readonly FieldKind Volume = Row(nameof(TextFields.Volume), Sig(
-        Req(FieldValueKind.Resource), Opt(FieldValueKind.Text), Opt(FieldValueKind.Flag)));
-    public static readonly FieldKind CurveLength = Row(nameof(TextFields.CurveLength), Sig(Req(FieldValueKind.Resource), Opt(FieldValueKind.Text)));
-    public static readonly FieldKind BlockName = Row(nameof(TextFields.BlockName), Sig(Req(FieldValueKind.Resource)));
-    public static readonly FieldKind BlockDescription = Row(nameof(TextFields.BlockDescription), Sig(Req(FieldValueKind.Text)));
-    public static readonly FieldKind BlockInstanceCount = Row(nameof(TextFields.BlockInstanceCount), Sig(Req(FieldValueKind.Text)));
+        Req(FormulaKind.Resource), Opt(FormulaKind.Text), Opt(FormulaKind.Flag)));
+    public static readonly FieldKind CurveLength = Row(nameof(TextFields.CurveLength), Sig(Req(FormulaKind.Resource), Opt(FormulaKind.Text)));
+    public static readonly FieldKind BlockName = Row(nameof(TextFields.BlockName), Sig(Req(FormulaKind.Resource)));
+    public static readonly FieldKind BlockDescription = Row(nameof(TextFields.BlockDescription), Sig(Req(FormulaKind.Text)));
+    public static readonly FieldKind BlockInstanceCount = Row(nameof(TextFields.BlockInstanceCount), Sig(Req(FormulaKind.Text)));
     public static readonly FieldKind BlockInsertionCoordinate = Row(nameof(TextFields.BlockInsertionCoordinate), Sig(
-        Req(FieldValueKind.Resource), Req(FieldValueKind.Axis)));
+        Req(FormulaKind.Resource), Req(FormulaKind.Axis)));
 
     private static FieldKind Row(string name, params FieldSignature[] signatures) =>
         new(key: name, signatures: toSeq(signatures));
     private static FieldSignature Sig(params FieldSlot[] slots) => new(Slots: toSeq(slots));
-    private static FieldSlot Req(FieldValueKind kind) => new(Kind: kind, Required: true);
-    private static FieldSlot Opt(FieldValueKind kind) => new(Kind: kind, Required: false);
+    private static FieldSlot Req(FormulaKind kind) => new(Kind: kind, Demand: FormulaDemand.Required);
+    private static FieldSlot Opt(FormulaKind kind) => new(Kind: kind, Demand: FormulaDemand.Optional);
 
     internal Seq<FieldSignature> Signatures { get; }
-    internal bool Accepts(Seq<FieldValue> values) => Signatures.Exists(signature => signature.Accepts(values));
+    internal bool Accepts(Seq<FormulaValue> values) => Signatures.Exists(signature => signature.Accepts(values));
 }
 
+// --- [MODELS] -------------------------------------------------------------------------------
 public sealed record FieldExpr {
-    private FieldExpr(FieldKind kind, Seq<FieldValue> values) { Kind = kind; Values = values; }
-    public FieldKind Kind { get; }
-    public Seq<FieldValue> Values { get; }
+    private FieldExpr(FieldKind kind, Seq<FormulaValue> values) {
+        Kind = kind;
+        Values = values;
+    }
 
-    public static Fin<FieldExpr> Of(FieldKind kind, params ReadOnlySpan<FieldValue> values) {
+    public FieldKind Kind { get; }
+    public Seq<FormulaValue> Values { get; }
+
+    public static Fin<FieldExpr> Of(FieldKind kind, params ReadOnlySpan<FormulaValue> values) {
         Op op = Op.Of(name: nameof(FieldExpr));
-        return from admittedKind in op.AcceptInput(value: kind)
-               from admittedValues in LanguageExt.Iterable<FieldValue>.FromSpan(values)
-                   .ToSeq().Traverse(value => op.AcceptInput(value: value)
-                       .Bind(admitted => admitted.Admit(key: op)).ToValidation()).As().ToFin()
-               let buffer = admittedValues.ToArray()
-               let last = Array.FindLastIndex(buffer, static value => value is not FieldValue.Absent)
-               let positional = last < 0 ? Seq<FieldValue>() : toSeq(buffer[..(last + 1)])
+        return from admittedKind in op.Need(value: kind)
+               from admitted in op.Accept(values: values)
+               // Right fold over the run: a trailing `Absent` drops while the tail is still empty and every
+               // earlier position survives, so no sentinel index reconstructs where the trim stopped.
+               let positional = admitted.FoldBack(
+                   Seq<FormulaValue>(),
+                   static (tail, value) => tail.IsEmpty && value.Kind == FormulaKind.Absent ? tail : value.Cons(tail))
                from _ in guard(admittedKind.Accepts(positional), op.InvalidInput()).ToFin()
                select new FieldExpr(kind: admittedKind, values: positional);
     }
@@ -438,25 +470,15 @@ public abstract partial record TextRun {
     private TextRun() { }
     public sealed record Literal(TextValue Value) : TextRun;
     public sealed record Field(FieldExpr Expr) : TextRun;
-
-    internal Fin<TextRun> Admit(Op key) => Switch(
-        state: key,
-        literal: static (op, run) => op.AcceptInput(value: run.Value)
-            .Map(value => (TextRun)new Literal(Value: value)),
-        field: static (op, run) => op.AcceptInput(value: run.Expr)
-            .Map(value => (TextRun)new Field(Expr: value)));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
 public sealed record FieldProgram {
     private FieldProgram(Seq<TextRun> runs) => Runs = runs;
     public Seq<TextRun> Runs { get; }
 
     public static Fin<FieldProgram> Of(params ReadOnlySpan<TextRun> runs) {
         Op op = Op.Of(name: nameof(FieldProgram));
-        return from admitted in LanguageExt.Iterable<TextRun>.FromSpan(runs)
-                   .ToSeq().Traverse(run => op.AcceptInput(value: run)
-                       .Bind(value => value.Admit(key: op)).ToValidation()).As().ToFin()
+        return from admitted in op.Accept(values: runs)
                from _ in guard(!admitted.IsEmpty, op.InvalidInput()).ToFin()
                select new FieldProgram(runs: admitted);
     }
@@ -481,11 +503,14 @@ public sealed record FieldProgram {
 ## [04]-[OUTLINING]
 
 - Owner: `OutlineSpec` crosses form, grouping, metrics, and text frame; `OutlineProduct` returns one evidence carrier per host geometry family.
-- Law: the `(form, grouping)` tuple is one flat exhaustive dispatch over the eight verified overloads; no nested modality branch survives.
+- Law: dispatch is TWO closed folds — the form union answers which host member pair to reach and the grouping row answers which half of that pair — so the eight verified overloads land as four arms and no tuple pattern needs the catch-all that turns a new form into a silent runtime refusal.
 - Law: `TextFrame.Model` composes `GetTextTransform` and `Transform`; every output geometry carries `DataCRC(0)` and accurate `GetBoundingBox(true)` evidence.
-- Law: `OutlineSpec` admits explicit transforms only when `Transform.IsValid`; host-generated model transforms remain guarded by the terminal `Transform` result.
+- Law: `OutlineSpec` admits an explicit transform only when `Transform.IsValid`; a host-generated model transform stays guarded by the terminal `Transform` result.
+- Law: `OutlineProduct` carries its owned natives as a BASE POSITIONAL column and exposes typed `Release(Op)`; cleanup never parks inside a value the caller may not inspect.
 - Boundary: `OutlineSpec.Apply` owns its duplicated `TextEntity` through one lease spanning every transform and outline exit.
-- Boundary: `OutlineProduct` receives native geometry only after strict evidence capture; capture failure and product disposal both settle through `DraftCustody`, the namespace's one custody fold, so no outline path spells a release of its own.
+- Boundary: `OutlineProduct` receives native geometry only after strict evidence capture; capture failure and product release both settle through kernel `Custody`, so no outline path spells a cleanup fold of its own.
+- Packages: `Domain/rails` (`Custody`, `Lease<T>`, `ValidityClaim`); RhinoCommon `TextEntity` outline members per `.api/api-rhinocommon-annotation.md`.
+- Growth: a new outline family is one `OutlineForm` case, one arm naming its host pair, and one `OutlineProduct` case; the grouping fold and the evidence capture gain it unchanged.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -495,45 +520,55 @@ public sealed partial class OutlineGrouping {
     public static readonly OutlineGrouping PerGlyph = new(key: 1);
 }
 
-[SmartEnum<int>]
+[SmartEnum<bool>]
 public sealed partial class CurveClosure {
-    public static readonly CurveClosure Closed = new(key: 0, allowOpen: false);
-    public static readonly CurveClosure Open = new(key: 1, allowOpen: true);
-    internal bool AllowOpen { get; }
+    public static readonly CurveClosure Closed = new(key: false);
+    public static readonly CurveClosure Open = new(key: true);
 }
 
 [ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+[ValidationError]
 public sealed partial class OutlineHeight {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
-        if (!double.IsFinite(value) || value <= 0.0) validationError = new ValidationError("Outline height must be finite and positive.");
+        double height = value;
+        validationError = ValidityClaim.Positive(value: height)
+            ? null
+            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(OutlineHeight), height, "a finite positive height" }));
     }
 }
 
 [ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+[ValidationError]
 public sealed partial class GlyphSpacing {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
-        if (!double.IsFinite(value)) validationError = new ValidationError("Glyph spacing must be finite.");
+        double spacing = value;
+        validationError = ValidityClaim.Finite(value: spacing)
+            ? null
+            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(GlyphSpacing), spacing, "a finite glyph spacing" }));
     }
 }
 
 [ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+[ValidationError]
 public sealed partial class OutlineScale {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
-        if (!double.IsFinite(value) || value <= 0.0) validationError = new ValidationError("Outline scale must be finite and positive.");
+        double scale = value;
+        validationError = ValidityClaim.Positive(value: scale)
+            ? null
+            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(OutlineScale), scale, "a finite positive scale" }));
     }
 }
 
 [ComplexValueObject]
+[ValidationError]
 public sealed partial class GlyphMetrics {
     public Option<OutlineScale> SmallCaps { get; }
     public GlyphSpacing Spacing { get; }
+
+    // Host members take the small-caps request as a flag beside its scale; presence IS the request here, so the
+    // pair derives at the one call site instead of two columns that can disagree.
     internal bool MakeSmallCaps => SmallCaps.IsSome;
     internal double SmallCapsScale => SmallCaps.Map(static value => value.Value).IfNone(1.0);
-
-    static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError, ref Option<OutlineScale> smallCaps, ref GlyphSpacing spacing) {
-        if (spacing is null) validationError = new ValidationError("Glyph spacing is required.");
-    }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -553,171 +588,178 @@ public abstract partial record TextFrame {
     public sealed record Explicit(Transform Transform) : TextFrame;
 }
 
+// --- [MODELS] -------------------------------------------------------------------------------
 public readonly record struct GeometryEvidence<TGeometry>(TGeometry Geometry, uint Crc, BoundingBox Bounds)
     where TGeometry : GeometryBase;
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record OutlineProduct : IDetachedDocumentResult, IDisposable {
-    private readonly Atom<Seq<Error>> faults = Atom(Seq<Error>());
+public abstract partial record OutlineProduct(Seq<GeometryBase> Owned) : IDetachedDocumentResult {
+    public sealed record Curves(
+        Seq<Seq<GeometryEvidence<Curve>>> Glyphs, Seq<GeometryBase> Owned) : OutlineProduct(Owned);
+    public sealed record Faces(
+        Seq<Seq<GeometryEvidence<Brep>>> Glyphs, Seq<GeometryBase> Owned) : OutlineProduct(Owned);
+    public sealed record Solids(
+        Seq<Seq<GeometryEvidence<Brep>>> Glyphs, Seq<GeometryBase> Owned) : OutlineProduct(Owned);
+    public sealed record Shells(
+        Seq<Seq<GeometryEvidence<Extrusion>>> Glyphs, Seq<GeometryBase> Owned) : OutlineProduct(Owned);
 
-    private OutlineProduct() { }
-
-    public sealed record Curves(Seq<Seq<GeometryEvidence<Curve>>> Glyphs) : OutlineProduct;
-    public sealed record Faces(Seq<Seq<GeometryEvidence<Brep>>> Glyphs) : OutlineProduct;
-    public sealed record Solids(Seq<Seq<GeometryEvidence<Brep>>> Glyphs) : OutlineProduct;
-    public sealed record Shells(Seq<Seq<GeometryEvidence<Extrusion>>> Glyphs) : OutlineProduct;
-
-    public Seq<Error> Faults => faults.Value;
-
-    // Disposal carries no rail outward, so a release refusal parks here: throwing mid-`using`-unwind replaces the
-    // primary exception with the cleanup's and loses the fault the scope exists to report.
-    public void Dispose() {
-        Op key = Op.Of(name: nameof(OutlineProduct));
-        _ = Switch(
-            curves: product => DraftCustody.Release(
-                values: product.Glyphs.Bind(static group => group).Map(static row => row.Geometry), op: key),
-            faces: product => DraftCustody.Release(
-                values: product.Glyphs.Bind(static group => group).Map(static row => row.Geometry), op: key),
-            solids: product => DraftCustody.Release(
-                values: product.Glyphs.Bind(static group => group).Map(static row => row.Geometry), op: key),
-            shells: product => DraftCustody.Release(
-                values: product.Glyphs.Bind(static group => group).Map(static row => row.Geometry), op: key))
-            .IfFail(fault => ignore(faults.Swap(rows => rows.Add(fault))));
-    }
+    public Fin<Unit> Release(Op key) => Custody.Dispose(held: Owned, key: key);
 }
 
 [ComplexValueObject]
+[ValidationError]
 public sealed partial class OutlineSpec {
     public OutlineForm Form { get; }
     public GlyphMetrics Metrics { get; }
     public OutlineGrouping Grouping { get; }
     public TextFrame Frame { get; }
 
+    // Every other column is an admitted owner the generated null guard already screens; a caller-supplied
+    // transform is the one raw host value on the request, so it is the one clause here.
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
-        ref OutlineForm form, ref GlyphMetrics metrics,
-        ref OutlineGrouping grouping, ref TextFrame frame) {
-        bool admittedForm = form is OutlineForm.Faces
-            or OutlineForm.Strokes { Closure: not null }
-            or OutlineForm.Solids { Height: not null }
-            or OutlineForm.Shells { Height: not null };
-        bool admittedFrame = frame is TextFrame.Natural
-            or TextFrame.Model { Scale: not null }
-            or TextFrame.Explicit { Transform.IsValid: true };
-        if (!admittedForm || metrics is null || grouping is null || !admittedFrame)
-            validationError = new ValidationError("Outline request is incomplete.");
+        ref OutlineForm form, ref GlyphMetrics metrics, ref OutlineGrouping grouping, ref TextFrame frame) {
+        TextFrame requested = frame;
+        validationError = FactoryValidation.Of(FactoryValidation.Violated(
+            (requested is TextFrame.Explicit { Transform.IsValid: false },
+                static () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(Frame), "a valid explicit transform" })))));
     }
 
     internal Fin<OutlineProduct> Apply(TextEntity source, DimensionStyle style, Op key) =>
-        from text in Optional(source.Duplicate() as TextEntity).ToFin(Fail: key.InvalidResult())
-        from product in new Lease<TextEntity>.Owned(Value: text).Use(owned =>
-            from _ in Frame.Switch(
-                natural: static _ => Fin.Succ(value: unit),
-                model: frame => key.Catch(() => {
-                    Transform transform = owned.GetTextTransform(textscale: frame.Scale.Value, dimstyle: style);
-                    return key.Confirm(success: owned.Transform(transform: transform, style: style));
-                }),
-                @explicit: frame => key.Confirm(success: owned.Transform(transform: frame.Transform, style: style)))
-            from shaped in (Form, Grouping) switch {
-            (OutlineForm.Strokes form, var grouping) when grouping == OutlineGrouping.Merged => key.Catch(() => Captured(
-                geometry: Seq(toSeq(owned.CreateCurves(
-                    dimstyle: style, allowOpen: form.Closure.AllowOpen, makeSmallCaps: Metrics.MakeSmallCaps,
-                    smallCapsScale: Metrics.SmallCapsScale, spacing: Metrics.Spacing.Value))),
-                project: static groups => new OutlineProduct.Curves(Glyphs: groups), key: key)),
-            (OutlineForm.Strokes form, _) => key.Catch(() => Captured(
-                geometry: toSeq(owned.CreateCurvesGrouped(
-                    dimstyle: style, allowOpen: form.Closure.AllowOpen, makeSmallCaps: Metrics.MakeSmallCaps,
-                    smallCapsScale: Metrics.SmallCapsScale, spacing: Metrics.Spacing.Value)).Map(static group => toSeq(group)),
-                project: static groups => new OutlineProduct.Curves(Glyphs: groups), key: key)),
-            (OutlineForm.Faces _, var grouping) when grouping == OutlineGrouping.Merged => key.Catch(() => Captured(
-                geometry: Seq(toSeq(owned.CreateSurfaces(
-                    dimstyle: style, makeSmallCaps: Metrics.MakeSmallCaps,
-                    smallCapsScale: Metrics.SmallCapsScale, spacing: Metrics.Spacing.Value))),
-                project: static groups => new OutlineProduct.Faces(Glyphs: groups), key: key)),
-            (OutlineForm.Faces _, _) => key.Catch(() => Captured(
-                geometry: toSeq(owned.CreateSurfacesGrouped(
-                    dimstyle: style, makeSmallCaps: Metrics.MakeSmallCaps,
-                    smallCapsScale: Metrics.SmallCapsScale, spacing: Metrics.Spacing.Value)).Map(static group => toSeq(group)),
-                project: static groups => new OutlineProduct.Faces(Glyphs: groups), key: key)),
-            (OutlineForm.Solids form, var grouping) when grouping == OutlineGrouping.Merged => key.Catch(() => Captured(
-                geometry: Seq(toSeq(owned.CreatePolySurfaces(
-                    dimstyle: style, height: form.Height.Value, makeSmallCaps: Metrics.MakeSmallCaps,
-                    smallCapsScale: Metrics.SmallCapsScale, spacing: Metrics.Spacing.Value))),
-                project: static groups => new OutlineProduct.Solids(Glyphs: groups), key: key)),
-            (OutlineForm.Solids form, _) => key.Catch(() => Captured(
-                geometry: toSeq(owned.CreatePolysurfacesGrouped(
-                    dimstyle: style, makeSmallCaps: Metrics.MakeSmallCaps, smallCapsScale: Metrics.SmallCapsScale,
-                    height: form.Height.Value, spacing: Metrics.Spacing.Value)).Map(static group => toSeq(group)),
-                project: static groups => new OutlineProduct.Solids(Glyphs: groups), key: key)),
-            (OutlineForm.Shells form, var grouping) when grouping == OutlineGrouping.Merged => key.Catch(() => Captured(
-                geometry: Seq(toSeq(owned.CreateExtrusions(
-                    dimstyle: style, height: form.Height.Value, makeSmallCaps: Metrics.MakeSmallCaps,
-                    smallCapsScale: Metrics.SmallCapsScale, spacing: Metrics.Spacing.Value))),
-                project: static groups => new OutlineProduct.Shells(Glyphs: groups), key: key)),
-            (OutlineForm.Shells form, _) => key.Catch(() => Captured(
-                geometry: toSeq(owned.CreateExtrusionsGrouped(
-                    dimstyle: style, makeSmallCaps: Metrics.MakeSmallCaps, smallCapsScale: Metrics.SmallCapsScale,
-                    height: form.Height.Value, spacing: Metrics.Spacing.Value)).Map(static group => toSeq(group)),
-                project: static groups => new OutlineProduct.Shells(Glyphs: groups), key: key)),
-            _ => Fin.Fail<OutlineProduct>(key.InvalidInput()),
-            }
-            select shaped)
+        from copy in key.Need(source.Duplicate() as TextEntity)
+        from product in new Lease<TextEntity>.Owned(Value: copy).Use(
+            body: owned =>
+                from _ in Frame.Switch(
+                    state: (Text: owned, Style: style, Key: key),
+                    natural: static (_, _) => Fin.Succ(value: unit),
+                    model: static (context, frame) => context.Key.Catch(() => context.Key.Confirm(
+                        success: context.Text.Transform(
+                            transform: context.Text.GetTextTransform(textscale: frame.Scale.Value, dimstyle: context.Style),
+                            style: context.Style))),
+                    @explicit: static (context, frame) => context.Key.Confirm(
+                        success: context.Text.Transform(transform: frame.Transform, style: context.Style)))
+                from shaped in Drawn(text: owned, style: style, key: key)
+                select shaped,
+            key: key)
         select product;
+
+    // Form cases name their host member PAIR and the grouping row picks the half; the eight overloads are
+    // therefore four arms, and a fifth form breaks this fold at compile time.
+    private Fin<OutlineProduct> Drawn(TextEntity text, DimensionStyle style, Op key) => Form.Switch(
+        state: (Text: text, Style: style, Metrics: Metrics, Grouping: Grouping, Key: key),
+        strokes: static (context, form) => Emit(
+            grouping: context.Grouping,
+            merged: () => context.Text.CreateCurves(
+                dimstyle: context.Style, allowOpen: form.Closure.Key, makeSmallCaps: context.Metrics.MakeSmallCaps,
+                smallCapsScale: context.Metrics.SmallCapsScale, spacing: context.Metrics.Spacing.Value),
+            grouped: () => context.Text.CreateCurvesGrouped(
+                dimstyle: context.Style, allowOpen: form.Closure.Key, makeSmallCaps: context.Metrics.MakeSmallCaps,
+                smallCapsScale: context.Metrics.SmallCapsScale, spacing: context.Metrics.Spacing.Value),
+            project: static (glyphs, owned) => new OutlineProduct.Curves(glyphs, owned),
+            key: context.Key),
+        faces: static (context, _) => Emit(
+            grouping: context.Grouping,
+            merged: () => context.Text.CreateSurfaces(
+                dimstyle: context.Style, makeSmallCaps: context.Metrics.MakeSmallCaps,
+                smallCapsScale: context.Metrics.SmallCapsScale, spacing: context.Metrics.Spacing.Value),
+            grouped: () => context.Text.CreateSurfacesGrouped(
+                dimstyle: context.Style, makeSmallCaps: context.Metrics.MakeSmallCaps,
+                smallCapsScale: context.Metrics.SmallCapsScale, spacing: context.Metrics.Spacing.Value),
+            project: static (glyphs, owned) => new OutlineProduct.Faces(glyphs, owned),
+            key: context.Key),
+        solids: static (context, form) => Emit(
+            grouping: context.Grouping,
+            merged: () => context.Text.CreatePolySurfaces(
+                dimstyle: context.Style, height: form.Height.Value, makeSmallCaps: context.Metrics.MakeSmallCaps,
+                smallCapsScale: context.Metrics.SmallCapsScale, spacing: context.Metrics.Spacing.Value),
+            grouped: () => context.Text.CreatePolysurfacesGrouped(
+                dimstyle: context.Style, makeSmallCaps: context.Metrics.MakeSmallCaps,
+                smallCapsScale: context.Metrics.SmallCapsScale, height: form.Height.Value,
+                spacing: context.Metrics.Spacing.Value),
+            project: static (glyphs, owned) => new OutlineProduct.Solids(glyphs, owned),
+            key: context.Key),
+        shells: static (context, form) => Emit(
+            grouping: context.Grouping,
+            merged: () => context.Text.CreateExtrusions(
+                dimstyle: context.Style, height: form.Height.Value, makeSmallCaps: context.Metrics.MakeSmallCaps,
+                smallCapsScale: context.Metrics.SmallCapsScale, spacing: context.Metrics.Spacing.Value),
+            grouped: () => context.Text.CreateExtrusionsGrouped(
+                dimstyle: context.Style, makeSmallCaps: context.Metrics.MakeSmallCaps,
+                smallCapsScale: context.Metrics.SmallCapsScale, height: form.Height.Value,
+                spacing: context.Metrics.Spacing.Value),
+            project: static (glyphs, owned) => new OutlineProduct.Shells(glyphs, owned),
+            key: context.Key));
+
+    private static Fin<OutlineProduct> Emit<TGeometry>(
+        OutlineGrouping grouping, Func<TGeometry[]> merged, Func<TGeometry[][]> grouped,
+        Func<Seq<Seq<GeometryEvidence<TGeometry>>>, Seq<GeometryBase>, OutlineProduct> project,
+        Op key) where TGeometry : GeometryBase =>
+        key.Catch(() => Captured(
+            geometry: grouping.Switch(
+                state: (Merged: merged, Grouped: grouped),
+                merged: static pair => Seq(toSeq(pair.Merged())),
+                perGlyph: static pair => toSeq(pair.Grouped()).Map(static group => toSeq(group))),
+            project: project, key: key));
 
     private static Fin<OutlineProduct> Captured<TGeometry>(
         Seq<Seq<TGeometry>> geometry,
-        Func<Seq<Seq<GeometryEvidence<TGeometry>>>, OutlineProduct> project,
+        Func<Seq<Seq<GeometryEvidence<TGeometry>>>, Seq<GeometryBase>, OutlineProduct> project,
         Op key) where TGeometry : GeometryBase {
         Seq<TGeometry> custody = geometry.Bind(static group => group).Strict();
-        return key.Catch(() => Fin.Succ(value: project(geometry.Map(group => group.Map(item =>
-            new GeometryEvidence<TGeometry>(
-                Geometry: item,
-                Crc: item.DataCRC(currentRemainder: 0u),
-                Bounds: item.GetBoundingBox(accurate: true))).Strict()).Strict())))
-            .BindFail(primary => DraftCustody.Failed<OutlineProduct, TGeometry>(
-                primary: primary, values: custody, op: key));
+        return key.Catch(() => Fin.Succ(value: project(
+                geometry.Map(group => group.Map(item => new GeometryEvidence<TGeometry>(
+                    Geometry: item,
+                    Crc: item.DataCRC(currentRemainder: 0u),
+                    Bounds: item.GetBoundingBox(accurate: true))).Strict()).Strict(),
+                custody.Map(static item => (GeometryBase)item))))
+            .BindFail(primary => Fin.Fail<OutlineProduct>(error: primary).Rollback(
+                release: () => Custody.Dispose(held: custody, key: key), key: key));
     }
 }
 ```
 
 ## [05]-[TEXT_RAIL]
 
-- Owner: `AnnotationSeed` closes text and leader placement; `TextOp` owns placement, run amendment, formula assignment, leader repointing, and per-object style overrides; `TextAsk` owns detached content, frame, bounds, style, override, leader, and geometry evidence; a native-bearing answer case carries a lease or a `GeometryHandle` run and settles it through `DraftCustody`.
-- Law: every host enum crossing a snapshot boundary lands on a bounded owner — `AnnotationKind` for the annotation kind, `MaskSource`/`TextMaskFrame` for the mask pair, `LeaderArrow`/`LeaderCurve`/`LeaderContentAngle`/`TextAlignAcross`/`TextAlignDown` for the leader vocabulary — each admitted through `AcceptValidated`, so a raw `AnnotationType`, `MaskType`, `MaskFrame`, `ArrowType`, or alignment value never reaches a consumer.
+- Owner: `AnnotationSeed` closes text and leader placement; `TextOp` owns placement, run amendment, formula assignment, leader repointing, and the per-object style verbs; `TextAsk` owns detached content, frame, bounds, style, override, leader, and geometry evidence; a native-bearing answer case carries a lease or a `GeometryHandle` run and settles it through kernel `Custody`.
+- Law: the per-annotation style verbs are `Annotation/style.md`'s `AnnotationStyleOp` under ONE `TextOp.Style` case — overlay and clear were two cases spelling one concern, the annotation's relation to its style, and the dimension rail spells the same pair against the same owner.
+- Law: every host enum crossing a snapshot boundary lands on a bounded owner — `AnnotationKind` for the annotation kind, `MaskSource`/`TextMaskFrame` for the mask pair, `LeaderArrow`/`LeaderCurve`/`LeaderContentAngle`/`TextAlignAcross`/`TextAlignDown` for the leader vocabulary — each admitted through the kernel's host-enum `Op.Row` arm, so an undefined host value is an `InvalidResult` naming the enum rather than an `(int)` cast landing on no row.
 - Law: `AnnotationKind` carries the WHOLE `AnnotationType` roster with a `Measures` column, so this page's own text and leader snapshots resolve and a measuring consumer narrows through the column; a vocabulary spanning the dimension rows alone refuses the majority of the objects this rail places.
-- Law: a disposer parks its release refusal on the owner's own `Faults` cell; throwing from `Dispose` replaces the primary exception during a `using` unwind and loses the fault the scope exists to report.
-- Law: placement and duplicate-then-replace amendments hold native geometry in one owned lease through override, add, edit, and replace failure.
-- Law: formula assignment uses `SetRichText(rtfText, dimstyle)`; snapshot evidence reads first-character decoration off `FirstCharFont` — the host publishes bold, italic, and underline on the resolved font and exposes no per-annotation decoration member — beside style and parent identity, the schema-keyed override census, mirrored annotation-style values, natural bounds, and both leader text alignments.
+- Law: snapshot decorations are `CapabilitySet<FaceDecoration>` values off the shared roster — the first-character set reads the resolved `FirstCharFont` and the run-wide set reads the three host `IsAll*` probes, so the roster's own coverage names why the two sets differ instead of six booleans that state nothing.
+- Law: `TextMask` is a union, not a flag beside dead columns — a disabled mask carries no colour, source, frame, or offset, and the enabled case carries its traits as one set.
+- Law: an override census IS the presence answer — `TextStyleState.Overridden` empty says what a second `HasPropertyOverrides` column said, and two authorities over one host verdict drift the moment either read changes.
+- Law: native-bearing answers expose one total `Release(Op)` fold; cleanup faults stay typed on that rail and no disposer parks them inside the answer.
+- Law: placement and duplicate-then-replace amendments hold native geometry in one owned lease through override, add, edit, and replace failure, and an absent attributes or history payload lowers through `Op.ToHostSlot` — the ONE spelling where an absent optional becomes a host `null`, never `ValueUnsafe`, which throws on `None`.
+- Law: formula assignment uses `SetRichText(rtfText, dimstyle)`; snapshot evidence reads first-character decoration off `FirstCharFont` because the host publishes no per-annotation decoration member.
 - Law: the dimension-scale probe carries the Document-owned `ViewportTarget` address and resolves it to one native viewport through `ResolveViewport` inside the session demand immediately before `GetDimensionScale`, so no live `RhinoViewport` handle rides the detached request.
+- Packages: `Annotation/style.md` (`AnnotationStyleOp`, `StylePatch`, `StyleField`, `StyleOp.Lens`, `DraftCrossing`, `DraftPlan`, `DraftSpine`, `DraftSlot`, `LengthDisplayRow`); `Annotation/typeface.md` (`FaceDecoration`); `Document/tables.md` (`TableTarget`, `TargetResolution.Only`, `ResourceId`, `GeometryHandle`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`, `DraftFault`); `Domain/rails` (`Custody`, `Lease<T>`, `Op.ToHostSlot`); `Numerics/atoms` (`PerceptualColor.OfHost`); RhinoCommon `AnnotationObjectBase`/`Leader`/`TextFields` per `.api/api-rhinocommon-annotation.md`.
+- Growth: a new text mutation is one `TextOp` case with its factory and arm; a new read is one `TextAsk` case beside its answer case, and the commit and ask entries gain both unchanged.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AnnotationSeed {
     private AnnotationSeed() { }
     public sealed record Text(TextSpec Spec) : AnnotationSeed;
     public sealed record Leader(LeaderSpec Spec) : AnnotationSeed;
 
-    internal Fin<AnnotationSeed> Admit(Op key) => Switch(
-        state: key,
-        text: static (op, seed) => op.AcceptInput(value: seed.Spec)
-            .Map(spec => (AnnotationSeed)new Text(Spec: spec)),
-        leader: static (op, seed) => op.AcceptInput(value: seed.Spec)
-            .Map(spec => (AnnotationSeed)new Leader(Spec: spec)));
-
     internal Fin<AnnotationBase> Mint(Plane plane, DimensionStyle style, Op key) => Switch(
-        text: spec => spec.Spec.Mint(plane: plane, style: style, key: key).Map(static minted => (AnnotationBase)minted),
-        leader: spec => spec.Spec.Mint(plane: plane, style: style, key: key).Map(static minted => (AnnotationBase)minted));
+        (Frame: plane, Style: style, Key: key),
+        text: static (context, seed) => seed.Spec
+            .Mint(plane: context.Frame, style: context.Style, key: context.Key)
+            .Map(static minted => (AnnotationBase)minted),
+        leader: static (context, seed) => seed.Spec
+            .Mint(plane: context.Frame, style: context.Style, key: context.Key)
+            .Map(static minted => (AnnotationBase)minted));
 }
 
-[SmartEnum<int>]
+[SmartEnum<bool>]
 public sealed partial class ObjectResidency {
-    public static readonly ObjectResidency Model = new(key: 0, isReference: false);
-    public static readonly ObjectResidency Reference = new(key: 1, isReference: true);
-    internal bool IsReference { get; }
+    public static readonly ObjectResidency Model = new(key: false);
+    public static readonly ObjectResidency Reference = new(key: true);
 }
 
 [ComplexValueObject]
+[ValidationError]
 public sealed partial class AnnotationPlacement {
     public Plane Frame { get; }
     public ResourceRef Style { get; }
@@ -731,97 +773,104 @@ public sealed partial class AnnotationPlacement {
         ref Plane frame, ref ResourceRef style,
         ref Option<StylePatch> overrides, ref Option<ObjectAttributes> attributes,
         ref Option<HistoryRecord> history, ref ObjectResidency residency) {
-        if (!frame.IsValid || style is null || residency is null)
-            validationError = new ValidationError("Annotation placement is incomplete.");
+        Plane plane = frame;
+        validationError = FactoryValidation.Of(FactoryValidation.Violated(
+            (!plane.IsValid, static () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(Frame), "a valid placement plane" })))));
     }
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TextOp {
     private TextOp() { }
-    public sealed record Place(AnnotationSeed Seed, AnnotationPlacement Placement) : TextOp;
-    public sealed record Amend(TableTarget Target, Seq<RunEdit> Edits) : TextOp;
-    public sealed record Reformula(TableTarget Target, FieldProgram Program) : TextOp;
-    public sealed record Repoint(TableTarget Target, LeaderPath Path) : TextOp;
-    public sealed record Restyle(TableTarget Target, StylePatch Patch) : TextOp;
-    public sealed record Unstyle(TableTarget Target) : TextOp;
+    private sealed record PlaceCase(AnnotationSeed Seed, AnnotationPlacement Placement) : TextOp;
+    private sealed record AmendCase(TableTarget Target, Seq<RunEdit> Edits) : TextOp;
+    private sealed record ReformulaCase(TableTarget Target, FieldProgram Program) : TextOp;
+    private sealed record RepointCase(TableTarget Target, LeaderPath Path) : TextOp;
+    private sealed record StyleCase(TableTarget Target, AnnotationStyleOp Edit) : TextOp;
 
-    internal Fin<TextOp> Admit(Op key) => Switch(
-        key,
-        place: static (op, edit) =>
-            from seed in op.AcceptInput(value: edit.Seed).Bind(value => value.Admit(key: op))
-            from placement in op.AcceptInput(value: edit.Placement)
-            select (TextOp)new Place(Seed: seed, Placement: placement),
-        amend: static (op, edit) =>
-            from target in op.AcceptInput(value: edit.Target)
-            from edits in edit.Edits.Traverse(item => op.AcceptInput(value: item)
-                .Bind(value => value.Admit(key: op)).ToValidation()).As().ToFin()
-            from _ in guard(!edits.IsEmpty, op.InvalidInput()).ToFin()
-            select (TextOp)new Amend(Target: target, Edits: edits),
-        reformula: static (op, edit) =>
-            from target in op.AcceptInput(value: edit.Target)
-            from program in op.AcceptInput(value: edit.Program)
-            select (TextOp)new Reformula(Target: target, Program: program),
-        repoint: static (op, edit) =>
-            from target in op.AcceptInput(value: edit.Target)
-            from path in op.AcceptInput(value: edit.Path)
-            select (TextOp)new Repoint(Target: target, Path: path),
-        restyle: static (op, edit) =>
-            from target in op.AcceptInput(value: edit.Target)
-            from patch in op.AcceptInput(value: edit.Patch)
-            select (TextOp)new Restyle(Target: target, Patch: patch),
-        unstyle: static (op, edit) => op.AcceptInput(value: edit.Target)
-            .Map(target => (TextOp)new Unstyle(Target: target)));
+    public static Fin<TextOp> Place(AnnotationSeed seed, AnnotationPlacement placement, Op? key = null) {
+        Op op = key.OrDefault();
+        return (op.Need(value: seed).ToValidation(), op.Need(value: placement).ToValidation())
+            .Apply(static (source, where) => (TextOp)new PlaceCase(Seed: source, Placement: where)).As().ToFin();
+    }
+
+    public static Fin<TextOp> Amend(TableTarget target, params ReadOnlySpan<RunEdit> edits) {
+        Op op = Op.Of(name: nameof(TextOp));
+        return from admitted in op.Accept(values: edits)
+               from _ in guard(!admitted.IsEmpty, op.InvalidInput()).ToFin()
+               from source in op.Need(value: target)
+               select (TextOp)new AmendCase(Target: source, Edits: admitted);
+    }
+
+    public static Fin<TextOp> Reformula(TableTarget target, FieldProgram program, Op? key = null) {
+        Op op = key.OrDefault();
+        return (op.Need(value: target).ToValidation(), op.Need(value: program).ToValidation())
+            .Apply(static (source, formula) => (TextOp)new ReformulaCase(Target: source, Program: formula)).As().ToFin();
+    }
+
+    public static Fin<TextOp> Repoint(TableTarget target, LeaderPath path, Op? key = null) {
+        Op op = key.OrDefault();
+        return (op.Need(value: target).ToValidation(), op.Need(value: path).ToValidation())
+            .Apply(static (source, run) => (TextOp)new RepointCase(Target: source, Path: run)).As().ToFin();
+    }
+
+    public static Fin<TextOp> Style(TableTarget target, AnnotationStyleOp edit, Op? key = null) {
+        Op op = key.OrDefault();
+        return (op.Need(value: target).ToValidation(), op.Need(value: edit).ToValidation())
+            .Apply(static (source, style) => (TextOp)new StyleCase(Target: source, Edit: style)).As().ToFin();
+    }
 
     internal Fin<DraftReceipt> Apply(RhinoDoc document, Op op) => Switch(
         (Document: document, Op: op),
-        place: static (ctx, edit) => Placed(document: ctx.Document, edit: edit, op: ctx.Op),
-        amend: static (ctx, edit) =>
-            from _ in guard(!edit.Edits.IsEmpty, ctx.Op.InvalidInput()).ToFin()
-            from receipt in Reworked(
-                document: ctx.Document, target: edit.Target, op: ctx.Op, slot: DraftSlot.Amended,
-                change: (annotation, key) =>
-                    edit.Edits.TraverseM(item => item.Apply(annotation: annotation, key: key)).As().Map(static _ => unit))
-            select receipt,
-        reformula: static (ctx, edit) => Reworked(
-            document: ctx.Document, target: edit.Target, op: ctx.Op, slot: DraftSlot.Reformulated,
-            change: (annotation, key) => key.Catch(() =>
-                annotation.SetRichText(rtfText: edit.Program.Compose(), dimstyle: annotation.DimensionStyle))),
-        repoint: static (ctx, edit) => Reworked(
-            document: ctx.Document, target: edit.Target, op: ctx.Op, slot: DraftSlot.Adjusted,
+        placeCase: static (context, edit) => Placed(
+            document: context.Document, seed: edit.Seed, placement: edit.Placement, op: context.Op),
+        amendCase: static (context, edit) => Reworked(
+            document: context.Document, target: edit.Target, op: context.Op, slot: DraftSlot.Amended,
+            change: (annotation, key) => edit.Edits
+                .TraverseM(item => item.Apply(annotation: annotation, key: key)).As().Map(static _ => unit)),
+        reformulaCase: static (context, edit) => Reworked(
+            document: context.Document, target: edit.Target, op: context.Op, slot: DraftSlot.Reformulated,
+            change: (annotation, key) => key.Catch(() => Fin.Succ(value: Op.Side(() => annotation.SetRichText(
+                rtfText: edit.Program.Compose(), dimstyle: annotation.DimensionStyle))))),
+        repointCase: static (context, edit) => Reworked(
+            document: context.Document, target: edit.Target, op: context.Op, slot: DraftSlot.Adjusted,
             change: (annotation, key) =>
                 from leader in key.Need(annotation as Leader)
-                from _ in key.Catch(() => leader.Points3D = edit.Path.Points.ToArray())
+                from _ in key.Catch(() => Fin.Succ(value: Op.Side(
+                    () => leader.Points3D = edit.Path.Points.ToArray())))
                 select unit),
-        restyle: static (ctx, edit) => Reworked(
-            document: ctx.Document, target: edit.Target, op: ctx.Op, slot: DraftSlot.Restyled,
-            change: (annotation, key) => edit.Patch.Overlay(annotation: annotation, key: key).Map(static _ => unit)),
-        unstyle: static (ctx, edit) => Reworked(
-            document: ctx.Document, target: edit.Target, op: ctx.Op, slot: DraftSlot.Restyled,
-            change: static (annotation, key) => key.Confirm(success: annotation.ClearPropertyOverrides())));
+        styleCase: static (context, edit) => Reworked(
+            document: context.Document, target: edit.Target, op: context.Op, slot: DraftSlot.Restyled,
+            change: (annotation, key) => edit.Edit.Apply(annotation: annotation, op: key)));
 
-    private static Fin<DraftReceipt> Placed(RhinoDoc document, Place edit, Op op) =>
-        from style in edit.Placement.Style.Resolve(document: document, lens: StyleOp.Lens, key: op)
-        from geometry in edit.Seed.Mint(plane: edit.Placement.Frame, style: style, key: op)
-        from receipt in new Lease<AnnotationBase>.Owned(Value: geometry).Use(owned =>
-            from _ in edit.Placement.Overrides.Traverse(patch => patch.Overlay(annotation: owned, key: op)).As()
-            from id in Added(document: document, geometry: owned, placement: edit.Placement, op: op)
-            from placed in DraftReceipt.Objects(slot: DraftSlot.Placed, ids: Seq(id), key: op)
-            select placed)
+    private static Fin<DraftReceipt> Placed(
+        RhinoDoc document, AnnotationSeed seed, AnnotationPlacement placement, Op op) =>
+        from style in placement.Style.Resolve(document: document, lens: StyleOp.Lens, key: op)
+        from geometry in seed.Mint(plane: placement.Frame, style: style, key: op)
+        from receipt in new Lease<AnnotationBase>.Owned(Value: geometry).Use(
+            body: owned =>
+                from _ in placement.Overrides.Traverse(patch => patch.Overlay(annotation: owned, key: op)).As()
+                from id in Added(document: document, geometry: owned, placement: placement, op: op)
+                from placed in DraftReceipt.Objects(slot: DraftSlot.Placed, ids: Seq(id), key: op)
+                select placed,
+            key: op)
         select receipt;
 
     private static Fin<ResourceId> Added(
-        RhinoDoc document, AnnotationBase geometry, AnnotationPlacement placement, Op op) => op.Catch(() => {
-        ObjectAttributes? attributes = placement.Attributes.ValueUnsafe();
-        HistoryRecord? history = placement.History.ValueUnsafe();
-        return ResourceId.Admit(geometry switch {
+        RhinoDoc document, AnnotationBase geometry, AnnotationPlacement placement, Op op) => op.Catch(() =>
+        ResourceId.Admit(geometry switch {
             TextEntity text => document.Objects.AddText(
-                text: text, attributes: attributes, history: history, reference: placement.Residency.IsReference),
+                text: text,
+                attributes: Op.ToHostSlot(value: placement.Attributes),
+                history: Op.ToHostSlot(value: placement.History),
+                reference: placement.Residency.Key),
             Leader leader => document.Objects.AddLeader(
-                leader: leader, attributes: attributes, history: history, reference: placement.Residency.IsReference),
+                leader: leader,
+                attributes: Op.ToHostSlot(value: placement.Attributes),
+                history: Op.ToHostSlot(value: placement.History),
+                reference: placement.Residency.Key),
             _ => Guid.Empty,
-        }, op);
-    });
+        }, op));
 
     internal static Fin<DraftReceipt> Reworked(
         RhinoDoc document, TableTarget target, Op op, DraftSlot slot,
@@ -830,32 +879,82 @@ public abstract partial record TextOp {
         from amended in ids.TraverseM(id =>
             from native in Optional(document.Objects.FindId(id)).ToFin(Fail: op.MissingContext())
             from source in Optional((native as AnnotationObjectBase)?.AnnotationGeometry).ToFin(Fail: op.InvalidInput())
-            from copy in Optional(source.Duplicate() as AnnotationBase).ToFin(Fail: op.InvalidResult())
-            from amended in new Lease<AnnotationBase>.Owned(Value: copy).Use(owned =>
-                from _ in change(owned, op)
-                from __ in op.Confirm(success: document.Objects.Replace(objectId: id, geometry: owned, ignoreModes: false))
-                select ResourceId.Create(id))
-            select amended).As()
+            from copy in op.Need(source.Duplicate() as AnnotationBase)
+            from landed in new Lease<AnnotationBase>.Owned(Value: copy).Use(
+                body: owned =>
+                    from _ in change(owned, op)
+                    from __ in op.Confirm(success: document.Objects.Replace(
+                        objectId: id, geometry: owned, ignoreModes: false))
+                    from admitted in ResourceId.Admit(id, op)
+                    select admitted,
+                key: op)
+            select landed).As()
         from receipt in DraftReceipt.Objects(slot: slot, ids: amended, key: op)
         select receipt;
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
+// Each trait roster carries the host member that answers it, exactly as `FaceDecoration` does, so the snapshot
+// folds its rows instead of naming each host read beside a column of the same name.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ContentTrait : ICapability<ContentTrait> {
+    public static readonly ContentTrait RichFormatting = new(
+        key: "rich-formatting", held: static (_, annotation) => annotation.TextHasRtfFormatting);
+    public static readonly ContentTrait MeasurableFields = new(
+        key: "measurable-fields", held: static (native, _) => native.HasMeasurableTextFields);
+
+    [UseDelegateFromConstructor]
+    internal partial bool Held(AnnotationObjectBase native, AnnotationBase annotation);
+
+    internal static CapabilitySet<ContentTrait> On(AnnotationObjectBase native, AnnotationBase annotation) =>
+        CapabilitySet<ContentTrait>.Of(
+            toSeq(Items).Filter(row => row.Held(native: native, annotation: annotation)).ToArray());
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class MaskTrait : ICapability<MaskTrait> {
+    public static readonly MaskTrait ViewportColor = new(
+        key: "viewport-color", held: static annotation => annotation.MaskUsesViewportColor);
+    public static readonly MaskTrait Frame = new(
+        key: "frame", held: static annotation => annotation.DrawTextFrame);
+
+    [UseDelegateFromConstructor]
+    internal partial bool Held(AnnotationBase annotation);
+
+    internal static CapabilitySet<MaskTrait> On(AnnotationBase annotation) =>
+        CapabilitySet<MaskTrait>.Of(toSeq(Items).Filter(row => row.Held(annotation: annotation)).ToArray());
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class StyleTrait : ICapability<StyleTrait> {
+    public static readonly StyleTrait Kerning = new(
+        key: "kerning", held: static annotation => annotation.UseKerning);
+    public static readonly StyleTrait DrawForward = new(
+        key: "draw-forward", held: static annotation => annotation.DrawForward);
+
+    [UseDelegateFromConstructor]
+    internal partial bool Held(AnnotationBase annotation);
+
+    internal static CapabilitySet<StyleTrait> On(AnnotationBase annotation) =>
+        CapabilitySet<StyleTrait>.Of(toSeq(Items).Filter(row => row.Held(annotation: annotation)).ToArray());
+}
+
 public sealed record TextContentState(
-    string Plain, string PlainWithFields, string Rich, string Display,
-    bool HasRtfFormatting, bool HasMeasurableFields);
+    string Plain, string PlainWithFields, string Rich, string Display, CapabilitySet<ContentTrait> Traits);
 
 public sealed record TextFormatState(
     string Face, string FirstFace,
-    bool FirstBold, bool FirstItalic, bool FirstUnderlined,
-    bool AllBold, bool AllItalic, bool AllUnderlined,
+    CapabilitySet<FaceDecoration> First, CapabilitySet<FaceDecoration> Across,
     double Height, double RotationRadians,
     bool Wrapped, double FormatWidth, double ModelWidth);
 
-// The host discriminant spans EVERY annotation, not the measuring subset: a plain text is `Text`, a leader is
+// Host discrimination spans EVERY annotation, not the measuring subset: a plain text is `Text`, a leader is
 // `Leader`, and an arc-length dimension is `ArcLen`, so a vocabulary carrying only the dimension rows refuses the
-// two kinds this page's own snapshot reads most. `Measures` is the column that re-narrows it where a caller wants
-// the measuring subset, so the narrowing is a row's answer rather than a second roster.
+// two kinds this page's own snapshot reads most. `Measures` is the column that re-narrows it where a caller asks
+// for the measuring subset, so the narrowing is a row's answer rather than a second roster.
 [SmartEnum<int>]
 public sealed partial class AnnotationKind {
     public static readonly AnnotationKind Unset = new(key: (int)AnnotationType.Unset, measures: false);
@@ -944,78 +1043,91 @@ public sealed partial class TextAlignDown {
     public static readonly TextAlignDown BottomOfBoundingBox = new(key: (int)TextVerticalAlignment.BottomOfBoundingBox);
 }
 
-public sealed record TextMaskState(
-    bool Enabled, PerceptualColor Color,
-    MaskSource Source, TextMaskFrame Frame,
-    double Offset, bool UsesViewportColor, bool DrawFrame);
+// Disabled masks answer no colour, source, frame, or offset: those columns exist only where the host draws one.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record TextMask {
+    private TextMask() { }
+    public sealed record Off : TextMask;
+    public sealed record On(
+        PerceptualColor Color, MaskSource Source, TextMaskFrame Frame,
+        double Offset, CapabilitySet<MaskTrait> Traits) : TextMask;
+
+    internal static Fin<TextMask> Read(AnnotationBase annotation, Op key) =>
+        annotation.MaskEnabled
+            ? from color in PerceptualColor.OfHost(host: annotation.MaskColor, key: key)
+              from source in key.Row<DimensionStyle.MaskType, MaskSource>(
+                  candidate: annotation.MaskColorSource, ordinal: static value => (int)value)
+              from frame in key.Row<DimensionStyle.MaskFrame, TextMaskFrame>(
+                  candidate: annotation.MaskFrame, ordinal: static value => (int)value)
+              select (TextMask)new On(
+                  Color: color, Source: source, Frame: frame, Offset: annotation.MaskOffset,
+                  Traits: MaskTrait.On(annotation: annotation))
+            : Fin.Succ<TextMask>(value: new Off());
+}
 
 public sealed record TextStyleState(
     ResourceId Style,
     Option<ResourceId> Parent,
     Seq<StyleField> Overridden,
     char DecimalSeparator,
-    bool UseKerning,
+    CapabilitySet<StyleTrait> Traits,
     double LineSpaceScale,
     double DimensionScale,
-    bool DrawForward,
     LengthDisplayRow LengthDisplay,
     LengthDisplayRow AlternateLengthDisplay);
 
 public sealed record TextState(
     ResourceId Key, AnnotationKind Kind,
     Plane Frame, BoundingBox Bounds,
-    TextContentState Content, TextFormatState Format, TextMaskState Mask,
-    TextStyleState Style, bool HasPropertyOverrides) : IDetachedDocumentResult {
+    TextContentState Content, TextFormatState Format, TextMask Mask,
+    TextStyleState Style) : IDetachedDocumentResult {
     internal static Fin<TextState> Of(AnnotationObjectBase native, Op key) => key.Catch(() =>
         from annotation in Optional(native.AnnotationGeometry).ToFin(Fail: key.InvalidResult())
-        from mask in annotation.MaskColor.Admitted(key)
-        from kind in key.AcceptValidated<AnnotationKind>(candidate: (int)annotation.AnnotationType)
-        from maskSource in key.AcceptValidated<MaskSource>(candidate: (int)annotation.MaskColorSource)
-        from maskFrame in key.AcceptValidated<TextMaskFrame>(candidate: (int)annotation.MaskFrame)
-        from lengthDisplay in key.AcceptValidated<LengthDisplayRow>(candidate: (int)annotation.DimensionLengthDisplay)
-        from alternateLengthDisplay in key.AcceptValidated<LengthDisplayRow>(candidate: (int)annotation.AlternateDimensionLengthDisplay)
+        from id in ResourceId.Admit(native.Id, key)
+        from kind in key.Row<AnnotationType, AnnotationKind>(
+            candidate: annotation.AnnotationType, ordinal: static value => (int)value)
+        from mask in TextMask.Read(annotation: annotation, key: key)
+        from lengthDisplay in key.Row<DimensionStyle.LengthDisplay, LengthDisplayRow>(
+            candidate: annotation.DimensionLengthDisplay, ordinal: static value => (int)value)
+        from alternateLengthDisplay in key.Row<DimensionStyle.LengthDisplay, LengthDisplayRow>(
+            candidate: annotation.AlternateDimensionLengthDisplay, ordinal: static value => (int)value)
+        from style in ResourceId.Admit(annotation.DimensionStyleId, key)
         select new TextState(
-            Key: ResourceId.Create(native.Id),
+            Key: id,
             Kind: kind,
             Frame: annotation.Plane,
             Bounds: annotation.GetBoundingBox(xform: Transform.Identity),
             Content: new TextContentState(
                 annotation.PlainText, annotation.PlainTextWithFields, annotation.RichText, native.DisplayText,
-                annotation.TextHasRtfFormatting, native.HasMeasurableTextFields),
+                ContentTrait.On(native: native, annotation: annotation)),
             Format: new TextFormatState(
                 annotation.Font.FaceName,
                 annotation.FirstCharFont.FaceName,
-                annotation.FirstCharFont.Bold,
-                annotation.FirstCharFont.Italic,
-                annotation.FirstCharFont.Underlined,
-                annotation.IsAllBold(),
-                annotation.IsAllItalic(),
-                annotation.IsAllUnderlined(),
+                FaceDecoration.On(font: annotation.FirstCharFont),
+                FaceDecoration.Across(annotation: annotation),
                 annotation.TextHeight,
                 annotation.TextRotationRadians,
                 annotation.TextIsWrapped,
                 annotation.FormatWidth,
                 annotation.TextModelWidth),
-            Mask: new TextMaskState(
-                annotation.MaskEnabled, mask, maskSource, maskFrame,
-                annotation.MaskOffset, annotation.MaskUsesViewportColor, annotation.DrawTextFrame),
+            Mask: mask,
             Style: new TextStyleState(
-                Style: ResourceId.Create(annotation.DimensionStyleId),
+                Style: style,
                 Parent: Optional(annotation.ParentDimensionStyle)
-                    .Map(static style => ResourceId.Create(style.Id)),
+                    .Bind(row => ResourceId.Maybe(row.Id)),
                 Overridden: annotation.HasPropertyOverrides
                     ? toSeq(StyleField.Items).Filter(field => annotation.IsPropertyOverridden(field: field.Host))
                     : Seq<StyleField>(),
                 DecimalSeparator: annotation.DecimalSeparator,
-                UseKerning: annotation.UseKerning,
+                Traits: StyleTrait.On(annotation: annotation),
                 LineSpaceScale: annotation.LineSpaceScale,
                 DimensionScale: annotation.DimensionScale,
-                DrawForward: annotation.DrawForward,
                 LengthDisplay: lengthDisplay,
-                AlternateLengthDisplay: alternateLengthDisplay),
-            HasPropertyOverrides: annotation.HasPropertyOverrides));
+                AlternateLengthDisplay: alternateLengthDisplay)));
 }
 
+// Landing length exists only where the leader draws a landing, so presence carries the value rather than a
+// flag beside a length that means nothing when the flag is false.
 public sealed record LeaderFacts(
     ResourceId Key, Seq<Point2d> Points2D, Seq<Point3d> Points3D, Option<Lease<NurbsCurve>> Spline,
     LeaderArrow ArrowType, double ArrowSize, Option<ResourceId> ArrowBlock,
@@ -1023,11 +1135,11 @@ public sealed record LeaderFacts(
     LeaderContentAngle ContentAngleStyle,
     TextAlignAcross HorizontalAlignment,
     TextAlignDown VerticalAlignment,
-    bool HasLanding, double LandingLength) : IDetachedDocumentResult, IDisposable {
-    public void Dispose() {
-        _ = Spline.Iter(static spline => spline.Dispose());
-    }
+    Option<double> Landing) : IDetachedDocumentResult {
+    public Fin<Unit> Release(Op key) => Custody.Dispose(held: Spline.ToSeq(), key: key);
 }
+
+public readonly record struct RunLocation(int Run, int Start, int Length);
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1037,51 +1149,34 @@ public abstract partial record TextAsk {
     public sealed record LeaderState(TableTarget Target) : TextAsk;
     public sealed record RunMap(TableTarget Target) : TextAsk;
     public sealed record Evaluate(FieldProgram Program) : TextAsk;
-    public sealed record Tokens(FieldSource Text) : TextAsk;
+    public sealed record Tokens(FormulaText Text) : TextAsk;
     public sealed record Outline(TableTarget Target, OutlineSpec Spec) : TextAsk;
     public sealed record Pieces(TableTarget Target) : TextAsk;
     public sealed record Scale(ResourceRef Style, ViewportTarget Target) : TextAsk;
 
-    internal Fin<TextAsk> Admit(Op key) => Switch(
-        key,
-        state: static (op, ask) => op.AcceptInput(value: ask.Target)
-            .Map(target => (TextAsk)new State(Target: target)),
-        leaderState: static (op, ask) => op.AcceptInput(value: ask.Target)
-            .Map(target => (TextAsk)new LeaderState(Target: target)),
-        runMap: static (op, ask) => op.AcceptInput(value: ask.Target)
-            .Map(target => (TextAsk)new RunMap(Target: target)),
-        evaluate: static (op, ask) => op.AcceptInput(value: ask.Program)
-            .Map(program => (TextAsk)new Evaluate(Program: program)),
-        tokens: static (op, ask) => op.AcceptInput(value: ask.Text)
-            .Map(text => (TextAsk)new Tokens(Text: text)),
-        outline: static (op, ask) =>
-            from target in op.AcceptInput(value: ask.Target)
-            from spec in op.AcceptInput(value: ask.Spec)
-            select (TextAsk)new Outline(Target: target, Spec: spec),
-        pieces: static (op, ask) => op.AcceptInput(value: ask.Target)
-            .Map(target => (TextAsk)new Pieces(Target: target)),
-        scale: static (op, ask) =>
-            from style in op.AcceptInput(value: ask.Style)
-            from target in op.AcceptInput(value: ask.Target)
-            select (TextAsk)new Scale(Style: style, Target: target));
-
     internal Fin<TextAnswer> Answer(RhinoDoc document, Op op) => Switch(
         (Document: document, Op: op),
-        state: static (ctx, ask) =>
-            from native in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
-            from snapshot in TextState.Of(native: native, key: ctx.Op)
+        state: static (context, ask) =>
+            from native in Single(document: context.Document, target: ask.Target, key: context.Op)
+            from snapshot in TextState.Of(native: native, key: context.Op)
             select (TextAnswer)new TextAnswer.State(Snapshot: snapshot),
-        leaderState: static (ctx, ask) =>
-            from native in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
-            from facts in ctx.Op.Catch(() =>
-                from leader in ctx.Op.Need(native.AnnotationGeometry as Leader)
-                from arrow in ctx.Op.AcceptValidated<LeaderArrow>(candidate: (int)leader.LeaderArrowType)
-                from curve in ctx.Op.AcceptValidated<LeaderCurve>(candidate: (int)leader.LeaderCurveStyle)
-                from angle in ctx.Op.AcceptValidated<LeaderContentAngle>(candidate: (int)leader.LeaderContentAngleStyle)
-                from across in ctx.Op.AcceptValidated<TextAlignAcross>(candidate: (int)leader.LeaderTextHorizontalAlignment)
-                from down in ctx.Op.AcceptValidated<TextAlignDown>(candidate: (int)leader.LeaderTextVerticalAlignment)
+        leaderState: static (context, ask) =>
+            from native in Single(document: context.Document, target: ask.Target, key: context.Op)
+            from facts in context.Op.Catch(() =>
+                from leader in context.Op.Need(native.AnnotationGeometry as Leader)
+                from id in ResourceId.Admit(native.Id, context.Op)
+                from arrow in context.Op.Row<DimensionStyle.ArrowType, LeaderArrow>(
+                    candidate: leader.LeaderArrowType, ordinal: static value => (int)value)
+                from curve in context.Op.Row<DimensionStyle.LeaderCurveStyle, LeaderCurve>(
+                    candidate: leader.LeaderCurveStyle, ordinal: static value => (int)value)
+                from angle in context.Op.Row<DimensionStyle.LeaderContentAngleStyle, LeaderContentAngle>(
+                    candidate: leader.LeaderContentAngleStyle, ordinal: static value => (int)value)
+                from across in context.Op.Row<TextHorizontalAlignment, TextAlignAcross>(
+                    candidate: leader.LeaderTextHorizontalAlignment, ordinal: static value => (int)value)
+                from down in context.Op.Row<TextVerticalAlignment, TextAlignDown>(
+                    candidate: leader.LeaderTextVerticalAlignment, ordinal: static value => (int)value)
                 select new LeaderFacts(
-                    Key: ResourceId.Create(native.Id),
+                    Key: id,
                     Points2D: toSeq(leader.Points2D),
                     Points3D: toSeq(leader.Points3D),
                     ArrowType: arrow,
@@ -1091,100 +1186,94 @@ public abstract partial record TextAsk {
                     ContentAngleStyle: angle,
                     HorizontalAlignment: across,
                     VerticalAlignment: down,
-                    HasLanding: leader.LeaderHasLanding,
-                    LandingLength: leader.LeaderLandingLength,
+                    Landing: leader.LeaderHasLanding ? Some(leader.LeaderLandingLength) : Option<double>.None,
                     Spline: Optional(leader.Curve).Map(static value =>
                         (Lease<NurbsCurve>)new Lease<NurbsCurve>.Owned(Value: (NurbsCurve)value.Duplicate()))))
             select (TextAnswer)new TextAnswer.LeaderState(Facts: facts),
-        runMap: static (ctx, ask) =>
-            from native in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
-            from annotation in Optional(native.AnnotationGeometry).ToFin(Fail: ctx.Op.InvalidResult())
-            from mapped in ctx.Op.Catch(() => {
+        runMap: static (context, ask) =>
+            from native in Single(document: context.Document, target: ask.Target, key: context.Op)
+            from annotation in Optional(native.AnnotationGeometry).ToFin(Fail: context.Op.InvalidResult())
+            from mapped in context.Op.Catch(() => {
                 int[] map = [];
                 string text = annotation.GetPlainTextWithRunMap(map: ref map);
-                return guard(map.Length % 3 == 0, ctx.Op.InvalidResult()).ToFin().Map(_ => (
+                return guard(map.Length % 3 == 0, context.Op.InvalidResult()).ToFin().Map(_ => (
                     Text: text,
                     Runs: toSeq(map.Chunk(3)).Map(static row => new RunLocation(row[0], row[1], row[2]))));
             })
             select (TextAnswer)new TextAnswer.Mapped(Text: mapped.Text, Runs: mapped.Runs),
-        evaluate: static (ctx, ask) =>
-            from value in ask.Program.Evaluate(document: ctx.Document, key: ctx.Op)
+        evaluate: static (context, ask) =>
+            from value in ask.Program.Evaluate(document: context.Document, key: context.Op)
             select (TextAnswer)new TextAnswer.Resolved(Text: value),
-        tokens: static (ctx, ask) =>
-            from split in ctx.Op.Catch(() => TextFields.TryParse(text: ask.Text.Value, doc: ctx.Document, out List<string> result)
+        tokens: static (context, ask) =>
+            from split in context.Op.Catch(() => TextFields.TryParse(
+                    text: ask.Text.Value, doc: context.Document, out List<string> result)
                 ? Fin.Succ(value: toSeq(result))
-                : Fin.Fail<Seq<string>>(error: ctx.Op.InvalidResult()))
+                : Fin.Fail<Seq<string>>(error: context.Op.InvalidResult()))
             select (TextAnswer)new TextAnswer.Split(Tokens: split),
-        outline: static (ctx, ask) =>
-            from native in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
-            from text in ctx.Op.Need(native.AnnotationGeometry as TextEntity)
-            from style in Optional(text.DimensionStyle).ToFin(Fail: ctx.Op.MissingContext())
-            from product in ask.Spec.Apply(source: text, style: style, key: ctx.Op)
+        outline: static (context, ask) =>
+            from native in Single(document: context.Document, target: ask.Target, key: context.Op)
+            from text in context.Op.Need(native.AnnotationGeometry as TextEntity)
+            from style in Optional(text.DimensionStyle).ToFin(Fail: context.Op.MissingContext())
+            from product in ask.Spec.Apply(source: text, style: style, key: context.Op)
             select (TextAnswer)new TextAnswer.Outlined(Product: product),
-        pieces: static (ctx, ask) =>
-            from native in Single(document: ctx.Document, target: ask.Target, key: ctx.Op)
+        pieces: static (context, ask) =>
+            from native in Single(document: context.Document, target: ask.Target, key: context.Op)
             from products in (native.AnnotationGeometry switch {
-                TextEntity text => ctx.Op.Catch(() => Optional(text.Explode())
+                TextEntity text => context.Op.Catch(() => Optional(text.Explode())
                     .Map(static curves => toSeq(curves).Map(static curve => (GeometryBase)curve))
-                    .ToFin(Fail: ctx.Op.InvalidResult())),
-                Leader leader => ctx.Op.Catch(() => Optional(leader.Explode())
+                    .ToFin(Fail: context.Op.InvalidResult())),
+                Leader leader => context.Op.Catch(() => Optional(leader.Explode())
                     .Map(static values => toSeq(values))
-                    .ToFin(Fail: ctx.Op.InvalidResult())),
-                var geometry => Fin.Fail<Seq<GeometryBase>>(ctx.Op.Unsupported(
-                    geometryType: geometry.GetType(), outputType: typeof(GeometryBase))),
+                    .ToFin(Fail: context.Op.InvalidResult())),
+                var geometry => Fin.Fail<Seq<GeometryBase>>(context.Op.Unsupported(
+                    inputType: geometry.GetType(), outputType: typeof(GeometryBase))),
             })
-            from handles in DraftCustody.Crossed(products: products, op: ctx.Op)
+            from handles in DraftCrossing.Crossed(products: products, op: context.Op)
             select (TextAnswer)new TextAnswer.Pieces(Products: handles),
-        scale: static (ctx, ask) =>
-            from style in ask.Style.Resolve(document: ctx.Document, lens: StyleOp.Lens, key: ctx.Op)
-            from viewport in ask.Target.ResolveViewport(document: ctx.Document, key: ctx.Op)
-            from factor in ctx.Op.Catch(() => Fin.Succ(value: AnnotationBase.GetDimensionScale(
-                doc: ctx.Document, dimstyle: style, vport: viewport)))
+        scale: static (context, ask) =>
+            from style in ask.Style.Resolve(document: context.Document, lens: StyleOp.Lens, key: context.Op)
+            from viewport in ask.Target.ResolveViewport(document: context.Document, key: context.Op)
+            from factor in context.Op.Catch(() => Fin.Succ(value: AnnotationBase.GetDimensionScale(
+                doc: context.Document, dimstyle: style, vport: viewport)))
             select (TextAnswer)new TextAnswer.Scaled(Factor: factor));
 
     internal static Fin<AnnotationObjectBase> Single(RhinoDoc document, TableTarget target, Op key) =>
         target.Only<AnnotationObjectBase>(document: document, key: key).Map(static row => row.Native);
 }
 
-public readonly record struct RunLocation(int Run, int Start, int Length);
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TextAnswer : IDetachedDocumentResult {
     private TextAnswer() { }
     public sealed record State(TextState Snapshot) : TextAnswer;
-    public sealed record LeaderState(LeaderFacts Facts) : TextAnswer, IDisposable {
-        public void Dispose() => Facts.Dispose();
-    }
+    public sealed record LeaderState(LeaderFacts Facts) : TextAnswer;
     public sealed record Mapped(string Text, Seq<RunLocation> Runs) : TextAnswer;
     public sealed record Resolved(string Text) : TextAnswer;
     public sealed record Split(Seq<string> Tokens) : TextAnswer;
-    public sealed record Outlined(OutlineProduct Product) : TextAnswer, IDisposable {
-        public void Dispose() => Product.Dispose();
-    }
-    public sealed record Pieces(Seq<GeometryHandle> Products) : TextAnswer, IDisposable {
-        private readonly Atom<Seq<Error>> faults = Atom(Seq<Error>());
-
-        public Seq<Error> Faults => faults.Value;
-
-        public void Dispose() =>
-            _ = DraftCustody.Release(values: Products, op: Op.Of(name: nameof(Pieces)))
-                .IfFail(fault => ignore(faults.Swap(rows => rows.Add(fault))));
-    }
+    public sealed record Outlined(OutlineProduct Product) : TextAnswer;
+    public sealed record Pieces(Seq<GeometryHandle> Products) : TextAnswer;
     public sealed record Scaled(double Factor) : TextAnswer;
+
+    public Fin<Unit> Release(Op key) => Switch(
+        context: key,
+        state: static (_, _) => Fin.Succ(unit),
+        leaderState: static (op, answer) => answer.Facts.Release(op),
+        mapped: static (_, _) => Fin.Succ(unit),
+        resolved: static (_, _) => Fin.Succ(unit),
+        split: static (_, _) => Fin.Succ(unit),
+        outlined: static (op, answer) => answer.Product.Release(op),
+        pieces: static (op, answer) => Custody.Dispose(held: answer.Products, key: op),
+        scaled: static (_, _) => Fin.Succ(unit));
 }
 
 public static class Texts {
-    public static Fin<DraftReceipt> Commit(DocumentSession session, DraftPlan<TextOp> plan) =>
+    public static Fin<DraftReceipt> Commit(DocumentSession session, DraftPlan<TextOp> plan, Op? key = null) =>
         DraftSpine.Commit(session: session, plan: plan,
-            apply: static (document, operation, key) => key.AcceptInput(value: operation)
-                .Bind(value => value.Admit(key: key))
-                .Bind(value => value.Apply(document: document, op: key)),
-            op: Op.Of(name: nameof(Texts)));
+            apply: static (document, operation, op) => operation.Apply(document: document, op: op),
+            op: key.OrDefault());
 
-    public static Fin<TextAnswer> Ask(DocumentSession session, TextAsk request) {
-        Op op = Op.Of(name: nameof(Texts));
-        return from candidate in op.AcceptInput(value: request)
-               from admitted in candidate.Admit(key: op)
+    public static Fin<TextAnswer> Ask(DocumentSession session, TextAsk request, Op? key = null) {
+        Op op = key.OrDefault();
+        return from admitted in op.AcceptInput(value: request)
                from answer in session.Demand(
                    use: document => admitted.Answer(document: document, op: op), key: op, needs: [SessionNeed.Read])
                select answer;
@@ -1194,15 +1283,17 @@ public static class Texts {
 
 ## [06]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]       | [OWNER]          | [FORM]                                               | [ENTRY]        |
-| :-----: | :-------------- | :--------------- | :--------------------------------------------------- | :------------- |
-|  [01]   | content ingress | `TextSeed`       | admitted format plus source                          | `Create`       |
-|  [02]   | live formatting | `RunEdit`        | replacement, shared formatting rows, or wrap         | `Apply`        |
-|  [03]   | field formulas  | `FieldKind`      | evaluator rows carrying admissible typed signatures  | `FieldExpr.Of` |
-|  [04]   | annotation kind | `AnnotationKind` | whole host roster with the measuring column          | `TextState.Of` |
-|  [05]   | outline egress  | `OutlineSpec`    | flat form/group dispatch plus transform and evidence | `Apply`        |
-|  [06]   | text mutations  | `TextOp`         | unified placement plus duplicate-then-replace edits  | `Texts.Commit` |
-|  [07]   | text evidence   | `TextAsk`        | owned detached evidence family                       | `Texts.Ask`    |
+| [INDEX] | [CONCERN]       | [OWNER]          | [FORM]                                              | [ENTRY]          |
+| :-----: | :-------------- | :--------------- | :-------------------------------------------------- | :--------------- |
+|  [01]   | content ingress | `TextSeed`       | admitted format plus source                         | `Create`         |
+|  [02]   | live formatting | `RunEdit`        | replacement, shared decoration rows, or wrap        | `Replace`/`Wrap` |
+|  [03]   | RTF delta       | `TextRtf`        | keyed decoration fold onto the host's eight flags   | `Restyled`       |
+|  [04]   | field formulas  | `FieldKind`      | evaluator rows carrying admissible typed signatures | `FieldExpr.Of`   |
+|  [05]   | annotation kind | `AnnotationKind` | whole host roster with the measuring column         | `TextState.Of`   |
+|  [06]   | outline egress  | `OutlineSpec`    | two closed folds plus transform and evidence        | `Apply`          |
+|  [07]   | outline custody | `OutlineProduct` | declared owned run with typed cleanup               | `Release`        |
+|  [08]   | text mutations  | `TextOp`         | sealed placement plus duplicate-then-replace edits  | `Texts.Commit`   |
+|  [09]   | text evidence   | `TextAsk`        | owned detached evidence family                      | `Texts.Ask`      |
 
 ## [07]-[RESEARCH]
 

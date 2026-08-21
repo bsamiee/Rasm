@@ -49,7 +49,10 @@ const _Timing = Schema.Struct({ started: Schema.Int, settled: Schema.Int, elapse
 class RunReceipt extends Schema.Class<RunReceipt>("RunReceipt")({
   op: _Op,
   stack: Schema.NonEmptyString,
-  summary: Schema.Record({ key: _OpType, value: Schema.Int }).pipe(Schema.partialWith({ exact: true })),
+  // `partialWith` rebuilds the record AST and drops a node annotation, so the closed-key posture seats on the
+  // outermost node rather than riding `Shape.Record`: an op type outside the engine roster is drift, never a summary row.
+  summary: Schema.Record({ key: _OpType, value: Schema.Int }).pipe(Schema.partialWith({ exact: true }))
+    .annotations({ parseOptions: { onExcessProperty: "error" } }),
   steps: Schema.Array(Schema.Struct({
     op: _OpType,
     urn: Schema.String,
@@ -104,65 +107,120 @@ declare namespace RunReceipt {
 
 [DEPLOY_FAULT]:
 - Law: `triaged(stack)` is the one foreign-value conversion — a `Match.instanceOf` ladder over the engine's thrown classes (`ConcurrentUpdateError`, `StackNotFoundError`, `StackAlreadyExistsError`, the `CommandError` base, `InputPropertiesError`/`InputPropertyError`, `RunError`) with `Match.orElse` minting the `alien` row, subclasses matched before their base; every `Effect.tryPromise` catch slot in the folder names this triage and no second conversion exists.
-- Law: a run that outlives its ceiling is its own reason — `budget` names the timeout after the scope-close abort, so the discriminant rides the closed vocabulary instead of a sentinel string a reader must match inside `detail`, and the free-form field carries evidence alone.
+- Law: a run that outlives its ceiling is its own reason — `budget` names the timeout after the scope-close abort, so the discriminant rides the closed vocabulary instead of a sentinel string a reader must match inside a free detail field, and the ceiling crosses as the measured `Duration` the run was given rather than as text no reader can compare.
+- Law: every reason declares its OWN subject and its own renderer, so the raise carries one `case` field and no free-string `detail` column survives — the engine-thrown reasons share the run identity and the foreign message they all hold, `cancelled` carries identity alone because a withdrawal has no message, and `budget` carries the ceiling it outlived.
+- Law: legs partition by the surface that DECIDED — `run` for the drive this owner brackets end to end, `workspace` for the stack identity and configuration it selects against, `engine` for what the pulumi engine itself reported — so a census reads which seam refused without re-deriving it from the reason.
 - Boundary: `ParseError` from receipt and output decodes re-spells into this family at the decode seam (`alien` with the parse message as detail); the severity fold over accumulated faults rides `DeployFault.bySeverity`.
 
 ```typescript
 import { InputPropertiesError, InputPropertyError, RunError } from "@pulumi/pulumi"
 import { CommandError, ConcurrentUpdateError, StackAlreadyExistsError, StackNotFoundError } from "@pulumi/pulumi/automation"
 import { Fault } from "@rasm/ts/core"
-import { Match, Order, Schema, pipe } from "effect"
+import { Duration, Match, Order, Schema, pipe } from "effect"
 
-// One row per reason: the core kind the class getter projects, plus the ONE deploy-local axis. Rank, retry,
-// blame, and quarantine are the core Fault.Class row table's — a literal here would fork them, and the
-// severity order the old rank column spelled IS the core kind tuple's own position.
+// Three subjects, each elected from what the RAISE actually holds. Every engine-thrown reason carries the same
+// pair — the run's identity and the foreign message the thrown class named — so those rows vary their renderer and
+// nothing else. The two reasons no engine throws carve away: a withdrawn run has no message to carry, and an
+// outlived ceiling holds a MEASURED duration that a free string would flatten into text no reader can compare.
+const _Triaged = Schema.Struct({ stack: Schema.String, detail: Schema.String })
+const _Withdrawn = Schema.Struct({ stack: Schema.String })
+const _Overran = Schema.Struct({ stack: Schema.String, ceiling: Schema.DurationFromSelf })
+
+// One row per reason: the core kind the class getter projects, the leg naming which surface decided, that reason's
+// own subject, and the renderer reading it. Rank, retry, blame, and quarantine are the core Fault.Class row table's
+// — a literal here would fork them, and the severity order the old rank column spelled IS the core kind tuple's own
+// position. Legs partition by decider: `run` brackets the drive, `workspace` the stack identity and its
+// configuration, `engine` whatever the pulumi engine itself reported.
 const _family = Fault.Class.family(
   ["cancelled", "concurrent", "absent", "duplicate", "input", "command", "budget", "diagnostic", "alien"] as const,
   {
-    cancelled: { class: "denied", halting: false }, // the caller withdrew the run; nothing failed and nothing retries
-    concurrent: { class: "conflicted", halting: false }, // the ONE retryable kind this family selects: the state lock clears
-    absent: { class: "absent", halting: true },
-    duplicate: { class: "invalid", halting: true }, // a create naming an identity already taken — the request, not the estate
-    input: { class: "invalid", halting: true },
-    command: { class: "breached", halting: true },
-    budget: { class: "breached", halting: true }, // the run outlived its declared ceiling after the scope-close abort
-    diagnostic: { class: "breached", halting: true },
-    alien: { class: "defect", halting: true },
+    cancelled: Fault.Class.row({
+      class: "denied",
+      leg: "run",
+      detail: _Withdrawn,
+      render: ({ stack }) => `${stack} withdrawn by its own caller`,
+    }),
+    concurrent: Fault.Class.row({
+      class: "conflicted",
+      leg: "run",
+      detail: _Triaged,
+      render: ({ stack, detail }) => `${stack} holds a state lock another update took — ${detail}`,
+    }),
+    absent: Fault.Class.row({
+      class: "absent",
+      leg: "workspace",
+      detail: _Triaged,
+      render: ({ stack, detail }) => `${stack} names no stack this backend holds — ${detail}`,
+    }),
+    duplicate: Fault.Class.row({
+      class: "invalid",
+      leg: "workspace",
+      detail: _Triaged,
+      render: ({ stack, detail }) => `${stack} names an identity already taken — ${detail}`,
+    }),
+    input: Fault.Class.row({
+      class: "invalid",
+      leg: "workspace",
+      detail: _Triaged,
+      render: ({ stack, detail }) => `${stack} offered a coordinate this plane refuses — ${detail}`,
+    }),
+    command: Fault.Class.row({
+      class: "breached",
+      leg: "engine",
+      detail: _Triaged,
+      render: ({ stack, detail }) => `${stack} failed inside the pulumi CLI — ${detail}`,
+    }),
+    budget: Fault.Class.row({
+      class: "breached",
+      leg: "run",
+      detail: _Overran,
+      render: ({ stack, ceiling }) => `${stack} outlived its ${Duration.format(ceiling)} ceiling`,
+    }),
+    diagnostic: Fault.Class.row({
+      class: "breached",
+      leg: "engine",
+      detail: _Triaged,
+      render: ({ stack, detail }) => `${stack} refused inside the program body — ${detail}`,
+    }),
+    alien: Fault.Class.row({
+      class: "defect",
+      leg: "engine",
+      detail: _Triaged,
+      render: ({ stack, detail }) => `${stack} raised a value no engine class grades — ${detail}`,
+    }),
   },
 )
 
 class DeployFault extends Schema.TaggedError<DeployFault>()("DeployFault", {
-  reason: _family.schema,
-  stack: Schema.String,
-  detail: Schema.String,
+  case: _family.payload,
 }) {
-  static readonly roster: typeof _family.reasons = _family.reasons
-  static readonly bySeverity: Order.Order<DeployFault> = Order.mapInput(Fault.Class.severity, (fault: DeployFault) => fault.class)
+  static readonly bySeverity: Order.Order<DeployFault> = Order.mapInput(Fault.Class.order, (fault: DeployFault) => fault.class)
   static readonly triaged = (stack: string): ((caught: unknown) => DeployFault) =>
     pipe(
       Match.type<unknown>(),
-      Match.when(Match.instanceOf(ConcurrentUpdateError), (e) => new DeployFault({ reason: "concurrent", stack, detail: e.message })),
-      Match.when(Match.instanceOf(StackNotFoundError), (e) => new DeployFault({ reason: "absent", stack, detail: e.message })),
-      Match.when(Match.instanceOf(StackAlreadyExistsError), (e) => new DeployFault({ reason: "duplicate", stack, detail: e.message })),
-      Match.when(Match.instanceOf(CommandError), (e) => new DeployFault({ reason: "command", stack, detail: e.message })),
-      Match.when(Match.instanceOf(InputPropertiesError), (e) => new DeployFault({ reason: "input", stack, detail: e.message })),
-      Match.when(Match.instanceOf(InputPropertyError), (e) => new DeployFault({ reason: "input", stack, detail: e.message })),
-      Match.when(Match.instanceOf(RunError), (e) => new DeployFault({ reason: "diagnostic", stack, detail: e.message })),
-      Match.orElse((residue) => new DeployFault({ reason: "alien", stack, detail: String(residue) })),
+      Match.when(Match.instanceOf(ConcurrentUpdateError), (e) => new DeployFault({ case: { reason: "concurrent", stack, detail: e.message } })),
+      Match.when(Match.instanceOf(StackNotFoundError), (e) => new DeployFault({ case: { reason: "absent", stack, detail: e.message } })),
+      Match.when(Match.instanceOf(StackAlreadyExistsError), (e) => new DeployFault({ case: { reason: "duplicate", stack, detail: e.message } })),
+      Match.when(Match.instanceOf(CommandError), (e) => new DeployFault({ case: { reason: "command", stack, detail: e.message } })),
+      Match.when(Match.instanceOf(InputPropertiesError), (e) => new DeployFault({ case: { reason: "input", stack, detail: e.message } })),
+      Match.when(Match.instanceOf(InputPropertyError), (e) => new DeployFault({ case: { reason: "input", stack, detail: e.message } })),
+      Match.when(Match.instanceOf(RunError), (e) => new DeployFault({ case: { reason: "diagnostic", stack, detail: e.message } })),
+      Match.orElse((residue) => new DeployFault({ case: { reason: "alien", stack, detail: String(residue) } })),
     )
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
   }
-  get halting(): boolean {
-    return _family.at(this.reason).halting
+  get leg(): string {
+    return _family.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<deploy:${this.reason}> ${this.stack}: ${this.detail}`
+    return _family.render(this.case)
   }
 }
 
 declare namespace DeployFault {
-  type Reason = (typeof _family.reasons)[number]
+  type Reason = (typeof _family.kinds)[number]
+  type Case = typeof _family.payload.Type
 }
 ```
 
@@ -204,7 +262,7 @@ const _host = Config.unwrap({
 })
 
 const _facts = (name: string) =>
-  Effect.mapError(_host, (issue) => new DeployFault({ reason: "input", stack: name, detail: String(issue) }))
+  Effect.mapError(_host, (issue) => new DeployFault({ case: { reason: "input", stack: name, detail: String(issue) } }))
 
 const _qualified = (project: string, name: string): string => fullyQualifiedStackName("organization", project, name)
 
@@ -294,22 +352,24 @@ const _decoded = (op: RunReceipt.Op, name: string, fold: _Fold): Effect.Effect<R
         onSome: ([started, settled]) => ({ timing: { started, settled, elapsed: settled - started } }),
       }),
     }),
-    (parse) => new DeployFault({ reason: "alien", stack: name, detail: parse.message }),
+    (parse) => new DeployFault({ case: { reason: "alien", stack: name, detail: parse.message } }),
   )
 
 const _driven = (stack: Stack, name: string, op: RunReceipt.Op, options?: Automation.Options): Effect.Effect<RunReceipt, DeployFault> =>
   Effect.flatMap(_facts(name), (host) =>
-    ((qualified) =>
+    // The ceiling resolves ONCE and is both what bounds the attempt and what the refusal carries, so the timeout and
+    // the evidence a reader compares can never name two different durations.
+    ((qualified, ceiling) =>
       Stream.runFold(_streamed(stack, name, op, options), _SEED, _folded).pipe(
         Effect.flatMap((fold) => _decoded(op, qualified, fold)),
         Effect.timeoutFail({
-          duration: options?.budget ?? Duration.minutes(45),
-          onTimeout: () => new DeployFault({ reason: "budget", stack: name, detail: Duration.format(options?.budget ?? Duration.minutes(45)) }),
+          duration: ceiling,
+          onTimeout: () => new DeployFault({ case: { reason: "budget", stack: name, ceiling } }),
         }),
         Effect.retry(_CONTENDED),
         Effect.withSpan("iac.automation.run", { attributes: { stack: qualified, op } }),
         Effect.scoped,
-      ))(_qualified(host.project, name)))
+      ))(_qualified(host.project, name), Duration.decode(options?.budget ?? Duration.minutes(45))))
 
 function _config(stack: Stack, name: string): Effect.Effect<ConfigMap, DeployFault>
 function _config(stack: Stack, name: string, input: string): Effect.Effect<ConfigValue, DeployFault>
@@ -417,7 +477,7 @@ const Automation = {
   remote: (spec: StackSpec, git: RemoteGitProgramArgs): Effect.Effect<RemoteStack, DeployFault> =>
     spec.hosted
       ? Effect.tryPromise({ try: () => RemoteWorkspace.createOrSelectStack(git), catch: DeployFault.triaged(spec.name) })
-      : Effect.fail(new DeployFault({ reason: "input", stack: spec.name, detail: "<remote-requires-cloud-backend>" })),
+      : Effect.fail(new DeployFault({ case: { reason: "input", stack: spec.name, detail: "<remote-requires-cloud-backend>" } })),
 } as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------

@@ -21,6 +21,7 @@ Evaluation is TOTAL by specification: every operator, function, and cast answers
 - Law: an attribute an expression names resolves against the reading the message-envelope owner published, so an unrostered name answers `attribute` beside the empty string rather than reaching whatever untyped value a producer happened to set. `EXISTS` is the one arm reading absence WITHOUT that fault, which is the whole reason the specification gives it an operator.
 - Law: casts are TOTAL — a cast that cannot succeed answers the target space's ZERO beside a `cast` fault, because a raise makes one malformed attribute value darken an otherwise-matching subscription. `_number` and `_flag` read the specification's own spellings and guess at nothing, so a truthiness read never makes every non-empty attribute satisfy a boolean filter.
 - Law: faults UNION across operands and every lift carries its own — `_carried` is the one combination law, so a binary node reports both sides, a unary arm reports the cast it took, and no arm reaches a value by dropping a diagnosis it raised.
+- Law: both refusals resolve a `reliability/faults#FAULT` `RAISES` anchor under `RuntimeLeg.FILTER` — `FILTER_PARSE` the admission fence and `FILTER_SETTINGS` the protocol-slice gate carrying the protocol beside the stray keys as NAMED coordinates.
 - Entry: `Cesql.compiled(source)` parses once and rails `parse` through the faults owner; `Cesql.answered(reading)` runs the held closure per event. That pair is the whole surface — no second entry takes a tree, a token stream, or a pre-parsed node.
 - Auto: a compiled expression is a VALUE held for the subscription's life, because a grammar rebuilt per event reconstructs the whole closure graph on every delivery.
 - Packages: `lark` (`Lark(grammar, parser="lalr", start=, maybe_placeholders=False, transformer=)` the built-once parser folding in-parse, `Transformer` + `v_args(inline=True)` the fold, `Token` the terminal carrier, `UnexpectedInput` the parse refusal, `VisitError` the wrapper a transformer raise arrives under — `cache=` stays unset, since a cache file is a filesystem side effect no composition asked for); `expression` (`tagged_union` the value and fault families, `Block`/`Map` the immutable carriers); `msgspec` (`Struct` the frozen rows and the outcome); runtime (`event.MessageEnvelope`/`NUMERIC_EXTENSIONS` the attribute reading, `faults.RuntimeRail`/`boundary` the admission rail).
@@ -39,7 +40,7 @@ from lark import Lark, Token, Transformer, UnexpectedInput, VisitError, v_args
 from msgspec import Struct
 
 from rasm.runtime.event import NUMERIC_EXTENSIONS, MessageEnvelope
-from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.faults import FILTER_PARSE, RuntimeRail, boundary
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -195,7 +196,7 @@ class Cesql(Struct, frozen=True, gc=False):
         # `compiled` runs the ONE parse, at admission. `_LOWER` folds INSIDE that parse, so the answer is already a
         # closure and no tree is built; `VisitError` wraps a transformer raise, which is why both cross the same
         # fence rather than one escaping as a bare provider exception.
-        return boundary("cesql.parse", lambda: _PARSER.parse(source), catch=(UnexpectedInput, VisitError)).map(
+        return boundary(FILTER_PARSE, lambda: _PARSER.parse(source), catch=(UnexpectedInput, VisitError)).map(
             lambda run: cls(source=source, run=run)
         )
 
@@ -516,7 +517,7 @@ from msgspec import Struct
 
 from rasm.runtime.binding import BINDINGS, Binding, Pushdown
 from rasm.runtime.event import EventType, MessageEnvelope
-from rasm.runtime.faults import BoundaryFault, RuntimeRail
+from rasm.runtime.faults import FILTER_SETTINGS, RuntimeRail
 
 # `Cesql`, `CesqlFault`, `Reading`, `Space`, `CASTS`, and `_reading` are this module's [02]-[CESQL] owners —
 # one module, two regions, and the expression region declares first because this one composes it.
@@ -634,7 +635,7 @@ class Subscription(Struct, frozen=True, gc=False):
         # on a value. Settings prove against the binding row's roster, so a knob outside that slice is unspellable.
         stray = Block.of_seq(sorted(key for key in settings.keys() if key not in BINDINGS[protocol].settings))
         return (
-            Error(BoundaryFault(config=("subscription.settings", f"{protocol} admits no {stray} on its protocolsettings slice")))
+            Error(FILTER_SETTINGS.raised(protocol.value, ",".join(stray)))
             if not stray.is_empty()
             else Ok(cls(id=id, source=source, sink=sink, protocol=protocol, settings=settings, types=types, filters=filters, config=config))
         )

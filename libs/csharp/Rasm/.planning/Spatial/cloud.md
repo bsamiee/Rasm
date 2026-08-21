@@ -2,7 +2,7 @@
 
 `VectorCloud` owns the point-cloud union under one admission that deduplicates by tolerance, renormalizes mass, and carries a copy-safe shared native index per cluster. `VectorCloudMetric` folds every cloud measurement behind one `Project<TOut>`, each row naming the `CloudKernel` fold that answers it, so a new cloud capability lands as a metric row, a hull-kind row, or a shape column.
 
-`CloudKernel.CovarianceOf` is the corpus's one covariance fold, composing `Domain/stats.md` `SampleMoment` into a `matrix.md` `SymmetricMatrix` every PCA consumer reads.
+`CloudKernel.CovarianceOf` is the corpus's one covariance fold, composing `Domain/stats.md` `SampleMoment` into a `matrix.md` `SymmetricMatrix` every PCA consumer reads. Deduplication posture is a `CloudDedup` row carrying its own point-equivalence body, and the mass-conservation floor reads `ToleranceLane.Conservation` from the cloud's own `Context`, so neither is a page literal nor a boolean a reader re-interprets.
 
 ## [01]-[INDEX]
 
@@ -13,15 +13,16 @@
 
 ## [02]-[VECTOR_CLOUD]
 
-- Owner: `VectorCloud` mints one case per cloud modality, mass an `Option` column on `ClusterCase`, so a weighted cluster is that case rather than a case of its own.
+- Owner: `VectorCloud` mints one case per cloud modality, mass an `Option` column on `ClusterCase`, so a weighted cluster is that case rather than a case of its own; `Vertices` and `Tolerance` are abstract ROOT columns every case answers, so a policy owner threading a `Context` and a consumer walking positions each read one member instead of switching for a fact all three cases carry.
+- Cases: `CloudDedup` rows are the admission posture — `Merge` collapses coincident points under the policy tolerance, `Preserve` keeps every input position index-stable — and each row carries its own equivalence body, so re-admission selects a row rather than flipping a flag whose meaning the reader must re-derive.
 - Auto: cluster admission is the ONE dedup-and-renormalize fold, emitting `OriginalToUnique` — the input-index→unique-index map every external per-point array re-indexes through to survive deduplication.
 - Packages: RhinoCommon (native point cloud, polyline closure, self-intersection), LanguageExt.Core, Thinktecture.Runtime.Extensions.
-- Growth: a new cloud modality is one union case, one factory, and its metric-adapter arms; a new admission rule is one policy column.
-- Boundary: admission runs ONCE at the factory, so every kernel fold below consumes admitted vertices without re-validating and re-admission runs with dedup off to keep vertices index-stable; native `PointCloud` and `PolylineCurve` reads are the platform seam, held inside their lease windows under `key.Catch`; `Dispose` releases one shared cluster extent, so copies stay safe while a rehydrated cloud owns its own.
+- Growth: a new cloud modality is one union case, one factory, and its metric-adapter arms; a new admission rule is one policy column; a new dedup posture is one `CloudDedup` row.
+- Boundary: admission runs ONCE at the factory, so every kernel fold below consumes admitted vertices without re-validating and re-admission runs under `CloudDedup.Preserve` to keep vertices index-stable; native `PointCloud` and `PolylineCurve` reads are the platform seam, held inside their lease windows under `key.Catch`; `Dispose` releases one shared cluster extent, so copies stay safe while a rehydrated cloud owns its own.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using System;
+using System.Collections.Frozen;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using MIConvexHull;
@@ -31,16 +32,30 @@ using Rasm.Numerics;
 namespace Rasm.Spatial;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+[SmartEnum<int>]
+public sealed partial class CloudDedup {
+    public static readonly CloudDedup Merge = new(key: 0,
+        equivalent: static (left, right, tolerance) => tolerance.Match(
+            Some: t => left.EpsilonEquals(other: right, epsilon: t.Value),
+            None: () => left == right));
+    // Preserve admits nothing as equivalent, so re-admission of an already-admitted cluster is index-stable by
+    // construction rather than by a caller remembering to switch a flag off.
+    public static readonly CloudDedup Preserve = new(key: 1, equivalent: static (_, _, _) => false);
+
+    [UseDelegateFromConstructor]
+    internal partial bool Equivalent(Point3d left, Point3d right, Option<PositiveMagnitude> tolerance);
+}
+
 [Union]
 public abstract partial record VectorCloud : IDisposable {
     private VectorCloud() { }
-    public sealed record RingCase : VectorCloud { internal RingCase(Seq<Point3d> Vertices, Polyline Native, Context Tolerance) { this.Vertices = Vertices; this.Native = Native; this.Tolerance = Tolerance; } public Seq<Point3d> Vertices { get; } public Polyline Native { get; } public Context Tolerance { get; } }
-    public sealed record PolylineCase : VectorCloud { internal PolylineCase(Seq<Point3d> Vertices, Context Tolerance) { this.Vertices = Vertices; this.Tolerance = Tolerance; } public Seq<Point3d> Vertices { get; } public Context Tolerance { get; } }
+    public sealed record RingCase : VectorCloud { internal RingCase(Seq<Point3d> Vertices, Polyline Native, Context Tolerance) { this.Vertices = Vertices; this.Native = Native; this.Tolerance = Tolerance; } public override Seq<Point3d> Vertices { get; } public Polyline Native { get; } public override Context Tolerance { get; } }
+    public sealed record PolylineCase : VectorCloud { internal PolylineCase(Seq<Point3d> Vertices, Context Tolerance) { this.Vertices = Vertices; this.Tolerance = Tolerance; } public override Seq<Point3d> Vertices { get; } public override Context Tolerance { get; } }
     public sealed record ClusterCase : VectorCloud {
         internal ClusterCase(Seq<Point3d> Vertices, Context Tolerance, Option<Arr<double>> Mass, Lease<PointCloud> Indexed, CloudAdmissionReceipt Admission) { this.Vertices = Vertices; this.Tolerance = Tolerance; this.Mass = Mass; Index = new IndexHandle(lease: Indexed); this.Admission = Admission; }
         private ClusterCase(ClusterCase original) : base(original) { Vertices = original.Vertices; Tolerance = original.Tolerance; Mass = original.Mass; Index = original.Index.Copy(); Admission = original.Admission; }
-        public Seq<Point3d> Vertices { get; }
-        public Context Tolerance { get; }
+        public override Seq<Point3d> Vertices { get; }
+        public override Context Tolerance { get; }
         public Option<Arr<double>> Mass { get; }
         private IndexHandle Index { get; }
         public CloudAdmissionReceipt Admission { get; }
@@ -98,16 +113,25 @@ public abstract partial record VectorCloud : IDisposable {
         }
     }
 
+    // Every case carries both facts, so they sit on the ROOT: a consumer threading a Context or walking positions
+    // reads one member instead of re-switching, and a `Model` projection whose three arms named one column deletes.
+    public abstract Seq<Point3d> Vertices { get; }
+    public abstract Context Tolerance { get; }
+
+    // Ring admission is a CLOSURE question at both ends and a SEAM question at the self-intersection probe, so each
+    // reads its own lane — the derivation-graph floor pinned every ring in the corpus off-lane, and a model widening
+    // closure agreement then left ring admission exactly where it was.
     public static Fin<VectorCloud> Ring(Seq<Point3d> points, Context context, Op? key = null) =>
         from admitted in AdmitPoints(points: points, context: context, key: key, minimum: 3)
-        let closed = admitted.Points.Count > 1 && admitted.Points[0].EpsilonEquals(other: admitted.Points[^1], epsilon: admitted.Context.Absolute.Value)
+        let closure = admitted.Context.For(lane: ToleranceLane.Closure).Value
+        let closed = admitted.Points.Count > 1 && admitted.Points[0].EpsilonEquals(other: admitted.Points[^1], epsilon: closure)
         let vertices = closed ? admitted.Points.Init : admitted.Points
         from _ in guard(vertices.Count >= 3, admitted.Key.InvalidInput())
         let native = new Polyline([.. vertices.AsIterable(), vertices[0]])
-        from closure in guard(native.IsValid && native.IsClosedWithinTolerance(admitted.Context.Absolute.Value) && native.SegmentCount >= 3, admitted.Key.InvalidInput())
+        from ringClosed in guard(native.IsValid && native.IsClosedWithinTolerance(closure) && native.SegmentCount >= 3, admitted.Key.InvalidInput())
         from simple in Optional(native.ToPolylineCurve()).ToFin(admitted.Key.InvalidResult())
             .Bind(curve => new Lease<PolylineCurve>.Owned(Value: curve).Use(state: (admitted.Context, admitted.Key),
-                project: static (s, active) => Optional(Intersection.CurveSelf(curve: active, tolerance: s.Context.Absolute.Value))
+                project: static (s, active) => Optional(Intersection.CurveSelf(curve: active, tolerance: s.Context.For(lane: ToleranceLane.Seam).Value))
                     .ToFin(s.Key.InvalidResult())
                     .Bind(events => events.Count == 0 ? Fin.Succ(unit) : Fin.Fail<Unit>(s.Key.InvalidInput()))))
         select (VectorCloud)new RingCase(Vertices: vertices, Native: native, Tolerance: admitted.Context);
@@ -116,10 +140,14 @@ public abstract partial record VectorCloud : IDisposable {
         AdmitPoints(points: points, context: context, key: key, minimum: 2)
             .Map(static a => (VectorCloud)new PolylineCase(Vertices: a.Points, Tolerance: a.Context));
 
-    public static Fin<VectorCloud> Cluster(Seq<Point3d> points, Context context, Option<CloudAdmissionPolicy> admission = default, Option<Seq<double>> mass = default, Op? key = null) =>
+    // Mass is `Arr<double>` at rest and indexed by vertex ordinal everywhere it is read, so it enters as one: the
+    // `Seq` head round-tripped a full copy in and another back out on every re-admission for no reader's benefit.
+    public static Fin<VectorCloud> Cluster(Seq<Point3d> points, Context context, Option<CloudAdmissionPolicy> admission = default, Option<Arr<double>> mass = default, Op? key = null) =>
         from admitted in AdmitPoints(points: points, context: context, key: key, minimum: 1)
-        from policy in admission.IfNone(CloudAdmissionPolicy.Default).Admit(key: admitted.Key)
-        from fold in CloudKernel.AdmitCluster(points: admitted.Points, mass: mass.Map(static m => new Arr<double>([.. m.AsIterable()])), policy: policy, key: admitted.Key)
+        from policy in admission.Match(
+            Some: candidate => candidate.Admit(key: admitted.Key),
+            None: () => CloudAdmissionPolicy.Of(context: admitted.Context, key: admitted.Key))
+        from fold in CloudKernel.AdmitCluster(points: admitted.Points, mass: mass, policy: policy, key: admitted.Key)
         from indexed in admitted.Key.Catch(() => {
             PointCloud native = [];
             native.AddRange(points: fold.Points.AsIterable());
@@ -131,9 +159,11 @@ public abstract partial record VectorCloud : IDisposable {
         state: key,
         ringCase: static (op, ring) => Ring(points: ring.Vertices, context: ring.Tolerance, key: op),
         polylineCase: static (op, poly) => Polyline(points: poly.Vertices, context: poly.Tolerance, key: op),
-        clusterCase: static (op, cluster) => Cluster(points: cluster.Vertices, context: cluster.Tolerance,
-            admission: Some(CloudAdmissionPolicy.Default with { Deduplicate = false }),
-            mass: cluster.Mass.Map(static values => toSeq(values.AsIterable())), key: op));
+        clusterCase: static (op, cluster) =>
+            from policy in CloudAdmissionPolicy.Of(context: cluster.Tolerance, key: op)
+            from readmitted in Cluster(points: cluster.Vertices, context: cluster.Tolerance,
+                admission: Some(policy with { Dedup = CloudDedup.Preserve }), mass: cluster.Mass, key: op)
+            select readmitted);
 
     [BoundaryAdapter]
     public void Dispose() => Switch(
@@ -153,26 +183,28 @@ public abstract partial record VectorCloud : IDisposable {
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudAdmissionPolicy(
-    bool Deduplicate, Option<PositiveMagnitude> Tolerance, PositiveMagnitude ConservationTolerance) {
-    internal static CloudAdmissionPolicy Default => new(
-        Deduplicate: true, Tolerance: None, ConservationTolerance: PositiveMagnitude.Create(value: 1.0e-8));
+    CloudDedup Dedup, Option<PositiveMagnitude> Tolerance, PositiveMagnitude ConservationTolerance) {
+    // Conservation floor rides the model's own residual lane, so a project widening its residual band widens this
+    // without a second knob and no page literal states a mass-agreement threshold.
+    internal static Fin<CloudAdmissionPolicy> Of(Context context, Op key, Option<PositiveMagnitude> tolerance = default) =>
+        from conservation in key.AcceptValidated<PositiveMagnitude>(candidate: context.For(lane: ToleranceLane.Conservation).Value)
+        select new CloudAdmissionPolicy(Dedup: CloudDedup.Merge, Tolerance: tolerance, ConservationTolerance: conservation);
     internal Fin<CloudAdmissionPolicy> Admit(Op key) {
         CloudAdmissionPolicy self = this;
         return guard(ValidityClaim.All(
-                ValidityClaim.Of(self.Tolerance.Map(static tolerance => ValidityClaim.Positive(tolerance.Value).Holds).IfNone(true)),
+                self.Tolerance.Map(static tolerance => ValidityClaim.Positive(tolerance.Value).Holds).IfNone(true),
                 ValidityClaim.Positive(self.ConservationTolerance.Value)), key.InvalidInput())
             .ToFin().Map(_ => self);
     }
-    internal bool Equivalent(Point3d left, Point3d right) => Tolerance switch {
-        { IsSome: true, Case: PositiveMagnitude t } => left.EpsilonEquals(other: right, epsilon: t.Value),
-        _ => left == right,
-    };
+    internal bool Equivalent(Point3d left, Point3d right) => Dedup.Equivalent(left: left, right: right, tolerance: Tolerance);
 }
 
+// The receipt CARRIES the policy's own value objects rather than their erased doubles, so a positivity claim the
+// type already holds never re-asserts here and a policy that declined a tolerance publishes absence, not a zero.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudAdmissionReceipt(
     int InputCount, int OutputCount, int InputDuplicateCoordinateCount, int MergedCoordinateCount,
-    double Tolerance, double ConservationTolerance, bool Deduplicated, Arr<int> OriginalToUnique,
+    Option<PositiveMagnitude> Tolerance, PositiveMagnitude ConservationTolerance, CloudDedup Dedup, Arr<int> OriginalToUnique,
     Option<double> MassInputTotal, Option<double> MassMergedTotal, Option<double> MassOutputTotal) : IValidityEvidence {
     internal static bool MassConserved(double input, double output, double tolerance) =>
         Math.Abs(input - output) <= tolerance * Math.Max(1.0, Math.Abs(input));
@@ -181,26 +213,25 @@ public readonly record struct CloudAdmissionReceipt(
     internal static bool MassAdmitted(double total) => double.IsFinite(total) && total >= 0.0;
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountAtLeast(count: InputCount, floor: 1),
-        ValidityClaim.Nonnegative(Tolerance),
-        ValidityClaim.Positive(ConservationTolerance),
-        ValidityClaim.Of(InputDuplicateCoordinateCount >= 0 && MergedCoordinateCount >= 0),
+        InputDuplicateCoordinateCount >= 0 && MergedCoordinateCount >= 0,
         ValidityClaim.CountExactly(count: OutputCount + MergedCoordinateCount, expected: InputCount),
-        ValidityClaim.Of(MergedCoordinateCount == 0 || Deduplicated),
+        MergedCoordinateCount == 0 || Dedup.Equals(CloudDedup.Merge),
         ValidityClaim.CountExactly(count: OriginalToUnique.Count, expected: InputCount),
-        ValidityClaim.Of(OriginalToUnique.ForAll(i => i >= 0 && i < OutputCount)),
-        ValidityClaim.Of((MassInputTotal.Case, MassMergedTotal.Case, MassOutputTotal.Case) switch {
+        OriginalToUnique.ForAll(i => i >= 0 && i < OutputCount),
+        (MassInputTotal.Case, MassMergedTotal.Case, MassOutputTotal.Case) switch {
             (double input, double merged, double output) =>
                 MassAdmitted(total: input) && MassAdmitted(total: merged) && MassAdmitted(total: output)
-                && MassConserved(input: input, output: merged, tolerance: ConservationTolerance)
-                && MassNormalized(output: output, tolerance: ConservationTolerance),
+                && MassConserved(input: input, output: merged, tolerance: ConservationTolerance.Value)
+                && MassNormalized(output: output, tolerance: ConservationTolerance.Value),
             _ => MassInputTotal.IsNone && MassMergedTotal.IsNone && MassOutputTotal.IsNone,
-        }));
+        });
 }
 ```
 
 ## [03]-[CLOUD_METRICS]
 
 - Owner: `VectorCloudMetric` mints one row per measurement behind ONE `Project<TOut>`, each row a single declaration line naming its fold and its admissible cloud cases; `CloudMetricPolicy` wraps the `neighbors.md` `NeighborhoodPolicy` as the ONE policy record neighborhood-backed rows thread.
+- Entry: the five row builders — `Ring`, `All`, `Chain`, `Poly`, `Cluster` — are the whole declaration surface: each fixes the case admission and adapts its fold to the erased measure column, so a row is one line and no arm re-states a case test.
 - Auto: `PrincipalFrameOf` builds the frame from the two dominant eigenvectors, and ring orientation reads `ClosedCurveOrientation` against the fitted plane to sign the normal CCW-positive. Skewness is the worst normalized interior-angle deviation from the regular-polygon ideal, compactness `4πA/P²`, moment anisotropy the in-plane principal-moment ratio; chain rows are pure folds over unitized tangents, prefix-sum arc length, and turning-angle curvature. `PlanarWindingOf` takes the query point, so it is a kernel entry rather than a metric row, and the `intent.md` `WindingCase` composes it with the CCW-signed `RingNormalOf` normal — a sign-arbitrary best-fit-plane normal flips the winding integer. `Shape` answers one `VectorCloudShape` per cloud case, never a per-case sibling record.
 - Packages: RhinoCommon (area mass properties, plane fitting, polyline geometry), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new measurement is ONE row through the matching builder; a new cloud case extends the builders' adapt arms; a policy knob is one column on `CloudMetricPolicy`.
@@ -245,12 +276,22 @@ public sealed partial class VectorCloudMetric {
     [UseDelegateFromConstructor] internal partial bool AdmitsCase(VectorCloud cloud);
     [UseDelegateFromConstructor] private partial Fin<object> Measure(VectorCloud cloud, CloudMetricPolicy policy, Op key);
 
+    // Builders are the whole declaration surface: each fixes `Output` from its fold's return type, fixes the
+    // case admission, and adapts the fold to the erased measure column, so a row above is one line with no case test.
+    private static VectorCloudMetric Ring<TValue>(int key, Func<VectorCloud.RingCase, Op, Fin<TValue>> measure);
+    private static VectorCloudMetric All<TValue>(int key, Func<VectorCloud, Op, Fin<TValue>> measure);
+    private static VectorCloudMetric Chain<TValue>(int key, Func<VectorCloud, Op, Fin<TValue>> measure);
+    private static VectorCloudMetric Poly<TValue>(int key, Func<Seq<Point3d>, Op, Fin<TValue>> measure);
+    private static VectorCloudMetric Cluster<TValue>(int key, Func<VectorCloud.ClusterCase, Op, Fin<TValue>> measure);
+    private static VectorCloudMetric Cluster<TValue>(int key, Func<VectorCloud.ClusterCase, CloudMetricPolicy, Op, Fin<TValue>> measure);
+
     internal Fin<TOut> Project<TOut>(VectorCloud cloud, Op key) =>
-        CloudMetricPolicy.AdmitOrDefault(policy: None, key: key).Bind(policy => Project<TOut>(cloud: cloud, policy: policy, key: key));
+        CloudMetricPolicy.AdmitOrDefault(policy: None, context: cloud.Tolerance, key: key)
+            .Bind(policy => Project<TOut>(cloud: cloud, policy: policy, key: key));
     internal Fin<TOut> Project<TOut>(VectorCloud cloud, CloudMetricPolicy policy, Op key) =>
         (AdmitsCase(cloud: cloud), Output == typeof(TOut)) switch {
-            (false, _) => Fin.Fail<TOut>(error: key.Unsupported(geometryType: cloud.GetType(), outputType: typeof(TOut))),
-            (_, false) => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(VectorCloudMetric), outputType: typeof(TOut))),
+            (false, _) => Fin.Fail<TOut>(error: key.Unsupported(inputType: cloud.GetType(), outputType: typeof(TOut))),
+            (_, false) => Fin.Fail<TOut>(error: key.Unsupported(inputType: typeof(VectorCloudMetric), outputType: typeof(TOut))),
             _ => Measure(cloud: cloud, policy: policy, key: key).Bind(value => value switch {
                 // One-dispatch-site law holds corpus-wide: the sequence arms ride AtomProjection.Values, so no
                 // page-local reflection-branching helper stands beside the sanctioned dispatch site.
@@ -264,9 +305,9 @@ public sealed partial class VectorCloudMetric {
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudMetricPolicy(NeighborhoodPolicy Neighborhood) {
-    internal static Fin<CloudMetricPolicy> AdmitOrDefault(Option<CloudMetricPolicy> policy, Op key) =>
+    internal static Fin<CloudMetricPolicy> AdmitOrDefault(Option<CloudMetricPolicy> policy, Context context, Op key) =>
         policy.Match(Some: p => p.Neighborhood.Admit(key: key).Map(static n => new CloudMetricPolicy(Neighborhood: n)),
-                     None: () => NeighborhoodPolicy.Default(key: key).Map(static n => new CloudMetricPolicy(Neighborhood: n)));
+                     None: () => NeighborhoodPolicy.Of(context: context, key: key).Map(static n => new CloudMetricPolicy(Neighborhood: n)));
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -282,27 +323,37 @@ public readonly record struct VectorCloudShape(
     Option<Vector3d> Spread) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Finite(Centroid),
-        ValidityClaim.Of(PrincipalFrame.IsValid),
+        PrincipalFrame.IsValid,
         ValidityClaim.CountExactly(count: PrincipalAxes.Count, expected: 3),
-        ValidityClaim.Of(Area.Map(static a => ValidityClaim.Nonnegative(a).Holds).IfNone(true)),
-        ValidityClaim.Of(Perimeter.Map(static p => ValidityClaim.Nonnegative(p).Holds).IfNone(true)),
-        ValidityClaim.Of(Compactness.Map(static c => ValidityClaim.UnitInterval(c).Holds).IfNone(true)),
-        ValidityClaim.Of(OpenLength.Map(static l => ValidityClaim.Nonnegative(l).Holds).IfNone(true)),
-        ValidityClaim.Of(BestFitPlane.Map(static p => p.IsValid).IfNone(true)));
+        Area.Map(static a => ValidityClaim.Nonnegative(a).Holds).IfNone(true),
+        Perimeter.Map(static p => ValidityClaim.Nonnegative(p).Holds).IfNone(true),
+        Compactness.Map(static c => ValidityClaim.UnitInterval(c).Holds).IfNone(true),
+        OpenLength.Map(static l => ValidityClaim.Nonnegative(l).Holds).IfNone(true),
+        BestFitPlane.Map(static p => p.IsValid).IfNone(true));
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static partial class CloudKernel {
+    internal static Fin<(Seq<Point3d> Points, Option<Arr<double>> Mass, CloudAdmissionReceipt Receipt)> AdmitCluster(
+        Seq<Point3d> points, Option<Arr<double>> mass, CloudAdmissionPolicy policy, Op key);
+
     internal static Fin<(Vector3d Mean, SymmetricMatrix Cov)> CovarianceOf(Seq<Point3d> points, Option<Arr<double>> mass, Op key) =>
-        from moment in SampleMoment.Of(
-            rows: points.Map(static p => new Arr<double>([p.X, p.Y, p.Z])), dimension: 3, key: key,
-            weights: mass) // None rides SampleMoment's unweighted arm; a unit-weight array here is redundant.
+        // Dimension DERIVES from the first row (`Domain/stats.md`), so a `dimension:` argument here would be a second
+        // authority for a fact the rows already carry; None rides the unweighted arm and a unit-weight array is redundant.
+        from moment in SampleMoment.Of(rows: points.Map(static p => Seq(p.X, p.Y, p.Z)), key: key,
+            weights: mass.Map(static m => toSeq(m.AsIterable())))
         from cov in SymmetricMatrix.Of(dim: Dimension.Create(value: 3), upper: moment.UpperCovariance, key: key)
         select (Mean: AsVector3d(v: moment.Mean), Cov: cov);
+    // The cluster's OWN mass option selects the arm, so an unweighted cluster takes the unweighted fold rather than
+    // an N-double array of identical weights minted per call — and this runs per PCA, per normal estimate, and per
+    // curvature attempt. The weighted arm normalizes first, because the moment owner reads a measure.
     internal static Fin<(Vector3d Mean, SymmetricMatrix Cov)> CovarianceOf(VectorCloud.ClusterCase cluster, Op key) =>
-        from mass in MassOf(cluster: cluster, key: key)
-        from stats in CovarianceOf(points: cluster.Vertices, mass: Some(mass), key: key)
-        select stats;
+        cluster.Mass.Match(
+            Some: mass => MassOf(mass: mass, count: cluster.Vertices.Count, key: key)
+                .Bind(normalized => CovarianceOf(points: cluster.Vertices, mass: Some(normalized), key: key)),
+            None: () => CovarianceOf(points: cluster.Vertices, mass: Option<Arr<double>>.None, key: key));
+    // The uniform fill is a MEASURE, not a redundancy: a transport marginal and a Sinkhorn residual read an explicit
+    // per-vertex mass vector, and an unweighted cluster's measure is the uniform one. Covariance never calls it.
     internal static Fin<Arr<double>> MassOf(VectorCloud.ClusterCase cluster, Op key) =>
         MassOf(mass: cluster.Mass.IfNone(() => new Arr<double>([.. Enumerable.Repeat(1.0 / cluster.Vertices.Count, cluster.Vertices.Count)])), count: cluster.Vertices.Count, key: key);
     internal static Fin<Arr<double>> MassOf(Arr<double> mass, int count, Op key) =>
@@ -326,6 +377,30 @@ internal static partial class CloudKernel {
         select full;
     internal static Vector3d AsVector3d(Arr<double> v) => new(x: v[0], y: v[1], z: v[2]);
 
+    // Ring folds: each is one measurement over the admitted ring, and `WithMassProperties` is the ONE native
+    // AreaMassProperties lease window every host-measured ring column reads through.
+    internal static Fin<T> WithMassProperties<T>(VectorCloud.RingCase ring, Func<Op, AreaMassProperties, Fin<T>> project, Op key);
+    internal static Fin<Vector3d> RingNormalOf(VectorCloud.RingCase ring, Op key);
+    internal static Fin<double> EdgeAspectOf(Polyline native, Context context, Op key);
+    internal static Fin<double> RingSkewnessOf(VectorCloud.RingCase ring, Op key);
+    internal static Fin<double> RingCompactnessOf(VectorCloud.RingCase ring, Op key);
+    internal static Fin<double> RingMomentAnisotropyOf(VectorCloud.RingCase ring, Op key);
+
+    // Case-agnostic folds over any cloud's vertices; `ShapeOf` answers the one `VectorCloudShape` per case, filling
+    // only the columns that case can measure and leaving the rest `None`.
+    internal static Fin<Point3d> CentroidOf(VectorCloud cloud, Op key);
+    internal static Fin<Plane> BestFitPlaneOf(VectorCloud cloud, Op key);
+    internal static Fin<Seq<(double Moment, Vector3d Axis)>> PrincipalAxesOf(VectorCloud cloud, Op key);
+    internal static Fin<Plane> PrincipalFrameOf(VectorCloud cloud, Op key);
+    internal static Fin<VectorCloudShape> ShapeOf(VectorCloud cloud, Op key);
+
+    // Ordered-chain folds over an ordered vertex sequence — unitized tangents, prefix-sum arc length, turning-angle
+    // curvature, and the open chord length a ring never carries.
+    internal static Fin<Seq<Vector3d>> TangentFlowOf(Seq<Point3d> points, Op key);
+    internal static Fin<Seq<double>> CumulativeArcLengthOf(Seq<Point3d> points, Op key);
+    internal static Fin<Seq<double>> EdgeCurvaturesOf(Seq<Point3d> points, Op key);
+    internal static Fin<double> OpenLengthOf(Seq<Point3d> points, Op key);
+
     internal static Fin<int> PlanarWindingOf(Seq<Point3d> ring, Vector3d planeNormal, Point3d query, Op key) =>
         ring.Count < 3
             ? Fin.Fail<int>(key.InvalidInput())
@@ -338,12 +413,14 @@ internal static partial class CloudKernel {
 
 ## [04]-[HULL]
 
-- Owner: `CloudHullKind` names the hull species, `FootprintWrapper` the 2D fallback a rejected 3D hull degrades to; concave columns `Alpha` and `Lambda` derive from the cluster's mean spacing when the caller supplies neither. `CloudFoldStatus` is the cloud-decomposition outcome both this rail and the `[05]` dual publish, and `CloudHullRejection` keys the typed cause off the MIConvexHull ordinals.
+- Owner: `CloudHullKind` names the hull species, `FootprintWrapper` the 2D fallback a rejected 3D hull degrades to; concave columns `Alpha` and `Lambda` derive from the cluster's mean spacing when the caller supplies neither. `CloudFoldStatus` is the returned-status outcome this hull rail publishes, and `CloudHullRejection` keys its typed refusal off the MIConvexHull ordinals.
+- Cases: `HullRoute` rows are the route evidence a receipt carries as a `CapabilitySet` — `Coplanar` says the 3D preflight refused the input, `Native` that a host route answered, `Fallback` that the 2D wrapper stood in. They combine under a legal-corner law (a coplanar rejection always rides beside a fallback), which is why they are one set rather than three independent flags open to inconsistent pairing.
 - Entry: `ComputeHullDetailed` is cluster-only, and every declared kind computes, so `CloudFoldStatus` discriminates outcome alone.
 - Auto: `Convex3D` routes native through `Mesh.CreateConvexHull3D` behind a coplanar preflight, duplicating the mesh out of its `using` window; `ConvexFootprint2D` and `FootprintWrapper` fit the PCA plane, run `PolylineCurve.CreateConvexHull2d`, verify containment within tolerance, and mesh via `Mesh.CreateFromClosedPolyline`. `AlphaShape` keeps every triangle whose circumradius stays within `Alpha`; `ConcaveOutline` erodes the longest boundary edge while it exceeds `Lambda` and removal preserves regularity, abandoning no vertex and leaving the boundary a single simple cycle. `Faceted3D` and `IndexedFootprint2D` are the index-preserving twins of the two host routes — the host `Mesh` and `PolylineCurve` answer geometry and drop which cluster vertex each output came from, so the typed rows keep facet adjacency, per-facet outward normals, and the cluster index every downstream census and dual keys on.
 - Packages: RhinoCommon (native convex hull, plane fitting, polyline meshing), MIConvexHull (`Triangulation.CreateDelaunay<CloudVertex, CloudCell>`, `ConvexHull.Create<CloudVertex, CloudFace>` with `ConvexHull.Faces`/`ConvexFace.Adjacency`/`.Normal`, `ConvexHull.Create2D<CloudPlanarVertex>`, `ConvexHullCreationResult.Outcome`/`.Result` — the index-carrying `IVertex`/`IVertex2D` and circumsphere-carrying `TriangulationCell` generics, tolerance threaded from the admitted policy), Thinktecture.Runtime.Extensions, LanguageExt.Core.
-- Growth: a new hull species is one kind row and one arm in the hull fold, or one filter predicate over the shared Delaunay fold; a new concave criterion is one policy column; a new rejection cause is one `CloudHullRejection` row keyed off its package ordinal.
-- Boundary: both concave kinds share ONE Delaunay fold over `MIConvexHull`'s complex, the filter predicate their only difference; `Triangulation.CreateDelaunay` is the one foreign-exception seam on this rail, funneled through `key.Catch` into `Rejected` evidence whose `Rejection` column reads `ConvexHullGenerationException.Error` — the same outcome vocabulary, so a caught degeneracy and a returned one name the cause identically. `ConvexHull.*` catches internally and returns that outcome instead of throwing, so `Faceted3D` and `IndexedFootprint2D` gate `Outcome` ahead of `Result` on the `Fin` fold and take no `Catch`. This rail owns the native-first host, index-preserving, and concave hull kinds; the predicate-exact hull fold homes at `Meshing/delaunay` `LowerHull`, and `SolidOf` is the one volume-and-centroid producer both this rail and `[05]` read.
+- Receipt: `CloudHullPolicy` is the AUTHORITY for every threshold the fold ran under and `CloudHullReceipt.Tolerance`/`AngleTolerance` are its published copy, carried so a consumer reading a stored receipt need not hold the policy that produced it; `Rejection` and `Status` mirror each other by the same rule, and the claim fold states that pairing rather than leaving two readers to agree by convention.
+- Growth: a new hull species is one kind row and one arm in the hull fold, or one filter predicate over the shared Delaunay fold; a new concave criterion is one policy column; a new rejection cause is one `CloudHullRejection` row keyed off its package ordinal; a new route fact is one `HullRoute` row.
+- Boundary: both concave kinds share ONE Delaunay fold over `MIConvexHull`'s complex, the filter predicate their only difference; `Triangulation.CreateDelaunay` is the foreign-exception seam on this rail and `key.Catch` preserves its exact exceptional `Error`. `ConvexHull.*` instead returns a typed outcome, so `Faceted3D` and `IndexedFootprint2D` gate `Outcome` ahead of `Result` and publish `CloudHullRejection` without a capture. This rail owns the native-first host, index-preserving, and concave hull kinds; the predicate-exact hull fold homes at `Meshing/delaunay` `LowerHull`, and `SolidOf` is the one volume-and-centroid producer both this rail and `[05]` read.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -358,12 +435,27 @@ public sealed partial class CloudHullKind {
     public static readonly CloudHullKind IndexedFootprint2D = new(key: 6);
 }
 
-// One outcome vocabulary for every cloud decomposition on this page — the hull rail and the [05] dual share the
-// admission path, the receipt shape, and the consumer, so a second Completed/Rejected pair would be one concept twice.
+// The returned-status outcome vocabulary for the hull APIs that answer a `ConvexHullCreationResult`.
 [SmartEnum<int>]
 public sealed partial class CloudFoldStatus {
     public static readonly CloudFoldStatus Completed = new(key: 0);
     public static readonly CloudFoldStatus Rejected = new(key: 1);
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class HullRoute : ICapability<HullRoute> {
+    public static readonly HullRoute Coplanar = new(key: "coplanar", rank: 0);
+    public static readonly HullRoute Native = new(key: "native", rank: 1);
+    public static readonly HullRoute Fallback = new(key: "fallback", rank: 2);
+    public int Rank { get; }
+    // Coplanar refusals report only beside the fallback that answered in their place, and a fallback route
+    // is a host route, so the legal corners are exactly these four.
+    internal static readonly CapabilityLaw<HullRoute> Law = new(Legal: Seq(
+        CapabilitySet<HullRoute>.None,
+        CapabilitySet<HullRoute>.Of(Native),
+        CapabilitySet<HullRoute>.Of(Native, Fallback),
+        CapabilitySet<HullRoute>.Of(Coplanar, Native, Fallback)));
 }
 
 // Keys MIRROR the package ordinals, so the seam admits (int)result.Outcome and a roster the package grows lands as
@@ -388,9 +480,11 @@ public readonly record struct CloudHullPolicy(
     PositiveMagnitude Tolerance, VectorAngle AngleTolerance,
     Option<PositiveMagnitude> Alpha, Option<PositiveMagnitude> Lambda) {
     internal static Fin<CloudHullPolicy> AdmitOrDefault(Option<CloudHullPolicy> policy, Context context, Op key) {
+        // A hull's default length gate is a DEVIATION question — how far a point may sit off the fitted surface — so
+        // it reads that lane rather than the derivation-graph floor every other lane derives from.
         (double tolerance, double angle, Option<PositiveMagnitude> alpha, Option<PositiveMagnitude> lambda) = policy.Match(
             Some: static candidate => (candidate.Tolerance.Value, candidate.AngleTolerance.Value, candidate.Alpha, candidate.Lambda),
-            None: () => (context.Absolute.Value, context.Angle.Value, Option<PositiveMagnitude>.None, Option<PositiveMagnitude>.None));
+            None: () => (context.For(lane: ToleranceLane.Deviation).Value, context.Angle.Value, Option<PositiveMagnitude>.None, Option<PositiveMagnitude>.None));
         return from admittedTolerance in key.AcceptValidated<PositiveMagnitude>(candidate: tolerance)
                from admittedAngle in key.AcceptValidated<VectorAngle>(candidate: angle)
                from admittedAlpha in AdmitMagnitude(value: alpha, key: key)
@@ -409,11 +503,11 @@ public readonly record struct CloudHullPolicy(
 public readonly record struct CloudFacet(Arr<int> Vertices, Arr<int> Adjacency, Vector3d Normal) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountAtLeast(count: Vertices.Count, floor: 3),
-        ValidityClaim.Of(Vertices.ForAll(static v => v >= 0)),
+        Vertices.ForAll(static v => v >= 0),
         ValidityClaim.CountExactly(count: Adjacency.Count, expected: Vertices.Count),
-        // A convex hull is a closed manifold, so every ridge is shared by exactly two facets and the package fills
+        // Convex hulls are closed manifolds, so every ridge is shared by exactly two facets and the package fills
         // every slot; a -1 here is a torn hull, not a boundary — the Delaunay complex is where nulls are lawful.
-        ValidityClaim.Of(Adjacency.ForAll(static a => a >= 0)),
+        Adjacency.ForAll(static a => a >= 0),
         ValidityClaim.Finite(Normal));
 }
 
@@ -425,71 +519,71 @@ public readonly record struct CloudSolid(double Volume, Point3d Centroid, Seq<Cl
         ValidityClaim.Positive(Volume),
         ValidityClaim.Finite(Centroid),
         ValidityClaim.CountAtLeast(count: Facets.Count, floor: 4),
-        ValidityClaim.Of(Facets.ForAll(static f => f.IsValid)));
+        Facets.ForAll(static f => f.IsValid));
 }
 
 // Every count an arm may not take rides an Option: a native route measures no surviving triangle, a Delaunay-filtered
 // route no facet, and a 3D route no containment rejection, so a 0 here always spells a fold that ran and found none.
+// Thresholds ride the policy's OWN value objects verbatim — a copy of a typed value is still a copy, and the four
+// conjuncts that re-proved positivity here were re-guarding what construction already made unrepresentable.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudHullReceipt(
-    CloudHullKind Kind, CloudFoldStatus Status, double Tolerance, double AngleTolerance,
+    CloudHullKind Kind, CloudFoldStatus Status, PositiveMagnitude Tolerance, VectorAngle AngleTolerance,
     int InputCount, int OutputVertexCount, Option<int> FacetCount, Option<int> SurvivingTriangleCount,
-    Option<int> ContainmentRejectedCount, Option<double> PlanarityDeviation, Option<double> EffectiveAlpha,
-    Option<double> EffectiveLambda, Option<CloudHullRejection> Rejection,
-    bool CoplanarRejected, bool NativeRouted, bool Fallback) : IValidityEvidence {
+    Option<int> ContainmentRejectedCount, Option<double> PlanarityDeviation, Option<PositiveMagnitude> EffectiveAlpha,
+    Option<PositiveMagnitude> EffectiveLambda, Option<CloudHullRejection> Rejection,
+    CapabilitySet<HullRoute> Route) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
-        ValidityClaim.Positive(Tolerance),
-        ValidityClaim.Nonnegative(AngleTolerance),
         ValidityClaim.CountAtLeast(count: InputCount, floor: 1),
-        ValidityClaim.Of(OutputVertexCount >= 0),
-        ValidityClaim.Of(FacetCount.Map(static c => c >= 0).IfNone(true)),
-        ValidityClaim.Of(SurvivingTriangleCount.Map(static c => c >= 0).IfNone(true)),
-        ValidityClaim.Of(ContainmentRejectedCount.Map(static c => c >= 0).IfNone(true)),
-        ValidityClaim.Of(PlanarityDeviation.Map(static d => ValidityClaim.Nonnegative(d).Holds).IfNone(true)),
-        ValidityClaim.Of(EffectiveAlpha.Map(static a => ValidityClaim.Positive(a).Holds).IfNone(true)),
-        ValidityClaim.Of(EffectiveLambda.Map(static l => ValidityClaim.Positive(l).Holds).IfNone(true)),
+        OutputVertexCount >= 0,
+        FacetCount.Map(static c => c >= 0).IfNone(true),
+        SurvivingTriangleCount.Map(static c => c >= 0).IfNone(true),
+        ContainmentRejectedCount.Map(static c => c >= 0).IfNone(true),
+        PlanarityDeviation.Map(static d => ValidityClaim.Nonnegative(d).Holds).IfNone(true),
         // Only the typed-outcome ConvexHull.* rows name a cause, and a cause rides the Rejected arm alone.
-        ValidityClaim.Of(Rejection.IsNone || Status.Equals(CloudFoldStatus.Rejected)),
-        ValidityClaim.Of(!Status.Equals(CloudFoldStatus.Completed) || OutputVertexCount >= 3));
+        Rejection.IsNone || Status.Equals(CloudFoldStatus.Rejected),
+        HullRoute.Law.Admit(held: Route).IsSucc,
+        // A completed fold NAMES the host route that answered it: the empty set is a legal corner for a rejected
+        // fold alone, so a Completed receipt reporting no route is the contradiction this conjunct closes.
+        !Status.Equals(CloudFoldStatus.Completed) || Route.Admits(capability: HullRoute.Native),
+        !Status.Equals(CloudFoldStatus.Completed) || OutputVertexCount >= 3);
 }
 
+// The result carries its own cross-column claims: every component held evidence and the carrier held none, so the
+// bounds relating a facet's corner index to the published vertex roster had no owner at all.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct CloudHullResult(Option<Mesh> Mesh, Option<CloudSolid> Solid, CloudHullReceipt Receipt) {
+public readonly record struct CloudHullResult(Option<Mesh> Mesh, Option<CloudSolid> Solid, CloudHullReceipt Receipt) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.All(
+        Solid.Map(static solid => solid.IsValid).IfNone(true),
+        ValidityClaim.Evidence(Some(Receipt)),
+        Mesh.IsSome || Solid.IsSome || Receipt.Status.Equals(CloudFoldStatus.Rejected));
+
     internal Fin<TOut> Project<TOut>(Context context, Op key) {
         CloudHullResult self = this;
         return AtomProjection.Rows<CloudHullResult, TOut>(self: self, key: key,
             ProjectionRow.Of<CloudHullReceipt>(() => Fin.Succ(self.Receipt)),
-            ProjectionRow.Of<CloudSolid>(() => self.Solid.ToFin(key.Unsupported(geometryType: typeof(CloudHullResult), outputType: typeof(CloudSolid)))),
+            ProjectionRow.Of<CloudSolid>(() => self.Solid.ToFin(key.Unsupported(inputType: typeof(CloudHullResult), outputType: typeof(CloudSolid)))),
             ProjectionRow.Of<Seq<CloudFacet>>(() => self.Solid.Map(static solid => solid.Facets)
-                .ToFin(key.Unsupported(geometryType: typeof(CloudHullResult), outputType: typeof(Seq<CloudFacet>)))),
-            ProjectionRow.Of<Mesh>(() => self.Mesh.ToFin(key.Unsupported(geometryType: typeof(CloudHullResult), outputType: typeof(Mesh)))
+                .ToFin(key.Unsupported(inputType: typeof(CloudHullResult), outputType: typeof(Seq<CloudFacet>)))),
+            ProjectionRow.Of<Mesh>(() => self.Mesh.ToFin(key.Unsupported(inputType: typeof(CloudHullResult), outputType: typeof(Mesh)))
                 .Bind(mesh => key.AcceptValue(value: mesh))),
-            ProjectionRow.Of<VectorCloud>(() => self.Mesh.ToFin(key.Unsupported(geometryType: typeof(CloudHullResult), outputType: typeof(VectorCloud)))
+            ProjectionRow.Of<VectorCloud>(() => self.Mesh.ToFin(key.Unsupported(inputType: typeof(CloudHullResult), outputType: typeof(VectorCloud)))
                 .Bind(mesh => VectorCloud.Cluster(
                     points: toSeq(mesh.Vertices.AsIterable().Select(static v => (Point3d)v)), context: context, key: key))));
     }
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
-// CloudKernel concave fold: project(PCA plane) -> CloudVertex{Index, Position} ->
-//   Triangulation.CreateDelaunay<CloudVertex, CloudCell>(PlaneDistanceTolerance: policy.Tolerance.Value)
-//   -> Circumsphere sweep -> filter(cells by cluster INDEX + per-cell circumradius) -> boundary(one-incident edges)
-//   -> orient CCW -> lift -> Mesh.CreateFromClosedPolyline
 // Vertices CARRY the cluster index — cell.Vertices[j].Index reads it directly, because a position re-match is
 // unsafe on a deduplicated index-stable cluster — and the threaded tolerance ends the package-default 1e-10
 // degeneracy verdict that judged metres and millimetres identically. The cell caches the circumsphere the alpha
 // filter otherwise recomputes per triangle, and ConcaveOutline's erosion keys on the same indices.
-// Faceted3D fold: CloudVertex -> SolidOf -> CloudSolid{Volume, Centroid, Facets} with no mesh leg.
-// IndexedFootprint2D fold: project(PCA plane) -> CloudPlanarVertex{Index, X, Y} ->
-//   ConvexHull.Create2D<CloudPlanarVertex>(tolerance: policy.Tolerance.Value) -> gate Outcome -> lift the returned
-//   boundary order back through the plane. Create2D returns the CALLER's own instances in hull order, so the cluster
-//   index survives where PolylineCurve.CreateConvexHull2d hands back bare coordinates a position re-match must guess.
 internal sealed class CloudVertex(int index, double[] position) : IVertex {
     public int Index { get; } = index;
     public double[] Position { get; } = position;
 }
 
-// The package allocates every FACE, CELL, and EDGE carrier itself and fills the inherited columns, so each is a
+// This package allocates every FACE, CELL, and EDGE carrier itself and fills the inherited columns, so each is a
 // settable-property class satisfying the new() bound; a VERTEX carrier is the caller's own instance surviving the
 // hull, and the planar new() is a declaration-site bound the monotone-chain path never exercises — its object
 // initializer at the one projection site is the only construction, so the zero-coordinate default never mints.
@@ -502,15 +596,28 @@ internal sealed class CloudPlanarVertex : IVertex2D {
 }
 
 internal sealed class CloudCell : TriangulationCell<CloudVertex, CloudCell> {
-    // One Circumsphere sweep writes both columns for EVERY cell before any filter or dual reads them; a degenerate
-    // simplex leaves both None, so an alpha filter never admits a cell on a fabricated 0.0 radius.
-    internal Option<Point3d> Circumcenter { get; set; }
-    internal Option<double> Circumradius { get; set; }
-    // A null adjacency slot is the hull facet opposite that vertex — lawful on a Delaunay complex, torn on a hull.
+    // Null adjacency slots mark the hull facet opposite that vertex — lawful on a Delaunay complex, torn on a hull.
     internal bool Boundary => Array.Exists(array: Adjacency, match: static face => face is null);
 }
 
+// The measured circumspheres as ONE map over the cells that HAVE one: a missing key IS degeneracy, so the fact has
+// one representation instead of two settable columns whose ordering invariant lived only in a comment — a cell read
+// before the sweep answered `None` indistinguishably from a genuinely degenerate simplex.
+internal readonly record struct CellSpheres(FrozenDictionary<CloudCell, (Point3d Center, double Radius)> Measured) {
+    internal Option<Line> Dual(CloudVoronoiEdge edge) =>
+        from tail in Measured.TryGetValue(key: edge.Source, value: out (Point3d Center, double Radius) from) ? Some(from.Center) : Option<Point3d>.None
+        from head in Measured.TryGetValue(key: edge.Target, value: out (Point3d Center, double Radius) to) ? Some(to.Center) : Option<Point3d>.None
+        select new Line(from: tail, to: head);
+}
+
 internal static partial class CloudKernel {
+    // One entry fronts the whole hull rail: the kind row selects the route, the fold fills the receipt's route set,
+    // and both concave kinds share ONE Delaunay pass — project onto the PCA plane, mint index-carrying vertices,
+    // `Triangulation.CreateDelaunay<CloudVertex, CloudCell>` under the policy tolerance, sweep circumspheres, filter
+    // cells by circumradius (alpha) or erode the longest boundary edge (lambda), then lift the boundary cycle back.
+    internal static Fin<CloudHullResult> ComputeHullDetailed(
+        VectorCloud.ClusterCase cluster, CloudHullKind kind, CloudHullPolicy policy, Op key);
+
     // ConvexHull.* carries a typed outcome and never throws, so the gate reads Outcome ahead of Result and this fold
     // stays off key.Catch; ConvexFace.Normal is the outward unit normal, so each facet's tetrahedron over the interior
     // anchor carries its own sign and the divergence fold needs no winding convention.
@@ -521,29 +628,38 @@ internal static partial class CloudKernel {
         return CloudHullRejection.Of(outcome: hull.Outcome, key: key).Bind(rejection => rejection.IsSome
             ? Fin.Succ(Option<CloudSolid>.None)
             : Accumulate(anchor: points.Aggregate(Point3d.Origin, static (sum, p) => sum + p) / points.Length,
-                faces: toSeq(hull.Result.Faces), key: key));
+                faces: toSeq(hull.Result.Faces), tolerance: tolerance, key: key));
     }
 
-    private static Fin<Option<CloudSolid>> Accumulate(Point3d anchor, Seq<CloudFace> faces, Op key) {
+    private static Fin<Option<CloudSolid>> Accumulate(Point3d anchor, Seq<CloudFace> faces, double tolerance, Op key) {
         (double volume, Vector3d moment) = faces.Fold((Volume: 0.0, Moment: Vector3d.Zero), (acc, face) => {
             (Vector3d u, Vector3d v, Vector3d w) = (PointOf(face.Vertices[0]) - anchor, PointOf(face.Vertices[1]) - anchor, PointOf(face.Vertices[2]) - anchor);
             double tet = Math.Abs(Vector3d.CrossProduct(a: v - u, b: w - u) * u) / 6.0;
             return (acc.Volume + tet, acc.Moment + (tet * 0.25 * (u + v + w)));
         });
-        // CloudFace overrides no equality, so the default comparer IS reference identity and the ordinal map turns
-        // each Adjacency reference into the facet index CloudFacet publishes.
-        Dictionary<CloudFace, int> ordinal = faces.Map(static (face, index) => (Face: face, Index: index))
-            .ToDictionary(static row => row.Face, static row => row.Index);
-        CloudSolid solid = new(Volume: volume, Centroid: anchor + (moment / volume),
-            Facets: faces.Map(face => new CloudFacet(
-                Vertices: new Arr<int>([.. face.Vertices.Select(static corner => corner.Index)]),
-                Adjacency: new Arr<int>([.. face.Adjacency.Select(neighbor => neighbor is null ? -1 : ordinal[neighbor])]),
-                Normal: new Vector3d(x: face.Normal[0], y: face.Normal[1], z: face.Normal[2]))));
-        // A vanishing volume is a flat point set the outcome gate let through, so it answers None; a solid that fails
-        // its own evidence is a torn hull and faults, because no caller can act on a half-closed body.
-        return volume <= EpsilonPolicy.ZeroTolerance ? Fin.Succ(Option<CloudSolid>.None)
-            : solid.IsValid ? Fin.Succ(Some(solid))
-            : Fin.Fail<Option<CloudSolid>>(key.InvalidResult());
+        // The gate runs BEFORE the construction it guards: dividing the moment by a vanishing volume built a NaN
+        // centroid inside a domain value seven lines ahead of the test that rejects it. A volume is a CUBIC quantity,
+        // so its floor cubes the caller's length tolerance — an absolute anchor read metres and millimetres alike.
+        if (volume <= tolerance * tolerance * tolerance) { return Fin.Succ(Option<CloudSolid>.None); }
+        // CloudFace overrides no equality, so the default comparer IS reference identity and the frozen ordinal map
+        // turns each Adjacency reference into the facet index CloudFacet publishes; it never mutates after this line.
+        FrozenDictionary<CloudFace, int> ordinal = faces.Map(static (face, index) => (Face: face, Index: index))
+            .ToFrozenDictionary(static row => row.Face, static row => row.Index);
+        // A null adjacency slot on a CONVEX hull is a torn hull by the facet claim's own reading, so the mapping
+        // fails typed here rather than writing a -1 the published column then rejects as invalid.
+        return faces.Traverse(face => toSeq(face.Adjacency)
+                .Traverse(neighbor => Optional(neighbor).Map(present => ordinal[present]))
+                .Map(slots => new CloudFacet(
+                    Vertices: new Arr<int>([.. face.Vertices.Select(static corner => corner.Index)]),
+                    Adjacency: new Arr<int>([.. slots]),
+                    Normal: new Vector3d(x: face.Normal[0], y: face.Normal[1], z: face.Normal[2]))))
+            .ToFin(key.InvalidResult())
+            // A solid that fails its own evidence is a torn hull and faults, because no caller can act on a
+            // half-closed body.
+            .Bind(facets => new CloudSolid(Volume: volume, Centroid: anchor + (moment / volume), Facets: facets) switch {
+                CloudSolid solid when solid.IsValid => Fin.Succ(Some(solid)),
+                _ => Fin.Fail<Option<CloudSolid>>(key.InvalidResult()),
+            });
     }
 
     internal static Point3d PointOf(CloudVertex vertex) => new(x: vertex.Position[0], y: vertex.Position[1], z: vertex.Position[2]);
@@ -553,12 +669,12 @@ internal static partial class CloudKernel {
 ## [05]-[VORONOI_COMPLEX]
 
 - Owner: `CloudVoronoiCell` is the 3D dual cell over a cluster cloud — one row per site — and `CloudCellBound` is the vocabulary deciding which measures that row carries, so an unbounded or degenerate cell publishes `None` where a bounded one publishes volume, centroid, and extent.
-- Entry: `ComputeVoronoiDetailed` is cluster-only and consumes the already-admitted `CloudHullPolicy`, reading `Tolerance` alone as the `PlaneDistanceTolerance` the dual threads; `Alpha`, `Lambda`, and `AngleTolerance` are concave-hull columns this fold never reads. `NaturalNeighborWeights` is the Sibson stolen-volume fold — two duals, sites then sites-plus-query, each neighbour weighted by the bounded volume the insertion steals, normalized to sum one — the one weight source the `Meshing/reconstruct` evaluator composes.
-- Auto: each Delaunay cell IS a Voronoi vertex, so the circumsphere sweep over `VoronoiMesh.Vertices` mints the whole vertex array once and `VoronoiEdge.Source`/`.Target` read the cell pair whose circumcenters bound one dual edge — the 1-skeleton falls out as `Skeleton` with no second traversal. Bound classification derives structurally, never by proximity heuristic: `SolidOf` over the sites answers the site hull in the same pass that answers `HullVolume`, and a site on that hull owns an open cell because the Voronoi region of a hull vertex extends to infinity. A bounded cell's geometry is the convex hull of its incident circumcenters, so `SolidOf` answers its volume and centroid too and the `[04]` faceted row is this band's measurement kernel.
-- Receipt: `CloudVoronoiReceipt` carries the tolerance and input count on both arms and the whole tally inside `Option<CloudVoronoiCensus>`, so a rejected fold publishes no zero-filled counts; `BoundedVolumeTotal` never exceeds `HullVolume`, and that ordering is the census's own conservation claim. `ConvexHullGenerationException.Error` is the same `ConvexHullCreationResultOutcome` the typed-result family publishes, so the rejected arm reads its cause off the caught exception into the same `CloudHullRejection` column the `[04]` rows fill.
+- Entry: `ComputeVoronoiDetailed` is cluster-only and consumes the already-admitted `CloudHullPolicy`, reading `Tolerance` alone as the `PlaneDistanceTolerance` the dual threads; `Alpha`, `Lambda`, and `AngleTolerance` are concave-hull columns this fold never reads. `NaturalNeighborField` is the Sibson stolen-volume owner — the BASE dual mints once at `Of` and each `Weights` query pays only the inserted-site dual and the volume-loss fold against it, so an interpolant over M queries no longer rebuilds the unchanging half M times — the one weight source the `Meshing/reconstruct` evaluator composes.
+- Auto: each Delaunay cell IS a Voronoi vertex, so ONE circumsphere sweep over `VoronoiMesh.Vertices` mints `CellSpheres` — a map over the cells that HAVE a sphere, where a missing key IS degeneracy — and `VoronoiEdge.Source`/`.Target` read the cell pair whose circumcenters bound one dual edge, so the 1-skeleton falls out as `Skeleton` with no second traversal and no reader can reach a dual before the sweep that measures it. Bound classification derives structurally, never by proximity heuristic: `SolidOf` over the sites answers the site hull in the same pass that answers `HullVolume`, and a site on that hull owns an open cell because the Voronoi region of a hull vertex extends to infinity. Bounded cells take the convex hull of their incident circumcenters as geometry, so `SolidOf` answers volume and centroid too and the `[04]` faceted row is this band's measurement kernel.
+- Receipt: `CloudVoronoiReceipt` carries the tolerance, input count, and completed census; `BoundedVolumeTotal` never exceeds `HullVolume`, and that ordering is the census's own conservation claim.
 - Packages: MIConvexHull (`VoronoiMesh.Create<CloudVertex, CloudCell, CloudVoronoiEdge>`, `VoronoiMesh.Vertices`/`.Edges`, `VoronoiEdge.Source`/`.Target`, `ConvexHull.Create<CloudVertex, CloudFace>` through `SolidOf`), RhinoCommon, Thinktecture.Runtime.Extensions, LanguageExt.Core.
-- Growth: a new per-cell measure is one `Option` column on `CloudVoronoiCell` plus its arm in the bounded fold; a new bound species is one `CloudCellBound` row; a new census tally is one column on `CloudVoronoiCensus`.
-- Boundary: this band owns the 3D cell decomposition alone — 2D border-clipped point-site Voronoi homes at `Meshing/delaunay` `Tessellation.VoronoiDual`, whose bounded-cell overload is the predicate-exact planar peer, and `Meshing/offset` reads that owner for the medial locus. `VoronoiMesh.Create` returns the bare complex and throws `ConvexHullGenerationException` on degenerate input, so this fold keeps the page's `key.Catch` → `Rejected` funnel where the `ConvexHull.*` rows read their typed outcome instead. Natural-neighbour interpolation reads `Volume` from here and fits nothing; the admitting minter is `Meshing/reconstruct`.
+- Growth: a new per-cell measure is one `Option` column on `CloudVoronoiCell` with its arm in the bounded fold; a new bound species is one `CloudCellBound` row; a new census tally is one column on `CloudVoronoiCensus`; a new interpolant over one site set is one member on `NaturalNeighborField`, sharing the base dual it already holds.
+- Boundary: this band owns the 3D cell decomposition alone — 2D border-clipped point-site Voronoi homes at `Meshing/delaunay` `Tessellation.VoronoiDual`, whose bounded-cell overload is the predicate-exact planar peer, and `Meshing/offset` reads that owner for the medial locus. `VoronoiMesh.Create` returns the bare complex and throws on degenerate input, so `Op.Catch` keeps that exact exceptional `Error` on the failure rail; the `ConvexHull.*` APIs instead return a typed outcome and alone publish `CloudHullRejection`. Natural-neighbour interpolation reads `Volume` from here and fits nothing; the admitting minter is `Meshing/reconstruct`.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -569,14 +685,9 @@ public sealed partial class CloudCellBound {
     public static readonly CloudCellBound Degenerate = new(key: 2);
 }
 
-internal sealed class CloudVoronoiEdge : VoronoiEdge<CloudVertex, CloudCell> {
-    // Source and Target are the Delaunay-cell pair whose circumcenters bound one dual edge; the segment is the
-    // derived read, and a degenerate endpoint answers None rather than a Line through an unmeasured corner.
-    internal Option<Line> Dual =>
-        from tail in Source.Circumcenter
-        from head in Target.Circumcenter
-        select new Line(from: tail, to: head);
-}
+// Source and Target are the Delaunay-cell pair whose circumcenters bound one dual edge; the segment is `CellSpheres.
+// Dual`'s read over the measured map, so no reader can reach a dual before the sweep that measures it ran.
+internal sealed class CloudVoronoiEdge : VoronoiEdge<CloudVertex, CloudCell>;
 
 // --- [MODELS] -----------------------------------------------------------------------------
 // Site is the cluster index the seed came in on, Vertices indexes the result's compacted dual-vertex array, and
@@ -586,21 +697,20 @@ public readonly record struct CloudVoronoiCell(
     int Site, Point3d Seed, CloudCellBound Bound, Arr<int> Vertices, Arr<int> Neighbors,
     Option<double> Volume, Option<Point3d> Centroid, Option<double> Extent) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
-        ValidityClaim.Of(Site >= 0),
+        ValidityClaim.CountAtLeast(count: Site, floor: 0),
         ValidityClaim.Finite(Seed),
         ValidityClaim.CountAtLeast(count: Vertices.Count, floor: 1),
-        ValidityClaim.Of(Vertices.ForAll(static v => v >= 0)),
-        ValidityClaim.Of(Neighbors.ForAll(neighbor => neighbor >= 0 && neighbor != Site)),
+        Vertices.ForAll(static v => v >= 0),
+        Neighbors.ForAll(neighbor => neighbor >= 0 && neighbor != Site),
         // Bounded is the ONE measuring arm: the other two rows carry None by structure, and a 0.0 volume on an open
         // cell would spell a measurement no fold took.
-        ValidityClaim.Of(Bound.Equals(CloudCellBound.Bounded)
+        Bound.Equals(CloudCellBound.Bounded)
             ? Volume.Map(static v => ValidityClaim.Positive(v).Holds).IfNone(false)
               && Centroid.Map(static c => ValidityClaim.Finite(c).Holds).IfNone(false)
               && Extent.Map(static e => ValidityClaim.Positive(e).Holds).IfNone(false)
-            : Volume.IsNone && Centroid.IsNone && Extent.IsNone));
+            : Volume.IsNone && Centroid.IsNone && Extent.IsNone);
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 // DualVertexCount tallies Delaunay cells and UnmeasuredVertexCount the degenerate simplices among them, so the two
 // answer the dual's VERTEX plane while the three cell counts answer its SITE plane — one name per plane, never one
 // count read two ways. MeasuredVertexCount is the published Vertices array length every index column addresses.
@@ -612,35 +722,40 @@ public readonly record struct CloudVoronoiCensus(
     internal int MeasuredVertexCount => DualVertexCount - UnmeasuredVertexCount;
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountAtLeast(count: DualVertexCount, floor: 1),
-        ValidityClaim.Of(UnmeasuredVertexCount >= 0 && UnmeasuredVertexCount <= DualVertexCount),
-        ValidityClaim.Of(DualEdgeCount >= 0 && SkeletonEdgeCount >= 0 && SkeletonEdgeCount <= DualEdgeCount),
-        ValidityClaim.Of(BoundedCellCount >= 0 && UnboundedCellCount >= 0 && DegenerateCellCount >= 0),
+        UnmeasuredVertexCount >= 0 && UnmeasuredVertexCount <= DualVertexCount,
+        DualEdgeCount >= 0 && SkeletonEdgeCount >= 0 && SkeletonEdgeCount <= DualEdgeCount,
+        BoundedCellCount >= 0 && UnboundedCellCount >= 0 && DegenerateCellCount >= 0,
         // Every bounded cell measured, so the totals move together and neither stands without the other.
-        ValidityClaim.Of(BoundedVolumeTotal.IsSome == (BoundedCellCount > 0)),
-        // The bounded cells tile a subset of the site hull, so their volume never exceeds it.
-        ValidityClaim.Of((BoundedVolumeTotal.Case, HullVolume.Case) switch {
+        BoundedVolumeTotal.IsSome == (BoundedCellCount > 0),
+        // Bounded cells tile a subset of the site hull, so their volume never exceeds it.
+        (BoundedVolumeTotal.Case, HullVolume.Case) switch {
             (double bounded, double hull) => ValidityClaim.Positive(hull).Holds && ValidityClaim.Ordered(lower: bounded, upper: hull).Holds,
             _ => BoundedVolumeTotal.IsNone,
-        }));
+        });
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudVoronoiReceipt(
-    CloudFoldStatus Status, double PlaneDistanceTolerance, int InputCount,
-    Option<CloudHullRejection> Rejection, Option<CloudVoronoiCensus> Census) : IValidityEvidence {
+    PositiveMagnitude PlaneDistanceTolerance, int InputCount, CloudVoronoiCensus Census) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
-        ValidityClaim.Positive(PlaneDistanceTolerance),
         // Four affinely independent sites are the floor for a 3D complex; fewer is an admission refusal, not a dual.
         ValidityClaim.CountAtLeast(count: InputCount, floor: 4),
-        // The census IS the completion evidence: a rejected fold measured nothing and publishes no tallies at all.
-        ValidityClaim.Of(Status.Equals(CloudFoldStatus.Completed) == Census.IsSome),
-        ValidityClaim.Of(Rejection.IsNone || Status.Equals(CloudFoldStatus.Rejected)),
-        ValidityClaim.Of(Census.Map(static c => ValidityClaim.Evidence(c).Holds).IfNone(true)));
+        Census.IsValid);
 }
 
+// The result owns the CROSS-COLUMN bounds no component can state: a cell's own claim proves its vertex ordinals
+// non-negative and nothing proved them addressable in the published, COMPACTED vertex array the projections index
+// directly — so the carrier holds the relation between the two planes its components only half-carry.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudVoronoiResult(
-    Seq<CloudVoronoiCell> Cells, Arr<Point3d> Vertices, Arr<(int Tail, int Head)> Skeleton, CloudVoronoiReceipt Receipt) {
+    Seq<CloudVoronoiCell> Cells, Arr<Point3d> Vertices, Arr<(int Tail, int Head)> Skeleton, CloudVoronoiReceipt Receipt) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.All(
+        Cells.ForAll(cell => cell.IsValid
+            && cell.Vertices.ForAll(vertex => vertex < Vertices.Count)
+            && cell.Neighbors.ForAll(neighbor => neighbor < Cells.Count)),
+        Skeleton.ForAll(edge => edge.Tail < Vertices.Count && edge.Head < Vertices.Count),
+        ValidityClaim.Evidence(Some(Receipt)));
+
     internal Fin<TOut> Project<TOut>(Context context, Op key) {
         CloudVoronoiResult self = this;
         return AtomProjection.Rows<CloudVoronoiResult, TOut>(self: self, key: key,
@@ -658,67 +773,33 @@ internal static partial class CloudKernel {
     internal static Fin<CloudVoronoiResult> ComputeVoronoiDetailed(VectorCloud.ClusterCase cluster, CloudHullPolicy policy, Op key) =>
         from _ in guard(cluster.Vertices.Count >= 4, key.InvalidInput()).ToFin()
         let sites = cluster.Vertices.Map(static (p, i) => new CloudVertex(index: i, position: [p.X, p.Y, p.Z])).ToArray()
-        // The dual family returns the bare complex and THROWS on degenerate input — the one foreign-exception seam
-        // this band owns — so the Catch funnels into a census-free Rejected receipt, never a zero-filled one.
+        // Dual family returns the bare complex and THROWS on degenerate input; `Catch` retains that exact
+        // exceptional Error, while only a completed complex proceeds to census construction.
         from result in key.Catch(() => CensusOf(
                 sites: sites, tolerance: policy.Tolerance.Value, key: key,
                 complex: VoronoiMesh.Create<CloudVertex, CloudCell, CloudVoronoiEdge>(
                     data: sites, PlaneDistanceTolerance: policy.Tolerance.Value)))
-            // Only the package's OWN degeneracy throw degrades to a Rejected receipt, and it carries the same typed
-            // outcome the ConvexHull.* result publishes, so the funnel names the cause; every other fault — an
-            // unmapped outcome, an invalid census — stays a fault, because neither is a statement about the input.
-            .BindFail(fault => fault is { Exception.Case: ConvexHullGenerationException generated }
-                ? CloudHullRejection.Of(outcome: generated.Error, key: key).Map(cause => new CloudVoronoiResult(
-                    Cells: Seq<CloudVoronoiCell>.Empty, Vertices: Arr<Point3d>.Empty, Skeleton: Arr<(int Tail, int Head)>.Empty,
-                    Receipt: new CloudVoronoiReceipt(Status: CloudFoldStatus.Rejected,
-                        PlaneDistanceTolerance: policy.Tolerance.Value, InputCount: sites.Length,
-                        Rejection: cause, Census: None)))
-                : Fin.Fail<CloudVoronoiResult>(fault))
         select result;
 
-    // Sibson natural-neighbour coordinates by stolen volume — TWO dual folds, sites alone then sites plus the
-    // query, and each neighbour's weight is the volume its cell LOSES to the inserted site, normalized to sum one.
-    // The exact-support law rules the refusals: a query whose inserted cell is not Bounded lies outside or on the
-    // sample hull where the interpolant is undefined, and a neighbour whose loss is unmeasurable — an open cell in
-    // either fold — marks the same boundary from the inside; both refuse typed, never an extrapolated or
-    // zero-filled weight. The positive filter absorbs float-noise on a grazing neighbour; the reconstruct.md
-    // partition gate reconciles the normalized set downstream. Degenerate builds fail typed here — a Sibson read
-    // over a degenerate site set is a refusal, never a Rejected receipt product.
-    internal static Fin<Seq<(int Site, double Weight)>> NaturalNeighborWeights(Seq<Point3d> sites, Point3d query, double tolerance, Op key) {
-        CloudVertex[] before = sites.Map(static (p, i) => new CloudVertex(index: i, position: [p.X, p.Y, p.Z])).ToArray();
-        CloudVertex[] after = [.. before, new CloudVertex(index: before.Length, position: [query.X, query.Y, query.Z])];
-        return from _ in guard(sites.Count >= 4, key.InvalidInput()).ToFin()
-               from first in key.Catch(() => CensusOf(sites: before, tolerance: tolerance, key: key,
-                   complex: VoronoiMesh.Create<CloudVertex, CloudCell, CloudVoronoiEdge>(data: before, PlaneDistanceTolerance: tolerance)))
-               from second in key.Catch(() => CensusOf(sites: after, tolerance: tolerance, key: key,
-                   complex: VoronoiMesh.Create<CloudVertex, CloudCell, CloudVoronoiEdge>(data: after, PlaneDistanceTolerance: tolerance)))
-               from inserted in second.Cells.Find(cell => cell.Site == before.Length).ToFin(key.InvalidInput())
-               from _support in guard(inserted.Bound.Equals(CloudCellBound.Bounded), key.InvalidInput()).ToFin()
-               from losses in toSeq(inserted.Neighbors.AsIterable().Filter(site => site != before.Length))
-                   .TraverseM(site => VolumeLoss(first: first, second: second, site: site).ToFin(key.InvalidInput())).As()
-               let positive = losses.Filter(static row => row.Loss > 0.0)
-               let total = positive.Sum(static row => row.Loss)
-               from _unity in guard(positive.Count >= 1 && double.IsFinite(total) && total > 0.0, key.InvalidResult()).ToFin()
-               select positive.Map(row => (row.Site, Weight: row.Loss / total));
-    }
-
-    private static Option<(int Site, double Loss)> VolumeLoss(CloudVoronoiResult first, CloudVoronoiResult second, int site) =>
+    internal static Option<(int Site, double Loss)> VolumeLoss(CloudVoronoiResult first, CloudVoronoiResult second, int site) =>
         from was in first.Cells.Find(cell => cell.Site == site).Bind(static cell => cell.Volume)
         from now in second.Cells.Find(cell => cell.Site == site).Bind(static cell => cell.Volume)
         select (Site: site, Loss: was - now);
 
-    private static Fin<CloudVoronoiResult> CensusOf(
+    internal static Fin<CloudVoronoiResult> CensusOf(
         CloudVertex[] sites, VoronoiMesh<CloudVertex, CloudCell, CloudVoronoiEdge> complex, double tolerance, Op key) {
         CloudCell[] cells = [.. complex.Vertices];
-        foreach (CloudCell cell in cells) {
-            (cell.Circumcenter, cell.Circumradius) = Circumsphere(cell: cell);
-        }
-        return from hull in SolidOf(points: [.. sites.Select(PointOf)], tolerance: tolerance, key: key)
-               // A site on the site hull owns an open cell, so the hull's own facet corners ARE the unbounded set —
+        CellSpheres spheres = new(Measured: cells
+            .Select(cell => (Cell: cell, Sphere: Circumsphere(cell: cell, tolerance: tolerance)))
+            .Where(static row => row.Sphere.IsSome)
+            .ToFrozenDictionary(static row => row.Cell, static row => row.Sphere.IfNone(default((Point3d, double)))));
+        return from admitted in key.AcceptValidated<PositiveMagnitude>(candidate: tolerance)
+               from hull in SolidOf(points: [.. sites.Select(PointOf)], tolerance: tolerance, key: key)
+               // Sites on the site hull own an open cell, so the hull's own facet corners ARE the unbounded set —
                // structural, never a proximity heuristic, and free because HullVolume already paid for the hull.
                let open = hull.Map(static solid => solid.Facets.Fold(Set<int>.Empty,
                    static (acc, facet) => facet.Vertices.Fold(acc, static (set, corner) => set.Add(corner)))).IfNone(Set<int>.Empty)
-               from rows in CellRows(cells: cells, complex: complex, open: open, sites: sites, tolerance: tolerance, key: key)
+               from rows in CellRows(cells: cells, complex: complex, spheres: spheres, open: open, sites: sites, tolerance: tolerance, key: key)
                let census = new CloudVoronoiCensus(
                    DualVertexCount: cells.Length, UnmeasuredVertexCount: cells.Length - rows.Vertices.Count,
                    DualEdgeCount: complex.Edges.Count(), SkeletonEdgeCount: rows.Skeleton.Count,
@@ -730,43 +811,84 @@ internal static partial class CloudKernel {
                        : Option<double>.None,
                    HullVolume: hull.Map(static solid => solid.Volume))
                from verified in census.IsValid ? Fin.Succ(census) : Fin.Fail<CloudVoronoiCensus>(key.InvalidResult())
-               select new CloudVoronoiResult(Cells: rows.Cells, Vertices: rows.Vertices, Skeleton: rows.Skeleton,
-                   Receipt: new CloudVoronoiReceipt(Status: CloudFoldStatus.Completed,
-                       PlaneDistanceTolerance: tolerance, InputCount: sites.Length, Census: Some(verified)));
+               from verifiedResult in new CloudVoronoiResult(Cells: rows.Cells, Vertices: rows.Vertices, Skeleton: rows.Skeleton,
+                       Receipt: new CloudVoronoiReceipt(
+                           PlaneDistanceTolerance: admitted, InputCount: sites.Length, Census: verified)) switch {
+                   CloudVoronoiResult whole when whole.IsValid => Fin.Succ(whole),
+                   _ => Fin.Fail<CloudVoronoiResult>(key.InvalidResult()),
+               }
+               select verifiedResult;
     }
 
+    // ONE pass maps each MEASURED cell to its slot in the published Vertices array and drops the rest, so every index
+    // column downstream addresses that COMPACTED array and the drop count is the census's UnmeasuredVertexCount; the
+    // same pass reads each site's natural-neighbour set off its co-cell sites and its dual edges off `spheres`. A
+    // SolidOf answering None on an interior site downgrades that row to Degenerate rather than publishing a zero, and
+    // Skeleton keeps only the edges whose Source and Target both measured, so a dropped edge always traces to an
+    // already-counted vertex.
     private static Fin<(Seq<CloudVoronoiCell> Cells, Arr<Point3d> Vertices, Arr<(int Tail, int Head)> Skeleton)> CellRows(
-        CloudCell[] cells, VoronoiMesh<CloudVertex, CloudCell, CloudVoronoiEdge> complex, Set<int> open,
-        CloudVertex[] sites, double tolerance, Op key) { /* Cells ARE the Voronoi vertices, so ONE pass over cells
-        maps each MEASURED cell to its slot in the published Vertices array and drops the unmeasured ones — every
-        index column downstream addresses that compacted array, and the drop count is the census's
-        UnmeasuredVertexCount. The same pass builds each site's incident-corner list and its natural-neighbour set
-        from the three co-cell sites — the Delaunay star and the dual cell corner set together. Each row takes
-        Degenerate when any incident circumcenter is None, Unbounded when the site sits in `open`, and otherwise
-        SolidOf over its corner circumcenters, answering Volume, Centroid, and the corner-farthest Extent at once; a
-        SolidOf answering None on an interior site downgrades that row to Degenerate rather than publishing a zero.
-        Skeleton keeps only the VoronoiMesh.Edges whose Source and Target both measured, so a dropped edge always
-        traces to an already-counted unmeasured vertex. */
-        return default!;
-    }
+        CloudCell[] cells, VoronoiMesh<CloudVertex, CloudCell, CloudVoronoiEdge> complex, CellSpheres spheres, Set<int> open,
+        CloudVertex[] sites, double tolerance, Op key);
 
     // Closed-form circumsphere of a simplex: the squared-edge-weighted cross-product sum over twice the simplex
-    // determinant. A coplanar tetrahedron falls out as a vanishing determinant and answers None on BOTH columns, so
-    // no reader ever sees a fabricated centre or a zero radius that an alpha filter would silently admit.
-    private static (Option<Point3d> Center, Option<double> Radius) Circumsphere(CloudCell cell) {
+    // determinant. Degeneracy is decided on the INPUT determinant alone and SCALE-RELATIVELY: a cancelling denominator
+    // lands a finite, wildly wrong centre that every non-finiteness probe waves through, and a signed volume compared
+    // to an absolute length anchor read a millimetre tetra as degenerate and a kilometre sliver as solid.
+    private static Option<(Point3d Center, double Radius)> Circumsphere(CloudCell cell, double tolerance) {
         if (cell.Vertices is not [CloudVertex c0, CloudVertex c1, CloudVertex c2, CloudVertex c3]) {
-            return (None, None);
+            return Option<(Point3d, double)>.None;
         }
         Point3d anchor = PointOf(c0);
         (Vector3d u, Vector3d v, Vector3d w) = (PointOf(c1) - anchor, PointOf(c2) - anchor, PointOf(c3) - anchor);
         double twice = 2.0 * (u * Vector3d.CrossProduct(a: v, b: w));
-        if (Math.Abs(twice) <= EpsilonPolicy.ZeroTolerance) {
-            return (None, None);
+        if (Math.Abs(twice) <= tolerance * u.Length * v.Length * w.Length) {
+            return Option<(Point3d, double)>.None;
         }
         Vector3d offset = ((u.SquareLength * Vector3d.CrossProduct(a: v, b: w))
             + (v.SquareLength * Vector3d.CrossProduct(a: w, b: u))
             + (w.SquareLength * Vector3d.CrossProduct(a: u, b: v))) / twice;
-        return offset.IsValid ? (Some(anchor + offset), Some(offset.Length)) : (None, None);
+        return Some((Center: anchor + offset, Radius: offset.Length));
+    }
+}
+
+// --- [MODELS] -----------------------------------------------------------------------------
+// The base dual over the sites is IDENTICAL for every query, so it mints ONCE and each query pays only the
+// inserted-site dual and the volume-loss fold against it. A per-query entry rebuilt BOTH duals, so an interpolant
+// over M queries paid 2M full constructions for a half that never changed and whose signature made caching
+// impossible. Degenerate builds fail typed here — a Sibson read over a degenerate site set is a refusal, never a
+// Rejected receipt product.
+// The TYPE is public because `ScalarField.SibsonCase` carries it on a public union; its factory and query stay
+// internal, so a field mints only through the `Meshing/reconstruct` admission that owns Sibson construction.
+public sealed record NaturalNeighborField(CloudVoronoiResult Base, Arr<Point3d> Sites, double Tolerance) {
+    internal static Fin<NaturalNeighborField> Of(Seq<Point3d> sites, double tolerance, Op key) {
+        CloudVertex[] seeds = sites.Map(static (p, i) => new CloudVertex(index: i, position: [p.X, p.Y, p.Z])).ToArray();
+        return from _ in guard(sites.Count >= 4, key.InvalidInput()).ToFin()
+               from dual in key.Catch(() => CloudKernel.CensusOf(sites: seeds, tolerance: tolerance, key: key,
+                   complex: VoronoiMesh.Create<CloudVertex, CloudCell, CloudVoronoiEdge>(data: seeds, PlaneDistanceTolerance: tolerance)))
+               select new NaturalNeighborField(Base: dual, Sites: new Arr<Point3d>([.. sites]), Tolerance: tolerance);
+    }
+
+    // Sibson natural-neighbour coordinates by stolen volume: each neighbour's weight is the volume its cell LOSES to
+    // the inserted site, normalized to sum one. Exact-support law rules the refusals — a query whose inserted cell is
+    // not Bounded lies outside or on the sample hull where the interpolant is undefined, and a neighbour whose loss
+    // is unmeasurable (an open cell in either fold) marks the same boundary from the inside; both refuse typed, never
+    // an extrapolated or zero-filled weight. The positive filter absorbs float noise on a grazing neighbour, and the
+    // `reconstruct.md` partition gate reconciles the normalized set downstream.
+    internal Fin<Seq<(int Site, double Weight)>> Weights(Point3d query, Op key) {
+        NaturalNeighborField self = this;
+        CloudVertex[] after = [
+            .. self.Sites.AsIterable().Select(static (p, i) => new CloudVertex(index: i, position: [p.X, p.Y, p.Z])),
+            new CloudVertex(index: self.Sites.Count, position: [query.X, query.Y, query.Z])];
+        return from inserted in key.Catch(() => CloudKernel.CensusOf(sites: after, tolerance: self.Tolerance, key: key,
+                   complex: VoronoiMesh.Create<CloudVertex, CloudCell, CloudVoronoiEdge>(data: after, PlaneDistanceTolerance: self.Tolerance)))
+               from cell in inserted.Cells.Find(row => row.Site == self.Sites.Count).ToFin(key.InvalidInput())
+               from _support in guard(cell.Bound.Equals(CloudCellBound.Bounded), key.InvalidInput()).ToFin()
+               from losses in toSeq(cell.Neighbors.AsIterable().Filter(site => site != self.Sites.Count))
+                   .TraverseM(site => CloudKernel.VolumeLoss(first: self.Base, second: inserted, site: site).ToFin(key.InvalidInput())).As()
+               let positive = losses.Filter(static row => row.Loss > 0.0)
+               let total = positive.Sum(static row => row.Loss)
+               from _unity in guard(positive.Count >= 1 && double.IsFinite(total) && total > 0.0, key.InvalidResult()).ToFin()
+               select positive.Map(row => (row.Site, Weight: row.Loss / total));
     }
 }
 ```

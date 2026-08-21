@@ -1,17 +1,22 @@
 # [RASM_RHINO_MODELING_LOFTING]
 
-`Lofts.Build` owns loft, one- and two-rail sweep, direct and variational patch, developable construction, and ruling evidence. `LoftOp` admits rails, profiles, constraints, and seed surfaces once; `CurveFit` owns the shared rebuild/refit axis; `LoftRuntime` consumes the `ProgressLease` governance band; and every geometry product exits through `Built<LoftSlot>`. `SweepFrameLaw` remains the frozen seam consumed by `SubDOp.FromSweepOne`.
+`Lofts.Build` owns loft, one- and two-rail sweep, direct and variational patch, developable construction, and ruling evidence. `LoftOp` admits rails, profiles, constraints, and seed surfaces once through the spine's `ModelClaim` fold; `CurveFit` owns the shared rebuild/refit axis; the spine's `ModelRuntime` carries the `ProgressLease` governance band into the one paced native; and every geometry product exits through `Built<LoftSlot>`. `SweepFrameLaw` remains the frozen seam consumed by `SubDOp.FromSweepOne`.
 
 ## [01]-[INDEX]
 
-- [02]-[SWEEP]: `SweepFrameLaw`, `CurveFit`, `SweepOneMode`, `SweepTwoStations`, `SweepTwoShapeFeature`, and `SweepEnds`.
-- [03]-[PATCH]: `PatchLaw`, `VariationalLaw`, `LoftTangency`, `DevelopableLaw`, and `RulingSolve`.
-- [04]-[ALGEBRA]: `LoftRuntime`, `LoftSlot`, `LoftOp`, and `Lofts.Build`.
-- [05]-[EXECUTION]: compatibility, solver evidence, and geometry custody.
+- [02]-[SWEEP]: `SweepFrameLaw`, `CurveFit`, `RefitTarget`, `SweepOneMode`, `SweepTwoStations`, `SweepTwoShapeFeature`, `SweepClosure`, `DevelopableLaw`, `RulingSolve`, `SweepEnds`, `CurveCompatibility` — the sweep modality vocabularies and the two terminal carriers the curve rail also composes.
+- [03]-[PATCH]: `PatchEdge`, `PatchBehavior`, `VariationalEdgePolicy`, `PatchLaw`, `VariationalLaw`, `LoftTangency` — the patch and variational solver policies.
+- [04]-[ALGEBRA]: `VariationalThreading`, `LoftSlot`, `LoftOp`, and the `Lofts.Build` entry.
 
 ## [02]-[SWEEP]
 
-`CurveFit` collapses loft and sweep fitting into one discriminant. `SweepOneMode` and `SweepTwoStations` encode native modality before dispatch, while `FrozenSet<SweepTwoShapeFeature>` composes height and auto-adjust capabilities. `SweepFrameLaw` alone maps roadlike semantics for both Rhino sweep and SubD sweep consumers.
+- Owner: `CurveFit` `[Union]` — the ONE rebuild/refit discriminant collapsing three native rebuild families onto one `(SweepRebuild, points, tolerance, refitRail)` quadruple; `SweepFrameLaw` — the roadlike frame seam `SubDOp.FromSweepOne` also consumes; `SweepOneMode` and `SweepTwoStations` — the per-rail station modalities; `SweepTwoShapeFeature` — the two-rail shape grants; `RefitTarget` and `SweepClosure` — the refit-rail and closed-sweep rows; `DevelopableLaw` and `RulingSolve` — the developable source and solver modalities; `SweepEnds` and `CurveCompatibility` — the admitted terminal pair and the compatibility policy, both read by `Modeling/curves.md`'s `CurveOp.Compatible`.
+- Law: every union owns its OWN evidence off the generated `Switch` — the four free `TLaw?`-typed predicates that switched over a union's cases from outside it are deleted, because each closed on `_ => false` and turned a new case from a compile break into a silent refusal. Validity is a member of the union it proves, and the roster's `Admitted` reads it.
+- Law: `SweepFrameLaw` carries BOTH host projections — `Native` answers the static overloads' `(frame, normal)` pair and `Rig` seats the engine's roadlike members, so a caller never chooses between the two spellings and the SubD consumer reads the same owner.
+- Law: `SweepEnds` is admitted at CONSTRUCTION — its generated factory runs the same fold `IsValid` reads, so an unset-bearing terminal cannot enter the rail and be caught one layer later; `StartOrUnset`/`EndOrUnset` lower `None` to the host's documented `Point3d.Unset` omit spelling at the call, which is the one place the sentinel is legal.
+- Law: the shape grants are a `CapabilitySet`, so the partitioned two-rail station mode states its legal corner as ONE value comparison against `CapabilitySet.Of(AutoAdjust)` rather than a set-equality probe over a frozen set whose record equality compares by reference.
+- Growth: a new station modality is one case on its rail's union; a new sweep grant is one vocabulary row.
+- Packages: RhinoCommon solids (`.api/api-rhinocommon-solids.md` — `SweepOneRail`/`SweepTwoRail` `:39-40,50-51`, `Brep.CreateFromSweep`/`CreateFromSweepSegmented`/`CreateFromSweepInParts`, `Brep.CreateFromLoft`/`CreateFromLoftRebuild`/`CreateFromLoftRefit`, `DevelopableSrf` `:139-141`), RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — `NurbsCurve.MakeCompatible` `:193`), kernel `Domain/rails` (`Op`, `ValidityClaim`, `IValidityEvidence`, `Fin`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/context` (`Context`), `Modeling/curves.md` (`ModelClaim`, `PairPosture`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -29,7 +34,7 @@ namespace Rasm.Rhino.Modeling;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SweepFrameLaw {
+public abstract partial record SweepFrameLaw : IValidityEvidence {
     private SweepFrameLaw() { }
     public sealed record Freeform : SweepFrameLaw;
     public sealed record RoadlikeTop : SweepFrameLaw;
@@ -37,8 +42,12 @@ public abstract partial record SweepFrameLaw {
     public sealed record RoadlikeRight : SweepFrameLaw;
     public sealed record RoadlikeDirection(Vector3d Normal) : SweepFrameLaw;
 
-    internal bool Admissible => this is not RoadlikeDirection { Normal: var normal }
-        || (normal.IsValid && !normal.IsZero);
+    public bool IsValid => Switch(
+        freeform: static _ => (ValidityClaim)true,
+        roadlikeTop: static _ => (ValidityClaim)true,
+        roadlikeFront: static _ => (ValidityClaim)true,
+        roadlikeRight: static _ => (ValidityClaim)true,
+        roadlikeDirection: static law => ValidityClaim.Direction(value: law.Normal));
 
     internal (SweepFrame Frame, Vector3d Normal) Native => Switch(
         freeform: static _ => (SweepFrame.Freeform, Vector3d.Unset),
@@ -57,20 +66,21 @@ public abstract partial record SweepFrameLaw {
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record CurveFit {
+public abstract partial record CurveFit : IValidityEvidence {
     private CurveFit() { }
     public sealed record AsIs : CurveFit;
     public sealed record Rebuild(int Points) : CurveFit;
     public sealed record Refit(RefitTarget Target) : CurveFit;
 
-    internal bool IncludesRails => this is Refit { Target: var target } && target == RefitTarget.SectionsAndRails;
+    internal bool IncludesRails => Switch(
+        asIs: static _ => false,
+        rebuild: static _ => false,
+        refit: static law => law.Target == RefitTarget.SectionsAndRails);
 
-    internal bool Admissible => this switch {
-        AsIs => true,
-        Rebuild { Points: >= 2 } => true,
-        Refit { Target: not null } => true,
-        _ => false,
-    };
+    public bool IsValid => Switch(
+        asIs: static _ => (ValidityClaim)true,
+        rebuild: static law => ValidityClaim.CountAtLeast(count: law.Points, floor: 2),
+        refit: static law => (ValidityClaim)(law.Target is not null));
 
     internal (SweepRebuild Kind, int Points, double Tolerance, bool RefitRail) Native(Context domain) => Switch(
         domain,
@@ -88,35 +98,40 @@ public sealed partial class RefitTarget {
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SweepTwoStations {
+public abstract partial record SweepTwoStations : IValidityEvidence {
     private SweepTwoStations() { }
     public sealed record Static : SweepTwoStations;
     public sealed record Engine(Seq<double> Rail1, Seq<double> Rail2) : SweepTwoStations;
     public sealed record Partitioned(Seq<Point2d> RailParameters) : SweepTwoStations;
+
+    public bool IsValid => Switch(
+        @static: static _ => (ValidityClaim)true,
+        engine: static law => ValidityClaim.All(
+            ModelClaim.Rows(rows: law.Rail1, claim: static value => ValidityClaim.Finite(value: value), allowEmpty: true),
+            ModelClaim.Rows(rows: law.Rail2, claim: static value => ValidityClaim.Finite(value: value), allowEmpty: true)),
+        partitioned: static law => ModelClaim.Rows(
+            rows: law.RailParameters, claim: static parameter => (ValidityClaim)parameter.IsValid, allowEmpty: true));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SweepOneMode {
+public abstract partial record SweepOneMode : IValidityEvidence {
     private SweepOneMode() { }
     public sealed record Static : SweepOneMode;
     public sealed record Segmented : SweepOneMode;
     public sealed record Parameterized(Seq<double> ShapeParameters) : SweepOneMode;
+
+    public bool IsValid => Switch(
+        @static: static _ => (ValidityClaim)true,
+        segmented: static _ => (ValidityClaim)true,
+        parameterized: static law => ModelClaim.Rows(
+            rows: law.ShapeParameters, claim: static parameter => ValidityClaim.Finite(value: parameter), allowEmpty: true));
 }
 
-[SmartEnum<int>]
-public sealed partial class SweepTwoShapeFeature {
-    public static readonly SweepTwoShapeFeature MaintainHeight = new(key: 0);
-    public static readonly SweepTwoShapeFeature AutoAdjust = new(key: 1);
-}
-
-[SmartEnum<int>]
-public sealed partial class DevelopableDirection {
-    public static readonly DevelopableDirection Forward = new(key: 0, native: (false, false));
-    public static readonly DevelopableDirection ReverseRail0 = new(key: 1, native: (true, false));
-    public static readonly DevelopableDirection ReverseRail1 = new(key: 2, native: (false, true));
-    public static readonly DevelopableDirection ReverseBoth = new(key: 3, native: (true, true));
-
-    internal (bool ReverseRail0, bool ReverseRail1) Native { get; }
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class SweepTwoShapeFeature : ICapability<SweepTwoShapeFeature> {
+    public static readonly SweepTwoShapeFeature MaintainHeight = new(key: "maintain-height");
+    public static readonly SweepTwoShapeFeature AutoAdjust = new(key: "auto-adjust");
 }
 
 [SmartEnum<int>]
@@ -128,87 +143,109 @@ public sealed partial class SweepClosure {
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record DevelopableLaw {
+public abstract partial record DevelopableLaw : IValidityEvidence {
     private DevelopableLaw() { }
-    public sealed record ByDensity(DevelopableDirection Direction, int Density) : DevelopableLaw;
+    public sealed record ByDensity(PairPosture Reverse, int Density) : DevelopableLaw;
     public sealed record ByRulings(Seq<Point2d> FixedRulings) : DevelopableLaw;
+
+    public bool IsValid => Switch(
+        byDensity: static law => ValidityClaim.All(
+            law.Reverse is not null, ValidityClaim.CountAtLeast(count: law.Density, floor: 1)),
+        byRulings: static law => ModelClaim.Rows(
+            rows: law.FixedRulings, claim: static ruling => (ValidityClaim)ruling.IsValid));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record RulingSolve {
+public abstract partial record RulingSolve : IValidityEvidence {
     private RulingSolve() { }
     public sealed record Local(Interval Domain0, Interval Domain1) : RulingSolve;
     public sealed record MinTwistSecond(Interval Domain1) : RulingSolve;
     public sealed record MinTwistBoth(Interval Domain0, Interval Domain1) : RulingSolve;
+
+    public bool IsValid => Switch(
+        local: static law => ValidityClaim.All(law.Domain0.IsValid, law.Domain1.IsValid),
+        minTwistSecond: static law => (ValidityClaim)law.Domain1.IsValid,
+        minTwistBoth: static law => ValidityClaim.All(law.Domain0.IsValid, law.Domain1.IsValid));
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
-public readonly partial struct SweepEnds {
+public readonly partial struct SweepEnds : IValidityEvidence {
     public Option<Point3d> Start { get; }
     public Option<Point3d> End { get; }
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Option<Point3d> start,
-        ref Option<Point3d> end) { }
+        ref Option<Point3d> end) =>
+        validationError = Admits(start: start, end: end)
+            ? null
+            : new ValidationError("A present sweep terminal must be a valid point.");
 
-    internal bool Admissible => Start.ForAll(static point => point.IsValid)
-        && End.ForAll(static point => point.IsValid);
+    public bool IsValid => Admits(start: Start, end: End);
 
+    // `Point3d.Unset` is the host's documented omit spelling for either terminal, so absence lowers HERE and the
+    // sentinel never enters the domain value.
     internal Point3d StartOrUnset => Start.IfNone(Point3d.Unset);
     internal Point3d EndOrUnset => End.IfNone(Point3d.Unset);
+
+    private static ValidityClaim Admits(Option<Point3d> start, Option<Point3d> end) =>
+        ValidityClaim.All(
+            ValidityClaim.WhenPresent(facet: start, claim: static point => ValidityClaim.Finite(value: point)),
+            ValidityClaim.WhenPresent(facet: end, claim: static point => ValidityClaim.Finite(value: point)));
 }
 
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
-public readonly partial struct CurveCompatibility {
+public readonly partial struct CurveCompatibility : IValidityEvidence {
     public int SimplifyMethod { get; }
     public int PointCount { get; }
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int simplifyMethod,
-        ref int pointCount) {
-        if (!IsAdmissible(simplifyMethod: simplifyMethod, pointCount: pointCount)) {
-            validationError = new ValidationError("Curve compatibility requires a valid simplifier and point count.");
-        }
-    }
+        ref int pointCount) =>
+        validationError = Admits(simplifyMethod: simplifyMethod, pointCount: pointCount)
+            ? null
+            : new ValidationError("Curve compatibility requires a valid simplifier and point count.");
 
-    internal bool Admissible => IsAdmissible(simplifyMethod: SimplifyMethod, pointCount: PointCount);
+    public bool IsValid => Admits(simplifyMethod: SimplifyMethod, pointCount: PointCount);
 
-    private static bool IsAdmissible(int simplifyMethod, int pointCount) => simplifyMethod >= 0 && pointCount >= 2;
+    private static ValidityClaim Admits(int simplifyMethod, int pointCount) =>
+        ValidityClaim.All(
+            ValidityClaim.CountAtLeast(count: simplifyMethod, floor: 0),
+            ValidityClaim.CountAtLeast(count: pointCount, floor: 2));
 }
 ```
 
 ## [03]-[PATCH]
 
-`PatchLaw`, `VariationalLaw`, and `LoftTangency` validate before native solver carriers exist. `PatchEdge` and `LoftTangentEnd` replace positional booleans with bounded policy values. Variational warning, error, and continuity states preserve native absence separately from negative or empty results.
+- Owner: `PatchLaw`, `VariationalLaw`, and `LoftTangency` — the three solver policies, each admitted at construction; `PatchEdge` and `PatchBehavior` — the patch grant vocabularies; `VariationalEdgePolicy` — the preserve-edges row.
+- Law: the fixed-edge argument is an ORDERED projection off the roster — `PatchEdge`'s declaration order IS the host's `bool[4]` order (north, east, south, west), so `FixedEdges` folds the roster once and a fifth edge row extends the projection instead of adding a fifth hand `Contains`.
+- Law: the tangency ends are ONE `PairPosture` value, and the empty corner is refused at admission — the host reads a start-tangent and end-tangent bool pair, `(false, false)` names a tangency constraint that constrains nothing, and a row-valued pair makes the two bools untransposable at the call.
+- Law: `VariationalLaw.Rig` stays hand-seated — five of its seventeen target slots are regime bindings off `Context`, `InitialSurface` takes the BORROWED native rather than the policy's handle, and `PreserveEdges` reads a row projection, so a source-complete mapping cannot express the member set and a generated mapper carrying the residual ten beside them is the split form `Exchange/options.md` carves against.
+- Law: the initial surface lowers through the ONE host-slot spelling — `Op.ToHostSlot` is where an absent optional becomes `null` for a host write, so `ValueUnsafe` (which throws on `None`) never stands in for it.
+- Growth: a new solver weight is one column with its claim; a new patch grant is one vocabulary row.
+- Packages: RhinoCommon solids (`.api/api-rhinocommon-solids.md` — `Brep.CreatePatch`, `Brep.VariationalPatchSettings` `:47`, `Brep.CreateVariationalPatch`, `Brep.CurveConstraint`/`PointConstraint`, `Brep.VariationalPatchResult`, `RhinoVariationalDomain`), kernel `Domain/rails` (`Op.ToHostSlot`, `ValidityClaim`, `IValidityEvidence`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/context` (`Context.Absolute`, `Context.Angle`, `Context.Fractional`), `Modeling/curves.md` (`ModelClaim`, `PairPosture`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
-[SmartEnum<int>]
-public sealed partial class PatchEdge {
-    public static readonly PatchEdge North = new(key: 0);
-    public static readonly PatchEdge East = new(key: 1);
-    public static readonly PatchEdge South = new(key: 2);
-    public static readonly PatchEdge West = new(key: 3);
+// Declaration order IS the host's `fixEdges` argument order, so the ordered projection below is the whole encoding.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class PatchEdge : ICapability<PatchEdge> {
+    public static readonly PatchEdge North = new(key: "north");
+    public static readonly PatchEdge East = new(key: "east");
+    public static readonly PatchEdge South = new(key: "south");
+    public static readonly PatchEdge West = new(key: "west");
 }
 
-[SmartEnum<int>]
-public sealed partial class PatchBehavior {
-    public static readonly PatchBehavior Trim = new(key: 0);
-    public static readonly PatchBehavior Tangency = new(key: 1);
-}
-
-[SmartEnum<int>]
-public sealed partial class LoftTangentEnd {
-    public static readonly LoftTangentEnd Start = new(key: 0, native: (true, false));
-    public static readonly LoftTangentEnd End = new(key: 1, native: (false, true));
-    public static readonly LoftTangentEnd Both = new(key: 2, native: (true, true));
-
-    internal (bool Start, bool End) Native { get; }
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class PatchBehavior : ICapability<PatchBehavior> {
+    public static readonly PatchBehavior Trim = new(key: "trim");
+    public static readonly PatchBehavior Tangency = new(key: "tangency");
 }
 
 [SmartEnum<int>]
@@ -222,71 +259,49 @@ public sealed partial class VariationalEdgePolicy {
 // --- [MODELS] -----------------------------------------------------------------------------
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
-public readonly partial struct PatchLaw {
+public readonly partial struct PatchLaw : IValidityEvidence {
     public int USpans { get; }
     public int VSpans { get; }
-    public FrozenSet<PatchBehavior> Behavior { get; }
+    public CapabilitySet<PatchBehavior> Behavior { get; }
     public double PointSpacing { get; }
     public double Flexibility { get; }
     public double SurfacePull { get; }
-    public FrozenSet<PatchEdge> Edges { get; }
+    public CapabilitySet<PatchEdge> Edges { get; }
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int uSpans,
         ref int vSpans,
-        ref FrozenSet<PatchBehavior> behavior,
+        ref CapabilitySet<PatchBehavior> behavior,
         ref double pointSpacing,
         ref double flexibility,
         ref double surfacePull,
-        ref FrozenSet<PatchEdge> edges) {
-        if (!IsAdmissible(
-            uSpans: uSpans,
-            vSpans: vSpans,
-            behavior: behavior,
-            pointSpacing: pointSpacing,
-            flexibility: flexibility,
-            surfacePull: surfacePull,
-            edges: edges)) {
-            validationError = new ValidationError("Patch policies, spans, and solver weights are outside the admitted range.");
-        }
-    }
+        ref CapabilitySet<PatchEdge> edges) =>
+        validationError = Admits(
+                uSpans: uSpans, vSpans: vSpans, pointSpacing: pointSpacing,
+                flexibility: flexibility, surfacePull: surfacePull)
+            ? null
+            : new ValidationError("Patch spans and solver weights are outside the admitted range.");
 
-    internal bool Admissible => IsAdmissible(
-        uSpans: USpans,
-        vSpans: VSpans,
-        behavior: Behavior,
-        pointSpacing: PointSpacing,
-        flexibility: Flexibility,
-        surfacePull: SurfacePull,
-        edges: Edges);
+    public bool IsValid => Admits(
+        uSpans: USpans, vSpans: VSpans, pointSpacing: PointSpacing,
+        flexibility: Flexibility, surfacePull: SurfacePull);
 
-    private static bool IsAdmissible(
-        int uSpans,
-        int vSpans,
-        FrozenSet<PatchBehavior>? behavior,
-        double pointSpacing,
-        double flexibility,
-        double surfacePull,
-        FrozenSet<PatchEdge>? edges) =>
-        uSpans > 0 && vSpans > 0
-        && Lofts.Declared(values: behavior, rows: PatchBehavior.Items)
-        && Lofts.Declared(values: edges, rows: PatchEdge.Items)
-        && double.IsFinite(pointSpacing) && pointSpacing > 0.0
-        && double.IsFinite(flexibility) && flexibility >= 0.0
-        && double.IsFinite(surfacePull) && surfacePull >= 0.0;
+    // One ordered fold off the roster: the host's `bool[4]` positions ARE the declaration order, so the projection
+    // is derived from the vocabulary rather than four hand membership reads a reordered roster would silently break.
+    internal bool[] FixedEdges => [.. toSeq(PatchEdge.Items).Map(edge => Edges.Admits(capability: edge))];
 
-    internal bool[] FixedEdges => [
-        Edges.Contains(PatchEdge.North),
-        Edges.Contains(PatchEdge.East),
-        Edges.Contains(PatchEdge.South),
-        Edges.Contains(PatchEdge.West),
-    ];
+    private static ValidityClaim Admits(
+        int uSpans, int vSpans, double pointSpacing, double flexibility, double surfacePull) =>
+        ValidityClaim.All(
+            ValidityClaim.CountAtLeast(count: uSpans, floor: 1), ValidityClaim.CountAtLeast(count: vSpans, floor: 1),
+            ValidityClaim.Positive(value: pointSpacing),
+            ValidityClaim.Nonnegative(value: flexibility), ValidityClaim.Nonnegative(value: surfacePull));
 }
 
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
-public readonly partial struct VariationalLaw {
+public readonly partial struct VariationalLaw : IValidityEvidence {
     public RhinoVariationalDomain Domain { get; }
     public int DegreeU { get; }
     public int DegreeV { get; }
@@ -313,58 +328,18 @@ public readonly partial struct VariationalLaw {
         ref double uvRotation,
         ref int maxRefinements,
         ref VariationalEdgePolicy edges,
-        ref Option<GeometryHandle> initialSurface) {
-        if (!IsAdmissible(
-            domain: domain,
-            degreeU: degreeU,
-            degreeV: degreeV,
-            spanCountU: spanCountU,
-            spanCountV: spanCountV,
-            stretching: stretching,
-            bending: bending,
-            rocBending: rocBending,
-            uvRotation: uvRotation,
-            maxRefinements: maxRefinements,
-            edges: edges,
-            initialSurface: initialSurface)) {
-            validationError = new ValidationError("Variational domain, degree, spans, weights, rotation, and refinements are outside the admitted range.");
-        }
-    }
+        ref Option<GeometryHandle> initialSurface) =>
+        validationError = Admits(
+                domain: domain, degreeU: degreeU, degreeV: degreeV, spanCountU: spanCountU, spanCountV: spanCountV,
+                stretching: stretching, bending: bending, rocBending: rocBending, uvRotation: uvRotation,
+                maxRefinements: maxRefinements, edges: edges, initialSurface: initialSurface)
+            ? null
+            : new ValidationError("Variational domain, degree, spans, weights, rotation, and refinements are outside the admitted range.");
 
-    internal bool Admissible => IsAdmissible(
-        domain: Domain,
-        degreeU: DegreeU,
-        degreeV: DegreeV,
-        spanCountU: SpanCountU,
-        spanCountV: SpanCountV,
-        stretching: Stretching,
-        bending: Bending,
-        rocBending: RocBending,
-        uvRotation: UVRotation,
-        maxRefinements: MaxRefinements,
-        edges: Edges,
-        initialSurface: InitialSurface);
-
-    private static bool IsAdmissible(
-        RhinoVariationalDomain domain,
-        int degreeU,
-        int degreeV,
-        int spanCountU,
-        int spanCountV,
-        double stretching,
-        double bending,
-        double rocBending,
-        double uvRotation,
-        int maxRefinements,
-        VariationalEdgePolicy? edges,
-        Option<GeometryHandle> initialSurface) =>
-        Enum.IsDefined(domain)
-        && degreeU > 0 && degreeV > 0 && spanCountU > 0 && spanCountV > 0 && edges is not null
-        && double.IsFinite(stretching) && stretching >= 0.0
-        && double.IsFinite(bending) && bending >= 0.0
-        && double.IsFinite(rocBending) && rocBending >= 0.0
-        && double.IsFinite(uvRotation) && maxRefinements >= 0
-        && initialSurface.ForAll(static handle => handle is not null);
+    public bool IsValid => Admits(
+        domain: Domain, degreeU: DegreeU, degreeV: DegreeV, spanCountU: SpanCountU, spanCountV: SpanCountV,
+        stretching: Stretching, bending: Bending, rocBending: RocBending, uvRotation: UVRotation,
+        maxRefinements: MaxRefinements, edges: Edges, initialSurface: InitialSurface);
 
     internal Fin<Brep.VariationalPatchSettings> Rig(Context domain, Option<Surface> initial, Op key) =>
         key.Catch(() => Fin.Succ(value: new Brep.VariationalPatchSettings {
@@ -383,19 +358,42 @@ public readonly partial struct VariationalLaw {
             RocBending = RocBending,
             UVRotation = UVRotation,
             MaxRefinements = MaxRefinements,
-            InitialSurface = initial.ValueUnsafe(),
+            InitialSurface = Op.ToHostSlot(value: initial),
             PreserveEdges = Edges.Native,
         }));
+
+    private static ValidityClaim Admits(
+        RhinoVariationalDomain domain,
+        int degreeU,
+        int degreeV,
+        int spanCountU,
+        int spanCountV,
+        double stretching,
+        double bending,
+        double rocBending,
+        double uvRotation,
+        int maxRefinements,
+        VariationalEdgePolicy? edges,
+        Option<GeometryHandle> initialSurface) =>
+        ValidityClaim.All(
+            Enum.IsDefined(domain),
+            ValidityClaim.CountAtLeast(count: degreeU, floor: 1), ValidityClaim.CountAtLeast(count: degreeV, floor: 1),
+            ValidityClaim.CountAtLeast(count: spanCountU, floor: 1), ValidityClaim.CountAtLeast(count: spanCountV, floor: 1),
+            edges is not null,
+            ValidityClaim.Nonnegative(value: stretching), ValidityClaim.Nonnegative(value: bending),
+            ValidityClaim.Nonnegative(value: rocBending), ValidityClaim.Finite(value: uvRotation),
+            ValidityClaim.CountAtLeast(count: maxRefinements, floor: 0),
+            ValidityClaim.WhenPresent(facet: initialSurface, claim: static handle => ModelClaim.Handle(handle: handle)));
 }
 
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
-public readonly partial struct LoftTangency {
+public readonly partial struct LoftTangency : IValidityEvidence {
     public GeometryHandle StartOwner { get; }
     public int StartTrim { get; }
     public GeometryHandle EndOwner { get; }
     public int EndTrim { get; }
-    public LoftTangentEnd Ends { get; }
+    public PairPosture Ends { get; }
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
@@ -403,69 +401,41 @@ public readonly partial struct LoftTangency {
         ref int startTrim,
         ref GeometryHandle endOwner,
         ref int endTrim,
-        ref LoftTangentEnd ends) {
-        if (!IsAdmissible(
-            startOwner: startOwner,
-            startTrim: startTrim,
-            endOwner: endOwner,
-            endTrim: endTrim,
-            ends: ends)) {
-            validationError = new ValidationError("Loft tangency requires owners, ends, and non-negative trim indices.");
-        }
-    }
+        ref PairPosture ends) =>
+        validationError = Admits(
+                startOwner: startOwner, startTrim: startTrim, endOwner: endOwner, endTrim: endTrim, ends: ends)
+            ? null
+            : new ValidationError("Loft tangency requires owners, non-negative trim indices, and at least one constrained end.");
 
-    internal bool Admissible => IsAdmissible(
-        startOwner: StartOwner,
-        startTrim: StartTrim,
-        endOwner: EndOwner,
-        endTrim: EndTrim,
-        ends: Ends);
+    public bool IsValid => Admits(
+        startOwner: StartOwner, startTrim: StartTrim, endOwner: EndOwner, endTrim: EndTrim, ends: Ends);
 
-    private static bool IsAdmissible(
-        GeometryHandle? startOwner,
-        int startTrim,
-        GeometryHandle? endOwner,
-        int endTrim,
-        LoftTangentEnd? ends) =>
-        startOwner is not null && endOwner is not null && ends is not null && startTrim >= 0 && endTrim >= 0;
+    // `PairPosture.Neither` names a tangency constraint that constrains neither end — legal as a pair value, inert
+    // as a loft constraint, so it is refused HERE instead of reaching a native that would ignore the whole row.
+    private static ValidityClaim Admits(
+        GeometryHandle? startOwner, int startTrim, GeometryHandle? endOwner, int endTrim, PairPosture? ends) =>
+        ValidityClaim.All(
+            ModelClaim.Handle(handle: startOwner), ModelClaim.Handle(handle: endOwner),
+            ValidityClaim.CountAtLeast(count: startTrim, floor: 0), ValidityClaim.CountAtLeast(count: endTrim, floor: 0),
+            ends is not null && ends != PairPosture.Neither);
 }
 ```
 
 ## [04]-[ALGEBRA]
 
-`LoftOp` is the sole construction algebra. `LoftRuntime` carries the host governance band — the token and fraction reporter a `ProgressLease` produces — into the one paced native this rail composes, while `VariationalThreading` names solver parallelism. Native engines and settings remain scoped to their consuming arm, and all solver side channels land as typed receipt facts.
+- Owner: `LoftSlot` `[SmartEnum<int>]` — the consequence vocabulary; `LoftOp` `[Union]` `[GenerateUnionOps]` — the sole construction algebra, each case carrying its generated `SelfOp`; `VariationalThreading` — the solver parallelism row; `Lofts` — the one entry, and the folder's runtime-bound variant of the spine.
+- Law: the governance band is CONSUMED, never minted — the spine's `ModelRuntime` carries the regime, the cancellation token, and the optional fraction reporter a `ProgressLease` produces (`HostUi/shell.md` is the package's ONE producer), so an `IProgress` shim or a `CancellationTokenSource` minted beside a lease is the forked form. With no lease the token is `CancellationToken.None` and the reporter lowers to `null`, which is exactly what `Brep.CreateVariationalPatch` reads as an unpaced run.
+- Law: the spine's `Context` is authoritative — `Apply` takes the regime the fold hands it AND the runtime that carries the band, so no arm reads a second context off the runtime and no parameter is discarded. Only the variational patch takes the band, so the token and reporter reach exactly one native and every other arm runs unpaced by the host's own shape.
+- Law: `Lofts.Build` materializes the operation span ahead of the runtime bind — a span cannot cross the `Eff.runtime<ModelRuntime>()` lambda — then runs the spine's `ModelGate.Entry` over the sequence, so capture, the non-empty guard, accumulating admission, the fold, and the bench stamp are the spine's and `Built<LoftSlot>.Bench` carries harvest evidence.
+- Law: admission NAMES its axis — `Admitted` dispatches the generated `Switch` into `ModelClaim.Admits`, so a sweep breaching station congruence AND rail refit reports both, and each nested `guard` inside an arm names the axis it gates instead of one shared refusal.
+- Law: compatibility is the CURVE rail's — `NurbsCurve.MakeCompatible` has one call site in the folder (`CurveOp.Compatible`), and the loft verb that wrapped the same native behind a second slot is deleted; a caller batching compatibility before a loft composes two operations in one `Build` spread, which is what this rail's own flow already described.
+- Law: variational evidence encodes native absence structurally — a nullable host channel lands a fact only through `ModelFact.Channel`, so an empty `Project` over its slot is the unknown verdict, a present `Flag`/`Text` fact is the answer, and an empty warning string stays distinct from a missing one.
+- Law: ruling solves split by what the host RETURNS — `DevelopableSrf.RulingMinTwist` answers `bool` and folds through `Op.Confirm`, while `DevelopableSrf.GetLocalDevopableRuling` answers `int` and lands that count/status as a `Code` fact beside its `UvRows` pair, because discarding it drops the only qualification the solved pair carries.
+- Growth: a new construction verb is one `LoftOp` case with its arm; a new solver channel is one `LoftSlot` row.
+- Packages: RhinoCommon solids (`.api/api-rhinocommon-solids.md` — `SweepOneRail`/`SweepTwoRail` `:39-40,50-51`, `Brep.CreateFromSweep*`, `Brep.CreateFromLoft*`, `Brep.CreatePatch`, `Brep.CreateVariationalPatch` `:94-100`, `Brep.CreateDevelopableLoft`, `DevelopableSrf.GetLocalDevopableRuling`/`RulingMinTwist`/`UntwistRulings` `:139-141`), kernel `Domain/rails` (`Op`, `[GenerateUnionOps]` + generated `SelfOp`, `Fin`), `Modeling/curves.md` (`ModelClaim`, `ModelFact`), `Modeling/solids.md` (`ModelGate`, `ModelRuntime`, `Built<TSlot>`, `BuildReceipt<TSlot>`, `BuildBody`), LanguageExt.Core (`Eff.runtime`, `Zip`, `Seq`), Thinktecture.Runtime.Extensions.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
-[ComplexValueObject]
-[StructLayout(LayoutKind.Auto)]
-public readonly partial struct LoftRuntime {
-    public Context Domain { get; }
-    public CancellationToken Cancellation { get; }
-    public Option<IProgress<double>> Progress { get; }
-
-    static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
-        ref Context domain,
-        ref CancellationToken cancellation,
-        ref Option<IProgress<double>> progress) {
-        if (domain is null) {
-            validationError = new ValidationError("Loft runtime requires a domain context.");
-        }
-    }
-
-    public static implicit operator Context(LoftRuntime runtime) => runtime.Domain;
-
-    // The governance band is consumed, never minted: `HostUi/shell.md` `ProgressLease` is the package's ONE producer,
-    // so a caller hands this carrier the lease's `Fraction` reporter and its escape-armed `Cancel` exactly as
-    // `MeshRuntime` and `ProjectionPacing` take them. An `IProgress` shim or a `CancellationTokenSource` minted beside
-    // a lease is the forked form; with no lease the token is `CancellationToken.None` and the reporter `null`, which
-    // is precisely what `Brep.CreateVariationalPatch` reads as an unpaced run.
-    internal IProgress<double>? Reporter => Progress.ValueUnsafe();
-
-    internal Fin<Built<LoftSlot>> Apply(LoftOp operation, Context _) => operation.Apply(this);
-}
-
 [SmartEnum<int>]
 public sealed partial class VariationalThreading {
     public static readonly VariationalThreading Serial = new(key: 0, native: false);
@@ -488,9 +458,9 @@ public sealed partial class LoftSlot {
     public static readonly LoftSlot G0 = new(key: 9);
     public static readonly LoftSlot G1 = new(key: 10);
     public static readonly LoftSlot G2 = new(key: 11);
-    public static readonly LoftSlot Compatible = new(key: 12);
 }
 
+[GenerateUnionOps]
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LoftOp {
     private LoftOp() { }
@@ -499,11 +469,10 @@ public abstract partial record LoftOp {
         SweepClosure Closure, SweepBlend Blend, SweepMiter Miter, CurveFit Fit, SweepOneMode Mode) : LoftOp;
     public sealed record SweepTwo(
         GeometryHandle Rail1, GeometryHandle Rail2, Seq<GeometryHandle> Shapes, SweepEnds Ends,
-        SweepClosure Closure, CurveFit Fit, FrozenSet<SweepTwoShapeFeature> Shape, SweepTwoStations Stations) : LoftOp;
+        SweepClosure Closure, CurveFit Fit, CapabilitySet<SweepTwoShapeFeature> Shape, SweepTwoStations Stations) : LoftOp;
     public sealed record Loft(
         Seq<GeometryHandle> Shapes, SweepEnds Ends, LoftType Kind, SweepClosure Closure,
         CurveFit Fit, Option<LoftTangency> Tangency = default) : LoftOp;
-    public sealed record MakeCompatible(Seq<GeometryHandle> Shapes, SweepEnds Ends, CurveCompatibility Law) : LoftOp;
     public sealed record Patch(Seq<GeometryHandle> Geometry, Option<GeometryHandle> StartingSurface, PatchLaw Law) : LoftOp;
     public sealed record Variational(
         Seq<(GeometryHandle Curve, Continuity Continuity)> Edges,
@@ -515,99 +484,75 @@ public abstract partial record LoftOp {
     public sealed record AdjustRulings(GeometryHandle Rail0, GeometryHandle Rail1, Seq<Point2d> Rulings) : LoftOp;
 
     internal Fin<LoftOp> Admitted(Op key) =>
-        guard(this switch {
-            SweepOne edit => edit.Rail is not null
-                && Handles(edit.Shapes)
-                && edit.Frame is { Admissible: true }
-                && edit.Ends.Admissible
-                && edit.Closure is not null
-                && edit.Fit is { Admissible: true }
-                && Enum.IsDefined(edit.Blend)
-                && Enum.IsDefined(edit.Miter)
-                && SweepOneAdmitted(edit.Mode),
-            SweepTwo edit => edit.Rail1 is not null
-                && edit.Rail2 is not null
-                && Handles(edit.Shapes)
-                && edit.Ends.Admissible
-                && edit.Closure is not null
-                && edit.Fit is { Admissible: true }
-                && Lofts.Declared(values: edit.Shape, rows: SweepTwoShapeFeature.Items)
-                && SweepTwoAdmitted(edit.Stations),
-            Loft edit => Handles(edit.Shapes)
-                && edit.Ends.Admissible
-                && edit.Closure is not null
-                && edit.Fit is { Admissible: true }
-                && Enum.IsDefined(edit.Kind)
-                && edit.Tangency.ForAll(static tangency => tangency.Admissible),
-            MakeCompatible edit => Handles(edit.Shapes) && edit.Ends.Admissible && edit.Law.Admissible,
-            Patch edit => Handles(edit.Geometry)
-                && edit.StartingSurface.ForAll(static handle => handle is not null)
-                && edit.Law.Admissible,
-            Variational edit => Constraints(edit.Edges)
-                && Constraints(edit.InternalCurves, allowEmpty: true)
-                && edit.Points.ForAll(static point => point.IsValid)
-                && edit.Law.Admissible
-                && edit.Threading is not null,
-            Developable edit => edit.Rail0 is not null
-                && edit.Rail1 is not null
-                && DevelopableAdmitted(edit.Law),
-            SolveRuling edit => edit.Rail0 is not null && edit.Rail1 is not null
-                && edit.Seed.IsValid && RulingAdmitted(edit.Law),
-            AdjustRulings edit => edit.Rail0 is not null && edit.Rail1 is not null
-                && !edit.Rulings.IsEmpty && edit.Rulings.ForAll(static ruling => ruling.IsValid),
-            _ => false,
-        }, key.InvalidInput()).ToFin().Map(_ => this);
-
-    private static bool Handles(Seq<GeometryHandle> handles, bool allowEmpty = false) =>
-        (allowEmpty || !handles.IsEmpty) && handles.ForAll(static handle => handle is not null);
-
-    private static bool Constraints(
-        Seq<(GeometryHandle Curve, Continuity Continuity)> rows,
-        bool allowEmpty = false) =>
-        (allowEmpty || !rows.IsEmpty)
-        && rows.ForAll(static row => row.Curve is not null && Enum.IsDefined(row.Continuity));
-
-    private static bool DevelopableAdmitted(DevelopableLaw? law) => law switch {
-        DevelopableLaw.ByDensity { Direction: not null, Density: > 0 } => true,
-        DevelopableLaw.ByRulings edit => !edit.FixedRulings.IsEmpty
-            && edit.FixedRulings.ForAll(static ruling => ruling.IsValid),
-        _ => false,
-    };
-
-    private static bool RulingAdmitted(RulingSolve? law) => law switch {
-        RulingSolve.Local edit => edit.Domain0.IsValid && edit.Domain1.IsValid,
-        RulingSolve.MinTwistSecond edit => edit.Domain1.IsValid,
-        RulingSolve.MinTwistBoth edit => edit.Domain0.IsValid && edit.Domain1.IsValid,
-        _ => false,
-    };
-
-    private static bool SweepOneAdmitted(SweepOneMode? mode) => mode switch {
-        SweepOneMode.Static or SweepOneMode.Segmented => true,
-        SweepOneMode.Parameterized edit => edit.ShapeParameters.ForAll(static parameter => double.IsFinite(parameter)),
-        _ => false,
-    };
-
-    private static bool SweepTwoAdmitted(SweepTwoStations? stations) => stations switch {
-        SweepTwoStations.Static => true,
-        SweepTwoStations.Engine edit => edit.Rail1.ForAll(static parameter => double.IsFinite(parameter))
-            && edit.Rail2.ForAll(static parameter => double.IsFinite(parameter)),
-        SweepTwoStations.Partitioned edit => edit.RailParameters.ForAll(static parameter => parameter.IsValid),
-        _ => false,
-    };
-
-    internal Fin<Built<LoftSlot>> Apply(LoftRuntime runtime) =>
         Switch(
-            runtime,
+            context: key,
+            sweepOne: static (op, row) => ModelClaim.Admits(row, op,
+                (nameof(row.Rail), ModelClaim.Handle(handle: row.Rail)),
+                (nameof(row.Shapes), ModelClaim.Handles(handles: row.Shapes)),
+                (nameof(row.Frame), row.Frame is { IsValid: true }),
+                (nameof(row.Ends), row.Ends.IsValid),
+                (nameof(row.Closure), row.Closure is not null),
+                (nameof(row.Fit), row.Fit is { IsValid: true }),
+                (nameof(row.Blend), Enum.IsDefined(row.Blend)),
+                (nameof(row.Miter), Enum.IsDefined(row.Miter)),
+                (nameof(row.Mode), row.Mode is { IsValid: true })),
+            sweepTwo: static (op, row) => ModelClaim.Admits(row, op,
+                (nameof(row.Rail1), ModelClaim.Handle(handle: row.Rail1)),
+                (nameof(row.Rail2), ModelClaim.Handle(handle: row.Rail2)),
+                (nameof(row.Shapes), ModelClaim.Handles(handles: row.Shapes)),
+                (nameof(row.Ends), row.Ends.IsValid),
+                (nameof(row.Closure), row.Closure is not null),
+                (nameof(row.Fit), row.Fit is { IsValid: true }),
+                (nameof(row.Stations), row.Stations is { IsValid: true })),
+            loft: static (op, row) => ModelClaim.Admits(row, op,
+                (nameof(row.Shapes), ModelClaim.Handles(handles: row.Shapes)),
+                (nameof(row.Ends), row.Ends.IsValid),
+                (nameof(row.Closure), row.Closure is not null),
+                (nameof(row.Fit), row.Fit is { IsValid: true }),
+                (nameof(row.Kind), Enum.IsDefined(row.Kind) && row.Kind != LoftType.Developable),
+                (nameof(row.Tangency), ValidityClaim.Evidence(evidence: row.Tangency))),
+            patch: static (op, row) => ModelClaim.Admits(row, op,
+                (nameof(row.Geometry), ModelClaim.Handles(handles: row.Geometry)),
+                (nameof(row.StartingSurface), ValidityClaim.WhenPresent(
+                    facet: row.StartingSurface, claim: static handle => ModelClaim.Handle(handle: handle))),
+                (nameof(row.Law), row.Law.IsValid)),
+            variational: static (op, row) => ModelClaim.Admits(row, op,
+                (nameof(row.Edges), Constraints(rows: row.Edges)),
+                (nameof(row.InternalCurves), Constraints(rows: row.InternalCurves, allowEmpty: true)),
+                (nameof(row.Points), ModelClaim.Points(points: row.Points, allowEmpty: true)),
+                (nameof(row.Law), row.Law.IsValid),
+                (nameof(row.Threading), row.Threading is not null)),
+            developable: static (op, row) => ModelClaim.Admits(row, op,
+                (nameof(row.Rail0), ModelClaim.Handle(handle: row.Rail0)),
+                (nameof(row.Rail1), ModelClaim.Handle(handle: row.Rail1)),
+                (nameof(row.Law), row.Law is { IsValid: true })),
+            solveRuling: static (op, row) => ModelClaim.Admits(row, op,
+                (nameof(row.Rail0), ModelClaim.Handle(handle: row.Rail0)),
+                (nameof(row.Rail1), ModelClaim.Handle(handle: row.Rail1)),
+                (nameof(row.Seed), row.Seed.IsValid),
+                (nameof(row.Law), row.Law is { IsValid: true })),
+            adjustRulings: static (op, row) => ModelClaim.Admits(row, op,
+                (nameof(row.Rail0), ModelClaim.Handle(handle: row.Rail0)),
+                (nameof(row.Rail1), ModelClaim.Handle(handle: row.Rail1)),
+                (nameof(row.Rulings), ModelClaim.Rows(rows: row.Rulings, claim: static ruling => (ValidityClaim)ruling.IsValid))));
+
+    private static ValidityClaim Constraints(
+        Seq<(GeometryHandle Curve, Continuity Continuity)> rows, bool allowEmpty = false) =>
+        ModelClaim.Rows(rows: rows, allowEmpty: allowEmpty, claim: static row => ValidityClaim.All(
+            ModelClaim.Handle(handle: row.Curve), Enum.IsDefined(row.Continuity)));
+
+    internal Fin<Built<LoftSlot>> Apply(Context domain, ModelRuntime runtime) =>
+        Switch(
+            (Domain: domain, Runtime: runtime),
             sweepOne: static (model, edit) => {
-                Op op = Op.Of(name: nameof(SweepOne));
+                Op op = SweepOne.SelfOp;
                 return ModelGate.Borrow<Curve, Built<LoftSlot>>(handle: edit.Rail, key: op, body: rail =>
                     ModelGate.BorrowMany<Curve, Built<LoftSlot>>(handles: edit.Shapes, key: op, body: shapes =>
                         edit.Mode.Switch(
                             parameterized: parameterized =>
-                                from _ in guard(
-                                    parameterized.ShapeParameters.Count == shapes.Count && edit.Ends.Start.IsNone && edit.Ends.End.IsNone
-                                    && !edit.Fit.IncludesRails,
-                                    op.InvalidInput())
+                                from _ in guard(parameterized.ShapeParameters.Count == shapes.Count, op.InvalidInput(axis: nameof(SweepOneMode.Parameterized.ShapeParameters)))
+                                from __ in guard(edit.Ends.Start.IsNone && edit.Ends.End.IsNone, op.InvalidInput(axis: nameof(edit.Ends)))
+                                from ___ in guard(!edit.Fit.IncludesRails, op.InvalidInput(axis: nameof(edit.Fit)))
                                 from built in op.Catch(() => {
                                     SweepOneRail engine = new() {
                                         SweepTolerance = model.Domain.Absolute.Value,
@@ -617,7 +562,7 @@ public abstract partial record LoftOp {
                                         MiterType = (int)edit.Miter,
                                     };
                                     _ = edit.Frame.Rig(engine: engine);
-                                    (SweepRebuild kind, int points, double refit, _) = edit.Fit.Native(domain: model);
+                                    (SweepRebuild kind, int points, double refit, _) = edit.Fit.Native(domain: model.Domain);
                                     return ModelGate.Many(op, LoftSlot.Swept, () => kind switch {
                                         SweepRebuild.Rebuild => engine.PerformSweepRebuild(rail, shapes.AsIterable(), parameterized.ShapeParameters.AsIterable(), points),
                                         SweepRebuild.Refit => engine.PerformSweepRefit(rail, shapes.AsIterable(), parameterized.ShapeParameters.AsIterable(), refit),
@@ -626,10 +571,10 @@ public abstract partial record LoftOp {
                                 })
                                 select built,
                             segmented: _ =>
-                                from _ in guard(!edit.Fit.IncludesRails, op.InvalidInput())
+                                from _ in guard(!edit.Fit.IncludesRails, op.InvalidInput(axis: nameof(edit.Fit)))
                                 from built in op.Catch(() => {
                                     (SweepFrame frame, Vector3d normal) = edit.Frame.Native;
-                                    (SweepRebuild kind, int points, double refit, _) = edit.Fit.Native(domain: model);
+                                    (SweepRebuild kind, int points, double refit, _) = edit.Fit.Native(domain: model.Domain);
                                     return ModelGate.Many(op, LoftSlot.Swept, () => Brep.CreateFromSweepSegmented(
                                         rail: rail, shapes: shapes.AsIterable(), startPoint: edit.Ends.StartOrUnset, endPoint: edit.Ends.EndOrUnset,
                                         frameType: frame, roadlikeNormal: normal, closed: edit.Closure.Native, blendType: edit.Blend, miterType: edit.Miter,
@@ -638,7 +583,7 @@ public abstract partial record LoftOp {
                                 select built,
                             @static: _ => op.Catch(() => {
                                     (SweepFrame frame, Vector3d normal) = edit.Frame.Native;
-                                    (SweepRebuild kind, int points, double refit, bool refitRail) = edit.Fit.Native(domain: model);
+                                    (SweepRebuild kind, int points, double refit, bool refitRail) = edit.Fit.Native(domain: model.Domain);
                                     return ModelGate.Many(op, LoftSlot.Swept, () => Brep.CreateFromSweep(
                                         rail: rail, shapes: shapes.AsIterable(), startPoint: edit.Ends.StartOrUnset, endPoint: edit.Ends.EndOrUnset,
                                         frameType: frame, roadlikeNormal: normal, closed: edit.Closure.Native, blendType: edit.Blend, miterType: edit.Miter,
@@ -646,26 +591,26 @@ public abstract partial record LoftOp {
                                 }))));
             },
             sweepTwo: static (model, edit) => {
-                Op op = Op.Of(name: nameof(SweepTwo));
+                Op op = SweepTwo.SelfOp;
                 return ModelGate.Borrow<Curve, Built<LoftSlot>>(handle: edit.Rail1, key: op, body: rail1 =>
                     ModelGate.Borrow<Curve, Built<LoftSlot>>(handle: edit.Rail2, key: op, body: rail2 =>
                         ModelGate.BorrowMany<Curve, Built<LoftSlot>>(handles: edit.Shapes, key: op, body: shapes =>
                             edit.Stations.Switch(
                                 engine: stations =>
                                     from _ in guard(
-                                        stations.Rail1.Count == shapes.Count && stations.Rail2.Count == shapes.Count
-                                        && edit.Ends.Start.IsNone && edit.Ends.End.IsNone
-                                        && !edit.Fit.IncludesRails,
-                                        op.InvalidInput())
+                                        stations.Rail1.Count == shapes.Count && stations.Rail2.Count == shapes.Count,
+                                        op.InvalidInput(axis: nameof(SweepTwoStations.Engine)))
+                                    from __ in guard(edit.Ends.Start.IsNone && edit.Ends.End.IsNone, op.InvalidInput(axis: nameof(edit.Ends)))
+                                    from ___ in guard(!edit.Fit.IncludesRails, op.InvalidInput(axis: nameof(edit.Fit)))
                                     from built in op.Catch(() => {
                                         SweepTwoRail engine = new() {
                                             SweepTolerance = model.Domain.Absolute.Value,
                                             AngleToleranceRadians = model.Domain.Angle.Value,
                                             ClosedSweep = edit.Closure.Native,
-                                            MaintainHeight = edit.Shape.Contains(SweepTwoShapeFeature.MaintainHeight),
-                                            AutoAdjust = edit.Shape.Contains(SweepTwoShapeFeature.AutoAdjust),
+                                            MaintainHeight = edit.Shape.Admits(capability: SweepTwoShapeFeature.MaintainHeight),
+                                            AutoAdjust = edit.Shape.Admits(capability: SweepTwoShapeFeature.AutoAdjust),
                                         };
-                                        (SweepRebuild kind, int points, double refit, _) = edit.Fit.Native(domain: model);
+                                        (SweepRebuild kind, int points, double refit, _) = edit.Fit.Native(domain: model.Domain);
                                         return ModelGate.Many(op, LoftSlot.Swept, () => kind switch {
                                             SweepRebuild.Rebuild => engine.PerformSweepRebuild(
                                                 rail1, rail2, shapes.AsIterable(), stations.Rail1.AsIterable(), stations.Rail2.AsIterable(), points),
@@ -677,67 +622,45 @@ public abstract partial record LoftOp {
                                     })
                                     select built,
                                 partitioned: stations =>
-                                    from _ in guard(
-                                        stations.RailParameters.Count == shapes.Count && edit.Ends.Start.IsNone && edit.Ends.End.IsNone
-                                        && edit.Fit is CurveFit.AsIs
-                                        && edit.Shape.SetEquals([SweepTwoShapeFeature.AutoAdjust]),
-                                        op.InvalidInput())
+                                    from _ in guard(stations.RailParameters.Count == shapes.Count, op.InvalidInput(axis: nameof(SweepTwoStations.Partitioned.RailParameters)))
+                                    from __ in guard(edit.Ends.Start.IsNone && edit.Ends.End.IsNone, op.InvalidInput(axis: nameof(edit.Ends)))
+                                    from ___ in guard(edit.Fit is CurveFit.AsIs, op.InvalidInput(axis: nameof(edit.Fit)))
+                                    // `CreateFromSweepInParts` reads auto-adjust alone, so the partitioned mode's legal
+                                    // corner is the singleton grant set and nothing else.
+                                    from ____ in guard(
+                                        edit.Shape == CapabilitySet<SweepTwoShapeFeature>.Of(SweepTwoShapeFeature.AutoAdjust),
+                                        op.InvalidInput(axis: nameof(edit.Shape)))
                                     from built in op.Catch(() => ModelGate.Many(op, LoftSlot.Swept, () => Brep.CreateFromSweepInParts(
                                         rail1: rail1, rail2: rail2, shapes: shapes.AsIterable(),
                                         rail_params: stations.RailParameters.AsIterable(), closed: edit.Closure.Native, tolerance: model.Domain.Absolute.Value)))
                                     select built,
                                 @static: _ =>
-                                    from _ in guard(!edit.Fit.IncludesRails, op.InvalidInput())
+                                    from _ in guard(!edit.Fit.IncludesRails, op.InvalidInput(axis: nameof(edit.Fit)))
                                     from built in op.Catch(() => {
-                                        (SweepRebuild kind, int points, double refit, _) = edit.Fit.Native(domain: model);
+                                        (SweepRebuild kind, int points, double refit, _) = edit.Fit.Native(domain: model.Domain);
                                         return ModelGate.Many(op, LoftSlot.Swept, () => Brep.CreateFromSweep(
                                             rail1: rail1, rail2: rail2, shapes: shapes.AsIterable(),
                                             start: edit.Ends.StartOrUnset, end: edit.Ends.EndOrUnset, closed: edit.Closure.Native,
                                             tolerance: model.Domain.Absolute.Value, rebuild: kind, rebuildPointCount: points, refitTolerance: refit,
-                                            preserveHeight: edit.Shape.Contains(SweepTwoShapeFeature.MaintainHeight),
-                                            autoAdjust: edit.Shape.Contains(SweepTwoShapeFeature.AutoAdjust)));
+                                            preserveHeight: edit.Shape.Admits(capability: SweepTwoShapeFeature.MaintainHeight),
+                                            autoAdjust: edit.Shape.Admits(capability: SweepTwoShapeFeature.AutoAdjust)));
                                     })
                                     select built))));
             },
-            makeCompatible: static (model, edit) => {
-                Op op = Op.Of(name: nameof(MakeCompatible));
-                return ModelGate.BorrowMany<Curve, Built<LoftSlot>>(handles: edit.Shapes, key: op, body: shapes =>
-                    op.Catch(() => ModelGate.OwnMany(
-                            built: NurbsCurve.MakeCompatible(
-                                curves: shapes.AsIterable(),
-                                startPt: edit.Ends.StartOrUnset,
-                                endPt: edit.Ends.EndOrUnset,
-                                simplifyMethod: edit.Law.SimplifyMethod,
-                                numPoints: edit.Law.PointCount,
-                                refitTolerance: model.Domain.Absolute.Value,
-                                angleTolerance: model.Domain.Angle.Value),
-                            key: op)
-                        .Map(owned => Built<LoftSlot>.Of(
-                            operation: op,
-                            Products: owned,
-                            Evidence: BuildReceipt<LoftSlot>.Of(
-                                slot: LoftSlot.Compatible,
-                                body: new BuildBody.Tally(Count: owned.Count))))));
-            },
             loft: static (model, edit) => {
-                Op op = Op.Of(name: nameof(Loft));
-                return from _ in guard(
-                           edit.Kind != LoftType.Developable &&
-                           !edit.Fit.IncludesRails,
-                           op.InvalidInput())
+                Op op = Loft.SelfOp;
+                return from _ in guard(!edit.Fit.IncludesRails, op.InvalidInput(axis: nameof(edit.Fit)))
                        from built in ModelGate.BorrowMany<Curve, Built<LoftSlot>>(handles: edit.Shapes, key: op, body: shapes =>
                            edit.Tangency.Case switch {
                         LoftTangency tangency => ModelGate.Borrow<Brep, Built<LoftSlot>>(handle: tangency.StartOwner, key: op, body: startOwner =>
                             ModelGate.Borrow<Brep, Built<LoftSlot>>(handle: tangency.EndOwner, key: op, body: endOwner =>
-                                from _ in guard(
-                                    tangency.StartTrim < startOwner.Trims.Count
-                                    && tangency.EndTrim < endOwner.Trims.Count
-                                    && edit.Fit is CurveFit.AsIs,
-                                    op.InvalidInput())
+                                from _ in guard(tangency.StartTrim < startOwner.Trims.Count, op.InvalidInput(axis: nameof(tangency.StartTrim)))
+                                from __ in guard(tangency.EndTrim < endOwner.Trims.Count, op.InvalidInput(axis: nameof(tangency.EndTrim)))
+                                from ___ in guard(edit.Fit is CurveFit.AsIs, op.InvalidInput(axis: nameof(edit.Fit)))
                                 from built in op.Catch(() => ModelGate.Many(op, LoftSlot.Lofted, () => Brep.CreateFromLoft(
                                     curves: shapes.AsIterable(), start: edit.Ends.StartOrUnset, end: edit.Ends.EndOrUnset,
-                                    StartTangent: tangency.Ends.Native.Start,
-                                    EndTangent: tangency.Ends.Native.End,
+                                    StartTangent: tangency.Ends.First,
+                                    EndTangent: tangency.Ends.Second,
                                     StartTrim: startOwner.Trims[tangency.StartTrim], EndTrim: endOwner.Trims[tangency.EndTrim],
                                     loftType: edit.Kind, closed: edit.Closure.Native)))
                                 select built)),
@@ -756,32 +679,20 @@ public abstract partial record LoftOp {
                        select built;
             },
             patch: static (model, edit) => {
-                Op op = Op.Of(name: nameof(Patch));
+                Op op = Patch.SelfOp;
                 return ModelGate.BorrowMany<GeometryBase, Built<LoftSlot>>(handles: edit.Geometry, key: op, body: constraints =>
                     edit.StartingSurface.Case switch {
                         GeometryHandle starting => ModelGate.Borrow<Surface, Built<LoftSlot>>(handle: starting, key: op,
-                            body: surface => ModelGate.Single(op, LoftSlot.Patched, () => Brep.CreatePatch(
-                                geometry: constraints.AsIterable(), startingSurface: surface,
-                                uSpans: edit.Law.USpans, vSpans: edit.Law.VSpans,
-                                trim: edit.Law.Behavior.Contains(PatchBehavior.Trim),
-                                tangency: edit.Law.Behavior.Contains(PatchBehavior.Tangency),
-                                pointSpacing: edit.Law.PointSpacing, flexibility: edit.Law.Flexibility, surfacePull: edit.Law.SurfacePull,
-                                fixEdges: edit.Law.FixedEdges, tolerance: model.Domain.Absolute.Value))),
-                        _ => ModelGate.Single(op, LoftSlot.Patched, () => Brep.CreatePatch(
-                            geometry: constraints.AsIterable(), startingSurface: null,
-                            uSpans: edit.Law.USpans, vSpans: edit.Law.VSpans,
-                            trim: edit.Law.Behavior.Contains(PatchBehavior.Trim),
-                            tangency: edit.Law.Behavior.Contains(PatchBehavior.Tangency),
-                            pointSpacing: edit.Law.PointSpacing, flexibility: edit.Law.Flexibility, surfacePull: edit.Law.SurfacePull,
-                            fixEdges: edit.Law.FixedEdges, tolerance: model.Domain.Absolute.Value)),
+                            body: surface => Patched(op: op, edit: edit, constraints: constraints, starting: Some(surface), model: model.Domain)),
+                        _ => Patched(op: op, edit: edit, constraints: constraints, starting: Option<Surface>.None, model: model.Domain),
                     });
             },
             variational: static (model, edit) => {
-                Op op = Op.Of(name: nameof(Variational));
+                Op op = Variational.SelfOp;
                 return ModelGate.BorrowMany<Curve, Built<LoftSlot>>(handles: edit.Edges.Map(static row => row.Curve), key: op, body: edgeCurves =>
                     ModelGate.BorrowMany<Curve, Built<LoftSlot>>(handles: edit.InternalCurves.Map(static row => row.Curve), key: op, allowEmpty: true, body: interiorCurves => {
                         Fin<Built<LoftSlot>> Solve(Option<Surface> initial) =>
-                            from settings in edit.Law.Rig(domain: model, initial: initial, key: op)
+                            from settings in edit.Law.Rig(domain: model.Domain, initial: initial, key: op)
                             from built in op.Catch(() => {
                                 Brep patch = Brep.CreateVariationalPatch(
                                     edges: edgeCurves.Zip(edit.Edges.Map(static row => row.Continuity))
@@ -790,20 +701,20 @@ public abstract partial record LoftOp {
                                         .Map(static pair => new Brep.CurveConstraint(curve: pair.First, continuity: pair.Second)).AsIterable(),
                                     points: edit.Points.Map(static point => new Brep.PointConstraint(point: point)).AsIterable(),
                                     settings: settings, multiThreading: edit.Threading.Native,
-                                    cancelToken: model.Cancellation,
-                                    progress: model.Reporter,
+                                    cancelToken: model.Runtime.Cancellation,
+                                    progress: Op.ToHostSlot(value: model.Runtime.ScalarProgress),
                                     results: out Brep.VariationalPatchResult verdict);
                                 return ModelGate.Own(built: patch, key: op).Map(owned => Built<LoftSlot>.Of(
                                     operation: op,
                                     Products: Seq(owned),
                                     Evidence: BuildReceipt<LoftSlot>.Of(slot: LoftSlot.Solved, body: new BuildBody.Tally(Count: 1))
-                                        + Channel(slot: LoftSlot.Warning, value: Optional(verdict.Warning).Map(static detail => (BuildBody)new BuildBody.Text(Value: detail)))
-                                        + Channel(slot: LoftSlot.Error, value: Optional(verdict.Error).Map(static detail => (BuildBody)new BuildBody.Text(Value: detail)))
-                                        + Channel(slot: LoftSlot.G0Interior, value: Optional(verdict.G0Int).Map(static held => (BuildBody)new BuildBody.Flag(Value: held)))
-                                        + Channel(slot: LoftSlot.G0, value: Optional(verdict.G0).Map(static held => (BuildBody)new BuildBody.Flag(Value: held)))
-                                        + Channel(slot: LoftSlot.G1, value: Optional(verdict.G1).Map(static held => (BuildBody)new BuildBody.Flag(Value: held)))
-                                        + Channel(slot: LoftSlot.G2, value: Optional(verdict.G2).Map(static held => (BuildBody)new BuildBody.Flag(Value: held)))));
-                            })
+                                        + ModelFact.Channel(slot: LoftSlot.Warning, value: Optional(verdict.Warning).Map(static detail => (BuildBody)new BuildBody.Text(Value: detail)))
+                                        + ModelFact.Channel(slot: LoftSlot.Error, value: Optional(verdict.Error).Map(static detail => (BuildBody)new BuildBody.Text(Value: detail)))
+                                        + ModelFact.Channel(slot: LoftSlot.G0Interior, value: Optional(verdict.G0Int).Map(static held => (BuildBody)new BuildBody.Flag(Value: held)))
+                                        + ModelFact.Channel(slot: LoftSlot.G0, value: Optional(verdict.G0).Map(static held => (BuildBody)new BuildBody.Flag(Value: held)))
+                                        + ModelFact.Channel(slot: LoftSlot.G1, value: Optional(verdict.G1).Map(static held => (BuildBody)new BuildBody.Flag(Value: held)))
+                                        + ModelFact.Channel(slot: LoftSlot.G2, value: Optional(verdict.G2).Map(static held => (BuildBody)new BuildBody.Flag(Value: held)))));
+                            }, token: model.Runtime.Cancellation)
                             select built;
                         return edit.Law.InitialSurface.Case switch {
                             GeometryHandle seed => ModelGate.Borrow<Surface, Built<LoftSlot>>(handle: seed, key: op, body: surface => Solve(initial: Some(surface))),
@@ -811,32 +722,29 @@ public abstract partial record LoftOp {
                         };
                     }));
             },
-            developable: static (_, edit) => {
-                Op op = Op.Of(name: nameof(Developable));
-                return edit.Law.Switch(
-                    (Edit: edit, Op: op),
-                    byDensity: static (ctx, law) => ModelGate.Borrow<Curve, Built<LoftSlot>>(handle: ctx.Edit.Rail0, key: ctx.Op, body: rail0 =>
-                        ModelGate.Borrow<Curve, Built<LoftSlot>>(handle: ctx.Edit.Rail1, key: ctx.Op, body: rail1 =>
-                            ModelGate.Many(ctx.Op, LoftSlot.Developed, () => Brep.CreateDevelopableLoft(
-                                crv0: rail0,
-                                crv1: rail1,
-                                reverse0: law.Direction.Native.ReverseRail0,
-                                reverse1: law.Direction.Native.ReverseRail1,
-                                density: law.Density)))),
-                    byRulings: static (ctx, law) => ModelGate.Borrow<NurbsCurve, Built<LoftSlot>>(handle: ctx.Edit.Rail0, key: ctx.Op, body: rail0 =>
-                        ModelGate.Borrow<NurbsCurve, Built<LoftSlot>>(handle: ctx.Edit.Rail1, key: ctx.Op, body: rail1 =>
-                            ModelGate.Many(ctx.Op, LoftSlot.Developed, () => Brep.CreateDevelopableLoft(
-                                rail0: rail0, rail1: rail1, fixedRulings: law.FixedRulings.AsIterable())))));
-            },
+            developable: static (_, edit) => edit.Law.Switch(
+                (Edit: edit, Op: Developable.SelfOp),
+                byDensity: static (ctx, law) => ModelGate.Borrow<Curve, Built<LoftSlot>>(handle: ctx.Edit.Rail0, key: ctx.Op, body: rail0 =>
+                    ModelGate.Borrow<Curve, Built<LoftSlot>>(handle: ctx.Edit.Rail1, key: ctx.Op, body: rail1 =>
+                        ModelGate.Many(ctx.Op, LoftSlot.Developed, () => Brep.CreateDevelopableLoft(
+                            crv0: rail0,
+                            crv1: rail1,
+                            reverse0: law.Reverse.First,
+                            reverse1: law.Reverse.Second,
+                            density: law.Density)))),
+                byRulings: static (ctx, law) => ModelGate.Borrow<NurbsCurve, Built<LoftSlot>>(handle: ctx.Edit.Rail0, key: ctx.Op, body: rail0 =>
+                    ModelGate.Borrow<NurbsCurve, Built<LoftSlot>>(handle: ctx.Edit.Rail1, key: ctx.Op, body: rail1 =>
+                        ModelGate.Many(ctx.Op, LoftSlot.Developed, () => Brep.CreateDevelopableLoft(
+                            rail0: rail0, rail1: rail1, fixedRulings: law.FixedRulings.AsIterable()))))),
             solveRuling: static (_, edit) => {
-                Op op = Op.Of(name: nameof(SolveRuling));
+                Op op = SolveRuling.SelfOp;
                 return ModelGate.Borrow<NurbsCurve, Built<LoftSlot>>(handle: edit.Rail0, key: op, body: rail0 =>
                     ModelGate.Borrow<NurbsCurve, Built<LoftSlot>>(handle: edit.Rail1, key: op, body: rail1 =>
                         edit.Law.Switch(
                             (Rail0: rail0, Rail1: rail1, Seed: edit.Seed, Op: op),
-                            // `Rhino.Geometry.DevelopableSrf.GetLocalDevopableRuling` answers `int`, not `bool`: the value
-                            // is the solver's ruling count/status beside the two solved parameters, so it lands as a
-                            // `Code` fact the consumer reads to qualify the `UvRows` pair rather than being discarded.
+                            // `DevelopableSrf.GetLocalDevopableRuling` answers `int`, not `bool`: the value is the
+                            // solver's ruling count/status beside the two solved parameters, so it lands as a `Code`
+                            // fact the consumer reads to qualify the `UvRows` pair rather than being discarded.
                             local: static (ctx, law) => ctx.Op.Catch(() => {
                                 double t0 = ctx.Seed.X;
                                 double t1 = ctx.Seed.Y;
@@ -844,11 +752,7 @@ public abstract partial record LoftOp {
                                     rail0: ctx.Rail0, t0: ctx.Seed.X, dom0: law.Domain0,
                                     rail1: ctx.Rail1, t1: ctx.Seed.Y, dom1: law.Domain1,
                                     t0_out: ref t0, t1_out: ref t1);
-                                return Fin.Succ(value: Built<LoftSlot>.Of(
-                                    operation: ctx.Op,
-                                    Products: Seq<GeometryHandle>(),
-                                    Evidence: BuildReceipt<LoftSlot>.Of(slot: LoftSlot.Rulings, body: new BuildBody.UvRows(Rows: Seq(new Point2d(t0, t1))))
-                                        + BuildReceipt<LoftSlot>.Of(slot: LoftSlot.Rulings, body: new BuildBody.Code(Value: verdict))));
+                                return Fin.Succ(value: RulingBuilt(operation: ctx.Op, t0: t0, t1: t1, code: Some(verdict)));
                             }),
                             minTwistSecond: static (ctx, law) => ctx.Op.Catch(() => {
                                 double t1 = ctx.Seed.Y;
@@ -856,7 +760,7 @@ public abstract partial record LoftOp {
                                 return ctx.Op.Confirm(success: DevelopableSrf.RulingMinTwist(
                                         rail0: ctx.Rail0, t0: ctx.Seed.X, rail1: ctx.Rail1, t1: ctx.Seed.Y,
                                         dom1: law.Domain1, t1_out: ref t1, cos_twist_out: ref cosine))
-                                    .Map(_ => RulingBuilt(operation: ctx.Op, t0: ctx.Seed.X, t1: t1, cosine: cosine));
+                                    .Map(_ => RulingBuilt(operation: ctx.Op, t0: ctx.Seed.X, t1: t1, cosine: Some(cosine)));
                             }),
                             minTwistBoth: static (ctx, law) => ctx.Op.Catch(() => {
                                 double t0 = ctx.Seed.X;
@@ -866,14 +770,17 @@ public abstract partial record LoftOp {
                                         rail0: ctx.Rail0, t0: ctx.Seed.X, dom0: law.Domain0,
                                         rail1: ctx.Rail1, t1: ctx.Seed.Y, dom1: law.Domain1,
                                         t0_out: ref t0, t1_out: ref t1, cos_twist_out: ref cosine))
-                                    .Map(_ => RulingBuilt(operation: ctx.Op, t0: t0, t1: t1, cosine: cosine));
+                                    .Map(_ => RulingBuilt(operation: ctx.Op, t0: t0, t1: t1, cosine: Some(cosine)));
                             }))));
             },
             adjustRulings: static (_, edit) => {
-                Op op = Op.Of(name: nameof(AdjustRulings));
+                Op op = AdjustRulings.SelfOp;
                 return ModelGate.Borrow<NurbsCurve, Built<LoftSlot>>(handle: edit.Rail0, key: op, body: rail0 =>
                     ModelGate.Borrow<NurbsCurve, Built<LoftSlot>>(handle: edit.Rail1, key: op, body: rail1 =>
                         op.Catch(() => {
+                            // `UntwistRulings` takes its ruling spread by `ref` and writes the adjusted set back into
+                            // that same slot, so the local is read AFTER the call and no value-returning shape meets
+                            // this host contract.
                             System.Collections.Generic.IEnumerable<Point2d> rulings = edit.Rulings.AsIterable();
                             return op.Confirm(success: DevelopableSrf.UntwistRulings(rail0: rail0, rail1: rail1, rulings: ref rulings))
                                 .Map(_ => Built<LoftSlot>.Of(
@@ -883,44 +790,44 @@ public abstract partial record LoftOp {
                         })));
             });
 
-    private static BuildReceipt<LoftSlot> Channel(LoftSlot slot, Option<BuildBody> value) =>
-        value.Map(body => BuildReceipt<LoftSlot>.Of(slot: slot, body: body)).IfNone(BuildReceipt<LoftSlot>.Empty);
+    private static Fin<Built<LoftSlot>> Patched(
+        Op op, Patch edit, Seq<GeometryBase> constraints, Option<Surface> starting, Context model) =>
+        ModelGate.Single(op, LoftSlot.Patched, () => Brep.CreatePatch(
+            geometry: constraints.AsIterable(), startingSurface: Op.ToHostSlot(value: starting),
+            uSpans: edit.Law.USpans, vSpans: edit.Law.VSpans,
+            trim: edit.Law.Behavior.Admits(capability: PatchBehavior.Trim),
+            tangency: edit.Law.Behavior.Admits(capability: PatchBehavior.Tangency),
+            pointSpacing: edit.Law.PointSpacing, flexibility: edit.Law.Flexibility, surfacePull: edit.Law.SurfacePull,
+            fixEdges: edit.Law.FixedEdges, tolerance: model.Absolute.Value));
 
-    private static Built<LoftSlot> RulingBuilt(Op operation, double t0, double t1, double cosine) => Built<LoftSlot>.Of(
-        operation: operation,
-        Products: Seq<GeometryHandle>(),
-        Evidence: BuildReceipt<LoftSlot>.Of(slot: LoftSlot.Rulings, body: new BuildBody.UvRows(Rows: Seq(new Point2d(t0, t1))))
-            + BuildReceipt<LoftSlot>.Of(slot: LoftSlot.Rulings, body: new BuildBody.Measure(Value: cosine)));
+    // One ruling product for three solver shapes: the solved parameter pair is universal, the twist cosine rides
+    // both `RulingMinTwist` arms, and the local solver's `int` status rides its own channel — each lands only
+    // where the host answered it.
+    private static Built<LoftSlot> RulingBuilt(
+        Op operation, double t0, double t1, Option<double> cosine = default, Option<int> code = default) =>
+        Built<LoftSlot>.Of(
+            operation: operation,
+            Products: Seq<GeometryHandle>(),
+            Evidence: BuildReceipt<LoftSlot>.Of(slot: LoftSlot.Rulings, body: new BuildBody.UvRows(Rows: Seq(new Point2d(t0, t1))))
+                + ModelFact.Channel(slot: LoftSlot.Rulings, value: cosine.Map(static value => (BuildBody)new BuildBody.Measure(Value: value)))
+                + ModelFact.Channel(slot: LoftSlot.Rulings, value: code.Map(static value => (BuildBody)new BuildBody.Code(Value: value))));
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class Lofts {
-    internal static bool Declared<T>(FrozenSet<T>? values, IReadOnlyList<T> rows) where T : class =>
-        values is not null && values.All(row => row is not null && rows.Contains(row));
-
-    public static Eff<LoftRuntime, Built<LoftSlot>> Build(params ReadOnlySpan<LoftOp> operations) {
+    public static Eff<ModelRuntime, Built<LoftSlot>> Build(params ReadOnlySpan<LoftOp> operations) {
         Seq<LoftOp> captured = toSeq(operations.ToArray());   // materialized ahead of the runtime bind: a span cannot cross the effect lambda
-        return Eff.runtime<LoftRuntime>().Bind(runtime =>
+        return Eff.runtime<ModelRuntime>().Bind(runtime =>
             ModelGate.Entry(
-                context: runtime.Domain,
+                runtime: runtime,
                 operations: captured,
                 admit: static (operation, key) => operation.Admitted(key: key),
-                apply: runtime.Apply).ToEff());
+                apply: (operation, model) => operation.Apply(domain: model, runtime: runtime)).ToEff());
     }
 }
 ```
 
-## [05]-[EXECUTION]
-
-`Lofts.Build` materializes the operation span ahead of the runtime bind — a span cannot cross the `Eff.runtime<LoftRuntime>()` lambda — then runs the folder spine's `ModelGate.Entry` over the sequence, so capture, the non-empty guard, accumulating admission, the fold, and the bench stamp are the spine's and `Built<LoftSlot>.Bench` carries harvest evidence. `LoftOp.Admitted` rejects null handles, policy owners, and default-ghost value policies before `LoftRuntime.Apply` reaches a host arm.
-
-`LoftOp.MakeCompatible` composes `NurbsCurve.MakeCompatible` with context-owned refit and angle tolerances. Consumers feed its owned curve products into `LoftOp.Loft`, `LoftOp.SweepOne`, or `LoftOp.SweepTwo` without a second compatibility surface.
-
-Variational evidence encodes native absence structurally: a nullable channel lands a fact only when the host answered, so an empty `Project` over its slot is the unknown verdict, a present `Flag`/`Text` fact is the answer, and an empty warning string stays distinct from a missing one.
-
-Ruling solves split by what the host returns: `DevelopableSrf.RulingMinTwist` answers `bool` and folds through `Op.Confirm`, while `DevelopableSrf.GetLocalDevopableRuling` answers `int` and lands that count/status as a `Code` fact beside its `UvRows` pair. Only the variational patch takes the governance band, so `LoftRuntime`'s token and reporter reach exactly one native and every other arm runs unpaced by the host's own shape.
-
-## [06]-[RESEARCH]
+## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

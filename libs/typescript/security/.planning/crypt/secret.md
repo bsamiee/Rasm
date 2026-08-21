@@ -45,27 +45,59 @@ const LeaseSpec = Schema.Struct({
 
 type LeaseSpec = typeof LeaseSpec.Type
 
+// Every custody refusal names the COORDINATE it failed on beside its cause, because that pair is what an operator
+// acts on — a project/config/scope path and, on the name-grained arms, the secret under it. One shared subject is
+// what lets the status fold mint a payload for whichever reason `_reasonOf` elects without a per-status raise site;
+// each row still renders its own sentence, so `absent` and `exhausted` never read as one prose line.
 const _family = Fault.Class.family(["credential", "missing", "rateLimit", "transient", "lease"] as const, {
-  credential: { class: "denied" },
-  missing: { class: "absent" },
-  rateLimit: { class: "exhausted" },
-  transient: { class: "unavailable" },
-  lease: { class: "invalid" },
+  credential: Fault.Class.row({
+    class: "denied",
+    leg: "custody",
+    detail: Schema.Struct({ coordinate: Schema.String, cause: Schema.String }),
+    render: ({ cause, coordinate }) => `custody token refused at ${coordinate}: ${cause}`,
+  }),
+  missing: Fault.Class.row({
+    class: "absent",
+    leg: "custody",
+    detail: Schema.Struct({ coordinate: Schema.String, cause: Schema.String }),
+    render: ({ cause, coordinate }) => `${coordinate} names no secret this custody serves: ${cause}`,
+  }),
+  rateLimit: Fault.Class.row({
+    class: "exhausted",
+    leg: "custody",
+    detail: Schema.Struct({ coordinate: Schema.String, cause: Schema.String }),
+    render: ({ cause, coordinate }) => `doppler throttled ${coordinate}: ${cause}`,
+  }),
+  transient: Fault.Class.row({
+    class: "unavailable",
+    leg: "custody",
+    detail: Schema.Struct({ coordinate: Schema.String, cause: Schema.String }),
+    render: ({ cause, coordinate }) => `doppler unreachable at ${coordinate}: ${cause}`,
+  }),
+  lease: Fault.Class.row({
+    class: "invalid",
+    leg: "lease",
+    detail: Schema.Struct({ coordinate: Schema.String, cause: Schema.String }),
+    render: ({ cause, coordinate }) => `dynamic lease refused at ${coordinate}: ${cause}`,
+  }),
 })
 
 declare namespace SecretFault {
-  type Reason = (typeof _family.reasons)[number]
+  type Case = typeof _family.payload.Type
+  type Reason = (typeof _family.kinds)[number]
 }
 
 class SecretFault extends Schema.TaggedError<SecretFault>()("SecretFault", {
-  reason: _family.schema,
-  detail: Schema.String,
+  case: _family.payload,
 }) {
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _family.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<secret:${this.reason}> ${this.detail}`
+    return _family.render(this.case)
   }
 }
 
@@ -79,9 +111,9 @@ const _reasonOf = (cause: unknown): SecretFault.Reason =>
 
 const _decode = Schema.decodeUnknown(Schema.Record({ key: Schema.String, value: Schema.String }))
 
-const _set = (raw: unknown): Effect.Effect<SecretSet, SecretFault> =>
+const _set = (coordinate: string) => (raw: unknown): Effect.Effect<SecretSet, SecretFault> =>
   _decode(raw).pipe(
-    Effect.mapError((cause) => new SecretFault({ reason: "missing", detail: String(cause) })),
+    Effect.mapError((cause) => new SecretFault({ case: { reason: "missing", coordinate, cause: String(cause) } })),
     Effect.map((record) => HashMap.map(HashMap.fromIterable(Record.toEntries(record)), Redacted.make)),
   )
 ```
@@ -147,20 +179,29 @@ class Secret extends Effect.Service<Secret>()("security/crypt/Secret", {
     const ttl = Duration.toSeconds(leaseSpec.ttl) // exact by admission: LeaseSpec.ttl is second-aligned, so no flooring exists to drift
     const sdk = new DopplerSDK({ accessToken: Redacted.value(token) })
     const leases = yield* Ref.make<ReadonlyArray<LeaseHandle>>([])
+    // One custody coordinate, minted once: the rotation fact, every transport refusal, and the name-grained arms
+    // that suffix it all read this value, so a cell's identity is spelled at a single site.
+    const coordinate = `${project}/${config}/${leaseSpec.scope}`
     // BOUNDARY ADAPTER: tryPromise wires fiber interruption into the AbortSignal handed to run.
     // The Doppler transport is signal-blind — the SDK owns its own node client and takes no per-call
     // signal — so the deadline bounds the CALLER: a hung call types as transient while the orphaned
     // read settles harmlessly in the background; the one state-mutating call (issueLease) rides its
     // own shielded window below so no landed grant escapes custody.
     const _lift = <A>(run: (signal: AbortSignal) => Promise<A>, reason?: SecretFault.Reason): Effect.Effect<A, SecretFault> =>
-      Effect.tryPromise({ try: run, catch: (cause) => new SecretFault({ reason: reason ?? _reasonOf(cause), detail: String(cause) }) }).pipe(
-        Effect.timeoutFail({ duration: deadline, onTimeout: () => new SecretFault({ reason: "transient", detail: "doppler deadline" }) }))
+      Effect.tryPromise({
+        try: run,
+        catch: (cause) => new SecretFault({ case: { reason: reason ?? _reasonOf(cause), coordinate, cause: String(cause) } }),
+      }).pipe(
+        Effect.timeoutFail({
+          duration: deadline,
+          onTimeout: () => new SecretFault({ case: { reason: "transient", coordinate, cause: "per-call deadline spent" } }),
+        }))
     const _download = _lift(() => sdk.secrets.download(project, config, {
       format: "json",
       includeDynamicSecrets: true,
       dynamicSecretsTtlSec: ttl,
       secrets: leaseSpec.keys.join(","),
-    })).pipe(Effect.flatMap(_set))
+    })).pipe(Effect.flatMap(_set(coordinate)))
     const deduped = yield* Cache.make({
       capacity: 1,
       timeToLive: Duration.seconds(Math.max(1, Math.floor(ttl * 0.4))),
@@ -180,7 +221,7 @@ class Secret extends Effect.Service<Secret>()("security/crypt/Secret", {
         }),
       )
     const observed = Metric.increment(_rotation).pipe(
-      Effect.zipRight(Witness.publish(SecurityFact.Rotation({ coordinate: `${project}/${config}/${leaseSpec.scope}` }))),
+      Effect.zipRight(Witness.publish(SecurityFact.Rotation({ coordinate }))),
       Effect.zipRight(Effect.logInfo("secret rotation observed")),
     )
     yield* cell.changes.pipe(
@@ -212,7 +253,7 @@ class Secret extends Effect.Service<Secret>()("security/crypt/Secret", {
     const get = (name: string): Effect.Effect<Redacted.Redacted<string>, SecretFault> =>
       Effect.flatMap(SubscriptionRef.get(cell), (set) =>
         Option.match(HashMap.get(set, name), {
-          onNone: () => Effect.fail(new SecretFault({ reason: "missing", detail: name })),
+          onNone: () => Effect.fail(new SecretFault({ case: { reason: "missing", coordinate: `${coordinate}/${name}`, cause: "absent from the held custody cell" } })),
           onSome: Effect.succeed,
         }))
     const probe = (name: string): Effect.Effect<Redacted.Redacted<string>, SecretFault> =>
@@ -220,11 +261,11 @@ class Secret extends Effect.Service<Secret>()("security/crypt/Secret", {
         ? _lift(() => sdk.secrets.get(project, config, name)).pipe(
             Effect.flatMap((response) =>
               Schema.decodeUnknown(Schema.Struct({ value: Schema.Struct({ raw: Schema.String }) }))(response).pipe(
-                Effect.mapError((cause) => new SecretFault({ reason: "missing", detail: String(cause) })))),
+                Effect.mapError((cause) => new SecretFault({ case: { reason: "missing", coordinate: `${coordinate}/${name}`, cause: String(cause) } })))),
             Effect.map((decoded) => Redacted.make(decoded.value.raw)),
             Effect.tap((value) => _publish(HashMap.set(name, value))),
           )
-        : Effect.fail(new SecretFault({ reason: "missing", detail: name }))
+        : Effect.fail(new SecretFault({ case: { reason: "missing", coordinate: `${coordinate}/${name}`, cause: "outside the lease allowlist" } }))
     // Census answers membership AND value for the WHOLE allowlist in one read, so its answer IS custody rather
     // than a delta over it: publication REPLACES, and a name Doppler stopped serving stops resolving through
     // `get` instead of surviving as a value nothing refreshes and no rotation event mentions. `_publish`'s
@@ -243,7 +284,7 @@ class Secret extends Effect.Service<Secret>()("security/crypt/Secret", {
           Schema.decodeUnknown(Schema.Struct({
             secrets: Schema.Record({ key: Schema.String, value: Schema.Struct({ raw: Schema.String }) }),
           }))(response).pipe(
-            Effect.mapError((cause) => new SecretFault({ reason: "missing", detail: String(cause) })))),
+            Effect.mapError((cause) => new SecretFault({ case: { reason: "missing", coordinate, cause: String(cause) } })))),
         // `leaseSpec.keys` is the one positive admission boundary on BOTH faces — `probe` and `lease` already
         // refuse an unlisted name, so a response row beyond it never enters the set custody serves.
         Effect.map((decoded) =>
@@ -255,14 +296,14 @@ class Secret extends Effect.Service<Secret>()("security/crypt/Secret", {
       _lift(() => sdk.secrets.names(project, config)).pipe(
         Effect.flatMap((response) =>
           Schema.decodeUnknown(Schema.Struct({ names: Schema.Array(Schema.String) }))(response).pipe(
-            Effect.mapError((cause) => new SecretFault({ reason: "missing", detail: String(cause) })))),
+            Effect.mapError((cause) => new SecretFault({ case: { reason: "missing", coordinate, cause: String(cause) } })))),
         Effect.map((decoded) => decoded.names),
       )
     const lease = (name: string, handle: (grant: LeaseGrant) => LeaseHandle): Effect.Effect<LeaseGrant, SecretFault> =>
       leaseSpec.keys.includes(name)
         ? Effect.tryPromise({
             try: () => sdk.dynamicSecrets.issueLease({ project, config, dynamic_secret: name, ttl_sec: ttl }),
-            catch: (cause) => new SecretFault({ reason: "lease", detail: String(cause) }),
+            catch: (cause) => new SecretFault({ case: { reason: "lease", coordinate: `${coordinate}/${name}`, cause: String(cause) } }),
           }).pipe(
             Effect.tap((grant) => Ref.update(leases, (held) => [...held, handle(grant)])),
             // Grant-and-register is ONE shielded window severed onto its own fiber: the deadline
@@ -270,9 +311,12 @@ class Secret extends Effect.Service<Secret>()("security/crypt/Secret", {
             // cell, so the scope finalizer revokes it and no orphaned lease escapes custody.
             Effect.uninterruptible,
             Effect.disconnect,
-            Effect.timeoutFail({ duration: deadline, onTimeout: () => new SecretFault({ reason: "transient", detail: "doppler deadline" }) }),
+            Effect.timeoutFail({
+              duration: deadline,
+              onTimeout: () => new SecretFault({ case: { reason: "transient", coordinate: `${coordinate}/${name}`, cause: "per-call deadline spent" } }),
+            }),
           )
-        : Effect.fail(new SecretFault({ reason: "missing", detail: name }))
+        : Effect.fail(new SecretFault({ case: { reason: "missing", coordinate: `${coordinate}/${name}`, cause: "outside the lease allowlist" } }))
     const revoke = (handle: LeaseHandle): Effect.Effect<void, SecretFault> =>
       _lift(() => sdk.dynamicSecrets.revokeLease(handle), "lease").pipe(
         Effect.tap(() => Ref.update(leases, (held) => held.filter((leased) => leased !== handle))),

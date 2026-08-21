@@ -15,12 +15,14 @@
 - Law: six objective weights fan onto one comparable number and every term reaches it DIMENSIONLESS. `LinkBasis` carries the characteristic length, the sheet area, and the pierce count the terms divide through, derived once per plan from the admitted run and threaded on the scoring INPUT — never on `LinkEvidence`, which is the comparison's published receipt. Summing raw counts, millimetres, and square millimetres let the sheet's own scale decide the ranking before any weight was read.
 - Law: candidate pairing is a RADIUS query over one spatial index of segment midpoints, each primitive inflated by the pairing radius plus the admitted maximum segment span. The parts-by-contours-by-segments cross product a bounding-box prefilter still admitted inside one sheet is the deleted form: a common line is a local relation and the index answers locality.
 - Law: route nodes key on the QUANTIZED station, never a raw `Point3d`. Two cut endpoints meeting within the admitted tolerance are ONE node, and exact-float keying forked them at exactly the junctions a rapid must traverse — so both the dedup and the node index read the one quantized key.
-- Cases: `LinkCapability` selects common-line and chain scheduling; `BridgePolicy` and `WastePolicy` derive their own enablement from their payload cases.
+- Cases: `LinkCapability` selects common-line and chain scheduling as one `CapabilitySet` column; `BridgeSpacing` and `WasteVoronoi` ride PRESENCE — an absent policy IS the disabled lane, so a `Disabled` case and an absent column never answer one question twice.
+- Law: `CutLinkPolicy` carries typed measures — `Length` on every span, `Ratio` on the miter limit — and reads its match, angular, and arc budgets off the admitted `Context` lanes, because `ToleranceLane` owns every band it derives and a policy column beside a lane is a copy that drifts from it.
 - Entry: `Plan(LinkRun)` admits placement, plane-compatible polygonal profiles, sheet stock, sheet-scoped keep-outs, and policy once before one composed graph fold.
 - Auto: a longest-first conflict fold selects non-overlapping common lines; `ConnectedComponents`, transitive reduction, topological order, Kruskal forest, breadth-first paths, and A-star routes derive chain and rapid topology; `PolygonOp.Cells` derives bounded point-site waste adjacency with its shared segments and each closed cell ring measures against the reusable floor; `PolygonAlgebra.Apply` owns line-space offset, Boolean, measure, relation, and open clip.
+- Law: no tour search seats on this page and none is owed. Chain order is PRECEDENCE order — containment reduced to its transitive core, topologically sorted, tie-broken by Kruskal-tree reach from the seat nearest the rapid origin — so reordering chains to shorten travel emits an inner contour before the outer part it drops out of. `RouteSheet` therefore folds a FIXED sequence and one search remains, the per-leg detour, already `ShortestPathsAStar` over the partition's own visibility graph. Any traveling-salesman pass over these nodes optimizes an order the precedence graph never leaves free.
 - Receipt: `LinkComparison` carries pierce, rapid, cut, shared, bridge, partition, heat, quality, and remnant-loss axes before and after the candidate topology; remnant loss combines partition kerf area with sub-floor cell area as offcut-side costs.
-- Packages: `LanguageExt.Core`, `QuikGraph`, `Thinktecture.Runtime.Extensions`, `Rasm` (`JoinType`/`EndType`/`BooleanOp`/`OffsetPolicy`), `RhinoCommon`, and the `Geometry2D` owners compose the surface.
-- Growth: a cut edit is one `LinkOp` case; a scoring axis is one `LinkEvidence` member with one `CutLinkObjective` weight; a waste decomposition is one `WastePolicy` case carrying its own `WasteRow.Routed` declaration; no consumer gains an orchestration step.
+- Packages: `LanguageExt.Core`, `QuikGraph` (`ConnectedComponents`, `ComputeTransitiveReduction`, `TopologicalSort`, `MinimumSpanningTreeKruskal`, `TreeBreadthFirstSearch`, `ShortestPathsAStar`, `IsDirectedAcyclicGraph` — every graph question on this page is one of these operators, and no hand walk stands beside one), `Thinktecture.Runtime.Extensions`, `Rasm` (`JoinType`/`EndType`/`BooleanOp`/`OffsetPolicy`, `ICapability`/`CapabilitySet`, `Context`/`ToleranceLane`), `UnitsNet` (`Length`, `Area`, `Ratio` on the policy's own spans), `RhinoCommon`, and the `Geometry2D` owners compose the surface.
+- Growth: a cut edit is one `LinkOp` case; a scoring axis is one `LinkEvidence` member with one `CutLinkObjective` weight; a second waste decomposition turns `WasteVoronoi` into the union over its own payloads while the `Option` that routes enablement stays untouched; no consumer gains an orchestration step.
 - Boundary: `ChainRow.SheetIndex`, `Instances`, `SourceParts`, `Pierces`, `Members`, `Shared`, and `RapidPaths` form the posting seam, and `ContourCut.Path` is entry-rotated so a consumer leads at parameter zero without re-deriving the entry; mutable `QuikGraph` construction is the one statement-bearing seam, and the waste diagram is never minted here.
 
 ```csharp signature
@@ -39,44 +41,59 @@ using Rhino.Geometry;
 using System.Collections.Generic;
 using System.Linq;
 using Thinktecture;
+using UnitsNet;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Nesting;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+// Two link edits a caller may enable, on the kernel `ICapability` floor, so enablement rides the ONE combinable
+// capability column every stratum instantiates rather than a bare `Set` this page compares by hand.
 [SmartEnum<string>]
-public sealed partial class LinkCapability {
+public sealed partial class LinkCapability : ICapability<LinkCapability> {
     public static readonly LinkCapability CommonLine = new("common-line");
     public static readonly LinkCapability Chain = new("chain");
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record BridgePolicy {
-    private BridgePolicy() { }
-
-    public sealed record Disabled : BridgePolicy;
-    public sealed record Spaced(double WidthMm, double SpacingMm, double EndClearanceMm) : BridgePolicy;
+// Both cut lanes ride PRESENCE, not a two-case union whose first case is absence: a `Disabled` arm and an absent
+// column are one fact answered twice, and the branch already settles that a cut lane routes on the presence of its
+// own policy. Each union carried exactly one payload case, so what survives is that payload and the `Option` around
+// it — six declared types collapse to two.
+// NAMED LOSS: the generated total `Switch` over `Disabled`/`Spaced` and `Disabled`/`Voronoi` goes, so a consumer no
+// longer breaks loudly when a THIRD modality lands. WITNESS: a third modality is a second payload, not a third
+// presence state — it lands as a union over `BridgeSpacing`, and the `Option` that routes enablement is untouched
+// by it, which is exactly the shape the deleted `Disabled` arm was preventing.
+public readonly record struct BridgeSpacing(Length Width, Length Spacing, Length EndClearance) {
+    // Bridges narrower than their own pitch are what make a run of them a run rather than one continuous uncut
+    // span, and end clearance is a setback, so zero is admissible there where the others refuse it.
+    public bool Valid =>
+        Width.Millimeters > 0.0 && double.IsFinite(Width.Millimeters)
+        && Spacing.Millimeters > Width.Millimeters && double.IsFinite(Spacing.Millimeters)
+        && EndClearance.Millimeters >= 0.0 && double.IsFinite(EndClearance.Millimeters);
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record WastePolicy {
-    private WastePolicy() { }
-
-    public sealed record Disabled : WastePolicy;
-    public sealed record Voronoi(
-        double SiteSpacingMm,
-        int MaxSites,
-        int Relaxations,
-        double RelaxationStrength,
-        double MergeDistanceMm,
-        double MinEdgeMm,
-        double MinReusableAreaMm2,
-        int RapidProbeNodes)
-        : WastePolicy;
+public readonly record struct WasteVoronoi(
+    Length SiteSpacing,
+    int MaxSites,
+    int Relaxations,
+    Ratio RelaxationStrength,
+    Length MergeDistance,
+    Length MinEdge,
+    Area MinReusable,
+    int RapidProbeNodes) {
+    // Two sites are the floor a diagram exists at, a merge distance of zero is "no merge" rather than a defect,
+    // and one rapid probe is the minimum a detour search can be seeded from.
+    public bool Valid =>
+        SiteSpacing.Millimeters > 0.0 && double.IsFinite(SiteSpacing.Millimeters)
+        && MaxSites >= 2 && Relaxations >= 0
+        && RelaxationStrength.DecimalFractions is > 0.0 and <= 1.0
+        && MergeDistance.Millimeters >= 0.0 && double.IsFinite(MergeDistance.Millimeters)
+        && MinEdge.Millimeters > 0.0 && double.IsFinite(MinEdge.Millimeters)
+        && MinReusable.SquareMillimeters >= 0.0 && double.IsFinite(MinReusable.SquareMillimeters)
+        && RapidProbeNodes >= 1;
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CutLinkObjective {
     public double Pierce { get; }
     public double Rapid { get; }
@@ -100,7 +117,7 @@ public sealed partial class CutLinkObjective {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref double pierce,
         ref double rapid,
         ref double cut,
@@ -111,75 +128,74 @@ public sealed partial class CutLinkObjective {
         validationError = weights.All(static value => double.IsFinite(value) && value >= 0.0)
             && weights.Any(static value => value > 0.0)
             ? null
-            : new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "link:objective-weights");
+            : new ValidationError("link:objective-weights");
     }
 }
 
+// Fifteen columns, eight of them bare doubles whose unit lived in a name suffix — a millimetre cut width, a
+// radian angular window, and a dimensionless miter limit sat adjacent as three `double`s a caller could transpose
+// in silence. Nothing here reaches a preimage, so the digested-scalar carve does not bind this policy and every
+// measure takes the carrier its own dimension names. The THREE tolerance columns leave entirely: `ToleranceLane`
+// owns every band it derives and the admitting `Context` is the READ, so a match, angular, and arc column beside
+// those lanes were three copies drifting from the loops the same context already admitted.
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CutLinkPolicy {
-    public Set<LinkCapability> Enabled { get; }
-    public double CutWidthMm { get; }
-    public double MatchToleranceMm { get; }
-    public double AngularToleranceRadians { get; }
-    public double ArcToleranceMm { get; }
-    public double ClearanceMiterLimit { get; }
-    public double MinSharedLengthMm { get; }
+    public CapabilitySet<LinkCapability> Enabled { get; }
+    public Length CutWidth { get; }
+    public Ratio ClearanceMiterLimit { get; }
+    public Length MinSharedLength { get; }
 
     // The longest segment a profile may carry: the candidate index inflates each midpoint by this span so the
     // radius query cannot miss a pair whose midpoints sit apart while their bodies overlap.
-    public double MaxSegmentSpanMm { get; }
+    public Length MaxSegmentSpan { get; }
     public int MaxChainParts { get; }
-    public double ChainBandMm { get; }
-    public double MaxContinuousCutMm { get; }
+    public Length ChainBand { get; }
+    public Length MaxContinuousCut { get; }
     public Point3d RapidOrigin { get; }
-    public BridgePolicy Bridge { get; }
-    public WastePolicy Waste { get; }
+    public Context Tolerance { get; }
+    public Option<BridgeSpacing> Bridge { get; }
+    public Option<WasteVoronoi> Waste { get; }
     public CutLinkObjective Objective { get; }
+
+    // Three LANE READS, named once here rather than at each of the six arms that consume them, so a shop widening
+    // its model tolerance moves the pair window, the antiparallel cone, and the offset chord budget together.
+    public double MatchToleranceMm => Tolerance.For(ToleranceLane.Match).Value;
+    public double AngularToleranceRadians => Tolerance.For(ToleranceLane.Angle).Value;
+    public double ArcToleranceMm => Tolerance.For(ToleranceLane.Arc).Value;
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
-        ref Set<LinkCapability> enabled,
-        ref double cutWidthMm,
-        ref double matchToleranceMm,
-        ref double angularToleranceRadians,
-        ref double arcToleranceMm,
-        ref double clearanceMiterLimit,
-        ref double minSharedLengthMm,
-        ref double maxSegmentSpanMm,
+        ref ValidationError? validationError,
+        ref CapabilitySet<LinkCapability> enabled,
+        ref Length cutWidth,
+        ref Ratio clearanceMiterLimit,
+        ref Length minSharedLength,
+        ref Length maxSegmentSpan,
         ref int maxChainParts,
-        ref double chainBandMm,
-        ref double maxContinuousCutMm,
+        ref Length chainBand,
+        ref Length maxContinuousCut,
         ref Point3d rapidOrigin,
-        ref BridgePolicy bridge,
-        ref WastePolicy waste,
+        ref Context tolerance,
+        ref Option<BridgeSpacing> bridge,
+        ref Option<WasteVoronoi> waste,
         ref CutLinkObjective objective) {
-        double[] policyScalars = [cutWidthMm, matchToleranceMm, angularToleranceRadians, arcToleranceMm, clearanceMiterLimit, minSharedLengthMm,
-            chainBandMm, maxContinuousCutMm];
-        bool scalars = policyScalars.All(static value => double.IsFinite(value) && value > 0.0);
-        bool bridgeValid = bridge.Switch(
-            disabled: static _ => true,
-            spaced: static row => {
-                double[] positive = [row.WidthMm, row.SpacingMm];
-                return positive.All(static value => double.IsFinite(value) && value > 0.0)
-                    && double.IsFinite(row.EndClearanceMm) && row.EndClearanceMm >= 0.0 && row.SpacingMm > row.WidthMm;
-            });
-        bool wasteValid = waste.Switch(
-            disabled: static _ => true,
-            voronoi: static row => double.IsFinite(row.SiteSpacingMm) && row.SiteSpacingMm > 0.0 && row.MaxSites >= 2 && row.Relaxations >= 0
-                && row.RelaxationStrength is > 0.0 and <= 1.0 && double.IsFinite(row.MergeDistanceMm) && row.MergeDistanceMm >= 0.0
-                && double.IsFinite(row.MinEdgeMm) && row.MinEdgeMm > 0.0
-                && double.IsFinite(row.MinReusableAreaMm2) && row.MinReusableAreaMm2 >= 0.0 && row.RapidProbeNodes >= 1);
-        validationError = scalars && angularToleranceRadians < Math.PI / 2.0 && maxChainParts > 0 && rapidOrigin.IsValid
-            && bridgeValid && wasteValid
+        double[] spans = [cutWidth.Millimeters, minSharedLength.Millimeters, maxSegmentSpan.Millimeters,
+            chainBand.Millimeters, maxContinuousCut.Millimeters, clearanceMiterLimit.DecimalFractions];
+        // Antiparallel cones at or past a quarter turn admit perpendicular segments as a shared cut, and that is
+        // exactly the geometric relation this whole plane exists to exclude.
+        validationError = spans.All(static value => double.IsFinite(value) && value > 0.0)
+            && tolerance.IsValid
+            && tolerance.For(ToleranceLane.Angle).Value < Math.PI / 2.0
+            && tolerance.For(ToleranceLane.Match).Value > 0.0
+            && tolerance.For(ToleranceLane.Arc).Value > 0.0
+            && maxChainParts > 0 && rapidOrigin.IsValid
+            && bridge.ForAll(static row => row.Valid) && waste.ForAll(static row => row.Valid)
                 ? null
-                : new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "link:link-policy");
+                : new ValidationError("link:link-policy");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class LinkRun {
     public FabricationResult.Placement Placement { get; }
     public Arr<Seq<Loop>> Profiles { get; }
@@ -189,7 +205,7 @@ public sealed partial class LinkRun {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref FabricationResult.Placement placement,
         ref Arr<Seq<Loop>> profiles,
         ref Map<int, Stock> stockBySheet,
@@ -207,7 +223,7 @@ public sealed partial class LinkRun {
         validationError = placement.Parts.IsEmpty || profiles.IsEmpty || profiles.Exists(static region => region.IsEmpty)
             || !census || !identities || !profilesAdmitted || !keepOutsAdmitted
             || placement.Parts.Exists(transform => transform.PartId < 0 || transform.PartId >= profiles.Count)
-                ? new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "link:link-run")
+                ? new ValidationError("link:link-run")
                 : null;
     }
 
@@ -221,11 +237,14 @@ public readonly record struct SegmentWindow(double Start, double End) {
     public bool Overlaps(SegmentWindow other, double tolerance) => Math.Min(End, other.End) - Math.Max(Start, other.Start) > tolerance;
 }
 
-public readonly record struct EdgeRef(PartInstance Part, int Contour, int Segment);
+// Cut SEGMENT address — part instance, contour, and the segment ordinal inside that contour. Kernel
+// `Processing/decimate` `EdgeRef` is a quadric-collapse candidate carrying vertex versions, a target point, and a
+// cost, so the two share a word and nothing else; this one names what it addresses.
+public readonly record struct SegmentRef(PartInstance Part, int Contour, int Segment);
 public sealed record SharedEdge(
     int SheetIndex,
-    EdgeRef A,
-    EdgeRef B,
+    SegmentRef A,
+    SegmentRef B,
     SegmentWindow WindowA,
     SegmentWindow WindowB,
     double SpanAmm,
@@ -317,16 +336,21 @@ public static class Linking {
         from placed in Place(run)
         from candidates in Candidates(placed, run)
         from clear in candidates.Traverse(edge => Clears(edge, placed, run).Map(ok => (Edge: edge, Clear: ok)).ToValidation()).As().ToFin()
-        let selected = run.Policy.Enabled.Contains(LinkCapability.CommonLine)
+        // Enablement is a capability READ, and the seam's posture is fold-out-for-absence — an unenabled lane
+        // measures its own baseline rather than refusing — so `Admits` is the arm and `Require` belongs at a
+        // seam that genuinely refuses.
+        let selected = run.Policy.Enabled.Admits(LinkCapability.CommonLine)
             ? Match(clear.Filter(static row => row.Clear).Map(static row => row.Edge))
             : Seq<SharedEdge>()
         from precedence in Precedence(placed)
         let bridges = Bridges(selected, run.Policy.Bridge)
         from baseline in Chains(placed, Seq<SharedEdge>(), Seq<LinkOp.Bridge>(), precedence, false, run.Policy)
-        from optimized in run.Policy.Enabled.Contains(LinkCapability.Chain) || !selected.IsEmpty
-            ? Chains(placed, selected, bridges, precedence, run.Policy.Enabled.Contains(LinkCapability.Chain), run.Policy)
+        from optimized in run.Policy.Enabled.Admits(LinkCapability.Chain) || !selected.IsEmpty
+            ? Chains(placed, selected, bridges, precedence, run.Policy.Enabled.Admits(LinkCapability.Chain), run.Policy)
             : Fin.Succ(baseline)
-        from safe in Waste(placed, run, new WastePolicy.Disabled())
+        // Measurement baselines against the ABSENT waste policy, the same absence a caller who never asked for a
+        // cut-up presents — one fact, one spelling, no local disabled instance to construct.
+        from safe in Waste(placed, run, None)
         from waste in Waste(placed, run, run.Policy.Waste)
         from baseRouted in Route(baseline, safe, run.Policy)
         from routed in Route(optimized, waste, run.Policy)
@@ -355,10 +379,10 @@ public static class Linking {
         run.Placement.Parts.Traverse(transform => (
             from region in run.Profiles[transform.PartId].Traverse(transform.Apply).As()
             from trace in PolygonAlgebra.Apply(new PolygonOp.Topology(region, PolygonFill.NonZero))
-            from ordered in trace is PolygonTrace.Regions regions
-                ? Fin.Succ(toSeq(regions.Result.Nodes.OrderByDescending(static node => node.Depth)
-                    .ThenBy(static node => Math.Abs(node.SignedArea)).Select(static node => node.Boundary)))
-                : Fin.Fail<Seq<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "link:placement-topology"))
+            from topology in trace.Regioned(
+                new KernelFault.InvalidValue("linking", "link:placement-topology"))
+            let ordered = toSeq(topology.Nodes.OrderByDescending(static node => node.Depth)
+                .ThenBy(static node => Math.Abs(node.SignedArea)).Select(static node => node.Boundary))
             from measure in Measure(ordered)
             select new PlacedPart(
                 new PartInstance(transform.PartId, transform.Instance), transform.SheetIndex, ordered, measure))
@@ -366,9 +390,8 @@ public static class Linking {
 
     private static Fin<PolygonMeasure> Measure(Seq<Loop> region) =>
         PolygonAlgebra.Apply(new PolygonOp.Measure(region, PolygonFill.NonZero))
-            .Bind(static trace => trace is PolygonTrace.Measured measured
-                ? Fin.Succ(measured.Result)
-                : Fin.Fail<PolygonMeasure>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "link:measure-trace")));
+            .Bind(static trace => trace.Measure(
+                new KernelFault.InvalidValue("linking", "link:measure-trace")));
 
     // A common line is a LOCAL relation: two segments pair only when their midpoints sit within the cut width plus
     // the match tolerance, so the candidate frontier is a radius query over one spatial index of every segment
@@ -381,13 +404,14 @@ public static class Linking {
                 .Filter(segment => row.loop.BulgeAt(segment) == 0.0)
                 .Map(segment => new SegmentSite(part, row.loop, row.contour, segment,
                     row.loop.At(segment) + (0.5 * (row.loop.At(segment + 1) - row.loop.At(segment)))))));
-        double radius = (0.5 * run.Policy.CutWidthMm) + run.Policy.MatchToleranceMm + run.Policy.MaxSegmentSpanMm;
+        double radius = (0.5 * run.Policy.CutWidth.Millimeters) + run.Policy.MatchToleranceMm
+            + run.Policy.MaxSegmentSpan.Millimeters;
         return Spatial.Apply(
                 new SpatialOp.Build(SpatialKind.Bvh, sites.Map(site => Ball(site.Midpoint, radius)).ToArray(), BuildPolicy.Canonical),
                 Op.Of(name: nameof(Candidates)))
             .Bind(static answer => answer is SpatialAnswer.Index built
                 ? Fin.Succ(built.Value)
-                : Fin.Fail<SpatialIndex>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "link:site-index")))
+                : Fin.Fail<SpatialIndex>(new KernelFault.InvalidValue("linking", "link:site-index")))
             .Bind(index => sites
                 .Map((site, ordinal) => (site, ordinal))
                 .Traverse(row => Spatial
@@ -436,14 +460,14 @@ public static class Linking {
         int rightEdge,
         CutLinkPolicy policy) =>
         CommonLine.Share(left, leftEdge, right, rightEdge, new CommonLineBudget(
-                policy.CutWidthMm,
+                policy.CutWidth.Millimeters,
                 policy.MatchToleranceMm,
                 policy.AngularToleranceRadians,
-                policy.MinSharedLengthMm))
+                policy.MinSharedLength.Millimeters))
             .Map(span => new SharedEdge(
                 a.SheetIndex,
-                new EdgeRef(a.Part, leftContour, leftEdge),
-                new EdgeRef(b.Part, rightContour, rightEdge),
+                new SegmentRef(a.Part, leftContour, leftEdge),
+                new SegmentRef(b.Part, rightContour, rightEdge),
                 span.WindowA,
                 span.WindowB,
                 span.SpanAmm,
@@ -455,16 +479,16 @@ public static class Linking {
     private static Fin<bool> Clears(SharedEdge edge, Seq<PlacedPart> placed, LinkRun run) =>
         from segment in Loop.Admit(Arr(edge.Cut.A, edge.Cut.B), closed: false, Arr<double>(), edge.Tolerance)
         let policy = OffsetPolicy.Canonical with {
-            MiterLimit = run.Policy.ClearanceMiterLimit, ArcTolerance = run.Policy.ArcToleranceMm }
+            MiterLimit = run.Policy.ClearanceMiterLimit.DecimalFractions, ArcTolerance = run.Policy.ArcToleranceMm }
         from clearanceTrace in PolygonAlgebra.Apply(new PolygonOp.Offset(
             Seq(segment),
-            new OffsetField.Uniform((0.5 * run.Policy.CutWidthMm) + run.Policy.MatchToleranceMm),
+            new OffsetField.Uniform((0.5 * run.Policy.CutWidth.Millimeters) + run.Policy.MatchToleranceMm),
             JoinType.Square,
             EndType.Square,
             policy))
         from clearance in Paths(clearanceTrace)
         from stock in run.StockBySheet.Find(edge.SheetIndex)
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, $"link:sheet:{edge.SheetIndex}"))
+            .ToFin(new KernelFault.InvalidValue("linking", $"link:sheet:{edge.SheetIndex}"))
         from outsideTrace in PolygonAlgebra.Apply(new PolygonOp.Boolean(
             clearance, stock.Region, BooleanOp.Difference, PolygonFill.NonZero))
         from outside in Paths(outsideTrace)
@@ -479,11 +503,12 @@ public static class Linking {
         from blocked in Paths(blockedTrace)
         select outside.IsEmpty && blocked.IsEmpty;
 
-    private static Fin<Seq<Loop>> Paths(PolygonTrace trace) => trace switch {
-        PolygonTrace.Paths paths => Fin.Succ(paths.Result),
-        PolygonTrace.Regions regions => Fin.Succ(regions.Result.Nodes.Map(static node => node.Boundary)),
-        _ => Fin.Fail<Seq<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "link:path-trace")),
-    };
+    // The page's two trace reads, each seating ITS locus once over the owner's own total projection.
+    private static Fin<Seq<Loop>> Paths(PolygonTrace trace) =>
+        trace.Loops(new KernelFault.InvalidValue("linking", "link:path-trace"));
+
+    private static Fin<(Seq<Seq<Edge3>> Inside, Seq<Seq<Edge3>> Outside)> Split(PolygonTrace trace) =>
+        trace.Runs(new KernelFault.InvalidValue("linking", "link:split-trace"));
 
     private static Seq<SharedEdge> Match(Seq<SharedEdge> candidates) =>
         CommonLine.Disjoint(
@@ -499,12 +524,11 @@ public static class Linking {
                     pair.Outer.Region,
                     pair.Inner.Region.Bind(static loop => toSeq(loop.Vertices)).ToArr(),
                     PolygonFill.NonZero))
-                .Bind(trace => trace is PolygonTrace.Related related
-                        ? Fin.Succ((pair.Outer.Part, pair.Inner.Part,
-                            Inside: related.Result.ForAll(static relation => relation != PointRelation.Outside)
-                                && related.Result.Exists(static relation => relation == PointRelation.Inside)))
-                    : Fin.Fail<(PartInstance Outer, PartInstance Inner, bool Inside)>(
-                        new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "link:containment-trace")))
+                .Bind(trace => trace
+                    .Relations(new KernelFault.InvalidValue("linking", "link:containment-trace"))
+                    .Map(relations => (pair.Outer.Part, pair.Inner.Part,
+                        Inside: relations.ForAll(static relation => relation != PointRelation.Outside)
+                            && relations.Exists(static relation => relation == PointRelation.Inside))))
                 .ToValidation()).As().ToFin().Bind(rows => {
                     BidirectionalGraph<PartInstance, SEdge<PartInstance>> graph = new(allowParallelEdges: false);
                     graph.AddVertexRange(placed.Map(static row => row.Part));
@@ -512,7 +536,7 @@ public static class Linking {
                     return graph.IsDirectedAcyclicGraph()
                         ? Fin.Succ(graph.ComputeTransitiveReduction())
                         : Fin.Fail<BidirectionalGraph<PartInstance, SEdge<PartInstance>>>(
-                            new GeometryFault.DegenerateInput(Kind.Polyline, None, "link:containment-cycle").ToError());
+                            new GeometryFault.DegenerateInput(Kind.Polyline, None, "link:containment-cycle"));
                 });
 
     private static Fin<Seq<ChainRow>> Chains(
@@ -526,7 +550,7 @@ public static class Linking {
         islands.AddVertexRange(placed.Map(static row => row.Part));
         shared.Iter(edge => islands.AddEdge(new SEdge<PartInstance>(edge.A.Part, edge.B.Part)));
         if (joinBands) placed.Bind(left => placed.Filter(right => right.SheetIndex == left.SheetIndex && Compare(left.Part, right.Part) < 0
-                && left.Measure.Centroid.DistanceTo(right.Measure.Centroid) <= policy.ChainBandMm)
+                && left.Measure.Centroid.DistanceTo(right.Measure.Centroid) <= policy.ChainBand.Millimeters)
             .Map(right => new SEdge<PartInstance>(left.Part, right.Part))).Iter(islands.AddEdge);
         Dictionary<PartInstance, int> labels = new();
         islands.ConnectedComponents(labels);
@@ -549,7 +573,7 @@ public static class Linking {
         UndirectedGraph<PartInstance, TaggedEdge<PartInstance, double>> graph = new(allowParallelEdges: false);
         graph.AddVertexRange(ids);
         members.Bind(left => members.Filter(right => Compare(left.Part, right.Part) < 0
-                && left.Measure.Centroid.DistanceTo(right.Measure.Centroid) <= policy.ChainBandMm)
+                && left.Measure.Centroid.DistanceTo(right.Measure.Centroid) <= policy.ChainBand.Millimeters)
             .Map(right => new TaggedEdge<PartInstance, double>(
                 left.Part, right.Part, left.Measure.Centroid.DistanceTo(right.Measure.Centroid))))
             .Iter(graph.AddEdge);
@@ -621,7 +645,7 @@ public static class Linking {
                 != labels[vertices[(row.contour.Part, row.contour.Contour)]]))
             .Map(static row => (row.contour.Part, row.contour.Contour)));
         return from sheet in members.Head.Map(static row => row.SheetIndex)
-                   .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "link:chain-members"))
+                   .ToFin(new KernelFault.InvalidValue("linking", "link:chain-members"))
                from rows in members.Traverse(member => member.Region.Map((path, contour) => (path, contour))
                        .Traverse(row => Cut(member.Part, row.contour, row.path, cuts,
                            pierces.Contains((member.Part, row.contour))).ToValidation())
@@ -681,19 +705,19 @@ public static class Linking {
             : edge.B.Part == part && edge.B.Contour == contour ? Seq(new OmittedSpan(edge.B.Segment, edge.WindowB))
             : Seq<OmittedSpan>();
 
-    private static Seq<LinkOp.Bridge> Bridges(Seq<SharedEdge> shared, BridgePolicy policy) => policy.Switch(
-        disabled: static _ => Seq<LinkOp.Bridge>(),
-        spaced: row => shared.Bind(edge => {
-            double available = edge.SharedLengthMm - (2.0 * row.EndClearanceMm) - row.WidthMm;
-            int count = available < 0.0 ? 0 : 1 + (int)Math.Floor(available / row.SpacingMm);
+    // Absence IS the disabled lane, so no bridge policy means no bridges and the fold never runs.
+    private static Seq<LinkOp.Bridge> Bridges(Seq<SharedEdge> shared, Option<BridgeSpacing> policy) =>
+        policy.Map(row => shared.Bind(edge => {
+            double width = row.Width.Millimeters, pitch = row.Spacing.Millimeters, setback = row.EndClearance.Millimeters;
+            double available = edge.SharedLengthMm - (2.0 * setback) - width;
+            int count = available < 0.0 ? 0 : 1 + (int)Math.Floor(available / pitch);
             return toSeq(Enumerable.Range(0, count)).Map(slot => new LinkOp.Bridge(
                 edge,
-                Lerp(edge.Cut,
-                    (row.EndClearanceMm + (0.5 * row.WidthMm) + (slot * row.SpacingMm)) / edge.SharedLengthMm),
-                row.WidthMm));
-        }));
+                Lerp(edge.Cut, (setback + (0.5 * width) + (slot * pitch)) / edge.SharedLengthMm),
+                width));
+        })).IfNone(Seq<LinkOp.Bridge>());
 
-    private static Fin<Seq<WasteRow>> Waste(Seq<PlacedPart> placed, LinkRun run, WastePolicy policy) =>
+    private static Fin<Seq<WasteRow>> Waste(Seq<PlacedPart> placed, LinkRun run, Option<WasteVoronoi> policy) =>
         run.StockBySheet.ToSeq().Traverse(row => Partition(
                 row.Key,
                 row.Value,
@@ -708,7 +732,7 @@ public static class Linking {
         Stock stock,
         Seq<PlacedPart> occupied,
         Seq<Loop> keepOut,
-        WastePolicy policy) => PolygonAlgebra.Apply(new PolygonOp.Boolean(
+        Option<WasteVoronoi> policy) => PolygonAlgebra.Apply(new PolygonOp.Boolean(
                 stock.Region,
                 occupied.Bind(static part => part.Region).Concat(stock.Exclusions).Concat(keepOut),
                 BooleanOp.Difference,
@@ -716,12 +740,12 @@ public static class Linking {
             .Bind(Paths)
             .Bind(usable => usable.IsEmpty
                 ? Fin.Succ(Option<WasteRow>.None)
-                : policy.Switch(
-                    disabled: _ => Fin.Succ(Some(Safe(sheet, usable))),
-                    voronoi: row => Seed(usable, row.SiteSpacingMm, row.MaxSites)
+                : policy.Match(
+                    Some: row => Seed(usable, row.SiteSpacing.Millimeters, row.MaxSites)
                         .Bind(sites => sites.Count < 2
                             ? Fin.Succ(Some(Safe(sheet, usable) with { Sites = sites.Count }))
-                            : BuildVoronoi(sheet, usable, sites, row).Map(Some))));
+                            : BuildVoronoi(sheet, usable, sites, row).Map(Some)),
+                    None: () => Fin.Succ(Some(Safe(sheet, usable)))));
 
     private static WasteRow Safe(int sheet, Seq<Loop> usable) => new(
         sheet,
@@ -750,38 +774,37 @@ public static class Linking {
         Seq<Point3d> bounded = usable.Bind(static loop => toSeq(loop.Vertices)).Take(maxSites).Distinct()
             .Concat(grid).Distinct().Take(maxSites);
         return PolygonAlgebra.Apply(new PolygonOp.Contains(usable, bounded.ToArr(), PolygonFill.NonZero))
-            .Bind(trace => trace is PolygonTrace.Related related
-                ? Fin.Succ(toSeq(bounded.Zip(related.Result, static (point, relation) => (point, relation)))
-                    .Choose(static row => row.relation == PointRelation.Outside ? None : Some(row.point)))
-                : Fin.Fail<Seq<Point3d>>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "link:waste-seed-trace")));
+            .Bind(trace => trace
+                .Relations(new KernelFault.InvalidValue("linking", "link:waste-seed-trace"))
+                .Map(relations => toSeq(bounded.Zip(relations, static (point, relation) => (point, relation)))
+                    .Choose(static row => row.relation == PointRelation.Outside ? None : Some(row.point))));
     }
 
     private static Fin<WasteRow> BuildVoronoi(
         int sheet,
         Seq<Loop> usable,
         Seq<Point3d> seeds,
-        WastePolicy.Voronoi policy) {
+        WasteVoronoi policy) {
         // Waste diagrams belong to the algebra owner: one request carries the seed field, the usable outline as its
         // clip ring, and the relaxation and merge rows this policy already declares. Every cell arrives closed and
         // every adjacency arrives with its shared segment, so the cut candidates are a filter, not a re-derivation.
         return from outline in usable.Head.ToFin(
-                   new GeometryFault.DegenerateInput(Kind.Polyline, None, "link:waste-outline").ToError())
+                   new GeometryFault.DegenerateInput(Kind.Polyline, None, "link:waste-outline"))
                let policyRow = SitePolicy.Create(
                    relaxations: policy.Relaxations,
-                   relaxationStrength: policy.RelaxationStrength,
-                   merge: policy.MergeDistanceMm > 0.0
-                       ? Some(SiteMerge.Create(minimumArea: 0.0, minimumSeparation: policy.MergeDistanceMm))
+                   relaxationStrength: policy.RelaxationStrength.DecimalFractions,
+                   merge: policy.MergeDistance.Millimeters > 0.0
+                       ? Some(SiteMerge.Create(minimumArea: 0.0, minimumSeparation: policy.MergeDistance.Millimeters))
                        : None)
                from trace in PolygonAlgebra.Apply(
                    new PolygonOp.Cells(seeds.ToArr(), outline, policyRow), Op.Of(name: nameof(BuildVoronoi)))
-               from diagram in trace is PolygonTrace.Celled celled
-                   ? Fin.Succ(celled.Result)
-                   : Fin.Fail<CellReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "link:waste-cell-trace"))
+               from diagram in trace.Diagram(
+                   new KernelFault.InvalidValue("linking", "link:waste-cell-trace"))
                let raw = diagram.Adjacency.ToSeq()
-                   .Filter(edge => edge.Length >= policy.MinEdgeMm)
+                   .Filter(edge => edge.Length >= policy.MinEdge.Millimeters)
                    .Map(static edge => new Edge3(edge.Start, edge.End))
                let closed = diagram.Cells.ToSeq().Map(static cell => cell.Ring)
-               from fragment in Fragmented(closed, usable, policy.MinReusableAreaMm2)
+               from fragment in Fragmented(closed, usable, policy.MinReusable.SquareMillimeters)
                from clipped in PolygonAlgebra.Apply(new PolygonOp.ClipOpen(raw.Map(Seq), usable, PolygonFill.NonZero))
                from split in Split(clipped)
                select RouteGraph(
@@ -798,17 +821,12 @@ public static class Linking {
                 .Bind(region => region.IsEmpty
                     ? Fin.Succ(0.0)
                     : PolygonAlgebra.Apply(new PolygonOp.Measure(region, PolygonFill.NonZero))
-                        .Bind(static trace => trace is PolygonTrace.Measured measured
-                            ? Fin.Succ(measured.Result.FilledArea)
-                            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "link:cell-measure-trace"))))
+                        .Bind(static trace => trace
+                            .Measure(new KernelFault.InvalidValue("linking", "link:cell-measure-trace"))
+                            .Map(static measured => measured.FilledArea)))
                 .ToValidation())
             .As().ToFin()
             .Map(areas => areas.Filter(area => area > 0.0 && area < floorMm2).Fold(0.0, static (sum, area) => sum + area));
-
-    private static Fin<(Seq<Seq<Edge3>> Inside, Seq<Seq<Edge3>> Outside)> Split(PolygonTrace trace) =>
-        trace is PolygonTrace.SplitRuns split
-            ? Fin.Succ((split.Inside, split.Outside))
-            : Fin.Fail<(Seq<Seq<Edge3>>, Seq<Seq<Edge3>>)>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "link:split-trace"));
 
     // Route nodes key on the QUANTIZED station, never the raw `Point3d`: two cut endpoints that meet within the
     // admitted tolerance are one node, and exact-float keying silently forked them into two — every such fork
@@ -853,7 +871,7 @@ public static class Linking {
                 toSeq(group),
                 partitions.Find(row => row.SheetIndex == group.Key),
                 policy.RapidOrigin,
-                policy.Waste.Switch(disabled: static _ => 1, voronoi: static row => row.RapidProbeNodes)).ToValidation())
+                policy.Waste.Map(static row => row.RapidProbeNodes).IfNone(1)).ToValidation())
             .As().ToFin().Map(static rows => rows.Bind(identity));
 
     private static Fin<Seq<ChainRow>> RouteSheet(
@@ -869,15 +887,14 @@ public static class Linking {
                     (route, pierce) =>
                         from prior in route
                         from path in partition.Map(row => RapidPath(row, prior.Cursor, pierce, probes))
-                            .IfNone(Fin.Fail<Seq<Point3d>>(new FabricationFault.PolicyInadmissible(
-                                FabConcern.Nesting, "link:rapid-usable-region")))
+                            .IfNone(Fin.Fail<Seq<Point3d>>(new KernelFault.InvalidValue("linking", "link:rapid-usable-region")))
                         select (Cursor: pierce, Paths: prior.Paths.Add(path)))
                 select (routed.Cursor, Rows: state.Rows.Add(chain with { RapidPaths = routed.Paths })))
             .Map(static state => state.Rows);
 
     // Legs that never leave the waste region are already optimal, so the partition detour and its per-node
-    // visibility clips only run when the direct leg would cross a cut part. An UNROUTED row — the `WastePolicy
-    // .Disabled` baseline the comparison measures against — owes no detour and takes the direct leg whole: the
+    // visibility clips only run when the direct leg would cross a cut part. An UNROUTED row — the absent-waste
+    // baseline the comparison measures against — owes no detour and takes the direct leg whole: the
     // baseline is a DISTANCE reading, and refusing it whenever a leg is blocked kills exactly the runs linking
     // exists to improve. Only a ROUTED row whose own visibility graph cannot carry a detour refuses.
     private static Fin<Seq<Point3d>> RapidPath(WasteRow partition, Point3d from, Point3d to, int probes) =>
@@ -885,13 +902,13 @@ public static class Linking {
         from path in direct || !partition.Routed
             ? Fin.Succ(Seq(from, to))
             : partition.Nodes.IsEmpty
-                ? Fin.Fail<Seq<Point3d>>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "link:rapid-blocked"))
+                ? Fin.Fail<Seq<Point3d>>(new KernelFault.InvalidValue("linking", "link:rapid-blocked"))
                 : from starts in VisibleNodes(partition, from, probes)
                   from ends in VisibleNodes(partition, to, probes)
                   from route in toSeq(starts.Bind(start => ends.Choose(end => GraphPath(partition, start, end)))
                           .OrderBy(Tour))
                       .Head
-                      .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "link:rapid-route"))
+                      .ToFin(new KernelFault.InvalidValue("linking", "link:rapid-route"))
                   select Seq(from).Concat(route).Add(to)
         select path;
 
@@ -902,11 +919,11 @@ public static class Linking {
             .As().ToFin()
             .Bind(static rows => rows.Filter(static row => row.Clear).Map(static row => row.Key) is { IsEmpty: false } visible
                 ? Fin.Succ(visible)
-                : Fin.Fail<Seq<int>>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "link:rapid-connector")));
+                : Fin.Fail<Seq<int>>(new KernelFault.InvalidValue("linking", "link:rapid-connector")));
 
     private static Fin<bool> Visible(Seq<Loop> usable, Point3d first, Point3d second) =>
         usable.Head.Map(static loop => loop.Tolerance.Absolute.Value)
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, None, "link:visibility-outline").ToError())
+            .ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, None, "link:visibility-outline"))
             .Bind(tolerance => first.DistanceTo(second) <= tolerance
                 ? Fin.Succ(true)
                 : PolygonAlgebra.Apply(new PolygonOp.ClipOpen(
@@ -940,12 +957,12 @@ public static class Linking {
                 .Concat(partitions.Map(static row => row.Cuts.Sum(static edge => edge.A.DistanceTo(edge.B))))
                 .OrderByDescending(static value => value))
             .Head.IfNone(0.0);
-        double heat = continuous / run.Policy.MaxContinuousCutMm;
+        double heat = continuous / run.Policy.MaxContinuousCut.Millimeters;
         double quality = shared.Sum(edge => run.Policy.MatchToleranceMm / edge.SharedLengthMm) + bridges.Count;
         // Remnant loss lives entirely in the waste region: kerf swept by the partition cuts and the cells that
         // fall under the reusable floor. Common-line and bridge spans run between parts, never through the offcut,
         // so crediting them here would subtract part-side savings from an offcut-side cost and can read negative.
-        double remnant = (partition * run.Policy.CutWidthMm) + partitions.Sum(static row => row.FragmentAreaMm2);
+        double remnant = (partition * run.Policy.CutWidth.Millimeters) + partitions.Sum(static row => row.FragmentAreaMm2);
         return new LinkEvidence(chains.Sum(static chain => chain.Pierces.Count), rapid, cut,
             shared.Sum(static edge => edge.SharedLengthMm), bridge,
             partition, heat, quality, remnant);
@@ -980,7 +997,9 @@ public static class Linking {
 // deleted form. A shared edge is one pierce and one traverse a program never pays for, so the receipt carries the
 // overlap it found BESIDE the pierce census the placed set costs once those shares are taken — which is what makes
 // "fewer pierces at equal yield" a readable acceptance rather than an inference.
-public readonly record struct CommonLineReceipt(double OverlapMm, int Pairs, int Pierces);
+// Census, not receipt: this carries no content key, no evidence band, and no stamp, so under the settled-receipt
+// law it takes no `*Receipt` name. What it counts is what it names.
+public readonly record struct CommonLineCensus(double OverlapMm, int Pairs, int Pierces);
 
 // What a caller demands of a pair, in the caller's own terms: the separation the two segments must hold, the
 // deviation admitted on it, the angular window for antiparallelism, and the shortest overlap worth a share. A
@@ -994,7 +1013,7 @@ public readonly record struct CommonLineBudget(
     public static CommonLineBudget Touching(Context left, Context right) =>
         new(0.0,
             Math.Max(left.Absolute.Value, right.Absolute.Value),
-            Math.Max(left.Angular.Value, right.Angular.Value),
+            Math.Max(left.Angle.Value, right.Angle.Value),
             Math.Max(left.Absolute.Value, right.Absolute.Value));
 }
 
@@ -1055,7 +1074,7 @@ public static class CommonLine {
                 ? accepted
                 : accepted.Add(candidate));
 
-    public static CommonLineReceipt Measure(Seq<Loop> shapes) {
+    public static CommonLineCensus Measure(Seq<Loop> shapes) {
         Seq<(Loop Loop, int Segment)> sites = shapes.Bind(loop => toSeq(Enumerable.Range(0, loop.Count))
             .Filter(segment => loop.BulgeAt(segment) == 0.0)
             .Map(segment => (loop, segment)));
@@ -1076,7 +1095,7 @@ public static class CommonLine {
                 .ThenBy(static row => row.ordinal)),
             static (taken, candidate) => taken.Left == candidate.Left || taken.Left == candidate.Right
                 || taken.Right == candidate.Left || taken.Right == candidate.Right);
-        return new CommonLineReceipt(
+        return new CommonLineCensus(
             accepted.Sum(static row => row.Overlap),
             accepted.Count,
             Math.Max(0, shapes.Count - accepted.Count));

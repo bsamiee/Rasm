@@ -26,7 +26,7 @@ from datetime import date, datetime
 from enum import StrEnum
 from functools import partial
 from pathlib import Path
-from typing import Annotated, Final, Literal, Never, NotRequired, ReadOnly, Self, TypedDict, Unpack, assert_never
+from typing import Annotated, Final, Literal, NotRequired, ReadOnly, Self, TypedDict, Unpack, assert_never
 
 import msgspec
 from expression import Error, Ok, Result, case, tag, tagged_union
@@ -37,18 +37,19 @@ from msgspec import Struct, field, to_builtins
 from pydantic import Field, TypeAdapter, ValidationError
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, async_boundary
+from rasm.runtime.faults import TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, async_boundary, rostered
 from rasm.runtime.journal import Assigned, Change, Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import OPEN, Receipt, receipted
 from rasm.runtime.workers import Kernel, KernelTrait
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.exchange.detect import Detect, MediaClass, Source
 from rasm.artifacts.document.model import (
-    AnnotationNode,
     AnnotKind,
+    AnnotationNode,
     BlockKind,
     BlockNode,
     ButtonField,
@@ -59,6 +60,7 @@ from rasm.artifacts.document.model import (
     FigureNode,
     ForeignRole,
     FormulaNode,
+    Lapse,
     ListField,
     ListKind,
     ListNode,
@@ -76,6 +78,7 @@ from rasm.artifacts.document.model import (
     Uri,
     field_text,
     hardened_parse,
+    lapsed,
     node_digest,
     role_of,
     standard_for,
@@ -274,6 +277,27 @@ _FORMATS: Final[Map[str, frozendict[str, object]]] = Map.of_seq([
     ("number", frozendict({"num_format": _NUM_FORMAT})),
     ("datetime", frozendict({"num_format": _DATE_FORMAT})),
 ])
+
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's whole raise roster. The template gate is TERMINAL and caller-repairable — a file whose detected class is
+# not WORD refuses identically on every re-offer, and the detected mime rides as the row's one named coordinate —
+# while the step fold is TRANSIENT, a provider raise or a worker death a re-issue may clear. Every ADMISSION refusal
+# stays `EmitFault`'s closed vocabulary and takes no row here.
+EMIT_TEMPLATE: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.EMIT, point="template", arm="config", defect="not-a-word-template", retriability=TERMINAL, slots=("mime",)
+)
+EMIT_STEP: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.EMIT, point="step", arm="boundary", defect="step-fold", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([EMIT_TEMPLATE, EMIT_STEP]))
+
+# the fence's whole raise surface: `_stepped` awaits RAILED calls throughout and collapses each terminal fault
+# through the shared `document/model#NODE` carrier, which `BoundaryFault.of` admits ahead of `CLASSIFY` so the fault
+# crosses back WHOLE on `domain` — the template gate's own refusal included. Every backend raise already converted
+# inside the worker or the thread lane, so no backend class rides here.
+_STEP_RAISES: Final[Catch] = (Lapse,)
 
 # --- [ERRORS] ---------------------------------------------------------------------------
 
@@ -561,7 +585,7 @@ class DocumentPlan(Struct, frozen=True):
         return EmitSpec(**{name: getattr(self.spec, name) for name in _admissible(self.mode)})
 
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
-        crossed = await async_boundary(f"emit.{self.mode}", self._stepped)
+        crossed = await async_boundary(EMIT_STEP, self._stepped, catch=_STEP_RAISES)
         settled = crossed.map(lambda live: (live, _RECEIPT[BACKENDS[self.mode].kind](key, live.fact)))
         match settled:
             case Result(tag="ok", ok=(live, receipt)):
@@ -606,18 +630,18 @@ class DocumentPlan(Struct, frozen=True):
             .bind(
                 lambda identity: Ok(self)
                 if identity.media_class is MediaClass.WORD
-                else Error(BoundaryFault(config=("artifacts.emit.template", identity.mime)))
+                else Error(EMIT_TEMPLATE.raised(identity.mime))
             )
             if self.mode is DocumentMode.DOCX_TEMPLATE
             else Ok(self)
         )
-        admitted = gate.default_with(_emit_raise)
+        admitted = gate.default_with(lapsed)
         fact = (
             await admitted.lane.offload(Kernel.of(_dispatched, KernelTrait.HOSTILE), admitted)
             if BACKENDS[admitted.mode].band is Band.WORKER
             else await admitted.lane.offload(Kernel.of(_dispatched, KernelTrait.RELEASING), admitted)
         )
-        return replace(admitted, fact=fact.default_with(_emit_raise))
+        return replace(admitted, fact=fact.default_with(lapsed))
 
     def contribute(self) -> Iterable[Receipt]:
         if (fact := self.fact) is None:
@@ -656,9 +680,6 @@ class DocumentPlan(Struct, frozen=True):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-
-def _emit_raise(fault: object) -> Never:
-    raise ValueError(str(fault))
 
 
 def _admissible(mode: DocumentMode, /) -> frozenset[str]:

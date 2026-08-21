@@ -1,17 +1,22 @@
 # [RASM_RHINO_MODELING_DEFORM]
 
-`Deforms.Apply` owns value-semantic morph, control, unroll, squish, inverse mapping, and mesh unwrap over geometry custody. `DeformOp` admits drivers once, generated policies own every native carrier, disposable engines remain inside borrow windows, and `Built<DeformSlot>` carries products plus axis-labelled evidence. Document transforms and kernel DEC flattening remain separate owners.
+`Deforms.Build` owns value-semantic morph, control, unroll, squish, inverse mapping, and mesh unwrap over geometry custody. `DeformOp` admits drivers once through the spine's `ModelClaim` fold, generated policies own every native carrier, disposable engines ride `Lease` windows inside their borrow scope, and `Built<DeformSlot>` carries products with axis-labelled evidence. Document transforms and kernel DEC flattening remain separate owners.
 
 ## [01]-[INDEX]
 
-- [02]-[MORPH]: `MorphKind`, `MorphBehavior`, `BendBehavior`, `FlowBehavior`, and `MorphExtent`.
-- [03]-[FLATTEN]: `Following`, `UnrollLaw`, `SquishLaw`, `SquishSpring`, and `SquishFollowers`.
-- [04]-[ALGEBRA]: `DeformSlot`, `DeformOp`, and `Deforms.Apply`.
-- [05]-[EXECUTION]: native lifetime, source correlation, and geometry custody.
+- [02]-[MORPH]: `BendBehavior`, `FlowBehavior`, `TaperBehavior`, `MorphBehavior`, `MorphExtent`, `MorphKind` — the deformation discriminant and its grant vocabularies.
+- [03]-[FLATTEN]: `SquishBehavior`, `UnrollOutput`, `UnrollFollowers`, `SquishFollowers`, `UnrollLaw`, `SquishSpring`, `SquishLaw` — the flattener policies and their carried geometry.
+- [04]-[ALGEBRA]: `DeformSlot`, `DeformOp`, and the `Deforms.Build` entry.
 
 ## [02]-[MORPH]
 
-`MorphKind` is the sole deformation discriminant. `BendBehavior`, `FlowBehavior`, `TaperBehavior`, `MorphExtent`, and `MorphBehavior` replace positional booleans with bounded policy. Every concrete engine enters the same duplicate-morph-own kernel, including `MorphControl`.
+- Owner: `MorphKind` `[Union]` — the sole deformation discriminant, eleven engine forms behind one mint; `BendBehavior`, `FlowBehavior`, `TaperBehavior`, and `MorphBehavior` — the grant vocabularies replacing every positional host bool; `MorphExtent` — the infinite-twist row.
+- Law: every concrete engine enters the same duplicate-morph-own kernel — `Deformed` mints the engine inside `Op.Catch` under a `using`, seats tolerance and the two tuning grants, and hands the morph body to `Duplicated`; `MorphControl` is not a `SpaceMorph`, so its arm builds the driver and re-enters `Duplicated` directly, and that carve is the only reason a second mint exists.
+- Law: morphability gates before duplication — `Duplicated` refuses a non-morphable source through `Unsupported` with both types named, duplicates only after that verdict, and disposes the working copy on the morph's failure edge, so a refused morph never strands a live duplicate.
+- Law: grants are a `CapabilitySet`, never a `FrozenSet` — membership outside the roster is unrepresentable rather than probed at admission, and the runtime `Declared` membership check three Modeling pages spelled by hand deletes with it. `CapabilitySet`'s `[UnorderedEquality]` comparison also fixes the reference-equality reading a raw frozen set gives every value object holding one.
+- Law: a two-state modality carrying a HOST projection column is a row — `MorphExtent` renders `InfiniteTwist`, so the bit lives on the row that names both corners and a caller cannot pass a bare `true` whose meaning the call site alone carries. Grants with no host column and no correlated partner stay `CapabilitySet` members; a solitary independent bit stays a named bool on its owning case.
+- Growth: a new morph engine is one `MorphKind` case with its mint; a new grant is one vocabulary row.
+- Packages: RhinoCommon deform (`.api/api-rhinocommon-deform.md` — `Morphs.BendSpaceMorph`/`FlowSpaceMorph`/`MaelstromSpaceMorph`/`SplopSpaceMorph`/`SporphSpaceMorph`/`StretchSpaceMorph`/`TaperSpaceMorph`/`TwistSpaceMorph`/`MeshCageMorph`, `MorphControl`, `SpaceMorph.IsMorphable`), kernel `Domain/rails` (`Op`, `Fin`, `ValidityClaim`, `IValidityEvidence`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/context` (`Context`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`, `Built<TSlot>`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -27,29 +32,33 @@ using Rhino.Geometry;
 namespace Rasm.Rhino.Modeling;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-[SmartEnum<int>]
-public sealed partial class BendBehavior {
-    public static readonly BendBehavior Straight = new(key: 0);
-    public static readonly BendBehavior Symmetric = new(key: 1);
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class BendBehavior : ICapability<BendBehavior> {
+    public static readonly BendBehavior Straight = new(key: "straight");
+    public static readonly BendBehavior Symmetric = new(key: "symmetric");
 }
 
-[SmartEnum<int>]
-public sealed partial class FlowBehavior {
-    public static readonly FlowBehavior ReverseBase = new(key: 0);
-    public static readonly FlowBehavior ReverseTarget = new(key: 1);
-    public static readonly FlowBehavior PreventStretching = new(key: 2);
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class FlowBehavior : ICapability<FlowBehavior> {
+    public static readonly FlowBehavior ReverseBase = new(key: "reverse-base");
+    public static readonly FlowBehavior ReverseTarget = new(key: "reverse-target");
+    public static readonly FlowBehavior PreventStretching = new(key: "prevent-stretching");
 }
 
-[SmartEnum<int>]
-public sealed partial class TaperBehavior {
-    public static readonly TaperBehavior Flat = new(key: 0);
-    public static readonly TaperBehavior Infinite = new(key: 1);
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class TaperBehavior : ICapability<TaperBehavior> {
+    public static readonly TaperBehavior Flat = new(key: "flat");
+    public static readonly TaperBehavior Infinite = new(key: "infinite");
 }
 
-[SmartEnum<int>]
-public sealed partial class MorphBehavior {
-    public static readonly MorphBehavior QuickPreview = new(key: 0);
-    public static readonly MorphBehavior PreserveStructure = new(key: 1);
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class MorphBehavior : ICapability<MorphBehavior> {
+    public static readonly MorphBehavior QuickPreview = new(key: "quick-preview");
+    public static readonly MorphBehavior PreserveStructure = new(key: "preserve-structure");
 }
 
 [SmartEnum<int>]
@@ -61,42 +70,73 @@ public sealed partial class MorphExtent {
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record MorphKind {
+public abstract partial record MorphKind : IValidityEvidence {
     private MorphKind() { }
-    public sealed record Bend(Point3d Start, Point3d End, Point3d Through, Option<double> Angle, FrozenSet<BendBehavior> Behavior) : MorphKind;
-    public sealed record Flow(GeometryHandle BaseRail, GeometryHandle TargetRail, FrozenSet<FlowBehavior> Behavior) : MorphKind;
+    public sealed record Bend(Point3d Start, Point3d End, Point3d Through, Option<double> Angle, CapabilitySet<BendBehavior> Behavior) : MorphKind;
+    public sealed record Flow(GeometryHandle BaseRail, GeometryHandle TargetRail, CapabilitySet<FlowBehavior> Behavior) : MorphKind;
     public sealed record Maelstrom(Plane Frame, double Radius0, double Radius1, double AngleRadians) : MorphKind;
     public sealed record Splop(Plane Frame, GeometryHandle Surface, Point2d SurfaceUv, double Scale = 1.0, double AngleRadians = 0.0) : MorphKind;
     public sealed record Sporph(GeometryHandle BaseSurface, GeometryHandle TargetSurface, Option<(Point2d BaseUv, Point2d TargetUv)> Alignment, Option<Vector3d> ConstrainNormal = default) : MorphKind;
     public sealed record StretchToLength(Point3d Start, Point3d End, double Length) : MorphKind;
     public sealed record StretchToPoint(Point3d Start, Point3d End, Point3d Point) : MorphKind;
-    public sealed record Taper(Point3d Start, Point3d End, double StartRadius, double EndRadius, FrozenSet<TaperBehavior> Behavior) : MorphKind;
+    public sealed record Taper(Point3d Start, Point3d End, double StartRadius, double EndRadius, CapabilitySet<TaperBehavior> Behavior) : MorphKind;
     public sealed record Twist(Line Axis, double AngleRadians, MorphExtent Extent) : MorphKind;
     public sealed record Cage(GeometryHandle Reference, GeometryHandle Target) : MorphKind;
     public sealed record Control(GeometryHandle OriginCurve, GeometryHandle TargetCurve) : MorphKind;
 
-    internal Fin<GeometryHandle> Morph(GeometryHandle target, FrozenSet<MorphBehavior> tuning, Context context, Op key) =>
+    public bool IsValid => Switch(
+        bend: static kind => ValidityClaim.All(
+            ValidityClaim.Finite(value: kind.Start), ValidityClaim.Finite(value: kind.End), ValidityClaim.Finite(value: kind.Through),
+            ValidityClaim.WhenPresent(facet: kind.Angle, claim: static angle => ValidityClaim.Finite(value: angle))),
+        flow: static kind => ValidityClaim.All(
+            ModelClaim.Handle(handle: kind.BaseRail), ModelClaim.Handle(handle: kind.TargetRail)),
+        maelstrom: static kind => ValidityClaim.All(
+            kind.Frame.IsValid, ValidityClaim.Finite(value: kind.Radius0),
+            ValidityClaim.Finite(value: kind.Radius1), ValidityClaim.Finite(value: kind.AngleRadians)),
+        splop: static kind => ValidityClaim.All(
+            kind.Frame.IsValid, ModelClaim.Handle(handle: kind.Surface), kind.SurfaceUv.IsValid,
+            ValidityClaim.Finite(value: kind.Scale), kind.Scale != 0.0, ValidityClaim.Finite(value: kind.AngleRadians)),
+        sporph: static kind => ValidityClaim.All(
+            ModelClaim.Handle(handle: kind.BaseSurface), ModelClaim.Handle(handle: kind.TargetSurface),
+            ValidityClaim.WhenPresent(facet: kind.Alignment, claim: static pair => ValidityClaim.All(pair.BaseUv.IsValid, pair.TargetUv.IsValid)),
+            ValidityClaim.WhenPresent(facet: kind.ConstrainNormal, claim: static normal => ValidityClaim.Direction(value: normal))),
+        stretchToLength: static kind => ValidityClaim.All(
+            ValidityClaim.Finite(value: kind.Start), ValidityClaim.Finite(value: kind.End),
+            ValidityClaim.Positive(value: kind.Length)),
+        stretchToPoint: static kind => ValidityClaim.All(
+            ValidityClaim.Finite(value: kind.Start), ValidityClaim.Finite(value: kind.End), ValidityClaim.Finite(value: kind.Point)),
+        taper: static kind => ValidityClaim.All(
+            ValidityClaim.Finite(value: kind.Start), ValidityClaim.Finite(value: kind.End),
+            ValidityClaim.Nonnegative(value: kind.StartRadius), ValidityClaim.Nonnegative(value: kind.EndRadius)),
+        twist: static kind => ValidityClaim.All(
+            kind.Axis.IsValid, ValidityClaim.Finite(value: kind.AngleRadians), kind.Extent is not null),
+        cage: static kind => ValidityClaim.All(
+            ModelClaim.Handle(handle: kind.Reference), ModelClaim.Handle(handle: kind.Target)),
+        control: static kind => ValidityClaim.All(
+            ModelClaim.Handle(handle: kind.OriginCurve), ModelClaim.Handle(handle: kind.TargetCurve)));
+
+    internal Fin<GeometryHandle> Morph(GeometryHandle target, CapabilitySet<MorphBehavior> tuning, Context context, Op key) =>
         Switch(
             (Target: target, Tuning: tuning, Domain: context, Op: key),
             bend: static (ctx, kind) => Deformed(
                 mint: () => kind.Angle.Case switch {
                     double angle => new Morphs.BendSpaceMorph(
                         start: kind.Start, end: kind.End, point: kind.Through, angle: angle,
-                        straight: kind.Behavior.Contains(BendBehavior.Straight),
-                        symmetric: kind.Behavior.Contains(BendBehavior.Symmetric)),
+                        straight: kind.Behavior.Admits(capability: BendBehavior.Straight),
+                        symmetric: kind.Behavior.Admits(capability: BendBehavior.Symmetric)),
                     _ => new Morphs.BendSpaceMorph(
                         start: kind.Start, end: kind.End, point: kind.Through,
-                        straight: kind.Behavior.Contains(BendBehavior.Straight),
-                        symmetric: kind.Behavior.Contains(BendBehavior.Symmetric)),
+                        straight: kind.Behavior.Admits(capability: BendBehavior.Straight),
+                        symmetric: kind.Behavior.Admits(capability: BendBehavior.Symmetric)),
                 },
                 ctx: ctx),
             flow: static (ctx, kind) => ModelGate.Borrow<Curve, GeometryHandle>(handle: kind.BaseRail, key: ctx.Op, body: baseRail =>
                 ModelGate.Borrow<Curve, GeometryHandle>(handle: kind.TargetRail, key: ctx.Op, body: targetRail => Deformed(
                     mint: () => new Morphs.FlowSpaceMorph(
                         curve0: baseRail, curve1: targetRail,
-                        reverseCurve0: kind.Behavior.Contains(FlowBehavior.ReverseBase),
-                        reverseCurve1: kind.Behavior.Contains(FlowBehavior.ReverseTarget),
-                        preventStretching: kind.Behavior.Contains(FlowBehavior.PreventStretching)),
+                        reverseCurve0: kind.Behavior.Admits(capability: FlowBehavior.ReverseBase),
+                        reverseCurve1: kind.Behavior.Admits(capability: FlowBehavior.ReverseTarget),
+                        preventStretching: kind.Behavior.Admits(capability: FlowBehavior.PreventStretching)),
                     ctx: ctx))),
             maelstrom: static (ctx, kind) => Deformed(
                 mint: () => new Morphs.MaelstromSpaceMorph(plane: kind.Frame, radius0: kind.Radius0, radius1: kind.Radius1, angle: kind.AngleRadians),
@@ -124,8 +164,8 @@ public abstract partial record MorphKind {
             taper: static (ctx, kind) => Deformed(
                 mint: () => new Morphs.TaperSpaceMorph(
                     start: kind.Start, end: kind.End, startRadius: kind.StartRadius, endRadius: kind.EndRadius,
-                    bFlat: kind.Behavior.Contains(TaperBehavior.Flat),
-                    infiniteTaper: kind.Behavior.Contains(TaperBehavior.Infinite)),
+                    bFlat: kind.Behavior.Admits(capability: TaperBehavior.Flat),
+                    infiniteTaper: kind.Behavior.Admits(capability: TaperBehavior.Infinite)),
                 ctx: ctx),
             twist: static (ctx, kind) => Deformed(
                 mint: () => new Morphs.TwistSpaceMorph {
@@ -143,49 +183,25 @@ public abstract partial record MorphKind {
                     ctx.Op.Catch(() => {
                         using MorphControl driver = new(originCurve: origin, targetCurve: driven);
                         driver.SpaceMorphTolerance = ctx.Domain.Absolute.Value;
-                        driver.QuickPreview = ctx.Tuning.Contains(MorphBehavior.QuickPreview);
-                        driver.PreserveStructure = ctx.Tuning.Contains(MorphBehavior.PreserveStructure);
+                        driver.QuickPreview = ctx.Tuning.Admits(capability: MorphBehavior.QuickPreview);
+                        driver.PreserveStructure = ctx.Tuning.Admits(capability: MorphBehavior.PreserveStructure);
                         return Duplicated(target: ctx.Target, morph: working => ctx.Op.Confirm(success: driver.Morph(geometry: working)), key: ctx.Op);
                     }))));
 
-    internal bool Admissible(FrozenSet<MorphBehavior>? tuning) =>
-        Deforms.Declared(values: tuning, rows: MorphBehavior.Items) && Switch(
-            bend: static kind => kind.Start.IsValid && kind.End.IsValid && kind.Through.IsValid
-                && kind.Angle.ForAll(double.IsFinite)
-                && Deforms.Declared(values: kind.Behavior, rows: BendBehavior.Items),
-            flow: static kind => kind.BaseRail is not null && kind.TargetRail is not null
-                && Deforms.Declared(values: kind.Behavior, rows: FlowBehavior.Items),
-            maelstrom: static kind => kind.Frame.IsValid && double.IsFinite(kind.Radius0)
-                && double.IsFinite(kind.Radius1) && double.IsFinite(kind.AngleRadians),
-            splop: static kind => kind.Frame.IsValid && kind.Surface is not null && kind.SurfaceUv.IsValid
-                && double.IsFinite(kind.Scale) && kind.Scale != 0.0 && double.IsFinite(kind.AngleRadians),
-            sporph: static kind => kind.BaseSurface is not null && kind.TargetSurface is not null
-                && kind.Alignment.ForAll(static pair => pair.BaseUv.IsValid && pair.TargetUv.IsValid)
-                && kind.ConstrainNormal.ForAll(static normal => normal.IsValid && !normal.IsZero),
-            stretchToLength: static kind => kind.Start.IsValid && kind.End.IsValid
-                && double.IsFinite(kind.Length) && kind.Length > 0.0,
-            stretchToPoint: static kind => kind.Start.IsValid && kind.End.IsValid && kind.Point.IsValid,
-            taper: static kind => kind.Start.IsValid && kind.End.IsValid
-                && double.IsFinite(kind.StartRadius) && kind.StartRadius >= 0.0
-                && double.IsFinite(kind.EndRadius) && kind.EndRadius >= 0.0
-                && Deforms.Declared(values: kind.Behavior, rows: TaperBehavior.Items),
-            twist: static kind => kind.Axis.IsValid && double.IsFinite(kind.AngleRadians) && kind.Extent is not null,
-            cage: static kind => kind.Reference is not null && kind.Target is not null,
-            control: static kind => kind.OriginCurve is not null && kind.TargetCurve is not null);
-
-    private static Fin<GeometryHandle> Deformed<TMorph>(Func<TMorph> mint, (GeometryHandle Target, FrozenSet<MorphBehavior> Tuning, Context Domain, Op Op) ctx)
+    private static Fin<GeometryHandle> Deformed<TMorph>(
+        Func<TMorph> mint, (GeometryHandle Target, CapabilitySet<MorphBehavior> Tuning, Context Domain, Op Op) ctx)
         where TMorph : SpaceMorph, IDisposable =>
         ctx.Op.Catch(() => {
             using TMorph active = mint();
             active.Tolerance = ctx.Domain.Absolute.Value;
-            active.QuickPreview = ctx.Tuning.Contains(MorphBehavior.QuickPreview);
-            active.PreserveStructure = ctx.Tuning.Contains(MorphBehavior.PreserveStructure);
+            active.QuickPreview = ctx.Tuning.Admits(capability: MorphBehavior.QuickPreview);
+            active.PreserveStructure = ctx.Tuning.Admits(capability: MorphBehavior.PreserveStructure);
             return Duplicated(target: ctx.Target, morph: working => ctx.Op.Confirm(success: active.Morph(geometry: working)), key: ctx.Op);
         });
 
     private static Fin<GeometryHandle> Duplicated(GeometryHandle target, Func<GeometryBase, Fin<Unit>> morph, Op key) =>
         ModelGate.Borrow<GeometryBase, GeometryHandle>(handle: target, key: key, body: source =>
-            from _ in guard(SpaceMorph.IsMorphable(geometry: source), key.Unsupported(geometryType: source.GetType(), outputType: typeof(GeometryBase)))
+            from _ in guard(SpaceMorph.IsMorphable(geometry: source), key.Unsupported(inputType: source.GetType(), outputType: typeof(GeometryBase)))
             from working in key.Catch(() => Optional(source.Duplicate()).ToFin(Fail: key.InvalidResult()))
             from morphed in morph(arg: working).Match(
                 Succ: _ => ModelGate.Own(built: working, key: key),
@@ -195,21 +211,27 @@ public abstract partial record MorphKind {
                 })
             select morphed);
 }
-
 ```
 
 ## [03]-[FLATTEN]
 
-`Following`, `UnrollLaw`, `SquishLaw`, `SquishSpring`, and `SquishFollowers` validate before native engines exist. `SquishBehavior` replaces topology, mapping, boundary, and diagnostic booleans with one policy value. `FollowingGeometryIndex` preserves source correlation for carried curves.
+- Owner: `UnrollFollowers` and `SquishFollowers` — the carried-geometry rows of the two flatteners; `UnrollLaw`, `SquishSpring`, and `SquishLaw` — the flattener policies; `SquishBehavior` — the squish grant vocabulary; `UnrollOutput` — the explode row.
+- Law: the two follower rows stay PLURAL, with the discriminant named here: the dot carrier is fixed by the consuming native — `Unroller.AddFollowingGeometry(dotLocation, dotText)` takes a located label the host mints for itself, while `Squisher.SquishTextDot` takes a LIVE `TextDot` this rail must borrow. Fusing them behind a dot-source union replaces that compile-time impossibility with a runtime refusal on both arms and buys no capability, so the pair keeps two owners and the names carry the flattener each serves.
+- Law: every owner answers ONE admission fold — the generated factory hook and `IsValid` read the same static `Admits`, so an invalid instance is unconstructible and no consumer re-tests what construction already proved; the spread claims are the spine's `ModelClaim` rows, so a follower spread's element invariant is stated once.
+- Law: `SquishLaw.Rig` hands back a LEASE, never a bare native — `SquishParameters.Default` mints a fresh instance on every read (`ReferenceEquals(Default, Default)` is false) and the type is `IDisposable`, so the rig acquires through `Lease.Acquire`, configures inside a rolled-back `Catch` that disposes on a mid-configure throw, and the consuming arm's `Lease.Use` closes it with the cleanup fault aggregated into the primary. Both the `= null` custody sentinel and the hand `try`/`finally` delete: custody is a case, never a nulled local.
+- Law: the spring pair is one value — `SetSpringConstants` takes both biases together and `GetSpringConstants` answers both, so `SquishSpring` carries the pair and an absent spring is `None` rather than two defaulted zeros.
+- Growth: a new flattener grant is one `SquishBehavior` row; a new solver weight is one `SquishLaw` column with its claim.
+- Packages: RhinoCommon deform (`.api/api-rhinocommon-deform.md` — `Unroller` `:37` (`ExplodeOutput`, `ExplodeSpacing`, `AbsoluteTolerance`, `RelativeTolerance`, `AddFollowingGeometry`, `PerformUnroll`, `FollowingGeometryIndex`), `Squisher`, `SquishParameters`, `SquishFlatteningAlgorithm`, `SquishDeformation`), kernel `Domain/rails` (`Lease<T>.Acquire`/`Use`, `Op`, `ValidityClaim`, `IValidityEvidence`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/context` (`Context.Absolute`, `Context.Fractional`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
-[SmartEnum<int>]
-public sealed partial class SquishBehavior {
-    public static readonly SquishBehavior PreserveBoundary = new(key: 0);
-    public static readonly SquishBehavior PreserveTopology = new(key: 1);
-    public static readonly SquishBehavior SaveMapping = new(key: 2);
-    public static readonly SquishBehavior CaptureNets = new(key: 3);
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class SquishBehavior : ICapability<SquishBehavior> {
+    public static readonly SquishBehavior PreserveBoundary = new(key: "preserve-boundary");
+    public static readonly SquishBehavior PreserveTopology = new(key: "preserve-topology");
+    public static readonly SquishBehavior SaveMapping = new(key: "save-mapping");
+    public static readonly SquishBehavior CaptureNets = new(key: "capture-nets");
 }
 
 [SmartEnum<int>]
@@ -223,36 +245,38 @@ public sealed partial class UnrollOutput {
 // --- [MODELS] -----------------------------------------------------------------------------
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
-public readonly partial struct Following {
+public readonly partial struct UnrollFollowers : IValidityEvidence {
     public Seq<GeometryHandle> Curves { get; }
     public Seq<Point3d> Points { get; }
+    // `Unroller` mints its own label from a location and a text, so the dot carrier is a VALUE here and a live
+    // `TextDot` handle cannot be constructed into this row; `SquishFollowers` is the borrowed-handle sibling.
     public Seq<(Point3d Location, string Text)> Dots { get; }
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Seq<GeometryHandle> curves,
         ref Seq<Point3d> points,
-        ref Seq<(Point3d Location, string Text)> dots) {
-        if (!IsAdmissible(curves: curves, points: points, dots: dots)) {
-            validationError = new ValidationError("Following geometry requires live curve handles, valid points, and located dot labels with text.");
-        }
-    }
+        ref Seq<(Point3d Location, string Text)> dots) =>
+        validationError = Admits(curves: curves, points: points, dots: dots)
+            ? null
+            : new ValidationError("Unroll followers require live curve handles, valid points, and located dot labels with text.");
 
-    internal bool Admissible => IsAdmissible(curves: Curves, points: Points, dots: Dots);
+    public bool IsValid => Admits(curves: Curves, points: Points, dots: Dots);
 
-    private static bool IsAdmissible(
-        Seq<GeometryHandle> curves,
-        Seq<Point3d> points,
-        Seq<(Point3d Location, string Text)> dots) =>
-        curves.ForAll(static handle => handle is not null)
-        && points.ForAll(static point => point.IsValid)
-        && dots.ForAll(static row => row.Location.IsValid && !string.IsNullOrWhiteSpace(row.Text));
+    private static ValidityClaim Admits(
+        Seq<GeometryHandle> curves, Seq<Point3d> points, Seq<(Point3d Location, string Text)> dots) =>
+        ValidityClaim.All(
+            ModelClaim.Handles(handles: curves, allowEmpty: true),
+            ModelClaim.Points(points: points, allowEmpty: true),
+            ModelClaim.Rows(rows: dots, allowEmpty: true, claim: static row => ValidityClaim.All(
+                ValidityClaim.Finite(value: row.Location), !string.IsNullOrWhiteSpace(row.Text))));
 }
 
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
-public readonly partial struct SquishFollowers {
+public readonly partial struct SquishFollowers : IValidityEvidence {
     public Seq<GeometryHandle> Curves { get; }
+    // `Squisher.SquishTextDot` reads a LIVE native, so the dot carrier is a borrowed handle here.
     public Seq<GeometryHandle> Dots { get; }
     public Seq<Point3d> Points { get; }
 
@@ -260,63 +284,66 @@ public readonly partial struct SquishFollowers {
         ref ValidationError? validationError,
         ref Seq<GeometryHandle> curves,
         ref Seq<GeometryHandle> dots,
-        ref Seq<Point3d> points) {
-        if (!IsAdmissible(curves: curves, dots: dots, points: points)) {
-            validationError = new ValidationError("Squish followers require live curve and dot handles plus valid points.");
-        }
-    }
+        ref Seq<Point3d> points) =>
+        validationError = Admits(curves: curves, dots: dots, points: points)
+            ? null
+            : new ValidationError("Squish followers require live curve and dot handles plus valid points.");
 
-    internal bool Admissible => IsAdmissible(curves: Curves, dots: Dots, points: Points);
+    public bool IsValid => Admits(curves: Curves, dots: Dots, points: Points);
 
-    private static bool IsAdmissible(Seq<GeometryHandle> curves, Seq<GeometryHandle> dots, Seq<Point3d> points) =>
-        curves.ForAll(static handle => handle is not null)
-        && dots.ForAll(static handle => handle is not null)
-        && points.ForAll(static point => point.IsValid);
+    private static ValidityClaim Admits(Seq<GeometryHandle> curves, Seq<GeometryHandle> dots, Seq<Point3d> points) =>
+        ValidityClaim.All(
+            ModelClaim.Handles(handles: curves, allowEmpty: true),
+            ModelClaim.Handles(handles: dots, allowEmpty: true),
+            ModelClaim.Points(points: points, allowEmpty: true));
 }
 
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
-public readonly partial struct UnrollLaw {
+public readonly partial struct UnrollLaw : IValidityEvidence {
     public UnrollOutput Output { get; }
     public double Spacing { get; }
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref UnrollOutput output,
-        ref double spacing) {
-        if (!IsAdmissible(output: output, spacing: spacing)) {
-            validationError = new ValidationError("Unroll output must be declared, and spacing must be finite and non-negative.");
-        }
-    }
+        ref double spacing) =>
+        validationError = Admits(output: output, spacing: spacing)
+            ? null
+            : new ValidationError("Unroll output must be declared, and spacing must be finite and non-negative.");
 
-    internal bool Admissible => IsAdmissible(output: Output, spacing: Spacing);
+    public bool IsValid => Admits(output: Output, spacing: Spacing);
 
-    private static bool IsAdmissible(UnrollOutput? output, double spacing) =>
-        output is not null && double.IsFinite(spacing) && spacing >= 0.0;
+    private static ValidityClaim Admits(UnrollOutput? output, double spacing) =>
+        ValidityClaim.All(output is not null, ValidityClaim.Nonnegative(value: spacing));
 }
 
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
-public readonly partial struct SquishSpring {
+public readonly partial struct SquishSpring : IValidityEvidence {
     public double Boundary { get; }
     public double Deformation { get; }
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double boundary,
-        ref double deformation) {
-        if (!double.IsFinite(boundary) || boundary < 0.0 || !double.IsFinite(deformation) || deformation < 0.0) {
-            validationError = new ValidationError("Squish spring constants must be finite and non-negative.");
-        }
-    }
+        ref double deformation) =>
+        validationError = Admits(boundary: boundary, deformation: deformation)
+            ? null
+            : new ValidationError("Squish spring constants must be finite and non-negative.");
+
+    public bool IsValid => Admits(boundary: Boundary, deformation: Deformation);
+
+    private static ValidityClaim Admits(double boundary, double deformation) =>
+        ValidityClaim.All(ValidityClaim.Nonnegative(value: boundary), ValidityClaim.Nonnegative(value: deformation));
 }
 
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
-public readonly partial struct SquishLaw {
+public readonly partial struct SquishLaw : IValidityEvidence {
     public SquishFlatteningAlgorithm Algorithm { get; }
     public SquishDeformation Mode { get; }
-    public FrozenSet<SquishBehavior> Behavior { get; }
+    public CapabilitySet<SquishBehavior> Behavior { get; }
     public double BoundaryStretch { get; }
     public double BoundaryCompress { get; }
     public double InteriorStretch { get; }
@@ -328,69 +355,37 @@ public readonly partial struct SquishLaw {
         ref ValidationError? validationError,
         ref SquishFlatteningAlgorithm algorithm,
         ref SquishDeformation mode,
-        ref FrozenSet<SquishBehavior> behavior,
+        ref CapabilitySet<SquishBehavior> behavior,
         ref double boundaryStretch,
         ref double boundaryCompress,
         ref double interiorStretch,
         ref double interiorCompress,
         ref double absoluteLimit,
-        ref Option<SquishSpring> spring) {
-        if (!IsAdmissible(
-            algorithm: algorithm,
-            mode: mode,
-            behavior: behavior,
-            boundaryStretch: boundaryStretch,
-            boundaryCompress: boundaryCompress,
-            interiorStretch: interiorStretch,
-            interiorCompress: interiorCompress,
-            absoluteLimit: absoluteLimit)) {
-            validationError = new ValidationError("Squish policies must be declared, weights must be finite and non-negative, and the limit must be finite and positive.");
-        }
-    }
+        ref Option<SquishSpring> spring) =>
+        validationError = Admits(
+                algorithm: algorithm, mode: mode, boundaryStretch: boundaryStretch, boundaryCompress: boundaryCompress,
+                interiorStretch: interiorStretch, interiorCompress: interiorCompress, absoluteLimit: absoluteLimit, spring: spring)
+            ? null
+            : new ValidationError("Squish policies must be declared, weights must be finite and non-negative, and the limit must be finite and positive.");
 
-    internal bool Admissible => IsAdmissible(
-        algorithm: Algorithm,
-        mode: Mode,
-        behavior: Behavior,
-        boundaryStretch: BoundaryStretch,
-        boundaryCompress: BoundaryCompress,
-        interiorStretch: InteriorStretch,
-        interiorCompress: InteriorCompress,
-        absoluteLimit: AbsoluteLimit);
+    public bool IsValid => Admits(
+        algorithm: Algorithm, mode: Mode, boundaryStretch: BoundaryStretch, boundaryCompress: BoundaryCompress,
+        interiorStretch: InteriorStretch, interiorCompress: InteriorCompress, absoluteLimit: AbsoluteLimit, spring: Spring);
 
-    private static bool IsAdmissible(
-        SquishFlatteningAlgorithm algorithm,
-        SquishDeformation mode,
-        FrozenSet<SquishBehavior>? behavior,
-        double boundaryStretch,
-        double boundaryCompress,
-        double interiorStretch,
-        double interiorCompress,
-        double absoluteLimit) =>
-        Enum.IsDefined(algorithm)
-        && Enum.IsDefined(mode)
-        && Deforms.Declared(values: behavior, rows: SquishBehavior.Items)
-        && double.IsFinite(boundaryStretch) && boundaryStretch >= 0.0
-        && double.IsFinite(boundaryCompress) && boundaryCompress >= 0.0
-        && double.IsFinite(interiorStretch) && interiorStretch >= 0.0
-        && double.IsFinite(interiorCompress) && interiorCompress >= 0.0
-        && double.IsFinite(absoluteLimit) && absoluteLimit > 0.0;
-
-    // `SquishParameters.Default` mints a FRESH instance on every read — `ReferenceEquals(Default, Default)` is false —
-    // and the type is `IDisposable`, so this rig owns what it reads: it mutates its own instance freely, hands custody
-    // to the consuming arm's `using`, and disposes here on a mid-configure throw rather than stranding the native.
-    internal Fin<SquishParameters> Rig(Op key) =>
-        key.Catch(() => {
-            SquishParameters? parameters = null;
-            try {
-                parameters = SquishParameters.Default;
+    // Custody is a case: `Acquire` funnels the throwing host mint onto the rail, the configure body rolls the
+    // acquired native back on any throw, and the consuming arm's `Lease.Use` disposes with the cleanup fault
+    // aggregated into the primary — no nulled local ever stands for "ownership transferred".
+    internal Fin<Lease<SquishParameters>> Rig(Op key) =>
+        Lease<SquishParameters>.Acquire(mint: static () => SquishParameters.Default, key: key)
+            .Bind(lease => key.Catch(() => {
+                SquishParameters parameters = lease.Resource;
                 parameters.Algorithm = Algorithm;
-                parameters.PreserveTopology = Behavior.Contains(SquishBehavior.PreserveTopology);
-                parameters.SaveMapping = Behavior.Contains(SquishBehavior.SaveMapping);
+                parameters.PreserveTopology = Behavior.Admits(capability: SquishBehavior.PreserveTopology);
+                parameters.SaveMapping = Behavior.Admits(capability: SquishBehavior.SaveMapping);
                 parameters.AbsoluteLimit = AbsoluteLimit;
                 parameters.SetDeformation(
                     deformation: Mode,
-                    bPreserveBoundary: Behavior.Contains(SquishBehavior.PreserveBoundary),
+                    bPreserveBoundary: Behavior.Admits(capability: SquishBehavior.PreserveBoundary),
                     boundaryStretchConstant: BoundaryStretch,
                     boundaryCompressConstant: BoundaryCompress,
                     interiorStretchConstant: InteriorStretch,
@@ -398,19 +393,39 @@ public readonly partial struct SquishLaw {
                 _ = Spring.Iter(spring => parameters.SetSpringConstants(
                     boundaryBias: spring.Boundary,
                     deformationBias: spring.Deformation));
-                SquishParameters owned = parameters;
-                parameters = null;
-                return Fin.Succ(value: owned);
-            } finally {
-                parameters?.Dispose();
-            }
-        });
+                return Fin.Succ(value: lease);
+            }).Rollback(lease.Resource));
+
+    private static ValidityClaim Admits(
+        SquishFlatteningAlgorithm algorithm,
+        SquishDeformation mode,
+        double boundaryStretch,
+        double boundaryCompress,
+        double interiorStretch,
+        double interiorCompress,
+        double absoluteLimit,
+        Option<SquishSpring> spring) =>
+        ValidityClaim.All(
+            Enum.IsDefined(algorithm), Enum.IsDefined(mode),
+            ValidityClaim.Nonnegative(value: boundaryStretch), ValidityClaim.Nonnegative(value: boundaryCompress),
+            ValidityClaim.Nonnegative(value: interiorStretch), ValidityClaim.Nonnegative(value: interiorCompress),
+            ValidityClaim.Positive(value: absoluteLimit),
+            ValidityClaim.Evidence(evidence: spring));
 }
 ```
 
 ## [04]-[ALGEBRA]
 
-`DeformOp` is the sole operation algebra. Geometry products cross through `ModelGate`, while unrolled points, source indices, squished points, topology diagnostics, and labelled spring axes remain receipt evidence. `MeshUnwrapper`, `Unroller`, `Squisher`, and every concrete morph stay inside their consuming arm — the two `IDisposable` engines under a lease, `Unroller` as a plain managed value.
+- Owner: `DeformSlot` `[SmartEnum<int>]` — the consequence vocabulary; `DeformOp` `[Union]` `[GenerateUnionOps]` — the sole operation algebra, each case carrying its generated `SelfOp`; `Deforms` — the one entry folding any operation spread into one `Built<DeformSlot>`.
+- Law: the entry is `Build`, as on every sibling — one concept, one spelling across the eight Modeling rosters, and the `Apply` name stays where it means "run this operation" on `DeformOp` itself.
+- Law: admission NAMES its axis — `Admitted` dispatches the generated `Switch` into the spine's `ModelClaim.Admits`, so a request breaching several constraints answers one keyed fault per breached axis and a new case breaks the compile rather than falling to a silent refusal.
+- Law: geometry products cross through `ModelGate`, while unrolled points, source indices, squished points, topology diagnostics, and labelled spring axes remain receipt evidence; `FollowingGeometryIndex` records one source position per normalized flattened curve, so carried-curve provenance survives the flattening.
+- Law: a host out-channel that answered nothing lands NO fact — every `PerformUnroll` and `Squisher` side channel rides `ModelFact.Answered`/`Channel`, so an empty diagnostic spread and an absent one stay two readings and the seven `?? []` coalesces this rail carried are deleted.
+- Law: engine custody splits on the host and is stated where it bites — `Squisher` and `MeshUnwrapper` are `IDisposable` and release only after every primary, carried, mapped, and diagnostic projection has detached; `Unroller` holds no native handle and needs no release, so a lease over it names a disposal the type does not have. `ModelGate.OwnEach` owns each direct squish result before producing the next, so a later refusal releases the complete prefix, and every `Rollback` in the squish chain releases the exact accumulated prefix at its own edge.
+- Law: a lazy projection over a native forces before that native dies — the unroll label rows close with `Strict()` inside the scope owning the host `TextDot` spread, because an unforced map reads location and text off released memory at the consumer's first enumeration.
+- Law: `BoundarySpring` and `DeformationSpring` are two slots, not one repeated measure — the host answers two distinct biases and a position-dependent pair makes the reading order load-bearing.
+- Growth: a new deformation verb is one `DeformOp` case with its arm; a new evidence stream is one `DeformSlot` row.
+- Packages: RhinoCommon deform (`.api/api-rhinocommon-deform.md` — `Unroller`, `Squisher` (`SquishSurface`, `SquishMesh`, `SquishCurve`, `SquishTextDot`, `SquishPoint`, `Get2dMesh`, `Get3dMesh`, `GetLengthConstrained2dLines`, `GetLengthConstrained3dLines`, `GetAreaConstrainedTrianglesIndices`, `Is2dPatternSquished`, `SquishBack2dMarks`), `MeshUnwrapper`, `MeshUnwrapMethod`), kernel `Domain/rails` (`Op.Probe`, `Op.Catch`, `Op.Confirm`, `Lease<T>.Use`, `[GenerateUnionOps]` + generated `SelfOp`), `Modeling/curves.md` (`ModelClaim`, `ModelFact`), `Modeling/solids.md` (`ModelGate`, `Built<TSlot>`, `BuildReceipt<TSlot>`, `BuildBody`), LanguageExt.Core (`TraverseM`, `Strict`, `Seq`), Thinktecture.Runtime.Extensions.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -435,35 +450,43 @@ public sealed partial class DeformSlot {
     public static readonly DeformSlot SquishPoints = new(key: 16);
 }
 
+[GenerateUnionOps]
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DeformOp {
     private DeformOp() { }
-    public sealed record Morph(GeometryHandle Target, MorphKind Kind, FrozenSet<MorphBehavior> Behavior) : DeformOp;
-    public sealed record Unroll(GeometryHandle Target, Following Followers, UnrollLaw Law) : DeformOp;
+    public sealed record Morph(GeometryHandle Target, MorphKind Kind, CapabilitySet<MorphBehavior> Behavior) : DeformOp;
+    public sealed record Unroll(GeometryHandle Target, UnrollFollowers Followers, UnrollLaw Law) : DeformOp;
     public sealed record Squish(GeometryHandle Target, SquishLaw Law, Seq<GeometryHandle> Marks, SquishFollowers Followers) : DeformOp;
     public sealed record SquishBack(GeometryHandle Pattern, Seq<GeometryHandle> Marks) : DeformOp;
     public sealed record Unwrap(Seq<GeometryHandle> Meshes, MeshUnwrapMethod Method, Option<Plane> Symmetry = default) : DeformOp;
 
     internal Fin<DeformOp> Admitted(Op key) =>
-        guard(this switch {
-            Morph edit => edit.Target is not null && edit.Kind is not null && edit.Kind.Admissible(tuning: edit.Behavior),
-            Unroll edit => edit.Target is not null && edit.Followers.Admissible && edit.Law.Admissible,
-            Squish edit => edit.Target is not null && edit.Law.Admissible
-                && Handles(edit.Marks, allowEmpty: true) && edit.Followers.Admissible,
-            SquishBack edit => edit.Pattern is not null && Handles(edit.Marks),
-            Unwrap edit => Handles(edit.Meshes) && Enum.IsDefined(edit.Method)
-                && edit.Symmetry.ForAll(static symmetry => symmetry.IsValid),
-            _ => false,
-        }, key.InvalidInput()).ToFin().Map(_ => this);
-
-    private static bool Handles(Seq<GeometryHandle> handles, bool allowEmpty = false) =>
-        (allowEmpty || !handles.IsEmpty) && handles.ForAll(static handle => handle is not null);
+        Switch(
+            context: key,
+            morph: static (op, row) => ModelClaim.Admits(row, op,
+                (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
+                (nameof(row.Kind), row.Kind is { IsValid: true })),
+            unroll: static (op, row) => ModelClaim.Admits(row, op,
+                (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
+                (nameof(row.Followers), row.Followers.IsValid), (nameof(row.Law), row.Law.IsValid)),
+            squish: static (op, row) => ModelClaim.Admits(row, op,
+                (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
+                (nameof(row.Law), row.Law.IsValid),
+                (nameof(row.Marks), ModelClaim.Handles(handles: row.Marks, allowEmpty: true)),
+                (nameof(row.Followers), row.Followers.IsValid)),
+            squishBack: static (op, row) => ModelClaim.Admits(row, op,
+                (nameof(row.Pattern), ModelClaim.Handle(handle: row.Pattern)),
+                (nameof(row.Marks), ModelClaim.Handles(handles: row.Marks))),
+            unwrap: static (op, row) => ModelClaim.Admits(row, op,
+                (nameof(row.Meshes), ModelClaim.Handles(handles: row.Meshes)),
+                (nameof(row.Method), Enum.IsDefined(row.Method)),
+                (nameof(row.Symmetry), ValidityClaim.WhenPresent(facet: row.Symmetry, claim: static symmetry => symmetry.IsValid))));
 
     internal Fin<Built<DeformSlot>> Apply(Context domain) =>
         Switch(
             domain,
             morph: static (model, edit) => {
-                Op op = Op.Of(name: nameof(Morph));
+                Op op = Morph.SelfOp;
                 return edit.Kind.Morph(target: edit.Target, tuning: edit.Behavior, context: model, key: op)
                     .Map(product => Built<DeformSlot>.Of(
                         operation: op,
@@ -471,14 +494,14 @@ public abstract partial record DeformOp {
                         Evidence: BuildReceipt<DeformSlot>.Of(slot: DeformSlot.Morphed, body: new BuildBody.Tally(Count: 1))));
             },
             unroll: static (model, edit) => {
-                Op op = Op.Of(name: nameof(Unroll));
+                Op op = Unroll.SelfOp;
                 return ModelGate.Borrow<GeometryBase, Built<DeformSlot>>(handle: edit.Target, key: op, body: source =>
                     ModelGate.BorrowMany<Curve, Built<DeformSlot>>(handles: edit.Followers.Curves, key: op, allowEmpty: true, body: followers =>
                         op.Catch(() => {
                             Fin<Unroller> admitted = source switch {
                                 Brep brep => Fin.Succ(value: new Unroller(brep: brep)),
                                 Surface surface => Fin.Succ(value: new Unroller(surface: surface)),
-                                _ => Fin.Fail<Unroller>(error: op.Unsupported(geometryType: source.GetType(), outputType: typeof(Unroller))),
+                                _ => Fin.Fail<Unroller>(error: op.Unsupported(inputType: source.GetType(), outputType: typeof(Unroller))),
                             };
                             return admitted.Bind(active => {
                                 active.ExplodeOutput = edit.Law.Output.Native;
@@ -492,16 +515,16 @@ public abstract partial record DeformOp {
                                     unrolledCurves: out Curve[] flatCurves,
                                     unrolledPoints: out Point3d[] flatPoints,
                                     unrolledDots: out TextDot[] flatDots);
-                                Seq<Brep> breps = toSeq(flatBreps ?? []);
-                                Seq<Curve> curves = toSeq(flatCurves ?? []);
-                                Seq<Point3d> points = toSeq(flatPoints ?? []);
-                                Seq<TextDot> dots = toSeq(flatDots ?? []);
-                                Seq<int> sourceIndices = curves.Map(active.FollowingGeometryIndex);
+                                Option<Seq<Curve>> carried = ModelFact.Answered(channel: flatCurves);
+                                Option<Seq<Point3d>> marks = ModelFact.Answered(channel: flatPoints);
+                                Seq<TextDot> dots = ModelFact.Answered(channel: flatDots).IfNone(Seq<TextDot>());
+                                Seq<int> sourceIndices = carried.Map(rows => rows.Map(active.FollowingGeometryIndex)).IfNone(Seq<int>());
                                 return
-                                    from flat in ModelGate.OwnMany(built: breps, key: op)
+                                    from flat in ModelGate.OwnMany(built: flatBreps, key: op)
                                         .Rollback([.. dots])
-                                    from carried in ModelGate.OwnMany(built: curves, key: op, allowEmpty: true)
-                                        .Rollback(flat)
+                                    from carriedHandles in ModelGate.OwnMany(
+                                            built: carried.IfNone(Seq<Curve>()), key: op, allowEmpty: true)
+                                        .Rollback([.. flat])
                                         .Rollback([.. dots])
                                     // `Seq.Map` projects lazily, so the label rows force BEFORE the dots are disposed;
                                     // an unforced projection reads `Point`/`Text` off a released native handle.
@@ -509,22 +532,21 @@ public abstract partial record DeformOp {
                                     let _ = dots.Iter(static dot => dot.Dispose())
                                     select Built<DeformSlot>.Of(
                                         operation: op,
-                                        Products: flat + carried,
+                                        Products: flat + carriedHandles,
                                         Evidence: BuildReceipt<DeformSlot>.Of(slot: DeformSlot.Unrolled, body: new BuildBody.Tally(Count: flat.Count))
-                                            + BuildReceipt<DeformSlot>.Of(slot: DeformSlot.Followed, body: new BuildBody.Tally(Count: carried.Count))
-                                            + BuildReceipt<DeformSlot>.Of(slot: DeformSlot.FollowingIndex, body: new BuildBody.Components(Indices: sourceIndices))
-                                            + BuildReceipt<DeformSlot>.Of(slot: DeformSlot.Followed, body: new BuildBody.Marks(Points: points))
+                                            + ModelFact.Channel(slot: DeformSlot.Followed, value: carried.Map(rows => (BuildBody)new BuildBody.Tally(Count: rows.Count)))
+                                            + ModelFact.Channel(slot: DeformSlot.FollowingIndex, value: carried.Map(_ => (BuildBody)new BuildBody.Components(Indices: sourceIndices)))
+                                            + ModelFact.Channel(slot: DeformSlot.Followed, value: marks.Map(static points => (BuildBody)new BuildBody.Marks(Points: points)))
                                             + BuildReceipt<DeformSlot>.Of(slot: DeformSlot.Followed, body: new BuildBody.Labels(Rows: rows)));
                             });
                         })));
             },
             squish: static (_, edit) => {
-                Op op = Op.Of(name: nameof(Squish));
+                Op op = Squish.SelfOp;
                 return ModelGate.Borrow<GeometryBase, Built<DeformSlot>>(handle: edit.Target, key: op, body: source =>
                     ModelGate.BorrowMany<GeometryBase, Built<DeformSlot>>(handles: edit.Marks, key: op, allowEmpty: true, body: marks =>
                         from parameters in edit.Law.Rig(key: op)
-                        from flattened in op.Catch(() => {
-                            using SquishParameters sp = parameters;
+                        from flattened in parameters.Use(key: op, body: sp => op.Catch(() => {
                             using Squisher engine = new();
                             _ = sp.GetSpringConstants(boundaryBias: out double boundaryBias, deformationBias: out double deformationBias);
                             System.Collections.Generic.List<GeometryBase> mapped = [];
@@ -533,7 +555,7 @@ public abstract partial record DeformOp {
                                     built: engine.SquishSurface(sp: sp, surface: surface, marks: marks.AsIterable(), squished_marks_out: mapped), key: op),
                                 Mesh mesh => ModelGate.Own(
                                     built: engine.SquishMesh(sp: sp, mesh3d: mesh, marks: marks.AsIterable(), squished_marks_out: mapped), key: op),
-                                _ => Fin.Fail<GeometryHandle>(error: op.Unsupported(geometryType: source.GetType(), outputType: typeof(Squisher))),
+                                _ => Fin.Fail<GeometryHandle>(error: op.Unsupported(inputType: source.GetType(), outputType: typeof(Squisher))),
                             };
                             return flat.Rollback([.. mapped]).Bind(primary => (
                                 from crossed in ModelGate.OwnMany(built: mapped, key: op, allowEmpty: true)
@@ -545,7 +567,7 @@ public abstract partial record DeformOp {
                                         sources: curves,
                                         key: op,
                                         run: engine.SquishCurve,
-                                        allowEmpty: true)).Rollback(crossed)
+                                        allowEmpty: true)).Rollback([.. crossed])
                                 from directDots in ModelGate.BorrowMany<TextDot, Seq<GeometryHandle>>(
                                     handles: edit.Followers.Dots,
                                     key: op,
@@ -554,18 +576,17 @@ public abstract partial record DeformOp {
                                         sources: dots,
                                         key: op,
                                         run: engine.SquishTextDot,
-                                        allowEmpty: true)).Rollback(crossed + directCurves)
-                                from directPoints in edit.Followers.Points.TraverseM(point =>
-                                        op.Catch(() => engine.SquishPoint(point: point, squishedPoint: out Point3d squished)
-                                            ? Fin.Succ(value: squished)
-                                            : Fin.Fail<Point3d>(error: op.InvalidResult()))).As()
-                                    .Rollback(crossed + directCurves + directDots)
-                                from nets in (edit.Law.Behavior.Contains(SquishBehavior.CaptureNets)
+                                        allowEmpty: true)).Rollback([.. crossed + directCurves])
+                                from directPoints in edit.Followers.Points.TraverseM(point => op.Probe(
+                                        probe: () => (engine.SquishPoint(point: point, squishedPoint: out Point3d squished), squished),
+                                        label: nameof(Squisher.SquishPoint))).As()
+                                    .Rollback([.. crossed + directCurves + directDots])
+                                from nets in (edit.Law.Behavior.Admits(capability: SquishBehavior.CaptureNets)
                                     ? from flat2d in ModelGate.Own(built: engine.Get2dMesh(), key: op)
                                       from flat3d in ModelGate.Own(built: engine.Get3dMesh(), key: op).Rollback(flat2d)
                                       select Seq(flat2d, flat3d)
                                     : Fin.Succ(value: Seq<GeometryHandle>()))
-                                    .Rollback(crossed + directCurves + directDots)
+                                    .Rollback([.. crossed + directCurves + directDots])
                                 select Built<DeformSlot>.Of(
                                     operation: op,
                                     Products: Seq(primary) + crossed + directCurves + directDots + nets,
@@ -575,17 +596,23 @@ public abstract partial record DeformOp {
                                         + BuildReceipt<DeformSlot>.Of(slot: DeformSlot.SquishDots, body: new BuildBody.Tally(Count: directDots.Count))
                                         + BuildReceipt<DeformSlot>.Of(slot: DeformSlot.SquishPoints, body: new BuildBody.Marks(Points: directPoints))
                                         + BuildReceipt<DeformSlot>.Of(slot: DeformSlot.Netted, body: new BuildBody.Tally(Count: nets.Count))
-                                        + BuildReceipt<DeformSlot>.Of(slot: DeformSlot.Mesh2dEdges, body: new BuildBody.Segments(Lines: toSeq(engine.GetLengthConstrained2dLines() ?? [])))
-                                        + BuildReceipt<DeformSlot>.Of(slot: DeformSlot.Mesh3dEdges, body: new BuildBody.Segments(Lines: toSeq(engine.GetLengthConstrained3dLines() ?? [])))
-                                        + BuildReceipt<DeformSlot>.Of(slot: DeformSlot.AreaConstraints, body: new BuildBody.Faces(Rows: toSeq(engine.GetAreaConstrainedTrianglesIndices() ?? [])))
+                                        + ModelFact.Channel(slot: DeformSlot.Mesh2dEdges, value: ModelFact
+                                            .Answered(channel: engine.GetLengthConstrained2dLines())
+                                            .Map(static lines => (BuildBody)new BuildBody.Segments(Lines: lines)))
+                                        + ModelFact.Channel(slot: DeformSlot.Mesh3dEdges, value: ModelFact
+                                            .Answered(channel: engine.GetLengthConstrained3dLines())
+                                            .Map(static lines => (BuildBody)new BuildBody.Segments(Lines: lines)))
+                                        + ModelFact.Channel(slot: DeformSlot.AreaConstraints, value: ModelFact
+                                            .Answered(channel: engine.GetAreaConstrainedTrianglesIndices())
+                                            .Map(static rows => (BuildBody)new BuildBody.Faces(Rows: rows)))
                                         + BuildReceipt<DeformSlot>.Of(slot: DeformSlot.BoundarySpring, body: new BuildBody.Measure(Value: boundaryBias))
                                         + BuildReceipt<DeformSlot>.Of(slot: DeformSlot.DeformationSpring, body: new BuildBody.Measure(Value: deformationBias))))
                                 .Rollback(primary));
-                        })
+                        }))
                         select flattened));
             },
             squishBack: static (_, edit) => {
-                Op op = Op.Of(name: nameof(SquishBack));
+                Op op = SquishBack.SelfOp;
                 return ModelGate.Borrow<GeometryBase, Built<DeformSlot>>(handle: edit.Pattern, key: op, body: pattern =>
                     ModelGate.BorrowMany<GeometryBase, Built<DeformSlot>>(handles: edit.Marks, key: op, body: marks =>
                         from _ in op.Confirm(success: Squisher.Is2dPatternSquished(geometry: pattern))
@@ -597,48 +624,37 @@ public abstract partial record DeformOp {
                             Evidence: BuildReceipt<DeformSlot>.Of(slot: DeformSlot.Restored, body: new BuildBody.Tally(Count: restored.Count)))));
             },
             unwrap: static (_, edit) => {
-                Op op = Op.Of(name: nameof(Unwrap));
+                Op op = Unwrap.SelfOp;
                 return ModelGate.BorrowMany<Mesh, Built<DeformSlot>>(handles: edit.Meshes, key: op, body: sources =>
-                    from unwrapped in sources.Fold(Fin.Succ(value: Seq<Mesh>()), (state, source) => state.Bind(held =>
-                            op.Catch(() => Optional(source.Duplicate() as Mesh).ToFin(Fail: op.InvalidResult())).Match(
-                                Succ: copy => Fin.Succ(value: held.Add(value: copy)),
-                                Fail: error => {
-                                    _ = held.Iter(static mesh => mesh.Dispose());
-                                    return Fin.Fail<Seq<Mesh>>(error: error);
-                                })))
-                        .Bind(working => op.Catch(() => {
+                    // Working copies are plain natives, not handles, so the prefix rolls back through the spine's own
+                    // accumulating fold rather than a hand `Match` that iterates `Dispose` on the fail arm.
+                    from working in sources.FoldM<Fin, Seq<Mesh>>(Seq<Mesh>(), (held, source) =>
+                        op.Catch(() => Optional(source.Duplicate() as Mesh).ToFin(Fail: op.InvalidResult()))
+                            .Map(copy => held.Add(value: copy))
+                            .Rollback([.. held]))
+                    from unwrapped in op.Catch(() => {
                             using MeshUnwrapper engine = new(meshes: working.AsIterable());
                             _ = edit.Symmetry.Iter(symmetry => engine.SymmetryPlane = symmetry);
                             return op.Confirm(success: engine.Unwrap(method: edit.Method))
                                 .Bind(_ => ModelGate.Many(op, DeformSlot.Unwrapped, () => working.AsEnumerable()));
-                        }).Rollback([.. working]))
+                        })
+                        .Rollback([.. working])
                     select unwrapped);
             });
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class Deforms {
-    internal static bool Declared<T>(FrozenSet<T>? values, IReadOnlyList<T> rows) where T : class =>
-        values is not null && values.All(row => row is not null && rows.Contains(row));
-
-    public static Fin<Built<DeformSlot>> Apply(Context context, params ReadOnlySpan<DeformOp> operations) =>
+    public static Fin<Built<DeformSlot>> Build(ModelRuntime runtime, params ReadOnlySpan<DeformOp> operations) =>
         ModelGate.Entry(
-            context: context,
+            runtime: runtime,
             operations: operations,
             admit: static (operation, key) => operation.Admitted(key: key),
             apply: static (operation, model) => operation.Apply(domain: model));
 }
 ```
 
-## [05]-[EXECUTION]
-
-`Deforms.Apply` is `ModelGate.Entry`, so capture, the non-empty guard, accumulating admission, the fold, and the bench stamp are the folder spine's and `Built<DeformSlot>.Bench` carries harvest evidence. Morph and unwrap operations duplicate before mutation. Engine custody splits on the host: `Squisher` and `MeshUnwrapper` are `IDisposable` and release after all primary, carried, mapped, and diagnostic projections are detached, while `Unroller` holds no native handle and needs no release — a lease over it names a disposal the type does not have. `SquishParameters` is `IDisposable` and its `Default` mints a fresh instance per read, so `SquishLaw.Rig` owns and configures its own instance and the squish arm's `using` closes it; treating `Default` as a shared singleton would both leak and let one operation's dials bleed into the next.
-
-`FollowingGeometryIndex` records one source position per normalized flattened curve. `ModelGate.OwnEach` owns each direct squish result before producing the next, so a later refusal releases the complete prefix. Unroll label rows force with `Strict()` before the host `TextDot` spread is disposed, because a lazy projection reads the location and text off released natives.
-
-`BoundarySpring` and `DeformationSpring` preserve the two `SquishParameters.GetSpringConstants` axes as distinct facts rather than position-dependent repeated measures.
-
-## [06]-[RESEARCH]
+## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

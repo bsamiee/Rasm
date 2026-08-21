@@ -424,7 +424,7 @@ const _Query: Data.TaggedEnum.Constructor<_Query> & {
 - Law: every variant composes the shared `_PanelFields` spine, so a new variant declares only its own render payload.
 - Growth: a panel kind is one tagged schema on the union; a shared affordance is one `_PanelFields` column every variant inherits.
 - Boundary: compilation to a store's dashboard JSON is `iac/operate/observe`'s; this owner freezes the encoded shape.
-- Packages: `effect` (`Schema`).
+- Packages: `effect` (`Schema`); `../value/schema.ts` (`Shape.Record`).
 
 ```typescript signature
 const _Span = Schema.Struct({
@@ -447,7 +447,7 @@ const _Transform = Schema.Union(
   Schema.TaggedStruct("Filter", { field: Schema.NonEmptyString, op: Schema.Literal("equal", "greater", "less", "match", "notEqual"), value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean) }),
   Schema.TaggedStruct("Group", { by: Schema.NonEmptyArray(Schema.NonEmptyString), reducers: Schema.NonEmptyArray(Schema.Literal("count", "first", "last", "max", "mean", "min", "sum")) }),
   Schema.TaggedStruct("Join", { how: Schema.Literal("inner", "left", "outer"), on: Schema.NonEmptyArray(Schema.NonEmptyString) }),
-  Schema.TaggedStruct("Organize", { order: Schema.Array(Schema.NonEmptyString), rename: Schema.Record({ key: Schema.NonEmptyString, value: Schema.NonEmptyString }) }),
+  Schema.TaggedStruct("Organize", { order: Schema.Array(Schema.NonEmptyString), rename: Shape.Record(Schema.NonEmptyString, Schema.NonEmptyString) }),
   Schema.TaggedStruct("Reduce", { fields: Schema.NonEmptyArray(Schema.NonEmptyString), reducer: Schema.Literal("count", "first", "last", "max", "mean", "min", "sum") }),
 )
 const _PanelFields = {
@@ -661,7 +661,7 @@ declare namespace _DashboardModel {
 - Law: polarity owns the ratio direction, so a maximize metric grades improved on growth without any consumer inverting a comparison.
 - Growth: a hardware-counter leaf is one `_COUNTER_PATHS` row joining the series estate-wide; an admission axis is one `_ADMISSION` row; a grading knob is one `Tolerance` field.
 - Boundary: benchmark execution and suite selection are the runtime bench owner's; this owner ingests and grades landed claims.
-- Packages: `mitata` (`measure` stats shape); `../value/contentKey.ts` (`Digest`).
+- Packages: `mitata` (`measure` stats shape); `../value/contentKey.ts` (`Digest`); `../value/schema.ts` (`Shape.Record`).
 
 ```typescript signature
 const _MITATA_RUNGS = ["min", "max", "avg", "p25", "p50", "p75", "p99", "p999"] as const
@@ -692,11 +692,13 @@ type _MitataStats = Awaited<ReturnType<typeof MitataMeasure>>
 
 const _BenchAggregate = Schema.Struct({ avg: _BandValue, min: _BandValue, max: _BandValue, total: _BandValue })
 const _BenchCounterValue = Schema.Number.pipe(Schema.finite())
-const _BenchCounters = Schema.Record({ key: Schema.NonEmptyString, value: _BenchCounterValue })
+const _BenchCounters = Shape.Record(Schema.NonEmptyString, _BenchCounterValue)
+// `partialWith` rebuilds the record AST and drops a node annotation, so the closed-key posture cannot ride
+// `Shape.Record` here; it seats on the outermost node instead, which is the one whose excess-property check runs.
 const _BenchRungs = Schema.Record({ key: _Rung.schema, value: _BandValue }).pipe(
   Schema.partialWith({ exact: true }),
   Schema.filter((rungs) => Array.some(_RUNGS, (rung) => rungs[rung] !== undefined) || "<rungless-band>", { identifier: "MeasuredRungs" }),
-)
+).annotations({ parseOptions: { onExcessProperty: "error" } })
 const _BenchBand = Schema.Struct({
   sampleCount: Schema.Int.pipe(Schema.positive()),
   rungs: _BenchRungs,
@@ -758,7 +760,7 @@ class _BenchHost extends Schema.Class<_BenchHost>("HostFingerprint")({
   arch: Schema.NonEmptyString,
   processors: Schema.Int.pipe(Schema.positive()),
   runtime: Schema.NonEmptyString,
-  stamps: Schema.Record({ key: Schema.NonEmptyString, value: Schema.String }),
+  stamps: Shape.Record(Schema.NonEmptyString, Schema.String),
 }) {}
 
 class _Claim extends Schema.Class<_Claim>("Claim")({

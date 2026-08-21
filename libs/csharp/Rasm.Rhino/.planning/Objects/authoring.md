@@ -4,7 +4,7 @@ Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassi
 
 ## [01]-[INDEX]
 
-- [02]-[OBJECT_PROGRAM]: `ObjectProgram`, `RenderMeshProgram`, the `ObjectsTelemetry` keyed-sink egress with its `HostTap` seat, the `HostSensitivity` classification taxonomy, the `RhinoInstrumentPartition` rows, the `ObjectsHooks` registry mounts, and the forwarding kernel every adapter shares.
+- [02]-[OBJECT_PROGRAM]: `ObjectProgram`, `RenderMeshProgram`, the `ObjectsTelemetry` keyed-sink egress with its `HostTap` seat, the four classification attach attributes over the kernel `Sensitivity` taxonomy, the `RhinoInstrumentPartition` rows, the `ObjectsHooks` registry mounts, and the forwarding kernel every adapter shares.
 - [03]-[ADAPTERS]: the `ClassId`-ready host derivations.
 - [04]-[GRIP_PROGRAM]: `GripSeed`, `GripProgram`, `RasmGrip`, `RasmGrips`, and the enabler rig.
 - [05]-[GRIP_EDIT]: `GripMove`, `GripEdit`, `GripFacts`, and the `Grips` entry pair.
@@ -12,11 +12,11 @@ Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassi
 
 ## [02]-[OBJECT_PROGRAM]
 
-- Owner: `ObjectProgram` carries every verified draw, duplicate, transform, morph, document, pick, selection, viewport, bounding-box, tight-bounds, and render-mesh hook; `RenderMeshProgram` folds the five-virtual mesh-cache family into one program slot; `ObjectsTelemetry` is the folder's one structured-log egress — every host-callback fault publishes under its `FaultSite` row through the keyed-sink fan, and a new fault seam is one `FaultSite` row with one `Publish` call; `HostTap` seats the host's process-wide exception and cloud-log streams onto that same egress; `HostSensitivity` is the classification taxonomy and the `Values` roster the contributor port carries upward; `RhinoInstrumentPartition` declares the receipt-to-instrument projection as kind-keyed data; `HostForward` centralizes lifting, the `Fallback`/`Probe` inherited-value recovery pair, and pick capture.
+- Owner: `ObjectProgram` carries every verified draw, duplicate, transform, morph, document, pick, selection, viewport, bounding-box, tight-bounds, and render-mesh hook; `RenderMeshProgram` folds the five-virtual mesh-cache family into one program slot; `ObjectsTelemetry` is the folder's one structured-log egress — every host-callback fault publishes under its `FaultSite` row through the keyed-sink fan, and a new fault seam is one `FaultSite` row with one `Publish` call; `HostTap` seats the host's process-wide exception and cloud-log streams onto that same egress; the four `[UserContent]`/`[HostPath]`/`[MachineIdentity]`/`[AccountIdentity]` attach attributes are this boundary's one classification declaration over the kernel `Sensitivity` taxonomy, whose `Values` roster the contributor port carries upward; `RhinoInstrumentPartition` declares the receipt-to-instrument projection as kind-keyed data; `HostForward` centralizes lifting, the `Fallback`/`Probe` inherited-value recovery pair, and pick capture.
 - Law: `ObjectProgram` exposes only callbacks backed by a `RhinoObject` virtual, and each adapter forwards the same algebra; unsupported geometry kinds cannot mint phantom hooks.
 - Law: cloud-log severity is data and the host roster is CLOSED at five values — `Streamed` takes `LogLevel` as a parameter projected once from `HostUtils.LogMessageType` at the tap seam, the four carrying a severity map, and `unknown` (with any out-of-roster wire value) REFUSES through `Unsupported` onto `FaultSite.HostLog` rather than publishing a fabricated level under a real event; the host exception rides `Reported`'s typed `Exception` channel, never a stringified hole.
 - Law: sinks key on plugin identity — `ObjectsTelemetry.Configure` admits one `(PluginKey, ILogger)` row per plugin, `Publish` fans every event over the live rows with a per-sink guard so one faulted sink never starves siblings, an empty roster is the `NullLogger` no-op composition, and teardown removes only the caller's row; a later plugin can never shadow an earlier plugin's sink, and the `rasm.rhino.objects.fault`, `rasm.rhino.host.exception`, and `rasm.rhino.host.log` hook points bind onto this fan as telemetry-as-tap.
-- Law: classification rows mint the suite taxonomy pair — `new DataClassification(nameof(DataClassification), "<row>")` on `Microsoft.Extensions.Compliance.Abstractions`, the contract assembly owning `DataClassification` and `DataClassificationAttribute` — and reuse the app-root values `user-content`, `host-path`, `host-identity`, and `personal`, so every row resolves at the fail-closed redactor map without a second taxonomy; redactor binding stays app-root policy outside the adapters. Each row carries its OWN value: only the producer knows whether a payload embeds user content or a host path, so two rows resolving to one value erase at the redactor exactly the bit the boundary exists to supply. `HostSensitivity.Values` publishes those four texts as kernel `ClassifiedValue` pairs on the boundary's existing contributor port, so the app root proves this roster against the taxonomy owner's rows while it composes the map — a value present here and absent there refuses at composition instead of erasing at egress, and the federation gains that proof without either side naming the other's type.
+- Law: classification VOCABULARY is the kernel `Sensitivity` roster and this boundary declares only the ATTACH — the four attribute classes derive their `(taxonomy, value)` pair from `Sensitivity.Taxonomy` and each row's own `Key` through `DataClassification`/`DataClassificationAttribute` on `Microsoft.Extensions.Compliance.Abstractions`, the contract assembly owning that grammar, so every attached row resolves at the fail-closed redactor map without a second taxonomy and neither host boundary can fork the four values; redactor binding stays app-root policy outside the adapters. The attach seats at THIS producer because only it knows whether a payload embeds user content or a host path, and each row carries its OWN value: two rows resolving to one value erase at the redactor exactly the bit the boundary exists to supply. `Sensitivity.Values` rides the boundary's existing contributor port on its `Classifications` column, so the app root enumerates the rostered values while it composes the map — a value present here and absent there refuses at composition instead of erasing at egress, and the crossing stays text, so no compliance type enters the kernel assembly and no boundary names the redaction owner's type.
 - Law: the classification sweep is total over the egress — `Error` and host log messages classify `UserContent` (they embed document names and user text), file and directory payloads classify `HostPath`, process, machine, and version evidence classifies `MachineIdentity`, license and lease facts classify `AccountIdentity`; `FaultSite` keys, host source tokens, and event codes stay unclassified public evidence; exception message and stack admission ride the app-root `LoggerEnrichmentOptions` knobs, never a boundary re-scrub.
 - Law: enrichment splits by cost class — `HostStaticEnricher` captures process constants once and `ObjectsTelemetry` composes that classified fact into every generated event; no publish rereads host statics, and each `MachineIdentity` row reaches the app-root redactor through `LogProperties` before egress.
 - Law: `HostTap.Mount` is seat arbitration — the first plugin attaches both host delegates and holds the seat, later plugins ride the seat as keyed rows, a rider's disposal removes only its row, and the owner's disposal hands the seat to the senior rider with the delegates still attached or detaches both and returns the seat vacant; delegate identity stays exact, disposal is idempotent, and every plugin mounts beside its own `ObjectsTelemetry.Configure`.
@@ -24,8 +24,8 @@ Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassi
 - Law: a source spells itself through `nameof` exactly when its type is composable from this stratum — local egress events, the Document spine, Render, and Modeling — so a rename breaks the build instead of stranding a row; the three rows over Display and the same-stratum HostUi peer carry TEXT, because a `nameof` reaching them is the forbidden upward edge wearing a safety measure, and the app root proves those against its own contributed arm table. Local event names live as one const feeding both the generated `EventName` and the row. tenant attribution is app-root baggage promotion, never a boundary field; marshal-seam latency rides the `MarshalLatency` checkpoints on `HostUi/shell.md`, whose `DurationInstrument` constant mirrors the `rasm.rhino.hostui.marshal.duration` label this partition projects.
 - Law: `ObjectsHooks.Mount` registers this page's six registry points through `MountRegistry.MountAll` — the three veto points admit only a program already carrying the veto hook (`ObjectProgram.Viewable`, `ObjectProgram.Pick`, `GripProgram` regrow) and grant that program back for adapter composition, the fault point binds a caller `ILogger` onto `ObjectsTelemetry.Configure`, and both host-tap points bind the caller's `PluginKey` onto the one `HostTap.Mount` seat — so every point resolves through `MountRegistry.Bind`, and a later refusal releases every earlier seat.
 - Law: the render-mesh surface is the five-virtual cache family — `IsMeshable`, `MeshCount`, `CreateMeshes`, `GetMeshes`, and `DestroyMeshes` refine base-first through one `RenderMeshProgram`; no `OnGetRenderMeshes` virtual exists to forward, the non-virtual RDK accessor trio (`HasCustomRenderMeshes`, `CustomRenderMeshesBoundingBox`, the `RenderMeshes` delegator) stays the Display and Render owners' viewport-and-pipeline context, and the `Rhino.Render.CustomRenderMeshes.RenderMeshProvider` registration adapter belongs to that seam, never an object hook.
-- Law: replacement cache meshes are kernel-built — a `Cached` or `Built` hook supplying geometry composes `Meshes.Build` over the `MeshOp` and `MeshEdit` algebra, never a hand-assembled native `Mesh` or a `Mesh.CreateFromSurface` grid; roster meshes handed back become host-owned at the return, and the live `MeshingParameters` each virtual receives crosses to hooks encoded as `MeshPolicy`, never as the native carrier.
-- Law: a hook fault never escapes and never degrades to transcript text — every `Fin` refusal publishes the `ObjectCallbackFaulted` event with its `FaultSite` and typed `Error` before the host fallback returns; `NullLogger` is the logger-less composition, and provider policy remains outside the adapters.
+- Law: replacement cache meshes are kernel-built — a `Cached` or `Built` hook supplying geometry composes `HostMeshes.Build` over the `MeshOp` and `MeshEditIntent` algebra, never a hand-assembled native `Mesh` or a `Mesh.CreateFromSurface` grid; roster meshes handed back become host-owned at the return, and the live `MeshingParameters` each virtual receives crosses to hooks encoded as `RenderMeshPolicy`, never as the native carrier.
+- Law: a hook fault never escapes and never degrades to transcript text — every `Fin` refusal publishes the `ObjectCallbackFaulted` event with its `FaultSite`, exact `Error`, derived owner, and redrive posture before the host fallback returns; `NullLogger` is the logger-less composition, and provider policy remains outside the adapters.
 - Law: the egress reports its OWN faults and the report has a reader — `Publish` answers a `TelemetryFan` carrying the delivered-sink count beside every per-sink failure, those failures park on the boundary's evidence cell because the callers are host callbacks with no rail to carry them outward, and `Drain` is the cell's one reader named as the `rasm.rhino.objects.egress.faults` source so the app root's collection empties it; erasing a sink fault to `unit` makes the one surface whose job is reporting faults the one surface that cannot report its own, and parking one no declared row reads is the same failure with an extra allocation.
 - Law: the grip enabler returns its seat — `GripRig.Register` answers `Fin<IDisposable>` whose disposal re-registers an inert enabler under the same `[Guid]`, matching the three sibling registrations; the host publishes no unregister and re-registration is its only removal, so the asymmetry lives in the seat's implementation rather than in every caller's head.
 - Law: picked objects cross as captures — `PickCandidate` couples a callback-local slot with `PickCapture`; `Pick` returns admitted slots and `OnPicked` stricts the host's picked sequence once before the base call, so a one-shot enumerable feeds base and program alike and neither `ObjRef` nor `PickContext` enters program state.
@@ -76,43 +76,29 @@ public sealed partial class FaultSite {
     public static readonly FaultSite HostLog = new(key: 13);
 }
 
-public static class HostSensitivity {
-    // One taxonomy spelling and one const per value feed BOTH columns below, so a re-spelling cannot land on
-    // the framework row and miss the contributed pair — the drift that makes a federated value unrostered.
-    const string Taxonomy = nameof(DataClassification);
-    const string UserContentValue = "user-content";
-    const string HostPathValue = "host-path";
-    const string MachineIdentityValue = "host-identity";
-    const string AccountIdentityValue = "personal";
+// Classification VOCABULARY is the kernel `Sensitivity` roster (`Rasm/Domain/telemetry.md` [05]-[CONTRIBUTE]);
+// these four attribute classes are the boundary's ONE local addition — the `[LogProperties]` attach points the
+// host-boundary producer owns — and every value derives from the kernel rows, so a re-spelling cannot fork the
+// taxonomy and the `Classifications` column this boundary contributes can never disagree with what it attaches.
+public sealed class UserContentAttribute() : DataClassificationAttribute(
+    new DataClassification(Sensitivity.Taxonomy, Sensitivity.UserContent.Key));
 
-    public static readonly DataClassification UserContent = new(taxonomyName: Taxonomy, value: UserContentValue);
-    public static readonly DataClassification HostPath = new(taxonomyName: Taxonomy, value: HostPathValue);
-    public static readonly DataClassification MachineIdentity = new(taxonomyName: Taxonomy, value: MachineIdentityValue);
-    public static readonly DataClassification AccountIdentity = new(taxonomyName: Taxonomy, value: AccountIdentityValue);
+public sealed class HostPathAttribute() : DataClassificationAttribute(
+    new DataClassification(Sensitivity.Taxonomy, Sensitivity.HostPath.Key));
 
-    // The CONTRIBUTED half of the federation: the same four `(taxonomy, value)` texts as kernel
-    // `ClassifiedValue` pairs, carried on `Document/events#…` `RhinoInstruments.Telemetry`'s `Classifications`
-    // column so the app root ENUMERATES this boundary's values while it composes the redactor map. Without the
-    // roster the federation closes only by coincidence: a value no owner declared resolves no redactor row,
-    // falls to the fail-closed erasing redactor, and deletes the dimension the boundary annotated it to
-    // preserve — a compliance-shaped availability failure invisible until a reader misses the field. The
-    // crossing stays text, so no compliance type reaches the kernel port and no boundary names the owner.
-    public static readonly Seq<ClassifiedValue> Values = Seq(
-        new ClassifiedValue(Taxonomy, UserContentValue),
-        new ClassifiedValue(Taxonomy, HostPathValue),
-        new ClassifiedValue(Taxonomy, MachineIdentityValue),
-        new ClassifiedValue(Taxonomy, AccountIdentityValue));
-}
+public sealed class MachineIdentityAttribute() : DataClassificationAttribute(
+    new DataClassification(Sensitivity.Taxonomy, Sensitivity.MachineIdentity.Key));
 
-public sealed class UserContentAttribute() : DataClassificationAttribute(HostSensitivity.UserContent);
+public sealed class AccountIdentityAttribute() : DataClassificationAttribute(
+    new DataClassification(Sensitivity.Taxonomy, Sensitivity.AccountIdentity.Key));
 
-public sealed class HostPathAttribute() : DataClassificationAttribute(HostSensitivity.HostPath);
-
-public sealed class MachineIdentityAttribute() : DataClassificationAttribute(HostSensitivity.MachineIdentity);
-
-public sealed class AccountIdentityAttribute() : DataClassificationAttribute(HostSensitivity.AccountIdentity);
-
-public sealed record HostFaultFact(string Code, [property: UserContent] string Message, bool Exceptional);
+public sealed record HostFaultFact(
+    [property: LogPropertyIgnore] Error Cause,
+    Option<int> Code,
+    Option<TelemetrySource> Owner,
+    Retriability Posture,
+    [property: UserContent] string Message,
+    bool Exceptional);
 
 public sealed record HostLogFact(
     string Class,
@@ -124,14 +110,14 @@ public sealed record HostStaticFact(
     [property: MachineIdentity] string Version,
     [property: MachineIdentity] bool PreRelease);
 
-public readonly record struct RenderMeshBuild(MeshType Kind, Option<MeshPolicy> Policy, bool IgnoreCustom, int Inherited);
+public readonly record struct RenderMeshBuild(MeshKind Kind, Option<RenderMeshPolicy> Policy, bool IgnoreCustom, int Inherited);
 
 public sealed record RenderMeshProgram(
-    Option<Func<MeshType, bool, Fin<bool>>> Meshable = default,
-    Option<Func<MeshType, Option<MeshPolicy>, int, Fin<int>>> Tally = default,
+    Option<Func<MeshKind, bool, Fin<bool>>> Meshable = default,
+    Option<Func<MeshKind, Option<RenderMeshPolicy>, int, Fin<int>>> Tally = default,
     Option<Func<RenderMeshBuild, Fin<int>>> Built = default,
-    Option<Func<MeshType, Seq<Mesh>, Fin<Seq<Mesh>>>> Cached = default,
-    Option<Func<MeshType, Fin<Unit>>> Dropped = default) {
+    Option<Func<MeshKind, Seq<Mesh>, Fin<Seq<Mesh>>>> Cached = default,
+    Option<Func<MeshKind, Fin<Unit>>> Dropped = default) {
     public static readonly RenderMeshProgram Inert = new();
 }
 
@@ -160,7 +146,6 @@ public static partial class ObjectsTelemetry {
     internal const string HostExceptionEvent = "HostExceptionReported";
     internal const string HostCloudLogEvent = "HostCloudLog";
 
-    private const int Band = 6400;
     private static readonly Atom<HashMap<PluginKey, ILogger>> Sinks = Atom(HashMap<PluginKey, ILogger>());
     private static readonly Atom<Seq<Error>> EgressFaults = Atom(Seq<Error>());
 
@@ -178,7 +163,7 @@ public static partial class ObjectsTelemetry {
     }
 
     [LoggerMessage(
-        EventId = Band + 1,
+        EventId = FaultBand.HostObjectsLogBase + 1,
         EventName = CallbackFaultedEvent,
         Level = LogLevel.Error,
         Message = "object callback faulted at {Site}")]
@@ -189,7 +174,7 @@ public static partial class ObjectsTelemetry {
         [LogProperties(OmitReferenceName = true)] HostStaticFact host);
 
     [LoggerMessage(
-        EventId = Band + 2,
+        EventId = FaultBand.HostObjectsLogBase + 2,
         EventName = HostExceptionEvent,
         Level = LogLevel.Error,
         Message = "host exception at {Site} from {Source}")]
@@ -201,7 +186,7 @@ public static partial class ObjectsTelemetry {
         [LogProperties(OmitReferenceName = true)] HostStaticFact host);
 
     [LoggerMessage(
-        EventId = Band + 3,
+        EventId = FaultBand.HostObjectsLogBase + 3,
         EventName = HostCloudLogEvent,
         Message = "host cloud log")]
     private static partial void Streamed(
@@ -223,7 +208,10 @@ public static partial class ObjectsTelemetry {
             sink,
             site: site,
             error: new HostFaultFact(
-                Code: error.Code.ToString(),
+                Cause: error,
+                Code: error is Fault fault ? Some(fault.Code) : None,
+                Owner: error.Owner,
+                Posture: Redrive.Posture(error),
                 Message: error.Message,
                 Exceptional: error.IsExceptional),
             host: HostStaticEnricher.Current));
@@ -321,7 +309,7 @@ public static class RhinoInstrumentPartition {
             new InstrumentSlice("rasm.rhino.render.content.facts", "{fact}", nameof(ContentFact), Seq("pulse", "document")),
             new InstrumentSlice("rasm.rhino.render.content.failures", "{fault}", nameof(ContentStreamFailure), Seq("pulse"))),
         [MarshalKind] = Seq(
-            new InstrumentSlice("rasm.rhino.hostui.marshal.duration", "s", "MarshalLatency", Seq("work", "outcome"))),
+            new InstrumentSlice("rasm.rhino.hostui.marshal.duration", "s", "MarshalLatency", Seq("work", "lane", "outcome"))),
         [CensusKind] = Seq(
             new InstrumentSlice(
                 "rasm.rhino.document.census.objects",
@@ -621,14 +609,14 @@ internal static class HostForward {
                 .TraverseM(reference => Picks.Capture(reference: reference, key: op)).As()
                 .Bind(consume));
 
-    internal static bool Meshable(this ObjectProgram program, MeshType kind, bool inherited) =>
+    internal static bool Meshable(this ObjectProgram program, MeshKind kind, bool inherited) =>
         Refined(
             slot: program.MeshSlot(static meshes => meshes.Meshable),
             site: FaultSite.RenderMesh,
             inherited: inherited,
             body: judge => _ => judge(kind, inherited));
 
-    internal static int Counted(this ObjectProgram program, MeshType kind, MeshingParameters parameters, int inherited) =>
+    internal static int Counted(this ObjectProgram program, MeshKind kind, MeshingParameters parameters, int inherited) =>
         Refined(
             slot: program.MeshSlot(static meshes => meshes.Tally),
             site: FaultSite.RenderMesh,
@@ -637,7 +625,7 @@ internal static class HostForward {
                 .Bind(policy => refine(kind, policy, inherited))
                 .Bind(answer => guard(answer >= 0, op.InvalidResult()).ToFin().Map(_ => answer)));
 
-    internal static int Constructed(this ObjectProgram program, MeshType kind, MeshingParameters parameters, bool ignore, int inherited) =>
+    internal static int Constructed(this ObjectProgram program, MeshKind kind, MeshingParameters parameters, bool ignore, int inherited) =>
         Refined(
             slot: program.MeshSlot(static meshes => meshes.Built),
             site: FaultSite.RenderMesh,
@@ -647,23 +635,23 @@ internal static class HostForward {
                     Kind: kind, Policy: policy, IgnoreCustom: ignore, Inherited: inherited)))
                 .Bind(answer => guard(answer >= 0, op.InvalidResult()).ToFin().Map(_ => answer)));
 
-    internal static Mesh[] Roster(this ObjectProgram program, MeshType kind, Mesh[] inherited) =>
+    internal static Mesh[] Roster(this ObjectProgram program, MeshKind kind, Mesh[] inherited) =>
         Refined(
             slot: program.MeshSlot(static meshes => meshes.Cached),
             site: FaultSite.RenderMesh,
             inherited: inherited,
             body: refine => _ => refine(kind, toSeq(inherited ?? [])).Map(static refined => refined.ToArray()));
 
-    internal static Unit Dismantled(this ObjectProgram program, MeshType kind) =>
+    internal static Unit Dismantled(this ObjectProgram program, MeshKind kind) =>
         Ran(
             slot: program.MeshSlot(static meshes => meshes.Dropped),
             site: FaultSite.RenderMesh,
             body: run => run(kind));
 
-    private static Fin<Option<MeshPolicy>> Policy(MeshingParameters parameters, Op op) =>
+    private static Fin<Option<RenderMeshPolicy>> Policy(MeshingParameters parameters, Op op) =>
         Optional(parameters)
-            .Map(native => MeshPolicy.Capture(native: native, key: op).Map(Some))
-            .IfNone(() => Fin.Succ(value: Option<MeshPolicy>.None));
+            .Map(native => RenderMeshPolicy.Capture(native: native, key: op).Map(Some))
+            .IfNone(() => Fin.Succ(value: Option<RenderMeshPolicy>.None));
 }
 ```
 
@@ -695,11 +683,11 @@ public abstract class RasmBrepObject : CustomBrepObject {
     protected sealed override BoundingBox GetBoundingBox(RhinoViewport viewport) => Program.Box(viewport: viewport, inherited: base.GetBoundingBox(viewport));
     protected sealed override bool GetTightBoundingBox(ref BoundingBox tightBox, bool growBox, Transform xform) =>
         Program.Tight(box: ref tightBox, grow: growBox, motion: xform, inherited: base.GetTightBoundingBox(ref tightBox, growBox, xform));
-    public sealed override bool IsMeshable(MeshType meshType) => Program.Meshable(kind: meshType, inherited: base.IsMeshable(meshType));
-    public sealed override int MeshCount(MeshType meshType, MeshingParameters parameters) => Program.Counted(kind: meshType, parameters: parameters, inherited: base.MeshCount(meshType, parameters));
-    public sealed override int CreateMeshes(MeshType meshType, MeshingParameters parameters, bool ignoreCustomParameters) => Program.Constructed(kind: meshType, parameters: parameters, ignore: ignoreCustomParameters, inherited: base.CreateMeshes(meshType, parameters, ignoreCustomParameters));
-    public sealed override Mesh[] GetMeshes(MeshType meshType) => Program.Roster(kind: meshType, inherited: base.GetMeshes(meshType));
-    public sealed override void DestroyMeshes(MeshType meshType) { base.DestroyMeshes(meshType); _ = Program.Dismantled(kind: meshType); }
+    public sealed override bool IsMeshable(MeshType meshType) => Program.Meshable(kind: MeshKind.Get((int)meshType), inherited: base.IsMeshable(meshType));
+    public sealed override int MeshCount(MeshType meshType, MeshingParameters parameters) => Program.Counted(kind: MeshKind.Get((int)meshType), parameters: parameters, inherited: base.MeshCount(meshType, parameters));
+    public sealed override int CreateMeshes(MeshType meshType, MeshingParameters parameters, bool ignoreCustomParameters) => Program.Constructed(kind: MeshKind.Get((int)meshType), parameters: parameters, ignore: ignoreCustomParameters, inherited: base.CreateMeshes(meshType, parameters, ignoreCustomParameters));
+    public sealed override Mesh[] GetMeshes(MeshType meshType) => Program.Roster(kind: MeshKind.Get((int)meshType), inherited: base.GetMeshes(meshType));
+    public sealed override void DestroyMeshes(MeshType meshType) { base.DestroyMeshes(meshType); _ = Program.Dismantled(kind: MeshKind.Get((int)meshType)); }
 }
 
 public abstract class RasmCurveObject : CustomCurveObject {
@@ -723,11 +711,11 @@ public abstract class RasmCurveObject : CustomCurveObject {
     protected sealed override BoundingBox GetBoundingBox(RhinoViewport viewport) => Program.Box(viewport: viewport, inherited: base.GetBoundingBox(viewport));
     protected sealed override bool GetTightBoundingBox(ref BoundingBox tightBox, bool growBox, Transform xform) =>
         Program.Tight(box: ref tightBox, grow: growBox, motion: xform, inherited: base.GetTightBoundingBox(ref tightBox, growBox, xform));
-    public sealed override bool IsMeshable(MeshType meshType) => Program.Meshable(kind: meshType, inherited: base.IsMeshable(meshType));
-    public sealed override int MeshCount(MeshType meshType, MeshingParameters parameters) => Program.Counted(kind: meshType, parameters: parameters, inherited: base.MeshCount(meshType, parameters));
-    public sealed override int CreateMeshes(MeshType meshType, MeshingParameters parameters, bool ignoreCustomParameters) => Program.Constructed(kind: meshType, parameters: parameters, ignore: ignoreCustomParameters, inherited: base.CreateMeshes(meshType, parameters, ignoreCustomParameters));
-    public sealed override Mesh[] GetMeshes(MeshType meshType) => Program.Roster(kind: meshType, inherited: base.GetMeshes(meshType));
-    public sealed override void DestroyMeshes(MeshType meshType) { base.DestroyMeshes(meshType); _ = Program.Dismantled(kind: meshType); }
+    public sealed override bool IsMeshable(MeshType meshType) => Program.Meshable(kind: MeshKind.Get((int)meshType), inherited: base.IsMeshable(meshType));
+    public sealed override int MeshCount(MeshType meshType, MeshingParameters parameters) => Program.Counted(kind: MeshKind.Get((int)meshType), parameters: parameters, inherited: base.MeshCount(meshType, parameters));
+    public sealed override int CreateMeshes(MeshType meshType, MeshingParameters parameters, bool ignoreCustomParameters) => Program.Constructed(kind: MeshKind.Get((int)meshType), parameters: parameters, ignore: ignoreCustomParameters, inherited: base.CreateMeshes(meshType, parameters, ignoreCustomParameters));
+    public sealed override Mesh[] GetMeshes(MeshType meshType) => Program.Roster(kind: MeshKind.Get((int)meshType), inherited: base.GetMeshes(meshType));
+    public sealed override void DestroyMeshes(MeshType meshType) { base.DestroyMeshes(meshType); _ = Program.Dismantled(kind: MeshKind.Get((int)meshType)); }
 }
 
 public abstract class RasmMeshObject : CustomMeshObject {
@@ -749,11 +737,11 @@ public abstract class RasmMeshObject : CustomMeshObject {
     protected sealed override BoundingBox GetBoundingBox(RhinoViewport viewport) => Program.Box(viewport: viewport, inherited: base.GetBoundingBox(viewport));
     protected sealed override bool GetTightBoundingBox(ref BoundingBox tightBox, bool growBox, Transform xform) =>
         Program.Tight(box: ref tightBox, grow: growBox, motion: xform, inherited: base.GetTightBoundingBox(ref tightBox, growBox, xform));
-    public sealed override bool IsMeshable(MeshType meshType) => Program.Meshable(kind: meshType, inherited: base.IsMeshable(meshType));
-    public sealed override int MeshCount(MeshType meshType, MeshingParameters parameters) => Program.Counted(kind: meshType, parameters: parameters, inherited: base.MeshCount(meshType, parameters));
-    public sealed override int CreateMeshes(MeshType meshType, MeshingParameters parameters, bool ignoreCustomParameters) => Program.Constructed(kind: meshType, parameters: parameters, ignore: ignoreCustomParameters, inherited: base.CreateMeshes(meshType, parameters, ignoreCustomParameters));
-    public sealed override Mesh[] GetMeshes(MeshType meshType) => Program.Roster(kind: meshType, inherited: base.GetMeshes(meshType));
-    public sealed override void DestroyMeshes(MeshType meshType) { base.DestroyMeshes(meshType); _ = Program.Dismantled(kind: meshType); }
+    public sealed override bool IsMeshable(MeshType meshType) => Program.Meshable(kind: MeshKind.Get((int)meshType), inherited: base.IsMeshable(meshType));
+    public sealed override int MeshCount(MeshType meshType, MeshingParameters parameters) => Program.Counted(kind: MeshKind.Get((int)meshType), parameters: parameters, inherited: base.MeshCount(meshType, parameters));
+    public sealed override int CreateMeshes(MeshType meshType, MeshingParameters parameters, bool ignoreCustomParameters) => Program.Constructed(kind: MeshKind.Get((int)meshType), parameters: parameters, ignore: ignoreCustomParameters, inherited: base.CreateMeshes(meshType, parameters, ignoreCustomParameters));
+    public sealed override Mesh[] GetMeshes(MeshType meshType) => Program.Roster(kind: MeshKind.Get((int)meshType), inherited: base.GetMeshes(meshType));
+    public sealed override void DestroyMeshes(MeshType meshType) { base.DestroyMeshes(meshType); _ = Program.Dismantled(kind: MeshKind.Get((int)meshType)); }
 }
 
 public abstract class RasmPointObject : CustomPointObject {
@@ -775,11 +763,11 @@ public abstract class RasmPointObject : CustomPointObject {
     protected sealed override BoundingBox GetBoundingBox(RhinoViewport viewport) => Program.Box(viewport: viewport, inherited: base.GetBoundingBox(viewport));
     protected sealed override bool GetTightBoundingBox(ref BoundingBox tightBox, bool growBox, Transform xform) =>
         Program.Tight(box: ref tightBox, grow: growBox, motion: xform, inherited: base.GetTightBoundingBox(ref tightBox, growBox, xform));
-    public sealed override bool IsMeshable(MeshType meshType) => Program.Meshable(kind: meshType, inherited: base.IsMeshable(meshType));
-    public sealed override int MeshCount(MeshType meshType, MeshingParameters parameters) => Program.Counted(kind: meshType, parameters: parameters, inherited: base.MeshCount(meshType, parameters));
-    public sealed override int CreateMeshes(MeshType meshType, MeshingParameters parameters, bool ignoreCustomParameters) => Program.Constructed(kind: meshType, parameters: parameters, ignore: ignoreCustomParameters, inherited: base.CreateMeshes(meshType, parameters, ignoreCustomParameters));
-    public sealed override Mesh[] GetMeshes(MeshType meshType) => Program.Roster(kind: meshType, inherited: base.GetMeshes(meshType));
-    public sealed override void DestroyMeshes(MeshType meshType) { base.DestroyMeshes(meshType); _ = Program.Dismantled(kind: meshType); }
+    public sealed override bool IsMeshable(MeshType meshType) => Program.Meshable(kind: MeshKind.Get((int)meshType), inherited: base.IsMeshable(meshType));
+    public sealed override int MeshCount(MeshType meshType, MeshingParameters parameters) => Program.Counted(kind: MeshKind.Get((int)meshType), parameters: parameters, inherited: base.MeshCount(meshType, parameters));
+    public sealed override int CreateMeshes(MeshType meshType, MeshingParameters parameters, bool ignoreCustomParameters) => Program.Constructed(kind: MeshKind.Get((int)meshType), parameters: parameters, ignore: ignoreCustomParameters, inherited: base.CreateMeshes(meshType, parameters, ignoreCustomParameters));
+    public sealed override Mesh[] GetMeshes(MeshType meshType) => Program.Roster(kind: MeshKind.Get((int)meshType), inherited: base.GetMeshes(meshType));
+    public sealed override void DestroyMeshes(MeshType meshType) { base.DestroyMeshes(meshType); _ = Program.Dismantled(kind: MeshKind.Get((int)meshType)); }
 }
 ```
 
@@ -828,7 +816,7 @@ public sealed record GripProgram(
     Option<Func<GripsDrawEventArgs, Fin<Unit>>> Draw = default,
     Option<Func<Fin<Unit>>> Reset = default,
     Option<Func<Fin<Unit>>> ResetMeshes = default,
-    Option<Func<MeshType, GripMotion, Fin<Unit>>> UpdateMesh = default,
+    Option<Func<MeshKind, GripMotion, Fin<Unit>>> UpdateMesh = default,
     Option<Func<int, int, int, int, bool, Fin<Option<GripObject>>>> Neighbor = default,
     Option<Func<int, int, Fin<Option<GripObject>>>> SurfaceGrip = default,
     Option<Func<Fin<Option<NurbsSurface>>>> Surface = default,
@@ -915,7 +903,7 @@ public abstract class RasmGrips : CustomObjectGrips {
     protected sealed override void OnUpdateMesh(MeshType meshType) {
         base.OnUpdateMesh(meshType);
         _ = Program.UpdateMesh.Map(run => Op.Of().Catch(() => run(
-                meshType,
+                MeshKind.Get((int)meshType),
                 new GripMotion(NewLocation: NewLocation, Moved: GripsMoved, Dragging: Dragging())))
             .Reported(FaultSite.GripLifecycle)).IfNone(noneValue: unit);
         NewLocation = false;
@@ -982,10 +970,7 @@ public static class GripRig {
         Op key = Op.Of(name: nameof(GripRig));
         _ = key.Catch(() => factory(candidate).Match(
                 Some: grips => key.Confirm(success: candidate.EnableCustomGrips(customGrips: grips))
-                    .MapFail(error => {
-                        grips.Dispose();
-                        return error;
-                    }),
+                    .Rollback(grips),
                 None: () => Fin.Succ(value: unit)))
             .Reported(FaultSite.GripRegistration);
     }
@@ -994,7 +979,7 @@ public static class GripRig {
 
 ## [05]-[GRIP_EDIT]
 
-- Owner: `GripMove` `[Union]` — the relocation verbs: absolute point, delta vector, transform, and single-step undo; `GripEdit` `[Union]` — the two grip mutations: `Rig` toggles `GripsOn`, `Move` relocates one indexed grip or every grip through a `GripMove` verb; `GripFacts` — the whole grip read in one pass: identity, positions, movement state, weight, local frame, and the surface, curve, and cage parameter coordinates with their control-vertex indices, each projected as absence where the grip kind carries none; `ObjectReceipt<Guid>`/`GripCensus` — the detached results; `Grips` — the two entries: `Census` the read, `Touch` the immediate mutation.
+- Owner: `GripMove` `[Union]` — the relocation verbs: absolute point, delta vector, transform, and single-step undo; `GripEdit` `[Union]` — the two grip mutations: `Rig` toggles `GripsOn`, `Move` relocates one indexed grip or every grip through a `GripMove` verb; `GripFacts` — the whole grip read in one pass: identity, positions, movement state, weight, local frame, and the surface, curve, and cage parameter coordinates with their control-vertex indices, each projected as absence where the grip kind carries none; `GripCensus` — the detached read; `Grips` — the two entries: `Census` the read, `Touch` the immediate mutation answering the touched owner ids bare, because an unbracketed touch carries no undo column to receipt.
 - Law: grips resolve from their owner — `GripEdit.Rig` toggles `GripsOn`, `Census` and `GripEdit.Move` read `GetGrips` inside the grant, and a grip index addresses into that roster; no `GripObject` leases outward, because grip lifetime ends when the owner's grips turn off.
 - Law: parameter reads are capability probes — `GetSurfaceParameters`, `GetCurveParameters`, `GetCageParameters`, and the CV-index members answer `false` or empty on grips of another kind, and the facts project absence rather than faulting, so one census serves every grip kind.
 - Law: movement is immediate visual state under the host's drag machinery — `Move` and `UndoMove` mutate the grip, `Touch` opens no undo record, and the geometry consequence lands when the host drives the owner's grip pipeline; a program wanting transactional geometry replacement routes the regrown value through `TableOp.Replace`.
@@ -1100,11 +1085,11 @@ public static class Grips {
             needs: [SessionNeed.Read]));
     }
 
-    public static Fin<ObjectReceipt<Guid>> Touch(DocumentSession session, TableTarget target, GripEdit edit) {
+    public static Fin<Seq<Guid>> Touch(DocumentSession session, TableTarget target, GripEdit edit) {
         Op op = Op.Of();
         return from owner in Optional(session).ToFin(Fail: op.MissingContext())
                from active in op.Need(edit).Bind(value => value.Admit(op: op))
-               from receipt in owner.Demand(
+               from touched in owner.Demand(
                    use: document =>
                        from natives in Objects.Resolve(document: document, target: target, key: op)
                        from ids in natives.TraverseM(native => active.Switch(
@@ -1126,10 +1111,10 @@ public static class Grips {
                                from _ in guard(!chosen.IsEmpty, ctx.Op.MissingContext()).ToFin()
                                from __ in chosen.TraverseM(grip => edit.Motion.Apply(grip: grip, op: ctx.Op)).As()
                                select ctx.Native.Id)).As()
-                       select new ObjectReceipt<Guid>(Facts: ids, UndoSerials: Seq<UndoSerial>()),
+                       select ids,
                    key: op,
                    needs: [SessionNeed.Mutate])
-               select receipt;
+               select touched;
     }
 }
 ```
@@ -1146,9 +1131,11 @@ public static class Grips {
 |  [06]   | render-mesh cache | `RenderMeshProgram`        | base-first refinement over the five cache virtuals      | adapter mesh overrides     |
 |  [07]   | telemetry egress  | `ObjectsTelemetry`         | generated fault and host-stream events over keyed sinks | `Publish` / `Configure`    |
 |  [08]   | host taps         | `HostTap`                  | seat arbitration with rider handoff over both host taps | `HostTap.Mount`            |
-|  [09]   | classification    | `HostSensitivity`          | suite taxonomy rows and member annotation attributes    | payload attributes         |
+|  [09]   | classification    | kernel `Sensitivity`       | four attach attributes over the kernel taxonomy rows    | payload attributes         |
 |  [10]   | instrument rows   | `RhinoInstrumentPartition` | kind-keyed projection data the app root executes        | `Rows`                     |
 |  [11]   | hook mounts       | `ObjectsHooks`             | six registry points over veto programs and tap seats    | `ObjectsHooks.Mount`       |
+
+- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-custom-objects.md` — `Rhino.DocObjects.Custom` subclass surface; `api-rhinocommon-objects.md` — attribute custody); `LanguageExt.Core` (`libs/csharp/.api/api-languageext.md` — `Seq`, `Atom` boundary cells, Prelude); `Microsoft.Extensions.Logging` (`libs/csharp/.api/api-logging-abstractions.md` — `[LoggerMessage]` on the `HostObjectsLog 6410` band); `Microsoft.Extensions.Compliance.Abstractions` (`libs/csharp/.api/api-redaction.md` — the `DataClassification(string, string)` ctor and the `DataClassificationAttribute` base the four attach classes derive, the redactor resolving at the app root); `Thinktecture.Runtime.Extensions` (`libs/csharp/.api/api-thinktecture-runtime-extensions.md` — `[Union]` hook vocabulary); kernel `Domain/rails` (`HookBinding`, `Cell`) and kernel `Domain/telemetry` (`Sensitivity` taxonomy rows, `ClassifiedValue`).
 
 ## [07]-[RESEARCH]
 

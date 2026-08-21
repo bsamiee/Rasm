@@ -8,26 +8,27 @@ Wiring — projector registration, tessellation adapter, `Graph/element#NODE_MOD
 
 ## [01]-[INDEX]
 
-- [02]-[PROJECTION_CONTRACT]: `IElementProjection` the projector floor and its one `Project`, `ProjectionContext` the element-identity/header/primitives carrier with its `Owns` vouch predicate and `ConstraintWaiver` reviewed-deviation set, `TypeCandidate` the reverse-type row the Bim export and the Materials admission both compose, `TextureRoster`/`TextureCandidate` the texture hand-off rows, `ProjectionSuite` the graded-registration mint, and `ProjectionAssembly` the composition capability the apps wire, returning the `AssemblyReceipt`.
+- [02]-[PROJECTION_CONTRACT]: `IElementProjection` the projector floor and its one `Project`, `ProjectionContext` the element-identity/header/primitives carrier with its `Owns` vouch predicate, its `ConstraintWaiver` reviewed-deviation set, and the `RedactionScope` egress posture the wire `Encode` reads, `TypeCandidate` the reverse-type row the Bim export and the Materials admission both compose, `TextureRoster`/`TextureCandidate` the texture hand-off rows, `ProjectionSuite` the graded-registration mint, and `ProjectionAssembly` the composition capability the apps wire, returning the `AssemblyReceipt`.
 - [03]-[GRAPH_CONSTRAINT]: `IGraphConstraint` the IFC-semantic legality floor Bim implements, composed in `Assemble` after the structural admission, accumulating every violation applicatively — each violation graded by its `ConstraintRegistration` row's `ConstraintSeverity`, waived by content key, and the non-blocking findings landed typed on the receipt.
-- [04]-[INTERCHANGE_CARRIER]: `ImportedGeometry` the one decoded interchange mesh-pool carrier the Bim import rail produces and the Compute tile/residency lane reads — the kernel `EncodedGeometry` lane arena beside the `Indices` column — with its `MeshBlock`/`MeshInstance` instancing-and-shading-partition overlay and the seam-owned lane-agnostic `Bake` flatten.
+- [04]-[INTERCHANGE_CARRIER]: `ImportedGeometry` the one decoded interchange mesh-pool carrier the Bim import rail produces and the Compute tile/residency lane reads — the kernel `EncodedGeometry` lane arena beside the `Indices` column — with its `MeshBlock`/`MeshInstance` instancing-and-shading-partition overlay, the `MeshletBand` cluster row (kernel E2 — one band where Bim/AppUi/Compute held three same-shaped triplets), the railed `Of` admission, and the seam-owned placement-column `Bake` flatten.
 
 ## [02]-[PROJECTION_CONTRACT]
 
-- Boundary: `TypeCandidate` is DECLARED HERE, once, because both its producer (`Rasm.Bim` `Exchange/import#REIMPORT` `BimIo.ExportTypeCandidates`) and its consumer (`Rasm.Materials` `Component/component#CATALOGUE` `ComponentCatalogue.AdmitImported`) reference this seam and never each other — the twin local spellings the contract-alignment idiom produced were two declarations of one row that an edit at either end forks silently, which is exactly the drift a shared owner forecloses; the alignment idiom stays correct for the `IIfcTypeReconciler` PORT (a behavioural seam neither end can host), and wrong for a pure data row both ends can reach. `TextureRoster`/`TextureCandidate` seat here under the SAME law — producer `Rasm.Bim` `Semantics/appearance#APPEARANCE_PROJECTION` `AppearanceProjection.RosterOf`, consumer `Rasm.Materials` `Raster/set#SET_INGEST` `SetIngest.Roster` — and the row carries only neutral columns: the IFC transform decode lowers at the producer's mint, so no host or IFC type reaches this seam.
-- Owner: `IElementProjection` the projector strategy floor with one `Project`; `ProjectionContext` the projection input (element `NodeId` set + target `Header` + the kernel `CorrelationId`/`TenantContext` causal pair, carrying the `Owns` vouch predicate and the `ConstraintWaiver` reviewed-deviation set); `ConstraintSeverity` the `[SmartEnum<string>]` verdict grade whose `Blocks` column is the discard policy; `ConstraintRegistration` the graded constraint row the suite registers; `ConstraintFinding` the typed per-violation QA finding (severity + violation + content key + waived flag); `AssemblyReceipt` the assembly result carrier; `ProjectionSuite` the minting seam — the one typed registration value the app root builds from each owning package's factory product; `ProjectionAssembly` the static composition capability the seam owns and the apps wire.
+- Boundary: `TypeCandidate` is DECLARED HERE, once, because both its producer (`Rasm.Bim` `Projection/foreign#REINGEST` `Reingest.ExportTypeCandidates`) and its consumer (`Rasm.Materials` `Component/component#CATALOGUE` `ComponentCatalogue.AdmitImported`) reference this seam and never each other — the twin local spellings the contract-alignment idiom produced were two declarations of one row that an edit at either end forks silently, which is exactly the drift a shared owner forecloses; the alignment idiom stays correct for the `IIfcTypeReconciler` PORT (a behavioural seam neither end can host), and wrong for a pure data row both ends can reach. `TextureRoster`/`TextureCandidate` seat here under the SAME law — producer `Rasm.Bim` `Semantics/appearance#APPEARANCE_PROJECTION` `AppearanceProjection.RosterOf`, consumer `Rasm.Materials` `Raster/set#SET_INGEST` `SetIngest.Roster` — and the row carries only neutral columns: the IFC transform decode lowers at the producer's mint, so no host or IFC type reaches this seam.
+- Owner: `IElementProjection` the projector strategy floor with one `Project`; `ProjectionContext` the projection input (element `NodeId` set + target `Header` + the kernel `CorrelationId`/`TenantContext` causal pair, carrying the `Owns` vouch predicate and the `ConstraintWaiver` reviewed-deviation set); `ConstraintSeverity` the `[SmartEnum<string>]` verdict grade whose `Blocks` column is the discard policy; `ConstraintRegistration` the graded constraint row the suite registers; `ConstraintFinding` the typed per-violation QA finding (severity + violation + content key + the pinning `Option<ConstraintWaiver>` itself, so the receipt records WHO waived and WHEN); `AssemblyReceipt` the assembly result carrier; `ProjectionSuite` the minting seam — the one typed registration value the app root builds from each owning package's factory product; `ProjectionAssembly` the static composition capability the seam owns and the apps wire.
 - Entry: `IElementProjection.Project(ProjectionContext ctx)` lowers a concrete projector's captured foreign source onto a `GraphDelta` over the context's element identities, `Fin<T>` carrying the projector's own faults; `ProjectionSuite.Of(projectors, constraints)` mints the registration value — each `IElementProjection` arrives as an owning package's OWN factory product (`ComponentProjector.Of(source)` the Materials mint, the Bim `SemanticProjector` mint likewise package-owned) and each constraint as a `ConstraintRegistration.Of(constraint, severity)` graded row defaulting `Blocking`, the concrete internal and swappable behind its floor; `ProjectionAssembly.Assemble(suite, seed, ctx)` runs the capture→merge→establish→admit→constrain→fold pipeline over the suite returning the `AssemblyReceipt` (`Graph` + `Delta` + `Findings`); the railed `ProjectionContext.For(elementIds, header, key, at, correlation, tenant, waivers)` narrows its guard to correlation alone — tenancy arrives as the kernel `TenantContext`, whose absent case IS the root row, so the mint admits the supplied value unchanged and polices no blank string — `elementIds` carrying the owner-minted Type and Occurrence identities an aspect projector vouches against, the trailing `waivers` the reviewed-deviation set a model review authored.
-- Auto: `Assemble` (1) captures each `Project` through `Try.lift` — a thrown foreign exception becomes `ProjectorFaulted`, a projector's own returned typed fault (a `BimFault`, a `ProjectionFault`) is preserved unchanged — and accumulates every projector fault applicatively (`.Traverse(...).As().ToValidation()`, `Error.Combine` unioning the faults so a run where BOTH Bim and Materials fail reports both); (2) on full success seeds the monoid fold with `GraphDelta.Empty.Reheader(ctx.Header)` and merges via `Merge`'s `next.Header`-wins rule; (3) structurally admits the merged delta through `GraphDelta.AdmitOnto` — the validating sibling of the raw persistence `ReplayOnto`, routing through `WorkingGraph.Apply` so `LegalLink` runs per `Link`; (4) validates the ADMITTED `applied.Delta` — the same body the receipt carries and Persistence appends, never the pre-admission merge — against every registered `IGraphConstraint`, grading each accumulated violation by its registration row's severity, marking waived findings by content key, and discarding the candidate ONLY on an unwaived blocking finding; (5) folds onto the seed graph, the surviving findings riding the receipt.
+- Auto: `Assemble` (1) preserves every projector-returned `Error`, captures an unknown throw as its exact exceptional `Error`, and accumulates every projector failure applicatively (`.Traverse(...).As().ToValidation()`, `Error.Combine` unioning the faults so a run where BOTH Bim and Materials fail reports both); a projector implementation alone classifies a documented provider refusal into its typed owner fault before returning; (2) on full success seeds the monoid fold with `GraphDelta.Empty.Reheader(ctx.Header)` and merges via `Merge`'s `next.Header`-wins rule; (3) structurally admits the merged delta through `GraphDelta.AdmitOnto` — the validating sibling of the raw persistence `ReplayOnto`, routing through `WorkingGraph.Apply` so `LegalLink` runs per `Link`; (4) validates the ADMITTED `applied.Delta` — the same body the receipt carries and Persistence appends, never the pre-admission merge — against every registered `IGraphConstraint`, grading each accumulated violation by its registration row's severity, pinning each waived finding's own `ConstraintWaiver` by content key, and discarding the candidate ONLY on an unwaived blocking finding; (5) folds onto the seed graph, the surviving findings riding the receipt.
 - Receipt: the `Assemble` result is the `AssemblyReceipt` — the assembled `ElementGraph` a consumer bakes, the merged `GraphDelta` event body the `Rasm.Persistence` `Version/ledger` appends to the Marten stream (the one model-creating event, never a whole-graph snapshot) [DELTA_EVENT_RULING], and the graded `ConstraintFinding` set (warnings and waived deviations) the QA report persists beside the model instead of vanishing at the boundary.
-- Packages: LanguageExt.Core (`Fin`/`Validation`/`Seq`/`Try`/`ManyErrors` + the `TraverseM`/`Traverse` accumulation split + the `Fold` monoid + `ToValidation`/`ToFin` cross-rail bridges), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` the `ConstraintSeverity` grade), `Rasm` (the kernel `Op` op-key + the `FaultExtensions.Category` projection the finding key folds), NodaTime (`Instant`), System.Collections.Frozen (`FrozenSet`), `Projection/address#CANONICAL_WRITER` (`CanonicalWriter`/`ContentAddress` the `ConstraintFinding.KeyOf` identity mints through).
+- Packages: LanguageExt.Core (`Fin`/`Validation`/`Seq`/`ManyErrors` + the `TraverseM`/`Traverse` accumulation split + the `Fold` monoid + `ToValidation`/`ToFin` cross-rail bridges), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` the `ConstraintSeverity` grade), `Rasm` (the kernel `Op` key and numeric `Fault` identity), NodaTime (`Instant`), System.Collections.Frozen (`FrozenSet`), `Rasm/Domain/identity#CONTENT_KEY` (`CanonicalWriter` the `ConstraintFinding.KeyOf` preimage writes through), `Projection/address#CONTENT_ADDRESS` (`ContentAddress` the `ConstraintFinding.KeyOf` identity mints through).
 - Growth: a new aspect projector is one `IElementProjection` implementation in its owning package with one registration row at the app root; a new causal or runtime ingredient is one column on `ProjectionContext`; the unified Material/Component/Element paradigm adds NO new interface and NO new mint method, both mints being owner-side compositions of the kernel `Graph/element#NODE_MODEL` `NodeId` floor.
-- Boundary: `ConstraintFinding.Key` and `ConstraintWaiver.Finding` are `Projection/address#CONTENT_ADDRESS` `ContentAddress`, never a bare `UInt128` — the waiver crosses the wire to a review workflow and a raw 128-bit JSON number loses precision past 2^53 in a JS parse, so the pinned key rides the address's own X32 hex face like every other content key on the seam; `IElementProjection` is the ONE projector floor with ONE polymorphic `Project` — a per-provider seam method (`ProjectBim`/`ProjectMaterials`) is the deleted form, the concrete held internal and swappable in its owning package behind that package's minting factory, and `ProjectionSuite.Of` the one registration mint `Assemble` dispatches over (loose per-call projector/constraint collections are the deleted form — selection resolves through the declared minting seam, never provider-specific constructor exposure at a consumer); the projector-capture fold is APPLICATIVE and the admit-then-constrain tail MONADIC — the carrier, never a flag, selects the algebra ([APPLICATIVE_CAPTURE]); `Owns` is a PREDICATE, not an authoring helper — the skip-vs-rail policy is the projector's [H12] ([OWNER_MINTS_IDENTITY]); `ctx.Header` is the floor-seeded model header a projector-authored `Reheader` overrides ([HEADER_ESTABLISHMENT]); the runtime primitives are NEUTRAL (kernel `Op`, instant, correlation, tenant) — the seam references no AppHost `ClockPolicy`/`CorrelationId`/`TenantContext` type; the capture funnel is `Try.lift`, never the kernel `Op.Catch`; the projection path admits through `AdmitOnto`, never the raw `ReplayOnto`; the seam owns the `Assemble` CAPABILITY and the app the WIRING — no APP-PLATFORM package hosts the live assembly ([ASSEMBLE_CAPABILITY]); severity is REGISTRATION policy — the `ConstraintSeverity` column rides the `ConstraintRegistration` row the app root grades, never a floor member a foreign implementor must carry, so a rule family needing two grades registers as two `IGraphConstraint` rows ([GRADED_VERDICT]); IFC egress (`Emit`) is Bim-INTERNAL because the seam never authors IFC; an instance default-interface-method on either floor is the named defect — defaults derive from a minimal core, never an interface body.
+- Boundary: `ConstraintFinding.Key` and `ConstraintWaiver.Finding` carry `ContentAddress`; the seam preserves an unknown raised exception unchanged, and constraint identity projects numeric fault code with evidence.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
-using System.Numerics;                               // Matrix4x4, Vector3 — the interchange-carrier placement currency
+using System.Numerics;                               // Matrix4x4 — the interchange-carrier placement currency
+using Vector3 = System.Numerics.Vector3;             // pin the CARRIER vector — Rasm.Element.Graph exports the seam Vector3 under the same name
 using System.Runtime.InteropServices;                // ImmutableCollectionsMarshal — the zero-copy index handover
 using Generator.Equals;
 using LanguageExt;
@@ -39,6 +40,7 @@ using Rasm.Element.Graph;
 using Rasm.Element.Properties;
 using Thinktecture;
 using static LanguageExt.Prelude;
+using static Rasm.Domain.AdmissionSlots;
 
 namespace Rasm.Element.Projection;
 
@@ -60,7 +62,7 @@ public sealed partial class ConstraintSeverity {
 // issue is typed and auditable rather than a hand-stripped rerun or a silenced rule.
 public readonly record struct ConstraintWaiver(ContentAddress Finding, string Authority, Instant At);
 
-// TypeCandidate is the ingested-type row the reverse type loop carries: Rasm.Bim's BimIo.ExportTypeCandidates mints
+// TypeCandidate is the ingested-type row the reverse type loop carries: Rasm.Bim's Reingest.ExportTypeCandidates mints
 // one per IFC type object its reconciler left unresolved, and Rasm.Materials' ComponentCatalogue.AdmitImported lowers
 // it onto railed Component.Of construction. The two packages never reference each other, so the row homes HERE at
 // this shared seam rather than once at each end, where identical fields stand as two declarations one edit forks
@@ -77,21 +79,35 @@ public readonly record struct TypeCandidate(
     Option<string> ProfileDesignation,
     Option<string> ProfileStandard);
 
+// ChannelPolarity names the gloss/transparency inversion a producer's mode declares and the channel token does
+// not; TextureWrap is the per-axis sampler addressing vocabulary — three rows because glTF/USD declare three, and
+// a repeat BOOLEAN collapsed MirroredRepeat onto one of the other two, a lie at the consumer's sampler policy.
+[SmartEnum<string>]
+public sealed partial class ChannelPolarity {
+    public static readonly ChannelPolarity Direct = new("direct");
+    public static readonly ChannelPolarity Inverted = new("inverted");
+}
+
+[SmartEnum<string>]
+public sealed partial class TextureWrap {
+    public static readonly TextureWrap Repeat = new("repeat");
+    public static readonly TextureWrap ClampToEdge = new("clamp-to-edge");
+    public static readonly TextureWrap MirroredRepeat = new("mirrored-repeat");
+}
+
 // TextureRoster and TextureCandidate are the hand-off rows the styling producer and the texture-set classifier both
 // compose — the same shared-owner law as TypeCandidate: Rasm.Bim's AppearanceProjection.RosterOf mints one
 // TextureRoster per styled appearance and Rasm.Materials' SetIngest.Roster classifies it, the two packages never
-// referencing each other. Channel is the canonical channel token the producer's mode roster resolved; Inverted the
-// gloss/transparency polarity that mode declares and the token does not; RepeatU/RepeatV and CoordinateSet are
-// binding facts riding to the consumer's sampler policy; the five frame columns are the NEUTRAL uv frame the
-// producer's own transform lowered AT MINT, so no IFC operator decode crosses this row and the consumer lifts them
-// straight to its binding policy. Reference carries the texture location as declared — an app root resolves it to
-// bytes, this row never does.
+// referencing each other. Channel is the canonical channel token the producer's mode roster resolved; the wrap pair
+// and CoordinateSet are binding facts riding to the consumer's sampler policy; the five frame columns are the
+// NEUTRAL uv frame the producer's own transform lowered AT MINT, so no IFC operator decode crosses this row.
+// Reference carries the texture location as declared — an app root resolves it to bytes, this row never does.
 public readonly record struct TextureCandidate(
     string Channel,
     string Reference,
-    bool Inverted,
-    bool RepeatU,
-    bool RepeatV,
+    ChannelPolarity Polarity,
+    TextureWrap WrapU,
+    TextureWrap WrapV,
     int CoordinateSet,
     double OffsetU,
     double OffsetV,
@@ -114,13 +130,16 @@ public sealed record ProjectionContext {
     public CorrelationId Correlation { get; }
     public TenantContext Tenant { get; }
     public Seq<ConstraintWaiver> Waivers { get; }
+    // Scope is the egress-redaction posture the wire Encode reads (ElementWire.Encode(graph, ctx.Scope)) — the
+    // PRODUCER the redaction table lacked; None is full fidelity, so every existing context is unredacted by law.
+    public RedactionScope Scope { get; init; } = RedactionScope.None;
 
     private ProjectionContext(FrozenSet<NodeId> elementIds, Header header, Op key, Instant at, CorrelationId correlation, TenantContext tenant, Seq<ConstraintWaiver> waivers) =>
         (ElementIds, Header, Key, At, Correlation, Tenant, Waivers) = (elementIds, header, key, at, correlation, tenant, waivers);
 
     public static Fin<ProjectionContext> For(Seq<NodeId> elementIds, Header header, Op key, Instant at, CorrelationId correlation, TenantContext tenant, Seq<ConstraintWaiver> waivers = default) =>
         correlation == CorrelationId.None
-            ? ElementFault.ValueRejected(key, $"<projection-context-correlation-unset:{correlation}>")
+            ? new KernelFault.InvalidValue("projection correlation", "a minted correlation identity", Some(key))
             : Fin.Succ(new ProjectionContext(elementIds.ToFrozenSet(), header, key, at, correlation, tenant, waivers));
 
     // Owns is the aspect-projector vouch — a PREDICATE, never an authoring helper; skip-vs-rail stays the
@@ -129,11 +148,13 @@ public sealed record ProjectionContext {
 }
 
 // One graded QA finding: the registration's severity, the typed violation Error (the BimFault/ElementFault arm
-// preserved so error.IsType/Filter recovery survives), the violation's content key, and the waived flag. KeyOf
-// mints the identity a review workflow pins a waiver to — band code + Category + the producer-owned Detail
-// discriminant through the seam CanonicalWriter and the kernel seed-zero hash — replayable across runs, never a
-// positional issue ordinal a re-run renumbers.
-public sealed record ConstraintFinding(ConstraintSeverity Severity, Error Violation, ContentAddress Key, bool Waived) {
+// preserved so error.IsType/Filter recovery survives), the violation's content key, and — when a review pinned it —
+// the WAIVER ITSELF, so the receipt carries who waived and when (the evidence stream [FINDING_EVIDENCE] promises)
+// rather than a bool that erased both. KeyOf mints the identity a review workflow pins a waiver to from numeric
+// fault identity plus self-sufficient evidence, never a category mirror or positional issue ordinal.
+public sealed record ConstraintFinding(ConstraintSeverity Severity, Error Violation, ContentAddress Key, Option<ConstraintWaiver> Waiver) {
+    public bool Waived => Waiver.IsSome;
+
     // UnquantizedGrid marks the finding preimage as Ordinal + String alone — never Measure — so the writer's
     // quantization grid is never read; the named constant states that irrelevance where a bare 0.0 argument reads as
     // a tolerance decision.
@@ -141,20 +162,17 @@ public sealed record ConstraintFinding(ConstraintSeverity Severity, Error Violat
 
     public static ConstraintFinding Of(ConstraintSeverity severity, Error violation, Seq<ConstraintWaiver> waivers) {
         ContentAddress key = KeyOf(violation);
-        return new(severity, violation, key, waivers.Exists(waiver => waiver.Finding == key));
+        return new(severity, violation, key, waivers.Find(waiver => waiver.Finding == key));
     }
 
-    // Message IS the fault band's frozen `<kind:colon-args>` Detail token (Projection/fault#FAULT_BAND
-    // [DETAIL_GRAMMAR] — ElementFault.Message => Detail, and every peer band derives Expected the same way), so this
-    // preimage hashes three FROZEN axes and a stored waiver survives every run. That dependency is load-bearing in
-    // one direction: the grammar is append-only, and a re-worded token is a deliberate re-key of its own waivers.
-    // ProjectorFaulted is the one arm whose Detail is raw provider text, so a finding never carries it — the
-    // capture funnel rails before Constrain runs.
-    public static ContentAddress KeyOf(Error violation) {
-        CanonicalWriter w = new(UnquantizedGrid);
-        w.Ordinal(violation.Code).String(violation.Category).String(violation.Message);
-        return ContentAddress.Of(w.ToBytes().Span);
-    }
+    // Project faults contribute their generated code; foreign errors contribute no fabricated identity. Message is
+    // evidence in the finding preimage, never parsed into category/case semantics or used for recovery.
+    public static ContentAddress KeyOf(Error violation) =>
+        ContentAddress.Of(violation, UnquantizedGrid, static (v, w) => {
+            if (v is Fault fault) { w.Bool(true).Ordinal(fault.Code); }
+            else { w.Bool(false); }
+            w.String(v.Message);
+        });
 }
 
 // AssemblyReceipt carries the assembled graph a consumer bakes, the merged event body Persistence appends, and the
@@ -213,15 +231,11 @@ public static class ProjectionAssembly {
                 .Bind(applied => Constrain(suite.Constraints, applied.Delta, applied.Graph, ctx.Waivers)
                     .Map(findings => new AssemblyReceipt(applied.Graph, applied.Delta, findings))));
 
-    // Try.lift turns a THROWN foreign call into ProjectorFaulted with the raw provider message — a separate arm from
-    // its own ProjectionFailed structural verdict precisely because that message is OUTSIDE the frozen Detail
-    // grammar a finding key hashes (Projection/fault#FAULT_BAND). MapFail's lambda closes over ctx.Key, never
-    // static; a projector's OWN typed fault passes untouched — Run yields Succ(Fail(x)), MapFail no-ops on the outer
-    // Succ, Bind surfaces x.
+    // A projector's returned Error passes untouched. The seam captures an unknown throw as the exact exceptional
+    // Error; a projector implementation classifies only its documented provider refusals before returning, so this
+    // open floor never turns an arbitrary library exception into an expected or retryable Element fault.
     private static Fin<GraphDelta> Capture(IElementProjection projector, ProjectionContext ctx) =>
-        Try.lift<Fin<GraphDelta>>(() => projector.Project(ctx)).Run()
-            .MapFail(error => ElementFault.ProjectorFaulted(ctx.Key, error.Message))
-            .Bind(static fin => fin);
+        ctx.Key.Catch(() => projector.Project(ctx));
 
     // Composed AFTER the structural admission: every registration's accumulated violations become findings under
     // its row's severity, a finding whose content key a context waiver pins is Waived, and ONLY an unwaived
@@ -230,18 +244,17 @@ public static class ProjectionAssembly {
     // warnings and waived deviations ride the receipt as typed findings instead of vanishing at the boundary.
     // Constrain admits an empty registration set vacuously with an empty finding set.
     private static Fin<Seq<ConstraintFinding>> Constrain(
-        Seq<ConstraintRegistration> constraints, GraphDelta delta, ElementGraph graph, Seq<ConstraintWaiver> waivers) {
-        Seq<ConstraintFinding> findings = constraints.Bind(row =>
+        Seq<ConstraintRegistration> constraints, GraphDelta delta, ElementGraph graph, Seq<ConstraintWaiver> waivers) =>
+        constraints.Bind(row =>
             row.Constraint.Validate(delta, graph).Match(
                 Succ: static _ => Seq<ConstraintFinding>(),
-                Fail: failure => Violations(failure).Map(violation => ConstraintFinding.Of(row.Severity, violation, waivers))));
-        Seq<Error> blocking = findings.Filter(static f => f.Severity.Blocks && !f.Waived).Map(static f => f.Violation);
-        return blocking.IsEmpty ? Fin.Succ(findings) : Fin.Fail<Seq<ConstraintFinding>>(new ManyErrors(blocking));
-    }
-
-    // Violations splits a constraint's accumulated Validation failure — ONE Error that may be ManyErrors — into one
-    // finding per inner violation, so severity grades and waivers pin at the violation grain a review workflow needs.
-    private static Seq<Error> Violations(Error failure) => failure is ManyErrors many ? many.Errors : Seq(failure);
+                // Unpack splits the accumulated failure at the VIOLATION grain waivers pin — the one ManyErrors
+                // flattener the branch owns, never a local twin.
+                Fail: failure => Unpack(failure).Map(violation => ConstraintFinding.Of(row.Severity, violation, waivers))))
+         is var findings && findings.Filter(static f => f.Severity.Blocks && !f.Waived).Map(static f => f.Violation)
+         is var blocking && blocking.IsEmpty
+            ? Fin.Succ(findings)
+            : Fin.Fail<Seq<ConstraintFinding>>(Error.Many(blocking));
 }
 ```
 
@@ -269,7 +282,7 @@ public interface IGraphConstraint {
 ## [04]-[INTERCHANGE_CARRIER]
 
 - Owner: `ImportedGeometry` the decoded interchange mesh-POOL carrier — one kernel `Rasm.Drawing` `EncodedGeometry` arena holding every per-vertex lane (position, normal, UV, colour, and whatever the roster grows next) as descriptor-addressed slices of ONE payload, `Indices` the single non-channel column, each decoded source mesh occupying a `MeshBlock` range, `MeshInstance` rows placing blocks by rigid transform, `Bake()` flattening on demand; `MeshBlock` the pool range with its `Declared` channel-evidence set and its `Material` shading-partition key; `MeshInstance` the rigid placement.
-- Entry: `Rasm.Bim` `Exchange/import#IMPORT_RAIL` decode arms construct it (one `Encode.Of` mint per decode over the lanes the source declares, one identity instance per block on a non-instanced source, one block per shading partition where the source splits a mesh by material) and `Rasm.Compute` `Runtime/codecs#TILE_PARTITION` slices baked leaves from it; `Bake()` is the ONE flatten — positions `Transform`, normals `TransformNormal`, every other lane copied rigid-invariant, each placed block inheriting its source `Material` — so a consumer needing world-space geometry calls the one owner and a consumer preserving instancing or shading partitions reads the overlay.
+- Entry: `Rasm.Bim` `Exchange/import#IMPORT_RAIL` decode arms construct it (one `Encode.Of` mint per decode over the lanes the source declares, one identity instance per block on a non-instanced source, one block per shading partition where the source splits a mesh by material) and `Rasm.Compute` `Runtime/tiles#TILE_PARTITION` slices baked leaves from it; `Bake()` is the ONE flatten — positions `Transform`, normals `TransformNormal`, every other lane copied rigid-invariant, each placed block inheriting its source `Material` — so a consumer needing world-space geometry calls the one owner and a consumer preserving instancing or shading partitions reads the overlay.
 - Law: this seat is the `STRATA_TWIN` resolution — the carrier crosses `Rasm.Bim` (S2 producer) and `Rasm.Compute` (S3 consumer), two packages that never reference each other, so the shape homes at the lowest stratum both reach; the prior same-named twins (a Bim pool form without UVs, a Compute soup form without `Blocks`/`Instances`) merged onto this superset and both packages compose it. `EncodingChannel` supplies the lane set and the kernel `EncodedGeometry` the arena, so the interchange carrier and the kernel's own packed geometry speak ONE channel vocabulary, ONE dtype roster, and ONE payload layout — the per-channel `ReadOnlyMemory<float>` columns this record once held were a second encoding arena one stratum up, and the descriptor set is what makes a new lane cost zero columns here.
 - Receipt: the arena's own `RoundTripWitness` — every mint measures per-lane quantization error against its dtype tolerance and carries the payload-rooted `GeometryHash` (`RoundTripWitness.Root` is `DigestRoot.Payload` on every arena this carrier holds, because a foreign decode carries no kernel `EncodeForm` source; a consumer keying dedup against source-rooted `Encode.Apply` digests must read `Root` before comparing), so a decode that silently lost precision fails `IsValid` rather than reaching a consumer; decode evidence still rides the Bim `ModelLoad` receipt and partition evidence the Compute `StreamSegment` receipt.
 - Packages: LanguageExt.Core (`Seq`), NodaTime (`Instant`), Generator.Equals (`[Equatable]`/`[OrderedEquality]`/`[StringEquality]` — the carrier's structural equality, without which a content-keyed consumer compares two identical decodes unequal), `Rasm` (the kernel `Drawing.EncodedGeometry` arena with `Encode.Of`/`Channel`/`View<T>`, the `EncodingChannel` lane roster, and `ChannelDtype.Unpack`), BCL inbox (`System.Numerics` `Matrix4x4`/`Vector3` the rigid-placement currency, `ImmutableArray<long>` the index column, `ImmutableCollectionsMarshal.AsImmutableArray` the zero-copy handover).
@@ -301,6 +314,16 @@ public readonly record struct MeshBlock(
 
 public readonly record struct MeshInstance(int Block, Matrix4x4 Transform);
 
+// One band absorbs the Bim MeshletBand and the per-cluster descriptor half of AppUi's MeshletCluster (kernel E2);
+// Compute's ResidencyRuns is NOT this shape — it is the whole-payload decoded attribute carrier (five global
+// arrays), and Compute's per-cluster counterpart ResidencyMeshlet keeps its LOD-chain and cut-census columns
+// (ConeApex/Level/Parent/ParentError/Shell/Curvature/Cut) its folder RULINGS make load-bearing. The
+// offsets are MeshBlock's already, so only the cull bounds and the run lengths are new columns. Bounds ride the
+// SEAM's own host-neutral coordinate (Graph.Vector3) — a Point3d/Vector3d here is the host leak the charter bars.
+public readonly record struct MeshletBand(
+    MeshBlock Block, int VertexRun, int TriangleRun,
+    Graph.Vector3 BoundCenter, double BoundRadius, Graph.Vector3 ConeAxis, double ConeCutoff);
+
 // Lanes is the kernel EncodedGeometry arena: one payload, one descriptor per declared EncodingChannel. Position and
 // Normal are the two lanes every source carries; Uv (TEXCOORD_0, arity 2, Float32) and ColorRgba (arity 4, Unorm8)
 // are present exactly when the source declares them, so absence is a MISSING DESCRIPTOR rather than a zero-length
@@ -330,6 +353,15 @@ public sealed partial record ImportedGeometry(
     Instant At) {
 
     public bool IsBaked => Instances.ForAll(static i => i.Transform.IsIdentity);
+
+    // The ONE admission a decode arm crosses: every instance's Block indexes a declared block, so the flatten's
+    // indexer is total by construction rather than an unchecked reach inside a Fin-returning body.
+    public static Fin<ImportedGeometry> Of(
+        string formatKey, EncodedGeometry lanes, ImmutableArray<long> indices, int vertexCount, int triangleCount,
+        Seq<MeshBlock> blocks, Seq<MeshInstance> instances, Instant at, Op key) =>
+        instances.Find(instance => instance.Block < 0 || instance.Block >= blocks.Count).Match(
+            Some: rogue => Fin.Fail<ImportedGeometry>(new KernelFault.OutOfRange("mesh-instance-block", rogue.Block, $"fall inside [0,{blocks.Count})", Some(key))),
+            None: () => Fin.Succ(new ImportedGeometry(formatKey, lanes, indices, vertexCount, triangleCount, blocks, instances, at)));
 
     // Flatten the pool through the instance placements into ONE re-minted arena. The flatten is LANE-AGNOSTIC by
     // construction: it dispatches on the descriptor's own channel — Position rides Transform, Normal rides
@@ -365,17 +397,20 @@ public sealed partial record ImportedGeometry(
                 MeshBlock block = Blocks[instance.Block];
                 foreach (var lane in lanes) {                                  // Exemption: a measured span kernel over one pre-sized arena
                     int arity = lane.Channel.Arity;
+                    // Placement resolves ONCE per descriptor off the kernel row's own column — the per-vertex
+                    // channel-identity ladder was the same decision re-taken vertexCount times per lane.
+                    ChannelPlacement placement = lane.Channel.Placement;
                     for (int k = 0; k < block.VertexCount; k++) {
                         int src = (block.VertexOffset + k) * arity, dst = (state.VSlot + k) * arity;
-                        if (lane.Channel == EncodingChannel.Position || lane.Channel == EncodingChannel.Normal) {
+                        if (placement == ChannelPlacement.Invariant) {
+                            lane.Source.AsSpan(src, arity).CopyTo(lane.Placed.AsSpan(dst, arity));
+                        }
+                        else {
                             Vector3 read = new(lane.Source[src], lane.Source[src + 1], lane.Source[src + 2]);
-                            Vector3 moved = lane.Channel == EncodingChannel.Position
+                            Vector3 moved = placement == ChannelPlacement.Positional
                                 ? Vector3.Transform(read, instance.Transform)
                                 : Vector3.TransformNormal(read, instance.Transform);
                             (lane.Placed[dst], lane.Placed[dst + 1], lane.Placed[dst + 2]) = (moved.X, moved.Y, moved.Z);
-                        }
-                        else {
-                            lane.Source.AsSpan(src, arity).CopyTo(lane.Placed.AsSpan(dst, arity));
                         }
                     }
                 }
@@ -403,14 +438,14 @@ public sealed partial record ImportedGeometry(
 ## [05]-[IMPLEMENTATION_LAW]
 
 - [TWO_INTERFACE_SPLIT]: `Rasm.Element` declares exactly two instance-interface floors [M3] — `IElementProjection` (the projector floor each AEC peer implements over its captured foreign source, lowering onto a `GraphDelta`) and `IGraphConstraint` (the IFC-semantic legality Bim implements, validating a delta against the graph) — so the seam's total `Switch` enforces ONLY the structural edge law and schema legality lives in the consumer's constraint. Cross-stratum alignment seats both floors at the lowest stratum the closed-vocabulary siblings depend up on and implement, aligning by contract without sibling references, each package usable in isolation. Both floors are open points foreign code plugs into (the `OPEN_FLOOR_DISPATCH` form) — the projector returning `Fin` for one dependent lowering, the constraint returning `Validation` for independent legality rules accumulating — never a `[Union]` the foreign assembly extends and never an instance default-interface-member.
-- [OWNER_MINTS_IDENTITY]: each owner mints its concept's `Object` under the ONE rooted-identity regime (`Graph/element#NODE_MODEL` `ObjectKind ∈ {Type, Occurrence}`), so `Rasm.Materials` owning Component Types mints the DETERMINISTIC-rooted Type id through the kernel Type-seed `NodeId` derivation — rooted yet a pure function of the `Object` canonical content with the volatile `Representations` EXCLUDED from the seed, so identical Components dedup to one Type and a later geometry attach never re-keys it. Determinism is LOAD-BEARING: a pure-function id is known BEFORE the projection runs, so the owner seeds it into `ElementIds` with no minting race. Occurrence-authoring projectors mint the Guid-v7 Occurrence id through `NodeId.Rooted()`, the IFC GlobalId riding a Bim-stored `Object.ExternalId` [H6].
-- [ASPECT_VOUCH]: aspect projectors mint NOTHING and author edges only INTO a context-vouched id through `ProjectionContext.Owns`, composing `ctx.Owns(element) ? Link(...) : ProjectionFault.Unvouched(...)` — skip-vs-rail stays the projector's policy, because a pure-isolation run authoring no edge is no fault while a binding to an unvouched element MUST rail, never a silent drop [H12]. Mint-vs-vouch splits per CONCEPT, never per projector: the `ComponentProjector` mints the Type it OWNS and vouches the occurrence it BINDS through `Assign.TypeDefinition` in ONE `Project`, both mints owner-side compositions of the kernel `NodeId` floor.
+- [OWNER_MINTS_IDENTITY]: each owner mints its concept's `Object` under the ONE rooted-identity regime (`Graph/element#NODE_MODEL` `ObjectKind ∈ {Type, Occurrence}`), so `Rasm.Materials` owning Component Types mints the DETERMINISTIC-rooted Type id through the kernel Type-seed `NodeId` derivation — rooted yet a pure function of the `Object` canonical content with the volatile `Representations` EXCLUDED from the seed, so identical Components dedup to one Type and a later geometry attach never re-keys it. Determinism is LOAD-BEARING: a pure-function id is known BEFORE the projection runs, so the owner seeds it into `ElementIds` with no minting race. Occurrence-authoring projectors mint the Guid-v7 Occurrence id through `NodeId.Of(new NodeSeed.Placement())`, the IFC GlobalId riding a Bim-stored `Object.ExternalId` [H6].
+- [ASPECT_VOUCH]: aspect projectors mint NOTHING and author edges only INTO a context-vouched id through `ProjectionContext.Owns`, composing `ctx.Owns(element) ? Link(...) : new ProjectionFault.Unvouched(...)` — skip-vs-rail stays the projector's policy, because a pure-isolation run authoring no edge is no fault while a binding to an unvouched element MUST rail, never a silent drop [H12]. Mint-vs-vouch splits per CONCEPT, never per projector: the `ComponentProjector` mints the Type it OWNS and vouches the occurrence it BINDS through `Assign.TypeDefinition` in ONE `Project`, both mints owner-side compositions of the kernel `NodeId` floor.
 - [APPLICATIVE_CAPTURE]: projector capture folds APPLICATIVELY, never monadically — projectors are INDEPENDENT, so the `INDEPENDENT_JOIN` law accumulates their faults: `projectors.Traverse(p => Capture(p, ctx).ToValidation()).As()` runs the `Validation` `Apply` over every captured projector and `Error.Combine` unions every foreign fault, where the rejected `.TraverseM`/`.Bind` capture silently discards every fault after the first. Admit-then-constrain tails MONADICALLY (`.ToFin().Bind(...)`) because the admission depends on the merged delta and the constraint on the admitted candidate — dependence licenses sequence, independence licenses accumulation, the carrier selecting the algebra.
-- [CAPTURE_FUNNEL]: per-projector `Capture` lowers a THROWN foreign exception through the `Try.lift(() => projector.Project(ctx)).Run().MapFail(...).Bind(identity)` funnel — `Try.lift` preserving the raw `error.Message` a bare kernel `Op.Catch` re-wraps as `Fault.InvalidResult` — while a projector's OWN returned typed fault passes unchanged, and `.ToValidation()` carries the typed `Expected`-derived case onto the accumulating carrier so the combine keeps each fault recoverable (`error.IsType`/`HasCode`/`Filter` recurse over `ManyErrors`).
+- [CAPTURE_FUNNEL]: per-projector `Capture` preserves a returned `Error` unchanged and an unknown throw as its exact exceptional `Error`; documented provider refusals classify at the implementing owner before return, and `.ToValidation()` accumulates without message reminting.
 - [GRADED_VERDICT]: model checking grades in three owners with the `IGraphConstraint` floor untouched — a hard schema violation blocks, a best-practice miss warns, and a reviewed deviation is WAIVED and recorded — because a binary discard-on-any-violation floor either over-blocks or silences rules.
 - [SEVERITY_GRAIN]: severity is REGISTRATION grain — the `ConstraintSeverity` `Blocks` column rides the `ConstraintRegistration` row the app root grades, because a registered constraint IS a rule family and a family whose rules split by grade registers as two rows, where a per-violation severity demands the floor return findings and forces every foreign implementor to re-shape.
-- [WAIVER_GRAIN]: waivers pin at VIOLATION grain — a `ConstraintWaiver` pins `ConstraintFinding.KeyOf(violation)`, the `ContentAddress` over the violation's band `Code`, kernel `Category`, and producer-owned `Detail` discriminant through the seam `CanonicalWriter` and the kernel seed-zero hash, so an accepted deviation is replayable across runs and peers, matches exactly one issue, and never rides a positional ordinal or a message-substring probe.
-- [WAIVER_STABILITY]: waiver keys REST on the `Projection/fault#FAULT_BAND` `[DETAIL_GRAMMAR]` law — `Message` is a frozen `<kind:colon-args>` token, so that grammar's append-only rule is what makes a stored waiver outlive the run authoring it, and a case whose detail is unfrozen foreign text (`ProjectorFaulted`) rails at the capture funnel before a finding keys on it.
+- [WAIVER_GRAIN]: `ConstraintWaiver` pins `ConstraintFinding.KeyOf(violation)` from the fault's numeric code and self-contained evidence through `CanonicalWriter`.
+- [WAIVER_STABILITY]: producer evidence stays complete at the finding boundary; numeric fault identity supplies routing while the evidence distinguishes occurrences.
 - [FINDING_EVIDENCE]: receipts carry the evidence stream — an unwaived blocking finding aborts with the violations re-carried as `ManyErrors` (the `error.Filter<E>` recovery unchanged), while warnings and waived deviations ride `AssemblyReceipt.Findings` typed, so "assemble with warnings" is a first-class outcome and a compliance dashboard folds findings off receipts, never a log join.
 - [HEADER_ESTABLISHMENT]: `ProjectionContext.Header` is LOAD-BEARING — `Assemble` SEEDS the monoid fold with it as the model-creating header FLOOR (`deltas.Fold(GraphDelta.Empty.Reheader(ctx.Header), Merge)`), so an assembly onto `Graph/element#ELEMENT_GRAPH` `Genesis` freezes under the intended schema/model-view/georeference/tolerance rather than the seed's default (`AdmitOnto` resolves `delta.Header.IfNone(graph.Header)` over the merged delta's resolved header). `Merge`'s `next.Header`-wins rule over a floor-seeded accumulator sets the precedence: a header-less projector's `None` leaves the floor intact, while a PRIMARY projector's authored `Reheader` (a Bim lowering reading `FILE_SCHEMA`/`FILE_NAME`) overrides it — so the ingested schema and `StepHeader` provenance reach the frozen snapshot (the H8 schema-span validation and the H9 owner-history re-emit both read that surviving header). `Header` rides the `GraphDelta` event and the frozen snapshot, never the `WorkingGraph`, so establishment is one floor-seed `Reheader` call, not a header field threaded through the working form.
 - [HEADER_CLOBBER]: any trailing UNCONDITIONAL `Reheader(ctx.Header)` AFTER the fold clobbers every projector-authored header and defeats H8/H9; a context-carried header no fold reads is the prior dead-field form — both deleted.

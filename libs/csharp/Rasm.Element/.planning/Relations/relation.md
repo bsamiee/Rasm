@@ -4,13 +4,13 @@
 
 ## [01]-[INDEX]
 
-- [02]-[EDGE_ALGEBRA]: `Relationship` the `[Union]` five-neutral-case edge algebra with its `Generic` passthrough, the `RelationshipKind` neutral CASE discriminant and the per-case `SubKind` vocabularies, the uniform consumer accessor surface (`Kind`/`Relating`/`Related`/`Members`/`DirectedPairs`/`IsContainment`/`Endpoints`/`Touches`/`ToCanonicalBytes(tolerance)`), and the `MaterialUsage` occurrence payload the `Associate` edge carries.
+- [02]-[EDGE_ALGEBRA]: `Relationship` the `[Union]` five-neutral-case edge algebra with its `Generic` passthrough, the `RelationshipKind` neutral CASE discriminant and the per-case `SubKind` vocabularies, the uniform consumer accessor surface (`Kind`/`Relating`/`Related`/`Members`/`DirectedPairs`/`IsContainment`/`Endpoints`/`Touches`/`CanonicalBytes(writer)`), and the `MaterialUsage` occurrence payload the `Associate` edge carries.
 
 ## [02]-[EDGE_ALGEBRA]
 
 - Owner: `Relationship` the `[Union]` neutral objectified-edge algebra and uniform accessor surface; generated keyed vocabularies own every case/sub-kind/direction token; schema list order rides the `Compose` edge's `Ordinal`; `MaterialUsage` carries explicit optional cardinal placement and SI length measures, never numeric unset sentinels.
-- Cases: `Compose` (a `Whole`→`Part` decomposition with a `ComposeKind` flavor — aggregate/nest/contain/reference) · `Assign` (a `Subject`→`Definition` binding with an `AssignKind` flavor — property-definition/type-definition/group/assessment/observation) · `Associate` (a `Subject`→`Resource` binding — a `Composition/material#MATERIAL_COMPOSITION` material node carrying a `MaterialUsage` occurrence payload, or an `Appearance` presentation node or a `Geospatial/coverage#COVERAGE_NODE` `Coverage` field node carrying `MaterialUsage.None` — the IFC `IfcRelAssociates` base; the structural `Graph/delta#GRAPH_DELTA` `LegalLink` admits Material/Appearance/Coverage and the `Bake` fold reads each resource kind) · `Connect` (a `From`↔`To` connectivity with a `ConnectKind` flavor, an optional realizing node, and an optional content-keyed `Interface` — the shared `IfcConnectionGeometry`/space-boundary surface the blob store carries, resolved by content key through the `Graph/element#NODE_MODEL` `GeometrySource.ResolveFootprint` leg, never inline coordinates) · `Void` (a `Host`→`Feature` opening with a `VoidKind` flavor — void/fill) · `Generic` (a `WireName` + endpoints + attribute map + an ordered `Participants` roster carrying the n-ary IFC member lists with role/ordinal, so no IFC relationship is dropped); the closed five-kind algebra with its passthrough.
-- Entry: the case constructors are the typed edge admissions (`new Relationship.Compose(whole, part, ComposeKind.Aggregate)`, `new Relationship.Associate(subject, material, usage)`); `Kind` projects the neutral `RelationshipKind` case token a consumer routes on, `Relating`/`Related` the endpoint reads and `Endpoints` the `(Relating, Related)` pair the structural law and traversal take, `Members` every node the edge involves (binary endpoints, a `Connect`'s realizing intermediary, a `Generic` edge's `Participants` roster, and its `PropertyValue.References` attribute-buried ids) and `DirectedPairs` the directed adjacency it contributes (endpoints, realizing, and a `Generic` edge's source→participant legs so an n-ary member is topology-reachable — never the buried attribute refs), `IsContainment` the spatial-containment predicate a Persistence spatial-structure query filters on; `Touches(nodeId)` tests `Members` membership for the incidence index and the `DropNode` cascade; `ToCanonicalBytes(tolerance)` projects the standalone edge bytes a content-3-way merge keys on under the model tolerance, the SAME projection `CanonicalBytes(writer)` composes into the graph content key — the tolerance threaded so a `Generic` edge's `PropertyValue.Measure` attributes quantize to `Header.Tolerance` exactly as the node measures do (the five typed cases carry no Measure and are tolerance-insensitive).
+- Cases: `Compose` (a `Whole`→`Part` decomposition with a `ComposeKind` flavor — aggregate/nest/contain/reference) · `Assign` (a `Subject`→`Definition` binding with an `AssignKind` flavor — property-definition/type-definition/group/assessment/observation) · `Associate` (a `Subject`→`Resource` binding — a `Composition/material#MATERIAL_COMPOSITION` material node carrying a `MaterialUsage` occurrence payload, or an `Appearance` presentation node or a `Geospatial/coverage#COVERAGE_NODE` `Coverage` field node carrying `MaterialUsage.Unbound` — the IFC `IfcRelAssociates` base; the structural `Graph/delta#GRAPH_DELTA` `LegalLink` admits Material/Appearance/Coverage and the `Bake` fold reads each resource kind) · `Connect` (a `From`↔`To` connectivity with a `ConnectKind` flavor, an optional realizing node, and an optional content-keyed `Interface` — the shared `IfcConnectionGeometry`/space-boundary surface the blob store carries, resolved by content key through the `Graph/element#NODE_MODEL` `GeometrySource.ResolveFootprint` leg, never inline coordinates) · `Void` (a `Host`→`Feature` opening with a `VoidKind` flavor — void/fill) · `Generic` (a `WireName` + endpoints + attribute map + an ordered `Participants` roster carrying the n-ary IFC member lists with role/ordinal, so no IFC relationship is dropped); the closed five-kind algebra with its passthrough.
+- Entry: the case constructors are the typed edge admissions (`new Relationship.Compose(whole, part, ComposeKind.Aggregate)`, `new Relationship.Associate(subject, material, usage)`); `Kind` projects the neutral `RelationshipKind` case token a consumer routes on, `Relating`/`Related` the endpoint reads and `Endpoints` the `(Relating, Related)` pair the structural law and traversal take, `Members` every node the edge involves (binary endpoints, a `Connect`'s realizing intermediary, a `Generic` edge's `Participants` roster, and its `PropertyValue.References` attribute-buried ids) and `DirectedPairs` the directed adjacency it contributes (endpoints, realizing, and a `Generic` edge's source→participant legs so an n-ary member is topology-reachable — never the buried attribute refs), `IsContainment` the spatial-containment predicate a Persistence spatial-structure query filters on; `Touches(nodeId)` tests `Members` membership for the incidence index and the `DropNode` cascade; `CanonicalBytes(writer)` is the ONE edge projection — the graph content key composes it in place and the standalone edge digest a content-3-way merge keys on is `Projection/address#CONTENT_ADDRESS` `ContentAddress.Of(edge, tolerance)` streaming the same projection at the model grid (a byte-materializing `ToCanonicalBytes` twin here was the deleted form), the tolerance threaded so a `Generic` edge's `PropertyValue.Measure` attributes quantize to `Header.Tolerance` exactly as the node measures do (the five typed cases carry no Measure and are tolerance-insensitive).
 - Auto: ONE private `Ends` generated total `Switch` projects each case's relating/related pair with the `Connect` realizing intermediary (the primary correspondence, DERIVED_LOGIC), and `Endpoints`/`Relating`/`Related`/`Members`/`DirectedPairs`/`Touches` all DERIVE from it — so the incidence index (`Graph/element#ELEMENT_GRAPH`) and the structural legality (`Graph/delta#GRAPH_DELTA`) read one accessor and the endpoint law is declared at exactly one dispatch site, never three parallel Switches restating the five binary pairs; `Kind` projects through the generated `Map` (case → precomputed constant row — no throwaway lambdas, the constant dual of the func-form `Switch` the allocating `Remap` takes); the neutral sub-kinds round-trip their token at the wire and drive the `Bake` descent (`Compose.Aggregate`/`Nest`/`Contain` descend into parts, `Assign.TypeDefinition` binds the type for inheritance, `Assign.PropertyDefinition`/`Assessment` attach the bag/receipt, `Assign.Observation` attaches the measured series off the OCCURRENCE alone — a `Component` is a catalogue entry and is never instrumented, so the type fold skips this sub-kind where it gathers every other, `Associate` folds the material with its usage); the `Assign.TypeDefinition` edge carries the named type→occurrence inheritance the `Bake` fold applies over the type's standardized data — single fields occurrence-overrides-type, `Seq` fields (materials/assessments/classifications) union + dedup-by-key — distinct from the `Properties/property#PROPERTY_BAG` `InheritanceMode` value-bag precedence the bag `Merge` owns, so the seam binds the type once through this one neutral row and the `Bake` realizes the full standardized inheritance; the `Generic` attribute map carries the IFC-specific fields the Bim projector preserved so a round-trip re-authors the original relation.
 - Receipt: the `Relationship` is the typed edge a `GraphDelta` adds/removes and the `Bake` fold traverses; the `MaterialUsage` on an `Associate` edge is the occurrence geometric binding a host materializes (a layer set's direction, offset, and reference extent, a profile's cardinal point) so a wall and its mirror share one `LayerSet` composition with two `Associate` usages; the `Generic` passthrough is the round-trip guarantee — every IFC relationship the projector cannot map to a neutral case rides `Generic` so an import→export cycle drops nothing.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`/`[SmartEnum<int>]`), LanguageExt.Core (`Map`/`Option`/`Fin`), `Rasm` (content-key seed + the `Op` op-key).
@@ -21,12 +21,15 @@
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using Generator.Equals;
 using LanguageExt;
+using LanguageExt.Common;
+using LanguageExt.Traits;
 using Rasm.Domain;
 using Rasm.Element.Graph;
 using Rasm.Element.Projection;
 using Rasm.Element.Properties;
 using Thinktecture;
 using static LanguageExt.Prelude;
+using static Rasm.Domain.AdmissionSlots;
 
 namespace Rasm.Element.Relations;
 
@@ -46,12 +49,18 @@ public sealed partial class RelationshipKind {
 
 // Neutral sub-kind vocabularies the Bake fold dispatches on — NOT the IFC roster. The Bim
 // projector maps IfcRelAggregates→Compose/Aggregate, IfcRelDefinesByType→Assign/TypeDefinition, etc.
+// Two orthogonal columns the consumers read instead of identity ladders: IsOwning drives the Bake/Gather part
+// descent (a non-owning Reference descended double-counts the referenced subtree), IsSpatial marks the
+// spatial-structure axis. Contain is the unique owning-AND-spatial row, which is exactly what IsContainment reads.
 [SmartEnum<string>]
 public sealed partial class ComposeKind {
- public static readonly ComposeKind Aggregate = new("aggregate"); // whole decomposes into parts
- public static readonly ComposeKind Nest = new("nest"); // nested membership; schema list order rides the edge's Ordinal
- public static readonly ComposeKind Contain = new("contain"); // spatial containment
- public static readonly ComposeKind Reference = new("reference"); // non-owning spatial reference
+ public static readonly ComposeKind Aggregate = new("aggregate", isOwning: true, isSpatial: false); // whole decomposes into parts
+ public static readonly ComposeKind Nest = new("nest", isOwning: true, isSpatial: false); // nested membership; schema list order rides the edge's Ordinal
+ public static readonly ComposeKind Contain = new("contain", isOwning: true, isSpatial: true); // spatial containment
+ public static readonly ComposeKind Reference = new("reference", isOwning: false, isSpatial: true); // non-owning spatial reference
+
+ public bool IsOwning { get; }
+ public bool IsSpatial { get; }
 }
 
 [SmartEnum<string>]
@@ -82,11 +91,13 @@ public sealed partial class VoidKind {
  public static readonly VoidKind Fill = new("fill"); // feature filled by an element (door in opening)
 }
 
+// IfcLayerSetDirectionEnum reciprocal — WHICH local axis the layers stack along, so the token carries its own
+// geometric provenance instead of an opaque ordinal.
 [SmartEnum<string>]
 public sealed partial class LayerSetDirection {
- public static readonly LayerSetDirection Axis1 = new("axis-1");
- public static readonly LayerSetDirection Axis2 = new("axis-2");
- public static readonly LayerSetDirection Axis3 = new("axis-3");
+ public static readonly LayerSetDirection Axis1 = new("axis-1"); // local X — the profile/edge stacking a curtain panel set uses
+ public static readonly LayerSetDirection Axis2 = new("axis-2"); // local Y — the wall convention: layers build through the thickness
+ public static readonly LayerSetDirection Axis3 = new("axis-3"); // local Z — the slab/roof/covering convention: layers stack vertically
 }
 
 [SmartEnum<string>]
@@ -122,7 +133,7 @@ public sealed partial class CardinalPoint {
  public static readonly CardinalPoint ShearTop = new(19);
 
  public static Fin<CardinalPoint> Of(int reference, Op key) =>
-  TryGet(reference, out CardinalPoint? point) && point is { } p ? Fin.Succ(p) : ElementFault.ValueRejected(key, $"<cardinal-point-out-of-grid:{reference}>");
+  key.Row<int, CardinalPoint>(reference);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -135,7 +146,9 @@ public sealed partial class CardinalPoint {
 public abstract partial class MaterialUsage {
  private MaterialUsage() { }
 
- [Equatable] public sealed partial class None : MaterialUsage;
+ // Unbound, never "None": a nested case named None SHADOWS Prelude.None inside the union body, forcing every
+ // absent Option in scope to the qualified spelling — the rename returns the bare spelling to the whole owner.
+ [Equatable] public sealed partial class Unbound : MaterialUsage;
 
  // LayerSet carries the occurrence layer-set placement as generated direction/sense rows and optional length
  // measures. Absence is Option, never NaN; SI normalization and finiteness stay the MeasureValue invariant.
@@ -149,11 +162,15 @@ public abstract partial class MaterialUsage {
   public Option<MeasureValue> OffsetFromReferenceLine { get; }
   public Option<MeasureValue> ReferenceExtent { get; }
 
+  // The two length slots gate INDEPENDENTLY and accumulate, each refusal naming its own slot.
   public static Fin<MaterialUsage> Of(
    LayerSetDirection direction, DirectionSense sense,
    Option<MeasureValue> offsetFromReferenceLine, Option<MeasureValue> referenceExtent, Op key) =>
-   Lengths(offsetFromReferenceLine, referenceExtent, key)
-    .Map(_ => (MaterialUsage)new LayerSet(direction, sense, offsetFromReferenceLine, referenceExtent));
+   Accumulate(Seq(
+     Length(offsetFromReferenceLine, "offset-from-reference-line", key),
+     Length(referenceExtent, "reference-extent", key)))
+    .Map(_ => (MaterialUsage)new LayerSet(direction, sense, offsetFromReferenceLine, referenceExtent))
+    .ToFin();
  }
 
  // ProfileSet admits the optional cardinal grid and optional length extent through their owners.
@@ -165,12 +182,10 @@ public abstract partial class MaterialUsage {
   private ProfileSet(Option<CardinalPoint> cardinalPoint, Option<MeasureValue> referenceExtent) =>
    (CardinalPoint, ReferenceExtent) = (cardinalPoint, referenceExtent);
 
-  // Spell the absent second length `Option<MeasureValue>.None`: the sibling `MaterialUsage.None` case TYPE is in
-  // scope inside this owner and outranks the `Prelude.None` import, so the bare spelling binds a type where the
-  // signature wants a value.
+  // The optional raw grid integer lifts through ONE Traverse — absent stays absent, present admits or rails.
   public static Fin<MaterialUsage> Of(Option<int> cardinalPoint, Option<MeasureValue> referenceExtent, Op key) =>
-   from point in cardinalPoint.Match(Some: reference => CardinalPoint.Of(reference, key).Map(static value => Some(value)), None: static () => Fin.Succ(Option<CardinalPoint>.None))
-   from _ in Lengths(referenceExtent, Option<MeasureValue>.None, key)
+   from point in cardinalPoint.TraverseM(reference => CardinalPoint.Of(reference, key)).As()
+   from _ in Length(referenceExtent, "reference-extent", key).ToFin()
    select (MaterialUsage)new ProfileSet(point, referenceExtent);
  }
 
@@ -178,23 +193,40 @@ public abstract partial class MaterialUsage {
  // ordinal then the typed geometric payload, the CardinalPoint written as its grid-integer Key — the Associate
  // edge composes it through one call so the usage owns its own content contribution, never inlined per edge.
  public void CanonicalBytes(CanonicalWriter w) => Switch(
-  none: _ => w.Ordinal(0),
-  layerSet: u => { w.Ordinal(1).String(u.Direction.Key).String(u.Sense.Key); WriteMeasure(w, u.OffsetFromReferenceLine); return WriteMeasure(w, u.ReferenceExtent); },
-  profileSet: u => { w.Ordinal(2).Bool(u.CardinalPoint.IsSome); u.CardinalPoint.IfSome(point => w.Ordinal(point.Key)); return WriteMeasure(w, u.ReferenceExtent); });
+  unbound: _ => w.Ordinal(0),
+  layerSet: u => w.Ordinal(1).String(u.Direction.Key).String(u.Sense.Key)
+   .Optional(u.OffsetFromReferenceLine, static (value, writer) => writer.Measure(value))
+   .Optional(u.ReferenceExtent, static (value, writer) => writer.Measure(value)),
+  profileSet: u => w.Ordinal(2)
+   .Optional(u.CardinalPoint, static (point, writer) => writer.Ordinal(point.Key))
+   .Optional(u.ReferenceExtent, static (value, writer) => writer.Measure(value)));
 
- private static Fin<Unit> Lengths(Option<MeasureValue> first, Option<MeasureValue> second, Op key) =>
-  Seq(first, second).Choose(static measure => measure).ForAll(static measure => measure.Dimension == Dimension.LengthDim)
-   ? Fin.Succ(unit)
-   : ElementFault.ValueRejected(key, "<material-usage-measure-not-length>");
+ // One named length slot — the dimension law spelled once, the refusal naming which slot violated it.
+ private static Validation<Error, Unit> Length(Option<MeasureValue> measure, string slot, Op key) =>
+  Gate(measure.ForAll(static value => value.Dimension == Dimension.LengthDim), key, $"<material-usage-measure-not-length:{slot}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d));
+}
 
- private static CanonicalWriter WriteMeasure(CanonicalWriter writer, Option<MeasureValue> measure) {
-  writer.Bool(measure.IsSome);
-  measure.IfSome(value => writer.Measure(value));
-  return writer;
+// WireName is the ROUND-TRIP identity of a Generic edge — the exact IFC entity name the projector preserved
+// ("IfcRelAssignsToProcess") — and RoleName a participant's schema attribute slot ("RelatedObjects"). Both admit
+// non-blank at the boundary (the PropertyName form, ordinal-exact because IFC entity names are case-exact), so a
+// passthrough edge can never lose the name that re-authors it to a bare string a typo silently forks.
+[ValueObject<string>]
+public sealed partial class WireName {
+ static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+  value = value.Trim();
+  validationError = value.Length == 0 ? new ValidationError("<wire-name-blank>") : validationError;
  }
 }
 
-public readonly record struct RelationshipParticipant(NodeId Node, string Role, Option<int> Ordinal);
+[ValueObject<string>]
+public sealed partial class RoleName {
+ static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+  value = value.Trim();
+  validationError = value.Length == 0 ? new ValidationError("<role-name-blank>") : validationError;
+ }
+}
+
+public readonly record struct RelationshipParticipant(NodeId Node, RoleName Role, Option<int> Ordinal);
 
 // Relationship declares a CLASS-root [Union] (the [GRAPH_FAMILY] form): a class root surrenders Thinktecture's
 // record-generated equality, so structural equality AND the member-level diff ride Generator.Equals [Equatable] seated PER NESTED CASE — a
@@ -208,9 +240,13 @@ public abstract partial class Relationship {
  // cascade, and Touches probe reads that set — a Generic edge's recursive attribute walk re-derived per probe is
  // exactly the cost the frozen graph's built-once index exists to avoid. [IgnoreEquality] keeps a derived cache out
  // of the structural diff the Persistence 3-way merge drills.
- private Relationship() => members = new(MembersOf);
+ private Relationship() { members = new(MembersOf); pairs = new(PairsOf); touch = new(() => [.. members.Value]); }
 
  [IgnoreEquality] private readonly Lazy<Seq<NodeId>> members;
+ // DirectedPairs and the Touches probe are read per topology build and per cascade PROBE respectively — the pair
+ // walk memoizes with members, and the membership set hashes so a hot DropNode cascade probes O(1), never a Seq scan.
+ [IgnoreEquality] private readonly Lazy<Seq<(NodeId From, NodeId To)>> pairs;
+ [IgnoreEquality] private readonly Lazy<System.Collections.Generic.HashSet<NodeId>> touch;
 
  [Equatable] public sealed partial class Compose(NodeId whole, NodeId part, ComposeKind subKind, Option<int> ordinal = default) : Relationship { public NodeId Whole { get; } = whole; public NodeId Part { get; } = part; public ComposeKind SubKind { get; } = subKind; public Option<int> Ordinal { get; } = ordinal; }
  [Equatable] public sealed partial class Assign(NodeId subject, NodeId definition, AssignKind subKind) : Relationship { public NodeId Subject { get; } = subject; public NodeId Definition { get; } = definition; public AssignKind SubKind { get; } = subKind; }
@@ -220,7 +256,7 @@ public abstract partial class Relationship {
  // GeometrySource.ResolveFootprint leg, NEVER a NodeId (it rides no Members/DirectedPairs/Remap) and never inline coordinates.
  [Equatable] public sealed partial class Connect(NodeId from, NodeId to, ConnectKind subKind, Option<NodeId> realizing, Option<UInt128> interfaceKey = default) : Relationship { public NodeId From { get; } = from; public NodeId To { get; } = to; public ConnectKind SubKind { get; } = subKind; public Option<NodeId> Realizing { get; } = realizing; public Option<UInt128> Interface { get; } = interfaceKey; }
  [Equatable] public sealed partial class Void(NodeId host, NodeId feature, VoidKind subKind) : Relationship { public NodeId Host { get; } = host; public NodeId Feature { get; } = feature; public VoidKind SubKind { get; } = subKind; }
- [Equatable] public sealed partial class Generic(string wireName, NodeId source, NodeId target, Map<PropertyName, PropertyValue> attributes, Seq<RelationshipParticipant> participants = default) : Relationship { public string WireName { get; } = wireName; public NodeId Source { get; } = source; public NodeId Target { get; } = target; [UnorderedEquality] public Map<PropertyName, PropertyValue> Attributes { get; } = attributes; [OrderedEquality] public Seq<RelationshipParticipant> Participants { get; } = participants; }
+ [Equatable] public sealed partial class Generic(WireName wireName, NodeId source, NodeId target, Map<PropertyName, PropertyValue> attributes, Seq<RelationshipParticipant> participants = default) : Relationship { public WireName WireName { get; } = wireName; public NodeId Source { get; } = source; public NodeId Target { get; } = target; [UnorderedEquality] public Map<PropertyName, PropertyValue> Attributes { get; } = attributes; [OrderedEquality] public Seq<RelationshipParticipant> Participants { get; } = participants; }
 
  // Ends is the ONE primary case walk (DERIVED_LOGIC): each case's relating/related pair with the Connect realizing
  // intermediary (None elsewhere) — Endpoints/Relating/Related/Members/DirectedPairs/Touches all DERIVE from this
@@ -265,7 +301,9 @@ public abstract partial class Relationship {
 
  // DirectedPairs contributes the edge's directed adjacency to a topology view — one pair for a binary edge, the two
  // realizing legs (From→Realizing→To) for a Connect carrying a realizing intermediary.
- public Seq<(NodeId From, NodeId To)> DirectedPairs => (Ends switch {
+ public Seq<(NodeId From, NodeId To)> DirectedPairs => pairs.Value;
+
+ Seq<(NodeId From, NodeId To)> PairsOf() => (Ends switch {
  var (relating, related, realizing) => realizing.Match(
   Some: via => Seq((relating, via), (via, related)),
   None: () => Seq((relating, related))),
@@ -276,27 +314,30 @@ public abstract partial class Relationship {
 
  // Spatial containment — the IfcRelContainedInSpatialStructure shape a Persistence spatial-structure query filters:
  // a Compose edge with the Contain flavor (the decomposition Aggregate/Nest and the non-owning Reference are NOT containment).
- public bool IsContainment => this is Compose { SubKind: var k } && k == ComposeKind.Contain;
+ public bool IsContainment => this is Compose { SubKind: { IsOwning: true, IsSpatial: true } };
 
- public bool Touches(NodeId node) => Members.Exists(m => m == node);
+ public bool Touches(NodeId node) => touch.Value.Contains(node);
 
- // ToCanonicalBytes projects the standalone edge bytes a content-3-way merge keys on — the SAME projection
- // CanonicalBytes composes into the graph content key, threading the MODEL tolerance. Associate usage lengths and
- // Generic measure attributes both
- // quantize through w.Measure, so the edge key obeys the same grid as node values.
- public ReadOnlyMemory<byte> ToCanonicalBytes(double tolerance) { CanonicalWriter w = new(tolerance); CanonicalBytes(w); return w.ToBytes(); }
-
- // CanonicalBytes projects through the Projection/address#CONTENT_ADDRESS writer: case ordinal,
- // neutral sub-kind, endpoints, and the typed payload — the edge contributes to the graph content key.
- // Every optional ordinal writes through a LAMBDA, never the `w.Ordinal` method group: the writer's primitives all
- // return the writer for chaining, and a non-void method group has no conversion to the `Action<int>` IfSome takes.
+ // CanonicalBytes projects through the Projection/address#CONTENT_ADDRESS writer: case ordinal, neutral sub-kind,
+ // endpoints, and the typed payload — the edge contributes to the graph content key, and the STANDALONE edge digest
+ // a content-3-way merge keys on is `ContentAddress.Of(edge, tolerance)` composing this same projection through the
+ // streaming kernel writer (a byte-materializing twin here was the deleted form). Presence rides the kernel
+ // `Optional` composer, the Generic collections the kernel `Sorted`/`Rows` count-framed canon — the hand-rolled
+ // Bool+IfSome and Ordinal+foreach spellings restated the writer's own vocabulary per arm.
  public void CanonicalBytes(CanonicalWriter w) => Switch(
- compose: r => { w.Ordinal(0).String(r.Whole.Value).String(r.Part.Value).String(r.SubKind.Key).Bool(r.Ordinal.IsSome); r.Ordinal.IfSome(ordinal => w.Ordinal(ordinal)); return w; },
+ compose: r => w.Ordinal(0).String(r.Whole.Value).String(r.Part.Value).String(r.SubKind.Key)
+  .Optional(r.Ordinal, static (ordinal, run) => run.Ordinal(ordinal)),
  assign: r => w.Ordinal(1).String(r.Subject.Value).String(r.Definition.Value).String(r.SubKind.Key),
  associate: r => { w.Ordinal(2).String(r.Subject.Value).String(r.Resource.Value); r.Usage.CanonicalBytes(w); return w; },
- connect: r => { w.Ordinal(3).String(r.From.Value).String(r.To.Value).String(r.SubKind.Key).Bool(r.Realizing.IsSome); r.Realizing.IfSome(n => w.String(n.Value)); w.Bool(r.Interface.IsSome); r.Interface.IfSome(k => w.U128(k)); return w; },
+ connect: r => w.Ordinal(3).String(r.From.Value).String(r.To.Value).String(r.SubKind.Key)
+  .Optional(r.Realizing, static (node, run) => run.String(node.Value))
+  .Optional(r.Interface, static (blob, run) => run.U128(blob)),
  @void: r => w.Ordinal(4).String(r.Host.Value).String(r.Feature.Value).String(r.SubKind.Key),
- generic: r => { w.Ordinal(5).String(r.WireName).String(r.Source.Value).String(r.Target.Value).Ordinal(r.Attributes.Count); foreach (KeyValuePair<PropertyName, PropertyValue> attribute in r.Attributes.OrderBy(static p => p.Key.Value, StringComparer.Ordinal)) { w.String(attribute.Key.Value); attribute.Value.CanonicalBytes(w); } w.Ordinal(r.Participants.Count); foreach (RelationshipParticipant participant in r.Participants) { w.String(participant.Node.Value).String(participant.Role).Bool(participant.Ordinal.IsSome); participant.Ordinal.IfSome(ordinal => w.Ordinal(ordinal)); } return w; });
+ generic: r => w.Ordinal(5).String(r.WireName.Value).String(r.Source.Value).String(r.Target.Value)
+  .Sorted(r.Attributes.ToSeq(), static pair => pair.Key.Value, StringComparer.Ordinal,
+   static (pair, run) => { run.String(pair.Key.Value); pair.Value.CanonicalBytes(run); })
+  .Rows(r.Participants, static (participant, run) => run.String(participant.Node.Value).String(participant.Role.Value)
+   .Optional(participant.Ordinal, static (ordinal, inner) => inner.Ordinal(ordinal))));
 
  // Re-maps EVERY NodeId the edge carries (an unmapped id passes through unchanged): endpoints, a Connect's realizing
  // intermediary, AND every kernel reference buried in a Generic attribute — the Generic arm composes the ONE recursive

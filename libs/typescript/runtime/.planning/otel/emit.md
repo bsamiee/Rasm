@@ -2,18 +2,17 @@
 
 `Export` owns the OTLP wire — egress and ingress of the telemetry plane in one module. Egress is one policy value and one Layer: `Export.live(policy)` composes the trace, metric, and log plane as a registration node providing `Hooks.Meter` and, on the SDK lanes, `OtelTracerProvider`, every lane consuming one `Resource` detected once per graph. Ingress is the W3C continuation, one total transformer adopting the decoded parent beside the composite propagator the same lane registers for foreign libraries.
 
-`Redaction` is the one ambient scrub owner, its rules riding a `Context.Reference` every capture seam reads. `Hooks` is the consumer hook plane: taps, processors, exporters, views, instrumentations, and detectors contribute through append-only rows one drain collects. `Instrument` is the condition-fenced registration plane, one module per process condition on its own exports subpath, publishing the ambient context manager every lane composes beside the registration node only an SDK lane can. `@opentelemetry` sdk/exporter machinery is the `[OTEL_PIN_BLOCK]` pin block; the `plane:dev` DevTools row ships on `./dev`. Its module is `runtime/src/otel/emit.ts`.
+`Redaction` is the one ambient scrub owner, its rules riding a `Context.Reference` every capture seam reads. `Hooks` is the consumer hook plane: taps, processors, exporters, views, instrumentations, and detectors contribute through append-only rows one drain collects. `Instrument` is the condition-fenced registration plane `server#REGISTRATION` and `instrument#REGISTRATION` own, each draining these hook rows into one activation. `@opentelemetry` sdk/exporter machinery is the `[OTEL_PIN_BLOCK]` pin block; the `plane:dev` DevTools row ships on `./dev`. Its module is `runtime/src/otel/emit.ts`.
 
 ## [01]-[INDEX]
 
 - [02]-[POLICY] — the one `Export.Policy` row: identity, collector, lane, cadence, sampling, caps, instrumentation groups; `Export`.
 - [03]-[REDACTION] — the ambient scrub rules and the per-signal structural-safety ledger; `Redaction`.
-- [04]-[HOOKS] — the contribute-then-collect registry and the tap dispatch engine executing core's point vocabulary; `Hooks`, `Dispatch`.
+- [04]-[HOOKS] — the contribute-then-collect registry and the app-scoped seat for core's one delivery rail; `Hooks`, `Dispatch`.
 - [05]-[GOVERNANCE] — the producer-side view projection making scope, temporality, and cardinality real on the Effect metric stream; interior.
 - [06]-[LANES] — the native `Otlp` rows, the SDK facade rows, detectors, ambient globals, the roster dispatch; `Export`.
-- [07]-[INSTRUMENT] — the `./server` and `./browser` ambient-manager and registration nodes over each lane's providers; `Instrument`.
-- [08]-[CONTINUATION] — carrier decode, the ingress transformer, and the egress stamp; `Propagation`.
-- [09]-[DEV] — the `plane:dev`-fenced `./dev` DevTools module; `dev`.
+- [07]-[CONTINUATION] — carrier decode, the ingress transformer, and the egress stamp; `Propagation`.
+- [08]-[DEV] — the `plane:dev`-fenced `./dev` DevTools module; `dev`.
 
 ## [02]-[POLICY]
 
@@ -23,21 +22,21 @@
 - Law: wire framing is a lane column, never a second policy axis — `_lanes` rows fix serialization, so every deployed lane frames protobuf and the JSON framing survives as the `local` row a developer points at a local collector. Collector protobuf-only posture therefore needs no side door, and a fleet cannot select a framing its gateway refuses.
 - Law: `promote` carries the baggage key prefixes admitted onto span attributes (the `rasm.` prefix is the standing default carrying `Convention.rasm.tenant`), homed as a `Setting.otel` row; one `_admitted` predicate serves the ingress annotation fold and the SDK lanes' `BaggageSpanProcessor` row, so promotion has exactly one gate.
 - Law: `placement` is the deploy-target fact arming the environment detectors — `cloud` selects at most one compute arm from the `_CLOUD` roster and `container` arms the cgroup row, so a detector never runs on a host it cannot answer.
-- Law: the `server` and `browser` groups are the auto-instrumentation policy consumed only by `[07]`'s condition-fenced nodes — `propagate` names the API origins granted CORS `traceparent` injection, `interaction` the admitted DOM event roster and its span-admission predicate, `engine` the `HostMetrics` group allow-list and runtime-node precision, `ignore` the request paths excluded from inbound server spans, `orphan` the foreign-hop admission gate, `connect` the pool-acquisition span posture, `statement` the database statement-capture posture, `comment` the SQLCommenter statement annotation, and `session` the per-query `application_name` trace stamp — so an instrumented origin, event, route, or statement is a policy row, never a literal at a composition root; the member types import type-only from their instrumentation packages, erased outside the owning condition.
-- Law: a browser URL roster is `RegExp` by default because the SDK's own `urlMatches` compares a string entry to the WHOLE request URL by equality — an origin spelled as a string never equals `<origin>/v1/traces` and never equals an API path, so `propagate` and `[07]`'s self-exclusion both carry anchored patterns and the string arm survives for the exact-URL case alone.
+- Law: the `server` and `browser` groups are the auto-instrumentation policy consumed only by `server#REGISTRATION` and `instrument#REGISTRATION` — `propagate` names the API origins granted CORS `traceparent` injection, `interaction` the admitted DOM event roster and its span-admission predicate, `engine` the `HostMetrics` group allow-list and runtime-node precision, `ignore` the request paths excluded from inbound server spans, `orphan` the foreign-hop admission gate, `connect` the pool-acquisition span posture, `statement` the database statement-capture posture, `comment` the SQLCommenter statement annotation, and `session` the per-query `application_name` trace stamp — so an instrumented origin, event, route, or statement is a policy row, never a literal at a composition root; the member types import type-only from their instrumentation packages, erased outside the owning condition.
+- Law: a browser URL roster is `RegExp` by default because the SDK's own `urlMatches` compares a string entry to the WHOLE request URL by equality — an origin spelled as a string never equals `<origin>/v1/traces` and never equals an API path, so `propagate` and `instrument#REGISTRATION`'s self-exclusion both carry anchored patterns and the string arm survives for the exact-URL case alone.
 - Law: `engine.groups` closes against `_GROUPS`, the collector's own five group names, because `HostMetrics` treats an unrecognized entry as a group nobody enabled — a misspelling silently drops a whole engine family rather than refusing, so the roster is a closed vocabulary here instead of a free-string list the package can only ignore.
 - Law: `diagnostic` is the SDK's own log floor, so an exporter rejection, a dropped batch, or a detector fault reads on the process log rail.
 - Law: the floor crosses as a NAME the `_DIAGNOSTIC` roster closes, so `Setting.otel.diagnostic` and this policy row spell one vocabulary.
 - Law: `_DIAGNOSTIC` is the one map onto the SDK enum, so no deployment spells a numeric level and no branch spells a `console` sink.
-- Law: `logging` governs the THIRD log stream, the one `meter#VERBOSITY`'s one-owner law leaves unowned — records third-party instrumentation emits through the bound `loggerProvider`, which neither `Logger.minimumLogLevel` (the Effect rail) nor `diagnostic` (the SDK `diag` stream) reaches. Rows are ordered and FIRST MATCH WINS against the emitting scope's own name under exact-or-`*` glob matching, so the policy rows lead and the interior `_LOGGING` catch-all always terminates the roster: an unmatched scope falls to a STATED floor rather than to the SDK's own `UNSPECIFIED` default, and a roster that governs nothing is unspellable. A record carrying unspecified severity bypasses the filter by the SDK's own rule, so the floor bounds graded records and never silences an ungraded one.
-- Law: `egress` names the non-collector origins this process pushes telemetry to — the Pyroscope backend the root reads off `Setting.otel.profile`, a vendor exporter, a second collector — because the SDK's own export suppression covers the OTLP legs alone and reaches nothing that pushes outside a `LogRecordProcessor`, a `SpanProcessor`, or `internal._export`; `[07]` folds this roster with the collector into one self-exclusion compare, so a new self-egress is a policy value rather than a second bespoke parse.
+- Law: `logging` governs the THIRD log stream, the one `meter#VERBOSITY`'s one-owner law leaves unowned — records third-party instrumentation emits through the bound `loggerProvider`, which neither `Logger.minimumLogLevel` (the Effect rail) nor `diagnostic` (the SDK `diag` stream) reaches. Rows are ordered and FIRST MATCH WINS against the emitting scope's own name under exact-or-`*` glob matching, so the policy rows lead and the interior `_LOGGING` catch-all always terminates the roster: an unmatched scope falls to a STATED floor rather than to the SDK's own `UNSPECIFIED` default, and a roster that governs nothing is unspellable. Records carrying unspecified severity bypass the filter by the SDK's own rule, so the floor bounds graded records and never silences an ungraded one.
+- Law: `egress` names the non-collector origins this process pushes telemetry to — the Pyroscope backend the root reads off `Setting.otel.profile`, a vendor exporter, a second collector — because the SDK's own export suppression covers the OTLP legs alone and reaches nothing that pushes outside a `LogRecordProcessor`, a `SpanProcessor`, or `internal._export`; each condition node folds this roster with the collector into one self-exclusion compare, so a new self-egress is a policy value rather than a second bespoke parse.
 - Law: `server.rows` and `browser.rows` close the instrumentation roster against `_SERVER_ROWS`/`_BROWSER_ROWS` for the same silently-ignored-spelling reason `engine.groups` closes against `_GROUPS` — `InstrumentationConfig.enabled` is the zeroth column every other per-row field tunes, so a deployment with no Postgres refuses `PgInstrumentation`'s module patch outright instead of tuning a row it still constructs, and a kiosk build drops interaction spans without dropping its whole condition node.
 - Growth: a new export decision is one policy field consumed by the lane rows; a new backend is a `baseUrl`/`headers` value, never a lane; a new framing or SDK binding is one `_lanes` row; a new instrumentation is one roster entry with its `rows` cell.
 
 ```typescript signature
 import {
-  Array, Chunk, Context, Data, Duration, Effect, Exit, FiberSet, Function, HashMap, Layer, Option, pipe, Record, Redacted, Ref, Runtime,
-  Scope, type Cause, type Tracer,
+  Array, Chunk, Context, Duration, Effect, Exit, Function, Layer, Option, pipe, Record, Redacted, Ref, Runtime, Scope,
+  type Tracer,
 } from "effect"
 import type { HttpClient } from "@effect/platform"
 import { Logger as OtelLogger, Metrics as OtelMetrics, NodeSdk, Otlp, Resource as OtelIdentity, Tracer as OtelBridge, WebSdk } from "@effect/opentelemetry"
@@ -75,7 +74,7 @@ import {
   serviceInstanceIdDetector, type ResourceDetector,
 } from "@opentelemetry/resources"
 import type { EventName, ShouldPreventSpanCreation } from "@opentelemetry/instrumentation-user-interaction"
-import { type Identity, Carrier, Convention, Tap } from "@rasm/ts/core"
+import { type Identity, Carrier, Convention, Fault, Tap } from "@rasm/ts/core"
 import { Life } from "../proc/life.ts"
 
 // HostMetrics enables a family only on an exact match and ignores every other entry, so an unrostered spelling
@@ -84,7 +83,7 @@ const _GROUPS = ["process.cpu", "process.memory", "system.cpu", "system.memory",
 
 // Every `*InstrumentationConfig` inherits `InstrumentationConfig.enabled` (default true), so admission is a column
 // on the roster rather than a construction the node performs unconditionally: these tuples ARE the row vocabulary
-// [07]'s two `_rows` folds index, so a row and its policy cell cannot drift and a misspelling is a compile error
+// Both condition nodes' `_rows` folds index this, so a row and its policy cell cannot drift and a misspelling is a compile error
 const _SERVER_ROWS = ["http", "pg", "runtime", "undici"] as const
 const _BROWSER_ROWS = ["document", "fetch", "interaction", "xhr"] as const
 
@@ -100,7 +99,7 @@ const _DIAGNOSTIC = {
   warn: DiagLogLevel.WARN,
 } as const
 
-// The configurator's roster is first-match-wins and an unmatched scope takes the SDK's UNSPECIFIED default, which is
+// Roster matching runs first-match-wins and an unmatched scope takes the SDK's UNSPECIFIED default, which is
 // no floor: this catch-all is appended BEHIND every policy row, so the third stream always lands on a stated floor
 const _LOGGING: readonly [LoggerPattern] = [{ pattern: "*", config: { minimumSeverity: SeverityNumber.INFO } }]
 
@@ -131,9 +130,9 @@ declare namespace Export {
     readonly cardinality: Required<NonNullable<PeriodicExportingMetricReaderOptions["cardinalityLimits"]>>
     readonly promote: ReadonlyArray<string>
     readonly diagnostic: keyof typeof _DIAGNOSTIC
-    // the third log stream's floor: an ordered LoggerPattern roster keyed on instrumentation-scope glob, first match wins
+    // Floor for the third log stream: an ordered LoggerPattern roster keyed on instrumentation-scope glob, first match wins
     readonly logging: ReadonlyArray<LoggerPattern>
-    // every non-collector origin this process pushes telemetry to; [07] folds it with the collector into one self-egress roster
+    // every non-collector origin this process pushes telemetry to; each condition node folds it with the collector into one self-egress roster
     readonly egress: ReadonlyArray<string>
     readonly placement: {
       readonly cloud: keyof typeof _CLOUD
@@ -165,7 +164,7 @@ declare namespace Export {
   }
   type Context = HttpClient.HttpClient | Hooks | Life
   type Live = Layer.Layer<Hooks.Meter, never, Context>
-  // SDK rows publish every Tag their assembly exposes: an under-declared output is a Tag [07] cannot bind
+  // SDK rows publish every Tag their assembly exposes: an under-declared output is a Tag the registration nodes cannot bind
   type Sdk = Layer.Layer<
     Hooks.Meter | OtelBridge.OtelTracer | OtelBridge.OtelTracerProvider | OtelIdentity.Resource | OtelLogger.OtelLoggerProvider,
     never,
@@ -185,10 +184,10 @@ const _admitted = (promote: ReadonlyArray<string>) => (key: string): boolean =>
 
 - Owner: `Redaction` — the one scrub owner of the branch: `Rules` as data (sealed attribute keys and value patterns), one total `scrub` fold over any open attribute bag, `processor(rules)` materializing the rules as an OTel `SpanProcessor` whose `onEnding` hook overwrites deny-keyed and pattern-matched span attributes with the sealed sentinel before the span freezes for export, and `Redaction.Current` — a `Context.Reference` defaulting to `defaults` — so every capture seam reads the live rule set at zero requirement pressure and the app root overrides once with the policy's own rows.
 - Law: the scrub signature is the open read-side record — `Convention.Bag` in, `Convention.Bag` out — because scrubbed material lawfully carries keys the vocabulary never minted (platform tracer attributes, foreign baggage, crash-context bags); a scrub seam demanding the closed `Convention.Attributes` stamping record is the inverted-trust defect the convention page names.
-- Law: the signals are safe by distinct mechanisms, and the ledger is explicit over four consumption sites — metrics carry only bounded-vocabulary tags, so no metric attribute can hold PII by construction; span attributes scrub structurally through `Redaction.processor` at the export boundary; log annotations scrub at their capture seams — the crash owner's breadcrumb record and fatal forensic band (`crash#REPLAY`, `crash#CAPTURE`) and this module's own baggage ingress (`[08]`) all fold the identical `Rules` value read from `Redaction.Current` — so a new PII class lands as one row every site inherits and no annotation path exists outside the fold.
+- Law: the signals are safe by distinct mechanisms, and the ledger is explicit over four consumption sites — metrics carry only bounded-vocabulary tags, so no metric attribute can hold PII by construction; span attributes scrub structurally through `Redaction.processor` at the export boundary; log annotations scrub at their capture seams — the crash owner's breadcrumb record and fatal forensic band (`crash#REPLAY`, `crash#CAPTURE`) and this module's own baggage ingress (`[07]`) all fold the identical `Rules` value read from `Redaction.Current` — so a new PII class lands as one row every site inherits and no annotation path exists outside the fold.
 - Law: the native `Otlp` lane exposes no span-attribute hook — export-boundary span scrub is therefore an `[OTEL_PIN_BLOCK]` parity criterion: a deployment whose compliance posture mandates boundary scrub selects an SDK lane until the native lane grows the hook, a selection pressure recorded on the lane card, never worked around with a fork.
 - Law: `defaults` seals the identifier-grade semconv keys — `client.address`, `user_agent.original`, `url.full` — beside the credential-header pair `cookie`/`set-cookie`, and the pattern rows mask bearer tokens and email shapes inside surviving string values — scalar and string-array element alike; app policies extend by row composition, never by a second scrub.
-- Law: the header pair seals HERE because the protocol covering it elsewhere does not survive a copy — `security:authn/session#COOKIE_EGRESS` puts masking on the WRITING edge, which folds `Headers.redact` over any bag it logs, and the platform's `Headers` value carries `Redactable` with `cookie` and `set-cookie` already standing on its `currentRedactedNames` default, so a logged `Headers` masks itself with zero call-site work. A bag lifted OUT of that shape into a `Convention.Bag` — a crash breadcrumb detail, a baggage record, a contributed header-capture row — keeps the key spelling and loses the protocol, so this roster is the OTel-side half of one pair and neither half reaches the other's bags.
+- Law: the header pair seals HERE because the protocol covering it elsewhere does not survive a copy — `security:authn/session#COOKIE_EGRESS` puts masking on the WRITING edge, which folds `Headers.redact` over any bag it logs, and the platform's `Headers` value carries `Redactable` with `cookie` and `set-cookie` already standing on its `currentRedactedNames` default, so a logged `Headers` masks itself with zero call-site work. Bags lifted OUT of that shape into a `Convention.Bag` — a crash breadcrumb detail, a baggage record, a contributed header-capture row — keep the key spelling and lose the protocol, so this roster is the OTel-side half of one pair and neither half reaches the other's bags.
 - Exemption: the `SpanProcessor` hooks are the OTel SDK's own callback contract — the platform-forced statement seam where `setAttribute` writes cross back into the span before it freezes.
 - Boundary: the templated span-attribute spelling a header-capture row emits (`http.request.header.<name>`) is a `core:observe/convention#ATTR` row, so a deployment arming `headersToSpanAttributes` seals through that owner's key rather than a literal minted here.
 - Law: `onEnding` is the correct hook and a pin-watch fact — it hands a mutable `Span` where `onEnd` hands only a `ReadableSpan`; the member carries the SDK's `@experimental` flag, so it rides the `[OTEL_PIN_BLOCK]` pin block's watch list, never a design change.
@@ -211,7 +210,7 @@ const _defaults: Redaction.Rules = {
     Convention.attr.clientAddress,
     Convention.attr.userAgent,
     Convention.attr.urlFull,
-    // the platform's own `Redactable` protocol already masks this roster on any logged `Headers` VALUE; a bag copied
+    // Platform `Redactable` already masks this roster on any logged `Headers` VALUE; a bag copied
     // out of that shape keeps the key spelling and loses the protocol, and these rows are that half — `authorization`
     // and `x-api-key` ride here too because the bearer PATTERN misses a raw api-key value carrying no scheme prefix
     "authorization",
@@ -273,16 +272,17 @@ const Redaction: {
 - Law: contributions are order-independent appends with zero global effects — no `register()`, no global provider, no module side effect; the registry is a service, a proof overrides it wholesale, and an append after the drain is construction-order misuse the root's Layer ordering makes unspellable (`Export.live` composes after every contributor).
 - Law: tenant isolation rides the plane — baggage-to-span promotion is the shipped `BaggageSpanProcessor` row the SDK lanes wire from `policy.promote` under the one `_admitted` predicate, so `Convention.rasm.tenant` rides the `rasm.` prefix and one tenant projection has one exact spelling; a per-tenant metric stream is one contributed reader, and identity scopes every stream, so multi-app deployments never tangle.
 - Law: one `ViewOptions` row vocabulary executes on two seams, because the metric plane splits by producer rather than by reader. Instruments minted on `Hooks.Meter`'s raw `MeterProvider({ readers, resource, sdkMetricsEnabled, views })` reach the SDK's own view engine, which applies selection, attribute processors, aggregation, and `aggregationCardinalityLimit` at instrument-storage time. Effect-minted `rasm.*` metrics reach no `MeterProvider` even while sharing that provider's reader — they enter as an ADDITIONAL producer whose `CollectionResult` the reader concatenates untouched, so the SDK view engine, the reader's aggregation and temporality selectors, and its cardinality selector all sit downstream of nothing for that half. `[05]` therefore folds the identical rows as a collection-time projection over the producer's output; a knob left on the reader alone is a governance row that silently governs nothing, which is the defect this split exists to foreclose.
-- Law: instrumentation rows contribute like every other row and register nowhere here — `[07]`'s condition-fenced node drains the slot into exactly one `registerInstrumentations` call bound to the lane's own providers, so a feature plane adds a library instrumentation without reaching a global API and a second activation call cannot exist per condition.
+- Law: instrumentation rows contribute like every other row and register nowhere here — each condition's registration node — `server#REGISTRATION` and `instrument#REGISTRATION` — drains the slot into exactly one `registerInstrumentations` call whose every provider slot binds explicitly, since an omitted slot falls to the no-op api global this facade never registers, so a feature plane adds a library instrumentation without reaching a global API and a second activation call cannot exist per condition.
 - Law: `Hooks.meter(module)` is the one scoped-meter accessor and it spends `Convention.scope(module, version)` WHOLE — `getMeter` takes the `@rasm/ts/<module>` specifier, the emitting build version, and `Convention.wire.schemaUrl` together, so a third-party instrument carries the same versioned single-semconv coordinate every span and log carries instead of a bare name. Module arguments type off the Convention roster, so a free-string scope has no spelling; the version rides `Hooks.Meter` beside the provider because the lane seating that provider is the one surface holding the identity, and a caller passing its own forks the coordinate per import site. Effect's own metrics ride the app `Resource` scope the facade fixes and the producer projection at `[05]` restamps, so these are the branch's two scope sites and both read one mint.
-- Law: dispatch reads the modality table's columns, never names — a `feedback` row joins the pure veto fold (first refusal wins, before any journal write or delivery), a `buffered` row drains the point's retained window at mount then receives live facts, and every non-feedback delivery forks onto an isolated fiber in the engine's scoped `FiberSet`; a subscriber fault folds through `Tap.isolated` into `Breach` evidence landing as an annotated warning on the log rail — never the publisher's failure — and the interruption-only cause folds to none, so a cancelled delivery never reads as breach.
-- Law: the replay journal is a bounded ring — `policy.journal` deep, appended only for points whose modality set admits the buffered column — so replay is a warm-up window, never durable history, and telemetry-as-tap holds by construction: a signal emitter mounts as a `Tap.emitter` subscription like any observer, and an emit call inside a domain fold has no spelling on this plane.
-- Law: the reader slot types `MetricReader`, not the `IMetricReader` interface the raw provider accepts — `Metrics.registerProducer` demands the abstract class, so a contributed reader typed to the interface is a row that seat cannot mount; the narrower type is what makes a per-tenant reader composable on every lane. A contributed reader is constructed before any producer exists, so its Effect plane can only arrive through `setMetricProducer` and `[06]`'s facade keeps `registerProducer` narrowed to exactly that roster, while the lane's own reader takes the governed producer at construction instead.
-- Entry: `Hooks.Default` merges first at the composition root, every `Hooks.contribute` node after it, and `Export.live` last so the drain observes the whole contribution set; `Hooks.Dispatch.Default(journal)` seats the tap engine with its own ring depth beside them, because the replay window is a dispatch decision the export policy never carries.
-- Growth: a new hook class (an exporter tap, a scrub point, a sampling processor) is one `Rows` slot consumed by the same drain; `add` widens with the slot, never a new verb; a new dispatch modality is a core table row the column reads absorb with zero executor edits.
+- Law: delivery is core's whole and this plane seats it — `Hooks.Dispatch` mints one `Tap.Rail` per app inside the graph scope, and every registrar reaches `Tap.mount`, `Tap.publish`, `Tap.breaches`, and `Tap.census` on that one value. A runtime-local rail table, publish permit, or delivery fiber set re-implements the core mechanism one stratum up, where it forks the veto order and splits the breach account across two ledgers no census can add.
+- Law: retention is the point's own declared depth on its channel, so a replay subscriber drains that window before live facts and this plane holds no second history; telemetry-as-tap holds by construction, since a signal emitter mounts as a `Tap.emitter` subscription like any observer and an emit call inside a domain fold has no spelling here.
+- Law: the reader slot types `MetricReader`, not the `IMetricReader` interface the raw provider accepts — `Metrics.registerProducer` demands the abstract class, so a contributed reader typed to the interface is a row that seat cannot mount; the narrower type is what makes a per-tenant reader composable on every lane. Contributors construct a reader before any producer exists, so its Effect plane arrives only through `setMetricProducer` and `[06]`'s facade keeps `registerProducer` narrowed to exactly that roster, while the lane's own reader takes the governed producer at construction instead.
+- Entry: `Hooks.Default` merges first at the composition root, every `Hooks.contribute` node after it, and `Export.live` last so the drain observes the whole contribution set; `Hooks.Dispatch.Default({ app, ledger, points })` seats the app's rail beside them, because the point roster and the breach-ledger width are composition facts the export policy never carries.
+- Growth: a new hook class (an exporter tap, a scrub point, a sampling processor) is one `Rows` slot consumed by the same drain; `add` widens with the slot, never a new verb; a new hook point is one roster entry on the seat row, and a new modality is a core table row this plane never reads.
 
 ```typescript signature
 declare namespace Hooks {
+  type Dispatch = _Dispatch // the seat's own type, so a consumer names the rail requirement without reaching for the class
   type Meter = _Meter
   type Rows = {
     readonly detectors: ResourceDetector
@@ -295,111 +295,26 @@ declare namespace Hooks {
   type Drained = { readonly [K in keyof Rows]: ReadonlyArray<Rows[K]> }
 }
 
-// this raw metric plane travels whole: [07] binds the provider and [04]'s scope coordinate spends the version
+// this raw metric plane travels whole: the registration nodes bind the provider and [04]'s scope coordinate spends the version
 class _Meter extends Context.Tag("runtime/Hooks/Meter")<_Meter, {
   readonly provider: MeterProvider
   readonly version: Identity.App.Version
 }>() {}
 
 declare namespace Dispatch {
-  type Policy = { readonly journal: number }
-  type Verdict = Option.Option<InstanceType<typeof Tap.Veto>>
-  type Entry = {
-    readonly journal: Chunk.Chunk<unknown>
-    readonly taps: Chunk.Chunk<{ readonly buffered: boolean; readonly deliver: (fact: unknown) => Effect.Effect<void> }>
-    readonly vetoes: Chunk.Chunk<(fact: unknown) => Verdict>
+  // the app's whole hook plane as one seat row: which app the rail answers for, the roster every registrar publishes
+  // on, and the breach ring's own width — the one accounting width no point's declared depth carries
+  type Policy = {
+    readonly app: Identity.App.Key
+    readonly ledger: number
+    readonly points: ReadonlyArray<Tap.Rostered>
   }
 }
 
-const _EMPTY_RAIL: Dispatch.Entry = { journal: Chunk.empty(), taps: Chunk.empty(), vetoes: Chunk.empty() }
-
-const _amended = (
-  rails: Ref.Ref<HashMap.HashMap<Data.Data<readonly [string, string]>, Dispatch.Entry>>,
-  key: Data.Data<readonly [string, string]>,
-  grow: (entry: Dispatch.Entry) => Dispatch.Entry,
-): Effect.Effect<void> =>
-  Ref.update(rails, (held) => HashMap.modifyAt(held, key, (slot) => Option.some(grow(Option.getOrElse(slot, () => _EMPTY_RAIL)))))
-
-const _isolated = <A, E>(point: Tap.Point<A>, label: string, run: (fact: A) => Effect.Effect<void, E>) =>
-  // BOUNDARY ADAPTER: erasure seam — the closure mints where A is bound, so the erased rail re-admits only the point's own facts
-  (fact: unknown): Effect.Effect<void> =>
-    run(fact as A).pipe(
-      Effect.catchAllCause((cause: Cause.Cause<E>) =>
-        Option.match(Tap.isolated(point.name, label)(cause), {
-          onNone: () => Effect.void, // interruption-only cause: a cancelled delivery never reads as breach
-          onSome: (breach) =>
-            Effect.annotateLogs(Effect.logWarning("<tap-breach>"), {
-              class: breach.class,
-              point: breach.point,
-              subscriber: breach.label,
-            }),
-        })),
-    )
-
+// the app-scoped seat for core's one hook mechanism: this service's VALUE IS the rail, so `Tap.mount`, `Tap.publish`,
+// `Tap.breaches`, and `Tap.census` resolve in one hop off the Tag and no runtime member re-spells a delivery verb
 class _Dispatch extends Effect.Service<_Dispatch>()("runtime/Hooks/Dispatch", {
-  scoped: (policy: Dispatch.Policy) =>
-    Effect.gen(function* () {
-      const rails = yield* Ref.make(HashMap.empty<Data.Data<readonly [string, string]>, Dispatch.Entry>())
-      const fibers = yield* FiberSet.make() // scope-bound: every delivery fiber dies with the graph, so a leaked subscriber is unspellable
-      const gate = yield* Effect.makeSemaphore(1) // mount replay and live publish share one order; no point lands between warm-up and enrollment
-      const enroll = <A, E>(app: Identity.App.Key, label: string, sub: Tap.Subscription<A, E>): Effect.Effect<void> => {
-        const key = Data.tuple(app as string, sub.point.name as string)
-        const row = Tap.Modality.at(Tap.modality(sub.handler))
-        const handler = sub.handler
-        return gate.withPermits(1)(handler._tag === "veto"
-          ? _amended(rails, key, (entry) => ({
-              ...entry,
-              vetoes: Chunk.append(entry.vetoes, (fact: unknown) => handler.handle(fact as A)),
-            }))
-          : pipe(_isolated(sub.point, label, handler.handle), (deliver) =>
-              Effect.zipRight(
-                Effect.when(
-                  Effect.flatMap(Ref.get(rails), (held) =>
-                    Effect.forEach(
-                      Option.getOrElse(HashMap.get(held, key), () => _EMPTY_RAIL).journal,
-                      (fact) => FiberSet.run(fibers, deliver(fact)),
-                      { discard: true },
-                    )),
-                  () => row.buffered, // the buffered column drains the retained window before live facts arrive
-                ),
-                _amended(rails, key, (entry) => ({ ...entry, taps: Chunk.append(entry.taps, { buffered: row.buffered, deliver }) })),
-              )))
-      }
-      const fanned = <A>(key: Data.Data<readonly [string, string]>, point: Tap.Point<A>, fact: A, entry: Dispatch.Entry): Effect.Effect<Dispatch.Verdict> =>
-        Effect.as(
-          Effect.zipRight(
-            Effect.when(
-              _amended(rails, key, (held) => ({
-                ...held,
-                journal: Chunk.takeRight(Chunk.append(held.journal, fact), policy.journal), // bounded ring: the window is policy, never unbounded history
-              })),
-              () => Array.some(point.modalities, (modality) => Tap.Modality.at(modality).buffered),
-            ),
-            Effect.forEach(entry.taps, (tap) => FiberSet.run(fibers, tap.deliver(fact)), { discard: true }),
-          ),
-          Option.none(),
-        )
-      return {
-        mount: <T extends Record<string, unknown>, E extends { readonly [K in keyof T]: unknown }>(
-          registry: Tap.Registry<T, E>,
-        ): Effect.Effect<void> =>
-          Effect.forEach(
-            Record.toEntries(registry.rows),
-            ([label, sub]) => enroll(registry.app, label, sub),
-            { discard: true },
-          ),
-        publish: <A>(app: Identity.App.Key, point: Tap.Point<A>, fact: A): Effect.Effect<Dispatch.Verdict> =>
-          gate.withPermits(1)(Effect.flatMap(Ref.get(rails), (held) => {
-            const key = Data.tuple(app as string, point.name as string)
-            const entry = Option.getOrElse(HashMap.get(held, key), () => _EMPTY_RAIL)
-            return Option.match(Chunk.head(Chunk.filterMap(entry.vetoes, (decide) => decide(fact))), {
-              // This pure veto fold: first refusal wins, before any journal write or delivery
-              onNone: () => fanned(key, point, fact, entry),
-              onSome: (veto) => Effect.succeed(Option.some(veto)),
-            })
-          })),
-      }
-    }),
+  scoped: (policy: Dispatch.Policy) => Tap.rail(policy.app, policy.points, { ledger: policy.ledger }),
 }) {}
 
 class Hooks extends Effect.Service<Hooks>()("runtime/Hooks", {
@@ -463,7 +378,7 @@ const _selects = (row: ViewOptions, data: MetricData): boolean =>
     || new RegExp(`^${row.instrumentName.replace(_GLOB, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`).test(data.descriptor.name))
   && (row.instrumentUnit === undefined || row.instrumentUnit === data.descriptor.unit)
 
-// The delta ledger keys on the point's ORIGINAL coordinate — producing scope, name, unit, attributes — because the
+// Delta ledgers key on the point's ORIGINAL coordinate — producing scope, name, unit, attributes — because the
 // collection below rewrites every scope to the one estate triple: keyed on name and attributes alone, two producers
 // publishing one name under identical attributes share a baseline and each differences against the other's reading,
 // and a same-name pair differing only by unit does the same across two dimensions.
@@ -567,7 +482,7 @@ const _governed = (producer: MetricProducer, policy: Export.Policy, rows: Readon
             metrics: Array.filterMap(held.metrics, (data) =>
               Option.map(
                 _shaped(rows, data),
-                // the ORIGINAL scope keys the ledger, read before the rewrite above replaces it
+                // ORIGINAL scope keys the ledger, read before the rewrite above replaces it
                 (shaped) => (policy.temporality === "delta" ? _delta(readings, held.scope, shaped) : shaped),
               )),
           })),
@@ -584,18 +499,18 @@ const _governed = (producer: MetricProducer, policy: Export.Policy, rows: Readon
 - Law: a lane row is the whole binding — SDK module or native serializer, detector roster, wire framing, and exporter sender travel together, so `_native(framing)` and `_facade(sdk, roster, sender)` are the two builders every row instantiates and a fifth row adds no branch. `otlp` is the protobuf native default, `local` its JSON twin for a developer reading collector frames, `node` and `web` the SDK facade rows; every deployed row frames protobuf.
 - Law: the native rows carry Effect's own `Tracer`/`Metric`/`Logger` straight to the collector over the `HttpClient.HttpClient` requirement the root satisfies with `net/client#LANE_ROWS`'s policy client (node/bun) or the browser client, so OTLP egress inherits the branch timeout/retry posture, and the policy's `shutdown` window rides `shutdownTimeout` so the drain budget is one stated value. Their option bag carries no compression field at the pin and `@effect/platform` ships no request-encoding middleware, so a native row cannot gzip — an `[OTEL_PIN_BLOCK]` parity criterion recorded beside the span-scrub hook, and a deployment under the estate compression pin selects an SDK row. Both native rows declare the node sender because the only SDK exporter they construct is the raw meter provider's, so a browser root takes the `web` facade row and a browser-framed native row is one more `_lanes` entry rather than a runtime guess inside the builder.
 - Law: identity is detected once, awaited, then projected — `_identity` is a Layer-seated `Effect` folding `detectResources` over the platform roster (`envDetector`, `hostDetector`, `osDetector`, `processDetector`, `serviceInstanceIdDetector`) and the placement-armed environment rows — `_CLOUD[policy.placement.cloud]` contributes at most one compute arm and `containerDetector` arms on the container fact — crossing `waitForAsyncAttributes()` whenever `asyncAttributesPending` is true and merging the detected roster UNDER the `Convention.identity` override pinned to `Convention.wire.schemaUrl` — `Resource.merge` gives the argument precedence, so the deployment's own identity wins every collision the detectors contest, which is the enrich-then-override order the conformance row fixes. One seat is load-bearing, not tidiness: `serviceInstanceIdDetector` mints a fresh guid per run, so a second detection stamps the facade signals and the raw meter provider with different `service.instance.id` values and splits one process into two resources. Web rosters fold `browserDetector` for the `browser.*` client-hint facts, a raw `@opentelemetry/resources` value never leaves this module, and `OtlpResource.fromConfig` is the rejected second identity path.
-- Law: the SDK rows exist for SDK-only capability — boundary span scrub, baggage promotion, wire compression, structural span and log-record limits, auto-instrumentation, and the hook plane — and both assemble through the facade's public legs (`layerTracerProvider` under the `Tracer`, `Metrics`, and `Logger` bridges over `Resource.layer`) rather than `NodeSdk.layer`/`WebSdk.layer`, because the graph must expose `OtelBridge.OtelTracerProvider` for `[07]`'s registration nodes, which the aggregate layer conceals. Span processors run promotion, then `Redaction.processor`, then contributed taps, then the batching exporter — promotion writes before the span freezes, so the boundary scrub still governs a promoted key.
+- Law: the SDK rows exist for SDK-only capability — boundary span scrub, baggage promotion, wire compression, structural span and log-record limits, auto-instrumentation, and the hook plane — and both assemble through the facade's public legs (`layerTracerProvider` under the `Tracer`, `Metrics`, and `Logger` bridges over `Resource.layer`) rather than `NodeSdk.layer`/`WebSdk.layer`, because the graph must expose `OtelBridge.OtelTracerProvider` for the condition registration nodes, which the aggregate layer conceals. Span processors run promotion, then `Redaction.processor`, then contributed taps, then the batching exporter — promotion writes before the span freezes, so the boundary scrub still governs a promoted key.
 - Law: batching answers its whole record — `policy.caps.batch` is `Required<BatchSpanProcessorBrowserConfig>`, so `scheduledDelayMillis` and `exportTimeoutMillis` reach the span and log processors beside the two queue widths, and `disableAutoFlushOnDocumentHide` states the browser posture explicitly rather than riding an SDK default; the browser processor's document-hide flush is what drains RUM spans before navigation, so the field is the knob a kiosk deployment flips, never a claim without a seat. Log batching takes that record inside one options bag beside its own `exporter`, which is the whole constructor the pin ships.
-- Law: ONE reader carries both metric planes, because `setMetricProducer` and `metricProducers` are two seats rather than one — the first admits exactly one producer and throws on a second, while the second is the documented additional-source seat whose sources `collect()` concatenates onto the SDK producer's, merging every `ScopeMetrics` and keeping the SDK's own `Resource`. So `_meter`'s scoped raw `MeterProvider({ readers, resource, sdkMetricsEnabled, views })` — the ONE sanctioned raw construction, existing because the third-party instrument plane demands a provider the facade conceals — binds the single `_reader` into its sdk slot while the `_governed` Effect producer rides the seat beside it, and one exporter, one export interval, and one socket pool serve both planes on every SDK row. The seat is `@experimental`, so it rides the `[OTEL_PIN_BLOCK]` watch list exactly as `onEnding` does. `sdkMetricsEnabled` is load-bearing rather than decorative: the provider hands each bound reader its own meter only under that flag, so without it the reader's `otelComponentType` row names a series nothing records. Native rows compose `_meter` with no producer, so their raw plane governs and their Effect plane rides ungoverned per `[05]`. A CONTRIBUTED reader is built by its contributor before any producer exists, so `Metrics.registerProducer` survives narrowed to that roster alone — empty on every default deployment — and shutdown has exactly one owner per reader: the provider's own close for the primary, the registration bracket for the contributed. `Hooks.Meter` carries the build version beside the provider because the scope coordinate `[04]`'s accessor spends is a lane fact, and the release folds a wedged flush onto the log rail rather than letting a rejected promise become a defect the ranked drain dies on.
-- Law: the export pipeline measures ITSELF, and the four seats are what make `_meter` build before `_sdk` — `selfObsMeterProvider` on the trace and log exporters and on the `BatchLogRecordProcessor` bag, `meterProvider` on `tracerConfig` and `loggerProviderConfig`, and `otelComponentType` on the reader. A rejected batch, a dropped queue, a wedged flush, and collect duration therefore land as `otel.sdk.*` series on the raw provider, already governed by `Pulse.views`' engine-class rows, instead of a `diag` line the `diagnostic` floor may discard. The metric exporter alone passes no seat: it is constructed INSIDE the reader whose provider it would report to, and the reader's own `otelComponentType` row covers that leg instead.
-- Law: the drain window reaches every leg on both rows, through two distinct seams — `policy.shutdown` rides `shutdownTimeout` on the native rows and on the node row's `layerTracerProvider`/`layerLoggerProvider` configs, the facade-added Effect-side release budget; the same value rides `forceFlushTimeoutMillis` on `tracerConfig`, which is a `TracerProviderOptions` field BOTH facade rows accept, so the provider flush is bounded by policy on the web leg exactly as on the node leg. The remaining node-only field is the release budget, not the flush bound, so the web row's trace queue is no longer bounded by its batch record alone.
+- Law: ONE reader carries both metric planes, because `setMetricProducer` and `metricProducers` are two seats rather than one — the first admits exactly one producer and throws on a second, while the second is the documented additional-source seat whose sources `collect()` concatenates onto the SDK producer's, merging every `ScopeMetrics` and keeping the SDK's own `Resource`. `_meter`'s scoped raw `MeterProvider({ readers, resource, sdkMetricsEnabled, views })` — the ONE sanctioned raw construction, existing because the third-party instrument plane demands a provider the facade conceals — therefore binds the single `_reader` into its sdk slot while the `_governed` Effect producer rides the seat beside it, and one exporter, one export interval, and one socket pool serve both planes on every SDK row. That seat carries `@experimental`, so the `[OTEL_PIN_BLOCK]` watch list holds it exactly as `onEnding`. `sdkMetricsEnabled` is load-bearing rather than decorative: the provider hands each bound reader its own meter only under that flag, so without it the reader's `otelComponentType` row names a series nothing records. Native rows compose `_meter` with no producer, so their raw plane governs and their Effect plane rides ungoverned per `[05]`. Contributors build a CONTRIBUTED reader before any producer exists, so `Metrics.registerProducer` survives narrowed to that roster alone — empty on every default deployment — and shutdown has exactly one owner per reader: the provider's own close for the primary, the registration bracket for the contributed. `Hooks.Meter` carries the build version beside the provider because the scope coordinate `[04]`'s accessor spends is a lane fact, and the release folds a wedged flush onto the log rail rather than letting a rejected promise become a defect the ranked drain dies on.
+- Law: the export pipeline measures ITSELF, and the four seats are what make `_meter` build before `_sdk` — `selfObsMeterProvider` on the trace and log exporters and on the `BatchLogRecordProcessor` bag, `meterProvider` on `tracerConfig` and `loggerProviderConfig`, and `otelComponentType` on the reader. Rejected batches, dropped queues, wedged flushes, and collect duration therefore land as `otel.sdk.*` series on the raw provider, already governed by `Pulse.views`' engine-class rows, instead of a `diag` line the `diagnostic` floor may discard. Only the metric exporter passes no seat: it is constructed INSIDE the reader whose provider it reports to, and the reader's own `otelComponentType` row covers that leg instead.
+- Law: the drain window reaches every leg on both rows, through two distinct seams — `policy.shutdown` rides `shutdownTimeout` on the native rows and on the node row's `layerTracerProvider`/`layerLoggerProvider` configs, the facade-added Effect-side release budget; the same value rides `forceFlushTimeoutMillis` on `tracerConfig`, which is a `TracerProviderOptions` field BOTH facade rows accept, so the provider flush is bounded by policy on the web leg exactly as on the node leg. Node-only coverage narrows to the release budget rather than the flush bound, so the web row's trace queue takes its flush bound from policy beside its batch record.
 - Law: histogram aggregation is a selector on the raw plane — `_aggregation(policy)` maps `InstrumentType.HISTOGRAM` onto `AggregationType.EXPONENTIAL_HISTOGRAM` with the policy's bounded `maxSize` and leaves every other type on `DEFAULT`, feeding the metric exporter's `aggregationPreference`; Effect-minted distributions carry the boundaries chosen at their mint site, which is why an explicit-bucket view row targets an instrument the raw provider owns.
-- Law: the SDK rows carry the full three-signal egress under one transport projection whose node-only columns ride a sender row — `_transport` supplies url, headers, `timeoutMillis`, and `concurrencyLimit` to all three exporters on both rows, and `_sender(policy)` folds `CompressionAlgorithm.GZIP`, `keepAlive`, the bound `httpAgentOptions` pool, and `userAgent` in on the node sender alone, because the browser exporter build accepts none of them and its fetch-only transport compresses nothing and owns no agent. The sender reads policy rather than standing as a constant because two of its columns are policy facts: `policy.transport.concurrency` bounds the exporter's own queue, and without `maxSockets`/`maxFreeSockets` bound to the same number `keepAlive` holds an unbounded free-socket set across three signal exporters per row — two ceilings that are unrelated numbers until one field governs both. `userAgent` PREPENDS to the exporter's own value, so the collector reads a per-build emitter coordinate only the `Resource` carried before. Every signal therefore leaves bounded on both rows and gzipped, socket-bounded, and self-identifying on the node row.
-- Law: the collector credential resolves PER EXPORT, never per process — `headers` takes the `HeadersFactory` arm (`() => Promise<Record<string,string>>`) on the SDK rows, so a rotating lease is a policy re-read rather than a restart and the plaintext record stops living for the process lifetime beside a `Redacted` whose whole purpose is that it cannot. The package pins two obligations the factory satisfies structurally: it MUST NOT throw, so the body stays a total projection over admitted policy values, and it MUST NOT load `http`/`https`, statically or dynamically, because a load before `HttpInstrumentation` patches them silently un-instruments every outbound hop in the process — the same obligation `httpAgentOptions` carries, which is why both take their plain-value arm. The native rows keep the plain record because `Otlp.layer*` types `headers` as `Headers.Input`, which admits no factory. Log egress rides a `BatchLogRecordProcessor` beside contributed sinks under `loggerProviderConfig.logRecordLimits`, so hostile log payloads meet the same structural caps spans do. Offline deployments add `PlatformLogger.toFile(path, { batchWindow })` beside the wire logger at the root — an additive `Logger` row, never a fork.
-- Law: ambient global registration is one bracket — `_ambient` installs the `CompositePropagator` over `W3CTraceContextPropagator` and `W3CBaggagePropagator` as the global propagator and seats `diag.setLogger` on a `DiagLogger` forwarding into the Effect log rail at the policy's `DiagLogLevel`, releasing both on scope close. Global propagation exists for foreign libraries calling `propagation.inject`/`extract`; it is stateless, idempotent, and takes nothing from `[08]`'s typed `Carrier` path, which stays the branch's own spelling. Context managers stay out of this bracket because their install is process-global and condition-bound, so `[07]`'s `Ambient.live` owns them — and that split is what closes the ambient-continuation asymmetry rather than recording it: a native row composes `Ambient.live` (a `Layer<never>` requiring nothing) beside `Export.live`, `_tracerContext` then binds the live Effect span into the manager's active context for every traced segment, and a foreign `propagation.inject` stamps that span instead of ROOT. Absent the manager the hook is inert by the api's own contract — `NoopContextManager.with` calls the thunk and `active()` answers `ROOT_CONTEXT` — so the lift degrades to today's behaviour instead of misreporting.
+- Law: the SDK rows carry the full three-signal egress under one transport projection whose node-only columns ride a sender row — `_transport` supplies url, headers, `timeoutMillis`, and `concurrencyLimit` to all three exporters on both rows, and `_sender(policy)` folds `CompressionAlgorithm.GZIP`, `keepAlive`, the bound `httpAgentOptions` pool, and `userAgent` in on the node sender alone, because the browser exporter build accepts none of them and its fetch-only transport compresses nothing and owns no agent. `_sender` reads policy rather than standing constant because two of its columns are policy facts: `policy.transport.concurrency` bounds the exporter's own queue, and without `maxSockets`/`maxFreeSockets` bound to the same number `keepAlive` holds an unbounded free-socket set across three signal exporters per row — two ceilings that are unrelated numbers until one field governs both. `userAgent` PREPENDS to the exporter's own value, so the collector reads a per-build emitter coordinate only the `Resource` carried before. Every signal therefore leaves bounded on both rows and gzipped, socket-bounded, and self-identifying on the node row.
+- Law: the collector credential resolves PER EXPORT, never per process — `headers` takes the `HeadersFactory` arm (`() => Promise<Record<string,string>>`) on the SDK rows, so a rotating lease is a policy re-read rather than a restart and the plaintext record stops living for the process lifetime beside a `Redacted` whose whole purpose is that it cannot. That package pins two obligations the factory satisfies structurally: it MUST NOT throw, so the body stays a total projection over admitted policy values, and it MUST NOT load `http`/`https`, statically or dynamically, because a load before `HttpInstrumentation` patches them silently un-instruments every outbound hop in the process — the same obligation `httpAgentOptions` carries, which is why both take their plain-value arm. Native rows keep the plain record because `Otlp.layer*` types `headers` as `Headers.Input`, which admits no factory. Log egress rides a `BatchLogRecordProcessor` beside contributed sinks under `loggerProviderConfig.logRecordLimits`, so hostile log payloads meet the same structural caps spans do. Offline deployments add `PlatformLogger.toFile(path, { batchWindow })` beside the wire logger at the root — an additive `Logger` row, never a fork.
+- Law: ambient global registration is one bracket — `_ambient` installs the `CompositePropagator` over `W3CTraceContextPropagator` and `W3CBaggagePropagator` as the global propagator and seats `diag.setLogger` on a `DiagLogger` forwarding into the Effect log rail at the policy's `DiagLogLevel`, releasing both on scope close. Global propagation exists for foreign libraries calling `propagation.inject`/`extract`; it is stateless, idempotent, and takes nothing from `[07]`'s typed `Carrier` path, which stays the branch's own spelling. Context managers stay out of this bracket because their install is process-global and condition-bound, so `server#REGISTRATION` and `instrument#REGISTRATION` own them — and that split is what closes the ambient-continuation asymmetry rather than recording it: a native row composes `Instrument.ambient` (a `Layer<never>` requiring nothing) beside `Export.live`, `_tracerContext` then binds the live Effect span into the manager's active context for every traced segment, and a foreign `propagation.inject` stamps that span instead of ROOT. Absent the manager the hook is inert by the api's own contract — `NoopContextManager.with` calls the thunk and `active()` answers `ROOT_CONTEXT` — so the lift degrades to today's behaviour instead of misreporting.
 - Law: `Export.live` returns one registration node providing `Hooks.Meter` and, on the SDK rows, the whole exposed Tag set — `OtelTracer`, `OtelTracerProvider`, `OtelLoggerProvider`, and the facade `Resource` — carrying the native rows' `HttpClient` requirement in `R` — merged once at the composition root; construction observability attaches at the Layer value (`Layer.annotateLogs`), and a boot-time collector outage is Layer construction policy, never a runtime branch. `_managed` acquires the child `Scope` through the outer scope's release bracket before building the selected lane, then registers `Scope.close(scope, Exit.void)` as the standing rank-90 telemetry row through `Life.register`; exporters flush inside the ordered drain, while any build or registration failure still closes the child scope.
-- Law: auto-instrumentation is `[07]`'s node riding the lane's exposed provider — `Export.Of` derives each lane's return type off the `_lanes` roster, so a native-lane root composing the registration node dies at the requirement channel and only an SDK row can carry foreign-library spans; `Ambient.live` is the half that carries no such requirement, which is why it stands apart. `Vital.enrich` stays the library-side timing projection over the spans those rows open.
-- Entry: `Export.live(policy)` merged beneath `Hooks.Default` and after every `Hooks.contribute` node, so the drain observes the full contribution set; `Instrument.Ambient.live` beside it on every lane.
+- Law: auto-instrumentation is the condition node riding the lane's exposed provider — `Export.Of` derives each lane's return type off the `_lanes` roster, so a native-lane root composing the registration node dies at the requirement channel and only an SDK row can carry foreign-library spans; `Instrument.ambient` is the half that carries no such requirement, which is why it stands apart. `Vital.enrich` stays the library-side timing projection over the spans those rows open.
+- Entry: `Export.live(policy)` merged beneath `Hooks.Default` and after every `Hooks.contribute` node, so the drain observes the full contribution set; `Instrument.ambient` beside it on every lane, native and SDK alike.
 - Growth: a new lane (OTLP/gRPC, a vendor exporter, a browser-framed native row) is one `_lanes` row over the two builders under its own framing and sender columns; a new deploy target is one `_CLOUD` row; a new exporter column carried by one runtime build alone is one `_sender` field.
 - Packages: `@effect/opentelemetry` (`Otlp`, `NodeSdk`, `WebSdk`, `Tracer`, `Metrics`, `Logger`, `Resource`), `@opentelemetry/resources` (`detectResources`, the detector roster), `@opentelemetry/resource-detector-aws`/`-container`/`-gcp` and `@opentelemetry/opentelemetry-browser-detector` (the placement rows), `@opentelemetry/core` (the propagator trio), `@opentelemetry/otlp-exporter-base` (`CompressionAlgorithm`), `@opentelemetry/baggage-span-processor`, the `[OTEL_PIN_BLOCK]` SDK block (`sdk-trace-base`, `sdk-metrics`, `sdk-logs`, the `exporter-*-otlp-http` and `exporter-*-otlp-proto` trios).
 
@@ -628,7 +543,7 @@ flowchart LR
 ```
 
 ```typescript signature
-// The exporter resolves this per export, so the credential unwraps at send time and no plaintext record outlives the
+// Exporters resolve this per export, so the credential unwraps at send time and no plaintext record outlives the
 // call. Two obligations the package's own contract fixes and this factory satisfies structurally: it MUST NOT throw
 // (the body is a total projection over already-admitted policy values, so no arm can raise) and it MUST NOT reach
 // `http`/`https` — statically or dynamically — because a load before `HttpInstrumentation` patches them silently
@@ -736,7 +651,7 @@ const _sender = (policy: Export.Policy): Readonly<Record<_Sender, Partial<OTLPEx
       maxSockets: policy.transport.concurrency,
     },
     keepAlive: true,
-    // the coordinate spends WHOLE here too: `.name` alone reaches the collector carrying no build, which is the same
+    // Coordinates spend WHOLE here too: `.name` alone reaches the collector carrying no build, which is the same
     // name-only mint the scope row forbids — a per-build emitter fact is the point, and the product token is `name/version`
     userAgent: pipe(Convention.scope("runtime", policy.identity.build.version), (scope) => `${scope.name}/${scope.version}`),
   },
@@ -753,8 +668,8 @@ const _transport = (
   headers: _headers(policy),
   timeoutMillis: Duration.toMillis(policy.transport.timeout),
   url: _signal(policy, signal),
-  // the exporter's own rejected/retried/duration series land on the raw provider under the engine-class view rows;
-  // the metric exporter alone passes none, because it is constructed INSIDE the provider it would report to
+  // Exporter rejected/retried/duration series land on the raw provider under the engine-class view rows;
+  // only the metric exporter passes none, because it is constructed INSIDE the provider it reports to
   ...(Option.isSome(selfObs) && { selfObsMeterProvider: selfObs.value }),
 })
 
@@ -791,8 +706,8 @@ const _reader = (
     otelComponentType: `rasm.otlp.${framing}`,
   })
 
-// The raw provider is an INPUT here, not a sibling: four self-observability seats bind it, so `_meter` builds first and
-// the export pipeline's own health — a rejected batch, a dropped queue, a wedged flush, collect duration — lands as
+// This raw provider is an INPUT here, not a sibling: four self-observability seats bind it, so `_meter` builds first and
+// Export-pipeline health — a rejected batch, a dropped queue, a wedged flush, collect duration — lands as
 // `otel.sdk.*` series under the engine-class view rows instead of a `diag` line the `diagnostic` floor may discard.
 const _sdk = (
   policy: Export.Policy,
@@ -814,7 +729,7 @@ const _sdk = (
     ...adds.logs,
   ] as const satisfies Array.NonEmptyReadonlyArray<LogRecordProcessor>,
   loggerProviderConfig: {
-    // the policy rows lead and the shipped catch-all closes: an unmatched instrumentation scope lands on a stated floor
+    // Policy rows lead and the shipped catch-all closes: an unmatched instrumentation scope lands on a stated floor
     loggerConfigurator: createLoggerConfigurator([...policy.logging, ..._LOGGING]),
     logRecordLimits: policy.caps.logs,
     meterProvider: meter,
@@ -900,11 +815,11 @@ const _ambient = (policy: Export.Policy): Layer.Layer<never> =>
     }),
   )
 
-// The native lane's answer to the ambient-continuation asymmetry: `tracerContext` is the hook Effect runs every traced
+// Native lanes answer the ambient-continuation asymmetry here: `tracerContext` is the hook Effect runs every traced
 // segment through, handing it the LIVE Effect span, so a foreign library calling `propagation.inject` inside that
 // segment reads the estate's own parent instead of ROOT. The lift is inert until a context manager is installed —
 // `context.with` falls to `NoopContextManager`, which calls the thunk and answers `ROOT_CONTEXT` — which is exactly
-// why `Ambient.live` split out of `[07]`: a native-lane root composes the manager alone and cannot compose the
+// why `Instrument.ambient` stands apart: a native-lane root composes the manager alone and cannot compose the
 // instrumentation node at all, so this hook and that Layer are one capability in two seats.
 const _tracerContext = <X>(f: () => X, span: Tracer.AnySpan): X =>
   ambient.with(
@@ -942,7 +857,7 @@ const _native = (framing: _Framing, sender: _Sender) => (policy: Export.Policy):
     _meter(policy, framing, sender, []),
   ).pipe(Layer.provide(_identity(policy, _grounds(policy)))) // one identity build feeds every merged member; the Tag stays interior
 
-// The facade row is a LINEAR build, and the direction is what the self-observability seats fix: the facade `Resource`
+// This facade row is a LINEAR build, and the direction is what the self-observability seats fix: the facade `Resource`
 // admits the Effect producer, the governed producer seats the one reader, that reader's provider IS the meter four
 // `_sdk` seats bind, and only then do the tracer and logger providers construct. Every step consumes the previous
 // step's value, so the order is data dependence rather than composition taste.
@@ -979,7 +894,7 @@ const _facade = (
           ),
         ),
       ).pipe(
-        // every provideMerge keeps its Tag public: [07] binds the SAME tracer, meter, and logger providers, never a second set
+        // every provideMerge keeps its Tag public: registration binds the SAME tracer, meter, and logger providers, never a second set
         Layer.provideMerge(OtelLogger.layerLoggerProvider(config.logRecordProcessor, config.loggerProviderConfig)),
         Layer.provideMerge(sdk.layerTracerProvider(config.spanProcessor, config.tracerConfig)),
       )
@@ -1024,273 +939,22 @@ const Export: {
 }
 ```
 
-## [07]-[INSTRUMENT]
+## [07]-[CONTINUATION]
 
-- Owner: two names per process condition, because the two halves carry different requirements: `Instrument.ambient` publishes the installed `ContextManager` as `Instrument.Ambient` and requires nothing, while `Instrument.live(policy)` folds the drained `Hooks` instrumentation rows behind its own `_rows` roster and issues exactly one `registerInstrumentations` bound to the lane's exposed `OtelTracerProvider`, `OtelLoggerProvider`, and `Hooks.Meter`. The `server` condition resolves `otel/server` and the `browser` condition resolves `otel/instrument`, each supplying its own roster, its own manager, and its own third-party instrument plane.
-- Law: the halves split because ambient context is a whole-process capability every lane needs and registration is an SDK-lane capability only one can carry — `Instrument.live`'s requirement channel names `OtelTracerProvider`, which a native lane cannot satisfy, while `Instrument.ambient` is a `Layer<never>`-requiring node any root composes, and `[06]`'s `_tracerContext` is inert without exactly that install. Publishing the manager rather than discarding it is what orders the pair: `Instrument.live` reads `Instrument.Ambient` from `R`, so registration provably follows the install at compile time instead of by root composition order, and the manager's teardown belongs to its own Layer rather than to a bracket a failing registration shares.
-- Law: the condition split is structural, never disciplinary — `@opentelemetry/context-zone` patches the global `Zone` and the server rows pull node-only native surfaces (`systeminformation`, `perf_hooks`, `pg` module patching), so a condition-bound side effect physically cannot load on a peer plane and no bundler flag is what keeps it out.
-- Law: `enabled` is the zeroth column on every row and the roster closes against `_SERVER_ROWS`/`_BROWSER_ROWS` — a refused row never patches its module at all, where every other per-row field (`comment`, `session`, `statement`, `connect`, `orphan`, the interaction pair) tunes a row that is always on; so a deployment with no Postgres stops `PgInstrumentation` from patching `pg` rather than configuring a patch it does not want, and a kiosk build drops interaction spans without dropping document-load and both request surfaces with them.
-- Law: exactly one activation call exists per condition — engine health, foreign-library rows, and every contributed row register together, so `registerInstrumentations` is called once and the SDK's second-registration warning has no path. Every provider slot the options record carries passes explicitly, because the facade registers none globally and an omitted slot silently falls back to the no-op api global: a row emitting spans without `tracerProvider` records nowhere, a row emitting series without `meterProvider` drops them, and a row emitting log records without `loggerProvider` loses them — which is why `[06]`'s facade publishes the logger provider instead of consuming it privately.
-- Law: async context is process-global by construction, so exactly `Instrument.ambient` calls `ambient.setGlobalContextManager` — `AsyncLocalStorageContextManager` on the server condition, `ZoneContextManager` on the browser. Without it a foreign library reading `context.active()` sees ROOT and every span it opens roots a new trace; the global propagator that answers such a library's `inject`/`extract` lands separately at `[06]`'s `_ambient`, so ambient identity and ambient context have one owner each.
-- Law: Effect's own spans are primary and auto-instrumentation covers foreign libraries alone — `policy.server.orphan` set false gates the client rows behind a live parent (`requireParentforSpans` on undici, `requireParentSpan` on pg), so a library call inside an `Effect.fn` region enriches the existing span tree instead of rooting a rival trace, and one outbound hop never yields two spans from two layers. That is the same posture the C# branch spells as downstream suppression; the JS packages carry parent-presence gates rather than a suppression flag, so the row is the gate and the law names the divergence rather than claiming a member that does not exist.
-- Law: self-exclusion carries the egress classes the SDK's own suppression cannot reach, and that boundary is what sizes it. The OTLP legs are already covered: `BatchSpanProcessorBase` and `BatchLogRecordProcessorBase` wrap their `exporter.export` call in `context.with(suppressTracing(context.active()))`, `PeriodicExportingMetricReader` reaches the same wrap through core's `internal._export`, and the honoring site is the SDK `Tracer.startSpan` itself — it reads `isTracingSuppressed` and answers a non-recording span, so no instrumentation package needs to know the flag exists. What holds no suppressing owner is every push that leaves outside a processor or reader: the Pyroscope flush riding `@datadog/pprof`'s own HTTP on its own cadence, a vendor exporter, a second collector. `_egress` therefore folds `policy.collector.baseUrl` with every `policy.egress` origin into ONE roster, and each hook matches it against the coordinate its own family receives, because every family states an origin differently and a compare against the wrong shape silently keeps tracing the push. The node client hook receives a `RequestOptions` whose authority splits across optional `host` (which may carry a port), `hostname` (which never does), and `port`, and which a URL-built request leaves without a `host` at all, so `_authority` normalizes those fields into a host/port pair under the package's own default-port fill and the compare is exact on both halves; the undici hook receives a scheme-qualified `origin` compared through `URL` rather than a substring probe; the inbound hook receives a request PATH, so `policy.server.ignore` carries paths alone and no egress origin has a spelling there.
-- Law: the browser exclusion is a pattern roster, never a base URL — `ignoreUrls` and `propagateTraceHeaderCorsUrls` both run the SDK's `urlMatches`, which compares a STRING entry to the whole request URL by equality, so a bare origin never equals the `/v1/<signal>` URL an exporter posts to and never equals an API path; `_self` anchors one `RegExp` per egress origin on its escaped form and `policy.browser.propagate` carries patterns for the same reason.
-- Law: interaction admission is the cardinality gate — `eventNames` and `shouldPreventSpanCreation` read the policy's interaction rows because every admitted event is a span; click-only with an admit-all predicate is the stated default, and a high-frequency row (scroll, pointermove) enters only beside a refusing predicate. XHR rides beside fetch under identical self-exclusion and propagate rows, so `XMLHttpRequest` and `fetch` traffic split the surface with one policy spelling.
-- Law: database posture is four independent rows because four mechanisms answer four questions at four costs. `policy.server.statement` drives `enhancedDatabaseReporting`, attaching bound parameters to the span — identifier-grade material, so the row defaults off and a deployment enabling it inherits the export-boundary scrub as its only guard. `policy.server.comment` drives `addSqlCommenterCommentToQueries`, appending a SQLCommenter comment so `pg_stat_statements` carries the trace coordinate inside the normalized statement text. `policy.server.session` drives `enableTraceContextPropagation`, which is NOT that comment's other half: it issues a `SET application_name` round-trip before every user query, so arming it roughly doubles the connection's network round-trips and buys `pg_stat_activity.application_name` carrying the live `traceparent`. Binding the two to one value spends that latency on every deployment that only wanted the comment, so they stand apart and the session row defaults off. `policy.server.connect` admits the pool-acquisition span through `ignoreConnectSpans`, which a pooled workload turns off so a checkout is not a span per query.
-- Law: query-parameter redaction is the HTTP row's own mechanism — the boundary scrub seals `url.full` whole, and `policy.server.redact` is the finer form a deployment that must keep the URL uses, replacing the package's own default roster rather than extending it.
-- Law: engine health rides the server condition alone — `HostMetrics` under the `policy.server.engine.groups` allow-list and `RuntimeNodeInstrumentation` at the stated precision bind the raw provider `Hooks.Meter` exposes, so event-loop delay and utilization, GC duration, and V8 heap series carry the same resource identity as every span and log while the `v8js.*` attribute fan stays governed by the deny-list view row (`meter#VIEWS`). That row's `captureUncaughtException` seat stays explicitly false: `crash#CAPTURE` is the branch's one process-fatal owner and folds every `Cause` through the forensic band, so a second uncaught-exception listener mints a rival fatal record under a foreign shape.
-- Exemption: each acquire body is the platform-forced registration seam — global manager install, the `HostMetrics` start call, and the composed unload closure are the SDK's own imperative contract.
-- Boundary: registration composes only at a composition root beside `Export.live` — a library composing either node double-instruments its host; the fetch row leaves `clearTimingResources` off because `Vital.enrich` reads the same resource-timing buffer.
-- Entry: `Instrument.ambient` merged at every root, native and SDK alike, because `[06]`'s `_tracerContext` and every foreign `context.active()` read depend on it; `Instrument.live(policy)` merged beside it under an SDK lane's `Export.live(policy)`, where a native-lane root fails at the requirement channel because neither the OTel tracer provider nor the logger provider exists to bind.
-- Growth: a new instrumentation is one `_rows` entry on its owning condition with its `rows` cell and its policy fields, or one `Hooks.contribute` row from the feature plane that needs it; a new self-egress backend is one `policy.egress` origin.
-- Packages: `@opentelemetry/instrumentation` (`registerInstrumentations`, `Instrumentation`, `InstrumentationConfig.enabled`), `@opentelemetry/context-async-hooks` + `@opentelemetry/context-zone` (the two managers), `@opentelemetry/host-metrics` + `-instrumentation-runtime-node` (engine health), `@opentelemetry/instrumentation-http`, `-undici`, `-pg`, `-fetch`, `-document-load`, `-user-interaction`, `-xml-http-request`, `@opentelemetry/api` (`context`, `ContextManager`), `@effect/opentelemetry` (`Tracer.OtelTracerProvider`, `Logger.OtelLoggerProvider`), `effect` (`Array`, `Context`, `pipe`), `node:http` (`RequestOptions`, type-only).
-
-```typescript signature
-// --- [SERVER] --- runtime/src/otel/server.ts, the `server` condition
-
-import { context as ambient, type ContextManager } from "@opentelemetry/api"
-import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks"
-import { HostMetrics } from "@opentelemetry/host-metrics"
-import { registerInstrumentations, type Instrumentation } from "@opentelemetry/instrumentation"
-import { HttpInstrumentation } from "@opentelemetry/instrumentation-http"
-import { PgInstrumentation } from "@opentelemetry/instrumentation-pg"
-import { RuntimeNodeInstrumentation } from "@opentelemetry/instrumentation-runtime-node"
-import { UndiciInstrumentation } from "@opentelemetry/instrumentation-undici"
-import { Logger as OtelLogger, Tracer as OtelBridge } from "@effect/opentelemetry"
-import { Array, Context, Effect, Layer, pipe } from "effect"
-import type { RequestOptions } from "node:http"
-import { type Export, Hooks } from "./emit.ts"
-
-// The installed manager is a published capability, not a phantom the discard family would carry: `Instrument.live`
-// requires it, so registration provably follows the install at the type level rather than by root composition order,
-// and a native-lane root composes this Layer alone — it publishes a value and requires nothing, which is exactly what
-// makes `[06]`'s `_tracerContext` non-inert on a lane that can never compose the registration node.
-class _Ambient extends Context.Tag("runtime/Instrument/Ambient")<_Ambient, ContextManager>() {}
-
-const _ambient: Layer.Layer<_Ambient> = Layer.scoped(
-  _Ambient,
-  Effect.acquireRelease(
-    Effect.sync(() => {
-      const manager = new AsyncLocalStorageContextManager().enable()
-      ambient.setGlobalContextManager(manager)
-      return manager
-    }),
-    () => Effect.sync(() => ambient.disable()),
-  ),
-)
-
-// one parse per registration yields every coordinate the three hook families each receive, for EVERY self-egress the
-// process holds — the collector plus each `policy.egress` origin — so a second telemetry backend is a policy row
-const _egress = (policy: Export.Policy): ReadonlyArray<{ readonly host: string; readonly origin: string; readonly port: string }> =>
-  Array.map([policy.collector.baseUrl, ...policy.egress], (raw) =>
-    pipe(new URL(raw), (url) => ({
-      host: url.hostname,
-      origin: url.origin,
-      port: url.port === "" ? (url.protocol === "https:" ? "443" : "80") : url.port,
-    })))
-
-type _Egress = ReturnType<typeof _egress>
-
-// RequestOptions never carries a scheme-qualified URL and fills only the authority fields its caller supplied — a
-// URL-built request (what the OTLP node transport issues) leaves `host` undefined entirely — so the pair normalizes
-// here under the package's own default-port fill; a bare `host` compare misses the exporter's own traffic outright
-const _authority = (request: RequestOptions): { readonly host: string; readonly port: string } =>
-  pipe(request.host?.match(/^([^:/ ]+)(:\d{1,5})?/), (stated) => ({
-    host: request.hostname ?? stated?.[1] ?? "localhost",
-    port: String(request.port ?? stated?.[2]?.slice(1) ?? (request.protocol === "https:" ? "443" : "80")),
-  }))
-
-const _rows = (policy: Export.Policy, egress: _Egress): ReadonlyArray<Instrumentation> => [
-  new HttpInstrumentation({
-    enabled: policy.server.rows.http, // the zeroth column: a refused row never patches its module, where a tuned-off row still does
-    // inbound hooks receive a request path, so the ignore roster is paths and the collector fact has no spelling here
-    ignoreIncomingRequestHook: (request) => Array.some(policy.server.ignore, (row) => (request.url ?? "").includes(row)),
-    ignoreOutgoingRequestHook: (request) =>
-      pipe(_authority(request), (authority) => Array.some(egress, (row) => row.host === authority.host && row.port === authority.port)),
-    redactedQueryParams: [...policy.server.redact], // finer than the boundary seal: a deployment keeping url.full still masks its named params
-    requireParentforOutgoingSpans: !policy.server.orphan,
-  }),
-  new UndiciInstrumentation({
-    enabled: policy.server.rows.undici,
-    ignoreRequestHook: (request) => pipe(new URL(request.origin).origin, (origin) => Array.some(egress, (row) => row.origin === origin)),
-    requireParentforSpans: !policy.server.orphan, // Effect's spans are primary: a client hop enriches the live tree, never roots a rival trace
-  }),
-  new PgInstrumentation({
-    addSqlCommenterCommentToQueries: policy.server.comment, // the comment rides the statement text pg_stat_statements normalizes
-    // an extra SET application_name round-trip per query: the session stamp is priced apart from the comment, never bundled with it
-    enableTraceContextPropagation: policy.server.session,
-    enabled: policy.server.rows.pg, // a deployment with no Postgres refuses the `pg` module patch outright
-    enhancedDatabaseReporting: policy.server.statement,
-    ignoreConnectSpans: !policy.server.connect,
-    requireParentSpan: !policy.server.orphan,
-  }),
-  new RuntimeNodeInstrumentation({
-    captureUncaughtException: false, // crash#CAPTURE is the one process-fatal owner: a second listener mints a rival fatal record
-    enabled: policy.server.rows.runtime,
-    monitoringPrecision: policy.server.engine.precision,
-  }),
-]
-
-const Instrument: {
-  readonly Ambient: typeof _Ambient
-  readonly ambient: Layer.Layer<_Ambient>
-  readonly live: (
-    policy: Export.Policy,
-  ) => Layer.Layer<never, never, _Ambient | Hooks | Hooks.Meter | OtelBridge.OtelTracerProvider | OtelLogger.OtelLoggerProvider>
-} = {
-  Ambient: _Ambient,
-  ambient: _ambient,
-  live: (policy) =>
-    Layer.scopedDiscard(
-      Effect.flatMap(
-        // the manager rides `R`: registration provably follows its install, and a raise here unwinds only this bracket
-        // because the manager's own Layer owns its teardown. `HostMetrics` publishes no stop seam — it registers
-        // observable callbacks on the meter provider handed in, so its lifetime is already that provider's and its
-        // rollback is that provider's own close.
-        Effect.all([
-          Effect.flatMap(Hooks, (hooks) => hooks.drained),
-          Hooks.Meter,
-          OtelBridge.OtelTracerProvider,
-          OtelLogger.OtelLoggerProvider,
-          _Ambient,
-        ]),
-        ([adds, raw, tracerProvider, loggerProvider]) =>
-          Effect.acquireRelease(
-            Effect.sync(() => {
-              const egress = _egress(policy) // one parse per registration, read by every hook the rows install
-              new HostMetrics({
-                meterProvider: raw.provider,
-                metricGroups: [...policy.server.engine.groups],
-                name: policy.identity.app,
-              }).start()
-              return registerInstrumentations({
-                instrumentations: [..._rows(policy, egress), ...adds.instruments],
-                loggerProvider, // every provider slot binds: an omitted one falls to the api global the facade never registers
-                meterProvider: raw.provider,
-                tracerProvider,
-              })
-            }),
-            (unload) => Effect.sync(unload),
-          ),
-      ),
-    ),
-}
-
-// --- [EXPORTS] --------------------------------------------------------------------------
-
-export { Instrument }
-
-// --- [BROWSER] --- runtime/src/otel/instrument.ts, the `browser` condition
-
-import { context as ambient, type ContextManager } from "@opentelemetry/api"
-import { ZoneContextManager } from "@opentelemetry/context-zone"
-import { registerInstrumentations, type Instrumentation } from "@opentelemetry/instrumentation"
-import { DocumentLoadInstrumentation } from "@opentelemetry/instrumentation-document-load"
-import { FetchInstrumentation } from "@opentelemetry/instrumentation-fetch"
-import { UserInteractionInstrumentation } from "@opentelemetry/instrumentation-user-interaction"
-import { XMLHttpRequestInstrumentation } from "@opentelemetry/instrumentation-xml-http-request"
-import { Logger as OtelLogger, Tracer as OtelBridge } from "@effect/opentelemetry"
-import { Array, Context, Effect, Layer } from "effect"
-import { type Export, Hooks } from "./emit.ts"
-
-// Same published-capability split as the server node under this condition's own manager: the zone manager install is
-// process-global, so its teardown belongs to a Layer rather than to a bracket the registration shares.
-class _Ambient extends Context.Tag("runtime/Instrument/Ambient")<_Ambient, ContextManager>() {}
-
-const _ambient: Layer.Layer<_Ambient> = Layer.scoped(
-  _Ambient,
-  Effect.acquireRelease(
-    Effect.sync(() => {
-      const manager = new ZoneContextManager().enable()
-      ambient.setGlobalContextManager(manager)
-      return manager
-    }),
-    () => Effect.sync(() => ambient.disable()),
-  ),
-)
-
-// urlMatches compares a STRING entry to the whole request URL by equality, so a base never matches the /v1/<signal>
-// URL the exporter posts to — every self-egress origin anchors as its own pattern, the collector beside each
-// `policy.egress` row, so a second telemetry backend joins the exclusion without a second parse
-const _self = (policy: Export.Policy): ReadonlyArray<RegExp> =>
-  Array.map(
-    [policy.collector.baseUrl, ...policy.egress],
-    (raw) => new RegExp(`^${new URL(raw).origin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/`),
-  )
-
-const _request = (policy: Export.Policy) => ({
-  ignoreUrls: [..._self(policy)],
-  propagateTraceHeaderCorsUrls: [...policy.browser.propagate],
-})
-
-const _rows = (policy: Export.Policy): ReadonlyArray<Instrumentation> => [
-  new DocumentLoadInstrumentation({ enabled: policy.browser.rows.document }),
-  new FetchInstrumentation({ ..._request(policy), enabled: policy.browser.rows.fetch }),
-  new UserInteractionInstrumentation({
-    // a kiosk build drops interaction spans through this column alone, where dropping the whole node would take
-    // document-load and both request surfaces with it
-    enabled: policy.browser.rows.interaction,
-    eventNames: [...policy.browser.interaction.events],
-    shouldPreventSpanCreation: policy.browser.interaction.prevent,
-  }),
-  // This legacy request surface under the identical self-exclusion and propagate rows as the fetch row
-  new XMLHttpRequestInstrumentation({ ..._request(policy), enabled: policy.browser.rows.xhr }),
-]
-
-const Instrument: {
-  readonly Ambient: typeof _Ambient
-  readonly ambient: Layer.Layer<_Ambient>
-  readonly live: (
-    policy: Export.Policy,
-  ) => Layer.Layer<never, never, _Ambient | Hooks | Hooks.Meter | OtelBridge.OtelTracerProvider | OtelLogger.OtelLoggerProvider>
-} = {
-  Ambient: _Ambient,
-  ambient: _ambient,
-  live: (policy) =>
-    Layer.scopedDiscard(
-      Effect.flatMap(
-        Effect.all([
-          Effect.flatMap(Hooks, (hooks) => hooks.drained),
-          Hooks.Meter,
-          OtelBridge.OtelTracerProvider,
-          OtelLogger.OtelLoggerProvider,
-          _Ambient,
-        ]),
-        ([adds, raw, tracerProvider, loggerProvider]) =>
-          Effect.acquireRelease(
-            Effect.sync(() =>
-              registerInstrumentations({
-                instrumentations: [..._rows(policy), ...adds.instruments],
-                loggerProvider,
-                meterProvider: raw.provider,
-                tracerProvider,
-              })),
-            (unload) => Effect.sync(unload),
-          ),
-      ),
-    ),
-}
-
-// --- [EXPORTS] --------------------------------------------------------------------------
-
-export { Instrument }
-```
-
-## [08]-[CONTINUATION]
-
-- Owner: `Propagation` — causal identity crossing every ingress: each admitted transport selects core `Carrier.extract` at its live frame seam, this adapter lifts the resulting `Carrier.Context` into an OTel `SpanContext`, and `new TraceState(Carrier.print.tracestate(...))` preserves the parsed state; the assembled owner carries extraction, the ambient carried context, and the one ingress transformer, `Function.dual` so the transformer follows a live pipe subject at every entry seam.
+- Owner: `Propagation` — causal identity crossing every ingress: each admitted transport selects core `Carrier.extract` at its live frame seam, this adapter lifts that extraction's `Carrier.Context` half into an OTel `SpanContext`, and `new TraceState(Carrier.print.tracestate(...))` preserves the parsed state; the assembled owner carries extraction, the ambient carried context, and the one ingress transformer, `Function.dual` so the transformer follows a live pipe subject at every entry seam.
 - Law: the carrier is one shape — `Carrier.Context` — so HTTP, fanout, NATS, Kafka, MQTT, Connect, and CloudEvents frames cross their own dialect rows before continuation; a generic string record never masquerades as a transport inside this adapter.
 - Law: W3C trace-context is the identity wire, its widths branded at the core `Traceparent` — a 32-hex trace id crossing every hop of one trace beside a 16-hex span id naming one hop's parent, each rejecting the all-zero value — and `_context` lifts that decoded pair verbatim into the `SpanContext` `withSpanContext` seats, so an inbound parent is adopted and the facade roots a trace only where the carrier carries none. `core/value/clock#TWO_HALF_LAYOUT` crosses the same frame on the typed `rasm-stamp-bin` metadata lane, disjoint from the W3C rows, so no causal cell occupies a trace or span id slot.
-- Law: absence is normal, never a fault — `Carrier.extract` folds a malformed parent to `Option.none` and retains surviving state and baggage members, so invalid optional metadata cannot forge or discard valid causal identity. Extraction's receipt is `Option<Tracer.ExternalSpan>`, the doctrine interior form for inbound trace identity.
+- Law: absence is normal, never a fault, and loss is measured rather than silent — `Carrier.extract` folds a malformed parent to `Option.none`, retains every surviving state and baggage member, and counts what it refused onto the extraction's own census, so invalid optional metadata can neither forge nor discard valid causal identity nor slip past unrecorded. Extraction's receipt is `Option<Tracer.ExternalSpan>`, the doctrine interior form for inbound trace identity.
 - Law: `Propagation.ingress` is the entry-seam law — one transformer that continues the inbound parent through the facade's `Tracer.withSpanContext` when present, runs unchanged when absent, scopes the scrubbed context through core `Carrier.Current`, and stamps baggage as log annotations in the same declaration AFTER the shared scrub: the fold reads `Redaction.Current` and passes every baggage record through `Redaction.scrub`, so a foreign baggage value can never carry an identifier or credential into logs and the signal-safety ledger covers this seam by construction; every ingress composes this one member, so extract-and-continue can never be half-applied.
+- Law: the transformer takes the `Carrier.Extraction` WHOLE and publishes its `dropped` census exactly once per crossing — a member no grammar admitted is measured loss, not absence, so a transport handing over only the context half lets every parse drop vanish into a silent filter and no destructuring stands at each call site to forget it. `Fault.Ledger.quiet` gates the publish on EVIDENCE rather than on a length, so a clean crossing pays nothing and an unread census can never read as a clean one.
 - Law: `Propagation.current` exposes core `Carrier.current` at the runtime boundary — the core owner overlays the live Effect span parent onto `Carrier.Current` while retaining admitted tracestate and baggage; every egress injects that value through its exact core dialect row without ambient OTel mutation.
 - Law: promotion closes the loop ingress opens, both halves behind the one `_admitted` predicate — an admitted prefix-keyed pair (the `Propagation.Promote` reference, defaulting to `rasm.` and overridden once at the root from `policy.promote`) also stamps every span in the continuation region through `Effect.annotateSpans`, the Effect-side half whose SDK-lane half is the `_sdk` `BaggageSpanProcessor` row — so `Convention.rasm.tenant` walks baggage to span to metric view under the standing cardinality governor, and baggage stays annotation and governed-promotion material, never span identity and never a metric tag.
 - Law: transport seams split by owner — the shared HTTP client egress rides `HttpClient.withTracerPropagation` composed on `net/client#DIAL_SEAM`'s client; non-HTTP egress reads `Propagation.current` and injects through core `Carrier`, so transport-native frame construction stays at each live seam and every branch-owned frame carries a typed dialect row rather than an ambient codec.
 - Law: the global composite propagator `[06]`'s `_ambient` registers serves foreign libraries alone — a third-party client calling `propagation.inject` or a foreign server helper calling `propagation.extract` meets the estate's own W3C trace-context and baggage pair instead of the no-op default, so an unowned hop still continues the trace. Registration is stateless and idempotent, this owner never reads the global back, and `Carrier` stays the one typed path every branch seam spells; a branch site reaching for the ambient propagator instead of its dialect row is the defect the typed path forecloses.
 - Boundary: span creation, naming, and the `Effect.fn` seam are callers' law — this owner never opens a span, it fixes the parent of whatever span the caller opens next.
-- Entry: admitted ingress calls `Carrier.extract(dialect, frame)` then `Propagation.ingress(effect, context)` or `effect.pipe(Propagation.ingress(context))`; `Propagation.extract(context)` holds the parent as a value; the root overrides `Propagation.Promote` once with `Layer.succeed(Propagation.Promote, policy.promote)`. Baggage never leaves this owner raw — the decoded context feeds `ingress` behind the scrub, so a foreign baggage read outside the fold is unspellable.
+- Entry: admitted ingress calls `Carrier.extract(dialect, frame)` then `Propagation.ingress(effect, extraction)` or `effect.pipe(Propagation.ingress(extraction))`, handing the extraction whole; `Propagation.extract(context)` holds the parent as a value; the root overrides `Propagation.Promote` once with `Layer.succeed(Propagation.Promote, policy.promote)`. Baggage never leaves this owner raw — the decoded context feeds `ingress` behind the scrub, so a foreign baggage read outside the fold is unspellable.
 - Growth: a new inbound transport is one call site composing `ingress` — the owner is closed.
-- Packages: `@opentelemetry/core` (`TraceState`), `@opentelemetry/api` (`SpanContext`, `TraceFlags`), `@effect/opentelemetry` (`Tracer.makeExternalSpan`, `Tracer.withSpanContext`), `@rasm/ts/core` (`Carrier`), `effect` (`Array`, `Context`, `Effect`, `Function`, `Option`, `Record`).
+- Packages: `@opentelemetry/core` (`TraceState`), `@opentelemetry/api` (`SpanContext`, `TraceFlags`), `@effect/opentelemetry` (`Tracer.makeExternalSpan`, `Tracer.withSpanContext`), `@rasm/ts/core` (`Carrier`, `Fault.Ledger`), `effect` (`Array`, `Context`, `Effect`, `Function`, `Option`, `Record`).
 
 ```typescript signature
 const _context = (carrier: Carrier.Context): Option.Option<SpanContext> =>
@@ -1319,12 +983,24 @@ class _Promote extends Context.Reference<_Promote>()("runtime/Propagation/Promot
   defaultValue: (): ReadonlyArray<string> => ["rasm."],
 }) {}
 
+// Parse drops are MEASURED loss and this is the one seam that sees them: extraction folds a member no grammar admits
+// out of the surviving band and hands the census beside the context, so the crossing publishes it once rather than
+// letting each transport re-read the extraction and each drop disappear into a silent filter. The gate reads
+// evidence, so a census of monoid zeros — this crossing observed no drop — costs nothing and says so.
+const _dropped = (census: Fault.Ledger.Census): Effect.Effect<void> =>
+  Fault.Ledger.quiet(census)
+    ? Effect.void
+    : Effect.annotateLogs(
+        Effect.logWarning("<carrier-drop>"),
+        Record.map(census, (cell) => `${cell.count}@${cell.extent}`),
+      )
+
 const _ingress: {
-  (carrier: Carrier.Context): <A, E, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>
-  <A, E, R>(self: Effect.Effect<A, E, R>, carrier: Carrier.Context): Effect.Effect<A, E, R>
+  (extraction: Carrier.Extraction): <A, E, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>
+  <A, E, R>(self: Effect.Effect<A, E, R>, extraction: Carrier.Extraction): Effect.Effect<A, E, R>
 } = Function.dual(
   2,
-  <A, E, R>(self: Effect.Effect<A, E, R>, carrier: Carrier.Context): Effect.Effect<A, E, R> =>
+  <A, E, R>(self: Effect.Effect<A, E, R>, { context: carrier, dropped }: Carrier.Extraction): Effect.Effect<A, E, R> =>
     Effect.flatMap(Effect.all([Redaction.Current, _Promote]), ([rules, promote]) => {
       // baggage is foreign material: it rides the shared scrub before any annotation or promotion lands
       const bag = Redaction.scrub(rules, _baggage(carrier))
@@ -1339,10 +1015,13 @@ const _ingress: {
         Effect.provideService(Effect.annotateLogs(self, bag), Carrier.Current, carried),
         (held) => (Record.isEmptyRecord(promoted) ? held : Effect.annotateSpans(held, promoted)), // the Effect-side promotion half: admitted pairs ride every span in the region
       )
-      return Option.match(_context(carrier), {
-        onNone: () => noted,
-        onSome: (context) => OtelBridge.withSpanContext(noted, context),
-      })
+      return Effect.zipRight(
+        _dropped(dropped),
+        Option.match(_context(carrier), {
+          onNone: () => noted,
+          onSome: (context) => OtelBridge.withSpanContext(noted, context),
+        }),
+      )
     }),
 )
 
@@ -1363,7 +1042,7 @@ const Propagation: {
 export { Export, Hooks, Propagation, Redaction }
 ```
 
-## [09]-[DEV]
+## [08]-[DEV]
 
 - Owner: the sibling `otel/dev` module the `./dev` exports-map subpath alone resolves — one `DevTools.layer` row wired to the local DevTools WebSocket, `plane:dev` by tag so the architecture gauge fails any runtime import; the physical module split is what makes the fence structural rather than disciplinary.
 - Law: the dev layer is a registration node like the export layer — merged into a dev composition root beside `Export.live`, never instead of it — and it carries no policy: the DevTools endpoint default is the tool's own.
@@ -1381,6 +1060,6 @@ const dev: Layer.Layer<never> = DevTools.layer()
 export { dev }
 ```
 
-## [10]-[RESEARCH]
+## [09]-[RESEARCH]
 
 (none)

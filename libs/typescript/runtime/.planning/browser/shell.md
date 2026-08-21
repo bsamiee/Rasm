@@ -18,10 +18,10 @@ The PWA shell plane: the web-app manifest as a typed VALUE the app constructs an
 - Law: non-emptiness is a type fact — an installable manifest without icons is unconstructible, so the PWA install criteria fail at compile time, never at an audit.
 - Growth: a new manifest member is one field or embedded-schema field on `Manifest`; a new display or orientation posture is one literal on its existing axis.
 - Boundary: cache identity and precache emission are `[3]`'s build rows; this owner carries only the manifest contract.
-- Packages: `effect` (`Schema`, `Option`).
+- Packages: `effect` (`Schema`, `Option`); `@rasm/ts/core` (`Fault.Class`, `Shape.Record`).
 
 ```typescript signature
-import { Fault } from "@rasm/ts/core"
+import { Fault, Shape } from "@rasm/ts/core"
 import { Data, DateTime, Effect, Option, Record, Ref, Schema, Stream, Subscribable, SubscriptionRef } from "effect"
 import type { RuntimeCaching, StrategyName } from "workbox-build"
 import { Workbox, type WorkboxLifecycleWaitingEvent } from "workbox-window"
@@ -81,7 +81,7 @@ const _ShareTarget = Schema.Union(
 
 const _FileHandler = Schema.Struct({
   action: Schema.NonEmptyString,
-  accept: Schema.Record({ key: Schema.NonEmptyString, value: Schema.NonEmptyArray(Schema.NonEmptyString) }),
+  accept: Shape.Record(Schema.NonEmptyString, Schema.NonEmptyArray(Schema.NonEmptyString)),
   launchType: Schema.optionalWith(Schema.Literal("single-client", "multiple-clients"), { as: "Option" }).pipe(Schema.fromKey("launch_type")),
 })
 
@@ -164,25 +164,38 @@ type SwLifecycle = Data.TaggedEnum<{
 }>
 const SwLifecycle: Data.TaggedEnum.Constructor<SwLifecycle> = Data.taggedEnum<SwLifecycle>()
 
+// `register` covers both container calls, so the row carries WHICH one refused: a first registration that never took
+// and an update check that failed against a live worker are different repairs, and one free cause string named
+// neither. `unsupported` carries nothing — a host with no `serviceWorker` container is the whole fact.
 const _swFamily = Fault.Class.family(["unsupported", "register", "message"] as const, {
-  unsupported: { class: "absent" },
-  register: { class: "unavailable" },
-  message: { class: "conflicted" },
+  unsupported: Fault.Class.row({
+    class: "absent",
+    leg: "lifecycle",
+    detail: Schema.Struct({}),
+    render: () => "the host carries no serviceWorker container",
+  }),
+  register: Fault.Class.row({
+    class: "unavailable",
+    leg: "lifecycle",
+    detail: Schema.Struct({ call: Schema.Literal("register", "update"), cause: Schema.String }),
+    render: ({ call, cause }) => `worker ${call} refused: ${cause}`,
+  }),
+  message: Fault.Class.row({
+    class: "conflicted",
+    leg: "relay",
+    detail: Schema.Struct({ cause: Schema.String }),
+    render: ({ cause }) => `the worker refused the relayed message: ${cause}`,
+  }),
 })
 
-declare namespace SwFault {
-  type Reason = (typeof _swFamily.reasons)[number]
-}
-
-class SwFault extends Data.TaggedError("SwFault")<{
-  readonly reason: SwFault.Reason
-  readonly detail: string
-}> {
+class SwFault extends Schema.TaggedError<SwFault>()("SwFault", {
+  case: _swFamily.payload,
+}) {
   get class(): Fault.Class.Kind {
-    return _swFamily.classOf(this.reason)
+    return _swFamily.classOf(this.case.reason)
   }
   override get message(): string {
-    return `<sw:${this.reason}> ${this.detail}`
+    return _swFamily.render(this.case)
   }
 }
 
@@ -396,12 +409,12 @@ class Sw extends Effect.Service<Sw>()("runtime/browser/Sw", {
         register: carried
           ? Effect.tryPromise({
               try: () => wb.register(),
-              catch: (cause) => new SwFault({ reason: "register", detail: String(cause) }),
+              catch: (cause) => new SwFault({ case: { reason: "register", call: "register", cause: String(cause) } }),
             }).pipe(Effect.map((registration) => registration !== undefined))
-          : Effect.fail(new SwFault({ reason: "unsupported", detail: "<no-service-worker>" })),
+          : Effect.fail(new SwFault({ case: { reason: "unsupported" } })),
         update: Effect.tryPromise({
           try: () => wb.update(),
-          catch: (cause) => new SwFault({ reason: "register", detail: String(cause) }),
+          catch: (cause) => new SwFault({ case: { reason: "register", call: "update", cause: String(cause) } }),
         }),
         apply: SubscriptionRef.set(_phase, SwLifecycle.Reloading()).pipe(
           Effect.zipRight(Effect.sync(() => wb.messageSkipWaiting())),
@@ -409,7 +422,7 @@ class Sw extends Effect.Service<Sw>()("runtime/browser/Sw", {
         signal: (data: object) =>
           Effect.tryPromise({
             try: () => wb.messageSW(data),
-            catch: (cause) => new SwFault({ reason: "message", detail: String(cause) }),
+            catch: (cause) => new SwFault({ case: { reason: "message", cause: String(cause) } }),
           }),
         queue,
         relayed,
@@ -430,7 +443,7 @@ class Sw extends Effect.Service<Sw>()("runtime/browser/Sw", {
 - Law: the update affordance is a derivation, not a state — `fresh` maps the worker phase feed through the `Waiting` refinement AND its `update` flag, so a first-install wait renders nothing, install and update read one truth, and the ui wave binds both through its atom bridge at app composition; this module exposes no second phase cell.
 - Receipt: `ask` yields the fold's stance so the caller renders the outcome without re-reading the cell.
 - Boundary: the worker phase and the apply handshake are `[3]`'s; the affordance rendering is the ui wave's through the app-composed port.
-- Packages: `effect` (`Data`, `Effect`, `Option`, `Stream`, `Subscribable`, `SubscriptionRef`); `@rasm/ts/core` (`Fault.Class`).
+- Packages: `effect` (`Data`, `Effect`, `Option`, `Schema`, `Stream`, `Subscribable`, `SubscriptionRef`); `@rasm/ts/core` (`Fault.Class`).
 
 ```typescript signature
 type InstallStance = Data.TaggedEnum<{
@@ -441,24 +454,31 @@ type InstallStance = Data.TaggedEnum<{
 }>
 const InstallStance: Data.TaggedEnum.Constructor<InstallStance> = Data.taggedEnum<InstallStance>()
 
+// The prompt slot is a one-shot the host mints and this owner drains, so `unavailable` names no subject: an empty
+// slot is the whole fact and the stance cell already says which posture the caller is in.
 const _installFamily = Fault.Class.family(["unavailable", "ceremony"] as const, {
-  unavailable: { class: "absent" },
-  ceremony: { class: "denied" },
+  unavailable: Fault.Class.row({
+    class: "absent",
+    leg: "install",
+    detail: Schema.Struct({}),
+    render: () => "no beforeinstallprompt event is held to replay",
+  }),
+  ceremony: Fault.Class.row({
+    class: "denied",
+    leg: "install",
+    detail: Schema.Struct({ cause: Schema.String }),
+    render: ({ cause }) => `the install ceremony refused: ${cause}`,
+  }),
 })
 
-declare namespace InstallFault {
-  type Reason = (typeof _installFamily.reasons)[number]
-}
-
-class InstallFault extends Data.TaggedError("InstallFault")<{
-  readonly reason: InstallFault.Reason
-  readonly detail: string
-}> {
+class InstallFault extends Schema.TaggedError<InstallFault>()("InstallFault", {
+  case: _installFamily.payload,
+}) {
   get class(): Fault.Class.Kind {
-    return _installFamily.classOf(this.reason)
+    return _installFamily.classOf(this.case.reason)
   }
   override get message(): string {
-    return `<install:${this.reason}> ${this.detail}`
+    return _installFamily.render(this.case)
   }
 }
 
@@ -510,12 +530,12 @@ class Install extends Effect.Service<Install>()("runtime/browser/Install", {
     const ask: Effect.Effect<InstallStance, InstallFault> = Effect.gen(function* () {
       const slot = yield* SubscriptionRef.modify(held, (taken) => [taken, Option.none<_PromptEvent>()] as const)
       const prompt = yield* Option.match(slot, {
-        onNone: () => Effect.fail(new InstallFault({ reason: "unavailable", detail: "<no-captured-prompt>" })),
+        onNone: () => Effect.fail(new InstallFault({ case: { reason: "unavailable" } })),
         onSome: Effect.succeed,
       })
       const choice = yield* Effect.tryPromise({
         try: () => prompt.prompt().then(() => prompt.userChoice),
-        catch: (cause) => new InstallFault({ reason: "ceremony", detail: String(cause) }),
+        catch: (cause) => new InstallFault({ case: { reason: "ceremony", cause: String(cause) } }),
       })
       const landed = choice.outcome === "accepted" ? InstallStance.Installed() : InstallStance.Browser()
       yield* SubscriptionRef.set(_stance, landed)

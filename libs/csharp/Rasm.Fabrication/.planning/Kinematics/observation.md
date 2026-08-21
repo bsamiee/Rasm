@@ -15,8 +15,9 @@ Machine telemetry enters through the AppHost decode lane; this page admits provi
 - Cases: spindle-load · spindle-speed · path-feed · temperature · execution · alarm · tool-in-spindle — one case per decoded stream the shop consumers read; a stream without a consumer stays wire-only by omission, never a speculative case.
 - Entry: `MachineObservation.Admit(MachineObservationIngress source)` — the one package admission: unavailable and unsupported rows project `None`, admitted scalar rows validate their units and ranges, and malformed values fail typed — no provider type or sentinel survives the seam.
 - Auto: `MachineObservations` orders rows at admission and derives `Span`, `LatestLoad`, `MeanLoad`, `ActiveFraction`, `FaultEpisodes`, `ToolNumber`, and `LoadCeiling` as pure folds over the one row sequence — a consumer re-scanning rows for a derivable projection is the deleted form.
-- Receipt: `LoadWindow` carries observed fraction, target fraction, reference radial depth, observation instant, and expiry; its one `Ceiling` fold rejects zero, future, and expired samples before engagement reads a scalar. `Kinematics/fleet.md` `MachinePerformance.Of` folds the same window into refreshed OEE, reliability, and observed-power rows under `FleetPolicy.PerformanceHorizon`, and `Tooling/wear.md` `ConditionSignal.Of` lowers the thermal case into the wear channel family.
-- Packages: NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
+- Law: every scalar predicate is a `ValidityClaim` row and this page owns only the refusal SHAPE — one `Held` guard turns a claim into the typed `PolicyInadmissible` naming the decoded stream, where the kernel guard raises its own scalar-range fault. Hand `Finite`/`Nonnegative`/`Fraction` rows also spelled finiteness as `double.IsFinite`, admitting the host unset sentinel the kernel arm screens; `Text` survives because it PRODUCES a trimmed value no claim row answers over.
+- Receipt: `LoadWindow` carries observed fraction, target fraction, reference radial depth, observation instant, and expiry; it declares `IValidityEvidence` over `ValidityClaim.All`, so its coherence is a fold the acceptance oracle reads and `Ceiling` states only what a fold cannot — whether the read instant falls inside the sampled span. `Kinematics/fleet.md` `MachinePerformance.Of` folds the same window into refreshed OEE, reliability, and observed-power rows under `FleetPolicy.PerformanceHorizon`, and `Tooling/wear.md` `ConditionSignal.Of` lowers the thermal case into the wear channel family.
+- Packages: `Rasm.Domain` owns `ValidityClaim` and `IValidityEvidence`; NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a new decoded stream is one union case, one dispatch row in `Admit`, and one window projection where a consumer folds it; a new consumer rebinds onto the window with zero decode edits.
 - Boundary: AppHost owns provider timestamp and enum conversion into `MachineObservationIngress`; consumers hold only admitted union cases. Condition severity keeps the normal edge because a fault episode closes on it — dropping normals leaves every episode open-ended.
 
@@ -90,22 +91,23 @@ public abstract partial record MachineObservation {
     public sealed record ToolInSpindle(Instant At, string ToolNumber) : MachineObservation(At);
 
     public static Fin<Option<MachineObservation>> Admit(MachineObservationIngress source) =>
-        Optional(source).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "observation:null"))
+        Optional(source).ToFin(new KernelFault.InvalidValue("observation", "observation:null"))
             .Bind(row => row.Switch(
-                spindleLoad: static value => Fraction(value.Fraction, "observation:load")
+                spindleLoad: static value => Held(ValidityClaim.UnitInterval(value.Fraction), value.Fraction, "observation:load")
                     .Map(fraction => Some((MachineObservation)new SpindleLoad(value.At, fraction))),
-                spindleSpeed: static value => Nonnegative(value.Rpm, "observation:rotary-velocity")
+                spindleSpeed: static value => Held(ValidityClaim.Nonnegative(value.Rpm), value.Rpm, "observation:rotary-velocity")
                     .Map(rpm => Some((MachineObservation)new SpindleSpeed(value.At, rpm))),
-                pathFeed: static value => Nonnegative(value.MillimetersPerSecond, "observation:path-feedrate")
+                pathFeed: static value => Held(
+                        ValidityClaim.Nonnegative(value.MillimetersPerSecond), value.MillimetersPerSecond, "observation:path-feedrate")
                     .Map(feed => Some((MachineObservation)new PathFeed(value.At, feed))),
-                temperature: static value => Finite(value.Celsius, "observation:temperature")
+                temperature: static value => Held(ValidityClaim.Finite(value.Celsius), value.Celsius, "observation:temperature")
                     .Bind(celsius => Text(value.Locus, "observation:temperature-locus")
                         .Map(locus => Some((MachineObservation)new Temperature(value.At, celsius, locus)))),
                 execution: static value => Optional(value.State)
-                    .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "observation:execution"))
+                    .ToFin(new KernelFault.InvalidValue("observation", "observation:execution"))
                     .Map(state => Some((MachineObservation)new Execution(value.At, state))),
                 alarm: static value => Optional(value.Severity)
-                    .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "observation:alarm-severity"))
+                    .ToFin(new KernelFault.InvalidValue("observation", "observation:alarm-severity"))
                     .Bind(severity => Text(value.ConditionId, "observation:alarm-condition")
                         .Map(condition => Some((MachineObservation)new Alarm(value.At, severity, condition, value.NativeCode?.Trim() ?? string.Empty)))),
                 toolInSpindle: static value => Text(value.ToolNumber, "observation:tool-number")
@@ -113,44 +115,46 @@ public abstract partial record MachineObservation {
                 unavailable: static _ => Fin.Succ(Option<MachineObservation>.None),
                 unsupported: static _ => Fin.Succ(Option<MachineObservation>.None)));
 
-    private static Fin<double> Finite(double value, string locus) =>
-        double.IsFinite(value)
+    // ONE guard for every scalar the decode admits: the kernel `ValidityClaim` vocabulary decides each predicate,
+    // and this seam only chooses the refusal shape, because the fault is the PAGE's — a typed `PolicyInadmissible`
+    // naming which decoded stream refused, where the kernel guard raises its own scalar-range fault. Three hand
+    // predicates also re-spelled finiteness as `double.IsFinite`, which admits the host unset sentinel the kernel
+    // arm screens; every stream here is decoded shop data for which that value is garbage.
+    private static Fin<T> Held<T>(ValidityClaim claim, T value, string locus) =>
+        claim
             ? Fin.Succ(value)
-            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, locus));
+            : Fin.Fail<T>(new KernelFault.InvalidValue("observation", locus));
 
-    private static Fin<double> Nonnegative(double value, string locus) =>
-        double.IsFinite(value) && value >= 0.0
-            ? Fin.Succ(value)
-            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, locus));
-
-    private static Fin<double> Fraction(double value, string locus) =>
-        double.IsFinite(value) && value is >= 0.0 and <= 1.0
-            ? Fin.Succ(value)
-            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, locus));
-
+    // Trim-then-nonempty PRODUCES the trimmed value, and no kernel claim row answers over strings, so this one stays.
     private static Fin<string> Text(string value, string locus) =>
         Optional(value).Map(static row => row.Trim()).Filter(static row => row.Length > 0)
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, locus));
+            .ToFin(new KernelFault.InvalidValue("observation", locus));
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// Coherence is this window's own `IValidityEvidence` fold, so `Ceiling` states only what a fold cannot: whether a
+// READ instant falls inside the sampled span. Each column's `IsFinite`-and-positive pair becomes one
+// `ValidityClaim.Positive` row, and implementing the interface registers this window with the one acceptance oracle
+// rather than leaving it a shape nothing can admit.
 public readonly record struct LoadWindow(
     double ObservedFraction,
     double TargetFraction,
     double ReferenceRadialMm,
     Instant ObservedAt,
-    Instant ValidUntil) {
+    Instant ValidUntil) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Positive(ObservedFraction),
+        ValidityClaim.Positive(TargetFraction),
+        ValidityClaim.Positive(ReferenceRadialMm),
+        ObservedAt <= ValidUntil);
+
     public Option<double> Ceiling(Instant at) =>
-        double.IsFinite(ObservedFraction) && ObservedFraction > 0.0
-        && double.IsFinite(TargetFraction) && TargetFraction > 0.0
-        && double.IsFinite(ReferenceRadialMm) && ReferenceRadialMm > 0.0
-        && ObservedAt <= at && at <= ValidUntil
+        IsValid && ObservedAt <= at && at <= ValidUntil
             ? Some(ReferenceRadialMm * TargetFraction / ObservedFraction)
             : None;
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class MachineObservations {
     // The window is scoped to a physical STATION, so it keys on the S0 `MachineInstanceKey` the fleet registry, the
     // plan step, and the schedule all key on; a bare string here forks that key space against every consumer.
@@ -207,9 +211,10 @@ public sealed partial class MachineObservations {
         Duration freshness,
         double targetFraction,
         double referenceRadialMm) =>
-        freshness > Duration.Zero
-        && double.IsFinite(targetFraction) && targetFraction > 0.0
-        && double.IsFinite(referenceRadialMm) && referenceRadialMm > 0.0
+        ValidityClaim.All(
+            freshness > Duration.Zero,
+            ValidityClaim.Positive(targetFraction),
+            ValidityClaim.Positive(referenceRadialMm))
             ? Latest
                 .Filter(load => load.At <= at && at - load.At <= freshness)
                 .Map(load => new LoadWindow(load.Fraction, targetFraction, referenceRadialMm, load.At, load.At + freshness))
@@ -220,13 +225,13 @@ public sealed partial class MachineObservations {
     // that remain its own: a window carries rows, and its end is not before the last row it holds.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref MachineInstanceKey instance,
         ref Seq<MachineObservation> rows,
         ref Instant windowEnd) {
         rows = toSeq(rows.OrderBy(static row => row.At));
         if (rows.IsEmpty || !rows.Last.Exists(row => windowEnd >= row.At))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine-observations:window");
+            validationError = new ValidationError("machine-observations:window");
     }
 
     public static Fin<MachineObservations> Admit(

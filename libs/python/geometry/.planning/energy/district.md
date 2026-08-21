@@ -30,7 +30,7 @@ from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec import json as msgjson
 
-from rasm.geometry.energy.climate import EnergyFault
+from rasm.geometry.energy.climate import ENERGY_REGIMES, EnergyFault, EnergyRegime, RegimeKey
 from rasm.geometry.energy.model import BuildingModel, EnergySpec, ModelSource, assigned
 from rasm.geometry.graduation import EvidenceScope, GeometryHandoff, GeometrySubject, evidence_key, evidence_run
 from rasm.runtime.faults import Disposition, RuntimeRail, traversed
@@ -185,16 +185,17 @@ class DistrictReceipt(Struct, frozen=True):
         # of one district dedupes in the persistence ledger without a caller-minted key.
         return b"|".join((self.content_key.memory, self.target.default_value("admit").encode()))
 
-    def graduates(self, ceiling: float) -> GeometryHandoff:
+    def graduates(self, regime: EnergyRegime = ENERGY_REGIMES[RegimeKey.DISTRICT_DEFECTS]) -> GeometryHandoff:
         # an empty segment census carries no zoning evidence, so it reads fully unzoned (residual 1.0) and refuses the
-        # ceiling — a `max(total, 1)` fallback would graduate a segmentless district as fully zoned.
+        # bar — a `max(total, 1)` fallback would graduate a segmentless district as fully zoned. The bar arrives as a
+        # CITED regime row rather than an anonymous float, so the verdict names the residual it graded.
         residual = self.unzoned_segments / self.total_segments if self.total_segments else 1.0
         subject = GeometrySubject.BUILDING_ENERGY
         return GeometryHandoff.of(
             subject,
             evidence_key(subject, self.spec()),
             {"unzoned": residual, "buildings": float(self.buildings), "floor_area": self.floor_area},
-            {"unzoned": ceiling},
+            {"unzoned": regime.bar()},
         )
 
 

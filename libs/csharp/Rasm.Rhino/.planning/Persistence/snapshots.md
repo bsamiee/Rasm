@@ -1,178 +1,258 @@
 # [RASM_RHINO_PERSISTENCE_SNAPSHOTS]
 
-`SnapshotOperation` closes roster reads and scripted mutations behind `Snapshots.Commit`. `SnapshotParticipant` is the sole `SnapShotsClient` adapter; one capability registry supplies load-bearing document, object, and animation lanes, while `SnapshotCodec` composes `ArchiveIo.Cross` for every archive crossing.
+Rhino publishes snapshot NAMES and nothing else, so capture, restore, and delete ride a serial-pinned command script proved on both sides, while a plug-in's own snapshot payload rides the `SnapShotsClient` seam. `Snapshots.Commit` closes the scripted roster rail; `ParticipantSpec` declares which of the three payload lanes a participant serves; `SnapshotParticipant` is the sole host adapter and settles every `ref`-contract override through the kernel's one slot receiver.
 
-## [01]-[SCRIPTED_TABLE]
+## [01]-[INDEX]
 
-Rhino exposes only `SnapshotTable.Names`; capture, restore, and delete therefore route through serial-pinned `RhinoApp.RunScript`. `SnapshotVerb` owns script grammar and roster predicates as one policy row, and generated operation routing makes every scripted case exhaustive.
+- [02]-[SCRIPTED_TABLE]: `SnapshotName`, `SnapshotPresence`, `SnapshotVerb`, `SnapshotOperation`, `SnapshotRoster`, `SnapshotReceipt`, `SnapshotAnswer`, and the `Snapshots` rail with its scoped-restore bracket.
+- [03]-[PARTICIPANT_SEAMS]: `SnapshotCategory`, `ParticipantName`, `SnapshotObjectState`, the three lane contracts, and `ParticipantSpec`.
+- [04]-[HOST_ADAPTER]: `SnapshotParticipant` — the twenty-four `SnapShotsClient` overrides, the reporting funnel, and the one-time registration claim.
+- [05]-[RESEARCH]
+
+## [02]-[SCRIPTED_TABLE]
+
+- Owner: `SnapshotName` admits a name safe to embed in a quoted script token; `SnapshotPresence` is the roster-presence vocabulary and `SnapshotVerb` the three scripted verbs, each carrying its script token and its presence set; `SnapshotOperation` is the request family; `SnapshotRoster` and `SnapshotReceipt` are the detached evidence; `Snapshots` is the rail.
+- Entry: `SnapshotOperation.Roster()`, `.Capture(name)`, `.Restore(name)`, `.Delete(name)` mint the request; `Snapshots.Commit(DocumentSession, SnapshotOperation, Op?)` runs it; `Snapshots.Within(DocumentSession, SnapshotName, body, Op?)` restores a target for the length of a body and puts the document back.
+- Auto: the three mutation cases are ONE case carrying its verb, because the verb row already discriminates them — the script token, the presence law, and both roster guards read off `SnapshotVerb`, so a fourth scripted verb is one row and the request family does not grow. The receipt is a CENSUS, not a fact stream: this rail opens no `DocumentCommit.Sealed` and stamps no undo serial, so the before/after roster pair is the evidence and a slot vocabulary here names a timing class the page has none of.
+- Auto: the presence law is stated as its ILLEGAL corner, not as its legal roster. Three of the four corners are legal — capture leaves the name present, restore requires and leaves it, delete requires it and removes it — and the fourth, requiring the name absent and leaving it absent, is a verb that moves no roster at all. `Forbidden` bars that one corner, `SnapshotOperation.Of` admits every request through it, and the two guards in `Run` read the same set — so a fourth verb declaring the barred corner refuses at its first use instead of scripting a no-op. Enumerating three legal rows to exclude one inverts the author's intent and scales as `2^n - k`.
+- Law: the host publishes `SnapshotTable.Names` and no capture, restore, or delete member at any access level, so `RhinoApp.RunScript` against `_-Snapshot` is the only managed route a snapshot transition has. The carve pays for itself on the same rail: `SnapshotVerb` owns the token so no call site composes command text, `SnapshotName` refuses a quote or a newline so the composed line cannot be broken out of, and each run proves roster membership BEFORE and AFTER, so a silently-failed script is a typed refusal rather than an unnoticed no-op.
+- Law: the scripted rail records NO undo. Rhino's snapshot commands manage their own document state and the script is run against a pinned runtime serial, so the leg appends `SessionNeed.Interrupt` to the one mutation derivation rather than replacing it, and no `UndoBracket` opens over a transition the host's undo stack does not carry.
+- Law: the scoped restore's finalizers ALL run and their faults aggregate onto the primary in order. `Lease<T>` cannot carry this: its constraint is `T : class, IDisposable` and its release is a `void Dispose()`, while both finalizers here are fallible host script runs whose refusals must reach the caller. The fold is therefore local, and it is one expression over the `Error` monoid rather than a `Match` ladder per step.
+- Growth: a new scripted verb is one `SnapshotVerb` row with its token and presence set; a new presence axis is one `SnapshotPresence` row and the corner the law bars.
+- Boundary: `DocumentStream` owns worksession change observation, and the Document session owner carries every worksession read and transition. This page owns snapshots alone.
+- Packages: RhinoCommon (`libs/csharp/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `RhinoDoc.Snapshots`, `SnapshotTable.Names`, `SnapshotTable.Document`; `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-commands.md` — `RhinoApp.RunScript(uint documentSerialNumber, string script, bool echo)`); `Document/session` (`DocumentSession.Demand`, `SessionNeed`, `UndoCustody`, `IDetachedDocumentResult`); `Document/commit` (`RedrawPolicy`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`); Thinktecture.Runtime.Extensions; LanguageExt.Core.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Globalization;
+using Generator.Equals;
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino;
+using Thinktecture;
 
 namespace Rasm.Rhino.Persistence;
 
-[ValueObject<string>]
-public readonly partial struct SnapshotName {
+// --- [TYPES] --------------------------------------------------------------------------------
+[ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+[ValidationError]
+public readonly partial struct SnapshotName : IDisallowDefaultValue {
+    // The admitted name is embedded in a QUOTED script token, so a quote or a line break would close the token and
+    // let the remainder run as command text. The refusal is the whole escape policy.
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
-        if (string.IsNullOrWhiteSpace(value)) {
-            validationError = new ValidationError("Snapshot name is empty or unsafe for Rhino command scripting.");
-            return;
-        }
-
-        value = value.Trim();
-        validationError = value.IndexOfAny(['\r', '\n', '"']) >= 0
-            ? new ValidationError("Snapshot name is empty or unsafe for Rhino command scripting.")
-            : null;
+        Op op = Op.Of();
+        value = value?.Trim() ?? string.Empty;
+        string candidate = value;
+        validationError = FactoryValidation.Of(FactoryValidation.Violated(
+                (candidate.Length == 0, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(SnapshotName) }))),
+                (candidate.IndexOfAny(['\r', '\n', '"']) >= 0,
+                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(SnapshotName), "a name carrying no quote or line break" })))));
     }
 }
 
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class SnapshotPresence : ICapability<SnapshotPresence> {
+    public static readonly SnapshotPresence Before = new(key: "before");
+    public static readonly SnapshotPresence After = new(key: "after");
+
+    // The complement, not the roster: the only illegal corner is the verb that neither requires the name present
+    // nor leaves it present, which moves no roster at all.
+    public static CapabilityLaw<SnapshotPresence> Law =>
+        CapabilityLaw<SnapshotPresence>.Forbidden(Seq(CapabilitySet<SnapshotPresence>.None));
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class SnapshotVerb {
+    public static readonly SnapshotVerb Capture = new(
+        key: "capture",
+        presence: CapabilitySet<SnapshotPresence>.Of(SnapshotPresence.After),
+        script: static name => Line(token: "_Save", name: name));
+    public static readonly SnapshotVerb Restore = new(
+        key: "restore",
+        presence: CapabilitySet<SnapshotPresence>.Of(SnapshotPresence.Before, SnapshotPresence.After),
+        script: static name => Line(token: "_Restore", name: name));
+    public static readonly SnapshotVerb Delete = new(
+        key: "delete",
+        presence: CapabilitySet<SnapshotPresence>.Of(SnapshotPresence.Before),
+        script: static name => Line(token: "_Delete", name: name));
+
+    internal CapabilitySet<SnapshotPresence> Presence { get; }
+
+    [UseDelegateFromConstructor] internal partial string Script(SnapshotName name);
+
+    internal bool Demands(SnapshotPresence axis) => Presence.Admits(capability: axis);
+
+    private static string Line(string token, SnapshotName name) =>
+        string.Create(CultureInfo.InvariantCulture, $"_-Snapshot {token} _Name \"{name.Value}\" _Enter");
+}
+
+// --- [BOUNDARIES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SnapshotOperation {
     private SnapshotOperation() { }
 
-    public sealed record RosterCase : SnapshotOperation;
-    public sealed record CaptureCase(SnapshotName Name) : SnapshotOperation;
-    public sealed record RestoreCase(SnapshotName Name) : SnapshotOperation;
-    public sealed record DeleteCase(SnapshotName Name) : SnapshotOperation;
+    internal sealed record RosterCase : SnapshotOperation;
+    internal sealed record MutationCase(SnapshotName Name, SnapshotVerb Verb) : SnapshotOperation;
+
+    public static SnapshotOperation Roster() => new RosterCase();
+
+    public static Fin<SnapshotOperation> Capture(string name, Op? key = null) => Of(name: name, verb: SnapshotVerb.Capture, key: key);
+
+    public static Fin<SnapshotOperation> Restore(string name, Op? key = null) => Of(name: name, verb: SnapshotVerb.Restore, key: key);
+
+    public static Fin<SnapshotOperation> Delete(string name, Op? key = null) => Of(name: name, verb: SnapshotVerb.Delete, key: key);
+
+    internal static Fin<SnapshotOperation> Of(SnapshotName name, SnapshotVerb verb, Op key) =>
+        from _presence in SnapshotPresence.Law.Admit(held: verb.Presence)
+        select (SnapshotOperation)new MutationCase(Name: name, Verb: verb);
+
+    private static Fin<SnapshotOperation> Of(string name, SnapshotVerb verb, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.AcceptValidated<SnapshotName>(candidate: name).Bind(admitted => Of(name: admitted, verb: verb, key: op));
+    }
+
+    // The needs are the CASE's: a roster read grants read alone, and a scripted mutation APPENDS `Interrupt` to
+    // the one mutation derivation rather than replacing it.
+    internal Seq<SessionNeed> Needs => Switch<Seq<SessionNeed>>(
+        rosterCase:   static _ => Seq(SessionNeed.Read),
+        mutationCase: static _ => SessionNeed
+            .Mutation(custody: UndoCustody.Unrecorded, redraw: RedrawPolicy.None)
+            .Add(SessionNeed.Interrupt));
 }
 
-[SmartEnum<string>]
-public sealed partial class SnapshotVerb {
-    public static readonly SnapshotVerb Capture = Of("capture", "_Save", requiresPresent: false, leavesPresent: true);
-    public static readonly SnapshotVerb Restore = Of("restore", "_Restore", requiresPresent: true, leavesPresent: true);
-    public static readonly SnapshotVerb Delete = Of("delete", "_Delete", requiresPresent: true, leavesPresent: false);
-
-    internal bool RequiresPresent { get; }
-    internal bool LeavesPresent { get; }
-
-    [UseDelegateFromConstructor]
-    internal partial string Script(SnapshotName name);
-
-    private static SnapshotVerb Of(string key, string token, bool requiresPresent, bool leavesPresent) =>
-        new(
-            key,
-            requiresPresent,
-            leavesPresent,
-            script: name => string.Create(CultureInfo.InvariantCulture, $"_-Snapshot {token} _Name \"{name.Value}\" _Enter"));
+// --- [MODELS] -------------------------------------------------------------------------------
+[Equatable]
+public sealed partial record SnapshotRoster([property: OrderedEquality] Seq<SnapshotName> Names) {
+    internal bool Holds(SnapshotName name) => Names.Contains(name);
 }
 
-public sealed record SnapshotRoster(Seq<SnapshotName> Names);
-
-public sealed record SnapshotMutationReceipt(
-    SnapshotOperation Operation,
+[Equatable]
+public sealed partial record SnapshotReceipt(
+    SnapshotName Name,
+    SnapshotVerb Verb,
     SnapshotRoster Before,
     SnapshotRoster After,
-    uint DocumentSerial);
+    DocKey Document);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SnapshotAnswer {
+public abstract partial record SnapshotAnswer : IDetachedDocumentResult {
     private SnapshotAnswer() { }
 
     public sealed record RosterCase(SnapshotRoster Roster) : SnapshotAnswer;
-    public sealed record MutationCase(SnapshotMutationReceipt Receipt) : SnapshotAnswer;
+    public sealed record MutationCase(SnapshotReceipt Receipt) : SnapshotAnswer;
 }
 
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Snapshots {
-    public static Fin<SnapshotAnswer> Commit(
-        DocumentSession session,
-        SnapshotOperation operation,
-        Op? key = null) {
+    public static Fin<SnapshotAnswer> Commit(DocumentSession session, SnapshotOperation operation, Op? key = null) {
         Op op = key.OrDefault();
-        return from owner in Optional(session).ToFin(Fail: op.MissingContext())
-               from request in op.Need(operation)
-               from routed in Admit(request, op)
+        return from owner in op.Need(value: session)
+               from request in op.Need(value: operation)
                from answer in owner.Demand(
-                   use: document => routed.Command.Match(
-                       Some: command => Run(document, routed.Operation, command.Name, command.Verb, op)
-                           .Map<SnapshotAnswer>(static receipt => new SnapshotAnswer.MutationCase(receipt)),
-                       None: () => Roster(document, op).Map<SnapshotAnswer>(static roster => new SnapshotAnswer.RosterCase(roster))),
+                   use: document => request.Switch<(RhinoDoc Document, Op Op), Fin<SnapshotAnswer>>(
+                       state: (document, op),
+                       rosterCase: static (state, _) => Roster(document: state.Document, key: state.Op)
+                           .Map<SnapshotAnswer>(static roster => new SnapshotAnswer.RosterCase(Roster: roster)),
+                       mutationCase: static (state, mutation) => Run(
+                               document: state.Document,
+                               name: mutation.Name,
+                               verb: mutation.Verb,
+                               key: state.Op)
+                           .Map<SnapshotAnswer>(static receipt => new SnapshotAnswer.MutationCase(Receipt: receipt))),
                    key: op,
-                   // The scripted leg APPENDS `Interrupt` to the one mutation derivation; it never replaces it.
-                   needs: routed.Command.IsSome
-                       ? SessionNeed.Mutation(undo: false, redraw: RedrawPolicy.None).Add(SessionNeed.Interrupt).ToArray()
-                       : [SessionNeed.Read])
+                   needs: request.Needs.ToArray())
                select answer;
     }
 
-    public static Fin<T> Within<T>(
-        DocumentSession session,
-        SnapshotName target,
-        Func<Fin<T>> use,
-        Op? key = null) {
+    // A GUID sentinel captures the live state, the target is restored for the body, and both finalizers run on
+    // every outcome with their faults appending onto the primary in order.
+    public static Fin<T> Within<T>(DocumentSession session, SnapshotName target, Func<Fin<T>> use, Op? key = null) {
         Op op = key.OrDefault();
-        return from body in op.Need(use)
-               from sentinel in op.AcceptValidated<SnapshotName>($"rasm-{Guid.NewGuid():N}")
-               from _capture in Commit(session, new SnapshotOperation.CaptureCase(sentinel), op)
-               from outcome in Sealed(
-                   op.Catch(() =>
-                       from _restore in Commit(session, new SnapshotOperation.RestoreCase(target), op)
+        return from body in op.Need(value: use)
+               from sentinel in op.AcceptValidated<SnapshotName>(candidate: $"rasm-{Guid.NewGuid():N}")
+               from _captured in Scripted(session: session, name: sentinel, verb: SnapshotVerb.Capture, key: op)
+               from outcome in Settled(
+                   body: op.Catch(() =>
+                       from _restored in Scripted(session: session, name: target, verb: SnapshotVerb.Restore, key: op)
                        from value in body()
                        select value),
-                   () => Commit(session, new SnapshotOperation.RestoreCase(sentinel), op).Map(static _ => unit),
-                   () => Commit(session, new SnapshotOperation.DeleteCase(sentinel), op).Map(static _ => unit))
+                   finalizers: Seq(
+                       () => Scripted(session: session, name: sentinel, verb: SnapshotVerb.Restore, key: op),
+                       () => Scripted(session: session, name: sentinel, verb: SnapshotVerb.Delete, key: op)))
                select outcome;
     }
 
-    private static Fin<T> Sealed<T>(Fin<T> body, params Func<Fin<Unit>>[] finals) =>
-        toSeq(finals).Fold(body, static (state, final) => state.Match(
+    private static Fin<Unit> Scripted(DocumentSession session, SnapshotName name, SnapshotVerb verb, Op key) =>
+        from operation in SnapshotOperation.Of(name: name, verb: verb, key: key)
+        from _answer in Commit(session: session, operation: operation, key: key)
+        select unit;
+
+    // Every finalizer runs on every outcome; faults aggregate onto the primary in declaration order through the
+    // `Error` monoid, so a failed body and a failed cleanup both reach the caller.
+    private static Fin<T> Settled<T>(Fin<T> body, Seq<Func<Fin<Unit>>> finalizers) =>
+        finalizers.Fold(body, static (state, final) => state.Match(
             Succ: value => final().Map(_ => value),
             Fail: primary => final().Match(
-                Succ: _ => Fin.Fail<T>(primary),
-                Fail: secondary => Fin.Fail<T>(primary + secondary))));
+                Succ: _ => Fin.Fail<T>(error: primary),
+                Fail: secondary => Fin.Fail<T>(error: primary + secondary))));
 
-    private static Fin<SnapshotMutationReceipt> Run(
-        RhinoDoc document,
-        SnapshotOperation operation,
-        SnapshotName name,
-        SnapshotVerb verb,
-        Op op) =>
-        from before in Roster(document, op)
-        from _precondition in guard(before.Names.Contains(name) == verb.RequiresPresent, op.InvalidInput()).ToFin()
-        from _run in op.Catch(() => op.Confirm(RhinoApp.RunScript(
+    private static Fin<SnapshotReceipt> Run(RhinoDoc document, SnapshotName name, SnapshotVerb verb, Op key) =>
+        from before in Roster(document: document, key: key)
+        from _precondition in Proved(
+            held: before.Holds(name: name),
+            demanded: verb.Demands(axis: SnapshotPresence.Before),
+            name: name,
+            verb: verb,
+            stage: "precondition",
+            key: key)
+        from _run in key.Catch(() => key.Confirm(success: RhinoApp.RunScript(
             document.RuntimeSerialNumber,
-            verb.Script(name),
+            verb.Script(name: name),
             echo: false)))
-        from after in Roster(document, op)
-        from _postcondition in guard(after.Names.Contains(name) == verb.LeavesPresent, op.InvalidResult()).ToFin()
-        select new SnapshotMutationReceipt(operation, before, after, document.RuntimeSerialNumber);
+        from after in Roster(document: document, key: key)
+        from _postcondition in Proved(
+            held: after.Holds(name: name),
+            demanded: verb.Demands(axis: SnapshotPresence.After),
+            name: name,
+            verb: verb,
+            stage: "postcondition",
+            key: key)
+        from owner in key.AcceptValidated<DocKey>(candidate: document.RuntimeSerialNumber)
+        select new SnapshotReceipt(Name: name, Verb: verb, Before: before, After: after, Document: owner);
 
-    private static Fin<SnapshotRoster> Roster(RhinoDoc document, Op op) =>
-        op.Catch(() => document.Snapshots.Names
-            .Map(name => op.AcceptValidated<SnapshotName>(name))
-            .Traverse(static value => value)
+    private static Fin<Unit> Proved(bool held, bool demanded, SnapshotName name, SnapshotVerb verb, string stage, Op key) =>
+        held == demanded
+            ? Fin.Succ(value: unit)
+            : Fin.Fail<Unit>(error: new PersistenceFault.Diverged(
+                Key: key,
+                Subject: $"{verb.Key}:{stage}:{name.Value}",
+                Expected: demanded ? "present" : "absent",
+                Observed: held ? "present" : "absent"));
+
+    private static Fin<SnapshotRoster> Roster(RhinoDoc document, Op key) =>
+        key.Catch(() => toSeq(document.Snapshots.Names)
+            .Traverse(name => key.AcceptValidated<SnapshotName>(candidate: name).ToValidation())
             .As()
-            .Map(values => new SnapshotRoster(toSeq(values.OrderBy(static value => value.Value, StringComparer.Ordinal)))));
-
-    private static Fin<(SnapshotOperation Operation, Option<(SnapshotName Name, SnapshotVerb Verb)> Command)> Admit(
-        SnapshotOperation operation,
-        Op op) => operation.Switch<Op, Fin<(SnapshotOperation, Option<(SnapshotName, SnapshotVerb)>)>>(
-        state: op,
-        rosterCase: static (_, _) => Fin.Succ(value: (
-            (SnapshotOperation)new SnapshotOperation.RosterCase(),
-            Option<(SnapshotName, SnapshotVerb)>.None)),
-        captureCase: static (op, capture) => op.AcceptValidated<SnapshotName>(capture.Name.Value)
-            .Map(static name => (
-                (SnapshotOperation)new SnapshotOperation.CaptureCase(name),
-                Some((name, SnapshotVerb.Capture)))),
-        restoreCase: static (op, restore) => op.AcceptValidated<SnapshotName>(restore.Name.Value)
-            .Map(static name => (
-                (SnapshotOperation)new SnapshotOperation.RestoreCase(name),
-                Some((name, SnapshotVerb.Restore)))),
-        deleteCase: static (op, delete) => op.AcceptValidated<SnapshotName>(delete.Name.Value)
-            .Map(static name => (
-                (SnapshotOperation)new SnapshotOperation.DeleteCase(name),
-                Some((name, SnapshotVerb.Delete)))));
-
+            .ToFin())
+            .Map(static values => new SnapshotRoster(
+                Names: toSeq(values.OrderBy(static value => value.Value, StringComparer.Ordinal))));
 }
 ```
 
-## [02]-[PARTICIPANT_SEAMS]
+## [03]-[PARTICIPANT_SEAMS]
 
-`ParticipantSpec` admits a non-empty, unique capability registry. Each capability row owns its lane contract, generic lane lookup derives the row from `TLane`, and the host adapter remains the only Rhino override implementation.
+- Owner: `SnapshotCategory` is the seven-row host category vocabulary; `ParticipantName` admits the displayed participant name; `SnapshotObjectState` is the per-object payload; `IDocumentSnapshotLane`, `IObjectSnapshotLane`, and `IAnimationSnapshotLane` are the three payload contracts; `ParticipantSpec` is the participant's whole declaration.
+- Entry: `ParticipantSpec.Of(plugInId, clientId, category, name, codec, report, document, objects, animation, key)` admits identity, category, codec, and at least one lane; the three lane slots ride `Option<T>` on the spec.
+- Auto: `SupportsDocument`, `SupportsObjects`, and `SupportsAnimation` DERIVE from the three slots, and every invocation reads the same slot the probe read. The retired form keyed a `HashMap<SnapshotCapability, ISnapshotLane>` by a three-row vocabulary whose only column was a `Type`, then answered both the probe and the invocation by searching that roster for a row whose contract matched `typeof(TLane)` and downcasting the value — a type-test dispatch disagreeing with itself under no compiler check. The slots type the answer.
+- Law: the erasure family DELETES whole — `SnapshotCapability`, its `Type Contract` column, the `Lanes` map, the generic `Lane<TLane>`/`Carries<TLane>` lookups, and the `ValidateLane` interface-versus-capability agreement gate. The gate existed only because the map allowed a lane to be filed under a row its own type did not satisfy; a typed slot cannot hold the wrong lane, so the agreement is a compile fact and the roster's three rows had no upstream at all.
+- Law: `SnapshotCodec` DELETES onto `Persistence/userdata#ARCHIVE_FRAME`'s `IArchiveCodec` (E-R57) — the retired class declared `Schema`, `Upgrade`, `Write`, and `Read` exactly as `TypedUserData<TSelf>` did, so a page-local abstract adding nothing over the seated one is a forwarding shell. `ParticipantSpec.Codec` is an `IArchiveCodec` and every crossing on this page reads it.
+- Law: `ArchiveMap` is the only payload currency across a lane — no live `BinaryArchiveReader`, `BinaryArchiveWriter`, or `ArchivableDictionary` reaches lane code. The codec is the deliberate exception, because the codec IS the crossing: its `Write` and `Read` take the live archive by design and hand back an admitted map.
+- Law: `SnapshotCategory.Native` is a DELEGATE column rather than a captured string, because `SnapShotsClient`'s category members are static properties the host initializes; a row capturing their values at type init freezes whatever the host published at assembly load.
+- Growth: a new lane is one contract, one `Option` slot, one probe derivation, and its overrides; a new host category is one row.
+- Boundary: the composition root is the sole producer of a `ParticipantSpec` and the sole caller of `SnapshotParticipant.Enlist`; lane implementations are foreign, which is why the three contracts are instance interfaces rather than a closed family.
+- Packages: RhinoCommon (`libs/csharp/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `SnapShotsClient` and its seven static category members; `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`, `SimpleArrayBinaryArchiveReader`, `TextLog`; `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-geometry.md` — `Transform`, `BoundingBox`; `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-objects.md` — `RhinoObject`); `Persistence/dictionary` (`ArchiveMap`), `Persistence/userdata` (`IArchiveCodec`); Thinktecture.Runtime.Extensions; LanguageExt.Core.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -182,159 +262,154 @@ using Rhino.DocObjects;
 using Rhino.DocObjects.SnapShots;
 using Rhino.FileIO;
 using Rhino.Geometry;
+using Thinktecture;
 
 namespace Rasm.Rhino.Persistence;
 
+// --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SnapshotCategory {
-    public static readonly SnapshotCategory Application = new("application", SnapShotsClient.ApplicationCategory);
-    public static readonly SnapshotCategory Document = new("document", SnapShotsClient.DocumentCategory);
-    public static readonly SnapshotCategory Rendering = new("rendering", SnapShotsClient.RenderingCategory);
-    public static readonly SnapshotCategory Views = new("views", SnapShotsClient.ViewsCategory);
-    public static readonly SnapshotCategory Objects = new("objects", SnapShotsClient.ObjectsCategory);
-    public static readonly SnapshotCategory Layers = new("layers", SnapShotsClient.LayersCategory);
-    public static readonly SnapshotCategory Lights = new("lights", SnapShotsClient.LightsCategory);
-    internal Func<string> Native { get; }
+    public static readonly SnapshotCategory Application = new(key: "application", native: static () => SnapShotsClient.ApplicationCategory);
+    public static readonly SnapshotCategory Document = new(key: "document", native: static () => SnapShotsClient.DocumentCategory);
+    public static readonly SnapshotCategory Rendering = new(key: "rendering", native: static () => SnapShotsClient.RenderingCategory);
+    public static readonly SnapshotCategory Views = new(key: "views", native: static () => SnapShotsClient.ViewsCategory);
+    public static readonly SnapshotCategory Objects = new(key: "objects", native: static () => SnapShotsClient.ObjectsCategory);
+    public static readonly SnapshotCategory Layers = new(key: "layers", native: static () => SnapShotsClient.LayersCategory);
+    public static readonly SnapshotCategory Lights = new(key: "lights", native: static () => SnapShotsClient.LightsCategory);
+
+    [UseDelegateFromConstructor] internal partial string Native();
 }
 
-[SmartEnum<string>]
-public sealed partial class SnapshotCapability {
-    public static readonly SnapshotCapability Document = new("document", typeof(IDocumentSnapshotLane));
-    public static readonly SnapshotCapability Objects = new("objects", typeof(IObjectSnapshotLane));
-    public static readonly SnapshotCapability Animation = new("animation", typeof(IAnimationSnapshotLane));
-    internal Type Contract { get; }
+[ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+[ValidationError]
+public readonly partial struct ParticipantName : IDisallowDefaultValue {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+        value = value?.Trim() ?? string.Empty;
+        validationError = value.Length == 0
+            ? new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(ParticipantName) }))
+            : null;
+    }
 }
 
-public sealed record SnapshotObjectState(Transform Transform, ArchiveMap Payload);
-
-public interface ISnapshotLane {
-    SnapshotCapability Capability { get; }
-}
-
-public interface IDocumentSnapshotLane : ISnapshotLane {
+// --- [SERVICES] -----------------------------------------------------------------------------
+// Three instance interfaces, no common base: the lane a participant supplies is FOREIGN code, and the marker the
+// retired base carried existed only to key a map that no longer exists.
+public interface IDocumentSnapshotLane {
     Fin<ArchiveMap> Save(RhinoDoc document);
     Fin<Unit> Restore(RhinoDoc document, ArchiveMap payload);
     Fin<Unit> Restored(RhinoDoc document);
-    Fin<bool> IsCurrent(RhinoDoc document, ArchiveMap current, Seq<ArchiveMap> snapshots, TextLog? log);
+    Fin<bool> IsCurrent(RhinoDoc document, ArchiveMap current, Seq<ArchiveMap> snapshots, Option<TextLog> log);
 }
 
-public interface IObjectSnapshotLane : ISnapshotLane {
+public interface IObjectSnapshotLane {
     Fin<bool> Supports(RhinoObject value);
     Fin<SnapshotObjectState> Save(RhinoDoc document, RhinoObject value, Transform transform);
     Fin<SnapshotObjectState> Restore(RhinoDoc document, RhinoObject value, Transform transform, ArchiveMap payload);
     Fin<SnapshotObjectState> TransformChanged(RhinoDoc document, RhinoObject value, Transform transform, ArchiveMap payload);
-    Fin<bool> IsCurrent(RhinoDoc document, RhinoObject value, ArchiveMap current, Seq<ArchiveMap> snapshots, TextLog? log);
+    Fin<bool> IsCurrent(RhinoDoc document, RhinoObject value, ArchiveMap current, Seq<ArchiveMap> snapshots, Option<TextLog> log);
 }
 
-public interface IAnimationSnapshotLane : ISnapshotLane {
+public interface IAnimationSnapshotLane {
     Fin<Unit> Start(RhinoDoc document, int frames);
     Fin<Unit> PrepareDocument(RhinoDoc document, ArchiveMap start, ArchiveMap stop);
     Fin<Unit> AnimateDocument(RhinoDoc document, double position, ArchiveMap start, ArchiveMap stop);
     Fin<Transform> PrepareObject(RhinoDoc document, RhinoObject value, Transform transform, ArchiveMap start, ArchiveMap stop);
     Fin<Transform> AnimateObject(RhinoDoc document, RhinoObject value, Transform transform, double position, ArchiveMap start, ArchiveMap stop);
     Fin<BoundingBox> ExtendDocument(RhinoDoc document, ArchiveMap start, ArchiveMap stop, BoundingBox bounds);
-    Fin<BoundingBox> ExtendObject(
-        RhinoDoc document,
-        RhinoObject value,
-        Transform transform,
-        ArchiveMap start,
-        ArchiveMap stop,
-        BoundingBox bounds);
+    Fin<BoundingBox> ExtendObject(RhinoDoc document, RhinoObject value, Transform transform, ArchiveMap start, ArchiveMap stop, BoundingBox bounds);
     Fin<Unit> Stop(RhinoDoc document);
 }
 
-public abstract class SnapshotCodec {
-    protected SnapshotCodec(ArchiveSchema schema) => Schema = schema;
-    public ArchiveSchema Schema { get; }
-    protected abstract Fin<ArchiveMap> Upgrade(ArchiveEnvelope envelope);
-
-    internal Fin<Unit> Write(BinaryArchiveWriter archive, ArchiveMap payload, Op op) =>
-        ArchiveIo.Cross(new ArchiveExchange.WriteCase(archive, Schema, payload), op)
-            .Map(static _ => unit);
-
-    internal Fin<ArchiveMap> Read(BinaryArchiveReader archive, Op op) =>
-        ArchiveIo.Cross(new ArchiveExchange.ReadCase(archive, Schema), op)
-            .Bind(result => result.Switch<Fin<ArchiveMap>>(
-                writtenCase: _ => Fin.Fail<ArchiveMap>(op.InvalidResult(detail: "Snapshot archive read returned a write receipt.")),
-                readCase: read => op.Catch(() => Upgrade(read.Envelope))));
-}
+// --- [MODELS] -------------------------------------------------------------------------------
+public sealed record SnapshotObjectState(Transform Transform, ArchiveMap Payload);
 
 public sealed class ParticipantSpec {
     private ParticipantSpec(
         Guid plugInId,
         Guid clientId,
         SnapshotCategory category,
-        string name,
-        SnapshotCodec codec,
-        HashMap<SnapshotCapability, ISnapshotLane> lanes,
-        Action<Error> report) =>
-        (PlugInId, ClientId, Category, Name, Codec, Lanes, Report) =
-        (plugInId, clientId, category, name, codec, lanes, report);
+        ParticipantName name,
+        IArchiveCodec codec,
+        Action<Error> report,
+        Option<IDocumentSnapshotLane> document,
+        Option<IObjectSnapshotLane> objects,
+        Option<IAnimationSnapshotLane> animation) =>
+        (PlugInId, ClientId, Category, Name, Codec, Report, Document, Objects, Animation) =
+        (plugInId, clientId, category, name, codec, report, document, objects, animation);
 
     public Guid PlugInId { get; }
+
     public Guid ClientId { get; }
+
     public SnapshotCategory Category { get; }
-    public string Name { get; }
-    public SnapshotCodec Codec { get; }
-    internal HashMap<SnapshotCapability, ISnapshotLane> Lanes { get; }
+
+    public ParticipantName Name { get; }
+
+    public IArchiveCodec Codec { get; }
+
     internal Action<Error> Report { get; }
+
+    internal Option<IDocumentSnapshotLane> Document { get; }
+
+    internal Option<IObjectSnapshotLane> Objects { get; }
+
+    internal Option<IAnimationSnapshotLane> Animation { get; }
 
     public static Fin<ParticipantSpec> Of(
         Guid plugInId,
         Guid clientId,
         SnapshotCategory category,
         string name,
-        SnapshotCodec codec,
+        IArchiveCodec codec,
         Action<Error> report,
-        Seq<ISnapshotLane> lanes,
+        Option<IDocumentSnapshotLane> document = default,
+        Option<IObjectSnapshotLane> objects = default,
+        Option<IAnimationSnapshotLane> animation = default,
         Op? key = null) {
         Op op = key.OrDefault();
-        return from _ids in guard(plugInId != Guid.Empty && clientId != Guid.Empty, op.InvalidInput()).ToFin()
-               from label in op.AcceptText(value: name)
-               from group in op.Need(category)
-               from format in op.Need(codec)
-               from reject in op.Need(report)
-               from admitted in lanes
-                   .Map(lane => ValidateLane(lane, op))
-                   .Traverse(static value => value)
-               from _nonempty in guard(!admitted.IsEmpty, op.InvalidInput()).ToFin()
-               from indexed in admitted.Fold(
-                   Fin.Succ(HashMap<SnapshotCapability, ISnapshotLane>()),
-                   (Fin<HashMap<SnapshotCapability, ISnapshotLane>> state, ISnapshotLane lane) => state.Bind(map => map.ContainsKey(lane.Capability)
-                       ? Fin.Fail<HashMap<SnapshotCapability, ISnapshotLane>>(op.InvalidResult(detail: $"Duplicate snapshot lane '{lane.Capability.Key}'."))
-                       : Fin.Succ(map.Add(lane.Capability, lane))))
-               select new ParticipantSpec(plugInId, clientId, group, label, format, indexed, reject);
+        return from admitted in (
+                   guard(plugInId != Guid.Empty,
+                       (Error)new KernelFault.InvalidValue(nameof(plugInId), string.Join(" | ", new object?[] { op, "a non-empty plug-in identity" }))).ToFin().ToValidation(),
+                   guard(clientId != Guid.Empty,
+                       (Error)new KernelFault.InvalidValue(nameof(clientId), string.Join(" | ", new object?[] { op, "a non-empty client identity" }))).ToFin().ToValidation(),
+                   op.AcceptValidated<ParticipantName>(candidate: name).ToValidation(),
+                   op.Need(value: category).ToValidation(),
+                   op.Need(value: codec).ToValidation(),
+                   op.Need(value: report).ToValidation())
+                   .Apply(static (_plugIn, _client, label, group, format, reject) => (
+                       Name: label, Category: group, Codec: format, Report: reject))
+                   .As()
+                   .ToFin()
+               from _lanes in guard(
+                   document.IsSome || objects.IsSome || animation.IsSome,
+                   (Error)new KernelFault.InvalidValue("SnapshotLane", string.Join(" | ", new object?[] { op, "at least one snapshot lane" }))).ToFin()
+               select new ParticipantSpec(
+                   plugInId: plugInId,
+                   clientId: clientId,
+                   category: admitted.Category,
+                   name: admitted.Name,
+                   codec: admitted.Codec,
+                   report: admitted.Report,
+                   document: document,
+                   objects: objects,
+                   animation: animation);
     }
-
-    internal Fin<TLane> Lane<TLane>(Op op)
-        where TLane : class, ISnapshotLane =>
-        SnapshotCapability.Items
-            .Find(static capability => capability.Contract == typeof(TLane))
-            .Bind(Lanes.Find)
-            .Bind(value => Optional(value as TLane))
-            .ToFin(Fail: op.MissingContext());
-
-    internal bool Carries<TLane>()
-        where TLane : class, ISnapshotLane =>
-        SnapshotCapability.Items
-            .Find(static capability => capability.Contract == typeof(TLane))
-            .Bind(Lanes.Find)
-            .IsSome;
-
-    private static Fin<ISnapshotLane> ValidateLane(ISnapshotLane lane, Op op) =>
-        op.Need(lane)
-            .Bind(value => op.Need(value.Capability)
-                .Bind(capability => capability.Contract.IsInstanceOfType(value)
-                    ? Fin.Succ(value)
-                    : Fin.Fail<ISnapshotLane>(op.InvalidResult(detail: "Snapshot lane interface and capability disagree."))));
 }
 ```
 
-## [03]-[HOST_ADAPTER]
+## [04]-[HOST_ADAPTER]
 
-Every override mints its own `Op.Of()`, invokes its lane through the kernel `Op.Catch` funnel, and sends every fault to `ParticipantSpec.Report` before collapsing to the host `bool`. `Supports*` probes read lane presence through `Carries<TLane>`; a lane absent at invocation time is a typed `MissingContext` fault, reported and collapsed to `false`. Successful registration consumes a client id permanently because Rhino exposes no removal member.
-
-Rhino's `ref`, `bool`, and `void` override contracts form the platform-forced statement seam. Mutable out evidence remains local to the override capsule and crosses into lane code only as an admitted value.
+- Owner: `SnapshotParticipant` — the sole `SnapShotsClient` subclass, covering all twenty-four overrides the host declares.
+- Entry: `SnapshotParticipant.Enlist(ParticipantSpec, Op?)` claims the client id and registers the native pointer; the class has no other public surface, because every other member is a host callback.
+- Auto: every override reads its outcome through ONE reporting funnel and settles it through ONE receiver. `Reported` taps the fault onto `ParticipantSpec.Report` and passes the rail through unchanged; `Landed` collapses a rail to the host `bool`; `Op.Settle(ref slot, outcome)` writes a `ref` contract's slot on success, leaves it untouched on refusal, and answers the same `bool` the override owes. The retired form spelled four collapse members — two `Landed` arities, a `Bound` with an explicit fallback argument, and a `Fault` — beside two nullable local capsules and a `succeeded` flag per `ref`-writing body.
+- Auto: the bounding-box fallback DELETES. `Op.Settle` leaves the slot at its incoming value on refusal, which IS the fallback the retired `Bound` passed in beside the rail, so a second authority for "what the box holds when the lane refuses" no longer exists.
+- Law: a `ref` host-contract override cannot capture its slot in a lambda (CS1628), so each body copies the incoming value to a local, runs the rail over that local, and settles through the kernel receiver. The copy is the platform-forced statement seam and it appears once per override with no variation.
+- Law: `Supports*` reads lane presence off the spec's typed slot, and every invocation resolves that slot; an absent lane becomes a kernel validation refusal before the host scalar collapse.
+- Law: registration is a one-shot CLAIM on the client id through the kernel transition owner: `Committed` means this call seated it and `Ceded` means another already had, so no token comparison exists to get wrong and no re-read of the cell is needed to tell an accepted seat from a rejected one. A failed native registration steps the claim back out.
+- Law: successful registration consumes a client id for the process lifetime because Rhino exposes no removal member on either list. The base constructor adds the instance to the MANAGED `SnapShotsClientsList` callback roster while `RegisterSnapShotClient` registers the NATIVE pointer with the RDK — two distinct lists, so the explicit call is required and is not a double-add.
+- Boundary: Rhino's `ref`, `bool`, and `void` override contracts form the platform-forced statement seam. Mutable evidence stays local to the override capsule and crosses into lane code only as an admitted value.
+- Packages: RhinoCommon (`libs/csharp/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `SnapShotsClient` and its twenty-four virtual members, `RegisterSnapShotClient`; `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`, `SimpleArrayBinaryArchiveReader`, `TextLog`); kernel `Domain/rails` (`Op.Catch`, `Op.Settle`, `Op.AcceptValue`, `Transition`, `Cell.Claim`, `Cell.Step`); `Persistence/dictionary` (`ArchiveMap`), `Persistence/userdata` (`IArchiveCodec`); LanguageExt.Core (`Atom`, `HashMap`, `Fin`).
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -347,140 +422,119 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Persistence;
 
+// --- [BOUNDARIES] ---------------------------------------------------------------------------
 public sealed class SnapshotParticipant : SnapShotsClient {
-    private static readonly Atom<HashMap<Guid, Guid>> Registered = Atom(HashMap<Guid, Guid>());
+    private static readonly Atom<HashMap<Guid, SnapshotCategory>> Registered = Atom(HashMap<Guid, SnapshotCategory>());
     private readonly ParticipantSpec spec;
 
     private SnapshotParticipant(ParticipantSpec spec) => this.spec = spec;
 
     public static Fin<Unit> Enlist(ParticipantSpec spec, Op? key = null) {
         Op op = key.OrDefault();
-        return from admitted in op.Need(spec)
-               let token = Guid.NewGuid()
-               // ONE CAS decides, and its swapped value IS the verdict: a token minted for this call can only be seated
-               // by the swap that minted it. Re-reading the cell afterwards could not separate an accepted seat from a
-               // rejected one, because an already-resident client id leaves the SAME map either way.
-               from _seated in Registered
-                   .Swap(state => state.Find(admitted.ClientId).IsSome ? state : state.Add(admitted.ClientId, token))
-                   .Find(admitted.ClientId)
-                   .Filter(held => held == token)
-                   .ToFin(Fail: op.InvalidResult(
-                       detail: $"Snapshot participant '{admitted.ClientId}' is already resident."))
-               // Host truth: the base constructor adds the instance to the MANAGED `ShapShotsClientsList` callback roster,
-               // while `RegisterSnapShotClient` registers the NATIVE pointer with the RDK — two distinct lists, so the
-               // explicit call is required, not a double-add. Neither list offers removal, hence the process-lifetime hold.
-               from _resident in op.Catch(() => op.Confirm(success: RegisterSnapShotClient(new SnapshotParticipant(admitted))))
-                   .BindFail(error => {
-                       Registered.Swap(state => state.Find(admitted.ClientId).Exists(value => value == token)
-                           ? state.Remove(admitted.ClientId)
-                           : state);
-                       return Fin.Fail<Unit>(error: error);
+        return from admitted in op.Need(value: spec)
+               from _claimed in Cell.Claim(cell: Registered, key: admitted.ClientId, mint: () => admitted.Category)
+                   is Transition<HashMap<Guid, SnapshotCategory>>.Committed
+                   ? Fin.Succ(value: unit)
+                   : Fin.Fail<Unit>(error: new PersistenceFault.Resident(Key: op, Subject: admitted.ClientId.ToString()))
+               from _resident in op.Catch(() => op.Confirm(success: RegisterSnapShotClient(new SnapshotParticipant(spec: admitted))))
+                   .BindFail(primary => {
+                       Transition<HashMap<Guid, SnapshotCategory>> released = Cell.Step(
+                           cell: Registered,
+                           step: state => state.Find(admitted.ClientId).Map(_ => state.Remove(admitted.ClientId)),
+                           declined: op.InvalidContext());
+                       return released switch {
+                           Transition<HashMap<Guid, SnapshotCategory>>.Committed => Fin.Fail<Unit>(error: primary),
+                           Transition<HashMap<Guid, SnapshotCategory>>.Refused row => Fin.Fail<Unit>(error: primary + row.Cause),
+                           _ => Fin.Fail<Unit>(error: primary + op.InvalidResult()),
+                       };
                    })
                select unit;
     }
 
     public override Guid PlugInId() => spec.PlugInId;
-    public override Guid ClientId() => spec.ClientId;
-    public override string Category() => spec.Category.Native();
-    public override string Name() => spec.Name;
 
-    public override bool SupportsDocument() => spec.Carries<IDocumentSnapshotLane>();
-    public override bool SupportsObjects() => spec.Carries<IObjectSnapshotLane>();
-    public override bool SupportsAnimation() => spec.Carries<IAnimationSnapshotLane>();
+    public override Guid ClientId() => spec.ClientId;
+
+    public override string Category() => spec.Category.Native();
+
+    public override string Name() => spec.Name.Value;
+
+    public override bool SupportsDocument() => spec.Document.IsSome;
+
+    public override bool SupportsObjects() => spec.Objects.IsSome;
+
+    public override bool SupportsAnimation() => spec.Animation.IsSome;
 
     public override bool SaveDocument(RhinoDoc doc, BinaryArchiveWriter archive) {
         Op op = Op.Of();
-        return Landed(op.Catch(() => spec.Lane<IDocumentSnapshotLane>(op)
-            .Bind(lane => lane.Save(doc))
+        return Landed(op.Catch(() => Document(op).Bind(lane => lane.Save(doc))
             .Bind(payload => spec.Codec.Write(archive, payload, op))));
     }
 
     public override bool RestoreDocument(RhinoDoc doc, BinaryArchiveReader archive) {
         Op op = Op.Of();
         return Landed(op.Catch(() => spec.Codec.Read(archive, op)
-            .Bind(payload => spec.Lane<IDocumentSnapshotLane>(op).Bind(lane => lane.Restore(doc, payload)))));
+            .Bind(payload => Document(op).Bind(lane => lane.Restore(doc, payload)))));
     }
 
     public override void SnapshotRestored(RhinoDoc doc) {
         Op op = Op.Of();
-        _ = Landed(op.Catch(() => spec.Lane<IDocumentSnapshotLane>(op).Bind(lane => lane.Restored(doc))));
+        _ = Landed(op.Catch(() => Document(op).Bind(lane => lane.Restored(doc))));
     }
 
     public override bool SupportsObject(RhinoObject rhObject) {
         Op op = Op.Of();
-        return Landed(op.Catch(() => spec.Lane<IObjectSnapshotLane>(op).Bind(lane => lane.Supports(rhObject))));
+        return Landed(op.Catch(() => Objects(op).Bind(lane => lane.Supports(rhObject))));
     }
 
-    public override bool SaveObject(
-        RhinoDoc doc,
-        RhinoObject rhObject,
-        ref Transform transform,
-        BinaryArchiveWriter archive) {
+    public override bool SaveObject(RhinoDoc doc, RhinoObject rhObject, ref Transform transform, BinaryArchiveWriter archive) {
         Op op = Op.Of();
+        // CS1628: a `ref` parameter cannot be captured, so the incoming value copies to a local for the rail and
+        // the kernel receiver writes the slot back. The copy is the whole seam and it never varies.
         Transform incoming = transform;
-        return ObjectState(
-            op,
-            () => spec.Lane<IObjectSnapshotLane>(op).Bind(lane => lane.Save(doc, rhObject, incoming)),
-            archive,
-            ref transform);
+        return Op.Settle(ref transform, Reported(op.Catch(() =>
+            ObjectState(use: () => Objects(op).Bind(lane => lane.Save(doc, rhObject, incoming)), writer: archive, key: op))));
     }
 
-    public override bool RestoreObject(
-        RhinoDoc doc,
-        RhinoObject rhObject,
-        ref Transform transform,
-        BinaryArchiveReader archive) {
+    public override bool RestoreObject(RhinoDoc doc, RhinoObject rhObject, ref Transform transform, BinaryArchiveReader archive) {
         Op op = Op.Of();
         Transform incoming = transform;
-        return ObjectState(
-            op,
-            () => from lane in spec.Lane<IObjectSnapshotLane>(op)
-                  from payload in spec.Codec.Read(archive, op)
-                  from state in lane.Restore(doc, rhObject, incoming, payload)
-                  select state,
-            writer: null,
-            ref transform);
+        return Op.Settle(ref transform, Reported(op.Catch(() => ObjectState(
+            use: () => from lane in Objects(op)
+                       from payload in spec.Codec.Read(archive, op)
+                       from state in lane.Restore(doc, rhObject, incoming, payload)
+                       select state,
+            writer: None,
+            key: op))));
     }
 
-    public override bool ObjectTransformNotification(
-        RhinoDoc doc,
-        RhinoObject rhObject,
-        ref Transform transform,
-        BinaryArchiveReader archive) {
+    public override bool ObjectTransformNotification(RhinoDoc doc, RhinoObject rhObject, ref Transform transform, BinaryArchiveReader archive) {
         Op op = Op.Of();
         Transform incoming = transform;
-        return ObjectState(
-            op,
-            () => from lane in spec.Lane<IObjectSnapshotLane>(op)
-                  from payload in spec.Codec.Read(archive, op)
-                  from state in lane.TransformChanged(doc, rhObject, incoming, payload)
-                  select state,
-            writer: null,
-            ref transform);
+        return Op.Settle(ref transform, Reported(op.Catch(() => ObjectState(
+            use: () => from lane in Objects(op)
+                       from payload in spec.Codec.Read(archive, op)
+                       from state in lane.TransformChanged(doc, rhObject, incoming, payload)
+                       select state,
+            writer: None,
+            key: op))));
     }
 
     public override void AnimationStart(RhinoDoc doc, int frames) {
         Op op = Op.Of();
-        _ = Landed(op.Catch(() => spec.Lane<IAnimationSnapshotLane>(op).Bind(lane => lane.Start(doc, frames))));
+        _ = Landed(op.Catch(() => Animation(op).Bind(lane => lane.Start(doc, frames))));
     }
 
-    public override bool PrepareForDocumentAnimation(
-        RhinoDoc doc,
-        BinaryArchiveReader start,
-        BinaryArchiveReader stop) {
+    public override bool PrepareForDocumentAnimation(RhinoDoc doc, BinaryArchiveReader start, BinaryArchiveReader stop) {
         Op op = Op.Of();
-        return Landed(op.Catch(() => AnimationMaps(start, stop, op).Bind(maps =>
-            spec.Lane<IAnimationSnapshotLane>(op).Bind(lane => lane.PrepareDocument(doc, maps.Start, maps.Stop)))));
+        return Landed(op.Catch(() => Maps(start, stop, op).Bind(maps =>
+            Animation(op).Bind(lane => lane.PrepareDocument(doc, maps.Start, maps.Stop)))));
     }
 
-    public override bool AnimateDocument(
-        RhinoDoc doc,
-        double pos,
-        BinaryArchiveReader start,
-        BinaryArchiveReader stop) {
+    public override bool AnimateDocument(RhinoDoc doc, double pos, BinaryArchiveReader start, BinaryArchiveReader stop) {
         Op op = Op.Of();
-        return Landed(op.Catch(() => AnimationMaps(start, stop, op).Bind(maps =>
-            spec.Lane<IAnimationSnapshotLane>(op).Bind(lane => lane.AnimateDocument(doc, pos, maps.Start, maps.Stop)))));
+        return Landed(op.Catch(() => Maps(start, stop, op).Bind(maps =>
+            Animation(op).Bind(lane => lane.AnimateDocument(doc, pos, maps.Start, maps.Stop)))));
     }
 
     public override bool PrepareForObjectAnimation(
@@ -488,8 +542,15 @@ public sealed class SnapshotParticipant : SnapShotsClient {
         RhinoObject rhObject,
         ref Transform transform,
         BinaryArchiveReader start,
-        BinaryArchiveReader stop) =>
-        AnimationTransform(Op.Of(), doc, rhObject, transform, position: None, start, stop, ref transform);
+        BinaryArchiveReader stop) {
+        Op op = Op.Of();
+        Transform incoming = transform;
+        return Op.Settle(ref transform, Reported(Motion(
+            use: (lane, maps) => lane.PrepareObject(doc, rhObject, incoming, maps.Start, maps.Stop),
+            start: start,
+            stop: stop,
+            key: op)));
+    }
 
     public override bool AnimateObject(
         RhinoDoc doc,
@@ -497,14 +558,23 @@ public sealed class SnapshotParticipant : SnapShotsClient {
         ref Transform transform,
         double pos,
         BinaryArchiveReader start,
-        BinaryArchiveReader stop) =>
-        AnimationTransform(Op.Of(), doc, rhObject, transform, Some(pos), start, stop, ref transform);
+        BinaryArchiveReader stop) {
+        Op op = Op.Of();
+        Transform incoming = transform;
+        return Op.Settle(ref transform, Reported(Motion(
+            use: (lane, maps) => lane.AnimateObject(doc, rhObject, incoming, pos, maps.Start, maps.Stop),
+            start: start,
+            stop: stop,
+            key: op)));
+    }
 
     public override bool AnimationStop(RhinoDoc doc) {
         Op op = Op.Of();
-        return Landed(op.Catch(() => spec.Lane<IAnimationSnapshotLane>(op).Bind(lane => lane.Stop(doc))));
+        return Landed(op.Catch(() => Animation(op).Bind(lane => lane.Stop(doc))));
     }
 
+    // The host declares no return, and refusal leaves the slot at the box the host handed in — which is exactly
+    // the fallback the retired collapse passed beside the rail, so no second authority for it exists.
     public override void ExtendBoundingBoxForDocumentAnimation(
         RhinoDoc doc,
         BinaryArchiveReader start,
@@ -512,11 +582,9 @@ public sealed class SnapshotParticipant : SnapShotsClient {
         ref BoundingBox bbox) {
         Op op = Op.Of();
         BoundingBox incoming = bbox;
-        bbox = Bound(
-            op.Catch(() => AnimationMaps(start, stop, op).Bind(maps =>
-                spec.Lane<IAnimationSnapshotLane>(op).Bind(lane => lane.ExtendDocument(doc, maps.Start, maps.Stop, incoming)))),
-            incoming,
-            op);
+        _ = Op.Settle(ref bbox, Reported(op.Catch(() => Maps(start, stop, op).Bind(maps =>
+            Animation(op).Bind(lane => lane.ExtendDocument(doc, maps.Start, maps.Stop, incoming))
+                .Bind(value => op.AcceptValue(value: value))))));
     }
 
     public override void ExtendBoundingBoxForObjectAnimation(
@@ -529,12 +597,9 @@ public sealed class SnapshotParticipant : SnapShotsClient {
         Op op = Op.Of();
         Transform incomingTransform = transform;
         BoundingBox incomingBounds = bbox;
-        bbox = Bound(
-            op.Catch(() => AnimationMaps(start, stop, op).Bind(maps =>
-                spec.Lane<IAnimationSnapshotLane>(op).Bind(lane =>
-                    lane.ExtendObject(doc, rhObject, incomingTransform, maps.Start, maps.Stop, incomingBounds)))),
-            incomingBounds,
-            op);
+        _ = Op.Settle(ref bbox, Reported(op.Catch(() => Maps(start, stop, op).Bind(maps =>
+            Animation(op).Bind(lane => lane.ExtendObject(doc, rhObject, incomingTransform, maps.Start, maps.Stop, incomingBounds))
+                .Bind(value => op.AcceptValue(value: value))))));
     }
 
     public override bool IsCurrentModelStateInAnySnapshot(
@@ -543,8 +608,8 @@ public sealed class SnapshotParticipant : SnapShotsClient {
         SimpleArrayBinaryArchiveReader archiveArray,
         TextLog? textLog = null) {
         Op op = Op.Of();
-        return Landed(op.Catch(() => ProbeSet(archive, archiveArray, op).Bind(probe =>
-            spec.Lane<IDocumentSnapshotLane>(op).Bind(lane => lane.IsCurrent(doc, probe.Current, probe.Snapshots, textLog)))));
+        return Landed(op.Catch(() => Probes(archive, archiveArray, op).Bind(probe =>
+            Document(op).Bind(lane => lane.IsCurrent(doc, probe.Current, probe.Snapshots, Optional(textLog))))));
     }
 
     public override bool IsCurrentModelStateInAnySnapshot(
@@ -554,106 +619,69 @@ public sealed class SnapshotParticipant : SnapShotsClient {
         SimpleArrayBinaryArchiveReader archiveArray,
         TextLog? textLog = null) {
         Op op = Op.Of();
-        return Landed(op.Catch(() => ProbeSet(archive, archiveArray, op).Bind(probe =>
-            spec.Lane<IObjectSnapshotLane>(op).Bind(lane => lane.IsCurrent(doc, rhObject, probe.Current, probe.Snapshots, textLog)))));
+        return Landed(op.Catch(() => Probes(archive, archiveArray, op).Bind(probe =>
+            Objects(op).Bind(lane => lane.IsCurrent(doc, rhObject, probe.Current, probe.Snapshots, Optional(textLog))))));
     }
 
-    private bool AnimationTransform(
-        Op op,
-        RhinoDoc document,
-        RhinoObject value,
-        Transform incoming,
-        Option<double> position,
+    // --- [DISPATCH]
+    private Fin<IDocumentSnapshotLane> Document(Op key) => Lane(held: spec.Document, label: nameof(IDocumentSnapshotLane), key: key);
+
+    private Fin<IObjectSnapshotLane> Objects(Op key) => Lane(held: spec.Objects, label: nameof(IObjectSnapshotLane), key: key);
+
+    private Fin<IAnimationSnapshotLane> Animation(Op key) => Lane(held: spec.Animation, label: nameof(IAnimationSnapshotLane), key: key);
+
+    private static Fin<TLane> Lane<TLane>(Option<TLane> held, string label, Op key)
+        where TLane : class =>
+        held.ToFin(Fail: new KernelFault.InvalidValue(label, string.Join(" | ", new object?[] { key, "a present snapshot value" })));
+
+    private Fin<Transform> Motion(
+        Func<IAnimationSnapshotLane, (ArchiveMap Start, ArchiveMap Stop), Fin<Transform>> use,
         BinaryArchiveReader start,
         BinaryArchiveReader stop,
-        ref Transform transform) {
-        Fin<Transform> outcome = op.Catch(() =>
-            from maps in AnimationMaps(start, stop, op)
-            from lane in spec.Lane<IAnimationSnapshotLane>(op)
-            from current in position.Match(
-                Some: location => lane.AnimateObject(document, value, incoming, location, maps.Start, maps.Stop),
-                None: () => lane.PrepareObject(document, value, incoming, maps.Start, maps.Stop))
-            from admitted in op.AcceptValue(current)
+        Op key) =>
+        key.Catch(() =>
+            from maps in Maps(start: start, stop: stop, key: key)
+            from lane in Animation(key)
+            from current in use(arg1: lane, arg2: maps)
+            from admitted in key.AcceptValue(value: current)
             select admitted);
-        Transform? accepted = null;
-        bool succeeded = outcome.Match(
-            Succ: current => {
-                accepted = current;
-                return true;
-            },
-            Fail: Fault);
-        if (accepted is Transform current) {
-            transform = current;
-        }
 
-        return succeeded;
-    }
+    private Fin<Transform> ObjectState(Func<Fin<SnapshotObjectState>> use, Option<BinaryArchiveWriter> writer, Op key) =>
+        from state in use()
+        from admitted in key.AcceptValue(value: state.Transform)
+        from _written in writer.Match(
+            Some: archive => spec.Codec.Write(archive, state.Payload, key),
+            None: static () => Fin.Succ(value: unit))
+        select admitted;
 
-    private bool ObjectState(
-        Op op,
-        Func<Fin<SnapshotObjectState>> use,
-        BinaryArchiveWriter? writer,
-        ref Transform transform) {
-        SnapshotObjectState? accepted = null;
-        bool succeeded = op.Catch(() => use()
-                .Bind(state => op.AcceptValue(state.Transform).Map(_ => state))
-                .Bind(state => writer is null
-                    ? Fin.Succ(state)
-                    : spec.Codec.Write(writer, state.Payload, op).Map(_ => state)))
-            .Match(
-                Succ: state => {
-                    accepted = state;
-                    return true;
-                },
-                Fail: Fault);
-        if (accepted is not null) {
-            transform = accepted.Transform;
-        }
-
-        return succeeded;
-    }
-
-    private Fin<(ArchiveMap Start, ArchiveMap Stop)> AnimationMaps(
-        BinaryArchiveReader start,
-        BinaryArchiveReader stop,
-        Op op) =>
-        from first in spec.Codec.Read(start, op)
-        from last in spec.Codec.Read(stop, op)
+    private Fin<(ArchiveMap Start, ArchiveMap Stop)> Maps(BinaryArchiveReader start, BinaryArchiveReader stop, Op key) =>
+        from first in spec.Codec.Read(start, key)
+        from last in spec.Codec.Read(stop, key)
         select (first, last);
 
-    private Fin<(ArchiveMap Current, Seq<ArchiveMap> Snapshots)> ProbeSet(
+    private Fin<(ArchiveMap Current, Seq<ArchiveMap> Snapshots)> Probes(
         BinaryArchiveReader archive,
         SimpleArrayBinaryArchiveReader archiveArray,
-        Op op) =>
-        from current in spec.Codec.Read(archive, op)
-        from snapshots in toSeq(Enumerable.Range(0, archiveArray.Count))
-            .Map(index => spec.Codec.Read(archiveArray.Get(index), op))
-            .Traverse(static value => value)
+        Op key) =>
+        from current in spec.Codec.Read(archive, key)
+        from snapshots in toSeq(Range(0, archiveArray.Count))
+            .TraverseM(index => spec.Codec.Read(archiveArray.Get(index), key))
+            .As()
         select (current, snapshots);
 
-    private bool Landed(Fin<Unit> outcome) => outcome.Match(Succ: static _ => true, Fail: Fault);
-    private bool Landed(Fin<bool> outcome) => outcome.Match(Succ: static value => value, Fail: Fault);
-
-    private BoundingBox Bound(Fin<BoundingBox> outcome, BoundingBox fallback, Op op) =>
-        outcome.Bind(value => op.AcceptValue(value)).Match(Succ: static value => value, Fail: error => {
+    // The ONE reporting funnel: the fault reaches `Report` exactly once and the rail passes through, so a caller
+    // settling a slot and a caller collapsing to `bool` share one reporting authority.
+    private Fin<T> Reported<T>(Fin<T> outcome) =>
+        outcome.BindFail(error => {
             spec.Report(error);
-            return fallback;
+            return Fin.Fail<T>(error: error);
         });
 
-    private bool Fault(Error error) {
-        spec.Report(error);
-        return false;
-    }
+    private bool Landed(Fin<bool> outcome) => Reported(outcome).IfFail(false);
+
+    private bool Landed(Fin<Unit> outcome) => Landed(outcome.Map(static _ => true));
 }
 ```
-
-## [04]-[LIFECYCLE]
-
-Scripted operations follow roster capture → precondition → serial-pinned script → roster postcondition. Scoped restore uses a GUID sentinel; one catch frame admits the body before `Sealed` runs restore and delete finalizers on every outcome, appending each finalizer failure onto the primary fault.
-
-Participant archive flow follows `ArchiveIo.Cross` → schema admission → codec upgrade → lane. Lane-produced transforms and bounds cross the shared result-admission oracle before any host `ref` assignment. Registration releases a rejected local reservation and retains every accepted client id for the process lifetime.
-
-`SnapshotCodec` and `TypedUserData<TSelf>` consume the same `ArchiveExchange`/`ArchiveEnvelope` contract. `DocumentStream` owns worksession change observation, and the Document session owner carries every worksession read and transition through `WorksessionSnapshot` and `WorksessionOp`.
 
 ## [05]-[RESEARCH]
 

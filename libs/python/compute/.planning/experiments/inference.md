@@ -2,7 +2,7 @@
 
 One classical Bayesian-inference owner over an explicit prior/likelihood/posterior graph: `Inference.run` builds a `pymc.Model` from a frozen request, draws the posterior with gradient MCMC across a backend axis, scores convergence and predictive fit with `arviz`, and graduates a typed posterior-evidence receipt through the `uncertainty_law` admission rail. This owner is bounded at conjugate and GLM-class models over scalar latent nodes — a vector group-level latent the per-variable summary fold cannot key by a single name is out of scope, as are variational, normalizing-flow, and neural-posterior estimation. A posterior failing the `ConvergenceBar` is an admission rejection on the graduation rail, never a graduated handoff.
 
-Three polymorphic surfaces carry every variation: `Distribution` over the `pymc` families, read in both the prior and likelihood roles off one vocabulary; `SamplerBackend` over the MCMC engine and its per-engine policy; the `ConvergenceBar` policy row folded against the `_RESIDUALS` dimension table, so a stricter bar is a tighter row, never a new gate. This run rides the `EvidenceScope.INFERENCE` weave — span, `boundary` fence, beartype guard, fenced contributor harvest — the same composed form `experiments/model#ASSET` and `graduation/handoff#GRADUATION` hold.
+Three polymorphic surfaces carry every variation: `Distribution` over the `pymc` families, read in both the prior and likelihood roles off one vocabulary; `SamplerBackend` over the MCMC engine and its per-engine policy; the `ConvergenceBar` policy row folded against the `_RESIDUALS` dimension table, so a stricter bar is a tighter row, never a new gate. This run rides the `EvidenceScope.INFERENCE` weave — span, a `boundary` fence narrowed to the posterior stack's own raise set, beartype guard, fenced contributor harvest onto the one runtime receipt spine — the same composed form `experiments/model#ASSET` and `graduation/handoff#GRADUATION` hold. The narrowing resolves at first dispatch, so naming `pymc`'s exception classes never reifies the compile chain the page defers.
 
 ## [01]-[INDEX]
 
@@ -14,7 +14,7 @@ Three polymorphic surfaces carry every variation: `Distribution` over the `pymc`
 - Cases: `Distribution` is one union read in both roles, each case carrying its canonical parameters as a typed tuple — never a stringly `dict[str, float]` drifting from the class signature; the union's own keyword constructor is the construction surface, no parallel factory family re-wraps the cases.
 - Law: the async `run` fold charges one `Resource.RECORD` `MeterFact` over the sample population — draws times chains off the `SamplerPlan`, surfaced by the sampler engine — because that fold is the nearest async owner of a count the offloaded kernel produced and binds no plane for. The charge lands off the cleared arm alone, since a run refused at admission drew nothing, and the plan carries the two factors separately where the receipt fuses them into one `draws` column. The resource already names its series at the journal owner, so no metric row is minted beside the receipt fan.
 - Auto: PyMC owns the model lowering and the JAX/Numba handoff — this page never re-drives `pymc.sampling.jax`, the `nutpie.compile_pymc_model`/`sample` pair, or the raw `blackjax` kernel algebra, and the accelerated engines install only so PyMC's own dispatch resolves them, never as imports here. Sampling never retries: the posterior draw is the evidence, and worker-death handling stays the lane's.
-- Output: `ConvergenceBar` folds against the `_RESIDUALS` table, so a new convergence dimension is one `_Residual` row and one bar field; a `metropolis` trace carries no `diverging` sample stat — divergence counting is a gradient-sampler diagnostic — so the membership gate contributes `0` rather than a spurious `KeyError`, and a non-gradient sampler trivially clears the default bar. Predictive fit is one `_score` fold with two rows behind the `loo_cells` pointwise budget — the full PSIS-LOO matrix within it, the `loo_subsample` difference estimator above it with one `update_subsample` refinement while the sub-sampling SE dominates; `ELPDData.kind` stays `"loo"` on BOTH rows, so the receipt discriminates on the typed `subsample_obs`/`subsample_se` pair (`None` spells the full fold), and the subsampled `pareto_k` keeps full length with NaN at unsampled rows, read nan-aware.
+- Output: `ConvergenceBar` folds against the `_RESIDUALS` table, so a new convergence dimension is one `_Residual` row and one bar field; a `metropolis` trace carries no `diverging` sample stat — divergence counting is a gradient-sampler diagnostic — so that dimension is ABSENT from both the measured ledger and the ceiling it would be graded against, and the receipt's warning band names it. A fabricated `0` there read as a gradient run that diverged never and cleared the bar by construction, and the ceiling projects over exactly the measured keys so the hub's key-coverage gate never refuses a run for a dimension nobody asked it to measure. Predictive fit is one `_score` fold with two rows behind the `loo_cells` pointwise budget — the full PSIS-LOO matrix within it, the `loo_subsample` difference estimator above it with one `update_subsample` refinement while the sub-sampling SE dominates; `ELPDData.kind` stays `"loo"` on BOTH rows, so the receipt discriminates on the typed `subsample_obs`/`subsample_se` pair (`None` spells the full fold), and the subsampled `pareto_k` keeps full length with NaN at unsampled rows, read nan-aware.
 - Growth: a new distribution is one `Distribution` case and one `declare` arm usable in either role; a new sampler engine is one `SamplerBackend` case or one `external_nuts` name; a new convergence dimension is one `ConvergenceBar` field and one `_Residual`; a new per-variable diagnostic is one `PosteriorSummary` field; a new predictive-scoring row is one `_score` arm behind its `SamplerPlan` policy field.
 
 ```python signature
@@ -25,16 +25,17 @@ from typing import TYPE_CHECKING, Final, Literal, assert_never
 import msgspec
 import numpy as np
 from beartype import beartype
-from expression import Error, Ok, Result, case, tag, tagged_union
-from expression.collections import Block, Map
+from beartype.roar import BeartypeCallHintViolation
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
+from expression.collections import Block
 from msgspec import Struct
 
-from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, HandoffAxis, evidence_run
+from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, GraduationReceipt, HandoffAxis, evidence_run
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, Catch, FaultRow, RuntimeRail, boundary, rostered
 from rasm.runtime.journal import Journal, MeterFact, Resource
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
+from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
 # posterior stack defers: `pymc` drags the pytensor compile chain and `arviz` the xarray/pandas diagnostic stack, so
@@ -208,9 +209,11 @@ class StudyPayload(Struct, frozen=True):
 @dataclass(slots=True, frozen=True)
 class _Residual:
     # a slots dataclass carries the extractor lambdas (never wire-decoded, so not a `msgspec.Struct`); the forward reference
-    # to the later `InferenceReceipt` resolves lazily under PEP 749 deferred annotations.
+    # to the later `InferenceReceipt` resolves lazily under PEP 749 deferred annotations. `measure` answers `Option`
+    # because a dimension THIS sampler never produced has no value: a `metropolis` trace carries no `diverging`
+    # sample stat, so a `float` extractor there could only fabricate one.
     key: str
-    measure: Callable[[InferenceReceipt], float]
+    measure: Callable[[InferenceReceipt], Option[float]]
     ceiling: Callable[[ConvergenceBar], float]
 
 
@@ -231,22 +234,38 @@ class InferenceReceipt(Struct, frozen=True):
     ppc_mean: float
     elpd: float
     p_eff: float  # arviz-1.x `ELPDData.p` effective-parameter count; never the removed `p_loo`
-    subsample_obs: int | None  # `ELPDData.subsample_size`; None spells the full pointwise fold — `kind` stays "loo" on BOTH rows
-    subsample_se: float | None  # `ELPDData.subsampling_se` sub-sampling half of the SE; None on the full fold
+    # `ELPDData.subsample_size`/`subsampling_se` ride the branch's absence carrier rather than crossing this owner's
+    # boundary as `None` — the full pointwise fold has no subsample, and `kind` stays "loo" on BOTH rows, so the pair
+    # IS the discriminant a consumer reads.
+    subsample_obs: Option[int]
+    subsample_se: Option[float]
     pareto_k_max: float
     prior_sensitivity_max: float
-    divergences: int
+    divergences: Option[int]  # ABSENT on a non-gradient sampler, whose trace carries no `diverging` sample stat
     draws: int
     bar: ConvergenceBar
     model_key: ContentKey
 
     @property
     def measured(self) -> dict[str, float]:
-        return {row.key: row.measure(self) for row in _RESIDUALS}
+        # a dimension this sampler never produced is ABSENT rather than zero, so the ledger states exactly what the
+        # run measured and a forged floor never clears a bar on a dimension nobody read.
+        return dict(Block.of_seq(_RESIDUALS).choose(lambda row: row.measure(self).map(lambda value: (row.key, value))))
 
     @property
     def ceiling(self) -> dict[str, float]:
-        return {row.key: row.ceiling(self.bar) for row in _RESIDUALS}
+        # the ceiling projects over exactly the dimensions `measured` produced — the same key-coverage discipline the
+        # `experiments/model#ASSET` default holds — so an unmeasured dimension bars nothing rather than making the
+        # hub's `measured.keys() >= ceiling.keys()` gate refuse a run that was never asked to measure it.
+        measured = self.measured
+        return {row.key: row.ceiling(self.bar) for row in _RESIDUALS if row.key in measured}
+
+    @property
+    def band(self) -> Block[str]:
+        # the spine's warning roster: a convergence dimension this sampler never produced was never barred, so a
+        # reader grading the crossing sees WHICH bar went unmeasured instead of inferring it from a cleared ledger.
+        measured = self.measured
+        return Block.of_seq(f"unmeasured:{row.key}" for row in _RESIDUALS if row.key not in measured)
 
     @property
     def converged(self) -> bool:
@@ -255,20 +274,19 @@ class InferenceReceipt(Struct, frozen=True):
 
     @property
     def span_facts(self) -> dict[str, str | int | float | bool]:
-        # bounded scalars only — the full per-variable `summaries` and `measured` ledger ride the receipt facts, never the span.
-        return {
-            "subject": self.subject(),
-            "converged": self.converged,
-            "draws": self.draws,
-            "max_pareto_k": self.pareto_k_max,
-            "model_key": self.model_key.hex,
-        }
+        # bounded scalars only — the full per-variable `summaries` and `measured` ledger ride the receipt facts,
+        # never the span — and not the spine's own columns: the subject is the settlement's `concern`, the model key
+        # its `key`, and the unmeasured roster its `band`.
+        return {"converged": self.converged, "draws": self.draws, "max_pareto_k": self.pareto_k_max, "unmeasured": len(self.band)}
 
     def subject(self) -> str:
         return f"{self.likelihood}:{self.backend}"
 
     def contribute(self) -> Iterable[Receipt]:
-        # native scalars only — no `str()` coerce where the deterministic renderer keeps types.
+        # ONE settled-receipt spine: the payload is this producer's own diagnostic ledger — native scalars, no
+        # `str()` coerce where the deterministic renderer keeps types — while the key, the provenance pair, the
+        # unmeasured-dimension band, and the stamp are the spine's columns. Provenance names the produced model key
+        # alone: a posterior is derived from the spec this key addresses and consumes no upstream key.
         facts: dict[str, object] = {
             "likelihood": self.likelihood,
             "backend": self.backend,
@@ -277,9 +295,19 @@ class InferenceReceipt(Struct, frozen=True):
             "elpd": self.elpd,
             "p_eff": self.p_eff,
             "draws": self.draws,
+            "subsample_obs": self.subsample_obs.to_optional(),
+            "subsample_se": self.subsample_se.to_optional(),
             **self.measured,
         }
-        return (Receipt.of(EvidenceScope.INFERENCE.value, ("emitted", self.subject(), facts)),)
+        return (
+            Receipt.of(
+                EvidenceScope.INFERENCE.value,
+                ("emitted", self.subject(), facts),
+                key=Some(self.model_key),
+                provenance=Some(Provenance(consumed=Block.empty(), produced=self.model_key)),
+                band=self.band,
+            ),
+        )
 
     def graduates(self, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[GraduationReceipt]:
         # `composition` is the caller's custody key threaded onto the hub, so an embedded composition's admission and
@@ -297,23 +325,45 @@ class InferenceReceipt(Struct, frozen=True):
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
+# this page's raise-side roster under the hub `ComputeLeg` roster: the retired `f"inference.{engine}"` subject forked
+# ONE refusal law across every sampler engine, and the engine is already a span fact and a receipt column.
+INFERENCE_FIT: Final[FaultRow[ComputeLeg]] = FaultRow(
+    leg=ComputeLeg.INFERENCE, point="fit", arm="boundary", defect="posterior-draw", retriability=TERMINAL
+)
+RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([INFERENCE_FIT]))
+
 # each row pairs a residual key with its measured- and ceiling-extractors, so `measured` and `ceiling` fold one table rather than
 # two near-identical dicts; the ess floor enters negated so the shared `measured <= ceiling` fold reads a max-deficit.
 _RESIDUALS: Final[Block[_Residual]] = Block.of_seq([
-    _Residual("max_rhat", lambda r: max(s.r_hat for s in r.summaries.values()), lambda b: b.rhat_ceiling),
-    _Residual("neg_min_ess_bulk", lambda r: -min(s.ess_bulk for s in r.summaries.values()), lambda b: -b.ess_floor),
-    _Residual("divergences", lambda r: float(r.divergences), lambda b: float(b.max_divergences)),
-    _Residual("pareto_k_max", lambda r: r.pareto_k_max, lambda b: b.pareto_k_ceiling),
-    _Residual("prior_sensitivity_max", lambda r: r.prior_sensitivity_max, lambda b: b.prior_sensitivity_ceiling),
+    _Residual("max_rhat", lambda r: Some(max(s.r_hat for s in r.summaries.values())), lambda b: b.rhat_ceiling),
+    _Residual("neg_min_ess_bulk", lambda r: Some(-min(s.ess_bulk for s in r.summaries.values())), lambda b: -b.ess_floor),
+    # the ONE optional row: a non-gradient sampler produces no divergence count, so the dimension is ABSENT and bars
+    # nothing, where the retired `float(0)` read as a gradient sampler that diverged never and cleared the bar.
+    _Residual("divergences", lambda r: r.divergences.map(float), lambda b: float(b.max_divergences)),
+    _Residual("pareto_k_max", lambda r: Some(r.pareto_k_max), lambda b: b.pareto_k_ceiling),
+    _Residual("prior_sensitivity_max", lambda r: Some(r.prior_sensitivity_max), lambda b: b.prior_sensitivity_ceiling),
 ])
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+def _posterior_raises() -> Catch:
+    # the raise set resolves at FIRST DISPATCH, never at import: `pymc` rides a module-scope `lazy` bind, so naming
+    # its exception classes in a module-scope tuple would reify the pytensor compile chain at import and defeat the
+    # deferral this whole page is built on. Members are proved against the installed distribution rather than
+    # authored — `SamplingError` is a `RuntimeError`, `DtypeError` a `TypeError`, `IncorrectArgumentsError` a
+    # `ValueError`, while `ShapeError` subclasses bare `Exception`, so no builtin in this set subsumes it and it is
+    # named explicitly. `arviz`'s summary, hdi, loo, and sensitivity folds raise `ValueError`/`TypeError`, `numpy`
+    # raises `ValueError` on a degenerate reduction, the `@beartype(conf=FAULT_CONF)` contract on `_fit` raises the
+    # canonical violation the `CLASSIFY` `api` row folds. `RuntimeError` is the sampler family's own — the model-key
+    # rail returns its refusal typed rather than re-raising it into this set.
+    return (BeartypeCallHintViolation, pymc.exceptions.ShapeError, RuntimeError, TypeError, ValueError)
+
+
 def _fit_kernel(spec: "InferenceSpec") -> "RuntimeRail[InferenceReceipt]":
     # module-level so the worker resolves it by import; the fence converts a sampler raise.
-    return boundary(f"inference.{spec.plan.backend.engine}", lambda: Inference._fit(spec))
+    return boundary(INFERENCE_FIT, lambda: Inference._fit(spec), catch=_posterior_raises()).bind(lambda outcome: outcome)
 
 
 def _metered(engine: str, plan: SamplerPlan) -> MeterFact:
@@ -351,7 +401,7 @@ class Inference:
 
     @staticmethod
     @beartype(conf=FAULT_CONF)
-    def _fit(spec: InferenceSpec) -> InferenceReceipt:
+    def _fit(spec: InferenceSpec) -> "RuntimeRail[InferenceReceipt]":
         plan, names = spec.plan, [lat.name for lat in spec.latents]
         with pymc.Model() as model:
             nodes = {lat.name: lat.prior.declare(lat.name) for lat in spec.latents}
@@ -376,31 +426,39 @@ class Inference:
             )
             for n in names
         }
-        # key is `match`ed off the rail inside the already-fenced body, so a hash `Error` re-raises onto the `boundary`
-        # rather than masking a fabricated empty key.
-        match ContentIdentity.of("pymc-model", _study_payload(spec)):
-            case Result(tag="ok", ok=model_key):
-                pass
-            case Result(tag="error", error=fault):
-                raise RuntimeError(fault)
-        return InferenceReceipt(
-            likelihood=spec.likelihood.tag,
-            backend=plan.backend.engine,
-            summaries=summaries,
-            ppc_mean=float(ppc.posterior_predictive["observation"].mean().to_numpy()),
-            elpd=float(loo.elpd),
-            p_eff=float(loo.p),
-            subsample_obs=None if loo.subsample_size is None else int(loo.subsample_size),
-            subsample_se=None if loo.subsampling_se is None else float(loo.subsampling_se),
-            # subsampled `pareto_k` keeps FULL observation length with NaN at unsampled rows — structural absence,
-            # so the max is nan-aware; on the full fold nanmax equals max.
-            pareto_k_max=float(np.nanmax(np.asarray(loo.pareto_k))),
-            prior_sensitivity_max=float(np.asarray(psense["prior"]).max()),
-            divergences=int(trace.sample_stats["diverging"].to_numpy().sum()) if "diverging" in trace.sample_stats else 0,
-            draws=plan.draws * plan.chains,
-            bar=plan.bar,
-            model_key=model_key,
-        )
+        # the model-key rail THREADS rather than re-raising: the retired `raise RuntimeError(fault)` handed an
+        # already-typed `BoundaryFault` to this body's own fence to re-classify, and the conversion keeps
+        # `str(cause)` — so a digest refusal reached its consumer as a message string with its subject, leg, arm, and
+        # defect token erased. Returning the rail also keeps the key from ever being masked by a fabricated empty one.
+        def settled(model_key: ContentKey) -> InferenceReceipt:
+            # the projection closes over the fold's own locals rather than taking them as parameters: a seated sibling
+            # would have to annotate `ppc`, `loo`, and `psense` as bare `object`, minting three erased slots to move a
+            # value that never leaves this body.
+            return InferenceReceipt(
+                likelihood=spec.likelihood.tag,
+                backend=plan.backend.engine,
+                summaries=summaries,
+                ppc_mean=float(ppc.posterior_predictive["observation"].mean().to_numpy()),
+                elpd=float(loo.elpd),
+                p_eff=float(loo.p),
+                # the provider's `None` is admitted ONCE, here at the read that first sees it, and never crosses this
+                # owner's boundary — `docs/stacks/python/boundaries.md` `[SENTINEL_SITE]` names this the one projection.
+                subsample_obs=Option.of_optional(loo.subsample_size).map(int),
+                subsample_se=Option.of_optional(loo.subsampling_se).map(float),
+                # subsampled `pareto_k` keeps FULL observation length with NaN at unsampled rows — structural absence,
+                # so the max is nan-aware; on the full fold nanmax equals max.
+                pareto_k_max=float(np.nanmax(np.asarray(loo.pareto_k))),
+                prior_sensitivity_max=float(np.asarray(psense["prior"]).max()),
+                # a `metropolis` trace carries NO `diverging` sample stat, so the count is ABSENT rather than zero:
+                # divergence is a gradient-sampler diagnostic, and a fabricated `0` reads as a gradient run that
+                # diverged never and clears the bar by construction.
+                divergences=Some(int(trace.sample_stats["diverging"].to_numpy().sum())) if "diverging" in trace.sample_stats else Nothing,
+                draws=plan.draws * plan.chains,
+                bar=plan.bar,
+                model_key=model_key,
+            )
+
+        return ContentIdentity.of("pymc-model", _study_payload(spec)).map(settled)
 
 
 def _score(trace: "DataTree", plan: SamplerPlan, n_obs: int) -> object:

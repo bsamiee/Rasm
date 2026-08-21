@@ -1,27 +1,31 @@
 # [RASM_RHINO_RENDER_FIELDS]
 
-`FieldValue` owns the typed RDK parameter algebra from admission through declaration, binding, mutation, recovery, and detached census. `FieldCarrier` declares the payload correspondence once, `FieldPresentation` and `FieldRange` carry declaration policy as values, `ParamScope` reaches every native parameter route, and `ChangeScope` brackets every write before any host carrier escapes.
+`ContentValue` owns the typed RDK parameter algebra from admission through declaration, binding, mutation, recovery, and detached census. `ContentCarrier` declares the payload correspondence once, `FieldPresentation` and `FieldRange` carry declaration policy as values, `ParamScope` reaches every native parameter route, and `ChangeScope` brackets every write before any host carrier escapes.
 
 ## [01]-[INDEX]
 
-- [02]-[VALUE]: `FieldValue` — the one polymorphic payload owner with write, recovery, and boxing dispatch.
+- [02]-[VALUE]: `ContentValue` — the one polymorphic payload owner with write, recovery, and boxing dispatch.
 - [03]-[DECLARATION]: `FieldPresentation` and `FieldSpec` — field declaration rows; `DynamicFieldSpec` — the dynamic-field bracket fold.
 - [04]-[BINDING_AND_PARAMS]: `FieldBinding`, the `PbrChannel`/`ContentParameter` name vocabularies, `ParamScope`, and the `FieldPortrait` census.
 - [05]-[SURFACE_LEDGER]: page owner table.
 
 ## [02]-[VALUE]
 
-- Owner: `FieldValue` closes the payload alternatives, and `FieldCarrier` rows bind each case to its host field type, raw payload type, boxing projection, range order, declaration delegates, write delegate, and recovery projection.
-- Law: `FieldCarrier.Items` derives field-type and payload-type lookup from one correspondence; boxing and scalar-range admission dispatch through that same row, so ordinary carrier growth adds one value case and one behavior row.
-- Law: recovery is keyed, never scanned — the generated `Type` key is the union CASE type `FieldValue.Carrier` reads, so the two recovery axes fold once off `Items` into their own field-type and payload-type indexes and a payload answers its carrier in one hit.
-- Law: `FieldCarrier.Declare` captures native declaration failures; `Bytes` uses the value-only `Add` overload and rejects textured or filename presentation.
+- Owner: `ContentValue` closes the payload alternatives, and `ContentCarrier` rows bind each case to its host field type, raw payload type, boxing projection, range order, declaration delegates, write delegate, and recovery projection.
+- Law: the name is `ContentValue`, never `FieldValue` — three separate owners in this branch claim the shorter spelling (the kernel `Rasm.Interaction` control payload, this content-parameter algebra, and the Annotation text-field grammar), and `Rasm.Rhino.Render` and `Rasm.Interaction` meet in one file the moment the registry's editor shell composes a control spec.
+- Law: each case declares its own payload correspondence — `IContentPayload<TSelf, T>` carries the static `Of` mint and the `Value` read, so `ContentCarrier.Row` derives the row key, the pack, and the unpack from the case type itself. Per-row `key`/`pack`/`unpack` lambda triples are the deleted form and, with them, the chance of a row whose key names one case while its lambdas read another.
+- Law: `ContentCarrier.Items` derives field-type and payload-type lookup from one correspondence; boxing and scalar-range admission dispatch through that same row, so ordinary carrier growth adds one value case and one behavior row.
+- Law: recovery is keyed, never scanned — the generated `Type` key is the union CASE type `ContentValue.Carrier` reads, so the two recovery axes fold once off `Items` into their own field-type and payload-type indexes and a payload answers its carrier in one hit.
+- Law: `ContentCarrier.Declare` captures native declaration failures; `Bytes` uses the value-only `Add` overload and rejects textured or filename presentation.
 - Law: a host hole is a row VALUE — `WriteHole` names the payload-to-field pair the host publishes no route for, and `Write` refuses on it before any host call, so the roster stays total and the absence reads as a host limit rather than an omitted case.
 - Law: `Null` recovers `NullField`, `DBNull.Value`, and `null` payloads — every shape its declared payload type routes to it — preserves a `NullField` census row, and boxes to `null` for object-typed parameter seams; it declares through `FieldDictionary.Add` yet carries the one `WriteHole` in the roster, because the host publishes no `Set` overload reaching a `NullField` — so a null field is declarable and readable but never writable, and a consumer replaces the value by re-declaring rather than setting.
 - Boundary: `Color4f` rides the union as the host color seam value — field payloads are content-parameter truth, and a domain color composes the kernel `PerceptualColor` owner at the consumer that treats it as color, never inside the parameter carrier.
+- Packages: `api-rhinocommon-rendercontent.md` (`FieldDictionary.Add`/`AddTextured`/`AddFilename`/`Set`, `Field`, `BoolField`/`IntField`/`FloatField`/`DoubleField`/`Color4fField`/`Vector2dField`/`Vector3dField`/`Point2dField`/`Point3dField`/`Point4dField`/`StringField`/`DateTimeField`/`GuidField`/`TransformField`/`ByteArrayField`/`NullField`); `api-rhinocommon-display.md` (`Color4f`); `api-rhinocommon-geometry.md` (`Vector2d`, `Vector3d`, `Point2d`, `Point3d`, `Point4d`, `Transform`); kernel `Domain/rails` (`Op.Catch`, `Op.InvalidInput`, `Op.Unsupported`); LanguageExt.Core (`Fin`, `HashMap`, `Arr`, `Option`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[UseDelegateFromConstructor]`).
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Domain;
+using Rasm.Rhino.Display;
 using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.Display;
@@ -29,34 +33,42 @@ using Rhino.DocObjects;
 using Rhino.Geometry;
 using Rhino.Render;
 using Rhino.Render.Fields;
+using Thinktecture;
 
 namespace Rasm.Rhino.Render;
 
 // --- [TYPES] --------------------------------------------------------------------------------
+// Each case owns one correspondence about itself: its payload type and the mint back into the case.
+// `ContentCarrier.Row` reads both off `TCase`, so a row cannot be keyed on one case while packing another.
+public interface IContentPayload<TSelf, T> where TSelf : ContentValue, IContentPayload<TSelf, T> {
+    static abstract TSelf Of(T value);
+    T Value { get; }
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record FieldValue : IDetachedDocumentResult {
-    private FieldValue() { }
-    public sealed record Toggle(bool Value) : FieldValue;
-    public sealed record Whole(int Value) : FieldValue;
-    public sealed record Single(float Value) : FieldValue;
-    public sealed record Real(double Value) : FieldValue;
-    public sealed record Colour(Color4f Value) : FieldValue;
-    public sealed record Vec2(Vector2d Value) : FieldValue;
-    public sealed record Vec3(Vector3d Value) : FieldValue;
-    public sealed record Pt2(Point2d Value) : FieldValue;
-    public sealed record Pt3(Point3d Value) : FieldValue;
-    public sealed record Pt4(Point4d Value) : FieldValue;
-    public sealed record Text(string Value) : FieldValue;
-    public sealed record Stamp(DateTime Value) : FieldValue;
-    public sealed record Key(Guid Value) : FieldValue;
-    public sealed record Motion(Transform Value) : FieldValue;
-    public sealed record Bytes(Arr<byte> Value) : FieldValue;
-    public sealed record Null : FieldValue;
+public abstract partial record ContentValue : IDetachedDocumentResult {
+    private ContentValue() { }
+    public sealed record Toggle(bool Value) : ContentValue, IContentPayload<Toggle, bool> { public static Toggle Of(bool value) => new(Value: value); }
+    public sealed record Whole(int Value) : ContentValue, IContentPayload<Whole, int> { public static Whole Of(int value) => new(Value: value); }
+    public sealed record Single(float Value) : ContentValue, IContentPayload<Single, float> { public static Single Of(float value) => new(Value: value); }
+    public sealed record Real(double Value) : ContentValue, IContentPayload<Real, double> { public static Real Of(double value) => new(Value: value); }
+    public sealed record Colour(Color4f Value) : ContentValue, IContentPayload<Colour, Color4f> { public static Colour Of(Color4f value) => new(Value: value); }
+    public sealed record Vec2(Vector2d Value) : ContentValue, IContentPayload<Vec2, Vector2d> { public static Vec2 Of(Vector2d value) => new(Value: value); }
+    public sealed record Vec3(Vector3d Value) : ContentValue, IContentPayload<Vec3, Vector3d> { public static Vec3 Of(Vector3d value) => new(Value: value); }
+    public sealed record Pt2(Point2d Value) : ContentValue, IContentPayload<Pt2, Point2d> { public static Pt2 Of(Point2d value) => new(Value: value); }
+    public sealed record Pt3(Point3d Value) : ContentValue, IContentPayload<Pt3, Point3d> { public static Pt3 Of(Point3d value) => new(Value: value); }
+    public sealed record Pt4(Point4d Value) : ContentValue, IContentPayload<Pt4, Point4d> { public static Pt4 Of(Point4d value) => new(Value: value); }
+    public sealed record Text(string Value) : ContentValue, IContentPayload<Text, string> { public static Text Of(string value) => new(Value: value); }
+    public sealed record Stamp(DateTime Value) : ContentValue, IContentPayload<Stamp, DateTime> { public static Stamp Of(DateTime value) => new(Value: value); }
+    public sealed record Key(Guid Value) : ContentValue, IContentPayload<Key, Guid> { public static Key Of(Guid value) => new(Value: value); }
+    public sealed record Motion(Transform Value) : ContentValue, IContentPayload<Motion, Transform> { public static Motion Of(Transform value) => new(Value: value); }
+    public sealed record Bytes(Arr<byte> Value) : ContentValue;
+    public sealed record Null : ContentValue;
 
-    internal FieldCarrier Carrier => FieldCarrier.Get(GetType());
+    internal ContentCarrier Carrier => ContentCarrier.Get(GetType());
 
-    internal static Fin<FieldValue> Of(object? payload, Op key) =>
-        FieldCarrier.Recover(payload: payload, key: key);
+    internal static Fin<ContentValue> Of(object? payload, Op key) =>
+        ContentCarrier.Recover(payload: payload, key: key);
 
     internal Fin<Unit> Declare(FieldDeclaration declaration, Op key) =>
         Carrier.Declare(declaration: declaration, payload: Boxed(), key: key);
@@ -75,89 +87,77 @@ public readonly record struct FieldDeclaration(
     FieldPresentation Presentation);
 
 [SmartEnum<Type>]
-public sealed partial class FieldCarrier {
-    public static readonly FieldCarrier Toggle = Row<FieldValue.Toggle, bool, BoolField>(
-        key: typeof(FieldValue.Toggle), pack: static value => new FieldValue.Toggle(Value: value), unpack: static value => value.Value,
+public sealed partial class ContentCarrier {
+    public static readonly ContentCarrier Toggle = Row<ContentValue.Toggle, bool, BoolField>(
         read: static field => field.Value,
         plain: static (f, n, v, p, s) => f.Add(n, v, p, s), write: static (f, n, v) => f.Set(n, v),
         textured: static (f, n, v, p, l, s) => f.AddTextured(n, v, p, l, s));
-    public static readonly FieldCarrier Whole = Row<FieldValue.Whole, int, IntField>(
-        key: typeof(FieldValue.Whole), pack: static value => new FieldValue.Whole(Value: value), unpack: static value => value.Value,
+    public static readonly ContentCarrier Whole = Row<ContentValue.Whole, int, IntField>(
         read: static field => field.Value,
         plain: static (f, n, v, p, s) => f.Add(n, v, p, s), write: static (f, n, v) => f.Set(n, v),
         textured: static (f, n, v, p, l, s) => f.AddTextured(n, v, p, l, s),
         ordered: static (lo, hi) => lo <= hi);
-    public static readonly FieldCarrier Single = Row<FieldValue.Single, float, FloatField>(
-        key: typeof(FieldValue.Single), pack: static value => new FieldValue.Single(Value: value), unpack: static value => value.Value,
+    public static readonly ContentCarrier Single = Row<ContentValue.Single, float, FloatField>(
         read: static field => field.Value,
         plain: static (f, n, v, p, s) => f.Add(n, v, p, s), write: static (f, n, v) => f.Set(n, v),
         textured: static (f, n, v, p, l, s) => f.AddTextured(n, v, p, l, s),
         ordered: static (lo, hi) => float.IsFinite(lo) && float.IsFinite(hi) && lo <= hi);
-    public static readonly FieldCarrier Real = Row<FieldValue.Real, double, DoubleField>(
-        key: typeof(FieldValue.Real), pack: static value => new FieldValue.Real(Value: value), unpack: static value => value.Value,
+    public static readonly ContentCarrier Real = Row<ContentValue.Real, double, DoubleField>(
         read: static field => field.Value,
         plain: static (f, n, v, p, s) => f.Add(n, v, p, s), write: static (f, n, v) => f.Set(n, v),
         textured: static (f, n, v, p, l, s) => f.AddTextured(n, v, p, l, s),
         ordered: static (lo, hi) => double.IsFinite(lo) && double.IsFinite(hi) && lo <= hi);
-    public static readonly FieldCarrier Colour = Row<FieldValue.Colour, Color4f, Color4fField>(
-        key: typeof(FieldValue.Colour), pack: static value => new FieldValue.Colour(Value: value), unpack: static value => value.Value,
+    public static readonly ContentCarrier Colour = Row<ContentValue.Colour, Color4f, Color4fField>(
         read: static field => field.Value,
         plain: static (f, n, v, p, s) => f.Add(n, v, p, s), write: static (f, n, v) => f.Set(n, v),
         textured: static (f, n, v, p, l, s) => f.AddTextured(n, v, p, l, s));
-    public static readonly FieldCarrier Vec2 = Row<FieldValue.Vec2, Vector2d, Vector2dField>(
-        key: typeof(FieldValue.Vec2), pack: static value => new FieldValue.Vec2(Value: value), unpack: static value => value.Value,
+    public static readonly ContentCarrier Vec2 = Row<ContentValue.Vec2, Vector2d, Vector2dField>(
         read: static field => field.Value,
         plain: static (f, n, v, p, s) => f.Add(n, v, p, s), write: static (f, n, v) => f.Set(n, v),
         textured: static (f, n, v, p, l, s) => f.AddTextured(n, v, p, l, s));
-    public static readonly FieldCarrier Vec3 = Row<FieldValue.Vec3, Vector3d, Vector3dField>(
-        key: typeof(FieldValue.Vec3), pack: static value => new FieldValue.Vec3(Value: value), unpack: static value => value.Value,
+    public static readonly ContentCarrier Vec3 = Row<ContentValue.Vec3, Vector3d, Vector3dField>(
         read: static field => field.Value,
         plain: static (f, n, v, p, s) => f.Add(n, v, p, s), write: static (f, n, v) => f.Set(n, v),
         textured: static (f, n, v, p, l, s) => f.AddTextured(n, v, p, l, s));
-    public static readonly FieldCarrier Pt2 = Row<FieldValue.Pt2, Point2d, Point2dField>(
-        key: typeof(FieldValue.Pt2), pack: static value => new FieldValue.Pt2(Value: value), unpack: static value => value.Value,
+    public static readonly ContentCarrier Pt2 = Row<ContentValue.Pt2, Point2d, Point2dField>(
         read: static field => field.Value,
         plain: static (f, n, v, p, s) => f.Add(n, v, p, s), write: static (f, n, v) => f.Set(n, v),
         textured: static (f, n, v, p, l, s) => f.AddTextured(n, v, p, l, s));
-    public static readonly FieldCarrier Pt3 = Row<FieldValue.Pt3, Point3d, Point3dField>(
-        key: typeof(FieldValue.Pt3), pack: static value => new FieldValue.Pt3(Value: value), unpack: static value => value.Value,
+    public static readonly ContentCarrier Pt3 = Row<ContentValue.Pt3, Point3d, Point3dField>(
         read: static field => field.Value,
         plain: static (f, n, v, p, s) => f.Add(n, v, p, s), write: static (f, n, v) => f.Set(n, v),
         textured: static (f, n, v, p, l, s) => f.AddTextured(n, v, p, l, s));
-    public static readonly FieldCarrier Pt4 = Row<FieldValue.Pt4, Point4d, Point4dField>(
-        key: typeof(FieldValue.Pt4), pack: static value => new FieldValue.Pt4(Value: value), unpack: static value => value.Value,
+    public static readonly ContentCarrier Pt4 = Row<ContentValue.Pt4, Point4d, Point4dField>(
         read: static field => field.Value,
         plain: static (f, n, v, p, s) => f.Add(n, v, p, s), write: static (f, n, v) => f.Set(n, v),
         textured: static (f, n, v, p, l, s) => f.AddTextured(n, v, p, l, s));
-    public static readonly FieldCarrier Text = Row<FieldValue.Text, string, StringField>(
-        key: typeof(FieldValue.Text), pack: static value => new FieldValue.Text(Value: value), unpack: static value => value.Value,
+    public static readonly ContentCarrier Text = Row<ContentValue.Text, string, StringField>(
         read: static field => field.Value,
         plain: static (f, n, v, p, s) => f.Add(n, v, p, s), write: static (f, n, v) => f.Set(n, v),
         textured: static (f, n, v, p, l, s) => f.AddTextured(n, v, p, l, s));
-    public static readonly FieldCarrier Stamp = Row<FieldValue.Stamp, DateTime, DateTimeField>(
-        key: typeof(FieldValue.Stamp), pack: static value => new FieldValue.Stamp(Value: value), unpack: static value => value.Value,
+    public static readonly ContentCarrier Stamp = Row<ContentValue.Stamp, DateTime, DateTimeField>(
         read: static field => field.Value,
         plain: static (f, n, v, p, s) => f.Add(n, v, p, s), write: static (f, n, v) => f.Set(n, v),
         textured: static (f, n, v, p, l, s) => f.AddTextured(n, v, p, l, s),
         ordered: static (lo, hi) => lo <= hi);
-    public static readonly FieldCarrier Key = Row<FieldValue.Key, Guid, GuidField>(
-        key: typeof(FieldValue.Key), pack: static value => new FieldValue.Key(Value: value), unpack: static value => value.Value,
+    public static readonly ContentCarrier Key = Row<ContentValue.Key, Guid, GuidField>(
         read: static field => field.Value,
         plain: static (f, n, v, p, s) => f.Add(n, v, p, s), write: static (f, n, v) => f.Set(n, v),
         textured: static (f, n, v, p, l, s) => f.AddTextured(n, v, p, l, s));
-    public static readonly FieldCarrier Motion = Row<FieldValue.Motion, Transform, TransformField>(
-        key: typeof(FieldValue.Motion), pack: static value => new FieldValue.Motion(Value: value), unpack: static value => value.Value,
+    public static readonly ContentCarrier Motion = Row<ContentValue.Motion, Transform, TransformField>(
         read: static field => field.Value,
         plain: static (f, n, v, p, s) => f.Add(n, v, p, s), write: static (f, n, v) => f.Set(n, v),
         textured: static (f, n, v, p, l, s) => f.AddTextured(n, v, p, l, s));
-    public static readonly FieldCarrier Bytes = new(
-        key: typeof(FieldValue.Bytes), fieldType: typeof(ByteArrayField), payloadType: typeof(byte[]),
-        box: static value => value is FieldValue.Bytes bytes ? bytes.Value.ToArray() : null,
+    // Two rows sit outside that correspondence: `Bytes` CONVERTS between its case payload and the host array, and
+    // `Null` carries no payload at all — neither satisfies `IContentPayload`, so both spell their own columns.
+    public static readonly ContentCarrier Bytes = new(
+        key: typeof(ContentValue.Bytes), fieldType: typeof(ByteArrayField), payloadType: typeof(byte[]),
+        box: static value => value is ContentValue.Bytes bytes ? bytes.Value.ToArray() : null,
         acceptsRange: static (_, _) => false,
         read: static (payload, key) => payload switch {
-            ByteArrayField field => Fin.Succ<FieldValue>(value: new FieldValue.Bytes(Value: toArr(field.Value))),
-            byte[] value => Fin.Succ<FieldValue>(value: new FieldValue.Bytes(Value: toArr(value))),
-            _ => Fin.Fail<FieldValue>(error: key.InvalidResult()),
+            ByteArrayField field => Fin.Succ<ContentValue>(value: new ContentValue.Bytes(Value: toArr(field.Value))),
+            byte[] value => Fin.Succ<ContentValue>(value: new ContentValue.Bytes(Value: toArr(value))),
+            _ => Fin.Fail<ContentValue>(error: key.InvalidResult()),
         },
         declare: static (declaration, payload, key) => declaration.Presentation is FieldPresentation.Plain && payload is byte[] bytes
             ? key.Catch(() => { _ = declaration.Fields.Add(declaration.Name, bytes); return Fin.Succ(value: unit); })
@@ -166,21 +166,21 @@ public sealed partial class FieldCarrier {
         store: static (fields, name, payload, key) => payload is byte[] bytes
             ? key.Catch(() => { fields.Set(name, bytes); return Fin.Succ(value: unit); })
             : Fin.Fail<Unit>(error: key.InvalidInput()));
-    public static readonly FieldCarrier Null = new(
-        key: typeof(FieldValue.Null), fieldType: typeof(NullField), payloadType: typeof(DBNull),
+    public static readonly ContentCarrier Null = new(
+        key: typeof(ContentValue.Null), fieldType: typeof(NullField), payloadType: typeof(DBNull),
         box: static _ => null,
         acceptsRange: static (_, _) => false,
         read: static (payload, key) => payload is NullField or DBNull or null
-            ? Fin.Succ<FieldValue>(value: new FieldValue.Null())
-            : Fin.Fail<FieldValue>(error: key.InvalidResult()),
+            ? Fin.Succ<ContentValue>(value: new ContentValue.Null())
+            : Fin.Fail<ContentValue>(error: key.InvalidResult()),
         declare: static (declaration, _, key) => declaration.Presentation.Switch(
             state: (Declaration: declaration, Op: key),
             plain: static (ctx, _) => ctx.Op.Catch(() => { _ = ctx.Declaration.Fields.Add(ctx.Declaration.Name, ctx.Declaration.Prompt, ctx.Declaration.Section); return Fin.Succ(value: unit); }),
             textured: static (ctx, row) => ctx.Op.Catch(() => { _ = ctx.Declaration.Fields.AddTextured(ctx.Declaration.Name, ctx.Declaration.Prompt, row.TreatAsLinear, ctx.Declaration.Section); return Fin.Succ(value: unit); }),
             filename: static (ctx, _) => Fin.Fail<Unit>(error: ctx.Op.InvalidInput())),
-        writeHole: Some((From: typeof(FieldValue.Null), To: typeof(NullField))),
+        writeHole: Some((From: typeof(ContentValue.Null), To: typeof(NullField))),
         store: static (_, _, _, key) => Fin.Fail<Unit>(
-            error: key.Unsupported(geometryType: typeof(FieldValue.Null), outputType: typeof(NullField))));
+            error: key.Unsupported(inputType: typeof(ContentValue.Null), outputType: typeof(NullField))));
 
     public Type FieldType { get; }
     public Type PayloadType { get; }
@@ -191,13 +191,13 @@ public sealed partial class FieldCarrier {
     internal Option<(Type From, Type To)> WriteHole { get; }
 
     [UseDelegateFromConstructor]
-    internal partial object? Box(FieldValue value);
+    internal partial object? Box(ContentValue value);
 
     [UseDelegateFromConstructor]
-    internal partial bool AcceptsRange(FieldValue min, FieldValue max);
+    internal partial bool AcceptsRange(ContentValue min, ContentValue max);
 
     [UseDelegateFromConstructor]
-    internal partial Fin<FieldValue> Read(object? payload, Op key);
+    internal partial Fin<ContentValue> Read(object? payload, Op key);
 
     [UseDelegateFromConstructor]
     internal partial Fin<Unit> Declare(FieldDeclaration declaration, object? payload, Op key);
@@ -207,21 +207,21 @@ public sealed partial class FieldCarrier {
 
     internal Fin<Unit> Write(FieldDictionary fields, string name, object? payload, Op key) =>
         WriteHole.Match(
-            Some: hole => Fin.Fail<Unit>(error: key.Unsupported(geometryType: hole.From, outputType: hole.To)),
+            Some: hole => Fin.Fail<Unit>(error: key.Unsupported(inputType: hole.From, outputType: hole.To)),
             None: () => Store(fields: fields, name: name, payload: payload, key: key));
 
-    // The generated `Type` key is the UNION CASE type — that is the key `FieldValue.Carrier` already reads. Recovery
+    // Generated `Type` keys name the UNION CASE type — the key `ContentValue.Carrier` already reads. Recovery
     // arrives holding a host `Field` or a raw payload instead, so the two recovery axes are their own indexes folded once
     // off `Items` behind a lazy cell rather than a per-payload scan of the roster.
-    private static readonly Lazy<(HashMap<Type, FieldCarrier> ByField, HashMap<Type, FieldCarrier> ByPayload)> Index = new(
+    private static readonly Lazy<(HashMap<Type, ContentCarrier> ByField, HashMap<Type, ContentCarrier> ByPayload)> Index = new(
         static () => toSeq(Items).Fold(
-            (ByField: HashMap<Type, FieldCarrier>(), ByPayload: HashMap<Type, FieldCarrier>()),
+            (ByField: HashMap<Type, ContentCarrier>(), ByPayload: HashMap<Type, ContentCarrier>()),
             static (state, row) => (
                 ByField: state.ByField.Add(row.FieldType, row),
                 ByPayload: state.ByPayload.Add(row.PayloadType, row))),
         LazyThreadSafetyMode.ExecutionAndPublication);
 
-    internal static Fin<FieldValue> Recover(object? payload, Op key) =>
+    internal static Fin<ContentValue> Recover(object? payload, Op key) =>
         payload is null
             ? Null.Read(payload: null, key: key)
             : (payload is Field ? Index.Value.ByField : Index.Value.ByPayload)
@@ -229,30 +229,27 @@ public sealed partial class FieldCarrier {
                 .ToFin(Fail: key.InvalidResult(detail: payload.GetType().Name))
                 .Bind(row => row.Read(payload: payload, key: key));
 
-    private static FieldCarrier Row<TCase, T, TField>(
-        Type key,
-        Func<T, TCase> pack,
-        Func<TCase, T> unpack,
+    private static ContentCarrier Row<TCase, T, TField>(
         Func<TField, T> read,
         Func<FieldDictionary, string, T, string, int, Field> plain,
         Func<FieldDictionary, string, T, string, bool, int, Field> textured,
         Action<FieldDictionary, string, T> write,
         Func<T, T, bool>? ordered = null)
-        where TCase : FieldValue
+        where TCase : ContentValue, IContentPayload<TCase, T>
         where TField : Field =>
         new(
-            key: key,
+            key: typeof(TCase),
             fieldType: typeof(TField),
             payloadType: typeof(T),
-            box: value => value is TCase typed ? unpack(typed) : null,
+            box: static value => value is TCase typed ? (object?)typed.Value : null,
             acceptsRange: (min, max) => ordered is not null
                 && min is TCase lower
                 && max is TCase upper
-                && ordered(unpack(lower), unpack(upper)),
+                && ordered(lower.Value, upper.Value),
             read: (payload, op) => payload switch {
-                TField field => Fin.Succ<FieldValue>(value: pack(read(field))),
-                T value => Fin.Succ<FieldValue>(value: pack(value)),
-                _ => Fin.Fail<FieldValue>(error: op.InvalidResult()),
+                TField field => Fin.Succ<ContentValue>(value: TCase.Of(read(field))),
+                T value => Fin.Succ<ContentValue>(value: TCase.Of(value)),
+                _ => Fin.Fail<ContentValue>(error: op.InvalidResult()),
             },
             declare: (declaration, payload, op) => payload is T value
                 ? declaration.Presentation.Switch(
@@ -272,11 +269,15 @@ public sealed partial class FieldCarrier {
 
 ## [03]-[DECLARATION]
 
-- Owner: `FieldPresentation` `[Union]` — the declaration posture: `Plain` the ordinary field, `Textured` with its treat-as-linear grant through `AddTextured`, `Filename` the file-path string through `AddFilename`; `FieldSpec` — one declaration row: name, initial `FieldValue`, prompt, section, presentation; `DynamicFieldSpec` — one admitted runtime row whose optional bounds ride one ordered scalar carrier — finite, `Min <= Max`, carrier-equal to the value — declared inside the host begin/end bracket as one fold.
+- Owner: `FieldPresentation` `[Union]` — the declaration posture: `Plain` the ordinary field, `Textured` with its treat-as-linear grant through `AddTextured`, `Filename` the file-path string through `AddFilename`; `FieldSpec` — one declaration row: name, initial `ContentValue`, prompt, section, presentation; `DynamicFieldSpec` — one admitted runtime row whose optional bounds ride one ordered scalar carrier — finite, `Min <= Max`, carrier-equal to the value — declared inside the host begin/end bracket as one fold.
 - Law: declaration is data — a content class's field roster is a `Seq<FieldSpec>` declared in one pass, so the roster is diffable and a new field is one row; a hand-spelled `Add` chain beside the spec fold is the deleted form.
-- Law: `FieldRange` delegates scalar ordering to the same `FieldCarrier` row that boxes and declares the case; non-scalar rows refuse bounds without a parallel case roster.
-- Law: `DynamicFields.Declare` opens `BeginCreateDynamicFields`, admits every row, and closes `EndCreateDynamicFields` on every exit.
+- Law: `FieldRange` delegates scalar ordering to the same `ContentCarrier` row that boxes and declares the case; non-scalar rows refuse bounds without a parallel case roster.
+- Law: refusal is per clause — `FactoryValidation` names every failing constraint at once, so one repair round sees the whole invalid row.
+- Law: `DynamicFields.Declare` opens `BeginCreateDynamicFields` and closes `EndCreateDynamicFields` on the same `Lease<T>` custody rail the content page's `ChangeScope` takes, so an `EndCreateDynamicFields` refusal AGGREGATES into the row fold's own fault instead of replacing it the way a `finally` does.
 - Law: a textured or filename declaration is a presentation row, never a sibling spec type — the presentation discriminates the host `Add` overload, and the returned typed field stays inside the fold.
+- Boundary: `RenderFault` on `FaultBand.HostRender 4950/4` is this branch's render admission family, minted at `Display/render.md`; this page codes its value-object refusals on it and mints no second family.
+- Boundary: `FieldSpec`, `DynamicFields`, and `FieldBinding` carry NO in-package caller today. `Render/registry.md`'s render-editor shell is the declared consumer; until that page seats them the obligation is open, and an unseated owner at the next pass deletes rather than persisting unreached.
+- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.BeginCreateDynamicFields`/`CreateDynamicField`/`EndCreateDynamicFields`, `FieldDictionary.Add`/`AddTextured`/`AddFilename`); kernel `Domain/rails` (`Lease<T>.Acquire`/`Use`, `Op.AcceptText`, `Op.Need`, `Op.Confirm`, `Op.OrDefault`), `Domain/validation` (`Op.AcceptValidated<TVO>`, `FactoryValidation`); `Display/render.md` (`RenderFault`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`); Thinktecture.Runtime.Extensions (`[Union]`, `[ComplexValueObject]`, `[ValidationError]`, `[BoundaryAdapter]`).
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -291,7 +292,7 @@ public abstract partial record FieldPresentation {
 // --- [MODELS] -------------------------------------------------------------------------------
 public sealed record FieldSpec(
     string Name,
-    FieldValue Value,
+    ContentValue Value,
     FieldPresentation Presentation,
     Option<string> Prompt = default,
     int SectionId = 0) {
@@ -313,68 +314,88 @@ public sealed record FieldSpec(
 }
 
 [ComplexValueObject]
+[ValidationError]
 public sealed partial class FieldRange {
-    public FieldValue Min { get; }
-    public FieldValue Max { get; }
+    public ContentValue Min { get; }
+    public ContentValue Max { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
-        ref FieldValue min,
-        ref FieldValue max) =>
+        ref ContentValue min,
+        ref ContentValue max) =>
         validationError = min is not null && max is not null && min.Carrier.AcceptsRange(min: min, max: max)
             ? null
-            : new ValidationError(message: "<field-range-bounds>");
+            : new ValidationError(string.Join(" | ", new object?[] { nameof(FieldRange), "an ordered carrier-equal scalar pair" }));
 
-    internal static Fin<FieldRange> Of(FieldValue min, FieldValue max, Op key) =>
-        key.AcceptValidated(Validate(min, max, out FieldRange? range), range);
+    internal static Fin<FieldRange> Of(ContentValue min, ContentValue max, Op key) =>
+        key.AcceptValidated<FieldRange>(Validate(min, max, out FieldRange? range), range);
 }
 
 [ComplexValueObject]
+[ValidationError]
 public sealed partial class DynamicFieldSpec {
     public string InternalName { get; }
     public string LocalName { get; }
     public string EnglishName { get; }
-    public FieldValue Value { get; }
+    public ContentValue Value { get; }
     public Option<FieldRange> Bounds { get; }
     public int SectionId { get; }
 
+    // Six INDEPENDENT clauses accumulate through the shared generated-validation substrate, so one round trip names
+    // every violated constraint.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref string internalName,
         ref string localName,
         ref string englishName,
-        ref FieldValue value,
+        ref ContentValue value,
         ref Option<FieldRange> bounds,
         ref int sectionId) =>
-        validationError = string.IsNullOrWhiteSpace(internalName)
-            || string.IsNullOrWhiteSpace(localName)
-            || string.IsNullOrWhiteSpace(englishName)
-            || value is null
-            || sectionId < 0
-            || bounds.Case is FieldRange range && range.Min.Carrier != value.Carrier
-                ? new ValidationError(message: "<dynamic-field-shape>")
-                : null;
+        validationError = FactoryValidation.Of(FactoryValidation.Violated(
+            (string.IsNullOrWhiteSpace(internalName), () => new ValidationClause(nameof(internalName))),
+            (string.IsNullOrWhiteSpace(localName), () => new ValidationClause(nameof(localName))),
+            (string.IsNullOrWhiteSpace(englishName), () => new ValidationClause(nameof(englishName))),
+            (value is null, () => new ValidationClause(nameof(value))),
+            (sectionId < 0, () => new ValidationClause(string.Join(" | ", new object?[] {
+                nameof(sectionId), "a non-negative section index" }))),
+            (bounds.Case is FieldRange range && value is not null && range.Min.Carrier != value.Carrier,
+                () => new ValidationClause(string.Join(" | ", new object?[] {
+                    nameof(bounds), "bounds carried by the value's own carrier" }))));
 
     public static Fin<DynamicFieldSpec> Of(
-        string internalName, string localName, string englishName, FieldValue value,
-        Option<(FieldValue Min, FieldValue Max)> bounds, int sectionId, Op key) =>
-        from range in bounds.Traverse(row => FieldRange.Of(min: row.Min, max: row.Max, key: key)).As()
-        from admitted in key.AcceptValidated(
-            Validate(internalName, localName, englishName, value, range, sectionId, out DynamicFieldSpec? created), created)
-        select admitted;
+        string internalName, string localName, string englishName, ContentValue value,
+        Option<(ContentValue Min, ContentValue Max)> bounds, int sectionId, Op? key = null) {
+        Op op = key.OrDefault();
+        return from range in bounds.Traverse(row => FieldRange.Of(min: row.Min, max: row.Max, key: op)).As()
+               from admitted in op.AcceptValidated<DynamicFieldSpec>(
+                   Validate(internalName, localName, englishName, value, range, sectionId, out DynamicFieldSpec? created), created)
+               select admitted;
+    }
+}
+
+// --- [SERVICES] -----------------------------------------------------------------------------
+internal sealed class DynamicFieldScope : IDisposable {
+    private readonly RenderContent content;
+
+    internal DynamicFieldScope(RenderContent content, bool automatic) {
+        this.content = content;
+        content.BeginCreateDynamicFields(automatic: automatic);
+    }
+
+    public void Dispose() => content.EndCreateDynamicFields();
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class DynamicFields {
     internal static Fin<Unit> Declare(RenderContent content, bool automatic, Seq<DynamicFieldSpec> rows, Op key) =>
-        key.Catch(() => {
-            content.BeginCreateDynamicFields(automatic: automatic);
-            try {
-                // One projection over the optional range fills both host slots; two pattern reads of one option collide on
-                // the bound name in the enclosing scope, and an absent range is the host's own unbounded pair.
-                return rows.TraverseM(row =>
+        Lease<DynamicFieldScope>.Acquire(mint: () => new DynamicFieldScope(content: content, automatic: automatic), key: key)
+            .Bind(scope => scope.Use(
+                body: _ => rows.TraverseM(row =>
+                    // One projection over the optional range fills both host slots; two pattern reads of one option
+                    // collide on the bound name in the enclosing scope, and an absent range is the host's own
+                    // unbounded pair.
                     from admitted in key.Need(row)
                     let bounds = admitted.Bounds
                         .Map(static range => (Min: (object?)range.Min.Boxed(), Max: (object?)range.Max.Boxed()))
@@ -387,11 +408,8 @@ public static class DynamicFields {
                         minValue: bounds.Min,
                         maxValue: bounds.Max,
                         sectionId: admitted.SectionId)))
-                    select created).As().Map(static _ => unit);
-            } finally {
-                content.EndCreateDynamicFields();
-            }
-        });
+                    select created).As().Map(static _ => unit),
+                key: key));
 }
 ```
 
@@ -402,9 +420,11 @@ public static class DynamicFields {
 - Law: name resolution stays host-owned — `ChildSlotNameFromParamName`/`ParamNameFromChildSlotName` answer the correspondence at the consulting site, and no local table mirrors it.
 - Law: a parameter or child-slot name never enters as a literal — `PbrChannel` and `ContentParameter` are the two admitted name vocabularies and `ParamScope` takes one of them, so the only `string` a caller supplies is the extra-requirement key the host itself leaves open.
 - Law: `PbrChannel` keys on the host texture type because the PBR name space is DERIVED, not rostered — every child-slot name resolves through `ChildSlotNames.PhysicallyBased.FromTextureType` and every PBR parameter name but `pbr-brdf` forwards to that same child-slot name, so one key column answers both axes and a second parallel roster is the deleted form. `pbr-brdf` is the one PBR property answering a literal instead of forwarding, so it is a `PbrChannel` row carrying that literal on the derived-key vocabulary it belongs to — `Name` answers it and `Slot` refuses it, because a parameter forwarding to no child slot cannot spell one. `ContentParameter` is therefore the basic-material `const` names alone, the only genuinely enumerated parameters the host declares, so no row hand-copies a name the host itself publishes.
-- Law: `Child(RenderMaterial.StandardChildSlots)` composes `TextureTypeFromSlot` then the same resolver, so the slot enum stays the vocabulary `Render/kinds.md` `[02]` rules it and this page mints no slot wrapper; the resolver answers an unmapped type with an empty string, and that sentinel projects to a typed fault at the one read site rather than reaching the host as a blank slot name.
-- Law: reads recover typed — a `ParamScope` read boxes through the host and immediately classifies into `FieldValue` by runtime payload type, so `object` dies at this seam.
+- Law: `PbrChannel.SlotOf` is the ONE reading of the host resolver — the channel axis and the `StandardChildSlots` arity both call it, so the empty-string sentinel projects to a typed fault at one site and a second inline copy of the same three-step admission is the deleted form.
+- Law: `Child(RenderMaterial.StandardChildSlots)` composes `TextureTypeFromSlot` then that same resolver, so the slot enum stays the vocabulary `Render/kinds.md` `[02]` rules it and this page mints no slot wrapper.
+- Law: reads recover typed — a `ParamScope` read boxes through the host and immediately classifies into `ContentValue` by runtime payload type, so `object` dies at this seam.
 - Law: `FieldCensus.Of` traverses `FieldDictionary` once and projects value, texture bounds, usage grants, and visibility per field.
+- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.BindParameterToField` both arities, `GetParameter`/`SetParameter`, `GetChildSlotParameter`/`SetChildSlotParameter`, `GetExtraRequirementParameter`/`SetExtraRequirementParameter`, `ExtraRequirementsSetContexts`, `ChildSlotNames.PhysicallyBased.FromTextureType`, `ParameterNames.PhysicallyBased.BRDF`, `RenderMaterial.BasicMaterialParameterNames`, `RenderMaterial.TextureTypeFromSlot`, `Field.TextureAmountMin`/`TextureAmountMax`/`UseTextureOn`/`UseTextureAmount`/`IsHiddenInAutoUI`); `api-rhinocommon-objects.md` (`TextureType`); kernel `Domain/rails` (`Op.AcceptText`, `Op.Catch`, `Op.OrDefault`); LanguageExt.Core (`Fin`, `Option`, `Arr`, `TraverseM`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`).
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -414,8 +434,8 @@ public abstract partial record FieldBinding {
     private sealed record DirectCase(string Parameter) : FieldBinding;
     private sealed record AtSlotCase(string Parameter, string ChildSlot) : FieldBinding;
 
-    public static Fin<FieldBinding> Of(string parameter, Option<string> childSlot = default) {
-        Op op = Op.Of(name: nameof(FieldBinding));
+    public static Fin<FieldBinding> Of(string parameter, Option<string> childSlot = default, Op? key = null) {
+        Op op = key.OrDefault();
         return from admittedParameter in op.AcceptText(value: parameter)
                from admittedSlot in childSlot.Traverse(slot => op.AcceptText(value: slot)).As()
                select admittedSlot.Match(
@@ -473,17 +493,20 @@ public sealed partial class PbrChannel {
 
     internal Option<string> Literal { get; }
 
-    // The parameter axis: a literal row answers its own name, every derived row forwards to its child-slot name.
+    // Parameter axis: a literal row answers its own name, every derived row forwards to its child-slot name.
     internal Fin<string> Name(Op key) => Literal.Match(Some: Fin.Succ, None: () => Slot(key: key));
 
-    // The child-slot axis. Host truth: the resolver answers an unmapped type with an empty string, so the sentinel projects
-    // at this one read site, and a literal row has no child slot to answer at all.
+    // Child-slot axis. Host truth: the resolver answers an unmapped type with an empty string, so the sentinel
+    // projects at this one read site, and a literal row has no child slot to answer at all.
     internal Fin<string> Slot(Op key) => Literal.IsSome
-        ? Fin.Fail<string>(error: key.Unsupported(geometryType: typeof(PbrChannel), outputType: typeof(TextureType)))
-        : key.Catch(() =>
-            Optional(global::Rhino.Render.ChildSlotNames.PhysicallyBased.FromTextureType(textureType: Key))
+        ? Fin.Fail<string>(error: key.Unsupported(inputType: typeof(PbrChannel), outputType: typeof(TextureType)))
+        : SlotOf(textureType: Key, key: key);
+
+    internal static Fin<string> SlotOf(TextureType textureType, Op key) =>
+        key.Catch(() =>
+            Optional(global::Rhino.Render.ChildSlotNames.PhysicallyBased.FromTextureType(textureType: textureType))
                 .Filter(static name => !string.IsNullOrWhiteSpace(name))
-                .ToFin(Fail: key.InvalidResult(detail: Key.ToString())));
+                .ToFin(Fail: key.InvalidResult(detail: textureType.ToString())));
 }
 
 [SmartEnum<string>]
@@ -509,59 +532,57 @@ public abstract partial record ParamScope {
     private sealed record ChildCase(string ChildSlot, string Requirement) : ParamScope;
     private sealed record ExtraCase(string Parameter, string Requirement) : ParamScope;
 
-    public static Fin<ParamScope> Named(ContentParameter parameter) {
-        Op op = Op.Of(name: nameof(ParamScope));
+    public static Fin<ParamScope> Named(ContentParameter parameter, Op? key = null) {
+        Op op = key.OrDefault();
         return op.Need(parameter)
             .Map(static admitted => (ParamScope)new NamedCase(Parameter: admitted.Key));
     }
 
-    public static Fin<ParamScope> Named(PbrChannel channel) {
-        Op op = Op.Of(name: nameof(ParamScope));
+    public static Fin<ParamScope> Named(PbrChannel channel, Op? key = null) {
+        Op op = key.OrDefault();
         return from active in op.Need(channel)
                from name in active.Name(key: op)
                select (ParamScope)new NamedCase(Parameter: name);
     }
 
-    public static Fin<ParamScope> Child(PbrChannel channel, string requirement) {
-        Op op = Op.Of(name: nameof(ParamScope));
+    public static Fin<ParamScope> Child(PbrChannel channel, string requirement, Op? key = null) {
+        Op op = key.OrDefault();
         return from active in op.Need(channel)
                from slot in active.Slot(key: op)
                from admittedRequirement in op.AcceptText(value: requirement)
                select (ParamScope)new ChildCase(ChildSlot: slot, Requirement: admittedRequirement);
     }
 
-    public static Fin<ParamScope> Child(RenderMaterial.StandardChildSlots slot, string requirement) {
-        Op op = Op.Of(name: nameof(ParamScope));
-        return from name in op.Catch(() => Optional(global::Rhino.Render.ChildSlotNames.PhysicallyBased.FromTextureType(
-                       textureType: RenderMaterial.TextureTypeFromSlot(slot: slot)))
-                   .Filter(static value => !string.IsNullOrWhiteSpace(value))
-                   .ToFin(Fail: op.InvalidResult(detail: slot.ToString())))
+    public static Fin<ParamScope> Child(RenderMaterial.StandardChildSlots slot, string requirement, Op? key = null) {
+        Op op = key.OrDefault();
+        return from textureType in op.Catch(() => Fin.Succ(value: RenderMaterial.TextureTypeFromSlot(slot: slot)))
+               from name in PbrChannel.SlotOf(textureType: textureType, key: op)
                from admittedRequirement in op.AcceptText(value: requirement)
                select (ParamScope)new ChildCase(ChildSlot: name, Requirement: admittedRequirement);
     }
 
-    public static Fin<ParamScope> Extra(string parameter, string requirement) {
-        Op op = Op.Of(name: nameof(ParamScope));
+    public static Fin<ParamScope> Extra(string parameter, string requirement, Op? key = null) {
+        Op op = key.OrDefault();
         return from admittedParameter in op.AcceptText(value: parameter)
                from admittedRequirement in op.AcceptText(value: requirement)
                select (ParamScope)new ExtraCase(Parameter: admittedParameter, Requirement: admittedRequirement);
     }
 
-    internal Fin<FieldValue> Read(RenderContent content, Op key) =>
+    internal Fin<ContentValue> Read(RenderContent content, Op key) =>
         Switch(
             state: (Content: content, Op: key),
-            namedCase: static (ctx, scope) => ctx.Op.Catch(() => FieldValue.Of(
+            namedCase: static (ctx, scope) => ctx.Op.Catch(() => ContentValue.Of(
                 payload: ctx.Content.GetParameter(parameterName: scope.Parameter), key: ctx.Op)),
-            childCase: static (ctx, scope) => ctx.Op.Catch(() => FieldValue.Of(
+            childCase: static (ctx, scope) => ctx.Op.Catch(() => ContentValue.Of(
                 payload: ctx.Content.GetChildSlotParameter(scope.ChildSlot, scope.Requirement), key: ctx.Op)),
-            extraCase: static (ctx, scope) => ctx.Op.Catch(() => FieldValue.Of(
+            extraCase: static (ctx, scope) => ctx.Op.Catch(() => ContentValue.Of(
                 payload: ctx.Content.GetExtraRequirementParameter(
                     contentParameterName: scope.Parameter,
                     extraRequirementParameter: scope.Requirement),
                 key: ctx.Op)));
 
     internal Fin<Unit> Write(
-        RenderContent content, FieldValue value, ChangeReason reason,
+        RenderContent content, ContentValue value, ChangeReason reason,
         RenderContent.ExtraRequirementsSetContexts context, Op key) =>
         ChangeScope.Write(content: content, reason: reason, key: key, body: live => Switch(
             state: (Content: live, Value: value, Context: context, Op: key),
@@ -579,7 +600,7 @@ public abstract partial record ParamScope {
 // --- [MODELS] -------------------------------------------------------------------------------
 public sealed record FieldPortrait(
     string Name,
-    FieldValue Value,
+    ContentValue Value,
     double TextureAmountMin,
     double TextureAmountMax,
     bool UseTextureOn,
@@ -589,7 +610,7 @@ public sealed record FieldPortrait(
 public sealed record FieldCensus(Arr<FieldPortrait> Rows) : IDetachedDocumentResult {
     internal static Fin<FieldCensus> Of(FieldDictionary fields, Op key) =>
         key.Catch(() => toSeq(fields)
-            .TraverseM(field => FieldValue.Of(payload: field, key: key).Map(value => new FieldPortrait(
+            .TraverseM(field => ContentValue.Of(payload: field, key: key).Map(value => new FieldPortrait(
                 Name: field.Name,
                 Value: value,
                 TextureAmountMin: field.TextureAmountMin,
@@ -606,14 +627,15 @@ public sealed record FieldCensus(Arr<FieldPortrait> Rows) : IDetachedDocumentRes
 
 | [INDEX] | [CONCERN]         | [OWNER]            | [FORM]                                                    | [ENTRY]                        |
 | :-----: | :---------------- | :----------------- | :-------------------------------------------------------- | :----------------------------- |
-|  [01]   | payload family    | `FieldValue`       | union cases derived through `FieldCarrier` rows           | `Declare` / `Write` / `Of`     |
-|  [02]   | field declaration | `FieldSpec`        | name + value + prompt + section + presentation row        | `Declare(fields, key)`         |
-|  [03]   | dynamic fields    | `DynamicFieldSpec` | generated admission plus bracketed traversal              | `Of` / `DynamicFields.Declare` |
-|  [04]   | parameter binding | `FieldBinding`     | admitted direct and child-slot cases                      | `Of` / `Bind`                  |
-|  [05]   | parameter routes  | `ParamScope`       | named, child-slot, and direct-extra cases                 | `Named` / `Child` / `Extra`    |
-|  [06]   | field census      | `FieldCensus`      | one-pass dictionary walk to detached `FieldPortrait` rows | `Of(fields, key)`              |
-|  [07]   | pbr name space    | `PbrChannel`       | texture-type keyed, host-resolved slot and param names    | `Name` / `Slot`                |
-|  [08]   | basic param names | `ContentParameter` | the basic-material name constants                         | `ParamScope.Named`             |
+|  [01]   | payload family    | `ContentValue`     | union cases derived through `ContentCarrier` rows         | `Declare` / `Write` / `Of`     |
+|  [02]   | payload contract  | `IContentPayload`  | the case's own static mint and payload read               | `Of(value)` / `Value`          |
+|  [03]   | field declaration | `FieldSpec`        | name + value + prompt + section + presentation row        | `Declare(fields, key)`         |
+|  [04]   | dynamic fields    | `DynamicFieldSpec` | clause-accumulating admission plus bracketed traversal    | `Of` / `DynamicFields.Declare` |
+|  [05]   | parameter binding | `FieldBinding`     | admitted direct and child-slot cases                      | `Of` / `Bind`                  |
+|  [06]   | parameter routes  | `ParamScope`       | named, child-slot, and direct-extra cases                 | `Named` / `Child` / `Extra`    |
+|  [07]   | field census      | `FieldCensus`      | one-pass dictionary walk to detached `FieldPortrait` rows | `Of(fields, key)`              |
+|  [08]   | pbr name space    | `PbrChannel`       | texture-type keyed, one host resolver for both axes       | `Name` / `Slot` / `SlotOf`     |
+|  [09]   | basic param names | `ContentParameter` | the basic-material name constants                         | `ParamScope.Named`             |
 
 ## [06]-[RESEARCH]
 

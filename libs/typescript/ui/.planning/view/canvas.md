@@ -233,7 +233,7 @@ import ELK from "elkjs/lib/elk-api"
 import type { ElkNode, LayoutOptions } from "elkjs/lib/elk-api"
 import type { NodeChange } from "@xyflow/react"
 import { Convention, Fault } from "@rasm/ts/core"
-import { Context, Duration, Effect, Either, Layer, Metric, Option, Schema } from "effect"
+import { Array, Context, Duration, Effect, Either, Layer, Metric, Option, Schema } from "effect"
 import { Hook } from "../system/hook.ts"
 
 declare module "../system/hook.ts" {
@@ -257,25 +257,57 @@ declare namespace Canvas {
   }
 }
 
+// Three legs partition the layout plane and each reason renders its OWN subject. The engine name was a column
+// whose only value was the engine, so it moved into the renderers; the node the graph could not measure is what
+// actually varies, and it rides absence-shaped because the engine's own throw names no node at all.
 const _family = Fault.Class.family(["solver-lost", "solve-refused", "solve-overrun"] as const, {
-  "solver-lost": { class: "unavailable" },
-  "solve-refused": { class: "invalid" },
-  "solve-overrun": { class: "exhausted" },
+  "solver-lost": Fault.Class.row({
+    class: "unavailable",
+    leg: "worker",
+    detail: Schema.Struct({ cause: Schema.String }),
+    render: ({ cause }) => `elk worker did not start: ${cause}`,
+  }),
+  "solve-refused": Fault.Class.row({
+    class: "invalid",
+    leg: "graph",
+    detail: Schema.Struct({
+      node: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+      cause: Schema.String,
+    }),
+    render: ({ cause, node }) =>
+      `elk refused the graph${Option.getOrElse(Option.map(node, (id) => ` at node ${id}`), () => "")}: ${cause}`,
+  }),
+  "solve-overrun": Fault.Class.row({
+    class: "exhausted",
+    leg: "budget",
+    detail: Schema.Struct({ budget: Schema.DurationFromSelf }),
+    render: ({ budget }) => `elk solve outlasted its ${Duration.toMillis(budget)}ms budget`,
+  }),
 })
 
+declare namespace CanvasFault {
+  type Case = typeof _family.payload.Type
+  type Reason = (typeof _family.kinds)[number]
+}
+
 class CanvasFault extends Schema.TaggedError<CanvasFault>()("CanvasFault", {
-  reason: _family.schema,
-  solver: Schema.String,
-  detail: Schema.String,
+  case: _family.payload,
 }) {
-  static readonly roster: typeof _family.reasons = _family.reasons
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _family.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<canvas:${this.reason}@${this.solver}> ${this.detail}`
+    return _family.render(this.case)
   }
 }
+
+// Nodes measure INDEPENDENTLY, so the capture censuses every unmeasured one in a single refusal: a freshly mounted
+// graph reports its whole gap on the first solve attempt rather than one node per round trip.
+const CanvasCensus = _family.census("CanvasCensus")
+type CanvasCensus = InstanceType<typeof CanvasCensus>
 
 // each row emits the option table as data — every elk value is a string at every key, and the layered
 // model-order group carries its `elk.layered.` prefix (the root spelling resolves to nothing)
@@ -296,7 +328,7 @@ const _client = (spawn: () => Worker): Layer.Layer<Solver, CanvasFault> =>
     Effect.acquireRelease(
       Effect.try({
         try: () => new ELK({ workerFactory: spawn, algorithms: Object.values(_SOLVERS).map((row) => row["elk.algorithm"]) }),
-        catch: (cause) => new CanvasFault({ reason: "solver-lost", solver: "elk", detail: String(cause) }),
+        catch: (cause) => new CanvasFault({ case: { reason: "solver-lost", cause: String(cause) } }),
       }),
       (elk) => Effect.sync(() => elk.terminateWorker()),
     ),
@@ -304,37 +336,52 @@ const _client = (spawn: () => Worker): Layer.Layer<Solver, CanvasFault> =>
 
 const _SOLVES = Convention.mount(Convention.metric.canvasSolve)
 
-// node.measured carries the measured box (the engine's post-mount write); a node the engine has not measured
-// yet REFUSES the whole request — a zero-size stand-in solves a layout no real node fits
-const _box = (node: Node): Either.Either<{ readonly width: number; readonly height: number }, CanvasFault> =>
-  node.measured?.width !== undefined && node.measured.height !== undefined
-    ? Either.right({ width: node.measured.width, height: node.measured.height })
-    : Either.left(new CanvasFault({ reason: "solve-refused", solver: "elk", detail: `<unmeasured:${node.id}>` }))
+// node.measured carries the measured box (the engine's post-mount write); a node the engine has not measured yet
+// REFUSES the whole request — a zero-size stand-in solves a layout no real node fits — and ONE pass over the graph
+// names every such node, where a short-circuiting walk surrendered the rest of the damage to the next attempt.
+type _Measured = {
+  readonly id: string
+  readonly parent: string | undefined
+  readonly width: number
+  readonly height: number
+}
 
-// capture builds the request FROM the cell: measured node boxes and the id graph become the ElkNode tree —
+const _measured = (graph: Canvas.Graph): Either.Either<ReadonlyArray<_Measured>, CanvasCensus> => {
+  const [absent, present] = Array.partitionMap(graph.nodes, (node): Either.Either<_Measured, CanvasFault.Case> =>
+    node.measured?.width !== undefined && node.measured.height !== undefined
+      ? Either.right({ id: node.id, parent: node.parentId, width: node.measured.width, height: node.measured.height })
+      : Either.left({ reason: "solve-refused", node: Option.some(node.id), cause: "engine has not measured it yet" }))
+  return Array.isNonEmptyReadonlyArray(absent)
+    ? Either.left(new CanvasCensus({ issues: absent }))
+    : Either.right(present)
+}
+
+// capture builds the request FROM the cell: the proven box table and the id graph become the ElkNode tree —
 // compound children RECURSE to the graph's own depth, because a group inside a group is one more row of the same
-// parentId fact and a two-level build drops its interior silently — and the captured revision rides the request
-// as the admission coordinate
+// parent fact and a two-level build drops its interior silently — and the captured revision rides the request
+// as the admission coordinate. The tree walk is total by construction: the gate above already proved every box.
 const _request = (
   graph: Canvas.Graph,
   solver: Canvas.Solver,
-): Either.Either<{ readonly revision: number; readonly root: ElkNode }, CanvasFault> => {
-  const under = (parent: string | undefined): Either.Either<Array<ElkNode>, CanvasFault> =>
-    Either.all(
-      graph.nodes.filter((node) => node.parentId === parent).map((node) =>
-        Either.zipWith(_box(node), under(node.id), (box, children) => ({ id: node.id, ...box, children }))
-      ),
-    )
-  return Either.map(under(undefined), (roots) => ({
-    revision: graph.revision,
-    root: {
-      id: "root",
-      layoutOptions: { ..._SOLVERS[solver] },
-      children: roots,
-      edges: graph.edges.map((edge) => ({ id: edge.id, sources: [edge.source], targets: [edge.target] })),
-    },
-  }))
-}
+): Either.Either<{ readonly revision: number; readonly root: ElkNode }, CanvasCensus> =>
+  Either.map(_measured(graph), (nodes) => {
+    const under = (parent: string | undefined): Array<ElkNode> =>
+      nodes.filter((node) => node.parent === parent).map(({ height, id, width }) => ({
+        id,
+        width,
+        height,
+        children: under(id),
+      }))
+    return {
+      revision: graph.revision,
+      root: {
+        id: "root",
+        layoutOptions: { ..._SOLVERS[solver] },
+        children: under(undefined),
+        edges: graph.edges.map((edge) => ({ id: edge.id, sources: [edge.source], targets: [edge.target] })),
+      },
+    }
+  })
 
 // one solve is one bounded Effect on the scoped client: the worker structured-clones the request, the budget
 // bounds a runaway solve into the fault family, and the answer folds into the proposal the admission fold reads
@@ -346,11 +393,11 @@ const _solve = (
     const elk = yield* Solver
     const solved = yield* Effect.tryPromise({
       try: () => elk.layout(request.root),
-      catch: (cause) => new CanvasFault({ reason: "solve-refused", solver: "elk", detail: String(cause) }),
+      catch: (cause) => new CanvasFault({ case: { reason: "solve-refused", node: Option.none(), cause: String(cause) } }),
     }).pipe(
       Effect.timeoutFail({
         duration: solving.budget,
-        onTimeout: () => new CanvasFault({ reason: "solve-overrun", solver: "elk", detail: "<budget>" }),
+        onTimeout: () => new CanvasFault({ case: { reason: "solve-overrun", budget: solving.budget } }),
       }),
     )
     // positions harvest to the tree's own depth — elk child coordinates are parent-relative, exactly the frame the
@@ -491,7 +538,7 @@ const Canvas: Canvas.Shape = {
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Canvas, CanvasFault }
+export { Canvas, CanvasCensus, CanvasFault }
 ```
 
 ## [06]-[RESEARCH]

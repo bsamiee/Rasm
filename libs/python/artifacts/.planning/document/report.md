@@ -25,7 +25,7 @@ from collections.abc import Awaitable, Callable, Iterable, Iterator
 from enum import StrEnum
 from functools import partial
 from itertools import groupby
-from typing import Annotated, Final, Literal, Never, NotRequired, ReadOnly, Self, TypedDict, Unpack, assert_never
+from typing import Annotated, Final, Literal, NotRequired, ReadOnly, Self, TypedDict, Unpack, assert_never
 
 from builtins import frozendict
 from expression import Error, Ok, Result, case, tag, tagged_union
@@ -37,15 +37,17 @@ from msgspec.json import Encoder
 from msgspec.structs import asdict
 from pydantic import Field, TypeAdapter, ValidationError
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.document.model import (
-    AnnotationNode,
     AnnotKind,
+    AnnotationNode,
     BlockKind,
     BlockNode,
     DocumentNode,
     FigureNode,
+    Lapse,
     ListKind,
     ListNode,
     NodeMeta,
@@ -58,9 +60,10 @@ from rasm.artifacts.document.model import (
     TableNode,
     Uri,
     encode,
+    lapsed,
 )
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.runtime.faults import TRANSIENT, Catch, FaultRow, RuntimeRail, async_boundary, rostered
 from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -84,7 +87,11 @@ lazy from jinja2 import (
 )
 lazy from jinja2.nativetypes import NativeEnvironment
 lazy from jinja2.sandbox import ImmutableSandboxedEnvironment
+lazy from jinja2 import TemplateError
+lazy from jupytext.formats import JupytextFormatError
 lazy from nbclient import NotebookClient
+lazy from nbclient.exceptions import CellExecutionError, CellTimeoutError, DeadKernelError
+lazy from papermill.exceptions import PapermillException
 lazy from papermill.parameterize import add_builtin_parameters, parameterize_notebook
 lazy from pdf_oxide import Footer, Header, OfficeConverter, PageTemplate, Pdf
 lazy from traitlets.config import Config
@@ -827,7 +834,7 @@ async def _notebook_arm(plan: "ReportPlan") -> "ReportFact":
     executed = await NotebookClient(parameterized, resources=_resources(spec), **spec.engine.client_kwargs()).async_execute()
     archive = jupytext.writes(executed, fmt="ipynb").encode()
     exported = await plan.lane.offload(Kernel.of(_exported, KernelTrait.RELEASING), spec, executed)  # blocking nbconvert render off the loop, runtime-owned lane
-    output, resources, exporter_type = exported.default_with(lambda fault: _report_raise(fault))
+    output, resources, exporter_type = exported.default_with(lapsed)
     if not isinstance(output, str | bytes):
         raise TypeError(f"exporter {spec.export!r} returned {type(output).__name__}, expected str or bytes")
     figures = _notebook_figures(resources)  # the `ExtractOutputPreprocessor` display figures, spliced rather than discarded
@@ -859,7 +866,7 @@ async def _reflow_arm(plan: "ReportPlan") -> "ReportFact":
     # page re-key that page alone.
     spec = plan.spec
     crossed = await plan.lane.offload(Kernel.of(_reflow, KernelTrait.HOSTILE), spec.source, spec.user_css, spec.em, spec.paper.value, spec.layout)
-    pdf, count, box, placed = crossed.default_with(lambda fault: _report_raise(fault))
+    pdf, count, box, placed = crossed.default_with(lapsed)
     # deposits arrive already page-then-flow ordered, so the enumeration ordinal is a monotone identity slot
     # joined to each placement's own page — every child keys apart with no second pass.
     deposits = tuple(enumerate(_deposits(placed)))
@@ -955,7 +962,7 @@ async def _author_arm(plan: "ReportPlan") -> "ReportFact":
     # pdf_oxide's Rust core releases the GIL, so the AUTHOR arm crosses the runtime thread lane, never the process hop.
     spec = plan.spec
     crossed = await plan.lane.offload(Kernel.of(_authored, KernelTrait.RELEASING), spec)
-    pdf, count = crossed.default_with(lambda fault: _report_raise(fault))
+    pdf, count = crossed.default_with(lapsed)
     key = ContentIdentity.key(f"report-{plan.kind.value}", pdf)
     page = PageNode(meta=NodeMeta(key=key, role="author", page=0), media_box=_PAPER[spec.paper])
     return ReportFact(pdf=(page, pdf, count))
@@ -996,6 +1003,29 @@ _AUTHOR_BUILD: Final[Map[AuthorSource, Callable[[ReportSpec], Pdf]]] = Map.of_se
     (AuthorSource.XLSX, lambda spec: OfficeConverter.from_xlsx(spec.source)),
 ])
 
+# this page's ONE lift anchor. TRANSIENT — a kernel death, a timed-out cell, and a template render that reached a
+# missing key are each defects a re-issue under repaired inputs may clear; every ADMISSION refusal is `ReportFault`'s.
+REPORT_COMPOSE: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.REPORT, point="compose", arm="boundary", defect="compose-fold", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([REPORT_COMPOSE]))
+
+
+def _compose_raises() -> Catch:
+    # the composer's real raise surface, resolved at FIRST FENCE ENTRY rather than at import: every provider named
+    # here rides a module-scope `lazy` binding, and a module-scope tuple would reify jinja2, jupytext, papermill, and
+    # nbclient for a caller composing a plain section tree that reaches none of them. `CellTimeoutError` leads its
+    # family because it also subclasses the stdlib `TimeoutError` the runtime `CLASSIFY` table lands on `deadline`.
+    # `CellControlSignal` is deliberately absent — it is nbclient's own loop control, never a fault. `Lapse` is the
+    # offloaded REFLOW and AUTHOR arms' collapse, carrying their terminal `BoundaryFault` WHOLE across the fence
+    # rather than as a re-converted string; `TypeError` is the exporter's non-text return, and `ValueError`/`OSError`
+    # the in-process jupytext and nbconvert reads this arm runs on the loop.
+    return (
+        Lapse, TemplateError, JupytextFormatError, PapermillException,
+        CellTimeoutError, CellExecutionError, DeadKernelError, TypeError, ValueError, OSError,
+    )
+
+
 COMPOSE_ARMS: Final[Map[ReportKind, ComposeArm]] = Map.of_seq([
     (ReportKind.COMPOSE, _compose_arm),
     (ReportKind.TEMPLATE, _template_arm),
@@ -1035,7 +1065,7 @@ class ReportPlan(Struct, frozen=True):
 
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
         # Terminal receipt threads the PRE-RUN key the closure captured, so receipt.slot == node.key.
-        settled = (await async_boundary(f"report.{self.kind.value}", self._composed)).map(lambda done: (done, done._receipt(key)))
+        settled = (await async_boundary(REPORT_COMPOSE, self._composed, catch=_compose_raises())).map(lambda done: (done, done._receipt(key)))
         match settled:
             case Result(tag="ok", ok=(done, receipt)):
                 # `Journal.record` seats the durable evidence for both kinds this owner mints, `report` and the
@@ -1147,10 +1177,6 @@ class ReportPlan(Struct, frozen=True):
         table = SectionBlock(table=TableData(rows=rows, header_rows=1, header_cols=0, caption=title))
         return cls.of(ReportKind.COMPOSE, lane=lane, sections=(Section(level=1, heading=title, blocks=(table,)),))
 
-
-def _report_raise(fault: object) -> Never:
-    # terminal collapse at the export boundary: an offload fault reconstructs the raise the node's rail folds.
-    raise ValueError(str(fault))
 ```
 
 ## [03]-[RESEARCH]

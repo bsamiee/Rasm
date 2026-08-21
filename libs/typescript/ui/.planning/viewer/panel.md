@@ -5,7 +5,7 @@ Panel materializes four shell vocabularies the AppUi shell and its host mint: th
 ## [01]-[INDEX]
 
 - [02]-[EVENT_FOLD]: keyed shell fold, gate slot, receipt-reconciled optimistic round trip, pivot-board boundary; `Panel`.
-- [03]-[PHASE_RENDER]: phase and degradation tone axes, affordance projection, coercion diff and stamp rows; `Panel`.
+- [03]-[PHASE_RENDER]: lifecycle and degradation tone axes, affordance projection, disposition and freshness rows; `Panel`.
 - [04]-[WIDGET_RENDER]: kind-exhaustive part-and-children fold, emphasis ladder, chrome projection; `Panel`.
 - [05]-[CONTROL_SINKS]: locally-minted interaction union, exhaustive routing over one Effect rail, intent egress; `Panel`.
 - [06]-[LAYOUT_SOLVE]: wire-order kiwi fold, edit-variable drag, four-axis determinism law; `Panel`.
@@ -13,12 +13,13 @@ Panel materializes four shell vocabularies the AppUi shell and its host mint: th
 ## [02]-[EVENT_FOLD]
 
 [EVENT_FOLD]:
-- Owner: `Panel.fold` — the keyed accumulator: the event feed (a `Stream` of the decoded shell union the app wires from its transport, entering the view plane through the atom bridge) folds into a `HashMap<key, Panel.Row>` where each arm names its own key and updates exactly its slots — `BindingStatus` advances `phase` (clearing the optimistic slot on `refused`/`detached`), `CoercedValue` records the offered→landed pair with its path, `WriteReceipt` lands the value and `Hlc` stamp and clears the optimistic slot, `CommandGate` seats the `available`/`level` verdict; the fold is total over the union by `Match.valueTags` — the one-shot record dispatch over the held event — and every arm ends at `_at`, the one slot-seat combinator that also carries the optimistic stamp.
-- Packages: `@rasm/ts/core` (`BindingStatus`, `CoercedValue`, `CommandGate`, `WriteReceipt`, `Hlc`); `effect` (`Chunk`, `HashMap`, `Match`, `Option`, `Stream`); `@effect-atom/atom-react` (the board atom rides `system/atom#STORE_ROOT`).
-- Law: the row is the panel's whole truth — `phase`, `landed`, `optimistic`, `coercion`, `stamp`, `gate`; a panel component reads one row through an `Atom.family` keyed by cell name and re-renders only on its own row's change.
-- Law: the ARM owns the key — the board's key space is the shell's addressable cell, and each arm names which cell its event addresses: the livewire triple addresses its `binding` path, `CommandGate` its `key`, the `CommandIntent` key the C# deck freezes. Both columns arrive on one control from the producer's own intent binding (`valueKey` beside `command`), so an affordance reads its value row and its gate row off the one board with no side map, no re-keying, and no second accumulator.
+- Owner: `Panel.fold` — the keyed accumulator: the event feed (a `Stream` of the decoded shell union the app wires from its transport, entering the view plane through the atom bridge) folds into a `HashMap<key, Panel.Row>` where each arm names its own key and updates exactly its slots — `BindingStatus` advances the lifecycle state beside its transport, direction, and last-good instant (clearing the optimistic slot on `faulted` alone), `CoercedValue` records the canonical magnitude the host landed beside both units, `WriteReceipt` lands the canonical value, its rendered pair, and the write's own four-arm disposition while clearing the optimistic slot, `CommandGate` seats the `available`/`level` verdict; the fold is total over the union by `Match.valueTags` — the one-shot record dispatch over the held event — and every arm ends at `_at`, the one slot-seat combinator that also carries the optimistic stamp.
+- Packages: `@rasm/ts/core` (`BindingStatus`, `CoercedValue`, `CommandGate`, `WriteReceipt`, `WriteBack`, `Hlc`); `effect` (`Chunk`, `HashMap`, `Match`, `Option`, `Stream`); `@effect-atom/atom-react` (the board atom rides `system/atom#STORE_ROOT`).
+- Law: the row is the panel's whole truth — lifecycle, transport, direction, freshness, coercion, landed value, disposition, optimistic, gate; a panel reads one row through an `Atom.family` keyed by cell name and re-renders only on its own row's change.
+- Law: every row slot is option-seated, so a gate-only row states that no binding has spoken rather than seeding a lifecycle token no producer emits.
+- Law: the ARM owns the key — the board's key space is the shell's addressable cell, and each arm names which cell its event addresses: the livewire triple addresses its `binding` path, `CommandGate` its `key`, the `CommandRow` key the C# deck freezes. Both columns arrive on one control from the producer's own intent binding (`valueKey` beside `command`), so an affordance reads its value row and its gate row off the one board with no side map, no re-keying, and no second accumulator.
 - Law: the gate is a row slot, never a second board — a control's whole display truth is one row, so `available` and `level` land beside the binding slots and the render projection is `[03]`'s alone; `level` is adopted through `CommandGate`'s own field, which derives from the ONE degradation vocabulary the `Availability` landing owns, so a producer level added at core breaks `[03]`'s degradation table at the declaration.
-- Law: writes are optimistic against the feed — a panel edit writes the intent through the app-wired write port AND stamps the row's optimistic slot; the display shows `optimistic` over `landed` while present, the reconciling `WriteReceipt` clears it, and a `refused` status clears it with the refusal surfaced through the `view/form` field-error seam. Round trips are receipt-driven, never awaited-then-assumed — the feed is the truth channel, the write port's acknowledgement only gates re-submission, and display state always derives from the fold.
+- Law: writes are optimistic against the feed — a panel edit writes the intent through the app-wired write port AND stamps the row's optimistic slot; the display shows `optimistic` over `landed` while present, the reconciling `WriteReceipt` clears it, and a `faulted` status clears it with the refusal surfaced through the `view/form` field-error seam. Round trips are receipt-driven, never awaited-then-assumed — the feed is the truth channel, the write port's acknowledgement only gates re-submission, and display state always derives from the fold.
 - Law: this board is the wire-receipt optimistic plane — `system/atom`'s `Atom.optimistic` reconciles against an effect's own `Result` and never appears here; the two optimism laws share a name, never a mechanism, and the board rides the one store like any other atom.
 - Law: stale optimism ages out — an optimistic slot older than the patience window (`_PATIENCE`, a `Duration` policy row) degrades to the in-flight affordance without reverting, keeping slow transports honest without fabricating failure.
 - Law: unknown-value payloads stay opaque — `offered`/`landed` are `Schema.Unknown` on the wire by design; the panel renders them through one value-presenter row, never assuming shape.
@@ -33,17 +34,34 @@ import { Chunk, Duration, Effect, HashMap, Match, Option, Stream } from "effect"
 import type { Motion } from "../../src/system/act.ts"
 import type { Theme } from "../../src/system/token.ts"
 
+// `CoercedValueWire` is a keyed arm again: the producer now projects `bindingId` off the binding spec at its own
+// mapper, so the coercion carries the identity it was coerced FOR and keys a slot like every other arm. It was
+// refused here while the wire sent no key at all — the refusal named the wire's shape, and the wire moved.
 type PanelEvent = Wire.BindingStatus | Wire.CoercedValue | Wire.WriteReceipt | Wire.CommandGate
 
 declare namespace Panel {
-  type Phase = Wire.BindingStatus["phase"]
+  type State = Wire.BindingStatus["state"]
+  type Transport = Wire.BindingStatus["transport"]
+  type Direction = Wire.BindingStatus["direction"]
   type Level = Wire.CommandGate["level"]
   type Row = {
-    readonly phase: Panel.Phase
-    readonly landed: Option.Option<unknown>
+    // Every slot is OPTION-seated because a row is reachable before any of its producers has spoken: a gate-only
+    // row carries a command key and no livewire binding at all, so a seeded lifecycle token would assert a binding
+    // state the host never published. The retired seed spelled exactly that, under a token no producer emits.
+    readonly state: Option.Option<Panel.State>
+    readonly transport: Option.Option<Panel.Transport>
+    readonly direction: Option.Option<Panel.Direction>
+    readonly lastGoodAt: Wire.BindingStatus["lastGoodAt"]
+    // the coercion the host landed, on the producer's OWN columns — the canonical magnitude beside both units, so a
+    // panel renders the value under the scheme the source published rather than under one it assumed
+    readonly coercion: Option.Option<Omit<Wire.CoercedValue, "_tag" | "bindingId">>
+    readonly landed: Option.Option<Wire.WriteReceipt["canonical"]>
+    readonly rendered: Wire.WriteReceipt["rendered"]
+    readonly renderedUnit: Wire.WriteReceipt["renderedUnit"]
+    // the write's own four-arm verdict, kept WHOLE: a rejection, a rollback, and an indeterminate write are three
+    // unlike repairs, and a boolean over them shows one badge for three states a user must act on differently
+    readonly disposition: Option.Option<Wire.WriteBack>
     readonly optimistic: Option.Option<{ readonly value: unknown; readonly since: Clock.Hlc }>
-    readonly coercion: Option.Option<{ readonly offered: unknown; readonly landed: unknown; readonly path: string }>
-    readonly stamp: Option.Option<Clock.Hlc>
     readonly gate: Option.Option<{ readonly available: boolean; readonly level: Panel.Level }>
   }
   type Board = HashMap.HashMap<string, Row>
@@ -51,13 +69,19 @@ declare namespace Panel {
 
 const _PATIENCE = Duration.seconds(4)
 
-// `detached` is the true seed for a gate-only row: a command key carries no livewire binding to be bound to
+// ABSENCE is the true seed for a gate-only row: a command key carries no livewire binding, so every binding-sourced
+// slot reads `none` until its producer speaks rather than reading a lifecycle token nothing sent.
 const _EMPTY: Panel.Row = {
-  phase: "detached",
-  landed: Option.none(),
-  optimistic: Option.none(),
+  state: Option.none(),
+  transport: Option.none(),
+  direction: Option.none(),
+  lastGoodAt: Option.none(),
   coercion: Option.none(),
-  stamp: Option.none(),
+  landed: Option.none(),
+  rendered: Option.none(),
+  renderedUnit: Option.none(),
+  disposition: Option.none(),
+  optimistic: Option.none(),
   gate: Option.none(),
 }
 
@@ -67,22 +91,26 @@ const _at = (board: Panel.Board, key: string, step: (row: Panel.Row) => Panel.Ro
 const _fold = (board: Panel.Board, event: PanelEvent): Panel.Board =>
   Match.valueTags(event, {
     BindingStatus: (status) =>
-      _at(board, status.binding, (row) => ({
+      _at(board, status.bindingId, (row) => ({
         ...row,
-        phase: status.phase,
-        optimistic: status.phase === "refused" || status.phase === "detached" ? Option.none() : row.optimistic,
+        state: Option.some(status.state),
+        transport: Option.some(status.transport),
+        direction: Option.some(status.direction),
+        lastGoodAt: status.lastGoodAt,
+        // `faulted` alone clears the in-flight write: a STALE binding is live and still owes its echo, so dropping
+        // the optimistic value there would erase a pending write the edge is about to acknowledge
+        optimistic: status.state === "faulted" ? Option.none() : row.optimistic,
       })),
-    CoercedValue: (coerced) =>
-      _at(board, coerced.binding, (row) => ({
-        ...row,
-        coercion: Option.some({ offered: coerced.offered, landed: coerced.landed, path: coerced.path }),
-      })),
+    CoercedValue: ({ bindingId, canonical, canonicalUnit, sourceUnit, sourceAt }) =>
+      _at(board, bindingId, (row) => ({ ...row, coercion: Option.some({ canonical, canonicalUnit, sourceUnit, sourceAt }) })),
     WriteReceipt: (receipt) =>
-      _at(board, receipt.binding, (row) => ({
+      _at(board, receipt.bindingId, (row) => ({
         ...row,
-        landed: Option.some(receipt.landed),
+        landed: Option.some(receipt.canonical),
+        rendered: receipt.rendered,
+        renderedUnit: receipt.renderedUnit,
+        disposition: Option.some(receipt.disposition),
         optimistic: Option.none(),
-        stamp: Option.some(receipt.stamp),
       })),
     CommandGate: (gate) =>
       _at(board, gate.key, (row) => ({ ...row, gate: Option.some({ available: gate.available, level: gate.level }) })),
@@ -104,21 +132,23 @@ const _drain = (
 ## [03]-[PHASE_RENDER]
 
 [PHASE_RENDER]:
-- Owner: `Panel.tone` and `Panel.degrade` — the two closed styling axes, with `Panel.admit` the affordance projection over the second: `_tone` keys the binding-phase axis carrying tone and motion rows (`refused` pulses a `Motion` row, `coercing` shows the in-flight affordance), `_degrade` keys the producer's degradation axis carrying the tone and whether the level is evidence at all; the phase chip, the coercion diff (offered versus landed with the path as a breadcrumb), the receipt stamp (`Format.instant` on the `Hlc`'s wall half, `system/intl`), and the gate badge are the display rows every binding panel composes.
-- Law: each axis keys its own table — `satisfies Record<Panel.Phase, ...>` and `satisfies Record<Panel.Level, ...>`, so a wire vocabulary change on either axis breaks its own row at compile time and a phase or level conditional in a panel body marks the table unused. Axes never merge: phase is the binding's lifecycle, level is the host's degradation, and one joint table multiplies them into a cross product no producer emits.
+- Owner: `Panel.tone` and `Panel.degrade` — the two closed styling axes, with `Panel.admit` the affordance projection over the second: `_tone` keys the binding-lifecycle axis carrying tone and motion rows (`faulted` pulses a `Motion` row, `connecting` shows the in-flight affordance), `_degrade` keys the producer's degradation axis carrying the tone and whether the level is evidence at all; the lifecycle chip, the write disposition, the last-good instant (`Format.instant`, `system/intl`), and the gate badge are the display rows every binding panel composes.
+- Law: each axis keys its own table — `satisfies Record<Panel.State, ...>` and `satisfies Record<Panel.Level, ...>`, so a wire vocabulary change on either axis breaks its own row at compile time and a state or level conditional in a panel body marks the table unused. Axes never merge: state is the binding's lifecycle, level is the host's degradation, and one joint table multiplies them into a cross product no producer emits.
 - Law: `Panel.admit` is the one affordance read and it is TOTAL — `disabled` is the gate's `available` inverted, tone and badge visibility are its `level` row, and an EMPTY gate slot projects `_CLOSED`: inert, and silent about a level the producer never stated. Absence seeds CLOSED because the producer's own `CanExecute` stream seeds `false` before its first emission; seeding open renders every affordance live in the window before its first verdict lands, and the press then meets a deck that refuses.
 - Law: CLOSED answers a MISSING verdict, never a missing command — a widget whose binding names no command key awaits nothing, so it projects `_OPEN` and the gate join runs on the command-bearing widgets alone; folding the two absences together renders every label, every readout, and every uncommanded field permanently inert.
-- Law: a coercion is information, not an error — the diff renders as neutral evidence (the C# side coerced and landed the write); only `refused` renders on the danger tone and feeds the round-trip revert.
-- Growth: a producer degradation level is one `_degrade` row and a binding phase one `_tone` row — the core vocabulary lands first, and each table fails at its declaration until its row exists.
+- Law: the disposition renders per ARM and never as a boolean — an acknowledgement shows its echo class, a rollback shows the prior value it restored, and only a rejection or an indeterminate write renders on the danger tone and feeds the round-trip revert, because an indeterminate write leaves the external value unknown to this process and a rollback does not.
+- Growth: a producer degradation level is one `_degrade` row and a binding lifecycle state one `_tone` row — the core vocabulary lands first, and each table fails at its declaration until its row exists.
 - Boundary: chip/badge primitives are `system/primitive` recipes; plural and status text is `Message`'s (`system/intl`), so the badge's reason resolves from the level key through a catalog row and no level text is authored here.
 
 ```typescript signature
+// the producer's own five lifecycle rows, in its rank order: two in-flight, two live, one broken
 const _tone = {
-  bound: { tone: "success", motion: Option.none<Motion.Hold>() },
-  coercing: { tone: "accent", motion: Option.none<Motion.Hold>() },
-  refused: { tone: "danger", motion: Option.some<Motion.Hold>("pulse") },
-  detached: { tone: "neutral", motion: Option.none<Motion.Hold>() },
-} as const satisfies Record<Panel.Phase, { readonly tone: Theme.Tone; readonly motion: Option.Option<Motion.Hold> }>
+  connecting: { tone: "accent", motion: Option.none<Motion.Hold>() },
+  subscribed: { tone: "success", motion: Option.none<Motion.Hold>() },
+  polling: { tone: "success", motion: Option.none<Motion.Hold>() },
+  stale: { tone: "caution", motion: Option.none<Motion.Hold>() },
+  faulted: { tone: "danger", motion: Option.some<Motion.Hold>("pulse") },
+} as const satisfies Record<Panel.State, { readonly tone: Theme.Tone; readonly motion: Option.Option<Motion.Hold> }>
 
 // producer's rows hold its own rank order; `full` is the undegraded floor and the one level carrying no badge
 const _degrade = {
@@ -155,7 +185,7 @@ const _admit = (row: Panel.Row): Panel.Affordance =>
 - Law: emphasis resolves to TONE and a non-colour FILL — the producer's six-row ladder is two axes at this head, and the folder's one-tone-per-element ruling means only the semantic axis reaches the palette while quiet, soft, inverted, and link postures ride the recipe's own variant; a second tone column resolves two palettes onto one control.
 - Law: this module holds NO styling literal — tone keys the token roster, fill keys a recipe variant `system/primitive` owns, motion keys a `Motion.Hold` row, and the class string is composed where the view row calls `Primitive.styled`; a hex value, a utility string, or a pixel here forks the authority `system/token` closes.
 - Law: an icon is a SLOT, never a resolved image — the asset key, placement, and size cross verbatim and the app-wired asset source answers the glyph, so a decoded intent never carries pixels and both heads mount the same slot from the same three columns.
-- Law: motion ranks refusal over work — a refused write pulses through the phase row even while its control is pending, because the repair the user owes outranks the work the host is doing; below it a pending icon spins and an indeterminate progress reads its form's own hold, and a determinate fraction holds nothing at all.
+- Law: motion ranks refusal over work — a faulted binding pulses through the lifecycle row even while its control is pending, because the repair the user owes outranks the work the host is doing; below it a pending icon spins and an indeterminate progress reads its form's own hold, and a determinate fraction holds nothing at all.
 - Law: the gate join is the binding's two keys — `binding.command` addresses the verdict row and `binding.valueKey` the livewire row, both on the ONE board `[02]` folds, so a widget's whole display truth is two reads with no side map; a command-free widget projects `_OPEN` per `[03]`'s law and never awaits a verdict nobody will send.
 - Law: payloads stay verbatim — a bound, a fraction, a visible count, and a window spec land as the producer wrote them; a clamp, a remap, or a head-local default for an omitted column forks the emitting peer's semantics, which is exactly what the every-field-has-a-wire-representation law at the producer boundary exists to make impossible.
 - Boundary: mounting a part is the view layer's — this module is pure projection and imports no component, so the part key is the seam a view row resolves against its own registry; label, header, and hint TEXT resolves through `system/intl` from the key columns, and the constraint program named by a container arm is `[06]`'s to solve.
@@ -224,12 +254,16 @@ const _arms = Match.type<Wire.ControlIntent>().pipe(
     avatar: () => _node("AvatarGroup"),
     breadcrumb: () => _node("Breadcrumbs"),
     tooltip: () => _node("Tooltip"),
+    // the minimap strip names its frame producer by key and mounts no child intent, so it bottoms out here and the
+    // strip geometry stays a stream the view row subscribes rather than a child the walk descends
+    overview: () => _node("Overview"),
     menu: () => _node("Menu"),
     // nesting arms descend: the grid contributes its cell AND its editor, because an editing template a walk never
     // reaches is a column that cannot enter edit
-    emptyState: (intent) => _node("EmptyState", intent.action === null ? _NONE : [intent.action]),
+    banner: (intent) => _node("Banner", Array.appendAll(intent.actions, Array.fromOption(intent.evidence))),
+    emptyState: (intent) => _node("EmptyState", Array.fromOption(intent.action)),
     grid: (intent) =>
-      _node("Table", Array.flatMap(intent.columns, (column) => column.editor === null ? [column.cell] : [column.cell, column.editor])),
+      _node("Table", Array.flatMap(intent.columns, (column) => Array.appendAll([column.cell], Array.fromOption(column.editor)))),
     tree: (intent) => _node("Tree", [intent.item]),
     toolbar: (intent) => _node("Toolbar", Array.map(intent.rows, (row) => row.item)),
     tab: (intent) => _node("Tabs", Array.map(intent.pages, (page) => page.body)),
@@ -246,21 +280,21 @@ declare namespace Panel {
     readonly part: Panel.Part
     readonly tone: Theme.Tone
     readonly fill: Panel.Fill
-    readonly icon: Option.Option<NonNullable<Panel.Binding["icon"]>>
+    readonly icon: Panel.Binding["icon"]
     readonly hold: Option.Option<Motion.Hold>
     readonly affordance: Panel.Affordance
     readonly value: Option.Option<Panel.Row>
   }
 }
 
-const _slot = (board: Panel.Board, key: string | null): Option.Option<Panel.Row> =>
-  Option.flatMap(Option.fromNullable(key), (named) => HashMap.get(board, named))
+const _slot = (board: Panel.Board, key: Option.Option<string>): Option.Option<Panel.Row> =>
+  Option.flatMap(key, (named) => HashMap.get(board, named))
 
 const _pending = (intent: Wire.ControlIntent): Option.Option<Motion.Hold> =>
-  intent.kind === "progress" && intent.fraction === null
+  intent.kind === "progress" && Option.isNone(intent.fraction)
     ? Option.some<Motion.Hold>(_INDETERMINATE[intent.form])
     : Option.as(
-      Option.filter(Option.fromNullable(intent.binding.icon), (icon) => icon.pending !== null),
+      Option.filter(intent.binding.icon, (icon) => Option.isSome(icon.pending)),
       "spin" as const,
     )
 
@@ -271,8 +305,8 @@ const _chrome = (board: Panel.Board, intent: Wire.ControlIntent): Panel.Chrome =
     part: _arms(intent).part,
     tone: emphasis.tone,
     fill: emphasis.fill,
-    icon: Option.fromNullable(intent.binding.icon),
-    hold: Option.orElse(Option.flatMap(value, (row) => _tone[row.phase].motion), () => _pending(intent)),
+    icon: intent.binding.icon,
+    hold: Option.orElse(Option.flatMap(value, (row) => Option.flatMap(row.state, (state) => _tone[state].motion)), () => _pending(intent)),
     affordance: Option.match(_slot(board, intent.binding.command), { onNone: () => _OPEN, onSome: _admit }),
     value,
   }
@@ -345,7 +379,7 @@ const _route = <E, R>(sinks: Panel.Sinks<E, R>): ((interaction: Panel.Interactio
 ```typescript signature
 import { Constraint, Expression, Operator, Solver, Strength, Variable } from "@lume/kiwi"
 import { Fault, type Wire } from "@rasm/ts/core"
-import { Effect, HashMap, Iterable, Schema, SynchronizedRef } from "effect"
+import { Effect, HashMap, Iterable, Option, Schema, SynchronizedRef } from "effect"
 
 const _relations = { le: Operator.Le, ge: Operator.Ge, eq: Operator.Eq } as const
 
@@ -356,16 +390,52 @@ const _strengths = {
   weak: Strength.weak,
 } as const
 
+// Three legs partition the solve and each reason renders its OWN subject, because the three refusals answer three
+// different repairs: a numbered constraint the tableau rejected names its wire position, a registration or solve
+// past that walk names no position at all, and a live suggestion names the edit variable it was aimed at. One row
+// carrying `rank: -1` spelled the second and third as the first, so the sentinel WAS the reason discriminant —
+// which is the state a closed reason vocabulary exists to make unrepresentable.
+const _family = Fault.Class.family(["constraint", "program", "suggest"] as const, {
+  constraint: Fault.Class.row({
+    class: "invalid",
+    leg: "walk",
+    detail: Schema.Struct({
+      surface: Schema.String,
+      rank: Schema.Int.pipe(Schema.nonNegative()), // the constraint's position in the wire walk, never a severity rank
+      cause: Schema.String,
+    }),
+    render: ({ cause, rank, surface }) => `${surface} constraint #${rank} refused: ${cause}`,
+  }),
+  program: Fault.Class.row({
+    class: "invalid",
+    leg: "register",
+    detail: Schema.Struct({ surface: Schema.String, cause: Schema.String }),
+    render: ({ cause, surface }) => `${surface} edit registration refused: ${cause}`,
+  }),
+  suggest: Fault.Class.row({
+    class: "invalid",
+    leg: "edit",
+    detail: Schema.Struct({ surface: Schema.String, edit: Schema.String, cause: Schema.String }),
+    render: ({ cause, edit, surface }) => `${surface} suggestion against ${edit} refused: ${cause}`,
+  }),
+})
+
+declare namespace SolveFault {
+  type Case = typeof _family.payload.Type
+  type Reason = (typeof _family.kinds)[number]
+}
+
 class SolveFault extends Schema.TaggedError<SolveFault>()("SolveFault", {
-  surface: Schema.String,
-  rank: Schema.Int, // the constraint's position in the wire walk, `-1` past it — never a severity rank
-  detail: Schema.String,
+  case: _family.payload,
 }) {
   get class(): Fault.Class.Kind {
-    return "invalid"
+    return _family.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _family.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<solve:${this.surface}#${this.rank}> ${this.detail}`
+    return _family.render(this.case)
   }
 }
 
@@ -384,8 +454,9 @@ const _read = (draft: _Draft): Panel.Positions =>
 
 const _build = (program: Wire.LayoutProgram): Effect.Effect<_Draft, SolveFault> =>
   Effect.suspend(() => {
-    // BOUNDARY ADAPTER
-    const cursor = { rank: -1 }
+    // BOUNDARY ADAPTER — the cursor carries WHERE the walk stands as absence-shaped evidence, so the refusal picks
+    // its own reason off that value instead of encoding "past the walk" as a rank no constraint occupies
+    const cursor = { at: Option.none<number>() }
     return Effect.try({
       try: () => {
         const solver = new Solver()
@@ -396,17 +467,23 @@ const _build = (program: Wire.LayoutProgram): Effect.Effect<_Draft, SolveFault> 
           return held
         }
         program.constraints.forEach((row, at) => {
-          cursor.rank = at
+          cursor.at = Option.some(at)
           const terms = row.terms.map((term): [number, Variable] => [term.coefficient, named(term.variable)])
           const lhs = new Expression(...terms, row.constant)
           solver.addConstraint(new Constraint(lhs, _relations[row.relation], undefined, _strengths[row.strength]))
         })
-        cursor.rank = -1
+        cursor.at = Option.none()
         program.edits.forEach((edit) => solver.addEditVariable(named(edit), Strength.strong))
         solver.updateVariables()
         return { solver, cells }
       },
-      catch: (defect) => new SolveFault({ surface: program.surface, rank: cursor.rank, detail: String(defect) }),
+      catch: (defect) =>
+        new SolveFault({
+          case: Option.match(cursor.at, {
+            onNone: () => ({ reason: "program", surface: program.surface, cause: String(defect) }) as const,
+            onSome: (rank) => ({ reason: "constraint", surface: program.surface, rank, cause: String(defect) }) as const,
+          }),
+        }),
     })
   })
 
@@ -429,7 +506,7 @@ const _solve = (program: Wire.LayoutProgram): Effect.Effect<Panel.Solved, SolveF
               live.solver.updateVariables()
               return [_read(live), live] as const
             },
-            catch: (defect) => new SolveFault({ surface: program.surface, rank: -1, detail: String(defect) }),
+            catch: (defect) => new SolveFault({ case: { reason: "suggest", surface: program.surface, edit, cause: String(defect) } }),
           })),
     }
   })

@@ -1,6 +1,6 @@
 # [PY_COMPUTE_NONLINEAR]
 
-Nonlinear routes of the one numeric solver: `NonlinearIntent` discriminates root-finding, minimisation, fixed-point iteration, and nonlinear least-squares over `optimistix` on the JAX floor, all four sharing one table-driven dispatch, a numpy central-difference floor reachable per route when the package is absent, and one `SolverReceipt` fold. Algorithm is never the entry point — each route carries a `NonlinearSolver` policy value resolved through the one `_SOLVER` profile table, and five orthogonal tuning axes ride one `SolverPolicy` value rather than per-solver `(rtol, atol)` literals.
+Nonlinear routes of the one numeric solver: `NonlinearIntent` discriminates root-finding, minimisation, fixed-point iteration, and nonlinear least-squares over `optimistix` on the JAX floor, all four sharing one table-driven dispatch, a numpy central-difference floor reachable per route when the package is absent, and one `SolverReceipt` fold carrying the `Provider` that answered. Algorithm is never the entry point — each route carries a `NonlinearSolver` policy value resolved through the one `_SOLVER` profile table, and five orthogonal tuning axes ride one `SolverPolicy` value rather than per-solver `(rtol, atol)` literals.
 
 One rail composes `optimistix` over a `lineax` inner linear solve and an `optax`-lifted descent on `equinox.filter_jit`/`filter_vmap` pytree transforms, under an `ImplicitAdjoint` (`RecursiveCheckpointAdjoint` for the ill-posed case) that `solvers/sensitivity#SENSITIVITY` differentiates through. Frozen `NonlinearEngine` folds the seven gated JAX modules so the solver build, route entry, adjoint, stationarity probe, and pytree read are carrier methods over one populated handle — a domain-named carrier, never a `SolveEngine` colliding with the `solvers/differential#DIFFERENTIAL` integration carrier. Its gated body floats the rail to float64 before the solve — the x64 contract the sibling JAX routes share — and loop-kernel/XLA acceleration is owned by `numerics/jit#JIT`.
 
@@ -12,11 +12,11 @@ One rail composes `optimistix` over a `lineax` inner linear solve and an `optax`
 
 - Owner: `NonlinearSolver` is the one bounded solver vocabulary across every route; `_SOLVER` maps each member to a `_SolverSpec(attr, profile)` and `NonlinearEngine.build_solver` assembles the optimistix constructor keywords once by `SolverProfile`, so a new solver adds no construction body. Single resolved `norm` threads into both the `build_solver` termination and the route cell, so the termination norm and the receipt residual are one callable by construction. `_route_cells` keys one `(entry, residual contraction)` cell per route and `build_solver` one solver per member — never a tag×solver matrix. `best_so_far` wraps the converged solver in the route-matched `BestSoFar*` guard, one aspect over any solver.
 - Cases: `least_squares` upcasts a minimiser member and `root_find`/`fixed_point` accept an upcast least-squares or minimiser solver where the problem class permits, per the `optimistix` entries. Batched path reduces the per-row `RESULTS` to the single worst-case termination member through `NonlinearEngine.verdict` — `jnp.max` over the per-row codes, the zero `successful` making `max == 0` iff every start converged — never `RESULTS.promote` (inheritance-widening that raises on a same-class member), the same multi-start resolution `optimization/design#DESIGN` runs.
-- Entry: `NonlinearIntent.solve` composes `lane.offload(Kernel.of(_dispatch, KernelTrait.HOSTILE), self)` under the `evidence_run` weave; the family declares `HOSTILE` because the x64 flag is process-global native state, and isolation, band, and worker-death retry derive at the runtime `Kernel` crossing owner from the trait row. Route forwards `max_steps`, the adjoint mode, and the profile-gated `options` under `throw=False`, so `solvers/sensitivity#SENSITIVITY` differentiates through the converged solution rather than the iteration trace and a non-`successful` verdict is recorded rather than raised.
-- Output: the minimise/root/fixed-point routes fold residual, step count, and the `RESULTS` member name into `SolverReceipt.Iterative`; least-squares folds rank, step count, and the name into `SolverReceipt.LeastSquares`. Verdict is the true backend `RESULTS` member name off `Solution.result._value` (the `EnumerationItem` carries no `.name`), so a `max_steps_reached` or divergent solve carries its verdict rather than a residual-floor guess. Emission rides the weave's fenced contributor harvest, streaming `SolverReceipt.contribute` on the clean exit — `_dispatch` wears no emit decorator, so the receipt emits exactly once.
+- Entry: `NonlinearIntent.solve` composes `lane.offload(Kernel.of(_dispatch, KernelTrait.HOSTILE), self, key)` under the `evidence_run` weave, the key naming the solved system so the receipt settles carrying its own coordinate and `graduates` restates none; the family declares `HOSTILE` because the x64 flag is process-global native state, and isolation, band, and worker-death retry derive at the runtime `Kernel` crossing owner from the trait row. Route forwards `max_steps`, the adjoint mode, and the profile-gated `options` under `throw=False`, so `solvers/sensitivity#SENSITIVITY` differentiates through the converged solution rather than the iteration trace and a non-`successful` verdict is recorded rather than raised.
+- Output: the minimise/root/fixed-point routes fold residual, step count, the answering `Provider`, and the `RESULTS` member name into `SolverReceipt.Iterative`; least-squares folds rank, step count, the provider, and the name into `SolverReceipt.LeastSquares`. The provider column is what makes the two engines separable: without it a central-difference probe at `steps=0` and a converged Newton solve project receipts differing on no slot that says which ran. Verdict is the true backend `RESULTS` member name off `Solution.result._value` (the `EnumerationItem` carries no `.name`), so a `max_steps_reached` or divergent solve carries its verdict rather than a residual-floor guess. Emission rides the weave's fenced contributor harvest, streaming `SolverReceipt.contribute` on the clean exit — `_dispatch` wears no emit decorator, so the receipt emits exactly once.
 - Packages: `optimistix` (the solver, entry, and norm surface), `lineax` (the `InnerSolver`-projected `linear_solver=` family spanning tag-dispatched, direct, and iterative solvers), `optax` (the first-order transformations `OptaxMinimiser` lifts into minimise), `equinox` (`filter_jit`/`filter_vmap`), `jax`/`numpy` per the fence imports; `expression`/`msgspec` own the `NonlinearIntent` union and the value objects. `solvers/receipt#RECEIPT` owns `SolverReceipt` and the shared `verdict` fold (`SolveStatus` folds inside the receipt factories, never imported here); the hub `evidence_run` weave and the runtime offload crossing (`Kernel`/`KernelTrait`) compose silently.
-- Growth: a new route is one `NonlinearIntent` case and one `_route_cells` cell; a new solver is one `NonlinearSolver` member and one `_SOLVER` row naming its `SolverProfile`; a new constructor surface is one `SolverProfile` member and one `build_solver` arm; a new termination norm, inner linear solver, or adjoint mode is one enum member and one arm or row on the matching carrier. A first-order step change is one `SolverPolicy.learning_rate` value, a 1-D bracketing solve one `NonlinearPolicy.bracket`, a multi-start study one `NonlinearPolicy.batched` vmapped through the same `solve` — never a second entry, never a per-route helper or emit.
-- Boundary: the `TOL_ONLY` bracket is the per-solve entry argument (`options=dict(lower=, upper=)`), not a constructor kwarg like the five `SolverPolicy` axes, and rides `NonlinearPolicy` beside `max_steps`/`adjoint`/`has_aux`; a `TOL_ONLY` solve with an absent, non-finite, or unordered bracket rails as a typed boundary fault, gated in `_dispatch` before the import fork so the gated path and the numpy floor rail the misconfiguration identically. Numpy central-difference floor is reachable per route when `optimistix` is absent and narrows to `np.ndarray` at its jaxlib-free edge.
+- Growth: a new refusal is one `NonlinearFault` case with one `__str__` arm, its kwargs crossing the lane whole on the `BoundaryFault.domain` case; a new route is one `NonlinearIntent` case and one `_route_cells` cell; a new solver is one `NonlinearSolver` member and one `_SOLVER` row naming its `SolverProfile`; a new constructor surface is one `SolverProfile` member and one `build_solver` arm; a new termination norm, inner linear solver, or adjoint mode is one enum member and one arm or row on the matching carrier. A first-order step change is one `SolverPolicy.learning_rate` value, a 1-D bracketing solve one `NonlinearPolicy.bracket`, a multi-start study one `NonlinearPolicy.batched` vmapped through the same `solve` — never a second entry, never a per-route helper or emit.
+- Boundary: the `TOL_ONLY` bracket is the per-solve entry argument (`options=dict(lower=, upper=)`), not a constructor kwarg like the five `SolverPolicy` axes, and rides `NonlinearPolicy` beside `max_steps`/`adjoint`/`has_aux`; a `TOL_ONLY` solve with an absent, non-finite, or unordered bracket raises `NonlinearFault.bracket`, gated in `_dispatch` before the import fork so the gated path and the numpy floor refuse the misconfiguration identically. The numpy central-difference floor is reachable per route when `optimistix` is absent, narrows to `np.ndarray` at its jaxlib-free edge, and REFUSES the two requests it cannot take — a bracketing `TOL_ONLY` search and a `batched` multi-start sweep, neither of which one central-difference probe performs.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -31,7 +31,7 @@ from expression.collections import Map
 from msgspec import Struct
 
 from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, evidence_run
-from rasm.compute.solvers.receipt import SolverReceipt, graduate, verdict
+from rasm.compute.solvers.receipt import Provider, SolverReceipt, graduate, verdict
 from rasm.runtime.faults import RuntimeRail
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy
@@ -103,6 +103,38 @@ class AdjointMode(StrEnum):
     RECURSIVE_CHECKPOINT = "recursive_checkpoint"
 
 
+# --- [ERRORS] ------------------------------------------------------------------------------
+
+
+@tagged_union(frozen=True)
+class NonlinearFault(BaseException):
+    # this route family's OWN refusal token, raised inside the offloaded kernel and carried WHOLE across the lane
+    # crossing: `BoundaryFault.of` admits a `Tagged` exception ahead of every `CLASSIFY` row, so the case and its
+    # kwargs land on the `domain` arm as structurally addressable evidence. WHOLE is literal across the worker seam
+    # and not merely at the door — a kwarg-only `@tagged_union` reconstructs through no pickler, raised or railed, so
+    # `execution/workers#CROSSING` lowers this token onto `CrossedFault` DATA at `shipped` and re-mints this family's
+    # own case parent-side; the kernel keeps raising its typed case and this page edits nothing. The retired
+    # `raise ValueError(f"...")` reached the crossing's fence as a message string a consumer could only recover by
+    # matching on prose, which `docs/stacks/python/rails-and-effects.md` rejects by name.
+    tag: Literal["bracket", "unserved"] = tag()
+    bracket: tuple[str, str] = case()  # (solver, the bracket render the gate refused)
+    unserved: tuple[str, str] = case()  # (route, the request the numpy floor cannot take)
+
+    def __str__(self) -> str:
+        # TOTAL collapse keeping the coordinates, serving the LOG and HOST edge alone: `Exception.__str__` renders
+        # EMPTY for a kwarg-only tagged union, so a token surfacing in a worker traceback or a log line before the
+        # seam lowers it would otherwise read as the bare family name. No conversion door reads it — the `Tagged`
+        # arm admits this family ahead of every `CLASSIFY` row and the catch-all's `str(cause)` half is unreachable
+        # here — and no crossing reads it either, `CrossedFault` carrying the case and its kwargs as data.
+        match self:
+            case NonlinearFault(tag="bracket", bracket=(solver, render)):
+                return f"bracket:{solver}:{render}"
+            case NonlinearFault(tag="unserved", unserved=(route, request)):
+                return f"unserved:{route}:{request}"
+            case _ as unreachable:
+                assert_never(unreachable)
+
+
 # --- [CONSTANTS] ---------------------------------------------------------------------------
 
 _TOL: float = 1e-8
@@ -170,21 +202,26 @@ class NonlinearIntent:
     ) -> "NonlinearIntent":
         return NonlinearIntent(least_squares=(residual_fn, x0, solver, policy))
 
-    async def solve(self, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[SolverReceipt]":
+    async def solve(self, lane: LanePolicy, key: ContentKey, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[SolverReceipt]":
         # one HOSTILE-trait Kernel carries the solve — spec data and operands (`_dispatch` resolves by import in the worker); isolation,
         # band, and worker-death retry derive at the runtime Kernel crossing. The weave owns span, fence, and the contributor harvest
         # under the caller's composition key, defaulted so the root call shape stays scope-free.
+        # `key` names the solved system the caller already identified — a convergence verdict keys to what was solved,
+        # never to itself — and crosses as an ordinary kernel argument so the receipt settles carrying it.
         async def dispatch() -> RuntimeRail[SolverReceipt]:
-            return await lane.offload(Kernel.of(_dispatch, KernelTrait.HOSTILE), self)
+            return await lane.offload(Kernel.of(_dispatch, KernelTrait.HOSTILE), self, key)
 
         return await evidence_run(EvidenceScope.NONLINEAR, f"solve.{self.tag}", dispatch, facts={"route": self.tag}, composition=composition)
 
     def graduates(
-        self, receipt: SolverReceipt, key: ContentKey, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE
+        self, receipt: SolverReceipt, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE
     ) -> "RuntimeRail[GraduationReceipt]":
-        # `graduate` projects the receipt's own ledger, so the receipt IS the evidence; the key names the
-        # solved operand the caller already identified — a convergence verdict keys to what was solved, never to itself.
-        return graduate(EvidenceScope.NONLINEAR.value, f"solve.{self.tag}", key, receipt, ceiling or dict(_CEILING.items()), composition=composition)
+        # `graduate` projects the receipt's own ledger AND its own key, so the receipt IS the whole evidence and the
+        # retired `key` parameter restated a coordinate the value already reconstructs.
+        return graduate(
+            EvidenceScope.NONLINEAR.value, f"solve.{self.tag}", receipt.content_key, receipt, ceiling or dict(_CEILING.items()),
+            composition=composition,
+        )
 
 
 # Seven gated JAX modules folded into one value object; carrier methods read the handles off `self`, never a helper re-import or a
@@ -327,8 +364,9 @@ def _route_cells(
 # --- [OPERATIONS] --------------------------------------------------------------------------
 
 
-# One measured kernel returning SolverReceipt — module-level so it crosses the process lane. The try/except ImportError is the boundary import gate.
-def _dispatch(intent: NonlinearIntent) -> SolverReceipt:
+# One measured kernel returning SolverReceipt — module-level so it crosses the process lane. The import gate brackets
+# the ENGINE MINT alone, never the solve.
+def _dispatch(intent: NonlinearIntent, key: ContentKey) -> SolverReceipt:
     match intent:
         case (
             NonlinearIntent(tag="root_find", root_find=(fn, x0, solver, policy))
@@ -342,17 +380,29 @@ def _dispatch(intent: NonlinearIntent) -> SolverReceipt:
             if _SOLVER[solver].profile is SolverProfile.TOL_ONLY and (
                 policy.bracket is None or not all(np.isfinite(policy.bracket)) or policy.bracket[0] >= policy.bracket[1]
             ):
-                raise ValueError(f"{solver} requires NonlinearPolicy.bracket=(lower, upper) finite with lower < upper")
+                raise NonlinearFault(bracket=(solver.value, repr(policy.bracket)))
+            # ONE bare mint sits inside the `try` — `NonlinearEngine.gated()` IS the seven-module import seam — so the
+            # floor fires on an absent JAX band alone, exactly as the sibling `solvers/field#FIELD` arm scopes its own.
+            # The retired form bracketed the WHOLE gated solve: a jax backend plugin load, an optax sub-import, or an
+            # equinox lazy member raising `ImportError` anywhere inside the build, the `filter_jit`, the `filter_vmap`,
+            # or the verdict fold silently re-routed to the central-difference floor and published an `Iterative`
+            # receipt a caller could not tell from a converged Newton solve. An `ImportError` out of the solve on an
+            # installed band now propagates to the crossing's fence as the defect it is.
             try:
-                return _optimistix_receipt(intent.tag, fn, x0, solver, policy)
+                engine = NonlinearEngine.gated()
             except ImportError:
-                return _floor_receipt(intent.tag, fn, np.asarray(x0), solver, policy)
+                return _floor_receipt(key, intent.tag, fn, np.asarray(x0), solver, policy)
+            return _optimistix_receipt(engine, key, intent.tag, fn, x0, solver, policy)
         case _ as unreachable:
             assert_never(unreachable)
 
 
-def _optimistix_receipt(tag: Route, fn: Callable[..., object], x0: Pytree, solver: NonlinearSolver, policy: NonlinearPolicy) -> SolverReceipt:
-    engine = NonlinearEngine.gated()
+def _optimistix_receipt(
+    engine: "NonlinearEngine", key: ContentKey, tag: Route, fn: Callable[..., object], x0: Pytree, solver: NonlinearSolver,
+    policy: NonlinearPolicy,
+) -> SolverReceipt:
+    # the engine arrives ALREADY GATED, so this whole body sits OUTSIDE the import fence and every raise it makes
+    # reaches the crossing as itself.
     jtu = engine.jtu
     op, lift = engine.route(tag, fn, policy)
     instance, adjoint = engine.build_solver(tag, solver, policy.solver), engine.adjoint(policy.adjoint)
@@ -378,8 +428,8 @@ def _optimistix_receipt(tag: Route, fn: Callable[..., object], x0: Pytree, solve
         residual, steps, result = float(lift(solution.value)), int(solution.stats["num_steps"]), engine.verdict(solution.result)
         rank = _tree_rank(jtu, solution.value)
     if tag == "least_squares":
-        return SolverReceipt.LeastSquares(residual, rank, steps, policy.solver.rtol, result)
-    return SolverReceipt.Iterative(residual, steps, policy.solver.rtol, result)
+        return SolverReceipt.LeastSquares(key, residual, rank, steps, Provider.GATED, tol=policy.solver.rtol, result=result)
+    return SolverReceipt.Iterative(key, residual, steps, Provider.GATED, tol=policy.solver.rtol, result=result)
 
 
 # Pytree-total element count over tree_leaves, so a structured value reports its true rank where a flat value.size assumes one leaf.
@@ -388,23 +438,30 @@ def _tree_rank(jtu: object, value: object) -> int:
 
 
 # Numpy central-difference floor, reachable per route when optimistix is absent. `out` applies the same has_aux unwrap the route
-# cells do; result=None lets the shared receipt residual-floor adjudicate. A TOL_ONLY solver probes at the bracket midpoint (GoldenSearch ignores x0).
-def _floor_receipt(tag: Route, fn: Callable[..., object], x0: np.ndarray, solver: NonlinearSolver, policy: NonlinearPolicy) -> SolverReceipt:
+# cells do; result=None lets the shared receipt residual-floor adjudicate.
+# The floor SERVES what it can measure and REFUSES the two requests it cannot take, on the sibling `solvers/field#FIELD`
+# law: a `TOL_ONLY` solve asks for a bracketing SEARCH and this body takes one central-difference probe at the region
+# centre, so reporting it under a `Bisection`/`GoldenSearch` receipt publishes a converged-or-stagnated verdict on a
+# search that never ran; a `batched` request asks for a multi-start SWEEP and this body probes the whole `x0` as one
+# dense array, so its single figure would ride the worst-case slot a vmapped reduction fills. Both refusals raise the
+# family's own token, which crosses the lane whole on the `domain` arm.
+def _floor_receipt(
+    key: ContentKey, tag: Route, fn: Callable[..., object], x0: np.ndarray, solver: NonlinearSolver, policy: NonlinearPolicy
+) -> SolverReceipt:
+    if _SOLVER[solver].profile is SolverProfile.TOL_ONLY:
+        raise NonlinearFault(unserved=(tag, solver.value))
+    if policy.batched:
+        raise NonlinearFault(unserved=(tag, "batched"))
     rtol, out = policy.solver.rtol, (lambda v: fn(v)[0]) if policy.has_aux else fn
-    bracketed = _SOLVER[solver].profile is SolverProfile.TOL_ONLY and policy.bracket is not None
-    probe_at = np.asarray((policy.bracket[0] + policy.bracket[1]) / 2) if bracketed else x0  # TOL_ONLY: region centre, x0 carries no meaning
-    basis = np.eye(probe_at.size).reshape((
-        probe_at.size,
-        *probe_at.shape,
-    ))  # per-component unit steps reshaped to the single dense leaf the floor narrows to
+    basis = np.eye(x0.size).reshape((x0.size, *x0.shape))  # per-component unit steps reshaped to the single dense leaf the floor narrows to
     probe = (
-        np.linalg.norm([float(out(probe_at + _FD * e)) - float(out(probe_at - _FD * e)) for e in basis], np.inf) / (2 * _FD)
+        np.linalg.norm([float(out(x0 + _FD * e)) - float(out(x0 - _FD * e)) for e in basis], np.inf) / (2 * _FD)
         if tag == "minimise"
-        else float(np.linalg.norm(np.asarray(out(probe_at)) - (probe_at if tag == "fixed_point" else 0.0), np.inf))
+        else float(np.linalg.norm(np.asarray(out(x0)) - (x0 if tag == "fixed_point" else 0.0), np.inf))
     )
     if tag == "least_squares":
-        return SolverReceipt.LeastSquares(float(probe), int(x0.size), 0, rtol, None)
-    return SolverReceipt.Iterative(float(probe), 0, rtol, None)
+        return SolverReceipt.LeastSquares(key, float(probe), int(x0.size), 0, Provider.FLOOR, tol=rtol)
+    return SolverReceipt.Iterative(key, float(probe), 0, Provider.FLOOR, tol=rtol)
 ```
 
 ## [03]-[RESEARCH]

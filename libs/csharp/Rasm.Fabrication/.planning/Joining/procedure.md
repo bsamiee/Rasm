@@ -23,7 +23,7 @@ Qualification mismatch is a decision, never an admission failure: welder status,
 - Law: personal identity travels TYPED. `WelderId` is the one carrier and every property holding it declares `[PersonalData]` from `Process/telemetry#CLASSIFICATION`, so a welder identity redacts at every log and export seam while WPS/PQR artifacts keep their attested content and no untyped copy escapes the classification.
 - Law: a quantity variable carries its `QuantityInfo`, and admission proves demand, range low, and range high share it, so evaluation compares scalars that are already dimensionally paired.
 - Entry: `Procedure.Assess` accepts only `ProcedureRequest`; `Wps`, `WeldDemand`, assignments, inspection context, and assessment time enter through that generated aggregate gate, whose clauses accumulate through `AdmissionSlots` so a malformed request reports every structural defect it holds.
-- Packages: Thinktecture.Runtime.Extensions owns admitted values and closed dispatch; UnitsNet owns physical dimensions and registry identity; NodaTime owns validity; LanguageExt.Core owns accumulated assessment; Generator.Equals owns ordered receipt equality and member diffs.
+- Packages: Thinktecture.Runtime.Extensions owns admitted values and closed dispatch; UnitsNet owns physical dimensions and registry identity; NodaTime owns validity; LanguageExt.Core owns accumulated assessment; Generator.Equals owns ordered receipt equality and member diffs; `Rasm.Domain` owns the `ICapability`/`CapabilitySet` floor the hold-point demand column instantiates.
 - Growth: governing-code breadth is profile data, so one variable row or inspection rule extends a regime without a checker method, named field, or new public surface.
 - Boundary: every qualification verdict — expired continuity, suspended status, out-of-range value — remains a domain decision; only missing, duplicate, dimensionally incompatible, or malformed evidence fails request admission.
 
@@ -37,6 +37,7 @@ using LanguageExt;
 using LanguageExt.Common;
 using LanguageExt.Traits;
 using NodaTime;
+using Rasm.Domain;
 using Rasm.Element.Projection;
 using Rasm.Fabrication.Fixturing;
 using Rasm.Fabrication.Process;
@@ -72,48 +73,44 @@ public sealed partial class VariableModality {
 }
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
-[ValidationError<FabricationFault>]
 public readonly partial struct VariableKey {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "variable-key");
+            validationError = new ValidationError("variable-key");
     }
 }
 
 // Welder identity is the package's one personal datum on this plane. Every property carrying it declares the
 // classification, so redaction is structural rather than a habit each new carrier has to remember.
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
-[ValidationError<FabricationFault>]
 public readonly partial struct WelderId {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "welder-id");
+            validationError = new ValidationError("welder-id");
     }
 }
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
-[ValidationError<FabricationFault>]
 public readonly partial struct WpsId {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "wps-id");
+            validationError = new ValidationError("wps-id");
     }
 }
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
-[ValidationError<FabricationFault>]
 public readonly partial struct PqrId {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "pqr-id");
+            validationError = new ValidationError("pqr-id");
     }
 }
 
@@ -167,25 +164,23 @@ public sealed partial class QualificationStatus {
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ApplicabilityLaw {
     public ApplicabilityMode Mode { get; }
     public Set<string> Tokens { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref ApplicabilityMode mode,
         ref Set<string> tokens) {
         if (tokens.IsEmpty || tokens.Exists(token => !Witness.Keyed(token)))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "applicability-law");
+            validationError = new ValidationError("applicability-law");
     }
 
     public bool Matches(Set<string> context) => Mode.Matches(Tokens, context);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class EssentialVariable {
     public VariableKey Key { get; }
     public VariableFamily Family { get; }
@@ -197,7 +192,7 @@ public sealed partial class EssentialVariable {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref VariableKey key,
         ref VariableFamily family,
         ref VariableModality modality,
@@ -206,7 +201,7 @@ public sealed partial class EssentialVariable {
         ref VariableRequirement requirement,
         ref Option<ApplicabilityLaw> applicability) {
         if (sources.IsEmpty || quantity.IsSome != (modality == VariableModality.Quantity))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "essential-variable");
+            validationError = new ValidationError("essential-variable");
     }
 
     public static Fin<EssentialVariable> Admit(
@@ -409,7 +404,6 @@ public abstract partial record QualificationTest {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class QualificationProfile {
     public string Code { get; }
     public string Edition { get; }
@@ -422,7 +416,7 @@ public sealed partial class QualificationProfile {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref string code,
         ref string edition,
         ref ProcessKind process,
@@ -442,7 +436,7 @@ public sealed partial class QualificationProfile {
             || requiredProcedureTests.IsEmpty || requiredPersonnelTests.IsEmpty
             || requiredProcedureTests.Values.Exists(static count => count < 1)
             || requiredPersonnelTests.Values.Exists(static count => count < 1))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "qualification-profile");
+            validationError = new ValidationError("qualification-profile");
     }
 
     public static Fin<QualificationProfile> Admit(
@@ -460,7 +454,6 @@ public sealed partial class QualificationProfile {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class PqrEvidence {
     public PqrId Id { get; }
     public string Coupon { get; }
@@ -469,7 +462,7 @@ public sealed partial class PqrEvidence {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref PqrId id,
         ref string coupon,
         ref Instant qualifiedAt,
@@ -477,7 +470,7 @@ public sealed partial class PqrEvidence {
         if (!Witness.Keyed(coupon) || tests.IsEmpty
             || tests.Exists(static test => !test.Valid || !test.Passed)
             || tests.Map(static test => (test.Kind, test.Specimen)).Distinct().Count != tests.Count)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "pqr-evidence");
+            validationError = new ValidationError("pqr-evidence");
     }
 
     public static Fin<PqrEvidence> Admit(PqrId id, string coupon, Instant qualifiedAt, Seq<QualificationTest> tests) =>
@@ -485,7 +478,6 @@ public sealed partial class PqrEvidence {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class Wps {
     public WpsId Id { get; }
     public int Revision { get; }
@@ -496,7 +488,7 @@ public sealed partial class Wps {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref WpsId id,
         ref int revision,
         ref Interval validity,
@@ -510,7 +502,7 @@ public sealed partial class Wps {
                 && !rules.Find(variable.Key).Exists(rule => rule.Valid && rule.Accepts(variable)))
             || rules.Keys.Exists(key => !profile.Variables.Exists(variable =>
                 variable.Key == key && Scoped(variable, QualificationSource.Procedure))))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "wps");
+            validationError = new ValidationError("wps");
     }
 
     public static Fin<Wps> Admit(
@@ -529,7 +521,6 @@ public sealed partial class Wps {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class WelderQualification {
     [PersonalData]
     public WelderId Welder { get; }
@@ -544,7 +535,7 @@ public sealed partial class WelderQualification {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref WelderId welder,
         ref string record,
         ref Instant qualifiedAt,
@@ -557,7 +548,7 @@ public sealed partial class WelderQualification {
             || rules.IsEmpty || rules.Values.Exists(static rule => !rule.Valid)
             || tests.IsEmpty || tests.Exists(static test => !test.Valid || !test.Passed)
             || tests.Map(static test => (test.Kind, test.Specimen)).Distinct().Count != tests.Count)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "welder-qualification");
+            validationError = new ValidationError("welder-qualification");
     }
 
     public static Fin<WelderQualification> Admit(
@@ -576,17 +567,16 @@ public sealed partial class WelderQualification {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class WelderRegistry {
     public Map<WelderId, WelderQualification> Qualifications { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Map<WelderId, WelderQualification> qualifications) {
         if (qualifications.IsEmpty
             || qualifications.Exists(static row => row.Value.Welder != row.Key))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "welder-registry");
+            validationError = new ValidationError("welder-registry");
     }
 
     public static Fin<WelderRegistry> Admit(Map<WelderId, WelderQualification> qualifications) =>
@@ -598,13 +588,13 @@ public sealed partial class WelderRegistry {
 
 ## [03]-[INSPECTION_PLAN]
 
-- Owner: `InspectionFamily` owns the demand grain and its hydrogen-delay law; `NdtMethod` owns the performed grain and its own family correspondence; `SamplingKind` owns the one sampling axis both the extent and the rule key on; `InspectionExtent` owns the dimensional population; `InspectionRule` and `InspectionPolicy` own coverage derivation; `HoldKind`, `WitnessParty`, `HoldPoint`, and `HoldRelease` own the hold-point family; `InspectionTestPlan` owns the admitted plan a traveler step releases against.
+- Owner: `InspectionFamily` owns the demand grain and its hydrogen-delay law; `NdtMethod` owns the performed grain and its own family correspondence; `SamplingKind` owns the one sampling axis both the extent and the rule key on; `InspectionExtent` owns the dimensional population; `InspectionRule` and `InspectionPolicy` own coverage derivation; `ComplianceTrait`, `HoldKind`, `WitnessParty`, `HoldPoint`, and `HoldRelease` own the hold-point family; `InspectionTestPlan` owns the admitted plan a traveler step releases against.
 - Law: family and method are ONE grain seam owned here. A requirement demands a FAMILY and admits the method set that discharges it — absent meaning any method of that family — so radiographic examination satisfies a volumetric demand and a documentation-plane reconciliation reads `InspectionRequirement.Satisfies(NdtMethod)` rather than re-deriving the correspondence from a second vocabulary at a higher stratum.
 - Law: hydrogen delay is a DURATION, not a flag. EN 1011-2 delays surface and volumetric examination of hardenable material by a measured interval after the last deposit, and a boolean cannot state it, so the family row carries the interval and a zero interval is the honest reading for a family that imposes none.
 - Law: sampling has ONE vocabulary. `SamplingKind` keys the population map and each `InspectionExtent` case declares the row it belongs to, so admission proves key and payload agree and no shadow enum restates the extent family under a second set of names.
-- Law: a hold point BLOCKS or WITNESSES by its kind row — a hold stops advance until released, a witness point demands attendance without stopping it, a review point stops advance on a record alone, and surveillance neither stops nor attends. `InspectionTestPlan.Unreleased` is the ONE satisfaction law and it publishes the open hold ROSTER, so `Released` is that roster's verdict and `Documentation/traveler` gates its document on the same read it reports its open-hold count from — one law, never a second predicate on the higher plane.
+- Law: a hold point states its demand as a `CapabilitySet<ComplianceTrait>` — a hold demands `Advance` and `Attendance`, a witness point `Attendance` alone, a review point `Advance` and `Record`, and surveillance nothing — so the satisfaction law is ONE set comparison against what the release furnished rather than one predicate clause per axis, and a fourth demand is a vocabulary row no consumer recompiles for. `InspectionTestPlan.Unreleased` is that law and it publishes the open hold ROSTER, so `Released` is the roster's verdict through the kernel's typed `Require` door — which cannot refuse without handing over the MISSING rows — and `Documentation/traveler` gates its document on the same read it reports its open-hold count from.
 - Entry: `InspectionTestPlan.Of(policy, demands)` derives requirements and hold points together, so a plan cannot carry a hold point for a requirement it does not hold.
-- Growth: a new examination method is one `NdtMethod` row against an existing family; a new demand grain is one `InspectionFamily` row; a new hold modality is one `HoldKind` row.
+- Growth: a new examination method is one `NdtMethod` row against an existing family; a new demand grain is one `InspectionFamily` row; a new hold modality is one `HoldKind` row naming its demand set, and a new release obligation is one `ComplianceTrait` row the demanding rows admit by name.
 - Boundary: the plan states WHAT must be examined and WHO must release it; the performed examination, its result, and its attestation are `Documentation/report` evidence composing these rows downward.
 
 ```csharp signature
@@ -656,9 +646,6 @@ public sealed partial class NdtMethod {
 
     public InspectionFamily Family { get; }
     public bool RadiationControls { get; }
-    public bool Volumetric => Family.Subsurface;
-    public bool SurfaceBreaking => Family == InspectionFamily.Surface;
-    public bool Destructive => Family.ConsumesPart;
 }
 
 // ONE sampling axis. The extent case declares the row it belongs to, so the population map's key and payload prove
@@ -671,15 +658,31 @@ public sealed partial class SamplingKind {
     public static readonly SamplingKind Volume = new("volume");
 }
 
+// What a hold point DEMANDS of the shop, as one membership column over the kernel capability floor. Two parallel
+// bool props stated a 2x2 product and grew a clause in the satisfaction law per axis; `Advance` is the trait that
+// stops work, the rest are what a release must furnish, and a fourth demand is one vocabulary row rather than a
+// third bool nothing existing reads. `Rank` stays the interface's DERIVED declaration order.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ComplianceTrait : ICapability<ComplianceTrait> {
+    public static readonly ComplianceTrait Advance = new("advance");
+    public static readonly ComplianceTrait Attendance = new("attendance");
+    public static readonly ComplianceTrait Record = new("record");
+}
+
 [SmartEnum<string>]
 public sealed partial class HoldKind {
-    public static readonly HoldKind Hold = new("hold", blocksAdvance: true, requiresAttendance: true);
-    public static readonly HoldKind Witness = new("witness", blocksAdvance: false, requiresAttendance: true);
-    public static readonly HoldKind Review = new("review", blocksAdvance: true, requiresAttendance: false);
-    public static readonly HoldKind Surveillance = new("surveillance", blocksAdvance: false, requiresAttendance: false);
+    public static readonly HoldKind Hold = new(
+        "hold", CapabilitySet<ComplianceTrait>.Of(ComplianceTrait.Advance, ComplianceTrait.Attendance));
+    public static readonly HoldKind Witness = new(
+        "witness", CapabilitySet<ComplianceTrait>.Of(ComplianceTrait.Attendance));
+    public static readonly HoldKind Review = new(
+        "review", CapabilitySet<ComplianceTrait>.Of(ComplianceTrait.Advance, ComplianceTrait.Record));
+    public static readonly HoldKind Surveillance = new("surveillance", CapabilitySet<ComplianceTrait>.None);
 
-    public bool BlocksAdvance { get; }
-    public bool RequiresAttendance { get; }
+    private HoldKind(string key, CapabilitySet<ComplianceTrait> demands) : this(key) => Demands = demands;
+
+    public CapabilitySet<ComplianceTrait> Demands { get; }
 }
 
 [SmartEnum<string>]
@@ -704,9 +707,9 @@ public abstract partial record InspectionExtent(SamplingKind Kind) {
 
     public bool Valid => Switch(
         joints: static value => value.Count > 0,
-        linear: static value => Witness.Positive(value.Value.Millimeters),
-        areal: static value => Witness.Positive(value.Value.SquareMillimeters),
-        volumetric: static value => Witness.Positive(value.Value.CubicMillimeters));
+        linear: static value => ValidityClaim.Positive(value.Value.Millimeters),
+        areal: static value => ValidityClaim.Positive(value.Value.SquareMillimeters),
+        volumetric: static value => ValidityClaim.Positive(value.Value.CubicMillimeters));
 
     public InspectionExtent Sample(Ratio coverage) => Switch(
         state: coverage.DecimalFractions,
@@ -717,7 +720,6 @@ public abstract partial record InspectionExtent(SamplingKind Kind) {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct InspectionBasis {
     public JoinClass JointClass { get; }
@@ -729,7 +731,7 @@ public readonly partial struct InspectionBasis {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref JoinClass jointClass,
         ref string executionClass,
         ref string stressCategory,
@@ -737,10 +739,10 @@ public readonly partial struct InspectionBasis {
         ref Length thickness,
         ref Map<SamplingKind, InspectionExtent> populations) {
         if (!Witness.Keyed(executionClass) || !Witness.Keyed(stressCategory)
-            || !Witness.Positive(thickness.Millimeters)
+            || !ValidityClaim.Positive(thickness.Millimeters).Holds
             || populations.IsEmpty
             || populations.Exists(static row => row.Value.Kind != row.Key || !row.Value.Valid))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "inspection-basis");
+            validationError = new ValidationError("inspection-basis");
     }
 
     public static Fin<InspectionBasis> Admit(
@@ -755,7 +757,6 @@ public readonly partial struct InspectionBasis {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct InspectionRule {
     public string ExecutionClass { get; }
@@ -777,7 +778,7 @@ public readonly partial struct InspectionRule {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref string executionClass,
         ref Option<JoinClass> jointClass,
         ref Option<string> stressCategory,
@@ -792,11 +793,11 @@ public readonly partial struct InspectionRule {
         ref Option<WitnessParty> party) {
         if (!Witness.Keyed(executionClass) || !Witness.Keyed(acceptance)
             || stressCategory.Exists(category => !Witness.Keyed(category))
-            || !Witness.Positive(coverage.DecimalFractions) || coverage > Ratio.FromPercent(100)
+            || !ValidityClaim.Positive(coverage.DecimalFractions).Holds || coverage > Ratio.FromPercent(100)
             || !double.IsFinite(minimumThickness.Millimeters) || minimumThickness < Length.Zero
             || methods.Exists(rows => rows.IsEmpty || rows.Exists(method => method.Family != family))
             || hold.IsSome != party.IsSome)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "inspection-rule");
+            validationError = new ValidationError("inspection-rule");
     }
 
     public bool Applies(InspectionBasis basis) =>
@@ -835,14 +836,18 @@ public sealed record HoldPoint(HoldPointKey Key, HoldKind Kind, WitnessParty Par
     public int Joint => Key.Joint;
 }
 
-// The release a traveler step consumes. Attendance and party are what the hold row demanded, so a step reads
-// SATISFIED EVIDENCE and never a rendered instruction it would have to interpret.
+// The release a traveler step consumes. `Discharged` is the evidence the releasing party actually furnished,
+// stated in the SAME column the hold point demands in, so a step reads satisfied evidence and never a rendered
+// instruction it would have to interpret. A release discharges `Advance` by existing, so the column carries only
+// what a party had to do beyond signing.
 public sealed record HoldRelease(
     HoldPointKey Point,
     WitnessParty By,
     Instant At,
-    bool Attended,
-    Option<NdtMethod> Method);
+    CapabilitySet<ComplianceTrait> Discharged,
+    Option<NdtMethod> Method) {
+    public CapabilitySet<ComplianceTrait> Discharges => Discharged.With(ComplianceTrait.Advance);
+}
 
 [Equatable]
 public sealed partial record InspectionTestPlan(Seq<InspectionRequirement> Requirements, Seq<HoldPoint> Holds) {
@@ -864,35 +869,37 @@ public sealed partial record InspectionTestPlan(Seq<InspectionRequirement> Requi
     // The ONE satisfaction law, published as the unreleased ROSTER rather than a bare verdict: a documentation-plane
     // consumer needs both the gate and the count of holds still open, and deriving the second from a re-spelled
     // predicate is what puts two readings of one law on two planes.
-    // A witness or surveillance point records evidence without gating, so it never appears here.
+    // A witness or surveillance point demands no `Advance`, so it records evidence without ever appearing here.
     public Seq<HoldPoint> Unreleased(Seq<HoldRelease> releases) => Holds
-        .Filter(static hold => hold.Kind.BlocksAdvance)
-        .Filter(hold => !releases.Exists(release => release.Point == hold.Key
-            && release.By == hold.Party
-            && (!hold.Kind.RequiresAttendance || release.Attended)));
+        .Filter(static hold => hold.Kind.Demands.Admits(ComplianceTrait.Advance))
+        .Filter(hold => !Furnished(hold, releases).AdmitsAll(hold.Kind.Demands));
 
     public Fin<Unit> Released(Seq<HoldRelease> releases) => Unreleased(releases)
-        .Map(static hold => AdmissionSlots.Gate(
-            false,
-            new FabricationFault.PolicyInadmissible(
-                FabConcern.Joining, $"hold-point:{hold.Key.Joint}:{hold.Key.Family.Key}")))
+        .Map(hold => AdmissionSlots.Gate(false,
+            new KernelFault.InvalidValue("procedure", $"hold-point:{hold.Key.Joint}:{hold.Key.Family.Key}:{Furnished(hold, releases).Missing(hold.Kind.Demands).Wire}")))
         .Traverse(identity)
         .As()
         .ToFin()
         .Map(static _ => unit);
+
+    // Absent releases and short ones answer through ONE comparison: a point whose demanded party never released
+    // furnished nothing, which reads exactly as an attended release short one attestation.
+    private static CapabilitySet<ComplianceTrait> Furnished(HoldPoint hold, Seq<HoldRelease> releases) => releases
+        .Find(release => release.Point == hold.Key && release.By == hold.Party)
+        .Map(static release => release.Discharges)
+        .IfNone(CapabilitySet<ComplianceTrait>.None);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class InspectionPolicy {
     public Seq<InspectionRule> Rules { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Seq<InspectionRule> rules) {
         if (rules.IsEmpty)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "inspection-policy");
+            validationError = new ValidationError("inspection-policy");
     }
 
     public static Fin<InspectionPolicy> Admit(Seq<InspectionRule> rules) =>
@@ -928,6 +935,7 @@ public sealed partial class InspectionPolicy {
 - Law: admitted assignments close before assessment; independent value, rule, and applicability conflicts traverse on `Validation<Error, A>` before the result returns to `Fin`, and the aggregate gate accumulates through `AdmissionSlots` so one refusal names every structural defect rather than the first predicate that tripped.
 - Law: WPS/PQR tests, procedure ranges, welder ranges, WPS validity, continuity, and welder standing all contribute `ComplianceRow` evidence; mismatch remains in `ProcedureDecision.Unqualified` with every row preserved.
 - Output: the receipt carries the ordered comparison rows, the admitted `InspectionTestPlan` with its hold points, PQR tests, per-joint personnel records, status, continuity, and welder identity under its classification.
+- Law: `ProcedureReceipt` keeps its name and stays WHOLE rather than folding onto the `Process/owner` `Receipt<TEvidence>` spine. It carries a truthful `At` stamp but addresses no content key and produces no artifact — `Procedure.Assess` is invoked directly and mints no egress — and its whole value to a WPS revision audit is the `[Equatable]` member comparer that yields per-row `Inequalities` paths. `Receipt<TEvidence>` carries no generated comparer, so wrapping this payload erases those diff paths and buys an unaddressable key in exchange.
 - Receipt: `EqualityComparer.Default.Inequalities` supplies revision and audit diffs under declared ordered collection semantics.
 - Exemption: `Procedure.Receipt` is the measured evidence-projection fold.
 - Boundary: `Require` aggregates every mismatch for aborting consumers, while receipt-first consumers retain the domain decision and complete evidence.
@@ -935,7 +943,6 @@ public sealed partial class InspectionPolicy {
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class WeldDemand {
     public int Joint { get; }
     public Map<VariableKey, QualificationValue> Values { get; }
@@ -944,7 +951,7 @@ public sealed partial class WeldDemand {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref int joint,
         ref Map<VariableKey, QualificationValue> values,
         ref Set<string> context,
@@ -954,7 +961,7 @@ public sealed partial class WeldDemand {
             || values.Values.Exists(static value => !value.Valid)
             || values.Values.Exists(static value =>
                 value is QualificationValue.ContextExcluded or QualificationValue.EvidenceOmitted))
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "weld-demand");
+            validationError = new ValidationError("weld-demand");
     }
 
     public static Fin<WeldDemand> Admit(
@@ -972,7 +979,6 @@ public sealed partial class WeldDemand {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ProcedureRequest {
     public Seq<WeldDemand> Demands { get; }
     public Wps Wps { get; }
@@ -983,7 +989,7 @@ public sealed partial class ProcedureRequest {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Seq<WeldDemand> demands,
         ref Wps wps,
         ref Map<int, WelderId> assignments,
@@ -991,7 +997,7 @@ public sealed partial class ProcedureRequest {
         ref InspectionPolicy inspections,
         ref Instant at) {
         if (demands.IsEmpty || demands.Map(static demand => demand.Joint).Distinct().Count != demands.Count)
-            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "procedure-request:census");
+            validationError = new ValidationError("procedure-request:census");
     }
 
     // Each structural clause is its OWN slot, so a request missing an assignment AND carrying an unmapped variable
@@ -1003,34 +1009,39 @@ public sealed partial class ProcedureRequest {
         WelderRegistry welders,
         InspectionPolicy inspections,
         Instant at) =>
-        (Gate(demands.ForAll(demand => assignments.ContainsKey(demand.Joint)), "assignment-missing"),
-         Gate(assignments.Keys.ForAll(joint => demands.Exists(demand => demand.Joint == joint)), "assignment-orphan"),
-         Gate(assignments.Values.ForAll(welder => welders.Find(welder).IsSome), "assignment-unregistered"),
-         Gate(demands.ForAll(demand => inspections.Covers(demand.Inspection)), "inspection-uncovered"),
-         Gate(demands.ForAll(demand => wps.Profile.Variables.ForAll(variable =>
+        (AdmissionSlots.Gate(demands.ForAll(demand => assignments.ContainsKey(demand.Joint)),
+            FabConcern.Joining, "procedure-request:assignment-missing", FabricationFault.Inadmissible),
+         AdmissionSlots.Gate(assignments.Keys.ForAll(joint => demands.Exists(demand => demand.Joint == joint)),
+             FabConcern.Joining, "procedure-request:assignment-orphan", FabricationFault.Inadmissible),
+         AdmissionSlots.Gate(assignments.Values.ForAll(welder => welders.Find(welder).IsSome),
+             FabConcern.Joining, "procedure-request:assignment-unregistered", FabricationFault.Inadmissible),
+         AdmissionSlots.Gate(demands.ForAll(demand => inspections.Covers(demand.Inspection)),
+             FabConcern.Joining, "procedure-request:inspection-uncovered", FabricationFault.Inadmissible),
+         AdmissionSlots.Gate(demands.ForAll(demand => wps.Profile.Variables.ForAll(variable =>
              !variable.Requirement.EvidenceRequired
              || variable.Family == VariableFamily.Validity
              || variable.Applicability.Exists(law => !law.Matches(demand.Context))
-             || demand.Values.ContainsKey(variable.Key))), "evidence-missing"),
-         Gate(demands.ForAll(demand => demand.Values.Keys.ForAll(key =>
-             wps.Profile.Variables.Exists(variable => variable.Key == key))), "variable-unknown"),
-         Gate(demands.ForAll(demand => wps.Profile.Variables.ForAll(variable => demand.Corresponds(variable)
+             || demand.Values.ContainsKey(variable.Key))), FabConcern.Joining, "procedure-request:evidence-missing", FabricationFault.Inadmissible),
+         AdmissionSlots.Gate(demands.ForAll(demand => demand.Values.Keys.ForAll(key =>
+             wps.Profile.Variables.Exists(variable => variable.Key == key))),
+                 FabConcern.Joining, "procedure-request:variable-unknown", FabricationFault.Inadmissible),
+         AdmissionSlots.Gate(demands.ForAll(demand => wps.Profile.Variables.ForAll(variable => demand.Corresponds(variable)
              && !(variable.Applicability.Exists(law => !law.Matches(demand.Context))
-                 && demand.Values.ContainsKey(variable.Key)))), "variable-correspondence"),
-         Gate(assignments.Values.ForAll(welder => welders.Find(welder).Exists(assignment =>
+                 && demand.Values.ContainsKey(variable.Key)))),
+                     FabConcern.Joining, "procedure-request:variable-correspondence", FabricationFault.Inadmissible),
+         AdmissionSlots.Gate(assignments.Values.ForAll(welder => welders.Find(welder).Exists(assignment =>
              QualificationProfile.Covers(wps.Profile.RequiredPersonnelTests, assignment.Tests)
              && wps.Profile.Variables.ForAll(variable => !Wps.Scoped(variable, QualificationSource.Welder)
                  || assignment.Rules.Find(variable.Key).Exists(rule => rule.Valid && rule.Accepts(variable)))
              && assignment.Rules.Keys.ForAll(key => wps.Profile.Variables.Exists(variable =>
-                 variable.Key == key && Wps.Scoped(variable, QualificationSource.Welder))))), "welder-scope"))
+                 variable.Key == key && Wps.Scoped(variable, QualificationSource.Welder))))),
+                     FabConcern.Joining, "procedure-request:welder-scope", FabricationFault.Inadmissible))
             .Apply(static (_, _, _, _, _, _, _, _) => unit)
             .As()
             .ToFin()
             .Bind(_ => Validate(demands, wps, assignments, welders, inspections, at, out ProcedureRequest request)
                 .Admitted(request));
 
-    private static K<Validation<Error>, Unit> Gate(bool holds, string locus) =>
-        AdmissionSlots.Gate(holds, new FabricationFault.PolicyInadmissible(FabConcern.Joining, $"procedure-request:{locus}"));
 }
 
 [Equatable]
@@ -1043,6 +1054,9 @@ public sealed partial record QualificationRecord(
     Option<QualificationStatus> Status,
     Seq<QualificationTest> Tests);
 
+// Whole, not a `Receipt<TEvidence>` payload: the assessment addresses nothing and produces nothing, so the spine's
+// required content key has no truthful value here, while the generated member comparer below is the entire reason a
+// revision audit can name `Rows[3].Passed` instead of reporting two receipts unequal.
 [Equatable]
 public sealed partial record ProcedureReceipt(
     WpsId WpsId,
@@ -1079,14 +1093,13 @@ public abstract partial record ProcedureDecision {
     public Fin<ProcedureReceipt> Require() => Switch(
         qualified: static decision => Fin.Succ(decision.Receipt),
         unqualified: static decision => decision.Failures.Head
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Joining, "weld-procedure:empty-failure-set"))
+            .ToFin(new KernelFault.InvalidValue("procedure", "weld-procedure:empty-failure-set"))
             .Bind(first => Fin.Fail<ProcedureReceipt>(decision.Failures.Tail.Fold(
                 Failure(first),
                 static (combined, row) => combined + Failure(row)))));
 
     private static Error Failure(ComplianceRow row) =>
-        new FabricationFault.WpsUnqualified(row.Fault, row.FaultScalar)
-        + Error.New($"weld-procedure:evidence:{row.FaultEvidence}");
+        new FabricationFault.WpsUnqualified(row.Fault, row.FaultScalar);
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
@@ -1104,9 +1117,9 @@ public static class Procedure {
     // Welder standing is evidence, not admission: a suspended or lapsed welder yields an unqualified receipt.
     private static Fin<Seq<ComplianceRow>> AssessDemand(ProcedureRequest request, WeldDemand demand) =>
         from welderId in request.Assignments.Find(demand.Joint)
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Joining, $"weld-procedure:welder:{demand.Joint}"))
+            .ToFin(new KernelFault.InvalidValue("procedure", $"weld-procedure:welder:{demand.Joint}"))
         from welder in request.Welders.Find(welderId)
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Joining, $"weld-procedure:qualification:{welderId.Value}"))
+            .ToFin(new KernelFault.InvalidValue("procedure", $"weld-procedure:qualification:{welderId.Value}"))
         from rows in (
                 Scope(demand, request.Wps, request.Wps.Rules, request.Wps.Validity, request.At, QualificationSource.Procedure)
                     .ToValidation(),
@@ -1157,11 +1170,11 @@ public static class Procedure {
         Option<QualificationRule> rule,
         QualificationSource source) =>
         from valueRow in value.ToFin(
-            new FabricationFault.PolicyInadmissible(FabConcern.Joining, $"weld-procedure:value:{variable.Key.Value}"))
+            new KernelFault.InvalidValue("procedure", $"weld-procedure:value:{variable.Key.Value}"))
         from ruleRow in rule.ToFin(
-            new FabricationFault.PolicyInadmissible(FabConcern.Joining, $"weld-procedure:rule:{variable.Key.Value}"))
+            new KernelFault.InvalidValue("procedure", $"weld-procedure:rule:{variable.Key.Value}"))
         from row in ComplianceRow.Of(joint, source, variable, valueRow, ruleRow).ToFin(
-            new FabricationFault.PolicyInadmissible(FabConcern.Joining, $"weld-procedure:modality:{variable.Key.Value}"))
+            new KernelFault.InvalidValue("procedure", $"weld-procedure:modality:{variable.Key.Value}"))
         select row;
 
     private static ProcedureReceipt Receipt(ProcedureRequest request, Seq<ComplianceRow> rows) {

@@ -26,7 +26,7 @@ import { CONSTANTS, HTTP } from "cloudevents"
 import { FileSystem, type PlatformError, Terminal } from "@effect/platform"
 import { Doc, Optimize } from "@effect/printer"
 import { Ansi, AnsiDoc } from "@effect/printer-ansi"
-import { Array, Config, Context, Data, Effect, Layer, Option, Predicate, Pretty, Record, Schema, Struct } from "effect"
+import { Array, Config, Context, Effect, Layer, Option, Predicate, Pretty, Record, Schema, Struct } from "effect"
 import { Fault } from "@rasm/ts/core"
 import { Fanout } from "../net/pubsub.ts"
 import { Life } from "../proc/life.ts"
@@ -93,25 +93,36 @@ const Verb = { completions: _completions, main: _main, wizard: _wizard } as cons
 // One family, two refusal routes: a probe verdict is the dependency answering no, the verb gate is this process
 // refusing its own run. The class PROJECTS off the roster — asserting a literal beside the reason is the second
 // taxonomy the branch ruling forecloses, and without any column `Fault.Class.of` folds both to `defect`, which
-// reads a failed doctor row as an internal fault.
+// reads a failed doctor row as an internal fault. The two routes carry two subjects, because a refusing probe names
+// the row that answered no and a closing gate names the verb and the count that closed it.
 const _ops = Fault.Class.family(["probe", "gate"] as const, {
-  probe: { class: "unavailable" },
-  gate: { class: "breached" },
+  probe: Fault.Class.row({
+    class: "unavailable",
+    leg: "probe",
+    detail: Schema.Struct({ detail: Schema.String, probe: Schema.NonEmptyString }),
+    render: ({ detail, probe }) => `probe ${probe} answered no — ${detail}`,
+  }),
+  gate: Fault.Class.row({
+    class: "breached",
+    leg: "gate",
+    detail: Schema.Struct({ refused: Schema.Int, verb: Schema.NonEmptyString }),
+    render: ({ refused, verb }) => `${verb} closed its gate: ${refused} rows refused`,
+  }),
 })
 
 declare namespace OpsFault {
-  type Reason = (typeof _ops.reasons)[number]
+  type Issue = typeof _ops.payload.Type
+  type Reason = (typeof _ops.kinds)[number]
 }
 
-class OpsFault extends Data.TaggedError("OpsFault")<{
-  readonly reason: OpsFault.Reason
-  readonly detail: string
-}> {
+class OpsFault extends Schema.TaggedError<OpsFault>()("OpsFault", {
+  case: _ops.payload,
+}) {
   get class(): Fault.Class.Kind {
-    return _ops.classOf(this.reason)
+    return _ops.classOf(this.case.reason)
   }
   override get message(): string {
-    return `<ops:${this.reason}> ${this.detail}`
+    return _ops.render(this.case)
   }
 }
 
@@ -164,7 +175,13 @@ const _doctor = (sources: Ops.Sources) =>
         Array.map(report.rows, (row): Ops.Check => ({
           name: `${report.kind}:${row.label}`,
           run: row.grade === "fail"
-            ? Effect.fail(new OpsFault({ reason: "probe", detail: Option.getOrElse(row.detail, () => "fail") }))
+            ? Effect.fail(new OpsFault({
+                case: {
+                  reason: "probe",
+                  probe: `${report.kind}:${row.label}`,
+                  detail: Option.getOrElse(row.detail, () => "the row graded fail and stated nothing"),
+                },
+              }))
             : Effect.succeed(row.grade),
         })))
       const every = [...anchor, ...sources.checks]
@@ -182,11 +199,13 @@ const _doctor = (sources: Ops.Sources) =>
       const [failed, passed] = yield* Effect.partition(selected, (probe) =>
         probe.run.pipe(
           Effect.map((detail) => [probe.name, detail] as const),
-          Effect.mapError((fault) => [probe.name, fault.detail] as const),
+          // the row renderer already spells every subject, so the table prints one sentence per refusal and this
+          // fold reads no column a sibling reason may not carry
+          Effect.mapError((fault) => [probe.name, fault.message] as const),
         ))
       yield* _out(_verdicts({ pass: passed, fail: failed }))
       return yield* Effect.when(
-        Effect.fail(new OpsFault({ reason: "gate", detail: `doctor: ${failed.length} refused` })),
+        Effect.fail(new OpsFault({ case: { reason: "gate", refused: failed.length, verb: "doctor" } })),
         () => failed.length > 0,
       )
     }))

@@ -1,27 +1,33 @@
 # [RASM_RHINO_OPTIONS]
 
-`FormatDial` owns per-codec option policy. `DialSeat` proves codec-phase correspondence once, each case mints one complete Rhino carrier, and polymorphic `Dials.Resolve` applies the selected case without a format-named resolver roster.
+`FormatDial` owns per-codec option policy. `Admit` proves codec-phase correspondence and every requested capability axis once at the entry gate, each case then mints one complete Rhino carrier, and polymorphic `Dials.Resolve` applies the selected case without a format-named resolver roster.
 
 ## [01]-[INDEX]
 
-- [02]-[SHARED_AXES]: `SubDForm` and `CsvColumn` the cross-host vocabularies, `DracoDial` and `ObjNgonDial` the admitted compression and n-gon values, and `IgesIdentity`/`IgesFitPolicy`/`IgesSurfaceForm`/`VdaHeader` the header and policy sub-records.
-- [03]-[DIAL_FAMILY]: `FormatDial` — the closed per-format case family with one `Mint` per case and the `Seat` correspondence.
+- [02]-[SHARED_AXES]: the cross-host capability vocabularies (`MeshEmission`, `SceneCarry`, `UnreferencedImport`, `CsvColumn`) with `HostAxis` the one prove-and-seat owner, `SubDForm`/`AxisConvention`/`PlyEncoding` the shared enum rosters, `DracoDial` and `ObjNgonDial` the admitted clusters, `IgesIdentity`/`IgesFitPolicy`/`IgesSurfaceForm`/`VdaHeader` the header and policy sub-records, and `PolicyMap` the one generated transcription.
+- [03]-[DIAL_FAMILY]: `FormatDial` — the closed per-format case family with one `Mint` per case, the `Seat` correspondence, `Admit` the one refusal door over seat and axis demands, and `Emitted` the one baseline builder over the content axes.
 - [04]-[DIAL_BINDING]: `Dials.Resolve` — the polymorphic case resolver and scale-lens composition.
 
 ## [02]-[SHARED_AXES]
 
-- Owner: `SubDForm` `[SmartEnum<int>]` — the SubD tessellation vocabulary whose columns carry both host enums (`FileObjWriteOptions.SubDMeshing`, `FileGltfWriteOptions.SubDMeshing` — identical `Surface`/`ControlNet` rosters, two host types), so one domain row serves both consumers. `CsvColumn` `[SmartEnum<int>]` — the CSV column set: each row carries its tune-baseline predicate and its host setter, so column membership is set algebra over one vocabulary, never a parallel boolean per host member. `DracoDial` and `ObjNgonDial` — admitted values for the host's clamped compression bands and n-gon cluster, the n-gon mode admitted against the host enum roster before any mint. `IgesIdentity`, `IgesFitPolicy`, `IgesSurfaceForm`, and `VdaHeader` — structural policy products, each carrying its own all-defaults `Standard` value; the fit policy is one shape serving both IGES entity slots because the host columns share semantics and defaults, and both unstated slots read the same `Standard` instance.
-- Law: a shared vocabulary is earned only by two or more host enums sharing one roster — `SubDForm` qualifies; a single-host enum rides its case field directly as boundary material, because a one-to-one `[SmartEnum]` mirror restates host truth.
-- Law: a dial field wraps the operations rail's `FieldOverride<T>` in `Option`, so an unstated field and a stated `Keep` both leave the baseline standing; `default` is `None` and never `Keep`, because the override is class-shaped and a defaulted field carries no case to dispatch.
+- Owner: `MeshEmission`, `SceneCarry`, `UnreferencedImport`, and `CsvColumn` are the cross-host capability vocabularies — one row per emitted content axis, each carrying one nullable setter column per host option type it reaches, so a per-format boolean roster is set algebra over one vocabulary and the null lives only on the roster row, admitted into `Option` at its single read. `HostAxis<TRow, THost>` is their ONE owner — the static value a case declares once per axis, carrying the axis name and the column, deriving `Legal` once behind a lazy, proving `Refusal(requested, key)` for the door, and writing `Seat(host, requested, baseline)` for the mint, so the door and the mint read the SAME case field. `SubDForm` `[SmartEnum<int>]` carries the SubD tessellation columns for both host `SubDMeshing` rosters; `AxisConvention` carries the Z-up/Y-up swap in BOTH directions off one row; `PlyEncoding` carries the ASCII-and-precision lattice two independent booleans were spelling. `DracoDial` and `ObjNgonDial` — admitted values for the host's clamped compression bands and n-gon cluster. `IgesIdentity`, `IgesFitPolicy`, `IgesSurfaceForm`, and `VdaHeader` — structural policy products, each carrying its own all-defaults `Standard` value; the fit policy is one shape serving both IGES entity slots because the host columns share semantics and defaults, and both unstated slots read the same `Standard` instance.
+- Law: a shared vocabulary is earned only by two or more host surfaces sharing one axis — `MeshEmission`, `SceneCarry`, `UnreferencedImport`, `SubDForm`, and `AxisConvention` qualify; a single-host boolean rides its case field directly as boundary material, because a one-to-one `[SmartEnum]` mirror restates host truth (`FileStlWriteOptions.BinaryFile`, `FileLwoWriteOptions.WriteVersion6`, and `FileTxtWriteOptions.SurroundWithDoubleQuotes` therefore carry no row).
+- Law: the COLUMN is the legality. A capability row carrying no setter for a host cannot be written there, so `HostAxis.Legal` DERIVES each host's admissible set from the roster itself and no case declares a second hand-kept legal subset — `MeshEmission.VertexColors` reaching PLY, glTF, VRML, and X3D-V but not OBJ is the column roster's own shape. `FormatDial.Admit` REFUSES every requested row outside that set through the kernel's typed `CapabilitySet.Require` twin, which carries the shortfall; the prior seat wrote the legal rows and dropped the rest, so a caller asking OBJ for vertex colours received a silent nothing where the column law says refusal.
+- Law: `HostAxis.Seat` writes EVERY column the host owns on every mint, so an unstated axis writes its baseline value rather than leaving the host's own default standing under a different name; the write is TOTAL because the door already refused every requested row the host cannot carry. `FieldOverride` gate-pair writes ride the Document owner's own two arms — railed `Apply` for write-time admission, total `Through` for a payload its own type admitted at construction — so no Exchange page holds a gate-pair twin.
+- Law: a dial field wraps the Document tier's `FieldOverride<T>` in `Option`, so an unstated field and a stated `Keep` both leave the baseline standing; `default` is `None` and never `Keep`, because the override is class-shaped and a defaulted field carries no case to dispatch. The payload type carries its own admission — an unweld angle is a `Tolerance` on its own lane, a face ceiling a `Dimension` — so the gate write is total and no `Mint` discards a rail.
 - Law: the CSV column set is the ONE row where the tune's baseline diverges from the host's own default, and it does so by design — column membership derives from the tune's grouping, ordering, and fidelity axes, so the layer, object-name, description, and user-string columns the host turns on by default appear only when an axis names them, while the measured mass-property columns the host leaves off appear whenever the fidelity is measured. A dial-free CSV write is therefore a policy-shaped table rather than the host's default table, and a caller wanting the host's own column set states `Columns` explicitly.
-- Law: `PolicyMap` generates the name-mirrored policy `Apply` seats as existing-target mappings under Source-side completeness, so a new `IgesIdentity`, `IgesSurfaceForm`, or `VdaHeader` member with no host slot breaks the build; `IgesFitPolicy` stays hand-seated because one shape fills the `Curve*` and `Surface*` host prefixes by slot.
-- Growth: a new cross-host vocabulary is one row set with one column per host enum; a new cluster is one sub-record with its `Apply`.
-- Boundary: each `Mint` block is a host-mutation capsule; object initialization and ordered `Iter`/`Apply` statements are the platform-forced statement exemption.
+- Law: DRAWING STANDARDS are the kernel's, and no dial derives one from a fidelity axis. A DWG layer name is `HostLayerScheme` — `AutoCadFlat` writes the standard's own formatted text and `RhinoPath` the `::`-joined path, so `FullLayerPath` DERIVES from the declared scheme; a DWG pen regime is `PlotStyleTable` — a `Ctb` names an AutoCAD Colour Index table, so `ColorMethod` and `UseColor` BOTH derive from whether one is declared; a DWG import's layer nesting is a `LayerStandard`, so the flat name re-admits through `LayerName.Parse` and projects through `HostLayerScheme.RhinoPath` rather than riding a bare `NestLayers` boolean (D33, D34, D54, D91, D92).
+- Law: `PolicyMap` generates every name-mirrored transcription as an existing-target mapping under Source-side completeness, so a new `IgesIdentity`, `IgesSurfaceForm`, `VdaHeader`, `DracoDial`, or `ObjNgonDial` member with no host slot breaks the build; the value-object columns cross through per-type `[UserMapping]` converters rather than a generic unwrap the generator refuses (RMG001), and `IgesFitPolicy` stays hand-seated because one shape fills the `Curve*` and `Surface*` host prefixes BY SLOT — a slot-dependent rename no single mapping expresses. `FileObjWriteOptions.CreateNgons` stays one stated line because it DERIVES from `Mode` rather than mirroring a source member.
+- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[ComplexValueObject]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer]`), Riok.Mapperly (`[Mapper]`, `[MapProperty]`, `[MappingTarget]`, `[UserMapping]`, `RequiredMappingStrategy.Source`), LanguageExt.Core (`Fin`, `Option`, `Validation` applicative, `Seq`), `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilitySet.Require<TFault>`, `Op.AcceptValidated`), `Domain/rails` (`Op`), `Domain/context` (`Tolerance`, `ToleranceLane`), `Exchange/operations` (`ExchangeFault`), `Rasm.Drawing` (`HostLayerScheme`, `LayerStandard`, `PlotStyleTable`), `Document/geometry` (`FieldOverride<T>`, `Apply`/`Through`), `Document/session` (`DraftFault`); RhinoCommon `Rhino.FileIO` option surfaces per `.api/api-rhinocommon-fileio.md`.
+- Growth: a new cross-host axis is one capability row with one column per host it reaches; a new host joining an existing axis is one column and one static `HostAxis` at the owning case, which the door and the mint read together; a new cluster is one sub-record and its `PolicyMap` seat.
+- Boundary: each `Mint` block is a host-mutation capsule; object initialization and the ordered `Seat`/`Through`/`Apply` statements are the platform-forced statement exemption.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Domain;
+using Rasm.Drawing;
 using Rasm.Numerics;
+using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.FileIO;
 using Rhino.Geometry;
@@ -42,41 +48,152 @@ public sealed partial class SubDForm {
     internal FileGltfWriteOptions.SubDMeshing Gltf { get; }
 }
 
+// Forward and inverse of ONE correspondence on one row: the writers swap Rhino Z-up onto the format's Y-up and the
+// readers swap it back, so a row cannot declare an export convention its import does not undo.
 [SmartEnum<int>]
-public sealed partial class CsvColumn {
-    public static readonly CsvColumn Header = new(key: 0, selected: static _ => true, write: static (o, v) => { o.Header = v; return unit; });
-    public static readonly CsvColumn LayerName = new(key: 1, selected: static tune => tune.Grouped(CodecAxis.Layer), write: static (o, v) => { o.LayerName = v; return unit; });
-    public static readonly CsvColumn LayerIndex = new(key: 2, selected: static tune => tune.Grouped(CodecAxis.Layer), write: static (o, v) => { o.LayerIndex = v; return unit; });
-    public static readonly CsvColumn LayerColor = new(key: 3, selected: static tune => tune.Grouped(CodecAxis.Layer), write: static (o, v) => { o.LayerColor = v; return unit; });
-    public static readonly CsvColumn LayerHierarchy = new(key: 4, selected: static tune => tune.Grouped(CodecAxis.Layer), write: static (o, v) => { o.LayerHierarchy = v; return unit; });
-    public static readonly CsvColumn GroupName = new(key: 5, selected: static tune => tune.Grouped(CodecAxis.Block), write: static (o, v) => { o.GroupName = v; return unit; });
-    public static readonly CsvColumn GroupIndexes = new(key: 6, selected: static tune => tune.Grouped(CodecAxis.Block), write: static (o, v) => { o.GroupIndexes = v; return unit; });
-    public static readonly CsvColumn ObjectName = new(key: 7, selected: static tune => tune.Grouped(CodecAxis.ObjectName), write: static (o, v) => { o.ObjectName = v; return unit; });
-    public static readonly CsvColumn ObjectID = new(key: 8, selected: static _ => true, write: static (o, v) => { o.ObjectID = v; return unit; });
-    public static readonly CsvColumn ObjectColor = new(key: 9, selected: static tune => tune.Order == CodecAxis.ObjectType, write: static (o, v) => { o.ObjectColor = v; return unit; });
-    public static readonly CsvColumn ObjectMaterial = new(key: 10, selected: static tune => tune.Grouped(CodecAxis.Material), write: static (o, v) => { o.ObjectMaterial = v; return unit; });
-    public static readonly CsvColumn ObjectDescription = new(key: 11, selected: UserStrings, write: static (o, v) => { o.ObjectDescription = v; return unit; });
-    public static readonly CsvColumn Length = new(key: 12, selected: Measured, write: static (o, v) => { o.Length = v; return unit; });
-    public static readonly CsvColumn Perimeter = new(key: 13, selected: Measured, write: static (o, v) => { o.Perimeter = v; return unit; });
-    public static readonly CsvColumn Area = new(key: 14, selected: Measured, write: static (o, v) => { o.Area = v; return unit; });
-    public static readonly CsvColumn Volume = new(key: 15, selected: Measured, write: static (o, v) => { o.Volume = v; return unit; });
-    public static readonly CsvColumn AreaCentroid = new(key: 16, selected: Measured, write: static (o, v) => { o.AreaCentroid = v; return unit; });
-    public static readonly CsvColumn VolumeCentroid = new(key: 17, selected: Measured, write: static (o, v) => { o.VolumeCentroid = v; return unit; });
-    public static readonly CsvColumn AreaMoments = new(key: 18, selected: Measured, write: static (o, v) => { o.AreaMoments = v; return unit; });
-    public static readonly CsvColumn VolumeMoments = new(key: 19, selected: Measured, write: static (o, v) => { o.VolumeMoments = v; return unit; });
-    public static readonly CsvColumn CumulativeMassProperties = new(key: 20, selected: Measured, write: static (o, v) => { o.CumulativeMassProperties = v; return unit; });
-    public static readonly CsvColumn AttributesKeys = new(key: 21, selected: UserStrings, write: static (o, v) => { o.AttributesKeys = v; return unit; });
-    public static readonly CsvColumn AttributesTexts = new(key: 22, selected: UserStrings, write: static (o, v) => { o.AttributesTexts = v; return unit; });
-    public static readonly CsvColumn ObjectKeys = new(key: 23, selected: UserStrings, write: static (o, v) => { o.ObjectKeys = v; return unit; });
-    public static readonly CsvColumn ObjectsTexts = new(key: 24, selected: UserStrings, write: static (o, v) => { o.ObjectsTexts = v; return unit; });
+public sealed partial class AxisConvention {
+    public static readonly AxisConvention Native = new(key: 0, swaps: false);
+    public static readonly AxisConvention YUp = new(key: 1, swaps: true);
+
+    internal bool Swaps { get; }
+}
+
+// Two independent booleans were spelling one four-corner lattice; the row is the corner, and the fidelity ladder
+// picks it so no case re-derives ASCII-ness and precision from two unrelated tune reads.
+[SmartEnum<int>]
+public sealed partial class PlyEncoding {
+    public static readonly PlyEncoding BinarySingle = new(key: 0, ascii: false, doubles: false);
+    public static readonly PlyEncoding AsciiSingle = new(key: 1, ascii: true, doubles: false);
+    public static readonly PlyEncoding AsciiDouble = new(key: 2, ascii: true, doubles: true);
+
+    internal bool Ascii { get; }
+    internal bool Doubles { get; }
+
+    internal static PlyEncoding For(CodecFidelity fidelity) =>
+        fidelity == CodecFidelity.Small ? BinarySingle : fidelity.IsModel ? AsciiDouble : AsciiSingle;
+}
+
+// The mesh content axes six host writers each spelled as their own boolean roster. A row's column set IS its
+// legality: `VertexColors` reaches PLY, glTF, VRML, and X3D-V and carries no OBJ column, because OBJ's vertex
+// colours ride a format-bearing override instead — so no case restates which axes it admits.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class MeshEmission : ICapability<MeshEmission> {
+    public static readonly MeshEmission Normals = new(key: "normals",
+        obj: static (o, v) => o.ExportNormals = v, ply: static (o, v) => o.ExportNormals = v,
+        gltf: static (o, v) => o.ExportVertexNormals = v, vrml: static (o, v) => o.ExportVertexNormals = v,
+        x3dv: static (o, v) => o.ExportVertexNormals = v, fbx: static (o, v) => o.SaveVertexNormals = v);
+    public static readonly MeshEmission TextureCoordinates = new(key: "texture-coordinates",
+        obj: static (o, v) => o.ExportTcs = v, ply: null,
+        gltf: static (o, v) => o.ExportTextureCoordinates = v, vrml: static (o, v) => o.ExportTextureCoordinates = v,
+        x3dv: static (o, v) => o.ExportTextureCoordinates = v, fbx: null);
+    public static readonly MeshEmission VertexColors = new(key: "vertex-colors",
+        obj: null, ply: static (o, v) => o.ExportColors = v,
+        gltf: static (o, v) => o.ExportVertexColors = v, vrml: static (o, v) => o.ExportVertexColors = v,
+        x3dv: static (o, v) => o.ExportVertexColors = v, fbx: null);
+    public static readonly MeshEmission OpenMeshes = new(key: "open-meshes",
+        obj: static (o, v) => o.ExportOpenMeshes = v, ply: null,
+        gltf: static (o, v) => o.ExportOpenMeshes = v, vrml: null, x3dv: null, fbx: null);
+    public static readonly MeshEmission Materials = new(key: "materials",
+        obj: static (o, v) => o.ExportMaterialDefinitions = v, ply: static (o, v) => o.ExportMaterial = v,
+        gltf: static (o, v) => o.ExportMaterials = v, vrml: null, x3dv: null, fbx: null);
+
+    internal Action<FileObjWriteOptions, bool>? Obj { get; }
+    internal Action<FilePlyWriteOptions, bool>? Ply { get; }
+    internal Action<FileGltfWriteOptions, bool>? Gltf { get; }
+    internal Action<FileVrmlWriteOptions, bool>? Vrml { get; }
+    internal Action<FileX3dvWriteOptions, bool>? X3dv { get; }
+    internal Action<FileFbxWriteOptions, bool>? Fbx { get; }
+}
+
+// Which scene entities a codec carries across, in both directions: the writers save views and lights, the readers
+// take lights and cameras, and DGN takes views alone — nine per-case booleans over one three-row axis.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class SceneCarry : ICapability<SceneCarry> {
+    public static readonly SceneCarry Views = new(key: "views",
+        threeDsWrite: static (o, v) => o.SaveViews = v, threeDsRead: null,
+        fbxWrite: static (o, v) => o.SaveViews = v, fbxRead: null,
+        dgnRead: static (o, v) => o.ImportViews = v);
+    public static readonly SceneCarry Lights = new(key: "lights",
+        threeDsWrite: static (o, v) => o.SaveLights = v, threeDsRead: static (o, v) => o.ImportLights = v,
+        fbxWrite: static (o, v) => o.SaveLights = v, fbxRead: static (o, v) => o.ImportLights = v,
+        dgnRead: null);
+    public static readonly SceneCarry Cameras = new(key: "cameras",
+        threeDsWrite: null, threeDsRead: static (o, v) => o.ImportCameras = v,
+        fbxWrite: null, fbxRead: static (o, v) => o.ImportCameras = v,
+        dgnRead: null);
+
+    internal Action<File3dsWriteOptions, bool>? ThreeDsWrite { get; }
+    internal Action<File3dsReadOptions, bool>? ThreeDsRead { get; }
+    internal Action<FileFbxWriteOptions, bool>? FbxWrite { get; }
+    internal Action<FileFbxReadOptions, bool>? FbxRead { get; }
+    internal Action<FileDgnReadOptions, bool>? DgnRead { get; }
+}
+
+// The unreferenced-table axis two CAD readers each carried as three booleans; DGN spells its line-style table
+// `LineStyles` and DWG spells the same table `Linetypes`, which is a host SPELLING difference the columns absorb.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class UnreferencedImport : ICapability<UnreferencedImport> {
+    public static readonly UnreferencedImport Layers = new(key: "layers",
+        dwg: static (o, v) => o.ImportUnreferencedLayers = v, dgn: static (o, v) => o.ImportUnreferencedLayers = v);
+    public static readonly UnreferencedImport Blocks = new(key: "blocks",
+        dwg: static (o, v) => o.ImportUnreferencedBlocks = v, dgn: static (o, v) => o.ImportUnreferencedBlocks = v);
+    public static readonly UnreferencedImport Linetypes = new(key: "linetypes",
+        dwg: static (o, v) => o.ImportUnreferencedLinetypes = v, dgn: static (o, v) => o.ImportUnreferencedLineStyles = v);
+
+    internal Action<FileDwgReadOptions, bool>? Dwg { get; }
+    internal Action<FileDgnReadOptions, bool>? Dgn { get; }
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class CsvColumn : ICapability<CsvColumn> {
+    public static readonly CsvColumn Header = new(key: "header", selected: static _ => true, write: static (o, v) => o.Header = v);
+    public static readonly CsvColumn LayerName = new(key: "layer-name", selected: Layered, write: static (o, v) => o.LayerName = v);
+    public static readonly CsvColumn LayerIndex = new(key: "layer-index", selected: Layered, write: static (o, v) => o.LayerIndex = v);
+    public static readonly CsvColumn LayerColor = new(key: "layer-color", selected: Layered, write: static (o, v) => o.LayerColor = v);
+    public static readonly CsvColumn LayerHierarchy = new(key: "layer-hierarchy", selected: Layered, write: static (o, v) => o.LayerHierarchy = v);
+    public static readonly CsvColumn GroupName = new(key: "group-name", selected: Blocked, write: static (o, v) => o.GroupName = v);
+    public static readonly CsvColumn GroupIndexes = new(key: "group-indexes", selected: Blocked, write: static (o, v) => o.GroupIndexes = v);
+    public static readonly CsvColumn ObjectName = new(key: "object-name", selected: static tune => tune.Grouped(CodecAxis.ObjectName), write: static (o, v) => o.ObjectName = v);
+    public static readonly CsvColumn ObjectID = new(key: "object-id", selected: static _ => true, write: static (o, v) => o.ObjectID = v);
+    public static readonly CsvColumn ObjectColor = new(key: "object-color", selected: static tune => tune.Order == CodecAxis.ObjectType, write: static (o, v) => o.ObjectColor = v);
+    public static readonly CsvColumn ObjectMaterial = new(key: "object-material", selected: static tune => tune.Grouped(CodecAxis.Material), write: static (o, v) => o.ObjectMaterial = v);
+    public static readonly CsvColumn ObjectDescription = new(key: "object-description", selected: UserStrings, write: static (o, v) => o.ObjectDescription = v);
+    public static readonly CsvColumn Length = new(key: "length", selected: Measured, write: static (o, v) => o.Length = v);
+    public static readonly CsvColumn Perimeter = new(key: "perimeter", selected: Measured, write: static (o, v) => o.Perimeter = v);
+    public static readonly CsvColumn Area = new(key: "area", selected: Measured, write: static (o, v) => o.Area = v);
+    public static readonly CsvColumn Volume = new(key: "volume", selected: Measured, write: static (o, v) => o.Volume = v);
+    public static readonly CsvColumn AreaCentroid = new(key: "area-centroid", selected: Measured, write: static (o, v) => o.AreaCentroid = v);
+    public static readonly CsvColumn VolumeCentroid = new(key: "volume-centroid", selected: Measured, write: static (o, v) => o.VolumeCentroid = v);
+    public static readonly CsvColumn AreaMoments = new(key: "area-moments", selected: Measured, write: static (o, v) => o.AreaMoments = v);
+    public static readonly CsvColumn VolumeMoments = new(key: "volume-moments", selected: Measured, write: static (o, v) => o.VolumeMoments = v);
+    public static readonly CsvColumn CumulativeMassProperties = new(key: "cumulative-mass-properties", selected: Measured, write: static (o, v) => o.CumulativeMassProperties = v);
+    public static readonly CsvColumn AttributesKeys = new(key: "attributes-keys", selected: UserStrings, write: static (o, v) => o.AttributesKeys = v);
+    public static readonly CsvColumn AttributesTexts = new(key: "attributes-texts", selected: UserStrings, write: static (o, v) => o.AttributesTexts = v);
+    public static readonly CsvColumn ObjectKeys = new(key: "object-keys", selected: UserStrings, write: static (o, v) => o.ObjectKeys = v);
+    public static readonly CsvColumn ObjectsTexts = new(key: "objects-texts", selected: UserStrings, write: static (o, v) => o.ObjectsTexts = v);
 
     [UseDelegateFromConstructor]
-    internal partial bool Selected(CodecTune tune);
+    private partial bool Selected(CodecTune tune);
+
+    // Every row reaches the one host, so the column is total and the schedule's admissible set is the whole roster.
+    internal Action<FileCsvWriteOptions, bool>? Csv => Write;
 
     [UseDelegateFromConstructor]
-    internal partial Unit Write(FileCsvWriteOptions options, bool member);
+    private partial void Write(FileCsvWriteOptions host, bool value);
 
-    internal static Seq<CsvColumn> Baseline(CodecTune tune) => toSeq(Items).Filter(row => row.Selected(tune: tune));
+    internal static CapabilitySet<CsvColumn> Baseline(CodecTune tune) =>
+        CapabilitySet<CsvColumn>.Of([.. toSeq(Items).Filter(row => row.Selected(tune: tune))]);
+
+    // The four layer columns emit the host layer name — Rhino's `::` path — so a schedule reading them back
+    // re-admits through `HostLayerScheme.RhinoPath.Unproject(standard, text)` rather than splitting the text itself,
+    // and `LayerHierarchy` is that projection's own nesting column (D35, D98).
+    private static bool Layered(CodecTune tune) => tune.Grouped(CodecAxis.Layer);
+
+    private static bool Blocked(CodecTune tune) => tune.Grouped(CodecAxis.Block);
 
     private static bool Measured(CodecTune tune) => tune.Fidelity.Measured;
 
@@ -85,6 +202,7 @@ public sealed partial class CsvColumn {
 
 // --- [MODELS] -------------------------------------------------------------------------------
 [ComplexValueObject]
+[ValidationError]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct DracoDial {
     public Dimension Level { get; }
@@ -92,6 +210,8 @@ public readonly partial struct DracoDial {
     public Dimension NormalBits { get; }
     public Dimension TextureBits { get; }
 
+    // Each band refuses on its OWN scalar, so a caller learns which quantization axis it broke rather than reading
+    // one collapsed message across four columns.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
@@ -99,28 +219,30 @@ public readonly partial struct DracoDial {
         ref Dimension positionBits,
         ref Dimension normalBits,
         ref Dimension textureBits) =>
-        validationError = level.Value is < 1 or > 10
-            ? new ValidationError("Draco compression level must be in [1, 10].")
-            : positionBits.Value is < 8 or > 32
-                || normalBits.Value is < 8 or > 32
-                || textureBits.Value is < 8 or > 32
-                ? new ValidationError("Draco quantization bits must be in [8, 32].")
-                : null;
+        validationError = Banded(label: nameof(Level), value: level.Value, floor: 1, ceiling: 10)
+            ?? Banded(label: nameof(PositionBits), value: positionBits.Value, floor: 8, ceiling: 32)
+            ?? Banded(label: nameof(NormalBits), value: normalBits.Value, floor: 8, ceiling: 32)
+            ?? Banded(label: nameof(TextureBits), value: textureBits.Value, floor: 8, ceiling: 32);
 
-    public static Fin<DracoDial> Of(int level, int positionBits, int normalBits, int textureBits, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Catch(() => Validate(
-            level: Dimension.Create(value: level),
-            positionBits: Dimension.Create(value: positionBits),
-            normalBits: Dimension.Create(value: normalBits),
-            textureBits: Dimension.Create(value: textureBits),
-            item: out DracoDial value) is null
-                ? Fin.Succ(value: value)
-                : Fin.Fail<DracoDial>(error: op.InvalidInput()));
-    }
+    private static ValidationError? Banded(string label, int value, int floor, int ceiling) =>
+        value >= floor && value <= ceiling
+            ? null
+            : new ValidationError(string.Join(" | ", new object?[] {
+                label, value, $"a Draco value in [{floor}, {ceiling}]" }));
+
+    public static Fin<DracoDial> Of(int level, int positionBits, int normalBits, int textureBits, Op? key = null) =>
+        key.OrDefault().AcceptValidated<DracoDial>(
+            fault: Validate(
+                level: Dimension.Create(value: level),
+                positionBits: Dimension.Create(value: positionBits),
+                normalBits: Dimension.Create(value: normalBits),
+                textureBits: Dimension.Create(value: textureBits),
+                item: out DracoDial value),
+            value: value);
 }
 
 [ComplexValueObject]
+[ValidationError]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct ObjNgonDial {
     public FileObjWriteOptions.NGons Mode { get; }
@@ -136,9 +258,9 @@ public readonly partial struct ObjNgonDial {
         ref bool includeUnweldedEdges,
         ref bool cullInteriorVertexes) =>
         validationError = !Enum.IsDefined(value: mode)
-            ? new ValidationError("N-gon mode is outside the host roster.")
+            ? new ValidationError(string.Join(" | ", new object?[] { nameof(Mode), "an n-gon mode the host roster publishes" }))
             : minFaces.Value < 2
-                ? new ValidationError("N-gon creation requires at least two faces.")
+                ? new ValidationError(string.Join(" | ", new object?[] { nameof(MinFaces), minFaces.Value, "at least two faces per n-gon" }))
                 : null;
 
     public static Fin<ObjNgonDial> Of(
@@ -146,24 +268,21 @@ public readonly partial struct ObjNgonDial {
         int minFaces,
         bool includeUnweldedEdges = true,
         bool cullInteriorVertexes = true,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Catch(() => Validate(
-            mode: mode,
-            minFaces: Dimension.Create(value: minFaces),
-            includeUnweldedEdges: includeUnweldedEdges,
-            cullInteriorVertexes: cullInteriorVertexes,
-            item: out ObjNgonDial value) is null
-                ? Fin.Succ(value: value)
-                : Fin.Fail<ObjNgonDial>(error: op.InvalidInput()));
-    }
+        Op? key = null) =>
+        key.OrDefault().AcceptValidated<ObjNgonDial>(
+            fault: Validate(
+                mode: mode,
+                minFaces: Dimension.Create(value: minFaces),
+                includeUnweldedEdges: includeUnweldedEdges,
+                cullInteriorVertexes: cullInteriorVertexes,
+                item: out ObjNgonDial value),
+            value: value);
 
+    // `PolicyMap` carries the four name-mirrored columns; `CreateNgons` DERIVES from the mode rather than mirroring
+    // a source member, so it is the one write the generator cannot own.
     internal Unit Apply(FileObjWriteOptions host) {
-        host.NgonMode = Mode;
+        PolicyMap.Apply(this, host);
         host.CreateNgons = Mode == FileObjWriteOptions.NGons.Create;
-        host.MinNgonFaceCount = MinFaces.Value;
-        host.IncludeUnweldedEdgesInNgons = IncludeUnweldedEdges;
-        host.CullUnnecessaryVertexesInNgons = CullInteriorVertexes;
         return unit;
     }
 }
@@ -217,12 +336,47 @@ public sealed record VdaHeader(
     public static VdaHeader Standard { get; } = new();
 }
 
-// Existing-target transcription for the name-mirrored policy products: the host option object is the mapping
-// target, and Source-side completeness makes a new policy member with no host slot a build break — target
-// completeness stays off because sibling slots fill the host's remaining members. IgesFitPolicy stays
-// hand-seated in the IGES Mint: one shape fills the Curve* and Surface* host prefixes by SLOT, a
-// slot-dependent rename no single mapping expresses.
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
+// --- [OPERATIONS] ---------------------------------------------------------------------------
+// ONE static owner per (case, axis): the axis name refusals report and the host column that IS the legality.
+// `Refusal` proves and `Seat` writes the SAME case field, so a demand can never mirror a mint and a case
+// declares no second admissible subset. The nullable column is the roster's one absence spelling, admitted
+// into `Option` here at its single read.
+internal sealed class HostAxis<TRow, THost>(string axis, Func<TRow, Action<THost, bool>?> column)
+    where TRow : notnull, ICapability<TRow> {
+    // Derived from the vocabulary itself, once per constructed axis: a row carrying no setter for this host
+    // cannot be written there, so the admissible set is the column roster's own shape.
+    private readonly Lazy<CapabilitySet<TRow>> legal = new(() =>
+        CapabilitySet<TRow>.Of([.. toSeq(CapabilitySet<TRow>.All.Held).Filter(row => column(row) is not null)]));
+
+    internal CapabilitySet<TRow> Legal => legal.Value;
+
+    // The kernel's TYPED refusal twin: `Some` is the refusal and it always carries the SHORTFALL beside the host
+    // type and its whole legal roster, so a caller learns which rows this host cannot write instead of reading
+    // its whole request back. An unstated axis demands nothing — the baseline is the case author's own
+    // declaration and admits by construction.
+    internal Option<ValidationClause> Refusal(Option<CapabilitySet<TRow>> requested, Op key) =>
+        requested.Bind(demanded => Legal.AdmitsAll(demanded)
+            ? Option<ValidationClause>.None
+            : Some(new ValidationClause(string.Join(" | ", new object?[] { key, axis, $"axis rows {typeof(THost).Name} writes <{Legal.Wire}>; unwritable <{Legal.Missing(demanded).Wire}>" }))));
+
+    // Every column the host owns is written on every mint, so an unstated axis lands its declared baseline rather
+    // than leaving the host's own default standing under a different name. The write is total because the door
+    // already refused every requested row without a column.
+    internal Unit Seat(THost host, Option<CapabilitySet<TRow>> requested, CapabilitySet<TRow> baseline) {
+        CapabilitySet<TRow> held = requested.IfNone(baseline);
+        return toSeq(Legal.Held).Iter(row => Optional(column(row)).Iter(write => write(host, held.Admits(row))));
+    }
+}
+
+// Existing-target transcription for every name-mirrored product: the host option object is the mapping target, and
+// Source-side completeness makes a new member with no host slot a build break — target completeness stays off
+// because sibling slots fill the host's remaining members. The `Dimension` columns cross through ONE per-type
+// `[UserMapping]` converter rather than a generic unwrap the generator refuses (RMG001). IgesFitPolicy stays
+// hand-seated in the IGES Mint: one shape fills the Curve* and Surface* host prefixes by SLOT, a slot-dependent
+// rename no single mapping expresses.
+[Mapper(
+    RequiredMappingStrategy = RequiredMappingStrategy.Source,
+    EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
 internal static partial class PolicyMap {
     public static partial void Apply(IgesIdentity identity, [MappingTarget] FileIgsWriteOptions host);
 
@@ -236,57 +390,113 @@ internal static partial class PolicyMap {
     public static partial void Apply(IgesSurfaceForm surfaces, [MappingTarget] FileIgsWriteOptions host);
 
     public static partial void Apply(VdaHeader header, [MappingTarget] FileVdaWriteOptions host);
+
+    [MapProperty(nameof(DracoDial.Level), nameof(FileGltfWriteOptions.DracoCompressionLevel))]
+    [MapProperty(nameof(DracoDial.PositionBits), nameof(FileGltfWriteOptions.DracoQuantizationBitsPosition))]
+    [MapProperty(nameof(DracoDial.NormalBits), nameof(FileGltfWriteOptions.DracoQuantizationBitsNormal))]
+    [MapProperty(nameof(DracoDial.TextureBits), nameof(FileGltfWriteOptions.DracoQuantizationBitsTextureCoordinate))]
+    public static partial void Apply(DracoDial draco, [MappingTarget] FileGltfWriteOptions host);
+
+    [MapProperty(nameof(ObjNgonDial.Mode), nameof(FileObjWriteOptions.NgonMode))]
+    [MapProperty(nameof(ObjNgonDial.MinFaces), nameof(FileObjWriteOptions.MinNgonFaceCount))]
+    [MapProperty(nameof(ObjNgonDial.IncludeUnweldedEdges), nameof(FileObjWriteOptions.IncludeUnweldedEdgesInNgons))]
+    [MapProperty(nameof(ObjNgonDial.CullInteriorVertexes), nameof(FileObjWriteOptions.CullUnnecessaryVertexesInNgons))]
+    public static partial void Apply(ObjNgonDial ngons, [MappingTarget] FileObjWriteOptions host);
+
+    [UserMapping(Default = true)]
+    private static int Native(Dimension value) => value.Value;
 }
 ```
 
 ## [03]-[DIAL_FAMILY]
 
-- Owner: `FormatDial` `[Union]` — one case per format direction with an option surface beyond the scale lens, closed under the private-protected root constructor. Every field is an explicit override — `Option<T>` for value members, `Option<FieldOverride<T>>` for enable-plus-value pairs, or an admitted cluster value — and `None`/`Keep` means the baseline, never a second host default. Each case's `Mint` constructs the host option object in one object initializer naming every content-shaping host member with its baseline, then applies its clusters; the fence is the roster.
-- Law: baselines are two-tier — where the codec matrix previously derived a member from `CodecTune` (fidelity, grouping, ordering, materials, resources), that derivation IS the baseline; every other member's baseline is the verified host default, so a dial-free call is byte-identical to the pre-dial matrix.
+- Owner: `FormatDial` — one case per format direction with an option surface beyond the scale lens, closed under the private root constructor alone; the generated union surface deletes as decoration, because no page reads a forty-seven-arm `Switch` and dispatch is `Dials.Resolve`'s seat-proved shape probe. Every field is an explicit override — `Option<T>` for value members, `Option<CapabilitySet<T>>` for a content axis, `Option<FieldOverride<T>>` for enable-plus-value pairs, or an admitted cluster value — and `None`/`Keep` means the baseline, never a second host default. Each case's `Mint` constructs the host option object in one object initializer naming every content-shaping host member with its baseline, then seats its axes and clusters; the fence is the roster. `Admit` is the family's ONE refusal door and `Emitted` the one baseline builder every mesh-writing case reads.
+- Law: baselines are two-tier — where the codec matrix previously derived a member from `CodecTune` (fidelity, grouping, ordering, materials, resources), that derivation IS the baseline; every other member's baseline is the verified host default, so a dial-free call is byte-identical to the pre-dial matrix. A capability axis states its baseline as the SET that derivation names, so the tier survives the collapse.
+- Law: a raw host enum field is BOUNDARY MATERIAL the codec seat carries, and exactly one — `ObjNgonDial.Mode` — probes `Enum.IsDefined`, because it alone feeds a derived host gate. The discriminant is WHAT READS the field: a host enum feeding DOMAIN logic — a gate, a dispatch, a derived value — admits (`Enum.IsDefined` or the kernel `Op.Row` arm) at its one read; a field the codec seat carries straight into a host options write is pass-through material whose admission would be the re-validation ceremony the boundary law deletes, so the remaining thirty-six fields stay raw BY LAW, not by omission.
 - Law: host dialog and plumbing members (`UseSimpleDialog`, `ActualFilePathOnMac`, `IsDefault`, `Name`) never enter a case — they carry host UI state, not content policy — and immutable host members (`FileObjWriteOptions.AngleTolRadians`) are unreachable by construction.
-- Law: `DialSeat` is an inert `(codec, phase)` pair each case constructor declares beside its option body — every pair is a compile-time constant no call site can vary, so the seat carries no admission of its own and `Codecs.Apply`'s live gate (dispatched codec equals seat codec, dispatched phase equals seat phase, dispatched codec has that phase's demanded ability) is the whole contract, proved against the runtime request rather than a second time at declaration.
-- Law: host redundancies collapse at `Mint` — `FileObjWriteOptions.CreateNgons` derives from `ObjNgonDial.Mode`, each `FileDwgWriteOptions` curve-fit gate derives from its adjacent `Option<FieldOverride<double>>`, and `FileStpReadOptions.LimitFaces` derives from `FaceCap`, so no consumer supplies a second gate.
+- Law: `DialSeat` is an inert `(codec, phase)` pair each case constructor declares beside its option body — every pair is a compile-time constant no call site can vary, so the seat carries no admission of its own and `Admit`'s live clause (dispatched codec equals seat codec, dispatched phase equals seat phase) is the whole contract, proved against the runtime request rather than a second time at declaration. `Codecs.Apply` keeps the ability clause, owning the codec row the dial never sees.
+- Law: `Admit` is the ONE door and fires before minting; `FactoryValidation` accumulates seat correspondence and requested axes into one kernel refusal. Mints stay total, and the refusal names the host option type, its legal roster, and the shortfall rows.
+- Law: host redundancies collapse at `Mint` — `FileObjWriteOptions.CreateNgons` derives from `ObjNgonDial.Mode`, each `FileDwgWriteOptions` curve-fit gate derives from its adjacent `Option<FieldOverride<Tolerance>>`, `FileStpReadOptions.LimitFaces` derives from `FaceCap`, `FullLayerPath` derives from the declared `HostLayerScheme`, and `ColorMethod` with `UseColor` derive TOGETHER from whether a `PlotStyleTable` is declared, so no consumer supplies a second gate and no fidelity axis decides a drawing standard.
+- Law: an override payload admits at its own TYPE — an unweld or curve-fit angle is a `Tolerance` on its named lane, a face ceiling a `Dimension`, a compression cluster a `DracoDial` — so the Document owner's total `FieldOverride.Through` writes the host gate-plus-value pair without a rail and no `Mint` discards one it cannot thread.
+- Law: `PolicyMap` reaches the name-mirrored SUB-RECORDS and stops there — a per-case `Mint` is not a transcription a mapper can generate, because its baselines are per-format expressions the tune decides (`Geometry` reading `tune.Fidelity.IsModel && !carrier.WriteGeometryOnly`, `ExportGroupNameLayerNames` folding a three-way `tune.Group` verdict), and a Mapperly source-to-target rule expressing one of them costs more configuration than the line it replaces. The collapse this family admits is the APPLICATOR, not the mapper: `HostAxis.Seat`, `FieldOverride.Through`, and `Emitted` fold the axis, gate-pair, and emission repetitions the forty-seven bodies were re-spelling, and what remains is one assignment per host member — the roster the fence is.
+- Law: `MeshingParameters.Default` stays read at each mesh-writing `Mint` and a shared baseline row is REFUSED: the host property mints a fresh mutable carrier per read and every option surface taking one HOLDS that reference, so one shared instance aliases a single carrier across sixteen host option types and lets one format's host-side mutation reach another's. Each site also writes a different host type's own property, so no fold, gate, or mapper collapses them further.
 - Boundary: `FileObjWriteOptions`/`FileObjReadOptions`/`FilePlyWriteOptions` construct over the host `FileWriteOptions`/`FileReadOptions` carrier, so their `Mint` takes the carrier the engine column already holds; `FileXamlWriteOptions` projects through `ToDictionary()` into `RhinoDoc.Export` inside its codec row, and the dial never learns the transport.
-- Growth: a new host knob is one override field with its baseline line in `Mint`; a new format direction is one case and one codec engine expression.
+- Packages: Generator.Equals (`[Equatable]`, `[OrderedEquality]`), LanguageExt.Core (`Fin`, `Option`, `Validation`, `Seq`), `Domain/validation` (`CapabilitySet`, `FactoryValidation`), `Domain/rails` (`Op`), `Domain/context` (`Tolerance`, `ToleranceLane`), `Rasm.Drawing` (`HostLayerScheme`, `LayerStandard`, `PlotStyleTable`), `Document/geometry` (`FieldOverride<T>`); RhinoCommon `Rhino.FileIO` per `.api/api-rhinocommon-fileio.md`.
+- Growth: a new host knob is one override field with its baseline line in `Mint`; a new format direction is one case and one codec engine expression, and a case carrying a capability axis adds one static `HostAxis` its `RefusalsFor` override proves — the door itself never grows an arm.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 public readonly record struct DialSeat(FileCodec Codec, CodecPhase Phase);
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+// Closed by the private root constructor alone: the generated union surface carried a forty-seven-arm `Switch`
+// no page reads — dispatch is `Dials.Resolve`'s seat-proved shape probe — so `[Union]` deletes as decorative
+// generated surface. NAMED LOSS: compile-time exhaustiveness over the case roster; bought back by the
+// seat-injective roster the codec matrix proves — every `(codec, phase)` pair is distinct and exactly one
+// engine column references each case.
 public abstract partial record FormatDial {
-    private protected FormatDial(FileCodec codec, CodecPhase phase) => Seat = new DialSeat(Codec: codec, Phase: phase);
+    private FormatDial(FileCodec codec, CodecPhase phase) => Seat = new DialSeat(Codec: codec, Phase: phase);
 
     internal DialSeat Seat { get; }
 
-    public sealed record ThreeDsWriteCase(
-        Option<bool> SaveViews = default,
-        Option<bool> SaveLights = default,
-        Option<MeshingParameters> Mesh = default) : FormatDial(FileCodec.ThreeDs, CodecPhase.Export) {
-        internal File3dsWriteOptions Mint(CodecTune tune) => new() {
-            SaveViews = SaveViews.IfNone(tune.Fidelity.IsModel),
-            SaveLights = SaveLights.IfNone(tune.Fidelity.IsModel),
-            MeshingParameters = Mesh.IfNone(() => MeshingParameters.Default),
-        };
-    }
+    // A case declaring no capability axis demands nothing; an axis-bearing case proves its OWN static `HostAxis`
+    // against the same field its mint seats, so the door and the mint read one declaration. The dispatched key
+    // threads in, so every axis fault names the operation the caller ran — no placeholder mint, no rekey pass.
+    private protected virtual Seq<ValidationClause> RefusalsFor(Op key) => Seq<ValidationClause>.Empty;
 
-    public sealed record ThreeDsReadCase(
-        Option<FieldOverride<double>> Unweld = default,
-        Option<bool> ImportLights = default,
-        Option<bool> ImportCameras = default) : FormatDial(FileCodec.ThreeDs, CodecPhase.Import) {
-        internal File3dsReadOptions Mint() {
-            File3dsReadOptions host = new() {
-                ImportLights = ImportLights.IfNone(true),
-                ImportCameras = ImportCameras.IfNone(true),
-            };
-            _ = Unweld.Iter(field => field.Apply(
-                set: angle => { host.Unweld = true; host.UnweldAngle = angle; },
-                inherit: () => host.Unweld = false));
+    // `Admit` is THE dial door: one refusal point proving both halves of a dial's contract against the LIVE request — the
+    // declared `DialSeat` correspondence and every capability row the case requested past its host column — before
+    // the mint touches a host object or the engine touches the filesystem. Clauses ACCUMULATE through the family
+    // semigroup, so a caller mis-seating a dial and over-requesting two axes learns all three at once instead of
+    // fixing one and resubmitting.
+    internal Fin<Unit> Admit(FileCodec codec, CodecPhase phase, Op key) =>
+        FactoryValidation.Admit(
+            FactoryValidation.Violated(
+                (Seat.Codec != codec || Seat.Phase != phase, () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(CodecTune.Dial), $"a dial seated at '{codec.Key}' in the '{phase.Key}' phase;"
+                        + $" got '{Seat.Codec.Key}' in '{Seat.Phase.Key}'" }))))
+            + RefusalsFor(key: key));
+
+    public sealed record ThreeDsWriteCase(
+        Option<CapabilitySet<SceneCarry>> Scene = default,
+        Option<MeshingParameters> Mesh = default) : FormatDial(FileCodec.ThreeDs, CodecPhase.Export) {
+        private static readonly HostAxis<SceneCarry, File3dsWriteOptions> SceneAxis =
+            new(axis: nameof(Scene), column: static row => row.ThreeDsWrite);
+
+        private protected override Seq<ValidationClause> RefusalsFor(Op key) => SceneAxis.Refusal(Scene, key).ToSeq();
+
+        internal File3dsWriteOptions Mint(CodecTune tune) {
+            File3dsWriteOptions host = new() { MeshingParameters = Mesh.IfNone(() => MeshingParameters.Default) };
+            _ = SceneAxis.Seat(
+                host: host,
+                requested: Scene,
+                baseline: tune.Fidelity.IsModel ? CapabilitySet<SceneCarry>.Of(SceneCarry.Views, SceneCarry.Lights) : CapabilitySet<SceneCarry>.None);
             return host;
         }
     }
 
-    public sealed record ThreeMfWriteCase(
+    public sealed record ThreeDsReadCase(
+        Option<FieldOverride<Tolerance>> Unweld = default,
+        Option<CapabilitySet<SceneCarry>> Scene = default) : FormatDial(FileCodec.ThreeDs, CodecPhase.Import) {
+        private static readonly HostAxis<SceneCarry, File3dsReadOptions> SceneAxis =
+            new(axis: nameof(Scene), column: static row => row.ThreeDsRead);
+
+        private protected override Seq<ValidationClause> RefusalsFor(Op key) => SceneAxis.Refusal(Scene, key).ToSeq();
+
+        internal File3dsReadOptions Mint() {
+            File3dsReadOptions host = new();
+            _ = SceneAxis.Seat(
+                host: host,
+                requested: Scene,
+                baseline: CapabilitySet<SceneCarry>.Of(SceneCarry.Lights, SceneCarry.Cameras));
+            _ = Unweld.Iter(field => field.Through(
+                host: host,
+                gate: static (o, v) => o.Unweld = v,
+                value: static (o, v) => o.UnweldAngle = v.Value));
+            return host;
+        }
+    }
+
+    [Equatable]
+    public sealed partial record ThreeMfWriteCase(
         Option<string> Title = default,
         Option<string> Designer = default,
         Option<string> Description = default,
@@ -294,7 +504,8 @@ public abstract partial record FormatDial {
         Option<string> LicenseTerms = default,
         Option<string> Rating = default,
         Option<bool> MoveToPositiveOctant = default,
-        Seq<(string Key, string Value)> Metadata = default) : FormatDial(FileCodec.ThreeMf, CodecPhase.Export) {
+        // Metadata order is CONTENT — the host writes the pairs in sequence — so equality is ordered.
+        [property: OrderedEquality] Seq<(string Key, string Value)> Metadata = default) : FormatDial(FileCodec.ThreeMf, CodecPhase.Export) {
         internal File3mfWriteOptions Mint() {
             File3mfWriteOptions host = new() {
                 Title = Title.IfNone(string.Empty),
@@ -314,13 +525,16 @@ public abstract partial record FormatDial {
         Option<bool> UseCmyk = default,
         Option<bool> ExportViewBoundary = default,
         Option<bool> HatchesAsSolidFills = default,
-        Option<bool> OrderLayers = default) : FormatDial(FileCodec.Ai, CodecPhase.Export) {
+        Option<HostLayerScheme> LayerScheme = default) : FormatDial(FileCodec.Ai, CodecPhase.Export) {
         internal FileAiWriteOptions Mint(CodecTune tune) => new() {
             PreserveModelScale = tune.Fidelity.IsModel,
             UseCMYK = UseCmyk.IfNone(false),
             ExportViewBoundary = ExportViewBoundary.IfNone(false),
             ExportHatchesAsSolidFills = HatchesAsSolidFills.IfNone(true),
-            OrderLayers = OrderLayers.IfNone(tune.Grouped(CodecAxis.Layer)),
+            // Illustrator layer ordering exists iff the artifact carries a layer IDENTITY, and that identity is the
+            // declared scheme's projection of a `LayerName` — `LayerName.Read(field)` answers each ordered field, so
+            // a fidelity axis no longer decides whether the drawing set is layered (D95).
+            OrderLayers = LayerScheme.IsSome,
         };
     }
 
@@ -338,15 +552,12 @@ public abstract partial record FormatDial {
         Option<FileObjWriteOptions.VertexWelding> Welding = default,
         Option<SubDForm> SubD = default,
         Option<Dimension> SubDDensity = default,
-        Option<bool> Materials = default,
+        Option<CapabilitySet<MeshEmission>> Emission = default,
         Option<bool> DisplayColorMaterial = default,
-        Option<bool> TextureCoordinates = default,
-        Option<bool> Normals = default,
-        Option<bool> OpenMeshes = default,
         Option<bool> RenderMeshes = default,
         Option<bool> SortGroups = default,
         Option<bool> MergeNestedGroups = default,
-        Option<bool> MapZtoY = default,
+        Option<AxisConvention> Axes = default,
         Option<Dimension> Digits = default,
         Option<bool> WrapLongLines = default,
         Option<bool> Triangulate = default,
@@ -355,6 +566,11 @@ public abstract partial record FormatDial {
         Option<FieldOverride<int>> VertexColors = default,
         Option<ObjNgonDial> Ngons = default,
         Option<MeshingParameters> Mesh = default) : FormatDial(FileCodec.Obj, CodecPhase.Export) {
+        private static readonly HostAxis<MeshEmission, FileObjWriteOptions> EmissionAxis =
+            new(axis: nameof(Emission), column: static row => row.Obj);
+
+        private protected override Seq<ValidationClause> RefusalsFor(Op key) => EmissionAxis.Refusal(Emission, key).ToSeq();
+
         internal FileObjWriteOptions Mint(CodecTune tune, FileWriteOptions carrier) {
             FileObjWriteOptions host = new(carrier) {
                 ObjectType = Geometry.IfNone(tune.Fidelity.IsModel && !carrier.WriteGeometryOnly
@@ -372,15 +588,11 @@ public abstract partial record FormatDial {
                 MeshType = Welding.IfNone(FileObjWriteOptions.VertexWelding.Normal),
                 SubDMeshType = SubD.Map(static row => row.Obj).IfNone(FileObjWriteOptions.SubDMeshing.Surface),
                 SubDSurfaceMeshingDensity = SubDDensity.Map(static value => value.Value).IfNone(4),
-                ExportMaterialDefinitions = Materials.IfNone(tune.Materials && carrier.WriteUserData),
                 UseDisplayColorForMaterial = DisplayColorMaterial.IfNone(tune.Materials),
-                ExportTcs = TextureCoordinates.IfNone(tune.Materials),
-                ExportNormals = Normals.IfNone(tune.Fidelity.Measured),
-                ExportOpenMeshes = OpenMeshes.IfNone(true),
                 UseRenderMeshes = RenderMeshes.IfNone(tune.Fidelity == CodecFidelity.Small || carrier.IncludeRenderMeshes),
                 SortObjGroups = SortGroups.IfNone(tune.Order == CodecAxis.Layer || tune.Order == CodecAxis.Block),
                 MergeNestedGroupingNames = MergeNestedGroups.IfNone(tune.Group == CodecAxis.Layer),
-                MapZtoY = MapZtoY.IfNone(false),
+                MapZtoY = Axes.IfNone(AxisConvention.Native).Swaps,
                 SignificantDigits = Digits.Map(static value => value.Value).IfNone(17),
                 WrapLongLines = WrapLongLines.IfNone(false),
                 ExportAsTriangles = Triangulate.IfNone(false),
@@ -388,9 +600,20 @@ public abstract partial record FormatDial {
                 UseRelativeIndexing = RelativeIndexing.IfNone(false),
                 MeshParameters = Mesh.IfNone(() => MeshingParameters.Default),
             };
-            _ = VertexColors.Iter(field => field.Apply(
-                set: format => { host.ExportVcs = true; host.VcsFormat = format; },
-                inherit: () => host.ExportVcs = false));
+            _ = EmissionAxis.Seat(
+                host: host,
+                requested: Emission,
+                baseline: Emitted(
+                    materials: tune.Materials && carrier.WriteUserData,
+                    textures: tune.Materials,
+                    normals: tune.Fidelity.Measured,
+                    open: true));
+            // The OBJ vertex-colour axis carries a host FORMAT code beside its gate, so it stays an override rather
+            // than a `MeshEmission` row a boolean column could write.
+            _ = VertexColors.Iter(field => field.Through(
+                host: host,
+                gate: static (o, v) => o.ExportVcs = v,
+                value: static (o, v) => o.VcsFormat = v));
             _ = Ngons.Iter(dial => dial.Apply(host: host));
             return host;
         }
@@ -399,7 +622,7 @@ public abstract partial record FormatDial {
     public sealed record ObjReadCase(
         Option<FileObjReadOptions.UseObjGsAs> Groups = default,
         Option<FileObjReadOptions.UseObjOsAs> Objects = default,
-        Option<bool> MapYtoZ = default,
+        Option<AxisConvention> Axes = default,
         Option<bool> MorphTargetOnly = default,
         Option<bool> ReverseGroupOrder = default,
         Option<bool> IgnoreTextures = default,
@@ -408,7 +631,7 @@ public abstract partial record FormatDial {
         internal FileObjReadOptions Mint(FileReadOptions carrier) => new(carrier) {
             UseObjGroupsAs = Groups.IfNone(FileObjReadOptions.UseObjGsAs.ObjGroupsAsObjects),
             UseObjObjectsAs = Objects.IfNone(FileObjReadOptions.UseObjOsAs.IgnoreObjObjects),
-            MapYtoZ = MapYtoZ.IfNone(false),
+            MapYtoZ = Axes.IfNone(AxisConvention.Native).Swaps,
             MorphTargetOnly = MorphTargetOnly.IfNone(false),
             ReverseGroupOrder = ReverseGroupOrder.IfNone(false),
             IgnoreTextures = IgnoreTextures.IfNone(false),
@@ -418,20 +641,30 @@ public abstract partial record FormatDial {
     }
 
     public sealed record PlyWriteCase(
-        Option<bool> Ascii = default,
-        Option<bool> Doubles = default,
-        Option<bool> Normals = default,
-        Option<bool> Colors = default,
-        Option<bool> Material = default,
+        Option<PlyEncoding> Encoding = default,
+        Option<CapabilitySet<MeshEmission>> Emission = default,
         Option<MeshingParameters> Mesh = default) : FormatDial(FileCodec.Ply, CodecPhase.Export) {
-        internal FilePlyWriteOptions Mint(CodecTune tune, FileWriteOptions carrier) => new(carrier) {
-            ExportASCII = Ascii.IfNone(tune.Fidelity != CodecFidelity.Small),
-            ExportDoubles = Doubles.IfNone(tune.Fidelity.IsModel),
-            ExportNormals = Normals.IfNone(tune.Fidelity.Measured),
-            ExportColors = Colors.IfNone(tune.Materials),
-            ExportMaterial = Material.IfNone(tune.Resources == CodecResource.Embed),
-            MeshingParameters = Mesh.IfNone(() => MeshingParameters.Default),
-        };
+        private static readonly HostAxis<MeshEmission, FilePlyWriteOptions> EmissionAxis =
+            new(axis: nameof(Emission), column: static row => row.Ply);
+
+        private protected override Seq<ValidationClause> RefusalsFor(Op key) => EmissionAxis.Refusal(Emission, key).ToSeq();
+
+        internal FilePlyWriteOptions Mint(CodecTune tune, FileWriteOptions carrier) {
+            PlyEncoding encoding = Encoding.IfNone(PlyEncoding.For(fidelity: tune.Fidelity));
+            FilePlyWriteOptions host = new(carrier) {
+                ExportASCII = encoding.Ascii,
+                ExportDoubles = encoding.Doubles,
+                MeshingParameters = Mesh.IfNone(() => MeshingParameters.Default),
+            };
+            _ = EmissionAxis.Seat(
+                host: host,
+                requested: Emission,
+                baseline: Emitted(
+                    materials: tune.Resources == CodecResource.Embed,
+                    colors: tune.Materials,
+                    normals: tune.Fidelity.Measured));
+            return host;
+        }
     }
 
     public sealed record PlyReadCase(Option<UnitSystem> Units = default) : FormatDial(FileCodec.Ply, CodecPhase.Import) {
@@ -443,18 +676,27 @@ public abstract partial record FormatDial {
     }
 
     public sealed record DgnReadCase(
-        Option<bool> ImportUnreferencedLayers = default,
-        Option<bool> ImportUnreferencedBlocks = default,
-        Option<bool> ImportUnreferencedLineStyles = default,
-        Option<bool> ImportViews = default,
+        Option<CapabilitySet<UnreferencedImport>> Unreferenced = default,
+        Option<CapabilitySet<SceneCarry>> Scene = default,
         Option<bool> GroupCellHeaders = default) : FormatDial(FileCodec.Dgn, CodecPhase.Import) {
-        internal FileDgnReadOptions Mint() => new() {
-            ImportUnreferencedLayers = ImportUnreferencedLayers.IfNone(false),
-            ImportUnreferencedBlocks = ImportUnreferencedBlocks.IfNone(false),
-            ImportUnreferencedLineStyles = ImportUnreferencedLineStyles.IfNone(true),
-            ImportViews = ImportViews.IfNone(false),
-            GroupCellHeaders = GroupCellHeaders.IfNone(true),
-        };
+        private static readonly HostAxis<UnreferencedImport, FileDgnReadOptions> UnreferencedAxis =
+            new(axis: nameof(Unreferenced), column: static row => row.Dgn);
+
+        private static readonly HostAxis<SceneCarry, FileDgnReadOptions> SceneAxis =
+            new(axis: nameof(Scene), column: static row => row.DgnRead);
+
+        private protected override Seq<ValidationClause> RefusalsFor(Op key) =>
+            UnreferencedAxis.Refusal(Unreferenced, key).ToSeq() + SceneAxis.Refusal(Scene, key).ToSeq();
+
+        internal FileDgnReadOptions Mint() {
+            FileDgnReadOptions host = new() { GroupCellHeaders = GroupCellHeaders.IfNone(true) };
+            _ = UnreferencedAxis.Seat(
+                host: host,
+                requested: Unreferenced,
+                baseline: CapabilitySet<UnreferencedImport>.Of(UnreferencedImport.Linetypes));
+            _ = SceneAxis.Seat(host: host, requested: Scene, baseline: CapabilitySet<SceneCarry>.None);
+            return host;
+        }
     }
 
     public sealed record DstReadCase(Option<bool> ImportJumps = default) : FormatDial(FileCodec.Dst, CodecPhase.Import) {
@@ -471,21 +713,20 @@ public abstract partial record FormatDial {
         Option<FileDwgWriteOptions.ExportPolylineMode> PolylinesAs = default,
         Option<FileDwgWriteOptions.ExportPolycurveMode> PolycurvesAs = default,
         Option<FileDwgWriteOptions.FlattenMode> Flatten = default,
-        Option<FileDwgWriteOptions.ColorMethodType> ColorMethod = default,
-        Option<FileDwgWriteOptions.UseColorType> UseColor = default,
-        Option<bool> FullLayerPath = default,
+        Option<PlotStyleTable> Styles = default,
+        Option<HostLayerScheme> LayerScheme = default,
         Option<bool> UseLWPolylines = default,
-        Option<double> SimplifyTolerance = default,
-        Option<double> MinPointDistance = default,
+        Option<Tolerance> SimplifyTolerance = default,
+        Option<Tolerance> MinPointDistance = default,
         Option<bool> SplitPolycurves = default,
         Option<bool> SplitSplines = default,
         Option<bool> Simplify = default,
         Option<bool> NoDxfHeader = default,
         Option<bool> PreserveArcNormals = default,
         Option<bool> WriteThickCurves = default,
-        Option<FieldOverride<double>> CurveMaxAngleDegrees = default,
-        Option<FieldOverride<double>> CurveChordHeight = default,
-        Option<FieldOverride<double>> CurveSegmentLength = default) : FormatDial(FileCodec.Dwg, CodecPhase.Export) {
+        Option<FieldOverride<Tolerance>> CurveMaxAngle = default,
+        Option<FieldOverride<Tolerance>> CurveChordHeight = default,
+        Option<FieldOverride<Tolerance>> CurveSegmentLength = default) : FormatDial(FileCodec.Dwg, CodecPhase.Export) {
         internal FileDwgWriteOptions Mint(CodecTune tune) {
             FileDwgWriteOptions host = new() {
                 Version = Version.IfNone(FileDwgWriteOptions.AutocadVersion.Acad2018),
@@ -498,14 +739,19 @@ public abstract partial record FormatDial {
                 ExportPolylinesAs = PolylinesAs.IfNone(FileDwgWriteOptions.ExportPolylineMode.Polylines),
                 ExportPolycurvesAs = PolycurvesAs.IfNone(FileDwgWriteOptions.ExportPolycurveMode.Splines),
                 Flatten = Flatten.IfNone(FileDwgWriteOptions.FlattenMode.None),
-                ColorMethod = ColorMethod.IfNone(tune.Materials
-                    ? FileDwgWriteOptions.ColorMethodType.RGB : FileDwgWriteOptions.ColorMethodType.ACI),
-                UseColor = UseColor.IfNone(tune.Order == CodecAxis.Material
-                    ? FileDwgWriteOptions.UseColorType.USEPRINT : FileDwgWriteOptions.UseColorType.USEDISPLAY),
-                FullLayerPath = FullLayerPath.IfNone(tune.Group == CodecAxis.Layer),
+                // A declared plot-style table IS the pen regime: a CTB keys on the AutoCAD Colour Index and plots
+                // through its own widths, so BOTH host enums derive from one kernel value and neither reads an
+                // unrelated fidelity axis (D54, D91).
+                ColorMethod = Styles.IsSome
+                    ? FileDwgWriteOptions.ColorMethodType.ACI : FileDwgWriteOptions.ColorMethodType.RGB,
+                UseColor = Styles.IsSome
+                    ? FileDwgWriteOptions.UseColorType.USEPRINT : FileDwgWriteOptions.UseColorType.USEDISPLAY,
+                // DWG layer names ARE the standard's grammar, so the emitted name is a `HostLayerScheme` choice:
+                // `RhinoPath` writes the `::`-joined field path and `AutoCadFlat` the standard's own text (D33, D91).
+                FullLayerPath = LayerScheme.IfNone(HostLayerScheme.AutoCadFlat) == HostLayerScheme.RhinoPath,
                 UseLWPolylines = UseLWPolylines.IfNone(!tune.Fidelity.IsModel),
-                SimplifyTolerance = SimplifyTolerance.IfNone(0.05),
-                MinPointDistance = MinPointDistance.IfNone(1e-06),
+                SimplifyTolerance = SimplifyTolerance.Map(static row => row.Value).IfNone(0.05),
+                MinPointDistance = MinPointDistance.Map(static row => row.Value).IfNone(1e-06),
                 SplitPolycurves = SplitPolycurves.IfNone(true),
                 SplitSplines = SplitSplines.IfNone(false),
                 Simplify = Simplify.IfNone(false),
@@ -513,23 +759,24 @@ public abstract partial record FormatDial {
                 PreserveArcNormals = PreserveArcNormals.IfNone(true),
                 WriteThickCurves = WriteThickCurves.IfNone(false),
             };
-            _ = CurveMaxAngleDegrees.Iter(field => field.Apply(
-                set: value => { host.CurveUseMaxAngle = true; host.CurveMaxAngleDegrees = value; },
-                inherit: () => host.CurveUseMaxAngle = false));
-            _ = CurveChordHeight.Iter(field => field.Apply(
-                set: value => { host.CurveUseChordHeight = true; host.CurveChordHeight = value; },
-                inherit: () => host.CurveUseChordHeight = false));
-            _ = CurveSegmentLength.Iter(field => field.Apply(
-                set: value => { host.CurveUseSegmentLength = true; host.CurveSegmentLength = value; },
-                inherit: () => host.CurveUseSegmentLength = false));
+            _ = CurveMaxAngle.Iter(field => field.Through(
+                host: host,
+                gate: static (o, v) => o.CurveUseMaxAngle = v,
+                value: static (o, v) => o.CurveMaxAngleDegrees = double.RadiansToDegrees(v.Value)));
+            _ = CurveChordHeight.Iter(field => field.Through(
+                host: host,
+                gate: static (o, v) => o.CurveUseChordHeight = v,
+                value: static (o, v) => o.CurveChordHeight = v.Value));
+            _ = CurveSegmentLength.Iter(field => field.Through(
+                host: host,
+                gate: static (o, v) => o.CurveUseSegmentLength = v,
+                value: static (o, v) => o.CurveSegmentLength = v.Value));
             return host;
         }
     }
 
     public sealed record DwgReadCase(
-        Option<bool> ImportUnreferencedLayers = default,
-        Option<bool> ImportUnreferencedBlocks = default,
-        Option<bool> ImportUnreferencedLinetypes = default,
+        Option<CapabilitySet<UnreferencedImport>> Unreferenced = default,
         Option<bool> WidePolylinesAsSurfaces = default,
         Option<bool> IgnoreThickness = default,
         Option<bool> RegionsAsCurves = default,
@@ -538,21 +785,31 @@ public abstract partial record FormatDial {
         Option<UnitSystem> ModelUnits = default,
         Option<UnitSystem> LayoutUnits = default,
         Option<bool> LayerMaterialFromColor = default,
-        Option<bool> NestLayers = default) : FormatDial(FileCodec.Dwg, CodecPhase.Import) {
-        internal FileDwgReadOptions Mint() => new() {
-            ImportUnreferencedLayers = ImportUnreferencedLayers.IfNone(true),
-            ImportUnreferencedBlocks = ImportUnreferencedBlocks.IfNone(true),
-            ImportUnreferencedLinetypes = ImportUnreferencedLinetypes.IfNone(true),
-            ConvertWidePolylinesToSurfaces = WidePolylinesAsSurfaces.IfNone(false),
-            IgnoreThickness = IgnoreThickness.IfNone(false),
-            ConvertRegionsToCurves = RegionsAsCurves.IfNone(false),
-            MakeExtrusions = MakeExtrusions.IfNone(true),
-            MeshPrecision = MeshPrecision.IfNone(FileDwgReadOptions.MeshPrecisionMode.Automatic),
-            ModelUnits = ModelUnits.IfNone(UnitSystem.Millimeters),
-            LayoutUnits = LayoutUnits.IfNone(UnitSystem.Millimeters),
-            SetLayerMaterialToLayerColor = LayerMaterialFromColor.IfNone(false),
-            NestLayers = NestLayers.IfNone(false),
-        };
+        Option<LayerStandard> Nesting = default) : FormatDial(FileCodec.Dwg, CodecPhase.Import) {
+        private static readonly HostAxis<UnreferencedImport, FileDwgReadOptions> UnreferencedAxis =
+            new(axis: nameof(Unreferenced), column: static row => row.Dwg);
+
+        private protected override Seq<ValidationClause> RefusalsFor(Op key) => UnreferencedAxis.Refusal(Unreferenced, key).ToSeq();
+
+        internal FileDwgReadOptions Mint() {
+            FileDwgReadOptions host = new() {
+                ConvertWidePolylinesToSurfaces = WidePolylinesAsSurfaces.IfNone(false),
+                IgnoreThickness = IgnoreThickness.IfNone(false),
+                ConvertRegionsToCurves = RegionsAsCurves.IfNone(false),
+                MakeExtrusions = MakeExtrusions.IfNone(true),
+                MeshPrecision = MeshPrecision.IfNone(FileDwgReadOptions.MeshPrecisionMode.Automatic),
+                ModelUnits = ModelUnits.IfNone(UnitSystem.Millimeters),
+                LayoutUnits = LayoutUnits.IfNone(UnitSystem.Millimeters),
+                SetLayerMaterialToLayerColor = LayerMaterialFromColor.IfNone(false),
+                // A DWG layer name is a flat string under a naming STANDARD, and declaring the standard is what
+                // makes the host's `::` nesting meaningful — the segments it splits on are that standard's own
+                // fields, so `LayerName.Parse(standard, text, key)` projected through `HostLayerScheme.RhinoPath`
+                // is the readback and a bare boolean names no grammar to split by (D34, D92).
+                NestLayers = Nesting.IsSome,
+            };
+            _ = UnreferencedAxis.Seat(host: host, requested: Unreferenced, baseline: CapabilitySet<UnreferencedImport>.All);
+            return host;
+        }
     }
 
     public sealed record StlWriteCase(
@@ -567,7 +824,7 @@ public abstract partial record FormatDial {
     }
 
     public sealed record StlReadCase(
-        Option<FieldOverride<double>> Weld = default,
+        Option<FieldOverride<Tolerance>> Weld = default,
         Option<bool> SplitDisjointMeshes = default,
         Option<UnitSystem> Units = default) : FormatDial(FileCodec.Stl, CodecPhase.Import) {
         internal FileStlReadOptions Mint() {
@@ -575,9 +832,10 @@ public abstract partial record FormatDial {
                 SplitDisjointMeshes = SplitDisjointMeshes.IfNone(true),
                 STLModelUnits = Units.IfNone(UnitSystem.Millimeters),
             };
-            _ = Weld.Iter(field => field.Apply(
-                set: angle => { host.Weld = true; host.WeldAngle = angle; },
-                inherit: () => host.Weld = false));
+            _ = Weld.Iter(field => field.Through(
+                host: host,
+                gate: static (o, v) => o.Weld = v,
+                value: static (o, v) => o.WeldAngle = v.Value));
             return host;
         }
     }
@@ -600,9 +858,10 @@ public abstract partial record FormatDial {
         Option<FieldOverride<Dimension>> FaceCap = default) : FormatDial(FileCodec.Stp, CodecPhase.Import) {
         internal FileStpReadOptions Mint() {
             FileStpReadOptions host = new() { JoinSurfaces = JoinSurfaces.IfNone(true) };
-            _ = FaceCap.Iter(field => field.Apply(
-                set: cap => { host.LimitFaces = true; host.MaxFaceCount = cap.Value; },
-                inherit: () => host.LimitFaces = false));
+            _ = FaceCap.Iter(field => field.Through(
+                host: host,
+                gate: static (o, v) => o.LimitFaces = v,
+                value: static (o, v) => o.MaxFaceCount = v.Value));
             return host;
         }
     }
@@ -611,40 +870,57 @@ public abstract partial record FormatDial {
         Option<FileFbxWriteOptions.ObjectType> SaveObjectsAs = default,
         Option<FileFbxWriteOptions.MaterialType> SaveMaterialsAs = default,
         Option<FileFbxWriteOptions.FileType> SaveFileAs = default,
-        Option<bool> SaveViews = default,
-        Option<bool> SaveLights = default,
-        Option<bool> SaveVertexNormals = default,
-        Option<bool> MapZtoY = default,
+        Option<CapabilitySet<SceneCarry>> Scene = default,
+        Option<CapabilitySet<MeshEmission>> Emission = default,
+        Option<AxisConvention> Axes = default,
         Option<MeshingParameters> Mesh = default) : FormatDial(FileCodec.Fbx, CodecPhase.Export) {
-        internal FileFbxWriteOptions Mint(CodecTune tune) => new() {
-            SaveObjectsAs = SaveObjectsAs.IfNone(tune.Fidelity.IsModel
-                ? FileFbxWriteOptions.ObjectType.Nurbs : FileFbxWriteOptions.ObjectType.Mesh),
-            SaveMaterialsAs = SaveMaterialsAs.IfNone(FileFbxWriteOptions.MaterialType.Phong),
-            SaveFileAs = SaveFileAs.IfNone(FileFbxWriteOptions.FileType.Binary7),
-            SaveViews = SaveViews.IfNone(tune.Fidelity.IsModel),
-            SaveLights = SaveLights.IfNone(tune.Fidelity.IsModel),
-            SaveVertexNormals = SaveVertexNormals.IfNone(tune.Fidelity.Measured),
-            MapRhinoZtoFbxY = MapZtoY.IfNone(false),
-            MeshingParameters = Mesh.IfNone(() => MeshingParameters.Default),
-        };
+        private static readonly HostAxis<SceneCarry, FileFbxWriteOptions> SceneAxis =
+            new(axis: nameof(Scene), column: static row => row.FbxWrite);
+
+        private static readonly HostAxis<MeshEmission, FileFbxWriteOptions> EmissionAxis =
+            new(axis: nameof(Emission), column: static row => row.Fbx);
+
+        private protected override Seq<ValidationClause> RefusalsFor(Op key) =>
+            SceneAxis.Refusal(Scene, key).ToSeq() + EmissionAxis.Refusal(Emission, key).ToSeq();
+
+        internal FileFbxWriteOptions Mint(CodecTune tune) {
+            FileFbxWriteOptions host = new() {
+                SaveObjectsAs = SaveObjectsAs.IfNone(tune.Fidelity.IsModel
+                    ? FileFbxWriteOptions.ObjectType.Nurbs : FileFbxWriteOptions.ObjectType.Mesh),
+                SaveMaterialsAs = SaveMaterialsAs.IfNone(FileFbxWriteOptions.MaterialType.Phong),
+                SaveFileAs = SaveFileAs.IfNone(FileFbxWriteOptions.FileType.Binary7),
+                MapRhinoZtoFbxY = Axes.IfNone(AxisConvention.Native).Swaps,
+                MeshingParameters = Mesh.IfNone(() => MeshingParameters.Default),
+            };
+            _ = SceneAxis.Seat(
+                host: host,
+                requested: Scene,
+                baseline: tune.Fidelity.IsModel ? CapabilitySet<SceneCarry>.Of(SceneCarry.Views, SceneCarry.Lights) : CapabilitySet<SceneCarry>.None);
+            _ = EmissionAxis.Seat(host: host, requested: Emission, baseline: Emitted(normals: tune.Fidelity.Measured));
+            return host;
+        }
     }
 
     public sealed record FbxReadCase(
-        Option<FieldOverride<double>> Unweld = default,
+        Option<FieldOverride<Tolerance>> Unweld = default,
         Option<bool> MeshesAsSubD = default,
-        Option<bool> ImportLights = default,
-        Option<bool> ImportCameras = default,
-        Option<bool> MapYtoZ = default) : FormatDial(FileCodec.Fbx, CodecPhase.Import) {
+        Option<CapabilitySet<SceneCarry>> Scene = default,
+        Option<AxisConvention> Axes = default) : FormatDial(FileCodec.Fbx, CodecPhase.Import) {
+        private static readonly HostAxis<SceneCarry, FileFbxReadOptions> SceneAxis =
+            new(axis: nameof(Scene), column: static row => row.FbxRead);
+
+        private protected override Seq<ValidationClause> RefusalsFor(Op key) => SceneAxis.Refusal(Scene, key).ToSeq();
+
         internal FileFbxReadOptions Mint() {
             FileFbxReadOptions host = new() {
                 ImportMeshesAsSubD = MeshesAsSubD.IfNone(false),
-                ImportLights = ImportLights.IfNone(true),
-                ImportCameras = ImportCameras.IfNone(true),
-                MapFbxYtoRhinoZ = MapYtoZ.IfNone(false),
+                MapFbxYtoRhinoZ = Axes.IfNone(AxisConvention.Native).Swaps,
             };
-            _ = Unweld.Iter(field => field.Apply(
-                set: angle => { host.Unweld = true; host.UnweldAngle = angle; },
-                inherit: () => host.Unweld = false));
+            _ = SceneAxis.Seat(host: host, requested: Scene, baseline: CapabilitySet<SceneCarry>.Of(SceneCarry.Lights, SceneCarry.Cameras));
+            _ = Unweld.Iter(field => field.Through(
+                host: host,
+                gate: static (o, v) => o.Unweld = v,
+                value: static (o, v) => o.UnweldAngle = v.Value));
             return host;
         }
     }
@@ -667,7 +943,7 @@ public abstract partial record FormatDial {
     public sealed record IgsWriteCase(
         Option<IgesIdentity> Identity = default,
         Option<UnitSystem> Units = default,
-        Option<double> Tolerance = default,
+        Option<Tolerance> Fit = default,
         Option<FileIgsWriteOptions.IgeswVersionMode> Version = default,
         Option<FileIgsWriteOptions.EolMode> Eol = default,
         Option<FileIgsWriteOptions.IgesStringTypeMode> Text = default,
@@ -689,7 +965,7 @@ public abstract partial record FormatDial {
             IgesSurfaceForm surfaces = Surfaces.IfNone(IgesSurfaceForm.Standard);
             FileIgsWriteOptions host = new() {
                 Units = Units.IfNone(UnitSystem.Millimeters),
-                Tolerance = Tolerance.IfNone(0.001),
+                Tolerance = Fit.Map(static row => row.Value).IfNone(0.001),
                 IgesVersion = Version.IfNone(FileIgsWriteOptions.IgeswVersionMode.Igv52),
                 EolType = Eol.IfNone(FileIgsWriteOptions.EolMode.Crlf),
                 IgesStringType = Text.IfNone(FileIgsWriteOptions.IgesStringTypeMode.Unicode),
@@ -732,12 +1008,13 @@ public abstract partial record FormatDial {
         };
     }
 
-    public sealed record LwoReadCase(Option<FieldOverride<double>> Unweld = default) : FormatDial(FileCodec.Lwo, CodecPhase.Import) {
+    public sealed record LwoReadCase(Option<FieldOverride<Tolerance>> Unweld = default) : FormatDial(FileCodec.Lwo, CodecPhase.Import) {
         internal FileLwoReadOptions Mint() {
             FileLwoReadOptions host = new();
-            _ = Unweld.Iter(field => field.Apply(
-                set: angle => { host.Unweld = true; host.UnweldAngle = angle; },
-                inherit: () => host.Unweld = false));
+            _ = Unweld.Iter(field => field.Through(
+                host: host,
+                gate: static (o, v) => o.Unweld = v,
+                value: static (o, v) => o.UnweldAngle = v.Value));
             return host;
         }
     }
@@ -790,7 +1067,7 @@ public abstract partial record FormatDial {
         Option<bool> ImportCurves = default,
         Option<bool> JoinEdges = default,
         Option<bool> JoinFaces = default,
-        Option<FieldOverride<double>> Weld = default,
+        Option<FieldOverride<Tolerance>> Weld = default,
         Option<bool> UseGroupLayers = default,
         Option<bool> AddObjectsToGroups = default,
         Option<bool> EmbedTextures = default,
@@ -808,9 +1085,10 @@ public abstract partial record FormatDial {
                 UseSketchUpTextureWriter = UseSketchUpTextureWriter.IfNone(false),
                 DisplayColorBy = DisplayColorBy.IfNone(0),
             };
-            _ = Weld.Iter(field => field.Apply(
-                set: angle => { host.Weld = true; host.WeldAngle = angle; },
-                inherit: () => host.Weld = false));
+            _ = Weld.Iter(field => field.Through(
+                host: host,
+                gate: static (o, v) => o.Weld = v,
+                value: static (o, v) => o.WeldAngle = v.Value));
             return host;
         }
     }
@@ -857,30 +1135,42 @@ public abstract partial record FormatDial {
 
     public sealed record VrmlWriteCase(
         Option<int> Version = default,
-        Option<bool> TextureCoordinates = default,
-        Option<bool> VertexNormals = default,
-        Option<bool> VertexColors = default,
+        Option<CapabilitySet<MeshEmission>> Emission = default,
         Option<MeshingParameters> Mesh = default) : FormatDial(FileCodec.Vrml, CodecPhase.Export) {
-        internal FileVrmlWriteOptions Mint(CodecTune tune) => new() {
-            Version = Version.IfNone(1),
-            ExportTextureCoordinates = TextureCoordinates.IfNone(tune.Materials),
-            ExportVertexNormals = VertexNormals.IfNone(tune.Fidelity.IsModel),
-            ExportVertexColors = VertexColors.IfNone(false),
-            MeshingParameters = Mesh.IfNone(() => MeshingParameters.Default),
-        };
+        private static readonly HostAxis<MeshEmission, FileVrmlWriteOptions> EmissionAxis =
+            new(axis: nameof(Emission), column: static row => row.Vrml);
+
+        private protected override Seq<ValidationClause> RefusalsFor(Op key) => EmissionAxis.Refusal(Emission, key).ToSeq();
+
+        internal FileVrmlWriteOptions Mint(CodecTune tune) {
+            FileVrmlWriteOptions host = new() {
+                Version = Version.IfNone(1),
+                MeshingParameters = Mesh.IfNone(() => MeshingParameters.Default),
+            };
+            _ = EmissionAxis.Seat(
+                host: host,
+                requested: Emission,
+                baseline: Emitted(textures: tune.Materials, normals: tune.Fidelity.IsModel));
+            return host;
+        }
     }
 
     public sealed record X3dvWriteCase(
-        Option<bool> TextureCoordinates = default,
-        Option<bool> VertexNormals = default,
-        Option<bool> VertexColors = default,
+        Option<CapabilitySet<MeshEmission>> Emission = default,
         Option<MeshingParameters> Mesh = default) : FormatDial(FileCodec.X3dv, CodecPhase.Export) {
-        internal FileX3dvWriteOptions Mint(CodecTune tune) => new() {
-            ExportTextureCoordinates = TextureCoordinates.IfNone(tune.Materials),
-            ExportVertexNormals = VertexNormals.IfNone(tune.Fidelity.IsModel),
-            ExportVertexColors = VertexColors.IfNone(false),
-            MeshingParameters = Mesh.IfNone(() => MeshingParameters.Default),
-        };
+        private static readonly HostAxis<MeshEmission, FileX3dvWriteOptions> EmissionAxis =
+            new(axis: nameof(Emission), column: static row => row.X3dv);
+
+        private protected override Seq<ValidationClause> RefusalsFor(Op key) => EmissionAxis.Refusal(Emission, key).ToSeq();
+
+        internal FileX3dvWriteOptions Mint(CodecTune tune) {
+            FileX3dvWriteOptions host = new() { MeshingParameters = Mesh.IfNone(() => MeshingParameters.Default) };
+            _ = EmissionAxis.Seat(
+                host: host,
+                requested: Emission,
+                baseline: Emitted(textures: tune.Materials, normals: tune.Fidelity.IsModel));
+            return host;
+        }
     }
 
     public sealed record XamlWriteCase(
@@ -931,57 +1221,64 @@ public abstract partial record FormatDial {
     }
 
     public sealed record CsvWriteCase(
-        Option<Seq<CsvColumn>> Columns = default,
+        Option<CapabilitySet<CsvColumn>> Columns = default,
         Option<bool> QuotedPoints = default) : FormatDial(FileCodec.Csv, CodecPhase.Export) {
+        // Every CSV row reaches the one host, so this axis is TOTAL and its refusal is unreachable by construction
+        // — the door still reads it, because legality is the column roster's fact and never a case's assertion.
+        private static readonly HostAxis<CsvColumn, FileCsvWriteOptions> ColumnAxis =
+            new(axis: nameof(Columns), column: static row => row.Csv);
+
+        private protected override Seq<ValidationClause> RefusalsFor(Op key) => ColumnAxis.Refusal(Columns, key).ToSeq();
+
         internal FileCsvWriteOptions Mint(CodecTune tune) {
-            Seq<CsvColumn> members = Columns.IfNone(() => CsvColumn.Baseline(tune: tune));
             FileCsvWriteOptions host = new() { SurroundPointsWithDoubleQuotes = QuotedPoints.IfNone(true) };
-            _ = toSeq(CsvColumn.Items).Iter(row => row.Write(options: host, member: members.Exists(member => member == row)));
+            _ = ColumnAxis.Seat(host: host, requested: Columns, baseline: CsvColumn.Baseline(tune: tune));
             return host;
         }
     }
 
     public sealed record GltfWriteCase(
-        Option<bool> MapZtoY = default,
-        Option<bool> Materials = default,
+        Option<AxisConvention> Axes = default,
         Option<bool> CullBackfaces = default,
         Option<bool> DisplayColorForUnsetMaterials = default,
         Option<SubDForm> SubD = default,
         Option<Dimension> SubDDensity = default,
-        Option<bool> TextureCoordinates = default,
-        Option<bool> VertexNormals = default,
-        Option<bool> OpenMeshes = default,
-        Option<bool> VertexColors = default,
+        Option<CapabilitySet<MeshEmission>> Emission = default,
         Option<bool> Layers = default,
         Option<FieldOverride<DracoDial>> Draco = default) : FormatDial(FileCodec.Gltf, CodecPhase.Export) {
+        private static readonly HostAxis<MeshEmission, FileGltfWriteOptions> EmissionAxis =
+            new(axis: nameof(Emission), column: static row => row.Gltf);
+
+        private protected override Seq<ValidationClause> RefusalsFor(Op key) => EmissionAxis.Refusal(Emission, key).ToSeq();
+
         internal FileGltfWriteOptions Mint(CodecTune tune) {
+            // The fidelity ladder's own Draco seat is the baseline this override rides over, so `Keep` reads the
+            // ladder rather than a second compression default declared here.
             Option<DracoDial> draco = Draco
                 .Map(field => field.Switch(
                     tune.Fidelity.Draco,
-                    keepCase: static (baseline, _) => baseline,
-                    setCase: static (_, setting) => Some(setting.Value),
-                    clearCase: static (_, _) => Option<DracoDial>.None))
+                    keep: static (baseline, _) => baseline,
+                    set: static (_, setting) => Some(setting.Value),
+                    clear: static (_, _) => Option<DracoDial>.None))
                 .IfNone(tune.Fidelity.Draco);
             FileGltfWriteOptions host = new() {
-                MapZToY = MapZtoY.IfNone(true),
-                ExportMaterials = Materials.IfNone(tune.Materials),
+                MapZToY = Axes.IfNone(AxisConvention.YUp).Swaps,
                 CullBackfaces = CullBackfaces.IfNone(true),
                 UseDisplayColorForUnsetMaterials = DisplayColorForUnsetMaterials.IfNone(true),
                 SubDMeshType = SubD.Map(static row => row.Gltf).IfNone(FileGltfWriteOptions.SubDMeshing.Surface),
                 SubDSurfaceMeshingDensity = SubDDensity.Map(static value => value.Value).IfNone(4),
-                ExportTextureCoordinates = TextureCoordinates.IfNone(tune.Materials),
-                ExportVertexNormals = VertexNormals.IfNone(tune.Fidelity.Measured),
-                ExportOpenMeshes = OpenMeshes.IfNone(true),
-                ExportVertexColors = VertexColors.IfNone(false),
                 ExportLayers = Layers.IfNone(tune.Group == CodecAxis.Layer),
                 UseDracoCompression = draco.IsSome,
             };
-            _ = draco.Iter(dial => {
-                host.DracoCompressionLevel = dial.Level.Value;
-                host.DracoQuantizationBitsPosition = dial.PositionBits.Value;
-                host.DracoQuantizationBitsNormal = dial.NormalBits.Value;
-                host.DracoQuantizationBitsTextureCoordinate = dial.TextureBits.Value;
-            });
+            _ = EmissionAxis.Seat(
+                host: host,
+                requested: Emission,
+                baseline: Emitted(
+                    materials: tune.Materials,
+                    textures: tune.Materials,
+                    normals: tune.Fidelity.Measured,
+                    open: true));
+            _ = draco.Iter(dial => PolicyMap.Apply(dial, host));
             return host;
         }
     }
@@ -1029,14 +1326,36 @@ public abstract partial record FormatDial {
             ImportFilledObjectAs = Fills.IfNone(FileSvgReadOptions.ImportFillMode.AsCurves),
         };
     }
+
+    // The two-tier baseline as a SET: each case names the axes its former per-member derivations turned on, so
+    // the byte-identity law survives the collapse. NAMED LOSS: a host-agnostic baseline row the host lacks a
+    // column for drops at the column silently — `Emitted(colors: true)` on the FBX case writes nothing and no
+    // door reads a BASELINE, because the baseline is the author's declaration, not a caller request; the buy-back
+    // is the column roster itself, which every author reads at the vocabulary.
+    private static CapabilitySet<MeshEmission> Emitted(
+        bool normals = false,
+        bool textures = false,
+        bool colors = false,
+        bool open = false,
+        bool materials = false) =>
+        CapabilitySet<MeshEmission>.Of([..
+            Seq((Held: normals, Row: MeshEmission.Normals),
+                (textures, MeshEmission.TextureCoordinates),
+                (colors, MeshEmission.VertexColors),
+                (open, MeshEmission.OpenMeshes),
+                (materials, MeshEmission.Materials))
+            .Filter(static row => row.Held)
+            .Map(static row => row.Row)]);
 }
 ```
 
 ## [04]-[DIAL_BINDING]
 
 - Owner: `Dials.Resolve` extracts one requested case or constructs its baseline, then threads one caller state through the supplied case projection. `Dials.Scale` composes vector scale after option minting.
-- Law: `Codecs.Apply` refuses a `Some` dial whose `DialSeat` differs from the dispatched codec and request phase before host or filesystem contact, and refuses a `Some` scale against a codec lacking `CodecAbility.Vector` at the same gate. `None` selects the supplied baseline case.
+- Law: `Codecs.Apply` binds `FormatDial.Admit` on a `Some` dial before host or filesystem contact — seat correspondence and every requested capability axis in one accumulated refusal — and refuses a `Some` scale against a codec lacking `CodecAbility.Vector` at the same gate. `None` selects the supplied baseline case, and the shape probe inside `Resolve` is the SAME correspondence the door already proved — so its fall-through is reachable only where a caller bypassed the gate, which the codec row's own dispatch forecloses. `Resolve` therefore stays TOTAL: every refusal this family carries has already fired upstream, the forty-seven `(codec, phase)` seats are pairwise distinct with exactly one engine column referencing each case, and a `Some` dial past the door IS the row's own case — the baseline arm on a matched-but-foreign shape is unreachable by that injectivity, not merely rare.
+- Law: the baseline closure rides the CODEC ROW, not a second roster here. A case's all-defaults construction is not expressible as a `new()` constraint — C# admits that constraint only for a declared parameterless constructor, and every case declares an all-optional primary one instead — so a baseline roster on this page MOVES forty-seven closures rather than collapsing them, and the row that already names the case is where the closure belongs.
 - Law: `AiRead` and `EpsRead` are lens-only rows — their host surfaces carry nothing beyond the scale axes, so they mint directly with the `PreserveModelScale` fidelity baseline and no case exists to misconfigure.
+- Packages: LanguageExt.Core (`Option`, `Bind`, `Map`, `IfNone`); `Exchange/formats` (`CodecTune`, `VectorLens`, `VectorScale`).
 - Boundary: `Dials` returns bare host option objects only into the codec engine columns — the one internal seam already holding the raw `RhinoDoc` — and nothing above the matrix ever sees a host options type.
 
 ```csharp signature
@@ -1067,8 +1386,8 @@ config:
 ---
 flowchart LR
     accTitle: Dial resolution and host option minting
-    accDescr: A tune with its optional dial slot passes the seat gate, resolves to the matching or default dial case, mints the typed host options over the tune baseline, and composes the vector scale lens before the engine column consumes the result.
-    Tune["CodecTune — presets · Option dial slot"] --> Gate{{"Codecs.Apply — DialSeat gate"}}
+    accDescr: A tune with its optional dial slot passes the dial door proving seat correspondence and every requested capability axis, resolves to the matching or default dial case, mints the typed host options over the tune baseline, and composes the vector scale lens before the engine column consumes the result.
+    Tune["CodecTune — presets · Option dial slot"] --> Gate{{"FormatDial.Admit — seat · axis demands"}}
     Gate --> Resolve["Dials.Resolve — matching case or baseline"]
     Resolve --> Mint["case Mint — tune baseline · explicit overrides · shared axes"]
     Scale["VectorScale lens"] --> Mint

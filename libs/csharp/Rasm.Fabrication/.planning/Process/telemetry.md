@@ -11,7 +11,7 @@ Settled composition draws every mechanism from the kernel signal capsule — the
 - [04]-[FACT_PROJECTION]: Kind-keyed projection arms from the receipt message envelope onto mounted instruments.
 - [05]-[CLASSIFICATION]: Suite-taxonomy attribute rows for the classified receipt members.
 - [06]-[SPANS]: `FabricationTrace` rosters the solver scopes the composition admits into the kernel span band and owns the lane bracket and mark.
-- [07]-[HOOK_ROSTER]: `FabricationPoint` closes the `rasm.fabrication.<domain>.<point>` vocabulary and `FabricationHooks` seats the run spine's typed points over it.
+- [07]-[HOOK_RAIL]: `FabricationPoint` closes the `rasm.fabrication.<domain>.<point>` vocabulary, `FabricationHookFact` closes the spine payloads over it, and `FabricationHooks` mints the one kernel rail.
 - [08]-[BOARD_PACK]: `FabricationDescriptors` binds the kernel pack over that roster.
 
 ## [02]-[FACT_UNION]
@@ -34,26 +34,30 @@ using System.Diagnostics;                       // Activity, ActivityEvent
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using LanguageExt;
+using LanguageExt.Common;                       // Error
 using Microsoft.Extensions.Compliance.Classification;   // DataClassification, DataClassificationAttribute
 using NodaTime;
-using Rasm.Domain;                              // BoardPack, Buckets, ClassifiedValue, CorrelationId, Fault, HookId,
-                                                // HookModality, HookPoint, IHookPoint, InstrumentArm, InstrumentSet,
-                                                // InstrumentSpec, IsolatedFault, LevelBreach, MeasureForm, Objective,
-                                                // Op, PanelKind, PanelSpec, ReceiptEnvelope, ReceiptSinkPort, Sli,
-                                                // SpanBand, TelemetryContributorPort, TelemetryIdentity,
-                                                // TelemetrySource, TenantContext, TraceScope
-using Rasm.Fabrication.Additive;                // ScanReceipt
+using Rasm.Domain;                              // BoardPack, Buckets, CapabilitySet, ClassifiedValue,
+                                                // CorrelationId, Fault, FaultCell, HookGate, HookId, HookModality,
+                                                // HookRail, HookTap, IHookFact, IHookRoster, IHookSpan,
+                                                // InstrumentArm, InstrumentSet, InstrumentSpec, IsolatedFault,
+                                                // LevelBreach, MeasureForm, Objective, Op, PanelKind, PanelSpec,
+                                                // ReceiptEnvelope, ReceiptSinkPort, Sli, SpanBand,
+                                                // TelemetryContributorPort, TelemetryIdentity, TelemetrySource,
+                                                // TenantContext, TraceScope
+using Rasm.Numerics;                            // Dimension
+using Rasm.Fabrication.Additive;                // ScanEvidence
 using Rasm.Fabrication.Documentation;           // PassportEvidence, SustainabilityEvidence, TravelerArtifact
 using Rasm.Fabrication.Fixturing;               // SetupSchedule
-using Rasm.Fabrication.Forming;                 // BendSequenceReceipt
+using Rasm.Fabrication.Forming;                 // BendPlan
 using Rasm.Fabrication.Kinematics;              // MachineMatch
 using Rasm.Fabrication.Nesting;                 // NestEvidence
 using Rasm.Fabrication.Posting;                 // ProgramDelivery
 using Rasm.Fabrication.Spec;                    // CapabilityReport
-using Rasm.Fabrication.Toolpath;                // SkeletonReceipt
+using Rasm.Fabrication.Toolpath;                // SkeletonWalk
 using Rasm.Fabrication.Tooling;                 // CatalogReceipt, CatalogSource, MaintenanceDisposition,
-                                                // PowerLawReceipt, WearReceipt
-using Rasm.Fabrication.Verify;                  // EstimateReceipt, SimulationReceipt
+                                                // PowerLaw, WearReceipt
+using Rasm.Fabrication.Verify;                  // EstimateReceipt, SimulationLedger
 using Rasm.Processing;                          // AlignmentReceipt
 using Thinktecture;
 using Thinktecture.Text.Json.Serialization;     // ThinktectureJsonConverterFactory
@@ -253,7 +257,7 @@ public abstract partial record FabricationFact {
     }
 
     public sealed record CuttingFit(string Model, double Residual, double Determination) : FabricationFact {
-        public static CuttingFit Of(string model, PowerLawReceipt fit) => new(model, fit.RootMeanSquareResidual, fit.RSquared);
+        public static CuttingFit Of(string model, PowerLaw fit) => new(model, fit.RootMeanSquareResidual, fit.RSquared);
     }
 
     public sealed record Probe(int Features, int Conforming, double WorstDeviationMm) : FabricationFact;
@@ -272,19 +276,19 @@ public abstract partial record FabricationFact {
     }
 
     public sealed record Cycle(double Seconds, double EnergyKwh, double DistanceMm) : FabricationFact {
-        public static Cycle Of(SimulationReceipt receipt) => new(receipt.Cycle.TotalSeconds, receipt.EnergyKwh, receipt.DistanceMm);
+        public static Cycle Of(SimulationLedger ledger) => new(ledger.Cycle.TotalSeconds, ledger.EnergyKwh, ledger.DistanceMm);
     }
 
     public sealed record Estimate(string Scope, string Currency, double Money, double CarbonKg, double ClockSeconds, bool SimulationBacked) : FabricationFact {
         public static Estimate Of(EstimateReceipt receipt) => receipt.Switch(
             unit: static value => new Estimate(
-                "unit", value.Receipt.Currency.ToString(), (double)value.Receipt.MoneyTotal,
-                value.Receipt.CarbonTotalKgCo2e,
-                value.Receipt.MachineTime.TotalSeconds, value.Receipt.SimulationBacked),
+                "unit", value.Receipt.Evidence.Currency.ToString(), (double)value.Receipt.Evidence.MoneyTotal,
+                value.Receipt.Evidence.CarbonTotalKgCo2e,
+                value.Receipt.Evidence.MachineTime.TotalSeconds, value.Receipt.Evidence.SimulationBacked),
             lot: static value => new Estimate(
-                "lot", value.Receipt.Unit.Currency.ToString(), (double)value.Receipt.QuotedTotal,
-                value.Receipt.CarbonTotalKgCo2e,
-                value.Receipt.Unit.MachineTime.TotalSeconds, value.Receipt.Unit.SimulationBacked));
+                "lot", value.Ledger.Unit.Evidence.Currency.ToString(), (double)value.Ledger.QuotedTotal,
+                value.Ledger.CarbonTotalKgCo2e,
+                value.Ledger.Unit.Evidence.MachineTime.TotalSeconds, value.Ledger.Unit.Evidence.SimulationBacked));
     }
 
     public sealed record FleetMatch(string Process, double Utilization, double Score, double Effectiveness, bool Measured) : FabricationFact {
@@ -358,24 +362,27 @@ public abstract partial record FabricationFact {
             (EnginePhase.MemoHits, evidence.MemoHits),
             (EnginePhase.MemoMisses, evidence.MemoMisses));
 
-        public static Seq<Engine> Of(SkeletonReceipt receipt) => Rows(
+        public static Seq<Engine> Of(SkeletonWalk receipt) => Rows(
             (EnginePhase.Nodes, receipt.NodeCount),
             (EnginePhase.Arcs, receipt.ArcCount),
             (EnginePhase.Passes, receipt.Passes.Count));
 
         public static Seq<Engine> Of(SetupSchedule schedule) => Rows((EnginePhase.Decisions, schedule.Decisions.Count));
 
-        public static Seq<Engine> Of(ScanReceipt receipt) => Rows(
-            (EnginePhase.Exposures, receipt.Exposures),
-            (EnginePhase.Jumps, receipt.Jumps),
-            (EnginePhase.Remelts, receipt.Remelts),
-            (EnginePhase.Stitches, receipt.Stitches));
+        // Scan counters ride the EVIDENCE, never its carrier: `Receipt<ScanEvidence>` holds plane, key, ancestry,
+        // and stamp, so a projection reaching through that carrier reads receipt-spine columns rather than
+        // exposure, jump, remelt, and stitch — what the scan fold actually measured.
+        public static Seq<Engine> Of(ScanEvidence evidence) => Rows(
+            (EnginePhase.Exposures, evidence.Exposures),
+            (EnginePhase.Jumps, evidence.Jumps),
+            (EnginePhase.Remelts, evidence.Remelts),
+            (EnginePhase.Stitches, evidence.Stitches));
 
         public static Seq<Engine> Of(AlignmentReceipt receipt) => Rows((EnginePhase.IcpIterations, receipt.Iterations));
 
-        public static Seq<Engine> Of(BendSequenceReceipt receipt) => Rows(
-            (EnginePhase.Expansions, receipt.Expansions),
-            (EnginePhase.ExpansionsRejected, receipt.Rejected));
+        public static Seq<Engine> Of(BendPlan plan) => Rows(
+            (EnginePhase.Expansions, plan.Expansions),
+            (EnginePhase.ExpansionsRejected, plan.Rejected));
 
         static Seq<Engine> Rows(params ReadOnlySpan<(EnginePhase Phase, long Count)> counts) =>
             toSeq(counts.ToArray()).Map(static row => new Engine(row.Phase, row.Count)).Strict();
@@ -395,24 +402,33 @@ public abstract partial record FabricationFact {
 public partial class FabricationWireContext : JsonSerializerContext;
 
 // --- [SERVICES] -----------------------------------------------------------------------------
-// Silent shares one static cell safely: its send is a total no-op, so the cell is provably never written.
-public sealed record FabricationTap(Func<FabricationFact, Unit> Send, Atom<Seq<IsolatedFault>> Faults) {
+// Emission parks on the kernel's BOUNDED cell, so a subscriber storm sheds oldest-first and counts its loss
+// instead of growing for process lifetime, and that cell's own clock stamps every parked fault. A live tap takes
+// its composition's cell as constructor material; `Silent` holds a one-row cell sized to prove what its total
+// no-op send already claims — nothing ever parks there.
+public sealed record FabricationTap(Func<FabricationFact, Unit> Send, FaultCell Faults) {
     private static readonly HookId Emission = HookId.Create("rasm.fabrication.tap.emit");
+    private static readonly Op Raise = Op.Of();
 
-    public static readonly FabricationTap Silent = new(static _ => unit, Atom(Seq<IsolatedFault>()));
+    public static readonly FabricationTap Silent =
+        new(static _ => unit, new FaultCell(cap: Dimension.Create(value: 1), clock: TimeProvider.System));
 
+    // Capture funnels through `Op.Catch`, the capsule's own arm, so a returned typed failure or an unknown throw
+    // reaches the cell as its exact Error; this tokenless observer boundary never invents caller cancellation.
     public Unit Fire(FabricationFact fact) =>
-        Try.lift(() => Send(fact)).Run().Match(
+        Raise.Catch(() => Fin.Succ(Send(fact))).Match(
             Succ: static _ => unit,
-            Fail: error => ignore(Faults.Swap(held => held.Add(new IsolatedFault(Point: Emission, Cause: error)))));
+            Fail: error => ignore(Faults.Park(point: Emission, cause: error)));
 }
 
 public sealed class FabricationSurface(ReceiptSinkPort sink, FabricationWireContext wire) {
+    private static readonly Op Serialize = Op.Of();
+
     public IO<ReceiptEnvelope> Emit(CorrelationId correlation, FabricationFact fact) =>
-        IO.lift(() => JsonSerializer.SerializeToElement(fact, wire.FabricationFact))
+        IO.lift(() => Serialize.Catch(() => Fin.Succ(JsonSerializer.SerializeToElement(fact, wire.FabricationFact))))
             .Bind(payload => payload.TryGetProperty(FabricationFact.KindProperty, out JsonElement kind) && kind.GetString() is { } key
                 ? sink.Send(correlation, TenantContext.Current, TelemetrySource.Fabrication.Key, key, payload)
-                : IO.fail<ReceiptEnvelope>(new Fault.InvalidValue(
+                : IO.fail<ReceiptEnvelope>(new KernelFault.InvalidValue(
                     Label: nameof(FabricationFact),
                     Requirement: "a polymorphic kind discriminator on the serialized fact")));
 }
@@ -421,11 +437,11 @@ public sealed class FabricationSurface(ReceiptSinkPort sink, FabricationWireCont
 ## [03]-[INSTRUMENT_ROSTER]
 
 - Owner: `FabricationInstruments` — the Fabrication `InstrumentSpec` roster and the `TelemetryContributorPort` mint; the roster is composition-free data, so one declaration binds against any meter and any cells.
-- Entry: `FabricationInstruments.Telemetry(string version, string schemaUrl = TelemetryIdentity.SchemaUrl)` — the one contributor port (scope `TelemetrySource.Fabrication`) carrying the domain row set, its semconv schema coordinate, and the `[08]` board pack over those same rows into the composing root; the mint stamps the coordinate as `MeterOptions.TelemetrySchemaUrl`, so every `rasm.fabrication.*` scope reads with pinned semantics and the shop's board proves against the roster the root just bound.
+- Entry: `FabricationInstruments.Telemetry(string version)` — the one contributor port (scope `TelemetrySource.Fabrication`) carrying the domain row set and the `[08]` board pack over those same rows into the composing root; the mint stamps the kernel schema coordinate as `MeterOptions.TelemetrySchemaUrl`, so every `rasm.fabrication.*` scope reads with pinned semantics and the shop's board proves against the roster the root just bound.
 - Auto: every advised histogram row ships its named kernel `Buckets` boundaries at creation, the fallback a backend without exponential histograms reads — the default aggregation stays base2 exponential at the provider and no bound array is spelled here; registry mount de-duplicates by name, so a duplicate row is a composition fault, never a forked stream; the projection arms at `[04]-[FACT_PROJECTION]` write the level cells, so each pulled row reads a current level, never a re-derived scan; every share indicator partitions ONE mounted population on the outcome dimension its own row declares, so a good half is a tag value the same arm already stamps and no roster row exists to carry a numerator; every outcome axis reads its values off this owner's consts, so an arm and a board row never spell one value twice; the sustainability family generates from `SustainabilityQuantity`, so the roster carries one row per UCUM unit rather than one per measure and both the projection arm and the board panels resolve off that one axis.
 - Packages: Rasm, LanguageExt.Core, BCL inbox.
 - Growth: one measured concern is one `InstrumentSpec` here and one projection arm at `[04]-[FACT_PROJECTION]`; a per-kind family derives from its owning vocabulary, never hand-enumerated rows; a new level is one `cells.Level` write at its producing arm beside one `Level` row, or one keyed write beside one `Levels` row where the shop holds a reading per basis, process, or machine.
-- Boundary: instrument names are dotted `rasm.fabrication.<domain>.<measure>` with UCUM units, never pre-baked `_total` or unit suffixes; the port's `Scope` is the version-stamped package id the composing root admits by name; facts are event-shaped and ride counters and histograms while level-shaped measures ride pulled rows reading the composition's cells at collection cadence; every dimension key is a declared slot const carried on its own row's `Dimensions` column, so the governance leg derives view tag keys from the mounted roster and no second roster restates them; tenancy is the kernel `TenantContext` projection every job row declares and every `[04]` arm folds through the kernel `InstrumentSet.Tags` entry, so this page holds no tenant key, no baggage read, and no zero sentinel, and the fan projecting a message envelope brackets it in its own `TenantContext.Stamp` before folding — the sink already stamps the frame onto every message envelope, so a projection reading the ambient row inside that bracket attributes evidence to the tenant that produced it rather than to whichever tenant the draining thread happens to carry; a scalar pulled level carries no call-site tag, because a tag whose value flips between collections strands the previous value's series live forever, so a level holding one reading per basis or process is a keyed `Levels` family whose tag IS its cell key and whose reader emits every held key at collection — provenance beyond that key rides the event-shaped rows that carry it.
+- Boundary: instrument names are dotted `rasm.fabrication.<domain>.<measure>` with UCUM units, never pre-baked `_total` or unit suffixes; the port's `Scope` is the version-stamped package id the composing root admits by name; facts are event-shaped and ride counters and histograms while level-shaped measures ride pulled rows reading the composition's cells at collection cadence; every dimension key is a declared slot const on its own row's `Dimensions` column, so the governance leg derives view tag keys from the mounted roster and no second roster restates them; tenancy is the kernel `TenantContext` projection every job row declares, so this page holds no tenant key, no baggage read, and no zero sentinel; a scalar pulled level carries no call-site tag, because a tag whose value flips between collections strands the previous value's series live forever — a level holding one reading per basis or process is a keyed `Levels` family whose tag IS its cell key, and provenance beyond that key rides the event-shaped rows that carry it.
 
 ```csharp signature
 public static partial class FabricationInstruments {
@@ -508,67 +524,99 @@ public static partial class FabricationInstruments {
     // levels read at collection cadence with their cell key as their only tag, so a tenant column there declares
     // a key no reader can emit — the shop machine and the wear basis they hold are shop state, not job state.
     public static readonly Seq<InstrumentSpec> Rows = Seq(
-        InstrumentSpec.Count(ToolAssessments, "{assessment}", "wear assessments settled at a critical state by basis and maintenance disposition", MeasureForm.Whole, TenantContext.TenantSlot, BasisSlot, ActionSlot),
-        InstrumentSpec.Advised(ToolWear, "1", "remaining-life fraction at the critical wear state", MeasureForm.Real, Buckets.Fractions, TenantContext.TenantSlot, BasisSlot, ActionSlot),
-        InstrumentSpec.Advised(ToolRefreshAge, "s", "interval between successive telemetry catalog refreshes", MeasureForm.Real, Buckets.RefreshSeconds),
-        InstrumentSpec.Distribution(FitResidual, "1", "RMS residual of the wear and machinability power-law fits", MeasureForm.Real, TenantContext.TenantSlot, ModelSlot),
-        InstrumentSpec.Distribution(FitQuality, "1", "coefficient of determination of the machinability fit", MeasureForm.Real, TenantContext.TenantSlot, ModelSlot),
-        InstrumentSpec.Count(ProbeFeatures, "{feature}", "inspected features by conformance verdict", MeasureForm.Whole, TenantContext.TenantSlot, VerdictSlot),
-        InstrumentSpec.Advised(ProbeDeviation, "mm", "worst absolute measured deviation per inspection", MeasureForm.Real, Buckets.Millimeters, TenantContext.TenantSlot),
-        InstrumentSpec.Count(CapabilityStudies, "{study}", "capability studies settled by SPC conformance verdict", MeasureForm.Whole, TenantContext.TenantSlot, VerdictSlot),
-        InstrumentSpec.Distribution(CapabilityIndex, "1", "capability and performance index values by metric row", MeasureForm.Real, TenantContext.TenantSlot, MetricSlot),
-        InstrumentSpec.Count(CapabilityViolations, "{violation}", "SPC rule violations per study", MeasureForm.Whole, TenantContext.TenantSlot),
-        InstrumentSpec.Count(RemovalVerifications, "{verification}", "material-removal verifications settled by gouge-finding verdict", MeasureForm.Whole, TenantContext.TenantSlot, VerdictSlot),
-        InstrumentSpec.Count(RemovalDefects, "{finding}", "gouge findings per material-removal verification", MeasureForm.Whole, TenantContext.TenantSlot),
-        InstrumentSpec.Distribution(RemovalResidual, "mm3", "uncut and overcut voxel volume per verification", MeasureForm.Real, TenantContext.TenantSlot, ResidueSlot),
-        InstrumentSpec.Advised(RemovalAirCut, "1", "air-cut fraction of swept program motion per verification", MeasureForm.Real, Buckets.Fractions, TenantContext.TenantSlot),
-        InstrumentSpec.Advised(CycleDuration, "s", "simulated modal cycle time per program", MeasureForm.Real, Buckets.CycleSeconds, TenantContext.TenantSlot),
-        InstrumentSpec.Distribution(CycleEnergy, "kW.h", "simulated machine energy per program", MeasureForm.Real, TenantContext.TenantSlot),
-        InstrumentSpec.Distribution(CycleDistance, "mm", "simulated cutting-motion path length per program", MeasureForm.Real, TenantContext.TenantSlot),
-        InstrumentSpec.Distribution(EstimateMoney, "{money}", "signed money ledger total in receipt currency", MeasureForm.Real, TenantContext.TenantSlot, ScopeSlot, CurrencySlot),
-        InstrumentSpec.Distribution(EstimateCarbon, "kg", "carbon ledger total as kilograms CO2-equivalent", MeasureForm.Real, TenantContext.TenantSlot, ScopeSlot),
-        InstrumentSpec.Advised(EstimateClock, "s", "estimated machine clock per subject", MeasureForm.Real, Buckets.CycleSeconds, TenantContext.TenantSlot, BackedSlot),
-        InstrumentSpec.Count(FleetMatches, "{match}", "machine matches assessed by process and ranking evidence", MeasureForm.Whole, TenantContext.TenantSlot, ProcessSlot, EvidenceSlot),
-        InstrumentSpec.Advised(FleetUtilization, "1", "machine load factor at match assessment", MeasureForm.Real, Buckets.Fractions, TenantContext.TenantSlot, ProcessSlot),
-        InstrumentSpec.Advised(FleetEffectiveness, "1", "machine effectiveness fraction at match assessment", MeasureForm.Real, Buckets.Fractions, TenantContext.TenantSlot, ProcessSlot),
+        InstrumentSpec.Create(ToolAssessments, InstrumentKind.Count, MeasureForm.Whole, "{assessment}",
+            "wear assessments settled at a critical state by basis and maintenance disposition", Seq(TenantContext.TenantSlot, BasisSlot, ActionSlot), None, None, None),
+        InstrumentSpec.Create(ToolWear, InstrumentKind.Distribution, MeasureForm.Real, "1",
+            "remaining-life fraction at the critical wear state", Seq(TenantContext.TenantSlot, BasisSlot, ActionSlot), Some(Buckets.Fractions), None, None),
+        InstrumentSpec.Create(ToolRefreshAge, InstrumentKind.Distribution, MeasureForm.Real, "s",
+            "interval between successive telemetry catalog refreshes", Seq<string>(), Some(Buckets.RefreshSeconds), None, None),
+        InstrumentSpec.Create(FitResidual, InstrumentKind.Distribution, MeasureForm.Real, "1",
+            "RMS residual of the wear and machinability power-law fits", Seq(TenantContext.TenantSlot, ModelSlot), None, None, None),
+        InstrumentSpec.Create(FitQuality, InstrumentKind.Distribution, MeasureForm.Real, "1",
+            "coefficient of determination of the machinability fit", Seq(TenantContext.TenantSlot, ModelSlot), None, None, None),
+        InstrumentSpec.Create(ProbeFeatures, InstrumentKind.Count, MeasureForm.Whole, "{feature}",
+            "inspected features by conformance verdict", Seq(TenantContext.TenantSlot, VerdictSlot), None, None, None),
+        InstrumentSpec.Create(ProbeDeviation, InstrumentKind.Distribution, MeasureForm.Real, "mm",
+            "worst absolute measured deviation per inspection", Seq(TenantContext.TenantSlot), Some(Buckets.Millimeters), None, None),
+        InstrumentSpec.Create(CapabilityStudies, InstrumentKind.Count, MeasureForm.Whole, "{study}",
+            "capability studies settled by SPC conformance verdict", Seq(TenantContext.TenantSlot, VerdictSlot), None, None, None),
+        InstrumentSpec.Create(CapabilityIndex, InstrumentKind.Distribution, MeasureForm.Real, "1",
+            "capability and performance index values by metric row", Seq(TenantContext.TenantSlot, MetricSlot), None, None, None),
+        InstrumentSpec.Create(CapabilityViolations, InstrumentKind.Count, MeasureForm.Whole, "{violation}",
+            "SPC rule violations per study", Seq(TenantContext.TenantSlot), None, None, None),
+        InstrumentSpec.Create(RemovalVerifications, InstrumentKind.Count, MeasureForm.Whole, "{verification}",
+            "material-removal verifications settled by gouge-finding verdict", Seq(TenantContext.TenantSlot, VerdictSlot), None, None, None),
+        InstrumentSpec.Create(RemovalDefects, InstrumentKind.Count, MeasureForm.Whole, "{finding}",
+            "gouge findings per material-removal verification", Seq(TenantContext.TenantSlot), None, None, None),
+        InstrumentSpec.Create(RemovalResidual, InstrumentKind.Distribution, MeasureForm.Real, "mm3",
+            "uncut and overcut voxel volume per verification", Seq(TenantContext.TenantSlot, ResidueSlot), None, None, None),
+        InstrumentSpec.Create(RemovalAirCut, InstrumentKind.Distribution, MeasureForm.Real, "1",
+            "air-cut fraction of swept program motion per verification", Seq(TenantContext.TenantSlot), Some(Buckets.Fractions), None, None),
+        InstrumentSpec.Create(CycleDuration, InstrumentKind.Distribution, MeasureForm.Real, "s",
+            "simulated modal cycle time per program", Seq(TenantContext.TenantSlot), Some(Buckets.CycleSeconds), None, None),
+        InstrumentSpec.Create(CycleEnergy, InstrumentKind.Distribution, MeasureForm.Real, "kW.h",
+            "simulated machine energy per program", Seq(TenantContext.TenantSlot), None, None, None),
+        InstrumentSpec.Create(CycleDistance, InstrumentKind.Distribution, MeasureForm.Real, "mm",
+            "simulated cutting-motion path length per program", Seq(TenantContext.TenantSlot), None, None, None),
+        InstrumentSpec.Create(EstimateMoney, InstrumentKind.Distribution, MeasureForm.Real, "{money}",
+            "signed money ledger total in receipt currency", Seq(TenantContext.TenantSlot, ScopeSlot, CurrencySlot), None, None, None),
+        InstrumentSpec.Create(EstimateCarbon, InstrumentKind.Distribution, MeasureForm.Real, "kg",
+            "carbon ledger total as kilograms CO2-equivalent", Seq(TenantContext.TenantSlot, ScopeSlot), None, None, None),
+        InstrumentSpec.Create(EstimateClock, InstrumentKind.Distribution, MeasureForm.Real, "s",
+            "estimated machine clock per subject", Seq(TenantContext.TenantSlot, BackedSlot), Some(Buckets.CycleSeconds), None, None),
+        InstrumentSpec.Create(FleetMatches, InstrumentKind.Count, MeasureForm.Whole, "{match}",
+            "machine matches assessed by process and ranking evidence", Seq(TenantContext.TenantSlot, ProcessSlot, EvidenceSlot), None, None, None),
+        InstrumentSpec.Create(FleetUtilization, InstrumentKind.Distribution, MeasureForm.Real, "1",
+            "machine load factor at match assessment", Seq(TenantContext.TenantSlot, ProcessSlot), Some(Buckets.Fractions), None, None),
+        InstrumentSpec.Create(FleetEffectiveness, InstrumentKind.Distribution, MeasureForm.Real, "1",
+            "machine effectiveness fraction at match assessment", Seq(TenantContext.TenantSlot, ProcessSlot), Some(Buckets.Fractions), None, None),
         // Keyed families, not scalars: one shop runs many processes and many wear bases at once, so a scalar cell
         // reports whichever assessment landed last with nothing separating them. The absent tenant slot is
         // STRUCTURAL — `LevelCells` projects a keyed entry as one `Measurement<T>` tagging the declared tag name
         // with the cell key, so a slot beyond that tag exports nothing and would strand a derived view key.
-        InstrumentSpec.Levels(FleetLoad, "1", "latest machine load factor at match assessment by process", MeasureForm.Real, ProcessSlot),
-        InstrumentSpec.Levels(ToolFloor, "1", "latest remaining-life fraction at the critical wear state by basis", MeasureForm.Real, BasisSlot),
-        InstrumentSpec.Advised(RunDuration, "s", "fabrication run wall duration", MeasureForm.Real, Buckets.CycleSeconds, TenantContext.TenantSlot, ProcessSlot, VerificationSlot),
-        InstrumentSpec.Count(RunArtifacts, "{artifact}", "content-keyed artifacts produced by egress kind", MeasureForm.Whole, TenantContext.TenantSlot, KindSlot),
-        InstrumentSpec.Count(RunWarnings, "{warning}", "run warnings accumulated on the evidence receipt", MeasureForm.Whole, TenantContext.TenantSlot),
-        InstrumentSpec.Distribution(TravelerAmendments, "{amendment}", "as-run amendment chain length at traveler seal", MeasureForm.Whole, TenantContext.TenantSlot),
-        InstrumentSpec.Count(DeliveryPrograms, "{program}", "posted programs delivered to controllers by custody verdict", MeasureForm.Whole, TenantContext.TenantSlot, KindSlot, VerdictSlot, ControllerSlot),
-        InstrumentSpec.Count(EngineSteps, "{step}", "solver-internal step counts by solver and phase", MeasureForm.Whole, TenantContext.TenantSlot, SolverSlot, PhaseSlot))
+        InstrumentSpec.Create(FleetLoad, InstrumentKind.Levels, MeasureForm.Real, "1",
+            "latest machine load factor at match assessment by process", Seq<string>(), None, Some(ProcessSlot), None),
+        InstrumentSpec.Create(ToolFloor, InstrumentKind.Levels, MeasureForm.Real, "1",
+            "latest remaining-life fraction at the critical wear state by basis", Seq<string>(), None, Some(BasisSlot), None),
+        InstrumentSpec.Create(RunDuration, InstrumentKind.Distribution, MeasureForm.Real, "s",
+            "fabrication run wall duration", Seq(TenantContext.TenantSlot, ProcessSlot, VerificationSlot), Some(Buckets.CycleSeconds), None, None),
+        InstrumentSpec.Create(RunArtifacts, InstrumentKind.Count, MeasureForm.Whole, "{artifact}",
+            "content-keyed artifacts produced by egress kind", Seq(TenantContext.TenantSlot, KindSlot), None, None, None),
+        InstrumentSpec.Create(RunWarnings, InstrumentKind.Count, MeasureForm.Whole, "{warning}",
+            "run warnings accumulated on the evidence receipt", Seq(TenantContext.TenantSlot), None, None, None),
+        InstrumentSpec.Create(TravelerAmendments, InstrumentKind.Distribution, MeasureForm.Whole, "{amendment}",
+            "as-run amendment chain length at traveler seal", Seq(TenantContext.TenantSlot), None, None, None),
+        InstrumentSpec.Create(DeliveryPrograms, InstrumentKind.Count, MeasureForm.Whole, "{program}",
+            "posted programs delivered to controllers by custody verdict", Seq(TenantContext.TenantSlot, KindSlot, VerdictSlot, ControllerSlot), None, None, None),
+        InstrumentSpec.Create(EngineSteps, InstrumentKind.Count, MeasureForm.Whole, "{step}",
+            "solver-internal step counts by solver and phase", Seq(TenantContext.TenantSlot, SolverSlot, PhaseSlot), None, None, None))
         // Sustainability rows generate from the unit axis, so every passport measure sharing a unit shares one
         // stream under its measure tag and a measure in a new unit arrives with its row already mounted.
-        + toSeq(SustainabilityQuantity.Items).Map(static row => InstrumentSpec.Distribution(
-            row.Instrument, row.Unit, "sealed passport sustainability evidence by measure", MeasureForm.Real,
-            TenantContext.TenantSlot, MeasureSlot));
+        + toSeq(SustainabilityQuantity.Items).Map(static row => InstrumentSpec.Create(
+            row.Instrument, InstrumentKind.Distribution, MeasureForm.Real, row.Unit,
+            "sealed passport sustainability evidence by measure", Seq(TenantContext.TenantSlot, MeasureSlot),
+            None, None, None));
 
     // Rows, the engine trace planes, and the `[08]` pack over them leave as ONE downward fact, so the mounting
     // root proves the pack and admits every solver scope in one fold binding these handles; no root references
     // this package, so this column carries the roster. Forward reach stays safe by construction: the pack reads
     // consts, which trigger no static construction, this factory is a method the pack's own init never calls,
     // and `FabricationTrace` materializes its roster at the composition that reads it.
-    public static TelemetryContributorPort Telemetry(string version, string schemaUrl = TelemetryIdentity.SchemaUrl) =>
+    public static TelemetryContributorPort Telemetry(string version) =>
         new(Scope: TelemetrySource.Fabrication.Key, Version: version, Instruments: Rows,
             Planes: toSeq(FabricationTrace.Scopes), Classifications: FabricationClassified.Values,
-            SchemaUrl: schemaUrl, Board: FabricationDescriptors.Pack);
+            Board: FabricationDescriptors.Pack);
 }
 ```
 
 ## [04]-[FACT_PROJECTION]
 
-- Owner: `FabricationInstruments.Arms` — the contributed kind-arm table over the Fabrication kind registry, the roster name the AppHost `[CONTRIBUTED_ARMS]` contributor table mounts; `FabricationInstruments.Facts` — the typed-fact twin table the same fan mounts beside it.
+- Owner: `FabricationInstruments.Arms` — the contributed kind-arm table over the Fabrication kind registry, one of the tables the composition root hands `InstrumentFan.Mount` on its `contributed` argument; `FabricationInstruments.Facts` — the typed-fact twin table the same fan mounts beside it.
 - Entry: `Arms` enters `ReceiptFan.Of` as one contributed table beside the Persistence `StoreInstruments.Arms` precedent and merges onto the fan's frozen arm map, so `ReceiptFan.Project` folds every message envelope the sink emits into instrument writes with zero call-site metering; a duplicate kind across any two tables faults at the frozen merge; `Facts` enters the same `Of`'s typed side through `ReceiptFan.Arm`, covering the kinds whose emission and projection share the suite process — an in-process round reads its fields off the typed case the emitter just built, and every uncovered kind rides the typed dispatch's own wire fallthrough.
-- Auto: dimension values ride the payload's own key-scalar fields, so tag vocabularies stay bounded by the union's admission; every tag set materializes through the kernel `InstrumentSet.Tags` entry, which folds the ambient `TenantContext` partition in beside the arm's own slots, so a partitioned shop attributes every job row and a single-tenant one mints no dimension at all, while a hand-spelled `KeyValuePair` array beside it re-mints the one materialization the capsule owns and drops the partition on the arm that forgets it; a kind without a table row stays wire-only by declaration, and a fact field without an arm write stays wire evidence — `ConservativeRemaining` carries basis-keyed units one UCUM histogram cannot hold, `Score` is objective-relative, and the `Produced` and `Declarations` counts derive in the message envelope store; the tool-wear and fleet-match arms also write the composition level cells the `[03]` pulled rows bind, so a level is current at every collection; the tool-wear, engine, and quality-seal arms each re-admit their key through the generated keyed `Validate` — disposition, phase, and quantity — so a dimension derives from its one vocabulary rather than a second wire field and an unadmitted key refuses rather than writing a value no partition selects and no roster row mounts; an outcome-partitioned population stamps its verdict on the one write that counts it, so a share's good half can never miss an occurrence its denominator recorded.
+- Auto: dimension values ride the payload's own key-scalar fields, so tag vocabularies stay bounded by the union's admission; every tag set materializes through the kernel `InstrumentSet.Tags` entry, which folds the ambient `TenantContext` partition in beside the arm's own slots, so a partitioned shop attributes every job row and a single-tenant one mints no dimension at all, while a hand-spelled `KeyValuePair` array beside it re-mints the one materialization the capsule owns and drops the partition on the arm that forgets it; a kind without a table row stays wire-only by declaration, and a fact field without an arm write stays wire evidence — `ConservativeRemaining` carries basis-keyed units one UCUM histogram cannot hold, `Score` is objective-relative, and the `Produced` and `Declarations` counts derive in the message envelope store; an arm re-admitting a wire key through its vocabulary's generated `Validate` derives the dimension from that one roster rather than a second wire field, so an unadmitted key refuses instead of writing a value no partition selects and no roster row mounts; an outcome-partitioned population stamps its verdict on the one write that counts it, so a share's good half can never miss an occurrence its denominator recorded.
 - Packages: LanguageExt.Core, Rasm, BCL inbox.
 - Growth: a new projected kind is one table row here and its instrument row at `[03]-[INSTRUMENT_ROSTER]`.
-- Boundary: arm bodies are the one place fact wire names meet instrument writes — the platform-forced statement seam — and an arm re-reads only the one key its own tag vocabulary owns, never the payload fields its typed fact already admitted; arm execution rides the receipt-tap subscription the AppHost fan mounts on its hook rail, so a fan failure is that rail's shielded fault and never re-enters the emitting fold, and that fan brackets each message envelope in its OWN `TenantContext.Stamp` before projecting, so the ambient row every arm folds is the tenant the sink already stamped rather than whichever partition the draining thread inherited; the two keyed level families and the catalog-cadence row carry no partition, because a keyed level's cell key IS its only tag and a provider refresh interval belongs to the shop rather than to a job; the two per-event arms read the kernel `InstrumentSet.Enabled` listener gate behind their own admissions, so a quiet process skips their payload reads and tag mints while a malformed message envelope still refuses, and a per-run arm takes no gate because its probe costs what its skipped write costs; every write returns the kernel's typed rail and each arm folds its whole write set onto ONE `Fin`, so a refused write short-circuits its own arm and rides `InstrumentArm`'s own `Fin<Unit>` out through `ReceiptFan.Project` to the AppHost fan's rail-shaped `Observe`, which parks it point-attributed beside every other tap fault — no arm reaches a discard site and no folder mints a refusal cell of its own.
+- Boundary: arm bodies are the one place fact wire names meet instrument writes — the platform-forced statement seam — and an arm re-reads only the one key its own tag vocabulary owns, never the payload fields its typed fact already admitted; arm execution rides the receipt-tap subscription the AppHost fan mounts on its hook rail, so a fan failure is that rail's shielded fault and never re-enters the emitting fold, and that fan brackets each message envelope in its OWN `TenantContext.Stamp` before projecting; a refused write short-circuits its own arm and rides `InstrumentArm`'s `Fin<Unit>` out through `ReceiptFan.Project` to that fan's rail-shaped `Observe`, which parks it point-attributed beside every other tap fault — no arm reaches a discard site and no folder mints a refusal cell of its own.
 
 ```csharp signature
 public static partial class FabricationInstruments {
@@ -588,13 +636,13 @@ public static partial class FabricationInstruments {
             [FactKind.ToolWear] = static (set, payload) =>
                 from edge in payload.GetProperty(FactField.Basis).GetString() is { } key
                     ? Fin.Succ(key)
-                    : Fin.Fail<string>(new Fault.InvalidValue(Label: BasisSlot, Requirement: "a basis key on every wear assessment"))
+                    : Fin.Fail<string>(new KernelFault.InvalidValue(Label: BasisSlot, Requirement: "a basis key on every wear assessment"))
                 // Dispositions re-admit through the generated keyed Validate exactly as the engine and quality-seal
                 // arms admit theirs, so the [08] in-service partition selects on a key the vocabulary owns and an
                 // unadmitted disposition refuses here rather than reporting a flat share of zero forever.
                 from disposition in MaintenanceDisposition.Validate(payload.GetProperty(FactField.Action).GetString(), null, out MaintenanceDisposition? row) is null
                     ? Fin.Succ(row!)
-                    : Fin.Fail<MaintenanceDisposition>(new Fault.InvalidValue(Label: ActionSlot, Requirement: "an admitted maintenance disposition key"))
+                    : Fin.Fail<MaintenanceDisposition>(new KernelFault.InvalidValue(Label: ActionSlot, Requirement: "an admitted maintenance disposition key"))
                 from done in set.Enabled(ToolAssessments, ToolWear, FitResidual, ToolFloor)
                     ? from assessment in Fin.Succ(InstrumentSet.Tags(TenantContext.Current, (BasisSlot, edge), (ActionSlot, disposition.Key)))
                       from remaining in Fin.Succ(payload.GetProperty(FactField.FractionRemaining).GetDouble())
@@ -658,7 +706,7 @@ public static partial class FabricationInstruments {
             [FactKind.FleetMatch] = static (set, payload) =>
                 from machine in payload.GetProperty(FactField.Process).GetString() is { } key
                     ? Fin.Succ(key)
-                    : Fin.Fail<string>(new Fault.InvalidValue(Label: ProcessSlot, Requirement: "a process key on every fleet match"))
+                    : Fin.Fail<string>(new KernelFault.InvalidValue(Label: ProcessSlot, Requirement: "a process key on every fleet match"))
                 from process in Fin.Succ(InstrumentSet.Tags(TenantContext.Current, (ProcessSlot, machine)))
                 from utilization in Fin.Succ(payload.GetProperty(FactField.Utilization).GetDouble())
                 from _ in set.Write(FleetMatches, 1L,
@@ -684,7 +732,7 @@ public static partial class FabricationInstruments {
                     SustainabilityQuantity.Validate(row.GetProperty(FactField.Quantity).GetString(), null, out SustainabilityQuantity? quantity) is null
                         ? set.Write(quantity!.Instrument, row.GetProperty(FactField.Value).GetDouble(),
                             InstrumentSet.Tags(TenantContext.Current, (MeasureSlot, row.GetProperty(FactField.Measure).GetString())))
-                        : Fin.Fail<Unit>(new Fault.InvalidValue(
+                        : Fin.Fail<Unit>(new KernelFault.InvalidValue(
                             Label: nameof(SustainabilityQuantity), Requirement: "an admitted sustainability quantity key"))).As()
                     .Map(static _ => unit),
             [FactKind.Traveler] = static (set, payload) =>
@@ -696,7 +744,7 @@ public static partial class FabricationInstruments {
                     (ControllerSlot, payload.GetProperty(FactField.Controller).GetString()))),
             [FactKind.Engine] = static (set, payload) =>
                 EnginePhase.Validate(payload.GetProperty(FactField.Phase).GetString(), null, out EnginePhase? phase) is not null
-                    ? Fin.Fail<Unit>(new Fault.InvalidValue(Label: EngineSteps, Requirement: "an admitted engine phase key"))
+                    ? Fin.Fail<Unit>(new KernelFault.InvalidValue(Label: EngineSteps, Requirement: "an admitted engine phase key"))
                     : set.Enabled(EngineSteps)
                     ? set.Write(EngineSteps, payload.GetProperty(FactField.Count).GetInt64(), InstrumentSet.Tags(TenantContext.Current,
                         (SolverSlot, phase!.Solver.Key),
@@ -806,56 +854,104 @@ public static class FabricationTrace {
 }
 ```
 
-## [07]-[HOOK_ROSTER]
+## [07]-[HOOK_RAIL]
 
-- Owner: `FabricationPoint` — the `[SmartEnum<string>]` point vocabulary carrying the kernel `HookModality` column; `FabricationHooks` — the typed hook-point roster over the run spine, one `HookPoint<TFact>` per row with its payload closed at declaration.
-- Cases: `rasm.fabrication.run.admission` (veto over `FabricationInput`) · `rasm.fabrication.derive.stage` (observe over `PlannedStep`) · `rasm.fabrication.egress.mint` (veto over `ContentKey`) · `rasm.fabrication.verify.verdict` (replay over `FabricationResult.VerificationResult`) · `rasm.fabrication.delivery.handoff` (observe over `RunEvidence`).
-- Entry: `FabricationHooks.Live()` mints the roster by seating one kernel point per `FabricationPoint` row; `Points` hands the point set to `HookRegistry.Mount` at the app root beside the AppHost rail and the receipt-tap observe row.
-- Auto: every point fires from the run spine — admission before dispatch, egress mint per produced key, stage and verdict off the settled result, hand-off after evidence — so any app observes, vetoes, or replays a run with zero emit calls in domain kernels; subscriber isolation, veto short-circuit, and the bounded replay buffer are the kernel capsule law, faults parked on the roster cell; a transforming veto reaches the guarded seam because the capsule hands the guarded body its admitted fact.
-- Packages: LanguageExt.Core, BCL inbox.
-- Growth: a new point is one `FabricationPoint` row, one roster field with its `Live` seat and `Points` entry, and one fire site on the run spine.
-- Boundary: hook scope rides the `FabricationRuntime` instance, so two apps composing the library never share a mutable registry or shadow each other's subscribers; ids and modalities live on the roster rows alone, so a `Live` seat re-spelling either is the forked-vocabulary defect; ids obey the four-segment `rasm.<pkg>.<domain>.<point>` grammar the `HookId` admission enforces, and a veto refusal returns on the run's own rail as the subscriber's typed fault.
+- Owner: `FabricationPoint` — the `[SmartEnum<string>]` point vocabulary keyed `rasm.fabrication.<domain>.<point>`, realizing the kernel `IHookRoster<FabricationPoint>` floor with a `CapabilitySet<HookModality>` column and a plane answer; `FabricationHookFact` — the closed spine-payload union realizing `IHookFact<FabricationPoint>`, its `At` column the primary case-to-row correspondence; `FabricationHooks` — the composition entry minting the ONE kernel `HookRail<FabricationPoint, FabricationHookFact, TelemetrySource>`. Seats, veto folding, bounded replay, fork-shielded isolation, detach custody, owner-scoped release, and the bounded `FaultCell` all ride that rail, so this folder mints zero rail mechanism.
+- Cases: `rasm.fabrication.run.admission` veto over `FabricationInput` · `rasm.fabrication.derive.stage` observe over `PlannedStep` · `rasm.fabrication.egress.mint` veto over `ContentKey` · `rasm.fabrication.verify.verdict` replay over `FabricationResult.VerificationResult` · `rasm.fabrication.delivery.handoff` observe over `RunEvidence`. Every row admits `HookModality.Observe` beside whatever else it holds, so a plugin watching admission or egress attaches on the same point its veto governs rather than demanding a shadow seat.
+- Entry: `FabricationHooks.Live(key, gates, taps, cell)` mints the rail once at composition against the evidence cell the composing app hands it; `rail.Fire(fact.At, fact, key)` is the spine's raise and the guarded arity `rail.Fire(fact.At, fact, key, body)` the one unwrap a veto site takes; `rail.Points` is the census `HookRegistry.Mount` freezes at the app root beside the AppHost rail and the receipt-tap observe row; `rail.Release(TelemetrySource.Fabrication, key)` drops this package's subscriptions alone.
+- Auto: `At` is the primary correspondence and its generated total `Map` breaks at compile time on a case with no row, so `Seats` derives rather than mirrors and no spine site names a point; ids derive from each row's own key through one `Items`-built index, so a seat re-spells neither id nor modality; the run spine fires every point — admission before dispatch, egress mint per produced key, stage and verdict off the settled result, hand-off after evidence — so any app observes, vetoes, or replays a run with zero emit calls in domain kernels.
+- Packages: Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Growth: a new point is one `FabricationPoint` row, one `FabricationHookFact` case with its `At` arm, and one fire site on the run spine; delivery semantics are the kernel modality rows.
+- Law: `FabricationHookFact` and `[02]`'s `FabricationFact` survive as TWO unions because their REGIMES differ, never their subject — a hook fact hands a whole domain aggregate in process to a subscriber that may refuse it, while a metric fact flattens to primitives and crosses the wire under a kind discriminator. Merging them serializes `FabricationInput` onto the receipt rail and hands a veto gate a projection it refuses nothing with.
+- Law: `EgressMint` is REFUSAL-ONLY. `ContentKey` addresses its own bytes, so a gate rewriting the admitted key forges an identity nothing produced — the same forgery `[06]-[RUN_DISPATCH]` already rails a lineage cycle as — and the spine proves it at the site by refusing an admitted key differing from the one it fired. `Admission` carries no such law: rewriting the request is what an admission veto exists for, and its site threads the admitted input onward.
+- Law: NAMED LOSS from composing the kernel rail — the per-point FACT TYPE. Each named `HookPoint<TFact>` field refused every sibling payload at compile time; under one rail every point shares `FabricationHookFact` and subscribers discriminate on the case. What survives is stronger: `At` fixes the case-to-row pairing at compile time and the kernel gates `Seats` TWICE per fire — at entry and on the veto fold's product — so per-point narrowing moved off five field declarations onto one generated map. WITNESS — the five `HookPoint<TFact>` columns, the five-line `Live`, the five-entry `Points` census, and the private `Seat<TFact>` mint all delete onto `FabricationRail.Of`.
+- Boundary: hook scope rides the `FabricationRuntime` instance, so two apps composing the library never share a mutable registry or shadow each other's subscribers; ids obey the four-segment `rasm.<pkg>.<domain>.<point>` grammar `HookId` admission enforces; a subscriber fault parks as `IsolatedFault` on the composition's own bounded cell and the emitter is untouched, the ring shedding oldest-first rather than growing for process lifetime; a veto refusal returns on the run's own rail as the subscriber's typed fault. Spans are absent by design — admitted band scopes are the solver lanes at `[06]`, so `Plane` is `None` on every row, no `TraceScope` derives off these ids, and `Live` binds no `IHookSpan`.
 
 ```csharp signature
-// Point roster keyed rasm.fabrication.<domain>.<point> — the kernel HookId four-segment grammar. Modality is the
-// kernel column deciding veto admission and replay retention, so id and delivery semantics belong to the row and
-// a `Live()` seat re-spelling either forks the vocabulary a construction literal would own.
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// Kernel rail closed over this folder's roster/fact/owner triple — one alias set, so every signature reads the
+// domain name rather than the three-parameter spelling.
+using FabricationGate = Rasm.Domain.HookGate<Rasm.Fabrication.Process.FabricationPoint, Rasm.Fabrication.Process.FabricationHookFact, Rasm.Domain.TelemetrySource>;
+using FabricationObserver = Rasm.Domain.HookTap<Rasm.Fabrication.Process.FabricationPoint, Rasm.Fabrication.Process.FabricationHookFact, Rasm.Domain.TelemetrySource>;
+using FabricationRail = Rasm.Domain.HookRail<Rasm.Fabrication.Process.FabricationPoint, Rasm.Fabrication.Process.FabricationHookFact, Rasm.Domain.TelemetrySource>;
+
+// --- [TYPES] --------------------------------------------------------------------------------
+// Point roster keyed rasm.fabrication.<domain>.<point> — the kernel HookId four-segment grammar. Realizing
+// `IHookRoster` is what lets the ONE kernel rail take this roster as its type parameter and mint seats from
+// `Items` alone, so an inline `HookId.Create` literal at a seat has no construction path.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class FabricationPoint {
-    public static readonly FabricationPoint Admission = new("rasm.fabrication.run.admission", modality: HookModality.Veto);
-    public static readonly FabricationPoint StageAdvance = new("rasm.fabrication.derive.stage", modality: HookModality.Observe);
-    public static readonly FabricationPoint EgressMint = new("rasm.fabrication.egress.mint", modality: HookModality.Veto);
-    public static readonly FabricationPoint VerifyVerdict = new("rasm.fabrication.verify.verdict", modality: HookModality.Replay);
-    public static readonly FabricationPoint Delivery = new("rasm.fabrication.delivery.handoff", modality: HookModality.Observe);
+public sealed partial class FabricationPoint : IHookRoster<FabricationPoint> {
+    public static readonly FabricationPoint Admission =
+        new("rasm.fabrication.run.admission", CapabilitySet<HookModality>.Of(HookModality.Veto, HookModality.Observe));
+    public static readonly FabricationPoint StageAdvance =
+        new("rasm.fabrication.derive.stage", CapabilitySet<HookModality>.Of(HookModality.Observe));
+    public static readonly FabricationPoint EgressMint =
+        new("rasm.fabrication.egress.mint", CapabilitySet<HookModality>.Of(HookModality.Veto, HookModality.Observe));
+    public static readonly FabricationPoint VerifyVerdict =
+        new("rasm.fabrication.verify.verdict", CapabilitySet<HookModality>.Of(HookModality.Replay, HookModality.Observe));
+    public static readonly FabricationPoint Delivery =
+        new("rasm.fabrication.delivery.handoff", CapabilitySet<HookModality>.Of(HookModality.Observe));
 
-    public HookModality Modality { get; }
+    // Delivery capability is a SET, so a point that both vetoes and observes is one row rather than two seats, and
+    // both kernel admission gates read the modality's own `CanVeto` column instead of probing a row identity —
+    // which is what lets a plugin TAP the admission and egress gates it also vetoes.
+    public CapabilitySet<HookModality> Modalities { get; }
+
+    // Ids derive from the row's own key — the roster is already the four-segment grammar — so no row spells one
+    // twice. Items-derived index materializes on first read, never an eager fold: the generator fills `Items`
+    // from its own static constructor, so an eager field would freeze an EMPTY roster.
+    public HookId Id => Ids.Value[this];
+
+    // No point carries a PLANE: admitted band scopes are the solver lanes at `[06]`, so bracketing a spine fire
+    // names a scope no composition admitted and refuses on the kernel rail rather than tracing anything.
+    public Option<TraceScope> Plane => Option<TraceScope>.None;
+
+    private static readonly Lazy<FrozenDictionary<FabricationPoint, HookId>> Ids = new(
+        static () => Items.ToFrozenDictionary(static row => row, static row => HookId.Create(value: row.Key)),
+        LazyThreadSafetyMode.ExecutionAndPublication);
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public sealed record FabricationHooks(
-    HookPoint<FabricationInput> Admission,
-    HookPoint<PlannedStep> StageAdvance,
-    HookPoint<ContentKey> EgressMint,
-    HookPoint<FabricationResult.VerificationResult> VerifyVerdict,
-    HookPoint<RunEvidence> Delivery,
-    Atom<Seq<IsolatedFault>> Faults) {
-    public static FabricationHooks Live() {
-        Atom<Seq<IsolatedFault>> faults = Atom(Seq<IsolatedFault>());
-        return new(
-            Seat<FabricationInput>(FabricationPoint.Admission, faults),
-            Seat<PlannedStep>(FabricationPoint.StageAdvance, faults),
-            Seat<ContentKey>(FabricationPoint.EgressMint, faults),
-            Seat<FabricationResult.VerificationResult>(FabricationPoint.VerifyVerdict, faults),
-            Seat<RunEvidence>(FabricationPoint.Delivery, faults),
-            faults);
-    }
+// Spine payloads cross WHOLE — a subscriber vetoing an admission needs the request it refuses, never a metric
+// projection of it — so each case wraps the aggregate its point governs and adds no column. Value conversion
+// stays OFF: five single-payload cases otherwise mint five implicit conversions out of foreign domain types, and
+// a `ContentKey` widening silently into a hook fact is a seating the roster never declared.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record FabricationHookFact : IHookFact<FabricationPoint> {
+    private FabricationHookFact() { }
 
-    public Seq<IHookPoint> Points => Seq<IHookPoint>(Admission, StageAdvance, EgressMint, VerifyVerdict, Delivery);
+    public sealed record Admission(FabricationInput Input) : FabricationHookFact;
+    public sealed record StageAdvance(PlannedStep Step) : FabricationHookFact;
+    public sealed record EgressMint(ContentKey Produced) : FabricationHookFact;
+    public sealed record VerifyVerdict(FabricationResult.VerificationResult Verdict) : FabricationHookFact;
+    public sealed record Delivery(RunEvidence Evidence) : FabricationHookFact;
 
-    private static HookPoint<TFact> Seat<TFact>(FabricationPoint row, Atom<Seq<IsolatedFault>> faults) =>
-        new(id: HookId.Create(value: row.Key), modality: row.Modality, faults: faults);
+    // ONE fact-to-point correspondence: every spine site hands `fact.At` to the rail, so a point spelling never
+    // reaches a call site and the roster's totality is the compiler's rather than a convention's. `Seats` is the
+    // kernel seating gate `HookRail` constrains `TFact` on, derived off this same generated map — the rail reads
+    // it at entry AND again on the veto fold's product, so a gate rewriting to a sibling case refuses there.
+    public bool Seats(FabricationPoint at) => at == At;
+
+    public FabricationPoint At => Map(
+        admission:     FabricationPoint.Admission,
+        stageAdvance:  FabricationPoint.StageAdvance,
+        egressMint:    FabricationPoint.EgressMint,
+        verifyVerdict: FabricationPoint.VerifyVerdict,
+        delivery:      FabricationPoint.Delivery);
+}
+
+// --- [SERVICES] -----------------------------------------------------------------------------
+// Composition entry over the kernel rail. Evidence cells arrive WHOLE from the composition — cap and stamp clock
+// together — so two runtimes in one process hold two bounded cells and a run replaying under a fake
+// `TimeProvider` reads deterministic parked evidence at every seat, while an absent cell takes the kernel's own
+// default depth. Kernel composition refusals remain exact on the returned rail.
+public static class FabricationHooks {
+    public static Fin<FabricationRail> Live(
+        Op key, Seq<FabricationGate> gates = default, Seq<FabricationObserver> taps = default,
+        Option<FaultCell> cell = default) =>
+        FabricationRail.Of(key, gates, taps, Option<IHookSpan>.None, cell);
 }
 ```
 
@@ -867,7 +963,7 @@ public sealed record FabricationHooks(
 - Auto: a panel naming an instrument alone reads the kernel widget projection for that row's measurement shape, so only a deliberate reading spells a `PanelKind`; the AppHost alert rail and the deploy-plane dashboard compile consume the same pack, so a roster change re-derives verdicts, alerts, and panels in one diff and a hand-authored panel or rule beside it is the drift defect; burn windows, factors, severities, hold, tone, and the budget share all derive from the kernel burn table, and every objective omits its compliance window so kernel admission canonicalizes the one estate default — no threshold, lane, window pair, or calendar literal lands here.
 - Packages: Rasm, LanguageExt.Core, NodaTime.
 - Growth: a new shop objective is one `Objective` row over an existing indicator shape, and a share over an already-fanned population needs no roster edit at all; a new board panel is one `PanelSpec` on the pack, and a whole passport panel family is one `SustainabilityQuantity` row; a new indicator shape is a kernel `Sli` case breaking every compile leg at once.
-- Boundary: indicator, severity, panel, descriptor-row, and burn vocabularies are the kernel capsule's and cross the language boundary as values, never types; a success share is a partition over the ONE counter its outcome dimension already fans — a good-half twin doubles the series the roster mounts and strands its denominator on the next arm edit — while `Ratio` stays reserved for genuinely independent counters and a saturation indicator names one pulled level against a bound because a load or life reading forms no counter pair, its `LevelBreach` column carrying the direction so a utilization ceiling and a remaining-life floor need no second shape; a partition's good set is derived where a vocabulary owns the verdict and named off the axis const where the population itself owns it, never spelled as a value literal; every named series is written by an arm at `[04]` on every occurrence, so no denominator depends on a veto path; the shop's two headroom levels are KEYED families rather than scalars, so a floor holds per wear basis and a load per process instead of every assessment overwriting one cell, and each arm admits its key on the typed rail before it writes; the pack's boards and alerts stay descriptor data — query dialect, datasource binding, provisioning, and delivery routing are the deploy plane's, and the pack's own `Wire` column spells `fabrication.slo`, the provenance key that plane's closed tuple admits this projection under.
+- Boundary: indicator, severity, panel, descriptor-row, and burn vocabularies are the kernel capsule's and cross the language boundary as values, never types; a success share is a partition over the ONE counter its outcome dimension already fans — a good-half twin doubles the series the roster mounts and strands its denominator on the next arm edit — while `Ratio` stays reserved for genuinely independent counters and a saturation indicator names one pulled level against a bound, because a load or life reading forms no counter pair; a partition's good set is derived where a vocabulary owns the verdict and named off the axis const where the population itself owns it, never spelled as a value literal; every named series is written by an arm at `[04]` on every occurrence, so no denominator depends on a veto path; the pack's boards and alerts stay descriptor data — query dialect, datasource binding, provisioning, and delivery routing are the deploy plane's.
 
 ```csharp signature
 public static class FabricationDescriptors {

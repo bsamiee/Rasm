@@ -19,6 +19,7 @@ Every route folds its termination verdict, the objective, and the maximum constr
 - Auto: the retained-solver payload's PRESENCE is the discriminant, recoverable from the intent itself, so no `backend: str` knob rides beside a value that already answers; the `direct` route column declares which routes admit the arm at all, and a `None` there makes an unsupported warm solve unspellable rather than a runtime refusal. An integer program carrying a `NonlinearConstraint` declines the direct arm and keeps the `milp` facade, because HiGHS reads a two-sided linear row band and dropping the row silently would solve a different program. The model thunk assembles once — `getNumCol() == 0` is the not-yet-loaded probe — so a caller mutating columns, rows, or coefficients between solves pays back-substitution, never re-encoding. The retained handle rides the `RELEASING` thread band the LP and MIP routes already declare, which is what makes the arm expressible at all: a shared address space carries a live native handle where the `TERMINAL` process crossing the stochastic route declares would have to pickle it, so the one route that cannot hold a retained solver is also the one that declares no direct arm.
 - Receipt: this owner mints only the `OutcomeReceipt.Program` factory case — the `.facts` projection, the `contribute` fold, and the `graduates` solver-axis crossing live on the shared owner at `optimization/design#DESIGN`, never a program-specific body.
 - Packages: exit code `4` diverges between `linprog` ("numerical") and `milp` ("other") and neither is the matrix-conditioning verdict `solvers/receipt#RECEIPT` reserves `ILL_CONDITIONED` for, so both fold the honest `OTHER`; `HighsModelStatus` is strictly richer than that five-code table, so `_HIGHS_STATUS` separates the declared-limit haltings from resource exhaustion, the stage errors, and an external interrupt; `getRanging`/`getIis`/`getDualRay`/`getPrimalRay` each answer a status-led tuple and each cost range is a `HighsRangingRecord` whose `value_` array spans columns and rows, so the read slices to the column count; `shgo` and `direct` are deterministic and take no `rng` keyword; the scipy carriers annotate through the `TYPE_CHECKING`-only `opt` alias while the live entrypoints ride module-scope `lazy` binds, so the SciPy and HiGHS trees load on the first route that solves rather than at page import.
+- Faults: one `PROGRAM_SOLVE` fence row spans every route — the intent tag is a span fact, never a subject spelling — and `highspy` contributes no exception family to its `catch`, answering through status codes rather than raises.
 - Growth: a new route is one `ProgramIntent` case, one `Carried` arm, one `_PROGRAM_ROUTES` row, and one `_project` arm; a new backend for an existing route is one `direct` column value and one entry closure, the carrier family absorbing its result shape as one case; a new global solver is one `GlobalMethod` case and one `solve` arm, never a new `ProgramIntent` tag; a new facade result shape is one `Termination` member and one `adjudicate` arm; a new host code is one `_PROGRAM_STATUS` or `_HIGHS_STATUS` row.
 
 ```python signature
@@ -28,14 +29,14 @@ from typing import TYPE_CHECKING, Final, Literal, Self, assert_never
 
 import numpy as np
 from expression import case, tag, tagged_union
-from expression.collections import Map
+from expression.collections import Block, Map
 from msgspec import Struct
 
-from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
+from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, evidence_run
 from rasm.compute.optimization.design import OutcomeReceipt
 from rasm.compute.solvers.receipt import SolveStatus
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, boundary, rostered
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.workers import Enforcement, Kernel, KernelTrait
@@ -346,11 +347,13 @@ class Warm(Struct, frozen=True):  # GC-tracked: `handle` is the live stateful so
         binding = widths[np.isfinite(widths)]
         return -float(binding.min()) if binding.size else None
 
-    def _subsystem(self) -> int:
-        # irreducible infeasible subsystem cardinality: how many columns and rows together cannot be satisfied. Presolve
-        # can prove infeasibility without isolating one, so an empty extraction reads `0` and the dual ray answers instead.
+    def _subsystem(self) -> int | None:
+        # irreducible infeasible subsystem cardinality: how many columns and rows together cannot be satisfied.
+        # Presolve can prove infeasibility WITHOUT isolating one, and that is absence, not a subsystem of size zero —
+        # the retired `else 0` made an unextracted IIS read identically to an empty one HiGHS did isolate, which is
+        # precisely the confusion `_witness` already refuses one slot over.
         status, iis = self.handle.getIis()
-        return len(iis.col_index_) + len(iis.row_index_) if status.name == _HIGHS_OK else 0
+        return len(iis.col_index_) + len(iis.row_index_) if status.name == _HIGHS_OK else None
 
     def _witness(self, verdict: str) -> int | None:
         # SIZE of the certificate the refusing verdict admits — how many model entities the proof implicates — read
@@ -397,8 +400,24 @@ async def solve(
     return await evidence_run(EvidenceScope.PROGRAM, f"program.{intent.tag}", dispatch, facts=facts, composition=composition)
 
 
+# this page's raise-side roster under the hub `ComputeLeg` seat. ONE lift-FENCE row spans every route and declares
+# no slots, because nothing raises through it — the classifier supplies the detail. The retired
+# `f"program.{intent.tag}"` subject forked one refusal law across every route; the intent discriminant rides the
+# weave's own span facts, where a trace already filters on it.
+PROGRAM_SOLVE: Final[FaultRow[ComputeLeg]] = FaultRow(
+    leg=ComputeLeg.PROGRAM, point="solve", arm="boundary", defect="solve-refused", retriability=TERMINAL
+)
+RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([PROGRAM_SOLVE]))
+
+
 def _program_kernel(intent: ProgramIntent, seed: int) -> "RuntimeRail[OutcomeReceipt]":
-    return boundary(f"program.{intent.tag}", lambda: _program_receipt(intent, seed)).bind(lambda r: r)
+    # `catch` names the raise surface this body reaches, probed against the installed band: `highspy` exposes NO
+    # exception family at all — it answers through status codes, and a pybind11 signature mismatch surfaces as
+    # `TypeError` — while the scipy facade raises `ValueError` on every shape and integrality refusal and
+    # `np.linalg.LinAlgError` leads as the narrower subclass so the classifier reads the precise type.
+    return boundary(
+        PROGRAM_SOLVE, lambda: _program_receipt(intent, seed), catch=(np.linalg.LinAlgError, ValueError, TypeError)
+    ).bind(lambda r: r)
 
 
 def _program_receipt(intent: ProgramIntent, seed: int) -> "RuntimeRail[OutcomeReceipt]":

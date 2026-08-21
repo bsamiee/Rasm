@@ -10,7 +10,7 @@ Banded data is the ONE source of truth: every rating is an expression-bodied pro
 
 `RatingContour.Fit` stays PUBLIC so the `Rasm.Compute` ISO 12354 layered-assembly fold feeds its per-band layered sound-reduction vector through the SAME contour fit the per-material rating uses — one contour-fit owner, never a second STC/Rw algorithm. `Iic` (ASTM E989) and `Lnw` (ISO 717-2) are the DESCENDING impact row pair rating the `Rasm.Compute` assembly normalized-impact spectrum — a single material has no impact spectrum, so the rows carry reference-contour data alone, and `DynamicStiffnessMNPerM3` carries the pair's material input (the `Rasm.Compute` floor fold derives `ΔL_w` from `s′` and the floating slab's areal mass before the impact spectrum reaches the shared `Fit`).
 
-`Acoustic` composes the `Composition/material#MATERIAL_PROPERTY` `MaterialPropertySet.Acoustic` case (which wraps the carrier and forwards its reads), the `Projection/fault#ADMISSION_SLOTS` slots the `Of` and `Fit` admissions accumulate over, and the `Projection/address#CONTENT_ADDRESS` `CanonicalWriter` (the spectra contribute to the `Material` node's content hash), railing `Projection/fault#FAULT_BAND` `ElementFault.ValueRejected` on a non-finite sound-reduction band or an out-of-`[0,1]` absorption band.
+`Acoustic` composes the `Composition/material#MATERIAL_PROPERTY` `MaterialPropertySet.Acoustic` case, the kernel admission slots its `Of` and `Fit` admissions accumulate over, and the `Projection/address#CONTENT_ADDRESS` `CanonicalWriter`; universal scalar refusals remain `KernelFault`, while spectral-shape refusals use `ElementFault.ValueRejected`.
 
 ## [01]-[INDEX]
 
@@ -19,12 +19,12 @@ Banded data is the ONE source of truth: every rating is an expression-bodied pro
 ## [02]-[ACOUSTIC_FOLDS]
 
 - Owner: `AcousticBand` the `[SmartEnum<int>]` eighteen-row one-third-octave-centre vocabulary keyed on the band index, each carrying its centre frequency; `RatingContour` the `[SmartEnum<string>]` contour-fit family (`Stc`/`Rw`/`Iic`/`Lnw`), each row carrying its reference contour, its first-band index, its single-band deficiency cap, its slide-sense (`Ascending`), its reported-figure orientation (`RatingSign`), and its `RatingOffset`, all sharing the `DeficitBudget` and the one `Fit` kernel; `AbsorptionClass` the `[SmartEnum<string>]` ISO 11654 class vocabulary (`A`-`E` and `Unclassified`), each row carrying its αw `Floor` policy column the one `Of` resolver reads; `Acoustic` the `[Equatable]` banded carrier holding the fixed-length eighteen-band `AbsorptionSpectrum` and `SoundReductionIndexDb` `[OrderedEquality]` `ImmutableArray<double>` vectors, the three material-intrinsic `Option<double>` constants (`DynamicStiffnessMNPerM3` the EN 29052-1 dynamic stiffness per unit area `s′`, `FlowResistivityPaSPerM2` the ISO 9053 airflow resistivity `σ`, `LossFactor` the small-strain internal loss factor `η` — each an atomic equality leaf the `[Equatable]` drill compares by `Option<double>` value), the `Nrc`/`Saa`/`AlphaW`/`AlphaWShape`/`AbsorptionClass`/`StcWeighted`/`Rw`/`C`/`Ctr` projection folds, and the `CanonicalBytes` projection.
-- Entry: `Acoustic.Of(absorption, sri, key, dynamicStiffness, flowResistivity, lossFactor)` admits the two eighteen-band vectors AND the three optional intrinsic constants once at construction — each absorption band in `[0,1]` (a relational pattern that also rejects a non-finite band), each sound-reduction band finite, both lengths equal to the eighteen `AcousticBand` centres, each `Some`-carried constant finite and strictly positive (the trailing `Option<double>` parameters default `None`, so a spectra-only datasheet calls the three-argument form unchanged) — the independent arity/spectrum/constant gates join applicatively and `Fin<T>` carries every named `ElementFault.ValueRejected` in one failure; `At(band)`/`SriAt(band)` read a band by its `AcousticBand` row; `Nrc`/`Saa`/`AlphaW`/`AlphaWShape`/`AbsorptionClass`/`StcWeighted`/`Rw`/`C`/`Ctr` are the expression-bodied projection folds, while the public `AbsorptionClass.Of(alphaW, key)` rails a raw non-finite or out-of-unit rating and the admitted carrier uses `OfAdmitted`; `RatingContour.Stc.Fit(sri, key)`/`Rw.Fit(sri, key)` is the RAILED single-number contour fit the `Rasm.Compute` assembly folds share (`Stc`/`Rw` over the layered sound-reduction vector, `Iic`/`Lnw` over the assembly normalized-impact vector) — the one cross-assembly gate (`Fin<int>`) admitting the contour window (length past `FirstIndex` + the contour span, every participating band finite) and railing `ElementFault.ValueRejected` on a short or non-finite spectrum, the internal `FitAdmitted` kernel the `StcWeighted`/`Rw` reads enter directly over their `Acoustic.Of`-admitted spectrum; `CanonicalBytes(writer)` contributes the spectra to the node content hash.
-- Auto: `Nrc` averages the four octave-coincident bands (`250`/`500`/`1k`/`2k`, the `NrcBands` index span) and rounds to the nearest `0.05` through `RoundTo` (ASTM C423); `Saa` averages the twelve bands `200`-`2500` (the `SaaBands` span) and rounds to the nearest `0.01` (ASTM C423); `AlphaW` runs the ISO 11654 slide in INTEGER `0.05` ticks — the octave `αp` is each contiguous third-octave triplet mean from the `200` Hz band rounded to `0.05` and capped at `1.00`, the `AlphaWReferenceTicks` contour (`0.80`/`1.00`/`1.00`/`1.00`/`0.90`) slides down until the summed unfavourable deviations fit the `0.10` (two-tick) budget, αw is the slid `500` Hz value, `AlphaWShape` flags an octave exceeding the slid contour by `0.25` (`L` `250`, `M` `500`/`1k`, `H` `2k`/`4k`), and `AbsorptionClass.OfAdmitted(αw)` resolves the A-E row off the `Floor` column; `StcWeighted` and `Rw` run the SHARED `RatingContour.FitAdmitted` — the contour slides from a spectrum-derived ceiling until the summed unfavourable deviations are within `DeficitBudget` (`32` dB) and (for `Stc`) no single-band deviation exceeds its `8` dB cap, `RatingOffset + RatingSign·shift` the reported figure over the highest passing shift (the airborne rows are `Ascending` with offset `0` and sign `+1`, so the rating IS the shift at `500` Hz; the impact rows are the descending duals — the deviation inverts to spectrum-above-contour, the feasible shifts run negative, `Iic` reads `110 + shift` under the ASTM `8` dB cap, and `Lnw` reads `−shift` — the fitted contour's own `500` Hz level — under the cap-less ISO fit); `C`/`Ctr` evaluate the ISO 717-1 adaptation `XAj − Rw` over the `SpectrumNo1`/`SpectrumNo2` reference spectra; the folds read the band spans directly so a rating never drifts from the spectrum.
+- Entry: `Acoustic.Of(absorption, sri, key, dynamicStiffness, flowResistivity, lossFactor)` admits the two eighteen-band vectors AND the three optional intrinsic constants once — arity against the `AcousticBand` count, each absorption band in `[0,1]`, each sound-reduction band finite, each `Some`-carried constant on `Band.Positive` — the independent gates joining applicatively so `Fin<T>` carries every named fault in one failure; `SriAt(band)` reads a band by its row; `Average(AbsorptionAverage)` is the ONE absorption-average fold (`Nrc`/`Saa` its one-hop reads), `Adaptation(AdaptationSpectrum)` the ONE ISO 717-1 adaptation read (`C`/`Ctr` one-hop), `AlphaW`/`AlphaWShape`/`AbsorptionClass` the ISO 11654 projections (`AlphaWShape` a kernel `CapabilitySet<AlphaWShapeFlag>` whose rows own their octave masks), `StcWeighted`/`Rw` the shared `RatingContour` fit reads, and `AbsorptionClass.Of(alphaW, key)` the railed public class resolution; `RatingContour.<row>.Fit(span, key)` is the RAILED cross-assembly contour gate (`Stc`/`Rw` airborne, `Iic`/`Lnw` impact) entering the internal `FitAdmitted` kernel; `CanonicalBytes(writer)` contributes the spectra and constants through the kernel `Doubles`/`Optional` canon.
+- Auto: the absorption averages read their row's window and step (`AbsorptionAverage.Nrc` 250-2k at `0.05`, `.Saa` 200-2500 at `0.01`, ASTM C423); `AlphaW` runs the ISO 11654 slide in INTEGER `0.05` ticks (octave `αp` triplet means capped at `1.00`, the reference contour sliding until the two-tick budget holds, the `≥ 5`-tick per-octave excess masked onto the `AlphaWShapeFlag` rows); `StcWeighted`/`Rw` run the SHARED `FitAdmitted` slide — the row carries contour, window, `Option` cap, `SlideSense`, sign, and offset, so STC, Rw, IIC, and Ln,w are ONE algorithm differing only in ROW DATA and `Report(shift)` the one figure projection; `C`/`Ctr` evaluate `XAj − Rw` over their row's reference spectrum; the folds read the band spans directly so a rating never drifts from the spectrum.
 - Receipt: the `Acoustic` carrier is the acoustic evidence the `MaterialPropertySet.Acoustic` case wraps and the `Bake`-derived `Element` reads flat; `StcWeighted`/`Rw`/`Nrc`/`Saa`/`AlphaW`/`AlphaWShape`/`AbsorptionClass`/`C`/`Ctr` are derived reads, never stored, so editing one band re-derives every rating (a finish schedule reads `a.AbsorptionClass` and `a.AlphaWShape` beside `a.Nrc` off one carrier); the `CanonicalBytes` projection writes both spectra AND the three intrinsic constants (each `Bool`-prefixed, so `None` and `Some(v)` address distinctly) through the `Projection/address#CONTENT_ADDRESS` `CanonicalWriter` so the `Material` node's content address covers the acoustic data — editing a band or an intrinsic constant changes the node identity AND every rating in lockstep; the `RatingContour` family is the shared single-number owner the `Rasm.Compute` ISO 12354 layered fold feeds its per-band layered sound-reduction vector through, so the assembly STC/Rw and the material STC/Rw share one contour fit — the impact pair likewise, over the assembly normalized-impact spectrum.
-- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<int>]`/`[SmartEnum<string>]`), LanguageExt.Core (`Fin` the admission rail, `Option<double>` the intrinsic-constant absence carrier), `Projection/fault#ADMISSION_SLOTS` (the `Gate`/`Indexed`/`OptionalPositive` slots the `Of` and `Fit` admissions accumulate over), Generator.Equals (`[Equatable]`/`[OrderedEquality]` the band-wise structural diff the `Acoustic` carrier carries so the `Node.Material` merge drills into it), `Rasm.Element` (the `CanonicalWriter` codec), `Rasm` (the kernel `Op` op-key), BCL inbox (`ImmutableArray<double>` the stored content-equality spectra, `ReadOnlyMemory<double>` the `Of` admission shape, `ReadOnlySpan<double>` the `Fit` transient input, `Math`).
-- Growth: a new octave/one-third-octave band is one `AcousticBand` row (the band carriers widen by data and the folds re-read the new index); a new AIRBORNE contour-fit rating is ONE `RatingContour` row carrying its contour, first-band index, deficiency cap, `Ascending: true`, `RatingSign: 1`, and `RatingOffset: 0` — STC and Rw collapse to the one slide `Fit` by ROW DATA ALONE (no kernel code); the impact pair is LANDED as the DESCENDING rows — `Iic` the ASTM E989 fit (`8` dB cap, offset `110`) and `Lnw` the cap-less ISO 717-2 fit reporting the fitted level itself through `RatingSign: -1` — over the assembly normalized-impact spectrum only `Rasm.Compute` produces (a single MATERIAL has no impact spectrum — impact is a floor-assembly property; the carrier's `DynamicStiffnessMNPerM3` is the resilient-layer input the assembly-side `ΔL_w` fold reads), so a further impact variant is one more row, never a parallel STC/Rw/impact method triplet; a new absorption average is one expression-bodied fold over a band-index span and a `RoundTo` step; a new absorption-class boundary is one `AbsorptionClass` row carrying its αw `Floor` (the resolver reads the column, never a threshold chain); a new material-intrinsic acoustic constant is one `Option<double>` member + one `OptionalPositive` admission slot + one `Scalar` canon write; the bands grow by data, the airborne and impact ratings by row, the classes by row, the averages by fold, the constants by member — never a stored scalar RATING column and never a second contour algorithm.
-- Boundary: `Acoustic` is a BANDED spectrum NOT a scalar — the `AbsorptionSpectrum` and `SoundReductionIndexDb` are fixed-length eighteen-band `[OrderedEquality]` `ImmutableArray<double>` vectors over the `AcousticBand` one-third-octave centres (NOT `ReadOnlyMemory<double>` members — the carrier is the `MaterialPropertySet.Acoustic` case's `Spectrum`, and the `Node.Material` `Generator.Equals` diff drills into a nested value only when it is `[Equatable]`, so a plain-record / `ReadOnlyMemory<double>` carrier takes REFERENCE equality and be an opaque whole-spectrum diff leaf — the deleted form per the `Graph/element#NODE_MODEL` `[STRUCTURAL_EQUALITY]` mandate; the `ImmutableArray<double>` is `IEnumerable<double>` so `[OrderedEquality]` gives band-wise content equality aligned with the order-sensitive content key), and a single-number absorption or STC field is the deleted form; the one-third-octave resolution is load-bearing — ASTM E413 and ISO 717-1 are defined over one-third-octave bands, so a six-octave-band STC is the deleted approximation that yields a different number than the standard, and the migration source's octave-band carrier is the rebuilt form's deleted predecessor; `StcWeighted`/`Rw`/`Nrc`/`Saa`/`AlphaW`/`C`/`Ctr` are expression-bodied projection folds over the carriers, never stored ratings that drift from the spectrum; `AlphaW` derives its octave `αp` from the stored one-third-octave vector and slides in INTEGER `0.05` ticks (the two-tick `0.10` budget and five-tick `0.25` shape excess are exact integer tests, never accumulated-double comparisons), the `AbsorptionClass` thresholds are `Floor` ROW DATA on the vocabulary (a relational-pattern chain restating the A-E table is the deleted form), and the ISO pair (`AlphaW`/`AbsorptionClass`) COMPLEMENTS the ASTM pair (`Nrc`/`Saa`) — the dual-standard law `StcWeighted`/`Rw` already hold — never a replacement; `StcWeighted` and `Rw` are ONE contour-slide algorithm differing only in the `RatingContour` row data (the `Rw` curve adds the `100` Hz band and drops the `8` dB cap), so a per-rating contour method is the deleted form; the `RatingContour.Fit` kernel is the ONE contour-fit owner — the `Rasm.Compute` assembly layered fold feeds its computed per-band layered sound-reduction vector through the same railed `Fit(span, key)` gate (a raw cross-assembly span admits its contour window ONCE there, never a caller-only length convention and never an unchecked parallel entrypoint), a second STC/Rw algorithm being the named defect, and the assembly aggregation (the mass-law layered spectrum, the normalized-impact spectrum) lives in `Rasm.Compute`, this owner contributing only the contour family and the per-material banded carrier — the impact rows rate that assembly spectrum alone, so no per-material `Iic`/`Lnw` read lands on the carrier; an out-of-`[0,1]` absorption band, a non-finite sound-reduction band, or a non-positive `Some`-carried intrinsic constant rails `ElementFault.ValueRejected` at `Of`, never a clamped sentinel, and an unmeasured constant is `None` — never a `0.0` sentinel the impact fold reads as a real stiffness; the intrinsic constants are `Option<double>` with the declared unit in the NAME (`MNPerM3`, `PaSPerM2`), NOT `MeasureValue` — `s′` (MN/m³) and `σ` (Pa·s/m², the rayl/m) are declared-unit standards scalars and `η` is dimensionless, so per the page's no-units-coercion charter they stay off the quantity owner the way the sibling `Composition/material` `ThermalExpansionPerK` raw double does; the carrier's `LossFactor` is the SMALL-strain internal `η` (ISO 12354-1 transmission input) and is INDEPENDENT of the `Composition/material#MATERIAL_PROPERTY` `Damping` case's large-strain design `DampingRatio` `ζ` (EN 1998 response-spectrum damping) — the amplitude regimes differ by orders of magnitude, so the two columns are independent measured data, never a `η = 2ζ` derivation pair; `CanonicalBytes` writes the bands and constants through `CanonicalWriter.Double` (exact IEEE-754 bits, sign/NaN canon) NOT `Measure` (tolerance-quantized), because the bands are dimensionless ratios and decibels not dimensioned `MeasureValue`s — the seam `Properties/quantity#MEASURE_VALUE` `SoundPressureLevel` measure is the dimensioned Pset scalar, distinct from these raw rating-input vectors; the page is PURE — no geometry, no units coercion, no external acoustics library (only the universal Thinktecture / LanguageExt / Generator.Equals substrate).
+- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<int>]`/`[SmartEnum<string>]`), LanguageExt.Core (`Fin` the admission rail, `Option<double>` the intrinsic-constant absence carrier), Generator.Equals (`[Equatable]`/`[OrderedEquality]` the band-wise structural diff the `Acoustic` carrier carries so the `Node.Material` merge drills into it), `Rasm.Element` (the `CanonicalWriter` codec), `Rasm` (the kernel `Op` and `Rasm/Domain/validation#ADMISSION_SLOTS`), BCL inbox (`ImmutableArray<double>` the stored content-equality spectra, `ReadOnlyMemory<double>` the `Of` admission shape, `ReadOnlySpan<double>` the `Fit` transient input, `Math`).
+- Growth: a new band is one `AcousticBand` row; a new airborne or impact single-number rating is ONE `RatingContour` row (contour, window, cap, sense, sign, offset — the impact pair landed as the descending rows over the assembly spectrum only `Rasm.Compute` produces, E-E11); a new absorption average is one `AbsorptionAverage` row; a new adaptation term one `AdaptationSpectrum` row; a new class boundary one `AbsorptionClass` row; a new intrinsic constant is one `Option<double>` member + one `Optional(Band.Positive)` slot + one canon write — everything grows by row or column, never a second algorithm.
+- Boundary: `Acoustic` is a BANDED spectrum NOT a scalar — the `AbsorptionSpectrum` and `SoundReductionIndexDb` are fixed-length eighteen-band `[OrderedEquality]` `ImmutableArray<double>` vectors over the `AcousticBand` one-third-octave centres (NOT `ReadOnlyMemory<double>` members — the carrier is the `MaterialPropertySet.Acoustic` case's `Spectrum`, and the `Node.Material` `Generator.Equals` diff drills into a nested value only when it is `[Equatable]`, so a plain-record / `ReadOnlyMemory<double>` carrier takes REFERENCE equality and be an opaque whole-spectrum diff leaf — the deleted form per the `Graph/element#NODE_MODEL` `[STRUCTURAL_EQUALITY]` mandate; the `ImmutableArray<double>` is `IEnumerable<double>` so `[OrderedEquality]` gives band-wise content equality aligned with the order-sensitive content key), and a single-number absorption or STC field is the deleted form; the one-third-octave resolution is load-bearing — ASTM E413 and ISO 717-1 are defined over one-third-octave bands, so a six-octave-band STC is the deleted approximation that yields a different number than the standard, and the migration source's octave-band carrier is the rebuilt form's deleted predecessor; `StcWeighted`/`Rw`/`Nrc`/`Saa`/`AlphaW`/`C`/`Ctr` are expression-bodied projection folds over the carriers, never stored ratings that drift from the spectrum; `AlphaW` derives its octave `αp` from the stored one-third-octave vector and slides in INTEGER `0.05` ticks (the two-tick `0.10` budget and five-tick `0.25` shape excess are exact integer tests, never accumulated-double comparisons), the `AbsorptionClass` thresholds are `Floor` ROW DATA on the vocabulary (a relational-pattern chain restating the A-E table is the deleted form), and the ISO pair (`AlphaW`/`AbsorptionClass`) COMPLEMENTS the ASTM pair (`Nrc`/`Saa`) — the dual-standard law `StcWeighted`/`Rw` already hold — never a replacement; `StcWeighted` and `Rw` are ONE contour-slide algorithm differing only in the `RatingContour` row data (the `Rw` curve adds the `100` Hz band and drops the `8` dB cap), so a per-rating contour method is the deleted form; the `RatingContour.Fit` kernel is the ONE contour-fit owner — the `Rasm.Compute` assembly layered fold feeds its computed per-band layered sound-reduction vector through the same railed `Fit(span, key)` gate (a raw cross-assembly span admits its contour window ONCE there, never a caller-only length convention and never an unchecked parallel entrypoint), a second STC/Rw algorithm being the named defect, and the assembly aggregation (the mass-law layered spectrum, the normalized-impact spectrum) lives in `Rasm.Compute`, this owner contributing only the contour family and the per-material banded carrier — the impact rows rate that assembly spectrum alone, so no per-material `Iic`/`Lnw` read lands on the carrier; an out-of-`[0,1]` absorption band, a non-finite sound-reduction band, or a non-positive `Some`-carried intrinsic constant rails `KernelFault.OutOfRange` at `Of`, never a clamped sentinel, and an unmeasured constant is `None` — never a `0.0` sentinel the impact fold reads as a real stiffness; the intrinsic constants are `Option<double>` with the declared unit in the NAME (`MNPerM3`, `PaSPerM2`), NOT `MeasureValue` — `s′` (MN/m³) and `σ` (Pa·s/m², the rayl/m) are declared-unit standards scalars and `η` is dimensionless, so per the page's no-units-coercion charter they stay off the quantity owner the way the sibling `Composition/material` `ThermalExpansionPerK` raw double does; the carrier's `LossFactor` is the SMALL-strain internal `η` (ISO 12354-1 transmission input) and is INDEPENDENT of the `Composition/material#MATERIAL_PROPERTY` `Damping` case's large-strain design `DampingRatio` `ζ` (EN 1998 response-spectrum damping) — the amplitude regimes differ by orders of magnitude, so the two columns are independent measured data, never a `η = 2ζ` derivation pair; `CanonicalBytes` writes the bands and constants through `CanonicalWriter.Double` (exact IEEE-754 bits, sign/NaN canon) NOT `Measure` (tolerance-quantized), because the bands are dimensionless ratios and decibels not dimensioned `MeasureValue`s — the seam `Properties/quantity#MEASURE_VALUE` `SoundPressureLevel` measure is the dimensioned Pset scalar, distinct from these raw rating-input vectors; the page is PURE — no geometry, no units coercion, no external acoustics library (only the universal Thinktecture / LanguageExt / Generator.Equals substrate).
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -35,16 +35,15 @@ using LanguageExt.Traits;
 using Rasm.Domain;
 using Rasm.Element.Projection;
 using Thinktecture;
+using Band = Rasm.Numerics.Band;
 using static LanguageExt.Prelude;
-using static Rasm.Element.Projection.AdmissionSlots;
+using static Rasm.Domain.AdmissionSlots;
 
 namespace Rasm.Element.Composition;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-// AcousticBand rows the IEC 61260 one-third-octave preferred centres 100-5000 Hz — the union of every carried
-// rating window (ASTM E413 125-4000, ISO 717-1 100-3150, ISO 11654 octave triplets 200-5000; ISO 354 measures the
-// full span). NRC reads the four octave-coincident bands; SAA the twelve 200-2500 Hz bands; STC bands 1..16; Rw
-// bands 0..15; the ISO 11654 octave αp_j reads the contiguous triplet 3+3j — each rating selects its window by index.
+// IEC 61260 one-third-octave preferred centres 100-5000 Hz — the union of every carried rating window;
+// each rating row names its own span into this roster.
 [SmartEnum<int>]
 public sealed partial class AcousticBand {
  public static readonly AcousticBand Hz100  = new(0,  centerHz: 100);
@@ -71,21 +70,26 @@ public sealed partial class AcousticBand {
  public static int Count => Items.Count;
 }
 
-// RatingContour rows the contour-fit single-number ratings — STC (ASTM E413), Rw (ISO 717-1), IIC (ASTM E989), and
-// Ln,w (ISO 717-2) — as ONE contour-slide algorithm differing only in ROW DATA: the reference contour, the
-// participating band window, the single-band deficiency cap, the slide SENSE, the reported-figure SIGN, and the
-// rating OFFSET, so the family is rows + one Fit kernel, never a method per rating. Each row's Contour is
-// relative to its 500 Hz value (offset 0 at 500 Hz), so the reported figure is RatingOffset + RatingSign·shift.
+// The slide sense as a row whose KEY is the sense factor: Airborne slides the contour up toward the spectrum,
+// Impact down — the ±1 the fit multiplies, never a bool ternary.
+[SmartEnum<int>]
+public sealed partial class SlideSense {
+ public static readonly SlideSense Airborne = new(1);
+ public static readonly SlideSense Impact = new(-1);
+}
+
+// The contour-fit single-number ratings — STC (ASTM E413), Rw (ISO 717-1), IIC (ASTM E989), Ln,w (ISO 717-2)
+// — as ONE slide algorithm differing only in ROW DATA.
 [SmartEnum<string>]
 public sealed partial class RatingContour {
  // ASTM E413 STC: bands 125-4000 Hz (FirstIndex 1), an 8 dB single-band cap; airborne (the contour slides UP toward the
  // spectrum, the unfavourable deviation is spectrum-below-contour) with a 0 rating offset (rating = the shift).
- public static readonly RatingContour Stc = new("stc", firstIndex: 1, maxDeficiency: 8.0, ascending: true, ratingSign: 1, ratingOffset: 0,
+ public static readonly RatingContour Stc = new("stc", firstIndex: 1, maxDeficiency: Some(8.0), sense: SlideSense.Airborne, ratingSign: 1, ratingOffset: 0,
   contour: [-16.0, -13.0, -10.0, -7.0, -4.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0]);
  // ISO 717-1 Rw: bands 100-3150 Hz (FirstIndex 0), same mid shape extended down to 100 Hz at -19 dB, NO cap (the
  // cap is the row's PositiveInfinity, so the worst-band test never trips), airborne, 0 offset — the ONLY structural
  // differences from STC are the added 100 Hz band and the dropped cap, both ROW DATA, never a second algorithm.
- public static readonly RatingContour Rw = new("rw", firstIndex: 0, maxDeficiency: double.PositiveInfinity, ascending: true, ratingSign: 1, ratingOffset: 0,
+ public static readonly RatingContour Rw = new("rw", firstIndex: 0, maxDeficiency: None, sense: SlideSense.Airborne, ratingSign: 1, ratingOffset: 0,
   contour: [-19.0, -16.0, -13.0, -10.0, -7.0, -4.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0, 4.0, 4.0, 4.0, 4.0]);
  // Impact reference contour, 100-3150 Hz (FirstIndex 0): the ISO 717-2 reference curve — 62 dB flat to 315 Hz,
  // −1 dB/band to 1000, −3 dB/band to 3150 — stated relative to its 500 Hz ordinate (60 dB), the SAME shape the
@@ -95,19 +99,17 @@ public sealed partial class RatingContour {
  // spectrum-ABOVE-contour) with the 8 dB single-band cap; the feasible shifts run NEGATIVE and IIC = 110 − Ln,w =
  // 110 + shift, so offset 110, sign +1. The assembly normalized-impact spectrum this row rates is Rasm.Compute's —
  // a single material has no impact spectrum, so no per-material read below enters this row.
- public static readonly RatingContour Iic = new("iic", firstIndex: 0, maxDeficiency: 8.0, ascending: false, ratingSign: 1, ratingOffset: 110,
+ public static readonly RatingContour Iic = new("iic", firstIndex: 0, maxDeficiency: Some(8.0), sense: SlideSense.Impact, ratingSign: 1, ratingOffset: 110,
   contour: ImpactContour);
  // ISO 717-2 Ln,w: the SAME contour and window with NO single-band cap (the Rw discipline), reporting the fitted
  // contour's own 500 Hz LEVEL — Ln,w = −shift, the one smaller-is-better figure RatingSign −1 exists for.
- public static readonly RatingContour Lnw = new("lnw", firstIndex: 0, maxDeficiency: double.PositiveInfinity, ascending: false, ratingSign: -1, ratingOffset: 0,
+ public static readonly RatingContour Lnw = new("lnw", firstIndex: 0, maxDeficiency: None, sense: SlideSense.Impact, ratingSign: -1, ratingOffset: 0,
   contour: ImpactContour);
 
  public int FirstIndex { get; }
- public double MaxDeficiency { get; }
- // Ascending fixes the slide sense: true rides the airborne upward slide (deviation = contour above spectrum), false
- // rides the impact downward slide (deviation = spectrum above contour). Both senses run ONE monotone search, where
- // sense flips the deviation and the rating direction so the impact rating is a row, never a parallel descending kernel.
- public bool Ascending { get; }
+ // ABSENT cap is the ISO no-single-band-cap discipline — +∞ was a magic default a Compute consumer read as real.
+ public Option<double> MaxDeficiency { get; }
+ public SlideSense Sense { get; }
  // RatingSign orients the REPORTED figure onto its standard's own scale: a larger feasible shift is always the
  // better insulation in both senses, and the airborne ratings and IIC report it directly (sign +1; IIC = 110 −
  // Ln,w = 110 + shift), while ISO 717-2 reports the fitted contour's own 500 Hz LEVEL — Ln,w = −shift, smaller
@@ -120,32 +122,23 @@ public sealed partial class RatingContour {
 
  private const double DeficitBudget = 32.0;   // ASTM E413 / ISO 717-1 / ISO 717-2 summed-deviation limit over 16 bands
 
- // Fit rails the PUBLIC admission (BOUNDARY_ADMISSION): a cross-assembly span is RAW material — a Compute mass-law
- // vector, a persisted spectrum that never crossed Acoustic.Of — so the contour WINDOW is gated ONCE here (length
- // reaching past FirstIndex + the contour span, every participating band finite) and a short or non-finite spectrum
- // rails ElementFault.ValueRejected instead of throwing at s[FirstIndex + k] or minting an evidence-free rating.
- // Acoustic-owned StcWeighted/Rw reads enter FitAdmitted directly: Acoustic.Of already admitted their stored
- // spectrum, and re-gating admitted evidence is the re-validation the doctrine deletes.
- // Window scan reads the CALLER's span — a ref struct cannot cross a lambda, so the admitted rating is read on the
- // success branch while the fail side re-shapes its carried faults, where a materializing copy bought only the
- // closure the rail hop would have needed.
+ // Fit rails the PUBLIC cross-assembly admission (a Compute mass-law span is raw); the owner's own reads enter
+ // FitAdmitted directly — Acoustic.Of already gated the stored vector. Span scans stay in-loop (ref struct
+ // cannot cross a lambda) — the named EXPRESSION_SPINE exemption.
  public Fin<int> Fit(ReadOnlySpan<double> s, Op key) {
   if (s.Length < FirstIndex + Contour.Length) {
-   return ElementFault.ValueRejected(key, $"<contour-window-short:{s.Length}:expected>={FirstIndex + Contour.Length}>");
+   return new ElementFault.ValueRejected(key, $"<contour-window-short:{s.Length}:expected>={FirstIndex + Contour.Length}>");
   }
   Fin<Unit> window = Indexed(s.Slice(FirstIndex, Contour.Length), double.IsFinite, key, "contour-band-non-finite").ToFin();
   return window.IsSucc ? Fin.Succ(FitAdmitted(s)) : window.Map(static _ => 0);
  }
 
- // FitAdmitted slides the shared contour over an ADMITTED window: the unfavourable-deviation sum (and the
- // row-capped worst band) is monotone in the shift, so the downward scan returns the FIRST (highest) feasible
- // shift — the reported figure is RatingOffset + RatingSign·shift, so STC/Rw (ascending, 0 + shift), IIC
- // (descending, 110 + shift), and Ln,w (descending, −shift — the fitted contour's own 500 Hz level) are ONE
- // kernel; a span loop is the named EXPRESSION_SPINE kernel exemption. ReadOnlySpan input: every caller (a stored ImmutableArray spectrum, Compute's freshly-built mass-law
- // double[]) yields one with zero copy; the kernel reads and never stores, so it earns no content-equality ImmutableArray.
+ // Slides the shared contour over an ADMITTED window: airborne and impact, capped and cap-less, are one
+ // integer-dB kernel; both scan bounds are spectrum-derived so the shift domain is sign-agnostic and the
+ // floor exit is total (every deviation zero at floor(bottom)).
  internal int FitAdmitted(ReadOnlySpan<double> s) {
   ReadOnlySpan<double> contour = Contour.AsSpan();
-  double sense = Ascending ? 1.0 : -1.0;
+  double sense = Sense.Key;
   double top = double.NegativeInfinity, bottom = double.PositiveInfinity;
   for (int k = 0; k < contour.Length; k++) {
    double clear = sense * (s[FirstIndex + k] - contour[k]);
@@ -168,16 +161,16 @@ public sealed partial class RatingContour {
     deficit += d;
     if (d > worst) { worst = d; }
    }
-   if (deficit <= DeficitBudget && worst <= MaxDeficiency) { return RatingOffset + (RatingSign * shift); }
+   if (deficit <= DeficitBudget && MaxDeficiency.ForAll(cap => worst <= cap)) { return Report(shift); }
   }
-  return RatingOffset + (RatingSign * floor);
+  return Report(floor);
  }
+
+ // The ONE reported-figure projection (offset + sign x shift) — spelled once for the feasible and floor exits.
+ int Report(int shift) => RatingOffset + (RatingSign * shift);
 }
 
-// AbsorptionClass rows the ISO 11654 sound-absorption classes — αw band A (best) through E and the sub-0.15
-// Unclassified tail, each row carrying its αw FLOOR as the policy column so the class boundaries are ROW DATA
-// one resolver reads, never a relational-pattern chain restating the table. Of resolves the highest floor
-// at-or-under the rating (the half-tick 0.025 guard absorbs binary-float noise on the 0.05-gridded αw).
+// ISO 11654 absorption classes; each row carries its αw FLOOR so the boundaries are row data.
 [SmartEnum<string>]
 public sealed partial class AbsorptionClass {
  public static readonly AbsorptionClass A = new("a", floor: 0.90);
@@ -195,18 +188,46 @@ public sealed partial class AbsorptionClass {
   toSeq(Items.OrderByDescending(static row => row.Floor)).Find(row => alphaW >= row.Floor - 0.025).IfNone(Unclassified);
 
  public static Fin<AbsorptionClass> Of(double alphaW, Op key) =>
-  alphaW is >= 0.0 and <= 1.0
-   ? Fin.Succ(OfAdmitted(alphaW))
-   : ElementFault.ValueRejected(key, $"<absorption-class-out-of-unit:{alphaW:R}>");
+  In(alphaW, Band.Unit, "absorption-class", key).Map(OfAdmitted).ToFin();
+}
+
+// ISO 11654 shape-indicator rows over the five slid octaves; Mask is each row's octave-index coverage.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class AlphaWShapeFlag : ICapability<AlphaWShapeFlag> {
+ public static readonly AlphaWShapeFlag L = new("l", mask: 0b00001);   // 250 Hz octave
+ public static readonly AlphaWShapeFlag M = new("m", mask: 0b00110);   // 500/1k octaves
+ public static readonly AlphaWShapeFlag H = new("h", mask: 0b11000);   // 2k/4k octaves
+
+ public int Mask { get; }
+}
+
+// ASTM C423 absorption-average rows: the band-index window and the rounding step are the WHOLE policy.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class AbsorptionAverage {
+ public static readonly AbsorptionAverage Nrc = new("nrc", step: 0.05, bands: [4, 7, 10, 13]);                              // 250/500/1k/2k Hz
+ public static readonly AbsorptionAverage Saa = new("saa", step: 0.01, bands: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);  // 200-2500 Hz
+
+ public double Step { get; }
+ public ImmutableArray<int> Bands { get; }
+}
+
+// ISO 717-1 reference spectra rows (A-weighted, normalized to 0 dB overall): No.1 pink-noise (C), No.2
+// urban-traffic (Ctr) — a new adaptation term is one row.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class AdaptationSpectrum {
+ public static readonly AdaptationSpectrum C = new("c",
+  levels: [-29.0, -26.0, -23.0, -21.0, -19.0, -17.0, -15.0, -13.0, -12.0, -11.0, -10.0, -9.0, -9.0, -9.0, -9.0, -9.0]);
+ public static readonly AdaptationSpectrum Ctr = new("ctr",
+  levels: [-20.0, -20.0, -18.0, -16.0, -15.0, -14.0, -13.0, -12.0, -11.0, -9.0, -8.0, -9.0, -10.0, -11.0, -13.0, -15.0]);
+
+ public ImmutableArray<double> Levels { get; }
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-// [Equatable] is LOAD-BEARING ([STRUCTURAL_EQUALITY]): the Node.Material diff drills into the MaterialPropertySet.Acoustic
-// case's Spectrum member only when it is itself [Equatable] — a plain record is an opaque leaf the StructuralMerge would
-// key WHOLE-spectrum. ImmutableArray (IEnumerable<double>) under [OrderedEquality] gives band-wise CONTENT equality where
-// a ReadOnlyMemory member takes reference equality (two content-identical spectra off different backing arrays would
-// mis-compare); the order is the AcousticBand index order CanonicalBytes also writes, so the structural diff stays
-// aligned with the order-sensitive content key.
+// [Equatable] is LOAD-BEARING: the Node.Material diff drills into this carrier's spectra per band.
 [Equatable]
 public sealed partial record Acoustic {
  [property: OrderedEquality] public ImmutableArray<double> AbsorptionSpectrum { get; }
@@ -226,41 +247,39 @@ public sealed partial record Acoustic {
   (AbsorptionSpectrum, SoundReductionIndexDb, DynamicStiffnessMNPerM3, FlowResistivityPaSPerM2, LossFactor) =
    (absorption, sri, dynamicStiffness, flowResistivity, lossFactor);
 
- // Of admits ONCE (BOUNDARY_ADMISSION): both lengths the AcousticBand count, each absorption band in [0,1] (the
- // relational pattern also rejects non-finite — NaN satisfies neither bound), each SRI band finite, each Some-carried
- // constant finite and strictly positive — every slot the shared Projection/fault#ADMISSION_SLOTS combinator, so the
- // tuple Apply accumulates every indexed band fault beside the independent scalar faults.
- // Interior reads (the Fit windows, the ΔL_w consumer, the Double canon) never re-guard, and the Option parameters
- // default None so a spectra-only datasheet calls the three-argument form. No re-hydration escape exists: the
- // private ctor's only public reach is Of, so a persisted spectrum re-admits through this same band gate, never a
- // raw-array bypass.
+ // Of admits ONCE: arity, in-unit absorption, finite SRI, positive constants — interior reads never re-guard.
  public static Fin<Acoustic> Of(ReadOnlyMemory<double> absorption, ReadOnlyMemory<double> sri, Op key,
   Option<double> dynamicStiffness = default, Option<double> flowResistivity = default, Option<double> lossFactor = default) =>
-  (Gate(absorption.Length == AcousticBand.Count && sri.Length == AcousticBand.Count, key, $"<acoustic-band-arity:absorption={absorption.Length}:sri={sri.Length}:expected={AcousticBand.Count}>"),
+  (Gate(absorption.Length == AcousticBand.Count && sri.Length == AcousticBand.Count, key, $"<acoustic-band-arity:absorption={absorption.Length}:sri={sri.Length}:expected={AcousticBand.Count}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
    Indexed(absorption.Span, static band => band is >= 0.0 and <= 1.0, key, "acoustic-absorption-out-of-unit"),
    Indexed(sri.Span, double.IsFinite, key, "acoustic-sri-non-finite"),
-   OptionalPositive(dynamicStiffness, "acoustic-dynamic-stiffness", key),
-   OptionalPositive(flowResistivity, "acoustic-flow-resistivity", key),
-   OptionalPositive(lossFactor, "acoustic-loss-factor", key))
+   Optional(dynamicStiffness, Band.Positive, "acoustic-dynamic-stiffness", key),
+   Optional(flowResistivity, Band.Positive, "acoustic-flow-resistivity", key),
+   Optional(lossFactor, Band.Positive, "acoustic-loss-factor", key))
   .Apply((_, _, _, _, _, _) => new Acoustic([.. absorption.Span], [.. sri.Span], dynamicStiffness, flowResistivity, lossFactor))
   .As().ToFin();
 
- public double At(AcousticBand band) => AbsorptionSpectrum[band.Key];
  public double SriAt(AcousticBand band) => SoundReductionIndexDb[band.Key];
 
- // ASTM C423 absorption averages: the band-index window is the policy, the RoundTo step the precision.
- public double Nrc => RoundTo(Mean(NrcBands), 0.05);
- public double Saa => RoundTo(Mean(SaaBands), 0.01);
+ // ONE fold per average family: the row carries window and precision, the named reads are one-hop.
+ public double Average(AbsorptionAverage row) => RoundTo(Mean(row.Bands.AsSpan()), row.Step);
+ public double Nrc => Average(AbsorptionAverage.Nrc);
+ public double Saa => Average(AbsorptionAverage.Saa);
 
  // ISO 11654 weighted absorption over the DERIVED octave αp — the ASTM pair's ISO sibling (the same
  // dual-standard law StcWeighted/Rw hold): αw the slid-contour 500 Hz value, AlphaWShape the L/M/H
  // datasheet flags (an octave αp exceeding the slid contour by >= 0.25), AbsorptionClass the A-E read.
  public double AlphaW => AlphaWSlide().AlphaWTicks * 0.05;
  public AbsorptionClass AbsorptionClass => AbsorptionClass.OfAdmitted(AlphaW);
- public (bool Low, bool Mid, bool High) AlphaWShape =>
-  AlphaWSlide().Excess switch {
-   int excess => ((excess & 0b00001) != 0, (excess & 0b00110) != 0, (excess & 0b11000) != 0),
-  };
+ // Kernel CapabilitySet over the shape rows — each row OWNS its octave-index mask, so the L/M/H banding is row
+ // data the Materials finishes wiring reads (E-E10), never a positional bool triple over magic masks.
+ public CapabilitySet<AlphaWShapeFlag> AlphaWShape {
+  get {
+   int excess = AlphaWSlide().Excess;
+   return toSeq(AlphaWShapeFlag.Items).Filter(flag => (excess & flag.Mask) != 0)
+    .Fold(CapabilitySet<AlphaWShapeFlag>.None, static (held, flag) => held.With(flag));
+  }
+ }
 
  // StcWeighted and Rw share the RatingContour fit, differing ONLY by the row, never a second algorithm. The stored
  // ImmutableArray spectrum yields the span with no copy through AsSpan(); the reads enter the ADMITTED kernel
@@ -268,35 +287,25 @@ public sealed partial record Acoustic {
  public int StcWeighted => RatingContour.Stc.FitAdmitted(SoundReductionIndexDb.AsSpan());
  public int Rw => RatingContour.Rw.FitAdmitted(SoundReductionIndexDb.AsSpan());
 
- // ISO 717-1 spectrum adaptation terms: Cj = XAj - Rw over the airborne band window (100-3150 Hz),
- // C against the No.1 (pink-noise) spectrum, Ctr against the No.2 (urban-traffic) spectrum.
- public int C => SpectrumAdaptation(SpectrumNo1);
- public int Ctr => SpectrumAdaptation(SpectrumNo2);
+ // ISO 717-1 adaptation terms Cj = XAj − Rw: the row carries its reference spectrum, the named reads are one-hop.
+ public int Adaptation(AdaptationSpectrum row) => SpectrumAdaptation(row.Levels.AsSpan());
+ public int C => Adaptation(AdaptationSpectrum.C);
+ public int Ctr => Adaptation(AdaptationSpectrum.Ctr);
 
  // CanonicalBytes writes both spectra then the three intrinsic constants through CanonicalWriter.Double (exact
  // IEEE-754 bits, sign/NaN canon) so the Material node's ContentAddress covers the acoustic data — bands and
  // constants are NOT measures, so they take the Double canon not the tolerance-quantized Measure canon; each
  // Option is Bool-prefixed (self-delimiting, None and Some(v) address distinctly).
- public void CanonicalBytes(CanonicalWriter w) {
-  ReadOnlySpan<double> abs = AbsorptionSpectrum.AsSpan();
-  ReadOnlySpan<double> sri = SoundReductionIndexDb.AsSpan();
-  w.Ordinal(abs.Length);
-  for (int i = 0; i < abs.Length; i++) { w.Double(abs[i]); }
-  w.Ordinal(sri.Length);
-  for (int i = 0; i < sri.Length; i++) { w.Double(sri[i]); }
-  Scalar(w, DynamicStiffnessMNPerM3);
-  Scalar(w, FlowResistivityPaSPerM2);
-  Scalar(w, LossFactor);
- }
+ public void CanonicalBytes(CanonicalWriter w) =>
+  w.Doubles(AbsorptionSpectrum.AsSpan()).Doubles(SoundReductionIndexDb.AsSpan())
+   .Optional(DynamicStiffnessMNPerM3, static (v, run) => run.Double(v))
+   .Optional(FlowResistivityPaSPerM2, static (v, run) => run.Double(v))
+   .Optional(LossFactor, static (v, run) => run.Double(v));
 
  // --- [ACOUSTIC_TABLES] ----------------------------------------------------------------
  // Band-window tables hold the rating spans and the ISO 717-1 reference spectra (No.1 for C, No.2 for Ctr),
  // A-weighted and normalized so the overall A-weighted level is 0 dB. Constant primitive spans promote to the data segment.
- private static ReadOnlySpan<int> NrcBands => [4, 7, 10, 13];                                // 250/500/1000/2000 Hz
- private static ReadOnlySpan<int> SaaBands => [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];     // 200-2500 Hz (12 bands)
  private static ReadOnlySpan<int> AlphaWReferenceTicks => [16, 20, 20, 20, 18];              // ISO 11654 contour (0.80/1.00/1.00/1.00/0.90) in 0.05 ticks, octaves 250-4000
- private static ReadOnlySpan<double> SpectrumNo1 => [-29.0, -26.0, -23.0, -21.0, -19.0, -17.0, -15.0, -13.0, -12.0, -11.0, -10.0, -9.0, -9.0, -9.0, -9.0, -9.0];
- private static ReadOnlySpan<double> SpectrumNo2 => [-20.0, -20.0, -18.0, -16.0, -15.0, -14.0, -13.0, -12.0, -11.0, -9.0, -8.0, -9.0, -10.0, -11.0, -13.0, -15.0];
 
  double Mean(ReadOnlySpan<int> indices) {
   ReadOnlySpan<double> abs = AbsorptionSpectrum.AsSpan();
@@ -305,13 +314,8 @@ public sealed partial record Acoustic {
   return sum / indices.Length;
  }
 
- // AlphaWSlide runs the ISO 11654 slide in INTEGER 0.05 TICKS (αp rounds to 0.05, the contour slides in 0.05
- // steps), so the 0.10 budget is exactly 2 ticks and the 0.25 shape excess exactly 5 — integer-exact, never an
- // accumulated-double epsilon (the Fit kernel's int-dB discipline in the absorption domain). Octave αp_j is the
- // contiguous third-octave triplet mean from the 200 Hz band (first = 3+3j), capped at 1.00 (20 ticks); the
- // contour slides DOWN from zero shift, the FIRST feasible (smallest) shift is the rating, and shift 20 zeroes
- // every deviation so the scan is total. Excess is the per-octave >= 5-tick exceedance bitmask AlphaWShape folds
- // to L/M/H, and the span loop is the named EXPRESSION_SPINE kernel exemption the Fit kernel already declares.
+ // ISO 11654 slide in INTEGER 0.05 ticks (budget = 2 ticks, shape excess = 5) — integer-exact, never an
+ // accumulated-double epsilon; octave αp is the contiguous triplet mean from the 200 Hz band, capped at 20.
  (int AlphaWTicks, int Excess) AlphaWSlide() {
   ReadOnlySpan<int> reference = AlphaWReferenceTicks;
   ReadOnlySpan<double> abs = AbsorptionSpectrum.AsSpan();
@@ -343,12 +347,6 @@ public sealed partial record Acoustic {
 
  private static double RoundTo(double value, double step) => Math.Round(value / step, MidpointRounding.AwayFromZero) * step;
 
- // Scalar writes the Option canon: Bool(IsSome) then the Double when present — self-delimiting, matching the
- // Composition/material CaseBytes evidence discipline (void, the corpus-wide CanonicalBytes contribution shape).
- private static void Scalar(CanonicalWriter w, Option<double> value) {
-  w.Bool(value.IsSome);
-  value.IfSome(v => w.Double(v));
- }
 }
 ```
 

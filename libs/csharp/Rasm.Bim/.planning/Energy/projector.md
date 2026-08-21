@@ -6,7 +6,7 @@
 
 Every arm lands one Compute-readable shape: `IfcSpace`-classified `Object` nodes, bounding-surface Objects joined by `IfcRelSpaceBoundary`-named neutral `Generic` edges carrying the `BoundaryLevel` `"2nd"` payload, `Host`-attributed opening boundaries for every window and door, footprints content-keyed into `Representations.FootPrint`, and `MaterialComposition.LayerSet` evidence — opaque layers `MaterialPropertySet.Thermal`, glazing the `Optical` case the Compute `StandardGlazing` build reads; wire names, `Qto`, and `Pset` are the load-bearing alignment.
 
-Wire posture is HOST-LOCAL, foreign types decode-confined: `Model.FromJson` gates hard by construction (parse throw, in-parse DataAnnotations), no `HoneybeeSchema.*`/`DragonflySchema.*` DTO outlives `Project`, and every `OpenStudio.*` SWIG wrapper — model, translators, `Optional*`, `*Vector`, per-element handles — is `using`-bracketed, index-loop with per-element disposal the marshaling exemption. Faults route the `Model/faults#FAULT_BAND` arms: `ModelRejected` (`energy-decode`), `UnmappedClass` (`energy-face-miss`/`energy-class-miss`), `DanglingReference` (`energy-construction-absent`).
+Wire posture is HOST-LOCAL, foreign types decode-confined: `Model.FromJson` gates hard by construction (parse throw, in-parse DataAnnotations), no `HoneybeeSchema.*`/`DragonflySchema.*` DTO outlives `Project`, and every `OpenStudio.*` SWIG wrapper — model, translators, `Optional*`, `*Vector`, per-element handles — is `using`-bracketed, index-loop with per-element disposal the marshaling exemption. Faults route the `Model/faults#FAULT_BAND` arms: `Refused/BimReason.Rejected` (`energy-decode`), `Refused/BimReason.Unmapped` (`energy-face-miss`/`energy-class-miss`), `Refused/BimReason.DanglingReference` (`energy-construction-absent`).
 
 ## [01]-[INDEX]
 
@@ -14,13 +14,13 @@ Wire posture is HOST-LOCAL, foreign types decode-confined: `Model.FromJson` gate
 
 ## [02]-[ENERGY_PROJECTOR]
 
-- Owner: `EnergyProjector : IElementProjection` the energy-model raise (the raw `EnergyDoc` captured internally, the seam contract carrying only `Node`/`Relationship`/`GraphDelta`); `EnergyClassRows` the ONE FaceType↔`IfcClass` correspondence table both directions derive from — the raise map, the OSM `Surface.surfaceType()` string leg, the OSM `SubSurface.subSurfaceType()` opening leg, and the lower-side `ToFace` inverse; the frozen `Arms` format→arm index the `Serves` capability predicate reads; `RaiseState` the whole threaded accumulation (delta, footprint blobs, landing tallies, degrade rows) with `EnergySlot` its landing vocabulary and `Resolved` the composition answer that carries its own degrade rows.
-- Entry: `EnergyProjector.Project(ProjectionContext ctx)` → `Fin<GraphDelta>` — the frozen `Arms` index dispatches the captured document's format onto its arm, `Hbjson`/`Dfjson` decoding through the managed `Model.FromJson` `Try.lift` funnel and `Osm`/`GbXml`/`Idf` through the bracketed SWIG decode trio converging on ONE `RaiseOsm` fold; an unmapped format faults `energy-form-miss`.
+- Owner: `EnergyProjector : IElementProjection` the energy-model raise (the raw `EnergyDoc` captured internally, the seam contract carrying only `Node`/`Relationship`/`GraphDelta`); `EnergyClassRows` the ONE FaceType↔`IfcClass` correspondence table both directions derive from — the raise map, the OSM `Surface.surfaceType()` string leg, the OSM `SubSurface.subSurfaceType()` opening leg, and the lower-side `ToFace` inverse; the frozen `Arms` format→raise index the `Serves` capability predicate and dispatch share; `RaiseState` the whole threaded accumulation (delta, footprint blobs, landing tallies, degrade rows) with `EnergySlot` its landing vocabulary and `Resolved` the composition answer that carries its own degrade rows.
+- Entry: `EnergyProjector.Project(ProjectionContext ctx)` → `Fin<GraphDelta>` — the frozen `Arms` index dispatches the captured document's format onto its arm, `Hbjson`/`Dfjson` decoding through `Op.Catch` and the named JSON boundaries and `Osm`/`GbXml`/`Idf` through the bracketed SWIG decode trio converging on ONE `RaiseOsm` fold; an unmapped format faults `energy-form-miss`.
 - Auto: openings mint `IfcWindow`/`IfcDoor` on EVERY arm, honeybee `Aperture`/`Door` and OSM `Surface.subSurfaces()` alike, never only the managed formats; the dragonfly massing arm lands each `Room2D` floor-to-ceiling height as a `Qto_SpaceBaseQuantities` `Height` quantity, stamps `Story.Multiplier > 1` as `Pset_EnergyModel` evidence, and routes `Building.Room3ds` through the same honeybee room fold.
 - Receipt: `RaiseState` threads `Spaces`/`Surfaces`/`Openings`/`Constructions` and the typed `Energy/exchange#ENERGY_EXCHANGE` `EnergyNote` degrade rows through the fold, and the run edge commits it to the boundary cell in ONE swap the `Energy/exchange#ENERGY_EXCHANGE` `EnergyReceipt` and the footprint side-channel both read — instance counters a `Fin`-returning arm bumped on the side survived a failed fold and named no subject. Managed decodes reject inside `FromJson`, so the raise notes degrade rows only — `Validate()` annotations belong to the lower legs authoring models locally.
-- Packages: HoneybeeSchema, DragonflySchema, NREL.OpenStudio.macOS-arm64, Rasm.Element, Rasm, LanguageExt.Core, Thinktecture.Runtime.Extensions
-- Growth: a new face/class correspondence is one `EnergyClassRows` row (both directions derive); a new OSM opening token is one `ByOpeningType` row; a new energy form is one `Arms` row; a dragonfly parameter (window ratios, shading, skylights) deepens the massing arm as row folds over the `Room2D` `AnyOf` unions; a NoMass/Vegetation material arm is one typed-layer row the moment the seam carries an R-value-only thermal case; the FULL (non-abridged) `OpaqueConstruction`/`WindowConstruction` store rows — inline material OBJECTS, not id references, so a different resolve shape — are one `Library` projection widening with one inline-material arm the moment full-form documents ship, a full-form construction id resolving in neither abridged list faulting `DanglingReference` before that (the declared abridged-only restraint, never a silent partial read); honeybee `Shade`/`ShadeMesh` context geometry raises as one arm row the moment an `IfcShadingDevice` roster row is exercised by a consumer read.
-- Boundary: `EnergyMaterial` density has NO seam thermal column and a fabricated `OfMechanical` stiffness is the rejected form — density is DROPPED at the raise (systematic, never a per-material warning), the OSM rebuild's 1000 kg/m³ fallback carrying the consequence. Every physics literal is a NAMED policy value on this owner: `VapourOpen` is μ = 1 still air (the vapour-open end of the seam's own `>= 1` admission) because no energy schema declares the factor, and `LayerConductance` is the EN ISO 6946 λ/d unit conductance the seam `Thermal` case stores per `MaterialId` — film-free by construction, since surface resistances belong to the ASSEMBLY U-value its own owner computes and folding them into a ply attributes an assembly property to one layer. Structural-graph legality (endpoints, ids) is the seam's `ElementFault`, IFC-semantic legality the composed `IfcLegality` → `BimFault.ModelRejected`, and this projector re-checks neither; the rooted `NodeId` is LOCAL per raise (Guid-v7), the schema identifier riding `ExternalId` for correlation.
+- Packages: HoneybeeSchema, DragonflySchema, NREL.OpenStudio.macOS-arm64, Rasm.Element, Rasm (the kernel `Op.Catch` funnel and cause-preserving `BimBoundary` fault posture), LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions
+- Growth: a new face/class correspondence is one `EnergyClassRows` row (both directions derive); a new OSM opening token is one `ByOpeningType` row; a new energy form is one `Arms` row carrying its raise arm; a dragonfly parameter (window ratios, shading, skylights) deepens the massing arm as row folds over the `Room2D` `AnyOf` unions; a NoMass/Vegetation material arm is one typed-layer row the moment the seam carries an R-value-only thermal case; the FULL (non-abridged) `OpaqueConstruction`/`WindowConstruction` store rows — inline material OBJECTS, not id references, so a different resolve shape — are one `Library` projection widening with one inline-material arm the moment full-form documents ship, a full-form construction id resolving in neither abridged list faulting `Refused/BimReason.DanglingReference` before that (the declared abridged-only restraint, never a silent partial read); honeybee `Shade`/`ShadeMesh` context geometry raises as one arm row the moment an `IfcShadingDevice` roster row is exercised by a consumer read.
+- Boundary: projector dispatch publishes no recovery policy. Every native region crosses ONE kernel `Op.Catch` funnel; the documented energy boundaries become `BoundaryFailed` with their original `Error` and immutable posture, while returned typed errors and unknown foreign errors pass through unchanged. `EnergyMaterial` density has NO seam thermal column and a fabricated `OfMechanical` stiffness is the rejected form — density is DROPPED at the raise (systematic, never a per-material warning), the OSM rebuild's 1000 kg/m³ fallback carrying the consequence. Every physics literal is a NAMED policy value on this owner: `VapourOpen` is μ = 1 still air (the vapour-open end of the seam's own `>= 1` admission) because no energy schema declares the factor, and `LayerConductance` is the EN ISO 6946 λ/d unit conductance the seam `Thermal` case stores per `MaterialId` — film-free by construction, since surface resistances belong to the ASSEMBLY U-value its own owner computes and folding them into a ply attributes an assembly property to one layer. Structural-graph legality (endpoints, ids) is the seam's `ElementFault`, IFC-semantic legality the composed `IfcLegality` → `BimFault.Refused` with `BimReason.Rejected`, and this projector re-checks neither; the rooted `NodeId` is LOCAL per raise (Guid-v7), the schema identifier riding `ExternalId` for correlation.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -32,7 +32,7 @@ using LanguageExt;
 using LanguageExt.Traits;
 using NodaTime;
 using Rasm;
-using Rasm.Bim.Model;                        // BimFault + the Detail roster the raise raises through
+using Rasm.Bim.Model;                        // BimFault and its compact scope/reason/boundary axes
 using Rasm.Domain;
 using Rasm.Element.Classification;
 using Rasm.Element.Composition;
@@ -189,6 +189,8 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
 
     public EnergyReceipt Receipt(Instant at) => run.Value.Receipt(doc.Format, doc.SourceKey, at);
 
+    // One row per served format: the arm that raises it. Recovery belongs to the typed boundary failure the arm
+    // returns, never to the projector interface or a parallel per-format policy column.
     static readonly FrozenDictionary<InterchangeFormat, Func<EnergyProjector, ProjectionContext, Fin<RaiseState>>> Arms =
         new KeyValuePair<InterchangeFormat, Func<EnergyProjector, ProjectionContext, Fin<RaiseState>>>[] {
             new(InterchangeFormat.Hbjson, static (p, ctx) => p.Honeybee(ctx)),
@@ -206,7 +208,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
     public static Fin<EnergyProjector> Of(EnergyDoc doc, Op key) =>
         Serves(doc.Format)
             ? Fin.Succ(new EnergyProjector(doc))
-            : Fin.Fail<EnergyProjector>(Detail.EnergyFormMiss.At(key, doc.Format.Key));
+            : Fin.Fail<EnergyProjector>(new BimFault.Refused(key, BimScope.Energy, BimReason.Codec, string.Join(':', new object?[] { "energy-form-miss", doc.Format.Key })));
 
     // Seam contract returns the delta alone, so the run edge commits the threaded state in ONE swap — the
     // per-run thread carries the fold, the cell carries it across to the reads the exchange makes afterwards.
@@ -214,7 +216,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
     public Fin<GraphDelta> Project(ProjectionContext ctx) =>
         Arms.TryGetValue(doc.Format, out var arm)
             ? arm(this, ctx).Bind(state => Envelope(state, ctx)).Map(state => run.Swap(_ => state).Delta)
-            : Fin.Fail<GraphDelta>(Detail.EnergyFormMiss.At(ctx.Key, doc.Format.Key));
+            : Fin.Fail<GraphDelta>(new BimFault.Refused(ctx.Key, BimScope.Energy, BimReason.Codec, string.Join(':', new object?[] { "energy-form-miss", doc.Format.Key })));
 
     // A class miss DEGRADES per surface, so one unmapped face never costs the building; the raise faults only
     // where the WHOLE envelope failed to survive. That split is the difference between "this model has an odd
@@ -223,7 +225,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
     static Fin<RaiseState> Envelope(RaiseState state, ProjectionContext ctx) =>
         state.Surfaces > 0
             ? Fin.Succ(state)
-            : Fin.Fail<RaiseState>(Detail.EnergyEnvelopeEmpty.At(ctx.Key, state.Spaces.ToString(CultureInfo.InvariantCulture)));
+            : Fin.Fail<RaiseState>(new BimFault.Refused(ctx.Key, BimScope.Energy, BimReason.Rejected, string.Join(':', new object?[] { "energy-envelope-empty", state.Spaces.ToString(CultureInfo.InvariantCulture) })));
 
     // --- [HONEYBEE_ARM]
     // FromJson gates HARD by construction: the LBT-Newtonsoft parse throw AND the DataAnnotations reject (the
@@ -231,11 +233,12 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
     // null-parse faults explicitly. Post-admission Validate() is structurally empty, so the raise tallies no
     // schema warnings — the Validate() tally belongs to the LOWER legs authoring models locally.
     Fin<RaiseState> Honeybee(ProjectionContext ctx) =>
-        Try.lift(() => Hb.Model.FromJson(doc.Text)).Run()
-            .MapFail(error => (Error)Detail.EnergyDecode.At(ctx.Key, error.Message))
+        ctx.Key.Catch(
+                () => Fin.Succ(Hb.Model.FromJson(doc.Text)),
+                cause => JsonFailure(BimBoundary.HoneybeeJson, cause))
             .Bind(model => model is null
-                ? Fin.Fail<RaiseState>(Detail.EnergyDecode.At(ctx.Key, "type-mismatch"))
-                : RaiseRooms(Seeded(ctx, model.Identifier), Library(model), toSeq(model.Rooms ?? []), ctx)
+                ? Fin.Fail<RaiseState>(new BimFault.Refused(ctx.Key, BimScope.Energy, BimReason.Rejected, "energy-decode:type-mismatch"))
+                : RaiseRooms(Seeded(ctx, model.Identifier), Library(model), Rows(model.Rooms), ctx)
                     .Map(static scope => scope.State));
 
     // Every arm opens on the same seeded scope, so no arm can forget the chain its rooms need.
@@ -244,24 +247,28 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
         return new RaiseScope(state, spine, Map<string, NodeId>());
     }
 
-    // Model-level canonical lists projected ONCE per document — the abridged-reference resolve source, opaque AND
-    // window rows. ONE body serves both schemas: the dragonfly store is its OWN type but its lists are
-    // HoneybeeSchema.AnyOf rows (DragonflySchema ships no AnyOf of its own), so both stores enter covariantly as
-    // IEnumerable<Hb.AnyOf> and Building.Room3ds route through the identical room fold with no second resolve path.
-    // The store is a DOCUMENT-level fact, so the projection runs once per document and every building, storey, and
-    // room reads the same lists. Folding it inside the per-building loop re-projected the whole library once per
-    // building — four Choose passes over every construction and material the model carries, per building.
+    // ONE body serves both schemas: the dragonfly store is its OWN type but its lists are HoneybeeSchema.AnyOf rows
+    // (DragonflySchema ships no AnyOf of its own), so both enter covariantly and need no second resolve path. The
+    // library is a DOCUMENT-level fact — folding it inside the per-building loop re-runs four Choose passes over
+    // every construction and material the model carries, per building.
     static EnergyLibrary Library(Hb.Model model) =>
         Library(model.Properties?.Energy?.Constructions, model.Properties?.Energy?.Materials);
 
     static EnergyLibrary Library(Df.Model model) =>
         Library(model.Properties?.Energy?.Constructions, model.Properties?.Energy?.Materials);
 
-    static EnergyLibrary Library(IEnumerable<Hb.AnyOf>? constructions, IEnumerable<Hb.AnyOf>? materials) => (
-        toSeq(constructions ?? []).Choose(static any => any.Obj is Hb.OpaqueConstructionAbridged oc ? Some(oc) : None),
-        toSeq(materials ?? []).Choose(static any => any.Obj is Hb.EnergyMaterial m ? Some(m) : None),
-        toSeq(constructions ?? []).Choose(static any => any.Obj is Hb.WindowConstructionAbridged wc ? Some(wc) : None),
-        toSeq(materials ?? []).Choose(static any => any.Obj is Hb.EnergyWindowMaterialGlazing g ? Some(g) : None));
+    static EnergyLibrary Library(IEnumerable<Hb.AnyOf>? constructions, IEnumerable<Hb.AnyOf>? materials) {
+        Seq<Hb.AnyOf> cons = Rows(constructions), mats = Rows(materials);
+        return (
+            cons.Choose(static any => any.Obj is Hb.OpaqueConstructionAbridged oc ? Some(oc) : None),
+            mats.Choose(static any => any.Obj is Hb.EnergyMaterial m ? Some(m) : None),
+            cons.Choose(static any => any.Obj is Hb.WindowConstructionAbridged wc ? Some(wc) : None),
+            mats.Choose(static any => any.Obj is Hb.EnergyWindowMaterialGlazing g ? Some(g) : None));
+    }
+
+    // The ONE HoneybeeSchema/DragonflySchema collection admission: every list the two schemas declare is NULLABLE,
+    // so an absent collection enters as an empty Seq HERE and no interior fold coalesces one into existence.
+    static Seq<T> Rows<T>(IEnumerable<T>? values) => values is null ? Seq<T>() : toSeq(values);
 
     Fin<RaiseScope> RaiseRooms(RaiseScope scope, EnergyLibrary library, Seq<Hb.Room> rooms, ProjectionContext ctx) =>
         rooms.Fold(Fin.Succ(scope), (acc, room) => acc.Bind(s => RaiseRoom(s, library, room, ctx)));
@@ -271,7 +278,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
     // dropped three facts the dragonfly massing arm was already reading off its own storey — so one document
     // round-tripped its levels and multipliers and the other silently flattened them.
     Fin<RaiseScope> RaiseRoom(RaiseScope scope, EnergyLibrary library, Hb.Room room, ProjectionContext ctx) {
-        NodeId spaceId = NodeId.Rooted();
+        NodeId spaceId = NodeId.Of(new NodeSeed.Placement());
         (RaiseState levelled, SpatialSpine spine, NodeId storey) =
             Storey(scope.State, scope.Spine, room.Story is { Length: > 0 } named ? named : ImplicitStorey);
         RaiseState landed = levelled
@@ -279,10 +286,10 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
             .Link(new Relationship.Compose(storey, spaceId, ComposeKind.Contain));
         (RaiseState grouped, Map<string, NodeId> zones) = Zoned(landed, scope.Zones, spaceId, Optional(room.Zone));
         Fin<RaiseState> seeded = room.Multiplier > 1
-            ? MultiplierEvidence(room.Multiplier, ctx.Header.Tolerance).Map(evidence => Assigned(grouped, spaceId, evidence))
+            ? MultiplierEvidence(room.Multiplier, ctx.Header.Tolerance, ctx.Key).Map(evidence => Assigned(grouped, spaceId, evidence))
             : Fin.Succ(grouped);
         return seeded
-            .Bind(state => toSeq(room.Faces ?? []).Fold(
+            .Bind(state => Rows(room.Faces).Fold(
                 Fin.Succ(state), (acc, face) => acc.Bind(s => RaiseFace(s, library, spaceId, face, ctx))))
             .Map(state => scope with { State = state, Spine = spine, Zones = zones });
     }
@@ -291,13 +298,9 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
     // tells an unlevelled source from a source that authored a level called nothing.
     const string ImplicitStorey = "level";
 
-    // A face mints the surface Object + FootPrint representation key + the SpaceBoundary Generic edge the
-    // Compute reads consume; the apertures/doors fold as ONE opening-row pass (identifier, ring, abridged
-    // construction id, class) so a raised window carries the Optical evidence the Compute SubSurface build
-    // reads; the face construction associates the seam layer composition. BoundaryLevel is "2nd" — a honeybee
-    // face IS the per-space bounded surface. The schema Type discriminator admits ONCE into the closed BoundaryRow
-    // vocabulary here (never a downcast chain, never raw text the lower re-parses), so the payload the graph
-    // carries is already the row both schemas project from.
+    // BoundaryLevel is "2nd" — a honeybee face IS the per-space bounded surface. The schema Type discriminator
+    // admits ONCE into the closed BoundaryRow vocabulary here, never a downcast chain and never raw text the lower
+    // re-parses, so the payload the graph carries is already the row both schemas project from.
     Fin<RaiseState> RaiseFace(RaiseState state, EnergyLibrary library, NodeId spaceId, Hb.Face face, ProjectionContext ctx) {
         // An unmapped face type is a DEGRADE, not a fault: the surface drops with a typed row naming the token,
         // and the envelope keeps every surface that did map. Faulting the whole raise on the first miss let one
@@ -305,7 +308,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
         if (!EnergyClassRows.ToClass.TryGetValue(face.FaceType, out var row)) {
             return Fin.Succ(state.Note(EnergyReason.ClassUnmapped, face.Identifier));
         }
-        NodeId surfaceId = NodeId.Rooted();
+        NodeId surfaceId = NodeId.Of(new NodeSeed.Placement());
         (RaiseState blobbed, UInt128 footprint) = Footprint(state,
             Ring(face.Geometry.Boundary.Count, index => Point(face.Geometry.Boundary[index], 0.0)), ctx.Header.Tolerance);
         RaiseState seed = blobbed
@@ -313,8 +316,8 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
             .Link(Boundary(spaceId, surfaceId,
                 BoundaryRow.Admit(face.BoundaryCondition.Obj is Hb.OpenAPIGenBaseModel bc ? bc.Type : null)));
         Seq<(string Identifier, List<List<double>> Ring, string? Construction, IfcClass Class)> rows =
-            toSeq(face.Apertures ?? []).Map(a => (a.Identifier, a.Geometry.Boundary, a.Properties?.Energy?.Construction, IfcClass.Window))
-            + toSeq(face.Doors ?? []).Map(d => (d.Identifier, d.Geometry.Boundary, d.Properties?.Energy?.Construction, IfcClass.Door));
+            Rows(face.Apertures).Map(a => (a.Identifier, a.Geometry.Boundary, a.Properties?.Energy?.Construction, IfcClass.Window))
+            + Rows(face.Doors).Map(d => (d.Identifier, d.Geometry.Boundary, d.Properties?.Energy?.Construction, IfcClass.Door));
         return rows
             .Fold(Fin.Succ(seed), (acc, o) => acc.Bind(s => {
                 (RaiseState opened, NodeId openingId) = Opening(s, spaceId, face.Identifier, o.Class, o.Identifier,
@@ -333,7 +336,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
             Some: id => library.Constructions.Find(oc => oc.Identifier == id).Match(
                 Some: oc => Resolve(id, toSeq(oc.Materials), mid => SeamMaterial(library, mid, ctx), ctx),
                 None: () => library.WindowConstructions.Find(wc => wc.Identifier == id)
-                    .ToFin(Detail.EnergyConstructionAbsent.At(ctx.Key, id))
+                    .ToFin(new BimFault.Refused(ctx.Key, BimScope.Energy, BimReason.DanglingReference, string.Join(':', new object?[] { "energy-construction-absent", id })))
                     .Bind(wc => Resolve(id, toSeq(wc.Materials), mid => SeamGlazing(library, mid, ctx), ctx))));
 
     // Material ids -> per-material Single nodes + ONE LayerSet Material node the surface/opening associates
@@ -363,7 +366,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
                 None: () => Success<Error, Option<(Node.Material, MaterialLayer)>>(None),
                 Some: m => MaterialPropertySet
                     .OfThermal(m.Conductivity, m.SpecificHeat, LayerConductance(m.Conductivity, m.Thickness), VapourOpen, ctx.Key)
-                    .Bind(thermal => MeasureValue.OfSi(Dimension.LengthDim, m.Thickness).Map(thickness => (thermal, thickness)))
+                    .Bind(thermal => MeasureValue.OfSi(Dimension.LengthDim, m.Thickness, ctx.Key).Map(thickness => (thermal, thickness)))
                     .ToValidation()
                     .Map(pair => Some((
                         Mint(m.Identifier, MaterialComposition.OfSingle(MaterialId.Create(m.Identifier)), Seq(pair.thermal), ctx.Header.Tolerance),
@@ -381,7 +384,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
                         g.VisibleTransmittance, g.VisibleReflectance, Alt(g.VisibleReflectanceBack, g.VisibleReflectance),
                         g.SolarTransmittance, g.SolarReflectance, Alt(g.SolarReflectanceBack, g.SolarReflectance),
                         g.InfraredTransmittance, g.Emissivity, g.EmissivityBack, ctx.Key)
-                    .Bind(optical => MeasureValue.OfSi(Dimension.LengthDim, g.Thickness).Map(thickness => (optical, thickness)))
+                    .Bind(optical => MeasureValue.OfSi(Dimension.LengthDim, g.Thickness, ctx.Key).Map(thickness => (optical, thickness)))
                     .ToValidation()
                     .Map(pair => Some((
                         Mint(g.Identifier, MaterialComposition.OfSingle(MaterialId.Create(g.Identifier)), Seq(pair.optical), ctx.Header.Tolerance),
@@ -394,8 +397,8 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
     // Content-keyed Material mint: probe id overwritten by the canonical-bytes content hash so identical
     // materials and layer sets dedup across raises (the composition-page mint law).
     static Node.Material Mint(string identifier, MaterialComposition composition, Seq<MaterialPropertySet> properties, double tolerance) {
-        Node.Material probe = new(NodeId.Content([]), MaterialId.Create(identifier), composition, properties);
-        return new(NodeId.Content(probe.ToCanonicalBytes(tolerance).Span), MaterialId.Create(identifier), composition, properties);
+        Node.Material probe = new(NodeId.Of(new NodeSeed.Placement()), MaterialId.Create(identifier), composition, properties);
+        return new(NodeId.Of(new NodeSeed.Content(probe, tolerance)), MaterialId.Create(identifier), composition, properties);
     }
 
     // --- [DRAGONFLY_ARM]
@@ -405,30 +408,31 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
     // Import-source bag evidence; Building.Room3ds (full honeybee rooms) route through the SAME honeybee room
     // fold under the building host — dragonfly composes the honeybee vocabulary, never re-mints it.
     Fin<RaiseState> Dragonfly(ProjectionContext ctx) =>
-        Try.lift(() => Df.Model.FromJson(doc.Text)).Run()
-            .MapFail(error => (Error)Detail.EnergyDecode.At(ctx.Key, error.Message))
+        ctx.Key.Catch(
+                () => Fin.Succ(Df.Model.FromJson(doc.Text)),
+                cause => JsonFailure(BimBoundary.DragonflyJson, cause))
             .Bind(model => model is null
-                ? Fin.Fail<RaiseState>(Detail.EnergyDecode.At(ctx.Key, "type-mismatch"))
+                ? Fin.Fail<RaiseState>(new BimFault.Refused(ctx.Key, BimScope.Energy, BimReason.Rejected, "energy-decode:type-mismatch"))
                 // The library projects ONCE per document, above the building fold, so N buildings read one store.
                 : Library(model) is var library
-                    ? toSeq(model.Buildings ?? []).Fold(
+                    ? Rows(model.Buildings).Fold(
                             Fin.Succ(Seeded(ctx, model.Identifier)),
                             (acc, building) => acc.Bind(s => RaiseBuilding(s, library, building, ctx)))
                         .Map(static scope => scope.State)
-                    : Fin.Fail<RaiseState>(Detail.EnergyDecode.At(ctx.Key, "library")));
+                    : Fin.Fail<RaiseState>(new BimFault.Refused(ctx.Key, BimScope.Energy, BimReason.Rejected, "energy-decode:library")));
 
     Fin<RaiseScope> RaiseBuilding(RaiseScope scope, EnergyLibrary library, Df.Building building, ProjectionContext ctx) {
         // Each DFJSON building re-roots the chain under the shared site, and re-rooting resets the storey memo so
         // two towers naming one level carry two levels.
-        NodeId buildingId = NodeId.Rooted();
+        NodeId buildingId = NodeId.Of(new NodeSeed.Placement());
         SpatialSpine spine = scope.Spine.Under(buildingId);
         RaiseState seed = scope.State
             .Put(Element(buildingId, IfcClass.Building, "", building.Identifier))
             .Link(new Relationship.Compose(scope.Spine.Site, buildingId, ComposeKind.Aggregate));
-        Fin<RaiseScope> massing = toSeq(building.UniqueStories ?? []).Fold(
+        Fin<RaiseScope> massing = Rows(building.UniqueStories).Fold(
             Fin.Succ(scope with { State = seed, Spine = spine }),
             (acc, story) => acc.Bind(held => RaiseStory(held, story, ctx)));
-        return toSeq(building.Room3ds ?? []).Fold(massing,
+        return Rows(building.Room3ds).Fold(massing,
             (acc, room) => acc.Bind(held => RaiseRoom(held, library, room, ctx)));
     }
 
@@ -437,15 +441,15 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
     Fin<RaiseScope> RaiseStory(RaiseScope scope, Df.Story story, ProjectionContext ctx) {
         (RaiseState levelled, SpatialSpine spine, NodeId storeyId) = Storey(scope.State, scope.Spine, story.Identifier);
         Fin<RaiseState> seeded = story.Multiplier > 1
-            ? MultiplierEvidence(story.Multiplier, ctx.Header.Tolerance).Map(evidence => Assigned(levelled, storeyId, evidence))
+            ? MultiplierEvidence(story.Multiplier, ctx.Header.Tolerance, ctx.Key).Map(evidence => Assigned(levelled, storeyId, evidence))
             : Fin.Succ(levelled);
-        return toSeq(story.Room2ds ?? []).Fold(
+        return Rows(story.Room2ds).Fold(
             seeded.Map(state => scope with { State = state, Spine = spine }),
             (acc, room) => acc.Bind(held => RaisePlate(held, storeyId, room, ctx)));
     }
 
     Fin<RaiseScope> RaisePlate(RaiseScope scope, NodeId storeyId, Df.Room2D room, ProjectionContext ctx) {
-        NodeId spaceId = NodeId.Rooted();
+        NodeId spaceId = NodeId.Of(new NodeSeed.Placement());
         (RaiseState blobbed, UInt128 plate) = Footprint(scope.State,
             Ring(room.FloorBoundary.Count, index => Point(room.FloorBoundary[index], room.FloorHeight)),
             ctx.Header.Tolerance);
@@ -453,73 +457,108 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
             .Land(EnergySlot.Space, Element(spaceId, IfcClass.Space, "", room.Identifier, plate))
             .Link(new Relationship.Compose(storeyId, spaceId, ComposeKind.Contain));
         (RaiseState grouped, Map<string, NodeId> zones) = Zoned(landed, scope.Zones, spaceId, Optional(room.Zone));
-        return HeightQuantity(room.FloorToCeilingHeight, ctx.Header.Tolerance)
+        return HeightQuantity(room.FloorToCeilingHeight, ctx.Header.Tolerance, ctx.Key)
             .Map(height => scope with { State = Assigned(grouped, spaceId, height), Zones = zones });
     }
 
     // Dragonfly space height landed as the SAME Qto_SpaceBaseQuantities Height quantity the derive's massing
     // lower reads back — a DFJSON round trip that fell to the 3.0 m policy default was the deleted round-trip hole.
     // Fin: a non-finite source height rails the seam OfSi finite gate rather than entering the canonical bytes.
-    static Fin<Node.QuantitySet> HeightQuantity(double floorToCeiling, double tolerance) =>
-        MeasureValue.OfSi(Dimension.LengthDim, floorToCeiling).Map(height => {
+    static Fin<Node.QuantitySet> HeightQuantity(double floorToCeiling, double tolerance, Op key) =>
+        MeasureValue.OfSi(Dimension.LengthDim, floorToCeiling, key).Map(height => {
             QuantityBag bag = new(QuantityRows.SpaceBaseQuantities,
                 Map((QuantityRows.Height, height)),
-                InheritanceMode.OccurrenceWins, PropertySource.Import);
-            Node.QuantitySet probe = new(NodeId.Content([]), bag);
-            return new Node.QuantitySet(NodeId.Content(probe.ToCanonicalBytes(tolerance).Span), bag);
+                InheritanceMode.OccurrenceWins, EvidenceGrade.Import);
+            Node.QuantitySet probe = new(NodeId.Of(new NodeSeed.Placement()), bag);
+            return new Node.QuantitySet(NodeId.Of(new NodeSeed.Content(probe, tolerance)), bag);
         });
 
     // Story.Multiplier is SOURCE data (unique stories x vertical repeat) — dropped, the derive re-emits
     // multiplier-1 stories and the energy model under-counts by the repeat factor; read back onto Story(multiplier:).
-    static Fin<Node.PropertySet> MultiplierEvidence(int multiplier, double tolerance) =>
-        MeasureValue.OfSi(Dimension.Dimensionless, multiplier).Map(value => {
+    static Fin<Node.PropertySet> MultiplierEvidence(int multiplier, double tolerance, Op key) =>
+        MeasureValue.OfSi(Dimension.Dimensionless, multiplier, key).Map(value => {
             PropertyBag bag = new(EnergyModelSet,
                 Map((StoryMultiplier, (PropertyValue)new PropertyValue.Measure(value))),
-                InheritanceMode.OccurrenceWins, PropertySource.Import);
-            Node.PropertySet probe = new(NodeId.Content([]), bag);
-            return new Node.PropertySet(NodeId.Content(probe.ToCanonicalBytes(tolerance).Span), bag);
+                InheritanceMode.OccurrenceWins, EvidenceGrade.Import);
+            Node.PropertySet probe = new(NodeId.Of(new NodeSeed.Placement()), bag);
+            return new Node.PropertySet(NodeId.Of(new NodeSeed.Content(probe, tolerance)), bag);
         });
 
     // --- [OSM_ARM]
-    // Three decode arms, one raise fold. loadModelFromString upgrades any older .osm in-string; gbXML/IDF
-    // readers are Path-bound, crossed via a bracketed temp path (Exemption: SWIG + filesystem boundary). Catch
-    // spans decode AND raise: every SWIG member on the fold path can throw natively, and a raise escaping the Fin
-    // signature is the exception-control-flow defect the funnel closes.
-    Fin<RaiseState> OsmFamily(ProjectionContext ctx) {
-        try {
-            return Decode(ctx).Bind(model => { using (model) { return RaiseOsm(model, ctx); } });
-        }
-        catch (Exception ex) when (ex is SystemException or ApplicationException) {
-            return Fin.Fail<RaiseState>(Detail.EnergyDecode.At(ctx.Key, ex.Message));
-        }
-    }
+    // The ONE native funnel every throwing region on this arm crosses. Op.Catch preserves the captured Error;
+    // only documented JSON/native/filesystem throws gain the named boundary, while a returned fault and an
+    // unrecognized throw pass through unchanged. Classification runs inside Catch so cause custody is constrained.
+    // The transience is the CROSSING's fact, not the token's: the same `energy-decode` row is transient at the
+    // scratch write and terminal at a malformed parse, so the raising site sets it and the root-bound executor
+    // reads it off the arm. This tier classifies and drives nothing.
+    static Option<BimFault.BoundaryFailed> JsonFailure(BimBoundary boundary, Error cause) =>
+        cause.Exception.Case is Newtonsoft.Json.JsonException or ArgumentException
+            ? Some(new BimFault.BoundaryFailed(boundary, cause))
+            : None;
 
-    Fin<Os.Model> Decode(ProjectionContext ctx) {
-        if (doc.Format == InterchangeFormat.Osm) {
-            using Os.VersionTranslator vt = new();
-            using Os.OptionalModel osm = vt.loadModelFromString(doc.Text);
-            return Lowered(osm, ctx, "osm");
-        }
-        string temp = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        try {
-            File.WriteAllBytes(temp, doc.Bytes.ToArray());
-            using Os.Path path = Os.OpenStudioUtilitiesCore.toPath(temp);
-            if (doc.Format == InterchangeFormat.GbXml) {
-                using Os.GbXMLReverseTranslator gb = new();
-                using Os.OptionalModel fromGb = gb.loadModel(path);
-                return Lowered(fromGb, ctx, "gbxml");
-            }
-            using Os.EnergyPlusReverseTranslator ep = new();
-            using Os.OptionalModel fromIdf = ep.loadModel(path);
-            return Lowered(fromIdf, ctx, "idf");
-        }
-        finally { File.Delete(temp); }
-    }
+    static Option<BimFault.BoundaryFailed> NativeFailure(BimBoundary boundary, Error cause) =>
+        cause.Exception.Case switch {
+            IOException _ when boundary == BimBoundary.HostScratchWrite => Some(new BimFault.BoundaryFailed(boundary, cause)),
+            UnauthorizedAccessException _ when boundary == BimBoundary.HostScratchWrite => Some(new BimFault.BoundaryFailed(boundary, cause)),
+            ApplicationException _ when boundary != BimBoundary.HostScratchWrite => Some(new BimFault.BoundaryFailed(boundary, cause)),
+            _ => None,
+        };
 
-    static Fin<Os.Model> Lowered(Os.OptionalModel optional, ProjectionContext ctx, string arm) =>
+    static Fin<T> Native<T>(Op key, BimBoundary boundary, Func<Fin<T>> leg) =>
+        key.Catch(leg, cause => NativeFailure(boundary, cause));
+
+    // Three decode arms, one raise fold. Every SWIG member on the fold path can raise natively, and a raise
+    // escaping the Fin signature is the exception-control-flow defect the funnel closes.
+    Fin<RaiseState> OsmFamily(ProjectionContext ctx) =>
+        Decode(ctx, model => Native(ctx.Key, BimBoundary.OpenStudioRaise, () => RaiseOsm(model, ctx)));
+
+    // loadModelFromString upgrades any older .osm IN-STRING, so the OSM row never touches the filesystem and its
+    // published transience stays Terminal.
+    Fin<T> Decode<T>(ProjectionContext ctx, Func<Os.Model, Fin<T>> use) =>
+        doc.Format == InterchangeFormat.Osm
+            ? Native(ctx.Key, BimBoundary.OpenStudioInMemoryDecode, () => {
+                using Os.VersionTranslator vt = new();
+                using Os.OptionalModel osm = vt.loadModelFromString(doc.Text);
+                return Lowered(osm, ctx, "osm", use);
+            })
+            : Scratched(ctx, use);
+
+    // The gbXML/IDF readers are Path-BOUND, so the payload crosses a host scratch file (Exemption: SWIG +
+    // filesystem boundary) — the ONE site on this page publishing a TRANSIENT fault, because a temp write the
+    // filesystem refuses is re-runnable where a malformed document never is. The reader runs under the Terminal
+    // funnel beside it, so a bad document is not re-driven for a good disk.
+    Fin<T> Scratched<T>(ProjectionContext ctx, Func<Os.Model, Fin<T>> use) =>
+        IO.lift(() => Native(ctx.Key, BimBoundary.HostScratchWrite, () => {
+                string temp = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+                return Fin.Succ(temp);
+            }))
+            .Bracket(
+                Use: temp => IO.lift(() => Native(ctx.Key, BimBoundary.HostScratchWrite, () => {
+                        File.WriteAllBytes(temp, doc.Bytes.ToArray());
+                        return Fin.Succ(unit);
+                    })
+                    .Bind(_ => Native(ctx.Key, BimBoundary.OpenStudioPathDecode, () => {
+                        using Os.Path path = Os.OpenStudioUtilitiesCore.toPath(temp);
+                        if (doc.Format == InterchangeFormat.GbXml) {
+                            using Os.GbXMLReverseTranslator gb = new();
+                            using Os.OptionalModel fromGb = gb.loadModel(path);
+                            return Lowered(fromGb, ctx, "gbxml", use);
+                        }
+                        using Os.EnergyPlusReverseTranslator ep = new();
+                        using Os.OptionalModel fromIdf = ep.loadModel(path);
+                        return Lowered(fromIdf, ctx, "idf", use);
+                    }))),
+                Fin: temp => IO.lift(() => Native(ctx.Key, BimBoundary.HostScratchWrite, () => {
+                    File.Delete(temp);
+                    return Fin.Succ(unit);
+                })))
+            .Try().runFin.As().Run();
+
+    // OptionalModel owns the borrowed get() handle, so use completes before the surrounding using releases it.
+    static Fin<T> Lowered<T>(Os.OptionalModel optional, ProjectionContext ctx, string arm, Func<Os.Model, Fin<T>> use) =>
         optional.is_initialized()
-            ? Fin.Succ(optional.get())
-            : Fin.Fail<Os.Model>(Detail.EnergyDecode.At(ctx.Key, arm, "unreadable"));
+            ? use(optional.get())
+            : Fin.Fail<T>(new BimFault.Refused(ctx.Key, BimScope.Energy, BimReason.Rejected, string.Join(':', new object?[] { "energy-decode", arm, "unreadable" })));
 
     // OSM raise: spaces/surfaces/boundary edges land the same seam shape as the honeybee arm, and each
     // surface's SubSurfaces land as Host-attributed openings; a typed layer set resolves via the handle re-read
@@ -533,7 +572,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
         using Os.SpaceVector osSpaces = model.getSpaces();
         for (int i = 0; i < osSpaces.Count; i++) {
             using Os.Space osSpace = osSpaces[i];
-            NodeId spaceId = NodeId.Rooted();
+            NodeId spaceId = NodeId.Of(new NodeSeed.Placement());
             // The OSM storey and thermal zone are BOTH authored on the space, and both are optional handles the
             // SWIG optional gates — so an unlevelled space hangs from the implicit level and an unzoned space
             // joins no grouping, which is what the source stated.
@@ -556,7 +595,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
                     state = state.Note(EnergyReason.ClassUnmapped, surf.nameString());
                     continue;
                 }
-                NodeId surfaceId = NodeId.Rooted();
+                NodeId surfaceId = NodeId.Of(new NodeSeed.Placement());
                 using Os.Point3dVector vertices = surf.vertices();
                 (RaiseState blobbed, UInt128 footprint) = Footprint(state, OsmRing(vertices), ctx.Header.Tolerance);
                 state = blobbed
@@ -638,7 +677,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
             using Os.StandardOpaqueMaterial m = opaque.get();
             return MaterialPropertySet
                 .OfThermal(m.conductivity(), m.specificHeat(), LayerConductance(m.conductivity(), m.thickness()), VapourOpen, ctx.Key)
-                .Bind(thermal => MeasureValue.OfSi(Dimension.LengthDim, m.thickness()).Map(thickness => (
+                .Bind(thermal => MeasureValue.OfSi(Dimension.LengthDim, m.thickness(), ctx.Key).Map(thickness => (
                     Mint(m.nameString(), MaterialComposition.OfSingle(MaterialId.Create(m.nameString())), Seq(thermal), ctx.Header.Tolerance),
                     new MaterialLayer(MaterialId.Create(m.nameString()), thickness, m.nameString()))))
                 .ToOption();
@@ -654,7 +693,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
                 vt, rvf, rvb, st, rsf, rsb,
                 g.infraredTransmittanceatNormalIncidence(), g.frontSideInfraredHemisphericalEmissivity(), g.backSideInfraredHemisphericalEmissivity(), ctx.Key))
             .As().Bind(static fin => fin.ToOption())
-            .Bind(optical => MeasureValue.OfSi(Dimension.LengthDim, g.thickness()).ToOption().Map(thickness => (
+            .Bind(optical => MeasureValue.OfSi(Dimension.LengthDim, g.thickness(), ctx.Key).ToOption().Map(thickness => (
                 Mint(g.nameString(), MaterialComposition.OfSingle(MaterialId.Create(g.nameString())), Seq(optical), ctx.Header.Tolerance),
                 new MaterialLayer(MaterialId.Create(g.nameString()), thickness, g.nameString()))));
     }
@@ -670,7 +709,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
     // a real context root. The identifiers are the document's own where it names them and derived from the raise
     // otherwise — a synthetic name is honest here because the RANK is the fact consumers read, not the label.
     static (RaiseState State, SpatialSpine Spine) Root(RaiseState state, string identifier) {
-        NodeId project = NodeId.Rooted(), site = NodeId.Rooted(), building = NodeId.Rooted();
+        NodeId project = NodeId.Of(new NodeSeed.Placement()), site = NodeId.Of(new NodeSeed.Placement()), building = NodeId.Of(new NodeSeed.Placement());
         RaiseState seeded = state
             .Put(Element(project, IfcClass.Project, "", identifier))
             .Put(Element(site, IfcClass.Site, "", identifier))
@@ -686,7 +725,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
         spine.Storeys.Find(name).Match(
             Some: held => (state, spine, held),
             None: () => {
-                NodeId storey = NodeId.Rooted();
+                NodeId storey = NodeId.Of(new NodeSeed.Placement());
                 RaiseState landed = state
                     .Put(Element(storey, IfcClass.BuildingStorey, "", name))
                     .Link(new Relationship.Compose(spine.Building, storey, ComposeKind.Aggregate));
@@ -706,7 +745,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
             Some: zone => zones.Find(zone).Match(
                 Some: held => (state.Link(new Relationship.Assign(space, held, AssignKind.Group)), zones),
                 None: () => {
-                    NodeId minted = NodeId.Rooted();
+                    NodeId minted = NodeId.Of(new NodeSeed.Placement());
                     return (state
                         .Put(Element(minted, IfcClass.Zone, "", zone))
                         .Link(new Relationship.Assign(space, minted, AssignKind.Group)),
@@ -745,7 +784,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
     static Node.Object Element(NodeId id, IfcClass @class, string predefined, string identifier, UInt128 footprint = default) =>
         new(Id: id, Kind: ObjectKind.Occurrence,
             ExternalId: Optional(identifier).Filter(static s => s.Length > 0),
-            Classification: Classification.Create("ifc", @class.Key, "", None, None, None),
+            Classification: @class.EntityClass,
             PredefinedType: PredefinedType.Create(predefined),
             Name: identifier, Tag: "",
             Representations: footprint == default
@@ -753,12 +792,17 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
                 : RepresentationContentHash.Empty.With("FootPrint", footprint),
             History: None, Span: @class.Span);   // the roster row's own schema span, the SemanticProjector mint law
 
+    // The seam Generic edge carries a WireName value object, not a bare string, so the roster key mints ONCE here
+    // at static init over a constant the IfcRelKind row already owns — a per-edge Create would re-run a non-blank
+    // admission whose answer the roster settled.
+    static readonly WireName SpaceBoundary = WireName.Create(IfcRelKind.SpaceBoundary.Key);
+
     // Each edge carries the ADMITTED row's own key, never the raw schema token: the raise resolves the foreign
     // vocabulary once through BoundaryRow and the lower reads that same roster back, so no string middle sits
     // between two parsers that disagree about what "Adiabatic" means.
     static Relationship Boundary(NodeId space, NodeId surface, BoundaryRow condition) =>
-        new Relationship.Generic(IfcRelKind.SpaceBoundary.Key, space, surface, Map(
-            (BoundaryRows.Level,  (PropertyValue)new PropertyValue.Text("2nd")),
+        new Relationship.Generic(SpaceBoundary, space, surface, Map(
+            (BoundaryRows.BoundaryLevel,  (PropertyValue)new PropertyValue.Text("2nd")),
             (BoundaryCondition,   (PropertyValue)new PropertyValue.Text(condition.Key))));
 
     // An aperture/door IS a space boundary in energy modeling (the IfcRelSpaceBoundary related element may be a
@@ -766,12 +810,12 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
     // typed Void/fill lowering demands an IfcOpeningElement intermediary no energy schema carries, the rejected form.
     // Returns the minted id so the caller associates the opening's own glazing composition.
     static (RaiseState State, NodeId Id) Opening(RaiseState state, NodeId space, string hostIdentifier, IfcClass @class, string identifier, FootprintPolygon ring, ProjectionContext ctx) {
-        NodeId openingId = NodeId.Rooted();
+        NodeId openingId = NodeId.Of(new NodeSeed.Placement());
         (RaiseState blobbed, UInt128 footprint) = Footprint(state, ring, ctx.Header.Tolerance);
         return (blobbed
             .Land(EnergySlot.Opening, Element(openingId, @class, "", identifier, footprint))
-            .Link(new Relationship.Generic(IfcRelKind.SpaceBoundary.Key, space, openingId, Map(
-                (BoundaryRows.Level, (PropertyValue)new PropertyValue.Text("2nd")),
+            .Link(new Relationship.Generic(SpaceBoundary, space, openingId, Map(
+                (BoundaryRows.BoundaryLevel, (PropertyValue)new PropertyValue.Text("2nd")),
                 (BoundaryRows.Host,  (PropertyValue)new PropertyValue.Text(hostIdentifier))))), openingId);
     }
 
@@ -782,7 +826,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
         resolved.Composition.Match(
             Some: s => s.Layers
                 .Fold(state.Noted(resolved.Notes).Land(EnergySlot.Construction, s.LayerSetNode), static (acc, n) => acc.Put(n))
-                .Link(new Relationship.Associate(subject, s.LayerSetNode.Id, new MaterialUsage.None())),
+                .Link(new Relationship.Associate(subject, s.LayerSetNode.Id, new MaterialUsage.Unbound())),
             None: () => state.Noted(resolved.Notes));
 
     // Content-keyed bag node + Assign(PropertyDefinition) — the one evidence-landing shape shared by the uFactor
@@ -806,14 +850,13 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
     // SemanticProjector mint owns — a page-local byte order is the cross-projector divergence defect), the ring
     // recorded ON the threaded state for the caller's write-blob-first landing.
     static (RaiseState State, UInt128 Key) Footprint(RaiseState state, FootprintPolygon ring, double tolerance) {
-        UInt128 key = ContentHash.Of(ring.Ring
-            .Fold(new CanonicalWriter(tolerance), static (w, p) => w.Double(p.X).Double(p.Y).Double(p.Z))
-            .ToBytes().Span);
+        UInt128 key = ContentAddress.Of(ring, tolerance, static (polygon, writer) =>
+            polygon.Ring.Fold(writer, static (w, p) => w.Double(p.X).Double(p.Y).Double(p.Z))).Value;
         return (state.Blob(key, ring), key);
     }
 
     // Degrade row: no typed layer read -> the assembly uFactor lands as bag evidence the lower/review reads,
-    // never a fabricated layer set (PropertySource.Derived — computed evidence, not authored data).
+    // never a fabricated layer set (EvidenceGrade.Derived — computed evidence, not authored data).
     static RaiseState UFactorEvidence(RaiseState state, NodeId surfaceId, Os.ConstructionBase construction, ProjectionContext ctx) {
         using Os.OptionalDouble u = construction.uFactor();
         if (!u.is_initialized()) { return state; }
@@ -823,9 +866,9 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
                 PropertyBag bag = new(EnergyModelSet, Map(
                     (UFactor,          (PropertyValue)new PropertyValue.Measure(uValue)),
                     (ConstructionName, (PropertyValue)new PropertyValue.Text(construction.nameString()))),
-                    InheritanceMode.OccurrenceWins, PropertySource.Derived);
-                Node.PropertySet probe = new(NodeId.Content([]), bag);
-                return Assigned(state, surfaceId, new Node.PropertySet(NodeId.Content(probe.ToCanonicalBytes(ctx.Header.Tolerance).Span), bag));
+                    InheritanceMode.OccurrenceWins, EvidenceGrade.Derived);
+                Node.PropertySet probe = new(NodeId.Of(new NodeSeed.Placement()), bag);
+                return Assigned(state, surfaceId, new Node.PropertySet(NodeId.Of(new NodeSeed.Content(probe, ctx.Header.Tolerance)), bag));
             });
     }
 }

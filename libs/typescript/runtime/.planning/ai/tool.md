@@ -34,28 +34,58 @@ import { OpenAiTool } from "@effect/ai-openai"
 import { Array, Context, Duration, Effect, FiberSet, Layer, Match, Option, PubSub, Queue, Record, Schema, type Scope, Sink, Stream } from "effect"
 import { Fault } from "@rasm/ts/core"
 
+// Every refusal on this plane names the same two operands — the server it crossed and that server's own diagnostic —
+// because the triage keys on the SDK rejection and the arsenal renders the verdict. What the rows do not share is
+// the sentence, so each renders its own subject and the reason stays the whole discriminant a caller routes on.
+const _LEG = "server"
+const _Subject = Schema.Struct({ detail: Schema.String, server: Schema.NonEmptyString })
+
 const _faults = Fault.Class.family(["dial", "call", "lapsed", "shape", "declined"] as const, {
-  dial: { class: "unavailable" },
-  call: { class: "unavailable" },
-  lapsed: { class: "expired" },
-  shape: { class: "malformed" },
-  declined: { class: "denied" },
+  dial: Fault.Class.row({
+    class: "unavailable",
+    leg: _LEG,
+    detail: _Subject,
+    render: ({ detail, server }) => `${server} would not open a session — ${detail}`,
+  }),
+  call: Fault.Class.row({
+    class: "unavailable",
+    leg: _LEG,
+    detail: _Subject,
+    render: ({ detail, server }) => `${server} could not carry the call — ${detail}`,
+  }),
+  lapsed: Fault.Class.row({
+    class: "expired",
+    leg: _LEG,
+    detail: _Subject,
+    render: ({ detail, server }) => `${server} did not answer inside its request deadline — ${detail}`,
+  }),
+  shape: Fault.Class.row({
+    class: "malformed",
+    leg: _LEG,
+    detail: _Subject,
+    render: ({ detail, server }) => `${server} answered a shape this arsenal does not admit — ${detail}`,
+  }),
+  declined: Fault.Class.row({
+    class: "denied",
+    leg: _LEG,
+    detail: _Subject,
+    render: ({ detail, server }) => `${server} declined the call — ${detail}`,
+  }),
 })
 
 declare namespace ToolFault {
-  type Reason = (typeof _faults.reasons)[number]
+  type Issue = typeof _faults.payload.Type
+  type Reason = (typeof _faults.kinds)[number]
 }
 
 class ToolFault extends Schema.TaggedError<ToolFault>()("ToolFault", {
-  reason: _faults.schema,
-  server: Schema.String,
-  detail: Schema.String,
+  case: _faults.payload,
 }) {
   get class(): Fault.Class.Kind {
-    return _faults.classOf(this.reason)
+    return _faults.classOf(this.case.reason)
   }
   override get message(): string {
-    return `<tool:${this.reason}> ${this.server}: ${this.detail}`
+    return _faults.render(this.case)
   }
 }
 ```
@@ -265,7 +295,7 @@ const _artifactResource = McpServer.resource`artifact://${McpSchema.param("key",
 
 const _confirm = (message: string) =>
   McpServer.elicit({ message, schema: Schema.Struct({ approve: Schema.Boolean, note: Schema.String }) }).pipe(
-    Effect.mapError((declined) => new ToolFault({ reason: "declined", server: "host", detail: String(declined) })),
+    Effect.mapError((declined) => new ToolFault({ case: { reason: "declined", server: "host", detail: String(declined) } })),
   )
 
 const _serve = <Tools extends Record<string, Tool.Any>>(spec: Host.Spec<Tools>) =>
@@ -345,14 +375,17 @@ const _bounded = (spec: Remote.Spec, signal: AbortSignal): RequestOptions => ({
 
 const _lifted = (server: string, reason: ToolFault.Reason) => (cause: unknown): ToolFault =>
   Match.value(cause).pipe(
-    Match.when(Match.instanceOf(UnauthorizedError), (fault) => new ToolFault({ reason: "declined", server, detail: fault.message })),
+    Match.when(Match.instanceOf(UnauthorizedError), (fault) =>
+      new ToolFault({ case: { reason: "declined", server, detail: fault.message } })),
     Match.when(Match.instanceOf(McpError), (fault) =>
-      new ToolFault({ reason: fault.code === ErrorCode.RequestTimeout ? "lapsed" : reason, server, detail: fault.message })),
-    Match.orElse((residue) => new ToolFault({ reason, server, detail: String(residue) })), // instanceOf subtracts nothing, so the open residue earns orElse
+      new ToolFault({
+        case: { reason: fault.code === ErrorCode.RequestTimeout ? "lapsed" : reason, server, detail: fault.message },
+      })),
+    Match.orElse((residue) => new ToolFault({ case: { reason, server, detail: String(residue) } })), // instanceOf subtracts nothing, so the open residue earns orElse
   )
 
 const _shaped = (server: string) => (fault: unknown): ToolFault =>
-  new ToolFault({ reason: "shape", server, detail: String(fault) })
+  new ToolFault({ case: { reason: "shape", server, detail: String(fault) } })
 
 const _session = (spec: Remote.Spec, client: Client, updates: PubSub.PubSub<string>): Remote.Session => {
   const dialed = <T>(run: (signal: AbortSignal) => Promise<T>): Effect.Effect<T, ToolFault> =>
@@ -368,7 +401,7 @@ const _session = (spec: Remote.Spec, client: Client, updates: PubSub.PubSub<stri
         Effect.flatMap(admitted(McpSchema.CallToolResult)),
         Effect.filterOrFail(
           (result) => result.isError !== true,
-          (result) => new ToolFault({ reason: "declined", server: spec.name, detail: JSON.stringify(result.content) }),
+          (result) => new ToolFault({ case: { reason: "declined", server: spec.name, detail: JSON.stringify(result.content) } }),
         ),
         Effect.flatMap((result) => admitted(row.success)(result.structuredContent)),
       ),

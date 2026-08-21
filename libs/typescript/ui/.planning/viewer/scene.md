@@ -1,13 +1,13 @@
 # [UI_SCENE]
 
-`Glb` owns generation-scoped scene residency, backend acquisition, environment lighting, OpenPBR binding, and GPU teardown.
+`Glb` owns epoch-scoped scene residency, backend acquisition, environment lighting, OpenPBR binding, and GPU teardown.
 
 ## [01]-[INDEX]
 
 - [02]-[VIEWPORT_PORT]: verified scene inputs; `GlbViewport`.
 - [03]-[FAULT_FAMILY]: closed scene failures; `GlbFault`.
 - [04]-[BACKEND_SELECT]: renderer acquisition and lifecycle; `Glb`.
-- [05]-[RESIDENCY_GRAFT]: generation-safe graft and release; `Glb`.
+- [05]-[RESIDENCY_GRAFT]: epoch-safe graft and release; `Glb`.
 - [06]-[ENVIRONMENT_FOLD]: environment decode and prefilter; `Glb`.
 - [07]-[DRAW_COLLAPSE]: draw, visibility, splat order, and scene-tool queries; `Glb`.
 - [08]-[APPEARANCE_BIND]: OpenPBR seating and the standard-to-physical upgrade; `Pbr`.
@@ -16,13 +16,13 @@
 
 ## [02]-[VIEWPORT_PORT]
 
-- Owner: `GlbViewport` carries generation-scoped residency, verified arrivals, dome data, appearances, and cache ports.
-- Law: only verified whole-buffer octets enter the viewer; every geometry arrival carries its manifest generation.
+- Owner: `GlbViewport` carries the admitted residency manifest, verified arrivals, dome data, appearances, and cache ports.
+- Law: only verified whole-buffer octets enter the viewer; every geometry arrival carries the manifest epoch it was planned under.
 - Boundary: runtime owns hauling and cache policy; UI owns decoding and GPU residency.
 
 ```typescript signature
 import { Digest, Frame, Wire } from "@rasm/ts/core"
-import { Context, type Effect, type Stream, type Subscribable } from "effect"
+import { Context, type Effect, type HashMap, type Option, type Stream, type Subscribable } from "effect"
 
 type AppearanceSummary = InstanceType<typeof Wire.AppearanceSummary>
 type Material = InstanceType<typeof Wire.Material>
@@ -30,8 +30,11 @@ type PbrGroups = typeof Wire.PbrGroups.Type
 type TextureSet = InstanceType<typeof Wire.TextureSet>
 
 declare namespace GlbViewport {
-  // generic arguments carry the whole-buffer contract: a shared backing store reaches no `three` decode entry
-  type Arrival = { readonly key: Digest.Key<"content">; readonly generation: number; readonly octets: Uint8Array<ArrayBuffer> }
+  // generic arguments carry the whole-buffer contract: a shared backing store reaches no `three` decode entry.
+  // `epoch` is the hauling side's REPLACEMENT counter, not a wire column — the residency manifest carries none, and
+  // `Frame.ResidencyManifest.version` is the producer's schema pin, equal on every lawful emission, so keying skew
+  // on it would pin every arrival identical and pass the guard below on a manifest two replacements out of date
+  type Arrival = { readonly key: Digest.Key<"content">; readonly epoch: number; readonly octets: Uint8Array<ArrayBuffer> }
   type Environment = Arrival & {
     readonly intensity: number
     readonly rotation: number
@@ -61,10 +64,23 @@ declare namespace GlbViewport {
   // the served coordinate of a planned payload — the growth row the prefetch hints earned. It is a total read,
   // not a rail: a key the hauling side has not planned yet is lawfully absent, and a hint is never a fetch.
   type Addressed = (key: Digest.Key<"content">) => Option.Option<string>
+  // The admitted manifest as this viewer consumes it. The VIEW crosses rather than the bare manifest, because core's
+  // admission already folded the per-kind `census` and the `resident` byte total in the same pass it graded the
+  // budget — re-summing either here would fork one fold into two. `index` is built ONCE per replacement, which the
+  // manifest's own duplicate-key filter proves injective, so the insert lane's membership test costs a hash rather
+  // than a scan of every tile per arrival. `epoch` is the hauling side's replacement counter, the one ordinal a
+  // graft's lifetime is keyed on.
+  type Residency = {
+    readonly view: Frame.ResidencyView
+    readonly index: HashMap.HashMap<Digest.Key<"content">, Frame.ResidencyTile>
+    readonly epoch: number
+  }
 }
 
 class GlbViewport extends Context.Tag("ui/viewer/GlbViewport")<GlbViewport, {
-  readonly ledger: Subscribable.Subscribable<Frame.ResidencyLedger>
+  // absence is a real state and rides the option carrier: a viewport before its first admitted manifest holds no
+  // resident set, and a fabricated empty one would read exactly as a producer that emitted an empty viewpoint
+  readonly manifest: Subscribable.Subscribable<Option.Option<GlbViewport.Residency>>
   readonly arrivals: Stream.Stream<GlbViewport.Arrival, GlbFault>
   readonly environments: Stream.Stream<GlbViewport.Environment, GlbFault>
   readonly appearances: Stream.Stream<GlbViewport.Appearance, GlbFault>
@@ -76,54 +92,110 @@ class GlbViewport extends Context.Tag("ui/viewer/GlbViewport")<GlbViewport, {
 ## [03]-[FAULT_FAMILY]
 
 - Owner: `GlbFault` closes scene failure policy over `Fault.Class` and private eviction and plane columns.
-- Law: `_faultPolicy.at(reason)` is the only local policy read, and `_family.classOf(reason)` supplies the core class.
+- Law: `_faultPolicy.at(reason)` reads the one axis the family does not carry — eviction; `_family.classOf(reason)` supplies the core class and `_family.legOf(reason)` the indicted arm, so the lifecycle guard and the raiser read one roster.
+- Law: seating accumulates on ONE carrier — `GlbFault.seating` is the family's own census, so a partially-bound set names every offending plane in a single refusal fact while every other lane refuses singly and keeps the plain carrier.
+- Law: the refusal census and its error-rail fold ride ONE declaration beside the family — the mount and the tracking operator are two reads of one row, and the census is the family's own published vocabulary rather than a tuple a call site assembled.
 
 ```typescript signature
-import { Fault, Shape } from "@rasm/ts/core"
-import { Record, Schema } from "effect"
+import { Convention, Fault, Shape } from "@rasm/ts/core"
+import { Schema } from "effect"
 
-// One row per reason: the core kind the class getter projects, plus the TWO scene-local axes. Severity, retry,
-// blame, and quarantine are the core Fault.Class row table's — a rank or retry literal here would fork them.
-// `arm` is the lifecycle guard's own column: `codec-absent` and `backend-lost` share the `unavailable` class, so a
-// reason literal in the guard would move the phase on an unserved decoder.
-const _reasons = ["manifest-skew", "key-mismatch", "decode-refused", "codec-absent", "plane-unbound", "backend-lost"] as const
+// One row per reason: the core kind, the owning leg, and the subject that reason alone renders. Severity, retry,
+// blame, and quarantine are the core Fault.Class row table's — a rank or retry literal here would fork them. The
+// LEG is the lifecycle guard's own column: `codec-absent` and `backend-lost` share the `unavailable` class, so a
+// reason literal in the guard would move the phase on an unserved decoder, and reading the leg back keeps one
+// authority where an `arm` column beside it was a second name for the same fact.
+const _reasons = ["manifest-skew", "decode-refused", "codec-absent", "plane-unbound", "backend-lost"] as const
+
+// What a codec refusal names is a CLOSED set — the roster row, the wire codec, the loadable module — so an operator
+// reads which of the three the deployment failed to serve rather than a bracketed token parsed back out of prose.
+const _unserved = ["asset-row", "meshopt-codec", "decoder-module"] as const
+
+// Eviction is the one axis neither the class nor the leg decides: a skewed manifest and a refused decode each
+// condemn the held bytes, while an unserved codec and an unseatable plane leave them sound. Content-key
+// verification is NOT this page's — `system/cache` re-mints every leaf through `Digest.mint("content", octets)`
+// and raises its own `key-mismatch` there, so bytes reaching this page already answered that gate.
 const _faultRows = {
-    "manifest-skew": { class: "conflicted", evict: true, arm: "asset" },
-    "key-mismatch": { class: "malformed", evict: true, arm: "asset" },
-    "decode-refused": { class: "invalid", evict: true, arm: "asset" },
-    "codec-absent": { class: "unavailable", evict: false, arm: "asset" },
+    "manifest-skew": { evict: true },
+    "decode-refused": { evict: true },
+    "codec-absent": { evict: false },
     // the mesh keeps its GLB-embedded slot: an unseatable plane is evidence over a drawable subtree, never an eviction
-    "plane-unbound": { class: "invalid", evict: false, arm: "asset" },
-    "backend-lost": { class: "unavailable", evict: false, arm: "backend" },
+    "plane-unbound": { evict: false },
+    "backend-lost": { evict: false },
 } as const
 const _faultPolicy = Shape.vocabulary(_reasons, _faultRows)
-const _family = Fault.Class.family(_reasons, Record.map(_faultRows, ({ class: kind }) => ({ class: kind })))
+
+const _family = Fault.Class.family(_reasons, {
+  "manifest-skew": Fault.Class.row({
+    class: "conflicted",
+    leg: "asset",
+    detail: Schema.Struct({ mesh: Schema.String, cause: Schema.String }),
+    render: ({ cause, mesh }) => `${mesh} disagrees with the manifest: ${cause}`,
+  }),
+  "decode-refused": Fault.Class.row({
+    class: "invalid",
+    leg: "asset",
+    detail: Schema.Struct({ mesh: Schema.String, cause: Schema.String }),
+    render: ({ cause, mesh }) => `${mesh} would not decode: ${cause}`,
+  }),
+  "codec-absent": Fault.Class.row({
+    class: "unavailable",
+    leg: "asset",
+    detail: Schema.Struct({ mesh: Schema.String, absent: Schema.Literal(..._unserved) }),
+    render: ({ absent, mesh }) => `${mesh} reaches no ${absent}`,
+  }),
+  "plane-unbound": Fault.Class.row({
+    class: "invalid",
+    leg: "asset",
+    detail: Schema.Struct({ mesh: Schema.String, cause: Schema.String }),
+    render: ({ cause, mesh }) => `${mesh} seats no plane: ${cause}`,
+  }),
+  // A boot-time backend refusal names no mesh — the `<boot>` placeholder it once carried was a coordinate no reader
+  // could resolve — so the row carries the acquisition stage the renderer died at instead.
+  "backend-lost": Fault.Class.row({
+    class: "unavailable",
+    leg: "backend",
+    detail: Schema.Struct({ stage: Schema.Literal("device", "init") }),
+    render: ({ stage }) => `webgpu backend refused at ${stage}`,
+  }),
+})
 
 declare namespace GlbFault {
-  type Reason = (typeof _family.reasons)[number]
-  // the indicted plane: an asset refusal is contained by the lane that raised it, a backend refusal is a lifecycle event
-  type Arm = ReturnType<typeof _faultPolicy.at>["arm"]
+  type Case = typeof _family.payload.Type
+  type Reason = (typeof _family.kinds)[number]
+  // the indicted plane: an asset refusal is contained by the lane that raised it, a backend refusal is a lifecycle
+  // event — and it derives off the family's own leg column, so the guard and the raiser read one roster
+  type Arm = ReturnType<typeof _family.legOf<Reason>>
 }
 
 class GlbFault extends Schema.TaggedError<GlbFault>()("GlbFault", {
-  reason: _family.schema,
-  mesh: Schema.String,
-  detail: Schema.String,
+  case: _family.payload,
 }) {
-  static readonly roster: typeof _family.reasons = _family.reasons // the census anchor: the family's own ordered non-empty tuple
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
   }
   get evict(): boolean {
-    return _faultPolicy.at(this.reason).evict
+    return _faultPolicy.at(this.case.reason).evict
   }
   get arm(): GlbFault.Arm {
-    return _faultPolicy.at(this.reason).arm
+    return _family.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<glb:${this.reason}> ${this.mesh}: ${this.detail}`
+    return _family.render(this.case)
   }
 }
+
+// Seating admits every plane INDEPENDENTLY — a store format that decodes nowhere decides nothing about a sibling's
+// pack order — so the seat's whole damage rides ONE carrier off this same family rather than an array of faults a
+// consumer has to fold itself. Every other lane refuses singly and keeps the plain carrier.
+const GlbSeating = _family.census("GlbFault.seating")
+type GlbSeating = InstanceType<typeof GlbSeating>
+
+// The frequency aspect and the error-rail fold in ONE declaration, seated beside the family that raises it: the
+// mount and the tracking operator were two spellings of one row repeated at four sites, and the census argument is
+// the policy vocabulary itself — a flat roster a call site assembles can drift from the reasons the raiser can
+// actually mint, while the vocabulary already refused a duplicate word at its own construction.
+const _refused = Convention.tracked(Convention.metric.sceneRefusals, _faultPolicy, (fault: GlbFault) => fault.case.reason)
 ```
 
 ## [04]-[BACKEND_SELECT]
@@ -133,7 +205,7 @@ class GlbFault extends Schema.TaggedError<GlbFault>()("GlbFault", {
 
 ```typescript signature
 import { Machine } from "@effect/experimental"
-import { Convention } from "@rasm/ts/core"
+import { Convention, Shape } from "@rasm/ts/core"
 import { Duration, Effect, Metric, Option, pipe, Schedule, Schema, type Scope, ScopedRef, type Stream, type SubscriptionRef } from "effect"
 import {
   ACESFilmicToneMapping, AgXToneMapping, AmbientLight, DirectionalLight, HemisphereLight, LightProbe,
@@ -251,7 +323,7 @@ const _renderer = (canvas: HTMLCanvasElement, served: Glb.Served): Effect.Effect
               const adapter = await globalThis.navigator.gpu.requestAdapter()
               return adapter === null ? Option.none<GPUDevice>() : Option.some(await adapter.requestDevice())
             },
-            catch: () => new GlbFault({ reason: "backend-lost", mesh: "<boot>", detail: "<device-refused>" }),
+            catch: () => new GlbFault({ case: { reason: "backend-lost", stage: "device" } }),
           }).pipe(Effect.orElseSucceed(() => Option.none<GPUDevice>()))
       const built = yield* Option.match(acquired, {
         onNone: () => Effect.succeed(new WebGLRenderer({ canvas, antialias: true })),
@@ -262,7 +334,7 @@ const _renderer = (canvas: HTMLCanvasElement, served: Glb.Served): Effect.Effect
               await gpu.init()
               return gpu
             },
-            catch: () => new GlbFault({ reason: "backend-lost", mesh: "<boot>", detail: "<webgpu-init>" }),
+            catch: () => new GlbFault({ case: { reason: "backend-lost", stage: "init" } }),
           }).pipe(Effect.orElseSucceed(() => new WebGLRenderer({ canvas, antialias: true }))),
       })
       built.outputColorSpace = _OUTPUT.colorSpace
@@ -303,10 +375,6 @@ const _backplane = (canvas: HTMLCanvasElement, served: Glb.Served): Effect.Effec
 
 const _phases = ["booting", "ready", "degraded", "lost", "reviving"] as const
 
-// the lifecycle word census: one frequency over the closed phase roster, so every landed turn is a bounded-tag
-// series and the backend-health board reads transitions without a second subscription on the actor
-const _PHASED = Convention.mount(Convention.metric.sceneBackend, _phases)
-
 const _signals = ["settled", "floored", "revive"] as const
 
 const _GUARDED = "refused" as const // minted only where the fault family's `arm` column reads `backend`
@@ -314,8 +382,6 @@ const _GUARDED = "refused" as const // minted only where the fault family's `arm
 const _acts = ["arm", "park", "chase", "hold"] as const
 
 const _FIBERS = { draw: "draw", revive: "revive", watch: "watch" } as const // keyed children, never a free string at a fork site
-
-const _Phase = Schema.Literal(..._phases) // the tuple spread holds the non-empty overload on both wire schemas
 
 const _Signal = Schema.Literal(..._signals)
 
@@ -341,9 +407,18 @@ const _lifecycleRows = {
   reviving: { ..._turn, revive: { next: "reviving", act: "hold" } },
 } as const satisfies { readonly [P in Glb.Phase]: { readonly [S in Glb.Signal]: Glb.Row } }
 
+// ONE owner for the closed phase family: the tuple ranks it, the transition table IS its row payload, and both the
+// wire literal and the metric census derive HERE rather than standing as two more spellings of the same five words.
+// The tuple survives above because `Glb.Phase` and the table's own `satisfies` guard read it before this mint can.
+const _lifecycle = Shape.vocabulary(_phases, _lifecycleRows)
+
+// the lifecycle word census: one frequency over that same roster, so every landed turn is a bounded-tag series and
+// the backend-health board reads transitions without a second subscription on the actor
+const _PHASED = Convention.mount(Convention.metric.sceneBackend, _lifecycle)
+
 class Advance extends Schema.TaggedRequest<Advance>()("Advance", {
   failure: Schema.Never,
-  success: _Phase,
+  success: _lifecycle.schema,
   payload: { signal: _Signal },
 }) {}
 
@@ -351,7 +426,7 @@ class Advance extends Schema.TaggedRequest<Advance>()("Advance", {
 // span rather than a message field the fields already prove
 class Refuse extends Schema.TaggedRequest<Refuse>()("Refuse", {
   failure: Schema.Never,
-  success: _Phase,
+  success: _lifecycle.schema,
   payload: { reason: _family.schema, detail: Schema.String },
 }) {}
 
@@ -407,11 +482,11 @@ const _ACTS: { readonly [K in Glb.Act]: (turn: Glb.Turn) => Effect.Effect<void> 
 // ONE step both requests execute: the row decides the phase, its act column decides the consequence, and the
 // reply IS the landed phase because the actor's own Subscribable is what every view reads
 const _turned = (turn: Glb.Turn, phase: Glb.Phase, signal: Glb.Signal): Effect.Effect<readonly [Glb.Phase, Glb.Phase]> =>
-  pipe(_lifecycleRows[phase][signal], (row) =>
+  pipe(_lifecycle.at(phase)[signal], (row) =>
     Effect.as(Effect.zipRight(_ACTS[row.act](turn), Metric.update(_PHASED, row.next)), [row.next, row.next] as const))
 
 const _lifecycle = (plane: Glb.Plane) =>
-  Machine.makeSerializable({ state: _Phase, input: _Boot }, (input, previous) =>
+  Machine.makeSerializable({ state: _lifecycle.schema, input: _Boot }, (input, previous) =>
     // reboot and retry resume through the same slot: `previousState` carries the last live phase across a remount.
     // The initializer answers an EFFECT because that is the shape `InitializeSerializable` declares — a bare
     // procedure list is the input-carrying overload's one refusal, and this list needs no acquisition to build
@@ -419,9 +494,9 @@ const _lifecycle = (plane: Glb.Plane) =>
       Machine.serializable.add(Advance, ({ forkOne, forkReplace, request, send, state }) =>
         _turned({ plane, cool: input.cool, forkOne, forkReplace, send }, state, request.signal)),
       Machine.serializable.add(Refuse, ({ forkOne, forkReplace, request, send, state }) =>
-        // the guard is the policy table's own column, never a reason literal: `codec-absent` shares
-        // `backend-lost`'s `unavailable` class and must still leave the phase exactly where it stands
-        _faultPolicy.at(request.reason).arm === "backend"
+        // the guard is the family's own leg, never a reason literal: `codec-absent` shares `backend-lost`'s
+        // `unavailable` class and must still leave the phase exactly where it stands
+        _family.legOf(request.reason) === "backend"
           ? Effect.zipRight(
               // the device's own message is per-occurrence evidence, so it rides the request span and never a tag
               Effect.annotateCurrentSpan("glb.backend.loss", request.detail),
@@ -447,15 +522,16 @@ const _booted = (plane: Glb.Plane, cool: Duration.DurationInput): Effect.Effect<
 
 ## [05]-[RESIDENCY_GRAFT]
 
-- Owner: `Glb.graft` validates ledger generation, decodes verified GLB bytes, and owns subtree resources.
-- Law: manifest replacement evicts old-generation grafts even when artifact keys repeat.
+- Owner: `Glb.graft` validates the manifest epoch, decodes verified GLB bytes, and owns subtree resources.
+- Law: manifest replacement evicts old-epoch grafts even when artifact keys repeat.
+- Law: eviction IS absence from the successor's tile set — the manifest names the whole resident set for one viewpoint, so a key it omits is a key the producer released and no row state is owed.
 - Law: one traversal owns upload, acceleration, dress, visibility, and release coverage.
 - Law: decode capability splits by binding — `Glb.Served` resolves once per viewport, `Glb.Codecs` re-mints per backend generation, and every lane reads the bundle off the live acquisition rather than capturing it.
 - Law: a standard-material graft whose appearance demands a physical-only lobe upgrades in place; `<material-unphysical>` names only a material outside that pair.
 
 ```typescript signature
 import { Convention } from "@rasm/ts/core"
-import { Context, Effect, HashMap, Metric, Option, Queue, Record, Ref, Schema, Scope, ScopedRef, Stream, SubscriptionRef } from "effect"
+import { Context, Effect, HashMap, Option, Queue, Record, Ref, Schema, Scope, ScopedRef, Stream, SubscriptionRef } from "effect"
 import { preinit, preinitModule, preload, type PreloadOptions } from "react-dom"
 import {
   AnimationMixer, BufferGeometry, LoadingManager, LoopRepeat, Mesh, MeshPhysicalMaterial, MeshStandardMaterial,
@@ -487,11 +563,11 @@ declare namespace Glb {
   // would then leak every buffer and every slot a splat graft holds
   type Drawable = Mesh | Points
   // the walk's own drawable set rides the record: a re-dress on a fresh appearance document reaches exactly the
-  // nodes the graft covered, and `kind` carries the ledger row's payload columns for the subtree's lifetime
+  // nodes the graft covered, and `kind` carries the manifest tile's payload axis for the subtree's lifetime
   type Graft = {
     readonly node: Object3D
     readonly mixer: Option.Option<AnimationMixer>
-    readonly generation: number
+    readonly epoch: number
     readonly kind: Frame.ResidencyKind
     readonly drawn: ReadonlyArray<Glb.Drawable>
   }
@@ -517,10 +593,15 @@ declare namespace Glb {
   // the two facts a served decoder leaf carries beyond its roster row: which address form its consumer joins
   // against, and which hint modality its own consumption earns
   type CodecRow = { readonly address: Glb.Address; readonly warm: Glb.Warm }
+  // `Admitted` carries the replacement itself, and it carries the VIEW: core's admission already folded the per-kind
+  // census and the resident byte total against the budget it graded, so the observe point publishes the producer's
+  // own figures instead of a second accounting this module would have to keep in step with the tile set.
   type ResidencyFact =
+    | { readonly _tag: "Admitted"; readonly view: Frame.ResidencyView; readonly epoch: number }
     | { readonly _tag: "Arrived"; readonly arrival: GlbViewport.Arrival }
     | { readonly _tag: "Environment"; readonly key: Digest.Key<"content"> }
-    | { readonly _tag: "Refused"; readonly refusal: GlbFault }
+    // a lane refuses singly, a seat refuses in census — both are one refusal fact, so the case admits either whole
+    | { readonly _tag: "Refused"; readonly refusal: GlbFault | GlbSeating }
   // the pick plane's substrate, published as a STAMPED snapshot: `boundsTree` types as the `GeometryBVH` base and
   // every triangle query lives on the leaf, so the graft publishes `MeshBVH` directly rather than handing a
   // consumer a widened handle it would have to narrow. `stamp` advances on every residency mutation, so a held
@@ -577,7 +658,7 @@ const _AssetRoster = Schema.Array(_AssetIdentity).pipe(
 
 const _asset = (roster: Glb.AssetRoster, slug: string): Effect.Effect<Glb.AssetIdentity, GlbFault> =>
   Option.match(Option.fromNullable(roster.find((row) => row.slug === slug)), {
-    onNone: () => Effect.fail(new GlbFault({ reason: "codec-absent", mesh: slug, detail: "<asset-identity>" })),
+    onNone: () => Effect.fail(new GlbFault({ case: { reason: "codec-absent", mesh: slug, absent: "asset-row" } })),
     onSome: Effect.succeed,
   })
 
@@ -593,9 +674,6 @@ declare module "../../src/system/hook.ts" {
 }
 
 const _GRAFTED = Convention.mount(Convention.metric.sceneGrafts)
-
-// closed GlbFault reason rows preregister, so a refusal nothing has raised yet reads zero rather than absent
-const _REFUSED = Convention.mount(Convention.metric.sceneRefusals, GlbFault.roster) // the ordered roster, not a key walk: the word census demands a proven-non-empty tuple
 
 // ONE traverse kernel carries every per-drawable direction: a resource one visitor reaches the other reaches, so
 // eager upload never covers a texture the teardown then leaks. The predicate is the drawable UNION rather than
@@ -702,7 +780,7 @@ const _built = (
 ): Effect.Effect<MeshBVH, GlbFault> =>
   Effect.tryPromise({
     try: () => pool.generate(mesh.geometry, _options(onProgress)),
-    catch: (defect) => new GlbFault({ reason: "decode-refused", mesh: `${key}`, detail: String(defect) }),
+    catch: (defect) => new GlbFault({ case: { reason: "decode-refused", mesh: `${key}`, cause: String(defect) } }),
   })
 
 // The acceleration direction, keyed by the SAME content key the octets are: a snapshot can only ever describe the
@@ -806,7 +884,7 @@ const _dressed = (
   bound: Pbr.Bound,
   document: GlbViewport.Appearance,
   acquired: Glb.Acquired,
-): Effect.Effect<ReadonlyArray<GlbFault>> =>
+): Effect.Effect<Option.Option<GlbSeating>> =>
   material instanceof MeshPhysicalMaterial
     ? Pbr.seat(material, bound, document, acquired)
     : material instanceof MeshStandardMaterial && Pbr.demands(bound)
@@ -822,9 +900,9 @@ const _dressed = (
           }),
           (upgraded) => Pbr.seat(upgraded, bound, document, acquired),
         )
-      : Effect.succeed<ReadonlyArray<GlbFault>>([
-        new GlbFault({ reason: "plane-unbound", mesh: `${key}`, detail: "<material-unphysical>" }),
-      ])
+      : Effect.succeed(Option.some(
+        new GlbSeating({ issues: [{ reason: "plane-unbound", mesh: `${key}`, cause: "source material is not physical" }] }),
+      ))
 
 // ONE dressing entry over a graft, run at commit and re-run on every fresh appearance document because the seat is
 // idempotent pure assignment: `worn` names which meshes carry an appearance and every other mesh keeps the
@@ -850,10 +928,15 @@ const _dress = (
               graft.drawn.flatMap((drawn) => _slotted(drawn).map(([at, material]) => [drawn, at, material] as const)),
               ([drawn, at, material]) => _dressed(key, drawn, at, material, bound, document, acquired),
             ),
+            // a seat that bound everything answers no carrier at all, so the offer arm runs only where damage exists
             (refusals) =>
               Effect.forEach(
-                refusals.flat(),
-                (refusal) => Queue.offer(facts, { _tag: "Refused", refusal } as const),
+                refusals,
+                Option.match({
+                  onNone: () => Effect.void,
+                  onSome: (refusal: GlbSeating) =>
+                    Effect.asVoid(Queue.offer(facts, { _tag: "Refused", refusal } as const)),
+                }),
                 { discard: true },
               ),
           ),
@@ -884,14 +967,17 @@ const _graft = (
     const accel = yield* Ref.make(_trees(0, HashMap.empty<string, Glb.Resident>()))
     const insert = Stream.runForEach(port.arrivals, (arrival) =>
       Effect.gen(function* () {
-        // the published ledger IS the manifest: an arrival it never named refuses BEFORE any parse, which is the
-        // one raiser `manifest-skew` declares, and the row it does find rides the graft for the subtree's lifetime
-        const ledger = yield* port.ledger.get
-        const row = yield* Option.match(
-          arrival.generation === ledger.generation ? HashMap.get(ledger.rows, arrival.key) : Option.none(),
+        // the published manifest is the whole authority: an arrival it never named refuses BEFORE any parse, which
+        // is the one raiser `manifest-skew` declares, and the tile it does find rides the graft for the subtree's
+        // lifetime. The epoch guard runs first, so an arrival from a superseded plan never consults the successor's
+        // index and a key repeating across two viewpoints cannot graft under the wrong one.
+        const live = yield* port.manifest.get
+        const tile = yield* Option.match(
+          Option.flatMap(live, (held) =>
+            arrival.epoch === held.epoch ? HashMap.get(held.index, arrival.key) : Option.none()),
           {
           onNone: () =>
-            Effect.fail(new GlbFault({ reason: "manifest-skew", mesh: `${arrival.key}`, detail: "<unledgered-arrival>" })),
+            Effect.fail(new GlbFault({ case: { reason: "manifest-skew", mesh: `${arrival.key}`, cause: "the live index censuses no such arrival" } })),
           onSome: Effect.succeed,
           },
         )
@@ -904,7 +990,7 @@ const _graft = (
           catch: (defect) =>
             defect instanceof GlbFault
               ? defect
-              : new GlbFault({ reason: "decode-refused", mesh: `${arrival.key}`, detail: String(defect) }),
+              : new GlbFault({ case: { reason: "decode-refused", mesh: `${arrival.key}`, cause: String(defect) } }),
         })
         const mixer = gltf.animations.length === 0
           ? Option.none<AnimationMixer>()
@@ -928,7 +1014,7 @@ const _graft = (
           pool,
           progress,
         )
-        const graft = { node: gltf.scene, mixer, generation: arrival.generation, kind: row.kind, drawn } satisfies Glb.Graft
+        const graft = { node: gltf.scene, mixer, epoch: arrival.epoch, kind: tile.kind, drawn } satisfies Glb.Graft
         yield* Ref.update(held, HashMap.set(arrival.key, graft))
         yield* Ref.update(accel, (live) =>
           _trees(live.stamp + 1, residents.reduce((map, row) => HashMap.set(map, row.node.uuid, row), live.held)))
@@ -939,18 +1025,23 @@ const _graft = (
         yield* Effect.asVoid(Effect.withMetric(Effect.succeed(1), _GRAFTED))
         yield* Queue.offer(facts, { _tag: "Arrived", arrival } as const)
       }).pipe(
-        Metric.trackErrorWith(_REFUSED, (fault: GlbFault) => fault.reason),
+        _refused,
         Effect.withSpan("rasm.ui.scene.residency", { attributes: { "glb.bytes": arrival.octets.byteLength } }),
         Effect.annotateLogs({ mesh: `${arrival.key}` }),
         Effect.catchAll((refusal) => Queue.offer(facts, { _tag: "Refused", refusal } as const)),
       )))
-    const evict = Stream.runForEach(port.ledger.changes, (ledger) =>
+    // the replacement lane: one published manifest decides BOTH what survives and what the observe point reports,
+    // so the census the fact carries and the eviction set are read off the same value in the same pass
+    const evict = Stream.runForEach(port.manifest.changes, (admitted) =>
       Effect.gen(function* () {
         const grafts = yield* Ref.get(held)
+        // absence from the successor's tile set IS the eviction — the manifest replaces whole, so a key it omits is
+        // a key the producer released, and that answers strictly more than the row state it replaces: a state column
+        // could only ever say "evicted" about a row the producer still chose to name
         const gone = HashMap.filter(grafts, (graft, key) =>
-          graft.generation !== ledger.generation || Option.match(HashMap.get(ledger.rows, key), {
-            onNone: () => true,
-            onSome: (row) => row.state === "evicted",
+          Option.match(admitted, {
+            onNone: () => true, // no manifest names anything resident, so nothing may stay grafted
+            onSome: (residency) => graft.epoch !== residency.epoch || !HashMap.has(residency.index, key),
           }))
         yield* Effect.forEach(gone, ([key, graft]) =>
           Effect.zipRight(
@@ -970,6 +1061,14 @@ const _graft = (
               _walk(graft.node, _release)
             }),
           ))
+        // the replacement publishes AFTER its releases, so a subscriber reading the census reads it beside a scene
+        // that already dropped what the successor no longer names; `vramBudget` needs no arm here because core's
+        // `Frame.Residency.admit` refuses an over-budget manifest before this port ever sees one
+        yield* Option.match(admitted, {
+          onNone: () => Effect.void,
+          onSome: (residency) =>
+            Queue.offer(facts, { _tag: "Admitted", view: residency.view, epoch: residency.epoch } as const),
+        })
       }))
     // this third residency lane indexes one document ONCE and re-dresses every held graft, because the seat is
     // idempotent pure assignment over carried handles and a re-issued appearance is exactly the edit that has no
@@ -985,7 +1084,7 @@ const _graft = (
           { discard: true },
         )
       }).pipe(
-        Metric.trackErrorWith(_REFUSED, (fault: GlbFault) => fault.reason),
+        _refused,
         Effect.withSpan("rasm.ui.scene.residency"),
         Effect.catchAll((refusal) => Queue.offer(facts, { _tag: "Refused", refusal } as const)),
       ))
@@ -1027,7 +1126,7 @@ const _gate = (admitted: boolean) => (parser: GLTFParser): GLTFLoaderPlugin => (
         onSome: (row) => (row.extensionsRequired ?? []).includes(_MESHOPT),
       })
       ? null
-      : Promise.reject(new GlbFault({ reason: "codec-absent", mesh: _MESHOPT, detail: "<meshopt-unserved>" })),
+      : Promise.reject(new GlbFault({ case: { reason: "codec-absent", mesh: _MESHOPT, absent: "meshopt-codec" } })),
 })
 
 const _codecSlugs = ["draco", "ktx2", "meshopt"] as const
@@ -1071,14 +1170,16 @@ const _HINTS: { readonly [K in Glb.Warm]: (href: string) => void } = {
   script: (href) => preinit(href, { as: "script", crossOrigin: _WARM.crossOrigin }),
 }
 
-// One pass ahead of first frame over the roster and the ledger's OWN `pending` census: the decoder leaves the
-// first parse will demand and the payloads the transport has already planned. Per-mesh hinting at draw time is
-// the named defect, because a hint landing beside the fetch it warms saves nothing. The payload address comes
-// from the port, never from a key: the hauling side owns the served coordinate and this module addresses only
-// what `Glb.assetPath` derives, so a viewer minting a GLB URL out of a content key would forge one.
+// One pass ahead of first frame over the roster and the manifest's WHOLE tile set: the decoder leaves the first
+// parse will demand and every payload the viewpoint declares resident. No pending filter is owed — the manifest
+// names the resident set rather than a work queue, and this pass runs with nothing grafted yet, so every tile is a
+// warm candidate. Per-mesh hinting at draw time is the named defect, because a hint landing beside the fetch it
+// warms saves nothing. The payload address comes from the port, never from a key: the hauling side owns the served
+// coordinate — `blobKey` is ITS column — and this module addresses only what `Glb.assetPath` derives, so a viewer
+// minting a GLB URL out of a content key would forge one.
 const _warm = (
   roster: Glb.AssetRoster,
-  ledger: Frame.ResidencyLedger,
+  residency: GlbViewport.Residency,
   addressed: GlbViewport.Addressed,
 ): Effect.Effect<void> =>
   Effect.zipRight(
@@ -1090,7 +1191,8 @@ const _warm = (
           Effect.sync(() => void Option.map(found, (asset) => _HINTS[row.warm](_ADDRESS[row.address](asset))))),
       { discard: true },
     ),
-    Effect.sync(() => void Frame.Residency.pending(ledger).forEach((row) => Option.map(addressed(row.mesh), _HINTS.fetch))),
+    Effect.sync(() =>
+      void residency.view.manifest.tiles.forEach((tile) => Option.map(addressed(tile.contentKey), _HINTS.fetch))),
   )
 
 // The renderer-BLIND half, resolved once for the viewport and threaded into every acquisition: the tapped manager
@@ -1116,7 +1218,7 @@ const _served = (
           Effect.tryPromise({
             try: (): Promise<{ readonly MeshoptDecoder: typeof MeshoptDecoder }> =>
               import(_ADDRESS[_CODECS.meshopt.address](row)),
-            catch: () => new GlbFault({ reason: "codec-absent", mesh: row.slug, detail: "<decoder-module>" }),
+            catch: () => new GlbFault({ case: { reason: "codec-absent", mesh: row.slug, absent: "decoder-module" } }),
           }),
           (module) => Option.some(module.MeshoptDecoder),
         ),
@@ -1192,7 +1294,7 @@ const _loop = (
 // core's frozen vocabulary and three's texture class both spell `Texture`; the wire anchor takes the alias because
 // three's class is the type this whole fold speaks, and the campaign's cross-module spelling for it is `TextureVocab`
 const TextureVocab = Wire.Texture
-import { Effect, Metric, Option, Queue, Ref, Scope, ScopedRef, Stream } from "effect"
+import { Effect, Option, Queue, Ref, Scope, ScopedRef, Stream } from "effect"
 import {
   EquirectangularReflectionMapping, Euler, HalfFloatType, LinearFilter, LinearMipmapLinearFilter,
   LinearSRGBColorSpace, NoColorSpace, Quaternion, SphericalHarmonics3, SRGBColorSpace, Texture, Vector3,
@@ -1228,8 +1330,8 @@ declare namespace Glb {
     readonly decode: Option.Option<(payload: Glb.Payload, acquired: Glb.Acquired) => Effect.Effect<Texture, GlbFault>>
   }
   // the two columns a decode reads — the content key its refusal names and the whole-buffer octets. `[8]`'s plane
-  // arrives under a SET key carrying no generation of its own, so the decode takes this pair rather than the
-  // arrival record; a generation column here would be a field only one of the two callers could fill.
+  // arrives under a SET key belonging to no residency manifest, so the decode takes this pair rather than the
+  // arrival record; an epoch column here would be a field only one of the two callers could fill.
   type Payload = Pick<GlbViewport.Arrival, "key" | "octets">
   type Slot = {
     readonly slot: Ref.Ref<Glb.Dome>
@@ -1294,7 +1396,7 @@ const _plane =
   (payload: Glb.Payload): Effect.Effect<Texture, GlbFault> =>
     Effect.try({
       try: () => open().createDataTexture(payload.octets.buffer),
-      catch: (defect) => new GlbFault({ reason: "decode-refused", mesh: `${payload.key}`, detail: String(defect) }),
+      catch: (defect) => new GlbFault({ case: { reason: "decode-refused", mesh: `${payload.key}`, cause: String(defect) } }),
     })
 
 // every eight-bit row the browser reaches differs only by media type, so the decode parameterizes over it and
@@ -1311,7 +1413,7 @@ const _bitmap =
             premultiplyAlpha: "none",
             imageOrientation: "none",
           }),
-        catch: (defect) => new GlbFault({ reason: "decode-refused", mesh: `${payload.key}`, detail: String(defect) }),
+        catch: (defect) => new GlbFault({ case: { reason: "decode-refused", mesh: `${payload.key}`, cause: String(defect) } }),
       }),
       (bitmap) => {
         // BOUNDARY ADAPTER — a bitmap-sourced texture uploads only once `needsUpdate` marks it, and `flipY` is
@@ -1335,7 +1437,7 @@ const _deep = (payload: Glb.Payload, acquired: Glb.Acquired): Effect.Effect<Text
       payload.octets.buffer,
       (texture) => resume(Effect.succeed(texture)),
       (defect) =>
-        resume(Effect.fail(new GlbFault({ reason: "decode-refused", mesh: `${payload.key}`, detail: String(defect) }))),
+        resume(Effect.fail(new GlbFault({ case: { reason: "decode-refused", mesh: `${payload.key}`, cause: String(defect) } }))),
     ))
 
 // This roster closes the frozen twelve: every container the wire can name has a row, and the browser answers in a column.
@@ -1384,10 +1486,10 @@ const _decoded = (
   payload: Glb.Payload,
   acquired: Glb.Acquired,
   transfer: keyof typeof _TRANSFER,
-  reason: GlbFault.Reason,
+  reason: Extract<GlbFault.Reason, "decode-refused" | "plane-unbound">, // the two planes this entry serves, and the two whose subject it can fill
 ): Effect.Effect<Texture, GlbFault> =>
   Option.match(row.decode, {
-    onNone: () => Effect.fail(new GlbFault({ reason, mesh: `${payload.key}`, detail: "<container-undecodable>" })),
+    onNone: () => Effect.fail(new GlbFault({ case: { reason, mesh: `${payload.key}`, cause: "the container row declares no decoder" } })),
     onSome: (decode) => Effect.map(decode(payload, acquired), (texture) => _filtered(texture, transfer)),
   })
 
@@ -1503,7 +1605,7 @@ const _dome = (
         const acquired = yield* ScopedRef.get(backplane) // per arrival: the prefilter a re-init retired is never reached
         const sh = yield* Option.match(_harmonics(arrival.sh9), {
           onNone: () =>
-            Effect.fail(new GlbFault({ reason: "decode-refused", mesh: `${arrival.key}`, detail: "<sh9-cardinality>" })),
+            Effect.fail(new GlbFault({ case: { reason: "decode-refused", mesh: `${arrival.key}`, cause: "sh9 carries the wrong coefficient count" } })),
           onSome: Effect.succeed,
         })
         // ONE branch governs the lane: a held key carries its handles forward, anything else decodes and prefilters
@@ -1512,7 +1614,7 @@ const _dome = (
           : Effect.gen(function* () {
               const row = yield* Option.match(_sniff(arrival.octets), {
                 onNone: () =>
-                  Effect.fail(new GlbFault({ reason: "decode-refused", mesh: `${arrival.key}`, detail: "<container-magic>" })),
+                  Effect.fail(new GlbFault({ case: { reason: "decode-refused", mesh: `${arrival.key}`, cause: "no container row claims these magic bytes" } })),
                 onSome: Effect.succeed,
               })
               const source = yield* _decoded(row, arrival, acquired, _ENV.transfer, "decode-refused")
@@ -1532,7 +1634,7 @@ const _dome = (
         yield* Ref.set(slot, dome)
         yield* Queue.offer(facts, { _tag: "Environment", key: arrival.key } as const)
       }).pipe(
-        Metric.trackErrorWith(_REFUSED, (fault: GlbFault) => fault.reason),
+        _refused,
         Effect.withSpan("rasm.ui.scene.residency", { attributes: { "glb.bytes": arrival.octets.byteLength } }),
         Effect.annotateLogs({ mesh: `${arrival.key}` }),
         Effect.catchAll((refusal) => Queue.offer(facts, { _tag: "Refused", refusal } as const)),
@@ -1548,7 +1650,7 @@ const _dome = (
 - Law: every per-view fold is a `Glb.Pass` over the camera — the cluster cull and the splat sort share one shape, so a frame driver folds one roster and no surface runs a private loop.
 - Law: ordering a splat composite is the CONSUMER's — the producer wire carries no ordering key, so back-to-front is re-derived on the camera epoch and never read off decode order.
 - Law: the tool rows carry no fault channel — a plane cutting nothing and a probe reaching no surface are absences the return spells, and the closed `GlbFault` roster names no query reason a tool miss could take without forking the family.
-- Boundary: `panel#CONTROL_SINKS` routes its `section` and `measure` sinks onto these rows; the world-space bake they descend belongs to the asking scope, never the residency ledger.
+- Boundary: `panel#CONTROL_SINKS` routes its `section` and `measure` sinks onto these rows; the world-space bake they descend belongs to the asking scope, never the residency manifest.
 
 ```typescript signature
 import { Array, Effect, Function, Option, type Scope } from "effect"
@@ -2117,23 +2219,28 @@ const _upgraded = (source: MeshStandardMaterial): MeshPhysicalMaterial => {
   return target
 }
 
-// every refusal a seating can carry, read off wire columns alone — no predicate widens as roles or packs grow
-const _unseatable = (set: TextureSet, seating: Pbr.Seating, mesh: string): ReadonlyArray<GlbFault> => {
-  const refuse = (reason: GlbFault.Reason, detail: string): GlbFault => new GlbFault({ reason, mesh, detail })
+// every refusal a seating can carry, read off wire columns alone — no predicate widens as roles or packs grow;
+// the fold answers ISSUES, because the carrier that names them is the seat's own census and not one fault per column
+const _unseatable = (set: TextureSet, seating: Pbr.Seating, mesh: string): ReadonlyArray<GlbFault.Case> => {
+  const refuse = (reason: Extract<GlbFault.Reason, "manifest-skew" | "plane-unbound">, cause: string): GlbFault.Case => ({
+    reason,
+    mesh,
+    cause,
+  })
   return [
-    ...(TextureVocab.rows.plane[seating.format].web ? [] : [refuse("plane-unbound", "<store-undecodable>")]),
-    ...(TextureVocab.rows.layer[set.layerLaw].gltf ? [] : [refuse("plane-unbound", "<layer-law-unseated>")]),
-    ...(set.udimTiles.length === 0 ? [] : [refuse("plane-unbound", "<udim-unsampled>")]),
+    ...(TextureVocab.rows.plane[seating.format].web ? [] : [refuse("plane-unbound", "the store format decodes nowhere on the web")]),
+    ...(TextureVocab.rows.layer[set.layerLaw].gltf ? [] : [refuse("plane-unbound", "the layer law seats nowhere in gltf")]),
+    ...(set.udimTiles.length === 0 ? [] : [refuse("plane-unbound", "udim tiles reach no sampler")]),
     // inverting the pack order swaps R and B, so a consumer binding it to three's slots reads occlusion as
     // metalness — a refusal only the column can declare, and the column is the wire's own
     ...(Option.exists(seating.pack, (pack) => !TextureVocab.rows.pack[pack].gltf)
-      ? [refuse("manifest-skew", "<pack-read-order>")]
+      ? [refuse("manifest-skew", "the pack read order is inverted")]
       : []),
     ...Array.flatMap(seating.present, (role) =>
       _ROLE_SLOT[role].slot === null
-        ? [refuse("plane-unbound", `<role-unslotted:${role}>`)]
+        ? [refuse("plane-unbound", `role ${role} names no slot`)]
         : TextureVocab.rows.plane[seating.format].width < (_ROLE_SLOT[role].component ?? 0)
-          ? [refuse("manifest-skew", `<component-unstored:${role}>`)]
+          ? [refuse("manifest-skew", `role ${role} names a component the plane never stored`)]
           : []),
   ]
 }
@@ -2146,10 +2253,10 @@ const _seated = (
   seating: Pbr.Seating,
   port: GlbViewport.Appearance,
   acquired: Glb.Acquired,
-): Effect.Effect<ReadonlyArray<GlbFault>> =>
+): Effect.Effect<ReadonlyArray<GlbFault.Case>> =>
   Array.match(_unseatable(set, seating, `${set.setKey}/${seating.address[1]}`), {
     // a refused seating never reaches the network: the wire columns already decided it, so no plane is pulled
-    onNonEmpty: (refused) => Effect.succeed<ReadonlyArray<GlbFault>>(refused),
+    onNonEmpty: (refused) => Effect.succeed<ReadonlyArray<GlbFault.Case>>(refused),
     onEmpty: () =>
       Effect.gen(function* () {
         const octets = yield* port.planes(seating.address)
@@ -2184,7 +2291,7 @@ const _seated = (
         })
         // a plane refusal is EVIDENCE on the one queue, never a failed seat: the material keeps the slot the
         // graft gave it and the remaining seatings still run
-      }).pipe(Effect.catchAll((refusal: GlbFault) => Effect.succeed<ReadonlyArray<GlbFault>>([refusal]))),
+      }).pipe(Effect.catchAll((refusal: GlbFault) => Effect.succeed<ReadonlyArray<GlbFault.Case>>([refusal.case]))),
   })
 
 // ONE seat: lobes then planes, refusals accumulated and never raised — a partially-bound set renders the
@@ -2194,10 +2301,10 @@ const _seat = (
   bound: Pbr.Bound,
   port: GlbViewport.Appearance,
   acquired: Glb.Acquired,
-): Effect.Effect<ReadonlyArray<GlbFault>> =>
+): Effect.Effect<Option.Option<GlbSeating>> =>
   Effect.map(
     Option.match(bound.set, {
-      onNone: () => Effect.succeed<ReadonlyArray<ReadonlyArray<GlbFault>>>([]),
+      onNone: () => Effect.succeed<ReadonlyArray<ReadonlyArray<GlbFault.Case>>>([]),
       onSome: (set) =>
         Effect.forEach(_seatings(set), (seating) => _seated(material, set, seating, port, acquired)),
     }),
@@ -2210,7 +2317,12 @@ const _seat = (
       // would double it even on the DOM-source legs where the texture flag is not inert
       Option.map(bound.set, (set) => void (material.premultipliedAlpha = set.alphaMode === "associated"))
       material.needsUpdate = true
-      return Array.flatten(refusals)
+      // ONE carrier per seat: every offending plane across every seating rides one refusal, so a consumer reads the
+      // set's whole damage in one fact instead of folding an array the producer already knew the shape of
+      return Option.map(
+        Array.match(Array.flatten(refusals), { onEmpty: Option.none, onNonEmpty: Option.some }),
+        (issues) => new GlbSeating({ issues }),
+      )
     },
   )
 
@@ -2240,15 +2352,15 @@ const _index = (document: GlbViewport.Appearance): Effect.Effect<Pbr.Index, GlbF
     yield* Effect.forEach(document.materials, ([appearance]) =>
       HashMap.has(seats, appearance)
         ? Effect.void
-        : Effect.fail(new GlbFault({ reason: "manifest-skew", mesh: `${appearance}`, detail: "<override-uncensused>" })))
+        : Effect.fail(new GlbFault({ case: { reason: "manifest-skew", mesh: `${appearance}`, cause: "the seat census holds no such override" } })))
     yield* Effect.forEach(document.sets, (set) =>
       HashMap.has(seats, set.appearanceKey)
         ? Effect.void
-        : Effect.fail(new GlbFault({ reason: "manifest-skew", mesh: `${set.appearanceKey}`, detail: "<set-uncensused>" })))
+        : Effect.fail(new GlbFault({ case: { reason: "manifest-skew", mesh: `${set.appearanceKey}`, cause: "the seat census holds no such set" } })))
     yield* Effect.forEach(document.worn, ([mesh, appearance]) =>
       HashMap.has(seats, appearance)
         ? Effect.void
-        : Effect.fail(new GlbFault({ reason: "manifest-skew", mesh: `${mesh}`, detail: "<appearance-uncensused>" })))
+        : Effect.fail(new GlbFault({ case: { reason: "manifest-skew", mesh: `${mesh}`, cause: "the seat census holds no such appearance" } })))
     return {
       seats,
       overrides: Array.reduce(document.materials, HashMap.empty<Digest.Key<"content">, MaterialRow>(), (held, [appearance, override]) =>
@@ -2297,7 +2409,7 @@ import { Color as Ink, type Matrix4, SRGBColorSpace } from "three"
 
 declare namespace Instanced {
   // the georeferenced repeat of ONE resident graft: `key` is the verified content key its geometry arrived under
-  // — the ledger's own address, so an instance can be joined back to its residency row, its appearance, and its
+  // — the ledger's own address, so an instance can be joined back to its residency tile, its appearance, and its
   // tree — while `placement` is `[07]`'s transform vocabulary rather than a second orientation-and-scale pair
   type Anchor = {
     readonly key: Digest.Key<"content">
@@ -2431,7 +2543,7 @@ const _pinned = (roster: Glb.AssetRoster): Effect.Effect<void, GlbFault> =>
         onSome: (held) =>
           held.draco === paths.draco && held.ktx2 === paths.ktx2 && held.meshopt === paths.meshopt
             ? Effect.void
-            : Effect.fail(new GlbFault({ reason: "manifest-skew", mesh: "<decoder-pin>", detail: "<divergent-roster>" })),
+            : Effect.fail(new GlbFault({ case: { reason: "manifest-skew", mesh: "decoder-pin", cause: "the pinned decoder roster diverges" } })),
       }),
     )
   })
@@ -2532,7 +2644,7 @@ const Glb: Glb.Shape = {
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Glb, GlbFault, GlbViewport, Instanced, Pbr }
+export { Glb, GlbFault, GlbSeating, GlbViewport, Instanced, Pbr }
 ```
 
 ## [11]-[RESEARCH]

@@ -2,7 +2,7 @@
 
 One finite-element-and-grid field readout owner beside the FEM assemble and solve routes. `FieldQuery` discriminates the three postprocessing operations a discretized or sampled solution admits — `interpolate` lifts a DOF vector into a `skfem.DiscreteField` and reads `value`/`grad`/`hess` under one `ReadoutKind` axis, `project` L2-projects a callable or cross-basis DOF vector onto a target `ElementKind` basis through `basis.project`, `resample` evaluates a regular grid at query points through the JAX-differentiable `interpax.Interpolator{1,2,3}D`. This owner consumes the solution and never produces it: it reports an in-memory extent and residual and never solves, assembles, or aggregates a field across a grid.
 
-`solvers/mesh#MESH_FIELD` owns the whole element vocabulary — `ElementKind`, the `CTOR` element table with its recursive wrapper build, and `MeshField` — so the interpolate and project cases build the same basis the assemble built, scalar, vector, and composite kinds alike, rather than a second constructor map; `solvers/receipt#RECEIPT` owns the `SolveStatus`/`status_of` residual-floor verdict each case terminates in; the `resample` case realizes the multidimensional consumer `solvers/quadrature#QUADRATURE` defers here. Resolved `FieldReceipt` is the `ReceiptContributor` the weave harvest and the study spine consume, and `_dispatch`'s `@railed` chain `yield from`-binds the `_key` RESULT-identity rail so the mesh-minted `field.content_key` enters as one labeled part and distinct operations over one operand carry distinct keys. `_TRAIT` routes each operation by its own hazard — `interpolate` rides the `RELEASING` thread band (pure scikit-fem/NumPy readout), `project` and `resample` the `HOSTILE` process band (caller-supplied `FieldFn` callbacks run GIL-held; the `interpax` resample is JAX-gated and the x64 flag is process-global) — the numpy nodal readout and `np.interp` 1-D resample staying the in-worker fallbacks an absent package's reification `ImportError` alone selects under a `Provider` discriminant, every readout and arity beyond their reach refusing typed rather than degrading silently, isolation, band, and worker-death retry deriving at the runtime `Kernel` crossing; field evidence stays on the receipt rail, and no field `HandoffAxis` case exists.
+`solvers/mesh#MESH_FIELD` owns the whole element vocabulary — `ElementKind`, the `CTOR` element table with its recursive wrapper build, and `MeshField` — so the interpolate and project cases build the same basis the assemble built, scalar, vector, and composite kinds alike, rather than a second constructor map; `solvers/receipt#RECEIPT` owns the `SolveStatus`/`status_of` residual-floor verdict each case terminates in; the `resample` case realizes the multidimensional consumer `solvers/quadrature#QUADRATURE` defers here. Resolved `FieldReceipt` is the `ReceiptContributor` the weave harvest and the study spine consume, and `_dispatch`'s `@railed` chain `yield from`-binds the `_key` RESULT-identity rail so the mesh-minted `field.content_key` enters as one labeled part of the `IdentitySource(parts=...)` preimage the identity owner frames, and distinct operations over one operand carry distinct keys. `_TRAIT` routes each operation by its own hazard — `interpolate` rides the `RELEASING` thread band (pure scikit-fem/NumPy readout), `project` and `resample` the `HOSTILE` process band (caller-supplied `FieldFn` callbacks run GIL-held; the `interpax` resample is JAX-gated and the x64 flag is process-global) — the numpy nodal readout and `np.interp` 1-D resample staying the in-worker fallbacks an absent package's reification `ImportError` alone selects under a `Provider` discriminant, every readout and arity beyond their reach refusing typed rather than degrading silently, isolation, band, and worker-death retry deriving at the runtime `Kernel` crossing; field evidence stays on the receipt rail, and no field `HandoffAxis` case exists.
 
 ## [01]-[INDEX]
 
@@ -14,9 +14,9 @@ One finite-element-and-grid field readout owner beside the FEM assemble and solv
 - Cases: `interpolate` reads its source element off the topology's own `MeshField.element`, never a redundant parallel parameter; `basis.split` is total over every element kind — one `(sub_dofs, sub_basis)` pair per component, a scalar element yielding one pair — so the readout folds a per-component extent and reports the component count and the worst-component peak from the same list rather than collapsing every axis into one scalar or floors an empty case that cannot occur. `basis.split` leads each pair with the sub-vector, so the destructuring order is load-bearing: reading it as `(basis, dofs)` hands a DOF array the `interpolate` call and raises on every solve. `project` carries the genuinely-distinct target `ElementKind` and a `ProjectSource` (a `FieldFn` over physical points or a `(ElementKind, np.ndarray)` cross-basis DOF pair); the transfer rides the `basis.project` METHOD, never a phantom top-level `skfem.project(basis_from=, basis_to=)`. Its cross-basis residual is a source-space round trip — a P1→P2→P1 reports the lost information in one comparison space, never `DiscreteField` value arrays subtracted at incompatible quadrature points — and its callable residual is the physical-point fidelity at `global_coordinates()` the `compute/.api/scikit-fem.md` `[LOCAL_ADMISSION]` mandates, never a finiteness sentinel. `resample` carries the `GridAxes`, gridded values, query points, and the bounded `ResampleMethod`, and has no `MeshField`, so its key is the `_key` rail `_dispatch` already bound.
 - Law: the numpy fallback SERVES what it can measure and REFUSES the rest at selection — the nodal `VALUE` extent off a Lagrange DOF vector and the 1-D `np.interp` resample are real measurements, a gradient, a Hessian, and any multidimensional resample are not, and a refusal rails typed off the same `_dispatch` chain the key derive rides. `Provider` then names which engine answered on every served receipt, and the resample's `method` slot carries the REALIZED kernel, so a linear floor result never reads as the `cubic` interpolant the caller asked for. Framing an untouched grid or a raw DOF norm as the operation's extent is the deleted form: it publishes a measurement no kernel took and hands the status floor a number to grade.
 - Output: `ReadoutKind` (`VALUE`/`GRAD`/`HESS`) is the ONE bounded readout policy keyed through `_READOUT` onto the `DiscreteField` attribute, so a value, a flux-recovery gradient, and a Hessian are one policy row on the interpolate case rather than three parallel entries — the case is parameterized over its OUTPUT shape, not only its input. Its `nodal` predicate is the floor's servability answer, so which readouts survive an absent package is a property of the readout rather than a branch in the fallback.
-- Receipt: `FieldReceipt` is the ONE `@tagged_union` field receipt whose `Literal` `tag` IS the operation. One `_SLOTS` table names each operation's field sequence (`key` leading, `status` trailing) and drives the structural shape, the trailing-slot `.status` read, and the `.facts`/`.content_key`/`.element` accessors, so the table and the case tuples cannot drift. Factories fold extent or residual through the shared `status_of(None, value, _TOL[op])` floor, and `contribute` stays the undecorated `ReceiptContributor` projection. Projection transfer fidelity rides the project case as a first-class `SolveStatus` verdict, not a `SolverReceipt` convergence verdict — a projection is not a solve.
+- Receipt: `FieldReceipt` is the ONE `@tagged_union` field receipt whose `Literal` `tag` IS the operation. One `_SLOTS` table names each operation's field sequence (`key` leading, `status` trailing) and drives the structural shape, the trailing-slot `.status` read, and the `.facts`/`.content_key`/`.element` accessors, so the table and the case tuples cannot drift. Factories fold extent or residual through the shared `status_of(None, value, _TOL[op])` floor, and `contribute` stays the undecorated `ReceiptContributor` projection settling on the ONE runtime receipt spine — the result key, the provenance pair, the non-convergence band, and the stamp are that owner's columns, so `key` leaves the payload rather than publishing one coordinate twice. Projection transfer fidelity rides the project case as a first-class `SolveStatus` verdict, not a `SolverReceipt` convergence verdict — a projection is not a solve.
 - Packages: `skfem` (`Basis`, the `Mesh*`/`Element*` families, `basis.interpolate`/`split`/`project`/`global_coordinates`, `basis.N`, `DiscreteField.value`/`.grad`/`.hess`), `interpax` (`Interpolator{1,2,3}D`, the reusable grid interpolants `FieldEngine.worker()` builds once on the x64-floated rail), `jax` (`config.update("jax_enable_x64", True)` floats the worker to float64 so the interpolant's `grad`/`vjp` holds at double precision rather than the float32 default), `numpy`, `expression`, and the `solvers/mesh#MESH_FIELD`, `solvers/receipt#RECEIPT`, and runtime seams above. This cross-module private `CTOR` import is the reuse `solvers/mesh#MESH_FIELD` runs, never the parallel `_ELEMENTCTOR`/`_MESHCTOR` pair.
-- Growth: a new element is one shared `CTOR` row, a vector or composite kind reaching the multi-component readout with no edit here; a new readout is one `ReadoutKind` row, one `_READOUT` entry, and its `nodal` answer on the existing interpolate case; a new field operation is one `FieldQuery` case and one `_SLOTS` row sharing the basis-construction fold and the status floor; a new resample arity beyond 3-D is one `_INTERPOLATOR` row; a new resample kernel is one `ResampleMethod` member; a new worker resample module is one `FieldEngine` field; a new readout statistic is one slot on the owning `_SLOTS` row; a new engine tier is one `Provider` member; a new termination class is one `SolveStatus` member shared with every solver route.
+- Growth: a new element is one shared `CTOR` row, a vector or composite kind reaching the multi-component readout with no edit here; a new readout is one `ReadoutKind` row, one `_READOUT` entry, and its `nodal` answer on the existing interpolate case; a new field operation is one `FieldQuery` case and one `_SLOTS` row sharing the basis-construction fold and the status floor; a new resample arity beyond 3-D is one `_INTERPOLATOR` row; a new resample kernel is one `ResampleMethod` member; a new worker resample module is one `FieldEngine` field; a new readout statistic is one slot on the owning `_SLOTS` row; a new engine tier is one `solvers/receipt#RECEIPT` `Provider` member reaching every solve route and this owner at once; a new termination class is one `SolveStatus` member shared with every solver route; a new floor refusal is one more subject pair on the ONE `FLOOR_UNSERVED` row, never a sibling row.
 - Boundary: field evaluation, projection, and grid resample only — the assemble stays on `solvers/mesh#MESH_FIELD`, the solve on `solvers/quadrature#QUADRATURE`, and columnar/gridded aggregation of the evaluated field in the `data` branch, so this owner reports an in-memory extent and residual and never aggregates across a grid. Rejected: a hand-rolled interpolation loop where `basis.interpolate`/`basis.project`/`interpax.Interpolator` own the concern; a worker resample left on the JAX float32 default; a per-call `import interpax`/`import jax` where the frozen `FieldEngine` folds the modules once; a floor result published under the gated engine's requested method or readout; a `@receipted`-on-`_dispatch` shape swallowing the resample key-derive where `@railed` threads the `_key` rail and the weave harvests. Mesh shape aligns to the geometry-branch tessellation at the wire and never imports its interior.
 
 ```python signature
@@ -24,19 +24,20 @@ One finite-element-and-grid field readout owner beside the FEM assemble and solv
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from enum import StrEnum
+from itertools import chain
 from typing import Any, Final, Literal, Self, assert_never
 
 import numpy as np
-from expression import Error, case, tag, tagged_union
-from expression.collections import Map
+from expression import Error, Some, case, tag, tagged_union
+from expression.collections import Block, Map
 
-from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
+from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, evidence_run
 from rasm.compute.solvers.mesh import CTOR, ElementKind, MeshField
-from rasm.compute.solvers.receipt import SolveStatus, status_of
-from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, railed
+from rasm.compute.solvers.receipt import Provider, SolveStatus, status_of
+from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
+from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, railed, rostered
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
+from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
 # cold FEM dependency: the `lazy` bind defers the skfem stack to its first name load, and `_interpolate_receipt`
@@ -66,14 +67,6 @@ class ReadoutKind(StrEnum):
         # serves NEITHER derivative — a gradient and a Hessian need the basis the absent package owns. The predicate
         # is what makes the floor's refusal a selection-time verdict instead of a norm over the wrong quantity.
         return self is ReadoutKind.VALUE
-
-
-class Provider(StrEnum):
-    # which engine ACTUALLY answered. Without it a `cubic` interpax resample and a linear `np.interp` floor, or a
-    # scikit-fem quadrature readout and a bare DOF norm, project receipts a consumer cannot tell apart — the extents
-    # differ by construction and nothing on the receipt says why.
-    GATED = "gated"
-    FLOOR = "floor"
 
 
 # --- [CONSTANTS] ---------------------------------------------------------------------------
@@ -108,6 +101,17 @@ _SLOTS: Map[FieldOp, tuple[str, ...]] = Map.of_seq([
     ("resample", ("key", "dim", "query_count", "method", "provider", "extent", "peak", "status")),
 ])
 
+
+# --- [TABLES] ------------------------------------------------------------------------------
+
+# ONE parameterized row for the floor's whole refusal law: the numpy fallback serves what it can measure and refuses
+# the rest, and the two refusals differ only in WHICH request it cannot take. A per-arm row would fork one law into
+# two coordinates the shared census then seats twice, so the arm and the unservable request ride NAMED slots and the
+# subject stays this page's one floor point.
+FLOOR_UNSERVED: Final[FaultRow[ComputeLeg]] = FaultRow(
+    leg=ComputeLeg.FIELD, point="floor", arm="config", defect="floor-unserved", retriability=TERMINAL, slots=("op", "request")
+)
+RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([FLOOR_UNSERVED]))
 
 # --- [MODELS] ------------------------------------------------------------------------------
 
@@ -180,9 +184,23 @@ class FieldReceipt:
         return self.status is SolveStatus.SUCCESS
 
     def contribute(self) -> Iterable[Receipt]:
+        # ONE settled-receipt spine: the result key, the provenance pair, the warning band, and the stamp are the
+        # runtime owner's columns, so `key` leaves the payload rather than publishing the coordinate twice. The band
+        # IS the non-convergence roster — an extent or residual over the op's floor names its own termination class —
+        # and provenance names the produced key alone, this owner minting the RESULT key and retaining no operand key.
         subject = self.element.value if self.element is not None else self.tag
-        facts: dict[str, object] = {"operation": self.tag, "converged": self.converged, **self.facts}
-        return (Receipt.of(EvidenceScope.FIELD.value, ("emitted", subject, facts)),)
+        facts: dict[str, object] = {
+            "operation": self.tag, "converged": self.converged, **{name: value for name, value in self.facts.items() if name != "key"}
+        }
+        return (
+            Receipt.of(
+                EvidenceScope.FIELD.value,
+                ("emitted", subject, facts),
+                key=Some(self.content_key),
+                provenance=Some(Provenance(consumed=Block.empty(), produced=self.content_key)),
+                band=Block.empty() if self.converged else Block.singleton(self.status.value),
+            ),
+        )
 
 
 @tagged_union(frozen=True)
@@ -314,7 +332,7 @@ def _interpolate_receipt(key: ContentKey, field: MeshField, dofs: np.ndarray, re
         fem = skfem
     except ImportError:
         if not readout.nodal:
-            yield from Error(BoundaryFault(boundary=("field.interpolate", f"floor-serves-value-only:{readout.value}")))
+            yield from Error(FLOOR_UNSERVED.raised("interpolate", readout.value))
         extent, peak = _extent(dofs)
         return FieldReceipt.Interpolate(key, element, readout, int(dofs.size), 1, Provider.FLOOR, extent, peak)
     basis = _basis(field, element, fem)
@@ -362,7 +380,7 @@ def _resample_receipt(key: ContentKey, axes: GridAxes, values: np.ndarray, query
         engine = FieldEngine.worker()
     except ImportError:
         if dim != 1:
-            yield from Error(BoundaryFault(boundary=("field.resample", f"floor-serves-1d-only:{dim}")))
+            yield from Error(FLOOR_UNSERVED.raised("resample", str(dim)))
         extent, peak = _extent(np.interp(query, axes[0], values))
         return FieldReceipt.Resample(key, dim, int(query.size), "linear", Provider.FLOOR, extent, peak)
     sampled = engine.resample(axes, values, query, method)
@@ -370,22 +388,27 @@ def _resample_receipt(key: ContentKey, axes: GridAxes, values: np.ndarray, query
     return FieldReceipt.Resample(key, dim, int(query.size), method, Provider.GATED, extent, peak)
 
 
-# field RESULT-identity mint every `_dispatch` arm binds: parts cross length-prefixed so the `stream`
-# updater sees unambiguous boundaries. Raw value bytes alone are the deleted keying form — dtype/shape join
-# canonical stream so a reshaped or re-typed operand re-keys. `ContentIdentity.of` returns
-# `RuntimeRail[ContentKey]`, so `_key` `yield from`-binds the key off the rail.
+# field RESULT-identity mint every `_dispatch` arm binds. The framing is the identity owner's and NEVER this
+# page's: `IdentitySource(parts=...)` is its ONE spelling for N semantic parts, and the count-and-length frame runs
+# under `docs/laws/patterns.md` `[PREIMAGE_FRAMING]` at that owner. The two hand-rolled `len(x).to_bytes(8, "big")`
+# layers this deleted chose a width and a byte order at a call site — the fork the framing law exists to foreclose,
+# since a width chosen here and a width chosen at a sibling page split the key namespace with no surface able to
+# report it. Raw value bytes alone stay the deleted keying form: dtype and shape are their own cells, so a reshaped
+# or re-typed operand re-keys. `ContentIdentity.of` returns `RuntimeRail[ContentKey]`, so `_key` `yield from`-binds
+# the key off the rail.
 @railed
 def _key(label: str, *parts: "bytes | np.ndarray") -> ContentKey:
-    def chunk(part: "bytes | np.ndarray") -> bytes:
-        if isinstance(part, bytes):
-            return part
-        arr = np.ascontiguousarray(part)
-        cells = (str(arr.dtype).encode(), repr(arr.shape).encode(), arr.tobytes())
-        return b"".join(len(cell).to_bytes(8, "big") + cell for cell in cells)
-
-    chunks = tuple(chunk(part) for part in parts)
-    key: ContentKey = yield from ContentIdentity.of(label, tuple(len(c).to_bytes(8, "big") + c for c in chunks))
+    key: ContentKey = yield from ContentIdentity.of(label, IdentitySource(parts=tuple(chain.from_iterable(_cells(part) for part in parts))))
     return key
+
+
+def _cells(part: "bytes | np.ndarray") -> tuple[bytes, ...]:
+    # one operand's SEMANTIC cells: raw bytes are one cell, an array is its dtype, its shape, and its C-ordered
+    # buffer as three, so every cell enters the owner's frame individually and no nested join can collide.
+    if isinstance(part, bytes):
+        return (part,)
+    arr = np.ascontiguousarray(part)
+    return (str(arr.dtype).encode(), repr(arr.shape).encode(), arr.tobytes())
 ```
 
 ## [03]-[RESEARCH]

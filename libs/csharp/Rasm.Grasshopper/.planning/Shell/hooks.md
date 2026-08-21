@@ -1,72 +1,87 @@
 # [RASM_GRASSHOPPER_SHELL_HOOKS]
 
-`GhHooks` composes the kernel signal capsule into the Grasshopper boundary's hook rail: `GrasshopperPoint` spans document mutation, solution lifecycle, interaction verdicts, and paint phases under host-ruled `Veto`, `Observe`, or `Replay` rows, `HookSignal` carries payloads, and one per-load-context registry mints a capsule instance per `(point, scope)` composite. Verdicts ride the rail itself — a raise returns `Fin<HookSignal>`, a veto refusal is its `Fail` leg, and every contained subscriber fault parks as `IsolatedFault` on the one evidence cell the telemetry fold drains. `Shell/events.md` `UiEvents` remains the raw host-event gate, never a second hook wire.
+Folder's hook estate is the kernel mechanism composed, never re-rolled: `GrasshopperPoint` realizes `IHookRoster<GrasshopperPoint>` and the rail is one `HookRail<GrasshopperPoint, HookSignal, HookScope>` per plugin composition, minted at `Platform/composition.md`'s mount roster and handed to every raise site as a required parameter. Veto admission, observe isolation, replay retention, bounded fault custody, and scoped release are all the kernel capsule's (`Rasm/Domain/hooks.md`); this page owns the point census with its host-ruled modalities, the closed `HookSignal` fact union with its seating fan, and the per-plugin `HookScope` key — and nothing else, per the branch one-mechanism ruling.
 
-Composed settled: the kernel capsule — `HookPoint<TFact>` with its synchronous fire, `HookModality` rows, `HookId` grammar, `IsolatedFault` — arrives from the kernel signal owner; `Op`, `UiEvent`, `GhEvidence`, `HistoryLedger`, and `SessionJournal` are composed upstream owners. Fire is synchronous from any stratum; an effect-rail caller lifts `Raise` at its own composition seam. Per-plugin `HookScope` namespaces keep two apps on one Rhino from colliding, and plugin ALC statics isolate the registry before scoping discriminates.
+Every declared point lands its FIRE SITE in the same estate (branch RULINGS `[02]`): the census below names the raising owner per row, and a row no raise reaches has no seat here. `Shell/events.md` `UiEvents` remains the raw host-event gate — the rail is governance (veto, replay, plugin taps), never a second event wire.
 
 ## [01]-[INDEX]
 
-- [02]-[POINTS]: `GrasshopperPoint` — the host-truthful point census with its kernel-modality column.
-- [03]-[RAIL]: `HookScope` + `HookSignal` + `GhHooks` — scoped capsule instances, the raise fold, replay, and scope release.
+- [02]-[POINTS]: `GrasshopperPoint` — the host-truthful roster realizing the kernel floor, each row carrying its modality set, plane, and fire site.
+- [03]-[RAIL]: `HookScope` + `HookSignal` — the owner key, the closed fact union, and the composition law over the kernel rail.
 
 ## [02]-[POINTS]
 
-- Owner: `GrasshopperPoint` `[SmartEnum<string>]` — the closed `rasm.grasshopper.<domain>.<point>` roster whose `Modality` column carries the kernel `HookModality` row. Veto capability is ruled per row from the host's actual cancellation surface, never wished into existence: the document transaction gate admits refusal pre-commit, the background paint raise carries `CanvasBackgroundPaintEventArgs.OverrideDefaultPainting`, `Window.Closing` and `Application.Terminating` carry `CancelEventArgs`, and interaction verdicts refuse at this boundary's own capsule gate — every other host stream is post-facto and its point is `Observe`.
+- Owner: `GrasshopperPoint` `[SmartEnum<string>]` realizing `IHookRoster<GrasshopperPoint>` — the closed `rasm.grasshopper.<domain>.<point>` roster whose `Modalities` column is the kernel `CapabilitySet<HookModality>` and whose `Plane` is the folder's one `TraceScope`. Veto capability is ruled per row from the host's actual cancellation surface, never wished into existence: the document transaction gate admits refusal pre-commit, the background paint raise carries `CanvasBackgroundPaintEventArgs.OverrideDefaultPainting`, `Window.Closing` and `Application.Terminating` carry `CancelEventArgs`, and interaction verdicts refuse at the responder gate — every other host stream is post-facto and rides the kernel evidence drain, not this rail.
 
-| [INDEX] | [POINT]                                | [MODALITY] | [HOST_TRUTH]                                                           |
-| :-----: | :------------------------------------- | :--------- | :--------------------------------------------------------------------- |
-|  [01]   | `rasm.grasshopper.document.mutate`     | `Veto`     | `Document/document.md` undo-sealed transaction gate refuses pre-commit |
-|  [02]   | `rasm.grasshopper.document.state`      | `Observe`  | `DocumentStateEventArgs` carries no cancellation surface               |
-|  [03]   | `rasm.grasshopper.graph.membership`    | `Observe`  | `ObjectList` events raise after the mutation settled                   |
-|  [04]   | `rasm.grasshopper.solution.lifecycle`  | `Observe`  | `SolutionIdEventArgs`/`SolutionEventArgs` carry no cancellation        |
-|  [05]   | `rasm.grasshopper.interaction.verdict` | `Veto`     | `Canvas/interaction.md` capsule verdicts refuse at this boundary gate  |
-|  [06]   | `rasm.grasshopper.paint.background`    | `Veto`     | `OverrideDefaultPainting` is the host suppression surface              |
-|  [07]   | `rasm.grasshopper.paint.layer`         | `Observe`  | `CanvasPaintEventArgs` carries no cancellation                         |
-|  [08]   | `rasm.grasshopper.history.replay`      | `Replay`   | `Document/history.md` `HistoryLedger` replays sealed actions           |
-|  [09]   | `rasm.grasshopper.window.close`        | `Veto`     | `Window.Closing` carries `CancelEventArgs`; policy is `Eto/windows.md` |
-|  [10]   | `rasm.grasshopper.shell.terminate`     | `Veto`     | `Application.Terminating` carries `CancelEventArgs`                    |
+| [INDEX] | [POINT]                                | [MODALITIES] | [HOST_TRUTH]                            | [FIRE_SITE]                          |
+| :-----: | :------------------------------------- | :----------- | :-------------------------------------- | :----------------------------------- |
+|  [01]   | `rasm.grasshopper.document.mutate`     | `Veto`       | undo-sealed gates refuse pre-commit     | `Transact` + `GraphScope.Mutate`     |
+|  [02]   | `rasm.grasshopper.solution.lifecycle`  | `Observe`    | host args carry no cancellation         | `SolutionControl.Drive`              |
+|  [03]   | `rasm.grasshopper.interaction.verdict` | `Veto`       | verdicts refuse at this gate            | `SpecResponder.Governed`             |
+|  [04]   | `rasm.grasshopper.paint.background`    | `Veto`       | `OverrideDefaultPainting` suppresses    | `PaintAnchor.Herald` background arm  |
+|  [05]   | `rasm.grasshopper.history.replay`      | `Replay`     | `HistoryLedger` replays sealed actions  | `HistoryLedger.Commit` replay arms   |
+|  [06]   | `rasm.grasshopper.window.close`        | `Veto`       | `Closing` carries `CancelEventArgs`     | `HookBridge.Closing` consult arm     |
+|  [07]   | `rasm.grasshopper.shell.terminate`     | `Veto`       | `Terminating` carries `CancelEventArgs` | `HookBridge.Terminating` consult arm |
 
-- Law: a point's modality is admission — a raise on an `Observe` point folds no vetoes because the capsule holds none, and a veto-capable raise site consults the settled `Fin` verdict before committing its host mutation.
-- Packages: Thinktecture.Runtime.Extensions, `Rasm` (kernel signal capsule), `Rasm.Domain` (`Op`), `Shell/events.md` (`UiEvent`), `Shell/telemetry.md` (`GhEvidence`), `Document/document.md`/`Document/history.md`/`Canvas/interaction.md`/`Canvas/paint.md` raise-site owners.
-- Growth: a new hook point is one row with its ruled modality; a mis-ruled modality is a defect against the host surface, never a configuration choice.
-
-## [03]-[RAIL]
-
-- Owner: `HookScope` `[ValueObject<string>]` — the per-plugin namespace admitted trimmed and nonblank; subscriber identity is the `(point, scope)` composite instance, so two composing plugins subscribe the same point without collision and a scope's subscribers release together. `HookSignal` `[Union]` — `EventCase` carries a typed `UiEvent` fact, `EvidenceCase` carries a `GhEvidence` receipt, `IntentCase` carries the pre-commit `Op` and owning document identity a veto point judges. `GhHooks` — the per-load-context composition folding kernel `HookPoint<HookSignal>` instances, each seated as a `HookRegistration` carrying its rank beside the cell holding that seat's live detachers.
-- Entry: `Subscribe` discriminates by subscriber shape — a veto gate `Func<HookSignal, Fin<HookSignal>>` reaches the instance's `Veto` (a gate on a non-veto point refuses typed from the capsule), an observe tap `Func<HookSignal, IO<Unit>>` reaches `Observe` — each returning a TRACKED detacher that drops its own row from the seat before disposing the capsule's; `GhHooks.Raise(GrasshopperPoint, HookSignal, Option<HookScope> = default, Op? = null)` → `Fin<HookSignal>` — the one raise fold; `GhHooks.Replay(HookScope, GrasshopperPoint, Seq<HookSignal> captured, Op? = null)` → `Fin<Unit>` — re-fires captured signals at one scope's instance on a `Replay` point, aborting on the first veto or firing failure so `Ok` certifies the whole window re-fired; `GhHooks.ReleaseScope(HookScope, Op? = null)` → `Fin<Unit>` — releases every subscriber of one plugin namespace and drops its seats; `GhHooks.Faults` — the shared `Atom<Seq<IsolatedFault>>` evidence cell the telemetry fold subscribes, bounded to the newest 512 rows per raise with `FaultsShed` counting what the trim dropped, so a fault storm never grows the cell unbounded and a trimmed cell reads apart from a quiet one.
-- Law: the registry key IS the `(point, scope)` composite — a boundary raise leaves `scope` as `None` and every scope's instance witnesses the host truth, a `Some` raise bounds delivery to one plugin namespace; each seat mints on first touch with the roster row's modality and the shared evidence cell, so delivery never crosses into a scope the subscriber did not admit. Seat resolution is a typed rail: a registry that fails to publish the seat it just installed is `Fault.InvalidResult`, never an unregistered capsule minted on the miss — such a capsule is invisible to the raise fold, never fires, and never releases.
-- Law: release is subscriber-deep, so the release-together contract has a producer — `ReleaseScope` drains each seat's detacher cell and disposes them in reverse-registration order BEFORE the map rows drop, the first fault settling the returned rail while every later detacher still runs, so one throwing subscriber never strands a plugin's teardown. A subscription attached after that drain lands on an unreachable seat and delivers nothing, which is release-equivalent.
-- Law: the raise fold fires every resolved instance in first-registration order — each successful instance hands its transformed signal to the next, while the first `Fail` settles the returned verdict and later instances witness the original signal only on that explicit failure-observation path. Subscriber isolation is the capsule's — a throwing or refused tap parks as `IsolatedFault` on the shared cell and delivery continues, so no subscriber sinks the raise site or starves a sibling.
-- Law: replay is deterministic capture re-entry — captured signals come from `Shell/journal.md` `SessionJournal.Export` or the `HistoryLedger` action stream, re-fired in captured order at exactly one scope, so a late-mounted panel reads the recent path without a second recording surface; the capsule's own bounded buffer hands a fresh subscriber the recent window on attach.
-- Law: subscription state is per-load-context — the registry and evidence cells live in plugin ALC statics, so co-resident plugins hold disjoint rails even before scoping discriminates.
-- Boundary: raise sites are the owning pages — the document gate raises `document.mutate` around its transaction, `PaintAnchor` raises the paint points inside its contained callbacks, and the interaction capsules raise `interaction.verdict`; this page owns the rail, never a raise; fire is synchronous, so an effect-rail raise site lifts at its own composition seam (`IO.lift(() => GhHooks.Raise(...))`).
-- Packages: LanguageExt.Core (`Fin`, `Seq`, `HashMap`), Thinktecture.Runtime.Extensions, `Rasm` (kernel signal capsule), `Rasm.Domain` (`Op`).
-- Growth: zero on the gates — new capability lands as `GrasshopperPoint` rows and `HookSignal` cases.
+- Law: a point's modality set is admission — the kernel capsule's own gates read `CanVeto` off the held rows, so a veto gate on an observe-only point refuses typed at the kernel and no per-point identity probe exists here.
+- Law: NAMED LOSS — the former `document.state`, `graph.membership`, and `paint.layer` observe rows DELETE: all three were post-facto host streams with no veto, replay, or grant semantics to earn a rail seat — the first two ride the kernel evidence drain in total order, and layer-paint cadence rides the drain's `CanvasSignal.Draw` row or the plugin's own `PaintAnchor` mount. Plugin wanting those facts folds `EvidenceDrain.Reader`.
+- Packages: Thinktecture.Runtime.Extensions, `Rasm.Domain` (`HookId`, `TraceScope`, `HookModality`, `CapabilitySet`, `IHookRoster`).
+- Growth: a new hook point is one row with its ruled modality set and its fire site landed in the same change; a mis-ruled modality is a defect against the host surface, never a configuration choice.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Domain;
+using Thinktecture;
 
 namespace Rasm.Grasshopper.Shell;
 
 // --- [TYPES] --------------------------------------------------------------------------------
-// Modality rows are the kernel HookModality vocabulary; this roster owns only the host-truth ruling.
+// Roster realizes the kernel floor, so the rail takes it as a type parameter and an inline `HookId.Create`
+// literal at a raise site does not compile; modality is a SET column read by the kernel's own gates.
 [SmartEnum<string>]
-public sealed partial class GrasshopperPoint {
-    public static readonly GrasshopperPoint DocumentMutate = new(key: "rasm.grasshopper.document.mutate", modality: HookModality.Veto);
-    public static readonly GrasshopperPoint DocumentState = new(key: "rasm.grasshopper.document.state", modality: HookModality.Observe);
-    public static readonly GrasshopperPoint GraphMembership = new(key: "rasm.grasshopper.graph.membership", modality: HookModality.Observe);
-    public static readonly GrasshopperPoint SolutionLifecycle = new(key: "rasm.grasshopper.solution.lifecycle", modality: HookModality.Observe);
-    public static readonly GrasshopperPoint InteractionVerdict = new(key: "rasm.grasshopper.interaction.verdict", modality: HookModality.Veto);
-    public static readonly GrasshopperPoint PaintBackground = new(key: "rasm.grasshopper.paint.background", modality: HookModality.Veto);
-    public static readonly GrasshopperPoint PaintLayer = new(key: "rasm.grasshopper.paint.layer", modality: HookModality.Observe);
-    public static readonly GrasshopperPoint HistoryReplay = new(key: "rasm.grasshopper.history.replay", modality: HookModality.Replay);
-    public static readonly GrasshopperPoint WindowClose = new(key: "rasm.grasshopper.window.close", modality: HookModality.Veto);
-    public static readonly GrasshopperPoint ShellTerminate = new(key: "rasm.grasshopper.shell.terminate", modality: HookModality.Veto);
+public sealed partial class GrasshopperPoint : IHookRoster<GrasshopperPoint> {
+    public static readonly GrasshopperPoint DocumentMutate = new(key: "rasm.grasshopper.document.mutate", modalities: Veto);
+    public static readonly GrasshopperPoint SolutionLifecycle = new(key: "rasm.grasshopper.solution.lifecycle", modalities: Observe);
+    public static readonly GrasshopperPoint InteractionVerdict = new(key: "rasm.grasshopper.interaction.verdict", modalities: Veto);
+    public static readonly GrasshopperPoint PaintBackground = new(key: "rasm.grasshopper.paint.background", modalities: Veto);
+    public static readonly GrasshopperPoint HistoryReplay = new(key: "rasm.grasshopper.history.replay", modalities: Replay);
+    public static readonly GrasshopperPoint WindowClose = new(key: "rasm.grasshopper.window.close", modalities: Veto);
+    public static readonly GrasshopperPoint ShellTerminate = new(key: "rasm.grasshopper.shell.terminate", modalities: Veto);
 
-    public HookModality Modality { get; }
+    public HookId Id => HookId.Create(value: Key);
+    public CapabilitySet<HookModality> Modalities { get; }
+    // One plane for the whole boundary roster: the span bracket and the instrument mount both read it.
+    public Option<TraceScope> Plane => Some(TraceScope.Create(value: "rasm.grasshopper.host"));
+
+    private static CapabilitySet<HookModality> Veto => CapabilitySet<HookModality>.Of(HookModality.Veto);
+    private static CapabilitySet<HookModality> Observe => CapabilitySet<HookModality>.Of(HookModality.Observe);
+    private static CapabilitySet<HookModality> Replay => CapabilitySet<HookModality>.Of(HookModality.Replay);
 }
+```
 
+## [03]-[RAIL]
+
+- Owner: `HookScope` `[ValueObject<string>]` — the per-plugin namespace and the rail's `TOwner`: the kernel signature keys every subscription and release by it, and because per-ALC isolation bounds each rail to ONE plugin, `rail.Release(scope, key)` and whole-rail teardown coincide here — the scope is the typed owner handle the kernel demands, never a multi-plugin filter, and a collectible plugin ALC drops its whole rail with the root's lease. `HookSignal` `[Union]` realizing the kernel `IHookFact<GrasshopperPoint>` floor — the roster's closed `TFact` carrying its own seating fan: `EventCase` carries a kernel-ordered `UiEvent<GhFact>` (`Shell/events.md`), `EvidenceCase` a `GhEvidence` receipt (`Shell/telemetry.md`), `IntentCase` the pre-commit `Op` beside the host-published document identity a veto point judges.
+- Entry: the rail is `HookRail<GrasshopperPoint, HookSignal, HookScope>.Of(key, gates, taps, span, cell)` — minted ONCE by `Platform/composition.md`'s mount roster with the composition's own `FaultCell`, never a page static. Raise site takes the rail as a REQUIRED parameter and calls `rail.Fire(at, fact, key)` — the kernel's guarded transforming arity has no lawful site on this roster (the refusal-only law below); replay is `rail.Replay(at, captured, key)` over a retaining point; scoped teardown is `rail.Release(scope, key)`.
+- Law: fan-out and ordering are the kernel's — `Fire` delivers to every subscriber of the point's one seat, vetoes fold in ATTACH order and the mount census is mount-ordered (kernel S1-26), so the veto left-fold is deterministic without a rank column here. NAMED LOSS: the scoped-delivery raise arm (`Raise(point, signal, Some(scope))`) — per-ALC isolation already bounded every rail to one plugin, so the arm filtered a single-scope table; a raise is now always the rail's whole seat.
+- Law: veto verdicts ride the rail — `Fire` answers `Fin<HookSignal>` and the raise site consults it before committing its host mutation; the two `CancelEventArgs` points write `args.Cancel = true` on the `Fail` leg at their `Shell/events.md` bridge, which is the one host readback the fact projection cannot carry.
+- Law: seating is the FACT's own declaration and the kernel gates on it twice, at fire entry and on the veto fold's product — `IntentCase` is what every `[02]` fire site raises, so it seats at the whole roster; `EventCase` and `EvidenceCase` enter only through `rail.Replay` and seat where the row retains, which is `history.replay` alone today. Firing a journal case at a live veto point refuses before any gate runs, and a gate rewriting an intent into a journal case refuses before the raise site reads its verdict.
+- Law: every veto on this roster is REFUSAL-ONLY — the host surfaces judge commit-or-cancel and carry no mutable payload for a subscriber to rewrite, so the kernel's guarded transforming `Fire<T>` arity has no lawful site here; a future transformable seam earns it as a new point row, never by widening `IntentCase`.
+- Law: fault custody is the composition's `FaultCell` — bounded ring, oldest-out, `Shed` and `Lost` counted — handed whole at the mint; the telemetry fold reads `rail.Faults.Parked` and no page-local `Atom<Seq<IsolatedFault>>`, cap const, or trim fold exists.
+- Law: replay capture comes from `Shell/journal.md` `SessionJournal.Export` or the `HistoryLedger` action stream, re-fired in captured order through the kernel's `TraverseM` verdict rail, so `Ok` certifies the whole window re-fired and a late-mounted panel reads the recent path without a second recording surface.
+- Boundary: raise sites are the owning pages named in the `[02]` census — this page owns the roster and the fact union, never a raise; fire is synchronous, so an effect-rail raise site lifts at its own composition seam (`IO.lift(() => rail.Fire(...))`).
+- Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, `Rasm.Domain` (`HookRail`, `IHookFact`, `HookMounts`, `FaultCell`, `Op`), `Shell/events.md` (`GhFact`, `UiEvent<GhFact>`), `Shell/telemetry.md` (`GhEvidence`).
+- Growth: zero on the mechanism — new capability lands as `GrasshopperPoint` rows and `HookSignal` cases, a case declaring the arm of the seating fan it answers to; the kernel rail never widens per folder.
+
+```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Rasm.Domain;
+using Rasm.Interaction;
+using Thinktecture;
+
+namespace Rasm.Grasshopper.Shell;
+
+// --- [TYPES] --------------------------------------------------------------------------------
 [ValueObject<string>]
 public readonly partial struct HookScope {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
@@ -76,189 +91,38 @@ public readonly partial struct HookScope {
 }
 
 [Union]
-public abstract partial record HookSignal {
+public abstract partial record HookSignal : IHookFact<GrasshopperPoint> {
     private HookSignal() { }
-    public sealed record EventCase(UiEvent Fact) : HookSignal;
+    public sealed record EventCase(UiEvent<GhFact> Fact) : HookSignal;
     public sealed record EvidenceCase(GhEvidence Evidence) : HookSignal;
+    // Identity is the host's own `Document.Identity` Guid, read at the raise site — absence is a raise no
+    // document owns (an application-scope veto).
     public sealed record IntentCase(Op Operation, Option<Guid> DocumentId) : HookSignal;
+
+    // Seating fans BROADCAST here rather than 1:1: every fire site the `[02]` census names raises an
+    // `IntentCase`, so intent seats at the whole roster, while both journal cases reach the rail ONLY through
+    // `rail.Replay` over an export's signals and therefore seat where the row RETAINS. Retention is the same
+    // column the kernel's own replay gate reads, so a case that cannot replay and a point that refuses replay
+    // never disagree, and no row is named here by identity.
+    public bool Seats(GrasshopperPoint at) => Switch(
+        state: at,
+        eventCase: static (row, _) => Replayable(at: row),
+        evidenceCase: static (row, _) => Replayable(at: row),
+        intentCase: static (_, _) => true);
+
+    private static bool Replayable(GrasshopperPoint at) => at.Modalities.Held.Exists(static row => row.Retains);
 }
-
-internal readonly record struct HookRegistration(long Rank, HookPoint<HookSignal> Instance, Atom<Seq<IDisposable>> Detachers);
-
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// Per-load-context composition of the kernel capsule: one HookPoint<HookSignal> seat per (point, scope) composite,
-// minted on first touch with the roster row's modality, every seat sharing one evidence cell and owning the detacher
-// set release drains; collectible plugin ALCs isolate both statics per plugin.
-[BoundaryAdapter]
-public static class GhHooks {
-    // The evidence cell is bounded like every sibling evidence surface (drain 1024, journal 2048): each raise
-    // trims to the newest window and counts what it shed, so a fault storm never grows the cell past the cap
-    // and the shed count separates a quiet cell from a trimmed one.
-    private const int FaultCap = 512;
-
-    private static readonly Atom<HashMap<(string Point, HookScope Scope), HookRegistration>> Points =
-        Atom(HashMap<(string Point, HookScope Scope), HookRegistration>());
-    private static readonly Atom<long> Shed = Atom(0L);
-    private static long nextRank;
-
-    public static Atom<Seq<IsolatedFault>> Faults { get; } = Atom(Seq<IsolatedFault>());
-
-    public static long FaultsShed => Shed.Value;
-
-    public static Fin<IDisposable> Subscribe(HookScope scope, GrasshopperPoint point, Func<HookSignal, Fin<HookSignal>> gate, Op? key = null) {
-        Op op = key.OrDefault();
-        return from named in Admitted(scope: scope, op: op)
-               from valid in op.Need(gate)
-               from row in op.Need(point)
-               from seat in Resolve(point: row, scope: named, op: op)
-               from detacher in seat.Instance.Veto(gate: valid)
-               select Tracked(seat: seat, detacher: detacher);
-    }
-
-    public static Fin<IDisposable> Subscribe(HookScope scope, GrasshopperPoint point, Func<HookSignal, IO<Unit>> tap, Op? key = null) {
-        Op op = key.OrDefault();
-        return from named in Admitted(scope: scope, op: op)
-               from valid in op.Need(tap)
-               from row in op.Need(point)
-               from seat in Resolve(point: row, scope: named, op: op)
-               select Tracked(seat: seat, detacher: seat.Instance.Observe(tap: valid));
-    }
-
-    // HookScope is a struct value object, so `default` skips the factory and reaches a positional parameter
-    // unvalidated; reading its key throws on an uninitialized instance, and this funnel turns that into the
-    // typed refusal every scope-taking gate shares.
-    private static Fin<HookScope> Admitted(HookScope scope, Op op) =>
-        op.Catch(body: () => Fin.Succ((string)scope)).Map(_ => scope);
-
-    // The fold's verdict is the RESULT, so it binds as a query step: selecting an already-Fin expression nests the
-    // rail one deep and the member's own return type refuses it. op.Catch funnels a throwing veto gate — the capsule
-    // shields its observe taps but folds veto gates bare — so no subscriber can raise into the host callback.
-    public static Fin<HookSignal> Raise(GrasshopperPoint point, HookSignal signal, Option<HookScope> scope = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return from row in op.Need(point)
-               from fact in op.Need(signal)
-               from settled in op.Catch(body: () => Instances(point: row, scope: scope)
-                   .Fold(Fin.Succ(fact), (verdict, instance) =>
-                       Witness(verdict: verdict, instance: instance, original: fact)))
-               from _ in op.Catch(body: () => Fin.Succ(Trim()))
-               select settled;
-    }
-
-    private static Unit Trim() {
-        Seq<IsolatedFault> held = Faults.Value;
-        return held.Count <= FaultCap
-            ? unit
-            : (ignore(Shed.Swap(count => count + (held.Count - FaultCap))),
-               ignore(Faults.Swap(current => current.Count <= FaultCap
-                   ? current
-                   : toSeq(current.Skip(current.Count - FaultCap)).Strict()))).Item2;
-    }
-
-    public static Fin<Unit> Replay(HookScope scope, GrasshopperPoint point, Seq<HookSignal> captured, Op? key = null) {
-        Op op = key.OrDefault();
-        // every Fire verdict rides the returned rail: TraverseM aborts on the first veto or firing failure, so success
-        // means the whole captured window re-fired; contained subscriber raises stay parked on the Faults cell inside
-        // Fire, and op.Catch keeps the host-raise funnel — isolation preserved, verdicts no longer discarded.
-        return from row in op.Need(point)
-               from named in Admitted(scope: scope, op: op)
-               from replayable in guard(row.Modality == HookModality.Replay, op.InvalidInput()).ToFin()
-               from seat in Resolve(point: row, scope: named, op: op)
-               from replayed in op.Catch(body: () =>
-                   captured.TraverseM(fact => seat.Instance.Fire(fact: fact)).As().Map(static _ => unit))
-               select replayed;
-    }
-
-    public static Fin<Unit> ReleaseScope(HookScope scope, Op? key = null) {
-        Op op = key.OrDefault();
-        return Admitted(scope: scope, op: op).Bind(_ => op.Catch(body: () => {
-            Seq<HookRegistration> released = Points.Value.AsIterable()
-                .Filter(pair => pair.Key.Scope == scope)
-                .Map(static pair => pair.Value)
-                .ToSeq();
-            ignore(Points.Swap(current => current.Filter((pair, _) => pair.Scope != scope)));
-            return released.Fold(Fin.Succ(unit), (settled, seat) => Drop(settled: settled, seat: seat, op: op));
-        }));
-    }
-
-    // The candidate mints ONCE outside the transition: Swap re-runs its body on every CAS retry, so a rank increment
-    // or a capsule mint inside it burns identity per contended attempt (rails-and-effects [ATOM_STATE]). A losing
-    // candidate is inert — an unpublished capsule holds no subscriber and no host handle.
-    private static Fin<HookRegistration> Resolve(GrasshopperPoint point, HookScope scope, Op op) {
-        (string Point, HookScope Scope) seat = (point.Key, scope);
-        HookRegistration candidate = new(
-            Rank: Interlocked.Increment(location: ref nextRank) - 1L,
-            Instance: new HookPoint<HookSignal>(id: HookId.Create(value: point.Key), modality: point.Modality, faults: Faults),
-            Detachers: Atom(Seq<IDisposable>()));
-        return Points.Swap(held => held.ContainsKey(seat) ? held : held.Add(seat, candidate))
-            .Find(seat)
-            .ToFin(op.InvalidResult(detail: point.Key));
-    }
-
-    private static IDisposable Tracked(HookRegistration seat, IDisposable detacher) {
-        ignore(seat.Detachers.Swap(held => held.Add(detacher)));
-        return new HookDetacher(Detach: () => {
-            ignore(seat.Detachers.Swap(held => held.Filter(entry => !ReferenceEquals(entry, detacher)).ToSeq().Strict()));
-            detacher.Dispose();
-        });
-    }
-
-    // Take-and-clear reads the honest snapshot first: Swap hands back the value it just installed, so draining
-    // through the return alone would dispose nothing.
-    private static Fin<Unit> Drop(Fin<Unit> settled, HookRegistration seat, Op op) {
-        Seq<IDisposable> held = seat.Detachers.Value;
-        ignore(seat.Detachers.Swap(static _ => Seq<IDisposable>()));
-        return held.Rev().Fold(settled, (first, detacher) => {
-            Fin<Unit> next = op.Catch(body: () => Fin.Succ(Op.Side(action: detacher.Dispose)));
-            return first.IsFail ? first : next;
-        });
-    }
-
-    private static Seq<HookPoint<HookSignal>> Instances(GrasshopperPoint point, Option<HookScope> scope) =>
-        toSeq(Points.Value.AsIterable()
-            .Filter(pair => pair.Key.Point == point.Key && scope.Match(Some: only => pair.Key.Scope == only, None: static () => true))
-            .OrderBy(static pair => pair.Value.Rank)
-            .Select(static pair => pair.Value.Instance));
-
-    private static Fin<HookSignal> Witness(
-        Fin<HookSignal> verdict, HookPoint<HookSignal> instance, HookSignal original) => verdict.Match(
-        Succ: current => instance.Fire(fact: current),
-        Fail: error => {
-            ignore(instance.Fire(fact: original));
-            return Fin.Fail<HookSignal>(error: error);
-        });
-}
-```
-
-```mermaid
----
-config:
-  layout: elk
-  flowchart:
-    curve: linear
-    padding: 25
----
-flowchart LR
-    accTitle: Route boundary raises through scoped capsule instances
-    accDescr: Owning pages raise typed signals at ruled hook points; the registry resolves one kernel capsule instance per point and scope, veto points settle a Fin verdict the raise site consults, and contained subscriber faults park on the shared evidence cell the telemetry fold drains.
-    Sites["document gate · paint anchor · interaction capsule · solution watcher"] -->|"Raise(point, signal)"| Rail["GhHooks"]
-    Rail -->|"(point, scope) instances · kernel HookPoint fire"| Subs["scoped veto gates and observe taps"]
-    Subs -->|"first Fail on a Veto point"| Verdict{"Fin&lt;HookSignal&gt;"}
-    Verdict -->|"Succ"| Commit["raise site commits"]
-    Verdict -->|"Fail"| Refuse["raise site refuses host mutation"]
-    Rail -->|"IsolatedFault parked per capture"| Faults["GhHooks.Faults evidence cell"]
-    Faults -->|"Change tap"| Fan["GhTelemetry projection"]
-    Journal["SessionJournal.Export · HistoryLedger"] -->|"Replay(scope, captured)"| Rail
 ```
 
 ## [04]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]       | [OWNER]            | [RAIL]                                         | [CASES] |
-| :-----: | :-------------- | :----------------- | :--------------------------------------------- | :-----: |
-|  [01]   | point census    | `GrasshopperPoint` | keyed rows with a ruled kernel-modality column |   10    |
-|  [02]   | payload         | `HookSignal`       | closed union → one raise fold                  |    3    |
-|  [03]   | scoped registry | `GhHooks`          | `Subscribe`/`Raise`/`Replay`/`ReleaseScope`    |    1    |
+| [INDEX] | [CONCERN]    | [OWNER]                                           | [RAIL]                                         | [CASES] |
+| :-----: | :----------- | :------------------------------------------------ | :--------------------------------------------- | :-----: |
+|  [01]   | point census | `GrasshopperPoint : IHookRoster`                  | keyed rows, kernel modality sets, fire sites   |    7    |
+|  [02]   | payload      | `HookSignal : IHookFact`                          | closed union + seating fan → the raise fold    |    3    |
+|  [03]   | rail         | kernel `HookRail<GrasshopperPoint, …, HookScope>` | `Fire`/`Replay`/`Release` — zero local members |    1    |
 
-`Op`, `UiEvent`, `GhEvidence`, `HistoryLedger`, `SessionJournal`, and the kernel signal capsule are composed upstream owners; a new governance capability lands as a point row or a signal case — the rail's four gates never widen.
+137-line `GhHooks` registry — seats, ranks, trim fold, fault cap, detacher tracking, release folds — deleted whole onto the kernel rail; a new governance capability lands as a point row or a signal case.
 
 ## [05]-[RESEARCH]
 

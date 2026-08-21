@@ -11,26 +11,24 @@ Wire posture: HOST-LOCAL. `ToolAssembly`, `ToolMagazine.Schedule`, and `ToolMaga
 - [02]-[TOOL_VOCABULARY]: `ToolKey`, `ToolEdgeKey`, `Magazine`, `MagazineBehavior`, `ArmSwing`, `ToolSelection`, `SlotKind`, `ToolAvailability`, `LifeBasisRow`, `MetricDimension`, `ToolMeasure`, and `ShortfallReason` — every provider correspondence carried as a column.
 - [03]-[TOOL_ASSEMBLY]: `SlotAddress`, `ToolTarget`, `LifeBudget`, `MetricBand`, `ToolMetric`, `ToolEdge`, `ToolSnapshot`, `ToolAssemblyIngress`, `ToolAssembly`, `MagazineLayout`, `SlotState`, `SlotMap`, `LifeDemand`, `WorkItem`, and `MagazinePolicy`.
 - [04]-[PROVIDER_CATALOG]: `CatalogSource`, `CatalogReceipt`, `ToolIngress`, `MagazineSlots`, `ToolAssemblyMap`, and the `ToolCatalog` decode, atoms-floor projection, refresh, and canonical-hash fold.
-- [05]-[KITTING_SCHEDULE]: `ToolChangeEvidence`, `KitShortfall`, `KittingReceipt`, `ToolChange`, and the `ToolMagazine` kitting, scheduling, and `HolderEnvelope` entries.
+- [05]-[KITTING_SCHEDULE]: `ToolChangeEvidence`, `KitShortfall`, `KitOutcome`, `ToolChange`, and the `ToolMagazine` kitting, scheduling, and `HolderEnvelope` entries.
 
 ## [02]-[TOOL_VOCABULARY]
 
 - Owner: each row family owns one closed vocabulary AND the provider ordinals that lower onto it — `ToolMeasure` the measurement types, `ToolAvailability` the cutter statuses, `SlotKind` the placement locations, `LifeBasisRow` the life types.
 - Law: a provider correspondence is a COLUMN on the row it targets, indexed once from `Items`. A parallel table keyed by the provider vocabulary has to restate every row, silently defaults the one it forgot, and materializes eagerly whether or not a decode ever runs; the column cannot forget a row and its index materializes on first read.
 - Law: an unmapped provider ordinal resolves to `None` and refuses as `ToolAssetInadmissible` naming the axis. A domain row standing in for an ordinal the shop's controller emits is fabricated evidence a scheduler prices work on.
-- Cases: `MetricDimension` rows carry unit admission and canonical restoration delegates; `ToolAvailability` names the atoms-floor `ToolState` it collapses onto; `ArmSwing` names how much of the layout's swing a change actually pays; `ToolSelection` rows generate the mounted-preference and life-direction ordering space; `ShortfallReason` names why a demand went unkitted.
+- Cases: `MetricDimension` rows carry unit admission and canonical restoration delegates; `ToolAvailability` names the atoms-floor `ToolState` it collapses onto; `ArmSwing` names how much of the layout's swing a change pays; `ToolSelection` names the life direction a crib is searched in, seat preference riding the behaviour set beside the swing it already derives; `ShortfallReason` names why a demand went unkitted.
+- Law: `MagazineBehavior` realizes the kernel `ICapability` floor, so a controller's declared behaviours are one `CapabilitySet` value carrying membership, the required-set seam, and its missing-row evidence. A page-local set beside that column re-spells an algebra the kernel already owns and hands a refusing consumer no evidence of what was absent.
 - Auto: every `Of` reader folds one `Lazy<FrozenDictionary>` derived from `Items`, so a new row is one declaration and the index follows it.
 - Growth: a provider measurement is one `ToolMeasure` row carrying its measurement type; a lifecycle correspondence is one `ToolAvailability` row carrying its status set and its `ToolState` column; a physical dimension is one `MetricDimension` row carrying its own admission and restoration; a placement is one `SlotKind` row carrying its location set; a controller capability is one `MagazineBehavior` row; a scheduling preference is one `ToolSelection` row.
 - Boundary: provider enums reach no consumer — they terminate on these columns.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
-using System.Buffers;
-using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Globalization;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using LanguageExt;
 using LanguageExt.Common;
@@ -52,29 +50,28 @@ namespace Rasm.Fabrication.Tooling;
 
 // --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
 [ValueObject<string>]
-[ValidationError<FabricationFault>]
 public sealed partial class ToolKey {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
-        validationError = Witness.Keyed(value) ? null : Tooling("tool-key");
+        validationError = Witness.Keyed(value) ? null : Validation("tool-key");
     }
 
     public static Fin<ToolKey> Admit(string value) => Admission.Of<ToolKey, string>(value);
 
-    // The one witness-free refusal every declared-value gate on this page raises, so a locus is the only thing a
-    // gate spells and no site re-mints the case.
+    internal static ValidationError Validation(string locus) => new($"tooling:{locus}");
+
+    // Semantic tooling gates share one typed mint; generated owners use `Validation` and cross through `Admitted`.
     internal static FabricationFault Tooling(string locus) =>
-        new FabricationFault.PolicyInadmissible(FabConcern.Tooling, locus);
+        FabricationFault.Inadmissible(FabConcern.Tooling, locus);
 }
 
 [ValueObject<string>]
-[ValidationError<FabricationFault>]
 public sealed partial class ToolEdgeKey {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
-        validationError = Witness.Keyed(value) ? null : ToolKey.Tooling("tool-edge-key");
+        validationError = Witness.Keyed(value) ? null : ToolKey.Validation("tool-edge-key");
     }
 
     public static Fin<ToolEdgeKey> Admit(string value) => Admission.Of<ToolEdgeKey, string>(value);
@@ -93,14 +90,22 @@ public sealed partial class Magazine {
     public bool Circular { get; }
 }
 
+// What the changer can DO, on the kernel capability floor: a controller declares its behaviours as one
+// `CapabilitySet` value, so membership, the required-set seam, the missing-row evidence, and the wire rendering all
+// arrive from the kernel column and this page mints no set algebra of its own. `Rank` stays the interface's DERIVED
+// declaration order; an ordinal column beside `Items` is the refused form.
 [SmartEnum<string>]
-public sealed partial class MagazineBehavior {
+public sealed partial class MagazineBehavior : ICapability<MagazineBehavior> {
     public static readonly MagazineBehavior Confirm = new("confirm");
     public static readonly MagazineBehavior Preselect = new("preselect");
     public static readonly MagazineBehavior FixedPot = new("fixed-pot");
     public static readonly MagazineBehavior DualArm = new("dual-arm");
     public static readonly MagazineBehavior LoadWhileRunning = new("load-while-running");
     public static readonly MagazineBehavior OrientSpindle = new("orient-spindle");
+    // Seat preference is a CHANGER behaviour, not a selection name: a magazine that keeps the mounted tool cutting
+    // declares it beside its arm and preselect rows, so the ordering reads one behaviour column instead of a
+    // mounted-prefixed twin of every life direction.
+    public static readonly MagazineBehavior PreferMounted = new("prefer-mounted");
 }
 
 // How much of the layout's declared swing a change actually pays. A dual-arm changer swings the next tool into
@@ -114,22 +119,19 @@ public sealed partial class ArmSwing {
 
     public double Share { get; }
 
-    public static ArmSwing Of(Set<MagazineBehavior> behaviors) =>
-        behaviors.Contains(MagazineBehavior.DualArm) ? Dual : Single;
+    public static ArmSwing Of(CapabilitySet<MagazineBehavior> behaviors) =>
+        behaviors.Admits(MagazineBehavior.DualArm) ? Dual : Single;
 }
 
+// The LIFE direction a crib is searched in, and nothing else. Seat preference crossed with each direction produced
+// four rows spelling one 2x2 cross by hand, and the crossed half was a `bool` column the ordering re-tested; the
+// preference now rides `MagazineBehavior.PreferMounted` and this roster carries the one axis it actually names.
 [SmartEnum<string>]
 public sealed partial class ToolSelection {
-    public static readonly ToolSelection SpareFirst = new("spare-first", false, static spare => -spare);
-    public static readonly ToolSelection ExhaustFirst = new("exhaust-first", false, static spare => spare);
-    public static readonly ToolSelection MountedSpareFirst = new("mounted-spare-first", true, static spare => -spare);
-    public static readonly ToolSelection MountedExhaustFirst = new("mounted-exhaust-first", true, static spare => spare);
+    public static readonly ToolSelection SpareFirst = new("spare-first", static spare => -spare);
+    public static readonly ToolSelection ExhaustFirst = new("exhaust-first", static spare => spare);
 
-    public bool PreferMounted { get; }
     public Func<double, double> Rank { get; }
-
-    public (int Mounted, double Life) Order(bool mounted, double spare) =>
-        (PreferMounted && mounted ? 0 : 1, Rank(spare));
 }
 
 // The provider's placement vocabulary rides the row it lowers onto; rack, turret, and manual placements have no
@@ -311,18 +313,16 @@ public sealed partial class ShortfallReason {
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public readonly partial struct SlotAddress {
     public SlotKind Kind { get; }
     public string MagazineId { get; }
     public int Position { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref SlotKind kind,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref SlotKind kind,
         ref string magazineId, ref int position) {
         magazineId = magazineId.Trim();
-        validationError = Witness.Keyed(magazineId) && Witness.Index(position)
-            ? null : ToolKey.Tooling("slot-address");
+        validationError = ValidityClaim.All(Witness.Keyed(magazineId), ValidityClaim.Nonnegative(position)) ? null : ToolKey.Validation("slot-address");
     }
 
     public static Fin<SlotAddress> Admit(SlotKind kind, string magazineId, int position) =>
@@ -343,7 +343,6 @@ public abstract partial record ToolTarget {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public readonly partial struct LifeBudget {
     public ToolTarget Target { get; }
     public ToolLifeBasis Basis { get; }
@@ -357,13 +356,13 @@ public readonly partial struct LifeBudget {
     public double FractionRemaining => Limit <= 0.0 ? 0.0 : Math.Clamp(Remaining / Limit, 0.0, 1.0);
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref ToolTarget target,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ToolTarget target,
         ref ToolLifeBasis basis, ref double used, ref double warning, ref double limit, ref Instant observedAt,
         ref Option<Interval> validity) =>
         validationError = !Seq(used, warning, limit).ForAll(double.IsFinite)
             || used < 0.0 || warning < 0.0 || warning > limit || limit <= 0.0
             || validity.Exists(window => !window.Contains(observedAt))
-            ? ToolKey.Tooling("life-budget") : null;
+            ? ToolKey.Validation("life-budget") : null;
 
     public static Fin<LifeBudget> Admit(ToolTarget target, ToolLifeBasis basis, double used, double warning,
         double limit, Instant observedAt, Option<Interval> validity) =>
@@ -371,7 +370,6 @@ public readonly partial struct LifeBudget {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public readonly partial struct MetricBand {
     public double Value { get; }
     public Option<double> Minimum { get; }
@@ -381,7 +379,7 @@ public readonly partial struct MetricBand {
     public int SignificantDigits { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref double value,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value,
         ref Option<double> minimum, ref Option<double> maximum, ref Option<double> nominal,
         ref string unit, ref int significantDigits) {
         unit = unit.Trim();
@@ -391,7 +389,7 @@ public readonly partial struct MetricBand {
             || (minimum, maximum).Apply(static (lo, hi) => lo > hi).IfNone(false)
             || minimum.Exists(lo => value < lo || nominal.Exists(row => row < lo))
             || maximum.Exists(hi => value > hi || nominal.Exists(row => row > hi))
-            ? ToolKey.Tooling("metric-band") : null;
+            ? ToolKey.Validation("metric-band") : null;
     }
 
     public static Fin<MetricBand> Admit(double value, Option<double> minimum, Option<double> maximum,
@@ -400,7 +398,6 @@ public readonly partial struct MetricBand {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ToolMetric {
     public ToolMeasure Kind { get; }
     public MetricBand Source { get; }
@@ -412,18 +409,17 @@ public sealed partial class ToolMetric {
     public IQuantity Quantity => Kind.Dimension.Restore(Canonical);
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref ToolMeasure kind,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ToolMeasure kind,
         ref MetricBand source, ref double canonical) =>
-        validationError = double.IsFinite(canonical) ? null : ToolKey.Tooling("tool-metric");
+        validationError = double.IsFinite(canonical) ? null : ToolKey.Validation("tool-metric");
 
     public static Fin<ToolMetric> Admit(ToolMeasure kind, MetricBand source) =>
         kind.Dimension.Canonical(source.Value, source.Unit)
-            .ToFin(new FabricationFault.ToolAssetInadmissible(kind.Key, source.Unit))
+            .ToFin(new FabricationFault.ToolAssetInadmissible(Some(kind.Key), source.Unit))
             .Bind(canonical => Validate(kind, source, canonical, out ToolMetric metric).Admitted(metric));
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ToolEdge {
     public ToolEdgeKey Key { get; }
     public Option<string> Grade { get; }
@@ -438,7 +434,7 @@ public sealed partial class ToolEdge {
         || (!Life.IsEmpty && Life.Exists(static budget => budget.Remaining <= 0.0));
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref ToolEdgeKey key,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ToolEdgeKey key,
         ref Option<string> grade, ref Option<string> locus, ref Option<string> programToolGroup,
         ref Seq<string> manufacturers, ref Seq<ToolAvailability> status,
         ref Seq<LifeBudget> life, ref Seq<ToolMetric> metrics) {
@@ -447,7 +443,7 @@ public sealed partial class ToolEdge {
         programToolGroup = programToolGroup.Map(static value => value.Trim()).Filter(Witness.Keyed);
         validationError = status.IsEmpty
             || life.Exists(row => row.Target is not ToolTarget.Edge edge || edge.Key != key)
-            ? ToolKey.Tooling("tool-edge") : null;
+            ? ToolKey.Validation("tool-edge") : null;
     }
 
     public static Fin<ToolEdge> Admit(ToolEdgeKey key, Option<string> grade, Option<string> locus,
@@ -458,7 +454,6 @@ public sealed partial class ToolEdge {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ToolSnapshot {
     public Seq<ToolAvailability> Status { get; }
     public Seq<LifeBudget> Life { get; }
@@ -488,7 +483,7 @@ public sealed partial class ToolSnapshot {
             .Head;
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Seq<ToolAvailability> status,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<ToolAvailability> status,
         ref Seq<LifeBudget> life, ref Arr<ToolEdge> edges, ref Seq<ToolMetric> metrics, ref ProcessRange feed,
         ref ProcessRange spindle, ref int reconditionCount, ref Option<int> reconditionLimit,
         ref Length lengthWear, ref Length radiusWear, ref Instant observedAt, ref UInt128 content) =>
@@ -496,7 +491,7 @@ public sealed partial class ToolSnapshot {
             || reconditionLimit.Exists(limit => limit < reconditionCount)
             || edges.Map(static edge => edge.Key).Distinct().Count != edges.Count
             || metrics.Map(static row => row.Kind).Distinct().Count != metrics.Count
-            ? ToolKey.Tooling("tool-snapshot") : null;
+            ? ToolKey.Validation("tool-snapshot") : null;
 
     public static Fin<ToolSnapshot> Admit(Seq<ToolAvailability> status, Seq<LifeBudget> life, Arr<ToolEdge> edges,
         Seq<ToolMetric> metrics, ProcessRange feed, ProcessRange spindle, int reconditionCount,
@@ -532,7 +527,6 @@ public sealed record ToolAssemblyIngress(
     UInt128 Identity);
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ToolAssembly {
     public ToolKey Key { get; }
     public string SerialNumber { get; }
@@ -561,11 +555,16 @@ public sealed partial class ToolAssembly {
     public ProcessRange Feed => Snapshot.Feed;
     public ProcessRange Spindle => Snapshot.Spindle;
     public EquipmentEnvelope Equipment => new(Tool, Identity, Feed, Spindle, Spent);
+
+    // Zero is the RADIUS, not a missing measurement: a probe, a driver, and a boring bar the provider gives no
+    // cutting diameter for turn about their own axis and compensate by nothing, so the controller register reads
+    // zero truthfully. `Cutter` is the crossing that REFUSES an absent diameter, because a cutter FORM cannot be
+    // built without one.
     public double RadiusOffset => Snapshot.Metric(ToolMeasure.CuttingDiameter)
         .OrElse(Snapshot.Metric(ToolMeasure.MaximumCuttingDiameter)).Map(static row => row * 0.5).IfNone(0.0);
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref ToolKey key,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ToolKey key,
         ref string serialNumber, ref string archetype, ref string definitionFormat, ref string definition,
         ref Tool tool, ref Loop holder, ref double gaugeLength, ref double stickout, ref double shankDiameter,
         ref Length holderAllowance, ref int reserveBefore, ref int reserveAfter, ref int programTool,
@@ -577,11 +576,13 @@ public sealed partial class ToolAssembly {
         definition = definition.Trim();
         connectionCode = connectionCode.Trim();
         validationError = !Witness.Keyed(serialNumber) || !holder.Closed
-            || !Seq(gaugeLength, stickout, shankDiameter).ForAll(Witness.Positive)
+            || !Seq(gaugeLength, stickout, shankDiameter).ForAll(static value => ValidityClaim.Positive(value).Holds)
             || holderAllowance < Length.Zero
-            || !Seq(reserveBefore, reserveAfter, programTool, lengthRegister, radiusRegister).ForAll(Witness.Index)
+            || !Seq(
+                reserveBefore, reserveAfter, programTool, lengthRegister, radiusRegister)
+                .ForAll(static value => ValidityClaim.Nonnegative(value).Holds)
             || identity == UInt128.Zero
-            ? ToolKey.Tooling("tool-assembly") : null;
+            ? ToolKey.Validation("tool-assembly") : null;
     }
 
     public static Fin<ToolAssembly> Admit(ToolAssemblyIngress ingress) =>
@@ -600,7 +601,6 @@ public sealed partial class ToolAssembly {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class MagazineLayout {
     public Magazine Kind { get; }
     public string Id { get; }
@@ -646,7 +646,7 @@ public sealed partial class MagazineLayout {
         && assembly.Snapshot.Metric(ToolMeasure.Weight).ForAll(row => row <= SlotMass.Grams);
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Magazine kind,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Magazine kind,
         ref string id, ref Seq<SlotAddress> slots, ref Length engageClearance, ref int preselectDistance,
         ref Duration indexStep, ref Duration armSwing, ref int park, ref Length slotDiameter, ref Length slotLength,
         ref Mass slotMass) {
@@ -658,9 +658,8 @@ public sealed partial class MagazineLayout {
             || indexStep < Duration.Zero || armSwing < Duration.Zero
             // The park ordinal names the changer station, so no pot can sit at it — a park colliding with a slot
             // would make an empty-spindle change indistinguishable from a change out of that pot.
-            || !Witness.Index(park) || slots.Exists(slot => slot.Position == park)
-            || slotDiameter <= Length.Zero || slotLength <= Length.Zero || slotMass <= Mass.Zero
-            ? ToolKey.Tooling("magazine-layout") : null;
+            || !ValidityClaim.Nonnegative(park).Holds || slots.Exists(slot => slot.Position == park)
+            || slotDiameter <= Length.Zero || slotLength <= Length.Zero || slotMass <= Mass.Zero? ToolKey.Validation("magazine-layout") : null;
     }
 
     public static Fin<MagazineLayout> Admit(Magazine kind, string id, Seq<SlotAddress> slots, Length engageClearance,
@@ -767,7 +766,7 @@ public sealed class SlotMap {
             .Find(row => slot.Position - before <= row.Reach && row.Floor <= slot.Position + after)
             .Match(
                 Some: row => Fin.Fail<Unit>(new FabricationFault.ToolSlotConflict(
-                    slot.Position, Some(row.Identity.ToString("x32", CultureInfo.InvariantCulture)), requested)),
+                    slot.Position, Some(ContentHash.Hex(row.Identity)), requested)),
                 None: static () => Fin.Succ(unit));
 
     private static Map<string, Seq<Reservation>> Occupied(HashMap<SlotAddress, SlotState> slots) =>
@@ -785,24 +784,23 @@ public sealed class SlotMap {
                 .Filter(static pair => pair.Item2.Floor <= pair.Item1.Reach)
                 .Map(static pair => (FabricationFault)new FabricationFault.ToolSlotConflict(
                     pair.Item2.Position,
-                    Some(pair.Item1.Identity.ToString("x32", CultureInfo.InvariantCulture)),
-                    pair.Item2.Identity.ToString("x32", CultureInfo.InvariantCulture))))
+                    Some(ContentHash.Hex(pair.Item1.Identity)),
+                    ContentHash.Hex(pair.Item2.Identity))))
             .Head;
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class LifeDemand {
     public HashMap<ToolLifeBasis, double> Required { get; }
     public Ratio Reserve { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError,
         ref HashMap<ToolLifeBasis, double> required, ref Ratio reserve) =>
         validationError = required.IsEmpty
-            || required.AsIterable().Exists(static row => !Witness.Positive(row.Value))
+            || required.AsIterable().Exists(static row => !ValidityClaim.Positive(row.Value).Holds)
             || reserve < Ratio.Zero || reserve > Ratio.FromPercent(100)
-            ? ToolKey.Tooling("life-demand") : null;
+            ? ToolKey.Validation("life-demand") : null;
 
     public static Fin<LifeDemand> Admit(HashMap<ToolLifeBasis, double> required, Ratio reserve) =>
         Validate(required, reserve, out LifeDemand demand).Admitted(demand);
@@ -824,7 +822,6 @@ public sealed partial class LifeDemand {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class WorkItem {
     public Operation Op { get; }
     public ToolAssembly Assembly { get; }
@@ -834,11 +831,11 @@ public sealed partial class WorkItem {
     public Ratio FormDiameterBand { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Operation op,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Operation op,
         ref ToolAssembly assembly, ref LifeDemand demand, ref CutterForm form, ref CutterForm required,
         ref Ratio formDiameterBand) =>
         validationError = formDiameterBand < Ratio.Zero || formDiameterBand > Ratio.FromPercent(100)
-            ? ToolKey.Tooling("work-item") : null;
+            ? ToolKey.Validation("work-item") : null;
 
     public static Fin<WorkItem> Admit(Operation op, ToolAssembly assembly, LifeDemand demand, CutterForm form,
         CutterForm required, Ratio formDiameterBand) =>
@@ -846,24 +843,33 @@ public sealed partial class WorkItem {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class MagazinePolicy {
-    public Set<MagazineBehavior> Behaviors { get; }
+    public CapabilitySet<MagazineBehavior> Behaviors { get; }
     public ToolSelection Selection { get; }
     public Ratio ReserveFloor { get; }
     public Length SafeRetract { get; }
 
     public ArmSwing Swing => ArmSwing.Of(Behaviors);
 
+    // The ONE selection comparand. Both axes read off this policy — seat preference off the behaviour set the swing
+    // already derives from, life direction off the selection row — and the identity comparison that decides "is
+    // this the tool already in the spindle" happens HERE rather than at the scheduler that used to compute a
+    // preference flag and hand it back in. NAMED LOSS: mounted-preference is no longer expressible as an atomic
+    // selection-row name. WITNESS: `Swing` is the settled precedent that changer posture rides the behaviour set.
+    public (int Seat, double Life) Order(Option<ToolAssembly> mounted, ToolAssembly candidate, double spare) => (
+        Behaviors.Admits(MagazineBehavior.PreferMounted)
+            && mounted.Exists(row => row.Identity == candidate.Identity) ? 0 : 1,
+        Selection.Rank(spare));
+
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError,
-        ref Set<MagazineBehavior> behaviors, ref ToolSelection selection, ref Ratio reserveFloor,
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError,
+        ref CapabilitySet<MagazineBehavior> behaviors, ref ToolSelection selection, ref Ratio reserveFloor,
         ref Length safeRetract) =>
         validationError = reserveFloor < Ratio.Zero || reserveFloor > Ratio.FromPercent(100)
             || safeRetract < Length.Zero
-            ? ToolKey.Tooling("magazine-policy") : null;
+            ? ToolKey.Validation("magazine-policy") : null;
 
-    public static Fin<MagazinePolicy> Admit(Set<MagazineBehavior> behaviors, ToolSelection selection,
+    public static Fin<MagazinePolicy> Admit(CapabilitySet<MagazineBehavior> behaviors, ToolSelection selection,
         Ratio reserveFloor, Length safeRetract) =>
         Validate(behaviors, selection, reserveFloor, safeRetract, out MagazinePolicy policy).Admitted(policy);
 }
@@ -876,12 +882,12 @@ public sealed partial class MagazinePolicy {
 - Entry: `ToolCatalog.Admit(ToolIngress, FabricationTap?)` is the one catalog boundary and `ToolCatalog.Cutter`/`ToolCatalog.Evidence` are the one crossing onto the atoms floor; the tap defaults silent, so a headless admission emits nothing.
 - Law: `Process/owner` reads no provider surface, so an admitted assembly becomes the atoms floor's cutter geometry and tool evidence HERE. Both project off `ToolMetric` rows this catalog already resolved into canonical millimetres, degrees, and grams, so the crossing is one lookup per column rather than a second measurement decode under the vocabulary floor.
 - Law: `ToolEvidence.Admit` takes the assembly's own KEY as its tool identifier and its serial as the serial. Passing the serial into both slots left every tool identified by a number the controller never programs it under, so a telemetry join against the machine's tool table matched nothing.
-- Auto: a refresh advances the observation instant, preserves the exact target-basis and edge-key sets, never lowers consumed life, and retains every terminal body or edge state; the eighteen unchanged columns of the rebase GENERATE, so a new assembly column cannot silently drop out of a refresh.
+- Auto: a refresh advances the observation instant, preserves the exact target-basis and edge-key sets, never lowers consumed life, and retains every terminal body or edge state; every column the rebase carries unchanged GENERATES and the snapshot is the one slot it swaps, so a new assembly column cannot silently drop out of a refresh.
 - Receipt: `CatalogReceipt` carries admitted assembly, optional slot, typed source evidence, and observation time. `FabricationFact.ToolRefresh.Of` projects a telemetry-sourced receipt's refresh interval onto `rasm.fabrication.tool.refresh.age` through `Process/telemetry#FACT_PROJECTION` as kind `tool-refresh`; a provider-digest source projects nothing. `MagazineSlots` names the `store.fabrication.magazine.<verb>` streams committed slot-map mutations and the re-admitted placement census ride on the Persistence slot registry, so crib state survives restart without a parallel in-memory registry.
-- Exemption: `CanonicalHash` is the length-framing statement kernel — the framed byte run IS the preimage law.
-- Packages: MTConnect.NET-Common cutting-tool model, `Riok.Mapperly` for the rebase, `ContentHash.Of`, `Process/telemetry` (`FabricationTap`, `FabricationFact.ToolRefresh`), LanguageExt.Core, and Thinktecture.Runtime.Extensions compose directly.
+- Law: every preimage on this page frames through `Process/owner#RUN_DISPATCH` `FabricationCanon` over the one `Rasm.Element` `CanonicalWriter` and closes on `Ordered`. A page-local byte kernel stringifying each field and length-framing it by hand was a second codec beside that writer: it wrote absent optionals as the empty string an empty value already occupies, read generated rows through `.Key` rather than the discriminant framing, and rendered every double through a text formatter the codec encodes directly.
+- Packages: MTConnect.NET-Common cutting-tool model, `Riok.Mapperly` for the rebase, `Process/owner` (`FabricationCanon.Ordered`), `Rasm.Domain` (`ContentHash.Hex`, `CapabilitySet`), `Process/telemetry` (`FabricationTap`, `FabricationFact.ToolRefresh`), LanguageExt.Core, and Thinktecture.Runtime.Extensions compose directly.
 - Growth: a provider measurement is one `ToolMeasure` row; a lifecycle correspondence is one `ToolAvailability` row.
-- Boundary: no provider type crosses out of this cluster, and the atoms floor admits scalars alone.
+- Boundary: no provider type crosses out of this cluster, and the atoms floor admits scalars alone. A second byte codec beside the writer, a hand `x32` spelling of `ContentHash.Hex`, an empty string standing for an absent optional in a preimage, and a magic-zero register standing for an unset one are deleted forms.
 
 ```csharp signature
 // --- [BOUNDARIES] ---------------------------------------------------------------------------------------------------------------------------------
@@ -898,8 +904,12 @@ public sealed record CatalogReceipt(ToolAssembly Assembly, Option<SlotAddress> S
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ToolIngress {
     private ToolIngress() { }
+    // Both offset registers are OPTIONAL: a shop that programs offsets under the tool number supplies neither and
+    // the decode falls to that number. A zero standing for "unset" made register zero — a real controller slot —
+    // unspellable and put the fallback inside a sentinel test no admission could see.
     public sealed record Asset(CuttingToolAsset Value, Tool Tool, Loop Holder, OffsetPolicy EnvelopePolicy,
-        Length HolderAllowance, int LengthRegister, int RadiusRegister, Instant ObservedAt) : ToolIngress;
+        Length HolderAllowance, Option<int> LengthRegister, Option<int> RadiusRegister,
+        Instant ObservedAt) : ToolIngress;
     public sealed record Refresh(ToolAssembly Current, Seq<LifeBudget> Life, Seq<ToolAvailability> Status,
         Arr<ToolEdge> Edges, Length LengthWear, Length RadiusWear, Instant ObservedAt) : ToolIngress;
 }
@@ -945,7 +955,7 @@ public static class ToolCatalog {
         return validation.IsValid
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(new FabricationFault.ToolAssetInadmissible(
-                asset.ToolId ?? string.Empty, validation.Message));
+                Optional(asset.ToolId), validation.Message));
     }
 
     private static Fin<CatalogReceipt> AdmitAsset(ToolIngress.Asset request) =>
@@ -983,39 +993,49 @@ public static class ToolCatalog {
             spindleSpeed.Bind(static row => Optional(row.Nominal)), spindleSpeed.Bind(static row => Optional(row.Value)),
             request.Value, "spindle")
         let placement = AdmitPlacement(lifecycle.Location)
-        let stable = CanonicalHash(Seq(identityText, request.Value.ToolId ?? string.Empty))
+        let stable = FabricationCanon.Ordered(ExactGrid, writer => writer
+            .String(identityText).Maybe(Optional(request.Value.ToolId), static (sink, row) => sink.String(row)))
         let reconditionCount = lifecycle.ReconditionCount?.Value ?? 0
         let reconditionLimit = Optional(lifecycle.ReconditionCount?.MaximumCount)
         from state in ToolSnapshot.Admit(status, life, edges, metrics, feed, spindle,
             reconditionCount, reconditionLimit, Length.Zero, Length.Zero, request.ObservedAt,
             SnapshotContent(stable, status, life, edges, metrics, feed, spindle,
                 reconditionCount, reconditionLimit, Length.Zero, Length.Zero))
+        // The three holder dimensions the assembly gate requires POSITIVE resolve on the rail naming the
+        // measurement each one wanted. Defaulting an absent measurement to zero refused the whole assembly under
+        // one undifferentiated locus, so the shop read "tool-assembly" where the asset was missing a shank
+        // diameter — the same verdict, with the evidence discarded on the way out.
+        from gauge in Measured(state, ToolMeasure.FunctionalLength, identityText)
+        from stickout in Measured(state, ToolMeasure.ProtrudingLength, identityText)
+        from shank in Measured(state, ToolMeasure.ShankDiameter, identityText)
         from assembly in ToolAssembly.Admit(new ToolAssemblyIngress(
             key, identityText,
             request.Value.CuttingToolArchetypeReference?.ToString() ?? string.Empty,
             request.Value.CuttingToolDefinition?.Format.ToString() ?? string.Empty,
             request.Value.CuttingToolDefinition?.Value ?? string.Empty, request.Tool, request.Holder,
-            state.Metric(ToolMeasure.FunctionalLength).IfNone(0.0),
-            state.Metric(ToolMeasure.ProtrudingLength).IfNone(0.0),
-            state.Metric(ToolMeasure.ShankDiameter).IfNone(0.0), request.HolderAllowance,
+            gauge, stickout, shank, request.HolderAllowance,
             placement.Map(static row => row.ReserveBefore).IfNone(0),
             placement.Map(static row => row.ReserveAfter).IfNone(0), programTool,
-            request.LengthRegister == 0 ? programTool : request.LengthRegister,
-            request.RadiusRegister == 0 ? programTool : request.RadiusRegister,
+            request.LengthRegister.IfNone(programTool), request.RadiusRegister.IfNone(programTool),
             placement.Map(static row => row.Address),
             Optional(lifecycle.ProgramToolGroup), lifecycle.ConnectionCodeMachineSide ?? string.Empty,
             request.EnvelopePolicy, state, stable))
         select new CatalogReceipt(assembly, placement.Map(static row => row.Address),
             new CatalogSource.Provider(request.Value.GenerateHash(includeTimestamp: false)), request.ObservedAt);
 
+    private const double ExactGrid = 0.0;
+
+    private static Fin<double> Measured(ToolSnapshot snapshot, ToolMeasure kind, string toolId) =>
+        snapshot.Metric(kind).ToFin(new FabricationFault.ToolAssetInadmissible(Some(toolId), kind.Key));
+
     public static Fin<CutterForm> Cutter(ToolAssembly assembly, CutterFamily family) =>
         from diameter in assembly.Snapshot.Metric(ToolMeasure.CuttingDiameter)
             .ToFin(new FabricationFault.ToolAssetInadmissible(
-                assembly.Key.ToValue(), ToolMeasure.CuttingDiameter.Key))
+                Some(assembly.Key.ToValue()), ToolMeasure.CuttingDiameter.Key))
         from flute in (assembly.Snapshot.Metric(ToolMeasure.CuttingEdgeLength)
                 | assembly.Snapshot.Metric(ToolMeasure.MaximumUsableLength))
             .ToFin(new FabricationFault.ToolAssetInadmissible(
-                assembly.Key.ToValue(), ToolMeasure.CuttingEdgeLength.Key))
+                Some(assembly.Key.ToValue()), ToolMeasure.CuttingEdgeLength.Key))
         from evidence in Evidence(assembly)
         from form in CutterForm.Admit(new CutterIngress(
             family,
@@ -1054,7 +1074,7 @@ public static class ToolCatalog {
             // identities — collapsing them onto the serial left every telemetry join matching nothing.
             assembly.Key.ToValue(),
             assembly.SerialNumber,
-            assembly.Identity.ToString("x32", CultureInfo.InvariantCulture),
+            ContentHash.Hex(assembly.Identity),
             toSet(assembly.Snapshot.Status.Map(static row => row.State)),
             // `LifeBudget` normalizes every provider count direction to used-ascending from zero, so the floor's
             // evidence carries that one orientation and the body budgets alone — an edge budget keys to its insert,
@@ -1130,7 +1150,7 @@ public static class ToolCatalog {
     private static Fin<ToolMetric> AdmitMetric(IToolingMeasurement measurement) =>
         from kind in ToolMeasure.Of(measurement.GetType())
             .ToFin(new FabricationFault.ToolAssetInadmissible(
-                measurement.GetType().Name, nameof(IToolingMeasurement)))
+                Some(measurement.GetType().Name), nameof(IToolingMeasurement)))
         let token = Witness.Keyed(measurement.Units)
             ? measurement.Units
             : Witness.Keyed(measurement.NativeUnits) ? measurement.NativeUnits : kind.Dimension.CanonicalUnit
@@ -1150,7 +1170,7 @@ public static class ToolCatalog {
 
     private static Fin<LifeBudget> AdmitLife(ToolTarget target, IToolLife life, Instant observedAt) =>
         from basis in LifeBasisRow.Of(life.Type)
-            .ToFin(new FabricationFault.ToolAssetInadmissible(target.Locus, life.Type.ToString()))
+            .ToFin(new FabricationFault.ToolAssetInadmissible(Some(target.Locus), life.Type.ToString()))
         let used = life.CountDirection == CountDirectionType.DOWN
             ? life.Initial - life.Value : life.Value - life.Initial
         from budget in LifeBudget.Admit(target, basis, Math.Max(0.0, used),
@@ -1159,78 +1179,81 @@ public static class ToolCatalog {
 
     private static Fin<Seq<ToolAvailability>> Status(IEnumerable<CutterStatusType> status, object subject) =>
         toSeq(status).Traverse(value => ToolAvailability.Of(value)
-                .ToFin(new FabricationFault.ToolAssetInadmissible(subject.GetType().Name, value.ToString()))).As()
+                .ToFin(new FabricationFault.ToolAssetInadmissible(Some(subject.GetType().Name), value.ToString()))).As()
             .Map(static rows => rows.Distinct().ToSeq());
+
+    // The provider names the entity CONTAINING a placement through whichever of five attributes applies, and the
+    // attribute is not derivable from the location type — a pot may sit in a magazine or in an automatic changer.
+    // The search order is a declared roster, so a sixth container is one row rather than another link in a
+    // coalescing chain, and each candidate must be KEYED: a blank attribute used to win over a real one below it.
+    private static readonly Seq<Func<ILocation, string?>> Containers = Seq<Func<ILocation, string?>>(
+        static row => row.ToolMagazine, static row => row.Turret, static row => row.ToolRack,
+        static row => row.ToolBar, static row => row.AutomaticToolChanger);
 
     private static Option<(SlotAddress Address, int ReserveBefore, int ReserveAfter)> AdmitPlacement(ILocation? location) =>
         from value in Optional(location)
         from kind in SlotKind.Of(value.Type)
         from position in int.TryParse(value.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed)
             ? Some(parsed) : None
-        from magazineId in Optional(value.ToolMagazine ?? value.Turret ?? value.ToolRack
-            ?? value.ToolBar ?? value.AutomaticToolChanger)
+        from magazineId in Containers.Choose(read => Optional(read(value)).Filter(Witness.Keyed)).Head
         from address in SlotAddress.Admit(kind, magazineId, position).ToOption()
         select (Address: address, ReserveBefore: Math.Max(0, value.NegativeOverlap ?? 0),
             ReserveAfter: Math.Max(0, value.PositiveOverlap ?? 0));
 
+    // The snapshot preimage, framed through the branch's ONE codec. Row order is canonicalized per family so two
+    // decodes of the same asset key alike; every optional writes a PRESENCE TAG, so an absent grade stops sharing a
+    // preimage with a blank one; every generated row writes its own discriminant; and `Rows` writes its count
+    // ahead of its members, so the layout is self-delimiting without a separator convention of this page's own.
     private static UInt128 SnapshotContent(UInt128 identity, Seq<ToolAvailability> status,
         Seq<LifeBudget> life, Arr<ToolEdge> edges, Seq<ToolMetric> metrics, ProcessRange feed,
         ProcessRange spindle, int reconditionCount, Option<int> reconditionLimit,
-        Length lengthWear, Length radiusWear) => CanonicalHash(
-        Seq(identity.ToString("x", CultureInfo.InvariantCulture))
-            .Concat(status.OrderBy(static row => row.Key).Select(static row => row.Key))
-            .Concat(life.OrderBy(static row => row.Target.Locus).ThenBy(static row => row.Basis.Key)
-                .Bind(static row => Seq(row.Target.Locus).Concat(LifeTokens(row))))
-            .Concat(edges.OrderBy(static edge => edge.Key.ToValue()).Bind(static edge =>
-                Seq(edge.Key.ToValue(), edge.Grade.IfNone(""), edge.Locus.IfNone(""), edge.ProgramToolGroup.IfNone(""))
-                .Concat(edge.Manufacturers.OrderBy(static row => row))
-                .Concat(edge.Status.OrderBy(static row => row.Key).Select(static row => row.Key))
-                .Concat(edge.Life.OrderBy(static row => row.Basis.Key).Bind(LifeTokens))
-                .Concat(edge.Metrics.OrderBy(static row => row.Kind.Key).Bind(MetricTokens))))
-            .Concat(metrics.OrderBy(static row => row.Kind.Key).Bind(MetricTokens))
-            .Concat(RangeTokens("feed", feed))
-            .Concat(RangeTokens("spindle", spindle))
-            .Add(reconditionCount.ToString(CultureInfo.InvariantCulture))
-            .Add(reconditionLimit.Map(static value => value.ToString(CultureInfo.InvariantCulture)).IfNone(""))
-            .Add(lengthWear.Millimeters.ToString("R", CultureInfo.InvariantCulture))
-            .Add(radiusWear.Millimeters.ToString("R", CultureInfo.InvariantCulture)));
+        Length lengthWear, Length radiusWear) =>
+        FabricationCanon.Ordered(ExactGrid, writer => writer
+            .U128(identity)
+            .Rows(toSeq(status.OrderBy(static row => row.Key)), Discriminated)
+            .Rows(toSeq(life.OrderBy(static row => row.Target.Locus).ThenBy(static row => row.Basis.Key)), LifeBytes)
+            .Rows(toSeq(edges.OrderBy(static edge => edge.Key.ToValue())), EdgeBytes)
+            .Rows(toSeq(metrics.OrderBy(static row => row.Kind.Key)), MetricBytes)
+            // The two process envelopes ride one framed pair in declared order — feed, then spindle — so the axis
+            // names the hand kernel used to interleave stop standing in for a position the framing already fixes.
+            .Rows(Seq(feed, spindle), RangeBytes)
+            .Ordinal(reconditionCount)
+            .Maybe(reconditionLimit, static (sink, row) => sink.Ordinal(row))
+            .Double(lengthWear.Millimeters)
+            .Double(radiusWear.Millimeters));
 
-    // Exemption: the framed byte run IS the preimage law, so the statement kernel is the contract rather than an
-    // imperative accumulation of a value a fold could carry.
-    private static UInt128 CanonicalHash(IEnumerable<string> fields) {
-        ArrayBufferWriter<byte> buffer = new();
-        fields.Iter(field => {
-            int length = Encoding.UTF8.GetByteCount(field);
-            BinaryPrimitives.WriteInt32LittleEndian(buffer.GetSpan(sizeof(int)), length);
-            buffer.Advance(sizeof(int));
-            Encoding.UTF8.GetBytes(field, buffer.GetSpan(length));
-            buffer.Advance(length);
-        });
-        return ContentHash.Of(buffer.WrittenSpan);
-    }
+    private static CanonicalWriter Discriminated<TRow>(CanonicalWriter writer, TRow row)
+        where TRow : ISmartEnum<string>, IConvertible<string> => writer.Discriminant(row);
 
-    private static Seq<string> LifeTokens(LifeBudget life) => Seq(
-        life.Basis.Key,
-        life.Used.ToString("R", CultureInfo.InvariantCulture),
-        life.Warning.ToString("R", CultureInfo.InvariantCulture),
-        life.Limit.ToString("R", CultureInfo.InvariantCulture));
+    private static CanonicalWriter LifeBytes(CanonicalWriter writer, LifeBudget life) => writer
+        .String(life.Target.Locus).Discriminant(life.Basis)
+        .Double(life.Used).Double(life.Warning).Double(life.Limit);
 
-    private static Seq<string> MetricTokens(ToolMetric metric) =>
-        Seq(metric.Kind.Key, metric.Kind.Dimension.CanonicalUnit,
-            metric.Canonical.ToString("R", CultureInfo.InvariantCulture)).Concat(SourceTokens(metric.Source));
+    private static CanonicalWriter EdgeBytes(CanonicalWriter writer, ToolEdge edge) => writer
+        .String(edge.Key.ToValue())
+        .Maybe(edge.Grade, Texted)
+        .Maybe(edge.Locus, Texted)
+        .Maybe(edge.ProgramToolGroup, Texted)
+        .Rows(toSeq(edge.Manufacturers.OrderBy(static row => row)), Texted)
+        .Rows(toSeq(edge.Status.OrderBy(static row => row.Key)), Discriminated)
+        .Rows(toSeq(edge.Life.OrderBy(static row => row.Basis.Key)), LifeBytes)
+        .Rows(toSeq(edge.Metrics.OrderBy(static row => row.Kind.Key)), MetricBytes);
 
-    private static Seq<string> SourceTokens(MetricBand source) => Seq(
-        source.Value.ToString("R", CultureInfo.InvariantCulture),
-        source.Minimum.Map(static value => value.ToString("R", CultureInfo.InvariantCulture)).IfNone(""),
-        source.Maximum.Map(static value => value.ToString("R", CultureInfo.InvariantCulture)).IfNone(""),
-        source.Nominal.Map(static value => value.ToString("R", CultureInfo.InvariantCulture)).IfNone(""),
-        source.Unit, source.SignificantDigits.ToString(CultureInfo.InvariantCulture));
+    private static CanonicalWriter MetricBytes(CanonicalWriter writer, ToolMetric metric) => writer
+        .Discriminant(metric.Kind).String(metric.Kind.Dimension.CanonicalUnit).Double(metric.Canonical)
+        .Double(metric.Source.Value)
+        .Maybe(metric.Source.Minimum, Numbered)
+        .Maybe(metric.Source.Maximum, Numbered)
+        .Maybe(metric.Source.Nominal, Numbered)
+        .String(metric.Source.Unit).Ordinal(metric.Source.SignificantDigits);
 
-    private static Seq<string> RangeTokens(string name, ProcessRange range) => Seq(name,
-        range.Minimum.Map(static value => value.ToString("R", CultureInfo.InvariantCulture)).IfNone(""),
-        range.Maximum.Map(static value => value.ToString("R", CultureInfo.InvariantCulture)).IfNone(""),
-        range.Nominal.Map(static value => value.ToString("R", CultureInfo.InvariantCulture)).IfNone(""),
-        range.Current.Map(static value => value.ToString("R", CultureInfo.InvariantCulture)).IfNone(""));
+    private static CanonicalWriter RangeBytes(CanonicalWriter writer, ProcessRange range) => writer
+        .Maybe(range.Minimum, Numbered).Maybe(range.Maximum, Numbered)
+        .Maybe(range.Nominal, Numbered).Maybe(range.Current, Numbered);
+
+    private static CanonicalWriter Texted(CanonicalWriter writer, string value) => writer.String(value);
+
+    private static CanonicalWriter Numbered(CanonicalWriter writer, double value) => writer.Double(value);
 
     private static Fin<ProcessRange> Range(Option<double> minimum, Option<double> maximum, Option<double> nominal,
         Option<double> current, CuttingToolAsset asset, string axis) =>
@@ -1238,19 +1261,20 @@ public static class ToolCatalog {
             .ToFin(Asset(asset, $"{axis}-range"));
 
     private static FabricationFault Asset(CuttingToolAsset asset, string axis) =>
-        new FabricationFault.ToolAssetInadmissible(asset.ToolId ?? string.Empty, axis);
+        new FabricationFault.ToolAssetInadmissible(Optional(asset.ToolId), axis);
 }
 ```
 
 ## [05]-[KITTING_SCHEDULE]
 
-- Owner: `ToolMagazine` owns kitting, scheduling, and `HolderEnvelope`; `ToolChangeEvidence` owns the exchange clock; `KittingReceipt` and `ToolChange` own their receipts.
+- Owner: `ToolMagazine` owns kitting, scheduling, and `HolderEnvelope`; `ToolChangeEvidence` owns the exchange clock; `KitOutcome` owns the kitting fold's state and its terminal reading; `ToolChange` owns one exchange's bindings.
+- Law: `KitOutcome` carries no content key, plane, or settle instant and takes no receipt name, because a crib allocation settles nothing a consumer addresses. A `*Receipt` suffix over a fold state claims the `Process/owner` settled-receipt spine the shape holds none of.
 - Law: `ToolChangeEvidence` is the ONE exchange clock and `Elapsed` is DERIVED — `Traverse + ArmSwing`, with the traverse read off the layout's own slot-index distance and the swing share off the `ArmSwing` row the policy's behaviours select. A caller-supplied elapsed literal is the deleted form, and the two halves stay separate columns because a consumer pricing an overlapped change reads which half it can hide.
 - Law: every exchange names a REAL ordinal pair. A change out of an empty spindle starts at the layout's declared `Park` — the changer station, which no pot may occupy — so its index distance is zero by that layout's own definition and the elapsed span collapses to the arm swing through the same arithmetic every other change takes. An absence carrier on the ordinal, or a sentinel standing for "no prior slot", would leave a consumer keying exchanges on an ordered pair holding two shapes for one fact.
 - Law: a refused reservation SURFACES. Silently returning the map unchanged left the receipt claiming a reservation the crib never held and the next demand competing for the same slot.
 - Entry: `ToolMagazine.Kit(SlotMap, Seq<WorkItem>, MagazinePolicy)`, `.Schedule(SlotMap, Seq<WorkItem>, MagazinePolicy)`, and `.HolderEnvelope(ToolAssembly)` are one entry per distinct receipt consumer. Layout and magazine kind derive from `SlotMap`; holder allowance derives from `ToolAssembly`.
 - Auto: kitting classifies each demand through ONE declared resolver run folded until the first candidate answers, so a new sourcing route is a row rather than another nesting level; every requested life basis resolves on the candidate or that candidate is not selectable; reserve is committed with demand; preselection resolves against the next change's slot within `PreselectDistance`.
-- Receipt: `KittingReceipt` carries loaded, staged, quarantined, and reason-bearing shortfall rows over a slot map holding real reservations; `ToolChange` carries physical and controller bindings, both offset registers, geometry and measured wear offsets, its `ToolChangeEvidence`, limiting-life evidence, and the next slot to preselect.
+- Receipt: `KitOutcome` carries loaded, staged, quarantined, and reason-bearing shortfall rows over a slot map holding real reservations; `ToolChange` carries physical and controller bindings, both offset registers, geometry and measured wear offsets, its `ToolChangeEvidence`, limiting-life evidence, and the next slot to preselect.
 - Packages: `PolygonAlgebra` offsets the holder profile; LanguageExt.Core owns the folds and rails.
 - Growth: a sourcing route is one `Resolvers` row.
 - Boundary: the magazine swap schedule is a PAGING problem over caller-supplied placement — an assignment solver over a cost matrix models a placement decision this page does not own and is a declared refusal, not an omission. Preselection naming its own slot, reserve that is checked but not committed, and shortfall rows without a reason are deleted forms.
@@ -1264,24 +1288,27 @@ public readonly record struct ToolChangeEvidence(int FromSlot, int ToSlot, int I
 
 public sealed record KitShortfall(Operation Op, CutterForm Required, ShortfallReason Reason);
 
-public sealed record KittingReceipt(Seq<ToolAssembly> Loaded, Seq<ToolAssembly> Staged,
+// The kitting FOLD's own state and its terminal reading in one shape — carrying no content key, no plane, and no
+// settle instant, because a crib allocation settles nothing a consumer addresses. Naming it a receipt claimed the
+// `Process/owner` settled-receipt spine it holds none of; the shortfall rows carry every refusal reason it knows.
+public sealed record KitOutcome(Seq<ToolAssembly> Loaded, Seq<ToolAssembly> Staged,
     Seq<(Operation Op, CutterForm Required)> Reserved, Seq<ToolAssembly> Quarantined,
     Seq<KitShortfall> Missing, SlotMap Slots);
 
 public readonly record struct ToolChange(Operation Op, double Trigger, SlotAddress Slot,
     int ProgramTool, int LengthRegister, int RadiusRegister, double LengthOffset, double RadiusOffset,
     double LengthWearOffset, double RadiusWearOffset, double Retract, ToolChangeEvidence Evidence,
-    Set<MagazineBehavior> Behaviors, ToolAssembly Assembly, Option<ToolAssembly> Previous,
+    CapabilitySet<MagazineBehavior> Behaviors, ToolAssembly Assembly, Option<ToolAssembly> Previous,
     Option<SlotAddress> PreviousSlot, Option<string> ToolGroup, Option<SlotAddress> PreselectedSlot,
     ToolLifeBasis LimitingBasis, double RemainingAfterDemand);
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class ToolMagazine {
-    public static Fin<KittingReceipt> Kit(SlotMap slots, Seq<WorkItem> work, MagazinePolicy policy) => work.IsEmpty
-        ? Fin.Fail<KittingReceipt>(ToolKey.Tooling("magazine-kit:empty"))
+    public static Fin<KitOutcome> Kit(SlotMap slots, Seq<WorkItem> work, MagazinePolicy policy) => work.IsEmpty
+        ? Fin.Fail<KitOutcome>(ToolKey.Tooling("magazine-kit:empty"))
         : toSeq(work.DistinctBy(static row =>
                 (row.Op, row.Assembly.Identity, row.Required, row.FormDiameterBand)))
-            .FoldM<Fin, KittingReceipt>(Seed(slots), (receipt, demand) => Allocate(receipt, demand, policy)).As();
+            .FoldM<Fin, KitOutcome>(Seed(slots), (receipt, demand) => Allocate(receipt, demand, policy)).As();
 
     public static Fin<Seq<ToolChange>> Schedule(SlotMap slots, Seq<WorkItem> work, MagazinePolicy policy) =>
         from state in work.FoldM<Fin, ScheduleState>(ScheduleState.Empty,
@@ -1289,21 +1316,24 @@ public static class ToolMagazine {
         select Preselect(state.Changes, slots.Layout, policy);
 
     public static Fin<Loop> HolderEnvelope(ToolAssembly assembly) =>
-        assembly.Holder.Closed && Witness.Positive(assembly.GaugeLength) && Witness.Positive(assembly.Stickout)
+        ValidityClaim.All(
+            assembly.Holder.Closed, ValidityClaim.Positive(assembly.GaugeLength),
+            ValidityClaim.Positive(assembly.Stickout))
             ? PolygonAlgebra.Apply(new PolygonOp.Offset(Seq(assembly.Holder),
                     new OffsetField.Uniform(Math.Max(assembly.ShankDiameter * 0.5
                         + assembly.HolderAllowance.Millimeters, 0.0)),
                     JoinType.Round, EndType.Closed, assembly.EnvelopePolicy))
-                .Bind(static trace => trace is PolygonTrace.Regions regions
-                    ? regions.Result.Nodes.Filter(static node => !node.IsHole).Map(static node => node.Boundary)
-                        .Head.ToFin(Geometry(assembly, "holder-envelope:no-outer"))
-                    : Fin.Fail<Loop>(Geometry(assembly, "holder-envelope:trace")))
+                .Bind(trace => trace.Regioned(Geometry(assembly, "holder-envelope:trace"))
+                    .Bind(topology => topology.Nodes.Filter(static node => !node.IsHole).Map(static node => node.Boundary)
+                        .Head.ToFin(Geometry(assembly, "holder-envelope:no-outer"))))
             : Fin.Fail<Loop>(Geometry(assembly, "holder-envelope:input"));
 
-    private static Error Geometry(ToolAssembly assembly, string axis) =>
+    // The mint answers the CONCRETE fault, never the erased `Error`: the trace projections take a
+    // `FabricationFault`, and a refusal already narrowed to its witness family widens on the rail alone.
+    private static FabricationFault Geometry(ToolAssembly assembly, string axis) =>
         FabricationFault.Equipment(new EquipmentWitness.Geometry(assembly.Tool, axis));
 
-    private static KittingReceipt Seed(SlotMap slots) => new(
+    private static KitOutcome Seed(SlotMap slots) => new(
         slots.Slots.AsIterable().Choose(static row =>
             row.Value is SlotState.Loaded or SlotState.Manual ? row.Value.Occupant : None).ToSeq(),
         Seq<ToolAssembly>(),
@@ -1350,7 +1380,7 @@ public static class ToolMagazine {
                     ? ShortfallReason.AllSpent
                     : ShortfallReason.NoInterchangeable)));
 
-    private static Fin<KittingReceipt> Allocate(KittingReceipt receipt, WorkItem demand, MagazinePolicy policy) =>
+    private static Fin<KitOutcome> Allocate(KitOutcome receipt, WorkItem demand, MagazinePolicy policy) =>
         Fin.Succ(Classify(receipt.Slots, demand, policy).Switch(
             state: (Receipt: receipt, Demand: demand),
             installed: static (state, row) =>
@@ -1366,8 +1396,8 @@ public static class ToolMagazine {
             // cannot be placed lands its OWN shortfall row rather than vanishing into an unchanged map.
             missing: static (state, row) => Unplaced(state.Receipt, state.Demand, row.Reason)));
 
-    private static KittingReceipt Unplaced(KittingReceipt receipt, WorkItem demand, ShortfallReason reason) {
-        KittingReceipt noted = receipt with {
+    private static KitOutcome Unplaced(KitOutcome receipt, WorkItem demand, ShortfallReason reason) {
+        KitOutcome noted = receipt with {
             Missing = receipt.Missing.Add(new KitShortfall(demand.Op, demand.Required, reason)),
         };
         return noted.Slots.FirstEmpty
@@ -1399,12 +1429,12 @@ public static class ToolMagazine {
                 && tool.InterchangeableWith(demand.Assembly) && !tool.Spent)).Head;
 
     private static Option<SlotAddress> Free(SlotMap slots, ToolAssembly tool, MagazinePolicy policy) =>
-        policy.Behaviors.Contains(MagazineBehavior.FixedPot)
+        policy.Behaviors.Admits(MagazineBehavior.FixedPot)
             ? tool.HomeSlot.Filter(slot => slots.Slots.Find(slot).Exists(static state => state is SlotState.Empty))
             : slots.FirstEmpty;
 
     private static Seq<ToolChange> Preselect(Seq<ToolChange> changes, MagazineLayout layout, MagazinePolicy policy) =>
-        policy.Behaviors.Contains(MagazineBehavior.Preselect) && layout.PreselectDistance > 0
+        policy.Behaviors.Admits(MagazineBehavior.Preselect) && layout.PreselectDistance > 0
             ? changes.Zip(changes.Skip(1)).Map(pair => pair.Item1 with {
                     PreselectedSlot = Some(pair.Item2.Slot).Filter(next => layout.Span(pair.Item1.Slot, next)
                         .Exists(span => span <= layout.PreselectDistance)),
@@ -1430,7 +1460,7 @@ public static class ToolMagazine {
         let trigger = state.OperationCommitted.Find((item.Op, selected.Basis)).IfNone(0.0)
         let changed = state.Current.ForAll(current => current.Identity != candidate.Identity)
         let behaviors = slots.Layout.Kind == Magazine.Manual
-            ? policy.Behaviors.Add(MagazineBehavior.Confirm) : policy.Behaviors
+            ? policy.Behaviors.With(MagazineBehavior.Confirm) : policy.Behaviors
         let change = new ToolChange(item.Op, trigger, toSlot,
             candidate.ProgramTool, candidate.LengthRegister, candidate.RadiusRegister,
             candidate.GaugeLength, candidate.RadiusOffset,
@@ -1462,8 +1492,7 @@ public static class ToolMagazine {
                     .Bind(tool => item.Demand.Limiting(tool, state.Committed, policy)
                         .Filter(static life => life.Spare >= 0.0)
                         .Map(life => (Tool: tool, life.Basis, life.Spare))))
-                .OrderBy(row => policy.Selection.Order(
-                    state.Current.Exists(current => current.Identity == row.Tool.Identity), row.Spare)))
+                .OrderBy(row => policy.Order(state.Current, row.Tool, row.Spare)))
             .Head.ToFin(new FabricationFault.NoToolForOp(item.Op, item.Required));
 }
 ```

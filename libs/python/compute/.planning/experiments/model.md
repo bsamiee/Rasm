@@ -2,7 +2,7 @@
 
 Classical-ML model-asset export, validation, and graduation owner: `ModelAsset` exports a fitted scikit-learn estimator graph to ONNX through `skl2onnx.to_onnx`, structurally checks it through `onnx`, runs it through an `onnxruntime.InferenceSession`, and folds every check into a typed evidence ledger that graduates on the `model_asset` `HandoffAxis` case. Authoring or training a neural model is out of charter.
 
-Input and output are both parameterized: `ExportSource` discriminates the `to_onnx` source shapes and `ValidationCheck.run` folds each case to a `ValidationEvidence` carrier holding only the slots its kind names. `onnx`, `onnxruntime`, and `skl2onnx` ride module-scope `lazy` binds, so the export stack loads on first dereference inside the worker; the `scikit-learn` names stay annotation-only under `TYPE_CHECKING`; `h5py` imports module-top for the envelope container. This run rides the `EvidenceScope.MODEL` weave — span, `boundary` fence, beartype guard, fenced harvest of the manifest contributor. `[03]-[ENVELOPE]` seats the drift-envelope companion here because only this owner holds the training columns the bands fit from; its container layout is the C# ingest fence's law, hand-copied.
+Input and output are both parameterized: `ExportSource` discriminates the `to_onnx` source shapes and `ValidationCheck.run` folds each case to a `ValidationEvidence` carrier holding only the slots its kind names. `onnx`, `onnxruntime`, and `skl2onnx` ride module-scope `lazy` binds, so the export stack loads on first dereference inside the worker; the `scikit-learn` names stay annotation-only under `TYPE_CHECKING`; `h5py` imports module-top for the envelope container. This run rides the `EvidenceScope.MODEL` weave — span, narrowed `boundary` fence naming the ONNX stack's own raise set, beartype guard, fenced harvest of the manifest contributor onto the one runtime receipt spine. `[03]-[ENVELOPE]` seats the drift-envelope companion here because only this owner holds the training columns the bands fit from; its container layout is the C# ingest fence's law, hand-copied.
 
 ## [01]-[INDEX]
 
@@ -14,7 +14,8 @@ Input and output are both parameterized: `ExportSource` discriminates the `to_on
 - Owner: `ModelAsset` — `ModelAssetManifest` is the io-names, op-types, providers, model-card, and per-check verdict value object backing the graduation seam; a failed check is a residual `1.0` above its governed `_CHECK_CEILING` row on the shared `graduation/handoff#GRADUATION` fold, never a second admission body here and never a bar derived from the run's own residual roster, and the manifest crosses outward only through `graduates` under the caller's composition key.
 - Cases: `ExportSource` — the sample drives `initial_types` inference, so a categorical or mixed-dtype source is the `columns` case, never a hand-built `FloatTensorType`; `OperatorGate` bounds the emitted operators, so a quantized or opset-restricted graph is a tighter row, never a converter fork.
 - Output: the `ValidationEvidence` case IS the verdict row — its `tag` names the check and `passed` reads the outcome, no separate `CheckVerdict` carrier re-stamping the discriminant; a malformed graph and an unpropagated shape both land as one failed `structural` verdict on the domain rail, never an infrastructure `BoundaryFault`.
-- Growth: a new validation check is one `ValidationCheck` case, one `ValidationEvidence` case, one `run` arm, and one `_CHECK_CEILING` row; a new export source is one `ExportSource` case and one `convert` arm; a new parity probe verb is one `ProbeAttr` literal and one `PROBE_RANK` row; a stricter operator gate is one `OperatorGate` row; a stricter graduation bar is a tighter `_CHECK_CEILING` row or the caller's override.
+- Receipt: the manifest settles on the ONE runtime spine, and its failed-check roster IS the spine's warning band — the retired `validated: bool` answered THAT a check failed and erased WHICH, so a parity failure and a structural failure read identically to every consumer downstream of the flag. The producer name rides a `Posture`: a graph whose metadata named none is ABSENT, and the subject falls back to the checksum's own wire render rather than a `<anonymous>` literal every unnamed asset would collide onto.
+- Growth: a new validation check is one `ValidationCheck` case, one `ValidationEvidence` case, one `run` arm, and one `_CHECK_CEILING` row; a new refusal is one `FaultRow` anchor in `RAISES`; a new export source is one `ExportSource` case and one `convert` arm; a new parity probe verb is one `ProbeAttr` literal and one `PROBE_RANK` row; a stricter operator gate is one `OperatorGate` row; a stricter graduation bar is a tighter `_CHECK_CEILING` row or the caller's override.
 
 ```python signature
 from collections.abc import Callable, Iterable
@@ -23,18 +24,20 @@ from typing import TYPE_CHECKING, Annotated, Final, Literal, assert_never
 
 import numpy as np
 from beartype import beartype
+from beartype.roar import BeartypeCallHintViolation
 from beartype.vale import Is
 from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
+from google.protobuf.message import DecodeError
 from msgspec import Struct
 from upath import UPath
 
-from rasm.compute.graduation.handoff import EVIDENCE_DOMAIN, EvidenceScope, GraduationReceipt, HandoffAxis, evidence_run
+from rasm.compute.graduation.handoff import EVIDENCE_DOMAIN, ComputeLeg, EvidenceScope, GraduationReceipt, HandoffAxis, evidence_run
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, Catch, FaultRow, Posture, RuntimeRail, boundary, rostered
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, MeterFact, Party, Resource, Retain
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
+from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
 from rasm.runtime.roots import ResourceRef
 from rasm.runtime.workers import Kernel, KernelTrait
 
@@ -46,7 +49,7 @@ lazy from skl2onnx import get_latest_tested_opset_version, to_onnx
 
 if TYPE_CHECKING:
     from onnx import ModelProto
-    from onnxruntime import InferenceSession
+    from onnxruntime import InferenceSession, ModelMetadata
     from sklearn.base import BaseEstimator
     from sklearn.compose import ColumnTransformer
     from sklearn.pipeline import Pipeline
@@ -74,6 +77,43 @@ _CHECK_CEILING: Final[Map[CheckKind, float]] = Map.of_seq([("structural", 0.0), 
 # each row pairs a sklearn verb with the ONNX output index it rides — a `zipmap`-off classifier emits `label` at 0 and dense
 # scores at 1, `predict` rides 0 — so the parity diff reads the matching column, never an int64 label against a float reference.
 PROBE_RANK: Final[Block[tuple[ProbeAttr, int]]] = Block.of_seq([("predict_proba", 1), ("decision_function", 1), ("predict", 0)])
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# the ONNX stack's raise surface, proved against the installed distributions rather than authored: `onnx.load` raises
+# `TypeError`/`ValueError` on a malformed argument and the protobuf `DecodeError` on torn wire bytes; `check_model`
+# and `infer_shapes(strict_mode=True)` raise the two rostered exception rows (`.api/onnx.md:30-31`), which the
+# `structural` arm already catches INSIDE the check and never lets reach this fence; `skl2onnx` raises
+# `MissingConverter`/`MissingShapeCalculator` (both `RuntimeError` subclasses) beside `ValueError` from `to_onnx`;
+# the artifact read and write raise `OSError`. `RuntimeError` is the converter family's own — the key-mint rail
+# returns its refusal typed rather than re-raising it here. The `onnxruntime` session family is ABSENT — the
+# distribution is not installed and
+# `.api/onnxruntime.md` rosters no exception row — so its `capi` failure classes are owed a catalog row before a
+# narrowing can name them; `RuntimeError`/`OSError`/`ValueError` cover the surface its documented failures share.
+_ONNX_RAISES: Final[Catch] = (BeartypeCallHintViolation, DecodeError, OSError, RuntimeError, TypeError, ValueError)
+
+# the envelope's own surface: `fit` RAISES `ValueError` on a non-finite column and on a refused band roster, its
+# `@beartype(conf=FAULT_CONF)` contract raises the canonical violation, and `numpy`'s quantile and histogram folds
+# raise `ValueError` on a degenerate column. `write` is create-only h5py, whose HDF5 failures surface as `OSError`
+# (an existing container is `FileExistsError`) beside the `TypeError`/`ValueError` its dataset constructors raise.
+_ENVELOPE_FIT_RAISES: Final[Catch] = (BeartypeCallHintViolation, ValueError)
+_ENVELOPE_WRITE_RAISES: Final[Catch] = (OSError, TypeError, ValueError)
+
+# this page's raise-side roster under the hub `ComputeLeg` roster: the retired `f"model.export.{source.tag}"` subject
+# forked one refusal law into three coordinates, and the export source is already a span fact and a receipt column.
+MODEL_VALIDATE: Final[FaultRow[ComputeLeg]] = FaultRow(
+    leg=ComputeLeg.MODEL, point="validate", arm="boundary", defect="session-validate", retriability=TERMINAL
+)
+MODEL_EXPORT: Final[FaultRow[ComputeLeg]] = FaultRow(
+    leg=ComputeLeg.MODEL, point="export", arm="boundary", defect="graph-export", retriability=TERMINAL
+)
+ENVELOPE_FIT: Final[FaultRow[ComputeLeg]] = FaultRow(
+    leg=ComputeLeg.MODEL, point="envelope", arm="config", defect="band-admission", retriability=TERMINAL
+)
+ENVELOPE_WRITE: Final[FaultRow[ComputeLeg]] = FaultRow(
+    leg=ComputeLeg.MODEL, point="container", arm="resource", defect="container-write", retriability=TERMINAL
+)
+RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([MODEL_VALIDATE, MODEL_EXPORT, ENVELOPE_FIT, ENVELOPE_WRITE]))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -213,12 +253,16 @@ class ModelAssetManifest(Struct, frozen=True):
     opset: int
     op_types: tuple[str, ...]
     providers: tuple[str, ...]
+    producer: Posture[str]  # the graph's OWN declared producer; ABSENT where the ONNX metadata named none
     model_card: dict[str, str]
     verdicts: tuple[ValidationEvidence, ...]
 
     @property
-    def validated(self) -> bool:
-        return all(v.passed for v in self.verdicts)
+    def band(self) -> Block[str]:
+        # the spine's warning roster, and what the retired `validated: bool` collapsed to a single bit: a bool
+        # answers THAT a check failed and erases WHICH, so a manifest failing the parity probe and one failing the
+        # structural check read identically to every consumer downstream of the flag.
+        return Block.of_seq(f"failed:{verdict.tag}" for verdict in self.verdicts if not verdict.passed)
 
     @property
     def residuals(self) -> Residual:
@@ -227,11 +271,15 @@ class ModelAssetManifest(Struct, frozen=True):
 
     @property
     def span_facts(self) -> dict[str, str | int | bool]:
-        # bounded scalars only — the per-check ledger rides the receipt facts, never the span.
-        return {"subject": self.subject(), "validated": self.validated, "opset": self.opset, "providers": ",".join(self.providers)}
+        # bounded scalars only — the per-check ledger rides the receipt facts, never the span — and not the spine's
+        # own columns: the subject is the settlement's `concern` and the failed-check roster its `band`.
+        return {"opset": self.opset, "providers": ",".join(self.providers), "breaches": len(self.band)}
 
     def subject(self) -> str:
-        return self.model_card.get("producer", "<anonymous>")
+        # an anonymous graph names itself by its OWN content address rather than by a fabricated `<anonymous>` label
+        # every unnamed asset would share — a graduation axis keyed on one shared literal collides every unnamed
+        # crossing onto one subject, and the address is a real identity the C# consumer can already join on.
+        return self.producer.option().default_value(self.checksum.project("wire"))
 
     def graduates(self, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[GraduationReceipt]:
         # the governed `_ASSET_CEILING` row is the family default and a caller's tighter row the override; deriving the
@@ -248,26 +296,38 @@ class ModelAssetManifest(Struct, frozen=True):
         )
 
     def contribute(self) -> Iterable[Receipt]:
+        # ONE settled-receipt spine: the payload is this producer's own per-check ledger and graph census, while the
+        # key, the provenance pair, the failed-check band, and the stamp are the spine's columns. Provenance names
+        # the produced checksum alone — the manifest is derived from the artifact this key addresses and consumes no
+        # upstream key — and `producer` rides its posture, so a card without a producer omits the slot rather than
+        # publishing a name no metadata carried.
         facts: dict[str, object] = {
             "inputs": ",".join(self.input_names),
             "outputs": ",".join(self.output_names),
             "opset": self.opset,
             "op_types": ",".join(self.op_types),
             "providers": ",".join(self.providers),
-            "validated": self.validated,
             **{f"check[{v.tag}]": v.facts() for v in self.verdicts},
             **self.model_card,
         }
-        return (Receipt.of(EvidenceScope.MODEL.value, ("emitted", self.subject(), facts)),)
+        return (
+            Receipt.of(
+                EvidenceScope.MODEL.value,
+                ("emitted", self.subject(), facts),
+                key=Some(self.checksum),
+                provenance=Some(Provenance(consumed=Block.empty(), produced=self.checksum)),
+                band=self.band,
+            ),
+        )
 
 
 def _validate_kernel(asset: "ModelAsset") -> "RuntimeRail[ModelAssetManifest]":
     # module-level so the worker resolves both kernels by import; the fence converts a converter/checker/session raise.
-    return boundary("model.validate", lambda: asset._load_and_run(asset.ref.path, None))
+    return boundary(MODEL_VALIDATE, lambda: asset._load_and_run(asset.ref.path, None), catch=_ONNX_RAISES).bind(lambda outcome: outcome)
 
 
 def _export_kernel(asset: "ModelAsset", source: "ExportSource", gating: "OperatorGate") -> "RuntimeRail[ModelAssetManifest]":
-    return boundary(f"model.export.{source.tag}", lambda: asset._export(source, gating))
+    return boundary(MODEL_EXPORT, lambda: asset._export(source, gating), catch=_ONNX_RAISES).bind(lambda outcome: outcome)
 
 
 class ModelAsset(Struct, frozen=True):  # holds a `ResourceRef` and a providers tuple — container fields keep it GC-tracked
@@ -292,7 +352,7 @@ class ModelAsset(Struct, frozen=True):  # holds a `ResourceRef` and a providers 
         return await evidence_run(EvidenceScope.MODEL, f"model.{op}", dispatch, facts={"op": op, "providers": ",".join(self.providers)}, composition=composition)
 
     @beartype(conf=FAULT_CONF)
-    def _load_and_run(self, path: UPath, source: ExportSource | None) -> ModelAssetManifest:
+    def _load_and_run(self, path: UPath, source: ExportSource | None) -> "RuntimeRail[ModelAssetManifest]":
         model = onnx.load(str(path))
         session = self._session(path)
         meta = session.get_modelmeta()
@@ -324,13 +384,17 @@ class ModelAsset(Struct, frozen=True):  # holds a `ResourceRef` and a providers 
             ValidationCheck(smoke=produced),
             *parity.to_list(),
         ])
-        # key is `match`ed off the rail inside the already-fenced body, so a hash `Error` re-raises onto the fence rather than
-        # masking the checksum behind a fabricated zero key.
-        match ContentIdentity.of("onnx", path.read_bytes()):
-            case Result(tag="ok", ok=checksum):
-                pass
-            case Result(tag="error", error=fault):
-                raise RuntimeError(fault)
+        # the checksum rail THREADS rather than re-raising: the retired `raise RuntimeError(fault)` handed an
+        # already-typed `BoundaryFault` to this body's own fence to re-classify, and the conversion keeps
+        # `str(cause)` — so a digest refusal reached its consumer as a message string with its subject, leg, arm, and
+        # defect token erased. Returning the rail also keeps the checksum from ever being masked by a fabricated key.
+        return ContentIdentity.of("onnx", path.read_bytes()).map(lambda checksum: self._manifested(checksum, model, session, meta, inputs, outputs, checks))
+
+    def _manifested(
+        self, checksum: ContentKey, model: "ModelProto", session: "InferenceSession", meta: "ModelMetadata",
+        inputs: tuple[str, ...], outputs: tuple[str, ...], checks: "Block[ValidationCheck]",
+    ) -> ModelAssetManifest:
+        # the settled projection, seated apart so the keyed body stays one expression on the rail.
         return ModelAssetManifest(
             checksum=checksum,
             input_names=inputs,
@@ -338,11 +402,13 @@ class ModelAsset(Struct, frozen=True):  # holds a `ResourceRef` and a providers 
             opset=int(max(o.version for o in model.opset_import)),
             op_types=tuple(n.op_type for n in model.graph.node),
             providers=tuple(session.get_providers()),
+            producer=Posture.of_optional(meta.producer_name or None),
+            # a metadata field ONNX never carried is OMITTED rather than defaulted: the retired `or ""` wrote an
+            # empty string into the card, and a consumer reading a blank domain cannot tell an unset field from a
+            # graph that declared one and left it blank. The two always-present fields stay unconditional.
             model_card={
-                "producer": meta.producer_name or "<anonymous>",
-                "domain": meta.domain or "",
+                **dict(Block.of_seq((("domain", meta.domain), ("graph_name", meta.graph_name))).filter(lambda pair: bool(pair[1]))),
                 "version": str(meta.version),
-                "graph_name": meta.graph_name or "",
                 "ir_version": str(model.ir_version),
                 **{p.key: p.value for p in model.metadata_props},
                 **{k: str(v) for k, v in meta.custom_metadata_map.items()},
@@ -358,7 +424,7 @@ class ModelAsset(Struct, frozen=True):  # holds a `ResourceRef` and a providers 
         return onnxruntime.InferenceSession(str(path), sess_options=options, providers=preference)
 
     @beartype(conf=FAULT_CONF)
-    def _export(self, source: ExportSource, gating: OperatorGate) -> ModelAssetManifest:
+    def _export(self, source: ExportSource, gating: OperatorGate) -> "RuntimeRail[ModelAssetManifest]":
         graph = source.convert(get_latest_tested_opset_version(), gating)
         self.ref.path.write_bytes(graph.SerializeToString())
         return self._load_and_run(self.ref.path, source)
@@ -473,7 +539,7 @@ class GraduationEnvelope(Struct, frozen=True):
                 raise ValueError(f"envelope admission: features={features}")
             return cls(evidence_key=evidence_key, bands=tuple(rows))
 
-        return boundary("envelope.fit", build)
+        return boundary(ENVELOPE_FIT, build, catch=_ENVELOPE_FIT_RAISES)
 
     def write(self, ref: ResourceRef) -> "RuntimeRail[int]":
         # create-only h5py mirror of the ingest fence's read: root `bands` group, `evidence-key` hex attribute,
@@ -500,7 +566,7 @@ class GraduationEnvelope(Struct, frozen=True):
             # read past the close, so the extent names a flushed container rather than an open handle's buffer.
             return ref.path.stat().st_size
 
-        return boundary("envelope.write", emit)
+        return boundary(ENVELOPE_WRITE, emit, catch=_ENVELOPE_WRITE_RAISES)
 
     async def write_async(self, ref: ResourceRef, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[int]":
         # the awaitable twin over the band hop, and the ONLY movement evidence this crossing carries: the envelope

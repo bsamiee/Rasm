@@ -1,32 +1,60 @@
 # [COMPUTE_IDENTITY]
 
-Rasm.Compute model identity owns ONNX provenance and the content address every downstream cache key, receipt, and claim derives from. `ModelIdentity` carries checksum, `SlotShape` schema trees, `Provenance`, and the `CustomMetadata`/`Initializers` self-description channels; `ModelSource` folds five acquisition cases to one byte admission; `ModelFingerprint` owns the execution-provider-composed fingerprint; `GraduationEnvelope` and `GraduationEvidence` own the graduation seam's forward drift admission and reverse descriptor bundle. Admission settles the model, input, initializer, drift, and descriptor contracts once.
+Rasm.Compute model identity owns ONNX provenance and the content address every downstream cache key, receipt, and claim derives from. `ModelIdentity` carries checksum, `SlotShape` schema trees, `Provenance`, and the `CustomMetadata`/`Initializers` self-description channels; `ModelSource` folds five acquisition cases to one byte admission; `RosterFingerprint` owns the execution-provider-composed fingerprint; `GraduationEnvelope` and `GraduationEvidence` own the graduation seam's forward drift admission and reverse descriptor bundle. Admission settles the model, input, initializer, drift, and descriptor contracts once.
 
-Identity derives from the model bytes through the kernel seed-zero `XxHash128` entry `Rasm.Domain.ContentHash.Of`, the workspace's one hasher, while `ModelFingerprint` rides `System.IO.Hashing` `XxHash3`; slot schema reads `Microsoft.ML.OnnxRuntime` `InferenceSession` metadata; `ModelLoad` rides the `ComputeReceipt` rail; the descriptor bundle rides `System.Text.Json` under the injected `JsonTypeInfo<GraduationEvidence>` contract. `NodaTime` `Instant`, the kernel `CorrelationId` and `ReceiptSinkPort` (`Rasm/Domain/telemetry#CAUSAL_FRAME`), the `Runtime/receipts#RECEIPT_UNION` spine and its `ComputeWireContext` Strict resolver, the `Runtime/admission#SUBSTRATE_AXIS` `Substrate` axis beside the spine `WorkLane` roster, and the Persistence `ArtifactIndexRow` arrive settled. `ModelIdentity`/`ModelFingerprint`/`Slot` cross to `Model/sessions#SESSION_CAPSULE`, `Model/providers#EP_AXIS`, `Model/inference#INFERENCE_MODES`, and `Model/generative#GENERATIVE_RUN` as settled vocabulary, `Checksum` is the deterministic cache and result-key seed `Model/inference#RESULT_CACHE` consumes, and `DriftVerdict.Breached` is the reuse-invalidation signal that same cache consumes as an `EquivalenceMiss` fault.
+Identity derives from the model bytes through the kernel seed-zero `XxHash128` entry `Rasm.Domain.ContentHash.Of`, the workspace's one hasher, and `RosterFingerprint` projects that same digest's LOW lane through the kernel `CanonicalWriter`, so this package carries ONE hash family; slot schema reads `Microsoft.ML.OnnxRuntime` `InferenceSession` metadata; `ModelLoad` rides the `ComputeReceipt` rail; the descriptor bundle rides `System.Text.Json` under the injected `JsonTypeInfo<GraduationEvidence>` contract. `NodaTime` `Instant`, the kernel `CorrelationId` (`Rasm/Domain/frame#SOURCE`) and `ReceiptSinkPort` (`Rasm/Domain/frame#RECEIPT_PORT`), the `Runtime/receipts#RECEIPT_UNION` spine and its `ComputeWireContext` Strict resolver, the `Runtime/admission#SUBSTRATE_AXIS` `Substrate` axis beside the spine `WorkLane` roster, and the Persistence `ArtifactIndexRow` arrive settled. `ModelIdentity`/`RosterFingerprint`/`Slot` cross to `Model/sessions#SESSION_CAPSULE`, `Model/providers#EP_AXIS`, `Model/run#RUN_MODES`, and `Model/generative#GENERATIVE_RUN` as settled vocabulary, `Checksum` is the deterministic cache and result-key seed `Model/run#RESULT_CACHE` consumes, and a `DriftVerdict` whose `Severity.Invalidates` answers true is the reuse-invalidation signal that same cache consumes as an `EquivalenceMiss` fault.
 
 ## [01]-[INDEX]
 
-- [02]-[MODEL_IDENTITY]: checksum identity; five-case acquisition union with the byte-resolution fold; kind-discriminated schema snapshot with provenance; admission over input slots and overridable initializers; custom-metadata self-description; shared length-framed ordinal-keyvalue fingerprint; the graduation drift sentinel over its numeric and categorical band cases; `ModelLoad` receipt mint.
+- [02]-[MODEL_IDENTITY]: checksum identity; five-case acquisition union with the byte-resolution fold; kind-discriminated schema snapshot with provenance; admission over input slots and overridable initializers; custom-metadata self-description; shared ordinal-keyvalue fingerprint over the kernel canonical writer; the graduation drift sentinel over its numeric and categorical band cases; `ModelLoad` receipt mint.
 - [03]-[GRADUATION_EVIDENCE]: scalar-kind vocabulary; recursive `FieldNode` descriptor union with locked kind literals; owner-descriptor roster; bundle admission proving well-formedness, reference resolution, and an acyclic owner graph before its content-keyed bytes leave.
 
 ## [02]-[MODEL_IDENTITY]
 
-- Owner: `ModelIdentity` identity record with nested `Slot` rows over recursive `SlotShape` tensor, sparse-tensor, sequence, map, and optional cases; `Provenance` owns the producer/domain/graph/description block and `CustomMetadata`/`Initializers` the self-description channels; `ModelSource` `[Union]` owns five acquisition cases whose `Acquire` fold resolves each through injected `SourceResolver` ports and whose `Origin` projects the receipt source class; `ModelFingerprint` owns the length-framed ordinal-keyvalue projection composed by `ExecutionProvider.ResultKey`; `GraduationEnvelope` owns the admitted per-feature `Band` roster and its `Observe` projection onto one reference/observed mass pair, `DriftStatistic` owns the score over that pair, `DriftPolicy` owns the statistic row beside its ordered thresholds and sampling floors, `FeatureSample` carries one serving window per feature, and `DriftReport` carries the per-feature verdict set with its headline and uncovered roster.
-- Cases: `ModelSource` cases `LocalFile`, `EmbeddedResource`, `PersistenceBlob`, `RemoteFetch`, `Buffer`; `SlotShape` cases `Tensor`, `SparseTensor`, `Sequence`, `Map`, `Optional`; `Band` and `FeatureSample` cases `Numeric`, `Categorical`; `DriftVerdict` cases `Stable`, `Drifting`, `Breached`; `DriftStatistic` rows `psi`.
-- Entry: `public static Fin<ModelIdentity> Snapshot(ModelSource source, ReadOnlySpan<byte> bytes, InferenceSession session, Instant at)` — metadata topology and model bytes admit together; identity derives from the bytes. `GraduationEnvelope.Admit(HdfHandle)` is the FORWARD graduation ingest — one `Runtime/codecs#HDF_ARCHIVE` open per admission job reads the h5py-written `/bands/<feature>` roster (`kind` attribute selects the case, `edges`/`mass`/`categories` datasets read under declared selections, the evidence key an attribute, `LinkExists` proving the roster before any resolve) and re-enters the roster `Admit`, so every Wellformed gate reruns on read bands; the reverse JSON `GraduationEvidence` leg keeps its own container untouched.
-- Auto: `Snapshot` traverses input, output, and overridable-initializer metadata into recursive `SlotShape` trees; the three independent slot sets lift to K-kinded `Validation<Error>` legs, accumulate through tuple `Apply`, and rejoin `Fin<ModelIdentity>` once, so simultaneous schema faults survive one admission. Unknown ONNX kinds fault their slot instead of entering a dtype/default ghost. `Acquire` folds five source cases through `Try.lift(...).Run().Bind(identity)`; typed resolver faults survive while throwing file/resource boundaries become `ModelRejected`. `Accepts` requires every non-`Optional` input exactly once — dense and sparse leaves gate dtype, rank, and fixed extents, sequence/map slots conform by name and their payload proves structurally at run against the closed `Model/extension#EXTENSION_OPS` coverage, `Optional` unwraps to its element rule when bound and may be absent — and rejects unknown names, negative offered extents, and duplicates; `Initializer` applies the dense-tensor discriminant and exact-shape gate. `ModelFingerprint.Of` length-frames each ordinal key and value through one disposed incremental `XxHash3`. `GraduationEnvelope.Admit` rejects a blank or duplicated feature, a non-normalized mass vector, and — per case — non-finite or non-monotonic bin edges, a mis-sized mass vector, and a blank or duplicated category. `Drift` pairs each band with the serving window naming it, scores the COVERED pairs alone and names the rest, and `Band.Observe` projects each pair onto one reference/observed mass vector — a numeric window bisects every value onto its bin over the sorted edges, a categorical window tallies every label onto its category and routes each unrostered label to the appended unseen bucket — which `DriftPolicy.Statistic` then grades. Per-feature verdicts ACCUMULATE, so one undersized window refuses alone rather than hiding every other feature's score.
-- Receipt: `ModelLoad` — the `Runtime/receipts#RECEIPT_UNION` `ModelLoad(checksum, source, ep, version)` shape — is minted by `LoadReceipt` from this owner's `Key`, `Source.Origin`, and snapshotted `GraphVersion` with the loader's `ExecutionProvider`, correlation, work lane, substrate, and elapsed; emission rides the sink port at the composition edge. Every `Breached` drift verdict faults `ComputeFault.EquivalenceMiss` at the consuming lane — correctness gates reuse exactly as it gates session admission, and a fast stale surrogate is the worst reused object.
-- Packages: Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, System.IO.Hashing, System.Text.Json, PureHDF (`NativeGroup`, `IH5Object.Name`/`Attribute`/`Children`, `NativeDataset.Read<T>(H5DatasetAccess, Span<T>, …)`, `HyperslabSelection`), Generator.Equals (`[Equatable]`, `[OrderedEquality]`, `[UnorderedEquality]`, `[IgnoreEquality]`), NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project, `Domain.ContentHash`), Rasm.AppHost (project), Rasm.Persistence (project)
-- Growth: a new acquisition route is one `ModelSource` case with its `Acquire` arm and `Origin` projection; a new ONNX value kind is one `SlotShape` case and one `ShapeOf` arm; a new deployment-constant binding composes `Initializer`; a new self-description axis is one `Provenance` field; a new drift statistic is one `DriftStatistic` row scoring the same reference/observed mass pair, with the policy already carrying the row; a new feature kind is one `Band` case beside its `FeatureSample` case and one `Observe` arm.
-- Boundary: every downstream cache key, receipt, and claim derives from `Checksum`; `Checksum` composes the kernel seed-zero `ContentHash.Of(bytes)` owner shared with geometry, seam content addresses, and Persistence indexes. `Acquire` owns file and manifest-resource statement boundaries and brackets expected I/O faults into `ComputeFault.ModelRejected`; injected `SourceResolver` ports keep blob storage and HTTP transport outside this owner. `SlotShape` preserves the full recursive ONNX value topology: `SequenceMetadata.ElementMeta`, `OptionalMetadata.ElementMeta`, and `MapMetadata.KeyDataType`/`ValueMetadata` recurse until a dense or sparse tensor leaf. Sequence and map slots admit by NAME here because a slot describes a shape while a value carries one, and the value's structural gate is `Model/extension#EXTENSION_OPS` `Egress` — whose arm set is CLOSED over every `SlotShape` leaf this owner can snapshot, so a schema this admitter accepts has a reader at run and neither end carries a kind the other cannot. `Accepts` treats negative model dims as free axes but rejects negative offered extents and requires the complete non-`Optional` input set; `Initializer` requires an exact dense-tensor shape instead of accepting a different rank with the same element count. `CustomMetadata` mints no second identity because its bytes already participate in `Checksum`; `Initializers` remain deployment constants bound through `AddInitializer(string, OrtValue)`. `ModelLoad` carries derivable `ModelMetadata.Version` and takes its lane and substrate from the loader, because a background sweep's cold open and an interactive lease land on different lanes and the selection axis — not this owner — decides which substrate ran, so a hardwired pair publishes one lane's evidence for every load. `GraduationEnvelope` admits evidence-keyed normalized bands, scores a PARTIAL serving window rather than refusing it, and returns an evidence-bearing typed verdict per covered feature only after that feature's window crosses the policy sample floor — an uncovered band names itself on `DriftReport.Uncovered` and never folds into the headline, because a feature nobody sampled is a hole in the evidence rather than a stable one.
+- Owner: `ModelIdentity` identity record with nested `Slot` rows over recursive `SlotShape` tensor, sparse-tensor, sequence, map, and optional cases; `Provenance` owns the producer/domain/graph/description block and `CustomMetadata`/`Initializers` the self-description channels; `ModelSource` `[Union]` owns five acquisition cases whose `Acquire` fold resolves each through injected `SourceResolver` ports and whose `Origin` projects the receipt source class; `RosterFingerprint` owns the ordinal-keyvalue projection over the kernel canonical writer composed by `ExecutionProvider.ResultKey`; `IdentityRefusal` names this owner's shared contract refusals without a string-key roster; `GraduationEnvelope` owns the admitted per-feature `Band` roster and its `Observe` projection onto one reference/observed mass pair, `DriftStatistic` owns the score over that pair, `DriftPolicy` owns the statistic row beside its ordered thresholds and sampling floors, `FeatureSample` carries one serving window per feature, and `DriftReport` carries the per-feature verdict set with its headline and uncovered roster.
+- Cases: `ModelSource` cases `LocalFile`, `EmbeddedResource`, `PersistenceBlob`, `RemoteFetch`, `Buffer`; `SlotShape` cases `Tensor`, `SparseTensor`, `Sequence`, `Map`, `Optional`; `Band` and `FeatureSample` cases `Numeric`, `Categorical`; `DriftSeverity` rows `stable`, `drifting`, `breached`, each carrying the threshold predicate that elects it and its reuse-invalidation posture; `DriftStatistic` rows `psi`.
+- Entry: `public static Fin<ModelIdentity> Snapshot(ModelSource source, ReadOnlySpan<byte> bytes, InferenceSession session, Instant at)` — metadata topology and model bytes admit together; identity derives from the bytes. `GraduationEnvelope.Admit(HdfHandle)` is the FORWARD graduation ingest — one `Runtime/archive#HDF_ARCHIVE` open per admission job reads the h5py-written `/bands/<feature>` roster (`kind` attribute selects the case, `edges`/`mass`/`categories` datasets read under declared selections, the evidence key an attribute, `LinkExists` proving the roster before any resolve) and re-enters the roster `Admit`, so every Wellformed gate reruns on read bands; the reverse JSON `GraduationEvidence` leg keeps its own container untouched.
+- Auto: `Acquire` captures the source fold through `Op.Catch`; typed resolver faults survive and throwing file or resource boundaries remain the original `Error`.
+- Receipt: `ModelLoad` — the `Runtime/receipts#RECEIPT_UNION` `ModelLoad(checksum, source, ep, version)` shape — is minted by `LoadReceipt` from this owner's `Key`, `Source.Origin`, and snapshotted `GraphVersion` with the loader's `ExecutionProvider`, correlation, work lane, substrate, and elapsed; emission rides the sink port at the composition edge. Every drift verdict whose severity `Invalidates` faults `ComputeFault.EquivalenceMiss` at the consuming lane — correctness gates reuse exactly as it gates session admission, and a fast stale surrogate is the worst reused object.
+- Packages: Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, System.IO.Hashing, System.Text.Json, PureHDF (`NativeGroup`, `IH5Object.Name`/`Attribute`/`Children`, `NativeDataset.Read<T>(H5DatasetAccess, Span<T>, …)`, `HyperslabSelection`), Generator.Equals (`[Equatable]`, `[OrderedEquality]`, `[UnorderedEquality]`, `[IgnoreEquality]`), QuikGraph (`AlgorithmExtensions.IsDirectedAcyclicGraph(IEnumerable<TEdge>)`, `SEquatableEdge<T>`), NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project, `Domain.ContentHash`/`CanonicalWriter`/`Lane`), Rasm.AppHost (project), Rasm.Persistence (project, `ContentBlobPort`, `ArtifactIndexRow`)
+- Growth: a new acquisition route is one `ModelSource` case with its `Acquire` arm and `Origin` projection; a new ONNX value kind is one `SlotShape` case and one `ShapeOf` arm; a new deployment-constant binding composes `Initializer`; a new self-description axis is one `Provenance` field; a new drift statistic is one `DriftStatistic` row scoring the same reference/observed mass pair, with the policy already carrying the row; a new severity band is one `DriftSeverity` row carrying its own election predicate and invalidation posture, and no consumer switch moves; a new feature kind is one `Band` case beside its `FeatureSample` case and one `Observe` arm.
+- Boundary: every downstream cache key, receipt, and claim derives from `Checksum`; `Checksum` composes the kernel seed-zero `ContentHash.Of(bytes)` owner shared with geometry, seam content addresses, and Persistence indexes. `Acquire` owns file and manifest-resource statement boundaries and brackets expected I/O faults into one named `IdentityRefusal`; the injected `SourceResolver` keeps blob storage and HTTP transport outside this owner, and its blob route is the Persistence `Store/blobstore#OBJECT_STORE` `ContentBlobPort` itself rather than a page-local key-to-bytes delegate — one seam, bound by the composition root, adapted from its `IO` rail onto this page's `Fin` rail at its single use site. `SlotShape` preserves the full recursive ONNX value topology: `SequenceMetadata.ElementMeta`, `OptionalMetadata.ElementMeta`, and `MapMetadata.KeyDataType`/`ValueMetadata` recurse until a dense or sparse tensor leaf. Sequence and map slots admit by NAME here because a slot describes a shape while a value carries one, and the value's structural gate is `Model/extension#EXTENSION_OPS` `Egress` — whose arm set is CLOSED over every `SlotShape` leaf this owner can snapshot, so a schema this admitter accepts has a reader at run and neither end carries a kind the other cannot. `Accepts` treats negative model dims as free axes but rejects negative offered extents and requires the complete non-`Optional` input set; `Initializer` requires an exact dense-tensor shape instead of accepting a different rank with the same element count. `CustomMetadata` mints no second identity because its bytes already participate in `Checksum`; `Initializers` remain deployment constants bound through `AddInitializer(string, OrtValue)`. `ModelLoad` carries derivable `ModelMetadata.Version` and takes its lane and substrate from the loader, because a background sweep's cold open and an interactive lease's cold open land on different lanes and the selection axis — not this owner — decides which substrate ran, so a hardwired pair publishes one lane's evidence for every load. `GraduationEnvelope` admits evidence-keyed normalized bands, scores a PARTIAL serving window rather than refusing it, and returns an evidence-bearing typed verdict per covered feature only after that feature's window crosses the policy sample floor — an uncovered band names itself on `DriftReport.Uncovered` and never folds into the headline, because a feature nobody sampled is a hole in the evidence rather than a stable one.
 
 ```csharp signature
+// --- [TYPES] ---------------------------------------------------------------------------
+
+// Named sites select bounded contracts directly; no string-key roster survives beneath the shared violation.
+public static class IdentityRefusal {
+    public static readonly ContractRefusal SourceUnresolved = new(ComputeArea.Model, ComputeContract.Complete);
+    public static readonly ContractRefusal SourceOversized = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal SlotKindUnmodelled = new(ComputeArea.Model, ComputeContract.Compatible);
+    public static readonly ContractRefusal InitializerUnconformable = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal DriftWindowUndersized = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal DriftWindowMiskinded = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal DriftPopulationRejected = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal BandMalformed = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal EnvelopeMalformed = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal ArchiveUnreadable = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal OwnerRosterMalformed = new(ComputeArea.Model, ComputeContract.Valid);
+    public static readonly ContractRefusal OwnerGraphUnresolvable = new(ComputeArea.Model, ComputeContract.Valid);
+
+}
+
+// The two acquisition ROUTES a host wires, and only one of them is a delegate. The blob route IS the Persistence
+// `Store/blobstore#OBJECT_STORE` `ContentBlobPort` — the one key-minting byte seam over the object plane — so
+// this page spells no key-to-bytes pair of its own, which is exactly the loose-delegate form that port owner
+// names as deleted; the remote route stays a delegate because no admitted transport owner exists to compose.
+// Absence rides the `Option` rather than a refusing delegate: a port that is a VALUE cannot carry a "not wired"
+// arm without inventing one, and the `Option` says the same thing where a reader can see it.
 public readonly record struct SourceResolver(
-    Func<ArtifactIndexRow, Fin<ReadOnlyMemory<byte>>> Blob,
+    Option<ContentBlobPort> Blob,
     Func<string, Fin<ReadOnlyMemory<byte>>> Remote) {
+    // The REFUSING default is the composition's own evidence: a host that binds neither route still admits
+    // `LocalFile`, `EmbeddedResource`, and `Buffer`, and the two routes it did not wire refuse by name instead of
+    // reading as an unbound delegate at first call.
     public static readonly SourceResolver Local = new(
-        static _ => Fin.Fail<ReadOnlyMemory<byte>>(new ComputeFault.ModelRejected("<no-blob-resolver>")),
-        static _ => Fin.Fail<ReadOnlyMemory<byte>>(new ComputeFault.ModelRejected("<no-remote-resolver>")));
+        None,
+        static _ => Fin.Fail<ReadOnlyMemory<byte>>(IdentityRefusal.SourceUnresolved.Fault()));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -51,25 +79,28 @@ public abstract partial record ModelSource {
         buffer:           static b => $"buffer:{b.Bytes.Length}");
 
     public Fin<ReadOnlyMemory<byte>> Acquire(SourceResolver resolver) {
-        return Try.lift(() => Switch(
+        return Op.Of(name: "model.source-acquire").Catch(() => Switch(
                 localFile: static f => File.Exists(f.Path)
                     ? Fin.Succ((ReadOnlyMemory<byte>)File.ReadAllBytes(f.Path))
-                    : Fin.Fail<ReadOnlyMemory<byte>>(new ComputeFault.ModelRejected($"<model-source-missing:file:{f.Path}>")),
+                    : Fin.Fail<ReadOnlyMemory<byte>>(IdentityRefusal.SourceUnresolved.Fault()),
                 embeddedResource: static e => e.Assembly.GetManifestResourceStream(e.Name) is Stream stream
                     ? Read(stream)
-                    : Fin.Fail<ReadOnlyMemory<byte>>(new ComputeFault.ModelRejected($"<model-source-missing:resource:{e.Name}>")),
-                persistenceBlob: b => resolver.Blob(b.Row),
+                    : Fin.Fail<ReadOnlyMemory<byte>>(IdentityRefusal.SourceUnresolved.Fault()),
+                // The index row already NAMES its content address, so the read is the port's own inverse against
+                // that key — never a re-derivation from the row's other columns. The port speaks the object
+                // plane's `IO` rail and this page's rail is `Fin`, so the one adaptation happens at the one use
+                // site rather than by re-shaping a landed port.
+                persistenceBlob: b => resolver.Blob
+                    .ToFin((Error)IdentityRefusal.SourceUnresolved.Fault())
+                    .Bind(port => port.Get(b.Row.Content).Try().Run()),
                 remoteFetch:     r => resolver.Remote(r.ArtifactId),
-                buffer:          static b => Fin.Succ(b.Bytes)))
-            .Run()
-            .MapFail(error => new ComputeFault.ModelRejected($"<model-source-error:{Origin}:{error.Message}>"))
-            .Bind(identity);
+                buffer:          static b => Fin.Succ(b.Bytes)));
     }
 
     static Fin<ReadOnlyMemory<byte>> Read(Stream stream) {
         using (stream) {
             if (stream.Length > Array.MaxLength) {
-                return Fin.Fail<ReadOnlyMemory<byte>>(new ComputeFault.ModelRejected($"<model-source-too-large:{stream.Length}>"));
+                return Fin.Fail<ReadOnlyMemory<byte>>(IdentityRefusal.SourceOversized.Fault());
             }
             byte[] bytes = GC.AllocateUninitializedArray<byte>(checked((int)stream.Length));
             stream.ReadExactly(bytes);
@@ -78,24 +109,23 @@ public abstract partial record ModelSource {
     }
 }
 
-public static class ModelFingerprint {
-    // Length framing makes the preimage self-delimiting: a separator character inside a value can never shift two distinct option tables onto one fingerprint.
-    public static ulong Of(IEnumerable<KeyValuePair<string, string>> rows) {
-        using XxHash3 hash = new();
-        foreach (KeyValuePair<string, string> row in rows.OrderBy(static row => row.Key, StringComparer.Ordinal)) {
-            Framed(hash, row.Key);
-            Framed(hash, row.Value);
-        }
-        return hash.GetCurrentHashAsUInt64();
-    }
-
-    static void Framed(XxHash3 hash, string field) {
-        Span<byte> frame = stackalloc byte[4];
-        byte[] bytes = Encoding.UTF8.GetBytes(field);
-        BinaryPrimitives.WriteInt32LittleEndian(frame, bytes.Length);
-        hash.Append(frame);
-        hash.Append(bytes);
-    }
+// Named for what it folds — an ordinal keyvalue ROSTER — because `ModelFingerprint` collided with the
+// Persistence EF-model digest of the same name inside Compute's own compile closure, and the two are distinct
+// concepts that must not merge: this one keys provider behavior, that one keys a schema.
+public static class RosterFingerprint {
+    // The ordinal keyvalue roster folds through the KERNEL canonical writer: `Sorted` publishes the canonical
+    // order for a hash-keyed roster and `String` frames every field with its own UTF-8 byte count, so a separator
+    // inside a value can never shift two distinct option tables onto one fingerprint — and the framing law lives
+    // at its ONE owner instead of a second length-prefix loop per hashing surface. The digest is the LOW lane of
+    // the estate's `XxHash128` content key rather than a parallel `XxHash3` path, so this package carries one hash
+    // family; the `ulong` width is what keeps a fingerprint a 64-bit column inside a composite key.
+    public static ulong Of(IEnumerable<KeyValuePair<string, string>> rows) => ContentHash.Half(
+        ContentHash.Of(toSeq(rows), static (roster, writer) => writer.Sorted(
+            roster,
+            static row => row.Key,
+            StringComparer.Ordinal,
+            static (row, framed) => framed.String(row.Key).String(row.Value))),
+        Lane.Low);
 }
 
 [Union]
@@ -152,34 +182,39 @@ public sealed partial record ModelIdentity(
             .ToFin();
     }
 
+    // Completeness runs over EVERY non-Optional input slot — a required sparse, sequence, or map input missing
+    // from the binding rejects; only Optional slots may be absent. The three facts are INDEPENDENT and accumulate
+    // through one `Apply`, so a binding that is both duplicated and short of a required slot names both rather
+    // than costing one round trip per defect; one conjunction folded all three into a single string a caller had
+    // to parse to learn which of them it had violated. Slots index ORDINALLY once, so the three passes over two
+    // collections the conjunction made collapse to one lookup per candidate.
     public Fin<Unit> Accepts(Seq<(string Name, TensorElementType Dtype, Seq<long> Shape)> binding) {
-        // Completeness runs over EVERY non-Optional input slot — a required sparse, sequence, or map input
-        // missing from the binding rejects; only Optional slots may be absent. Dtype/dims evidence gates the
-        // dense and sparse leaves; sequence/map payloads conform by name here and admit structurally at run.
-        Seq<Slot> expected = Inputs.Filter(static slot => slot.Shape is not SlotShape.Optional);
-        Seq<(string Name, TensorElementType Dtype, Seq<long> Shape)> rejected = binding.Filter(b => !Inputs.Exists(slot => Conforms(slot, b)));
-        Seq<string> missing = expected
-            .Filter(slot => !binding.Exists(candidate => StringComparer.Ordinal.Equals(candidate.Name, slot.Name)))
+        HashMap<string, Slot> slots = toHashMap(Inputs.Map(static slot => (slot.Name, slot)));
+        Seq<(string Name, TensorElementType Dtype, Seq<long> Shape)> rejected =
+            binding.Filter(candidate => slots.Find(candidate.Name).Case is not Slot slot || !Conforms(slot, candidate));
+        Seq<string> missing = Inputs
+            .Filter(slot => slot.Shape is not SlotShape.Optional && !binding.Exists(candidate => StringComparer.Ordinal.Equals(candidate.Name, slot.Name)))
             .Map(static slot => slot.Name);
-        bool unique = binding.Map(static candidate => candidate.Name).ToFrozenSet(StringComparer.Ordinal).Count == binding.Count;
-        return unique && missing.IsEmpty && rejected.IsEmpty
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new ComputeFault.ModelRejected(
-                $"{Key}:binding:unique={unique}:missing={string.Join(',', missing)}:reject={string.Join(',', rejected.Map(static b => $"{b.Name}[{string.Join('x', b.Shape)}]"))}"));
+        int distinct = binding.Map(static candidate => candidate.Name).ToFrozenSet(StringComparer.Ordinal).Count;
+        return (Refusal.Unless(distinct == binding.Count, ComputeArea.Model,
+                    new ComputeViolation.Contract(ComputeContract.Unique, new ContractEvidence.Count(distinct, binding.Count))),
+                Refusal.Unless(missing.IsEmpty, ComputeArea.Model,
+                    new ComputeViolation.Contract(ComputeContract.Complete, new ContractEvidence.Count(missing.Count, 0L))),
+                Refusal.Unless(rejected.IsEmpty, ComputeArea.Model,
+                    new ComputeViolation.Contract(ComputeContract.Compatible, new ContractEvidence.Count(rejected.Count, 0L))))
+            .Apply(static (_, _, _) => unit).As().ToFin();
     }
 
     public Fin<(string Name, OrtValue Value)> Initializer(string name, OrtValue value) {
         return value.OnnxType == OnnxValueType.ONNX_TYPE_TENSOR
-            ? Try.lift(value.GetTensorTypeAndShape).Run()
-                .MapFail(error => new ComputeFault.ModelRejected($"{Key}:initializer:{name}:{error.Message}"))
+            ? Op.Of(name: "model.initializer-shape").Catch(() => Fin.Succ(value.GetTensorTypeAndShape()))
                 .Bind(info => Initializers.Find(slot => StringComparer.Ordinal.Equals(slot.Name, name)).Case is Slot slot
                     && slot.Shape is SlotShape.Tensor tensor
                     && tensor.Dtype == info.ElementDataType
                     && DimsConform(tensor.Dims, info.Shape)
                         ? Fin.Succ((name, value))
-                        : Fin.Fail<(string, OrtValue)>(new ComputeFault.ModelRejected(
-                            $"{Key}:initializer:{name}:dtype={info.ElementDataType}:shape={string.Join('x', info.Shape)}")))
-            : Fin.Fail<(string, OrtValue)>(new ComputeFault.ModelRejected($"{Key}:initializer:{name}:kind={value.OnnxType}"));
+                        : Fin.Fail<(string, OrtValue)>(IdentityRefusal.InitializerUnconformable.Fault()))
+            : Fin.Fail<(string, OrtValue)>(IdentityRefusal.InitializerUnconformable.Fault());
     }
 
     // Lane and substrate are the LOADER's facts, not this owner's: a warm-sweep cold open and an interactive lease
@@ -192,14 +227,23 @@ public sealed partial record ModelIdentity(
             Scope = new ReceiptScope.Execution(correlation, lane, substrate, AllocationClass.NativeOrt, elapsed),
         };
 
+    // The generated total `Switch` over an OWNED closed family, never an `is`-ladder with a catch-all: a sixth
+    // `SlotShape` case breaks this dispatch at compile time where `_ => false` silently refused every binding
+    // against it. `Unwrap` has already peeled every `Optional`, so that arm is unreachable and says so.
     static bool Conforms(Slot slot, (string Name, TensorElementType Dtype, Seq<long> Shape) binding) =>
         StringComparer.Ordinal.Equals(slot.Name, binding.Name)
-        && (Unwrap(slot.Shape) switch {
-            SlotShape.Tensor tensor => tensor.Dtype == binding.Dtype && binding.Shape.ForAll(static dim => dim >= 0) && DimsConform(tensor.Dims, binding.Shape),
-            SlotShape.SparseTensor sparse => sparse.Dtype == binding.Dtype && binding.Shape.ForAll(static dim => dim >= 0) && DimsConform(sparse.Dims, binding.Shape),
-            SlotShape.Sequence or SlotShape.Map => true,
-            _ => false,
-        });
+        && Unwrap(slot.Shape).Switch(
+            state: binding,
+            tensor: static (offered, shape) => shape.Dtype == offered.Dtype && offered.Shape.ForAll(static dim => dim >= 0) && DimsConform(shape.Dims, offered.Shape),
+            sparseTensor: static (offered, shape) => shape.Dtype == offered.Dtype && offered.Shape.ForAll(static dim => dim >= 0) && DimsConform(shape.Dims, offered.Shape),
+            sequence: static (_, _) => true,
+            map: static (_, _) => true,
+            optional: static (_, _) => false);
+
+    // The one hop earns its seat: it BINDS the map metadata so the key dtype and the value recursion read one
+    // native metadata handle — inlining costs either a second `AsMapMetadata()` call or a `switch`-as-let.
+    static Fin<SlotShape> MapOf(MapMetadata metadata) => ShapeOf(metadata.ValueMetadata)
+        .Map<SlotShape>(value => new SlotShape.Map(metadata.KeyDataType, value));
 
     static SlotShape Unwrap(SlotShape shape) => shape is SlotShape.Optional optional ? Unwrap(optional.Element) : shape;
 
@@ -222,11 +266,9 @@ public sealed partial record ModelIdentity(
         OnnxValueType.ONNX_TYPE_MAP => MapOf(node.AsMapMetadata()),
         OnnxValueType.ONNX_TYPE_OPTIONAL => ShapeOf(node.AsOptionalMetadata().ElementMeta)
             .Map<SlotShape>(static element => new SlotShape.Optional(element)),
-        _ => Fin.Fail<SlotShape>(new ComputeFault.ModelRejected($"<model-slot-kind:{node.OnnxValueType}>")),
+        _ => Fin.Fail<SlotShape>(IdentityRefusal.SlotKindUnmodelled.Fault()),
     };
 
-    static Fin<SlotShape> MapOf(MapMetadata metadata) => ShapeOf(metadata.ValueMetadata)
-        .Map<SlotShape>(value => new SlotShape.Map(metadata.KeyDataType, value));
 }
 
 [SmartEnum<string>]
@@ -262,18 +304,36 @@ public abstract partial record FeatureSample(string Feature) {
     public sealed record Categorical(string Feature, Seq<string> Labels) : FeatureSample(Feature);
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record DriftVerdict(
-    UInt128 EvidenceKey, string Feature, DriftStatistic Statistic, double Score, int SampleCount) {
-    public sealed record Stable(UInt128 EvidenceKey, string Feature, DriftStatistic Statistic, double Score, int SampleCount)
-        : DriftVerdict(EvidenceKey, Feature, Statistic, Score, SampleCount);
+// Severity is a ROW, and the row carries the threshold predicate that elects it beside the invalidation posture
+// the reuse gate reads. Three cases carried a byte-identical five-column payload whose only discriminant was the
+// name — a union bought exactly one boolean probe and cost three declarations plus three positional re-spellings,
+// while the thresholds that decide the name lived in a grading expression outside the family. NAMED LOSS:
+// compile-time exhaustiveness on a case switch; bought back because no consumer switched on the case — the sole
+// probe asked whether reuse is invalid, which is now a column, and a fourth severity is one row rather than a
+// case plus a grading arm plus every consumer's default.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class DriftSeverity {
+    public static readonly DriftSeverity Stable = new("stable", invalidates: false, static (score, policy) => score < policy.DriftingScore);
+    public static readonly DriftSeverity Drifting = new("drifting", invalidates: false, static (score, policy) => score >= policy.DriftingScore && score < policy.BreachScore);
+    public static readonly DriftSeverity Breached = new("breached", invalidates: true, static (score, policy) => score >= policy.BreachScore);
 
-    public sealed record Drifting(UInt128 EvidenceKey, string Feature, DriftStatistic Statistic, double Score, int SampleCount)
-        : DriftVerdict(EvidenceKey, Feature, Statistic, Score, SampleCount);
+    // `Model/run#RESULT_CACHE` purges and faults `EquivalenceMiss` on THIS column, so a later severity that
+    // must invalidate reuse says so as data rather than as a case every gate has to learn to probe.
+    public bool Invalidates { get; }
 
-    public sealed record Breached(UInt128 EvidenceKey, string Feature, DriftStatistic Statistic, double Score, int SampleCount)
-        : DriftVerdict(EvidenceKey, Feature, Statistic, Score, SampleCount);
+    [UseDelegateFromConstructor]
+    public partial bool Elects(double score, DriftPolicy policy);
+
+    // The rows partition the score line — `DriftPolicy` admission already proves `BreachScore > DriftingScore >= 0`
+    // — so exactly one elects and the fold is order-free; `Stable` is the total floor rather than a fallback.
+    public static DriftSeverity Of(double score, DriftPolicy policy) =>
+        toSeq(Items).Find(row => row.Elects(score, policy)).IfNone(Stable);
 }
+
+public sealed record DriftVerdict(
+    UInt128 EvidenceKey, string Feature, DriftStatistic Statistic, DriftSeverity Severity, double Score, int SampleCount);
 
 // Per-feature verdicts, the worst as the headline every reuse gate reads, and the bands no serving window covered.
 // `DriftReport` never folds an uncovered feature into the headline: it is a hole in the evidence, and reporting
@@ -313,7 +373,7 @@ public sealed partial class DriftPolicy {
             && probabilityFloor < 1.0
             ? null
             : new ValidationError(
-                message: $"<drift-policy:{statistic?.Key}:{driftingScore}:{breachScore}:{minimumSamples}:{probabilityFloor}>");
+                message: $"<{nameof(DriftPolicy)}:{statistic?.Key}:{driftingScore}:{breachScore}:{minimumSamples}:{probabilityFloor}>");
 }
 
 public sealed record GraduationEnvelope(UInt128 EvidenceKey, Seq<GraduationEnvelope.Band> Bands) {
@@ -332,18 +392,22 @@ public sealed record GraduationEnvelope(UInt128 EvidenceKey, Seq<GraduationEnvel
 
         public sealed record Categorical(string Feature, Seq<string> Categories, Seq<double> Mass) : Band(Feature);
 
-        public Fin<Observation> Observe(FeatureSample window, int minimumSamples) => Switch(
-            state: (Window: window, Floor: minimumSamples),
-            numeric: static (at, band) => at.Window is FeatureSample.Numeric values
-                ? Binned(band, values, at.Floor)
-                : Mismatched(band.Feature),
-            categorical: static (at, band) => at.Window is FeatureSample.Categorical labels
-                ? Tallied(band, labels, at.Floor)
-                : Mismatched(band.Feature));
+        // The band case and the window case are ONE joint discriminant, so the pair patterns in one level and the
+        // mismatch arm is structural instead of spelled once per band arm. NAMED LOSS: the generated `Switch`'s
+        // compile-time totality over `Band` here; bought back by `Wellformed` below, which stays a total `Switch`
+        // over the same family — a new case cannot land without visiting the band's own admission, and it lands in
+        // `Mismatched` here until it declares its window pairing.
+        public Fin<Observation> Observe(FeatureSample window, int minimumSamples) => (Band: this, Window: window) switch {
+            (Numeric band, FeatureSample.Numeric values) => Binned(band, values, minimumSamples),
+            (Categorical band, FeatureSample.Categorical labels) => Tallied(band, labels, minimumSamples),
+            var mismatched => Mismatched(mismatched.Band.Feature),
+        };
 
-        public bool Wellformed(Seq<Band> roster) =>
+        // Feature-name UNIQUENESS is the roster's fact and proves once at `Admit` with one `FrozenSet`; asking each
+        // band to count its own siblings made admission quadratic and forced every caller to hand a band the roster
+        // it belongs to.
+        public bool Wellformed() =>
             !string.IsNullOrWhiteSpace(Feature)
-            && roster.Count(candidate => StringComparer.Ordinal.Equals(candidate.Feature, Feature)) == 1
             && Switch(
                 numeric: static band => band.BinMass.Count == band.BinEdges.Count + 1
                     && band.BinEdges.ForAll(double.IsFinite)
@@ -358,7 +422,7 @@ public sealed record GraduationEnvelope(UInt128 EvidenceKey, Seq<GraduationEnvel
         static Fin<Observation> Binned(Numeric band, FeatureSample.Numeric window, int minimumSamples) {
             ReadOnlySpan<double> values = window.Values.Span;
             if (values.Length < minimumSamples || !TensorPrimitives.IsFiniteAll(values)) {
-                return Fin.Fail<Observation>(new ComputeFault.ModelRejected($"<drift-sample:{band.Feature}:{values.Length}>"));
+                return Fin.Fail<Observation>(IdentityRefusal.DriftWindowUndersized.Fault());
             }
             ReadOnlySpan<double> edges = band.BinEdges.AsSpan();
             double[] observed = new double[band.BinMass.Count];
@@ -368,7 +432,7 @@ public sealed record GraduationEnvelope(UInt128 EvidenceKey, Seq<GraduationEnvel
 
         static Fin<Observation> Tallied(Categorical band, FeatureSample.Categorical window, int minimumSamples) {
             if (window.Labels.Count < minimumSamples) {
-                return Fin.Fail<Observation>(new ComputeFault.ModelRejected($"<drift-sample:{band.Feature}:{window.Labels.Count}>"));
+                return Fin.Fail<Observation>(IdentityRefusal.DriftWindowUndersized.Fault());
             }
             FrozenDictionary<string, int> slots = band.Categories
                 .Map(static (category, index) => KeyValuePair.Create(category, index))
@@ -384,7 +448,7 @@ public sealed record GraduationEnvelope(UInt128 EvidenceKey, Seq<GraduationEnvel
         // Band-case disagreement with the window is a CALLER defect, never a numeric one: scoring a label
         // roster against quantile cuts answers a number for a comparison nothing performed.
         static Fin<Observation> Mismatched(string feature) =>
-            Fin.Fail<Observation>(new ComputeFault.ModelRejected($"<drift-window-kind:{feature}>"));
+            Fin.Fail<Observation>(IdentityRefusal.DriftWindowMiskinded.Fault());
 
         // Edges are SORTED by admission, so the bin is a bisection: a miss answers the complement of its insertion
         // point, and a hit sits in the bin ABOVE the edge because binning is half-open from the left. The linear
@@ -401,14 +465,20 @@ public sealed record GraduationEnvelope(UInt128 EvidenceKey, Seq<GraduationEnvel
 
         static bool Normalized(Seq<double> mass) =>
             mass.ForAll(static value => double.IsFinite(value) && value > 0.0)
-            && Math.Abs(mass.Fold(0.0, static (sum, value) => sum + value) - 1.0) <= 1e-9;
+            && Math.Abs(TensorPrimitives.Sum<double>(mass.AsSpan()) - 1.0) <= 1e-9;
     }
 
+    // Roster-level facts and per-band facts are different grains and BOTH accumulate: the envelope key, emptiness,
+    // and feature uniqueness prove once here, and every malformed band names ITSELF through a traverse rather than
+    // hiding behind a first-failure `ForAll` whose fault carried only the evidence key.
     public static Fin<GraduationEnvelope> Admit(UInt128 evidenceKey, Seq<Band> bands) =>
-        guard(
-            evidenceKey != UInt128.Zero && !bands.IsEmpty && bands.ForAll(band => band.Wellformed(bands)),
-            new ComputeFault.ModelRejected($"<graduation-envelope:{evidenceKey:x32}>"))
-        .ToFin()
+        (guard(evidenceKey != UInt128.Zero, (Error)IdentityRefusal.EnvelopeMalformed.Fault()),
+         guard(!bands.IsEmpty, (Error)IdentityRefusal.EnvelopeMalformed.Fault()),
+         guard(
+             bands.Map(static band => band.Feature).ToFrozenSet(StringComparer.Ordinal).Count == bands.Count,
+             (Error)IdentityRefusal.EnvelopeMalformed.Fault()),
+         bands.Traverse(static band => guard(band.Wellformed(), (Error)IdentityRefusal.BandMalformed.Fault())).As())
+        .Apply(static (_, _, _, _) => unit).As().ToFin()
         .Map(_ => new GraduationEnvelope(evidenceKey, bands));
 
     // HDF5 ingest — the FORWARD graduation seam: the python companion fits reference bands at graduation and
@@ -417,10 +487,12 @@ public sealed record GraduationEnvelope(UInt128 EvidenceKey, Seq<GraduationEnvel
     // reads them under declared selections into one `Admit` call, so every Wellformed gate reruns on the read
     // roster. The reverse JSON GraduationEvidence leg keeps its own container — this arm re-containers NOTHING.
     public static Fin<GraduationEnvelope> Admit(HdfHandle archive) =>
-        Try.lift(() => {
-                // Probe-first: `LinkExists` answers absence without faulting, so a corpus with no band roster
-                // refuses on its own slug rather than a group-resolve cast error.
-                if (!archive.Exists("bands")) { throw new InvalidDataException("<graduation-archive-roster>"); }
+        // Probe-first, and the probe gates on the RAIL: `LinkExists` answers absence without faulting, so an
+        // archive with no band roster refuses by name OUTSIDE the bracket rather than throwing into it to be
+        // re-read out as a message. The bracket then owns native reads alone.
+        guard(archive.Exists("bands"), (Error)IdentityRefusal.ArchiveUnreadable.Fault())
+        .ToFin()
+        .Bind(_ => Op.Of(name: "model.graduation-archive-read").Catch(() => {
                 NativeGroup root = archive.Group("bands");
                 UInt128 evidenceKey = UInt128.Parse(
                     root.Attribute("evidence-key").Read<string>(), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
@@ -441,10 +513,9 @@ public sealed record GraduationEnvelope(UInt128 EvidenceKey, Seq<GraduationEnvel
                     string[] categories = archive.Dataset($"bands/{feature}/categories").Read<string[]>();
                     return new Band.Categorical(feature, toSeq(categories), toSeq(mass));
                 });
-                return (EvidenceKey: evidenceKey, Bands: bands);
-            }).Run()
-            .MapFail(static error => (Error)new ComputeFault.ModelRejected($"<graduation-archive:{error.Message}>"))
-            .Bind(read => Admit(read.EvidenceKey, read.Bands));
+                return Fin.Succ((EvidenceKey: evidenceKey, Bands: bands));
+            })
+            .Bind(read => Admit(read.EvidenceKey, read.Bands)));
 
     // Coverage is PARTIAL by design — a caller samples the features it observed — so the covered pairs score and the
     // rest are NAMED. Verdicts accumulate rather than short-circuit: a monadic fold stops at the first undersized
@@ -457,11 +528,9 @@ public sealed record GraduationEnvelope(UInt128 EvidenceKey, Seq<GraduationEnvel
         Seq<string> uncovered = paired.Filter(static row => row.Window.IsNone).Map(static row => row.Band.Feature);
         Seq<(Band Band, FeatureSample Window)> covered =
             paired.Choose(static row => row.Window.Map(window => (row.Band, Window: window)));
-        return guard(
-                unique && !covered.IsEmpty,
-                new ComputeFault.ModelRejected(
-                    $"<drift-population:unique={unique}:covered={covered.Count}:bands={Bands.Count}>"))
-            .ToFin()
+        return (guard(unique, (Error)IdentityRefusal.DriftPopulationRejected.Fault()),
+                guard(!covered.IsEmpty, (Error)IdentityRefusal.DriftPopulationRejected.Fault()))
+            .Apply(static (_, _) => unit).As().ToFin()
             .Bind(_ => covered.Traverse(row => Verdict(row.Band, row.Window, policy).ToValidation()).As().ToFin())
             .Map(verdicts => new DriftReport(
                 verdicts.Reduce(static (worst, verdict) => verdict.Score > worst.Score ? verdict : worst),
@@ -469,23 +538,13 @@ public sealed record GraduationEnvelope(UInt128 EvidenceKey, Seq<GraduationEnvel
                 uncovered));
     }
 
+    // The statistic that produced the score rides the verdict and reaches the fault text, because a threshold pair
+    // carried without it grades one divergence against another's calibration.
     Fin<DriftVerdict> Verdict(Band band, FeatureSample window, DriftPolicy policy) =>
-        band.Observe(window, policy.MinimumSamples)
-            .Map(observed => Graded(
-                band.Feature,
-                policy,
-                policy.Statistic.Score(observed.Reference, observed.Observed, policy.ProbabilityFloor),
-                observed.SampleCount));
-
-    // Thresholds are POLICY VALUES rather than patterns, so the joint discriminant is the pair of relational
-    // answers: one tuple pattern, one dispatch level, and a fourth severity is one more arm instead of a deeper
-    // conditional chain.
-    DriftVerdict Graded(string feature, DriftPolicy policy, double score, int samples) =>
-        (Breach: score >= policy.BreachScore, Drifting: score >= policy.DriftingScore) switch {
-            (true, _) => new DriftVerdict.Breached(EvidenceKey, feature, policy.Statistic, score, samples),
-            (_, true) => new DriftVerdict.Drifting(EvidenceKey, feature, policy.Statistic, score, samples),
-            _ => new DriftVerdict.Stable(EvidenceKey, feature, policy.Statistic, score, samples),
-        };
+        from observed in band.Observe(window, policy.MinimumSamples)
+        let score = policy.Statistic.Score(observed.Reference, observed.Observed, policy.ProbabilityFloor)
+        select new DriftVerdict(
+            EvidenceKey, band.Feature, policy.Statistic, DriftSeverity.Of(score, policy), score, observed.SampleCount);
 }
 ```
 
@@ -591,72 +650,67 @@ public sealed partial record GraduationEvidence(string SchemaVersion, [property:
     // drifted shape, so a bundle minted outside it ships bytes guaranteed to refuse.
     public const string Schema = "1";
 
+    // The bundle is a CODEGEN INPUT, so every defect it carries must arrive in one answer: a companion that cannot
+    // decode used to receive an owner COUNT for four distinct violations across N owners and M fields, and fixing
+    // one defect only revealed the next. Roster-grain facts accumulate beside a per-owner traverse, so a malformed
+    // roster names every owner and every field that is wrong.
     public static Fin<GraduationEvidence> Admit(Seq<OwnerDescriptor> owners) =>
-        guard(
-            !owners.IsEmpty
-            && owners.ForAll(static owner => !string.IsNullOrWhiteSpace(owner.Name))
-            && owners.Map(static owner => owner.Name).ToFrozenSet(StringComparer.Ordinal).Count == owners.Count
-            && owners.ForAll(static owner =>
-                owner.Fields.Map(static field => field.Name).ToFrozenSet(StringComparer.Ordinal).Count == owner.Fields.Count
-                && owner.Fields.ForAll(static field => field.Sound())),
-            new ComputeFault.ModelRejected($"<graduation-owners:{owners.Count}>"))
-        .ToFin()
+        (guard(!owners.IsEmpty, (Error)IdentityRefusal.OwnerRosterMalformed.Fault()),
+         guard(
+             owners.Map(static owner => owner.Name).ToFrozenSet(StringComparer.Ordinal).Count == owners.Count,
+             (Error)IdentityRefusal.OwnerRosterMalformed.Fault()),
+         owners.Traverse(static owner => Wellformed(owner)).As())
+        .Apply(static (_, _, _) => unit).As().ToFin()
         .Bind(_ => Resolvable(owners))
         .Map(_ => new GraduationEvidence(Schema, owners, KeyOf(owners)));
 
+    static Validation<Error, Unit> Wellformed(OwnerDescriptor owner) =>
+        (guard(!string.IsNullOrWhiteSpace(owner.Name), (Error)IdentityRefusal.OwnerRosterMalformed.Fault()),
+         guard(
+             owner.Fields.Map(static field => field.Name).ToFrozenSet(StringComparer.Ordinal).Count == owner.Fields.Count,
+             (Error)IdentityRefusal.OwnerRosterMalformed.Fault()),
+         owner.Fields.Traverse(field => guard(
+             field.Sound(), (Error)IdentityRefusal.OwnerRosterMalformed.Fault())).As())
+        .Apply(static (_, _, _) => unit).As();
+
     public Fin<ReadOnlyMemory<byte>> Bundle(JsonTypeInfo<GraduationEvidence> contract) =>
-        Try.lift(() => (ReadOnlyMemory<byte>)JsonSerializer.SerializeToUtf8Bytes(this, contract))
-            .Run()
-            .MapFail(static error => new ComputeFault.ModelRejected($"<graduation-bundle:{error.Message}>"));
+        Op.Of(name: "model.graduation-bundle-write").Catch(() => Fin.Succ((ReadOnlyMemory<byte>)JsonSerializer.SerializeToUtf8Bytes(this, contract)));
 
     // Owner graph is a DAG by contract: the projector registers each struct against already-built siblings, so a
     // reference naming no owner is an unbound name and a back edge is a topological refusal — both AFTER the bytes
-    // shipped. Peeling settles every reference-free owner per pass, and a pass settling nothing over a non-empty
-    // remainder IS the cycle, with no visitor state and no recursion depth to bound.
+    // shipped. Acyclicity is the admitted graph package's own predicate over BARE EDGES, needing no container at
+    // all; the hand Kahn peel it replaces re-scanned its settled set per pass, lost the cycle members' order, and
+    // recursed to the owner count while claiming no depth to bound. The two facts are independent and accumulate,
+    // so a roster that is both unbound and cyclic names each.
     static Fin<Unit> Resolvable(Seq<OwnerDescriptor> owners) {
         FrozenSet<string> declared = owners.Map(static owner => owner.Name).ToFrozenSet(StringComparer.Ordinal);
         Seq<string> unbound = owners
             .Bind(static owner => owner.Fields.Bind(static field => field.Refs()))
             .Distinct()
             .Filter(reference => !declared.Contains(reference));
-        Seq<string> cyclic = Peel(owners.Map(owner => (
-            Owner: owner.Name,
-            Refs: owner.Fields.Bind(static field => field.Refs()).Distinct().Filter(declared.Contains))));
-        return unbound.IsEmpty && cyclic.IsEmpty
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new ComputeFault.ModelRejected(
-                $"<graduation-owner-graph:unbound={string.Join(',', unbound)}:cyclic={string.Join(',', cyclic)}>"));
+        Seq<SEquatableEdge<string>> edges = owners.Bind(owner => owner.Fields
+            .Bind(static field => field.Refs())
+            .Distinct()
+            .Filter(declared.Contains)
+            .Map(reference => new SEquatableEdge<string>(owner.Name, reference)));
+        return (guard(
+                    unbound.IsEmpty,
+                    (Error)IdentityRefusal.OwnerGraphUnresolvable.Fault()),
+                guard(
+                    edges.ToArray().IsDirectedAcyclicGraph(),
+                    (Error)IdentityRefusal.OwnerGraphUnresolvable.Fault()))
+            .Apply(static (_, _) => unit).As().ToFin();
     }
 
-    static Seq<string> Peel(Seq<(string Owner, Seq<string> Refs)> graph) =>
-        graph.Filter(static row => row.Refs.IsEmpty) switch {
-            var settled when settled.IsEmpty => graph.Map(static row => row.Owner),
-            var settled => Peel(graph
-                .Filter(row => !settled.Exists(seated => StringComparer.Ordinal.Equals(seated.Owner, row.Owner)))
-                .Map(row => (
-                    row.Owner,
-                    Refs: row.Refs.Filter(reference =>
-                        !settled.Exists(seated => StringComparer.Ordinal.Equals(seated.Owner, reference)))))),
-        };
-
-    // Length framing makes the preimage self-delimiting for the same reason the option fingerprint frames: a
-    // separator inside an owner or field name can never shift two distinct rosters onto one key.
-    static UInt128 KeyOf(Seq<OwnerDescriptor> owners) {
-        ArrayBufferWriter<byte> preimage = new();
-        Framed(preimage, Schema);
-        owners.Iter(owner => {
-            Framed(preimage, owner.Name);
-            owner.Fields.Iter(field => Framed(preimage, field.Render()));
-        });
-        return ContentHash.Of(preimage.WrittenSpan);
-    }
-
-    static void Framed(ArrayBufferWriter<byte> preimage, string value) {
-        int bytes = Encoding.UTF8.GetByteCount(value);
-        BinaryPrimitives.WriteInt32LittleEndian(preimage.GetSpan(4), bytes);
-        preimage.Advance(4);
-        preimage.Advance(Encoding.UTF8.GetBytes(value, preimage.GetSpan(bytes)));
-    }
+    // Bundle identity folds through the KERNEL canonical writer: `Rows` count-frames the owner and field runs and
+    // `String` frames every name with its own byte count, so a separator inside an owner or field name can never
+    // shift two distinct rosters onto one key — the same framing law the option fingerprint reads, at one owner
+    // rather than a second length-prefix loop per hashing surface.
+    static UInt128 KeyOf(Seq<OwnerDescriptor> owners) => ContentHash.Of(owners, static (roster, writer) => writer
+        .String(Schema)
+        .Rows(roster, static (owner, rows) => rows
+            .String(owner.Name)
+            .Rows(owner.Fields, static (field, fields) => fields.String(field.Render()))));
 }
 ```
 

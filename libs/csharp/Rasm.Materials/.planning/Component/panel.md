@@ -1,162 +1,132 @@
 # [MATERIALS_PANEL]
 
-THE PANEL SEED PAGE owns the `ComponentFamily.Panel` policy row, the product vocabularies, frozen standards rows, `FastenPattern`, the closed `PanelSpecification` payload, and the single `PanelSeed.Rows : Context -> Fin<Seq<ComponentRow>>` fold. Board geometry is `SectionProfile.Layered` over the shared bounded `PlyRole`; deck geometry is `SectionProfile.Corrugated`, solved by the canonical `SectionSolver` arm. `Sectioned` follows structural kind, every row carries its kind-owned `IfcBinding`, and every product detail measurement remains on the `Fin` rail through catalogue construction.
+THE PANEL SEED PAGE owns the `ComponentFamily.Panel` row facts, the product vocabularies, the frozen standards rows, `FastenPattern`, the closed `PanelSpecification` payload, and the `PanelSeed.Roster`/`Law` pair the ONE `component#COMPONENT_SEED` generator folds. Board geometry is `SectionProfile.Layered` over the shared bounded `PlyRole`; deck geometry is `SectionProfile.Corrugated`, solved by the canonical `SectionSolver` arm. `Sectioned` follows structural kind, every row carries its kind-owned `IfcBinding`, and every product detail measurement remains on the `Fin` rail through catalogue construction.
+
+The LAYUP is the SPECIFICATION's, not the kind's: the twenty per-kind layup delegates were four bodies written twenty times, so the ply stack now dispatches once on the payload arm and reads two data columns off the kind — its core `PlyRole` and its board facing — while the kind keeps the ONE policy column that is genuinely per-kind, the payload it `Admits`. The membrane option-coherence those admissions each restated (a vapour class rides the vapour-retarder duty alone, a flashing form the flashing duty alone) is now one identity-derived read on `MembraneDuty` lifted as a seed coherence conjunct, so an incoherent pairing names itself instead of failing an admission that cannot say why.
 
 ## [01]-[INDEX]
 
-- [02]-[PANEL_FAMILY]: the `PanelKind` board-type vocabulary; the edge, orientation, fastening, core, bond, foam, facer, deck, membrane-duty, vapour-class, and flashing policies; the frozen deck/span tables; `FastenPattern`; the payload-timed `PanelSpecification` union; the `PanelRow` roster; `PanelDetail`; and `PanelSeed.Rows`.
+- [02]-[PANEL_FAMILY]: the `PanelKind` board-type vocabulary; the edge, orientation, fastening, core, bond, foam, facer, deck, membrane-duty, vapour-class, and flashing policies; the frozen deck/span tables and the SDPWS lateral estate; `FastenPattern`; the payload-timed `PanelSpecification` union with its layup, coherence, facing, and detail projections; the `PanelRow` roster row; `PanelDetail`; and the `PanelSeed` roster, law, and capacity producer.
 
 ## [02]-[PANEL_FAMILY]
 
-- Owner: `PanelKind` carries the board-type axis, IFC leaf, structural flag, substance, authority, and `[UseDelegateFromConstructor]` layup; the shared `PlyRole` bounds every layer role across panel, glazing, timber, and masonry. `EdgeProfile`, `PanelOrientation`, `PanelFastening`, `DeckForm`, `CoreType`, `BondClass`, `FoamType`, `Facer`, `MembraneDuty`, `VaporClass`, and `FlashingKind` carry product policy; `DeckProfiles`, `SpanRatings`, `FastenPattern`, `PanelSpecification`, `PanelDetail`, and `PanelSeed` carry printed data, admission, payload timing, details, and construction.
-- Cases: kind {the tri-entity IFC spread; a fiberboard or magnesium-oxide board is one new row reusing `IfcCovering`/CLADDING and an existing layup} · edge {square/tapered/beveled/rounded/tongue-groove/shiplap/side-lap-interlock/lapped-seam} · orientation {strength-axis-perpendicular/parallel/unidirectional} · duty {roofing/air-barrier/vapour-retarder/waterproofing/flashing — the membrane service axis, each barrier duty stamping its `BarrierClass` token} · profile {`Layered` every covering/membrane board — the layup delegate's `Ply` stack; `Corrugated` the two steel-deck kinds — the `DeckProfiles` row + `GaugeRow` fill the six named dims}.
-- Entry: `PanelSeed.Rows(Context)` traverses each row through dimension and fastening admission, resolves `PanelSpecification.DeckSheet` to `SectionProfile.Corrugated` and every other specification to `SectionProfile.Layered`, builds the detail bag from union projections, and seals the component. `PanelSpecification` keeps gypsum core/facer, wood span/bond, faced-board facer, deck form/profile/gauge, foam type/facer, and membrane duty/vapour-class/flashing in disjoint cases; no row carries irrelevant `None` policy values — the membrane arm's two `Option` axes close under each kind's `Admits` row, so a vapour class rides the vapour-retarder duty alone and a flashing form the flashing duty alone.
-- Packages: Rasm.Numerics (project — `PositiveMagnitude`), Rasm.Domain (project — `Op`/`Context`/`AcceptValidated`), Rasm.Element (project — `MaterialId`, `PropertyBag`, and the seam `DetailSchema`/`PropertyName`/`PropertyValue`/`Dimension` currencies `PanelDetail` composes; every `DetailSchema.Product` row a panel stamps is Element-declared at `property#DETAIL_SCHEMA` — the one producer-scoped mint is `PanelRows.FlashingKind`, through the owner-blessed `PropertyCategory.Materials` scope), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` with `[UseDelegateFromConstructor]` layup columns, `[ComplexValueObject]` + generated `ValidateFactoryArguments`/`Validate`, `[KeyMemberEqualityComparer]`/`[KeyMemberComparer]`), LanguageExt.Core (`Fin`/`Seq`/`Option`/`Traverse`), BCL inbox (`ImmutableArray`); NO sheet-goods external producer — the roster is `AUTHORED` under `SEED_ROW_LAW` (VividOrange owns structural-MEMBER catalogues and EN grades, not gypsum/sheathing/deck/insulation rosters); the VividOrange solve surface moves with the section machinery to `component#SECTION_SOLVER`; the deck base metal reuses the `connector#CONNECTOR_FAMILY` `GaugeRow`/`Gauges` table (one cold-formed gauge vocabulary — `Ga22`..`Ga10` named statics, PUBLISHED AISI base/design thickness and gauge-band yield; the deck rows reference `Ga22`/`Ga20`/`Ga18`/`Ga16` symbolically).
-- Growth: a new board is one `PanelRow`; a new kind one `PanelKind` row binding its IFC leaf + layup delegate; a new edge/orientation/core/bond/foam/facer/duty/vapour-class/flashing band one vocabulary row; a new deck profile one `DeckProfileRow`; a new span rating one `SpanRow` — ZERO type edits per `[DIFF_OF_NEXT_THING]` ("Panel (new board) — one `ComponentRow` in `PanelSeed.Rows` — thickness, width, IFC leaf, fastening all row values"). A NON-BOARD insulation form (batt, roll, loose-fill, spray) is an `insulation` family row at `insulation#INSULATION_FAMILY` — the board split law — and an APPLIED liquid membrane seeds no sheet row here.
-- Boundary: this page emits DATA — profiles, vocabulary rows, bags, and the seed fold; the section INTEGRAL is `component#SECTION_SOLVER`'s `corrugated` arm (one solver, compiler-forced per profile arm), the twenty-column `ComputedSection` lift is `SectionSolver.Admit`, and the per-coverage rib scaling reads `CoverWidthMm/RibPitchMm` off the `Corrugated` dims inside `Forms.ThinFold` — panel keeps only the `DeckProfiles`/`Gauges` DATA those dims read; a deck row's solved `ComputedSection` is PRICED, not merely stored — the `steel#STEEL_FAMILY` AISI overload reads it at the `connector#CONNECTOR_FAMILY` `GaugeRow`'s own SS Grade 33/50 yield and the receipt lifts into `capacity#SECTION_CAPACITY` through `CapacityReceipt.DeckSheet`, so `GaugeRow.AxialSectionCapacityKnPerMm` is a CONSUMED datum rather than a one-directional seam declaration and a deck's flexural/shear verdict rides the one `Check(demand)` rail; the board substance physics (`gypsum.board`/`cement.board`/`wood.plywood`/`wood.osb`/`insulation.eps`/`xps`/`pir`/membranes) read ONCE from the property library by `SubstanceId`, never re-keyed here; `SubstanceId`/`AppearanceId` stay INDEPENDENT slots (a foil-faced polyiso keeps its foam substance while its appearance names the facer; a deck's substance is its gauge steel); the layup is the typed `Seq<Ply>` the seam `CompositionAuthor.LayerSet` coerces into `IfcMaterialLayerSet` (a deck is a `ProfileSet` — a ribbed sheet profiles, never layers); `IfcBinding` strings stay neutral (the generated `Rasm.Bim` roster validates composition-time and egress-time; the `IfcCoveringTypeEnum` has NO SHEATHING member so lining and sheathing are both CLADDING, the `IfcSlabTypeEnum` has NO COMPOSITE/DECK member so a composite floor deck is `IfcSlab`/FLOOR); the product bag rides the Type `Object` via `Assign.PropertyDefinition` and round-trips through the GENERAL Bim `Object`/property fold (a panel is an `IfcBuiltElement`, never a realizing element).
+- Owner: `PanelKind` carries the board-type axis, IFC leaf, structural authority, substance, core `PlyRole`, board facing, and the `[UseDelegateFromConstructor]` payload admission; the shared `PlyRole` bounds every layer role across panel, glazing, timber, and masonry. `EdgeProfile`, `PanelOrientation`, `PanelFastening`, `DeckForm`, `CoreType`, `BondClass`, `FoamType`, `Facer`, `MembraneDuty`, `VaporClass`, and `FlashingKind` carry product policy; `DeckProfiles`, `SpanRatings`, `LateralShear`, `FastenPattern`, `PanelSpecification`, `PanelDetail`, and `PanelSeed` carry printed data, admission, payload timing, details, and construction.
+- Cases: kind {the tri-entity IFC spread; a fiberboard or magnesium-oxide board is one new row reusing `IfcCovering`/CLADDING and an existing core role} · edge {square/tapered/beveled/rounded/tongue-groove/shiplap/side-lap-interlock/lapped-seam} · orientation {strength-axis-perpendicular/parallel/unidirectional} · duty {roofing/air-barrier/vapour-retarder/waterproofing/flashing — the membrane service axis, each barrier duty stamping its `BarrierClass` token} · profile {`Layered` every covering/membrane board — the specification's own ply stack; `Corrugated` the two steel-deck kinds — the `DeckProfiles` row + `GaugeRow` fill the six named dims}.
+- Entry: `ComponentSeed.Rows(context, PanelSeed.Roster, PanelSeed.Law)`. The law's coherence proves kind/payload admission, payload coherence, dimensional sanity, the fastening schedule, and the deck-row dimensional agreement TOGETHER, so a malformed board names every column it broke in one verdict; the profile route then resolves `PanelSpecification.DeckSheet` to `Corrugated` and every other payload to `Layered`, and the detail builds the bag from the union's own projections.
+- Packages: Rasm.Numerics (project — `PositiveMagnitude`), Rasm.Domain (project — `Op`/`Context`/`AcceptValidated`, the kernel `Tolerance`/`ToleranceLane` the deck-drift band admits through), Rasm.Element (project — `MaterialId`, `EvidenceGrade`, `PropertyBag`, and the seam `DetailSchema`/`PropertyName`/`PropertyValue`/`Dimension` currencies `PanelDetail` composes; the one producer-scoped mint is `PanelRows.FlashingKind` through the owner-blessed `PropertyCategory.Materials` scope), the parent `component#COMPONENT_OWNER`/`#MATERIAL_GRADE`/`#COMPONENT_DETAIL`/`#COMPONENT_SEED` owners, Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` with `[UseDelegateFromConstructor]`, `[Union]`, `[ComplexValueObject]` + generated `ValidateFactoryArguments`/`Validate`, `[KeyMemberEqualityComparer]`/`[KeyMemberComparer]`), LanguageExt.Core (`Validation`/`Fin`/`Seq`/`Option`), BCL inbox (`FrozenDictionary`, `ImmutableArray`); NO sheet-goods external producer — the roster is `SEED_ROW_LAW` data (VividOrange owns structural-MEMBER catalogues and EN grades, not gypsum/sheathing/deck/insulation rosters); the deck base metal reuses the `connector#CONNECTOR_FAMILY` `GaugeRow`/`Gauges` table (one cold-formed gauge vocabulary — `Ga22`..`Ga10` named statics, PUBLISHED AISI base/design thickness and gauge-band yield).
+- Growth: a new board is one `PanelRow`; a new kind one `PanelKind` row binding its IFC leaf, core role, facing, and admitted payload; a new edge/orientation/core/bond/foam/facer/duty/vapour-class/flashing band one vocabulary row; a new deck profile one `DeckProfileRow`; a new span rating one `SpanRow`; a new layup SHAPE is one `PanelSpecification` arm and one `Layup` case the compiler forces — ZERO type edits for a new board. A NON-BOARD insulation form (batt, roll, loose-fill, spray) is an `insulation` family row at `insulation#INSULATION_FAMILY` — the board split law — and an APPLIED liquid membrane seeds no sheet row here.
+- Boundary: this page emits DATA — profiles, vocabulary rows, bags, and the seed law; the section INTEGRAL is `component#SECTION_SOLVER`'s `corrugated` arm, the twenty-column `ComputedSection` lift is `SectionSolver.Admit`, and the per-coverage rib scaling reads `CoverWidthMm`/`RibPitchMm` off the `Corrugated` dims inside `Forms.ThinFold` — panel keeps only the `DeckProfiles`/`Gauges` DATA those dims read. A deck row's solved `ComputedSection` is PRICED, not merely stored — the `steel#STEEL_FAMILY` AISI overload reads it at the rib row's own `MaterialGrade` and the receipt lifts into `capacity#SECTION_CAPACITY` through `CapacityReceipt.DeckSheet`, so `GaugeRow.AxialSectionCapacityKnPerMm` is a CONSUMED datum and a deck's flexural/shear verdict rides the one `Check(demand)` rail. The board substance physics read ONCE from the property library by `SubstanceId`, never re-keyed here; `SubstanceId`/`AppearanceId` stay INDEPENDENT slots (a foil-faced polyiso keeps its foam substance while its appearance names the facer; a deck's substance is its gauge steel), and the appearance derives from the ONE `FacingMaterial` owner the layup itself reads rather than from a second probe over the built plies. The layup is the typed `Seq<Ply>` the seam `CompositionAuthor.LayerSet` coerces into `IfcMaterialLayerSet` (a deck is a `ProfileSet` — a ribbed sheet profiles, never layers); `IfcBinding` strings stay neutral (the `IfcCoveringTypeEnum` has NO SHEATHING member so lining and sheathing are both CLADDING, the `IfcSlabTypeEnum` has NO COMPOSITE/DECK member so a composite floor deck is `IfcSlab`/FLOOR); the product bag rides the Type `Object` via `Assign.PropertyDefinition` and round-trips through the GENERAL Bim `Object`/property fold.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
-using System.Collections.Frozen;                     // FrozenDictionary — the designation-keyed row join the capacity producer reads
+using System.Collections.Frozen;     // FrozenDictionary — the SeedJoin designation-keyed row join the capacity producer reads
 using System.Collections.Immutable;  // ImmutableArray (the frozen printed-data row tables)
-using LanguageExt;                   // Fin, Option, Seq, Traverse
-using Rasm.Numerics;                  // PositiveMagnitude — the kernel value-object atoms live in Rasm.Numerics, NOT Rasm.Domain
-using Rasm.Domain;                   // Op, Context, AcceptValidated
-using Rasm.Element.Composition;                  // MaterialId, PropertyBag, DetailSchema, Dimension, PropertyName, PropertyValue (the seam bag currencies PanelDetail composes)
-using Rasm.Element.Properties;       // PropertyCategory — the owner-blessed producer scope PanelRows mints through
+using LanguageExt;                   // Fin, Option, Seq, Validation, Traverse
+using LanguageExt.Common;            // Error — the Validation fault carrier the coherence census accumulates
+using Rasm.Numerics;                 // PositiveMagnitude — the kernel value-object atoms live in Rasm.Numerics, NOT Rasm.Domain
+using Rasm.Domain;                   // Op, Context, AcceptValidated, Tolerance, ToleranceLane
+using Rasm.Element.Composition;      // MaterialId, PropertyBag
+using Rasm.Element.Properties;       // EvidenceGrade, DetailSchema, PropertyCategory, PropertyName, PropertyValue, Dimension
 using Dimension = Rasm.Element.Properties.Dimension;   // the SI-dimension axis — disambiguated from the Rasm.Numerics discrete count
-using Thinktecture;                  // [SmartEnum]/[ComplexValueObject]/[UseDelegateFromConstructor]/[KeyMemberEqualityComparer]/[KeyMemberComparer]
+using Thinktecture;
 using static LanguageExt.Prelude;
 
-// Every family seed declares in the ONE Rasm.Materials.Component namespace (component#COMPONENT_OWNER); the owner
-// folds PanelSeed.Rows through the ComponentFamily.Panel policy row, never by name. The deck base-metal gauge reuses
-// the connector family's Gauges row table — never a parallel deck gauge enum.
+// Every family seed declares in the ONE Rasm.Materials.Component namespace (component#COMPONENT_OWNER); the deck
+// base-metal gauge reuses the connector family's Gauges row table — never a parallel deck gauge enum.
 namespace Rasm.Materials.Component;
 
 // --- [TYPES] -------------------------------------------------------------------------------
 // The board-type axis grown by DATA: each row carries the GeometryGym-verified IFC leaf the projector stamps
 // (tri-entity spread — IfcCovering CLADDING/CEILING/FLOORING/INSULATION/ROOFING/MEMBRANE, IfcPlate SHEET, IfcSlab
-// FLOOR; IfcDeck does NOT exist, so a roof/form deck is IfcPlate/SHEET and a composite floor deck IfcSlab/FLOOR), the
-// The substance MaterialId key, the kind's ComponentAuthority standards body, and the kind's layup delegate
-// (POLICY row — the face/core stack derivation rides the vocabulary, never an 8-arm ternary chain in the seed).
-// Deck kinds bind the empty layup: their geometry is the Corrugated profile, not plies.
+// FLOOR; IfcDeck does NOT exist, so a roof/form deck is IfcPlate/SHEET and a composite floor deck IfcSlab/FLOOR),
+// the substance MaterialId key, the kind's ComponentAuthority standards body, the CORE PlyRole its substance takes
+// in a ply stack, the board FACING that stack mirrors, and the payload it admits.
+//
+// CoreRole and Facing are the two DATA columns that replaced twenty layup delegates: the ply-stack SHAPE is the
+// specification arm's (four bodies, dispatched once), and the only per-kind facts inside it are which role the
+// kind's own substance plays and which face material wraps it. A deck kind carries NEITHER — its geometry is the
+// Corrugated profile, and a kind with no core role can produce no ply stack, which is exactly that truth.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PanelKind {
-    public static readonly PanelKind GypsumBoard        = new("gypsum-board",        ifcEntity: "IfcCovering", ifcPredefinedType: "CLADDING",   substanceId: "gypsum.board",   authority: ComponentAuthority.Astm, layup: static (f, t) => FaceCoreFace(PlyRole.PaperFace, "paper.face", "gypsum.board", t),     admits: static s => s is PanelSpecification.GypsumBoard { Facer: var facer } && facer == Facer.None);
-    public static readonly PanelKind GypsumCeiling      = new("gypsum-ceiling",      ifcEntity: "IfcCovering", ifcPredefinedType: "CEILING",    substanceId: "gypsum.board",   authority: ComponentAuthority.Astm, layup: static (f, t) => FaceCoreFace(PlyRole.PaperFace, "paper.face", "gypsum.board", t),     admits: static s => s is PanelSpecification.GypsumBoard { Facer: var facer } && facer == Facer.None);
-    public static readonly PanelKind GypsumSheathing    = new("gypsum-sheathing",    ifcEntity: "IfcCovering", ifcPredefinedType: "CLADDING",   substanceId: "gypsum.board",   authority: ComponentAuthority.Astm, layup: static (f, t) => FaceCoreFace(PlyRole.GlassMatFacer, "glass.mat", "gypsum.board", t), admits: static s => s is PanelSpecification.GypsumBoard { Facer: var facer } && facer != Facer.None);
-    public static readonly PanelKind PlywoodSheathing   = new("plywood-sheathing",   ifcEntity: "IfcPlate",    ifcPredefinedType: "SHEET",      substanceId: "wood.plywood",   authority: ComponentAuthority.Apa,  layup: static (f, t) => Mono(PlyRole.VeneerPly, "wood.plywood", t),                        admits: static s => s is PanelSpecification.WoodPanel);
-    public static readonly PanelKind OsbSheathing       = new("osb-sheathing",       ifcEntity: "IfcPlate",    ifcPredefinedType: "SHEET",      substanceId: "wood.osb",       authority: ComponentAuthority.Apa,  layup: static (f, t) => Mono(PlyRole.StrandLayer, "wood.osb", t),                          admits: static s => s is PanelSpecification.WoodPanel);
-    public static readonly PanelKind CementBoard        = new("cement-board",        ifcEntity: "IfcCovering", ifcPredefinedType: "CLADDING",   substanceId: "cement.board",   authority: ComponentAuthority.Astm, layup: static (f, t) => FaceCoreFace(PlyRole.GlassMeshScrim, "glass.scrim", "cement.board", t), admits: static s => s is PanelSpecification.FacedBoard);
-    public static readonly PanelKind CementUnderlayment = new("cement-underlayment", ifcEntity: "IfcCovering", ifcPredefinedType: "FLOORING",   substanceId: "cement.board",   authority: ComponentAuthority.Astm, layup: static (f, t) => FaceCoreFace(PlyRole.GlassMeshScrim, "glass.scrim", "cement.board", t), admits: static s => s is PanelSpecification.FacedBoard);
-    public static readonly PanelKind SteelDeckRoof      = new("steel-deck-roof",     ifcEntity: "IfcPlate",    ifcPredefinedType: "SHEET",      substanceId: "metal.steel",    authority: ComponentAuthority.Sdi,  layup: static (f, t) => Some(Seq<Ply>()),                                                  admits: static s => s is PanelSpecification.DeckSheet { Form.FloorDeck: false });
-    public static readonly PanelKind SteelDeckFloor     = new("steel-deck-floor",    ifcEntity: "IfcSlab",     ifcPredefinedType: "FLOOR",      substanceId: "metal.steel",    authority: ComponentAuthority.Sdi,  layup: static (f, t) => Some(Seq<Ply>()),                                                  admits: static s => s is PanelSpecification.DeckSheet { Form.FloorDeck: true });
-    public static readonly PanelKind RigidBoardEps      = new("rigid-board-eps",     ifcEntity: "IfcCovering", ifcPredefinedType: "INSULATION", substanceId: "insulation.eps", authority: ComponentAuthority.Astm, layup: static (f, t) => FacedFoam(f, "insulation.eps", t),                                 admits: static s => s is PanelSpecification.FoamBoard { Foam: var foam } && foam == FoamType.Eps);
-    public static readonly PanelKind RigidBoardXps      = new("rigid-board-xps",     ifcEntity: "IfcCovering", ifcPredefinedType: "INSULATION", substanceId: "insulation.xps", authority: ComponentAuthority.Astm, layup: static (f, t) => FacedFoam(f, "insulation.xps", t),                                 admits: static s => s is PanelSpecification.FoamBoard { Foam: var foam } && foam == FoamType.Xps);
-    public static readonly PanelKind RigidBoardPoly     = new("rigid-board-poly",    ifcEntity: "IfcCovering", ifcPredefinedType: "INSULATION", substanceId: "insulation.pir", authority: ComponentAuthority.Astm, layup: static (f, t) => FacedFoam(f, "insulation.pir", t),                                 admits: static s => s is PanelSpecification.FoamBoard { Foam: var foam } && foam == FoamType.Polyiso);
+    public static readonly PanelKind GypsumBoard        = new("gypsum-board",        ifcEntity: "IfcCovering", ifcPredefinedType: "CLADDING",   substanceId: "gypsum.board",   authority: ComponentAuthority.Astm, coreRole: Some(PlyRole.GypsumCore),            facing: Some((PlyRole.PaperFace, "paper.face")),      admits: static s => s is PanelSpecification.GypsumBoard { Facer: var facer } && facer == Facer.None);
+    public static readonly PanelKind GypsumCeiling      = new("gypsum-ceiling",      ifcEntity: "IfcCovering", ifcPredefinedType: "CEILING",    substanceId: "gypsum.board",   authority: ComponentAuthority.Astm, coreRole: Some(PlyRole.GypsumCore),            facing: Some((PlyRole.PaperFace, "paper.face")),      admits: static s => s is PanelSpecification.GypsumBoard { Facer: var facer } && facer == Facer.None);
+    public static readonly PanelKind GypsumSheathing    = new("gypsum-sheathing",    ifcEntity: "IfcCovering", ifcPredefinedType: "CLADDING",   substanceId: "gypsum.board",   authority: ComponentAuthority.Astm, coreRole: Some(PlyRole.GypsumCore),            facing: Some((PlyRole.GlassMatFacer, "glass.mat")),   admits: static s => s is PanelSpecification.GypsumBoard { Facer: var facer } && facer != Facer.None);
+    public static readonly PanelKind PlywoodSheathing   = new("plywood-sheathing",   ifcEntity: "IfcPlate",    ifcPredefinedType: "SHEET",      substanceId: "wood.plywood",   authority: ComponentAuthority.Apa,  coreRole: Some(PlyRole.VeneerPly),             facing: None,                                         admits: static s => s is PanelSpecification.WoodPanel);
+    public static readonly PanelKind OsbSheathing       = new("osb-sheathing",       ifcEntity: "IfcPlate",    ifcPredefinedType: "SHEET",      substanceId: "wood.osb",       authority: ComponentAuthority.Apa,  coreRole: Some(PlyRole.StrandLayer),           facing: None,                                         admits: static s => s is PanelSpecification.WoodPanel);
+    public static readonly PanelKind CementBoard        = new("cement-board",        ifcEntity: "IfcCovering", ifcPredefinedType: "CLADDING",   substanceId: "cement.board",   authority: ComponentAuthority.Astm, coreRole: Some(PlyRole.CementAggregateCore),   facing: Some((PlyRole.GlassMeshScrim, "glass.scrim")), admits: static s => s is PanelSpecification.FacedBoard);
+    public static readonly PanelKind CementUnderlayment = new("cement-underlayment", ifcEntity: "IfcCovering", ifcPredefinedType: "FLOORING",   substanceId: "cement.board",   authority: ComponentAuthority.Astm, coreRole: Some(PlyRole.CementAggregateCore),   facing: Some((PlyRole.GlassMeshScrim, "glass.scrim")), admits: static s => s is PanelSpecification.FacedBoard);
+    public static readonly PanelKind SteelDeckRoof      = new("steel-deck-roof",     ifcEntity: "IfcPlate",    ifcPredefinedType: "SHEET",      substanceId: "metal.steel",    authority: ComponentAuthority.Sdi,  coreRole: None,                                facing: None,                                         admits: static s => s is PanelSpecification.DeckSheet { Form.FloorDeck: false });
+    public static readonly PanelKind SteelDeckFloor     = new("steel-deck-floor",    ifcEntity: "IfcSlab",     ifcPredefinedType: "FLOOR",      substanceId: "metal.steel",    authority: ComponentAuthority.Sdi,  coreRole: None,                                facing: None,                                         admits: static s => s is PanelSpecification.DeckSheet { Form.FloorDeck: true });
+    public static readonly PanelKind RigidBoardEps      = new("rigid-board-eps",     ifcEntity: "IfcCovering", ifcPredefinedType: "INSULATION", substanceId: "insulation.eps", authority: ComponentAuthority.Astm, coreRole: Some(PlyRole.FoamCore),              facing: None,                                         admits: static s => s is PanelSpecification.FoamBoard { Foam: var foam } && foam == FoamType.Eps);
+    public static readonly PanelKind RigidBoardXps      = new("rigid-board-xps",     ifcEntity: "IfcCovering", ifcPredefinedType: "INSULATION", substanceId: "insulation.xps", authority: ComponentAuthority.Astm, coreRole: Some(PlyRole.FoamCore),              facing: None,                                         admits: static s => s is PanelSpecification.FoamBoard { Foam: var foam } && foam == FoamType.Xps);
+    public static readonly PanelKind RigidBoardPoly     = new("rigid-board-poly",    ifcEntity: "IfcCovering", ifcPredefinedType: "INSULATION", substanceId: "insulation.pir", authority: ComponentAuthority.Astm, coreRole: Some(PlyRole.FoamCore),              facing: None,                                         admits: static s => s is PanelSpecification.FoamBoard { Foam: var foam } && foam == FoamType.Polyiso);
     // The single-ply roofing sheets carry their live ASTM product specs — D4637 EPDM, D6878 TPO (D6754 is the KEE
     // sheet spec, a different chemistry), D4434 PVC — and admit the ROOFING duty alone.
-    public static readonly PanelKind MembraneEpdm       = new("membrane-epdm",       ifcEntity: "IfcCovering", ifcPredefinedType: "ROOFING",    substanceId: "membrane.epdm",  authority: ComponentAuthority.Astm, layup: static (f, t) => Mono(PlyRole.MembraneCore, "membrane.epdm", t),                     admits: static s => s is PanelSpecification.Membrane { Duty: var duty, Vapor.IsNone: true, Flashing.IsNone: true } && duty == MembraneDuty.Roofing);
-    public static readonly PanelKind MembranePvc        = new("membrane-pvc",        ifcEntity: "IfcCovering", ifcPredefinedType: "ROOFING",    substanceId: "membrane.pvc",   authority: ComponentAuthority.Astm, layup: static (f, t) => Mono(PlyRole.MembraneCore, "membrane.pvc", t),                      admits: static s => s is PanelSpecification.Membrane { Duty: var duty, Vapor.IsNone: true, Flashing.IsNone: true } && duty == MembraneDuty.Roofing);
-    public static readonly PanelKind MembraneTpo        = new("membrane-tpo",        ifcEntity: "IfcCovering", ifcPredefinedType: "ROOFING",    substanceId: "membrane.tpo",   authority: ComponentAuthority.Astm, layup: static (f, t) => Mono(PlyRole.MembraneCore, "membrane.tpo", t),                      admits: static s => s is PanelSpecification.Membrane { Duty: var duty, Vapor.IsNone: true, Flashing.IsNone: true } && duty == MembraneDuty.Roofing);
-    // The barrier and flashing sheets ride the SAME Membrane case at their own duty, each kind stamping the
-    // Ifc2X3-valid MEMBRANE covering token. Their substances are property-library obligations registered with the
-    // family: a spun-bond wrap, a PE film, and a rubberized-asphalt sheet are not roofing chemistries.
-    public static readonly PanelKind AirBarrier         = new("air-barrier",         ifcEntity: "IfcCovering", ifcPredefinedType: "MEMBRANE",   substanceId: "membrane.wrap",  authority: ComponentAuthority.Astm, layup: static (f, t) => Mono(PlyRole.MembraneCore, "membrane.wrap", t),                     admits: static s => s is PanelSpecification.Membrane { Duty: var duty, Vapor.IsNone: true, Flashing.IsNone: true } && duty == MembraneDuty.AirBarrier);
-    public static readonly PanelKind VapourRetarder     = new("vapour-retarder",     ifcEntity: "IfcCovering", ifcPredefinedType: "MEMBRANE",   substanceId: "membrane.pe",    authority: ComponentAuthority.Astm, layup: static (f, t) => Mono(PlyRole.MembraneCore, "membrane.pe", t),                       admits: static s => s is PanelSpecification.Membrane { Duty: var duty, Vapor.IsSome: true, Flashing.IsNone: true } && duty == MembraneDuty.VapourRetarder);
-    public static readonly PanelKind Waterproofing      = new("waterproofing",       ifcEntity: "IfcCovering", ifcPredefinedType: "MEMBRANE",   substanceId: "membrane.sbs",   authority: ComponentAuthority.Astm, layup: static (f, t) => Mono(PlyRole.MembraneCore, "membrane.sbs", t),                      admits: static s => s is PanelSpecification.Membrane { Duty: var duty, Vapor.IsNone: true, Flashing.IsNone: true } && duty == MembraneDuty.Waterproofing);
-    public static readonly PanelKind FlashingMembrane   = new("flashing-membrane",   ifcEntity: "IfcCovering", ifcPredefinedType: "MEMBRANE",   substanceId: "membrane.sbs",   authority: ComponentAuthority.Astm, layup: static (f, t) => Mono(PlyRole.MembraneCore, "membrane.sbs", t),                      admits: static s => s is PanelSpecification.Membrane { Duty: var duty, Vapor.IsNone: true, Flashing.IsSome: true } && duty == MembraneDuty.Flashing);
+    public static readonly PanelKind MembraneEpdm       = new("membrane-epdm",       ifcEntity: "IfcCovering", ifcPredefinedType: "ROOFING",    substanceId: "membrane.epdm",  authority: ComponentAuthority.Astm, coreRole: Some(PlyRole.MembraneCore),          facing: None,                                         admits: static s => s is PanelSpecification.Membrane { Duty: var duty } && duty == MembraneDuty.Roofing);
+    public static readonly PanelKind MembranePvc        = new("membrane-pvc",        ifcEntity: "IfcCovering", ifcPredefinedType: "ROOFING",    substanceId: "membrane.pvc",   authority: ComponentAuthority.Astm, coreRole: Some(PlyRole.MembraneCore),          facing: None,                                         admits: static s => s is PanelSpecification.Membrane { Duty: var duty } && duty == MembraneDuty.Roofing);
+    public static readonly PanelKind MembraneTpo        = new("membrane-tpo",        ifcEntity: "IfcCovering", ifcPredefinedType: "ROOFING",    substanceId: "membrane.tpo",   authority: ComponentAuthority.Astm, coreRole: Some(PlyRole.MembraneCore),          facing: None,                                         admits: static s => s is PanelSpecification.Membrane { Duty: var duty } && duty == MembraneDuty.Roofing);
+    // The barrier and flashing sheets ride the SAME Membrane case at their own duty, each stamping the Ifc2X3-valid
+    // MEMBRANE covering token. Their substances are property-library obligations registered with the family: a
+    // spun-bond wrap, a PE film, and a rubberized-asphalt sheet are not roofing chemistries.
+    public static readonly PanelKind AirBarrier         = new("air-barrier",         ifcEntity: "IfcCovering", ifcPredefinedType: "MEMBRANE",   substanceId: "membrane.wrap",  authority: ComponentAuthority.Astm, coreRole: Some(PlyRole.MembraneCore),          facing: None,                                         admits: static s => s is PanelSpecification.Membrane { Duty: var duty } && duty == MembraneDuty.AirBarrier);
+    public static readonly PanelKind VapourRetarder     = new("vapour-retarder",     ifcEntity: "IfcCovering", ifcPredefinedType: "MEMBRANE",   substanceId: "membrane.pe",    authority: ComponentAuthority.Astm, coreRole: Some(PlyRole.MembraneCore),          facing: None,                                         admits: static s => s is PanelSpecification.Membrane { Duty: var duty } && duty == MembraneDuty.VapourRetarder);
+    public static readonly PanelKind Waterproofing      = new("waterproofing",       ifcEntity: "IfcCovering", ifcPredefinedType: "MEMBRANE",   substanceId: "membrane.sbs",   authority: ComponentAuthority.Astm, coreRole: Some(PlyRole.MembraneCore),          facing: None,                                         admits: static s => s is PanelSpecification.Membrane { Duty: var duty } && duty == MembraneDuty.Waterproofing);
+    public static readonly PanelKind FlashingMembrane   = new("flashing-membrane",   ifcEntity: "IfcCovering", ifcPredefinedType: "MEMBRANE",   substanceId: "membrane.sbs",   authority: ComponentAuthority.Astm, coreRole: Some(PlyRole.MembraneCore),          facing: None,                                         admits: static s => s is PanelSpecification.Membrane { Duty: var duty } && duty == MembraneDuty.Flashing);
+
     public string IfcEntity { get; }
     public string IfcPredefinedType { get; }
     public string SubstanceId { get; }
     public ComponentAuthority Authority { get; }   // the kind's OWN standards body — ASTM boards/foams/membranes, APA wood panels, SDI deck; never one blended authority
+    public Option<PlyRole> CoreRole { get; }
+    public Option<(PlyRole Role, string MaterialId)> Facing { get; }
     public MaterialId Substance => MaterialId.Of(SubstanceId);
 
-    // The shared bounded PlyRole keeps layer policy typed through section and appearance projection. A layup answers
-    // ABSENCE where the board's own thickness cannot carry the stack its kind implies.
-    [UseDelegateFromConstructor]
-    public partial Option<Seq<Ply>> Layup(Facer facer, PositiveMagnitude thickness);
-
-    // Which product payload this kind admits — a ROW COLUMN beside the layup it pairs with, so a new kind declares
-    // its own admissible payload where it declares everything else about itself. The previous six-arm switch over
-    // the specification family named PanelKind identities inside its arms, which meant the specification union knew
-    // the whole kind roster by name and a new kind had to be added in two places that could disagree.
+    // Which product payload this kind admits — a ROW COLUMN beside the data it pairs with, so a new kind declares
+    // its admissible payload where it declares everything else about itself. The previous six-arm switch over the
+    // specification family named PanelKind identities inside its arms, which meant the specification union knew the
+    // whole kind roster by name and a new kind had to be added in two places that could disagree. The membrane
+    // rows no longer restate the option-presence pairing that MembraneDuty itself decides — that is the payload's
+    // own coherence, proven once at the seed census.
     [UseDelegateFromConstructor]
     public partial bool Admits(PanelSpecification specification);
-
-    // The facing thicknesses are AUTHORED policy — Provenance.Authored, not published product data: no admitted
-    // producer prints a paper, glass-mat, scrim, or foil facing thickness, and the layup needs a real number for the
-    // ply stack to sum to the board. They are named constants so the value has ONE site and a later published read
-    // replaces it once, rather than a bare literal recurring inside two layup builders.
-    const double BoardFacingMm = 0.5;   // AUTHORED: paper / glass-mat / mesh-scrim board facing
-    const double FoamFacingMm = 0.2;    // AUTHORED: foil / glass-fibre-mat rigid-board facing
-
-    // Two thin faces over a core the remainder. The core is what the board has LEFT after its facings, so a board
-    // thinner than its own facings has no core at all — a DEGENERATE build, and the layup says so rather than
-    // clamping the remainder up to a facing thickness and returning a stack whose plies out-sum the board they
-    // describe. That clamp broke the laminate-sum guarantee Component.Of exists to hold, silently, for every board
-    // under 1.5 mm.
-    static Option<Seq<Ply>> FaceCoreFace(PlyRole face, string faceId, string coreId, PositiveMagnitude t) =>
-        Some(t.Value - 2.0 * BoardFacingMm)
-            .Filter(static core => core > 0.0)
-            .Map(core => Seq(
-                new Ply(MaterialId.Of(faceId), PositiveMagnitude.Create(BoardFacingMm), face),
-                new Ply(MaterialId.Of(coreId), PositiveMagnitude.Create(core), face == PlyRole.GlassMeshScrim ? PlyRole.CementAggregateCore : PlyRole.GypsumCore),
-                new Ply(MaterialId.Of(faceId), PositiveMagnitude.Create(BoardFacingMm), face)));
-
-    // One homogeneous ply the host subdivides (veneer plies, strand mat, membrane sheet) — always well-formed.
-    static Option<Seq<Ply>> Mono(PlyRole role, string substanceId, PositiveMagnitude t) =>
-        Some(Seq(new Ply(MaterialId.Of(substanceId), t, role)));
-
-    // Facer/foam-core/facer rigid board. The facer's own Faces COUNT is the geometry, so every arm is reachable by
-    // data: 0 is the bare core, 1 a single-faced board, 2 the mirrored layup. The core is again the remainder and
-    // again refuses rather than fabricates.
-    static Option<Seq<Ply>> FacedFoam(Facer facer, string foamId, PositiveMagnitude t) =>
-        facer.Faces is 0
-            ? Some(Seq(new Ply(MaterialId.Of(foamId), t, PlyRole.FoamCore)))
-            : Some(t.Value - FoamFacingMm * facer.Faces)
-                .Filter(static core => core > 0.0)
-                .Map(core => {
-                    Ply skin = new(MaterialId.Of($"facer.{facer.Key}"), PositiveMagnitude.Create(FoamFacingMm), facer.Role);
-                    Ply centre = new(MaterialId.Of(foamId), PositiveMagnitude.Create(core), PlyRole.FoamCore);
-                    return facer.Faces >= 2 ? Seq(skin, centre, skin) : Seq(skin, centre);
-                });
 }
 
-// The board-edge axis the coursing reads to butt or lap adjacent boards: Lapped flags an interlocking edge the
-// spec sheathing stage overlaps; GapMm is the board-to-board coursing gap (0 for a nesting edge, the ~3 mm
-// control gap for a butt edge).
+// The board-edge axis the coursing reads to butt or lap adjacent boards. GapMm DERIVES from Lapped — every lapped
+// edge nests at zero and every butt edge takes the one control gap — so the column that restated the flag in eight
+// rows is gone and the value it carried is the read below.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EdgeProfile {
-    public static readonly EdgeProfile Square           = new("square",             lapped: false, gapMm: 3.0);
-    public static readonly EdgeProfile Tapered          = new("tapered",            lapped: false, gapMm: 3.0);   // ASTM C1396 recessed long edge for the joint-compound feather
-    public static readonly EdgeProfile Beveled          = new("beveled",            lapped: false, gapMm: 3.0);
-    public static readonly EdgeProfile Rounded          = new("rounded",            lapped: false, gapMm: 3.0);
-    public static readonly EdgeProfile TongueGroove     = new("tongue-groove",      lapped: true,  gapMm: 0.0);
-    public static readonly EdgeProfile Shiplap          = new("shiplap",            lapped: true,  gapMm: 0.0);
-    public static readonly EdgeProfile SideLapInterlock = new("side-lap-interlock", lapped: true,  gapMm: 0.0);   // SDI deck nestable side-lap seam
-    public static readonly EdgeProfile LappedSeam       = new("lapped-seam",        lapped: true,  gapMm: 0.0);
+    public static readonly EdgeProfile Square           = new("square",             lapped: false);
+    public static readonly EdgeProfile Tapered          = new("tapered",            lapped: false);   // ASTM C1396 recessed long edge for the joint-compound feather
+    public static readonly EdgeProfile Beveled          = new("beveled",            lapped: false);
+    public static readonly EdgeProfile Rounded          = new("rounded",            lapped: false);
+    public static readonly EdgeProfile TongueGroove     = new("tongue-groove",      lapped: true);
+    public static readonly EdgeProfile Shiplap          = new("shiplap",            lapped: true);
+    public static readonly EdgeProfile SideLapInterlock = new("side-lap-interlock", lapped: true);    // SDI deck nestable side-lap seam
+    public static readonly EdgeProfile LappedSeam       = new("lapped-seam",        lapped: true);
     public bool Lapped { get; }
-    public double GapMm { get; }
+
+    const double ButtControlGapMm = 3.0;   // the board-to-board coursing gap a non-nesting edge leaves
+    public double GapMm => Lapped ? 0.0 : ButtControlGapMm;
 }
 
-// The strength-axis run direction the spec sheathing stage orients the run by; AcrossFrame flags the
-// staggered-joint perpendicular lay.
+// The strength-axis run direction the spec sheathing stage orients the run by. The prior AcrossFrame column was a
+// projection of the row identity — true for the perpendicular row and nothing else — so the probe is the row.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PanelOrientation {
-    public static readonly PanelOrientation StrengthAxisPerpendicular = new("strength-axis-perpendicular",    acrossFrame: true);
-    public static readonly PanelOrientation StrengthAxisParallel      = new("strength-axis-parallel-to-span", acrossFrame: false);
-    public static readonly PanelOrientation Unidirectional            = new("unidirectional",                 acrossFrame: false);
-    public bool AcrossFrame { get; }
+    public static readonly PanelOrientation StrengthAxisPerpendicular = new("strength-axis-perpendicular");
+    public static readonly PanelOrientation StrengthAxisParallel      = new("strength-axis-parallel-to-span");
+    public static readonly PanelOrientation Unidirectional            = new("unidirectional");
 }
 
-// ASTM C1396 gypsum core formulation; FireRated flags a Type-X/C core the fire-rating seam reads.
+// ASTM C1396 gypsum core formulation; FireRated flags a Type-X/C core the fire-rating seam reads — a genuine
+// seven-row column with two true, which the row identity cannot reconstruct.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -171,22 +141,20 @@ public sealed partial class CoreType {
     public bool FireRated { get; }
 }
 
-// APA / EN 13986 wood-structural-panel exposure/bond durability. The all-false "none" row is DELETED: a wood panel
-// has a bond class, and a board that is not a wood panel carries no BondClass at all — the specification union
-// already says which is which, so the sentinel row modelled a state the payload timing makes unreachable.
+// APA / EN 13986 wood-structural-panel exposure/bond durability. The all-false "none" row was deleted with the
+// payload timing that made it unreachable, and the Exterior column with it — it was the identity of a two-row
+// table, so `bond == BondClass.Exterior` is the probe.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BondClass {
-    public static readonly BondClass Exposure1 = new("exposure-1", exterior: false);
-    public static readonly BondClass Exterior  = new("exterior",   exterior: true);
-    public bool Exterior { get; }
+    public static readonly BondClass Exposure1 = new("exposure-1");
+    public static readonly BondClass Exterior  = new("exterior");
 }
 
 // Rigid-board foam chemistry (ASTM C578 EPS/XPS, C1289 polyiso): the design R-per-inch POLICY the seed-computed
 // thermal receipt reads, and the published compressive strength. PUBLISHED design values; polyiso is the aged LTTR.
-// Both scalars convert to SI at the ROW, so the imperial constants live in one place each rather than inline at the
-// call sites that consume them, and the all-zero "none" row is DELETED — a foam board has a chemistry.
+// Both scalars convert to SI at the ROW, so the imperial constants live in one place each.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -201,9 +169,9 @@ public sealed partial class FoamType {
     public double CompressiveStrengthPsi { get; }
     // DEFINED: the SI thermal resistance (m²·K/W) the seed mints into the product bag.
     public double RValueSi(double thicknessMm) => RValuePerInch * (thicknessMm / InchToMm) * RValueIpToSi;
-    // DEFINED: the SI compressive strength (MPa) — the sandwich physics reads it as the core's own crushing bound,
-    // and it crosses the product bag as the load-bearing datum a roof-assembly check needs before it prices foot
-    // traffic or a ballast course over the board.
+    // DEFINED: the SI compressive strength — the sandwich physics reads it as the core's own crushing bound, and it
+    // crosses the product bag as the load-bearing datum a roof-assembly check needs before it prices foot traffic or
+    // a ballast course over the board.
     public double CompressiveStrengthMpa => CompressiveStrengthPsi * PsiToMpa;
 }
 
@@ -225,8 +193,8 @@ public sealed partial class Facer {
 
 // The membrane service axis: which envelope duty a sheet performs, selecting the barrier token the bag stamps and
 // the kind roster that admits it. Barrier flags the duties whose bag carries a DetailSchema.BarrierClass token; the
-// AirPermeanceCeiling constant is the ASTM E2178 material qualification (≤ 0.02 L/(s·m²) @ 75 Pa) an air-barrier
-// duty asserts by its token — permeance itself is product-declared and never fabricated onto a row.
+// AirPermeanceCeiling constant is the ASTM E2178 material qualification an air-barrier duty asserts by its token —
+// permeance itself is product-declared and never fabricated onto a row.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -238,6 +206,15 @@ public sealed partial class MembraneDuty {
     public static readonly MembraneDuty Waterproofing  = new("waterproofing",   barrier: true);
     public static readonly MembraneDuty Flashing       = new("flashing",        barrier: false);
     public bool Barrier { get; }
+
+    // The ONE option-pairing law over the Membrane payload's two axes: a vapour class rides the vapour-retarder duty
+    // ALONE and a flashing form the flashing duty ALONE, which is a fact about THIS row and not about the eight kind
+    // rows that used to restate it inside their admissions. The two conditions are the rows' own identities, so no
+    // column carries them — deriving them here is what let the kind admissions shrink to the discriminant each one
+    // genuinely names, and the seed census now reports an incoherent pairing by name instead of failing an
+    // admission that could only say the kind and the payload disagreed.
+    public bool Coherent(Option<VaporClass> vapor, Option<FlashingKind> flashing) =>
+        vapor.IsSome == (this == VapourRetarder) && flashing.IsSome == (this == Flashing);
 
     // The one BarrierClass token read: a vapour class where the row declares one, the duty's own key otherwise, and
     // absence for the non-barrier duties — so a roofing sheet never stamps a barrier field it does not serve.
@@ -268,12 +245,12 @@ public sealed partial class VaporClass {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FlashingKind {
-    public static readonly FlashingKind DripEdge          = new("drip-edge");
-    public static readonly FlashingKind Step              = new("step");
-    public static readonly FlashingKind Counter           = new("counter");
-    public static readonly FlashingKind Valley            = new("valley");
-    public static readonly FlashingKind ThroughWall       = new("through-wall");
-    public static readonly FlashingKind SelfAdheredStrip  = new("self-adhered-strip");
+    public static readonly FlashingKind DripEdge         = new("drip-edge");
+    public static readonly FlashingKind Step             = new("step");
+    public static readonly FlashingKind Counter          = new("counter");
+    public static readonly FlashingKind Valley           = new("valley");
+    public static readonly FlashingKind ThroughWall      = new("through-wall");
+    public static readonly FlashingKind SelfAdheredStrip = new("self-adhered-strip");
 }
 
 // The board-fastening POLICY axis: each row carries the panel-specific policy (Welded flags a puddle/heat weld the
@@ -281,38 +258,34 @@ public sealed partial class FlashingKind {
 // with) BESIDE the canonical fastener#FASTENER_FAMILY FastenerKind the mechanical rows ARE — a drywall or deck screw
 // is FastenerKind.Screw, a structural or roofing nail FastenerKind.Nail, so the wire token stamps from
 // Kind.IfcPredefinedType exactly as connector#CONNECTOR_FAMILY ConnectorInstall does and the two vocabularies read as
-// policy-versus-kind rather than as sibling spellings of one concept. The prior nine-row parallel FastenerType in this
-// same Rasm.Materials.Component namespace was the duplicated token roster the connector page's own settled law
-// forbids. A welded or bonded row carries NO FastenerKind — an arc-spot weld, a heat weld, and an adhesive bead are
-// not mechanical fasteners — so FastenerToken falls back to the row's own canonical key rather than fabricating an
-// IfcMechanicalFastener predefined value the schema does not carry.
+// policy-versus-kind rather than as sibling spellings of one concept. A welded or bonded row carries NO FastenerKind
+// — an arc-spot weld, a heat weld, and an adhesive bead are not mechanical fasteners.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PanelFastening {
-    public static readonly PanelFastening DrywallScrew   = new("drywall-screw",   kind: Some(FastenerKind.Screw), welded: false, shankMm: Some(3.5),   appearanceId: "metal.steel");   // ASTM C1002 bugle-head #6
-    public static readonly PanelFastening StructuralNail = new("structural-nail", kind: Some(FastenerKind.Nail),  welded: false, shankMm: Some(3.33),  appearanceId: "metal.steel");   // 8d common, the APA edge/field schedule
-    public static readonly PanelFastening StructuralNail10d = new("structural-nail-10d", kind: Some(FastenerKind.Nail), welded: false, shankMm: Some(3.76), appearanceId: "metal.steel");
-    public static readonly PanelFastening RoofingNail    = new("roofing-nail",    kind: Some(FastenerKind.Nail),  welded: false, shankMm: Some(3.05),  appearanceId: "metal.steel");
-    public static readonly PanelFastening DeckWeld       = new("deck-weld",       kind: None,                     welded: true,  shankMm: None,        appearanceId: "metal.steel");   // SDI arc-spot puddle weld
-    public static readonly PanelFastening DeckScrew      = new("deck-screw",      kind: Some(FastenerKind.Screw), welded: false, shankMm: Some(4.83),  appearanceId: "metal.steel");   // SDI self-drilling #12
-    public static readonly PanelFastening PlateAndScrew  = new("plate-and-screw", kind: Some(FastenerKind.Screw), welded: false, shankMm: Some(4.83),  appearanceId: "metal.steel");
-    public static readonly PanelFastening Adhesive       = new("adhesive",        kind: None,                     welded: false, shankMm: None,        appearanceId: "adhesive.bead");
-    public static readonly PanelFastening HeatWeld       = new("heat-weld",       kind: None,                     welded: true,  shankMm: None,        appearanceId: "membrane.seam");
-    public static readonly PanelFastening SeamAdhesive   = new("seam-adhesive",   kind: None,                     welded: false, shankMm: None,        appearanceId: "adhesive.bead");
+    public static readonly PanelFastening DrywallScrew      = new("drywall-screw",        kind: Some(FastenerKind.Screw), welded: false, shankMm: Some(3.5),   appearanceId: "metal.steel");   // ASTM C1002 bugle-head #6
+    public static readonly PanelFastening StructuralNail    = new("structural-nail",      kind: Some(FastenerKind.Nail),  welded: false, shankMm: Some(3.33),  appearanceId: "metal.steel");   // 8d common, the APA edge/field schedule
+    public static readonly PanelFastening StructuralNail10d = new("structural-nail-10d",  kind: Some(FastenerKind.Nail),  welded: false, shankMm: Some(3.76),  appearanceId: "metal.steel");
+    public static readonly PanelFastening RoofingNail       = new("roofing-nail",         kind: Some(FastenerKind.Nail),  welded: false, shankMm: Some(3.05),  appearanceId: "metal.steel");
+    public static readonly PanelFastening DeckWeld          = new("deck-weld",            kind: None,                     welded: true,  shankMm: None,        appearanceId: "metal.steel");   // SDI arc-spot puddle weld
+    public static readonly PanelFastening DeckScrew         = new("deck-screw",           kind: Some(FastenerKind.Screw), welded: false, shankMm: Some(4.83),  appearanceId: "metal.steel");   // SDI self-drilling #12
+    public static readonly PanelFastening PlateAndScrew     = new("plate-and-screw",      kind: Some(FastenerKind.Screw), welded: false, shankMm: Some(4.83),  appearanceId: "metal.steel");
+    public static readonly PanelFastening Adhesive          = new("adhesive",             kind: None,                     welded: false, shankMm: None,        appearanceId: "adhesive.bead");
+    public static readonly PanelFastening HeatWeld          = new("heat-weld",            kind: None,                     welded: true,  shankMm: None,        appearanceId: "membrane.seam");
+    public static readonly PanelFastening SeamAdhesive      = new("seam-adhesive",        kind: None,                     welded: false, shankMm: None,        appearanceId: "adhesive.bead");
     public Option<FastenerKind> Kind { get; }
     public bool Welded { get; }
     // The published shank diameter — the SIZE datum that makes a nailing schedule a design input rather than a
     // drawing note. A shear-wall unit shear is keyed on panel grade, panel thickness, NAIL SIZE, and edge spacing;
-    // with the size living only in a comment, three of those four keys were expressible and the fourth was not, so
-    // no lateral capacity could be formed from a row at all. A welded or bonded fastening carries no shank.
+    // with the size living only in a comment, three of those four keys were expressible and the fourth was not.
     public Option<double> ShankDiameterMm { get; }
     public string AppearanceId { get; }
 
-    // The IFC predefined value where a canonical mechanical kind exists — and NOTHING where one does not. The
-    // previous projection fell back to this row's own key, which put "heat-weld" and "adhesive" into a field whose
-    // vocabulary is IfcMechanicalFastenerTypeEnum: a Bim reader recovering that token reads a mechanical fastener
-    // type the schema never defined. A weld and a bond are not mechanical fasteners, and absence says so.
+    // The IFC predefined value where a canonical mechanical kind exists — and NOTHING where one does not. The prior
+    // projection fell back to this row's own key, which put "heat-weld" and "adhesive" into a field whose vocabulary
+    // is IfcMechanicalFastenerTypeEnum: a Bim reader recovering that token reads a fastener type the schema never
+    // defined. A weld and a bond are not mechanical fasteners, and absence says so.
     public Option<string> FastenerToken => Kind.Map(static kind => kind.IfcPredefinedType);
 }
 
@@ -331,27 +304,27 @@ public sealed partial class DeckForm {
 // Deck rib geometry as a FROZEN printed-data row. The six columns are the profile as its publisher prints it: depth,
 // pitch, coverage, both FLANGE FLATS, and the STEEL GRADE the profile is rolled in. Both flats are stored because
 // both are printed — the top flat was previously derived from an authored pitch FRACTION invented to stand in for a
-// printed dimension, which made a published number look derived and put the fiction one column away from the data.
-// The grade is a row column for the same reason it is a published fact: the roof-deck series is rolled across the SS
-// grade band while the composite series is capped at Grade 50, a limit the standard sets so the shear-transfer
-// embossments do not crack, and reading that off a yield threshold rather than the row inverted the dependency.
-// Provenance is per-ROW because the two series do not share it: SDI standardizes only the roof-deck profiles, so
-// their flats are PUBLISHED, while every composite profile is proprietary and its flats reach one publisher only.
+// printed dimension, which made a published number look derived. The grade is a MaterialGrade row for the same
+// reason it is a published fact: the roof-deck series is rolled across the SS grade band while the composite series
+// is capped at Grade 50, a limit the standard sets so the shear-transfer embossments do not crack, and reading that
+// off a yield threshold rather than the row inverted the dependency. Evidence is per-ROW because the two series do
+// not share it: SDI standardizes only the roof-deck profiles, so their flats are catalogued, while every composite
+// profile is proprietary and its flats reach one publisher only.
 public readonly record struct DeckProfileRow(
     string Key, double RibDepthMm, double RibPitchMm, double CoverageMm,
-    double TopFlatMm, double BottomFlatMm, SteelGrade Grade, Provenance Source);
+    double TopFlatMm, double BottomFlatMm, MaterialGrade Grade, EvidenceGrade Source);
 
 // The roof-deck series is the SDI standard profile set — narrow, intermediate, wide, and deep rib — whose flats
-// satisfy the standard's own identity that the top flat and the rib opening sum to the pitch. The composite series is
-// proprietary geometry: a manufacturer names it, no standard standardizes it, and the roster says so on the row.
+// satisfy the standard's own identity that the top flat and the rib opening sum to the pitch. The composite series
+// is proprietary geometry: a manufacturer names it, no standard standardizes it, and the roster says so on the row.
 public static class DeckProfiles {
-    public static readonly DeckProfileRow NarrowRibA    = new("narrow-rib-a",   38.1, 152.4, 914.4, 127.0,  9.5,  SteelGrade.A653Gr33, Provenance.Published);   // SDI NR: 5in top, 3/8in bottom
-    public static readonly DeckProfileRow IntermediateF = new("intermediate-f", 38.1, 152.4, 914.4, 108.0, 12.7,  SteelGrade.A653Gr33, Provenance.Published);   // SDI IR: 4-1/4in top, 1/2in bottom
-    public static readonly DeckProfileRow WideRibB      = new("wide-rib-b",     38.1, 152.4, 914.4,  88.9, 39.7,  SteelGrade.A653Gr50, Provenance.Published);   // SDI WR: 3-1/2in top, 1-9/16in bottom
-    public static readonly DeckProfileRow DeepN         = new("deep-n",         76.2, 203.2, 609.6, 133.4, 38.1,  SteelGrade.A653Gr50, Provenance.Published);   // SDI 3DR: 5-1/4in top, 1-1/2in bottom
-    public static readonly DeckProfileRow Composite15   = new("composite-15",   38.1, 152.4, 914.4,  88.9, 44.5,  SteelGrade.A653Gr50, Provenance.Authored);
-    public static readonly DeckProfileRow Composite2Vli = new("composite-2vli", 50.8, 304.8, 914.4, 127.0, 127.0, SteelGrade.A653Gr50, Provenance.Authored);
-    public static readonly DeckProfileRow Composite3Vli = new("composite-3vli", 76.2, 304.8, 914.4, 120.7, 120.7, SteelGrade.A653Gr50, Provenance.Authored);
+    public static readonly DeckProfileRow NarrowRibA    = new("narrow-rib-a",   38.1, 152.4, 914.4, 127.0,  9.5,  MaterialGrade.A653Gr33, EvidenceGrade.Catalogue);   // SDI NR: 5in top, 3/8in bottom
+    public static readonly DeckProfileRow IntermediateF = new("intermediate-f", 38.1, 152.4, 914.4, 108.0, 12.7,  MaterialGrade.A653Gr33, EvidenceGrade.Catalogue);   // SDI IR: 4-1/4in top, 1/2in bottom
+    public static readonly DeckProfileRow WideRibB      = new("wide-rib-b",     38.1, 152.4, 914.4,  88.9, 39.7,  MaterialGrade.A653Gr50, EvidenceGrade.Catalogue);   // SDI WR: 3-1/2in top, 1-9/16in bottom
+    public static readonly DeckProfileRow DeepN         = new("deep-n",         76.2, 203.2, 609.6, 133.4, 38.1,  MaterialGrade.A653Gr50, EvidenceGrade.Catalogue);   // SDI 3DR: 5-1/4in top, 1-1/2in bottom
+    public static readonly DeckProfileRow Composite15   = new("composite-15",   38.1, 152.4, 914.4,  88.9, 44.5,  MaterialGrade.A653Gr50, EvidenceGrade.User);
+    public static readonly DeckProfileRow Composite2Vli = new("composite-2vli", 50.8, 304.8, 914.4, 127.0, 127.0, MaterialGrade.A653Gr50, EvidenceGrade.User);
+    public static readonly DeckProfileRow Composite3Vli = new("composite-3vli", 76.2, 304.8, 914.4, 120.7, 120.7, MaterialGrade.A653Gr50, EvidenceGrade.User);
     public static readonly ImmutableArray<DeckProfileRow> Rows = [NarrowRibA, IntermediateF, WideRibB, DeepN, Composite15, Composite2Vli, Composite3Vli];
 }
 
@@ -395,11 +368,9 @@ public static class SpanRatings {
 // current edition publishes a single vn applicable to both wind and seismic, and the hazard distinction is the
 // capacity#SECTION_CAPACITY LateralHazard reduction applied downstream. Earlier editions tabulated a wind column
 // beside a seismic one, so seeding a second column here would fork the table this transcribes and re-import a
-// distinction the standard deleted. Values are the PUBLISHED plf converted once — a pre-rounded kN/m column would
-// hide which digits the standard printed behind a conversion the reader has to invert.
-// Every cell is Option because coverage is genuinely partial: a configuration the standard tabulates but this corpus
-// could not corroborate carries absence rather than a number resting on one reading, and the resolution then reports
-// not-applicable instead of pricing an assembly off an unverified cell.
+// distinction the standard deleted. Values are the PUBLISHED plf converted once. Every cell is Option because
+// coverage is genuinely partial: a configuration the standard tabulates but this corpus could not corroborate
+// carries absence rather than a number resting on one reading.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WspGrade {
@@ -426,7 +397,9 @@ public sealed partial class SheathingNail {
 
 // How the sheathed assembly carries its in-plane shear — the axis selecting WHICH published table prices it. A shear
 // wall and a blocked diaphragm are different tables at the same nailing, and an unblocked diaphragm is a third whose
-// columns are load CASES rather than edge spacings, so one row cannot serve all three.
+// columns are load CASES rather than edge spacings, so one row cannot serve all three. The generated Switch is what
+// binds them: a fourth assembly breaks every reader at compile time where the prior key-string ladder with its
+// catch-all would have priced it silently off the unblocked table.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LateralAssembly {
@@ -439,20 +412,20 @@ public sealed partial class LateralAssembly {
 // spacing is 12 in o.c. throughout the table, so it is the table's law rather than a per-row column.
 public readonly record struct ShearWallRow(
     WspGrade Grade, double PanelThicknessIn, SheathingNail Nail,
-    Option<double> At6In, Option<double> At4In, Option<double> At3In, Option<double> At2In, Provenance Source);
+    Option<double> At6In, Option<double> At4In, Option<double> At3In, Option<double> At2In, EvidenceGrade Source);
 
 // A blocked-diaphragm row: the four published boundary/other-edge spacing PAIRS at one grade, nail, thickness, and
 // minimum framing width. Framing width is a real column here (it is not one in the shear-wall table, whose 3 in
 // requirement rides a footnote instead), so a 2 in and a 3 in row are distinct rows rather than one row with a factor.
 public readonly record struct BlockedDiaphragmRow(
     WspGrade Grade, SheathingNail Nail, double PanelThicknessIn, double FramingWidthIn,
-    Option<double> At6And6, Option<double> At4And6, Option<double> At2Half4, Option<double> At2And3, Provenance Source);
+    Option<double> At6And6, Option<double> At4And6, Option<double> At2Half4, Option<double> At2And3, EvidenceGrade Source);
 
 // An unblocked-diaphragm row: nails at 6 in o.c. throughout, the two columns being the load CASE — case 1 (framing
 // and continuous panel joints parallel to load) against the remaining cases.
 public readonly record struct UnblockedDiaphragmRow(
     WspGrade Grade, SheathingNail Nail, double PanelThicknessIn, double FramingWidthIn,
-    Option<double> Case1, Option<double> Cases2To6, Provenance Source);
+    Option<double> Case1, Option<double> Cases2To6, EvidenceGrade Source);
 
 public static class LateralShear {
     public const double InchToMm = 25.4;
@@ -469,90 +442,93 @@ public static class LateralShear {
     // Douglas-Fir-Larch or Southern Pine scales by the specific-gravity adjustment factor; a 10d row scales by 0.92
     // where overturning tension is resisted by a hold-down on the inside face of the end post.
     public static readonly ImmutableArray<ShearWallRow> ShearWalls = [
-        new(WspGrade.StructuralI, 0.3125, SheathingNail.Sixd,   Plf(560),  Plf(840),  Plf(1090), Plf(1430), Provenance.Published),
-        new(WspGrade.StructuralI, 0.3750, SheathingNail.Eightd, Plf(645),  Plf(1010), Plf(1290), Plf(1710), Provenance.Published),
-        new(WspGrade.StructuralI, 0.4375, SheathingNail.Eightd, Plf(715),  Plf(1105), Plf(1415), Plf(1875), Provenance.Published),
-        new(WspGrade.StructuralI, 0.4688, SheathingNail.Eightd, Plf(785),  Plf(1205), Plf(1540), Plf(2045), Provenance.Published),
-        new(WspGrade.StructuralI, 0.4688, SheathingNail.Tend,   Plf(950),  Plf(1430), Plf(1860), Plf(2435), Provenance.Published),
-        new(WspGrade.Sheathing,   0.3125, SheathingNail.Sixd,   Plf(505),  Plf(755),  Plf(980),  Plf(1260), Provenance.Published),
-        new(WspGrade.Sheathing,   0.3750, SheathingNail.Sixd,   Plf(560),  Plf(840),  Plf(1090), Plf(1430), Provenance.Published),
-        new(WspGrade.Sheathing,   0.3750, SheathingNail.Eightd, Plf(615),  Plf(895),  Plf(1150), Plf(1485), Provenance.Published),
-        new(WspGrade.Sheathing,   0.4375, SheathingNail.Eightd, Plf(670),  Plf(980),  Plf(1260), Plf(1640), Provenance.Published),
-        new(WspGrade.Sheathing,   0.4688, SheathingNail.Eightd, Plf(730),  Plf(1065), Plf(1370), Plf(1790), Provenance.Published),
-        new(WspGrade.Sheathing,   0.4688, SheathingNail.Tend,   Plf(870),  Plf(1290), Plf(1680), Plf(2155), Provenance.Published),
-        new(WspGrade.Sheathing,   0.5938, SheathingNail.Tend,   Plf(950),  Plf(1430), Plf(1860), Plf(2435), Provenance.Published)];
+        new(WspGrade.StructuralI, 0.3125, SheathingNail.Sixd,   Plf(560),  Plf(840),  Plf(1090), Plf(1430), EvidenceGrade.Catalogue),
+        new(WspGrade.StructuralI, 0.3750, SheathingNail.Eightd, Plf(645),  Plf(1010), Plf(1290), Plf(1710), EvidenceGrade.Catalogue),
+        new(WspGrade.StructuralI, 0.4375, SheathingNail.Eightd, Plf(715),  Plf(1105), Plf(1415), Plf(1875), EvidenceGrade.Catalogue),
+        new(WspGrade.StructuralI, 0.4688, SheathingNail.Eightd, Plf(785),  Plf(1205), Plf(1540), Plf(2045), EvidenceGrade.Catalogue),
+        new(WspGrade.StructuralI, 0.4688, SheathingNail.Tend,   Plf(950),  Plf(1430), Plf(1860), Plf(2435), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   0.3125, SheathingNail.Sixd,   Plf(505),  Plf(755),  Plf(980),  Plf(1260), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   0.3750, SheathingNail.Sixd,   Plf(560),  Plf(840),  Plf(1090), Plf(1430), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   0.3750, SheathingNail.Eightd, Plf(615),  Plf(895),  Plf(1150), Plf(1485), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   0.4375, SheathingNail.Eightd, Plf(670),  Plf(980),  Plf(1260), Plf(1640), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   0.4688, SheathingNail.Eightd, Plf(730),  Plf(1065), Plf(1370), Plf(1790), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   0.4688, SheathingNail.Tend,   Plf(870),  Plf(1290), Plf(1680), Plf(2155), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   0.5938, SheathingNail.Tend,   Plf(950),  Plf(1430), Plf(1860), Plf(2435), EvidenceGrade.Catalogue)];
 
     // Table 4.2A, blocked diaphragms. The Sheathing 5/16 rows and the four 6d/8d rows below them reached one
     // corroborating reading each and therefore carry absence: the 5/16 pair reproduces nowhere outside the standard,
     // and the others corroborate only through a municipal amendment printing an allowable derived from a prior
     // edition, which is a re-derivation rather than a reproduction of the nominal.
     public static readonly ImmutableArray<BlockedDiaphragmRow> BlockedDiaphragms = [
-        new(WspGrade.StructuralI, SheathingNail.Sixd,   0.3125, 2.0, Plf(520),  Plf(700),  Plf(1050), Plf(1175), Provenance.Published),
-        new(WspGrade.StructuralI, SheathingNail.Sixd,   0.3125, 3.0, Plf(590),  Plf(785),  Plf(1175), Plf(1330), Provenance.Published),
-        new(WspGrade.StructuralI, SheathingNail.Eightd, 0.3750, 2.0, Plf(755),  Plf(1010), Plf(1485), Plf(1680), Provenance.Published),
-        new(WspGrade.StructuralI, SheathingNail.Eightd, 0.3750, 3.0, Plf(840),  Plf(1120), Plf(1680), Plf(1890), Provenance.Published),
-        new(WspGrade.StructuralI, SheathingNail.Tend,   0.4688, 2.0, Plf(895),  Plf(1190), Plf(1790), Plf(2045), Provenance.Published),
-        new(WspGrade.StructuralI, SheathingNail.Tend,   0.4688, 3.0, Plf(1010), Plf(1345), Plf(2015), Plf(2295), Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Sixd,   0.3125, 2.0, Uncorroborated, Uncorroborated, Uncorroborated, Uncorroborated, Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Sixd,   0.3125, 3.0, Uncorroborated, Uncorroborated, Uncorroborated, Uncorroborated, Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Sixd,   0.3750, 2.0, Uncorroborated, Uncorroborated, Uncorroborated, Uncorroborated, Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Sixd,   0.3750, 3.0, Uncorroborated, Uncorroborated, Uncorroborated, Uncorroborated, Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.3750, 2.0, Uncorroborated, Uncorroborated, Uncorroborated, Uncorroborated, Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.3750, 3.0, Plf(755),  Plf(1010), Plf(1510), Plf(1710), Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.4375, 2.0, Uncorroborated, Uncorroborated, Uncorroborated, Uncorroborated, Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.4375, 3.0, Plf(800),  Plf(1065), Plf(1595), Plf(1805), Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.4688, 2.0, Plf(755),  Plf(1010), Plf(1485), Plf(1680), Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.4688, 3.0, Plf(840),  Plf(1120), Plf(1680), Plf(1890), Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Tend,   0.4688, 2.0, Plf(810),  Plf(1080), Plf(1610), Plf(1835), Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Tend,   0.4688, 3.0, Plf(910),  Plf(1205), Plf(1820), Plf(2060), Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Tend,   0.5938, 2.0, Plf(895),  Plf(1190), Plf(1790), Plf(2045), Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Tend,   0.5938, 3.0, Plf(1010), Plf(1345), Plf(2015), Plf(2295), Provenance.Published)];
+        new(WspGrade.StructuralI, SheathingNail.Sixd,   0.3125, 2.0, Plf(520),  Plf(700),  Plf(1050), Plf(1175), EvidenceGrade.Catalogue),
+        new(WspGrade.StructuralI, SheathingNail.Sixd,   0.3125, 3.0, Plf(590),  Plf(785),  Plf(1175), Plf(1330), EvidenceGrade.Catalogue),
+        new(WspGrade.StructuralI, SheathingNail.Eightd, 0.3750, 2.0, Plf(755),  Plf(1010), Plf(1485), Plf(1680), EvidenceGrade.Catalogue),
+        new(WspGrade.StructuralI, SheathingNail.Eightd, 0.3750, 3.0, Plf(840),  Plf(1120), Plf(1680), Plf(1890), EvidenceGrade.Catalogue),
+        new(WspGrade.StructuralI, SheathingNail.Tend,   0.4688, 2.0, Plf(895),  Plf(1190), Plf(1790), Plf(2045), EvidenceGrade.Catalogue),
+        new(WspGrade.StructuralI, SheathingNail.Tend,   0.4688, 3.0, Plf(1010), Plf(1345), Plf(2015), Plf(2295), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Sixd,   0.3125, 2.0, Uncorroborated, Uncorroborated, Uncorroborated, Uncorroborated, EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Sixd,   0.3125, 3.0, Uncorroborated, Uncorroborated, Uncorroborated, Uncorroborated, EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Sixd,   0.3750, 2.0, Uncorroborated, Uncorroborated, Uncorroborated, Uncorroborated, EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Sixd,   0.3750, 3.0, Uncorroborated, Uncorroborated, Uncorroborated, Uncorroborated, EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.3750, 2.0, Uncorroborated, Uncorroborated, Uncorroborated, Uncorroborated, EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.3750, 3.0, Plf(755),  Plf(1010), Plf(1510), Plf(1710), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.4375, 2.0, Uncorroborated, Uncorroborated, Uncorroborated, Uncorroborated, EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.4375, 3.0, Plf(800),  Plf(1065), Plf(1595), Plf(1805), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.4688, 2.0, Plf(755),  Plf(1010), Plf(1485), Plf(1680), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.4688, 3.0, Plf(840),  Plf(1120), Plf(1680), Plf(1890), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Tend,   0.4688, 2.0, Plf(810),  Plf(1080), Plf(1610), Plf(1835), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Tend,   0.4688, 3.0, Plf(910),  Plf(1205), Plf(1820), Plf(2060), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Tend,   0.5938, 2.0, Plf(895),  Plf(1190), Plf(1790), Plf(2045), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Tend,   0.5938, 3.0, Plf(1010), Plf(1345), Plf(2015), Plf(2295), EvidenceGrade.Catalogue)];
 
     // Table 4.2C, unblocked diaphragms.
     public static readonly ImmutableArray<UnblockedDiaphragmRow> UnblockedDiaphragms = [
-        new(WspGrade.StructuralI, SheathingNail.Sixd,   0.3125, 2.0, Plf(460), Plf(350), Provenance.Published),
-        new(WspGrade.StructuralI, SheathingNail.Sixd,   0.3125, 3.0, Plf(520), Plf(390), Provenance.Published),
-        new(WspGrade.StructuralI, SheathingNail.Eightd, 0.3750, 2.0, Plf(670), Plf(505), Provenance.Published),
-        new(WspGrade.StructuralI, SheathingNail.Eightd, 0.3750, 3.0, Plf(740), Plf(560), Provenance.Published),
-        new(WspGrade.StructuralI, SheathingNail.Tend,   0.4688, 2.0, Plf(800), Plf(600), Provenance.Published),
-        new(WspGrade.StructuralI, SheathingNail.Tend,   0.4688, 3.0, Plf(895), Plf(670), Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Sixd,   0.3125, 2.0, Plf(420), Plf(310), Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Sixd,   0.3125, 3.0, Plf(475), Plf(350), Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Sixd,   0.3750, 2.0, Plf(460), Plf(350), Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Sixd,   0.3750, 3.0, Plf(520), Plf(390), Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.3750, 2.0, Plf(600), Plf(450), Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.3750, 3.0, Plf(670), Plf(505), Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.4375, 2.0, Plf(645), Plf(475), Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.4375, 3.0, Plf(715), Plf(530), Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.4688, 2.0, Plf(670), Plf(505), Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.4688, 3.0, Plf(740), Plf(560), Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Tend,   0.4688, 2.0, Plf(715), Plf(530), Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Tend,   0.4688, 3.0, Plf(810), Plf(600), Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Tend,   0.5938, 2.0, Plf(800), Plf(600), Provenance.Published),
-        new(WspGrade.Sheathing,   SheathingNail.Tend,   0.5938, 3.0, Plf(895), Plf(670), Provenance.Published)];
+        new(WspGrade.StructuralI, SheathingNail.Sixd,   0.3125, 2.0, Plf(460), Plf(350), EvidenceGrade.Catalogue),
+        new(WspGrade.StructuralI, SheathingNail.Sixd,   0.3125, 3.0, Plf(520), Plf(390), EvidenceGrade.Catalogue),
+        new(WspGrade.StructuralI, SheathingNail.Eightd, 0.3750, 2.0, Plf(670), Plf(505), EvidenceGrade.Catalogue),
+        new(WspGrade.StructuralI, SheathingNail.Eightd, 0.3750, 3.0, Plf(740), Plf(560), EvidenceGrade.Catalogue),
+        new(WspGrade.StructuralI, SheathingNail.Tend,   0.4688, 2.0, Plf(800), Plf(600), EvidenceGrade.Catalogue),
+        new(WspGrade.StructuralI, SheathingNail.Tend,   0.4688, 3.0, Plf(895), Plf(670), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Sixd,   0.3125, 2.0, Plf(420), Plf(310), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Sixd,   0.3125, 3.0, Plf(475), Plf(350), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Sixd,   0.3750, 2.0, Plf(460), Plf(350), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Sixd,   0.3750, 3.0, Plf(520), Plf(390), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.3750, 2.0, Plf(600), Plf(450), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.3750, 3.0, Plf(670), Plf(505), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.4375, 2.0, Plf(645), Plf(475), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.4375, 3.0, Plf(715), Plf(530), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.4688, 2.0, Plf(670), Plf(505), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Eightd, 0.4688, 3.0, Plf(740), Plf(560), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Tend,   0.4688, 2.0, Plf(715), Plf(530), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Tend,   0.4688, 3.0, Plf(810), Plf(600), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Tend,   0.5938, 2.0, Plf(800), Plf(600), EvidenceGrade.Catalogue),
+        new(WspGrade.Sheathing,   SheathingNail.Tend,   0.5938, 3.0, Plf(895), Plf(670), EvidenceGrade.Catalogue)];
 
-    // The ONE resolution over all three tables: the assembly selects the table, the configuration selects the row, and
-    // the schedule or load case selects the column. Every miss is TYPED and names what missed — an unlisted
-    // configuration and an uncorroborated cell are different faults, because one means the standard tabulates nothing
-    // and the other means this corpus declined to trust its single reading.
+    // The ONE resolution over all three tables through the assembly's own generated Switch: the assembly selects the
+    // table, the configuration selects the row, and the schedule or load case selects the column. Every miss is TYPED
+    // and names what missed — an unlisted configuration and an uncorroborated cell are different faults, because one
+    // means the standard tabulates nothing and the other means this corpus declined to trust its single reading.
     public static Fin<double> Nominal(
         WspGrade grade, double thicknessIn, SheathingNail nail, LateralAssembly assembly,
         double edgeSpacingIn, double framingWidthIn, int loadCase, Op key) =>
-        assembly.Key switch {
-            "shear-wall" => Row(toSeq(ShearWalls).Find(r => r.Grade == grade && Same(r.PanelThicknessIn, thicknessIn) && r.Nail == nail),
-                r => Column(edgeSpacingIn, [(6.0, r.At6In), (4.0, r.At4In), (3.0, r.At3In), (2.0, r.At2In)]), grade, thicknessIn, nail, key),
-            "blocked-diaphragm" => Row(toSeq(BlockedDiaphragms).Find(r => r.Grade == grade && Same(r.PanelThicknessIn, thicknessIn) && r.Nail == nail && Same(r.FramingWidthIn, framingWidthIn)),
-                r => Column(edgeSpacingIn, [(6.0, r.At6And6), (4.0, r.At4And6), (2.5, r.At2Half4), (2.0, r.At2And3)]), grade, thicknessIn, nail, key),
-            _ => Row(toSeq(UnblockedDiaphragms).Find(r => r.Grade == grade && Same(r.PanelThicknessIn, thicknessIn) && r.Nail == nail && Same(r.FramingWidthIn, framingWidthIn)),
-                r => loadCase <= 1 ? r.Case1 : r.Cases2To6, grade, thicknessIn, nail, key),
-        };
+        assembly.Switch(
+            state: (Grade: grade, ThicknessIn: thicknessIn, Nail: nail, EdgeIn: edgeSpacingIn, FramingIn: framingWidthIn, LoadCase: loadCase, Key: key),
+            shearWall: static x => Row(
+                toSeq(ShearWalls).Find(r => r.Grade == x.Grade && Same(r.PanelThicknessIn, x.ThicknessIn) && r.Nail == x.Nail),
+                r => Column(x.EdgeIn, [(6.0, r.At6In), (4.0, r.At4In), (3.0, r.At3In), (2.0, r.At2In)]), x),
+            blockedDiaphragm: static x => Row(
+                toSeq(BlockedDiaphragms).Find(r => r.Grade == x.Grade && Same(r.PanelThicknessIn, x.ThicknessIn) && r.Nail == x.Nail && Same(r.FramingWidthIn, x.FramingIn)),
+                r => Column(x.EdgeIn, [(6.0, r.At6And6), (4.0, r.At4And6), (2.5, r.At2Half4), (2.0, r.At2And3)]), x),
+            unblockedDiaphragm: static x => Row(
+                toSeq(UnblockedDiaphragms).Find(r => r.Grade == x.Grade && Same(r.PanelThicknessIn, x.ThicknessIn) && r.Nail == x.Nail && Same(r.FramingWidthIn, x.FramingIn)),
+                r => x.LoadCase <= 1 ? r.Case1 : r.Cases2To6, x));
 
-    static Fin<double> Row<TRow>(Option<TRow> found, Func<TRow, Option<double>> cell, WspGrade grade, double thicknessIn, SheathingNail nail, Op key) =>
+    static Fin<double> Row<TRow>(
+        Option<TRow> found, Func<TRow, Option<double>> cell,
+        (WspGrade Grade, double ThicknessIn, SheathingNail Nail, double EdgeIn, double FramingIn, int LoadCase, Op Key) x) =>
         found.Match(
-            Some: row => cell(row).Match(
-                Some: Fin.Succ,
-                None: () => Fin.Fail<double>(ComponentFault.Capacity(key, $"<lateral-cell-uncorroborated:{grade.Key}:{thicknessIn:R}:{nail.Key}>"))),
-            None: () => Fin.Fail<double>(ComponentFault.Capacity(key, $"<lateral-configuration-unlisted:{grade.Key}:{thicknessIn:R}:{nail.Key}>")));
+            Some: row => cell(row).ToFin(new ComponentFault.LateralCellMissing(x.Key, x.Grade, x.Nail, x.ThicknessIn)),
+            None: () => Fin.Fail<double>(new ComponentFault.LateralCellMissing(x.Key, x.Grade, x.Nail, x.ThicknessIn)));
 
     // Column selection is nearest-listed-at-or-tighter: a schedule tighter than the tightest published spacing reads
     // the tightest published cell rather than extrapolating past the tested nailing, and a looser schedule than the
@@ -570,11 +546,11 @@ public static class LateralShear {
     static bool Same(double a, double b) => Math.Abs(a - b) < 5e-4;
 }
 
-// The typed board-fastening schedule — GENERATED admission ([ComplexValueObject]): the validation partial owns
-// the positive-finite spacing guard and the non-negative edge distance (a welded deck carries 0 inset), the ONE
-// railed Of lifts the generated outcome onto ComponentFault.Dimension. EdgeStations/FieldStations derive the
-// per-board-axis station counts the spec sheathing stage places (a welded deck reads EdgeStations as its
-// side-lap weld count).
+// The typed board-fastening schedule — GENERATED admission ([ComplexValueObject]): the validation partial owns the
+// positive-finite spacing guard and the non-negative edge distance (a welded deck carries 0 inset), the ONE railed
+// Of lowers a generated refusal through the kernel's default invalid-value bridge. EdgeStations/FieldStations derive the
+// per-board-axis station counts the spec sheathing stage places (a welded deck reads EdgeStations as its side-lap
+// weld count).
 [ComplexValueObject]
 public readonly partial struct FastenPattern {
     public double FieldSpacingMm { get; }
@@ -585,61 +561,121 @@ public readonly partial struct FastenPattern {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double fieldSpacingMm, ref double edgeSpacingMm, ref double edgeDistanceMm, ref PanelFastening fastener) =>
         validationError = fastener is not null && double.IsFinite(fieldSpacingMm) && fieldSpacingMm > 0.0 && double.IsFinite(edgeSpacingMm) && edgeSpacingMm > 0.0 && double.IsFinite(edgeDistanceMm) && edgeDistanceMm >= 0.0
             ? null
-            : new ValidationError($"<fasten-schedule-invalid:field={fieldSpacingMm}:edge={edgeSpacingMm}:inset={edgeDistanceMm}>");
+            : new ValidationError($"Fastening spacings must be finite and positive and edge distance finite and non-negative; received {fieldSpacingMm:R}, {edgeSpacingMm:R}, {edgeDistanceMm:R}.");
 
     public static Fin<FastenPattern> Of(double fieldMm, double edgeMm, double edgeDistMm, PanelFastening fastener, Op key) =>
-        Validate(fieldMm, edgeMm, edgeDistMm, fastener, out FastenPattern pattern) is { } error
-            ? Fin.Fail<FastenPattern>(ComponentFault.Dimension(key, error.Message))
-            : Fin.Succ(pattern);
+        key.AcceptValidated<FastenPattern>(Validate(fieldMm, edgeMm, edgeDistMm, fastener, out FastenPattern pattern), pattern);
 
     public int EdgeStations(PositiveMagnitude axisLengthMm) => Math.Max(2, (int)Math.Floor(axisLengthMm.Value / EdgeSpacingMm) + 1);
     public int FieldStations(PositiveMagnitude axisLengthMm) => Math.Max(2, (int)Math.Floor(axisLengthMm.Value / FieldSpacingMm) + 1);
 }
 
-// Product-specific payload is a closed family: each row carries only the axes its product form admits.
+// Product-specific payload is a closed family: each row carries only the axes its product form admits, and the
+// LAYUP, the FACING, the coherence, and the detail rows are all one Switch over this axis apiece — never twenty
+// per-kind copies of four bodies.
 [Union]
 public abstract partial record PanelSpecification {
     private PanelSpecification() { }
     public sealed record GypsumBoard(CoreType Core, Facer Facer) : PanelSpecification;
     // Grade and Nail are the SDPWS lateral-table KEYS: the published unit-shear roster is cut by panel grade and by
-    // the reference common nail, neither of which the span rating or the bond class determines. Nail is distinct from
-    // the row's PanelFastening, which is the install token the detail bag stamps — the table keys on the reference
-    // fastener it was tested with, and a row installed with something else is outside the tabulated configuration.
+    // the reference common nail, neither of which the span rating or the bond class determines. Nail is distinct
+    // from the row's PanelFastening, which is the install token the detail bag stamps — the table keys on the
+    // reference fastener it was tested with, and a row installed with something else is outside the configuration.
     public sealed record WoodPanel(SpanRow Span, BondClass Bond, WspGrade Grade, SheathingNail Nail) : PanelSpecification;
     public sealed record FacedBoard(Facer Facer) : PanelSpecification;
     public sealed record DeckSheet(DeckForm Form, DeckProfileRow Rib, GaugeRow Gauge) : PanelSpecification;
     public sealed record FoamBoard(FoamType Foam, Facer Facer) : PanelSpecification;
     // WIDENED IN PLACE: an air/vapour barrier, a below-grade sheet, and a flashing strip are the same roll-goods
     // case as the roofing single-ply at a different duty, so the barrier axes ride Membrane rather than minting a
-    // sibling case. The kind's own Admits row closes the axis pairings — a vapour class rides the vapour-retarder
-    // duty alone, a flashing kind the flashing duty alone — so an incoherent pairing never seeds.
+    // sibling case. The duty's own Coherent read closes the axis pairings.
     public sealed record Membrane(MembraneDuty Duty, Option<VaporClass> Vapor, Option<FlashingKind> Flashing) : PanelSpecification;
 
-    public Facer LayupFacer => Switch(
-        gypsumBoard: static specification => specification.Facer,
-        facedBoard: static specification => specification.Facer,
-        foamBoard: static specification => specification.Facer,
-        woodPanel: static _ => Facer.None, deckSheet: static _ => Facer.None, membrane: static _ => Facer.None);
-    // One case out of six answers, so the read is the pattern that asks for it — five arms spelling absence were
-    // five lines restating that the other cases are not this one.
+    // One case out of six answers, so the read is the pattern that asks for it.
     public Option<DeckSheet> Deck => this is DeckSheet deck ? Some(deck) : None;
 
-    // The per-product rows, plus the ONE membrane-seam token: a lapped single-ply roll's seam METHOD is its fastening
-    // (heat weld or seam adhesive), so DetailSchema.MembraneSeam emits from the membrane arm alone — the prior
-    // unconditional stamp put "drywall-screw" in a membrane-seam field on every gypsum board, which a Rasm.Bim reader
-    // then recovered as a seam fact. Every panel's fastening rides DetailSchema.FastenerType instead, the row
-    // connector#CONNECTOR_FAMILY already uses for the same concept. The membrane arm adds the BarrierClass token off
-    // the duty's own read and the flashing-form token where one rides; DetailSchema.PermRating never stamps here —
-    // permeance is product-declared and the D4637/D6878 physical-minima tables reached one source, so the bag
-    // carries the declared class token alone until a measured permeance proves out.
+    // The payload's OWN pairing law: only the membrane arm carries optional axes, and only its duty decides which
+    // one rides. A false verdict is what the seed census reports by name.
+    public bool Coherent() => Switch(
+        membrane: static specification => specification.Duty.Coherent(specification.Vapor, specification.Flashing),
+        gypsumBoard: static _ => true, woodPanel: static _ => true, facedBoard: static _ => true,
+        deckSheet: static _ => true, foamBoard: static _ => true);
+
+    // THE LAYUP, dispatched ONCE on the payload arm. Four bodies serve six arms — a faced core for the gypsum and
+    // cement boards, one homogeneous ply for the wood panels and membranes, a facer/foam/facer stack for the rigid
+    // boards, and the empty stack for a deck whose geometry is the Corrugated profile. The per-kind facts inside a
+    // body are the kind's own CoreRole and Facing columns, so a new board kind adds no body at all and a new layup
+    // SHAPE is a compiler-forced case here. Absence answers where the board's own thickness cannot carry the stack
+    // its kind implies: the core is what the board has LEFT after its facings, so a board thinner than its own
+    // facings has no core, and the layup says so rather than clamping the remainder up and returning a stack whose
+    // plies out-sum the board they describe — the clamp that broke the laminate-sum guarantee Component.Of holds.
+    public Option<Seq<Ply>> Layup(PanelKind kind, PositiveMagnitude thickness) => Switch(
+        state: (Kind: kind, Thickness: thickness),
+        gypsumBoard: static (x, _) => FaceCoreFace(x.Kind, x.Thickness),
+        facedBoard:  static (x, _) => FaceCoreFace(x.Kind, x.Thickness),
+        woodPanel:   static (x, _) => Mono(x.Kind, x.Thickness),
+        membrane:    static (x, _) => Mono(x.Kind, x.Thickness),
+        deckSheet:   static (_, _) => Some(Seq<Ply>()),
+        foamBoard:   static (x, s) => FacedFoam(x.Kind, s.Facer, x.Thickness));
+
+    // The OUTERMOST facing material, the ONE owner both the layup and the appearance slot read — a foil-faced
+    // polyiso keeps its foam substance while its appearance names the facer, and the two readings cannot disagree
+    // because there is one. Absence means the board shades as its own substance.
+    public Option<MaterialId> FacingMaterial(PanelKind kind) => Switch(
+        state: kind,
+        gypsumBoard: static (k, _) => k.Facing.Map(static face => MaterialId.Of(face.MaterialId)),
+        facedBoard:  static (k, _) => k.Facing.Map(static face => MaterialId.Of(face.MaterialId)),
+        foamBoard:   static (_, s) => s.Facer.Faces > 0 ? Some(MaterialId.Of($"facer.{s.Facer.Key}")) : None,
+        woodPanel:   static (_, _) => Option<MaterialId>.None,
+        deckSheet:   static (_, _) => Option<MaterialId>.None,
+        membrane:    static (_, _) => Option<MaterialId>.None);
+
+    // The facing thicknesses are estate policy, not published product data: no admitted producer prints a paper,
+    // glass-mat, scrim, or foil facing thickness, and the layup needs a real number for the ply stack to sum to the
+    // board. They are named constants so the value has ONE site and a later published read replaces it once.
+    const double BoardFacingMm = 0.5;   // paper / glass-mat / mesh-scrim board facing
+    const double FoamFacingMm = 0.2;    // foil / glass-fibre-mat rigid-board facing
+
+    static Option<Seq<Ply>> FaceCoreFace(PanelKind kind, PositiveMagnitude thickness) =>
+        from face in kind.Facing
+        from core in kind.CoreRole
+        from remainder in Some(thickness.Value - 2.0 * BoardFacingMm).Filter(static left => left > 0.0)
+        select Seq(
+            new Ply(MaterialId.Of(face.MaterialId), PositiveMagnitude.Create(BoardFacingMm), face.Role),
+            new Ply(kind.Substance, PositiveMagnitude.Create(remainder), core),
+            new Ply(MaterialId.Of(face.MaterialId), PositiveMagnitude.Create(BoardFacingMm), face.Role));
+
+    // One homogeneous ply the host subdivides (veneer plies, strand mat, membrane sheet) — always well-formed for a
+    // kind that has a core role at all.
+    static Option<Seq<Ply>> Mono(PanelKind kind, PositiveMagnitude thickness) =>
+        kind.CoreRole.Map(role => Seq(new Ply(kind.Substance, thickness, role)));
+
+    // Facer/foam-core/facer rigid board. The facer's own Faces COUNT is the geometry, so every arm is reachable by
+    // data: 0 is the bare core, 1 a single-faced board, 2 the mirrored layup. The core is again the remainder and
+    // again refuses rather than fabricates.
+    static Option<Seq<Ply>> FacedFoam(PanelKind kind, Facer facer, PositiveMagnitude thickness) =>
+        facer.Faces is 0
+            ? Mono(kind, thickness)
+            : from role in kind.CoreRole
+              from remainder in Some(thickness.Value - FoamFacingMm * facer.Faces).Filter(static left => left > 0.0)
+              let skin = new Ply(MaterialId.Of($"facer.{facer.Key}"), PositiveMagnitude.Create(FoamFacingMm), facer.Role)
+              let centre = new Ply(kind.Substance, PositiveMagnitude.Create(remainder), role)
+              select facer.Faces >= 2 ? Seq(skin, centre, skin) : Seq(skin, centre);
+
+    // The per-product rows, plus the ONE membrane-seam token: a lapped single-ply roll's seam METHOD is its
+    // fastening (heat weld or seam adhesive), so DetailSchema.MembraneSeam emits from the membrane arm alone — the
+    // prior unconditional stamp put "drywall-screw" in a membrane-seam field on every gypsum board, which a
+    // Rasm.Bim reader then recovered as a seam fact. Every panel's fastening rides DetailSchema.FastenerType
+    // instead, the row connector#CONNECTOR_FAMILY already uses for the same concept. DetailSchema.PermRating never
+    // stamps here — permeance is product-declared and the D4637/D6878 physical-minima tables reached one source, so
+    // the bag carries the declared class token alone until a measured permeance proves out.
     public Fin<Seq<(PropertyName Name, PropertyValue Value)>> DetailRows(PositiveMagnitude thicknessMm, PanelFastening fastening) => Switch(
         gypsumBoard: specification => Fin.Succ(
             Seq(ComponentDetail.Token(DetailSchema.CoreClass, specification.Core.Key))
             + FacerRow(specification.Facer)),
-        // The SpanRow conversions gain their consumer: both published roof spans and the floor span cross as MEASURED
-        // SI rows beside the token, so a downstream framing check reads the maximum support spacing as a quantity
-        // instead of parsing "24/16" out of a string — and reads the EDGE-SUPPORTED and UNSUPPORTED roof spacings as
-        // the two different numbers the rating publishes. A roof-only rating carries no floor row at all.
+        // The SpanRow conversions gain their consumer: both published roof spans and the floor span cross as
+        // MEASURED SI rows beside the token, so a downstream framing check reads the maximum support spacing as a
+        // quantity instead of parsing "24/16" out of a string — and reads the EDGE-SUPPORTED and UNSUPPORTED roof
+        // spacings as the two different numbers the rating publishes. A roof-only rating carries no floor row.
         woodPanel: specification =>
             from supported in ComponentDetail.Measured(DetailSchema.RoofSpan, Dimension.LengthDim, specification.Span.RoofEdgeSupportedMm * 1e-3)
             from unsupported in ComponentDetail.Measured(DetailSchema.RoofSpanUnsupported, Dimension.LengthDim, specification.Span.RoofUnsupportedMm * 1e-3)
@@ -672,13 +708,17 @@ public abstract partial record PanelSpecification {
         facer == Facer.None ? Empty : Seq(ComponentDetail.Token(DetailSchema.FacerClass, facer.Key));
 }
 
+// One board: dimensions, the coursing and fastening policy, and the product payload. A DECK row inherits its rib
+// profile's OWN evidence — the SDI roof series is standardized and the composite series proprietary, so the two do
+// not share one grade — while every other board declares its own. The prior seed-level fold read the rib for decks
+// and a page constant for everything else, which meant the three roll-goods rows that DECLARED a grade wrote a
+// column nothing ever read; one member per case is what makes the declaration reach the bag.
 public readonly record struct PanelRow(
     string Designation, PanelKind Kind, double WidthMm, double LengthMm, double ThicknessMm,
     EdgeProfile Edge, PanelOrientation Orientation, PanelFastening Fastener, double FieldMm, double EdgeMm, double EdgeDistMm,
     PanelSpecification Specification) {
-    // Board dimensions and fastening schedules are PUBLISHED manufacturer/ANSI data; a row extended off a nominal
-    // sheet module states Defined here rather than under a table-wide banner the extension would silently outgrow.
-    public Provenance Source { get; init; } = Provenance.Published;
+    public EvidenceGrade Declared { get; init; } = EvidenceGrade.Catalogue;
+    public EvidenceGrade Source => Specification.Deck.Match(Some: static deck => deck.Rib.Source, None: () => Declared);
 }
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
@@ -689,18 +729,15 @@ public static class PanelRows {
 }
 
 // The seed-built PRODUCT bag (DetailLane.Product): the edge token, the FASTENING token, thickness, field/edge
-// spacing (the dimension-only MeasureValue.OfSi mints preserved), the Corrugated rib depth/pitch rows for a deck, and
-// the dissolved payload's product columns with no other landing — board length, orientation, core/span/bond/foam/
-// facer tokens, the deck form, the seed-computed SI thermal resistance for a foam board, and the membrane seam on the
-// membrane arm alone. Every panel stamps DetailSchema.FastenerType off the fastening's own canonical token (the
-// FastenerKind IFC predefined value where a mechanical kind exists, the fastening key for a weld or bond) — the row
-// connector#CONNECTOR_FAMILY stamps for the same concept — so a Rasm.Bim reader recovers a gypsum board's screw from
-// a FASTENER field and a single-ply roll's weld from a SEAM field. Token/Measured/ProductRows are the relocated
-// component#COMPONENT_DETAIL constructors.
+// spacing, board length, orientation, the fastener shank where one exists, and the payload's own product rows.
+// Every panel stamps DetailSchema.FastenerType off the fastening's own canonical token (the FastenerKind IFC
+// predefined value where a mechanical kind exists, nothing for a weld or bond) — the row
+// connector#CONNECTOR_FAMILY stamps for the same concept — so a Rasm.Bim reader recovers a gypsum board's screw
+// from a FASTENER field and a single-ply roll's weld from a SEAM field.
 public static class PanelDetail {
     public static Fin<PropertyBag> Of(
         PositiveMagnitude lengthMm, PositiveMagnitude thicknessMm, EdgeProfile edge, PanelOrientation orientation,
-        FastenPattern fastening, PanelSpecification specification, Provenance source) =>
+        FastenPattern fastening, PanelSpecification specification, EvidenceGrade source) =>
         from thickness in ComponentDetail.Measured(DetailSchema.PanelThickness, Dimension.LengthDim, thicknessMm.Value * 1e-3)
         from field in ComponentDetail.Measured(DetailSchema.FieldSpacing, Dimension.LengthDim, fastening.FieldSpacingMm * 1e-3)
         from edgeSpacing in ComponentDetail.Measured(DetailSchema.EdgeSpacing, Dimension.LengthDim, fastening.EdgeSpacingMm * 1e-3)
@@ -723,17 +760,17 @@ public static class PanelDetail {
 }
 
 // --- [TABLES] ------------------------------------------------------------------------------
-// The AUTHORED board roster: ASTM C1396/C1396M-24 + EN 520 gypsum (incl. the CEILING-leaf board), ASTM C1177/C1178
-// glass-mat sheathing + water-resistant tile backer, APA PRP-108 / PS 1-19 / PS 2-18 wood structural panels, ASTM C1325 cement board (incl.
-// the FLOORING-leaf underlayment), ANSI/SDI RD-2017 / C-2017 steel deck, ASTM C578/C1289 rigid board, and the
-// single-ply roof membranes. Dimensions/schedules PUBLISHED verbatim; the board-product standards carry no
-// regional mortar joint (joint 0.0), and the authority rides the KIND's own standards body (ASTM/APA/SDI).
+// The board roster: ASTM C1396/C1396M-24 + EN 520 gypsum (incl. the CEILING-leaf board), ASTM C1177/C1178 glass-mat
+// sheathing + water-resistant tile backer, APA PRP-108 / PS 1-19 / PS 2-18 wood structural panels, ASTM C1325
+// cement board (incl. the FLOORING-leaf underlayment), ANSI/SDI RD-2017 / C-2017 steel deck, ASTM C578/C1289 rigid
+// board, and the single-ply roof membranes. Dimensions and schedules transcribe verbatim; the board-product
+// standards carry no regional mortar joint, and the authority rides the KIND's own standards body with its own
+// region column supplying the receipt.
 public static class PanelSeed {
-    // The nominal sheet MODULE and the schedules built on it. Every board in the roster is cut from one of a handful
-    // of standard sheet sizes and fastened on one of a handful of standard schedules, so those dimensions are named
-    // policy values the rows reference: the 4-foot width and 8-foot length recurred across twenty rows and the
-    // 12-inch field / 8-inch edge / 3/8-inch inset triple across ten, each spelled as a raw millimetre conversion
-    // that a reader had to recognize before knowing two rows agreed.
+    // The nominal sheet MODULE and the schedules built on it. Every board is cut from one of a handful of standard
+    // sheet sizes and fastened on one of a handful of standard schedules, so those dimensions are named policy
+    // values the rows reference rather than raw millimetre conversions a reader had to recognize to know two rows
+    // agreed.
     const double Sheet4FtMm = 1219.2;
     const double Sheet8FtMm = 2438.4;
     const double FieldPitch12InMm = 304.8;
@@ -741,169 +778,173 @@ public static class PanelSeed {
     const double EdgePitch6InMm = 152.4;
     const double EdgeInset38InMm = 9.5;
     // A deck row's printed sheet width and thickness must AGREE with the rib row it references — the same profile
-    // print authored twice must not diverge silently. The comparison is toleranced rather than exact: both sides are
-    // inch dimensions carried as millimetre doubles, so an exact equality gate passes only while both spellings
-    // happen to round identically and turns a re-derived conversion into a build abort.
-    const double DeckDriftToleranceMm = 0.1;
+    // print authored twice must not diverge silently. The band is the kernel MATCH lane, whose dimension is a length
+    // and whose refusal names the gate: both sides are inch dimensions carried as millimetre doubles, so an exact
+    // equality gate passes only while both spellings happen to round identically and turns a re-derived conversion
+    // into a build abort.
+    const double DeckDriftMm = 0.1;
 
-    static readonly Seq<PanelRow> Roster = Seq(
+    public static readonly Seq<PanelRow> Roster = Seq(
         // --- gypsum board (ASTM C1396; EN 520) — tapered/square edge, drywall-screw 12in field / 8in edge
-        new PanelRow("panel.gyp-reg-050-4x8",   PanelKind.GypsumBoard,   1219.2, 2438.4, 12.7, EdgeProfile.Tapered, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, 304.8, 203.2, 9.5, new PanelSpecification.GypsumBoard(CoreType.Regular, Facer.None)),
-        new PanelRow("panel.gyp-reg-038-4x8",   PanelKind.GypsumBoard,   1219.2, 2438.4, 9.5,  EdgeProfile.Tapered, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, 304.8, 203.2, 9.5, new PanelSpecification.GypsumBoard(CoreType.Regular, Facer.None)),
-        new PanelRow("panel.gyp-x-050-4x8",     PanelKind.GypsumBoard,   1219.2, 2438.4, 12.7, EdgeProfile.Tapered, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, 304.8, 203.2, 9.5, new PanelSpecification.GypsumBoard(CoreType.TypeXFire, Facer.None)),
-        new PanelRow("panel.gyp-x-625-4x8",     PanelKind.GypsumBoard,   1219.2, 2438.4, 15.9, EdgeProfile.Tapered, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, 304.8, 203.2, 9.5, new PanelSpecification.GypsumBoard(CoreType.TypeXFire, Facer.None)),
-        new PanelRow("panel.gyp-x-625-54x12",   PanelKind.GypsumBoard,   1371.6, 3657.6, 15.9, EdgeProfile.Tapered, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, 304.8, 203.2, 9.5, new PanelSpecification.GypsumBoard(CoreType.TypeXFire, Facer.None)),
-        new PanelRow("panel.gyp-c-625-4x8",     PanelKind.GypsumBoard,   1219.2, 2438.4, 15.9, EdgeProfile.Tapered, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, 304.8, 203.2, 9.5, new PanelSpecification.GypsumBoard(CoreType.TypeCFire, Facer.None)),
-        new PanelRow("panel.gyp-mr-050-4x8",    PanelKind.GypsumBoard,   1219.2, 2438.4, 12.7, EdgeProfile.Tapered, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, 304.8, 203.2, 9.5, new PanelSpecification.GypsumBoard(CoreType.MoistureResistant, Facer.None)),
-        new PanelRow("panel.gyp-abuse-625-4x8", PanelKind.GypsumBoard,   1219.2, 2438.4, 15.9, EdgeProfile.Tapered, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, 304.8, 203.2, 9.5, new PanelSpecification.GypsumBoard(CoreType.AbuseResistant, Facer.None)),
-        new PanelRow("panel.gyp-025-4x8",       PanelKind.GypsumBoard,   1219.2, 2438.4, 6.4,  EdgeProfile.Square,  PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, 304.8, 203.2, 9.5, new PanelSpecification.GypsumBoard(CoreType.Regular, Facer.None)),
-        new PanelRow("panel.gyp-ceil-050-4x8",  PanelKind.GypsumCeiling, 1219.2, 2438.4, 12.7, EdgeProfile.Tapered, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, 304.8, 203.2, 9.5, new PanelSpecification.GypsumBoard(CoreType.Regular, Facer.None)),
+        new PanelRow("panel.gyp-reg-050-4x8",   PanelKind.GypsumBoard,   Sheet4FtMm, Sheet8FtMm, 12.7, EdgeProfile.Tapered, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, FieldPitch12InMm, EdgePitch8InMm, EdgeInset38InMm, new PanelSpecification.GypsumBoard(CoreType.Regular, Facer.None)),
+        new PanelRow("panel.gyp-reg-038-4x8",   PanelKind.GypsumBoard,   Sheet4FtMm, Sheet8FtMm, 9.5,  EdgeProfile.Tapered, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, FieldPitch12InMm, EdgePitch8InMm, EdgeInset38InMm, new PanelSpecification.GypsumBoard(CoreType.Regular, Facer.None)),
+        new PanelRow("panel.gyp-x-050-4x8",     PanelKind.GypsumBoard,   Sheet4FtMm, Sheet8FtMm, 12.7, EdgeProfile.Tapered, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, FieldPitch12InMm, EdgePitch8InMm, EdgeInset38InMm, new PanelSpecification.GypsumBoard(CoreType.TypeXFire, Facer.None)),
+        new PanelRow("panel.gyp-x-625-4x8",     PanelKind.GypsumBoard,   Sheet4FtMm, Sheet8FtMm, 15.9, EdgeProfile.Tapered, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, FieldPitch12InMm, EdgePitch8InMm, EdgeInset38InMm, new PanelSpecification.GypsumBoard(CoreType.TypeXFire, Facer.None)),
+        new PanelRow("panel.gyp-x-625-54x12",   PanelKind.GypsumBoard,   1371.6, 3657.6, 15.9, EdgeProfile.Tapered, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, FieldPitch12InMm, EdgePitch8InMm, EdgeInset38InMm, new PanelSpecification.GypsumBoard(CoreType.TypeXFire, Facer.None)),
+        new PanelRow("panel.gyp-c-625-4x8",     PanelKind.GypsumBoard,   Sheet4FtMm, Sheet8FtMm, 15.9, EdgeProfile.Tapered, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, FieldPitch12InMm, EdgePitch8InMm, EdgeInset38InMm, new PanelSpecification.GypsumBoard(CoreType.TypeCFire, Facer.None)),
+        new PanelRow("panel.gyp-mr-050-4x8",    PanelKind.GypsumBoard,   Sheet4FtMm, Sheet8FtMm, 12.7, EdgeProfile.Tapered, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, FieldPitch12InMm, EdgePitch8InMm, EdgeInset38InMm, new PanelSpecification.GypsumBoard(CoreType.MoistureResistant, Facer.None)),
+        new PanelRow("panel.gyp-abuse-625-4x8", PanelKind.GypsumBoard,   Sheet4FtMm, Sheet8FtMm, 15.9, EdgeProfile.Tapered, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, FieldPitch12InMm, EdgePitch8InMm, EdgeInset38InMm, new PanelSpecification.GypsumBoard(CoreType.AbuseResistant, Facer.None)),
+        new PanelRow("panel.gyp-025-4x8",       PanelKind.GypsumBoard,   Sheet4FtMm, Sheet8FtMm, 6.4,  EdgeProfile.Square,  PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, FieldPitch12InMm, EdgePitch8InMm, EdgeInset38InMm, new PanelSpecification.GypsumBoard(CoreType.Regular, Facer.None)),
+        new PanelRow("panel.gyp-ceil-050-4x8",  PanelKind.GypsumCeiling, Sheet4FtMm, Sheet8FtMm, 12.7, EdgeProfile.Tapered, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, FieldPitch12InMm, EdgePitch8InMm, EdgeInset38InMm, new PanelSpecification.GypsumBoard(CoreType.Regular, Facer.None)),
         // --- gypsum sheathing (ASTM C1396 gypsum-sheathing; ASTM C1177 glass-mat) — square edge, glass-mat facer
-        new PanelRow("panel.gypsheath-x-050-4x8",   PanelKind.GypsumSheathing, 1219.2, 2438.4, 12.7, EdgeProfile.Square, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, 203.2, 203.2, 9.5, new PanelSpecification.GypsumBoard(CoreType.TypeXFire, Facer.GlassFiberMat)),
-        new PanelRow("panel.gypsheath-x-625-4x8",   PanelKind.GypsumSheathing, 1219.2, 2438.4, 15.9, EdgeProfile.Square, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, 203.2, 203.2, 9.5, new PanelSpecification.GypsumBoard(CoreType.TypeXFire, Facer.GlassFiberMat)),
-        new PanelRow("panel.gypsheath-gm-625-4x10", PanelKind.GypsumSheathing, 1219.2, 3048.0, 15.9, EdgeProfile.Square, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, 203.2, 203.2, 9.5, new PanelSpecification.GypsumBoard(CoreType.GlassMat, Facer.GlassFiberMat)),
-        new PanelRow("panel.gyp-wr-backer-050-3x5", PanelKind.GypsumSheathing, 914.4,  1524.0, 12.7, EdgeProfile.Square, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, 203.2, 203.2, 9.5, new PanelSpecification.GypsumBoard(CoreType.WaterResistant, Facer.GlassFiberMat)),
+        new PanelRow("panel.gypsheath-x-050-4x8",   PanelKind.GypsumSheathing, Sheet4FtMm, Sheet8FtMm, 12.7, EdgeProfile.Square, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, EdgePitch8InMm, EdgePitch8InMm, EdgeInset38InMm, new PanelSpecification.GypsumBoard(CoreType.TypeXFire, Facer.GlassFiberMat)),
+        new PanelRow("panel.gypsheath-x-625-4x8",   PanelKind.GypsumSheathing, Sheet4FtMm, Sheet8FtMm, 15.9, EdgeProfile.Square, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, EdgePitch8InMm, EdgePitch8InMm, EdgeInset38InMm, new PanelSpecification.GypsumBoard(CoreType.TypeXFire, Facer.GlassFiberMat)),
+        new PanelRow("panel.gypsheath-gm-625-4x10", PanelKind.GypsumSheathing, Sheet4FtMm, 3048.0,     15.9, EdgeProfile.Square, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, EdgePitch8InMm, EdgePitch8InMm, EdgeInset38InMm, new PanelSpecification.GypsumBoard(CoreType.GlassMat, Facer.GlassFiberMat)),
+        new PanelRow("panel.gyp-wr-backer-050-3x5", PanelKind.GypsumSheathing, 914.4,  1524.0,         12.7, EdgeProfile.Square, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.DrywallScrew, EdgePitch8InMm, EdgePitch8InMm, EdgeInset38InMm, new PanelSpecification.GypsumBoard(CoreType.WaterResistant, Facer.GlassFiberMat)),
         // --- plywood sheathing (APA PRP-108 / PS 1-19; EN 13986/636) — span-rated, 8d nail edge 6in / field 12in
-        new PanelRow("panel.ply-rated-038-4x8-240",   PanelKind.PlywoodSheathing, 1219.2, 2438.4, 9.5,  EdgeProfile.Square,       PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, 304.8, 152.4, 9.5, new PanelSpecification.WoodPanel(SpanRatings.S24_0, BondClass.Exposure1, WspGrade.Sheathing, SheathingNail.Eightd)),
-        new PanelRow("panel.ply-rated-1532-4x8-2416", PanelKind.PlywoodSheathing, 1219.2, 2438.4, 11.9, EdgeProfile.Square,       PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, 304.8, 152.4, 9.5, new PanelSpecification.WoodPanel(SpanRatings.S24_16, BondClass.Exposure1, WspGrade.Sheathing, SheathingNail.Eightd)),
-        new PanelRow("panel.ply-rated-050-4x8-3216",  PanelKind.PlywoodSheathing, 1219.2, 2438.4, 12.7, EdgeProfile.Square,       PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, 304.8, 152.4, 9.5, new PanelSpecification.WoodPanel(SpanRatings.S32_16, BondClass.Exposure1, WspGrade.Sheathing, SheathingNail.Eightd)),
-        new PanelRow("panel.ply-rated-1932-4x8-4020", PanelKind.PlywoodSheathing, 1219.2, 2438.4, 15.1, EdgeProfile.TongueGroove, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, 304.8, 152.4, 9.5, new PanelSpecification.WoodPanel(SpanRatings.S40_20, BondClass.Exposure1, WspGrade.Sheathing, SheathingNail.Eightd)),
-        new PanelRow("panel.ply-rated-2332-4x8-4824", PanelKind.PlywoodSheathing, 1219.2, 2438.4, 18.3, EdgeProfile.TongueGroove, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, 304.8, 152.4, 9.5, new PanelSpecification.WoodPanel(SpanRatings.S48_24, BondClass.Exterior, WspGrade.Sheathing, SheathingNail.Tend)),
-        new PanelRow("panel.ply-str1-1932-4x8",       PanelKind.PlywoodSheathing, 1219.2, 2438.4, 15.1, EdgeProfile.Square,       PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, 304.8, 152.4, 9.5, new PanelSpecification.WoodPanel(SpanRatings.S40_20, BondClass.Exterior, WspGrade.StructuralI, SheathingNail.Eightd)),
-        new PanelRow("panel.ply-rated-075-4x8-4824",  PanelKind.PlywoodSheathing, 1219.2, 2438.4, 19.0, EdgeProfile.TongueGroove, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, 304.8, 152.4, 9.5, new PanelSpecification.WoodPanel(SpanRatings.S48_24, BondClass.Exterior, WspGrade.Sheathing, SheathingNail.Tend)),
+        new PanelRow("panel.ply-rated-038-4x8-240",   PanelKind.PlywoodSheathing, Sheet4FtMm, Sheet8FtMm, 9.5,  EdgeProfile.Square,       PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, FieldPitch12InMm, EdgePitch6InMm, EdgeInset38InMm, new PanelSpecification.WoodPanel(SpanRatings.S24_0, BondClass.Exposure1, WspGrade.Sheathing, SheathingNail.Eightd)),
+        new PanelRow("panel.ply-rated-1532-4x8-2416", PanelKind.PlywoodSheathing, Sheet4FtMm, Sheet8FtMm, 11.9, EdgeProfile.Square,       PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, FieldPitch12InMm, EdgePitch6InMm, EdgeInset38InMm, new PanelSpecification.WoodPanel(SpanRatings.S24_16, BondClass.Exposure1, WspGrade.Sheathing, SheathingNail.Eightd)),
+        new PanelRow("panel.ply-rated-050-4x8-3216",  PanelKind.PlywoodSheathing, Sheet4FtMm, Sheet8FtMm, 12.7, EdgeProfile.Square,       PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, FieldPitch12InMm, EdgePitch6InMm, EdgeInset38InMm, new PanelSpecification.WoodPanel(SpanRatings.S32_16, BondClass.Exposure1, WspGrade.Sheathing, SheathingNail.Eightd)),
+        new PanelRow("panel.ply-rated-1932-4x8-4020", PanelKind.PlywoodSheathing, Sheet4FtMm, Sheet8FtMm, 15.1, EdgeProfile.TongueGroove, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, FieldPitch12InMm, EdgePitch6InMm, EdgeInset38InMm, new PanelSpecification.WoodPanel(SpanRatings.S40_20, BondClass.Exposure1, WspGrade.Sheathing, SheathingNail.Eightd)),
+        new PanelRow("panel.ply-rated-2332-4x8-4824", PanelKind.PlywoodSheathing, Sheet4FtMm, Sheet8FtMm, 18.3, EdgeProfile.TongueGroove, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, FieldPitch12InMm, EdgePitch6InMm, EdgeInset38InMm, new PanelSpecification.WoodPanel(SpanRatings.S48_24, BondClass.Exterior, WspGrade.Sheathing, SheathingNail.Tend)),
+        new PanelRow("panel.ply-str1-1932-4x8",       PanelKind.PlywoodSheathing, Sheet4FtMm, Sheet8FtMm, 15.1, EdgeProfile.Square,       PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, FieldPitch12InMm, EdgePitch6InMm, EdgeInset38InMm, new PanelSpecification.WoodPanel(SpanRatings.S40_20, BondClass.Exterior, WspGrade.StructuralI, SheathingNail.Eightd)),
+        new PanelRow("panel.ply-rated-075-4x8-4824",  PanelKind.PlywoodSheathing, Sheet4FtMm, Sheet8FtMm, 19.0, EdgeProfile.TongueGroove, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, FieldPitch12InMm, EdgePitch6InMm, EdgeInset38InMm, new PanelSpecification.WoodPanel(SpanRatings.S48_24, BondClass.Exterior, WspGrade.Sheathing, SheathingNail.Tend)),
         // --- osb sheathing (APA PRP-108 / PS 2-18; EN 13986/300)
-        new PanelRow("panel.osb-rated-716-4x8-240",   PanelKind.OsbSheathing, 1219.2, 2438.4, 11.1, EdgeProfile.Square,       PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, 304.8, 152.4, 9.5, new PanelSpecification.WoodPanel(SpanRatings.S24_0, BondClass.Exposure1, WspGrade.Sheathing, SheathingNail.Eightd)),
-        new PanelRow("panel.osb-rated-1532-4x8-2416", PanelKind.OsbSheathing, 1219.2, 2438.4, 11.9, EdgeProfile.Square,       PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, 304.8, 152.4, 9.5, new PanelSpecification.WoodPanel(SpanRatings.S24_16, BondClass.Exposure1, WspGrade.Sheathing, SheathingNail.Eightd)),
-        new PanelRow("panel.osb-rated-050-4x8-3216",  PanelKind.OsbSheathing, 1219.2, 2438.4, 12.7, EdgeProfile.Square,       PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, 304.8, 152.4, 9.5, new PanelSpecification.WoodPanel(SpanRatings.S32_16, BondClass.Exposure1, WspGrade.Sheathing, SheathingNail.Eightd)),
-        new PanelRow("panel.osb-rated-2332-4x8-4824", PanelKind.OsbSheathing, 1219.2, 2438.4, 18.3, EdgeProfile.TongueGroove, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, 304.8, 152.4, 9.5, new PanelSpecification.WoodPanel(SpanRatings.S48_24, BondClass.Exposure1, WspGrade.Sheathing, SheathingNail.Tend)),
-        new PanelRow("panel.osb-rated-1532-4x24",     PanelKind.OsbSheathing, 1219.2, 7315.2, 11.9, EdgeProfile.TongueGroove, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, 304.8, 152.4, 9.5, new PanelSpecification.WoodPanel(SpanRatings.S24_16, BondClass.Exposure1, WspGrade.Sheathing, SheathingNail.Eightd)),
+        new PanelRow("panel.osb-rated-716-4x8-240",   PanelKind.OsbSheathing, Sheet4FtMm, Sheet8FtMm, 11.1, EdgeProfile.Square,       PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, FieldPitch12InMm, EdgePitch6InMm, EdgeInset38InMm, new PanelSpecification.WoodPanel(SpanRatings.S24_0, BondClass.Exposure1, WspGrade.Sheathing, SheathingNail.Eightd)),
+        new PanelRow("panel.osb-rated-1532-4x8-2416", PanelKind.OsbSheathing, Sheet4FtMm, Sheet8FtMm, 11.9, EdgeProfile.Square,       PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, FieldPitch12InMm, EdgePitch6InMm, EdgeInset38InMm, new PanelSpecification.WoodPanel(SpanRatings.S24_16, BondClass.Exposure1, WspGrade.Sheathing, SheathingNail.Eightd)),
+        new PanelRow("panel.osb-rated-050-4x8-3216",  PanelKind.OsbSheathing, Sheet4FtMm, Sheet8FtMm, 12.7, EdgeProfile.Square,       PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, FieldPitch12InMm, EdgePitch6InMm, EdgeInset38InMm, new PanelSpecification.WoodPanel(SpanRatings.S32_16, BondClass.Exposure1, WspGrade.Sheathing, SheathingNail.Eightd)),
+        new PanelRow("panel.osb-rated-2332-4x8-4824", PanelKind.OsbSheathing, Sheet4FtMm, Sheet8FtMm, 18.3, EdgeProfile.TongueGroove, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, FieldPitch12InMm, EdgePitch6InMm, EdgeInset38InMm, new PanelSpecification.WoodPanel(SpanRatings.S48_24, BondClass.Exposure1, WspGrade.Sheathing, SheathingNail.Tend)),
+        new PanelRow("panel.osb-rated-1532-4x24",     PanelKind.OsbSheathing, Sheet4FtMm, 7315.2,     11.9, EdgeProfile.TongueGroove, PanelOrientation.StrengthAxisPerpendicular, PanelFastening.StructuralNail, FieldPitch12InMm, EdgePitch6InMm, EdgeInset38InMm, new PanelSpecification.WoodPanel(SpanRatings.S24_16, BondClass.Exposure1, WspGrade.Sheathing, SheathingNail.Eightd)),
         // --- cement board (ASTM C1325; ANSI A118.9) — glass-mesh scrim, edge-dist 3/4in
-        new PanelRow("panel.cbu-025-3x5",          PanelKind.CementBoard,        914.4,  1524.0, 6.4,  EdgeProfile.Square, PanelOrientation.Unidirectional, PanelFastening.RoofingNail, 203.2, 203.2, 19.0, new PanelSpecification.FacedBoard(Facer.GlassFiberMat)),
-        new PanelRow("panel.cbu-050-3x5",          PanelKind.CementBoard,        914.4,  1524.0, 12.7, EdgeProfile.Square, PanelOrientation.Unidirectional, PanelFastening.RoofingNail, 203.2, 203.2, 19.0, new PanelSpecification.FacedBoard(Facer.GlassFiberMat)),
-        new PanelRow("panel.cbu-050-4x8",          PanelKind.CementBoard,        1219.2, 2438.4, 12.7, EdgeProfile.Square, PanelOrientation.Unidirectional, PanelFastening.RoofingNail, 203.2, 203.2, 19.0, new PanelSpecification.FacedBoard(Facer.GlassFiberMat)),
-        new PanelRow("panel.cbu-625-4x8",          PanelKind.CementBoard,        1219.2, 2438.4, 15.9, EdgeProfile.Square, PanelOrientation.Unidirectional, PanelFastening.RoofingNail, 203.2, 203.2, 19.0, new PanelSpecification.FacedBoard(Facer.GlassFiberMat)),
-        new PanelRow("panel.cbu-050-32x60",        PanelKind.CementBoard,        812.8,  1524.0, 12.7, EdgeProfile.Square, PanelOrientation.Unidirectional, PanelFastening.RoofingNail, 203.2, 203.2, 19.0, new PanelSpecification.FacedBoard(Facer.GlassFiberMat)),
-        new PanelRow("panel.cbu-underlay-014-3x5", PanelKind.CementUnderlayment, 914.4,  1524.0, 6.4,  EdgeProfile.Square, PanelOrientation.Unidirectional, PanelFastening.RoofingNail, 203.2, 203.2, 19.0, new PanelSpecification.FacedBoard(Facer.GlassFiberMat)),
-        // --- steel deck (ANSI/SDI RD-2017 roof; C-2017 composite) — coverage/pitch/depth from the referenced DeckProfiles row, base metal from the connector GaugeRow key
-        new PanelRow("panel.deck-b-22ga-roof", PanelKind.SteelDeckRoof,  914.4, 6096.0, 38.1, EdgeProfile.SideLapInterlock, PanelOrientation.StrengthAxisParallel, PanelFastening.DeckWeld,  304.8, 304.8, 0.0, new PanelSpecification.DeckSheet(DeckForm.Roof, DeckProfiles.WideRibB, Gauges.Ga22)),
-        new PanelRow("panel.deck-b-20ga-roof", PanelKind.SteelDeckRoof,  914.4, 6096.0, 38.1, EdgeProfile.SideLapInterlock, PanelOrientation.StrengthAxisParallel, PanelFastening.DeckWeld,  304.8, 304.8, 0.0, new PanelSpecification.DeckSheet(DeckForm.Roof, DeckProfiles.WideRibB, Gauges.Ga20)),
-        new PanelRow("panel.deck-a-20ga-roof", PanelKind.SteelDeckRoof,  914.4, 6096.0, 38.1, EdgeProfile.SideLapInterlock, PanelOrientation.StrengthAxisParallel, PanelFastening.DeckWeld,  304.8, 304.8, 0.0, new PanelSpecification.DeckSheet(DeckForm.Roof, DeckProfiles.NarrowRibA, Gauges.Ga20)),
-        new PanelRow("panel.deck-f-18ga-roof", PanelKind.SteelDeckRoof,  914.4, 6096.0, 38.1, EdgeProfile.SideLapInterlock, PanelOrientation.StrengthAxisParallel, PanelFastening.DeckWeld,  304.8, 304.8, 0.0, new PanelSpecification.DeckSheet(DeckForm.Roof, DeckProfiles.IntermediateF, Gauges.Ga18)),
-        new PanelRow("panel.deck-n-18ga-roof", PanelKind.SteelDeckRoof,  609.6, 9144.0, 76.2, EdgeProfile.SideLapInterlock, PanelOrientation.StrengthAxisParallel, PanelFastening.DeckWeld,  304.8, 304.8, 0.0, new PanelSpecification.DeckSheet(DeckForm.Roof, DeckProfiles.DeepN, Gauges.Ga18)),
-        new PanelRow("panel.deck-bform-22ga",  PanelKind.SteelDeckRoof,  914.4, 6096.0, 38.1, EdgeProfile.SideLapInterlock, PanelOrientation.StrengthAxisParallel, PanelFastening.DeckScrew, 304.8, 304.8, 0.0, new PanelSpecification.DeckSheet(DeckForm.Form, DeckProfiles.WideRibB, Gauges.Ga22)),
-        new PanelRow("panel.deck-15vl-20ga",   PanelKind.SteelDeckFloor, 914.4, 9144.0, 38.1, EdgeProfile.SideLapInterlock, PanelOrientation.StrengthAxisParallel, PanelFastening.DeckWeld,  304.8, 304.8, 0.0, new PanelSpecification.DeckSheet(DeckForm.Composite, DeckProfiles.Composite15, Gauges.Ga20)),
-        new PanelRow("panel.deck-2vli-18ga",   PanelKind.SteelDeckFloor, 914.4, 9144.0, 50.8, EdgeProfile.SideLapInterlock, PanelOrientation.StrengthAxisParallel, PanelFastening.DeckWeld,  304.8, 304.8, 0.0, new PanelSpecification.DeckSheet(DeckForm.Composite, DeckProfiles.Composite2Vli, Gauges.Ga18)),
-        new PanelRow("panel.deck-3vli-16ga",   PanelKind.SteelDeckFloor, 914.4, 9144.0, 76.2, EdgeProfile.SideLapInterlock, PanelOrientation.StrengthAxisParallel, PanelFastening.DeckWeld,  304.8, 304.8, 0.0, new PanelSpecification.DeckSheet(DeckForm.Composite, DeckProfiles.Composite3Vli, Gauges.Ga16)),
+        new PanelRow("panel.cbu-025-3x5",          PanelKind.CementBoard,        914.4,      1524.0,     6.4,  EdgeProfile.Square, PanelOrientation.Unidirectional, PanelFastening.RoofingNail, EdgePitch8InMm, EdgePitch8InMm, 19.0, new PanelSpecification.FacedBoard(Facer.GlassFiberMat)),
+        new PanelRow("panel.cbu-050-3x5",          PanelKind.CementBoard,        914.4,      1524.0,     12.7, EdgeProfile.Square, PanelOrientation.Unidirectional, PanelFastening.RoofingNail, EdgePitch8InMm, EdgePitch8InMm, 19.0, new PanelSpecification.FacedBoard(Facer.GlassFiberMat)),
+        new PanelRow("panel.cbu-050-4x8",          PanelKind.CementBoard,        Sheet4FtMm, Sheet8FtMm, 12.7, EdgeProfile.Square, PanelOrientation.Unidirectional, PanelFastening.RoofingNail, EdgePitch8InMm, EdgePitch8InMm, 19.0, new PanelSpecification.FacedBoard(Facer.GlassFiberMat)),
+        new PanelRow("panel.cbu-625-4x8",          PanelKind.CementBoard,        Sheet4FtMm, Sheet8FtMm, 15.9, EdgeProfile.Square, PanelOrientation.Unidirectional, PanelFastening.RoofingNail, EdgePitch8InMm, EdgePitch8InMm, 19.0, new PanelSpecification.FacedBoard(Facer.GlassFiberMat)),
+        new PanelRow("panel.cbu-050-32x60",        PanelKind.CementBoard,        812.8,      1524.0,     12.7, EdgeProfile.Square, PanelOrientation.Unidirectional, PanelFastening.RoofingNail, EdgePitch8InMm, EdgePitch8InMm, 19.0, new PanelSpecification.FacedBoard(Facer.GlassFiberMat)),
+        new PanelRow("panel.cbu-underlay-014-3x5", PanelKind.CementUnderlayment, 914.4,      1524.0,     6.4,  EdgeProfile.Square, PanelOrientation.Unidirectional, PanelFastening.RoofingNail, EdgePitch8InMm, EdgePitch8InMm, 19.0, new PanelSpecification.FacedBoard(Facer.GlassFiberMat)),
+        // --- steel deck (ANSI/SDI RD-2017 roof; C-2017 composite) — coverage/pitch/depth from the referenced
+        // DeckProfiles row, base metal from the connector GaugeRow key
+        new PanelRow("panel.deck-b-22ga-roof", PanelKind.SteelDeckRoof,  914.4, 6096.0, 38.1, EdgeProfile.SideLapInterlock, PanelOrientation.StrengthAxisParallel, PanelFastening.DeckWeld,  FieldPitch12InMm, FieldPitch12InMm, 0.0, new PanelSpecification.DeckSheet(DeckForm.Roof, DeckProfiles.WideRibB, Gauges.Ga22)),
+        new PanelRow("panel.deck-b-20ga-roof", PanelKind.SteelDeckRoof,  914.4, 6096.0, 38.1, EdgeProfile.SideLapInterlock, PanelOrientation.StrengthAxisParallel, PanelFastening.DeckWeld,  FieldPitch12InMm, FieldPitch12InMm, 0.0, new PanelSpecification.DeckSheet(DeckForm.Roof, DeckProfiles.WideRibB, Gauges.Ga20)),
+        new PanelRow("panel.deck-a-20ga-roof", PanelKind.SteelDeckRoof,  914.4, 6096.0, 38.1, EdgeProfile.SideLapInterlock, PanelOrientation.StrengthAxisParallel, PanelFastening.DeckWeld,  FieldPitch12InMm, FieldPitch12InMm, 0.0, new PanelSpecification.DeckSheet(DeckForm.Roof, DeckProfiles.NarrowRibA, Gauges.Ga20)),
+        new PanelRow("panel.deck-f-18ga-roof", PanelKind.SteelDeckRoof,  914.4, 6096.0, 38.1, EdgeProfile.SideLapInterlock, PanelOrientation.StrengthAxisParallel, PanelFastening.DeckWeld,  FieldPitch12InMm, FieldPitch12InMm, 0.0, new PanelSpecification.DeckSheet(DeckForm.Roof, DeckProfiles.IntermediateF, Gauges.Ga18)),
+        new PanelRow("panel.deck-n-18ga-roof", PanelKind.SteelDeckRoof,  609.6, 9144.0, 76.2, EdgeProfile.SideLapInterlock, PanelOrientation.StrengthAxisParallel, PanelFastening.DeckWeld,  FieldPitch12InMm, FieldPitch12InMm, 0.0, new PanelSpecification.DeckSheet(DeckForm.Roof, DeckProfiles.DeepN, Gauges.Ga18)),
+        new PanelRow("panel.deck-bform-22ga",  PanelKind.SteelDeckRoof,  914.4, 6096.0, 38.1, EdgeProfile.SideLapInterlock, PanelOrientation.StrengthAxisParallel, PanelFastening.DeckScrew, FieldPitch12InMm, FieldPitch12InMm, 0.0, new PanelSpecification.DeckSheet(DeckForm.Form, DeckProfiles.WideRibB, Gauges.Ga22)),
+        new PanelRow("panel.deck-15vl-20ga",   PanelKind.SteelDeckFloor, 914.4, 9144.0, 38.1, EdgeProfile.SideLapInterlock, PanelOrientation.StrengthAxisParallel, PanelFastening.DeckWeld,  FieldPitch12InMm, FieldPitch12InMm, 0.0, new PanelSpecification.DeckSheet(DeckForm.Composite, DeckProfiles.Composite15, Gauges.Ga20)),
+        new PanelRow("panel.deck-2vli-18ga",   PanelKind.SteelDeckFloor, 914.4, 9144.0, 50.8, EdgeProfile.SideLapInterlock, PanelOrientation.StrengthAxisParallel, PanelFastening.DeckWeld,  FieldPitch12InMm, FieldPitch12InMm, 0.0, new PanelSpecification.DeckSheet(DeckForm.Composite, DeckProfiles.Composite2Vli, Gauges.Ga18)),
+        new PanelRow("panel.deck-3vli-16ga",   PanelKind.SteelDeckFloor, 914.4, 9144.0, 76.2, EdgeProfile.SideLapInterlock, PanelOrientation.StrengthAxisParallel, PanelFastening.DeckWeld,  FieldPitch12InMm, FieldPitch12InMm, 0.0, new PanelSpecification.DeckSheet(DeckForm.Composite, DeckProfiles.Composite3Vli, Gauges.Ga16)),
         // --- rigid-board insulation (ASTM C578 EPS/XPS; C1289 polyiso)
-        new PanelRow("panel.eps-1in-4x8",      PanelKind.RigidBoardEps,  1219.2, 2438.4, 25.4,  EdgeProfile.Square,       PanelOrientation.Unidirectional, PanelFastening.PlateAndScrew, 406.4, 406.4, 0.0, new PanelSpecification.FoamBoard(FoamType.Eps, Facer.None)),
-        new PanelRow("panel.eps-2in-4x8",      PanelKind.RigidBoardEps,  1219.2, 2438.4, 50.8,  EdgeProfile.Shiplap,      PanelOrientation.Unidirectional, PanelFastening.PlateAndScrew, 406.4, 406.4, 0.0, new PanelSpecification.FoamBoard(FoamType.Eps, Facer.None)),
-        new PanelRow("panel.eps-4in-4x8",      PanelKind.RigidBoardEps,  1219.2, 2438.4, 101.6, EdgeProfile.Shiplap,      PanelOrientation.Unidirectional, PanelFastening.Adhesive,      406.4, 406.4, 0.0, new PanelSpecification.FoamBoard(FoamType.Eps, Facer.None)),
-        new PanelRow("panel.xps-1in-2x8",      PanelKind.RigidBoardXps,  609.6,  2438.4, 25.4,  EdgeProfile.Shiplap,      PanelOrientation.Unidirectional, PanelFastening.PlateAndScrew, 406.4, 406.4, 0.0, new PanelSpecification.FoamBoard(FoamType.Xps, Facer.None)),
-        new PanelRow("panel.xps-2in-2x8",      PanelKind.RigidBoardXps,  609.6,  2438.4, 50.8,  EdgeProfile.TongueGroove, PanelOrientation.Unidirectional, PanelFastening.PlateAndScrew, 406.4, 406.4, 0.0, new PanelSpecification.FoamBoard(FoamType.Xps, Facer.None)),
-        new PanelRow("panel.polyiso-1in-4x8",  PanelKind.RigidBoardPoly, 1219.2, 2438.4, 25.4,  EdgeProfile.Square,       PanelOrientation.Unidirectional, PanelFastening.PlateAndScrew, 406.4, 406.4, 0.0, new PanelSpecification.FoamBoard(FoamType.Polyiso, Facer.GlassFiberMat)),
-        new PanelRow("panel.polyiso-2in-foil", PanelKind.RigidBoardPoly, 1219.2, 2438.4, 50.8,  EdgeProfile.Square,       PanelOrientation.Unidirectional, PanelFastening.PlateAndScrew, 406.4, 406.4, 0.0, new PanelSpecification.FoamBoard(FoamType.Polyiso, Facer.Foil)),
-        new PanelRow("panel.polyiso-3in-4x8",  PanelKind.RigidBoardPoly, 1219.2, 2438.4, 76.2,  EdgeProfile.Square,       PanelOrientation.Unidirectional, PanelFastening.PlateAndScrew, 406.4, 406.4, 0.0, new PanelSpecification.FoamBoard(FoamType.Polyiso, Facer.CoatedGlass)),
+        new PanelRow("panel.eps-1in-4x8",      PanelKind.RigidBoardEps,  Sheet4FtMm, Sheet8FtMm, 25.4,  EdgeProfile.Square,       PanelOrientation.Unidirectional, PanelFastening.PlateAndScrew, 406.4, 406.4, 0.0, new PanelSpecification.FoamBoard(FoamType.Eps, Facer.None)),
+        new PanelRow("panel.eps-2in-4x8",      PanelKind.RigidBoardEps,  Sheet4FtMm, Sheet8FtMm, 50.8,  EdgeProfile.Shiplap,      PanelOrientation.Unidirectional, PanelFastening.PlateAndScrew, 406.4, 406.4, 0.0, new PanelSpecification.FoamBoard(FoamType.Eps, Facer.None)),
+        new PanelRow("panel.eps-4in-4x8",      PanelKind.RigidBoardEps,  Sheet4FtMm, Sheet8FtMm, 101.6, EdgeProfile.Shiplap,      PanelOrientation.Unidirectional, PanelFastening.Adhesive,      406.4, 406.4, 0.0, new PanelSpecification.FoamBoard(FoamType.Eps, Facer.None)),
+        new PanelRow("panel.xps-1in-2x8",      PanelKind.RigidBoardXps,  609.6,      Sheet8FtMm, 25.4,  EdgeProfile.Shiplap,      PanelOrientation.Unidirectional, PanelFastening.PlateAndScrew, 406.4, 406.4, 0.0, new PanelSpecification.FoamBoard(FoamType.Xps, Facer.None)),
+        new PanelRow("panel.xps-2in-2x8",      PanelKind.RigidBoardXps,  609.6,      Sheet8FtMm, 50.8,  EdgeProfile.TongueGroove, PanelOrientation.Unidirectional, PanelFastening.PlateAndScrew, 406.4, 406.4, 0.0, new PanelSpecification.FoamBoard(FoamType.Xps, Facer.None)),
+        new PanelRow("panel.polyiso-1in-4x8",  PanelKind.RigidBoardPoly, Sheet4FtMm, Sheet8FtMm, 25.4,  EdgeProfile.Square,       PanelOrientation.Unidirectional, PanelFastening.PlateAndScrew, 406.4, 406.4, 0.0, new PanelSpecification.FoamBoard(FoamType.Polyiso, Facer.GlassFiberMat)),
+        new PanelRow("panel.polyiso-2in-foil", PanelKind.RigidBoardPoly, Sheet4FtMm, Sheet8FtMm, 50.8,  EdgeProfile.Square,       PanelOrientation.Unidirectional, PanelFastening.PlateAndScrew, 406.4, 406.4, 0.0, new PanelSpecification.FoamBoard(FoamType.Polyiso, Facer.Foil)),
+        new PanelRow("panel.polyiso-3in-4x8",  PanelKind.RigidBoardPoly, Sheet4FtMm, Sheet8FtMm, 76.2,  EdgeProfile.Square,       PanelOrientation.Unidirectional, PanelFastening.PlateAndScrew, 406.4, 406.4, 0.0, new PanelSpecification.FoamBoard(FoamType.Polyiso, Facer.CoatedGlass)),
         // --- single-ply roof membranes — roof/wall/floor remains a spec layout role; panel is the product form
-        new PanelRow("panel.epdm-060-roll", PanelKind.MembraneEpdm, 3048.0, 30480.0, 1.52, EdgeProfile.LappedSeam, PanelOrientation.Unidirectional, PanelFastening.SeamAdhesive, 304.8, 152.4, 0.0, new PanelSpecification.Membrane(MembraneDuty.Roofing, None, None)),
-        new PanelRow("panel.pvc-060-roll",  PanelKind.MembranePvc,  3048.0, 30480.0, 1.52, EdgeProfile.LappedSeam, PanelOrientation.Unidirectional, PanelFastening.HeatWeld,     304.8, 152.4, 0.0, new PanelSpecification.Membrane(MembraneDuty.Roofing, None, None)),
-        new PanelRow("panel.tpo-060-roll",  PanelKind.MembraneTpo,  3048.0, 30480.0, 1.52, EdgeProfile.LappedSeam, PanelOrientation.Unidirectional, PanelFastening.HeatWeld,     304.8, 152.4, 0.0, new PanelSpecification.Membrane(MembraneDuty.Roofing, None, None)),
-        // --- barrier and flashing sheets — the wrap and film modules and the flashing strip are AUTHORED roll
-        // policy; the 60-mil (1.5 mm) self-adhered below-grade class is the two-sourced manufacturer convention, so
-        // that row alone keeps Published. Hot fluid-applied waterproofing (the 215-mil reinforced assembly) is an
-        // APPLIED liquid with no sheet module, so it seeds no row here — a sheet-goods row with a fabricated extent
-        // would be the dishonest form.
-        new PanelRow("panel.wrap-ab-roll",     PanelKind.AirBarrier,       3048.0, 30480.0, 0.2,  EdgeProfile.LappedSeam, PanelOrientation.Unidirectional, PanelFastening.SeamAdhesive, 304.8, 152.4, 0.0, new PanelSpecification.Membrane(MembraneDuty.AirBarrier, None, None)) { Source = Provenance.Authored },
-        new PanelRow("panel.pe-vr-6mil-roll",  PanelKind.VapourRetarder,   3048.0, 30480.0, 0.15, EdgeProfile.LappedSeam, PanelOrientation.Unidirectional, PanelFastening.SeamAdhesive, 304.8, 152.4, 0.0, new PanelSpecification.Membrane(MembraneDuty.VapourRetarder, Some(VaporClass.ClassI), None)) { Source = Provenance.Authored },
-        new PanelRow("panel.sbs-bg-60mil-roll", PanelKind.Waterproofing,   914.4,  20320.0, 1.5,  EdgeProfile.LappedSeam, PanelOrientation.Unidirectional, PanelFastening.Adhesive,     304.8, 152.4, 0.0, new PanelSpecification.Membrane(MembraneDuty.Waterproofing, None, None)),
-        new PanelRow("panel.flash-sa-9in-roll", PanelKind.FlashingMembrane, 228.6, 22860.0, 0.64, EdgeProfile.LappedSeam, PanelOrientation.Unidirectional, PanelFastening.Adhesive,     304.8, 152.4, 0.0, new PanelSpecification.Membrane(MembraneDuty.Flashing, None, Some(FlashingKind.SelfAdheredStrip))) { Source = Provenance.Authored });
+        new PanelRow("panel.epdm-060-roll", PanelKind.MembraneEpdm, 3048.0, 30480.0, 1.52, EdgeProfile.LappedSeam, PanelOrientation.Unidirectional, PanelFastening.SeamAdhesive, FieldPitch12InMm, EdgePitch6InMm, 0.0, new PanelSpecification.Membrane(MembraneDuty.Roofing, None, None)),
+        new PanelRow("panel.pvc-060-roll",  PanelKind.MembranePvc,  3048.0, 30480.0, 1.52, EdgeProfile.LappedSeam, PanelOrientation.Unidirectional, PanelFastening.HeatWeld,     FieldPitch12InMm, EdgePitch6InMm, 0.0, new PanelSpecification.Membrane(MembraneDuty.Roofing, None, None)),
+        new PanelRow("panel.tpo-060-roll",  PanelKind.MembraneTpo,  3048.0, 30480.0, 1.52, EdgeProfile.LappedSeam, PanelOrientation.Unidirectional, PanelFastening.HeatWeld,     FieldPitch12InMm, EdgePitch6InMm, 0.0, new PanelSpecification.Membrane(MembraneDuty.Roofing, None, None)),
+        // --- barrier and flashing sheets — the wrap and film modules and the flashing strip are estate roll policy;
+        // the 60-mil (1.5 mm) self-adhered below-grade class is the two-sourced manufacturer convention, so that row
+        // alone stays catalogued. Hot fluid-applied waterproofing (the 215-mil reinforced assembly) is an APPLIED
+        // liquid with no sheet module, so it seeds no row here — a sheet-goods row with a fabricated extent would be
+        // the dishonest form.
+        new PanelRow("panel.wrap-ab-roll",      PanelKind.AirBarrier,       3048.0, 30480.0, 0.2,  EdgeProfile.LappedSeam, PanelOrientation.Unidirectional, PanelFastening.SeamAdhesive, FieldPitch12InMm, EdgePitch6InMm, 0.0, new PanelSpecification.Membrane(MembraneDuty.AirBarrier, None, None)) { Declared = EvidenceGrade.User },
+        new PanelRow("panel.pe-vr-6mil-roll",   PanelKind.VapourRetarder,   3048.0, 30480.0, 0.15, EdgeProfile.LappedSeam, PanelOrientation.Unidirectional, PanelFastening.SeamAdhesive, FieldPitch12InMm, EdgePitch6InMm, 0.0, new PanelSpecification.Membrane(MembraneDuty.VapourRetarder, Some(VaporClass.ClassI), None)) { Declared = EvidenceGrade.User },
+        new PanelRow("panel.sbs-bg-60mil-roll", PanelKind.Waterproofing,    914.4,  20320.0, 1.5,  EdgeProfile.LappedSeam, PanelOrientation.Unidirectional, PanelFastening.Adhesive,     FieldPitch12InMm, EdgePitch6InMm, 0.0, new PanelSpecification.Membrane(MembraneDuty.Waterproofing, None, None)),
+        new PanelRow("panel.flash-sa-9in-roll", PanelKind.FlashingMembrane, 228.6,  22860.0, 0.64, EdgeProfile.LappedSeam, PanelOrientation.Unidirectional, PanelFastening.Adhesive,     FieldPitch12InMm, EdgePitch6InMm, 0.0, new PanelSpecification.Membrane(MembraneDuty.Flashing, None, Some(FlashingKind.SelfAdheredStrip))) { Declared = EvidenceGrade.User });
 
-    // The kind-routed profile: a deck row fills the six Corrugated named dims from its REFERENCED DeckProfileRow +
-    // the SYMBOLICALLY referenced connector GaugeRow base metal (GaugeMm = gauge.BaseThicknessMm — the prior
-    // duplicated BaseMetalMm column and the prior runtime-railed gauge Find are both deleted: the Gauges roster
-    // carries the deck bands 22ga..16ga as named statics, so nothing resolves and nothing can miss); every other
-    // row builds Layered from the kind's own layup delegate. The drift guard proves the roster's printed
-    // width/thickness agree with the rib row's coverage/depth — the same SDI print authored twice must not diverge
-    // silently. Profile construction is the railed SectionProfile Of INSIDE the Traverse; the section INTEGRAL for
-    // Sectioned rows runs once in ComponentCatalogue.Of through SectionSolver.Solve's corrugated arm.
-    static Fin<(SectionProfile Profile, MaterialId Substance)> ProfileOf(
-        PanelRow r, PositiveMagnitude width, PositiveMagnitude thickness, Op key) =>
+    public static readonly Lazy<Fin<FrozenDictionary<ComponentId, PanelRow>>> Table =
+        SeedJoin.Of(Roster, static r => r.Designation);
+
+    // The seed POLICY value. SubstanceId and AppearanceId stay INDEPENDENT slots: a deck's substance is its gauge
+    // steel, a board's its kind's, and the appearance is the payload's own FacingMaterial where one exists — the
+    // same owner the layup reads, so the two cannot disagree and no probe walks the built plies to recover a fact
+    // the stack was built from.
+    public static readonly SeedLaw<PanelRow> Law = SeedLaw<PanelRow>.Of(
+        family: ComponentFamily.Panel,
+        designation: static r => r.Designation,
+        coherence: Coherence,
+        profile: Profile,
+        substance: Substance,
+        source: static r => r.Source,
+        standard: static r => new ComponentStandard(r.Kind.Authority.Region, StandardJointThicknessMm: 0.0, r.Kind.Authority),
+        detail: Some<Func<PanelRow, SectionProfile, Op, Fin<PropertyBag>>>(Detail),
+        appearance: static r => r.Specification.FacingMaterial(r.Kind).IfNone(Substance(r)),
+        ifc: static r => IfcBinding.Of(r.Kind.IfcEntity, r.Kind.IfcPredefinedType));
+
+    // The row census, ACCUMULATING — five INDEPENDENT proofs, so a board whose kind refuses its payload AND whose
+    // fastening schedule is malformed reports both instead of the first hiding the second. Geometry admits after,
+    // inside the SectionProfile factories' own rail.
+    static Validation<Error, Unit> Coherence(PanelRow r, Op key) =>
+        (guard(r.Kind.Admits(r.Specification),
+             new KernelFault.InvalidValue(nameof(r.Specification), "a specification admitted by the panel kind", Some(key))).ToValidation(),
+         guard(r.Specification.Coherent(),
+             new KernelFault.InvalidValue(nameof(r.Specification), "a coherent panel payload", Some(key))).ToValidation(),
+         guard(double.IsFinite(r.WidthMm) && r.WidthMm > 0.0 && double.IsFinite(r.LengthMm) && r.LengthMm > 0.0
+                 && double.IsFinite(r.ThicknessMm) && r.ThicknessMm > 0.0,
+             new KernelFault.InvalidValue(nameof(PanelRow), "positive finite width, length, and thickness", Some(key))).ToValidation(),
+         FastenPattern.Of(r.FieldMm, r.EdgeMm, r.EdgeDistMm, r.Fastener, key).ToValidation().Map(static _ => unit),
+         DeckDrift(r, key))
+            .Apply(static (_, _, _, _, _) => unit).As();
+
+    // The deck-row agreement gate: the roster's printed width and thickness must match the rib row's coverage and
+    // depth within the kernel MATCH band. A non-deck row proves vacuously — ForAll over the absent payload.
+    static Validation<Error, Unit> DeckDrift(PanelRow r, Op key) =>
+        Tolerance.Of(ToleranceLane.Match, DeckDriftMm, key).ToValidation()
+            .Bind(band => guard(r.Specification.Deck.ForAll(deck =>
+                    Math.Abs(r.ThicknessMm - deck.Rib.RibDepthMm) <= band.Value
+                    && Math.Abs(r.WidthMm - deck.Rib.CoverageMm) <= band.Value),
+                new KernelFault.InvalidValue(nameof(r.ThicknessMm), "deck gauge thickness and rib coverage", Some(key))).ToValidation());
+
+    // A deck's substance is its gauge steel and a board's its kind's — one owner both the law's substance slot and
+    // its appearance fallback read.
+    static MaterialId Substance(PanelRow r) =>
+        r.Specification.Deck.Map(static deck => deck.Gauge.Substance).IfNone(r.Kind.Substance);
+
+    // The payload-routed profile: a deck row fills the six Corrugated named dims from its REFERENCED DeckProfileRow
+    // plus the SYMBOLICALLY referenced connector GaugeRow base metal (the Gauges roster carries the deck bands
+    // 22ga..16ga as named statics, so nothing resolves at runtime and nothing can miss); every other row builds
+    // Layered from the specification's own layup. The section INTEGRAL for Sectioned rows runs once in
+    // ComponentCatalogue.Of through SectionSolver.Solve's corrugated arm.
+    static Fin<SectionProfile> Profile(PanelRow r, Op key) =>
         r.Specification.Deck.Match(
-            Some: deck =>
-                from aligned in guard(
-                    Math.Abs(thickness.Value - deck.Rib.RibDepthMm) <= DeckDriftToleranceMm
-                        && Math.Abs(width.Value - deck.Rib.CoverageMm) <= DeckDriftToleranceMm,
-                    ComponentFault.Dimension(key, $"<deck-row-dims-drift:{r.Designation}>"))
-                from corrugated in SectionProfile.Corrugated.Of(
-                    coverWidthMm: deck.Rib.CoverageMm, ribDepthMm: deck.Rib.RibDepthMm, ribPitchMm: deck.Rib.RibPitchMm,
-                    gaugeMm: deck.Gauge.BaseThicknessMm, topFlatMm: deck.Rib.TopFlatMm, bottomFlatMm: deck.Rib.BottomFlatMm, key)
-                select (corrugated, deck.Gauge.Substance),
+            Some: deck => SectionProfile.Corrugated.Of(
+                coverWidthMm: deck.Rib.CoverageMm, ribDepthMm: deck.Rib.RibDepthMm, ribPitchMm: deck.Rib.RibPitchMm,
+                gaugeMm: deck.Gauge.BaseThicknessMm, topFlatMm: deck.Rib.TopFlatMm, bottomFlatMm: deck.Rib.BottomFlatMm, key),
             None: () =>
-                from plies in r.Kind.Layup(r.Specification.LayupFacer, thickness)
-                    .ToFin(ComponentFault.Dimension(key, $"<board-thinner-than-its-own-facings:{r.Designation}>"))
-                from layered in SectionProfile.Layered.Of(plies, overallMm: thickness.Value, widthMm: width.Value, key)
-                select (layered, r.Kind.Substance));
+                from thickness in key.AcceptValidated<PositiveMagnitude>(candidate: r.ThicknessMm)
+                from plies in r.Specification.Layup(r.Kind, thickness)
+                    .ToFin(new KernelFault.InvalidValue(nameof(r.ThicknessMm), "at least the built facing thickness", Some(key)))
+                from layered in SectionProfile.Layered.Of(plies, overallMm: r.ThicknessMm, widthMm: r.WidthMm, key)
+                select layered);
 
-    // The appearance slot: the outermost facing ply's material (probed through the bounded PlyRole), the substance for a bare-core board or a deck — INDEPENDENT of SubstanceId per the
-    // two-slot law (a foil-faced polyiso keeps foam substance + facer appearance).
-    static MaterialId AppearanceOf(SectionProfile profile, MaterialId substance) =>
-        profile is SectionProfile.Layered layered
-            ? layered.Plies.Find(static ply => ply.Role.Facing)
-                .Map(static ply => ply.Material).IfNone(substance)
-            : substance;
+    // The Product bag. The census already proved the schedule and the dimensions, so this lift is the ComponentSeed
+    // law's declared re-read of a proof it discards, never a second gate.
+    static Fin<PropertyBag> Detail(PanelRow r, SectionProfile profile, Op key) =>
+        from length in key.AcceptValidated<PositiveMagnitude>(candidate: r.LengthMm)
+        from thickness in key.AcceptValidated<PositiveMagnitude>(candidate: r.ThicknessMm)
+        from fastening in FastenPattern.Of(r.FieldMm, r.EdgeMm, r.EdgeDistMm, r.Fastener, key)
+        from bag in PanelDetail.Of(length, thickness, r.Edge, r.Orientation, fastening, r.Specification, r.Source)
+        select bag;
 
-    // The ONE generator fold (RAIL law): Traverse accumulates EVERY failing row's fault (applicative Fin), then the
-    // build aborts — never Choose/ToOption; the prior THREE swallow sites (Shapes/BuildPanelRows/PanelSections) are
-    // DELETED. A deck-presence mismatch, a malformed dimension, or a bad schedule faults its row; EVERY vocabulary
-    // axis — the deck gauge included — is a typed row REFERENCE, so nothing resolves at runtime and nothing can
-    // miss. Sectioned derives from the admitted DeckSheet case; ComponentCatalogue.Of
-    // traverses SectionSolver.Solve over exactly those rows.
-    public static Fin<Seq<ComponentRow>> Rows(Context context) =>
-        Roster.Traverse(r =>
-            from admitted in guard(r.Kind.Admits(r.Specification),
-                ComponentFault.Family(context.Key, $"<panel-kind-spec-mismatch:{r.Designation}:{r.Kind.Key}>"))
-            from width in context.Key.AcceptValidated<PositiveMagnitude>(candidate: r.WidthMm)
-            from length in context.Key.AcceptValidated<PositiveMagnitude>(candidate: r.LengthMm)
-            from thickness in context.Key.AcceptValidated<PositiveMagnitude>(candidate: r.ThicknessMm)
-            from fastening in FastenPattern.Of(r.FieldMm, r.EdgeMm, r.EdgeDistMm, r.Fastener, context.Key)
-            from routed in ProfileOf(r, width, thickness, context.Key)
-            from detail in PanelDetail.Of(length, thickness, r.Edge, r.Orientation, fastening, r.Specification, Source(r))
-            from item in Component.Of(
-                ComponentFamily.Panel, r.Designation, routed.Profile,
-                IfcBinding.Of(r.Kind.IfcEntity, r.Kind.IfcPredefinedType),
-                Coring.None, new ComponentStandard("us", StandardJointThicknessMm: 0.0, r.Kind.Authority),
-                substanceId: routed.Substance,
-                appearanceId: AppearanceOf(routed.Profile, routed.Substance),
-                detail: Some(detail),
-                context.Key)
-            select new ComponentRow(item, Source(r))).As();
-
-    // A deck row inherits its rib profile's OWN provenance — the SDI roof series is standardized and the composite
-    // series proprietary, so the two do not share one label — while a board row transcribes its product standard's
-    // published dimensions and schedules whole.
-    static Provenance Source(PanelRow r) => r.Specification.Deck.Match(
-        Some: static deck => deck.Rib.Source,
-        None: static () => Provenance.Published);
-
-    static readonly FrozenDictionary<ComponentId, PanelRow> Table =
-        Roster.ToFrozenDictionary(static row => ComponentId.Create(row.Designation), static row => row);
-
-    // The ComponentFamily.Panel CAPACITY producer, over the two board forms that carry a published resistance. A DECK
-    // sheet is priced out of plane: its solved Corrugated section runs the AISI body at the gauge band's own yield and
-    // lifts as CapacityReceipt.DeckSheet, which is what makes GaugeRow.AxialSectionCapacityKnPerMm a consumed datum. A
-    // WOOD STRUCTURAL PANEL is priced IN PLANE off its own tabulated unit shear, reduced ONCE here — the rail and the
-    // placement's hazard both exist at this seat and nowhere downstream, which is why the receipt carries a finished
-    // design value exactly as the connector receipts do. Every other board form refuses TYPED and names itself: a
-    // gypsum, faced, foam, or membrane board publishes no in-plane table, and returning some other family's verdict
-    // for one would be worse than returning none.
+    // The ComponentFamily.Panel CAPACITY producer, over the two board forms that carry a published resistance. A
+    // DECK sheet is priced out of plane: its solved Corrugated section runs the AISI body at the rib row's own
+    // MaterialGrade and lifts as CapacityReceipt.DeckSheet, which is what makes GaugeRow.AxialSectionCapacityKnPerMm
+    // a consumed datum. A WOOD STRUCTURAL PANEL is priced IN PLANE off its own tabulated unit shear, reduced ONCE
+    // here — the rail and the placement's hazard both exist at this seat and nowhere downstream. Every other board
+    // form refuses TYPED and names itself: a gypsum, faced, foam, or membrane board publishes no in-plane table, and
+    // returning some other family's verdict for one would be worse than returning none.
     public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
-        from row in Table.TryGetValue(component.Designation, out PanelRow found)
-            ? Fin.Succ(found)
-            : Fin.Fail<PanelRow>(ComponentFault.Family(key, $"<panel-row-unregistered:{component.Designation.Value}>"))
+        from row in SeedJoin.Resolve(Table, component.Designation, key)
         from capacity in row.Specification.Switch(
             deckSheet: deck =>
-                from solved in section.ToFin(ComponentFault.Section(key, $"<deck-section-unresolved:{row.Designation}>"))
+                from solved in section.ToFin(new ComponentFault.SectionUnavailable(key, component.Designation))
                 from design in SteelDesign.Capacity(component.Profile, deck.Rib.Grade, solved, placement, key)
-                select SectionCapacity.Lift(new CapacityReceipt.DeckSheet(component.Designation, deck.Gauge, deck.Rib, design)),
+                from lifted in SectionCapacity.Lift(new CapacityReceipt.DeckSheet(component.Designation, deck.Gauge, deck.Rib, design), key)
+                select lifted,
             woodPanel: wood =>
                 from nominal in LateralShear.Nominal(
                     wood.Grade, row.ThicknessMm / LateralShear.InchToMm, wood.Nail, placement.Assembly,
@@ -914,13 +955,14 @@ public static class PanelSeed {
                 // limit-state basis rails not-applicable. Reading the sdpws row's OWN format here froze every
                 // project to ASD and left the LRFD factor pair unreachable.
                 from design in placement.Hazard.Design(nominal, placement.Basis.Format, key)
-                select SectionCapacity.Lift(new CapacityReceipt.LateralPanel(component.Designation, design, placement.Hazard)),
-            gypsumBoard: _ => Unpriced(row, key), facedBoard: _ => Unpriced(row, key),
-            foamBoard: _ => Unpriced(row, key), membrane: _ => Unpriced(row, key))
+                from lifted in SectionCapacity.Lift(new CapacityReceipt.LateralPanel(component.Designation, design, placement.Hazard), key)
+                select lifted,
+            gypsumBoard: _ => Unpriced(component.Designation, key), facedBoard: _ => Unpriced(component.Designation, key),
+            foamBoard: _ => Unpriced(component.Designation, key), membrane: _ => Unpriced(component.Designation, key))
         select capacity;
 
-    static Fin<SectionCapacity> Unpriced(PanelRow row, Op key) =>
-        ComponentFault.Capacity(key, $"<panel-form-publishes-no-resistance:{row.Designation}:{row.Kind.Key}>");
+    static Fin<SectionCapacity> Unpriced(ComponentId subject, Op key) =>
+        new ComponentFault.CapacityUnavailable(key, subject);
 }
 ```
 

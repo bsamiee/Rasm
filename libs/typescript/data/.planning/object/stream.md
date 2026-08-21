@@ -48,7 +48,7 @@ const _FORM = {
 const _bytes = (body: ReadableStream<Uint8Array>): Stream.Stream<Uint8Array, ObjectFault> =>
   Stream.fromReadableStreamByob(
     () => body,
-    (caught) => new ObjectFault({ reason: "io", key: "<ingress>", detail: String(caught) }),
+    (caught) => new ObjectFault({ case: { reason: "io", key: "<ingress>", detail: String(caught) } }),
     _INGRESS.allocBytes,
   )
 
@@ -112,7 +112,7 @@ const _DOMAIN = { leaf: Uint8Array.of(0), node: Uint8Array.of(1) } as const // F
 type _ProofNode = { readonly hash: Digest.Key<"proof">; readonly paths: ReadonlyArray<Rail.ProofPath> }
 
 const _proofFault = (key: string) => (fault: unknown): ObjectFault =>
-  new ObjectFault({ reason: "integrity", key, detail: String(fault) })
+  new ObjectFault({ case: { reason: "integrity", key, detail: String(fault) } })
 
 const _joinedWith = (left: _ProofNode, pair: Array.NonEmptyReadonlyArray<_ProofNode>): Effect.Effect<_ProofNode, ObjectFault> =>
   Option.match(Array.get(pair, 1), {
@@ -151,7 +151,7 @@ const _fold = (
     : Effect.flatMap(Effect.forEach(Array.chunksOf(nodes, 2), _joined), (level) =>
         Array.isNonEmptyReadonlyArray(level)
           ? _fold(level, depth + 1)
-          : Effect.fail(new ObjectFault({ reason: "integrity", key: "<proof>", detail: "<empty-level>" })))
+          : Effect.fail(new ObjectFault({ case: { reason: "integrity", key: "<proof>", detail: "<empty-level>" } })))
 
 const _prove = (marks: Array.NonEmptyReadonlyArray<Rail.ChunkMark>): Effect.Effect<Rail.Proof, ObjectFault> =>
   Effect.flatMap(
@@ -166,7 +166,7 @@ const _prove = (marks: Array.NonEmptyReadonlyArray<Rail.ChunkMark>): Effect.Effe
     (leaves) =>
       Array.isNonEmptyReadonlyArray(leaves)
         ? Effect.map(_fold(leaves, 0), (proof) => ({ ...proof, leaves: marks.length }))
-        : Effect.fail(new ObjectFault({ reason: "integrity", key: "<proof>", detail: "<empty-leaves>" })),
+        : Effect.fail(new ObjectFault({ case: { reason: "integrity", key: "<proof>", detail: "<empty-leaves>" } })),
   )
 ```
 
@@ -353,7 +353,7 @@ const _STAGE = {
 const _staged = (staging: S3Store, id: string) =>
   Effect.tryPromise({
     try: () => staging.read(id),
-    catch: (caught) => new ObjectFault({ reason: "io", key: id, detail: String(caught) }),
+    catch: (caught) => new ObjectFault({ case: { reason: "io", key: id, detail: String(caught) } }),
   })
 
 // One row per fault class, total over the core lattice, so a widened rung fails at this declaration rather than
@@ -433,7 +433,7 @@ const _preserved = (subject: SubjectKey, retention: Retain.Class) =>
     const store = yield* ObjectStore
     const owner = yield* Effect.mapError(
       Schema.decodeUnknown(ObjectStore.Owner)(subject.owner),
-      () => new ObjectFault({ reason: "owner", key: subject.subject, detail: "<preserve:owner>" }),
+      () => new ObjectFault({ case: { reason: "owner", key: subject.subject, detail: "<preserve:owner>" } }),
     )
     yield* _landed(
       store,
@@ -442,7 +442,7 @@ const _preserved = (subject: SubjectKey, retention: Retain.Class) =>
       _CUT,
       Stream.mapError(
         Retain.slice(subject),
-        (fault) => new ObjectFault({ reason: "io", key: subject.subject, detail: String(fault) }),
+        (fault) => new ObjectFault({ case: { reason: "io", key: subject.subject, detail: String(fault) } }),
       ),
     )
   })
@@ -469,7 +469,7 @@ const _finalized = (spec: Rail.Spec, store: ObjectStore, staging: S3Store, uploa
     )
     yield* Effect.tryPromise({
       try: () => staging.remove(upload.id),
-      catch: (caught) => new ObjectFault({ reason: "io", key: upload.id, detail: String(caught) }),
+      catch: (caught) => new ObjectFault({ case: { reason: "io", key: upload.id, detail: String(caught) } }),
     }).pipe(Effect.ignoreLogged) // staging cleanup is debt, never receipt truth: the durable object and its reference are committed, a failed delete logs, and groom's deleteExpired retires the orphaned staging body
     yield* Effect.ignore(Metric.incrementBy(_streamed, receipt.bytes)) // signal refusal cannot reopen an irreversible completion
     yield* Effect.ignore(
@@ -549,23 +549,23 @@ const _rail = (spec: Rail.Spec) =>
         runtime,
         Effect.flatMap(
           Option.match(Option.fromNullable(new URL(req.url).searchParams.get("upload")), {
-            onNone: () => Effect.fail(new ObjectFault({ reason: "missing", key: spec.staging, detail: "<receipt:upload>" })),
+            onNone: () => Effect.fail(new ObjectFault({ case: { reason: "missing", key: spec.staging, detail: "<receipt:upload>" } })),
             onSome: (id) =>
               Effect.tryPromise({
                 try: () => staging.getUpload(id),
-                catch: (caught) => new ObjectFault({ reason: "missing", key: id, detail: String(caught) }),
+                catch: (caught) => new ObjectFault({ case: { reason: "missing", key: id, detail: String(caught) } }),
               }),
           }),
           (upload) =>
             upload.offset === upload.size
               ? _finalized(spec, store, staging, upload)
-              : Effect.fail(new ObjectFault({ reason: "missing", key: upload.id, detail: "<receipt:incomplete>" })),
+              : Effect.fail(new ObjectFault({ case: { reason: "missing", key: upload.id, detail: "<receipt:incomplete>" } })),
         ),
       ))
     server.on(EVENTS.POST_TERMINATE, (_req, _res, id) => {
       void Runtime.runPromise(runtime)(Effect.annotateLogs(Effect.logInfo("tus upload terminated"), { id }))
     })
-    const fold = (key: string) => (caught: unknown): ObjectFault => new ObjectFault({ reason: "io", key, detail: String(caught) })
+    const fold = (key: string) => (caught: unknown): ObjectFault => new ObjectFault({ case: { reason: "io", key, detail: String(caught) } })
     return {
       node: (req: http.IncomingMessage, res: http.ServerResponse) =>
         Effect.tryPromise({ try: () => server.handle(req, res), catch: fold(spec.route) }),
@@ -605,7 +605,7 @@ const _range = (key: Digest.Key<"content">, span?: { readonly from: number; read
         }),
         (reply) =>
           reply.Body === undefined
-            ? Stream.fail(new ObjectFault({ reason: "missing", key, detail: "<empty>" }))
+            ? Stream.fail(new ObjectFault({ case: { reason: "missing", key, detail: "<empty>" } }))
             : _bytes(reply.Body.transformToWebStream() as ReadableStream<Uint8Array>),
       )),
   )

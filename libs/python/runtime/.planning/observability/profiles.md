@@ -46,7 +46,26 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pyroscope.otel import PyroscopeSpanProcessor
 
 from rasm.runtime.admission import RuntimeContext
-from rasm.runtime.faults import SCHEMA_URL, SCOPES, BoundaryFault, Disposition, RuntimeRail, Scope, boundary, latched, traversed
+from rasm.runtime.faults import (
+    BENCH_DOUBLED,
+    BENCH_EMPTY,
+    BENCH_KERNEL,
+    BENCH_QUIET,
+    BENCH_ROUND,
+    BENCH_ROUNDS,
+    BENCH_TOOL,
+    BENCH_WARMUP,
+    PROFILES_JOB,
+    SCHEMA_URL,
+    SCOPES,
+    BoundaryFault,
+    Disposition,
+    RuntimeRail,
+    Scope,
+    boundary,
+    latched,
+    traversed,
+)
 from rasm.runtime.logging import LogPipeline, LogShip
 from rasm.runtime.metrics import Dimension, Metrics
 from rasm.runtime.receipts import OPEN, DEFAULT_SCOPE, Receipt, ScopeKey, Signals
@@ -169,6 +188,7 @@ class Profiles:
 - Law: the fold stops at the first refusal, so a broken op pays one round rather than the whole declared window.
 - Law: `run` rails only where the window measured nothing, quantiles needing at least one sample.
 - Receipt: `contribute` streams one `Receipt.of("runtime.bench", ("emitted", subject, facts))` row and projects the duration and throughput measures onto the `Metrics.record` mapping arm under `domain="bench"`, so the receipt stays truth and the instruments stay projections of it.
+- Law: the four roster refusals and the three window refusals each resolve their OWN `reliability/faults#FAULT` `RAISES` anchor under `RuntimeLeg.PROFILES` — four distinct census LAWS keep four rows rather than one subject spelling four sentences — and the benched subject rides a NAMED slot where the fault names it. Both timing fences keep the plane's catch-all, since the graded body is a caller kernel no runtime can roster.
 - Growth: a new benchmark statistic is one `BenchmarkReceipt` field derived from the held samples, reaching every verdict through `graded` with no roster edit; a new bench instrument is one measure name here and one `InstrumentSpec` row on the metrics owner; a new run outcome is one `BenchOutcome` member reaching the counter through the single `_verdicted` site; a new external tool is one `TOOLS` row a `floor` names, and a tool whose presence is not a bare PATH lookup grows its own probe body on that row while its deployment override needs no settings edit; a benching folder gains grading by supplying one roster and one kernel map, zero edits here.
 - Packages: `pydantic-settings` (the one `RASM_TOOL_PATHS` deployment override, admitted once), the builtin `frozendict` (that override projected immutable), stdlib `shutil.which` (the default `ToolRow` probe body — it answers the resolved path, and an absolute override resolves through it only when executable, never a spawn the roster pays for).
 - Boundary: this family owns the branch's macro evidence AND its own corpus gate; benchmark authority stays branch-local, so no peer runtime's figure is graded or cited here and a cross-runtime speed comparison has no owner. A calling folder owns its corpus roster, its recipes, and its deterministic-input vocabulary — this tier reads a bound thunk and never a feed value, so no producer type crosses upward. `JobRun.bounded` envelopes a process-terminal bench run so the final `domain="bench"` projection flushes before exit; an in-daemon bench rides the standing periodic reader.
@@ -377,16 +397,16 @@ class Bench:
             return Bench.run(row.subject, kernels[row.subject], mode=row.mode, rounds=row.rounds, warmup=row.warmup).map(scored)
 
         if not collided.is_empty():
-            return Error(BoundaryFault(config=("runtime.bench", f"roster doubles subjects: {','.join(sorted(collided))}")))
+            return Error(BENCH_DOUBLED.raised(",".join(sorted(collided))))
         if unrostered:
             # a floor naming a tool no `TOOLS` row keys is a ROSTER defect, not a quiet host: reading it as absence
             # would retire the subject on every machine and read as an uninstalled binary nobody can install.
-            return Error(BoundaryFault(config=("runtime.bench", f"no tool row keys: {','.join(sorted(unrostered))}")))
+            return Error(BENCH_TOOL.raised(",".join(sorted(unrostered))))
         if not uncovered.is_empty():
-            return Error(BoundaryFault(config=("runtime.bench", f"no kernel covers: {','.join(sorted(uncovered))}")))
+            return Error(BENCH_KERNEL.raised(",".join(sorted(uncovered))))
         if live.is_empty():
             # a run that graded nothing is a host misconfiguration, never a pass — the quiet roster names what to install
-            return Error(BoundaryFault(config=("runtime.bench", f"no subject is provisioned: {','.join(sorted(row.subject for row in quiet))}")))
+            return Error(BENCH_QUIET.raised(",".join(sorted(row.subject for row in quiet))))
         for row in quiet:
             # Third outcome writes only once the run is ADMITTED. Quiet rows MEASURED NOTHING and reach no verdict — a
             # passed or regressed grade there is a reading no run took — so the outcome axis carries silence itself.
@@ -411,11 +431,13 @@ class Bench:
             if refused is not None:
                 return held
             # samples accumulate by `cons`, order-free: every derived statistic sorts or sums, so no round index survives.
-            return boundary(f"bench.{subject}.{index}", timed).map(lambda ms: (samples.cons(ms), None)).default_with(lambda fault: (samples, fault))
+            return boundary(BENCH_ROUND, timed, catch=Exception).map(lambda ms: (samples.cons(ms), None)).default_with(lambda fault: (samples, fault))
 
         if rounds < 1 or warmup < 0:
-            return Error(BoundaryFault(config=(f"bench.{subject}", f"rounds={rounds} warmup={warmup}")))
-        return boundary(f"bench.{subject}.warmup", lambda: Block.range(warmup).fold(lambda _, __: timed(), 0.0)).bind(
+            return Error(BENCH_ROUNDS.raised(subject, str(rounds), str(warmup)))
+        # the graded body is a CALLER kernel whose raise surface no runtime rosters, so the two timing fences keep the
+        # plane's one catch-all: a benchmark that lets an unclassified raise escape loses every sample it already took.
+        return boundary(BENCH_WARMUP, lambda: Block.range(warmup).fold(lambda _, __: timed(), 0.0), catch=Exception).bind(
             lambda _warmed: _windowed(subject, mode, warmup, Block.range(rounds).fold(rounded, (Block.empty(), None)))
         )
 
@@ -436,7 +458,7 @@ def _windowed(
     return (
         Ok(BenchmarkReceipt.of(subject, mode, warmup, tuple(samples), refused))
         if not samples.is_empty()
-        else Error(Option.of_optional(refused).default_value(BoundaryFault(boundary=(f"bench.{subject}", "no round measured"))))
+        else Error(Option.of_optional(refused).default_value(BENCH_EMPTY.raised(subject)))
     )
 ```
 
@@ -479,7 +501,7 @@ class JobRun:
         # unthreaded `install()` silently discards every non-default `cardinality_budget` a profile carries.
         installed = Telemetry.install(ctx, endpoint, resource=job_resource(job_id, run_id), signal_profile=JOB_SIGNAL_PROFILE, ship=ship)
         Metrics.install(budget=installed.signal_profile.cardinality_budget)
-        outcome = boundary(f"job.{job_id}", body)
+        outcome = boundary(PROFILES_JOB, body, catch=Exception)
         drained = Telemetry.shutdown()  # flush-then-shutdown per provider, ACCUMULATE — runs on the fault arm too
         return outcome.bind(lambda value: drained.map(lambda _flushed: value))
 ```

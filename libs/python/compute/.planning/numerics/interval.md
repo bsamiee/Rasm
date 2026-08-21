@@ -2,7 +2,7 @@
 
 One validated-numerics owner producing certified enclosures over a layered floor ladder: `IntervalNumerics` evaluates an interval extension over a box, certifies that an enclosure contains a target, refines an enclosure by bisection toward a width tolerance, and isolates certified polynomial roots, every operation one tag on one `IntervalOp` dispatch. Its receipt names which `Floor` certified an enclosure and how tight the ball is — Arb and mpmath certify, the numpy grid is a sound-but-uncertified band — so rigor is first-class evidence, never a bare boolean.
 
-`run` rides the hub `evidence_run` weave under the `EvidenceScope.INTERVAL` scope row and `graduates` feeds the solver-axis projection on `solvers/receipt#RECEIPT` with the `(ledger, ceiling, key)` triple projected from its own `Certificate`, both threading the caller's composition `ScopeKey` so an embedded composition's lifecycle and admission facts key to it. Identity is op-owned: `identity_buffer` folds the extension key, bounds, target, and every yield-changing knob through runtime `ContentIdentity`, and a box admitting from a `numerics/array#PAYLOAD` payload keys through the same seed.
+`run` rides the hub `evidence_run` weave under the `EvidenceScope.INTERVAL` scope row and `graduates` feeds the solver-axis projection on `solvers/receipt#RECEIPT` with the `(ledger, ceiling, key)` triple projected from its own `Certificate`, both threading the caller's composition `ScopeKey` so an embedded composition's lifecycle and admission facts key to it. Identity is op-owned: `identity_source` hands the extension key, bounds, target, and every yield-changing knob to runtime `ContentIdentity` as N framed semantic fields, and a box admitting from a `numerics/array#PAYLOAD` payload keys through the same seed.
 
 ## [01]-[INDEX]
 
@@ -12,9 +12,9 @@ One validated-numerics owner producing certified enclosures over a layered floor
 
 - Owner: `IntervalNumerics` — every certified operation is one `IntervalOp` tag over one `_dispatch` fold, never a parallel rigorous-arithmetic surface or a per-tag evaluator family; `_dispatch` returns the honest `Yield` union its arms produce, and `IntervalReceipt.of` folds that union total, so no phantom output type parameter rides the carrier.
 - Cases: `Refine` carries the real extension so the refined half stays certified by the floor that produced it, never re-rounded through an identity placeholder, and a `Roots`-isolated enclosure feeds straight back as a refine target; `Certify` only narrows — a failed containment refutes the certificate and a refuted Arb enclosure stays first-class evidence of the failed claim.
-- Law: the rung name and the importable module are two columns, not one — the Arb rung is reached through the `flint` module, so probing the rung's own spelling answers absent on every host, silently degrades every `Evaluate`/`Refine` to the mpmath rung, and leaves the receipt reporting a rung the ladder never ran. `FloorRow.module` is the sole probe target and the unconditional numpy floor earns its row by that same presence read, never by a per-rung short-circuit; the direct-`flint` root isolator is a distinct need (the arb root isolator specifically, not the ladder's tightest rung) and stays outside the fold. `certified` over an empty root set holds by vacuous truth, which is sound on the receipt rail and worthless as outward proof — so `vacuous` is a governed ceiling bar beside `refuted` and `width`, and an isolation that enclosed nothing is a ceiling REJECTION rather than a crossing whose `{refuted: 0.0, width: 0.0}` ledger clears every other bar.
-- Receipt: a `Roots` tuple reports its widest (loosest-certified) member beside the root count; an empty isolation is a vacuous certified row rather than a missing receipt, its rung read off the ladder's resolved row and its emptiness carried as the receipt's own `vacuous` predicate. `span_facts`, the receipt facts, and the graduation ledger all read that one projection, so the OTLP attribute set, the emitted evidence, and the admission bar never fork.
-- Growth: a new certified operation is one `IntervalOp` case, one `_dispatch` arm, and its `identity_buffer` arm; a new floor is one `Floor` member, one `_FLOOR_LADDER` row carrying its module column, and one `Certificate` arm; a new admission bar is one `_CEILING` row and one `span_facts` slot the ledger already reads; a new relational op is one `Interval` method.
+- Law: the rung name and the importable module are two columns, not one — the Arb rung is reached through the `flint` module, so probing the rung's own spelling answers absent on every host, silently degrades every `Evaluate`/`Refine` to the mpmath rung, and leaves the receipt reporting a rung the ladder never ran. `FloorRow.module` is the sole probe target and the unconditional numpy floor earns its row by that same presence read, never by a per-rung short-circuit; the direct-`flint` root isolator is a distinct need (the arb root isolator specifically, not the ladder's tightest rung) and stays outside the fold. Certification holds by vacuous truth over an empty root set, which is sound on the receipt rail and worthless as outward proof — so `vacuous` is a governed ceiling bar beside `refuted` and `width`, named on the receipt's own BAND and an isolation that enclosed nothing is a ceiling REJECTION rather than a crossing whose fabricated `{refuted: 0.0, width: 0.0}` ledger clears every other bar.
+- Receipt: a `Roots` tuple reports its widest (loosest-certified) member beside the root count; an empty isolation is a vacuous row rather than a missing receipt, its rung read off the ladder's resolved row, its width and accuracy ABSENT because it measured neither, and its emptiness named on the band. `span_facts`, the settled payload, and the graduation ledger all read that one band, so the OTLP attribute set, the emitted evidence, and the admission bar never fork, and every absent column omits its key rather than publishing a zero a board reads as measured.
+- Growth: a new certified operation is one `IntervalOp` case, one `_dispatch` arm, and its `identity_source` arm; a new floor is one `Floor` member, one `_FLOOR_LADDER` row carrying its module column, and one `Certificate` arm; a new certification finding is one `_band` row every consumer reads for free; a new admission bar is one `_CEILING` row and one `span_facts` slot the ledger already reads; a new relational op is one `Interval` method.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -25,15 +25,15 @@ from typing import Annotated, Final, Literal, Protocol, Self, assert_never, runt
 
 import numpy as np
 from beartype import beartype
-from expression import Error, Nothing, Ok, Option, Result, Some, TailCall, case, tag, tagged_union, tailrec
+from expression import Error, Nothing, Ok, Option, Some, TailCall, case, tag, tagged_union, tailrec
 from expression.collections import Block, Map
 from msgspec import Meta, Struct
 
 from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, evidence_run
 from rasm.compute.solvers.receipt import graduate
-from rasm.runtime.identity import CANONICAL_POLICY, ContentIdentity, ContentKey
+from rasm.runtime.identity import CANONICAL_POLICY, ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail
-from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
+from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
 
 # certified rungs defer: `flint` (the Arb backend) and `mpmath` are heavy native extensions the ladder selects at most
 # one of per host, so neither load lands until a resolved row's evaluator or the root isolator first dereferences it.
@@ -139,7 +139,10 @@ class Interval(Struct, frozen=True, gc=False):
 
 class Certificate(Struct, frozen=True, gc=False):
     floor: Floor
-    accuracy_bits: AccuracyBits = 0
+    # the numpy rung certifies NOTHING and measures no accuracy, which `Option` states and the retired `= 0` default
+    # forged: zero bits reads as a measured accuracy of none, so a consumer comparing rungs ranked the uncertified
+    # band as the tightest-but-worst rather than as the unmeasured one. `_numpy_evaluate` supplies no value at all.
+    accuracy_bits: Option[AccuracyBits] = Nothing
     refuted: bool = False
 
     @property
@@ -165,9 +168,15 @@ class Enclosure(Struct, frozen=True, gc=False):
 class IntervalReceipt(Struct, frozen=True):
     op: Tag
     floor: Floor
-    width: Width
-    accuracy_bits: AccuracyBits
-    certified: bool
+    # an empty isolation enclosed NOTHING, so it measured no width and no accuracy: the retired `0.0`/`0` filled both
+    # slots with numbers no rung ever took, and a consumer ranking enclosures by width read the vacuous row as the
+    # tightest result on the page. `Option` states the absence the ladder actually has.
+    width: Option[Width]
+    accuracy_bits: Option[AccuracyBits]
+    # the certification verdict as a BAND rather than a bool: `certified=False` erased WHICH bar failed — an
+    # uncertified rung, a refuted containment, and a vacuous isolation are three different findings one boolean
+    # fused, and the ledger below had to re-derive two of them anyway. Empty IS certified.
+    band: Block[str]
     roots: int
     content_key: ContentKey
 
@@ -177,38 +186,40 @@ class IntervalReceipt(Struct, frozen=True):
         match yielded:
             case [] | ():
                 # empty isolation carries no enclosure to read a rung off, so the rung is the LADDER's resolved row —
-                # naming a fixed `Floor.ARB` here reports a rung the host may never have been able to select.
-                return IntervalReceipt(op, _resolve_floor().floor, 0.0, 0, certified=True, roots=0, content_key=key)
+                # naming a fixed `Floor.ARB` here reports a rung the host may never have been able to select. Its band
+                # carries the vacuity that `certified=True` by vacuous truth previously hid from every outward reader.
+                return IntervalReceipt(op, _resolve_floor().floor, Nothing, Nothing, Block.singleton("vacuous"), 0, key)
             case [*roots]:
                 widest = max(roots, key=lambda e: e.width)
-                cert = widest.certificate
-                return IntervalReceipt(op, cert.floor, widest.width, cert.accuracy_bits, cert.certified, len(roots), key)
+                return IntervalReceipt(op, widest.certificate.floor, Some(widest.width), widest.certificate.accuracy_bits, _band(widest), len(roots), key)
             case enclosure:
                 cert = enclosure.certificate
-                return IntervalReceipt(op, cert.floor, enclosure.width, cert.accuracy_bits, cert.certified, 1, key)
-
-    @property
-    def vacuous(self) -> bool:
-        # an isolation that enclosed NOTHING: `certified` holds by vacuous truth over an empty root set, so the row is
-        # sound as receipt evidence and empty as proof. The predicate lives here so the span attributes, the receipt
-        # facts, and the graduation ledger all read one answer rather than three re-derivations of the same test.
-        return self.op == "roots" and self.roots == 0
+                return IntervalReceipt(op, cert.floor, Some(enclosure.width), cert.accuracy_bits, _band(enclosure), 1, key)
 
     @property
     def span_facts(self) -> dict[str, object]:
-        # `content_key` hex rides the receipt facts only, not the OTLP attribute set.
-        return {
-            "floor": self.floor.value,
-            "width": self.width,
-            "accuracy_bits": self.accuracy_bits,
-            "certified": self.certified,
-            "vacuous": self.vacuous,
-            "roots": self.roots,
-        }
+        # every ABSENT column OMITS its key rather than publishing a zero a board reads as a measured extent; the
+        # band renders as its own joined roster, so the span, the receipt payload, and the graduation ledger all
+        # read one projection rather than three re-derivations of the same test.
+        measured: dict[str, object] = {"floor": self.floor.value, "roots": self.roots, "band": ";".join(self.band)}
+        return (
+            measured
+            | self.width.map(lambda w: {"width": w}).default_value({})
+            | self.accuracy_bits.map(lambda bits: {"accuracy_bits": bits}).default_value({})
+        )
 
     def contribute(self) -> Iterable[Receipt]:
-        facts: dict[str, object] = {**self.span_facts, "content_key": self.content_key.project("hex")}
-        return (Receipt.of(EvidenceScope.INTERVAL.value, ("emitted", self.op, facts)),)
+        # ONE settled-receipt spine: the op key is the produced coordinate — so `content_key` stops riding the
+        # payload as a hand-rendered hex string — and the certification findings ride the band the spine owns.
+        return (
+            Receipt.of(
+                EvidenceScope.INTERVAL.value,
+                ("emitted", self.op, self.span_facts),
+                key=Some(self.content_key),
+                provenance=Some(Provenance(consumed=Block.empty(), produced=self.content_key)),
+                band=self.band,
+            ),
+        )
 
 
 # --- [OPERATIONS] --------------------------------------------------------------------------
@@ -238,9 +249,12 @@ class IntervalOp:
     def Roots(poly: Poly, box: Interval, /) -> "IntervalOp":
         return IntervalOp(roots=(poly, box))
 
-    def identity_buffer(self, precision: int) -> bytes:
-        # tag, stable `Expr.key()`, every bound, the target, and every yield-changing knob fold into the buffer, so two different
-        # computations over one box never share a `ContentKey`; length-prefixed parts keep the buffer unambiguous.
+    def identity_source(self, precision: int) -> IdentitySource:
+        # tag, stable `Expr.key()`, every bound, the target, and every yield-changing knob are N SEMANTIC FIELDS, so this
+        # hands `IdentitySource(parts=...)` and the `[PREIMAGE_FRAMING]` count-and-length framing runs at its ONE owner,
+        # `runtime/evidence/identity#IDENTITY`. The retired tail re-spelled that owner's `_framed` fold verbatim —
+        # `b"".join(len(part).to_bytes(8, "big") + part ...)` — so a width or byte-order change at the owner would have
+        # silently forked this page's key namespace with no surface able to report the divergence.
         def _bounds(interval: Interval) -> bytes:
             return np.ascontiguousarray([interval.lo, interval.hi], dtype=np.float64).tobytes()
 
@@ -256,7 +270,9 @@ class IntervalOp:
                 parts = (
                     _bounds(enclosure.interval),
                     cert.floor.value.encode(),
-                    cert.accuracy_bits.to_bytes(8, "big"),
+                    # an unmeasured accuracy contributes its own field spelling rather than a zero the framing could
+                    # not tell from a measured none, so two enclosures differing only in rung still key apart.
+                    cert.accuracy_bits.map(lambda bits: bits.to_bytes(8, "big")).default_value(b"unmeasured"),
                     bytes([cert.refuted]),
                     _aim(target),
                 )
@@ -273,7 +289,7 @@ class IntervalOp:
                 parts = (poly.key(), _bounds(box), precision.to_bytes(8, "big"))
             case _ as unreachable:
                 assert_never(unreachable)
-        return b"".join(len(part).to_bytes(8, "big") + part for part in (self.tag.encode(), *parts))
+        return IdentitySource(parts=(self.tag.encode(), *parts))
 
 
 # --- [TABLES] ------------------------------------------------------------------------------
@@ -294,7 +310,7 @@ def _arb_evaluate(expr: Expr, box: Interval, precision: int) -> Enclosure:
     # seeding through `prec=` keeps working precision call-local instead of leaking a session `ctx.prec` mutation across evaluators.
     result = flint.good(lambda: expr.over(ball), prec=precision, maxprec=8 * precision)
     interval = Interval.around(float(result.mid()), float(result.rad()))
-    return Enclosure(interval, Certificate(Floor.ARB, int(result.rel_accuracy_bits())))
+    return Enclosure(interval, Certificate(Floor.ARB, Some(int(result.rel_accuracy_bits()))))
 
 
 def _mpmath_evaluate(expr: Expr, box: Interval, precision: int) -> Enclosure:
@@ -302,7 +318,7 @@ def _mpmath_evaluate(expr: Expr, box: Interval, precision: int) -> Enclosure:
     # box to the inclusion-monotone interval whose `.a`/`.b` endpoints read back as the certified band.
     with mpmath.workprec(precision):
         result = expr.over(mpmath.iv.mpf([box.lo, box.hi]))
-    return Enclosure(Interval(float(result.a), float(result.b)), Certificate(Floor.MPMATH, precision))
+    return Enclosure(Interval(float(result.a), float(result.b)), Certificate(Floor.MPMATH, Some(precision)))
 
 
 def _numpy_evaluate(expr: Expr, box: Interval, _precision: int) -> Enclosure:
@@ -354,7 +370,7 @@ def _roots(poly: Poly, box: Interval, precision: int) -> tuple[Enclosure, ...]:
     # boundary is retained; `ctx.workprec` block-scopes the precision (`real_roots` is not `flint.good`-driven) and restores on exit.
     with flint.ctx.workprec(precision):
         isolated = flint.arb_poly([flint.arb(c) for c in poly.coeffs()]).real_roots()
-    enclosures = (Enclosure(Interval.around(float(r.mid()), float(r.rad())), Certificate(Floor.ARB, int(r.rel_accuracy_bits()))) for r in isolated)
+    enclosures = (Enclosure(Interval.around(float(r.mid()), float(r.rad())), Certificate(Floor.ARB, Some(int(r.rel_accuracy_bits())))) for r in isolated)
     return tuple(enc for enc in enclosures if box.overlaps(enc.interval))
 
 
@@ -372,21 +388,30 @@ def _dispatch(op: IntervalOp, precision: int) -> Yield:
             assert_never(unreachable)
 
 
+def _band(enclosure: Enclosure) -> Block[str]:
+    # ONE projection of an enclosure's certification findings onto the spine's warning band, so the receipt, the span
+    # attributes, and the graduation ledger read one roster. Each finding NAMES itself where the retired
+    # `certified: bool` fused an uncertified rung and a refuted containment into one indistinguishable `False`.
+    cert = enclosure.certificate
+    return Block.of_seq(
+        (*(("refuted",) if cert.refuted else ()), *(() if cert.floor.certifies else ("uncertified-floor",)))
+    )
+
+
 def _keyed(op: IntervalOp, precision: int) -> RuntimeRail[ContentKey]:
     # key names the computation, never merely the box — a repeated op at identical precision keys by reference.
-    return ContentIdentity.of(f"interval.{op.tag}", op.identity_buffer(precision))
+    return ContentIdentity.of(f"interval.{op.tag}", op.identity_source(precision))
 
 
 @beartype(conf=FAULT_CONF)
-def _report(op: IntervalOp, precision: int) -> IntervalReceipt:
-    # railed `_keyed` digest is matched HERE inside the already-fenced body — an `Error` re-raises onto the enclosing boundary,
-    # which re-folds it — so the impure floor solve and the pure key fold ride ONE fence and the entry mints exactly one rail.
+def _report(op: IntervalOp, precision: int) -> "RuntimeRail[IntervalReceipt]":
+    # the digest rail THREADS rather than re-raising: the retired `raise RuntimeError(fault)` handed an already-typed
+    # `BoundaryFault` back to the weave's own fence to re-fold, and that conversion keeps `str(cause)` — so a key
+    # refusal reached its consumer as a message string with its subject, leg, arm, and defect token erased. The
+    # impure floor solve and the pure key fold still ride ONE fence and the entry still mints exactly one rail: the
+    # runtime `measured` weave FLATTENS a rail-returning dispatch, so no join is owed at the call site.
     yielded = _dispatch(op, precision)
-    match _keyed(op, precision):
-        case Result(tag="ok", ok=key):
-            return IntervalReceipt.of(op.tag, yielded, key)
-        case Result(tag="error", error=fault):
-            raise RuntimeError(fault)
+    return _keyed(op, precision).map(lambda key: IntervalReceipt.of(op.tag, yielded, key))
 
 
 # --- [ENTRY] -------------------------------------------------------------------------------
@@ -409,7 +434,14 @@ class IntervalNumerics:
     ) -> "RuntimeRail[GraduationReceipt]":
         # family ceiling row governs; a caller's tighter row overrides at the hub. Every bar reads the receipt's own
         # projection, so the ledger states exactly what the span already reported.
-        ledger = {"refuted": 0.0 if receipt.certified else 1.0, "width": float(receipt.width), "vacuous": float(receipt.vacuous)}
+        # every bar reads the ONE band the receipt carries, so the three ceiling rows and the receipt's own findings
+        # cannot fork; an unmeasured width admits `inf`, the honest bar for an enclosure that measured nothing —
+        # never the `0.0` the retired slot supplied, which cleared the tightest ceiling on the page by fabrication.
+        ledger = {
+            "refuted": float("refuted" in receipt.band),
+            "width": receipt.width.default_value(float("inf")),
+            "vacuous": float("vacuous" in receipt.band),
+        }
         return graduate(EvidenceScope.INTERVAL.value, subject, receipt.content_key, ledger, dict(_CEILING.items()), composition=composition)
 ```
 

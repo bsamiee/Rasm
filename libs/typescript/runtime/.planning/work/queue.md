@@ -26,8 +26,8 @@ Dead-lettering lives here alone: a parked deliverable is typed evidence on the f
 import { DurableQueue, DurableRateLimiter } from "@effect/workflow"
 import { RateLimiter as Fleet } from "@effect/experimental"
 import type { SqlClient, SqlError } from "@effect/sql"
-import { Array, Data, Duration, Effect, Function, Match, Option, Schema, Stream } from "effect"
-import { type AuditFact, Fact, Journal } from "@rasm/ts/data"
+import { Array, Data, Duration, Effect, Function, HashMap, Match, Option, type ParseResult, Schema, Stream } from "effect"
+import { type AuditFact, Fact, Journal, Tenancy } from "@rasm/ts/data"
 import { Fault } from "@rasm/ts/core"
 import { Pulse } from "../otel/meter.ts"
 import { WorkClass } from "./entity.ts"
@@ -156,49 +156,77 @@ const Throttle = { ..._rows, pace: _pace, spend: _spend }
 
 ## [04]-[LANE_POLICY]
 
-- Owner: `Lane` — the drain policy over the data journal's outbox statements. Data's wave owns the relation and the two statements (`Journal.claimBatch(sql, { app, take, leaseSeconds })` — `FOR UPDATE SKIP LOCKED` with attempt increment, `Journal.complete(sql, ids)` — the delivered mark); this page owns what a drain DOES with them: the lease width (`leaseSeconds` derived from the class row's per-attempt budget — the visibility-timeout semantic mined from the external queue engines, expressed as the claim statement's own re-claim predicate), the urgency term (the `ORDER BY` column populated from `WorkClass[clazz].urgency` at enqueue so interactive deliverables pass bulk ones under contention), the batch geometry (`take` sized by the drain's class row), the claim admission seam, and the verdict fold.
+- Owner: `Lane` — the drain policy over the data journal's outbox statements. Data's wave owns the relation and the two statements (`Journal.claimBatch(sql, { app, take, leaseSeconds })` — `FOR UPDATE SKIP LOCKED` with attempt increment and a lease-generation bump, `Journal.complete(sql, held)` — the generation-fenced delivered mark answering one `Journal.Settlement` per requested identity); this page owns what a drain DOES with them: the lease width (`leaseSeconds` derived from the class row's per-attempt budget — the visibility-timeout semantic mined from the external queue engines, expressed as the claim statement's own re-claim predicate), the urgency term (the `ORDER BY` column populated from `WorkClass[clazz].urgency` at enqueue so interactive deliverables pass bulk ones under contention), the batch geometry (`take` sized by the drain's class row), the claim admission seam, and the verdict fold.
 - Law: `fits` is the coordinate a selector reads FIRST, so this plane states it rather than leaving it inferable from the verdict vocabulary — a lane suits durable work a lease may safely re-run: an outbox drain, a scheduled deliverable, any claim whose payload carries its own dedup projection. Work wanting an in-process answer, per-key ordering, or exactly-once execution is not a lane's and reads `net/pubsub#PORT_SHAPE` instead of bending a claim into one.
 - Law: admission happens at the lane seam, exactly once — `Lane.row(payload, drain)` is the one admission mint: it fuses a payload `Schema` with a domain drain so the data-owned raw claim `payload` decodes before any domain code runs, a decode failure folds to an `invalid`-classed park through the poison short-circuit, and the drain receives the admitted payload beside the claim itself — a raw `payload: unknown` reaching a domain drain, or a drain-local decoder, is the consumer-local-admission defect this mint forecloses, and payload shape authority is always recoverable from the row that routed the tag.
 - Law: `Meta<Row>` subtracts the raw column and keeps every other one the data-owned claim decoded, so a drain needing a coordinate the statement already answered reads it off its own claim; a projection keyed by claim identity against a map built from the same batch re-proves a join the fold holds in hand and mints an absent-row verdict no input reaches.
-- Law: the verdict vocabulary is closed — `Settled` (the effect landed: `Journal.complete`), `Deferred` (transient fault: the row stays claimed and the lease expiry re-delivers it, attempts already incremented), `Parked` (the ceiling, a non-retryable class, a failed admission, or an unrouted stream: `[5]`'s evidence fold) — and every drain in the branch folds claims through `Lane.settle`, so retry-with-redelivery is spelled once and a drain-local retry loop is unspellable. `Lane.settle` answers the batch's verdict roster, so a relay meters its pass from the returned values instead of a second count.
-- Law: a store fault is not a verdict — `_judge` rules on a domain fault carrying `class` and `detail`, so the `SqlError` a claim discharge raises has no `LaneVerdict` to become and rides `Lane.settle`'s own error channel to the drain, where the budget gate grades it against the journal's published projection; widening it into the cause channel instead hands it to a grader that reads a `class` property no driver fault carries and refuses every replay, which is what puts the lease-IS-the-backoff law out of reach for the one fault the lease was shaped to absorb.
-- Law: defer is passive — no un-claim write, no backoff column; the lease IS the backoff, and its width is the class row's per-attempt budget, so redelivery pacing derives from the same geometry as in-process retry.
+- Law: the verdict vocabulary is closed — `Settled` (the effect landed: `Journal.complete`), `Deferred` (transient fault: the row stays claimed and the lease expiry re-delivers it, attempts already incremented), `Parked` (the ceiling, a terminal-recovery class, a failed admission, or an unrouted stream: `[5]`'s evidence fold) — and every drain in the branch folds claims through `Lane.settle`, so retry-with-redelivery is spelled once and a drain-local retry loop is unspellable.
+- Law: every non-settling verdict carries the class row's own RE-OFFER ROUTE beside its class — `wait` re-offers the identical claim under the budget, `restart` re-establishes the handle first, `rescope` hands the operator a narrowed offer to re-author — elected once through `Fault.Class.reofferOf` and never hand-written. The column earns its seat at the evidence boundary: a park row leaves the process as an `AuditFact`, and the operator tooling that reads it back cannot call the class table, so a route the fold re-derived would be a route the dead set never carries. `Deferred` reaches `rescope` on no class today because every `rescope` row bands `terminal` and terminal classes park — the arm becomes reachable the day a row pairs them, and the re-drive reads it rather than a fold that assumed it away.
+- Law: `Lane.settle` answers one `Lane.Outcome` per claim — the verdict beside the fence its discharge answered — so a relay meters settled, deferred, parked, and REFUSED from one value instead of a second count. A `Journal.Fence.Stale` names the sibling generation that displaced this claimant, `Vanished` the identity a groom already took, and `Advanced` the only fence under which this pass's effect is also this pass's settlement; a drain reading a discharge statement's silence as delivery cannot tell the three apart.
+- Law: the fence rides the CLAIM, never a re-read — `Journal.claimBatch` mints a lease generation per row and the claimed row projects it as `Journal.Held`, so a discharge presents the identity beside the generation the claim minted for it and a claimant whose lease lapsed mid-transmit refuses typed instead of overwriting the live holder's mark.
+- Law: a store fault is not a verdict — `_judge` rules on a domain fault carrying `class` and its own rendered `message`, so the `SqlError` a claim discharge raises has no `LaneVerdict` to become and rides `Lane.settle`'s own error channel to the drain, where the budget gate grades it against the journal's published projection; widening it into the cause channel instead hands it to a grader that reads a `class` property no driver fault carries and refuses every replay, which is what puts the lease-IS-the-backoff law out of reach for the one fault the lease was shaped to absorb. The discharge DECODES its fence roster, so that channel carries the driver fault beside a `ParseError` and states both: a store answering an unreadable generation is a refusal a drain must re-drive on, and collapsing it into the driver arm hides the one fault re-reading never fixes.
+- Law: defer is passive — no un-claim write, no backoff column; the lease IS the backoff, and its width is the class row's per-attempt budget, so redelivery pacing derives from the same geometry as in-process retry. A `throttled`-recovery refusal whose producer MEASURED its own window rides that window on the verdict through `Fault.Class.statedOf`, because a lease width nobody measured is the wrong wait for a receiver that named one; the value stays absent everywhere no producer measured one, so no claim waits a window this plane invented.
 - Law: the verdict vocabulary IS the lifetime answer — a claim's custody ends at `Settled` (the drain ends it), at lease expiry under `Deferred` (the clock ends it), or at `Parked` (the ceiling or the class table ends it) — three endings by three owners, so no consumer infers a span this plane never measures.
 - Law: a lane decides `tenancy` nowhere — claim admission is app-scoped and the decoded payload carries whatever tenant its own channel declares, so a lane row states the non-decision rather than a value it never realizes.
 - Law: the claim consumer's statements ride the MAINTENANCE plane — `Journal.claimBatch` and the one `Journal.complete` discharge are cross-tenant reads and writes on FORCE-RLS relations, so each composes `Tenancy.sweep`, the data-owned transformer pinning only `rasm.plane = 'maintenance'` (`docs/laws/patterns.md` `[SESSION_GUC]`): an unpinned pass reads ZERO deliverables and reports every empty claim as a healthy cycle, and a pass opened inside `Tenant.within` narrows the estate drain to one tenant's slice while every other tenant's leases lapse — the two silent inversions the stated posture forecloses. `Tenancy.sweep` brackets STATEMENTS alone: domain drains, transmits, and throttles run between the claim transaction and the discharge transaction, never inside one, because a wire send inside the pinned transaction holds the claim set's locks across network time.
 - Law: `degrade` is stated, not implied — a lease proves single ACTIVE delivery and never single delivery, so a drain whose effect is not idempotent double-runs on lease lapse and the payload's own dedup projection is the only cure.
-- Law: the pass discharges ONCE — every terminal verdict yields its claim id and the pass issues one `Journal.complete` roster write, so a `take`-sized batch closes in one statement exactly as the claim that opened it read in one; a per-claim mark inside the fold pays a round trip per row to spell a set the statement already takes.
+- Law: the pass discharges ONCE — every terminal verdict yields the `Journal.Held` pair its claim projected and the pass issues one `Journal.complete` roster write, so a `take`-sized batch closes in one statement exactly as the claim that opened it read in one; a per-claim mark inside the fold pays a round trip per row to spell a set the statement already takes. The answer is total over the request, so the pass reads every requested identity's fence back rather than subtracting an affected-row count from a batch width it also has to remember.
 - Law: a drain's `never` channel leaves the defect as its one remaining failure, so this seam is where the poison list's `defect` row is PRODUCED — the admitted drain folds through `Effect.catchAllDefect` into a `defect`-classed park carrying the residue, because an escaped defect kills the pass and strands every peer claim in the batch on a lease nothing will re-drive until it lapses. Interrupts pass through untouched: a shutdown is not a verdict.
 - Law: wake is the journal's NOTIFY pulse — the drain sleeps on the data wave's wake stream and claims on pulse or lease-width tick, whichever fires; a tight poll loop is the rejected form.
 - Growth: a new lane dimension (deliver-at scheduling, a channel filter) is a deliverable column with a claim predicate on the data statement; a new drain family is one `Lane.row` handed to the route — the verdict fold never widens.
-- Packages: `@rasm/ts/data` (`Journal`, `Tenancy`); `@effect/sql` (`SqlClient`, `SqlError`); `effect` (`Match`, `Effect`, `Option`, `Schema`); `./entity.ts` (`WorkClass`).
+- Packages: `@rasm/ts/data` (`Journal` — `claimBatch`, `complete`, `Fence`, `Held`, `Settlement`; `Tenancy`); `@effect/sql` (`SqlClient`, `SqlError`); `effect` (`Array`, `Effect`, `HashMap`, `Match`, `Option`, `ParseResult`, `Schema`); `@rasm/ts/core` (`Fault.Class`); `./entity.ts` (`WorkClass`).
 
 ```typescript signature
+// Every non-settling arm names the class AND the route back: the route is elected from the class row at the one seat
+// below, so a park row leaving the process as evidence carries what a replay must change, and `after` carries the
+// window only where a producer measured one — a lease width standing in for a receiver's stated wait is the guess
+// this column exists to delete, and an unmeasured `Duration.zero` would tell the drain to re-offer immediately.
 type LaneVerdict = Data.TaggedEnum<{
   Settled: {}
-  Deferred: { readonly class: Fault.Class.Kind }
-  Parked: { readonly class: Fault.Class.Kind; readonly detail: string }
+  Deferred: {
+    readonly class: Fault.Class.Kind
+    readonly route: Fault.Class.Reoffer
+    readonly after: Fault.Class.Stated
+  }
+  Parked: { readonly class: Fault.Class.Kind; readonly route: Fault.Class.Reoffer; readonly detail: string }
 }>
 const LaneVerdict = Data.taggedEnum<LaneVerdict>()
 
 declare namespace Lane {
   // Claim statements answer this floor, never the whole row: a data-owned claim widens it with its own columns
   // and `Row` carries them through admission, so no drain re-joins its own batch by identity to recover one.
+  // `held` is the data owner's own projection of the identity beside the generation ITS claim minted, so the
+  // discharge presents one value rather than pairing an id with a lease it re-read from somewhere else.
   type Claim = {
     readonly id: bigint
     readonly sequence: bigint
     readonly tag: string
     readonly payload: unknown
     readonly attempts: number
+    readonly held: Journal.Held
   }
   type Meta<Row extends Claim = Claim> = Omit<Row, "payload">
   type Admit<R, Row extends Claim = Claim> = (claim: Row) => Effect.Effect<LaneVerdict, never, R>
+  // What one claim's pass answers: the verdict it earned beside the fence its discharge read back. `Deferred`
+  // discharges nothing, so its fence is absent by construction rather than a forged `Advanced`.
+  type Outcome = { readonly verdict: LaneVerdict; readonly discharge: Option.Option<Journal.Fence<bigint>> }
 }
 
-const _judge = (meta: Lane.Meta, clazz: WorkClass.Kind, fault: { readonly class: Fault.Class.Kind; readonly detail: string }): LaneVerdict =>
-  Fault.Class.at(fault.class).retryable && meta.attempts < WorkClass[clazz].attempts
-    ? LaneVerdict.Deferred({ class: fault.class })
-    : LaneVerdict.Parked({ class: fault.class, detail: fault.detail })
+// The WHOLE fault crosses rather than a rebuilt pair: a family raise carries its `case` and RENDERS its evidence, so
+// the park text is the offending row's own sentence, and `statedOf` recovers a producer-measured window off the same
+// value — a struct rebuilt from two columns at the call site drops the window and re-spells the sentence at once.
+const _judge = (
+  meta: Lane.Meta,
+  clazz: WorkClass.Kind,
+  fault: { readonly class: Fault.Class.Kind; readonly message: string },
+): LaneVerdict =>
+  Fault.Class.retryable(fault.class) && meta.attempts < WorkClass[clazz].attempts
+    ? LaneVerdict.Deferred({
+      class: fault.class,
+      route: Fault.Class.reofferOf(fault.class),
+      after: Fault.Class.statedOf(fault),
+    })
+    : LaneVerdict.Parked({ class: fault.class, route: Fault.Class.reofferOf(fault.class), detail: fault.message })
 
 const _row = <A, I, R, Row extends Lane.Claim = Lane.Claim>(
   payload: Schema.Schema<A, I>,
@@ -207,7 +235,12 @@ const _row = <A, I, R, Row extends Lane.Claim = Lane.Claim>(
 (claim) =>
   Schema.decodeUnknown(payload)(claim.payload).pipe(
     Effect.matchEffect({
-      onFailure: (fault) => Effect.succeed(LaneVerdict.Parked({ class: "invalid", detail: `<${claim.tag}:${fault.message}>` })),
+      onFailure: (fault) =>
+        Effect.succeed(LaneVerdict.Parked({
+          class: "invalid",
+          route: Fault.Class.reofferOf("invalid"),
+          detail: `<${claim.tag}:${fault.message}>`,
+        })),
       // Claims cross whole as `meta`: `Omit` hides the raw column at the type while every other coordinate the
       // data-owned row decoded travels intact, so a projection reads its own claim rather than a keyed re-join.
       onSuccess: (value) =>
@@ -216,7 +249,11 @@ const _row = <A, I, R, Row extends Lane.Claim = Lane.Claim>(
           // gives the poison list its `defect` row: uncaught it would kill the pass and strand every peer claim on a
           // lease. Interrupts pass through untouched — a shutdown is not a poison verdict.
           Effect.catchAllDefect((residue) =>
-            Effect.succeed(LaneVerdict.Parked({ class: "defect", detail: `<${claim.tag}:${String(residue)}>` }))
+            Effect.succeed(LaneVerdict.Parked({
+              class: "defect",
+              route: Fault.Class.reofferOf("defect"),
+              detail: `<${claim.tag}:${String(residue)}>`,
+            }))
           ),
         ),
     }),
@@ -224,15 +261,17 @@ const _row = <A, I, R, Row extends Lane.Claim = Lane.Claim>(
 
 // Claims discharge the outbox row on both terminal verdicts and on neither transient one; `Deferred` writes nothing
 // at all, because the lease IS the backoff and an un-claim write would race the claimant the lease predicate protects.
+// What a discharging verdict yields is the claim's OWN `held` pair — identity beside the generation its claim minted —
+// so the statement fences on what this claimant holds rather than on an identity any lapsed peer can also spell.
 const _landed = <R2, Row extends Lane.Claim>(
   park: (claim: Row, verdict: Extract<LaneVerdict, { readonly _tag: "Parked" }>) => Effect.Effect<void, never, R2>,
   claim: Row,
   verdict: LaneVerdict,
-): Effect.Effect<Option.Option<bigint>, never, R2> =>
+): Effect.Effect<Option.Option<Journal.Held>, never, R2> =>
   Match.value(verdict).pipe(
-    Match.tag("Settled", () => Effect.succeedSome(claim.id)),
+    Match.tag("Settled", () => Effect.succeedSome(claim.held)),
     Match.tag("Deferred", () => Effect.succeedNone),
-    Match.tag("Parked", (parked) => Effect.as(park(claim, parked), Option.some(claim.id))),
+    Match.tag("Parked", (parked) => Effect.as(park(claim, parked), Option.some(claim.held))),
     Match.exhaustive,
   )
 
@@ -242,15 +281,20 @@ const _settle = <R, R2, Row extends Lane.Claim = Lane.Claim>(
   route: (tag: string) => Option.Option<Lane.Admit<R, Row>>,
   park: (claim: Row, verdict: Extract<LaneVerdict, { readonly _tag: "Parked" }>) => Effect.Effect<void, never, R2>,
 ) =>
-(claims: ReadonlyArray<Row>): Effect.Effect<ReadonlyArray<LaneVerdict>, SqlError.SqlError, R | R2> =>
+(claims: ReadonlyArray<Row>): Effect.Effect<ReadonlyArray<Lane.Outcome>, SqlError.SqlError | ParseResult.ParseError, R | R2> =>
   Effect.gen(function* () {
     const judged = yield* Effect.forEach(
       claims,
       (claim) =>
         Option.match(route(claim.tag), {
-          onNone: () => Effect.succeed(LaneVerdict.Parked({ class: "malformed", detail: `<unrouted:${claim.tag}>` })),
+          onNone: () =>
+            Effect.succeed(LaneVerdict.Parked({
+              class: "malformed",
+              route: Fault.Class.reofferOf("malformed"),
+              detail: `<unrouted:${claim.tag}>`,
+            })),
           onSome: (admit) => admit(claim),
-        }).pipe(Effect.flatMap((verdict) => Effect.map(_landed(park, claim, verdict), (id) => [verdict, id] as const))),
+        }).pipe(Effect.flatMap((verdict) => Effect.map(_landed(park, claim, verdict), (held) => [verdict, held] as const))),
       { concurrency: WorkClass[clazz].concurrency },
     )
     // ONE discharge statement per pass: `Journal.complete` is a roster write fed by a batched claim read, so a
@@ -258,20 +302,30 @@ const _settle = <R, R2, Row extends Lane.Claim = Lane.Claim>(
     // `SqlError` leaves on the error channel — a store fault is no claim's verdict, and every judged claim rides its
     // unexpired lease into the next pass. The discharge marks rows across every tenant of the app, so it rides the
     // maintenance-plane transformer: unpinned it updates zero rows under FORCE RLS and every settled claim redelivers.
-    const discharged = Array.getSomes(Array.map(judged, ([, id]) => id))
-    yield* Array.isNonEmptyReadonlyArray(discharged) ? Tenancy.sweep(sql)(Journal.complete(sql, discharged)) : Effect.void
-    return Array.map(judged, ([verdict]) => verdict)
+    const discharged = Array.getSomes(Array.map(judged, ([, held]) => held))
+    const settlements = yield* Array.isNonEmptyReadonlyArray(discharged)
+      ? Tenancy.sweep(sql)(Journal.complete(sql, discharged))
+      : Effect.succeed<ReadonlyArray<Journal.Settlement>>([])
+    // The statement answers a fence per REQUESTED identity, which is evidence no claim carried in — so this keys the
+    // answer rather than re-joining a coordinate the claim already held, and a displaced or groomed row reaches the
+    // relay as data instead of dissolving into an affected-row count. `bigint` hashes by its decimal spelling, so the
+    // identity keys the map directly and no surrogate string travels beside it.
+    const fenced = HashMap.fromIterable(Array.map(settlements, (settlement) => [settlement.id, settlement.fence] as const))
+    return Array.map(judged, ([verdict, held]): Lane.Outcome => ({
+      verdict,
+      discharge: Option.flatMap(held, (row) => HashMap.get(fenced, row.id)),
+    }))
   })
 ```
 
 ## [05]-[PARK_REPLAY]
 
 - Owner: the dead-letter fold — a `Parked` verdict appends one typed evidence row through the data wave's fact rail (`Fact.record`): the deliverable's identity as the target, the dominant fault class and attempt count as `Change` rows, `operational` retention — so the dead set is queryable history on the record of truth, never a second table. `Lane.replay` is the operator entry: it folds a parked-evidence read (an audit projection the caller supplies) through the drain's own `remit` re-entry with attempts reset, and records the replay fact — replay is itself evidence.
-- Law: poison short-circuits — a non-retryable class (`invalid`, `malformed`, `denied`, `breached`, `defect`) parks on first failure regardless of the ceiling, because redelivering a deterministic failure spends lease windows to learn nothing; the judge fold above encodes this by reading the class table's `retryable` column, and a page-local poison list is unspellable.
+- Law: poison short-circuits — a terminal-recovery class (`absent`, `invalid`, `malformed`, `denied`, `breached`, `defect`) parks on first failure regardless of the ceiling, because redelivering a deterministic failure spends lease windows to learn nothing; the judge fold above encodes this through `Fault.Class.retryable`, the class owner's own derived projection over the recovery band, and a page-local poison list is unspellable.
 - Law: parking is terminal for the claim, never for the work — the outbox row completes so the drain set stays bounded; the evidence row is the work's continued existence, and replay is the one path back.
 - Law: the DLQ read is maintenance-plane material — the park evidence rows carry no tenant (the target is the deliverable, so the fact stores NULL tenant, visible only under the plane posture), so the parked-evidence projection a caller hands `Lane.replay` composes `Tenancy.sweep` around its read; an unpinned projection reads an empty dead set and a replay pass reports nothing to re-offer while parked work ages silently. `Fact.record` composes no bracket for the park WRITE — it is a buffered offer whose drain owns its own plane posture at the data seam.
-- Receipt: the park evidence row carries `{ tag, deliverable, sequence, class, attempts, detail }` — the shape operator tooling lists, counts by class, and feeds back into `replay` — and the same fold marks the `Pulse` DLQ counter tagged by the claim's stream-prefix channel, so the OTel series and the dead-set history cannot disagree.
-- Growth: a replay posture (selective by class, dry-run census) is a predicate parameter on the one `replay` fold; a park-notification hook is a tap on the audit stream at its consumer, never a callback here.
+- Receipt: the park evidence row carries `{ tag, deliverable, sequence, class, route, attempts, detail }` — the shape operator tooling lists, counts by class, and feeds back into `replay` — and the same fold marks the `Pulse` DLQ counter tagged by the claim's stream-prefix channel, so the OTel series and the dead-set history cannot disagree. `route` is what makes the dead set actionable outside the process: a `wait` row re-offers unchanged, a `restart` row needs its handle re-established first, and a `rescope` row needs its material re-authored — three postures the class table knows and an audit reader cannot derive.
+- Growth: a replay posture (selective by class or route, dry-run census) is a predicate parameter on the one `replay` fold; a park-notification hook is a tap on the audit stream at its consumer, never a callback here.
 - Packages: `@rasm/ts/data` (`AuditFact`, `Fact`, `Journal`); `effect` (`Effect`, `Stream`); `../otel/meter.ts` (`Pulse`).
 
 ```typescript signature
@@ -286,6 +340,9 @@ const _park = (claim: Lane.Claim, verdict: Extract<LaneVerdict, { readonly _tag:
       change: [
         { _tag: "Assigned", path: "/sequence", next: String(claim.sequence) },
         { _tag: "Assigned", path: "/class", next: verdict.class },
+        // the route travels because the reader does not: operator tooling folds `AuditFact` rows with no access to
+        // the class table, so a re-offer posture re-derived at the fold is a posture the dead set never carries
+        { _tag: "Assigned", path: "/route", next: verdict.route },
         { _tag: "Assigned", path: "/attempts", next: String(claim.attempts) },
         { _tag: "Assigned", path: "/detail", next: verdict.detail },
       ],

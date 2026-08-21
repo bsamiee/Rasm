@@ -5,29 +5,39 @@
 ## [01]-[INDEX]
 
 - [02]-[RASTER_ROWS]: `RasterCodec` the encoder rows, `TiffCompression` the compression vocabulary, `RasterPolicy` the encoding policy, and the one bitmap-save fold.
-- [03]-[STAMP_ALGEBRA]: `StampToken`/`StampScope`/`StampText` — the interpolation rows and the one template scan; `PdfMark` — the closed stamp family over the `FilePdf` draw surface.
-- [04]-[SOURCE_AND_TARGET]: `PageFrame`, `PageSource` → captured-or-blank `PublishPage` resolution, and the typed target family.
-- [05]-[PUBLISH_RAIL]: `PdfPolicy`, `PublishRequest`, `PageEvidence`/`PublishReceipt`, and `Publishing.Run`.
+- [03]-[STAMP_ALGEBRA]: `StampToken`/`StampScope`/`StampText` — the interpolation rows over the kernel title block and the one template scan; `PdfMark` — the closed stamp family over the `FilePdf` draw surface, drawn at kernel plot magnitudes.
+- [04]-[SOURCE_AND_TARGET]: `CaptureFrame`, `PageSource` → captured-or-blank `PublishPage` resolution, and the typed target family.
+- [05]-[PUBLISH_RAIL]: `PdfPolicy`, `PublishRequest`, `Landing` the delivery family, `PublishSlot`/`PublishBody`/`PublishReceipt`, and `Publishing.Run`.
 
 ## [02]-[RASTER_ROWS]
 
 - Owner: `TiffCompression` carries the TIFF encoder vocabulary. `RasterCodec` carries image format, alpha capability, and the owning `FileCodec`. `RasterPolicy` is the closed encoder-program family: opaque and transparent PNG/TIFF cases, `JpegCase`, and `BmpCase` carry only parameters their codec consumes and derive codec, transparency, and encoder rows exhaustively.
 - Law: `RasterPolicy.Transparent` exists only on alpha-capable cases — a structural fact of the case set, so admission never re-tests alpha. JPEG quality and TIFF compression cannot coexist, and neither can leak into PNG or BMP admission; codec, transparency, and encoder parameters derive from one `Row` correspondence, never three parallel case walks.
 - Law: the artifact extension derives from the encoder row's `Extension` column, so an extension/encoder mismatch is unrepresentable and a dispatch re-mapping encoder rows onto codec rows beside the column is the deleted form; `Artifact` is that column's one reader and admits it against `CodecAbility.Raster`, so a row re-pointed at a non-pixel codec refuses at delivery rather than landing a raster under a modelling extension.
+- Packages: `Exchange/formats` (`FileCodec`, `CodecAbility`), `Domain/rails` (`Op`, `Fault`, `Fin`), LanguageExt.Core (`Option`, `Seq`, `guard`), Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[ValueObject]`, `[ValidationError]`, `[BoundaryAdapter]`), System.Drawing.Imaging (`ImageFormat`, `Encoder`, `EncoderValue`, `EncoderParameters`), System.Collections.Frozen.
+- Growth: a new raster format is one `RasterCodec` row carrying its image format, alpha capability, and owning `FileCodec`, beside the `RasterPolicy` case whose parameters that encoder consumes; a new TIFF compression is one `TiffCompression` row.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using System.Collections.Frozen;
 using System.Drawing.Imaging;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
+using NodaTime;
+using NodaTime.Text;
 using Rasm.Domain;
+using Rasm.Drawing;
+using Rasm.Interaction;
 using Rasm.Numerics;
+using Rasm.Parametric;
 using Rasm.Rhino.Annotation;
 using Rasm.Rhino.Document;
-using Rasm.Rhino.Eto;
 using Rasm.Rhino.Viewport;
+using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.FileIO;
+using UnitsNet;
 
 namespace Rasm.Rhino.Exchange;
 
@@ -60,12 +70,13 @@ public sealed partial class RasterCodec {
 }
 
 [ValueObject<int>]
+[ValidationError]
 public readonly partial struct JpegQuality {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
         validationError = value is >= 1 and <= 100
-            ? validationError
-            : new ValidationError(message: $"JPEG quality '{value}' is outside [1, 100].");
-    }
+            ? null
+            : new ValidationError(string.Join(" | ", new object?[] { nameof(JpegQuality), value, "a JPEG quality in [1, 100]" }));
 
     internal int Native => Value;
 }
@@ -134,38 +145,83 @@ internal static class Rasters {
 
 ## [03]-[STAMP_ALGEBRA]
 
-- Owner: `StampScope` carries document, page, view, scale, and caller-admitted render time. `StampToken` projects each interpolation row and `StampText` owns the one template scan. `PdfImageBytes` copies encoded ingress, and `PdfImageBudget` bounds bytes and decoded pixels before any PDF page or draw allocation. `PdfMark` closes text, line, polyline, and admitted-image drawing over `FilePdf`.
+- Owner: `StampScope` carries the host page facts, the ISSUED sheet — a `TitleBlock` under its `SheetStandard` — and the caller-admitted render time. `StampToken` projects each interpolation row and `StampText` owns the one template scan. `PdfImageBytes` copies encoded ingress, and `PdfImageBudget` bounds bytes and decoded pixels before any PDF page or draw allocation. `PdfMark` closes text, line, polyline, and admitted-image drawing over `FilePdf`.
+- Law: the title-block half of the token vocabulary is ISO 7200's, not this page's. A row naming a `TitleField` answers through `TitleField.Read(block, standard)` whenever the request carries an issued block, so `%scale%` renders `DrawingScale.Render(ScaleNotation.For(standard))`, `%number%` renders `SheetNumber.Text`, and `%sheet%` renders `SheetOfGrammar.For(standard).Render(n, m)` — nine free-string rows that were a strict subset of ISO 7200 now read the standard's own field roster, and the host half (page name, view name, document path) stays this page's because no drawing standard names it (D12, D28, D67).
+- Law: a block-less request still stamps. Each row carries its HOST fallback beside its optional field, so a publication with no issued sheet renders the host fact and a publication with one renders the standard's, with no second token vocabulary and no empty span in place of a field.
 - Law: interpolation is one scan per render — the generated token pattern walks the template once and each matched span answers off the frozen key index, so a per-token replacement walk repeated for every page and every artifact name is the deleted form. Interpolation stays total over unknown tokens: an unindexed span answers with its own matched text, so an unmatched `%word%` survives verbatim, because stamp templates travel through foreign title blocks whose literal `%` text is legitimate content.
-- Law: a mark carries admitted owners only — `PerceptualColor` for every colour, page-space `Point2d` and `DetailFrame` for every seat and placement, `PositiveMagnitude` for every text height and stroke width, `VectorAngle` for every rotation, the Eto `TypeRole` for the text face, and the `TextAlignAcross`/`TextAlignDown` rows for the two alignment axes. `System.Drawing.Color`, `PointF`, `Rhino.DocObjects.Font`, and the host alignment enums materialize inside the draw arms alone, so `Admit` re-tests only what the owners cannot state and a finiteness sweep over raw doubles has nothing left to prove.
+- Law: a mark carries admitted owners only, and its PLOTTED magnitudes are the drawing standard's. Stroke widths are `LineWidth` rows off the ISO 128-24 ladder and text is a `TextHeight` row under a `LetteringForm` off ISO 3098-1, both projected into PDF points through the one `Points` fold that composes `ModelUnit.ScaleTo` — a seventh free-magnitude regime in PDF points and an OS UI `TypeRole` on a plotted sheet are the two deleted forms (D46, D61). Colour is `PerceptualColor`, seat and placement are page-space `Point2d` and `DetailFrame`, rotation is `VectorAngle`, and alignment rides the `TextAlignAcross`/`TextAlignDown` rows. `System.Drawing.Color`, `PointF`, `Rhino.DocObjects.Font`, and the host alignment enums materialize inside the draw arms alone, so `Admit` re-tests only what the owners cannot state.
+- Law: the drafting FACE resolves at the host under the standard's form — `LetteringForm` names ISO 3098-1 Type A or B and its slant, and `Typefaces.Resolve` over a `FaceQuery` binds the installed letterform; the kernel owner names no font file and this page names no OS UI role.
 - Law: mark coordinates are page points with the page's own DPI — the mark family draws in `FilePdf` page space and never reaches through to model space; a model-space annotation is document content, not a stamp.
-- Growth: a new draw member on the host PDF surface is one `PdfMark` case with its draw arm; a new stamp variable is one `StampToken` row, reaching both the scan and the index with no second edit.
+- Packages: `Rasm.Drawing` (`TitleBlock`, `TitleField`, `SheetStandard`, `SheetNumber`, `SheetOfGrammar`, `DrawingScale`, `ScaleNotation`, `LineWidth`, `TextHeight`, `LetteringForm`, `DraftingMetrics`), `Domain/context` (`ModelUnit`, `UnitSystem`), `Numerics/atoms` (`PerceptualColor.ToDrawing`, `VectorAngle`), NodaTime (`LocalDatePattern.Iso`), `Annotation/typeface` (`FaceForm`, `FaceQuery`, `Typefaces.Resolve`), Thinktecture.Runtime.Extensions, LanguageExt.Core, System.Text.RegularExpressions (`[GeneratedRegex]`), System.Collections.Frozen.
+- Growth: a new draw member on the host PDF surface is one `PdfMark` case with its draw arm; a new stamp variable is one `StampToken` row naming its `TitleField` or its host fallback, reaching both the scan and the index with no second edit.
 
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------
+// The issued sheet rides as ONE optional pair, so a token reading the standard's field roster and a token reading a
+// host fact never disagree about which standard is in force; absence is a publication no drawing set governs.
 public sealed record StampScope(
-    string DocumentName,
-    string DocumentPathText,
+    Option<string> DocumentName,
+    Option<string> DocumentPathText,
     string PageName,
     int PageOrdinal,
     int PageCount,
     string ViewName,
-    string ScaleText,
-    DateTimeOffset Instant);
+    Option<DrawingScale> Scale,
+    Option<TitleBlock> Issue,
+    Instant Instant) {
+    // The issuing standard DERIVES off the block's own declared units, so a scope cannot name one standard while
+    // its block reads another.
+    internal SheetStandard Standard => Issue.Map(static block => block.Units.Standard).IfNone(SheetStandard.Iso);
 
+    internal Option<string> Read(TitleField field) =>
+        Issue.Map(block => field.Read(block: block, standard: Standard));
+
+    internal string Rendered(DrawingScale scale) => scale.Render(notation: ScaleNotation.For(Standard));
+}
+
+// Each row names the ISO 7200 field it answers from and the host fact it falls back to, so ONE roster serves an
+// issued sheet and a bare capture — `Field` absent means no drawing standard names the variable at all.
 [SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class StampToken {
-    public static readonly StampToken Date = new("date", expand: static scope => scope.Instant.ToString(format: "yyyy-MM-dd", formatProvider: System.Globalization.CultureInfo.InvariantCulture));
-    public static readonly StampToken Time = new("time", expand: static scope => scope.Instant.ToString(format: "HH:mm", formatProvider: System.Globalization.CultureInfo.InvariantCulture));
-    public static readonly StampToken DocName = new("document", expand: static scope => scope.DocumentName);
-    public static readonly StampToken DocPath = new("path", expand: static scope => scope.DocumentPathText);
-    public static readonly StampToken Page = new("page", expand: static scope => scope.PageName);
-    public static readonly StampToken PageNumber = new("pagenumber", expand: static scope => scope.PageOrdinal.ToString(provider: System.Globalization.CultureInfo.InvariantCulture));
-    public static readonly StampToken PageCount = new("pagecount", expand: static scope => scope.PageCount.ToString(provider: System.Globalization.CultureInfo.InvariantCulture));
-    public static readonly StampToken View = new("view", expand: static scope => scope.ViewName);
-    public static readonly StampToken Scale = new("scale", expand: static scope => scope.ScaleText);
+    public static readonly StampToken Date = new("date", field: Some(TitleField.Date),
+        host: static scope => LocalDatePattern.Iso.Format(scope.Instant.InUtc().Date));
+    public static readonly StampToken Time = new("time", field: None,
+        host: static scope => LocalTimePattern.CreateWithInvariantCulture("HH:mm").Format(scope.Instant.InUtc().TimeOfDay));
+    public static readonly StampToken DocName = new("document", field: Some(TitleField.Title),
+        host: static scope => scope.DocumentName.IfNone(string.Empty));
+    public static readonly StampToken DocPath = new("path", field: None,
+        host: static scope => scope.DocumentPathText.IfNone(string.Empty));
+    public static readonly StampToken Page = new("page", field: None, host: static scope => scope.PageName);
+    public static readonly StampToken Number = new("number", field: Some(TitleField.Number), host: static scope => scope.PageName);
+    public static readonly StampToken PageNumber = new("pagenumber", field: None,
+        host: static scope => scope.PageOrdinal.ToString(provider: CultureInfo.InvariantCulture));
+    public static readonly StampToken PageCount = new("pagecount", field: None,
+        host: static scope => scope.PageCount.ToString(provider: CultureInfo.InvariantCulture));
+    public static readonly StampToken Sheet = new("sheet", field: Some(TitleField.Sheet),
+        host: static scope => SheetOfGrammar.For(scope.Standard).Render(scope.PageOrdinal, scope.PageCount));
+    public static readonly StampToken View = new("view", field: None, host: static scope => scope.ViewName);
+    public static readonly StampToken Scale = new("scale", field: Some(TitleField.Scale),
+        host: static scope => scope.Scale.Map(scope.Rendered).IfNone(string.Empty));
+    public static readonly StampToken Revision = new("revision", field: Some(TitleField.Revision), host: static _ => string.Empty);
+    public static readonly StampToken Discipline = new("discipline", field: Some(TitleField.Discipline), host: static _ => string.Empty);
+    public static readonly StampToken Owner = new("owner", field: Some(TitleField.Owner), host: static _ => string.Empty);
+    public static readonly StampToken Project = new("project", field: Some(TitleField.Project), host: static _ => string.Empty);
+    public static readonly StampToken Client = new("client", field: Some(TitleField.Client), host: static _ => string.Empty);
+    public static readonly StampToken Drawn = new("drawn", field: Some(TitleField.Drawn), host: static _ => string.Empty);
+    public static readonly StampToken Checked = new("checked", field: Some(TitleField.Checked), host: static _ => string.Empty);
+    public static readonly StampToken Approved = new("approved", field: Some(TitleField.Approved), host: static _ => string.Empty);
+    public static readonly StampToken Units = new("units", field: Some(TitleField.Units), host: static _ => string.Empty);
+
+    internal Option<TitleField> Field { get; }
 
     [UseDelegateFromConstructor]
-    internal partial string Expand(StampScope scope);
+    private partial string Host(StampScope scope);
+
+    // The issued block wins wherever the standard names the variable; the host fact answers a publication no
+    // drawing set governs, so neither path leaves an empty span the other could have filled.
+    internal string Expand(StampScope scope) =>
+        Field.Bind(scope.Read).Filter(static text => text.Length > 0).IfNone(() => Host(scope: scope));
 }
 
 public static partial class StampText {
@@ -188,21 +244,24 @@ public static partial class StampText {
 }
 
 [ComplexValueObject]
+[ValidationError]
 public sealed partial class PdfImageBytes {
     public ReadOnlyMemory<byte> Value { get; }
 
+    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ReadOnlyMemory<byte> value) {
         byte[] owned = value.ToArray();
         if (owned.Length == 0) {
-            validationError = new ValidationError(message: "PDF mark image bytes are empty.");
+            validationError = new ValidationError(string.Join(" | ", new object?[] { nameof(PdfImageBytes), "at least one encoded image byte" }));
         }
         value = owned;
     }
 }
 
 [ComplexValueObject]
+[ValidationError]
 public sealed partial class PdfImageBudget {
     public Dimension EncodedBytes { get; }
     public Dimension Pixels { get; }
@@ -216,13 +275,21 @@ public sealed partial class PdfImageBudget {
 
     public static PdfImageBudget Standard { get; } = Create(encodedBytes: EncodedCeiling, pixels: PixelCeiling);
 
+    // Each bound refuses on its OWN scalar, so a caller learns which ceiling it broke rather than reading one
+    // collapsed message across two columns.
+    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Dimension encodedBytes,
         ref Dimension pixels) =>
-        validationError = encodedBytes != default && pixels != default
-            ? validationError
-            : new ValidationError(message: "PDF image budget is invalid.");
+        validationError = Banded(label: nameof(EncodedBytes), value: encodedBytes, ceiling: EncodedCeiling)
+            ?? Banded(label: nameof(Pixels), value: pixels, ceiling: PixelCeiling);
+
+    private static ValidationError? Banded(string label, Dimension value, Dimension ceiling) =>
+        value.Value > 0 && value.Value <= ceiling.Value
+            ? null
+            : new ValidationError(string.Join(" | ", new object?[] {
+                label, value.Value, $"a positive budget at or under {ceiling.Value}" }));
 }
 
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -230,11 +297,11 @@ public sealed partial class PdfImageBudget {
 public abstract partial record PdfMark {
     private PdfMark() { }
     public sealed record TextCase(
-        string Template, Point2d Seat, PositiveMagnitude Height, TypeRole Face,
-        PerceptualColor Fill, Option<(PerceptualColor Color, PositiveMagnitude Width)> Stroke, VectorAngle Angle,
+        string Template, Point2d Seat, TextHeight Height, LetteringForm Form, ResourceName Family,
+        PerceptualColor Fill, Option<(PerceptualColor Color, LineWidth Width)> Stroke, VectorAngle Angle,
         TextAlignAcross Across, TextAlignDown Down) : PdfMark;
-    public sealed record LineCase(Point2d From, Point2d To, PerceptualColor Stroke, PositiveMagnitude Width) : PdfMark;
-    public sealed record PolylineCase(Seq<Point2d> Points, Option<PerceptualColor> Fill, PerceptualColor Stroke, PositiveMagnitude Width) : PdfMark;
+    public sealed record LineCase(Point2d From, Point2d To, PerceptualColor Stroke, LineWidth Width) : PdfMark;
+    public sealed record PolylineCase(Seq<Point2d> Points, Option<PerceptualColor> Fill, PerceptualColor Stroke, LineWidth Width) : PdfMark;
     public sealed record ImageCase(PdfImageBytes Image, DetailFrame Placement, VectorAngle Angle) : PdfMark;
 
     internal Fin<PdfMark> Admit(PdfImageBudget images, Op op) => Switch(
@@ -243,11 +310,13 @@ public abstract partial record PdfMark {
             from _template in ctx.Op.AcceptText(value: mark.Template)
             from _shape in guard(
                 mark.Seat.IsValid
-                && mark.Face is not null
+                && mark.Height is not null
+                && mark.Form is not null
+                && mark.Family is not null
                 && mark.Fill is not null
                 && mark.Across is not null
                 && mark.Down is not null
-                && mark.Stroke.ForAll(static stroke => stroke.Color is not null),
+                && mark.Stroke.ForAll(static stroke => stroke.Color is not null && stroke.Width is not null),
                 ctx.Op.InvalidInput()).ToFin()
             select (PdfMark)mark,
         lineCase: static (ctx, mark) => guard(
@@ -279,34 +348,50 @@ public abstract partial record PdfMark {
     internal Fin<Unit> Draw(FilePdf pdf, int page, StampScope scope, Op op) => Switch(
         (Pdf: pdf, Page: page, Scope: scope, Op: op),
         textCase: static (ctx, mark) =>
-            from face in Face(role: mark.Face, op: ctx.Op)
+            from face in Face(family: mark.Family, form: mark.Form, op: ctx.Op)
+            from height in Points(length: mark.Height.Height, op: ctx.Op)
+            from stroke in mark.Stroke
+                .Map(row => Points(length: row.Width.Width, op: ctx.Op).Map(width => (Ink: row.Color, Width: width)))
+                .Sequence()
+                .As()
+            from fill in mark.Fill.ToDrawing(key: ctx.Op)
+            from ink in stroke.Map(row => row.Ink.ToDrawing(key: ctx.Op)).Sequence().As()
             from _drawn in ctx.Op.Catch(() => {
                 ctx.Pdf.DrawText(
                     pageNumber: ctx.Page,
                     text: StampText.Render(template: mark.Template, scope: ctx.Scope),
-                    x: mark.Seat.X, y: mark.Seat.Y, heightPoints: (float)mark.Height.Value, onfont: face,
-                    fillColor: Pigment(color: mark.Fill),
-                    strokeColor: mark.Stroke.Map(static stroke => Pigment(color: stroke.Color)).IfNone(System.Drawing.Color.Empty),
-                    strokeWidth: mark.Stroke.Map(static stroke => (float)stroke.Width.Value).IfNone(noneValue: 0f),
-                    angleDegrees: (float)RhinoMath.ToDegrees(radians: mark.Angle.Value),
+                    x: mark.Seat.X, y: mark.Seat.Y, heightPoints: height, onfont: face,
+                    fillColor: fill,
+                    strokeColor: ink.IfNone(System.Drawing.Color.Empty),
+                    strokeWidth: stroke.Map(static row => row.Width).IfNone(noneValue: 0f),
+                    angleDegrees: (float)double.RadiansToDegrees(mark.Angle.Value),
                     horizontalAlignment: (TextHorizontalAlignment)mark.Across.Key,
                     verticalAlignment: (TextVerticalAlignment)mark.Down.Key);
                 return Fin.Succ(value: unit);
             })
             select unit,
-        lineCase: static (ctx, mark) => ctx.Op.Catch(() => {
-            ctx.Pdf.DrawLine(
-                pageNumber: ctx.Page, from: Dot(point: mark.From), to: Dot(point: mark.To),
-                strokeColor: Pigment(color: mark.Stroke), strokeWidth: (float)mark.Width.Value);
-            return Fin.Succ(value: unit);
-        }),
-        polylineCase: static (ctx, mark) => ctx.Op.Catch(() => {
-            ctx.Pdf.DrawPolyline(
-                pageNumber: ctx.Page, polyline: mark.Points.Map(Dot).ToArray(),
-                fillColor: mark.Fill.Map(Pigment).IfNone(System.Drawing.Color.Empty),
-                strokeColor: Pigment(color: mark.Stroke), strokeWidth: (float)mark.Width.Value);
-            return Fin.Succ(value: unit);
-        }),
+        lineCase: static (ctx, mark) =>
+            from stroke in mark.Stroke.ToDrawing(key: ctx.Op)
+            from width in Points(length: mark.Width.Width, op: ctx.Op)
+            from _drawn in ctx.Op.Catch(() => {
+                ctx.Pdf.DrawLine(
+                    pageNumber: ctx.Page, from: Dot(point: mark.From), to: Dot(point: mark.To),
+                    strokeColor: stroke, strokeWidth: width);
+                return Fin.Succ(value: unit);
+            })
+            select unit,
+        polylineCase: static (ctx, mark) =>
+            from stroke in mark.Stroke.ToDrawing(key: ctx.Op)
+            from fill in mark.Fill.Map(row => row.ToDrawing(key: ctx.Op)).Sequence().As()
+            from width in Points(length: mark.Width.Width, op: ctx.Op)
+            from _drawn in ctx.Op.Catch(() => {
+                ctx.Pdf.DrawPolyline(
+                    pageNumber: ctx.Page, polyline: mark.Points.Map(Dot).ToArray(),
+                    fillColor: fill.IfNone(System.Drawing.Color.Empty),
+                    strokeColor: stroke, strokeWidth: width);
+                return Fin.Succ(value: unit);
+            })
+            select unit,
         imageCase: static (ctx, mark) => ctx.Op.Catch(() => {
             using System.IO.MemoryStream stream = new(buffer: mark.Image.Value.ToArray(), writable: false);
             using System.Drawing.Bitmap decoded = new(stream: stream);
@@ -324,19 +409,29 @@ public abstract partial record PdfMark {
         from _drawn in marks.TraverseM(mark => mark.Draw(pdf: pdf, page: page, scope: scope, op: op)).As()
         select unit;
 
-    // The role vends the host-cached Eto face; its family and the two quartet axes name the Rhino face the PDF
-    // writer takes, and a family the host cannot resolve refuses here rather than handing `DrawText` a null.
-    private static Fin<Font> Face(TypeRole role, Op op) =>
-        op.Catch(() => role.Resolve() switch {
-            var resolved => Optional(Font.FromQuartetProperties(
-                    quartetName: resolved.FamilyName, bold: resolved.Bold, italic: resolved.Italic))
-                .ToFin(Fail: op.MissingContext()),
-        });
+    // The standard's LETTERING FORM fixes the SLANT (ISO 3098-1 §4: upright or 15° italic) and the family names the
+    // installed letterform that realizes it, so the two axes never disagree and the Annotation rail's own admission
+    // resolves the face; a family the host cannot resolve refuses here rather than handing `DrawText` a null, and
+    // no OS UI role reaches a plotted sheet.
+    private static Fin<Font> Face(ResourceName family, LetteringForm form, Op op) =>
+        from query in FaceQuery.Of(
+            form: new FaceForm.Axes(
+                Family: family.Value,
+                Weight: FaceWeight.Normal,
+                Slant: form.Slant.Value > 0.0 ? FaceSlant.Italic : FaceSlant.Upright,
+                Stretch: FaceStretch.Medium,
+                Decorations: CapabilitySet<FaceDecoration>.None),
+            key: op)
+        from face in query.Mint(key: op)
+        select face;
 
-    private static System.Drawing.Color Pigment(PerceptualColor color) =>
-        color.ToRgb() switch {
-            var (red, green, blue, alpha) => System.Drawing.Color.FromArgb(alpha: alpha, red: red, green: green, blue: blue),
-        };
+    // The ONE paper-to-points projection: printer points are an admitted `ModelUnit` regime the kernel scales onto
+    // the millimetre base, so no site carries a 72/25.4 constant beside a plotted magnitude.
+    private static Fin<float> Points(Length length, Op op) =>
+        from millimetres in ModelUnit.Of(value: UnitSystem.Millimeters, key: op)
+        from points in ModelUnit.Of(value: UnitSystem.PrinterPoints, key: op)
+        from scale in millimetres.ScaleTo(target: points, key: op)
+        select (float)(length.Millimeters * scale);
 
     private static System.Drawing.PointF Dot(Point2d point) => new(x: (float)point.X, y: (float)point.Y);
 }
@@ -344,38 +439,41 @@ public abstract partial record PdfMark {
 
 ## [04]-[SOURCE_AND_TARGET]
 
-- Owner: `PageFrame` closes settings-driven and transparent capture intent. `SettingsCase` carries plan axes plus an optional viewport extent; `TransparentCase` carries the required extent and transparent facade. `PageSource` resolves sheets, details, named views, one viewport, or blank PDF pages into a closed `PublishPage` stream; `Admit` is total over every case payload, so a malformed public case refuses typed before any resolution dereference.
+- Owner: `CaptureFrame` closes settings-driven and transparent capture intent. `SettingsCase` carries plan axes and an optional viewport extent; `TransparentCase` carries the required extent and the facade feature set. `PageSource` resolves sheets, details, named views, one viewport, or blank SHEETS into a closed `PublishPage` stream; `Admit` is total over every case payload, so a malformed public case refuses typed before any resolution dereference.
+- Law: the frame is CAPTURE intent and the kernel `Interaction/chrome` `PageFrame` is PRINT geometry — a page size, a printer's own settings, a bounded rectangle, or an issued sheet. Two owners under one name across two strata is the collision this rename closes, and no fence composes the other's cases.
 - Law: page order is evidence order — the resolved stream fixes ordinal and count before any egress, so `%pagenumber%`/`%pagecount%` tokens, PDF page indices, and per-page artifact names all read one numbering.
-- Law: `ScaleText` evidence is per-source — a detail page carries the detail's `SheetScale.Format` (`GetFormattedScale`) string so `%scale%` renders the live detail scale, while whole-page, named-view, viewport, and blank sources carry no single scale and leave the token empty.
-- Law: a multi-page raster or vector target lands one atomic artifact per page — the page's file name derives from the target stem through the token fold (`stem-%pagenumber%`), and `OutputPolicy` settles each destination before a same-directory temporary artifact replaces it.
+- Law: SCALE evidence is per-source and typed — a detail page carries the detail's live `DrawingScale` so `%scale%` renders through the issued standard's own `ScaleNotation`, while whole-page, named-view, viewport, and blank sources carry none and the token falls to its host answer; a host-formatted `1:n` string is the lowering the render performs, never the evidence it carries.
+- Law: a blank page is a SHEET. The source names a `SheetSize` under its standard and the frame's admitted DPI resolves the host's dot extent, so `SheetSize.In(unit, key)` is the one projection and a caller-supplied pixel pair that no sheet series admits is unrepresentable (D3, D4).
+- Law: a multi-page raster or vector target lands one atomic artifact per page — the page's file name derives from the target stem through the token fold (`stem-%pagenumber%`, or `stem-%number%` where an issued block names a `SheetNumber`), and `OutputPolicy` settles each destination before a same-directory temporary artifact replaces it (D28).
 - Law: frame modality is structural. `Plan` accepts only `SettingsCase`, and `TransparentSpec` accepts only `TransparentCase`; no boolean or absent field reconstructs capture intent.
-- Law: resolution is the admitted `CaptureDpi` the capture rail owns, carried on both frame cases and read once — every downstream site consumes the admitted value instead of re-running `CaptureDpi.Of` over a raw double, and `PageFrame.Print` seats the named print-resolution row through the same admission rather than constructing past it, so the one DPI a frameless request inherits is the one DPI the gate proved.
+- Law: resolution is the admitted `CaptureDpi` the capture rail owns, carried on both frame cases and read once — every downstream site consumes the admitted value instead of re-running `CaptureDpi.Of` over a raw double, and `CaptureFrame.Plot` seats the kernel `PlotResolution.Plot` row through the capture rail's own output-class arity, so the one DPI a frameless request inherits is a rostered output class rather than a literal (D80, D81).
 - Law: `Dots` is the ONE integral-DPI admission — `CaptureDpi` admits any finite positive double while the blank-page host member takes an `int`, so integrality and range refuse typed at the frame instead of overflowing a conversion at the page mint; the blank-page arm and the request's blank-page contract are its two readers, and a second inline truncation beside either is the deleted form.
+- Packages: `Rasm.Drawing` (`SheetSize`, `SheetStandard`, `SheetOrientation`, `PlotResolution`, `DrawingScale`), `Domain/context` (`ModelUnit`, `UnitSystem`), `Viewport/capture` (`CaptureDpi`, `Size2i`, `CaptureSubject`, `CapturePlan`, `CaptureFeature`, `TransparentCaptureSpec`), NodaTime (`Instant`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 - Boundary: named-view publication captures the named view's addressed viewport as it stands; a restore-then-capture sequence is the camera rail composed BEFORE publication, never a hidden restore inside the page resolver.
 
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record PageFrame {
-    private PageFrame() { }
+public abstract partial record CaptureFrame {
+    private CaptureFrame() { }
     internal sealed record SettingsCase(
         CaptureDpi DotsPerInch,
         Option<Size2i> ViewportExtent,
         Option<CaptureArea> Area,
         Option<CaptureScale> Scale,
         Option<MediaLayout> Layout,
-        Option<CaptureDecor> Decor) : PageFrame;
+        Option<CaptureDecor> Decor) : CaptureFrame;
     internal sealed record TransparentCase(
         CaptureDpi DotsPerInch,
         Size2i Extent,
-        Option<TransparentDecor> Facade) : PageFrame;
+        Option<CapabilitySet<CaptureFeature>> Facade,
+        Option<Dimension> RealtimePasses) : CaptureFrame;
 
-    // Plate-standard print resolution: 300 dpi is the floor at which hairline linework and stamped text stay
-    // unresampled on a plotted sheet, and it is the one default every frameless PublishRequest inherits.
-    public static CaptureDpi PrintResolution { get; } = CaptureDpi.Create(value: 300.0);
-
-    public static PageFrame Print { get; } = new SettingsCase(
-        DotsPerInch: PrintResolution, ViewportExtent: None, Area: None, Scale: None, Layout: None, Decor: None);
+    // The one default every frameless request inherits is the kernel's PLOT output class, admitted through the
+    // capture rail's own output-class arity — a rostered row, never a literal a second consumer could disagree with.
+    public static CaptureFrame Plot { get; } = new SettingsCase(
+        DotsPerInch: CaptureDpi.Of(resolution: PlotResolution.Plot).ThrowIfFail(),
+        ViewportExtent: None, Area: None, Scale: None, Layout: None, Decor: None);
 
     public CaptureDpi Dpi => Switch(
         settingsCase: static frame => frame.DotsPerInch,
@@ -395,7 +493,7 @@ public abstract partial record PageFrame {
 
     public bool IsTransparent => this is TransparentCase;
 
-    public static Fin<PageFrame> Settings(
+    public static Fin<CaptureFrame> Settings(
         double dpi,
         Option<Size2i> pixels = default,
         Option<CaptureArea> area = default,
@@ -407,7 +505,7 @@ public abstract partial record PageFrame {
         return from admitted in CaptureDpi.Of(value: dpi, key: op)
                from _pixels in pixels.Map(value => guard(value.IsValid, op.InvalidInput()).ToFin())
                    .IfNone(Fin.Succ(value: unit))
-               select (PageFrame)new SettingsCase(
+               select (CaptureFrame)new SettingsCase(
                    DotsPerInch: admitted,
                    ViewportExtent: pixels,
                    Area: area,
@@ -416,15 +514,17 @@ public abstract partial record PageFrame {
                    Decor: decor);
     }
 
-    public static Fin<PageFrame> Transparent(
+    public static Fin<CaptureFrame> Transparent(
         double dpi,
         Size2i pixels,
-        Option<TransparentDecor> decor = default,
+        Option<CapabilitySet<CaptureFeature>> facade = default,
+        Option<Dimension> realtimePasses = default,
         Op? key = null) {
         Op op = key.OrDefault();
         return from admitted in CaptureDpi.Of(value: dpi, key: op)
                from _pixels in guard(pixels.IsValid, op.InvalidInput()).ToFin()
-               select (PageFrame)new TransparentCase(DotsPerInch: admitted, Extent: pixels, Facade: decor);
+               select (CaptureFrame)new TransparentCase(
+                   DotsPerInch: admitted, Extent: pixels, Facade: facade, RealtimePasses: realtimePasses);
     }
 
     internal Fin<CapturePlan> Plan(CaptureSubject subject, Op key) => Switch(
@@ -444,7 +544,8 @@ public abstract partial record PageFrame {
         transparentCase: static (ctx, frame) => TransparentCaptureSpec.Of(
             target: ctx.Target,
             extent: frame.Extent,
-            decor: frame.Facade,
+            features: frame.Facade,
+            realtimePasses: frame.RealtimePasses,
             key: ctx.Op));
 }
 
@@ -468,7 +569,9 @@ public abstract partial record PageSource {
     public sealed record DetailsCase(SheetSelect Sheets, DetailSelect Details) : PageSource;
     public sealed record NamedCase(Seq<string> Names) : PageSource;
     public sealed record ViewportCase(ViewportTarget Target) : PageSource;
-    public sealed record BlankCase(Size2i SizeDots, Dimension Count) : PageSource;
+    // A blank page is an ISSUED SHEET, not a caller pixel pair: the size names its series seat or its custom extent
+    // under a standard, and the frame's admitted DPI resolves the host dot extent at mint (D3, D4).
+    public sealed record BlankCase(SheetSize Size, SheetOrientation Orientation, Dimension Count) : PageSource;
 
     internal Fin<PageSource> Admit(Op op) => Switch(
         op,
@@ -490,11 +593,11 @@ public abstract partial record PageSource {
             .ToFin(Fail: key.InvalidInput())
             .Map(_ => (PageSource)source),
         blankCase: static (key, source) => guard(
-            source.SizeDots.IsValid && source.Count.Value > 0,
+            source.Size is { IsValid: true } && source.Orientation is not null && source.Count.Value > 0,
             key.InvalidInput()).ToFin().Map(_ => (PageSource)source));
 
-    internal Fin<Seq<PublishPage>> Resolve(RhinoDoc document, PageFrame frame, DateTimeOffset instant, Op op) => Switch(
-        (Document: document, Frame: frame, Instant: instant, Op: op),
+    internal Fin<Seq<PublishPage>> Resolve(RhinoDoc document, CaptureFrame frame, Option<TitleBlock> issue, Instant instant, Op op) => Switch(
+        (Document: document, Frame: frame, Issue: issue, Instant: instant, Op: op),
         sheetsCase: static (ctx, source) =>
             from pages in source.Sheets.Resolve(document: ctx.Document, op: ctx.Op)
             let dpi = ctx.Frame.Dpi
@@ -502,9 +605,9 @@ public abstract partial record PageSource {
                 from target in ViewportTarget.Page(pageViewId: row.Page.MainViewport.Id, key: ctx.Op)
                 from subject in CaptureSubject.Page(target: target, dpi: dpi, key: ctx.Op)
                 select Page(
-                    target: target, subject: subject, document: ctx.Document,
+                    target: target, subject: subject, document: ctx.Document, issue: ctx.Issue,
                     pageName: row.Page.PageName, viewName: row.Page.MainViewport.Name,
-                    scaleText: string.Empty,
+                    scale: None,
                     ordinal: row.Index + 1, count: pages.Count, instant: ctx.Instant)).As()
             select captured,
         detailsCase: static (ctx, source) =>
@@ -523,9 +626,9 @@ public abstract partial record PageSource {
                     key: ctx.Op)
                 from subject in CaptureSubject.View(target: target, pixels: pixels, dpi: dpi, key: ctx.Op)
                 select Page(
-                    target: target, subject: subject, document: ctx.Document,
+                    target: target, subject: subject, document: ctx.Document, issue: ctx.Issue,
                     pageName: entry.Row.Page.PageName, viewName: entry.Row.Detail.Viewport.Name,
-                    scaleText: SheetScale.Format(detail: entry.Row.Detail).IfNone(noneValue: string.Empty),
+                    scale: SheetScale.Live(detail: entry.Row.Detail),
                     ordinal: entry.Index + 1, count: flat.Count, instant: ctx.Instant)).As()
             select captured,
         namedCase: static (ctx, source) =>
@@ -535,9 +638,9 @@ public abstract partial record PageSource {
                 from target in ViewportTarget.Named(name: row.Name, key: ctx.Op)
                 from subject in CaptureSubject.View(target: target, pixels: pixels, dpi: dpi, key: ctx.Op)
                 select Page(
-                    target: target, subject: subject, document: ctx.Document,
+                    target: target, subject: subject, document: ctx.Document, issue: ctx.Issue,
                     pageName: row.Name, viewName: row.Name,
-                    scaleText: string.Empty,
+                    scale: None,
                     ordinal: row.Index + 1, count: source.Names.Count, instant: ctx.Instant)).As()
             select captured,
         viewportCase: static (ctx, source) =>
@@ -545,49 +648,67 @@ public abstract partial record PageSource {
             let dpi = ctx.Frame.Dpi
             from subject in CaptureSubject.View(target: source.Target, pixels: pixels, dpi: dpi, key: ctx.Op)
             select Seq(Page(
-                target: source.Target, subject: subject, document: ctx.Document,
-                pageName: string.Empty, viewName: string.Empty, scaleText: string.Empty,
+                target: source.Target, subject: subject, document: ctx.Document, issue: ctx.Issue,
+                pageName: string.Empty, viewName: string.Empty, scale: None,
                 ordinal: 1, count: 1, instant: ctx.Instant)),
-        blankCase: static (ctx, source) => Fin.Succ(value: toSeq(Range(1, source.Count.Value)).Map(ordinal => (PublishPage)new PublishPage.BlankCase(
-            Extent: source.SizeDots,
-            Stamp: ScopeOf(
-                document: ctx.Document, pageName: $"blank-{ordinal}", viewName: string.Empty, scaleText: string.Empty,
-                ordinal: ordinal, count: source.Count.Value, instant: ctx.Instant)))));
+        // The sheet's own extent resolves ONCE, in printer points at the frame's admitted resolution, so the host
+        // dot pair is a projection of the issued size rather than a caller figure nothing admitted.
+        blankCase: static (ctx, source) =>
+            from dots in ctx.Frame.Dots(key: ctx.Op)
+            from inches in ModelUnit.Of(value: UnitSystem.Inches, key: ctx.Op)
+            from extent in source.Size.In(unit: inches, key: ctx.Op)
+            let oriented = source.Orientation == SheetOrientation.Landscape
+                ? (Width: extent.Height, Height: extent.Width)
+                : (extent.Width, extent.Height)
+            from pixels in Size2i.Of(
+                width: (int)Math.Round(oriented.Width * dots),
+                height: (int)Math.Round(oriented.Height * dots),
+                key: ctx.Op)
+            select toSeq(Range(1, source.Count.Value)).Map(ordinal => (PublishPage)new PublishPage.BlankCase(
+                Extent: pixels,
+                Stamp: ScopeOf(
+                    document: ctx.Document, issue: ctx.Issue, pageName: source.Size.Key, viewName: string.Empty,
+                    scale: None, ordinal: ordinal, count: source.Count.Value, instant: ctx.Instant))));
 
     private static PublishPage Page(
         ViewportTarget target,
         CaptureSubject subject,
         RhinoDoc document,
+        Option<TitleBlock> issue,
         string pageName,
         string viewName,
-        string scaleText,
+        Option<DrawingScale> scale,
         int ordinal,
         int count,
-        DateTimeOffset instant) =>
+        Instant instant) =>
         new PublishPage.CapturedCase(
             Target: target,
             Subject: subject,
             Stamp: ScopeOf(
                 document: document,
+                issue: issue,
                 pageName: pageName,
                 viewName: viewName,
-                scaleText: scaleText,
+                scale: scale,
                 ordinal: ordinal,
                 count: count,
                 instant: instant));
 
     private static StampScope ScopeOf(
         RhinoDoc document,
+        Option<TitleBlock> issue,
         string pageName,
         string viewName,
-        string scaleText,
+        Option<DrawingScale> scale,
         int ordinal,
         int count,
-        DateTimeOffset instant) =>
-        new(DocumentName: document.Name ?? string.Empty,
-            DocumentPathText: document.Path ?? string.Empty,
+        Instant instant) =>
+        // A host name or path is ABSENT on an unsaved document, and absence is an Option — never the empty string a
+        // stamp would render as a blank field indistinguishable from a legitimately empty one.
+        new(DocumentName: Optional(document.Name).Filter(static text => text.Length > 0),
+            DocumentPathText: Optional(document.Path).Filter(static text => text.Length > 0),
             PageName: pageName, PageOrdinal: ordinal, PageCount: count, ViewName: viewName,
-            ScaleText: scaleText, Instant: instant);
+            Scale: scale, Issue: issue, Instant: instant);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -604,10 +725,11 @@ public abstract partial record PublishTarget {
             from _shape in guard(target.Target != default && target.Output is not null, key.InvalidInput()).ToFin()
             from _policy in key.Need(target.Policy).Bind(policy => policy.Admit(op: key))
             select (PublishTarget)target,
-        printerCase: static (key, target) => CaptureSink.Printer(
-            printerName: target.PrinterName,
-            copies: target.Copies,
-            key: key).Map(_ => (PublishTarget)target),
+        // `Dimension` bands its factory at a closed floor of one, but the value object admits `default(Dimension)`
+        // past that floor, so the copy count is re-gated here rather than trusted from the struct's shape alone.
+        printerCase: static (key, target) => guard(
+            !string.IsNullOrWhiteSpace(value: target.PrinterName) && target.Copies.Value >= 1,
+            key.InvalidInput()).ToFin().Map(_ => (PublishTarget)target),
         rasterCase: static (key, target) =>
             from _shape in guard(target.Target != default && target.Output is not null, key.InvalidInput()).ToFin()
             from _policy in key.Need(target.Policy).Bind(policy => policy.Admit(op: key))
@@ -620,30 +742,44 @@ public abstract partial record PublishTarget {
 
 ## [05]-[PUBLISH_RAIL]
 
-- Owner: `PdfPolicy` carries optional-content grouping, one parameterized image budget, page marks, final marks, and custom printed-page definitions. `PublishRequest` admits source, target, frame modality, and one render instant. `PageEvidence` closes landed-artifact and printer proof without optional payload reconstruction.
-- Law: `PageEvidence` is the package's one printer- and landed-artifact proof family — the Eto chrome print driver returns raw page facts only, and the composing app root folds them into this family; a second printer-evidence vocabulary beside it is the deleted form.
-- Entry: `Publishing.Run(DocumentSession, PublishRequest, Op?) : Fin<PublishReceipt>` — page resolution proves `SessionNeed.Read` plus `SessionNeed.Export` once, and each page capture proves `SessionNeed.Redraw` through the capture rail's own demand.
+- Owner: `Landing` is the S4 delivery family every leg of this rail dispatches on — raster, vector, printer, and the `Save` seam Display's framebuffer egress writes through. `PdfPolicy` carries the issued plot policy, one parameterized image budget, page marks, final marks, and custom printed-page definitions. `PublishRequest` admits source, target, frame modality, the optionally issued title block, and one render instant. `PublishSlot`/`PublishBody` join the Document fact stream, and `PublishReceipt` names that closed instantiation.
+- Law: this page CONFORMS to the Document fact stream and re-mints nothing — the slot-keyed accumulation, the cross-product gate, and the projections are `Document/facts`'s; this page contributes a slot vocabulary, a body union, and one extension block. NAMED LOSS: the former `PageEvidence` union's two-case exhaustive fold and the `PublishTargetKind` roster — bought back as the SLOT, which is the delivery leg a fact landed under, so a printed page and a landed artifact are two slots over one body family rather than two shapes a consumer must switch on; witness — every `PublishReceipt` reader projects on its slot and gains `FactCount` for free.
+- Law: PDF conformance, plot resolution, layer emission, orientation, and the issued scale are the kernel `PlotPolicy`'s columns, not this page's. `PdfPolicy.Plot` carries one optional `PlotPolicy` and `Emission` DERIVES from it, so `LayersAsOptionalContentGroups` reads `LayerEmission.OptionalContent` off the issued policy rather than a boolean nothing keys to a standard (D79, D84, D94).
+- Entry: `Publishing.Run(DocumentSession, MonotonicTimeline, PublishRequest, Op?) : Fin<PublishReceipt>` — page resolution proves `SessionNeed.Read` and `SessionNeed.Export` once, and each page capture proves `SessionNeed.Redraw` through the capture rail's own demand; the load-root timeline reaches transparent capture unchanged.
 - Law: the PDF arm owns `FilePdf.Create`, host-minted page indices, page marks, custom pages, final marks, and `Write`. `FilePdf` is a plain abstract host class the plug-in lookup vends and never an `IDisposable`, so the arm holds it as an ordinary value across the page fold — its one custody obligation is the null return the lookup can give, which `Optional(...).ToFin(...)` refuses; bracketing it leases a type with nothing to release. `LayersAsOptionalContentGroups` is document-level state on the `FilePdf` instance — the policy value is hoisted once after `Create`, before any page mints, because a per-page set inside the page fold leaves only the last write effective and silently strips earlier pages' layer groups. A captured page derives one `CapturePlan`, enters `Captures.Stage`, and consumes the sole prepared settings row through `PreparedCapture.Use` inside that bracket, whose gate refuses once the bracket releases; blank pages use only the dots overload.
-- Law: printer publication derives the complete `Seq<CapturePlan>`, admits one printer `CaptureSink`, and sends the program through one `CaptureRequest`/`Captures.Run` call; the returned dispatched-page count must equal the plan count. Raster and SVG pair each plan with the matching scalar sink through the same request rail; alpha raster uses only `TransparentCaptureSpec`.
-- Law: every file delivery stages through `OutputPolicy.Land` — the operations rail's one atomic staging kernel — so temporary write, nonempty verification, byte-identical commit, and content keying are the folder's single spelling. A failed encoder, PDF write, SVG write, empty artifact, or move leaves no new partial destination and emits no landed evidence.
-- Law: publication proves `Read` and `Export` and mutates no document, so landed evidence carries the native landing row and `PageEvidence.LandedCase` alone — an `ExchangeEvidence.MutationCase` on a filesystem landing claims a document change with no undo serial behind it and is the deleted form; the document-mutation rows stay on the exchange rail, where a real `DocumentCommit.Sealed` bracket supplies the serial.
-- Law: request admission accumulates — the five source, target, and frame contracts fold applicatively through `Validation`, each rule minting its own `Op`-keyed refusal from its own name, so a caller learns every contract it broke instead of one collapsed input fault.
-- Boundary: `PdfGate` serializes THIS rail's replace-write-restore window over the process-global custom-page roster, so two concurrent `Publishing.Run` calls never interleave rosters. The roster belongs to the host process, not the gate: a host-internal PDF export running outside this rail reads whichever roster the window has installed, and that exposure is unclosable from here because `FilePdf.SetCustomPages` carries no scope. Custom pages therefore ride only the blank-source contract, where the window is one write long. `Restored` attempts roster restoration after every body outcome and combines a write fault with a restoration fault instead of replacing either failure.
+- Law: `PublishTarget` stays the ADMITTED request vocabulary and `Landing` the DELIVERY family it projects onto — the rail constructs the matching `Landing` arm at its own dispatch, so a target case names what a caller asked for and a landing case names what the egress does; `PdfCase` is the one target keeping its own `FilePdf` arm, because a PDF is minted page by page rather than delivered from a prepared settings row.
+- Law: printer publication derives the complete `Seq<CapturePlan>`, enters ONE `Captures.Stage` window, and dispatches the whole prepared batch through `ViewCapture.SendToPrinter` under `Landing.Printer`. `SendToPrinter` answers a bare `bool`, never a page tally, so the dispatched-page count the law demands is proved INSIDE the window by the prepared-row arity equalling the plan count — a driver-reported count is unreadable here, and a receipt claiming one fabricates it. Raster and SVG pair each plan with its own `Landing` arm through the same staged window, one prepared row per page; alpha raster uses only `TransparentCaptureSpec`, whose facade-side transparency no settings row can express.
+- Law: every file delivery stages through `OutputPolicy.Land` — the operations rail's one atomic staging kernel — so temporary write, nonempty verification, byte-identical commit, and content keying are the folder's single spelling. A failed encoder, PDF write, SVG write, empty artifact, or move leaves no new partial destination and emits no landed evidence. The ONE exception is `Landing.Save`: its writer is a host member dispatching format on the destination extension, so it takes its settled `Resolve` path directly per the operations rail's own carve-out and content-keys the landed bytes through the rail's `Keyed` spelling.
+- Law: publication proves `Read` and `Export` and mutates no document, so landed evidence carries the native landing row and the `Landed` slot alone — an `ExchangeEvidence.MutationCase` on a filesystem landing claims a document change with no undo serial behind it and is the deleted form; the document-mutation rows stay on the exchange rail, where a real `DocumentCommit.Sealed` bracket supplies the serial. This receipt therefore declares no undo slot, and the stream's undo stamp is unreachable here by construction.
+- Law: request admission accumulates — the six source, target, frame, and issue contracts fold applicatively through `Validation`, each rule minting its own `Op`-keyed refusal from its own name, so a caller learns every contract it broke instead of one collapsed input fault.
+- Law: the three `CaptureArtifact` consumers each state the SUBSET they admit rather than closing the union. `Landed` mints a raster or a vector arm and refuses the printer and save arms by name; the raster and vector deliveries admit their own case alone; the depth and sequence arms belong to modalities this rail never requests, and a catch-all over the Viewport-owned family turns a new capture modality from a compile break into a silent refusal at run time.
+- Boundary: `PdfGate` serializes THIS rail's replace-write-restore window over the process-global custom-page roster, so two concurrent `Publishing.Run` calls never interleave rosters. A `System.Threading.Lock` is the owner here and an atom is not: the window is MUTUAL EXCLUSION across two host calls, while `Cell.Step` is a compare-and-swap that lets a second writer install its roster between this one's replace and restore. The roster belongs to the host process, not the gate: a host-internal PDF export running outside this rail reads whichever roster the window has installed, and that exposure is unclosable from here because `FilePdf.SetCustomPages` carries no scope. Custom pages therefore ride only the blank-source contract, where the window is one write long. `Restored` attempts roster restoration after every body outcome and combines a write fault with a restoration fault instead of replacing either failure.
+- Packages: `Rasm.Drawing` (`PlotPolicy`, `PlotResolution`, `LayerEmission`, `TitleBlock`, `SheetSize`), `Rasm.Parametric` (`MonotonicTimeline`), `Document/facts` (`IFactSlot`, `IFactBody`, `FactStream`, `Fact`), `Document/session` (`DocumentSession`, `SessionNeed`), `Viewport/capture` (`Captures.Stage`, `PreparedCapture`, `CaptureArtifact`, `CapturePlan`), `Exchange/operations` (`OutputPolicy.Land`, `OutputPolicy.Resolve`, `Exchanges.Keyed`, `ExchangeEvidence`), `Domain/validation` (`CapabilitySet`, `ICapability`), LanguageExt.Core (`Validation` applicative, `TraverseM`, `Fin`), NodaTime (`Instant`), Thinktecture.Runtime.Extensions.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
+// `PublishReceipt` names the Document tier's shared stream under this page's own identity: two declarations and one
+// extension block carry the whole join, per the facts page's conformance law.
+global using PublishReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Exchange.PublishSlot, Rasm.Rhino.Exchange.PublishBody>;
+
 // --- [MODELS] -------------------------------------------------------------------------------
+[Equatable]
 public sealed record PdfPolicy(
-    bool LayersAsOptionalContent,
+    Option<PlotPolicy> Plot,
     PdfImageBudget Images,
-    Seq<PdfMark> PageMarks,
-    Seq<PdfMark> FinalMarks,
-    Seq<PrintedPageDefinition> CustomPages) {
+    [property: OrderedEquality] Seq<PdfMark> PageMarks,
+    [property: OrderedEquality] Seq<PdfMark> FinalMarks,
+    [property: OrderedEquality] Seq<PrintedPageDefinition> CustomPages) {
     public static PdfPolicy Plain { get; } = new(
-        LayersAsOptionalContent: true,
+        Plot: None,
         Images: PdfImageBudget.Standard,
         PageMarks: Seq<PdfMark>(),
         FinalMarks: Seq<PdfMark>(),
         CustomPages: Seq<PrintedPageDefinition>());
+
+    // The issued policy DECIDES layer emission; an unissued publication falls to the host's own grouping default,
+    // which is the one place a literal is the truth rather than a standard's row.
+    internal LayerEmission Emission => Plot.Map(static row => row.Emission).IfNone(LayerEmission.OptionalContent);
 
     internal Fin<PdfPolicy> Admit(Op op) =>
         from images in op.Need(Images)
@@ -655,92 +791,189 @@ public sealed record PdfPolicy(
         select this;
 }
 
-public sealed class PublishRequest {
-    private PublishRequest(PublishTarget target, PageSource source, PageFrame frame, DateTimeOffset instant) =>
-        (Target, Source, Frame, Instant) = (target, source, frame, instant);
+public sealed record PublishRequest {
+    private PublishRequest(
+        PublishTarget target, PageSource source, CaptureFrame frame, Option<TitleBlock> issue, Instant instant) =>
+        (Target, Source, Frame, Issue, Instant) = (target, source, frame, issue, instant);
 
     public PublishTarget Target { get; }
     public PageSource Source { get; }
-    public PageFrame Frame { get; }
-    public DateTimeOffset Instant { get; }
+    public CaptureFrame Frame { get; }
+    // The issued sheet is the publication's, not the page's: one title block governs every page of a drawing set,
+    // and the sheet ordinal each page carries is the block's own `Sheet`/`SheetCount` pair rendered per page.
+    public Option<TitleBlock> Issue { get; }
+    public Instant Instant { get; }
 
     public static Fin<PublishRequest> Of(
         PublishTarget target,
         PageSource source,
-        DateTimeOffset instant,
-        Option<PageFrame> frame = default,
+        Instant instant,
+        Option<CaptureFrame> frame = default,
+        Option<TitleBlock> issue = default,
         Op? key = null) {
         Op op = key.OrDefault();
         return from carrier in op.Need(target).Bind(candidate => candidate.Admit(op: op))
                from origin in op.Need(source).Bind(candidate => candidate.Admit(op: op))
-               let resolvedFrame = frame.IfNone(PageFrame.Print)
-               from _contract in Contract(carrier: carrier, origin: origin, frame: resolvedFrame)
-               select new PublishRequest(target: carrier, source: origin, frame: resolvedFrame, instant: instant);
+               let resolvedFrame = frame.IfNone(CaptureFrame.Plot)
+               from _contract in Contract(carrier: carrier, origin: origin, frame: resolvedFrame, issue: issue)
+               select new PublishRequest(
+                   target: carrier, source: origin, frame: resolvedFrame, issue: issue, instant: instant);
     }
 
-    private static Fin<Unit> Contract(PublishTarget carrier, PageSource origin, PageFrame frame) => (
+    private static Fin<Unit> Contract(
+        PublishTarget carrier, PageSource origin, CaptureFrame frame, Option<TitleBlock> issue) => (
             BlankPagesTakeIntegralPdf(carrier: carrier, origin: origin, frame: frame),
             ViewSourcesDeclarePixels(origin: origin, frame: frame),
             RasterAlphaMatchesFrame(carrier: carrier, frame: frame),
             TransparencyTakesRaster(carrier: carrier, frame: frame),
-            CustomPagesTakeBlankSource(carrier: carrier, origin: origin))
-        .Apply(static (_, _, _, _, _) => unit)
+            CustomPagesTakeBlankSource(carrier: carrier, origin: origin),
+            IssuedSheetMatchesBlank(origin: origin, issue: issue))
+        .Apply(static (_, _, _, _, _, _) => unit)
         .As()
         .ToFin();
 
-    private static K<Validation<Error>, Unit> BlankPagesTakeIntegralPdf(PublishTarget carrier, PageSource origin, PageFrame frame) =>
+    private static K<Validation<Error>, Unit> BlankPagesTakeIntegralPdf(PublishTarget carrier, PageSource origin, CaptureFrame frame) =>
         Rule(origin is not PageSource.BlankCase || (carrier is PublishTarget.PdfCase && frame.Dots().IsSucc));
 
-    private static K<Validation<Error>, Unit> ViewSourcesDeclarePixels(PageSource origin, PageFrame frame) =>
+    private static K<Validation<Error>, Unit> ViewSourcesDeclarePixels(PageSource origin, CaptureFrame frame) =>
         Rule(origin is not (PageSource.DetailsCase or PageSource.NamedCase or PageSource.ViewportCase)
             || frame.Pixels.IsSome);
 
-    private static K<Validation<Error>, Unit> RasterAlphaMatchesFrame(PublishTarget carrier, PageFrame frame) =>
+    private static K<Validation<Error>, Unit> RasterAlphaMatchesFrame(PublishTarget carrier, CaptureFrame frame) =>
         Rule(carrier is not PublishTarget.RasterCase raster || raster.Policy.Transparent == frame.IsTransparent);
 
-    private static K<Validation<Error>, Unit> TransparencyTakesRaster(PublishTarget carrier, PageFrame frame) =>
+    private static K<Validation<Error>, Unit> TransparencyTakesRaster(PublishTarget carrier, CaptureFrame frame) =>
         Rule(carrier is PublishTarget.RasterCase || !frame.IsTransparent);
 
     private static K<Validation<Error>, Unit> CustomPagesTakeBlankSource(PublishTarget carrier, PageSource origin) =>
         Rule(carrier is not PublishTarget.PdfCase { Policy.CustomPages.IsEmpty: false } || origin is PageSource.BlankCase);
 
+    // A blank source names its own sheet extent, so an issued block must agree with it: the block's `Sheet` ordinal
+    // ceiling is the page count the source declares, and a set claiming five sheets while emitting three is a
+    // contradiction no downstream stamp can detect.
+    private static K<Validation<Error>, Unit> IssuedSheetMatchesBlank(PageSource origin, Option<TitleBlock> issue) =>
+        Rule(origin is not PageSource.BlankCase blank
+            || issue.ForAll(block => block.SheetCount >= blank.Count.Value));
+
     private static K<Validation<Error>, Unit> Rule(bool held, [CallerMemberName] string rule = "") =>
         guard(held, Op.Of(name: rule).InvalidInput()).ToFin().ToValidation();
 }
 
-[SmartEnum<int>]
-public sealed partial class PublishTargetKind {
-    public static readonly PublishTargetKind Pdf = new(key: 0);
-    public static readonly PublishTargetKind Printer = new(key: 1);
-    public static readonly PublishTargetKind Raster = new(key: 2);
-    public static readonly PublishTargetKind Svg = new(key: 3);
+// --- [TYPES] --------------------------------------------------------------------------------
+// The body-kind vocabulary the slot roster declares its admission over: a landed artifact and a spooled page are
+// two consequences of one publication, and the slot names WHICH delivery leg produced each.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class PublishBodyKind : ICapability<PublishBodyKind> {
+    public static readonly PublishBodyKind Artifact = new(key: "artifact");
+    public static readonly PublishBodyKind Spool = new(key: "spool");
+    public static readonly PublishBodyKind Note = new(key: "note");
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record PageEvidence {
-    private PageEvidence() { }
-    public sealed record LandedCase(
-        StampScope Scope,
-        PublishTargetKind Target,
-        DocumentPath Artifact,
-        UInt128 ContentKey) : PageEvidence;
-    public sealed record PrintedCase(StampScope Scope, Dimension Copies) : PageEvidence;
+public abstract partial record PublishBody : IFactBody<PublishBodyKind> {
+    private PublishBody() { }
+    public sealed record ArtifactCase(StampScope Scope, DocumentPath Artifact, UInt128 ContentKey) : PublishBody;
+    public sealed record SpoolCase(StampScope Scope, Dimension Copies) : PublishBody;
+    // Host-surface notes ride the SAME stream: a receipt carrying two parallel sequences made a reader fold twice
+    // and let a note land under no delivery leg at all.
+    public sealed record NoteCase(ExchangeEvidence Value) : PublishBody;
+
+    PublishBodyKind IFactBody<PublishBodyKind>.Kind => Switch(
+        artifactCase: static _ => PublishBodyKind.Artifact,
+        spoolCase: static _ => PublishBodyKind.Spool,
+        noteCase: static _ => PublishBodyKind.Note);
 }
 
-public sealed record PublishReceipt(Seq<PageEvidence> Pages, Seq<ExchangeEvidence> Evidence) : IDetachedDocumentResult;
+// The former `PublishTargetKind` roster and the `PageEvidence` union collapse INTO these rows: the delivery leg is
+// the slot, so a reader projects on it and a body carries only what its leg produced.
+[SmartEnum<int>]
+public sealed partial class PublishSlot : IFactSlot<PublishBody, PublishBodyKind> {
+    public static readonly PublishSlot Pdf = new(key: 0, seated: static () => Artifacts);
+    public static readonly PublishSlot Native = new(key: 5, seated: static () => Notes);
+    public static readonly PublishSlot Raster = new(key: 1, seated: static () => Artifacts);
+    public static readonly PublishSlot Vector = new(key: 2, seated: static () => Artifacts);
+    public static readonly PublishSlot Printed = new(key: 3, seated: static () => Spools);
+    public static readonly PublishSlot Saved = new(key: 4, seated: static () => Artifacts);
+
+    [UseDelegateFromConstructor]
+    private partial CapabilitySet<PublishBodyKind> Seated();
+
+    public CapabilitySet<PublishBodyKind> Bodies => Seated();
+
+    private static CapabilitySet<PublishBodyKind> Artifacts => CapabilitySet<PublishBodyKind>.Of(PublishBodyKind.Artifact);
+
+    private static CapabilitySet<PublishBodyKind> Spools => CapabilitySet<PublishBodyKind>.Of(PublishBodyKind.Spool);
+
+    private static CapabilitySet<PublishBodyKind> Notes => CapabilitySet<PublishBodyKind>.Of(PublishBodyKind.Note);
+}
+
+// --- [OPERATIONS] ---------------------------------------------------------------------------
+// This page's mint factories and readers over the closed instantiation — the two-declaration join the stream law
+// promises, with the projections it gains for free.
+public static class PublishFacts {
+    extension(PublishReceipt receipt) {
+        public static Fin<PublishReceipt> Artifact(
+            PublishSlot slot, StampScope scope, DocumentPath artifact, UInt128 key, Op op) =>
+            PublishReceipt.Of(
+                slot: slot,
+                body: new PublishBody.ArtifactCase(Scope: scope, Artifact: artifact, ContentKey: key),
+                key: op);
+
+        public static Fin<PublishReceipt> Spooled(Seq<StampScope> scopes, Dimension copies, Op op) =>
+            PublishReceipt.All(
+                slot: PublishSlot.Printed,
+                bodies: scopes.Map(scope => (PublishBody)new PublishBody.SpoolCase(Scope: scope, Copies: copies)),
+                key: op);
+
+        public static Fin<PublishReceipt> Noted(Seq<ExchangeEvidence> notes, Op op) =>
+            PublishReceipt.All(
+                slot: PublishSlot.Native,
+                bodies: notes.Map(static note => (PublishBody)new PublishBody.NoteCase(Value: note)),
+                key: op);
+
+        public Seq<ExchangeEvidence> Notes =>
+            receipt.Project(
+                slot: PublishSlot.Native,
+                select: static body => body is PublishBody.NoteCase row ? Some(row.Value) : Option<ExchangeEvidence>.None);
+
+        public Seq<(DocumentPath Path, UInt128 Key)> Landed(PublishSlot slot) =>
+            receipt.Project(
+                slot: slot,
+                select: static body => body is PublishBody.ArtifactCase row
+                    ? Some((row.Artifact, row.ContentKey))
+                    : Option<(DocumentPath, UInt128)>.None);
+    }
+}
+
+// `Landing` owns S4 delivery: every leg is a CASE built ARMS-UP over the sink-free capture rail, so no page below
+// this stratum carries a delivery shape. `Raster` and `Vector` consume ONE prepared settings row per page,
+// `Printer` consumes the whole prepared batch, and `Save` is the Display seam settling `OutputPolicy` into the
+// staged write before any host op is built.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record Landing {
+    private Landing() { }
+    public sealed record Raster(DocumentPath Target, RasterPolicy Policy, OutputPolicy Output) : Landing;
+    public sealed record Vector(DocumentPath Target, OutputPolicy Output) : Landing;
+    public sealed record Printer(string PrinterName, Dimension Copies) : Landing;
+    public sealed record Save(DocumentPath Target, OutputPolicy Output, FileCodec Codec) : Landing;
+}
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Publishing {
     private static readonly System.Threading.Lock PdfGate = new();
 
-    public static Fin<PublishReceipt> Run(DocumentSession session, PublishRequest request, Op? key = null) {
+    public static Fin<PublishReceipt> Run(
+        DocumentSession session, MonotonicTimeline timeline, PublishRequest request, Op? key = null) {
         Op op = key.OrDefault();
         return from active in op.Need(session)
+               from clock in op.Need(timeline)
                from publication in op.Need(request)
                from pages in active.Demand(
                    use: document => publication.Source.Resolve(
                        document: document,
                        frame: publication.Frame,
+                       issue: publication.Issue,
                        instant: publication.Instant,
                        op: op)
                        .Map(static resolved => new ResolvedPages(Pages: resolved)),
@@ -748,86 +981,134 @@ public static class Publishing {
                    needs: [SessionNeed.Read, SessionNeed.Export])
                from _count in guard(!pages.Pages.IsEmpty, op.InvalidInput()).ToFin()
                from receipt in publication.Target.Switch(
-                   (Session: active, Request: publication, Pages: pages.Pages, Op: op),
+                   (Session: active, Timeline: clock, Request: publication, Pages: pages.Pages, Op: op),
                    pdfCase: static (ctx, target) => Pdf(session: ctx.Session, request: ctx.Request, target: target, pages: ctx.Pages, op: ctx.Op),
                    printerCase: static (ctx, target) => Printer(
-                       session: ctx.Session, frame: ctx.Request.Frame, target: target, pages: ctx.Pages, op: ctx.Op),
+                       session: ctx.Session, frame: ctx.Request.Frame,
+                       landing: new Landing.Printer(PrinterName: target.PrinterName, Copies: target.Copies),
+                       pages: ctx.Pages, op: ctx.Op),
                    rasterCase: static (ctx, target) => Fanned(
-                       pages: ctx.Pages, kind: PublishTargetKind.Raster, op: ctx.Op,
+                       pages: ctx.Pages, slot: PublishSlot.Raster, op: ctx.Op,
                        capture: target.Policy.Transparent
-                           ? page => Transparent(session: ctx.Session, frame: ctx.Request.Frame, page: page, op: ctx.Op)
-                           : page => Planned(session: ctx.Session, frame: ctx.Request.Frame, sink: CaptureSink.Bitmap, page: page, op: ctx.Op),
+                           ? page => Transparent(
+                               session: ctx.Session, timeline: ctx.Timeline,
+                               frame: ctx.Request.Frame, page: page, op: ctx.Op)
+                           : page => Planned(
+                               session: ctx.Session, frame: ctx.Request.Frame,
+                               landing: new Landing.Raster(Target: target.Target, Policy: target.Policy, Output: target.Output),
+                               page: page, op: ctx.Op),
                        artifact: (page, capture, op2) => Raster(
                            capture: capture, page: page, target: target.Target, output: target.Output,
                            policy: target.Policy, op: op2)),
                    svgCase: static (ctx, target) => Fanned(
-                       pages: ctx.Pages, kind: PublishTargetKind.Svg, op: ctx.Op,
-                       capture: page => Planned(session: ctx.Session, frame: ctx.Request.Frame, sink: CaptureSink.Svg, page: page, op: ctx.Op),
+                       pages: ctx.Pages, slot: PublishSlot.Vector, op: ctx.Op,
+                       capture: page => Planned(
+                           session: ctx.Session, frame: ctx.Request.Frame,
+                           landing: new Landing.Vector(Target: target.Target, Output: target.Output),
+                           page: page, op: ctx.Op),
                        artifact: (page, capture, op2) => Vector(capture: capture, page: page, target: target.Target, output: target.Output, op: op2)))
                select receipt;
     }
 
     private sealed record ResolvedPages(Seq<PublishPage> Pages) : IDetachedDocumentResult;
 
-    private sealed record LandedArtifact(DocumentPath Path, UInt128 Key, Seq<ExchangeEvidence> Evidence);
+    internal sealed record LandedArtifact(DocumentPath Path, UInt128 Key, Seq<ExchangeEvidence> Evidence);
 
+    // ONE staged window for the whole program: the batch reaches the driver as a single spool submission, and the
+    // arity guard inside the window is the dispatched-page proof, because `SendToPrinter` answers a bare `bool`.
     private static Fin<PublishReceipt> Printer(
         DocumentSession session,
-        PageFrame frame,
-        PublishTarget.PrinterCase target,
+        CaptureFrame frame,
+        Landing.Printer landing,
         Seq<PublishPage> pages,
         Op op) =>
         from captured in pages.TraverseM(page => Captured(page: page, op: op)).As()
         from plans in captured.TraverseM(page => frame.Plan(subject: page.Subject, key: op)).As()
-        from sink in CaptureSink.Printer(printerName: target.PrinterName, copies: target.Copies, key: op)
-        from request in CaptureRequest.Settings(sink: sink, plans: plans.ToArray(), key: op)
-        from artifact in Captures.Run(session: session, request: request, key: op)
-        from printed in artifact switch {
-            CaptureArtifact.PrintedCase dispatched => Fin.Succ(value: dispatched.Pages),
-            _ => Fin.Fail<int>(error: op.InvalidResult()),
-        }
-        from _exact in guard(printed == plans.Count, op.InvalidResult()).ToFin()
-        select new PublishReceipt(
-            Pages: captured.Map(page => (PageEvidence)new PageEvidence.PrintedCase(
-                Scope: page.Stamp,
-                Copies: target.Copies)),
-            Evidence: Seq<ExchangeEvidence>(
+        from _spooled in Captures.Stage(
+            session: session,
+            plans: plans.ToArray(),
+            consume: prepared => prepared.Use(
+                body: rows =>
+                    from _arity in guard(rows.Count == plans.Count, op.InvalidResult()).ToFin()
+                    from _sent in op.Catch(() => op.Confirm(success: ViewCapture.SendToPrinter(
+                        printerName: landing.PrinterName,
+                        settings: [.. rows],
+                        copies: landing.Copies.Value)))
+                    select unit,
+                key: op),
+            key: op)
+        from spooled in PublishReceipt.Spooled(
+            scopes: captured.Map(static page => page.Stamp), copies: landing.Copies, key: op)
+        from noted in PublishReceipt.Noted(
+            notes: Seq<ExchangeEvidence>(
                 new ExchangeEvidence.NativeCase(
                     Surface: nameof(ViewCapture.SendToPrinter),
                     Succeeded: true,
-                    Detail: $"{printed} prepared pages dispatched with {target.Copies.Value} copies."),
+                    Detail: $"{plans.Count} prepared pages dispatched with {landing.Copies.Value} copies."),
                 new ExchangeEvidence.HostDefaultsCase(
                     Surface: nameof(ViewCapture.SendToPrinter),
-                    Detail: "The selected printer driver owns device capabilities outside ViewCaptureSettings.")));
+                    Detail: "The selected printer driver owns device capabilities outside ViewCaptureSettings.")),
+            op: op)
+        select spooled + noted;
 
     private static Fin<PublishReceipt> Fanned(
         Seq<PublishPage> pages,
-        PublishTargetKind kind,
+        PublishSlot slot,
         Func<PublishPage.CapturedCase, Fin<CaptureArtifact>> capture,
         Func<PublishPage.CapturedCase, CaptureArtifact, Op, Fin<LandedArtifact>> artifact,
         Op op) =>
         from landed in pages.TraverseM(page =>
             from capturedPage in Captured(page: page, op: op)
             from delivered in capture(arg: capturedPage).Bind(art => artifact(capturedPage, art, op))
-            select (Page: capturedPage, Artifact: delivered)).As()
-        select new PublishReceipt(
-            Pages: landed.Map(row => (PageEvidence)new PageEvidence.LandedCase(
-                Scope: row.Page.Stamp,
-                Target: kind,
-                Artifact: row.Artifact.Path,
-                ContentKey: row.Artifact.Key)),
-            Evidence: landed.Bind(static row => row.Artifact.Evidence));
+            from fact in PublishReceipt.Artifact(
+                slot: slot, scope: capturedPage.Stamp, artifact: delivered.Path, key: delivered.Key, op: op)
+            from noted in PublishReceipt.Noted(notes: delivered.Evidence, op: op)
+            select fact + noted).As()
+        select landed.Fold(PublishReceipt.Empty, static (held, next) => held + next);
 
-    private static Fin<CaptureArtifact> Planned(DocumentSession session, PageFrame frame, CaptureSink sink, PublishPage.CapturedCase page, Op op) =>
+    private static Fin<CaptureArtifact> Planned(
+        DocumentSession session,
+        CaptureFrame frame,
+        Landing landing,
+        PublishPage.CapturedCase page,
+        Op op) =>
         from plan in frame.Plan(subject: page.Subject, key: op)
-        from request in CaptureRequest.Settings(sink: sink, plans: [plan], key: op)
-        from capture in Captures.Run(session: session, request: request, key: op)
-        select capture;
+        from artifact in Captures.Stage(
+            session: session,
+            plans: [plan],
+            consume: prepared => prepared.Use(
+                body: rows =>
+                    from _arity in guard(rows.Count == 1, op.InvalidResult()).ToFin()
+                    from row in rows.Head.ToFin(Fail: op.MissingContext())
+                    from minted in Landed(landing: landing, row: row, op: op)
+                    select minted,
+                key: op),
+            key: op)
+        select artifact;
 
-    private static Fin<CaptureArtifact> Transparent(DocumentSession session, PageFrame frame, PublishPage.CapturedCase page, Op op) =>
+    // `ViewCaptureSettings.MediaSize` IS the extent authority — it answers the media the plan seated, and a page
+    // subject declares no pixel extent of its own — so the size reads BEFORE the mint and custody opens over a
+    // figure nothing downstream can refuse. Printer and save deliver no per-page artifact and refuse here.
+    private static Fin<CaptureArtifact> Landed(Landing landing, ViewCaptureSettings row, Op op) => landing.Switch(
+        (Row: row, Op: op),
+        raster: static (ctx, _) => Size2i
+            .Of(width: ctx.Row.MediaSize.Width, height: ctx.Row.MediaSize.Height, key: ctx.Op)
+            .Bind(extent => CaptureArtifact.Raster(
+                mint: () => ViewCapture.CaptureToBitmap(settings: ctx.Row),
+                extent: extent,
+                coverage: AlphaLayout.Opaque,
+                key: ctx.Op)),
+        vector: static (ctx, _) => ctx.Op
+            .Catch(() => Optional(ViewCapture.CaptureToSvg(settings: ctx.Row)).ToFin(Fail: ctx.Op.InvalidResult()))
+            .Map(static svg => (CaptureArtifact)new CaptureArtifact.VectorCase(Svg: svg)),
+        printer: static (ctx, _) => Fin.Fail<CaptureArtifact>(error: ctx.Op.InvalidInput()),
+        save: static (ctx, _) => Fin.Fail<CaptureArtifact>(error: ctx.Op.InvalidInput()));
+
+    private static Fin<CaptureArtifact> Transparent(
+        DocumentSession session, MonotonicTimeline timeline, CaptureFrame frame, PublishPage.CapturedCase page, Op op) =>
         from spec in frame.TransparentSpec(target: page.Target, key: op)
         from request in CaptureRequest.Transparent(spec: spec, key: op)
-        from capture in Captures.Run(session: session, request: request, key: op)
+        from capture in Captures.Run(session: session, timeline: timeline, request: request, key: op)
         select capture;
 
     private static Fin<PublishPage.CapturedCase> Captured(PublishPage page, Op op) =>
@@ -883,12 +1164,27 @@ public static class Publishing {
         Func<string, Fin<Unit>> write,
         Op op) =>
         from named in op.Catch(() => Fin.Succ(value: DocumentPath.Create(value: StampText.Render(
-            template: PageStem(target: target, count: scope.PageCount), scope: scope))))
+            template: PageStem(target: target, scope: scope), scope: scope))))
         from landed in output.Land(target: named, codec: codec, stage: write, key: op)
         select new LandedArtifact(
             Path: landed.Target,
             Key: landed.ContentKey,
             Evidence: LandedEvidence(surface: surface, target: landed.Target));
+
+    // Display hands the writer DOWN as sink-free capability; the settle is this owner's alone, so a
+    // `WindowOp.SaveAs` only ever sees a path this rail settled and no Display fence re-enters the Exchange settle.
+    // The writer is a host member dispatching format on the DESTINATION EXTENSION, so it takes the settled path
+    // directly under the operations rail's carve-out — a `.partial` staging name would fork the host's own format
+    // dispatch — and the content key reads the landed bytes through the rail's one `Keyed` spelling.
+    internal static Fin<LandedArtifact> Land(Landing.Save landing, Func<DocumentPath, Fin<Unit>> write, Op op) =>
+        from writer in op.Need(value: write)
+        from settled in landing.Output.Resolve(target: landing.Target, codec: Some(landing.Codec), key: op)
+        from _written in writer(arg: settled)
+        from keyed in Exchanges.Keyed(path: settled.Value, op: op)
+        select new LandedArtifact(
+            Path: settled,
+            Key: keyed,
+            Evidence: LandedEvidence(surface: nameof(Landing.Save), target: settled));
 
     private static Seq<ExchangeEvidence> LandedEvidence(string surface, DocumentPath target) => Seq<ExchangeEvidence>(
         new ExchangeEvidence.NativeCase(
@@ -897,18 +1193,24 @@ public static class Publishing {
             Detail: "The temporary artifact was verified nonempty and byte-identical before commit.",
             Target: Some(target)));
 
-    private static string PageStem(DocumentPath target, int count) =>
-        count <= 1
+    // The per-page stem is a TOKEN, so it renders through the one scan every stamp reads: an issued set spells the
+    // sheet number the standard's grammar admits and a bare capture falls to the page ordinal, with no second
+    // interpolation beside the mark grammar (D28).
+    private static string PageStem(DocumentPath target, StampScope scope) =>
+        scope.PageCount <= 1
             ? target.Value
             : System.IO.Path.Join(
                 System.IO.Path.GetDirectoryName(target.Value) ?? string.Empty,
-                $"{System.IO.Path.GetFileNameWithoutExtension(target.Value)}-%pagenumber%{System.IO.Path.GetExtension(target.Value)}");
+                string.Concat(
+                    System.IO.Path.GetFileNameWithoutExtension(target.Value),
+                    scope.Issue.IsSome ? "-%number%" : "-%pagenumber%",
+                    System.IO.Path.GetExtension(target.Value)));
 
     private static Fin<PublishReceipt> Pdf(
         DocumentSession session, PublishRequest request, PublishTarget.PdfCase target, Seq<PublishPage> pages, Op op) =>
         from pdf in op.Catch(() => Optional(FilePdf.Create()).ToFin(Fail: op.InvalidResult()))
         from _grouping in op.Catch(() => {
-            pdf.LayersAsOptionalContentGroups = target.Policy.LayersAsOptionalContent;
+            pdf.LayersAsOptionalContentGroups = target.Policy.Emission == LayerEmission.OptionalContent;
             return Fin.Succ(value: unit);
         })
         from minted in pages.TraverseM(page =>
@@ -933,17 +1235,17 @@ public static class Publishing {
             codec: FileCodec.Pdf,
             stage: temporary => Flush(pdf: pdf, target: target, path: temporary, op: op),
             key: op)
-        select new PublishReceipt(
-            Pages: minted.Map(row => (PageEvidence)new PageEvidence.LandedCase(
-                Scope: row.Scope,
-                Target: PublishTargetKind.Pdf,
-                Artifact: landed.Target,
-                ContentKey: landed.ContentKey)),
-            Evidence: LandedEvidence(surface: nameof(FilePdf.Write), target: landed.Target));
+        from facts in minted
+            .TraverseM(row => PublishReceipt.Artifact(
+                slot: PublishSlot.Pdf, scope: row.Scope, artifact: landed.Target, key: landed.ContentKey, op: op))
+            .As()
+        from noted in PublishReceipt.Noted(
+            notes: LandedEvidence(surface: nameof(FilePdf.Write), target: landed.Target), op: op)
+        select facts.Fold(PublishReceipt.Empty, static (held, next) => held + next) + noted;
 
     private static Fin<int> AddPage(
         DocumentSession session,
-        PageFrame frame,
+        CaptureFrame frame,
         FilePdf pdf,
         PublishPage page,
         Op op) => page.Switch(
@@ -1019,14 +1321,14 @@ flowchart LR
     Source["PageSource — captured or blank pages"] -->|one session demand| Stream["ordered PublishPage stream"]
     Target["PublishTarget — PDF · printer · raster · SVG"] --> Rail["Publishing.Run"]
     Stream --> Rail["Publishing.Run"]
-    Rail -->|settings raster · SVG| Request["CapturePlan plus CaptureRequest"]
+    Rail -->|settings raster · SVG| Request["one staged CapturePlan plus its Landing arm"]
     Rail -->|alpha raster| Transparent["TransparentCaptureSpec"]
-    Rail -->|printer| Spool["CapturePlan batch plus printer CaptureSink"]
+    Rail -->|printer| Spool["staged CapturePlan batch plus Landing.Printer"]
     Rail -->|PDF| Staged["CapturePlan staged through PreparedCapture"]
     Request --> Atomic["temporary write · verify · atomic replace"]
     Transparent --> Atomic
     Staged --> Atomic
-    Spool --> Evidence["typed PageEvidence · ExchangeEvidence"]
+    Spool --> Evidence["PublishSlot-keyed facts · ExchangeEvidence notes"]
     Atomic --> Evidence
     Evidence --> Receipt["PublishReceipt"]
 ```

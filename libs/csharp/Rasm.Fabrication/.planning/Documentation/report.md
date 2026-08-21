@@ -1,51 +1,44 @@
 # [RASM_FABRICATION_QUALITY_RECORD]
 
-As-built quality truth enters once through `QualityRecord.Admit(QualitySource)`, remains typed across inspection, material, process, nonconformance, calibration, and declaration evidence, and exits through `QualityReport.Seal(QualityReportRequest)`. `SealedRecord` preserves the full record set, one folded accountability census, cryptographic attestations, and the optional `EgressKind.DigitalProductPassport` identity the traveler composes. `ShopSchedule` folds the same seam's realization bags into bar-bending, weld-map, and stud-layout deliverables.
+As-built quality truth enters once through `QualityRecord.Admit(QualitySource)` and remains typed across inspection, material, process, nonconformance, calibration, and declaration evidence. `QualityEvidence` owns the record rail and every column writer the plane's preimages chain; the release gate that signs those records into a `SealedRecord` is `Documentation/passport`, a different lifecycle behind a cryptographic boundary. `ShopSchedule` folds the same seam's realization bags into bar-bending, weld-map, and stud-layout deliverables.
 
-Every signed artifact is keyed and signed over a `CanonicalWriter` BINARY preimage composing `FabricationCanon`, never a serializer's output: a quantity enters as its family token and base-unit magnitude, so renaming a display unit cannot invalidate a signature, and every collection carries its count while every optional column carries its presence bit. `CanonicalJson` remains the TRANSPORT rendering the traveler document serializes through, carrying the `[JsonPolymorphic]` rosters, the LanguageExt carrier factory, and the Thinktecture value factory that make that rendering round-trip.
+Every column writer here frames over the `Rasm.Element` `CanonicalWriter` composing `FabricationCanon`, never a serializer's output: a quantity enters as its family token and base-unit magnitude, so renaming a display unit cannot invalidate a signature, and every collection carries its count while every optional column carries its presence bit.
 
-`ECDsa` signs the preimage, signer, role, credential, and instant; the trust callback binds those claims to the certificate before quorum and receipt verification. Passport attestations bind genealogy, materials, compliance, declarations, lifecycle, sustainability, and report key. `NdtMethod` and `InspectionFamily` arrive settled from `Joining/procedure`, so the performed grain and the demand grain meet at one owner.
+`NdtMethod` and `InspectionFamily` arrive settled from `Joining/procedure`, so the performed grain and the demand grain meet at one owner; `Receipt<ChainEvidence>` arrives settled from `Spec/tolerance`, so a characteristic governed by a stackup carries that owner's whole evaluation rather than a projection of it.
 
 ## [01]-[INDEX]
 
-- [02]-[EVIDENCE_VOCABULARY]: the closed refusal, relation, grade, class, stage, sampling, disposition, decision-rule, coverage, declaration, role, outcome, root-cause, and correction rows every record keys on.
-- [03]-[QUALITY_RECORD]: admitted evidence owners, the observation family and its census, the closed as-built record family, and `QualityRecord.Admit` over one `QualitySource`.
-- [04]-[PASSPORT_AND_SEAL]: passport evidence, the attestation algebra, the canonical binary preimage, the transport rendering, and `QualityReport.Seal`.
-- [05]-[SHOP_SCHEDULE]: `ScheduleKind` fold rows over `DetailSchema.Realization` bags and the `ScheduleEntry` deliverables they emit.
+- [02]-[EVIDENCE]: the closed refusal, relation, grade, class, stage, sampling, disposition, decision-rule, coverage, declaration, outcome, root-cause, and correction rows every record keys on.
+- [03]-[QUALITY]: admitted evidence owners, the observation family and its census, the closed as-built record family, `QualityRecord.Admit` over one `QualitySource`, and the `QualityEvidence` rail with its column writers.
+- [04]-[SCHEDULE]: `ScheduleKind` fold rows over `DetailSchema.Realization` bags and the `ScheduleEntry` deliverables they emit.
 
-## [02]-[EVIDENCE_VOCABULARY]
+## [02]-[EVIDENCE]
 
-- Owner: `RecordRefusal` owns the distinguishable operation refusals; `EvidenceOutcome` owns the six evaluation states and their severity rank; `Disposition` owns material-review verdicts; `RootCauseCategory` and `CorrectionKind` own the corrective vocabulary; every other row closes one evidence axis.
+- Owner: `RecordRefusal` owns the distinguishable operation refusals; `EvidenceOutcome` owns the six evaluation states and their severity rank; `Disposition` owns material-review verdicts; `RootCauseCategory` and `CorrectionKind` own the corrective vocabulary; every other row closes one evidence axis. `AttestationRole` is NOT one of them — the branch vocabulary lives at `Rasm.Element` `Composition/material` (Element `RULINGS.md:37`) and this package composes it.
 - Law: `EvidenceOutcome` carries its RANK and whether it counts as measured — nothing else. The census counts ROWS PER OUTCOME in one fold, so the partition holds by construction and seven parallel indicator columns per row, each restating which bucket the row belongs to, are the deleted form.
+- Law: `Disposition.RequiresAuthority` DERIVES from `Conforming`. Material-review authority exists to disposition NONCONFORMING product, so a conforming verdict demanding it and a nonconforming verdict waiving it are both unrepresentable rather than a stored pair a new row could contradict.
 - Law: root cause and correction are TYPED. A cause names its category beside its statement and a correction names its kind, so a corrective-action query partitions on rows rather than parsing narrative text a shop typed once.
 - Law: every closed row uses the GENERATED positional constructor. A hand `private Row(string key, …) : this(key) => (…)` beside the generator's own is a second construction path that drifts the moment a column is added.
-- Growth: a refusal is one `RecordRefusal` row; an outcome is one `EvidenceOutcome` row carrying its rank; a cause category, correction kind, declaration kind, or attestation role is one row on its own owner.
+- Growth: a refusal is one `RecordRefusal` row; an outcome is one `EvidenceOutcome` row carrying its rank; a cause category, correction kind, or declaration kind is one row on its own owner; an attestation role is one row at the Element owner.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using LanguageExt;
 using LanguageExt.Common;
 using LanguageExt.Traits;
 using NodaTime;
-using NodaTime.Serialization.SystemTextJson;
-using QuikGraph;
-using QuikGraph.Algorithms;
 using Rasm.Analysis;
 using Rasm.Domain;
+using Rasm.Element.Composition;
 using Rasm.Element.Projection;
 using Rasm.Element.Properties;
 using Rasm.Fabrication.Joining;
 using Rasm.Fabrication.Process;
 using Rasm.Fabrication.Spec;
 using Thinktecture;
-using Thinktecture.Text.Json.Serialization;
 using UnitsNet;
 using UnitsNet.Units;
 using static LanguageExt.Prelude;
@@ -176,19 +169,22 @@ public sealed partial class InspectionSeverity {
 
 [SmartEnum<string>]
 public sealed partial class Disposition {
-    public static readonly Disposition Conform = new("conform", conforming: true, accepted: true, terminal: true, requiresAuthority: false);
-    public static readonly Disposition UseAsIs = new("use-as-is", conforming: false, accepted: true, terminal: true, requiresAuthority: true);
-    public static readonly Disposition Repair = new("repair", conforming: false, accepted: false, terminal: false, requiresAuthority: true);
-    public static readonly Disposition Rework = new("rework", conforming: false, accepted: false, terminal: false, requiresAuthority: true);
-    public static readonly Disposition ReturnToSupplier = new("return-to-supplier", conforming: false, accepted: false, terminal: true, requiresAuthority: true);
-    public static readonly Disposition Reject = new("reject", conforming: false, accepted: false, terminal: true, requiresAuthority: true);
-    public static readonly Disposition Scrap = new("scrap", conforming: false, accepted: false, terminal: true, requiresAuthority: true);
-    public static readonly Disposition PendingReview = new("pending-review", conforming: false, accepted: false, terminal: false, requiresAuthority: true);
+    public static readonly Disposition Conform = new("conform", conforming: true, accepted: true, terminal: true);
+    public static readonly Disposition UseAsIs = new("use-as-is", conforming: false, accepted: true, terminal: true);
+    public static readonly Disposition Repair = new("repair", conforming: false, accepted: false, terminal: false);
+    public static readonly Disposition Rework = new("rework", conforming: false, accepted: false, terminal: false);
+    public static readonly Disposition ReturnToSupplier = new("return-to-supplier", conforming: false, accepted: false, terminal: true);
+    public static readonly Disposition Reject = new("reject", conforming: false, accepted: false, terminal: true);
+    public static readonly Disposition Scrap = new("scrap", conforming: false, accepted: false, terminal: true);
+    public static readonly Disposition PendingReview = new("pending-review", conforming: false, accepted: false, terminal: false);
 
     public bool Conforming { get; }
     public bool Accepted { get; }
     public bool Terminal { get; }
-    public bool RequiresAuthority { get; }
+
+    // Material-review authority exists to disposition NONCONFORMING product, so the demand IS the negation and a
+    // stored column beside it would let a future row assert a conforming verdict nobody may sign.
+    public bool RequiresAuthority => !Conforming;
 }
 
 [SmartEnum<string>]
@@ -227,22 +223,6 @@ public sealed partial class PpapLevel {
     public static readonly PpapLevel Three = new(3);
     public static readonly PpapLevel Four = new(4);
     public static readonly PpapLevel Five = new(5);
-}
-
-[SmartEnum<string>]
-public sealed partial class AttestationRole {
-    public static readonly AttestationRole Manufacturer = new("manufacturer", independentAuthority: false);
-    public static readonly AttestationRole ManufacturerAuthorized = new("manufacturer-authorized", independentAuthority: false);
-    public static readonly AttestationRole Purchaser = new("purchaser", independentAuthority: true);
-    public static readonly AttestationRole Independent = new("independent", independentAuthority: true);
-    public static readonly AttestationRole Quality = new("quality", independentAuthority: false);
-    public static readonly AttestationRole Regulator = new("regulator", independentAuthority: true);
-    public static readonly AttestationRole WeldingInspector = new("welding-inspector", independentAuthority: true);
-    public static readonly AttestationRole CalibrationLaboratory = new("calibration-laboratory", independentAuthority: true);
-    public static readonly AttestationRole MaterialReviewBoard = new("material-review-board", independentAuthority: true);
-    public static readonly AttestationRole SustainabilityVerifier = new("sustainability-verifier", independentAuthority: true);
-
-    public bool IndependentAuthority { get; }
 }
 
 // Rank orders severity; `Measured` says whether the row carried a reading at all. The bucket a row falls in IS
@@ -294,7 +274,7 @@ public sealed partial class CorrectionKind {
 }
 ```
 
-## [03]-[QUALITY_RECORD]
+## [03]-[QUALITY]
 
 - Owner: `QualitySource` owns raw ingress modality; the generated evidence owners own admission; `QualityRecord` owns the closed as-built family; `QualityObservation` owns one evaluated reading and `EvidenceCensus` its folded accountability.
 - Owner: `SamplingPlan` carries AQL, `InspectionLevel`, `InspectionSeverity`, sample size, and the acceptance-rejection pair; `InspectionEvidence.LotVerdict` compares observed nonconformities against the severity-shifted acceptance number. The plan arrives DRAWN — the sample size comes off the caller's own ISO 2859-1 code-letter table — so level and severity carry the identity a plan was drawn under plus the acceptance shift this page applies, and a level-discrimination or severity sample-factor column would state a derivation no fold here performs.
@@ -303,67 +283,65 @@ public sealed partial class CorrectionKind {
 - Owner: `CertType.En10204_2_1`, `En10204_2_2`, `En10204_3_1`, and `En10204_3_2` carry exact `EN 10204` result and representative shapes; `Requirements` derives role-only or named-representative quorum from the selected case.
 - Owner: `QualityDeclaration` carries conformity scope, PPAP level and parts, coating system and film thickness, heat-treatment cycle, or special-process procedure and operator.
 - Law: a SHORT sample emits ONE `Missing` observation PER MISSING UNIT. A single observation for a plan that drew five of twenty units states the same evidence gap as one that drew nineteen, and every census, severity, and acceptance read off it inherits that flattening.
-- Law: a characteristic row carries the STACKUP EVIDENCE behind its own closure where a chain governs it — the chain's method, its half-range against its bound, and its ranked contribution rows — so a failed characteristic names the feature variation dominating it and corrective action routes to a term rather than to the assembly. The rows arrive from `ToleranceChain.Evaluate`; this page ranks nothing of its own.
+- Law: a characteristic row carries the settled `Receipt<ChainEvidence>` WHOLE where a chain governs its closure, so a failed characteristic names the feature variation dominating it and corrective action routes to a term rather than to the assembly. Conformance reads the carrier's `Verified`, the ranked terms and both worst-case extremes read its `Evidence`, and the preimage frames through `ChainEvidence.Frame` — this page ranks, bounds, and re-keys nothing of its own.
 - Law: `ProcessEvidence.Unfulfilled` diffs `ProcedureReceipt.Inspections` against the performed `WeldInspectionRow` set through `InspectionRequirement.Satisfies(NdtMethod)` — the ONE grain seam `Joining/procedure` owns — so a documentation-plane reconciliation never re-derives the family-to-method correspondence under a second vocabulary.
 - Law: `CalibrationRow` carries the interval `Period` and the `Impacted` record keys measured inside it, so an out-of-tolerance as-found reading is `Complete` only once its downstream impact is enumerated.
-- Law: `QualityObservation.Outcome` projects every evidence atom to one `EvidenceOutcome`; `EvidenceCensus.Of` folds rows into one bucket map whose named counters project from it, so the partition is structural and `Severity` carries the worst outcome seen.
-- Law: `RecordRefusal` rows name every distinguishable operation rejection and lower onto `Op.InvalidResult(detail:)`, while every generated owner refuses on the fabrication band under its own locus — two rails, each carrying a discriminant a caller can act on.
-- Entry: `public static Fin<QualityRecord> QualityRecord.Admit(QualitySource source)` is the only record-creation entrypoint.
+- Law: `QualityObservation.Outcome` projects every evidence atom to one `EvidenceOutcome`; `EvidenceCensus.Of` folds rows into one bucket map and `Count` reads it BY ROW, so the partition is structural, `Severity` carries the worst outcome seen, and a new outcome needs no census column.
+- Law: `RecordRefusal` rows name operation rejections on `Op.InvalidResult(detail:)`; generated owners keep ephemeral `ValidationError` diagnostics until `Admitted` crosses to the kernel rail.
+- Law: `QualityEvidence` owns the record rail and every column writer this plane's preimages chain. `Refusal` answers on the fabrication band under its own locus, `Refused`/`Gate` on the record op under its own detail, and `Fraction` is CLOSED on [0, 1] — the strictly-positive demand composes `static value => ValidityClaim.Positive(value).Holds` rather than riding a mode flag on the predicate.
+- Entry: `public static Fin<QualityRecord> QualityRecord.Admit(QualitySource source)` is the only record-creation entrypoint; `Documentation/passport` `QualityReport.Seal` is the only path out.
+- Exemption: the `extension(CanonicalWriter sink)` bodies are the byte kernel; every other body on this cluster is expression-shaped.
 - Receipt: `CharacteristicRow`, `ChemistryRow`, `MechanicalRow`, `WeldInspectionRow`, and `CalibrationRow` carry quantity, `CoverageInterval` uncertainty, method, equipment, personnel, procedure, acceptance, examiner grade, locus, coverage, environment, traceability, and lifecycle evidence. `Measurement.StandardUncertainty` and `ToleranceRatio` derive from the declared coverage factor.
-- Packages: owner atoms (`ContentKey`, `EgressKind`, `FabricationResult`, `InspectionFeature`, `MaterialSpec`), `Joining/procedure` (`ProcedureReceipt`, `InspectionRequirement`, `InspectionFamily`, `NdtMethod`), `Spec/capability` (`CapabilityReport`), `Spec/tolerance` (`ChainReceipt`, `StackMethod`, `CharacteristicId`), `Rasm.Analysis` (`ResidualSample`), `UnitsNet`, `NodaTime`, Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: owner atoms (`ContentKey`, `EgressKind`, `FabricationResult`, `InspectionFeature`, `MaterialSpec`), `Joining/procedure` (`ProcedureReceipt`, `InspectionRequirement`, `InspectionFamily`, `NdtMethod`), `Spec/capability` (`CapabilityReport`), `Spec/tolerance` (`Receipt<ChainEvidence>`, `ChainEvidence.Frame`, `CharacteristicId`), `Rasm.Analysis` (`ResidualSample`), `UnitsNet`, `NodaTime`, Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a source is one `QualitySource` case; a record is one `QualityRecord` case; an observation is one `QualityObservation` case; a declaration is one `QualityDeclaration` case.
-- Boundary: `ProcedureReceipt`, `InspectionRequirement`, and qualification rows enter through `ProcessEvidence`; `MaterialSpec` carries mill-certificate grade identity; `CapabilityReport` remains inspection evidence.
+- Boundary: `ProcedureReceipt`, `InspectionRequirement`, and qualification rows enter through `ProcessEvidence`; `MaterialSpec` carries mill-certificate grade identity; `CapabilityReport` remains inspection evidence; `Documentation/passport` composes `QualityEvidence` and authors only the passport column.
 
 ```csharp signature
 // --- [ADMISSION] ----------------------------------------------------------------------------------------------------------------------------------
 [ValueObject<string>]
-[ValidationError<FabricationFault>]
 [ConfidentialData]
 public readonly partial struct HeatNumber {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
-            validationError = QualityReport.Refusal("heat-number");
+            validationError = QualityEvidence.Validation("heat-number");
     }
 
     public static Fin<HeatNumber> Admit(string value) => Admission.OfValue<HeatNumber, string>(value);
 }
 
 [ValueObject<string>]
-[ValidationError<FabricationFault>]
 public readonly partial struct NonconformanceNumber {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
-            validationError = QualityReport.Refusal("nonconformance-number");
+            validationError = QualityEvidence.Validation("nonconformance-number");
     }
 
     public static Fin<NonconformanceNumber> Admit(string value) => Admission.OfValue<NonconformanceNumber, string>(value);
 }
 
 [ValueObject<string>]
-[ValidationError<FabricationFault>]
 public readonly partial struct AssetTag {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
-            validationError = QualityReport.Refusal("asset-tag");
+            validationError = QualityEvidence.Validation("asset-tag");
     }
 
     public static Fin<AssetTag> Admit(string value) => Admission.OfValue<AssetTag, string>(value);
 }
 
 [ValueObject<string>]
-[ValidationError<FabricationFault>]
 public sealed partial class EvidenceId {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
-            validationError = QualityReport.Refusal("evidence-id");
+            validationError = QualityEvidence.Validation("evidence-id");
     }
 
     public static Fin<EvidenceId> Admit(string value) => Admission.Of<EvidenceId, string>(value);
@@ -371,13 +349,12 @@ public sealed partial class EvidenceId {
 
 // One narrative statement owner: trimmed, non-empty, and never a bare string field a producer can leave blank.
 [ValueObject<string>]
-[ValidationError<FabricationFault>]
 public sealed partial class Narrative {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
-            validationError = QualityReport.Refusal("narrative");
+            validationError = QualityEvidence.Validation("narrative");
     }
 
     public static Fin<Narrative> Admit(string value) => Admission.Of<Narrative, string>(value);
@@ -432,19 +409,17 @@ public abstract partial record EvidenceRef {
 }
 
 [ValueObject<Seq<EvidenceRef>>]
-[ValidationError<FabricationFault>]
 public sealed partial class EvidenceLinks {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Seq<EvidenceRef> value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<EvidenceRef> value) {
         if (value.IsEmpty || value.Distinct().Count != value.Count)
-            validationError = QualityReport.Refusal("evidence-links");
+            validationError = QualityEvidence.Validation("evidence-links");
     }
 
     public static Fin<EvidenceLinks> Admit(Seq<EvidenceRef> value) => Admission.Of<EvidenceLinks, Seq<EvidenceRef>>(value);
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class EvidenceContext {
     public EvidenceRef.Personnel Actor { get; }
     public Option<AssetTag> Equipment { get; }
@@ -455,7 +430,7 @@ public sealed partial class EvidenceContext {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref EvidenceRef.Personnel actor,
         ref Option<AssetTag> equipment,
         ref Option<EvidenceRef.Procedure> procedure,
@@ -463,12 +438,11 @@ public sealed partial class EvidenceContext {
         ref Option<Narrative> locus,
         ref Instant at) {
         if (at == default)
-            validationError = QualityReport.Refusal("evidence-context");
+            validationError = QualityEvidence.Validation("evidence-context");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class Measurement {
     public IQuantity Nominal { get; }
     public IQuantity Observed { get; }
@@ -504,7 +478,7 @@ public sealed partial class Measurement {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref IQuantity nominal,
         ref IQuantity observed,
         ref IQuantity lower,
@@ -520,74 +494,53 @@ public sealed partial class Measurement {
             || expandedUncertainty.As(observed.Unit) < 0.0
             || lower.As(observed.Unit) + (decisionRule.GuardBandFactor * expandedUncertainty.As(observed.Unit))
                 > upper.As(observed.Unit) - (decisionRule.GuardBandFactor * expandedUncertainty.As(observed.Unit)))
-            validationError = QualityReport.Refusal("measurement");
+            validationError = QualityEvidence.Validation("measurement");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CharacteristicSubject {
     public EvidenceRef.Characteristic Characteristic { get; }
     public EvidenceRef.Requirement Requirement { get; }
     public CharacteristicClass Class { get; }
 }
 
-// The chain evidence behind ONE characteristic's closure, ranked as `ToleranceChain.Evaluate` ranked it.
-public sealed record StackupContributionRow(string Term, double Share);
-
-// Conformance is CARRIED, never re-derived: the chain's own verdict measures the interval's extremes against the
-// bound, so a half-range compared to a bound here silently passes every chain whose centre is offset — and this
-// projection drops the two worst-case columns that would let a reader notice.
-public sealed record StackupEvidence(
-    StackMethod Method,
-    double HalfRangeMm,
-    double BoundMm,
-    bool Conforming,
-    Seq<StackupContributionRow> Contributions) {
-    // The rows arrive ranked, so the dominating term is the head and no consumer re-sorts to find it.
-    public Option<StackupContributionRow> Dominant => Contributions.Head;
-
-    public static StackupEvidence Of(ChainReceipt receipt) => new(
-        receipt.Method,
-        receipt.HalfRangeMm,
-        receipt.BoundMm,
-        receipt.Conforming,
-        toSeq(receipt.Contributions).Map(static row => new StackupContributionRow(row.Term, row.Share)));
-}
-
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CharacteristicRow {
     public CharacteristicSubject Subject { get; }
     public Measurement Measurement { get; }
     public Disposition Verdict { get; }
 
-    // Present where a tolerance chain governs this characteristic: a nonconforming row then names its dominating
-    // feature variation, which is what routes corrective action to a term rather than to the whole closure.
-    public Option<StackupEvidence> Stackup { get; }
+    // Present where a tolerance chain governs this characteristic, and present WHOLE: the settled carrier from
+    // `ToleranceChain.Evaluate` already ranks its terms, carries its two worst-case extremes, publishes its own
+    // `Dominant` head, and answers conformance on `Verified`. A local projection of it dropped the extremes, so a
+    // half-range read against the bound here passed every chain whose centre was offset and no reader could see it.
+    public Option<Receipt<ChainEvidence>> Stackup { get; }
 
     internal static Fin<CharacteristicRow> Admit(
-        CharacteristicSubject subject, Measurement measurement, Disposition verdict, Option<StackupEvidence> stackup) =>
+        CharacteristicSubject subject,
+        Measurement measurement,
+        Disposition verdict,
+        Option<Receipt<ChainEvidence>> stackup) =>
         Validate(subject, measurement, verdict, stackup, out CharacteristicRow admitted).Admitted(admitted);
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref CharacteristicSubject subject,
         ref Measurement measurement,
         ref Disposition verdict,
-        ref Option<StackupEvidence> stackup) {
+        ref Option<Receipt<ChainEvidence>> stackup) {
         if (!subject.Class.Quantified
             || (subject.Class.RequiresLocus && measurement.Context.Locus.IsNone)
-            || stackup.Exists(static row => row.Contributions.IsEmpty
-                || !row.Contributions.ForAll(static contribution => double.IsFinite(contribution.Share))
-                || !row.Contributions.Zip(row.Contributions.Tail).ForAll(static pair => pair.Item1.Share >= pair.Item2.Share)))
-            validationError = QualityReport.Refusal("characteristic-row");
+            // The chain's own admission ranks and bounds its terms; this gate only refuses a carrier that governs
+            // nothing, because a characteristic naming an empty stackup names a closure no term explains.
+            || stackup.Exists(static row => row.Evidence.Contributions.IsEmpty))
+            validationError = QualityEvidence.Validation("characteristic-row");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ChemistryRow {
     public Narrative Element { get; }
     public Ratio Observed { get; }
@@ -599,20 +552,19 @@ public sealed partial class ChemistryRow {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Narrative element,
         ref Ratio observed,
         ref Ratio lower,
         ref Ratio upper,
         ref EvidenceContext context,
         ref Disposition verdict) {
-        if (lower > upper || !Seq(observed, lower, upper).ForAll(static row => QualityReport.ValidFraction(row)))
-            validationError = QualityReport.Refusal("chemistry-row");
+        if (lower > upper || !Seq(observed, lower, upper).ForAll(static row => QualityEvidence.Fraction(row)))
+            validationError = QualityEvidence.Validation("chemistry-row");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CategoricalEvidence {
     public EvidenceRef.Characteristic Characteristic { get; }
     public CharacteristicClass Class { get; }
@@ -624,7 +576,7 @@ public sealed partial class CategoricalEvidence {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref EvidenceRef.Characteristic characteristic,
         ref CharacteristicClass @class,
         ref Seq<Narrative> admitted,
@@ -633,12 +585,11 @@ public sealed partial class CategoricalEvidence {
         if (@class.Quantified || admitted.IsEmpty
             || admitted.Map(static value => value.ToValue().ToUpperInvariant()).Distinct().Count != admitted.Count
             || (@class.RequiresLocus && context.Locus.IsNone))
-            validationError = QualityReport.Refusal("categorical-evidence");
+            validationError = QualityEvidence.Validation("categorical-evidence");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class TraceEvidence {
     public EvidenceRef Subject { get; }
     public EvidenceRef Source { get; }
@@ -647,13 +598,13 @@ public sealed partial class TraceEvidence {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref EvidenceRef subject,
         ref EvidenceRef source,
         ref TraceRelation relation,
         ref EvidenceContext context) {
         if (subject == source)
-            validationError = QualityReport.Refusal("trace-evidence");
+            validationError = QualityEvidence.Validation("trace-evidence");
     }
 }
 
@@ -698,9 +649,7 @@ public abstract partial record QualityObservation {
 }
 
 [ValueObject<Seq<QualityObservation>>]
-[ValidationError<FabricationFault>]
 public sealed partial class EvidenceSet {
-    public bool HasContradiction => Outcome == EvidenceOutcome.Contradiction;
     public EvidenceOutcome Outcome => ToValue().Fold(
         EvidenceOutcome.Trace,
         static (state, observation) => EvidenceOutcome.Worst(state, observation.Outcome));
@@ -710,25 +659,20 @@ public sealed partial class EvidenceSet {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Seq<QualityObservation> value) {
         if (value.IsEmpty)
-            validationError = QualityReport.Refusal("evidence-set");
+            validationError = QualityEvidence.Validation("evidence-set");
     }
 }
 
-// One bucket map, one fold. Every named counter projects from it, so the partition cannot drift out of agreement
-// with the row count and a new outcome row costs no census column at all.
+// One bucket map, one fold. `Count` takes the ROW, so the per-outcome reader is generated by the roster rather
+// than enumerated: a named property per outcome is the hardcoded instance list of exactly this call, and the
+// seventh outcome row would arrive with no seventh property anyone remembered to add.
 public sealed record EvidenceCensus(Map<EvidenceOutcome, int> Buckets, EvidenceOutcome Severity) {
     public int Rows => Buckets.Values.Fold(0, static (sum, count) => sum + count);
     public int Measured => Buckets.Filter(static (outcome, _) => outcome.Measured)
         .Values.Fold(0, static (sum, count) => sum + count);
-    public int Traced => Count(EvidenceOutcome.Trace);
-    public int Conforming => Count(EvidenceOutcome.Conforming);
-    public int AcceptedNonconforming => Count(EvidenceOutcome.AcceptedNonconforming);
-    public int Rejected => Count(EvidenceOutcome.Rejected);
-    public int Incomplete => Count(EvidenceOutcome.Incomplete);
-    public int Contradictions => Count(EvidenceOutcome.Contradiction);
 
     public int Count(EvidenceOutcome outcome) => Buckets.Find(outcome).IfNone(0);
 
@@ -741,7 +685,6 @@ public sealed record EvidenceCensus(Map<EvidenceOutcome, int> Buckets, EvidenceO
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class MechanicalRow {
     public TestOrientation Orientation { get; }
     public EvidenceRef.Requirement Standard { get; }
@@ -750,7 +693,6 @@ public sealed partial class MechanicalRow {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class MaterialResults {
     public Seq<ChemistryRow> Chemistry { get; }
     public Seq<MechanicalRow> Mechanicals { get; }
@@ -760,11 +702,11 @@ public sealed partial class MaterialResults {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref Seq<ChemistryRow> chemistry,
         ref Seq<MechanicalRow> mechanicals) {
         if (chemistry.IsEmpty && mechanicals.IsEmpty)
-            validationError = QualityReport.Refusal("material-results");
+            validationError = QualityEvidence.Validation("material-results");
     }
 }
 
@@ -815,7 +757,6 @@ public abstract partial record CertType {
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class WeldInspectionRow {
     public int Joint { get; }
     public NdtMethod Method { get; }
@@ -838,7 +779,7 @@ public sealed partial class WeldInspectionRow {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref int joint,
         ref NdtMethod method,
         ref Ratio coverage,
@@ -850,19 +791,18 @@ public sealed partial class WeldInspectionRow {
         ref EvidenceSet findings,
         ref Disposition verdict,
         ref Instant at) {
-        if (joint < 0 || !QualityReport.ValidFraction(coverage)
-            || !QualityReport.ValidFraction(requiredCoverage, positive: true)
+        if (joint < 0 || !QualityEvidence.Fraction(coverage)
+            || !QualityEvidence.Fraction(requiredCoverage) || !ValidityClaim.Positive(requiredCoverage.DecimalFractions).Holds
             || !grade.Interprets
             // A material-review verdict is signed by the grade that may sign it: interpreting findings and
             // dispositioning nonconforming product are two authorities, and a Level 2 examiner holds only the first.
             || (verdict.RequiresAuthority && !grade.ApprovesProcedure)
             || at == default)
-            validationError = QualityReport.Refusal("weld-inspection-row");
+            validationError = QualityEvidence.Validation("weld-inspection-row");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class CalibrationRow {
     public AssetTag Asset { get; }
     public EvidenceRef.Procedure Procedure { get; }
@@ -893,7 +833,7 @@ public sealed partial class CalibrationRow {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref AssetTag asset,
         ref EvidenceRef.Procedure procedure,
         ref IQuantity asFoundError,
@@ -918,10 +858,10 @@ public sealed partial class CalibrationRow {
             || expandedUncertainty.As(allowedError.Unit) < 0.0
             || (double)allowedError.Value <= 0.0
             || dueAt <= context.At
-            || ambientHumidity.Exists(static value => !QualityReport.ValidFraction(value))
+            || ambientHumidity.Exists(static value => !QualityEvidence.Fraction(value))
             || !period.HasStart || !period.HasEnd || period.End != context.At
             || impacted.Distinct().Count != impacted.Count)
-            validationError = QualityReport.Refusal("calibration-row");
+            validationError = QualityEvidence.Validation("calibration-row");
     }
 }
 
@@ -998,7 +938,6 @@ public abstract partial record QualityDeclaration {
 
 // --- [RECORDS] ------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class SamplingPlan {
     public EvidenceRef.Requirement Requirement { get; }
     public Ratio AcceptanceQuality { get; }
@@ -1010,7 +949,7 @@ public sealed partial class SamplingPlan {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref EvidenceRef.Requirement requirement,
         ref Ratio acceptanceQuality,
         ref InspectionLevel level,
@@ -1018,15 +957,14 @@ public sealed partial class SamplingPlan {
         ref int sampleSize,
         ref int accept,
         ref int reject) {
-        if (!QualityReport.ValidFraction(acceptanceQuality)
+        if (!QualityEvidence.Fraction(acceptanceQuality)
             || sampleSize < 1 || accept < 0 || reject != accept + 1 || accept >= sampleSize
             || (level.Census && accept != 0))
-            validationError = QualityReport.Refusal("sampling-plan");
+            validationError = QualityEvidence.Validation("sampling-plan");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class InspectionEvidence {
     public EvidenceRef.Report Report { get; }
     public EvidenceRef.Product Product { get; }
@@ -1062,7 +1000,7 @@ public sealed partial class InspectionEvidence {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref EvidenceRef.Report report,
         ref EvidenceRef.Product product,
         ref InspectionStage stage,
@@ -1080,12 +1018,11 @@ public sealed partial class InspectionEvidence {
             || features.Distinct().Count != features.Count
             || (plan.Level.Census && plan.SampleSize != lotSize)
             || (stage.RequiresPrior && prior.IsNone))
-            validationError = QualityReport.Refusal("inspection-evidence");
+            validationError = QualityEvidence.Validation("inspection-evidence");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class MaterialCertificate {
     public EvidenceRef.Report Report { get; }
     public MaterialSpec Grade { get; }
@@ -1096,7 +1033,7 @@ public sealed partial class MaterialCertificate {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref EvidenceRef.Report report,
         ref MaterialSpec grade,
         ref HeatNumber heat,
@@ -1104,12 +1041,11 @@ public sealed partial class MaterialCertificate {
         ref CertType cert,
         ref Instant issuedAt) {
         if (lots.IsEmpty || lots.Distinct().Count != lots.Count || !cert.Valid)
-            validationError = QualityReport.Refusal("material-certificate");
+            validationError = QualityEvidence.Validation("material-certificate");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class ProcessEvidence {
     public EvidenceRef.Report Report { get; }
     public EvidenceRef.Product Product { get; }
@@ -1131,7 +1067,7 @@ public sealed partial class ProcessEvidence {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref EvidenceRef.Report report,
         ref EvidenceRef.Product product,
         ref ProcedureReceipt procedure,
@@ -1142,12 +1078,11 @@ public sealed partial class ProcessEvidence {
         if (!procedure.Qualified || inspections.IsEmpty
             || inspections.Map(static row => (row.Joint, row.Method)).Distinct().Count != inspections.Count
             || procedure.Inspections.Exists(static demand => !Witness.Keyed(demand.Acceptance)))
-            validationError = QualityReport.Refusal("process-evidence");
+            validationError = QualityEvidence.Validation("process-evidence");
     }
 }
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class NonconformanceEvidence {
     public EvidenceRef.Product Product { get; }
     public NonconformanceNumber Number { get; }
@@ -1170,7 +1105,7 @@ public sealed partial class NonconformanceEvidence {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref EvidenceRef.Product product,
         ref NonconformanceNumber number,
         ref EvidenceRef.Source source,
@@ -1193,7 +1128,7 @@ public sealed partial class NonconformanceEvidence {
             // A recurrence demands a SYSTEMIC action: repeating a repair is what makes a nonconformance recur.
             || (recurrence.IsSome && !correctiveAction.Exists(static step => step.Kind.Systemic))
             || effectiveness.IsSome != correctiveAction.IsSome)
-            validationError = QualityReport.Refusal("nonconformance-evidence");
+            validationError = QualityEvidence.Validation("nonconformance-evidence");
     }
 }
 
@@ -1271,22 +1206,22 @@ public abstract partial record QualityRecord {
         conformance: static _ => Seq<InspectionFeature>());
 
     public static Fin<QualityRecord> Admit(QualitySource source) =>
-        from admitted in QualityReport.RecordOp.Need(source)
+        from admitted in QualityEvidence.RecordOp.Need(source)
         from record in admitted.Switch(
             inspection: static value => Sampled(value.Lot, value.Readings, value.Measured.Features),
             residuals: static value => Sampled(value.Lot, value.Readings, Seq<InspectionFeature>()),
-            procedure: static value => QualityReport.RecordOp.Need(value.Evidence).Map(static evidence => (QualityRecord)new WeldInspection(evidence)),
-            material: static value => QualityReport.RecordOp.Need(value.Evidence).Map(static evidence => (QualityRecord)new MillCert(evidence)),
-            nonconformance: static value => QualityReport.RecordOp.Need(value.Evidence).Map(static evidence => (QualityRecord)new Nonconformance(evidence)),
-            calibration: static value => QualityReport.RecordOp.Need(value.Evidence).Map(static evidence => (QualityRecord)new Calibration(evidence)),
+            procedure: static value => QualityEvidence.RecordOp.Need(value.Evidence).Map(static evidence => (QualityRecord)new WeldInspection(evidence)),
+            material: static value => QualityEvidence.RecordOp.Need(value.Evidence).Map(static evidence => (QualityRecord)new MillCert(evidence)),
+            nonconformance: static value => QualityEvidence.RecordOp.Need(value.Evidence).Map(static evidence => (QualityRecord)new Nonconformance(evidence)),
+            calibration: static value => QualityEvidence.RecordOp.Need(value.Evidence).Map(static evidence => (QualityRecord)new Calibration(evidence)),
             declaration: static value =>
-                from declaration in QualityReport.RecordOp.Need(value.Declaration)
-                from _ in guard(declaration.Valid, QualityReport.Refused(RecordRefusal.Declaration)).ToFin()
+                from declaration in QualityEvidence.RecordOp.Need(value.Declaration)
+                from _ in guard(declaration.Valid, QualityEvidence.Refused(RecordRefusal.Declaration)).ToFin()
                 from _lineage in guard(
                     !value.Records.IsEmpty && value.Records.Distinct().Count == value.Records.Count,
-                    QualityReport.Refused(RecordRefusal.Lineage)).ToFin()
+                    QualityEvidence.Refused(RecordRefusal.Lineage)).ToFin()
                 select (QualityRecord)new Conformance(declaration, value.Records, value.IssuedAt),
-            record: static value => QualityReport.RecordOp.Need(value.Value))
+            record: static value => QualityEvidence.RecordOp.Need(value.Value))
         select record;
 
     private static Fin<QualityRecord> Sampled(
@@ -1294,14 +1229,14 @@ public abstract partial record QualityRecord {
         Seq<SampleReading> readings,
         Seq<InspectionFeature> features) =>
         from _ in (
-            QualityReport.Gate(!readings.IsEmpty && readings.Count <= lot.Plan.SampleSize, RecordRefusal.Sampling),
-            QualityReport.Gate(readings.ForAll(reading => lot.Subjects.Find(reading.Index).IsSome), RecordRefusal.Subject),
-            QualityReport.Gate(readings.Map(static reading => reading.Index).Distinct().Count == readings.Count, RecordRefusal.Subject))
+            QualityEvidence.Gate(!readings.IsEmpty && readings.Count <= lot.Plan.SampleSize, RecordRefusal.Sampling),
+            QualityEvidence.Gate(readings.ForAll(reading => lot.Subjects.Find(reading.Index).IsSome), RecordRefusal.Subject),
+            QualityEvidence.Gate(readings.Map(static reading => reading.Index).Distinct().Count == readings.Count, RecordRefusal.Subject))
             .Apply(static (_, _, _) => unit)
             .As()
             .ToFin()
         from rows in readings.Map(reading =>
-                from subject in lot.Subjects.Find(reading.Index).ToFin(QualityReport.Refused(RecordRefusal.Subject))
+                from subject in lot.Subjects.Find(reading.Index).ToFin(QualityEvidence.Refused(RecordRefusal.Subject))
                 from measurement in Measurement.Admit(
                     reading.Nominal,
                     reading.Observed,
@@ -1317,7 +1252,7 @@ public abstract partial record QualityRecord {
                     // No material-review verdict is PENDING, never conforming: a lot whose review nobody ran
                     // reads as accepted the moment absence borrows the passing row.
                     lot.Mrb.Find(reading.Index).IfNone(Disposition.PendingReview),
-                    lot.Chains.Find(reading.Index).Map(StackupEvidence.Of))
+                    lot.Chains.Find(reading.Index))
                 select row)
             .Traverse(identity)
             .As()
@@ -1346,7 +1281,6 @@ public sealed record SampleReading(
     IQuantity ExpandedUncertainty);
 
 [ComplexValueObject]
-[ValidationError<FabricationFault>]
 public sealed partial class SampledLot {
     public EvidenceRef.Report Report { get; }
     public EvidenceRef.Product Product { get; }
@@ -1358,7 +1292,7 @@ public sealed partial class SampledLot {
 
     // The chain receipt governing a sampled characteristic, keyed by the same index its subject is: a lot whose
     // closure a stack governs carries that evidence per row rather than re-evaluating a chain per record.
-    public Map<int, ChainReceipt> Chains { get; }
+    public Map<int, Receipt<ChainEvidence>> Chains { get; }
 
     public EvidenceContext Context { get; }
     public CoverageInterval Coverage { get; }
@@ -1368,7 +1302,7 @@ public sealed partial class SampledLot {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
+        ref ValidationError? validationError,
         ref EvidenceRef.Report report,
         ref EvidenceRef.Product product,
         ref InspectionStage stage,
@@ -1376,7 +1310,7 @@ public sealed partial class SampledLot {
         ref int lotSize,
         ref Map<int, CharacteristicSubject> subjects,
         ref Map<int, Disposition> mrb,
-        ref Map<int, ChainReceipt> chains,
+        ref Map<int, Receipt<ChainEvidence>> chains,
         ref EvidenceContext context,
         ref CoverageInterval coverage,
         ref DecisionRule decisionRule,
@@ -1386,7 +1320,7 @@ public sealed partial class SampledLot {
             || !mrb.Keys.ForAll(key => subjects.ContainsKey(key))
             || !chains.Keys.ForAll(key => subjects.ContainsKey(key))
             || (stage.RequiresPrior && prior.IsNone))
-            validationError = QualityReport.Refusal("sampled-lot");
+            validationError = QualityEvidence.Validation("sampled-lot");
     }
 }
 
@@ -1436,418 +1370,31 @@ public abstract partial record QualitySource {
     public sealed record Declaration(QualityDeclaration Declaration, Seq<ContentKey> Records, Instant IssuedAt) : QualitySource;
     public sealed record Record(QualityRecord Value) : QualitySource;
 }
-```
-
-## [04]-[PASSPORT_AND_SEAL]
-
-- Owner: `PassportEvidence` owns product identity, genealogy, materials, compliance, declarations, service and repair history, lifecycle instants, and sustainability measures; `Attested<TBody>` owns one signed artifact; `QualityReport` owns the preimage, the transport rendering, and `Seal`.
-- Law: the signed preimage is `CanonicalWriter` BINARY over `FabricationCanon`. A serializer's byte stream depends on property order, naming policy, escape choices, and a unit's SPELLING — every one of which can change without any evidence changing — so a signature over it attests to a rendering rather than to the evidence. A quantity enters as its `QuantityInfo.Name` and its base-unit magnitude, so a millimetre reading and its metre spelling address identically and a display rename re-keys nothing.
-- Law: the preimage writer opens at a ZERO grid. Measured evidence is exact truth under attestation, so this seal declares no quantization: no column on the page writes a `Measure`, and a grid would silently fuse two readings a signer distinguished.
-- Law: an UPSTREAM receipt enters the preimage by the columns this attestation covers — its identity, its verdict, and the demands it published. Its own owner keys its full shape, and re-transcribing that shape here forks the two keys the day either page grows a column.
-- Law: `CanonicalJson` is the TRANSPORT rendering, not an identity: it carries the `[JsonPolymorphic]` roster per union, `LanguageExtJsonConverterFactory` so `Seq` and `Option` members repopulate on read, and `ThinktectureJsonConverterFactory(skipObjectsWithJsonConverterAttribute: true)` so generator-stamped owners keep their own converters.
-- Law: `AttestationRequirement` binds role-only or named-signer obligations. `RecordAttestation` signs and verifies `AttestationPayload(Body, Signer, Role, Credential, SignedAt)` with `ECDsa`, `HashAlgorithmName.SHA384`, and `DSASignatureFormat.Rfc3279DerSequence`; receipts carry credential identity, certificate PEM, and signature bytes without private-key material.
-- Law: classification rides definition-time attribute rows from `Process/telemetry#CLASSIFICATION` — `Signer` and `Examiner` personal, `HeatNumber` confidential, `Credential` credential — so a log or export seam redacts these members while the sealed preimage stays domain truth.
-- Exemption: the `extension(CanonicalWriter sink)` bodies are the byte kernel; every other body on this cluster is expression-shaped.
-- Entry: `public static Fin<SealedRecord> QualityReport.Seal(QualityReportRequest request)` is the only sealing entrypoint; the trailing `FabricationTap?` defaults to the silent port.
-- Receipt: `SealedRecord` carries the attested report, the optional attested passport, and the folded census. `FabricationFact.QualitySeal.Of` folds every sealed sustainability case through the union's own total `Switch` onto the `rasm.fabrication.sustainability.<quantity>` stream its UCUM unit selects, tagged by the case name, through `Process/telemetry#FACT_PROJECTION` as kind `quality-seal`; an unsealed measure projects no row rather than a zero reading.
-- Packages: `Rasm.Element` (`CanonicalWriter` through `Process/owner#RUN_DISPATCH` `FabricationCanon`, `ContentKey.CanonicalBytes`), QuikGraph (`AdjacencyGraph`, `SEdge`, `IsDirectedAcyclicGraph`, `WeaklyConnectedComponents`, `Sinks`), `System.Security.Cryptography`, `System.Text.Json`, `NodaTime.Serialization.SystemTextJson`, Thinktecture.Runtime.Extensions.Json.
-- Boundary: `TravelerReceiptCorpus.Records` consumes `Seq<SealedRecord>` and derives its singleton digital-product-passport projection from those records.
-
-```csharp signature
-// --- [PASSPORT] -----------------------------------------------------------------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
-[JsonDerivedType(typeof(EnergyUse), "energy-use")]
-[JsonDerivedType(typeof(Carbon), "carbon")]
-[JsonDerivedType(typeof(Waste), "waste")]
-[JsonDerivedType(typeof(RecycledContent), "recycled-content")]
-[JsonDerivedType(typeof(WaterUse), "water-use")]
-[JsonDerivedType(typeof(RenewableEnergy), "renewable-energy")]
-[JsonDerivedType(typeof(RecyclableMass), "recyclable-mass")]
-[JsonDerivedType(typeof(HazardousSubstance), "hazardous-substance")]
-[JsonDerivedType(typeof(Repairability), "repairability")]
-[JsonDerivedType(typeof(Durability), "durability")]
-public abstract partial record SustainabilityEvidence {
-    private SustainabilityEvidence() { }
-
-    public sealed record EnergyUse(Energy Value, EvidenceRef.Source Source, Interval Period) : SustainabilityEvidence;
-    public sealed record Carbon(Mass Value, EvidenceRef.Source Source, Interval Period) : SustainabilityEvidence;
-    public sealed record Waste(Mass Value, EvidenceRef.Source Source, Interval Period) : SustainabilityEvidence;
-    public sealed record RecycledContent(Ratio Value, EvidenceRef.Source Source, Interval Period) : SustainabilityEvidence;
-    public sealed record WaterUse(Volume Value, EvidenceRef.Source Source, Interval Period) : SustainabilityEvidence;
-    public sealed record RenewableEnergy(Ratio Value, EvidenceRef.Source Source, Interval Period) : SustainabilityEvidence;
-    public sealed record RecyclableMass(Mass Value, EvidenceRef.Source Source, Interval Period) : SustainabilityEvidence;
-    public sealed record HazardousSubstance(
-        EvidenceRef.Material Substance,
-        Mass Value,
-        EvidenceRef.Source Source,
-        Interval Period) : SustainabilityEvidence;
-    public sealed record Repairability(Ratio Value, EvidenceRef.Source Source, Interval Period) : SustainabilityEvidence;
-    public sealed record Durability(NodaTime.Duration Value, EvidenceRef.Source Source, Interval Period) : SustainabilityEvidence;
-
-    // The declared row identity every projection and every preimage reads, so a new case costs one row here and
-    // no second correspondence at a consumer.
-    public string Measure => Switch(
-        energyUse: static _ => "energy-use",
-        carbon: static _ => "carbon",
-        waste: static _ => "waste",
-        recycledContent: static _ => "recycled-content",
-        waterUse: static _ => "water-use",
-        renewableEnergy: static _ => "renewable-energy",
-        recyclableMass: static _ => "recyclable-mass",
-        hazardousSubstance: static _ => "hazardous-substance",
-        repairability: static _ => "repairability",
-        durability: static _ => "durability");
-
-    public (EvidenceRef.Source Source, Interval Period) Provenance => Switch(
-        energyUse: static row => (row.Source, row.Period),
-        carbon: static row => (row.Source, row.Period),
-        waste: static row => (row.Source, row.Period),
-        recycledContent: static row => (row.Source, row.Period),
-        waterUse: static row => (row.Source, row.Period),
-        renewableEnergy: static row => (row.Source, row.Period),
-        recyclableMass: static row => (row.Source, row.Period),
-        hazardousSubstance: static row => (row.Source, row.Period),
-        repairability: static row => (row.Source, row.Period),
-        durability: static row => (row.Source, row.Period));
-
-    public bool Valid => Switch(
-        energyUse: static value => value.Value >= Energy.Zero && ValidPeriod(value.Period),
-        carbon: static value => value.Value >= Mass.Zero && ValidPeriod(value.Period),
-        waste: static value => value.Value >= Mass.Zero && ValidPeriod(value.Period),
-        recycledContent: static value => QualityReport.ValidFraction(value.Value) && ValidPeriod(value.Period),
-        waterUse: static value => value.Value >= Volume.Zero && ValidPeriod(value.Period),
-        renewableEnergy: static value => QualityReport.ValidFraction(value.Value) && ValidPeriod(value.Period),
-        recyclableMass: static value => value.Value >= Mass.Zero && ValidPeriod(value.Period),
-        hazardousSubstance: static value => value.Value >= Mass.Zero && ValidPeriod(value.Period),
-        repairability: static value => QualityReport.ValidFraction(value.Value) && ValidPeriod(value.Period),
-        durability: static value => value.Value > NodaTime.Duration.Zero && ValidPeriod(value.Period));
-
-    private static bool ValidPeriod(Interval period) => period.HasStart && period.HasEnd && period.Start < period.End;
-}
-
-[ComplexValueObject]
-[ValidationError<FabricationFault>]
-public sealed partial class GenealogyLink {
-    public EvidenceRef Parent { get; }
-    public EvidenceRef Child { get; }
-    public TraceRelation Relation { get; }
-
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
-        ref EvidenceRef parent,
-        ref EvidenceRef child,
-        ref TraceRelation relation) {
-        if (parent == child)
-            validationError = QualityReport.Refusal("genealogy-link");
-    }
-}
-
-[ComplexValueObject]
-[ValidationError<FabricationFault>]
-public sealed partial class PassportEvidence {
-    public EvidenceRef.Product Product { get; }
-    public Seq<GenealogyLink> Genealogy { get; }
-    public EvidenceLinks Materials { get; }
-    public EvidenceLinks Compliance { get; }
-    public Seq<QualityDeclaration> Declarations { get; }
-    public Seq<SustainabilityEvidence> Sustainability { get; }
-    public Seq<ContentKey> ServiceHistory { get; }
-    public Seq<ContentKey> RepairHistory { get; }
-    public Instant ManufacturedAt { get; }
-    public Option<Instant> RetiredAt { get; }
-
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(
-        ref FabricationFault? validationError,
-        ref EvidenceRef.Product product,
-        ref Seq<GenealogyLink> genealogy,
-        ref EvidenceLinks materials,
-        ref EvidenceLinks compliance,
-        ref Seq<QualityDeclaration> declarations,
-        ref Seq<SustainabilityEvidence> sustainability,
-        ref Seq<ContentKey> serviceHistory,
-        ref Seq<ContentKey> repairHistory,
-        ref Instant manufacturedAt,
-        ref Option<Instant> retiredAt) {
-        if (genealogy.IsEmpty
-            || !materials.ToValue().ForAll(static value => value is EvidenceRef.Material or EvidenceRef.Lot)
-            || !compliance.ToValue().ForAll(static value => value is EvidenceRef.Certificate or EvidenceRef.Requirement)
-            || declarations.IsEmpty || declarations.Exists(static value => !value.Valid)
-            || sustainability.IsEmpty || sustainability.Exists(static value => !value.Valid)
-            || serviceHistory.Distinct().Count != serviceHistory.Count
-            || repairHistory.Distinct().Count != repairHistory.Count
-            || retiredAt.Exists(value => value <= manufacturedAt)
-            || genealogy.Map(static value => (value.Parent, value.Child)).Distinct().Count != genealogy.Count
-            || !ValidGenealogy(product, genealogy))
-            validationError = QualityReport.Refusal("passport-evidence");
-    }
-
-    // `SEdge` carries VALUE identity, so two genealogy links naming one parent-child pair are one edge and the
-    // acyclicity gate reads the relation the evidence actually states. `Edge<T>` is reference-identity and admits
-    // the same pair twice, which inflates the closure a severed-lineage check walks.
-    private static bool ValidGenealogy(EvidenceRef.Product product, Seq<GenealogyLink> genealogy) {
-        AdjacencyGraph<EvidenceRef, SEdge<EvidenceRef>> graph = new(allowParallelEdges: false);
-        genealogy.Iter(link => graph.AddVerticesAndEdge(new SEdge<EvidenceRef>(link.Parent, link.Child)));
-        Dictionary<EvidenceRef, int> components = new();
-        Seq<EvidenceRef> sinks = toSeq(graph.Sinks());
-        return graph.IsDirectedAcyclicGraph()
-            && graph.WeaklyConnectedComponents(components) == 1
-            && sinks.Count == 1
-            && sinks[0] == product;
-    }
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
-[JsonDerivedType(typeof(Records), "records")]
-[JsonDerivedType(typeof(Passport), "passport")]
-public abstract partial record ReportScope {
-    private ReportScope() { }
-
-    public sealed record Records : ReportScope;
-    public sealed record Passport(PassportEvidence Evidence) : ReportScope;
-}
-
-// --- [ATTESTATION] --------------------------------------------------------------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
-[JsonDerivedType(typeof(Role), "role")]
-[JsonDerivedType(typeof(Signer), "signer")]
-public abstract partial record AttestationRequirement {
-    private AttestationRequirement() { }
-
-    public sealed record Role(AttestationRole Value) : AttestationRequirement;
-    public sealed record Signer(EvidenceRef.Personnel Identity, AttestationRole Role) : AttestationRequirement;
-
-    internal bool SatisfiedBy(Seq<AttestationCredential> credentials) => Switch(
-        state: credentials,
-        role: static (values, requirement) => values.Exists(credential => credential.Role == requirement.Value),
-        signer: static (values, requirement) => values.Exists(credential =>
-            credential.Role == requirement.Role && credential.Signer == requirement.Identity));
-}
-
-[BoundaryAdapter]
-public sealed record AttestationCredential(
-    [property: PersonalData] EvidenceRef.Personnel Signer,
-    AttestationRole Role,
-    [property: CredentialData] EvidenceRef.Certificate Credential,
-    X509Certificate2 Certificate);
-
-public sealed record AttestationPayload(
-    ReadOnlyMemory<byte> Body,
-    [property: PersonalData] EvidenceRef.Personnel Signer,
-    AttestationRole Role,
-    [property: CredentialData] EvidenceRef.Certificate Credential,
-    Instant SignedAt);
-
-public sealed record RecordAttestation(
-    [property: PersonalData] EvidenceRef.Personnel Signer,
-    AttestationRole Role,
-    [property: CredentialData] EvidenceRef.Certificate Credential,
-    string CertificatePem,
-    ReadOnlyMemory<byte> Signature,
-    Instant SignedAt) {
-    public Fin<Unit> Verify(
-        ReadOnlyMemory<byte> canonicalBody,
-        Func<EvidenceRef.Personnel, AttestationRole, EvidenceRef.Certificate, X509Certificate2, Fin<Unit>> trust) =>
-        from verified in Try.lift(() => {
-            using X509Certificate2 certificate = X509Certificate2.CreateFromPem(CertificatePem);
-            using ECDsa? key = certificate.GetECDsaPublicKey();
-            return from _ in trust(Signer, Role, Credential, certificate)
-                   from __ in guard(key is not null && key.VerifyData(
-                       QualityReport.Payload(new AttestationPayload(canonicalBody, Signer, Role, Credential, SignedAt)).Span,
-                       Signature.Span,
-                       HashAlgorithmName.SHA384,
-                       DSASignatureFormat.Rfc3279DerSequence), QualityReport.Refused(RecordRefusal.Signature)).ToFin()
-                   select unit;
-        }).Run().MapFail(static _ => QualityReport.Refused(RecordRefusal.Signature))
-        from result in verified
-        select unit;
-}
-
-// --- [PROJECTIONS] --------------------------------------------------------------------------------------------------------------------------------
-[BoundaryAdapter]
-public sealed record QualityReportRequest(
-    ReportScope Scope,
-    Seq<QualityRecord> Records,
-    Seq<AttestationCredential> Signers,
-    Func<EvidenceRef.Personnel, AttestationRole, EvidenceRef.Certificate, X509Certificate2, Fin<Unit>> Trust,
-    Instant SealedAt);
-
-public sealed record QualityReportBody(Seq<QualityRecord> Records, Instant SealedAt);
-
-public sealed record DigitalProductPassport(PassportEvidence Evidence, ContentKey QualityRecord);
-
-public sealed record Attested<TBody>(
-    TBody Body,
-    ReadOnlyMemory<byte> Canonical,
-    ContentKey Key,
-    Seq<RecordAttestation> Attestations);
-
-public sealed record SealedRecord(
-    Attested<QualityReportBody> Report,
-    Option<Attested<DigitalProductPassport>> Passport,
-    EvidenceCensus Census) {
-    public ContentKey Key => Report.Key;
-    public Seq<QualityRecord> Records => Report.Body.Records;
-    public Seq<RecordAttestation> Attestations => Report.Attestations;
-    public Option<ContentKey> DigitalProductPassport => Passport.Map(static artifact => artifact.Key);
-}
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
-public static class QualityReport {
+public static class QualityEvidence {
     internal static readonly Op RecordOp = Op.Of(name: "fabrication:quality-record");
 
-    // Measured evidence under attestation is exact truth: the seal declares no quantization, and no column on this
-    // page writes a `Measure`, so the writer's grid never rounds a reading a signer distinguished.
-    private const double ExactGrid = 0.0;
+    internal static ValidationError Validation(string locus) => new($"quality:{locus}");
 
-    // The TRANSPORT rendering. A traveler document serializes through these options; identity and signature never
-    // do. The roster per union keeps a case's discriminator stable under a type rename, the LanguageExt factory
-    // repopulates `Seq` and `Option` members on read, and the Thinktecture factory skips owners whose generator
-    // already stamped a converter.
-    internal static readonly JsonSerializerOptions CanonicalJson =
-        new JsonSerializerOptions(JsonSerializerDefaults.General) {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            WriteIndented = false,
-            Converters = {
-                new LanguageExtJsonConverterFactory(),
-                new ThinktectureJsonConverterFactory(skipObjectsWithJsonConverterAttribute: true),
-            },
-        }.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+    // A fraction is CLOSED on [0, 1]; the strictly-positive demand composes the folder witness rather than riding a
+    // mode flag, because a caller reading `positive: true` learns nothing the predicate name would not have said.
+    internal static bool Fraction(Ratio value) =>
+        value.As(RatioUnit.DecimalFraction) is var fraction
+        && double.IsFinite(fraction) && fraction >= 0.0 && fraction <= 1.0;
 
-    // The seal is where the passport receipt SETTLES, so the sustainability fact fires here and nowhere inside the
-    // evidence folds. A records-scoped seal fires nothing at all — an unsealed measure is absence, never a zero
-    // reading a board would then average.
-    public static Fin<SealedRecord> Seal(QualityReportRequest request, FabricationTap? tap = null) =>
-        from admitted in RecordOp.Need(request)
-        from _request in (
-            Gate(!admitted.Records.IsEmpty, RecordRefusal.Source),
-            Gate(admitted.Scope is not null, RecordRefusal.Scope),
-            Gate(admitted.Signers.ForAll(static signer => signer.Certificate is not null) && admitted.Trust is not null,
-                RecordRefusal.Credential))
-            .Apply(static (_, _, _) => unit)
-            .As()
-            .ToFin()
-        from _trusted in admitted.Signers.Traverse(signer => admitted.Trust(
-            signer.Signer, signer.Role, signer.Credential, signer.Certificate)).As()
-        from _quorum in (
-            Gate(admitted.Signers.Map(static signer => (signer.Signer, signer.Role)).Distinct().Count == admitted.Signers.Count,
-                RecordRefusal.Credential),
-            Gate(!admitted.Signers.Exists(independent => independent.Role.IndependentAuthority
-                && admitted.Signers.Exists(authority => !authority.Role.IndependentAuthority
-                    && authority.Signer == independent.Signer)), RecordRefusal.Independence),
-            Gate(Required(admitted).ForAll(requirement => requirement.SatisfiedBy(admitted.Signers)), RecordRefusal.Quorum))
-            .Apply(static (_, _, _) => unit)
-            .As()
-            .ToFin()
-        from report in Attest(
-            new QualityReportBody(admitted.Records, admitted.SealedAt),
-            static (sink, body) => sink
-                .Rows(body.Records, static (row, record) => row.Record(record))
-                .Moment(body.SealedAt),
-            EgressKind.QualityRecord,
-            admitted.Signers,
-            admitted.Trust,
-            admitted.SealedAt)
-        from passport in admitted.Scope.Switch(
-            records: static _ => Fin.Succ(Option<Attested<DigitalProductPassport>>.None),
-            passport: value => Attest(
-                    new DigitalProductPassport(value.Evidence, report.Key),
-                    static (sink, body) => sink.Passport(body.Evidence).Key(body.QualityRecord),
-                    EgressKind.DigitalProductPassport,
-                    admitted.Signers,
-                    admitted.Trust,
-                    admitted.SealedAt)
-                .Map(static artifact => Some(artifact)))
-        let _fact = admitted.Scope.Switch(
-            records: static _ => unit,
-            passport: value => (tap ?? FabricationTap.Silent)
-                .Fire(FabricationFact.QualitySeal.Of(value.Evidence)))
-        select new SealedRecord(
-            report,
-            passport,
-            EvidenceCensus.Of(admitted.Records.Bind(static record => record.Observations)));
-
-    private static Seq<AttestationRequirement> Required(QualityReportRequest request) => (
-        request.Records.Bind(static record => record.Requirements)
-        + request.Scope.Switch(
-            records: static _ => Seq<AttestationRequirement>(),
-            passport: static value => value.Evidence.Declarations.Bind(static declaration => declaration.Requirements)
-                + Seq<AttestationRequirement>(new AttestationRequirement.Role(AttestationRole.SustainabilityVerifier))))
-        .Distinct()
-        .ToSeq();
-
-    // The body's own writer is the algebra parameter, so one attestation fold serves every signed artifact class
-    // and no artifact reaches a serializer for its identity.
-    private static Fin<Attested<TBody>> Attest<TBody>(
-        TBody body,
-        Func<CanonicalWriter, TBody, CanonicalWriter> write,
-        EgressKind kind,
-        Seq<AttestationCredential> signers,
-        Func<EvidenceRef.Personnel, AttestationRole, EvidenceRef.Certificate, X509Certificate2, Fin<Unit>> trust,
-        Instant sealedAt) =>
-        from canonical in Try.lift(() => write(new CanonicalWriter(ExactGrid), body).ToBytes())
-            .Run()
-            .MapFail(static _ => Refused(RecordRefusal.Canonical))
-        from attestations in signers.Traverse(credential => Sign(canonical, credential, sealedAt)).As()
-        from _verified in attestations.Traverse(attestation => attestation.Verify(canonical, trust)).As()
-        select new Attested<TBody>(body, canonical, ContentKey.Of(kind, canonical.Span), attestations);
-
-    private static Fin<RecordAttestation> Sign(
-        ReadOnlyMemory<byte> canonicalBody,
-        AttestationCredential credential,
-        Instant signedAt) =>
-        from signature in Try.lift(() => {
-            using ECDsa? key = credential.Certificate.GetECDsaPrivateKey();
-            return key is null
-                ? Option<byte[]>.None
-                : Some(key.SignData(
-                    Payload(new AttestationPayload(canonicalBody, credential.Signer, credential.Role,
-                        credential.Credential, signedAt)).Span,
-                    HashAlgorithmName.SHA384,
-                    DSASignatureFormat.Rfc3279DerSequence));
-        }).Run().MapFail(static _ => Refused(RecordRefusal.SigningKey))
-        from bytes in signature.ToFin(Refused(RecordRefusal.SigningKey))
-        select new RecordAttestation(
-            credential.Signer,
-            credential.Role,
-            credential.Credential,
-            credential.Certificate.ExportCertificatePem(),
-            bytes,
-            signedAt);
-
-    // The signature preimage binds the body bytes to WHO signed, in WHAT role, under WHICH credential, and WHEN,
-    // so a valid signature transplanted onto another claim fails verification.
-    internal static ReadOnlyMemory<byte> Payload(AttestationPayload payload) =>
-        new CanonicalWriter(ExactGrid)
-            .Ordinal(payload.Body.Length)
-            .Raw(payload.Body.Span)
-            .Reference(payload.Signer)
-            .Discriminant(payload.Role)
-            .Reference(payload.Credential)
-            .Moment(payload.SignedAt)
-            .ToBytes();
-
-    internal static bool ValidFraction(Ratio value, bool positive = false) {
-        double fraction = value.As(RatioUnit.DecimalFraction);
-        return double.IsFinite(fraction) && (positive ? fraction > 0.0 : fraction >= 0.0) && fraction <= 1.0;
-    }
-
-    // Two rails, each carrying a discriminant: an OPERATION gate answers on the record op under its own detail,
-    // and a generated OWNER answers on the fabrication band under its own locus.
+    // Operation gates answer on the record op; generated owners keep their diagnostic on the default validation rail.
     internal static Error Refused(RecordRefusal reason) => RecordOp.InvalidResult(detail: reason.Key);
 
     internal static FabricationFault Refusal(string locus) =>
-        new FabricationFault.PolicyInadmissible(FabConcern.Documentation, $"quality:{locus}");
+        FabricationFault.Inadmissible(FabConcern.Documentation, $"quality:{locus}");
 
     internal static K<Validation<Error>, Unit> Gate(bool condition, RecordRefusal reason) =>
         AdmissionSlots.Gate(condition, Refused(reason));
 
-    // The page's OWN column writers over the shared codec — one per page-owned shape, each an ordinary extension
-    // on the writer, so every preimage site chains and no site re-spells a column order.
+    // The record plane's OWN column writers over the shared codec — one per page-owned shape, each an ordinary
+    // extension on the writer, so every preimage site chains and no site re-spells a column order. The seal at
+    // `Documentation/passport` composes these and authors only the passport arm.
     extension(CanonicalWriter sink) {
         internal CanonicalWriter Key(ContentKey key) => key.CanonicalBytes(sink);
 
@@ -1885,10 +1432,9 @@ public static class QualityReport {
             .Discriminant(row.Subject.Class)
             .Reading(row.Measurement)
             .Discriminant(row.Verdict)
-            .Maybe(row.Stackup, static (inner, stackup) => inner
-                .Discriminant(stackup.Method).Double(stackup.HalfRangeMm).Double(stackup.BoundMm)
-                .Rows(stackup.Contributions, static (term, contribution) => term
-                    .String(contribution.Term).Double(contribution.Share)));
+            // The chain frames itself through its OWN carrier facade, so the stackup bytes this preimage covers
+            // are byte-identical to the ones its owner keyed and no column order lives at two sites.
+            .Maybe(row.Stackup, static (inner, stackup) => stackup.CanonicalBytes(inner, ChainEvidence.Frame));
 
         internal CanonicalWriter Chemistry(ChemistryRow row) => sink
             .String(row.Element.ToValue())
@@ -2042,36 +1588,11 @@ public static class QualityReport {
                 .Declaration(value.Declaration)
                 .Rows(value.Records, static (inner, key) => inner.Key(key))
                 .Moment(value.IssuedAt));
-
-        internal CanonicalWriter Passport(PassportEvidence evidence) => sink
-            .Reference(evidence.Product)
-            .Rows(evidence.Genealogy, static (row, link) => row
-                .Reference(link.Parent).Reference(link.Child).Discriminant(link.Relation))
-            .Rows(evidence.Materials.ToValue(), static (row, link) => row.Reference(link))
-            .Rows(evidence.Compliance.ToValue(), static (row, link) => row.Reference(link))
-            .Rows(evidence.Declarations, static (row, declaration) => row.Declaration(declaration))
-            .Rows(evidence.Sustainability, static (row, measure) => measure.Switch(
-                state: row.String(measure.Measure),
-                energyUse: static (inner, value) => inner.Amount(value.Value),
-                carbon: static (inner, value) => inner.Amount(value.Value),
-                waste: static (inner, value) => inner.Amount(value.Value),
-                recycledContent: static (inner, value) => inner.Amount(value.Value),
-                waterUse: static (inner, value) => inner.Amount(value.Value),
-                renewableEnergy: static (inner, value) => inner.Amount(value.Value),
-                recyclableMass: static (inner, value) => inner.Amount(value.Value),
-                hazardousSubstance: static (inner, value) => inner.Reference(value.Substance).Amount(value.Value),
-                repairability: static (inner, value) => inner.Amount(value.Value),
-                durability: static (inner, value) => inner.I64(value.Value.BclCompatibleTicks))
-                .Reference(measure.Provenance.Source).Window(measure.Provenance.Period))
-            .Rows(evidence.ServiceHistory, static (row, key) => row.Key(key))
-            .Rows(evidence.RepairHistory, static (row, key) => row.Key(key))
-            .Moment(evidence.ManufacturedAt)
-            .Maybe(evidence.RetiredAt, static (row, at) => row.Moment(at));
     }
 }
 ```
 
-## [05]-[SHOP_SCHEDULE]
+## [04]-[SCHEDULE]
 
 - Owner: `ScheduleKind` owns the deliverable roster, the CUSTODY SPLIT of the rows each kind folds, and the optional extension a shaped instance earns; `ScheduleRow` and `ScheduleEntry` own one folded deliverable; `ShopSchedule` owns the fold over admitted realization bags.
 - Law: a kind's inputs carry their CUSTODY. A `TypeRows` member is a type-level fact the owning Materials family publishes off its catalogue row; an `OccurrenceRows` member is a placement fact only the detailing knows and authors onto the occurrence bag. `DetailSchema.Realization` inherits `OccurrenceWins`, so the two custodies MERGE into one bag before the fold and the split is a statement of who owes each cell, never a second read.
@@ -2157,21 +1678,22 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Quality record seal
-    accDescr: One quality source admits into a typed record, records fold into one observation census, the report and passport key and sign over a canonical binary preimage, and realization bags fold separately into shop schedule deliverables.
+    accTitle: Quality record admission
+    accDescr: One quality source admits into a typed record, every atom projects to one evidence outcome that folds into a bucket census, the record plane hands its columns and attestation demands to the passport seal, and realization bags fold separately into shop schedule deliverables.
     Source["QualitySource — inspection, residuals, procedure, material, nonconformance, calibration, declaration"] --> Admit["QualityRecord.Admit"]
     Admit --> Records["QualityRecord — closed as-built family"]
-    Records --> Census["EvidenceCensus.Of — one bucket fold"]
-    Records --> Body["QualityReportBody"]
-    Body -->|"CanonicalWriter preimage"| Report["Attested report — ContentKey.Of(QualityRecord)"]
-    Passport["PassportEvidence — genealogy DAG, declarations, sustainability"] -->|"CanonicalWriter preimage"| Sealed
-    Report --> Sealed["SealedRecord"]
-    Census --> Sealed
-    Sealed -->|"records and passport key"| Traveler["Documentation/traveler — TravelerReceiptCorpus"]
+    Chain["Spec/tolerance — Receipt&lt;ChainEvidence&gt;"] --> Admit
+    Records --> Observations["QualityObservation.Outcome — one EvidenceOutcome per atom"]
+    Observations --> Census["EvidenceCensus.Of — one bucket fold"]
+    Records --> Demands["QualityRecord.Requirements — attestation demands"]
+    Records --> Writer["QualityEvidence — record rail and column writers"]
+    Census --> Seal["Documentation/passport — QualityReport.Seal"]
+    Demands --> Seal
+    Writer -->|"CanonicalWriter columns"| Seal
     Bags["DetailSchema.Realization bags"] --> Schedule["ShopSchedule.Of — bar bending, weld map, stud layout"]
 ```
 
-## [06]-[RESEARCH]
+## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

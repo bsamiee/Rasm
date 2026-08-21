@@ -14,6 +14,7 @@ Capture starts nothing and serializes whole-capsule cost through one in-flight b
 - Cases: a gate-closed row (the heap row with no tracer running) skips silently into the roster; a raising collector converts through the `boundary` fence into a `rejected` receipt under `bundle.<row>` and joins `skipped`; a collected row lands its redacted facts under its name in the one document. Archive finalization — deterministic encode, `zstd` compress, key mint — runs under its own `bundle.archive` fence, so `capture` returns `RuntimeRail[Bundle]`, a finalization fault lands as a rejected receipt beside the rail's refusal, and the handler projects the rail instead of throwing past the route. Self-emission rides a SECOND fence outside that one: a wedged sink is the condition a bundle gets pulled under, so the drained line stays evidence OF a capture rather than a term in it and a built archive survives a render or sink fault whole.
 - Entry: `capture(subject, *, selected, redaction)` is the one fold — an empty selection runs every row, a named selection bounds the roster — and `handler(verdicts, redaction, *, scope)` binds the capture into the serve-shaped async callable the composition root mounts as the diagnostic `Route`, offloading the dump-and-compress body through one single-token band so a capture never stalls the event loop and a concurrent second pull queues instead of doubling the dump cost. That band reports itself: the capture bracket registers the module-level `_capturing` probe under `band="capture"`, so queue depth reads off the standing occupancy level instead of being inferred from a reply that has not come back, and probe identity is what keeps concurrent pulls one reading of one limiter rather than N copies of it. `Subject` carries the admitted-context render, verdict thunk, and scope as one value, so replay and emitted evidence stay inside the mounting composition while the static table remains closed.
 - Auto: the document encodes through the receipts-owned deterministic `ENCODE`, so key order is stable and the `ContentKey` replays across captures of identical state; `zstd.compress` bounds the wire body; redaction applies per collector BEFORE encoding and classifies by key name at EVERY depth, so the caller-supplied context, the verdict facts, and the nested `_installs` receipt maps and `_replay` hook rings all scrub in place even under a permissive sink; the capture self-emits its `Bundle` facts through the contributor stream, so every pull leaves a drained line beside the served bytes.
+- Law: every fence resolves ONE `reliability/faults#FAULT` `RAISES` anchor under `RuntimeLeg.BUNDLE`; the collector name stays on the emitted receipt where an operator reads it, so a per-collector fence subject bought a coordinate the receipt already carries. Two fences keep a catch-all and state why — a collector body and the self-emitting sink are both the plane a capsule gets pulled UNDER, so neither may raise past `capture`.
 - Growth: a new evidence source is one `Collector` row; a new capture input is one `Subject` field; a new redaction transform stays the receipts owner's `Scrub` growth; the wire pair grows only at the shapes registry, and the served service and rpc only at its `SERVICE_VOCABULARY`; a new route fact this owner genuinely holds is one constant beside `BUNDLE_WIRE`.
 - Boundary: collection never starts an agent, thread, tracer, or sampling loop — the profilers stay the admitted owners, the heap gate reads, never arms, `tracemalloc`, and the readings row reads, never mounts, the diagnostic reader whose arming is the composition's `SignalProfile` value — and the capsule serves only through the registered diagnostic route; the calling host pulls over the standing wire and re-mints nothing. `memray` is DECLINED on that same law — its allocation profiler arms a tracker the capture then owns, the exact agent this row forecloses — so the heap artifact stays the read-only `tracemalloc` ranking and the continuous rail stays `pyroscope-io`.
 
@@ -35,7 +36,7 @@ from expression.collections import Block, Map
 from msgspec import Struct, structs
 
 from rasm.runtime.admission import RuntimeContext
-from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.faults import BUNDLE_ARCHIVE, BUNDLE_COLLECT, BUNDLE_EMIT, RuntimeRail, boundary
 from rasm.runtime.hooks import Hooks
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.logging import LogPipeline
@@ -127,7 +128,23 @@ def _heap(_: Subject) -> EventDict:
 
 
 def _replay(subject: Subject) -> EventDict:
-    return {point: tuple(structs.asdict(fact) for fact in ring) for point, ring in Hooks.replayed(scope=subject.scope).items()}
+    # the window's OWN accounting rides beside its facts: a capsule reading a trimmed ring as whole under-reports
+    # exactly what pressure evicted, so `Ring.facts()` publishes the cap, the retained count, and both loss counters.
+    return {
+        point.value: {"facts": tuple(structs.asdict(fact) for fact in ring.held), **ring.facts()}
+        for point, ring in Hooks.replayed(scope=subject.scope).items()
+    }
+
+
+def _isolated(subject: Subject) -> EventDict:
+    # subscriber faults the emitter's rail cannot carry BY LAW live in exactly one place — the registry's isolation
+    # window — so a capsule pulled under a wedged tap is what separates a broken subscriber from a broken producer.
+    # Receipts project through their own total fold rather than an `asdict` the union does not answer.
+    ring = Hooks.faults(scope=subject.scope)
+    return {
+        "receipts": tuple({"level": level, "event": event, **facts} for level, event, facts in (row.project() for row in ring.held)),
+        **ring.facts(),
+    }
 
 
 def _installs(subject: Subject) -> EventDict:
@@ -179,6 +196,7 @@ COLLECTORS: Final[Block[Collector]] = Block.of_seq([
     Collector("native", _always, _native),
     Collector("heap", tracemalloc.is_tracing, _heap),
     Collector("replay", _always, _replay),
+    Collector("isolated", _always, _isolated),  # the hook registry's counted subscriber-fault window, the one plane the rail cannot carry
     Collector("installs", _always, _installs),  # process-custody owners beside the scope's producer-install ledger
     # gate reads the ARMING off the install receipt rather than probing the reader: probing collects the whole
     # tree once to answer a boolean, then the row collects it again.
@@ -201,7 +219,7 @@ class SupportBundle:
 
         def folded(acc: tuple[Map[str, EventDict], Block[str], Block[str]], row: Collector) -> tuple[Map[str, EventDict], Block[str], Block[str]]:
             document, collected, skipped = acc
-            match boundary(f"bundle.{row.name}", lambda: redaction.apply(row.collect(subject)) if row.gated() else None):
+            match boundary(BUNDLE_COLLECT, lambda: redaction.apply(row.collect(subject)) if row.gated() else None, catch=Exception):
                 case Result(tag="ok", ok=None):
                     return document, collected, skipped.append(Block.singleton(row.name))
                 case Result(tag="ok", ok=facts):
@@ -222,9 +240,9 @@ class SupportBundle:
         # receipt beside the collector evidence, never a raise past the capture. Self-emission rides a SECOND fence
         # OUTSIDE it — a wedged sink is the condition a bundle gets pulled under, so a render or sink fault
         # never voids a built archive, and that fault stays unreported precisely because the reporting path is what broke.
-        outcome = boundary("bundle.archive", archived)
+        outcome = boundary(BUNDLE_ARCHIVE, archived, catch=(zstd.ZstdError, TypeError, ValueError))
         outcome.swap().map(lambda fault: Signals.emit(Receipt.of("bundle.archive", fault), OPEN, scope=subject.scope))
-        outcome.map(lambda bundle: boundary("bundle.emitted", lambda: Signals.emit(bundle, redaction, scope=subject.scope)))
+        outcome.map(lambda bundle: boundary(BUNDLE_EMIT, lambda: Signals.emit(bundle, redaction, scope=subject.scope), catch=Exception))
         return outcome
 
     @staticmethod

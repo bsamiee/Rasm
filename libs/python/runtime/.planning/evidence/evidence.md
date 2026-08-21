@@ -2,7 +2,7 @@
 
 External-API and structural-parsing evidence ride one tagged-union fact stream the `assay code` rail consumes: `member` a `MemberFact` row of a distribution's official surface, `span` a `SpanFact` tree-sitter capture, `drift` a `DriftFact` cross-language re-mint of a canonical wire-projection name the topology law forbids. This surface produces evidence the rail reads — never a competing search owner, a guessed environment status, or an exception into domain flow.
 
-`GrammarRegistry` holds the reused-`Parser`/compile-once topology the `runtime/.api/tree-sitter.md` parsing law fixes, and `scan` is the one polymorphic extraction entry — probe, multi-language `Corpus`, `Disposition` output shape, `Into[R]` projector — the disposition-keyed mirror of the `reliability/faults#FAULT` `traversed`. `ApiCatalogue.reflect` rides the canonical `@trapped("reflect", catch=ImportError)` faults aspect, so a missing distribution or failing root import lands as the one `import_` row. `EvidenceScan` streams each scan onto the `observability/receipts#RECEIPT` rail; the page tracer mints from the `SCOPES[Scope.EVIDENCE]` row; the `canonical` name registry arrives from the topology law and is never re-minted here.
+`GrammarRegistry` holds the reused-`Parser`/compile-once topology the `runtime/.api/tree-sitter.md` parsing law fixes, and `scan` is the one polymorphic extraction entry — probe, multi-language `Corpus`, `Disposition` output shape, `Into[R]` projector — the disposition-keyed mirror of the `reliability/faults#FAULT` `traversed`. `ApiCatalogue.reflect` rides the canonical `@trapped(EVIDENCE_REFLECT, catch=ImportError)` faults aspect, so a missing distribution or failing root import lands as the one `import_` row. `EvidenceScan` streams each scan onto the `observability/receipts#RECEIPT` rail; the page tracer mints from the `SCOPES[Scope.EVIDENCE]` row; the `canonical` name registry arrives from the topology law and is never re-minted here.
 
 ## [01]-[INDEX]
 
@@ -35,7 +35,20 @@ from tree_sitter import Language, Node, Parser, Point, Query, QueryCursor
 import tree_sitter_python as ts_py
 import tree_sitter_typescript as ts_ts
 
-from rasm.runtime.faults import SCOPES, BoundaryFault, Disposition, RuntimeRail, Scope, scoped, trapped, traversed
+from rasm.runtime.faults import (
+    EVIDENCE_BUDGET,
+    EVIDENCE_GRAMMAR,
+    EVIDENCE_MATCHES,
+    EVIDENCE_REFLECT,
+    SCOPES,
+    BoundaryFault,
+    Disposition,
+    RuntimeRail,
+    Scope,
+    scoped,
+    trapped,
+    traversed,
+)
 from rasm.runtime.receipts import Receipt
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -219,7 +232,7 @@ class GrammarRegistry:
     ) -> RuntimeRail[Block[R]]:
         probed = PROBES[probe]
         if lang not in probed.queries:
-            return Error(BoundaryFault(config=(f"{probe}:{lang}", "uncovered-grammar")))
+            return Error(EVIDENCE_GRAMMAR.raised(probe, lang))
         # `match_limit=budget` makes `did_exceed_match_limit` a LIVE truncation grade — on the default `0xFFFFFFFF` cap the `resource`
         # arm is dead and a match-explosion returns silently clipped captures as a clean `Ok`.
         cursor = QueryCursor(probed.queries[lang], match_limit=budget)
@@ -241,7 +254,9 @@ class GrammarRegistry:
             # partial captures, not a grade, and the size pre-gate keeps it unreachable in practice.
             visited = tree.root_node.descendant_count
             if visited >= budget:
-                fault = BoundaryFault(deadline=(f"{probe}:{lang}", float(budget), "descendant-count"))
+                # the deadline arm constructs EXPLICITLY because only this fence holds the real budget; the subject still
+                # derives from a rostered row, and the tripped axis carries the probe/language pair as its own coordinates.
+                fault = BoundaryFault(deadline=(EVIDENCE_BUDGET.subject, float(budget), f"descendant-count:{probe}:{lang}"))
                 scope.set_status(Status(StatusCode.ERROR, fault.tag))
                 return Error(fault)
             ticks = count(1)
@@ -256,7 +271,7 @@ class GrammarRegistry:
                     "evidence.flawed": tree.root_node.has_error,
                 })
             if truncated:
-                fault = BoundaryFault(resource=(f"{probe}:{lang}", "match-limit"))
+                fault = EVIDENCE_MATCHES.raised(probe, lang)
                 scope.set_status(Status(StatusCode.ERROR, fault.tag))
                 return Error(fault)
             scope.set_status(Status(StatusCode.OK))
@@ -319,7 +334,7 @@ class GrammarRegistry:
 
 class ApiCatalogue:
     @staticmethod
-    @trapped("reflect", catch=ImportError)
+    @trapped(EVIDENCE_REFLECT, catch=ImportError)
     def reflect(distribution: str) -> Block[Evidence]:
         # import roots are metadata facts off the reversed `packages_distributions` rows; the dash-to-underscore guess is only the no-row fallback.
         dist = metadata.distribution(distribution)

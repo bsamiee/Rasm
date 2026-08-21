@@ -44,7 +44,13 @@ type _Future<T extends (typeof _transports)[number] = AuthenticatorTransportFutu
 
 // Anchors resolve by DECODED attestation format, so `mds` — pinning only the metadata BLOB signer — sits as one
 // row beside the chain-bearing formats rather than standing in for them. `none` is absent because its statement
-// carries no chain, and `RootCertIdentifier` bounds the roster against the package in both directions.
+// carries no chain, and `RootCertIdentifier` bounds the roster against the package in both directions. The tuple
+// anchors the key set so the attestation refusal names a pinned identifier rather than a free string.
+const _anchors = ["android-key", "android-safetynet", "apple", "fido-u2f", "mds", "packed", "tpm"] as const
+
+type _Anchors<T extends Exclude<RootCertIdentifier, "none"> = (typeof _anchors)[number]> = T
+type _Pinned<T extends (typeof _anchors)[number] = Exclude<RootCertIdentifier, "none">> = T
+
 const _ROOTS = {
   "android-key": "WEBAUTHN_ROOTS_ANDROID_KEY",
   "android-safetynet": "WEBAUTHN_ROOTS_ANDROID_SAFETYNET",
@@ -53,19 +59,76 @@ const _ROOTS = {
   mds: "WEBAUTHN_ROOTS_MDS",
   packed: "WEBAUTHN_ROOTS_PACKED",
   tpm: "WEBAUTHN_ROOTS_TPM",
-} as const satisfies Record.ReadonlyRecord<Exclude<RootCertIdentifier, "none">, string>
+} as const satisfies Record.ReadonlyRecord<(typeof _anchors)[number], string>
 
+const _Intent = Schema.Literal("enroll", "assert")
+
+// Ceremony refusal is a CLOSED verdict, never a sentence: the gate asks four questions of the held phase and the
+// first unmet one IS the answer, so an operator reads which check fired instead of re-parsing prose.
+const _refusals = ["absent", "subject", "intent", "expired"] as const
+
+// Six legs partition the server ceremony and each reason renders its OWN subject: a mint refusal names the stage
+// that broke, a gate refusal names the check that fired, a verify refusal names the intent and the credential when
+// one resolved, a replay refusal names both counters, and an anchor refusal names the identifier whose registry
+// answered nothing. One free `detail` string answered all six, and the counter arm in particular carried the passkey
+// id while saying nothing about the regression that condemned it.
 const _family = Fault.Class.family(["ceremony", "challenge", "verification", "counter", "attestation", "throttled"] as const, {
-  ceremony: { class: "defect" },
-  challenge: { class: "malformed" },
-  verification: { class: "denied" },
-  counter: { class: "breached" },
-  attestation: { class: "denied" },
-  throttled: { class: "exhausted" },
+  ceremony: Fault.Class.row({
+    class: "defect",
+    leg: "mint",
+    detail: Schema.Struct({ stage: Schema.Literal("challenge", "options"), cause: Schema.String }),
+    render: ({ cause, stage }) => `ceremony ${stage} could not be built: ${cause}`,
+  }),
+  challenge: Fault.Class.row({
+    class: "malformed",
+    leg: "gate",
+    detail: Schema.Struct({ subject: Schema.UUID, intent: _Intent, refusal: Schema.Literal(..._refusals) }),
+    render: ({ intent, refusal, subject }) => `${intent} ceremony for ${subject} refused: ${refusal}`,
+  }),
+  verification: Fault.Class.row({
+    class: "denied",
+    leg: "verify",
+    detail: Schema.Struct({
+      intent: _Intent,
+      // Registration reaches its refusals before any credential resolves, so the column is absence-shaped rather
+      // than a placeholder id no authenticator ever presented.
+      credential: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+      cause: Schema.String,
+    }),
+    render: ({ cause, credential, intent }) =>
+      `${intent} response refused${Option.getOrElse(Option.map(credential, (id) => ` on credential ${id}`), () => "")}: ${cause}`,
+  }),
+  counter: Fault.Class.row({
+    class: "breached",
+    leg: "replay",
+    detail: Schema.Struct({
+      subject: Schema.UUID,
+      passkey: Schema.NonEmptyString,
+      held: Schema.Number,
+      presented: Schema.Number,
+    }),
+    render: ({ held, passkey, presented, subject }) =>
+      `passkey ${passkey} for ${subject} presented counter ${presented} against held ${held}`,
+  }),
+  attestation: Fault.Class.row({
+    class: "denied",
+    leg: "anchor",
+    detail: Schema.Struct({ identifier: Schema.Literal(..._anchors), cause: Schema.String }),
+    render: ({ cause, identifier }) => `${identifier} attestation refused: ${cause}`,
+  }),
+  throttled: Fault.Class.row({
+    class: "exhausted",
+    leg: "throttle",
+    detail: Schema.Struct({ subject: Schema.UUID, cause: Schema.String }),
+    render: ({ cause, subject }) => `webauthn budget spent for ${subject}: ${cause}`,
+  }),
 })
 
 declare namespace WebAuthnFault {
-  type Reason = (typeof _family.reasons)[number]
+  type Case = typeof _family.payload.Type
+  type Intent = typeof _Intent.Type
+  type Reason = (typeof _family.kinds)[number]
+  type Refusal = (typeof _refusals)[number]
 }
 
 class Passkey extends Schema.Class<Passkey>("Passkey")({
@@ -82,21 +145,23 @@ class Passkey extends Schema.Class<Passkey>("Passkey")({
 // slot only the holder of a live challenge can name, and subject then rides the value, where the finish gate
 // reads it back against the caller claiming it.
 class CeremonyPhase extends Schema.Class<CeremonyPhase>("CeremonyPhase")({
-  intent: Schema.Literal("enroll", "assert"),
+  intent: _Intent,
   subject: Schema.UUID,
   challenge: Schema.NonEmptyString,
   expiresAt: Schema.DateTimeUtc,
 }) {}
 
 class WebAuthnFault extends Schema.TaggedError<WebAuthnFault>()("WebAuthnFault", {
-  reason: _family.schema,
-  detail: Schema.String,
+  case: _family.payload,
 }) {
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _family.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<webauthn:${this.reason}> ${this.detail}`
+    return _family.render(this.case)
   }
 }
 
@@ -169,7 +234,10 @@ class WebAuthnTrust extends Context.Tag("security/authn/WebAuthnTrust")<WebAuthn
         { discard: true },
       )
       yield* Effect.when(
-        Effect.tryPromise({ try: () => MetadataService.initialize({ verificationMode: setting.mode }), catch: (cause) => new WebAuthnFault({ reason: "attestation", detail: String(cause) }) }).pipe(Effect.orDie),
+        Effect.tryPromise({
+          try: () => MetadataService.initialize({ verificationMode: setting.mode }),
+          catch: (cause) => new WebAuthnFault({ case: { reason: "attestation", identifier: "mds", cause: String(cause) } }),
+        }).pipe(Effect.orDie),
         () => setting.attestationType !== "none",
       )
       return {
@@ -227,36 +295,43 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
     // phase, which turned a well-formed forgery — an id, a type, and a hand-built clientDataJSON, none of it
     // signed — into a denial of service on the ceremony its victim was mid-way through. No stranger reaches a
     // slot only the holder of the minted challenge can spell.
-    const _stash = (subject: string, intent: "enroll" | "assert", challenge: string): Effect.Effect<void, WebAuthnFault> =>
+    const _stash = (subject: string, intent: WebAuthnFault.Intent, challenge: string): Effect.Effect<void, WebAuthnFault> =>
       Effect.flatMap(DateTime.now, (now) =>
         challenges.stash(challenge, new CeremonyPhase({ intent, subject, challenge, expiresAt: DateTime.addDuration(now, ceremonyTtl) }), ceremonyTtl))
-    const _refused = (now: DateTime.Utc, subject: string, intent: "enroll" | "assert") =>
-      Option.match({
-        onNone: () => Option.some("no ceremony held"),
-        onSome: (held: CeremonyPhase) =>
-          held.subject !== subject
-            ? Option.some("subject mismatch")
-            : held.intent !== intent
-              ? Option.some("intent mismatch")
-              : DateTime.lessThan(held.expiresAt, now)
-                ? Option.some("ceremony expired")
-                : Option.none<string>(),
-      })
+    // The gate's four questions answer in ONE word and the issue mints once around whichever fired, so the refusal
+    // an operator reads is a rostered verdict rather than four sentences no consumer can discriminate on.
+    const _refused = (now: DateTime.Utc, subject: string, intent: WebAuthnFault.Intent) =>
+      (held: Option.Option<CeremonyPhase>): Option.Option<WebAuthnFault.Case> =>
+        Option.map(
+          Option.match(held, {
+            onNone: () => Option.some<WebAuthnFault.Refusal>("absent"),
+            onSome: (phase) =>
+              phase.subject !== subject
+                ? Option.some<WebAuthnFault.Refusal>("subject")
+                : phase.intent !== intent
+                  ? Option.some<WebAuthnFault.Refusal>("intent")
+                  : DateTime.lessThan(phase.expiresAt, now)
+                    ? Option.some<WebAuthnFault.Refusal>("expired")
+                    : Option.none<WebAuthnFault.Refusal>(),
+          }),
+          (refusal): WebAuthnFault.Case => ({ reason: "challenge", subject, intent, refusal }),
+        )
     // ONE ceremony gate for both finishes, and it consumes the phase INSIDE verification: `expectedChallenge`
     // takes a resolver the package calls only after the response's id, type, and clientDataJSON have parsed, and
     // it hands over the challenge THAT response carried — which is the key, so a finish naming no live challenge
     // consumes nothing and the ceremony its victim is still walking survives it. The resolver's own contract is a
     // bare boolean, so the refusal REASON rides a cell `settled` reads back: a phase the resolver refused settles
     // `challenge` with that reason, a response that never reached the resolver settles `verification`, and the
-    // ceremony mark and its `Ceremony` fact land on the first arm alone.
-    const _gate = (subject: string, intent: "enroll" | "assert") =>
-      Effect.map(Ref.make(Option.none<string>()), (cell) => ({
+    // ceremony mark and its `Ceremony` fact land on the first arm alone. The cell carries the ISSUE, not a sentence,
+    // so a store refusal on consume arrives under its own reason instead of being relabelled as a gate verdict.
+    const _gate = (subject: string, intent: WebAuthnFault.Intent) =>
+      Effect.map(Ref.make(Option.none<WebAuthnFault.Case>()), (cell) => ({
         expectedChallenge: (presented: string): Promise<boolean> =>
           runPromise(
             Effect.flatMap(
               Effect.all([DateTime.now, challenges.consume(presented)]).pipe(
                 Effect.map(([now, held]) => _refused(now, subject, intent)(held)),
-                Effect.catchAll((fault: WebAuthnFault) => Effect.succeed(Option.some(fault.detail))),
+                Effect.catchAll((fault: WebAuthnFault) => Effect.succeed(Option.some(fault.case))),
               ),
               (refusal) => Effect.as(Ref.set(cell, refusal), Option.isNone(refusal)),
             )),
@@ -264,10 +339,10 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
           Effect.catchAll(self, (fault) =>
             Effect.flatMap(Ref.get(cell), Option.match({
               onNone: () => Effect.fail(fault),
-              onSome: (detail) =>
+              onSome: (held) =>
                 Reject.mark("ceremony").pipe(
                   Effect.zipRight(Witness.publish(SecurityFact.Ceremony({ subject, intent }))),
-                  Effect.zipRight(Effect.fail(new WebAuthnFault({ reason: "challenge", detail }))),
+                  Effect.zipRight(Effect.fail(new WebAuthnFault({ case: held }))),
                 ),
             }))),
       }))
@@ -278,10 +353,10 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
       trust.attestationType === "none" || fmt === "none"
         || Array.isNonEmptyReadonlyArray(SettingsService.getRootCertificates({ identifier: fmt }))
         ? Effect.void
-        : Effect.fail(new WebAuthnFault({ reason: "attestation", detail: `${fmt} chain has no pinned root` }))
+        : Effect.fail(new WebAuthnFault({ case: { reason: "attestation", identifier: fmt, cause: "chain has no pinned root" } }))
     const _challenge = cipher.token(_CHALLENGE_BYTES).pipe(
       Effect.mapBoth({
-        onFailure: (cause) => new WebAuthnFault({ reason: "ceremony", detail: cause.detail }),
+        onFailure: (cause) => new WebAuthnFault({ case: { reason: "ceremony", stage: "challenge", cause: cause.message } }),
         onSuccess: Redacted.value,
       }))
     const enrollStart = (subject: Subject["id"], userName: string): Effect.Effect<PublicKeyCredentialCreationOptionsJSON, WebAuthnFault> =>
@@ -297,7 +372,7 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
             timeout: Duration.toMillis(ceremonyTtl), // one config value drives both halves of the window; the library default would expire the dialog four minutes before the phase
             excludeCredentials: existing.map((passkey) => ({ id: passkey.id })),
           }),
-          catch: (cause) => new WebAuthnFault({ reason: "ceremony", detail: String(cause) }),
+          catch: (cause) => new WebAuthnFault({ case: { reason: "ceremony", stage: "options", cause: String(cause) } }),
         })
         yield* _stash(subject, "enroll", options.challenge)
         return options
@@ -310,17 +385,21 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
             response, expectedChallenge: gate.expectedChallenge, expectedOrigin: origin, expectedRPID: rpID,
             requireUserVerification: true, supportedAlgorithmIDs: [..._ALGORITHMS],
           }),
-          catch: (cause) => new WebAuthnFault({ reason: "verification", detail: String(cause) }),
+          catch: (cause) =>
+            new WebAuthnFault({ case: { reason: "verification", intent: "enroll", credential: Option.none(), cause: String(cause) } }),
         }).pipe(Effect.filterOrFail(
           (outcome): outcome is Extract<VerifiedRegistrationResponse, { verified: true }> => outcome.verified,
-          () => new WebAuthnFault({ reason: "verification", detail: "unverified registration" }),
+          () =>
+            new WebAuthnFault({
+              case: { reason: "verification", intent: "enroll", credential: Option.none(), cause: "attestation statement did not verify" },
+            }),
         ), gate.settled)
         yield* _anchored(verified.registrationInfo.fmt)
         const statement = yield* trust.attestationType === "none"
           ? Effect.succeedNone
           : Effect.tryPromise({
               try: () => MetadataService.getStatement(verified.registrationInfo.aaguid),
-              catch: (cause) => new WebAuthnFault({ reason: "attestation", detail: String(cause) }),
+              catch: (cause) => new WebAuthnFault({ case: { reason: "attestation", identifier: "mds", cause: String(cause) } }),
             }).pipe(Effect.orElseSucceed(() => undefined), Effect.map(Option.fromNullable))
         const passkey = new Passkey({
           id: verified.registrationInfo.credential.id, subject, publicKey: verified.registrationInfo.credential.publicKey,
@@ -340,20 +419,28 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
             rpID, challenge, allowCredentials: passkeys.map((passkey) => ({ id: passkey.id })),
             userVerification: "required", timeout: Duration.toMillis(ceremonyTtl),
           }),
-          catch: (cause) => new WebAuthnFault({ reason: "ceremony", detail: String(cause) }),
+          catch: (cause) => new WebAuthnFault({ case: { reason: "ceremony", stage: "options", cause: String(cause) } }),
         })
         yield* _stash(subject, "assert", options.challenge)
         return options
       }).pipe(Effect.withSpan("security.webauthn.assertStart"))
     const assertFinish = (subject: Subject["id"], response: AuthenticationResponseJSON): Effect.Effect<TokenPair, WebAuthnFault | SessionFault> =>
-      curb.guard("webauthn", subject, (detail: string): WebAuthnFault | SessionFault => new WebAuthnFault({ reason: "throttled", detail }))(
+      curb.guard("webauthn", subject, (cause: string): WebAuthnFault | SessionFault => new WebAuthnFault({ case: { reason: "throttled", subject, cause } }))(
         Effect.gen(function* () {
           const passkey = yield* Effect.flatMap(store.byId(response.id), Option.match({
-            onNone: () => Effect.fail(new WebAuthnFault({ reason: "verification", detail: response.id })),
+            onNone: () =>
+              Effect.fail(
+                new WebAuthnFault({
+                  case: { reason: "verification", intent: "assert", credential: Option.some(response.id), cause: "no passkey holds this credential" },
+                }),
+              ),
             onSome: Effect.succeed,
           })).pipe(Effect.filterOrFail(
             (held) => held.subject === subject,
-            () => new WebAuthnFault({ reason: "verification", detail: response.id }),
+            () =>
+              new WebAuthnFault({
+                case: { reason: "verification", intent: "assert", credential: Option.some(response.id), cause: "credential is enrolled to another subject" },
+              }),
           ))
           const gate = yield* _gate(subject, "assert")
           const credential: WebAuthnCredential = {
@@ -362,10 +449,16 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
           }
           const verified = yield* Effect.tryPromise({
             try: () => verifyAuthenticationResponse({ response, credential, expectedChallenge: gate.expectedChallenge, expectedOrigin: origin, expectedRPID: rpID, requireUserVerification: true }),
-            catch: (cause) => new WebAuthnFault({ reason: "verification", detail: String(cause) }),
+            catch: (cause) =>
+              new WebAuthnFault({
+                case: { reason: "verification", intent: "assert", credential: Option.some(passkey.id), cause: String(cause) },
+              }),
           }).pipe(Effect.filterOrFail(
             (outcome) => outcome.verified,
-            () => new WebAuthnFault({ reason: "verification", detail: "unverified assertion" }),
+            () =>
+              new WebAuthnFault({
+                case: { reason: "verification", intent: "assert", credential: Option.some(passkey.id), cause: "assertion signature did not verify" },
+              }),
           ), gate.settled)
           const next = verified.authenticationInfo.newCounter
           yield* next > passkey.counter || (next === 0 && passkey.counter === 0)
@@ -374,7 +467,13 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
                 Effect.zipRight(Witness.publish(SecurityFact.Clone({ subject, passkey: passkey.id }))),
                 Effect.zipRight(Effect.logError("webauthn counter regression — cloned authenticator")),
                 Effect.annotateLogs("passkey", passkey.id),
-                Effect.zipRight(Effect.fail(new WebAuthnFault({ reason: "counter", detail: passkey.id }))),
+                Effect.zipRight(
+                  Effect.fail(
+                    new WebAuthnFault({
+                      case: { reason: "counter", subject, passkey: passkey.id, held: passkey.counter, presented: next },
+                    }),
+                  ),
+                ),
               )
           yield* store.updateCounter(passkey.id, next)
           return yield* token.establish(new CredentialRef({ kind: "webauthn", key: passkey.id }), ["openid"], { tenant: Option.none(), verified: true })
@@ -409,21 +508,67 @@ import {
   type RegistrationResponseJSON, type WebAuthnErrorCode,
 } from "@simplewebauthn/browser"
 import { Fault } from "@rasm/ts/core"
-import { Array, Data, Effect, Option } from "effect"
+import { Array, Effect, Option, Schema } from "effect"
+
+// Two legs partition this half and each reason renders its OWN subject: `ceremony` reasons carry the package's own
+// message for the call that refused, and `capability` reasons carry the closed thing that was missing — the browser
+// feature this page probed for, or the selector it prompts into. A shared free-string `detail` spelled both as prose
+// a caller had to read rather than as a value it could branch on.
+const _CAPABILITIES = ["webauthn", "conditional-ui"] as const
 
 const _family = Fault.Class.family(
   ["aborted", "origin", "options", "authenticator", "enrolled", "passthrough", "unsupported", "anchorless"] as const,
   {
-    aborted: { class: "denied" },
-    origin: { class: "defect" },
-    options: { class: "defect" },
-    authenticator: { class: "denied" },
-    enrolled: { class: "conflicted" },
-    passthrough: { class: "defect" },
-    unsupported: { class: "absent" },
+    aborted: Fault.Class.row({
+      class: "denied",
+      leg: "ceremony",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `ceremony aborted: ${cause}`,
+    }),
+    origin: Fault.Class.row({
+      class: "defect",
+      leg: "ceremony",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `rp id or domain rejected the ceremony: ${cause}`,
+    }),
+    options: Fault.Class.row({
+      class: "defect",
+      leg: "ceremony",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `rp built unusable ceremony options: ${cause}`,
+    }),
+    authenticator: Fault.Class.row({
+      class: "denied",
+      leg: "ceremony",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `authenticator refused the ceremony: ${cause}`,
+    }),
+    enrolled: Fault.Class.row({
+      class: "conflicted",
+      leg: "ceremony",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `authenticator already holds a credential for this account: ${cause}`,
+    }),
+    passthrough: Fault.Class.row({
+      class: "defect",
+      leg: "ceremony",
+      detail: Schema.Struct({ cause: Schema.String }),
+      render: ({ cause }) => `ceremony failed below the package: ${cause}`,
+    }),
+    unsupported: Fault.Class.row({
+      class: "absent",
+      leg: "capability",
+      detail: Schema.Struct({ capability: Schema.Literal(..._CAPABILITIES) }),
+      render: ({ capability }) => `this browser has no ${capability}`,
+    }),
     // Conditional-UI prompt has nowhere to land: this page armed autofill without the field it anchors to, an
     // absent affordance a caller fixes by mounting one, never a device or a browser refusal.
-    anchorless: { class: "absent" },
+    anchorless: Fault.Class.row({
+      class: "absent",
+      leg: "capability",
+      detail: Schema.Struct({ selector: Schema.NonEmptyString }),
+      render: ({ selector }) => `autofill armed with no ${selector} on the page`,
+    }),
   },
 )
 
@@ -445,18 +590,21 @@ const _CODES: Record<WebAuthnErrorCode, PasskeyFault.Reason> = {
 }
 
 declare namespace PasskeyFault {
-  type Reason = (typeof _family.reasons)[number]
+  type Case = typeof _family.payload.Type
+  type Reason = (typeof _family.kinds)[number]
 }
 
-class PasskeyFault extends Data.TaggedError("PasskeyFault")<{
-  readonly reason: PasskeyFault.Reason
-  readonly detail: string
-}> {
+class PasskeyFault extends Schema.TaggedError<PasskeyFault>()("PasskeyFault", {
+  case: _family.payload,
+}) {
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _family.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<passkey:${this.reason}> ${this.detail}`
+    return _family.render(this.case)
   }
 }
 
@@ -470,9 +618,9 @@ const _probed = (ask: () => Promise<boolean>): Effect.Effect<boolean> =>
 // rather than letting the package raise a bare `Error` the code map holds no cell for.
 const _ANCHOR = "input[autocomplete$='webauthn']"
 
-type _Gate = { readonly met: boolean; readonly reason: PasskeyFault.Reason; readonly detail: string }
+type _Gate = { readonly met: boolean; readonly case: PasskeyFault.Case }
 
-const _supported = (): _Gate => ({ met: browserSupportsWebAuthn(), reason: "unsupported", detail: "webauthn unsupported" })
+const _supported = (): _Gate => ({ met: browserSupportsWebAuthn(), case: { reason: "unsupported", capability: "webauthn" } })
 
 // Gates are stated per entry and the FIRST unmet row is the refusal, so an unsupported browser, a browser without
 // conditional UI, and a page missing its autofill field answer as three acts a caller can take.
@@ -483,10 +631,10 @@ const _lift = <A>(gates: ReadonlyArray<_Gate>, run: () => Promise<A>): Effect.Ef
         try: run,
         catch: (cause) =>
           cause instanceof WebAuthnError
-            ? new PasskeyFault({ reason: _CODES[cause.code], detail: cause.message })
-            : new PasskeyFault({ reason: "passthrough", detail: String(cause) }),
+            ? new PasskeyFault({ case: { reason: _CODES[cause.code], cause: cause.message } })
+            : new PasskeyFault({ case: { reason: "passthrough", cause: String(cause) } }),
       }),
-    onSome: ({ detail, reason }) => Effect.fail(new PasskeyFault({ reason, detail })),
+    onSome: ({ case: held }) => Effect.fail(new PasskeyFault({ case: held })),
   })
 
 const Passkeys = {
@@ -499,8 +647,8 @@ const Passkeys = {
       _lift(
         [
           _supported(),
-          { met: ready, reason: "unsupported", detail: "conditional ui unsupported" },
-          { met: document.querySelectorAll(_ANCHOR).length > 0, reason: "anchorless", detail: _ANCHOR },
+          { met: ready, case: { reason: "unsupported", capability: "conditional-ui" } },
+          { met: document.querySelectorAll(_ANCHOR).length > 0, case: { reason: "anchorless", selector: _ANCHOR } },
         ],
         // `verifyBrowserAutofillInput` stays pinned TRUE behind the anchor gate, so a library default flip drops
         // neither check and the prompt never arms over a field that is not there.

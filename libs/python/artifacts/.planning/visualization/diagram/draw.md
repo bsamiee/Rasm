@@ -28,10 +28,11 @@ from typing import Final, Literal, assert_never
 import drawsvg as draw
 import ziafont
 from expression import Error, Ok, Result, case, tag, tagged_union
-from expression.collections import Map
+from expression.collections import Block, Map
 from msgspec import Struct, json
 
 from builtins import frozendict
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.graphic.color.derive import Palette, hex_ramp
@@ -53,7 +54,7 @@ from rasm.artifacts.visualization.diagram.glyphset import (
     TextAnchor,
     TextRun,
 )
-from rasm.runtime.faults import BoundaryFault, RuntimeRail
+from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, rostered
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
@@ -140,6 +141,17 @@ _DRAWIO_CAP: Final[Map[EndCap, tuple[str, bool]]] = Map.of_seq([
 ])
 
 
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's ONE raise anchor. The render target leaves the SUBJECT and stays request data — one fence covers every
+# target and the `DrawFault` case carries the defect — so the coordinate is the fence, never the request. TRANSIENT:
+# a provider render refusal is a defect a re-issue under repaired inputs may clear.
+DRAW_RENDER: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.DRAW, point="render", arm="boundary", defect="draw-refused", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([DRAW_RENDER]))
+
 # --- [MODELS] ---------------------------------------------------------------------------
 @tagged_union(frozen=True)
 class DrawArtifact:
@@ -221,7 +233,9 @@ class DiagramDraw(Struct, frozen=True):
         )
 
     def _fault(self, fault: DrawFault, /) -> BoundaryFault:
-        return BoundaryFault(boundary=(f"diagram.draw.{self.target}", fault.tag))
+        # the typed `DrawFault` crosses WHOLE on `domain`, so its case and kwargs stay matchable; the retired
+        # `fault.tag` projection reached a consumer as a bare string with the evidence already discarded.
+        return BoundaryFault(domain=(DRAW_RENDER.subject, fault))
 
     def _rendered(self, key: ContentKey, /) -> Result[tuple[DrawArtifact, ArtifactReceipt], DrawFault]:
         # one synchronous render kernel; crosses the runtime thread lane carrying the pre-run key its arms stamp.

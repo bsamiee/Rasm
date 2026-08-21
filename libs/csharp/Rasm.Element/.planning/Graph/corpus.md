@@ -2,9 +2,9 @@
 
 `GraphForge` owns deterministic synthetic models and the graded roster shared by benchmarks, property specifications, and cross-runtime parity. `CorpusProfile` closes occurrence count, edge density, bag width, discipline mix, composition depth, the observation and flavor witness cadences, and the seed. `GraphForge.Mint` admits every forged node and edge through `GraphDelta.AdmitOnto` over `Genesis`, exercising `LegalLink`, freeze, and incidence construction, and yields a second MUTATION delta carrying the removal and revision sections a creating delta leaves empty.
 
-Occurrence ids derive from kernel `ContentHash` over `(seed, lane, ordinal)` and carry the Guid-v7 layout. Type ids use `NodeId.RootedType`; non-rooted ids use `NodeId.Content`. Magnitudes and index draws derive from the kernel `Deterministic` splitmix stream, never from a digest, so identity and derivation stay two rails. Each grade therefore reproduces one snapshot fingerprint on every runtime sharing the seed-zero content rail.
+Occurrence ids derive from kernel `ContentHash` over `(seed, lane, ordinal)` and carry the Guid-v7 layout. Type ids mint through `NodeId.Of(NodeSeed.TypeSeed)`; non-rooted ids through `NodeId.Of(NodeSeed.Content)`. Magnitudes and index draws derive from the kernel `Deterministic` splitmix stream, never from a digest, so identity and derivation stay two rails. Each grade therefore reproduces one snapshot fingerprint on every runtime sharing the seed-zero content rail.
 
-`GraphForge` composes the existing `ElementGraph`, `GraphDelta`, `ContentAddress`, `CanonicalWriter`, `ElementWire`, and `GraphTable` owners. Forged payloads re-enter `Classification.Of`, `PropertyValue.Of`, `MeasureValue.OfSi`, `MaterialComposition.Of*`, `MaterialPropertySet.Of*`, `MaterialUsage.LayerSet.Of`/`ProfileSet.Of`, `CoverageGrid.Of`, `AssessmentPayload.Computed`, and `AnalysisRoute.Of`; every refusal carries `ElementFault`.
+`GraphForge` composes the existing `ElementGraph`, `GraphDelta`, `ContentAddress`, `CanonicalWriter`, `ElementWire`, and `GraphTable` owners. Forged payloads re-enter `Classification.Of`, `PropertyValue.Of`, `MeasureValue.OfSi`, `MaterialComposition.Of*`, `MaterialPropertySet.Of*`, `MaterialUsage.LayerSet.Of`/`ProfileSet.Of`, `CoverageGrid.Of`, `AssessmentPayload.Open`, and `AnalysisRoute.Of`; each refusal retains its owning kernel or Element fault.
 
 ## [01]-[INDEX]
 
@@ -14,18 +14,19 @@ Occurrence ids derive from kernel `ContentHash` over `(seed, lane, ordinal)` and
 ## [02]-[GRAPH_FORGE]
 
 - Owner: `CorpusProfile` the closed generation-parameter record — occurrence count, `[0,1]` edge density, bag width, discipline mix, composition depth, type-reuse ratio, observation stride and sample count, flavor stride, seed — railed through `Of`; `GraphForge` the deterministic realization fold.
-- Entry: `CorpusProfile.Of(nodes, density, bagWidth, disciplines, depth, seed, key, typeRatio, observationStride, observationSamples, flavorStride)` admits positive counts, a unit-interval density, a non-empty discipline mix, a depth of at least one, and positive reuse, stride, and sample columns, railing `ElementFault.ValueRejected` otherwise; `GraphForge.Mint(profile, key)` realizes the profile into `Fin<(ElementGraph Graph, GraphDelta Delta, GraphDelta Mutation)>` — the frozen snapshot a benchmark folds, the creating event body, and the change record the delta wire leg decodes.
-- Auto: `Mint` builds one shared corpus header (`Header.Default` over the fixed corpus instant, so header bytes never fork a grade), one `Node.Material` per type slot whose composition cycles the four `MaterialComposition` arms by slot ordinal and whose property bag carries the WHOLE twelve-case engineering roster, one deterministic Type `Object` per slot (id through the production `NodeId.RootedType` over `ToTypeSeedBytes`), then per occurrence one seeded Guid-v7 `Object`, one property bag of `BagWidth` rows whose value case steps the fourteen-case `PropertyValue` family off the flat slot ordinal (its quotient stepping the five `TemporalValue` leaves), one quantity bag row through `MeasureValue.OfSi`, one `Computed` assessment cycling the discipline mix, and — every `ObservationStride`-th occurrence — one `ObservationSeries` opened at the corpus instant and grown by one `Encode`-minted chunk under a `From`-derived summary; one shared `Node.Appearance` and one `Node.Coverage` whose smallest-admissible base grid carries one `Coarsen`-derived `OverviewLevel` and one `TimeSlice` (both raster keys off the corpus lattice lane) that the whole model associates to; edges land as the `Aggregate` fanout spine (depth-derived fanout), the `PropertyDefinition`/`Assessment`/`TypeDefinition`/`Observation` assigns, the material `Associate`s carrying the `MaterialUsage` arm their material's composition slot selects (`LayerSet` and `ProfileSet` usage on the matching composition slots, the explicit `None` arm elsewhere), the witness-resource `Associate`s under `MaterialUsage.None`, `⌊density·nodes⌋` seeded `Connect` adjacencies, and — every `FlavorStride`-th occurrence — the `Compose.Contain`/`Nest`/`Reference` flavors, a `Void`, a realized `Connect` (on the strided pairs past occurrence zero) carrying occurrence zero as its distinct realizing intermediary beside a content-lane `Interface` key, and a `Generic` burying a `PropertyValue.Reference` in its attribute map. `AdmitOnto(Genesis(header))` admits the assembled normal-form delta, so `LegalLink` runs per forged edge.
-- Law: `Mint`'s witness run closes exactly six families, one optional-slot pair, and two section pairs, and claims nothing wider — every `Node` case, every `Relationship` flavor, every `MaterialComposition` arm, every `MaterialPropertySet` case, every `MaterialUsage` arm, and every `PropertyValue` case with every `TemporalValue` leaf cross a graded witness; the strided `Connect` carries both optional slots (the realizing intermediary and the interface key), the coverage witness carries its overview and slice runs, and the mutation delta carries the removal and revision sections. Each cycle steps an ORDINAL whose run outsizes its family at the SMALLEST grade — four type slots against four composition arms and against the three usage arms riding the same slot ordinal, the whole twelve-case roster on every material, `Nodes × BagWidth` value slots against the fourteen cases times five leaves — so totality is a property of the arithmetic rather than of a grade's size. Sampled-curve coverage rides the thermal witness's `Some` conductivity curve, so `SampledCurveWire`, the `OptCurve` decode re-admission, and the `Curve` canon write cross every grade; the remaining curve columns ride `None`, so both presence duals witness.
-- Receipt: the mint result carries the frozen graph, the creating normal-form delta, and the mutation delta; `ContentAddress.OfGraph` supplies the snapshot's reproducibility fingerprint and `GraphDelta.ToCanonicalBytes` the mutation's.
-- Packages: LanguageExt.Core (`Fin`/`Seq`/`Map`/`TraverseM`), Thinktecture.Runtime.Extensions (generated owners), NodaTime (`Instant.FromUnixTimeTicks`/`Duration.Zero` fixed provenance, `Period`/`LocalDate`/`LocalTime` the temporal leaves), `Rasm` (`ContentHash` the id rail, `Deterministic.Stream`/`Unit`/`NextBelow` the draw rail, `Op`), `Projection/fault#ADMISSION_SLOTS` (`Gate` the normal-form slot), and System.Buffers.Binary (`BinaryPrimitives` Guid shaping).
+- Entry: `CorpusProfile.Of(nodes, density, bagWidth, disciplines, depth, seed, key, typeRatio, observationStride, observationSamples, flavorStride)` admits positive counts, a unit-interval density, a non-empty discipline mix, a depth of at least one, and positive reuse, stride, and sample columns; numeric refusals stay `KernelFault.OutOfRange` while the empty discipline mix remains an Element semantic refusal; `GraphForge.Mint(profile, key)` realizes the profile into `Fin<(ElementGraph Graph, GraphDelta Delta, GraphDelta Mutation)>` — the frozen snapshot a benchmark folds, the creating event body, and the change record the delta wire leg decodes.
+- Auto: `Mint` builds one shared corpus header (`Header.Default` over the fixed corpus instant, WIDENED with a populated `StepHeader` and a one-override/one-axis `UnitScheme` — constants, so header bytes still never fork a grade), one `Node.Material` per type slot whose composition cycles the four `MaterialComposition` arms by slot ordinal and whose property bag carries the WHOLE twelve-case engineering roster, one deterministic Type `Object` per slot (id through the production `NodeId.Of(NodeSeed.TypeSeed)` streamed over `WriteIdentity`), then per occurrence one seeded Guid-v7 `Object`, one property bag of `BagWidth` rows whose value case steps the fourteen-case `PropertyValue` family off the flat slot ordinal (its quotient stepping the five `TemporalValue` leaves), one quantity bag row through `MeasureValue.OfSi`, one `Computed` assessment cycling the discipline mix, and — every `ObservationStride`-th occurrence — one `ObservationSeries` opened at the corpus instant and grown by one `Encode`-minted chunk under a `From`-derived summary; one shared `Node.Appearance` and one `Node.Coverage` whose smallest-admissible level run carries the one-cell base and its `Coarsen`-derived successor (both blob keys off the corpus lattice lane) that the whole model associates to; edges land as the `Aggregate` fanout spine (depth-derived fanout), the `PropertyDefinition`/`Assessment`/`TypeDefinition`/`Observation` assigns, the material `Associate`s carrying the `MaterialUsage` arm their material's composition slot selects (`LayerSet` and `ProfileSet` usage on the matching composition slots, the explicit `Unbound` arm elsewhere), the witness-resource `Associate`s under `MaterialUsage.Unbound`, `⌊density·nodes⌋` seeded `Connect` adjacencies, and — every `FlavorStride`-th occurrence — the `Compose.Contain`/`Nest`/`Reference` flavors, a `Void`, a realized `Connect` (on the strided pairs past occurrence zero) carrying occurrence zero as its distinct realizing intermediary beside a content-lane `Interface` key, and a `Generic` burying a `PropertyValue.Reference` in its attribute map. `AdmitOnto(Genesis(header))` admits the assembled normal-form delta, so `LegalLink` runs per forged edge.
+- Law: `Mint`'s witness run closes exactly six families, the optional-slot and presence duals (the realized `Connect` pair, the strided `OwnerHistory` with its alternating `Modified`, the alternating `EvidenceRun` window/correlation, the cycling `EvidenceGrade` roster with its expiry/attestation/run duals, the baked `ProfileSet` section), and two section pairs, and claims nothing wider — every `Node` case, every `Relationship` flavor, every `MaterialComposition` arm, every `MaterialPropertySet` case, every `MaterialUsage` arm, and every `PropertyValue` case with every `TemporalValue` leaf cross a graded witness; the strided `Connect` carries both optional slots (the realizing intermediary and the interface key), the coverage witness carries its two-level `Coarsen` run, and the mutation delta carries the removal and revision sections. Each cycle steps an ORDINAL whose run outsizes its family at the SMALLEST grade — four type slots against four composition arms and against the three usage arms riding the same slot ordinal, the whole twelve-case roster on every material, `Nodes × BagWidth` value slots against the fourteen cases times five leaves — so totality is a property of the arithmetic rather than of a grade's size. Sampled-curve coverage rides the thermal witness's `Some` conductivity curve, so `SampledCurveWire`, the `OptCurve` decode re-admission, and the `Curve` canon write cross every grade; the remaining curve columns ride `None`, so both presence duals witness.
+- Receipt: the mint result carries the frozen graph, the creating normal-form delta, and the mutation delta; `ContentAddress.OfGraph` supplies the snapshot's reproducibility fingerprint and `GraphDelta.Address` the mutation's.
+- Packages: LanguageExt.Core (`Fin`/`Seq`/`Map`/`TraverseM`), Thinktecture.Runtime.Extensions (generated owners), NodaTime (`Instant.FromUnixTimeTicks`/`Interval`/`Duration`, `Period`/`LocalDate`/`LocalTime` the temporal leaves), `Rasm` (`ContentHash`, `Deterministic.Stream`/`Unit`/`NextBelow`, `Op`, `Rasm/Domain/validation#ADMISSION_SLOTS`, `Rasm.Numerics`, `Rasm.Drawing`), `Graph/wire#WIRE_CODEC` (`ElementWire`, the `CrossingFamily` widths, `Graph/wire#EVENT_ENVELOPE` the announced crossing), `Graph/table#TABULATE_FOLD` (the `Tabulate` op row), and System.Buffers.Binary (`BinaryPrimitives` Guid shaping).
 - Growth: a new `Node` case or `Relationship` flavor is one witness row in the assembly; a new arm on any cycled family is one factory row beside its incremented arity const, which is what keeps the ordinal cycle total; a new payload family in the forge is one kernel arm beside the existing node kernels; a new generation axis is one `CorpusProfile` column threaded into the kernels, and a new random axis is one draw lane on `Deterministic` — never a sibling forge, never a parameter whose value the seed cannot replay, and never a magnitude projected off an id digest.
-- Boundary: the forge composes ONLY the seam's own admissions — a raw case constructor bypassing `Classification.Of`, `MeasureValue.OfSi`, or `AssessmentPayload.Computed` forges models no production projector can produce, so every railed admission the graph demands runs inside `Mint`; the delta is constructed wholesale in normal form (ids unique by the seeded stream) and still crosses `AdmitOnto` — `ReplayOnto` trusts only seam-produced deltas and the forge counts as foreign to the structural law; determinism never rides a runtime PRNG — a `Random(seed)` stream couples the corpus to a BCL implementation — and it splits by AXIS across the two kernel owners: an ID replays through `ContentHash` over `(seed, lane, ordinal)` and a MAGNITUDE or index draw through `Deterministic`, so neither a hash-seeded sampler (which the kernel rejects by design) nor a modulo-biased projection off a digest survives here; the generation loops are the named measured-kernel statement seam, confined to the forge kernels.
+- Boundary: the forge composes ONLY the seam's own admissions — a raw case constructor bypassing `Classification.Of`, `MeasureValue.OfSi`, or `AssessmentPayload.Open` forges models no production projector can produce, so every railed admission the graph demands runs inside `Mint`; the delta is constructed wholesale in normal form (ids unique by the seeded stream) and still crosses `AdmitOnto` — `ReplayOnto` trusts only seam-produced deltas and the forge counts as foreign to the structural law; determinism never rides a runtime PRNG — a `Random(seed)` stream couples the corpus to a BCL implementation — and it splits by AXIS across the two kernel owners: an ID replays through `ContentHash` over `(seed, lane, ordinal)` and a MAGNITUDE or index draw through `Deterministic`, so neither a hash-seeded sampler (which the kernel rejects by design) nor a modulo-biased projection off a digest survives here; the generation loops are the named measured-kernel statement seam, confined to the forge kernels.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using System.Buffers;
 using System.Buffers.Binary;
+using CloudNative.CloudEvents;
 using Google.Protobuf;
 using LanguageExt;
 using NodaTime;
@@ -41,12 +42,39 @@ using Rasm.Element.Relations;
 using Rasm.Numerics;
 using Thinktecture;
 using static LanguageExt.Prelude;
-using static Rasm.Element.Projection.AdmissionSlots;
+using static Rasm.Domain.AdmissionSlots;
 // LatticeAxis names the kernel lattice-axis reading of Dimension — the kernel count and the seam's physical
 // 7-vector share the spelling — so the enclosing-namespace Dimension stays the bare SI signature.
 using LatticeAxis = Rasm.Numerics.Dimension;
 
 namespace Rasm.Element.Graph;
+
+// --- [TYPES] ------------------------------------------------------------------------------
+// The two lane usages — an ID lane feeds the ContentHash identity fold, a DRAW lane the Deterministic stream — so
+// the two-rail law is a column, never a comment.
+[SmartEnum<string>]
+public sealed partial class LaneUse {
+ public static readonly LaneUse Id = new("id");
+ public static readonly LaneUse Draw = new("draw");
+}
+
+// The ONE lane roster: identity and derivation lanes in one closed [SmartEnum<int>] whose key uniqueness IS the
+// disjointness proof — three consts asserted it and six inline literals made it uncheckable, where a new lane
+// colliding with a held ordinal now throws at type initialization instead of silently skewing a corpus.
+[SmartEnum<int>]
+public sealed partial class CorpusLane {
+ public static readonly CorpusLane Material = new(0, LaneUse.Id);
+ public static readonly CorpusLane Type = new(1, LaneUse.Id);
+ public static readonly CorpusLane Occurrence = new(2, LaneUse.Id);
+ public static readonly CorpusLane AssessmentInput = new(3, LaneUse.Id);
+ public static readonly CorpusLane Adjacency = new(4, LaneUse.Draw);
+ public static readonly CorpusLane Value = new(5, LaneUse.Draw);
+ public static readonly CorpusLane Observation = new(6, LaneUse.Draw);
+ public static readonly CorpusLane Lattice = new(7, LaneUse.Id);
+ public static readonly CorpusLane Interface = new(8, LaneUse.Id);
+
+ public LaneUse Use { get; }
+}
 
 // --- [MODELS] -----------------------------------------------------------------------------
 // Closed generation-parameter record: Nodes counts OCCURRENCE objects (types, materials, bags, and
@@ -82,17 +110,25 @@ public sealed record CorpusProfile {
  // Aggregate spine fanout implied by depth: each occurrence i > 0 composes under occurrence (i-1)/Fanout.
  public int Fanout => Math.Max(2, (int)Math.Ceiling(Math.Pow(Nodes, 1.0 / Depth)));
 
- // ValueSlots counts the flat property-value run a grade forges — BagWidth rows on each of Nodes occurrences.
- // Closing both closed families needs PropertyCases * TemporalArms slots, which the smallest grade clears.
- public int ValueSlots => Nodes * BagWidth;
-
+ // TEN independent columns ACCUMULATE through the folder's ruled slot algebra, so a grade authored with three bad
+ // columns names all three — the one combined-token short-circuit was the folder's last first-fault admission.
+ // (The flat value-slot arithmetic Nodes × BagWidth against PropertyCases × TemporalArms lives on the [02] Law
+ // card — the member that counted it had zero readers.)
  public static Fin<CorpusProfile> Of(
   int nodes, double density, int bagWidth, Seq<Discipline> disciplines, int depth, long seed, Op key,
   int typeRatio = 16, int observationStride = 4, int observationSamples = 16, int flavorStride = 8) =>
-  nodes > 0 && density is >= 0.0 and <= 1.0 && bagWidth > 0 && !disciplines.IsEmpty && depth > 0 && typeRatio > 0
-   && observationStride > 0 && observationSamples > 0 && flavorStride > 0
-   ? Fin.Succ(new CorpusProfile(nodes, density, bagWidth, disciplines, depth, typeRatio, observationStride, observationSamples, flavorStride, seed))
-   : ElementFault.ValueRejected(key, $"<corpus-profile-invalid:{nodes}:{density}:{bagWidth}:{depth}:{typeRatio}:{observationStride}:{observationSamples}:{flavorStride}>");
+  Accumulate(Seq(
+    In(nodes, Band.Positive, "corpus-profile-nodes", key).Map(static _ => unit),
+    In(density, Band.Unit, "corpus-profile-density", key).Map(static _ => unit),
+    In(bagWidth, Band.Positive, "corpus-profile-bag-width", key).Map(static _ => unit),
+    Gate(!disciplines.IsEmpty, key, "<corpus-profile-disciplines-empty>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
+    In(depth, Band.Positive, "corpus-profile-depth", key).Map(static _ => unit),
+    In(typeRatio, Band.Positive, "corpus-profile-type-ratio", key).Map(static _ => unit),
+    In(observationStride, Band.Positive, "corpus-profile-observation-stride", key).Map(static _ => unit),
+    In(observationSamples, Band.Positive, "corpus-profile-observation-samples", key).Map(static _ => unit),
+    In(flavorStride, Band.Positive, "corpus-profile-flavor-stride", key).Map(static _ => unit)))
+   .Map(_ => new CorpusProfile(nodes, density, bagWidth, disciplines, depth, typeRatio, observationStride, observationSamples, flavorStride, seed))
+   .ToFin();
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -107,34 +143,39 @@ public sealed record CorpusProfile {
 // Generation loops are the named measured-kernel statement seam.
 public static class GraphForge {
  const long CorpusUnixTicks = 17_672_256_000_000_000L;
- // Draw lanes stay distinct from the id lanes the Seed fold owns: identity and derivation never share a stream, so a
- // lane number here never collides with one there even though both key off the same profile seed.
- const long ObservationLane = 6L;
- const long AdjacencyLane = 4L;
- const long ValueLane = 5L;
- // Each arity const counts a closed family declared at its own owner, stepped by the ordinal cycles: a new arm
- // there lands as one factory row here beside the incremented count, and a cycle running short of its family is
- // precisely the unwitnessed arm the totality claim forbids.
- const int PropertyCases = 14;
- const int TemporalArms = 5;
- const int CompositionArms = 4;
- const int PropertySetCases = 12;
+ // Family widths read the ONE union-arity owner (Graph/wire#WIRE_CODEC CrossingFamily) — the four hand consts that
+ // mirrored it were the second spelling of one invariant, and a new arm now lands as one factory row here with the
+ // width already moved at the owner.
+ static int PropertyCases => CrossingFamily.PropertyValue.Arms;
+ static int TemporalArms => CrossingFamily.TemporalValue.Arms;
+ static int CompositionArms => CrossingFamily.MaterialComposition.Arms;
+ static int PropertySetCases => CrossingFamily.MaterialPropertySet.Arms;
  // CorpusLatticeSeed keys the witness coverage's raster off its own lane, so a model's fingerprint never depends on the profile.
  const long CorpusLatticeSeed = 0L;
  static readonly Instant CorpusInstant = Instant.FromUnixTimeTicks(CorpusUnixTicks);
  // Draft carries the non-rooted placeholder id: every node minted through Contented re-stamps from its OWN canonical
  // bytes, which exclude the id, so the draft slot holds one named placeholder rather than a Seeded(0,0,0) triple a
  // reader has to prove is never a real lane.
- static readonly NodeId Draft = Seeded(0, 0, 0);
+ static readonly NodeId Draft = Seeded(0, CorpusLane.Material, 0);
  static readonly Duration CorpusCadence = Duration.FromMinutes(15);
 
  // Mint yields THREE values: the frozen snapshot, the Genesis-rooted creating delta, and the MUTATION delta — a
  // second change record over the same minted nodes carrying the removal and revision sections a creating delta leaves
  // empty, so the delta wire's own removed/revised sections and DecodeDelta's normal-form gate reach a graded witness.
- // Both deltas cross IsNormalForm before use: the seeded id stream makes normal form true by construction, and the
+ // Both deltas cross NormalForm before use: the seeded id stream makes normal form true by construction, and the
  // gate is what turns a new witness row's id-lane collision into a named refusal rather than a silent coalesce.
  public static Fin<(ElementGraph Graph, GraphDelta Delta, GraphDelta Mutation)> Mint(CorpusProfile profile, Op key) {
-  Header header = Header.Default(CorpusInstant);
+  // The corpus header carries a POPULATED step header and a non-SI unit scheme (one override, one mm axis), so the
+  // StepHeader columns and the four S-E2 unit-scheme wire faces cross every grade instead of riding empty defaults;
+  // the values are constants, so header bytes still never fork a grade.
+  Header header = Header.Default(CorpusInstant) with {
+   Step = new StepHeader(Seq("corpus"), "corpus-model", CorpusInstant, Seq("GraphForge"), Seq("Rasm"),
+    "GraphForge", "Rasm.Element", Seq(ReleaseVersion.Ifc4X3Add2.Key)),
+   Units = new UnitScheme(
+    Map((QuantityType.Create("Length"), "Millimeter")),
+    Map((DimensionAxis.Length, new UnitAxis(0.001, 0.0, "mm"))),
+    "", "G"),
+  };
   double tol = header.Tolerance;
   int typeCount = profile.TypeSlots;
   return Classification.Of("corpus", "component", key).Bind(typeClass =>
@@ -155,7 +196,7 @@ public static class GraphForge {
 
  // Normalized is the shape gate every forged delta crosses before use or admission.
  static Fin<GraphDelta> Normalized(GraphDelta delta, string section, Op key) =>
-  Gate(delta.IsNormalForm, key, $"<corpus-delta-not-normal-form:{section}>").ToFin().Map(_ => delta);
+  delta.NormalForm(key).ToFin().Map(_ => delta);
 
  // One measured series per strided occurrence, each opened at the corpus instant and grown by ONE real encoded
  // chunk — the forge crosses Open, Encode, From, and Append exactly as a live producer does, so a codec or
@@ -164,18 +205,21 @@ public static class GraphForge {
  // fresh Open carries zero prior samples, so this block's From result IS that total. Appending a second chunk to
  // one series recomputes From over the concatenated run — a per-chunk summary appended second refuses at the
  // census gate rather than landing a series whose statistics describe its tail alone.
- static Fin<Seq<(int Index, ObservationSeries Series)>> Series(CorpusProfile profile, Op key) =>
-  toSeq(Enumerable.Range(0, profile.Nodes)).Filter(i => i % profile.ObservationStride == 0).TraverseM(i =>
+ static Fin<Seq<(int Index, ObservationSeries Series)>> Series(CorpusProfile profile, Op key) {
+  // ONE admitted signature feeds Open and From alike — the coherence proof runs once, the two consumers share it.
+  QuantitySignature quantity = QuantitySignature.Create(
+   QuantityType.Create("Temperature"), Dimension.Create(0, 0, 0, 0, 1, 0, 0), Some("K"));
+  return toSeq(Enumerable.Range(0, profile.Nodes)).Filter(i => i % profile.ObservationStride == 0).TraverseM(i =>
    SensorId.Of($"corpus-sensor-{i}", key).Bind(sensor =>
     ObservationSeries.Open(
-      sensor, PropertyName.Create("corpus-aspect"), QuantityType.Create("Temperature"),
-      Dimension.Create(0, 0, 0, 0, 1, 0, 0), "K", SamplingKind.Averaged, Some(CorpusCadence),
-      CorpusInstant, new SensorProvenance("corpus", "GraphForge", $"{i}"), key)
+      sensor, PropertyName.Create("corpus-aspect"), quantity, SamplingKind.Averaged, Some(CorpusCadence),
+      CorpusInstant, Some(new SensorProvenance("corpus", "GraphForge", $"{i}")), key)
      .Bind(opened => Chunked(profile, i, key).Bind(block =>
       SeriesStatistics
-       .From(block.Run, SamplingKind.Averaged, QuantityType.Create("Temperature"), Dimension.Create(0, 0, 0, 0, 1, 0, 0), "K", key)
+       .From(block.Run, SamplingKind.Averaged, quantity, key)
        .Bind(summary => opened.Append(block.Chunk, summary, key))))
      .Map(grown => (i, grown)))).As();
+ }
 
  // Seeded sample run: instants advance by the declared cadence off the corpus instant and each magnitude derives
  // from the one seed fold, so bytes, content key, and summary replay identically on every runtime sharing the seed.
@@ -187,41 +231,49 @@ public static class GraphForge {
   Seq<(Instant At, double Si, ObservationGrade Grade)> run =
    toSeq(Enumerable.Range(0, profile.ObservationSamples)).Map(s => (
     CorpusInstant + (CorpusCadence * s),
-    290.0 + (Deterministic.Unit(lanes: [ObservationLane, index, s], seed: profile.Seed) * 10.0),
+    290.0 + (Deterministic.Unit(lanes: [CorpusLane.Observation.Key, index, s], seed: profile.Seed) * 10.0),
     s % 8 == 7 ? ObservationGrade.Suspect : ObservationGrade.Measured));
   return ObservationChunk.Encode(run, key).Map(block => (block.Chunk, run));
  }
 
  // Seed-derived rooted id: kernel ContentHash over (seed, lane, ordinal) shaped into the Guid-v7 layout
- // NodeId.Rooted emits — version nibble and RFC variant forced, time-sortability surrendered for replay.
- static NodeId Seeded(long seed, int lane, int ordinal) {
+ // a NodeSeed.Placement mint emits — version nibble and RFC variant forced, time-sortability surrendered for replay.
+ static NodeId Seeded(long seed, CorpusLane lane, int ordinal) =>
+  NodeId.Create(SeededGuid(seed, lane, ordinal).ToString("N"));
+
+ // Guid-v7 shaping over the seed fold — the id projection and the correlation witness share one byte law.
+ static Guid SeededGuid(long seed, CorpusLane lane, int ordinal) {
   Span<byte> b = stackalloc byte[16];
   BinaryPrimitives.WriteUInt128LittleEndian(b, Seed(seed, lane, ordinal));
   b[7] = (byte)((b[7] & 0x0F) | 0x70);
   b[8] = (byte)((b[8] & 0x3F) | 0x80);
-  return NodeId.Create(new Guid(b).ToString("N"));
+  return new Guid(b);
  }
 
  // One seed fold owns every lane; id and payload projections consume its UInt128 result.
- static UInt128 Seed(long seed, int lane, int ordinal) {
-  CanonicalWriter w = new(0.0);
-  w.I64(seed).Ordinal(lane).Ordinal(ordinal);
-  return ContentHash.Of(w.ToBytes().Span);
- }
+ static UInt128 Seed(long seed, CorpusLane lane, int ordinal) =>
+  ContentHash.Of((seed, lane, ordinal), static (s, w) => w.I64(s.seed).Ordinal(s.lane.Key).Ordinal(s.ordinal));
 
  // Non-rooted mint: content-derive the id from the draft's own canonical bytes (id-excluded, so a shared
- // placeholder-safe: bytes exclude the id) and re-stamp — the NodeId.Content regime at the forge altitude.
+ // placeholder-safe: the projection excludes the id) and re-stamp — the NodeSeed.Content regime at the forge altitude.
  static Node Contented(Node draft, double tol) =>
-  draft.Relabel(NodeId.Content(draft.ToCanonicalBytes(tol).Span));
+  draft.Relabel(NodeId.Of(new NodeSeed.Content(draft, tol)));
 
  static Fin<Seq<AssessmentPayload>> Assessments(CorpusProfile profile, AnalysisRoute route, Op key) =>
   toSeq(Enumerable.Range(0, profile.Nodes)).TraverseM(i =>
    PropertyValue.Of(new PropertyValue.Number(0.5 + (i % 7) * 0.05), key).Bind(utilization =>
-    AssessmentPayload.Computed(
-     profile.Disciplines[i % profile.Disciplines.Count], route, Seed(profile.Seed, lane: 3, i),
-     Map((PropertyName.Create("corpus-utilization"), utilization)), None,
-     new Provenance("corpus", "GraphForge", "1", CorpusInstant, Duration.Zero, None, None, 1), key,
-     Seq<NodeId>()))).As();
+    // Both audit presence duals cross: even ordinals carry the window, odd ones the correlation, so the wire's
+    // window pair and correlation token each witness beside their absent arms.
+    from run in EvidenceRun.Of("corpus", "GraphForge", "1", CorpusInstant, key,
+      elapsed: Duration.FromSeconds(1 + (i % 3)),
+      window: i % 2 == 0 ? Some(new Interval(CorpusInstant, CorpusInstant + Duration.FromHours(1))) : None,
+      correlation: i % 2 == 1 ? Some(CorrelationId.Create(SeededGuid(profile.Seed, CorpusLane.AssessmentInput, i))) : None,
+      attempt: 1)
+    from content in PayloadContent.Results(Map((PropertyName.Create("corpus-utilization"), utilization)), None, key)
+    from payload in AssessmentPayload.Open(
+     profile.Disciplines[i % profile.Disciplines.Count], route, Seed(profile.Seed, CorpusLane.AssessmentInput, i),
+     AssessmentOutcome.Computed, content, run, key)
+    select payload)).As();
 
  // One property bag (BagWidth rows) and one quantity bag (a single [L3] volume row through the OfSi registry gate)
  // per occurrence — the counted-bag canonical layout every parity consumer re-hashes. Each property row's VALUE CASE
@@ -235,8 +287,8 @@ public static class GraphForge {
       .Map(value => (PropertyName.Create($"corpus-p{j}"), value))).As()
     .Bind(rows => MeasureValue.OfSi(QuantityType.Create("Volume"), Dimension.Create(3, 0, 0, 0, 0, 0, 0), 1.0 + i * 0.5)
      .Map(volume => (
-      new PropertyBag("corpus-pset", rows.Fold(Map<PropertyName, PropertyValue>(), static (m, r) => m.Add(r.Item1, r.Item2)), InheritanceMode.OccurrenceWins, PropertySource.Derived),
-      new QuantityBag("corpus-qset", Map((PropertyName.Create("corpus-q0"), volume)), InheritanceMode.OccurrenceWins, PropertySource.Derived))))).As();
+      new PropertyBag("corpus-pset", rows.Fold(Map<PropertyName, PropertyValue>(), static (m, r) => m.Add(r.Item1, r.Item2)), InheritanceMode.OccurrenceWins, EvidenceGrade.Derived),
+      new QuantityBag("corpus-qset", Map((PropertyName.Create("corpus-q0"), volume)), InheritanceMode.OccurrenceWins, EvidenceGrade.Derived))))).As();
 
  // Every forged value re-enters PropertyValue.Of, so the structural admission runs over a forged composite exactly as
  // it does over a decoded one and a malformed nesting is a forge defect rather than a corpus a consumer trusts.
@@ -248,7 +300,7 @@ public static class GraphForge {
  // from the seed stream before the occurrence is minted, so a buried reference resolves against a real node and the
  // Members sweep and Remap rewrite have a subject rather than a dangling id.
  static Fin<PropertyValue> Raw(CorpusProfile profile, int slot, int occurrence, Op key) {
-  double draw = Deterministic.Unit(lanes: [ValueLane, slot], seed: profile.Seed);
+  double draw = Deterministic.Unit(lanes: [CorpusLane.Value.Key, slot], seed: profile.Seed);
   return (slot % PropertyCases) switch {
    0 => Fin.Succ((PropertyValue)new PropertyValue.Text($"corpus-text-{slot}")),
    1 => Metre(draw + 1.0).Map(static m => (PropertyValue)new PropertyValue.Measure(m)),
@@ -262,7 +314,7 @@ public static class GraphForge {
    7 => Fin.Succ((PropertyValue)new PropertyValue.Enumerated(
     Seq<PropertyValue>(new PropertyValue.Text($"corpus-grade-{slot % 3}")),
     Seq<PropertyValue>(new PropertyValue.Text("corpus-grade-0"), new PropertyValue.Text("corpus-grade-1"), new PropertyValue.Text("corpus-grade-2")))),
-   8 => Fin.Succ((PropertyValue)new PropertyValue.Reference(Seeded(profile.Seed, lane: 2, occurrence), Some("corpus-usage"))),
+   8 => Fin.Succ((PropertyValue)new PropertyValue.Reference(Seeded(profile.Seed, CorpusLane.Occurrence, occurrence), Some("corpus-usage"))),
    // ONE QuantityType across both present bounds and a rising pair — exactly the Bounded structural law.
    9 => Metre(draw + 1.0).Bind(lower => Metre(draw + 2.0).Map(upper =>
     (PropertyValue)new PropertyValue.Bounded(Some(lower), Some(upper), None))),
@@ -273,18 +325,22 @@ public static class GraphForge {
     Interpolation.Items[slot % Interpolation.Items.Count])),
    12 => Fin.Succ((PropertyValue)new PropertyValue.Complex("corpus-complex",
     Map((PropertyName.Create("corpus-inner"), (PropertyValue)new PropertyValue.Number(draw))))),
-   _ => Fin.Succ((PropertyValue)new PropertyValue.Temporal(Timed(slot))),
+   // The FINAL ordinal is NAMED; a widened family whose width moved without a factory row violates this forge's
+   // static arity invariant and throws instead of minting an expected domain failure for a programmer defect.
+   13 => Timed(slot, key).Map(static value => (PropertyValue)new PropertyValue.Temporal(value)),
+   var unreached => throw new InvalidOperationException($"<corpus-arm-unreached:property-value:{unreached}>"),
   };
  }
 
  // Timed steps the five temporal leaves off the slot's own QUOTIENT, so a grade reaching the Temporal case repeatedly
  // walks the whole leaf family rather than one arm — the second cycle the flat slot ordinal makes total.
- static TemporalValue Timed(int slot) => ((slot / PropertyCases) % TemporalArms) switch {
-  0 => new TemporalValue.Date(CorpusInstant.InUtc().Date.PlusDays(slot)),
-  1 => new TemporalValue.Moment(CorpusInstant.InUtc().LocalDateTime.PlusHours(slot)),
-  2 => new TemporalValue.Time(CorpusInstant.InUtc().TimeOfDay.PlusMinutes(slot)),
-  3 => new TemporalValue.Span(Period.FromDays(slot + 1)),
-  _ => new TemporalValue.Stamp(CorpusInstant + (CorpusCadence * slot)),
+ static Fin<TemporalValue> Timed(int slot, Op key) => ((slot / PropertyCases) % TemporalArms) switch {
+  0 => Fin.Succ<TemporalValue>(new TemporalValue.Date(CorpusInstant.InUtc().Date.PlusDays(slot))),
+  1 => Fin.Succ<TemporalValue>(new TemporalValue.Moment(CorpusInstant.InUtc().LocalDateTime.PlusHours(slot))),
+  2 => Fin.Succ<TemporalValue>(new TemporalValue.Time(CorpusInstant.InUtc().TimeOfDay.PlusMinutes(slot))),
+  3 => Fin.Succ<TemporalValue>(new TemporalValue.Span(Period.FromDays(slot + 1))),
+  4 => Fin.Succ<TemporalValue>(new TemporalValue.Stamp(CorpusInstant + (CorpusCadence * slot))),
+  var unreached => throw new InvalidOperationException($"<corpus-arm-unreached:temporal:{unreached}>"),
  };
 
  static Fin<MeasureValue> Metre(double si) =>
@@ -300,7 +356,7 @@ public static class GraphForge {
    MaterialId material = MaterialId.Of($"corpus-material-{t}");
    return Composed(material, t, key).Bind(composition =>
     Properties(t, key).Map(properties =>
-     Contented(new Node.Material(Seeded(profile.Seed, lane: 0, t), material, composition, properties), tol)));
+     Contented(new Node.Material(Seeded(profile.Seed, CorpusLane.Material, t), material, composition, properties), tol)));
   }).As();
 
  // Composed cycles the four composition arms by type-slot ordinal; the smallest grade's four slots already forge each arm.
@@ -308,11 +364,15 @@ public static class GraphForge {
   0 => Fin.Succ(MaterialComposition.OfSingle(material)),
   1 => Metre(0.1 + slot * 0.01).Bind(thickness => MaterialComposition.OfLayerSet(
    Seq(new MaterialLayer(material, thickness, $"corpus-layer-{slot}", Some(slot % 101), "corpus", Some(false))), key)),
+  // The ProfileSet arm BAKES its S-E1 section, so the twenty design columns, the SectionPropertiesWire run, and
+  // the element.sections dataset all cross graded witnesses instead of riding an always-absent Section.
   2 => MaterialComposition.OfProfileSet(
-   Seq(new MaterialProfile(material, ProfileRef.Of("corpus", $"CP{slot}"), Some(slot % 101), "corpus", Seq<MeasureValue>())), key),
+    Seq(new MaterialProfile(material, ProfileRef.Of("corpus", $"CP{slot}"), Some(slot % 101), "corpus", Seq<MeasureValue>())), key)
+   .Bind(admitted => Section(slot, key).Map(admitted.WithSection)),
   // Two constituents normalizing to unity, the fraction-sum gate's own admissible shape.
-  _ => MaterialComposition.OfConstituentSet(
+  3 => MaterialComposition.OfConstituentSet(
    Seq(new MaterialConstituent(material, "corpus", 0.5, "corpus-a"), new MaterialConstituent(material, "corpus", 0.5, "corpus-b")), key),
+  var unreached => throw new InvalidOperationException($"<corpus-arm-unreached:composition:{unreached}>"),
  };
 
  // Usage cycles the MaterialUsage family IN STEP with the composition cycle on the SAME type-slot ordinal, so each
@@ -329,7 +389,8 @@ public static class GraphForge {
      Some(offset), Some(extent), key))),
    2 => Metre(3.0 + t).Bind(extent =>
     MaterialUsage.ProfileSet.Of(Some(1 + (t % CardinalPoint.Items.Count)), Some(extent), key)),
-   _ => Fin.Succ((MaterialUsage)new MaterialUsage.None()),
+   0 or 3 => Fin.Succ((MaterialUsage)new MaterialUsage.Unbound()),
+   var unreached => throw new InvalidOperationException($"<corpus-arm-unreached:usage:{unreached}>"),
   }).As();
 
  // Magnitudes scale off the slot ordinal rather than a draw lane, because every column here is a physical
@@ -339,11 +400,10 @@ public static class GraphForge {
   toSeq(Enumerable.Range(0, PropertySetCases)).TraverseM(c => Property(c, slot, key)).As();
 
  static Fin<MaterialPropertySet> Property(int ordinal, int slot, Op key) {
-  PropertyEvidence evidence = new($"corpus-{ordinal}", $"corpus-ref-{slot}", None);
   double scale = 1.0 + (slot % 8) * 0.125;
-  return ordinal switch {
+  return Evidence(ordinal, slot, key).Bind(evidence => ordinal switch {
    0 => MaterialPropertySet.OfMechanical(2400.0 * scale, 30_000.0 * scale, 400.0 * scale, 550.0 * scale, 0.2, 1.0e-5, key, evidence),
-   1 => MaterialPropertySet.OfOrthotropic(500.0 * scale, 11_000.0 * scale, 370.0 * scale, 690.0 * scale, 24.0 * scale, 2.5 * scale, 5.0e-6, key, evidence),
+   1 => MaterialPropertySet.OfOrthotropic(500.0 * scale, 11_000.0 * scale, Some(7_400.0 * scale), 370.0 * scale, 690.0 * scale, 24.0 * scale, 2.5 * scale, 5.0e-6, key, evidence),
    // Thermal carries the corpus's ONE Some sampled curve, so SampledCurveWire, the OptCurve decode
    // re-admission, and the Bool-prefixed Curve canon write all cross the graded gates on this arm.
    2 => SampledCurve.Of(new[] { 20.0, 200.0, 600.0 }, new[] { 1.0 * scale, 1.1 * scale, 1.4 * scale }, key)
@@ -366,7 +426,38 @@ public static class GraphForge {
    // V/m through the DielectricStrength OfSi mint — OfElectrical's own two paths); both optional columns cross
    // Some, so the wire presence arms witness beside the required pair.
    _ => MaterialPropertySet.OfElectrical(1.72e-8 * scale, 2.0 + scale, Some(2.0e7 * scale), Some(1.0 + scale), key, evidence),
-  };
+  });
+ }
+
+ // Evidence cycles the six-grade roster and alternates every optional column's presence dual — grade token
+ // variety, the calendar expiry, the attestation, and the run link each cross graded witnesses beside their
+ // absent arms (the S-E3 columns the wire now carries on ledger row [16]).
+ static Fin<PropertyEvidence> Evidence(int ordinal, int slot, Op key) =>
+  (ordinal % 3 == 2
+    ? EvidenceRun.Of("corpus", "GraphForge", "1", CorpusInstant, key).Map(Some)
+    : Fin.Succ(Option<EvidenceRun>.None))
+   .Map(run => PropertyEvidence.Of(
+     $"corpus-{ordinal}",
+     EvidenceGrade.Items[ordinal % EvidenceGrade.Items.Count],
+     reference: Some($"corpus-ref-{slot}"),
+     validUntil: ordinal % 2 == 0 ? Some(CorpusInstant.InUtc().Date.PlusYears(1)) : None,
+     attested: ordinal % 4 == 3
+      ? Some(new Attestation(AttestationRole.Items[slot % AttestationRole.Items.Count], "corpus-cert",
+         ContentAddress.Of(Seed(0, CorpusLane.Interface, ordinal)), CorpusInstant))
+      : None,
+     run: run));
+
+ // ONE deterministic baked section (an IPE-300-shaped mm column set scaled off the slot ordinal) through the
+ // OfMillimetres admission — the corpus crosses the S-E1 gate exactly as the Materials resolver does.
+ static Fin<SectionProperties> Section(int slot, Op key) {
+  double s = 1.0 + (slot % 4) * 0.25;
+  return Metre(1.16 * s).Bind(perimeter => SectionProperties.OfMillimetres(
+   5_380.0 * s, 83_560_000.0 * s, 6_040_000.0 * s, 201_000.0 * s, 125_900_000_000.0 * s,
+   557_000.0 * s, 80_500.0 * s, 628_000.0 * s, 125_200.0 * s,
+   2_568.0 * s, 3_070.0 * s, 124.6, 33.5,
+   300.0, 150.0, 1_160.0 * s, 35.0,
+   0.0, 0.0, 0.0,
+   new Vector3(75.0, 150.0, 0.0), Some(new SectionForm(12, 4, 0.35, perimeter)), key));
  }
 
  // Bands shapes the vectors the acoustic arity gate takes off the band index, so absorption stays inside its unit
@@ -377,27 +468,26 @@ public static class GraphForge {
  // shared by every occurrence's Associate edge, which is exactly the dedup shape a real projector produces. Without
  // them the sixth and seventh Node arms, their canonical-bytes ordinals, their wire oneof arms, and the Associate
  // legality closure over the Material/Appearance/Coverage triple all ride untested behind arms no parity vector
- // reaches. Coverage keeps the smallest admissible BASE — one lattice cell, one Gray band, the identity
- // georeference — and carries one Coarsen-derived OverviewLevel and one TimeSlice, so the pyramid and timeline
- // sections, their wire runs, and the decode re-admission proofs (the Coarsen-chain and monotone-slice gates) cross
- // every grade; the level and slice raster keys derive from the corpus lattice lane beside the base key, so the
- // witness stays profile-independent.
+ // reaches. Coverage keeps the smallest admissible run — a one-cell base level, its Coarsen-derived successor, one
+ // Gray band, the identity georeference — so the level-run wire columns and the decode re-admission proof (the
+ // Coarsen-chain slot) cross every grade; both level keys derive from the corpus lattice lane, so the witness
+ // stays profile-independent.
  static Fin<(Node Appearance, Node Coverage)> Witnesses(Header header, double tol, Op key) =>
-  AppearanceSummary.Of(0.5, 0.5, 0.5, 0.0, 0.5, 1.0, transmissive: false, key).Bind(summary =>
+  AppearanceSummary.Of(AppearanceVector.Create(0.5, 0.5, 0.5, 0.0, 0.5, 1.0, transmissive: false), key).Bind(summary =>
    CellLattice.Of([1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
      LatticeAxis.Create(1), LatticeAxis.Create(1), LatticeAxis.Create(1), ceiling: 1L, key).Bind(lattice =>
     lattice.Coarsen(key).Bind(coarse =>
-     CoverageGrid.Of(
-       CoverageKind.Field, Seed(CorpusLatticeSeed, lane: 7, 0), lattice,
-       Seq(new CoverageBand(0, "corpus-band", ChannelDtype.Float32, BandRole.Gray)),
-       header.Reference, key,
-       Seq(new OverviewLevel(coarse, Seed(CorpusLatticeSeed, lane: 7, 1), 0, 0)),
-       Seq(new TimeSlice(CorpusInstant, Seed(CorpusLatticeSeed, lane: 7, 2))))
-      .Map(grid => (
-       Contented(new Node.Appearance(Draft, summary), tol),
-       Contented(new Node.Coverage(Draft, grid), tol))))));
+     CoverageBand.Of(0, "corpus-band", ChannelDtype.Float32, BandRole.Gray, key).Bind(band =>
+      CoverageGrid.Of(
+        CoverageKind.Field,
+        Seq(new OverviewLevel(lattice, BlobKey.Of(Seed(CorpusLatticeSeed, CorpusLane.Lattice, 0))),
+            new OverviewLevel(coarse, BlobKey.Of(Seed(CorpusLatticeSeed, CorpusLane.Lattice, 1)))),
+        Seq(band), header.Reference, key)
+       .Map(grid => (
+        Contented(new Node.Appearance(Draft, summary), tol),
+        Contented(new Node.Coverage(Draft, grid), tol)))))));
 
- // Wholesale normal-form assembly: ids are unique by the seeded stream, so both deltas are IsNormalForm by
+ // Wholesale normal-form assembly: ids are unique by the seeded stream, so both deltas are normal-form by
  // construction, the Normalized gate proves it, and AdmitOnto supplies the structural proof for the creating one.
  static (GraphDelta Delta, GraphDelta Mutation) Assembled(
   CorpusProfile profile, Header header, double tol, int typeCount, Classification typeClass, Classification occClass,
@@ -406,15 +496,23 @@ public static class GraphForge {
   (Node Appearance, Node Coverage) witness) {
   Seq<Node.Object> types = toSeq(Enumerable.Range(0, typeCount)).Map(t => {
    Node.Object draft = new(
-    Id: Seeded(profile.Seed, lane: 1, t), Kind: ObjectKind.Type, ExternalId: None, Classification: typeClass,
+    Id: Seeded(profile.Seed, CorpusLane.Type, t), Kind: ObjectKind.Type, ExternalId: None, Classification: typeClass,
     PredefinedType: PredefinedType.NotDefined, ObjectType: None, Name: $"corpus-type-{t}", Tag: "",
     Representations: RepresentationContentHash.Empty, History: None, Span: SchemaSpan.From(header.Schema));
-   return (Node.Object)draft.Relabel(NodeId.RootedType(draft.ToTypeSeedBytes(tol).Span));
+   return (Node.Object)draft.Relabel(NodeId.Of(new NodeSeed.TypeSeed(draft, tol)));
   });
+  // Strided occurrences carry the audit row (with the modified dual alternating), so OwnerHistoryWire, its
+  // Option carrier, and the identity-EXCLUDED canonical posture all cross graded witnesses.
   Seq<Node.Object> occurrences = toSeq(Enumerable.Range(0, profile.Nodes)).Map(i => new Node.Object(
-   Id: Seeded(profile.Seed, lane: 2, i), Kind: ObjectKind.Occurrence, ExternalId: None, Classification: occClass,
+   Id: Seeded(profile.Seed, CorpusLane.Occurrence, i), Kind: ObjectKind.Occurrence, ExternalId: None, Classification: occClass,
    PredefinedType: PredefinedType.NotDefined, ObjectType: None, Name: $"corpus-occ-{i}", Tag: $"{i}",
-   Representations: RepresentationContentHash.Empty, History: None, Span: SchemaSpan.From(header.Schema)));
+   Representations: RepresentationContentHash.Empty,
+   History: i % profile.FlavorStride == 0
+    ? Some(new OwnerHistory("corpus-user", "GraphForge", CorpusInstant,
+       i % (2 * profile.FlavorStride) == 0 ? Some(CorpusInstant + Duration.FromHours(1)) : None,
+       "ADDED", "readwrite"))
+    : None,
+   Span: SchemaSpan.From(header.Schema)));
   Seq<Node> propertySets = bags.Map(pair => Contented(new Node.PropertySet(Draft, pair.Props), tol));
   Seq<Node> quantitySets = bags.Map(pair => Contented(new Node.QuantitySet(Draft, pair.Qty), tol));
   Seq<Node> assessments = payloads.Map(payload => Contented(new Node.Assessment(Draft, payload), tol));
@@ -443,8 +541,8 @@ public static class GraphForge {
   // Resource associations reach the two shared witness nodes — one Associate per occurrence to each, so the
   // Appearance and Coverage arms of the Associate legality closure and their node ordinals cross every grade.
   Seq<Relationship> resources = occurrences.Bind(occ => Seq<Relationship>(
-   new Relationship.Associate(occ.Id, witness.Appearance.Id, new MaterialUsage.None()),
-   new Relationship.Associate(occ.Id, witness.Coverage.Id, new MaterialUsage.None())));
+   new Relationship.Associate(occ.Id, witness.Appearance.Id, new MaterialUsage.Unbound()),
+   new Relationship.Associate(occ.Id, witness.Coverage.Id, new MaterialUsage.Unbound())));
   // Every remaining edge FLAVOR crosses on the strided occurrences, so no case, sub-kind, or buried-reference sweep
   // rides an arm no witness reaches: the three non-Aggregate Compose flavors (Contain the owning spatial edge Bake
   // descends, Nest the ordered child run, Reference the NON-owning association BakeParts must skip), Void, and a
@@ -458,9 +556,9 @@ public static class GraphForge {
     new Relationship.Compose(occurrences[i - 1].Id, occurrences[i].Id, ComposeKind.Reference, None),
     new Relationship.Void(occurrences[i - 1].Id, occurrences[i].Id, VoidKind.Void),
     new Relationship.Generic(
-     "corpus.generic", occurrences[i - 1].Id, occurrences[i].Id,
+     WireName.Create("corpus.generic"), occurrences[i - 1].Id, occurrences[i].Id,
      Map((PropertyName.Create("corpus-buried-ref"), (PropertyValue)new PropertyValue.Reference(occurrences[i].Id))),
-     Seq(new RelationshipParticipant(occurrences[i].Id, "corpus-participant", None)))));
+     Seq(new RelationshipParticipant(occurrences[i].Id, RoleName.Create("corpus-participant"), None)))));
   // Realized Connect rows carry BOTH optional slots the bare adjacencies leave None: occurrence zero the realizing
   // intermediary — minted, in-graph, and an Object, exactly the LegalConnect closure — beside a content-lane
   // Interface key off its own seed lane, structurally distinct from any seeded adjacency over the same endpoints.
@@ -469,10 +567,10 @@ public static class GraphForge {
   // railing on a coincident intermediary.
   Seq<Relationship> realized = strided.Filter(static i => i > 1).Map(i => (Relationship)new Relationship.Connect(
    occurrences[i - 1].Id, occurrences[i].Id, ConnectKind.Element,
-   Some(occurrences[0].Id), Some(Seed(profile.Seed, lane: 8, i))));
+   Some(occurrences[0].Id), Some(Seed(profile.Seed, CorpusLane.Interface, i))));
   Seq<Relationship> adjacencies = toSeq(Enumerable.Range(0, (int)(profile.Density * profile.Nodes)))
    .Choose(c => {
-    ulong state = Deterministic.Stream(lanes: [AdjacencyLane, c], seed: profile.Seed);
+    ulong state = Deterministic.Stream(lanes: [CorpusLane.Adjacency.Key, c], seed: profile.Seed);
     int from = Deterministic.NextBelow(state: ref state, exclusiveCeiling: profile.Nodes);
     int to = Deterministic.NextBelow(state: ref state, exclusiveCeiling: profile.Nodes);
     return from == to ? None : Some((Relationship)new Relationship.Connect(occurrences[from].Id, occurrences[to].Id, ConnectKind.Element, None, None));
@@ -508,9 +606,9 @@ public static class GraphForge {
 
 - Owner: `CorpusGrade` the `[SmartEnum<string>]` size roster; `CorpusOp` the `[SmartEnum<string>]` hot-path vocabulary with a witness-returning run column; `CorpusModel` the minted carrier with its snapshot fingerprint; `CorpusWitness` the operation evidence; `CorpusGate` the mint/determinism capability.
 - Cases: `CorpusGrade` rows `S`/`M`/`L`/`XL` (64 → 262 144 occurrences, density, bag width, depth, and discipline mix widening together); `CorpusOp` rows `Bake` (every object root through the memoized fold), `Freeze` (thaw-and-freeze rebuild of the frozen structures), `CanonicalBytes` (the delta content-key projection), `Encode` (the full snapshot wire lowering), `DecodeGraph` (the snapshot round-trip under `WireLimits.Verified`), `DecodeDelta` (the mutation round-trip through the normal-form gate under `WireLimits.Default`), `Tabulate` (the columnar egress fold through its declaration-versus-projection gate); the closed hot-path family.
-- Entry: `CorpusGate.Mint(grade, key)` forges once and stamps its snapshot fingerprint. `Stable(grade, key)` forges twice and rejects address drift. Each `CorpusOp.Run(model, key)` returns a `CorpusWitness` with grade, operation, magnitude, snapshot, and operation artifact address; freeze and both decode rows reject content drift against the input they round-tripped.
+- Entry: `CorpusGate.Mint(grade, key)` forges once and stamps its snapshot fingerprint. `Stable(grade, key)` forges twice and rejects address drift. Each `CorpusOp.Run(model, key)` returns a `CorpusWitness` with grade, operation, magnitude, snapshot, and operation artifact address; freeze and both decode rows reject content drift against the input they round-tripped, while every protobuf write/decode staging window crosses `Op.Catch` whole.
 - Receipt: `CorpusWitness` proves traversal and binds each operation result to its input fingerprint. Tests-estate timing maps it into AppHost `BenchmarkReceipt`: `Suite = "Rasm.Element"`, `Case = $"{grade}/{op}"`, `Corpus = Some(witness.Snapshot.Value)`, and `Operations = witness.Magnitude`; AppHost owns host evidence, timing, allocation, verdict, artifact key, and correlation.
-- Packages: Google.Protobuf (`MessageExtensions.WriteTo(IBufferWriter<byte>)` and `WriteTo(Stream)` — the wire legs stage through one buffer, so no hot-path row allocates a whole-snapshot array), System.Buffers (`ArrayBufferWriter<byte>` the encode sink whose `WrittenSpan` the digest reads in place). BenchmarkDotNet and CsCheck consume this roster FROM THE TESTS ESTATE — the benchmark lane iterates `CorpusOp.Items` per grade and the property lane drives `Stable` and the wire round-trip over seeds; both are central-manifest packages with no `Rasm.Element` reference, so the seam page names the consumption shape and no benchmark member.
+- Packages: Google.Protobuf (`MessageExtensions.WriteTo(IBufferWriter<byte>)` and `WriteTo(Stream)` — the wire legs stage through one buffer, so no hot-path row allocates a whole-snapshot array), System.Buffers (`ArrayBufferWriter<byte>` the encode sink whose `WrittenSpan` the digest reads in place), `Rasm` (`Op.Catch` preserving any provider throw across the complete staging window). BenchmarkDotNet and CsCheck consume this roster FROM THE TESTS ESTATE — the benchmark lane iterates `CorpusOp.Items` per grade and the property lane drives `Stable` and the wire round-trip over seeds; both are central-manifest packages with no `Rasm.Element` reference, so the seam page names the consumption shape and no benchmark member.
 - Growth: a new scale is one `CorpusGrade` row; a new hot path is one `CorpusOp` row and witness arm. Benchmarks reuse one minted model per grade.
 - Boundary: Element owns models, operation vocabulary, and semantic witnesses. AppHost owns benchmark receipts and regression verdicts. `XL` belongs to benchmark hosts, never unit defaults. [SPIKE]: the four graded `S`/`M`/`L`/`XL` snapshot addresses converge only on the first sanctioned execution of the settled forge — the `tests/contracts/MANIFEST.md` `[02.25]` blocker carries the arming, the DESIGN-PIN law rejects any transcribed stand-in ahead of it, and the pins land here and mirror to the `libs/python` `_CORPUS` `element-corpus` row and the `libs/typescript/core` bit-parity gate in one change; the deterministic floor is `CorpusGate.Stable`'s double-forge repeatability and the per-op drift gates, total without them — an unset placeholder cannot masquerade as a parity gate.
 
@@ -540,10 +638,12 @@ public sealed partial class CorpusGrade {
 
  public CorpusProfile Profile { get; }
 
- // Roster rows are declaration-total: a failed profile literal is a construction defect, so the throwing unwrap
- // stays at roster materialization and never reaches call sites.
+ // Roster rows are declaration-total: a failed profile literal is a static construction defect, not an expected
+ // domain refusal. Keep the admitting factory and cross only into a CLR invariant at the closed declaration site.
  static CorpusProfile Row(int nodes, double density, int bagWidth, Seq<Discipline> disciplines, int depth, long seed) =>
-  CorpusProfile.Of(nodes, density, bagWidth, disciplines, depth, seed, Op.Of(name: nameof(CorpusGrade))).ThrowIfFail();
+  CorpusProfile.Of(nodes, density, bagWidth, disciplines, depth, seed, Op.Of(name: nameof(CorpusGrade))).Match(
+   Succ: static profile => profile,
+   Fail: static _ => throw new InvalidOperationException("Corpus grade declaration violates CorpusProfile admission."));
 }
 
 // Benchmark-operation vocabulary over the graph hot paths — each row's run column returns the witness that
@@ -567,53 +667,41 @@ public sealed partial class CorpusOp {
 
  static Fin<CorpusWitness> RunFreeze(CorpusModel model, Op key) {
   ElementGraph frozen = WorkingGraph.Thaw(model.Graph).Freeze(model.Graph.Header);
-  ContentAddress artifact = ContentAddress.OfGraph(frozen);
-  return artifact == model.Snapshot
-   ? Witness(model, Freeze, frozen.Nodes.Count, artifact, key)
-   : ElementFault.ValueRejected(key, $"<corpus-freeze-drift:{model.Grade.Key}>");
+  return Checked(model, Freeze, frozen.Nodes.Count, ContentAddress.OfGraph(frozen), model.Snapshot, key);
  }
 
- static Fin<CorpusWitness> RunCanonicalBytes(CorpusModel model, Op key) {
-  ReadOnlyMemory<byte> bytes = model.Delta.ToCanonicalBytes(model.Graph.Header.Tolerance);
-  return Witness(model, CanonicalBytes, bytes.Length, ContentAddress.Of(bytes.Span), key);
- }
+ static Fin<CorpusWitness> RunCanonicalBytes(CorpusModel model, Op key) =>
+  model.Delta.ToCanonicalBytes(model.Graph.Header.Tolerance, key).Bind(bytes =>
+   Witness(model, CanonicalBytes, bytes.Length, ContentAddress.Of(bytes.Span), key));
 
  // Wire legs write through the buffer-writer entry the wire page's own boundary law names, so a whole-snapshot
  // ToByteArray copy never lands: the encode row digests the written span in place, and the decode rows write into one
  // stream buffer and rewind rather than allocating a second array to hand the parser.
- static Fin<CorpusWitness> RunEncode(CorpusModel model, Op key) {
+ static Fin<CorpusWitness> RunEncode(CorpusModel model, Op key) => key.Catch(() => {
   ArrayBufferWriter<byte> sink = new();
   ElementWire.Encode(model.Graph).WriteTo(sink);
   return Witness(model, Encode, sink.WrittenCount, ContentAddress.Of(sink.WrittenSpan), key);
- }
+ });
 
- static Fin<CorpusWitness> RunDecodeGraph(CorpusModel model, Op key) {
+ static Fin<CorpusWitness> RunDecodeGraph(CorpusModel model, Op key) => key.Catch(() => {
   using MemoryStream payload = new();
   ElementWire.Encode(model.Graph).WriteTo(payload);
   payload.Position = 0;
-  return ElementWire.DecodeGraph(payload, WireLimits.Verified, key).Bind(graph => {
-   ContentAddress artifact = ContentAddress.OfGraph(graph);
-   return artifact == model.Snapshot
-    ? Witness(model, DecodeGraph, graph.Nodes.Count, artifact, key)
-    : ElementFault.ValueRejected(key, $"<corpus-decode-drift:{model.Grade.Key}>");
-  });
- }
+  return ElementWire.DecodeGraph(payload, WireLimits.Verified, key).Bind(graph =>
+   Checked(model, DecodeGraph, graph.Nodes.Count, ContentAddress.OfGraph(graph), model.Snapshot, key));
+ });
 
  // RunDecodeDelta crosses the mutation whole and re-enters through DecodeDelta's normal-form gate, so the removed
  // and revised sections, the ABSENT-header arm, and the shape gate itself are all timed and witnessed. The artifact
  // is the decoded delta's own content key, which the mutation's key must reproduce.
- static Fin<CorpusWitness> RunDecodeDelta(CorpusModel model, Op key) {
+ static Fin<CorpusWitness> RunDecodeDelta(CorpusModel model, Op key) => key.Catch(() => {
   using MemoryStream payload = new();
   ElementWire.Encode(model.Mutation, model.Graph.Header).WriteTo(payload);
   payload.Position = 0;
   double tolerance = model.Graph.Header.Tolerance;
-  return ElementWire.DecodeDelta(payload, model.Graph.Header, WireLimits.Default, key).Bind(delta => {
-   ContentAddress artifact = ContentAddress.Of(delta.ToCanonicalBytes(tolerance).Span);
-   return artifact == ContentAddress.Of(model.Mutation.ToCanonicalBytes(tolerance).Span)
-    ? Witness(model, DecodeDelta, delta.NodeCount + delta.EdgeCount, artifact, key)
-    : ElementFault.ValueRejected(key, $"<corpus-delta-drift:{model.Grade.Key}>");
-  });
- }
+  return ElementWire.DecodeDelta(payload, model.Graph.Header, WireLimits.Default, key).Bind(delta =>
+   Checked(model, DecodeDelta, delta.NodeCount + delta.EdgeCount, delta.Address(tolerance), model.Mutation.Address(tolerance), key));
+ });
 
  // RunTabulate folds the columnar egress: every row family the snapshot carries crosses its declaration-versus-projection
  // gate, so a column roster that drifted from its payload arm fails here rather than at a landing that infers nothing.
@@ -621,11 +709,19 @@ public sealed partial class CorpusOp {
   GraphTable.Tabulate(model.Graph, key).Bind(snapshot =>
    snapshot.Batches(key).Bind(_ => Witness(model, Tabulate, snapshot.Rows.Count, snapshot.Address, key)));
 
+ // ONE drift gate all three round-trip rows compose — the witness's own op column names WHICH operation drifted,
+ // so the three per-op tokens collapsed onto it (the stated named loss, recovered by the column).
+ static Fin<CorpusWitness> Checked(
+  CorpusModel model, CorpusOp operation, long magnitude, ContentAddress artifact, ContentAddress expected, Op key) =>
+  artifact == expected
+   ? Witness(model, operation, magnitude, artifact, key)
+   : new ElementFault.ValueRejected(key, $"<corpus-drift:{operation.Key}:{model.Grade.Key}>");
+
  static Fin<CorpusWitness> Witness(
   CorpusModel model, CorpusOp operation, long magnitude, ContentAddress artifact, Op key) =>
   magnitude > 0
    ? Fin.Succ(new CorpusWitness(model.Grade, operation, magnitude, model.Snapshot, artifact))
-   : ElementFault.ValueRejected(key, $"<corpus-operation-empty:{model.Grade.Key}:{operation.Key}>");
+   : new ElementFault.ValueRejected(key, $"<corpus-operation-empty:{model.Grade.Key}:{operation.Key}>");
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -635,11 +731,21 @@ public static class CorpusGate {
   GraphForge.Mint(grade.Profile, key).Map(step =>
    new CorpusModel(grade, step.Graph, step.Delta, step.Mutation, ContentAddress.OfGraph(step.Graph)));
 
+ // The GraphEventType.Snapshot PRODUCER: one crossing per minted grade — body the encoded snapshot, subject its
+ // content key — so the [04] transport vocabulary at Graph/wire#EVENT_ENVELOPE has an in-folder producer and a
+ // broker lane consumes a corpus announcement exactly as a live one.
+ public static Fin<CloudEvent> Announce(CorpusModel model, Op key) =>
+  GraphCrossing.Mint(
+   GraphEventType.Snapshot, model.Snapshot, model.Graph.Header.At,
+   ElementWire.Encode(model.Graph),
+   new CrossingPorts($"corpus-mint-{model.Grade.Key}", None, TraceCarrier.Of(null), Seq<(EventExtension, object)>()),
+   key);
+
  public static Fin<ContentAddress> Stable(CorpusGrade grade, Op key) =>
   Mint(grade, key).Bind(first => Mint(grade, key).Bind(second =>
    first.Snapshot == second.Snapshot
     ? Fin.Succ(first.Snapshot)
-    : Fin.Fail<ContentAddress>(ElementFault.ValueRejected(key, $"<corpus-nondeterministic:{grade.Key}>"))));
+    : Fin.Fail<ContentAddress>(new ElementFault.ValueRejected(key, $"<corpus-nondeterministic:{grade.Key}>"))));
 }
 ```
 

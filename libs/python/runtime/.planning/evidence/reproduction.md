@@ -24,7 +24,7 @@ from expression import Error, Nothing, Ok, Option, Some, identity
 from expression.collections import Block, Map
 from msgspec import Struct
 
-from rasm.runtime.faults import BoundaryFault, Disposition, RuntimeRail, traversed
+from rasm.runtime.faults import CORPUS_DOUBLED, CORPUS_FMT, Disposition, RuntimeRail, traversed
 from rasm.runtime.identity import KEY_FMT, ContentIdentity, ContentKey, KeyRender, KeyView
 from rasm.runtime.receipts import Receipt
 
@@ -133,7 +133,7 @@ _CORPUS: Final[Block[CorpusFixture]] = Block.of_seq((
             ParityRow(
                 aspect="key_identity",
                 view="value",
-                expected=ContentKey(value=MESH_DIGEST, fmt=MESH_FMT, byte_length=len(MESH_STREAM)),
+                expected=ContentKey(value=MESH_DIGEST, fmt=MESH_FMT, byte_length=Some(len(MESH_STREAM))),
             ),
         )),
     ),
@@ -160,14 +160,13 @@ _CORPUS: Final[Block[CorpusFixture]] = Block.of_seq((
         reference=Nothing,
         rows=Block.empty(),
     ),
-    # FAULT_TRIPLES — `FaultDetail` (package, code, case) triples spanning the disjoint fault-code bands, minted from this
-    # branch's own fault vocabulary rather than decoded from a peer's.
+    # FAULT_DETAIL — the compact numeric envelope produced by C# and decoded here without source-union rehydration.
     CorpusFixture(
-        name="fault-triples",
-        kind="infrastructure",
+        name="fault-detail",
+        kind="domain",
         state="design_pin",
-        source="python:runtime/transport/shapes#VOCABULARY",
-        fmt="fault-triple",
+        source="csharp:Rasm.Compute/Runtime/wire#FAULT_PROJECTION",
+        fmt="fault-detail",
         reference=Nothing,
         rows=Block.empty(),
     ),
@@ -223,7 +222,7 @@ class SeedReproduction(Struct, frozen=True):
         rails = self.corpus.map(
             lambda fixture: Ok((fixture.fmt, fixture.source))
             if KEY_FMT.fullmatch(fixture.fmt) is not None
-            else Error(BoundaryFault(config=(f"corpus.{fixture.name}", f"{fixture.fmt!r} breaches {KEY_FMT.pattern}")))
+            else Error(CORPUS_FMT.raised(fixture.name, fixture.fmt, KEY_FMT.pattern))
         )
         # the census builds ONCE and the walrus binds it inside the guard the conditional evaluates first, so the
         # collision test and the returned map are the same value — three constructions of one tree would let a future
@@ -231,7 +230,7 @@ class SeedReproduction(Struct, frozen=True):
         return traversed(rails, by=Disposition.ACCUMULATE).bind(
             lambda pairs: Ok(census)
             if len(census := Map.of_seq(pairs)) == len(pairs)
-            else Error(BoundaryFault(config=("corpus.fmt", "two fixtures claim one producing tag")))
+            else Error(CORPUS_DOUBLED.raised())
         )
 
     def grade(self) -> RuntimeRail[Block[ParityReceipt]]:

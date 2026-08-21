@@ -29,6 +29,7 @@ from typing import Annotated, Final
 import numpy as np
 from beartype import beartype
 from beartype.vale import Is
+from expression import Some
 from expression.collections import Block, Map
 from msgspec import Struct
 
@@ -37,7 +38,6 @@ from rasm.geometry.graduation import (
     GeometryHandoff,
     GeometryPulse,
     GeometrySubject,
-    PulseBeat,
     bench_seam,
     bench_subject,
     evidence_key,
@@ -47,6 +47,7 @@ from rasm.geometry.mesh.cad import GlbArtifact
 from rasm.geometry.mesh.quality import QualityMetrics, closure_fold
 from rasm.geometry.scan.ingestion import Cloud
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail
+from rasm.runtime.hooks import StageMark
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy, PulseFact, pulsed
 from rasm.runtime.profiles import BenchmarkReceipt
@@ -60,6 +61,11 @@ lazy import open3d as o3d
 lazy import trimesh
 
 # --- [TYPES] ----------------------------------------------------------------------------
+
+
+class ReconstructionStage(StrEnum):
+    # this producer's one CLOSED mark position; `StageMark.stage` is erased at the point and closed HERE.
+    CLUSTER = "cluster"  # one beat per DBSCAN cluster solved
 
 
 class ReconstructionMethod(StrEnum):
@@ -217,7 +223,7 @@ def _beat_built(
 ) -> "o3d.geometry.TriangleMesh":
     # per-cluster convergence beat ahead of each constructor solve — lossy by lane law, the kernel's whole
     # observability reach staying the pickled queue proxy.
-    pulsed(tap, GeometryPulse.RECONSTRUCTION, PulseBeat(stage="cluster", done=index + 1, total=total))
+    pulsed(tap, GeometryPulse.RECONSTRUCTION, StageMark(stage=ReconstructionStage.CLUSTER.value, done=index + 1, total=Some(total)))
     return build(part, policy)
 
 

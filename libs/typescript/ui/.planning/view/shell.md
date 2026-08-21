@@ -272,6 +272,7 @@ const _rows = {
     keywords: ["sidebar", "rail", "collapse"],
     scope: "shell",
     binding: "Mod+b", // collides with the editor's bold intent by design: a co-hosting app rebinds this one value
+    needs: [], // chrome answers from mounted state alone: an empty requirement is a STATED answer, never an omitted column
     run: _toggle,
   },
   "shell.inspect": {
@@ -280,6 +281,7 @@ const _rows = {
     keywords: ["inspector", "aside", "panel"],
     scope: "shell",
     binding: null,
+    needs: [],
     run: _inspect,
   },
 } as const

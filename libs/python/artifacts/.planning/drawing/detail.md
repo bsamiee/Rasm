@@ -37,8 +37,9 @@ from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
-from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.runtime.faults import TRANSIENT, FaultRow, RuntimeRail, async_boundary, rostered
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.drawing.regime import INGRESS, Discipline, LayerName, LayerSchema, ScaleRatio
@@ -78,6 +79,16 @@ class CalloutKind(StrEnum):  # selects the drawing/symbol#SYMBOL bubble the shee
     WALL_SECTION = "wall_section"  # a vertical wall-section cut
     BLOWUP = "blowup"  # a blow-up of a small region
 
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's ONE lift anchor. The per-request infix leaves the SUBJECT and stays request data — one fence
+# spans every detail target, so the coordinate is the fence rather than N subjects a reader cannot enumerate.
+# TRANSIENT: a DXF write or a render refusal is a defect a re-issue may clear.
+DETAIL_CROSS: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.DETAIL, point="cross", arm="boundary", defect="detail-fold", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([DETAIL_CROSS]))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class DetailRef(Struct, frozen=True):
@@ -412,7 +423,7 @@ class Detail(Struct, frozen=True):
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
         # Render thunk — the receipt threads the pre-run key; the layer payload is the layered() projection.
-        settled = (await async_boundary(f"drawing.detail.{self.target}", self._crossed, catch=_FAULTS)).map(lambda pair: pair[1])
+        settled = (await async_boundary(DETAIL_CROSS, self._crossed, catch=_FAULTS)).map(lambda pair: pair[1])
         # the reference apparatus is production trail, so the fact is `OPERATIONAL` over the callout count, lowering,
         # and measured span the receipt declares, its byte volume charging `STORAGE`. Recording suspends, so the seat
         # is this awaitable fold; `resolved()` is a pure query and `layered()` reads the same crossing, neither recording.
@@ -424,7 +435,7 @@ class Detail(Struct, frozen=True):
 
     async def layered(self) -> RuntimeRail[LayerPlan]:
         # Engine rows as one LayerPlan tree — substrate data the layered/sheet consumers compose, not the producer rail.
-        return (await async_boundary(f"drawing.detail.{self.target}", self._crossed, catch=_FAULTS)).map(
+        return (await async_boundary(DETAIL_CROSS, self._crossed, catch=_FAULTS)).map(
             lambda pair: LayerPlan(schema=LayerSchema.ISO13567, roots=pair[0])
         )
 

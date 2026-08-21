@@ -4,33 +4,113 @@ One fail-closed rail carries this folder: a closed row/ensure vocabulary, one `C
 
 ## [01]-[INDEX]
 
-- [02]-[ROW_VOCABULARY]: row, ensure, and demand shapes, the version-order fold, one fault family.
+- [02]-[ROW_VOCABULARY]: row, ensure, and demand shapes, the two demand relations, the version-order fold, one fault family.
 - [03]-[BATCHED_PROBE]: probe request family and the one-statement `RequestResolver` over the roster.
-- [04]-[PROBE_SERVICE]: `Capability` service construction-time proof, granted set, `require`/`when` gates.
-- [05]-[CONTRACT]: generated contract decode, canonical identity, local adapter admission, recovery grading, evidence.
+- [04]-[PROBE_SERVICE]: `Capability` service construction-time proof, corner phase, granted set, `require`/`when` gates.
+- [05]-[CONTRACT]: generated contract decode, canonical identity, local adapter admission, staged accumulating admission, recovery grading.
 
 ## [02]-[ROW_VOCABULARY]
 
-- Owner: `Capability.Row<G, F>` — the structural bound every `lane/postgres.md` matrix row inhabits, parameterized by its value-derived grant and flag vocabularies; `Capability.Ensure` — the `{relation, pg, sqlite}` DDL row every table-owning page publishes as data; `Capability.Demand<F, G>` — the `[flag, grant]` dependency pair; `Capability.Atomicity` — the closed interactive-transaction versus batch grant; the segment-numeric version order; the one reason-discriminated fault.
+- Owner: `Capability.Row<G, F>` — the structural bound every `lane/postgres.md` matrix row inhabits, parameterized by its value-derived grant and flag vocabularies; `Capability.Ensure` — the `{relation, pg, sqlite}` DDL row every table-owning page publishes as data; `Capability.Demand<F, G>` — the `{relation, flag, grant}` dependency row over the `_RELATIONS` table; `Capability.Atomicity` — the closed interactive-transaction versus batch grant; the segment-numeric version order; the one reason-discriminated fault family and the `Capability.Issue` payload every refusal carries.
 - Law: `floor` compares segment-numeric through `_byVersion` over one padded width, so a segment count never outranks a segment value and a real two-segment `extversion` meets an equal three-segment floor; `"0.0.0"` is the presence-only floor and the probe still fails closed on absence. Floor gating itself is a pg fact: the sqlite arm answers presence only, so its admission is membership and no pg-authored floor can refuse a present module.
-- Law: ensure rows are authored by the page owning the relation and collected by `lane/tenant.md` at Layer construction; demand pairs are authored by the page owning the matrix (`Pg.demands`). `G` and `F` infer from those values through the service factory, so `require` and `when` accept only the roster's closed grant vocabulary and a misspelled gate is unrepresentable.
+- Law: ensure rows are authored by the page owning the relation and collected by `lane/tenant.md` at Layer construction; demand rows are authored by the page owning the matrix (`Pg.demands`). `G` and `F` infer from those values through the service factory, so `require` and `when` accept only the roster's closed grant vocabulary and a misspelled gate is unrepresentable.
+- Law: dependency is TWO relations over ONE row — `requires` names a grant a flagged row cannot run without, `excludes` names a grant it cannot run beside — and `_RELATIONS` carries each relation's unmet predicate beside the issue it mints, so the two arms differ by one negation held in a table rather than by two hand-written bodies, and a third relation is one row. An algebra spelling implication alone leaves every mutual-exclusion corner unspellable, which is exactly how a corner survives on a matrix row as prose no gate reads.
+- Law: the excluded member must be a `Grant<G>` the matrix itself admits — an exclusion naming an engine no row grants is unspellable at the producer and unprobeable at the gate, because the probe reads the row roster and nothing else, so a corner against an unadmitted engine is documentation rather than law.
 - Law: `transaction` admits `SqlClient.withTransaction`; `batch` admits an engine-native atomic batch but refuses an interactive transaction. PostgreSQL, server sqlite, wasm sqlite, and libSQL seed `transaction`; D1 seeds only `batch`, so the generic journal publisher cannot compose on D1 and a D1 publisher must submit its whole write set through the batch boundary. Atomicity is a demandable grant like any other — `Demand`'s grant slot is the full `Grant<G>` vocabulary, so a flagged row may demand `transaction` or `batch` and the fixed-point fold refuses it on D1 exactly as it refuses an absent extension grant.
-- Law: `CapabilityFault` closes through `Fault.Class.family`; core class rows own retryability and blame.
-- Packages: `effect` (`Order`, `Schema`, `String`); `@rasm/ts/core` (`Fault.Class`).
-- Growth: a new probe posture is a `probeSql` override on the owning matrix row; a new ensure dialect is one field on the ensure shape; a new dependency edge is one demand pair — the shapes never widen per extension.
+- Law: `CapabilityFault` is `_family.census("CapabilityFault")` — every refusal is an `Issue` its own family row renders, the census carries a `NonEmptyArray` of them, and class, leg, and both recovery axes follow the DOMINANT issue's own class row; core class rows own retryability and blame, and a free-string `subject`/`detail` pair beside a closed `reason` re-opens the axis the reason already closed.
+- Packages: `effect` (`Array`, `HashSet`, `Order`, `Schema`, `String`); `@rasm/ts/core` (`Fault.Class`).
+- Growth: a new probe posture is a `probeSql` override on the owning matrix row; a new ensure dialect is one field on the ensure shape; a new dependency edge is one demand row and a new dependency relation is one `_RELATIONS` row — the shapes never widen per extension.
 
 ```typescript signature
-import { Array, Order, Schema, String, pipe } from "effect"
+import { Array, HashSet, Order, Schema, String, pipe } from "effect"
 import { Fault } from "@rasm/ts/core"
 
-// One row per reason: the core kind alone. Retryability, blame, and quarantine are the core Fault.Class row
-// table's — a rank or retry column here would fork that taxonomy into this folder.
-const _family = Fault.Class.family(["absent", "floor", "schema", "requires"] as const, {
-  absent: { class: "absent" },
-  floor: { class: "breached" },
-  schema: { class: "absent" },
-  requires: { class: "denied" },
+// Every refusal on this family raises from the one probe surface, so the leg is one anchor rather than a word each
+// row re-spells; the census reads it back off whichever issue dominates. The anchor is the bare SURFACE SEGMENT — a
+// module path or a section token restates coordinates the page already is, and a census carrying them reads a file
+// tree where it must read a seam.
+const _LEG = "probe"
+
+// One row per reason and the ROW is the whole declaration: the core kind it grades as, the leg it refuses at, the
+// subject record every raise supplies, and the renderer over that record. Retryability, blame, and quarantine are
+// the core Fault.Class row table's — a rank or retry column here would fork that taxonomy into this folder — and a
+// free-string detail column would re-open the subject axis `reason` closes, so each row states its own subjects.
+const _family = Fault.Class.family(["absent", "floor", "schema", "requires", "conflicts", "ungranted"] as const, {
+  absent: Fault.Class.row({
+    class: "absent",
+    leg: _LEG,
+    detail: Schema.Struct({ extension: Schema.NonEmptyString, floor: Schema.NonEmptyString }),
+    render: ({ extension, floor }) => `${extension} carries no installed version against floor ${floor}`,
+  }),
+  floor: Fault.Class.row({
+    class: "breached",
+    leg: _LEG,
+    detail: Schema.Struct({
+      extension: Schema.NonEmptyString,
+      installed: Schema.NonEmptyString,
+      floor: Schema.NonEmptyString,
+    }),
+    render: ({ extension, installed, floor }) => `${extension} installed ${installed} under floor ${floor}`,
+  }),
+  schema: Fault.Class.row({
+    class: "absent",
+    leg: _LEG,
+    detail: Schema.Struct({ relation: Schema.NonEmptyString, ddl: Schema.NonEmptyString }),
+    render: ({ relation, ddl }) => `${relation} unensured, DDL ${ddl}`,
+  }),
+  requires: Fault.Class.row({
+    class: "denied",
+    leg: _LEG,
+    detail: Schema.Struct({
+      extension: Schema.NonEmptyString,
+      flag: Schema.NonEmptyString,
+      grant: Schema.NonEmptyString,
+    }),
+    render: ({ extension, flag, grant }) => `${extension} flagged ${flag} demands ungranted ${grant}`,
+  }),
+  conflicts: Fault.Class.row({
+    class: "denied",
+    leg: _LEG,
+    detail: Schema.Struct({
+      extension: Schema.NonEmptyString,
+      flag: Schema.NonEmptyString,
+      grant: Schema.NonEmptyString,
+    }),
+    render: ({ extension, flag, grant }) => `${extension} flagged ${flag} excludes granted ${grant}`,
+  }),
+  ungranted: Fault.Class.row({
+    class: "absent",
+    leg: _LEG,
+    detail: Schema.Struct({ grant: Schema.NonEmptyString }),
+    render: ({ grant }) => `${grant} sits outside the granted set`,
+  }),
 })
+
+// The family's OWN accumulating-admission carrier: rows admitted independently census every offender in one refusal,
+// each issue rendered by the row that declared it, and class, leg, and both recovery axes follow the dominant issue
+// rather than whichever refusal was raised first.
+class CapabilityFault extends _family.census("CapabilityFault") {}
+
+// Both relations carry the SAME triple and differ in one thing — what makes a demand unmet — so the negation lives in
+// a table column and each row also mints its own issue, which is what lets the requires arm and the corner arm share
+// one traversal, one refusal constructor, and one flag-membership test.
+type _Corner = { readonly extension: string; readonly flag: string; readonly grant: string }
+
+const _RELATIONS = {
+  requires: {
+    unmet: <A>(available: HashSet.HashSet<A>, grant: A): boolean => !HashSet.has(available, grant),
+    issue: (corner: _Corner): Capability.Issue => ({ reason: "requires", ...corner }),
+  },
+  excludes: {
+    unmet: <A>(available: HashSet.HashSet<A>, grant: A): boolean => HashSet.has(available, grant),
+    issue: (corner: _Corner): Capability.Issue => ({ reason: "conflicts", ...corner }),
+  },
+} as const satisfies {
+  readonly [relation: string]: {
+    readonly unmet: <A>(available: HashSet.HashSet<A>, grant: A) => boolean
+    readonly issue: (corner: _Corner) => Capability.Issue
+  }
+}
 
 declare namespace Capability {
   type Row<G extends string = string, F extends string = string> = {
@@ -48,22 +128,14 @@ declare namespace Capability {
   }
   type Atomicity = "transaction" | "batch"
   type Grant<G extends string = string> = G | Atomicity
-  type Demand<F extends string = string, G extends string = string> = readonly [flag: F, grant: Grant<G>]
-  type Reason = (typeof _family.reasons)[number]
+  type Relation = keyof typeof _RELATIONS
+  type Demand<F extends string = string, G extends string = string> = {
+    readonly relation: Relation
+    readonly flag: F
+    readonly grant: Grant<G>
+  }
+  type Issue = typeof _family.payload.Type
   type Fault = CapabilityFault
-}
-
-class CapabilityFault extends Schema.TaggedError<CapabilityFault>()("CapabilityFault", {
-  reason: _family.schema,
-  subject: Schema.String,
-  detail: Schema.String,
-}) {
-  get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
-  }
-  override get message(): string {
-    return `<capability:${this.reason}> ${this.subject}: ${this.detail}`
-  }
 }
 
 // `Order.array` compares LENGTH before elements, so a two-segment `extversion` sorts under an equal-valued
@@ -132,17 +204,18 @@ const _probeResolver = (sql: SqlClient.SqlClient): RequestResolver.RequestResolv
 
 ## [04]-[PROBE_SERVICE]
 
-- Owner: the `Capability` service — one vocabulary-parameterized Tag whose `Default(build)` Layer factory batch-probes the extension roster, scans the complete ensure roster at the build's physical schema coordinate in one statement, seeds the granted set with the caller's dialect core and atomicity grants, computes the dependency closure, and publishes the closed granted set, the installed-version report, and the refused evidence.
+- Owner: the `Capability` service — one vocabulary-parameterized Tag whose `Default(build)` Layer factory batch-probes the extension roster, scans the complete ensure roster at the build's physical schema coordinate in one statement, seeds the granted set with the caller's dialect core and atomicity grants, refuses every declared corner against the probed horizon, computes the dependency closure over the survivors, and publishes the closed granted set, the installed-version report, and the refused evidence.
 - Packages: `effect` (`Context.GenericTag`, `Layer.effect`, `HashMap`, `HashSet`, `Array`, `Either`, `Option`); `@effect/sql` (`SqlClient`, `sql.onDialectOrElse`); `lane/postgres.md` (`Pg.rows`, `Pg.core`, `Pg.demands` arrive as arguments, never imports — the service is roster-agnostic).
 - Entry: `Capability.Default({ rows: Pg.rows, ensures, core: Pg.core, atomicity: "transaction", demands: Pg.demands, schema: locus.schema })` composes under every pg scope in `lane/tenant.md`; a sqlite profile seeds the grants its own degradation row proves native, an empty demand set, `main`, and `atomicity: profile === "d1" ? "batch" : "transaction"`. Generic journal construction requires `transaction`; D1 composes a batch publisher or routes writes to pg.
-- Receipt: `Capability.Report` — `granted`, `versions`, `refused` — the typed probe evidence startup logging and the fact journal consume; a tally beside it restates what the report carries.
+- Receipt: `Capability.Report` — `granted`, `versions`, `refused` — the typed probe evidence startup logging and the fact journal consume; `refused` carries ISSUE VALUES rather than raised faults, because a refused extension row shrinks the granted set without failing construction and only a gate or an unensured relation raises the census over them; a tally beside the report restates what it already carries.
 - Growth: a consumer needing a new gate composes `require`/`when`, never a second probe path; a new dialect's relation probe is one `onDialectOrElse` arm.
-- Law: probes are fail-closed — an absent row is refused, never assumed; a refused ensure relation fails Layer construction (the DDL split was violated), a refused extension row only shrinks the granted set and consumers degrade through `when`.
+- Law: probes are fail-closed — an absent row is refused, never assumed; a refused ensure relation fails Layer construction (the DDL split was violated) carrying ONE issue per unensured relation with that relation's own DDL, so an operator reads every missing relation from one refusal instead of a joined string; a refused extension row only shrinks the granted set and consumers degrade through `when`.
 - Law: the relation census reads the CATALOG and never `information_schema` — the standard view carries base tables, views, and foreign tables while omitting materialized views entirely, so an ensure for the incremental-view row the matrix admits never verifies and fails construction forever against a relation that exists; the same view also hides relations the current role holds no privilege on, turning a grant defect into an indistinguishable absence whose fault detail prints DDL an operator then re-runs for nothing. `relkind` names the admitted kinds as a literal set, so a new relation kind is one token.
 - Law: the sqlite census filters on relation TYPE — the schema table lists indexes and triggers beside tables, so an unfiltered name match lets an index sharing an ensured relation's name answer for it and construction passes over a table nobody created.
-- Law: demands compute a least fixed point from core grants — each pass admits only rows whose demanded grants already exist in the accepted set, then widens that set with their capabilities; convergence refuses unresolved and cyclic rows with reason `requires`, so one starved row can never satisfy another row transiently. Demand pairs arrive as data, and the deploy plane's image derivation reads the same pairs at provision.
+- Law: the two relations resolve in TWO phases because they pull opposite ways under a growing grant set. `excludes` grades ONCE against the probed HORIZON — core grants, atomicity, and every capability a present, above-floor row carries — so a corner refuses on what the store CARRIES, both members of a mutual corner refuse together, and no admission order elects a winner the operator never chose; grading a corner per pass would instead admit a row an early pass found legal and a later, wider pass would have refused.
+- Law: `requires` then computes a least fixed point over the corner survivors — each pass admits only rows whose demanded grants already exist in the accepted set, then widens that set with their capabilities; convergence refuses unresolved and cyclic rows with reason `requires`, so one starved row can never satisfy another row transiently. Demand rows arrive as data, and the deploy plane's image derivation reads the same rows at provision.
 - Law: the Tag carries the caller's grant vocabulary — `Capability.of<Pg.Grant>()` reaches one runtime key with `G` live in the static type, so `require` and `when` accept only that roster's keys; a Tag fixing its service type at the class widens every gate to bare `string` and deletes the closure the roster exists to provide.
-- Law: `require` is the hard gate (`Effect<void, CapabilityFault>`), `when` the soft gate (refusal reifies as `Option.none`); a boolean read of the granted set outside these two members is the smuggled knob.
+- Law: `require` is the hard gate (`Effect<void, CapabilityFault>`) refusing `ungranted` with the grant it was handed, `when` the soft gate (refusal reifies as `Option.none`); a boolean read of the granted set outside these two members is the smuggled knob, and a sentinel detail standing where a reason belongs hides one refusal inside another's spelling.
 - Law: probing runs once per Layer construction and the report is immutable thereafter — a live re-probe is scope invalidation on the owning `Stores` map, never a poll.
 - Boundary: which rows exist is `lane/postgres.md`'s; where the Layer composes and which ensures collect is `lane/tenant.md`'s; the image that makes `"image"` rows probe true is the deployment plane's.
 
@@ -180,6 +253,27 @@ const _KEY = "data/Capability"
 // nowhere else), and foreign tables. Adding a kind is one token.
 const _PG_KINDS = ["r", "p", "v", "m", "f"] as const
 const _SQLITE_KINDS = ["table", "view"] as const
+
+// One traversal answers both relations: flag membership is the row's half of the pair and the relation's own
+// predicate is the grant set's half, so neither arm re-spells the other's negation and neither hard-codes a reason.
+const _unmet = <G extends string, F extends string>(
+  demands: ReadonlyArray<Capability.Demand<F, G>>,
+  relation: Capability.Relation,
+  available: HashSet.HashSet<Capability.Grant<G>>,
+  row: Capability.Row<G, F>,
+): Option.Option<Capability.Demand<F, G>> =>
+  Array.findFirst(demands, (demand) =>
+    demand.relation === relation
+    && Array.contains(row.flags ?? [], demand.flag)
+    && _RELATIONS[relation].unmet(available, demand.grant))
+
+// The refused row and its unmet demand ARE the corner, and the relation row carries which reason names it, so the
+// starved arm and the excluded arm mint through one constructor instead of forking on a token the row already holds.
+const _refusal = <G extends string, F extends string>(
+  row: Capability.Row<G, F>,
+  demand: Capability.Demand<F, G>,
+): Capability.Issue =>
+  _RELATIONS[demand.relation].issue({ extension: row.extension, flag: demand.flag, grant: demand.grant })
 
 const _capability = <G extends string, F extends string>(
   build: Capability.Build<G, F>,
@@ -230,61 +324,73 @@ const _capability = <G extends string, F extends string>(
           (found) => HashSet.fromIterable(Array.map(found, (row) => row.relation)),
         ))
     const absent = Array.filter(ensures, (ensure) => !HashSet.has(present, ensure.relation))
-    yield* Effect.when(
-      Effect.fail(new CapabilityFault({
-        reason: "schema",
-        subject: Array.map(absent, (ensure) => ensure.relation).join(","),
-        detail: Array.map(absent, (ensure) =>
-          sql.onDialectOrElse({ orElse: () => ensure.sqlite, pg: () => ensure.pg })).join("\n"),
-      })),
-      () => Array.isNonEmptyReadonlyArray(absent),
-    )
+    // Every unensured relation is its own issue carrying its own DDL: the census is the roster, so an operator reads
+    // which relations are missing and what to run for each rather than two joined strings they must re-pair by hand.
+    yield* Array.match(absent, {
+      onEmpty: () => Effect.void,
+      onNonEmpty: (unensured) =>
+        Effect.fail(new CapabilityFault({
+          issues: Array.map(unensured, (ensure) => ({
+            reason: "schema",
+            relation: ensure.relation,
+            ddl: sql.onDialectOrElse({ orElse: () => ensure.sqlite, pg: () => ensure.pg }),
+          } satisfies Capability.Issue)),
+        })),
+    })
     const floored = sql.onDialectOrElse({ orElse: () => false, pg: () => true }) // version floors are pg facts: the sqlite arm admits present modules on membership alone
     const [missing, held] = Array.partitionMap(probed, ([row, version]) =>
       Option.match(version, {
         onNone: () =>
-          Either.left(new CapabilityFault({ reason: "absent", subject: row.extension, detail: row.floor })),
+          Either.left({ reason: "absent", extension: row.extension, floor: row.floor } satisfies Capability.Issue),
         onSome: (installed) =>
           !floored || _meets(installed, row.floor)
             ? Either.right([row, installed] as const)
-            : Either.left(new CapabilityFault({ reason: "floor", subject: row.extension, detail: installed })),
+            : Either.left(
+              { reason: "floor", extension: row.extension, installed, floor: row.floor } satisfies Capability.Issue,
+            ),
       }))
-    // Partition arms CARRY each starved row's unmet grant, so the terminal pass reports the demand that starved it
+    // The HORIZON is what this store can grant at all — core, atomicity, and every row that answered present above
+    // its floor. Corners grade against it ONCE and before admission runs, because an exclusion is a fact of what is
+    // INSTALLED rather than of what the fold happened to accept first: two rows excluding each other therefore both
+    // refuse and the operator repairs the deployment, where a per-pass grading would admit a row the next pass would
+    // have refused and leave the verdict reading off iteration order.
+    const horizon = HashSet.union(
+      HashSet.fromIterable<Capability.Grant<G>>([...core, atomicity]),
+      HashSet.fromIterable(Array.flatMap(held, ([row]) => row.capabilities)),
+    )
+    const [cornered, legal] = Array.partitionMap(held, (entry) =>
+      Option.match(_unmet(demands, "excludes", horizon, entry[0]), {
+        onNone: () => Either.right(entry),
+        onSome: (demand) => Either.left(_refusal(entry[0], demand)),
+      }))
+    // Partition arms CARRY each starved row's unmet demand, so the terminal pass reports the demand that starved it
     // without re-running the probe — and a cyclic row is a row whose unmet grant never arrives, so no separate cycle
-    // arm exists for a state the carried grant already names.
+    // arm exists for a state the carried demand already names.
     const resolve = (
       accepted: typeof held,
       pending: typeof held,
-    ): readonly [accepted: typeof held, refused: ReadonlyArray<CapabilityFault>] => {
+    ): readonly [accepted: typeof held, refused: ReadonlyArray<Capability.Issue>] => {
       const available = HashSet.union(
         HashSet.fromIterable<Capability.Grant<G>>([...core, atomicity]),
         HashSet.fromIterable(Array.flatMap(accepted, ([row]) => row.capabilities)),
       )
       const [starved, ready] = Array.partitionMap(pending, (entry) =>
-        Option.match(
-          Array.findFirst(demands, ([flag, grant]) =>
-            Array.contains(entry[0].flags ?? [], flag) && !HashSet.has(available, grant)),
-          {
-            onNone: () => Either.right(entry),
-            onSome: ([, grant]) => Either.left([entry, grant] as const),
-          },
-        ))
+        Option.match(_unmet(demands, "requires", available, entry[0]), {
+          onNone: () => Either.right(entry),
+          onSome: (demand) => Either.left([entry, demand] as const),
+        }))
       return ready.length > 0
         ? resolve([...accepted, ...ready], Array.map(starved, ([entry]) => entry))
-        : [
-            accepted,
-            Array.map(starved, ([[row], grant]) =>
-              new CapabilityFault({ reason: "requires", subject: row.extension, detail: grant })),
-          ]
+        : [accepted, Array.map(starved, ([[row], demand]) => _refusal(row, demand))]
     }
-    const [granted, starved] = resolve([], held)
+    const [granted, starved] = resolve([], legal)
     const report: Capability.Report<G> = {
       granted: HashSet.union(
         HashSet.fromIterable<Capability.Grant<G>>([...core, atomicity]),
         HashSet.fromIterable(Array.flatMap(granted, ([row]) => row.capabilities)),
       ),
       versions: HashMap.fromIterable(Array.map(granted, ([row, installed]) => [row.extension, installed] as const)),
-      refused: [...missing, ...starved],
+      refused: [...missing, ...cornered, ...starved],
     }
     return {
       report,
@@ -292,7 +398,7 @@ const _capability = <G extends string, F extends string>(
       require: (key: Capability.Grant<G>): Effect.Effect<void, CapabilityFault> =>
         HashSet.has(report.granted, key)
           ? Effect.void
-          : Effect.fail(new CapabilityFault({ reason: "absent", subject: key, detail: "<ungranted>" })),
+          : Effect.fail(new CapabilityFault({ issues: [{ reason: "ungranted", grant: key }] })),
       when: <A, E, R>(key: Capability.Grant<G>, effect: Effect.Effect<A, E, R>): Effect.Effect<Option.Option<A>, E, R> =>
         Effect.when(effect, () => HashSet.has(report.granted, key)),
     }
@@ -315,7 +421,7 @@ declare namespace Capability {
   type Report<G extends string = string> = {
     readonly granted: HashSet.HashSet<Capability.Grant<G>>
     readonly versions: HashMap.HashMap<string, string>
-    readonly refused: ReadonlyArray<CapabilityFault>
+    readonly refused: ReadonlyArray<Capability.Issue>
   }
 }
 
@@ -330,16 +436,18 @@ declare namespace Capability {
 - Law: contributions union by artifact key under `_byKey`, artifact and capability rows alike; a key two branches claim with differing content raises `collision`, so neither first-wins nor last-wins resolves one and the merged generation re-mints from the union.
 - Law: artifact key order is the whole wire order — a dependency-depth or topological rank inside the stream mints a second generation from one artifact set, so `_projection` proves the dependency keys and no path validates by sorting.
 - Law: `failureRank` and `restartClass` decode as closed literals whose tokens are corpus law; `_RESTART_ORDER` declares the restart tokens in rank order and its index IS the rank, so `Backend.worst` folds an aggregated repair to the worst disruption across its gap set rather than the least.
+- Law: admission ACCUMULATES across independent columns and SEQUENCES across dependent ones, and the shape at the call site is the whole disposition — `_prove` takes stages, censuses every failing row inside one stage through `Effect.validateAll`, and aborts between stages; projection, merge, and admission each grade one stage whose rows read values already in hand, while the artifact proof is three stages because a repeated key makes the key set a lie, an out-of-set edge names no row, and the peel reads a closed set. A first-failure abort over independent columns hands the operator one repair at a time and hides how many the store actually owes.
+- Law: one refusal carries every failing column as a typed ISSUE its own family row renders, so a verdict names which proof failed beside its subjects, and class, leg, and both recovery axes follow the DOMINANT issue — a store carrying the wrong generation on a stale window grades on the breach rather than on whichever proof was seated first.
 - Law: provider rows map the contract's canonical capability key onto the GRANT that proves it, and the granted set is the one membership value observation reads; a probed-version lookup answers floor evidence alone, and a semantic fallback proves nothing.
 - Law: capabilities enter an observation two ways and the split is the probe's REACH — a relational grant resolves through the adapter map against `report.granted`, while a provider plane whose custody no SQL catalog scans hands its canonical keys in already resolved on `Reading.granted`, the mirror of the `artifacts` slot beside it. `Capability.Grant<G>` stays closed against those keys: no probe ever finds a canonical contract key as a grant, and a roster admitting one fails every `require` that names it.
 - Law: the composition root builds ONE `Reading` from the relational report and adapters beside every provider plane's observed set — `granted` empty on a purely relational reading — so one `Backend.admit` verdict covers relational and object state together and no plane publishes a second generation against the same contract.
 - Law: generation, required grants, and artifact observations all hold before `Backend.Generation` exists, each proved against the corpus and the transported bytes rather than a local re-encode.
 - Law: recovery is ONE verdict on two proofs, never two generations — contract identity proves the store carries the composed generation, and recency proves the frontier behind it is current for the window the deployment declared; both refuse through `BackendFault`, so a stale store never publishes as an admitted generation.
 - Law: the measured window derives from the observation's OWN stamps, so a provider hands in the readings it took and never a lag it computed against a clock this owner never saw; a lag admits at ZERO — a frontier stamped at its own reading instant is the freshest measured recency — and only a frontier stamped after that reading is skew grading as unmeasured.
-- Law: absence splits opposite ways — an unmeasured recovery point refuses, because a restore admitted with no recency evidence grades a window nobody took, while an absent restore duration passes on a store that never restored.
+- Law: absence splits opposite ways and the split is a COLUMN on the axis table — an unmeasured recovery point refuses, because a restore admitted with no recency evidence grades a window nobody took, while an absent restore duration passes on a store that never restored; each axis reads its own window half, its own objective half, and its own absence posture from one row, so a third axis is one row rather than a third hand-written arm.
 - Law: the objective is a value the composition root supplies off its consumption profile row; this page grades a declared window and owns no durability table of its own.
 - Packages: `effect` Schema, JSONSchema, collections, and rails; core `Digest.Key`, `Digest`, and `Fault.Class`.
-- Growth: a provider adds adapter rows over its existing matrix, and a provider plane holding no probeable catalog adds canonical keys on `Reading.granted` instead; a new invariant is one `_Check` row; a generated field changes the one projection schema; a new recovery axis is one `Window` column with its absence law in `_exceeding` beside its `Objective` column.
+- Growth: a provider adds adapter rows over its existing matrix, and a provider plane holding no probeable catalog adds canonical keys on `Reading.granted` instead; a new invariant is one `_Check` row inside the stage that already holds its inputs; a generated field changes the one projection schema; a new recovery axis is one `_AXES` token with its `_WINDOWS` row carrying both readers and its absence posture.
 - Boundary: a TypeScript-only application composes, merges, deploys, and admits its backend with no peer branch present; desired rows and local availability never count as realized evidence. Assembling the one `Reading` — relational report and adapters beside every provider plane's already-canonical grants and artifacts — is the composition root's obligation, and this page grades whatever that root hands it.
 
 ```typescript signature
@@ -361,6 +469,10 @@ const _ArtifactWire = Schema.Struct({
 // order and its index IS the rank: an aggregated repair folds the WORST disruption across its gap set, so a
 // token set read as unordered would report a per-row minimum that understates the bounce the operator pays.
 const _RESTART_ORDER = ["session", "reload", "restart"] as const
+
+// The recovery axes are a closed vocabulary before they are a table: the fault row renders against these tokens and
+// the policy rows below key on them, so an axis exists in exactly one place and both surfaces move with it.
+const _AXES = ["rpo", "rto"] as const
 
 const _CapabilityWire = Schema.Struct({
   key: Schema.String,
@@ -408,40 +520,85 @@ const _sameKey = (self: { readonly key: string }, that: { readonly key: string }
 
 // --- [ERRORS] ---------------------------------------------------------------------------
 
-// `dependency` carries both dependency-key refusals — an edge naming no artifact in the set, and a set whose
-// edges admit no order — because each names the same broken payload and the subjects name which keys broke it.
-// One row per reason: the core kind alone, so retryability, blame, and quarantine stay the core row table's.
+// Contract refusals raise from one surface and probe refusals from another, so the two families carry two legs and a
+// consumer reading `leg` off a census learns which plane refused without re-deriving it from the reason. Both spell
+// the bare surface segment, so the two words partition a seam rather than restating the page's own coordinates.
+const _BACKEND_LEG = "contract"
+
+// One row per reason and the row states its own subjects: the core kind, the leg it refuses at, the subject record
+// every raise supplies, and the renderer over it — so retryability, blame, and quarantine stay the core row table's
+// while the shape of the evidence stays this family's. `dependency` carries both dependency-key refusals — an edge
+// naming no artifact in the set, and a set whose edges admit no order — because each names the same broken payload
+// and the keys name which broke it.
 const _backendFamily = Fault.Class.family(
   ["wire", "identity", "capability", "artifact", "dependency", "collision", "recovery"] as const,
   {
-    wire: { class: "malformed" },
-    identity: { class: "breached" },
-    capability: { class: "absent" },
-    artifact: { class: "invalid" },
-    dependency: { class: "invalid" },
-    collision: { class: "conflicted" },
-    // a store carrying the generation on stale data is recoverable by waiting, never by re-composing:
-    // this class puts the refusal on the retry rail instead of the quarantine one.
-    recovery: { class: "expired" },
+    wire: Fault.Class.row({
+      class: "malformed",
+      leg: _BACKEND_LEG,
+      detail: Schema.Struct({ document: Schema.NonEmptyString }),
+      render: ({ document }) => `${document} refused at the wire`,
+    }),
+    identity: Fault.Class.row({
+      class: "breached",
+      leg: _BACKEND_LEG,
+      detail: Schema.Struct({ expected: Schema.NonEmptyString, actual: Schema.NonEmptyString }),
+      render: ({ expected, actual }) => `expected ${expected}, observed ${actual}`,
+    }),
+    capability: Fault.Class.row({
+      class: "absent",
+      leg: _BACKEND_LEG,
+      detail: Schema.Struct({ keys: Schema.Array(Schema.String) }),
+      render: ({ keys }) => `capability keys unproved: ${Array.join(keys, ",")}`,
+    }),
+    artifact: Fault.Class.row({
+      class: "invalid",
+      leg: _BACKEND_LEG,
+      detail: Schema.Struct({ keys: Schema.Array(Schema.String) }),
+      render: ({ keys }) => `artifact keys refused: ${Array.join(keys, ",")}`,
+    }),
+    dependency: Fault.Class.row({
+      class: "invalid",
+      leg: _BACKEND_LEG,
+      detail: Schema.Struct({ keys: Schema.Array(Schema.String) }),
+      render: ({ keys }) => `dependency keys refused: ${Array.join(keys, ",")}`,
+    }),
+    collision: Fault.Class.row({
+      class: "conflicted",
+      leg: _BACKEND_LEG,
+      detail: Schema.Struct({ keys: Schema.Array(Schema.String) }),
+      render: ({ keys }) => `keys claimed twice with differing content: ${Array.join(keys, ",")}`,
+    }),
+    // a store carrying the generation on stale data is recoverable by waiting, never by re-composing: this class puts
+    // the refusal on the retry rail instead of the quarantine one, and the row renders the MEASURED bound beside the
+    // declared one so an operator reads the gap rather than an axis name they must go re-measure.
+    recovery: Fault.Class.row({
+      class: "expired",
+      leg: _BACKEND_LEG,
+      detail: Schema.Struct({
+        axis: Schema.Literal(..._AXES),
+        measured: Schema.OptionFromSelf(Schema.DurationFromSelf),
+        declared: Schema.DurationFromSelf,
+      }),
+      render: ({ axis, measured, declared }) =>
+        Option.match(measured, {
+          onNone: () => `${axis} unmeasured against ${Duration.toMillis(declared)}ms`,
+          onSome: (held) => `${axis} ${Duration.toMillis(held)}ms over ${Duration.toMillis(declared)}ms`,
+        }),
+    }),
   },
 )
 
-class BackendFault extends Schema.TaggedError<BackendFault>()("BackendFault", {
-  reason: _backendFamily.schema,
-  subjects: Schema.Array(Schema.String),
-}) {
-  get class(): Fault.Class.Kind {
-    return _backendFamily.classOf(this.reason)
-  }
-  override get message(): string {
-    return `<backend:${this.reason}> ${this.subjects.join(" ")}`
-  }
-}
+// The census IS the admission carrier: independent proofs report every offender in one refusal, each issue rendered
+// by the row that declared it, and class, leg, and both recovery axes follow the dominant issue's own class row.
+class BackendFault extends _backendFamily.census("BackendFault") {}
 
 // --- [MODELS] ---------------------------------------------------------------------------
 
 declare namespace Backend {
+  type Axis = (typeof _AXES)[number]
   type FailureRank = typeof _CapabilityWire.Type["failureRank"]
+  type Issue = typeof _backendFamily.payload.Type
   type RestartClass = typeof _CapabilityWire.Type["restartClass"]
   type Files = {
     readonly contract: Uint8Array
@@ -514,23 +671,25 @@ declare namespace Backend {
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
-// One discriminant table carries every contract invariant: each row names the fault reason it
-// raises, the subjects it reports, and the predicate that must hold — so a new invariant is one
-// row and admission stays one traversal instead of a per-check `Effect.when` ladder whose reason
-// collapses onto whichever tag the first arm happened to carry.
+// One discriminant table carries every contract invariant: each row names the predicate that must hold beside the
+// ISSUE it raises — reason and subjects together — so a new invariant is one row, no reason collapses onto whichever
+// tag an arm happened to carry, and the payload mints on the failing arm alone because the row is a deferred thunk.
 type _Check = {
-  readonly reason: BackendFault["reason"]
   readonly holds: () => boolean
-  readonly subjects: () => ReadonlyArray<string>
+  readonly issue: () => Backend.Issue
 }
 
-const _prove = (checks: ReadonlyArray<_Check>): Effect.Effect<void, BackendFault> =>
+// Stages sequence, rows accumulate, and the CALL SITE's shape is the whole disposition. Rows inside one stage are
+// independent columns of the same value, so the census names every column that refused instead of the first; a later
+// stage reads a fact an earlier stage proved, so the ladder between stages aborts. An abort spanning independent
+// columns is the deleted form: it makes a store owing three repairs look like a store owing one.
+const _prove = (stages: ReadonlyArray<ReadonlyArray<_Check>>): Effect.Effect<void, BackendFault> =>
   Effect.forEach(
-    checks,
-    (row) =>
-      row.holds()
-        ? Effect.void
-        : Effect.fail(new BackendFault({ reason: row.reason, subjects: row.subjects() })),
+    stages,
+    (stage) =>
+      Effect.validateAll(stage, (row) => row.holds() ? Effect.void : Effect.fail(row.issue()), { discard: true }).pipe(
+        Effect.mapError((issues) => new BackendFault({ issues })),
+      ),
     { discard: true },
   )
 
@@ -553,27 +712,37 @@ const _window = (observed: Backend.Observation): Backend.Window => ({
   rto: observed.restoredIn,
 })
 
-// Both halves absorb absence OPPOSITELY, and that split is the whole law: a reading carrying no frontier proves
-// no recency and refuses, where admitting it grades a window nobody took, while an absent restore time is a store
-// that never bounced and owes none. Every admitted generation therefore carries a measured recovery point, and the
-// subjects name WHICH half exceeded with the measured and declared millisecond bounds beside it.
-const _exceeding = (window: Backend.Window, objective: Backend.Objective): ReadonlyArray<string> =>
-  Array.appendAll(
-    Option.match(window.rpo, {
-      onNone: (): ReadonlyArray<string> => ["rpo:unmeasured"],
-      onSome: (held) =>
-        Duration.lessThanOrEqualTo(held, objective.rpo)
-          ? []
-          : [`rpo:${Duration.toMillis(held)}>${Duration.toMillis(objective.rpo)}`],
-    }),
-    Option.match(window.rto, {
-      onNone: (): ReadonlyArray<string> => [],
-      onSome: (held) =>
-        Duration.lessThanOrEqualTo(held, objective.rto)
-          ? []
-          : [`rto:${Duration.toMillis(held)}>${Duration.toMillis(objective.rto)}`],
-    }),
-  )
+// Both halves absorb absence OPPOSITELY, and that split is a COLUMN rather than two hand-written arms: a reading
+// carrying no frontier proves no recency and refuses, where admitting it grades a window nobody took, while an absent
+// restore time is a store that never bounced and owes none. Every admitted generation therefore carries a measured
+// recovery point, and each row names the window half it reads, the objective half it grades against, and its own
+// posture on absence — the two arms differed in nothing else, which is why one table replaces both.
+const _WINDOWS = {
+  rpo: { measured: (window) => window.rpo, declared: (objective) => objective.rpo, unmeasured: "refuse" },
+  rto: { measured: (window) => window.rto, declared: (objective) => objective.rto, unmeasured: "admit" },
+} as const satisfies {
+  readonly [Axis in Backend.Axis]: {
+    readonly measured: (window: Backend.Window) => Option.Option<Duration.Duration>
+    readonly declared: (objective: Backend.Objective) => Duration.Duration
+    readonly unmeasured: "refuse" | "admit"
+  }
+}
+
+// One check row per axis, so the axes stay INDEPENDENT columns of one verdict: a store both stale and slow to
+// restore reports both, and the issue carries the measured and declared durations as values the family row renders.
+const _breaches = (window: Backend.Window, objective: Backend.Objective): ReadonlyArray<_Check> =>
+  Array.map(_AXES, (axis) => {
+    const measured = _WINDOWS[axis].measured(window)
+    const declared = _WINDOWS[axis].declared(objective)
+    return {
+      holds: () =>
+        Option.match(measured, {
+          onNone: () => _WINDOWS[axis].unmeasured === "admit",
+          onSome: (held) => Duration.lessThanOrEqualTo(held, declared),
+        }),
+      issue: () => ({ reason: "recovery", axis, measured, declared } satisfies Backend.Issue),
+    }
+  })
 
 const _wire = <A, I>(
   schema: Schema.Schema<A, I>,
@@ -581,13 +750,13 @@ const _wire = <A, I>(
 ): ((encoded: I) => Effect.Effect<A, BackendFault>) =>
 (encoded) =>
   Schema.decode(schema)(encoded).pipe(
-    Effect.mapError(() => new BackendFault({ reason: "wire", subjects: [subject] })),
+    Effect.mapError(() => new BackendFault({ issues: [{ reason: "wire", document: subject }] })),
   )
 
 const _canonical = (wire: typeof _ContractWire.Type): Effect.Effect<Uint8Array, BackendFault> =>
   Schema.encode(_ContractJson)(wire).pipe(
     Effect.mapBoth({
-      onFailure: () => new BackendFault({ reason: "wire", subjects: ["canonical"] }),
+      onFailure: () => new BackendFault({ issues: [{ reason: "wire", document: "canonical" }] }),
       onSuccess: (json) => _utf8.encode.encode(json),
     }),
   )
@@ -642,10 +811,21 @@ const _projection = (
       row.dependsOn.filter((key) => !HashSet.has(declared, key)))
     const cyclic = () => _cyclic(wire.artifacts)
 
+    // Three STAGES, never three rows: each proof consumes what the one before it settled, so an out-of-set edge is
+    // never reported against a key set already known to be a lie and the peel only ever reads a closed set.
     yield* _prove([
-      { reason: "artifact", holds: () => repeated.length === 0, subjects: () => repeated },
-      { reason: "dependency", holds: () => dangling.length === 0, subjects: () => dangling },
-      { reason: "dependency", holds: () => cyclic().length === 0, subjects: cyclic },
+      [{
+        holds: () => repeated.length === 0,
+        issue: () => ({ reason: "artifact", keys: repeated } satisfies Backend.Issue),
+      }],
+      [{
+        holds: () => dangling.length === 0,
+        issue: () => ({ reason: "dependency", keys: dangling } satisfies Backend.Issue),
+      }],
+      [{
+        holds: () => cyclic().length === 0,
+        issue: () => ({ reason: "dependency", keys: cyclic() } satisfies Backend.Issue),
+      }],
     ])
 
     const contract = yield* _canonical(wire)
@@ -664,7 +844,7 @@ const _projection = (
       artifactKeys,
       capabilityKeys,
       requiredCapabilities: required,
-    }).pipe(Effect.mapError(() => new BackendFault({ reason: "wire", subjects: ["conformance"] })))
+    }).pipe(Effect.mapError(() => new BackendFault({ issues: [{ reason: "wire", document: "conformance" }] })))
 
     return {
       contract: {
@@ -715,11 +895,10 @@ const Backend = {
         _collided(capabilities, Schema.equivalence(_CapabilityWire)),
       )
 
-      yield* _prove([{
-        reason: "collision",
+      yield* _prove([[{
         holds: () => collided.length === 0,
-        subjects: () => collided,
-      }])
+        issue: () => ({ reason: "collision", keys: collided } satisfies Backend.Issue),
+      }]])
 
       return yield* _projection({
         contract,
@@ -737,14 +916,35 @@ const Backend = {
       const capabilityKeys = wire.capabilities.map((row) => row.key)
       const artifactKeys = wire.artifacts.map((row) => row.key)
 
-      yield* _prove([
-        { reason: "identity", holds: () => id === corpus.generation, subjects: () => [id, corpus.generation] },
-        { reason: "identity", holds: () => corpus.contract === wire.contract, subjects: () => [corpus.contract, wire.contract] },
-        { reason: "wire", holds: () => _bytes(corpus.canonical, files.contract), subjects: () => ["corpus.canonical"] },
-        { reason: "wire", holds: () => _bytes(corpus.jsonSchema, files.schema), subjects: () => ["corpus.jsonSchema"] },
-        { reason: "capability", holds: () => _keys(corpus.capabilityKeys, capabilityKeys), subjects: () => capabilityKeys },
-        { reason: "artifact", holds: () => _keys(corpus.artifactKeys, artifactKeys), subjects: () => artifactKeys },
-      ])
+      // ONE stage: every row reads values already decoded, so a transported set disagreeing on its generation, its
+      // bytes, AND its rosters answers with all of them rather than sending an operator back six times.
+      yield* _prove([[
+        {
+          holds: () => id === corpus.generation,
+          issue: () => ({ reason: "identity", expected: id, actual: corpus.generation } satisfies Backend.Issue),
+        },
+        {
+          holds: () => corpus.contract === wire.contract,
+          issue: () =>
+            ({ reason: "identity", expected: corpus.contract, actual: wire.contract } satisfies Backend.Issue),
+        },
+        {
+          holds: () => _bytes(corpus.canonical, files.contract),
+          issue: () => ({ reason: "wire", document: "corpus.canonical" } satisfies Backend.Issue),
+        },
+        {
+          holds: () => _bytes(corpus.jsonSchema, files.schema),
+          issue: () => ({ reason: "wire", document: "corpus.jsonSchema" } satisfies Backend.Issue),
+        },
+        {
+          holds: () => _keys(corpus.capabilityKeys, capabilityKeys),
+          issue: () => ({ reason: "capability", keys: capabilityKeys } satisfies Backend.Issue),
+        },
+        {
+          holds: () => _keys(corpus.artifactKeys, artifactKeys),
+          issue: () => ({ reason: "artifact", keys: artifactKeys } satisfies Backend.Issue),
+        },
+      ]])
 
       return {
         contract: {
@@ -786,32 +986,26 @@ const Backend = {
     Effect.gen(function* () {
       const missingCapabilities = HashSet.difference(expected.required, observed.capabilities)
       const missingArtifacts = HashSet.difference(expected.artifacts, observed.artifacts)
-      const exceeded = _exceeding(_window(observed), objective)
 
-      yield* _prove([
+      // ONE stage over four independent columns of one store — generation, capabilities, artifacts, and each recovery
+      // axis — so a store carrying the wrong generation on a stale window reports both halves of its own repair, and
+      // the census grades on the dominant issue instead of on whichever proof a ladder happened to seat first.
+      yield* _prove([[
         {
-          reason: "identity",
           holds: () => expected.id === observed.generation,
-          subjects: () => [expected.id, observed.generation],
+          issue: () =>
+            ({ reason: "identity", expected: expected.id, actual: observed.generation } satisfies Backend.Issue),
         },
         {
-          reason: "capability",
           holds: () => HashSet.size(missingCapabilities) === 0,
-          subjects: () => [...missingCapabilities],
+          issue: () => ({ reason: "capability", keys: [...missingCapabilities] } satisfies Backend.Issue),
         },
         {
-          reason: "artifact",
           holds: () => HashSet.size(missingArtifacts) === 0,
-          subjects: () => [...missingArtifacts],
+          issue: () => ({ reason: "artifact", keys: [...missingArtifacts] } satisfies Backend.Issue),
         },
-        // Seated after the realization rows: a store proved to carry neither the artifacts nor the required
-        // capabilities has no window worth grading, so recency is the last proof one verdict rests on.
-        {
-          reason: "recovery",
-          holds: () => exceeded.length === 0,
-          subjects: () => exceeded,
-        },
-      ])
+        ..._breaches(_window(observed), objective),
+      ]])
 
       return {
         ...expected,

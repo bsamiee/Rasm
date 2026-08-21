@@ -31,13 +31,13 @@ from typing import Final, Literal, Self, assert_never
 import numpy as np
 from beartype import beartype
 from expression import case, tag, tagged_union
-from expression.collections import Map
+from expression.collections import Block, Map
 from jaxtyping import Array, Float, jaxtyped
 from msgspec import Struct
 
-from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, evidence_run
-from rasm.compute.solvers.receipt import SolverReceipt, graduate, verdict
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail
+from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, GraduationReceipt, evidence_run
+from rasm.compute.solvers.receipt import Provider, SolverReceipt, graduate, verdict
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, FaultRow, RuntimeRail, boundary, rostered
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import DEFAULT_SCOPE, ScopeKey
@@ -164,6 +164,27 @@ def _spd_free(m: "LinearMap") -> bool:
             return True
         case _:
             return False
+
+
+# --- [TABLES] ------------------------------------------------------------------------------
+
+# the exchange plane's four lift fences, one row per leg: container and direction are the two axes a reader
+# separates a refusal on, so each is its own point rather than one row taking them as slots — a `.mtx` parse
+# refusal and an HDF5 group miss share no repair and no retriability story. Every row is TERMINAL: a malformed
+# container, an absent path, and a missing archive group are all caller-repairable and none clears on a re-issue.
+MTX_READ: Final[FaultRow[ComputeLeg]] = FaultRow(
+    leg=ComputeLeg.LINEAR, point="read_mtx", arm="boundary", defect="mtx-read", retriability=TERMINAL
+)
+MTX_WRITE: Final[FaultRow[ComputeLeg]] = FaultRow(
+    leg=ComputeLeg.LINEAR, point="write_mtx", arm="boundary", defect="mtx-write", retriability=TERMINAL
+)
+ARCHIVE_READ: Final[FaultRow[ComputeLeg]] = FaultRow(
+    leg=ComputeLeg.LINEAR, point="read_archive", arm="boundary", defect="archive-read", retriability=TERMINAL
+)
+ARCHIVE_WRITE: Final[FaultRow[ComputeLeg]] = FaultRow(
+    leg=ComputeLeg.LINEAR, point="write_archive", arm="boundary", defect="archive-write", retriability=TERMINAL
+)
+RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([MTX_READ, MTX_WRITE, ARCHIVE_READ, ARCHIVE_WRITE]))
 
 
 # --- [MODELS] ------------------------------------------------------------------------------
@@ -410,22 +431,30 @@ class LinearIntent:
     def Operator(matrix: LinearMap, rhs: np.ndarray, shape: SolveShape = SolveShape.SQUARE, policy: LinearPolicy = LinearPolicy()) -> "LinearIntent":
         return LinearIntent(operator=(matrix, rhs, shape, policy))
 
-    async def solve(self, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[SolverReceipt]":
+    async def solve(self, lane: LanePolicy, key: ContentKey, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[SolverReceipt]":
         # composes the runtime crossing on the family trait row — isolation, band, and worker-death retry all derive
         # from the Kernel value, wrapping the isolation leg, never the solve. The weave owns span/fence/harvest, and
         # the caller's composition key threads onto it so an embedded second composition's lifecycle facts reach the
         # points IT registered; the key defaults so the root call shape stays scope-free.
+        # `key` NAMES THE SOLVED OPERAND the caller already identified — a convergence verdict keys to what was
+        # solved, never to itself — and it crosses as an ordinary kernel argument so the receipt carries its own
+        # content coordinate. Threading it here rather than at `graduates` is what lets the receipt settle on the
+        # runtime spine at all: a `*Receipt` whose key arrives only at the graduation call has none at `contribute`.
         async def dispatch() -> RuntimeRail[SolverReceipt]:
-            return await lane.offload(Kernel.of(_dispatch, _TRAIT[self.tag]), self)
+            return await lane.offload(Kernel.of(_dispatch, _TRAIT[self.tag]), self, key)
 
         return await evidence_run(EvidenceScope.LINEAR, f"solve.{self.tag}", dispatch, facts={"route": self.tag}, composition=composition)
 
     def graduates(
-        self, receipt: SolverReceipt, key: ContentKey, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE
+        self, receipt: SolverReceipt, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE
     ) -> "RuntimeRail[GraduationReceipt]":
-        # `graduate` projects the receipt's own ledger, so the receipt IS the evidence; the key names the
-        # solved operand the caller already identified — a convergence verdict keys to what was solved, never to itself.
-        return graduate(EvidenceScope.LINEAR.value, f"solve.{self.tag}", key, receipt, ceiling or dict(_CEILING.items()), composition=composition)
+        # `graduate` projects the receipt's own ledger AND its own key, so the receipt IS the whole evidence. The
+        # retired `key` parameter restated a value the receipt already reconstructs — the deletion test the
+        # `CLAUDE.md` [PARAMETERIZATION] law names — and let a caller graduate one solve under another's coordinate.
+        return graduate(
+            EvidenceScope.LINEAR.value, f"solve.{self.tag}", receipt.content_key, receipt, ceiling or dict(_CEILING.items()),
+            composition=composition,
+        )
 
 
 # --- [OPERATIONS] --------------------------------------------------------------------------
@@ -433,37 +462,37 @@ class LinearIntent:
 
 # one measured kernel — module-level and import-resolvable, so it crosses the process lane as spec
 # data plus operands.
-def _dispatch(intent: LinearIntent) -> SolverReceipt:
+def _dispatch(intent: LinearIntent, key: ContentKey) -> SolverReceipt:
     match intent:
         case LinearIntent(tag="dense_la", dense_la=(m, b, shape)):
-            return _dense_receipt(m, b, shape)
+            return _dense_receipt(key, m, b, shape)
         case LinearIntent(tag="sparse", sparse=(m, b, scheme, policy)):
-            return sparse_receipt(m, b, scheme, policy)
+            return sparse_receipt(key, m, b, scheme, policy)
         case LinearIntent(tag="eigen", eigen=(m, k, mode, scheme, sigma)):
-            return _eigen_receipt(m, k, mode, scheme, sigma)
+            return _eigen_receipt(key, m, k, mode, scheme, sigma)
         case LinearIntent(tag="operator", operator=(m, b, shape, policy)):
-            return _operator_receipt(m, b, shape, policy)
+            return _operator_receipt(key, m, b, shape, policy)
         case _ as unreachable:
             assert_never(unreachable)
 
 
-def _dense_receipt(m: LinearMap, b: np.ndarray, shape: SolveShape) -> SolverReceipt:
+def _dense_receipt(key: ContentKey, m: LinearMap, b: np.ndarray, shape: SolveShape) -> SolverReceipt:
     a = m.dense_array()
     if shape is not SolveShape.SQUARE or a.shape[0] != a.shape[1]:
         x, residuals, rank, _ = np.linalg.lstsq(a, b, rcond=None)
         residual = float(residuals[0]) if residuals.size else float(np.linalg.norm(a @ x - b))
-        return SolverReceipt.LeastSquares(residual, int(rank), 0)
+        return SolverReceipt.LeastSquares(key, residual, int(rank), 0, Provider.GATED)
     try:
         # `assume_a=m.structure.value` IS the LAPACK driver selector: `"pos"` reaches the Cholesky `?posv`
         # driver, `"sym"` `?sysv` — no SPD-special-case `cho_*` pair.
         x = sla.solve(a, b, assume_a=m.structure.value)
     except ImportError:
         x = np.linalg.solve(a, b)
-    return SolverReceipt.Direct(float(np.linalg.norm(a @ x - b)), _condition(np.linalg.svdvals(a)))
+    return SolverReceipt.Direct(key, float(np.linalg.norm(a @ x - b)), _condition(np.linalg.svdvals(a)))
 
 
 # PUBLIC: `solvers/quadrature#QUADRATURE` composes this by name for its FEM arm, never a private `_sparse_receipt`.
-def sparse_receipt(m: LinearMap, b: np.ndarray, scheme: SparseScheme, policy: LinearPolicy) -> SolverReceipt:
+def sparse_receipt(key: ContentKey, m: LinearMap, b: np.ndarray, scheme: SparseScheme, policy: LinearPolicy) -> SolverReceipt:
     # Direct schemes read `m.matrix()` (only a sparse container admits a `SuperLU`); Krylov/lsqr read the
     # matrix-free `m.scipy_op()` so a `Free` FEM operand reaches them without materialising a matrix.
     # Every direct sparse arm constructs WITHOUT `condition`: a `SuperLU` factor exposes no singular spectrum, so the
@@ -471,14 +500,14 @@ def sparse_receipt(m: LinearMap, b: np.ndarray, scheme: SparseScheme, policy: Li
     # it and the hub refuses a caller's conditioning ceiling by key coverage rather than clearing a fabricated number.
     match scheme:
         case SparseScheme(tag="spsolve"):
-            return SolverReceipt.Direct(m.residual(spla.spsolve(m.matrix(), b), b))
+            return SolverReceipt.Direct(key, m.residual(spla.spsolve(m.matrix(), b), b))
         # `splu` exact factor, `spilu` incomplete — both return a `SuperLU` whose `.solve(b)` back-substitutes.
         case SparseScheme(tag="splu"):
-            return SolverReceipt.Direct(m.residual(spla.splu(m.matrix()).solve(b), b))
+            return SolverReceipt.Direct(key, m.residual(spla.splu(m.matrix()).solve(b), b))
         case SparseScheme(tag="spilu", spilu=(drop_tol, fill_factor)):
-            return SolverReceipt.Direct(m.residual(spla.spilu(m.matrix(), drop_tol=drop_tol, fill_factor=fill_factor).solve(b), b))
+            return SolverReceipt.Direct(key, m.residual(spla.spilu(m.matrix(), drop_tol=drop_tol, fill_factor=fill_factor).solve(b), b))
         case SparseScheme(tag="factored"):
-            return SolverReceipt.Direct(m.residual(spla.factorized(m.matrix())(b), b))
+            return SolverReceipt.Direct(key, m.residual(spla.factorized(m.matrix())(b), b))
         case SparseScheme(tag="krylov", krylov=(kind,)):
             op = m.scipy_op()
             pre = m.krylov_preconditioner(policy.preconditioner, spla)
@@ -487,11 +516,13 @@ def sparse_receipt(m: LinearMap, b: np.ndarray, scheme: SparseScheme, policy: Li
             # comparable to the cg/bicgstab per-iteration count, not the `"pr_norm"` per-inner default.
             extra = {"callback_type": "x"} if kind is KrylovKind.GMRES else {}
             x, info = getattr(spla, kind.value)(op, b, rtol=policy.tol, maxiter=policy.maxiter, M=pre, callback=lambda *_: steps.append(1), **extra)
-            return SolverReceipt.Iterative(m.residual(x, b), len(steps), policy.tol, result=_info_status(int(info)))
+            return SolverReceipt.Iterative(key, m.residual(x, b), len(steps), Provider.GATED, policy.tol, result=_info_status(int(info)))
         # `lsqr`/`lsmr` both return `(x, istop, itn, normr, ...)` with the same `istop` vocabulary, one or-pattern.
         case SparseScheme(tag="lsqr", lsqr=(conlim,)) | SparseScheme(tag="lsmr", lsmr=(conlim,)):
             x, istop, itn, r1norm, *_ = getattr(spla, scheme.tag)(m.scipy_op(), b, atol=policy.tol, btol=policy.tol, conlim=conlim)
-            return SolverReceipt.LeastSquares(float(r1norm), 0, int(itn), result=_ISTOP.try_find(int(istop)).default_value("other"))
+            return SolverReceipt.LeastSquares(
+                key, float(r1norm), 0, int(itn), Provider.GATED, result=_ISTOP.try_find(int(istop)).default_value("other")
+            )
         case _ as unreachable:
             assert_never(unreachable)
 
@@ -499,19 +530,19 @@ def sparse_receipt(m: LinearMap, b: np.ndarray, scheme: SparseScheme, policy: Li
 # `mode` honoured on both bands: SPECTRUM the singular spectrum, EIGENPAIRS the symmetric eigenpairs.
 # `ArpackNoConvergence` CARRIES the converged pairs, folded with `result="max_steps_reached"` rather than
 # discarded — a boundary-kernel catch, not domain control flow.
-def _eigen_receipt(m: LinearMap, k: int, mode: SpectralMode, scheme: EigenScheme, sigma: float | None) -> SolverReceipt:
+def _eigen_receipt(key: ContentKey, m: LinearMap, k: int, mode: SpectralMode, scheme: EigenScheme, sigma: float | None) -> SolverReceipt:
     match (m, mode):
         case (LinearMap(tag="dense", dense=(a, _)), SpectralMode.SPECTRUM):
             s = np.linalg.svdvals(np.asarray(a))
-            return SolverReceipt.Eigen(0.0, int(s.size), _condition(s))
+            return SolverReceipt.Eigen(key, 0.0, int(s.size), _condition(s))
         case (LinearMap(tag="dense", dense=(a, _)), SpectralMode.EIGENPAIRS):
             dense = np.asarray(a)
             w, v = np.linalg.eigh(dense)
-            return SolverReceipt.Eigen(float(np.linalg.norm(dense @ v - v * w)), int(w.size), _condition(np.linalg.svdvals(dense)))
+            return SolverReceipt.Eigen(key, float(np.linalg.norm(dense @ v - v * w)), int(w.size), _condition(np.linalg.svdvals(dense)))
         case (_, SpectralMode.SPECTRUM):
             op = m.scipy_op()
             u, s, vt = spla.svds(op, k=k)
-            return SolverReceipt.Eigen(float(np.linalg.norm(op @ vt.conj().T - u * s)), int(s.size), _condition(np.asarray(s)))
+            return SolverReceipt.Eigen(key, float(np.linalg.norm(op @ vt.conj().T - u * s)), int(s.size), _condition(np.asarray(s)))
         case (_, SpectralMode.EIGENPAIRS):
             op = m.scipy_op()
             try:
@@ -536,9 +567,9 @@ def _eigen_receipt(m: LinearMap, k: int, mode: SpectralMode, scheme: EigenScheme
             except spla.ArpackNoConvergence as stalled:
                 w, v = stalled.eigenvalues, stalled.eigenvectors
                 partial = float(np.linalg.norm(op @ v - v * w)) if w.size else float("inf")
-                return SolverReceipt.Eigen(partial, int(w.size), result="max_steps_reached")
+                return SolverReceipt.Eigen(key, partial, int(w.size), result="max_steps_reached")
             # a sparse eigensolve reads `k` extremal pairs and never the full spectrum, so no condition ratio exists.
-            return SolverReceipt.Eigen(float(np.linalg.norm(op @ v - v * w)), int(np.asarray(w).size))
+            return SolverReceipt.Eigen(key, float(np.linalg.norm(op @ v - v * w)), int(np.asarray(w).size))
         case _ as unreachable:
             assert_never(unreachable)
 
@@ -546,7 +577,7 @@ def _eigen_receipt(m: LinearMap, k: int, mode: SpectralMode, scheme: EigenScheme
 # One float64-floated lineax rail; `linear_solve(..., throw=False)` returns a typed verdict rather than
 # raising. Batched vmaps one operator over the RHS stack through `filter_vmap(in_axes=(None, 0))` as one
 # compiled solve, a second contracting the per-row residual.
-def _operator_receipt(m: LinearMap, b: np.ndarray, shape: SolveShape, policy: LinearPolicy) -> SolverReceipt:
+def _operator_receipt(key: ContentKey, m: LinearMap, b: np.ndarray, shape: SolveShape, policy: LinearPolicy) -> SolverReceipt:
     e = LinearEngine.gated()
     operator = e.operator(m)  # input_structure rides the operand's column count, so no RHS is needed to build it
     solver = e.solver(shape, m.structure, spd_free=_spd_free(m), tol=policy.tol, maxiter=policy.maxiter)
@@ -569,9 +600,9 @@ def _operator_receipt(m: LinearMap, b: np.ndarray, shape: SolveShape, policy: Li
     # operator rank the slot names). `Solution` exposes no conditioning either, so the SQUARE arm's `condition`
     # stays absent rather than fabricated.
     return (
-        SolverReceipt.LeastSquares(residual, 0, iterations, result=status)
+        SolverReceipt.LeastSquares(key, residual, 0, iterations, Provider.GATED, result=status)
         if shape is not SolveShape.SQUARE
-        else SolverReceipt.Direct(residual, result=status)
+        else SolverReceipt.Direct(key, residual, result=status)
     )
 ```
 
@@ -596,7 +627,6 @@ from expression import Error, Result
 from expression.collections import Block
 
 from rasm.compute.graduation.handoff import EVIDENCE_DOMAIN
-from rasm.runtime.faults import boundary
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, MeterFact, Party, Resource, Retain
 from rasm.runtime.roots import ResourceRef
 
@@ -661,7 +691,10 @@ class SparseExchange:
             structure = _MM_STRUCTURE.try_find(symmetry).default_value(MatrixStructure.GENERAL)
             return LinearMap.SparseMat(_admit(operand, (int(rows), int(cols))), structure)
 
-        return boundary("exchange.read_mtx", read)
+        # `catch` names `scipy.io`'s OWN raise surface, probed by venv reflection (scipy 1.18.0) because
+        # `compute/.api/scipy.md` rosters no exception section: a malformed Matrix Market header or body raises
+        # `ValueError`, and an absent or unreadable path `FileNotFoundError`, which subclasses `OSError`.
+        return boundary(MTX_READ, read, catch=(ValueError, OSError))
 
     @staticmethod
     def write_mtx(ref: "ResourceRef", m: LinearMap) -> "RuntimeRail[int]":
@@ -674,7 +707,7 @@ class SparseExchange:
             sio.mmwrite(str(ref.path), sp.coo_array(m.matrix()), symmetry=symmetry)
             return ref.path.stat().st_size
 
-        return boundary("exchange.write_mtx", write)
+        return boundary(MTX_WRITE, write, catch=(ValueError, OSError))
 
     @staticmethod
     async def write_mtx_async(ref: "ResourceRef", m: LinearMap, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[int]":
@@ -699,7 +732,10 @@ class SparseExchange:
             structure = MatrixStructure.SYMMETRIC if meta.symmetric else MatrixStructure.GENERAL
             return LinearMap.SparseMat(_admit(operand, shape), structure), meta, permutation
 
-        return boundary("exchange.read_archive", read)
+        # `catch` names `h5py`'s OWN raise surface, probed by venv reflection (h5py 3.16.0) because
+        # `compute/.api/h5py.md` rosters no exception section: h5py raises the builtin `OSError` for an absent file
+        # AND for a non-HDF5 or truncated one, and `KeyError` for a group or dataset the archive does not carry.
+        return boundary(ARCHIVE_READ, read, catch=(KeyError, OSError))
 
     @staticmethod
     def write_archive(ref: "ResourceRef", m: LinearMap, meta: ExchangeMeta, permutation: np.ndarray, group: str = "A") -> "RuntimeRail[int]":
@@ -725,7 +761,7 @@ class SparseExchange:
             # read past the close, so the extent names a flushed container rather than an open handle's buffer.
             return ref.path.stat().st_size
 
-        return boundary("exchange.write_archive", write)
+        return boundary(ARCHIVE_WRITE, write, catch=(ValueError, OSError))
 
     @staticmethod
     async def write_archive_async(

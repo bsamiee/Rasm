@@ -20,25 +20,37 @@ Two ops derive a lossless-versus-re-encode strategy from the clip streams, never
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from typing import Literal, assert_never
+from typing import Final, Literal, assert_never
 
 from builtins import frozendict
 from expression import Error, Result, case, tag, tagged_union
+from expression.collections import Block
 from msgspec import Struct
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, async_boundary
+from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, async_boundary, rostered
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
-from rasm.artifacts.media.container import HwAccel, MediaEvidence, MediaFault, MediaProfile, Produced, _lapsed
+from rasm.artifacts.media.container import MEDIA_RESIDUE, HwAccel, MediaEvidence, MediaFault, MediaProfile, Produced, _lapsed
 from rasm.artifacts.media.filtergraph import FilterNode, Transition
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type TimelineOpTag = Literal["trim", "concat", "segment", "xfade", "speed", "reverse", "effect"]
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's ONE raise anchor: the fold is a single fence over the whole op union, so the op tag is request data the
+# `MediaFault` case already discriminates rather than a coordinate the subject re-spells per op. TRANSIENT — a
+# worker death and a codec refusal are defects a re-issue may clear.
+TIMELINE_FOLD: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.TIMELINE, point="fold", arm="boundary", defect="timeline-fold", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([TIMELINE_FOLD]))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -127,10 +139,12 @@ class Timeline(Struct, frozen=True):
         return ContentIdentity.key(f"media.timeline-{self.op.tag}", _canon(self.op, self.profile))
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # member MediaFault folds into the boundary fault (Work[ArtifactReceipt] forbids an inner Result).
-        railed = await async_boundary(f"media.timeline.{self.op.tag}", self._folded)
+        # the member `MediaFault` crosses WHOLE on `BoundaryFault.domain` (`Work[ArtifactReceipt]` forbids an inner
+        # Result), so its case and kwargs stay matchable; the retired `f"{tag}:{fault}"` collapse handed every case
+        # to one string and left a consumer nothing to gate on.
+        railed = await async_boundary(TIMELINE_FOLD, self._folded, catch=MEDIA_RESIDUE)
         return railed.bind(
-            lambda res: res.map_error(lambda fault: BoundaryFault(boundary=(f"media.timeline.{self.op.tag}", f"{fault.tag}:{fault}")))
+            lambda res: res.map_error(lambda fault: BoundaryFault(domain=(TIMELINE_FOLD.subject, fault)))
         )
 
     async def _folded(self) -> Result[ArtifactReceipt, MediaFault]:

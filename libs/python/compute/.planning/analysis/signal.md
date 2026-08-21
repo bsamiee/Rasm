@@ -2,7 +2,7 @@
 
 `SignalOp` is the one classical signal-analysis operation owner, discriminating the `scipy.signal` stationary rows — zero-phase IIR/FIR filtering, `welch`/`spectrogram` estimation, polyphase resampling, `find_peaks` structure — beside the `pywt` multiresolution rows — decimated/stationary decomposition with optional coefficient-shrink denoise, additive `mra` bands, the CWT scalogram, the frequency-ordered packet tree — folded through the single `apply` entry, so a transient or non-stationary mode the Welch estimate averages away is first-class evidence on the same owner, never a per-transform method family. Output is parameterized as tightly as input: `SignalEvidence` discriminates one carrier per evidence shape and the thin `SignalReceipt` holds the union whole. No learned or neural filter enters this owner.
 
-Operands admit through `numerics/array#PAYLOAD` for the finite gate and the operand `ContentKey`; every PSD-bearing op reads its dominant band through the reused `SpectralReadout` axis from `analysis/transform#TRANSFORM` under that axis's linear-amplitude contract; the resolved receipt is the `ReceiptContributor` the weave harvest and the study spine consume. Both paths ride one numpy floor — `scipy.signal` entrypoints stay out-of-scope or skip-backend for jax/dask/torch and `pywt` carries no Array-API contract — so every body opens on `np.asarray` over the runtime thread band under the `RELEASING` trait. Receipts key the RESULT: `SignalOp.identity_buffer` folds op tag, payload rows, sample rate, and operand key into one `ContentIdentity.of` derivation, so distinct operations over one operand carry distinct receipt keys.
+Operands admit through `numerics/array#PAYLOAD` for the finite gate and the operand `ContentKey`; every PSD-bearing op reads its dominant band through the reused `SpectralReadout` axis from `analysis/transform#TRANSFORM` under that axis's linear-amplitude contract; the resolved receipt is the `ReceiptContributor` the weave harvest and the study spine consume. Both paths ride one numpy floor — `scipy.signal` entrypoints stay out-of-scope or skip-backend for jax/dask/torch and `pywt` carries no Array-API contract — so every body opens on `np.asarray` over the runtime thread band under the `RELEASING` trait. Receipts key the RESULT: `SignalOp.identity_parts` hands op tag, payload rows, sample rate, and operand key to `IdentitySource(parts=...)` as N SEMANTIC fields, so the count-and-length framing runs at the identity owner and distinct operations over one operand carry distinct receipt keys.
 
 ## [01]-[INDEX]
 
@@ -11,29 +11,30 @@ Operands admit through `numerics/array#PAYLOAD` for the finite gate and the oper
 ## [02]-[DSP]
 
 - Owner: `SignalOp` — the one operation union `apply` folds; the stationary and wavelet families are rows of one dispatch, `SpectralForm` is the bounded estimation-form axis on the spectral case (never a `time_frequency` boolean), and `readout` is a row field so each PSD-bearing op carries its own band projection rather than a fixed `argmax`. `Scalogram` reads the dominant frequency off the `(coefs, freqs)` return `pywt.cwt` already carries under `sampling_period`, never a separate `scale2frequency` call.
-- Output: `SignalEvidence` gives `peaks` its own case, so a mean prominence never rides the `band_power` slot behind a meaningless `dominant_hz=0.0`; the receipt carries the union whole through each shape's `facts()` projection, one step denser than the sibling projections that flatten evidence into a fixed receipt shape. Wavelet rows report a dominant frequency and leave `band_power` to the spectral evidence.
+- Output: `SignalEvidence` gives `peaks` its own case, so a mean prominence never rides the `band_power` slot behind a meaningless `dominant_hz=0.0`, and an empty peak set carries `Nothing` rather than a fabricated mean; the receipt carries the union whole through each shape's `facts()` projection, one step denser than the sibling projections that flatten evidence into a fixed receipt shape. Wavelet rows report a dominant frequency and leave `band_power` to the spectral evidence.
+- Faults: one `SIGNAL_APPLY` fence row spans every op — the tag is a span fact, never eight subject spellings — and its `catch` names the probed raise set: `ValueError` for every scipy parameter and pywt wavelet/level/mode refusal, `TypeError` for a non-numeric rate reaching `welch`, `np.linalg.LinAlgError` leading as the narrower subclass.
 - Packages: `scipy.signal`, `pywt`, and `numpy` per the fence imports; `numerics/array#PAYLOAD` owns namespace resolution and the finite gate at admission, so this owner threads neither and needs no `array-api-extra` `nan_to_num` — a non-finite operand never reaches a body.
-- Growth: a new transform is one `SignalOp` case with its `identity_buffer` arm — `assert_never` surfaces the omission at type-check; a new filter family is one `FilterKind` row; a new decomposition mode is one `DecompMode` row with its `WAVELET_ROUTES` triple; a new shrink rule is one `ThresholdMode` row owning its callable; a new band projection is one `SpectralReadout` row in the transform owner every PSD-bearing op inherits; a new evidence shape is one `SignalEvidence` case with its `facts()` arm.
+- Growth: a new transform is one `SignalOp` case with its `identity_parts` arm — `assert_never` surfaces the omission at type-check; a new filter family is one `FilterKind` row; a new decomposition mode is one `DecompMode` row with its `WAVELET_ROUTES` triple; a new shrink rule is one `ThresholdMode` row owning its callable; a new band projection is one `SpectralReadout` row in the transform owner every PSD-bearing op inherits; a new evidence shape is one `SignalEvidence` case with its `facts()` arm.
 
 ```python signature
 from collections.abc import Callable, Iterable
 from enum import StrEnum
 from functools import cache
 from math import gcd
-from typing import TYPE_CHECKING, Literal, assert_never
+from typing import TYPE_CHECKING, Final, Literal, assert_never
 
 import numpy as np
-from expression import case, tag, tagged_union
-from expression.collections import Map
+from expression import Nothing, Option, Some, case, tag, tagged_union
+from expression.collections import Block, Map
 from msgspec import Struct
 
 from rasm.compute.analysis.transform import SpectralReadout
-from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
+from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, evidence_run
 from rasm.compute.numerics.array import ArrayPayload, ArraySource, FiniteGate
-from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.faults import RuntimeRail, boundary
-from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
+from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, boundary, rostered
+from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
 # cold scientific dependencies: the `lazy` binds defer the wavelet and scipy trees to the first route build or kernel body.
@@ -102,7 +103,7 @@ class ThresholdMode(StrEnum):
 class SignalEvidence:
     tag: Literal["spectral", "peaks", "multiresolution", "scale", "packet"] = tag()
     spectral: tuple[float, float] = case()
-    peaks: tuple[int, float] = case()
+    peaks: tuple[int, Option[float]] = case()  # prominence is ABSENT over an empty peak set, never a measured 0.0
     multiresolution: tuple[tuple[float, ...], float, ThresholdMode] = case()
     scale: tuple[float, float] = case()
     packet: tuple[tuple[float, ...], float] = case()
@@ -112,7 +113,7 @@ class SignalEvidence:
         return SignalEvidence(spectral=(dominant_hz, band_power))
 
     @staticmethod
-    def Peaks(count: int, mean_prominence: float) -> "SignalEvidence":
+    def Peaks(count: int, mean_prominence: Option[float]) -> "SignalEvidence":
         return SignalEvidence(peaks=(count, mean_prominence))
 
     @staticmethod
@@ -135,7 +136,9 @@ class SignalEvidence:
             case SignalEvidence(tag="spectral", spectral=(hz, power)):
                 return {"dominant_hz": hz, "band_power": power}
             case SignalEvidence(tag="peaks", peaks=(count, prominence)):
-                return {"peaks": count, "mean_prominence": prominence}
+                # an empty peak set OMITS the mean: a `0.0` there is indistinguishable from a run whose peaks
+                # all sat at zero prominence, and every downstream mean folds the fabricated cell as a reading.
+                return {"peaks": count, **prominence.map(lambda mean: {"mean_prominence": mean}).default_value({})}
             case SignalEvidence(tag="multiresolution", multiresolution=(energy, residual, shrink)):
                 # `ThresholdMode` member IS its `StrEnum` str — riding it whole keeps enum
                 # comparability at the receipt layer; a `.value` projection is the deleted coerce.
@@ -149,18 +152,34 @@ class SignalEvidence:
 
 
 class SignalReceipt(Struct, frozen=True):
+    # `lineage` carries the operand key beside the result key as ONE value rather than two loose slots, because the
+    # spine reads exactly that pair: a receipt naming what it produced without naming what it consumed strands every
+    # downstream walk at one hop, and the two keys travelling separately is what lets one drift past the other.
     op: str
     length: int
-    content_key: ContentKey
+    lineage: Provenance
     evidence: SignalEvidence
 
     @staticmethod
-    def of(op: str, length: int, key: ContentKey, evidence: SignalEvidence) -> "SignalReceipt":
-        return SignalReceipt(op, length, key, evidence)
+    def of(op: str, length: int, lineage: Provenance, evidence: SignalEvidence) -> "SignalReceipt":
+        return SignalReceipt(op, length, lineage, evidence)
+
+    @property
+    def content_key(self) -> ContentKey:
+        return self.lineage.produced
 
     def contribute(self) -> Iterable[Receipt]:
-        facts = {"op": self.op, "length": self.length, "content_key": self.content_key.project("hex"), **self.evidence.facts()}
-        yield Receipt.of(EvidenceScope.SIGNAL.value, ("emitted", self.op, facts))
+        # ONE settled-receipt spine: the result key is the spine's own `key` column and its `produced` provenance, so
+        # no payload slot re-spells the hex render the spine already carries, and the admitted operand is the
+        # `consumed` roster — the lineage a downstream reader walks. The evidence union stays on the payload, since
+        # the spine owns its six columns and nothing else, so each case's own `facts()` arity is still proved here.
+        facts = {"op": self.op, "length": self.length, **self.evidence.facts()}
+        yield Receipt.of(
+            EvidenceScope.SIGNAL.value,
+            ("emitted", self.op, facts),
+            key=Some(self.lineage.produced),
+            provenance=Some(self.lineage),
+        )
 
 
 @tagged_union(frozen=True)
@@ -211,8 +230,12 @@ class SignalOp:
     def Packet(wavelet: str = "db4", maxlevel: int = 3, readout: SpectralReadout = SpectralReadout.PEAK) -> "SignalOp":
         return SignalOp(packet=(wavelet, maxlevel, readout))
 
-    def identity_buffer(self, fs: float, operand_key: ContentKey) -> bytes:
-        # enum rows serialize by value, numeric rows as canonical float64 bytes; length-prefixed parts keep the buffer unambiguous.
+    def identity_parts(self, fs: float, operand_key: ContentKey) -> tuple[bytes, ...]:
+        # N SEMANTIC fields, handed to the identity owner AS fields: enum rows serialize by value and numeric rows as
+        # canonical float64 bytes, and the count-and-length framing that makes the preimage injective rides
+        # `IdentitySource(parts=...)` at its one owner. The retired form joined a local `len(part).to_bytes(8, "big")`
+        # prefix here — a width chosen at a call site forks the key namespace with no surface able to report it, and
+        # the estate's `[PREIMAGE_FRAMING]` law exists precisely so no producer spells one.
         row: tuple[object, ...]
         match self:
             case SignalOp(tag="filter", filter=(kind, cutoff, order, readout)):
@@ -233,16 +256,24 @@ class SignalOp:
                 row = (wavelet, maxlevel, readout.value)
             case _ as unreachable:
                 assert_never(unreachable)
-        parts = (
+        return (
             self.tag.encode(),
             operand_key.project("hex").encode(),
             np.float64(fs).tobytes(),
             *(cell.encode() if isinstance(cell, str) else np.float64(cell).tobytes() for cell in row),
         )
-        return b"".join(len(part).to_bytes(8, "big") + part for part in parts)
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's raise-side roster under the hub `ComputeLeg` seat. ONE row spans every op, and it declares NO slots
+# because nothing raises through it — it names a lift FENCE, whose detail the classifier supplies. The retired
+# `f"signal.{op.tag}"` subject forked one refusal law into eight coordinates no shared census read could seat and no
+# reader could enumerate; the op discriminant rides the weave's own span facts, where a trace already filters on it.
+SIGNAL_APPLY: Final[FaultRow[ComputeLeg]] = FaultRow(
+    leg=ComputeLeg.SIGNAL, point="apply", arm="boundary", defect="kernel-refused", retriability=TERMINAL
+)
+RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([SIGNAL_APPLY]))
 
 
 # one row per DecompMode: `_decompose` indexes the (forward, inverse, max-level) triple and runs one forward and one inverse body
@@ -294,9 +325,18 @@ def _mad_threshold(detail_finest: np.ndarray, n: int) -> float:
 def _signal_kernel(samples: object, fs: float, op: SignalOp) -> "RuntimeRail[SignalReceipt]":
     # module-level so REFERENCE shipping resolves it by import — a closure would pay an eager cloudpickle
     # round-trip the thread arm never needs.
+    # `catch` names the numpy/scipy/pywt raise surface this body actually reaches, probed against the installed
+    # band: every parameter refusal in `butter`/`sosfiltfilt`/`resample_poly`/`find_peaks` and every wavelet,
+    # level, mode, and threshold refusal in `pywt` raises `ValueError`, a non-numeric rate reaches `welch` as
+    # `TypeError`, and `np.linalg.LinAlgError` — a `ValueError` subclass — leads so the classifier reads the
+    # narrower type. An unexpected raise out of a cold scientific tree propagates as the defect it is.
     return ArrayPayload.admit(ArraySource.Live(samples), (), FiniteGate.REJECT).bind(
-        lambda payload: ContentIdentity.of(f"signal.{op.tag}", op.identity_buffer(fs, payload.content_key)).bind(
-            lambda result_key: boundary(f"signal.{op.tag}", lambda: _apply(samples, fs, op, result_key))
+        lambda payload: ContentIdentity.of(f"signal.{op.tag}", IdentitySource(parts=op.identity_parts(fs, payload.content_key))).bind(
+            lambda result_key: boundary(
+                SIGNAL_APPLY,
+                lambda: _apply(samples, fs, op, Provenance(consumed=Block.singleton(payload.content_key), produced=result_key)),
+                catch=(np.linalg.LinAlgError, ValueError, TypeError),
+            )
         )
     )
 
@@ -309,7 +349,7 @@ async def apply(samples: object, fs: float, op: SignalOp, lane: LanePolicy, *, c
     return await evidence_run(EvidenceScope.SIGNAL, f"signal.{op.tag}", dispatch, facts={"op": op.tag, "fs": fs}, composition=composition)
 
 
-def _apply(samples: object, fs: float, op: SignalOp, key: ContentKey) -> SignalReceipt:
+def _apply(samples: object, fs: float, op: SignalOp, lineage: Provenance) -> SignalReceipt:
     xn = np.asarray(samples)
     nyquist = 0.5 * fs
     match op:
@@ -317,20 +357,22 @@ def _apply(samples: object, fs: float, op: SignalOp, key: ContentKey) -> SignalR
             wn = tuple(c / nyquist for c in cutoff)
             sos = sig.butter(order, wn[0] if len(wn) == 1 else wn, btype=kind.value, output="sos")
             dominant, power = _welch_band(sig, sig.sosfiltfilt(sos, xn), fs, readout)
-            return SignalReceipt.of("filter", xn.size, key, SignalEvidence.Spectral(dominant, power))
+            return SignalReceipt.of("filter", xn.size, lineage, SignalEvidence.Spectral(dominant, power))
         case SignalOp(tag="spectral", spectral=(nperseg, form, readout)):
             if form is SpectralForm.SPECTROGRAM:
                 # time-summed `np.sum(sxx, axis=-1)` POWER spine square-roots to amplitude for the fold — the comparable
                 # stationary view beside `Scalogram`; the band power stays the power.
                 sf, _, sxx = sig.spectrogram(xn, fs=fs, nperseg=min(nperseg, xn.size))
                 spine = np.sum(sxx, axis=-1)
-                return SignalReceipt.of("spectral", xn.size, key, SignalEvidence.Spectral(readout.fold(sf, np.sqrt(spine)), float(np.sum(sxx))))
+                return SignalReceipt.of("spectral", xn.size, lineage, SignalEvidence.Spectral(readout.fold(sf, np.sqrt(spine)), float(np.sum(sxx))))
             dominant, power = _welch_band(sig, xn, fs, readout, nperseg)
-            return SignalReceipt.of("spectral", xn.size, key, SignalEvidence.Spectral(dominant, power))
+            return SignalReceipt.of("spectral", xn.size, lineage, SignalEvidence.Spectral(dominant, power))
         case SignalOp(tag="peaks", peaks=(prominence, distance)):
             idx, props = sig.find_peaks(xn, prominence=prominence or None, distance=distance or None)
-            mean_prom = float(np.mean(props["prominences"])) if idx.shape[0] else 0.0
-            return SignalReceipt.of("peaks", xn.size, key, SignalEvidence.Peaks(int(idx.shape[0]), mean_prom))
+            # an EMPTY peak set has no mean, and `Option` is what says so: the retired `else 0.0` published a
+            # measurement over zero samples that every downstream mean, threshold, and board folded as a reading.
+            mean_prom = Some(float(np.mean(props["prominences"]))) if idx.shape[0] else Nothing
+            return SignalReceipt.of("peaks", xn.size, lineage, SignalEvidence.Peaks(int(idx.shape[0]), mean_prom))
         case SignalOp(tag="resample", resample=(target, readout)):
             # polyphase up/down are the REDUCED rational ratio, not the raw rates: `gcd`
             # collapses (48000, 44100) to (160, 147) so the polyphase FIR is the minimal filter,
@@ -338,14 +380,14 @@ def _apply(samples: object, fs: float, op: SignalOp, key: ContentKey) -> SignalR
             g = gcd(int(round(target)), int(round(fs)))
             out = sig.resample_poly(xn, int(round(target)) // g, int(round(fs)) // g)
             dominant, power = _welch_band(sig, out, target, readout)
-            return SignalReceipt.of("resample", int(out.shape[0]), key, SignalEvidence.Spectral(dominant, power))
+            return SignalReceipt.of("resample", int(out.shape[0]), lineage, SignalEvidence.Spectral(dominant, power))
         case SignalOp(tag="decompose", decompose=(wavelet, level, mode, denoise)):
-            return _decompose(wavelet, level, mode, denoise, xn, key)
+            return _decompose(wavelet, level, mode, denoise, xn, lineage)
         case SignalOp(tag="multiresolution", multiresolution=(wavelet, level)):
             bands = pywt.mra(xn, wavelet, level=level or None, transform="swt")
             residual = float(np.linalg.norm(np.einsum("bi->i", np.asarray(bands)) - xn) / (np.linalg.norm(xn) + 1e-30))
             return SignalReceipt.of(
-                "multiresolution", xn.size, key, SignalEvidence.Multiresolution(_coeff_energy(bands), residual, ThresholdMode.NONE)
+                "multiresolution", xn.size, lineage, SignalEvidence.Multiresolution(_coeff_energy(bands), residual, ThresholdMode.NONE)
             )
         case SignalOp(tag="scalogram", scalogram=(wavelet, scales, resolution)):
             grid = np.asarray(scales) if scales else np.logspace(0.0, np.log(0.5 * xn.size), resolution, base=np.e)
@@ -354,7 +396,7 @@ def _apply(samples: object, fs: float, op: SignalOp, key: ContentKey) -> SignalR
             coefs, freqs = pywt.cwt(xn, grid, wavelet, sampling_period=1.0 / fs, method="fft")
             mag = np.abs(np.asarray(coefs))
             peak = int(np.argmax(np.einsum("st,st->s", mag, mag)))
-            return SignalReceipt.of("scalogram", xn.size, key, SignalEvidence.Scale(float(grid[peak]), float(np.asarray(freqs)[peak])))
+            return SignalReceipt.of("scalogram", xn.size, lineage, SignalEvidence.Scale(float(grid[peak]), float(np.asarray(freqs)[peak])))
         case SignalOp(tag="packet", packet=(wavelet, maxlevel, readout)):
             tree = pywt.WaveletPacket(data=xn, wavelet=wavelet, mode="symmetric", maxlevel=maxlevel)
             leaves = tree.get_level(maxlevel, order="freq")
@@ -364,12 +406,12 @@ def _apply(samples: object, fs: float, op: SignalOp, key: ContentKey) -> SignalR
             # that raw trace, which would report the source band instead of the packet structure; `node_energy` stays energy.
             centres = (np.arange(len(energy)) + 0.5) * (0.5 * fs / len(energy))
             band = readout.fold(centres, np.sqrt(np.asarray(energy)))
-            return SignalReceipt.of("packet", xn.size, key, SignalEvidence.Packet(energy, band))
+            return SignalReceipt.of("packet", xn.size, lineage, SignalEvidence.Packet(energy, band))
         case _ as unreachable:
             assert_never(unreachable)
 
 
-def _decompose(wavelet: str, level: int, mode: DecompMode, denoise: ThresholdMode, x: np.ndarray, key: ContentKey) -> SignalReceipt:
+def _decompose(wavelet: str, level: int, mode: DecompMode, denoise: ThresholdMode, x: np.ndarray, lineage: Provenance) -> SignalReceipt:
     forward, inverse, max_level = _wavelet_routes()[mode]
     depth = level or max_level(x.size, pywt.Wavelet(wavelet))
     coeffs = forward(x, wavelet, depth)
@@ -379,7 +421,7 @@ def _decompose(wavelet: str, level: int, mode: DecompMode, denoise: ThresholdMod
     shrink = denoise.shrink(pywt, _mad_threshold(coeffs[-1], x.size))
     rebuilt = inverse(coeffs if shrink is None else [coeffs[0], *map(shrink, coeffs[1:])], wavelet)[: x.size]
     residual = float(np.linalg.norm(rebuilt - x) / (np.linalg.norm(x) + 1e-30))
-    return SignalReceipt.of("decompose", x.size, key, SignalEvidence.Multiresolution(_coeff_energy(coeffs), residual, denoise))
+    return SignalReceipt.of("decompose", x.size, lineage, SignalEvidence.Multiresolution(_coeff_energy(coeffs), residual, denoise))
 ```
 
 ## [03]-[RESEARCH]

@@ -21,7 +21,7 @@ Each request family is one deep owner — the class carries its dedup identity i
 - Law: `Request.TaggedClass` is the family form and `Request.Class` is the admitted single-tag degenerate — a process-local family with exactly one member and no tagged-resolver fan (`lane/capability.md`'s `_Probe`) carries no `_tag` because nothing dispatches on it; the moment a second member or a `fromEffectTagged` handler arrives, the declaration upgrades to the tagged form.
 - Law: persistence selects the declaration form once per family — a family any geometry persists is `Schema.TaggedRequest` (payload, success, and failure schemas in one declaration) satisfying `PrimaryKey`, so hits and misses both encode through the family's own schemas and a persisted failure replays typed; a family that never persists stays `Request.TaggedClass` at zero codec cost, and promotion rewrites only the declaration.
 - Law: the request's fault is the family's — `Descriptor` maps a missing `head` to `DescriptorMiss` and every other store reason crosses VERBATIM into schema-owned `DescriptorFault`, whose reason roster is the store family's minus the re-homed arm, so a reason the store roster grows lands here as compile pressure, never a widened detail string; every request settles independently, so one failed HEAD never poisons its siblings and persisted failures retain reason, key, and detail. Provider roads the family's schemas cannot name arrive as defects in that request's own settlement rather than as a widened window loss.
-- Law: descriptor faults close through `Fault.Class.family`, mirror store classifications, and persist without local policy columns.
+- Law: descriptor faults close through `Fault.Class.family`, mirror store classifications, and persist without local policy columns; each reason declares its own subject and renders its own sentence, so the raise carries ONE `case` payload and neither a free `detail` field nor a hand-written message template survives at the class.
 - Law: the success row is the provider page's schema owner — `Descriptor` answers `ObjectStore.Stat`, the store-minted evidence class, so the probe, the wall-clock window, and the durable band persist ONE row shape and a parallel success struct restating the stat fields is unspellable.
 - Boundary: `Schema.TaggedRequest` declaration mechanics are the core shape law arriving settled; `lane/capability.md`'s `_Probe` stays its own realized family, and `object/store.md` hands the singular `ObjectStore.head` member across as a value — S3 has no batch HEAD operation to invent.
 
@@ -40,23 +40,49 @@ class DescriptorMiss extends Schema.TaggedError<DescriptorMiss>()("DescriptorMis
 // other store reason crosses unmapped and a reason the store mints tomorrow refuses HERE at compile time — a narrowed
 // mirror instead strands `archived` and `owner` in a fold its own schema refuses. Classes stay the store's;
 // retryability, blame, and quarantine stay the core Fault.Class row table's on both sides.
+// The store's own subject crosses with the reason, so the mirror re-seats the key onto the REQUEST and carries the
+// rest whole; each row renders the sentence its reason means at this seam, which is why a persisted failure replays
+// readable without the store page in hand. One leg because one surface decides every arm — the descriptor window.
+const _Subject = Schema.Struct({ key: Digest.Key.content, detail: Schema.String })
+
 const _family = Fault.Class.family(["archived", "owner", "integrity", "io"] as const, {
-  archived: { class: "denied" },
-  owner: { class: "denied" },
-  integrity: { class: "breached" },
-  io: { class: "unavailable" },
+  archived: Fault.Class.row({
+    class: "denied",
+    leg: "descriptor",
+    detail: _Subject,
+    render: ({ key, detail }) => `${key} sits at storage class ${detail} and describes no live object until a restore lands`,
+  }),
+  owner: Fault.Class.row({
+    class: "denied",
+    leg: "descriptor",
+    detail: _Subject,
+    render: ({ key, detail }) => `${key} carries a custody coordinate the store seam refuses — ${detail}`,
+  }),
+  integrity: Fault.Class.row({
+    class: "breached",
+    leg: "descriptor",
+    detail: _Subject,
+    render: ({ key, detail }) => `${key} re-minted as ${detail}`,
+  }),
+  io: Fault.Class.row({
+    class: "unavailable",
+    leg: "descriptor",
+    detail: _Subject,
+    render: ({ key, detail }) => `${key} refused at the transport — ${detail}`,
+  }),
 })
 
 class DescriptorFault extends Schema.TaggedError<DescriptorFault>()("DescriptorFault", {
-  reason: _family.schema,
-  key: Digest.Key.content,
-  detail: Schema.String,
+  case: _family.payload,
 }) {
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _family.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<descriptor:${this.reason}> ${this.key}: ${this.detail}`
+    return _family.render(this.case)
   }
 }
 
@@ -70,10 +96,12 @@ class Descriptor extends Schema.TaggedRequest<Descriptor>()("Descriptor", {
   ): RequestResolver.RequestResolver<Descriptor> =>
     _of(_ENGINE, _settled(_ENGINE, (request: Descriptor) =>
       head(request.key).pipe(
+        // the store issue crosses WHOLE and only its key re-seats onto the request, so a reason the store roster grows
+        // arrives here as compile pressure at the family declaration rather than as a widened detail string
         Effect.mapError((fault) =>
-          fault.reason === "missing"
+          fault.case.reason === "missing"
             ? new DescriptorMiss({ key: request.key })
-            : new DescriptorFault({ reason: fault.reason, key: request.key, detail: fault.detail })),
+            : new DescriptorFault({ case: { ...fault.case, key: request.key } })),
       )))
   static readonly windowed = (
     head: (key: Digest.Key<"content">) => Effect.Effect<ObjectStore.Stat, ObjectFault>,

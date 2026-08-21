@@ -10,7 +10,7 @@
 
 ## [02]-[LAYOUT]
 
-- Owner: `DiagramLayout` owns one `LayoutPolicy` dispatch over `DiagramKind` and one `LayoutFault` admission rail. Typed node evidence carries plan coordinates, program area, site polygons, nested-layout policy, edge cardinality, and solar-site atmosphere; `LayoutMap`, `RouteMap`, and `SeatMap` retain the stable graph index. `assign` re-spells the accumulated fault family onto `BoundaryFault.config`.
+- Owner: `DiagramLayout` owns one `LayoutPolicy` dispatch over `DiagramKind` and one `LayoutFault` admission rail. Typed node evidence carries plan coordinates, program area, site polygons, nested-layout policy, edge cardinality, and solar-site atmosphere; `LayoutMap`, `RouteMap`, and `SeatMap` retain the stable graph index. `assign` crosses the accumulated fault family WHOLE on `BoundaryFault.domain` under the `LAYOUT_ASSIGN` coordinate, so a consumer matches the offending column, endpoint, or cycle rather than reading a tag spelling.
 - Cases: `Force`/`Radial`/`Layered`/`Projected`/`Constrained`, one total `match` over the policy `tag`; `Force.mode` selects the `_FORCE` placement row, `Layered.engine` the `_ENGINE` provider row, `Radial.mode` the `_RING` row, `Projected.kind` the `PROJECTION` transform; `Constrained` seeds plan-anchored (typed `east`/`north` under a `strong` stay, every other node the `circular_layout` spread under a `weak` stay) then folds the `LayoutRule` set to `kiwisolver` `Constraint`s; `CIRCULATION` and `SECTION_CALLOUT` select `Constrained()` in `_KIND_POLICY` because their marks are plan-anchored building geometry, the `Force()` default that scattered rooms by topology being the rejected form. Solve-quality evidence (`Constraint.violated()` tallies, edit-variable re-solve) is `composition/sheet#SHEET`'s interactive axis — this owner runs one batch solve and stops.
 - Law: `_admitted` accumulates every independent `LayoutFault` before graph construction. Required node columns, optional numeric columns when present, edge weights, unique node identity, endpoint resolution, parent resolution, constraint references, stacking row roles, site polygons, and all-or-none solar-site evidence cross this boundary once. `_num` reads admission-proven values; `_opt` preserves genuine absence. `weight` absence selects the declared style width, and `shell` absence selects one radial ring.
 - Law: every per-edge read takes the edge's OWN payload through `weighted_edge_list`, never `get_edge_data(source, target)` — the graph is a multigraph by construction, so a node pair carrying two relationships answers ONE payload there and every mark on that pair would inherit the last edge's label, weight, cardinality caps, and port refs; a Sankey ribbon losing its own measured `weight` that way is the same defect class as an absent measurement coerced to zero. Routes stay pair-keyed because a pair-based router resolves one path per pair by construction, so parallel edges share a route while keeping their own data.
@@ -31,7 +31,7 @@ from typing import Final, Literal, assert_never
 import polars as pl
 import rustworkx as rx
 from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
-from expression.collections import Map
+from expression.collections import Block, Map
 from fast_sugiyama import from_edges
 from grandalf.graphs import Edge as GrandalfEdge, Graph as GrandalfGraph, Vertex as GrandalfVertex
 from grandalf.layouts import SugiyamaLayout, VertexViewer
@@ -43,6 +43,7 @@ from builtins import frozendict
 from pyelk import ELK
 from pyelk.graph import collect_edges, validate_graph
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.visualization.diagram.glyphset import (
     AnnotationMark,
     AreaMark,
@@ -64,7 +65,7 @@ from rasm.artifacts.visualization.diagram.glyphset import (
     TextAnchor,
 )
 from rasm.artifacts.visualization.diagram.solar import Site, SolarProjection, furniture, project
-from rasm.runtime.faults import BoundaryFault, RuntimeRail
+from rasm.runtime.faults import TERMINAL, BoundaryFault, FaultRow, RuntimeRail, rostered
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 
@@ -275,7 +276,16 @@ _AREA_UNIT: Final[float] = 0.5  # sheet units per plan-area unit along a stackin
 _AREA_SIDE: Final[float] = 4.0  # sheet units per sqrt(plan-area) for area-true program boxes
 
 
+
 # --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's ONE raise anchor. Every layout refusal is caller data — a missing column, an unknown endpoint, a cycle —
+# so the row is TERMINAL and the whole accumulated `LayoutFault` crosses on `domain` rather than collapsing to its tag.
+LAYOUT_ASSIGN: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.DIAGRAM_LAYOUT, point="assign", arm="config", defect="layout-refused", retriability=TERMINAL
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([LAYOUT_ASSIGN]))
+
 _NUMERIC: Final[frozenset[str]] = frozenset({
     "east", "north", "level", "area", "shell", "azimuth", "altitude", "latitude", "longitude", "year",
     "site_altitude", "pressure", "temperature",
@@ -373,7 +383,7 @@ class DiagramLayout(Struct, frozen=True):
     async def assign(self) -> RuntimeRail[tuple[DiagramGlyph, ...]]:
         # coordinate substrate for draw; layout mints no receipt and no key.
         crossed = await self.lane.offload(Kernel.of(self._render, self._trait(self.policy or _KIND_POLICY[self.kind])))
-        return crossed.bind(lambda inner: inner.map_error(lambda fault: BoundaryFault(config=(f"diagram.layout.{self.kind}", fault.tag))))
+        return crossed.bind(lambda inner: inner.map_error(lambda fault: BoundaryFault(domain=(LAYOUT_ASSIGN.subject, fault))))
 
     def _trait(self, policy: LayoutPolicy, /) -> KernelTrait:
         # isolation truth per resolved policy: PURE is barred outright — this module's polars/rustworkx/kiwisolver

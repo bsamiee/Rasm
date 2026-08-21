@@ -29,12 +29,13 @@ from functools import reduce
 from typing import TYPE_CHECKING, Annotated, Final, Literal, assert_never, overload
 
 import msgspec
-from expression import Result, pipe
+from expression import Result, case, pipe, tag, tagged_union
 from expression.collections import Block, Map
 from expression.extra.result import catch
 from builtins import frozendict
 from msgspec import Meta, Struct, UnsetType, UNSET
 
+from rasm.runtime.faults import BoundaryFault
 from rasm.runtime.identity import ContentIdentity, ContentKey
 
 lazy from lxml import etree
@@ -208,6 +209,37 @@ type ClassificationCode = Annotated[
 ]
 type Rgb = tuple[RgbChannel, RgbChannel, RgbChannel]
 type Rect = tuple[float, float, float, float]
+
+# --- [ERRORS] ---------------------------------------------------------------------------
+
+
+@tagged_union(frozen=True)
+class Lapse(Exception):
+    # the ONE raise crossing a document fold's own interior, in the `media/container#CONTAINER` `_Lapse` form. The
+    # `@receipted` weave binds the CONTRIBUTOR type as its return, so a stepped owner cannot answer a rail and an
+    # offloaded arm's terminal `BoundaryFault` has no other way back to the `async_boundary` fence above it. It seats
+    # HERE because every document page already imports this owner and this owner imports none of them — the same
+    # reachability `hardened_parse` seats on — so five pages share one carrier rather than five local shims.
+    # `carried` holds the fault WHOLE: the retired `raise ValueError(str(fault))` shims stringified a typed fault for
+    # the fence to re-convert into a fresh `boundary` one, killing the tag, the subject, the roster leg, and the
+    # declared retriability at the seam and handing the caller a fault whose detail was another fault's repr. This
+    # family is a `@tagged_union` over `Exception`, so `BoundaryFault.of` admits it AHEAD of `CLASSIFY` and the
+    # carried fault crosses the door on `domain` — a consumer reads `lapse.carried` and matches the original.
+    tag: Literal["carried"] = tag()
+    carried: BoundaryFault = case()
+
+    def __str__(self) -> str:
+        # the total wire-edge collapse every band fault family owes: a `@tagged_union` Exception fills no `args`, so
+        # a renderer below the door would otherwise print the bare type name and lose the coordinate entirely.
+        return f"{self.carried.tag}:{self.carried.subject}"
+
+
+def lapsed[T](fault: BoundaryFault, /) -> T:
+    # the ONE `default_with` collapse every document fold names, so the raise is spelled once rather than five times
+    # under five page-local names that each stringified the fault differently. Generic in the return so a caller's
+    # `Result[T, BoundaryFault]` keeps its own success type across the collapse.
+    raise Lapse(carried=fault)
+
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -434,7 +466,12 @@ class CorpusRow(Struct, frozen=True):
 _ENCODER: Final = msgspec.msgpack.Encoder(order="deterministic")
 _JSON_ENCODER: Final = msgspec.json.Encoder(order="deterministic")
 _DOCUMENT_DECODER: Final = msgspec.msgpack.Decoder(DocumentNode)
-_NULL_KEY: Final = ContentKey(value=0, fmt="", byte_length=0)  # the blanked key leaf digest preimages carry in place of a live mint
+# the BLANK the digest preimage carries where a node's own key leaf sits — a fixed constant that addresses nothing
+# and is never published, minted so `_keyable` can erase a prior mint from a required field the tree's shape forbids
+# dropping. It goes through `ContentKey.decoded` because no bytes were ever measured for it: the retired
+# `byte_length=0` filled a measurement slot with a number no producer took, and a consumer summing extents across a
+# node tree read the blank as a WEIGHTLESS leaf rather than as the unmeasured non-address it is.
+_NULL_KEY: Final = ContentKey.decoded(value=0, fmt="")
 _CHILD_FIELDS: Final[frozenset[str]] = frozenset({"children", "heading", "runs", "items", "caption", "rows"})
 _XML_DECL: Final[re.Pattern[str]] = re.compile(r"\A\ufeff?\s*<\?xml[^>]*\?>")  # the str-payload prolog cut `hardened_parse` drops before UTF-8 encoding
 _TYPST_ESCAPE: Final[Map[TypstScope, dict[int, str]]] = Map.of_seq([

@@ -14,23 +14,26 @@ Every payload arrives settled from `scene/spec#SPEC` — `SceneGrid` admission e
 - Cases: `Frames` is one arm the rotating-scene and chart-over-time sources share; its `rgb24` rasters cross to `media/container#CONTAINER` through `framed()` without a file round-trip, and a non-frames op refuses the egress at the boundary. `Image` is the raster fast path minting the `_sized` dims band; `Export` at the same `PNG` target rides the `ExportRow` law and threads dataset facts — one target, two evidence bands. `Ingest` re-admits an existing scene through the worker importer, applies `RenderSpec.viewed`, and re-serializes through `render_ingest`. `Compose` folds two grids through the worker's boolean-CSG or field-sample table under the terminal arm — the worker refuses a non-manifold operand, yet a watertight fold can still spin on coincident surfaces, so the kill budget bounds it where a cooperative cancel cannot.
 - Auto: `_canon` lowers each arm onto `scene/spec#SPEC`'s `framed`/`CANON` identity-preimage discipline — `SceneGrid.spans` shape-plus-buffer chunks beside one deterministic-msgpack spec chunk — so `_key` mints through the bare `ContentIdentity.key` and merkle-folds `parents` when present.
 - Receipt: every arm mints `ArtifactReceipt.Scene(key, target, bytes, facts)` where `key` is the node's input key (`receipt.slot == node.key`) and the produced payload's content address rides `facts.address`. `Export` adds the staged dataset's `points` and `cells` counts to that band, and USD targets merge stage evidence without a parallel receipt case. `_emit` awaits `Journal.record` over `receipt.evidence()` ONCE above the render fan — one `OPERATIONAL` fact and its `STORAGE` charge for whichever arm ran, so a sixth arm inherits the seat instead of needing its own — and the band never reaches that diff; the seat is that awaitable fold, because recording suspends where `contribute` cannot.
-- Growth: a new modality is one `SceneOp` case plus one `_rendered` arm, one `_canon` arm, and one worker kernel name; a new render-evidence fact is one `ArtifactReceipt.Scene.facts` key. `SceneOp` remains the single modality owner.
-- Boundary: `_emit` runs the arm under `async_boundary` and flattens the boundary-faulted offload rail exactly once, so the composed signature stays one `RuntimeRail` and a worker raise lands as the boundary fault, never a custom exception re-crossed inward.
+- Growth: a new refusal is one `RAISES` row under an `ArtifactsLeg.RENDER` anchor; a new modality is one `SceneOp` case plus one `_rendered` arm, one `_canon` arm, and one worker kernel name; a new render-evidence fact is one `ArtifactReceipt.Scene.facts` key. `SceneOp` remains the single modality owner.
+- Boundary: `_emit` runs the arm under `async_boundary` anchored on the `SCENE_RENDER` row and flattens the boundary-faulted offload rail exactly once, so the composed signature stays one `RuntimeRail` and a worker raise lands as that row's fault, never a custom exception re-crossed inward. The frames egress refuses a non-frames op by RETURNING `SCENE_EGRESS`, never by raising into a fence that would convert it back.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
-from typing import Literal, assert_never
+from typing import Final, Literal, assert_never
 
+from beartype.roar import BeartypeCallHintViolation
 from builtins import frozendict
 from expression import Error, Result, case, tag, tagged_union
+from expression.collections import Block
 from msgspec import Struct
 
-from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.runtime.faults import TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, async_boundary, rostered
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Enforcement, Kernel, KernelTrait
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.scene.spec import BoolOp, CANON, Frames, OrbitPath, RenderSpec, SceneGrid, SceneSource, SceneTarget, WORKER_MODULE, framed
@@ -42,6 +45,25 @@ type SceneOpTag = Literal["image", "export", "frames", "ingest", "compose"]
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
 _FRAME_FORMAT = "rgb24"
+
+# the RESIDUAL raise surface the render fence narrows over: every arm crosses through `_offload`, whose worker-death
+# retry, isolation, and terminal kill all convert at the runtime lane, so what remains is the in-process key mint —
+# its `FAULT_CONF` contract weave and the canonical fold beneath it — and the receipt projection over it.
+_RESIDUE: Final[Catch] = (BeartypeCallHintViolation, ValueError, OSError)
+
+# --- [TABLES] --------------------------------------------------------------------------
+
+# this page's whole raise roster. The egress refusal is TERMINAL and caller-repairable — a non-frames op asked for the
+# frames egress and will refuse identically forever — while the render fold is TRANSIENT, a worker death or a native
+# capture a re-issue may clear. The op tag rides `SCENE_EGRESS` as a NAMED coordinate rather than forking the subject
+# five ways, since one law covers every non-frames modality.
+SCENE_EGRESS: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.RENDER, point="egress", arm="config", defect="not-a-frames-op", retriability=TERMINAL, slots=("modality",)
+)
+SCENE_RENDER: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.RENDER, point="render", arm="boundary", defect="render-fold", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([SCENE_EGRESS, SCENE_RENDER]))
 
 # --- [MODELS] --------------------------------------------------------------------------
 
@@ -90,7 +112,9 @@ class Scene3d(Struct, frozen=True):
             case SceneOp(tag="frames", frames=(grid, orbit, spec)):
                 return await self._offload("render_frames", grid, orbit, spec, enforcement=Enforcement.TERMINAL)
             case _:
-                return await async_boundary(f"scene.{self.op.tag}", _no_sequence)
+                # the refusal is caller data, so it RETURNS on the rail: raising it inside a fence to have that
+                # fence convert it back spelled exception control flow at a seam that already holds the answer.
+                return Error(SCENE_EGRESS.raised(self.op.tag))
 
     @property
     def _key(self) -> ContentKey:
@@ -111,7 +135,7 @@ class Scene3d(Struct, frozen=True):
         # render target and byte volume — the band carrying extent, frame count, and content address never enters,
         # because a band leaf set is this producer's own instrumentation. Recording suspends, so the seat is here
         # and `contribute` stays the synchronous projection.
-        railed = await async_boundary(f"scene.{self.op.tag}", self._rendered)
+        railed = await async_boundary(SCENE_RENDER, self._rendered, catch=_RESIDUE)
         match railed.bind(lambda rail: rail):
             case Result(tag="ok", ok=receipt):
                 return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
@@ -194,9 +218,6 @@ def _canon(op: SceneOp) -> tuple[bytes, ...]:
         case _ as unreachable:
             assert_never(unreachable)
 
-
-async def _no_sequence() -> Frames:
-    raise ValueError("frames egress requires a frames op")
 ```
 
 ## [03]-[RESEARCH]

@@ -440,10 +440,14 @@ if any(rows != vocabulary for rows, vocabulary in _COVERED):
     raise RuntimeError("bundle tables do not cover their vocabularies")
 
 
-# every knob leaf is msgpack-native once `keyable` nulls the delta parent key; the null key is the one spec
-# sentinel a live u128 `ContentKey.value` cannot ride through msgpack's u64 integer ceiling.
+# every knob leaf is msgpack-native once `keyable` nulls the delta parent key: a live u128 `ContentKey.value` cannot
+# ride msgpack's u64 integer ceiling, and the parent's identity already rides the parents merkle fold, so the spec
+# preimage needs a fixed BLANK in that slot rather than an address. It is not a key of anything — nothing was hashed
+# and nothing measured — so it goes through `ContentKey.decoded`: the retired `byte_length=0` filled a measurement
+# slot with a number no producer took, and an evidence reader summing bundle extents took the blank for a
+# zero-weight parent instead of an unmeasured non-address.
 _SPEC: Final[msgpack.Encoder] = msgpack.Encoder()
-_SPEC_PARENT: Final[ContentKey] = ContentKey(value=0, fmt="spec-parent", byte_length=0)
+_SPEC_PARENT: Final[ContentKey] = ContentKey.decoded(value=0, fmt="spec-parent")
 
 
 def _delta_admitted(knobs: DeltaKnobs, target_size: int, /) -> DeltaKnobs:

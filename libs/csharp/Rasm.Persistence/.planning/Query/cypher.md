@@ -5,7 +5,7 @@
 ## [01]-[INDEX]
 
 - [02]-[GRAPH_SESSION]: `CypherEnablement` self-hosted gate, the `CypherFault` closed boundary band, the `GraphDdl` graph/label lifecycle surface, and the `GraphSession` owning the per-physical-connection `LOAD 'age'`+`search_path` init, the async daemon projection, and the `agtype`/path/Edges-SQL decode primitives both lanes compose.
-- [03]-[GRAPH_QUERY]: `GraphQuery` the ONE `[Union]` collapsing every AGE openCypher and `pgrouting` verb, the `RouteMode`/`FlowKind`/`CleaveKind` function-selector rows, the `GraphResult` typed carrier, the `H3Cell` vertex-id node space, and the total-`Switch` `Run` that lowers each case to its server-side SQL and decodes its rows into the NODE-space `ElementSet` (AGE), the CELL-space `H3Cell` mesh (`pgrouting`), or the raw EDGE space (`pgr_bridges`/`pgr_biconnectedComponents`/the flow labeling).
+- [03]-[GRAPH_QUERY]: `GraphQuery` the ONE `[Union]` collapsing every AGE openCypher and `pgrouting` verb, the `RouteMode`/`FlowKind`/`CleaveKind` function-selector rows, the `GraphResult` typed carrier, the `H3Cell` vertex-id node space, and the total-`Switch` `Run` that lowers each case to its server-side SQL and decodes its rows into the NODE-space `KeySelection` (AGE), the CELL-space `H3Cell` mesh (`pgrouting`), or the raw EDGE space (`pgr_bridges`/`pgr_biconnectedComponents`/the flow labeling).
 
 ## [02]-[GRAPH_SESSION]
 
@@ -15,7 +15,7 @@
 - Auto: the lane is `Disabled` by construction so a deployment that has not provisioned `age`/`pgrouting` reads the in-process topology and never reaches for a missing extension; when `SelfHosted`, `Provision` registers the connection-init hook so every physical connection runs `LOAD 'age'` and sets `search_path` once at open (a PL/pgSQL Cypher wrapper repeats it in its own body per `api-apache-age#SESSION_SETUP`, but the managed lane pays it at the physical-connection seam, not per `cypher()` call); the AGE backing relations and the `pgrouting` network edge table materialize through the ONE `AgeGraphProjection` Marten async projection (`ProjectionLifecycle.Async`, registered at composition) folding committed `GraphDelta` events — the only steady-state producer, rebuilt from the one Marten stream so neither duplicates the event store, and `Rebuild` awaits exactly this projection's shard watermark; the Cypher read's OUTER `SELECT` extracts `(v->'properties'->>'id')` server-side through the registered `agtype` operators so `Decode` receives a PLAIN text column (the projection wrote the seam `NodeId.Value` beside the owning `ModelId` as the vertex `id`/`model` properties), making the decoded node the REAL model-qualified `SetKey`, never the AGE internal `graphid` integer and never a client-side hand-parse; a PATH-shaped read (`Reach`) RETURNs the whole path `p` and the outer `SELECT` casts `(p)::jsonb` through the REGISTERED cast so `DecodePath` receives one typed JSON document — the alternating vertex/edge array — rather than a comma-split of the `::path` text; `Define` runs the graph/label lifecycle through the same gate, and the role owning `ag_catalog` owns its idempotence; a bulk `LoadVertices`/`LoadEdges` stays coherent with later `*`-range traversals because the `age_invalidate_graph_cache()` trigger bumps the graph version on every direct backing-relation write; `Vid` reinterprets the `H3Cell` `long` (the `h3-pg` cell convention `Element/identity#ELEMENT_IDENTITY` already stamps) so the `pgrouting` Edges-SQL vertex id, the GiST/BRIN H3 index, and the in-process `pocketken.H3` cell agree bit-for-bit.
 - Receipt: every lane outcome rides the `ReceiptSinkPort` — a session provision rides `store.graph.provision` carrying the gate; a daemon rebuild rides `store.graph.rebuild` carrying the watermark and elapsed wait; a lifecycle define rides `store.graph.define` carrying the graph, the case, and the affected label.
 - Packages: Npgsql (`NpgsqlDataSourceBuilder.UsePhysicalConnectionInitializer`/`NpgsqlDataSource`/`NpgsqlConnection`), Marten (`IDocumentStore.BuildProjectionDaemonAsync`/`WaitForNonStaleProjectionDataAsync`), pocketken.H3 (`H3Index`), Rasm.Element (`NodeId`), Rasm.Persistence (`Element/identity#ELEMENT_IDENTITY` `H3Cell`, `Query/lane#READ_ROUTING` `StalenessWatermark`, `Store/provisioning#SERVER_EXTENSIONS` `StoreProfile.Admits` — the lane-realizability axis), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, System.Text.Json, BCL inbox.
-- Growth: a new enablement tier is one `CypherEnablement` row; a new boundary cause is one `CypherFault` case whose offset stays inside the registry decade; a new lifecycle op is one `GraphDdl` case lowering to its `ag_catalog` function; zero new surface — making AGE/`pgrouting` the default authoritative topology, hosting it in the same instance as Marten without the gate, a managed AGE/`pgrouting` driver wrapper, a per-query `LOAD 'age'`, a comma-split `agtype` or `::path` text decode, a page-local band constant beside the `FaultBand` registry, or a `GetHashCode`-derived vertex id is the deleted form because QuikGraph is the default, the extensions are optional self-hosted analytical lanes driven through raw `Npgsql` against the registered `agtype` casts, the session-load is a physical-connection hook, and the node space is the `h3-pg` `H3Cell`.
+- Growth: a new enablement tier is one `CypherEnablement` row; a new boundary cause is one `CypherFault` case whose offset stays inside its band span; a new lifecycle op is one `GraphDdl` case lowering to its `ag_catalog` function; zero new surface — making AGE/`pgrouting` the default authoritative topology, hosting it in the same instance as Marten without the gate, a managed AGE/`pgrouting` driver wrapper, a per-query `LOAD 'age'`, a comma-split `agtype` or `::path` text decode, a page-local band constant beside the kernel `FaultBand` roster, or a `GetHashCode`-derived vertex id is the deleted form because QuikGraph is the default, the extensions are optional self-hosted analytical lanes driven through raw `Npgsql` against the registered `agtype` casts, the session-load is a physical-connection hook, and the node space is the `h3-pg` `H3Cell`.
 - Boundary: lane realizability and deployment enablement are TWO axes refusing at two grains — `CypherEnablement.Admit` is the lane's one admission owner, refusing `LaneUnrealizable` where the engine cannot realize the graph lane at all, while the `SelfHosted` gates on `Provision`/`Define`/`Run` refuse `Disabled` where a capable engine was not armed; folding either into the other loses which repair applies, and a per-verb realizability test is the deleted form. AGE and `pgrouting` are OPTIONAL self-hosted-only read projections (`H5`) demoted beneath the in-process QuikGraph view which is the default authoritative topology owner — a deployment never ASSUMES one PostgreSQL instance hosts both an extension and Marten-9/Npgsql-10, so the lane gates on `CypherEnablement.SelfHosted` and falls back to the in-process topology when disabled; both are the `Query/lane#READ_ROUTING` ASYNC analytical lanes carrying a `StalenessWatermark`, so an interactive-correctness query (clash, void-resolution, live QTO) binds the synchronous topology and never reads here without `WaitForNonStaleProjectionDataAsync`; both are driven through raw `Npgsql` against the server-side SQL because neither ships a managed/EF driver, and the mandatory `AS (col agtype, ...)` / `AS (seq integer, ...)` column-definition list is required by PostgreSQL's `RETURNS SETOF record` contract, never optional (`api-apache-age#CYPHER_QUERY`, `api-pgrouting#IMPLEMENTATION_LAW`); the AGE backing relations and the `pgrouting` network edge table are async daemon projections off the one Marten stream so both are rebuildable and never a second event store; the session-load (`LOAD 'age'`+`search_path`) is a physical-connection-init obligation the `Npgsql` open-hook pays once per connection, never a per-query statement that re-loads the shared library; the AGE vertex decodes to the REAL model-qualified `SetKey` through the `properties.model`/`properties.id` pair (the projection stamped both off the stream id and the seam id) via the registered `agtype ->>` operator, and the `pgrouting` vertex id is the `Element/identity#ELEMENT_IDENTITY` `H3Cell` `long` (the `h3-pg` convention) the in-process `pocketken.H3` cell shares — a `graphid` integer surfacing as a `NodeId`, a comma-split text decode, or a `GetHashCode`-derived `bigint` vertex id is the named `docs/stacks/csharp/boundaries#ADMISSION` defect this page deletes; the graph/label lifecycle is a `SELECT`-function DDL surface (`GraphDdl` lowering to the `ag_catalog` functions, every argument Npgsql-bound), gate-checked like every lane op and DISTINCT from the one-shot frozen `ServerExtension.CreateSql` install row — a `Define` that re-issues `CREATE EXTENSION`, or a daemon projection writing into a graph no owner provisioned, is the deleted form.
 
 ```csharp signature
@@ -31,10 +31,9 @@ using NodaTime;
 using Npgsql;
 using Rasm.Element.Graph;
 using Rasm.Element.Projection;
-using Rasm.Persistence.Element;                   // FaultBand — the Element/graph#FAULT_TABLES registry the band derives from
+using Rasm.Persistence.Element;
 using Rasm.Persistence.Store;                     // StoreProfile — the lane-realizability axis Admit gates against
 using Thinktecture;
-using Expected = Rasm.Domain.Expected;            // the federation fault-band base — the alias wins over LanguageExt.Common.Expected for the bare name
 using static LanguageExt.Prelude;
 
 namespace Rasm.Persistence.Query;
@@ -62,49 +61,49 @@ public abstract partial record CypherEnablement {
 // `CypherClause` rejects dollar-quote breakout, statement separators, comments, quotes, and NUL.
 // Dynamic values remain `$name` references carried through the one `params agtype` bind.
 [ValueObject<string>]
-[ValidationError<CypherFault>]
+[ValidationError]
 public readonly partial struct CypherClause {
-    static partial void ValidateFactoryArguments(ref CypherFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         if (string.IsNullOrWhiteSpace(value)
             || value.IndexOfAny(['\'', '"', ';', '\0']) >= 0
             || value.Contains("$$", StringComparison.Ordinal)
             || value.Contains("//", StringComparison.Ordinal)
             || value.Contains("/*", StringComparison.Ordinal)) {
-            validationError = new CypherFault.MatchFailed($"<clause-refused:{value.Length}>");
+            validationError = new ValidationError(string.Join(" | ", new object?[] { $"<clause-refused:{value.Length}>" }));
         }
     }
 }
 
 [ValueObject<int>]
-[ValidationError<CypherFault>]
+[ValidationError]
 public readonly partial struct RouteAlternativeCount {
-    static partial void ValidateFactoryArguments(ref CypherFault? validationError, ref int value) {
-        if (value < 1) validationError = new CypherFault.RouteFailed($"<alternative-count:{value}>");
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
+        if (value < 1) validationError = new ValidationError(string.Join(" | ", new object?[] { $"<alternative-count:{value}>" }));
     }
 }
 
 [ValueObject<double>]
-[ValidationError<CypherFault>]
+[ValidationError]
 public readonly partial struct RouteRadius {
-    static partial void ValidateFactoryArguments(ref CypherFault? validationError, ref double value) {
-        if (!double.IsFinite(value) || value <= 0.0) validationError = new CypherFault.RouteFailed($"<route-radius:{value.ToString(CultureInfo.InvariantCulture)}>");
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
+        if (!double.IsFinite(value) || value <= 0.0) validationError = new ValidationError(string.Join(" | ", new object?[] { $"<route-radius:{value.ToString(CultureInfo.InvariantCulture)}>" }));
     }
 }
 
 [ValueObject<long>]
-[ValidationError<CypherFault>]
+[ValidationError]
 public readonly partial struct RoutePointId {
-    static partial void ValidateFactoryArguments(ref CypherFault? validationError, ref long value) {
-        if (value < 1) validationError = new CypherFault.RouteFailed($"<route-point:{value}>");
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref long value) {
+        if (value < 1) validationError = new ValidationError(string.Join(" | ", new object?[] { $"<route-point:{value}>" }));
     }
 }
 
 [ValueObject<string>]
-[ValidationError<CypherFault>]
+[ValidationError]
 public readonly partial struct RouteSql {
-    static partial void ValidateFactoryArguments(ref CypherFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         if (string.IsNullOrWhiteSpace(value) || value.Contains(';') || value.Contains('\0') || value.Contains("--", StringComparison.Ordinal) || value.Contains("/*", StringComparison.Ordinal)) {
-            validationError = new CypherFault.RouteFailed("<route-sql-refused>");
+            validationError = new ValidationError(string.Join(" | ", new object?[] { "<route-sql-refused>" }));
         }
     }
 
@@ -144,42 +143,32 @@ public sealed partial class VertexIdMode {
     private VertexIdMode(string key, bool exists) : this(key) => Exists = exists;
 }
 
-// --- [ERRORS] -----------------------------------------------------------------------------
-// `CypherFault` closes `FaultBand.Cypher` over `Rasm.Domain.Expected`.
-// Cases lift directly onto `Fin<T>` without generated union operations.
-[Union]
-public abstract partial record CypherFault : Expected, IValidationError<CypherFault> {
-    private CypherFault() : base() { }
-    public sealed record Disabled : CypherFault;
+// --- [ERRORS] ---------------------------------------------------------------------------
+// Direct generated union; arm probe: `error.IsType<CypherFault.Disabled>()`.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record CypherFault : Fault {
+    private static readonly FaultBand FamilyBand = FaultBand.Cypher;
+    private CypherFault() { }
+
+    [FaultCase(0)]
+    public sealed partial record Disabled : CypherFault();
     // `LaneUnrealizable` is the ENGINE's refusal and `Disabled` the deployment's opt-out — one profile cannot
     // realize the lane at all, the other declined to arm it, and collapsing them loses which one a repair fixes.
-    public sealed record LaneUnrealizable(string Lane) : CypherFault;
-    public sealed record MatchFailed(string Detail) : CypherFault;
-    public sealed record RouteFailed(string Detail) : CypherFault;
-    public sealed record Unresolvable(string Detail) : CypherFault;
-
-    public override int Code => FaultBand.Cypher + Switch(
-        disabled:          static _ => 0,
-        laneUnrealizable:  static _ => 1,
-        matchFailed:       static _ => 2,
-        routeFailed:       static _ => 3,
-        unresolvable:      static _ => 4);
+    [FaultCase(1)]
+    public sealed partial record LaneUnrealizable(string Lane) : CypherFault();
+    [FaultCase(2)]
+    public sealed partial record MatchFailed(Error Cause) : CypherFault(), ICausedFault;
+    [FaultCase(3)]
+    public sealed partial record RouteFailed(Error Cause) : CypherFault(), ICausedFault;
+    [FaultCase(4)]
+    public sealed partial record Unresolvable(string Detail) : CypherFault();
 
     public override string Message => Switch(
         disabled:          static _ => "<graph-lane-disabled>",
         laneUnrealizable:  static c => $"<store-lane-unrealizable:{c.Lane}>",
-        matchFailed:       static c => $"<cypher-match:{c.Detail}>",
-        routeFailed:       static c => $"<pgr-route:{c.Detail}>",
+        matchFailed:       static c => $"<cypher-match:{c.Cause.Message}>",
+        routeFailed:       static c => $"<pgr-route:{c.Cause.Message}>",
         unresolvable:      static c => $"<graph-vertex-unresolvable:{c.Detail}>");
-
-    public override string Category => Switch(
-        disabled:          static _ => "Disabled",
-        laneUnrealizable:  static _ => "Lane",
-        matchFailed:       static _ => "Match",
-        routeFailed:       static _ => "Route",
-        unresolvable:      static _ => "Vertex");
-
-    public static CypherFault Create(string message) => new MatchFailed(message);
 }
 ```
 
@@ -214,11 +203,11 @@ public static class GraphSession {
     // returns the MEASURED non-stale wait for the store.query.wait seal. Interactive correctness remains on
     // synchronous topology.
     public static IO<Duration> Rebuild(IDocumentStore store) =>
-        IO.liftAsync(async () => {
+        IO.liftAsync(async () => await Op.Of().Catch(async _ => {
             await using IProjectionDaemon daemon = await store.BuildProjectionDaemonAsync().ConfigureAwait(false);
             await daemon.StartAllAsync().ConfigureAwait(false);
-            return await ReadRouter.AwaitNonStale(daemon, QueryLane.Cypher).RunAsync().ConfigureAwait(false);
-        });
+            return Fin<Duration>.Succ(await ReadRouter.AwaitNonStale(daemon, QueryLane.Cypher).RunAsync().ConfigureAwait(false));
+        }).ConfigureAwait(false)).Bind(IO.liftFin);
 
     // `Decode` reads the server-extracted `properties.model`/`properties.id` pair — the projection stamps
     // both — never AGE internal graph identity or formatted vertex text. Missing properties rail
@@ -230,17 +219,18 @@ public static class GraphSession {
 
     // `DecodePath` folds the registered `agtype`-to-JSON alternating vertex-edge array.
     // Vertex keys populate the path and edge costs accumulate its weight.
-    public static Fin<AgtypePath> DecodePath(string json) {
-        using JsonDocument path = JsonDocument.Parse(json);
-        Seq<(JsonElement Element, int Index)> steps = toSeq(path.RootElement.EnumerateArray().Select(static (element, index) => (Element: element, Index: index)));
-        return steps.Filter(static s => (s.Index & 1) == 0)
-            .Map(static s => Decode(TextProperty(s.Element, "model"), TextProperty(s.Element, "id")))
-            .TraverseM(identity).As()
-            .Map(vertices => new AgtypePath(
-                vertices,
-                steps.Filter(static s => (s.Index & 1) == 1)
-                    .Fold(0.0, static (cost, s) => cost + NumberProperty(s.Element, "cost"))));
-    }
+    public static Fin<AgtypePath> DecodePath(string json) =>
+        Op.Of().Catch(() => {
+            using JsonDocument path = JsonDocument.Parse(json);
+            Seq<(JsonElement Element, int Index)> steps = toSeq(path.RootElement.EnumerateArray().Select(static (element, index) => (Element: element, Index: index)));
+            return steps.Filter(static s => (s.Index & 1) == 0)
+                .Map(static s => Decode(TextProperty(s.Element, "model"), TextProperty(s.Element, "id")))
+                .TraverseM(identity).As()
+                .Map(vertices => new AgtypePath(
+                    vertices,
+                    steps.Filter(static s => (s.Index & 1) == 1)
+                        .Fold(0.0, static (cost, s) => cost + NumberProperty(s.Element, "cost"))));
+        });
 
     static string? TextProperty(JsonElement element, string name) {
         bool found = element.GetProperty("properties").TryGetProperty(name, out JsonElement value);
@@ -261,7 +251,7 @@ public static class GraphSession {
     // Extension creation remains on the provisioning rail.
     public static IO<Fin<Unit>> Define(NpgsqlDataSource source, CypherEnablement gate, GraphDdl ddl) =>
         gate is CypherEnablement.SelfHosted
-            ? IO.liftAsync(async () => {
+            ? IO.liftAsync(async () => (await Op.Of().Catch(async _ => {
                   await using NpgsqlConnection connection = await source.OpenConnectionAsync().ConfigureAwait(false);
                   await using NpgsqlCommand command = connection.CreateCommand();
                   (string Sql, Seq<(string Name, object Value)> Args) lowering = ddl.Lower();
@@ -269,7 +259,9 @@ public static class GraphSession {
                   lowering.Args.Iter(argument => command.Parameters.AddWithValue(argument.Name, argument.Value));
                   await command.ExecuteNonQueryAsync().ConfigureAwait(false);
                   return Fin.Succ(unit);
-              }) | @catch<IO, Fin<Unit>>(static error => error.IsExceptional, static e => IO.pure(Fin<Unit>.Fail(new CypherFault.MatchFailed(e.Message))))
+              }).ConfigureAwait(false)).MapFail(static error => error.Exception.Case is NpgsqlException
+                  ? (Error)new CypherFault.MatchFailed(error)
+                  : error))
             : IO.pure(Fin<Unit>.Fail(new CypherFault.Disabled()));
 }
 
@@ -288,7 +280,7 @@ public sealed class AgeGraphProjection(NpgsqlDataSource source, Identifier graph
             // every decoded vertex lifts into the model-qualified selection currency with no second lookup.
             string model = stream.Id.ToString("D");
             foreach (GraphDelta delta in stream.Events.Select(static e => e.Data).OfType<GraphDelta>()) {
-                foreach (Node node in delta.Added) { await Cypher(lane, $"MERGE (n:Element {{id: $id, model: $model}}) SET n.role = $role", ("id", node.Id.Value), ("model", model), token, ("role", node.GetType().Name)).ConfigureAwait(false); }
+                foreach (Node node in delta.Added) { await Cypher(lane, "MERGE (n:Element {id: $id, model: $model})", ("id", node.Id.Value), ("model", model), token).ConfigureAwait(false); }
                 foreach (NodeId removed in delta.Removed) { await Cypher(lane, "MATCH (n:Element {id: $id, model: $model}) DETACH DELETE n", ("id", removed.Value), ("model", model), token).ConfigureAwait(false); }
                 foreach (Relationship edge in delta.Linked) {
                     await Cypher(lane, "MATCH (a:Element {id: $from, model: $model}), (b:Element {id: $to, model: $model}) MERGE (a)-[:REL {kind: $kind}]->(b)", ("from", edge.Relating.Value), ("to", edge.Related.Value), token, ("model", model), ("kind", edge.Kind.Key)).ConfigureAwait(false);
@@ -343,7 +335,7 @@ public abstract partial record GraphDdl {
 |  [05]   | `pgrouting` node id | `h3-pg` `H3Cell` `long`                       | shares the in-process `pocketken.H3` cell; never `GetHashCode`  |
 |  [06]   | consistency stance  | async, `StalenessWatermark`                   | interactive correctness binds the synchronous topology          |
 |  [07]   | graph source        | async daemon projection off Marten            | rebuildable, never a second event store                         |
-|  [08]   | fault rail          | `CypherFault` off `FaultBand.Cypher + n`      | renamed off the graph collision; never `Error.New` or a decade  |
+|  [08]   | fault rail          | `CypherFault` on `Fault`                      | one roster, sealed `Code`; never `Error.New`                    |
 |  [09]   | graph lifecycle     | `GraphDdl` → `ag_catalog` DDL                 | parameter-bound DDL + loaders; `ServerExtension.CreateSql` seam |
 |  [10]   | lane admission      | `CypherEnablement.Admit` at composition       | `LaneUnrealizable` names the lane; `Disabled` the opt-out       |
 
@@ -354,8 +346,10 @@ public abstract partial record GraphDdl {
 - Entry: `Run` dispatches the total query family; `ToSet` and `ToCells` return `Option` projections; `CypherRead` and `CypherWrite` preserve AGE payload timing without a caller-selected boolean; `Route`, `Via`, `Located`, `Ksp`, `Spread`, `Tour`, `TourPlanar`, `Flow`, and `Cleave` execute the catalogued server algorithms.
 - Auto: `Run` rejects `Disabled` before opening a connection. AGE embeds admitted `Identifier` and `CypherClause` structure and binds `params agtype`; `Reach` casts each path through `agtype`→`jsonb`. Routing binds admitted `RouteSql`, `H3Cell`, `RoutingLocation`, `RouteAlternativeCount`, and `RouteRadius` values. `RouteMode.DefaultEdges` selects the A* coordinate schema only when the caller retains `RouteSql.Network`. `CleaveShape` determines SQL columns and result identity. Provider failures lift into `CypherFault`.
 - Receipt: every run rides the `ReceiptSinkPort` — an AGE read rides `store.graph.match` carrying the path count and watermark, an AGE mutation `store.graph.mutate` carrying the mutated-graph name (AGE's `cypher()` mutation is a `SETOF record` whose `ExecuteNonQuery` row count is not a reliable affected-row signal, so the mutation fact rides the graph identity, never a fabricated count), a route rides `store.graph.route` carrying the reached count and the aggregate cost, a flow rides `store.graph.flow` carrying the derived max flow and the labeled-edge count, a partition rides `store.graph.cleave` carrying the component count.
-- Packages: Npgsql (`NpgsqlDataSource.OpenConnectionAsync`/`NpgsqlCommand`/`NpgsqlParameterCollection.AddWithValue`/`NpgsqlDataReader`/`PostgresException`), System.Text.Json (`JsonDocument` — the `(p)::jsonb` path decode), Rasm.Element (`NodeId`), Rasm.Persistence (`Element/identity#ELEMENT_IDENTITY` `H3Cell`, `Query/lane#ELEMENT_SET_ALGEBRA` `ElementSet`/`SetKey`/`WalkDepth`, `Query/columnar#COLUMNAR_LANE` `Identifier` — the graph-name trust gate, `Element/graph#FAULT_TABLES` `FaultBand`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new graph verb is one `GraphQuery` case and `Switch` arm; a new path or flow algorithm is one policy row; a new connectivity output is one `CleaveShape` case; a new structural inner query enters through `RouteSql`. Server algorithms remain AGE/`pgrouting` capabilities, node results compose at `ElementSet` or `H3Cell`, and edge results remain edge carriers.
+- Packages: Npgsql (`NpgsqlDataSource.OpenConnectionAsync`/`NpgsqlCommand`/`NpgsqlParameterCollection.AddWithValue`/`NpgsqlDataReader`/`PostgresException`), System.Text.Json (`JsonDocument` — the `(p)::jsonb` path decode), Rasm.Element (`NodeId`), Rasm.Persistence (`Element/identity#ELEMENT_IDENTITY` `H3Cell`, `Query/lane#ELEMENT_SET_ALGEBRA` `KeySelection`/`SetKey`/`SetScope`/`Selections.Depth` — the certified selection currency and the band-owning depth admission, `Query/columnar#COLUMNAR_LANE` `Identifier` — the graph-name trust gate), Rasm.Element (`Query/predicate#PREDICATE_ALGEBRA` `WalkDepth` — the ONE bounded-walk carrier corpus-wide), Rasm (`Rasm.Domain` `FaultBand`/`[FaultCase]`/`Fault`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
+- Law: `WalkDepth` resolves to the `Rasm.Element` `Query/predicate#PREDICATE_ALGEBRA` seam declaration — the ONE bounded-walk carrier corpus-wide — reached through the `Query/lane#ELEMENT_SET_ALGEBRA` `Selections.Depth` wrapper, which runs the seam admission and re-keys its refusal onto this folder's `SelectionFault.Depth` band. `Reach`'s two hop bounds therefore carry the same type a closure fold, a cell ring, and a topology walk carry, and the seam's `WalkDepth.Whole` sentinel is available to an unbounded `*`-range traversal without this page spelling an integer.
+- Law: every rail on this page is `Fin`-shaped end to end; `Op.Catch` captures provider raises before the two lane gates lower their documented operation contexts onto `CypherFault`.
+- Growth: a new graph verb is one `GraphQuery` case and `Switch` arm; a new path or flow algorithm is one policy row; a new connectivity output is one `CleaveShape` case; a new structural inner query enters through `RouteSql`. Server algorithms remain AGE/`pgrouting` capabilities, node results compose at `KeySelection` or `H3Cell`, and edge results remain edge carriers.
 - Boundary: `GraphQuery` is the ONE polymorphic verb surface so every AGE and `pgrouting` capability is one case under one total `Switch` — a sibling `Match`/`Route`/`DrivingDistance` method family, a `bool`/`mode` flag selecting a verb, or a thin slice of the rich `pgrouting` roster (Dijkstra/A*/bidirectional/VIA/withPoints/KSP/DD/TSP/TSPeuclidean/flow-family/components/biconnected) is the deleted form, `RouteMode`/`FlowKind`/`CleaveKind` carrying the function variance and the verb family carrying the rest; value transport is STRUCTURAL — the graph name admits once through the `Query/columnar#COLUMNAR_LANE` `Identifier` trust gate, the Cypher body once through `CypherClause` (rejecting the `$$` breakout token, the ONLY escape from the dollar-quote), dynamic values ride the `params agtype` `$name` channel, and the Edges/Points/Coordinates-SQL bind through `Npgsql` parameters — so a raw caller-concatenated graph body is unrepresentable, the literal embed of the two admitted values is the named AGE parse-transform seam, and the `Match`/`Mutate`/`Reach` `Parameters` are LIVE, never a dead field; the `agtype` rows decode through `GraphSession.Decode`/`DecodePath` (the registered `->>`/`::jsonb` casts) so a returned vertex projects to the real seam `NodeId` and a returned path to the REAL multi-vertex walk, never the internal `graphid` integer, never a comma-split, never a one-vertex stub with a fabricated weight; `Via` and `Tour` stay TWO verbs because ordered-waypoint traversal and optimal-order touring are different problems (the input shape — a waypoint sequence versus a stop set with free order — is the discriminant, `MODAL_ARITY`), and `Tour`/`TourPlanar` discriminate on input shape too (an Edges-SQL cost matrix versus a Coordinates-SQL plane); the `pgrouting` NODE `bigint` is the `H3Cell` the in-process `pocketken.H3` cell shares so the in-database route and the in-process path agree on node identity (`api-pgrouting#IMPLEMENTATION_LAW`), the cell→element resolution a one-hop `Element/identity#STORE_OPERATION_BRACKET` `IdentityOp.Route` the caller composes; a `pgr_bridges` cut-EDGE, a `pgr_biconnectedComponents` edge-component, a flow edge label, and a `pgr_withPoints` NEGATIVE Point vid are NOT nodes — they rail `Severed`/`Sundered`/`Flowed.Assignment`/`Traced` and never pass through `CellOf` (the fabricated-cell defect the decode-plane columns delete); the flow verbs return the PER-EDGE assignment because the cut, the bottleneck, and the residual analysis all need the labeling — the scalar is a derived fold, never the whole answer; the AGE write half (`Mutate`) is split from the read (`api-apache-age#CYPHER_QUERY` rejects a mutate-and-return statement) and the variable-length `Reach` lowers to the Cypher `*` range the `age_vle` engine plans, never a managed BFS; the network edge table and the AGE backing relations are async daemon projections off the one Marten stream so a routing/match query rides the one graph, never a second network store, and an interactive-correctness routing read binds the synchronous in-process counterpart.
 
 ```csharp signature
@@ -471,10 +465,13 @@ public static class GraphLane {
                 cleave: static (db, c) => Cleave(db, c.Edges, c.Kind))
             : IO.pure(Fin<GraphResult>.Fail(new CypherFault.Disabled()));
 
-    // Project the NODE-space AGE result to the ElementSet selection currency so a graph query composes with every other
-    // selection (a Match path intersected with a Classification selection is one SetExpr.Intersect, never an app join).
-    public static Option<ElementSet> ToSet(GraphResult result) => result.Switch(
-        paths: static value => Some(ElementSet.Of(value.Found.Bind(static path => path.Vertices))),
+    // Project the NODE-space AGE result to the `KeySelection` selection currency so a graph query composes with
+    // every other selection (a Match path conjoined with a Classification selection is one seam `And`, never an
+    // app join). SCOPE derives from the members themselves: a graph result is EVIDENCE of what was reached, not
+    // a declaration of what could be, so the roster it carries is exactly the models its own vertices came from
+    // and an empty result spans nothing rather than inheriting a roster it never touched.
+    public static Option<KeySelection> ToSet(GraphResult result) => result.Switch(
+        paths: static value => Some(Selected(value.Found.Bind(static path => path.Vertices))),
         mutated: static _ => None,
         routed: static _ => None,
         legged: static _ => None,
@@ -486,6 +483,9 @@ public static class GraphLane {
         cleaved: static _ => None,
         severed: static _ => None,
         sundered: static _ => None);
+
+    static KeySelection Selected(Seq<SetKey> vertices) =>
+        KeySelection.Of(vertices, new SetScope(toSeq(vertices.Map(static key => key.Model).Distinct())));
 
     // Cell projection maps navigable H3 nodes to elements; edge and negative point ids never cross this conversion.
     public static Option<Seq<H3Cell>> ToCells(GraphResult result) => result.Switch(
@@ -508,7 +508,7 @@ public static class GraphLane {
     // AGE parse-transform literals use admitted graph and clause values; `params agtype` remains the bind channel.
     // Reads extract seam ids server-side, while mutations return no fabricated rows.
     static IO<Fin<Seq<AgtypePath>>> CypherRead(NpgsqlDataSource source, Identifier graph, CypherClause clause, HashMap<string, string> parameters) =>
-        IO.liftAsync(async () => {
+        Captured(async () => {
             await using NpgsqlConnection connection = await source.OpenConnectionAsync().ConfigureAwait(false);
             await using NpgsqlCommand command = connection.CreateCommand();
             command.CommandText = $"SELECT (v->'properties'->>'model') AS model, (v->'properties'->>'id') AS id FROM ag_catalog.cypher('{graph}', $${clause}$$, @params) AS (v agtype)";
@@ -523,24 +523,24 @@ public static class GraphLane {
                 step.Iter(paths.Add);
             }
             return Fin.Succ(toSeq(paths));
-        }) | @catch<IO, Fin<Seq<AgtypePath>>>(static error => error.IsExceptional, static e => IO.pure(Fin<Seq<AgtypePath>>.Fail(new CypherFault.MatchFailed(e.Message))));
+        }, static error => new CypherFault.MatchFailed(error));
 
     static IO<Fin<Unit>> CypherWrite(NpgsqlDataSource source, Identifier graph, CypherClause clause, HashMap<string, string> parameters) =>
-        IO.liftAsync(async () => {
+        Captured(async () => {
             await using NpgsqlConnection connection = await source.OpenConnectionAsync().ConfigureAwait(false);
             await using NpgsqlCommand command = connection.CreateCommand();
             command.CommandText = $"SELECT * FROM ag_catalog.cypher('{graph}', $${clause}$$, @params) AS (v agtype)";
             command.Parameters.AddWithValue("params", NpgsqlTypes.NpgsqlDbType.Unknown, JsonSerializer.Serialize(parameters.ToDictionary(static p => p.Key, static p => p.Value)));
             await command.ExecuteNonQueryAsync().ConfigureAwait(false);
             return Fin.Succ(unit);
-        }) | @catch<IO, Fin<Unit>>(static error => error.IsExceptional, static e => IO.pure(Fin<Unit>.Fail(new CypherFault.MatchFailed(e.Message))));
+        }, static error => new CypherFault.MatchFailed(error));
 
     // Reach returns whole paths through the registered `agtype`-to-JSON cast.
     // Admitted hop bounds reject inverted ranges before Cypher execution.
     static IO<Fin<GraphResult>> Traverse(NpgsqlDataSource source, Identifier graph, NodeId from, WalkDepth minHops, WalkDepth maxHops) =>
         maxHops.Value < minHops.Value
-        ? IO.pure(Fin<GraphResult>.Fail(new CypherFault.MatchFailed($"<hop-range:{minHops.Value}>{maxHops.Value}>")))
-        : IO.liftAsync(async () => {
+        ? IO.pure(Fin<GraphResult>.Fail(new CypherFault.Unresolvable($"<hop-range:{minHops.Value}>{maxHops.Value}>")))
+        : Captured(async () => {
             await using NpgsqlConnection connection = await source.OpenConnectionAsync().ConfigureAwait(false);
             await using NpgsqlCommand command = connection.CreateCommand();
             command.CommandText = $"SELECT (p)::jsonb FROM ag_catalog.cypher('{graph}', $$MATCH p = (a {{id:$from}})-[*{minHops.Value.ToString(CultureInfo.InvariantCulture)}..{maxHops.Value.ToString(CultureInfo.InvariantCulture)}]->(b) RETURN p$$, @params) AS (p agtype)";
@@ -553,13 +553,13 @@ public static class GraphLane {
                 step.Iter(found.Add);
             }
             return Fin.Succ((GraphResult)new GraphResult.Paths(toSeq(found)));
-        }) | @catch<IO, Fin<GraphResult>>(static error => error.IsExceptional, static e => IO.pure(Fin<GraphResult>.Fail(new CypherFault.MatchFailed(e.Message))));
+        }, static error => new CypherFault.MatchFailed(error));
 
     // --- [ROUTING] ------------------------------------------------------------------------
     // `RouteMode` selects a bound pgRouting call with the complete path column definition.
     // Last-node sentinels make ascending aggregate cost define H3 node order.
     static IO<Fin<GraphResult>> Route(NpgsqlDataSource source, string function, RouteSql edges, H3Cell from, H3Cell to) =>
-        IO.liftAsync(async () => {
+        Captured(async () => {
             await using NpgsqlConnection connection = await source.OpenConnectionAsync().ConfigureAwait(false);
             await using NpgsqlCommand command = connection.CreateCommand();
             command.CommandText = $"SELECT node, agg_cost FROM {function}(@edges, @from, @to, directed => true) AS (seq integer, path_seq integer, start_vid bigint, end_vid bigint, node bigint, edge bigint, cost float, agg_cost float)";
@@ -567,12 +567,12 @@ public static class GraphLane {
             command.Parameters.AddWithValue("from", GraphSession.Vid(from));
             command.Parameters.AddWithValue("to", GraphSession.Vid(to));
             return Fin.Succ((GraphResult)await ReadRoute(command).ConfigureAwait(false));
-        }) | @catch<IO, Fin<GraphResult>>(static error => error.IsExceptional, static e => IO.pure(Fin<GraphResult>.Fail(new CypherFault.RouteFailed(e.Message))));
+        }, static error => new CypherFault.RouteFailed(error));
 
     // pgr_dijkstraVia (api-pgrouting#IMPLEMENTATION_LAW): VIA output = MULTI-PATH + route_agg_cost, `edge = -2` on the
     // route-last node — the path_id groups are the LEGS of ONE ordered-waypoint route, the total the max route_agg_cost.
     static IO<Fin<GraphResult>> Via(NpgsqlDataSource source, RouteSql edges, Seq<H3Cell> waypoints) =>
-        IO.liftAsync(async () => {
+        Captured(async () => {
             await using NpgsqlConnection connection = await source.OpenConnectionAsync().ConfigureAwait(false);
             await using NpgsqlCommand command = connection.CreateCommand();
             command.CommandText = "SELECT path_id, node, agg_cost, route_agg_cost FROM pgr_dijkstraVia(@edges, @vids, directed => true) AS (seq integer, path_id integer, path_seq integer, start_vid bigint, end_vid bigint, node bigint, edge bigint, cost float, agg_cost float, route_agg_cost float)";
@@ -584,12 +584,12 @@ public static class GraphLane {
             Seq<(Seq<H3Cell> Leg, double Cost)> legs = toSeq(rows.GroupBy(static r => r.Path).OrderBy(static g => g.Key)
                 .Select(static g => (Leg: toSeq(g.Select(static r => r.Node)), Cost: g.Max(static r => r.Cost))));
             return Fin.Succ((GraphResult)new GraphResult.Legged(legs, rows.Count > 0 ? rows.Max(static r => r.RouteCost) : 0.0));
-        }) | @catch<IO, Fin<GraphResult>>(static error => error.IsExceptional, static e => IO.pure(Fin<GraphResult>.Fail(new CypherFault.RouteFailed(e.Message))));
+        }, static error => new CypherFault.RouteFailed(error));
 
     // pgr_withPoints: off-node routing over the Points-SQL — a NEGATIVE routing id is a Point mid-edge, so the decode
     // marks it a Point step and NEVER projects it through CellOf (the mixed carrier keeps the spaces honest).
     static IO<Fin<GraphResult>> Located(NpgsqlDataSource source, RouteSql edges, RouteSql points, RoutingLocation from, RoutingLocation to) =>
-        IO.liftAsync(async () => {
+        Captured(async () => {
             await using NpgsqlConnection connection = await source.OpenConnectionAsync().ConfigureAwait(false);
             await using NpgsqlCommand command = connection.CreateCommand();
             command.CommandText = "SELECT node, agg_cost FROM pgr_withPoints(@edges, @points, @from, @to, directed => true) AS (seq integer, path_seq integer, start_vid bigint, end_vid bigint, node bigint, edge bigint, cost float, agg_cost float)";
@@ -606,12 +606,12 @@ public static class GraphLane {
                 cost = reader.GetDouble(1);
             }
             return Fin.Succ((GraphResult)new GraphResult.Traced(toSeq(steps), cost));
-        }) | @catch<IO, Fin<GraphResult>>(static error => error.IsExceptional, static e => IO.pure(Fin<GraphResult>.Fail(new CypherFault.RouteFailed(e.Message))));
+        }, static error => new CypherFault.RouteFailed(error));
 
     // pgrouting K-shortest-paths (`pgr_KSP`): MULTI-PATH = PATH + path_id (path_id=1 the cheapest), so the alternatives
     // group by `path_id` ascending into the cell-space `Ranked` carrier — never a managed re-implementation of KSP.
     static IO<Fin<GraphResult>> Ksp(NpgsqlDataSource source, RouteSql edges, H3Cell from, H3Cell to, RouteAlternativeCount count) =>
-        IO.liftAsync(async () => {
+        Captured(async () => {
             await using NpgsqlConnection connection = await source.OpenConnectionAsync().ConfigureAwait(false);
             await using NpgsqlCommand command = connection.CreateCommand();
             command.CommandText = "SELECT path_id, node, agg_cost FROM pgr_KSP(@edges, @from, @to, @k, directed => true) AS (seq integer, path_id integer, path_seq integer, start_vid bigint, end_vid bigint, node bigint, edge bigint, cost float, agg_cost float)";
@@ -625,10 +625,10 @@ public static class GraphLane {
             Seq<(Seq<H3Cell> Path, double Cost)> alternatives = toSeq(rows.GroupBy(static r => r.Path).OrderBy(static g => g.Key)
                 .Select(static g => (Path: toSeq(g.Select(static r => r.Node)), Cost: g.Max(static r => r.Cost))));
             return Fin.Succ((GraphResult)new GraphResult.Ranked(alternatives));
-        }) | @catch<IO, Fin<GraphResult>>(static error => error.IsExceptional, static e => IO.pure(Fin<GraphResult>.Fail(new CypherFault.RouteFailed(e.Message))));
+        }, static error => new CypherFault.RouteFailed(error));
 
     static IO<Fin<GraphResult>> Spread(NpgsqlDataSource source, RouteSql edges, H3Cell root, RouteRadius radius) =>
-        IO.liftAsync(async () => {
+        Captured(async () => {
             await using NpgsqlConnection connection = await source.OpenConnectionAsync().ConfigureAwait(false);
             await using NpgsqlCommand command = connection.CreateCommand();
             command.CommandText = "SELECT node, agg_cost FROM pgr_drivingDistance(@edges, @root, @radius, directed => true) AS (seq bigint, depth bigint, start_vid bigint, pred bigint, node bigint, edge bigint, cost float, agg_cost float)";
@@ -639,12 +639,12 @@ public static class GraphLane {
             List<H3Cell> reached = [];
             while (await reader.ReadAsync().ConfigureAwait(false)) { reached.Add(GraphSession.CellOf(reader.GetInt64(0))); }
             return Fin.Succ((GraphResult)new GraphResult.Spanned(toSeq(reached), (double)radius));
-        }) | @catch<IO, Fin<GraphResult>>(static error => error.IsExceptional, static e => IO.pure(Fin<GraphResult>.Fail(new CypherFault.RouteFailed(e.Message))));
+        }, static error => new CypherFault.RouteFailed(error));
 
     // TSP matrix SQL uses server-side `format(%L)` for bound edge SQL and rendered vertex arrays.
     // Symmetric routing fixes `directed => false`; route endpoints remain the only TSP policy values.
     static IO<Fin<GraphResult>> Tour(NpgsqlDataSource source, RouteSql edges, Seq<H3Cell> stops, H3Cell start, H3Cell end) =>
-        IO.liftAsync(async () => {
+        Captured(async () => {
             await using NpgsqlConnection connection = await source.OpenConnectionAsync().ConfigureAwait(false);
             await using NpgsqlCommand command = connection.CreateCommand();
             command.CommandText = "SELECT node, agg_cost FROM pgr_TSP(format('SELECT * FROM pgr_dijkstraCostMatrix(%L, %L::bigint[], directed => false)', @edges, @vids::text), start_id => @start, end_id => @end) AS (seq integer, node bigint, cost float, agg_cost float)";
@@ -653,12 +653,12 @@ public static class GraphLane {
             command.Parameters.AddWithValue("start", GraphSession.Vid(start));
             command.Parameters.AddWithValue("end", GraphSession.Vid(end));
             return Fin.Succ((GraphResult)await ReadTour(command).ConfigureAwait(false));
-        }) | @catch<IO, Fin<GraphResult>>(static error => error.IsExceptional, static e => IO.pure(Fin<GraphResult>.Fail(new CypherFault.RouteFailed(e.Message))));
+        }, static error => new CypherFault.RouteFailed(error));
 
     // pgr_TSPeuclidean: the coordinate tour — the Coordinates-SQL binds directly, NO pgr_dijkstraCostMatrix pre-pass
     // and no format('%L') composition, the cheaper metric tour whenever the cell coordinates are already in hand.
     static IO<Fin<GraphResult>> TourPlanar(NpgsqlDataSource source, RouteSql sites, H3Cell start, H3Cell end) =>
-        IO.liftAsync(async () => {
+        Captured(async () => {
             await using NpgsqlConnection connection = await source.OpenConnectionAsync().ConfigureAwait(false);
             await using NpgsqlCommand command = connection.CreateCommand();
             command.CommandText = "SELECT node, agg_cost FROM pgr_TSPeuclidean(@sites, start_id => @start, end_id => @end) AS (seq integer, node bigint, cost float, agg_cost float)";
@@ -666,11 +666,11 @@ public static class GraphLane {
             command.Parameters.AddWithValue("start", GraphSession.Vid(start));
             command.Parameters.AddWithValue("end", GraphSession.Vid(end));
             return Fin.Succ((GraphResult)await ReadTour(command).ConfigureAwait(false));
-        }) | @catch<IO, Fin<GraphResult>>(static error => error.IsExceptional, static e => IO.pure(Fin<GraphResult>.Fail(new CypherFault.RouteFailed(e.Message))));
+        }, static error => new CypherFault.RouteFailed(error));
 
     // Labeled max-flow retains per-edge flow and residual capacity; scalar flow derives at the sink.
     static IO<Fin<GraphResult>> Flow(NpgsqlDataSource source, RouteSql edges, H3Cell flowSource, H3Cell sink, FlowKind kind) =>
-        IO.liftAsync(async () => {
+        Captured(async () => {
             await using NpgsqlConnection connection = await source.OpenConnectionAsync().ConfigureAwait(false);
             await using NpgsqlCommand command = connection.CreateCommand();
             command.CommandText = $"SELECT edge, start_vid, end_vid, flow, residual_capacity FROM {kind.Function}(@edges, @source, @sink) AS (seq integer, edge bigint, start_vid bigint, end_vid bigint, flow bigint, residual_capacity bigint)";
@@ -684,11 +684,11 @@ public static class GraphLane {
             return Fin.Succ((GraphResult)new GraphResult.Flowed(
                 labeled.Where(row => row.End == into).Sum(static row => row.Flow),
                 toSeq(labeled.Select(static row => (row.Edge, row.Flow, row.Residual)))));
-        }) | @catch<IO, Fin<GraphResult>>(static error => error.IsExceptional, static e => IO.pure(Fin<GraphResult>.Fail(new CypherFault.RouteFailed(e.Message))));
+        }, static error => new CypherFault.RouteFailed(error));
 
     // `CleaveShape` selects SQL arity and decode space; edge ids never cross `CellOf`.
     static IO<Fin<GraphResult>> Cleave(NpgsqlDataSource source, RouteSql edges, CleaveKind kind) =>
-        IO.liftAsync(async () => {
+        Captured(async () => {
             await using NpgsqlConnection connection = await source.OpenConnectionAsync().ConfigureAwait(false);
             await using NpgsqlCommand command = connection.CreateCommand();
             // Flat articulation and bridge rows return `SETOF bigint` under one scalar alias.
@@ -711,7 +711,11 @@ public static class GraphLane {
                 edgeCuts: _ => new GraphResult.Severed(toSeq(rows.Select(static row => row.Id))),
                 edgePartitions: _ => new GraphResult.Sundered(toSeq(rows.GroupBy(static row => row.Component).Select(static group => toSeq(group.Select(static row => row.Id))))));
             return Fin.Succ(result);
-        }) | @catch<IO, Fin<GraphResult>>(static error => error.IsExceptional, static e => IO.pure(Fin<GraphResult>.Fail(new CypherFault.RouteFailed(e.Message))));
+        }, static error => new CypherFault.RouteFailed(error));
+
+    static IO<Fin<T>> Captured<T>(Func<System.Threading.Tasks.Task<Fin<T>>> crossing, Func<Error, CypherFault> arm) =>
+        IO.liftAsync(async () => (await Op.Of().Catch(async _ => await crossing().ConfigureAwait(false)).ConfigureAwait(false))
+            .MapFail(error => error.Exception.Case is NpgsqlException ? arm(error) : error));
 
     static async System.Threading.Tasks.Task<GraphResult> ReadRoute(NpgsqlCommand command) {
         await using NpgsqlDataReader reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
@@ -744,7 +748,7 @@ public static class GraphLane {
 |  [09]   | flow honesty         | `FlowKind` per-edge labeling; scalar derived            | a scalar-only `pgr_maxFlow` discards the labeling     |
 |  [10]   | algorithm dedup      | server-side `pgr_*`/`age` vs in-process                 | meet at the shared node space, never re-implemented   |
 
-- [07]-[RESULT_SPACES]: AGE → `ElementSet` (node); `pgrouting` NODE → `H3Cell` (cell); EDGE → `Severed`/`Sundered`/`Flowed`; a `Traced` negative vid stays a Point.
+- [07]-[RESULT_SPACES]: AGE → `KeySelection` (node); `pgrouting` NODE → `H3Cell` (cell); EDGE → `Severed`/`Sundered`/`Flowed`; a `Traced` negative vid stays a Point.
 
 ## [04]-[RESEARCH]
 

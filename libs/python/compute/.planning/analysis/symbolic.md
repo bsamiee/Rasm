@@ -30,9 +30,10 @@ This is the core solver route with a gating law per backend: `sympy` is pure-Pyt
 - `Substitute`: map keys and values are spellings resolved against the live `SymbolSpec`, never raw strings escaping the boundary.
 - `Refine`: assumptions are derivation inputs the `SymbolSpec` declares, never a post-hoc filter.
 - `Solve`: every polynomial route carries a real `metric` — discriminant magnitude, resultant magnitude, or `nsolve` residual — never a dead `0.0`.
+- `NumberTheory`: an empty prime range and an empty factorization carry `Nothing` for `magnitude`, since neither measured an extremum.
 - `LinAlg`: `GroundDomain.FLINT` accelerates only the `_FLINT_MATRIX_ROUTES` exact-over-rationals subset, and `MINPOLY` is FLINT-only — sympy `Matrix` owns no minimal-polynomial kernel, so the sympy ground rails a fenced typed fault.
 - `NumberTheory`: GCD/LCM reinterpret unary by operand shape — a polynomial reads `gcd(p, p')`, a leaf integer its genuine divisor-lattice structure, never the vacuous `gcd(n, n) == n` tautology.
-- `Evaluate`: `CERTIFIED` re-evaluates through a `python-flint` `arb` ball whose `rad()` is the certified error bound `HEURISTIC` lacks.
+- `Evaluate`: `CERTIFIED` re-evaluates through a `python-flint` `arb` ball whose `rad()` is the certified error bound `HEURISTIC` lacks — and `HEURISTIC` carries `Nothing` for it, so an absent bound never clears a stability ceiling as a zero.
 - `Codegen`: a new target is one `CodeTarget` value and one `_CODE_PRINTER` row, never a parallel emitter.
 
 ## [03]-[DERIVATION]
@@ -51,15 +52,15 @@ from collections.abc import Callable, Iterable
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 
-from expression import case, tag, tagged_union
+from expression import Nothing, Option, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 
-from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, HandoffAxis, evidence_run
+from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, GraduationReceipt, HandoffAxis, evidence_run
 from rasm.compute.numerics.jit import JitBackend, LoweredSpec
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import RuntimeRail, boundary
-from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
+from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, boundary, rostered
+from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
 
 # cold trees deferred to first dereference: sympy is the heaviest pure-Python import on the route, `python-flint` is the
 # native extension only the exact grounds reach, and the autowrap/codegen surfaces pull a host C/Fortran toolchain behind
@@ -68,6 +69,8 @@ lazy import flint
 lazy import sympy
 lazy from flint import arb, fmpq, fmpq_mat, fmpq_poly, fmpz
 lazy from sympy import srepr
+lazy from sympy.matrices.exceptions import MatrixError
+lazy from sympy.polys.polyerrors import BasePolynomialError
 lazy from sympy.utilities.autowrap import autowrap, ufuncify
 lazy from sympy.utilities.codegen import codegen
 
@@ -250,8 +253,13 @@ class Outcome:
     staged: "Expr" = case()
     solution: tuple[SolveRoute, int, float] = case()
     spectrum: tuple[MatrixRoute, int, float] = case()
-    arithmetic: tuple[NumberRoute, int, float] = case()
-    numeric: tuple[int, float, float] = case()
+    # an EMPTY prime range and an empty factorization carry no magnitude: the retired `0.0`/`default=0` published a
+    # largest-prime and a largest-factor of zero, which every downstream comparison folded as a measured extremum.
+    arithmetic: tuple[NumberRoute, int, Option[float]] = case()
+    # `HEURISTIC` LACKS an error bound and the carrier says so: the retired `radius: float = 0.0` published a zero
+    # certified error for exactly the arm the page's own law names as uncertified, and the graduation ledger then
+    # cleared a stability ceiling against a bound nothing measured.
+    numeric: tuple[int, float, Option[float]] = case()
     callable_: tuple[LowerBackend, int, LoweredSpec] = case()  # the jit-minted spec the consumers compile — the lowered callable is never discarded
     source: tuple[CodeTarget, str, str] = case()
 
@@ -268,11 +276,11 @@ class Outcome:
         return Outcome(spectrum=(route, dimension, invariant))
 
     @staticmethod
-    def Arithmetic(route: NumberRoute, cardinality: int, magnitude: float) -> "Outcome":
+    def Arithmetic(route: NumberRoute, cardinality: int, magnitude: Option[float]) -> "Outcome":
         return Outcome(arithmetic=(route, cardinality, magnitude))
 
     @staticmethod
-    def Numeric(digits: int, magnitude: float, radius: float = 0.0) -> "Outcome":
+    def Numeric(digits: int, magnitude: float, radius: Option[float] = Nothing) -> "Outcome":
         return Outcome(numeric=(digits, magnitude, radius))
 
     @staticmethod
@@ -291,9 +299,10 @@ class Outcome:
             case Outcome(tag="spectrum", spectrum=(route, dimension, invariant)):
                 return {"route": route.value, "dimension": dimension, "invariant": invariant}
             case Outcome(tag="arithmetic", arithmetic=(route, cardinality, magnitude)):
-                return {"route": route.value, "cardinality": cardinality, "magnitude": magnitude}
+                # an unmeasured extremum OMITS its key rather than reporting a zero every comparison folds as data.
+                return {"route": route.value, "cardinality": cardinality, **magnitude.map(lambda m: {"magnitude": m}).default_value({})}
             case Outcome(tag="numeric", numeric=(digits, magnitude, radius)):
-                return {"digits": digits, "magnitude": magnitude, "radius": radius}
+                return {"digits": digits, "magnitude": magnitude, **radius.map(lambda r: {"radius": r}).default_value({})}
             case Outcome(tag="callable_", callable_=(backend, arity, _spec)):
                 return {"backend": backend.value, "arity": arity}
             case Outcome(tag="source", source=(target, name, source)):
@@ -317,8 +326,18 @@ class SymbolicReceipt(Struct, frozen=True):
         return SymbolicReceipt(op, symbols, key, outcome)
 
     def contribute(self) -> Iterable[Receipt]:
-        facts = {"op": self.op, "symbols": ",".join(self.symbols), "content_key": self.content_key.project("hex"), **self.outcome.facts()}
-        yield Receipt.of(EvidenceScope.SYMBOLIC.value, ("emitted", self.op, facts))
+        # ONE settled-receipt spine: the derivation key IS the spine's `key` column and its `produced` provenance, so
+        # no payload slot re-spells the hex render the spine carries. The `consumed` roster is EMPTY and that is the
+        # honest reading — a derivation's preimage is its own `(form, spec, ops)` canonical payload, not an upstream
+        # keyed operand, so naming one here would forge a lineage this owner never walked. The outcome union stays on
+        # the payload: the spine owns its six columns and nothing else.
+        facts = {"op": self.op, "symbols": ",".join(self.symbols), **self.outcome.facts()}
+        yield Receipt.of(
+            EvidenceScope.SYMBOLIC.value,
+            ("emitted", self.op, facts),
+            key=Some(self.content_key),
+            provenance=Some(Provenance(consumed=Block.empty(), produced=self.content_key)),
+        )
 
 
 @tagged_union(frozen=True)
@@ -614,12 +633,12 @@ def _number(sym: object, expr: "Expr", route: NumberRoute, ground: GroundDomain)
     match route:
         case NumberRoute.FACTORINT:
             factors = sym.factorint(expr)
-            return Outcome.Arithmetic(route, len(factors), float(max(factors, default=0)))
+            return Outcome.Arithmetic(route, len(factors), Some(float(max(factors))) if factors else Nothing)
         case NumberRoute.PRIMERANGE:
             primes = tuple(sym.primerange(2, int(expr) + 1))
-            return Outcome.Arithmetic(route, len(primes), float(primes[-1]) if primes else 0.0)
+            return Outcome.Arithmetic(route, len(primes), Some(float(primes[-1])) if primes else Nothing)
         case NumberRoute.ISPRIME:
-            return Outcome.Arithmetic(route, int(bool(sym.isprime(expr))), float(expr))
+            return Outcome.Arithmetic(route, int(bool(sym.isprime(expr))), Some(float(expr)))
         case _:
             # GCD/LCM against the formal derivative — the squarefree-part kernel; `cardinality` is the divisor's degree, `magnitude`
             # its constant value or lead coefficient. A leaf integer carries no free symbol and falls to its `factorint` divisor
@@ -656,7 +675,7 @@ def _evaluate(sym: object, expr: "Expr", free: tuple["Expr", ...], digits: int, 
     # closed numeric form evaluates without a declared symbol.
     scalar = expr if expr.is_number else sym.Poly(expr, _primary(free, "evaluate")).all_coeffs()[0]
     if precision is Precision.HEURISTIC:
-        return Outcome.Numeric(digits, abs(float(sym.N(scalar, digits))))
+        return Outcome.Numeric(digits, abs(float(sym.N(scalar, digits))))  # heuristic: NO certified radius
     return _certified(scalar, digits)
 
 
@@ -666,7 +685,7 @@ def _certified(scalar: "Expr", digits: int) -> Outcome:
     # `workdps` restores the prior session `ctx.dps` on exit, never the leaking `ctx.dps = digits` global mutation.
     with flint.ctx.workdps(digits):
         ball = flint.good(lambda: arb(str(scalar.evalf(flint.ctx.dps + 2))))
-    return Outcome.Numeric(digits, abs(float(ball.mid())), float(ball.rad()))
+    return Outcome.Numeric(digits, abs(float(ball.mid())), Some(float(ball.rad())))
 
 
 def _lower(sym: object, expr: "Expr", free: tuple["Expr", ...], backend: LowerBackend) -> object:
@@ -706,6 +725,18 @@ def _as_fmpq(sym: object, cell: object) -> object:
     return fmpq(int(rational.p), int(rational.q))
 
 
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's raise-side roster under the hub `ComputeLeg` seat. ONE row spans every terminal and declares NO slots,
+# because nothing raises through it — it names a lift FENCE whose detail the classifier supplies. The retired
+# `f"symbolic.{terminal}"` subject forked one refusal law into six coordinates no shared census read could seat; the
+# terminal discriminant rides the weave's own span facts, where a trace already filters on it.
+SYMBOLIC_DERIVE: Final[FaultRow[ComputeLeg]] = FaultRow(
+    leg=ComputeLeg.SYMBOLIC, point="derive", arm="boundary", defect="derivation-refused", retriability=TERMINAL
+)
+RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([SYMBOLIC_DERIVE]))
+
+
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
@@ -717,8 +748,20 @@ class SymbolicDerivation:
         terminal = ops[-1].tag if ops else "noop"
 
         def rail() -> "RuntimeRail[SymbolicReceipt]":
+            # `catch` names the sympy/flint raise surface this fold reaches, probed against the installed band. The
+            # two family BASES are load-bearing: `BasePolynomialError` and `MatrixError` descend from `Exception`
+            # directly, so a `ValueError`-only tuple lets a `PolynomialError` or a bare matrix-family refusal escape
+            # the fence, while their `ShapeError`/`NonInvertibleMatrixError`/`SympifyError` members already ride
+            # `ValueError`. `ZeroDivisionError` is the flint exact ground's singular and zero-denominator arm,
+            # `TypeError` a non-integer reaching `primerange` or the `fmpq` coercion, and `NameError` an
+            # unresolvable `lambdify` module. Naming these reifies the sympy proxy at derivation time, which is when
+            # the fold needs it anyway — no floor on this page depends on an absent sympy.
             return ContentIdentity.of("symbolic", SymbolicPayload.of(form, spec, ops)).bind(
-                lambda key: boundary(f"symbolic.{terminal}", lambda: _derive(form, spec, ops, key))
+                lambda key: boundary(
+                    SYMBOLIC_DERIVE,
+                    lambda: _derive(form, spec, ops, key),
+                    catch=(BasePolynomialError, MatrixError, ZeroDivisionError, ValueError, TypeError, NameError),
+                )
             )
 
         facts = {"terminal": terminal, "op_count": len(ops), "symbols": ",".join(spec.names)}
@@ -730,12 +773,15 @@ _CEILING: Final[Map[str, float]] = Map.of_seq([("radius", 1e-12), ("unstable", 0
 
 
 def graduates(
-    receipt: SymbolicReceipt, *, certified: bool, radius: float = 0.0, composition: ScopeKey = DEFAULT_SCOPE
+    receipt: SymbolicReceipt, *, certified: bool, radius: Option[float] = Nothing, composition: ScopeKey = DEFAULT_SCOPE
 ) -> "RuntimeRail[GraduationReceipt]":
     # either the ledger clears the `_CEILING` family row or the hub rejects the crossing; `composition` is the caller's
     # custody key threaded onto the hub, the same key `derive` already threads onto the weave, so a derivation and the
     # crossing it graduates report into ONE composition rather than splitting across the root scope.
-    ledger = {"radius": radius, "unstable": 0.0 if certified else 1.0}
+    # An UNMEASURED radius omits its ledger key, and the hub's `measured.keys() >= ceiling.keys()` gate then REFUSES
+    # the crossing — which is the correct verdict and the behaviour the retired `radius: float = 0.0` default
+    # inverted: a caller supplying no bound cleared the `1e-12` stability ceiling on a bound nothing had taken.
+    ledger = {"unstable": 0.0 if certified else 1.0} | radius.map(lambda r: {"radius": r}).default_value({})
     return GraduationReceipt.graduates(
         EvidenceScope.SYMBOLIC.value, HandoffAxis(symbolic=receipt.op), receipt.content_key, ledger, dict(_CEILING.items()), composition=composition
     )

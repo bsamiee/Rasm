@@ -4,7 +4,7 @@ One logical-time owner serves the whole branch: the `Hlc` two-half cell, the sig
 
 Carriage is per-branch and only the layout and the kernel-owned attribute slots are shared. `packed` COMPOSES the kernel `Hlc` layout — `physical_ticks << 64 | logical` as one UInt128, bit-identical — and the dotted `rasm.tenant` attribute COMPOSES the kernel `TenantContext.TenantSlot` spelling rather than re-minting it, so both halves of the stamp answer one estate law. The hyphenated `SLOTS` carrier keys are this branch's own transport dialect and bind no peer, exactly as the C# stamp rides its receipt envelope and the typescript stamp rides typed `-bin` metadata. `sealed` is that drift gate and it proves the SHARED half alone — the packed layout arithmetic and the composed attribute slots, whose shared-law column is `[CAUSAL_CARRIAGE]` at `csharp:Rasm.AppHost/Observability/telemetry#CORRELATION_SPINE` — reading no peer header spelling at all, because freezing one branch's transport dialect as estate law is what the co-equal minters the `hlc-two-half` roster names exist to foreclose.
 
-`CausalFrame.decode` is the canonical inbound carrier reader `transport/serve#SERVE` `ServerHost.inbound` folds inside this owner's one `boundary("wire", ...)` fence, answering `RuntimeRail[Option[Self]]` so ABSENCE and DRIFT stay two answers: a call carrying no causal headers admits as `Nothing` and a present stamp proves whole or refuses. `CausalFrame.attributes` is the canonical projection `execution/admission#CONTEXT` `RuntimeContext.attribute` and the serve enricher compose — consumers select a shape and re-spell nothing, so the two attribute layouts cannot drift. Admission's context threads the inbound carry as `Option[CausalFrame]` (`Nothing` locally minted, `Some(frame)` the host stamp), and the two-half pack/unpack layout rides the `evidence/reproduction#SEED_REPRODUCTION` `HLC_TWO_HALF` design pin, a value-level layout distinct from a byte serialization.
+`CausalFrame.decode` is the canonical inbound carrier reader `transport/serve#SERVE` `ServerHost.inbound` folds inside this owner's one `boundary(CLOCK_CARRIER, ...)` fence, answering `RuntimeRail[Option[Self]]` so ABSENCE and DRIFT stay two answers: a call carrying no causal headers admits as `Nothing` and a present stamp proves whole or refuses. `CausalFrame.attributes` is the canonical projection `execution/admission#CONTEXT` `RuntimeContext.attribute` and the serve enricher compose — consumers select a shape and re-spell nothing, so the two attribute layouts cannot drift. Admission's context threads the inbound carry as `Option[CausalFrame]` (`Nothing` locally minted, `Some(frame)` the host stamp), and the two-half pack/unpack layout rides the `evidence/reproduction#SEED_REPRODUCTION` `HLC_TWO_HALF` design pin, a value-level layout distinct from a byte serialization.
 
 ## [01]-[INDEX]
 
@@ -28,7 +28,7 @@ from expression import Error, Nothing, Ok, Option, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Meta, Struct, ValidationError, convert
 
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary
+from rasm.runtime.faults import CLOCK_CARRIER, CLOCK_LAYOUT, CLOCK_SEALED, RuntimeRail, boundary
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -188,7 +188,9 @@ class CausalFrame(Struct, frozen=True):
                 raise ValidationError(f"logical {frame.hlc.logical} exceeds the u64 wire domain")
             return frame
 
-        return boundary("wire", lambda: Option.of_optional(carrier.get(SLOTS["physical"][0])).map(stamped))
+        return boundary(
+            CLOCK_CARRIER, lambda: Option.of_optional(carrier.get(SLOTS["physical"][0])).map(stamped), catch=(ValidationError, ValueError)
+        )
 
     def attributes(self, shape: AttrShape = "packed") -> dict[str, str | int]:
         # `halves` emits native ints — `physical_ticks` inside the OTLP signed-int64 bound BY TYPE (the I63 decode gate), `logical`
@@ -261,10 +263,10 @@ def sealed() -> RuntimeRail[int]:
         )
         return _LAYOUT_CELLS.collect(lambda row: _layout(*row)).append(collided).append(rendered.choose(_composed))
 
-    return boundary("clock.sealed", proved).bind(
+    return boundary(CLOCK_SEALED, proved, catch=(KeyError, IndexError)).bind(
         lambda drift: Ok(len(_LAYOUT_CELLS) + len(SLOTS))
         if drift.is_empty()
-        else Error(BoundaryFault(config=("clock.layout", ";".join(drift))))
+        else Error(CLOCK_LAYOUT.raised(";".join(drift)))
     )
 ```
 

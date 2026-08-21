@@ -9,7 +9,7 @@
 - SI admission happens before this owner; no display unit, non-finite magnitude, or rounded exponent enters the interior.
 
 ```typescript
-import { Data, Either, Equal, pipe, Record, Schema } from "effect"
+import { Either, Equal, pipe, Record, Schema } from "effect"
 import { Fault } from "./fault.ts"
 import { Shape } from "./schema.ts"
 
@@ -73,38 +73,77 @@ class _Dimension extends Schema.Class<_Dimension>("Quantity.Dimension")(_fields)
   }
 }
 
-type _Operand = { readonly magnitude: number; readonly dimension: _Dimension }
-type _Evidence = readonly [_Operand, ...ReadonlyArray<_Operand | bigint | number>]
+// Operand magnitudes stay unrefined because the value a `range` refusal reports IS the non-finite one the arithmetic
+// reached, so a `finite` refinement here would refuse the very evidence the raise exists to carry.
+const _Operand = Schema.Struct({ magnitude: Schema.Number, dimension: _Dimension })
+const _Factor = Schema.Union(Schema.BigIntFromSelf, Schema.Number)
+const _shown = (operand: typeof _Operand.Type): string => `${operand.magnitude}:${operand.dimension.symbol}`
 
+// Each reason declares the SUBJECT its own raise holds: a dimension mismatch is a PAIR, an exponent refusal is one
+// operand beside the power that would not round-trip, and a range refusal is the magnitude the arithmetic produced
+// beside every input that produced it. One free evidence array over all three renders `vs` between an operand and a
+// scale factor — the sentence a per-row renderer exists to foreclose — and re-opens the axis `reason` already closes.
 const _reasonKinds = ["dimension", "exponent", "range"] as const
-const _reasonRows = {
-  dimension: { class: "invalid" },
-  exponent: { class: "invalid" },
-  range: { class: "invalid" },
-} as const
-const _family = Fault.Class.family(_reasonKinds, _reasonRows)
+const _family = Fault.Class.family(_reasonKinds, {
+  dimension: Fault.Class.row({
+    class: "invalid",
+    leg: "algebra",
+    detail: Schema.Struct({ left: _Operand, right: _Operand }),
+    render: ({ left, reason, right }) => `<quantity:${reason}> ${_shown(left)} vs ${_shown(right)}`,
+  }),
+  exponent: Fault.Class.row({
+    class: "invalid",
+    leg: "algebra",
+    detail: Schema.Struct({ operand: _Operand, power: Schema.BigIntFromSelf }),
+    render: ({ operand, power, reason }) => `<quantity:${reason}> ${_shown(operand)} ^ ${power}`,
+  }),
+  range: Fault.Class.row({
+    class: "invalid",
+    leg: "magnitude",
+    detail: Schema.Struct({
+      produced: Schema.Number,
+      operands: Schema.NonEmptyArray(_Operand),
+      scalars: Schema.Array(_Factor),
+    }),
+    render: ({ operands, produced, reason, scalars }) =>
+      `<quantity:${reason}> ${produced} from ${[...operands.map(_shown), ...scalars.map(String)].join(" vs ")}`,
+  }),
+})
 
-class _QuantityFault extends Data.TaggedError("QuantityFault")<{
-  readonly reason: (typeof _reasonKinds)[number]
-  readonly operands: _Evidence
-}> {
+class _QuantityFault extends Schema.TaggedError<_QuantityFault>()("QuantityFault", {
+  case: _family.payload,
+}) {
   static readonly family = _family
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
   }
   override get message(): string {
-    return `<quantity:${this.reason}> ${this.operands.map((operand) =>
-      typeof operand === "object" ? `${operand.magnitude}:${operand.dimension.symbol}` : operand).join(" vs ")}`
+    return _family.render(this.case)
   }
 }
 
-const _operand = (magnitude: number, dimension: _Dimension): _Operand => ({ magnitude, dimension })
-const _fault = (reason: (typeof _reasonKinds)[number], head: _Operand, ...tail: ReadonlyArray<_Operand | bigint | number>) =>
-  new _QuantityFault({ reason, operands: [head, ...tail] })
-const _admit = (magnitude: number, dimension: _Dimension, evidence: _Evidence): Either.Either<Quantity, _QuantityFault> =>
+const _operand = (magnitude: number, dimension: _Dimension): typeof _Operand.Type => ({ magnitude, dimension })
+const _mismatch = (left: Quantity, right: Quantity): _QuantityFault =>
+  new _QuantityFault({
+    case: {
+      reason: "dimension",
+      left: _operand(left.magnitude, left.dimension),
+      right: _operand(right.magnitude, right.dimension),
+    },
+  })
+const _pair = (left: Quantity, right: Quantity): readonly [typeof _Operand.Type, typeof _Operand.Type] =>
+  [_operand(left.magnitude, left.dimension), _operand(right.magnitude, right.dimension)]
+// Scalars ride their own column rather than the operand list: a factor and a power carry no dimension, so folding
+// them into the operand array is what forced the old renderer to probe each element's runtime shape before printing.
+const _admit = (
+  magnitude: number,
+  dimension: _Dimension,
+  operands: readonly [typeof _Operand.Type, ...ReadonlyArray<typeof _Operand.Type>],
+  scalars: ReadonlyArray<typeof _Factor.Type> = [],
+): Either.Either<Quantity, _QuantityFault> =>
   Number.isFinite(magnitude)
     ? Either.right(new Quantity({ magnitude, dimension }))
-    : Either.left(new _QuantityFault({ reason: "range", operands: evidence }))
+    : Either.left(new _QuantityFault({ case: { reason: "range", produced: magnitude, operands, scalars } }))
 
 class Quantity extends Schema.Class<Quantity>("Quantity")({
   magnitude: Schema.Number.pipe(Schema.finite()),
@@ -119,53 +158,28 @@ class Quantity extends Schema.Class<Quantity>("Quantity")({
     new Quantity({ magnitude: -self.magnitude, dimension: self.dimension })
   static readonly sum = (left: Quantity, right: Quantity): Either.Either<Quantity, _QuantityFault> =>
     Equal.equals(left.dimension, right.dimension)
-      ? _admit(left.magnitude + right.magnitude, left.dimension, [
-          _operand(left.magnitude, left.dimension),
-          _operand(right.magnitude, right.dimension),
-        ])
-      : Either.left(_fault(
-          "dimension",
-          _operand(left.magnitude, left.dimension),
-          _operand(right.magnitude, right.dimension),
-        ))
+      ? _admit(left.magnitude + right.magnitude, left.dimension, _pair(left, right))
+      : Either.left(_mismatch(left, right))
   static readonly difference = (left: Quantity, right: Quantity): Either.Either<Quantity, _QuantityFault> =>
     Equal.equals(left.dimension, right.dimension)
-      ? _admit(left.magnitude - right.magnitude, left.dimension, [
-          _operand(left.magnitude, left.dimension),
-          _operand(right.magnitude, right.dimension),
-        ])
-      : Either.left(_fault(
-          "dimension",
-          _operand(left.magnitude, left.dimension),
-          _operand(right.magnitude, right.dimension),
-        ))
+      ? _admit(left.magnitude - right.magnitude, left.dimension, _pair(left, right))
+      : Either.left(_mismatch(left, right))
   static readonly product = (left: Quantity, right: Quantity): Either.Either<Quantity, _QuantityFault> =>
-    _admit(left.magnitude * right.magnitude, _Dimension.product(left.dimension, right.dimension), [
-      _operand(left.magnitude, left.dimension),
-      _operand(right.magnitude, right.dimension),
-    ])
+    _admit(left.magnitude * right.magnitude, _Dimension.product(left.dimension, right.dimension), _pair(left, right))
   static readonly quotient = (left: Quantity, right: Quantity): Either.Either<Quantity, _QuantityFault> =>
-    _admit(left.magnitude / right.magnitude, _Dimension.quotient(left.dimension, right.dimension), [
-      _operand(left.magnitude, left.dimension),
-      _operand(right.magnitude, right.dimension),
-    ])
+    _admit(left.magnitude / right.magnitude, _Dimension.quotient(left.dimension, right.dimension), _pair(left, right))
   static readonly scale = (self: Quantity, factor: number): Either.Either<Quantity, _QuantityFault> =>
-    _admit(self.magnitude * factor, self.dimension, [_operand(self.magnitude, self.dimension), factor])
+    _admit(self.magnitude * factor, self.dimension, [_operand(self.magnitude, self.dimension)], [factor])
   static readonly pow = (self: Quantity, power: bigint): Either.Either<Quantity, _QuantityFault> =>
     pipe(Number(power), (exponent) => Number.isFinite(exponent) && BigInt(exponent) === power
-      ? _admit(self.magnitude ** exponent, _Dimension.pow(self.dimension, power), [
-          _operand(self.magnitude, self.dimension),
-          power,
-        ])
-      : Either.left(_fault("exponent", _operand(self.magnitude, self.dimension), power)))
+      ? _admit(self.magnitude ** exponent, _Dimension.pow(self.dimension, power), [_operand(self.magnitude, self.dimension)], [power])
+      : Either.left(new _QuantityFault({
+          case: { reason: "exponent", operand: _operand(self.magnitude, self.dimension), power },
+        })))
   static readonly ratio = (left: Quantity, right: Quantity): Either.Either<number, _QuantityFault> =>
     Either.flatMap(Quantity.quotient(left, right), (measure) => measure.scalar
       ? Either.right(measure.magnitude)
-      : Either.left(_fault(
-          "dimension",
-          _operand(left.magnitude, left.dimension),
-          _operand(right.magnitude, right.dimension),
-        )))
+      : Either.left(_mismatch(left, right)))
   get scalar(): boolean {
     return this.dimension.scalar
   }
@@ -173,10 +187,12 @@ class Quantity extends Schema.Class<Quantity>("Quantity")({
 
 namespace Quantity {
   export type Axis = _Axis
+  export type Case = typeof _family.payload.Type
   export type Cells = _Cells
   export type Dimension = _Dimension
   export type Fault = _QuantityFault
-  export type Operand = _Operand
+  export type Operand = typeof _Operand.Type
+  export type Reason = (typeof _reasonKinds)[number]
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------

@@ -50,7 +50,7 @@ from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagg
 from expression.collections import Block
 from msgspec import Struct
 
-from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail
+from rasm.runtime.faults import FAULT_CONF, TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, rostered
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy, Work
@@ -58,6 +58,7 @@ from rasm.runtime.profiles import KTX_TOOL, resolved
 from rasm.runtime.transport.shapes import AssetSetManifest, IblEntry, MapEntry, PackEntry, PlaneRef
 from rasm.runtime.workers import Kernel, KernelTrait
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork, Fed, Product, ProductFact, ProductSink
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.graphic.texture.derive import (
@@ -124,6 +125,36 @@ class LicenseClass(StrEnum):
     OPEN_RAIL = "open_rail"
     RESEARCH = "research"
     BLOCKED = "blocked"
+
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's ONE raise anchor: one fence spans every slot, so the slot is request data the `TextureFault` case
+# already separates rather than a coordinate the subject forks per slot. TRANSIENT — an encode, sink, or worker
+# refusal is a defect a re-issue may clear.
+TEXTURE_PRODUCE: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.SET, point="produce", arm="boundary", defect="texture-refused", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([TEXTURE_PRODUCE]))
+
+
+def _preimage_hook(value: object) -> object:
+    # the ONE non-native shape a request preimage carries: `frozendict` is no `dict` to msgspec and reaches the hook,
+    # where the estate's usual `repr` degrade would key a FACES spec by its ingest order. Lowering to the ordinally
+    # sorted item tuple makes the encoding order-invariant; `None` sorts ahead of every integer variant by the pair
+    # key, so the no-variant leaf never compares against a tile index. Any other unencodable shape is a construction
+    # defect and refuses here rather than keying two distinct requests alike.
+    match value:
+        case frozendict() as mapping:
+            return tuple(sorted(mapping.items(), key=lambda item: (item[0] is not None, item[0])))
+        case _:
+            raise NotImplementedError(type(value).__name__)
+
+
+# the stable preimage encoding the bare `ContentIdentity.key` mint addresses, in the `document/egress#FINISH` and
+# `drawing/detail#DETAIL` spelling: `key` admits `BareValue` alone, so a `Struct` preimage encodes HERE and enters
+# as bytes rather than through the railed `of` this synchronous mint has no rail to carry.
+_KEY_ENCODER: Final = msgspec.msgpack.Encoder(enc_hook=_preimage_hook, order="deterministic")
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -615,7 +646,7 @@ class TextureSet(Struct, frozen=True):
         settled = produced.bind(
             lambda res: res.bind(lambda pair: sink(pair[0].product).map(lambda _stored: pair[0]))
             .map(lambda fact: _previewed(request, fact))
-            .map_error(lambda fault: BoundaryFault(boundary=(f"texture.{request.slot.value}", f"{fault.tag}:{fault}")))
+            .map_error(lambda fault: BoundaryFault(domain=(TEXTURE_PRODUCE.subject, fault)))
         )
         return await _recorded(settled, lambda receipt: receipt)
 
@@ -644,7 +675,7 @@ class TextureSet(Struct, frozen=True):
             settled = produced.bind(
                 lambda res: res.bind(lambda pair: sink(pair[0].product).map(lambda _stored: pair))
                 .map(lambda pair: (_previewed(request, pair[0]), pair[1]))
-                .map_error(lambda fault: BoundaryFault(boundary=(f"texture.{request.slot.value}", f"{fault.tag}:{fault}")))
+                .map_error(lambda fault: BoundaryFault(domain=(TEXTURE_PRODUCE.subject, fault)))
             )
             return await _recorded(settled, lambda pair: pair[0])
 
@@ -1202,6 +1233,7 @@ _TILE_ROLES: Final[tuple[MapSlot, ...]] = (TextureRole.BASE_COLOR, TextureRole.H
 ```
 
 ```python signature
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -1505,9 +1537,14 @@ def _keyed(request: MapRequest, /) -> ContentKey:
     # second argument and threaded a parentless key — a slot the plan never scheduled under, so every drained
     # receipt referred to a node the schedule did not contain.
     # the fed-ladder pair normalizes OUT of the preimage: staged/stage are drain-time execution shape and the
-    # bytes they produce are identical, so a key reading them would fork one plane's address by drain schedule
-    normalized = msgspec.structs.replace(request, staged=None, stage=False)
-    return ContentIdentity.key(f"texture-map-{request.slot.value}", (ContentIdentity.key("texture-request", normalized), *request.parents))
+    # bytes they produce are identical, so a key reading them would fork one plane's address by drain schedule.
+    # `parents` normalizes out too and rides the merkle spine below alone: msgpack refuses the live u128
+    # `ContentKey.value` before any hook, and folding them twice would key one node against its own ancestry.
+    normalized = msgspec.structs.replace(request, staged=None, stage=False, parents=())
+    # `key` admits `BareValue`, which excludes `Struct` — a request handed to it bare violated the contract weave on
+    # every call — so the frozen request encodes to bytes HERE and enters through the `whole` arm.
+    spec = ContentIdentity.key("texture-request", _KEY_ENCODER.encode(normalized))
+    return ContentIdentity.key(f"texture-map-{request.slot.value}", (spec, *request.parents))
 
 
 def _ktx_validated(payload: bytes, transcodable: bool, /) -> Result[bytes, TextureFault]:
@@ -1628,9 +1665,10 @@ def _ktx_fact(
 def _replayed(ref: PlaneRef, /) -> ContentKey:
     # Reads a wire triple's digest BACK into its key: the wire spells `ContentKey.project("wire")` — 32 lowercase
     # hex — and `plane#PLANE` `PLANE_FMT` fixes the namespace, so the merkle preimage is the same value the map
-    # receipt published and no re-hash of the bytes is needed. `byte_length` carries the triple's own size because
-    # the identity merkle SUMS its children's lengths — a zero publishes a set key claiming the set weighs nothing.
-    return ContentKey(value=int(ref.digest, 16), fmt=PLANE_FMT, byte_length=ref.byte_length)
+    # receipt published and no re-hash of the bytes is needed. The extent is MEASURED — the wire triple carries the
+    # stored plane's own size — so it rides `Some` and never the decode door: the identity merkle SUMS its children's
+    # lengths, and an unmeasured child would make the set key's extent unknowable rather than merely unstated.
+    return ContentKey(value=int(ref.digest, 16), fmt=PLANE_FMT, byte_length=Some(ref.byte_length))
 
 
 def _assembled(spec: SetSpec, entries: tuple[MapEntry, ...], /) -> tuple[ContentKey, AssetSetManifest, ArtifactReceipt]:

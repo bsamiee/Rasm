@@ -13,8 +13,8 @@ Geometry authors NO wire vocabulary: `TessellationRequest`/`TessellationReceipt`
 - Owner: `GeometryServe` — the composition root holding the daemon, its lane, the durable artifact tier, and the one bounded parked ring the `Sync` leg reads; serve holds NO tessellation cache, NO kernel, NO hash, and NO wire shape of its own, and the ring is a bounded ring rather than a cache because it never short-circuits work — a miss falls through to the durable tier and then re-drives the daemon, whose own content cache owns replay.
 - Cases: one route row per served method — `Tessellate` answers the receipt floor, the `ArtifactSyncService` `Sync` leg folds a parked or durably-held GLB back as its framed rows; a new geometry-served method is one route row binding an existing registry codec pair to a railed handler — a new field floor is the runtime registry's one contract row-pair growth, never a geometry-authored shape. `routes()` is the one roster both `mount` and `companion` read, since two builders would let a daemon composition serve rows the mounted composition does not and the divergence would surface only as a method the C# rail cannot find.
 - Law: `companion` is the daemon-entry composition root and the durable evidence plane's ONE binding site. Runtime owns every lifecycle stage the entry drives — bind, credentials, health, the sd-notify handshake, supervision, the ordered drain — and takes this folder's contribution as DATA, so geometry hands a route roster and a `(Ledger, Custody)` PAIR and imports no CLI surface. The pair is inseparable because a journal that lands rows it cannot shred is not a lawful plane, and it binds here because this is the only site that knows which datasets and which KEK boundary a deployment owns; `vault` is the posture rather than `local`, so the KEK resolves per call and a rotation reaches the next wrap with no rebind. An unbound `Nothing` is the honest unjournalled daemon the runtime boot installs no plane for — never a default ledger this folder would have to invent a store, a retention, and a key custody for.
-- Law: the `Sync` leg answers ring first, durable tier second, typed wire fault last — a key past the ring horizon is NOT necessarily an unknown artifact, since a warm-restarted process and a fleet peer each hold no ring at all, so the read-through answers an unchanged model before a consumer is told to re-request a tessellation nobody needs to re-run. Serve still derives NO hash: the object is addressed by the exact `artifact_id` the frame carries, through the daemon's own `spill_path`, so the address IS the identity and a re-hash here would mint the second key this page exists without. A refused, absent, or unbound tier all answer the ONE unknown-artifact fault, because all three mean one thing to the consumer and surfacing a store transport fault would hand the C# rail a refusal it has no arm and no useful retry for.
-- Law: the parked ring is BOUNDED by one `SERVED_DEPTH` policy value on the folder's only process-lifetime servicer — an unbounded index grows its resident set monotonically with every distinct model ever tessellated, since a serve process outlives every drain — so `_park` folds admissions and evictions in one pass over an insertion-ordered log and the ring holds the most recent `SERVED_DEPTH` artifacts, a `Sync` past the horizon answering the same typed wire fault an unknown id answers.
+- Law: the `Sync` leg answers ring first, durable tier second, typed absence fault last — a key past the ring horizon is NOT necessarily an unknown artifact, since a warm-restarted process and a fleet peer each hold no ring at all, so the read-through answers an unchanged model before a consumer is told to re-request a tessellation nobody needs to re-run. Serve still derives NO hash: the object is addressed by the exact `artifact_id` the frame carries, through the daemon's own `spill_path`, so the address IS the identity and a re-hash here would mint the second key this page exists without. A refused, absent, or unbound tier all answer the ONE unknown-artifact fault, because all three mean one thing to the consumer and surfacing a store transport fault would hand the C# rail a refusal it has no arm and no useful retry for.
+- Law: the parked ring is BOUNDED by one `SERVED_DEPTH` policy value on the folder's only process-lifetime servicer — an unbounded index grows its resident set monotonically with every distinct model ever tessellated, since a serve process outlives every drain — so `_park` folds admissions and evictions in one pass over an insertion-ordered log and the ring holds the most recent `SERVED_DEPTH` artifacts, a `Sync` past the horizon answering the same typed absence fault an unknown id answers.
 - Law: the caller-dialed deadline is SPENT here. The host admits it off the call's remaining time onto `RuntimeContext`, and `_tessellate` threads `context.budget` into the drive so the daemon carries it onto each unit's kernel and the lane folds it against its own standing bound — an abandonment on the calling side stops the tessellation instead of paying it out, and the lane's contained trip still answers the partial as a `rejected` receipt. A handler reading the request alone is the unbounded leg the admitted budget exists to close, and a serve-side cancel scope is the ruled-out shape because it strips the drain of the receipt the lane owes.
 - Law: `mount` proves the graduation install BEFORE it registers a route — `registered(composition)` runs the charter census and mounts the pulse points under the servicer's own composition key, so a divergent charter row or a colliding pulse id refuses at admission with typed evidence rather than killing the first record of a live served call; the install rail binds the route registration, never runs beside it.
 - Law: both served routes charge one `Resource.REQUEST` `MeterFact` at their handler settle, surfaced by the route they answered — the billing evidence that resource exists for, and the reason a route surface is spelled once and read by the weave operation, the bench subject, and the meter alike. The charge lands on the refusal too, since a fault still consumed the served slot a consumer's call occupied and billing successes alone hands every consumer free retries; a modality refused before the route is served occupies no slot and carries none. The meter rail BINDS into the verdict: an armed plane that cannot record a request means this deployment cannot account for what it just served, so the route refuses rather than answering unbilled. `_ledger`'s `Nothing` is the lawful unjournalled daemon — the runtime boot installs no plane and the three-state intake law makes every `Journal.record` on this page a no-op costing one map read, which is why the unjournalled composition needs no second code path anywhere in this folder.
@@ -37,11 +37,11 @@ from msgspec import to_builtins
 
 from rasm.data.tabular.columnar import DatasetRef
 from rasm.data.tabular.journal import FactJournal
-from rasm.geometry.graduation import EvidenceScope, bench_seam, bench_subject, evidence_run, registered
+from rasm.geometry.graduation import EvidenceScope, GeometryLeg, bench_seam, bench_subject, evidence_run, registered
 from rasm.geometry.mesh.cad import CANONICAL_TESSELLATION, BridgeFormat, GlbArtifact, TessellationPolicy
 from rasm.geometry.mesh.daemon import SpillKind, TessellationDaemon, TessellationResult, TessellationSource, spill_path
 from rasm.runtime.admission import RuntimeContext, SecretBoundary
-from rasm.runtime.faults import BoundaryFault, RuntimeRail
+from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, rostered
 from rasm.runtime.journal import Custody, Journal, Ledger, MeterFact, Resource
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.profiles import BenchmarkReceipt
@@ -59,13 +59,35 @@ if TYPE_CHECKING:  # the cyclopts `App` is the runtime entry's own return shape;
 FRAME_EDGE: Final[int] = 64 * 1024
 
 # parked-ring depth on the folder's one process-lifetime servicer: the resident set is capped by this bound rather
-# than by tessellation history, and a `Sync` past the horizon answers the unknown-artifact wire fault.
+# than by tessellation history, and a `Sync` past the horizon answers the unknown-artifact absence fault.
 SERVED_DEPTH: Final[int] = 64
 
 # the two served route surfaces, spelled ONCE and read by the weave operation, the bench subject, and the request
 # meter alike, so a billing row and the method it charges for can never drift into two names for one route.
 TESSELLATE_ROUTE: Final[str] = "tessellate"
 SYNC_ROUTE: Final[str] = "sync"
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this module's whole raise roster: every servicer refusal anchors one row, so no answer spells a subject and
+# the `rostered` door seats every row on the branch census, proving `geometry.mesh.serve` against a real module at import. All three retired the
+# `wire` arm
+# they rode with a hardcoded `0` code: `wire` is reserved for a REAL protocol code, and a zero standing in for one
+# published a code the peer never issued while claiming the discriminant `wire` exists to carry. The two admission
+# refusals now grade `config` — the deployment serves no such modality, and the artifact must be re-produced before
+# any read succeeds, both FAILED_PRECONDITION at the gRPC edge rather than the INVALID_ARGUMENT a forged code bought
+# — while an empty kernel result stays engine-side and keeps its INVALID_ARGUMENT grade. All TERMINAL: re-issuing the
+# identical request refuses identically, so none joins the server's own re-drive set.
+SERVE_MODALITY: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.SERVE, point="tessellate.modality", arm="config", defect="unserved-modality", retriability=TERMINAL, slots=("modality",)
+)
+SERVE_EMPTY: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.SERVE, point="tessellate.result", arm="boundary", defect="empty-tessellation", retriability=TERMINAL
+)
+SERVE_ABSENT: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.SERVE, point="sync.artifact", arm="config", defect="artifact-absent", retriability=TERMINAL, slots=("artifact",)
+)
+RAISES: Final[Block[FaultRow[GeometryLeg]]] = rostered(Block.of_seq([SERVE_MODALITY, SERVE_EMPTY, SERVE_ABSENT]))
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -93,14 +115,14 @@ def _policy(request: TessellationRequest) -> TessellationPolicy:
 
 
 def _source(request: TessellationRequest) -> "RuntimeRail[TessellationSource]":
-    # an unknown modality is a typed wire fault naming the value, never a silent default arm.
+    # an unknown modality is a rostered refusal naming the value, never a silent default arm.
     match request.source_modality:
         case "ifc":
             return Ok(TessellationSource(ifc=request.source))
         case "step" | "iges" as fmt:
             return Ok(TessellationSource(cad=(request.source, BridgeFormat(fmt))))
         case unknown:
-            return Error(BoundaryFault(wire=(f"serve.tessellate.{unknown}", 0)))
+            return Error(SERVE_MODALITY.raised(unknown))
 
 
 def _frames(artifact_id: bytes, glb: bytes) -> Block[ArtifactFrame]:
@@ -124,7 +146,7 @@ def _unknown(artifact_id: bytes) -> "RuntimeRail[Block[ArtifactFrame]]":
     # ONE unknown-artifact answer both misses reach — a key past the ring horizon the durable tier does not hold,
     # and a composition that bound no tier at all — so a consumer re-requests the tessellation rather than reading
     # two refusal spellings for one absence or receiving a truncated stream.
-    return Error(BoundaryFault(wire=(f"serve.sync.{artifact_id.hex()}", 0)))
+    return Error(SERVE_ABSENT.raised(artifact_id.hex()))
 
 
 def _ledger(evidence: "Option[tuple[DatasetRef, DatasetRef, SecretBoundary]]") -> "RuntimeRail[Option[tuple[Ledger, Custody]]]":
@@ -237,7 +259,7 @@ class GeometryServe:
                     rail.bind(
                         lambda results: results.try_head()
                         .map(lambda head: Ok(_receipt(head)))
-                        .default_value(Error(BoundaryFault(wire=("serve.tessellate.empty", 0))))
+                        .default_value(Error(SERVE_EMPTY.raised()))
                     ),
                 )
             case Result(tag="error") as refused:
@@ -290,7 +312,7 @@ class GeometryServe:
         return await _served(SYNC_ROUTE, self._composition, await self.sync(request.artifact_id))
 
     async def sync(self, artifact_id: bytes) -> "RuntimeRail[Block[ArtifactFrame]]":
-        # ring first, durable tier second, typed wire fault last. A key past the ring horizon is NOT necessarily an
+        # ring first, durable tier second, typed absence fault last. A key past the ring horizon is NOT necessarily an
         # unknown artifact — a warm-restarted process and a fleet peer each hold no ring at all — so the read-through
         # answers an unchanged model from the store before a consumer is told to re-request a tessellation nobody
         # needs to re-run. Serve still derives no hash: the object is addressed by the exact `artifact_id` the frame

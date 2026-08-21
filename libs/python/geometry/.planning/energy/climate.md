@@ -144,6 +144,139 @@ class LateBound(Struct, frozen=True, gc=False):
         return {name: getattr(owner, name) for name in self.leads}
 
 
+class RegimeAction(StrEnum):
+    # what a regime factor DECIDES. The action class is the discriminant a reader needs before the number means
+    # anything: a balance point, a comfort standard, and an admission bar are three different kinds of decision, and
+    # a bare float at a call site declares none of them.
+    DEGREE_BASE = "degree-base"  # the balance-point temperature a degree-time kernel integrates against
+    COMFORT_STANDARD = "comfort-standard"  # the parameter document a comfort kernel scores against
+    COMPLIANCE_CEILING = "compliance-ceiling"  # the residual bar a graduating crossing is admitted under
+
+
+@tagged_union(frozen=True)
+class RegimeFactor:
+    # a factor is a scalar the kernel consumes directly or the provider parameter DOCUMENT a standard is expressed
+    # as — two shapes, one carrier, so a grading site and a comfort fold read the same rows without a second table.
+    tag: Literal["magnitude", "parameters"] = tag()
+    magnitude: float = case()
+    parameters: Mapping[str, object] = case()
+
+
+class EnergyRegime(Struct, frozen=True, gc=False):
+    # ONE row shape for every number and every standard this band decides on. The retired forms carried no axis at
+    # all: two degree-day balance points sat as bare literals inside index rows, a comfort standard rode an erased
+    # `Mapping[str, object]` no reader could attribute, and four graduating crossings took an anonymous `ceiling:
+    # float` from their caller — so nothing on this band could tell a code-mandated bar from a guess, and a
+    # compliance verdict asserted a standard nobody named. The three columns close that: `action` names what the
+    # factor decides, `citation` names the authority that published it, and `kernel` names the provider entry that
+    # consumes it — absent on a bar this band grades itself rather than hands to a provider.
+    action: RegimeAction
+    factor: RegimeFactor
+    citation: str
+    kernel: Option[LateBound] = Nothing
+
+    @property
+    def magnitude(self) -> Option[float]:
+        # the scalar half, shaped for the operand slots that already carry `Option[float]`; a parameters row is
+        # absent HERE rather than coerced, so a standard document can never be read as a balance point.
+        return Some(self.factor.magnitude) if self.factor.tag == "magnitude" else Nothing
+
+    def bar(self) -> float:
+        # a compliance ceiling's factor IS a magnitude by construction, so a parameters row reaching a grading site
+        # is a roster defect the band refuses BY NAME rather than grading a crossing against a document.
+        match self.factor:
+            case RegimeFactor(tag="magnitude", magnitude=value):
+                return value
+            case RegimeFactor(tag="parameters", parameters=document):
+                raise EnergyFault(regime_factor=(self.action.value, f"non-scalar:{len(document)}"))
+            case _ as unreachable:
+                assert_never(unreachable)
+
+    def document(self) -> Mapping[str, object]:
+        # the standard half, handed to a comfort kernel's own `*Parameter.from_dict`; a magnitude row reaching a
+        # standard slot is the same roster defect read from the other side.
+        match self.factor:
+            case RegimeFactor(tag="parameters", parameters=document):
+                return document
+            case RegimeFactor(tag="magnitude", magnitude=value):
+                raise EnergyFault(regime_factor=(self.action.value, f"non-document:{value:.6g}"))
+            case _ as unreachable:
+                assert_never(unreachable)
+
+
+class RegimeKey(StrEnum):
+    # one member per DECIDED factor this band holds; a new decision is one member and one `ENERGY_REGIMES` row, never
+    # a literal re-appearing at a call site.
+    HEATING_BALANCE = "heating-balance"
+    COOLING_BALANCE = "cooling-balance"
+    MODEL_VALIDITY = "model-validity"
+    DISTRICT_DEFECTS = "district-defects"
+    THERMAL_DISCOMFORT = "thermal-discomfort"
+    BUILDING_EUI = "building-eui"
+
+
+# every DECIDED factor this band holds, in one table under one row shape. Each citation names an ADMITTED CATALOG ROW
+# rather than a standard asserted from memory, so a reader follows the authority to the member that publishes it: the
+# two balance points quote `.api/ladybug-comfort.md` `[17]`, whose `degreetime` entries document 18 degC and 23 degC
+# as common building balance points; the model and district bars quote the `check_all` rows their own providers
+# publish; the comfort bar quotes the collection property the comfort fold reads; and the intensity bar quotes the
+# EnergyPlus sql parser that measures it. A row whose factor no provider entry consumes carries no kernel — this band
+# grades those itself at the graduation crossing, and the Appendix G / LEED rating entries `.api/honeybee-energy.md`
+# `[09]`-`[13]` publish need a PROPOSED simulation beside a baseline roster, which no arm on this band runs.
+ENERGY_REGIMES: Final[Map[RegimeKey, EnergyRegime]] = Map.of_seq([
+    (
+        RegimeKey.HEATING_BALANCE,
+        EnergyRegime(
+            action=RegimeAction.DEGREE_BASE,
+            factor=RegimeFactor(magnitude=18.0),
+            citation="ladybug-comfort [17] degreetime.heating_degree_time — documented 18 degC balance point",
+            kernel=Some(LateBound("ladybug_comfort.degreetime", "heating_degree_time")),
+        ),
+    ),
+    (
+        RegimeKey.COOLING_BALANCE,
+        EnergyRegime(
+            action=RegimeAction.DEGREE_BASE,
+            factor=RegimeFactor(magnitude=23.0),
+            citation="ladybug-comfort [17] degreetime.cooling_degree_time — documented 23 degC balance point",
+            kernel=Some(LateBound("ladybug_comfort.degreetime", "cooling_degree_time")),
+        ),
+    ),
+    (
+        RegimeKey.MODEL_VALIDITY,
+        EnergyRegime(
+            action=RegimeAction.COMPLIANCE_CEILING,
+            factor=RegimeFactor(magnitude=0.0),
+            citation="honeybee-energy [01] Model.check_all(detailed=True) — error rows over the element census",
+        ),
+    ),
+    (
+        RegimeKey.DISTRICT_DEFECTS,
+        EnergyRegime(
+            action=RegimeAction.COMPLIANCE_CEILING,
+            factor=RegimeFactor(magnitude=0.0),
+            citation="dragonfly-core [10] Model.check_all — defect rows over the admitted building census",
+        ),
+    ),
+    (
+        RegimeKey.THERMAL_DISCOMFORT,
+        EnergyRegime(
+            action=RegimeAction.COMPLIANCE_CEILING,
+            factor=RegimeFactor(magnitude=0.2),
+            citation="ladybug-comfort [08] .percent_comfortable — its complement over the read window",
+        ),
+    ),
+    (
+        RegimeKey.BUILDING_EUI,
+        EnergyRegime(
+            action=RegimeAction.COMPLIANCE_CEILING,
+            factor=RegimeFactor(magnitude=150.0),
+            citation="honeybee-energy [01] result.eui.eui_from_sql — total end-use intensity, kWh/m2-yr",
+        ),
+    ),
+])
+
+
 @tagged_union(frozen=True)
 class Reduce:
     tag: Literal["mean", "total", "percentile"] = tag()
@@ -221,12 +354,13 @@ class SeriesSubject:
 class EnergyFault(Exception):
     # the energy band's ONE structured refusal, seated here beside `LateBound` because every band page already
     # imports this owner: raised INTO the converting fence — `evidence_run`'s `boundary` on the caller-floor folds,
-    # the lane's `async_boundary` on the offloaded translate kernel — so the coordinate facts survive as kwargs the
-    # boundary fault lifts whole. A `raise ValueError(f"...")` flattens those facts into a string every consumer
-    # re-parses and forks the refusal vocabulary against the `BrepFault`/`QualityFault`/`RepairFault` mesh peers.
+    # the lane's `async_boundary` on the offloaded translate kernel, whose crossing carries the token as
+    # `CrossedFault` DATA and re-mints this family's own case parent-side per `execution/workers#CROSSING` — so the
+    # coordinate facts survive as kwargs the boundary fault lifts whole. A `raise ValueError(f"...")` flattens those
+    # facts into a string every consumer re-parses and forks the refusal vocabulary against the mesh peers.
     tag: Literal[
         "empty_model", "index_constant", "unknown_output", "unresolved_output", "unsupported_target",
-        "district_defects", "authored_sun", "shading_fidelity", "map_operands",
+        "district_defects", "authored_sun", "shading_fidelity", "map_operands", "regime_factor",
     ] = tag()
     empty_model: tuple[str, int] = case()  # (admission modality, check-row census) — a model with no rooms
     index_constant: tuple[str, str] = case()  # (index model, the demanded constant slot no source answers)
@@ -237,6 +371,42 @@ class EnergyFault(Exception):
     authored_sun: tuple[str, str] = case()  # (recipe, the sited coordinate a manual-control sun never carries)
     shading_fidelity: tuple[str, float, float] = case()  # (refused bound, declared value, the ceiling it crossed)
     map_operands: tuple[str, int, int] = case()  # (map kind, operands supplied, the slot roster they overflow)
+    regime_factor: tuple[str, str] = case()  # (regime action, the factor shape its consuming site cannot read)
+
+    def __str__(self) -> str:
+        # `BoundaryFault.of` admits a `Tagged()` token AHEAD of every `CLASSIFY` row, so this family crosses the
+        # conversion door WHOLE on the `domain` case and the catch-all's `str(cause)` half never renders it. A
+        # worker seam carries it whole too: `execution/workers#CROSSING` lowers the token onto `CrossedFault` DATA
+        # at `shipped` and re-mints this family's own case parent-side, so a raise inside a HOSTILE kernel needs no
+        # edit here. `__str__` serves the LOG and HOST edge alone — a token surfacing in a worker traceback or a log
+        # line before the seam lowers it — where `Exception.__str__` answers the EMPTY string for a kwarg-only
+        # union. The law half IS the tag, so no arm re-spells its own case name and a renamed case cannot drift.
+        return f"{self.tag}:{self._coordinate()}"
+
+    def _coordinate(self) -> str:
+        match self:
+            case EnergyFault(tag="empty_model", empty_model=(modality, rows)):
+                return f"{modality}[{rows}]"
+            case EnergyFault(tag="index_constant", index_constant=(model, slot)):
+                return f"{model}[{slot}]"
+            case EnergyFault(tag="unknown_output", unknown_output=(names, census)):
+                return f"{','.join(names)}[{census}]"
+            case EnergyFault(tag="unresolved_output", unresolved_output=(recipe, declared)):
+                return f"{recipe}[{','.join(declared)}]"
+            case EnergyFault(tag="unsupported_target", unsupported_target=(target, constraint)):
+                return f"{target}[{constraint}]"
+            case EnergyFault(tag="district_defects", district_defects=(rows, roster)):
+                return f"{rows}[{';'.join(f'{code}={count}' for code, count in roster)}]"
+            case EnergyFault(tag="authored_sun", authored_sun=(recipe, coordinate)):
+                return f"{recipe}[{coordinate}]"
+            case EnergyFault(tag="shading_fidelity", shading_fidelity=(bound, declared, ceiling)):
+                return f"{bound}[{declared:.6g}>{ceiling:.6g}]"
+            case EnergyFault(tag="map_operands", map_operands=(kind, supplied, roster)):
+                return f"{kind}[{supplied}>{roster}]"
+            case EnergyFault(tag="regime_factor", regime_factor=(action, shape)):
+                return f"{action}[{shape}]"
+            case _ as unreachable:
+                assert_never(unreachable)
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -252,7 +422,10 @@ class SeriesSpec(Struct, frozen=True):
 
 class ComfortSpec(Struct, frozen=True):
     model: ComfortModel
-    parameter: Option[Mapping[str, object]] = Nothing  # the serialized *Parameter.from_dict config
+    # the CITED comfort standard the kernel scores against, never a bare `Mapping[str, object]` a reader cannot
+    # attribute: the regime row names the authority, and its `parameters` factor IS the `*Parameter.from_dict`
+    # document the row's own `parameter` late-bind consumes.
+    standard: Option[EnergyRegime] = Nothing
     include_wind: bool = True
     include_sun: bool = True
 
@@ -439,12 +612,14 @@ class ClimateReceipt(Struct, frozen=True):
         # apart and an identical re-read dedupes in the persistence ledger without a caller-minted key.
         return b"|".join((self.content_key.memory, self.operation.encode(), self.discriminant.encode()))
 
-    def graduates(self, ceiling: float) -> GeometryHandoff:
+    def graduates(self, regime: EnergyRegime = ENERGY_REGIMES[RegimeKey.THERMAL_DISCOMFORT]) -> GeometryHandoff:
         # discomfort is the comfort fold's own measurement; every other read OMITS it, so the spine reports
-        # `unmeasured:discomfort` and refuses honestly rather than clearing the ceiling on a fabricated zero.
+        # `unmeasured:discomfort` and refuses honestly rather than clearing the ceiling on a fabricated zero. The bar
+        # arrives as a CITED regime row rather than an anonymous float, so the verdict names the standard it graded
+        # against and a caller overriding it declares its own authority instead of a number.
         measured = self.comfortable.map(lambda pct: {"discomfort": 1.0 - pct / 100.0}).default_value({}) | {"count": float(self.count)}
         subject = GeometrySubject.THERMAL_COMFORT
-        return GeometryHandoff.of(subject, evidence_key(subject, self.spec()), measured, {"discomfort": ceiling})
+        return GeometryHandoff.of(subject, evidence_key(subject, self.spec()), measured, {"discomfort": regime.bar()})
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -612,7 +787,7 @@ def _solar(location: "Location", query: SolarQuery) -> SolarResult:
 
 def _comfort(climate: Climate, spec: ComfortSpec) -> ComfortFact:
     row = COMFORT[spec.model]
-    parameter = spec.parameter.map(lambda data: row.parameter.resolve().from_dict(dict(data))).to_optional()
+    parameter = spec.standard.map(lambda regime: row.parameter.resolve().from_dict(dict(regime.document()))).to_optional()
     calc = row.calc.resolve().from_epw(
         **row.calc.bound(climate), include_wind=spec.include_wind, include_sun=spec.include_sun, **{row.parameter_kw: parameter}
     )
@@ -831,7 +1006,10 @@ INDEX: Final[Map[IndexModel, IndexRow]] = Map.of_seq([
             kernel=LateBound("ladybug_comfort.degreetime", "heating_degree_time"),
             result=LateBound(_DEGREE_TIME, "HeatingDegreeTime"),
             unit="degC-hours",
-            inputs=(IndexInput(field=ClimateField.DRY_BULB_TEMPERATURE), IndexInput(constant=("t_base", Some(18.0)))),
+            inputs=(
+                IndexInput(field=ClimateField.DRY_BULB_TEMPERATURE),
+                IndexInput(constant=("t_base", ENERGY_REGIMES[RegimeKey.HEATING_BALANCE].magnitude)),
+            ),
         ),
     ),
     (
@@ -840,7 +1018,10 @@ INDEX: Final[Map[IndexModel, IndexRow]] = Map.of_seq([
             kernel=LateBound("ladybug_comfort.degreetime", "cooling_degree_time"),
             result=LateBound(_DEGREE_TIME, "CoolingDegreeTime"),
             unit="degC-hours",
-            inputs=(IndexInput(field=ClimateField.DRY_BULB_TEMPERATURE), IndexInput(constant=("t_base", Some(23.0)))),
+            inputs=(
+                IndexInput(field=ClimateField.DRY_BULB_TEMPERATURE),
+                IndexInput(constant=("t_base", ENERGY_REGIMES[RegimeKey.COOLING_BALANCE].magnitude)),
+            ),
         ),
     ),
 ])

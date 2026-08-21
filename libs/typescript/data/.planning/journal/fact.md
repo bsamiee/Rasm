@@ -556,7 +556,8 @@ const _audited = (
 // Satisfaction is a projection, never a second write path: every security record folds onto one audit draft and enters
 // through `Fact.record`, so the drain, the retry posture, the retention window, the subject index, and the DSAR fold
 // serve security evidence exactly as they serve every other fact. Sealing is the only fault this seam raises, and it
-// lands as the port's own `append` reason rather than a foreign rail crossing the Tag. Declaration order is load-
+// lands as the port's own `append` reason rather than a foreign rail crossing the Tag — carrying the record's OWN
+// registry point, which is the coordinate that row's renderer names and the one this seam always holds. Order is load-
 // bearing: the service's static field reads this value at class evaluation, so a `const` seated after the class body
 // evaluates in its temporal dead zone and every composition importing this module dies at load.
 const _audits: Layer.Layer<AuditJournal, never, Fact | Shredder | SqlClient.SqlClient> = Layer.effect(
@@ -566,7 +567,9 @@ const _audits: Layer.Layer<AuditJournal, never, Fact | Shredder | SqlClient.SqlC
       Effect.provide(
         Effect.flatMap(_audited(record), (draft) => Fact.record(draft)),
         context,
-      ).pipe(Effect.mapError((fault) => new AuditFault({ reason: "append", detail: fault.message }))),
+      ).pipe(Effect.mapError((fault) =>
+        new AuditFault({ case: { reason: "append", point: record.point, cause: fault.message } })
+      )),
   })),
 )
 

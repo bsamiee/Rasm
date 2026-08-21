@@ -38,7 +38,7 @@ from opentelemetry import context as otel_context
 from pydantic import TypeAdapter, ValidationError
 
 from rasm.artifacts.composition.imposition import Geometry, ImposeOp, ImposedPlan, Imposition, Marks, Scheme
-from rasm.artifacts.core.hooks import ArtifactHook, Production, TransmittalIssued, scoped
+from rasm.artifacts.core.hooks import ArtifactHook, ArtifactsLeg, Production, TransmittalIssued, scoped
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt, ConformanceVerdict
 from rasm.artifacts.delivery.gate import GateVerdict
@@ -71,7 +71,7 @@ from rasm.artifacts.exchange.credential import (
 from rasm.artifacts.exchange.credential import SignSpec as CoseSpec  # C2PA sign spec, aliased against PAdES
 from rasm.artifacts.package.archive import Archive
 from rasm.artifacts.package.bundle import CodecProfile, ZipStreamKnobs
-from rasm.runtime.faults import BoundaryFault, RuntimeRail
+from rasm.runtime.faults import TERMINAL, BoundaryFault, FaultRow, RuntimeRail, rostered
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.journal import Actor, Journal, Party
 from rasm.runtime.lanes import LanePolicy
@@ -138,6 +138,58 @@ _REQUIRED_CLOSE: Final[frozendict[TransmittalStage, tuple[str, ...]]] = frozendi
 })
 _MSGPACK: Final = msgpack.Encoder()  # Canonical key preimage, length/count-framed by the codec
 _P01: Final[RevisionCode] = RevisionCode(kind=RevisionKind.PRELIMINARY, revision=1)
+
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's whole raise roster. Every row is TERMINAL: an issue refused on its legal header, its sheet set, its
+# register congruence, its quality verdict, its container profile, or its imposition route refuses identically on
+# every re-offer, and the repair is the caller's. The six close-gate rows stay SEPARATE because each names a
+# different repair — a field to fill, a sheet to add, a sheet to register, an audit to clear, a verdict to raise, a
+# verdict to obtain — and one parameterized row would hand an office a single defect token for six distinct actions.
+# The stage and the purpose ride as NAMED coordinates rather than forking each subject per stage.
+GATE_HEADER: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.TRANSMITTAL, point="gate.header", arm="config", defect="missing-fields", retriability=TERMINAL, slots=("stage", "fields")
+)
+GATE_SHEETS: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.TRANSMITTAL, point="gate.sheets", arm="config", defect="empty-sheet-set", retriability=TERMINAL, slots=("stage",)
+)
+GATE_REGISTER: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.TRANSMITTAL, point="gate.register", arm="config", defect="unregistered-sheets", retriability=TERMINAL, slots=("stage", "sheets")
+)
+GATE_AUDIT: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.TRANSMITTAL, point="gate.audit", arm="config", defect="register-severed", retriability=TERMINAL, slots=("purpose", "cause")
+)
+GATE_QUALITY: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.TRANSMITTAL, point="gate.quality", arm="config", defect="quality-refused", retriability=TERMINAL, slots=("stage", "cause")
+)
+GATE_UNGATED: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.TRANSMITTAL, point="gate.verdict", arm="config", defect="ungated-issue", retriability=TERMINAL, slots=("purpose",)
+)
+ASSEMBLE_ROUTE: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.TRANSMITTAL, point="assemble", arm="config", defect="imposition-unroutable", retriability=TERMINAL, slots=("cause",)
+)
+SEAL_PROFILE: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.TRANSMITTAL, point="seal.profile", arm="config", defect="non-container-profile", retriability=TERMINAL, slots=("profile",)
+)
+SEAL_ARCHIVE: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.TRANSMITTAL, point="seal.archive", arm="config", defect="archive-refused", retriability=TERMINAL, slots=("cause",)
+)
+ISSUE_VERDICT: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.TRANSMITTAL, point="issue", arm="config", defect="expected-verdict-receipt", retriability=TERMINAL, slots=("kind",)
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([
+    GATE_HEADER,
+    GATE_SHEETS,
+    GATE_REGISTER,
+    GATE_AUDIT,
+    GATE_QUALITY,
+    GATE_UNGATED,
+    ASSEMBLE_ROUTE,
+    SEAL_PROFILE,
+    SEAL_ARCHIVE,
+    ISSUE_VERDICT,
+]))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -348,7 +400,7 @@ class SealSpec(Struct, frozen=True):
             case CodecProfile(tag="zip_stream", zip_stream=knobs):
                 return Ok(CodecProfile(zip_stream=structs.replace(knobs, names=names)))
             case CodecProfile(tag=kind):
-                return Error(BoundaryFault(config=("transmittal.seal", f"non-container-profile:{kind}")))
+                return Error(SEAL_PROFILE.raised(kind))
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -582,7 +634,7 @@ class Transmittal:  # Closed issue vocabulary; each owned/composed seam faults t
         # Validated imposition binds collation once; `receipt.slot` and `planned()` carry its key and press facts.
         routed = (await _collated(deliverable)).bind(
             lambda source: ImposeOp.Impose(source, spec.scheme, spec.geometry, spec.marks).map_error(
-                lambda fault: BoundaryFault(config=("transmittal.assemble", fault))
+                lambda fault: ASSEMBLE_ROUTE.raised(fault)
             )
         )
         match routed:
@@ -608,7 +660,7 @@ class Transmittal:  # Closed issue vocabulary; each owned/composed seam faults t
             case Result(tag="ok", ok=plan_set), Result(tag="ok", ok=profile):
                 payloads = (plan_set, *(blob for _, blob in spec.attachments))
                 constructed = catch(exception=ValueError)(Archive.of)(profile, *payloads, lane=deliverable.lane, parents=deliverable.member_keys).map_error(
-                    lambda fault: BoundaryFault(config=("transmittal.seal", str(fault)))
+                    lambda fault: SEAL_ARCHIVE.raised(str(fault))
                 )
                 match constructed:
                     case Result(tag="error") as err:
@@ -784,20 +836,18 @@ def _gated(stage: TransmittalStage, deliverable: Deliverable, audit: RegisterEvi
     missing = tuple(field for field in _REQUIRED_CLOSE[stage] if not getattr(record, field))
     contractual = record.purpose in _CONTRACTUAL
     held = Block.of_seq((
-        Some(BoundaryFault(config=(f"transmittal.{stage}", f"missing:{','.join(missing)}"))) if missing else Nothing,
-        Some(BoundaryFault(config=(f"transmittal.{stage}", "empty-sheet-set"))) if not deliverable.sheets else Nothing,
-        Some(BoundaryFault(config=(f"transmittal.{stage}", f"unregistered:{','.join(deliverable.unregistered)}")))
-        if contractual and deliverable.unregistered
-        else Nothing,
-        Some(BoundaryFault(config=(f"transmittal.{record.purpose.value}", audit.severed.map(lambda fault: fault.tag).default_value("severed"))))
+        Some(GATE_HEADER.raised(stage, ",".join(missing))) if missing else Nothing,
+        Some(GATE_SHEETS.raised(stage)) if not deliverable.sheets else Nothing,
+        Some(GATE_REGISTER.raised(stage, ",".join(deliverable.unregistered))) if contractual and deliverable.unregistered else Nothing,
+        Some(GATE_AUDIT.raised(record.purpose.value, audit.severed.map(lambda fault: fault.tag).default_value("severed")))
         if contractual and audit.severed.is_some()
         else Nothing,
         # An issue whose gate verdict its own per-kind policy refuses to ship never renders, and the refusal names
         # every failing coordinate — a bare `gate:refuse` tells an office nothing it can act on.
-        deliverable.gate.bind(_refused).map(lambda cause: BoundaryFault(config=(f"transmittal.{stage}", cause))),
+        deliverable.gate.bind(_refused).map(lambda cause: GATE_QUALITY.raised(stage, cause)),
         # Issuing for CONSTRUCTION with no quality verdict at all is the forged-zero failure at this boundary: an
         # unmeasured issue would otherwise land on the legal record reading exactly like a measured clean one.
-        Some(BoundaryFault(config=(f"transmittal.{record.purpose.value}", "ungated"))) if contractual and deliverable.gate.is_none() else Nothing,
+        Some(GATE_UNGATED.raised(record.purpose.value)) if contractual and deliverable.gate.is_none() else Nothing,
     )).choose(lambda fault: fault)
     return Nothing if held.is_empty() else Some(held.reduce(BoundaryFault.combine))
 
@@ -977,7 +1027,7 @@ def _folded_signs(
             credential_state, credential_present = _credential(cose)
             return Ok((key, _issue_evidence(deliverable, audit, key, verdict, credential_state, credential_present)))
         case Result(tag="ok", ok=receipt):
-            return Error(BoundaryFault(config=("transmittal.issue", f"expected-verdict-receipt:{receipt.tag}")))
+            return Error(ISSUE_VERDICT.raised(receipt.tag))
         case _ as unreachable:
             assert_never(unreachable)
 

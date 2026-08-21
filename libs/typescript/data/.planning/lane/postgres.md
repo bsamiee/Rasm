@@ -104,13 +104,13 @@ declare namespace Pg {
 - Owner: the `_rows` anchor and assembled projections — ruled `{extension, floor, probeSql, capabilities, layer, flags}` rows, deployment flags, dependency pairs, the derived `Grant` union, the image projection, and per-dialect `_core` seed.
 - Packages: none — extensions are deployment-image facts, never JS dependencies.
 - Entry: `lane/capability.md` probes `Pg.rows` fail-closed at Layer construction and enforces `Pg.demands`; the image derivation consumes `Pg.image`; every retrieval, projection, maintenance, and retention gate reads the derived grant vocabulary.
-- Growth: a new extension is one row — the unions, the probe roster, and the image projection move with it, zero consumer edits; a floor bump is a field edit; a new deployment fact is one `_flags` entry; a new dependency edge is one `_demands` pair.
+- Growth: a new extension is one row — the unions, the probe roster, and the image projection move with it, zero consumer edits; a floor bump is a field edit; a new deployment fact is one `_flags` entry; a new dependency edge is one `_demands` row, and a mutual exclusion is one `excludes` demand row against the grant it forbids.
 - Law: the BM25 row is `vchord_bm25` — it pairs with the admitted VectorChord index engine and grants `bm25`; the trigram and phonetic contrib rows carry the fuzzy lanes beneath it, and core FTS remains the boolean-lexeme floor the relevance lane begins past.
 - Law: VectorChord is the stronger drop-in over the pgvector contract — both rows grant `vector`, `vchord` alone grants `vchord`, and index-method selection reads the narrower grant; swapping the engine is an image change, never a query change.
 - Law: the queue class has no extension row — the SKIP-LOCKED primitive and relay rows in `journal/append.md` own the shape, and visibility-timeout redelivery is an attempts/lease column pair; a second job-table paradigm is split-brain.
 - Law: native `uuidv7()` subsumes the identity-mint extension class entirely — no row exists, and any image fact naming one is stale.
-- Law: flags price deployment facts and derive from one tuple — `timescaledb` carries `tsl` (source-available licensing), `excludesSharding` (mutually exclusive with a sharding engine in one database), and `preload`; the `preload` flag on it, `pg_cron`, and `pg_stat_statements` marks the `shared_preload_libraries` demand the deploy plane's CNPG derivation filters on, so a new preload-demanding extension is a flag edit with zero deploy-plane code change; every flag travels into the image projection so the deployment derivation prices the roster, and a core-layer row carrying any flag joins the projection too — contrib ships in every image, but its deployment fact still needs the derivation to see it.
-- Law: dependency demands are data — `_demands` pairs a row flag with the grant it requires (`requiresCron` demands `cron`), `lane/capability.md` refuses a flagged row whose demanded grant is absent, and the deploy plane's `_DEMANDS` table reads the same pairs; `pg_incremental`'s exactly-once checkpointed batch folds are the maintenance plane's incremental lane, admitted only where `pg_cron` also probes true.
+- Law: flags price deployment facts and derive from one tuple — `timescaledb` carries `tsl` (source-available licensing) and `preload`; the `preload` flag on it, `pg_cron`, and `pg_stat_statements` marks the `shared_preload_libraries` demand the deploy plane's CNPG derivation filters on, so a new preload-demanding extension is a flag edit with zero deploy-plane code change; every flag travels into the image projection so the deployment derivation prices the roster, and a core-layer row carrying any flag joins the projection too — contrib ships in every image, but its deployment fact still needs the derivation to see it.
+- Law: dependency demands are data — `_demands` rows a relation with the flag it applies to and the grant it names (`requires` pairs `requiresCron` with `cron`), `lane/capability.md` refuses a flagged row whose `requires` grant is absent or whose `excludes` grant is present, and the deploy plane reads the same rows; `pg_incremental`'s exactly-once checkpointed batch folds are the maintenance plane's incremental lane, admitted only where `pg_cron` also probes true.
 - Law: `_backend` pairs each contract capability key with the grant that proves it, so backend observation resolves against the one granted set; an identity extension-to-extension row reads version evidence instead and reports every core-seeded grant missing.
 - Law: `_core` is the pg dialect seed alone — a sqlite profile seeds the grants its own `lane/sqlite.md` degradation row proves native, so no pg-authored arm speaks for a lane it cannot probe.
 - Law: `pg_parquet` grants the object-store COPY egress — `COPY TO/FROM` Parquet against the object plane — interchange only, never a query engine; the OLAP lane owns querying what it writes.
@@ -119,15 +119,15 @@ declare namespace Pg {
 
 ```typescript signature
 import { Record } from "effect"
-import type { Backend } from "./capability.ts"
+import type { Backend, Capability } from "./capability.ts"
 
-const _flags = ["tsl", "excludesSharding", "preload", "requiresCron"] as const
+const _flags = ["tsl", "preload", "requiresCron"] as const
 
 const _rows = {
   pgvector: { extension: "vector", floor: "0.8.3", capabilities: ["vector"], layer: "image", flags: [] },
   vchord: { extension: "vchord", floor: "1.1.1", capabilities: ["vector", "vchord"], layer: "image", flags: [] },
   vchord_bm25: { extension: "vchord_bm25", floor: "0.3.0", capabilities: ["bm25"], layer: "image", flags: [] },
-  timescaledb: { extension: "timescaledb", floor: "2.28.2", capabilities: ["timeseries"], layer: "image", flags: ["tsl", "excludesSharding", "preload"] },
+  timescaledb: { extension: "timescaledb", floor: "2.28.2", capabilities: ["timeseries"], layer: "image", flags: ["tsl", "preload"] },
   pg_partman: { extension: "pg_partman", floor: "5.4.3", capabilities: ["partition"], layer: "image", flags: [] },
   pg_cron: { extension: "pg_cron", floor: "1.6.7", capabilities: ["cron"], layer: "image", flags: ["preload"] },
   pg_ivm: { extension: "pg_ivm", floor: "1.15", capabilities: ["ivm"], layer: "image", flags: [] },
@@ -145,7 +145,10 @@ const _rows = {
   fuzzystrmatch: { extension: "fuzzystrmatch", floor: "0.0.0", capabilities: ["phonetic", "fuzzy"], layer: "core", flags: [] },
 } as const
 
-const _demands = [["requiresCron", "cron"]] as const
+// Dependency rides the RELATION, never the roster's position: a row states what it requires and what it excludes in
+// one shape, so the capability plane's two fixed-point arms read one table and a mutual exclusion is a row rather than
+// prose no gate applies.
+const _demands = [{ relation: "requires", flag: "requiresCron", grant: "cron" }] as const
 
 // One adapter per capability a row grants: the contract keys a capability row by the extension a deployment
 // declares while the probe publishes GRANTS, so the pair IS that translation and a row granting two
@@ -172,7 +175,7 @@ declare namespace Pg {
     readonly layer: "image" | "core"
     readonly flags: ReadonlyArray<Flag>
   } } = typeof _rows> = T
-  type _Demands<T extends ReadonlyArray<readonly [Flag, Grant]> = typeof _demands> = T
+  type _Demands<T extends ReadonlyArray<Capability.Demand<Flag, Grant>> = typeof _demands> = T
 }
 ```
 

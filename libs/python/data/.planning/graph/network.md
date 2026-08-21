@@ -14,7 +14,7 @@ Edge capacity, cost, and node demand are DATA on the admitted rows, never networ
 - Law: this page owns ONLY the flow family — every other analysis question routes to the `graph/graph#GRAPH` kernel, and a second analysis surface here is the rejected parallel kernel; the split predicate is kernel availability, the same law the folder's fast-path ruling states. The networkx graph is built HERE from admitted rows and never accepted as a caller-passed handle, so attribute spelling, multigraph refusal, and node vocabulary stay this owner's interior.
 - Entry: `analyze` folds one `FlowAlgorithm` through the provider kernel under one boundary fence per run — `max_flow` answers the flow value beside its edge assignment, `min_cut` the cut value beside the partition, `min_cost` and `simplex` the demand-satisfying assignment, `max_flow_min_cost` the cheapest maximum flow — each lowering onto `GraphResult` so the frame join and receipt ride the sibling surface unchanged.
 - Receipt: every run mints the sibling `GraphReceipt` with `backend="networkx"` and the algorithm tag, so flow evidence lands on the same metric spine and residence rows every graph run feeds; the payload keys once at admission over the canonical edge-roster bytes, an unchanged network keying byte-stable.
-- Packages: `networkx` (`maximum_flow`, `minimum_cut`, `min_cost_flow`, `network_simplex`, `max_flow_min_cost` — the flow kernels, `capacity=`/`weight=`/`demand=` their attribute keywords), `msgspec` (frozen rows and the canonical key encoding), runtime (`RuntimeRail`/`boundary`/`ContentIdentity`/`scoped`).
+- Packages: `networkx` (`maximum_flow`, `minimum_cut`, `min_cost_flow`, `network_simplex`, `max_flow_min_cost` — the flow kernels, `capacity=`/`weight=`/`demand=` their attribute keywords), `msgspec` (frozen rows and the canonical key encoding), runtime (`RuntimeRail`/`boundary`/`Catch`/`FaultRow`/`ContentIdentity`/`scoped`).
 - Growth: a new flow question is one `FlowAlgorithm` case plus one `_run_flow` arm; a new edge annotation is one `FlowEdge` field projected at the one build site; a networkx `@_dispatchable` flow accelerator is the same `backend=` policy row the sibling codec lane names, never a second kernel.
 - Boundary: no durable network store, no hydraulic or electrical physics (sizing semantics belong to the consumer reading the flow evidence), no undirected admission — a service network is directed by construction and an undirected question routes to the sibling kernel; `NodeId` never widens beyond the stable `int` index the folder's frame seam joins on.
 
@@ -25,18 +25,40 @@ from typing import TYPE_CHECKING, Any, Final, Literal, assert_never
 import msgspec
 import networkx as nx
 from expression import case, tag, tagged_union
-from expression.collections import Map
+from expression.collections import Block, Map
 from msgspec import Struct
 from opentelemetry import trace
 
 from rasm.data.graph.graph import GraphKind, GraphReceipt, GraphResult, NodeId
-from rasm.runtime.faults import RuntimeRail, boundary, scoped
+from rasm.data.tabular.interop import DataLeg
+from rasm.runtime.faults import TERMINAL, Catch, FaultRow, RuntimeRail, boundary, rostered, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
 _TRACER: Final = scoped(trace.get_tracer, "rasm.data.graph.network")
+
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+# the flow lane's raise set: every networkx fault roots at `NetworkXException` (`libs/python/.api/networkx.md:37`),
+# which is what carries `NetworkXUnfeasible` on an unbalanced demand set — the refusal this owner's whole law is
+# written around — beside `NodeNotFound` for a source or sink the admitted rows never named. `msgspec`'s canonical
+# roster encoding roots at `MsgspecError`, and `TypeError` covers a non-encodable edge payload reaching it.
+_FLOW_RAISES: Final[Catch] = (nx.NetworkXException, msgspec.MsgspecError, TypeError, ValueError)
+
+# this module's raise roster under its one `DataLeg` member. Both rows are TERMINAL: a build folds admitted rows in
+# memory and a flow kernel is a deterministic solve over them, so a re-issue over the same network refuses
+# identically — an infeasible demand set stays infeasible. Both are fence anchors alone and declare no `slots`,
+# since a converted provider raise carries its own detail and the algorithm rides the span attribute beside it.
+NETWORK_BUILD: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.NETWORK, point="build", arm="boundary", defect="network-build", retriability=TERMINAL
+)
+NETWORK_FLOW: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.NETWORK, point="flow", arm="boundary", defect="flow-kernel", retriability=TERMINAL
+)
+RAISES: Final[Block[FaultRow[DataLeg]]] = rostered(Block.of_seq([NETWORK_BUILD, NETWORK_FLOW]))
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -68,22 +90,26 @@ class FlowNetwork(Struct, frozen=True):
     content_key: ContentKey
 
     @classmethod
-    def of(cls, edges: tuple[FlowEdge, ...], demands: "Map[NodeId, float] | None" = None) -> "RuntimeRail[FlowNetwork]":
+    def of(cls, edges: tuple[FlowEdge, ...], demands: "Map[NodeId, float]" = Map.empty()) -> "RuntimeRail[FlowNetwork]":
         # the graph builds HERE from admitted rows — attribute names are this owner's projection, and demands
-        # follow the provider's sign convention: negative supplies, positive demands, absent nodes balanced.
+        # follow the provider's sign convention: negative supplies, positive demands, absent nodes balanced. An
+        # unsupplied demand roster is the EMPTY roster, not an absent one: `Map.empty()` is immutable and every
+        # node balances by the provider's own default, so there is no third state for a `| None` slot to carry and
+        # the two falsy-coalescing reads it forced — each of which read an empty roster and an absent one alike —
+        # have no reason to exist.
         def build() -> "tuple[Any, bytes]":
             graph = nx.DiGraph()
             graph.add_weighted_edges_from(((e.source, e.target, e.capacity) for e in edges), weight="capacity")
             nx.set_edge_attributes(graph, {(e.source, e.target): e.weight for e in edges}, name="weight")
-            nx.set_node_attributes(graph, dict(demands or Map.empty()), name="demand")
+            nx.set_node_attributes(graph, dict(demands), name="demand")
             # canonical roster bytes: sorted edge tuples beside the sorted demand pairs, one msgspec codec.
             wire = msgspec.json.encode((
                 sorted((e.source, e.target, e.capacity, e.weight) for e in edges),
-                sorted((demands or Map.empty()).to_list()),
+                sorted(demands.to_list()),
             ))
             return graph, wire
 
-        return boundary("network.of", build).bind(
+        return boundary(NETWORK_BUILD, build, catch=_FLOW_RAISES).bind(
             lambda built: ContentIdentity.of("network", built[1]).map(
                 lambda key: cls(graph=built[0], edges=edges, node_count=built[0].number_of_nodes(), content_key=key)
             )
@@ -96,7 +122,7 @@ class FlowNetwork(Struct, frozen=True):
             f"network.analyze.{algo.tag}",
             attributes={"rasm.graph.algorithm": algo.tag, "rasm.graph.backend": "networkx", "rasm.graph.nodes": self.node_count},
         ):
-            return boundary(f"network.analyze.{algo.tag}", lambda: _run_flow(self.graph, algo))
+            return boundary(NETWORK_FLOW, lambda: _run_flow(self.graph, algo), catch=_FLOW_RAISES)
 
     def receipt(self, algo: FlowAlgorithm, result: GraphResult) -> GraphReceipt:
         return GraphReceipt(

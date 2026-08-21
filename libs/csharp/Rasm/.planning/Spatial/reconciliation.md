@@ -8,20 +8,19 @@
 
 ## [02]-[RECONCILIATION_BRIDGE]
 
-- Owner: `GeometryHash` mints the content-axis identity only through the kernel `ContentHash.Of`; `CanonicalTopology` mints the immutable adjacency every encode, re-anchor, and entity build reads.
-- Cases: each `EncodeForm` stream freezes its own canonical order — a `ClusterCase` sorts vertices lexicographically and hashes any mass column as content, a `PolylineCase` stores order as content, a `RingCase` rotates to its least rotation with winding preserved under the rotation law the mesh face cycles carry, and `Parametric` takes the direction count as the curve/surface/volume generator. `CanonicalTopology.OfMesh` is the one native admission.
-- Entry: `EncodeForm.Of` discriminates admission on input shape, its raw-array parametric head the one validated ingress; a refusal routes an `Op`-keyed admission fault rather than throwing.
+- Owner: `GeometryHash` mints the content-axis identity only through the kernel `ContentHash.Of`, framing every field through the kernel `CanonicalWriter` rather than a page-local byte emitter; `CanonicalTopology` mints the immutable adjacency every encode, re-anchor, and entity build reads.
+- Cases: each `EncodeForm` stream freezes its own canonical order — a `ClusterCase` sorts vertices lexicographically and hashes any mass column as content, a `PolylineCase` stores order as content, a `RingCase` rotates to its least rotation with winding preserved under the rotation law the mesh face cycles carry, and `Parametric` takes the direction count as the curve/surface/volume generator. `CloudForm` rows carry the frozen wire ordinal each cloud stream leads with, so the discriminant has a named owner on the page that owns the wire. `CanonicalTopology.OfMesh` is the one native admission.
+- Entry: `EncodeForm.Of` discriminates admission on input shape, its raw-array parametric head the one validated ingress; that head CANONICALIZES each direction's knots onto `[0,1]` before it gates, so a producer's divide-normalized vector admits instead of forking identical geometry out of the corpus, and a refusal routes an `Op`-keyed admission fault rather than throwing.
 - Auto: `Mesh` encoding re-hashes identically under a morph and distinctly under a topology break; every arm gates input and answer through the acceptance oracle, so consumers never re-check the `IValidityEvidence` claims.
 - Receipt: `NamingHash` is the reconciliation evidence the Persistence structural merge consumes per node, registering into the `OpAcceptance.ValidityOf` oracle like every kernel receipt — no parallel reconciliation ledger.
-- Packages: `Rasm.Meshing` `MeshSpace` with the `RhinoCommon` welded-topology read behind `MeshSpace.DuplicateNative`, `VectorCloud`, `Rasm.Domain` for the seed-zero `ContentHash.Of` and the `Op`/`IValidityEvidence` rails, `Thinktecture.Runtime.Extensions`, `LanguageExt.Core`, `System.Buffers.Binary`.
-- Growth: a new geometry modality is one `EncodeForm` case with its own frozen stream; a new per-case content column is one counted layout block on the owning case's stream, the cluster mass block the precedent; a new reconciliation projection is one column on `NameAddress`; a native-brep adjacency source is one `CanonicalTopology.Of*` factory under the same canonical-order law.
-- Boundary: `EncodeForm` owns three frozen canonical byte layouts — `Mesh`, `Cloud`, `Parametric` — contiguous and unpadded, non-finite values refused upstream, each framed under the `tests/contracts/MANIFEST.md` `CANONICAL_BYTE_IDENTITY` framing and seed law this owner mints, and the `Mesh` stream alone produces the `MESH_ADJACENCY_GOLDEN` vector peers decode. A digest is meaningful only under its form, so every seam carries `(form, digest)`, and Persistence reads this identical mesh layout rather than a second encoding, so a drifted byte order is a caught defect. `CanonicalTopology` is immutable, so its bytes are referentially transparent, and `IsValid` claims the canonical row order and the `Self`-sequential kind partition — a `with`-mutated or permuted record fails at the `Apply` gate before it forks one content into two keys. `EncodeForm.Of` validates knot normalization; weight-scale canonicalization of a rational carrier is the parametric producer's projection obligation.
+- Law: `RebuiltEntity.Canonical` is a run of int WORDS, never a pre-serialized block, so the framing decision stays at `CanonicalWriter` and the entity keeps structural equality — a `byte[]` column compared by reference, which is precisely what a record whose identity IS its content cannot afford. Three `EncodeForm` streams stay BYTE-UNCHANGED under the writer, and the correspondence is member-for-member: `Word` was int32-LE and `Ordinal` is; `Real` wrote the raw IEEE754 pattern little-endian and `Bits` writes exactly that pattern, never `Double`, whose quantization is a different identity space; and every hand `Word(count)` preceding a run is precisely the count frame `Rows` writes, so the `MESH_ADJACENCY_GOLDEN` vector and the python/ts `XxHash128` peers re-verify unchanged — the vector rides `Digest(EncodeForm)` through `MeshStream`, which no member below touched. RIPPLE: the per-entity `Content` key gains the count frame `Rows` writes ahead of its word run, so `NamingHash.Addresses` and the `Rasm.Persistence` structural merge re-baseline their stored per-node keys once. Probe is the golden itself — encode the pinned mesh and compare the digest to the frozen vector; a re-baseline THERE is the defect, not the pass. NAMED LOSS: the deleted `Real` collapsed `-0.0` to `+0.0` and `Bits` writes the pattern it is handed, so a `-0.0` coordinate addresses a distinct key (escalated to `Domain/identity.md`).
+- Packages: `Rasm.Meshing` `MeshSpace` with the `RhinoCommon` welded-topology read behind `MeshSpace.DuplicateNative`, `VectorCloud`, `Rasm.Domain` for the seed-zero `ContentHash.Of`, the `CanonicalWriter` framing, and the `Op`/`Context`/`IValidityEvidence` rails, `Thinktecture.Runtime.Extensions`, `Generator.Equals`, `LanguageExt.Core`.
+- Growth: a new geometry modality is one `EncodeForm` case with its own frozen stream and one `CloudForm`-style wire row where it needs a discriminant; a new per-case content column is one counted layout block on the owning case's stream, the cluster mass block the precedent; a new reconciliation projection is one column on `NameAddress`; a native-brep adjacency source is one `CanonicalTopology.Of*` factory under the same canonical-order law.
+- Boundary: `EncodeForm` owns three frozen canonical byte layouts — `Mesh`, `Cloud`, `Parametric` — contiguous and unpadded, non-finite values refused upstream, each framed under the `tests/contracts/MANIFEST.md` `CANONICAL_BYTE_IDENTITY` framing and seed law this owner mints, and the `Mesh` stream alone produces the `MESH_ADJACENCY_GOLDEN` vector peers decode. Digests are meaningful only under their form, so every seam carries `(form, digest)`, and Persistence reads this identical mesh layout rather than a second encoding, so a drifted byte order is a caught defect. `CanonicalTopology` is immutable and compares by CONTENT — `Generator.Equals` with a stated cycle comparer, because `Arr<int[]>` would otherwise compare its rows by reference and two identical topologies would key apart — and `IsValid` claims the canonical row order and the `Self`-sequential kind partition, so a `with`-mutated or permuted record fails at the `Apply` gate before it forks one content into two keys. `EncodeForm.Of` canonicalizes knots and then claims the clamped end multiplicity a rescale cannot supply; weight-scale canonicalization of a rational carrier is the parametric producer's projection obligation.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------
-using System.Buffers;
-using System.Buffers.Binary;
-using Rasm.Domain;
+using Generator.Equals;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
@@ -35,6 +34,16 @@ using static LanguageExt.Prelude;
 namespace Rasm.Spatial;
 
 // --- [TYPES] ----------------------------------------------------------------------------------------
+// FROZEN WIRE ordinals — never renumber. The key is the first field of every cloud `GeometryHash` preimage a peer
+// decodes, so inserting or reordering a row silently re-keys every stored cloud digest; this page owns that wire and
+// declares the discriminant here rather than leaving three bare integers inside switch arms.
+[SmartEnum<int>]
+public sealed partial class CloudForm {
+    public static readonly CloudForm Cluster = new(key: 0);
+    public static readonly CloudForm Polyline = new(key: 1);
+    public static readonly CloudForm Ring = new(key: 2);
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ReconcileOp {
     private ReconcileOp() { }
@@ -63,56 +72,106 @@ public abstract partial record EncodeForm : IValidityEvidence {
 
     public bool IsValid => Switch(
         mesh: static m => m.Topology.IsValid,
-        cloud: static _ => true,
+        // A cluster CARRIES the admission proof this claim owes; the ring and polyline cases are factory-gated at
+        // `cloud.md` with no receipt to read, so the arm states the evidence it has rather than an unconditional true.
+        cloud: static c => c.Source is VectorCloud.ClusterCase cluster ? cluster.Admission.IsValid : true,
+        // Parametric constructs ONLY through `Of`, whose knot canonicalization, control-count, weight-positivity, and
+        // finiteness gates all ran on an internal ctor — there is no second path a re-proof could cover.
         parametric: static _ => true);
 
     public static EncodeForm Of(MeshSpace space) => new Mesh(CanonicalTopology.OfMesh(space));
     public static EncodeForm Of(CanonicalTopology topology) => new Mesh(topology);
     public static EncodeForm Of(VectorCloud cloud) => new Cloud(cloud);
 
-    // controls computes only under the normalized gate (every factor >= 2), so a hostile pair never traps the checked context — refusal stays railed.
-    public static Fin<EncodeForm> Of(Arr<Direction> directions, Arr<double> weights, Arr<Point3d> controlNet, Op? key = null) {
-        bool normalized = directions.Count >= 1 && directions.All(static d => Normalized(d.Degree, d.Knots));
-        long controls = normalized ? directions.Fold(1L, static (product, d) => unchecked(product * (d.Knots.Count - d.Degree - 1))) : 0L;
-        return guard(
-                normalized && controlNet.Count == controls && weights.Count == controls
-                    && weights.All(static w => ValidityClaim.Positive(w)) && controlNet.All(static p => ValidityClaim.Finite(p)),
-                key.OrDefault().InvalidInput()).ToFin()
-            .Map(_ => (EncodeForm)new Parametric(directions, weights, controlNet));
+    public static Fin<EncodeForm> Of(Arr<Direction> directions, Arr<double> weights, Arr<Point3d> controlNet, Context context, Op? key = null) {
+        Op op = key.OrDefault();
+        return directions.Count >= 1
+            ? toSeq(directions.AsIterable())
+                .TraverseM(direction => Canonicalize(direction: direction, context: context, key: op)).As()
+                .Bind(admitted => Admit(directions: admitted, weights: weights, controlNet: controlNet, key: op))
+            : Fin.Fail<EncodeForm>(op.InvalidInput());
     }
 
-    // One curve, one content key — a denormalized knot vector forks identical geometry into two digests.
-    static bool Normalized(int degree, Arr<double> knots) =>
-        degree >= 1 && knots.Count >= (2 * degree) + 2
-        && Enumerable.Range(0, degree + 1).All(i => knots[i] == 0.0 && knots[knots.Count - 1 - i] == 1.0)
-        && Enumerable.Range(1, knots.Count - 1).All(i => knots[i - 1] <= knots[i])
-        && knots.All(static k => ValidityClaim.Finite(k));
+    // Knots CANONICALIZE at intake rather than gate on exact 0/1: an ordinary producer normalizes by division and
+    // lands its terminal knot one ulp short, so refusing near-canonical input forks identical geometry out of the
+    // corpus instead of into one key. The affine remap runs off the direction's OWN span, only a degenerate span
+    // refuses, and the digest stays exact because the interior then reads one regime.
+    static Fin<Direction> Canonicalize(Direction direction, Context context, Op key) {
+        Arr<double> knots = direction.Knots;
+        bool shaped = direction.Degree >= 1 && knots.Count >= (2 * direction.Degree) + 2
+            && knots.All(static knot => ValidityClaim.Finite(knot))
+            && Enumerable.Range(1, knots.Count - 1).All(i => knots[i - 1] <= knots[i]);
+        double span = shaped ? knots[^1] - knots[0] : 0.0;
+        return guard(shaped && span > context.For(lane: ToleranceLane.Fraction).Value, key.InvalidInput()).ToFin()
+            .Map(_ => direction with {
+                Knots = new Arr<double>([.. knots.AsIterable().Select(knot => (knot - knots[0]) / span)]),
+            })
+            .Bind(remapped => guard(Clamped(remapped), key.InvalidInput()).ToFin().Map(_ => remapped));
+    }
+
+    // One curve, one content key. The remap carries the first knot to exactly 0.0 and the last to exactly 1.0, so
+    // this exact test reads as a POST-condition on end multiplicity — the structural fact a rescale never supplies.
+    static bool Clamped(Direction direction) =>
+        Enumerable.Range(0, direction.Degree + 1).All(i =>
+            direction.Knots[i] == 0.0 && direction.Knots[direction.Knots.Count - 1 - i] == 1.0);
+
+    // controls computes only past the canonicalized gate (every factor >= 2), so a hostile pair never traps the checked context — refusal stays railed.
+    static Fin<EncodeForm> Admit(Seq<Direction> directions, Arr<double> weights, Arr<Point3d> controlNet, Op key) {
+        long controls = directions.Fold(1L, static (product, d) => unchecked(product * (d.Knots.Count - d.Degree - 1)));
+        return guard(
+                controlNet.Count == controls && weights.Count == controls
+                    && weights.All(static w => ValidityClaim.Positive(w)) && controlNet.All(static p => ValidityClaim.Finite(p)),
+                key.InvalidInput()).ToFin()
+            .Map(_ => (EncodeForm)new Parametric(new Arr<Direction>([.. directions]), weights, controlNet));
+    }
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------------------
 [ValueObject<UInt128>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct GeometryHash;
 
-public sealed record CanonicalTopology(
-    int VertexCount, Arr<(int Min, int Max)> Edges, Arr<int[]> Faces, Seq<RebuiltEntity> Entities) : IValidityEvidence {
+// `Arr<int[]>` compares elements with the default comparer, which for an array IS reference identity — so a record
+// whose whole purpose is structural identity carries its cycle comparer explicitly. `Arr<Arr<int>>` would compare
+// structurally and cost every span read the least-rotation walk and the validity fold take, so the raw row survives
+// behind a stated comparer rather than behind a convention.
+public sealed class FaceCycles : IEqualityComparer<Arr<int[]>> {
+    public static readonly FaceCycles Default = new();
+    public bool Equals(Arr<int[]> left, Arr<int[]> right) =>
+        left.Count == right.Count && Enumerable.Range(0, left.Count).All(i => left[i].AsSpan().SequenceEqual(right[i]));
+    public int GetHashCode(Arr<int[]> value) {
+        HashCode hash = new();
+        foreach (int[] cycle in value.AsIterable()) {
+            hash.Add(cycle.Length);
+            foreach (int vertex in cycle) { hash.Add(vertex); }
+        }
+        return hash.ToHashCode();
+    }
+}
 
-    // Canonical row order is claimed, never assumed — a permuted hand-built adjacency forks identical content into two keys.
+[Equatable]
+public sealed partial record CanonicalTopology(
+    int VertexCount, Arr<(int Min, int Max)> Edges,
+    [property: CustomEquality(typeof(FaceCycles))] Arr<int[]> Faces,
+    Seq<RebuiltEntity> Entities) : IValidityEvidence {
+
     public bool IsValid => ValidityClaim.All(
-        ValidityClaim.Of(VertexCount >= 0),
-        ValidityClaim.Of(Edges.All(e => e.Min >= 0 && e.Min < e.Max && e.Max < VertexCount)),
-        ValidityClaim.Of(Enumerable.Range(1, int.Max(Edges.Count - 1, 0)).All(i => Edges[i - 1].CompareTo(Edges[i]) < 0)),
-        ValidityClaim.Of(Faces.All(cycle => cycle.Length >= 3 && cycle.All(v => v >= 0 && v < VertexCount)
+        VertexCount >= 0,
+        Edges.All(e => e.Min >= 0 && e.Min < e.Max && e.Max < VertexCount),
+        Enumerable.Range(1, int.Max(Edges.Count - 1, 0)).All(i => Edges[i - 1].CompareTo(Edges[i]) < 0),
+        // The canonical-rotation claim is an INDEX comparison: re-running the whole canonicalization per face on
+        // every validity read allocated a rotated array per face for a fact the pivot already states.
+        Faces.All(cycle => cycle.Length >= 3 && cycle.All(v => v >= 0 && v < VertexCount)
             && Enumerable.Range(0, cycle.Length).All(i => cycle[i] != cycle[(i + 1) % cycle.Length])
-            && cycle.AsSpan().SequenceEqual(Rotated(cycle)))),
-        ValidityClaim.Of(Enumerable.Range(1, int.Max(Faces.Count - 1, 0)).All(i => Faces[i - 1].AsSpan().SequenceCompareTo(Faces[i]) <= 0)),
-        ValidityClaim.Of(toSet(Edges) is var edgeSet && Faces.All(cycle =>
-            Enumerable.Range(0, cycle.Length).All(i => edgeSet.Contains(Sorted(cycle[i], cycle[(i + 1) % cycle.Length]))))),
+            && LeastRotationIndex(cycle) == 0),
+        Enumerable.Range(1, int.Max(Faces.Count - 1, 0)).All(i => Faces[i - 1].AsSpan().SequenceCompareTo(Faces[i]) <= 0),
+        toSet(Edges) is var edgeSet && Faces.All(cycle =>
+            Enumerable.Range(0, cycle.Length).All(i => edgeSet.Contains(Sorted(cycle[i], cycle[(i + 1) % cycle.Length])))),
         ValidityClaim.CountExactly(count: Entities.Count, expected: VertexCount + Edges.Count + Faces.Count),
-        ValidityClaim.Of(Entities.Map((entity, index) => index < VertexCount
+        Entities.Map((entity, index) => index < VertexCount
             ? entity.Kind == EntityKind.Vertex && entity.Self == index
             : index < VertexCount + Edges.Count
                 ? entity.Kind == EntityKind.Edge && entity.Self == index - VertexCount
-                : entity.Kind == EntityKind.Face && entity.Self == index - VertexCount - Edges.Count).ForAll(static holds => holds)));
+                : entity.Kind == EntityKind.Face && entity.Self == index - VertexCount - Edges.Count).ForAll(static holds => holds));
 
     [BoundaryAdapter]
     public static CanonicalTopology OfMesh(MeshSpace space) {
@@ -130,12 +189,25 @@ public sealed record CanonicalTopology(
 
     // Least ROTATION, not first-min pivot: a duplicated minimum resolves by whole-cycle compare, and a host-refused [] cycle rides through to the oracle.
     static int[] Rotated(int[] cycle) {
-        if (cycle.Length == 0) { return cycle; }
-        int least = cycle.Min();
-        return Enumerable.Range(0, cycle.Length)
-            .Where(pivot => cycle[pivot] == least)
-            .Select(pivot => (int[])[.. cycle[pivot..], .. cycle[..pivot]])
-            .Aggregate(static (best, next) => next.AsSpan().SequenceCompareTo(best) < 0 ? next : best);
+        int pivot = LeastRotationIndex(cycle);
+        return pivot == 0 ? cycle : [.. cycle[pivot..], .. cycle[..pivot]];
+    }
+
+    // Booth's failure-function walk answers WHICH pivot starts the least rotation in O(n) with zero allocation. The
+    // materializing form built one array per tied minimum and compared them pairwise, so k duplicated minima cost k
+    // whole-cycle copies — per face at admission and again per face on every `IsValid` read.
+    static int LeastRotationIndex(ReadOnlySpan<int> cycle) {
+        int n = cycle.Length;
+        if (n == 0) { return 0; }
+        (int i, int j, int k) = (0, 1, 0);
+        while (i < n && j < n && k < n) {
+            int order = cycle[(i + k) % n].CompareTo(cycle[(j + k) % n]);
+            if (order == 0) { k++; continue; }
+            if (order > 0) { i += k + 1; } else { j += k + 1; }
+            if (i == j) { j++; }
+            k = 0;
+        }
+        return Math.Min(i, j);
     }
 
     static Seq<RebuiltEntity> Entities(int vertices, Arr<(int Min, int Max)> edges, Arr<int[]> faces) {
@@ -148,36 +220,31 @@ public sealed record CanonicalTopology(
             Enumerable.Range(0, cycle.Length).Aggregate(map, (fold, i) =>
                 fold.AddOrUpdate(Sorted(cycle[i], cycle[(i + 1) % cycle.Length]), static n => n + 1, 1)));
         Set<int> Ring(int vertex) => neighbors.Find(vertex).IfNone(Set<int>.Empty);
+        // Canonical rows stay INT WORDS all the way to the writer: the framing is `CanonicalWriter.Rows`, so no
+        // page-local byte block stands beside the one preimage writer and the entity keeps structural equality.
         Seq<RebuiltEntity> vertexRows = toSeq(Enumerable.Range(0, vertices)).Map(vertex => new RebuiltEntity(
-            Kind: EntityKind.Vertex, Self: vertex, CanonicalBytes: Bytes(vertex),
-            IncidentVertices: [.. Ring(vertex)],
-            KindHistogram: [Ring(vertex).Count, Ring(vertex).Count, faceDegree.Find(vertex).IfNone(0)]));
+            Kind: EntityKind.Vertex, Self: vertex, Canonical: new Arr<int>([vertex]),
+            IncidentVertices: new Arr<int>([.. Ring(vertex)]),
+            KindHistogram: new Arr<int>([Ring(vertex).Count, Ring(vertex).Count, faceDegree.Find(vertex).IfNone(0)])));
         Seq<RebuiltEntity> edgeRows = toSeq(edges).Map((edge, self) => new RebuiltEntity(
-            Kind: EntityKind.Edge, Self: self, CanonicalBytes: Bytes(edge.Min, edge.Max),
-            IncidentVertices: [edge.Min, edge.Max],
-            KindHistogram: [2, Ring(edge.Min).Count + Ring(edge.Max).Count - 2, edgeFaces.Find((edge.Min, edge.Max)).IfNone(0)]));
+            Kind: EntityKind.Edge, Self: self, Canonical: new Arr<int>([edge.Min, edge.Max]),
+            IncidentVertices: new Arr<int>([edge.Min, edge.Max]),
+            KindHistogram: new Arr<int>([2, Ring(edge.Min).Count + Ring(edge.Max).Count - 2, edgeFaces.Find((edge.Min, edge.Max)).IfNone(0)])));
         Seq<RebuiltEntity> faceRows = toSeq(faces).Map((cycle, self) => new RebuiltEntity(
-            Kind: EntityKind.Face, Self: self, CanonicalBytes: Bytes(cycle),
-            IncidentVertices: cycle,
-            KindHistogram: [cycle.Distinct().Count(), cycle.Length,
-                Enumerable.Range(0, cycle.Length).Sum(i => edgeFaces.Find(Sorted(cycle[i], cycle[(i + 1) % cycle.Length])).IfNone(1) - 1)]));
+            Kind: EntityKind.Face, Self: self, Canonical: new Arr<int>([.. cycle]),
+            IncidentVertices: new Arr<int>([.. cycle]),
+            KindHistogram: new Arr<int>([cycle.Distinct().Count(), cycle.Length,
+                Enumerable.Range(0, cycle.Length).Sum(i => edgeFaces.Find(Sorted(cycle[i], cycle[(i + 1) % cycle.Length])).IfNone(1) - 1)])));
         return vertexRows + edgeRows + faceRows;
     }
 
     static (int Min, int Max) Sorted(int a, int b) => a <= b ? (a, b) : (b, a);
-
-    static byte[] Bytes(params ReadOnlySpan<int> values) {
-        ArrayBufferWriter<byte> stream = new(values.Length * 4);
-        foreach (int value in values) stream.Word(value);       // Exemption: byte-emitter kernel
-        return stream.WrittenSpan.ToArray();
-    }
 }
 
 public readonly record struct NameAddress(TopoName Name, EntityKind Kind, GeometryHash ContentHash);
 
 public sealed record NamingHash(GeometryHash Whole, HashMap<TopoName, NameAddress> Addresses) : IValidityEvidence {
-    public bool IsValid => ValidityClaim.All(
-        ValidityClaim.Of(Addresses.AsIterable().ForAll(static pair => pair.Key == pair.Value.Name)));
+    public bool IsValid => ValidityClaim.All(Addresses.AsIterable().ForAll(static pair => pair.Key == pair.Value.Name));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -195,15 +262,6 @@ public abstract partial record ReconcileAnswer : IValidityEvidence {
 }
 
 // --- [OPERATIONS] -----------------------------------------------------------------------------------
-// Byte-emitter kernel (named exemption): little-endian words, -0.0 normalized to +0.0.
-internal static class CanonicalStream {
-    extension(ArrayBufferWriter<byte> stream) {
-        public void Word(int value) { BinaryPrimitives.WriteInt32LittleEndian(stream.GetSpan(4)[..4], value); stream.Advance(4); }
-        public void Real(double value) { BinaryPrimitives.WriteDoubleLittleEndian(stream.GetSpan(8)[..8], value == 0.0 ? 0.0 : value); stream.Advance(8); }
-        public void Coordinate(Point3d point) { stream.Real(point.X); stream.Real(point.Y); stream.Real(point.Z); }
-    }
-}
-
 public static class Reconciliation {
     public static Fin<ReconcileAnswer> Apply(ReconcileOp op, Op? key = null) => op.Switch(
         state: key.OrDefault(),
@@ -219,12 +277,13 @@ public static class Reconciliation {
 
     // Applicative traverse over the REBUILT address set: every dangling name accumulates before .ToFin() rejoins the rail.
     static Fin<HashMap<TopoName, NameAddress>> Addresses(NameTable prior, CanonicalTopology rebuilt) {
-        Set<UInt128> live = rebuilt.Entities.Fold(Set<UInt128>.Empty, static (set, entity) => set.Add(ContentHash.Of(entity.CanonicalBytes)));
+        Set<UInt128> live = rebuilt.Entities.Fold(Set<UInt128>.Empty,
+            static (set, entity) => set.Add(Content(kind: entity.Kind, canonical: entity.Canonical)));
         return toSeq(prior.Entries.Values)
-            .Traverse(entry => ContentHash.Of(entry.CanonicalBytes) switch {
+            .Traverse(entry => Content(kind: entry.Kind, canonical: entry.Canonical) switch {
                 UInt128 digest when live.Contains(digest) =>
                     Validation.Success<Error, NameAddress>(new NameAddress(entry.Name, entry.Kind, GeometryHash.Create(digest))),
-                _ => Validation.Fail<Error, NameAddress>(new GeometryFault.HashMismatch(entry.Name.Value, entry.Kind.Key).ToError()),
+                _ => Validation.Fail<Error, NameAddress>(new GeometryFault.HashMismatch(entry.Name, entry.Kind)),
             })
             .As()
             .Map(static addresses => addresses.Fold(HashMap<TopoName, NameAddress>.Empty,
@@ -232,64 +291,58 @@ public static class Reconciliation {
             .ToFin();
     }
 
-    static GeometryHash Digest(EncodeForm form) => GeometryHash.Create(ContentHash.Of(Stream(form).WrittenSpan));
+    // Kind FRAMES the entity leaf and `Rows` counts the word run, so a vertex row and an edge row carrying the same
+    // integers no longer share a key and a two-word run never concatenates into a three-word one.
+    static UInt128 Content(EntityKind kind, Arr<int> canonical) =>
+        ContentHash.Of(state: (Kind: kind, Canonical: canonical),
+            chunks: static (row, sink) => sink.Ordinal(value: row.Kind.Key)
+                .Rows(rows: toSeq(row.Canonical.AsIterable()), field: static (word, field) => field.Ordinal(value: word)));
 
-    static ArrayBufferWriter<byte> Stream(EncodeForm form) => form.Switch(
-        mesh: static m => MeshStream(m.Topology),
-        cloud: static c => CloudStream(c.Source),
-        parametric: static p => ParametricStream(p));
+    static GeometryHash Digest(EncodeForm form) =>
+        GeometryHash.Create(ContentHash.Of(state: form, chunks: static (shape, sink) => shape.Switch(
+            state: sink,
+            mesh: static (writer, m) => MeshStream(topology: m.Topology, sink: writer),
+            cloud: static (writer, c) => CloudStream(source: c.Source, sink: writer),
+            parametric: static (writer, p) => ParametricStream(form: p, sink: writer))));
 
     // Field order is the persisted decode contract the MESH_ADJACENCY_GOLDEN vector freezes.
-    static ArrayBufferWriter<byte> MeshStream(CanonicalTopology topology) {
-        ArrayBufferWriter<byte> stream = new(12 + (topology.Edges.Count * 8) + topology.Faces.Sum(static cycle => 4 + (cycle.Length * 4)));
-        stream.Word(topology.VertexCount);
-        stream.Word(topology.Edges.Count);
-        foreach ((int min, int max) in topology.Edges) { stream.Word(min); stream.Word(max); }
-        stream.Word(topology.Faces.Count);
-        foreach (int[] cycle in topology.Faces) { stream.Word(cycle.Length); foreach (int vertex in cycle) stream.Word(vertex); }
-        return stream;
-    }
+    static CanonicalWriter MeshStream(CanonicalTopology topology, CanonicalWriter sink) =>
+        sink.Ordinal(value: topology.VertexCount)
+            .Rows(rows: toSeq(topology.Edges.AsIterable()),
+                field: static (edge, field) => field.Ordinal(value: edge.Min).Ordinal(value: edge.Max))
+            .Rows(rows: toSeq(topology.Faces.AsIterable()),
+                field: static (cycle, field) => field.Rows(rows: toSeq(cycle), field: static (vertex, slot) => slot.Ordinal(value: vertex)));
 
-    static ArrayBufferWriter<byte> CloudStream(VectorCloud source) {
-        (int Kind, Seq<Point3d> Points, Seq<double> Mass) canonical = source.Switch(
-            ringCase: static ring => (2, LeastRotation(ring.Vertices), Seq<double>.Empty),
-            polylineCase: static chain => (1, chain.Vertices, Seq<double>.Empty),
+    // The switch discriminates ORDERING alone — the form row carries the wire ordinal and `VectorCloud.Vertices` the
+    // points — so a new cloud case lands one arm here and one `CloudForm` row, never a fourth inline integer.
+    static CanonicalWriter CloudStream(VectorCloud source, CanonicalWriter sink) {
+        (CloudForm Form, Seq<Point3d> Points, Seq<double> Mass) canonical = source.Switch(
+            ringCase: static ring => (CloudForm.Ring, LeastRotation(ring.Vertices), Seq<double>.Empty),
+            polylineCase: static chain => (CloudForm.Polyline, chain.Vertices, Seq<double>.Empty),
             clusterCase: static cluster => cluster.Mass.Match(
                 Some: mass => Weighted(cluster.Vertices, mass),
-                None: () => (0, Lexicographic(cluster.Vertices), Seq<double>.Empty)));
-        ArrayBufferWriter<byte> stream = new(12 + (canonical.Points.Count * 24) + (canonical.Mass.Count * 8));
-        stream.Word(canonical.Kind);
-        stream.Word(canonical.Points.Count);
-        foreach (Point3d point in canonical.Points) stream.Coordinate(point);
-        stream.Word(canonical.Mass.Count);          // 0 = unweighted; weighted column rides the canonical order
-        foreach (double mass in canonical.Mass) stream.Real(mass);
-        return stream;
+                None: () => (CloudForm.Cluster, Lexicographic(cluster.Vertices), Seq<double>.Empty)));
+        return sink.Ordinal(value: canonical.Form.Key)
+            .Rows(rows: canonical.Points, field: static (point, field) => field.Bits(value: point.X).Bits(value: point.Y).Bits(value: point.Z))
+            .Rows(rows: canonical.Mass, field: static (mass, field) => field.Bits(value: mass));
     }
 
     // Mass IS content: each mass rides its vertex through the sort as the final tiebreak, so divergent weights never share a digest.
-    static (int Kind, Seq<Point3d> Points, Seq<double> Mass) Weighted(Seq<Point3d> points, Arr<double> mass) {
+    static (CloudForm Form, Seq<Point3d> Points, Seq<double> Mass) Weighted(Seq<Point3d> points, Arr<double> mass) {
         Seq<(Point3d Point, double Mass)> rows = toSeq(points
             .Map((point, index) => (Point: point, Mass: mass[index]))
             .OrderBy(static row => row.Point.X).ThenBy(static row => row.Point.Y)
             .ThenBy(static row => row.Point.Z).ThenBy(static row => row.Mass));
-        return (0, rows.Map(static row => row.Point), rows.Map(static row => row.Mass));
+        return (CloudForm.Cluster, rows.Map(static row => row.Point), rows.Map(static row => row.Mass));
     }
 
-    static ArrayBufferWriter<byte> ParametricStream(EncodeForm.Parametric form) {
-        ArrayBufferWriter<byte> stream = new(
-            12 + form.Directions.Sum(static d => 8 + (d.Knots.Count * 8)) + (form.Weights.Count * 8) + (form.ControlNet.Count * 24));
-        stream.Word(form.Directions.Count);
-        foreach (EncodeForm.Direction direction in form.Directions) {
-            stream.Word(direction.Degree);
-            stream.Word(direction.Knots.Count);
-            foreach (double knot in direction.Knots) stream.Real(knot);
-        }
-        stream.Word(form.Weights.Count);
-        foreach (double weight in form.Weights) stream.Real(weight);
-        stream.Word(form.ControlNet.Count);
-        foreach (Point3d point in form.ControlNet) stream.Coordinate(point);
-        return stream;
-    }
+    static CanonicalWriter ParametricStream(EncodeForm.Parametric form, CanonicalWriter sink) =>
+        sink.Rows(rows: toSeq(form.Directions.AsIterable()), field: static (direction, field) => field
+                .Ordinal(value: direction.Degree)
+                .Rows(rows: toSeq(direction.Knots.AsIterable()), field: static (knot, slot) => slot.Bits(value: knot)))
+            .Rows(rows: toSeq(form.Weights.AsIterable()), field: static (weight, field) => field.Bits(value: weight))
+            .Rows(rows: toSeq(form.ControlNet.AsIterable()),
+                field: static (point, field) => field.Bits(value: point.X).Bits(value: point.Y).Bits(value: point.Z));
 
     static Seq<Point3d> Lexicographic(Seq<Point3d> points) =>
         toSeq(points.OrderBy(static p => p.X).ThenBy(static p => p.Y).ThenBy(static p => p.Z));

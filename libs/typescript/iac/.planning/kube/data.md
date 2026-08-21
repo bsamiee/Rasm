@@ -207,7 +207,7 @@ class Nats extends Tier {
 - Law: `Postgres.Recovery` admits empty or archive bootstrap; `RecoveryPoint` closes latest, time, LSN, XID, named, and immediate targets.
 - Archive recovery names a distinct source server; `_cluster` folds image, preload, slots, roles, backup, and recovery into every cluster.
 - Law: every instance carries its scheduling envelope — `spec.resources` is `core/v1` `ResourceRequirements` verbatim, the `requests`/`limits` quantity maps beside the `claims` list, and it reads the profile's own `data.requests`/`data.limits` pair, since a cluster CR stating neither runs BestEffort and makes the one workload holding durable state the first eviction candidate under node pressure; the stamp is PER-CONTAINER and the CR carries no pod-level seat at all — the operator copies that one envelope onto the `postgres` container, the `bootstrap-controller` init container, every primary Job it constructs (initdb, import, base-backup, full-recovery, join, snapshot-recovery), and the major-upgrade `prepare` container, so the pod's effective request stays the envelope rather than a multiple of it because the init container runs to completion before the postmaster starts, and the Guaranteed class the postmaster's OOM adjustment rides is earned only where requests equal limits on both axes. Quantity grammar rides the spec's brand, so a malformed envelope fails at decode rather than at the operator.
-- Law: the image realizes the matrix — `imageName` must carry every `Pg.image` row (`{ extension, floor, flags }` from `@rasm/ts/data`); the image ref is a pin and the floor is a lower bound the startup capability probe alone enforces, because CNPG's extension `version` field demands an exact match and a floor fed to it refuses every image shipping a newer build; an image missing a row fails the probe, never silently degrades. `flags` price the roster at derivation: `tsl` stays self-managed, `excludesSharding` bars a sharding engine from the same image, and `preload` marks the `shared_preload_libraries` demand.
+- Law: the image realizes the matrix — `imageName` must carry every `Pg.image` row (`{ extension, floor, flags }` from `@rasm/ts/data`); the image ref is a pin and the floor is a lower bound the startup capability probe alone enforces, because CNPG's extension `version` field demands an exact match and a floor fed to it refuses every image shipping a newer build; an image missing a row fails the probe, never silently degrades. `flags` price the roster at derivation: `tsl` stays self-managed and `preload` marks the `shared_preload_libraries` demand.
 - Law: preload derives from the matrix flag — `_preload` filters the granted rows on the `preload` flag and stamps the cluster's `shared_preload_libraries` list, so the next preload-demanding extension lands as a data-matrix flag with zero code edit here; `pgaudit` is CNPG-managed — the operator injects its preload automatically — so no hand list exists and an unloaded preload cannot pass the startup probe.
 - Law: `admit` is the one entry — the extension matrix, the pooling axis, and every realized scope's recovery source prove on the typed `DataRefused` rail before a chart is declared, each fault naming its axis; a refused spec never half-constructs a tier and construction-time refusal has no spelling left on this page.
 - Law: the pooler mode is the spec's pooling axis, not a tier literal — `_POOLING` resolves `spec.profile.data.pooling` to the operator spelling `pgbouncer.poolMode` admits, `pooling` publishes that resolved mode on the tier and the `data` output plane, and each target exposes the operator-maintained direct host so convergence runners hold a session the pooler mode never truncates.
@@ -624,13 +624,13 @@ class Postgres extends Tier {
 - Law: `Postgres.targets` exposes readiness and libpq environment rows; `Converge` owns framework materialization, hydration, and proof.
 - Law: a target authenticates as its scope's managed owner — the libpq rows carry `ctx.owner.role` against that scope's app secret, so every relation the runner authors lands owned by the role the application then binds as, and no grant fold repairs a superuser-owned schema after the fact.
 - Law: the replication seam is the typed static pair — `Postgres.publication(name, { cluster, database, target }, child)` and `Postgres.subscription(name, { cluster, database, publication, external }, child)` construct the CNPG `Publication`/`Subscription` CRs for the multi-region or tenant-migration estate; the pair is dormant capability with a typed spelling, so a replication topology is rows at the composition site, never a tier rewrite.
-- Law: the profile subset proves against the matrix and the matrix alone owns the demand pairs — every `profile.extensions` name resolves through `Array.findFirst` over `Pg.rows` on the `extension` column, then every resolved row proves its dependency edges against `Pg.demands`, the pairs the owning matrix already exports; a second deploy-side demand table evaluates a different closure from the runtime probe's and drifts on the first edge either side adds.
+- Law: the profile subset proves against the matrix and the matrix alone owns the demand pairs — every `profile.extensions` name resolves through `Array.findFirst` over `Pg.rows` on the `extension` column, then every resolved row proves its dependency edges against `Pg.demands`, the relation-carrying rows the owning matrix already exports; a second deploy-side demand table evaluates a different closure from the runtime probe's and drifts on the first edge either side adds.
 - Law: pooling proves against the primitives the app declares — `_VOIDS` names what each PgBouncer mode kills across the pooled bind (`transaction` ends the session `advisory` locks and `channel` listeners survive on, `statement` ends the transaction `skipLocked` claims inside), the admission refuses the intersection with `profile.data.primitives` naming both mode and casualties, and the realized mode publishes so the runtime capability rail proves the roster it cannot see from inside a connection.
 - Law: the managed role owns its database; generated grants and default privileges remain framework artifacts on the convergence runner.
 - Law: CNPG owns physical slot survival; typed `Publication` and `Subscription` CRs own logical topology.
 - Law: security labels remain generated framework artifacts; each carrier applies its native projection through convergence.
 - Law: replace-on-change fields are create-time constants — `template`, `encoding`, and locale rows on the Database CR never appear as mutable knobs; changing them is a new database by construction, and `protect` guards the cluster above it.
-- Growth: a second app database is another `Postgres`; a dependency edge is one `Pg.demands` pair at the matrix owner; a data tier is one `_TIERS` row; a pooling mode is one `_VOIDS` row.
+- Growth: a second app database is another `Postgres`; a dependency edge is one `Pg.demands` row at the matrix owner; a data tier is one `_TIERS` row; a pooling mode is one `_VOIDS` row.
 - Boundary: recovery bootstraps a new cluster; the ordinary database and convergence folds then materialize, hydrate, prove, and publish it; the primitive roster and its grant semantics are the matrix owner's.
 - Packages: `@pulumi/kubernetes`; `../crds/cnpg`; `effect` (`Array`, `Effect`, `Option`); `@rasm/ts/data` (`Pg`).
 
@@ -643,12 +643,16 @@ const _granted = (names: ReadonlyArray<string>): Effect.Effect<ReadonlyArray<(ty
     )).pipe(
       Effect.tap((rows) =>
         Effect.forEach(rows, (row) =>
-          Effect.forEach(Pg.demands, ([flag, capability]) =>
-            !Array.contains(row.flags, flag) || Array.some(rows, (peer) => Array.contains(peer.capabilities, capability))
+          // One equality over the relation replaces a two-arm ladder: a `requires` row holds when the demanded
+          // grant is present and an `excludes` row when it is absent, so a corner the matrix later declares is
+          // graded here the day it lands rather than read as an implication that silently always passes.
+          Effect.forEach(Pg.demands, (demand) =>
+            !Array.contains(row.flags, demand.flag)
+              || (demand.relation === "requires") === Array.some(rows, (peer) => Array.contains(peer.capabilities, demand.grant))
               ? Effect.void
               : Effect.fail(new DataRefused({
                   axis: "extensions",
-                  detail: `<ungranted-dependency:${row.extension}:${capability}>`,
+                  detail: `<${demand.relation}-dependency:${row.extension}:${demand.grant}>`,
                 })), { discard: true }), { discard: true })),
     )
 

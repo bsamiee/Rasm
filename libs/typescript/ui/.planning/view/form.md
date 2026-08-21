@@ -79,16 +79,16 @@ declare namespace Form {
 
 [SUBMIT_TRIP]:
 - Owner: the submit round-trip riding `Form` — `Form.submit` IS the nearest form's `action`: React brackets the async action in its own transition, so `useFormStatus` reflects the trip (the row's submit affordance disables and spins from it, never from a local flag); the action writes through `useAtomSet(mutation, { mode: "promiseExit" })`; a successful action resets through `requestFormReset`; refusal reconciles the optimistic write, and the fault set projects into `FormValidationContext` by field path through `Form.errors`' shape so a server refusal renders exactly like a live validation failure.
-- Packages: `react-dom` (`useFormStatus`, `requestFormReset`); `effect` (`Exit`); `@effect-atom/atom-react` (write modality, `system/atom` law).
+- Packages: `react-dom` (`useFormStatus`, `requestFormReset`); `effect` (`Exit`); `@rasm/ts/core` (`Tap.Verdict`); `@effect-atom/atom-react` (write modality, `system/atom` law).
 - Law: submit awaits the store — the mutation's `Result` is the completion evidence; polling an atom to detect completion marks a missing write mode, and a `try`/`catch` around the awaited promise restates the boundary rail.
-- Law: pre-flight rides the hook rail — `Form.observed` consults the `rasm.ui.form.submit` point (`system/hook`, `veto` modality; the contributed `Points` and runtime rows are this page's) before the mutation write, a veto refusal fails the trip as `DraftRefused` and folds into the same error sink a validation failure feeds, and the settled outcome publishes on the same point tagged by the bounded stage vocabulary. `Form.hook` carries `consult: stage === "preflight"`, so arbiters cannot refuse settled facts and history and telemetry consume one rail.
+- Law: pre-flight rides the hook rail — `Form.observed` consults the `rasm.ui.form.submit` point (`system/hook`, `veto` modality; the contributed `Points` and runtime rows are this page's) before the mutation write, a `vetoed` verdict fails the trip as `DraftRefused` carrying the arbiter's own reason and folds into the same error sink a validation failure feeds, and the settled outcome publishes on the same point tagged by the bounded stage vocabulary. `Form.hook` carries `consult: stage === "preflight"`, so arbiters cannot refuse settled facts and history and telemetry consume one rail.
 - Law: the refusal fold reads the Cause tree through `Cause.failureOption` — the tagged `DraftRefused` arm projects its path-keyed errors, and a `Die`/`Interrupt`/composite cause preserves its evidence through `Cause.pretty` on the form-level row instead of collapsing to a blind sentinel; probing `cause._tag` by hand is the named defect.
 - Law: a blocking submit failure lands in the form's error rows; a non-blocking outcome (a saved draft, a queued write) lands as a `Primitive.toasts` note — the two sinks never swap.
 - Law: the trip is woven at the mutation effect — `Form.observed(write, registry, form)` is the composed trip the promiseExit write awaits: the veto consult leads, `Effect.withSpan("rasm.ui.form.submit")` carries the form id as span attribute and log annotation, and `Effect.onExit` both publishes the settled stage and feeds `1` through `Effect.withMetric` into `_SUBMITTED` tagged by the same bounded vocabulary (`resolved`/`refused`/`torn`) — so hook facts, metrics, and error rows cannot disagree.
 - Boundary: the async action body is the React-19 form-action platform seam — React runs it inside its own transition (`useFormStatus`/`requestFormReset` are Promise-shaped); `Effect.promise` lifts the non-rejecting `Promise<Exit>` from `promiseExit`, `Exit.match` restores its Cause rail, and `Effect.runPromiseExit(Form.observed(...))` returns the one settled outcome the form folds; the write, hook registry, form id, form element, draft reader, and error sink arrive from the consuming row.
 
 ```typescript signature
-import { Convention } from "@rasm/ts/core"
+import { Convention, Tap } from "@rasm/ts/core"
 import { Cause, Effect, Exit, Metric, Option, pipe } from "effect"
 import { requestFormReset } from "react-dom"
 import { Hook } from "../system/hook.ts"
@@ -123,10 +123,14 @@ const _observed = Effect.fn("Form.observed")(function* <A, E, R>(
   form: string,
 ) {
   return yield* Hook.publish(registry, "rasm.ui.form.submit", { form, stage: "preflight" }).pipe(
-    Effect.filterOrFail(
-      Option.isNone,
-      (): Submit.Refusal => ({ _tag: "DraftRefused", errors: { "": ["<vetoed>"] } }), // a veto refusal folds into the same sink a validation failure feeds
-    ),
+    Effect.flatMap((verdict) =>
+      Tap.Verdict.$match(verdict, {
+        fanned: () => Effect.void,
+        unrostered: () => Effect.void, // the mint seats every contributed point, so an unrostered preflight admits like a fan
+        // a veto refusal folds into the same sink a validation failure feeds, carrying the arbiter's own reason
+        vetoed: ({ veto }): Effect.Effect<void, Submit.Refusal> =>
+          Effect.fail({ _tag: "DraftRefused", errors: { "": [veto.reason] } }),
+      })),
     Effect.zipRight(write),
     Effect.onExit((exit) =>
       pipe(
@@ -227,33 +231,59 @@ declare namespace Form {
   type Progress = { readonly sent: number; readonly total: number }
 }
 
-// One row per reason carrying the core kind alone: a refused permission is not a transient outage, so the three
-// bands route differently and the core row table decides retryability for each — no local retry column exists.
+// One row per reason carrying the core kind, the leg it refuses at, and the subject it alone renders: a refused
+// permission is not a transient outage, so the three bands route differently and the core row table decides
+// retryability for each — no local retry column exists. The endpoint's own response code rides each subject as
+// absence-shaped evidence, because a severed transfer answers no code at all and a placeholder would read as one.
+const _Status = Schema.optionalWith(Schema.Int, { as: "Option" })
+const _coded = (status: Option.Option<number>): string =>
+  Option.getOrElse(Option.map(status, (code) => `${code}`), () => "no response")
+
 const _family = Fault.Class.family(["endpoint-denied", "payload-rejected", "transfer-lost"] as const, {
-  "endpoint-denied": { class: "denied" },
-  "payload-rejected": { class: "invalid" },
-  "transfer-lost": { class: "unavailable" },
+  "endpoint-denied": Fault.Class.row({
+    class: "denied",
+    leg: "endpoint",
+    detail: Schema.Struct({ status: _Status, cause: Schema.String }),
+    render: ({ cause, status }) => `upload endpoint refused the session (${_coded(status)}): ${cause}`,
+  }),
+  "payload-rejected": Fault.Class.row({
+    class: "invalid",
+    leg: "payload",
+    detail: Schema.Struct({ status: _Status, cause: Schema.String }),
+    render: ({ cause, status }) => `upload endpoint rejected the payload (${_coded(status)}): ${cause}`,
+  }),
+  "transfer-lost": Fault.Class.row({
+    class: "unavailable",
+    leg: "transfer",
+    detail: Schema.Struct({ status: _Status, cause: Schema.String }),
+    render: ({ cause, status }) => `upload transfer did not complete (${_coded(status)}): ${cause}`,
+  }),
 })
 
 // _refusal projects status once: the session's onShouldRetry hook and the rail's fault both read it, so the two
 // can never disagree about whether an offset is worth re-driving
-const _refusal = (status: Option.Option<number>): (typeof _family.reasons)[number] =>
+const _refusal = (status: Option.Option<number>): UploadFault.Reason =>
   Option.match(status, {
     onNone: () => "transfer-lost" as const, // no response at all: transport, never the endpoint's verdict
     onSome: (code) => (code === 401 || code === 403 ? "endpoint-denied" : code >= 400 && code < 500 ? "payload-rejected" : "transfer-lost"),
   })
 
+declare namespace UploadFault {
+  type Case = typeof _family.payload.Type
+  type Reason = (typeof _family.kinds)[number]
+}
+
 class UploadFault extends Schema.TaggedError<UploadFault>()("UploadFault", {
-  reason: _family.schema,
-  status: Schema.optionalWith(Schema.Int, { as: "Option" }), // the endpoint's own response code: inbound evidence, never the discriminant
-  detail: Schema.String,
+  case: _family.payload,
 }) {
-  static readonly roster: typeof _family.reasons = _family.reasons
   get class(): Fault.Class.Kind {
-    return _family.classOf(this.reason)
+    return _family.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _family.legOf(this.case.reason)
   }
   override get message(): string {
-    return `<upload:${this.reason}@${Option.match(this.status, { onNone: () => "no-response", onSome: String })}> ${this.detail}`
+    return _family.render(this.case)
   }
 }
 
@@ -273,7 +303,7 @@ const _upload = (
       onShouldRetry: (fault) => _refusal(Option.fromNullable(fault.originalResponse?.getStatus())) === "transfer-lost", // the session re-drives exactly the band the rail calls retryable
       onError: (fault) => {
         const status = fault instanceof DetailedError ? Option.fromNullable(fault.originalResponse?.getStatus()) : Option.none<number>()
-        return resume(Effect.fail(new UploadFault({ reason: _refusal(status), status, detail: fault.message })))
+        return resume(Effect.fail(new UploadFault({ case: { reason: _refusal(status), status, cause: fault.message } })))
       },
     })
     void session.findPreviousUploads()
@@ -312,12 +342,12 @@ const Form: Form.Shape = {
 ## [07]-[WIZARD]
 
 [WIZARD]:
-- Owner: `Wizard` — the multi-step stage graph as one core `Transition` spec the builder derives from data: `Wizard.spec(options)` maps each stage onto an atomic node (with one final node), and generates the row set from the policy — a guarded advance row per stage (`when` reads the consumer's `valid` predicate over the extended state), an INTERNAL fallback row on the same signal emitting the `step-invalid` verdict (document order is the determinism law, so the guarded row fires first and the fallback answers exactly the refused press), a `skip` row guarded by `skippable`, an unguarded `back` row, and — only under `linear: false` — one seek row per OTHER stage (a self-seek row exits and re-enters the standing stage, re-running its entry program over live draft state), the seek vocabulary deriving from the stage roster itself so an unknown TARGET is unspellable at the type plane. Linearity is therefore enforced IN the machine: a linear wizard generates no seek row, so a spelled jump lands UNROUTED — the actor answers no transition — and a disabled-button veneer over an unguarded machine is the named defect.
+- Owner: `Wizard` — the multi-step stage graph as one core `Transition` spec the builder derives from data: `Wizard.spec(options)` maps each stage onto an atomic node (with one final node), and generates the row set from the policy — a guarded advance row per stage (`when` reads the consumer's `valid` predicate over the extended state), a `skip` row guarded by `skippable`, an unguarded `back` row, and — only under `linear: false` — one seek row per OTHER stage (a self-seek row exits and re-enters the standing stage, re-running its entry program over live draft state), the seek vocabulary deriving from the stage roster itself so an unknown TARGET is unspellable at the type plane. Linearity is therefore enforced IN the machine: a linear wizard generates no seek row, so a spelled jump lands `Unrouted` on the macrostep's own refusal column, and a disabled-button veneer over an unguarded machine is the named defect.
 - Cases: the cursor is a FOLD over the actor's config, never a second cell — `Wizard.cursor(stages, config)` reads the active atomic node's rank, and `Wizard.standing(cursor, rank)` derives the tri-state (`completed` below, `current` at, `incomplete` above), so step chrome renders off one derivation and no per-step completion flag exists to drift.
-- Law: refusal is a rendered verdict, never a silent no-op — the fallback row's `step-invalid` verdict arrives on the actor's fact stream (`facts` carries the macrostep's `emit` program), and the consuming face folds it into the SAME error sink `[02]`'s validation failures feed; the next-trigger stays enabled, because a clickable refusal that explains beats a disabled button that cannot.
+- Law: refusal is a rendered verdict, never a silent no-op — a refused press arrives on the actor's fact stream as `Transition`'s own `Guarded` refusal (`Macro.refused`, naming the advance row whose guard closed it), and the consuming face folds it into the SAME error sink `[02]`'s validation failures feed; the next-trigger stays enabled, because a clickable refusal that explains beats a disabled button that cannot, and a same-signal fallback row minted to manufacture that verdict re-derives the guard the owner already folds.
 - Law: the actor binds through the one bridge and survives remounts — `Atom.subscribable(actor.state)` is the whole machine→view seam (`system/atom#LIVE_BRIDGE`), `actor.freeze` snapshots the configuration and `compiled.restore(frozen)` resumes it, so a reloaded session reopens on the stage it left; stage draft state is `[05]`'s cursors riding inside each stage, and the machine's extended state carries only what guards read.
 - Law: the face is recipe rows over the derivation — the step list renders `standing` as `data-standing` the recipe's variants read, the action grid is three fixed columns (`prev | skip | next-or-submit`) so button placement never shifts as arms appear, `skip` is a first-class sibling rendered only where `skippable` holds, and a hidden stage keeps its mount through the `<Activity mode>` row `system/act#DOCUMENT_RAIL` owns.
-- Packages: `@rasm/ts/core` (`Transition` — `spec`/`Node`/`Row`/`Config`/`Actor`, the `when` guard column, the emit program); `@effect-atom/atom-react` (`Atom.subscribable`); `effect` (`Array`, `Option`, `Schema`); `class-variance-authority` (the step recipe).
+- Packages: `@rasm/ts/core` (`Transition` — `spec`/`Node`/`Row`/`Config`/`Actor`, the `when` guard column, the `Macro.refused` column); `@effect-atom/atom-react` (`Atom.subscribable`); `effect` (`Array`, `Option`, `Schema`); `class-variance-authority` (the step recipe).
 - Boundary: stage CONTENT is ordinary form rows — schema binding, cursors, and the submit trip compose unchanged inside each stage; the final stage's submit is `[04]`'s trip, so the wizard adds navigation and never a second commit path; watchdog deadlines and invoked activities are `Transition`'s own `watches`/`invokes` rows when a wizard earns them.
 - Growth: a new stage is one roster entry (its rows arrive generated); a new navigation arm is one row kind in the builder; a new face posture is one recipe variant; a stage graph past the builder's family — parallel regions, history re-entry — authors its `Transition` spec directly, since the builder instantiates the linear family and never ceilings the machine — never a bespoke stepper state, a completion set, or a second machine binding.
 
@@ -329,7 +359,6 @@ import { Array, Option, Schema } from "effect"
 declare namespace Wizard {
   type Node<Stage extends string> = Stage | "done" // the builder's one final node; a stage spelled "done" duplicates it and Transition.spec refuses at compile
   type Signal<Stage extends string> = "next" | "back" | "skip" | `seek.${Stage}` // seek derives from the stage roster: an unknown TARGET is unspellable; a linear wizard leaves every seek unrouted instead
-  type Verdict = "step-invalid"
   type Standing = "completed" | "current" | "incomplete"
   type Options<Stage extends string, X> = {
     readonly name: string
@@ -338,19 +367,19 @@ declare namespace Wizard {
     readonly seed: X
     readonly valid: (stage: Stage) => (extended: X) => boolean
     readonly skippable: (stage: Stage) => (extended: X) => boolean
-    readonly linear: boolean // true generates NO seek rows: a jump has no row to ride, so the machine refuses by absence
+    readonly linear: boolean // true generates NO seek rows: a jump has no row to ride, so the macrostep answers `Unrouted`
   }
 }
 
-// `_rows` generates the policy: guarded advance, then the same-signal internal fallback emitting the refusal
+// `_rows` generates the policy; a refused press needs no row here — `Transition.admits` answers it as `Guarded` on `Macro.refused`,
+// so the generated family emits nothing and its verdict vocabulary is `never`
 const _rows = <const Stage extends string, X>(
   options: Wizard.Options<Stage, X>,
-): ReadonlyArray<Transition.Row<Wizard.Node<Stage>, Wizard.Signal<Stage>, Wizard.Verdict, X>> =>
+): ReadonlyArray<Transition.Row<Wizard.Node<Stage>, Wizard.Signal<Stage>, never, X>> =>
   Array.flatMap(options.stages, (stage, rank) => {
     const target = Option.getOrElse<Wizard.Node<Stage>>(Array.get(options.stages, rank + 1), () => "done")
     return [
       { source: stage, on: "next" as const, when: options.valid(stage), to: [target] as const },
-      { source: stage, on: "next" as const, internal: true, emit: ["step-invalid" as const] },
       { source: stage, on: "skip" as const, when: options.skippable(stage), to: [target] as const },
       ...Option.match(Array.get(options.stages, rank - 1), {
         onNone: () => [],
@@ -377,7 +406,7 @@ const _standing = (cursor: number, rank: number): Wizard.Standing =>
 
 declare const _spec: <const Stage extends string, X>(
   options: Wizard.Options<Stage, X>,
-) => ReturnType<typeof Transition.spec<Wizard.Node<Stage>, Wizard.Signal<Stage>, Wizard.Verdict, X>>
+) => ReturnType<typeof Transition.spec<Wizard.Node<Stage>, Wizard.Signal<Stage>, never, X>>
 
 const _step = cva("flex items-center gap-2 text-sm", {
   variants: {

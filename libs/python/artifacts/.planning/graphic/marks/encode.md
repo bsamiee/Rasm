@@ -27,7 +27,7 @@ from decimal import Decimal
 from enum import StrEnum
 from functools import lru_cache, partial, wraps
 from io import BytesIO
-from typing import TYPE_CHECKING, Literal, NotRequired, ReadOnly, Required, Self, TypedDict, assert_never, cast
+from typing import TYPE_CHECKING, Final, Literal, NotRequired, ReadOnly, Required, Self, TypedDict, assert_never, cast
 
 import anyio
 import msgspec
@@ -40,6 +40,7 @@ from expression.extra.result import traverse
 from msgspec import Struct
 from pydantic import TypeAdapter, ValidationError
 
+from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.graphic.layer import LayerNode
@@ -60,7 +61,7 @@ from rasm.artifacts.graphic.marks.mark import (
 from rasm.artifacts.graphic.raster.process import RasterFact
 from rasm.artifacts.graphic.vector.path import bounds
 from rasm.artifacts.graphic.vector.region import RegionOp, RenderPolicy, applied
-from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail
+from rasm.runtime.faults import FAULT_CONF, TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, rostered
 from rasm.runtime.identity import ContentIdentity
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -185,6 +186,15 @@ class Content:
 
 ```python signature
 # --- [TABLES] ---------------------------------------------------------------------------
+
+# this page's ONE raise anchor: one fence spans every mark op, so the op tag is request data the `MarkFault` case
+# already separates rather than a coordinate the subject forks per op. TRANSIENT — an encode refusal is a defect a
+# re-issue under repaired inputs may clear.
+MARK_ENCODE: Final[FaultRow[ArtifactsLeg]] = FaultRow(
+    leg=ArtifactsLeg.ENCODE, point="encode", arm="boundary", defect="mark-refused", retriability=TRANSIENT
+)
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([MARK_ENCODE]))
+
 # per-class admission adapters and the only arm-local dispatch data; everything else derives
 # from the mark floor's ONE TAXONOMY correspondence.
 _QR_BANDS: frozendict[Symbology, TypeAdapter[OptionBand]] = frozendict({
@@ -628,12 +638,12 @@ class Mark(Struct, frozen=True):
         # this node addresses exactly ONE member, and the receipt key is product identity over THAT member's
         # emitted bytes — distinct from the pre-run `(request, member)` key the emit row minted. The `item` read is
         # total by construction: `_arity` and `_segno`'s arity refusal both key on the same declared
-        # `symbol_count`. A member's MarkFault folds into ITS OWN rail fault — `Work[ArtifactReceipt]` forbids an
+        # `symbol_count`. A member's `MarkFault` crosses WHOLE on `BoundaryFault.domain` — `Work[ArtifactReceipt]` forbids an
         # inner Result.
         return fact.bind(
             lambda res: res.map(lambda members: members.item(member))
             .map(lambda f: ArtifactReceipt.Preview(ContentIdentity.key(f"mark-{op.tag}", f.data), f.width, f.height, len(f.data), f.score))
-            .map_error(lambda fault: BoundaryFault(boundary=(f"mark.{op.tag}", fault.tag)))
+            .map_error(lambda fault: BoundaryFault(domain=(MARK_ENCODE.subject, fault)))
         )
 
     def layered(self, name: str, /) -> Result[Block[LayerNode], MarkFault]:
